@@ -35,6 +35,6 @@ $(OBJDIR)/lily_parser.o: lily_parser.c lily_lexer.h
 
 # Backend
 $(OBJDIR)/lily_page_scanner.o: $(BACKEND)/lily_page_scanner.c
-	$(CC) $(CFLAGS) $(BACKEND)/lily_page_scanner.c -o $(OBJDIR)/lily_page_scanner.o
+	$(CC) $(CFLAGS) -I. $(BACKEND)/lily_page_scanner.c -o $(OBJDIR)/lily_page_scanner.o
 
 .PHONY: clean all $(BINDIR)/lily_fs
