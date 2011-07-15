@@ -8,14 +8,14 @@ void lily_be_send_html(char *);
 void lily_be_fatal(char *, ...);
 
 /* Note : The page and line data are shared with lily_lexer.c */
-static FILE *page;
+static FILE *scan_file;
 static char *html_buffer;
 static int html_bufsize;
-static char *line_buffer;
-static int line_bufsize;
-static int line_bufend;
-static int line_bufpos = 0;
-static int page_lineno = 0;
+static char *scan_buffer;
+static int scan_bufsize;
+static int scan_bufend;
+static int scan_bufpos = 0;
+static int scan_lineno = 0;
 
 /* Add a line from the current page into the buffer. */
 static int read_page_line(void)
@@ -25,16 +25,16 @@ static int read_page_line(void)
     i = 0;
 
     while (1) {
-        ch = fgetc(page);
+        ch = fgetc(scan_file);
         if (ch == EOF) {
             ok = 0;
             break;
         }
-        line_buffer[i] = ch;
+        scan_buffer[i] = ch;
 
         if (ch == '\r' || ch == '\n') {
-            line_bufend = i;
-            page_lineno++;
+            scan_bufend = i;
+            scan_lineno++;
             ok = 1;
             break;
         }
@@ -47,10 +47,10 @@ static void init_frontend_lexer(void)
 {
     lily_lexer_data *d = malloc(sizeof(lily_lexer_data));
 
-    d->lex_file = page;
-    d->lex_buffer = line_buffer;
-    d->lex_bufsize = &line_bufsize;
-    d->lex_bufpos = &line_bufpos;
+    d->lex_file = scan_file;
+    d->lex_buffer = scan_buffer;
+    d->lex_bufsize = &scan_bufsize;
+    d->lex_bufpos = &scan_bufpos;
 
     lily_init_lexer(d);
 
@@ -65,18 +65,18 @@ static void init_frontend_parser(void)
 
 void lily_page_scanner_init(char *filename)
 {
-    page = fopen(filename, "r");
-    if (page == NULL)
+    scan_file = fopen(filename, "r");
+    if (scan_file == NULL)
         lily_be_fatal("Can't open %s.\n", filename);
 
-    html_buffer = malloc(1028 * sizeof(char));
-    html_bufsize = 1027;
+    html_buffer = malloc(1024 * sizeof(char));
+    html_bufsize = 1023;
     if (html_buffer == NULL)
         lily_be_fatal("No memory for html buffer.");
 
-    line_buffer = malloc(1028 * sizeof(char));
-    line_bufsize = 1027;
-    if (line_buffer == NULL)
+    scan_buffer = malloc(1024 * sizeof(char));
+    scan_bufsize = 1023;
+    if (scan_buffer == NULL)
         lily_be_fatal("No memory for line buffer.");
 
     read_page_line();
@@ -88,14 +88,14 @@ void lily_page_scanner(void)
 {
     int html_bufpos = 0;
 
-    char c = line_buffer[line_bufpos];
+    char c = scan_buffer[scan_bufpos];
     /* Send html to the server either when unable to hold more or the lily tag
        is found. */
     while (1) {
-        line_bufpos++;
+        scan_bufpos++;
         if (c == '<') {
-            if ((line_bufpos + 4) <= line_bufend &&
-                strncmp(line_buffer + line_bufpos, "@lily", 5) == 0) {
+            if ((scan_bufpos + 4) <= scan_bufend &&
+                strncmp(scan_buffer + scan_bufpos, "@lily", 5) == 0) {
                 if (html_bufpos != 0) {
                     /* Don't include the '<', because it goes with <@lily. */
                     html_buffer[html_bufpos] = '\0';
@@ -116,12 +116,12 @@ void lily_page_scanner(void)
 
         if (c == '\n' || c == '\r') {
             if (read_page_line())
-                line_bufpos = 0;
+                scan_bufpos = 0;
             else
                 break;
         }
 
-        c = line_buffer[line_bufpos];
+        c = scan_buffer[scan_bufpos];
     }
 
     if (html_bufpos != 0) {
