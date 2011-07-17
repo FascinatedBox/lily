@@ -1,11 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "lily_lexer.h"
-#include "lily_parser.h"
-
-void lily_be_send_html(char *);
-void lily_be_fatal(char *, ...);
+#include "lily_page_scanner.h"
 
 /* Note : The page and line data are shared with lily_lexer.c */
 static FILE *scan_file;
@@ -43,45 +39,21 @@ static int read_page_line(void)
     return ok;
 }
 
-static void init_frontend_lexer(void)
+void lily_init_page_scanner(lily_page_data *d)
 {
-    lily_lexer_data *d = malloc(sizeof(lily_lexer_data));
-
-    d->lex_file = scan_file;
-    d->lex_buffer = scan_buffer;
-    d->lex_bufsize = &scan_bufsize;
-    d->lex_bufpos = &scan_bufpos;
-
-    lily_init_lexer(d);
-
-    free(d);
-}
-
-/* Currently a no-op, because the parser doesn't need anything. */
-static void init_frontend_parser(void)
-{
-    lily_init_parser(NULL);
-}
-
-void lily_page_scanner_init(char *filename)
-{
-    scan_file = fopen(filename, "r");
-    if (scan_file == NULL)
-        lily_be_fatal("Can't open %s.\n", filename);
+    scan_file = d->lex_file;
+    scan_buffer = d->lex_buffer;
+    scan_bufsize = *d->lex_bufsize;
+    scan_bufpos = *d->lex_bufpos;
 
     html_buffer = malloc(1024 * sizeof(char));
     html_bufsize = 1023;
-    if (html_buffer == NULL)
-        lily_be_fatal("No memory for html buffer.");
-
-    scan_buffer = malloc(1024 * sizeof(char));
-    scan_bufsize = 1023;
-    if (scan_buffer == NULL)
-        lily_be_fatal("No memory for line buffer.");
+    if (html_buffer == NULL) {
+        lily_impl_fatal("No memory for html buffer.");
+        return;
+    }
 
     read_page_line();
-    init_frontend_lexer();
-    init_frontend_parser();
 }
 
 void lily_page_scanner(void)
@@ -99,18 +71,18 @@ void lily_page_scanner(void)
                 if (html_bufpos != 0) {
                     /* Don't include the '<', because it goes with <@lily. */
                     html_buffer[html_bufpos] = '\0';
-                    lily_be_send_html(html_buffer);
+                    lily_impl_send_html(html_buffer);
                     html_bufpos = 0;
                 }
-                /* Todo : Parse+Execute lily code. This should finish with the
-                 * indexes updated so lily code and html code are not mixed. */
+                /* Yield to the parser. */
+                return;
             }
         }
         html_buffer[html_bufpos] = c;
         html_bufpos++;
         if (html_bufpos == (html_bufsize - 1)) {
             html_buffer[html_bufpos] = '\0';
-            lily_be_send_html(html_buffer);
+            lily_impl_send_html(html_buffer);
             html_bufpos = 0;
         }
 
@@ -126,7 +98,7 @@ void lily_page_scanner(void)
 
     if (html_bufpos != 0) {
         html_buffer[html_bufpos] = '\0';
-        lily_be_send_html(html_buffer);
+        lily_impl_send_html(html_buffer);
         html_bufpos = 0;
     }
 }
