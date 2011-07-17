@@ -29,7 +29,7 @@ void lily_impl_fatal(char *format, ...)
 int main(int argc, char **argv)
 {
     if (argc != 2)
-        lily_impl_fatal("Usage : fake_server_lily <filename>\n");
+        lily_impl_fatal("Usage : lily_fs <filename>\n");
 
     lily_init_lexer(argv[1]);
     lily_init_parser(NULL);
