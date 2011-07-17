@@ -7,4 +7,4 @@ typedef struct {
     int *lex_bufpos;
 } lily_lexer_data;
 
-void lily_init_lexer(lily_lexer_data *);
+void lily_init_lexer(char *);
