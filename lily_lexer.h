@@ -1,12 +1,5 @@
 #include <stdio.h>
 
-typedef struct {
-    FILE *lex_file;
-    char *lex_buffer;
-    int *lex_bufsize;
-    int *lex_bufpos;
-} lily_lexer_data;
-
 typedef enum {
     tk_invalid,
     tk_word

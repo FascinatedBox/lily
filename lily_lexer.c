@@ -3,24 +3,103 @@
 
 #include "lily_lexer.h"
 #include "lily_impl.h"
-#include "lily_page_scanner.h"
 
-/* Shared by lily_page_scanner.c */
 static FILE *lex_file;
 static char *lex_buffer;
+static char *html_buffer;
+static int html_bufsize;
 static int lex_bufsize;
 static int lex_bufpos;
+static int lex_bufend;
+static int lex_linenum;
 static lily_token *lex_token;
 
 static char ch_class[255];
 #define CH_INVALID  0
 #define CH_WORD     1
 
+/* Add a line from the current page into the buffer. */
+static int read_line(void)
+{
+    int ch, i, ok;
+
+    i = 0;
+
+    while (1) {
+        ch = fgetc(lex_file);
+        if (ch == EOF) {
+            ok = 0;
+            break;
+        }
+        lex_buffer[i] = ch;
+
+        if (ch == '\r' || ch == '\n') {
+            lex_bufend = i;
+            lex_linenum++;
+            ok = 1;
+            break;
+        }
+        i++;
+    }
+    return ok;
+}
+
+static void handle_page_data()
+{
+    int html_bufpos = 0;
+
+    char c = lex_buffer[lex_bufpos];
+    /* Send html to the server either when unable to hold more or the lily tag
+       is found. */
+    while (1) {
+        lex_bufpos++;
+        if (c == '<') {
+            if ((lex_bufpos + 4) <= lex_bufend &&
+                strncmp(lex_buffer + lex_bufpos, "@lily", 5) == 0) {
+                if (html_bufpos != 0) {
+                    /* Don't include the '<', because it goes with <@lily. */
+                    html_buffer[html_bufpos] = '\0';
+                    lily_impl_send_html(html_buffer);
+                    html_bufpos = 0;
+                }
+                /* Yield to the parser. */
+                return;
+            }
+        }
+        html_buffer[html_bufpos] = c;
+        html_bufpos++;
+        if (html_bufpos == (html_bufsize - 1)) {
+            html_buffer[html_bufpos] = '\0';
+            lily_impl_send_html(html_buffer);
+            html_bufpos = 0;
+        }
+
+        if (c == '\n' || c == '\r') {
+            if (read_line())
+                lex_bufpos = 0;
+            else
+                break;
+        }
+
+        c = lex_buffer[lex_bufpos];
+    }
+
+    if (html_bufpos != 0) {
+        html_buffer[html_bufpos] = '\0';
+        lily_impl_send_html(html_buffer);
+        html_bufpos = 0;
+    }
+}
+
 void lily_init_lexer(char *filename)
 {
     lex_file = fopen(filename, "r");
     if (lex_file == NULL)
         lily_impl_fatal("Couldn't open '%s'.\n", filename);
+
+    html_buffer = malloc(1024 * sizeof(char));
+    if (html_buffer == NULL)
+        lily_impl_fatal("No memory to init html buffer.\n");
 
     lex_buffer = malloc(1024 * sizeof(char));
     if (lex_buffer == NULL)
@@ -34,19 +113,10 @@ void lily_init_lexer(char *filename)
     if (lex_token->word_buffer == NULL)
         lily_impl_fatal("No memory to create lexer token buffer.\n");
 
+    html_bufsize = 1023;
     lex_bufsize = 1023;
-
-    lily_page_data *d = malloc(sizeof(lily_page_data));
-    if (d == NULL)
-        lily_impl_fatal("No memory to init page scanner.\n");
-
-    d->lex_file = lex_file;
-    d->lex_buffer = lex_buffer;
-    d->lex_bufsize = &lex_bufsize;
-    d->lex_bufpos = &lex_bufpos;
-
-    lily_init_page_scanner(d);
-    free(d);
+    lex_linenum = 0;
+    lex_bufpos = 0;
 
     /* Initialize ch_class, which is used to determine what 'class' a letter
        is in. */
@@ -61,8 +131,9 @@ void lily_init_lexer(char *filename)
 
     ch_class[(int)'_'] = CH_WORD;
 
+    read_line();
     /* Make sure the lexer starts after the <@lily block. */
-    lily_page_scanner();
+    handle_page_data();
 }
 
 lily_token *lily_lexer_token()
