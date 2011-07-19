@@ -124,10 +124,10 @@ void lily_init_lexer(char *filename)
     memset(ch_class, CC_INVALID, sizeof(ch_class));
 
     int i;
-    for (i = 'a';i < 'z';i++)
+    for (i = 'a';i <= 'z';i++)
         ch_class[i] = CC_WORD;
 
-    for (i = 'A';i < 'Z';i++)
+    for (i = 'A';i <= 'Z';i++)
         ch_class[i] = CC_WORD;
 
     ch_class[(unsigned char)'_'] = CC_WORD;
