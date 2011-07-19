@@ -16,4 +16,6 @@ void lily_init_parser(lily_parser_data *d)
 void lily_parser(void)
 {
     tok = lily_lexer_token();
+
+    lily_lexer();
 }

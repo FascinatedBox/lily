@@ -15,8 +15,8 @@ static int lex_linenum;
 static lily_token *lex_token;
 
 static char ch_class[255];
-#define CH_INVALID  0
-#define CH_WORD     1
+#define CC_INVALID  0
+#define CC_WORD     1
 
 /* Add a line from the current page into the buffer. */
 static int read_line(void)
@@ -62,8 +62,9 @@ static void handle_page_data()
                     lily_impl_send_html(html_buffer);
                     html_bufpos = 0;
                 }
-                /* Yield to the parser. */
-                return;
+                lex_bufpos += 5;
+                /* Yield control to the lexer. */
+                break;
             }
         }
         html_buffer[html_bufpos] = c;
@@ -120,16 +121,16 @@ void lily_init_lexer(char *filename)
 
     /* Initialize ch_class, which is used to determine what 'class' a letter
        is in. */
-    memset(ch_class, CH_INVALID, sizeof(ch_class));
+    memset(ch_class, CC_INVALID, sizeof(ch_class));
 
     int i;
     for (i = 'a';i < 'z';i++)
-        ch_class[i] = CH_WORD;
+        ch_class[i] = CC_WORD;
 
     for (i = 'A';i < 'Z';i++)
-        ch_class[i] = CH_WORD;
+        ch_class[i] = CC_WORD;
 
-    ch_class[(int)'_'] = CH_WORD;
+    ch_class[(unsigned char)'_'] = CC_WORD;
 
     read_line();
     /* Make sure the lexer starts after the <@lily block. */
@@ -143,5 +144,31 @@ lily_token *lily_lexer_token()
 
 void lily_lexer(void)
 {
+    char ch;
+    int group;
 
+    ch = lex_buffer[lex_bufpos];
+    while (ch == ' ' || ch == '\t') {
+        lex_bufpos++;
+        ch = lex_buffer[lex_bufpos];
+    }
+
+    group = ch_class[(unsigned char)ch];
+
+    if (group == CC_WORD) {
+        /* The word and line buffers have the same size, plus \n is not a valid
+           word character. So, there's no point in checking for overflow. */
+        int word_pos = 0;
+        char *word_buffer = lex_token->word_buffer;
+        do {
+            word_buffer[word_pos] = ch;
+            word_pos++;
+            lex_bufpos++;
+            ch = lex_buffer[lex_bufpos];
+        } while (ch_class[(unsigned char)ch] == CC_WORD);
+        word_buffer[word_pos] = '\0';
+        lex_token->tok_type = tk_word;
+    }
+    else
+        lex_token->tok_type = tk_invalid;
 }
