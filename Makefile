@@ -26,7 +26,7 @@ $(OBJDIR)/fs_main.o: fs_main.c
 $(OBJDIR)/lily_lexer.o: lily_lexer.c
 	$(CC) $(CFLAGS) lily_lexer.c -o $(OBJDIR)/lily_lexer.o
 
-$(OBJDIR)/lily_parser.o: lily_parser.c lily_lexer.h
+$(OBJDIR)/lily_parser.o: lily_parser.c lily_lexer.h lily_lexer.h lily_types.h
 	$(CC) $(CFLAGS) lily_parser.c -o $(OBJDIR)/lily_parser.o
 
 .PHONY: clean all $(BINDIR)/lily_fs
