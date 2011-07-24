@@ -2,7 +2,10 @@
 
 typedef enum {
     tk_invalid,
-    tk_word
+    tk_word,
+    tk_left_parenth,
+    tk_right_parenth,
+    tk_double_quote
 } lily_tok_type;
 
 typedef struct {

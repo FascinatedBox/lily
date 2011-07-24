@@ -15,8 +15,11 @@ static int lex_linenum;
 static lily_token *lex_token;
 
 static char ch_class[255];
-#define CC_INVALID  0
-#define CC_WORD     1
+#define CC_INVALID       0
+#define CC_WORD          1
+#define CC_LEFT_PARENTH  2
+#define CC_RIGHT_PARENTH 3
+#define CC_DOUBLE_QUOTE  4
 
 /* Add a line from the current page into the buffer. */
 static int read_line(void)
@@ -131,6 +134,9 @@ void lily_init_lexer(char *filename)
         ch_class[i] = CC_WORD;
 
     ch_class[(unsigned char)'_'] = CC_WORD;
+    ch_class[(unsigned char)'('] = CC_LEFT_PARENTH;
+    ch_class[(unsigned char)')'] = CC_RIGHT_PARENTH;
+    ch_class[(unsigned char)'"'] = CC_DOUBLE_QUOTE;
 
     read_line();
     /* Make sure the lexer starts after the <@lily block. */
@@ -168,6 +174,39 @@ void lily_lexer(void)
         } while (ch_class[(unsigned char)ch] == CC_WORD);
         word_buffer[word_pos] = '\0';
         lex_token->tok_type = tk_word;
+    }
+    else if (group == CC_LEFT_PARENTH) {
+        lex_bufpos++;
+        lex_token->tok_type = tk_left_parenth;
+    }
+    else if (group == CC_RIGHT_PARENTH) {
+        lex_bufpos++;
+        lex_token->tok_type = tk_right_parenth;
+    }
+    else if (group == CC_DOUBLE_QUOTE) {
+        /* todo : Allow multiline, handle escape chars. */
+        int word_pos = 0;
+        char *word_buffer = lex_token->word_buffer;
+
+        /* Skip opening quote. */
+        lex_bufpos++;
+        ch = lex_buffer[lex_bufpos];
+        do {
+            fprintf(stderr, "string ch = %c.\n", ch);
+            word_buffer[word_pos] = ch;
+            word_pos++;
+            lex_bufpos++;
+            ch = lex_buffer[lex_bufpos];
+        } while (ch != '"' && ch != '\n' && ch != '\r');
+
+        if (ch != '"')
+            lily_impl_fatal("String without closure.\n");
+
+        word_buffer[word_pos] = '\0';
+        /* ...and the ending one too. */
+        fprintf(stderr, "'%s'.\n", word_buffer);
+        lex_bufpos++;
+        lex_token->tok_type = tk_double_quote;
     }
     else
         lex_token->tok_type = tk_invalid;
