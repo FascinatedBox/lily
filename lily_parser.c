@@ -24,6 +24,28 @@ struct lily_keyword {
     {"", 1, 1}
 };
 
+typedef struct {
+    int depth;
+    int *num_expected;
+    int num_args;
+} expr_data;
+
+expr_data *expr_state;
+
+static void clear_expr_state(void)
+{
+    expr_state->depth = 0;
+    expr_state->num_args = 0;
+    memset(expr_state->num_expected, 0, 32);
+}
+
+static void enter_parenth(int args_needed)
+{
+    expr_state->num_expected[expr_state->depth] =
+        expr_state->num_args + args_needed;
+    expr_state->depth++;
+}
+
 void lily_init_parser(lily_parser_data *d)
 {
     /* Turn keywords into symbols. */
@@ -55,6 +77,54 @@ void lily_init_parser(lily_parser_data *d)
         lily_impl_fatal("Out of memory creating code section.\n");
     main_func->code_len = 4;
     main_func->code_pos = 0;
+
+    expr_state = malloc(sizeof(expr_data));
+    if (expr_state == NULL)
+        lily_impl_fatal("Out of memory creating expr info.\n");
+
+    expr_state->num_expected = malloc(sizeof(int) * 32);
+    if (expr_state->num_expected == NULL)
+        lily_impl_fatal("Out of memory creating expr info.\n");
+
+    clear_expr_state();
+}
+
+static lily_symbol *find_symbol(char *name)
+{
+    lily_symbol *sym;
+
+    sym = symtab;
+    while (sym != NULL) {
+        if (strcmp(sym->sym_name, name) == 0)
+            return sym;
+        sym = sym->next;
+    }
+    return NULL;
+}
+
+static void parse_expr_value(void)
+{
+    if (tok->tok_type == tk_word) {
+        lily_symbol *sym = find_symbol(tok->word_buffer);
+
+        if (sym != NULL) {
+            if (sym->callable) {
+                enter_parenth(sym->num_args);
+                lily_lexer();
+                parse_expr_value();
+            }
+        }
+    }
+}
+
+static void parse_expr_binary(void)
+{
+    parse_expr_value();
+};
+
+static void parse_statement(void)
+{
+    parse_expr_binary();
 }
 
 void lily_parser(void)
@@ -62,4 +132,6 @@ void lily_parser(void)
     tok = lily_lexer_token();
 
     lily_lexer();
+    if (tok->tok_type == tk_word)
+        parse_statement();
 }
