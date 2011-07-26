@@ -1,3 +1,5 @@
+#ifndef LILY_TYPES_H
+# define LILY_TYPES_H
 
 typedef struct lily_symbol_ {
     struct lily_symbol_ *next;
@@ -8,3 +10,5 @@ typedef struct lily_symbol_ {
     int code_len;
     int code_pos;
 } lily_symbol;
+
+#endif
