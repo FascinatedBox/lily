@@ -1,6 +1,8 @@
 #ifndef LILY_IMPL_H
 # define LILY_IMPL_H
 
+#include <stdlib.h>
+
 /* This file defines functions that a lily implementation must define. */
 
 /* Tells the server running lily to send a chunk of HTML data. The data is not
@@ -9,5 +11,10 @@ void lily_impl_send_html(char *);
 
 /* This is called when lily has encountered a fatal error. */
 void lily_impl_fatal_error(char *, ...);
+
+/* This is called when lily needs to allocate memory. The implementation should
+   call to have the interpreter gracefully exit. Since that isn't possible yet,
+   exit() is also allowed. */
+void *lily_impl_malloc(size_t);
 
 #endif
