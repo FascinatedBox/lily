@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "lily_ast.h"
 #include "lily_lexer.h"
 #include "lily_parser.h"
 #include "lily_types.h"
@@ -27,6 +28,8 @@ struct lily_keyword {
 typedef struct {
     int depth;
     int *num_expected;
+    lily_ast **saved_trees;
+    lily_ast *current_tree;
     int num_args;
 } expr_data;
 
@@ -36,6 +39,14 @@ static void clear_expr_state(void)
 {
     expr_state->depth = 0;
     expr_state->num_args = 0;
+    expr_state->current_tree = NULL;
+    expr_state->saved_trees = malloc(sizeof(lily_ast *) * 32);
+    if (expr_state->saved_trees == NULL)
+        lily_impl_fatal("Out of memory for expr trees.\n");
+
+    int i;
+    for (i = 0;i < 32;i++)
+        expr_state->saved_trees[i] = NULL;
     memset(expr_state->num_expected, 0, 32);
 }
 
@@ -44,6 +55,7 @@ static void enter_parenth(int args_needed)
     expr_state->num_expected[expr_state->depth] =
         expr_state->num_args + args_needed;
     expr_state->depth++;
+    expr_state->current_tree = NULL;
 }
 
 void lily_init_parser(lily_parser_data *d)
@@ -109,7 +121,13 @@ static void parse_expr_value(void)
 
         if (sym != NULL) {
             if (sym->callable) {
+                /* New trees will get saved to the args section of this tree
+                   when they are done. */
+                lily_ast *ast = lily_ast_init_call(sym);
+                expr_state->saved_trees[expr_state->depth] = ast;
+
                 enter_parenth(sym->num_args);
+
                 lily_lexer();
                 parse_expr_value();
             }
