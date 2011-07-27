@@ -5,9 +5,7 @@
 
 lily_ast *lily_ast_init_call(lily_symbol *s)
 {
-    lily_ast *a = malloc(sizeof(lily_ast));
-    if (a == NULL)
-        lily_impl_fatal("Out of memory for ast node.\n");
+    lily_ast *a = lily_impl_malloc(sizeof(lily_ast));
 
     a->expr_type = func_call;
     a->data.call.sym = s;
@@ -16,9 +14,8 @@ lily_ast *lily_ast_init_call(lily_symbol *s)
 
 void lily_ast_add_arg(lily_ast *func, lily_ast *tree)
 {
-    struct lily_ast_list *l = malloc(sizeof(struct lily_ast_list));
-    if (l == NULL)
-        lily_impl_fatal("No memory for ast list node.\n");
+    struct lily_ast_list *l = lily_impl_malloc(sizeof(struct lily_ast_list));
+
     l->ast = tree;
     l->next = func->data.call.args;
     func->data.call.args = l->next;

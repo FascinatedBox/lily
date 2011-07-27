@@ -101,21 +101,10 @@ void lily_init_lexer(char *filename)
     if (lex_file == NULL)
         lily_impl_fatal("Couldn't open '%s'.\n", filename);
 
-    html_buffer = malloc(1024 * sizeof(char));
-    if (html_buffer == NULL)
-        lily_impl_fatal("No memory to init html buffer.\n");
-
-    lex_buffer = malloc(1024 * sizeof(char));
-    if (lex_buffer == NULL)
-        lily_impl_fatal("No memory to init lexer.\n");
-
-    lex_token = malloc(sizeof(lily_token));
-    if (lex_token == NULL)
-        lily_impl_fatal("No memory to create lexer token.\n");
-
-    lex_token->word_buffer = malloc(1024 * sizeof(char));
-    if (lex_token->word_buffer == NULL)
-        lily_impl_fatal("No memory to create lexer token buffer.\n");
+    html_buffer = lily_impl_malloc(1024 * sizeof(char));
+    lex_buffer = lily_impl_malloc(1024 * sizeof(char));
+    lex_token = lily_impl_malloc(sizeof(lily_token));
+    lex_token->word_buffer = lily_impl_malloc(1024 * sizeof(char));
 
     html_bufsize = 1023;
     lex_bufsize = 1023;

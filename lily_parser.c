@@ -5,6 +5,7 @@
 #include "lily_lexer.h"
 #include "lily_parser.h"
 #include "lily_types.h"
+#include "lily_impl.h"
 
 static lily_token *tok;
 /* Where all code outside of functions gets stored. */
@@ -40,9 +41,7 @@ static void clear_expr_state(void)
     expr_state->depth = 0;
     expr_state->num_args = 0;
     expr_state->current_tree = NULL;
-    expr_state->saved_trees = malloc(sizeof(lily_ast *) * 32);
-    if (expr_state->saved_trees == NULL)
-        lily_impl_fatal("Out of memory for expr trees.\n");
+    expr_state->saved_trees = lily_impl_malloc(sizeof(lily_ast *) * 32);
 
     int i;
     for (i = 0;i < 32;i++)
@@ -65,13 +64,8 @@ void lily_init_parser(lily_parser_data *d)
 
     kw_count = sizeof(keywords) / sizeof(keywords[0]);
     for (i = 0;i < kw_count;i++) {
-        lily_symbol *s = malloc(sizeof(lily_symbol));
-        if (s == NULL)
-            lily_impl_fatal("Out of memory creating symtab.\n");
-
-        s->sym_name = malloc(strlen(keywords[i].name) + 1);
-        if (s->sym_name == NULL)
-            lily_impl_fatal("Out of memory creating symtab.\n");
+        lily_symbol *s = lily_impl_malloc(sizeof(lily_symbol));
+        s->sym_name = lily_impl_malloc(strlen(keywords[i].name) + 1);
 
         strcpy(s->sym_name, keywords[i].name);
         s->callable = keywords[i].callable;
@@ -84,19 +78,12 @@ void lily_init_parser(lily_parser_data *d)
     }
 
     main_func = symtab;
-    main_func->code = malloc(sizeof(int) * 4);
-    if (main_func->code == NULL)
-        lily_impl_fatal("Out of memory creating code section.\n");
+    main_func->code = lily_impl_malloc(sizeof(int) * 4);
     main_func->code_len = 4;
     main_func->code_pos = 0;
 
-    expr_state = malloc(sizeof(expr_data));
-    if (expr_state == NULL)
-        lily_impl_fatal("Out of memory creating expr info.\n");
-
-    expr_state->num_expected = malloc(sizeof(int) * 32);
-    if (expr_state->num_expected == NULL)
-        lily_impl_fatal("Out of memory creating expr info.\n");
+    expr_state = lily_impl_malloc(sizeof(expr_data));
+    expr_state->num_expected = lily_impl_malloc(sizeof(int) * 32);
 
     clear_expr_state();
 }
