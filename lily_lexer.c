@@ -192,7 +192,6 @@ void lily_lexer(void)
         lex_bufpos++;
         ch = lex_buffer[lex_bufpos];
         do {
-            fprintf(stderr, "string ch = %c.\n", ch);
             word_buffer[word_pos] = ch;
             word_pos++;
             lex_bufpos++;
@@ -204,7 +203,6 @@ void lily_lexer(void)
 
         word_buffer[word_pos] = '\0';
         /* ...and the ending one too. */
-        fprintf(stderr, "'%s'.\n", word_buffer);
         lex_bufpos++;
         lex_token->tok_type = tk_double_quote;
     }
