@@ -5,7 +5,8 @@ BINDIR=bin
 OBJDIR=objdir
 
 CORE_OBJECTS=$(OBJDIR)/lily_parser.o \
-			$(OBJDIR)/lily_lexer.o
+			$(OBJDIR)/lily_lexer.o \
+			$(OBJDIR)/lily_ast.o \
 
 FS_OBJECTS=$(CORE_OBJECTS) \
 			$(OBJDIR)/fs_main.o
@@ -26,7 +27,11 @@ $(OBJDIR)/fs_main.o: fs_main.c
 $(OBJDIR)/lily_lexer.o: lily_lexer.c
 	$(CC) $(CFLAGS) lily_lexer.c -o $(OBJDIR)/lily_lexer.o
 
-$(OBJDIR)/lily_parser.o: lily_parser.c lily_lexer.h lily_lexer.h lily_types.h
+$(OBJDIR)/lily_parser.o: lily_parser.c lily_lexer.h lily_lexer.h lily_types.h \
+						 lily_ast.h
 	$(CC) $(CFLAGS) lily_parser.c -o $(OBJDIR)/lily_parser.o
+
+$(OBJDIR)/lily_ast.o: lily_ast.c lily_ast.h lily_types.h
+	$(CC) $(CFLAGS) lily_ast.c -o $(OBJDIR)/lily_ast.o
 
 .PHONY: clean all $(BINDIR)/lily_fs
