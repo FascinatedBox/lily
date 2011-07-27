@@ -57,6 +57,15 @@ static void enter_parenth(int args_needed)
     expr_state->current_tree = NULL;
 }
 
+static void init_builtin_symbol(lily_symbol *s)
+{
+    s->code = NULL;
+    s->code_len = 0;
+    s->code_pos = 0;
+    s->next = symtab;
+    symtab = s;
+}
+
 void lily_init_parser(lily_parser_data *d)
 {
     /* Turn keywords into symbols. */
@@ -65,16 +74,13 @@ void lily_init_parser(lily_parser_data *d)
     kw_count = sizeof(keywords) / sizeof(keywords[0]);
     for (i = 0;i < kw_count;i++) {
         lily_symbol *s = lily_impl_malloc(sizeof(lily_symbol));
+        init_builtin_symbol(s);
+
         s->sym_name = lily_impl_malloc(strlen(keywords[i].name) + 1);
 
         strcpy(s->sym_name, keywords[i].name);
         s->callable = keywords[i].callable;
         s->num_args = keywords[i].num_args;
-        s->code = NULL;
-        s->code_len = 0;
-        s->code_pos = 0;
-        s->next = symtab;
-        symtab = s;
     }
 
     main_func = symtab;
