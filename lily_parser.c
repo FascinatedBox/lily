@@ -6,6 +6,7 @@
 #include "lily_parser.h"
 #include "lily_types.h"
 #include "lily_impl.h"
+#include "lily_emitter.h"
 
 static lily_token *tok;
 /* Where all code outside of functions gets stored. */
@@ -60,9 +61,7 @@ static void enter_parenth(int args_needed)
 /* Might want to look into merging initializers later. */
 static void init_builtin_symbol(lily_symbol *s)
 {
-    s->code = NULL;
-    s->code_len = 0;
-    s->code_pos = 0;
+    s->code_data = NULL;
     s->val_type = vt_builtin;
     s->sym_value = NULL;
     s->next = symtab;
@@ -71,9 +70,7 @@ static void init_builtin_symbol(lily_symbol *s)
 
 static void init_temp_symbol(lily_symbol *s)
 {
-    s->code = NULL;
-    s->code_len = 0;
-    s->code_pos = 0;
+    s->code_data = NULL;
     s->sym_value = NULL;
     s->next = symtab;
     symtab = s;
@@ -97,9 +94,13 @@ void lily_init_parser(lily_parser_data *d)
     }
 
     main_func = symtab;
-    main_func->code = lily_impl_malloc(sizeof(int) * 4);
-    main_func->code_len = 4;
-    main_func->code_pos = 0;
+
+    lily_code_data *cd = lily_impl_malloc(sizeof(lily_code_data));
+    cd->code = lily_impl_malloc(sizeof(int) * 4);
+    cd->code_len = 4;
+    cd->code_pos = 0;
+
+    main_func->code_data = cd;
 
     expr_state = lily_impl_malloc(sizeof(expr_data));
     expr_state->num_expected = lily_impl_malloc(sizeof(int) * 32);

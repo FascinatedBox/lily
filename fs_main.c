@@ -36,6 +36,15 @@ void *lily_impl_malloc(size_t memsize)
     return chunk;
 }
 
+void *lily_impl_realloc(void *chunk, size_t memsize)
+{
+    void *newchunk = realloc(chunk, memsize);
+    if (newchunk == NULL)
+        lily_impl_fatal("Failed to realloc a chunk to size %d.\n", memsize);
+
+    return newchunk;
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 2)
@@ -43,6 +52,7 @@ int main(int argc, char **argv)
 
     lily_init_lexer(argv[1]);
     lily_init_parser(NULL);
+    lily_init_emitter();
     lily_parser();
 
     exit(EXIT_SUCCESS);
