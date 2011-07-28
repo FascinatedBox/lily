@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include <string.h>
 
 #include "lily_ast.h"
