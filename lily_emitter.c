@@ -1,8 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "lily_ast.h"
-#include "lily_emitter.h"
+#include "lily_opcode.h"
 #include "lily_impl.h"
 
 typedef struct {
