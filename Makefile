@@ -43,4 +43,4 @@ $(OBJDIR)/lily_emitter.o: lily_emitter.c lily_opcode.h lily_impl.h
 $(OBJDIR)/lily_symtab.o: lily_symtab.c lily_symtab.h
 	$(CC) $(CFLAGS) lily_symtab.c -o $(OBJDIR)/lily_symtab.o
 
-.PHONY: clean all $(BINDIR)/lily_fs
+.PHONY: clean all
