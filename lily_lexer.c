@@ -20,6 +20,7 @@ static char ch_class[255];
 #define CC_LEFT_PARENTH  2
 #define CC_RIGHT_PARENTH 3
 #define CC_DOUBLE_QUOTE  4
+#define CC_AT            5
 
 /* Add a line from the current page into the buffer. */
 static int read_line(void)
@@ -126,6 +127,7 @@ void lily_init_lexer(char *filename)
     ch_class[(unsigned char)'('] = CC_LEFT_PARENTH;
     ch_class[(unsigned char)')'] = CC_RIGHT_PARENTH;
     ch_class[(unsigned char)'"'] = CC_DOUBLE_QUOTE;
+    ch_class[(unsigned char)'@'] = CC_AT;
 
     read_line();
     /* Make sure the lexer starts after the <@lily block. */
@@ -194,6 +196,13 @@ void lily_lexer(void)
         /* ...and the ending one too. */
         lex_bufpos++;
         lex_token->tok_type = tk_double_quote;
+    }
+    else if (group == CC_AT) {
+        lex_bufpos++;
+        if (lex_buffer[lex_bufpos] == '>')
+            lex_token->tok_type = tk_end_tag;
+        else
+            lily_impl_fatal("Expected '>' after '@'.\n");
     }
     else
         lex_token->tok_type = tk_invalid;
