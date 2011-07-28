@@ -1,5 +1,5 @@
-#ifndef LILY_TYPES_H
-# define LILY_TYPES_H
+#ifndef LILY_SYMTAB_H
+# define LILY_SYMTAB_H
 
 typedef enum {
     vt_builtin,
@@ -27,5 +27,12 @@ typedef struct lily_symbol_ {
     lily_code_data *code_data;
     lily_val_type val_type;
 } lily_symbol;
+
+lily_symbol *symtab;
+lily_symbol *main_func;
+
+lily_symbol *lily_st_new_str_sym(char *);
+lily_symbol *lily_st_find_symbol(char *);
+void lily_init_symtab(void);
 
 #endif

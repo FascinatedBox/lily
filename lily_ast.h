@@ -1,7 +1,7 @@
 #ifndef LILY_AST_H
 # define LILY_AST_H
 
-#include "lily_types.h"
+#include "lily_symtab.h"
 
 /* Based off of http://lambda.uta.edu/cse5317/notes/node25.html. */
 struct lily_ast_list;

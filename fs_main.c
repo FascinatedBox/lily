@@ -4,6 +4,8 @@
 
 #include "lily_lexer.h"
 #include "lily_parser.h"
+#include "lily_emitter.h"
+#include "lily_symtab.h"
 
 /* fake_server_main.c :
  * Since lily will be run from a server for most of the time, this emulates a
@@ -51,6 +53,7 @@ int main(int argc, char **argv)
         lily_impl_fatal("Usage : lily_fs <filename>\n");
 
     lily_init_lexer(argv[1]);
+    lily_init_symtab();
     lily_init_parser();
     lily_init_emitter();
     lily_parser();
