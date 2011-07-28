@@ -8,7 +8,8 @@ typedef enum {
     tk_word,
     tk_left_parenth,
     tk_right_parenth,
-    tk_double_quote
+    tk_double_quote,
+    tk_end_tag
 } lily_tok_type;
 
 typedef struct {
