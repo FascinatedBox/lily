@@ -51,7 +51,7 @@ int main(int argc, char **argv)
         lily_impl_fatal("Usage : lily_fs <filename>\n");
 
     lily_init_lexer(argv[1]);
-    lily_init_parser(NULL);
+    lily_init_parser();
     lily_init_emitter();
     lily_parser();
 
