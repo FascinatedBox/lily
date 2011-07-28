@@ -17,4 +17,7 @@ void lily_impl_fatal_error(char *, ...);
    exit() is also allowed. */
 void *lily_impl_malloc(size_t);
 
+/* See above, except for realloc instead of malloc. */
+void *lily_impl_realloc(void *, size_t);
+
 #endif
