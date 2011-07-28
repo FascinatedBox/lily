@@ -57,11 +57,24 @@ static void enter_parenth(int args_needed)
     expr_state->current_tree = NULL;
 }
 
+/* Might want to look into merging initializers later. */
 static void init_builtin_symbol(lily_symbol *s)
 {
     s->code = NULL;
     s->code_len = 0;
     s->code_pos = 0;
+    s->val_type = vt_builtin;
+    s->sym_value = NULL;
+    s->next = symtab;
+    symtab = s;
+}
+
+static void init_temp_symbol(lily_symbol *s)
+{
+    s->code = NULL;
+    s->code_len = 0;
+    s->code_pos = 0;
+    s->sym_value = NULL;
     s->next = symtab;
     symtab = s;
 }
@@ -122,9 +135,45 @@ static void parse_expr_value(void)
                 enter_parenth(sym->num_args);
 
                 lily_lexer();
+                if (tok->tok_type != tk_left_parenth)
+                    lily_impl_fatal("Expected '(' after function name.\n");
+
+                lily_lexer();
                 parse_expr_value();
             }
         }
+    }
+    else if (tok->tok_type == tk_double_quote) {
+        lily_symbol *sym = lily_impl_malloc(sizeof(lily_symbol));
+        init_temp_symbol(sym);
+
+        lily_strval *strval = lily_impl_malloc(sizeof(lily_strval));
+        int str_size = strlen(tok->word_buffer);
+        char *str = lily_impl_malloc(str_size + 1);
+        strcpy(str, tok->word_buffer);
+        strval->str = str;
+        strval->str_size = str_size;
+
+        lily_ast *ast = lily_ast_init_var(sym);
+
+        sym->val_type = vt_str;
+        sym->sym_value = strval;
+        expr_state->current_tree = ast;
+
+        lily_lexer();
+        parse_expr_value();
+    }
+    else if (tok->tok_type == tk_right_parenth) {
+        if (expr_state->current_tree == NULL)
+            lily_impl_fatal("')' but current tree is NULL!\n");
+
+        lily_ast *a = expr_state->saved_trees[expr_state->depth - 1];
+        if (a->expr_type == func_call)
+            lily_ast_add_arg(a, expr_state->current_tree);
+
+        /* todo : Check proper # of arguments. */
+        expr_state->current_tree = a;
+        expr_state->depth--;
     }
 }
 
@@ -135,6 +184,7 @@ static void parse_expr_binary(void)
 
 static void parse_statement(void)
 {
+    /* todo : Check for a proper tree. */
     parse_expr_binary();
 }
 
