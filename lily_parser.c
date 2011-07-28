@@ -3,7 +3,6 @@
 
 #include "lily_ast.h"
 #include "lily_lexer.h"
-#include "lily_parser.h"
 #include "lily_types.h"
 #include "lily_impl.h"
 #include "lily_emitter.h"
@@ -76,7 +75,7 @@ static void init_temp_symbol(lily_symbol *s)
     symtab = s;
 }
 
-void lily_init_parser(lily_parser_data *d)
+void lily_init_parser(void)
 {
     /* Turn keywords into symbols. */
     int i, kw_count;
