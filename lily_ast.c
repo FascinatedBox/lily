@@ -21,6 +21,9 @@ lily_ast *lily_ast_init_var(lily_symbol *s)
 
 void lily_ast_add_arg(lily_ast *func, lily_ast *tree)
 {
+    /* fixme: This starts from the last arg and goes to the first arg, so trees
+       get walked backwards and args emitted in the wrong order. Fix this when
+       there's a function that needs 2+ args. */
     struct lily_ast_list *l = lily_impl_malloc(sizeof(struct lily_ast_list));
 
     l->ast = tree;
