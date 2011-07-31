@@ -16,6 +16,8 @@ struct lily_keyword {
     {"", 1, 1}
 };
 
+static int new_sym_id = 0;
+
 /* Might want to look into merging initializers later. */
 static void init_builtin_symbol(lily_symbol *s)
 {
@@ -24,6 +26,8 @@ static void init_builtin_symbol(lily_symbol *s)
     s->sym_value = NULL;
     s->next = symtab;
     symtab = s;
+    s->sym_id = new_sym_id;
+    new_sym_id++;
 }
 
 static void init_temp_symbol(lily_symbol *s)
@@ -32,6 +36,8 @@ static void init_temp_symbol(lily_symbol *s)
     s->sym_value = NULL;
     s->next = symtab;
     symtab = s;
+    s->sym_id = new_sym_id;
+    new_sym_id++;
 }
 
 void lily_init_symtab(void)

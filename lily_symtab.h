@@ -28,6 +28,10 @@ typedef struct lily_symbol_ {
     lily_val_type val_type;
 } lily_symbol;
 
+/* Keep this synced with the keyword table in lily_symtab.c */
+#define SYM_ID_STR   0
+#define SYM_ID_PRINT 1
+
 lily_symbol *symtab;
 lily_symbol *main_func;
 
