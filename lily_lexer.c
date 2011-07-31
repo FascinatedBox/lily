@@ -47,6 +47,39 @@ static int read_line(void)
     return ok;
 }
 
+static char handle_str_escape()
+{
+    /* lex_bufpos points to the first character in the escape. */
+    char ch, ret;
+    ch = lex_buffer[lex_bufpos];
+
+    /* Make sure the buffer position stays ahead. */
+    lex_bufpos++;
+
+    if (ch == 'n')
+        return '\n';
+    else if (ch == 'r')
+        return '\r';
+    else if (ch == 't')
+        return '\t';
+    else if (ch == '\'')
+        return '\'';
+    else if (ch == '"')
+        return '"';
+    else if (ch == '\\')
+        return '\\';
+    else if (ch == 'b')
+        return '\b';
+    else if (ch == 'a')
+        return '\a';
+    else {
+        lily_impl_fatal("Unexpected escape char '%c'.\n", ch);
+
+        /* So compilers don't think this can exit without a return. */
+        return 0;
+    }
+}
+
 static void handle_page_data()
 {
     int html_bufpos = 0;
@@ -174,7 +207,7 @@ void lily_lexer(void)
         lex_token->tok_type = tk_right_parenth;
     }
     else if (group == CC_DOUBLE_QUOTE) {
-        /* todo : Allow multiline, handle escape chars. */
+        /* todo : Allow multiline strings. */
         int word_pos = 0;
         char *word_buffer = lex_token->word_buffer;
 
@@ -185,6 +218,9 @@ void lily_lexer(void)
             word_buffer[word_pos] = ch;
             word_pos++;
             lex_bufpos++;
+            if (ch == '\\')
+                ch = handle_str_escape();
+
             ch = lex_buffer[lex_bufpos];
         } while (ch != '"' && ch != '\n' && ch != '\r');
 
