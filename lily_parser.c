@@ -106,4 +106,8 @@ void lily_parser(void)
     lily_lexer();
     if (tok->tok_type == tk_word)
         parse_statement();
+
+    lily_emit_ast(main_func, expr_state->current_tree);
+    lily_emit_vm_return(main_func);
+    lily_vm_execute(main_func);
 }
