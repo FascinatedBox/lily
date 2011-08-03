@@ -80,11 +80,15 @@ static char handle_str_escape()
     }
 }
 
-static void handle_page_data()
+void lily_lexer_handle_page_data(void)
 {
-    int html_bufpos = 0;
+    char c;
+    int at_file_end, html_bufpos;
 
-    char c = lex_buffer[lex_bufpos];
+    at_file_end = 0;
+    c = lex_buffer[lex_bufpos];
+    html_bufpos = 0;
+
     /* Send html to the server either when unable to hold more or the lily tag
        is found. */
     while (1) {
@@ -114,8 +118,10 @@ static void handle_page_data()
         if (c == '\n' || c == '\r') {
             if (read_line())
                 lex_bufpos = 0;
-            else
+            else {
+                at_file_end = 1;
                 break;
+            }
         }
 
         c = lex_buffer[lex_bufpos];
@@ -126,6 +132,9 @@ static void handle_page_data()
         lily_impl_send_html(html_buffer);
         html_bufpos = 0;
     }
+
+    if (at_file_end)
+        lex_token->tok_type = tk_eof;
 }
 
 void lily_init_lexer(char *filename)
@@ -163,7 +172,7 @@ void lily_init_lexer(char *filename)
 
     read_line();
     /* Make sure the lexer starts after the <@lily block. */
-    handle_page_data();
+    lily_lexer_handle_page_data();
 }
 
 lily_token *lily_lexer_token()

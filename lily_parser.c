@@ -103,11 +103,19 @@ void lily_parser(void)
 {
     tok = lily_lexer_token();
 
-    lily_lexer();
-    if (tok->tok_type == tk_word)
-        parse_statement();
+    while (1) {
+        lily_lexer();
+        if (tok->tok_type == tk_word)
+            parse_statement();
+        else if (tok->tok_type == tk_end_tag) {
+            /* Execute the code, eat html, then go back to collection. */
+            lily_emit_ast(main_func, expr_state->current_tree);
+            lily_emit_vm_return(main_func);
+            lily_vm_execute(main_func);
 
-    lily_emit_ast(main_func, expr_state->current_tree);
-    lily_emit_vm_return(main_func);
-    lily_vm_execute(main_func);
+            lily_lexer_handle_page_data();
+            if (tok->tok_type == tk_eof)
+                break;
+        }
+    }
 }
