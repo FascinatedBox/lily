@@ -4,6 +4,7 @@
 typedef enum {
     o_load_reg,
     o_builtin_print,
+    o_assign,
     o_vm_return
 } lily_opcode;
 

@@ -3,13 +3,26 @@
 
 typedef enum {
     vt_builtin,
-    vt_str
+    vt_int,
+    vt_str,
+    vt_list,
+    vt_float,
 } lily_val_type;
+
+/* There's no struct for storing floats or ints. They're stored raw (just cast
+   the pointer). */
 
 typedef struct {
     char *str;
     int str_size;
 } lily_strval;
+
+typedef struct {
+    void *values;
+    lily_val_type *val_types;
+    int val_count;
+    int val_size;
+} lily_listval;
 
 typedef struct {
     int *code;
