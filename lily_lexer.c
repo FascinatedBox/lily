@@ -20,6 +20,7 @@ static char ch_class[255];
 #define CC_RIGHT_PARENTH 3
 #define CC_DOUBLE_QUOTE  4
 #define CC_AT            5
+#define CC_NEWLINE       6
 
 /* Add a line from the current page into the buffer. */
 static int read_line(void)
@@ -169,6 +170,8 @@ void lily_init_lexer(char *filename)
     ch_class[(unsigned char)')'] = CC_RIGHT_PARENTH;
     ch_class[(unsigned char)'"'] = CC_DOUBLE_QUOTE;
     ch_class[(unsigned char)'@'] = CC_AT;
+    ch_class[(unsigned char)'\r'] = CC_NEWLINE;
+    ch_class[(unsigned char)'\n'] = CC_NEWLINE;
 
     read_line();
     /* Make sure the lexer starts after the <@lily block. */
@@ -182,72 +185,82 @@ lily_token *lily_lexer_token()
 
 void lily_lexer(void)
 {
-    char ch;
-    int group;
+    while (1) {
+        char ch;
+        int group;
 
-    ch = lex_buffer[lex_bufpos];
-    while (ch == ' ' || ch == '\t') {
-        lex_bufpos++;
         ch = lex_buffer[lex_bufpos];
-    }
-
-    group = ch_class[(unsigned char)ch];
-
-    if (group == CC_WORD) {
-        /* The word and line buffers have the same size, plus \n is not a valid
-           word character. So, there's no point in checking for overflow. */
-        int word_pos = 0;
-        char *word_buffer = lex_token->word_buffer;
-        do {
-            word_buffer[word_pos] = ch;
-            word_pos++;
+        while (ch == ' ' || ch == '\t') {
             lex_bufpos++;
             ch = lex_buffer[lex_bufpos];
-        } while (ch_class[(unsigned char)ch] == CC_WORD);
-        word_buffer[word_pos] = '\0';
-        lex_token->tok_type = tk_word;
-    }
-    else if (group == CC_LEFT_PARENTH) {
-        lex_bufpos++;
-        lex_token->tok_type = tk_left_parenth;
-    }
-    else if (group == CC_RIGHT_PARENTH) {
-        lex_bufpos++;
-        lex_token->tok_type = tk_right_parenth;
-    }
-    else if (group == CC_DOUBLE_QUOTE) {
-        /* todo : Allow multiline strings. */
-        int word_pos = 0;
-        char *word_buffer = lex_token->word_buffer;
+        }
 
-        /* Skip opening quote. */
-        lex_bufpos++;
-        ch = lex_buffer[lex_bufpos];
-        do {
-            word_buffer[word_pos] = ch;
-            word_pos++;
+        group = ch_class[(unsigned char)ch];
+
+        if (group == CC_WORD) {
+            /* The word and line buffers have the same size, plus \n is not a
+               valid word character. So, there's no point in checking for
+               overflow. */
+            int word_pos = 0;
+            char *word_buffer = lex_token->word_buffer;
+            do {
+                word_buffer[word_pos] = ch;
+                word_pos++;
+                lex_bufpos++;
+                ch = lex_buffer[lex_bufpos];
+            } while (ch_class[(unsigned char)ch] == CC_WORD);
+            word_buffer[word_pos] = '\0';
+            lex_token->tok_type = tk_word;
+        }
+        else if (group == CC_LEFT_PARENTH) {
             lex_bufpos++;
-            if (ch == '\\')
-                ch = handle_str_escape();
+            lex_token->tok_type = tk_left_parenth;
+        }
+        else if (group == CC_RIGHT_PARENTH) {
+            lex_bufpos++;
+            lex_token->tok_type = tk_right_parenth;
+        }
+        else if (group == CC_DOUBLE_QUOTE) {
+            /* todo : Allow multiline strings. */
+            int word_pos = 0;
+            char *word_buffer = lex_token->word_buffer;
 
+            /* Skip opening quote. */
+            lex_bufpos++;
             ch = lex_buffer[lex_bufpos];
-        } while (ch != '"' && ch != '\n' && ch != '\r');
+            do {
+                word_buffer[word_pos] = ch;
+                word_pos++;
+                lex_bufpos++;
+                if (ch == '\\')
+                    ch = handle_str_escape();
 
-        if (ch != '"')
-            lily_impl_fatal("String without closure.\n");
+                ch = lex_buffer[lex_bufpos];
+            } while (ch != '"' && ch != '\n' && ch != '\r');
 
-        word_buffer[word_pos] = '\0';
-        /* ...and the ending one too. */
-        lex_bufpos++;
-        lex_token->tok_type = tk_double_quote;
-    }
-    else if (group == CC_AT) {
-        lex_bufpos++;
-        if (lex_buffer[lex_bufpos] == '>')
-            lex_token->tok_type = tk_end_tag;
+            if (ch != '"')
+                lily_impl_fatal("String without closure.\n");
+
+            word_buffer[word_pos] = '\0';
+            /* ...and the ending one too. */
+            lex_bufpos++;
+            lex_token->tok_type = tk_double_quote;
+        }
+        else if (group == CC_AT) {
+            lex_bufpos++;
+            if (lex_buffer[lex_bufpos] == '>')
+                lex_token->tok_type = tk_end_tag;
+            else
+                lily_impl_fatal("Expected '>' after '@'.\n");
+        }
+        else if (group == CC_NEWLINE) {
+            read_line();
+            lex_bufpos = 0;
+            continue;
+        }
         else
-            lily_impl_fatal("Expected '>' after '@'.\n");
+            lex_token->tok_type = tk_invalid;
+
+        return;
     }
-    else
-        lex_token->tok_type = tk_invalid;
 }
