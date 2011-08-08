@@ -21,6 +21,7 @@ static char ch_class[255];
 #define CC_DOUBLE_QUOTE  4
 #define CC_AT            5
 #define CC_NEWLINE       6
+#define CC_SHARP         7
 
 /* Add a line from the current page into the buffer. */
 static int read_line(void)
@@ -172,6 +173,7 @@ void lily_init_lexer(char *filename)
     ch_class[(unsigned char)'@'] = CC_AT;
     ch_class[(unsigned char)'\r'] = CC_NEWLINE;
     ch_class[(unsigned char)'\n'] = CC_NEWLINE;
+    ch_class[(unsigned char)'#'] = CC_SHARP;
 
     read_line();
     /* Make sure the lexer starts after the <@lily block. */
@@ -253,7 +255,7 @@ void lily_lexer(void)
             else
                 lily_impl_fatal("Expected '>' after '@'.\n");
         }
-        else if (group == CC_NEWLINE) {
+        else if (group == CC_NEWLINE || group == CC_SHARP) {
             read_line();
             lex_bufpos = 0;
             continue;
