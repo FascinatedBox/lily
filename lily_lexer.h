@@ -9,6 +9,7 @@ typedef enum {
     tk_left_parenth,
     tk_right_parenth,
     tk_double_quote,
+    tk_equal,
     tk_end_tag,
     tk_eof
 } lily_tok_type;
