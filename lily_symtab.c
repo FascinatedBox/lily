@@ -99,3 +99,15 @@ lily_symbol *lily_st_new_str_sym(char *str_val)
 
     return sym;
 }
+
+lily_symbol *lily_st_new_var_sym(char *name)
+{
+    lily_symbol *sym = lily_impl_malloc(sizeof(lily_symbol));
+    init_temp_symbol(sym);
+
+    sym->sym_name = lily_impl_malloc(strlen(name) + 1);
+    sym->val_type = vt_unknown;
+    sym->sym_value = NULL;
+    strcpy(sym->sym_name, name);
+    return sym;
+}

@@ -7,6 +7,7 @@ typedef enum {
     vt_str,
     vt_list,
     vt_float,
+    vt_unknown,
 } lily_val_type;
 
 /* There's no struct for storing floats or ints. They're stored raw (just cast
@@ -48,6 +49,7 @@ typedef struct lily_symbol_ {
 lily_symbol *symtab;
 lily_symbol *main_func;
 
+lily_symbol *lily_st_new_var_sym(char *);
 lily_symbol *lily_st_new_str_sym(char *);
 lily_symbol *lily_st_find_symbol(char *);
 void lily_init_symtab(void);
