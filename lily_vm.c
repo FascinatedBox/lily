@@ -26,10 +26,12 @@ void lily_vm_execute(lily_symbol *sym)
             case o_builtin_print:
                 builtin_print(regs[code[ci+1]]);
                 ci += 2;
+                break;
             case o_assign:
                 regs[code[ci]]->sym_value = (void *)code[ci+1];
                 regs[code[ci]]->val_type = (lily_val_type)code[ci+2];
                 ci += 3;
+                break;
             case o_vm_return:
                 free(regs);
                 return;
