@@ -64,6 +64,17 @@ static void parse_expr_value(void)
                 parse_expr_value();
             }
         }
+        else {
+            lily_symbol *sym = lily_st_new_var_sym(tok->word_buffer);
+            lily_ast *ast = lily_ast_init_var(sym);
+
+            if (expr_state->current_tree == NULL) {
+                expr_state->current_tree = ast;
+            /* todo: A word after a done tree means that word is the start of a
+               new statement. The else case means the new ast will have to be
+               added to the current tree, likely finishing it. */
+            }
+        }
     }
     else if (tok->tok_type == tk_double_quote) {
         lily_symbol *sym = lily_st_new_str_sym(tok->word_buffer);
