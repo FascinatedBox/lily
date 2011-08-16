@@ -94,6 +94,7 @@ lily_symbol *lily_st_new_str_sym(char *str_val)
     strval->str = str;
     strval->str_size = str_size;
 
+    sym->sym_name = NULL;
     sym->val_type = vt_str;
     sym->sym_value = strval;
 
