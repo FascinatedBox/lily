@@ -73,7 +73,7 @@ lily_symbol *lily_st_find_symbol(char *name)
 
     sym = symtab;
     while (sym != NULL) {
-        if (strcmp(sym->sym_name, name) == 0)
+        if (sym->sym_name != NULL && strcmp(sym->sym_name, name) == 0)
             return sym;
         sym = sym->next;
     }
