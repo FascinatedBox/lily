@@ -61,19 +61,17 @@ static void parse_expr_value(void)
                     lily_impl_fatal("Expected '(' after function name.\n");
 
                 lily_lexer();
+                /* This handles the first value of the function. */
                 parse_expr_value();
             }
         }
         else {
             lily_symbol *sym = lily_st_new_var_sym(tok->word_buffer);
             lily_ast *ast = lily_ast_init_var(sym);
-
-            if (expr_state->current_tree == NULL) {
+            if (expr_state->current_tree == NULL)
                 expr_state->current_tree = ast;
-            /* todo: A word after a done tree means that word is the start of a
-               new statement. The else case means the new ast will have to be
-               added to the current tree, likely finishing it. */
-            }
+
+            lily_lexer();
         }
     }
     else if (tok->tok_type == tk_double_quote) {
@@ -83,39 +81,69 @@ static void parse_expr_value(void)
         expr_state->current_tree = ast;
 
         lily_lexer();
-        parse_expr_value();
-    }
-    else if (tok->tok_type == tk_right_parenth) {
-        if (expr_state->current_tree == NULL)
-            lily_impl_fatal("')' but current tree is NULL!\n");
-
-        lily_ast *a = expr_state->saved_trees[expr_state->depth - 1];
-        if (a->expr_type == func_call)
-            lily_ast_add_arg(a, expr_state->current_tree);
-
-        /* todo : Check proper # of arguments. */
-        expr_state->current_tree = a;
-        expr_state->depth--;
     }
 }
 
-static void parse_expr_binary(void)
+/* Expressions are divided into two states:
+ * Value: A value is needed. ( is handled, because parenth expressions always
+   yield a single value).
+ * Op: The expression has enough values. Getting an op means another value will
+   be necessary. If a word is found, it is the first word of the next
+   expression (so no semicolons). ) is handled, because the expression is done
+   and can properly be closed. */
+
+static void parse_expr_top(void)
 {
-    parse_expr_value();
+    while (1) {
+        parse_expr_value();
+        if (tok->tok_type == tk_equal) {
+            lily_ast *a = expr_state->current_tree;
+            lily_ast *bt = lily_ast_init_binary_op(tk_equal);
+            expr_state->current_tree = lily_ast_merge_trees(a, bt);
+
+            lily_lexer();
+        }
+        else if (tok->tok_type == tk_right_parenth) {
+            if (expr_state->current_tree == NULL)
+                lily_impl_fatal("')' but current tree is NULL!\n");
+
+            lily_ast *a = expr_state->saved_trees[expr_state->depth - 1];
+            if (a->expr_type == func_call)
+                lily_ast_add_arg(a, expr_state->current_tree);
+
+            /* todo : Check proper # of arguments. */
+            expr_state->current_tree = a;
+            expr_state->depth--;
+
+            /* This should either be a binary op, or the first word of the next
+               expression. Ready the token. */
+            lily_lexer();
+        }
+        else if (tok->tok_type == tk_word) {
+            /* todo : Check balance of ( and ). */
+            break;
+        }
+        else if (tok->tok_type == tk_end_tag)
+            break;
+        else {
+            lily_impl_fatal("parse_expr_top: Unexpected token value %d.\n",
+                tok->tok_type);
+        }
+    }
 };
 
 static void parse_statement(void)
 {
     /* todo : Check for a proper tree. */
-    parse_expr_binary();
+    parse_expr_top();
 }
 
 void lily_parser(void)
 {
     tok = lily_lexer_token();
+    lily_lexer();
 
     while (1) {
-        lily_lexer();
         if (tok->tok_type == tk_word)
             parse_statement();
         else if (tok->tok_type == tk_end_tag) {
