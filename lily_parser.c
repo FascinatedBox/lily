@@ -82,6 +82,14 @@ static void parse_expr_value(void)
 
         lily_lexer();
     }
+    else if (tok->tok_type == tk_num_int) {
+        lily_symbol *sym = lily_st_new_int_sym(tok->int_val);
+        lily_ast *ast = lily_ast_init_var(sym);
+
+        expr_state->current_tree = ast;
+
+        lily_lexer();
+    }
 }
 
 /* Expressions are divided into two states:

@@ -1,4 +1,5 @@
 #include <string.h>
+#include <ctype.h>
 
 #include "lily_lexer.h"
 #include "lily_impl.h"
@@ -23,6 +24,7 @@ static char ch_class[255];
 #define CC_NEWLINE       6
 #define CC_SHARP         7
 #define CC_EQUAL         8
+#define CC_NUMBER        9
 
 /* Add a line from the current page into the buffer. */
 static int read_line(void)
@@ -167,6 +169,9 @@ void lily_init_lexer(char *filename)
     for (i = 'A';i <= 'Z';i++)
         ch_class[i] = CC_WORD;
 
+    for (i = '0';i <= '9';i++)
+        ch_class[i] = CC_NUMBER;
+
     ch_class[(unsigned char)'_'] = CC_WORD;
     ch_class[(unsigned char)'('] = CC_LEFT_PARENTH;
     ch_class[(unsigned char)')'] = CC_RIGHT_PARENTH;
@@ -260,6 +265,21 @@ void lily_lexer(void)
         else if (group == CC_EQUAL) {
             lex_bufpos++;
             lex_token->tok_type = tk_equal;
+        }
+        else if (group == CC_NUMBER) {
+            int i, total;
+
+            i = 0;
+            total = lex_buffer[lex_bufpos] - '0';
+            lex_bufpos++;
+
+            while (i < 9 && isdigit(lex_buffer[lex_bufpos])) {
+                total *= (total * 10) + lex_buffer[lex_bufpos] - '0';
+                i++;
+                lex_bufpos++;
+            }
+            lex_token->int_val = total;
+            lex_token->tok_type = tk_num_int;
         }
         else if (group == CC_NEWLINE || group == CC_SHARP) {
             read_line();
