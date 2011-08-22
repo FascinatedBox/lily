@@ -15,9 +15,88 @@ static lily_expr_op opcode_for_token(lily_tok_type t)
     return op;
 }
 
-lily_ast *lily_ast_init_call(lily_symbol *s)
+static lily_ast *next_pool_ast(lily_ast_pool *ap)
 {
-    lily_ast *a = lily_impl_malloc(sizeof(lily_ast));
+    if (ap->tree_index == ap->tree_size) {
+        ap->tree_size *= 2;
+        ap->tree_pool = lily_impl_realloc(ap->tree_pool,
+                        sizeof(lily_ast *) * ap->tree_size);
+
+        int i;
+        for (i = ap->tree_index;i < ap->tree_size;i++)
+            ap->tree_pool[i] = lily_impl_malloc(sizeof(lily_ast));
+    }
+
+    lily_ast *ret = ap->tree_pool[ap->tree_index];
+    ap->tree_index++;
+
+    return ret;
+}
+
+static struct lily_ast_list *next_pool_list(lily_ast_pool *ap)
+{
+    if (ap->list_index == ap->list_size) {
+        ap->list_size *= 2;
+        ap->list_pool = lily_impl_realloc(ap->list_pool,
+                        sizeof(struct lily_ast_list *) * ap->list_size);
+
+        int i;
+        for (i = ap->list_index;i < ap->list_size;i++)
+            ap->list_pool[i] = lily_impl_malloc(sizeof(struct lily_ast_list));
+    }
+
+    struct lily_ast_list *ret = ap->list_pool[ap->list_index];
+    ap->list_index++;
+
+    return ret;
+}
+
+void lily_ast_reset_pool(lily_ast_pool *ap)
+{
+    ap->tree_index = 0;
+    ap->list_index = 0;
+}
+
+void lily_ast_free_pool(lily_ast_pool *ap)
+{
+    int i;
+
+    for (i = 0;i < ap->tree_size;i++)
+        free(ap->tree_pool[i]);
+
+    for (i = 0;i < ap->list_size;i++)
+        free(ap->list_pool[i]);
+
+    free(ap->tree_pool);
+    free(ap->list_pool);
+    free(ap);
+}
+
+lily_ast_pool *lily_ast_init_pool(int pool_size)
+{
+    lily_ast_pool *ret;
+    int i;
+
+    ret = lily_impl_malloc(sizeof(lily_ast_pool));
+
+    ret->tree_pool = lily_impl_malloc(sizeof(lily_ast *) * pool_size);
+    for (i = 0;i < pool_size;i++)
+        ret->tree_pool[i] = lily_impl_malloc(sizeof(lily_ast));
+
+    ret->list_pool = lily_impl_malloc(sizeof(struct lily_ast_list *) *
+                                      pool_size);
+    for (i = 0;i < pool_size;i++)
+        ret->list_pool[i] = lily_impl_malloc(sizeof(struct lily_ast_list));
+
+    ret->tree_index = 0;
+    ret->tree_size = pool_size;
+    ret->list_index = 0;
+    ret->list_size = pool_size;
+}
+
+lily_ast *lily_ast_init_call(lily_ast_pool *ap, lily_symbol *s)
+{
+    lily_ast *a = next_pool_ast(ap);
 
     a->expr_type = func_call;
     a->data.call.sym = s;
@@ -26,18 +105,18 @@ lily_ast *lily_ast_init_call(lily_symbol *s)
     return a;
 }
 
-lily_ast *lily_ast_init_var(lily_symbol *s)
+lily_ast *lily_ast_init_var(lily_ast_pool *ap, lily_symbol *s)
 {
-    lily_ast *a = lily_impl_malloc(sizeof(lily_ast));
+    lily_ast *a = next_pool_ast(ap);
 
     a->expr_type = var;
     a->data.value = s;
     return a;
 }
 
-lily_ast *lily_ast_init_binary_op(lily_tok_type t)
+lily_ast *lily_ast_init_binary_op(lily_ast_pool *ap, lily_tok_type t)
 {
-    lily_ast *a = lily_impl_malloc(sizeof(lily_ast));
+    lily_ast *a = next_pool_ast(ap);
 
     a->expr_type = binary;
     a->data.bin_expr.op = opcode_for_token(t);
@@ -63,12 +142,12 @@ lily_ast *lily_ast_merge_trees(lily_ast *current, lily_ast *new_ast)
     return ret;
 }
 
-void lily_ast_add_arg(lily_ast *func, lily_ast *tree)
+void lily_ast_add_arg(lily_ast_pool *ap, lily_ast *func, lily_ast *tree)
 {
     /* fixme: This starts from the last arg and goes to the first arg, so trees
        get walked backwards and args emitted in the wrong order. Fix this when
        there's a function that needs 2+ args. */
-    struct lily_ast_list *l = lily_impl_malloc(sizeof(struct lily_ast_list));
+    struct lily_ast_list *l = next_pool_list(ap);
 
     l->ast = tree;
     l->next = func->data.call.args;
