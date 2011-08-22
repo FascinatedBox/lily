@@ -11,6 +11,7 @@ static lily_token *tok;
 typedef struct {
     int depth;
     int *num_expected;
+    lily_ast_pool *ast_pool;
     lily_ast **saved_trees;
     lily_ast *current_tree;
     int num_args;
@@ -32,14 +33,10 @@ void lily_init_parser(void)
     expr_state->saved_trees = lily_impl_malloc(sizeof(lily_ast *) * 32);
     expr_state->num_expected = lily_impl_malloc(sizeof(int) * 32);
 
+    expr_state->ast_pool = lily_ast_init_pool(32);
     expr_state->depth = 0;
     expr_state->num_args = 0;
     expr_state->current_tree = NULL;
-
-    int i;
-    for (i = 0;i < 32;i++)
-        expr_state->saved_trees[i] = NULL;
-    memset(expr_state->num_expected, 0, 32);
 }
 
 static void parse_expr_value(void)
@@ -51,7 +48,7 @@ static void parse_expr_value(void)
             if (sym->callable) {
                 /* New trees will get saved to the args section of this tree
                    when they are done. */
-                lily_ast *ast = lily_ast_init_call(sym);
+                lily_ast *ast = lily_ast_init_call(expr_state->ast_pool, sym);
                 expr_state->saved_trees[expr_state->depth] = ast;
 
                 enter_parenth(sym->num_args);
@@ -67,7 +64,7 @@ static void parse_expr_value(void)
         }
         else {
             lily_symbol *sym = lily_st_new_var_sym(tok->word_buffer);
-            lily_ast *ast = lily_ast_init_var(sym);
+            lily_ast *ast = lily_ast_init_var(expr_state->ast_pool, sym);
             if (expr_state->current_tree == NULL)
                 expr_state->current_tree = ast;
 
@@ -76,7 +73,7 @@ static void parse_expr_value(void)
     }
     else if (tok->tok_type == tk_double_quote) {
         lily_symbol *sym = lily_st_new_str_sym(tok->word_buffer);
-        lily_ast *ast = lily_ast_init_var(sym);
+        lily_ast *ast = lily_ast_init_var(expr_state->ast_pool, sym);
 
         expr_state->current_tree = ast;
 
@@ -84,7 +81,7 @@ static void parse_expr_value(void)
     }
     else if (tok->tok_type == tk_num_int) {
         lily_symbol *sym = lily_st_new_int_sym(tok->int_val);
-        lily_ast *ast = lily_ast_init_var(sym);
+        lily_ast *ast = lily_ast_init_var(expr_state->ast_pool, sym);;
 
         expr_state->current_tree = ast;
 
@@ -106,7 +103,9 @@ static void parse_expr_top(void)
         parse_expr_value();
         if (tok->tok_type == tk_equal) {
             lily_ast *a = expr_state->current_tree;
-            lily_ast *bt = lily_ast_init_binary_op(tk_equal);
+            lily_ast *bt;
+
+            bt = lily_ast_init_binary_op(expr_state->ast_pool, tk_equal);
             expr_state->current_tree = lily_ast_merge_trees(a, bt);
 
             lily_lexer();
@@ -117,7 +116,8 @@ static void parse_expr_top(void)
 
             lily_ast *a = expr_state->saved_trees[expr_state->depth - 1];
             if (a->expr_type == func_call)
-                lily_ast_add_arg(a, expr_state->current_tree);
+                lily_ast_add_arg(expr_state->ast_pool, a,
+                                 expr_state->current_tree);
 
             /* todo : Check proper # of arguments. */
             expr_state->current_tree = a;
@@ -152,8 +152,10 @@ void lily_parser(void)
     lily_lexer();
 
     while (1) {
-        if (tok->tok_type == tk_word)
+        if (tok->tok_type == tk_word) {
             parse_statement();
+            lily_ast_reset_pool(expr_state->ast_pool);
+        }
         else if (tok->tok_type == tk_end_tag) {
             /* Execute the code, eat html, then go back to collection. */
             lily_emit_ast(main_func, expr_state->current_tree);
@@ -165,4 +167,6 @@ void lily_parser(void)
                 break;
         }
     }
+
+    lily_ast_free_pool(expr_state->ast_pool);
 }
