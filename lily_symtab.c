@@ -35,6 +35,7 @@ static void init_temp_symbol(lily_symbol *s)
     s->code_data = NULL;
     s->sym_value = NULL;
     s->next = symtab;
+    s->callable = 0;
     symtab = s;
     s->sym_id = new_sym_id;
     new_sym_id++;
