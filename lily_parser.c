@@ -44,23 +44,24 @@ static void parse_expr_value(void)
     if (tok->tok_type == tk_word) {
         lily_symbol *sym = lily_st_find_symbol(tok->word_buffer);
 
-        if (sym != NULL) {
-            if (sym->callable) {
-                /* New trees will get saved to the args section of this tree
-                   when they are done. */
-                lily_ast *ast = lily_ast_init_call(expr_state->ast_pool, sym);
-                expr_state->saved_trees[expr_state->depth] = ast;
+        if (sym == NULL)
+            lily_impl_fatal("Variable '%s' is undefined.\n", tok->word_buffer);
 
-                enter_parenth(sym->num_args);
+        if (sym->callable) {
+            /* New trees will get saved to the args section of this tree
+                when they are done. */
+            lily_ast *ast = lily_ast_init_call(expr_state->ast_pool, sym);
+            expr_state->saved_trees[expr_state->depth] = ast;
 
-                lily_lexer();
-                if (tok->tok_type != tk_left_parenth)
-                    lily_impl_fatal("Expected '(' after function name.\n");
+            enter_parenth(sym->num_args);
 
-                lily_lexer();
-                /* This handles the first value of the function. */
-                parse_expr_value();
-            }
+            lily_lexer();
+            if (tok->tok_type != tk_left_parenth)
+                lily_impl_fatal("Expected '(' after function name.\n");
+
+            lily_lexer();
+            /* This handles the first value of the function. */
+            parse_expr_value();
         }
         else {
             lily_symbol *sym = lily_st_new_var_sym(tok->word_buffer);
@@ -151,6 +152,9 @@ static void parse_expr_top(void)
 static void parse_statement(void)
 {
     /* todo : Check for a proper tree. */
+    if (lily_st_find_symbol(tok->word_buffer) == NULL)
+        lily_st_new_var_sym(tok->word_buffer);
+
     parse_expr_top();
 }
 
