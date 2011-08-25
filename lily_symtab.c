@@ -113,6 +113,18 @@ lily_symbol *lily_st_new_int_sym(int int_val)
     return sym;
 }
 
+lily_symbol *lily_st_new_dbl_sym(double dbl_val)
+{
+    lily_symbol *sym = lily_impl_malloc(sizeof(lily_symbol));
+    init_temp_symbol(sym);
+
+    sym->sym_name = NULL;
+    sym->val_type = vt_double;
+    sym->sym_value = &dbl_val;
+
+    return sym;
+}
+
 lily_symbol *lily_st_new_var_sym(char *name)
 {
     lily_symbol *sym = lily_impl_malloc(sizeof(lily_symbol));

@@ -15,16 +15,17 @@ static int lex_linenum;
 static lily_token *lex_token;
 
 static char ch_class[255];
-#define CC_INVALID       0
-#define CC_WORD          1
-#define CC_LEFT_PARENTH  2
-#define CC_RIGHT_PARENTH 3
-#define CC_DOUBLE_QUOTE  4
-#define CC_AT            5
-#define CC_NEWLINE       6
-#define CC_SHARP         7
-#define CC_EQUAL         8
-#define CC_NUMBER        9
+#define CC_INVALID        0
+#define CC_WORD           1
+#define CC_LEFT_PARENTH   2
+#define CC_RIGHT_PARENTH  3
+#define CC_DOUBLE_QUOTE   4
+#define CC_AT             5
+#define CC_NEWLINE        6
+#define CC_SHARP          7
+#define CC_EQUAL          8
+#define CC_NUMBER         9
+#define CC_DOT           10
 
 /* Add a line from the current page into the buffer. */
 static int read_line(void)
@@ -83,6 +84,44 @@ static char handle_str_escape()
         /* So compilers don't think this can exit without a return. */
         return 0;
     }
+}
+
+static int scan_whole_number(void)
+{
+    int i, total;
+
+    i = 0;
+    total = lex_buffer[lex_bufpos] - '0';
+    lex_bufpos++;
+
+    while (i < 9 && isdigit(lex_buffer[lex_bufpos])) {
+        total *= (total * 10) + lex_buffer[lex_bufpos] - '0';
+        i++;
+        lex_bufpos++;
+    }
+
+    return total;
+}
+
+static double scan_decimal_number(void)
+{
+    int i;
+    double div, total;
+
+    i = 0;
+    div = 10.0;
+    total = (lex_buffer[lex_bufpos] - '0') / div;
+
+    lex_bufpos++;
+
+    while (i < 9 && isdigit(lex_buffer[lex_bufpos])) {
+        div *= 10;
+        total += (lex_buffer[lex_bufpos] - '0') / div;
+        i++;
+        lex_bufpos++;
+    }
+
+    return total;
 }
 
 void lily_lexer_handle_page_data(void)
@@ -181,6 +220,7 @@ void lily_init_lexer(char *filename)
     ch_class[(unsigned char)'\n'] = CC_NEWLINE;
     ch_class[(unsigned char)'#'] = CC_SHARP;
     ch_class[(unsigned char)'='] = CC_EQUAL;
+    ch_class[(unsigned char)'.'] = CC_DOT;
 
     read_line();
     /* Make sure the lexer starts after the <@lily block. */
@@ -267,19 +307,24 @@ void lily_lexer(void)
             lex_token->tok_type = tk_equal;
         }
         else if (group == CC_NUMBER) {
-            int i, total;
-
-            i = 0;
-            total = lex_buffer[lex_bufpos] - '0';
-            lex_bufpos++;
-
-            while (i < 9 && isdigit(lex_buffer[lex_bufpos])) {
-                total *= (total * 10) + lex_buffer[lex_bufpos] - '0';
-                i++;
+            int int_total;
+            int_total = scan_whole_number();
+            if (lex_buffer[lex_bufpos] == '.') {
                 lex_bufpos++;
+                double dbl_total = scan_decimal_number();
+                dbl_total += int_total;
+                lex_token->dbl_val = dbl_total;
+                lex_token->tok_type = tk_num_dbl;
             }
-            lex_token->int_val = total;
-            lex_token->tok_type = tk_num_int;
+            else {
+                lex_token->int_val = int_total;
+                lex_token->tok_type = tk_num_int;
+            }
+        }
+        else if (group == CC_DOT) {
+            double dbl_total = scan_decimal_number();
+            lex_token->dbl_val = dbl_total;
+            lex_token->tok_type = tk_num_dbl;
         }
         else if (group == CC_NEWLINE || group == CC_SHARP) {
             read_line();

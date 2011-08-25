@@ -81,7 +81,15 @@ static void parse_expr_value(void)
     }
     else if (tok->tok_type == tk_num_int) {
         lily_symbol *sym = lily_st_new_int_sym(tok->int_val);
-        lily_ast *ast = lily_ast_init_var(expr_state->ast_pool, sym);;
+        lily_ast *ast = lily_ast_init_var(expr_state->ast_pool, sym);
+
+        expr_state->current_tree = ast;
+
+        lily_lexer();
+    }
+    else if (tok->tok_type == tk_num_dbl) {
+        lily_symbol *sym = lily_st_new_dbl_sym(tok->dbl_val);
+        lily_ast *ast = lily_ast_init_var(expr_state->ast_pool, sym);
 
         expr_state->current_tree = ast;
 
