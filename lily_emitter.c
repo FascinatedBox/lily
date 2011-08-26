@@ -55,7 +55,7 @@ static void walk_tree(lily_ast *ast, lily_code_data *cd)
     }
 }
 
-static void clear_reg_info()
+static void clear_reg_info(void)
 {
     reg_info->reg_num = 0;
 }

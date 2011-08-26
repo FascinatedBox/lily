@@ -53,7 +53,7 @@ static int read_line(void)
     return ok;
 }
 
-static char handle_str_escape()
+static char handle_str_escape(void)
 {
     /* lex_bufpos points to the first character in the escape. */
     char ch, ret;
@@ -227,7 +227,7 @@ void lily_init_lexer(char *filename)
     lily_lexer_handle_page_data();
 }
 
-lily_token *lily_lexer_token()
+lily_token *lily_lexer_token(void)
 {
     return lex_token;
 }
