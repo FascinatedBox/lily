@@ -7,7 +7,7 @@
 #include "lily_emitter.h"
 #include "lily_symtab.h"
 
-/* fake_server_main.c :
+/* fs_main.c :
  * Since lily will be run from a server for most of the time, this emulates a
  * server...kind of. */
 
