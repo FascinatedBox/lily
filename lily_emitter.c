@@ -16,11 +16,11 @@ static void walk_tree(lily_ast *ast, lily_code_data *cd)
 
         if ((cd->code_pos + 3) > cd->code_len) {
             cd->code_len *= 2;
-            lily_impl_realloc(cd->code, cd->code_len);
+            cd->code = lily_impl_realloc(cd->code, sizeof(int) * cd->code_len);
         }
 
         cd->code[cd->code_pos] = o_load_reg;
-        cd->code[cd->code_pos+1] = 0;
+        cd->code[cd->code_pos+1] = ast->reg_pos;
         cd->code[cd->code_pos+2] = (int)ast->data.value;
         cd->code_pos += 3;
     }
