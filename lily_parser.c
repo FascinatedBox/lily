@@ -156,6 +156,8 @@ static void parse_statement(void)
         lily_st_new_var_sym(tok->word_buffer);
 
     parse_expr_top();
+    lily_emit_ast(main_func, expr_state->current_tree);
+    lily_ast_reset_pool(expr_state->ast_pool);
 }
 
 void lily_parser(void)
@@ -164,13 +166,10 @@ void lily_parser(void)
     lily_lexer();
 
     while (1) {
-        if (tok->tok_type == tk_word) {
+        if (tok->tok_type == tk_word)
             parse_statement();
-            lily_ast_reset_pool(expr_state->ast_pool);
-        }
         else if (tok->tok_type == tk_end_tag) {
             /* Execute the code, eat html, then go back to collection. */
-            lily_emit_ast(main_func, expr_state->current_tree);
             lily_emit_vm_return(main_func);
             lily_vm_execute(main_func);
 
