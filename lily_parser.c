@@ -76,7 +76,8 @@ static void parse_expr_value(void)
         lily_symbol *sym = lily_st_new_str_sym(tok->word_buffer);
         lily_ast *ast = lily_ast_init_var(expr_state->ast_pool, sym);
 
-        expr_state->current_tree = ast;
+        expr_state->current_tree = lily_ast_merge_trees(
+            expr_state->current_tree, ast);
 
         lily_lexer();
     }
@@ -84,7 +85,8 @@ static void parse_expr_value(void)
         lily_symbol *sym = lily_st_new_int_sym(tok->int_val);
         lily_ast *ast = lily_ast_init_var(expr_state->ast_pool, sym);
 
-        expr_state->current_tree = ast;
+        expr_state->current_tree = lily_ast_merge_trees(
+            expr_state->current_tree, ast);
 
         lily_lexer();
     }
@@ -92,7 +94,8 @@ static void parse_expr_value(void)
         lily_symbol *sym = lily_st_new_dbl_sym(tok->dbl_val);
         lily_ast *ast = lily_ast_init_var(expr_state->ast_pool, sym);
 
-        expr_state->current_tree = ast;
+        expr_state->current_tree = lily_ast_merge_trees(
+            expr_state->current_tree, ast);
 
         lily_lexer();
     }
@@ -158,6 +161,7 @@ static void parse_statement(void)
     parse_expr_top();
     lily_emit_ast(main_func, expr_state->current_tree);
     lily_ast_reset_pool(expr_state->ast_pool);
+    expr_state->current_tree = NULL;
 }
 
 void lily_parser(void)
