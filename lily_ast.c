@@ -130,14 +130,25 @@ lily_ast *lily_ast_merge_trees(lily_ast *current, lily_ast *new_ast)
 {
     lily_ast *ret;
 
-    if (current->expr_type == var ||
+    if (current == NULL) {
+        /* new_ast is the left value. */
+        ret = new_ast;
+    }
+    else if (current->expr_type == var ||
         current->expr_type == func_call) {
         /* current = value, new = binary op. Binary op becomes parent. */
         new_ast->data.bin_expr.left = current;
         ret = new_ast;
     }
-    else
-        lily_impl_fatal("lily_ast_merge_trees: Handle case of current=tree.\n");
+    else {
+        /* current = op, new = value or binary op. */
+        if (new_ast->expr_type == var || new_ast->expr_type == func_call) {
+            current->data.bin_expr.right = new_ast;
+            ret = current;
+        }
+        else
+            lily_impl_fatal("lily_ast_merge_trees: Handle two tree merge.\n");
+    }
 
     return ret;
 }
