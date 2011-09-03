@@ -28,8 +28,14 @@ void lily_vm_execute(lily_symbol *sym)
                 ci += 2;
                 break;
             case o_assign:
-                regs[code[ci]]->sym_value = (void *)code[ci+1];
-                regs[code[ci]]->val_type = (lily_val_type)code[ci+2];
+                {
+                    /* fixme: This will leak if the left side is a string or a
+                       list. */
+                    lily_symbol *left = (lily_symbol *)regs[code[ci+1]];
+                    lily_symbol *right = (lily_symbol *)regs[code[ci+2]];
+                    left->sym_value = right->sym_value;
+                    left->val_type = right->val_type;
+                }
                 ci += 3;
                 break;
             case o_vm_return:
