@@ -53,6 +53,23 @@ static void walk_tree(lily_ast *ast, lily_code_data *cd)
 
         cd->code_pos = new_pos;
     }
+    else if (ast->expr_type == binary) {
+        if (ast->data.bin_expr.op == expr_assign) {
+            walk_tree(ast->data.bin_expr.left, cd);
+            walk_tree(ast->data.bin_expr.right, cd);
+
+            if ((cd->code_pos + 3) > cd->code_len) {
+                cd->code_len *= 2;
+                cd->code = lily_impl_realloc(cd->code, sizeof(int) *
+                                             cd->code_len);
+            }
+
+            cd->code[cd->code_pos] = o_assign;
+            cd->code[cd->code_pos+1] = ast->data.bin_expr.left->reg_pos;
+            cd->code[cd->code_pos+2] = ast->data.bin_expr.right->reg_pos;
+            cd->code_pos += 3;
+        }
+    }
 }
 
 static void clear_reg_info(void)
