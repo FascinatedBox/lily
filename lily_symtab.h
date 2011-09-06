@@ -1,6 +1,8 @@
 #ifndef LILY_SYMTAB_H
 # define LILY_SYMTAB_H
 
+# include "lily_interp.h"
+
 typedef enum {
     vt_builtin,
     vt_int,
@@ -31,8 +33,8 @@ typedef struct {
     int code_pos;
 } lily_code_data;
 
-typedef struct lily_symbol_ {
-    struct lily_symbol_ *next;
+typedef struct lily_symbol_t {
+    struct lily_symbol_t *next;
     char *sym_name;
     int sym_id;
     int callable;
@@ -46,14 +48,11 @@ typedef struct lily_symbol_ {
 #define SYM_ID_STR   0
 #define SYM_ID_PRINT 1
 
-lily_symbol *symtab;
-lily_symbol *main_func;
-
-lily_symbol *lily_st_new_var_sym(char *);
-lily_symbol *lily_st_new_str_sym(char *);
-lily_symbol *lily_st_new_int_sym(int);
-lily_symbol *lily_st_new_dbl_sym(double);
-lily_symbol *lily_st_find_symbol(char *);
-void lily_init_symtab(void);
+lily_symbol *lily_st_new_var_sym(lily_interp *, char *);
+lily_symbol *lily_st_new_str_sym(lily_interp *, char *);
+lily_symbol *lily_st_new_int_sym(lily_interp *, int);
+lily_symbol *lily_st_new_dbl_sym(lily_interp *, double);
+lily_symbol *lily_st_find_symbol(lily_symbol *, char *);
+void lily_init_symtab(lily_interp *);
 
 #endif

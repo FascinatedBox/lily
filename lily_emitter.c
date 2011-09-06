@@ -1,18 +1,14 @@
 #include "lily_ast.h"
 #include "lily_opcode.h"
 #include "lily_impl.h"
+#include "lily_emitter.h"
 
-typedef struct {
-    int reg_num;
-} reg_data;
-
-reg_data *reg_info;
-
-static void walk_tree(lily_ast *ast, lily_code_data *cd)
+static void walk_tree(lily_ast *ast, lily_code_data *cd,
+                      lily_reg_data *reg_state)
 {
     if (ast->expr_type == var) {
-        ast->reg_pos = reg_info->reg_num;
-        reg_info->reg_num++;
+        ast->reg_pos = reg_state->next_reg;
+        reg_state->next_reg++;
 
         if ((cd->code_pos + 3) > cd->code_len) {
             cd->code_len *= 2;
@@ -32,7 +28,7 @@ static void walk_tree(lily_ast *ast, lily_code_data *cd)
            calculated and the end values into registers. */
         list = ast->data.call.args;
         while (list != NULL) {
-            walk_tree(list->ast, cd);
+            walk_tree(list->ast, cd, reg_state);
             list = list->next;
         }
 
@@ -55,8 +51,8 @@ static void walk_tree(lily_ast *ast, lily_code_data *cd)
     }
     else if (ast->expr_type == binary) {
         if (ast->data.bin_expr.op == expr_assign) {
-            walk_tree(ast->data.bin_expr.left, cd);
-            walk_tree(ast->data.bin_expr.right, cd);
+            walk_tree(ast->data.bin_expr.left, cd, reg_state);
+            walk_tree(ast->data.bin_expr.right, cd, reg_state);
 
             if ((cd->code_pos + 3) > cd->code_len) {
                 cd->code_len *= 2;
@@ -72,9 +68,9 @@ static void walk_tree(lily_ast *ast, lily_code_data *cd)
     }
 }
 
-static void clear_reg_info(void)
+static void clear_reg_info(lily_reg_data *reg_state)
 {
-    reg_info->reg_num = 0;
+    reg_state->next_reg = 0;
 }
 
 void lily_emit_vm_return(lily_symbol *main_func)
@@ -89,14 +85,19 @@ void lily_emit_vm_return(lily_symbol *main_func)
     cd->code_pos++;
 }
 
-void lily_emit_ast(lily_symbol *caller, lily_ast *ast)
+void lily_emit_ast(lily_symbol *caller, lily_ast *ast, lily_reg_data *reg_state)
 {
-    walk_tree(ast, caller->code_data);
-    clear_reg_info();
+    walk_tree(ast, caller->code_data, reg_state);
+    clear_reg_info(reg_state);
 }
 
-void lily_init_emitter(void)
+lily_reg_data *lily_init_reg_data(void)
 {
-    reg_info = lily_impl_malloc(sizeof(reg_data));
-    reg_info->reg_num = 0;
+    lily_reg_data *ret = lily_impl_malloc(sizeof(lily_reg_data));
+    ret->next_reg = 0;
+}
+
+void lily_free_reg_data(lily_reg_data *reg_data)
+{
+    free(reg_data);
 }
