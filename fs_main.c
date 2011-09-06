@@ -52,11 +52,9 @@ int main(int argc, char **argv)
     if (argc != 2)
         lily_impl_fatal("Usage : lily_fs <filename>\n");
 
-    lily_init_lexer(argv[1]);
-    lily_init_symtab();
-    lily_init_parser();
-    lily_init_emitter();
-    lily_parser();
+    lily_interp *itp = lily_init_interp();
+    lily_include(itp->lex_data, argv[1]);
+    lily_parser(itp);
 
     exit(EXIT_SUCCESS);
 }
