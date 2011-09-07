@@ -4,11 +4,10 @@
 </head>
 <body>
 <@lily
-# str, int, float, list
+# str, int, float
 a = "a"
 b = 1
 c = 1.0
-d = [a, [b], c]
 @>
 </body>
 </html>
