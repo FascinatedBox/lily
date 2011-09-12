@@ -54,5 +54,5 @@ lily_symbol *lily_st_new_int_sym(lily_interp *, int);
 lily_symbol *lily_st_new_dbl_sym(lily_interp *, double);
 lily_symbol *lily_st_find_symbol(lily_symbol *, char *);
 void lily_init_symtab(lily_interp *);
-
+void lily_show_symtab(lily_symbol *);
 #endif
