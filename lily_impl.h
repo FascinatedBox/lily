@@ -20,4 +20,6 @@ void *lily_impl_malloc(size_t);
 /* See above, except for realloc instead of malloc. */
 void *lily_impl_realloc(void *, size_t);
 
+/* Used for sending debug messages. */
+void lily_impl_debugf(char *, ...);
 #endif

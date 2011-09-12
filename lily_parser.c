@@ -6,6 +6,7 @@
 #include "lily_symtab.h"
 #include "lily_impl.h"
 #include "lily_emitter.h"
+#include "lily_debug.h"
 
 typedef struct {
     int depth;
@@ -192,6 +193,9 @@ void lily_parser(lily_interp *interp)
         else if (token->tok_type == tk_end_tag) {
             /* Execute the code, eat html, then go back to collection. */
             lily_emit_vm_return(interp->main_func);
+            /* Show symtab until the bugs are gone. */
+            lily_show_symtab(interp->symtab);
+
             lily_vm_execute(interp->main_func);
 
             lily_lexer_handle_page_data(interp->lex_data);

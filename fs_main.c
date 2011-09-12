@@ -28,6 +28,14 @@ void lily_impl_fatal(char *format, ...)
     exit(EXIT_FAILURE);
 }
 
+void lily_impl_debugf(char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    vprintf(format, ap);
+    va_end(ap);
+}
+
 void *lily_impl_malloc(size_t memsize)
 {
     void *chunk = malloc(memsize);
