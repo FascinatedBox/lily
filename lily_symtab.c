@@ -21,8 +21,18 @@ static void add_symbol(lily_interp *itp, lily_symbol *s)
     s->sym_id = itp->new_sym_id;
     itp->new_sym_id++;
 
-    s->next = itp->symtab;
-    itp->symtab = s;
+    s->next = NULL;
+    /* The symtab is the oldest, for iteration. The symtab_top is the newest,
+       for adding new elements. */
+    if (itp->symtab == NULL) {
+        /* If no symtab, this is both the oldest and newest. */
+        itp->symtab = s;
+        itp->symtab_top = s;
+    }
+    else {
+        itp->symtab_top->next = s;
+        itp->symtab_top = s;
+    }
 }
 
 static void init_temp_symbol(lily_symbol *s)
@@ -55,7 +65,7 @@ void lily_init_symtab(lily_interp *itp)
         add_symbol(itp, s);
     }
 
-    lily_symbol *main_func = itp->symtab;
+    lily_symbol *main_func = itp->symtab_top;
     lily_code_data *cd = lily_impl_malloc(sizeof(lily_code_data));
     cd->code = lily_impl_malloc(sizeof(int) * 4);
     cd->code_len = 4;
