@@ -77,7 +77,6 @@ static void parse_expr_value(lily_interp *interp, parser_data *pr_data)
             parse_expr_value(interp, pr_data);
         }
         else {
-            lily_symbol *sym = lily_st_new_var_sym(interp, token->word_buffer);
             lily_ast *ast = lily_ast_init_var(pr_data->ast_pool, sym);
             if (pr_data->current_tree == NULL)
                 pr_data->current_tree = ast;
