@@ -62,6 +62,7 @@ void lily_init_symtab(lily_interp *itp)
         s->num_args = keywords[i].num_args;
         s->sym_value = NULL;
         s->val_type = vt_builtin;
+        s->line_num = 0;
         add_symbol(itp, s);
     }
 
@@ -105,6 +106,7 @@ lily_symbol *lily_st_new_str_sym(lily_interp *itp, char *str_val)
     sym->sym_name = NULL;
     sym->val_type = vt_str;
     sym->sym_value = strval;
+    sym->line_num = itp->lex_data->line_num;
 
     add_symbol(itp, sym);
     return sym;
@@ -118,6 +120,7 @@ lily_symbol *lily_st_new_int_sym(lily_interp *itp, int int_val)
     sym->sym_name = NULL;
     sym->val_type = vt_int;
     sym->sym_value = &int_val;
+    sym->line_num = itp->lex_data->line_num;
 
     add_symbol(itp, sym);
     return sym;
@@ -131,6 +134,7 @@ lily_symbol *lily_st_new_dbl_sym(lily_interp *itp, double dbl_val)
     sym->sym_name = NULL;
     sym->val_type = vt_double;
     sym->sym_value = &dbl_val;
+    sym->line_num = itp->lex_data->line_num;
 
     add_symbol(itp, sym);
     return sym;
@@ -144,6 +148,7 @@ lily_symbol *lily_st_new_var_sym(lily_interp *itp, char *name)
     sym->sym_name = lily_impl_malloc(strlen(name) + 1);
     sym->val_type = vt_unknown;
     sym->sym_value = NULL;
+    sym->line_num = itp->lex_data->line_num;
     strcpy(sym->sym_name, name);
 
     add_symbol(itp, sym);

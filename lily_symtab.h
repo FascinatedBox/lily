@@ -37,6 +37,7 @@ typedef struct lily_symbol_t {
     struct lily_symbol_t *next;
     char *sym_name;
     int sym_id;
+    int line_num;
     int callable;
     int num_args;
     void *sym_value;
