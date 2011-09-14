@@ -52,6 +52,10 @@ void lily_show_symtab(lily_symbol *symtab)
         char *name = sym->sym_name == NULL ? "<no-name>" : sym->sym_name;
         lily_impl_debugf("Symbol #%d (%s):\n", sym->sym_id, name);
 
+        /* Skip syms that hold only values, and builtins, respectively. */
+        if (sym->sym_name != NULL && sym->line_num != 0)
+            lily_impl_debugf("    from line %d\n", sym->line_num);
+
         lily_impl_debugf("    type = %s\n", name_for_type(sym->val_type));
         if (sym->callable && sym->code_data != NULL) {
             lily_impl_debugf("    callable = yes; args = %d\n", sym->num_args);

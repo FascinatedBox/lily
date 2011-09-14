@@ -211,6 +211,7 @@ void lily_init_lexer(lily_interp *interp)
 
     lex_data->token = lily_impl_malloc(sizeof(lily_token));
     lex_data->token->word_buffer = lily_impl_malloc(1024 * sizeof(char));
+    lex_data->line_num = 0;
 
     char *ch_class = lily_impl_malloc(256 * sizeof(char));
 
