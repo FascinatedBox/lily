@@ -15,7 +15,7 @@ typedef struct {
     lily_ast **saved_trees;
     lily_ast *current_tree;
     int num_args;
-    lily_reg_data *reg_state;
+    lily_emit_state *em_state;
 } parser_data;
 
 static void enter_parenth(parser_data *pr_data, int args_needed)
@@ -25,7 +25,7 @@ static void enter_parenth(parser_data *pr_data, int args_needed)
     pr_data->current_tree = NULL;
 }
 
-static parser_data *init_parser_data(void)
+static parser_data *init_parser_data(lily_interp *interp)
 {
     parser_data *pr_data = lily_impl_malloc(sizeof(parser_data));
     pr_data->saved_trees = lily_impl_malloc(sizeof(lily_ast *) * 32);
@@ -35,14 +35,15 @@ static parser_data *init_parser_data(void)
     pr_data->num_args = 0;
     pr_data->current_tree = NULL;
 
-    pr_data->reg_state = lily_init_reg_data();
+    pr_data->em_state = lily_init_emit_state(interp);
+    lily_emit_set_target(pr_data->em_state, interp->main_func);
     return pr_data;
 }
 
 static void free_parser_data(parser_data *pr_data)
 {
     lily_ast_free_pool(pr_data->ast_pool);
-    lily_free_reg_data(pr_data->reg_state);
+    lily_free_emit_state(pr_data->em_state);
     free(pr_data->saved_trees);
     free(pr_data->num_expected);
     free(pr_data);
@@ -174,14 +175,14 @@ static void parse_statement(lily_interp *interp, parser_data *pr_data)
         lily_st_new_var_sym(interp, word_buffer);
 
     parse_expr_top(interp, pr_data);
-    lily_emit_ast(interp->main_func, pr_data->current_tree, pr_data->reg_state);
+    lily_emit_ast(pr_data->em_state, pr_data->current_tree);
     lily_ast_reset_pool(pr_data->ast_pool);
     pr_data->current_tree = NULL;
 }
 
 void lily_parser(lily_interp *interp)
 {
-    parser_data *pr_data = init_parser_data();
+    parser_data *pr_data = init_parser_data(interp);
     lily_token *token = interp->lex_data->token;
 
     lily_lexer(interp->lex_data);
@@ -191,7 +192,7 @@ void lily_parser(lily_interp *interp)
             parse_statement(interp, pr_data);
         else if (token->tok_type == tk_end_tag) {
             /* Execute the code, eat html, then go back to collection. */
-            lily_emit_vm_return(interp->main_func);
+            lily_emit_vm_return(pr_data->em_state);
             /* Show symtab until the bugs are gone. */
             lily_show_symtab(interp->symtab);
 

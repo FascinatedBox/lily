@@ -2,14 +2,19 @@
 # define LILY_EMITTER_H
 
 # include "lily_ast.h"
+# include "lily_symtab.h"
+# include "lily_interp.h"
 
 typedef struct {
     int next_reg;
-} lily_reg_data;
+    lily_code_data *target;
+    lily_interp *interp;
+} lily_emit_state;
 
-lily_reg_data *lily_init_reg_data(void);
-void lily_free_reg_data(lily_reg_data *);
-void lily_emit_ast(lily_symbol *, lily_ast *, lily_reg_data *);
-void lily_emit_vm_return(lily_symbol *);
+lily_emit_state *lily_init_emit_state(lily_interp *);
+void lily_free_emit_state(lily_emit_state *);
+void lily_emit_ast(lily_emit_state *, lily_ast *);
+void lily_emit_vm_return(lily_emit_state *);
+void lily_emit_set_target(lily_emit_state *, lily_symbol *);
 
 #endif
