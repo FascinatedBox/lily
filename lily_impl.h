@@ -10,7 +10,7 @@
 void lily_impl_send_html(char *);
 
 /* This is called when lily has encountered a fatal error. */
-void lily_impl_fatal_error(char *, ...);
+void lily_impl_fatal(char *, ...);
 
 /* This is called when lily needs to allocate memory. The implementation should
    call to have the interpreter gracefully exit. Since that isn't possible yet,
