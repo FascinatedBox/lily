@@ -36,25 +36,6 @@ void lily_impl_debugf(char *format, ...)
     va_end(ap);
 }
 
-void *lily_impl_malloc(size_t memsize)
-{
-    void *chunk = malloc(memsize);
-    if (chunk == NULL)
-        /* Report the size too, in case that's the reason. */
-        lily_impl_fatal("Failed to malloc a chunk of size %d.\n", memsize);
-    
-    return chunk;
-}
-
-void *lily_impl_realloc(void *chunk, size_t memsize)
-{
-    void *newchunk = realloc(chunk, memsize);
-    if (newchunk == NULL)
-        lily_impl_fatal("Failed to realloc a chunk to size %d.\n", memsize);
-
-    return newchunk;
-}
-
 int main(int argc, char **argv)
 {
     if (argc != 2)

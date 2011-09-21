@@ -27,9 +27,9 @@ static void enter_parenth(parser_data *pr_data, int args_needed)
 
 static parser_data *init_parser_data(lily_interp *interp)
 {
-    parser_data *pr_data = lily_impl_malloc(sizeof(parser_data));
-    pr_data->saved_trees = lily_impl_malloc(sizeof(lily_ast *) * 32);
-    pr_data->num_expected = lily_impl_malloc(sizeof(int) * 32);
+    parser_data *pr_data = lily_malloc(sizeof(parser_data));
+    pr_data->saved_trees = lily_malloc(sizeof(lily_ast *) * 32);
+    pr_data->num_expected = lily_malloc(sizeof(int) * 32);
     pr_data->ast_pool = lily_ast_init_pool(32);
     pr_data->depth = 0;
     pr_data->num_args = 0;

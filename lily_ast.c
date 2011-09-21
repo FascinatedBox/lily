@@ -19,12 +19,12 @@ static lily_ast *next_pool_ast(lily_ast_pool *ap)
 {
     if (ap->tree_index == ap->tree_size) {
         ap->tree_size *= 2;
-        ap->tree_pool = lily_impl_realloc(ap->tree_pool,
+        ap->tree_pool = lily_realloc(ap->tree_pool,
                         sizeof(lily_ast *) * ap->tree_size);
 
         int i;
         for (i = ap->tree_index;i < ap->tree_size;i++)
-            ap->tree_pool[i] = lily_impl_malloc(sizeof(lily_ast));
+            ap->tree_pool[i] = lily_malloc(sizeof(lily_ast));
     }
 
     lily_ast *ret = ap->tree_pool[ap->tree_index];
@@ -37,12 +37,12 @@ static struct lily_ast_list *next_pool_list(lily_ast_pool *ap)
 {
     if (ap->list_index == ap->list_size) {
         ap->list_size *= 2;
-        ap->list_pool = lily_impl_realloc(ap->list_pool,
+        ap->list_pool = lily_realloc(ap->list_pool,
                         sizeof(struct lily_ast_list *) * ap->list_size);
 
         int i;
         for (i = ap->list_index;i < ap->list_size;i++)
-            ap->list_pool[i] = lily_impl_malloc(sizeof(struct lily_ast_list));
+            ap->list_pool[i] = lily_malloc(sizeof(struct lily_ast_list));
     }
 
     struct lily_ast_list *ret = ap->list_pool[ap->list_index];
@@ -77,16 +77,16 @@ lily_ast_pool *lily_ast_init_pool(int pool_size)
     lily_ast_pool *ret;
     int i;
 
-    ret = lily_impl_malloc(sizeof(lily_ast_pool));
+    ret = lily_malloc(sizeof(lily_ast_pool));
 
-    ret->tree_pool = lily_impl_malloc(sizeof(lily_ast *) * pool_size);
+    ret->tree_pool = lily_malloc(sizeof(lily_ast *) * pool_size);
     for (i = 0;i < pool_size;i++)
-        ret->tree_pool[i] = lily_impl_malloc(sizeof(lily_ast));
+        ret->tree_pool[i] = lily_malloc(sizeof(lily_ast));
 
-    ret->list_pool = lily_impl_malloc(sizeof(struct lily_ast_list *) *
+    ret->list_pool = lily_malloc(sizeof(struct lily_ast_list *) *
                                       pool_size);
     for (i = 0;i < pool_size;i++)
-        ret->list_pool[i] = lily_impl_malloc(sizeof(struct lily_ast_list));
+        ret->list_pool[i] = lily_malloc(sizeof(struct lily_ast_list));
 
     ret->tree_index = 0;
     ret->tree_size = pool_size;

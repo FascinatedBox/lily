@@ -201,19 +201,19 @@ void lily_include(lily_lex_data *lex_data, char *filename)
 
 void lily_init_lexer(lily_interp *interp)
 {
-    lily_lex_data *lex_data = lily_impl_malloc(sizeof(lily_lex_data));
-    lex_data->html_cache = lily_impl_malloc(1024 * sizeof(char));
+    lily_lex_data *lex_data = lily_malloc(sizeof(lily_lex_data));
+    lex_data->html_cache = lily_malloc(1024 * sizeof(char));
     lex_data->cache_size = 1023;
 
-    lex_data->lex_buffer = lily_impl_malloc(1024 * sizeof(char));
+    lex_data->lex_buffer = lily_malloc(1024 * sizeof(char));
     lex_data->lex_bufpos = 0;
     lex_data->lex_bufsize = 1023;
 
-    lex_data->token = lily_impl_malloc(sizeof(lily_token));
-    lex_data->token->word_buffer = lily_impl_malloc(1024 * sizeof(char));
+    lex_data->token = lily_malloc(sizeof(lily_token));
+    lex_data->token->word_buffer = lily_malloc(1024 * sizeof(char));
     lex_data->line_num = 0;
 
-    char *ch_class = lily_impl_malloc(256 * sizeof(char));
+    char *ch_class = lily_malloc(256 * sizeof(char));
 
     /* Initialize ch_class, which is used to determine what 'class' a letter
        is in. */
