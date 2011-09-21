@@ -13,7 +13,7 @@ void lily_vm_execute(lily_symbol *sym)
     lily_symbol **regs;
     int *code, ci;
 
-    regs = lily_impl_malloc(8 * sizeof(lily_symbol *));
+    regs = lily_malloc(8 * sizeof(lily_symbol *));
     code = sym->code_data->code;
     ci = 0;
 

@@ -2,6 +2,7 @@
 #include "lily_opcode.h"
 #include "lily_impl.h"
 #include "lily_emitter.h"
+#include <stdlib.h>
 
 static void walk_tree(lily_emit_state *em_state, lily_ast *ast)
 {
@@ -13,7 +14,7 @@ static void walk_tree(lily_emit_state *em_state, lily_ast *ast)
 
         if ((cd->code_pos + 3) > cd->code_len) {
             cd->code_len *= 2;
-            cd->code = lily_impl_realloc(cd->code, sizeof(int) * cd->code_len);
+            cd->code = lily_realloc(cd->code, sizeof(int) * cd->code_len);
         }
 
         cd->code[cd->code_pos] = o_load_reg;
@@ -38,7 +39,7 @@ static void walk_tree(lily_emit_state *em_state, lily_ast *ast)
         new_pos = cd->code_pos + 1 + ast->data.call.num_args;
         if (new_pos > cd->code_len) {
             cd->code_len *= 2;
-            cd->code = lily_impl_realloc(cd->code, sizeof(int) * cd->code_len);
+            cd->code = lily_realloc(cd->code, sizeof(int) * cd->code_len);
         }
 
         /* hack: assumes print is the only function. Fix soon. */
@@ -57,7 +58,7 @@ static void walk_tree(lily_emit_state *em_state, lily_ast *ast)
 
             if ((cd->code_pos + 3) > cd->code_len) {
                 cd->code_len *= 2;
-                cd->code = lily_impl_realloc(cd->code, sizeof(int) *
+                cd->code = lily_realloc(cd->code, sizeof(int) *
                                              cd->code_len);
             }
 
@@ -79,7 +80,7 @@ void lily_emit_vm_return(lily_emit_state *em_state)
     lily_code_data *cd = em_state->target;
     if ((cd->code_pos + 1) > cd->code_len) {
         cd->code_len *= 2;
-        cd->code = lily_impl_realloc(cd->code, sizeof(int) * cd->code_len);
+        cd->code = lily_realloc(cd->code, sizeof(int) * cd->code_len);
     }
 
     cd->code[cd->code_pos] = o_vm_return;
@@ -94,7 +95,7 @@ void lily_emit_ast(lily_emit_state *em_state, lily_ast *ast)
 
 lily_emit_state *lily_init_emit_state(lily_interp *interp)
 {
-    lily_emit_state *ret = lily_impl_malloc(sizeof(lily_emit_state));
+    lily_emit_state *ret = lily_malloc(sizeof(lily_emit_state));
     ret->next_reg = 0;
     ret->interp = interp;
     ret->target = NULL;
