@@ -40,8 +40,8 @@ typedef struct lily_lex_data_t {
 } lily_lex_data;
 
 void lily_init_lexer(lily_interp *);
-void lily_lexer(lily_lex_data *);
+void lily_lexer(lily_interp *);
 void lily_lexer_handle_page_data(lily_lex_data *);
-void lily_include(lily_lex_data *, char *name);
+void lily_include(lily_interp *, char *name);
 
 #endif

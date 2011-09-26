@@ -8,8 +8,6 @@ static lily_expr_op opcode_for_token(lily_tok_type t)
         case tk_equal:
             op = expr_assign;
             break;
-        default:
-            lily_impl_fatal("Invalid token for opcode: %d.\n", t);
     };
 
     return op;
@@ -147,7 +145,8 @@ lily_ast *lily_ast_merge_trees(lily_ast *current, lily_ast *new_ast)
             ret = current;
         }
         else
-            lily_impl_fatal("lily_ast_merge_trees: Handle two tree merge.\n");
+            /* todo: Figure out two-tree merge. */
+            ret = NULL;
     }
 
     return ret;

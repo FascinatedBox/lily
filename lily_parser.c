@@ -58,8 +58,8 @@ static void parse_expr_value(lily_interp *interp, parser_data *pr_data)
         sym = lily_st_find_symbol(interp->symtab, token->word_buffer);
 
         if (sym == NULL)
-            lily_impl_fatal("Variable '%s' is undefined.\n",
-                            token->word_buffer);
+            lily_raise(interp, err_syntax, "Variable '%s' is undefined.\n",
+                token->word_buffer);
 
         if (sym->callable) {
             /* New trees will get saved to the args section of this tree
@@ -69,11 +69,12 @@ static void parse_expr_value(lily_interp *interp, parser_data *pr_data)
 
             enter_parenth(pr_data, sym->num_args);
 
-            lily_lexer(interp->lex_data);
+            lily_lexer(interp);
             if (token->tok_type != tk_left_parenth)
-                lily_impl_fatal("Expected '(' after function name.\n");
+                lily_raise(interp, err_syntax,
+                    "Expected '(' after function name.\n");
 
-            lily_lexer(interp->lex_data);
+            lily_lexer(interp);
             /* This handles the first value of the function. */
             parse_expr_value(interp, pr_data);
         }
@@ -82,7 +83,7 @@ static void parse_expr_value(lily_interp *interp, parser_data *pr_data)
             if (pr_data->current_tree == NULL)
                 pr_data->current_tree = ast;
 
-            lily_lexer(interp->lex_data);
+            lily_lexer(interp);
         }
     }
     else if (token->tok_type == tk_double_quote) {
@@ -92,7 +93,7 @@ static void parse_expr_value(lily_interp *interp, parser_data *pr_data)
         pr_data->current_tree =
             lily_ast_merge_trees(pr_data->current_tree, ast);
 
-        lily_lexer(interp->lex_data);
+        lily_lexer(interp);
     }
     else if (token->tok_type == tk_num_int) {
         lily_symbol *sym = lily_st_new_int_sym(interp, token->int_val);
@@ -101,7 +102,7 @@ static void parse_expr_value(lily_interp *interp, parser_data *pr_data)
         pr_data->current_tree =
             lily_ast_merge_trees(pr_data->current_tree, ast);
 
-        lily_lexer(interp->lex_data);
+        lily_lexer(interp);
     }
     else if (token->tok_type == tk_num_dbl) {
         lily_symbol *sym = lily_st_new_dbl_sym(interp, token->dbl_val);
@@ -110,7 +111,7 @@ static void parse_expr_value(lily_interp *interp, parser_data *pr_data)
         pr_data->current_tree =
             lily_ast_merge_trees(pr_data->current_tree, ast);
 
-        lily_lexer(interp->lex_data);
+        lily_lexer(interp);
     }
 }
 
@@ -133,12 +134,15 @@ static void parse_expr_top(lily_interp *interp, parser_data *pr_data)
             lily_ast *op = lily_ast_init_binary_op(pr_data->ast_pool, tk_equal);
 
             pr_data->current_tree = lily_ast_merge_trees(lhs, op);
+            if (pr_data->current_tree == NULL)
+                lily_raise(interp, err_stub, "Handle two tree merge.\n");
 
-            lily_lexer(interp->lex_data);
+            lily_lexer(interp);
         }
         else if (token->tok_type == tk_right_parenth) {
             if (pr_data->current_tree == NULL)
-                lily_impl_fatal("')' but current tree is NULL!\n");
+                lily_raise(interp, err_internal,
+                    "')' but current tree is NULL!\n");
 
             lily_ast *a = pr_data->saved_trees[pr_data->depth - 1];
             if (a->expr_type == func_call)
@@ -151,7 +155,7 @@ static void parse_expr_top(lily_interp *interp, parser_data *pr_data)
 
             /* This should either be a binary op, or the first word of the next
                expression. Ready the token. */
-            lily_lexer(interp->lex_data);
+            lily_lexer(interp);
         }
         else if (token->tok_type == tk_word) {
             /* todo : Check balance of ( and ). */
@@ -160,8 +164,9 @@ static void parse_expr_top(lily_interp *interp, parser_data *pr_data)
         else if (token->tok_type == tk_end_tag)
             break;
         else {
-            lily_impl_fatal("parse_expr_top: Unexpected token value %d.\n",
-                            token->tok_type);
+            lily_raise(interp, err_stub,
+                "parse_expr_top: Unexpected token value %d.\n",
+                token->tok_type);
         }
     }
 };
@@ -185,7 +190,7 @@ void lily_parser(lily_interp *interp)
     parser_data *pr_data = init_parser_data(interp);
     lily_token *token = interp->lex_data->token;
 
-    lily_lexer(interp->lex_data);
+    lily_lexer(interp);
 
     while (1) {
         if (token->tok_type == tk_word)
