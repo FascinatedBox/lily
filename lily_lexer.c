@@ -45,37 +45,38 @@ static int read_line(lily_lex_data *lex_data)
     return ok;
 }
 
-static char handle_str_escape(char *buffer, int *pos)
+static int handle_str_escape(char *buffer, int *pos, char *ch)
 {
     /* lex_bufpos points to the first character in the escape. */
-    char ch, ret;
-    ch = buffer[*pos];
+    char testch;
+    int ret;
+
+    testch = buffer[*pos];
+    ret = 1;
 
     /* Make sure the buffer position stays ahead. */
     *pos = *pos + 1;
 
-    if (ch == 'n')
-        return '\n';
-    else if (ch == 'r')
-        return '\r';
-    else if (ch == 't')
-        return '\t';
-    else if (ch == '\'')
-        return '\'';
-    else if (ch == '"')
-        return '"';
-    else if (ch == '\\')
-        return '\\';
-    else if (ch == 'b')
-        return '\b';
-    else if (ch == 'a')
-        return '\a';
-    else {
-        lily_impl_fatal("Unexpected escape char '%c'.\n", ch);
+    if (testch == 'n')
+        *ch = '\n';
+    else if (testch == 'r')
+        *ch = '\r';
+    else if (testch == 't')
+        *ch = '\t';
+    else if (testch == '\'')
+        *ch = '\'';
+    else if (testch == '"')
+        *ch = '"';
+    else if (testch == '\\')
+        *ch = '\\';
+    else if (testch == 'b')
+        *ch = '\b';
+    else if (testch == 'a')
+        *ch = '\a';
+    else
+        ret = 0;
 
-        /* So compilers don't think this can exit without a return. */
-        return 0;
-    }
+    return ret;
 }
 
 static int scan_whole_number(char *buffer, int *start)
@@ -186,17 +187,17 @@ void lily_lexer_handle_page_data(lily_lex_data *lex_data)
     lex_data->lex_bufpos = lbp;
 }
 
-void lily_include(lily_lex_data *lex_data, char *filename)
+void lily_include(lily_interp *interp, char *filename)
 {
     FILE *lex_file = fopen(filename, "r");
     if (lex_file == NULL)
-        lily_impl_fatal("Failed to open %s.\n", filename);
+        lily_raise(interp, err_include, "Failed to open %s.\n", filename);
 
-    lex_data->lex_file = lex_file;
+    interp->lex_data->lex_file = lex_file;
 
-    read_line(lex_data);
+    read_line(interp->lex_data);
     /* Make sure the lexer starts after the <@lily block. */
-    lily_lexer_handle_page_data(lex_data);
+    lily_lexer_handle_page_data(interp->lex_data);
 }
 
 void lily_init_lexer(lily_interp *interp)
@@ -244,8 +245,9 @@ void lily_init_lexer(lily_interp *interp)
     interp->lex_data = lex_data;
 }
 
-void lily_lexer(lily_lex_data *lex_data)
+void lily_lexer(lily_interp *interp)
 {
+    lily_lex_data *lex_data = interp->lex_data;
     char *ch_class, *lex_buffer;
     int lex_bufpos = lex_data->lex_bufpos;
     lily_token *lex_token = lex_data->token;
@@ -300,14 +302,17 @@ void lily_lexer(lily_lex_data *lex_data)
                 word_buffer[word_pos] = ch;
                 word_pos++;
                 lex_bufpos++;
-                if (ch == '\\')
-                    ch = handle_str_escape(lex_buffer, &lex_bufpos);
+                if (ch == '\\') {
+                    if (handle_str_escape(lex_buffer, &lex_bufpos, &ch) == 0)
+                        lily_raise(interp, err_syntax,
+                            "Invalid escape code.\n");
+                }
 
                 ch = lex_buffer[lex_bufpos];
             } while (ch != '"' && ch != '\n' && ch != '\r');
 
             if (ch != '"')
-                lily_impl_fatal("String without closure.\n");
+                lily_raise(interp, err_syntax, "String without closure.\n");
 
             word_buffer[word_pos] = '\0';
             /* ...and the ending one too. */
@@ -319,7 +324,7 @@ void lily_lexer(lily_lex_data *lex_data)
             if (lex_buffer[lex_bufpos] == '>')
                 lex_token->tok_type = tk_end_tag;
             else
-                lily_impl_fatal("Expected '>' after '@'.\n");
+                lily_raise(interp, err_syntax, "Expected '>' after '@'.\n");
         }
         else if (group == CC_EQUAL) {
             lex_bufpos++;

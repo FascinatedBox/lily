@@ -18,16 +18,6 @@ void lily_impl_send_html(char *htmldata)
 
 }
 
-/* A fatal error somewhere. */
-void lily_impl_fatal(char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    vprintf(format, ap);
-    va_end(ap);
-    exit(EXIT_FAILURE);
-}
-
 void lily_impl_debugf(char *format, ...)
 {
     va_list ap;
@@ -38,12 +28,21 @@ void lily_impl_debugf(char *format, ...)
 
 int main(int argc, char **argv)
 {
-    if (argc != 2)
-        lily_impl_fatal("Usage : lily_fs <filename>\n");
+    if (argc != 2) {
+        fputs("Usage : lily_fs <filename>\n", stderr);
+        exit(EXIT_FAILURE);
+    }
 
-    lily_interp *itp = lily_init_interp();
-    lily_include(itp->lex_data, argv[1]);
-    lily_parser(itp);
+    lily_interp *interp = lily_init_interp();
+    if (interp == NULL) {
+        fputs(interp->excep_msg, stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    if (lily_parse_file(interp, argv[1]) == 0) {
+        fputs(interp->excep_msg, stderr);
+        exit(EXIT_FAILURE);
+    }
 
     exit(EXIT_SUCCESS);
 }

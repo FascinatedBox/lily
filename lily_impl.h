@@ -10,9 +10,6 @@
    to be free'd. */
 void lily_impl_send_html(char *);
 
-/* This is called when lily has encountered a fatal error. */
-void lily_impl_fatal(char *, ...);
-
 # define lily_malloc(size) malloc(size)
 # define lily_realloc(ptr, size) realloc(ptr, size)
 # define lily_free(ptr) free(ptr)
