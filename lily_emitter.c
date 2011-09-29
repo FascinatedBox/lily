@@ -1,16 +1,17 @@
+#include <stdlib.h>
+
 #include "lily_ast.h"
 #include "lily_opcode.h"
 #include "lily_impl.h"
 #include "lily_emitter.h"
-#include <stdlib.h>
 
-static void walk_tree(lily_emit_state *em_state, lily_ast *ast)
+static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_code_data *cd = em_state->target;
+    lily_code_data *cd = emit->target;
 
     if (ast->expr_type == var) {
-        ast->reg_pos = em_state->next_reg;
-        em_state->next_reg++;
+        ast->reg_pos = emit->next_reg;
+        emit->next_reg++;
 
         if ((cd->code_pos + 3) > cd->code_len) {
             cd->code_len *= 2;
@@ -30,7 +31,7 @@ static void walk_tree(lily_emit_state *em_state, lily_ast *ast)
            calculated and the end values into registers. */
         list = ast->data.call.args;
         while (list != NULL) {
-            walk_tree(em_state, list->ast);
+            walk_tree(emit, list->ast);
             list = list->next;
         }
 
@@ -53,8 +54,8 @@ static void walk_tree(lily_emit_state *em_state, lily_ast *ast)
     }
     else if (ast->expr_type == binary) {
         if (ast->data.bin_expr.op == expr_assign) {
-            walk_tree(em_state, ast->data.bin_expr.left);
-            walk_tree(em_state, ast->data.bin_expr.right);
+            walk_tree(emit, ast->data.bin_expr.left);
+            walk_tree(emit, ast->data.bin_expr.right);
 
             if ((cd->code_pos + 3) > cd->code_len) {
                 cd->code_len *= 2;
@@ -70,14 +71,14 @@ static void walk_tree(lily_emit_state *em_state, lily_ast *ast)
     }
 }
 
-static void clear_reg_info(lily_emit_state *em_state)
+static void clear_reg_info(lily_emit_state *emit)
 {
-    em_state->next_reg = 0;
+    emit->next_reg = 0;
 }
 
-void lily_emit_vm_return(lily_emit_state *em_state)
+void lily_emit_vm_return(lily_emit_state *emit)
 {
-    lily_code_data *cd = em_state->target;
+    lily_code_data *cd = emit->target;
     if ((cd->code_pos + 1) > cd->code_len) {
         cd->code_len *= 2;
         cd->code = lily_realloc(cd->code, sizeof(int) * cd->code_len);
@@ -87,28 +88,29 @@ void lily_emit_vm_return(lily_emit_state *em_state)
     cd->code_pos++;
 }
 
-void lily_emit_ast(lily_emit_state *em_state, lily_ast *ast)
+void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)
 {
-    walk_tree(em_state, ast);
-    clear_reg_info(em_state);
+    walk_tree(emit, ast);
+    clear_reg_info(emit);
 }
 
-lily_emit_state *lily_init_emit_state(lily_interp *interp)
+lily_emit_state *lily_new_emit_state(lily_excep_data *excep)
 {
-    lily_emit_state *ret = lily_malloc(sizeof(lily_emit_state));
-    ret->next_reg = 0;
-    ret->interp = interp;
-    ret->target = NULL;
+    lily_emit_state *s = lily_malloc(sizeof(lily_emit_state));
 
-    return ret;
+    s->next_reg = 0;
+    s->target = NULL;
+    s->error = excep;
+
+    return s;
 }
 
-void lily_emit_set_target(lily_emit_state *em_state, lily_symbol *sym)
+void lily_emit_set_target(lily_emit_state *emit, lily_symbol *sym)
 {
-    em_state->target = sym->code_data;
+    emit->target = sym->code_data;
 }
 
-void lily_free_emit_state(lily_emit_state *em_state)
+void lily_free_emit_state(lily_emit_state *emit)
 {
-    free(em_state);
+    free(emit);
 }

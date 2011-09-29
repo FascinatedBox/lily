@@ -2,7 +2,7 @@
 # define LILY_LEXER_H
 
 #include <stdio.h>
-#include "lily_interp.h"
+#include "lily_error.h"
 
 typedef enum {
     tk_invalid,
@@ -24,7 +24,7 @@ typedef struct lily_token_t {
     double dbl_val;
 } lily_token;
 
-typedef struct lily_lex_data_t {
+typedef struct {
     FILE *lex_file;
     int line_num;
     char *ch_class;
@@ -37,11 +37,12 @@ typedef struct lily_lex_data_t {
     int lex_bufend;
     int lex_bufsize;
     lily_token *token;
-} lily_lex_data;
+    lily_excep_data *error;
+} lily_lex_state;
 
-void lily_init_lexer(lily_interp *);
-void lily_lexer(lily_interp *);
-void lily_lexer_handle_page_data(lily_lex_data *);
-void lily_include(lily_interp *, char *name);
+lily_lex_state *lily_new_lex_state(lily_excep_data *);
+void lily_lexer(lily_lex_state *);
+void lily_lexer_handle_page_data(lily_lex_state *);
+void lily_include(lily_lex_state *, char *);
 
 #endif

@@ -1,7 +1,6 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "lily_interp.h"
 #include "lily_lexer.h"
 #include "lily_impl.h"
 
@@ -18,11 +17,11 @@
 #define CC_DOT           10
 
 /* Add a line from the current page into the buffer. */
-static int read_line(lily_lex_data *lex_data)
+static int read_line(lily_lex_state *lexer)
 {
     int ch, i, ok;
-    char *lex_buffer = lex_data->lex_buffer;
-    FILE *lex_file = lex_data->lex_file;
+    char *lex_buffer = lexer->lex_buffer;
+    FILE *lex_file = lexer->lex_file;
 
     i = 0;
 
@@ -35,8 +34,8 @@ static int read_line(lily_lex_data *lex_data)
         lex_buffer[i] = ch;
 
         if (ch == '\r' || ch == '\n') {
-            lex_data->lex_bufend = i;
-            lex_data->line_num++;
+            lexer->lex_bufend = i;
+            lexer->line_num++;
             ok = 1;
             break;
         }
@@ -122,27 +121,27 @@ static double scan_decimal_number(char *buffer, int *start)
     return total;
 }
 
-void lily_lexer_handle_page_data(lily_lex_data *lex_data)
+void lily_lexer_handle_page_data(lily_lex_state *lexer)
 {
     char c;
     char *lex_buffer, *html_cache;
     int at_file_end, html_bufsize, lbp, htmlp;
 
     /* htmlp and lbp are used so it's obvious they aren't globals. */
-    lex_buffer = lex_data->lex_buffer;
-    html_cache = lex_data->html_cache;
-    lbp = lex_data->lex_bufpos;
+    lex_buffer = lexer->lex_buffer;
+    html_cache = lexer->html_cache;
+    lbp = lexer->lex_bufpos;
     at_file_end = 0;
     c = lex_buffer[lbp];
     htmlp = 0;
-    html_bufsize = lex_data->cache_size;
+    html_bufsize = lexer->cache_size;
 
     /* Send html to the server either when unable to hold more or the lily tag
        is found. */
     while (1) {
         lbp++;
         if (c == '<') {
-            if ((lbp + 4) <= lex_data->lex_bufend &&
+            if ((lbp + 4) <= lexer->lex_bufend &&
                 strncmp(lex_buffer + lbp, "@lily", 5) == 0) {
                 if (htmlp != 0) {
                     /* Don't include the '<', because it goes with <@lily. */
@@ -164,7 +163,7 @@ void lily_lexer_handle_page_data(lily_lex_data *lex_data)
         }
 
         if (c == '\n' || c == '\r') {
-            if (read_line(lex_data))
+            if (read_line(lexer))
                 lbp = 0;
             else {
                 at_file_end = 1;
@@ -182,37 +181,37 @@ void lily_lexer_handle_page_data(lily_lex_data *lex_data)
     }
 
     if (at_file_end)
-        lex_data->token->tok_type = tk_eof;
+        lexer->token->tok_type = tk_eof;
 
-    lex_data->lex_bufpos = lbp;
+    lexer->lex_bufpos = lbp;
 }
 
-void lily_include(lily_interp *interp, char *filename)
+void lily_include(lily_lex_state *lexer, char *filename)
 {
     FILE *lex_file = fopen(filename, "r");
     if (lex_file == NULL)
-        lily_raise(interp, err_include, "Failed to open %s.\n", filename);
+        lily_raise(lexer->error, err_include, "Failed to open %s.\n", filename);
 
-    interp->lex_data->lex_file = lex_file;
+    lexer->lex_file = lex_file;
 
-    read_line(interp->lex_data);
+    read_line(lexer);
     /* Make sure the lexer starts after the <@lily block. */
-    lily_lexer_handle_page_data(interp->lex_data);
+    lily_lexer_handle_page_data(lexer);
 }
 
-void lily_init_lexer(lily_interp *interp)
+lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
 {
-    lily_lex_data *lex_data = lily_malloc(sizeof(lily_lex_data));
-    lex_data->html_cache = lily_malloc(1024 * sizeof(char));
-    lex_data->cache_size = 1023;
+    lily_lex_state *s = lily_malloc(sizeof(lily_lex_state));
+    s->html_cache = lily_malloc(1024 * sizeof(char));
+    s->cache_size = 1023;
 
-    lex_data->lex_buffer = lily_malloc(1024 * sizeof(char));
-    lex_data->lex_bufpos = 0;
-    lex_data->lex_bufsize = 1023;
+    s->lex_buffer = lily_malloc(1024 * sizeof(char));
+    s->lex_bufpos = 0;
+    s->lex_bufsize = 1023;
 
-    lex_data->token = lily_malloc(sizeof(lily_token));
-    lex_data->token->word_buffer = lily_malloc(1024 * sizeof(char));
-    lex_data->line_num = 0;
+    s->token = lily_malloc(sizeof(lily_token));
+    s->token->word_buffer = lily_malloc(1024 * sizeof(char));
+    s->line_num = 0;
 
     char *ch_class = lily_malloc(256 * sizeof(char));
 
@@ -241,19 +240,18 @@ void lily_init_lexer(lily_interp *interp)
     ch_class[(unsigned char)'='] = CC_EQUAL;
     ch_class[(unsigned char)'.'] = CC_DOT;
 
-    lex_data->ch_class = ch_class;
-    interp->lex_data = lex_data;
+    s->ch_class = ch_class;
+    return s;
 }
 
-void lily_lexer(lily_interp *interp)
+void lily_lexer(lily_lex_state *lexer)
 {
-    lily_lex_data *lex_data = interp->lex_data;
     char *ch_class, *lex_buffer;
-    int lex_bufpos = lex_data->lex_bufpos;
-    lily_token *lex_token = lex_data->token;
+    int lex_bufpos = lexer->lex_bufpos;
+    lily_token *lex_token = lexer->token;
 
-    ch_class = lex_data->ch_class;
-    lex_buffer = lex_data->lex_buffer;
+    ch_class = lexer->ch_class;
+    lex_buffer = lexer->lex_buffer;
 
     while (1) {
         char ch;
@@ -265,7 +263,7 @@ void lily_lexer(lily_interp *interp)
             ch = lex_buffer[lex_bufpos];
         }
 
-        group = lex_data->ch_class[(unsigned char)ch];
+        group = lexer->ch_class[(unsigned char)ch];
 
         if (group == CC_WORD) {
             /* The word and line buffers have the same size, plus \n is not a
@@ -304,7 +302,7 @@ void lily_lexer(lily_interp *interp)
                 lex_bufpos++;
                 if (ch == '\\') {
                     if (handle_str_escape(lex_buffer, &lex_bufpos, &ch) == 0)
-                        lily_raise(interp, err_syntax,
+                        lily_raise(lexer->error, err_syntax,
                             "Invalid escape code.\n");
                 }
 
@@ -312,7 +310,8 @@ void lily_lexer(lily_interp *interp)
             } while (ch != '"' && ch != '\n' && ch != '\r');
 
             if (ch != '"')
-                lily_raise(interp, err_syntax, "String without closure.\n");
+                lily_raise(lexer->error, err_syntax,
+                           "String without closure.\n");
 
             word_buffer[word_pos] = '\0';
             /* ...and the ending one too. */
@@ -324,7 +323,8 @@ void lily_lexer(lily_interp *interp)
             if (lex_buffer[lex_bufpos] == '>')
                 lex_token->tok_type = tk_end_tag;
             else
-                lily_raise(interp, err_syntax, "Expected '>' after '@'.\n");
+                lily_raise(lexer->error, err_syntax,
+                           "Expected '>' after '@'.\n");
         }
         else if (group == CC_EQUAL) {
             lex_bufpos++;
@@ -351,14 +351,14 @@ void lily_lexer(lily_interp *interp)
             lex_token->tok_type = tk_num_dbl;
         }
         else if (group == CC_NEWLINE || group == CC_SHARP) {
-            read_line(lex_data);
+            read_line(lexer);
             lex_bufpos = 0;
             continue;
         }
         else
             lex_token->tok_type = tk_invalid;
 
-        lex_data->lex_bufpos = lex_bufpos;
+        lexer->lex_bufpos = lex_bufpos;
         return;
     }
 }

@@ -3,6 +3,6 @@
 
 # include "lily_symtab.h"
 
-void lily_show_symtab(lily_symbol *);
+void lily_show_symtab(lily_symtab *);
 
 #endif
