@@ -13,7 +13,8 @@ CORE_OBJECTS=$(OBJDIR)/lily_parser.o \
 			$(OBJDIR)/lily_symtab.o \
 			$(OBJDIR)/lily_vm.o \
 			$(OBJDIR)/lily_interp.o \
-			$(OBJDIR)/lily_debug.o
+			$(OBJDIR)/lily_debug.o \
+			$(OBJDIR)/lily_error.o
 
 FS_OBJECTS=$(CORE_OBJECTS) \
 			$(OBJDIR)/fs_main.o
@@ -56,5 +57,8 @@ $(OBJDIR)/lily_interp.o: lily_interp.c lily_interp.h
 
 $(OBJDIR)/lily_debug.o: lily_debug.c lily_debug.h
 	$(CC) $(CFLAGS) lily_debug.c -o $(OBJDIR)/lily_debug.o
+
+$(OBJDIR)/lily_error.o: lily_error.c lily_error.h
+	$(CC) $(CFLAGS) lily_error.c -o $(OBJDIR)/lily_error.o
 
 .PHONY: clean all

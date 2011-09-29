@@ -16,23 +16,61 @@ struct lily_keyword {
     {"", 1, 1}
 };
 
-static void add_symbol(lily_interp *itp, lily_symbol *s)
+static void add_symbol(lily_symtab *symtab, lily_symbol *s)
 {
-    s->sym_id = itp->new_sym_id;
-    itp->new_sym_id++;
+    s->sym_id = symtab->new_sym_id;
+    symtab->new_sym_id++;
 
     s->next = NULL;
     /* The symtab is the oldest, for iteration. The symtab_top is the newest,
        for adding new elements. */
-    if (itp->symtab == NULL) {
+    if (symtab->start == NULL) {
         /* If no symtab, this is both the oldest and newest. */
-        itp->symtab = s;
-        itp->symtab_top = s;
+        symtab->start = s;
+        symtab->top = s;
     }
     else {
-        itp->symtab_top->next = s;
-        itp->symtab_top = s;
+        symtab->top->next = s;
+        symtab->top = s;
     }
+}
+
+lily_symtab *lily_new_symtab(lily_excep_data *excep)
+{
+    /* Turn keywords into symbols. */
+    int i, kw_count;
+    lily_symtab *s = lily_malloc(sizeof(lily_symtab));
+
+    kw_count = sizeof(keywords) / sizeof(keywords[0]);
+    s->new_sym_id = 0;
+    s->start = NULL;
+    s->error = excep;
+
+    for (i = 0;i < kw_count;i++) {
+        lily_symbol *new_sym = lily_malloc(sizeof(lily_symbol));
+
+        new_sym->sym_name = lily_malloc(strlen(keywords[i].name) + 1);
+
+        strcpy(new_sym->sym_name, keywords[i].name);
+        new_sym->code_data = NULL;
+        new_sym->callable = keywords[i].callable;
+        new_sym->num_args = keywords[i].num_args;
+        new_sym->sym_value = NULL;
+        new_sym->val_type = vt_builtin;
+        new_sym->line_num = 0;
+        add_symbol(s, new_sym);
+    }
+
+    lily_symbol *main_func = s->top;
+    lily_code_data *cd = lily_malloc(sizeof(lily_code_data));
+    cd->code = lily_malloc(sizeof(int) * 4);
+    cd->code_len = 4;
+    cd->code_pos = 0;
+
+    main_func->code_data = cd;
+    s->main = main_func;
+
+    return s;
 }
 
 static void init_temp_symbol(lily_symbol *s)
@@ -42,45 +80,12 @@ static void init_temp_symbol(lily_symbol *s)
     s->callable = 0;
 }
 
-void lily_init_symtab(lily_interp *itp)
-{
-    /* Turn keywords into symbols. */
-    int i, kw_count;
-
-    kw_count = sizeof(keywords) / sizeof(keywords[0]);
-    itp->new_sym_id = 0;
-    itp->symtab = NULL;
-
-    for (i = 0;i < kw_count;i++) {
-        lily_symbol *s = lily_malloc(sizeof(lily_symbol));
-
-        s->sym_name = lily_malloc(strlen(keywords[i].name) + 1);
-
-        strcpy(s->sym_name, keywords[i].name);
-        s->code_data = NULL;
-        s->callable = keywords[i].callable;
-        s->num_args = keywords[i].num_args;
-        s->sym_value = NULL;
-        s->val_type = vt_builtin;
-        s->line_num = 0;
-        add_symbol(itp, s);
-    }
-
-    lily_symbol *main_func = itp->symtab_top;
-    lily_code_data *cd = lily_malloc(sizeof(lily_code_data));
-    cd->code = lily_malloc(sizeof(int) * 4);
-    cd->code_len = 4;
-    cd->code_pos = 0;
-
-    main_func->code_data = cd;
-    itp->main_func = main_func;
-}
-
-lily_symbol *lily_st_find_symbol(lily_symbol *symtab, char *name)
+lily_symbol *lily_st_find_symbol(lily_symtab *symtab, char *name)
 {
     lily_symbol *sym;
 
-    sym = symtab;
+    sym = symtab->start;
+
     while (sym != NULL) {
         if (sym->sym_name != NULL && strcmp(sym->sym_name, name) == 0)
             return sym;
@@ -89,7 +94,7 @@ lily_symbol *lily_st_find_symbol(lily_symbol *symtab, char *name)
     return NULL;
 }
 
-lily_symbol *lily_st_new_str_sym(lily_interp *itp, char *str_val)
+lily_symbol *lily_st_new_str_sym(lily_symtab *symtab, char *str_val)
 {
     lily_symbol *sym = lily_malloc(sizeof(lily_symbol));
     init_temp_symbol(sym);
@@ -106,13 +111,13 @@ lily_symbol *lily_st_new_str_sym(lily_interp *itp, char *str_val)
     sym->sym_name = NULL;
     sym->val_type = vt_str;
     sym->sym_value = strval;
-    sym->line_num = itp->lex_data->line_num;
+    sym->line_num = *symtab->lex_linenum;
 
-    add_symbol(itp, sym);
+    add_symbol(symtab, sym);
     return sym;
 }
 
-lily_symbol *lily_st_new_int_sym(lily_interp *itp, int int_val)
+lily_symbol *lily_st_new_int_sym(lily_symtab *symtab, int int_val)
 {
     lily_symbol *sym = lily_malloc(sizeof(lily_symbol));
     init_temp_symbol(sym);
@@ -120,13 +125,13 @@ lily_symbol *lily_st_new_int_sym(lily_interp *itp, int int_val)
     sym->sym_name = NULL;
     sym->val_type = vt_int;
     sym->sym_value = &int_val;
-    sym->line_num = itp->lex_data->line_num;
+    sym->line_num = *symtab->lex_linenum;
 
-    add_symbol(itp, sym);
+    add_symbol(symtab, sym);
     return sym;
 }
 
-lily_symbol *lily_st_new_dbl_sym(lily_interp *itp, double dbl_val)
+lily_symbol *lily_st_new_dbl_sym(lily_symtab *symtab, double dbl_val)
 {
     lily_symbol *sym = lily_malloc(sizeof(lily_symbol));
     init_temp_symbol(sym);
@@ -134,13 +139,13 @@ lily_symbol *lily_st_new_dbl_sym(lily_interp *itp, double dbl_val)
     sym->sym_name = NULL;
     sym->val_type = vt_double;
     sym->sym_value = &dbl_val;
-    sym->line_num = itp->lex_data->line_num;
+    sym->line_num = *symtab->lex_linenum;
 
-    add_symbol(itp, sym);
+    add_symbol(symtab, sym);
     return sym;
 }
 
-lily_symbol *lily_st_new_var_sym(lily_interp *itp, char *name)
+lily_symbol *lily_st_new_var_sym(lily_symtab *symtab, char *name)
 {
     lily_symbol *sym = lily_malloc(sizeof(lily_symbol));
     init_temp_symbol(sym);
@@ -148,9 +153,9 @@ lily_symbol *lily_st_new_var_sym(lily_interp *itp, char *name)
     sym->sym_name = lily_malloc(strlen(name) + 1);
     sym->val_type = vt_unknown;
     sym->sym_value = NULL;
-    sym->line_num = itp->lex_data->line_num;
+    sym->line_num = *symtab->lex_linenum;
     strcpy(sym->sym_name, name);
 
-    add_symbol(itp, sym);
+    add_symbol(symtab, sym);
     return sym;
 }

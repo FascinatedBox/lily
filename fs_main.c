@@ -2,10 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "lily_lexer.h"
-#include "lily_parser.h"
-#include "lily_emitter.h"
-#include "lily_symtab.h"
+#include "lily_interp.h"
 
 /* fs_main.c :
  * Since lily will be run from a server for most of the time, this emulates a
@@ -33,14 +30,14 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    lily_interp *interp = lily_init_interp();
+    lily_interp *interp = lily_new_interp();
     if (interp == NULL) {
-        fputs(interp->excep_msg, stderr);
+        fputs("Error: Out of memory.", stderr);
         exit(EXIT_FAILURE);
     }
 
     if (lily_parse_file(interp, argv[1]) == 0) {
-        fputs(interp->excep_msg, stderr);
+        fputs(interp->error->message, stderr);
         exit(EXIT_FAILURE);
     }
 

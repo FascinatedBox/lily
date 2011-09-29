@@ -44,9 +44,9 @@ static void show_code(lily_symbol *sym)
     }
 }
 
-void lily_show_symtab(lily_symbol *symtab)
+void lily_show_symtab(lily_symtab *symtab)
 {
-    lily_symbol *sym = symtab;
+    lily_symbol *sym = symtab->start;
 
     while (sym != NULL) {
         char *name = sym->sym_name == NULL ? "<no-name>" : sym->sym_name;
