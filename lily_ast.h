@@ -44,9 +44,10 @@ typedef struct {
     int tree_size;
     int list_index;
     int list_size;
+    lily_excep_data *error; 
 } lily_ast_pool;
 
-lily_ast_pool *lily_ast_init_pool(int);
+lily_ast_pool *lily_ast_init_pool(lily_excep_data *, int);
 void lily_ast_reset_pool(lily_ast_pool *);
 void lily_ast_free_pool(lily_ast_pool *);
 lily_ast *lily_ast_init_call(lily_ast_pool *, lily_symbol *);
