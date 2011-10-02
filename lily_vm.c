@@ -5,7 +5,7 @@
 static void builtin_print(lily_symbol *s)
 {
     if (s->val_type == vt_str)
-        lily_impl_send_html(((lily_strval *)s->sym_value)->str);
+        lily_impl_send_html(((lily_strval *)s->value)->str);
 }
 
 void lily_vm_execute(lily_symbol *sym)
@@ -33,7 +33,7 @@ void lily_vm_execute(lily_symbol *sym)
                        list. */
                     lily_symbol *left = (lily_symbol *)regs[code[ci+1]];
                     lily_symbol *right = (lily_symbol *)regs[code[ci+2]];
-                    left->sym_value = right->sym_value;
+                    left->value = right->value;
                     left->val_type = right->val_type;
                 }
                 ci += 3;

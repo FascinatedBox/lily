@@ -17,7 +17,7 @@ typedef enum {
 
 typedef struct {
     char *str;
-    int str_size;
+    int size;
 } lily_strval;
 
 typedef struct {
@@ -29,18 +29,18 @@ typedef struct {
 
 typedef struct {
     int *code;
-    int code_len;
-    int code_pos;
+    int len;
+    int pos;
 } lily_code_data;
 
 typedef struct lily_symbol_t {
     struct lily_symbol_t *next;
-    char *sym_name;
-    int sym_id;
+    char *name;
+    int id;
     int line_num;
     int callable;
     int num_args;
-    void *sym_value;
+    void *value;
     lily_code_data *code_data;
     lily_val_type val_type;
 } lily_symbol;
