@@ -41,5 +41,6 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
+    lily_free_interp(interp);
     exit(EXIT_SUCCESS);
 }

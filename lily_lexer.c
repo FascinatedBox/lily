@@ -199,6 +199,17 @@ void lily_include(lily_lex_state *lexer, char *filename)
     lily_lexer_handle_page_data(lexer);
 }
 
+void lily_free_lex_state(lily_lex_state *lex)
+{
+    fclose(lex->lex_file);
+    lily_free(lex->html_cache);
+    lily_free(lex->lex_buffer);
+    lily_free(lex->ch_class);
+    lily_free(lex->token->word_buffer);
+    lily_free(lex->token);
+    lily_free(lex);
+}
+
 lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
 {
     lily_lex_state *s = lily_malloc(sizeof(lily_lex_state));

@@ -36,13 +36,15 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
     return s;
 }
 
-static void free_parser_data(lily_parse_state *parser)
+void lily_free_parse_state(lily_parse_state *parser)
 {
     lily_ast_free_pool(parser->ast_pool);
+    lily_free_symtab(parser->symtab);
+    lily_free_lex_state(parser->lex);
     lily_free_emit_state(parser->emit);
-    free(parser->saved_trees);
-    free(parser->num_expected);
-    free(parser);
+    lily_free(parser->saved_trees);
+    lily_free(parser->num_expected);
+    lily_free(parser);
 }
 
 static void parse_expr_value(lily_parse_state *parser)

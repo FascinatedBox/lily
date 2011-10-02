@@ -35,6 +35,28 @@ static void add_symbol(lily_symtab *symtab, lily_symbol *s)
     }
 }
 
+void lily_free_symtab(lily_symtab *symtab)
+{
+    lily_symbol *sym = symtab->start;
+    lily_symbol *temp;
+
+    while (sym != NULL) {
+        temp = sym->next;
+
+        if (sym->callable && sym->code_data != NULL) {
+            lily_free(((lily_code_data *)sym->code_data)->code);
+            lily_free(sym->code_data);
+        }
+
+        lily_free(sym->sym_name);
+        lily_free(sym);
+
+        sym = temp;
+    }
+
+    lily_free(symtab);
+}
+
 lily_symtab *lily_new_symtab(lily_excep_data *excep)
 {
     /* Turn keywords into symbols. */

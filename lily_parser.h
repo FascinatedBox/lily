@@ -21,6 +21,7 @@ typedef struct {
 } lily_parse_state;
 
 lily_parse_state *lily_new_parse_state(lily_excep_data *);
+void lily_free_parse_state(lily_parse_state *);
 void lily_parser(lily_parse_state *);
 
 #endif
