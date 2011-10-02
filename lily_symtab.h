@@ -61,6 +61,7 @@ typedef struct {
 #define SYM_ID_STR   0
 #define SYM_ID_PRINT 1
 
+void lily_free_symtab(lily_symtab *);
 lily_symtab *lily_new_symtab(lily_excep_data *);
 lily_symbol *lily_st_new_var_sym(lily_symtab *, char *);
 lily_symbol *lily_st_new_str_sym(lily_symtab *, char *);
