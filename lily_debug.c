@@ -57,7 +57,7 @@ void lily_show_symtab(lily_symtab *symtab)
             lily_impl_debugf("    from line %d\n", sym->line_num);
 
         lily_impl_debugf("    type = %s\n", name_for_type(sym->val_type));
-        if (sym->callable && sym->code_data != NULL) {
+        if (isafunc(sym) && sym->code_data != NULL) {
             lily_impl_debugf("    callable = yes; args = %d\n", sym->num_args);
             show_code(sym);
         }
