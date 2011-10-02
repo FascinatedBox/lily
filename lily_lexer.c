@@ -16,6 +16,19 @@
 #define CC_NUMBER         9
 #define CC_DOT           10
 
+char *tokname(lily_tok_type t)
+{
+    static char *toknames[] =
+    {"invalid token", "a label", "(", ")", "a string", "an int", "a double",
+     "=", "@>", "end of file"};
+    char *ret;
+
+    if (t < (sizeof(toknames) / sizeof(toknames[0])))
+        return toknames[t];
+
+    return NULL;
+}
+
 /* Add a line from the current page into the buffer. */
 static int read_line(lily_lex_state *lexer)
 {

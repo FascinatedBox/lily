@@ -40,6 +40,7 @@ typedef struct {
     lily_excep_data *error;
 } lily_lex_state;
 
+char *tokname(lily_tok_type);
 void lily_free_lex_state(lily_lex_state *);
 lily_lex_state *lily_new_lex_state(lily_excep_data *);
 void lily_lexer(lily_lex_state *);
