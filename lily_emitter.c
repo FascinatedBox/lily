@@ -13,15 +13,15 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         ast->reg_pos = emit->next_reg;
         emit->next_reg++;
 
-        if ((cd->code_pos + 3) > cd->code_len) {
-            cd->code_len *= 2;
-            cd->code = lily_realloc(cd->code, sizeof(int) * cd->code_len);
+        if ((cd->pos + 3) > cd->len) {
+            cd->len *= 2;
+            cd->code = lily_realloc(cd->code, sizeof(int) * cd->len);
         }
 
-        cd->code[cd->code_pos] = o_load_reg;
-        cd->code[cd->code_pos+1] = ast->reg_pos;
-        cd->code[cd->code_pos+2] = (int)ast->data.value;
-        cd->code_pos += 3;
+        cd->code[cd->pos] = o_load_reg;
+        cd->code[cd->pos+1] = ast->reg_pos;
+        cd->code[cd->pos+2] = (int)ast->data.value;
+        cd->pos += 3;
     }
     else if (ast->expr_type == func_call) {
         struct lily_ast_list *list;
@@ -37,36 +37,36 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
         /* Check for available space now that any inner expressions have
            adjusted the position. */
-        new_pos = cd->code_pos + 1 + ast->data.call.num_args;
-        if (new_pos > cd->code_len) {
-            cd->code_len *= 2;
-            cd->code = lily_realloc(cd->code, sizeof(int) * cd->code_len);
+        new_pos = cd->pos + 1 + ast->data.call.num_args;
+        if (new_pos > cd->len) {
+            cd->len *= 2;
+            cd->code = lily_realloc(cd->code, sizeof(int) * cd->len);
         }
 
         /* hack: assumes print is the only function. Fix soon. */
-        cd->code[cd->code_pos] = o_builtin_print;
+        cd->code[cd->pos] = o_builtin_print;
         for (i = 1, list = ast->data.call.args;list != NULL;
              i++, list = list->next) {
-            cd->code[cd->code_pos+i] = list->ast->reg_pos;
+            cd->code[cd->pos+i] = list->ast->reg_pos;
         }
 
-        cd->code_pos = new_pos;
+        cd->pos = new_pos;
     }
     else if (ast->expr_type == binary) {
         if (ast->data.bin_expr.op == expr_assign) {
             walk_tree(emit, ast->data.bin_expr.left);
             walk_tree(emit, ast->data.bin_expr.right);
 
-            if ((cd->code_pos + 3) > cd->code_len) {
-                cd->code_len *= 2;
+            if ((cd->pos + 3) > cd->len) {
+                cd->len *= 2;
                 cd->code = lily_realloc(cd->code, sizeof(int) *
-                                             cd->code_len);
+                                             cd->len);
             }
 
-            cd->code[cd->code_pos] = o_assign;
-            cd->code[cd->code_pos+1] = ast->data.bin_expr.left->reg_pos;
-            cd->code[cd->code_pos+2] = ast->data.bin_expr.right->reg_pos;
-            cd->code_pos += 3;
+            cd->code[cd->pos] = o_assign;
+            cd->code[cd->pos+1] = ast->data.bin_expr.left->reg_pos;
+            cd->code[cd->pos+2] = ast->data.bin_expr.right->reg_pos;
+            cd->pos += 3;
         }
     }
 }
@@ -79,13 +79,13 @@ static void clear_reg_info(lily_emit_state *emit)
 void lily_emit_vm_return(lily_emit_state *emit)
 {
     lily_code_data *cd = emit->target;
-    if ((cd->code_pos + 1) > cd->code_len) {
-        cd->code_len *= 2;
-        cd->code = lily_realloc(cd->code, sizeof(int) * cd->code_len);
+    if ((cd->pos + 1) > cd->len) {
+        cd->len *= 2;
+        cd->code = lily_realloc(cd->code, sizeof(int) * cd->len);
     }
 
-    cd->code[cd->code_pos] = o_vm_return;
-    cd->code_pos++;
+    cd->code[cd->pos] = o_vm_return;
+    cd->pos++;
 }
 
 void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)

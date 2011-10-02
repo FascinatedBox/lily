@@ -11,7 +11,7 @@ static char *name_for_type(lily_val_type vt)
 static void show_code(lily_symbol *sym)
 {
     int i = 0;
-    int len = sym->code_data->code_pos;
+    int len = sym->code_data->pos;
     int *code = sym->code_data->code;
 
     lily_symbol *target, *t2;
@@ -22,7 +22,7 @@ static void show_code(lily_symbol *sym)
             case o_load_reg:
                 target = (lily_symbol *)(code[i+2]);
                 lily_impl_debugf("[%d] load          reg #%d with sym #%d\n",
-                                 i, code[i+1], target->sym_id);
+                                 i, code[i+1], target->id);
                 i += 3;
                 break;
             case o_builtin_print:
@@ -49,11 +49,11 @@ void lily_show_symtab(lily_symtab *symtab)
     lily_symbol *sym = symtab->start;
 
     while (sym != NULL) {
-        char *name = sym->sym_name == NULL ? "<no-name>" : sym->sym_name;
-        lily_impl_debugf("Symbol #%d (%s):\n", sym->sym_id, name);
+        char *name = sym->name == NULL ? "<no-name>" : sym->name;
+        lily_impl_debugf("Symbol #%d (%s):\n", sym->id, name);
 
         /* Skip syms that hold only values, and builtins, respectively. */
-        if (sym->sym_name != NULL && sym->line_num != 0)
+        if (sym->name != NULL && sym->line_num != 0)
             lily_impl_debugf("    from line %d\n", sym->line_num);
 
         lily_impl_debugf("    type = %s\n", name_for_type(sym->val_type));
