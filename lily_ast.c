@@ -60,31 +60,60 @@ void lily_ast_free_pool(lily_ast_pool *ap)
     int i;
 
     for (i = 0;i < ap->tree_size;i++)
-        free(ap->tree_pool[i]);
+        lily_free(ap->tree_pool[i]);
 
     for (i = 0;i < ap->list_size;i++)
-        free(ap->list_pool[i]);
+        lily_free(ap->list_pool[i]);
 
-    free(ap->tree_pool);
-    free(ap->list_pool);
-    free(ap);
+    lily_free(ap->tree_pool);
+    lily_free(ap->list_pool);
+    lily_free(ap);
 }
 
 lily_ast_pool *lily_ast_init_pool(int pool_size)
 {
     lily_ast_pool *ret;
-    int i;
+    int listi, treei;
 
     ret = lily_malloc(sizeof(lily_ast_pool));
+    if (ret == NULL)
+        return NULL;
 
     ret->tree_pool = lily_malloc(sizeof(lily_ast *) * pool_size);
-    for (i = 0;i < pool_size;i++)
-        ret->tree_pool[i] = lily_malloc(sizeof(lily_ast));
-
     ret->list_pool = lily_malloc(sizeof(struct lily_ast_list *) *
                                       pool_size);
-    for (i = 0;i < pool_size;i++)
-        ret->list_pool[i] = lily_malloc(sizeof(struct lily_ast_list));
+
+    if (ret->tree_pool == NULL || ret->list_pool == NULL) {
+        lily_free(ret->tree_pool);
+        lily_free(ret->list_pool);
+        lily_free(ret);
+        return NULL;
+    }
+
+    for (treei = 0;treei < pool_size;treei++) {
+        ret->tree_pool[treei] = lily_malloc(sizeof(lily_ast));
+        if (ret->tree_pool[treei] == NULL)
+            break;
+    }
+
+    for (listi = 0;listi < pool_size;listi++) {
+        ret->list_pool[listi] = lily_malloc(sizeof(struct lily_ast_list));
+        if (ret->list_pool[listi] == NULL)
+            break;
+    }
+
+    if (listi != pool_size || treei != pool_size) {
+        int j;
+        for (j = 0;j < treei;j++)
+            lily_free(ret->tree_pool[j]);
+        for (j = 0;j < listi;j++)
+            lily_free(ret->list_pool[j]);
+
+        lily_free(ret->tree_pool);
+        lily_free(ret->list_pool);
+        lily_free(ret);
+        return NULL;
+    }
 
     ret->tree_index = 0;
     ret->tree_size = pool_size;

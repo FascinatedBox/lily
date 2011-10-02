@@ -201,7 +201,8 @@ void lily_include(lily_lex_state *lexer, char *filename)
 
 void lily_free_lex_state(lily_lex_state *lex)
 {
-    fclose(lex->lex_file);
+    if (lex->lex_file != NULL)
+        fclose(lex->lex_file);
     lily_free(lex->html_cache);
     lily_free(lex->lex_buffer);
     lily_free(lex->ch_class);
@@ -213,6 +214,12 @@ void lily_free_lex_state(lily_lex_state *lex)
 lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
 {
     lily_lex_state *s = lily_malloc(sizeof(lily_lex_state));
+    char *ch_class, *word_buffer;
+
+    if (s == NULL)
+        return NULL;
+
+    s->lex_file = NULL;
     s->html_cache = lily_malloc(1024 * sizeof(char));
     s->cache_size = 1023;
 
@@ -221,10 +228,21 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     s->lex_bufsize = 1023;
 
     s->token = lily_malloc(sizeof(lily_token));
-    s->token->word_buffer = lily_malloc(1024 * sizeof(char));
+
+    ch_class = lily_malloc(256 * sizeof(char));
+    word_buffer = lily_malloc(1024 * sizeof(char));
     s->line_num = 0;
 
-    char *ch_class = lily_malloc(256 * sizeof(char));
+    if (word_buffer == NULL || ch_class == NULL || s->token == NULL ||
+        s->lex_buffer == NULL || s->html_cache == NULL) {
+        lily_free(word_buffer);
+        lily_free(ch_class);
+        lily_free(s->token);
+        lily_free(s->lex_buffer);
+        lily_free(s->html_cache);
+        lily_free(s);
+        return NULL;
+    }
 
     /* Initialize ch_class, which is used to determine what 'class' a letter
        is in. */
@@ -252,6 +270,7 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     ch_class[(unsigned char)'.'] = CC_DOT;
 
     s->ch_class = ch_class;
+    s->token->word_buffer = word_buffer;
     return s;
 }
 

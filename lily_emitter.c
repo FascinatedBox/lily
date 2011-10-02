@@ -98,6 +98,9 @@ lily_emit_state *lily_new_emit_state(lily_excep_data *excep)
 {
     lily_emit_state *s = lily_malloc(sizeof(lily_emit_state));
 
+    if (s == NULL)
+        return NULL;
+
     s->next_reg = 0;
     s->target = NULL;
     s->error = excep;
@@ -112,5 +115,5 @@ void lily_emit_set_target(lily_emit_state *emit, lily_symbol *sym)
 
 void lily_free_emit_state(lily_emit_state *emit)
 {
-    free(emit);
+    lily_free(emit);
 }

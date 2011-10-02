@@ -19,6 +19,9 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
 {
     lily_parse_state *s = lily_malloc(sizeof(lily_parse_state));
 
+    if (s == NULL)
+        return NULL;
+
     s->saved_trees = lily_malloc(sizeof(lily_ast *) * 32);
     s->num_expected = lily_malloc(sizeof(int) * 32);
     s->ast_pool = lily_ast_init_pool(32);
@@ -30,6 +33,23 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
     s->symtab = lily_new_symtab(excep);
     s->emit = lily_new_emit_state(excep);
     s->lex = lily_new_lex_state(excep);
+
+    if (s->lex == NULL || s->emit == NULL || s->symtab == NULL ||
+        s->ast_pool == NULL || s->num_expected == NULL ||
+        s->saved_trees == NULL) {
+        lily_free(s->saved_trees);
+        lily_free(s->num_expected);
+        if (s->symtab != NULL)
+            lily_free_symtab(s->symtab);
+        if (s->emit != NULL)
+            lily_free_emit_state(s->emit);
+        if (s->lex != NULL)
+            lily_free_lex_state(s->lex);
+        if (s->ast_pool != NULL)
+            lily_ast_free_pool(s->ast_pool);
+        lily_free(s);
+        return NULL;
+    }
 
     s->symtab->lex_linenum = &s->lex->line_num;
     lily_emit_set_target(s->emit, s->symtab->main);
