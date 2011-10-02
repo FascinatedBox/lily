@@ -80,7 +80,7 @@ static void parse_expr_value(lily_parse_state *parser)
             lily_raise(parser->error, err_syntax,
                 "Variable '%s' is undefined.\n", token->word_buffer);
 
-        if (sym->callable) {
+        if (isafunc(sym)) {
             /* New trees will get saved to the args section of this tree
                 when they are done. */
             lily_ast *ast = lily_ast_init_call(parser->ast_pool, sym);

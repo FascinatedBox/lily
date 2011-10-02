@@ -33,12 +33,15 @@ typedef struct {
     int pos;
 } lily_code_data;
 
+#define SYM_ISFUNC 0x1
+#define isafunc(s) (s->flags & SYM_ISFUNC)
+
 typedef struct lily_symbol_t {
     struct lily_symbol_t *next;
     char *name;
     int id;
     int line_num;
-    int callable;
+    int flags;
     int num_args;
     void *value;
     lily_code_data *code_data;

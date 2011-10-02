@@ -5,12 +5,12 @@
 
 struct lily_keyword {
     char *name;
-    int callable;
+    int flags;
     int num_args;
 } keywords[] =
 {
     {"str", 0, 0},
-    {"print", 1, 1},
+    {"print", SYM_ISFUNC, 1},
     /* All code outside of functions is stuffed here, and at the end of parsing,
        this function is called. */
     {"", 0, 0}
@@ -43,7 +43,7 @@ void lily_free_symtab(lily_symtab *symtab)
     while (sym != NULL) {
         temp = sym->next;
 
-        if (sym->callable && sym->code_data != NULL) {
+        if (isafunc(sym) && sym->code_data != NULL) {
             lily_free(((lily_code_data *)sym->code_data)->code);
             lily_free(sym->code_data);
         }
@@ -96,7 +96,7 @@ lily_symtab *lily_new_symtab(lily_excep_data *excep)
 
         strcpy(new_sym->name, keywords[i].name);
         new_sym->code_data = NULL;
-        new_sym->callable = keywords[i].callable;
+        new_sym->flags = keywords[i].flags;
         new_sym->num_args = keywords[i].num_args;
         new_sym->value = NULL;
         new_sym->val_type = vt_builtin;
@@ -125,7 +125,7 @@ static void init_temp_symbol(lily_symbol *s)
 {
     s->code_data = NULL;
     s->value = NULL;
-    s->callable = 0;
+    s->flags = 0;
 }
 
 lily_symbol *lily_st_find_symbol(lily_symtab *symtab, char *name)
