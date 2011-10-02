@@ -184,8 +184,8 @@ static void parse_expr_top(lily_parse_state *parser)
             break;
         else {
             lily_raise(parser->error, err_stub,
-                "parse_expr_top: Unexpected token value %d.\n",
-                token->tok_type);
+                "parse_expr_top: Unexpected token value %s.\n",
+                tokname(token->tok_type));
         }
     }
 };
