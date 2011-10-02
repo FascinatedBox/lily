@@ -28,12 +28,12 @@ void lily_raise(lily_excep_data *error, lily_excep_code code, char *fmt, ...)
             }
             cursize = 64;
         }
-        else if (tmpbuffer = realloc(buffer, nextsize)) {
+        else if (tmpbuffer = lily_realloc(buffer, nextsize)) {
             buffer = tmpbuffer;
             nextsize = cursize;
         }
         else {
-            free(buffer);
+            lily_free(buffer);
             error->message = NULL;
             break;
         }

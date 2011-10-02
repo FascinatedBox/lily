@@ -39,7 +39,7 @@ void lily_vm_execute(lily_symbol *sym)
                 ci += 3;
                 break;
             case o_vm_return:
-                free(regs);
+                lily_free(regs);
                 return;
         }
     }
