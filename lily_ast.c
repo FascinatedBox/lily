@@ -70,7 +70,7 @@ void lily_ast_free_pool(lily_ast_pool *ap)
     lily_free(ap);
 }
 
-lily_ast_pool *lily_ast_init_pool(int pool_size)
+lily_ast_pool *lily_ast_init_pool(lily_excep_data *excep, int pool_size)
 {
     lily_ast_pool *ret;
     int listi, treei;
@@ -115,10 +115,12 @@ lily_ast_pool *lily_ast_init_pool(int pool_size)
         return NULL;
     }
 
+    ret->error = excep;
     ret->tree_index = 0;
     ret->tree_size = pool_size;
     ret->list_index = 0;
     ret->list_size = pool_size;
+    return ret;
 }
 
 lily_ast *lily_ast_init_call(lily_ast_pool *ap, lily_symbol *s)
