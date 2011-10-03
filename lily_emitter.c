@@ -16,6 +16,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         if ((cd->pos + 3) > cd->len) {
             cd->len *= 2;
             cd->code = lily_realloc(cd->code, sizeof(int) * cd->len);
+            if (cd->code == NULL)
+                lily_raise_nomem(emit->error);
         }
 
         cd->code[cd->pos] = o_load_reg;
@@ -41,6 +43,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         if (new_pos > cd->len) {
             cd->len *= 2;
             cd->code = lily_realloc(cd->code, sizeof(int) * cd->len);
+            if (cd->code == NULL)
+                lily_raise_nomem(emit->error);
         }
 
         /* hack: assumes print is the only function. Fix soon. */
@@ -61,6 +65,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                 cd->len *= 2;
                 cd->code = lily_realloc(cd->code, sizeof(int) *
                                              cd->len);
+                if (cd->code == NULL)
+                    lily_raise_nomem(emit->error);
             }
 
             cd->code[cd->pos] = o_assign;
@@ -82,6 +88,8 @@ void lily_emit_vm_return(lily_emit_state *emit)
     if ((cd->pos + 1) > cd->len) {
         cd->len *= 2;
         cd->code = lily_realloc(cd->code, sizeof(int) * cd->len);
+        if (cd->code == NULL)
+            lily_raise_nomem(emit->error);
     }
 
     cd->code[cd->pos] = o_vm_return;
