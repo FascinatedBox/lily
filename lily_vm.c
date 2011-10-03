@@ -8,12 +8,15 @@ static void builtin_print(lily_symbol *s)
         lily_impl_send_html(((lily_strval *)s->value)->str);
 }
 
-void lily_vm_execute(lily_symbol *sym)
+void lily_vm_execute(lily_excep_data *error, lily_symbol *sym)
 {
     lily_symbol **regs;
     int *code, ci;
 
     regs = lily_malloc(8 * sizeof(lily_symbol *));
+    if (regs == NULL)
+        lily_raise_nomem(error);
+
     code = sym->code_data->code;
     ci = 0;
 

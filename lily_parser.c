@@ -24,7 +24,7 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
 
     s->saved_trees = lily_malloc(sizeof(lily_ast *) * 32);
     s->num_expected = lily_malloc(sizeof(int) * 32);
-    s->ast_pool = lily_ast_init_pool(excep, 32);
+    s->ast_pool = lily_ast_init_pool(excep, 1);
     s->depth = 0;
     s->num_args = 0;
     s->current_tree = NULL;
@@ -219,7 +219,7 @@ void lily_parser(lily_parse_state *parser)
             /* Show symtab until the bugs are gone. */
             lily_show_symtab(parser->symtab);
 
-            lily_vm_execute(parser->symtab->main);
+            lily_vm_execute(parser->error, parser->symtab->main);
 
             lily_lexer_handle_page_data(parser->lex);
             if (token->tok_type == tk_eof)

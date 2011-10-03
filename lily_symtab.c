@@ -145,12 +145,21 @@ lily_symbol *lily_st_find_symbol(lily_symtab *symtab, char *name)
 lily_symbol *lily_st_new_str_sym(lily_symtab *symtab, char *str_val)
 {
     lily_symbol *sym = lily_malloc(sizeof(lily_symbol));
+    if (sym == NULL)
+        lily_raise_nomem(symtab->error);
+
     init_temp_symbol(sym);
 
     lily_strval *strval = lily_malloc(sizeof(lily_strval));
     int str_size = strlen(str_val);
     char *str = lily_malloc(str_size + 1);
 
+    if (str == NULL || strval == NULL) {
+        lily_free(str);
+        lily_free(strval);
+        lily_free(sym);
+        lily_raise_nomem(symtab->error);
+    }
     strcpy(str, str_val);
 
     strval->str = str;
@@ -168,6 +177,9 @@ lily_symbol *lily_st_new_str_sym(lily_symtab *symtab, char *str_val)
 lily_symbol *lily_st_new_int_sym(lily_symtab *symtab, int int_val)
 {
     lily_symbol *sym = lily_malloc(sizeof(lily_symbol));
+    if (sym == NULL)
+        lily_raise_nomem(symtab->error);
+
     init_temp_symbol(sym);
 
     sym->name = NULL;
@@ -182,6 +194,9 @@ lily_symbol *lily_st_new_int_sym(lily_symtab *symtab, int int_val)
 lily_symbol *lily_st_new_dbl_sym(lily_symtab *symtab, double dbl_val)
 {
     lily_symbol *sym = lily_malloc(sizeof(lily_symbol));
+    if (sym == NULL)
+        lily_raise_nomem(symtab->error);
+
     init_temp_symbol(sym);
 
     sym->name = NULL;
@@ -196,9 +211,17 @@ lily_symbol *lily_st_new_dbl_sym(lily_symtab *symtab, double dbl_val)
 lily_symbol *lily_st_new_var_sym(lily_symtab *symtab, char *name)
 {
     lily_symbol *sym = lily_malloc(sizeof(lily_symbol));
+    if (sym == NULL)
+        lily_raise_nomem(symtab->error);
+
     init_temp_symbol(sym);
 
     sym->name = lily_malloc(strlen(name) + 1);
+    if (sym->name == NULL) {
+        lily_free(sym);
+        lily_raise_nomem(symtab->error);
+    }
+
     sym->val_type = vt_unknown;
     sym->value = NULL;
     sym->line_num = *symtab->lex_linenum;

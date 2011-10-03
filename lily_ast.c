@@ -16,13 +16,25 @@ static lily_expr_op opcode_for_token(lily_tok_type t)
 static lily_ast *next_pool_ast(lily_ast_pool *ap)
 {
     if (ap->tree_index == ap->tree_size) {
+        lily_ast **new_tree_pool;
+
         ap->tree_size *= 2;
-        ap->tree_pool = lily_realloc(ap->tree_pool,
-                        sizeof(lily_ast *) * ap->tree_size);
+        new_tree_pool = lily_realloc(ap->tree_pool,
+                   sizeof(lily_ast *) * ap->tree_size);
+
+        if (new_tree_pool == NULL)
+            lily_raise_nomem(ap->error);
+
+        ap->tree_pool = new_tree_pool;
 
         int i;
-        for (i = ap->tree_index;i < ap->tree_size;i++)
+        for (i = ap->tree_index;i < ap->tree_size;i++) {
             ap->tree_pool[i] = lily_malloc(sizeof(lily_ast));
+            if (ap->tree_pool[i] == NULL) {
+                ap->tree_size = i - 1;
+                lily_raise_nomem(ap->error);
+            }
+        }
     }
 
     lily_ast *ret = ap->tree_pool[ap->tree_index];
@@ -34,13 +46,25 @@ static lily_ast *next_pool_ast(lily_ast_pool *ap)
 static struct lily_ast_list *next_pool_list(lily_ast_pool *ap)
 {
     if (ap->list_index == ap->list_size) {
+        struct lily_ast_list **new_list_pool;
+
         ap->list_size *= 2;
-        ap->list_pool = lily_realloc(ap->list_pool,
-                        sizeof(struct lily_ast_list *) * ap->list_size);
+        new_list_pool = lily_realloc(ap->list_pool,
+                   sizeof(struct lily_ast_list *) * ap->list_size);
+
+        if (new_list_pool == NULL)
+            lily_raise_nomem(ap->error);
+
+        ap->list_pool = new_list_pool;
 
         int i;
-        for (i = ap->list_index;i < ap->list_size;i++)
+        for (i = ap->list_index;i < ap->list_size;i++) {
             ap->list_pool[i] = lily_malloc(sizeof(struct lily_ast_list));
+            if (ap->list_pool[i] == NULL) {
+                ap->list_size = i - 1;
+                lily_raise_nomem(ap->error);
+            }
+        }
     }
 
     struct lily_ast_list *ret = ap->list_pool[ap->list_index];
