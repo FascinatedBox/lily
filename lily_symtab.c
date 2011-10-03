@@ -13,7 +13,7 @@ struct lily_keyword {
     {"print", 1, 1},
     /* All code outside of functions is stuffed here, and at the end of parsing,
        this function is called. */
-    {"", 0, 1}
+    {"", 0, 0}
 };
 
 static void add_symbol(lily_symtab *symtab, lily_symbol *s)
