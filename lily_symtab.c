@@ -57,39 +57,25 @@ void lily_free_symtab(lily_symtab *symtab)
     lily_free(symtab);
 }
 
-lily_symtab *lily_new_symtab(lily_excep_data *excep)
+static int init_symbols(lily_symtab *symtab)
 {
-    /* Turn keywords into symbols. */
-    int i, kw_count;
-    int *code = lily_malloc(sizeof(int) * 4);
-    lily_code_data *cd = lily_malloc(sizeof(lily_code_data));
-    lily_symtab *s = lily_malloc(sizeof(lily_symtab));
+    /* Turn the keywords into symbols. */
+    int i, keyword_count, ret;
 
-    if (s == NULL || cd == NULL || code == NULL) {
-        lily_free(s);
-        lily_free(cd);
-        lily_free(code);
-        return NULL;
-    }
+    keyword_count = sizeof(keywords) / sizeof(keywords[0]);
+    ret = 1;
 
-    kw_count = sizeof(keywords) / sizeof(keywords[0]);
-    s->new_sym_id = 0;
-    s->start = NULL;
-    s->top = NULL;
-    s->error = excep;
-
-    cd->code = code;
-    cd->len = 4;
-    cd->pos = 0;
-
-    for (i = 0;i < kw_count;i++) {
+    for (i = 0;i < keyword_count;i++) {
         lily_symbol *new_sym = lily_malloc(sizeof(lily_symbol));
 
-        if (new_sym == NULL)
+        if (new_sym == NULL) {
+            ret = 0;
             break;
+        }
 
         new_sym->name = lily_malloc(strlen(keywords[i].name) + 1);
         if (new_sym->name == NULL) {
+            ret = 0;
             lily_free(new_sym);
             break;
         }
@@ -101,22 +87,43 @@ lily_symtab *lily_new_symtab(lily_excep_data *excep)
         new_sym->value = NULL;
         new_sym->val_type = vt_builtin;
         new_sym->line_num = 0;
-        add_symbol(s, new_sym);
+        add_symbol(symtab, new_sym);
     }
 
-    if (i != kw_count) {
+    return ret;
+}
+
+lily_symtab *lily_new_symtab(lily_excep_data *excep)
+{
+    lily_symtab *s = lily_malloc(sizeof(lily_symtab));
+
+    if (s == NULL)
+        return NULL;
+
+    int *code = lily_malloc(sizeof(int) * 4);
+    lily_code_data *cd = lily_malloc(sizeof(lily_code_data));
+
+    s->new_sym_id = 0;
+    s->start = NULL;
+    s->top = NULL;
+
+    if (code == NULL || cd == NULL || !init_symbols(s)) {
+        /* This will free any symbols added, and the symtab object. */
         lily_free_symtab(s);
-        /* The main func was never inserted into the symtab, so the code that
-           would have gone into it must be manually free'd. */
-        lily_free(code);
         lily_free(cd);
+        lily_free(code);
         return NULL;
     }
+
+    cd->code = code;
+    cd->len = 4;
+    cd->pos = 0;
 
     lily_symbol *main_func = s->top;
 
     main_func->code_data = cd;
     s->main = main_func;
+    s->error = excep;
 
     return s;
 }
