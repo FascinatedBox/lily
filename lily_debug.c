@@ -2,12 +2,6 @@
 #include "lily_symtab.h"
 #include "lily_opcode.h"
 
-static char *name_for_type(lily_val_type vt)
-{
-    char *mapping[] = {"builtin", "int", "str", "list", "double", "?"};
-    return mapping[vt];
-}
-
 static void show_code(lily_symbol *sym)
 {
     int i = 0;
@@ -56,7 +50,7 @@ void lily_show_symtab(lily_symtab *symtab)
         if (sym->name != NULL && sym->line_num != 0)
             lily_impl_debugf("    from line %d\n", sym->line_num);
 
-        lily_impl_debugf("    type = %s\n", name_for_type(sym->val_type));
+        lily_impl_debugf("    type = %s\n", sym->sym_class->name);
         if (isafunc(sym) && sym->code_data != NULL) {
             lily_impl_debugf("    callable = yes; args = %d\n", sym->num_args);
             show_code(sym);
