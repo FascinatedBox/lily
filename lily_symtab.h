@@ -67,9 +67,8 @@ lily_symbol *lily_sym_by_name(lily_symtab *, char *);
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, char *);
 lily_symbol *lily_new_var(lily_symtab *, lily_class *, char *);
-lily_symbol *lily_st_new_var_sym(lily_symtab *, char *);
-lily_symbol *lily_st_new_str_sym(lily_symtab *, char *);
-lily_symbol *lily_st_new_int_sym(lily_symtab *, int);
-lily_symbol *lily_st_new_dbl_sym(lily_symtab *, double);
+lily_symbol *lily_new_str_sym(lily_symtab *, char *);
+lily_symbol *lily_new_integer_sym(lily_symtab *, int);
+lily_symbol *lily_new_number_sym(lily_symtab *, double);
 
 #endif

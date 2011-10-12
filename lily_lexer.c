@@ -20,7 +20,7 @@
 char *tokname(lily_tok_type t)
 {
     static char *toknames[] =
-    {"invalid token", "a label", "(", ")", "a string", "an int", "a double",
+    {"invalid token", "a label", "(", ")", "a string", "an integer", "a number",
      "=", ",", "@>", "end of file"};
     char *ret;
 
@@ -376,24 +376,24 @@ void lily_lexer(lily_lex_state *lexer)
             lex_token->tok_type = tk_equal;
         }
         else if (group == CC_NUMBER) {
-            int int_total;
-            int_total = scan_whole_number(lex_buffer, &lex_bufpos);
+            int integer_total;
+            integer_total = scan_whole_number(lex_buffer, &lex_bufpos);
             if (lex_buffer[lex_bufpos] == '.') {
                 lex_bufpos++;
-                double dbl_total = scan_decimal_number(lex_buffer, &lex_bufpos);
-                dbl_total += int_total;
-                lex_token->dbl_val = dbl_total;
-                lex_token->tok_type = tk_num_dbl;
+                double num_total = scan_decimal_number(lex_buffer, &lex_bufpos);
+                num_total += integer_total;
+                lex_token->number_val = num_total;
+                lex_token->tok_type = tk_number;
             }
             else {
-                lex_token->int_val = int_total;
-                lex_token->tok_type = tk_num_int;
+                lex_token->integer_val = integer_total;
+                lex_token->tok_type = tk_integer;
             }
         }
         else if (group == CC_DOT) {
-            double dbl_total = scan_decimal_number(lex_buffer, &lex_bufpos);
-            lex_token->dbl_val = dbl_total;
-            lex_token->tok_type = tk_num_dbl;
+            double number_total = scan_decimal_number(lex_buffer, &lex_bufpos);
+            lex_token->number_val = number_total;
+            lex_token->tok_type = tk_number;
         }
         else if (group == CC_COMMA) {
             lex_bufpos++;
