@@ -222,7 +222,7 @@ lily_symbol *lily_sym_by_name(lily_symtab *symtab, char *name)
     return NULL;
 }
 
-lily_symbol *lily_st_new_str_sym(lily_symtab *symtab, char *str_val)
+lily_symbol *lily_new_str_sym(lily_symtab *symtab, char *str_val)
 {
     lily_symbol *sym = lily_malloc(sizeof(lily_symbol));
     if (sym == NULL)
@@ -254,7 +254,7 @@ lily_symbol *lily_st_new_str_sym(lily_symtab *symtab, char *str_val)
     return sym;
 }
 
-lily_symbol *lily_st_new_int_sym(lily_symtab *symtab, int int_val)
+lily_symbol *lily_new_integer_sym(lily_symtab *symtab, int integer_val)
 {
     lily_symbol *sym = lily_malloc(sizeof(lily_symbol));
     if (sym == NULL)
@@ -264,14 +264,14 @@ lily_symbol *lily_st_new_int_sym(lily_symtab *symtab, int int_val)
 
     sym->name = NULL;
     sym->sym_class = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
-    sym->value = &int_val;
+    sym->value = &integer_val;
     sym->line_num = *symtab->lex_linenum;
 
     add_symbol(symtab, sym);
     return sym;
 }
 
-lily_symbol *lily_st_new_dbl_sym(lily_symtab *symtab, double dbl_val)
+lily_symbol *lily_new_number_sym(lily_symtab *symtab, double number_val)
 {
     lily_symbol *sym = lily_malloc(sizeof(lily_symbol));
     if (sym == NULL)
@@ -281,7 +281,7 @@ lily_symbol *lily_st_new_dbl_sym(lily_symtab *symtab, double dbl_val)
 
     sym->name = NULL;
     sym->sym_class = lily_class_by_id(symtab, SYM_CLASS_NUMBER);
-    sym->value = &dbl_val;
+    sym->value = &number_val;
     sym->line_num = *symtab->lex_linenum;
 
     add_symbol(symtab, sym);

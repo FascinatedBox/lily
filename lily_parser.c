@@ -106,7 +106,7 @@ static void parse_expr_value(lily_parse_state *parser)
             }
         }
         else if (token->tok_type == tk_double_quote) {
-            lily_symbol *sym = lily_st_new_str_sym(symtab, token->word_buffer);
+            lily_symbol *sym = lily_new_str_sym(symtab, token->word_buffer);
             lily_ast *ast = lily_ast_init_var(parser->ast_pool, sym);
 
             parser->current_tree =
@@ -114,8 +114,8 @@ static void parse_expr_value(lily_parse_state *parser)
 
             lily_lexer(parser->lex);
         }
-        else if (token->tok_type == tk_num_int) {
-            lily_symbol *sym = lily_st_new_int_sym(symtab, token->int_val);
+        else if (token->tok_type == tk_integer) {
+            lily_symbol *sym = lily_new_integer_sym(symtab, token->integer_val);
             lily_ast *ast = lily_ast_init_var(parser->ast_pool, sym);
 
             parser->current_tree =
@@ -123,8 +123,8 @@ static void parse_expr_value(lily_parse_state *parser)
 
             lily_lexer(parser->lex);
         }
-        else if (token->tok_type == tk_num_dbl) {
-            lily_symbol *sym = lily_st_new_dbl_sym(symtab, token->dbl_val);
+        else if (token->tok_type == tk_number) {
+            lily_symbol *sym = lily_new_number_sym(symtab, token->number_val);
             lily_ast *ast = lily_ast_init_var(parser->ast_pool, sym);
 
             parser->current_tree =

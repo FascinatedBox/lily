@@ -10,8 +10,8 @@ typedef enum {
     tk_left_parenth,
     tk_right_parenth,
     tk_double_quote,
-    tk_num_int,
-    tk_num_dbl,
+    tk_integer,
+    tk_number,
     tk_equal,
     tk_comma,
     tk_end_tag,
@@ -21,8 +21,8 @@ typedef enum {
 typedef struct lily_token_t {
     lily_tok_type tok_type;
     char *word_buffer;
-    int int_val;
-    double dbl_val;
+    int integer_val;
+    double number_val;
 } lily_token;
 
 typedef struct {
