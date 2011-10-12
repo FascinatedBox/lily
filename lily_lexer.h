@@ -13,6 +13,7 @@ typedef enum {
     tk_num_int,
     tk_num_dbl,
     tk_equal,
+    tk_comma,
     tk_end_tag,
     tk_eof
 } lily_tok_type;

@@ -15,12 +15,13 @@
 #define CC_EQUAL          8
 #define CC_NUMBER         9
 #define CC_DOT           10
+#define CC_COMMA         11
 
 char *tokname(lily_tok_type t)
 {
     static char *toknames[] =
     {"invalid token", "a label", "(", ")", "a string", "an int", "a double",
-     "=", "@>", "end of file"};
+     "=", ",", "@>", "end of file"};
     char *ret;
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
@@ -281,6 +282,7 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     ch_class[(unsigned char)'#'] = CC_SHARP;
     ch_class[(unsigned char)'='] = CC_EQUAL;
     ch_class[(unsigned char)'.'] = CC_DOT;
+    ch_class[(unsigned char)','] = CC_COMMA;
 
     s->ch_class = ch_class;
     s->token->word_buffer = word_buffer;
@@ -392,6 +394,10 @@ void lily_lexer(lily_lex_state *lexer)
             double dbl_total = scan_decimal_number(lex_buffer, &lex_bufpos);
             lex_token->dbl_val = dbl_total;
             lex_token->tok_type = tk_num_dbl;
+        }
+        else if (group == CC_COMMA) {
+            lex_bufpos++;
+            lex_token->tok_type = tk_comma;
         }
         else if (group == CC_NEWLINE || group == CC_SHARP) {
             read_line(lexer);

@@ -72,65 +72,67 @@ static void parse_expr_value(lily_parse_state *parser)
     lily_token *token = parser->lex->token;
     lily_symtab *symtab = parser->symtab;
 
-    if (token->tok_type == tk_word) {
-        lily_symbol *sym;
-        sym = lily_st_find_symbol(symtab, token->word_buffer);
+    while (1) {
+        if (token->tok_type == tk_word) {
+            lily_symbol *sym = lily_sym_by_name(symtab, token->word_buffer);
 
-        if (sym == NULL)
-            lily_raise(parser->error, err_syntax,
-                "Variable '%s' is undefined.\n", token->word_buffer);
-
-        if (isafunc(sym)) {
-            /* New trees will get saved to the args section of this tree
-                when they are done. */
-            lily_ast *ast = lily_ast_init_call(parser->ast_pool, sym);
-            parser->saved_trees[parser->depth] = ast;
-
-            enter_parenth(parser, sym->num_args);
-
-            lily_lexer(parser->lex);
-            if (token->tok_type != tk_left_parenth)
+            if (sym == NULL)
                 lily_raise(parser->error, err_syntax,
-                    "Expected '(' after function name.\n");
+                    "Variable '%s' is undefined.\n", token->word_buffer);
 
-            lily_lexer(parser->lex);
-            /* This handles the first value of the function. */
-            parse_expr_value(parser);
+            if (isafunc(sym)) {
+                /* New trees will get saved to the args section of this tree
+                    when they are done. */
+                lily_ast *ast = lily_ast_init_call(parser->ast_pool, sym);
+                parser->saved_trees[parser->depth] = ast;
+
+                enter_parenth(parser, sym->num_args);
+
+                lily_lexer(parser->lex);
+                if (token->tok_type != tk_left_parenth)
+                    lily_raise(parser->error, err_syntax,
+                        "Expected '(' after function name.\n");
+
+                lily_lexer(parser->lex);
+                /* Get the first value of the function. */
+                continue;
+            }
+            else {
+                lily_ast *ast = lily_ast_init_var(parser->ast_pool, sym);
+                if (parser->current_tree == NULL)
+                    parser->current_tree = ast;
+
+                lily_lexer(parser->lex);
+            }
         }
-        else {
+        else if (token->tok_type == tk_double_quote) {
+            lily_symbol *sym = lily_st_new_str_sym(symtab, token->word_buffer);
             lily_ast *ast = lily_ast_init_var(parser->ast_pool, sym);
-            if (parser->current_tree == NULL)
-                parser->current_tree = ast;
+
+            parser->current_tree =
+                lily_ast_merge_trees(parser->current_tree, ast);
 
             lily_lexer(parser->lex);
         }
-    }
-    else if (token->tok_type == tk_double_quote) {
-        lily_symbol *sym = lily_st_new_str_sym(symtab, token->word_buffer);
-        lily_ast *ast = lily_ast_init_var(parser->ast_pool, sym);
+        else if (token->tok_type == tk_num_int) {
+            lily_symbol *sym = lily_st_new_int_sym(symtab, token->int_val);
+            lily_ast *ast = lily_ast_init_var(parser->ast_pool, sym);
 
-        parser->current_tree =
-            lily_ast_merge_trees(parser->current_tree, ast);
+            parser->current_tree =
+                lily_ast_merge_trees(parser->current_tree, ast);
 
-        lily_lexer(parser->lex);
-    }
-    else if (token->tok_type == tk_num_int) {
-        lily_symbol *sym = lily_st_new_int_sym(symtab, token->int_val);
-        lily_ast *ast = lily_ast_init_var(parser->ast_pool, sym);
+            lily_lexer(parser->lex);
+        }
+        else if (token->tok_type == tk_num_dbl) {
+            lily_symbol *sym = lily_st_new_dbl_sym(symtab, token->dbl_val);
+            lily_ast *ast = lily_ast_init_var(parser->ast_pool, sym);
 
-        parser->current_tree =
-            lily_ast_merge_trees(parser->current_tree, ast);
+            parser->current_tree =
+                lily_ast_merge_trees(parser->current_tree, ast);
 
-        lily_lexer(parser->lex);
-    }
-    else if (token->tok_type == tk_num_dbl) {
-        lily_symbol *sym = lily_st_new_dbl_sym(symtab, token->dbl_val);
-        lily_ast *ast = lily_ast_init_var(parser->ast_pool, sym);
-
-        parser->current_tree =
-            lily_ast_merge_trees(parser->current_tree, ast);
-
-        lily_lexer(parser->lex);
+            lily_lexer(parser->lex);
+        }
+        break;
     }
 }
 
@@ -147,7 +149,6 @@ static void parse_expr_top(lily_parse_state *parser)
     lily_token *token = parser->lex->token;
 
     while (1) {
-        parse_expr_value(parser);
         if (token->tok_type == tk_equal) {
             lily_ast *lhs = parser->current_tree;
             lily_ast *op = lily_ast_init_binary_op(parser->ast_pool, tk_equal);
@@ -172,9 +173,11 @@ static void parse_expr_top(lily_parse_state *parser)
             parser->current_tree = a;
             parser->depth--;
 
-            /* This should either be a binary op, or the first word of the next
-               expression. Ready the token. */
             lily_lexer(parser->lex);
+            /* If no functions, and a word, then the word is the start of the
+               next statement. */
+            if (parser->depth == 0 && token->tok_type == tk_word)
+                break;
         }
         else if (token->tok_type == tk_word) {
             /* todo : Check balance of ( and ). */
@@ -187,21 +190,72 @@ static void parse_expr_top(lily_parse_state *parser)
                 "parse_expr_top: Unexpected token value %s.\n",
                 tokname(token->tok_type));
         }
+
+        parse_expr_value(parser);
     }
-};
+
+    lily_emit_ast(parser->emit, parser->current_tree);
+    lily_ast_reset_pool(parser->ast_pool);
+    parser->current_tree = NULL;
+}
+
+static void parse_declaration(lily_parse_state *parser, lily_class *cls)
+{
+    lily_token *token = parser->lex->token;
+    lily_symbol *sym;
+
+    while (1) {
+        /* This starts at the class name, or the comma. The label is next. */
+        lily_lexer(parser->lex);
+
+        if (token->tok_type != tk_word)
+            lily_raise(parser->error, err_syntax,
+                       "Expected a variable name, not %s.\n",
+                       tokname(token->tok_type));
+
+        sym = lily_sym_by_name(parser->symtab, token->word_buffer);
+        if (sym != NULL)
+            lily_raise(parser->error, err_syntax,
+                       "%s has already been declared.\n", sym->name);
+
+        sym = lily_new_var(parser->symtab, cls, token->word_buffer);
+
+        lily_lexer(parser->lex);
+        /* Handle an initializing assignment, if there is one. */
+        if (token->tok_type == tk_equal) {
+            parser->current_tree = lily_ast_init_var(parser->ast_pool, sym);
+            parse_expr_top(parser);
+        }
+
+        /* This is the start of the next statement. */
+        if (token->tok_type == tk_word || token->tok_type == tk_end_tag)
+            break;
+        else if (token->tok_type != tk_comma) {
+            lily_raise(parser->error, err_syntax,
+                       "Expected ',' or ')', not %s.\n",
+                       tokname(token->tok_type));
+        }
+        /* else comma, so just jump back up. */
+    }
+}
 
 static void parse_statement(lily_parse_state *parser)
 {
     char *word_buffer = parser->lex->token->word_buffer;
+    lily_class *lclass;
 
-    /* todo : Check for a proper tree. */
-    if (lily_st_find_symbol(parser->symtab, word_buffer) == NULL)
-        lily_st_new_var_sym(parser->symtab, word_buffer);
+    lclass = lily_class_by_name(parser->symtab, word_buffer);
 
-    parse_expr_top(parser);
-    lily_emit_ast(parser->emit, parser->current_tree);
-    lily_ast_reset_pool(parser->ast_pool);
-    parser->current_tree = NULL;
+    if (lclass != NULL) {
+        /* Do decl parsing, which will handle any assignments. */
+        parse_declaration(parser, lclass);
+    }
+    else {
+        /* statement like 'print(x)', or 'a = b'. Call unary to prep the tree,
+           then binary handles the rest. */
+        parse_expr_value(parser);
+        parse_expr_top(parser);
+    }
 }
 
 void lily_parser(lily_parse_state *parser)

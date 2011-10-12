@@ -4,7 +4,7 @@
 
 static void builtin_print(lily_symbol *s)
 {
-    if (s->val_type == vt_str)
+    if (s->sym_class->id == SYM_CLASS_STR)
         lily_impl_send_html(((lily_strval *)s->value)->str);
 }
 
@@ -37,7 +37,7 @@ void lily_vm_execute(lily_excep_data *error, lily_symbol *sym)
                     lily_symbol *left = (lily_symbol *)regs[code[ci+1]];
                     lily_symbol *right = (lily_symbol *)regs[code[ci+2]];
                     left->value = right->value;
-                    left->val_type = right->val_type;
+                    left->sym_class = right->sym_class;
                 }
                 ci += 3;
                 break;

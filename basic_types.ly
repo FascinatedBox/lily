@@ -4,10 +4,14 @@
 </head>
 <body>
 <@lily
-# str, int, float
-a = "a"
-b = 1
-c = 1.0
+str a = "a"
+integer b = 1
+number c = 1.0
+
+# Some extra tests...
+print("Hello")
+str d, e, f
+str g
 @>
 </body>
 </html>

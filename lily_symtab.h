@@ -3,15 +3,6 @@
 
 # include "lily_error.h"
 
-typedef enum {
-    vt_builtin,
-    vt_int,
-    vt_str,
-    vt_list,
-    vt_double,
-    vt_unknown,
-} lily_val_type;
-
 /* There's no struct for storing floats or ints. They're stored raw (just cast
    the pointer). */
 
@@ -22,7 +13,7 @@ typedef struct {
 
 typedef struct {
     void *values;
-    lily_val_type *val_types;
+    int *val_types;
     int val_count;
     int val_size;
 } lily_listval;
@@ -33,19 +24,22 @@ typedef struct {
     int pos;
 } lily_code_data;
 
-#define SYM_ISFUNC 0x1
-#define isafunc(s) (s->flags & SYM_ISFUNC)
+#define isafunc(s) (s->sym_class->id == SYM_CLASS_FUNCTION)
+
+typedef struct {
+    char *name;
+    int id;
+} lily_class;
 
 typedef struct lily_symbol_t {
     struct lily_symbol_t *next;
     char *name;
     int id;
     int line_num;
-    int flags;
     int num_args;
     void *value;
+    lily_class *sym_class;
     lily_code_data *code_data;
-    lily_val_type val_type;
 } lily_symbol;
 
 typedef struct {
@@ -53,6 +47,7 @@ typedef struct {
     lily_symbol *start;
     /* The last symbol (for adding to). */
     lily_symbol *top;
+    lily_class **classes;
     /* The function containing commands outside of functions. */
     lily_symbol *main;
     int new_sym_id;
@@ -60,16 +55,21 @@ typedef struct {
     lily_excep_data *error;
 } lily_symtab;
 
-/* Keep this synced with the keyword table in lily_symtab.c */
-#define SYM_ID_STR   0
-#define SYM_ID_PRINT 1
+/* Sync with classnames in lily_symtab.c */
+#define SYM_CLASS_FUNCTION 0
+#define SYM_CLASS_STR      1
+#define SYM_CLASS_INTEGER  2
+#define SYM_CLASS_NUMBER   3
 
 void lily_free_symtab(lily_symtab *);
 lily_symtab *lily_new_symtab(lily_excep_data *);
+lily_symbol *lily_sym_by_name(lily_symtab *, char *);
+lily_class *lily_class_by_id(lily_symtab *, int);
+lily_class *lily_class_by_name(lily_symtab *, char *);
+lily_symbol *lily_new_var(lily_symtab *, lily_class *, char *);
 lily_symbol *lily_st_new_var_sym(lily_symtab *, char *);
 lily_symbol *lily_st_new_str_sym(lily_symtab *, char *);
 lily_symbol *lily_st_new_int_sym(lily_symtab *, int);
 lily_symbol *lily_st_new_dbl_sym(lily_symtab *, double);
-lily_symbol *lily_st_find_symbol(lily_symtab *, char *);
 
 #endif
