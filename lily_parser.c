@@ -180,7 +180,10 @@ static void parse_expr_top(lily_parse_state *parser)
                 break;
         }
         else if (token->tok_type == tk_word) {
-            /* todo : Check balance of ( and ). */
+            if (parser->depth != 0)
+                lily_raise(parser->error, err_syntax,
+                           "Expected ')' or a binary op, not a label.\n");
+
             break;
         }
         else if (token->tok_type == tk_end_tag)
