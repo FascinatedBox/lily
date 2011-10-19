@@ -1,7 +1,7 @@
 #include "lily_ast.h"
 #include "lily_impl.h"
 
-static lily_expr_op opcode_for_token(lily_tok_type t)
+static lily_expr_op opcode_for_token(lily_token t)
 {
     lily_expr_op op;
     switch (t) {
@@ -167,7 +167,7 @@ lily_ast *lily_ast_init_var(lily_ast_pool *ap, lily_symbol *s)
     return a;
 }
 
-lily_ast *lily_ast_init_binary_op(lily_ast_pool *ap, lily_tok_type t)
+lily_ast *lily_ast_init_binary_op(lily_ast_pool *ap, lily_token t)
 {
     lily_ast *a = next_pool_ast(ap);
 

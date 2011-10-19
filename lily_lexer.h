@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include "lily_error.h"
+#include "lily_symtab.h"
 
 typedef enum {
     tk_invalid,
@@ -16,13 +17,6 @@ typedef enum {
     tk_comma,
     tk_end_tag,
     tk_eof
-} lily_tok_type;
-
-typedef struct lily_token_t {
-    lily_tok_type tok_type;
-    char *word_buffer;
-    int integer_val;
-    double number_val;
 } lily_token;
 
 typedef struct {
@@ -37,11 +31,13 @@ typedef struct {
     int lex_bufpos;
     int lex_bufend;
     int lex_bufsize;
-    lily_token *token;
+    char *label;
+    lily_token token;
+    lily_value value;
     lily_excep_data *error;
 } lily_lex_state;
 
-char *tokname(lily_tok_type);
+char *tokname(lily_token);
 void lily_free_lex_state(lily_lex_state *);
 lily_lex_state *lily_new_lex_state(lily_excep_data *);
 void lily_lexer(lily_lex_state *);

@@ -17,7 +17,7 @@
 #define CC_DOT           10
 #define CC_COMMA         11
 
-char *tokname(lily_tok_type t)
+char *tokname(lily_token t)
 {
     static char *toknames[] =
     {"invalid token", "a label", "(", ")", "a string", "an integer", "a number",
@@ -195,7 +195,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
     }
 
     if (at_file_end)
-        lexer->token->tok_type = tk_eof;
+        lexer->token = tk_eof;
 
     lexer->lex_bufpos = lbp;
 }
@@ -220,15 +220,14 @@ void lily_free_lex_state(lily_lex_state *lex)
     lily_free(lex->html_cache);
     lily_free(lex->lex_buffer);
     lily_free(lex->ch_class);
-    lily_free(lex->token->word_buffer);
-    lily_free(lex->token);
+    lily_free(lex->label);
     lily_free(lex);
 }
 
 lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
 {
     lily_lex_state *s = lily_malloc(sizeof(lily_lex_state));
-    char *ch_class, *word_buffer;
+    char *ch_class;
 
     if (s == NULL)
         return NULL;
@@ -241,17 +240,15 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     s->lex_bufpos = 0;
     s->lex_bufsize = 1023;
 
-    s->token = lily_malloc(sizeof(lily_token));
-
-    ch_class = lily_malloc(256 * sizeof(char));
-    word_buffer = lily_malloc(1024 * sizeof(char));
+    s->label = lily_malloc(1024 * sizeof(char));
     s->line_num = 0;
 
-    if (word_buffer == NULL || ch_class == NULL || s->token == NULL ||
-        s->lex_buffer == NULL || s->html_cache == NULL) {
-        lily_free(word_buffer);
+    ch_class = lily_malloc(256 * sizeof(char));
+
+    if (ch_class == NULL || s->label == NULL || s->lex_buffer == NULL ||
+        s->html_cache == NULL) {
         lily_free(ch_class);
-        lily_free(s->token);
+        lily_free(s->label);
         lily_free(s->lex_buffer);
         lily_free(s->html_cache);
         lily_free(s);
@@ -285,7 +282,6 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     ch_class[(unsigned char)','] = CC_COMMA;
 
     s->ch_class = ch_class;
-    s->token->word_buffer = word_buffer;
     return s;
 }
 
@@ -293,7 +289,7 @@ void lily_lexer(lily_lex_state *lexer)
 {
     char *ch_class, *lex_buffer;
     int lex_bufpos = lexer->lex_bufpos;
-    lily_token *lex_token = lexer->token;
+    lily_token token;
 
     ch_class = lexer->ch_class;
     lex_buffer = lexer->lex_buffer;
@@ -315,34 +311,34 @@ void lily_lexer(lily_lex_state *lexer)
                valid word character. So, there's no point in checking for
                overflow. */
             int word_pos = 0;
-            char *word_buffer = lex_token->word_buffer;
+            char *label = lexer->label;
             do {
-                word_buffer[word_pos] = ch;
+                label[word_pos] = ch;
                 word_pos++;
                 lex_bufpos++;
                 ch = lex_buffer[lex_bufpos];
             } while (ch_class[(unsigned char)ch] == CC_WORD);
-            word_buffer[word_pos] = '\0';
-            lex_token->tok_type = tk_word;
+            label[word_pos] = '\0';
+            token = tk_word;
         }
         else if (group == CC_LEFT_PARENTH) {
             lex_bufpos++;
-            lex_token->tok_type = tk_left_parenth;
+            token = tk_left_parenth;
         }
         else if (group == CC_RIGHT_PARENTH) {
             lex_bufpos++;
-            lex_token->tok_type = tk_right_parenth;
+            token = tk_right_parenth;
         }
         else if (group == CC_DOUBLE_QUOTE) {
             /* todo : Allow multiline strings. */
             int word_pos = 0;
-            char *word_buffer = lex_token->word_buffer;
+            char *label = lexer->label;
 
             /* Skip opening quote. */
             lex_bufpos++;
             ch = lex_buffer[lex_bufpos];
             do {
-                word_buffer[word_pos] = ch;
+                label[word_pos] = ch;
                 word_pos++;
                 lex_bufpos++;
                 if (ch == '\\') {
@@ -358,22 +354,38 @@ void lily_lexer(lily_lex_state *lexer)
                 lily_raise(lexer->error, err_syntax,
                            "String without closure.\n");
 
-            word_buffer[word_pos] = '\0';
+            label[word_pos] = '\0';
+
+            /* Prepare the string for the parser. */
+            lily_strval *sv = lily_malloc(sizeof(lily_strval));
+            if (sv == NULL)
+                lily_raise_nomem(lexer->error);
+
+            char *str = lily_malloc(word_pos);
+            if (str == NULL) {
+                lily_free(sv);
+                lily_raise_nomem(lexer->error);
+            }
+
+            sv->str = str;
+            sv->size = word_pos - 1;
+            lexer->value.ptr = sv;
+
             /* ...and the ending one too. */
             lex_bufpos++;
-            lex_token->tok_type = tk_double_quote;
+            token = tk_double_quote;
         }
         else if (group == CC_AT) {
             lex_bufpos++;
             if (lex_buffer[lex_bufpos] == '>')
-                lex_token->tok_type = tk_end_tag;
+                token = tk_end_tag;
             else
                 lily_raise(lexer->error, err_syntax,
                            "Expected '>' after '@'.\n");
         }
         else if (group == CC_EQUAL) {
             lex_bufpos++;
-            lex_token->tok_type = tk_equal;
+            token = tk_equal;
         }
         else if (group == CC_NUMBER) {
             int integer_total;
@@ -382,22 +394,22 @@ void lily_lexer(lily_lex_state *lexer)
                 lex_bufpos++;
                 double num_total = scan_decimal_number(lex_buffer, &lex_bufpos);
                 num_total += integer_total;
-                lex_token->number_val = num_total;
-                lex_token->tok_type = tk_number;
+                lexer->value.number = num_total;
+                token = tk_number;
             }
             else {
-                lex_token->integer_val = integer_total;
-                lex_token->tok_type = tk_integer;
+                lexer->value.integer = integer_total;
+                token = tk_integer;
             }
         }
         else if (group == CC_DOT) {
             double number_total = scan_decimal_number(lex_buffer, &lex_bufpos);
-            lex_token->number_val = number_total;
-            lex_token->tok_type = tk_number;
+            lexer->value.number = number_total;
+            token = tk_number;
         }
         else if (group == CC_COMMA) {
             lex_bufpos++;
-            lex_token->tok_type = tk_comma;
+            token = tk_comma;
         }
         else if (group == CC_NEWLINE || group == CC_SHARP) {
             read_line(lexer);
@@ -405,9 +417,10 @@ void lily_lexer(lily_lex_state *lexer)
             continue;
         }
         else
-            lex_token->tok_type = tk_invalid;
+            token = tk_invalid;
 
         lexer->lex_bufpos = lex_bufpos;
+        lexer->token = token;
         return;
     }
 }

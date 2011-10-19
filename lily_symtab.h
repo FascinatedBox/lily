@@ -24,6 +24,12 @@ typedef struct {
     int pos;
 } lily_code_data;
 
+typedef union {
+    int integer;
+    double number;
+    void *ptr;
+} lily_value;
+
 #define isafunc(s) (s->sym_class->id == SYM_CLASS_FUNCTION)
 
 typedef struct {
@@ -67,8 +73,6 @@ lily_symbol *lily_sym_by_name(lily_symtab *, char *);
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, char *);
 lily_symbol *lily_new_var(lily_symtab *, lily_class *, char *);
-lily_symbol *lily_new_str_sym(lily_symtab *, char *);
-lily_symbol *lily_new_integer_sym(lily_symtab *, int);
-lily_symbol *lily_new_number_sym(lily_symtab *, double);
+lily_symbol *lily_new_temp(lily_symtab *, lily_class *, lily_value);
 
 #endif
