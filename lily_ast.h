@@ -52,7 +52,7 @@ void lily_ast_reset_pool(lily_ast_pool *);
 void lily_ast_free_pool(lily_ast_pool *);
 lily_ast *lily_ast_init_call(lily_ast_pool *, lily_symbol *);
 lily_ast *lily_ast_init_var(lily_ast_pool *, lily_symbol *);
-lily_ast *lily_ast_init_binary_op(lily_ast_pool *, lily_tok_type);
+lily_ast *lily_ast_init_binary_op(lily_ast_pool *, lily_token);
 lily_ast *lily_ast_merge_trees(lily_ast *, lily_ast *);
 void lily_ast_add_arg(lily_ast_pool *, lily_ast *, lily_ast *);
 
