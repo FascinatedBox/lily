@@ -158,12 +158,12 @@ lily_ast *lily_ast_init_call(lily_ast_pool *ap, lily_symbol *s)
     return a;
 }
 
-lily_ast *lily_ast_init_var(lily_ast_pool *ap, lily_symbol *s)
+lily_ast *lily_ast_init_var(lily_ast_pool *ap, lily_object *o)
 {
     lily_ast *a = next_pool_ast(ap);
 
     a->expr_type = var;
-    a->data.value = s;
+    a->data.object = o;
     return a;
 }
 

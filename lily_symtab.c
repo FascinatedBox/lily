@@ -25,19 +25,19 @@ struct lily_keyword {
 
 static void add_symbol(lily_symtab *symtab, lily_symbol *s)
 {
-    s->id = symtab->new_sym_id;
-    symtab->new_sym_id++;
+    s->id = symtab->next_sym_id;
+    symtab->next_sym_id++;
 
     s->next = NULL;
     /* The symtab is the oldest, for iteration. The symtab_top is the newest,
        for adding new elements. */
-    if (symtab->start == NULL)
+    if (symtab->sym_start == NULL)
         /* If no symtab, this is both the oldest and newest. */
-        symtab->start = s;
+        symtab->sym_start = s;
     else
-        symtab->top->next = s;
+        symtab->sym_top->next = s;
 
-    symtab->top = s;
+    symtab->sym_top = s;
 }
 
 lily_class *lily_class_by_id(lily_symtab *symtab, int class_id)
@@ -60,7 +60,7 @@ lily_class *lily_class_by_name(lily_symtab *symtab, char *name)
 
 void lily_free_symtab(lily_symtab *symtab)
 {
-    lily_symbol *sym = symtab->start;
+    lily_symbol *sym = symtab->sym_start;
     lily_symbol *temp;
 
     while (sym != NULL) {
@@ -90,12 +90,13 @@ void lily_free_symtab(lily_symtab *symtab)
 
 static int init_classes(lily_symtab *symtab)
 {
-    int i, class_count, ret;
+    int i, class_id, class_count, ret;
 
     lily_class **classes = lily_malloc(sizeof(lily_class) * 4);
     if (classes == NULL)
         return 0;
 
+    class_id = 0;
     class_count = sizeof(classnames) / sizeof(classnames[0]);
 
     for (i = 0;i < class_count;i++) {
@@ -104,11 +105,11 @@ static int init_classes(lily_symtab *symtab)
         if (new_class == NULL)
             break;
 
-        classes[i] = new_class;
         new_class->name = classnames[i];
+        new_class->id = class_id;
+        class_id++;
 
-        new_class->id = symtab->new_sym_id;
-        symtab->new_sym_id++;
+        classes[i] = new_class;
     }
 
     if (i != class_count) {
@@ -155,7 +156,7 @@ static int init_symbols(lily_symtab *symtab)
         strcpy(new_sym->name, keywords[i].name);
         new_sym->code_data = NULL;
         new_sym->num_args = keywords[i].num_args;
-        new_sym->value = NULL;
+        new_sym->object = NULL;
         new_sym->sym_class = func_class;
         new_sym->line_num = 0;
         add_symbol(symtab, new_sym);
@@ -174,10 +175,13 @@ lily_symtab *lily_new_symtab(lily_excep_data *excep)
     int *code = lily_malloc(sizeof(int) * 4);
     lily_code_data *cd = lily_malloc(sizeof(lily_code_data));
 
-    s->new_sym_id = 0;
-    s->start = NULL;
-    s->top = NULL;
+    s->next_sym_id = 0;
+    s->next_obj_id = 0;
+    s->sym_start = NULL;
+    s->sym_top = NULL;
     s->classes = NULL;
+    s->obj_start = NULL;
+    s->obj_top = NULL;
 
     if (code == NULL || cd == NULL || !init_classes(s) || !init_symbols(s)) {
         /* This will free any symbols added, and the symtab object. */
@@ -191,7 +195,7 @@ lily_symtab *lily_new_symtab(lily_excep_data *excep)
     cd->len = 4;
     cd->pos = 0;
 
-    lily_symbol *main_func = s->top;
+    lily_symbol *main_func = s->sym_top;
 
     main_func->code_data = cd;
     s->main = main_func;
@@ -204,7 +208,7 @@ lily_symbol *lily_sym_by_name(lily_symtab *symtab, char *name)
 {
     lily_symbol *sym;
 
-    sym = symtab->start;
+    sym = symtab->sym_start;
 
     while (sym != NULL) {
         if (sym->name != NULL && strcmp(sym->name, name) == 0)
@@ -217,6 +221,8 @@ lily_symbol *lily_sym_by_name(lily_symtab *symtab, char *name)
 lily_symbol *lily_new_var(lily_symtab *symtab, lily_class *cls, char *name)
 {
     lily_symbol *sym = lily_malloc(sizeof(lily_symbol));
+    lily_object *obj;
+
     if (sym == NULL)
         lily_raise_nomem(symtab->error);
 
@@ -226,39 +232,46 @@ lily_symbol *lily_new_var(lily_symtab *symtab, lily_class *cls, char *name)
         lily_raise_nomem(symtab->error);
     }
 
+    obj = lily_malloc(sizeof(lily_object));
+    if (obj == NULL) {
+        lily_free(sym);
+        lily_free(sym->name);
+        lily_raise_nomem(symtab->error);
+    }
+    obj->sym = sym;
+    obj->cls = cls;
+    obj->flags = OB_SYM;
+    sym->object = obj;
     sym->code_data = NULL;
     sym->sym_class = cls;
-    sym->value = NULL;
+    
     sym->line_num = *symtab->lex_linenum;
     strcpy(sym->name, name);
 
     add_symbol(symtab, sym);
+    obj->id = sym->id;
     return sym;
 }
 
-lily_symbol *lily_new_temp(lily_symtab *symtab, lily_class *cls,
-                           lily_value value)
+lily_object *lily_new_fixed(lily_symtab *symtab, lily_class *cls)
 {
-    lily_symbol *sym = lily_malloc(sizeof(lily_symbol));
-    if (sym == NULL)
+    lily_object *o = lily_malloc(sizeof(lily_object));
+    if (o == NULL)
         lily_raise_nomem(symtab->error);
 
-    switch (cls->id) {
-        case SYM_CLASS_INTEGER:
-            sym->value = &value.integer;
-            break;
-        case SYM_CLASS_NUMBER:
-            sym->value = &value.number;
-            break;
-        case SYM_CLASS_STR:
-            sym->value = value.ptr;
-            break;
-    }
+    o->cls = cls;
+    o->sym = NULL;
+    o->flags = OB_FIXED;
 
-    sym->code_data = NULL;
-    sym->name = NULL;
-    sym->sym_class = cls;
-    sym->line_num = *symtab->lex_linenum;
-    add_symbol(symtab, sym);
-    return sym;
+    o->next = NULL;
+    if (symtab->obj_start == NULL)
+        symtab->obj_start = o;
+    else
+        symtab->obj_top->next = o;
+
+    symtab->obj_top = o;
+    o->id = symtab->next_obj_id;
+    symtab->next_obj_id++;
+
+    return o;
 }

@@ -2,19 +2,16 @@
 # define LILY_OPCODE_H
 
 typedef enum {
-    o_load_reg,
-    /* Arguments: pos, v
-       Loads the symbol 'v' into the vm register at 'pos'. */
     o_builtin_print,
-    /* Arguments: pos
-       Calls lily_impl_print, using the symbol at vm register 'pos'. */
+    /* Arguments: str s
+       Calls lily_impl_print, using the str 's'. */
     o_assign,
-    /* Arguments: left_pos, right_pos
-       Assigns the value in 'right_pos' to 'left_pos'. 'left_pos' and
-       'right_pos' both refer to vm registers. */
+    /* Arguments: left, right
+       Assigns the value of 'right' to 'left'. Assumes left and right both have
+       the same type. */
     o_vm_return
     /* Arguments: none
-       This returns control from the lily vm to the parser. */
+       Makes the vm function return. */
 } lily_opcode;
 
 #endif
