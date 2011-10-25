@@ -98,44 +98,37 @@ static void parse_expr_value(lily_parse_state *parser)
                 continue;
             }
             else {
-                lily_ast *ast = lily_ast_init_var(parser->ast_pool, sym);
+                lily_ast *ast = lily_ast_init_var(parser->ast_pool, sym->object);
                 if (parser->current_tree == NULL)
                     parser->current_tree = ast;
 
                 lily_lexer(lex);
             }
         }
-        else if (lex->token == tk_double_quote) {
-            lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_STR);
-            lily_symbol *sym = lily_new_temp(symtab, cls, lex->value);
-            lily_ast *ast = lily_ast_init_var(parser->ast_pool, sym);
+        else {
+            lily_ast *ast;
+            lily_object *obj;
+            lily_class *cls;
 
+            if (lex->token == tk_double_quote)
+                cls = lily_class_by_id(symtab, SYM_CLASS_STR);
+            else if (lex->token == tk_integer)
+                cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
+            else if (lex->token == tk_number)
+                cls = lily_class_by_id(symtab, SYM_CLASS_NUMBER);
+            else
+                break;
+
+            obj = lily_new_fixed(symtab, cls);
+            obj->value = lex->value;
+
+            ast = lily_ast_init_var(parser->ast_pool, obj);
             parser->current_tree =
                 lily_ast_merge_trees(parser->current_tree, ast);
 
             lily_lexer(lex);
+            break;
         }
-        else if (lex->token == tk_integer) {
-            lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_STR);
-            lily_symbol *sym = lily_new_temp(symtab, cls, lex->value);
-            lily_ast *ast = lily_ast_init_var(parser->ast_pool, sym);
-
-            parser->current_tree =
-                lily_ast_merge_trees(parser->current_tree, ast);
-
-            lily_lexer(lex);
-        }
-        else if (lex->token == tk_number) {
-            lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_STR);
-            lily_symbol *sym = lily_new_temp(symtab, cls, lex->value);
-            lily_ast *ast = lily_ast_init_var(parser->ast_pool, sym);
-
-            parser->current_tree =
-                lily_ast_merge_trees(parser->current_tree, ast);
-
-            lily_lexer(lex);
-        }
-        break;
     }
 }
 
@@ -229,7 +222,8 @@ static void parse_declaration(lily_parse_state *parser, lily_class *cls)
         lily_lexer(parser->lex);
         /* Handle an initializing assignment, if there is one. */
         if (lex->token == tk_equal) {
-            parser->current_tree = lily_ast_init_var(parser->ast_pool, sym);
+            parser->current_tree = lily_ast_init_var(parser->ast_pool,
+                                                     sym->object);
             parse_expr_top(parser);
         }
 

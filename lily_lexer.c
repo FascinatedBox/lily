@@ -361,14 +361,15 @@ void lily_lexer(lily_lex_state *lexer)
             if (sv == NULL)
                 lily_raise_nomem(lexer->error);
 
-            char *str = lily_malloc(word_pos);
+            char *str = lily_malloc(word_pos + 1);
             if (str == NULL) {
                 lily_free(sv);
                 lily_raise_nomem(lexer->error);
             }
 
+            strcpy(str, label);
             sv->str = str;
-            sv->size = word_pos - 1;
+            sv->size = word_pos;
             lexer->value.ptr = sv;
 
             /* ...and the ending one too. */

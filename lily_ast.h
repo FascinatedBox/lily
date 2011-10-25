@@ -15,15 +15,15 @@ typedef struct lily_ast_ {
     enum {
         func_call, var, binary
     } expr_type;
-    int reg_pos;
+    lily_object *result;
     union {
-        lily_symbol *value;
+        lily_object *object;
         struct {
             lily_symbol *sym;
             int num_args;
             struct lily_ast_list *args;
         } call;
-        struct {
+        struct lily_bin_expr {
             lily_expr_op op;
             struct lily_ast_ *left;
             struct lily_ast_ *right;
@@ -51,7 +51,7 @@ lily_ast_pool *lily_ast_init_pool(lily_excep_data *, int);
 void lily_ast_reset_pool(lily_ast_pool *);
 void lily_ast_free_pool(lily_ast_pool *);
 lily_ast *lily_ast_init_call(lily_ast_pool *, lily_symbol *);
-lily_ast *lily_ast_init_var(lily_ast_pool *, lily_symbol *);
+lily_ast *lily_ast_init_var(lily_ast_pool *, lily_object *);
 lily_ast *lily_ast_init_binary_op(lily_ast_pool *, lily_token);
 lily_ast *lily_ast_merge_trees(lily_ast *, lily_ast *);
 void lily_ast_add_arg(lily_ast_pool *, lily_ast *, lily_ast *);

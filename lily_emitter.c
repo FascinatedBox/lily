@@ -9,36 +9,22 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 {
     lily_code_data *cd = emit->target;
 
-    if (ast->expr_type == var) {
-        ast->reg_pos = emit->next_reg;
-        emit->next_reg++;
-
-        if ((cd->pos + 3) > cd->len) {
-            cd->len *= 2;
-            cd->code = lily_realloc(cd->code, sizeof(int) * cd->len);
-            if (cd->code == NULL)
-                lily_raise_nomem(emit->error);
-        }
-
-        cd->code[cd->pos] = o_load_reg;
-        cd->code[cd->pos+1] = ast->reg_pos;
-        cd->code[cd->pos+2] = (int)ast->data.value;
-        cd->pos += 3;
-    }
-    else if (ast->expr_type == func_call) {
-        struct lily_ast_list *list;
+    /* todo: Should this accept vars? */
+    if (ast->expr_type == func_call) {
         int i, new_pos;
-
-        /* The args could be values or expressions. Either way, get the result
-           calculated and the end values into registers. */
-        list = ast->data.call.args;
+        struct lily_ast_list *list = ast->data.call.args;
         while (list != NULL) {
-            walk_tree(emit, list->ast);
+            if (list->ast->expr_type == var)
+                /* Nothing to calculate. */
+                list->ast->result = list->ast->data.object;
+            else {
+                /* Walk the subexpressions so the result gets calculated. */
+                walk_tree(emit, list->ast);
+            }
+
             list = list->next;
         }
 
-        /* Check for available space now that any inner expressions have
-           adjusted the position. */
         new_pos = cd->pos + 1 + ast->data.call.num_args;
         if (new_pos > cd->len) {
             cd->len *= 2;
@@ -47,31 +33,39 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                 lily_raise_nomem(emit->error);
         }
 
-        /* hack: assumes print is the only function. Fix soon. */
         cd->code[cd->pos] = o_builtin_print;
-        for (i = 1, list = ast->data.call.args;list != NULL;
-             i++, list = list->next) {
-            cd->code[cd->pos+i] = list->ast->reg_pos;
+        for (i = 1, list = ast->data.call.args;
+             list != NULL;
+             list = list->next) {
+            cd->code[cd->pos + i] = (int)list->ast->result;
         }
-
         cd->pos = new_pos;
     }
     else if (ast->expr_type == binary) {
-        if (ast->data.bin_expr.op == expr_assign) {
-            walk_tree(emit, ast->data.bin_expr.left);
-            walk_tree(emit, ast->data.bin_expr.right);
+        /* Make for less typing. */
+        struct lily_bin_expr bx = ast->data.bin_expr;
+
+        if (bx.op == expr_assign) {
+            if (bx.left->expr_type == var)
+                bx.left->result = bx.left->data.object;
+            else
+                walk_tree(emit, bx.left);
+
+            if (bx.right->expr_type == var)
+                bx.right->result = bx.right->data.object;
+            else
+                walk_tree(emit, bx.right);
 
             if ((cd->pos + 3) > cd->len) {
                 cd->len *= 2;
-                cd->code = lily_realloc(cd->code, sizeof(int) *
-                                             cd->len);
+                cd->code = lily_realloc(cd->code, sizeof(int) * cd->len);
                 if (cd->code == NULL)
                     lily_raise_nomem(emit->error);
             }
 
             cd->code[cd->pos] = o_assign;
-            cd->code[cd->pos+1] = ast->data.bin_expr.left->reg_pos;
-            cd->code[cd->pos+2] = ast->data.bin_expr.right->reg_pos;
+            cd->code[cd->pos+1] = (int)bx.left->result;
+            cd->code[cd->pos+2] = (int)bx.right->result;
             cd->pos += 3;
         }
     }
