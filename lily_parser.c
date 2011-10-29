@@ -10,7 +10,6 @@
 
 static void enter_parenth(lily_parse_state *parser, int args_needed)
 {
-    parser->num_expected[parser->depth] = parser->num_args + args_needed;
     parser->depth++;
     parser->current_tree = NULL;
 }
@@ -23,7 +22,6 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
         return NULL;
 
     s->saved_trees = lily_malloc(sizeof(lily_ast *) * 32);
-    s->num_expected = lily_malloc(sizeof(int) * 32);
     s->ast_pool = lily_ast_init_pool(excep, 8);
     s->depth = 0;
     s->num_args = 0;
@@ -35,10 +33,8 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
     s->lex = lily_new_lex_state(excep);
 
     if (s->lex == NULL || s->emit == NULL || s->symtab == NULL ||
-        s->ast_pool == NULL || s->num_expected == NULL ||
-        s->saved_trees == NULL) {
+        s->ast_pool == NULL || s->saved_trees == NULL) {
         lily_free(s->saved_trees);
-        lily_free(s->num_expected);
         if (s->symtab != NULL)
             lily_free_symtab(s->symtab);
         if (s->emit != NULL)
@@ -63,7 +59,6 @@ void lily_free_parse_state(lily_parse_state *parser)
     lily_free_lex_state(parser->lex);
     lily_free_emit_state(parser->emit);
     lily_free(parser->saved_trees);
-    lily_free(parser->num_expected);
     lily_free(parser);
 }
 
@@ -161,11 +156,19 @@ static void parse_expr_top(lily_parse_state *parser)
                     "')' but current tree is NULL!\n");
 
             lily_ast *a = parser->saved_trees[parser->depth - 1];
-            if (a->expr_type == func_call)
+            if (a->expr_type == func_call) {
                 lily_ast_add_arg(parser->ast_pool, a,
                                  parser->current_tree);
 
-            /* todo : Check proper # of arguments. */
+                /* The sym holds how many args it needs. The ast call stores how
+                   many args have been collected so far. */
+                if (a->data.call.sym->num_args != a->data.call.num_args) {
+                    lily_raise(parser->error, err_syntax,
+                               "%s expects %d args, got %d.\n",
+                               a->data.call.sym, a->data.call.sym->num_args,
+                               a->data.call.num_args);
+                }
+            }
             parser->current_tree = a;
             parser->depth--;
 

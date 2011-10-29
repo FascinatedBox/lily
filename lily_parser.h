@@ -9,7 +9,6 @@
 
 typedef struct {
     int depth;
-    int *num_expected;
     lily_ast_pool *ast_pool;
     lily_ast **saved_trees;
     lily_ast *current_tree;
