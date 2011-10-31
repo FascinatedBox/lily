@@ -8,11 +8,7 @@
 # include "lily_symtab.h"
 
 typedef struct {
-    int depth;
     lily_ast_pool *ast_pool;
-    lily_ast **saved_trees;
-    lily_ast *current_tree;
-    int num_args;
     lily_lex_state *lex;
     lily_emit_state *emit;
     lily_symtab *symtab;

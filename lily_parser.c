@@ -8,12 +8,6 @@
 #include "lily_parser.h"
 #include "lily_debug.h"
 
-static void enter_parenth(lily_parse_state *parser, int args_needed)
-{
-    parser->depth++;
-    parser->current_tree = NULL;
-}
-
 lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
 {
     lily_parse_state *s = lily_malloc(sizeof(lily_parse_state));
@@ -21,11 +15,7 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
     if (s == NULL)
         return NULL;
 
-    s->saved_trees = lily_malloc(sizeof(lily_ast *) * 32);
     s->ast_pool = lily_ast_init_pool(excep, 8);
-    s->depth = 0;
-    s->num_args = 0;
-    s->current_tree = NULL;
     s->error = excep;
 
     s->symtab = lily_new_symtab(excep);
@@ -33,8 +23,7 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
     s->lex = lily_new_lex_state(excep);
 
     if (s->lex == NULL || s->emit == NULL || s->symtab == NULL ||
-        s->ast_pool == NULL || s->saved_trees == NULL) {
-        lily_free(s->saved_trees);
+        s->ast_pool == NULL) {
         if (s->symtab != NULL)
             lily_free_symtab(s->symtab);
         if (s->emit != NULL)
@@ -58,7 +47,6 @@ void lily_free_parse_state(lily_parse_state *parser)
     lily_free_symtab(parser->symtab);
     lily_free_lex_state(parser->lex);
     lily_free_emit_state(parser->emit);
-    lily_free(parser->saved_trees);
     lily_free(parser);
 }
 
@@ -78,10 +66,7 @@ static void parse_expr_value(lily_parse_state *parser)
             if (isafunc(sym)) {
                 /* New trees will get saved to the args section of this tree
                     when they are done. */
-                lily_ast *ast = lily_ast_init_call(parser->ast_pool, sym);
-                parser->saved_trees[parser->depth] = ast;
-
-                enter_parenth(parser, sym->num_args);
+                lily_ast_enter_func(parser->ast_pool, sym);
 
                 lily_lexer(parser->lex);
                 if (lex->token != tk_left_parenth)
@@ -93,9 +78,7 @@ static void parse_expr_value(lily_parse_state *parser)
                 continue;
             }
             else {
-                lily_ast *ast = lily_ast_init_var(parser->ast_pool, sym->object);
-                if (parser->current_tree == NULL)
-                    parser->current_tree = ast;
+                lily_ast_push_var(parser->ast_pool, sym->object);
 
                 lily_lexer(lex);
             }
@@ -117,9 +100,7 @@ static void parse_expr_value(lily_parse_state *parser)
             obj = lily_new_fixed(symtab, cls);
             obj->value = lex->value;
 
-            ast = lily_ast_init_var(parser->ast_pool, obj);
-            parser->current_tree =
-                lily_ast_merge_trees(parser->current_tree, ast);
+            lily_ast_push_var(parser->ast_pool, obj);
 
             lily_lexer(lex);
             break;
@@ -141,45 +122,21 @@ static void parse_expr_top(lily_parse_state *parser)
 
     while (1) {
         if (lex->token == tk_equal) {
-            lily_ast *lhs = parser->current_tree;
-            lily_ast *op = lily_ast_init_binary_op(parser->ast_pool, tk_equal);
-
-            parser->current_tree = lily_ast_merge_trees(lhs, op);
-            if (parser->current_tree == NULL)
-                lily_raise(parser->error, err_stub, "Handle two tree merge.\n");
+            lily_ast_push_binary_op(parser->ast_pool, tk_equal);
 
             lily_lexer(lex);
         }
         else if (lex->token == tk_right_parenth) {
-            if (parser->current_tree == NULL)
-                lily_raise(parser->error, err_internal,
-                    "')' but current tree is NULL!\n");
-
-            lily_ast *a = parser->saved_trees[parser->depth - 1];
-            if (a->expr_type == func_call) {
-                lily_ast_add_arg(parser->ast_pool, a,
-                                 parser->current_tree);
-
-                /* The sym holds how many args it needs. The ast call stores how
-                   many args have been collected so far. */
-                if (a->data.call.sym->num_args != a->data.call.num_args) {
-                    lily_raise(parser->error, err_syntax,
-                               "%s expects %d args, got %d.\n",
-                               a->data.call.sym, a->data.call.sym->num_args,
-                               a->data.call.num_args);
-                }
-            }
-            parser->current_tree = a;
-            parser->depth--;
+            lily_ast_pop_tree(parser->ast_pool);
 
             lily_lexer(lex);
             /* If no functions, and a word, then the word is the start of the
                next statement. */
-            if (parser->depth == 0 && lex->token == tk_word)
+            if (lex->token == tk_word && parser->ast_pool->save_index == 0)
                 break;
         }
         else if (lex->token == tk_word) {
-            if (parser->depth != 0)
+            if (parser->ast_pool->save_index != 0)
                 lily_raise(parser->error, err_syntax,
                            "Expected ')' or a binary op, not a label.\n");
 
@@ -196,9 +153,8 @@ static void parse_expr_top(lily_parse_state *parser)
         parse_expr_value(parser);
     }
 
-    lily_emit_ast(parser->emit, parser->current_tree);
+    lily_emit_ast(parser->emit, parser->ast_pool->root);
     lily_ast_reset_pool(parser->ast_pool);
-    parser->current_tree = NULL;
 }
 
 static void parse_declaration(lily_parse_state *parser, lily_class *cls)
@@ -225,8 +181,7 @@ static void parse_declaration(lily_parse_state *parser, lily_class *cls)
         lily_lexer(parser->lex);
         /* Handle an initializing assignment, if there is one. */
         if (lex->token == tk_equal) {
-            parser->current_tree = lily_ast_init_var(parser->ast_pool,
-                                                     sym->object);
+            lily_ast_push_var(parser->ast_pool, sym->object);
             parse_expr_top(parser);
         }
 
