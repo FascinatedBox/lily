@@ -11,7 +11,7 @@ typedef enum {
     expr_assign
 } lily_expr_op;
 
-typedef struct lily_ast_ {
+typedef struct lily_ast_t {
     enum {
         func_call, var, binary
     } expr_type;
@@ -26,9 +26,9 @@ typedef struct lily_ast_ {
         struct lily_bin_expr {
             int priority;
             lily_expr_op op;
-            struct lily_ast_ *left;
-            struct lily_ast_ *right;
-            struct lily_ast_ *parent;
+            struct lily_ast_t *left;
+            struct lily_ast_t *right;
+            struct lily_ast_t *parent;
         } bin_expr;
     } data;
 } lily_ast;
