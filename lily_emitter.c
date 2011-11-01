@@ -71,11 +71,6 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
     }
 }
 
-static void clear_reg_info(lily_emit_state *emit)
-{
-    emit->next_reg = 0;
-}
-
 void lily_emit_vm_return(lily_emit_state *emit)
 {
     lily_code_data *cd = emit->target;
@@ -93,7 +88,6 @@ void lily_emit_vm_return(lily_emit_state *emit)
 void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)
 {
     walk_tree(emit, ast);
-    clear_reg_info(emit);
 }
 
 lily_emit_state *lily_new_emit_state(lily_excep_data *excep)
@@ -103,7 +97,6 @@ lily_emit_state *lily_new_emit_state(lily_excep_data *excep)
     if (s == NULL)
         return NULL;
 
-    s->next_reg = 0;
     s->target = NULL;
     s->error = excep;
 
