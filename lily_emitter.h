@@ -5,7 +5,6 @@
 # include "lily_symtab.h"
 
 typedef struct {
-    int next_reg;
     lily_code_data *target;
     lily_excep_data *error;
 } lily_emit_state;
