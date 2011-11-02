@@ -361,6 +361,7 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
         return NULL;
 
     s->lex_file = NULL;
+    s->error = excep_data;
     s->html_cache = lily_malloc(1024 * sizeof(char));
     s->cache_size = 1023;
 
