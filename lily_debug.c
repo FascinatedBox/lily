@@ -62,7 +62,6 @@ void lily_show_symtab(lily_symtab *symtab)
     if (obj != NULL) {
         while (obj != NULL) {
             if (obj->flags & OB_FIXED) {
-                char *fmt;
                 lily_impl_debugf("#%d: ", obj->id);
                 if (obj->cls->id == SYM_CLASS_STR) {
                     lily_impl_debugf("str(%-0.50s)\n",

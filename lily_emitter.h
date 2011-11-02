@@ -9,10 +9,10 @@ typedef struct {
     lily_excep_data *error;
 } lily_emit_state;
 
-lily_emit_state *lily_new_emit_state(lily_excep_data *);
-void lily_free_emit_state(lily_emit_state *);
 void lily_emit_ast(lily_emit_state *, lily_ast *);
-void lily_emit_vm_return(lily_emit_state *);
 void lily_emit_set_target(lily_emit_state *, lily_symbol *);
+void lily_emit_vm_return(lily_emit_state *);
+void lily_free_emit_state(lily_emit_state *);
+lily_emit_state *lily_new_emit_state(lily_excep_data *);
 
 #endif

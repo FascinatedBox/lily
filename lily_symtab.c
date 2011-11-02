@@ -1,7 +1,7 @@
 #include <string.h>
 
-#include "lily_symtab.h"
 #include "lily_impl.h"
+#include "lily_symtab.h"
 
 static char *classnames[] =
 {
@@ -244,7 +244,7 @@ lily_symbol *lily_new_var(lily_symtab *symtab, lily_class *cls, char *name)
     sym->object = obj;
     sym->code_data = NULL;
     sym->sym_class = cls;
-    
+
     sym->line_num = *symtab->lex_linenum;
     strcpy(sym->name, name);
 

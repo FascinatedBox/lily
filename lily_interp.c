@@ -3,6 +3,14 @@
 #include "lily_impl.h"
 #include "lily_interp.h"
 
+void lily_free_interp(lily_interp *interp)
+{
+    lily_free_parse_state(interp->parser);
+    lily_free(interp->error->message);
+    lily_free(interp->error);
+    lily_free(interp);
+}
+
 lily_interp *lily_new_interp(void)
 {
     lily_interp *interp = lily_malloc(sizeof(lily_interp));
@@ -25,14 +33,6 @@ lily_interp *lily_new_interp(void)
     }
 
     return interp;
-}
-
-void lily_free_interp(lily_interp *interp)
-{
-    lily_free_parse_state(interp->parser);
-    lily_free(interp->error->message);
-    lily_free(interp->error);
-    lily_free(interp);
 }
 
 int lily_parse_file(lily_interp *interp, char *filename)
