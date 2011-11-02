@@ -20,7 +20,7 @@ struct lily_keyword {
     {"print", SYM_CLASS_FUNCTION, 1},
     /* All code outside of functions is stuffed here, and at the end of parsing,
        this function is called. */
-    {"", SYM_CLASS_FUNCTION, 0}
+    {"@main", SYM_CLASS_FUNCTION, 0}
 };
 
 static void add_symbol(lily_symtab *symtab, lily_symbol *s)
