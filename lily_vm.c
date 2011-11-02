@@ -12,7 +12,6 @@ void lily_vm_execute(lily_excep_data *error, lily_symbol *sym)
 {
     lily_code_data *cd = sym->code_data;
     int *code, i, len;
-    lily_object *left, *right;
 
     code = cd->code;
     len = cd->len;

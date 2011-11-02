@@ -1,54 +1,13 @@
 #include <string.h>
 
 #include "lily_ast.h"
-#include "lily_lexer.h"
-#include "lily_symtab.h"
-#include "lily_impl.h"
-#include "lily_emitter.h"
-#include "lily_parser.h"
 #include "lily_debug.h"
-
-lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
-{
-    lily_parse_state *s = lily_malloc(sizeof(lily_parse_state));
-
-    if (s == NULL)
-        return NULL;
-
-    s->ast_pool = lily_ast_init_pool(excep, 8);
-    s->error = excep;
-
-    s->symtab = lily_new_symtab(excep);
-    s->emit = lily_new_emit_state(excep);
-    s->lex = lily_new_lex_state(excep);
-
-    if (s->lex == NULL || s->emit == NULL || s->symtab == NULL ||
-        s->ast_pool == NULL) {
-        if (s->symtab != NULL)
-            lily_free_symtab(s->symtab);
-        if (s->emit != NULL)
-            lily_free_emit_state(s->emit);
-        if (s->lex != NULL)
-            lily_free_lex_state(s->lex);
-        if (s->ast_pool != NULL)
-            lily_ast_free_pool(s->ast_pool);
-        lily_free(s);
-        return NULL;
-    }
-
-    s->symtab->lex_linenum = &s->lex->line_num;
-    lily_emit_set_target(s->emit, s->symtab->main);
-    return s;
-}
-
-void lily_free_parse_state(lily_parse_state *parser)
-{
-    lily_ast_free_pool(parser->ast_pool);
-    lily_free_symtab(parser->symtab);
-    lily_free_lex_state(parser->lex);
-    lily_free_emit_state(parser->emit);
-    lily_free(parser);
-}
+#include "lily_emitter.h"
+#include "lily_impl.h"
+#include "lily_lexer.h"
+#include "lily_parser.h"
+#include "lily_symtab.h"
+#include "lily_vm.h"
 
 static void parse_expr_value(lily_parse_state *parser)
 {
@@ -84,7 +43,6 @@ static void parse_expr_value(lily_parse_state *parser)
             }
         }
         else {
-            lily_ast *ast;
             lily_object *obj;
             lily_class *cls;
 
@@ -214,6 +172,48 @@ static void parse_statement(lily_parse_state *parser)
         parse_expr_value(parser);
         parse_expr_top(parser);
     }
+}
+
+void lily_free_parse_state(lily_parse_state *parser)
+{
+    lily_ast_free_pool(parser->ast_pool);
+    lily_free_symtab(parser->symtab);
+    lily_free_lex_state(parser->lex);
+    lily_free_emit_state(parser->emit);
+    lily_free(parser);
+}
+
+lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
+{
+    lily_parse_state *s = lily_malloc(sizeof(lily_parse_state));
+
+    if (s == NULL)
+        return NULL;
+
+    s->ast_pool = lily_ast_init_pool(excep, 8);
+    s->error = excep;
+
+    s->symtab = lily_new_symtab(excep);
+    s->emit = lily_new_emit_state(excep);
+    s->lex = lily_new_lex_state(excep);
+
+    if (s->lex == NULL || s->emit == NULL || s->symtab == NULL ||
+        s->ast_pool == NULL) {
+        if (s->symtab != NULL)
+            lily_free_symtab(s->symtab);
+        if (s->emit != NULL)
+            lily_free_emit_state(s->emit);
+        if (s->lex != NULL)
+            lily_free_lex_state(s->lex);
+        if (s->ast_pool != NULL)
+            lily_ast_free_pool(s->ast_pool);
+        lily_free(s);
+        return NULL;
+    }
+
+    s->symtab->lex_linenum = &s->lex->line_num;
+    lily_emit_set_target(s->emit, s->symtab->main);
+    return s;
 }
 
 void lily_parser(lily_parse_state *parser)

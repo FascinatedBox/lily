@@ -1,9 +1,10 @@
 #ifndef LILY_LEXER_H
 # define LILY_LEXER_H
 
-#include <stdio.h>
-#include "lily_error.h"
-#include "lily_symtab.h"
+# include <stdio.h>
+
+# include "lily_error.h"
+# include "lily_symtab.h"
 
 typedef enum {
     tk_invalid,
@@ -37,11 +38,11 @@ typedef struct {
     lily_excep_data *error;
 } lily_lex_state;
 
-char *tokname(lily_token);
 void lily_free_lex_state(lily_lex_state *);
-lily_lex_state *lily_new_lex_state(lily_excep_data *);
+void lily_include(lily_lex_state *, char *);
 void lily_lexer(lily_lex_state *);
 void lily_lexer_handle_page_data(lily_lex_state *);
-void lily_include(lily_lex_state *, char *);
+lily_lex_state *lily_new_lex_state(lily_excep_data *);
+char *tokname(lily_token);
 
 #endif

@@ -100,12 +100,12 @@ typedef struct {
 #define SYM_CLASS_INTEGER  2
 #define SYM_CLASS_NUMBER   3
 
-void lily_free_symtab(lily_symtab *);
-lily_symtab *lily_new_symtab(lily_excep_data *);
-lily_symbol *lily_sym_by_name(lily_symtab *, char *);
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, char *);
-lily_symbol *lily_new_var(lily_symtab *, lily_class *, char *);
+void lily_free_symtab(lily_symtab *);
 lily_object *lily_new_fixed(lily_symtab *, lily_class *);
+lily_symtab *lily_new_symtab(lily_excep_data *);
+lily_symbol *lily_new_var(lily_symtab *, lily_class *, char *);
+lily_symbol *lily_sym_by_name(lily_symtab *, char *);
 
 #endif

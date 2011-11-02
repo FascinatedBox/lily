@@ -1,91 +1,6 @@
 #include "lily_ast.h"
 #include "lily_impl.h"
 
-static int priority_for_token(lily_token t)
-{
-    int prio;
-
-    switch (t) {
-        case tk_equal:
-            prio = 0;
-            break;
-    }
-
-    return prio;
-}
-
-static lily_expr_op opcode_for_token(lily_token t)
-{
-    lily_expr_op op;
-    switch (t) {
-        case tk_equal:
-            op = expr_assign;
-            break;
-    };
-
-    return op;
-}
-
-static lily_ast *next_pool_ast(lily_ast_pool *ap)
-{
-    if (ap->tree_index == ap->tree_size) {
-        lily_ast **new_tree_pool;
-
-        ap->tree_size *= 2;
-        new_tree_pool = lily_realloc(ap->tree_pool,
-                   sizeof(lily_ast *) * ap->tree_size);
-
-        if (new_tree_pool == NULL)
-            lily_raise_nomem(ap->error);
-
-        ap->tree_pool = new_tree_pool;
-
-        int i;
-        for (i = ap->tree_index;i < ap->tree_size;i++) {
-            ap->tree_pool[i] = lily_malloc(sizeof(lily_ast));
-            if (ap->tree_pool[i] == NULL) {
-                ap->tree_size = i - 1;
-                lily_raise_nomem(ap->error);
-            }
-        }
-    }
-
-    lily_ast *ret = ap->tree_pool[ap->tree_index];
-    ap->tree_index++;
-
-    return ret;
-}
-
-static struct lily_ast_list *next_pool_list(lily_ast_pool *ap)
-{
-    if (ap->list_index == ap->list_size) {
-        struct lily_ast_list **new_list_pool;
-
-        ap->list_size *= 2;
-        new_list_pool = lily_realloc(ap->list_pool,
-                   sizeof(struct lily_ast_list *) * ap->list_size);
-
-        if (new_list_pool == NULL)
-            lily_raise_nomem(ap->error);
-
-        ap->list_pool = new_list_pool;
-
-        int i;
-        for (i = ap->list_index;i < ap->list_size;i++) {
-            ap->list_pool[i] = lily_malloc(sizeof(struct lily_ast_list));
-            if (ap->list_pool[i] == NULL) {
-                ap->list_size = i - 1;
-                lily_raise_nomem(ap->error);
-            }
-        }
-    }
-
-    struct lily_ast_list *ret = ap->list_pool[ap->list_index];
-    ap->list_index++;
-
-    return ret;
-}
-
 static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
 {
     lily_ast *active = ap->active;
@@ -125,14 +40,79 @@ static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
     }
 }
 
+static lily_ast *next_pool_ast(lily_ast_pool *ap)
+{
+    if (ap->tree_index == ap->tree_size) {
+        lily_ast **new_tree_pool;
+
+        ap->tree_size *= 2;
+        new_tree_pool = lily_realloc(ap->tree_pool,
+                   sizeof(lily_ast *) * ap->tree_size);
+
+        if (new_tree_pool == NULL)
+            lily_raise_nomem(ap->error);
+
+        ap->tree_pool = new_tree_pool;
+
+        int i;
+        for (i = ap->tree_index;i < ap->tree_size;i++) {
+            ap->tree_pool[i] = lily_malloc(sizeof(lily_ast));
+            if (ap->tree_pool[i] == NULL) {
+                ap->tree_size = i - 1;
+                lily_raise_nomem(ap->error);
+            }
+        }
+    }
+
+    lily_ast *ret = ap->tree_pool[ap->tree_index];
+    ap->tree_index++;
+
+    return ret;
+}
+
+static lily_expr_op opcode_for_token(lily_token t)
+{
+    lily_expr_op op;
+
+    switch (t) {
+        case tk_equal:
+            op = expr_assign;
+            break;
+        default:
+            /* Won't happen, but makes -Wall happy. */
+            op = -1;
+            break;
+    };
+
+    return op;
+}
+
+static int priority_for_token(lily_token t)
+{
+    int prio;
+
+    switch (t) {
+        case tk_equal:
+            prio = 0;
+            break;
+        default:
+            /* Won't happen, but makes -Wall happy. */
+            prio = -1;
+            break;
+    }
+
+    return prio;
+}
+
 void lily_ast_enter_func(lily_ast_pool *ap, lily_symbol *sym)
 {
     lily_ast *a = next_pool_ast(ap);
 
     a->expr_type = func_call;
     a->data.call.sym = sym;
-    a->data.call.num_args = 0;
-    a->data.call.args = NULL;
+    a->data.call.args_collected = 0;
+    a->data.call.arg_start = NULL;
+    a->data.call.arg_top = NULL;
 
     merge_tree(ap, a);
 
@@ -161,61 +141,43 @@ void lily_ast_free_pool(lily_ast_pool *ap)
     for (i = 0;i < ap->tree_size;i++)
         lily_free(ap->tree_pool[i]);
 
-    for (i = 0;i < ap->list_size;i++)
-        lily_free(ap->list_pool[i]);
-
     lily_free(ap->saved_trees);
     lily_free(ap->tree_pool);
-    lily_free(ap->list_pool);
     lily_free(ap);
 }
 
 lily_ast_pool *lily_ast_init_pool(lily_excep_data *excep, int pool_size)
 {
     lily_ast_pool *ret;
-    int listi, treei;
+    int i;
 
     ret = lily_malloc(sizeof(lily_ast_pool));
     if (ret == NULL)
         return NULL;
 
     ret->tree_pool = lily_malloc(sizeof(lily_ast *) * pool_size);
-    ret->list_pool = lily_malloc(sizeof(struct lily_ast_list *) *
-                                      pool_size);
     ret->saved_trees = lily_malloc(sizeof(lily_ast *) * pool_size);
     ret->active = NULL;
     ret->root = NULL;
 
-    if (ret->tree_pool == NULL || ret->list_pool == NULL ||
-        ret->saved_trees == NULL) {
+    if (ret->tree_pool == NULL || ret->saved_trees == NULL) {
         lily_free(ret->tree_pool);
-        lily_free(ret->list_pool);
         lily_free(ret->saved_trees);
         lily_free(ret);
         return NULL;
     }
 
-    for (treei = 0;treei < pool_size;treei++) {
-        ret->tree_pool[treei] = lily_malloc(sizeof(lily_ast));
-        if (ret->tree_pool[treei] == NULL)
+    for (i = 0;i < pool_size;i++) {
+        ret->tree_pool[i] = lily_malloc(sizeof(lily_ast));
+        if (ret->tree_pool[i] == NULL)
             break;
     }
 
-    for (listi = 0;listi < pool_size;listi++) {
-        ret->list_pool[listi] = lily_malloc(sizeof(struct lily_ast_list));
-        if (ret->list_pool[listi] == NULL)
-            break;
-    }
-
-    if (listi != pool_size || treei != pool_size) {
-        int j;
-        for (j = 0;j < treei;j++)
-            lily_free(ret->tree_pool[j]);
-        for (j = 0;j < listi;j++)
-            lily_free(ret->list_pool[j]);
+    if (i != pool_size) {
+        for (;i > 0;i--)
+            lily_free(ret->tree_pool[i]);
 
         lily_free(ret->tree_pool);
-        lily_free(ret->list_pool);
         lily_free(ret->saved_trees);
         lily_free(ret);
         return NULL;
@@ -224,8 +186,6 @@ lily_ast_pool *lily_ast_init_pool(lily_excep_data *excep, int pool_size)
     ret->error = excep;
     ret->tree_index = 0;
     ret->tree_size = pool_size;
-    ret->list_index = 0;
-    ret->list_size = pool_size;
     ret->save_index = 0;
     ret->save_size = pool_size;
     return ret;
@@ -233,15 +193,20 @@ lily_ast_pool *lily_ast_init_pool(lily_excep_data *excep, int pool_size)
 
 void lily_ast_push_arg(lily_ast_pool *ap, lily_ast *func, lily_ast *tree)
 {
-    /* fixme: This starts from the last arg and goes to the first arg, so trees
-       get walked backwards and args emitted in the wrong order. Fix this when
-       there's a function that needs 2+ args. */
-    struct lily_ast_list *l = next_pool_list(ap);
+    /* The args of a function are linked to themselves, with the last one
+       set to NULL. This will work for multiple functions, because the
+       functions would be using different ASTs. */
+    if (func->data.call.arg_start == NULL) {
+        func->data.call.arg_start = tree;
+        func->data.call.arg_top = tree;
+    }
+    else {
+        func->data.call.arg_top->next_arg = tree;
+        func->data.call.arg_top = tree;
+    }
 
-    l->ast = tree;
-    l->next = func->data.call.args;
-    func->data.call.num_args++;
-    func->data.call.args = l;
+    tree->next_arg = NULL;
+    func->data.call.args_collected++;
 }
 
 void lily_ast_pop_tree(lily_ast_pool *ap)
@@ -252,13 +217,14 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
     if (a->expr_type == func_call) {
         lily_ast_push_arg(ap, a, ap->active);
 
-        /* The sym holds how many args it needs. The ast call stores how
-           many args have been collected so far. */
-        if (a->data.call.sym->num_args != a->data.call.num_args) {
+        /* Func arg pushing doesn't check as it goes along, because that
+           wouldn't handle the case of too few args. But now the function is
+           supposed to be complete so... */
+        if (a->data.call.sym->num_args != a->data.call.args_collected) {
             lily_raise(ap->error, err_syntax,
                        "%s expects %d args, got %d.\n",
                        a->data.call.sym, a->data.call.sym->num_args,
-                       a->data.call.num_args);
+                       a->data.call.args_collected);
         }
     }
     ap->active = a;
@@ -282,8 +248,11 @@ void lily_ast_push_var(lily_ast_pool *ap, lily_object *o)
 {
     lily_ast *a = next_pool_ast(ap);
 
+    /* The value is stored in result, because that's where functions and
+       binary ops store the object containing the result. It allows the emitter
+       to do nothing for vars. */
     a->expr_type = var;
-    a->data.object = o;
+    a->result = o;
 
     merge_tree(ap, a);
 }
@@ -291,7 +260,6 @@ void lily_ast_push_var(lily_ast_pool *ap, lily_object *o)
 void lily_ast_reset_pool(lily_ast_pool *ap)
 {
     ap->tree_index = 0;
-    ap->list_index = 0;
     ap->root = NULL;
     ap->active = NULL;
 }
