@@ -22,6 +22,9 @@ struct lily_keyword {
        this function is called. */
     {"@main", SYM_CLASS_FUNCTION, 0}
 };
+/* It's important to know this id, because symbols after it have their name
+   malloc'd, so it'll need to be free'd. */
+#define MAIN_FUNC_ID 1
 
 static void add_symbol(lily_symtab *symtab, lily_symbol *s)
 {
@@ -70,8 +73,9 @@ void lily_free_symtab(lily_symtab *symtab)
             lily_free(((lily_code_data *)sym->code_data)->code);
             lily_free(sym->code_data);
         }
+        if (sym->id > MAIN_FUNC_ID)
+            lily_free(sym->name);
 
-        lily_free(sym->name);
         lily_free(sym);
 
         sym = temp;
@@ -146,14 +150,7 @@ static int init_symbols(lily_symtab *symtab)
             break;
         }
 
-        new_sym->name = lily_malloc(strlen(keywords[i].name) + 1);
-        if (new_sym->name == NULL) {
-            ret = 0;
-            lily_free(new_sym);
-            break;
-        }
-
-        strcpy(new_sym->name, keywords[i].name);
+        new_sym->name = keywords[i].name;
         new_sym->code_data = NULL;
         new_sym->num_args = keywords[i].num_args;
         new_sym->object = NULL;
