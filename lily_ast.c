@@ -104,12 +104,12 @@ static int priority_for_token(lily_token t)
     return prio;
 }
 
-void lily_ast_enter_func(lily_ast_pool *ap, lily_symbol *sym)
+void lily_ast_enter_func(lily_ast_pool *ap, lily_var *var)
 {
     lily_ast *a = next_pool_ast(ap);
 
     a->expr_type = func_call;
-    a->data.call.sym = sym;
+    a->data.call.var = var;
     a->data.call.args_collected = 0;
     a->data.call.arg_start = NULL;
     a->data.call.arg_top = NULL;
@@ -220,10 +220,10 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
         /* Func arg pushing doesn't check as it goes along, because that
            wouldn't handle the case of too few args. But now the function is
            supposed to be complete so... */
-        if (a->data.call.sym->num_args != a->data.call.args_collected) {
+        if (a->data.call.var->num_args != a->data.call.args_collected) {
             lily_raise(ap->error, err_syntax,
                        "%s expects %d args, got %d.\n",
-                       a->data.call.sym, a->data.call.sym->num_args,
+                       a->data.call.var->name, a->data.call.var->num_args,
                        a->data.call.args_collected);
         }
     }
@@ -244,7 +244,7 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_token t)
     merge_tree(ap, a);
 }
 
-void lily_ast_push_var(lily_ast_pool *ap, lily_object *o)
+void lily_ast_push_sym(lily_ast_pool *ap, lily_sym *s)
 {
     lily_ast *a = next_pool_ast(ap);
 
@@ -252,7 +252,7 @@ void lily_ast_push_var(lily_ast_pool *ap, lily_object *o)
        binary ops store the object containing the result. It allows the emitter
        to do nothing for vars. */
     a->expr_type = var;
-    a->result = o;
+    a->result = s;
 
     merge_tree(ap, a);
 }

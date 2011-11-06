@@ -13,13 +13,13 @@ typedef struct lily_ast_t {
     enum {
         func_call, var, binary
     } expr_type;
-    lily_object *result;
+    lily_sym *result;
     struct lily_ast_t *next_arg;
     union {
         /* Vars will store their value to result, so the emitter doesn't have
            to walk the tree for the value. */
         struct {
-            lily_symbol *sym;
+            lily_var *var;
             int args_collected;
             struct lily_ast_t *arg_start;
             struct lily_ast_t *arg_top;
@@ -47,12 +47,12 @@ typedef struct {
 } lily_ast_pool;
 
 void lily_ast_add_arg(lily_ast_pool *, lily_ast *, lily_ast *);
-void lily_ast_enter_func(lily_ast_pool *, lily_symbol *);
+void lily_ast_enter_func(lily_ast_pool *, lily_var *);
 void lily_ast_free_pool(lily_ast_pool *);
 lily_ast_pool *lily_ast_init_pool(lily_excep_data *, int);
 void lily_ast_pop_tree(lily_ast_pool *);
 void lily_ast_push_binary_op(lily_ast_pool *, lily_token);
-void lily_ast_push_var(lily_ast_pool *, lily_object *);
+void lily_ast_push_sym(lily_ast_pool *, lily_sym *);
 void lily_ast_reset_pool(lily_ast_pool *);
 void lily_save_active_ast(lily_ast_pool *);
 #endif

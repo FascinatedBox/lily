@@ -3,9 +3,6 @@
 
 # include "lily_error.h"
 
-/* There's no struct for storing floats or ints. They're stored raw (just cast
-   the pointer). */
-
 typedef struct {
     char *str;
     int size;
@@ -24,8 +21,6 @@ typedef struct {
     int pos;
 } lily_code_data;
 
-/* The following four types are the most important in lily. */
-
 /* This is where the raw data gets stored. Anything not an integer or a number
    is stored in ptr and cast appropriately. */
 typedef union {
@@ -40,56 +35,57 @@ typedef struct {
     int id;
 } lily_class;
 
-/* Objects are divided into three categories:
- * Fixed: Any number, integer, or string that's collected by the lexer (such as
- *        15, 1.0, or "hello, world."). These are called fixed because their
- *        class and value will not change. Their sym is NULL, because they were
- *        never declared.
- * Storage: Used for storing the results of opcodes in an intermediate location.
- *          Their class is set at parse-time, but the value changes. The sym is
- *          also NULL.
- * Vars: These hold the value of a symbol that was properly declared. Their
- *       class is set, but the value isn't. The sym points to the sym that they
- *       are associated with (so the VM can grab info on qualified symbols). */
-#define OB_SYM     0x01
-#define OB_FIXED   0x02
+#define VAR_SYM      0x01
+#define LITERAL_SYM  0x02
 
-typedef struct lily_object_t {
-    struct lily_object_t *next;
-    /* For debugging. */
+#define isafunc(s) (s->cls->id == SYM_CLASS_FUNCTION)
+
+/* All symbols have at least these fields. The vm and debugging functions use
+   this to cast and grab common info. */
+typedef struct {
     int id;
-    /* Also for debugging. */
     int flags;
     lily_class *cls;
     lily_value value;
-    struct lily_symbol_t *sym;
-} lily_object;
+} lily_sym;
 
-#define isafunc(s) (s->sym_class->id == SYM_CLASS_FUNCTION)
-
-typedef struct lily_symbol_t {
-    struct lily_symbol_t *next;
-    char *name;
+/* Literals are syms created to hold values that the lexer finds. These syms
+   always have a value set. */
+typedef struct lily_literal_t {
     int id;
+    int flags;
+    lily_class *cls;
+    lily_value value;
+    struct lily_literal_t *next;
+} lily_literal;
+
+/* These are created by keywords (initialization), or by user declaration. They
+   always have a class, but don't have a value at parse-time. Builtin symbols
+   have line_num == 0. */
+typedef struct lily_var_t {
+    int id;
+    int flags;
+    lily_class *cls;
+    lily_value value;
+    char *name;
     int line_num;
     int num_args;
-    lily_object *object;
-    lily_class *sym_class;
     lily_code_data *code_data;
-} lily_symbol;
+    struct lily_var_t *next;
+} lily_var;
 
 typedef struct {
     /* The first symbol in the table (for itering from). */
-    lily_symbol *sym_start;
+    lily_var *var_start;
     /* The last symbol (for adding to). */
-    lily_symbol *sym_top;
+    lily_var *var_top;
     lily_class **classes;
     /* The function containing commands outside of functions. */
-    lily_symbol *main;
-    lily_object *obj_start;
-    lily_object *obj_top;
-    int next_sym_id;
-    int next_obj_id;
+    lily_var *main;
+    lily_literal *lit_start;
+    lily_literal *lit_top;
+    int next_var_id;
+    int next_lit_id;
     int *lex_linenum;
     lily_excep_data *error;
 } lily_symtab;
@@ -103,9 +99,9 @@ typedef struct {
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, char *);
 void lily_free_symtab(lily_symtab *);
-lily_object *lily_new_fixed(lily_symtab *, lily_class *);
+lily_literal *lily_new_literal(lily_symtab *, lily_class *);
 lily_symtab *lily_new_symtab(lily_excep_data *);
-lily_symbol *lily_new_var(lily_symtab *, lily_class *, char *);
-lily_symbol *lily_sym_by_name(lily_symtab *, char *);
+lily_var *lily_new_var(lily_symtab *, lily_class *, char *);
+lily_var *lily_var_by_name(lily_symtab *, char *);
 
 #endif

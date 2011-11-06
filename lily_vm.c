@@ -2,15 +2,15 @@
 #include "lily_symtab.h"
 #include "lily_opcode.h"
 
-static void builtin_print(lily_object *o)
+static void builtin_print(lily_sym *sym)
 {
-    if (o->cls->id == SYM_CLASS_STR)
-        lily_impl_send_html(((lily_strval *)o->value.ptr)->str);
+    if (sym->cls->id == SYM_CLASS_STR)
+        lily_impl_send_html(((lily_strval *)sym->value.ptr)->str);
 }
 
-void lily_vm_execute(lily_excep_data *error, lily_symbol *sym)
+void lily_vm_execute(lily_excep_data *error, lily_var *var)
 {
-    lily_code_data *cd = sym->code_data;
+    lily_code_data *cd = var->code_data;
     int *code, i, len;
 
     code = cd->code;
@@ -20,12 +20,12 @@ void lily_vm_execute(lily_excep_data *error, lily_symbol *sym)
     while (i != len) {
         switch(code[i]) {
             case o_builtin_print:
-                builtin_print((lily_object *)code[i+1]);
+                builtin_print((lily_sym *)code[i+1]);
                 i += 2;
                 break;
             case o_assign:
-                ((lily_object *)code[i+1])->value =
-                ((lily_object *)code[i+2])->value;
+                ((lily_sym *)code[i+1])->value =
+                ((lily_sym *)code[i+2])->value;
                 i += 3;
                 break;
             case o_vm_return:
