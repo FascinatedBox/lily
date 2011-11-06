@@ -3,28 +3,8 @@
 #include "lily_impl.h"
 #include "lily_symtab.h"
 
-static char *classnames[] =
-{
-    "function",
-    "str",
-    "integer",
-    "number",
-};
-
-struct lily_keyword {
-    char *name;
-    int class_id;
-    int num_args;
-} keywords[] =
-{
-    {"print", SYM_CLASS_FUNCTION, 1},
-    /* All code outside of functions is stuffed here, and at the end of parsing,
-       this function is called. */
-    {"@main", SYM_CLASS_FUNCTION, 0}
-};
-/* It's important to know this id, because symbols after it have their name
-   malloc'd, so it'll need to be free'd. */
-#define MAIN_FUNC_ID 1
+/* This creates the *_seed values and defines MAIN_FUNC_ID. */
+#include "lily_seed_symtab.h"
 
 static void add_var(lily_symtab *symtab, lily_var *s)
 {
@@ -101,7 +81,7 @@ static int init_classes(lily_symtab *symtab)
         return 0;
 
     class_id = 0;
-    class_count = sizeof(classnames) / sizeof(classnames[0]);
+    class_count = sizeof(classname_seeds) / sizeof(classname_seeds[0]);
 
     for (i = 0;i < class_count;i++) {
         lily_class *new_class = lily_malloc(sizeof(lily_class));
@@ -109,7 +89,7 @@ static int init_classes(lily_symtab *symtab)
         if (new_class == NULL)
             break;
 
-        new_class->name = classnames[i];
+        new_class->name = classname_seeds[i];
         new_class->id = class_id;
         class_id++;
 
@@ -133,16 +113,17 @@ static int init_classes(lily_symtab *symtab)
 static int init_symbols(lily_symtab *symtab)
 {
     /* Turn the keywords into symbols. */
-    int i, keyword_count, ret;
-    lily_class *func_class = lily_class_by_id(symtab, SYM_CLASS_FUNCTION);
+    int i, var_count, ret;
+    lily_class *func_class;
 
     if (symtab->classes == NULL)
         return 0;
 
-    keyword_count = sizeof(keywords) / sizeof(keywords[0]);
+    func_class = lily_class_by_id(symtab, SYM_CLASS_FUNCTION);
+    var_count = sizeof(var_seeds) / sizeof(var_seeds[0]);
     ret = 1;
 
-    for (i = 0;i < keyword_count;i++) {
+    for (i = 0;i < var_count;i++) {
         lily_var *new_var = lily_malloc(sizeof(lily_var));
 
         if (new_var == NULL) {
@@ -150,9 +131,9 @@ static int init_symbols(lily_symtab *symtab)
             break;
         }
 
-        new_var->name = keywords[i].name;
+        new_var->name = var_seeds[i].name;
         new_var->code_data = NULL;
-        new_var->num_args = keywords[i].num_args;
+        new_var->num_args = var_seeds[i].num_args;
         new_var->cls = func_class;
         new_var->line_num = 0;
         add_var(symtab, new_var);
