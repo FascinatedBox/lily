@@ -90,7 +90,7 @@ typedef struct {
     lily_excep_data *error;
 } lily_symtab;
 
-/* Sync with classnames in lily_symtab.c */
+/* Sync with classname_seeds in lily_seed_symtab.h. */
 #define SYM_CLASS_FUNCTION 0
 #define SYM_CLASS_STR      1
 #define SYM_CLASS_INTEGER  2
