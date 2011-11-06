@@ -16,16 +16,16 @@ static void parse_expr_value(lily_parse_state *parser)
 
     while (1) {
         if (lex->token == tk_word) {
-            lily_symbol *sym = lily_sym_by_name(symtab, lex->label);
+            lily_var *var = lily_var_by_name(symtab, lex->label);
 
-            if (sym == NULL)
+            if (var == NULL)
                 lily_raise(parser->error, err_syntax,
                     "Variable '%s' is undefined.\n", lex->label);
 
-            if (isafunc(sym)) {
+            if (isafunc(var)) {
                 /* New trees will get saved to the args section of this tree
                     when they are done. */
-                lily_ast_enter_func(parser->ast_pool, sym);
+                lily_ast_enter_func(parser->ast_pool, var);
 
                 lily_lexer(parser->lex);
                 if (lex->token != tk_left_parenth)
@@ -37,13 +37,13 @@ static void parse_expr_value(lily_parse_state *parser)
                 continue;
             }
             else {
-                lily_ast_push_var(parser->ast_pool, sym->object);
+                lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
 
                 lily_lexer(lex);
             }
         }
         else {
-            lily_object *obj;
+            lily_literal *lit;
             lily_class *cls;
 
             if (lex->token == tk_double_quote)
@@ -55,10 +55,10 @@ static void parse_expr_value(lily_parse_state *parser)
             else
                 break;
 
-            obj = lily_new_fixed(symtab, cls);
-            obj->value = lex->value;
+            lit = lily_new_literal(symtab, cls);
+            lit->value = lex->value;
 
-            lily_ast_push_var(parser->ast_pool, obj);
+            lily_ast_push_sym(parser->ast_pool, (lily_sym *)lit);
 
             lily_lexer(lex);
             break;
@@ -118,7 +118,7 @@ static void parse_expr_top(lily_parse_state *parser)
 static void parse_declaration(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
-    lily_symbol *sym;
+    lily_var *var;
 
     while (1) {
         /* This starts at the class name, or the comma. The label is next. */
@@ -129,17 +129,17 @@ static void parse_declaration(lily_parse_state *parser, lily_class *cls)
                        "Expected a variable name, not %s.\n",
                        tokname(lex->token));
 
-        sym = lily_sym_by_name(parser->symtab, lex->label);
-        if (sym != NULL)
+        var = lily_var_by_name(parser->symtab, lex->label);
+        if (var != NULL)
             lily_raise(parser->error, err_syntax,
-                       "%s has already been declared.\n", sym->name);
+                       "%s has already been declared.\n", var->name);
 
-        sym = lily_new_var(parser->symtab, cls, lex->label);
+        var = lily_new_var(parser->symtab, cls, lex->label);
 
         lily_lexer(parser->lex);
         /* Handle an initializing assignment, if there is one. */
         if (lex->token == tk_equal) {
-            lily_ast_push_var(parser->ast_pool, sym->object);
+            lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
             parse_expr_top(parser);
         }
 

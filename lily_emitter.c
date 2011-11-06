@@ -68,9 +68,9 @@ void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)
     walk_tree(emit, ast);
 }
 
-void lily_emit_set_target(lily_emit_state *emit, lily_symbol *sym)
+void lily_emit_set_target(lily_emit_state *emit, lily_var *var)
 {
-    emit->target = sym->code_data;
+    emit->target = var->code_data;
 }
 
 void lily_emit_vm_return(lily_emit_state *emit)
