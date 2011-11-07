@@ -63,9 +63,16 @@ void lily_free_symtab(lily_symtab *symtab)
 
     if (symtab->classes != NULL) {
         int i;
-        for (i = 0;i <= SYM_CLASS_NUMBER;i++)
+        for (i = 0;i <= SYM_CLASS_NUMBER;i++) {
+            lily_method *curr = symtab->classes[i]->methods;
+            lily_method *next;
+            while (curr) {
+                next = curr->next;
+                lily_free(curr);
+                curr = next;
+            }
             lily_free(symtab->classes[i]);
-
+        }
         lily_free(symtab->classes);
     }
 
@@ -80,33 +87,49 @@ static int init_classes(lily_symtab *symtab)
     if (classes == NULL)
         return 0;
 
+    symtab->classes = classes;
     class_id = 0;
-    class_count = sizeof(classname_seeds) / sizeof(classname_seeds[0]);
+    class_count = sizeof(class_seeds) / sizeof(class_seeds[0]);
+    ret = 1;
 
     for (i = 0;i < class_count;i++) {
         lily_class *new_class = lily_malloc(sizeof(lily_class));
 
-        if (new_class == NULL)
-            break;
+        if (new_class != NULL) {
+            new_class->name = class_seeds[i].name;
+            new_class->id = class_id;
+            new_class->methods = NULL;
+            if (class_seeds[i].methods != NULL) {
+                const method_seed *seed_method = class_seeds[i].methods;
+                lily_method *new_method;
+                do {
+                    new_method = lily_malloc(sizeof(lily_method));
+                    if (new_method == NULL) {
+                        ret = 0;
+                        break;
+                    }
 
-        new_class->name = classname_seeds[i];
-        new_class->id = class_id;
-        class_id++;
+                    new_method->method_op = seed_method->method_op;
+                    new_method->next = new_class->methods;
+                    new_method->rhs = lily_class_by_id(symtab,
+                                            seed_method->rhs_id);
+                    new_method->result = lily_class_by_id(symtab,
+                                            seed_method->result_id);
+                    new_class->methods = new_method;
+                    seed_method = seed_method->next;
+                } while (seed_method != NULL);
+            }
+
+            class_id++;
+        }
+        else {
+            new_class->methods = NULL;
+            ret = 0;
+        }
 
         classes[i] = new_class;
     }
 
-    if (i != class_count) {
-        for (;i > 0;i--)
-            lily_free(classes[i]);
-
-        lily_free(classes);
-        ret = 0;
-    }
-    else {
-        symtab->classes = classes;
-        ret = 1;
-    }
     return ret;
 }
 
@@ -116,10 +139,10 @@ static int init_symbols(lily_symtab *symtab)
     int i, var_count, ret;
     lily_class *func_class;
 
+    func_class = lily_class_by_id(symtab, SYM_CLASS_FUNCTION);
     if (symtab->classes == NULL)
         return 0;
 
-    func_class = lily_class_by_id(symtab, SYM_CLASS_FUNCTION);
     var_count = sizeof(var_seeds) / sizeof(var_seeds[0]);
     ret = 1;
 

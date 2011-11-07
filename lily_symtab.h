@@ -2,6 +2,7 @@
 # define LILY_SYMTAB_H
 
 # include "lily_error.h"
+# include "lily_opcode.h"
 
 typedef struct {
     char *str;
@@ -29,10 +30,23 @@ typedef union {
     void *ptr;
 } lily_value;
 
+typedef enum {
+    method_plus
+} lily_method_op;
+
+typedef struct lily_method_t {
+    lily_method_op method_op;
+    lily_opcode vm_opcode;
+    struct lily_class_t *rhs;
+    struct lily_class_t *result;
+    struct lily_method_t *next;
+} lily_method;
+
 /* Indicates what kind of value is being stored. */
-typedef struct {
+typedef struct lily_class_t {
     char *name;
     int id;
+    lily_method *methods;
 } lily_class;
 
 #define VAR_SYM      0x01
