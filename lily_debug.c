@@ -76,7 +76,7 @@ void lily_show_symtab(lily_symtab *symtab)
 
     lily_impl_debugf("Vars:\n");
     while (var != NULL) {
-        lily_impl_debugf("#%d: ", var->id, var->name);
+        lily_impl_debugf("#%d: ", var->id);
         if (var->line_num == 0) {
             /* This is a builtin symbol. */
             lily_impl_debugf("(builtin) %s %s\n", var->cls->name,
