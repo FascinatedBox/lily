@@ -80,7 +80,7 @@ static void parse_expr_top(lily_parse_state *parser)
 
     while (1) {
         if (lex->token == tk_equal) {
-            lily_ast_push_binary_op(parser->ast_pool, tk_equal);
+            lily_ast_push_binary_op(parser->ast_pool, expr_assign);
 
             lily_lexer(lex);
         }

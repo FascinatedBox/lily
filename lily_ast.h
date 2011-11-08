@@ -1,14 +1,10 @@
 #ifndef LILY_AST_H
 # define LILY_AST_H
 
-# include "lily_lexer.h"
 # include "lily_symtab.h"
+# include "lily_expr_op.h"
 
 /* Based off of http://lambda.uta.edu/cse5317/notes/node25.html. */
-typedef enum {
-    expr_assign
-} lily_expr_op;
-
 typedef struct lily_ast_t {
     enum {
         func_call, var, binary
@@ -51,7 +47,7 @@ void lily_ast_enter_func(lily_ast_pool *, lily_var *);
 void lily_ast_free_pool(lily_ast_pool *);
 lily_ast_pool *lily_ast_init_pool(lily_excep_data *, int);
 void lily_ast_pop_tree(lily_ast_pool *);
-void lily_ast_push_binary_op(lily_ast_pool *, lily_token);
+void lily_ast_push_binary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_sym(lily_ast_pool *, lily_sym *);
 void lily_ast_reset_pool(lily_ast_pool *);
 void lily_save_active_ast(lily_ast_pool *);

@@ -3,6 +3,7 @@
 
 # include "lily_error.h"
 # include "lily_opcode.h"
+# include "lily_expr_op.h"
 
 typedef struct {
     char *str;
@@ -30,12 +31,8 @@ typedef union {
     void *ptr;
 } lily_value;
 
-typedef enum {
-    method_plus
-} lily_method_op;
-
 typedef struct lily_method_t {
-    lily_method_op method_op;
+    lily_expr_op expr_op;
     lily_opcode vm_opcode;
     struct lily_class_t *rhs;
     struct lily_class_t *result;
