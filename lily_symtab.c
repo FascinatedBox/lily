@@ -23,6 +23,21 @@ static void add_var(lily_symtab *symtab, lily_var *s)
     symtab->var_top = s;
 }
 
+void lily_add_storage(lily_symtab *symtab, lily_storage *storage)
+{
+    lily_storage *new_storage = lily_malloc(sizeof(lily_storage));
+    if (new_storage == NULL)
+        lily_raise_nomem(symtab->error);
+
+    new_storage->id = symtab->next_storage_id;
+    symtab->next_storage_id++;
+
+    new_storage->expr_num = 0;
+    new_storage->cls = storage->cls;
+    new_storage->next = storage->next;
+    storage->next = new_storage;
+}
+
 lily_class *lily_class_by_id(lily_symtab *symtab, int class_id)
 {
     return symtab->classes[class_id];
@@ -64,13 +79,21 @@ void lily_free_symtab(lily_symtab *symtab)
     if (symtab->classes != NULL) {
         int i;
         for (i = 0;i <= SYM_CLASS_NUMBER;i++) {
-            lily_method *curr = symtab->classes[i]->methods;
-            lily_method *next;
-            while (curr) {
-                next = curr->next;
-                lily_free(curr);
-                curr = next;
+            lily_method *method_curr = symtab->classes[i]->methods;
+            lily_method *method_next;
+            while (method_curr) {
+                method_next = method_curr->next;
+                lily_free(method_curr);
+                method_curr = method_next;
             }
+            lily_storage *store_curr = symtab->classes[i]->storage;
+            lily_storage *store_start = store_curr;
+            lily_storage *store_next;
+            do {
+                store_next = store_curr->next;
+                lily_free(store_curr);
+                store_curr = store_next;
+            } while (store_curr != store_start);
             lily_free(symtab->classes[i]);
         }
         lily_free(symtab->classes);
@@ -127,6 +150,19 @@ static int init_classes(lily_symtab *symtab)
             ret = 0;
         }
 
+        lily_storage *storage = lily_malloc(sizeof(lily_storage));
+        if (storage != NULL) {
+            storage->id = symtab->next_storage_id;
+            symtab->next_storage_id++;
+            storage->flags = STORAGE_SYM;
+            storage->expr_num = 0;
+            storage->cls = new_class;
+            storage->next = storage;
+        }
+        else
+            ret = 0;
+
+        new_class->storage = storage;
         classes[i] = new_class;
     }
 
@@ -177,6 +213,7 @@ lily_symtab *lily_new_symtab(lily_excep_data *excep)
 
     s->next_lit_id = 0;
     s->next_var_id = 0;
+    s->next_storage_id = 0;
     s->var_start = NULL;
     s->var_top = NULL;
     s->classes = NULL;

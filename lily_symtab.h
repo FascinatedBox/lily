@@ -47,10 +47,12 @@ typedef struct lily_class_t {
     char *name;
     int id;
     lily_method *methods;
+    struct lily_storage_t *storage;
 } lily_class;
 
 #define VAR_SYM      0x01
 #define LITERAL_SYM  0x02
+#define STORAGE_SYM  0x04
 
 #define isafunc(s) (s->cls->id == SYM_CLASS_FUNCTION)
 
@@ -88,6 +90,20 @@ typedef struct lily_var_t {
     struct lily_var_t *next;
 } lily_var;
 
+/* These hold the results of a vm op. An usage example would be holding the
+   result of a plus operation. Each expression has a different id (expr_num) to
+   keep the same storage from being used twice in an expression. Storages are
+   circularly-linked, and held in the class that they are of (integer storages
+   are in the integer class). */
+typedef struct lily_storage_t {
+    int id;
+    int flags;
+    lily_class *cls;
+    lily_value value;
+    int expr_num;
+    struct lily_storage_t *next;
+} lily_storage;
+
 typedef struct {
     /* The first symbol in the table (for itering from). */
     lily_var *var_start;
@@ -100,6 +116,7 @@ typedef struct {
     lily_literal *lit_top;
     int next_var_id;
     int next_lit_id;
+    int next_storage_id;
     int *lex_linenum;
     lily_excep_data *error;
 } lily_symtab;
@@ -117,5 +134,6 @@ lily_literal *lily_new_literal(lily_symtab *, lily_class *);
 lily_symtab *lily_new_symtab(lily_excep_data *);
 lily_var *lily_new_var(lily_symtab *, lily_class *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
+void lily_add_storage(lily_symtab *, lily_storage *);
 
 #endif
