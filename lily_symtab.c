@@ -132,7 +132,7 @@ static int init_classes(lily_symtab *symtab)
                         break;
                     }
 
-                    new_method->method_op = seed_method->method_op;
+                    new_method->expr_op = seed_method->expr_op;
                     new_method->next = new_class->methods;
                     new_method->rhs = lily_class_by_id(symtab,
                                             seed_method->rhs_id);

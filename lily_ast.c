@@ -70,30 +70,16 @@ static lily_ast *next_pool_ast(lily_ast_pool *ap)
     return ret;
 }
 
-static lily_expr_op opcode_for_token(lily_token t)
-{
-    lily_expr_op op;
-
-    switch (t) {
-        case tk_equal:
-            op = expr_assign;
-            break;
-        default:
-            /* Won't happen, but makes -Wall happy. */
-            op = -1;
-            break;
-    };
-
-    return op;
-}
-
-static int priority_for_token(lily_token t)
+static int priority_for_op(lily_expr_op o)
 {
     int prio;
 
-    switch (t) {
-        case tk_equal:
+    switch (o) {
+        case expr_assign:
             prio = 0;
+            break;
+        case expr_plus:
+            prio = 1;
             break;
         default:
             /* Won't happen, but makes -Wall happy. */
@@ -230,13 +216,13 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
     ap->active = a;
 }
 
-void lily_ast_push_binary_op(lily_ast_pool *ap, lily_token t)
+void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
 {
     lily_ast *a = next_pool_ast(ap);
 
     a->expr_type = binary;
-    a->data.bin_expr.priority = priority_for_token(t);
-    a->data.bin_expr.op = opcode_for_token(t);
+    a->data.bin_expr.priority = priority_for_op(op);
+    a->data.bin_expr.op = op;
     a->data.bin_expr.left = NULL;
     a->data.bin_expr.right = NULL;
     a->data.bin_expr.parent = NULL;
