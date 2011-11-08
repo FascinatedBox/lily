@@ -66,6 +66,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)
 {
     walk_tree(emit, ast);
+    emit->expr_num++;
 }
 
 void lily_emit_set_target(lily_emit_state *emit, lily_var *var)
@@ -101,6 +102,7 @@ lily_emit_state *lily_new_emit_state(lily_excep_data *excep)
 
     s->target = NULL;
     s->error = excep;
+    s->expr_num = 1;
 
     return s;
 }

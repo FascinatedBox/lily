@@ -7,6 +7,7 @@
 typedef struct {
     lily_code_data *target;
     lily_excep_data *error;
+    int expr_num;
 } lily_emit_state;
 
 void lily_emit_ast(lily_emit_state *, lily_ast *);
