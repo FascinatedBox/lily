@@ -16,6 +16,7 @@
 #define CC_NUMBER         9
 #define CC_DOT           10
 #define CC_COMMA         11
+#define CC_PLUS          12
 
 static int handle_str_escape(char *buffer, int *pos, char *ch)
 {
@@ -273,6 +274,10 @@ void lily_lexer(lily_lex_state *lexer)
             lex_bufpos++;
             token = tk_comma;
         }
+        else if (group == CC_PLUS) {
+            lex_bufpos++;
+            token = tk_plus;
+        }
         else if (group == CC_NEWLINE || group == CC_SHARP) {
             read_line(lexer);
             lex_bufpos = 0;
@@ -409,6 +414,7 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     ch_class[(unsigned char)'='] = CC_EQUAL;
     ch_class[(unsigned char)'.'] = CC_DOT;
     ch_class[(unsigned char)','] = CC_COMMA;
+    ch_class[(unsigned char)'+'] = CC_PLUS;
 
     s->ch_class = ch_class;
     return s;
@@ -418,7 +424,7 @@ char *tokname(lily_token t)
 {
     static char *toknames[] =
     {"invalid token", "a label", "(", ")", "a string", "an integer", "a number",
-     "=", ",", "@>", "end of file"};
+     "=", ",", "+", "@>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

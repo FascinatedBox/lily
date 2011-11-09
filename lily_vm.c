@@ -28,6 +28,12 @@ void lily_vm_execute(lily_excep_data *error, lily_var *var)
                 ((lily_sym *)code[i+2])->value;
                 i += 3;
                 break;
+            case o_integer_add:
+                ((lily_sym *)code[i+3])->value.integer =
+                ((lily_sym *)code[i+1])->value.integer +
+                ((lily_sym *)code[i+2])->value.integer;
+                i += 4;
+                break;
             case o_vm_return:
                 return;
         }
