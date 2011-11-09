@@ -32,6 +32,7 @@ void lily_add_storage(lily_symtab *symtab, lily_storage *storage)
     new_storage->id = symtab->next_storage_id;
     symtab->next_storage_id++;
 
+    new_storage->flags = STORAGE_SYM;
     new_storage->expr_num = 0;
     new_storage->cls = storage->cls;
     new_storage->next = storage->next;

@@ -4,11 +4,16 @@
 
 static char *typename(lily_sym *sym)
 {
-    char *ret = NULL;
+    char *ret;
+
     if (sym->flags & VAR_SYM)
         ret = "var";
     else if (sym->flags & LITERAL_SYM)
         ret = "literal";
+    else if (sym->flags & STORAGE_SYM)
+        ret = "storage";
+    else
+        ret = NULL;
 
     return ret;
 }
