@@ -23,7 +23,7 @@ static void show_code(lily_var *var)
     int i = 0;
     int len = var->code_data->pos;
     int *code = var->code_data->code;
-    lily_sym *left, *right;
+    lily_sym *left, *right, *result;
 
     while (i < len) {
         switch (code[i]) {
@@ -42,6 +42,18 @@ static void show_code(lily_var *var)
                                  left->id, typename((lily_sym *)right),
                                  right->id);
                 i += 3;
+                break;
+            case o_integer_add:
+                lily_impl_debugf("    [%d] integer_add   ", i);
+                left = ((lily_sym *)code[i+1]);
+                right = ((lily_sym *)code[i+2]);
+                result = ((lily_sym *)code[i+3]);
+                lily_impl_debugf("%s #%d + %s #%d to %s #%d\n",
+                                 typename((lily_sym *)left),
+                                 left->id, typename((lily_sym *)right),
+                                 right->id, typename((lily_sym *)result),
+                                 result->id);
+                i += 4;
                 break;
             case o_vm_return:
                 lily_impl_debugf("    [%d] vm_return\n", i);

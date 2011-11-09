@@ -84,6 +84,11 @@ static void parse_expr_top(lily_parse_state *parser)
 
             lily_lexer(lex);
         }
+        else if (lex->token == tk_plus) {
+            lily_ast_push_binary_op(parser->ast_pool, expr_plus);
+
+            lily_lexer(lex);
+        }
         else if (lex->token == tk_right_parenth) {
             lily_ast_pop_tree(parser->ast_pool);
 
@@ -212,6 +217,7 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
     }
 
     s->symtab->lex_linenum = &s->lex->line_num;
+    s->emit->symtab = s->symtab;
     lily_emit_set_target(s->emit, s->symtab->main);
     return s;
 }
