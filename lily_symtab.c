@@ -176,9 +176,6 @@ static int init_symbols(lily_symtab *symtab)
     lily_class *func_class;
 
     func_class = lily_class_by_id(symtab, SYM_CLASS_FUNCTION);
-    if (symtab->classes == NULL)
-        return 0;
-
     var_count = sizeof(var_seeds) / sizeof(var_seeds[0]);
     ret = 1;
 
