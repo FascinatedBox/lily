@@ -133,6 +133,11 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             walk_tree(emit, bx.right);
 
         if (bx.op == expr_assign) {
+            if (bx.left->result->cls != bx.right->result->cls) {
+                lily_raise(emit->error, err_syntax, "Cannot assign %s to %s.\n",
+                           bx.right->result->cls->name,
+                           bx.left->result->cls->name);
+            }
 
             if ((cd->pos + 3) > cd->len) {
                 cd->len *= 2;
