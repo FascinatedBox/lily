@@ -55,8 +55,7 @@ static void generic_binop(lily_code_data *cd, lily_emit_state *emit,
                       bx.right->result->cls);
 
     if (m == NULL)
-        lily_raise(emit->error, err_syntax,
-                   "Method for %s %s %s not defined.\n",
+        lily_raise(emit->error, "Method for %s %s %s not defined.\n",
                    left_class->name, opname(bx.op), right_class->name);
 
     /* Remember that storages are circularly-linked, so if this one
@@ -134,7 +133,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
         if (bx.op == expr_assign) {
             if (bx.left->result->cls != bx.right->result->cls) {
-                lily_raise(emit->error, err_syntax, "Cannot assign %s to %s.\n",
+                lily_raise(emit->error, "Cannot assign %s to %s.\n",
                            bx.right->result->cls->name,
                            bx.left->result->cls->name);
             }
