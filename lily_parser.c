@@ -19,8 +19,8 @@ static void parse_expr_value(lily_parse_state *parser)
             lily_var *var = lily_var_by_name(symtab, lex->label);
 
             if (var == NULL)
-                lily_raise(parser->error, err_syntax,
-                    "Variable '%s' is undefined.\n", lex->label);
+                lily_raise(parser->error, "Variable '%s' is undefined.\n",
+                           lex->label);
 
             if (isafunc(var)) {
                 /* New trees will get saved to the args section of this tree
@@ -29,7 +29,7 @@ static void parse_expr_value(lily_parse_state *parser)
 
                 lily_lexer(parser->lex);
                 if (lex->token != tk_left_parenth)
-                    lily_raise(parser->error, err_syntax,
+                    lily_raise(parser->error,
                         "Expected '(' after function name.\n");
 
                 lily_lexer(lex);
@@ -100,7 +100,7 @@ static void parse_expr_top(lily_parse_state *parser)
         }
         else if (lex->token == tk_word) {
             if (parser->ast_pool->save_index != 0)
-                lily_raise(parser->error, err_syntax,
+                lily_raise(parser->error,
                            "Expected ')' or a binary op, not a label.\n");
 
             break;
@@ -108,7 +108,7 @@ static void parse_expr_top(lily_parse_state *parser)
         else if (lex->token == tk_end_tag)
             break;
         else {
-            lily_raise(parser->error, err_stub,
+            lily_raise(parser->error,
                 "parse_expr_top: Unexpected token value %s.\n",
                 tokname(lex->token));
         }
@@ -130,14 +130,13 @@ static void parse_declaration(lily_parse_state *parser, lily_class *cls)
         lily_lexer(lex);
 
         if (lex->token != tk_word)
-            lily_raise(parser->error, err_syntax,
-                       "Expected a variable name, not %s.\n",
+            lily_raise(parser->error, "Expected a variable name, not %s.\n",
                        tokname(lex->token));
 
         var = lily_var_by_name(parser->symtab, lex->label);
         if (var != NULL)
-            lily_raise(parser->error, err_syntax,
-                       "%s has already been declared.\n", var->name);
+            lily_raise(parser->error, "%s has already been declared.\n",
+                       var->name);
 
         var = lily_new_var(parser->symtab, cls, lex->label);
 
@@ -152,8 +151,7 @@ static void parse_declaration(lily_parse_state *parser, lily_class *cls)
         if (lex->token == tk_word || lex->token == tk_end_tag)
             break;
         else if (lex->token != tk_comma) {
-            lily_raise(parser->error, err_syntax,
-                       "Expected ',' or ')', not %s.\n",
+            lily_raise(parser->error, "Expected ',' or ')', not %s.\n",
                        tokname(lex->token));
         }
         /* else comma, so just jump back up. */

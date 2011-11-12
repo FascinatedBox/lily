@@ -138,7 +138,7 @@ void lily_include(lily_lex_state *lexer, char *filename)
 {
     FILE *lex_file = fopen(filename, "r");
     if (lex_file == NULL)
-        lily_raise(lexer->error, err_include, "Failed to open %s.\n", filename);
+        lily_raise(lexer->error, "Failed to open %s.\n", filename);
 
     lexer->lex_file = lex_file;
 
@@ -205,16 +205,14 @@ void lily_lexer(lily_lex_state *lexer)
                 lex_bufpos++;
                 if (ch == '\\') {
                     if (handle_str_escape(lex_buffer, &lex_bufpos, &ch) == 0)
-                        lily_raise(lexer->error, err_syntax,
-                            "Invalid escape code.\n");
+                        lily_raise(lexer->error, "Invalid escape code.\n");
                 }
 
                 ch = lex_buffer[lex_bufpos];
             } while (ch != '"' && ch != '\n' && ch != '\r');
 
             if (ch != '"')
-                lily_raise(lexer->error, err_syntax,
-                           "String without closure.\n");
+                lily_raise(lexer->error, "String without closure.\n");
 
             label[word_pos] = '\0';
 
@@ -243,8 +241,7 @@ void lily_lexer(lily_lex_state *lexer)
             if (lex_buffer[lex_bufpos] == '>')
                 token = tk_end_tag;
             else
-                lily_raise(lexer->error, err_syntax,
-                           "Expected '>' after '@'.\n");
+                lily_raise(lexer->error, "Expected '>' after '@'.\n");
         }
         else if (group == CC_EQUAL) {
             lex_bufpos++;

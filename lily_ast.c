@@ -207,8 +207,7 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
            wouldn't handle the case of too few args. But now the function is
            supposed to be complete so... */
         if (a->data.call.var->num_args != a->data.call.args_collected) {
-            lily_raise(ap->error, err_syntax,
-                       "%s expects %d args, got %d.\n",
+            lily_raise(ap->error, "%s expects %d args, got %d.\n",
                        a->data.call.var->name, a->data.call.var->num_args,
                        a->data.call.args_collected);
         }
