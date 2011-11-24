@@ -4,63 +4,61 @@
 #include "lily_impl.h"
 #include "lily_emitter.h"
 #include "lily_opcode.h"
+#include "lily_emit_table.h"
 
 static char *opname(lily_expr_op op)
 {
     char *ret;
-    switch(op) {
+
+    switch (op) {
         case expr_assign:
-            ret = "=";
+            ret = "assign";
             break;
         case expr_plus:
-            ret = "+";
+            ret = "add";
             break;
         default:
-            ret = NULL;
+            ret = "undefined";
             break;
     }
 
     return ret;
 }
 
-static lily_method *lookup_method(lily_expr_op op, lily_class *left_class,
-                                  lily_class *right_class)
+static void generic_binop(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_method *m = left_class->methods;
-    while (m) {
-        if (m->expr_op == op && m->rhs == right_class)
-            break;
-        m = m->next;
-    }
-
-    return m;
-}
-
-/* These are binary ops that need a method to work. */
-static void generic_binop(lily_code_data *cd, lily_emit_state *emit,
-                          lily_ast *ast)
-{
-    lily_class *left_class, *right_class;
-    lily_method *m;
-    lily_storage *s;
     struct lily_bin_expr bx;
-    
+    int opcode;
+    lily_code_data *cd;
+    lily_class *lhs_class, *rhs_class, *storage_class;
+    lily_storage *s;
+
     bx = ast->data.bin_expr;
-    left_class = bx.left->result->cls;
-    right_class = bx.right->result->cls;
+    cd = emit->target;
+    lhs_class = bx.left->result->cls;
+    rhs_class = bx.right->result->cls;
 
-    /* Find a method to do this. Don't worry about the class now, since
-       the only classes are builtin. */
-    m = lookup_method(bx.op, bx.left->result->cls,
-                      bx.right->result->cls);
+    if (lhs_class->id <= SYM_CLASS_STR &&
+        rhs_class->id <= SYM_CLASS_STR)
+        opcode = generic_binop_table[bx.op][lhs_class->id][rhs_class->id];
+    else
+        opcode = -1;
 
-    if (m == NULL)
-        lily_raise(emit->error, "Method for %s %s %s not defined.\n",
-                   left_class->name, opname(bx.op), right_class->name);
+    if (opcode == -1)
+        lily_raise(emit->error, "Cannot %s %s and %s.\n", opname(bx.op),
+                   lhs_class->name,
+                   rhs_class->name);
+
+
+    if (lhs_class->id >= rhs_class->id)
+        storage_class = lhs_class;
+    else
+        storage_class = rhs_class;
+
+    s = storage_class->storage;
 
     /* Remember that storages are circularly-linked, so if this one
        doesn't work, then all are currently taken. */
-    s = m->result->storage;
     if (s->expr_num != emit->expr_num) {
         /* Add and use a new one. */
         lily_add_storage(emit->symtab, s);
@@ -69,22 +67,14 @@ static void generic_binop(lily_code_data *cd, lily_emit_state *emit,
 
     s->expr_num = emit->expr_num;
     /* Make it so the next node is grabbed next time. */
-    m->result->storage = s->next;
+    storage_class->storage = s->next;
 
-    if ((cd->pos + 4) > cd->len) {
-        cd->len *= 2;
-        cd->code = lily_realloc(cd->code, sizeof(int) * cd->len);
-        if (cd->code == NULL)
-            lily_raise_nomem(emit->error);
-    }
-
-    cd->code[cd->pos] = m->vm_opcode;
+    cd->code[cd->pos] = opcode;
     cd->code[cd->pos+1] = (int)bx.left->result;
     cd->code[cd->pos+2] = (int)bx.right->result;
     cd->code[cd->pos+3] = (int)s;
     cd->pos += 4;
 
-    /* For the parent tree... */
     ast->result = (lily_sym *)s;
 }
 
@@ -150,8 +140,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             cd->code[cd->pos+2] = (int)bx.right->result;
             cd->pos += 3;
         }
-        else
-            generic_binop(cd, emit, ast);
+        else if (bx.op == expr_plus)
+            generic_binop(emit, ast);
     }
 }
 
