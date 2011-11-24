@@ -49,7 +49,7 @@ lily_class *lily_class_by_name(lily_symtab *symtab, char *name)
     int i;
     lily_class **classes = symtab->classes;
 
-    for (i = 0;i <= SYM_CLASS_NUMBER;i++) {
+    for (i = 0;i <= SYM_CLASS_FUNCTION;i++) {
         if (strcmp(classes[i]->name, name) == 0)
             return classes[i];
     }
@@ -79,16 +79,9 @@ void lily_free_symtab(lily_symtab *symtab)
 
     if (symtab->classes != NULL) {
         int i;
-        for (i = 0;i <= SYM_CLASS_NUMBER;i++) {
+        for (i = 0;i <= SYM_CLASS_FUNCTION;i++) {
             lily_class *cls = symtab->classes[i];
             if (cls != NULL) {
-                lily_method *method_curr = cls->methods;
-                lily_method *method_next;
-                while (method_curr) {
-                    method_next = method_curr->next;
-                    lily_free(method_curr);
-                    method_curr = method_next;
-                }
                 if (cls->storage != NULL) {
                     lily_storage *store_curr = cls->storage;
                     lily_storage *store_start = store_curr;
@@ -110,14 +103,13 @@ void lily_free_symtab(lily_symtab *symtab)
 
 static int init_classes(lily_symtab *symtab)
 {
-    int i, class_id, class_count, ret;
+    int i, class_count, ret;
 
     lily_class **classes = lily_malloc(sizeof(lily_class) * 4);
     if (classes == NULL)
         return 0;
 
     symtab->classes = classes;
-    class_id = 0;
     class_count = sizeof(class_seeds) / sizeof(class_seeds[0]);
     ret = 1;
 
@@ -138,48 +130,13 @@ static int init_classes(lily_symtab *symtab)
                 ret = 0;
 
             new_class->id = i;
-            new_class->name = class_seeds[i].name;
+            new_class->name = class_seeds[i];
             new_class->storage = storage;
-            new_class->methods = NULL;
         }
         else
             ret = 0;
 
         classes[i] = new_class;
-    }
-
-    return ret;
-}
-
-static int init_methods(lily_symtab *symtab)
-{
-    int i, class_count, ret;
-
-    class_count = sizeof(class_seeds) / sizeof(class_seeds[0]);
-    ret = 1;
-
-    for (i = 0;i < class_count;i++) {
-        const method_seed *seed_method = class_seeds[i].methods;
-        lily_method *new_method;
-        if (seed_method != NULL) {
-            lily_class *cls = lily_class_by_id(symtab, i);
-            do {
-                new_method = lily_malloc(sizeof(lily_method));
-                if (new_method == NULL) {
-                    ret = 0;
-                    break;
-                }
-
-                new_method->vm_opcode = seed_method->vm_opcode;
-                new_method->expr_op = seed_method->expr_op;
-                new_method->rhs = lily_class_by_id(symtab, seed_method->rhs_id);
-                new_method->result = lily_class_by_id(symtab,
-                                        seed_method->result_id);
-                new_method->next = cls->methods;
-                cls->methods = new_method;
-                seed_method = seed_method->next;
-            } while (seed_method != NULL);
-        }
     }
 
     return ret;
@@ -233,8 +190,7 @@ lily_symtab *lily_new_symtab(lily_excep_data *excep)
     s->lit_start = NULL;
     s->lit_top = NULL;
 
-    if (code == NULL || cd == NULL || !init_classes(s) || !init_methods(s) ||
-        !init_symbols(s)) {
+    if (code == NULL || cd == NULL || !init_classes(s) || !init_symbols(s)) {
         /* This will free any symbols added, and the symtab object. */
         lily_free_symtab(s);
         lily_free(cd);

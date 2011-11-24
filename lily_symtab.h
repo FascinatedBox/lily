@@ -31,19 +31,10 @@ typedef union {
     void *ptr;
 } lily_value;
 
-typedef struct lily_method_t {
-    lily_expr_op expr_op;
-    lily_opcode vm_opcode;
-    struct lily_class_t *rhs;
-    struct lily_class_t *result;
-    struct lily_method_t *next;
-} lily_method;
-
 /* Indicates what kind of value is being stored. */
 typedef struct lily_class_t {
     char *name;
     int id;
-    lily_method *methods;
     struct lily_storage_t *storage;
 } lily_class;
 
@@ -119,10 +110,10 @@ typedef struct {
 } lily_symtab;
 
 /* Sync with classname_seeds in lily_seed_symtab.h. */
-#define SYM_CLASS_FUNCTION 0
-#define SYM_CLASS_STR      1
-#define SYM_CLASS_INTEGER  2
-#define SYM_CLASS_NUMBER   3
+#define SYM_CLASS_INTEGER  0
+#define SYM_CLASS_NUMBER   1
+#define SYM_CLASS_STR      2
+#define SYM_CLASS_FUNCTION 3
 
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, char *);

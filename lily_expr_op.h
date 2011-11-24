@@ -2,8 +2,8 @@
 # define LILY_EXPR_OP_H
 
 typedef enum {
-    expr_assign,
-    expr_plus
+    expr_plus,
+    expr_assign
 } lily_expr_op;
 
 #endif
