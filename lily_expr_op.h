@@ -3,6 +3,7 @@
 
 typedef enum {
     expr_plus,
+    expr_minus,
     expr_assign
 } lily_expr_op;
 

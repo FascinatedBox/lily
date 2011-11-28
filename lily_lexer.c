@@ -17,6 +17,7 @@
 #define CC_DOT           10
 #define CC_COMMA         11
 #define CC_PLUS          12
+#define CC_MINUS         13
 
 static int handle_str_escape(char *buffer, int *pos, char *ch)
 {
@@ -275,6 +276,10 @@ void lily_lexer(lily_lex_state *lexer)
             lex_bufpos++;
             token = tk_plus;
         }
+        else if (group == CC_MINUS) {
+            lex_bufpos++;
+            token = tk_minus;
+        }
         else if (group == CC_NEWLINE || group == CC_SHARP) {
             read_line(lexer);
             lex_bufpos = 0;
@@ -412,6 +417,7 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     ch_class[(unsigned char)'.'] = CC_DOT;
     ch_class[(unsigned char)','] = CC_COMMA;
     ch_class[(unsigned char)'+'] = CC_PLUS;
+    ch_class[(unsigned char)'-'] = CC_MINUS;
 
     s->ch_class = ch_class;
     return s;

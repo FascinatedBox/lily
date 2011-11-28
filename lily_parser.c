@@ -89,6 +89,11 @@ static void parse_expr_top(lily_parse_state *parser)
 
             lily_lexer(lex);
         }
+        else if (lex->token == tk_minus) {
+            lily_ast_push_binary_op(parser->ast_pool, expr_minus);
+
+            lily_lexer(lex);
+        }
         else if (lex->token == tk_right_parenth) {
             lily_ast_pop_tree(parser->ast_pool);
 
