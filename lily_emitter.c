@@ -49,7 +49,6 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
                    lhs_class->name,
                    rhs_class->name);
 
-
     if (lhs_class->id >= rhs_class->id)
         storage_class = lhs_class;
     else
@@ -68,6 +67,13 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
     s->expr_num = emit->expr_num;
     /* Make it so the next node is grabbed next time. */
     storage_class->storage = s->next;
+
+    if ((cd->pos + 4) > cd->len) {
+        cd->len *= 2;
+        cd->code = lily_realloc(cd->code, sizeof(int) * cd->len);
+        if (cd->code == NULL)
+            lily_raise_nomem(emit->error);
+    }
 
     cd->code[cd->pos] = opcode;
     cd->code[cd->pos+1] = (int)bx.left->result;
