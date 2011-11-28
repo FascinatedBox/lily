@@ -113,6 +113,9 @@ static int priority_for_op(lily_expr_op o)
         case expr_plus:
             prio = 1;
             break;
+        case expr_minus:
+            prio = 1;
+            break;
         default:
             /* Won't happen, but makes -Wall happy. */
             prio = -1;

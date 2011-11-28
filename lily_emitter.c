@@ -17,6 +17,9 @@ static char *opname(lily_expr_op op)
         case expr_plus:
             ret = "add";
             break;
+        case expr_minus:
+            ret = "minus";
+            break;
         default:
             ret = "undefined";
             break;
@@ -146,7 +149,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             cd->code[cd->pos+2] = (int)bx.right->result;
             cd->pos += 3;
         }
-        else if (bx.op == expr_plus)
+        else
             generic_binop(emit, ast);
     }
 }

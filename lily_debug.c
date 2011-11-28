@@ -2,6 +2,17 @@
 #include "lily_symtab.h"
 #include "lily_opcode.h"
 
+#define DEBUG_INTEGER_OP(namestr, opstr) \
+lily_impl_debugf(namestr, i); \
+left = ((lily_sym *)code[i+1]); \
+right = ((lily_sym *)code[i+2]); \
+result = ((lily_sym *)code[i+3]); \
+lily_impl_debugf("%s #%d " opstr " %s #%d to %s #%d\n", \
+                 typename((lily_sym *)left), left->id, \
+                 typename((lily_sym *)right), right->id, \
+                 typename((lily_sym *)result), result->id); \
+i += 4;
+
 static char *typename(lily_sym *sym)
 {
     char *ret;
@@ -44,16 +55,10 @@ static void show_code(lily_var *var)
                 i += 3;
                 break;
             case o_integer_add:
-                lily_impl_debugf("    [%d] integer_add   ", i);
-                left = ((lily_sym *)code[i+1]);
-                right = ((lily_sym *)code[i+2]);
-                result = ((lily_sym *)code[i+3]);
-                lily_impl_debugf("%s #%d + %s #%d to %s #%d\n",
-                                 typename((lily_sym *)left),
-                                 left->id, typename((lily_sym *)right),
-                                 right->id, typename((lily_sym *)result),
-                                 result->id);
-                i += 4;
+                DEBUG_INTEGER_OP("    [%d] integer_add   ", "+")
+                break;
+            case o_integer_minus:
+                DEBUG_INTEGER_OP("    [%d] integer_minus ", "-")
                 break;
             case o_vm_return:
                 lily_impl_debugf("    [%d] vm_return\n", i);
