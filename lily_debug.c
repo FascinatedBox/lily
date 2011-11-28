@@ -73,7 +73,7 @@ void lily_show_symtab(lily_symtab *symtab)
     /* The only classes now are the builtin ones. */
     lily_impl_debugf("Classes:\n");
     int class_i;
-    for (class_i = 0;class_i <= SYM_CLASS_NUMBER;class_i++)
+    for (class_i = 0;class_i <= SYM_CLASS_FUNCTION;class_i++)
         lily_impl_debugf("#%d: (builtin) %s\n", class_i, symtab->classes[class_i]->name);
 
     lily_impl_debugf("Literals:\n");
