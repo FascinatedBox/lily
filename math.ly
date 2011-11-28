@@ -6,7 +6,7 @@
 <@lily
 integer a
 
-a = 1 + 2
+a = 1 + 2 + 3
 @>
 </body>
 </html>

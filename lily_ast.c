@@ -36,6 +36,38 @@ static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
                 new_ast->data.bin_expr.parent = active;
                 ap->active = new_ast;
             }
+            else {
+                /* This tree goes above the current one, and above any that have
+                   a priority <= to its own (<= and not < because the ops need
+                   to run left-to-right). Always active, and maybe root. */
+                lily_ast *tree = active;
+                while (tree->data.bin_expr.parent) {
+                    lily_ast *parent = tree->data.bin_expr.parent;
+                    if (new_prio > parent->data.bin_expr.priority)
+                        break;
+
+                    tree = tree->data.bin_expr.parent;
+                }
+
+                if (tree->data.bin_expr.parent != NULL) {
+                    /* Think 'linked list insertion'. */
+                    lily_ast *parent = tree->data.bin_expr.parent;
+                    if (parent->data.bin_expr.left == tree)
+                        parent->data.bin_expr.left = new_ast;
+                    else
+                        parent->data.bin_expr.right = new_ast;
+
+                    new_ast->data.bin_expr.parent =
+                        active->data.bin_expr.parent;
+                }
+                else {
+                    /* No need to update the parent. Just become root. */
+                    active->data.bin_expr.parent = new_ast;
+                    ap->root = new_ast;
+                }
+                new_ast->data.bin_expr.left = active;
+                ap->active = new_ast;
+            }
         }
     }
 }
