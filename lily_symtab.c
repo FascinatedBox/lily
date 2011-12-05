@@ -268,3 +268,10 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_class *cls, char *name)
     add_var(symtab, var);
     return var;
 }
+
+/* Prepare @lily_main to receive new instructions after a parse step. Debug and
+   the vm stay within 'pos', so no need to actually clear the code. */
+void lily_reset_main(lily_symtab *symtab)
+{
+    symtab->main->code_data->pos = 0;
+}

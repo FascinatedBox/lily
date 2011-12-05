@@ -240,6 +240,8 @@ void lily_parser(lily_parse_state *parser)
             lily_show_symtab(parser->symtab);
 
             lily_vm_execute(parser->error, parser->symtab->main);
+            /* Clear the main func for reuse. */
+            lily_reset_main(parser->symtab);
 
             lily_lexer_handle_page_data(parser->lex);
             if (lex->token == tk_eof)
