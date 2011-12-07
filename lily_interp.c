@@ -38,7 +38,18 @@ lily_interp *lily_new_interp(void)
 int lily_parse_file(lily_interp *interp, char *filename)
 {
     if (setjmp(interp->error->jump) == 0) {
-        lily_include(interp->parser->lex, filename);
+        lily_load_file(interp->parser->lex, filename);
+        lily_parser(interp->parser);
+        return 1;
+    }
+
+    return 0;
+}
+
+int lily_parse_string(lily_interp *interp, char *str)
+{
+    if (setjmp(interp->error->jump) == 0) {
+        lily_load_str(interp->parser->lex, str);
         lily_parser(interp->parser);
         return 1;
     }

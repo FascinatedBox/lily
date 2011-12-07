@@ -19,10 +19,16 @@ CORE_OBJECTS=$(OBJDIR)/lily_parser.o \
 FS_OBJECTS=$(CORE_OBJECTS) \
 			$(OBJDIR)/fs_main.o
 
-all: lily_fs
+TESTER_OBJECTS=$(CORE_OBJECTS) \
+				$(OBJDIR)/tester_main.o
+
+all: lily_fs lily_tester
 
 clean:
-	rm -f $(OBJDIR)/* lily_fs
+	rm -f $(OBJDIR)/* lily_fs lily_tester
+
+lily_tester: $(TESTER_OBJECTS)
+	$(CC) $(TESTER_OBJECTS) -o lily_tester
 
 lily_fs: $(FS_OBJECTS)
 	$(CC) $(FS_OBJECTS) -o lily_fs
@@ -31,6 +37,9 @@ lily_fs: $(FS_OBJECTS)
 $(OBJDIR)/fs_main.o: fs_main.c lily_lexer.h lily_parser.h lily_emitter.h \
 					 lily_symtab.h
 	$(CC) $(CFLAGS) fs_main.c -o $(OBJDIR)/fs_main.o
+
+$(OBJDIR)/tester_main.o: tester_main.c lily_interp.h
+	$(CC) $(CFLAGS) tester_main.c -o $(OBJDIR)/tester_main.o
 
 # Core
 $(OBJDIR)/lily_lexer.o: lily_lexer.c lily_lexer.h lily_impl.h

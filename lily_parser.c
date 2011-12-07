@@ -110,7 +110,7 @@ static void parse_expr_top(lily_parse_state *parser)
 
             break;
         }
-        else if (lex->token == tk_end_tag)
+        else if (lex->token == tk_end_tag || lex->token == tk_eof)
             break;
         else {
             lily_raise(parser->error,
@@ -153,7 +153,8 @@ static void parse_declaration(lily_parse_state *parser, lily_class *cls)
         }
 
         /* This is the start of the next statement. */
-        if (lex->token == tk_word || lex->token == tk_end_tag)
+        if (lex->token == tk_word || lex->token == tk_end_tag ||
+            lex->token == tk_eof)
             break;
         else if (lex->token != tk_comma) {
             lily_raise(parser->error, "Expected ',' or ')', not %s.\n",
@@ -233,8 +234,7 @@ void lily_parser(lily_parse_state *parser)
     while (1) {
         if (lex->token == tk_word)
             parse_statement(parser);
-        else if (lex->token == tk_end_tag) {
-            /* Execute the code, eat html, then go back to collection. */
+        else if (lex->token == tk_end_tag || lex->token == tk_eof) {
             lily_emit_vm_return(parser->emit);
             /* Show symtab until the bugs are gone. */
             lily_show_symtab(parser->symtab);
@@ -243,8 +243,12 @@ void lily_parser(lily_parse_state *parser)
             /* Clear the main func for reuse. */
             lily_reset_main(parser->symtab);
 
-            lily_lexer_handle_page_data(parser->lex);
-            if (lex->token == tk_eof)
+            if (lex->token == tk_end_tag) {
+                lily_lexer_handle_page_data(parser->lex);
+                if (lex->token == tk_eof)
+                    break;
+            }
+            else
                 break;
         }
     }

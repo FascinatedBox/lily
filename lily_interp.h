@@ -12,5 +12,6 @@ typedef struct lily_interp_t {
 void lily_free_interp(lily_interp *);
 lily_interp *lily_new_interp(void);
 int lily_parse_file(lily_interp *, char *);
+int lily_parse_string(lily_interp *, char *);
 
 #endif

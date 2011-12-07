@@ -18,6 +18,8 @@
 #define CC_COMMA         11
 #define CC_PLUS          12
 #define CC_MINUS         13
+#define CC_STR_NEWLINE   14
+#define CC_STR_END       15
 
 static int handle_str_escape(char *buffer, int *pos, char *ch)
 {
@@ -128,20 +130,36 @@ void lily_free_lex_state(lily_lex_state *lex)
 {
     if (lex->lex_file != NULL)
         fclose(lex->lex_file);
+
     lily_free(lex->html_cache);
-    lily_free(lex->lex_buffer);
+
+    if (lex->save_buffer == NULL)
+        lily_free(lex->lex_buffer);
+    else
+        lily_free(lex->save_buffer);
+
     lily_free(lex->ch_class);
     lily_free(lex->label);
     lily_free(lex);
 }
 
-void lily_include(lily_lex_state *lexer, char *filename)
+void lily_load_file(lily_lex_state *lexer, char *filename)
 {
+    if (lexer->lex_buffer == NULL) {
+        /* Change from string-based to file-based. */
+        lexer->lex_buffer = lexer->save_buffer;
+        lexer->save_buffer = NULL;
+        lexer->ch_class[(unsigned char)'\r'] = CC_NEWLINE;
+        lexer->ch_class[(unsigned char)'\n'] = CC_NEWLINE;
+        lexer->ch_class[0] = CC_INVALID;
+    }
+
     FILE *lex_file = fopen(filename, "r");
     if (lex_file == NULL)
         lily_raise(lexer->error, "Failed to open %s.\n", filename);
 
     lexer->lex_file = lex_file;
+    lexer->line_num = 0;
 
     read_line(lexer);
     /* Make sure the lexer starts after the <@lily block. */
@@ -239,7 +257,8 @@ void lily_lexer(lily_lex_state *lexer)
         }
         else if (group == CC_AT) {
             lex_bufpos++;
-            if (lex_buffer[lex_bufpos] == '>')
+            /* Disable @> for string-based. */
+            if (lex_buffer[lex_bufpos] == '>' && lexer->save_buffer == NULL)
                 token = tk_end_tag;
             else
                 lily_raise(lexer->error, "Expected '>' after '@'.\n");
@@ -285,6 +304,19 @@ void lily_lexer(lily_lex_state *lexer)
             lex_bufpos = 0;
             continue;
         }
+        else if (group == CC_STR_NEWLINE) {
+            /* This catches both \r and \n. Make sure that \r\n comes in as one
+               newline though. */
+            if (ch == '\r' && lex_buffer[lex_bufpos+1] == '\n')
+                lex_bufpos += 2;
+            else
+                lex_bufpos++;
+
+            lexer->line_num++;
+            continue;
+        }
+        else if (group == CC_STR_END)
+            token = tk_eof;
         else
             token = tk_invalid;
 
@@ -359,6 +391,25 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
     lexer->lex_bufpos = lbp;
 }
 
+/* Caller is responsible for free'ing the str. */
+void lily_load_str(lily_lex_state *lexer, char *str)
+{
+    if (lexer->save_buffer == NULL) {
+        lexer->save_buffer = lexer->lex_buffer;
+        lexer->ch_class[(unsigned char)'\r'] = CC_STR_NEWLINE;
+        lexer->ch_class[(unsigned char)'\n'] = CC_STR_NEWLINE;
+        lexer->ch_class[0] = CC_STR_END;
+        lexer->lex_file = NULL;
+        lexer->lex_bufsize = strlen(str);
+    }
+
+    /* Line number isn't set, to allow for repl-like use. */
+    lexer->lex_buffer = str;
+
+    /* String-based has no support for the html skipping, because I can't see
+       that being useful. */
+}
+
 lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
 {
     lily_lex_state *s = lily_malloc(sizeof(lily_lex_state));
@@ -367,7 +418,7 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     if (s == NULL)
         return NULL;
 
-    s->lex_file = NULL;
+    /* File will be set by the loader. */
     s->error = excep_data;
     s->html_cache = lily_malloc(1024 * sizeof(char));
     s->cache_size = 1023;
@@ -375,6 +426,7 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     s->lex_buffer = lily_malloc(1024 * sizeof(char));
     s->lex_bufpos = 0;
     s->lex_bufsize = 1023;
+    s->save_buffer = NULL;
 
     s->label = lily_malloc(1024 * sizeof(char));
     s->line_num = 0;
@@ -410,14 +462,13 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     ch_class[(unsigned char)')'] = CC_RIGHT_PARENTH;
     ch_class[(unsigned char)'"'] = CC_DOUBLE_QUOTE;
     ch_class[(unsigned char)'@'] = CC_AT;
-    ch_class[(unsigned char)'\r'] = CC_NEWLINE;
-    ch_class[(unsigned char)'\n'] = CC_NEWLINE;
     ch_class[(unsigned char)'#'] = CC_SHARP;
     ch_class[(unsigned char)'='] = CC_EQUAL;
     ch_class[(unsigned char)'.'] = CC_DOT;
     ch_class[(unsigned char)','] = CC_COMMA;
     ch_class[(unsigned char)'+'] = CC_PLUS;
     ch_class[(unsigned char)'-'] = CC_MINUS;
+    /* Newline will be set by the loader. */
 
     s->ch_class = ch_class;
     return s;
@@ -427,7 +478,7 @@ char *tokname(lily_token t)
 {
     static char *toknames[] =
     {"invalid token", "a label", "(", ")", "a string", "an integer", "a number",
-     "=", ",", "+", "@>", "end of file"};
+     "=", ",", "+", "-", "@>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];
