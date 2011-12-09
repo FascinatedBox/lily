@@ -8,6 +8,22 @@
 ((lily_sym *)code[i+2])->value.integer; \
 i += 4; \
 
+#define NUMBER_OP(OP) \
+lhs = (lily_sym *)code[i+1]; \
+if (lhs->cls->id == SYM_CLASS_NUMBER) { \
+    rhs = (lily_sym *)code[i+2]; \
+    if (rhs->cls->id == SYM_CLASS_NUMBER) \
+        ((lily_sym *)code[i+3])->value.number = \
+        lhs->value.number OP rhs->value.number; \
+    else \
+        ((lily_sym *)code[i+3])->value.number = \
+        lhs->value.number OP rhs->value.integer; \
+} \
+else \
+    ((lily_sym *)code[i+3])->value.number = \
+    lhs->value.integer OP ((lily_sym *)code[i+2])->value.number; \
+i += 4;
+
 static void builtin_print(lily_sym *sym)
 {
     if (sym->cls->id == SYM_CLASS_STR)
@@ -18,6 +34,7 @@ void lily_vm_execute(lily_excep_data *error, lily_var *var)
 {
     lily_code_data *cd = var->code_data;
     int *code, i, len;
+    lily_sym *lhs, *rhs;
 
     code = cd->code;
     len = cd->len;
@@ -39,6 +56,12 @@ void lily_vm_execute(lily_excep_data *error, lily_var *var)
                 break;
             case o_integer_minus:
                 FAST_INTEGER_OP(-)
+                break;
+            case o_number_add:
+                NUMBER_OP(+)
+                break;
+            case o_number_minus:
+                NUMBER_OP(-)
                 break;
             case o_vm_return:
                 return;

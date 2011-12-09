@@ -2,7 +2,7 @@
 #include "lily_symtab.h"
 #include "lily_opcode.h"
 
-#define DEBUG_INTEGER_OP(namestr, opstr) \
+#define DEBUG_ARITH_OP(namestr, opstr) \
 lily_impl_debugf(namestr, i); \
 left = ((lily_sym *)code[i+1]); \
 right = ((lily_sym *)code[i+2]); \
@@ -55,10 +55,16 @@ static void show_code(lily_var *var)
                 i += 3;
                 break;
             case o_integer_add:
-                DEBUG_INTEGER_OP("    [%d] integer_add   ", "+")
+                DEBUG_ARITH_OP("    [%d] integer_add   ", "+")
                 break;
             case o_integer_minus:
-                DEBUG_INTEGER_OP("    [%d] integer_minus ", "-")
+                DEBUG_ARITH_OP("    [%d] integer_minus ", "-")
+                break;
+            case o_number_add:
+                DEBUG_ARITH_OP("    [%d] number_add    ", "+")
+                break;
+            case o_number_minus:
+                DEBUG_ARITH_OP("    [%d] number_minus  ", "-")
                 break;
             case o_vm_return:
                 lily_impl_debugf("    [%d] vm_return\n", i);
