@@ -159,7 +159,7 @@ void lily_load_file(lily_lex_state *lexer, char *filename)
         lily_raise(lexer->error, "Failed to open %s.\n", filename);
 
     lexer->lex_file = lex_file;
-    lexer->line_num = 0;
+    lexer->line_num = 1;
 
     read_line(lexer);
     /* Make sure the lexer starts after the <@lily block. */
@@ -429,7 +429,7 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     s->save_buffer = NULL;
 
     s->label = lily_malloc(1024 * sizeof(char));
-    s->line_num = 0;
+    s->line_num = 1;
 
     ch_class = lily_malloc(256 * sizeof(char));
 
