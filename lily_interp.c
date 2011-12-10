@@ -51,6 +51,7 @@ int lily_parse_string(lily_interp *interp, char *str)
     if (setjmp(interp->error->jump) == 0) {
         lily_load_str(interp->parser->lex, str);
         lily_parser(interp->parser);
+        interp->parser->lex->lex_buffer = NULL;
         return 1;
     }
 

@@ -468,7 +468,9 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     ch_class[(unsigned char)','] = CC_COMMA;
     ch_class[(unsigned char)'+'] = CC_PLUS;
     ch_class[(unsigned char)'-'] = CC_MINUS;
-    /* Newline will be set by the loader. */
+    /* Prep for file-based, since lex_buffer isn't NULL. */
+    ch_class[(unsigned char)'\r'] = CC_NEWLINE;
+    ch_class[(unsigned char)'\n'] = CC_NEWLINE;
 
     s->ch_class = ch_class;
     return s;
