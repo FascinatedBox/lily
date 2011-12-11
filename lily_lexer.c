@@ -155,9 +155,12 @@ void lily_load_file(lily_lex_state *lexer, char *filename)
     }
 
     FILE *lex_file = fopen(filename, "r");
-    if (lex_file == NULL)
+    if (lex_file == NULL) {
+        lexer->filename = NULL;
         lily_raise(lexer->error, "Failed to open %s.\n", filename);
+    }
 
+    lexer->filename = filename;
     lexer->lex_file = lex_file;
     lexer->line_num = 1;
 
@@ -406,6 +409,8 @@ void lily_load_str(lily_lex_state *lexer, char *str)
     /* Line number isn't set, to allow for repl-like use. */
     lexer->lex_buffer = str;
 
+    lexer->filename = "<str>";
+
     /* String-based has no support for the html skipping, because I can't see
        that being useful. */
 }
@@ -417,6 +422,8 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
 
     if (s == NULL)
         return NULL;
+
+    s->filename = NULL;
 
     /* File will be set by the loader. */
     s->error = excep_data;
