@@ -24,6 +24,7 @@ typedef enum {
 
 typedef struct {
     FILE *lex_file;
+    char *filename;
     int line_num;
     char *ch_class;
     char *html_cache;
