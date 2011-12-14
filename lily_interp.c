@@ -24,6 +24,7 @@ lily_interp *lily_new_interp(void)
     }
 
     interp->parser = lily_new_parse_state(interp->error);
+    interp->error->line_adjust = 0;
     interp->error->message = NULL;
 
     if (interp->parser == NULL) {
