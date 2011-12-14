@@ -6,6 +6,13 @@
 #include "lily_opcode.h"
 #include "lily_emit_table.h"
 
+/* The emitter sets error->line_adjust with a better line number before calling
+   lily_raise. This gives debuggers a chance at a more useful line number.
+   Example: integer a = 1.0 +
+   1.0
+   * line_adjust would be 1 (where the assignment happens), whereas the lexer
+   would have the line at 2 (where the 1.0 is collected).
+   * Note: This currently excludes nomem errors. */
 static char *opname(lily_expr_op op)
 {
     char *ret;
@@ -47,10 +54,12 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
     else
         opcode = -1;
 
-    if (opcode == -1)
+    if (opcode == -1) {
+        emit->error->line_adjust = ast->line_num;
         lily_raise(emit->error, "Cannot %s %s and %s.\n", opname(bx.op),
                    lhs_class->name,
                    rhs_class->name);
+    }
 
     if (lhs_class->id >= rhs_class->id)
         storage_class = lhs_class;
@@ -132,6 +141,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
         if (bx.op == expr_assign) {
             if (bx.left->result->cls != bx.right->result->cls) {
+                emit->error->line_adjust = ast->line_num;
                 lily_raise(emit->error, "Cannot assign %s to %s.\n",
                            bx.right->result->cls->name,
                            bx.left->result->cls->name);
