@@ -11,6 +11,7 @@ typedef struct lily_ast_t {
     } expr_type;
     lily_sym *result;
     struct lily_ast_t *next_arg;
+    int line_num;
     union {
         /* Vars will store their value to result, so the emitter doesn't have
            to walk the tree for the value. */
@@ -40,6 +41,7 @@ typedef struct {
     int tree_index;
     int tree_size;
     lily_excep_data *error;
+    int *lex_linenum;
 } lily_ast_pool;
 
 void lily_ast_add_arg(lily_ast_pool *, lily_ast *, lily_ast *);
