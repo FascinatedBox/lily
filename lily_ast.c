@@ -130,6 +130,7 @@ void lily_ast_enter_func(lily_ast_pool *ap, lily_var *var)
     lily_ast *a = next_pool_ast(ap);
 
     a->expr_type = func_call;
+    a->line_num = *ap->lex_linenum;
     a->data.call.var = var;
     a->data.call.args_collected = 0;
     a->data.call.arg_start = NULL;
@@ -255,6 +256,7 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
     lily_ast *a = next_pool_ast(ap);
 
     a->expr_type = binary;
+    a->line_num = *ap->lex_linenum;
     a->data.bin_expr.priority = priority_for_op(op);
     a->data.bin_expr.op = op;
     a->data.bin_expr.left = NULL;
@@ -272,6 +274,7 @@ void lily_ast_push_sym(lily_ast_pool *ap, lily_sym *s)
        binary ops store the object containing the result. It allows the emitter
        to do nothing for vars. */
     a->expr_type = var;
+    a->line_num = *ap->lex_linenum;
     a->result = s;
 
     merge_tree(ap, a);
