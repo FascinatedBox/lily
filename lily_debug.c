@@ -76,6 +76,40 @@ static void show_code(lily_var *var)
     }
 }
 
+static void show_sym(lily_sym *sym)
+{
+    if (!(sym->flags & S_IS_NIL)) {
+        if (sym->cls->id == SYM_CLASS_STR) {
+            lily_impl_debugf("str(%-0.50s)\n",
+                            ((lily_strval *)sym->value.ptr)->str);
+        }
+        else if (sym->cls->id == SYM_CLASS_INTEGER)
+            lily_impl_debugf("integer(%d)\n", sym->value.integer);
+        else if (sym->cls->id == SYM_CLASS_NUMBER)
+            lily_impl_debugf("number(%f)\n", sym->value.number);
+    }
+    else
+        lily_impl_debugf("(nil)\n");
+}
+
+void lily_show_var_values(lily_symtab *symtab)
+{
+    lily_var *var = symtab->var_start;
+
+    while (var != NULL && var->line_num == 0)
+        var = var->next;
+
+    if (var != NULL) {
+        lily_impl_debugf("Var values:\n");
+
+        while (var != NULL) {
+            lily_impl_debugf("%s %s = ", var->cls->name, var->name);
+            show_sym((lily_sym *)var);
+            var = var->next;
+        }
+    }
+}
+
 void lily_show_symtab(lily_symtab *symtab)
 {
     lily_var *var = symtab->var_start;
@@ -91,14 +125,7 @@ void lily_show_symtab(lily_symtab *symtab)
     /* Show literal values first. */
     while (lit != NULL) {
         lily_impl_debugf("#%d: ", lit->id);
-        if (lit->cls->id == SYM_CLASS_STR) {
-            lily_impl_debugf("str(%-0.50s)\n",
-                             ((lily_strval *)lit->value.ptr)->str);
-        }
-        else if (lit->cls->id == SYM_CLASS_INTEGER)
-            lily_impl_debugf("integer(%d)\n", lit->value.integer);
-        else if (lit->cls->id == SYM_CLASS_NUMBER)
-            lily_impl_debugf("number(%f)\n", lit->value.number);
+        show_sym((lily_sym *)lit);
         lit = lit->next;
     }
 

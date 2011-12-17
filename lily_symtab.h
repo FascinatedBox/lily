@@ -41,6 +41,7 @@ typedef struct lily_class_t {
 #define VAR_SYM      0x01
 #define LITERAL_SYM  0x02
 #define STORAGE_SYM  0x04
+#define S_IS_NIL     0x10
 
 #define isafunc(s) (s->cls->id == SYM_CLASS_FUNCTION)
 
