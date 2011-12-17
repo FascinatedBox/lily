@@ -47,8 +47,9 @@ void lily_vm_execute(lily_excep_data *error, lily_var *var)
                 i += 2;
                 break;
             case o_assign:
-                ((lily_sym *)code[i+1])->value =
-                ((lily_sym *)code[i+2])->value;
+                lhs = ((lily_sym *)code[i+1]);
+                lhs->flags &= ~S_IS_NIL;
+                lhs->value = ((lily_sym *)code[i+2])->value;
                 i += 3;
                 break;
             case o_integer_add:

@@ -241,6 +241,8 @@ void lily_parser(lily_parse_state *parser)
             lily_show_symtab(parser->symtab);
 
             lily_vm_execute(parser->error, parser->symtab->main);
+            /* Show var values, to verify execution went as expected. */
+            lily_show_var_values(parser->symtab);
             /* Clear the main func for reuse. */
             lily_reset_main(parser->symtab);
 
