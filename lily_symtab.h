@@ -11,13 +11,6 @@ typedef struct {
 } lily_strval;
 
 typedef struct {
-    void *values;
-    int *val_types;
-    int val_count;
-    int val_size;
-} lily_listval;
-
-typedef struct {
     int *code;
     int len;
     int pos;
