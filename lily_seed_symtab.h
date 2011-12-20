@@ -11,17 +11,17 @@ char *class_seeds[] = {
     "function"
 };
 
-static const struct var_entry {
+typedef const struct {
     char *name;
-    int class_id;
     int num_args;
-} var_seeds[] =
-{
-    {"print", SYM_CLASS_FUNCTION, 1},
-    /* All code outside of functions is stuffed here, and at the end of parsing,
-       this function is called. */
-    {"@main", SYM_CLASS_FUNCTION, 0}
-};
+    int arg_ids[];
+} func_entry;
+
+static func_entry print = {"print", 1, {SYM_CLASS_STR}};
+/* All code outside of functions is stuffed here, and at the end of parsing,
+   this function is called. */
+static func_entry at_main = {"@main", 0, {-1}};
+static func_entry *func_seeds[] = {&print, &at_main};
 
 /* It's important to know this id, because symbols after it have their name
    malloc'd, so it'll need to be free'd. */

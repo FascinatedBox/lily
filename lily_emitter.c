@@ -39,12 +39,12 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
 {
     struct lily_bin_expr bx;
     int opcode;
-    lily_code_data *cd;
+    lily_func_prop *fp;
     lily_class *lhs_class, *rhs_class, *storage_class;
     lily_storage *s;
 
     bx = ast->data.bin_expr;
-    cd = emit->target;
+    fp = emit->target;
     lhs_class = bx.left->result->cls;
     rhs_class = bx.right->result->cls;
 
@@ -80,25 +80,25 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
     /* Make it so the next node is grabbed next time. */
     storage_class->storage = s->next;
 
-    if ((cd->pos + 4) > cd->len) {
-        cd->len *= 2;
-        cd->code = lily_realloc(cd->code, sizeof(int) * cd->len);
-        if (cd->code == NULL)
+    if ((fp->pos + 4) > fp->len) {
+        fp->len *= 2;
+        fp->code = lily_realloc(fp->code, sizeof(int) * fp->len);
+        if (fp->code == NULL)
             lily_raise_nomem(emit->error);
     }
 
-    cd->code[cd->pos] = opcode;
-    cd->code[cd->pos+1] = (int)bx.left->result;
-    cd->code[cd->pos+2] = (int)bx.right->result;
-    cd->code[cd->pos+3] = (int)s;
-    cd->pos += 4;
+    fp->code[fp->pos] = opcode;
+    fp->code[fp->pos+1] = (int)bx.left->result;
+    fp->code[fp->pos+2] = (int)bx.right->result;
+    fp->code[fp->pos+3] = (int)s;
+    fp->pos += 4;
 
     ast->result = (lily_sym *)s;
 }
 
 static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_code_data *cd = emit->target;
+    lily_func_prop *fp = emit->target;
 
     if (ast->expr_type == func_call) {
         int i, new_pos;
@@ -112,21 +112,21 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             arg = arg->next_arg;
         }
 
-        new_pos = cd->pos + 1 + ast->data.call.args_collected;
-        if (new_pos > cd->len) {
-            cd->len *= 2;
-            cd->code = lily_realloc(cd->code, sizeof(int) * cd->len);
-            if (cd->code == NULL)
+        new_pos = fp->pos + 1 + ast->data.call.args_collected;
+        if (new_pos > fp->len) {
+            fp->len *= 2;
+            fp->code = lily_realloc(fp->code, sizeof(int) * fp->len);
+            if (fp->code == NULL)
                 lily_raise_nomem(emit->error);
         }
 
-        cd->code[cd->pos] = o_builtin_print;
+        fp->code[fp->pos] = o_builtin_print;
         for (i = 1, arg = ast->data.call.arg_start;
              arg != NULL;
              arg = arg->next_arg) {
-            cd->code[cd->pos + i] = (int)arg->result;
+            fp->code[fp->pos + i] = (int)arg->result;
         }
-        cd->pos = new_pos;
+        fp->pos = new_pos;
     }
     else if (ast->expr_type == binary) {
         /* Make for less typing. */
@@ -147,17 +147,17 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                            bx.left->result->cls->name);
             }
 
-            if ((cd->pos + 3) > cd->len) {
-                cd->len *= 2;
-                cd->code = lily_realloc(cd->code, sizeof(int) * cd->len);
-                if (cd->code == NULL)
+            if ((fp->pos + 3) > fp->len) {
+                fp->len *= 2;
+                fp->code = lily_realloc(fp->code, sizeof(int) * fp->len);
+                if (fp->code == NULL)
                     lily_raise_nomem(emit->error);
             }
 
-            cd->code[cd->pos] = o_assign;
-            cd->code[cd->pos+1] = (int)bx.left->result;
-            cd->code[cd->pos+2] = (int)bx.right->result;
-            cd->pos += 3;
+            fp->code[fp->pos] = o_assign;
+            fp->code[fp->pos+1] = (int)bx.left->result;
+            fp->code[fp->pos+2] = (int)bx.right->result;
+            fp->pos += 3;
         }
         else
             generic_binop(emit, ast);
@@ -172,21 +172,21 @@ void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)
 
 void lily_emit_set_target(lily_emit_state *emit, lily_var *var)
 {
-    emit->target = var->code_data;
+    emit->target = var->properties;
 }
 
 void lily_emit_vm_return(lily_emit_state *emit)
 {
-    lily_code_data *cd = emit->target;
-    if ((cd->pos + 1) > cd->len) {
-        cd->len *= 2;
-        cd->code = lily_realloc(cd->code, sizeof(int) * cd->len);
-        if (cd->code == NULL)
+    lily_func_prop *fp = emit->target;
+    if ((fp->pos + 1) > fp->len) {
+        fp->len *= 2;
+        fp->code = lily_realloc(fp->code, sizeof(int) * fp->len);
+        if (fp->code == NULL)
             lily_raise_nomem(emit->error);
     }
 
-    cd->code[cd->pos] = o_vm_return;
-    cd->pos++;
+    fp->code[fp->pos] = o_vm_return;
+    fp->pos++;
 }
 
 void lily_free_emit_state(lily_emit_state *emit)
