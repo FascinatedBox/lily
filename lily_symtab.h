@@ -10,12 +10,6 @@ typedef struct {
     int size;
 } lily_strval;
 
-typedef struct {
-    int *code;
-    int len;
-    int pos;
-} lily_code_data;
-
 /* This is where the raw data gets stored. Anything not an integer or a number
    is stored in ptr and cast appropriately. */
 typedef union {
@@ -57,6 +51,14 @@ typedef struct lily_literal_t {
     struct lily_literal_t *next;
 } lily_literal;
 
+typedef struct {
+    lily_class **args;
+    int num_args;
+    int *code;
+    int len;
+    int pos;
+} lily_func_prop;
+
 /* These are created by keywords (initialization), or by user declaration. They
    always have a class, but don't have a value at parse-time. Builtin symbols
    have line_num == 0. */
@@ -67,8 +69,9 @@ typedef struct lily_var_t {
     lily_value value;
     char *name;
     int line_num;
-    int num_args;
-    lily_code_data *code_data;
+    /* This stores extra information for the class. Currently, it's used to hold
+       lily_func_prop's for functions. */
+    void *properties;
     struct lily_var_t *next;
 } lily_var;
 

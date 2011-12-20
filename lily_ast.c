@@ -242,10 +242,13 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
         /* Func arg pushing doesn't check as it goes along, because that
            wouldn't handle the case of too few args. But now the function is
            supposed to be complete so... */
-        if (a->data.call.var->num_args != a->data.call.args_collected) {
+        if (((lily_func_prop *)a->data.call.var->properties)->num_args !=
+            a->data.call.args_collected) {
             ap->error->line_adjust = a->line_num;
             lily_raise(ap->error, "%s expects %d args, got %d.\n",
-                       a->data.call.var->name, a->data.call.var->num_args,
+                       a->data.call.var->name,
+                       ((lily_func_prop *)a->data.call.var->properties)
+                       ->num_args,
                        a->data.call.args_collected);
         }
     }

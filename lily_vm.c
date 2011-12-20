@@ -32,12 +32,12 @@ static void builtin_print(lily_sym *sym)
 
 void lily_vm_execute(lily_excep_data *error, lily_var *var)
 {
-    lily_code_data *cd = var->code_data;
+    lily_func_prop *fp = var->properties;
     int *code, i, len;
     lily_sym *lhs, *rhs;
 
-    code = cd->code;
-    len = cd->len;
+    code = fp->code;
+    len = fp->len;
     i = 0;
 
     while (i != len) {

@@ -32,8 +32,8 @@ static char *typename(lily_sym *sym)
 static void show_code(lily_var *var)
 {
     int i = 0;
-    int len = var->code_data->pos;
-    int *code = var->code_data->code;
+    int len = ((lily_func_prop *)var->properties)->pos;
+    int *code = ((lily_func_prop *)var->properties)->code;
     lily_sym *left, *right, *result;
 
     while (i < len) {
@@ -136,7 +136,7 @@ void lily_show_symtab(lily_symtab *symtab)
             /* This is a builtin symbol. */
             lily_impl_debugf("(builtin) %s %s\n", var->cls->name,
                              var->name);
-            if (isafunc(var) && var->code_data != NULL)
+            if (isafunc(var) && ((lily_func_prop *)var->properties)->code != NULL)
                 show_code(var);
         }
         else {

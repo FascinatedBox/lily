@@ -65,10 +65,13 @@ void lily_free_symtab(lily_symtab *symtab)
     while (var != NULL) {
         temp = var->next;
 
-        if (isafunc(var) && var->code_data != NULL) {
-            lily_free(((lily_code_data *)var->code_data)->code);
-            lily_free(var->code_data);
+        if (isafunc(var)) {
+            lily_func_prop *fp = var->properties;
+            lily_free(fp->code);
+            lily_free(fp->args);
+            lily_free(fp);
         }
+
         if (var->id > MAIN_FUNC_ID)
             lily_free(var->name);
 
@@ -145,14 +148,15 @@ static int init_classes(lily_symtab *symtab)
 static int init_symbols(lily_symtab *symtab)
 {
     /* Turn the keywords into symbols. */
-    int i, var_count, ret;
+    int func_count, i, ret;
     lily_class *func_class;
 
     func_class = lily_class_by_id(symtab, SYM_CLASS_FUNCTION);
-    var_count = sizeof(var_seeds) / sizeof(var_seeds[0]);
+    func_count = sizeof(func_seeds) / sizeof(func_seeds[0]);
     ret = 1;
 
-    for (i = 0;i < var_count;i++) {
+    for (i = 0;i < func_count;i++) {
+        func_entry *seed = func_seeds[i];
         lily_var *new_var = lily_malloc(sizeof(lily_var));
 
         if (new_var == NULL) {
@@ -160,11 +164,50 @@ static int init_symbols(lily_symtab *symtab)
             break;
         }
 
-        new_var->name = var_seeds[i].name;
-        new_var->code_data = NULL;
-        new_var->num_args = var_seeds[i].num_args;
+        lily_func_prop *fp = lily_malloc(sizeof(lily_func_prop));
+        if (fp == NULL) {
+            lily_free(new_var);
+            ret = 0;
+            break;
+        }
+
+        if (seed->num_args == 0) {
+            if (seed->arg_ids[0] == -1) {
+                fp->code = lily_malloc(4 * sizeof(int));
+                if (fp->code == NULL) {
+                    lily_free(fp);
+                    lily_free(new_var);
+                    ret = 0;
+                    break;
+                }
+                fp->pos = 0;
+                fp->len = 4;
+            }
+            else
+                fp->code = NULL;
+
+            fp->args = NULL;
+            fp->num_args = 0;
+        }
+        else {
+            fp->args = lily_malloc(sizeof(lily_class *) * seed->num_args);
+            if (fp->args == NULL) {
+                lily_free(fp);
+                lily_free(new_var);
+                ret = 0;
+                break;
+            }
+            int j;
+            for (j = 0;j < seed->num_args;j++)
+                fp->args[j] = lily_class_by_id(symtab, seed->arg_ids[j]);
+
+            fp->num_args = seed->num_args;
+            fp->code = NULL;
+        }
+        new_var->name = seed->name;
         new_var->cls = func_class;
         new_var->line_num = 0;
+        new_var->properties = fp;
         add_var(symtab, new_var);
     }
 
@@ -178,9 +221,6 @@ lily_symtab *lily_new_symtab(lily_excep_data *excep)
     if (s == NULL)
         return NULL;
 
-    int *code = lily_malloc(sizeof(int) * 4);
-    lily_code_data *cd = lily_malloc(sizeof(lily_code_data));
-
     s->next_lit_id = 0;
     s->next_var_id = 0;
     s->next_storage_id = 0;
@@ -190,21 +230,14 @@ lily_symtab *lily_new_symtab(lily_excep_data *excep)
     s->lit_start = NULL;
     s->lit_top = NULL;
 
-    if (code == NULL || cd == NULL || !init_classes(s) || !init_symbols(s)) {
+    if (!init_classes(s) || !init_symbols(s)) {
         /* This will free any symbols added, and the symtab object. */
         lily_free_symtab(s);
-        lily_free(cd);
-        lily_free(code);
         return NULL;
     }
 
-    cd->code = code;
-    cd->len = 4;
-    cd->pos = 0;
-
     lily_var *main_func = s->var_top;
 
-    main_func->code_data = cd;
     s->main = main_func;
     s->error = excep;
 
@@ -261,8 +294,8 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_class *cls, char *name)
     strcpy(var->name, name);
 
     var->flags = VAR_SYM | S_IS_NIL;
-    var->code_data = NULL;
     var->cls = cls;
+    var->properties = NULL;
     var->line_num = *symtab->lex_linenum;
 
     add_var(symtab, var);
@@ -273,5 +306,5 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_class *cls, char *name)
    the vm stay within 'pos', so no need to actually clear the code. */
 void lily_reset_main(lily_symtab *symtab)
 {
-    symtab->main->code_data->pos = 0;
+    ((lily_func_prop *)symtab->main->properties)->pos = 0;
 }
