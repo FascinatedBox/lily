@@ -4,31 +4,31 @@
 # include "lily_symtab.h"
 # include "lily_expr_op.h"
 
-/* Based off of http://lambda.uta.edu/cse5317/notes/node25.html. */
 typedef struct lily_ast_t {
     enum {
         func_call, var, binary
     } expr_type;
-    lily_sym *result;
-    struct lily_ast_t *next_arg;
+
     int line_num;
-    union {
-        /* Vars will store their value to result, so the emitter doesn't have
-           to walk the tree for the value. */
-        struct {
-            lily_var *var;
-            int args_collected;
-            struct lily_ast_t *arg_start;
-            struct lily_ast_t *arg_top;
-        } call;
-        struct lily_bin_expr {
-            int priority;
-            lily_expr_op op;
-            struct lily_ast_t *left;
-            struct lily_ast_t *right;
-            struct lily_ast_t *parent;
-        } bin_expr;
-    } data;
+    /* If the tree is a var, then this is that var. If it isn't, then the
+       emitter will set this to a storage holding the result of this tree. */
+    lily_sym *result;
+
+    /* The next argument to a function, if this tree is in a function. */
+    struct lily_ast_t *next_arg;
+
+    /* For functions only. */
+    int args_needed;
+    int args_collected;
+    struct lily_ast_t *arg_start;
+    struct lily_ast_t *arg_top;
+
+    /* There are no unary ops (yet), so only binary ops use this. */
+    int priority;
+    lily_expr_op op;
+    struct lily_ast_t *left;
+    struct lily_ast_t *right;
+    struct lily_ast_t *parent;
 } lily_ast;
 
 typedef struct {

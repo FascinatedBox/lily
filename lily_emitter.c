@@ -37,26 +37,24 @@ static char *opname(lily_expr_op op)
 
 static void generic_binop(lily_emit_state *emit, lily_ast *ast)
 {
-    struct lily_bin_expr bx;
     int opcode;
     lily_func_prop *fp;
     lily_class *lhs_class, *rhs_class, *storage_class;
     lily_storage *s;
 
-    bx = ast->data.bin_expr;
     fp = emit->target;
-    lhs_class = bx.left->result->cls;
-    rhs_class = bx.right->result->cls;
+    lhs_class = ast->left->result->cls;
+    rhs_class = ast->right->result->cls;
 
     if (lhs_class->id <= SYM_CLASS_STR &&
         rhs_class->id <= SYM_CLASS_STR)
-        opcode = generic_binop_table[bx.op][lhs_class->id][rhs_class->id];
+        opcode = generic_binop_table[ast->op][lhs_class->id][rhs_class->id];
     else
         opcode = -1;
 
     if (opcode == -1) {
         emit->error->line_adjust = ast->line_num;
-        lily_raise(emit->error, "Cannot %s %s and %s.\n", opname(bx.op),
+        lily_raise(emit->error, "Cannot %s %s and %s.\n", opname(ast->op),
                    lhs_class->name,
                    rhs_class->name);
     }
@@ -88,8 +86,8 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
     }
 
     fp->code[fp->pos] = opcode;
-    fp->code[fp->pos+1] = (int)bx.left->result;
-    fp->code[fp->pos+2] = (int)bx.right->result;
+    fp->code[fp->pos+1] = (int)ast->left->result;
+    fp->code[fp->pos+2] = (int)ast->right->result;
     fp->code[fp->pos+3] = (int)s;
     fp->pos += 4;
 
@@ -103,7 +101,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
     if (ast->expr_type == func_call) {
         int i, new_pos;
 
-        lily_ast *arg = ast->data.call.arg_start;
+        lily_ast *arg = ast->arg_start;
         while (arg != NULL) {
             if (arg->expr_type != var)
                 /* Walk the subexpressions so the result gets calculated. */
@@ -112,7 +110,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             arg = arg->next_arg;
         }
 
-        new_pos = fp->pos + 1 + ast->data.call.args_collected;
+        new_pos = fp->pos + 1 + ast->args_collected;
         if (new_pos > fp->len) {
             fp->len *= 2;
             fp->code = lily_realloc(fp->code, sizeof(int) * fp->len);
@@ -121,7 +119,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         }
 
         fp->code[fp->pos] = o_builtin_print;
-        for (i = 1, arg = ast->data.call.arg_start;
+        for (i = 1, arg = ast->arg_start;
              arg != NULL;
              arg = arg->next_arg) {
             fp->code[fp->pos + i] = (int)arg->result;
@@ -129,22 +127,19 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         fp->pos = new_pos;
     }
     else if (ast->expr_type == binary) {
-        /* Make for less typing. */
-        struct lily_bin_expr bx = ast->data.bin_expr;
-
         /* lhs and rhs must be walked first, regardless of op. */
-        if (bx.left->expr_type != var)
-            walk_tree(emit, bx.left);
+        if (ast->left->expr_type != var)
+            walk_tree(emit, ast->left);
 
-        if (bx.right->expr_type != var)
-            walk_tree(emit, bx.right);
+        if (ast->right->expr_type != var)
+            walk_tree(emit, ast->right);
 
-        if (bx.op == expr_assign) {
-            if (bx.left->result->cls != bx.right->result->cls) {
+        if (ast->op == expr_assign) {
+            if (ast->left->result->cls != ast->right->result->cls) {
                 emit->error->line_adjust = ast->line_num;
                 lily_raise(emit->error, "Cannot assign %s to %s.\n",
-                           bx.right->result->cls->name,
-                           bx.left->result->cls->name);
+                           ast->right->result->cls->name,
+                           ast->left->result->cls->name);
             }
 
             if ((fp->pos + 3) > fp->len) {
@@ -155,8 +150,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             }
 
             fp->code[fp->pos] = o_assign;
-            fp->code[fp->pos+1] = (int)bx.left->result;
-            fp->code[fp->pos+2] = (int)bx.right->result;
+            fp->code[fp->pos+1] = (int)ast->left->result;
+            fp->code[fp->pos+2] = (int)ast->right->result;
             fp->pos += 3;
         }
         else
