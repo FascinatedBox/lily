@@ -17,23 +17,23 @@ static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
         if (ap->root == active)
             ap->root = new_ast;
 
-        new_ast->data.bin_expr.left = active;
+        new_ast->left = active;
         ap->active = new_ast;
     }
     else {
         /* active = op, new = value or binary op. */
         if (new_ast->expr_type == var || new_ast->expr_type == func_call)
-            active->data.bin_expr.right = new_ast;
+            active->right = new_ast;
         else {
             int new_prio, active_prio;
-            new_prio = new_ast->data.bin_expr.priority;
-            active_prio = active->data.bin_expr.priority;
+            new_prio = new_ast->priority;
+            active_prio = active->priority;
             if (new_prio > active_prio) {
                 /* The new tree goes before the current one. It becomes the
                    active, but not the root. */
-                new_ast->data.bin_expr.left = active->data.bin_expr.right;
-                active->data.bin_expr.right = new_ast;
-                new_ast->data.bin_expr.parent = active;
+                new_ast->left = active->right;
+                active->right = new_ast;
+                new_ast->parent = active;
                 ap->active = new_ast;
             }
             else {
@@ -41,31 +41,29 @@ static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
                    a priority <= to its own (<= and not < because the ops need
                    to run left-to-right). Always active, and maybe root. */
                 lily_ast *tree = active;
-                while (tree->data.bin_expr.parent) {
-                    lily_ast *parent = tree->data.bin_expr.parent;
-                    if (new_prio > parent->data.bin_expr.priority)
+                while (tree->parent) {
+                    if (new_prio > tree->parent->priority)
                         break;
 
-                    tree = tree->data.bin_expr.parent;
+                    tree = tree->parent;
                 }
 
-                if (tree->data.bin_expr.parent != NULL) {
+                if (tree->parent != NULL) {
                     /* Think 'linked list insertion'. */
-                    lily_ast *parent = tree->data.bin_expr.parent;
-                    if (parent->data.bin_expr.left == tree)
-                        parent->data.bin_expr.left = new_ast;
+                    lily_ast *parent = tree->parent;
+                    if (parent->left == tree)
+                        parent->left = new_ast;
                     else
-                        parent->data.bin_expr.right = new_ast;
+                        parent->right = new_ast;
 
-                    new_ast->data.bin_expr.parent =
-                        active->data.bin_expr.parent;
+                    new_ast->parent = active->parent;
                 }
                 else {
                     /* No need to update the parent. Just become root. */
-                    active->data.bin_expr.parent = new_ast;
+                    active->parent = new_ast;
                     ap->root = new_ast;
                 }
-                new_ast->data.bin_expr.left = active;
+                new_ast->left = active;
                 ap->active = new_ast;
             }
         }
@@ -131,10 +129,11 @@ void lily_ast_enter_func(lily_ast_pool *ap, lily_var *var)
 
     a->expr_type = func_call;
     a->line_num = *ap->lex_linenum;
-    a->data.call.var = var;
-    a->data.call.args_collected = 0;
-    a->data.call.arg_start = NULL;
-    a->data.call.arg_top = NULL;
+    a->result = (lily_sym *)var;
+    a->args_needed = ((lily_func_prop *)var->properties)->num_args;
+    a->args_collected = 0;
+    a->arg_start = NULL;
+    a->arg_top = NULL;
 
     merge_tree(ap, a);
 
@@ -218,17 +217,17 @@ void lily_ast_push_arg(lily_ast_pool *ap, lily_ast *func, lily_ast *tree)
     /* The args of a function are linked to themselves, with the last one
        set to NULL. This will work for multiple functions, because the
        functions would be using different ASTs. */
-    if (func->data.call.arg_start == NULL) {
-        func->data.call.arg_start = tree;
-        func->data.call.arg_top = tree;
+    if (func->arg_start == NULL) {
+        func->arg_start = tree;
+        func->arg_top = tree;
     }
     else {
-        func->data.call.arg_top->next_arg = tree;
-        func->data.call.arg_top = tree;
+        func->arg_top->next_arg = tree;
+        func->arg_top = tree;
     }
 
     tree->next_arg = NULL;
-    func->data.call.args_collected++;
+    func->args_collected++;
 }
 
 void lily_ast_pop_tree(lily_ast_pool *ap)
@@ -242,14 +241,12 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
         /* Func arg pushing doesn't check as it goes along, because that
            wouldn't handle the case of too few args. But now the function is
            supposed to be complete so... */
-        if (((lily_func_prop *)a->data.call.var->properties)->num_args !=
-            a->data.call.args_collected) {
+        if (a->args_needed != a->args_collected) {
             ap->error->line_adjust = a->line_num;
             lily_raise(ap->error, "%s expects %d args, got %d.\n",
-                       a->data.call.var->name,
-                       ((lily_func_prop *)a->data.call.var->properties)
-                       ->num_args,
-                       a->data.call.args_collected);
+                       ((lily_var *)a->result)->name,
+                       a->args_needed,
+                       a->args_collected);
         }
     }
     ap->active = a;
@@ -261,11 +258,11 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
 
     a->expr_type = binary;
     a->line_num = *ap->lex_linenum;
-    a->data.bin_expr.priority = priority_for_op(op);
-    a->data.bin_expr.op = op;
-    a->data.bin_expr.left = NULL;
-    a->data.bin_expr.right = NULL;
-    a->data.bin_expr.parent = NULL;
+    a->priority = priority_for_op(op);
+    a->op = op;
+    a->left = NULL;
+    a->right = NULL;
+    a->parent = NULL;
 
     merge_tree(ap, a);
 }
