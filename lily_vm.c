@@ -24,10 +24,9 @@ else \
     lhs->value.integer OP ((lily_sym *)code[i+2])->value.number; \
 i += 4;
 
-static void builtin_print(lily_sym *sym)
+void lily_builtin_print(lily_sym **args)
 {
-    if (sym->cls->id == SYM_CLASS_STR)
-        lily_impl_send_html(((lily_strval *)sym->value.ptr)->str);
+    lily_impl_send_html(((lily_strval *)args[0]->value.ptr)->str);
 }
 
 void lily_vm_execute(lily_excep_data *error, lily_var *var)
@@ -42,10 +41,6 @@ void lily_vm_execute(lily_excep_data *error, lily_var *var)
 
     while (i != len) {
         switch(code[i]) {
-            case o_builtin_print:
-                builtin_print((lily_sym *)code[i+1]);
-                i += 2;
-                break;
             case o_assign:
                 lhs = ((lily_sym *)code[i+1]);
                 lhs->flags &= ~S_IS_NIL;
@@ -64,6 +59,14 @@ void lily_vm_execute(lily_excep_data *error, lily_var *var)
             case o_number_minus:
                 NUMBER_OP(-)
                 break;
+            case o_func_call:
+            {
+                /* var, func, #args, args... */
+                lily_fast_func fc = (lily_fast_func)code[i+2];
+                int j = code[i+3];
+                fc((lily_sym **)code+i+4);
+                i += 4+j;
+            }
             case o_vm_return:
                 return;
         }

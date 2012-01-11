@@ -110,7 +110,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             arg = arg->next_arg;
         }
 
-        new_pos = fp->pos + 1 + ast->args_collected;
+        new_pos = fp->pos + 4 + ast->args_collected;
         if (new_pos > fp->len) {
             fp->len *= 2;
             fp->code = lily_realloc(fp->code, sizeof(int) * fp->len);
@@ -118,8 +118,15 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                 lily_raise_nomem(emit->error);
         }
 
-        fp->code[fp->pos] = o_builtin_print;
-        for (i = 1, arg = ast->arg_start;
+        lily_var *v = (lily_var *)ast->result;
+
+        fp->code[fp->pos] = o_func_call;
+        /* The debugger uses this to show where the func was declared. */
+        fp->code[fp->pos+1] = (int)v;
+        /* Do this once, so the vm doesn't have to each pass. */
+        fp->code[fp->pos+2] = (int)((lily_func_prop *)v->properties)->func;
+        fp->code[fp->pos+3] = ast->args_collected;
+        for (i = 4, arg = ast->arg_start;
              arg != NULL;
              arg = arg->next_arg) {
             fp->code[fp->pos + i] = (int)arg->result;

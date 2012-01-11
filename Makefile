@@ -57,7 +57,8 @@ $(OBJDIR)/lily_emitter.o: lily_emitter.c lily_opcode.h lily_impl.h \
 						  lily_emit_table.h
 	$(CC) $(CFLAGS) lily_emitter.c -o $(OBJDIR)/lily_emitter.o
 
-$(OBJDIR)/lily_symtab.o: lily_symtab.c lily_symtab.h lily_seed_symtab.h
+$(OBJDIR)/lily_symtab.o: lily_symtab.c lily_symtab.h lily_builtins.h \
+						 lily_seed_symtab.h
 	$(CC) $(CFLAGS) lily_symtab.c -o $(OBJDIR)/lily_symtab.o
 
 $(OBJDIR)/lily_vm.o: lily_vm.c lily_vm.h

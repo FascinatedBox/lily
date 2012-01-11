@@ -204,6 +204,8 @@ static int init_symbols(lily_symtab *symtab)
             fp->num_args = seed->num_args;
             fp->code = NULL;
         }
+
+        fp->func = seed->func;
         new_var->name = seed->name;
         new_var->cls = func_class;
         new_var->line_num = 0;

@@ -2,6 +2,7 @@
 # define LILY_SEED_SYMTAB_H
 
 # include "lily_symtab.h"
+# include "lily_builtins.h"
 
 /* Sync name order with SYM_CLASS_* #defines in lily_symtab.h */
 char *class_seeds[] = {
@@ -14,13 +15,14 @@ char *class_seeds[] = {
 typedef const struct {
     char *name;
     int num_args;
+    lily_fast_func func;
     int arg_ids[];
 } func_entry;
 
-static func_entry print = {"print", 1, {SYM_CLASS_STR}};
+static func_entry print = {"print", 1, lily_builtin_print, {SYM_CLASS_STR}};
 /* All code outside of functions is stuffed here, and at the end of parsing,
    this function is called. */
-static func_entry at_main = {"@main", 0, {-1}};
+static func_entry at_main = {"@main", 0, NULL, {-1}};
 static func_entry *func_seeds[] = {&print, &at_main};
 
 /* It's important to know this id, because symbols after it have their name

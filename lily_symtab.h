@@ -4,6 +4,7 @@
 # include "lily_error.h"
 # include "lily_opcode.h"
 # include "lily_expr_op.h"
+# include "lily_builtins.h"
 
 typedef struct {
     char *str;
@@ -34,7 +35,7 @@ typedef struct lily_class_t {
 
 /* All symbols have at least these fields. The vm and debugging functions use
    this to cast and grab common info. */
-typedef struct {
+typedef struct lily_sym_t {
     int id;
     int flags;
     lily_class *cls;
@@ -52,6 +53,7 @@ typedef struct lily_literal_t {
 } lily_literal;
 
 typedef struct {
+    lily_fast_func func;
     lily_class **args;
     int num_args;
     int *code;
