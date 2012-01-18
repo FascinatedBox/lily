@@ -24,21 +24,41 @@ typedef struct lily_class_t {
     char *name;
     int id;
     struct lily_storage_t *storage;
+    struct lily_sig_t *sig;
 } lily_class;
+
+typedef enum {
+    func_sig,
+    class_sig
+} lily_sig_type;
+
+typedef struct lily_func_sig_t {
+    struct lily_sig_t *ret;
+    struct lily_sig_t **args;
+    int num_args;
+    int is_varargs;
+} lily_func_sig;
+
+typedef struct lily_sig_t {
+    lily_class *cls;
+    union {
+        lily_func_sig *func;
+    } node;
+} lily_sig;
 
 #define VAR_SYM      0x01
 #define LITERAL_SYM  0x02
 #define STORAGE_SYM  0x04
 #define S_IS_NIL     0x10
 
-#define isafunc(s) (s->cls->id == SYM_CLASS_FUNCTION)
+#define isafunc(s) (s->sig->cls->id == SYM_CLASS_FUNCTION)
 
 /* All symbols have at least these fields. The vm and debugging functions use
    this to cast and grab common info. */
 typedef struct lily_sym_t {
     int id;
     int flags;
-    lily_class *cls;
+    lily_sig *sig;
     lily_value value;
 } lily_sym;
 
@@ -47,7 +67,7 @@ typedef struct lily_sym_t {
 typedef struct lily_literal_t {
     int id;
     int flags;
-    lily_class *cls;
+    lily_sig *sig;
     lily_value value;
     struct lily_literal_t *next;
 } lily_literal;
@@ -67,7 +87,7 @@ typedef struct {
 typedef struct lily_var_t {
     int id;
     int flags;
-    lily_class *cls;
+    lily_sig *sig;
     lily_value value;
     char *name;
     int line_num;
@@ -85,7 +105,7 @@ typedef struct lily_var_t {
 typedef struct lily_storage_t {
     int id;
     int flags;
-    lily_class *cls;
+    lily_sig *sig;
     lily_value value;
     int expr_num;
     struct lily_storage_t *next;

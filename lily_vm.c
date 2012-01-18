@@ -10,9 +10,9 @@ i += 4; \
 
 #define NUMBER_OP(OP) \
 lhs = (lily_sym *)code[i+1]; \
-if (lhs->cls->id == SYM_CLASS_NUMBER) { \
+if (lhs->sig->cls->id == SYM_CLASS_NUMBER) { \
     rhs = (lily_sym *)code[i+2]; \
-    if (rhs->cls->id == SYM_CLASS_NUMBER) \
+    if (rhs->sig->cls->id == SYM_CLASS_NUMBER) \
         ((lily_sym *)code[i+3])->value.number = \
         lhs->value.number OP rhs->value.number; \
     else \
