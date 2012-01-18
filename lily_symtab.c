@@ -34,7 +34,7 @@ void lily_add_storage(lily_symtab *symtab, lily_storage *storage)
 
     new_storage->flags = STORAGE_SYM;
     new_storage->expr_num = 0;
-    new_storage->cls = storage->cls;
+    new_storage->sig = storage->sig;
     new_storage->next = storage->next;
     storage->next = new_storage;
 }
@@ -95,6 +95,7 @@ void lily_free_symtab(lily_symtab *symtab)
                         store_curr = store_next;
                     } while (store_curr != store_start);
                 }
+                lily_free(cls->sig);
                 lily_free(cls);
             }
         }
@@ -120,21 +121,35 @@ static int init_classes(lily_symtab *symtab)
         lily_class *new_class = lily_malloc(sizeof(lily_class));
 
         if (new_class != NULL) {
-            lily_storage *storage = lily_malloc(sizeof(lily_storage));
-            if (storage != NULL) {
-                storage->id = symtab->next_storage_id;
-                symtab->next_storage_id++;
-                storage->flags = STORAGE_SYM;
-                storage->expr_num = 0;
-                storage->cls = new_class;
-                storage->next = storage;
-            }
+            lily_sig *sig;
+            lily_storage *storage;
+
+            sig = lily_malloc(sizeof(lily_sig));
+            if (sig != NULL)
+                sig->cls = new_class;
             else
                 ret = 0;
+
+            if (ret) {
+                storage = lily_malloc(sizeof(lily_storage));
+                if (storage != NULL) {
+                    storage->id = symtab->next_storage_id;
+                    symtab->next_storage_id++;
+                    storage->flags = STORAGE_SYM;
+                    storage->expr_num = 0;
+                    storage->sig = sig;
+                    storage->next = storage;
+                }
+                else
+                    ret = 0;
+            }
+            else
+                storage = NULL;
 
             new_class->id = i;
             new_class->name = class_seeds[i];
             new_class->storage = storage;
+            new_class->sig = sig;
         }
         else
             ret = 0;
@@ -207,7 +222,10 @@ static int init_symbols(lily_symtab *symtab)
 
         fp->func = seed->func;
         new_var->name = seed->name;
-        new_var->cls = func_class;
+        /* todo: These are funcs and should allocate sigs and func_sig nodes to
+           properly describe themselves.
+           Also, function shouldn't have a signature. */
+        new_var->sig = func_class->sig;
         new_var->line_num = 0;
         new_var->properties = fp;
         add_var(symtab, new_var);
@@ -264,7 +282,8 @@ lily_literal *lily_new_literal(lily_symtab *symtab, lily_class *cls)
     if (lit == NULL)
         lily_raise_nomem(symtab->error);
 
-    lit->cls = cls;
+    /* Literals are either str, integer, or number, so this is safe. */
+    lit->sig = cls->sig;
     lit->flags = LITERAL_SYM;
     lit->next = NULL;
 
@@ -296,7 +315,8 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_class *cls, char *name)
     strcpy(var->name, name);
 
     var->flags = VAR_SYM | S_IS_NIL;
-    var->cls = cls;
+    /* This will work until functions are declarable. */
+    var->sig = cls->sig;
     var->properties = NULL;
     var->line_num = *symtab->lex_linenum;
 

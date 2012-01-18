@@ -98,13 +98,13 @@ static void show_code(lily_var *var)
 static void show_sym(lily_sym *sym)
 {
     if (!(sym->flags & S_IS_NIL)) {
-        if (sym->cls->id == SYM_CLASS_STR) {
+        if (sym->sig->cls->id == SYM_CLASS_STR) {
             lily_impl_debugf("str(%-0.50s)\n",
                             ((lily_strval *)sym->value.ptr)->str);
         }
-        else if (sym->cls->id == SYM_CLASS_INTEGER)
+        else if (sym->sig->cls->id == SYM_CLASS_INTEGER)
             lily_impl_debugf("integer(%d)\n", sym->value.integer);
-        else if (sym->cls->id == SYM_CLASS_NUMBER)
+        else if (sym->sig->cls->id == SYM_CLASS_NUMBER)
             lily_impl_debugf("number(%f)\n", sym->value.number);
     }
     else
@@ -122,7 +122,7 @@ void lily_show_var_values(lily_symtab *symtab)
         lily_impl_debugf("Var values:\n");
 
         while (var != NULL) {
-            lily_impl_debugf("%s %s = ", var->cls->name, var->name);
+            lily_impl_debugf("%s %s = ", var->sig->cls->name, var->name);
             show_sym((lily_sym *)var);
             var = var->next;
         }
@@ -153,13 +153,13 @@ void lily_show_symtab(lily_symtab *symtab)
         lily_impl_debugf("#%d: ", var->id);
         if (var->line_num == 0) {
             /* This is a builtin symbol. */
-            lily_impl_debugf("(builtin) %s %s\n", var->cls->name,
+            lily_impl_debugf("(builtin) %s %s\n", var->sig->cls->name,
                              var->name);
             if (isafunc(var) && ((lily_func_prop *)var->properties)->code != NULL)
                 show_code(var);
         }
         else {
-            lily_impl_debugf("%s %s @ line %d\n", var->cls->name,
+            lily_impl_debugf("%s %s @ line %d\n", var->sig->cls->name,
                              var->name, var->line_num);
         }
         var = var->next;

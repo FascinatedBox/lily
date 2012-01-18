@@ -43,8 +43,8 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
     lily_storage *s;
 
     fp = emit->target;
-    lhs_class = ast->left->result->cls;
-    rhs_class = ast->right->result->cls;
+    lhs_class = ast->left->result->sig->cls;
+    rhs_class = ast->right->result->sig->cls;
 
     if (lhs_class->id <= SYM_CLASS_STR &&
         rhs_class->id <= SYM_CLASS_STR)
@@ -142,11 +142,11 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             walk_tree(emit, ast->right);
 
         if (ast->op == expr_assign) {
-            if (ast->left->result->cls != ast->right->result->cls) {
+            if (ast->left->result->sig != ast->right->result->sig) {
                 emit->error->line_adjust = ast->line_num;
                 lily_raise(emit->error, "Cannot assign %s to %s.\n",
-                           ast->right->result->cls->name,
-                           ast->left->result->cls->name);
+                           ast->right->result->sig->cls->name,
+                           ast->left->result->sig->cls->name);
             }
 
             if ((fp->pos + 3) > fp->len) {
