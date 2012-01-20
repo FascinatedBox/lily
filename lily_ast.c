@@ -130,7 +130,7 @@ void lily_ast_enter_func(lily_ast_pool *ap, lily_var *var)
     a->expr_type = func_call;
     a->line_num = *ap->lex_linenum;
     a->result = (lily_sym *)var;
-    a->args_needed = ((lily_func_prop *)var->properties)->num_args;
+    a->args_needed = var->sig->node.func->num_args;
     a->args_collected = 0;
     a->arg_start = NULL;
     a->arg_top = NULL;

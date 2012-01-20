@@ -74,8 +74,6 @@ typedef struct lily_literal_t {
 
 typedef struct {
     lily_fast_func func;
-    lily_class **args;
-    int num_args;
     int *code;
     int len;
     int pos;
