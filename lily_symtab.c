@@ -78,7 +78,7 @@ lily_class *lily_class_by_name(lily_symtab *symtab, char *name)
     int i;
     lily_class **classes = symtab->classes;
 
-    for (i = 0;i <= SYM_CLASS_FUNCTION;i++) {
+    for (i = 0;i <= SYM_LAST_CLASS;i++) {
         if (strcmp(classes[i]->name, name) == 0)
             return classes[i];
     }
@@ -128,7 +128,7 @@ void lily_free_symtab(lily_symtab *symtab)
 
     if (symtab->classes != NULL) {
         int i;
-        for (i = 0;i <= SYM_CLASS_FUNCTION;i++) {
+        for (i = 0;i <= SYM_LAST_CLASS;i++) {
             lily_class *cls = symtab->classes[i];
             if (cls != NULL) {
                 if (cls->storage != NULL) {
