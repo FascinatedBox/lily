@@ -23,6 +23,35 @@ static void add_var(lily_symtab *symtab, lily_var *s)
     symtab->var_top = s;
 }
 
+static void init_func_sig_args(lily_symtab *symtab, lily_func_sig *func_sig,
+                               func_entry *entry)
+{
+    int i;
+
+    func_sig->args = lily_malloc(sizeof(lily_sig *) * entry->num_args);
+    if (func_sig->args == NULL)
+        return;
+
+    for (i = 0;i < entry->num_args;i++) {
+        lily_class *cls = lily_class_by_id(symtab, entry->arg_ids[i]);
+        func_sig->args[i] = cls->sig;
+    }
+
+    func_sig->ret = NULL;
+    func_sig->num_args = entry->num_args;
+    func_sig->is_varargs = 0;
+}
+
+/* All other signatures that vars use are copies of one held by a class. Those
+   will be free'd with the class. */
+static void free_var_func_sig(lily_sig *sig)
+{
+    lily_func_sig *func_sig = sig->node.func;
+    lily_free(func_sig->args);
+    lily_free(func_sig);
+    lily_free(sig);
+}
+
 void lily_add_storage(lily_symtab *symtab, lily_storage *storage)
 {
     lily_storage *new_storage = lily_malloc(sizeof(lily_storage));
@@ -67,8 +96,8 @@ void lily_free_symtab(lily_symtab *symtab)
 
         if (isafunc(var)) {
             lily_func_prop *fp = var->properties;
+            free_var_func_sig(var->sig);
             lily_free(fp->code);
-            lily_free(fp->args);
             lily_free(fp);
         }
 
@@ -179,12 +208,32 @@ static int init_symbols(lily_symtab *symtab)
             break;
         }
 
-        lily_func_prop *fp = lily_malloc(sizeof(lily_func_prop));
-        if (fp == NULL) {
+        lily_sig *sig = lily_malloc(sizeof(lily_sig));
+        if (sig == NULL) {
             lily_free(new_var);
             ret = 0;
             break;
         }
+
+        lily_func_sig *func_sig = lily_malloc(sizeof(lily_func_sig));
+        if (sig == NULL) {
+            lily_free(sig);
+            lily_free(new_var);
+            ret = 0;
+            break;
+        }
+
+        lily_func_prop *fp = lily_malloc(sizeof(lily_func_prop));
+        if (fp == NULL) {
+            lily_free(func_sig);
+            lily_free(sig);
+            lily_free(new_var);
+            ret = 0;
+            break;
+        }
+
+        sig->cls = func_class;
+        sig->node.func = func_sig;
 
         if (seed->num_args == 0) {
             if (seed->arg_ids[0] == -1) {
@@ -201,31 +250,27 @@ static int init_symbols(lily_symtab *symtab)
             else
                 fp->code = NULL;
 
-            fp->args = NULL;
-            fp->num_args = 0;
+            func_sig->args = NULL;
+            func_sig->num_args = 0;
+            func_sig->is_varargs = 0;
+            func_sig->ret = NULL;
         }
         else {
-            fp->args = lily_malloc(sizeof(lily_class *) * seed->num_args);
-            if (fp->args == NULL) {
+            fp->code = NULL;
+            init_func_sig_args(symtab, func_sig, seed);
+            if (func_sig->args == NULL) {
                 lily_free(fp);
+                lily_free(func_sig);
+                lily_free(sig);
                 lily_free(new_var);
                 ret = 0;
                 break;
             }
-            int j;
-            for (j = 0;j < seed->num_args;j++)
-                fp->args[j] = lily_class_by_id(symtab, seed->arg_ids[j]);
-
-            fp->num_args = seed->num_args;
-            fp->code = NULL;
         }
 
         fp->func = seed->func;
         new_var->name = seed->name;
-        /* todo: These are funcs and should allocate sigs and func_sig nodes to
-           properly describe themselves.
-           Also, function shouldn't have a signature. */
-        new_var->sig = func_class->sig;
+        new_var->sig = sig;
         new_var->line_num = 0;
         new_var->properties = fp;
         add_var(symtab, new_var);
