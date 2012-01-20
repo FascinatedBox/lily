@@ -27,11 +27,6 @@ typedef struct lily_class_t {
     struct lily_sig_t *sig;
 } lily_class;
 
-typedef enum {
-    func_sig,
-    class_sig
-} lily_sig_type;
-
 typedef struct lily_func_sig_t {
     struct lily_sig_t *ret;
     struct lily_sig_t **args;
