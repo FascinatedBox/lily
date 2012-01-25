@@ -38,6 +38,7 @@ typedef struct lily_sig_t {
     lily_class *cls;
     union {
         lily_func_sig *func;
+        struct lily_sig_t *value_sig;
     } node;
 } lily_sig;
 
@@ -137,6 +138,6 @@ lily_literal *lily_new_literal(lily_symtab *, lily_class *);
 lily_symtab *lily_new_symtab(lily_excep_data *);
 lily_var *lily_new_var(lily_symtab *, lily_class *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
-void lily_add_storage(lily_symtab *, lily_storage *);
+int lily_try_add_storage(lily_symtab *, lily_class *);
 void lily_reset_main(lily_symtab *);
 #endif

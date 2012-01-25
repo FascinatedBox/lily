@@ -70,7 +70,8 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
        doesn't work, then all are currently taken. */
     if (s->expr_num != emit->expr_num) {
         /* Add and use a new one. */
-        lily_add_storage(emit->symtab, s);
+        if (!lily_try_add_storage(emit->symtab, storage_class))
+            lily_raise_nomem(emit->error);
         s = s->next;
     }
 
