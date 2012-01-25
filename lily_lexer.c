@@ -117,7 +117,7 @@ static int scan_whole_number(char *buffer, int *start)
     pos++;
 
     while (i < 9 && isdigit(buffer[pos])) {
-        total *= (total * 10) + buffer[pos] - '0';
+        total = (total * 10) + buffer[pos] - '0';
         i++;
         pos++;
     }
