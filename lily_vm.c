@@ -67,6 +67,7 @@ void lily_vm_execute(lily_excep_data *error, lily_var *var)
                 fc((lily_sym **)code+i+4);
                 i += 4+j;
             }
+                break;
             case o_vm_return:
                 return;
         }
