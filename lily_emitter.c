@@ -6,6 +6,36 @@
 #include "lily_opcode.h"
 #include "lily_emit_table.h"
 
+#define WRITE_PREP(size) \
+if ((fp->pos + size) > fp->len) { \
+    fp->len *= 2; \
+    fp->code = lily_realloc(fp->code, sizeof(int) * fp->len); \
+    if (fp->code == NULL) \
+        lily_raise_nomem(emit->error); \
+}
+
+#define WRITE_1(one) \
+WRITE_PREP(1) \
+fp->code[fp->pos] = one; \
+fp->pos += 1;
+
+/* No WRITE_2, because nothing uses that. */
+
+#define WRITE_3(one, two, three) \
+WRITE_PREP(3) \
+fp->code[fp->pos] = one; \
+fp->code[fp->pos+1] = two; \
+fp->code[fp->pos+2] = three; \
+fp->pos += 3;
+
+#define WRITE_4(one, two, three, four) \
+WRITE_PREP(4) \
+fp->code[fp->pos] = one; \
+fp->code[fp->pos+1] = two; \
+fp->code[fp->pos+2] = three; \
+fp->code[fp->pos+3] = four; \
+fp->pos += 4;
+
 /* The emitter sets error->line_adjust with a better line number before calling
    lily_raise. This gives debuggers a chance at a more useful line number.
    Example: integer a = 1.0 +
@@ -79,18 +109,10 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
     /* Make it so the next node is grabbed next time. */
     storage_class->storage = s->next;
 
-    if ((fp->pos + 4) > fp->len) {
-        fp->len *= 2;
-        fp->code = lily_realloc(fp->code, sizeof(int) * fp->len);
-        if (fp->code == NULL)
-            lily_raise_nomem(emit->error);
-    }
-
-    fp->code[fp->pos] = opcode;
-    fp->code[fp->pos+1] = (int)ast->left->result;
-    fp->code[fp->pos+2] = (int)ast->right->result;
-    fp->code[fp->pos+3] = (int)s;
-    fp->pos += 4;
+    WRITE_4(opcode,
+            (int)ast->left->result,
+            (int)ast->right->result,
+            (int)s)
 
     ast->result = (lily_sym *)s;
 }
@@ -112,12 +134,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         }
 
         new_pos = fp->pos + 4 + ast->args_collected;
-        if (new_pos > fp->len) {
-            fp->len *= 2;
-            fp->code = lily_realloc(fp->code, sizeof(int) * fp->len);
-            if (fp->code == NULL)
-                lily_raise_nomem(emit->error);
-        }
+        WRITE_PREP(new_pos)
 
         lily_var *v = (lily_var *)ast->result;
 
@@ -150,17 +167,9 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                            ast->left->result->sig->cls->name);
             }
 
-            if ((fp->pos + 3) > fp->len) {
-                fp->len *= 2;
-                fp->code = lily_realloc(fp->code, sizeof(int) * fp->len);
-                if (fp->code == NULL)
-                    lily_raise_nomem(emit->error);
-            }
-
-            fp->code[fp->pos] = o_assign;
-            fp->code[fp->pos+1] = (int)ast->left->result;
-            fp->code[fp->pos+2] = (int)ast->right->result;
-            fp->pos += 3;
+            WRITE_3(o_assign,
+                    (int)ast->left->result,
+                    (int)ast->right->result)
         }
         else
             generic_binop(emit, ast);
@@ -181,15 +190,7 @@ void lily_emit_set_target(lily_emit_state *emit, lily_var *var)
 void lily_emit_vm_return(lily_emit_state *emit)
 {
     lily_func_prop *fp = emit->target;
-    if ((fp->pos + 1) > fp->len) {
-        fp->len *= 2;
-        fp->code = lily_realloc(fp->code, sizeof(int) * fp->len);
-        if (fp->code == NULL)
-            lily_raise_nomem(emit->error);
-    }
-
-    fp->code[fp->pos] = o_vm_return;
-    fp->pos++;
+    WRITE_1(o_vm_return)
 }
 
 void lily_free_emit_state(lily_emit_state *emit)
