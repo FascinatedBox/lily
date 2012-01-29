@@ -6,6 +6,7 @@ typedef enum {
     /* Arguments: left, right
        Assigns the value of 'right' to 'left'. Assumes left and right both have
        the same type. */
+    o_obj_assign,
     o_integer_add,
     /* lhs, rhs, result
        All integers */

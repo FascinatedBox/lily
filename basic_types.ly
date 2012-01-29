@@ -9,6 +9,9 @@ integer b = 1
 number c = 1.0
 object o
 
+o = 1
+o = 1.1
+o = 1
 # Some extra tests...
 print("Hello")
 str d, e, f
