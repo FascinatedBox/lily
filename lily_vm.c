@@ -68,6 +68,13 @@ void lily_vm_execute(lily_excep_data *error, lily_var *var)
                 i += 4+j;
             }
                 break;
+            case o_obj_assign:
+                lhs = ((lily_sym *)code[i+1]);
+                lhs->flags &= ~S_IS_NIL;
+                lhs->value = ((lily_sym *)code[i+2])->value;
+                lhs->sig->node.value_sig = ((lily_sym *)code[i+2])->sig;
+                i += 3;
+                break;
             case o_vm_return:
                 return;
         }

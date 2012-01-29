@@ -48,6 +48,16 @@ static void show_code(lily_var *var)
                                  right->id);
                 i += 3;
                 break;
+            case o_obj_assign:
+                lily_impl_debugf("    [%d] obj_assign    ", i);
+                left = ((lily_sym *)code[i+1]);
+                right = ((lily_sym *)code[i+2]);
+                lily_impl_debugf("%s #%d to %s #%d\n",
+                                 typename((lily_sym *)left),
+                                 left->id, typename((lily_sym *)right),
+                                 right->id);
+                i += 3;
+                break;
             case o_integer_add:
                 DEBUG_ARITH_OP("    [%d] integer_add   ", "+")
                 break;
@@ -98,13 +108,19 @@ static void show_code(lily_var *var)
 static void show_sym(lily_sym *sym)
 {
     if (!(sym->flags & S_IS_NIL)) {
-        if (sym->sig->cls->id == SYM_CLASS_STR) {
+        int cls_id;
+        if (sym->sig->cls->id != SYM_CLASS_OBJECT)
+            cls_id = sym->sig->cls->id;
+        else
+            cls_id = sym->sig->node.value_sig->cls->id;
+
+        if (cls_id == SYM_CLASS_STR) {
             lily_impl_debugf("str(%-0.50s)\n",
                             ((lily_strval *)sym->value.ptr)->str);
         }
-        else if (sym->sig->cls->id == SYM_CLASS_INTEGER)
+        else if (cls_id == SYM_CLASS_INTEGER)
             lily_impl_debugf("integer(%d)\n", sym->value.integer);
-        else if (sym->sig->cls->id == SYM_CLASS_NUMBER)
+        else if (cls_id == SYM_CLASS_NUMBER)
             lily_impl_debugf("number(%f)\n", sym->value.number);
     }
     else

@@ -134,7 +134,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         }
 
         new_pos = fp->pos + 4 + ast->args_collected;
-        WRITE_PREP(new_pos)
+        /* fp->pos is implicitly added, so this next line is right. */
+        WRITE_PREP(4 + ast->args_collected)
 
         lily_var *v = (lily_var *)ast->result;
 
@@ -160,16 +161,27 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             walk_tree(emit, ast->right);
 
         if (ast->op == expr_assign) {
-            if (ast->left->result->sig != ast->right->result->sig) {
-                emit->error->line_adjust = ast->line_num;
-                lily_raise(emit->error, "Cannot assign %s to %s.\n",
-                           ast->right->result->sig->cls->name,
-                           ast->left->result->sig->cls->name);
-            }
+            int opcode;
+            lily_sym *left_sym, *right_sym;
+            left_sym = ast->left->result;
+            right_sym = ast->right->result;
 
-            WRITE_3(o_assign,
-                    (int)ast->left->result,
-                    (int)ast->right->result)
+            if (left_sym->sig != right_sym->sig) {
+                if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
+                    opcode = o_obj_assign;
+                else {
+                    emit->error->line_adjust = ast->line_num;
+                    lily_raise(emit->error, "Cannot assign %s to %s.\n",
+                               left_sym->sig->cls->name,
+                               right_sym->sig->cls->name);
+                }
+            }
+            else
+                opcode = o_assign;
+
+            WRITE_3(opcode,
+                    (int)left_sym,
+                    (int)right_sym)
         }
         else
             generic_binop(emit, ast);
