@@ -10,7 +10,8 @@ char *class_seeds[] = {
     "number",
     "str",
     "function",
-    "object"
+    "object",
+    "method",
 };
 
 typedef const struct {
