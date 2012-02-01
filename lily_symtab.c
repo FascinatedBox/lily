@@ -119,6 +119,7 @@ lily_class *lily_class_by_name(lily_symtab *symtab, char *name)
 
 void lily_free_symtab(lily_symtab *symtab)
 {
+    int cls_id;
     lily_literal *lit, *lit_temp;
     lily_var *var, *var_temp;
 
@@ -141,8 +142,9 @@ void lily_free_symtab(lily_symtab *symtab)
 
     while (var != NULL) {
         var_temp = var->next;
+        cls_id = var->sig->cls->id;
 
-        if (isafunc(var)) {
+        if (cls_id == SYM_CLASS_METHOD || cls_id == SYM_CLASS_FUNCTION) {
             lily_func_prop *fp = var->properties;
             free_var_func_sig(var->sig);
             lily_free(fp->code);
@@ -278,6 +280,7 @@ static int init_symbols(lily_symtab *symtab)
         sig->node.func = func_sig;
 
         if (seed->num_args == 0) {
+            sig->cls = lily_class_by_id(symtab, SYM_CLASS_METHOD);
             if (seed->arg_ids[0] == -1) {
                 fp->code = lily_malloc(4 * sizeof(int));
                 if (fp->code == NULL) {

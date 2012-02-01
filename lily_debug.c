@@ -171,7 +171,7 @@ void lily_show_symtab(lily_symtab *symtab)
             /* This is a builtin symbol. */
             lily_impl_debugf("(builtin) %s %s\n", var->sig->cls->name,
                              var->name);
-            if (isafunc(var) && ((lily_func_prop *)var->properties)->code != NULL)
+            if (var->sig->cls->id == SYM_CLASS_METHOD)
                 show_code(var);
         }
         else {
