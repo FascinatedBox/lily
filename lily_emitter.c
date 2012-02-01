@@ -7,34 +7,34 @@
 #include "lily_emit_table.h"
 
 #define WRITE_PREP(size) \
-if ((fp->pos + size) > fp->len) { \
-    fp->len *= 2; \
-    fp->code = lily_realloc(fp->code, sizeof(int) * fp->len); \
-    if (fp->code == NULL) \
+if ((m->pos + size) > m->len) { \
+    m->len *= 2; \
+    m->code = lily_realloc(m->code, sizeof(int) * m->len); \
+    if (m->code == NULL) \
         lily_raise_nomem(emit->error); \
 }
 
 #define WRITE_1(one) \
 WRITE_PREP(1) \
-fp->code[fp->pos] = one; \
-fp->pos += 1;
+m->code[m->pos] = one; \
+m->pos += 1;
 
 /* No WRITE_2, because nothing uses that. */
 
 #define WRITE_3(one, two, three) \
 WRITE_PREP(3) \
-fp->code[fp->pos] = one; \
-fp->code[fp->pos+1] = two; \
-fp->code[fp->pos+2] = three; \
-fp->pos += 3;
+m->code[m->pos] = one; \
+m->code[m->pos+1] = two; \
+m->code[m->pos+2] = three; \
+m->pos += 3;
 
 #define WRITE_4(one, two, three, four) \
 WRITE_PREP(4) \
-fp->code[fp->pos] = one; \
-fp->code[fp->pos+1] = two; \
-fp->code[fp->pos+2] = three; \
-fp->code[fp->pos+3] = four; \
-fp->pos += 4;
+m->code[m->pos] = one; \
+m->code[m->pos+1] = two; \
+m->code[m->pos+2] = three; \
+m->code[m->pos+3] = four; \
+m->pos += 4;
 
 /* The emitter sets error->line_adjust with a better line number before calling
    lily_raise. This gives debuggers a chance at a more useful line number.
@@ -68,11 +68,11 @@ static char *opname(lily_expr_op op)
 static void generic_binop(lily_emit_state *emit, lily_ast *ast)
 {
     int opcode;
-    lily_func_prop *fp;
+    lily_method_val *m;
     lily_class *lhs_class, *rhs_class, *storage_class;
     lily_storage *s;
 
-    fp = emit->target;
+    m = emit->target;
     lhs_class = ast->left->result->sig->cls;
     rhs_class = ast->right->result->sig->cls;
 
@@ -119,7 +119,7 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
 
 static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_func_prop *fp = emit->target;
+    lily_method_val *m = emit->target;
 
     if (ast->expr_type == func_call) {
         int i, new_pos;
@@ -133,24 +133,24 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             arg = arg->next_arg;
         }
 
-        new_pos = fp->pos + 4 + ast->args_collected;
-        /* fp->pos is implicitly added, so this next line is right. */
+        new_pos = m->pos + 4 + ast->args_collected;
+        /* m->pos is implicitly added, so this next line is right. */
         WRITE_PREP(4 + ast->args_collected)
 
         lily_var *v = (lily_var *)ast->result;
 
-        fp->code[fp->pos] = o_func_call;
+        m->code[m->pos] = o_func_call;
         /* The debugger uses this to show where the func was declared. */
-        fp->code[fp->pos+1] = (int)v;
+        m->code[m->pos+1] = (int)v;
         /* Do this once, so the vm doesn't have to each pass. */
-        fp->code[fp->pos+2] = (int)((lily_func_prop *)v->properties)->func;
-        fp->code[fp->pos+3] = ast->args_collected;
+        m->code[m->pos+2] = (int)v->value.ptr;
+        m->code[m->pos+3] = ast->args_collected;
         for (i = 4, arg = ast->arg_start;
              arg != NULL;
              arg = arg->next_arg) {
-            fp->code[fp->pos + i] = (int)arg->result;
+            m->code[m->pos + i] = (int)arg->result;
         }
-        fp->pos = new_pos;
+        m->pos = new_pos;
     }
     else if (ast->expr_type == binary) {
         /* lhs and rhs must be walked first, regardless of op. */
@@ -196,12 +196,12 @@ void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)
 
 void lily_emit_set_target(lily_emit_state *emit, lily_var *var)
 {
-    emit->target = var->properties;
+    emit->target = (lily_method_val *)var->value.ptr;
 }
 
 void lily_emit_vm_return(lily_emit_state *emit)
 {
-    lily_func_prop *fp = emit->target;
+    lily_method_val *m = emit->target;
     WRITE_1(o_vm_return)
 }
 

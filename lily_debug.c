@@ -31,10 +31,15 @@ static char *typename(lily_sym *sym)
 
 static void show_code(lily_var *var)
 {
-    int i = 0;
-    int len = ((lily_func_prop *)var->properties)->pos;
-    int *code = ((lily_func_prop *)var->properties)->code;
+    int i, len;
+    int *code;
+    lily_method_val *m;
     lily_sym *left, *right, *result;
+
+    m = (lily_method_val *)var->value.ptr;
+    i = 0;
+    code = m->code;
+    len = m->pos;
 
     while (i < len) {
         switch (code[i]) {

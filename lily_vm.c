@@ -31,12 +31,13 @@ void lily_builtin_print(lily_sym **args)
 
 void lily_vm_execute(lily_excep_data *error, lily_var *var)
 {
-    lily_func_prop *fp = var->properties;
     int *code, i, len;
     lily_sym *lhs, *rhs;
+    lily_method_val *m;
 
-    code = fp->code;
-    len = fp->len;
+    m = (lily_method_val *)var->value.ptr;
+    code = m->code;
+    len = m->len;
     i = 0;
 
     while (i != len) {
