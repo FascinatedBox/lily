@@ -27,8 +27,4 @@ static func_entry print = {"print", 1, lily_builtin_print, {SYM_CLASS_STR}};
 static func_entry at_main = {"@main", 0, NULL, {-1}};
 static func_entry *func_seeds[] = {&print, &at_main};
 
-/* It's important to know this id, because symbols after it have their name
-   malloc'd, so it'll need to be free'd. */
-# define MAIN_FUNC_ID 1
-
 #endif

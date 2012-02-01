@@ -150,10 +150,10 @@ void lily_free_symtab(lily_symtab *symtab)
             lily_free(fp->code);
             lily_free(fp);
         }
-        else if (var->sig->cls->id == SYM_CLASS_OBJECT)
+        else if (cls_id == SYM_CLASS_OBJECT)
             lily_free(var->sig);
 
-        if (var->id > MAIN_FUNC_ID)
+        if (var->line_num != 0)
             lily_free(var->name);
 
         lily_free(var);
@@ -246,32 +246,15 @@ static int init_symbols(lily_symtab *symtab)
     for (i = 0;i < func_count;i++) {
         func_entry *seed = func_seeds[i];
         lily_var *new_var = lily_malloc(sizeof(lily_var));
-
-        if (new_var == NULL) {
-            ret = 0;
-            break;
-        }
-
         lily_sig *sig = lily_malloc(sizeof(lily_sig));
-        if (sig == NULL) {
-            lily_free(new_var);
-            ret = 0;
-            break;
-        }
-
         lily_func_sig *func_sig = lily_malloc(sizeof(lily_func_sig));
-        if (sig == NULL) {
-            lily_free(sig);
-            lily_free(new_var);
-            ret = 0;
-            break;
-        }
-
         lily_func_prop *fp = lily_malloc(sizeof(lily_func_prop));
-        if (fp == NULL) {
+
+        if (new_var == NULL || sig == NULL || sig == NULL || fp == NULL) {
             lily_free(func_sig);
             lily_free(sig);
             lily_free(new_var);
+            lily_free(fp);
             ret = 0;
             break;
         }
