@@ -427,15 +427,15 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
 
     /* File will be set by the loader. */
     s->error = excep_data;
-    s->html_cache = lily_malloc(1024 * sizeof(char));
-    s->cache_size = 1023;
+    s->html_cache = lily_malloc(128 * sizeof(char));
+    s->cache_size = 127;
 
-    s->lex_buffer = lily_malloc(1024 * sizeof(char));
+    s->lex_buffer = lily_malloc(128 * sizeof(char));
     s->lex_bufpos = 0;
-    s->lex_bufsize = 1023;
+    s->lex_bufsize = 127;
     s->save_buffer = NULL;
 
-    s->label = lily_malloc(1024 * sizeof(char));
+    s->label = lily_malloc(128 * sizeof(char));
     s->line_num = 1;
 
     ch_class = lily_malloc(256 * sizeof(char));
