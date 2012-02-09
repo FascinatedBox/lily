@@ -9,6 +9,7 @@ integer b = 1
 number c = 1.0
 str ustr = "á"
 object o
+str h3llö = "hello"
 
 o = 1
 o = 1.1
