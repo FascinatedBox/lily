@@ -7,6 +7,7 @@
 str a = "a"
 integer b = 1
 number c = 1.0
+str ustr = "á"
 object o
 
 o = 1
