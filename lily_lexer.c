@@ -21,6 +21,37 @@
 #define CC_STR_NEWLINE   14
 #define CC_STR_END       15
 
+/* The lexer assumes any file given is utf-8. */
+
+/*  This table indicates how many more bytes need to be successfully read after
+    that particular byte for proper utf-8. -1 = invalid.
+    80-BF : These only follow.
+    C0-C1 : Can only be used for overlong encoding of ascii.
+    F5-FD : RFC 3629 took these out.
+    FE-FF : The standard was originally 31-bits.
+
+    Table idea, above info came from wikipedia. */
+static const char follower_table[256] = 
+{
+     /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
+/* 0 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 1 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 2 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 3 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 4 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 5 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 6 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 7 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 8 */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+/* 9 */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+/* A */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+/* B */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+/* C */-1,-1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+/* D */ 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+/* E */ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+/* F */ 4, 4, 4, 4, 4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
+};
+
 static int handle_str_escape(char *buffer, int *pos, char *ch)
 {
     /* lex_bufpos points to the first character in the escape. */
@@ -58,7 +89,7 @@ static int handle_str_escape(char *buffer, int *pos, char *ch)
 /* Add a line from the current page into the buffer. */
 static int read_line(lily_lex_state *lexer)
 {
-    int ch, i, ok;
+    int ch, followers, i, ok;
     char *lex_buffer = lexer->lex_buffer;
     FILE *lex_file = lexer->lex_file;
 
@@ -78,7 +109,29 @@ static int read_line(lily_lex_state *lexer)
             ok = 1;
             break;
         }
-        i++;
+        else if (ch > 127) {
+            followers = follower_table[(unsigned int)ch];
+            if (followers >= 2) {
+                int j;
+                i++;
+                for (j = 1;j < followers;j++,i++) {
+                    ch = fgetc(lex_file);
+                    if ((unsigned char)ch < 128 || ch == EOF) {
+                        lily_raise(lexer->error,
+                                   "Invalid utf-8 sequence on line %d.\n",
+                                   lexer->line_num);
+                    }
+                    lex_buffer[i] = ch;
+                }
+            }
+            else if (followers == -1) {
+                lily_raise(lexer->error,
+                           "Invalid utf-8 sequence on line %d.\n",
+                           lexer->line_num);
+            }
+        }
+        else
+            i++;
     }
     return ok;
 }
