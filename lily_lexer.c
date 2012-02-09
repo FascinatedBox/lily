@@ -52,6 +52,31 @@ static const char follower_table[256] =
 /* F */ 4, 4, 4, 4, 4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
 };
 
+/* Is the given character a valid identifier? This table is checked after the
+   first letter, so it includes numbers.
+   The 80-BF range is marked as okay because read_line verifies that they are
+   not starting a sequence. */
+static const char ident_table[256] = 
+{
+     /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
+/* 0 */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+/* 1 */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+/* 2 */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+/* 3 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
+/* 4 */ 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 5 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+/* 6 */ 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 7 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+/* 8 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 9 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* A */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* B */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* C */ 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* D */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* E */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* F */ 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
 static int handle_str_escape(char *buffer, int *pos, char *ch)
 {
     /* lex_bufpos points to the first character in the escape. */
@@ -241,7 +266,7 @@ void lily_lexer(lily_lex_state *lexer)
             ch = lex_buffer[lex_bufpos];
         }
 
-        group = lexer->ch_class[(unsigned char)ch];
+        group = ch_class[(unsigned char)ch];
 
         if (group == CC_WORD) {
             /* The word and line buffers have the same size, plus \n is not a
@@ -254,7 +279,7 @@ void lily_lexer(lily_lex_state *lexer)
                 word_pos++;
                 lex_bufpos++;
                 ch = lex_buffer[lex_bufpos];
-            } while (ch_class[(unsigned char)ch] == CC_WORD);
+            } while (ident_table[(unsigned char)ch]);
             label[word_pos] = '\0';
             token = tk_word;
         }
@@ -516,6 +541,10 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
 
     for (i = '0';i <= '9';i++)
         ch_class[i] = CC_NUMBER;
+
+    /* These are valid 2, 3, and 4 byte sequence starters. */
+    for (i = 194;i <= 244;i++)
+        ch_class[i] = CC_WORD;
 
     ch_class[(unsigned char)'_'] = CC_WORD;
     ch_class[(unsigned char)'('] = CC_LEFT_PARENTH;
