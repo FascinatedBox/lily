@@ -6,6 +6,7 @@
 #include "lily_impl.h"
 #include "lily_lexer.h"
 #include "lily_parser.h"
+#include "lily_msgbuf.h"
 #include "lily_symtab.h"
 #include "lily_vm.h"
 
