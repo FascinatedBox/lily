@@ -50,6 +50,14 @@ void lily_raise(lily_excep_data *error, char *fmt, ...)
     longjmp(error->jump, 1);
 }
 
+void lily_raise_msgbuf(lily_excep_data *error, lily_msgbuf *mb)
+{
+    error->message = mb->msg;
+    lily_free(mb);
+
+    longjmp(error->jump, 1);
+}
+
 void lily_raise_nomem(lily_excep_data *error)
 {
     longjmp(error->jump, 1);
