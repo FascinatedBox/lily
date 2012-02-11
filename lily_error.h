@@ -3,6 +3,8 @@
 
 # include <setjmp.h>
 
+# include "lily_msgbuf.h"
+
 typedef struct {
     jmp_buf jump;
     char *message;
@@ -16,6 +18,7 @@ typedef struct {
 } lily_excep_data;
 
 void lily_raise(lily_excep_data *, char *, ...);
+void lily_raise_msgbuf(lily_excep_data *, lily_msgbuf *);
 void lily_raise_nomem(lily_excep_data *);
 
 #endif
