@@ -117,6 +117,12 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)s;
 }
 
+static void write_type(lily_msgbuf *mb, lily_sig *sig)
+{
+    /* todo: Dump complex stuff for functions and methods. */
+    lily_msgbuf_add(mb, sig->cls->name);
+}
+
 static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 {
     lily_method_val *m = emit->target;
@@ -125,19 +131,34 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         int i, new_pos;
 
         lily_ast *arg = ast->arg_start;
-        while (arg != NULL) {
+        lily_var *v = (lily_var *)ast->result;
+        lily_func_sig *func_sig = v->sig->node.func;
+
+        /* The parser has already verified argument count. */
+        for (i = 0;arg != NULL;arg = arg->next_arg, i++) {
             if (arg->expr_type != var)
                 /* Walk the subexpressions so the result gets calculated. */
                 walk_tree(emit, arg);
 
-            arg = arg->next_arg;
+            /* This currently works because there are no nested funcs or
+               methods. */
+            if (func_sig->args[i] != arg->result->sig) {
+                lily_msgbuf *mb = lily_new_msgbuf("Error : ");
+                lily_msgbuf_add(mb, v->name);
+                lily_msgbuf_add(mb, " arg #");
+                lily_msgbuf_add_int(mb, i);
+                lily_msgbuf_add(mb, " expects type '");
+                write_type(mb, func_sig->args[i]);
+                lily_msgbuf_add(mb, "' but got type '");
+                write_type(mb, arg->result->sig);
+                lily_msgbuf_add(mb, "'.\n");
+                lily_raise_msgbuf(emit->error, mb);
+            }
         }
 
         new_pos = m->pos + 4 + ast->args_collected;
         /* m->pos is implicitly added, so this next line is right. */
         WRITE_PREP(4 + ast->args_collected)
-
-        lily_var *v = (lily_var *)ast->result;
 
         m->code[m->pos] = o_func_call;
         /* The debugger uses this to show where the func was declared. */
