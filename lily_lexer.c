@@ -18,9 +18,10 @@
 #define CC_COMMA         11
 #define CC_PLUS          12
 #define CC_MINUS         13
-#define CC_COLON         14
-#define CC_STR_NEWLINE   15
-#define CC_STR_END       16
+#define CC_LEFT_CURLY    14
+#define CC_RIGHT_CURLY   15
+#define CC_STR_NEWLINE   16
+#define CC_STR_END       17
 
 /* The lexer assumes any file given is utf-8. */
 
@@ -292,9 +293,13 @@ void lily_lexer(lily_lex_state *lexer)
             lex_bufpos++;
             token = tk_right_parenth;
         }
-        else if (group == CC_COLON) {
+        else if (group == CC_LEFT_CURLY) {
             lex_bufpos++;
-            token = tk_colon;
+            token = tk_left_curly;
+        }
+        else if (group == CC_RIGHT_CURLY) {
+            lex_bufpos++;
+            token = tk_right_curly;
         }
         else if (group == CC_DOUBLE_QUOTE) {
             /* todo : Allow multiline strings. */
@@ -562,7 +567,8 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     ch_class[(unsigned char)','] = CC_COMMA;
     ch_class[(unsigned char)'+'] = CC_PLUS;
     ch_class[(unsigned char)'-'] = CC_MINUS;
-    ch_class[(unsigned char)':'] = CC_COLON;
+    ch_class[(unsigned char)'{'] = CC_LEFT_CURLY;
+    ch_class[(unsigned char)'}'] = CC_LEFT_CURLY;
     /* Prep for file-based, since lex_buffer isn't NULL. */
     ch_class[(unsigned char)'\r'] = CC_NEWLINE;
     ch_class[(unsigned char)'\n'] = CC_NEWLINE;
@@ -575,7 +581,7 @@ char *tokname(lily_token t)
 {
     static char *toknames[] =
     {"invalid token", "a label", "(", ")", "a string", "an integer", "a number",
-     "=", ",", "+", "-", ":", "@>", "end of file"};
+     "=", ",", "+", "-", "{", "}", "@>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];
