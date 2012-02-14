@@ -3,7 +3,7 @@
 #include "lily_impl.h"
 #include "lily_symtab.h"
 
-/* This creates the *_seed values and defines MAIN_FUNC_ID. */
+/* This creates the *_seed values. */
 #include "lily_seed_symtab.h"
 
 static void add_var(lily_symtab *symtab, lily_var *s)
