@@ -13,5 +13,6 @@ typedef struct {
 void lily_free_msgbuf(lily_msgbuf *);
 lily_msgbuf *lily_new_msgbuf(char *);
 void lily_msgbuf_add(lily_msgbuf *, char *);
+void lily_msgbuf_add_int(lily_msgbuf *, int);
 
 #endif

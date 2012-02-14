@@ -50,7 +50,6 @@ void lily_msgbuf_add(lily_msgbuf *mb, char *str)
 
         new_size = mb->pos + sl + 1;
         new_msg = lily_realloc(mb->msg, new_size);
-fprintf(stderr, "realloc.\n");
         if (new_msg == NULL) {
             mb->has_err = 1;
             return;
@@ -62,4 +61,12 @@ fprintf(stderr, "realloc.\n");
 
     strcat(mb->msg, str);
     mb->pos += sl;
+}
+
+void lily_msgbuf_add_int(lily_msgbuf *mb, int i)
+{
+    char buf[64];
+    sprintf(buf, "%d", i);
+
+    lily_msgbuf_add(mb, buf);
 }
