@@ -18,7 +18,8 @@ typedef enum {
     tk_comma,
     tk_plus,
     tk_minus,
-    tk_colon,
+    tk_left_curly,
+    tk_right_curly,
     tk_end_tag,
     tk_eof
 } lily_token;
