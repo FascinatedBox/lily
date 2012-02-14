@@ -3,6 +3,8 @@
 <title>Lily Hello world</title>
 </head>
 <body>
-<@lily print("Hello, world.") @>
+<@lily
+print(1)
+print("Hello, world.") @>
 </body>
 </html>
