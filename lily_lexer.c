@@ -421,13 +421,12 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
 {
     char c;
     char *lex_buffer, *html_cache;
-    int at_file_end, html_bufsize, lbp, htmlp;
+    int html_bufsize, lbp, htmlp;
 
     /* htmlp and lbp are used so it's obvious they aren't globals. */
     lex_buffer = lexer->lex_buffer;
     html_cache = lexer->html_cache;
     lbp = lexer->lex_bufpos;
-    at_file_end = 0;
     c = lex_buffer[lbp];
     htmlp = 0;
     html_bufsize = lexer->cache_size;
@@ -462,22 +461,18 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
             if (read_line(lexer))
                 lbp = 0;
             else {
-                at_file_end = 1;
+                if (htmlp != 0) {
+                    html_cache[htmlp] = '\0';
+                    lily_impl_send_html(html_cache);
+                    htmlp = 0;
+                }
+                lexer->token = tk_eof;
                 break;
             }
         }
 
         c = lex_buffer[lbp];
     }
-
-    if (htmlp != 0) {
-        html_cache[htmlp] = '\0';
-        lily_impl_send_html(html_cache);
-        htmlp = 0;
-    }
-
-    if (at_file_end)
-        lexer->token = tk_eof;
 
     lexer->lex_bufpos = lbp;
 }
