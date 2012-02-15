@@ -29,12 +29,8 @@ typedef struct {
     char *filename;
     int line_num;
     char *ch_class;
-    char *html_cache;
     char *lex_buffer;
     char *save_buffer;
-    /* There's no position for the cache because it's always sent before
-       handling lily code. */
-    int cache_size;
     int lex_bufpos;
     int lex_bufend;
     int lex_bufsize;

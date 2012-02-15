@@ -211,8 +211,6 @@ void lily_free_lex_state(lily_lex_state *lex)
     if (lex->lex_file != NULL)
         fclose(lex->lex_file);
 
-    lily_free(lex->html_cache);
-
     if (lex->save_buffer == NULL)
         lily_free(lex->lex_buffer);
     else
@@ -425,11 +423,11 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
 
     /* htmlp and lbp are used so it's obvious they aren't globals. */
     lex_buffer = lexer->lex_buffer;
-    html_cache = lexer->html_cache;
+    html_cache = lexer->label;
     lbp = lexer->lex_bufpos;
     c = lex_buffer[lbp];
     htmlp = 0;
-    html_bufsize = lexer->cache_size;
+    html_bufsize = lexer->lex_bufsize;
 
     /* Send html to the server either when unable to hold more or the lily tag
        is found. */
@@ -510,8 +508,6 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
 
     /* File will be set by the loader. */
     s->error = excep_data;
-    s->html_cache = lily_malloc(128 * sizeof(char));
-    s->cache_size = 127;
 
     s->lex_buffer = lily_malloc(128 * sizeof(char));
     s->lex_bufpos = 0;
@@ -523,12 +519,10 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
 
     ch_class = lily_malloc(256 * sizeof(char));
 
-    if (ch_class == NULL || s->label == NULL || s->lex_buffer == NULL ||
-        s->html_cache == NULL) {
+    if (ch_class == NULL || s->label == NULL || s->lex_buffer == NULL) {
         lily_free(ch_class);
         lily_free(s->label);
         lily_free(s->lex_buffer);
-        lily_free(s->html_cache);
         lily_free(s);
         return NULL;
     }
