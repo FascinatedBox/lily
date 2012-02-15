@@ -495,9 +495,50 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
     lexer->lex_bufpos = lbp;
 }
 
-/* Caller is responsible for free'ing the str. */
-void lily_load_str(lily_lex_state *lexer, char *str)
+static int is_valid_utf8(char *str)
 {
+    char ch;
+    int i, ret;
+
+    i = 0;
+    ret = 1;
+    ch = str[i];
+
+    while (ch) {
+        if (ch > 127) {
+            int followers = follower_table[(unsigned char)ch];
+            if (followers >= 2) {
+                int j;
+                i++;
+                for (j = 1;j < followers;j++,i++) {
+                    ch = str[i];
+                    if ((unsigned char)ch < 128) {
+                        ret = 0;
+                        break;
+                    }
+                    str[i] = ch;
+                }
+            }
+            else if (followers == -1) {
+                ret = 0;
+                break;
+            }
+        }
+        else
+            i++;
+
+        ch = str[i];
+    }
+
+    return ret;
+}
+
+/* Caller is responsible for free'ing the str. */
+int lily_load_str(lily_lex_state *lexer, char *str)
+{
+    if (!is_valid_utf8(str))
+        return 0;
+
     if (lexer->save_buffer == NULL) {
         lexer->save_buffer = lexer->lex_buffer;
         lexer->ch_class[(unsigned char)'\r'] = CC_STR_NEWLINE;
@@ -511,9 +552,10 @@ void lily_load_str(lily_lex_state *lexer, char *str)
     lexer->lex_buffer = str;
 
     lexer->filename = "<str>";
-
     /* String-based has no support for the html skipping, because I can't see
        that being useful. */
+
+    return 1;
 }
 
 lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)

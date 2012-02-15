@@ -44,7 +44,7 @@ void lily_free_lex_state(lily_lex_state *);
 void lily_lexer(lily_lex_state *);
 void lily_lexer_handle_page_data(lily_lex_state *);
 void lily_load_file(lily_lex_state *, char *);
-void lily_load_str(lily_lex_state *, char *);
+int lily_load_str(lily_lex_state *, char *);
 lily_lex_state *lily_new_lex_state(lily_excep_data *);
 char *tokname(lily_token);
 
