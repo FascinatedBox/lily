@@ -4,24 +4,34 @@
 #include "lily_impl.h"
 #include "lily_lexer.h"
 
-#define CC_INVALID        0
-#define CC_WORD           1
-#define CC_LEFT_PARENTH   2
-#define CC_RIGHT_PARENTH  3
-#define CC_DOUBLE_QUOTE   4
-#define CC_AT             5
+#define CC_WORD           0
+
+/* Group 1: Increment pos, return a simple token. */
+#define CC_G_ONE_OFFSET   1
+#define CC_LEFT_PARENTH   1
+#define CC_RIGHT_PARENTH  2
+#define CC_COMMA          3
+#define CC_LEFT_CURLY     4
+#define CC_RIGHT_CURLY    5
+#define CC_G_ONE_LAST     5
+
 #define CC_NEWLINE        6
 #define CC_SHARP          7
-#define CC_EQUAL          8
-#define CC_NUMBER         9
-#define CC_DOT           10
-#define CC_COMMA         11
+#define CC_STR_NEWLINE    8
+#define CC_STR_END        9
+#define CC_DOUBLE_QUOTE  10
+
+/* Group 2: Return self, or self= */
+#define CC_G_TWO_OFFSET  11
+#define CC_EQUAL         11
+#define CC_G_TWO_LAST    11
+
 #define CC_PLUS          12
 #define CC_MINUS         13
-#define CC_LEFT_CURLY    14
-#define CC_RIGHT_CURLY   15
-#define CC_STR_NEWLINE   16
-#define CC_STR_END       17
+#define CC_NUMBER        14
+#define CC_DOT           15
+#define CC_AT            16
+#define CC_INVALID       17
 
 /* The lexer assumes any file given is utf-8. */
 
@@ -77,6 +87,16 @@ static const char ident_table[256] =
 /* D */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 /* E */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 /* F */ 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
+static const lily_token grp_one_table[] =
+{
+    tk_left_parenth, tk_right_parenth, tk_comma, tk_left_curly, tk_right_curly
+};
+
+static const lily_token grp_two_table[] =
+{
+    tk_equal
 };
 
 static int handle_str_escape(char *buffer, int *pos, char *ch)
@@ -288,7 +308,6 @@ void lily_lexer(lily_lex_state *lexer)
         }
 
         group = ch_class[(unsigned char)ch];
-
         if (group == CC_WORD) {
             /* The word and line buffers have the same size, plus \n is not a
                valid word character. So, there's no point in checking for
@@ -304,21 +323,28 @@ void lily_lexer(lily_lex_state *lexer)
             label[word_pos] = '\0';
             token = tk_word;
         }
-        else if (group == CC_LEFT_PARENTH) {
+        else if (group <= CC_G_ONE_LAST) {
             lex_bufpos++;
-            token = tk_left_parenth;
+            token = grp_one_table[group - CC_G_ONE_OFFSET];
         }
-        else if (group == CC_RIGHT_PARENTH) {
-            lex_bufpos++;
-            token = tk_right_parenth;
+        else if (group == CC_NEWLINE || group == CC_SHARP) {
+            read_line(lexer);
+            lex_bufpos = 0;
+            continue;
         }
-        else if (group == CC_LEFT_CURLY) {
-            lex_bufpos++;
-            token = tk_left_curly;
+        else if (group == CC_STR_NEWLINE) {
+            /* This catches both \r and \n. Make sure that \r\n comes in as one
+               newline though. */
+            if (ch == '\r' && lexer->lex_buffer[lex_bufpos+1] == '\n')
+                lex_bufpos += 2;
+            else
+                lex_bufpos++;
+
+            lexer->line_num++;
+            continue;
         }
-        else if (group == CC_RIGHT_CURLY) {
-            lex_bufpos++;
-            token = tk_right_curly;
+        else if (group == CC_STR_END) {
+            token = tk_eof;
         }
         else if (group == CC_DOUBLE_QUOTE) {
             /* todo : Allow multiline strings. */
@@ -365,18 +391,9 @@ void lily_lexer(lily_lex_state *lexer)
             lex_bufpos++;
             token = tk_double_quote;
         }
-        else if (group == CC_AT) {
+        else if (group <= CC_G_TWO_LAST) {
             lex_bufpos++;
-            /* Disable @> for string-based. */
-            if (lexer->lex_buffer[lex_bufpos] == '>' &&
-                lexer->save_buffer == NULL)
-                token = tk_end_tag;
-            else
-                lily_raise(lexer->error, "Expected '>' after '@'.\n");
-        }
-        else if (group == CC_EQUAL) {
-            lex_bufpos++;
-            token = tk_equal;
+            token = grp_two_table[group - CC_G_TWO_OFFSET];
         }
         else if (group == CC_NUMBER) {
             int integer_total;
@@ -400,10 +417,6 @@ void lily_lexer(lily_lex_state *lexer)
             lexer->value.number = number_total;
             token = tk_number;
         }
-        else if (group == CC_COMMA) {
-            lex_bufpos++;
-            token = tk_comma;
-        }
         else if (group == CC_PLUS) {
             lex_bufpos++;
             token = tk_plus;
@@ -412,24 +425,15 @@ void lily_lexer(lily_lex_state *lexer)
             lex_bufpos++;
             token = tk_minus;
         }
-        else if (group == CC_NEWLINE || group == CC_SHARP) {
-            read_line(lexer);
-            lex_bufpos = 0;
-            continue;
-        }
-        else if (group == CC_STR_NEWLINE) {
-            /* This catches both \r and \n. Make sure that \r\n comes in as one
-               newline though. */
-            if (ch == '\r' && lexer->lex_buffer[lex_bufpos+1] == '\n')
-                lex_bufpos += 2;
+        else if (group == CC_AT) {
+            lex_bufpos++;
+            /* Disable @> for string-based. */
+            if (lexer->lex_buffer[lex_bufpos] == '>' &&
+                lexer->save_buffer == NULL)
+                token = tk_end_tag;
             else
-                lex_bufpos++;
-
-            lexer->line_num++;
-            continue;
+                lily_raise(lexer->error, "Expected '>' after '@'.\n");
         }
-        else if (group == CC_STR_END)
-            token = tk_eof;
         else
             token = tk_invalid;
 
