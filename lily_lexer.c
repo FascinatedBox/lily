@@ -28,12 +28,12 @@
 #define CC_GREATER       13
 #define CC_G_TWO_LAST    13
 
-#define CC_PLUS          12
-#define CC_MINUS         13
-#define CC_NUMBER        14
-#define CC_DOT           15
-#define CC_AT            16
-#define CC_INVALID       17
+#define CC_PLUS          14
+#define CC_MINUS         15
+#define CC_NUMBER        16
+#define CC_DOT           17
+#define CC_AT            18
+#define CC_INVALID       19
 
 /* The lexer assumes any file given is utf-8. */
 
