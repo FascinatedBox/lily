@@ -635,7 +635,7 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     ch_class[(unsigned char)'+'] = CC_PLUS;
     ch_class[(unsigned char)'-'] = CC_MINUS;
     ch_class[(unsigned char)'{'] = CC_LEFT_CURLY;
-    ch_class[(unsigned char)'}'] = CC_LEFT_CURLY;
+    ch_class[(unsigned char)'}'] = CC_RIGHT_CURLY;
     ch_class[(unsigned char)'<'] = CC_LESS;
     ch_class[(unsigned char)'>'] = CC_GREATER;
     /* Prep for file-based, since lex_buffer isn't NULL. */
