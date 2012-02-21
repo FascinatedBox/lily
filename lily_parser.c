@@ -80,20 +80,12 @@ static void parse_expr_top(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
 
     while (1) {
-        if (lex->token == tk_equal) {
-            lily_ast_push_binary_op(parser->ast_pool, expr_assign);
+        if (lex->token == tk_word) {
+            if (parser->ast_pool->save_index != 0)
+                lily_raise(parser->error,
+                           "Expected ')' or a binary op, not a label.\n");
 
-            lily_lexer(lex);
-        }
-        else if (lex->token == tk_plus) {
-            lily_ast_push_binary_op(parser->ast_pool, expr_plus);
-
-            lily_lexer(lex);
-        }
-        else if (lex->token == tk_minus) {
-            lily_ast_push_binary_op(parser->ast_pool, expr_minus);
-
-            lily_lexer(lex);
+            break;
         }
         else if (lex->token == tk_right_parenth) {
             lily_ast_pop_tree(parser->ast_pool);
@@ -104,21 +96,25 @@ static void parse_expr_top(lily_parse_state *parser)
             if (lex->token == tk_word && parser->ast_pool->save_index == 0)
                 break;
         }
-        else if (lex->token == tk_word) {
-            if (parser->ast_pool->save_index != 0)
-                lily_raise(parser->error,
-                           "Expected ')' or a binary op, not a label.\n");
-
-            break;
-        }
-        else if (lex->token == tk_end_tag || lex->token == tk_eof)
-            break;
         else {
-            lily_raise(parser->error,
-                "parse_expr_top: Unexpected token value %s.\n",
-                tokname(lex->token));
-        }
+            lily_expr_op op;
+            if (lex->token == tk_equal)
+                op = expr_assign;
+            else if (lex->token == tk_plus)
+                op = expr_plus;
+            else if (lex->token == tk_minus)
+                op = expr_minus;
+            else if (lex->token == tk_end_tag || lex->token == tk_eof)
+                break;
+            else {
+                lily_raise(parser->error,
+                    "parse_expr_top: Unexpected token value %s.\n",
+                    tokname(lex->token));
+            }
+            lily_ast_push_binary_op(parser->ast_pool, op);
 
+            lily_lexer(lex);
+        }
         parse_expr_value(parser);
     }
 
