@@ -104,6 +104,16 @@ static void parse_expr_top(lily_parse_state *parser)
                 op = expr_plus;
             else if (lex->token == tk_minus)
                 op = expr_minus;
+            else if (lex->token == tk_eq_eq)
+                op = expr_eq_eq;
+            else if (lex->token == tk_lt)
+                op = expr_lt;
+            else if (lex->token == tk_lt_eq)
+                op = expr_lt_eq;
+            else if (lex->token == tk_gr)
+                op = expr_gr;
+            else if (lex->token == tk_gr_eq)
+                op = expr_gr_eq;
             else if (lex->token == tk_end_tag || lex->token == tk_eof)
                 break;
             else {
