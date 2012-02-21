@@ -24,7 +24,9 @@
 /* Group 2: Return self, or self= */
 #define CC_G_TWO_OFFSET  11
 #define CC_EQUAL         11
-#define CC_G_TWO_LAST    11
+#define CC_LESS          12
+#define CC_GREATER       13
+#define CC_G_TWO_LAST    13
 
 #define CC_PLUS          12
 #define CC_MINUS         13
@@ -96,7 +98,12 @@ static const lily_token grp_one_table[] =
 
 static const lily_token grp_two_table[] =
 {
-    tk_equal
+    tk_equal, tk_gr, tk_lt
+};
+
+static const lily_token grp_two_eq_table[] =
+{
+    tk_eq_eq, tk_gr_eq, tk_lt_eq
 };
 
 static int handle_str_escape(char *buffer, int *pos, char *ch)
@@ -393,7 +400,12 @@ void lily_lexer(lily_lex_state *lexer)
         }
         else if (group <= CC_G_TWO_LAST) {
             lex_bufpos++;
-            token = grp_two_table[group - CC_G_TWO_OFFSET];
+            if (lexer->lex_buffer[lex_bufpos] == '=') {
+                lex_bufpos++;
+                token = grp_two_eq_table[group - CC_G_TWO_OFFSET];
+            }
+            else
+                token = grp_two_table[group - CC_G_TWO_OFFSET];
         }
         else if (group == CC_NUMBER) {
             int integer_total;
@@ -624,6 +636,8 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     ch_class[(unsigned char)'-'] = CC_MINUS;
     ch_class[(unsigned char)'{'] = CC_LEFT_CURLY;
     ch_class[(unsigned char)'}'] = CC_LEFT_CURLY;
+    ch_class[(unsigned char)'<'] = CC_LESS;
+    ch_class[(unsigned char)'>'] = CC_GREATER;
     /* Prep for file-based, since lex_buffer isn't NULL. */
     ch_class[(unsigned char)'\r'] = CC_NEWLINE;
     ch_class[(unsigned char)'\n'] = CC_NEWLINE;
@@ -636,7 +650,8 @@ char *tokname(lily_token t)
 {
     static char *toknames[] =
     {"invalid token", "a label", "(", ")", "a string", "an integer", "a number",
-     "=", ",", "+", "-", "{", "}", "@>", "end of file"};
+     "=", ",", "+", "-", "{", "}", "==", "<", "<=", ">", ">=", "@>",
+     "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

@@ -20,6 +20,11 @@ typedef enum {
     tk_minus,
     tk_left_curly,
     tk_right_curly,
+    tk_eq_eq,
+    tk_lt,
+    tk_lt_eq,
+    tk_gr,
+    tk_gr_eq,
     tk_end_tag,
     tk_eof
 } lily_token;
