@@ -98,12 +98,12 @@ static const lily_token grp_one_table[] =
 
 static const lily_token grp_two_table[] =
 {
-    tk_equal, tk_gr, tk_lt
+    tk_equal, tk_lt, tk_gr 
 };
 
 static const lily_token grp_two_eq_table[] =
 {
-    tk_eq_eq, tk_gr_eq, tk_lt_eq
+    tk_eq_eq, tk_lt_eq, tk_gr_eq
 };
 
 static int handle_str_escape(char *buffer, int *pos, char *ch)
