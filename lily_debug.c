@@ -2,7 +2,7 @@
 #include "lily_symtab.h"
 #include "lily_opcode.h"
 
-#define DEBUG_ARITH_OP(namestr, opstr) \
+#define DEBUG_BINARY_OP(namestr, opstr) \
 lily_impl_debugf(namestr, i); \
 left = ((lily_sym *)code[i+1]); \
 right = ((lily_sym *)code[i+2]); \
@@ -64,16 +64,31 @@ static void show_code(lily_var *var)
                 i += 3;
                 break;
             case o_integer_add:
-                DEBUG_ARITH_OP("    [%d] integer_add   ", "+")
+                DEBUG_BINARY_OP("    [%d] integer_add   ", "+")
                 break;
             case o_integer_minus:
-                DEBUG_ARITH_OP("    [%d] integer_minus ", "-")
+                DEBUG_BINARY_OP("    [%d] integer_minus ", "-")
                 break;
             case o_number_add:
-                DEBUG_ARITH_OP("    [%d] number_add    ", "+")
+                DEBUG_BINARY_OP("    [%d] number_add    ", "+")
                 break;
             case o_number_minus:
-                DEBUG_ARITH_OP("    [%d] number_minus  ", "-")
+                DEBUG_BINARY_OP("    [%d] number_minus  ", "-")
+                break;
+            case o_less:
+                DEBUG_BINARY_OP("    [%d] less          ", "<")
+                break;
+            case o_less_eq:
+                DEBUG_BINARY_OP("    [%d] less_equal    ", "<=")
+                break;
+            case o_is_equal:
+                DEBUG_BINARY_OP("    [%d] is_equal      ", "==")
+                break;
+            case o_greater:
+                DEBUG_BINARY_OP("    [%d] greater       ", ">")
+                break;
+            case o_greater_eq:
+                DEBUG_BINARY_OP("    [%d] greater_equal ", ">=")
                 break;
             case o_func_call:
                 {

@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "lily_impl.h"
 #include "lily_symtab.h"
 #include "lily_opcode.h"
@@ -22,6 +24,32 @@ if (lhs->sig->cls->id == SYM_CLASS_NUMBER) { \
 else \
     ((lily_sym *)code[i+3])->value.number = \
     lhs->value.integer OP ((lily_sym *)code[i+2])->value.number; \
+i += 4;
+
+#define COMPARE_OP(OP, STROP) \
+lhs = (lily_sym *)code[i+1]; \
+rhs = (lily_sym *)code[i+2]; \
+if (lhs->sig->cls->id == SYM_CLASS_NUMBER) { \
+    if (rhs->sig->cls->id == SYM_CLASS_NUMBER) \
+        ((lily_sym *)code[i+3])->value.number = \
+        lhs->value.number OP rhs->value.number; \
+    else \
+        ((lily_sym *)code[i+3])->value.integer = \
+        lhs->value.number OP rhs->value.integer; \
+} \
+else if (lhs->sig->cls->id == SYM_CLASS_INTEGER) { \
+    if (rhs->sig->cls->id == SYM_CLASS_INTEGER) \
+        ((lily_sym *)code[i+3])->value.integer =  \
+        lhs->value.integer OP rhs->value.number; \
+    else \
+        ((lily_sym *)code[i+3])->value.integer = \
+        lhs->value.number OP rhs->value.number; \
+} \
+else if (lhs->sig->cls->id == SYM_CLASS_STR) { \
+    ((lily_sym *)code[i+3])->value.integer = \
+    strcmp(((lily_strval *)lhs->value.ptr)->str, \
+           ((lily_strval *)rhs->value.ptr)->str) STROP; \
+} \
 i += 4;
 
 void lily_builtin_print(lily_sym **args)
@@ -59,6 +87,21 @@ void lily_vm_execute(lily_excep_data *error, lily_var *var)
                 break;
             case o_number_minus:
                 NUMBER_OP(-)
+                break;
+            case o_less:
+                COMPARE_OP(<, == -1)
+                break;
+            case o_less_eq:
+                COMPARE_OP(<=, <= 0)
+                break;
+            case o_is_equal:
+                COMPARE_OP(>, == 0)
+                break;
+            case o_greater:
+                COMPARE_OP(>, == 1)
+                break;
+            case o_greater_eq:
+                COMPARE_OP(>, >= 0)
                 break;
             case o_func_call:
             {
