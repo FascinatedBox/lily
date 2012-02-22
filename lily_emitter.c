@@ -45,24 +45,9 @@ m->pos += 4;
    * Note: This currently excludes nomem errors. */
 static char *opname(lily_expr_op op)
 {
-    char *ret;
+    char *opnames[] = {"+", "-", "==", "<", "<=", ">", ">=", "="};
 
-    switch (op) {
-        case expr_assign:
-            ret = "assign";
-            break;
-        case expr_plus:
-            ret = "add";
-            break;
-        case expr_minus:
-            ret = "minus";
-            break;
-        default:
-            ret = "undefined";
-            break;
-    }
-
-    return ret;
+    return opnames[op];
 }
 
 static void generic_binop(lily_emit_state *emit, lily_ast *ast)
@@ -84,15 +69,20 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
 
     if (opcode == -1) {
         emit->error->line_adjust = ast->line_num;
-        lily_raise(emit->error, "Cannot %s %s and %s.\n", opname(ast->op),
-                   lhs_class->name,
-                   rhs_class->name);
+        lily_raise(emit->error, "Invalid operation: %s %s %s.\n",
+                   lhs_class->name, opname(ast->op), rhs_class->name);
     }
 
-    if (lhs_class->id >= rhs_class->id)
-        storage_class = lhs_class;
+    if (ast->op == expr_plus || ast->op == expr_minus)
+        if (lhs_class->id >= rhs_class->id)
+            storage_class = lhs_class;
+        else
+            storage_class = rhs_class;
     else
-        storage_class = rhs_class;
+        /* Assign is handled elsewhere, so these are just comparison ops. These
+           always return 0 or 1, regardless of the classes put in. There's no
+           bool class (yet), so an integer class is used instead. */
+        storage_class = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
 
     s = storage_class->storage;
 

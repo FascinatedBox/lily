@@ -15,6 +15,13 @@ typedef enum {
        lhs and rhs are either a number or an integer. result is a number. */
     o_integer_minus,
     o_number_minus,
+    /* lhs, rhs, result
+       lhs and rhs could be both integer, integer and number, or both str. */
+    o_is_equal,
+    o_less,
+    o_less_eq,
+    o_greater,
+    o_greater_eq,
     /* Handles builtin functions:
        var, func, #args, args... */
     o_func_call,
