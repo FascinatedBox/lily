@@ -205,6 +205,47 @@ void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)
     emit->expr_num++;
 }
 
+void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
+{
+    /* This does emitting for the condition of an if or elif. */
+    lily_method_val *m = emit->target;
+
+    walk_tree(emit, ast);
+    emit->expr_num++;
+
+    /* This jump will need to be rewritten with the first part of the next elif,
+       else, or the end of the if. Save the position so it can be written over
+       later. */
+    WRITE_3(o_jump_if_false, (int)ast->result, 0)
+
+    lily_branches *b = emit->branches;
+
+    if (b->patch_pos == b->patch_size) {
+        int *new_patches;
+
+        b->patch_size *= 2;
+        new_patches = lily_realloc(b->patches, b->patch_size);
+        if (new_patches == NULL)
+            lily_raise_nomem(emit->error);
+
+        b->patches = new_patches;
+    }
+
+    b->patches[b->patch_pos] = m->pos-1;
+    b->patch_pos++;
+}
+
+void lily_emit_patch_jumps(lily_emit_state *emit)
+{
+    int *code;
+    int i;
+    lily_branches *branches = emit->branches;
+
+    code = emit->target->code;
+    for (i = 0;i < branches->patch_pos;i++)
+        code[branches->patches[i]] = emit->target->pos;
+}
+
 void lily_emit_set_target(lily_emit_state *emit, lily_var *var)
 {
     emit->target = (lily_method_val *)var->value.ptr;
@@ -218,6 +259,8 @@ void lily_emit_vm_return(lily_emit_state *emit)
 
 void lily_free_emit_state(lily_emit_state *emit)
 {
+    lily_free(emit->branches->patches);
+    lily_free(emit->branches);
     lily_free(emit);
 }
 
@@ -228,6 +271,19 @@ lily_emit_state *lily_new_emit_state(lily_excep_data *excep)
     if (s == NULL)
         return NULL;
 
+    int *patches = lily_malloc(sizeof(int) * 4);
+    s->branches = lily_malloc(sizeof(lily_branches));
+
+    if (s->branches == NULL || patches == NULL) {
+        lily_free(s->branches);
+        lily_free(patches);
+        lily_free(s);
+        return NULL;
+    }
+
+    s->branches->patches = patches;
+    s->branches->patch_pos = 0;
+    s->branches->patch_size = 4;
     s->target = NULL;
     s->error = excep;
     s->expr_num = 1;

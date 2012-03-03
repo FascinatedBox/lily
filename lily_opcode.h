@@ -22,6 +22,10 @@ typedef enum {
     o_less_eq,
     o_greater,
     o_greater_eq,
+
+    /* value, pos
+       Jump to pos if value is nil or 0. */
+    o_jump_if_false,
     /* Handles builtin functions:
        var, func, #args, args... */
     o_func_call,
