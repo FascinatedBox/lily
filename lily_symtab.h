@@ -118,6 +118,11 @@ typedef struct {
     lily_excep_data *error;
 } lily_symtab;
 
+#define KEY_IF      0
+#define KEY_ELIF    1
+#define KEY_ELSE    2
+#define KEY_LAST_ID 3
+
 /* Sync with classname_seeds in lily_seed_symtab.h. */
 #define SYM_CLASS_INTEGER  0
 #define SYM_CLASS_NUMBER   1
@@ -131,6 +136,7 @@ typedef struct {
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, char *);
 void lily_free_symtab(lily_symtab *);
+int lily_keyword_by_name(char *);
 lily_literal *lily_new_literal(lily_symtab *, lily_class *);
 lily_symtab *lily_new_symtab(lily_excep_data *);
 lily_var *lily_new_var(lily_symtab *, lily_class *, char *);

@@ -34,16 +34,16 @@ if (lhs->sig->cls->id == SYM_CLASS_NUMBER) { \
         ((lily_sym *)code[i+3])->value.number = \
         lhs->value.number OP rhs->value.number; \
     else \
-        ((lily_sym *)code[i+3])->value.integer = \
+        ((lily_sym *)code[i+3])->value.number = \
         lhs->value.number OP rhs->value.integer; \
 } \
 else if (lhs->sig->cls->id == SYM_CLASS_INTEGER) { \
     if (rhs->sig->cls->id == SYM_CLASS_INTEGER) \
         ((lily_sym *)code[i+3])->value.integer =  \
-        lhs->value.integer OP rhs->value.number; \
+        (lhs->value.integer OP rhs->value.integer); \
     else \
-        ((lily_sym *)code[i+3])->value.integer = \
-        lhs->value.number OP rhs->value.number; \
+        ((lily_sym *)code[i+3])->value.number = \
+        lhs->value.integer OP rhs->value.number; \
 } \
 else if (lhs->sig->cls->id == SYM_CLASS_STR) { \
     ((lily_sym *)code[i+3])->value.integer = \
@@ -102,6 +102,24 @@ void lily_vm_execute(lily_excep_data *error, lily_var *var)
                 break;
             case o_greater_eq:
                 COMPARE_OP(>, >= 0)
+                break;
+            case o_jump_if_false:
+                lhs = (lily_sym *)code[i+1];
+                {
+                    int cls_id = lhs->sig->cls->id;
+                    if (cls_id == SYM_CLASS_INTEGER) {
+                        if (lhs->value.integer == 0)
+                            i += 3;
+                        else
+                            i = code[i+2];
+                    }
+                    else if (cls_id == SYM_CLASS_NUMBER) {
+                        if (lhs->value.number == 0.0)
+                            i += 3;
+                        else
+                            i = code[i+2];
+                    }
+                }
                 break;
             case o_func_call:
             {

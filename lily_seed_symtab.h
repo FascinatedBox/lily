@@ -14,6 +14,12 @@ char *class_seeds[] = {
     "method",
 };
 
+static const char *keywords[] = {
+    "if",
+    "elif",
+    "else"
+};
+
 typedef const struct {
     char *name;
     int num_args;

@@ -114,7 +114,9 @@ static void parse_expr_top(lily_parse_state *parser)
                 op = expr_gr;
             else if (lex->token == tk_gr_eq)
                 op = expr_gr_eq;
-            else if (lex->token == tk_end_tag || lex->token == tk_eof)
+            else if (lex->token == tk_left_curly ||
+                     lex->token == tk_right_curly ||
+                     lex->token == tk_end_tag || lex->token == tk_eof)
                 break;
             else {
                 lily_raise(parser->error,
@@ -127,9 +129,6 @@ static void parse_expr_top(lily_parse_state *parser)
         }
         parse_expr_value(parser);
     }
-
-    lily_emit_ast(parser->emit, parser->ast_pool->root);
-    lily_ast_reset_pool(parser->ast_pool);
 }
 
 static void parse_declaration(lily_parse_state *parser, lily_class *cls)
@@ -157,6 +156,8 @@ static void parse_declaration(lily_parse_state *parser, lily_class *cls)
         if (lex->token == tk_equal) {
             lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
             parse_expr_top(parser);
+            lily_emit_ast(parser->emit, parser->ast_pool->root);
+            lily_ast_reset_pool(parser->ast_pool);
         }
 
         /* This is the start of the next statement. */
@@ -174,19 +175,46 @@ static void parse_declaration(lily_parse_state *parser, lily_class *cls)
 static void parse_statement(lily_parse_state *parser)
 {
     char *label = parser->lex->label;
+    int key_id;
     lily_class *lclass;
 
-    lclass = lily_class_by_name(parser->symtab, label);
+    key_id = lily_keyword_by_name(label);
+    if (key_id != -1) {
+        lily_lexer(parser->lex);
+        if (parser->lex->token != tk_word) {
+            lily_raise(parser->error, "Expected a label, not %s.\n",
+                       tokname(parser->lex->token));
+        }
 
-    if (lclass != NULL) {
-        /* Do decl parsing, which will handle any assignments. */
-        parse_declaration(parser, lclass);
+        if (key_id == KEY_IF) {
+            parse_expr_value(parser);
+            parse_expr_top(parser);
+        }
+
+        lily_emit_conditional(parser->emit, parser->ast_pool->root);
+        lily_ast_reset_pool(parser->ast_pool);
+        if (parser->lex->token != tk_left_curly)
+            lily_raise(parser->error, "Expected '{', not %s.\n",
+                       tokname(parser->lex->token));
+
+        lily_lexer(parser->lex);
     }
     else {
-        /* statement like 'print(x)', or 'a = b'. Call unary to prep the tree,
-           then binary handles the rest. */
-        parse_expr_value(parser);
-        parse_expr_top(parser);
+        lclass = lily_class_by_name(parser->symtab, label);
+
+        if (lclass != NULL) {
+            /* Do decl parsing, which will handle any assignments. */
+            parse_declaration(parser, lclass);
+        }
+        else {
+            /* statement like 'print(x)', or 'a = b'. Call unary to prep the
+               tree, then binary handles the rest. */
+            parse_expr_value(parser);
+            parse_expr_top(parser);
+
+            lily_emit_ast(parser->emit, parser->ast_pool->root);
+            lily_ast_reset_pool(parser->ast_pool);
+        }
     }
 }
 
@@ -242,6 +270,10 @@ void lily_parser(lily_parse_state *parser)
     while (1) {
         if (lex->token == tk_word)
             parse_statement(parser);
+        else if (lex->token == tk_right_curly) {
+            lily_emit_patch_jumps(parser->emit);
+            lily_lexer(parser->lex);
+        }
         else if (lex->token == tk_end_tag || lex->token == tk_eof) {
             lily_emit_vm_return(parser->emit);
             /* Show symtab until the bugs are gone. */

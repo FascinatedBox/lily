@@ -197,6 +197,17 @@ void lily_free_symtab(lily_symtab *symtab)
     lily_free(symtab);
 }
 
+int lily_keyword_by_name(char *name)
+{
+    int i;
+    for (i = 0;i <= KEY_LAST_ID;i++) {
+        if (strcmp(keywords[i], name) == 0)
+            return i;
+    }
+
+    return -1;
+}
+
 static int init_classes(lily_symtab *symtab)
 {
     int i, class_count, ret;
