@@ -114,9 +114,8 @@ static void parse_expr_top(lily_parse_state *parser)
                 op = expr_gr;
             else if (lex->token == tk_gr_eq)
                 op = expr_gr_eq;
-            else if (lex->token == tk_left_curly ||
-                     lex->token == tk_right_curly ||
-                     lex->token == tk_end_tag || lex->token == tk_eof)
+            else if (lex->token == tk_colon || lex->token == tk_end_tag ||
+                     lex->token == tk_eof)
                 break;
             else {
                 lily_raise(parser->error,
@@ -193,8 +192,8 @@ static void parse_statement(lily_parse_state *parser)
 
         lily_emit_conditional(parser->emit, parser->ast_pool->root);
         lily_ast_reset_pool(parser->ast_pool);
-        if (parser->lex->token != tk_left_curly)
-            lily_raise(parser->error, "Expected '{', not %s.\n",
+        if (parser->lex->token != tk_colon)
+            lily_raise(parser->error, "Expected ':', not %s.\n",
                        tokname(parser->lex->token));
 
         lily_lexer(parser->lex);
@@ -270,10 +269,6 @@ void lily_parser(lily_parse_state *parser)
     while (1) {
         if (lex->token == tk_word)
             parse_statement(parser);
-        else if (lex->token == tk_right_curly) {
-            lily_emit_patch_jumps(parser->emit);
-            lily_lexer(parser->lex);
-        }
         else if (lex->token == tk_end_tag || lex->token == tk_eof) {
             lily_emit_vm_return(parser->emit);
             /* Show symtab until the bugs are gone. */
