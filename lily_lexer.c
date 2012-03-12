@@ -13,27 +13,28 @@
 #define CC_COMMA          3
 #define CC_LEFT_CURLY     4
 #define CC_RIGHT_CURLY    5
-#define CC_G_ONE_LAST     5
+#define CC_COLON          6
+#define CC_G_ONE_LAST     6
 
-#define CC_NEWLINE        6
-#define CC_SHARP          7
-#define CC_STR_NEWLINE    8
-#define CC_STR_END        9
-#define CC_DOUBLE_QUOTE  10
+#define CC_NEWLINE        7
+#define CC_SHARP          8
+#define CC_STR_NEWLINE    9
+#define CC_STR_END       10
+#define CC_DOUBLE_QUOTE  11
 
 /* Group 2: Return self, or self= */
-#define CC_G_TWO_OFFSET  11
-#define CC_EQUAL         11
-#define CC_LESS          12
-#define CC_GREATER       13
-#define CC_G_TWO_LAST    13
+#define CC_G_TWO_OFFSET  12
+#define CC_EQUAL         12
+#define CC_LESS          13
+#define CC_GREATER       14
+#define CC_G_TWO_LAST    14
 
-#define CC_PLUS          14
-#define CC_MINUS         15
-#define CC_NUMBER        16
-#define CC_DOT           17
-#define CC_AT            18
-#define CC_INVALID       19
+#define CC_PLUS          15
+#define CC_MINUS         16
+#define CC_NUMBER        17
+#define CC_DOT           18
+#define CC_AT            19
+#define CC_INVALID       20
 
 /* The lexer assumes any file given is utf-8. */
 
@@ -93,7 +94,8 @@ static const char ident_table[256] =
 
 static const lily_token grp_one_table[] =
 {
-    tk_left_parenth, tk_right_parenth, tk_comma, tk_left_curly, tk_right_curly
+    tk_left_parenth, tk_right_parenth, tk_comma, tk_left_curly, tk_right_curly,
+    tk_colon
 };
 
 static const lily_token grp_two_table[] =
@@ -638,6 +640,7 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     ch_class[(unsigned char)'}'] = CC_RIGHT_CURLY;
     ch_class[(unsigned char)'<'] = CC_LESS;
     ch_class[(unsigned char)'>'] = CC_GREATER;
+    ch_class[(unsigned char)':'] = CC_COLON;
     /* Prep for file-based, since lex_buffer isn't NULL. */
     ch_class[(unsigned char)'\r'] = CC_NEWLINE;
     ch_class[(unsigned char)'\n'] = CC_NEWLINE;
@@ -650,7 +653,7 @@ char *tokname(lily_token t)
 {
     static char *toknames[] =
     {"invalid token", "a label", "(", ")", "a string", "an integer", "a number",
-     "=", ",", "+", "-", "{", "}", "==", "<", "<=", ">", ">=", "@>",
+     "=", ",", "+", "-", "{", "}", ":", "==", "<", "<=", ">", ">=", "@>",
      "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))

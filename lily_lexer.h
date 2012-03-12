@@ -20,6 +20,7 @@ typedef enum {
     tk_minus,
     tk_left_curly,
     tk_right_curly,
+    tk_colon,
     tk_eq_eq,
     tk_lt,
     tk_lt_eq,
