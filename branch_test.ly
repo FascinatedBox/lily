@@ -9,6 +9,9 @@ a = 1
 if a == 1:
     a = 2
 
+# This executes outside of the 'if'.
+a = 2
+
 # All of these accept a single expression.
 # A single-expression condition can't have more single-expression conditions
 # inside of it.
