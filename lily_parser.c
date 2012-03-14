@@ -217,7 +217,7 @@ static void parse_simple_condition(lily_parse_state *parser)
                 "Cannot have a condition inside of single-line condition.\n",
                            tokname(lex->token));
             else if (key_id == -1) {
-                lily_emit_patch_jumps(parser->emit);
+                lily_emit_fix_exit_jumps(parser->emit);
                 break;
             }
         }
@@ -238,8 +238,10 @@ static void parse_statement(lily_parse_state *parser)
                        tokname(parser->lex->token));
         }
 
-        if (key_id == KEY_IF)
+        if (key_id == KEY_IF) {
+            lily_emit_new_if(parser->emit);
             parse_expr_top(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
+        }
 
         if (parser->lex->token != tk_colon)
             lily_raise(parser->error, "Expected ':', not %s.\n",
