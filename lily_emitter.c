@@ -235,7 +235,32 @@ void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
     b->patch_pos++;
 }
 
-void lily_emit_patch_jumps(lily_emit_state *emit)
+/*  Okay, if handling. This is a tough one.
+    VM code is expressed as a series of instructions, but ifs require skipping
+    some parts of code. This is done with a jump instruction. Since the future
+    location is not known, it has to be fixed later on. Each if/elif/else is
+    refered to as a branch.
+    Within if/elif/else, there are two kinds of jumps:
+    * Branch->branch. When the expression for an if tests false, control must
+      transfer to the next elif, or the else. This is the same for elif's.
+    * Exit. After the final statement in a branch, a jump is needed to avoid
+      execution of any other code within the if.
+    */
+
+void lily_emit_new_if(lily_emit_state *emit)
+{
+    lily_branches *branches = emit->branches;
+
+    if (branches->save_pos + 2 > branches->save_size) {
+        lily_raise(emit->error, "todo: realloc saves. Have %d, need %d.\n");
+    }
+
+    branches->saved_spots[branches->save_pos] = branches->patch_pos;
+    branches->saved_spots[branches->save_pos+1] = branches->patch_pos;
+    branches->save_pos += 2;
+}
+
+void lily_emit_fix_branch_jumps(lily_emit_state *emit)
 {
     int *code;
     int i;
@@ -244,6 +269,25 @@ void lily_emit_patch_jumps(lily_emit_state *emit)
     code = emit->target->code;
     for (i = 0;i < branches->patch_pos;i++)
         code[branches->patches[i]] = emit->target->pos;
+}
+
+void lily_emit_fix_exit_jumps(lily_emit_state *emit)
+{
+    lily_branches *branches = emit->branches;
+    lily_method_val *m = emit->target;
+    int from, to;
+
+    /* When closing an if, the last branch jump will go to the same place as
+       the exit jump. */
+    from = branches->patch_pos-1;
+    to = branches->saved_spots[branches->save_pos-2];
+
+    for (;from >= to;from--)
+        m->code[branches->patches[from]] = m->pos;
+
+    branches->patch_pos = from+1;
+    fprintf(stderr, "patch pos is %d.\n", from);
+    branches->save_pos -= 2;
 }
 
 void lily_emit_set_target(lily_emit_state *emit, lily_var *var)
@@ -260,6 +304,7 @@ void lily_emit_vm_return(lily_emit_state *emit)
 void lily_free_emit_state(lily_emit_state *emit)
 {
     lily_free(emit->branches->patches);
+    lily_free(emit->branches->saved_spots);
     lily_free(emit->branches);
     lily_free(emit);
 }
@@ -272,16 +317,21 @@ lily_emit_state *lily_new_emit_state(lily_excep_data *excep)
         return NULL;
 
     int *patches = lily_malloc(sizeof(int) * 4);
+    int *saves = lily_malloc(sizeof(int) * 4);
     s->branches = lily_malloc(sizeof(lily_branches));
 
-    if (s->branches == NULL || patches == NULL) {
+    if (s->branches == NULL || patches == NULL || saves == NULL) {
         lily_free(s->branches);
+        lily_free(saves);
         lily_free(patches);
         lily_free(s);
         return NULL;
     }
 
     s->branches->patches = patches;
+    s->branches->saved_spots = saves;
+    s->branches->save_pos = 0;
+    s->branches->save_size = 4;
     s->branches->patch_pos = 0;
     s->branches->patch_size = 4;
     s->target = NULL;

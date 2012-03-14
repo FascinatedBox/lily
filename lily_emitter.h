@@ -6,8 +6,11 @@
 
 typedef struct {
     int *patches;
+    int *saved_spots;
     int patch_pos;
     int patch_size;
+    int save_pos;
+    int save_size;
 } lily_branches;
 
 typedef struct {
@@ -20,7 +23,9 @@ typedef struct {
 
 void lily_emit_ast(lily_emit_state *, lily_ast *);
 void lily_emit_conditional(lily_emit_state *, lily_ast *);
-void lily_emit_patch_jumps(lily_emit_state *);
+void lily_emit_new_if(lily_emit_state *);
+void lily_emit_fix_branch_jumps(lily_emit_state *);
+void lily_emit_fix_exit_jumps(lily_emit_state *);
 void lily_emit_set_target(lily_emit_state *, lily_var *);
 void lily_emit_vm_return(lily_emit_state *);
 void lily_free_emit_state(lily_emit_state *);
