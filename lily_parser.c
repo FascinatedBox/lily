@@ -171,6 +171,40 @@ static void parse_declaration(lily_parse_state *parser, lily_class *cls)
     }
 }
 
+static void parse_simple_condition(lily_parse_state *parser)
+{
+    /* In a simple condition, each if, elif, and else have only a single
+       expression. This is called when an 'if' is caught, and the token after
+       the : is not {. */
+    int key_id;
+    lily_lex_state *lex = parser->lex;
+
+    while (1) { 
+        /* All expressions must start with a word. */
+        if (lex->token != tk_word)
+            lily_raise(parser->error, "Expected a label, not %s.\n",
+                    tokname(lex->token));
+
+        parse_expr_value(parser);
+        parse_expr_top(parser);
+
+        lily_emit_ast(parser->emit, parser->ast_pool->root);
+        lily_ast_reset_pool(parser->ast_pool);
+
+        if (lex->token == tk_word) {
+            key_id = lily_keyword_by_name(parser->lex->label);
+            if (key_id == KEY_IF)
+                lily_raise(parser->error,
+                "Cannot have a condition inside of single-line condition.\n",
+                           tokname(lex->token));
+            else if (key_id == -1) {
+                lily_emit_patch_jumps(parser->emit);
+                break;
+            }
+        }
+    }
+}
+
 static void parse_statement(lily_parse_state *parser)
 {
     char *label = parser->lex->label;
@@ -197,6 +231,8 @@ static void parse_statement(lily_parse_state *parser)
                        tokname(parser->lex->token));
 
         lily_lexer(parser->lex);
+        if (parser->lex->token != tk_left_curly && key_id == KEY_IF)
+            parse_simple_condition(parser);
     }
     else {
         lclass = lily_class_by_name(parser->symtab, label);
