@@ -103,6 +103,9 @@ void lily_vm_execute(lily_excep_data *error, lily_var *var)
             case o_greater_eq:
                 COMPARE_OP(>, >= 0)
                 break;
+            case o_jump:
+                i = code[i+1];
+                break;
             case o_jump_if_false:
                 lhs = (lily_sym *)code[i+1];
                 {
