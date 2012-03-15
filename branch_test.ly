@@ -1,8 +1,8 @@
 <@lily
 
-integer a
+integer a, b
 a = 1
-
+b = 2
 
 # Lily conditions are a mix of styles.
 # This is a single-expression condition. Simple enough.
@@ -16,7 +16,7 @@ a = 2
 # A single-expression condition can't have more single-expression conditions
 # inside of it.
 if a == 1:
-    a = 2
+    a = b
 elif a == 2:
     a = 3
 elif a == 3:

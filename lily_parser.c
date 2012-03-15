@@ -53,6 +53,7 @@ static void parse_expr_value(lily_parse_state *parser)
                 lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
 
                 lily_lexer(lex);
+                break;
             }
         }
         else {
