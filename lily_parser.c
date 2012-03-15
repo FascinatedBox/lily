@@ -199,10 +199,11 @@ static void parse_simple_condition(lily_parse_state *parser)
     /* In a simple condition, each if, elif, and else have only a single
        expression. This is called when an 'if' is caught, and the token after
        the : is not {. */
-    int key_id;
+    int key_id, have_else;
     lily_lex_state *lex = parser->lex;
 
-    while (1) { 
+    have_else = 0;
+    while (1) {
         /* All expressions must start with a word. */
         if (lex->token != tk_word)
             lily_raise(parser->error, "Expected a label, not %s.\n",
@@ -217,6 +218,9 @@ static void parse_simple_condition(lily_parse_state *parser)
                 "Cannot have a condition inside of single-line condition.\n",
                            tokname(lex->token));
             else if (key_id == KEY_ELIF) {
+                if (have_else)
+                    lily_raise(parser->error, "elif after else.\n");
+
                 lily_emit_branch_change(parser->emit);
 
                 lily_lexer(lex);
@@ -232,7 +236,17 @@ static void parse_simple_condition(lily_parse_state *parser)
                                tokname(lex->token));
 
                 lily_lexer(lex);
-                continue;
+            }
+            else if (key_id == KEY_ELSE) {
+                lily_emit_branch_change(parser->emit);
+
+                lily_lexer(lex);
+                if (lex->token != tk_colon)
+                    lily_raise(parser->error, "Expected ':', not %s.\n",
+                               tokname(lex->token));
+
+                have_else = 1;
+                lily_lexer(lex);
             }
             else if (key_id == -1)
                 break;

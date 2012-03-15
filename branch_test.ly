@@ -21,8 +21,8 @@ elif a == 2:
     a = 3
 elif a == 3:
     a = 4
-# else:
-#     a = 4
+else:
+    a = 4
 
 # This is a multi-line condition.
 # In Lily, only the if requires a {, and it means all subsequent elif and else
