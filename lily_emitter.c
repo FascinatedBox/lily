@@ -19,7 +19,11 @@ WRITE_PREP(1) \
 m->code[m->pos] = one; \
 m->pos += 1;
 
-/* No WRITE_2, because nothing uses that. */
+#define WRITE_2(one, two) \
+WRITE_PREP(2) \
+m->code[m->pos] = one; \
+m->code[m->pos+1] = two; \
+m->pos += 2;
 
 #define WRITE_3(one, two, three) \
 WRITE_PREP(3) \
@@ -243,32 +247,59 @@ void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
     Within if/elif/else, there are two kinds of jumps:
     * Branch->branch. When the expression for an if tests false, control must
       transfer to the next elif, or the else. This is the same for elif's.
+      If has only one branch jump at a time, except when there is nesting.
     * Exit. After the final statement in a branch, a jump is needed to avoid
       execution of any other code within the if.
-    */
+    Jumps should be patched from a save location to current position. Also,
+    remember that patch_pos is ahead most of the time. */
 
 void lily_emit_new_if(lily_emit_state *emit)
 {
     lily_branches *branches = emit->branches;
 
     if (branches->save_pos + 2 > branches->save_size) {
-        lily_raise(emit->error, "todo: realloc saves. Have %d, need %d.\n");
+        branches->save_size *= 2;
+        int *new_saves = lily_realloc(branches->saved_spots,
+                                      sizeof(int) * branches->save_size);
+        if (new_saves == NULL)
+            lily_raise_nomem(emit->error);
+
+        branches->saved_spots = new_saves;
     }
 
+    /* The bottom one is for exit jumps, the top for the branch jump. */
     branches->saved_spots[branches->save_pos] = branches->patch_pos;
     branches->saved_spots[branches->save_pos+1] = branches->patch_pos;
     branches->save_pos += 2;
 }
 
-void lily_emit_fix_branch_jumps(lily_emit_state *emit)
+void lily_emit_branch_change(lily_emit_state *emit)
 {
-    int *code;
-    int i;
+    int save_jump;
     lily_branches *branches = emit->branches;
+    lily_method_val *m = emit->target;
 
-    code = emit->target->code;
-    for (i = 0;i < branches->patch_pos;i++)
-        code[branches->patches[i]] = emit->target->pos;
+    /* When changing from an if/elif to another elif/else, two things need to
+       be done:
+       * An exit jump must be added that will go to the end of the condition.
+       * The branch jump must be fixed to target the start of the next branch.
+       The statements must go in this order. */
+
+    WRITE_2(o_jump, 0);
+    save_jump = m->pos - 1;
+
+    /* Suppose that we're in the second elif branch, transitioning to the third.
+       Jump stack:
+       * [0] if branch exit jump
+       * [1] elif branch #1 exit jump
+       * [2] elif branch #2 branch jump
+       Saves are 0, 2 (exit jumps start at 0, branch jumps at 2)
+       * This writes [2]'s fix, sets [2] to the new exit jump, then changes the
+       last save so [2] is counted as an exit jump. */
+
+    m->code[branches->patches[branches->patch_pos-1]] = m->pos;
+    branches->patches[branches->patch_pos-1] = save_jump;
+    branches->saved_spots[branches->save_pos-1]++;
 }
 
 void lily_emit_fix_exit_jumps(lily_emit_state *emit)
@@ -278,15 +309,16 @@ void lily_emit_fix_exit_jumps(lily_emit_state *emit)
     int from, to;
 
     /* When closing an if, the last branch jump will go to the same place as
-       the exit jump. */
+       the exit jump. So the last branch jump is patched with all the exit
+       jumps. This goes down so that branches->patch_pos can be set to the local
+       'to' instead of looking up the saved spot again. */
     from = branches->patch_pos-1;
     to = branches->saved_spots[branches->save_pos-2];
 
     for (;from >= to;from--)
         m->code[branches->patches[from]] = m->pos;
 
-    branches->patch_pos = from+1;
-    fprintf(stderr, "patch pos is %d.\n", from);
+    branches->patch_pos = to;
     branches->save_pos -= 2;
 }
 

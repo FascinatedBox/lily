@@ -23,6 +23,9 @@ typedef enum {
     o_greater,
     o_greater_eq,
 
+    /* pos
+       Jump to pos. */
+    o_jump,
     /* value, pos
        Jump to pos if value is nil or 0. */
     o_jump_if_false,

@@ -90,6 +90,11 @@ static void show_code(lily_var *var)
             case o_greater_eq:
                 DEBUG_BINARY_OP("    [%d] greater_equal ", ">=")
                 break;
+            case o_jump:
+                lily_impl_debugf("    [%d] jump          ", i);
+                lily_impl_debugf("[%d].\n", code[i+1]);
+                i += 2;
+                break;
             case o_jump_if_false:
                 lily_impl_debugf("    [%d] jump_if_false ", i);
                 left = ((lily_sym *)code[i+1]);

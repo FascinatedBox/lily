@@ -15,10 +15,12 @@ a = 2
 # All of these accept a single expression.
 # A single-expression condition can't have more single-expression conditions
 # inside of it.
-# if a == 1:
-#     a = 2
-# elif a == 2:
-#     a = 3
+if a == 1:
+    a = 2
+elif a == 2:
+    a = 3
+elif a == 3:
+    a = 4
 # else:
 #     a = 4
 
