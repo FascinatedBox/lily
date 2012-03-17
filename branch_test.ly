@@ -24,6 +24,9 @@ elif a == 3:
 else:
     a = 4
 
+if a == 2:
+    a = 2
+
 # This is a multi-line condition.
 # In Lily, only the if requires a {, and it means all subsequent elif and else
 # statements are multiline. This is really important.

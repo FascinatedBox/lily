@@ -214,10 +214,25 @@ static void parse_simple_condition(lily_parse_state *parser)
 
         if (lex->token == tk_word) {
             key_id = lily_keyword_by_name(parser->lex->label);
-            if (key_id == KEY_IF)
-                lily_raise(parser->error,
-                "Cannot have a condition inside of single-line condition.\n",
-                           tokname(lex->token));
+            if (key_id == KEY_IF) {
+                /* Close this branch and start another one. */
+                lily_emit_fix_exit_jumps(parser->emit);
+                have_else = 0;
+                lily_lexer(lex);
+                if (lex->token != tk_word)
+                    lily_raise(parser->error, "Expected a label, not %s.\n",
+                               tokname(lex->token));
+
+                lily_emit_new_if(parser->emit);
+                parse_expr_top(parser, EX_NEED_VALUE | EX_SINGLE |
+                               EX_CONDITION);
+
+                if (lex->token != tk_colon)
+                    lily_raise(parser->error, "Expected ':', not %s.\n",
+                               tokname(lex->token));
+
+                lily_lexer(lex);
+            }
             else if (key_id == KEY_ELIF) {
                 if (have_else)
                     lily_raise(parser->error, "elif after else.\n");
