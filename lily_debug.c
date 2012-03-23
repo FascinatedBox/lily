@@ -2,17 +2,6 @@
 #include "lily_symtab.h"
 #include "lily_opcode.h"
 
-#define DEBUG_BINARY_OP(namestr, opstr) \
-lily_impl_debugf(namestr, i); \
-left = ((lily_sym *)code[i+1]); \
-right = ((lily_sym *)code[i+2]); \
-result = ((lily_sym *)code[i+3]); \
-lily_impl_debugf("%s #%d " opstr " %s #%d to %s #%d\n", \
-                 typename((lily_sym *)left), left->id, \
-                 typename((lily_sym *)right), right->id, \
-                 typename((lily_sym *)result), result->id); \
-i += 4;
-
 static char *typename(lily_sym *sym)
 {
     char *ret;
@@ -29,12 +18,38 @@ static char *typename(lily_sym *sym)
     return ret;
 }
 
+static void print_two(int *code, char *str, int i)
+{
+    lily_sym *left, *right;
+
+    lily_impl_debugf(str, i);
+    left = ((lily_sym *)code[i+1]);
+    right = ((lily_sym *)code[i+2]);
+    lily_impl_debugf("[%s #%d] [%s #%d]\n",
+                     typename((lily_sym *)left), left->id,
+                     typename((lily_sym *)right), right->id);
+}
+
+static void print_three(int *code, char *str, int i)
+{
+    lily_sym *left, *right, *result;
+
+    lily_impl_debugf(str, i);
+    left = ((lily_sym *)code[i+1]);
+    right = ((lily_sym *)code[i+2]);
+    result = ((lily_sym *)code[i+3]);
+    lily_impl_debugf("[%s #%d] [%s #%d] [%s #%d]\n",
+                     typename((lily_sym *)left), left->id,
+                     typename((lily_sym *)right), right->id,
+                     typename((lily_sym *)result), result->id);
+}
+
 static void show_code(lily_var *var)
 {
     int i, len;
     int *code;
     lily_method_val *m;
-    lily_sym *left, *right, *result;
+    lily_sym *left;
 
     m = (lily_method_val *)var->value.ptr;
     i = 0;
@@ -44,51 +59,48 @@ static void show_code(lily_var *var)
     while (i < len) {
         switch (code[i]) {
             case o_assign:
-                lily_impl_debugf("    [%d] assign        ", i);
-                left = ((lily_sym *)code[i+1]);
-                right = ((lily_sym *)code[i+2]);
-                lily_impl_debugf("%s #%d to %s #%d\n",
-                                 typename((lily_sym *)left),
-                                 left->id, typename((lily_sym *)right),
-                                 right->id);
+                print_two(code, "    [%d] assign        ", i);
                 i += 3;
                 break;
             case o_obj_assign:
-                lily_impl_debugf("    [%d] obj_assign    ", i);
-                left = ((lily_sym *)code[i+1]);
-                right = ((lily_sym *)code[i+2]);
-                lily_impl_debugf("%s #%d to %s #%d\n",
-                                 typename((lily_sym *)left),
-                                 left->id, typename((lily_sym *)right),
-                                 right->id);
+                print_two(code, "    [%d] obj_assign    ", i);
                 i += 3;
                 break;
             case o_integer_add:
-                DEBUG_BINARY_OP("    [%d] integer_add   ", "+")
+                print_three(code, "    [%d] integer_add   ", i);
+                i += 4;
                 break;
             case o_integer_minus:
-                DEBUG_BINARY_OP("    [%d] integer_minus ", "-")
+                print_three(code, "    [%d] integer_minus ", i);
+                i += 4;
                 break;
             case o_number_add:
-                DEBUG_BINARY_OP("    [%d] number_add    ", "+")
+                print_three(code, "    [%d] number_add    ", i);
+                i += 4;
                 break;
             case o_number_minus:
-                DEBUG_BINARY_OP("    [%d] number_minus  ", "-")
+                print_three(code, "    [%d] number_minus  ", i);
+                i += 4;
                 break;
             case o_less:
-                DEBUG_BINARY_OP("    [%d] less          ", "<")
+                print_three(code, "    [%d] less          ", i);
+                i += 4;
                 break;
             case o_less_eq:
-                DEBUG_BINARY_OP("    [%d] less_equal    ", "<=")
+                print_three(code, "    [%d] less_equal    ", i);
+                i += 4;
                 break;
             case o_is_equal:
-                DEBUG_BINARY_OP("    [%d] is_equal      ", "==")
+                print_three(code, "    [%d] is_equal      ", i);
+                i += 4;
                 break;
             case o_greater:
-                DEBUG_BINARY_OP("    [%d] greater       ", ">")
+                print_three(code, "    [%d] greater       ", i);
+                i += 4;
                 break;
             case o_greater_eq:
-                DEBUG_BINARY_OP("    [%d] greater_equal ", ">=")
+                print_three(code, "    [%d] greater_equal ", i);
+                i += 4;
                 break;
             case o_jump:
                 lily_impl_debugf("    [%d] jump          ", i);
