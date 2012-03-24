@@ -40,6 +40,12 @@ m->code[m->pos+2] = three; \
 m->code[m->pos+3] = four; \
 m->pos += 4;
 
+/* The emitter keeps track of branch types so the parser can't send two else
+   conditions to the same if, and other bad stuff. This is also needed for
+   multiline expressions. */
+#define TYPE_IF      0x1
+#define TYPE_IF_ELSE 0x2
+
 /* The emitter sets error->line_adjust with a better line number before calling
    lily_raise. This gives debuggers a chance at a more useful line number.
    Example: integer a = 1.0 +
@@ -271,13 +277,24 @@ void lily_emit_new_if(lily_emit_state *emit)
     branches->saved_spots[branches->save_pos] = branches->patch_pos;
     branches->saved_spots[branches->save_pos+1] = branches->patch_pos;
     branches->save_pos += 2;
+    branches->types[branches->type_pos] = TYPE_IF;
+    branches->type_pos++;
 }
 
-void lily_emit_branch_change(lily_emit_state *emit)
+void lily_emit_branch_change(lily_emit_state *emit, int have_else)
 {
     int save_jump;
     lily_branches *branches = emit->branches;
     lily_method_val *m = emit->target;
+
+    if (have_else) {
+        if (branches->types[branches->type_pos-1] == TYPE_IF_ELSE)
+            lily_raise(emit->error, "Only one 'else' per 'if' allowed.\n");
+        else
+            branches->types[branches->type_pos-1] = TYPE_IF_ELSE;
+    }
+    else if (branches->types[branches->type_pos-1] == TYPE_IF_ELSE)
+        lily_raise(emit->error, "'elif' after 'else'.\n");
 
     /* When changing from an if/elif to another elif/else, two things need to
        be done:
@@ -320,6 +337,7 @@ void lily_emit_fix_exit_jumps(lily_emit_state *emit)
 
     branches->patch_pos = to;
     branches->save_pos -= 2;
+    branches->type_pos--;
 }
 
 void lily_emit_set_target(lily_emit_state *emit, lily_var *var)
@@ -337,6 +355,7 @@ void lily_free_emit_state(lily_emit_state *emit)
 {
     lily_free(emit->branches->patches);
     lily_free(emit->branches->saved_spots);
+    lily_free(emit->branches->types);
     lily_free(emit->branches);
     lily_free(emit);
 }
@@ -350,18 +369,24 @@ lily_emit_state *lily_new_emit_state(lily_excep_data *excep)
 
     int *patches = lily_malloc(sizeof(int) * 4);
     int *saves = lily_malloc(sizeof(int) * 4);
+    int *types = lily_malloc(sizeof(int) * 4);
     s->branches = lily_malloc(sizeof(lily_branches));
 
-    if (s->branches == NULL || patches == NULL || saves == NULL) {
+    if (s->branches == NULL || patches == NULL || saves == NULL ||
+        types == NULL) {
         lily_free(s->branches);
         lily_free(saves);
         lily_free(patches);
+        lily_free(types);
         lily_free(s);
         return NULL;
     }
 
     s->branches->patches = patches;
     s->branches->saved_spots = saves;
+    s->branches->types = types;
+    s->branches->type_pos = 0;
+    s->branches->type_size = 4;
     s->branches->save_pos = 0;
     s->branches->save_size = 4;
     s->branches->patch_pos = 0;

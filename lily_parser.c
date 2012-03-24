@@ -131,8 +131,9 @@ static void parse_expr_top(lily_parse_state *parser, int flags)
                     op = expr_gr;
                 else if (lex->token == tk_gr_eq)
                     op = expr_gr_eq;
-                else if (lex->token == tk_colon || lex->token == tk_end_tag ||
-                        lex->token == tk_eof)
+                else if (lex->token == tk_colon ||
+                         lex->token == tk_right_curly ||
+                         lex->token == tk_end_tag || lex->token == tk_eof)
                     break;
                 else {
                     lily_raise(parser->error,
@@ -200,10 +201,9 @@ static void parse_simple_condition(lily_parse_state *parser)
     /* In a simple condition, each if, elif, and else have only a single
        expression. This is called when an 'if' is caught, and the token after
        the : is not {. */
-    int key_id, have_else;
+    int key_id;
     lily_lex_state *lex = parser->lex;
 
-    have_else = 0;
     while (1) {
         /* All expressions must start with a word. */
         if (lex->token != tk_word)
@@ -217,7 +217,6 @@ static void parse_simple_condition(lily_parse_state *parser)
             if (key_id == KEY_IF) {
                 /* Close this branch and start another one. */
                 lily_emit_fix_exit_jumps(parser->emit);
-                have_else = 0;
                 lily_lexer(lex);
                 if (lex->token != tk_word)
                     lily_raise(parser->error, "Expected a label, not %s.\n",
@@ -232,12 +231,15 @@ static void parse_simple_condition(lily_parse_state *parser)
                                tokname(lex->token));
 
                 lily_lexer(lex);
+                if (lex->token == tk_left_curly) {
+                    /* This func handles single-line ifs, but this is a
+                       multi-line one. Swallow the {, then yield control. */
+                    lily_lexer(lex);
+                    return;
+                }
             }
             else if (key_id == KEY_ELIF) {
-                if (have_else)
-                    lily_raise(parser->error, "elif after else.\n");
-
-                lily_emit_branch_change(parser->emit);
+                lily_emit_branch_change(parser->emit, /*have_else=*/0);
 
                 lily_lexer(lex);
                 if (lex->token != tk_word)
@@ -254,14 +256,13 @@ static void parse_simple_condition(lily_parse_state *parser)
                 lily_lexer(lex);
             }
             else if (key_id == KEY_ELSE) {
-                lily_emit_branch_change(parser->emit);
+                lily_emit_branch_change(parser->emit, /*have_else=*/1);
 
                 lily_lexer(lex);
                 if (lex->token != tk_colon)
                     lily_raise(parser->error, "Expected ':', not %s.\n",
                                tokname(lex->token));
 
-                have_else = 1;
                 lily_lexer(lex);
             }
             else if (key_id == -1)
@@ -291,14 +292,29 @@ static void parse_statement(lily_parse_state *parser)
             lily_emit_new_if(parser->emit);
             parse_expr_top(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
         }
+        else if (key_id == KEY_ELIF) {
+            lily_emit_branch_change(parser->emit, /*have_else=*/0);
+            parse_expr_top(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
+        }
+        else if (key_id == KEY_ELSE)
+            lily_emit_branch_change(parser->emit, /*have_else=*/1);
 
         if (parser->lex->token != tk_colon)
             lily_raise(parser->error, "Expected ':', not %s.\n",
                        tokname(parser->lex->token));
 
         lily_lexer(parser->lex);
-        if (parser->lex->token != tk_left_curly && key_id == KEY_IF)
-            parse_simple_condition(parser);
+        if (key_id == KEY_IF) {
+            if (parser->lex->token != tk_left_curly)
+                parse_simple_condition(parser);
+            else {
+                if (parser->lex->token != tk_left_curly)
+                    lily_raise(parser->error, "Expected '{', not %s.\n",
+                               tokname(parser->lex->token));
+
+                lily_lexer(parser->lex);
+            }
+        }
     }
     else {
         lclass = lily_class_by_name(parser->symtab, label);
@@ -367,6 +383,11 @@ void lily_parser(lily_parse_state *parser)
     while (1) {
         if (lex->token == tk_word)
             parse_statement(parser);
+        else if (lex->token == tk_right_curly) {
+            /* This closes the last multi-line if. */
+            lily_emit_fix_exit_jumps(parser->emit);
+            lily_lexer(parser->lex);
+        }
         else if (lex->token == tk_end_tag || lex->token == tk_eof) {
             lily_emit_vm_return(parser->emit);
             /* Show symtab until the bugs are gone. */

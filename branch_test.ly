@@ -37,11 +37,11 @@ if a == 2:
 #   just { or } or both depending on style. At the same time, it's very obvious
 #   where the if terminates.
 # 
-# if a == 1: {
-#     a = 2
-#     a = 3
-# elif a = 2:
-#     a = 4
-#     a = 5
-# }
+if a == 1: {
+    a = 2
+    a = 3
+elif a = 2:
+    a = 4
+    a = 5
+}
 @>
