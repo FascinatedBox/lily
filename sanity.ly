@@ -41,6 +41,31 @@ compc = "1" < "1"
 compd = "1" <= "1"
 compe = "1" == "1"
 
+integer aa, ab
+
+aa = 1
+ab = 2
+
+# No { after the first : means each if/elif/else gets a single line.
+# These single-line ifs do not nest.
+if aa == 1:
+    aa = ab
+elif aa == 2:
+    aa = 3
+elif aa == 3:
+    aa = 4
+else:
+    aa = 4
+
+# In Lily, braces are only needed for the start and end of an if. This is a
+# multi-line if test.
+if aa == 1: {
+    aa = 2
+    aa = 3
+elif aa = 2:
+    aa = 4
+    aa = 5
+}
 @>
 </body>
 </html>
