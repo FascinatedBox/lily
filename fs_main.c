@@ -37,6 +37,18 @@ int main(int argc, char **argv)
 
     if (lily_parse_file(interp, argv[1]) == 0) {
         fputs(interp->error->message, stderr);
+        if (interp->parser != NULL &&
+            interp->parser->lex != NULL &&
+            interp->parser->lex->filename != NULL) {
+            int line_num;
+            if (interp->error->line_adjust == 0)
+                line_num = interp->parser->lex->line_num;
+            else
+                line_num = interp->error->line_adjust;
+
+            fprintf(stderr, "Where : File \"%s\" at line %d\n",
+                    interp->parser->lex->filename, line_num);
+        }
         exit(EXIT_FAILURE);
     }
 
