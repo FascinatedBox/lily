@@ -340,6 +340,18 @@ void lily_emit_fix_exit_jumps(lily_emit_state *emit)
     branches->type_pos--;
 }
 
+void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
+{
+    emit->saved_target = emit->target;
+    emit->target = (lily_method_val *)var->value.ptr;
+}
+
+void lily_emit_leave_method(lily_emit_state *emit)
+{
+    emit->target = emit->saved_target;
+    emit->saved_target = NULL;
+}
+
 void lily_emit_set_target(lily_emit_state *emit, lily_var *var)
 {
     emit->target = (lily_method_val *)var->value.ptr;
