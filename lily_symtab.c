@@ -62,6 +62,24 @@ static lily_sig *try_sig_for_class(lily_class *cls)
             sig->node.value_sig = NULL;
         }
     }
+    else if (cls->id == SYM_CLASS_METHOD) {
+        sig = lily_malloc(sizeof(lily_sig));
+        if (sig != NULL) {
+            lily_func_sig *fsig = lily_malloc(sizeof(lily_func_sig));
+            if (fsig != NULL) {
+                fsig->ret = NULL;
+                fsig->args = NULL;
+                fsig->num_args = 0;
+                fsig->is_varargs = 0;
+                sig->cls = cls;
+                sig->node.func = fsig;
+            }
+            else {
+                lily_free(sig);
+                sig = NULL;
+            }
+        }
+    }
     else
         sig = cls->sig;
 
