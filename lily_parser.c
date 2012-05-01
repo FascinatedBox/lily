@@ -284,6 +284,66 @@ static void parse_simple_condition(lily_parse_state *parser)
     lily_emit_fix_exit_jumps(parser->emit);
 }
 
+static void parse_method_decl(lily_parse_state *parser)
+{
+    int i = 0;
+    lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_METHOD);
+    lily_lex_state *lex = parser->lex;
+    lily_var *func_var, *save_top;
+
+    /* Get the method's name. */
+    NEED_NEXT_TOK(tk_word)
+    /* Form: method name(args):<ret type> {  } */
+    func_var = lily_new_var(parser->symtab, cls, lex->label);
+
+    NEED_NEXT_TOK(tk_left_parenth)
+    save_top = parser->symtab->var_top;
+
+    /* Argument signatures are collected later so that the array doesn't have
+       to have a guess-size or be constantly realloc'd. */
+    while (1) {
+        NEED_NEXT_TOK(tk_word)
+        cls = lily_class_by_name(parser->symtab, lex->label);
+
+        NEED_NEXT_TOK(tk_word)
+        lily_new_var(parser->symtab, cls, lex->label);
+        i++;
+
+        lily_lexer(lex);
+        if (lex->token == tk_comma)
+            continue;
+        else if (lex->token == tk_right_parenth)
+            break;
+        else {
+            lily_raise(parser->error, "Expected ',' or ')', not %s.\n",
+                       tokname(lex->token));
+        }
+    }
+
+    NEED_NEXT_TOK(tk_colon)
+    NEED_NEXT_TOK(tk_word)
+
+    cls = lily_class_by_name(parser->symtab, lex->label);
+
+    lily_func_sig *fsig = func_var->sig->node.func;
+    int j;
+
+    fsig->ret = cls->sig;
+    if (i != 0) {
+        fsig->args = lily_malloc(sizeof(lily_sig *) * i);
+        fsig->num_args = i;
+    }
+
+    save_top = save_top->next;
+    for (j = 0;j < i;j++) {
+        fsig->args[j] = save_top->sig;
+        save_top = save_top->next;
+    }
+
+    NEED_NEXT_TOK(tk_left_curly)
+    lily_lexer(parser->lex);
+}
+
 static void parse_statement(lily_parse_state *parser)
 {
     char *label = parser->lex->label;
@@ -323,8 +383,11 @@ static void parse_statement(lily_parse_state *parser)
         lclass = lily_class_by_name(parser->symtab, label);
 
         if (lclass != NULL) {
-            /* Do decl parsing, which will handle any assignments. */
-            parse_declaration(parser, lclass);
+            if (lclass->id != SYM_CLASS_METHOD)
+                /* Do decl parsing, which will handle any assignments. */
+                parse_declaration(parser, lclass);
+            else
+                parse_method_decl(parser);
         }
         else {
             /* statement like 'print(x)', or 'a = b'. Call unary to prep the
