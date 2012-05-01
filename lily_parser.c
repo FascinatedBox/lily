@@ -22,6 +22,23 @@
    ast is 'cleaned' by parse_expr_top after each run. */
 #define EX_CONDITION  0x4
 
+#define NEED_NEXT_TOK(expected) \
+lily_lexer(lex); \
+if (lex->token != expected) \
+    lily_raise(parser->error, "Expected '%s', not %s.\n", \
+               tokname(expected), tokname(lex->token)); \
+
+#define NEED_CURRENT_TOK(expected) \
+if (lex->token != expected) \
+    lily_raise(parser->error, "Expected '%s', not %s.\n", \
+               tokname(expected), tokname(lex->token));
+
+#define NEED_NEXT_TOK_MSG(expected, msg) \
+lily_lexer(lex); \
+if (lex->token != expected) \
+    lily_raise(parser->error, "Expected " msg ", not %s.\n", \
+               tokname(lex->token)); \
+
 static void parse_expr_value(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -40,10 +57,7 @@ static void parse_expr_value(lily_parse_state *parser)
                     when they are done. */
                 lily_ast_enter_func(parser->ast_pool, var);
 
-                lily_lexer(parser->lex);
-                if (lex->token != tk_left_parenth)
-                    lily_raise(parser->error,
-                        "Expected '(' after function name.\n");
+                NEED_NEXT_TOK(tk_left_parenth)
 
                 lily_lexer(lex);
                 /* Get the first value of the function. */
@@ -164,11 +178,7 @@ static void parse_declaration(lily_parse_state *parser, lily_class *cls)
 
     while (1) {
         /* This starts at the class name, or the comma. The label is next. */
-        lily_lexer(lex);
-
-        if (lex->token != tk_word)
-            lily_raise(parser->error, "Expected a variable name, not %s.\n",
-                       tokname(lex->token));
+        NEED_NEXT_TOK_MSG(tk_word, "a variable name")
 
         var = lily_var_by_name(parser->symtab, lex->label);
         if (var != NULL)
@@ -282,11 +292,8 @@ static void parse_statement(lily_parse_state *parser)
 
     key_id = lily_keyword_by_name(label);
     if (key_id != -1) {
-        lily_lexer(parser->lex);
-        if (parser->lex->token != tk_word) {
-            lily_raise(parser->error, "Expected a label, not %s.\n",
-                       tokname(parser->lex->token));
-        }
+        lily_lex_state *lex = parser->lex;
+        NEED_NEXT_TOK(tk_word)
 
         if (key_id == KEY_IF) {
             lily_emit_new_if(parser->emit);
@@ -299,18 +306,14 @@ static void parse_statement(lily_parse_state *parser)
         else if (key_id == KEY_ELSE)
             lily_emit_branch_change(parser->emit, /*have_else=*/1);
 
-        if (parser->lex->token != tk_colon)
-            lily_raise(parser->error, "Expected ':', not %s.\n",
-                       tokname(parser->lex->token));
+        NEED_CURRENT_TOK(tk_colon)
 
-        lily_lexer(parser->lex);
+        lily_lexer(lex);
         if (key_id == KEY_IF) {
-            if (parser->lex->token != tk_left_curly)
+            if (lex->token != tk_left_curly)
                 parse_simple_condition(parser);
             else {
-                if (parser->lex->token != tk_left_curly)
-                    lily_raise(parser->error, "Expected '{', not %s.\n",
-                               tokname(parser->lex->token));
+                NEED_CURRENT_TOK(tk_left_curly)
 
                 lily_lexer(parser->lex);
             }
