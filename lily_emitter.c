@@ -230,11 +230,11 @@ void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
 
     lily_branches *b = emit->branches;
 
-    if (b->patch_pos == b->patch_size) {
+    if (b->patch_pos >= b->patch_size) {
         int *new_patches;
 
         b->patch_size *= 2;
-        new_patches = lily_realloc(b->patches, b->patch_size);
+        new_patches = lily_realloc(b->patches, sizeof(int) * b->patch_size);
         if (new_patches == NULL)
             lily_raise_nomem(emit->error);
 
@@ -263,7 +263,7 @@ void lily_emit_new_if(lily_emit_state *emit)
 {
     lily_branches *branches = emit->branches;
 
-    if (branches->save_pos + 2 > branches->save_size) {
+    if (branches->save_pos + 2 >= branches->save_size) {
         branches->save_size *= 2;
         int *new_saves = lily_realloc(branches->saved_spots,
                                       sizeof(int) * branches->save_size);
@@ -271,6 +271,16 @@ void lily_emit_new_if(lily_emit_state *emit)
             lily_raise_nomem(emit->error);
 
         branches->saved_spots = new_saves;
+    }
+
+    if (branches->type_pos + 1 >= branches->type_size) {
+        branches->type_size *= 2;
+        int *new_types = lily_realloc(branches->types,
+                                      sizeof(int) * branches->type_size);
+        if (new_types == NULL)
+            lily_raise_nomem(emit->error);
+
+        branches->types = new_types;
     }
 
     /* The bottom one is for exit jumps, the top for the branch jump. */
