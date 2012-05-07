@@ -19,7 +19,9 @@ typedef struct {
 typedef struct {
     lily_branches *branches;
     lily_method_val *target;
-    lily_method_val *saved_target;
+    lily_sig *target_ret;
+    lily_var *target_var;
+    lily_var *saved_var;
     lily_excep_data *error;
     lily_symtab *symtab;
     int expr_num;

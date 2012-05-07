@@ -17,7 +17,8 @@ char *class_seeds[] = {
 static const char *keywords[] = {
     "if",
     "elif",
-    "else"
+    "else",
+    "return"
 };
 
 typedef const struct {

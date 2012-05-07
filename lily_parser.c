@@ -355,27 +355,36 @@ static void parse_statement(lily_parse_state *parser)
         lily_lex_state *lex = parser->lex;
         NEED_NEXT_TOK(tk_word)
 
-        if (key_id == KEY_IF) {
-            lily_emit_new_if(parser->emit);
-            parse_expr_top(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
+        if (key_id == KEY_RETURN) {
+            /* Check if the current method has a return type. */
+            lily_sig *ret_sig = parser->emit->target_ret;
+            if (ret_sig != NULL) {
+                /* todo: Handle the return. */
+            }
         }
-        else if (key_id == KEY_ELIF) {
-            lily_emit_branch_change(parser->emit, /*have_else=*/0);
-            parse_expr_top(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
-        }
-        else if (key_id == KEY_ELSE)
-            lily_emit_branch_change(parser->emit, /*have_else=*/1);
+        else {
+            if (key_id == KEY_IF) {
+                lily_emit_new_if(parser->emit);
+                parse_expr_top(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
+            }
+            else if (key_id == KEY_ELIF) {
+                lily_emit_branch_change(parser->emit, /*have_else=*/0);
+                parse_expr_top(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
+            }
+            else if (key_id == KEY_ELSE)
+                lily_emit_branch_change(parser->emit, /*have_else=*/1);
 
-        NEED_CURRENT_TOK(tk_colon)
+            NEED_CURRENT_TOK(tk_colon)
 
-        lily_lexer(lex);
-        if (key_id == KEY_IF) {
-            if (lex->token != tk_left_curly)
-                parse_simple_condition(parser);
-            else {
-                NEED_CURRENT_TOK(tk_left_curly)
+            lily_lexer(lex);
+            if (key_id == KEY_IF) {
+                if (lex->token != tk_left_curly)
+                    parse_simple_condition(parser);
+                else {
+                    NEED_CURRENT_TOK(tk_left_curly)
 
-                lily_lexer(parser->lex);
+                    lily_lexer(parser->lex);
+                }
             }
         }
     }
