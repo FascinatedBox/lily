@@ -4,7 +4,7 @@
 </head>
 <body>
 <@lily
-method concat (str a, str b):str {
+method add (integer a, integer b):integer {
     return a + b
 }
 
