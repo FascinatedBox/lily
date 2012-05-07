@@ -118,9 +118,12 @@ typedef struct {
     lily_excep_data *error;
 } lily_symtab;
 
+/* Sync with keywords in lily_seed_symtab.h. */
 #define KEY_IF      0
 #define KEY_ELIF    1
 #define KEY_ELSE    2
+#define KEY_RETURN  3
+
 #define KEY_LAST_ID 3
 
 /* Sync with classname_seeds in lily_seed_symtab.h. */

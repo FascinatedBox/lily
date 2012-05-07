@@ -352,18 +352,24 @@ void lily_emit_fix_exit_jumps(lily_emit_state *emit)
 
 void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
 {
-    emit->saved_target = emit->target;
+    emit->saved_var = emit->target_var;
+    emit->target_ret = var->sig->node.func->ret;
+    emit->target_var = var;
     emit->target = (lily_method_val *)var->value.ptr;
 }
 
 void lily_emit_leave_method(lily_emit_state *emit)
 {
-    emit->target = emit->saved_target;
-    emit->saved_target = NULL;
+    emit->target_var = emit->saved_var;
+    emit->target_ret = emit->target_var->sig->node.func->ret;
+    emit->target = (lily_method_val *)emit->target_var->value.ptr;
+
+    emit->saved_var = NULL;
 }
 
 void lily_emit_set_target(lily_emit_state *emit, lily_var *var)
 {
+    emit->target_var = var;
     emit->target = (lily_method_val *)var->value.ptr;
 }
 
