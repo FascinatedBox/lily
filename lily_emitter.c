@@ -44,7 +44,8 @@ m->pos += 4;
    conditions to the same if, and other bad stuff. This is also needed for
    multiline expressions. */
 #define TYPE_IF      0x1
-#define TYPE_IF_ELSE 0x2
+/* This is 0x3 so & TYPE_IF can check for both types of if. */
+#define TYPE_IF_ELSE 0x3
 
 /* The emitter sets error->line_adjust with a better line number before calling
    lily_raise. This gives debuggers a chance at a more useful line number.
@@ -348,6 +349,15 @@ void lily_emit_fix_exit_jumps(lily_emit_state *emit)
     branches->patch_pos = to;
     branches->save_pos -= 2;
     branches->type_pos--;
+}
+
+void lily_emit_pop_block(lily_emit_state *emit)
+{
+    int btype = emit->branches->types[emit->branches->type_pos-1];
+
+    /* Note the & : This handles if with and without else. */
+    if (btype & TYPE_IF)
+        lily_emit_fix_exit_jumps(emit);
 }
 
 void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
