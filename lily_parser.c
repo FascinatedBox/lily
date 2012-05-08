@@ -459,8 +459,7 @@ void lily_parser(lily_parse_state *parser)
         if (lex->token == tk_word)
             parse_statement(parser);
         else if (lex->token == tk_right_curly) {
-            /* This closes the last multi-line if. */
-            lily_emit_fix_exit_jumps(parser->emit);
+            lily_emit_pop_block(parser->emit);
             lily_lexer(parser->lex);
         }
         else if (lex->token == tk_end_tag || lex->token == tk_eof) {
