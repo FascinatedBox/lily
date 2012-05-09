@@ -10,16 +10,16 @@
 #include "lily_symtab.h"
 #include "lily_vm.h"
 
-/* These are flags for parse_expr_top. */
+/* These are flags for expression. */
 
 /* Execute only one expression. */
 #define EX_SINGLE     0x1
-/* Get the lhs via parse_expr_value. */
+/* Get the lhs via expression_value. */
 #define EX_NEED_VALUE 0x2
 /* For if and elif to work, the expression has to be tested for being true or
    false. This tells the emitter to write in that test (o_jump_if_false) after
-   writing the condition. This must be done within parse_expr_top, because the
-   ast is 'cleaned' by parse_expr_top after each run. */
+   writing the condition. This must be done within expression, because the
+   ast is 'cleaned' by expression after each run. */
 #define EX_CONDITION  0x4
 
 #define NEED_NEXT_TOK(expected) \
@@ -39,7 +39,7 @@ if (lex->token != expected) \
     lily_raise(parser->error, "Expected " msg ", not %s.\n", \
                tokname(lex->token)); \
 
-static void parse_expr_value(lily_parse_state *parser)
+static void expression_value(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
@@ -102,12 +102,12 @@ static void parse_expr_value(lily_parse_state *parser)
    expression (so no semicolons). ) is handled, because the expression is done
    and can properly be closed. */
 
-static void parse_expr_top(lily_parse_state *parser, int flags)
+static void expression(lily_parse_state *parser, int flags)
 {
     lily_lex_state *lex = parser->lex;
 
     if ((flags & EX_NEED_VALUE) != 0)
-        parse_expr_value(parser);
+        expression_value(parser);
 
     while (1) {
         while (1) {
@@ -151,14 +151,14 @@ static void parse_expr_top(lily_parse_state *parser, int flags)
                     break;
                 else {
                     lily_raise(parser->error,
-                        "parse_expr_top: Unexpected token value %s.\n",
+                        "expression: Unexpected token value %s.\n",
                         tokname(lex->token));
                 }
                 lily_ast_push_binary_op(parser->ast_pool, op);
 
                 lily_lexer(lex);
             }
-            parse_expr_value(parser);
+            expression_value(parser);
         }
         if (flags & EX_SINGLE) {
             if (flags & EX_CONDITION)
@@ -171,7 +171,7 @@ static void parse_expr_top(lily_parse_state *parser, int flags)
     }
 }
 
-static void parse_declaration(lily_parse_state *parser, lily_class *cls)
+static void declaration(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
     lily_var *var;
@@ -191,7 +191,7 @@ static void parse_declaration(lily_parse_state *parser, lily_class *cls)
         /* Handle an initializing assignment, if there is one. */
         if (lex->token == tk_equal) {
             lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
-            parse_expr_top(parser, EX_SINGLE);
+            expression(parser, EX_SINGLE);
         }
 
         /* This is the start of the next statement. */
@@ -220,7 +220,7 @@ static void parse_simple_condition(lily_parse_state *parser)
             lily_raise(parser->error, "Expected a label, not %s.\n",
                     tokname(lex->token));
 
-        parse_expr_top(parser, EX_NEED_VALUE | EX_SINGLE);
+        expression(parser, EX_NEED_VALUE | EX_SINGLE);
 
         if (lex->token == tk_word) {
             key_id = lily_keyword_by_name(parser->lex->label);
@@ -233,7 +233,7 @@ static void parse_simple_condition(lily_parse_state *parser)
                                tokname(lex->token));
 
                 lily_emit_new_if(parser->emit);
-                parse_expr_top(parser, EX_NEED_VALUE | EX_SINGLE |
+                expression(parser, EX_NEED_VALUE | EX_SINGLE |
                                EX_CONDITION);
 
                 if (lex->token != tk_colon)
@@ -256,7 +256,7 @@ static void parse_simple_condition(lily_parse_state *parser)
                     lily_raise(parser->error, "Expected a label, not %s.\n",
                                tokname(lex->token));
 
-                parse_expr_top(parser, EX_NEED_VALUE | EX_SINGLE |
+                expression(parser, EX_NEED_VALUE | EX_SINGLE |
                                EX_CONDITION);
 
                 if (lex->token != tk_colon)
@@ -344,7 +344,7 @@ static void parse_method_decl(lily_parse_state *parser)
     lily_lexer(parser->lex);
 }
 
-static void parse_statement(lily_parse_state *parser)
+static void statement(lily_parse_state *parser)
 {
     char *label = parser->lex->label;
     int key_id;
@@ -365,11 +365,11 @@ static void parse_statement(lily_parse_state *parser)
         else {
             if (key_id == KEY_IF) {
                 lily_emit_new_if(parser->emit);
-                parse_expr_top(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
+                expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
             }
             else if (key_id == KEY_ELIF) {
                 lily_emit_branch_change(parser->emit, /*have_else=*/0);
-                parse_expr_top(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
+                expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
             }
             else if (key_id == KEY_ELSE)
                 lily_emit_branch_change(parser->emit, /*have_else=*/1);
@@ -393,16 +393,13 @@ static void parse_statement(lily_parse_state *parser)
 
         if (lclass != NULL) {
             if (lclass->id != SYM_CLASS_METHOD)
-                /* Do decl parsing, which will handle any assignments. */
-                parse_declaration(parser, lclass);
+                /* Methods have a special kind of declaration. */
+                declaration(parser, lclass);
             else
                 parse_method_decl(parser);
         }
-        else {
-            /* statement like 'print(x)', or 'a = b'. Call unary to prep the
-               tree, then binary handles the rest. */
-            parse_expr_top(parser, EX_NEED_VALUE | EX_SINGLE);
-        }
+        else
+            expression(parser, EX_NEED_VALUE | EX_SINGLE);
     }
 }
 
@@ -457,7 +454,7 @@ void lily_parser(lily_parse_state *parser)
 
     while (1) {
         if (lex->token == tk_word)
-            parse_statement(parser);
+            statement(parser);
         else if (lex->token == tk_right_curly) {
             lily_emit_pop_block(parser->emit);
             lily_lexer(parser->lex);
