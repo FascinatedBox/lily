@@ -226,13 +226,13 @@ static void parse_simple_condition(lily_parse_state *parser)
             key_id = lily_keyword_by_name(parser->lex->label);
             if (key_id == KEY_IF) {
                 /* Close this branch and start another one. */
-                lily_emit_fix_exit_jumps(parser->emit);
+                lily_emit_pop_block(parser->emit);
                 lily_lexer(lex);
                 if (lex->token != tk_word)
                     lily_raise(parser->error, "Expected a label, not %s.\n",
                                tokname(lex->token));
 
-                lily_emit_new_if(parser->emit);
+                lily_emit_push_block(parser->emit, BLOCK_IF);
                 expression(parser, EX_NEED_VALUE | EX_SINGLE |
                                EX_CONDITION);
 
@@ -249,7 +249,7 @@ static void parse_simple_condition(lily_parse_state *parser)
                 }
             }
             else if (key_id == KEY_ELIF) {
-                lily_emit_branch_change(parser->emit, /*have_else=*/0);
+                lily_emit_clear_block(parser->emit, /*have_else=*/0);
 
                 lily_lexer(lex);
                 if (lex->token != tk_word)
@@ -266,7 +266,7 @@ static void parse_simple_condition(lily_parse_state *parser)
                 lily_lexer(lex);
             }
             else if (key_id == KEY_ELSE) {
-                lily_emit_branch_change(parser->emit, /*have_else=*/1);
+                lily_emit_clear_block(parser->emit, /*have_else=*/1);
 
                 lily_lexer(lex);
                 if (lex->token != tk_colon)
@@ -281,7 +281,7 @@ static void parse_simple_condition(lily_parse_state *parser)
         else
             break;
     }
-    lily_emit_fix_exit_jumps(parser->emit);
+    lily_emit_pop_block(parser->emit);
 }
 
 static void parse_method_decl(lily_parse_state *parser)
@@ -364,15 +364,15 @@ static void statement(lily_parse_state *parser)
         }
         else {
             if (key_id == KEY_IF) {
-                lily_emit_new_if(parser->emit);
+                lily_emit_push_block(parser->emit, BLOCK_IF);
                 expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
             }
             else if (key_id == KEY_ELIF) {
-                lily_emit_branch_change(parser->emit, /*have_else=*/0);
+                lily_emit_clear_block(parser->emit, /*have_else=*/0);
                 expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
             }
             else if (key_id == KEY_ELSE)
-                lily_emit_branch_change(parser->emit, /*have_else=*/1);
+                lily_emit_clear_block(parser->emit, /*have_else=*/1);
 
             NEED_CURRENT_TOK(tk_colon)
 

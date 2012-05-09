@@ -40,13 +40,6 @@ m->code[m->pos+2] = three; \
 m->code[m->pos+3] = four; \
 m->pos += 4;
 
-/* The emitter keeps track of branch types so the parser can't send two else
-   conditions to the same if, and other bad stuff. This is also needed for
-   multiline expressions. */
-#define TYPE_IF      0x1
-/* This is 0x3 so & TYPE_IF can check for both types of if. */
-#define TYPE_IF_ELSE 0x3
-
 /* The emitter sets error->line_adjust with a better line number before calling
    lily_raise. This gives debuggers a chance at a more useful line number.
    Example: integer a = 1.0 +
@@ -260,51 +253,19 @@ void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
     Jumps should be patched from a save location to current position. Also,
     remember that patch_pos is ahead most of the time. */
 
-void lily_emit_new_if(lily_emit_state *emit)
-{
-    lily_branches *branches = emit->branches;
-
-    if (branches->save_pos + 2 >= branches->save_size) {
-        branches->save_size *= 2;
-        int *new_saves = lily_realloc(branches->saved_spots,
-                                      sizeof(int) * branches->save_size);
-        if (new_saves == NULL)
-            lily_raise_nomem(emit->error);
-
-        branches->saved_spots = new_saves;
-    }
-
-    if (branches->type_pos + 1 >= branches->type_size) {
-        branches->type_size *= 2;
-        int *new_types = lily_realloc(branches->types,
-                                      sizeof(int) * branches->type_size);
-        if (new_types == NULL)
-            lily_raise_nomem(emit->error);
-
-        branches->types = new_types;
-    }
-
-    /* The bottom one is for exit jumps, the top for the branch jump. */
-    branches->saved_spots[branches->save_pos] = branches->patch_pos;
-    branches->saved_spots[branches->save_pos+1] = branches->patch_pos;
-    branches->save_pos += 2;
-    branches->types[branches->type_pos] = TYPE_IF;
-    branches->type_pos++;
-}
-
-void lily_emit_branch_change(lily_emit_state *emit, int have_else)
+void lily_emit_clear_block(lily_emit_state *emit, int have_else)
 {
     int save_jump;
     lily_branches *branches = emit->branches;
     lily_method_val *m = emit->target;
 
     if (have_else) {
-        if (branches->types[branches->type_pos-1] == TYPE_IF_ELSE)
+        if (branches->types[branches->type_pos-1] == BLOCK_IFELSE)
             lily_raise(emit->error, "Only one 'else' per 'if' allowed.\n");
         else
-            branches->types[branches->type_pos-1] = TYPE_IF_ELSE;
+            branches->types[branches->type_pos-1] = BLOCK_IFELSE;
     }
-    else if (branches->types[branches->type_pos-1] == TYPE_IF_ELSE)
+    else if (branches->types[branches->type_pos-1] == BLOCK_IFELSE)
         lily_raise(emit->error, "'elif' after 'else'.\n");
 
     /* When changing from an if/elif to another elif/else, two things need to
@@ -330,34 +291,59 @@ void lily_emit_branch_change(lily_emit_state *emit, int have_else)
     branches->saved_spots[branches->save_pos-1]++;
 }
 
-void lily_emit_fix_exit_jumps(lily_emit_state *emit)
+void lily_emit_push_block(lily_emit_state *emit, int btype)
 {
     lily_branches *branches = emit->branches;
-    lily_method_val *m = emit->target;
-    int from, to;
 
-    /* When closing an if, the last branch jump will go to the same place as
-       the exit jump. So the last branch jump is patched with all the exit
-       jumps. This goes down so that branches->patch_pos can be set to the local
-       'to' instead of looking up the saved spot again. */
-    from = branches->patch_pos-1;
-    to = branches->saved_spots[branches->save_pos-2];
+    if (btype == BLOCK_IF) {
+        if (branches->save_pos + 2 >= branches->save_size) {
+            branches->save_size *= 2;
+            int *new_saves = lily_realloc(branches->saved_spots,
+                                        sizeof(int) * branches->save_size);
+            if (new_saves == NULL)
+                lily_raise_nomem(emit->error);
+    
+            branches->saved_spots = new_saves;
+        }
+        /* The bottom one is for exit jumps, the top for the branch jump. */
+        branches->saved_spots[branches->save_pos] = branches->patch_pos;
+        branches->saved_spots[branches->save_pos+1] = branches->patch_pos;
+        branches->save_pos += 2;
+    }
 
-    for (;from >= to;from--)
-        m->code[branches->patches[from]] = m->pos;
+    if (branches->type_pos + 1 >= branches->type_size) {
+        branches->type_size *= 2;
+        int *new_types = lily_realloc(branches->types,
+                                      sizeof(int) * branches->type_size);
+        if (new_types == NULL)
+            lily_raise_nomem(emit->error);
 
-    branches->patch_pos = to;
-    branches->save_pos -= 2;
-    branches->type_pos--;
+        branches->types = new_types;
+    }
+
+    branches->types[branches->type_pos] = btype;
+    branches->type_pos++;
 }
 
 void lily_emit_pop_block(lily_emit_state *emit)
 {
-    int btype = emit->branches->types[emit->branches->type_pos-1];
+    lily_branches *branches = emit->branches;
+    lily_method_val *m = emit->target;
+    int btype, from, to;
 
-    /* Note the & : This handles if with and without else. */
-    if (btype & TYPE_IF)
-        lily_emit_fix_exit_jumps(emit);
+    btype = branches->types[branches->type_pos-1];
+    from = branches->patch_pos-1;
+
+    if (btype <= BLOCK_IFELSE) {
+        to = branches->saved_spots[branches->save_pos-2];
+        branches->save_pos--;
+    }
+
+    for (;from >= to;from--)
+        m->code[branches->patches[from]] = m->pos;
+
+    branches->save_pos--;
+    branches->type_pos--;
 }
 
 void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
