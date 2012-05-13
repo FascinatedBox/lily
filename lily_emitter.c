@@ -310,6 +310,19 @@ void lily_emit_push_block(lily_emit_state *emit, int btype)
         branches->saved_spots[branches->save_pos+1] = branches->patch_pos;
         branches->save_pos += 2;
     }
+    else if (btype == BLOCK_RETURN) {
+        if (branches->save_pos + 1 >= branches->save_size) {
+            branches->save_size *= 2;
+            int *new_saves = lily_realloc(branches->saved_spots,
+                                        sizeof(int) * branches->save_size);
+            if (new_saves == NULL)
+                lily_raise_nomem(emit->error);
+
+            branches->saved_spots = new_saves;
+        }
+        branches->saved_spots[branches->save_pos] = branches->patch_pos;
+        branches->save_pos++;
+    }
 
     if (branches->type_pos + 1 >= branches->type_size) {
         branches->type_size *= 2;
@@ -338,6 +351,10 @@ void lily_emit_pop_block(lily_emit_state *emit)
         to = branches->saved_spots[branches->save_pos-2];
         branches->save_pos--;
     }
+    else if (btype == BLOCK_RETURN) {
+        to = branches->saved_spots[branches->save_pos-1];
+        lily_emit_leave_method(emit);
+    }
 
     for (;from >= to;from--)
         m->code[branches->patches[from]] = m->pos;
@@ -352,6 +369,7 @@ void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
     emit->target_ret = var->sig->node.func->ret;
     emit->target_var = var;
     emit->target = (lily_method_val *)var->value.ptr;
+    lily_emit_push_block(emit, BLOCK_RETURN);
 }
 
 void lily_emit_leave_method(lily_emit_state *emit)
@@ -361,6 +379,11 @@ void lily_emit_leave_method(lily_emit_state *emit)
     emit->target = (lily_method_val *)emit->target_var->value.ptr;
 
     emit->saved_var = NULL;
+}
+
+void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *sig)
+{
+
 }
 
 void lily_emit_set_target(lily_emit_state *emit, lily_var *var)
