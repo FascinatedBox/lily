@@ -39,6 +39,7 @@ void lily_emit_clear_block(lily_emit_state *, int);
 void lily_emit_push_block(lily_emit_state *, int);
 void lily_emit_pop_block(lily_emit_state *);
 void lily_emit_set_target(lily_emit_state *, lily_var *);
+void lily_emit_return(lily_emit_state *, lily_ast *, lily_sig *);
 void lily_emit_vm_return(lily_emit_state *);
 void lily_free_emit_state(lily_emit_state *);
 lily_emit_state *lily_new_emit_state(lily_excep_data *);
