@@ -26,19 +26,31 @@ static void add_var(lily_symtab *symtab, lily_var *s)
 static void init_func_sig_args(lily_symtab *symtab, lily_func_sig *func_sig,
                                func_entry *entry)
 {
+    /* The first arg always exists, and is the return type. */
     int i;
 
-    func_sig->args = lily_malloc(sizeof(lily_sig *) * entry->num_args);
-    if (func_sig->args == NULL)
-        return;
-
-    for (i = 0;i < entry->num_args;i++) {
-        lily_class *cls = lily_class_by_id(symtab, entry->arg_ids[i]);
-        func_sig->args[i] = cls->sig;
+    if (entry->arg_ids[0] == -1)
+        func_sig->ret = NULL;
+    else {
+        lily_class *c = lily_class_by_id(symtab, entry->arg_ids[0]);
+        func_sig->ret = c->sig;
     }
 
-    func_sig->ret = NULL;
-    func_sig->num_args = entry->num_args;
+    if (entry->arg_ids[1] == -1) {
+        func_sig->num_args = 0;
+        func_sig->args = NULL;
+    }
+    else {
+        func_sig->args = lily_malloc(sizeof(lily_sig *) * entry->num_args);
+        if (func_sig->args == NULL)
+            return;
+
+        for (i = 1;i <= entry->num_args;i++) {
+            lily_class *cls = lily_class_by_id(symtab, entry->arg_ids[i]);
+            func_sig->args[i-1] = cls->sig;
+        }
+        func_sig->num_args = entry->num_args;
+    }
     func_sig->is_varargs = 0;
 }
 
@@ -292,16 +304,35 @@ static int init_symbols(lily_symtab *symtab)
             break;
         }
 
-        if (i == func_count - 1) {
-            /* @main is always last, and is the only method. */
-            sig->cls = lily_class_by_id(symtab, SYM_CLASS_METHOD);
-            sig->node.func = NULL;
+        lily_func_sig *func_sig = lily_malloc(sizeof(lily_func_sig));
+        if (func_sig == NULL) {
+            lily_free(sig);
+            lily_free(new_var);
+            ret = 0;
+            break;
+        }
+        init_func_sig_args(symtab, func_sig, seed);
+        if (func_sig->args == NULL && (i != func_count - 1)) {
+            lily_free(func_sig);
+            lily_free(sig);
+            lily_free(new_var);
+            ret = 0;
+            break;
+        }
 
+        if (i != func_count - 1) {
+            sig->node.func = func_sig;
+            sig->cls = func_class;
+            new_var->value.ptr = seed->func;
+        }
+        else {
+            /* @main is always last, and is the only method. */
             lily_method_val *m = lily_malloc(sizeof(lily_method_val));
             int *code = lily_malloc(4 * sizeof(int));
             if (m == NULL || code == NULL) {
                 lily_free(m);
                 lily_free(code);
+                lily_free(func_sig);
                 lily_free(sig);
                 lily_free(new_var);
                 ret = 0;
@@ -311,27 +342,8 @@ static int init_symbols(lily_symtab *symtab)
             m->pos = 0;
             m->len = 4;
             new_var->value.ptr = m;
-        }
-        else {
-            lily_func_sig *func_sig = lily_malloc(sizeof(lily_func_sig));
-            if (func_sig == NULL) {
-                lily_free(func_sig);
-                lily_free(sig);
-                lily_free(new_var);
-                ret = 0;
-                break;
-            }
-            sig->node.func = func_sig;
-            sig->cls = func_class;
-            new_var->value.ptr = seed->func;
-            init_func_sig_args(symtab, func_sig, seed);
-            if (func_sig->args == NULL) {
-                lily_free(func_sig);
-                lily_free(sig);
-                lily_free(new_var);
-                ret = 0;
-                break;
-            }
+            sig->node.func = NULL;
+            sig->cls = lily_class_by_id(symtab, SYM_CLASS_METHOD);
         }
 
         new_var->name = seed->name;
