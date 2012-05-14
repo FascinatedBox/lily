@@ -377,13 +377,15 @@ void lily_emit_leave_method(lily_emit_state *emit)
     emit->target_var = emit->saved_var;
     emit->target_ret = emit->target_var->sig->node.func->ret;
     emit->target = (lily_method_val *)emit->target_var->value.ptr;
-
     emit->saved_var = NULL;
 }
 
 void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *sig)
 {
+    walk_tree(emit, ast);
+    emit->expr_num++;
 
+    /* Todo: Need to tell the vm that this value is the return. */
 }
 
 void lily_emit_set_target(lily_emit_state *emit, lily_var *var)

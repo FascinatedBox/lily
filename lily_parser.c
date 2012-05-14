@@ -13,14 +13,17 @@
 /* These are flags for expression. */
 
 /* Execute only one expression. */
-#define EX_SINGLE     0x1
+#define EX_SINGLE     0x01
 /* Get the lhs via expression_value. */
-#define EX_NEED_VALUE 0x2
+#define EX_NEED_VALUE 0x02
 /* For if and elif to work, the expression has to be tested for being true or
    false. This tells the emitter to write in that test (o_jump_if_false) after
    writing the condition. This must be done within expression, because the
    ast is 'cleaned' by expression after each run. */
-#define EX_CONDITION  0x4
+#define EX_CONDITION  0x04
+/* Don't clear the ast within 'expression'. This allows the finished ast to be
+   inspected. */
+#define EX_SAVE_AST   0x10
 
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
@@ -165,7 +168,8 @@ static void expression(lily_parse_state *parser, int flags)
                 lily_emit_conditional(parser->emit, parser->ast_pool->root);
             else
                 lily_emit_ast(parser->emit, parser->ast_pool->root);
-            lily_ast_reset_pool(parser->ast_pool);
+            if (!(flags & EX_SAVE_AST))
+                lily_ast_reset_pool(parser->ast_pool);
         }
         break;
     }
@@ -288,13 +292,28 @@ static void parse_method_decl(lily_parse_state *parser)
 {
     int i = 0;
     lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_METHOD);
+    lily_method_val *m;
     lily_lex_state *lex = parser->lex;
     lily_var *func_var, *save_top;
+
+    m = lily_malloc(sizeof(lily_method_val));
+    if (m == NULL)
+        lily_raise_nomem(parser->error);
+
+    m->code = lily_malloc(4 * sizeof(int));
+    if (m->code == NULL) {
+        lily_free(m);
+        lily_raise_nomem(parser->error);
+    }
+
+    m->pos = 0;
+    m->len = 4;
 
     /* Get the method's name. */
     NEED_NEXT_TOK(tk_word)
     /* Form: method name(args):<ret type> {  } */
     func_var = lily_new_var(parser->symtab, cls, lex->label);
+    func_var->value.ptr = m;
 
     NEED_NEXT_TOK(tk_left_parenth)
     save_top = parser->symtab->var_top;
@@ -315,6 +334,8 @@ static void parse_method_decl(lily_parse_state *parser)
         else if (lex->token == tk_right_parenth)
             break;
         else {
+            lily_free(m->code);
+            lily_free(m);
             lily_raise(parser->error, "Expected ',' or ')', not %s.\n",
                        tokname(lex->token));
         }
@@ -340,6 +361,7 @@ static void parse_method_decl(lily_parse_state *parser)
         save_top = save_top->next;
     }
 
+    lily_emit_enter_method(parser->emit, func_var);
     NEED_NEXT_TOK(tk_left_curly)
     lily_lexer(parser->lex);
 }
@@ -356,10 +378,10 @@ static void statement(lily_parse_state *parser)
         NEED_NEXT_TOK(tk_word)
 
         if (key_id == KEY_RETURN) {
-            /* Check if the current method has a return type. */
             lily_sig *ret_sig = parser->emit->target_ret;
             if (ret_sig != NULL) {
-                /* todo: Handle the return. */
+                expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
+                lily_emit_return(parser->emit, parser->ast_pool->root, ret_sig);
             }
         }
         else {

@@ -321,7 +321,6 @@ static int init_symbols(lily_symtab *symtab)
         }
 
         if (i != func_count - 1) {
-            sig->node.func = func_sig;
             sig->cls = func_class;
             new_var->value.ptr = seed->func;
         }
@@ -341,11 +340,11 @@ static int init_symbols(lily_symtab *symtab)
             m->code = code;
             m->pos = 0;
             m->len = 4;
-            new_var->value.ptr = m;
-            sig->node.func = NULL;
+            new_var->value.ptr = m;s
             sig->cls = lily_class_by_id(symtab, SYM_CLASS_METHOD);
         }
 
+        sig->node.func = func_sig;
         new_var->name = seed->name;
         new_var->sig = sig;
         new_var->line_num = 0;
