@@ -340,7 +340,7 @@ static int init_symbols(lily_symtab *symtab)
             m->code = code;
             m->pos = 0;
             m->len = 4;
-            new_var->value.ptr = m;s
+            new_var->value.ptr = m;
             sig->cls = lily_class_by_id(symtab, SYM_CLASS_METHOD);
         }
 

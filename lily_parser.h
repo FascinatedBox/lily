@@ -6,12 +6,14 @@
 # include "lily_lexer.h"
 # include "lily_emitter.h"
 # include "lily_symtab.h"
+# include "lily_vm.h"
 
 typedef struct {
     lily_ast_pool *ast_pool;
     lily_lex_state *lex;
     lily_emit_state *emit;
     lily_symtab *symtab;
+    lily_vm_state *vm;
     lily_excep_data *error;
 } lily_parse_state;
 

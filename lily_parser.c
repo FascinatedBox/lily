@@ -431,6 +431,7 @@ void lily_free_parse_state(lily_parse_state *parser)
     lily_free_symtab(parser->symtab);
     lily_free_lex_state(parser->lex);
     lily_free_emit_state(parser->emit);
+    lily_free_vm_state(parser->vm);
     lily_free(parser);
 }
 
@@ -447,9 +448,10 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
     s->symtab = lily_new_symtab(excep);
     s->emit = lily_new_emit_state(excep);
     s->lex = lily_new_lex_state(excep);
+    s->vm = lily_new_vm_state(excep);
 
     if (s->lex == NULL || s->emit == NULL || s->symtab == NULL ||
-        s->ast_pool == NULL) {
+        s->ast_pool == NULL || s->vm == NULL) {
         if (s->symtab != NULL)
             lily_free_symtab(s->symtab);
         if (s->emit != NULL)
@@ -458,6 +460,8 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
             lily_free_lex_state(s->lex);
         if (s->ast_pool != NULL)
             lily_ast_free_pool(s->ast_pool);
+        if (s->vm != NULL)
+            lily_free_vm_state(s->vm);
         lily_free(s);
         return NULL;
     }
