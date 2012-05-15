@@ -3,6 +3,7 @@
 #include "lily_impl.h"
 #include "lily_symtab.h"
 #include "lily_opcode.h"
+#include "lily_vm.h"
 
 #define FAST_INTEGER_OP(OP) \
 ((lily_sym *)code[i+3])->value.integer = \
@@ -51,6 +52,30 @@ else if (lhs->sig->cls->id == SYM_CLASS_STR) { \
            ((lily_strval *)rhs->value.ptr)->str) STROP; \
 } \
 i += 4;
+
+lily_vm_state *lily_new_vm_state(lily_excep_data *error)
+{
+    lily_vm_state *vm = lily_malloc(sizeof(lily_vm_state));
+    if (vm == NULL)
+        lily_raise_nomem(error);
+
+    int **saved_code = lily_malloc(sizeof(int *) * 4);
+    if (saved_code == NULL) {
+        lily_free(vm);
+        lily_raise_nomem(error);
+    }
+
+    vm->saved_code = saved_code;
+    vm->stack_pos = 0;
+    vm->stack_size = 4;
+    return vm;
+}
+
+void lily_free_vm_state(lily_vm_state *vm)
+{
+    lily_free(vm->saved_code);
+    lily_free(vm);
+}
 
 void lily_builtin_print(lily_sym **args)
 {
