@@ -3,8 +3,6 @@
 
 # include "lily_error.h"
 # include "lily_opcode.h"
-# include "lily_expr_op.h"
-# include "lily_builtins.h"
 
 typedef struct {
     char *str;
