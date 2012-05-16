@@ -55,7 +55,8 @@ static void expression_value(lily_parse_state *parser)
                 lily_raise(parser->error, "Variable '%s' is undefined.\n",
                            lex->label);
 
-            if (isafunc(var)) {
+            if (var->sig->cls->id == SYM_CLASS_FUNCTION ||
+                var->sig->cls->id == SYM_CLASS_METHOD) {
                 /* New trees will get saved to the args section of this tree
                     when they are done. */
                 lily_ast_enter_func(parser->ast_pool, var);

@@ -51,8 +51,6 @@ typedef struct lily_sig_t {
 #define STORAGE_SYM  0x04
 #define S_IS_NIL     0x10
 
-#define isafunc(s) (s->sig->cls->id == SYM_CLASS_FUNCTION)
-
 /* All symbols have at least these fields. The vm and debugging functions use
    this to cast and grab common info. */
 typedef struct lily_sym_t {
