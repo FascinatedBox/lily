@@ -383,6 +383,7 @@ static void statement(lily_parse_state *parser)
             if (ret_sig != NULL) {
                 expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
                 lily_emit_return(parser->emit, parser->ast_pool->root, ret_sig);
+                lily_ast_reset_pool(parser->ast_pool);
             }
         }
         else {
