@@ -11,6 +11,8 @@ typedef struct {
 
 typedef struct {
     int *code;
+    struct lily_var_t *first_arg;
+    struct lily_var_t *last_arg;
     int pos;
     int len;
 } lily_method_val;

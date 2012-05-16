@@ -345,6 +345,8 @@ static void parse_method_decl(lily_parse_state *parser)
     NEED_NEXT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_word)
 
+    m->first_arg = save_top->next;
+    m->last_arg = parser->symtab->var_top;
     cls = lily_class_by_name(parser->symtab, lex->label);
 
     lily_func_sig *fsig = func_var->sig->node.func;
