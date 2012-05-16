@@ -131,6 +131,13 @@ static void expression(lily_parse_state *parser, int flags)
                 if (lex->token == tk_word && parser->ast_pool->save_index == 0)
                     break;
             }
+            else if (lex->token == tk_comma) {
+                if (parser->ast_pool->active == NULL)
+                    lily_raise(parser->error, "Expected a value, not ','.\n");
+
+                lily_ast_collect_arg(parser->ast_pool);
+                lily_lexer(lex);
+            }
             else {
                 lily_expr_op op;
                 if (lex->token == tk_equal)
