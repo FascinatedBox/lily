@@ -8,6 +8,7 @@ method add (integer a, integer b):integer {
     return a + b
 }
 
+add(1+1, 1+1)
 integer c = 1 + 1
 @>
 </body>

@@ -150,22 +150,24 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             }
         }
 
-        new_pos = m->pos + 4 + ast->args_collected;
-        /* m->pos is implicitly added, so this next line is right. */
-        WRITE_PREP(4 + ast->args_collected)
-
-        m->code[m->pos] = o_func_call;
-        /* The debugger uses this to show where the func was declared. */
-        m->code[m->pos+1] = (int)v;
-        /* Do this once, so the vm doesn't have to each pass. */
-        m->code[m->pos+2] = (int)v->value.ptr;
-        m->code[m->pos+3] = ast->args_collected;
-        for (i = 4, arg = ast->arg_start;
-             arg != NULL;
-             arg = arg->next_arg) {
-            m->code[m->pos + i] = (int)arg->result;
+        if (v->sig->cls->id == SYM_CLASS_FUNCTION) {
+            new_pos = m->pos + 4 + ast->args_collected;
+            /* m->pos is implicitly added, so this next line is right. */
+            WRITE_PREP(4 + ast->args_collected)
+    
+            m->code[m->pos] = o_func_call;
+            /* The debugger uses this to show where the func was declared. */
+            m->code[m->pos+1] = (int)v;
+            /* Do this once, so the vm doesn't have to each pass. */
+            m->code[m->pos+2] = (int)v->value.ptr;
+            m->code[m->pos+3] = ast->args_collected;
+            for (i = 4, arg = ast->arg_start;
+                arg != NULL;
+                arg = arg->next_arg) {
+                m->code[m->pos + i] = (int)arg->result;
+            }
+            m->pos = new_pos;
         }
-        m->pos = new_pos;
     }
     else if (ast->expr_type == binary) {
         /* lhs and rhs must be walked first, regardless of op. */

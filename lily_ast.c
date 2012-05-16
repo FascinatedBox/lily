@@ -237,6 +237,18 @@ void lily_ast_push_arg(lily_ast_pool *ap, lily_ast *func, lily_ast *tree)
     func->args_collected++;
 }
 
+inline void lily_ast_collect_arg(lily_ast_pool *ap)
+{
+    /* This is where the function is. Don't drop the index, because it's not
+       done yet. */
+    lily_ast *a = ap->saved_trees[ap->save_index-1];
+
+    lily_ast_push_arg(ap, a, ap->active);
+
+    /* Keep all of the expressions independent. */
+    ap->active = NULL;
+}
+
 void lily_ast_pop_tree(lily_ast_pool *ap)
 {
     ap->save_index--;

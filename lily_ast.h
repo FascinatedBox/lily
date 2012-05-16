@@ -45,6 +45,7 @@ typedef struct {
 } lily_ast_pool;
 
 void lily_ast_add_arg(lily_ast_pool *, lily_ast *, lily_ast *);
+void lily_ast_collect_arg(lily_ast_pool *);
 void lily_ast_enter_func(lily_ast_pool *, lily_var *);
 void lily_ast_free_pool(lily_ast_pool *);
 lily_ast_pool *lily_ast_init_pool(lily_excep_data *, int);
