@@ -337,6 +337,8 @@ static int init_symbols(lily_symtab *symtab)
                 ret = 0;
                 break;
             }
+            m->first_arg = NULL;
+            m->last_arg = NULL;
             m->code = code;
             m->pos = 0;
             m->len = 4;
