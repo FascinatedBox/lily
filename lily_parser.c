@@ -470,6 +470,7 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
         return NULL;
     }
 
+    s->vm->main = s->symtab->main;
     s->symtab->lex_linenum = &s->lex->line_num;
     s->ast_pool->lex_linenum = &s->lex->line_num;
     s->emit->symtab = s->symtab;
@@ -494,7 +495,7 @@ void lily_parser(lily_parse_state *parser)
             /* Show symtab until the bugs are gone. */
             lily_show_symtab(parser->symtab);
 
-            lily_vm_execute(parser->error, parser->symtab->main);
+            lily_vm_execute(parser->vm);
             /* Show var values, to verify execution went as expected. */
             lily_show_var_values(parser->symtab);
             /* Clear the main func for reuse. */

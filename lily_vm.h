@@ -9,11 +9,11 @@ typedef struct {
     int stack_pos;
     int stack_size;
     lily_excep_data *error;
-    lily_var *lily_main;
+    lily_var *main;
 } lily_vm_state;
 
 lily_vm_state *lily_new_vm_state(lily_excep_data *);
 void lily_free_vm_state(lily_vm_state *);
-void lily_vm_execute(lily_excep_data *, lily_var *);
+void lily_vm_execute(lily_vm_state *);
 
 #endif

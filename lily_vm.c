@@ -66,6 +66,7 @@ lily_vm_state *lily_new_vm_state(lily_excep_data *error)
         lily_raise_nomem(error);
     }
 
+    vm->error = error;
     vm->saved_code = saved_code;
     vm->stack_pos = 0;
     vm->stack_size = 4;
@@ -83,13 +84,13 @@ void lily_builtin_print(lily_sym **args)
     lily_impl_send_html(((lily_strval *)args[0]->value.ptr)->str);
 }
 
-void lily_vm_execute(lily_excep_data *error, lily_var *var)
+void lily_vm_execute(lily_vm_state *vm)
 {
     int *code, i, len;
     lily_sym *lhs, *rhs;
     lily_method_val *m;
 
-    m = (lily_method_val *)var->value.ptr;
+    m = (lily_method_val *)vm->main->value.ptr;
     code = m->code;
     len = m->len;
     i = 0;
