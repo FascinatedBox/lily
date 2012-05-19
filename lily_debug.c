@@ -183,8 +183,10 @@ void lily_show_var_values(lily_symtab *symtab)
         lily_impl_debugf("Var values:\n");
 
         while (var != NULL) {
-            lily_impl_debugf("%s %s = ", var->sig->cls->name, var->name);
-            show_sym((lily_sym *)var);
+            if (var->sig->cls->id != SYM_CLASS_METHOD) {
+                lily_impl_debugf("%s %s = ", var->sig->cls->name, var->name);
+                show_sym((lily_sym *)var);
+            }
             var = var->next;
         }
     }
@@ -216,13 +218,13 @@ void lily_show_symtab(lily_symtab *symtab)
             /* This is a builtin symbol. */
             lily_impl_debugf("(builtin) %s %s\n", var->sig->cls->name,
                              var->name);
-            if (var->sig->cls->id == SYM_CLASS_METHOD)
-                show_code(var);
         }
         else {
             lily_impl_debugf("%s %s @ line %d\n", var->sig->cls->name,
                              var->name, var->line_num);
         }
+        if (var->sig->cls->id == SYM_CLASS_METHOD)
+            show_code(var);
         var = var->next;
     }
 }
