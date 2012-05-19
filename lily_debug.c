@@ -140,6 +140,31 @@ static void show_code(lily_var *var)
                 i += 4 + j;
                 }
                 break;
+            case o_method_call:
+                {
+                int j;
+                lily_var *var;
+
+                /* var, func, #args, args... */
+                var = (lily_var *)code[i+1];
+                lily_impl_debugf("    [%d] func_call  \n        ", i);
+
+                if (var->line_num == 0)
+                    lily_impl_debugf("name: (builtin) %s.\n        args:\n",
+                                     var->name, code[i+3]);
+                else
+                    lily_impl_debugf("name: %s (from line %d).\n        args:\n",
+                                     var->name, var->line_num, code[i+3]);
+
+                for (j = 0;j < code[i+3];j++) {
+                    lily_sym *sym = (lily_sym *)code[i+4+j];
+                    lily_impl_debugf("            #%d: %s #%d\n", j+1,
+                                     typename(sym), sym->id);
+                }
+
+                i += 4 + j;
+                }
+                break;
             case o_vm_return:
                 lily_impl_debugf("    [%d] vm_return\n", i);
                 return;

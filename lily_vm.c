@@ -86,8 +86,10 @@ void lily_builtin_print(lily_sym **args)
 
 void lily_vm_execute(lily_vm_state *vm)
 {
-    int *code, i, len;
+    int *code, flag, i, len;
+    lily_method_val *mval;
     lily_sym *lhs, *rhs;
+    lily_var *v;
     lily_method_val *m;
 
     m = (lily_method_val *)vm->main->value.ptr;
@@ -158,6 +160,19 @@ void lily_vm_execute(lily_vm_state *vm)
                 int j = code[i+3];
                 fc((lily_sym **)code+i+4);
                 i += 4+j;
+            }
+                break;
+            case o_method_call:
+            {
+                mval = (lily_method_val *)code[i+2];
+                v = mval->first_arg;
+                i += 4;
+                for (v = mval->first_arg;
+                     v != mval->last_arg->next;v = v->next, i++) {
+                    flag = ((lily_sym *)code[i])->flags & S_IS_NIL;
+                    v->flags &= flag;
+                    v->value = ((lily_sym *)code[i])->value;
+                }
             }
                 break;
             case o_obj_assign:
