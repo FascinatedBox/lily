@@ -163,7 +163,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             m->code[m->pos+3] = ast->args_collected;
             for (i = 4, arg = ast->arg_start;
                 arg != NULL;
-                arg = arg->next_arg) {
+                arg = arg->next_arg, i++) {
                 m->code[m->pos + i] = (int)arg->result;
             }
             m->pos = new_pos;
