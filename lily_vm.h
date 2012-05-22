@@ -6,6 +6,7 @@
 
 typedef struct {
     int **saved_code;
+    int *saved_pos;
     int stack_pos;
     int stack_size;
     lily_excep_data *error;
