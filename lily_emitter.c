@@ -149,8 +149,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             }
         }
 
-        new_pos = m->pos + 4 + ast->args_collected;
-        WRITE_PREP(4 + ast->args_collected)
+        new_pos = m->pos + 5 + ast->args_collected;
+        WRITE_PREP(5 + ast->args_collected)
 
         if (v->sig->cls->id == SYM_CLASS_FUNCTION)
             m->code[m->pos] = o_func_call;
@@ -159,12 +159,30 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         m->code[m->pos+1] = (int)v;
         m->code[m->pos+2] = (int)v->value.ptr;
         m->code[m->pos+3] = ast->args_collected;
-        for (i = 4, arg = ast->arg_start;
+        for (i = 5, arg = ast->arg_start;
             arg != NULL;
             arg = arg->next_arg, i++) {
             m->code[m->pos + i] = (int)arg->result;
         }
 
+        if (func_sig->ret != NULL) {
+            lily_class *storage_class = func_sig->ret->cls;
+            lily_storage *s = storage_class->storage;
+
+            if (s->expr_num == emit->expr_num) {
+                /* Storages are circularly linked, so this only occurs when all
+                   the storages have already been taken. */
+                if (!lily_try_add_storage(emit->symtab, storage_class))
+                    lily_raise_nomem(emit->error);
+                s = s->next;
+            }
+
+            ast->result = (lily_sym *)s;
+        }
+        else
+            ast->result = NULL;
+
+        m->code[m->pos+4] = (int)ast->result;
         m->pos = new_pos;
     }
     else if (ast->expr_type == binary) {
