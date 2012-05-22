@@ -115,7 +115,7 @@ void lily_builtin_print(lily_sym **args)
 
 void lily_vm_execute(lily_vm_state *vm)
 {
-    int *code, flag, i, len;
+    int *code, flag, i;
     lily_method_val *mval;
     lily_sym *lhs, *rhs;
     lily_var *v;
@@ -123,10 +123,9 @@ void lily_vm_execute(lily_vm_state *vm)
 
     m = (lily_method_val *)vm->main->value.ptr;
     code = m->code;
-    len = m->len;
     i = 0;
 
-    while (i != len) {
+    while (1) {
         switch(code[i]) {
             case o_assign:
                 lhs = ((lily_sym *)code[i+1]);
@@ -216,7 +215,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* Finally, load up the new code to run. */
                 code = mval->code;
                 i = 0;
-                len = mval->pos;
             }
                 break;
             case o_return_val:
