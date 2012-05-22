@@ -60,15 +60,18 @@ static void grow_vm(lily_vm_state *vm)
 
     int **new_saved_code = lily_malloc(sizeof(int) * vm->stack_size);
     int *new_saved_pos = lily_malloc(sizeof(int) * vm->stack_size);
+    lily_sym **new_saved_ret = lily_malloc(sizeof(lily_sym *) * vm->stack_size);
 
     if (new_saved_code == NULL || new_saved_pos == NULL) {
         lily_free(new_saved_code);
         lily_free(new_saved_pos);
+        lily_free(new_saved_ret);
         lily_raise_nomem(vm->error);
     }
 
     vm->saved_code = new_saved_code;
     vm->saved_pos = new_saved_pos;
+    vm->saved_ret = new_saved_ret;
 }
 
 lily_vm_state *lily_new_vm_state(lily_excep_data *error)
@@ -79,9 +82,11 @@ lily_vm_state *lily_new_vm_state(lily_excep_data *error)
 
     int **saved_code = lily_malloc(sizeof(int *) * 4);
     int *saved_pos = lily_malloc(sizeof(int) * 4);
+    lily_sym **saved_ret = lily_malloc(sizeof(lily_sym *) * 4);
     if (saved_code == NULL || saved_pos == NULL) {
         lily_free(saved_code);
         lily_free(saved_pos);
+        lily_free(saved_ret);
         lily_free(vm);
         lily_raise_nomem(error);
     }
@@ -89,6 +94,7 @@ lily_vm_state *lily_new_vm_state(lily_excep_data *error)
     vm->error = error;
     vm->saved_code = saved_code;
     vm->saved_pos = saved_pos;
+    vm->saved_ret = saved_ret;
     vm->stack_pos = 0;
     vm->stack_size = 4;
     return vm;
@@ -98,6 +104,7 @@ void lily_free_vm_state(lily_vm_state *vm)
 {
     lily_free(vm->saved_code);
     lily_free(vm->saved_pos);
+    lily_free(vm->saved_ret);
     lily_free(vm);
 }
 
@@ -177,11 +184,11 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_func_call:
             {
-                /* var, func, #args, args... */
+                /* var, func, #args, ret, args... */
                 lily_fast_func fc = (lily_fast_func)code[i+2];
                 int j = code[i+3];
-                fc((lily_sym **)code+i+4);
-                i += 4+j;
+                fc((lily_sym **)code+i+5);
+                i += 5+j;
             }
                 break;
             case o_method_call:
@@ -191,7 +198,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 mval = (lily_method_val *)code[i+2];
                 v = mval->first_arg;
-                i += 4;
+                i += 5;
                 /* Map call values to method arguments. */
                 for (v = mval->first_arg;
                      v != mval->last_arg->next;v = v->next, i++) {
@@ -202,6 +209,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* Add this entry to the call stack. */
                 vm->saved_code[vm->stack_pos] = code;
                 vm->saved_pos[vm->stack_pos] = i;
+                vm->saved_ret[vm->stack_pos] = (lily_sym *)code[i+4];
                 vm->stack_pos++;
 
                 /* Finally, load up the new code to run. */
