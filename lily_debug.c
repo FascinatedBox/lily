@@ -44,6 +44,31 @@ static void print_three(int *code, char *str, int i)
                      typename((lily_sym *)result), result->id);
 }
 
+static void print_call(int *code, char *str, int i)
+{
+    int j;
+    lily_var *var;
+
+    /* For methods, this is:   var, method_val, #args, args
+       For functions, this is: var, func_ptr,   #args, args */
+
+    var = (lily_var *)code[i+1];
+    lily_impl_debugf(str, i);
+
+    if (var->line_num == 0)
+        lily_impl_debugf("name: (builtin) %s.\n        args:\n",
+                         var->name, code[i+3]);
+    else
+        lily_impl_debugf("name: %s (from line %d).\n        args:\n",
+                         var->name, var->line_num, code[i+3]);
+
+    for (j = 0;j < code[i+3];j++) {
+        lily_sym *sym = (lily_sym *)code[i+4+j];
+        lily_impl_debugf("            #%d: %s #%d\n", j+1,
+                         typename(sym), sym->id);
+    }
+}
+
 static void show_code(lily_var *var)
 {
     int i, len;
@@ -116,54 +141,13 @@ static void show_code(lily_var *var)
                 i += 3;
                 break;
             case o_func_call:
-                {
-                int j;
-                lily_var *var;
-
-                /* var, func, #args, args... */
-                var = (lily_var *)code[i+1];
-                lily_impl_debugf("    [%d] func_call  \n        ", i);
-
-                if (var->line_num == 0)
-                    lily_impl_debugf("name: (builtin) %s.\n        args:\n",
-                                     var->name, code[i+3]);
-                else
-                    lily_impl_debugf("name: %s (from line %d).\n        args:\n",
-                                     var->name, var->line_num, code[i+3]);
-
-                for (j = 0;j < code[i+3];j++) {
-                    lily_sym *sym = (lily_sym *)code[i+4+j];
-                    lily_impl_debugf("            #%d: %s #%d\n", j+1,
-                                     typename(sym), sym->id);
-                }
-
-                i += 4 + j;
-                }
+                /* For both functions and methods, [i+3] is the # of args. */
+                print_call(code, "    [%d] func_call  \n        ", i);
+                i += 4 + code[i+3];
                 break;
             case o_method_call:
-                {
-                int j;
-                lily_var *var;
-
-                /* var, func, #args, args... */
-                var = (lily_var *)code[i+1];
-                lily_impl_debugf("    [%d] func_call  \n        ", i);
-
-                if (var->line_num == 0)
-                    lily_impl_debugf("name: (builtin) %s.\n        args:\n",
-                                     var->name, code[i+3]);
-                else
-                    lily_impl_debugf("name: %s (from line %d).\n        args:\n",
-                                     var->name, var->line_num, code[i+3]);
-
-                for (j = 0;j < code[i+3];j++) {
-                    lily_sym *sym = (lily_sym *)code[i+4+j];
-                    lily_impl_debugf("            #%d: %s #%d\n", j+1,
-                                     typename(sym), sym->id);
-                }
-
-                i += 4 + j;
-                }
+                print_call(code, "    [%d] method_call\n        ", i);
+                i += 4 + code[i+3];
                 break;
             case o_vm_return:
                 lily_impl_debugf("    [%d] vm_return\n", i);
