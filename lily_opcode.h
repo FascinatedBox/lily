@@ -33,6 +33,7 @@ typedef enum {
        var, func, #args, args... */
     o_func_call,
     o_method_call,
+    o_return_val,
     o_vm_return
     /* Arguments: none
        Makes the vm function return. */
