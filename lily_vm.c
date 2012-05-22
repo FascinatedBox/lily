@@ -54,6 +54,23 @@ else if (lhs->sig->cls->id == SYM_CLASS_STR) { \
 } \
 i += 4;
 
+static void grow_vm(lily_vm_state *vm)
+{
+    vm->stack_size *= 2;
+
+    int **new_saved_code = lily_malloc(sizeof(int) * vm->stack_size);
+    int *new_saved_pos = lily_malloc(sizeof(int) * vm->stack_size);
+
+    if (new_saved_code == NULL || new_saved_pos == NULL) {
+        lily_free(new_saved_code);
+        lily_free(new_saved_pos);
+        lily_raise_nomem(vm->error);
+    }
+
+    vm->saved_code = new_saved_code;
+    vm->saved_pos = new_saved_pos;
+}
+
 lily_vm_state *lily_new_vm_state(lily_excep_data *error)
 {
     lily_vm_state *vm = lily_malloc(sizeof(lily_vm_state));
@@ -61,13 +78,17 @@ lily_vm_state *lily_new_vm_state(lily_excep_data *error)
         lily_raise_nomem(error);
 
     int **saved_code = lily_malloc(sizeof(int *) * 4);
-    if (saved_code == NULL) {
+    int *saved_pos = lily_malloc(sizeof(int) * 4);
+    if (saved_code == NULL || saved_pos == NULL) {
+        lily_free(saved_code);
+        lily_free(saved_pos);
         lily_free(vm);
         lily_raise_nomem(error);
     }
 
     vm->error = error;
     vm->saved_code = saved_code;
+    vm->saved_pos = saved_pos;
     vm->stack_pos = 0;
     vm->stack_size = 4;
     return vm;
@@ -76,6 +97,7 @@ lily_vm_state *lily_new_vm_state(lily_excep_data *error)
 void lily_free_vm_state(lily_vm_state *vm)
 {
     lily_free(vm->saved_code);
+    lily_free(vm->saved_pos);
     lily_free(vm);
 }
 
@@ -164,15 +186,28 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_method_call:
             {
+                if (vm->stack_pos == vm->stack_size)
+                    grow_vm(vm);
+
                 mval = (lily_method_val *)code[i+2];
                 v = mval->first_arg;
                 i += 4;
+                /* Map call values to method arguments. */
                 for (v = mval->first_arg;
                      v != mval->last_arg->next;v = v->next, i++) {
                     flag = ((lily_sym *)code[i])->flags & S_IS_NIL;
                     v->flags &= flag;
                     v->value = ((lily_sym *)code[i])->value;
                 }
+                /* Add this entry to the call stack. */
+                vm->saved_code[vm->stack_pos] = code;
+                vm->saved_pos[vm->stack_pos] = i;
+                vm->stack_pos++;
+
+                /* Finally, load up the new code to run. */
+                code = mval->code;
+                i = 0;
+                len = mval->pos;
             }
                 break;
             case o_obj_assign:
