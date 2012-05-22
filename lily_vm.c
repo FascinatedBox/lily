@@ -198,6 +198,8 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 mval = (lily_method_val *)code[i+2];
                 v = mval->first_arg;
+                /* It's easier to save this before i gets adjusted. */
+                vm->saved_ret[vm->stack_pos] = (lily_sym *)code[i+4];
                 i += 5;
                 /* Map call values to method arguments. */
                 for (v = mval->first_arg;
@@ -209,7 +211,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* Add this entry to the call stack. */
                 vm->saved_code[vm->stack_pos] = code;
                 vm->saved_pos[vm->stack_pos] = i;
-                vm->saved_ret[vm->stack_pos] = (lily_sym *)code[i+4];
                 vm->stack_pos++;
 
                 /* Finally, load up the new code to run. */
@@ -217,6 +218,15 @@ void lily_vm_execute(lily_vm_state *vm)
                 i = 0;
                 len = mval->pos;
             }
+                break;
+            case o_return_val:
+                vm->stack_pos--;
+                lhs = vm->saved_ret[vm->stack_pos];
+                rhs = (lily_sym *)code[i+1];
+                lhs->value = rhs->value;
+
+                code = vm->saved_code[vm->stack_pos];
+                i = vm->saved_pos[vm->stack_pos];
                 break;
             case o_obj_assign:
                 lhs = ((lily_sym *)code[i+1]);

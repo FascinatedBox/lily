@@ -403,7 +403,8 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *sig)
     walk_tree(emit, ast);
     emit->expr_num++;
 
-    /* Todo: Need to tell the vm that this value is the return. */
+    lily_method_val *m = emit->target;
+    WRITE_2(o_return_val, (int)ast->result)
 }
 
 void lily_emit_set_target(lily_emit_state *emit, lily_var *var)

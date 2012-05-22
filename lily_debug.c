@@ -18,6 +18,15 @@ static char *typename(lily_sym *sym)
     return ret;
 }
 
+static void print_one(int *code, char *str, int i)
+{
+    lily_sym *left;
+
+    lily_impl_debugf(str, i);
+    left = ((lily_sym *)code[i+1]);
+    lily_impl_debugf("[%s #%d]\n", typename((lily_sym *)left), left->id);
+}
+
 static void print_two(int *code, char *str, int i)
 {
     lily_sym *left, *right;
@@ -155,6 +164,10 @@ static void show_code(lily_var *var)
             case o_method_call:
                 print_call(code, "    [%d] method_call\n        ", i);
                 i += 5 + code[i+3];
+                break;
+            case o_return_val:
+                print_one(code, "    [%d] return_value  ", i);
+                i += 2;
                 break;
             case o_vm_return:
                 lily_impl_debugf("    [%d] vm_return\n", i);
