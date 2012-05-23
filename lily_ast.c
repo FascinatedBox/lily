@@ -257,19 +257,17 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
     ap->save_index--;
     lily_ast *a = ap->saved_trees[ap->save_index];
 
-    if (a->expr_type == func_call) {
-        push_call_arg(ap, a, ap->active);
+    push_call_arg(ap, a, ap->active);
 
-        /* Func arg pushing doesn't check as it goes along, because that
-           wouldn't handle the case of too few args. But now the function is
-           supposed to be complete so... */
-        if (a->args_needed != a->args_collected) {
-            ap->error->line_adjust = a->line_num;
-            lily_raise(ap->error, "%s expects %d args, got %d.\n",
-                       ((lily_var *)a->result)->name,
-                       a->args_needed,
-                       a->args_collected);
-        }
+    /* Func arg pushing doesn't check as it goes along, because that
+       wouldn't handle the case of too few args. But now the function is
+       supposed to be complete so... */
+    if (a->args_needed != a->args_collected) {
+        ap->error->line_adjust = a->line_num;
+        lily_raise(ap->error, "%s expects %d args, got %d.\n",
+                   ((lily_var *)a->result)->name,
+                   a->args_needed,
+                   a->args_collected);
     }
     ap->active = a->parent;
 }
