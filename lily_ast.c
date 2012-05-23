@@ -222,7 +222,7 @@ lily_ast_pool *lily_ast_init_pool(lily_excep_data *excep, int pool_size)
     return ret;
 }
 
-void lily_ast_push_arg(lily_ast_pool *ap, lily_ast *func, lily_ast *tree)
+static void push_call_arg(lily_ast_pool *ap, lily_ast *func, lily_ast *tree)
 {
     /* The args of a function are linked to themselves, with the last one
        set to NULL. This will work for multiple functions, because the
@@ -246,7 +246,7 @@ inline void lily_ast_collect_arg(lily_ast_pool *ap)
        done yet. */
     lily_ast *a = ap->saved_trees[ap->save_index-1];
 
-    lily_ast_push_arg(ap, a, ap->active);
+    push_call_arg(ap, a, ap->active);
 
     /* Keep all of the expressions independent. */
     ap->active = NULL;
@@ -258,7 +258,7 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
     lily_ast *a = ap->saved_trees[ap->save_index];
 
     if (a->expr_type == func_call) {
-        lily_ast_push_arg(ap, a, ap->active);
+        push_call_arg(ap, a, ap->active);
 
         /* Func arg pushing doesn't check as it goes along, because that
            wouldn't handle the case of too few args. But now the function is
