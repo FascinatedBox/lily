@@ -141,6 +141,9 @@ void lily_ast_enter_func(lily_ast_pool *ap, lily_var *var)
     a->args_collected = 0;
     a->arg_start = NULL;
     a->arg_top = NULL;
+    /* The emitter uses this to check if a call is within anything else. Also,
+       this parent becomes the current when the call is done. */
+    a->parent = ap->active;
 
     merge_tree(ap, a);
 
@@ -156,7 +159,7 @@ void lily_ast_enter_func(lily_ast_pool *ap, lily_var *var)
         ap->saved_trees = new_saved;
     }
 
-    ap->saved_trees[ap->save_index] = ap->active;
+    ap->saved_trees[ap->save_index] = a;
     ap->active = NULL;
 
     ap->save_index++;
@@ -268,7 +271,7 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
                        a->args_collected);
         }
     }
-    ap->active = a;
+    ap->active = a->parent;
 }
 
 void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
