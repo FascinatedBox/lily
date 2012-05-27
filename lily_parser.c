@@ -84,8 +84,10 @@ static void expression_value(lily_parse_state *parser)
                 cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
             else if (lex->token == tk_number)
                 cls = lily_class_by_id(symtab, SYM_CLASS_NUMBER);
-            else
-                break;
+            else {
+                lily_raise(parser->error, "Expected a value, not '%s'.\n",
+                           tokname(lex->token));
+            }
 
             lit = lily_new_literal(symtab, cls);
             lit->value = lex->value;
@@ -130,6 +132,10 @@ static void expression(lily_parse_state *parser, int flags)
                    the next statement. */
                 if (lex->token == tk_word && parser->ast_pool->save_index == 0)
                     break;
+                else
+                    /* Since the parenth finished a value, the token should be
+                       treated as a binary op. */
+                    continue;
             }
             else if (lex->token == tk_comma) {
                 if (parser->ast_pool->active == NULL)
@@ -385,7 +391,7 @@ static void statement(lily_parse_state *parser)
     key_id = lily_keyword_by_name(label);
     if (key_id != -1) {
         lily_lex_state *lex = parser->lex;
-        NEED_NEXT_TOK(tk_word)
+        lily_lexer(lex);
 
         if (key_id == KEY_RETURN) {
             lily_sig *ret_sig = parser->emit->target_ret;

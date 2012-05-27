@@ -10,7 +10,7 @@ method add (integer a, integer b):integer {
 
 add(1+1, 1+1)
 integer c = 1 + 1
-integer d = add(1, 1)
+integer d = add(1, 1) + 10
 @>
 </body>
 </html>

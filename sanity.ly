@@ -65,6 +65,9 @@ if aa == 1: {
 elif aa = 2:
     aa = 4
     aa = 5
+else:
+    aa = 6
+    aa = 7
 }
 
 if aa == 1: {
