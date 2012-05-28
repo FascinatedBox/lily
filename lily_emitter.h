@@ -8,6 +8,7 @@ typedef struct {
     int *patches;
     int *saved_spots;
     int *types;
+    lily_var **saved_vars;
     int patch_pos;
     int patch_size;
     int save_pos;
