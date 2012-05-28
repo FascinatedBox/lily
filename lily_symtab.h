@@ -104,6 +104,8 @@ typedef struct {
     lily_var *var_start;
     /* The last symbol (for adding to). */
     lily_var *var_top;
+    lily_var *old_var_start;
+    lily_var *old_var_top;
     lily_class **classes;
     /* The function containing commands outside of functions. */
     lily_var *main;
@@ -143,5 +145,6 @@ lily_symtab *lily_new_symtab(lily_excep_data *);
 lily_var *lily_new_var(lily_symtab *, lily_class *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
 int lily_try_add_storage(lily_symtab *, lily_class *);
+void lily_drop_block_vars(lily_symtab *, lily_var *);
 void lily_reset_main(lily_symtab *);
 #endif

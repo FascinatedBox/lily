@@ -147,28 +147,10 @@ lily_class *lily_class_by_name(lily_symtab *symtab, char *name)
     return NULL;
 }
 
-void lily_free_symtab(lily_symtab *symtab)
+void free_vars(lily_var *var)
 {
     int cls_id;
-    lily_literal *lit, *lit_temp;
-    lily_var *var, *var_temp;
-
-    lit = symtab->lit_start;
-    var = symtab->var_start;
-
-    while (lit != NULL) {
-        lit_temp = lit->next;
-
-        if (lit->sig->cls->id == SYM_CLASS_STR) {
-            lily_strval *sv = (lily_strval *)lit->value.ptr;
-            lily_free(sv->str);
-            lily_free(sv);
-        }
-
-        lily_free(lit);
-
-        lit = lit_temp;
-    }
+    lily_var *var_temp;
 
     while (var != NULL) {
         var_temp = var->next;
@@ -198,6 +180,32 @@ void lily_free_symtab(lily_symtab *symtab)
 
         var = var_temp;
     }
+}
+
+void lily_free_symtab(lily_symtab *symtab)
+{
+    lily_literal *lit, *lit_temp;
+
+    lit = symtab->lit_start;
+
+    while (lit != NULL) {
+        lit_temp = lit->next;
+
+        if (lit->sig->cls->id == SYM_CLASS_STR) {
+            lily_strval *sv = (lily_strval *)lit->value.ptr;
+            lily_free(sv->str);
+            lily_free(sv);
+        }
+
+        lily_free(lit);
+
+        lit = lit_temp;
+    }
+
+    if (symtab->var_start != NULL)
+        free_vars(symtab->var_start);
+    if (symtab->old_var_start != NULL)
+        free_vars(symtab->old_var_start);
 
     if (symtab->classes != NULL) {
         int i;
@@ -371,6 +379,8 @@ lily_symtab *lily_new_symtab(lily_excep_data *excep)
     s->classes = NULL;
     s->lit_start = NULL;
     s->lit_top = NULL;
+    s->old_var_start = NULL;
+    s->old_var_top = NULL;
 
     if (!init_classes(s) || !init_symbols(s)) {
         /* This will free any symbols added, and the symtab object. */
@@ -450,6 +460,23 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_class *cls, char *name)
 
     add_var(symtab, var);
     return var;
+}
+
+void lily_drop_block_vars(lily_symtab *symtab, lily_var *start)
+{
+    if (symtab->old_var_start == NULL) {
+        symtab->old_var_start = start->next;
+        symtab->old_var_top = symtab->var_top;
+    }
+    else {
+        symtab->old_var_top->next = start->next;
+        symtab->var_top = start;
+        start->next = NULL;
+    }
+
+    symtab->old_var_top = symtab->var_top;
+    symtab->var_top = start;
+    start->next = NULL;
 }
 
 /* Prepare @lily_main to receive new instructions after a parse step. Debug and
