@@ -257,20 +257,8 @@ void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
     b->patch_pos++;
 }
 
-/*  Okay, if handling. This is a tough one.
-    VM code is expressed as a series of instructions, but ifs require skipping
-    some parts of code. This is done with a jump instruction. Since the future
-    location is not known, it has to be fixed later on. Each if/elif/else is
-    refered to as a branch.
-    Within if/elif/else, there are two kinds of jumps:
-    * Branch->branch. When the expression for an if tests false, control must
-      transfer to the next elif, or the else. This is the same for elif's.
-      If has only one branch jump at a time, except when there is nesting.
-    * Exit. After the final statement in a branch, a jump is needed to avoid
-      execution of any other code within the if.
-    Jumps should be patched from a save location to current position. Also,
-    remember that patch_pos is ahead most of the time. */
-
+/* This is called at the end of an 'if' branch, but before the beginning of the
+   new one. */
 void lily_emit_clear_block(lily_emit_state *emit, int have_else)
 {
     int save_jump;
@@ -290,27 +278,17 @@ void lily_emit_clear_block(lily_emit_state *emit, int have_else)
     if (v->next != NULL)
         lily_drop_block_vars(emit->symtab, v);
 
-    /* When changing from an if/elif to another elif/else, two things need to
-       be done:
-       * An exit jump must be added that will go to the end of the condition.
-       * The branch jump must be fixed to target the start of the next branch.
-       The statements must go in this order. */
-
+    /* Write an exit jump for this branch, thereby completing the branch. */
     WRITE_2(o_jump, 0);
     save_jump = m->pos - 1;
 
-    /* Suppose that we're in the second elif branch, transitioning to the third.
-       Jump stack:
-       * [0] if branch exit jump
-       * [1] elif branch #1 exit jump
-       * [2] elif branch #2 branch jump
-       Saves are 0, 2 (exit jumps start at 0, branch jumps at 2)
-       * This writes [2]'s fix, sets [2] to the new exit jump, then changes the
-       last save so [2] is counted as an exit jump. */
-
+    /* The last jump actually collected wanted to know where the next branch
+       would start. It's where the code is now. */
     m->code[branches->patches[branches->patch_pos-1]] = m->pos;
+
+    /* Write the exit jump where the branch jump was. Since the branch jump got
+       patched, storing the location is pointless. */
     branches->patches[branches->patch_pos-1] = save_jump;
-    branches->saved_spots[branches->save_pos-1]++;
 }
 
 void lily_emit_push_block(lily_emit_state *emit, int btype)
@@ -334,39 +312,25 @@ void lily_emit_push_block(lily_emit_state *emit, int btype)
         branches->types = new_types;
     }
 
-    if (btype == BLOCK_IF) {
-        if (branches->save_pos + 2 >= branches->save_size) {
-            branches->save_size *= 2;
-            int *new_saves = lily_realloc(branches->saved_spots,
-                                        sizeof(int) * branches->save_size);
-            if (new_saves == NULL)
-                lily_raise_nomem(emit->error);
+    if (branches->save_pos + 1 >= branches->save_size) {
+        branches->save_size *= 2;
+        int *new_saves = lily_realloc(branches->saved_spots,
+                                    sizeof(int) * branches->save_size);
+        if (new_saves == NULL)
+            lily_raise_nomem(emit->error);
 
-            branches->saved_spots = new_saves;
-        }
-        /* The bottom one is for exit jumps, the top for the branch jump. */
-        branches->saved_spots[branches->save_pos] = branches->patch_pos;
-        branches->saved_spots[branches->save_pos+1] = branches->patch_pos;
-        branches->save_pos += 2;
-        branches->saved_vars[branches->type_pos] = emit->symtab->var_top;
+        branches->saved_spots = new_saves;
     }
-    else if (btype == BLOCK_RETURN) {
-        if (branches->save_pos + 1 >= branches->save_size) {
-            branches->save_size *= 2;
-            int *new_saves = lily_realloc(branches->saved_spots,
-                                        sizeof(int) * branches->save_size);
-            if (new_saves == NULL)
-                lily_raise_nomem(emit->error);
+    branches->saved_spots[branches->save_pos] = branches->patch_pos;
+    branches->save_pos++;
 
-            branches->saved_spots = new_saves;
-        }
-        branches->saved_spots[branches->save_pos] = branches->patch_pos;
-        branches->save_pos++;
+    if (btype == BLOCK_IF)
+        branches->saved_vars[branches->type_pos] = emit->symtab->var_top;
+    else if (btype == BLOCK_RETURN)
         /* The method's arguments have already been registered, and they'll need
            to go away when the method is done. So start from the method, not the
            current var. */
         branches->saved_vars[branches->type_pos] = emit->target_var;
-    }
 
     branches->types[branches->type_pos] = btype;
     branches->type_pos++;
@@ -383,8 +347,7 @@ void lily_emit_pop_block(lily_emit_state *emit)
     from = branches->patch_pos-1;
 
     if (btype <= BLOCK_IFELSE) {
-        to = branches->saved_spots[branches->save_pos-2];
-        branches->save_pos--;
+        to = branches->saved_spots[branches->save_pos-1];
     }
     else if (btype == BLOCK_RETURN) {
         to = branches->saved_spots[branches->save_pos-1];
