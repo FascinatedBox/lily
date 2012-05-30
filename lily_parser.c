@@ -178,8 +178,10 @@ static void expression(lily_parse_state *parser, int flags)
             expression_value(parser);
         }
         if (flags & EX_SINGLE) {
-            if (flags & EX_CONDITION)
+            if (flags & EX_CONDITION) {
                 lily_emit_conditional(parser->emit, parser->ast_pool->root);
+                lily_ast_reset_pool(parser->ast_pool);
+            }
             else if (!(flags & EX_SAVE_AST)) {
                 lily_emit_ast(parser->emit, parser->ast_pool->root);
                 lily_ast_reset_pool(parser->ast_pool);
