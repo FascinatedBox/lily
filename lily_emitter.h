@@ -11,10 +11,8 @@ typedef struct {
     lily_var **saved_vars;
     int patch_pos;
     int patch_size;
-    int save_pos;
-    int save_size;
-    int type_pos;
-    int type_size;
+    int block_pos;
+    int block_size;
 } lily_branches;
 
 typedef struct {

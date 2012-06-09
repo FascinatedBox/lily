@@ -264,15 +264,15 @@ void lily_emit_clear_block(lily_emit_state *emit, int have_else)
     int save_jump;
     lily_branches *branches = emit->branches;
     lily_method_val *m = emit->target;
-    lily_var *v = branches->saved_vars[branches->type_pos-1];
+    lily_var *v = branches->saved_vars[branches->block_pos-1];
 
     if (have_else) {
-        if (branches->types[branches->type_pos-1] == BLOCK_IFELSE)
+        if (branches->types[branches->block_pos-1] == BLOCK_IFELSE)
             lily_raise(emit->error, "Only one 'else' per 'if' allowed.\n");
         else
-            branches->types[branches->type_pos-1] = BLOCK_IFELSE;
+            branches->types[branches->block_pos-1] = BLOCK_IFELSE;
     }
-    else if (branches->types[branches->type_pos-1] == BLOCK_IFELSE)
+    else if (branches->types[branches->block_pos-1] == BLOCK_IFELSE)
         lily_raise(emit->error, "'elif' after 'else'.\n");
 
     if (v->next != NULL)
@@ -295,45 +295,38 @@ void lily_emit_push_block(lily_emit_state *emit, int btype)
 {
     lily_branches *branches = emit->branches;
 
-    if (branches->type_pos + 1 >= branches->type_size) {
-        branches->type_size *= 2;
+    if (branches->block_pos + 1 >= branches->block_size) {
+        branches->block_size *= 2;
         int *new_types = lily_realloc(branches->types,
-                                      sizeof(int) * branches->type_size);
+                                      sizeof(int) * branches->block_size);
         lily_var **new_saved_vars = lily_realloc(branches->saved_vars,
-            sizeof(lily_var *) * branches->type_size);
+            sizeof(lily_var *) * branches->block_size);
+        int *new_saves = lily_realloc(branches->saved_spots,
+                                    sizeof(int) * branches->block_size);
 
-        if (new_types == NULL || new_saved_vars == NULL) {
+        if (new_types == NULL || new_saved_vars == NULL || new_saves == NULL) {
             lily_free(new_types);
             lily_free(new_saved_vars);
+            lily_free(new_saves);
             lily_raise_nomem(emit->error);
         }
 
+        branches->saved_spots = new_saves;
         branches->saved_vars = new_saved_vars;
         branches->types = new_types;
     }
 
-    if (branches->save_pos + 1 >= branches->save_size) {
-        branches->save_size *= 2;
-        int *new_saves = lily_realloc(branches->saved_spots,
-                                    sizeof(int) * branches->save_size);
-        if (new_saves == NULL)
-            lily_raise_nomem(emit->error);
-
-        branches->saved_spots = new_saves;
-    }
-    branches->saved_spots[branches->save_pos] = branches->patch_pos;
-    branches->save_pos++;
-
     if (btype == BLOCK_IF)
-        branches->saved_vars[branches->type_pos] = emit->symtab->var_top;
+        branches->saved_vars[branches->block_pos] = emit->symtab->var_top;
     else if (btype == BLOCK_RETURN)
         /* The method's arguments have already been registered, and they'll need
            to go away when the method is done. So start from the method, not the
            current var. */
-        branches->saved_vars[branches->type_pos] = emit->target_var;
+        branches->saved_vars[branches->block_pos] = emit->target_var;
 
-    branches->types[branches->type_pos] = btype;
-    branches->type_pos++;
+    branches->saved_spots[branches->block_pos] = branches->patch_pos;
+    branches->types[branches->block_pos] = btype;
+    branches->block_pos++;
 }
 
 void lily_emit_pop_block(lily_emit_state *emit)
@@ -343,26 +336,25 @@ void lily_emit_pop_block(lily_emit_state *emit)
     lily_var *v;
     int btype, from, to;
 
-    btype = branches->types[branches->type_pos-1];
+    btype = branches->types[branches->block_pos-1];
     from = branches->patch_pos-1;
 
     if (btype <= BLOCK_IFELSE) {
-        to = branches->saved_spots[branches->save_pos-1];
+        to = branches->saved_spots[branches->block_pos-1];
     }
     else if (btype == BLOCK_RETURN) {
-        to = branches->saved_spots[branches->save_pos-1];
+        to = branches->saved_spots[branches->block_pos-1];
         lily_emit_leave_method(emit);
     }
 
-    v = branches->saved_vars[branches->type_pos-1];
+    v = branches->saved_vars[branches->block_pos-1];
     if (v->next != NULL)
         lily_drop_block_vars(emit->symtab, v);
 
     for (;from >= to;from--)
         m->code[branches->patches[from]] = m->pos;
 
-    branches->save_pos--;
-    branches->type_pos--;
+    branches->block_pos--;
 }
 
 void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
@@ -440,10 +432,8 @@ lily_emit_state *lily_new_emit_state(lily_excep_data *excep)
     s->branches->saved_spots = saves;
     s->branches->types = types;
     s->branches->saved_vars = saved_vars;
-    s->branches->type_pos = 0;
-    s->branches->type_size = 4;
-    s->branches->save_pos = 0;
-    s->branches->save_size = 4;
+    s->branches->block_pos = 0;
+    s->branches->block_size = 4;
     s->branches->patch_pos = 0;
     s->branches->patch_size = 4;
     s->target = NULL;
