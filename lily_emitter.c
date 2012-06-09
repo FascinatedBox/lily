@@ -332,29 +332,28 @@ void lily_emit_push_block(lily_emit_state *emit, int btype)
 void lily_emit_pop_block(lily_emit_state *emit)
 {
     lily_branches *branches = emit->branches;
-    lily_method_val *m = emit->target;
+    lily_method_val *m;
     lily_var *v;
     int btype, from, to;
 
     btype = branches->types[branches->block_pos-1];
-    from = branches->patch_pos-1;
-
-    if (btype <= BLOCK_IFELSE) {
-        to = branches->saved_spots[branches->block_pos-1];
-    }
-    else if (btype == BLOCK_RETURN) {
-        to = branches->saved_spots[branches->block_pos-1];
-        lily_emit_leave_method(emit);
-    }
-
     v = branches->saved_vars[branches->block_pos-1];
     if (v->next != NULL)
         lily_drop_block_vars(emit->symtab, v);
 
+    branches->block_pos--;
+
+    if (btype <= BLOCK_IFELSE)
+        to = branches->saved_spots[branches->block_pos];
+    else if (btype == BLOCK_RETURN) {
+        lily_emit_leave_method(emit);
+        return;
+    }
+
+    m = emit->target;
+    from = branches->patch_pos-1;
     for (;from >= to;from--)
         m->code[branches->patches[from]] = m->pos;
-
-    branches->block_pos--;
 }
 
 void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
