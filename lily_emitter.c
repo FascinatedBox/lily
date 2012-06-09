@@ -54,6 +54,25 @@ static char *opname(lily_expr_op op)
     return opnames[op];
 }
 
+static inline lily_storage *get_storage_sym(lily_emit_state *emit,
+        lily_class *storage_class)
+{
+    lily_storage *s = storage_class->storage;
+    if (s->expr_num == emit->expr_num) {
+        /* Storages are circularly linked, so this only occurs when all the
+           storages have already been taken. */
+        if (!lily_try_add_storage(emit->symtab, storage_class))
+            lily_raise_nomem(emit->error);
+        s = s->next;
+    }
+
+    s->expr_num = emit->expr_num;
+    /* Make it so the next node is grabbed next time. */
+    storage_class->storage = s->next;
+
+    return s;
+}
+
 static void generic_binop(lily_emit_state *emit, lily_ast *ast)
 {
     int opcode;
@@ -88,19 +107,7 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
            bool class (yet), so an integer class is used instead. */
         storage_class = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
 
-    s = storage_class->storage;
-
-    if (s->expr_num == emit->expr_num) {
-        /* Storages are circularly linked, so this only occurs when all the
-           storages have already been taken. */
-        if (!lily_try_add_storage(emit->symtab, storage_class))
-            lily_raise_nomem(emit->error);
-        s = s->next;
-    }
-
-    s->expr_num = emit->expr_num;
-    /* Make it so the next node is grabbed next time. */
-    storage_class->storage = s->next;
+    s = get_storage_sym(emit, storage_class);
 
     WRITE_4(opcode,
             (int)ast->left->result,
@@ -166,16 +173,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         }
 
         if (func_sig->ret != NULL) {
-            lily_class *storage_class = func_sig->ret->cls;
-            lily_storage *s = storage_class->storage;
-
-            if (s->expr_num == emit->expr_num) {
-                /* Storages are circularly linked, so this only occurs when all
-                   the storages have already been taken. */
-                if (!lily_try_add_storage(emit->symtab, storage_class))
-                    lily_raise_nomem(emit->error);
-                s = s->next;
-            }
+            lily_storage *s = get_storage_sym(emit, func_sig->ret->cls);
 
             ast->result = (lily_sym *)s;
         }
