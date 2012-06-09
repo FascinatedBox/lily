@@ -514,7 +514,7 @@ void lily_parser(lily_parse_state *parser)
             /* Show var values, to verify execution went as expected. */
             lily_show_var_values(parser->symtab);
             /* Clear the main func for reuse. */
-            lily_reset_main(parser->symtab);
+            lily_reset_main(parser->emit);
 
             if (lex->token == tk_end_tag) {
                 lily_lexer_handle_page_data(parser->lex);

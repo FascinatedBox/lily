@@ -440,3 +440,10 @@ lily_emit_state *lily_new_emit_state(lily_excep_data *excep)
 
     return s;
 }
+
+/* Prepare @lily_main to receive new instructions after a parse step. Debug and
+   the vm stay within 'pos', so no need to actually clear the code. */
+void lily_reset_main(lily_emit_state *emit)
+{
+    ((lily_method_val *)emit->target)->pos = 0;
+}

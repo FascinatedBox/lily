@@ -473,10 +473,3 @@ void lily_drop_block_vars(lily_symtab *symtab, lily_var *start)
     symtab->var_top = start;
     start->next = NULL;
 }
-
-/* Prepare @lily_main to receive new instructions after a parse step. Debug and
-   the vm stay within 'pos', so no need to actually clear the code. */
-void lily_reset_main(lily_symtab *symtab)
-{
-    ((lily_method_val *)symtab->main->value.ptr)->pos = 0;
-}
