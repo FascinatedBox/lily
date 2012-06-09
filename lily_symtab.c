@@ -440,7 +440,6 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_class *cls, char *name)
         lily_raise_nomem(symtab->error);
     }
 
-    /* todo: Functions will need this too when they are declarable. */
     lily_sig *sig = try_sig_for_class(cls);
     if (sig == NULL) {
         lily_free(var);
