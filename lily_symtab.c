@@ -157,13 +157,7 @@ void free_vars(lily_var *var)
         cls_id = var->sig->cls->id;
 
         if (cls_id == SYM_CLASS_METHOD) {
-            if (var->sig->node.func == NULL)
-                /* It's important to know that @main is a function, but it can't
-                   be called so it lacks a func_sig. */
-                lily_free(var->sig);
-            else
-                free_var_func_sig(var->sig);
-
+            free_var_func_sig(var->sig);
             lily_method_val *method = (lily_method_val *)var->value.ptr;
             lily_free(method->code);
             lily_free(method);
@@ -220,6 +214,8 @@ void lily_free_symtab(lily_symtab *symtab)
                         store_next = store_curr->next;
                         if (store_curr->sig->cls->id == SYM_CLASS_OBJECT)
                             lily_free(store_curr->sig);
+                        else if (store_curr->sig->cls->id == SYM_CLASS_METHOD)
+                            free_var_func_sig(store_curr->sig);
 
                         lily_free(store_curr);
                         store_curr = store_next;

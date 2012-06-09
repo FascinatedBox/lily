@@ -397,6 +397,7 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free(emit->branches->patches);
     lily_free(emit->branches->saved_spots);
     lily_free(emit->branches->types);
+    lily_free(emit->branches->saved_vars);
     lily_free(emit->branches);
     lily_free(emit);
 }
