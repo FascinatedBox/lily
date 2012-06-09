@@ -4,8 +4,8 @@
 
 #include "lily_interp.h"
 
-/* tester_main.c :
- * This sends a bunch of strings to lily to make sure stuff works. */
+/* strload_main.c :
+   This makes sure that the lexer can handle a string instead of a file. */
 
 void lily_impl_debugf(char *format, ...)
 {
@@ -29,7 +29,7 @@ static char *tests[] =
 int main(int argc, char **argv)
 {
     if (argc != 1) {
-        fputs("Usage : lily_tester\n", stderr);
+        fputs("Usage : lily_strload\n", stderr);
         exit(EXIT_FAILURE);
     }
 
@@ -43,7 +43,7 @@ int main(int argc, char **argv)
     num_tests = sizeof(tests) / sizeof(tests[0]);
 
     for (i = 0;i < num_tests;i++) {
-        fprintf(stderr, "Running test #%d.\n", i);
+        fprintf(stderr, "Running strload test #%d.\n", i);
         if (lily_parse_string(interp, tests[i]) == 0) {
             fputs(interp->error->message, stderr);
             if (interp->parser != NULL &&
