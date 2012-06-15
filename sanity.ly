@@ -95,6 +95,14 @@ if aa == 1: {
         }
     }
 }
+
+method add (integer addA, integer addB):integer {
+    return addA + addB
+}
+
+add(1+1, 1+1)
+integer addcheck = add(1, 1) + 10
+
 @>
 </body>
 </html>
