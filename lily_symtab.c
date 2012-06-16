@@ -129,6 +129,23 @@ int lily_try_add_storage(lily_symtab *symtab, lily_class *cls)
     return 1;
 }
 
+int lily_try_new_method_val(lily_symtab *symtab)
+{
+    lily_method_val *m = lily_malloc(sizeof(lily_method_val));
+    int *code = lily_malloc(4 * sizeof(int));
+
+    if (m == NULL || code == NULL) {
+        lily_free(m);
+        lily_free(code);
+        return NULL;
+    }
+
+    m->code = code;
+    m->pos = 0;
+    m->len = 4;
+    return m;
+}
+
 lily_class *lily_class_by_id(lily_symtab *symtab, int class_id)
 {
     return symtab->classes[class_id];
@@ -330,11 +347,8 @@ static int init_symbols(lily_symtab *symtab)
         }
         else {
             /* @main is always last, and is the only method. */
-            lily_method_val *m = lily_malloc(sizeof(lily_method_val));
-            int *code = lily_malloc(4 * sizeof(int));
-            if (m == NULL || code == NULL) {
-                lily_free(m);
-                lily_free(code);
+            lily_method_val *m = lily_try_new_method_val(symtab);
+            if (m == NULL) {
                 lily_free(func_sig);
                 lily_free(sig);
                 lily_free(new_var);
@@ -343,9 +357,6 @@ static int init_symbols(lily_symtab *symtab)
             }
             m->first_arg = NULL;
             m->last_arg = NULL;
-            m->code = code;
-            m->pos = 0;
-            m->len = 4;
             new_var->value.ptr = m;
             sig->cls = lily_class_by_id(symtab, SYM_CLASS_METHOD);
         }
