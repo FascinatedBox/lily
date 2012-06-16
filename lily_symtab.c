@@ -129,7 +129,7 @@ int lily_try_add_storage(lily_symtab *symtab, lily_class *cls)
     return 1;
 }
 
-int lily_try_new_method_val(lily_symtab *symtab)
+lily_method_val *lily_try_new_method_val(lily_symtab *symtab)
 {
     lily_method_val *m = lily_malloc(sizeof(lily_method_val));
     int *code = lily_malloc(4 * sizeof(int));
