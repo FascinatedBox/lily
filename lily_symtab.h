@@ -145,5 +145,6 @@ lily_symtab *lily_new_symtab(lily_excep_data *);
 lily_var *lily_new_var(lily_symtab *, lily_class *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
 int lily_try_add_storage(lily_symtab *, lily_class *);
+lily_method_val *lily_try_new_method_val(lily_symtab *);
 void lily_drop_block_vars(lily_symtab *, lily_var *);
 #endif
