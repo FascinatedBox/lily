@@ -312,18 +312,9 @@ static void parse_method_decl(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
     lily_var *func_var, *save_top;
 
-    m = lily_malloc(sizeof(lily_method_val));
+    m = lily_try_new_method_val(parser->symtab);
     if (m == NULL)
         lily_raise_nomem(parser->error);
-
-    m->code = lily_malloc(4 * sizeof(int));
-    if (m->code == NULL) {
-        lily_free(m);
-        lily_raise_nomem(parser->error);
-    }
-
-    m->pos = 0;
-    m->len = 4;
 
     /* Get the method's name. */
     NEED_NEXT_TOK(tk_word)
