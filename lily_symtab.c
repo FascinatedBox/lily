@@ -309,18 +309,17 @@ static int init_classes(lily_symtab *symtab)
     return ret;
 }
 
-static int init_symbols(lily_symtab *symtab)
+static int init_symbols(lily_symtab *symtab, func_entry **seeds, int seed_count)
 {
     /* Turn the keywords into symbols. */
-    int func_count, i, ret;
+    int i, ret;
     lily_class *func_class;
 
     func_class = lily_class_by_id(symtab, SYM_CLASS_FUNCTION);
-    func_count = sizeof(func_seeds) / sizeof(func_seeds[0]);
     ret = 1;
 
-    for (i = 0;i < func_count;i++) {
-        func_entry *seed = func_seeds[i];
+    for (i = 0;i < seed_count;i++) {
+        func_entry *seed = seeds[i];
         lily_var *new_var = lily_malloc(sizeof(lily_var));
         lily_sig *sig = lily_malloc(sizeof(lily_sig));
         /* This function returns NULL if it can't allocate args, so don't check
@@ -338,12 +337,13 @@ static int init_symbols(lily_symtab *symtab)
             break;
         }
 
-        if (i != func_count - 1) {
+        if (seed->func != NULL) {
             sig->cls = func_class;
             new_var->value.ptr = seed->func;
         }
         else {
-            /* @main is always last, and is the only builtin method. */
+            /* This is @main, which is a method. Since it's a method, it
+               doesn't have ->func set to anything. */
             lily_method_val *m = lily_try_new_method_val(symtab);
             if (m == NULL) {
                 lily_free(csig);
@@ -386,7 +386,7 @@ lily_symtab *lily_new_symtab(lily_excep_data *excep)
     s->old_var_start = NULL;
     s->old_var_top = NULL;
 
-    if (!init_classes(s) || !init_symbols(s)) {
+    if (!init_classes(s) || !init_symbols(s, func_seeds, NUM_BUILTIN_SEEDS)) {
         /* This will free any symbols added, and the symtab object. */
         lily_free_symtab(s);
         return NULL;
