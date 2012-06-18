@@ -6,7 +6,7 @@
 
 typedef struct lily_ast_t {
     enum {
-        func_call, var, binary
+        call, var, binary
     } expr_type;
 
     int line_num;
@@ -46,7 +46,7 @@ typedef struct {
 
 void lily_ast_add_arg(lily_ast_pool *, lily_ast *, lily_ast *);
 void lily_ast_collect_arg(lily_ast_pool *);
-void lily_ast_enter_func(lily_ast_pool *, lily_var *);
+void lily_ast_enter_call(lily_ast_pool *, lily_var *);
 void lily_ast_free_pool(lily_ast_pool *);
 lily_ast_pool *lily_ast_init_pool(lily_excep_data *, int);
 void lily_ast_pop_tree(lily_ast_pool *);

@@ -23,44 +23,44 @@ static void add_var(lily_symtab *symtab, lily_var *s)
     symtab->var_top = s;
 }
 
-static void init_func_sig_args(lily_symtab *symtab, lily_func_sig *func_sig,
+static void init_func_sig_args(lily_symtab *symtab, lily_call_sig *csig,
                                func_entry *entry)
 {
     /* The first arg always exists, and is the return type. */
     int i;
 
     if (entry->arg_ids[0] == -1)
-        func_sig->ret = NULL;
+        csig->ret = NULL;
     else {
         lily_class *c = lily_class_by_id(symtab, entry->arg_ids[0]);
-        func_sig->ret = c->sig;
+        csig->ret = c->sig;
     }
 
     if (entry->arg_ids[1] == -1) {
-        func_sig->num_args = 0;
-        func_sig->args = NULL;
+        csig->num_args = 0;
+        csig->args = NULL;
     }
     else {
-        func_sig->args = lily_malloc(sizeof(lily_sig *) * entry->num_args);
-        if (func_sig->args == NULL)
+        csig->args = lily_malloc(sizeof(lily_sig *) * entry->num_args);
+        if (csig->args == NULL)
             return;
 
         for (i = 1;i <= entry->num_args;i++) {
             lily_class *cls = lily_class_by_id(symtab, entry->arg_ids[i]);
-            func_sig->args[i-1] = cls->sig;
+            csig->args[i-1] = cls->sig;
         }
-        func_sig->num_args = entry->num_args;
+        csig->num_args = entry->num_args;
     }
-    func_sig->is_varargs = 0;
+    csig->is_varargs = 0;
 }
 
 /* All other signatures that vars use are copies of one held by a class. Those
    will be free'd with the class. */
 static void free_var_func_sig(lily_sig *sig)
 {
-    lily_func_sig *func_sig = sig->node.func;
-    lily_free(func_sig->args);
-    lily_free(func_sig);
+    lily_call_sig *csig = sig->node.call;
+    lily_free(csig->args);
+    lily_free(csig);
     lily_free(sig);
 }
 
@@ -77,14 +77,14 @@ static lily_sig *try_sig_for_class(lily_class *cls)
     else if (cls->id == SYM_CLASS_METHOD) {
         sig = lily_malloc(sizeof(lily_sig));
         if (sig != NULL) {
-            lily_func_sig *fsig = lily_malloc(sizeof(lily_func_sig));
-            if (fsig != NULL) {
-                fsig->ret = NULL;
-                fsig->args = NULL;
-                fsig->num_args = 0;
-                fsig->is_varargs = 0;
+            lily_call_sig *csig = lily_malloc(sizeof(lily_call_sig));
+            if (csig != NULL) {
+                csig->ret = NULL;
+                csig->args = NULL;
+                csig->num_args = 0;
+                csig->is_varargs = 0;
                 sig->cls = cls;
-                sig->node.func = fsig;
+                sig->node.call = csig;
             }
             else {
                 lily_free(sig);
@@ -325,16 +325,16 @@ static int init_symbols(lily_symtab *symtab)
             break;
         }
 
-        lily_func_sig *func_sig = lily_malloc(sizeof(lily_func_sig));
-        if (func_sig == NULL) {
+        lily_call_sig *csig = lily_malloc(sizeof(lily_call_sig));
+        if (csig == NULL) {
             lily_free(sig);
             lily_free(new_var);
             ret = 0;
             break;
         }
-        init_func_sig_args(symtab, func_sig, seed);
-        if (func_sig->args == NULL && (i != func_count - 1)) {
-            lily_free(func_sig);
+        init_func_sig_args(symtab, csig, seed);
+        if (csig->args == NULL && (i != func_count - 1)) {
+            lily_free(csig);
             lily_free(sig);
             lily_free(new_var);
             ret = 0;
@@ -349,7 +349,7 @@ static int init_symbols(lily_symtab *symtab)
             /* @main is always last, and is the only method. */
             lily_method_val *m = lily_try_new_method_val(symtab);
             if (m == NULL) {
-                lily_free(func_sig);
+                lily_free(csig);
                 lily_free(sig);
                 lily_free(new_var);
                 ret = 0;
@@ -361,7 +361,7 @@ static int init_symbols(lily_symtab *symtab)
             sig->cls = lily_class_by_id(symtab, SYM_CLASS_METHOD);
         }
 
-        sig->node.func = func_sig;
+        sig->node.call = csig;
         new_var->name = seed->name;
         new_var->sig = sig;
         new_var->line_num = 0;

@@ -12,7 +12,7 @@ static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
 
         ap->active = new_ast;
     }
-    else if (active->expr_type == var || active->expr_type == func_call) {
+    else if (active->expr_type == var || active->expr_type == call) {
         /* active = value, new = binary op. Binary op becomes parent. */
         if (ap->root == active)
             ap->root = new_ast;
@@ -22,7 +22,7 @@ static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
     }
     else {
         /* active = op, new = value or binary op. */
-        if (new_ast->expr_type == var || new_ast->expr_type == func_call)
+        if (new_ast->expr_type == var || new_ast->expr_type == call)
             active->right = new_ast;
         else {
             int new_prio, active_prio;
@@ -130,14 +130,14 @@ static int priority_for_op(lily_expr_op o)
     return prio;
 }
 
-void lily_ast_enter_func(lily_ast_pool *ap, lily_var *var)
+void lily_ast_enter_call(lily_ast_pool *ap, lily_var *var)
 {
     lily_ast *a = next_pool_ast(ap);
 
-    a->expr_type = func_call;
+    a->expr_type = call;
     a->line_num = *ap->lex_linenum;
     a->result = (lily_sym *)var;
-    a->args_needed = var->sig->node.func->num_args;
+    a->args_needed = var->sig->node.call->num_args;
     a->args_collected = 0;
     a->arg_start = NULL;
     a->arg_top = NULL;
@@ -222,22 +222,22 @@ lily_ast_pool *lily_ast_init_pool(lily_excep_data *excep, int pool_size)
     return ret;
 }
 
-static void push_call_arg(lily_ast_pool *ap, lily_ast *func, lily_ast *tree)
+static void push_call_arg(lily_ast_pool *ap, lily_ast *call, lily_ast *tree)
 {
-    /* The args of a function are linked to themselves, with the last one
+    /* The args of a callable are linked to themselves, with the last one
        set to NULL. This will work for multiple functions, because the
        functions would be using different ASTs. */
-    if (func->arg_start == NULL) {
-        func->arg_start = tree;
-        func->arg_top = tree;
+    if (call->arg_start == NULL) {
+        call->arg_start = tree;
+        call->arg_top = tree;
     }
     else {
-        func->arg_top->next_arg = tree;
-        func->arg_top = tree;
+        call->arg_top->next_arg = tree;
+        call->arg_top = tree;
     }
 
     tree->next_arg = NULL;
-    func->args_collected++;
+    call->args_collected++;
 }
 
 inline void lily_ast_collect_arg(lily_ast_pool *ap)
