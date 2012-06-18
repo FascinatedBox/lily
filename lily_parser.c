@@ -59,12 +59,12 @@ static void expression_value(lily_parse_state *parser)
                 var->sig->cls->id == SYM_CLASS_METHOD) {
                 /* New trees will get saved to the args section of this tree
                     when they are done. */
-                lily_ast_enter_func(parser->ast_pool, var);
+                lily_ast_enter_call(parser->ast_pool, var);
 
                 NEED_NEXT_TOK(tk_left_parenth)
 
                 lily_lexer(lex);
-                /* Get the first value of the function. */
+                /* Get the first value of the call. */
                 continue;
             }
             else {
@@ -310,7 +310,7 @@ static void parse_method_decl(lily_parse_state *parser)
     lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_METHOD);
     lily_method_val *m;
     lily_lex_state *lex = parser->lex;
-    lily_var *func_var, *save_top;
+    lily_var *method_var, *save_top;
 
     m = lily_try_new_method_val(parser->symtab);
     if (m == NULL)
@@ -319,8 +319,8 @@ static void parse_method_decl(lily_parse_state *parser)
     /* Get the method's name. */
     NEED_NEXT_TOK(tk_word)
     /* Form: method name(args):<ret type> {  } */
-    func_var = lily_new_var(parser->symtab, cls, lex->label);
-    func_var->value.ptr = m;
+    method_var = lily_new_var(parser->symtab, cls, lex->label);
+    method_var->value.ptr = m;
 
     NEED_NEXT_TOK(tk_left_parenth)
     save_top = parser->symtab->var_top;
@@ -355,22 +355,22 @@ static void parse_method_decl(lily_parse_state *parser)
     m->last_arg = parser->symtab->var_top;
     cls = lily_class_by_name(parser->symtab, lex->label);
 
-    lily_func_sig *fsig = func_var->sig->node.func;
+    lily_call_sig *csig = method_var->sig->node.call;
     int j;
 
-    fsig->ret = cls->sig;
+    csig->ret = cls->sig;
     if (i != 0) {
-        fsig->args = lily_malloc(sizeof(lily_sig *) * i);
-        fsig->num_args = i;
+        csig->args = lily_malloc(sizeof(lily_sig *) * i);
+        csig->num_args = i;
     }
 
     save_top = save_top->next;
     for (j = 0;j < i;j++) {
-        fsig->args[j] = save_top->sig;
+        csig->args[j] = save_top->sig;
         save_top = save_top->next;
     }
 
-    lily_emit_enter_method(parser->emit, func_var);
+    lily_emit_enter_method(parser->emit, method_var);
     NEED_NEXT_TOK(tk_left_curly)
     lily_lexer(parser->lex);
 }
@@ -504,7 +504,7 @@ void lily_parser(lily_parse_state *parser)
             lily_vm_execute(parser->vm);
             /* Show var values, to verify execution went as expected. */
             lily_show_var_values(parser->symtab);
-            /* Clear the main func for reuse. */
+            /* Clear @main for the next pass. */
             lily_reset_main(parser->emit);
 
             if (lex->token == tk_end_tag) {

@@ -33,17 +33,17 @@ typedef struct lily_class_t {
     struct lily_sig_t *sig;
 } lily_class;
 
-typedef struct lily_func_sig_t {
+typedef struct lily_call_sig_t {
     struct lily_sig_t *ret;
     struct lily_sig_t **args;
     int num_args;
     int is_varargs;
-} lily_func_sig;
+} lily_call_sig;
 
 typedef struct lily_sig_t {
     lily_class *cls;
     union {
-        lily_func_sig *func;
+        lily_call_sig *call;
         struct lily_sig_t *value_sig;
     } node;
 } lily_sig;
