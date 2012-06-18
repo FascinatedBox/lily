@@ -23,11 +23,14 @@ static void add_var(lily_symtab *symtab, lily_var *s)
     symtab->var_top = s;
 }
 
-static void init_func_sig_args(lily_symtab *symtab, lily_call_sig *csig,
-                               func_entry *entry)
+static lily_call_sig *try_seed_call_sig(lily_symtab *symtab, func_entry *entry)
 {
     /* The first arg always exists, and is the return type. */
     int i;
+
+    lily_call_sig *csig = lily_malloc(sizeof(lily_call_sig));
+    if (csig == NULL)
+        return NULL;
 
     if (entry->arg_ids[0] == -1)
         csig->ret = NULL;
@@ -42,8 +45,10 @@ static void init_func_sig_args(lily_symtab *symtab, lily_call_sig *csig,
     }
     else {
         csig->args = lily_malloc(sizeof(lily_sig *) * entry->num_args);
-        if (csig->args == NULL)
-            return;
+        if (csig->args == NULL) {
+            lily_free(csig);
+            return NULL;
+        }
 
         for (i = 1;i <= entry->num_args;i++) {
             lily_class *cls = lily_class_by_id(symtab, entry->arg_ids[i]);
@@ -52,6 +57,7 @@ static void init_func_sig_args(lily_symtab *symtab, lily_call_sig *csig,
         csig->num_args = entry->num_args;
     }
     csig->is_varargs = 0;
+    return csig;
 }
 
 /* All other signatures that vars use are copies of one held by a class. Those
@@ -317,21 +323,17 @@ static int init_symbols(lily_symtab *symtab)
         func_entry *seed = func_seeds[i];
         lily_var *new_var = lily_malloc(sizeof(lily_var));
         lily_sig *sig = lily_malloc(sizeof(lily_sig));
-        lily_call_sig *csig = lily_malloc(sizeof(lily_call_sig));
+        /* This function returns NULL if it can't allocate args, so don't check
+           for NULL args here. */
+        lily_call_sig *csig = try_seed_call_sig(symtab, seed);
 
         if (new_var == NULL || sig == NULL || csig == NULL) {
             lily_free(sig);
             lily_free(new_var);
-            lily_free(csig);
-            ret = 0;
-            break;
-        }
-
-        init_func_sig_args(symtab, csig, seed);
-        if (csig->args == NULL && seed->num_args != 0) {
-            lily_free(csig);
-            lily_free(sig);
-            lily_free(new_var);
+            if (csig != NULL) {
+                lily_free(csig);
+                lily_free(csig->args);
+            }
             ret = 0;
             break;
         }
