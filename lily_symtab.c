@@ -317,23 +317,18 @@ static int init_symbols(lily_symtab *symtab)
         func_entry *seed = func_seeds[i];
         lily_var *new_var = lily_malloc(sizeof(lily_var));
         lily_sig *sig = lily_malloc(sizeof(lily_sig));
-
-        if (new_var == NULL || sig == NULL) {
-            lily_free(sig);
-            lily_free(new_var);
-            ret = 0;
-            break;
-        }
-
         lily_call_sig *csig = lily_malloc(sizeof(lily_call_sig));
-        if (csig == NULL) {
+
+        if (new_var == NULL || sig == NULL || csig == NULL) {
             lily_free(sig);
             lily_free(new_var);
+            lily_free(csig);
             ret = 0;
             break;
         }
+
         init_func_sig_args(symtab, csig, seed);
-        if (csig->args == NULL && (i != func_count - 1)) {
+        if (csig->args == NULL && seed->num_args != 0) {
             lily_free(csig);
             lily_free(sig);
             lily_free(new_var);
@@ -346,7 +341,7 @@ static int init_symbols(lily_symtab *symtab)
             new_var->value.ptr = seed->func;
         }
         else {
-            /* @main is always last, and is the only method. */
+            /* @main is always last, and is the only builtin method. */
             lily_method_val *m = lily_try_new_method_val(symtab);
             if (m == NULL) {
                 lily_free(csig);
