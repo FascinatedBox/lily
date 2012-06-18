@@ -33,5 +33,6 @@ static func_entry print = {"print", 1, lily_builtin_print, {-1, SYM_CLASS_STR}};
    this function is called. */
 static func_entry at_main = {"@main", 0, NULL, {-1, -1}};
 static func_entry *func_seeds[] = {&print, &at_main};
+#define NUM_BUILTIN_SEEDS 2
 
 #endif
