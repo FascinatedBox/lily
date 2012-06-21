@@ -7,25 +7,25 @@
 # include "lily_symtab.h"
 
 typedef enum {
-    tk_invalid,
-    tk_word,
     tk_left_parenth,
     tk_right_parenth,
-    tk_double_quote,
-    tk_integer,
-    tk_number,
-    tk_equal,
     tk_comma,
-    tk_plus,
-    tk_minus,
     tk_left_curly,
     tk_right_curly,
     tk_colon,
+    tk_equal,
     tk_eq_eq,
     tk_lt,
     tk_lt_eq,
     tk_gr,
     tk_gr_eq,
+    tk_plus,
+    tk_minus,
+    tk_word,
+    tk_double_quote,
+    tk_integer,
+    tk_number,
+    tk_invalid,
     tk_end_tag,
     tk_eof
 } lily_token;

@@ -4,37 +4,36 @@
 #include "lily_impl.h"
 #include "lily_lexer.h"
 
-#define CC_WORD           0
-
 /* Group 1: Increment pos, return a simple token. */
-#define CC_G_ONE_OFFSET   1
-#define CC_LEFT_PARENTH   1
-#define CC_RIGHT_PARENTH  2
-#define CC_COMMA          3
-#define CC_LEFT_CURLY     4
-#define CC_RIGHT_CURLY    5
-#define CC_COLON          6
-#define CC_G_ONE_LAST     6
-
-#define CC_NEWLINE        7
-#define CC_SHARP          8
-#define CC_STR_NEWLINE    9
-#define CC_STR_END       10
-#define CC_DOUBLE_QUOTE  11
+#define CC_G_ONE_OFFSET  0
+#define CC_LEFT_PARENTH  0
+#define CC_RIGHT_PARENTH 1
+#define CC_COMMA         2
+#define CC_LEFT_CURLY    3
+#define CC_RIGHT_CURLY   4
+#define CC_COLON         5
+#define CC_G_ONE_LAST    5
 
 /* Group 2: Return self, or self= */
-#define CC_G_TWO_OFFSET  12
-#define CC_EQUAL         12
-#define CC_LESS          13
-#define CC_GREATER       14
-#define CC_G_TWO_LAST    14
+#define CC_G_TWO_OFFSET  6
+#define CC_EQUAL         6
+#define CC_LESS          7
+#define CC_GREATER       8
+#define CC_G_TWO_LAST    8
 
-#define CC_PLUS          15
-#define CC_MINUS         16
-#define CC_NUMBER        17
-#define CC_DOT           18
-#define CC_AT            19
-#define CC_INVALID       20
+#define CC_PLUS          9
+#define CC_MINUS        10
+#define CC_WORD         11
+#define CC_DOUBLE_QUOTE 12
+#define CC_NUMBER       13
+
+#define CC_NEWLINE      14
+#define CC_SHARP        15
+#define CC_STR_NEWLINE  16
+#define CC_STR_END      17
+#define CC_DOT          18
+#define CC_AT           19
+#define CC_INVALID      20
 
 /* The lexer assumes any file given is utf-8. */
 
@@ -92,12 +91,7 @@ static const char ident_table[256] =
 /* F */ 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-static const lily_token grp_one_table[] =
-{
-    tk_left_parenth, tk_right_parenth, tk_comma, tk_left_curly, tk_right_curly,
-    tk_colon
-};
-
+/* Group 1 doesn't need a table because the token is just ch_class[ch]. */
 static const lily_token grp_two_table[] =
 {
     tk_equal, tk_lt, tk_gr 
@@ -334,7 +328,9 @@ void lily_lexer(lily_lex_state *lexer)
         }
         else if (group <= CC_G_ONE_LAST) {
             lex_bufpos++;
-            token = grp_one_table[group - CC_G_ONE_OFFSET];
+            /* This is okay because the first group starts at 0, and the tokens
+               for it start at 0. */
+            token = group;
         }
         else if (group == CC_NEWLINE || group == CC_SHARP) {
             read_line(lexer);
@@ -652,9 +648,9 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
 char *tokname(lily_token t)
 {
     static char *toknames[] =
-    {"invalid token", "a label", "(", ")", "a string", "an integer", "a number",
-     "=", ",", "+", "-", "{", "}", ":", "==", "<", "<=", ">", ">=", "@>",
-     "end of file"};
+    {"(", ")", ",", "{", "}", ":", "=", "==", "<", "<=", ">", ">=",
+     "+", "-", "a label", "a string", "an integer", "a number", "invalid token",
+     "@>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];
