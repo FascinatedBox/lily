@@ -5,6 +5,7 @@
 
 /* This creates the *_seed values. */
 #include "lily_seed_symtab.h"
+#include "lily_pkg_str.h"
 
 static void add_var(lily_symtab *symtab, lily_var *s)
 {
@@ -23,7 +24,8 @@ static void add_var(lily_symtab *symtab, lily_var *s)
     symtab->var_top = s;
 }
 
-static lily_call_sig *try_seed_call_sig(lily_symtab *symtab, func_entry *entry)
+static lily_call_sig *try_seed_call_sig(lily_symtab *symtab,
+        lily_func_seed *seed)
 {
     /* The first arg always exists, and is the return type. */
     int i;
@@ -32,29 +34,29 @@ static lily_call_sig *try_seed_call_sig(lily_symtab *symtab, func_entry *entry)
     if (csig == NULL)
         return NULL;
 
-    if (entry->arg_ids[0] == -1)
+    if (seed->arg_ids[0] == -1)
         csig->ret = NULL;
     else {
-        lily_class *c = lily_class_by_id(symtab, entry->arg_ids[0]);
+        lily_class *c = lily_class_by_id(symtab, seed->arg_ids[0]);
         csig->ret = c->sig;
     }
 
-    if (entry->arg_ids[1] == -1) {
+    if (seed->arg_ids[1] == -1) {
         csig->num_args = 0;
         csig->args = NULL;
     }
     else {
-        csig->args = lily_malloc(sizeof(lily_sig *) * entry->num_args);
+        csig->args = lily_malloc(sizeof(lily_sig *) * seed->num_args);
         if (csig->args == NULL) {
             lily_free(csig);
             return NULL;
         }
 
-        for (i = 1;i <= entry->num_args;i++) {
-            lily_class *cls = lily_class_by_id(symtab, entry->arg_ids[i]);
+        for (i = 1;i <= seed->num_args;i++) {
+            lily_class *cls = lily_class_by_id(symtab, seed->arg_ids[i]);
             csig->args[i-1] = cls->sig;
         }
-        csig->num_args = entry->num_args;
+        csig->num_args = seed->num_args;
     }
     csig->is_varargs = 0;
     return csig;
@@ -289,6 +291,8 @@ static int init_classes(lily_symtab *symtab)
             else
                 ret = 0;
 
+            new_class->call_start = NULL;
+            new_class->call_top = NULL;
             new_class->sig = sig;
             new_class->id = i;
             /* try_add_storage checks for the storage being there, since the
@@ -309,7 +313,8 @@ static int init_classes(lily_symtab *symtab)
     return ret;
 }
 
-static int init_symbols(lily_symtab *symtab, func_entry **seeds, int seed_count)
+static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
+        int seed_count)
 {
     /* Turn the keywords into symbols. */
     int i, ret;
@@ -319,7 +324,7 @@ static int init_symbols(lily_symtab *symtab, func_entry **seeds, int seed_count)
     ret = 1;
 
     for (i = 0;i < seed_count;i++) {
-        func_entry *seed = seeds[i];
+        lily_func_seed *seed = seeds[i];
         lily_var *new_var = lily_malloc(sizeof(lily_var));
         lily_sig *sig = lily_malloc(sizeof(lily_sig));
         /* This function returns NULL if it can't allocate args, so don't check
@@ -368,6 +373,25 @@ static int init_symbols(lily_symtab *symtab, func_entry **seeds, int seed_count)
     return ret;
 }
 
+int init_package(lily_symtab *symtab, int cls_id, lily_func_seed **seeds,
+        int num_seeds)
+{
+    lily_var *save_top = symtab->var_top;
+    lily_class *cls = lily_class_by_id(symtab, cls_id);
+    int ret = read_seeds(symtab, seeds, num_seeds);
+
+    if (ret) {
+        /* The functions were created as regular global vars. Make them all
+           class-local. */
+        cls->call_start = save_top->next;
+        cls->call_top = symtab->var_top;
+        symtab->var_top = save_top;
+        save_top->next = NULL;
+    }
+
+    return ret;
+}
+
 lily_symtab *lily_new_symtab(lily_excep_data *excep)
 {
     lily_symtab *s = lily_malloc(sizeof(lily_symtab));
@@ -386,7 +410,8 @@ lily_symtab *lily_new_symtab(lily_excep_data *excep)
     s->old_var_start = NULL;
     s->old_var_top = NULL;
 
-    if (!init_classes(s) || !init_symbols(s, func_seeds, NUM_BUILTIN_SEEDS)) {
+    if (!init_classes(s) || !read_seeds(s, builtin_seeds, NUM_BUILTIN_SEEDS)/* ||
+        !init_package(s, SYM_CLASS_STR, str_seeds, NUM_STR_SEEDS)*/) {
         /* This will free any symbols added, and the symtab object. */
         lily_free_symtab(s);
         return NULL;

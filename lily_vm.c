@@ -4,7 +4,7 @@
 #include "lily_symtab.h"
 #include "lily_opcode.h"
 #include "lily_vm.h"
-#include "lily_builtins.h"
+#include "lily_pkg.h"
 
 #define FAST_INTEGER_OP(OP) \
 ((lily_sym *)code[i+3])->value.integer = \
