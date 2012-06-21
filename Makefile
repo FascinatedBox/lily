@@ -15,7 +15,8 @@ CORE_OBJECTS=$(OBJDIR)/lily_parser.o \
 			$(OBJDIR)/lily_interp.o \
 			$(OBJDIR)/lily_debug.o \
 			$(OBJDIR)/lily_error.o \
-			$(OBJDIR)/lily_msgbuf.o
+			$(OBJDIR)/lily_msgbuf.o \
+			$(OBJDIR)/lily_pkg_str.o
 
 FS_OBJECTS=$(CORE_OBJECTS) \
 			$(OBJDIR)/fs_main.o
@@ -58,8 +59,7 @@ $(OBJDIR)/lily_emitter.o: lily_emitter.c lily_opcode.h lily_impl.h \
 						  lily_emit_table.h
 	$(CC) $(CFLAGS) lily_emitter.c -o $(OBJDIR)/lily_emitter.o
 
-$(OBJDIR)/lily_symtab.o: lily_symtab.c lily_symtab.h lily_builtins.h \
-						 lily_seed_symtab.h
+$(OBJDIR)/lily_symtab.o: lily_symtab.c lily_symtab.h lily_seed_symtab.h
 	$(CC) $(CFLAGS) lily_symtab.c -o $(OBJDIR)/lily_symtab.o
 
 $(OBJDIR)/lily_vm.o: lily_vm.c lily_vm.h
@@ -76,5 +76,8 @@ $(OBJDIR)/lily_error.o: lily_error.c lily_error.h
 
 $(OBJDIR)/lily_msgbuf.o: lily_msgbuf.c lily_msgbuf.h
 	$(CC) $(CFLAGS) lily_msgbuf.c -o $(OBJDIR)/lily_msgbuf.o
+
+$(OBJDIR)/lily_pkg_str.o: lily_pkg_str.c lily_pkg_str.h
+	$(CC) $(CFLAGS) lily_pkg_str.c -o $(OBJDIR)/lily_pkg_str.o
 
 .PHONY: clean all

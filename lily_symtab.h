@@ -31,6 +31,8 @@ typedef struct lily_class_t {
     int id;
     struct lily_storage_t *storage;
     struct lily_sig_t *sig;
+    struct lily_var_t *call_start;
+    struct lily_var_t *call_top;
 } lily_class;
 
 typedef struct lily_call_sig_t {
