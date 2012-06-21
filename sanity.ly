@@ -8,6 +8,7 @@
 str a = "a"
 integer b = 1
 number c = 1.0
+integer a_b = 1
 
 # Test utf-8 labels and strs.
 str ustr = "á"
