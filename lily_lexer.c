@@ -422,10 +422,15 @@ void lily_lexer(lily_lex_state *lexer)
             }
         }
         else if (group == CC_DOT) {
-            double number_total = scan_decimal_number(lexer->lex_buffer,
-                                                      &lex_bufpos);
-            lexer->value.number = number_total;
-            token = tk_number;
+            ch = lexer->lex_buffer[lex_bufpos];
+            if (ch_class[(unsigned char)ch] == CC_NUMBER) {
+                double number_total = scan_decimal_number(lexer->lex_buffer,
+                                                          &lex_bufpos);
+                lexer->value.number = number_total;
+                token = tk_number;
+            }
+            else
+                token = tk_dot;
         }
         else if (group == CC_PLUS) {
             lex_bufpos++;
@@ -649,8 +654,8 @@ char *tokname(lily_token t)
 {
     static char *toknames[] =
     {"(", ")", ",", "{", "}", ":", "=", "==", "<", "<=", ">", ">=",
-     "+", "-", "a label", "a string", "an integer", "a number", "invalid token",
-     "@>", "end of file"};
+     "+", "-", "a label", "a string", "an integer", "a number", ".",
+     "invalid token", "@>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

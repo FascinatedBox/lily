@@ -25,6 +25,7 @@ typedef enum {
     tk_double_quote,
     tk_integer,
     tk_number,
+    tk_dot,
     tk_invalid,
     tk_end_tag,
     tk_eof
