@@ -5,26 +5,28 @@ static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
 {
     lily_ast *active = ap->active;
 
-    if (active == NULL) {
-        /* new_ast is the left value. */
-        if (ap->root == NULL)
+    if (new_ast->expr_type < binary) {
+        if (active != NULL) {
+            if (active->expr_type == binary)
+                active->right = new_ast;
+        }
+        else {
+            /* This is the first value, so it must become root+active. */
             ap->root = new_ast;
-
-        ap->active = new_ast;
-    }
-    else if (active->expr_type == var || active->expr_type == call) {
-        /* active = value, new = binary op. Binary op becomes parent. */
-        if (ap->root == active)
-            ap->root = new_ast;
-
-        new_ast->left = active;
-        ap->active = new_ast;
+            ap->active = new_ast;
+        }
     }
     else {
-        /* active = op, new = value or binary op. */
-        if (new_ast->expr_type == var || new_ast->expr_type == call)
-            active->right = new_ast;
-        else {
+        if (active->expr_type < binary) {
+            /* Only a value or call so far. The binary op takes over. */
+            if (ap->root == active)
+                ap->root = new_ast;
+
+            new_ast->left = active;
+            ap->active = new_ast;
+        }
+        else if (active->expr_type == binary) {
+            /* Figure out how the two trees will fit together. */
             int new_prio, active_prio;
             new_prio = new_ast->priority;
             active_prio = active->priority;
@@ -44,10 +46,10 @@ static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
                 while (tree->parent) {
                     if (new_prio > tree->parent->priority)
                         break;
-
+    
                     tree = tree->parent;
                 }
-
+    
                 if (tree->parent != NULL) {
                     /* Think 'linked list insertion'. */
                     lily_ast *parent = tree->parent;
@@ -55,7 +57,7 @@ static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
                         parent->left = new_ast;
                     else
                         parent->right = new_ast;
-
+    
                     new_ast->parent = active->parent;
                 }
                 else {
