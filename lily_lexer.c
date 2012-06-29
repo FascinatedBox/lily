@@ -429,8 +429,10 @@ void lily_lexer(lily_lex_state *lexer)
                 lexer->value.number = number_total;
                 token = tk_number;
             }
-            else
+            else {
+                lex_bufpos++;
                 token = tk_dot;
+            }
         }
         else if (group == CC_PLUS) {
             lex_bufpos++;
