@@ -141,11 +141,14 @@ void lily_ast_enter_call(lily_ast_pool *ap, lily_var *var)
     a->args_collected = 0;
     a->arg_start = NULL;
     a->arg_top = NULL;
-    /* The emitter uses this to check if a call is within anything else. Also,
-       this parent becomes the current when the call is done. */
-    a->parent = ap->active;
 
     merge_tree(ap, a);
+
+    /* The emitter uses this to check if a call is within anything else. Also,
+       this parent becomes the current when the call is done.
+       Make sure this happens after merge_tree, in case active is null (it
+       happens when the expression is just a call). */
+    a->parent = ap->active;
 
     if (ap->save_index == ap->save_size) {
         ap->save_size *= 2;
