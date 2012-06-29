@@ -97,6 +97,11 @@ if aa == 1: {
     }
 }
 
+method t(integer a):str {
+    return "str"
+}
+
+print(t(1))
 method add (integer addA, integer addB):integer {
     return addA + addB
 }
