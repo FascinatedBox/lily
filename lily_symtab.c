@@ -246,6 +246,9 @@ void lily_free_symtab(lily_symtab *symtab)
                         store_curr = store_next;
                     } while (store_curr != store_start);
                 }
+                if (cls->call_start != NULL)
+                    free_vars(cls->call_start);
+
                 lily_free(cls->sig);
                 lily_free(cls);
             }
@@ -410,8 +413,8 @@ lily_symtab *lily_new_symtab(lily_excep_data *excep)
     s->old_var_start = NULL;
     s->old_var_top = NULL;
 
-    if (!init_classes(s) || !read_seeds(s, builtin_seeds, NUM_BUILTIN_SEEDS)/* ||
-        !init_package(s, SYM_CLASS_STR, str_seeds, NUM_STR_SEEDS)*/) {
+    if (!init_classes(s) || !read_seeds(s, builtin_seeds, NUM_BUILTIN_SEEDS) ||
+        !init_package(s, SYM_CLASS_STR, str_seeds, NUM_STR_SEEDS)) {
         /* This will free any symbols added, and the symtab object. */
         lily_free_symtab(s);
         return NULL;
