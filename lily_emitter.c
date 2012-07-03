@@ -14,6 +14,18 @@ if ((m->pos + size) > m->len) { \
         lily_raise_nomem(emit->error); \
 }
 
+/* Most ops need 4 or less code spaces, so only growing once is okay. However,
+   calls need 5 + #args. So more than one grow might be necessary.
+   Note: This macro may need to check for overflow later. */
+#define WRITE_PREP_LARGE(size) \
+if ((m->pos + size) > m->len) { \
+    while ((m->pos + size) > m->len) \
+        m->len *= 2; \
+    m->code = lily_realloc(m->code, sizeof(int) * m->len); \
+    if (m->code == NULL) \
+        lily_raise_nomem(emit->error); \
+}
+
 #define WRITE_1(one) \
 WRITE_PREP(1) \
 m->code[m->pos] = one; \
@@ -157,7 +169,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         }
 
         new_pos = m->pos + 5 + ast->args_collected;
-        WRITE_PREP(5 + ast->args_collected)
+        WRITE_PREP_LARGE(5 + ast->args_collected)
 
         if (v->sig->cls->id == SYM_CLASS_FUNCTION)
             m->code[m->pos] = o_func_call;
