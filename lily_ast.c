@@ -11,8 +11,11 @@ static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
                 active->right = new_ast;
         }
         else {
-            /* This is the first value, so it must become root+active. */
-            ap->root = new_ast;
+            /* If no root, then no value or call so far. So become root, if only
+               temporarily. */
+            if (ap->root == NULL)
+                ap->root = new_ast;
+
             ap->active = new_ast;
         }
     }
