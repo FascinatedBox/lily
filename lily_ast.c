@@ -4,9 +4,10 @@
 static void oo_merge(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
 {
     if (active->expr_type == var) {
-        /* Only a var has been seen so far, so take it as the first arg to the
-           call. It's currently root+active so... */
+        /* Only a var so far, so it's definitely root+active. Become the new
+           root+active, and make it the first arg. */
         ap->root = new_ast;
+        ap->active = new_ast;
 
         new_ast->arg_start = active;
         new_ast->arg_top = active;
