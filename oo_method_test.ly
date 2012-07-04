@@ -7,6 +7,7 @@
 str a = "a"
 
 a.concat(".")
+a.concat(a.concat("."))
 
 print(a.concat("."))
 @>

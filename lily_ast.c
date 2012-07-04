@@ -4,9 +4,17 @@
 static void oo_merge(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
 {
     if (active->expr_type == var) {
-        /* Only a var so far, so it's definitely root+active. Become the new
-           root+active, and make it the first arg. */
-        ap->root = new_ast;
+        /* This gets called for two cases:
+           1) a.concat("c") where a is active and root.
+           2) a.concat(b.concat("c")) where b is active, but a is root.
+           If this current var isn't the root, then some previous call could be
+           root, so don't become root. */
+        if (ap->root == ap->active)
+            ap->root = new_ast;
+
+        /* The call becomes active because it's taking over the var. Otherwise,
+           lily_ast_enter_call will think the var is the parent, and make the
+           var the current when the call is done. That's bad. */
         ap->active = new_ast;
 
         new_ast->arg_start = active;
