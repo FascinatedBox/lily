@@ -42,6 +42,26 @@ if (lex->token != expected) \
     lily_raise(parser->error, "Expected " msg ", not %s.\n", \
                tokname(lex->token)); \
 
+static void enter_oo_call(lily_parse_state *parser)
+{
+    lily_ast *active = parser->ast_pool->active;
+    lily_class *cls;
+    lily_var *call_var;
+
+    if (active->expr_type == var)
+        cls = active->result->sig->cls;
+    else
+        lily_raise(parser->error, "Stub: oo call on non-var.\n");
+
+    call_var = lily_find_class_callable(cls, parser->lex->label);
+    if (call_var == NULL) {
+        lily_raise(parser->error, "Class %s has no callable named %s.\n",
+            cls->name, parser->lex->label);
+    }
+
+    lily_ast_enter_call(parser->ast_pool, call_var);
+}
+
 static void expression_value(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -71,7 +91,6 @@ static void expression_value(lily_parse_state *parser)
                 lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
 
                 lily_lexer(lex);
-                break;
             }
         }
         else {
@@ -95,8 +114,15 @@ static void expression_value(lily_parse_state *parser)
             lily_ast_push_sym(parser->ast_pool, (lily_sym *)lit);
 
             lily_lexer(lex);
-            break;
         }
+        if (lex->token == tk_dot) {
+            NEED_NEXT_TOK(tk_word)
+            enter_oo_call(parser);
+            NEED_NEXT_TOK(tk_left_parenth);
+            lily_lexer(lex);
+            continue;
+        }
+        break;
     }
 }
 

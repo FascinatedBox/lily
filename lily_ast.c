@@ -1,6 +1,20 @@
 #include "lily_ast.h"
 #include "lily_impl.h"
 
+static void oo_merge(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
+{
+    if (active->expr_type == var) {
+        /* Only a var has been seen so far, so take it as the first arg to the
+           call. It's currently root+active so... */
+        ap->root = new_ast;
+
+        new_ast->arg_start = active;
+        new_ast->arg_top = active;
+        new_ast->args_collected = 1;
+        active->next_arg = NULL;
+    }
+}
+
 static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
 {
     lily_ast *active = ap->active;
@@ -9,6 +23,8 @@ static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
         if (active != NULL) {
             if (active->expr_type == binary)
                 active->right = new_ast;
+            else
+                oo_merge(ap, active, new_ast);
         }
         else {
             /* If no root, then no value or call so far. So become root, if only
