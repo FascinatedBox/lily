@@ -4,6 +4,13 @@
 </head>
 <body>
 <@lily
+method manyargs (integer addA, integer addB, integer addC, integer addD,
+integer addE, integer addF):integer {
+    return addA
+}
+
+manyargs(1,2,3,4,5,6)
+
 # Test very basic assignments.
 str a = "a"
 integer b = 1
