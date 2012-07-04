@@ -495,17 +495,16 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_class *cls, char *name)
 
 void lily_drop_block_vars(lily_symtab *symtab, lily_var *start)
 {
-    if (symtab->old_var_start == NULL) {
+    if (symtab->old_var_start == NULL)
+        /* This becomes the list of vars. */
         symtab->old_var_start = start->next;
-        symtab->old_var_top = symtab->var_top;
-    }
-    else {
+    else
+        /* Since there's a list of old vars, add the first to the end. */
         symtab->old_var_top->next = start->next;
-        symtab->var_top = start;
-        start->next = NULL;
-    }
 
+    /* Put this at the end again, so new vars aren't lost. */
     symtab->old_var_top = symtab->var_top;
     symtab->var_top = start;
+    /* Detach old and new vars. */
     start->next = NULL;
 }
