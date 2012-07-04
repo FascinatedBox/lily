@@ -386,10 +386,13 @@ int init_package(lily_symtab *symtab, int cls_id, lily_func_seed **seeds,
     if (ret) {
         /* The functions were created as regular global vars. Make them all
            class-local. */
+        lily_var *v;
         cls->call_start = save_top->next;
         cls->call_top = symtab->var_top;
         symtab->var_top = save_top;
         save_top->next = NULL;
+        for (v = cls->call_start;v != NULL;v = v->next)
+            v->parent = cls;
     }
 
     return ret;
@@ -485,6 +488,7 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_class *cls, char *name)
 
     strcpy(var->name, name);
 
+    var->parent = NULL;
     var->flags = VAR_SYM | S_IS_NIL;
     var->sig = sig;
     var->line_num = *symtab->lex_linenum;
@@ -507,4 +511,17 @@ void lily_drop_block_vars(lily_symtab *symtab, lily_var *start)
     symtab->var_top = start;
     /* Detach old and new vars. */
     start->next = NULL;
+}
+
+lily_var *lily_find_class_callable(lily_class *cls, char *name)
+{
+    lily_var *iter = cls->call_start;
+    if (iter != NULL) {
+        for (;iter != NULL;iter = iter->next) {
+            if (strcmp(iter->name, name) == 0)
+                break;
+        }
+    }
+
+    return iter;
 }

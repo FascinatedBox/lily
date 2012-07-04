@@ -84,6 +84,7 @@ typedef struct lily_var_t {
     lily_value value;
     char *name;
     int line_num;
+    lily_class *parent;
     struct lily_var_t *next;
 } lily_var;
 
@@ -140,6 +141,7 @@ typedef struct {
 
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, char *);
+lily_var *lily_find_class_callable(lily_class *, char *);
 void lily_free_symtab(lily_symtab *);
 int lily_keyword_by_name(char *);
 lily_literal *lily_new_literal(lily_symtab *, lily_class *);
