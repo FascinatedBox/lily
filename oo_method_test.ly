@@ -7,6 +7,8 @@
 str a = "a"
 
 a.concat(".")
+
+print(a.concat("."))
 @>
 </body>
 </html>
