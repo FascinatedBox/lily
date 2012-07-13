@@ -3,7 +3,7 @@
 
 static void oo_merge(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
 {
-    if (active->expr_type == var) {
+    if (active->expr_type < binary) {
         /* This gets called for two cases:
            1) a.concat("c") where a is active and root.
            2) a.concat(b.concat("c")) where b is active, but a is root.

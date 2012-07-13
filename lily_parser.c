@@ -50,6 +50,8 @@ static void enter_oo_call(lily_parse_state *parser)
 
     if (active->expr_type == var)
         cls = active->result->sig->cls;
+    else if (active->expr_type == call)
+        cls = active->result->sig->node.call->ret->cls;
     else
         lily_raise(parser->error, "Stub: oo call on non-var.\n");
 
@@ -158,10 +160,17 @@ static void expression(lily_parse_state *parser, int flags)
                    the next statement. */
                 if (lex->token == tk_word && parser->ast_pool->save_index == 0)
                     break;
-                else
+                else if (lex->token != tk_dot)
                     /* Since the parenth finished a value, the token should be
                        treated as a binary op. */
                     continue;
+                else {
+                    /* 'a.concat("b").concat("c")'. Do a normal oo merge. */
+                    NEED_NEXT_TOK(tk_word)
+                    enter_oo_call(parser);
+                    NEED_NEXT_TOK(tk_left_parenth);
+                    lily_lexer(lex);
+                }
             }
             else if (lex->token == tk_comma) {
                 if (parser->ast_pool->active == NULL)
