@@ -173,7 +173,6 @@ void lily_ast_enter_call(lily_ast_pool *ap, lily_var *var)
     a->expr_type = call;
     a->line_num = *ap->lex_linenum;
     a->result = (lily_sym *)var;
-    a->args_needed = var->sig->node.call->num_args;
     a->args_collected = 0;
     a->arg_start = NULL;
     a->arg_top = NULL;
@@ -298,17 +297,17 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
 {
     ap->save_index--;
     lily_ast *a = ap->saved_trees[ap->save_index];
-
+    lily_var *v = (lily_var *)a->result;
     push_call_arg(ap, a, ap->root);
 
     /* Func arg pushing doesn't check as it goes along, because that
        wouldn't handle the case of too few args. But now the function is
        supposed to be complete so... */
-    if (a->args_needed != a->args_collected) {
+    if (v->sig->node.call->num_args != a->args_collected) {
         ap->error->line_adjust = a->line_num;
         lily_raise(ap->error, "%s expects %d args, got %d.\n",
                    ((lily_var *)a->result)->name,
-                   a->args_needed,
+                   v->sig->node.call->num_args,
                    a->args_collected);
     }
     ap->save_index--;
