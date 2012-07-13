@@ -275,6 +275,7 @@ void lily_load_file(lily_lex_state *lexer, char *filename)
         lexer->ch_class[(unsigned char)'\r'] = CC_NEWLINE;
         lexer->ch_class[(unsigned char)'\n'] = CC_NEWLINE;
         lexer->ch_class[0] = CC_INVALID;
+        lexer->line_num = 0;
     }
 
     FILE *lex_file = fopen(filename, "r");
@@ -285,7 +286,6 @@ void lily_load_file(lily_lex_state *lexer, char *filename)
 
     lexer->filename = filename;
     lexer->lex_file = lex_file;
-    lexer->line_num = 1;
 
     read_line(lexer);
     /* Make sure the lexer starts after the <@lily block. */
@@ -598,7 +598,8 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     s->save_buffer = NULL;
 
     s->label = lily_malloc(128 * sizeof(char));
-    s->line_num = 1;
+    /* This must start at 0 since the line reader will bump it by one. */
+    s->line_num = 0;
 
     ch_class = lily_malloc(256 * sizeof(char));
 
