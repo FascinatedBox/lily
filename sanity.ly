@@ -116,6 +116,8 @@ method add (integer addA, integer addB):integer {
 add(1+1, 1+1)
 integer addcheck = add(1, 1) + 10
 
+integer foldcheck = add(1+1>1+1, 1)
+
 @>
 </body>
 </html>
