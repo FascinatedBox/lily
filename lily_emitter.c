@@ -164,6 +164,10 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                 lily_msgbuf_add(mb, "' but got type '");
                 write_type(mb, arg->result->sig);
                 lily_msgbuf_add(mb, "'.\n");
+
+                /* The arg's line number is used, in case it's on a different
+                   line than the call. */
+                emit->error->line_adjust = arg->line_num;
                 lily_raise_msgbuf(emit->error, mb);
             }
         }
