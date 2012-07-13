@@ -62,7 +62,14 @@ static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
                 /* The new tree goes before the current one. It becomes the
                    active, but not the root. */
                 new_ast->left = active->right;
-                active->right = new_ast;
+                if (active->left->expr_type == binary &&
+                    active->priority < new_prio) {
+                    active->right = active->left;
+                    active->left = new_ast;
+                }
+                else
+                    active->right = new_ast;
+
                 new_ast->parent = active;
                 ap->active = new_ast;
             }
@@ -74,10 +81,9 @@ static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
                 while (tree->parent) {
                     if (new_prio > tree->parent->priority)
                         break;
-    
+
                     tree = tree->parent;
                 }
-    
                 if (tree->parent != NULL) {
                     /* Think 'linked list insertion'. */
                     lily_ast *parent = tree->parent;
@@ -85,15 +91,15 @@ static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
                         parent->left = new_ast;
                     else
                         parent->right = new_ast;
-    
+
                     new_ast->parent = active->parent;
                 }
                 else {
-                    /* No need to update the parent. Just become root. */
-                    active->parent = new_ast;
+                    /* Remember to operate on the tree, not current. */
+                    tree->parent = new_ast;
                     ap->root = new_ast;
                 }
-                new_ast->left = active;
+                new_ast->left = tree;
                 ap->active = new_ast;
             }
         }
@@ -180,7 +186,7 @@ void lily_ast_enter_call(lily_ast_pool *ap, lily_var *var)
        happens when the expression is just a call). */
     a->parent = ap->active;
 
-    if (ap->save_index == ap->save_size) {
+    if (ap->save_index + 2 >= ap->save_size) {
         ap->save_size *= 2;
         lily_ast **new_saved;
         new_saved = lily_realloc(ap->saved_trees, sizeof(lily_ast *) *
@@ -192,10 +198,12 @@ void lily_ast_enter_call(lily_ast_pool *ap, lily_var *var)
         ap->saved_trees = new_saved;
     }
 
-    ap->saved_trees[ap->save_index] = a;
+    ap->saved_trees[ap->save_index] = ap->root;
+    ap->saved_trees[ap->save_index+1] = a;
+    ap->root = NULL;
     ap->active = NULL;
 
-    ap->save_index++;
+    ap->save_index += 2;
 }
 
 void lily_ast_free_pool(lily_ast_pool *ap)
@@ -279,9 +287,10 @@ inline void lily_ast_collect_arg(lily_ast_pool *ap)
        done yet. */
     lily_ast *a = ap->saved_trees[ap->save_index-1];
 
-    push_call_arg(ap, a, ap->active);
+    push_call_arg(ap, a, ap->root);
 
     /* Keep all of the expressions independent. */
+    ap->root = NULL;
     ap->active = NULL;
 }
 
@@ -290,7 +299,7 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
     ap->save_index--;
     lily_ast *a = ap->saved_trees[ap->save_index];
 
-    push_call_arg(ap, a, ap->active);
+    push_call_arg(ap, a, ap->root);
 
     /* Func arg pushing doesn't check as it goes along, because that
        wouldn't handle the case of too few args. But now the function is
@@ -302,6 +311,8 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
                    a->args_needed,
                    a->args_collected);
     }
+    ap->save_index--;
+    ap->root = ap->saved_trees[ap->save_index];
     ap->active = a->parent;
 }
 
