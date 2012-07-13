@@ -18,7 +18,6 @@ typedef struct lily_ast_t {
     struct lily_ast_t *next_arg;
 
     /* For functions only. */
-    int args_needed;
     int args_collected;
     struct lily_ast_t *arg_start;
     struct lily_ast_t *arg_top;
