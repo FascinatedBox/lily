@@ -110,7 +110,7 @@ void lily_free_vm_state(lily_vm_state *vm)
 
 void lily_builtin_print(lily_sym **args)
 {
-    lily_impl_send_html(((lily_strval *)args[0]->value.ptr)->str);
+    lily_impl_send_html(((lily_strval *)args[1]->value.ptr)->str);
 }
 
 void lily_vm_execute(lily_vm_state *vm)
@@ -186,7 +186,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* var, func, #args, ret, args... */
                 lily_fast_func fc = (lily_fast_func)code[i+2];
                 int j = code[i+3];
-                fc((lily_sym **)code+i+5);
+                fc((lily_sym **)code+i+4);
                 i += 5+j;
             }
                 break;

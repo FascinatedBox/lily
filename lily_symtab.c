@@ -118,6 +118,12 @@ int lily_try_add_storage(lily_symtab *symtab, lily_class *cls)
         return 0;
     }
 
+    /* str's concat function will check to see if there is a strval to save the
+       new string to. For now, set this to null so there's no invalid read when
+       concat does that. */
+    if (cls->id == SYM_CLASS_STR)
+        storage->value.ptr = NULL;
+
     storage->id = symtab->next_storage_id;
     symtab->next_storage_id++;
     storage->flags = STORAGE_SYM;
@@ -241,7 +247,12 @@ void lily_free_symtab(lily_symtab *symtab)
                             lily_free(store_curr->sig);
                         else if (store_curr->sig->cls->id == SYM_CLASS_METHOD)
                             free_var_func_sig(store_curr->sig);
-
+                        else if (store_curr->sig->cls->id == SYM_CLASS_STR) {
+                            if (store_curr->value.ptr != NULL) {
+                                lily_free(((lily_strval *)store_curr->value.ptr)->str);
+                                lily_free(((lily_strval *)store_curr->value.ptr));
+                            }
+                        }
                         lily_free(store_curr);
                         store_curr = store_next;
                     } while (store_curr != store_start);
