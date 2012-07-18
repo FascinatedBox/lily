@@ -388,6 +388,7 @@ void lily_lexer(lily_lex_state *lexer)
             }
 
             strcpy(str, label);
+            sv->refcount = 1;
             sv->str = str;
             sv->size = word_pos;
             lexer->value.ptr = sv;

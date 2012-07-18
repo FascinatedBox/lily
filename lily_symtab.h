@@ -6,6 +6,7 @@
 
 typedef struct {
     char *str;
+    int refcount;
     int size;
 } lily_strval;
 

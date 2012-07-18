@@ -223,6 +223,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                                right_sym->sig->cls->name);
                 }
             }
+            else if (left_sym->sig->cls->id == SYM_CLASS_STR)
+                opcode = o_str_assign;
             else
                 opcode = o_assign;
 

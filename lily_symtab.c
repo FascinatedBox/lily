@@ -197,6 +197,16 @@ void free_vars(lily_var *var)
             free_var_func_sig(var->sig);
         else if (cls_id == SYM_CLASS_OBJECT)
             lily_free(var->sig);
+        else if (cls_id == SYM_CLASS_STR) {
+            lily_strval *sv = (lily_strval *)var->value.ptr;
+            if (sv != NULL) {
+                sv->refcount--;
+                if (sv->refcount == 0) {
+                    lily_free(sv->str);
+                    lily_free(sv);
+                }
+            }
+        }
 
         if (var->line_num != 0)
             lily_free(var->name);
@@ -218,8 +228,11 @@ void lily_free_symtab(lily_symtab *symtab)
 
         if (lit->sig->cls->id == SYM_CLASS_STR) {
             lily_strval *sv = (lily_strval *)lit->value.ptr;
-            lily_free(sv->str);
-            lily_free(sv);
+            sv->refcount--;
+            if (sv->refcount == 0) {
+                lily_free(sv->str);
+                lily_free(sv);
+            }
         }
 
         lily_free(lit);
@@ -248,9 +261,13 @@ void lily_free_symtab(lily_symtab *symtab)
                         else if (store_curr->sig->cls->id == SYM_CLASS_METHOD)
                             free_var_func_sig(store_curr->sig);
                         else if (store_curr->sig->cls->id == SYM_CLASS_STR) {
-                            if (store_curr->value.ptr != NULL) {
-                                lily_free(((lily_strval *)store_curr->value.ptr)->str);
-                                lily_free(((lily_strval *)store_curr->value.ptr));
+                            lily_strval *sv = store_curr->value.ptr;
+                            if (sv != NULL) {
+                                sv->refcount--;
+                                if (sv->refcount == 0) {
+                                    lily_free(sv->str);
+                                    lily_free(sv);
+                                }
                             }
                         }
                         lily_free(store_curr);
@@ -496,6 +513,9 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_class *cls, char *name)
         lily_free(var->name);
         lily_raise_nomem(symtab->error);
     }
+
+    if (cls->id == SYM_CLASS_STR)
+        var->value.ptr = NULL;
 
     strcpy(var->name, name);
 

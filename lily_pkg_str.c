@@ -18,6 +18,7 @@ void lily_str_concat(lily_sym **args)
         if (ret == NULL)
             return;
         ret->str = lily_malloc(sizeof(char) * newsize);
+        ret->refcount = 1;
     }
     else if (ret->size < newsize) {
         char *newstr;

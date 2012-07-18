@@ -113,6 +113,32 @@ void lily_builtin_print(lily_sym **args)
     lily_impl_send_html(((lily_strval *)args[1]->value.ptr)->str);
 }
 
+void do_str_assign(lily_sym **syms)
+{
+    lily_sym *lhs, *rhs;
+    lily_strval *lvalue;
+
+    lhs = ((lily_sym *)syms[1]);
+    rhs = ((lily_sym *)syms[2]);
+    lvalue = (lily_strval *)lhs->value.ptr;
+
+    if (!(lhs->flags & S_IS_NIL)) {
+        lvalue->refcount--;
+        if (lvalue->refcount == 0) {
+            lily_free(lvalue->str);
+            lily_free(lvalue);
+        }
+    }
+
+    if (!(rhs->flags & S_IS_NIL)) {
+        ((lily_strval *)rhs->value.ptr)->refcount++;
+        lhs->flags &= ~S_IS_NIL;
+    }
+    else
+        lhs->flags |= S_IS_NIL;
+    lhs->value = rhs->value;
+}
+
 void lily_vm_execute(lily_vm_state *vm)
 {
     int *code, flag, i;
@@ -222,9 +248,16 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs = vm->saved_ret[vm->stack_pos];
                 rhs = (lily_sym *)code[i+1];
                 lhs->value = rhs->value;
+                if (lhs->sig->cls->id == SYM_CLASS_STR &&
+                    !(lhs->flags & S_IS_NIL))
+                        ((lily_strval *)lhs->value.ptr)->refcount++;
 
                 code = vm->saved_code[vm->stack_pos];
                 i = vm->saved_pos[vm->stack_pos];
+                break;
+            case o_str_assign:
+                do_str_assign(((lily_sym **)code+i));
+                i += 3;
                 break;
             case o_obj_assign:
                 lhs = ((lily_sym *)code[i+1]);
