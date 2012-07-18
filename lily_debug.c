@@ -107,6 +107,10 @@ static void show_code(lily_var *var)
                 print_two(code, "    [%d] obj_assign    ", i);
                 i += 3;
                 break;
+            case o_str_assign:
+                print_two(code, "    [%d] str_assign    ", i);
+                i += 3;
+                break;
             case o_integer_add:
                 print_three(code, "    [%d] integer_add   ", i);
                 i += 4;
