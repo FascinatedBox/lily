@@ -122,14 +122,8 @@ void do_str_assign(lily_sym **syms)
     rhs = ((lily_sym *)syms[2]);
     lvalue = (lily_strval *)lhs->value.ptr;
 
-    if (!(lhs->flags & S_IS_NIL)) {
-        lvalue->refcount--;
-        if (lvalue->refcount == 0) {
-            lily_free(lvalue->str);
-            lily_free(lvalue);
-        }
-    }
-
+    if (!(lhs->flags & S_IS_NIL))
+        lily_deref_strval(lvalue);
     if (!(rhs->flags & S_IS_NIL)) {
         ((lily_strval *)rhs->value.ptr)->refcount++;
         lhs->flags &= ~S_IS_NIL;
