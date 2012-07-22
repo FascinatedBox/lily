@@ -199,13 +199,8 @@ void free_vars(lily_var *var)
             lily_free(var->sig);
         else if (cls_id == SYM_CLASS_STR) {
             lily_strval *sv = (lily_strval *)var->value.ptr;
-            if (sv != NULL) {
-                sv->refcount--;
-                if (sv->refcount == 0) {
-                    lily_free(sv->str);
-                    lily_free(sv);
-                }
-            }
+            if (sv != NULL)
+                lily_deref_strval(sv);
         }
 
         if (var->line_num != 0)
@@ -226,14 +221,8 @@ void lily_free_symtab(lily_symtab *symtab)
     while (lit != NULL) {
         lit_temp = lit->next;
 
-        if (lit->sig->cls->id == SYM_CLASS_STR) {
-            lily_strval *sv = (lily_strval *)lit->value.ptr;
-            sv->refcount--;
-            if (sv->refcount == 0) {
-                lily_free(sv->str);
-                lily_free(sv);
-            }
-        }
+        if (lit->sig->cls->id == SYM_CLASS_STR)
+            lily_deref_strval((lily_strval *)lit->value.ptr);
 
         lily_free(lit);
 
@@ -262,13 +251,8 @@ void lily_free_symtab(lily_symtab *symtab)
                             free_var_func_sig(store_curr->sig);
                         else if (store_curr->sig->cls->id == SYM_CLASS_STR) {
                             lily_strval *sv = store_curr->value.ptr;
-                            if (sv != NULL) {
-                                sv->refcount--;
-                                if (sv->refcount == 0) {
-                                    lily_free(sv->str);
-                                    lily_free(sv);
-                                }
-                            }
+                            if (sv != NULL)
+                                lily_deref_strval(sv);
                         }
                         lily_free(store_curr);
                         store_curr = store_next;
@@ -542,6 +526,15 @@ void lily_drop_block_vars(lily_symtab *symtab, lily_var *start)
     symtab->var_top = start;
     /* Detach old and new vars. */
     start->next = NULL;
+}
+
+void lily_deref_strval(lily_strval *sv)
+{
+    sv->refcount--;
+    if (sv->refcount == 0) {
+        lily_free(sv->str);
+        lily_free(sv);
+    }
 }
 
 lily_var *lily_find_class_callable(lily_class *cls, char *name)
