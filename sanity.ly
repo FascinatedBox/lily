@@ -108,7 +108,19 @@ method t(integer a):str {
     return "str"
 }
 
+method t2(str a):str {
+    return a
+}
+
 print(t(1))
+# method t uses the same storage to return the value each time. These three
+# calls make sure that the storage isn't ref'd each time. If that happened,
+# there would be more refs than values (memory leak).
+t(1)
+t(1)
+t(1)
+t2("str")
+
 method add (integer addA, integer addB):integer {
     return addA + addB
 }

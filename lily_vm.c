@@ -224,6 +224,15 @@ void lily_vm_execute(lily_vm_state *vm)
                 for (v = mval->first_arg;
                      v != mval->last_arg->next;v = v->next, i++) {
                     flag = ((lily_sym *)code[i])->flags & S_IS_NIL;
+                    if (v->sig->cls->id == SYM_CLASS_STR) {
+                        /* Treat this like a string assignment: Deref old, ref
+                           new. */
+                        if (v->value.ptr != NULL)
+                            lily_deref_strval((lily_strval *)v->value.ptr);
+                        lily_strval *sv = ((lily_sym *)code[i])->value.ptr;
+                        if (sv != NULL)
+                            sv->refcount++;
+                    }
                     v->flags &= flag;
                     v->value = ((lily_sym *)code[i])->value;
                 }
@@ -241,11 +250,16 @@ void lily_vm_execute(lily_vm_state *vm)
                 vm->stack_pos--;
                 lhs = vm->saved_ret[vm->stack_pos];
                 rhs = (lily_sym *)code[i+1];
-                lhs->value = rhs->value;
-                if (lhs->sig->cls->id == SYM_CLASS_STR &&
-                    !(lhs->flags & S_IS_NIL))
-                        ((lily_strval *)lhs->value.ptr)->refcount++;
 
+                if (lhs->sig->cls->id == SYM_CLASS_STR &&
+                    !(lhs->flags & S_IS_NIL)) {
+                        if (lhs->value.ptr != NULL)
+                            lily_deref_strval(lhs->value.ptr);
+
+                        ((lily_strval *)rhs->value.ptr)->refcount++;
+                    }
+
+                lhs->value = rhs->value;
                 code = vm->saved_code[vm->stack_pos];
                 i = vm->saved_pos[vm->stack_pos];
                 break;
