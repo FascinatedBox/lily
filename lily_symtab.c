@@ -531,7 +531,6 @@ void lily_drop_block_vars(lily_symtab *symtab, lily_var *start)
 void lily_deref_strval(lily_strval *sv)
 {
     sv->refcount--;
-    fprintf(stderr, "refcount of sv %p is now %d.\n", sv, sv->refcount);
     if (sv->refcount == 0) {
         lily_free(sv->str);
         lily_free(sv);
