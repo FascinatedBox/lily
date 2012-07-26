@@ -125,6 +125,11 @@ method add (integer addA, integer addB):integer {
     return addA + addB
 }
 
+method test_noargs():integer {
+    return 10
+}
+test_noargs()
+
 add(1+1, 1+1)
 integer addcheck = add(1, 1) + 10
 
