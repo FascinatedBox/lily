@@ -104,15 +104,14 @@ typedef struct lily_storage_t {
 } lily_storage;
 
 typedef struct {
-    /* The first symbol in the table (for itering from). */
+    /* The first symbol in the table (for itering from). This is also @main,
+       since @main is the first symbol. */
     lily_var *var_start;
     /* The last symbol (for adding to). */
     lily_var *var_top;
     lily_var *old_var_start;
     lily_var *old_var_top;
     lily_class **classes;
-    /* The function containing commands outside of functions. */
-    lily_var *main;
     lily_literal *lit_start;
     lily_literal *lit_top;
     int next_var_id;

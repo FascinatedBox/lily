@@ -415,7 +415,7 @@ static void parse_method_decl(lily_parse_state *parser)
     if (i != 0) {
         csig->args = lily_malloc(sizeof(lily_sig *) * i);
         if (csig->args == NULL)
-            lily_raise_nomem(parser->error)
+            lily_raise_nomem(parser->error);
 
         for (j = 0;j < i;j++) {
             csig->args[j] = save_top->sig;
@@ -533,11 +533,11 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
         return NULL;
     }
 
-    s->vm->main = s->symtab->main;
+    s->vm->main = s->symtab->var_start;
     s->symtab->lex_linenum = &s->lex->line_num;
     s->ast_pool->lex_linenum = &s->lex->line_num;
     s->emit->symtab = s->symtab;
-    lily_emit_set_target(s->emit, s->symtab->main);
+    lily_emit_set_target(s->emit, s->symtab->var_start);
     return s;
 }
 
