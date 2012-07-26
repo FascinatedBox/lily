@@ -276,8 +276,11 @@ static void push_call_arg(lily_ast_pool *ap, lily_ast *call, lily_ast *tree)
         call->arg_top = tree;
     }
 
-    tree->next_arg = NULL;
-    call->args_collected++;
+    /* Calls with 0 args have no value, so tree is null. */
+    if (tree) {
+        tree->next_arg = NULL;
+        call->args_collected++;
+    }
 }
 
 inline void lily_ast_collect_arg(lily_ast_pool *ap)

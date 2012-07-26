@@ -86,8 +86,13 @@ static void expression_value(lily_parse_state *parser)
                 NEED_NEXT_TOK(tk_left_parenth)
 
                 lily_lexer(lex);
-                /* Get the first value of the call. */
-                continue;
+                if (lex->token == tk_right_parenth)
+                    /* This call has no args (and therefore is not a value), so
+                       let expression handle it. */
+                    break;
+                else
+                    /* Get the first value of the call. */
+                    continue;
             }
             else {
                 lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
@@ -362,48 +367,65 @@ static void parse_method_decl(lily_parse_state *parser)
 
     /* Argument signatures are collected later so that the array doesn't have
        to have a guess-size or be constantly realloc'd. */
-    while (1) {
-        NEED_NEXT_TOK(tk_word)
-        cls = lily_class_by_name(parser->symtab, lex->label);
+    lily_lexer(lex);
 
-        NEED_NEXT_TOK(tk_word)
-        lily_new_var(parser->symtab, cls, lex->label);
-        i++;
-
-        lily_lexer(lex);
-        if (lex->token == tk_comma)
-            continue;
-        else if (lex->token == tk_right_parenth)
-            break;
-        else {
-            lily_free(m->code);
-            lily_free(m);
-            lily_raise(parser->error, "Expected ',' or ')', not %s.\n",
-                       tokname(lex->token));
+    /* If (), then no args and no collecting. Otherwise, start collecting. */
+    if (lex->token == tk_right_parenth) {
+        m->first_arg = NULL;
+        m->last_arg = NULL;
+    }
+    else {
+        while (1) {
+            NEED_CURRENT_TOK(tk_word)
+            cls = lily_class_by_name(parser->symtab, lex->label);
+    
+            NEED_NEXT_TOK(tk_word)
+            lily_new_var(parser->symtab, cls, lex->label);
+            i++;
+    
+            lily_lexer(lex);
+            if (lex->token == tk_comma) {
+                lily_lexer(lex);
+                continue;
+            }
+            else if (lex->token == tk_right_parenth)
+                break;
+            else {
+                lily_free(m->code);
+                lily_free(m);
+                lily_raise(parser->error, "Expected ',' or ')', not %s.\n",
+                        tokname(lex->token));
+            }
         }
+        m->first_arg = save_top->next;
+        m->last_arg = parser->symtab->var_top;
     }
 
     NEED_NEXT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_word)
 
-    m->first_arg = save_top->next;
-    m->last_arg = parser->symtab->var_top;
     cls = lily_class_by_name(parser->symtab, lex->label);
 
     lily_call_sig *csig = method_var->sig->node.call;
     int j;
 
     csig->ret = cls->sig;
+    save_top = save_top->next;
+
     if (i != 0) {
         csig->args = lily_malloc(sizeof(lily_sig *) * i);
-        csig->num_args = i;
-    }
+        if (csig->args == NULL)
+            lily_raise_nomem(parser->error)
 
-    save_top = save_top->next;
-    for (j = 0;j < i;j++) {
-        csig->args[j] = save_top->sig;
-        save_top = save_top->next;
+        for (j = 0;j < i;j++) {
+            csig->args[j] = save_top->sig;
+            save_top = save_top->next;
+        }
     }
+    else
+        csig->args = NULL;
+
+    csig->num_args = i;
 
     lily_emit_enter_method(parser->emit, method_var);
     NEED_NEXT_TOK(tk_left_curly)

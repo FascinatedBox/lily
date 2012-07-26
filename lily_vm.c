@@ -212,6 +212,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_method_call:
             {
+                int j;
                 if (vm->stack_pos == vm->stack_size)
                     grow_vm(vm);
 
@@ -219,10 +220,10 @@ void lily_vm_execute(lily_vm_state *vm)
                 v = mval->first_arg;
                 /* It's easier to save this before i gets adjusted. */
                 vm->saved_ret[vm->stack_pos] = (lily_sym *)code[i+4];
+                j = i + 5 + code[i+3];
                 i += 5;
                 /* Map call values to method arguments. */
-                for (v = mval->first_arg;
-                     v != mval->last_arg->next;v = v->next, i++) {
+                for (v = mval->first_arg; i < j;v = v->next, i++) {
                     flag = ((lily_sym *)code[i])->flags & S_IS_NIL;
                     if (v->sig->cls->id == SYM_CLASS_STR) {
                         /* Treat this like a string assignment: Deref old, ref
