@@ -435,9 +435,6 @@ lily_symtab *lily_new_symtab(lily_excep_data *excep)
         return NULL;
     }
 
-    lily_var *main_func = s->var_top;
-
-    s->main = main_func;
     s->error = excep;
 
     return s;

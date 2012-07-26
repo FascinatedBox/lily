@@ -27,7 +27,7 @@ static lily_func_seed print =
 /* All code outside of functions is stuffed here, and at the end of parsing,
    this function is called. */
 static lily_func_seed at_main = {"@main", 0, NULL, {-1, -1}};
-static lily_func_seed *builtin_seeds[] = {&print, &at_main};
+static lily_func_seed *builtin_seeds[] = {&at_main, &print};
 #define NUM_BUILTIN_SEEDS 2
 
 #endif
