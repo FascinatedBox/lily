@@ -9,13 +9,34 @@ integer addE, integer addF):integer {
     return addA
 }
 
-manyargs(1,2,3,4,5,6)
+method test_basic_assignments():integer
+{
+    # Test valid assignments.
+    integer a = 1
+    number b = 2.0
+    str c = "c"
+    object o = "o"
+    # Objects can be assigned any value.
+    o = 1
+    o = 2.0
+    # Make sure that strings don't reference leak.
+    c = "c"
+    c = "cc"
+    o = "o"
+    o = "oo"
 
-# Test very basic assignments.
-str a = "a"
-integer b = 1
-number c = 1.0
-integer a_b = 1
+    integer ok
+
+    if a == 1:
+        ok = 1
+    else:
+        ok = 0
+
+    return ok
+}
+
+test_basic_assignments()
+manyargs(1,2,3,4,5,6)
 
 # Test utf-8 labels and strs.
 str ustr = "á"
