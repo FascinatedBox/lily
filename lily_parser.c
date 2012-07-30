@@ -335,7 +335,7 @@ static void parse_simple_condition(lily_parse_state *parser)
 
                 lily_lexer(lex);
             }
-            else if (key_id == -1)
+            else
                 break;
         }
         else
