@@ -35,6 +35,15 @@ method test_basic_assignments():integer
     return ok
 }
 
+method test_escapes():integer
+{
+    str s = "\\a\\b\\\\c\\d\\"
+    str s2 = "Hello, world.\n"
+    str s3 = ""
+
+    return 1
+}
+
 test_basic_assignments()
 manyargs(1,2,3,4,5,6)
 

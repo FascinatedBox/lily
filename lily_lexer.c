@@ -102,38 +102,118 @@ static const lily_token grp_two_eq_table[] =
     tk_eq_eq, tk_lt_eq, tk_gr_eq
 };
 
-static int handle_str_escape(char *buffer, int *pos, char *ch)
+static char simple_escape(char ch)
 {
-    /* lex_bufpos points to the first character in the escape. */
-    char testch;
-    int ret;
+    char ret;
 
-    testch = buffer[*pos];
-    ret = 1;
-
-    /* Make sure the buffer position stays ahead. */
-    *pos = *pos + 1;
-
-    if (testch == 'n')
-        *ch = '\n';
-    else if (testch == 'r')
-        *ch = '\r';
-    else if (testch == 't')
-        *ch = '\t';
-    else if (testch == '\'')
-        *ch = '\'';
-    else if (testch == '"')
-        *ch = '"';
-    else if (testch == '\\')
-        *ch = '\\';
-    else if (testch == 'b')
-        *ch = '\b';
-    else if (testch == 'a')
-        *ch = '\a';
+    if (ch == 'n')
+        ret = '\n';
+    else if (ch == 'r')
+        ret = '\r';
+    else if (ch == 't')
+        ret = '\t';
+    else if (ch == '\'')
+        ret = '\'';
+    else if (ch == '"')
+        ret = '"';
+    else if (ch == '\\')
+        ret = '\\';
+    else if (ch == 'b')
+        ret = '\b';
+    else if (ch == 'a')
+        ret = '\a';
     else
         ret = 0;
 
     return ret;
+}
+
+static void scan_str(lily_lex_state *lexer, int *pos)
+{
+    char ch, i, esc_ch;
+    char *label, *lex_buffer, *str;
+    int label_pos, escape_seen, str_size, word_start, word_pos;
+    lily_strval *sv;
+
+    lex_buffer = lexer->lex_buffer;
+    escape_seen = 0;
+    /* Where to start cutting from. */
+    word_start = *pos + 1;
+    /* Where to finish cutting from. */
+    word_pos = word_start;
+
+    ch = lex_buffer[word_pos];
+    while (ch != '"') {
+        if (ch == '\\') {
+            if (!escape_seen) {
+                label = lexer->label;
+                label[0] = '\0';
+                label_pos = 0;
+                escape_seen = 1;
+            }
+            /* For escapes, the non-escape part of the data is copied to the
+               label, then the escape value is written in. */
+            i = word_pos - word_start;
+            for (;i > 0;i--, word_start++, label_pos++)
+                label[label_pos] = lex_buffer[word_start];
+
+            word_pos++;
+            ch = lex_buffer[word_pos];
+            esc_ch = simple_escape(ch);
+            if (esc_ch == 0)
+                lily_raise(lexer->error, "Invalid escape \\%c\n", ch);
+
+            label[label_pos] = esc_ch;
+            label_pos++;
+
+            /* At this point, word_pos is right on the escape character (n in \n
+               for example). Adjust word_start so that it doesn't include the
+               source escape characters the next time. Allow yyyyyyyyyyyyyyyy */
+            word_start = word_pos + 1;
+            ch = lex_buffer[word_start];
+        }
+        else if (ch == '\r' || ch == '\n')
+            lily_raise(lexer->error, "Unterminated string.\n");
+
+        word_pos++;
+        ch = lex_buffer[word_pos];
+    }
+
+    if (!escape_seen)
+        str_size = word_pos + 1 - word_start;
+    else {
+        if (word_pos != word_start) {
+            i = word_pos - word_start;
+            for (;i > 0;i--,  word_start++, label_pos++)
+                label[label_pos] = lex_buffer[word_start];
+        }
+        /* +1 for the terminator. */
+        label_pos++;
+        str_size = label_pos;
+    }
+
+    /* Prepare the string for the parser. */
+    sv = lily_malloc(sizeof(lily_strval));
+    if (sv == NULL)
+        lily_raise_nomem(lexer->error);
+    str = lily_malloc(str_size);
+    if (str == NULL) {
+        lily_free(sv);
+        lily_raise_nomem(lexer->error);
+    }
+
+    if (!escape_seen)
+        strncpy(str, lex_buffer+word_start, str_size-1);
+    else
+        strncpy(str, label, label_pos);
+
+    str[str_size-1] = '\0';
+    sv->refcount = 1;
+    sv->str = str;
+    sv->size = word_pos;
+    lexer->value.ptr = sv;
+    word_pos++;
+    *pos = word_pos;
 }
 
 /* Add a line from the current page into the buffer. */
@@ -352,49 +432,7 @@ void lily_lexer(lily_lex_state *lexer)
             token = tk_eof;
         }
         else if (group == CC_DOUBLE_QUOTE) {
-            /* todo : Allow multiline strings. */
-            int word_pos = 0;
-            char *label = lexer->label;
-
-            /* Skip opening quote. */
-            lex_bufpos++;
-            ch = lexer->lex_buffer[lex_bufpos];
-            do {
-                label[word_pos] = ch;
-                word_pos++;
-                lex_bufpos++;
-                if (ch == '\\') {
-                    if (handle_str_escape(lexer->lex_buffer, &lex_bufpos, &ch) == 0)
-                        lily_raise(lexer->error, "Invalid escape code.\n");
-                }
-
-                ch = lexer->lex_buffer[lex_bufpos];
-            } while (ch != '"' && ch != '\n' && ch != '\r');
-
-            if (ch != '"')
-                lily_raise(lexer->error, "String without closure.\n");
-
-            label[word_pos] = '\0';
-
-            /* Prepare the string for the parser. */
-            lily_strval *sv = lily_malloc(sizeof(lily_strval));
-            if (sv == NULL)
-                lily_raise_nomem(lexer->error);
-
-            char *str = lily_malloc(word_pos + 1);
-            if (str == NULL) {
-                lily_free(sv);
-                lily_raise_nomem(lexer->error);
-            }
-
-            strcpy(str, label);
-            sv->refcount = 1;
-            sv->str = str;
-            sv->size = word_pos;
-            lexer->value.ptr = sv;
-
-            /* ...and the ending one too. */
-            lex_bufpos++;
+            scan_str(lexer, &lex_bufpos);
             token = tk_double_quote;
         }
         else if (group <= CC_G_TWO_LAST) {
