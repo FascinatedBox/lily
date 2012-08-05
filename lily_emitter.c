@@ -379,6 +379,9 @@ void lily_emit_pop_block(lily_emit_state *emit)
     from = branches->patch_pos-1;
     for (;from >= to;from--)
         m->code[branches->patches[from]] = m->pos;
+
+    /* Use the space for new patches now. */
+    branches->patch_pos = to;
 }
 
 void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
