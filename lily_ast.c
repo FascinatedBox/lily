@@ -179,10 +179,9 @@ void lily_ast_enter_call(lily_ast_pool *ap, lily_var *var)
 
     merge_tree(ap, a);
 
-    /* The emitter uses this to check if a call is within anything else. Also,
-       this parent becomes the current when the call is done.
-       Make sure this happens after merge_tree, in case active is null (it
-       happens when the expression is just a call). */
+    /* This is used to save the current value. If this call will be current,
+       then parent will be set to NULL properly later.
+       The emitter checks this to see if the call returns to anything. */
     a->parent = ap->active;
 
     if (ap->save_index + 2 >= ap->save_size) {
@@ -316,6 +315,12 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
     ap->save_index--;
     ap->root = ap->saved_trees[ap->save_index];
     ap->active = a->parent;
+
+    /* Current gets saved to a->parent when making a call. In some cases, the
+       call was to be current, which makes the ast think it is the parent of
+       itself. */
+    if (a->parent == a)
+        a->parent = NULL;
 }
 
 void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)

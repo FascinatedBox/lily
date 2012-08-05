@@ -193,8 +193,17 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
             ast->result = (lily_sym *)s;
         }
-        else
-            ast->result = NULL;
+        else {
+            /* It's okay to not push a return value, unless something needs it.
+               Assume that if the tree has a parent, something needs a value. */
+            if (ast->parent != NULL)
+                ast->result = NULL;
+            else {
+                emit->error->line_adjust = ast->line_num;
+                lily_raise(emit->error,
+                           "Call returning nil not at end of expression.");
+            }
+        }
 
         m->code[m->pos+4] = (int)ast->result;
         m->pos = new_pos;
