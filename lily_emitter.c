@@ -196,7 +196,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         else {
             /* It's okay to not push a return value, unless something needs it.
                Assume that if the tree has a parent, something needs a value. */
-            if (ast->parent != NULL)
+            if (ast->parent == NULL)
                 ast->result = NULL;
             else {
                 emit->error->line_adjust = ast->line_num;
