@@ -537,7 +537,7 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
     s->symtab->lex_linenum = &s->lex->line_num;
     s->ast_pool->lex_linenum = &s->lex->line_num;
     s->emit->symtab = s->symtab;
-    lily_emit_set_target(s->emit, s->symtab->var_start);
+    lily_emit_enter_method(s->emit, s->symtab->var_start);
     return s;
 }
 
