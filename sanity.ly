@@ -11,6 +11,21 @@ integer addE, integer addF):integer {
 
 method test_basic_assignments():integer
 {
+    method method1():integer {
+        method method2():integer {
+            method method3():integer {
+                method method4():integer {
+                    method method4():integer {
+                        return 1
+                    }
+                    return 1
+                }
+                return 1
+            }
+            return 1
+        }
+        return 1
+    }
     # Test valid assignments.
     integer a = 1
     number b = 2.0
