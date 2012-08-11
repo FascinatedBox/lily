@@ -146,7 +146,7 @@ int lily_try_add_storage(lily_symtab *symtab, lily_class *cls)
 lily_method_val *lily_try_new_method_val(lily_symtab *symtab)
 {
     lily_method_val *m = lily_malloc(sizeof(lily_method_val));
-    int *code = lily_malloc(4 * sizeof(int));
+    int *code = lily_malloc(8 * sizeof(int));
 
     if (m == NULL || code == NULL) {
         lily_free(m);
@@ -156,7 +156,7 @@ lily_method_val *lily_try_new_method_val(lily_symtab *symtab)
 
     m->code = code;
     m->pos = 0;
-    m->len = 4;
+    m->len = 8;
     return m;
 }
 

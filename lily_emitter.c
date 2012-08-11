@@ -52,6 +52,15 @@ m->code[m->pos+2] = three; \
 m->code[m->pos+3] = four; \
 m->pos += 4;
 
+#define WRITE_5(one, two, three, four, five) \
+WRITE_PREP(5) \
+m->code[m->pos] = one; \
+m->code[m->pos+1] = two; \
+m->code[m->pos+2] = three; \
+m->code[m->pos+3] = four; \
+m->code[m->pos+4] = five; \
+m->pos += 5;
+
 /* The emitter sets error->line_adjust with a better line number before calling
    lily_raise. This gives debuggers a chance at a more useful line number.
    Example: integer a = 1.0 +
@@ -121,7 +130,8 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
 
     s = get_storage_sym(emit, storage_class);
 
-    WRITE_4(opcode,
+    WRITE_5(opcode,
+            ast->line_num,
             (int)ast->left->result,
             (int)ast->right->result,
             (int)s)
@@ -172,17 +182,19 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             }
         }
 
-        new_pos = m->pos + 5 + ast->args_collected;
-        WRITE_PREP_LARGE(5 + ast->args_collected)
+        new_pos = m->pos + 6 + ast->args_collected;
+        WRITE_PREP_LARGE(6 + ast->args_collected)
 
         if (v->sig->cls->id == SYM_CLASS_FUNCTION)
             m->code[m->pos] = o_func_call;
         else
             m->code[m->pos] = o_method_call;
-        m->code[m->pos+1] = (int)v;
-        m->code[m->pos+2] = (int)v->value.ptr;
-        m->code[m->pos+3] = ast->args_collected;
-        for (i = 5, arg = ast->arg_start;
+
+        m->code[m->pos+1] = ast->line_num;
+        m->code[m->pos+2] = (int)v;
+        m->code[m->pos+3] = (int)v->value.ptr;
+        m->code[m->pos+4] = ast->args_collected;
+        for (i = 6, arg = ast->arg_start;
             arg != NULL;
             arg = arg->next_arg, i++) {
             m->code[m->pos + i] = (int)arg->result;
@@ -205,7 +217,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             }
         }
 
-        m->code[m->pos+4] = (int)ast->result;
+        m->code[m->pos+5] = (int)ast->result;
         m->pos = new_pos;
     }
     else if (ast->expr_type == binary) {
@@ -237,7 +249,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             else
                 opcode = o_assign;
 
-            WRITE_3(opcode,
+            WRITE_4(opcode,
+                    ast->line_num,
                     (int)left_sym,
                     (int)right_sym)
         }
