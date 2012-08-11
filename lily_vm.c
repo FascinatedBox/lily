@@ -7,52 +7,52 @@
 #include "lily_pkg.h"
 
 #define FAST_INTEGER_OP(OP) \
-((lily_sym *)code[i+3])->value.integer = \
-((lily_sym *)code[i+1])->value.integer OP \
-((lily_sym *)code[i+2])->value.integer; \
-i += 4; \
+((lily_sym *)code[i+4])->value.integer = \
+((lily_sym *)code[i+2])->value.integer OP \
+((lily_sym *)code[i+3])->value.integer; \
+i += 5; \
 
 #define NUMBER_OP(OP) \
-lhs = (lily_sym *)code[i+1]; \
+lhs = (lily_sym *)code[i+2]; \
 if (lhs->sig->cls->id == SYM_CLASS_NUMBER) { \
-    rhs = (lily_sym *)code[i+2]; \
+    rhs = (lily_sym *)code[i+3]; \
     if (rhs->sig->cls->id == SYM_CLASS_NUMBER) \
-        ((lily_sym *)code[i+3])->value.number = \
+        ((lily_sym *)code[i+4])->value.number = \
         lhs->value.number OP rhs->value.number; \
     else \
-        ((lily_sym *)code[i+3])->value.number = \
+        ((lily_sym *)code[i+4])->value.number = \
         lhs->value.number OP rhs->value.integer; \
 } \
 else \
-    ((lily_sym *)code[i+3])->value.number = \
-    lhs->value.integer OP ((lily_sym *)code[i+2])->value.number; \
-i += 4;
+    ((lily_sym *)code[i+4])->value.number = \
+    lhs->value.integer OP ((lily_sym *)code[i+3])->value.number; \
+i += 5;
 
 #define COMPARE_OP(OP, STROP) \
-lhs = (lily_sym *)code[i+1]; \
-rhs = (lily_sym *)code[i+2]; \
+lhs = (lily_sym *)code[i+2]; \
+rhs = (lily_sym *)code[i+3]; \
 if (lhs->sig->cls->id == SYM_CLASS_NUMBER) { \
     if (rhs->sig->cls->id == SYM_CLASS_NUMBER) \
-        ((lily_sym *)code[i+3])->value.number = \
+        ((lily_sym *)code[i+4])->value.number = \
         lhs->value.number OP rhs->value.number; \
     else \
-        ((lily_sym *)code[i+3])->value.number = \
+        ((lily_sym *)code[i+4])->value.number = \
         lhs->value.number OP rhs->value.integer; \
 } \
 else if (lhs->sig->cls->id == SYM_CLASS_INTEGER) { \
     if (rhs->sig->cls->id == SYM_CLASS_INTEGER) \
-        ((lily_sym *)code[i+3])->value.integer =  \
+        ((lily_sym *)code[i+4])->value.integer =  \
         (lhs->value.integer OP rhs->value.integer); \
     else \
-        ((lily_sym *)code[i+3])->value.number = \
+        ((lily_sym *)code[i+4])->value.number = \
         lhs->value.integer OP rhs->value.number; \
 } \
 else if (lhs->sig->cls->id == SYM_CLASS_STR) { \
-    ((lily_sym *)code[i+3])->value.integer = \
+    ((lily_sym *)code[i+4])->value.integer = \
     strcmp(((lily_strval *)lhs->value.ptr)->str, \
            ((lily_strval *)rhs->value.ptr)->str) STROP; \
 } \
-i += 4;
+i += 5;
 
 static void grow_vm(lily_vm_state *vm)
 {
@@ -148,10 +148,10 @@ void lily_vm_execute(lily_vm_state *vm)
     while (1) {
         switch(code[i]) {
             case o_assign:
-                lhs = ((lily_sym *)code[i+1]);
+                lhs = ((lily_sym *)code[i+2]);
                 lhs->flags &= ~S_IS_NIL;
-                lhs->value = ((lily_sym *)code[i+2])->value;
-                i += 3;
+                lhs->value = ((lily_sym *)code[i+3])->value;
+                i += 4;
                 break;
             case o_integer_add:
                 FAST_INTEGER_OP(+)
@@ -204,10 +204,10 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_func_call:
             {
                 /* var, func, #args, ret, args... */
-                lily_fast_func fc = (lily_fast_func)code[i+2];
-                int j = code[i+3];
-                fc((lily_sym **)code+i+4);
-                i += 5+j;
+                lily_fast_func fc = (lily_fast_func)code[i+3];
+                int j = code[i+4];
+                fc((lily_sym **)code+i+5);
+                i += 6+j;
             }
                 break;
             case o_method_call:
@@ -216,12 +216,12 @@ void lily_vm_execute(lily_vm_state *vm)
                 if (vm->stack_pos == vm->stack_size)
                     grow_vm(vm);
 
-                mval = (lily_method_val *)code[i+2];
+                mval = (lily_method_val *)code[i+3];
                 v = mval->first_arg;
                 /* It's easier to save this before i gets adjusted. */
-                vm->saved_ret[vm->stack_pos] = (lily_sym *)code[i+4];
-                j = i + 5 + code[i+3];
-                i += 5;
+                vm->saved_ret[vm->stack_pos] = (lily_sym *)code[i+5];
+                j = i + 6 + code[i+4];
+                i += 6;
                 /* Map call values to method arguments. */
                 for (v = mval->first_arg; i < j;v = v->next, i++) {
                     flag = ((lily_sym *)code[i])->flags & S_IS_NIL;
@@ -265,15 +265,15 @@ void lily_vm_execute(lily_vm_state *vm)
                 i = vm->saved_pos[vm->stack_pos];
                 break;
             case o_str_assign:
-                do_str_assign(((lily_sym **)code+i));
-                i += 3;
+                do_str_assign(((lily_sym **)code+i+1));
+                i += 4;
                 break;
             case o_obj_assign:
-                lhs = ((lily_sym *)code[i+1]);
+                lhs = ((lily_sym *)code[i+2]);
                 lhs->flags &= ~S_IS_NIL;
-                lhs->value = ((lily_sym *)code[i+2])->value;
-                lhs->sig->node.value_sig = ((lily_sym *)code[i+2])->sig;
-                i += 3;
+                lhs->value = ((lily_sym *)code[i+3])->value;
+                lhs->sig->node.value_sig = ((lily_sym *)code[i+3])->sig;
+                i += 4;
                 break;
             case o_vm_return:
                 return;

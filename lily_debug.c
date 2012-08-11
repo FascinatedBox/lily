@@ -32,8 +32,8 @@ static void print_two(int *code, char *str, int i)
     lily_sym *left, *right;
 
     lily_impl_debugf(str, i);
-    left = ((lily_sym *)code[i+1]);
-    right = ((lily_sym *)code[i+2]);
+    left = ((lily_sym *)code[i+2]);
+    right = ((lily_sym *)code[i+3]);
     lily_impl_debugf("[%s #%d] [%s #%d]\n",
                      typename((lily_sym *)left), left->id,
                      typename((lily_sym *)right), right->id);
@@ -44,9 +44,9 @@ static void print_three(int *code, char *str, int i)
     lily_sym *left, *right, *result;
 
     lily_impl_debugf(str, i);
-    left = ((lily_sym *)code[i+1]);
-    right = ((lily_sym *)code[i+2]);
-    result = ((lily_sym *)code[i+3]);
+    left = ((lily_sym *)code[i+2]);
+    right = ((lily_sym *)code[i+3]);
+    result = ((lily_sym *)code[i+4]);
     lily_impl_debugf("[%s #%d] [%s #%d] [%s #%d]\n",
                      typename((lily_sym *)left), left->id,
                      typename((lily_sym *)right), right->id,
@@ -62,23 +62,23 @@ static void print_call(int *code, char *str, int i)
     /* For methods, this is:   var, method_val, #args, ret, args
        For functions, this is: var, func_ptr,   #args, ret, args */
 
-    var = (lily_var *)code[i+1];
+    var = (lily_var *)code[i+2];
     lily_impl_debugf(str, i);
 
     if (var->line_num == 0)
         lily_impl_debugf("name: (builtin) %s.\n        args:\n",
-                         var->name, code[i+3]);
+                         var->name, code[i+4]);
     else
         lily_impl_debugf("name: %s (from line %d).\n        args:\n",
-                         var->name, var->line_num, code[i+3]);
+                         var->name, var->line_num, code[i+4]);
 
-    for (j = 0;j < code[i+3];j++) {
-        lily_sym *sym = (lily_sym *)code[i+5+j];
+    for (j = 0;j < code[i+4];j++) {
+        lily_sym *sym = (lily_sym *)code[i+6+j];
         lily_impl_debugf("            #%d: %s #%d\n", j+1,
                          typename(sym), sym->id);
     }
 
-    ret = (lily_sym *)code[i+4];
+    ret = (lily_sym *)code[i+5];
     if (ret != NULL)
         lily_impl_debugf("        return: %s #%d\n", typename(ret), ret->id);
     else
@@ -101,51 +101,51 @@ static void show_code(lily_var *var)
         switch (code[i]) {
             case o_assign:
                 print_two(code, "    [%d] assign        ", i);
-                i += 3;
+                i += 4;
                 break;
             case o_obj_assign:
                 print_two(code, "    [%d] obj_assign    ", i);
-                i += 3;
+                i += 4;
                 break;
             case o_str_assign:
                 print_two(code, "    [%d] str_assign    ", i);
-                i += 3;
+                i += 4;
                 break;
             case o_integer_add:
                 print_three(code, "    [%d] integer_add   ", i);
-                i += 4;
+                i += 5;
                 break;
             case o_integer_minus:
                 print_three(code, "    [%d] integer_minus ", i);
-                i += 4;
+                i += 5;
                 break;
             case o_number_add:
                 print_three(code, "    [%d] number_add    ", i);
-                i += 4;
+                i += 5;
                 break;
             case o_number_minus:
                 print_three(code, "    [%d] number_minus  ", i);
-                i += 4;
+                i += 5;
                 break;
             case o_less:
                 print_three(code, "    [%d] less          ", i);
-                i += 4;
+                i += 5;
                 break;
             case o_less_eq:
                 print_three(code, "    [%d] less_equal    ", i);
-                i += 4;
+                i += 5;
                 break;
             case o_is_equal:
                 print_three(code, "    [%d] is_equal      ", i);
-                i += 4;
+                i += 5;
                 break;
             case o_greater:
                 print_three(code, "    [%d] greater       ", i);
-                i += 4;
+                i += 5;
                 break;
             case o_greater_eq:
                 print_three(code, "    [%d] greater_equal ", i);
-                i += 4;
+                i += 5;
                 break;
             case o_jump:
                 lily_impl_debugf("    [%d] jump          ", i);
@@ -163,11 +163,11 @@ static void show_code(lily_var *var)
             case o_func_call:
                 /* For both functions and methods, [i+3] is the # of args. */
                 print_call(code, "    [%d] func_call  \n        ", i);
-                i += 5 + code[i+3];
+                i += 6 + code[i+4];
                 break;
             case o_method_call:
                 print_call(code, "    [%d] method_call\n        ", i);
-                i += 5 + code[i+3];
+                i += 6 + code[i+4];
                 break;
             case o_return_val:
                 print_one(code, "    [%d] return_value  ", i);
