@@ -38,7 +38,7 @@ void lily_str_concat(lily_sym **args)
     args[0]->value.ptr = ret;
 }
 
-static lily_func_seed concat = {"concat", 2, lily_str_concat,
+static lily_func_seed concat = {"concat", 2, 0, lily_str_concat,
         {SYM_CLASS_STR, SYM_CLASS_STR, SYM_CLASS_STR}};
 
 lily_func_seed *str_seeds[] = {&concat};
