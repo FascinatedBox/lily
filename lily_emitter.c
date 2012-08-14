@@ -165,20 +165,32 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             /* This currently works because there are no nested funcs or
                methods. */
             if (csig->args[i] != arg->result->sig) {
-                lily_msgbuf *mb = lily_new_msgbuf("Error : ");
-                lily_msgbuf_add(mb, v->name);
-                lily_msgbuf_add(mb, " arg #");
-                lily_msgbuf_add_int(mb, i);
-                lily_msgbuf_add(mb, " expects type '");
-                write_type(mb, csig->args[i]);
-                lily_msgbuf_add(mb, "' but got type '");
-                write_type(mb, arg->result->sig);
-                lily_msgbuf_add(mb, "'.\n");
+                if (csig->args[i]->cls->id == SYM_CLASS_OBJECT) {
+                    lily_storage *storage;
+                    storage = get_storage_sym(emit, csig->args[i]->cls);
+                    WRITE_4(o_obj_assign,
+                            ast->line_num,
+                            (int)storage,
+                            (int)ast->result)
 
-                /* The arg's line number is used, in case it's on a different
-                   line than the call. */
-                emit->error->line_adjust = arg->line_num;
-                lily_raise_msgbuf(emit->error, mb);
+                    arg->result = (lily_sym *)storage;
+                }
+                else {
+                    lily_msgbuf *mb = lily_new_msgbuf("Error : ");
+                    lily_msgbuf_add(mb, v->name);
+                    lily_msgbuf_add(mb, " arg #");
+                    lily_msgbuf_add_int(mb, i);
+                    lily_msgbuf_add(mb, " expects type '");
+                    write_type(mb, csig->args[i]);
+                    lily_msgbuf_add(mb, "' but got type '");
+                    write_type(mb, arg->result->sig);
+                    lily_msgbuf_add(mb, "'.\n");
+    
+                    /* The arg's line number is used, in case it's on a different
+                    line than the call. */
+                    emit->error->line_adjust = arg->line_num;
+                    lily_raise_msgbuf(emit->error, mb);
+                }
             }
         }
 
