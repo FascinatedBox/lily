@@ -9,6 +9,21 @@ integer addE, integer addF):integer {
     return addA
 }
 
+method sample_ocall(object a, object b):integer
+{
+    return 1
+}
+
+method test_obj_call():integer
+{
+    object o
+    sample_ocall("a", "a")
+    sample_ocall(1, 1)
+    sample_ocall(1.1, 1.1)
+    sample_ocall(o, o)
+    return 1
+}
+
 method test_basic_assignments():integer
 {
     method method1():integer {
@@ -59,6 +74,7 @@ method test_escapes():integer
     return 1
 }
 
+test_obj_call()
 test_basic_assignments()
 manyargs(1,2,3,4,5,6)
 
