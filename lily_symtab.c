@@ -58,7 +58,7 @@ static lily_call_sig *try_seed_call_sig(lily_symtab *symtab,
         }
         csig->num_args = seed->num_args;
     }
-    csig->is_varargs = 0;
+    csig->is_varargs = seed->is_varargs;
     return csig;
 }
 
