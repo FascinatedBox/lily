@@ -145,19 +145,41 @@ static void write_type(lily_msgbuf *mb, lily_sig *sig)
     lily_msgbuf_add(mb, sig->cls->name);
 }
 
+static void do_bad_arg_error(lily_emit_state *emit, lily_ast *ast,
+    lily_sig *got, int arg_num)
+{
+    lily_var *v = (lily_var *)ast->result;
+    lily_call_sig *csig = v->sig->node.call;
+
+    lily_msgbuf *mb = lily_new_msgbuf("Error : ");
+    lily_msgbuf_add(mb, v->name);
+    lily_msgbuf_add(mb, " arg #");
+    lily_msgbuf_add_int(mb, arg_num);
+    lily_msgbuf_add(mb, " expects type '");
+    write_type(mb, csig->args[arg_num]);
+    lily_msgbuf_add(mb, "' but got type '");
+    write_type(mb, got);
+    lily_msgbuf_add(mb, "'.\n");
+
+    /* Just in case this arg was on a different line than the call. */
+    emit->error->line_adjust = ast->line_num;
+    lily_raise_msgbuf(emit->error, mb);
+}
+
 static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 {
     lily_method_val *m = emit->target;
 
     if (ast->expr_type == call) {
-        int i, new_pos;
-
+        int i, num_args, is_varargs, new_pos;
         lily_ast *arg = ast->arg_start;
         lily_var *v = (lily_var *)ast->result;
         lily_call_sig *csig = v->sig->node.call;
+        num_args = csig->num_args;
+        is_varargs = csig->is_varargs;
 
         /* The parser has already verified argument count. */
-        for (i = 0;arg != NULL;arg = arg->next_arg, i++) {
+        for (i = 0;i != num_args;arg = arg->next_arg, i++) {
             if (arg->expr_type != var)
                 /* Walk the subexpressions so the result gets calculated. */
                 walk_tree(emit, arg);
@@ -175,26 +197,38 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
                     arg->result = (lily_sym *)storage;
                 }
-                else {
-                    lily_msgbuf *mb = lily_new_msgbuf("Error : ");
-                    lily_msgbuf_add(mb, v->name);
-                    lily_msgbuf_add(mb, " arg #");
-                    lily_msgbuf_add_int(mb, i);
-                    lily_msgbuf_add(mb, " expects type '");
-                    write_type(mb, csig->args[i]);
-                    lily_msgbuf_add(mb, "' but got type '");
-                    write_type(mb, arg->result->sig);
-                    lily_msgbuf_add(mb, "'.\n");
-    
-                    /* The arg's line number is used, in case it's on a different
-                    line than the call. */
-                    emit->error->line_adjust = arg->line_num;
-                    lily_raise_msgbuf(emit->error, mb);
-                }
+                else
+                    do_bad_arg_error(emit, ast, arg->result->sig, i);
             }
         }
 
         new_pos = m->pos + 6 + ast->args_collected;
+        if (is_varargs) {
+            int j = 0;
+            for (;arg != NULL;arg = arg->next_arg, j++) {
+                if (arg->expr_type != var)
+                    /* Walk the subexpressions so the result gets calculated. */
+                    walk_tree(emit, arg);
+
+                /* This currently works because there are no nested funcs or
+                   methods. */
+                if (csig->args[i] != arg->result->sig) {
+                    if (csig->args[i]->cls->id == SYM_CLASS_OBJECT) {
+                        lily_storage *storage;
+                        storage = get_storage_sym(emit, csig->args[i]->cls);
+                        WRITE_4(o_obj_assign,
+                                ast->line_num,
+                                (int)storage,
+                                (int)ast->result)
+
+                        arg->result = (lily_sym *)storage;
+                    }
+                    else
+                        do_bad_arg_error(emit, ast, arg->result->sig, i);
+                }
+            }
+            new_pos++;
+        }
         WRITE_PREP_LARGE(6 + ast->args_collected)
 
         if (v->sig->cls->id == SYM_CLASS_FUNCTION)
