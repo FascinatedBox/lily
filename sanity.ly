@@ -4,6 +4,8 @@
 </head>
 <body>
 <@lily
+
+printfmt("a", 1)
 method manyargs (integer addA, integer addB, integer addC, integer addD,
 integer addE, integer addF):integer {
     return addA
