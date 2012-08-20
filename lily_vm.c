@@ -113,6 +113,11 @@ void lily_builtin_print(lily_sym **args)
     lily_impl_send_html(((lily_strval *)args[1]->value.ptr)->str);
 }
 
+void lily_builtin_printfmt(lily_sym **args)
+{
+    fprintf(stderr, "printfmt called.\n");
+}
+
 void do_str_assign(lily_sym **syms)
 {
     lily_sym *lhs, *rhs;

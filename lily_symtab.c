@@ -382,6 +382,7 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
         new_var->name = seed->name;
         new_var->sig = sig;
         new_var->line_num = 0;
+        new_var->flags = VAR_SYM;
         add_var(symtab, new_var);
     }
 
