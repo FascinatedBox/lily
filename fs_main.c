@@ -11,15 +11,13 @@ void lily_impl_debugf(char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
-    vprintf(format, ap);
+    vfprintf(stderr, format, ap);
     va_end(ap);
 }
 
-/* The page scanner uses this to send HTML chunks out. Since this isn't a real
-   server, it does nothing. */
 void lily_impl_send_html(char *htmldata)
 {
-
+    fputs(htmldata, stdout);
 }
 
 int main(int argc, char **argv)

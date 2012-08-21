@@ -485,8 +485,11 @@ void lily_lexer(lily_lex_state *lexer)
             lex_bufpos++;
             /* Disable @> for string-based. */
             if (lexer->lex_buffer[lex_bufpos] == '>' &&
-                lexer->save_buffer == NULL)
+                lexer->save_buffer == NULL) {
+                /* Skip the > of @> so it's not sent as html. */
+                lex_bufpos++;
                 token = tk_end_tag;
+            }
             else
                 lily_raise(lexer->error, "Expected '>' after '@'.\n");
         }
@@ -518,7 +521,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
                 strncmp(lexer->lex_buffer + lbp, "@lily", 5) == 0) {
                 if (htmlp != 0) {
                     /* Don't include the '<', because it goes with <@lily. */
-                    lexer->label[lbp] = '\0';
+                    lexer->label[htmlp] = '\0';
                     lily_impl_send_html(lexer->label);
                     htmlp = 0;
                 }
