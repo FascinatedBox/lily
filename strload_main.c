@@ -11,7 +11,7 @@ void lily_impl_debugf(char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
-    vprintf(format, ap);
+    vfprintf(format, ap);
     va_end(ap);
 }
 
