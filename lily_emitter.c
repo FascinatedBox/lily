@@ -193,7 +193,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                     WRITE_4(o_obj_assign,
                             ast->line_num,
                             (int)storage,
-                            (int)ast->result)
+                            (int)arg->result)
 
                     arg->result = (lily_sym *)storage;
                 }
@@ -219,7 +219,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                         WRITE_4(o_obj_assign,
                                 ast->line_num,
                                 (int)storage,
-                                (int)ast->result)
+                                (int)arg->result)
 
                         arg->result = (lily_sym *)storage;
                     }
