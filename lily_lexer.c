@@ -523,7 +523,6 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
                     /* Don't include the '<', because it goes with <@lily. */
                     lexer->label[htmlp] = '\0';
                     lily_impl_send_html(lexer->label);
-                    htmlp = 0;
                 }
                 lbp += 5;
                 /* Yield control to the lexer. */
@@ -535,6 +534,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
         if (htmlp == (lexer->lex_bufsize - 1)) {
             lexer->label[htmlp] = '\0';
             lily_impl_send_html(lexer->label);
+            /* This isn't done, so fix htmlp. */
             htmlp = 0;
         }
 
@@ -545,7 +545,6 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
                 if (htmlp != 0) {
                     lexer->label[htmlp] = '\0';
                     lily_impl_send_html(lexer->label);
-                    htmlp = 0;
                 }
                 lexer->token = tk_eof;
                 break;
