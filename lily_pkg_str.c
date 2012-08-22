@@ -4,7 +4,7 @@
 #include "lily_impl.h"
 #include "lily_pkg.h"
 
-void lily_str_concat(lily_sym **args)
+void lily_str_concat(int num_args, lily_sym **args)
 {
     lily_strval *ret, *arg1, *arg2;
     ret = ((lily_strval *)args[0]->value.ptr);

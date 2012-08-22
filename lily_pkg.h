@@ -2,7 +2,7 @@
 
 # include "lily_symtab.h"
 
-typedef void (*lily_fast_func)(lily_sym **);
+typedef void (*lily_fast_func)(int, lily_sym **);
 
 typedef const struct {
     char *name;
