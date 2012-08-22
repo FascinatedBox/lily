@@ -154,7 +154,7 @@ void lily_vm_execute(lily_vm_state *vm)
         switch(code[i]) {
             case o_assign:
                 lhs = ((lily_sym *)code[i+2]);
-                lhs->flags &= ~S_IS_NIL;
+                lhs->flags = (lhs->flags & ~S_IS_NIL) ^ (rhs->flags & S_IS_NIL);
                 lhs->value = ((lily_sym *)code[i+3])->value;
                 i += 4;
                 break;
@@ -275,9 +275,10 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_obj_assign:
                 lhs = ((lily_sym *)code[i+2]);
-                lhs->flags &= ~S_IS_NIL;
-                lhs->value = ((lily_sym *)code[i+3])->value;
-                lhs->sig->node.value_sig = ((lily_sym *)code[i+3])->sig;
+                rhs = ((lily_sym *)code[i+3]);
+                lhs->flags = (lhs->flags & ~S_IS_NIL) ^ (rhs->flags & S_IS_NIL);
+                lhs->value = rhs->value;
+                lhs->sig->node.value_sig = rhs->sig;
                 i += 4;
                 break;
             case o_vm_return:
