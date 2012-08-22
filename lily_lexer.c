@@ -608,6 +608,7 @@ int lily_load_str(lily_lex_state *lexer, char *str)
         lexer->ch_class[0] = CC_STR_END;
         lexer->lex_file = NULL;
         lexer->lex_bufsize = strlen(str);
+        lexer->line_num = 1;
     }
 
     /* Line number isn't set, to allow for repl-like use. */
