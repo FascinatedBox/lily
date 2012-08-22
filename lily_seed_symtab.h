@@ -20,8 +20,8 @@ static const char *keywords[] = {
     "return"
 };
 
-void lily_builtin_print(lily_sym **);
-void lily_builtin_printfmt(lily_sym **);
+void lily_builtin_print(int, lily_sym **);
+void lily_builtin_printfmt(int, lily_sym **);
 
 static lily_func_seed print =
     {"print", 1, 0, lily_builtin_print, {-1, SYM_CLASS_STR}};
