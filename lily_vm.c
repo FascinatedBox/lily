@@ -115,7 +115,70 @@ void lily_builtin_print(int num_args, lily_sym **args)
 
 void lily_builtin_printfmt(int num_args, lily_sym **args)
 {
-    fprintf(stderr, "printfmt called.\n");
+    char fmtbuf[64];
+    char save_ch;
+    char *fmt, *str_start;
+    int cls_id, is_nil;
+    int arg_pos = 1, i = 0;
+    lily_sym *arg;
+
+    fmt = ((lily_strval *)args[1]->value.ptr)->str;
+    str_start = fmt;
+    while (1) {
+        if (fmt[i] == '\0')
+            break;
+        else if (fmt[i] == '%') {
+            if (arg_pos == num_args)
+                return;
+
+            save_ch = fmt[i];
+            fmt[i] = '\0';
+            lily_impl_send_html(str_start);
+            fmt[i] = save_ch;
+            i++;
+
+            arg = args[arg_pos + 1];
+            cls_id = arg->sig->node.value_sig->cls->id;
+            is_nil = 0;
+
+            if (fmt[i] == 'i') {
+                if (cls_id != SYM_CLASS_INTEGER)
+                    return;
+                if (is_nil)
+                    lily_impl_send_html("(nil)");
+                else {
+                    snprintf(fmtbuf, 63, "%d", arg->value.integer);
+                    lily_impl_send_html(fmtbuf);
+                }
+            }
+            else if (fmt[i] == 's') {
+                if (cls_id != SYM_CLASS_STR)
+                    return;
+                if (is_nil)
+                    lily_impl_send_html("(nil)");
+                else
+                    lily_impl_send_html(((lily_strval *)arg->value.ptr)->str);
+            }
+            else if (fmt[i] == 'n') {
+                if (cls_id != SYM_CLASS_NUMBER)
+                    return;
+
+                if (is_nil)
+                    lily_impl_send_html("(nil)");
+                else {
+                    snprintf(fmtbuf, 63, "%f", arg->value.number);
+                    lily_impl_send_html(fmtbuf);
+                }
+            }
+
+            i++;
+            str_start = fmt + i;
+            arg_pos++;
+        }
+        i++;
+    }
+
+    lily_impl_send_html(str_start);
 }
 
 void do_str_assign(lily_sym **syms)

@@ -300,17 +300,28 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
     ap->save_index--;
     lily_ast *a = ap->saved_trees[ap->save_index];
     lily_var *v = (lily_var *)a->result;
+    int args_needed = v->sig->node.call->num_args;
     push_call_arg(ap, a, ap->root);
 
     /* Func arg pushing doesn't check as it goes along, because that
        wouldn't handle the case of too few args. But now the function is
        supposed to be complete so... */
-    if (v->sig->node.call->num_args != a->args_collected) {
-        ap->error->line_adjust = a->line_num;
-        lily_raise(ap->error, "%s expects %d args, got %d.\n",
-                   ((lily_var *)a->result)->name,
-                   v->sig->node.call->num_args,
-                   a->args_collected);
+    if (args_needed != a->args_collected) {
+        char *errstr;
+
+        if (v->sig->node.call->is_varargs)
+            errstr = "at least ";
+        else
+            errstr = "";
+
+        /* Allow for -extra- args, but -only- if it's var args. */
+        if ((a->args_collected > args_needed &&
+              v->sig->node.call->is_varargs) == 0) {
+            ap->error->line_adjust = a->line_num;
+            lily_raise(ap->error, "%s expects %s%d args, got %d.\n",
+                       ((lily_var *)a->result)->name, errstr, args_needed,
+                       a->args_collected);
+        }
     }
     ap->save_index--;
     ap->root = ap->saved_trees[ap->save_index];
