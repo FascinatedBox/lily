@@ -202,8 +202,10 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             }
         }
 
-        new_pos = m->pos + 6 + ast->args_collected;
         if (is_varargs) {
+            /* Remember that the above finishes with i == num_args, and the
+               args are 0-based. So fix i. */
+            i--;
             int j = 0;
             for (;arg != NULL;arg = arg->next_arg, j++) {
                 if (arg->expr_type != var)
@@ -227,8 +229,9 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                         do_bad_arg_error(emit, ast, arg->result->sig, i);
                 }
             }
-            new_pos++;
         }
+
+        new_pos = m->pos + 6 + ast->args_collected;
         WRITE_PREP_LARGE(6 + ast->args_collected)
 
         if (v->sig->cls->id == SYM_CLASS_FUNCTION)

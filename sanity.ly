@@ -5,7 +5,6 @@
 <body>
 <@lily
 
-printfmt("a", 1)
 method manyargs (integer addA, integer addB, integer addC, integer addD,
 integer addE, integer addF):integer {
     return addA
@@ -13,6 +12,18 @@ integer addE, integer addF):integer {
 
 method sample_ocall(object a, object b):integer
 {
+    return 1
+}
+
+method test_printfmt():integer
+{
+    integer a = 1
+    number b = 12.34
+    str c = "c"
+    printfmt("[test_printfmt]: integer a is %i.\n", a)
+    printfmt("[test_printfmt]: number b is %n.\n", b)
+    printfmt("[test_printfmt]: str c is %s.\n", c)
+    printfmt("[test_printfmt]: a, b, c, are %i, %n, %s.\n", a, b, c)
     return 1
 }
 
@@ -77,6 +88,7 @@ method test_escapes():integer
 }
 
 test_obj_call()
+test_printfmt()
 test_basic_assignments()
 manyargs(1,2,3,4,5,6)
 
