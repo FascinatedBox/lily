@@ -10,6 +10,11 @@ integer addE, integer addF):integer {
     return addA
 }
 
+method test_nil_ret():nil
+{
+    return
+}
+
 method sample_ocall(object a, object b):integer
 {
     return 1
