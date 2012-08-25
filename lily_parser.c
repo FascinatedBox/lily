@@ -378,7 +378,10 @@ static void parse_method_decl(lily_parse_state *parser)
         while (1) {
             NEED_CURRENT_TOK(tk_word)
             cls = lily_class_by_name(parser->symtab, lex->label);
-    
+            if (cls == NULL)
+                lily_raise(parser->error,
+                           "unknown class name %s.\n", lex->label);
+
             NEED_NEXT_TOK(tk_word)
             lily_new_var(parser->symtab, cls, lex->label);
             i++;
@@ -404,12 +407,20 @@ static void parse_method_decl(lily_parse_state *parser)
     NEED_NEXT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_word)
 
-    cls = lily_class_by_name(parser->symtab, lex->label);
-
     lily_call_sig *csig = method_var->sig->node.call;
+
+    cls = lily_class_by_name(parser->symtab, lex->label);
+    if (cls != NULL)
+        csig->ret = cls->sig;
+    else {
+        if (strcmp(lex->label, "nil") == 0)
+            csig->ret = NULL;
+        else
+            lily_raise(parser->error, "unknown class name %s.\n", lex->label);
+    }
+
     int j;
 
-    csig->ret = cls->sig;
     save_top = save_top->next;
 
     if (i != 0) {
