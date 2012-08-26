@@ -3,6 +3,8 @@
 
 static void oo_merge(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
 {
+    lily_ast *target;
+
     if (active->expr_type < binary) {
         /* This gets called for two cases:
            1) a.concat("c") where a is active and root.
@@ -16,12 +18,22 @@ static void oo_merge(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
            lily_ast_enter_call will think the var is the parent, and make the
            var the current when the call is done. That's bad. */
         ap->active = new_ast;
-
-        new_ast->arg_start = active;
-        new_ast->arg_top = active;
-        new_ast->args_collected = 1;
-        active->next_arg = NULL;
+        target = active;
     }
+    else {
+        /* This gets called when the merge is against the rhs of a binary.
+           Ex: 'a = b.concat("c") < b.concat("d")
+           This is always against the rhs, like how values always add to the
+           rhs of a binary op. This cannot become current or root, because the
+           binary always has priority over it. */
+        target = active->right;
+        active->right = new_ast;
+    }
+
+    new_ast->arg_start = target;
+    new_ast->arg_top = target;
+    new_ast->args_collected = 1;
+    new_ast->next_arg = NULL;
 }
 
 static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
@@ -30,7 +42,9 @@ static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
 
     if (new_ast->expr_type < binary) {
         if (active != NULL) {
-            if (active->expr_type == binary)
+            /* It's an oo call if we're merging a call against an existing
+               value. */
+            if (active->expr_type == binary && active->right == NULL)
                 active->right = new_ast;
             else
                 oo_merge(ap, active, new_ast);

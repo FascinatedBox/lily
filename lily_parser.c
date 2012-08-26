@@ -52,8 +52,17 @@ static void enter_oo_call(lily_parse_state *parser)
         cls = active->result->sig->cls;
     else if (active->expr_type == call)
         cls = active->result->sig->node.call->ret->cls;
-    else
-        lily_raise(parser->error, "Stub: oo call on non-var.\n");
+    else if (active->expr_type == binary) {
+        lily_sig *sig = active->right->result->sig;
+
+        /* If the rhs is a call, then this will use the return of that call.
+           This can happen if the rhs was either a regular or oo call. The top
+           call is all that needs to be checked, since it was the last. */
+        if (active->right->expr_type == call)
+            cls = sig->node.call->ret->cls;
+        else
+            cls = sig->cls;
+    }
 
     call_var = lily_find_class_callable(cls, parser->lex->label);
     if (call_var == NULL) {
