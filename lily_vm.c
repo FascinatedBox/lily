@@ -241,7 +241,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 COMPARE_OP(<=, <= 0)
                 break;
             case o_is_equal:
-                COMPARE_OP(>, == 0)
+                COMPARE_OP(==, == 0)
                 break;
             case o_greater:
                 COMPARE_OP(>, == 1)
