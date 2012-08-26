@@ -217,8 +217,9 @@ void lily_vm_execute(lily_vm_state *vm)
         switch(code[i]) {
             case o_assign:
                 lhs = ((lily_sym *)code[i+2]);
+                rhs = ((lily_sym *)code[i+3]);
                 lhs->flags = (lhs->flags & ~S_IS_NIL) ^ (rhs->flags & S_IS_NIL);
-                lhs->value = ((lily_sym *)code[i+3])->value;
+                lhs->value = rhs->value;
                 i += 4;
                 break;
             case o_integer_add:
