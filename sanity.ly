@@ -5,6 +5,22 @@
 <body>
 <@lily
 
+method test_jumps():integer
+{
+    integer a = 1
+    integer ret
+
+    if a == a: {
+        ret = 1
+    else:
+        # Make sure jumps aren't miswired...again.
+        print("[test_jumps]: Failed 'a == a' comparison.\n")
+        ret = 0
+    }
+
+    return ret
+}
+
 method manyargs (integer addA, integer addB, integer addC, integer addD,
 integer addE, integer addF):integer {
     return addA
@@ -92,6 +108,7 @@ method test_escapes():integer
     return 1
 }
 
+test_jumps()
 test_obj_call()
 test_printfmt()
 test_basic_assignments()

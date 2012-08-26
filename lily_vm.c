@@ -258,15 +258,15 @@ void lily_vm_execute(lily_vm_state *vm)
                     int cls_id = lhs->sig->cls->id;
                     if (cls_id == SYM_CLASS_INTEGER) {
                         if (lhs->value.integer == 0)
-                            i += 3;
-                        else
                             i = code[i+2];
+                        else
+                            i += 3;
                     }
                     else if (cls_id == SYM_CLASS_NUMBER) {
                         if (lhs->value.number == 0.0)
-                            i += 3;
-                        else
                             i = code[i+2];
+                        else
+                            i += 3;
                     }
                 }
                 break;
