@@ -21,6 +21,18 @@ method test_jumps():integer
     return ret
 }
 
+method test_oo():integer
+{
+    str a = "a"
+    integer i
+    if a.concat("a") == "aa":
+        i = a.concat("a").concat("a") < "bb"
+    else:
+        print("[test_oo]: Concat test failed.\n")
+
+    return 1
+}
+
 method manyargs (integer addA, integer addB, integer addC, integer addD,
 integer addE, integer addF):integer {
     return addA
@@ -109,6 +121,7 @@ method test_escapes():integer
 }
 
 test_jumps()
+test_oo()
 test_obj_call()
 test_printfmt()
 test_basic_assignments()
