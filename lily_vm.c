@@ -87,7 +87,7 @@ lily_vm_state *lily_new_vm_state(lily_excep_data *error)
     int **saved_code = lily_malloc(sizeof(int *) * 4);
     int *saved_pos = lily_malloc(sizeof(int) * 4);
     lily_sym **saved_ret = lily_malloc(sizeof(lily_sym *) * 4);
-    if (saved_code == NULL || saved_pos == NULL) {
+    if (saved_code == NULL || saved_pos == NULL || saved_ret == NULL) {
         lily_free(saved_code);
         lily_free(saved_pos);
         lily_free(saved_ret);
