@@ -4,71 +4,8 @@
 </head>
 <body>
 <@lily
-
-method test_jumps():integer
-{
-    integer a = 1
-    integer ret
-
-    if a == a: {
-        ret = 1
-    else:
-        # Make sure jumps aren't miswired...again.
-        print("[test_jumps]: Failed 'a == a' comparison.\n")
-        ret = 0
-    }
-
-    return ret
-}
-
-method test_oo():integer
-{
-    str a = "a"
-    integer i
-    if a.concat("a") == "aa":
-        i = a.concat("a").concat("a") < "bb"
-    else:
-        print("[test_oo]: Concat test failed.\n")
-
-    return 1
-}
-
-method manyargs (integer addA, integer addB, integer addC, integer addD,
-integer addE, integer addF):integer {
-    return addA
-}
-
-method test_nil_ret():nil
-{
-    return
-}
-
-method sample_ocall(object a, object b):integer
-{
-    return 1
-}
-
-method test_printfmt():integer
-{
-    integer a = 1
-    number b = 12.34
-    str c = "c"
-    printfmt("[test_printfmt]: integer a is %i.\n", a)
-    printfmt("[test_printfmt]: number b is %n.\n", b)
-    printfmt("[test_printfmt]: str c is %s.\n", c)
-    printfmt("[test_printfmt]: a, b, c, are %i, %n, %s.\n", a, b, c)
-    return 1
-}
-
-method test_obj_call():integer
-{
-    object o
-    sample_ocall("a", "a")
-    sample_ocall(1, 1)
-    sample_ocall(1.1, 1.1)
-    sample_ocall(o, o)
-    return 1
-}
+integer test_id = 1
+integer fail_count = 0
 
 method test_basic_assignments():integer
 {
@@ -92,6 +29,10 @@ method test_basic_assignments():integer
     number b = 2.0
     str c = "c"
     object o = "o"
+
+    # Decl list test.
+    integer dl1, dl2, dl3, dl4
+
     # Objects can be assigned any value.
     o = 1
     o = 2.0
@@ -101,14 +42,114 @@ method test_basic_assignments():integer
     o = "o"
     o = "oo"
 
-    integer ok
+    printfmt("#%i: Testing basic assignments...ok.\n", test_id)
+    test_id = test_id + 1
 
-    if a == 1:
-        ok = 1
+    return 1
+}
+
+method test_jumps():integer
+{
+    integer a, ok
+
+    a = 1
+    printfmt("#%i: Testing jumps...", test_id)
+    test_id = test_id + 1
+
+    if a == a: {
+        print("ok.\n")
     else:
-        ok = 0
+        print("failed.\n")
+        # Make sure jumps aren't miswired...again.
+        fail_count = fail_count + 1
+    }
 
-    return ok
+    return 1
+}
+
+method test_manyargs (integer a, integer b, integer c, integer d,
+    integer e, integer f):integer
+{
+    printfmt("#%i: 8-arg call...ok.\n", test_id)
+    test_id = test_id + 1
+
+    return a
+}
+
+method test_printfmt():integer
+{
+    integer a = 1
+    number b = 12.34
+    str c = "abcd"
+
+    printfmt("#%i: Testing printfmt:...(check results)\n", test_id)
+    test_id = test_id + 1
+
+    printfmt("    integer a (1)     is %i.\n", a)
+    printfmt("    number  b (12.34) is %n.\n", b)
+    printfmt("    str     c (abcd)  is %s.\n", c)
+    # Make sure varargs calls are taking the extra ones too.
+    printfmt("    a, b, c are %i, %n, %s.\n", a, b, c)
+
+    return 1
+}
+
+method test_obj_call():integer
+{
+    object o
+
+    method sample_ocall(object a, object b):integer
+    {
+        return 1
+    }
+
+    sample_ocall("a", "a")
+    sample_ocall(1, 1)
+    sample_ocall(1.1, 1.1)
+    sample_ocall(o, o)
+
+    printfmt("#%i: Testing autocast of object calls...ok.\n", test_id)
+    test_id = test_id + 1
+
+    return 1
+}
+
+method test_oo():integer
+{
+    str a = "a"
+    integer i
+
+    printfmt("#%i: Testing oo calls...", test_id)
+    test_id = test_id + 1
+
+    if a.concat("a") == "aa": {
+        # Check that oo works with regular binary ops.
+        i = a.concat("a").concat("a") < "bb"
+        print("ok.\n")
+    else:
+        fail_count = fail_count + 1
+        print("failed.\n")
+    }
+
+    return 1
+}
+
+method test_utf8():integer
+{
+    str h3llö = "hello"
+    str ustr = "á"
+
+    printfmt("#%i: Testing concat with utf8...", test_id)
+    test_id  = test_id + 1
+
+    if ustr.concat("á") == "áá": {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        fail_count = fail_count + 1
+    }
+
+    return 1
 }
 
 method test_escapes():integer
@@ -117,134 +158,121 @@ method test_escapes():integer
     str s2 = "Hello, world.\n"
     str s3 = ""
 
+    printfmt("#%i: Testing escape string...%s.\n", test_id, s)
+    test_id = test_id + 1
+
     return 1
 }
 
-test_jumps()
-test_oo()
-test_obj_call()
-test_printfmt()
+method test_nested_if():integer
+{
+    integer a, ok = 0
+    str s = "a"
+    a = 1
+    printfmt("#%i: Testing nested if...", test_id)
+    test_id = test_id + 1
+
+    if a == 1: {
+        if a == 1: {
+            if a == 1: {
+                if a == 1: {
+    if a == 1: {
+        if a == 1: {
+            if a == 1: {
+                if a == 1: {
+    if a == 1: {
+        if a == 1: {
+            if a == 1: {
+                if a == 1: {
+                    ok = 1
+                }
+            }
+        }
+    }
+                }
+            }
+        }
+    }
+                }
+            }
+        }
+    }
+
+    # In Lily, braces are only needed for the start and end of an if. This is a
+    # multi-line if test.
+    if a == 1: {
+        a = 2
+        a = 3
+    elif a == 2:
+        a = 4
+        a = 5
+    else:
+        a = 6
+        a = 7
+    }
+
+    if ok == 1: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        fail_count = fail_count + 1
+    }
+
+    return 1
+}
+
+method test_add():integer
+{
+    # This tests ast merging.
+    integer i1, ok
+    str s1, s2
+
+    i1 = "1" >= "1"
+    i1 = "1" > "1"
+    i1 = "1" < "1"
+    i1 = "1" <= "1"
+    i1 = "1" == "1"
+
+    method add(integer a, integer b):integer
+    {
+        return a + b
+    }
+
+    i1 = add(1, 1) + add(1, 1)
+    printfmt("#%i: Testing add(1, 1) + add(1, 1)...", test_id)
+    test_id = test_id + 1
+
+    if i1 == 4: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        fail_count = fail_count + 1
+    }
+
+    return 1
+}
+
+# The parser understands nil to mean not returning anything. But the vm doesn't
+# just yet, so don't call it now.
+method test_nil_ret():nil
+{
+    return
+}
+
 test_basic_assignments()
-manyargs(1,2,3,4,5,6)
+test_jumps()
+test_manyargs(1,2,3,4,5,6)
+test_printfmt()
+test_obj_call()
+test_oo()
+test_utf8()
+test_escapes()
+test_nested_if()
+test_add()
 
-# Test utf-8 labels and strs.
-str ustr = "á"
-str h3llö = "hello"
+test_id = test_id - 1
 
-# Test assigning different types to an object.
-object o
-o = 1
-o = 1.1
-o = 1
-
-# Random function call.
-print("Hello")
-
-# Declaration list check.
-str d, e, f
-str g
-
-# Test ast merging, specifically for binary ops.
-integer math
-
-math = 1 + 2 + 3
-math = 4 - 5
-math = 50
-
-# Test comparisons.
-integer compa, compb, compc, compd, compe
-compa = "1" >= "1"
-compb = "1" > "1"
-compc = "1" < "1"
-compd = "1" <= "1"
-compe = "1" == "1"
-
-integer aa, ab
-
-aa = 1
-ab = 2
-
-# No { after the first : means each if/elif/else gets a single line.
-# These single-line ifs do not nest.
-if aa == 1:
-    aa = ab
-elif aa == 2:
-    aa = 3
-elif aa == 3:
-    aa = 4
-else:
-    aa = 4
-
-# In Lily, braces are only needed for the start and end of an if. This is a
-# multi-line if test.
-if aa == 1: {
-    aa = 2
-    aa = 3
-elif aa = 2:
-    aa = 4
-    aa = 5
-else:
-    aa = 6
-    aa = 7
-}
-
-if aa == 1: {
-    if aa == 1: {
-        if aa == 1: {
-            if aa == 1: {
-if aa == 1: {
-    if aa == 1: {
-        if aa == 1: {
-            if aa == 1: {
-if aa == 1: {
-    if aa == 1: {
-        if aa == 1: {
-            if aa == 1: {
-                aa = 2
-            }
-        }
-    }
-}
-            }
-        }
-    }
-}
-            }
-        }
-    }
-}
-
-method t(integer a):str {
-    return "str"
-}
-
-method t2(str a):str {
-    return a
-}
-
-print(t(1))
-# method t uses the same storage to return the value each time. These three
-# calls make sure that the storage isn't ref'd each time. If that happened,
-# there would be more refs than values (memory leak).
-t(1)
-t(1)
-t(1)
-t2("str")
-
-method add (integer addA, integer addB):integer {
-    return addA + addB
-}
-
-method test_noargs():integer {
-    return 10
-}
-test_noargs()
-
-add(1+1, 1+1)
-integer addcheck = add(1, 1) + 10
-
-integer foldcheck = add(1+1>1+1, 1)
-
+printfmt("Tests passed: %i / %i.", test_id , test_id + fail_count)
 @>
 </body>
 </html>
