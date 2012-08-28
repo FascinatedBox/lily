@@ -190,6 +190,13 @@ static void expression(lily_parse_state *parser, int flags)
                 if (parser->ast_pool->active == NULL)
                     lily_raise(parser->error, "Expected a value, not ','.\n");
 
+                /* If this is inside of a decl list (integer a, b, c...), then
+                   the comma is the end of the decl unless it's part of a call
+                   used in the decl (integer a = add(1, 2), b = 1...). */
+                if (((flags & EX_NEED_VALUE) == 0) &&
+                    parser->ast_pool->save_index == 0) {
+                    break;
+                }
                 lily_ast_collect_arg(parser->ast_pool);
                 lily_lexer(lex);
             }
