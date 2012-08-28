@@ -252,6 +252,35 @@ method test_add():integer
     return 1
 }
 
+method test_assign_decl_list():integer
+{
+    printfmt("#%i: Testing assigning to decl list...", test_id)
+    test_id = test_id + 1
+
+    # First, basic stuff...
+    integer a = 1, b = 2, c = 3
+
+    # Now, with binary.
+    integer d = a + b, e = a + b
+
+    method add(integer a, integer b):integer
+    {
+        return a + b
+    }
+
+    # Finally, with a call.
+    integer f = add(a, b), g = 4
+
+    if f == 3: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        fail_count = fail_count + 1
+    }
+
+    return 1
+}
+
 # The parser understands nil to mean not returning anything. But the vm doesn't
 # just yet, so don't call it now.
 method test_nil_ret():nil
@@ -269,6 +298,7 @@ test_utf8()
 test_escapes()
 test_nested_if()
 test_add()
+test_assign_decl_list()
 
 test_id = test_id - 1
 
