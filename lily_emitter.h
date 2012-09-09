@@ -23,6 +23,7 @@ typedef struct {
     lily_method_val **method_vals;
     lily_sig **method_rets;
     lily_var **method_targets;
+    int *method_id_offsets;
     int method_pos;
     int method_size;
 

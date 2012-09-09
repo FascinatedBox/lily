@@ -231,6 +231,31 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             }
         }
 
+        /* Don't save locals for @main, and don't save if calling a function.
+           todo: Save storages as well. @main will need to save storages, but
+           not locals (@main's "locals" are globals). Still only save for
+           methods though. */
+        if (emit->method_pos > 1 && v->sig->cls->id == SYM_CLASS_METHOD) {
+            int i, save_count;
+            lily_var *save_var;
+
+            save_count = emit->symtab->var_top->id -
+                    emit->method_id_offsets[emit->method_pos-1];
+
+            save_var = emit->method_targets[emit->method_pos-1]->next;
+
+            WRITE_PREP(save_count + 2)
+
+            m->code[m->pos] = o_save;
+            m->code[m->pos+1] = save_count;
+            m->pos += 2;
+
+            for (i = 0;i < save_count;i++, save_var = save_var->next)
+                m->code[m->pos+i] = (int)save_var;
+
+            m->pos += save_count;
+        }
+
         new_pos = m->pos + 6 + ast->args_collected;
         WRITE_PREP_LARGE(6 + ast->args_collected)
 
@@ -360,8 +385,10 @@ void lily_emit_clear_block(lily_emit_state *emit, int have_else)
     else if (emit->block_types[emit->block_pos-1] == BLOCK_IFELSE)
         lily_raise(emit->error, "'elif' after 'else'.\n");
 
-    if (v->next != NULL)
-        lily_drop_block_vars(emit->symtab, v);
+    if (v->next != NULL) {
+        int offset_add = lily_drop_block_vars(emit->symtab, v);
+        emit->method_id_offsets[emit->method_pos-1] += offset_add;
+    }
 
     /* Write an exit jump for this branch, thereby completing the branch. */
     WRITE_2(o_jump, 0);
@@ -426,9 +453,6 @@ void lily_emit_pop_block(lily_emit_state *emit)
     v = emit->block_var_starts[emit->block_pos];
     btype = emit->block_types[emit->block_pos];
 
-    if (v->next != NULL)
-        lily_drop_block_vars(emit->symtab, v);
-
     if (btype < BLOCK_METHOD) {
         emit->ctrl_patch_pos--;
 
@@ -445,6 +469,15 @@ void lily_emit_pop_block(lily_emit_state *emit)
     }
     else
         lily_emit_leave_method(emit);
+
+    /* This is done after a method leaves, so that the offset gets added into
+       the outer method. Otherwise, if a method declares a variable after the
+       inner method is done, then saves will be wrong from then on. */
+    if (v->next != NULL) {
+        int offset_add;
+        offset_add = lily_drop_block_vars(emit->symtab, v);
+        emit->method_id_offsets[emit->method_pos-1] += offset_add;
+    }
 }
 
 void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
@@ -457,23 +490,29 @@ void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
             sizeof(lily_sig *) * emit->method_size);
         lily_var **new_targets = lily_realloc(emit->method_targets,
             sizeof(lily_var *) * emit->method_size);
+        int *new_offsets = lily_realloc(emit->method_id_offsets,
+            sizeof(int) * emit->method_size);
 
-        if (new_vals == NULL || new_rets == NULL || new_targets == NULL) {
+        if (new_vals == NULL || new_rets == NULL || new_targets == NULL ||
+            new_offsets == NULL) {
             lily_free(new_vals);
             lily_free(new_rets);
             lily_free(new_targets);
+            lily_free(new_offsets);
             lily_raise_nomem(emit->error);
         }
 
         emit->method_vals = new_vals;
         emit->method_rets = new_rets;
         emit->method_targets = new_targets;
+        emit->method_id_offsets = new_offsets;
     }
 
     emit->target = (lily_method_val *)var->value.ptr;
     emit->method_rets[emit->method_pos] = var->sig->node.call->ret;
     emit->method_vals[emit->method_pos] = emit->target;
     emit->method_targets[emit->method_pos] = var;
+    emit->method_id_offsets[emit->method_pos] = var->id;
     emit->method_pos++;
     emit->target_ret = var->sig->node.call->ret;
     lily_emit_push_block(emit, BLOCK_METHOD);
@@ -510,6 +549,7 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free(emit->method_vals);
     lily_free(emit->method_rets);
     lily_free(emit->method_targets);
+    lily_free(emit->method_id_offsets);
     lily_free(emit);
 }
 
@@ -527,11 +567,11 @@ lily_emit_state *lily_new_emit_state(lily_excep_data *excep)
     s->method_vals = lily_malloc(sizeof(lily_method_val *) * 4);
     s->method_rets = lily_malloc(sizeof(lily_sig *) * 4);
     s->method_targets = lily_malloc(sizeof(lily_var *) * 4);
-
+    s->method_id_offsets = lily_malloc(sizeof(int) * 4);
     if (s->patches == NULL || s->ctrl_patch_starts == NULL ||
         s->block_var_starts == NULL || s->block_types == NULL ||
         s->method_vals == NULL || s->method_rets == NULL ||
-        s->method_targets == NULL) {
+        s->method_targets == NULL || s->method_id_offsets == NULL) {
         lily_free_emit_state(s);
         return NULL;
     }

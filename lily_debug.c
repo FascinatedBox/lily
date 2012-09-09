@@ -85,6 +85,22 @@ static void print_call(int *code, char *str, int i)
         lily_impl_debugf("        return: nil\n");
 }
 
+static void print_save(int *code, char *str, int i)
+{
+    lily_impl_debugf(str, i, code[i+1]);
+    int j, k;
+    lily_var *v;
+
+    for (j = 0, k = code[i+1];j < k;j++) {
+        lily_sym *sym = (lily_sym *)code[i+2+j];
+        if (sym->flags & VAR_SYM) {
+            v = (lily_var *)sym;
+            lily_impl_debugf("        #%d: var %s from line %d.\n", j+1,
+                             v->name, v->line_num);
+        }
+    }
+}
+
 static void show_code(lily_var *var)
 {
     int i, len;
@@ -168,6 +184,10 @@ static void show_code(lily_var *var)
             case o_method_call:
                 print_call(code, "    [%d] method_call\n        ", i);
                 i += 6 + code[i+4];
+                break;
+            case o_save:
+                print_save(code, "    [%d] save (%d)\n", i);
+                i += code[i+1] + 2;
                 break;
             case o_return_val:
                 print_one(code, "    [%d] return_value  ", i);

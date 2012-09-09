@@ -283,6 +283,11 @@ void lily_vm_execute(lily_vm_state *vm)
                 i += 6+j;
             }
                 break;
+            case o_save:
+                /* todo: Implement saving in vm, once it looks okay in debug. */
+                fprintf(stderr, "vm o_save is a stub, so nothing saved.\n");
+                i += code[i+1] + 2;
+                break;
             case o_method_call:
             {
                 int j;
