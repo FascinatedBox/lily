@@ -98,6 +98,8 @@ static void print_save(int *code, char *str, int i)
             lily_impl_debugf("        #%d: var %s from line %d.\n", j+1,
                              v->name, v->line_num);
         }
+        else
+            lily_impl_debugf("        #%d: %s #%d.\n", j+1, typename(sym), sym->id);
     }
 }
 
