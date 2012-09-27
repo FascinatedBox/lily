@@ -18,6 +18,10 @@ typedef struct {
     int block_pos;
     int block_size;
 
+    int *save_cache;
+    int save_cache_pos;
+    int save_cache_size;
+
     lily_method_val *target;
     lily_sig *target_ret;
     lily_method_val **method_vals;

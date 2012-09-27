@@ -14,6 +14,16 @@ if ((m->pos + size) > m->len) { \
         lily_raise_nomem(emit->error); \
 }
 
+#define SAVE_PREP(size) \
+if ((emit->save_cache_pos + size) > emit->save_cache_size) { \
+    while ((emit->save_cache_pos + size) > emit->save_cache_size) \
+        emit->save_cache_size *= 2; \
+    emit->save_cache = lily_realloc(emit->save_cache, sizeof(int) * \
+            emit->save_cache_size); \
+    if (emit->save_cache == NULL) \
+        lily_raise_nomem(emit->error); \
+}
+
 /* Most ops need 4 or less code spaces, so only growing once is okay. However,
    calls need 5 + #args. So more than one grow might be necessary.
    Note: This macro may need to check for overflow later. */
@@ -166,23 +176,61 @@ static void do_bad_arg_error(lily_emit_state *emit, lily_ast *ast,
     lily_raise_msgbuf(emit->error, mb);
 }
 
-static void walk_tree(lily_emit_state *emit, lily_ast *ast)
+static void walk_tree(lily_emit_state *, lily_ast *);
+
+static void check_call_args(lily_emit_state *emit, lily_ast *ast,
+        lily_call_sig *csig, int num_args)
 {
+    lily_ast *arg = ast->arg_start;
+    int i, is_varargs;
     lily_method_val *m = emit->target;
 
-    if (ast->expr_type == call) {
-        int i, num_args, is_varargs, new_pos;
-        lily_ast *arg = ast->arg_start;
-        lily_var *v = (lily_var *)ast->result;
-        lily_call_sig *csig = v->sig->node.call;
-        num_args = csig->num_args;
-        is_varargs = csig->is_varargs;
+    is_varargs = csig->is_varargs;
 
-        /* The parser has already verified argument count. */
-        for (i = 0;i != num_args;arg = arg->next_arg, i++) {
-            if (arg->expr_type != var)
+    SAVE_PREP(num_args)
+    /* The parser has already verified argument count. */
+    for (i = 0;i != num_args;arg = arg->next_arg, i++) {
+        if (arg->expr_type != var) {
+            /* Walk the subexpressions so the result gets calculated. */
+            walk_tree(emit, arg);
+            if (arg->result != NULL) {
+                emit->save_cache[emit->save_cache_pos] = (int)arg->result;
+                emit->save_cache_pos++;
+            }
+        }
+
+        /* This currently works because there are no nested funcs or
+           methods. */
+        if (csig->args[i] != arg->result->sig) {
+            if (csig->args[i]->cls->id == SYM_CLASS_OBJECT) {
+                lily_storage *storage;
+                storage = get_storage_sym(emit, csig->args[i]->cls);
+                WRITE_4(o_obj_assign,
+                        ast->line_num,
+                        (int)storage,
+                        (int)arg->result)
+
+                arg->result = (lily_sym *)storage;
+            }
+            else
+                do_bad_arg_error(emit, ast, arg->result->sig, i);
+        }
+    }
+
+    if (is_varargs) {
+        /* Remember that the above finishes with i == num_args, and the
+           args are 0-based. So fix i. */
+        i--;
+        int j = 0;
+        for (;arg != NULL;arg = arg->next_arg, j++) {
+            if (arg->expr_type != var) {
                 /* Walk the subexpressions so the result gets calculated. */
                 walk_tree(emit, arg);
+                if (arg->result != NULL) {
+                    emit->save_cache[emit->save_cache_pos] = (int)arg->result;
+                    emit->save_cache_pos++;
+                }
+            }
 
             /* This currently works because there are no nested funcs or
                methods. */
@@ -201,73 +249,86 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                     do_bad_arg_error(emit, ast, arg->result->sig, i);
             }
         }
+    }
+}
 
-        if (is_varargs) {
-            /* Remember that the above finishes with i == num_args, and the
-               args are 0-based. So fix i. */
-            i--;
-            int j = 0;
-            for (;arg != NULL;arg = arg->next_arg, j++) {
-                if (arg->expr_type != var)
-                    /* Walk the subexpressions so the result gets calculated. */
-                    walk_tree(emit, arg);
+static void walk_tree(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_method_val *m = emit->target;
 
-                /* This currently works because there are no nested funcs or
-                   methods. */
-                if (csig->args[i] != arg->result->sig) {
-                    if (csig->args[i]->cls->id == SYM_CLASS_OBJECT) {
-                        lily_storage *storage;
-                        storage = get_storage_sym(emit, csig->args[i]->cls);
-                        WRITE_4(o_obj_assign,
-                                ast->line_num,
-                                (int)storage,
-                                (int)arg->result)
+    if (ast->expr_type == call) {
+        lily_ast *arg = ast->arg_start;
+        lily_var *v = (lily_var *)ast->result;
+        lily_call_sig *csig = v->sig->node.call;
+        int cache_start, i, is_method, new_pos, num_args;
 
-                        arg->result = (lily_sym *)storage;
-                    }
-                    else
-                        do_bad_arg_error(emit, ast, arg->result->sig, i);
-                }
-            }
-        }
+        num_args = csig->num_args;
+        is_method = (v->sig->cls->id == SYM_CLASS_METHOD);
+        if (!is_method)
+            cache_start = emit->save_cache_pos;
+
+        check_call_args(emit, ast, csig, num_args);
 
         /* Don't save locals for @main, and don't save if calling a function.
            todo: Save storages as well. @main will need to save storages, but
            not locals (@main's "locals" are globals). Still only save for
            methods though. */
-        if (emit->method_pos > 1 && v->sig->cls->id == SYM_CLASS_METHOD) {
-            int i, save_count;
+        if (is_method) {
+            int do_save_locals, local_count, save_total;
             lily_var *save_var;
 
-            save_count = emit->symtab->var_top->id -
+            do_save_locals = (emit->method_pos > 1);
+            save_total = emit->save_cache_pos;
+
+            if (do_save_locals) {
+                local_count = emit->symtab->var_top->id -
                     emit->method_id_offsets[emit->method_pos-1];
+                save_total += local_count;
+            }
 
             save_var = emit->method_targets[emit->method_pos-1]->next;
 
-            WRITE_PREP(save_count + 2)
+            WRITE_PREP_LARGE(save_total + 2)
 
             m->code[m->pos] = o_save;
-            m->code[m->pos+1] = save_count;
+            m->code[m->pos+1] = save_total;
             m->pos += 2;
 
-            for (i = 0;i < save_count;i++, save_var = save_var->next)
-                m->code[m->pos+i] = (int)save_var;
+            if (emit->save_cache_pos != 0) {
+                for (i = 0;i < emit->save_cache_pos;i++)
+                    m->code[m->pos+i] = emit->save_cache[i];
 
-            m->pos += save_count;
+                emit->save_cache_pos = 0;
+                m->pos += i;
+            }
+            if (do_save_locals) {
+                for (i = 0;i < local_count;i++) {
+                    m->code[m->pos+i] = (int)save_var;
+                    save_var = save_var->next;
+                }
+    
+                m->pos += local_count;
+            }
         }
+        /* In a func, the args are registered to be saved in case one of the
+           args is a method (which will drain the cache). So if they weren't
+           drained, then drain them now. */
+        else if (emit->save_cache_pos > cache_start)
+            emit->save_cache_pos = cache_start;
 
         new_pos = m->pos + 6 + ast->args_collected;
         WRITE_PREP_LARGE(6 + ast->args_collected)
 
-        if (v->sig->cls->id == SYM_CLASS_FUNCTION)
-            m->code[m->pos] = o_func_call;
-        else
+        if (is_method)
             m->code[m->pos] = o_method_call;
+        else
+            m->code[m->pos] = o_func_call;
 
         m->code[m->pos+1] = ast->line_num;
         m->code[m->pos+2] = (int)v;
         m->code[m->pos+3] = (int)v->value.ptr;
         m->code[m->pos+4] = ast->args_collected;
+
         for (i = 6, arg = ast->arg_start;
             arg != NULL;
             arg = arg->next_arg, i++) {
@@ -550,6 +611,7 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free(emit->method_rets);
     lily_free(emit->method_targets);
     lily_free(emit->method_id_offsets);
+    lily_free(emit->save_cache);
     lily_free(emit);
 }
 
@@ -568,10 +630,13 @@ lily_emit_state *lily_new_emit_state(lily_excep_data *excep)
     s->method_rets = lily_malloc(sizeof(lily_sig *) * 4);
     s->method_targets = lily_malloc(sizeof(lily_var *) * 4);
     s->method_id_offsets = lily_malloc(sizeof(int) * 4);
+    s->save_cache = lily_malloc(sizeof(int) * 4);
+
     if (s->patches == NULL || s->ctrl_patch_starts == NULL ||
         s->block_var_starts == NULL || s->block_types == NULL ||
         s->method_vals == NULL || s->method_rets == NULL ||
-        s->method_targets == NULL || s->method_id_offsets == NULL) {
+        s->method_targets == NULL || s->method_id_offsets == NULL ||
+        s->save_cache == NULL) {
         lily_free_emit_state(s);
         return NULL;
     }
@@ -582,6 +647,8 @@ lily_emit_state *lily_new_emit_state(lily_excep_data *excep)
     s->ctrl_patch_size = 4;
     s->block_pos = 0;
     s->block_size = 4;
+    s->save_cache_pos = 0;
+    s->save_cache_size = 4;
     s->method_pos = 0;
     s->method_size = 4;
 
