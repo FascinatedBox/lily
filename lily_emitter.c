@@ -179,13 +179,14 @@ static void do_bad_arg_error(lily_emit_state *emit, lily_ast *ast,
 static void walk_tree(lily_emit_state *, lily_ast *);
 
 static void check_call_args(lily_emit_state *emit, lily_ast *ast,
-        lily_call_sig *csig, int num_args)
+        lily_call_sig *csig)
 {
     lily_ast *arg = ast->arg_start;
-    int i, is_varargs;
+    int i, is_varargs, num_args;
     lily_method_val *m = emit->target;
 
     is_varargs = csig->is_varargs;
+    num_args = csig->num_args;
 
     SAVE_PREP(num_args)
     /* The parser has already verified argument count. */
@@ -260,15 +261,13 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         lily_ast *arg = ast->arg_start;
         lily_var *v = (lily_var *)ast->result;
         lily_call_sig *csig = v->sig->node.call;
-        int cache_start, i, is_method, grow_for_call, new_pos, num_args,
-            save_total;
+        int cache_start, i, is_method, grow_for_call, new_pos, save_total;
 
-        num_args = csig->num_args;
         is_method = (v->sig->cls->id == SYM_CLASS_METHOD);
         if (!is_method)
             cache_start = emit->save_cache_pos;
 
-        check_call_args(emit, ast, csig, num_args);
+        check_call_args(emit, ast, csig);
 
         /* Don't save locals for @main, and don't save if calling a function.
            todo: Save storages as well. @main will need to save storages, but
