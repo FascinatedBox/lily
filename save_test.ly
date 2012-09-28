@@ -14,7 +14,7 @@ method test_callee():integer
 
 method m():str
 {
-    return "s"
+    return "str"
 }
 
 method test_caller():integer
@@ -22,8 +22,8 @@ method test_caller():integer
     integer asdf
 
     m()
-    integer b
-    printfmt("test %i, %s.\n", m())
+    integer b = 10
+    printfmt("test %i, %s.\n", 1+1, m())
     test_callee()
     return 1
 }
