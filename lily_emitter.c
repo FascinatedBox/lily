@@ -308,7 +308,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             m->pos += 2;
 
             if (emit->save_cache_pos) {
-                memcpy(m->code + m->pos, emit->save_cache, emit->save_cache_pos);
+                memcpy(m->code + m->pos, emit->save_cache,
+                       emit->save_cache_pos * sizeof(int));
 
                 m->pos += emit->save_cache_pos;
                 emit->save_cache_pos = 0;
