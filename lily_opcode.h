@@ -36,6 +36,7 @@ typedef enum {
     o_method_call,
     o_return_val,
     o_save,
+    o_restore,
     o_vm_return
     /* Arguments: none
        Makes the vm function return. */

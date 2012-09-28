@@ -288,6 +288,10 @@ void lily_vm_execute(lily_vm_state *vm)
                 fprintf(stderr, "vm o_save is a stub, so nothing saved.\n");
                 i += code[i+1] + 2;
                 break;
+            case o_restore:
+                fprintf(stderr, "vm o_restore is a stub, so no restore.\n");
+                i += 2;
+                break;
             case o_method_call:
             {
                 int j;

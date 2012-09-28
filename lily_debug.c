@@ -191,6 +191,10 @@ static void show_code(lily_var *var)
                 print_save(code, "    [%d] save (%d)\n", i);
                 i += code[i+1] + 2;
                 break;
+            case o_restore:
+                lily_impl_debugf("    [%d] restore (%d)\n", i, code[i+1]);
+                i += 2;
+                break;
             case o_return_val:
                 print_one(code, "    [%d] return_value  ", i);
                 i += 2;
