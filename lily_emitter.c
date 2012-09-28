@@ -260,7 +260,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         lily_ast *arg = ast->arg_start;
         lily_var *v = (lily_var *)ast->result;
         lily_call_sig *csig = v->sig->node.call;
-        int cache_start, i, is_method, new_pos, num_args;
+        int cache_start, i, is_method, grow_for_call, new_pos, num_args,
+            save_total;
 
         num_args = csig->num_args;
         is_method = (v->sig->cls->id == SYM_CLASS_METHOD);
@@ -274,7 +275,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
            not locals (@main's "locals" are globals). Still only save for
            methods though. */
         if (is_method) {
-            int do_save_locals, local_count, save_total;
+            int do_save_locals, local_count;
             lily_var *save_var;
 
             do_save_locals = (emit->method_pos > 1);
@@ -288,36 +289,48 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
             save_var = emit->method_targets[emit->method_pos-1]->next;
 
-            WRITE_PREP_LARGE(save_total + 2)
+            if (save_total) {
+                WRITE_PREP_LARGE(save_total + 2)
 
-            m->code[m->pos] = o_save;
-            m->code[m->pos+1] = save_total;
-            m->pos += 2;
+                m->code[m->pos] = o_save;
+                m->code[m->pos+1] = save_total;
+                m->pos += 2;
 
-            if (emit->save_cache_pos != 0) {
-                for (i = 0;i < emit->save_cache_pos;i++)
-                    m->code[m->pos+i] = emit->save_cache[i];
-
-                emit->save_cache_pos = 0;
-                m->pos += i;
-            }
-            if (do_save_locals) {
-                for (i = 0;i < local_count;i++) {
-                    m->code[m->pos+i] = (int)save_var;
-                    save_var = save_var->next;
-                }
+                if (emit->save_cache_pos != 0) {
+                    for (i = 0;i < emit->save_cache_pos;i++)
+                        m->code[m->pos+i] = emit->save_cache[i];
     
-                m->pos += local_count;
+                    emit->save_cache_pos = 0;
+                    m->pos += i;
+                }
+                if (do_save_locals) {
+                    for (i = 0;i < local_count;i++) {
+                        m->code[m->pos+i] = (int)save_var;
+                        save_var = save_var->next;
+                    }
+
+                    m->pos += local_count;
+                }
+                /* Add 2 so there's space for o_restore without doing another
+                   size check. */
+                grow_for_call = 2 + save_total;
             }
+            else
+                grow_for_call = 0;
         }
         /* In a func, the args are registered to be saved in case one of the
            args is a method (which will drain the cache). So if they weren't
            drained, then drain them now. */
-        else if (emit->save_cache_pos > cache_start)
-            emit->save_cache_pos = cache_start;
+        else {
+            if (emit->save_cache_pos > cache_start)
+                emit->save_cache_pos = cache_start;
+            save_total = 0;
+            grow_for_call = 0;
+        }
 
+        grow_for_call += 6 + ast->args_collected;
         new_pos = m->pos + 6 + ast->args_collected;
-        WRITE_PREP_LARGE(6 + ast->args_collected)
+        WRITE_PREP_LARGE(6 + grow_for_call)
 
         if (is_method)
             m->code[m->pos] = o_method_call;
@@ -354,6 +367,11 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
         m->code[m->pos+5] = (int)ast->result;
         m->pos = new_pos;
+        if (save_total) {
+            m->code[m->pos] = o_restore;
+            m->code[m->pos+1] = save_total;
+            m->pos += 2;
+        }
     }
     else if (ast->expr_type == binary) {
         /* lhs and rhs must be walked first, regardless of op. */
