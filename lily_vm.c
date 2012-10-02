@@ -78,6 +78,21 @@ static void grow_vm(lily_vm_state *vm)
     vm->saved_ret = new_saved_ret;
 }
 
+static void grow_saved_vals(lily_vm_state *vm, int upto)
+{
+    do {
+        vm->val_size *= 2;
+    } while ((vm->val_pos + upto) > vm->val_size);
+
+    lily_saved_val *new_values = lily_realloc(vm->saved_values,
+            sizeof(lily_saved_val) * vm->val_size);
+
+    if (new_values == NULL)
+        lily_raise_nomem(vm->error);
+
+    vm->saved_values = new_values;
+}
+
 lily_vm_state *lily_new_vm_state(lily_excep_data *error)
 {
     lily_vm_state *vm = lily_malloc(sizeof(lily_vm_state));
@@ -87,10 +102,13 @@ lily_vm_state *lily_new_vm_state(lily_excep_data *error)
     int **saved_code = lily_malloc(sizeof(int *) * 4);
     int *saved_pos = lily_malloc(sizeof(int) * 4);
     lily_sym **saved_ret = lily_malloc(sizeof(lily_sym *) * 4);
-    if (saved_code == NULL || saved_pos == NULL || saved_ret == NULL) {
+    lily_saved_val *saved_values = lily_malloc(sizeof(lily_saved_val) * 8);
+    if (saved_code == NULL || saved_pos == NULL || saved_ret == NULL ||
+        saved_values == NULL) {
         lily_free(saved_code);
         lily_free(saved_pos);
         lily_free(saved_ret);
+        lily_free(saved_values);
         lily_free(vm);
         return NULL;
     }
@@ -99,6 +117,9 @@ lily_vm_state *lily_new_vm_state(lily_excep_data *error)
     vm->saved_code = saved_code;
     vm->saved_pos = saved_pos;
     vm->saved_ret = saved_ret;
+    vm->saved_values = saved_values;
+    vm->val_pos = 0;
+    vm->val_size = 8;
     vm->stack_pos = 0;
     vm->stack_size = 4;
     return vm;
@@ -109,6 +130,7 @@ void lily_free_vm_state(lily_vm_state *vm)
     lily_free(vm->saved_code);
     lily_free(vm->saved_pos);
     lily_free(vm->saved_ret);
+    lily_free(vm->saved_values);
     lily_free(vm);
 }
 
@@ -207,7 +229,7 @@ void do_str_assign(lily_sym **syms)
 
 void lily_vm_execute(lily_vm_state *vm)
 {
-    int *code, flag, i;
+    int *code, flag, i, j, k;
     lily_method_val *mval;
     lily_sym *lhs, *rhs;
     lily_var *v;
@@ -285,11 +307,29 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_save:
                 /* todo: Implement saving in vm, once it looks okay in debug. */
-                fprintf(stderr, "vm o_save is a stub, so nothing saved.\n");
-                i += code[i+1] + 2;
+                j = code[i+1];
+
+                if (vm->val_pos + j > vm->val_size)
+                    grow_saved_vals(vm, vm->val_pos + j);
+
+                i += 2;
+                for (k = 0;k < j;k++, i++, vm->val_pos++) {
+                    lhs = (lily_sym *)code[i];
+                    vm->saved_values[vm->val_pos].sym = lhs;
+                    vm->saved_values[vm->val_pos].flags = lhs->flags;
+                    vm->saved_values[vm->val_pos].value = lhs->value;
+                }
                 break;
             case o_restore:
-                fprintf(stderr, "vm o_restore is a stub, so no restore.\n");
+                /* o_save finishes with the position ahead, so fix that. */
+                vm->val_pos--;
+                for (j = code[i+1];j > 0;j--,vm->val_pos--) {
+                    lhs = vm->saved_values[vm->val_pos].sym;
+                    lhs->flags = vm->saved_values[vm->val_pos].flags;
+                    lhs->value = vm->saved_values[vm->val_pos].value;
+                }
+                /* Make it point to the spot to be saved to again. */
+                vm->val_pos++;
                 i += 2;
                 break;
             case o_method_call:
