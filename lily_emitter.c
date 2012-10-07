@@ -284,6 +284,19 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         else {
             check_call_args(emit, ast, csig);
 
+            if (ast->parent != NULL && ast->parent->expr_type == binary &&
+                ast->parent->right == ast &&
+                ast->parent->left->expr_type != var) {
+                /* Ex: fib(n-1) + fib(n-2)
+                   In this case, the left side of the plus (the first fib call)
+                   is something saved to a storage. Since the plus hasn't been
+                   completed, this call could modify the storage of the left
+                   side. So save that storage. */
+                SAVE_PREP(1)
+                emit->save_cache[emit->save_cache_pos] = (int)ast->parent->left->result;
+                emit->save_cache_pos++;
+            }
+
             num_saves = emit->save_cache_pos;
             /* Do not save @main's "local's" (they're globals). */
             if (emit->method_pos > 1) {
