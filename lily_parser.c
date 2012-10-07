@@ -509,9 +509,9 @@ static void statement(lily_parse_state *parser)
 
         if (lclass != NULL) {
             if (lclass->id != SYM_CLASS_METHOD)
-                /* Methods have a special kind of declaration. */
                 declaration(parser, lclass);
             else
+                /* Methods have a special kind of declaration. */
                 parse_method_decl(parser);
         }
         else
