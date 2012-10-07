@@ -25,9 +25,7 @@ method fib(integer n):integer
     elif n == 1:
         ret = 1
     else:
-        integer fibn1 = fib(n-1)
-        integer fibn2 = fib(n-2)
-        ret = fibn1 + fibn2
+        ret = fib(n-1) + fib(n-2)
     }
 
     return ret
