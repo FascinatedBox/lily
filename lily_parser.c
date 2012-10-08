@@ -291,12 +291,23 @@ static void parse_simple_condition(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
 
     while (1) {
-        /* All expressions must start with a word. */
-        if (lex->token != tk_word)
-            lily_raise(parser->error, "Expected a label, not %s.\n",
-                    tokname(lex->token));
+        if (lex->token == tk_word)
+            key_id = lily_keyword_by_name(parser->lex->label);
+        else
+            key_id = -1;
 
-        expression(parser, EX_NEED_VALUE | EX_SINGLE);
+        if (key_id == KEY_RETURN) {
+            /* Skip the 'return' keyword. */
+            lily_lexer(lex);
+            lily_sig *ret_sig = parser->emit->target_ret;
+            if (ret_sig != NULL) {
+                expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
+                lily_emit_return(parser->emit, parser->ast_pool->root, ret_sig);
+                lily_ast_reset_pool(parser->ast_pool);
+            }
+        }
+        else
+            expression(parser, EX_NEED_VALUE | EX_SINGLE);
 
         if (lex->token == tk_word) {
             key_id = lily_keyword_by_name(parser->lex->label);
@@ -304,10 +315,6 @@ static void parse_simple_condition(lily_parse_state *parser)
                 /* Close this branch and start another one. */
                 lily_emit_pop_block(parser->emit);
                 lily_lexer(lex);
-                if (lex->token != tk_word)
-                    lily_raise(parser->error, "Expected a label, not %s.\n",
-                               tokname(lex->token));
-
                 lily_emit_push_block(parser->emit, BLOCK_IF);
                 expression(parser, EX_NEED_VALUE | EX_SINGLE |
                                EX_CONDITION);
@@ -326,12 +333,7 @@ static void parse_simple_condition(lily_parse_state *parser)
             }
             else if (key_id == KEY_ELIF) {
                 lily_emit_clear_block(parser->emit, /*have_else=*/0);
-
                 lily_lexer(lex);
-                if (lex->token != tk_word)
-                    lily_raise(parser->error, "Expected a label, not %s.\n",
-                               tokname(lex->token));
-
                 expression(parser, EX_NEED_VALUE | EX_SINGLE |
                                EX_CONDITION);
 
