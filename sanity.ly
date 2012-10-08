@@ -288,6 +288,51 @@ method test_nil_ret():nil
     return
 }
 
+method oneline_helper():integer
+{
+    # oneline conditions go through a different path than multiline ones. This
+    # tests the single-line path to make sure everything is ok.
+    integer a = 1
+    if a == 2:
+        return 0
+    elif a == 3:
+        return 0
+
+    if a == 1:
+        a = 1
+    elif a == 2:
+        a = 2
+    else:
+        a = a
+
+    # Test transitioning from single to multi.
+    if a == 1: {
+        a = 1
+    }
+
+    if "a" == "a":
+        a = 1
+    else:
+        return 0
+
+    return 1
+}
+
+method test_oneline_if():integer
+{
+    printfmt("#%i: Testing one-line conditions...", test_id)
+    test_id = test_id + 1
+
+    if oneline_helper() == 1: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        fail_count = fail_count + 1
+    }
+
+    return 1
+}
+
 test_basic_assignments()
 test_jumps()
 test_manyargs(1,2,3,4,5,6)
@@ -299,6 +344,7 @@ test_escapes()
 test_nested_if()
 test_add()
 test_assign_decl_list()
+test_oneline_if()
 
 test_id = test_id - 1
 
