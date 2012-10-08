@@ -282,6 +282,18 @@ static void declaration(lily_parse_state *parser, lily_class *cls)
     }
 }
 
+static void handle_return(lily_parse_state *parser)
+{
+    lily_sig *ret_sig = parser->emit->target_ret;
+    if (ret_sig != NULL) {
+        expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
+        lily_emit_return(parser->emit, parser->ast_pool->root, ret_sig);
+        lily_ast_reset_pool(parser->ast_pool);
+    }
+    else
+        lily_emit_return_noval(parser->emit);
+}
+
 static void parse_simple_condition(lily_parse_state *parser)
 {
     /* In a simple condition, each if, elif, and else have only a single
@@ -299,12 +311,7 @@ static void parse_simple_condition(lily_parse_state *parser)
         if (key_id == KEY_RETURN) {
             /* Skip the 'return' keyword. */
             lily_lexer(lex);
-            lily_sig *ret_sig = parser->emit->target_ret;
-            if (ret_sig != NULL) {
-                expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
-                lily_emit_return(parser->emit, parser->ast_pool->root, ret_sig);
-                lily_ast_reset_pool(parser->ast_pool);
-            }
+            handle_return(parser);
         }
         else
             expression(parser, EX_NEED_VALUE | EX_SINGLE);
@@ -472,14 +479,8 @@ static void statement(lily_parse_state *parser)
         lily_lex_state *lex = parser->lex;
         lily_lexer(lex);
 
-        if (key_id == KEY_RETURN) {
-            lily_sig *ret_sig = parser->emit->target_ret;
-            if (ret_sig != NULL) {
-                expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
-                lily_emit_return(parser->emit, parser->ast_pool->root, ret_sig);
-                lily_ast_reset_pool(parser->ast_pool);
-            }
-        }
+        if (key_id == KEY_RETURN)
+            handle_return(parser);
         else {
             if (key_id == KEY_IF) {
                 lily_emit_push_block(parser->emit, BLOCK_IF);

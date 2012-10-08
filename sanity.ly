@@ -281,13 +281,6 @@ method test_assign_decl_list():integer
     return 1
 }
 
-# The parser understands nil to mean not returning anything. But the vm doesn't
-# just yet, so don't call it now.
-method test_nil_ret():nil
-{
-    return
-}
-
 method oneline_helper():integer
 {
     # oneline conditions go through a different path than multiline ones. This

@@ -35,6 +35,7 @@ typedef enum {
     o_func_call,
     o_method_call,
     o_return_val,
+    o_return_noval,
     o_save,
     o_restore,
     o_vm_return

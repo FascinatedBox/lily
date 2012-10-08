@@ -386,6 +386,11 @@ void lily_vm_execute(lily_vm_state *vm)
                 code = vm->saved_code[vm->stack_pos];
                 i = vm->saved_pos[vm->stack_pos];
                 break;
+            case o_return_noval:
+                vm->stack_pos--;
+                code = vm->saved_code[vm->stack_pos];
+                i = vm->saved_pos[vm->stack_pos];
+                break;
             case o_str_assign:
                 do_str_assign(((lily_sym **)code+i+1));
                 i += 4;

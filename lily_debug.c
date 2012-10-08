@@ -199,6 +199,10 @@ static void show_code(lily_var *var)
                 print_one(code, "    [%d] return_value  ", i);
                 i += 2;
                 break;
+            case o_return_noval:
+                lily_impl_debugf("    [%d] return_noval\n", i);
+                i++;
+                break;
             case o_vm_return:
                 lily_impl_debugf("    [%d] vm_return\n", i);
                 return;
