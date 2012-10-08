@@ -7,7 +7,7 @@
 integer test_id = 1
 integer fail_count = 0
 
-method test_basic_assignments():integer
+method test_basic_assignments():nil
 {
     method method1():integer {
         method method2():integer {
@@ -45,10 +45,10 @@ method test_basic_assignments():integer
     printfmt("#%i: Testing basic assignments...ok.\n", test_id)
     test_id = test_id + 1
 
-    return 1
+    return
 }
 
-method test_jumps():integer
+method test_jumps():nil
 {
     integer a, ok
 
@@ -64,7 +64,7 @@ method test_jumps():integer
         fail_count = fail_count + 1
     }
 
-    return 1
+    return
 }
 
 method test_manyargs (integer a, integer b, integer c, integer d,
@@ -76,7 +76,7 @@ method test_manyargs (integer a, integer b, integer c, integer d,
     return a
 }
 
-method test_printfmt():integer
+method test_printfmt():nil
 {
     integer a = 1
     number b = 12.34
@@ -91,10 +91,10 @@ method test_printfmt():integer
     # Make sure varargs calls are taking the extra ones too.
     printfmt("    a, b, c are %i, %n, %s.\n", a, b, c)
 
-    return 1
+    return
 }
 
-method test_obj_call():integer
+method test_obj_call():nil
 {
     object o
 
@@ -111,10 +111,10 @@ method test_obj_call():integer
     printfmt("#%i: Testing autocast of object calls...ok.\n", test_id)
     test_id = test_id + 1
 
-    return 1
+    return
 }
 
-method test_oo():integer
+method test_oo():nil
 {
     str a = "a"
     integer i
@@ -131,10 +131,10 @@ method test_oo():integer
         print("failed.\n")
     }
 
-    return 1
+    return
 }
 
-method test_utf8():integer
+method test_utf8():nil
 {
     str h3llö = "hello"
     str ustr = "á"
@@ -149,10 +149,10 @@ method test_utf8():integer
         fail_count = fail_count + 1
     }
 
-    return 1
+    return
 }
 
-method test_escapes():integer
+method test_escapes():nil
 {
     str s = "\\a\\b\\\\c\\d\\"
     str s2 = "Hello, world.\n"
@@ -161,10 +161,10 @@ method test_escapes():integer
     printfmt("#%i: Testing escape string...%s.\n", test_id, s)
     test_id = test_id + 1
 
-    return 1
+    return
 }
 
-method test_nested_if():integer
+method test_nested_if():nil
 {
     integer a, ok = 0
     str s = "a"
@@ -218,10 +218,10 @@ method test_nested_if():integer
         fail_count = fail_count + 1
     }
 
-    return 1
+    return
 }
 
-method test_add():integer
+method test_add():nil
 {
     # This tests ast merging.
     integer i1, ok
@@ -249,10 +249,10 @@ method test_add():integer
         fail_count = fail_count + 1
     }
 
-    return 1
+    return
 }
 
-method test_assign_decl_list():integer
+method test_assign_decl_list():nil
 {
     printfmt("#%i: Testing assigning to decl list...", test_id)
     test_id = test_id + 1
@@ -278,7 +278,7 @@ method test_assign_decl_list():integer
         fail_count = fail_count + 1
     }
 
-    return 1
+    return
 }
 
 method oneline_helper():integer
@@ -311,7 +311,7 @@ method oneline_helper():integer
     return 1
 }
 
-method test_oneline_if():integer
+method test_oneline_if():nil
 {
     printfmt("#%i: Testing one-line conditions...", test_id)
     test_id = test_id + 1
@@ -323,7 +323,7 @@ method test_oneline_if():integer
         fail_count = fail_count + 1
     }
 
-    return 1
+    return
 }
 
 method fib(integer n):integer
@@ -336,7 +336,7 @@ method fib(integer n):integer
         return fib(n-1) + fib(n-2)
 }
 
-method test_fib():integer
+method test_fib():nil
 {
     printfmt("#%i: Testing fibonacci...(check results)\n", test_id)
     test_id = test_id + 1
@@ -355,7 +355,7 @@ method test_fib():integer
     printfmt("     fib 0..9 is %i, %i, %i, %i, %i, %i, %i, %i, %i, %i.\n",
              fib0, fib1, fib2, fib3, fib4, fib5, fib6, fib7, fib8, fib9)
     print("     Should be   0, 1, 1, 2, 3, 5, 8, 13, 21, 34.\n")
-    return 1
+    return
 }
 
 test_basic_assignments()
