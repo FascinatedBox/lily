@@ -333,6 +333,38 @@ method test_oneline_if():integer
     return 1
 }
 
+method fib(integer n):integer
+{
+    if n == 0:
+        return 0
+    elif n == 1:
+        return 1
+    else:
+        return fib(n-1) + fib(n-2)
+}
+
+method test_fib():integer
+{
+    printfmt("#%i: Testing fibonacci...(check results)\n", test_id)
+    test_id = test_id + 1
+
+    integer fib0 = fib(0)
+    integer fib1 = fib(1)
+    integer fib2 = fib(2)
+    integer fib3 = fib(3)
+    integer fib4 = fib(4)
+    integer fib5 = fib(5)
+    integer fib6 = fib(6)
+    integer fib7 = fib(7)
+    integer fib8 = fib(8)
+    integer fib9 = fib(9)
+
+    printfmt("     fib 0..9 is %i, %i, %i, %i, %i, %i, %i, %i, %i, %i.\n",
+             fib0, fib1, fib2, fib3, fib4, fib5, fib6, fib7, fib8, fib9)
+    print("     Should be   0, 1, 1, 2, 3, 5, 8, 13, 21, 34.\n")
+    return 1
+}
+
 test_basic_assignments()
 test_jumps()
 test_manyargs(1,2,3,4,5,6)
@@ -345,6 +377,7 @@ test_nested_if()
 test_add()
 test_assign_decl_list()
 test_oneline_if()
+test_fib()
 
 test_id = test_id - 1
 
