@@ -618,6 +618,12 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *sig)
     WRITE_2(o_return_val, (int)ast->result)
 }
 
+void lily_emit_return_noval(lily_emit_state *emit)
+{
+    lily_method_val *m = emit->target;
+    WRITE_1(o_return_noval)
+}
+
 void lily_emit_vm_return(lily_emit_state *emit)
 {
     lily_method_val *m = emit->target;
