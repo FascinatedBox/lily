@@ -42,6 +42,33 @@ if (lex->token != expected) \
     lily_raise(parser->error, "Expected " msg ", not %s.\n", \
                tokname(lex->token)); \
 
+/* table[token] = binary_op. -1 indicates invalid. */
+static const int bin_op_for_token[] =
+{
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    expr_assign,
+    expr_eq_eq,
+    expr_lt,
+    expr_lt_eq,
+    expr_gr,
+    expr_gr_eq,
+    expr_plus,
+    expr_minus,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1
+};
+
 static void enter_oo_call(lily_parse_state *parser)
 {
     lily_ast *active = parser->ast_pool->active;
@@ -201,23 +228,12 @@ static void expression(lily_parse_state *parser, int flags)
                 lily_lexer(lex);
             }
             else {
-                lily_expr_op op;
-                if (lex->token == tk_equal)
-                    op = expr_assign;
-                else if (lex->token == tk_plus)
-                    op = expr_plus;
-                else if (lex->token == tk_minus)
-                    op = expr_minus;
-                else if (lex->token == tk_eq_eq)
-                    op = expr_eq_eq;
-                else if (lex->token == tk_lt)
-                    op = expr_lt;
-                else if (lex->token == tk_lt_eq)
-                    op = expr_lt_eq;
-                else if (lex->token == tk_gr)
-                    op = expr_gr;
-                else if (lex->token == tk_gr_eq)
-                    op = expr_gr_eq;
+                int expr_op = bin_op_for_token[lex->token];
+                if (expr_op != -1) {
+                    lily_ast_push_binary_op(parser->ast_pool,
+                            (lily_expr_op)expr_op);
+                    lily_lexer(lex);
+                }
                 else if (lex->token == tk_colon ||
                          lex->token == tk_right_curly ||
                          lex->token == tk_end_tag || lex->token == tk_eof)
@@ -227,9 +243,6 @@ static void expression(lily_parse_state *parser, int flags)
                         "expression: Unexpected token value %s.\n",
                         tokname(lex->token));
                 }
-                lily_ast_push_binary_op(parser->ast_pool, op);
-
-                lily_lexer(lex);
             }
             expression_value(parser);
         }
