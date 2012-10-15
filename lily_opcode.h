@@ -38,6 +38,7 @@ typedef enum {
     o_return_noval,
     o_save,
     o_restore,
+    o_unary_minus,
     o_vm_return
     /* Arguments: none
        Makes the vm function return. */

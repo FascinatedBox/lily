@@ -369,6 +369,12 @@ void lily_vm_execute(lily_vm_state *vm)
                 i = 0;
             }
                 break;
+            case o_unary_minus:
+                lhs = (lily_sym *)code[i+2];
+                rhs = (lily_sym *)code[i+3];
+                rhs->value.integer = -lhs->value.integer;
+                i += 4;
+                break;
             case o_return_val:
                 vm->stack_pos--;
                 lhs = vm->saved_ret[vm->stack_pos];

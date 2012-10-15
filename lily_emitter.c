@@ -81,7 +81,7 @@ m->pos += 5;
    * Note: This currently excludes nomem errors. */
 static char *opname(lily_expr_op op)
 {
-    char *opnames[] = {"+", "-", "==", "<", "<=", ">", ">=", "="};
+    char *opnames[] = {"+", "-", "==", "<", "<=", ">", ">=", "-", "="};
 
     return opnames[op];
 }
@@ -103,6 +103,35 @@ static inline lily_storage *get_storage_sym(lily_emit_state *emit,
     storage_class->storage = s->next;
 
     return s;
+}
+
+static void do_unary_op(lily_emit_state *emit, lily_ast *ast)
+{
+    int opcode;
+    lily_class *lhs_class;
+    lily_storage *s;
+    lily_method_val *m;
+
+    m = emit->target;
+    lhs_class = ast->left->result->sig->cls;
+    if (lhs_class->id != SYM_CLASS_INTEGER) {
+        emit->error->line_adjust = ast->line_num;
+        lily_raise(emit->error, "Invalid operation: %s%s.\n",
+                   opname(ast->op), lhs_class->name);
+    }
+
+    s = get_storage_sym(emit,
+            lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER));
+
+    if (ast->op == expr_unary_minus)
+        opcode = o_unary_minus;
+
+    WRITE_4(opcode,
+            ast->line_num,
+            (int)ast->left->result,
+            (int)s);
+
+    ast->result = (lily_sym *)s;
 }
 
 static void generic_binop(lily_emit_state *emit, lily_ast *ast)
@@ -414,6 +443,12 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         }
         else
             generic_binop(emit, ast);
+    }
+    else if (ast->expr_type == unary) {
+        if (ast->left->expr_type != var)
+            walk_tree(emit, ast->left);
+
+        do_unary_op(emit, ast);
     }
 }
 

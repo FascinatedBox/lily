@@ -203,6 +203,10 @@ static void show_code(lily_var *var)
                 lily_impl_debugf("    [%d] return_noval\n", i);
                 i++;
                 break;
+            case o_unary_minus:
+                print_two(code, "    [%d] unary_minus   ", i);
+                i += 4;
+                break;
             case o_vm_return:
                 lily_impl_debugf("    [%d] vm_return\n", i);
                 return;

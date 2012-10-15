@@ -358,6 +358,30 @@ method test_fib():nil
     return
 }
 
+method unary_helper():integer
+{
+    return 10
+}
+
+method test_unary():nil
+{
+    printfmt("#%i: Testing unary ops...", test_id)
+    test_id = test_id + 1
+
+    integer a, b
+
+    a = 10
+    b = -10 + --10 + -a + --a + unary_helper() + -unary_helper()
+    if b == 0: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        fail_count = fail_count + 1
+    }
+
+    return
+}
+
 test_basic_assignments()
 test_jumps()
 test_manyargs(1,2,3,4,5,6)
@@ -371,6 +395,7 @@ test_add()
 test_assign_decl_list()
 test_oneline_if()
 test_fib()
+test_unary()
 
 test_id = test_id - 1
 

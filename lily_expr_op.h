@@ -9,6 +9,7 @@ typedef enum {
     expr_lt_eq,
     expr_gr,
     expr_gr_eq,
+    expr_unary_minus,
     expr_assign,
 } lily_expr_op;
 
