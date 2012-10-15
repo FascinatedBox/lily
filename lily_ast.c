@@ -36,6 +36,28 @@ static void oo_merge(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
     new_ast->next_arg = NULL;
 }
 
+static void unary_merge(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
+{
+    /* 'a = ', so there's no value for the right side...yet. */
+    if (active->expr_type == binary && active->right == NULL)
+        active->right = new_ast;
+    else {
+        /* Might be 'a = -', so there's already at least 1 unary value. */
+        if (active->expr_type == binary)
+            active = active->right;
+
+        /* Unary ops are right->left (opposite of binary), and all have the same
+           precedence. So values, calls, and even other unary ops will have to
+           walk down to become the child of the lowest unary op. */
+        while (active->expr_type == unary && active->left != NULL)
+            active = active->left;
+
+        active->left = new_ast;
+    }
+
+    new_ast->parent = active;
+}
+
 static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
 {
     lily_ast *active = ap->active;
@@ -44,8 +66,14 @@ static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
         if (active != NULL) {
             /* It's an oo call if we're merging a call against an existing
                value. */
-            if (active->expr_type == binary && active->right == NULL)
-                active->right = new_ast;
+            if (active->expr_type == binary) {
+                if (active->right == NULL)
+                    active->right = new_ast;
+                else if (active->right->expr_type == unary)
+                    unary_merge(ap, active, new_ast);
+                else
+                    oo_merge(ap, active, new_ast);
+            }
             else
                 oo_merge(ap, active, new_ast);
         }
@@ -160,16 +188,19 @@ static int priority_for_op(lily_expr_op o)
             break;
         case expr_plus:
         case expr_minus:
-            prio = 1;
+            prio = 2;
             break;
         case expr_lt:
         case expr_gr:
         case expr_lt_eq:
         case expr_gr_eq:
-            prio = 2;
+            prio = 3;
             break;
         case expr_eq_eq:
-            prio = 3;
+            prio = 4;
+            break;
+        case expr_unary_minus:
+            prio = 1;
             break;
         default:
             /* Won't happen, but makes -Wall happy. */
@@ -361,6 +392,32 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
     a->parent = NULL;
 
     merge_tree(ap, a);
+}
+
+void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
+{
+    lily_ast *a = next_pool_ast(ap);
+    lily_ast *active = ap->active;
+
+    a->left = NULL;
+    a->expr_type = unary;
+    a->priority = priority_for_op(op);
+    a->op = op;
+
+    if (active != NULL) {
+        if (active->expr_type == var || active->expr_type == call) {
+            active->parent = a;
+            ap->active = a;
+            ap->root = a;
+        }
+        else
+            unary_merge(ap, active, a);
+    }
+    else {
+        active->parent = NULL;
+        ap->active = a;
+        ap->root = a;
+    }
 }
 
 void lily_ast_push_sym(lily_ast_pool *ap, lily_sym *s)

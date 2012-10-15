@@ -6,7 +6,7 @@
 
 typedef struct lily_ast_t {
     enum {
-        call, var, binary
+        call, var, unary, binary
     } expr_type;
 
     int line_num;

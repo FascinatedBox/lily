@@ -100,6 +100,19 @@ static void enter_oo_call(lily_parse_state *parser)
     lily_ast_enter_call(parser->ast_pool, call_var);
 }
 
+static void do_unary_expr(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    while (1) {
+        if (lex->token == tk_minus)
+            lily_ast_push_unary_op(parser->ast_pool, expr_unary_minus);
+        else
+            break;
+
+        lily_lexer(lex);
+    }
+}
+
 static void expression_value(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -146,10 +159,13 @@ static void expression_value(lily_parse_state *parser)
                 cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
             else if (lex->token == tk_number)
                 cls = lily_class_by_id(symtab, SYM_CLASS_NUMBER);
-            else {
+            else if (lex->token == tk_minus) {
+                do_unary_expr(parser);
+                continue;
+            }
+            else
                 lily_raise(parser->error, "Expected a value, not '%s'.\n",
                            tokname(lex->token));
-            }
 
             lit = lily_new_literal(symtab, cls);
             lit->value = lex->value;
