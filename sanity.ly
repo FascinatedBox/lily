@@ -372,6 +372,7 @@ method test_unary():nil
 
     a = 10
     b = -10 + --10 + -a + --a + unary_helper() + -unary_helper()
+    b = b + !!0
     if b == 0: {
         print("ok.\n")
     else:

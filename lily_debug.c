@@ -165,6 +165,10 @@ static void show_code(lily_var *var)
                 print_three(code, "    [%d] greater_equal ", i);
                 i += 5;
                 break;
+            case o_not_eq:
+                print_three(code, "    [%d] not_equal     ", i);
+                i += 5;
+                break;
             case o_jump:
                 lily_impl_debugf("    [%d] jump          ", i);
                 lily_impl_debugf("[%d].\n", code[i+1]);
@@ -205,6 +209,10 @@ static void show_code(lily_var *var)
                 break;
             case o_unary_minus:
                 print_two(code, "    [%d] unary_minus   ", i);
+                i += 4;
+                break;
+            case o_unary_not:
+                print_two(code, "    [%d] unary_not     ", i);
                 i += 4;
                 break;
             case o_vm_return:

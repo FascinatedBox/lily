@@ -275,6 +275,9 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_greater_eq:
                 COMPARE_OP(>, >= 0)
                 break;
+            case o_not_eq:
+                COMPARE_OP(!=, != 0)
+                break;
             case o_jump:
                 i = code[i+1];
                 break;
@@ -368,6 +371,12 @@ void lily_vm_execute(lily_vm_state *vm)
                 code = mval->code;
                 i = 0;
             }
+                break;
+            case o_unary_not:
+                lhs = (lily_sym *)code[i+2];
+                rhs = (lily_sym *)code[i+3];
+                rhs->value.integer = !(lhs->value.integer);
+                i += 4;
                 break;
             case o_unary_minus:
                 lhs = (lily_sym *)code[i+2];

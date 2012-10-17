@@ -57,6 +57,8 @@ static const int bin_op_for_token[] =
     expr_lt_eq,
     expr_gr,
     expr_gr_eq,
+    -1,
+    expr_not_eq,
     expr_plus,
     expr_minus,
     -1,
@@ -106,6 +108,8 @@ static void do_unary_expr(lily_parse_state *parser)
     while (1) {
         if (lex->token == tk_minus)
             lily_ast_push_unary_op(parser->ast_pool, expr_unary_minus);
+        else if (lex->token == tk_not)
+            lily_ast_push_unary_op(parser->ast_pool, expr_unary_not);
         else
             break;
 
@@ -159,7 +163,7 @@ static void expression_value(lily_parse_state *parser)
                 cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
             else if (lex->token == tk_number)
                 cls = lily_class_by_id(symtab, SYM_CLASS_NUMBER);
-            else if (lex->token == tk_minus) {
+            else if (lex->token == tk_minus || lex->token == tk_not) {
                 do_unary_expr(parser);
                 continue;
             }

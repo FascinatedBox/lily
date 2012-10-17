@@ -197,8 +197,10 @@ static int priority_for_op(lily_expr_op o)
             prio = 3;
             break;
         case expr_eq_eq:
+        case expr_not_eq:
             prio = 4;
             break;
+        case expr_unary_not:
         case expr_unary_minus:
             prio = 1;
             break;
