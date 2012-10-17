@@ -19,6 +19,8 @@ typedef enum {
     tk_lt_eq,
     tk_gr,
     tk_gr_eq,
+    tk_not,
+    tk_not_eq,
     tk_plus,
     tk_minus,
     tk_word,

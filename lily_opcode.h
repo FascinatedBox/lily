@@ -23,6 +23,7 @@ typedef enum {
     o_less_eq,
     o_greater,
     o_greater_eq,
+    o_not_eq,
 
     /* pos
        Jump to pos. */
@@ -38,6 +39,7 @@ typedef enum {
     o_return_noval,
     o_save,
     o_restore,
+    o_unary_not,
     o_unary_minus,
     o_vm_return
     /* Arguments: none

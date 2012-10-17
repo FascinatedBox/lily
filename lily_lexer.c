@@ -19,21 +19,22 @@
 #define CC_EQUAL         6
 #define CC_LESS          7
 #define CC_GREATER       8
-#define CC_G_TWO_LAST    8
+#define CC_NOT           9
+#define CC_G_TWO_LAST    9
 
-#define CC_PLUS          9
-#define CC_MINUS        10
-#define CC_WORD         11
-#define CC_DOUBLE_QUOTE 12
-#define CC_NUMBER       13
+#define CC_PLUS         10
+#define CC_MINUS        11
+#define CC_WORD         12
+#define CC_DOUBLE_QUOTE 13
+#define CC_NUMBER       14
 
-#define CC_NEWLINE      14
-#define CC_SHARP        15
-#define CC_STR_NEWLINE  16
-#define CC_STR_END      17
-#define CC_DOT          18
-#define CC_AT           19
-#define CC_INVALID      20
+#define CC_NEWLINE      15
+#define CC_SHARP        16
+#define CC_STR_NEWLINE  17
+#define CC_STR_END      18
+#define CC_DOT          19
+#define CC_AT           20
+#define CC_INVALID      21
 
 /* The lexer assumes any file given is utf-8. */
 
@@ -94,12 +95,12 @@ static const char ident_table[256] =
 /* Group 1 doesn't need a table because the token is just ch_class[ch]. */
 static const lily_token grp_two_table[] =
 {
-    tk_equal, tk_lt, tk_gr 
+    tk_equal, tk_lt, tk_gr, tk_not
 };
 
 static const lily_token grp_two_eq_table[] =
 {
-    tk_eq_eq, tk_lt_eq, tk_gr_eq
+    tk_eq_eq, tk_lt_eq, tk_gr_eq, tk_not_eq
 };
 
 static char simple_escape(char ch)
@@ -687,6 +688,7 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     ch_class[(unsigned char)'<'] = CC_LESS;
     ch_class[(unsigned char)'>'] = CC_GREATER;
     ch_class[(unsigned char)':'] = CC_COLON;
+    ch_class[(unsigned char)'!'] = CC_NOT;
     /* Prep for file-based, since lex_buffer isn't NULL. */
     ch_class[(unsigned char)'\r'] = CC_NEWLINE;
     ch_class[(unsigned char)'\n'] = CC_NEWLINE;
@@ -698,7 +700,7 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
 char *tokname(lily_token t)
 {
     static char *toknames[] =
-    {"(", ")", ",", "{", "}", ":", "=", "==", "<", "<=", ">", ">=",
+    {"(", ")", ",", "{", "}", ":", "=", "==", "<", "<=", ">", ">=", "!", "!=",
      "+", "-", "a label", "a string", "an integer", "a number", ".",
      "invalid token", "@>", "end of file"};
 

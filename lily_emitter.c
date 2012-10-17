@@ -125,6 +125,8 @@ static void do_unary_op(lily_emit_state *emit, lily_ast *ast)
 
     if (ast->op == expr_unary_minus)
         opcode = o_unary_minus;
+    else if (ast->op == expr_unary_not)
+        opcode = o_unary_not;
 
     WRITE_4(opcode,
             ast->line_num,
