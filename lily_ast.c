@@ -58,93 +58,31 @@ static void unary_merge(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
     new_ast->parent = active;
 }
 
-static void merge_tree(lily_ast_pool *ap, lily_ast *new_ast)
+static void merge_val(lily_ast_pool *ap, lily_ast *new_ast)
 {
     lily_ast *active = ap->active;
 
-    if (new_ast->expr_type < binary) {
-        if (active != NULL) {
-            /* It's an oo call if we're merging a call against an existing
-               value. */
-            if (active->expr_type == binary) {
-                if (active->right == NULL)
-                    active->right = new_ast;
-                else if (active->right->expr_type == unary)
-                    unary_merge(ap, active, new_ast);
-                else
-                    oo_merge(ap, active, new_ast);
-            }
+    if (active != NULL) {
+        /* It's an oo call if we're merging a call against an existing
+           value. */
+        if (active->expr_type == binary) {
+            if (active->right == NULL)
+                active->right = new_ast;
+            else if (active->right->expr_type == unary)
+                unary_merge(ap, active, new_ast);
             else
                 oo_merge(ap, active, new_ast);
         }
-        else {
-            /* If no root, then no value or call so far. So become root, if only
-               temporarily. */
-            if (ap->root == NULL)
-                ap->root = new_ast;
-
-            ap->active = new_ast;
-        }
+        else
+            oo_merge(ap, active, new_ast);
     }
     else {
-        if (active->expr_type < binary) {
-            /* Only a value or call so far. The binary op takes over. */
-            if (ap->root == active)
-                ap->root = new_ast;
+        /* If no root, then no value or call so far. So become root, if only
+           temporarily. */
+        if (ap->root == NULL)
+            ap->root = new_ast;
 
-            new_ast->left = active;
-            ap->active = new_ast;
-        }
-        else if (active->expr_type == binary) {
-            /* Figure out how the two trees will fit together. */
-            int new_prio, active_prio;
-            new_prio = new_ast->priority;
-            active_prio = active->priority;
-            if (new_prio > active_prio) {
-                /* The new tree goes before the current one. It becomes the
-                   active, but not the root. */
-                new_ast->left = active->right;
-                if (active->left->expr_type == binary &&
-                    active->priority < new_prio) {
-                    active->right = active->left;
-                    active->left = new_ast;
-                }
-                else
-                    active->right = new_ast;
-
-                new_ast->parent = active;
-                ap->active = new_ast;
-            }
-            else {
-                /* This tree goes above the current one, and above any that have
-                   a priority <= to its own (<= and not < because the ops need
-                   to run left-to-right). Always active, and maybe root. */
-                lily_ast *tree = active;
-                while (tree->parent) {
-                    if (new_prio > tree->parent->priority)
-                        break;
-
-                    tree = tree->parent;
-                }
-                if (tree->parent != NULL) {
-                    /* Think 'linked list insertion'. */
-                    lily_ast *parent = tree->parent;
-                    if (parent->left == tree)
-                        parent->left = new_ast;
-                    else
-                        parent->right = new_ast;
-
-                    new_ast->parent = active->parent;
-                }
-                else {
-                    /* Remember to operate on the tree, not current. */
-                    tree->parent = new_ast;
-                    ap->root = new_ast;
-                }
-                new_ast->left = tree;
-                ap->active = new_ast;
-            }
-        }
+        ap->active = new_ast;
     }
 }
 
@@ -224,7 +162,7 @@ void lily_ast_enter_call(lily_ast_pool *ap, lily_var *var)
     a->arg_start = NULL;
     a->arg_top = NULL;
 
-    merge_tree(ap, a);
+    merge_val(ap, a);
 
     /* This is used to save the current value. If this call will be current,
        then parent will be set to NULL properly later.
@@ -383,17 +321,77 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
 
 void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
 {
-    lily_ast *a = next_pool_ast(ap);
+    lily_ast *new_ast = next_pool_ast(ap);
+    lily_ast *active = ap->active;
 
-    a->expr_type = binary;
-    a->line_num = *ap->lex_linenum;
-    a->priority = priority_for_op(op);
-    a->op = op;
-    a->left = NULL;
-    a->right = NULL;
-    a->parent = NULL;
+    new_ast->expr_type = binary;
+    new_ast->line_num = *ap->lex_linenum;
+    new_ast->priority = priority_for_op(op);
+    new_ast->op = op;
+    new_ast->left = NULL;
+    new_ast->right = NULL;
+    new_ast->parent = NULL;
 
-    merge_tree(ap, a);
+    /* Active is always non-NULL, because binary always comes after a value of
+       some kind. */
+    if (active->expr_type < binary) {
+        /* Only a value or call so far. The binary op takes over. */
+        if (ap->root == active)
+            ap->root = new_ast;
+
+        new_ast->left = active;
+        ap->active = new_ast;
+    }
+    else if (active->expr_type == binary) {
+        /* Figure out how the two trees will fit together. */
+        int new_prio, active_prio;
+        new_prio = new_ast->priority;
+        active_prio = active->priority;
+        if (new_prio > active_prio) {
+            /* The new tree goes before the current one. It becomes the
+               active, but not the root. */
+            new_ast->left = active->right;
+            if (active->left->expr_type == binary &&
+                active->priority < new_prio) {
+                active->right = active->left;
+                active->left = new_ast;
+            }
+            else
+                active->right = new_ast;
+
+            new_ast->parent = active;
+            ap->active = new_ast;
+        }
+        else {
+            /* This tree goes above the current one, and above any that have
+               a priority <= to its own (<= and not < because the ops need
+               to run left-to-right). Always active, and maybe root. */
+            lily_ast *tree = active;
+            while (tree->parent) {
+                if (new_prio > tree->parent->priority)
+                    break;
+
+                tree = tree->parent;
+            }
+            if (tree->parent != NULL) {
+                /* Think 'linked list insertion'. */
+                lily_ast *parent = tree->parent;
+                if (parent->left == tree)
+                    parent->left = new_ast;
+                else
+                    parent->right = new_ast;
+
+                new_ast->parent = active->parent;
+            }
+            else {
+                /* Remember to operate on the tree, not current. */
+                tree->parent = new_ast;
+                ap->root = new_ast;
+            }
+            new_ast->left = tree;
+            ap->active = new_ast;
+        }
+    }
 }
 
 void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
@@ -433,7 +431,7 @@ void lily_ast_push_sym(lily_ast_pool *ap, lily_sym *s)
     a->line_num = *ap->lex_linenum;
     a->result = s;
 
-    merge_tree(ap, a);
+    merge_val(ap, a);
 }
 
 void lily_ast_reset_pool(lily_ast_pool *ap)
