@@ -91,20 +91,20 @@ static lily_ast *next_pool_ast(lily_ast_pool *ap)
     if (ap->tree_index == ap->tree_size) {
         lily_ast **new_tree_pool;
 
-        ap->tree_size *= 2;
         new_tree_pool = lily_realloc(ap->tree_pool,
-                   sizeof(lily_ast *) * ap->tree_size);
+                   sizeof(lily_ast *) * ap->tree_size * 2);
 
         if (new_tree_pool == NULL)
             lily_raise_nomem(ap->error);
 
+        ap->tree_size *= 2;
         ap->tree_pool = new_tree_pool;
 
         int i;
         for (i = ap->tree_index;i < ap->tree_size;i++) {
             ap->tree_pool[i] = lily_malloc(sizeof(lily_ast));
             if (ap->tree_pool[i] == NULL) {
-                ap->tree_size = i - 1;
+                ap->tree_size = i+1;
                 lily_raise_nomem(ap->error);
             }
         }
@@ -229,8 +229,8 @@ lily_ast_pool *lily_ast_init_pool(lily_excep_data *excep, int pool_size)
     }
 
     if (i != pool_size) {
-        for (;i > 0;i--)
-            lily_free(ret->tree_pool[i]);
+        for (;i != 0;i--)
+            lily_free(ret->tree_pool[i-1]);
 
         lily_free(ret->tree_pool);
         lily_free(ret->saved_trees);

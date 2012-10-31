@@ -67,9 +67,12 @@ static void grow_vm(lily_vm_state *vm)
 
     if (new_saved_code == NULL || new_saved_pos == NULL ||
         new_saved_ret == NULL) {
-        lily_free(new_saved_code);
-        lily_free(new_saved_pos);
-        lily_free(new_saved_ret);
+        if (new_saved_code)
+            vm->saved_code = new_saved_code;
+        if (new_saved_pos)
+            vm->saved_pos = new_saved_pos;
+        if (new_saved_ret)
+            vm->saved_ret = new_saved_ret;
         lily_raise_nomem(vm->error);
     }
 

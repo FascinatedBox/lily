@@ -171,7 +171,7 @@ static void expression_value(lily_parse_state *parser)
                 lily_raise(parser->error, "Expected a value, not '%s'.\n",
                            tokname(lex->token));
 
-            lit = lily_new_literal(symtab, cls);
+            lit = lily_new_literal(symtab, cls, lex->value);
             lit->value = lex->value;
 
             lily_ast_push_sym(parser->ast_pool, (lily_sym *)lit);
@@ -410,15 +410,18 @@ static void parse_method_decl(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
     lily_var *method_var, *save_top;
 
-    m = lily_try_new_method_val(parser->symtab);
-    if (m == NULL)
-        lily_raise_nomem(parser->error);
-
     /* Get the method's name. */
     NEED_NEXT_TOK(tk_word)
     /* Form: method name(args):<ret type> {  } */
     method_var = lily_new_var(parser->symtab, cls, lex->label);
-    method_var->value.ptr = m;
+
+    m = lily_try_new_method_val(parser->symtab);
+    if (m == NULL) {
+        method_var->value.ptr = NULL;
+        lily_raise_nomem(parser->error);
+    }
+    else
+        method_var->value.ptr = m;
 
     NEED_NEXT_TOK(tk_left_parenth)
     save_top = parser->symtab->var_top;

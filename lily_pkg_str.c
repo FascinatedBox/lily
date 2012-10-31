@@ -22,7 +22,7 @@ void lily_str_concat(int num_args, lily_sym **args)
     }
     else if (ret->size < newsize) {
         char *newstr;
-        newstr = realloc(ret->str, sizeof(char) * newsize);
+        newstr = lily_realloc(ret->str, sizeof(char) * newsize);
         if (newstr == NULL) {
             lily_free(ret->str);
             lily_free(ret);
