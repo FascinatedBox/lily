@@ -630,6 +630,7 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     if (s == NULL)
         return NULL;
 
+    s->lex_file = NULL;
     s->filename = NULL;
 
     /* File will be set by the loader. */

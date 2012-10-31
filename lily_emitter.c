@@ -9,20 +9,24 @@
 
 #define WRITE_PREP(size) \
 if ((m->pos + size) > m->len) { \
+    int *save_code; \
     m->len *= 2; \
-    m->code = lily_realloc(m->code, sizeof(int) * m->len); \
-    if (m->code == NULL) \
+    save_code = lily_realloc(m->code, sizeof(int) * m->len); \
+    if (save_code == NULL) \
         lily_raise_nomem(emit->error); \
+    m->code = save_code; \
 }
 
 #define SAVE_PREP(size) \
 if ((emit->save_cache_pos + size) > emit->save_cache_size) { \
+    int *save_cache = emit->save_cache; \
     while ((emit->save_cache_pos + size) > emit->save_cache_size) \
         emit->save_cache_size *= 2; \
-    emit->save_cache = lily_realloc(emit->save_cache, sizeof(int) * \
+    save_cache = lily_realloc(emit->save_cache, sizeof(int) * \
             emit->save_cache_size); \
-    if (emit->save_cache == NULL) \
+    if (save_cache == NULL) \
         lily_raise_nomem(emit->error); \
+    emit->save_cache = save_cache; \
 }
 
 /* Most ops need 4 or less code spaces, so only growing once is okay. However,
@@ -30,11 +34,13 @@ if ((emit->save_cache_pos + size) > emit->save_cache_size) { \
    Note: This macro may need to check for overflow later. */
 #define WRITE_PREP_LARGE(size) \
 if ((m->pos + size) > m->len) { \
+    int *save_code; \
     while ((m->pos + size) > m->len) \
         m->len *= 2; \
-    m->code = lily_realloc(m->code, sizeof(int) * m->len); \
-    if (m->code == NULL) \
+    save_code = lily_realloc(m->code, sizeof(int) * m->len); \
+    if (save_code == NULL) \
         lily_raise_nomem(emit->error); \
+    m->code = save_code; \
 }
 
 #define WRITE_1(one) \
@@ -533,8 +539,11 @@ void lily_emit_push_block(lily_emit_state *emit, int btype)
             sizeof(lily_var *) * emit->block_size);
 
         if (new_types == NULL || new_var_starts == NULL) {
-            lily_free(new_types);
-            lily_free(new_var_starts);
+            if (new_types != NULL)
+                emit->block_types = new_types;
+            if (new_var_starts != NULL)
+                emit->block_var_starts = new_var_starts;
+
             lily_raise_nomem(emit->error);
         }
         emit->block_types = new_types;
@@ -616,10 +625,15 @@ void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
 
         if (new_vals == NULL || new_rets == NULL || new_targets == NULL ||
             new_offsets == NULL) {
-            lily_free(new_vals);
-            lily_free(new_rets);
-            lily_free(new_targets);
-            lily_free(new_offsets);
+            if (new_vals != NULL)
+                emit->method_vals = new_vals;
+            if (new_rets != NULL)
+                emit->method_rets = new_rets;
+            if (new_targets != NULL)
+                emit->method_targets = new_targets;
+            if (new_offsets != NULL)
+                emit->method_id_offsets = new_offsets;
+
             lily_raise_nomem(emit->error);
         }
 
