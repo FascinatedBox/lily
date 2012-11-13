@@ -414,7 +414,6 @@ void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
             unary_merge(ap, active, a);
     }
     else {
-        active->parent = NULL;
         ap->active = a;
         ap->root = a;
     }
