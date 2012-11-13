@@ -363,6 +363,11 @@ method unary_helper():integer
     return 10
 }
 
+method unary_call_checker(integer a):integer
+{
+    return 10
+}
+
 method test_unary():nil
 {
     printfmt("#%i: Testing unary ops...", test_id)
@@ -370,7 +375,7 @@ method test_unary():nil
 
     integer a, b
 
-    a = 10
+    a = unary_call_checker(!!0 + !!0)
     b = -10 + --10 + -a + --a + unary_helper() + -unary_helper()
     b = b + !!0
     if b == 0: {
