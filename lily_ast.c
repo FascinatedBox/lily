@@ -73,8 +73,13 @@ static void merge_val(lily_ast_pool *ap, lily_ast *new_ast)
             else
                 oo_merge(ap, active, new_ast);
         }
-        else
+        else if (active->expr_type != unary)
             oo_merge(ap, active, new_ast);
+        /* This happens for expressions like !!0. Make sure to do unary merge,
+           especially if a binary op has already been seen. Otherwise, oo
+           merge will cause part of the expression to vanish. */
+        else
+            unary_merge(ap, active, new_ast);
     }
     else {
         /* If no root, then no value or call so far. So become root, if only
