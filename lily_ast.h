@@ -22,7 +22,7 @@ typedef struct lily_ast_t {
     struct lily_ast_t *arg_start;
     struct lily_ast_t *arg_top;
 
-    /* There are no unary ops (yet), so only binary ops use this. */
+    /* Unary and binary ops share the rest of these, except right. */
     int priority;
     lily_expr_op op;
     struct lily_ast_t *left;
