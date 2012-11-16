@@ -416,16 +416,18 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         }
     }
     else if (ast->expr_type == binary) {
-        /* lhs and rhs must be walked first, regardless of op. */
-        if (ast->left->expr_type != var)
-            walk_tree(emit, ast->left);
-
-        if (ast->right->expr_type != var)
-            walk_tree(emit, ast->right);
-
         if (ast->op == expr_assign) {
             int opcode;
             lily_sym *left_sym, *right_sym;
+
+            if (ast->left->expr_type != var) {
+                emit->error->line_adjust = ast->line_num;
+                lily_raise(emit->error, "Left side of = is not a var.\n");
+            }
+
+            if (ast->right->expr_type != var)
+                walk_tree(emit, ast->right);
+
             left_sym = ast->left->result;
             right_sym = ast->right->result;
 
@@ -449,8 +451,15 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                     (int)left_sym,
                     (int)right_sym)
         }
-        else
+        else {
+            if (ast->left->expr_type != var)
+                walk_tree(emit, ast->left);
+
+            if (ast->right->expr_type != var)
+                walk_tree(emit, ast->right);
+
             generic_binop(emit, ast);
+        }
     }
     else if (ast->expr_type == unary) {
         if (ast->left->expr_type != var)
