@@ -330,6 +330,38 @@ static int init_classes(lily_symtab *symtab)
     return ret;
 }
 
+static int init_literals(lily_symtab *symtab)
+{
+    int i, ret;
+    lily_literal *lit;
+    ret = 1;
+
+    for(i = 0; i < 2;i++) {
+        lit = lily_malloc(sizeof(lily_literal));
+        if (lit != NULL) {
+            lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
+            lit->flags = LITERAL_SYM;
+            lit->sig = cls->sig;
+            lit->value.integer = i;
+            lit->next = NULL;
+
+            if (symtab->lit_start == NULL)
+                symtab->lit_start = lit;
+            else
+                symtab->lit_top->next = lit;
+
+            symtab->lit_top = lit;
+            lit->id = symtab->next_lit_id;
+            symtab->next_lit_id++;
+        }
+        else
+            ret = 0;
+
+    }
+
+    return ret;
+}
+
 static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
         int seed_count)
 {
@@ -431,7 +463,8 @@ lily_symtab *lily_new_symtab(lily_excep_data *excep)
     s->old_var_start = NULL;
     s->old_var_top = NULL;
 
-    if (!init_classes(s) || !read_seeds(s, builtin_seeds, NUM_BUILTIN_SEEDS) ||
+    if (!init_classes(s) || !init_literals(s) ||
+        !read_seeds(s, builtin_seeds, NUM_BUILTIN_SEEDS) ||
         !init_package(s, SYM_CLASS_STR, str_seeds, NUM_STR_SEEDS)) {
         /* This will free any symbols added, and the symtab object. */
         lily_free_symtab(s);
@@ -471,10 +504,7 @@ lily_literal *lily_new_literal(lily_symtab *symtab, lily_class *cls, lily_value 
     lit->flags = LITERAL_SYM;
     lit->next = NULL;
 
-    if (symtab->lit_start == NULL)
-        symtab->lit_start = lit;
-    else
-        symtab->lit_top->next = lit;
+    symtab->lit_top->next = lit;
 
     symtab->lit_top = lit;
     lit->id = symtab->next_lit_id;
