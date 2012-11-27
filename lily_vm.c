@@ -58,8 +58,8 @@ static void grow_vm(lily_vm_state *vm)
 {
     vm->stack_size *= 2;
 
-    int **new_saved_code = lily_realloc(vm->saved_code,
-            sizeof(int) * vm->stack_size);
+    uintptr_t **new_saved_code = lily_realloc(vm->saved_code,
+            sizeof(uintptr_t) * vm->stack_size);
     int *new_saved_pos = lily_realloc(vm->saved_pos,
             sizeof(int) * vm->stack_size);
     lily_sym **new_saved_ret = lily_realloc(vm->saved_ret,
@@ -102,7 +102,7 @@ lily_vm_state *lily_new_vm_state(lily_excep_data *error)
     if (vm == NULL)
         return NULL;
 
-    int **saved_code = lily_malloc(sizeof(int *) * 4);
+    uintptr_t **saved_code = lily_malloc(sizeof(uintptr_t *) * 4);
     int *saved_pos = lily_malloc(sizeof(int) * 4);
     lily_sym **saved_ret = lily_malloc(sizeof(lily_sym *) * 4);
     lily_saved_val *saved_values = lily_malloc(sizeof(lily_saved_val) * 8);
@@ -232,7 +232,8 @@ void do_str_assign(lily_sym **syms)
 
 void lily_vm_execute(lily_vm_state *vm)
 {
-    int *code, flag, i, j, k;
+    uintptr_t *code;
+    int flag, i, j, k;
     lily_method_val *mval;
     lily_sym *lhs, *rhs;
     lily_var *v;

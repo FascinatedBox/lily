@@ -1,6 +1,7 @@
 #ifndef LILY_SYMTAB_H
 # define LILY_SYMTAB_H
 
+# include <stdint.h>
 # include "lily_error.h"
 # include "lily_opcode.h"
 
@@ -11,7 +12,7 @@ typedef struct {
 } lily_strval;
 
 typedef struct {
-    int *code;
+    uintptr_t *code;
     struct lily_var_t *first_arg;
     struct lily_var_t *last_arg;
     int pos;

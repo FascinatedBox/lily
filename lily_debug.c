@@ -18,7 +18,7 @@ static char *typename(lily_sym *sym)
     return ret;
 }
 
-static void print_one(int *code, char *str, int i)
+static void print_one(uintptr_t *code, char *str, int i)
 {
     lily_sym *left;
 
@@ -27,7 +27,7 @@ static void print_one(int *code, char *str, int i)
     lily_impl_debugf("[%s #%d]\n", typename((lily_sym *)left), left->id);
 }
 
-static void print_two(int *code, char *str, int i)
+static void print_two(uintptr_t *code, char *str, int i)
 {
     lily_sym *left, *right;
 
@@ -39,7 +39,7 @@ static void print_two(int *code, char *str, int i)
                      typename((lily_sym *)right), right->id);
 }
 
-static void print_three(int *code, char *str, int i)
+static void print_three(uintptr_t *code, char *str, int i)
 {
     lily_sym *left, *right, *result;
 
@@ -53,7 +53,7 @@ static void print_three(int *code, char *str, int i)
                      typename((lily_sym *)result), result->id);
 }
 
-static void print_call(int *code, char *str, int i)
+static void print_call(uintptr_t *code, char *str, int i)
 {
     int j;
     lily_sym *ret;
@@ -85,7 +85,7 @@ static void print_call(int *code, char *str, int i)
         lily_impl_debugf("        return: nil\n");
 }
 
-static void print_save(int *code, char *str, int i)
+static void print_save(uintptr_t *code, char *str, int i)
 {
     lily_impl_debugf(str, i, code[i+1]);
     int j, k;
@@ -106,7 +106,7 @@ static void print_save(int *code, char *str, int i)
 static void show_code(lily_var *var)
 {
     int i, len;
-    int *code;
+    uintptr_t *code;
     lily_method_val *m;
     lily_sym *left;
 
