@@ -9,9 +9,9 @@
 
 #define WRITE_PREP(size) \
 if ((m->pos + size) > m->len) { \
-    int *save_code; \
+    uintptr_t *save_code; \
     m->len *= 2; \
-    save_code = lily_realloc(m->code, sizeof(int) * m->len); \
+    save_code = lily_realloc(m->code, sizeof(uintptr_t) * m->len); \
     if (save_code == NULL) \
         lily_raise_nomem(emit->error); \
     m->code = save_code; \
@@ -19,10 +19,10 @@ if ((m->pos + size) > m->len) { \
 
 #define SAVE_PREP(size) \
 if ((emit->save_cache_pos + size) > emit->save_cache_size) { \
-    int *save_cache = emit->save_cache; \
+    uintptr_t *save_cache = emit->save_cache; \
     while ((emit->save_cache_pos + size) > emit->save_cache_size) \
         emit->save_cache_size *= 2; \
-    save_cache = lily_realloc(emit->save_cache, sizeof(int) * \
+    save_cache = lily_realloc(emit->save_cache, sizeof(uintptr_t) * \
             emit->save_cache_size); \
     if (save_cache == NULL) \
         lily_raise_nomem(emit->error); \
@@ -34,10 +34,10 @@ if ((emit->save_cache_pos + size) > emit->save_cache_size) { \
    Note: This macro may need to check for overflow later. */
 #define WRITE_PREP_LARGE(size) \
 if ((m->pos + size) > m->len) { \
-    int *save_code; \
+    uintptr_t *save_code; \
     while ((m->pos + size) > m->len) \
         m->len *= 2; \
-    save_code = lily_realloc(m->code, sizeof(int) * m->len); \
+    save_code = lily_realloc(m->code, sizeof(uintptr_t) * m->len); \
     if (save_code == NULL) \
         lily_raise_nomem(emit->error); \
     m->code = save_code; \
@@ -113,7 +113,7 @@ static inline lily_storage *get_storage_sym(lily_emit_state *emit,
 
 static void do_unary_op(lily_emit_state *emit, lily_ast *ast)
 {
-    int opcode;
+    uintptr_t opcode;
     lily_class *lhs_class;
     lily_storage *s;
     lily_method_val *m;
@@ -135,9 +135,9 @@ static void do_unary_op(lily_emit_state *emit, lily_ast *ast)
         opcode = o_unary_not;
 
     WRITE_4(opcode,
-            ast->line_num,
-            (int)ast->left->result,
-            (int)s);
+            (uintptr_t)ast->line_num,
+            (uintptr_t)ast->left->result,
+            (uintptr_t)s);
 
     ast->result = (lily_sym *)s;
 }
@@ -180,9 +180,9 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
 
     WRITE_5(opcode,
             ast->line_num,
-            (int)ast->left->result,
-            (int)ast->right->result,
-            (int)s)
+            (uintptr_t)ast->left->result,
+            (uintptr_t)ast->right->result,
+            (uintptr_t)s)
 
     ast->result = (lily_sym *)s;
 }
@@ -233,7 +233,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             /* Walk the subexpressions so the result gets calculated. */
             walk_tree(emit, arg);
             if (arg->result != NULL) {
-                emit->save_cache[emit->save_cache_pos] = (int)arg->result;
+                emit->save_cache[emit->save_cache_pos] = (uintptr_t)arg->result;
                 emit->save_cache_pos++;
             }
         }
@@ -246,8 +246,8 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                 storage = get_storage_sym(emit, csig->args[i]->cls);
                 WRITE_4(o_obj_assign,
                         ast->line_num,
-                        (int)storage,
-                        (int)arg->result)
+                        (uintptr_t)storage,
+                        (uintptr_t)arg->result)
 
                 arg->result = (lily_sym *)storage;
             }
@@ -266,7 +266,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                 /* Walk the subexpressions so the result gets calculated. */
                 walk_tree(emit, arg);
                 if (arg->result != NULL) {
-                    emit->save_cache[emit->save_cache_pos] = (int)arg->result;
+                    emit->save_cache[emit->save_cache_pos] = (uintptr_t)arg->result;
                     emit->save_cache_pos++;
                 }
             }
@@ -279,8 +279,8 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                     storage = get_storage_sym(emit, csig->args[i]->cls);
                     WRITE_4(o_obj_assign,
                             ast->line_num,
-                            (int)storage,
-                            (int)arg->result)
+                            (uintptr_t)storage,
+                            (uintptr_t)arg->result)
 
                     arg->result = (lily_sym *)storage;
                 }
@@ -330,7 +330,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                    completed, this call could modify the storage of the left
                    side. So save that storage. */
                 SAVE_PREP(1)
-                emit->save_cache[emit->save_cache_pos] = (int)ast->parent->left->result;
+                emit->save_cache[emit->save_cache_pos] = (uintptr_t)ast->parent->left->result;
                 emit->save_cache_pos++;
             }
 
@@ -359,14 +359,14 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
             if (emit->save_cache_pos) {
                 memcpy(m->code + m->pos, emit->save_cache,
-                       emit->save_cache_pos * sizeof(int));
+                       emit->save_cache_pos * sizeof(uintptr_t));
 
                 m->pos += emit->save_cache_pos;
                 emit->save_cache_pos = 0;
             }
             if (num_local_saves) {
                 for (i = 0;i < num_local_saves;i++) {
-                    m->code[m->pos+i] = (int)local_var;
+                    m->code[m->pos+i] = (uintptr_t)local_var;
                     local_var = local_var->next;
                 }
 
@@ -380,14 +380,14 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             m->code[m->pos] = o_func_call;
 
         m->code[m->pos+1] = ast->line_num;
-        m->code[m->pos+2] = (int)v;
-        m->code[m->pos+3] = (int)v->value.ptr;
+        m->code[m->pos+2] = (uintptr_t)v;
+        m->code[m->pos+3] = (uintptr_t)v->value.ptr;
         m->code[m->pos+4] = ast->args_collected;
 
         for (i = 6, arg = ast->arg_start;
             arg != NULL;
             arg = arg->next_arg, i++) {
-            m->code[m->pos + i] = (int)arg->result;
+            m->code[m->pos + i] = (uintptr_t)arg->result;
         }
 
         if (csig->ret != NULL) {
@@ -407,7 +407,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             }
         }
 
-        m->code[m->pos+5] = (int)ast->result;
+        m->code[m->pos+5] = (uintptr_t)ast->result;
         m->pos += 6 + ast->args_collected;
         if (num_saves) {
             m->code[m->pos] = o_restore;
@@ -448,8 +448,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
             WRITE_4(opcode,
                     ast->line_num,
-                    (int)left_sym,
-                    (int)right_sym)
+                    (uintptr_t)left_sym,
+                    (uintptr_t)right_sym)
         }
         else {
             if (ast->left->expr_type != var)
@@ -486,7 +486,7 @@ void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
     /* This jump will need to be rewritten with the first part of the next elif,
        else, or the end of the if. Save the position so it can be written over
        later. */
-    WRITE_3(o_jump_if_false, (int)ast->result, 0)
+    WRITE_3(o_jump_if_false, (uintptr_t)ast->result, 0)
 
     if (emit->patch_pos == emit->patch_size) {
         emit->patch_size *= 2;
@@ -675,7 +675,7 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *sig)
     emit->expr_num++;
 
     lily_method_val *m = emit->target;
-    WRITE_2(o_return_val, (int)ast->result)
+    WRITE_2(o_return_val, (uintptr_t)ast->result)
 }
 
 void lily_emit_return_noval(lily_emit_state *emit)
@@ -719,7 +719,7 @@ lily_emit_state *lily_new_emit_state(lily_excep_data *excep)
     s->method_rets = lily_malloc(sizeof(lily_sig *) * 4);
     s->method_targets = lily_malloc(sizeof(lily_var *) * 4);
     s->method_id_offsets = lily_malloc(sizeof(int) * 4);
-    s->save_cache = lily_malloc(sizeof(int) * 4);
+    s->save_cache = lily_malloc(sizeof(uintptr_t) * 4);
 
     if (s->patches == NULL || s->ctrl_patch_starts == NULL ||
         s->block_var_starts == NULL || s->block_types == NULL ||

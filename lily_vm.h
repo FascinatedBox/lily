@@ -11,7 +11,7 @@ typedef struct {
 } lily_saved_val;
 
 typedef struct {
-    int **saved_code;
+    uintptr_t **saved_code;
     int *saved_pos;
     lily_sym **saved_ret;
     lily_saved_val *saved_values;

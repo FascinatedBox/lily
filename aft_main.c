@@ -42,7 +42,7 @@ int allowed_allocs = 0;
 void *aft_malloc(char *filename, int line, size_t size)
 {
     if (malloc_count + count_reallocs >= allowed_allocs) {
-        fprintf(stderr, "[aft]: malloc via %s:%d for size %d REJECTED.\n",
+        fprintf(stderr, "[aft]: malloc via %s:%d for size %lu REJECTED.\n",
                 filename, line, size);
         return NULL;
     }
@@ -50,7 +50,7 @@ void *aft_malloc(char *filename, int line, size_t size)
     void *block = malloc(size);
     if (block == NULL) {
         /* Report the size and location, in case it's an unreasonable size. */
-        fprintf(stderr, "[aft]: fatal: malloc via %s:%d for size %d FAILED.\n",
+        fprintf(stderr, "[aft]: fatal: malloc via %s:%d for size %lu FAILED.\n",
                 filename, line, size);
         exit(EXIT_FAILURE);
     }
@@ -73,7 +73,7 @@ void *aft_malloc(char *filename, int line, size_t size)
         end->next = entry;
 
     end = entry;
-    fprintf(stderr, "[aft]: malloc #%d (%p) via %s:%d for size %d OK.\n",
+    fprintf(stderr, "[aft]: malloc #%d (%p) via %s:%d for size %lu OK.\n",
             malloc_count+1, block, filename, line, size);
     malloc_count++;
 
@@ -83,7 +83,7 @@ void *aft_malloc(char *filename, int line, size_t size)
 void *aft_realloc(char *filename, int line, void *oldptr, size_t newsize)
 {
     if (malloc_count + count_reallocs >= allowed_allocs) {
-        fprintf(stderr, "[aft]: realloc via %s:%d for size %d REJECTED.\n",
+        fprintf(stderr, "[aft]: realloc via %s:%d for size %lu REJECTED.\n",
                 filename, line, newsize);
         return NULL;
     }
@@ -111,7 +111,7 @@ void *aft_realloc(char *filename, int line, void *oldptr, size_t newsize)
 
     search->block = realloc(search->block, newsize);
     if (search->block == NULL) {
-        fprintf(stderr, "[aft]: fatal: realloc via %s:%d for size %d failed.\n",
+        fprintf(stderr, "[aft]: fatal: realloc via %s:%d for size %lu failed.\n",
                 filename, line, newsize);
         exit(EXIT_FAILURE);
     }
