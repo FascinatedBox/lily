@@ -28,9 +28,7 @@ typedef enum {
     /* pos
        Jump to pos. */
     o_jump,
-    /* value, pos
-       Jump to pos if value is nil or 0. */
-    o_jump_if_false,
+    o_jump_if,
     /* Handles builtin functions:
        var, func, #args, args... */
     o_func_call,

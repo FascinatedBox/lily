@@ -174,13 +174,17 @@ static void show_code(lily_var *var)
                 lily_impl_debugf("[%d].\n", code[i+1]);
                 i += 2;
                 break;
-            case o_jump_if_false:
-                lily_impl_debugf("    [%d] jump_if_false ", i);
-                left = ((lily_sym *)code[i+1]);
+            case o_jump_if:
+                left = ((lily_sym *)code[i+2]);
+                lily_impl_debugf("    [%d] jump_if_", i);
+                if (code[i+1] == 0)
+                    lily_impl_debugf("false ");
+                else
+                    lily_impl_debugf("true  ");
                 lily_impl_debugf("%s #%d -> [%d].\n",
                                  typename((lily_sym *)left), left->id,
-                                 code[i+2]);
-                i += 3;
+                                 code[i+3]);
+                i += 4;
                 break;
             case o_func_call:
                 /* For both functions and methods, [i+3] is the # of args. */

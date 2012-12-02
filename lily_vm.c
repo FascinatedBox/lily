@@ -285,22 +285,21 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_jump:
                 i = code[i+1];
                 break;
-            case o_jump_if_false:
-                lhs = (lily_sym *)code[i+1];
+            case o_jump_if:
+                lhs = (lily_sym *)code[i+2];
                 {
-                    int cls_id = lhs->sig->cls->id;
-                    if (cls_id == SYM_CLASS_INTEGER) {
-                        if (lhs->value.integer == 0)
-                            i = code[i+2];
-                        else
-                            i += 3;
-                    }
-                    else if (cls_id == SYM_CLASS_NUMBER) {
-                        if (lhs->value.number == 0.0)
-                            i = code[i+2];
-                        else
-                            i += 3;
-                    }
+                    int cls_id, result;
+                    cls_id = lhs->sig->cls->id;
+
+                    if (cls_id == SYM_CLASS_INTEGER)
+                        result = (lhs->value.integer == 0);
+                    else if (cls_id == SYM_CLASS_NUMBER)
+                        result = (lhs->value.number == 0);
+
+                    if (result != code[i+1])
+                        i = code[i+3];
+                    else
+                        i += 4;
                 }
                 break;
             case o_func_call:

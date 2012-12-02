@@ -486,7 +486,7 @@ void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
     /* This jump will need to be rewritten with the first part of the next elif,
        else, or the end of the if. Save the position so it can be written over
        later. */
-    WRITE_3(o_jump_if_false, (uintptr_t)ast->result, 0)
+    WRITE_4(o_jump_if, 0, (uintptr_t)ast->result, 0)
 
     if (emit->patch_pos == emit->patch_size) {
         emit->patch_size *= 2;
