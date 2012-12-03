@@ -68,6 +68,10 @@ static const int bin_op_for_token[] =
     -1,
     -1,
     -1,
+    -1,
+    -1,
+    -1,
+    -1,
     -1
 };
 
