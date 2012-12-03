@@ -28,6 +28,10 @@ typedef enum {
     tk_integer,
     tk_number,
     tk_dot,
+    tk_bitwise_and,
+    tk_logical_and,
+    tk_bitwise_or,
+    tk_logical_or,
     tk_invalid,
     tk_end_tag,
     tk_eof

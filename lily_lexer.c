@@ -34,7 +34,9 @@
 #define CC_STR_END      18
 #define CC_DOT          19
 #define CC_AT           20
-#define CC_INVALID      21
+#define CC_AMPERSAND    21
+#define CC_VBAR         22
+#define CC_INVALID      23
 
 /* The lexer assumes any file given is utf-8. */
 
@@ -482,6 +484,24 @@ void lily_lexer(lily_lex_state *lexer)
             lex_bufpos++;
             token = tk_minus;
         }
+        else if (group == CC_AMPERSAND) {
+            lex_bufpos++;
+            if (lexer->lex_buffer[lex_bufpos] == '&') {
+                lex_bufpos++;
+                token = tk_logical_and;
+            }
+            else
+                token = tk_bitwise_and;
+        }
+        else if (group == CC_VBAR) {
+            lex_bufpos++;
+            if (lexer->lex_buffer[lex_bufpos] == '|') {
+                lex_bufpos++;
+                token = tk_logical_or;
+            }
+            else
+                token = tk_bitwise_or;
+        }
         else if (group == CC_AT) {
             lex_bufpos++;
             /* Disable @> for string-based. */
@@ -494,8 +514,10 @@ void lily_lexer(lily_lex_state *lexer)
             else
                 lily_raise(lexer->error, "Expected '>' after '@'.\n");
         }
-        else
+        else {
+            fprintf(stderr, "yielding invalid token.\n");
             token = tk_invalid;
+        }
 
         lexer->lex_bufpos = lex_bufpos;
         lexer->token = token;
@@ -690,6 +712,8 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     ch_class[(unsigned char)'>'] = CC_GREATER;
     ch_class[(unsigned char)':'] = CC_COLON;
     ch_class[(unsigned char)'!'] = CC_NOT;
+    ch_class[(unsigned char)'&'] = CC_AMPERSAND;
+    ch_class[(unsigned char)'|'] = CC_VBAR;
     /* Prep for file-based, since lex_buffer isn't NULL. */
     ch_class[(unsigned char)'\r'] = CC_NEWLINE;
     ch_class[(unsigned char)'\n'] = CC_NEWLINE;
@@ -702,8 +726,8 @@ char *tokname(lily_token t)
 {
     static char *toknames[] =
     {"(", ")", ",", "{", "}", ":", "=", "==", "<", "<=", ">", ">=", "!", "!=",
-     "+", "-", "a label", "a string", "an integer", "a number", ".",
-     "invalid token", "@>", "end of file"};
+     "+", "-", "a label", "a string", "an integer", "a number", ".", "&", "&&",
+     "|", "||", "invalid token", "@>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];
