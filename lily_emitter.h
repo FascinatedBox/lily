@@ -36,9 +36,10 @@ typedef struct {
     int expr_num;
 } lily_emit_state;
 
-# define BLOCK_IF     0x1
-# define BLOCK_IFELSE 0x2
-# define BLOCK_METHOD 0x4
+# define BLOCK_IF     0x01
+# define BLOCK_IFELSE 0x02
+# define BLOCK_ANDOR  0x04
+# define BLOCK_METHOD 0x10
 
 void lily_emit_ast(lily_emit_state *, lily_ast *);
 void lily_emit_conditional(lily_emit_state *, lily_ast *);
