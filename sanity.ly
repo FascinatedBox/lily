@@ -388,6 +388,107 @@ method test_unary():nil
     return
 }
 
+method test_andor():nil
+{
+    printfmt("#%i: Testing and/or conditions...(sub tests follow).\n", test_id)
+    test_id = test_id + 1
+    integer ok = 1
+
+    if 1 || 1: {
+        print("     1 || 1 == 1 ok.\n")
+    else:
+        print("     1 || 1 == 0 failed.\n")
+        ok = 0
+    }
+
+    if 0 || 1: {
+        print("     0 || 1 == 1 ok.\n")
+    else:
+        print("     0 || 1 == 0 failed.\n")
+        ok = 0
+    }
+
+    if 0 || 0: {
+        print("     0 || 0 == 1 failed.\n")
+        ok = 0
+    else:
+        print("     0 || 0 == 0 ok.\n")
+    }
+
+    if 0 || 0 || 0 || 0: {
+        print("     0 || 0 || 0 || 0 == 1 failed.\n")
+        ok = 0
+    else:
+        print("     0 || 0 || 0 || 0 == 0 ok.\n")
+    }
+
+    if 1 || 1 || 1 || 1: {
+        print("     1 || 1 || 1 || 1 == 1 ok.\n")
+    else:
+        print("     1 || 1 || 1 || 1 == 0 failed.\n")
+        ok = 0
+    }
+
+
+    if 1 && 1: {
+        print("     1 && 1 == 1 ok.\n")
+    else:
+        print("     1 && 1 == 0 failed.\n")
+        ok = 0
+    }
+
+    if 0 && 1: {
+        print("     0 && 1 == 1 failed.\n")
+        ok = 0
+    else:
+        print("     0 && 1 == 0 ok.\n")
+    }
+
+    if 0 && 0: {
+        print("     0 && 0 == 1 failed.\n")
+        ok = 0
+    else:
+        print("     0 && 0 == 0 ok.\n")
+    }
+
+    if 0 && 0 && 0 && 0: {
+        print("     0 && 0 && 0 && 0 == 1 failed.\n")
+        ok = 0
+    else:
+        print("     0 && 0 && 0 && 0 == 0 ok.\n")
+    }
+
+    if 1 && 1 && 1 && 1: {
+        print("     1 && 1 && 1 && 1 == 1 ok.\n")
+    else:
+        print("     1 && 1 && 1 && 1 == 0 failed.\n")
+        ok = 0
+    }
+
+    method return_1():integer {
+        return 1
+    }
+
+    if 0 + 1 || return_1(): {
+        print("     0 + 1 || return_1() == 1 ok.\n")
+    else:
+        print("     0 + 1 || return_1() == 0 failed.\n")
+        ok = 0
+    }
+
+    if 0 + 1 && return_1(): {
+        print("     0 + 1 && return_1() == 1 ok.\n")
+    else:
+        print("     0 + 1 && return_1() == 0 failed.\n")
+        ok = 0
+    }
+
+    if ok == 0:
+        fail_count = fail_count + 1
+
+    return
+}
+
 test_basic_assignments()
 test_jumps()
 test_manyargs(1,2,3,4,5,6)
@@ -402,6 +503,7 @@ test_assign_decl_list()
 test_oneline_if()
 test_fib()
 test_unary()
+test_andor()
 
 test_id = test_id - 1
 

@@ -12,6 +12,8 @@ typedef enum {
     expr_not_eq,
     expr_unary_not,
     expr_unary_minus,
+    expr_logical_and,
+    expr_logical_or,
     expr_assign
 } lily_expr_op;
 

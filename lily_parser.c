@@ -43,8 +43,7 @@ if (lex->token != expected) \
                tokname(lex->token)); \
 
 /* table[token] = binary_op. -1 indicates invalid. */
-static const int bin_op_for_token[] =
-{
+static const int bin_op_for_token[] = {
     -1,
     -1,
     -1,
@@ -67,9 +66,9 @@ static const int bin_op_for_token[] =
     -1,
     -1,
     -1,
+    expr_logical_and,
     -1,
-    -1,
-    -1,
+    expr_logical_or,
     -1,
     -1,
     -1

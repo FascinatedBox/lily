@@ -111,6 +111,103 @@ static inline lily_storage *get_storage_sym(lily_emit_state *emit,
     return s;
 }
 
+static void walk_tree(lily_emit_state *, lily_ast *);
+
+static void do_jump_for_tree(lily_emit_state *emit, lily_ast *ast, int jump_on)
+{
+    lily_method_val *m = emit->target;
+
+    WRITE_4(o_jump_if, jump_on, (uintptr_t)ast->result, 0);
+    if (emit->patch_pos == emit->patch_size) {
+        emit->patch_size *= 2;
+
+        int *new_patches = lily_realloc(emit->patches,
+            sizeof(int) * emit->patch_size);
+
+        if (new_patches == NULL)
+            lily_raise_nomem(emit->error);
+
+        emit->patches = new_patches;
+    }
+
+    emit->patches[emit->patch_pos] = m->pos-1;
+    emit->patch_pos++;
+}
+
+/* This handles both logical and, and logical or. */
+static void do_logical_op(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_symtab *symtab = emit->symtab;
+    lily_storage *result;
+    int is_top, jump_on;
+    lily_method_val *m = emit->target;
+
+    jump_on = (ast->op == expr_logical_or);
+
+    /* The first tree must create the block, so that subsequent trees have a
+       place to write the patches to. */
+    if (ast->parent == NULL || 
+        (ast->parent->expr_type == binary && ast->parent->op != ast->op)) {
+        is_top = 1;
+        lily_emit_push_block(emit, BLOCK_ANDOR);
+    }
+    else
+        is_top = 0;
+
+    /* The bottom tree is responsible for getting the storage. */
+    if (ast->left->expr_type != binary || ast->left->op != ast->op) {
+        result = get_storage_sym(emit,
+            lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER));
+
+        if (ast->left->expr_type != var)
+            walk_tree(emit, ast->left);
+
+        do_jump_for_tree(emit, ast->left, jump_on);
+    }
+    else {
+        /* and/or do not require do_jump_for_tree, because that would be a
+           double-check! */
+        walk_tree(emit, ast->left);
+        result = (lily_storage *)ast->left->result;
+    }
+
+    if (ast->right->expr_type != var)
+        walk_tree(emit, ast->right);
+
+    do_jump_for_tree(emit, ast->right, jump_on);
+
+    if (is_top == 1) {
+        /* The symtab adds literals 0 and 1 in that order during its init. */
+        int save_pos;
+        lily_literal *success, *failure;
+
+        success = symtab->lit_start;
+        if (ast->op == expr_logical_or)
+            failure = success->next;
+        else {
+            failure = success;
+            success = failure->next;
+        }
+
+        WRITE_4(o_assign,
+                ast->line_num,
+                (uintptr_t)result,
+                (uintptr_t)success);
+        WRITE_2(o_jump, 0);
+        save_pos = m->pos-1;
+
+        lily_emit_pop_block(emit);
+        WRITE_4(o_assign,
+                ast->line_num,
+                (uintptr_t)result,
+                (uintptr_t)failure);
+
+        m->code[save_pos] = m->pos;
+    }
+
+    ast->result = (lily_sym *)result;
+}
+
 static void do_unary_op(lily_emit_state *emit, lily_ast *ast)
 {
     uintptr_t opcode;
@@ -213,8 +310,6 @@ static void do_bad_arg_error(lily_emit_state *emit, lily_ast *ast,
     emit->error->line_adjust = ast->line_num;
     lily_raise_msgbuf(emit->error, mb);
 }
-
-static void walk_tree(lily_emit_state *, lily_ast *);
 
 static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         lily_call_sig *csig)
@@ -451,6 +546,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                     (uintptr_t)left_sym,
                     (uintptr_t)right_sym)
         }
+        else if (ast->op == expr_logical_or || ast->op == expr_logical_and)
+            do_logical_op(emit, ast);
         else {
             if (ast->left->expr_type != var)
                 walk_tree(emit, ast->left);
@@ -478,30 +575,14 @@ void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)
 void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
 {
     /* This does emitting for the condition of an if or elif. */
-    lily_method_val *m = emit->target;
-
     walk_tree(emit, ast);
     emit->expr_num++;
 
     /* This jump will need to be rewritten with the first part of the next elif,
        else, or the end of the if. Save the position so it can be written over
-       later. */
-    WRITE_4(o_jump_if, 0, (uintptr_t)ast->result, 0)
-
-    if (emit->patch_pos == emit->patch_size) {
-        emit->patch_size *= 2;
-
-        int *new_patches = lily_realloc(emit->patches,
-            sizeof(int) * emit->patch_size);
-
-        if (new_patches == NULL)
-            lily_raise_nomem(emit->error);
-
-        emit->patches = new_patches;
-    }
-
-    emit->patches[emit->patch_pos] = m->pos-1;
-    emit->patch_pos++;
+       later.
+       0 for jump_if_false. */
+    do_jump_for_tree(emit, ast, 0);
 }
 
 /* This is called at the end of an 'if' branch, but before the beginning of the
@@ -559,7 +640,7 @@ void lily_emit_push_block(lily_emit_state *emit, int btype)
         emit->block_var_starts = new_var_starts;
     }
 
-    if (btype == BLOCK_IF) {
+    if (btype == BLOCK_IF || btype == BLOCK_ANDOR) {
         if (emit->ctrl_patch_pos == emit->ctrl_patch_size) {
             emit->ctrl_patch_size *= 2;
             int *new_starts = lily_realloc(emit->ctrl_patch_starts,
