@@ -166,7 +166,11 @@ void lily_ast_enter_call(lily_ast_pool *ap, lily_var *var)
 {
     lily_ast *a = next_pool_ast(ap);
 
-    a->expr_type = call;
+    if (var != NULL)
+        a->expr_type = call;
+    else
+        a->expr_type = parenth;
+
     a->line_num = *ap->lex_linenum;
     a->result = (lily_sym *)var;
     a->args_collected = 0;
@@ -296,27 +300,30 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
     ap->save_index--;
     lily_ast *a = ap->saved_trees[ap->save_index];
     lily_var *v = (lily_var *)a->result;
-    int args_needed = v->sig->node.call->num_args;
+
     push_call_arg(ap, a, ap->root);
+    if (v != NULL) {
+        int args_needed = v->sig->node.call->num_args;
 
-    /* Func arg pushing doesn't check as it goes along, because that
-       wouldn't handle the case of too few args. But now the function is
-       supposed to be complete so... */
-    if (args_needed != a->args_collected) {
-        char *errstr;
+        /* Func arg pushing doesn't check as it goes along, because that
+           wouldn't handle the case of too few args. But now the function is
+           supposed to be complete so... */
+        if (args_needed != a->args_collected) {
+            char *errstr;
 
-        if (v->sig->node.call->is_varargs)
-            errstr = "at least ";
-        else
-            errstr = "";
+            if (v->sig->node.call->is_varargs)
+                errstr = "at least ";
+            else
+                errstr = "";
 
-        /* Allow for -extra- args, but -only- if it's var args. */
-        if ((a->args_collected > args_needed &&
-              v->sig->node.call->is_varargs) == 0) {
-            ap->error->line_adjust = a->line_num;
-            lily_raise(ap->error, "%s expects %s%d args, got %d.\n",
-                       ((lily_var *)a->result)->name, errstr, args_needed,
-                       a->args_collected);
+            /* Allow for -extra- args, but -only- if it's var args. */
+            if ((a->args_collected > args_needed &&
+                v->sig->node.call->is_varargs) == 0) {
+                ap->error->line_adjust = a->line_num;
+                lily_raise(ap->error, "%s expects %s%d args, got %d.\n",
+                        ((lily_var *)a->result)->name, errstr, args_needed,
+                        a->args_collected);
+            }
         }
     }
     ap->save_index--;

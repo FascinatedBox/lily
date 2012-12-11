@@ -42,6 +42,39 @@ if (lex->token != expected) \
     lily_raise(parser->error, "Expected " msg ", not %s.\n", \
                tokname(lex->token)); \
 
+/* table[token] = true/false. Used to check if a given token can be the start of
+   an expression. */
+static const int is_start_val[] = {
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+};
+
 /* table[token] = binary_op. -1 indicates invalid. */
 static const int bin_op_for_token[] = {
     -1,
@@ -79,6 +112,9 @@ static void enter_oo_call(lily_parse_state *parser)
     lily_ast *active = parser->ast_pool->active;
     lily_class *cls;
     lily_var *call_var;
+
+    while (active->expr_type == parenth)
+        active = active->arg_start;
 
     if (active->expr_type == var)
         cls = active->result->sig->cls;
@@ -170,6 +206,13 @@ static void expression_value(lily_parse_state *parser)
                 do_unary_expr(parser);
                 continue;
             }
+            else if (lex->token == tk_left_parenth) {
+                /* A parenth expression is essentially a call, but without the
+                   var part. */
+                lily_ast_enter_call(parser->ast_pool, NULL);
+                lily_lexer(lex);
+                continue;
+            }
             else
                 lily_raise(parser->error, "Expected a value, not '%s'.\n",
                            tokname(lex->token));
@@ -220,9 +263,10 @@ static void expression(lily_parse_state *parser, int flags)
                 lily_ast_pop_tree(parser->ast_pool);
 
                 lily_lexer(lex);
-                /* If no functions, and a word, then the word is the start of
-                   the next statement. */
-                if (lex->token == tk_word && parser->ast_pool->save_index == 0)
+                if (parser->ast_pool->save_index == 0 &&
+                    is_start_val[lex->token] == 1)
+                    /* Since there are no parenths/calls left, then this value
+                       must be the first in the next expression. */
                     break;
                 else if (lex->token != tk_dot)
                     /* Since the parenth finished a value, the token should be

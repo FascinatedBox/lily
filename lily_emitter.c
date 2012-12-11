@@ -558,6 +558,11 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             generic_binop(emit, ast);
         }
     }
+    else if (ast->expr_type == parenth) {
+        if (ast->arg_start->expr_type != var)
+            walk_tree(emit, ast->arg_start);
+        ast->result = ast->arg_start->result;
+    }
     else if (ast->expr_type == unary) {
         if (ast->left->expr_type != var)
             walk_tree(emit, ast->left);
