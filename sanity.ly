@@ -489,6 +489,37 @@ method test_andor():nil
     return
 }
 
+method test_parenth():nil
+{
+    printfmt("#%i: Testing parenth expressions...", test_id)
+    test_id = test_id + 1
+
+    integer a = 1
+    integer ok = 1
+    str s = "a"
+
+    if (((a))) != 1:
+        ok = 0
+
+    if (a != 1):
+        ok = 0
+
+    if (s).concat("a") != "aa":
+        ok = 0
+
+    if (s.concat("a")).concat("a") != "aaa":
+        ok = 0
+
+    if ok == 0: {
+        fail_count = fail_count + 1
+        print("failed.\n")
+    else:
+        print("ok.\n")
+    }
+
+    return
+}
+
 test_basic_assignments()
 test_jumps()
 test_manyargs(1,2,3,4,5,6)
@@ -504,6 +535,7 @@ test_oneline_if()
 test_fib()
 test_unary()
 test_andor()
+test_parenth()
 
 test_id = test_id - 1
 
