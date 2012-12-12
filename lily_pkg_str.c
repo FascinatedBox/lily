@@ -17,17 +17,16 @@ void lily_str_concat(int num_args, lily_sym **args)
         ret = lily_malloc(sizeof(lily_strval));
         if (ret == NULL)
             return;
+
         ret->str = lily_malloc(sizeof(char) * newsize);
         ret->refcount = 1;
     }
     else if (ret->size < newsize) {
         char *newstr;
         newstr = lily_realloc(ret->str, sizeof(char) * newsize);
-        if (newstr == NULL) {
-            lily_free(ret->str);
-            lily_free(ret);
+        if (newstr == NULL)
             return;
-        }
+
         ret->str = newstr;
     }
 
