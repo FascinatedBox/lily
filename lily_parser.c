@@ -622,6 +622,7 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
     if (s == NULL)
         return NULL;
 
+    s->mode = pm_init;
     s->ast_pool = lily_ast_init_pool(excep, 8);
     s->error = excep;
 
@@ -656,6 +657,9 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
 
 void lily_parser(lily_parse_state *parser)
 {
+    /* Must do this first, in the rare case this next call fails. */
+    parser->mode = pm_parse;
+
     lily_lex_state *lex = parser->lex;
     lily_lexer(lex);
 
@@ -671,7 +675,10 @@ void lily_parser(lily_parse_state *parser)
             /* Show symtab until the bugs are gone. */
             lily_show_symtab(parser->symtab);
 
+            parser->mode = pm_execute;
             lily_vm_execute(parser->vm);
+            parser->mode = pm_parse;
+
             /* Show var values, to verify execution went as expected. */
             lily_show_var_values(parser->symtab);
             /* Clear @main for the next pass. */
