@@ -8,6 +8,12 @@
 # include "lily_symtab.h"
 # include "lily_vm.h"
 
+typedef enum {
+    pm_init,
+    pm_parse,
+    pm_execute
+} lily_parse_mode;
+
 typedef struct {
     lily_ast_pool *ast_pool;
     lily_lex_state *lex;
@@ -15,6 +21,7 @@ typedef struct {
     lily_symtab *symtab;
     lily_vm_state *vm;
     lily_excep_data *error;
+    lily_parse_mode mode;
 } lily_parse_state;
 
 void lily_free_parse_state(lily_parse_state *);
