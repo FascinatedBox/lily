@@ -312,7 +312,6 @@ void lily_vm_execute(lily_vm_state *vm)
             }
                 break;
             case o_save:
-                /* todo: Implement saving in vm, once it looks okay in debug. */
                 j = code[i+1];
 
                 if (vm->val_pos + j > vm->val_size)
