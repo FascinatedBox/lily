@@ -320,9 +320,10 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
             if ((a->args_collected > args_needed &&
                 v->sig->node.call->is_varargs) == 0) {
                 ap->error->line_adjust = a->line_num;
-                lily_raise(ap->error, "%s expects %s%d args, got %d.\n",
-                        ((lily_var *)a->result)->name, errstr, args_needed,
-                        a->args_collected);
+                lily_raise(ap->error, lily_ErrSyntax,
+                           "%s expects %s%d args, got %d.\n",
+                           ((lily_var *)a->result)->name, errstr, args_needed,
+                           a->args_collected);
             }
         }
     }

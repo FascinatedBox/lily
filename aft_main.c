@@ -205,29 +205,31 @@ int main(int argc, char **argv)
     allowed_allocs = atoi(argv[1]);
     lily_interp *interp = lily_new_interp();
     if (interp == NULL) {
-        fputs("Error: Out of memory.\n", stderr);
+        fputs("ErrNoMemory: No memory to alloc interpreter.\n", stderr);
         show_stats();
         exit(EXIT_FAILURE);
     }
 
     if (lily_parse_file(interp, argv[2]) == 0) {
-        if (interp->error->message == NULL)
-            fputs("Error: Out of memory.\n", stderr);
+        lily_parse_state *parser = interp->parser;
+        lily_excep_data *error = interp->error;
+        fprintf(stderr, "%s", lily_name_for_error(error->error_code));
+        if (error->message)
+            fprintf(stderr, ": %s", error->message);
         else
-            fputs(interp->error->message, stderr);
+            fputc('\n', stderr);
 
-        if (interp->parser != NULL &&
-            interp->parser->lex != NULL &&
-            interp->parser->lex->filename != NULL) {
+        if (parser->mode == pm_parse) {
             int line_num;
             if (interp->error->line_adjust == 0)
                 line_num = interp->parser->lex->line_num;
             else
                 line_num = interp->error->line_adjust;
 
-            fprintf(stderr, "Where : File \"%s\" at line %d\n",
+            fprintf(stderr, "Where: File \"%s\" at line %d\n",
                     interp->parser->lex->filename, line_num);
         }
+        exit(EXIT_FAILURE);
     }
 
     lily_free_interp(interp);

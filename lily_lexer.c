@@ -164,7 +164,8 @@ static void scan_str(lily_lex_state *lexer, int *pos)
             ch = lex_buffer[word_pos];
             esc_ch = simple_escape(ch);
             if (esc_ch == 0)
-                lily_raise(lexer->error, "Invalid escape \\%c\n", ch);
+                lily_raise(lexer->error, lily_ErrSyntax,
+                           "Invalid escape \\%c\n", ch);
 
             label[label_pos] = esc_ch;
             label_pos++;
@@ -176,7 +177,7 @@ static void scan_str(lily_lex_state *lexer, int *pos)
             ch = lex_buffer[word_start];
         }
         else if (ch == '\r' || ch == '\n')
-            lily_raise(lexer->error, "Unterminated string.\n");
+            lily_raise(lexer->error, lily_ErrSyntax, "Unterminated string.\n");
 
         word_pos++;
         ch = lex_buffer[word_pos];
@@ -272,7 +273,7 @@ static int read_line(lily_lex_state *lexer)
                 for (j = 1;j < followers;j++,i++) {
                     ch = fgetc(lex_file);
                     if ((unsigned char)ch < 128 || ch == EOF) {
-                        lily_raise(lexer->error,
+                        lily_raise(lexer->error, lily_ErrEncoding,
                                    "Invalid utf-8 sequence on line %d.\n",
                                    lexer->line_num);
                     }
@@ -280,7 +281,7 @@ static int read_line(lily_lex_state *lexer)
                 }
             }
             else if (followers == -1) {
-                lily_raise(lexer->error,
+                lily_raise(lexer->error, lily_ErrEncoding,
                            "Invalid utf-8 sequence on line %d.\n",
                            lexer->line_num);
             }
@@ -364,7 +365,8 @@ void lily_load_file(lily_lex_state *lexer, char *filename)
     FILE *lex_file = fopen(filename, "r");
     if (lex_file == NULL) {
         lexer->filename = NULL;
-        lily_raise(lexer->error, "Failed to open %s.\n", filename);
+        lily_raise(lexer->error, lily_ErrImport, "Failed to open %s.\n",
+                   filename);
     }
 
     lexer->filename = filename;
@@ -512,7 +514,8 @@ void lily_lexer(lily_lex_state *lexer)
                 token = tk_end_tag;
             }
             else
-                lily_raise(lexer->error, "Expected '>' after '@'.\n");
+                lily_raise(lexer->error, lily_ErrSyntax,
+                           "Expected '>' after '@'.\n");
         }
         else {
             fprintf(stderr, "yielding invalid token.\n");
