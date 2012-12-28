@@ -219,7 +219,7 @@ static void do_unary_op(lily_emit_state *emit, lily_ast *ast)
     lhs_class = ast->left->result->sig->cls;
     if (lhs_class->id != SYM_CLASS_INTEGER) {
         emit->error->line_adjust = ast->line_num;
-        lily_raise(emit->error, "Invalid operation: %s%s.\n",
+        lily_raise(emit->error, lily_ErrSyntax, "Invalid operation: %s%s.\n",
                    opname(ast->op), lhs_class->name);
     }
 
@@ -258,8 +258,9 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
 
     if (opcode == -1) {
         emit->error->line_adjust = ast->line_num;
-        lily_raise(emit->error, "Invalid operation: %s %s %s.\n",
-                   lhs_class->name, opname(ast->op), rhs_class->name);
+        lily_raise(emit->error, lily_ErrSyntax,
+                   "Invalid operation: %s %s %s.\n", lhs_class->name,
+                   opname(ast->op), rhs_class->name);
     }
 
     if (ast->op == expr_plus || ast->op == expr_minus)
@@ -308,7 +309,7 @@ static void do_bad_arg_error(lily_emit_state *emit, lily_ast *ast,
 
     /* Just in case this arg was on a different line than the call. */
     emit->error->line_adjust = ast->line_num;
-    lily_raise_msgbuf(emit->error, mb);
+    lily_raise_msgbuf(emit->error, lily_ErrSyntax, mb);
 }
 
 static void check_call_args(lily_emit_state *emit, lily_ast *ast,
@@ -497,7 +498,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                 ast->result = NULL;
             else {
                 emit->error->line_adjust = ast->line_num;
-                lily_raise(emit->error,
+                lily_raise(emit->error, lily_ErrSyntax,
                            "Call returning nil not at end of expression.");
             }
         }
@@ -517,7 +518,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
             if (ast->left->expr_type != var) {
                 emit->error->line_adjust = ast->line_num;
-                lily_raise(emit->error, "Left side of = is not a var.\n");
+                lily_raise(emit->error, lily_ErrSyntax,
+                           "Left side of = is not a var.\n");
             }
 
             if (ast->right->expr_type != var)
@@ -531,7 +533,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                     opcode = o_obj_assign;
                 else {
                     emit->error->line_adjust = ast->line_num;
-                    lily_raise(emit->error, "Cannot assign %s to %s.\n",
+                    lily_raise(emit->error, lily_ErrSyntax,
+                               "Cannot assign %s to %s.\n",
                                left_sym->sig->cls->name,
                                right_sym->sig->cls->name);
                 }
@@ -600,12 +603,14 @@ void lily_emit_clear_block(lily_emit_state *emit, int have_else)
 
     if (have_else) {
         if (emit->block_types[emit->block_pos-1] == BLOCK_IFELSE)
-            lily_raise(emit->error, "Only one 'else' per 'if' allowed.\n");
+            lily_raise(emit->error, lily_ErrSyntax,
+                       "Only one 'else' per 'if' allowed.\n");
         else
             emit->block_types[emit->block_pos-1] = BLOCK_IFELSE;
     }
     else if (emit->block_types[emit->block_pos-1] == BLOCK_IFELSE)
-        lily_raise(emit->error, "'elif' after 'else'.\n");
+        lily_raise(emit->error, lily_ErrSyntax,
+                   "'elif' after 'else'.\n");
 
     if (v->next != NULL) {
         int offset_add = lily_drop_block_vars(emit->symtab, v);

@@ -28,18 +28,18 @@
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
 if (lex->token != expected) \
-    lily_raise(parser->error, "Expected '%s', not %s.\n", \
+    lily_raise(parser->error, lily_ErrSyntax, "Expected '%s', not %s.\n", \
                tokname(expected), tokname(lex->token)); \
 
 #define NEED_CURRENT_TOK(expected) \
 if (lex->token != expected) \
-    lily_raise(parser->error, "Expected '%s', not %s.\n", \
+    lily_raise(parser->error, lily_ErrSyntax, "Expected '%s', not %s.\n", \
                tokname(expected), tokname(lex->token));
 
 #define NEED_NEXT_TOK_MSG(expected, msg) \
 lily_lexer(lex); \
 if (lex->token != expected) \
-    lily_raise(parser->error, "Expected " msg ", not %s.\n", \
+    lily_raise(parser->error, lily_ErrSyntax, "Expected " msg ", not %s.\n", \
                tokname(lex->token)); \
 
 /* table[token] = true/false. Used to check if a given token can be the start of
@@ -134,8 +134,9 @@ static void enter_oo_call(lily_parse_state *parser)
 
     call_var = lily_find_class_callable(cls, parser->lex->label);
     if (call_var == NULL) {
-        lily_raise(parser->error, "Class %s has no callable named %s.\n",
-            cls->name, parser->lex->label);
+        lily_raise(parser->error, lily_ErrSyntax,
+                   "Class %s has no callable named %s.\n", cls->name,
+                   parser->lex->label);
     }
 
     lily_ast_enter_call(parser->ast_pool, call_var);
@@ -166,8 +167,8 @@ static void expression_value(lily_parse_state *parser)
             lily_var *var = lily_var_by_name(symtab, lex->label);
 
             if (var == NULL)
-                lily_raise(parser->error, "Variable '%s' is undefined.\n",
-                           lex->label);
+                lily_raise(parser->error, lily_ErrSyntax,
+                           "Variable '%s' is undefined.\n", lex->label);
 
             if (var->sig->cls->id == SYM_CLASS_FUNCTION ||
                 var->sig->cls->id == SYM_CLASS_METHOD) {
@@ -214,7 +215,8 @@ static void expression_value(lily_parse_state *parser)
                 continue;
             }
             else
-                lily_raise(parser->error, "Expected a value, not '%s'.\n",
+                lily_raise(parser->error, lily_ErrSyntax,
+                           "Expected a value, not '%s'.\n", 
                            tokname(lex->token));
 
             lit = lily_new_literal(symtab, cls, lex->value);
@@ -254,8 +256,8 @@ static void expression(lily_parse_state *parser, int flags)
         while (1) {
             if (lex->token == tk_word) {
                 if (parser->ast_pool->save_index != 0)
-                    lily_raise(parser->error,
-                            "Expected ')' or a binary op, not a label.\n");
+                    lily_raise(parser->error, lily_ErrSyntax,
+                               "Expected ')' or a binary op, not a label.\n");
 
                 break;
             }
@@ -282,7 +284,8 @@ static void expression(lily_parse_state *parser, int flags)
             }
             else if (lex->token == tk_comma) {
                 if (parser->ast_pool->active == NULL)
-                    lily_raise(parser->error, "Expected a value, not ','.\n");
+                    lily_raise(parser->error, lily_ErrSyntax,
+                               "Expected a value, not ','.\n");
 
                 /* If this is inside of a decl list (integer a, b, c...), then
                    the comma is the end of the decl unless it's part of a call
@@ -306,9 +309,9 @@ static void expression(lily_parse_state *parser, int flags)
                          lex->token == tk_end_tag || lex->token == tk_eof)
                     break;
                 else {
-                    lily_raise(parser->error,
-                        "expression: Unexpected token value %s.\n",
-                        tokname(lex->token));
+                    lily_raise(parser->error, lily_ErrSyntax,
+                               "Expected maybe a binary operator, not %s.\n",
+                               tokname(lex->token));
                 }
             }
             expression_value(parser);
@@ -338,8 +341,8 @@ static void declaration(lily_parse_state *parser, lily_class *cls)
 
         var = lily_var_by_name(parser->symtab, lex->label);
         if (var != NULL)
-            lily_raise(parser->error, "%s has already been declared.\n",
-                       var->name);
+            lily_raise(parser->error, lily_ErrSyntax,
+                       "%s has already been declared.\n", var->name);
 
         var = lily_new_var(parser->symtab, cls, lex->label);
 
@@ -355,8 +358,8 @@ static void declaration(lily_parse_state *parser, lily_class *cls)
             lex->token == tk_eof)
             break;
         else if (lex->token != tk_comma) {
-            lily_raise(parser->error, "Expected ',' or ')', not %s.\n",
-                       tokname(lex->token));
+            lily_raise(parser->error, lily_ErrSyntax,
+                       "Expected ',' or ')', not %s.\n", tokname(lex->token));
         }
         /* else comma, so just jump back up. */
     }
@@ -407,8 +410,8 @@ static void parse_simple_condition(lily_parse_state *parser)
                                EX_CONDITION);
 
                 if (lex->token != tk_colon)
-                    lily_raise(parser->error, "Expected ':', not %s.\n",
-                               tokname(lex->token));
+                    lily_raise(parser->error, lily_ErrSyntax,
+                               "Expected ':', not %s.\n", tokname(lex->token));
 
                 lily_lexer(lex);
                 if (lex->token == tk_left_curly) {
@@ -425,8 +428,8 @@ static void parse_simple_condition(lily_parse_state *parser)
                                EX_CONDITION);
 
                 if (lex->token != tk_colon)
-                    lily_raise(parser->error, "Expected ':', not %s.\n",
-                               tokname(lex->token));
+                    lily_raise(parser->error, lily_ErrSyntax,
+                               "Expected ':', not %s.\n", tokname(lex->token));
 
                 lily_lexer(lex);
             }
@@ -435,8 +438,8 @@ static void parse_simple_condition(lily_parse_state *parser)
 
                 lily_lexer(lex);
                 if (lex->token != tk_colon)
-                    lily_raise(parser->error, "Expected ':', not %s.\n",
-                               tokname(lex->token));
+                    lily_raise(parser->error, lily_ErrSyntax,
+                               "Expected ':', not %s.\n", tokname(lex->token));
 
                 lily_lexer(lex);
             }
@@ -487,7 +490,7 @@ static void parse_method_decl(lily_parse_state *parser)
             NEED_CURRENT_TOK(tk_word)
             cls = lily_class_by_name(parser->symtab, lex->label);
             if (cls == NULL)
-                lily_raise(parser->error,
+                lily_raise(parser->error, lily_ErrSyntax,
                            "unknown class name %s.\n", lex->label);
 
             NEED_NEXT_TOK(tk_word)
@@ -504,8 +507,9 @@ static void parse_method_decl(lily_parse_state *parser)
             else {
                 lily_free(m->code);
                 lily_free(m);
-                lily_raise(parser->error, "Expected ',' or ')', not %s.\n",
-                        tokname(lex->token));
+                lily_raise(parser->error, lily_ErrSyntax,
+                           "Expected ',' or ')', not %s.\n",
+                           tokname(lex->token));
             }
         }
         m->first_arg = save_top->next;
@@ -524,7 +528,8 @@ static void parse_method_decl(lily_parse_state *parser)
         if (strcmp(lex->label, "nil") == 0)
             csig->ret = NULL;
         else
-            lily_raise(parser->error, "unknown class name %s.\n", lex->label);
+            lily_raise(parser->error, lily_ErrSyntax,
+                       "unknown class name %s.\n", lex->label);
     }
 
     int j;
