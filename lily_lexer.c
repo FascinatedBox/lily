@@ -517,10 +517,8 @@ void lily_lexer(lily_lex_state *lexer)
                 lily_raise(lexer->error, lily_ErrSyntax,
                            "Expected '>' after '@'.\n");
         }
-        else {
-            fprintf(stderr, "yielding invalid token.\n");
+        else
             token = tk_invalid;
-        }
 
         lexer->lex_bufpos = lex_bufpos;
         lexer->token = token;
