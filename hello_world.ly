@@ -4,11 +4,6 @@
 </head>
 <body>
 <@lily
-print("Hello, world.")
-
-number n = 10
-@>
-
-
+print("Hello, world.")@>
 </body>
 </html>
