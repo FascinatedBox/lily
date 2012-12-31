@@ -11,14 +11,22 @@ typedef struct {
 } lily_saved_val;
 
 typedef struct {
-    uintptr_t **saved_code;
-    int *saved_pos;
-    lily_sym **saved_ret;
+    lily_sym *method;
+    lily_sym *ret;
+    uintptr_t *code;
+    int code_pos;
+    int line_num;
+} lily_vm_stack_entry;
+
+typedef struct {
     lily_saved_val *saved_values;
-    int stack_pos;
-    int stack_size;
     int val_pos;
     int val_size;
+
+    lily_vm_stack_entry **method_stack;
+    int method_stack_pos;
+    int method_stack_size;
+
     lily_excep_data *error;
     lily_var *main;
 } lily_vm_state;
