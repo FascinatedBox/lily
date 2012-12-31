@@ -99,7 +99,7 @@ lily_vm_state *lily_new_vm_state(lily_excep_data *error)
 
     lily_saved_val *saved_values = lily_malloc(sizeof(lily_saved_val) * 8);
     lily_vm_stack_entry **method_stack = lily_malloc(
-            sizeof(lily_vm_stack_entry) * 4);
+            sizeof(lily_vm_stack_entry *) * 4);
 
     int i = 0;
     if (method_stack) {
