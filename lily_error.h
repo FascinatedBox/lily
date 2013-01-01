@@ -9,6 +9,7 @@
 # define lily_ErrSyntax   1
 # define lily_ErrImport   2
 # define lily_ErrEncoding 3
+# define lily_ErrNoValue  4
 
 typedef struct {
     jmp_buf jump;

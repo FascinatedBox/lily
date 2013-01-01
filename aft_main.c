@@ -229,6 +229,19 @@ int main(int argc, char **argv)
             fprintf(stderr, "Where: File \"%s\" at line %d\n",
                     interp->parser->lex->filename, line_num);
         }
+        else if (parser->mode == pm_execute) {
+            lily_vm_stack_entry **vm_stack;
+            lily_vm_stack_entry *entry;
+            int i;
+
+            vm_stack = parser->vm->method_stack;
+            fprintf(stderr, "Traceback:\n");
+            for (i = parser->vm->method_stack_pos-1;i >= 0;i--) {
+                entry = vm_stack[i];
+                fprintf(stderr, "    Method \"%s\" at line %d.\n",
+                        ((lily_var *)entry->method)->name, entry->line_num);
+            }
+        }
         exit(EXIT_FAILURE);
     }
 
