@@ -242,7 +242,6 @@ int main(int argc, char **argv)
                         ((lily_var *)entry->method)->name, entry->line_num);
             }
         }
-        exit(EXIT_FAILURE);
     }
 
     lily_free_interp(interp);
