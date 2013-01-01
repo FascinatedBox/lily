@@ -4,7 +4,7 @@
 #include "lily_error.h"
 
 static const char *lily_error_names[] =
-    {"ErrNoMemory", "ErrSyntax", "ErrImport", "ErrEncoding"};
+    {"ErrNoMemory", "ErrSyntax", "ErrImport", "ErrEncoding", "ErrNoValue"};
 
 void lily_raise(lily_excep_data *error, int error_code, char *fmt, ...)
 {

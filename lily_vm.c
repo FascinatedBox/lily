@@ -7,15 +7,24 @@
 #include "lily_pkg.h"
 
 #define FAST_INTEGER_OP(OP) \
+lhs = (lily_sym *)code[i+2]; \
+rhs = (lily_sym *)code[i+3]; \
+if (lhs->flags & S_IS_NIL) \
+    lily_vm_error(vm, i, lhs); \
+else if (rhs->flags & S_IS_NIL) \
+    lily_vm_error(vm, i, rhs); \
 ((lily_sym *)code[i+4])->value.integer = \
-((lily_sym *)code[i+2])->value.integer OP \
-((lily_sym *)code[i+3])->value.integer; \
+lhs->value.integer OP rhs->value.integer; \
 i += 5; \
 
 #define NUMBER_OP(OP) \
 lhs = (lily_sym *)code[i+2]; \
+rhs = (lily_sym *)code[i+3]; \
+if (lhs->flags & S_IS_NIL) \
+    lily_vm_error(vm, i, lhs); \
+else if (rhs->flags & S_IS_NIL) \
+    lily_vm_error(vm, i, rhs); \
 if (lhs->sig->cls->id == SYM_CLASS_NUMBER) { \
-    rhs = (lily_sym *)code[i+3]; \
     if (rhs->sig->cls->id == SYM_CLASS_NUMBER) \
         ((lily_sym *)code[i+4])->value.number = \
         lhs->value.number OP rhs->value.number; \
@@ -31,6 +40,10 @@ i += 5;
 #define COMPARE_OP(OP, STROP) \
 lhs = (lily_sym *)code[i+2]; \
 rhs = (lily_sym *)code[i+3]; \
+if (lhs->flags & S_IS_NIL) \
+    lily_vm_error(vm, i, lhs); \
+else if (rhs->flags & S_IS_NIL) \
+    lily_vm_error(vm, i, rhs); \
 if (lhs->sig->cls->id == SYM_CLASS_NUMBER) { \
     if (rhs->sig->cls->id == SYM_CLASS_NUMBER) \
         ((lily_sym *)code[i+4])->value.number = \
@@ -235,6 +248,20 @@ void do_str_assign(lily_sym **syms)
     lhs->value = rhs->value;
 }
 
+void lily_vm_error(lily_vm_state *vm, int code_pos, lily_sym *sym)
+{
+    /* The stack only saves the line number for every call -but- the top-most
+       one. So fill that in before dying. */
+    lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
+    /* Methods do not have a linetable that maps opcodes to line numbers.
+       Instead, the emitter writes the line number right after the opcode for
+       any opcode that might call lily_vm_error. */ 
+    top->line_num = top->code[code_pos+1];
+    /* Literals and storages can't be nil, so this must be a named var. */
+    lily_raise(vm->error, lily_ErrNoValue, "%s is nil.\n",
+               ((lily_var *)sym)->name);
+}
+
 void lily_vm_execute(lily_vm_state *vm)
 {
     uintptr_t *code;
@@ -386,7 +413,6 @@ void lily_vm_execute(lily_vm_state *vm)
                     v->value = ((lily_sym *)code[i])->value;
                 }
 
-
                 /* Add this entry to the call stack. */
                 stack_entry->method = (lily_sym *)code[i-6+2];
                 stack_entry->code = mval->code;
@@ -398,12 +424,16 @@ void lily_vm_execute(lily_vm_state *vm)
             }
                 break;
             case o_unary_not:
+                if (lhs->flags & S_IS_NIL)
+                    lily_vm_error(vm, i, lhs);
                 lhs = (lily_sym *)code[i+2];
                 rhs = (lily_sym *)code[i+3];
                 rhs->value.integer = !(lhs->value.integer);
                 i += 4;
                 break;
             case o_unary_minus:
+                if (lhs->flags & S_IS_NIL)
+                    lily_vm_error(vm, i, lhs);
                 lhs = (lily_sym *)code[i+2];
                 rhs = (lily_sym *)code[i+3];
                 rhs->value.integer = -lhs->value.integer;
