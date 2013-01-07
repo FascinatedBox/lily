@@ -251,26 +251,6 @@ static void show_sym(lily_sym *sym)
         lily_impl_debugf("(nil)\n");
 }
 
-void lily_show_var_values(lily_symtab *symtab)
-{
-    lily_var *var = symtab->var_start;
-
-    while (var != NULL && var->line_num == 0)
-        var = var->next;
-
-    if (var != NULL) {
-        lily_impl_debugf("Var values:\n");
-
-        while (var != NULL) {
-            if (var->sig->cls->id != SYM_CLASS_METHOD) {
-                lily_impl_debugf("%s %s = ", var->sig->cls->name, var->name);
-                show_sym((lily_sym *)var);
-            }
-            var = var->next;
-        }
-    }
-}
-
 void lily_show_symtab(lily_symtab *symtab)
 {
     lily_var *var = symtab->var_start;
