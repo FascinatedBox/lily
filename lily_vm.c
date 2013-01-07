@@ -77,14 +77,14 @@ static void grow_vm(lily_vm_state *vm)
             sizeof(lily_vm_stack_entry *) * vm->method_stack_size);
 
     if (new_stack == NULL)
-        lily_raise_nomem(vm->error);
+        lily_raise_nomem(vm->raiser);
 
     vm->method_stack = new_stack;
     for (i = vm->method_stack_pos;i < vm->method_stack_size;i++) {
         vm->method_stack[i] = lily_malloc(sizeof(lily_vm_stack_entry));
         if (vm->method_stack[i] == NULL) {
             vm->method_stack_size = i;
-            lily_raise_nomem(vm->error);
+            lily_raise_nomem(vm->raiser);
         }
     }
 }
@@ -99,12 +99,12 @@ static void grow_saved_vals(lily_vm_state *vm, int upto)
             sizeof(lily_saved_val) * vm->val_size);
 
     if (new_values == NULL)
-        lily_raise_nomem(vm->error);
+        lily_raise_nomem(vm->raiser);
 
     vm->saved_values = new_values;
 }
 
-lily_vm_state *lily_new_vm_state(lily_excep_data *error)
+lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
 {
     lily_vm_state *vm = lily_malloc(sizeof(lily_vm_state));
     if (vm == NULL)
@@ -137,7 +137,7 @@ lily_vm_state *lily_new_vm_state(lily_excep_data *error)
     vm->method_stack = method_stack;
     vm->method_stack_pos = 0;
     vm->method_stack_size = 4;
-    vm->error = error;
+    vm->raiser = raiser;
     vm->saved_values = saved_values;
     vm->val_pos = 0;
     vm->val_size = 8;
@@ -258,7 +258,7 @@ void lily_vm_error(lily_vm_state *vm, int code_pos, lily_sym *sym)
        any opcode that might call lily_vm_error. */ 
     top->line_num = top->code[code_pos+1];
     /* Literals and storages can't be nil, so this must be a named var. */
-    lily_raise(vm->error, lily_ErrNoValue, "%s is nil.\n",
+    lily_raise(vm->raiser, lily_ErrNoValue, "%s is nil.\n",
                ((lily_var *)sym)->name);
 }
 

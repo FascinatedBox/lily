@@ -164,7 +164,7 @@ static void scan_str(lily_lex_state *lexer, int *pos)
             ch = lex_buffer[word_pos];
             esc_ch = simple_escape(ch);
             if (esc_ch == 0)
-                lily_raise(lexer->error, lily_ErrSyntax,
+                lily_raise(lexer->raiser, lily_ErrSyntax,
                            "Invalid escape \\%c\n", ch);
 
             label[label_pos] = esc_ch;
@@ -177,7 +177,7 @@ static void scan_str(lily_lex_state *lexer, int *pos)
             ch = lex_buffer[word_start];
         }
         else if (ch == '\r' || ch == '\n')
-            lily_raise(lexer->error, lily_ErrSyntax, "Unterminated string.\n");
+            lily_raise(lexer->raiser, lily_ErrSyntax, "Unterminated string.\n");
 
         word_pos++;
         ch = lex_buffer[word_pos];
@@ -199,11 +199,11 @@ static void scan_str(lily_lex_state *lexer, int *pos)
     /* Prepare the string for the parser. */
     sv = lily_malloc(sizeof(lily_strval));
     if (sv == NULL)
-        lily_raise_nomem(lexer->error);
+        lily_raise_nomem(lexer->raiser);
     str = lily_malloc(str_size);
     if (str == NULL) {
         lily_free(sv);
-        lily_raise_nomem(lexer->error);
+        lily_raise_nomem(lexer->raiser);
     }
 
     if (!escape_seen)
@@ -253,7 +253,7 @@ static int read_line(lily_lex_state *lexer)
                 lexer->lex_buffer = new_lb;
 
             if (new_label == NULL || new_lb == NULL)
-                lily_raise_nomem(lexer->error);
+                lily_raise_nomem(lexer->raiser);
 
             lexer->lex_bufsize = bufsize;
         }
@@ -273,7 +273,7 @@ static int read_line(lily_lex_state *lexer)
                 for (j = 1;j < followers;j++,i++) {
                     ch = fgetc(lex_file);
                     if ((unsigned char)ch < 128 || ch == EOF) {
-                        lily_raise(lexer->error, lily_ErrEncoding,
+                        lily_raise(lexer->raiser, lily_ErrEncoding,
                                    "Invalid utf-8 sequence on line %d.\n",
                                    lexer->line_num);
                     }
@@ -281,7 +281,7 @@ static int read_line(lily_lex_state *lexer)
                 }
             }
             else if (followers == -1) {
-                lily_raise(lexer->error, lily_ErrEncoding,
+                lily_raise(lexer->raiser, lily_ErrEncoding,
                            "Invalid utf-8 sequence on line %d.\n",
                            lexer->line_num);
             }
@@ -365,7 +365,7 @@ void lily_load_file(lily_lex_state *lexer, char *filename)
     FILE *lex_file = fopen(filename, "r");
     if (lex_file == NULL) {
         lexer->filename = NULL;
-        lily_raise(lexer->error, lily_ErrImport, "Failed to open %s.\n",
+        lily_raise(lexer->raiser, lily_ErrImport, "Failed to open %s.\n",
                    filename);
     }
 
@@ -514,7 +514,7 @@ void lily_lexer(lily_lex_state *lexer)
                 token = tk_end_tag;
             }
             else
-                lily_raise(lexer->error, lily_ErrSyntax,
+                lily_raise(lexer->raiser, lily_ErrSyntax,
                            "Expected '>' after '@'.\n");
         }
         else
@@ -645,7 +645,7 @@ int lily_load_str(lily_lex_state *lexer, char *str)
     return 1;
 }
 
-lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
+lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
 {
     lily_lex_state *s = lily_malloc(sizeof(lily_lex_state));
     char *ch_class;
@@ -657,7 +657,7 @@ lily_lex_state *lily_new_lex_state(lily_excep_data *excep_data)
     s->filename = NULL;
 
     /* File will be set by the loader. */
-    s->error = excep_data;
+    s->raiser = raiser;
 
     s->lex_buffer = lily_malloc(128 * sizeof(char));
     s->lex_bufpos = 0;

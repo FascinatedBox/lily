@@ -13,7 +13,7 @@ if ((m->pos + size) > m->len) { \
     m->len *= 2; \
     save_code = lily_realloc(m->code, sizeof(uintptr_t) * m->len); \
     if (save_code == NULL) \
-        lily_raise_nomem(emit->error); \
+        lily_raise_nomem(emit->raiser); \
     m->code = save_code; \
 }
 
@@ -25,7 +25,7 @@ if ((emit->save_cache_pos + size) > emit->save_cache_size) { \
     save_cache = lily_realloc(emit->save_cache, sizeof(uintptr_t) * \
             emit->save_cache_size); \
     if (save_cache == NULL) \
-        lily_raise_nomem(emit->error); \
+        lily_raise_nomem(emit->raiser); \
     emit->save_cache = save_cache; \
 }
 
@@ -39,7 +39,7 @@ if ((m->pos + size) > m->len) { \
         m->len *= 2; \
     save_code = lily_realloc(m->code, sizeof(uintptr_t) * m->len); \
     if (save_code == NULL) \
-        lily_raise_nomem(emit->error); \
+        lily_raise_nomem(emit->raiser); \
     m->code = save_code; \
 }
 
@@ -78,7 +78,7 @@ m->code[m->pos+3] = four; \
 m->code[m->pos+4] = five; \
 m->pos += 5;
 
-/* The emitter sets error->line_adjust with a better line number before calling
+/* The emitter sets raiser->line_adjust with a better line number before calling
    lily_raise. This gives debuggers a chance at a more useful line number.
    Example: integer a = 1.0 +
    1.0
@@ -100,7 +100,7 @@ static inline lily_storage *get_storage_sym(lily_emit_state *emit,
         /* Storages are circularly linked, so this only occurs when all the
            storages have already been taken. */
         if (!lily_try_add_storage(emit->symtab, storage_class))
-            lily_raise_nomem(emit->error);
+            lily_raise_nomem(emit->raiser);
         s = s->next;
     }
 
@@ -125,7 +125,7 @@ static void do_jump_for_tree(lily_emit_state *emit, lily_ast *ast, int jump_on)
             sizeof(int) * emit->patch_size);
 
         if (new_patches == NULL)
-            lily_raise_nomem(emit->error);
+            lily_raise_nomem(emit->raiser);
 
         emit->patches = new_patches;
     }
@@ -218,8 +218,8 @@ static void do_unary_op(lily_emit_state *emit, lily_ast *ast)
     m = emit->target;
     lhs_class = ast->left->result->sig->cls;
     if (lhs_class->id != SYM_CLASS_INTEGER) {
-        emit->error->line_adjust = ast->line_num;
-        lily_raise(emit->error, lily_ErrSyntax, "Invalid operation: %s%s.\n",
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise(emit->raiser, lily_ErrSyntax, "Invalid operation: %s%s.\n",
                    opname(ast->op), lhs_class->name);
     }
 
@@ -257,8 +257,8 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
         opcode = -1;
 
     if (opcode == -1) {
-        emit->error->line_adjust = ast->line_num;
-        lily_raise(emit->error, lily_ErrSyntax,
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise(emit->raiser, lily_ErrSyntax,
                    "Invalid operation: %s %s %s.\n", lhs_class->name,
                    opname(ast->op), rhs_class->name);
     }
@@ -308,8 +308,8 @@ static void do_bad_arg_error(lily_emit_state *emit, lily_ast *ast,
     lily_msgbuf_add(mb, "'.\n");
 
     /* Just in case this arg was on a different line than the call. */
-    emit->error->line_adjust = ast->line_num;
-    lily_raise_msgbuf(emit->error, lily_ErrSyntax, mb);
+    emit->raiser->line_adjust = ast->line_num;
+    lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
 }
 
 static void check_call_args(lily_emit_state *emit, lily_ast *ast,
@@ -497,8 +497,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             if (ast->parent == NULL)
                 ast->result = NULL;
             else {
-                emit->error->line_adjust = ast->line_num;
-                lily_raise(emit->error, lily_ErrSyntax,
+                emit->raiser->line_adjust = ast->line_num;
+                lily_raise(emit->raiser, lily_ErrSyntax,
                            "Call returning nil not at end of expression.");
             }
         }
@@ -517,8 +517,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             lily_sym *left_sym, *right_sym;
 
             if (ast->left->expr_type != var) {
-                emit->error->line_adjust = ast->line_num;
-                lily_raise(emit->error, lily_ErrSyntax,
+                emit->raiser->line_adjust = ast->line_num;
+                lily_raise(emit->raiser, lily_ErrSyntax,
                            "Left side of = is not a var.\n");
             }
 
@@ -532,8 +532,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                 if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
                     opcode = o_obj_assign;
                 else {
-                    emit->error->line_adjust = ast->line_num;
-                    lily_raise(emit->error, lily_ErrSyntax,
+                    emit->raiser->line_adjust = ast->line_num;
+                    lily_raise(emit->raiser, lily_ErrSyntax,
                                "Cannot assign %s to %s.\n",
                                left_sym->sig->cls->name,
                                right_sym->sig->cls->name);
@@ -603,13 +603,13 @@ void lily_emit_clear_block(lily_emit_state *emit, int have_else)
 
     if (have_else) {
         if (emit->block_types[emit->block_pos-1] == BLOCK_IFELSE)
-            lily_raise(emit->error, lily_ErrSyntax,
+            lily_raise(emit->raiser, lily_ErrSyntax,
                        "Only one 'else' per 'if' allowed.\n");
         else
             emit->block_types[emit->block_pos-1] = BLOCK_IFELSE;
     }
     else if (emit->block_types[emit->block_pos-1] == BLOCK_IFELSE)
-        lily_raise(emit->error, lily_ErrSyntax,
+        lily_raise(emit->raiser, lily_ErrSyntax,
                    "'elif' after 'else'.\n");
 
     if (v->next != NULL) {
@@ -644,7 +644,7 @@ void lily_emit_push_block(lily_emit_state *emit, int btype)
             if (new_var_starts != NULL)
                 emit->block_var_starts = new_var_starts;
 
-            lily_raise_nomem(emit->error);
+            lily_raise_nomem(emit->raiser);
         }
         emit->block_types = new_types;
         emit->block_var_starts = new_var_starts;
@@ -657,7 +657,7 @@ void lily_emit_push_block(lily_emit_state *emit, int btype)
                 sizeof(int) * emit->ctrl_patch_size);
 
             if (new_starts == NULL)
-                lily_raise_nomem(emit->error);
+                lily_raise_nomem(emit->raiser);
 
             emit->ctrl_patch_starts = new_starts;
         }
@@ -734,7 +734,7 @@ void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
             if (new_offsets != NULL)
                 emit->method_id_offsets = new_offsets;
 
-            lily_raise_nomem(emit->error);
+            lily_raise_nomem(emit->raiser);
         }
 
         emit->method_vals = new_vals;
@@ -795,7 +795,7 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free(emit);
 }
 
-lily_emit_state *lily_new_emit_state(lily_excep_data *excep)
+lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
 {
     lily_emit_state *s = lily_malloc(sizeof(lily_emit_state));
 
@@ -832,7 +832,7 @@ lily_emit_state *lily_new_emit_state(lily_excep_data *excep)
     s->method_pos = 0;
     s->method_size = 4;
 
-    s->error = excep;
+    s->raiser = raiser;
     s->expr_num = 1;
 
     return s;

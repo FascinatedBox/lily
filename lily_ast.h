@@ -39,7 +39,7 @@ typedef struct {
     int save_size;
     int tree_index;
     int tree_size;
-    lily_excep_data *error;
+    lily_raiser *raiser;
     int *lex_linenum;
 } lily_ast_pool;
 
@@ -47,7 +47,7 @@ void lily_ast_add_arg(lily_ast_pool *, lily_ast *, lily_ast *);
 void lily_ast_collect_arg(lily_ast_pool *);
 void lily_ast_enter_call(lily_ast_pool *, lily_var *);
 void lily_ast_free_pool(lily_ast_pool *);
-lily_ast_pool *lily_ast_init_pool(lily_excep_data *, int);
+lily_ast_pool *lily_ast_init_pool(lily_raiser *, int);
 void lily_ast_pop_tree(lily_ast_pool *);
 void lily_ast_push_binary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_sym(lily_ast_pool *, lily_sym *);

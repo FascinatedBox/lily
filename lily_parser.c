@@ -28,18 +28,18 @@
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
 if (lex->token != expected) \
-    lily_raise(parser->error, lily_ErrSyntax, "Expected '%s', not %s.\n", \
+    lily_raise(parser->raiser, lily_ErrSyntax, "Expected '%s', not %s.\n", \
                tokname(expected), tokname(lex->token)); \
 
 #define NEED_CURRENT_TOK(expected) \
 if (lex->token != expected) \
-    lily_raise(parser->error, lily_ErrSyntax, "Expected '%s', not %s.\n", \
+    lily_raise(parser->raiser, lily_ErrSyntax, "Expected '%s', not %s.\n", \
                tokname(expected), tokname(lex->token));
 
 #define NEED_NEXT_TOK_MSG(expected, msg) \
 lily_lexer(lex); \
 if (lex->token != expected) \
-    lily_raise(parser->error, lily_ErrSyntax, "Expected " msg ", not %s.\n", \
+    lily_raise(parser->raiser, lily_ErrSyntax, "Expected " msg ", not %s.\n", \
                tokname(lex->token)); \
 
 /* table[token] = true/false. Used to check if a given token can be the start of
@@ -134,7 +134,7 @@ static void enter_oo_call(lily_parse_state *parser)
 
     call_var = lily_find_class_callable(cls, parser->lex->label);
     if (call_var == NULL) {
-        lily_raise(parser->error, lily_ErrSyntax,
+        lily_raise(parser->raiser, lily_ErrSyntax,
                    "Class %s has no callable named %s.\n", cls->name,
                    parser->lex->label);
     }
@@ -167,7 +167,7 @@ static void expression_value(lily_parse_state *parser)
             lily_var *var = lily_var_by_name(symtab, lex->label);
 
             if (var == NULL)
-                lily_raise(parser->error, lily_ErrSyntax,
+                lily_raise(parser->raiser, lily_ErrSyntax,
                            "Variable '%s' is undefined.\n", lex->label);
 
             if (var->sig->cls->id == SYM_CLASS_FUNCTION ||
@@ -215,7 +215,7 @@ static void expression_value(lily_parse_state *parser)
                 continue;
             }
             else
-                lily_raise(parser->error, lily_ErrSyntax,
+                lily_raise(parser->raiser, lily_ErrSyntax,
                            "Expected a value, not '%s'.\n", 
                            tokname(lex->token));
 
@@ -256,7 +256,7 @@ static void expression(lily_parse_state *parser, int flags)
         while (1) {
             if (lex->token == tk_word) {
                 if (parser->ast_pool->save_index != 0)
-                    lily_raise(parser->error, lily_ErrSyntax,
+                    lily_raise(parser->raiser, lily_ErrSyntax,
                                "Expected ')' or a binary op, not a label.\n");
 
                 break;
@@ -284,7 +284,7 @@ static void expression(lily_parse_state *parser, int flags)
             }
             else if (lex->token == tk_comma) {
                 if (parser->ast_pool->active == NULL)
-                    lily_raise(parser->error, lily_ErrSyntax,
+                    lily_raise(parser->raiser, lily_ErrSyntax,
                                "Expected a value, not ','.\n");
 
                 /* If this is inside of a decl list (integer a, b, c...), then
@@ -309,7 +309,7 @@ static void expression(lily_parse_state *parser, int flags)
                          lex->token == tk_end_tag || lex->token == tk_eof)
                     break;
                 else {
-                    lily_raise(parser->error, lily_ErrSyntax,
+                    lily_raise(parser->raiser, lily_ErrSyntax,
                                "Expected maybe a binary operator, not %s.\n",
                                tokname(lex->token));
                 }
@@ -341,7 +341,7 @@ static void declaration(lily_parse_state *parser, lily_class *cls)
 
         var = lily_var_by_name(parser->symtab, lex->label);
         if (var != NULL)
-            lily_raise(parser->error, lily_ErrSyntax,
+            lily_raise(parser->raiser, lily_ErrSyntax,
                        "%s has already been declared.\n", var->name);
 
         var = lily_new_var(parser->symtab, cls, lex->label);
@@ -358,7 +358,7 @@ static void declaration(lily_parse_state *parser, lily_class *cls)
             lex->token == tk_eof)
             break;
         else if (lex->token != tk_comma) {
-            lily_raise(parser->error, lily_ErrSyntax,
+            lily_raise(parser->raiser, lily_ErrSyntax,
                        "Expected ',' or ')', not %s.\n", tokname(lex->token));
         }
         /* else comma, so just jump back up. */
@@ -410,7 +410,7 @@ static void parse_simple_condition(lily_parse_state *parser)
                                EX_CONDITION);
 
                 if (lex->token != tk_colon)
-                    lily_raise(parser->error, lily_ErrSyntax,
+                    lily_raise(parser->raiser, lily_ErrSyntax,
                                "Expected ':', not %s.\n", tokname(lex->token));
 
                 lily_lexer(lex);
@@ -428,7 +428,7 @@ static void parse_simple_condition(lily_parse_state *parser)
                                EX_CONDITION);
 
                 if (lex->token != tk_colon)
-                    lily_raise(parser->error, lily_ErrSyntax,
+                    lily_raise(parser->raiser, lily_ErrSyntax,
                                "Expected ':', not %s.\n", tokname(lex->token));
 
                 lily_lexer(lex);
@@ -438,7 +438,7 @@ static void parse_simple_condition(lily_parse_state *parser)
 
                 lily_lexer(lex);
                 if (lex->token != tk_colon)
-                    lily_raise(parser->error, lily_ErrSyntax,
+                    lily_raise(parser->raiser, lily_ErrSyntax,
                                "Expected ':', not %s.\n", tokname(lex->token));
 
                 lily_lexer(lex);
@@ -468,7 +468,7 @@ static void parse_method_decl(lily_parse_state *parser)
     m = lily_try_new_method_val(parser->symtab);
     if (m == NULL) {
         method_var->value.ptr = NULL;
-        lily_raise_nomem(parser->error);
+        lily_raise_nomem(parser->raiser);
     }
     else
         method_var->value.ptr = m;
@@ -490,7 +490,7 @@ static void parse_method_decl(lily_parse_state *parser)
             NEED_CURRENT_TOK(tk_word)
             cls = lily_class_by_name(parser->symtab, lex->label);
             if (cls == NULL)
-                lily_raise(parser->error, lily_ErrSyntax,
+                lily_raise(parser->raiser, lily_ErrSyntax,
                            "unknown class name %s.\n", lex->label);
 
             NEED_NEXT_TOK(tk_word)
@@ -507,7 +507,7 @@ static void parse_method_decl(lily_parse_state *parser)
             else {
                 lily_free(m->code);
                 lily_free(m);
-                lily_raise(parser->error, lily_ErrSyntax,
+                lily_raise(parser->raiser, lily_ErrSyntax,
                            "Expected ',' or ')', not %s.\n",
                            tokname(lex->token));
             }
@@ -528,7 +528,7 @@ static void parse_method_decl(lily_parse_state *parser)
         if (strcmp(lex->label, "nil") == 0)
             csig->ret = NULL;
         else
-            lily_raise(parser->error, lily_ErrSyntax,
+            lily_raise(parser->raiser, lily_ErrSyntax,
                        "unknown class name %s.\n", lex->label);
     }
 
@@ -539,7 +539,7 @@ static void parse_method_decl(lily_parse_state *parser)
     if (i != 0) {
         csig->args = lily_malloc(sizeof(lily_sig *) * i);
         if (csig->args == NULL)
-            lily_raise_nomem(parser->error);
+            lily_raise_nomem(parser->raiser);
 
         for (j = 0;j < i;j++) {
             csig->args[j] = save_top->sig;
@@ -620,7 +620,7 @@ void lily_free_parse_state(lily_parse_state *parser)
     lily_free(parser);
 }
 
-lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
+lily_parse_state *lily_new_parse_state(lily_raiser *raiser)
 {
     lily_parse_state *s = lily_malloc(sizeof(lily_parse_state));
 
@@ -628,13 +628,13 @@ lily_parse_state *lily_new_parse_state(lily_excep_data *excep)
         return NULL;
 
     s->mode = pm_init;
-    s->ast_pool = lily_ast_init_pool(excep, 8);
-    s->error = excep;
+    s->ast_pool = lily_ast_init_pool(raiser, 8);
+    s->raiser = raiser;
 
-    s->symtab = lily_new_symtab(excep);
-    s->emit = lily_new_emit_state(excep);
-    s->lex = lily_new_lex_state(excep);
-    s->vm = lily_new_vm_state(excep);
+    s->symtab = lily_new_symtab(raiser);
+    s->emit = lily_new_emit_state(raiser);
+    s->lex = lily_new_lex_state(raiser);
+    s->vm = lily_new_vm_state(raiser);
 
     if (s->lex == NULL || s->emit == NULL || s->symtab == NULL ||
         s->ast_pool == NULL || s->vm == NULL) {

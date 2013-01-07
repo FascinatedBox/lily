@@ -100,7 +100,7 @@ static lily_ast *next_pool_ast(lily_ast_pool *ap)
                    sizeof(lily_ast *) * ap->tree_size * 2);
 
         if (new_tree_pool == NULL)
-            lily_raise_nomem(ap->error);
+            lily_raise_nomem(ap->raiser);
 
         ap->tree_size *= 2;
         ap->tree_pool = new_tree_pool;
@@ -110,7 +110,7 @@ static lily_ast *next_pool_ast(lily_ast_pool *ap)
             ap->tree_pool[i] = lily_malloc(sizeof(lily_ast));
             if (ap->tree_pool[i] == NULL) {
                 ap->tree_size = i+1;
-                lily_raise_nomem(ap->error);
+                lily_raise_nomem(ap->raiser);
             }
         }
     }
@@ -191,7 +191,7 @@ void lily_ast_enter_call(lily_ast_pool *ap, lily_var *var)
                                  ap->save_size);
 
         if (new_saved == NULL)
-            lily_raise_nomem(ap->error);
+            lily_raise_nomem(ap->raiser);
 
         ap->saved_trees = new_saved;
     }
@@ -216,7 +216,7 @@ void lily_ast_free_pool(lily_ast_pool *ap)
     lily_free(ap);
 }
 
-lily_ast_pool *lily_ast_init_pool(lily_excep_data *excep, int pool_size)
+lily_ast_pool *lily_ast_init_pool(lily_raiser *raiser, int pool_size)
 {
     lily_ast_pool *ret;
     int i;
@@ -253,7 +253,7 @@ lily_ast_pool *lily_ast_init_pool(lily_excep_data *excep, int pool_size)
         return NULL;
     }
 
-    ret->error = excep;
+    ret->raiser = raiser;
     ret->tree_index = 0;
     ret->tree_size = pool_size;
     ret->save_index = 0;
@@ -319,8 +319,8 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
             /* Allow for -extra- args, but -only- if it's var args. */
             if ((a->args_collected > args_needed &&
                 v->sig->node.call->is_varargs) == 0) {
-                ap->error->line_adjust = a->line_num;
-                lily_raise(ap->error, lily_ErrSyntax,
+                ap->raiser->line_adjust = a->line_num;
+                lily_raise(ap->raiser, lily_ErrSyntax,
                            "%s expects %s%d args, got %d.\n",
                            ((lily_var *)a->result)->name, errstr, args_needed,
                            a->args_collected);
