@@ -14,7 +14,6 @@ CORE_OBJECTS=$(OBJDIR)/lily_parser.o \
 			$(OBJDIR)/lily_emitter.o \
 			$(OBJDIR)/lily_symtab.o \
 			$(OBJDIR)/lily_vm.o \
-			$(OBJDIR)/lily_interp.o \
 			$(OBJDIR)/lily_debug.o \
 			$(OBJDIR)/lily_raiser.o \
 			$(OBJDIR)/lily_msgbuf.o \
@@ -26,7 +25,6 @@ AFT_OBJECTS=$(AFT_DIR)/lily_aft_parser.o \
 			$(AFT_DIR)/lily_aft_emitter.o \
 			$(AFT_DIR)/lily_aft_symtab.o \
 			$(AFT_DIR)/lily_aft_vm.o \
-			$(AFT_DIR)/lily_aft_interp.o \
 			$(AFT_DIR)/lily_aft_debug.o \
 			$(AFT_DIR)/lily_aft_raiser.o \
 			$(AFT_DIR)/lily_aft_msgbuf.o \
@@ -58,10 +56,10 @@ $(OBJDIR)/fs_main.o: fs_main.c lily_lexer.h lily_parser.h lily_emitter.h \
 					 lily_symtab.h
 	$(CC) $(CFLAGS) fs_main.c -o $(OBJDIR)/fs_main.o
 
-$(OBJDIR)/strload_main.o: strload_main.c lily_interp.h
+$(OBJDIR)/strload_main.o: strload_main.c lily_parser.h
 	$(CC) $(CFLAGS) strload_main.c -o $(OBJDIR)/strload_main.o
 
-$(AFT_DIR)/aft_main.o: aft_main.c lily_interp.h
+$(AFT_DIR)/aft_main.o: aft_main.c lily_parser.h
 	$(CC) $(AFT_CFLAGS) aft_main.c -o $(AFT_DIR)/aft_main.o
 
 # Standard (non-debug) core
@@ -85,9 +83,6 @@ $(OBJDIR)/lily_symtab.o: lily_symtab.c lily_symtab.h lily_seed_symtab.h
 
 $(OBJDIR)/lily_vm.o: lily_vm.c lily_vm.h
 	$(CC) $(CFLAGS) lily_vm.c -o $(OBJDIR)/lily_vm.o
-
-$(OBJDIR)/lily_interp.o: lily_interp.c lily_interp.h
-	$(CC) $(CFLAGS) lily_interp.c -o $(OBJDIR)/lily_interp.o
 
 $(OBJDIR)/lily_debug.o: lily_debug.c lily_debug.h
 	$(CC) $(CFLAGS) lily_debug.c -o $(OBJDIR)/lily_debug.o
@@ -125,9 +120,6 @@ $(AFT_DIR)/lily_aft_symtab.o: lily_symtab.c lily_symtab.h lily_seed_symtab.h
 
 $(AFT_DIR)/lily_aft_vm.o: lily_vm.c lily_vm.h
 	$(CC) $(AFT_CFLAGS) lily_vm.c -o $(AFT_DIR)/lily_aft_vm.o
-
-$(AFT_DIR)/lily_aft_interp.o: lily_interp.c lily_interp.h
-	$(CC) $(AFT_CFLAGS) lily_interp.c -o $(AFT_DIR)/lily_aft_interp.o
 
 $(AFT_DIR)/lily_aft_debug.o: lily_debug.c lily_debug.h
 	$(CC) $(AFT_CFLAGS) lily_debug.c -o $(AFT_DIR)/lily_aft_debug.o

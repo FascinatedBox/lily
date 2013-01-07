@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "lily_interp.h"
+#include "lily_parser.h"
 
 /* strload_main.c :
    This makes sure that the lexer can handle a string instead of a file. */
@@ -33,8 +33,8 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    lily_interp *interp = lily_new_interp();
-    if (interp == NULL) {
+    lily_parse_state *parser = lily_new_parse_state();
+    if (parser == NULL) {
         fputs("ErrNoMemory: No memory to alloc interpreter.\n", stderr);
         exit(EXIT_FAILURE);
     }
@@ -44,9 +44,8 @@ int main(int argc, char **argv)
 
     for (i = 0;i < num_tests;i++) {
         fprintf(stderr, "Running strload test #%d.\n", i);
-        if (lily_parse_string(interp, tests[i]) == 0) {
-            lily_parse_state *parser = interp->parser;
-            lily_raiser *raiser = interp->raiser;
+        if (lily_parse_string(parser, tests[i]) == 0) {
+            lily_raiser *raiser = parser->raiser;
             fprintf(stderr, "%s", lily_name_for_error(raiser->error_code));
             if (raiser->message)
                 fprintf(stderr, ": %s", raiser->message);
@@ -55,13 +54,13 @@ int main(int argc, char **argv)
 
             if (parser->mode == pm_parse) {
                 int line_num;
-                if (interp->raiser->line_adjust == 0)
-                    line_num = interp->parser->lex->line_num;
+                if (raiser->line_adjust == 0)
+                    line_num = parser->lex->line_num;
                 else
-                    line_num = interp->raiser->line_adjust;
+                    line_num = raiser->line_adjust;
 
                 fprintf(stderr, "Where: File \"%s\" at line %d\n",
-                        interp->parser->lex->filename, line_num);
+                        parser->lex->filename, line_num);
             }
             else if (parser->mode == pm_execute) {
                 lily_vm_stack_entry **vm_stack;
@@ -80,6 +79,6 @@ int main(int argc, char **argv)
         }
     }
 
-    lily_free_interp(interp);
+    lily_free_parse_state(parser);
     exit(EXIT_SUCCESS);
 }
