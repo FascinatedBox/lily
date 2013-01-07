@@ -617,17 +617,23 @@ void lily_free_parse_state(lily_parse_state *parser)
     lily_free_lex_state(parser->lex);
     lily_free_emit_state(parser->emit);
     lily_free_vm_state(parser->vm);
+    lily_free(parser->raiser);
     lily_free(parser);
 }
 
-lily_parse_state *lily_new_parse_state(lily_raiser *raiser)
+lily_parse_state *lily_new_parse_state(void)
 {
     lily_parse_state *s = lily_malloc(sizeof(lily_parse_state));
+    lily_raiser *raiser = lily_malloc(sizeof(lily_raiser));
 
-    if (s == NULL)
+    if (s == NULL || raiser == NULL) {
+        lily_free(s);
+        lily_free(raiser);
         return NULL;
+    }
 
-    s->mode = pm_init;
+    raiser->line_adjust = 0;
+    raiser->message = NULL;
     s->ast_pool = lily_ast_init_pool(raiser, 8);
     s->raiser = raiser;
 
@@ -698,4 +704,29 @@ void lily_parser(lily_parse_state *parser)
                 break;
         }
     }
+}
+
+/* Public parse-starting routines. */
+
+int lily_parse_file(lily_parse_state *parser, char *filename)
+{
+    if (setjmp(parser->raiser->jump) == 0) {
+        lily_load_file(parser->lex, filename);
+        lily_parser(parser);
+        return 1;
+    }
+
+    return 0;
+}
+
+int lily_parse_string(lily_parse_state *parser, char *str)
+{
+    if (setjmp(parser->raiser->jump) == 0) {
+        lily_load_str(parser->lex, str);
+        lily_parser(parser);
+        parser->lex->lex_buffer = NULL;
+        return 1;
+    }
+
+    return 0;
 }

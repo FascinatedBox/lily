@@ -9,7 +9,6 @@
 # include "lily_vm.h"
 
 typedef enum {
-    pm_init,
     pm_parse,
     pm_execute
 } lily_parse_mode;
@@ -25,7 +24,8 @@ typedef struct {
 } lily_parse_state;
 
 void lily_free_parse_state(lily_parse_state *);
-lily_parse_state *lily_new_parse_state(lily_raiser *);
-void lily_parser(lily_parse_state *);
+lily_parse_state *lily_new_parse_state(void);
+int lily_parse_file(lily_parse_state *, char *);
+int lily_parse_string(lily_parse_state *, char *);
 
 #endif
