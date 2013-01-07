@@ -690,8 +690,6 @@ void lily_parser(lily_parse_state *parser)
             lily_vm_execute(parser->vm);
             parser->mode = pm_parse;
 
-            /* Show var values, to verify execution went as expected. */
-            lily_show_var_values(parser->symtab);
             /* Clear @main for the next pass. */
             lily_reset_main(parser->emit);
 
