@@ -1,11 +1,11 @@
 #ifndef LILY_INTERP_H
 # define LILY_INTERP_H
 
-# include "lily_error.h"
+# include "lily_raiser.h"
 # include "lily_parser.h"
 
 typedef struct lily_interp_t {
-    lily_excep_data *error;
+    lily_raiser *raiser;
     lily_parse_state *parser;
 } lily_interp;
 

@@ -1,15 +1,15 @@
 #include <stdarg.h>
 
 #include "lily_impl.h"
-#include "lily_error.h"
+#include "lily_raiser.h"
 
 static const char *lily_error_names[] =
     {"ErrNoMemory", "ErrSyntax", "ErrImport", "ErrEncoding", "ErrNoValue"};
 
-void lily_raise(lily_excep_data *error, int error_code, char *fmt, ...)
+void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
 {
-    /* A best effort at making sure interp->excep_msg is the whole error
-       message. err_msg set to NULL if that's not possible. */
+    /* A best effort at making sure raiser->message is the whole error message.
+       message set to NULL if that's not possible. */
     char *buffer, *tmpbuffer;
     int va_size;
     va_list arglist;
@@ -20,7 +20,7 @@ void lily_raise(lily_excep_data *error, int error_code, char *fmt, ...)
         if (cursize == 0) {
             buffer = lily_malloc(64 * sizeof(char));
             if (buffer == NULL) {
-                error->message = NULL;
+                raiser->message = NULL;
                 break;
             }
             cursize = 64;
@@ -31,7 +31,7 @@ void lily_raise(lily_excep_data *error, int error_code, char *fmt, ...)
         }
         else {
             lily_free(buffer);
-            error->message = NULL;
+            raiser->message = NULL;
             break;
         }
 
@@ -45,28 +45,28 @@ void lily_raise(lily_excep_data *error, int error_code, char *fmt, ...)
         else if (va_size > cursize)
             nextsize = va_size + 2;
         else {
-            error->message = buffer;
+            raiser->message = buffer;
             break;
         }
     }
 
-    error->error_code = error_code;
-    longjmp(error->jump, 1);
+    raiser->error_code = error_code;
+    longjmp(raiser->jump, 1);
 }
 
-void lily_raise_msgbuf(lily_excep_data *error, int error_code, lily_msgbuf *mb)
+void lily_raise_msgbuf(lily_raiser *raiser, int error_code, lily_msgbuf *mb)
 {
-    error->error_code = error_code;
-    error->message = mb->msg;
+    raiser->error_code = error_code;
+    raiser->message = mb->msg;
     lily_free(mb);
 
-    longjmp(error->jump, 1);
+    longjmp(raiser->jump, 1);
 }
 
-void lily_raise_nomem(lily_excep_data *error)
+void lily_raise_nomem(lily_raiser *raiser)
 {
-    error->error_code = lily_ErrNoMemory;
-    longjmp(error->jump, 1);
+    raiser->error_code = lily_ErrNoMemory;
+    longjmp(raiser->jump, 1);
 }
 
 const char *lily_name_for_error(int error_code)

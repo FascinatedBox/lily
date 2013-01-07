@@ -1,7 +1,7 @@
 #ifndef LILY_PARSER_H
 # define LILY_PARSER_H
 
-# include "lily_error.h"
+# include "lily_raiser.h"
 # include "lily_ast.h"
 # include "lily_lexer.h"
 # include "lily_emitter.h"
@@ -20,12 +20,12 @@ typedef struct {
     lily_emit_state *emit;
     lily_symtab *symtab;
     lily_vm_state *vm;
-    lily_excep_data *error;
+    lily_raiser *raiser;
     lily_parse_mode mode;
 } lily_parse_state;
 
 void lily_free_parse_state(lily_parse_state *);
-lily_parse_state *lily_new_parse_state(lily_excep_data *);
+lily_parse_state *lily_new_parse_state(lily_raiser *);
 void lily_parser(lily_parse_state *);
 
 #endif

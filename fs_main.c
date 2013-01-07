@@ -35,19 +35,19 @@ int main(int argc, char **argv)
 
     if (lily_parse_file(interp, argv[1]) == 0) {
         lily_parse_state *parser = interp->parser;
-        lily_excep_data *error = interp->error;
-        fprintf(stderr, "%s", lily_name_for_error(error->error_code));
-        if (error->message)
-            fprintf(stderr, ": %s", error->message);
+        lily_raiser *raiser = interp->raiser;
+        fprintf(stderr, "%s", lily_name_for_error(raiser->error_code));
+        if (raiser->message)
+            fprintf(stderr, ": %s", raiser->message);
         else
             fputc('\n', stderr);
 
         if (parser->mode == pm_parse) {
             int line_num;
-            if (interp->error->line_adjust == 0)
+            if (interp->raiser->line_adjust == 0)
                 line_num = interp->parser->lex->line_num;
             else
-                line_num = interp->error->line_adjust;
+                line_num = interp->raiser->line_adjust;
 
             fprintf(stderr, "Where: File \"%s\" at line %d\n",
                     interp->parser->lex->filename, line_num);

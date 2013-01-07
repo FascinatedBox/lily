@@ -1,7 +1,7 @@
 #ifndef LILY_EMITTER_H
 # define LILY_EMITTER_H
 
-# include "lily_error.h"
+# include "lily_raiser.h"
 # include "lily_symtab.h"
 
 typedef struct {
@@ -31,7 +31,7 @@ typedef struct {
     int method_pos;
     int method_size;
 
-    lily_excep_data *error;
+    lily_raiser *raiser;
     lily_symtab *symtab;
     int expr_num;
 } lily_emit_state;
@@ -53,6 +53,6 @@ void lily_emit_return_noval(lily_emit_state *);
 void lily_emit_vm_return(lily_emit_state *);
 void lily_free_emit_state(lily_emit_state *);
 void lily_reset_main(lily_emit_state *);
-lily_emit_state *lily_new_emit_state(lily_excep_data *);
+lily_emit_state *lily_new_emit_state(lily_raiser *);
 
 #endif

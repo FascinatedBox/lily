@@ -2,7 +2,7 @@
 # define LILY_SYMTAB_H
 
 # include <stdint.h>
-# include "lily_error.h"
+# include "lily_raiser.h"
 # include "lily_opcode.h"
 
 typedef struct {
@@ -119,7 +119,7 @@ typedef struct {
     int next_lit_id;
     int next_storage_id;
     int *lex_linenum;
-    lily_excep_data *error;
+    lily_raiser *raiser;
 } lily_symtab;
 
 /* Sync with keywords in lily_seed_symtab.h. */
@@ -146,7 +146,7 @@ lily_var *lily_find_class_callable(lily_class *, char *);
 void lily_free_symtab(lily_symtab *);
 int lily_keyword_by_name(char *);
 lily_literal *lily_new_literal(lily_symtab *, lily_class *, lily_value);
-lily_symtab *lily_new_symtab(lily_excep_data *);
+lily_symtab *lily_new_symtab(lily_raiser *);
 lily_var *lily_new_var(lily_symtab *, lily_class *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
 int lily_try_add_storage(lily_symtab *, lily_class *);

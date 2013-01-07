@@ -445,7 +445,7 @@ int init_package(lily_symtab *symtab, int cls_id, lily_func_seed **seeds,
     return ret;
 }
 
-lily_symtab *lily_new_symtab(lily_excep_data *excep)
+lily_symtab *lily_new_symtab(lily_raiser *raiser)
 {
     lily_symtab *s = lily_malloc(sizeof(lily_symtab));
 
@@ -471,7 +471,7 @@ lily_symtab *lily_new_symtab(lily_excep_data *excep)
         return NULL;
     }
 
-    s->error = excep;
+    s->raiser = raiser;
 
     return s;
 }
@@ -497,7 +497,7 @@ lily_literal *lily_new_literal(lily_symtab *symtab, lily_class *cls, lily_value 
             lily_free(sv->str);
             lily_free(sv);
         }
-        lily_raise_nomem(symtab->error);
+        lily_raise_nomem(symtab->raiser);
     }
     /* Literals are either str, integer, or number, so this is safe. */
     lit->sig = cls->sig;
@@ -518,19 +518,19 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_class *cls, char *name)
     lily_var *var = lily_malloc(sizeof(lily_var));
 
     if (var == NULL)
-        lily_raise_nomem(symtab->error);
+        lily_raise_nomem(symtab->raiser);
 
     var->name = lily_malloc(strlen(name) + 1);
     if (var->name == NULL) {
         lily_free(var);
-        lily_raise_nomem(symtab->error);
+        lily_raise_nomem(symtab->raiser);
     }
 
     lily_sig *sig = try_sig_for_class(cls);
     if (sig == NULL) {
         lily_free(var->name);
         lily_free(var);
-        lily_raise_nomem(symtab->error);
+        lily_raise_nomem(symtab->raiser);
     }
 
     if (cls->id == SYM_CLASS_STR)
