@@ -45,6 +45,10 @@ all: lily_fs lily_strload lily_failtest lily_aft
 clean:
 	rm -f $(OBJDIR)/* $(AFT_DIR)/* lily_fs lily_strload lily_failtest lily_aft
 
+passfailcheck:
+	./lily_fs sanity.ly 2>/dev/null | grep "Tests passed"
+	./lily_failtest 2>/dev/stdout | grep "Tests failed"
+
 lily_strload: $(STRLOAD_OBJECTS)
 	$(CC) $(STRLOAD_OBJECTS) -o lily_strload
 
