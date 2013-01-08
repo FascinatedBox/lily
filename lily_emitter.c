@@ -760,10 +760,23 @@ void lily_emit_leave_method(lily_emit_state *emit)
     emit->target_ret = emit->method_rets[emit->method_pos-1];
 }
 
-void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *sig)
+void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
 {
     walk_tree(emit, ast);
     emit->expr_num++;
+
+    /* todo: Expand this to cover complex (ex: func/class) sigs later, but only
+       when those can be returned. */
+    if (ast->result->sig != ret_sig) {
+        lily_msgbuf *mb = lily_new_msgbuf("'return' expected type '");
+        write_type(mb, ret_sig);
+        lily_msgbuf_add(mb, "' but got type '");
+        write_type(mb, ast->result->sig);
+        lily_msgbuf_add(mb, "'.\n");
+
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
+    }
 
     lily_method_val *m = emit->target;
     WRITE_2(o_return_val, (uintptr_t)ast->result)
