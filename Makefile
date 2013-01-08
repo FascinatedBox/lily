@@ -37,10 +37,13 @@ FS_OBJECTS=$(CORE_OBJECTS) \
 STRLOAD_OBJECTS=$(CORE_OBJECTS) \
 				$(OBJDIR)/strload_main.o
 
-all: lily_fs lily_strload lily_aft
+FAILTEST_OBJECTS=$(CORE_OBJECTS) \
+					$(OBJDIR)/failtest_main.o
+
+all: lily_fs lily_strload lily_failtest lily_aft 
 
 clean:
-	rm -f $(OBJDIR)/* $(AFT_DIR)/* lily_fs lily_strload lily_aft
+	rm -f $(OBJDIR)/* $(AFT_DIR)/* lily_fs lily_strload lily_failtest lily_aft
 
 lily_strload: $(STRLOAD_OBJECTS)
 	$(CC) $(STRLOAD_OBJECTS) -o lily_strload
@@ -51,6 +54,9 @@ lily_fs: $(FS_OBJECTS)
 lily_aft: $(AFT_OBJECTS)
 	$(CC) $(AFT_OBJECTS) -o lily_aft
 
+lily_failtest: $(FAILTEST_OBJECTS)
+	$(CC) $(FAILTEST_OBJECTS) -o lily_failtest
+
 # Becomes an executable
 $(OBJDIR)/fs_main.o: fs_main.c lily_lexer.h lily_parser.h lily_emitter.h \
 					 lily_symtab.h
@@ -58,6 +64,9 @@ $(OBJDIR)/fs_main.o: fs_main.c lily_lexer.h lily_parser.h lily_emitter.h \
 
 $(OBJDIR)/strload_main.o: strload_main.c lily_parser.h
 	$(CC) $(CFLAGS) strload_main.c -o $(OBJDIR)/strload_main.o
+
+$(OBJDIR)/failtest_main.o: failtest_main.c lily_parser.h
+	$(CC) $(CFLAGS) failtest_main.c -o $(OBJDIR)/failtest_main.o
 
 $(AFT_DIR)/aft_main.o: aft_main.c lily_parser.h
 	$(CC) $(AFT_CFLAGS) aft_main.c -o $(AFT_DIR)/aft_main.o
