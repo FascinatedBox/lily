@@ -297,8 +297,7 @@ static void do_bad_arg_error(lily_emit_state *emit, lily_ast *ast,
     lily_var *v = (lily_var *)ast->result;
     lily_call_sig *csig = v->sig->node.call;
 
-    lily_msgbuf *mb = lily_new_msgbuf("Error : ");
-    lily_msgbuf_add(mb, v->name);
+    lily_msgbuf *mb = lily_new_msgbuf(v->name);
     lily_msgbuf_add(mb, " arg #");
     lily_msgbuf_add_int(mb, arg_num);
     lily_msgbuf_add(mb, " expects type '");
