@@ -754,6 +754,11 @@ void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
 
 void lily_emit_leave_method(lily_emit_state *emit)
 {
+    /* If the method returns nil, write an implicit 'return' at the end of it.
+       It's easiest to just blindly write it. */
+    if (emit->target_ret == NULL)
+        lily_emit_return_noval(emit);
+
     emit->method_pos--;
     emit->target = emit->method_vals[emit->method_pos-1];
     emit->target_ret = emit->method_rets[emit->method_pos-1];
