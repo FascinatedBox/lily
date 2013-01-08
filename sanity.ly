@@ -44,8 +44,6 @@ method test_basic_assignments():nil
 
     printfmt("#%i: Testing basic assignments...ok.\n", test_id)
     test_id = test_id + 1
-
-    return
 }
 
 method test_jumps():nil
@@ -63,8 +61,6 @@ method test_jumps():nil
         # Make sure jumps aren't miswired...again.
         fail_count = fail_count + 1
     }
-
-    return
 }
 
 method test_manyargs (integer a, integer b, integer c, integer d,
@@ -90,8 +86,6 @@ method test_printfmt():nil
     printfmt("    str     c (abcd)  is %s.\n", c)
     # Make sure varargs calls are taking the extra ones too.
     printfmt("    a, b, c are %i, %n, %s.\n", a, b, c)
-
-    return
 }
 
 method test_obj_call():nil
@@ -110,8 +104,6 @@ method test_obj_call():nil
 
     printfmt("#%i: Testing autocast of object calls...ok.\n", test_id)
     test_id = test_id + 1
-
-    return
 }
 
 method test_oo():nil
@@ -130,8 +122,6 @@ method test_oo():nil
         fail_count = fail_count + 1
         print("failed.\n")
     }
-
-    return
 }
 
 method test_utf8():nil
@@ -148,8 +138,6 @@ method test_utf8():nil
         print("failed.\n")
         fail_count = fail_count + 1
     }
-
-    return
 }
 
 method test_escapes():nil
@@ -160,8 +148,6 @@ method test_escapes():nil
 
     printfmt("#%i: Testing escape string...%s.\n", test_id, s)
     test_id = test_id + 1
-
-    return
 }
 
 method test_nested_if():nil
@@ -217,8 +203,6 @@ method test_nested_if():nil
         print("failed.\n")
         fail_count = fail_count + 1
     }
-
-    return
 }
 
 method test_add():nil
@@ -248,8 +232,6 @@ method test_add():nil
         print("failed.\n")
         fail_count = fail_count + 1
     }
-
-    return
 }
 
 method test_assign_decl_list():nil
@@ -277,8 +259,6 @@ method test_assign_decl_list():nil
         print("failed.\n")
         fail_count = fail_count + 1
     }
-
-    return
 }
 
 method oneline_helper():integer
@@ -322,8 +302,6 @@ method test_oneline_if():nil
         print("failed.\n")
         fail_count = fail_count + 1
     }
-
-    return
 }
 
 method fib(integer n):integer
@@ -355,7 +333,6 @@ method test_fib():nil
     printfmt("     fib 0..9 is %i, %i, %i, %i, %i, %i, %i, %i, %i, %i.\n",
              fib0, fib1, fib2, fib3, fib4, fib5, fib6, fib7, fib8, fib9)
     print("     Should be   0, 1, 1, 2, 3, 5, 8, 13, 21, 34.\n")
-    return
 }
 
 method unary_helper():integer
@@ -384,8 +361,6 @@ method test_unary():nil
         print("failed.\n")
         fail_count = fail_count + 1
     }
-
-    return
 }
 
 method test_andor():nil
@@ -485,8 +460,6 @@ method test_andor():nil
 
     if ok == 0:
         fail_count = fail_count + 1
-
-    return
 }
 
 method test_parenth():nil
@@ -516,8 +489,6 @@ method test_parenth():nil
     else:
         print("ok.\n")
     }
-
-    return
 }
 
 test_basic_assignments()
