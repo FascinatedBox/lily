@@ -701,6 +701,9 @@ void lily_parser(lily_parse_state *parser)
             else
                 break;
         }
+        else
+            lily_raise(parser->raiser, lily_ErrSyntax, "Unexpected token %s.\n",
+                       tokname(lex->token));
     }
 }
 

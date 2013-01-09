@@ -20,7 +20,7 @@ void lily_impl_send_html(char *htmldata)
 
 }
 
-static char *tests[3][2] =
+static char *tests[][2] =
 {
     {"Testing an assignment of the wrong type...",
      "integer a\n"
@@ -31,7 +31,9 @@ static char *tests[3][2] =
      "m(\"str\")\n"},
     {"Testing a redeclaration...",
      "str a\n"
-     "integer a\n"}
+     "integer a\n"},
+    {"Testing an incorrect starting token...",
+     "+\n"}
 };
 
 int main(int argc, char **argv)
