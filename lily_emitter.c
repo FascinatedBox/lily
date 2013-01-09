@@ -600,6 +600,12 @@ void lily_emit_clear_block(lily_emit_state *emit, int have_else)
     lily_method_val *m = emit->target;
     lily_var *v = emit->block_var_starts[emit->block_pos-1];
 
+    if (emit->block_pos == 1) {
+        char *name = (have_else ? "else" : "elif");
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                   "'%s' without 'if'.\n", name);
+    }
+
     if (have_else) {
         if (emit->block_types[emit->block_pos-1] == BLOCK_IFELSE)
             lily_raise(emit->raiser, lily_ErrSyntax,
