@@ -585,6 +585,13 @@ void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
     walk_tree(emit, ast);
     emit->expr_num++;
 
+    /* Calls returning nil check if they're inside of an expression. However,
+       they can still be at the top of an if-type statement. This is a problem,
+       since they don't return a value at all. */
+    if (ast->result == NULL)
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                   "Conditional statement has no value.\n");
+
     /* This jump will need to be rewritten with the first part of the next elif,
        else, or the end of the if. Save the position so it can be written over
        later.

@@ -40,7 +40,9 @@ static char *tests[][2] =
      "else\n"},
     {"Testing '}' outside of a block...",
      "}\n"},
-     
+    {"Testing 'if' with a nil return...",
+     "method m():nil {}\n"
+     "if m():m()\n"}
 };
 
 int main(int argc, char **argv)
