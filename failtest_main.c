@@ -33,7 +33,11 @@ static char *tests[][2] =
      "str a\n"
      "integer a\n"},
     {"Testing an incorrect starting token...",
-     "+\n"}
+     "+\n"},
+    {"Testing 'elif' without 'if'...",
+     "elif\n"},
+    {"Testing 'else' without 'if'...",
+     "else\n"}
 };
 
 int main(int argc, char **argv)
