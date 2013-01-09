@@ -617,6 +617,7 @@ void lily_free_parse_state(lily_parse_state *parser)
     lily_free_lex_state(parser->lex);
     lily_free_emit_state(parser->emit);
     lily_free_vm_state(parser->vm);
+    lily_free(parser->raiser->message);
     lily_free(parser->raiser);
     lily_free(parser);
 }
@@ -654,6 +655,7 @@ lily_parse_state *lily_new_parse_state(void)
             lily_ast_free_pool(s->ast_pool);
         if (s->vm != NULL)
             lily_free_vm_state(s->vm);
+        lily_free(raiser);
         lily_free(s);
         return NULL;
     }
