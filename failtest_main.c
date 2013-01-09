@@ -37,7 +37,10 @@ static char *tests[][2] =
     {"Testing 'elif' without 'if'...",
      "elif\n"},
     {"Testing 'else' without 'if'...",
-     "else\n"}
+     "else\n"},
+    {"Testing '}' outside of a block...",
+     "}\n"},
+     
 };
 
 int main(int argc, char **argv)

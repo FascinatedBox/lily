@@ -684,6 +684,9 @@ void lily_emit_pop_block(lily_emit_state *emit)
     lily_var *v;
     int btype;
 
+    if (emit->block_pos == 1)
+        lily_raise(emit->raiser, lily_ErrSyntax, "'}' outside of a block.\n");
+
     emit->block_pos--;
     v = emit->block_var_starts[emit->block_pos];
     btype = emit->block_types[emit->block_pos];
