@@ -287,8 +287,9 @@ int lily_keyword_by_name(char *name)
 static int init_classes(lily_symtab *symtab)
 {
     int i, class_count, ret;
+    lily_class **classes;
 
-    lily_class **classes = lily_malloc(sizeof(lily_class) * 4);
+    classes = lily_malloc(sizeof(lily_class *) * (SYM_LAST_CLASS+1));
     if (classes == NULL)
         return 0;
 
