@@ -5,7 +5,8 @@
 #include "lily_parser.h"
 
 /* failtest_main.c :
-   This uses the lexer's repl- */
+   This contains a number of tests that are designed to fail. These tests ensure
+   that the parser acts reasonably when an error occurs. */
 
 void lily_impl_debugf(char *format, ...)
 {
