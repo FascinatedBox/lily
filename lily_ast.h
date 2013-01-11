@@ -43,7 +43,6 @@ typedef struct {
     int *lex_linenum;
 } lily_ast_pool;
 
-void lily_ast_add_arg(lily_ast_pool *, lily_ast *, lily_ast *);
 void lily_ast_collect_arg(lily_ast_pool *);
 void lily_ast_enter_call(lily_ast_pool *, lily_var *);
 void lily_ast_free_pool(lily_ast_pool *);
@@ -53,5 +52,4 @@ void lily_ast_push_binary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_sym(lily_ast_pool *, lily_sym *);
 void lily_ast_push_unary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_reset_pool(lily_ast_pool *);
-void lily_save_active_ast(lily_ast_pool *);
 #endif
