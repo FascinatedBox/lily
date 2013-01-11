@@ -5,8 +5,9 @@
 #include "lily_parser.h"
 
 /* fs_main.c :
- * Since lily will be run from a server for most of the time, this emulates a
- * server...kind of. */
+   fs stands for 'fake server'. This is designed to simulate Lily being run from
+   a server. This is considered the 'default' or 'normal' Lily runner. */
+
 void lily_impl_debugf(char *format, ...)
 {
     va_list ap;
