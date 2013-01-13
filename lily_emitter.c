@@ -291,6 +291,54 @@ static void write_type(lily_msgbuf *mb, lily_sig *sig)
     lily_msgbuf_add(mb, sig->cls->name);
 }
 
+/* Comparing a call's signature to what it got goes in three rounds. In the
+   first two, what's received is in the lhs, and what was obtained is in the
+   rhs. */
+
+/* Round 1: See if the signatures of two things actually match. */
+static int sigmatch(lily_sig *lhs, lily_sig *rhs)
+{
+    int ret;
+
+    if (lhs == rhs)
+        ret = 1;
+    else {
+        if (lhs->cls->id == rhs->cls->id) {
+            /* todo: Need to do an in-depth match for funcs/methods. */
+            ret = 1;
+        }
+        else
+            ret = 0;
+    }
+
+    return ret;
+}
+
+/* Round 2: The signatures don't match, but can lhs_ast's result become the type
+   of rhs? */
+static int sigcast(lily_emit_state *emit, lily_ast *lhs_ast, lily_sig *rhs)
+{
+    int ret;
+
+    if (rhs->cls->id == SYM_CLASS_OBJECT) {
+        ret = 1;
+        lily_method_val *m = emit->target;
+        lily_storage *storage;
+        storage = get_storage_sym(emit, rhs->cls);
+        WRITE_4(o_obj_assign,
+                lhs_ast->line_num,
+                (uintptr_t)storage,
+                (uintptr_t)lhs_ast->result)
+
+        lhs_ast->result = (lily_sym *)storage;
+    }
+    else
+        ret = 0;
+
+    return ret;
+}
+
+/* Round 3: Show an error for the wrong type. */
 static void do_bad_arg_error(lily_emit_state *emit, lily_ast *ast,
     lily_sig *got, int arg_num)
 {
@@ -320,7 +368,6 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
 
     is_varargs = csig->is_varargs;
     num_args = csig->num_args;
-
     SAVE_PREP(num_args)
     /* The parser has already verified argument count. */
     for (i = 0;i != num_args;arg = arg->next_arg, i++) {
@@ -333,20 +380,8 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             }
         }
 
-        /* This currently works because there are no nested funcs or
-           methods. */
-        if (csig->args[i] != arg->result->sig) {
-            if (csig->args[i]->cls->id == SYM_CLASS_OBJECT) {
-                lily_storage *storage;
-                storage = get_storage_sym(emit, csig->args[i]->cls);
-                WRITE_4(o_obj_assign,
-                        ast->line_num,
-                        (uintptr_t)storage,
-                        (uintptr_t)arg->result)
-
-                arg->result = (lily_sym *)storage;
-            }
-            else
+        if (!sigmatch(arg->result->sig, csig->args[i])) {
+            if (!sigcast(emit, arg, csig->args[i]))
                 do_bad_arg_error(emit, ast, arg->result->sig, i);
         }
     }
@@ -366,20 +401,8 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                 }
             }
 
-            /* This currently works because there are no nested funcs or
-               methods. */
-            if (csig->args[i] != arg->result->sig) {
-                if (csig->args[i]->cls->id == SYM_CLASS_OBJECT) {
-                    lily_storage *storage;
-                    storage = get_storage_sym(emit, csig->args[i]->cls);
-                    WRITE_4(o_obj_assign,
-                            ast->line_num,
-                            (uintptr_t)storage,
-                            (uintptr_t)arg->result)
-
-                    arg->result = (lily_sym *)storage;
-                }
-                else
+            if (!sigmatch(arg->result->sig, csig->args[i])) {
+                if (!sigcast(emit, arg, csig->args[i]))
                     do_bad_arg_error(emit, ast, arg->result->sig, i);
             }
         }
