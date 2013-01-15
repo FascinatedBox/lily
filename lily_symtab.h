@@ -137,8 +137,9 @@ typedef struct {
 #define SYM_CLASS_FUNCTION 3
 #define SYM_CLASS_OBJECT   4
 #define SYM_CLASS_METHOD   5
+#define SYM_CLASS_LIST     6
 
-#define SYM_LAST_CLASS     5
+#define SYM_LAST_CLASS     6
 
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, char *);

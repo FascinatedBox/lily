@@ -11,6 +11,7 @@ char *class_seeds[] = {
     "function",
     "object",
     "method",
+    "list"
 };
 
 static const char *keywords[] = {
