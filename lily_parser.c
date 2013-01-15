@@ -61,6 +61,8 @@ static const int is_start_val[] = {
     0,
     0,
     0,
+    0,
+    0,
     1,
     1,
     1,
@@ -77,6 +79,8 @@ static const int is_start_val[] = {
 
 /* table[token] = binary_op. -1 indicates invalid. */
 static const int bin_op_for_token[] = {
+    -1,
+    -1,
     -1,
     -1,
     -1,

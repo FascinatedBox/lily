@@ -12,31 +12,33 @@
 #define CC_LEFT_CURLY    3
 #define CC_RIGHT_CURLY   4
 #define CC_COLON         5
-#define CC_G_ONE_LAST    5
+#define CC_LEFT_BRACKET  6
+#define CC_RIGHT_BRACKET 7
+#define CC_G_ONE_LAST    7
 
 /* Group 2: Return self, or self= */
-#define CC_G_TWO_OFFSET  6
-#define CC_EQUAL         6
-#define CC_LESS          7
-#define CC_GREATER       8
-#define CC_NOT           9
-#define CC_G_TWO_LAST    9
+#define CC_G_TWO_OFFSET  8
+#define CC_EQUAL         8
+#define CC_LESS          9
+#define CC_GREATER      10
+#define CC_NOT          11
+#define CC_G_TWO_LAST   11
 
-#define CC_PLUS         10
-#define CC_MINUS        11
-#define CC_WORD         12
-#define CC_DOUBLE_QUOTE 13
-#define CC_NUMBER       14
+#define CC_PLUS         12
+#define CC_MINUS        13
+#define CC_WORD         14
+#define CC_DOUBLE_QUOTE 15
+#define CC_NUMBER       16
 
-#define CC_NEWLINE      15
-#define CC_SHARP        16
-#define CC_STR_NEWLINE  17
-#define CC_STR_END      18
-#define CC_DOT          19
-#define CC_AT           20
-#define CC_AMPERSAND    21
-#define CC_VBAR         22
-#define CC_INVALID      23
+#define CC_NEWLINE      17
+#define CC_SHARP        18
+#define CC_STR_NEWLINE  19
+#define CC_STR_END      20
+#define CC_DOT          21
+#define CC_AT           22
+#define CC_AMPERSAND    23
+#define CC_VBAR         24
+#define CC_INVALID      25
 
 /* The lexer assumes any file given is utf-8. */
 
@@ -715,6 +717,8 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     ch_class[(unsigned char)'!'] = CC_NOT;
     ch_class[(unsigned char)'&'] = CC_AMPERSAND;
     ch_class[(unsigned char)'|'] = CC_VBAR;
+    ch_class[(unsigned char)'['] = CC_LEFT_BRACKET;
+    ch_class[(unsigned char)']'] = CC_RIGHT_BRACKET;
     /* Prep for file-based, since lex_buffer isn't NULL. */
     ch_class[(unsigned char)'\r'] = CC_NEWLINE;
     ch_class[(unsigned char)'\n'] = CC_NEWLINE;
@@ -726,9 +730,9 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
 char *tokname(lily_token t)
 {
     static char *toknames[] =
-    {"(", ")", ",", "{", "}", ":", "=", "==", "<", "<=", ">", ">=", "!", "!=",
-     "+", "-", "a label", "a string", "an integer", "a number", ".", "&", "&&",
-     "|", "||", "invalid token", "@>", "end of file"};
+    {"(", ")", ",", "{", "}", ":", "[", "]", "=", "==", "<", "<=", ">", ">=",
+     "!", "!=", "+", "-", "a label", "a string", "an integer", "a number", ".",
+     "&", "&&", "|", "||", "invalid token", "@>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];
