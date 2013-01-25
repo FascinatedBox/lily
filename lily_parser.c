@@ -456,19 +456,47 @@ static void parse_simple_condition(lily_parse_state *parser)
     lily_emit_pop_block(parser->emit);
 }
 
+static void collect_args(lily_parse_state *parser, int *count)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_class *cls;
+    int i = 0;
+
+    while (1) {
+        NEED_CURRENT_TOK(tk_word)
+        cls = lily_class_by_name(parser->symtab, lex->label);
+        if (cls == NULL)
+            lily_raise(parser->raiser, lily_ErrSyntax,
+                       "unknown class name %s.\n", lex->label);
+
+        NEED_NEXT_TOK(tk_word)
+        lily_new_var(parser->symtab, cls, lex->label);
+        i++;
+
+        lily_lexer(lex);
+        if (lex->token == tk_comma)
+            lily_lexer(lex);
+        else {
+            *count = i;
+            break;
+        }
+    }
+}
+
 static void parse_method_decl(lily_parse_state *parser)
 {
-    int i = 0;
     lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_METHOD);
     lily_method_val *m;
     lily_lex_state *lex = parser->lex;
     lily_var *method_var, *save_top;
+    lily_call_sig *csig;
 
     /* Get the method's name. */
     NEED_NEXT_TOK(tk_word)
     /* Form: method name(args):<ret type> {  } */
     method_var = lily_new_var(parser->symtab, cls, lex->label);
     m = (lily_method_val *)method_var->value.ptr;
+    csig = method_var->sig->node.call;
 
     NEED_NEXT_TOK(tk_left_parenth)
     save_top = parser->symtab->var_top;
@@ -481,42 +509,32 @@ static void parse_method_decl(lily_parse_state *parser)
     if (lex->token == tk_right_parenth) {
         m->first_arg = NULL;
         m->last_arg = NULL;
+        csig->args = NULL;
     }
     else {
-        while (1) {
-            NEED_CURRENT_TOK(tk_word)
-            cls = lily_class_by_name(parser->symtab, lex->label);
-            if (cls == NULL)
-                lily_raise(parser->raiser, lily_ErrSyntax,
-                           "unknown class name %s.\n", lex->label);
-
-            NEED_NEXT_TOK(tk_word)
-            lily_new_var(parser->symtab, cls, lex->label);
-            i++;
-    
-            lily_lexer(lex);
-            if (lex->token == tk_comma) {
-                lily_lexer(lex);
-                continue;
-            }
-            else if (lex->token == tk_right_parenth)
-                break;
-            else {
-                lily_free(m->code);
-                lily_free(m);
-                lily_raise(parser->raiser, lily_ErrSyntax,
-                           "Expected ',' or ')', not %s.\n",
-                           tokname(lex->token));
-            }
-        }
+        int i, j;
+        collect_args(parser, &i);
+        fprintf(stderr, "parse_method_decl: token is %s after collecting.\n",
+                tokname(lex->token));
+        fprintf(stderr, "i is %d.\n", i);
         m->first_arg = save_top->next;
         m->last_arg = parser->symtab->var_top;
+        save_top = save_top->next;
+
+        csig->args = lily_malloc(sizeof(lily_sig *) * i);
+        if (csig->args == NULL)
+            lily_raise_nomem(parser->raiser);
+
+        for (j = 0;j < i;j++) {
+            csig->args[j] = save_top->sig;
+            save_top = save_top->next;
+        }
+
+        csig->num_args = i;
     }
 
     NEED_NEXT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_word)
-
-    lily_call_sig *csig = method_var->sig->node.call;
 
     cls = lily_class_by_name(parser->symtab, lex->label);
     if (cls != NULL)
@@ -528,25 +546,6 @@ static void parse_method_decl(lily_parse_state *parser)
             lily_raise(parser->raiser, lily_ErrSyntax,
                        "unknown class name %s.\n", lex->label);
     }
-
-    int j;
-
-    save_top = save_top->next;
-
-    if (i != 0) {
-        csig->args = lily_malloc(sizeof(lily_sig *) * i);
-        if (csig->args == NULL)
-            lily_raise_nomem(parser->raiser);
-
-        for (j = 0;j < i;j++) {
-            csig->args[j] = save_top->sig;
-            save_top = save_top->next;
-        }
-    }
-    else
-        csig->args = NULL;
-
-    csig->num_args = i;
 
     lily_emit_enter_method(parser->emit, method_var);
     NEED_NEXT_TOK(tk_left_curly)
