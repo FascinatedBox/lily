@@ -497,26 +497,18 @@ static void parse_method_decl(lily_parse_state *parser)
     method_var = lily_new_var(parser->symtab, cls, lex->label);
     m = (lily_method_val *)method_var->value.ptr;
     csig = method_var->sig->node.call;
+    /* lily_new_var creates the method_val with first_arg, last_arg, and ret set
+       to NULL. So there's nothing to do for () calls, or calls that return
+       nil. */
 
     NEED_NEXT_TOK(tk_left_parenth)
     save_top = parser->symtab->var_top;
 
-    /* Argument signatures are collected later so that the array doesn't have
-       to have a guess-size or be constantly realloc'd. */
     lily_lexer(lex);
 
-    /* If (), then no args and no collecting. Otherwise, start collecting. */
-    if (lex->token == tk_right_parenth) {
-        m->first_arg = NULL;
-        m->last_arg = NULL;
-        csig->args = NULL;
-    }
-    else {
+    if (lex->token != tk_right_parenth) {
         int i, j;
         collect_args(parser, &i);
-        fprintf(stderr, "parse_method_decl: token is %s after collecting.\n",
-                tokname(lex->token));
-        fprintf(stderr, "i is %d.\n", i);
         m->first_arg = save_top->next;
         m->last_arg = parser->symtab->var_top;
         save_top = save_top->next;
@@ -526,12 +518,13 @@ static void parse_method_decl(lily_parse_state *parser)
             lily_raise_nomem(parser->raiser);
 
         for (j = 0;j < i;j++) {
-            csig->args[j] = save_top->sig;
+            csig-> args[j] = save_top->sig;
             save_top = save_top->next;
         }
 
         csig->num_args = i;
     }
+    /* else nothing to do for (). */
 
     NEED_NEXT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_word)
@@ -540,9 +533,7 @@ static void parse_method_decl(lily_parse_state *parser)
     if (cls != NULL)
         csig->ret = cls->sig;
     else {
-        if (strcmp(lex->label, "nil") == 0)
-            csig->ret = NULL;
-        else
+        if (strcmp(lex->label, "nil") != 0)
             lily_raise(parser->raiser, lily_ErrSyntax,
                        "unknown class name %s.\n", lex->label);
     }

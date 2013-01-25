@@ -143,7 +143,6 @@ static int priority_for_op(lily_expr_op o)
         case expr_gr:
         case expr_lt_eq:
         case expr_gr_eq:
-        fprintf(stderr, "[ast] got <, >, <=, or <=.\n");
             prio = 4;
             break;
         case expr_plus:
