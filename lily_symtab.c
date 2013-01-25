@@ -190,10 +190,10 @@ void free_vars(lily_var *var)
         if (cls_id == SYM_CLASS_METHOD) {
             free_var_func_sig(var->sig);
             lily_method_val *method = (lily_method_val *)var->value.ptr;
-            if (method) {
-                lily_free(method->code);
-                lily_free(method);
-            }
+            /* lily_new_var doesn't create new methods without a method value,
+               so this is safe. */
+            lily_free(method->code);
+            lily_free(method);
         }
         else if (cls_id == SYM_CLASS_FUNCTION)
             free_var_func_sig(var->sig);
@@ -536,6 +536,16 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_class *cls, char *name)
 
     if (cls->id == SYM_CLASS_STR)
         var->value.ptr = NULL;
+    else if (cls->id == SYM_CLASS_METHOD) {
+        lily_method_val *m = lily_try_new_method_val(symtab);
+        if (m == NULL) {
+            free_var_func_sig(sig);
+            lily_free(var->name);
+            lily_free(var);
+            lily_raise_nomem(symtab->raiser);
+        }
+        var->value.ptr = m;
+    }
 
     strcpy(var->name, name);
 

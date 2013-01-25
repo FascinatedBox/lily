@@ -468,14 +468,7 @@ static void parse_method_decl(lily_parse_state *parser)
     NEED_NEXT_TOK(tk_word)
     /* Form: method name(args):<ret type> {  } */
     method_var = lily_new_var(parser->symtab, cls, lex->label);
-
-    m = lily_try_new_method_val(parser->symtab);
-    if (m == NULL) {
-        method_var->value.ptr = NULL;
-        lily_raise_nomem(parser->raiser);
-    }
-    else
-        method_var->value.ptr = m;
+    m = (lily_method_val *)method_var->value.ptr;
 
     NEED_NEXT_TOK(tk_left_parenth)
     save_top = parser->symtab->var_top;
