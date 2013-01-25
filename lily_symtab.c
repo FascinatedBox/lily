@@ -64,7 +64,7 @@ static lily_call_sig *try_seed_call_sig(lily_symtab *symtab,
 
 /* All other signatures that vars use are copies of one held by a class. Those
    will be free'd with the class. */
-static void free_var_func_sig(lily_sig *sig)
+static void free_call_sig(lily_sig *sig)
 {
     lily_call_sig *csig = sig->node.call;
     lily_free(csig->args);
@@ -188,7 +188,7 @@ void free_vars(lily_var *var)
         cls_id = var->sig->cls->id;
 
         if (cls_id == SYM_CLASS_METHOD) {
-            free_var_func_sig(var->sig);
+            free_call_sig(var->sig);
             lily_method_val *method = (lily_method_val *)var->value.ptr;
             /* lily_new_var doesn't create new methods without a method value,
                so this is safe. */
@@ -196,7 +196,7 @@ void free_vars(lily_var *var)
             lily_free(method);
         }
         else if (cls_id == SYM_CLASS_FUNCTION)
-            free_var_func_sig(var->sig);
+            free_call_sig(var->sig);
         else if (cls_id == SYM_CLASS_OBJECT)
             lily_free(var->sig);
         else if (cls_id == SYM_CLASS_STR) {
@@ -250,7 +250,7 @@ void lily_free_symtab(lily_symtab *symtab)
                         if (store_curr->sig->cls->id == SYM_CLASS_OBJECT)
                             lily_free(store_curr->sig);
                         else if (store_curr->sig->cls->id == SYM_CLASS_METHOD)
-                            free_var_func_sig(store_curr->sig);
+                            free_call_sig(store_curr->sig);
                         else if (store_curr->sig->cls->id == SYM_CLASS_STR) {
                             lily_strval *sv = store_curr->value.ptr;
                             if (sv != NULL)
@@ -539,7 +539,7 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_class *cls, char *name)
     else if (cls->id == SYM_CLASS_METHOD) {
         lily_method_val *m = lily_try_new_method_val(symtab);
         if (m == NULL) {
-            free_var_func_sig(sig);
+            free_call_sig(sig);
             lily_free(var->name);
             lily_free(var);
             lily_raise_nomem(symtab->raiser);
