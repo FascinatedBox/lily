@@ -25,6 +25,12 @@
    inspected. */
 #define EX_SAVE_AST   0x10
 
+/* These flags are for collect_args. */
+
+/* Expect a name with every class given. Create a var for each class+name pair.
+   This is suitable for collecting the args of a method. */
+#define CA_MAKE_VARS  0x20
+
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
 if (lex->token != expected) \
@@ -456,21 +462,89 @@ static void parse_simple_condition(lily_parse_state *parser)
     lily_emit_pop_block(parser->emit);
 }
 
-static void collect_args(lily_parse_state *parser, int *count)
+static void collect_args(lily_parse_state *parser, int *count, int flags)
 {
     lily_lex_state *lex = parser->lex;
     lily_class *cls;
     int i = 0;
+    lily_var *var = NULL;
 
     while (1) {
+        lily_var *var;
         NEED_CURRENT_TOK(tk_word)
         cls = lily_class_by_name(parser->symtab, lex->label);
         if (cls == NULL)
             lily_raise(parser->raiser, lily_ErrSyntax,
                        "unknown class name %s.\n", lex->label);
 
-        NEED_NEXT_TOK(tk_word)
-        lily_new_var(parser->symtab, cls, lex->label);
+        if (flags & CA_MAKE_VARS) {
+            NEED_NEXT_TOK(tk_word)
+            var = lily_new_var(parser->symtab, cls, lex->label);
+        }
+
+        /* todo: Support functions later. */
+        if (cls->id == SYM_CLASS_METHOD) {
+            int save_pos, j;
+            lily_class *call_ret_class;
+            lily_call_sig *call_sig;
+
+            call_sig = var->sig->node.call;
+            save_pos = parser->sig_stack_pos;
+            NEED_NEXT_TOK(tk_left_parenth)
+            lily_lexer(lex);
+
+            if (lex->token != tk_right_parenth) {
+                /* method a(method b(integer, integer c):nil, integer):nil
+                            ^ You are here
+                   Do not set MAKE_VARS, because b's parameters are not alive,
+                   and thus cannot be interacted with. */
+                collect_args(parser, &j, 0);
+                NEED_CURRENT_TOK(tk_right_parenth)
+            }
+            else
+                j = 0;
+
+            NEED_NEXT_TOK(tk_colon)
+            NEED_NEXT_TOK(tk_word)
+            call_ret_class = lily_class_by_name(parser->symtab, lex->label);
+            if (call_ret_class == NULL) {
+                if (strcmp(lex->label, "nil") != 0)
+                    lily_raise(parser->raiser, lily_ErrSyntax,
+                               "unknown class name %s.\n", lex->label);
+            }
+            else
+                call_sig->ret = call_ret_class->sig;
+
+            /* If the call has args, pull them from the sig stack. */
+            if (j != 0) {
+                int k;
+                lily_sig **args = lily_malloc(sizeof(lily_sig *) * j);
+                if (args == NULL)
+                    lily_raise_nomem(parser->raiser);
+
+                for (k = 0;k < j;k++, save_pos++)
+                    args[k] = parser->sig_stack[save_pos];
+
+                call_sig->args = args;
+                call_sig->num_args = j;
+                parser->sig_stack_pos -= j;
+            }
+        }
+
+        if ((flags & CA_MAKE_VARS) == 0) {
+            if (parser->sig_stack_pos == parser->sig_stack_size) {
+                parser->sig_stack_size *= 2;
+                lily_sig **new_sig_stack = lily_realloc(parser->sig_stack,
+                    sizeof(lily_sig *) * parser->sig_stack_size);
+
+                if (new_sig_stack == NULL)
+                    lily_raise_nomem(parser->raiser);
+
+                parser->sig_stack = new_sig_stack;
+            }
+            parser->sig_stack[parser->sig_stack_pos] = cls->sig;
+            parser->sig_stack_pos++;
+        }
         i++;
 
         lily_lexer(lex);
@@ -508,7 +582,7 @@ static void parse_method_decl(lily_parse_state *parser)
 
     if (lex->token != tk_right_parenth) {
         int i, j;
-        collect_args(parser, &i);
+        collect_args(parser, &i, CA_MAKE_VARS);
         m->first_arg = save_top->next;
         m->last_arg = parser->symtab->var_top;
         save_top = save_top->next;
@@ -604,6 +678,7 @@ void lily_free_parse_state(lily_parse_state *parser)
     lily_free_lex_state(parser->lex);
     lily_free_emit_state(parser->emit);
     lily_free_vm_state(parser->vm);
+    lily_free(parser->sig_stack);
     lily_free(parser->raiser->message);
     lily_free(parser->raiser);
     lily_free(parser);
@@ -613,13 +688,18 @@ lily_parse_state *lily_new_parse_state(void)
 {
     lily_parse_state *s = lily_malloc(sizeof(lily_parse_state));
     lily_raiser *raiser = lily_malloc(sizeof(lily_raiser));
+    lily_sig **sig_stack = lily_malloc(4 * sizeof(lily_sig *));
 
-    if (s == NULL || raiser == NULL) {
-        lily_free(s);
+    if (s == NULL || raiser == NULL || sig_stack == NULL) {
+        lily_free(sig_stack);
         lily_free(raiser);
+        lily_free(s);
         return NULL;
     }
 
+    s->sig_stack = sig_stack;
+    s->sig_stack_pos = 0;
+    s->sig_stack_size = 4;
     raiser->line_adjust = 0;
     raiser->message = NULL;
     s->ast_pool = lily_ast_init_pool(raiser, 8);
@@ -642,6 +722,7 @@ lily_parse_state *lily_new_parse_state(void)
             lily_ast_free_pool(s->ast_pool);
         if (s->vm != NULL)
             lily_free_vm_state(s->vm);
+        lily_free(sig_stack);
         lily_free(raiser);
         lily_free(s);
         return NULL;
