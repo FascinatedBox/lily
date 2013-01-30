@@ -393,7 +393,7 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_class *cls, char *name)
     strcpy(var->name, name);
 
     var->parent = NULL;
-    var->flags = VAR_SYM | S_IS_NIL | S_FREE_NAME;
+    var->flags = VAR_SYM | S_IS_NIL;
     var->sig = sig;
     var->line_num = *symtab->lex_linenum;
 
