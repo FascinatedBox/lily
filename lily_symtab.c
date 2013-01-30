@@ -24,15 +24,11 @@ static void add_var(lily_symtab *symtab, lily_var *s)
     symtab->var_top = s;
 }
 
-static lily_call_sig *try_seed_call_sig(lily_symtab *symtab,
-        lily_func_seed *seed)
+static int try_seed_call_sig(lily_symtab *symtab,
+        lily_func_seed *seed, lily_call_sig *csig)
 {
     /* The first arg always exists, and is the return type. */
     int i;
-
-    lily_call_sig *csig = lily_malloc(sizeof(lily_call_sig));
-    if (csig == NULL)
-        return NULL;
 
     if (seed->arg_ids[0] == -1)
         csig->ret = NULL;
@@ -47,10 +43,8 @@ static lily_call_sig *try_seed_call_sig(lily_symtab *symtab,
     }
     else {
         csig->args = lily_malloc(sizeof(lily_sig *) * seed->num_args);
-        if (csig->args == NULL) {
-            lily_free(csig);
-            return NULL;
-        }
+        if (csig->args == NULL)
+            return 0;
 
         for (i = 1;i <= seed->num_args;i++) {
             lily_class *cls = lily_class_by_id(symtab, seed->arg_ids[i]);
@@ -59,7 +53,7 @@ static lily_call_sig *try_seed_call_sig(lily_symtab *symtab,
         csig->num_args = seed->num_args;
     }
     csig->is_varargs = seed->is_varargs;
-    return csig;
+    return 1;
 }
 
 /* All other signatures that vars use are copies of one held by a class. Those
@@ -82,7 +76,7 @@ static lily_sig *try_sig_for_class(lily_class *cls)
             sig->node.value_sig = NULL;
         }
     }
-    else if (cls->id == SYM_CLASS_METHOD) {
+    else if (cls->id == SYM_CLASS_METHOD || cls->id == SYM_CLASS_FUNCTION) {
         sig = lily_malloc(sizeof(lily_sig));
         if (sig != NULL) {
             lily_call_sig *csig = lily_malloc(sizeof(lily_call_sig));
@@ -190,8 +184,8 @@ void free_vars(lily_var *var)
         if (cls_id == SYM_CLASS_METHOD) {
             free_call_sig(var->sig);
             lily_method_val *method = (lily_method_val *)var->value.ptr;
-            /* lily_new_var doesn't create new methods without a method value,
-               so this is safe. */
+            /* This is currently safe, because method vars aren't created if a
+               method val can't be created for them. */
             lily_free(method->code);
             lily_free(method);
         }
@@ -205,9 +199,7 @@ void free_vars(lily_var *var)
                 lily_deref_strval(sv);
         }
 
-        if (var->line_num != 0)
-            lily_free(var->name);
-
+        lily_free(var->name);
         lily_free(var);
 
         var = var_temp;
@@ -250,6 +242,8 @@ void lily_free_symtab(lily_symtab *symtab)
                         if (store_curr->sig->cls->id == SYM_CLASS_OBJECT)
                             lily_free(store_curr->sig);
                         else if (store_curr->sig->cls->id == SYM_CLASS_METHOD)
+                            free_call_sig(store_curr->sig);
+                        else if (store_curr->sig->cls->id == SYM_CLASS_FUNCTION)
                             free_call_sig(store_curr->sig);
                         else if (store_curr->sig->cls->id == SYM_CLASS_STR) {
                             lily_strval *sv = store_curr->value.ptr;
@@ -363,6 +357,66 @@ static int init_literals(lily_symtab *symtab)
     return ret;
 }
 
+lily_var *lily_try_new_var(lily_symtab *symtab, lily_class *cls, char *name)
+{
+    lily_var *var = lily_malloc(sizeof(lily_var));
+
+    if (var == NULL)
+        return NULL;
+
+    var->name = lily_malloc(strlen(name) + 1);
+    if (var->name == NULL) {
+        lily_free(var);
+        return NULL;
+    }
+
+    lily_sig *sig = try_sig_for_class(cls);
+    if (sig == NULL) {
+        lily_free(var->name);
+        lily_free(var);
+        return NULL;
+    }
+
+    if (cls->id == SYM_CLASS_STR)
+        var->value.ptr = NULL;
+    else if (cls->id == SYM_CLASS_METHOD) {
+        lily_method_val *m = lily_try_new_method_val(symtab);
+        if (m == NULL) {
+            free_call_sig(sig);
+            lily_free(var->name);
+            lily_free(var);
+            return NULL;
+        }
+        var->value.ptr = m;
+    }
+
+    strcpy(var->name, name);
+
+    var->parent = NULL;
+    var->flags = VAR_SYM | S_IS_NIL | S_FREE_NAME;
+    var->sig = sig;
+    var->line_num = *symtab->lex_linenum;
+
+    add_var(symtab, var);
+    return var;
+}
+
+/* This creates the @main method, which captures and runs all code not defined
+   inside of a lily method. This is split from read_seeds because it does not
+   take or receive args, and it is the only builtin method. */
+static int init_at_main(lily_symtab *symtab)
+{
+    lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_METHOD);
+    lily_var *var = lily_try_new_var(symtab, cls, "@main");
+
+    if (var == NULL)
+        return 0;
+
+    var->flags &= ~(S_IS_NIL);
+
+    return 1;
+}
+
 static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
         int seed_count)
 {
@@ -375,50 +429,19 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
 
     for (i = 0;i < seed_count;i++) {
         lily_func_seed *seed = seeds[i];
-        lily_var *new_var = lily_malloc(sizeof(lily_var));
-        lily_sig *sig = lily_malloc(sizeof(lily_sig));
-        /* This function returns NULL if it can't allocate args, so don't check
-           for NULL args here. */
-        lily_call_sig *csig = try_seed_call_sig(symtab, seed);
+        lily_var *var = lily_try_new_var(symtab, func_class, seed->name);
+        if (var != NULL) {
+            int seed_ret;
 
-        if (new_var == NULL || sig == NULL || csig == NULL) {
-            lily_free(sig);
-            lily_free(new_var);
-            if (csig != NULL) {
-                lily_free(csig);
-                lily_free(csig->args);
-            }
-            ret = 0;
-            break;
-        }
+            var->flags &= ~(S_IS_NIL);
+            var->value.ptr = seed->func;
 
-        if (seed->func != NULL) {
-            sig->cls = func_class;
-            new_var->value.ptr = seed->func;
-        }
-        else {
-            /* This is @main, which is a method. Since it's a method, it
-               doesn't have ->func set to anything. */
-            lily_method_val *m = lily_try_new_method_val(symtab);
-            if (m == NULL) {
-                lily_free(csig);
-                lily_free(sig);
-                lily_free(new_var);
+            seed_ret = try_seed_call_sig(symtab, seed, var->sig->node.call);
+            if (seed_ret == 0)
                 ret = 0;
-                break;
-            }
-            m->first_arg = NULL;
-            m->last_arg = NULL;
-            new_var->value.ptr = m;
-            sig->cls = lily_class_by_id(symtab, SYM_CLASS_METHOD);
         }
-
-        sig->node.call = csig;
-        new_var->name = seed->name;
-        new_var->sig = sig;
-        new_var->line_num = 0;
-        new_var->flags = VAR_SYM;
-        add_var(symtab, new_var);
+        else
+            ret = 0;
     }
 
     return ret;
@@ -449,6 +472,7 @@ int init_package(lily_symtab *symtab, int cls_id, lily_func_seed **seeds,
 lily_symtab *lily_new_symtab(lily_raiser *raiser)
 {
     lily_symtab *s = lily_malloc(sizeof(lily_symtab));
+    int v = 0;
 
     if (s == NULL)
         return NULL;
@@ -463,9 +487,13 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
     s->lit_top = NULL;
     s->old_var_start = NULL;
     s->old_var_top = NULL;
+    /* lily_try_new_var needs a line number, and the impossible line zero is
+       nice for identifying builtins later. The parser will fix this after the
+       symtab is done initalizing. */
+    s->lex_linenum = &v;
 
     if (!init_classes(s) || !init_literals(s) ||
-        !read_seeds(s, builtin_seeds, NUM_BUILTIN_SEEDS) ||
+        !init_at_main(s) || !read_seeds(s, builtin_seeds, NUM_BUILTIN_SEEDS) ||
         !init_package(s, SYM_CLASS_STR, str_seeds, NUM_STR_SEEDS)) {
         /* This will free any symbols added, and the symtab object. */
         lily_free_symtab(s);
@@ -512,50 +540,6 @@ lily_literal *lily_new_literal(lily_symtab *symtab, lily_class *cls, lily_value 
     symtab->next_lit_id++;
 
     return lit;
-}
-
-lily_var *lily_new_var(lily_symtab *symtab, lily_class *cls, char *name)
-{
-    lily_var *var = lily_malloc(sizeof(lily_var));
-
-    if (var == NULL)
-        lily_raise_nomem(symtab->raiser);
-
-    var->name = lily_malloc(strlen(name) + 1);
-    if (var->name == NULL) {
-        lily_free(var);
-        lily_raise_nomem(symtab->raiser);
-    }
-
-    lily_sig *sig = try_sig_for_class(cls);
-    if (sig == NULL) {
-        lily_free(var->name);
-        lily_free(var);
-        lily_raise_nomem(symtab->raiser);
-    }
-
-    if (cls->id == SYM_CLASS_STR)
-        var->value.ptr = NULL;
-    else if (cls->id == SYM_CLASS_METHOD) {
-        lily_method_val *m = lily_try_new_method_val(symtab);
-        if (m == NULL) {
-            free_call_sig(sig);
-            lily_free(var->name);
-            lily_free(var);
-            lily_raise_nomem(symtab->raiser);
-        }
-        var->value.ptr = m;
-    }
-
-    strcpy(var->name, name);
-
-    var->parent = NULL;
-    var->flags = VAR_SYM | S_IS_NIL;
-    var->sig = sig;
-    var->line_num = *symtab->lex_linenum;
-
-    add_var(symtab, var);
-    return var;
 }
 
 int lily_drop_block_vars(lily_symtab *symtab, lily_var *start)

@@ -28,10 +28,7 @@ static lily_func_seed print =
     {"print", 1, 0, lily_builtin_print, {-1, SYM_CLASS_STR}};
 static lily_func_seed printfmt =
     {"printfmt", 2, 1, lily_builtin_printfmt, {-1, SYM_CLASS_STR, SYM_CLASS_OBJECT}};
-/* All code outside of functions is stuffed here, and at the end of parsing,
-   this function is called. */
-static lily_func_seed at_main = {"@main", 0, 0, NULL, {-1, -1}};
-static lily_func_seed *builtin_seeds[] = {&at_main, &print, &printfmt};
-#define NUM_BUILTIN_SEEDS 3
+static lily_func_seed *builtin_seeds[] = {&print, &printfmt};
+#define NUM_BUILTIN_SEEDS 2
 
 #endif
