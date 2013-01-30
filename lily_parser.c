@@ -354,7 +354,9 @@ static void declaration(lily_parse_state *parser, lily_class *cls)
             lily_raise(parser->raiser, lily_ErrSyntax,
                        "%s has already been declared.\n", var->name);
 
-        var = lily_new_var(parser->symtab, cls, lex->label);
+        var = lily_try_new_var(parser->symtab, cls, lex->label);
+        if (var == NULL)
+            lily_raise_nomem(parser->raiser);
 
         lily_lexer(parser->lex);
         /* Handle an initializing assignment, if there is one. */
@@ -479,7 +481,9 @@ static void collect_args(lily_parse_state *parser, int *count, int flags)
 
         if (flags & CA_MAKE_VARS) {
             NEED_NEXT_TOK(tk_word)
-            var = lily_new_var(parser->symtab, cls, lex->label);
+            var = lily_try_new_var(parser->symtab, cls, lex->label);
+            if (var == NULL)
+                lily_raise_nomem(parser->raiser);
         }
 
         /* todo: Support functions later. */
@@ -568,11 +572,14 @@ static void parse_method_decl(lily_parse_state *parser)
     /* Get the method's name. */
     NEED_NEXT_TOK(tk_word)
     /* Form: method name(args):<ret type> {  } */
-    method_var = lily_new_var(parser->symtab, cls, lex->label);
+    method_var = lily_try_new_var(parser->symtab, cls, lex->label);
+    if (method_var == NULL)
+        lily_raise_nomem(parser->raiser);
+
     m = (lily_method_val *)method_var->value.ptr;
     csig = method_var->sig->node.call;
-    /* lily_new_var creates the method_val with first_arg, last_arg, and ret set
-       to NULL. So there's nothing to do for () calls, or calls that return
+    /* lily_try_new_var creates the method_val with first_arg, last_arg, and ret
+       set to NULL. So there's nothing to do for () calls, or calls that return
        nil. */
 
     NEED_NEXT_TOK(tk_left_parenth)

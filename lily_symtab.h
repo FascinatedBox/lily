@@ -148,7 +148,7 @@ void lily_free_symtab(lily_symtab *);
 int lily_keyword_by_name(char *);
 lily_literal *lily_new_literal(lily_symtab *, lily_class *, lily_value);
 lily_symtab *lily_new_symtab(lily_raiser *);
-lily_var *lily_new_var(lily_symtab *, lily_class *, char *);
+lily_var *lily_try_new_var(lily_symtab *, lily_class *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
 int lily_try_add_storage(lily_symtab *, lily_class *);
 lily_method_val *lily_try_new_method_val(lily_symtab *);
