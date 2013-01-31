@@ -180,13 +180,17 @@ static void expression_value(lily_parse_state *parser)
                 lily_raise(parser->raiser, lily_ErrSyntax,
                            "Variable '%s' is undefined.\n", lex->label);
 
-            if (var->sig->cls->id == SYM_CLASS_FUNCTION ||
-                var->sig->cls->id == SYM_CLASS_METHOD) {
+            lily_lexer(lex);
+            if (lex->token == tk_left_parenth) {
+                int cls_id = var->sig->cls->id;
+                if (cls_id != SYM_CLASS_METHOD &&
+                    cls_id != SYM_CLASS_FUNCTION)
+                    lily_raise(parser->raiser, lily_ErrSyntax,
+                               "%s is not callable.\n", var->name);
+
                 /* New trees will get saved to the args section of this tree
                     when they are done. */
                 lily_ast_enter_call(parser->ast_pool, var);
-
-                NEED_NEXT_TOK(tk_left_parenth)
 
                 lily_lexer(lex);
                 if (lex->token == tk_right_parenth)
@@ -199,8 +203,6 @@ static void expression_value(lily_parse_state *parser)
             }
             else {
                 lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
-
-                lily_lexer(lex);
             }
         }
         else {

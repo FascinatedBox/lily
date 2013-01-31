@@ -59,26 +59,25 @@ static void print_call(uintptr_t *code, char *str, int i)
     lily_sym *ret;
     lily_var *var;
 
-    /* For methods, this is:   var, method_val, #args, ret, args
-       For functions, this is: var, func_ptr,   #args, ret, args */
+    /* [1] line_num, [2] var, [3] #args, [4] ret, [5]+ args */
 
     var = (lily_var *)code[i+2];
     lily_impl_debugf(str, i);
 
     if (var->line_num == 0)
         lily_impl_debugf("name: (builtin) %s.\n        args:\n",
-                         var->name, code[i+4]);
+                         var->name, code[i+3]);
     else
         lily_impl_debugf("name: %s (from line %d).\n        args:\n",
-                         var->name, var->line_num, code[i+4]);
+                         var->name, var->line_num, code[i+3]);
 
-    for (j = 0;j < code[i+4];j++) {
-        lily_sym *sym = (lily_sym *)code[i+6+j];
+    for (j = 0;j < code[i+3];j++) {
+        lily_sym *sym = (lily_sym *)code[i+5+j];
         lily_impl_debugf("            #%d: %s #%d\n", j+1,
                          typename(sym), sym->id);
     }
 
-    ret = (lily_sym *)code[i+5];
+    ret = (lily_sym *)code[i+4];
     if (ret != NULL)
         lily_impl_debugf("        return: %s #%d\n", typename(ret), ret->id);
     else
@@ -189,11 +188,11 @@ static void show_code(lily_var *var)
             case o_func_call:
                 /* For both functions and methods, [i+3] is the # of args. */
                 print_call(code, "    [%d] func_call  \n        ", i);
-                i += 6 + code[i+4];
+                i += 5 + code[i+3];
                 break;
             case o_method_call:
                 print_call(code, "    [%d] method_call\n        ", i);
-                i += 6 + code[i+4];
+                i += 5 + code[i+3];
                 break;
             case o_save:
                 print_save(code, "    [%d] save (%d)\n", i);

@@ -421,7 +421,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         lily_var *local_var;
 
         is_method = (v->sig->cls->id == SYM_CLASS_METHOD);
-        expect_size = 6 + ast->args_collected;
+        expect_size = 5 + ast->args_collected;
 
         if (!is_method) {
             int cache_start = emit->save_cache_pos;
@@ -499,10 +499,9 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
         m->code[m->pos+1] = ast->line_num;
         m->code[m->pos+2] = (uintptr_t)v;
-        m->code[m->pos+3] = (uintptr_t)v->value.ptr;
-        m->code[m->pos+4] = ast->args_collected;
+        m->code[m->pos+3] = ast->args_collected;
 
-        for (i = 6, arg = ast->arg_start;
+        for (i = 5, arg = ast->arg_start;
             arg != NULL;
             arg = arg->next_arg, i++) {
             m->code[m->pos + i] = (uintptr_t)arg->result;
@@ -525,8 +524,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             }
         }
 
-        m->code[m->pos+5] = (uintptr_t)ast->result;
-        m->pos += 6 + ast->args_collected;
+        m->code[m->pos+4] = (uintptr_t)ast->result;
+        m->pos += 5 + ast->args_collected;
         if (num_saves) {
             m->code[m->pos] = o_restore;
             m->code[m->pos+1] = num_saves;

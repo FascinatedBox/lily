@@ -347,10 +347,13 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_func_call:
             {
                 /* var, func, #args, ret, args... */
-                lily_fast_func fc = (lily_fast_func)code[i+3];
-                int j = code[i+4];
-                fc(code[i+4], (lily_sym **)code+i+5);
-                i += 6+j;
+                lily_fast_func fc;
+                /* The func HAS to be grabbed from the var to support passing
+                   funcs as args. */
+                fc = (lily_fast_func)((lily_var *)code[i+2])->value.ptr;;
+                int j = code[i+3];
+                fc(code[i+3], (lily_sym **)code+i+4);
+                i += 5+j;
             }
                 break;
             case o_save:
@@ -385,18 +388,21 @@ void lily_vm_execute(lily_vm_state *vm)
                 if (vm->method_stack_pos == vm->method_stack_size)
                     grow_vm(vm);
 
-                mval = (lily_method_val *)code[i+3];
+                /* This has to be grabbed each time, because of methods passing
+                   as args. This can't be written in at emit time, because the
+                   method arg would be empty then. */
+                mval = (lily_method_val *)((lily_var *)code[i+2])->value.ptr;
                 v = mval->first_arg;
-                j = i + 6 + code[i+4];
+                j = i + 5 + code[i+3];
 
                 stack_entry = vm->method_stack[vm->method_stack_pos-1];
                 stack_entry->line_num = code[i+1];
                 /* Remember to use j, because each arg will take a code spot. */
                 stack_entry->code_pos = j;
-                stack_entry->ret = (lily_sym *)code[i+5];
+                stack_entry->ret = (lily_sym *)code[i+4];
                 stack_entry = vm->method_stack[vm->method_stack_pos];
 
-                i += 6;
+                i += 5;
                 /* Map call values to method arguments. */
                 for (v = mval->first_arg; i < j;v = v->next, i++) {
                     flag = ((lily_sym *)code[i])->flags & S_IS_NIL;
@@ -414,7 +420,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 }
 
                 /* Add this entry to the call stack. */
-                stack_entry->method = (lily_sym *)code[i-6+2];
+                stack_entry->method = (lily_sym *)code[i-5+2];
                 stack_entry->code = mval->code;
                 vm->method_stack_pos++;
 
