@@ -148,6 +148,7 @@ lily_method_val *lily_try_new_method_val(lily_symtab *symtab)
         return NULL;
     }
 
+    m->refcount = 1;
     m->code = code;
     m->pos = 0;
     m->len = 8;
@@ -183,11 +184,10 @@ void free_vars(lily_var *var)
 
         if (cls_id == SYM_CLASS_METHOD) {
             free_call_sig(var->sig);
-            lily_method_val *method = (lily_method_val *)var->value.ptr;
+            lily_method_val *mv = (lily_method_val *)var->value.ptr;
             /* This is currently safe, because method vars aren't created if a
                method val can't be created for them. */
-            lily_free(method->code);
-            lily_free(method);
+            lily_deref_method_val(mv);
         }
         else if (cls_id == SYM_CLASS_FUNCTION)
             free_call_sig(var->sig);
@@ -567,6 +567,15 @@ void lily_deref_strval(lily_strval *sv)
         if (sv->str)
             lily_free(sv->str);
         lily_free(sv);
+    }
+}
+
+void lily_deref_method_val(lily_method_val *mv)
+{
+    mv->refcount--;
+    if (mv->refcount == 0) {
+        lily_free(mv->code);
+        lily_free(mv);
     }
 }
 
