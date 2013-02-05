@@ -15,6 +15,7 @@ typedef struct {
     uintptr_t *code;
     struct lily_var_t *first_arg;
     struct lily_var_t *last_arg;
+    int refcount;
     int pos;
     int len;
 } lily_method_val;
@@ -152,6 +153,7 @@ lily_var *lily_try_new_var(lily_symtab *, lily_class *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
 int lily_try_add_storage(lily_symtab *, lily_class *);
 lily_method_val *lily_try_new_method_val(lily_symtab *);
+void lily_deref_method_val(lily_method_val *);
 void lily_deref_strval(lily_strval *);
 int lily_drop_block_vars(lily_symtab *, lily_var *);
 #endif

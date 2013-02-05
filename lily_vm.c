@@ -415,6 +415,13 @@ void lily_vm_execute(lily_vm_state *vm)
                         if (sv != NULL)
                             sv->refcount++;
                     }
+                    else if (v->sig->cls->id == SYM_CLASS_METHOD) {
+                        if (v->value.ptr != NULL)
+                            lily_deref_method_val((lily_method_val *)v->value.ptr);
+                        lily_method_val *mv = ((lily_sym *)code[i])->value.ptr;
+                        if (mv != NULL)
+                            mv->refcount++;
+                    }
                     v->flags &= flag;
                     v->value = ((lily_sym *)code[i])->value;
                 }
@@ -451,13 +458,20 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs = stack_entry->ret;
                 rhs = (lily_sym *)code[i+1];
 
-                if (lhs->sig->cls->id == SYM_CLASS_STR &&
-                    !(lhs->flags & S_IS_NIL)) {
+                if (!(lhs->flags & S_IS_NIL)) {
+                    if (lhs->sig->cls->id == SYM_CLASS_STR) {
                         if (lhs->value.ptr != NULL)
                             lily_deref_strval(lhs->value.ptr);
 
                         ((lily_strval *)rhs->value.ptr)->refcount++;
                     }
+                    if (lhs->sig->cls->id == SYM_CLASS_METHOD) {
+                        if (lhs->value.ptr != NULL)
+                            lily_deref_method_val(lhs->value.ptr);
+
+                        ((lily_method_val *)rhs->value.ptr)->refcount++;
+                    }
+                }
 
                 lhs->value = rhs->value;
                 code = stack_entry->code;
