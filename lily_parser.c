@@ -31,6 +31,10 @@
    This is suitable for collecting the args of a method. */
 #define CA_MAKE_VARS  0x20
 
+/* This is set if the variable is not inside another variable. This is suitable
+   for collecting a method that may have named arguments. */
+#define CA_TOPLEVEL   0x40
+
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
 if (lex->token != expected) \
@@ -490,9 +494,13 @@ static void collect_args(lily_parse_state *parser, int *count, int flags)
 
         /* todo: Support functions later. */
         if (cls->id == SYM_CLASS_METHOD) {
-            int save_pos, j;
+            int collect_flags, save_pos, j;
             lily_class *call_ret_class;
             lily_call_sig *call_sig;
+
+            collect_flags = 0;
+            if (flags & CA_TOPLEVEL)
+                collect_flags |= CA_MAKE_VARS;
 
             call_sig = var->sig->node.call;
             save_pos = parser->sig_stack_pos;
@@ -500,11 +508,7 @@ static void collect_args(lily_parse_state *parser, int *count, int flags)
             lily_lexer(lex);
 
             if (lex->token != tk_right_parenth) {
-                /* method a(method b(integer, integer c):nil, integer):nil
-                            ^ You are here
-                   Do not set MAKE_VARS, because b's parameters are not alive,
-                   and thus cannot be interacted with. */
-                collect_args(parser, &j, 0);
+                collect_args(parser, &j, collect_flags);
                 NEED_CURRENT_TOK(tk_right_parenth)
             }
             else
@@ -528,12 +532,25 @@ static void collect_args(lily_parse_state *parser, int *count, int flags)
                 if (args == NULL)
                     lily_raise_nomem(parser->raiser);
 
-                for (k = 0;k < j;k++, save_pos++)
-                    args[k] = parser->sig_stack[save_pos];
-
+                if (flags & CA_TOPLEVEL) {
+                    lily_method_val *mval = (lily_method_val *)var->value.ptr;
+                    lily_var *iter_var = var->next;
+                    k = 0;
+                    mval->first_arg = iter_var;
+                    mval->last_arg = parser->symtab->var_top;
+                    while (iter_var) {
+                        args[k] = iter_var->sig;
+                        k++;
+                        iter_var = iter_var->next;
+                    }
+                }
+                else {
+                    for (k = 0;k < j;k++, save_pos++)
+                        args[k] = parser->sig_stack[save_pos];
+                    parser->sig_stack_pos -= j;
+                }
                 call_sig->args = args;
                 call_sig->num_args = j;
-                parser->sig_stack_pos -= j;
             }
         }
 
@@ -561,69 +578,6 @@ static void collect_args(lily_parse_state *parser, int *count, int flags)
             break;
         }
     }
-}
-
-static void parse_method_decl(lily_parse_state *parser)
-{
-    lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_METHOD);
-    lily_method_val *m;
-    lily_lex_state *lex = parser->lex;
-    lily_var *method_var, *save_top;
-    lily_call_sig *csig;
-
-    /* Get the method's name. */
-    NEED_NEXT_TOK(tk_word)
-    /* Form: method name(args):<ret type> {  } */
-    method_var = lily_try_new_var(parser->symtab, cls, lex->label);
-    if (method_var == NULL)
-        lily_raise_nomem(parser->raiser);
-
-    m = (lily_method_val *)method_var->value.ptr;
-    csig = method_var->sig->node.call;
-    /* lily_try_new_var creates the method_val with first_arg, last_arg, and ret
-       set to NULL. So there's nothing to do for () calls, or calls that return
-       nil. */
-
-    NEED_NEXT_TOK(tk_left_parenth)
-    save_top = parser->symtab->var_top;
-
-    lily_lexer(lex);
-
-    if (lex->token != tk_right_parenth) {
-        int i, j;
-        collect_args(parser, &i, CA_MAKE_VARS);
-        m->first_arg = save_top->next;
-        m->last_arg = parser->symtab->var_top;
-        save_top = save_top->next;
-
-        csig->args = lily_malloc(sizeof(lily_sig *) * i);
-        if (csig->args == NULL)
-            lily_raise_nomem(parser->raiser);
-
-        for (j = 0;j < i;j++) {
-            csig-> args[j] = save_top->sig;
-            save_top = save_top->next;
-        }
-
-        csig->num_args = i;
-    }
-    /* else nothing to do for (). */
-
-    NEED_NEXT_TOK(tk_colon)
-    NEED_NEXT_TOK(tk_word)
-
-    cls = lily_class_by_name(parser->symtab, lex->label);
-    if (cls != NULL)
-        csig->ret = cls->sig;
-    else {
-        if (strcmp(lex->label, "nil") != 0)
-            lily_raise(parser->raiser, lily_ErrSyntax,
-                       "unknown class name %s.\n", lex->label);
-    }
-
-    lily_emit_enter_method(parser->emit, method_var);
-    NEED_NEXT_TOK(tk_left_curly)
-    lily_lexer(parser->lex);
 }
 
 static void statement(lily_parse_state *parser)
@@ -671,9 +625,16 @@ static void statement(lily_parse_state *parser)
         if (lclass != NULL) {
             if (lclass->id != SYM_CLASS_METHOD)
                 declaration(parser, lclass);
-            else
-                /* Methods have a special kind of declaration. */
-                parse_method_decl(parser);
+            else {
+                lily_var *save_var = parser->symtab->var_top;
+                int j;
+                lily_lex_state *lex = parser->lex;
+
+                collect_args(parser, &j, CA_TOPLEVEL | CA_MAKE_VARS);
+                NEED_CURRENT_TOK(tk_left_curly)
+                lily_emit_enter_method(parser->emit, save_var->next);
+                lily_lexer(lex);
+            }
         }
         else
             expression(parser, EX_NEED_VALUE | EX_SINGLE);
