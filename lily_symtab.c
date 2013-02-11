@@ -69,7 +69,7 @@ static void free_call_sig(lily_sig *sig)
 static lily_sig *try_sig_for_class(lily_class *cls)
 {
     lily_sig *sig;
-    if (cls->id == SYM_CLASS_OBJECT) {
+    if (cls->id == SYM_CLASS_OBJECT || cls->id == SYM_CLASS_LIST) {
         sig = lily_malloc(sizeof(lily_sig));
         if (sig != NULL) {
             sig->cls = cls;
@@ -193,6 +193,8 @@ void free_vars(lily_var *var)
             free_call_sig(var->sig);
         else if (cls_id == SYM_CLASS_OBJECT)
             lily_free(var->sig);
+        else if (cls_id == SYM_CLASS_LIST)
+            lily_free(var->sig);
         else if (cls_id == SYM_CLASS_STR) {
             lily_strval *sv = (lily_strval *)var->value.ptr;
             if (sv != NULL)
@@ -245,6 +247,8 @@ void lily_free_symtab(lily_symtab *symtab)
                             free_call_sig(store_curr->sig);
                         else if (store_curr->sig->cls->id == SYM_CLASS_FUNCTION)
                             free_call_sig(store_curr->sig);
+                        else if (store_curr->sig->cls->id == SYM_CLASS_LIST)
+                            lily_free(store_curr->sig);
                         else if (store_curr->sig->cls->id == SYM_CLASS_STR) {
                             lily_strval *sv = store_curr->value.ptr;
                             if (sv != NULL)
