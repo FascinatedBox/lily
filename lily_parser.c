@@ -631,9 +631,7 @@ static void statement(lily_parse_state *parser)
         lclass = lily_class_by_name(parser->symtab, label);
 
         if (lclass != NULL) {
-            if (lclass->id != SYM_CLASS_METHOD)
-                declaration(parser, lclass);
-            else {
+            if (lclass->id == SYM_CLASS_METHOD) {
                 lily_var *save_var = parser->symtab->var_top;
                 int j;
                 lily_lex_state *lex = parser->lex;
@@ -643,6 +641,27 @@ static void statement(lily_parse_state *parser)
                 lily_emit_enter_method(parser->emit, save_var->next);
                 lily_lexer(lex);
             }
+            else if (lclass->id == SYM_CLASS_LIST) {
+                lily_lex_state *lex = parser->lex;
+                int j;
+                lily_var *list_var;
+                lily_sig *elem_sig;
+
+                NEED_NEXT_TOK(tk_left_bracket)
+                lily_lexer(lex);
+                collect_args(parser, &j, CA_ONCE);
+                NEED_CURRENT_TOK(tk_right_bracket)
+                NEED_NEXT_TOK(tk_word)
+                list_var = lily_try_new_var(parser->symtab, lclass, lex->label);
+                if (list_var == NULL)
+                    lily_raise_nomem(parser->raiser);
+
+                elem_sig = parser->sig_stack[parser->sig_stack_pos-1];
+                parser->sig_stack_pos--;
+                list_var->sig->node.value_sig = elem_sig;
+            }
+            else
+                declaration(parser, lclass);
         }
         else
             expression(parser, EX_NEED_VALUE | EX_SINGLE);
