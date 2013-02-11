@@ -13,27 +13,31 @@
 /* These are flags for expression. */
 
 /* Execute only one expression. */
-#define EX_SINGLE     0x01
+#define EX_SINGLE     0x001
 /* Get the lhs via expression_value. */
-#define EX_NEED_VALUE 0x02
+#define EX_NEED_VALUE 0x002
 /* For if and elif to work, the expression has to be tested for being true or
    false. This tells the emitter to write in that test (o_jump_if_false) after
    writing the condition. This must be done within expression, because the
    ast is 'cleaned' by expression after each run. */
-#define EX_CONDITION  0x04
+#define EX_CONDITION  0x004
 /* Don't clear the ast within 'expression'. This allows the finished ast to be
    inspected. */
-#define EX_SAVE_AST   0x10
+#define EX_SAVE_AST   0x010
 
 /* These flags are for collect_args. */
 
 /* Expect a name with every class given. Create a var for each class+name pair.
    This is suitable for collecting the args of a method. */
-#define CA_MAKE_VARS  0x20
+#define CA_MAKE_VARS  0x020
 
 /* This is set if the variable is not inside another variable. This is suitable
    for collecting a method that may have named arguments. */
-#define CA_TOPLEVEL   0x40
+#define CA_TOPLEVEL   0x040
+
+/* This is set if collect_args should only run once. If not set, then it will
+   collect args separated by commas. */
+#define CA_ONCE       0x100
 
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
@@ -474,8 +478,12 @@ static void collect_args(lily_parse_state *parser, int *count, int flags)
 {
     lily_lex_state *lex = parser->lex;
     lily_class *cls;
-    int i = 0;
-    lily_var *var = NULL;
+    int collect_multi, i;
+
+    /* This is inverted to collect_multi because most collections will be of
+       multiple args. */
+    collect_multi = !(flags & CA_ONCE);
+    i = 0;
 
     while (1) {
         lily_var *var;
@@ -571,7 +579,7 @@ static void collect_args(lily_parse_state *parser, int *count, int flags)
         i++;
 
         lily_lexer(lex);
-        if (lex->token == tk_comma)
+        if (lex->token == tk_comma && collect_multi)
             lily_lexer(lex);
         else {
             *count = i;
