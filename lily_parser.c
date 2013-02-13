@@ -131,20 +131,20 @@ static void enter_oo_call(lily_parse_state *parser)
     lily_class *cls;
     lily_var *call_var;
 
-    while (active->expr_type == parenth)
+    while (active->tree_type == tree_parenth)
         active = active->arg_start;
 
-    if (active->expr_type == var)
+    if (active->tree_type == tree_var)
         cls = active->result->sig->cls;
-    else if (active->expr_type == call)
+    else if (active->tree_type == tree_call)
         cls = active->result->sig->node.call->ret->cls;
-    else if (active->expr_type == binary) {
+    else if (active->tree_type == tree_binary) {
         lily_sig *sig = active->right->result->sig;
 
         /* If the rhs is a call, then this will use the return of that call.
            This can happen if the rhs was either a regular or oo call. The top
            call is all that needs to be checked, since it was the last. */
-        if (active->right->expr_type == call)
+        if (active->right->tree_type == tree_call)
             cls = sig->node.call->ret->cls;
         else
             cls = sig->cls;

@@ -147,7 +147,7 @@ static void do_logical_op(lily_emit_state *emit, lily_ast *ast)
     /* The first tree must create the block, so that subsequent trees have a
        place to write the patches to. */
     if (ast->parent == NULL || 
-        (ast->parent->expr_type == binary && ast->parent->op != ast->op)) {
+        (ast->parent->tree_type == tree_binary && ast->parent->op != ast->op)) {
         is_top = 1;
         lily_emit_push_block(emit, BLOCK_ANDOR);
     }
@@ -155,11 +155,11 @@ static void do_logical_op(lily_emit_state *emit, lily_ast *ast)
         is_top = 0;
 
     /* The bottom tree is responsible for getting the storage. */
-    if (ast->left->expr_type != binary || ast->left->op != ast->op) {
+    if (ast->left->tree_type != tree_binary || ast->left->op != ast->op) {
         result = get_storage_sym(emit,
             lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER));
 
-        if (ast->left->expr_type != var)
+        if (ast->left->tree_type != tree_var)
             walk_tree(emit, ast->left);
 
         do_jump_for_tree(emit, ast->left, jump_on);
@@ -171,7 +171,7 @@ static void do_logical_op(lily_emit_state *emit, lily_ast *ast)
         result = (lily_storage *)ast->left->result;
     }
 
-    if (ast->right->expr_type != var)
+    if (ast->right->tree_type != tree_var)
         walk_tree(emit, ast->right);
 
     do_jump_for_tree(emit, ast->right, jump_on);
@@ -371,7 +371,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     SAVE_PREP(num_args)
     /* The parser has already verified argument count. */
     for (i = 0;i != num_args;arg = arg->next_arg, i++) {
-        if (arg->expr_type != var) {
+        if (arg->tree_type != tree_var) {
             /* Walk the subexpressions so the result gets calculated. */
             walk_tree(emit, arg);
             if (arg->result != NULL) {
@@ -392,7 +392,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         i--;
         int j = 0;
         for (;arg != NULL;arg = arg->next_arg, j++) {
-            if (arg->expr_type != var) {
+            if (arg->tree_type != tree_var) {
                 /* Walk the subexpressions so the result gets calculated. */
                 walk_tree(emit, arg);
                 if (arg->result != NULL) {
@@ -413,7 +413,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 {
     lily_method_val *m = emit->target;
 
-    if (ast->expr_type == call) {
+    if (ast->tree_type == tree_call) {
         lily_ast *arg = ast->arg_start;
         lily_var *v = (lily_var *)ast->result;
         lily_call_sig *csig = v->sig->node.call;
@@ -439,9 +439,9 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         else {
             check_call_args(emit, ast, csig);
 
-            if (ast->parent != NULL && ast->parent->expr_type == binary &&
+            if (ast->parent != NULL && ast->parent->tree_type == tree_binary &&
                 ast->parent->right == ast &&
-                ast->parent->left->expr_type != var) {
+                ast->parent->left->tree_type != tree_var) {
                 /* Ex: fib(n-1) + fib(n-2)
                    In this case, the left side of the plus (the first fib call)
                    is something saved to a storage. Since the plus hasn't been
@@ -532,18 +532,18 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             m->pos += 2;
         }
     }
-    else if (ast->expr_type == binary) {
+    else if (ast->tree_type == tree_binary) {
         if (ast->op == expr_assign) {
             int opcode;
             lily_sym *left_sym, *right_sym;
 
-            if (ast->left->expr_type != var) {
+            if (ast->left->tree_type != tree_var) {
                 emit->raiser->line_adjust = ast->line_num;
                 lily_raise(emit->raiser, lily_ErrSyntax,
                            "Left side of = is not a var.\n");
             }
 
-            if (ast->right->expr_type != var)
+            if (ast->right->tree_type != tree_var)
                 walk_tree(emit, ast->right);
 
             left_sym = ast->left->result;
@@ -573,22 +573,22 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         else if (ast->op == expr_logical_or || ast->op == expr_logical_and)
             do_logical_op(emit, ast);
         else {
-            if (ast->left->expr_type != var)
+            if (ast->left->tree_type != tree_var)
                 walk_tree(emit, ast->left);
 
-            if (ast->right->expr_type != var)
+            if (ast->right->tree_type != tree_var)
                 walk_tree(emit, ast->right);
 
             generic_binop(emit, ast);
         }
     }
-    else if (ast->expr_type == parenth) {
-        if (ast->arg_start->expr_type != var)
+    else if (ast->tree_type == tree_parenth) {
+        if (ast->arg_start->tree_type != tree_var)
             walk_tree(emit, ast->arg_start);
         ast->result = ast->arg_start->result;
     }
-    else if (ast->expr_type == unary) {
-        if (ast->left->expr_type != var)
+    else if (ast->tree_type == tree_unary) {
+        if (ast->left->tree_type != tree_var)
             walk_tree(emit, ast->left);
 
         do_unary_op(emit, ast);
