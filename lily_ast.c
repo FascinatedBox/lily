@@ -5,7 +5,7 @@ static void oo_merge(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
 {
     lily_ast *target;
 
-    if (active->expr_type < binary) {
+    if (active->tree_type < tree_binary) {
         /* This gets called for two cases:
            1) a.concat("c") where a is active and root.
            2) a.concat(b.concat("c")) where b is active, but a is root.
@@ -39,17 +39,17 @@ static void oo_merge(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
 static void unary_merge(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
 {
     /* 'a = ', so there's no value for the right side...yet. */
-    if (active->expr_type == binary && active->right == NULL)
+    if (active->tree_type == tree_binary && active->right == NULL)
         active->right = new_ast;
     else {
         /* Might be 'a = -', so there's already at least 1 unary value. */
-        if (active->expr_type == binary)
+        if (active->tree_type == tree_binary)
             active = active->right;
 
         /* Unary ops are right->left (opposite of binary), and all have the same
            precedence. So values, calls, and even other unary ops will have to
            walk down to become the child of the lowest unary op. */
-        while (active->expr_type == unary && active->left != NULL)
+        while (active->tree_type == tree_unary && active->left != NULL)
             active = active->left;
 
         active->left = new_ast;
@@ -65,15 +65,15 @@ static void merge_val(lily_ast_pool *ap, lily_ast *new_ast)
     if (active != NULL) {
         /* It's an oo call if we're merging a call against an existing
            value. */
-        if (active->expr_type == binary) {
+        if (active->tree_type == tree_binary) {
             if (active->right == NULL)
                 active->right = new_ast;
-            else if (active->right->expr_type == unary)
+            else if (active->right->tree_type == tree_unary)
                 unary_merge(ap, active, new_ast);
             else
                 oo_merge(ap, active, new_ast);
         }
-        else if (active->expr_type != unary)
+        else if (active->tree_type != tree_unary)
             oo_merge(ap, active, new_ast);
         /* This happens for expressions like !!0. Make sure to do unary merge,
            especially if a binary op has already been seen. Otherwise, oo
@@ -167,9 +167,9 @@ void lily_ast_enter_call(lily_ast_pool *ap, lily_var *var)
     lily_ast *a = next_pool_ast(ap);
 
     if (var != NULL)
-        a->expr_type = call;
+        a->tree_type = tree_call;
     else
-        a->expr_type = parenth;
+        a->tree_type = tree_parenth;
 
     a->line_num = *ap->lex_linenum;
     a->result = (lily_sym *)var;
@@ -343,7 +343,7 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
     lily_ast *new_ast = next_pool_ast(ap);
     lily_ast *active = ap->active;
 
-    new_ast->expr_type = binary;
+    new_ast->tree_type = tree_binary;
     new_ast->line_num = *ap->lex_linenum;
     new_ast->priority = priority_for_op(op);
     new_ast->op = op;
@@ -353,7 +353,7 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
 
     /* Active is always non-NULL, because binary always comes after a value of
        some kind. */
-    if (active->expr_type < binary) {
+    if (active->tree_type < tree_binary) {
         /* Only a value or call so far. The binary op takes over. */
         if (ap->root == active)
             ap->root = new_ast;
@@ -361,7 +361,7 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
         new_ast->left = active;
         ap->active = new_ast;
     }
-    else if (active->expr_type == binary) {
+    else if (active->tree_type == tree_binary) {
         /* Figure out how the two trees will fit together. */
         int new_prio, active_prio;
         new_prio = new_ast->priority;
@@ -370,7 +370,7 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
             /* The new tree goes before the current one. It becomes the
                active, but not the root. */
             new_ast->left = active->right;
-            if (active->left->expr_type == binary &&
+            if (active->left->tree_type == tree_binary &&
                 active->priority < new_prio) {
                 active->right = active->left;
                 active->left = new_ast;
@@ -419,12 +419,12 @@ void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
     lily_ast *active = ap->active;
 
     a->left = NULL;
-    a->expr_type = unary;
+    a->tree_type = tree_unary;
     a->priority = priority_for_op(op);
     a->op = op;
 
     if (active != NULL) {
-        if (active->expr_type == var || active->expr_type == call) {
+        if (active->tree_type == tree_var || active->tree_type == tree_call) {
             active->parent = a;
             ap->active = a;
             ap->root = a;
@@ -445,7 +445,7 @@ void lily_ast_push_sym(lily_ast_pool *ap, lily_sym *s)
     /* The value is stored in result, because that's where functions and
        binary ops store the object containing the result. It allows the emitter
        to do nothing for vars. */
-    a->expr_type = var;
+    a->tree_type = tree_var;
     a->line_num = *ap->lex_linenum;
     a->result = s;
 

@@ -4,11 +4,12 @@
 # include "lily_symtab.h"
 # include "lily_expr_op.h"
 
-typedef struct lily_ast_t {
-    enum {
-        call, parenth, var, unary, binary
-    } expr_type;
+typedef enum {
+    tree_call, tree_parenth, tree_var, tree_unary, tree_binary
+} lily_tree_type;
 
+typedef struct lily_ast_t {
+    lily_tree_type tree_type;
     int line_num;
     /* If the tree is a var, then this is that var. If it isn't, then the
        emitter will set this to a storage holding the result of this tree. */
