@@ -162,15 +162,11 @@ static int priority_for_op(lily_expr_op o)
     return prio;
 }
 
-void lily_ast_enter_call(lily_ast_pool *ap, lily_var *var)
+void lily_ast_enter_subexpr(lily_ast_pool *ap, lily_tree_type tt, lily_var *var)
 {
     lily_ast *a = next_pool_ast(ap);
 
-    if (var != NULL)
-        a->tree_type = tree_call;
-    else
-        a->tree_type = tree_parenth;
-
+    a->tree_type = tt;
     a->line_num = *ap->lex_linenum;
     a->result = (lily_sym *)var;
     a->args_collected = 0;
@@ -302,7 +298,7 @@ void lily_ast_pop_tree(lily_ast_pool *ap)
     lily_var *v = (lily_var *)a->result;
 
     push_call_arg(ap, a, ap->root);
-    if (v != NULL) {
+    if (a->tree_type == tree_call) {
         int args_needed = v->sig->node.call->num_args;
 
         /* Func arg pushing doesn't check as it goes along, because that
