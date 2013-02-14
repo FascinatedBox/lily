@@ -593,6 +593,11 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
         do_unary_op(emit, ast);
     }
+    else if (ast->tree_type == tree_list) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                   "STUB: Handle list declaration in emitter's walk_tree.\n");
+    }
 }
 
 void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)

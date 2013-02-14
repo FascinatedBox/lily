@@ -157,7 +157,7 @@ static void enter_oo_call(lily_parse_state *parser)
                    parser->lex->label);
     }
 
-    lily_ast_enter_call(parser->ast_pool, call_var);
+    lily_ast_enter_subexpr(parser->ast_pool, tree_call, call_var);
 }
 
 static void do_unary_expr(lily_parse_state *parser)
@@ -198,7 +198,7 @@ static void expression_value(lily_parse_state *parser)
 
                 /* New trees will get saved to the args section of this tree
                     when they are done. */
-                lily_ast_enter_call(parser->ast_pool, var);
+                lily_ast_enter_subexpr(parser->ast_pool, tree_call, var);
 
                 lily_lexer(lex);
                 if (lex->token == tk_right_parenth)
@@ -230,7 +230,12 @@ static void expression_value(lily_parse_state *parser)
             else if (lex->token == tk_left_parenth) {
                 /* A parenth expression is essentially a call, but without the
                    var part. */
-                lily_ast_enter_call(parser->ast_pool, NULL);
+                lily_ast_enter_subexpr(parser->ast_pool, tree_parenth, NULL);
+                lily_lexer(lex);
+                continue;
+            }
+            else if (lex->token == tk_left_bracket) {
+                lily_ast_enter_subexpr(parser->ast_pool, tree_list, NULL);
                 lily_lexer(lex);
                 continue;
             }
@@ -301,6 +306,18 @@ static void expression(lily_parse_state *parser, int flags)
                     NEED_NEXT_TOK(tk_left_parenth);
                     lily_lexer(lex);
                 }
+            }
+            else if (lex->token == tk_right_bracket) {
+                lily_ast_pop_tree(parser->ast_pool);
+                lily_lexer(lex);
+                if (parser->ast_pool->save_index == 0 &&
+                    is_start_val[lex->token] == 1) {
+                    /* Since there are no parenths/calls left, then this value
+                       must be the first in the next expression. */
+                    break;
+                }
+                else
+                    continue;
             }
             else if (lex->token == tk_comma) {
                 if (parser->ast_pool->active == NULL)
