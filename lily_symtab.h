@@ -33,7 +33,7 @@ typedef struct lily_method_val_t {
 
 typedef struct lily_list_val_t {
     int refcount;
-    void *values;
+    void **values;
     int num_values;
 } lily_list_val;
 
@@ -164,5 +164,6 @@ int lily_try_add_storage(lily_symtab *, lily_class *);
 lily_method_val *lily_try_new_method_val(lily_symtab *);
 void lily_deref_method_val(lily_method_val *);
 void lily_deref_str_val(lily_str_val *);
+void lily_deref_list_val(lily_list_val *);
 int lily_drop_block_vars(lily_symtab *, lily_var *);
 #endif

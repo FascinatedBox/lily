@@ -552,6 +552,10 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             if (left_sym->sig != right_sym->sig) {
                 if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
                     opcode = o_obj_assign;
+                else if (sigmatch(left_sym->sig, right_sym->sig)) {
+                    if (left_sym->sig->cls->id == SYM_CLASS_LIST)
+                        opcode = o_list_assign;
+                }
                 else {
                     emit->raiser->line_adjust = ast->line_num;
                     lily_raise(emit->raiser, lily_ErrSyntax,

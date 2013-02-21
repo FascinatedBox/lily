@@ -115,8 +115,8 @@ int lily_try_add_storage(lily_symtab *symtab, lily_class *cls)
     /* str's concat function will check to see if there is a strval to save the
        new string to. For now, set this to null so there's no invalid read when
        concat does that. */
-    if (cls->id == SYM_CLASS_STR)
-        storage->value.str = NULL;
+    if (cls->id == SYM_CLASS_STR || cls->id == SYM_CLASS_LIST)
+        storage->value.ptr = NULL;
 
     storage->id = symtab->next_storage_id;
     symtab->next_storage_id++;
@@ -193,8 +193,14 @@ void free_vars(lily_var *var)
             free_call_sig(var->sig);
         else if (cls_id == SYM_CLASS_OBJECT)
             lily_free(var->sig);
-        else if (cls_id == SYM_CLASS_LIST)
+        else if (cls_id == SYM_CLASS_LIST) {
+            lily_list_val *lv = var->value.list;
+            if (lv != NULL) {
+                fprintf(stderr, "lv has refcount %d.\n", lv->refcount);
+                lily_deref_list_val(lv);
+            }
             lily_free(var->sig);
+        }
         else if (cls_id == SYM_CLASS_STR) {
             lily_str_val *sv = var->value.str;
             if (sv != NULL)
@@ -247,8 +253,14 @@ void lily_free_symtab(lily_symtab *symtab)
                             free_call_sig(store_curr->sig);
                         else if (store_curr->sig->cls->id == SYM_CLASS_FUNCTION)
                             free_call_sig(store_curr->sig);
-                        else if (store_curr->sig->cls->id == SYM_CLASS_LIST)
+                        else if (store_curr->sig->cls->id == SYM_CLASS_LIST) {
+                            lily_list_val *lv = store_curr->value.list;
+                            if (lv != NULL) {
+                                fprintf(stderr, "lv has refcount %d.\n", lv->refcount);
+                                lily_deref_list_val(lv);
+                            }
                             lily_free(store_curr->sig);
+                        }
                         else if (store_curr->sig->cls->id == SYM_CLASS_STR) {
                             lily_str_val *sv = store_curr->value.str;
                             if (sv != NULL)
@@ -562,6 +574,15 @@ int lily_drop_block_vars(lily_symtab *symtab, lily_var *start)
     /* Detach old and new vars. */
     start->next = NULL;
     return ret;
+}
+
+void lily_deref_list_val(lily_list_val *lv)
+{
+    lv->refcount--;
+    if (lv->refcount == 0) {
+        lily_free(lv->values);
+        lily_free(lv);
+    }
 }
 
 void lily_deref_str_val(lily_str_val *sv)
