@@ -195,10 +195,8 @@ void free_vars(lily_var *var)
             lily_free(var->sig);
         else if (cls_id == SYM_CLASS_LIST) {
             lily_list_val *lv = var->value.list;
-            if (lv != NULL) {
-                fprintf(stderr, "lv has refcount %d.\n", lv->refcount);
+            if (lv != NULL)
                 lily_deref_list_val(lv);
-            }
             lily_free(var->sig);
         }
         else if (cls_id == SYM_CLASS_STR) {
@@ -255,10 +253,8 @@ void lily_free_symtab(lily_symtab *symtab)
                             free_call_sig(store_curr->sig);
                         else if (store_curr->sig->cls->id == SYM_CLASS_LIST) {
                             lily_list_val *lv = store_curr->value.list;
-                            if (lv != NULL) {
-                                fprintf(stderr, "lv has refcount %d.\n", lv->refcount);
+                            if (lv != NULL)
                                 lily_deref_list_val(lv);
-                            }
                             lily_free(store_curr->sig);
                         }
                         else if (store_curr->sig->cls->id == SYM_CLASS_STR) {
