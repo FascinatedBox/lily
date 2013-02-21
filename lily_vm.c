@@ -464,7 +464,7 @@ void lily_vm_execute(lily_vm_state *vm)
                         if (lhs->value.str != NULL)
                             lily_deref_str_val(lhs->value.str);
 
-                        ((lily_str_val *)rhs->value.tr)->refcount++;
+                        ((lily_str_val *)rhs->value.str)->refcount++;
                     }
                     if (lhs->sig->cls->id == SYM_CLASS_METHOD) {
                         if (lhs->value.method != NULL)
