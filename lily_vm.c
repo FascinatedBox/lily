@@ -62,8 +62,8 @@ else if (lhs->sig->cls->id == SYM_CLASS_INTEGER) { \
 } \
 else if (lhs->sig->cls->id == SYM_CLASS_STR) { \
     ((lily_sym *)code[i+4])->value.integer = \
-    strcmp(((lily_strval *)lhs->value.ptr)->str, \
-           ((lily_strval *)rhs->value.ptr)->str) STROP; \
+    strcmp(lhs->value.str->str, \
+           rhs->value.str->str) STROP; \
 } \
 i += 5;
 
@@ -157,7 +157,7 @@ void lily_free_vm_state(lily_vm_state *vm)
 
 void lily_builtin_print(int num_args, lily_sym **args)
 {
-    lily_impl_send_html(((lily_strval *)args[1]->value.ptr)->str);
+    lily_impl_send_html(args[1]->value.str->str);
 }
 
 void lily_builtin_printfmt(int num_args, lily_sym **args)
@@ -169,7 +169,7 @@ void lily_builtin_printfmt(int num_args, lily_sym **args)
     int arg_pos = 1, i = 0;
     lily_sym *arg;
 
-    fmt = ((lily_strval *)args[1]->value.ptr)->str;
+    fmt = args[1]->value.str->str;
     str_start = fmt;
     while (1) {
         if (fmt[i] == '\0')
@@ -204,7 +204,7 @@ void lily_builtin_printfmt(int num_args, lily_sym **args)
                 if (is_nil)
                     lily_impl_send_html("(nil)");
                 else
-                    lily_impl_send_html(((lily_strval *)arg->value.ptr)->str);
+                    lily_impl_send_html(arg->value.str->str);
             }
             else if (fmt[i] == 'n') {
                 if (cls_id != SYM_CLASS_NUMBER)
@@ -231,16 +231,16 @@ void lily_builtin_printfmt(int num_args, lily_sym **args)
 void do_str_assign(lily_sym **syms)
 {
     lily_sym *lhs, *rhs;
-    lily_strval *lvalue;
+    lily_str_val *lvalue;
 
     lhs = ((lily_sym *)syms[1]);
     rhs = ((lily_sym *)syms[2]);
-    lvalue = (lily_strval *)lhs->value.ptr;
+    lvalue = lhs->value.str;
 
     if (!(lhs->flags & S_IS_NIL))
-        lily_deref_strval(lvalue);
+        lily_deref_str_val(lvalue);
     if (!(rhs->flags & S_IS_NIL)) {
-        ((lily_strval *)rhs->value.ptr)->refcount++;
+        rhs->value.str->refcount++;
         lhs->flags &= ~S_IS_NIL;
     }
     else
@@ -272,7 +272,7 @@ void lily_vm_execute(lily_vm_state *vm)
     lily_method_val *m;
     lily_vm_stack_entry *stack_entry;
 
-    m = (lily_method_val *)vm->main->value.ptr;
+    m = vm->main->value.method;
     code = m->code;
     i = 0;
 
@@ -391,7 +391,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* This has to be grabbed each time, because of methods passing
                    as args. This can't be written in at emit time, because the
                    method arg would be empty then. */
-                mval = (lily_method_val *)((lily_var *)code[i+2])->value.ptr;
+                mval = ((lily_var *)code[i+2])->value.method;
                 v = mval->first_arg;
                 j = i + 5 + code[i+3];
 
@@ -409,16 +409,17 @@ void lily_vm_execute(lily_vm_state *vm)
                     if (v->sig->cls->id == SYM_CLASS_STR) {
                         /* Treat this like a string assignment: Deref old, ref
                            new. */
-                        if (v->value.ptr != NULL)
-                            lily_deref_strval((lily_strval *)v->value.ptr);
-                        lily_strval *sv = ((lily_sym *)code[i])->value.ptr;
+                        if (v->value.str != NULL)
+                            lily_deref_str_val(v->value.str);
+                        lily_str_val *sv = ((lily_sym *)code[i])->value.str;
                         if (sv != NULL)
                             sv->refcount++;
                     }
                     else if (v->sig->cls->id == SYM_CLASS_METHOD) {
-                        if (v->value.ptr != NULL)
-                            lily_deref_method_val((lily_method_val *)v->value.ptr);
-                        lily_method_val *mv = ((lily_sym *)code[i])->value.ptr;
+                        if (v->value.method != NULL)
+                            lily_deref_method_val(v->value.method);
+                        lily_method_val *mv;
+                        mv = ((lily_sym *)code[i])->value.method;
                         if (mv != NULL)
                             mv->refcount++;
                     }
@@ -460,16 +461,16 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 if (!(lhs->flags & S_IS_NIL)) {
                     if (lhs->sig->cls->id == SYM_CLASS_STR) {
-                        if (lhs->value.ptr != NULL)
-                            lily_deref_strval(lhs->value.ptr);
+                        if (lhs->value.str != NULL)
+                            lily_deref_str_val(lhs->value.str);
 
-                        ((lily_strval *)rhs->value.ptr)->refcount++;
+                        ((lily_str_val *)rhs->value.tr)->refcount++;
                     }
                     if (lhs->sig->cls->id == SYM_CLASS_METHOD) {
-                        if (lhs->value.ptr != NULL)
-                            lily_deref_method_val(lhs->value.ptr);
+                        if (lhs->value.method != NULL)
+                            lily_deref_method_val(lhs->value.method);
 
-                        ((lily_method_val *)rhs->value.ptr)->refcount++;
+                        ((lily_method_val *)rhs->value.method)->refcount++;
                     }
                 }
 

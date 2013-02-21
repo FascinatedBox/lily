@@ -5,13 +5,23 @@
 # include "lily_raiser.h"
 # include "lily_opcode.h"
 
-typedef struct {
+/* This is where the raw data gets stored. Anything not an integer or a number
+   is stored in ptr and cast appropriately. */
+typedef union {
+    int integer;
+    double number;
+    struct lily_method_val_t *method;
+    struct lily_str_val_t *str;
+    void *ptr;
+} lily_value;
+
+typedef struct lily_str_val_t {
     char *str;
     int refcount;
     int size;
-} lily_strval;
+} lily_str_val;
 
-typedef struct {
+typedef struct lily_method_val_t {
     uintptr_t *code;
     struct lily_var_t *first_arg;
     struct lily_var_t *last_arg;
@@ -19,14 +29,6 @@ typedef struct {
     int pos;
     int len;
 } lily_method_val;
-
-/* This is where the raw data gets stored. Anything not an integer or a number
-   is stored in ptr and cast appropriately. */
-typedef union {
-    int integer;
-    double number;
-    void *ptr;
-} lily_value;
 
 /* Indicates what kind of value is being stored. */
 typedef struct lily_class_t {
@@ -154,6 +156,6 @@ lily_var *lily_var_by_name(lily_symtab *, char *);
 int lily_try_add_storage(lily_symtab *, lily_class *);
 lily_method_val *lily_try_new_method_val(lily_symtab *);
 void lily_deref_method_val(lily_method_val *);
-void lily_deref_strval(lily_strval *);
+void lily_deref_str_val(lily_str_val *);
 int lily_drop_block_vars(lily_symtab *, lily_var *);
 #endif
