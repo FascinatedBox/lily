@@ -12,6 +12,7 @@ typedef union {
     double number;
     struct lily_method_val_t *method;
     struct lily_str_val_t *str;
+    struct lily_list_val_t *list;
     void *ptr;
 } lily_value;
 
@@ -29,6 +30,12 @@ typedef struct lily_method_val_t {
     int pos;
     int len;
 } lily_method_val;
+
+typedef struct lily_list_val_t {
+    int refcount;
+    void *values;
+    int num_values;
+} lily_list_val;
 
 /* Indicates what kind of value is being stored. */
 typedef struct lily_class_t {
