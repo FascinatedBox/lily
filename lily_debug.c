@@ -84,6 +84,27 @@ static void print_call(uintptr_t *code, char *str, int i)
         lily_impl_debugf("        return: nil\n");
 }
 
+static void print_build_list(uintptr_t *code, char *str, int i)
+{
+    int j;
+    lily_sym *ret;
+    lily_storage *storage;
+
+    /* [1] line_num, [2] var, [3] #args, [4] ret, [5]+ args */
+
+    storage = (lily_storage *)code[i+2];
+    lily_impl_debugf(str, i);
+
+    for (j = 0;j < code[i+3];j++) {
+        lily_sym *sym = (lily_sym *)code[i+5+j];
+        lily_impl_debugf("            #%d: %s #%d\n", j+1,
+                         typename(sym), sym->id);
+    }
+
+    lily_impl_debugf("        return: [%s #%d]\n",
+                     typename((lily_sym *)storage), storage->id);
+}
+
 static void print_save(uintptr_t *code, char *str, int i)
 {
     lily_impl_debugf(str, i, code[i+1]);
@@ -217,6 +238,10 @@ static void show_code(lily_var *var)
             case o_unary_not:
                 print_two(code, "    [%d] unary_not     ", i);
                 i += 4;
+                break;
+            case o_build_list:
+                print_build_list(code, "    [%d] build_list     ", i);
+                i += 5 + code[i+3];
                 break;
             case o_vm_return:
                 lily_impl_debugf("    [%d] vm_return\n", i);
