@@ -594,9 +594,48 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         do_unary_op(emit, ast);
     }
     else if (ast->tree_type == tree_list) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise(emit->raiser, lily_ErrSyntax,
-                   "STUB: Handle list declaration in emitter's walk_tree.\n");
+        lily_sig *elem_sig = NULL;
+        lily_ast *arg;
+        int i;
+        /* First, get a list storage to hold the values into. The elements
+           will not have a class...yet.  */
+        lily_class *store_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);
+        lily_storage *s = get_storage_sym(emit, store_cls);
+
+        /* Walk through all of the list elements, keeping a note of the class
+           of the results. The class of the list elements is determined as
+           follows:
+           * If all results have the same class, then use that class.
+           * If they do not, use object. */
+        for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
+            if (arg->tree_type != tree_var)
+                walk_tree(emit, arg);
+
+            if (elem_sig != NULL) {
+                if (arg->result->sig != elem_sig) {
+                    emit->raiser->line_adjust = arg->line_num;
+                    lily_raise(emit->raiser, lily_ErrSyntax,
+                            "STUB: list of objects.\n");
+                }
+            }
+            else
+                elem_sig = arg->result->sig;
+        }
+        WRITE_PREP_LARGE(ast->args_collected + 5)
+        m->code[m->pos] = o_build_list;
+        m->code[m->pos+1] = ast->line_num;
+        m->code[m->pos+2] = (intptr_t)s;
+        m->code[m->pos+3] = ast->args_collected;
+        m->code[m->pos+4] = (intptr_t)elem_sig;
+
+        for (i = 5, arg = ast->arg_start;
+            arg != NULL;
+            arg = arg->next_arg, i++) {
+            m->code[m->pos + i] = (uintptr_t)arg->result;
+        }
+
+        m->pos += 5 + ast->args_collected;
+        ast->result = (lily_sym *)s;
     }
 }
 
