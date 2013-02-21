@@ -116,7 +116,7 @@ int lily_try_add_storage(lily_symtab *symtab, lily_class *cls)
        new string to. For now, set this to null so there's no invalid read when
        concat does that. */
     if (cls->id == SYM_CLASS_STR)
-        storage->value.ptr = NULL;
+        storage->value.str = NULL;
 
     storage->id = symtab->next_storage_id;
     symtab->next_storage_id++;
@@ -184,7 +184,7 @@ void free_vars(lily_var *var)
 
         if (cls_id == SYM_CLASS_METHOD) {
             free_call_sig(var->sig);
-            lily_method_val *mv = (lily_method_val *)var->value.ptr;
+            lily_method_val *mv = var->value.method;
             /* This is currently safe, because method vars aren't created if a
                method val can't be created for them. */
             lily_deref_method_val(mv);
@@ -196,9 +196,9 @@ void free_vars(lily_var *var)
         else if (cls_id == SYM_CLASS_LIST)
             lily_free(var->sig);
         else if (cls_id == SYM_CLASS_STR) {
-            lily_strval *sv = (lily_strval *)var->value.ptr;
+            lily_str_val *sv = var->value.str;
             if (sv != NULL)
-                lily_deref_strval(sv);
+                lily_deref_str_val(sv);
         }
 
         lily_free(var->name);
@@ -218,7 +218,7 @@ void lily_free_symtab(lily_symtab *symtab)
         lit_temp = lit->next;
 
         if (lit->sig->cls->id == SYM_CLASS_STR)
-            lily_deref_strval((lily_strval *)lit->value.ptr);
+            lily_deref_str_val(lit->value.str);
 
         lily_free(lit);
 
@@ -250,9 +250,9 @@ void lily_free_symtab(lily_symtab *symtab)
                         else if (store_curr->sig->cls->id == SYM_CLASS_LIST)
                             lily_free(store_curr->sig);
                         else if (store_curr->sig->cls->id == SYM_CLASS_STR) {
-                            lily_strval *sv = store_curr->value.ptr;
+                            lily_str_val *sv = store_curr->value.str;
                             if (sv != NULL)
-                                lily_deref_strval(sv);
+                                lily_deref_str_val(sv);
                         }
                         lily_free(store_curr);
                         store_curr = store_next;
@@ -382,7 +382,7 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_class *cls, char *name)
     }
 
     if (cls->id == SYM_CLASS_STR)
-        var->value.ptr = NULL;
+        var->value.str = NULL;
     else if (cls->id == SYM_CLASS_METHOD) {
         lily_method_val *m = lily_try_new_method_val(symtab);
         if (m == NULL) {
@@ -391,7 +391,7 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_class *cls, char *name)
             lily_free(var);
             return NULL;
         }
-        var->value.ptr = m;
+        var->value.method = m;
     }
 
     strcpy(var->name, name);
@@ -526,7 +526,7 @@ lily_literal *lily_new_literal(lily_symtab *symtab, lily_class *cls, lily_value 
     lily_literal *lit = lily_malloc(sizeof(lily_literal));
     if (lit == NULL) {
         if (cls->id == SYM_CLASS_STR) {
-            lily_strval *sv = (lily_strval *)value.ptr;
+            lily_str_val *sv = value.str;
             lily_free(sv->str);
             lily_free(sv);
         }
@@ -564,7 +564,7 @@ int lily_drop_block_vars(lily_symtab *symtab, lily_var *start)
     return ret;
 }
 
-void lily_deref_strval(lily_strval *sv)
+void lily_deref_str_val(lily_str_val *sv)
 {
     sv->refcount--;
     if (sv->refcount == 0) {

@@ -824,7 +824,7 @@ void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
         emit->method_id_offsets = new_offsets;
     }
 
-    emit->target = (lily_method_val *)var->value.ptr;
+    emit->target = var->value.method;
     emit->method_rets[emit->method_pos] = var->sig->node.call->ret;
     emit->method_vals[emit->method_pos] = emit->target;
     emit->method_targets[emit->method_pos] = var;

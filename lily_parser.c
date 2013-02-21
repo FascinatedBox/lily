@@ -558,7 +558,7 @@ static void collect_args(lily_parse_state *parser, int *count, int flags)
                     lily_raise_nomem(parser->raiser);
 
                 if (flags & CA_TOPLEVEL) {
-                    lily_method_val *mval = (lily_method_val *)var->value.ptr;
+                    lily_method_val *mval = var->value.method;
                     lily_var *iter_var = var->next;
                     k = 0;
                     mval->first_arg = iter_var;

@@ -138,7 +138,7 @@ static void scan_str(lily_lex_state *lexer, int *pos)
     char ch, i, esc_ch;
     char *label, *lex_buffer, *str;
     int label_pos, escape_seen, str_size, word_start, word_pos;
-    lily_strval *sv;
+    lily_str_val *sv;
 
     lex_buffer = lexer->lex_buffer;
     escape_seen = 0;
@@ -199,7 +199,7 @@ static void scan_str(lily_lex_state *lexer, int *pos)
     }
 
     /* Prepare the string for the parser. */
-    sv = lily_malloc(sizeof(lily_strval));
+    sv = lily_malloc(sizeof(lily_str_val));
     if (sv == NULL)
         lily_raise_nomem(lexer->raiser);
     str = lily_malloc(str_size);
@@ -217,7 +217,7 @@ static void scan_str(lily_lex_state *lexer, int *pos)
     sv->refcount = 1;
     sv->str = str;
     sv->size = word_pos;
-    lexer->value.ptr = sv;
+    lexer->value.str = sv;
     word_pos++;
     *pos = word_pos;
 }

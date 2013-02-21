@@ -130,7 +130,7 @@ static void show_code(lily_var *var)
     lily_method_val *m;
     lily_sym *left;
 
-    m = (lily_method_val *)var->value.ptr;
+    m = var->value.method;
     i = 0;
     code = m->code;
     len = m->pos;
@@ -264,7 +264,7 @@ static void show_sym(lily_sym *sym)
 
         if (cls_id == SYM_CLASS_STR) {
             lily_impl_debugf("str(%-0.50s)\n",
-                            ((lily_strval *)sym->value.ptr)->str);
+                             sym->value.str->str);
         }
         else if (cls_id == SYM_CLASS_INTEGER)
             lily_impl_debugf("integer(%d)\n", sym->value.integer);
