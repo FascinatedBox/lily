@@ -248,6 +248,49 @@ void do_str_assign(lily_sym **syms)
     lhs->value = rhs->value;
 }
 
+void do_list_assign(lily_sym **syms)
+{
+    lily_sym *lhs, *rhs;
+    lily_list_val *lvalue;
+
+    lhs = ((lily_sym *)syms[1]);
+    rhs = ((lily_sym *)syms[2]);
+    lvalue = lhs->value.list;
+
+    if (!(lhs->flags & S_IS_NIL))
+        lily_deref_list_val(lvalue);
+    if (!(rhs->flags & S_IS_NIL)) {
+        rhs->value.list->refcount++;
+        lhs->flags &= ~S_IS_NIL;
+    }
+    else
+        lhs->flags |= S_IS_NIL;
+    lhs->value = rhs->value;
+}
+
+void do_build_list(lily_vm_state *vm, lily_sym **syms, int i)
+{
+    lily_storage *storage = (lily_storage *)syms[i+2];
+    int num_elems = (intptr_t)syms[i+3];
+    int j;
+
+    lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
+    if (lv == NULL)
+        lily_raise_nomem(vm->raiser);
+
+    lv->values = lily_malloc(num_elems * sizeof(void *));
+    if (lv->values == NULL) {
+        lily_free(lv);
+        lily_raise_nomem(vm->raiser);
+    }
+
+    for (j = 0;j < num_elems;j++)
+        lv->values[j] = syms[i+5+j];
+
+    lv->refcount = 1;
+    storage->value.list = lv;
+}
+
 void lily_vm_error(lily_vm_state *vm, int code_pos, lily_sym *sym)
 {
     /* The stack only saves the line number for every call -but- the top-most
@@ -486,6 +529,14 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_str_assign:
                 do_str_assign(((lily_sym **)code+i+1));
+                i += 4;
+                break;
+            case o_build_list:
+                do_build_list(vm, (lily_sym **)code+i, i);
+                i += code[i+3] + 5;
+                break;
+            case o_list_assign:
+                do_list_assign(((lily_sym **)code+i+1));
                 i += 4;
                 break;
             case o_obj_assign:

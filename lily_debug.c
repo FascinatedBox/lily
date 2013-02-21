@@ -94,15 +94,14 @@ static void print_build_list(uintptr_t *code, char *str, int i)
 
     storage = (lily_storage *)code[i+2];
     lily_impl_debugf(str, i);
+    lily_impl_debugf("[%s #%d]\n", typename((lily_sym *)storage),
+                     storage->id);
 
     for (j = 0;j < code[i+3];j++) {
         lily_sym *sym = (lily_sym *)code[i+5+j];
-        lily_impl_debugf("            #%d: %s #%d\n", j+1,
+        lily_impl_debugf("        #%d: %s #%d\n", j+1,
                          typename(sym), sym->id);
     }
-
-    lily_impl_debugf("        return: [%s #%d]\n",
-                     typename((lily_sym *)storage), storage->id);
 }
 
 static void print_save(uintptr_t *code, char *str, int i)
@@ -147,6 +146,10 @@ static void show_code(lily_var *var)
                 break;
             case o_str_assign:
                 print_two(code, "    [%d] str_assign    ", i);
+                i += 4;
+                break;
+            case o_list_assign:
+                print_two(code, "    [%d] list_assign   ", i);
                 i += 4;
                 break;
             case o_integer_add:
