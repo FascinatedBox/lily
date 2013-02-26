@@ -4,14 +4,20 @@
 # include "lily_pkg.h"
 
 /* Sync name order with SYM_CLASS_* #defines in lily_symtab.h */
-char *class_seeds[] = {
-    "integer",
-    "number",
-    "str",
-    "function",
-    "object",
-    "method",
-    "list"
+typedef const struct {
+    char *name;
+    int is_refcounted;
+} class_seed;
+
+class_seed class_seeds[7] =
+{
+    {"integer",  0},
+    {"number",   0},
+    {"str",      1},
+    {"function", 0},
+    {"object",   0},
+    {"method",   1},
+    {"list",     1}
 };
 
 static const char *keywords[] = {
