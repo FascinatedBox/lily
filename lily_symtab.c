@@ -326,7 +326,8 @@ static int init_classes(lily_symtab *symtab)
             if (ret && !lily_try_add_storage(symtab, new_class))
                 ret = 0;
 
-            new_class->name = class_seeds[i];
+            new_class->name = class_seeds[i].name;
+            new_class->is_refcounted = class_seeds[i].is_refcounted;
         }
         else
             ret = 0;

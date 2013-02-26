@@ -41,6 +41,7 @@ typedef struct lily_list_val_t {
 typedef struct lily_class_t {
     char *name;
     int id;
+    int is_refcounted;
     struct lily_storage_t *storage;
     struct lily_sig_t *sig;
     struct lily_var_t *call_start;
