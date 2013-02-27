@@ -13,20 +13,21 @@ typedef union {
     struct lily_method_val_t *method;
     struct lily_str_val_t *str;
     struct lily_list_val_t *list;
+    struct lily_generic_val_t *generic;
     void *ptr;
 } lily_value;
 
 typedef struct lily_str_val_t {
-    char *str;
     int refcount;
+    char *str;
     int size;
 } lily_str_val;
 
 typedef struct lily_method_val_t {
+    int refcount;
     uintptr_t *code;
     struct lily_var_t *first_arg;
     struct lily_var_t *last_arg;
-    int refcount;
     int pos;
     int len;
 } lily_method_val;
@@ -36,6 +37,12 @@ typedef struct lily_list_val_t {
     void **values;
     int num_values;
 } lily_list_val;
+
+/* Every ref'd value is a superset of the 'generic' value (refcount
+   comes first). This allows the vm to make refs/derefs a bit easier. */
+typedef struct lily_generic_val_t {
+    int refcount;
+} lily_generic_val;
 
 /* Indicates what kind of value is being stored. */
 typedef struct lily_class_t {
