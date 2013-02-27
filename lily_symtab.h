@@ -169,7 +169,7 @@ lily_symtab *lily_new_symtab(lily_raiser *);
 lily_var *lily_try_new_var(lily_symtab *, lily_class *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
 int lily_try_add_storage(lily_symtab *, lily_class *);
-lily_method_val *lily_try_new_method_val(lily_symtab *);
+lily_method_val *lily_try_new_method_val();
 void lily_deref_method_val(lily_method_val *);
 void lily_deref_str_val(lily_str_val *);
 void lily_deref_list_val(lily_list_val *);
