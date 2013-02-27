@@ -287,8 +287,28 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
 
 static void write_type(lily_msgbuf *mb, lily_sig *sig)
 {
-    /* todo: Dump complex stuff for callables. */
     lily_msgbuf_add(mb, sig->cls->name);
+
+    if (sig->cls->id == SYM_CLASS_METHOD ||
+        sig->cls->id == SYM_CLASS_FUNCTION) {
+        lily_call_sig *csig = sig->node.call;
+        lily_msgbuf_add(mb, " (");
+        int i;
+        for (i = 0;i < csig->num_args-1;i++) {
+            write_type(mb, csig->args[i]);
+            lily_msgbuf_add(mb, ", ");
+        }
+        if (i != csig->num_args) {
+            write_type(mb, csig->args[i]);
+            if (csig->is_varargs)
+                lily_msgbuf_add(mb, "...");
+        }
+        lily_msgbuf_add(mb, "):");
+        if (csig->ret == NULL)
+            lily_msgbuf_add(mb, "nil");
+        else
+            write_type(mb, csig->ret);
+    }
 }
 
 /* Comparing a call's signature to what it got goes in three rounds. In the
