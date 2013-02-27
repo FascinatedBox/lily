@@ -291,6 +291,22 @@ void do_build_list(lily_vm_state *vm, lily_sym **syms, int i)
     storage->value.list = lv;
 }
 
+static void do_ref_deref(lily_class *cls, lily_sym *down_sym, lily_sym *up_sym)
+{
+    lily_generic_val *up_gv = up_sym->value.generic;
+
+    if (down_sym->value.ptr != NULL) {
+        if (cls->id == SYM_CLASS_STR)
+            lily_deref_str_val(down_sym->value.str);
+        else if (cls->id == SYM_CLASS_METHOD)
+            lily_deref_method_val(down_sym->value.method);
+        else if (cls->id == SYM_CLASS_LIST)
+            lily_deref_list_val(down_sym->value.list);
+    }
+
+    up_gv->refcount++;
+}
+
 void lily_vm_error(lily_vm_state *vm, int code_pos, lily_sym *sym)
 {
     /* The stack only saves the line number for every call -but- the top-most
@@ -449,23 +465,11 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* Map call values to method arguments. */
                 for (v = mval->first_arg; i < j;v = v->next, i++) {
                     flag = ((lily_sym *)code[i])->flags & S_IS_NIL;
-                    if (v->sig->cls->id == SYM_CLASS_STR) {
-                        /* Treat this like a string assignment: Deref old, ref
-                           new. */
-                        if (v->value.str != NULL)
-                            lily_deref_str_val(v->value.str);
-                        lily_str_val *sv = ((lily_sym *)code[i])->value.str;
-                        if (sv != NULL)
-                            sv->refcount++;
-                    }
-                    else if (v->sig->cls->id == SYM_CLASS_METHOD) {
-                        if (v->value.method != NULL)
-                            lily_deref_method_val(v->value.method);
-                        lily_method_val *mv;
-                        mv = ((lily_sym *)code[i])->value.method;
-                        if (mv != NULL)
-                            mv->refcount++;
-                    }
+
+                    if (v->sig->cls->is_refcounted)
+                        do_ref_deref(v->sig->cls, (lily_sym *)v,
+                                     (lily_sym *)code[i]);
+
                     v->flags &= flag;
                     v->value = ((lily_sym *)code[i])->value;
                 }
@@ -503,18 +507,9 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs = (lily_sym *)code[i+1];
 
                 if (!(lhs->flags & S_IS_NIL)) {
-                    if (lhs->sig->cls->id == SYM_CLASS_STR) {
-                        if (lhs->value.str != NULL)
-                            lily_deref_str_val(lhs->value.str);
-
-                        ((lily_str_val *)rhs->value.str)->refcount++;
-                    }
-                    if (lhs->sig->cls->id == SYM_CLASS_METHOD) {
-                        if (lhs->value.method != NULL)
-                            lily_deref_method_val(lhs->value.method);
-
-                        ((lily_method_val *)rhs->value.method)->refcount++;
-                    }
+                    if (lhs->sig->cls->is_refcounted)
+                        do_ref_deref(lhs->sig->cls, (lily_sym *)lhs,
+                                     (lily_sym *)rhs);
                 }
 
                 lhs->value = rhs->value;
