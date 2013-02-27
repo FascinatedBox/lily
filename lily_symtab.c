@@ -137,7 +137,7 @@ int lily_try_add_storage(lily_symtab *symtab, lily_class *cls)
     return 1;
 }
 
-lily_method_val *lily_try_new_method_val(lily_symtab *symtab)
+lily_method_val *lily_try_new_method_val()
 {
     lily_method_val *m = lily_malloc(sizeof(lily_method_val));
     uintptr_t *code = lily_malloc(8 * sizeof(uintptr_t));
@@ -393,7 +393,7 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_class *cls, char *name)
     if (cls->id == SYM_CLASS_STR)
         var->value.str = NULL;
     else if (cls->id == SYM_CLASS_METHOD) {
-        lily_method_val *m = lily_try_new_method_val(symtab);
+        lily_method_val *m = lily_try_new_method_val();
         if (m == NULL) {
             free_call_sig(sig);
             lily_free(var->name);
