@@ -15,6 +15,7 @@ else if (rhs->flags & S_IS_NIL) \
     lily_vm_error(vm, i, rhs); \
 ((lily_sym *)code[i+4])->value.integer = \
 lhs->value.integer OP rhs->value.integer; \
+((lily_sym *)code[i+4])->flags &= ~S_IS_NIL; \
 i += 5; \
 
 #define NUMBER_OP(OP) \
@@ -35,6 +36,7 @@ if (lhs->sig->cls->id == SYM_CLASS_NUMBER) { \
 else \
     ((lily_sym *)code[i+4])->value.number = \
     lhs->value.integer OP ((lily_sym *)code[i+3])->value.number; \
+((lily_sym *)code[i+4])->flags &= ~S_IS_NIL; \
 i += 5;
 
 #define COMPARE_OP(OP, STROP) \
@@ -65,6 +67,7 @@ else if (lhs->sig->cls->id == SYM_CLASS_STR) { \
     strcmp(lhs->value.str->str, \
            rhs->value.str->str) STROP; \
 } \
+((lily_sym *)code[i+4])->flags &= ~S_IS_NIL; \
 i += 5;
 
 static void grow_vm(lily_vm_state *vm)
@@ -489,6 +492,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     lily_vm_error(vm, i, lhs);
                 lhs = (lily_sym *)code[i+2];
                 rhs = (lily_sym *)code[i+3];
+                rhs->flags &= ~S_IS_NIL;
                 rhs->value.integer = !(lhs->value.integer);
                 i += 4;
                 break;
@@ -497,6 +501,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     lily_vm_error(vm, i, lhs);
                 lhs = (lily_sym *)code[i+2];
                 rhs = (lily_sym *)code[i+3];
+                rhs->flags &= ~S_IS_NIL;
                 rhs->value.integer = -lhs->value.integer;
                 i += 4;
                 break;
@@ -512,6 +517,7 @@ void lily_vm_execute(lily_vm_state *vm)
                                      (lily_sym *)rhs);
                 }
 
+                lhs->flags &= ~S_IS_NIL;
                 lhs->value = rhs->value;
                 code = stack_entry->code;
                 i = stack_entry->code_pos;

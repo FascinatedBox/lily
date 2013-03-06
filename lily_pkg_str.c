@@ -24,8 +24,10 @@ void lily_str_concat(int num_args, lily_sym **args)
     else if (ret->size < newsize) {
         char *newstr;
         newstr = lily_realloc(ret->str, sizeof(char) * newsize);
-        if (newstr == NULL)
+        if (newstr == NULL) {
+            args[0]->flags |= S_IS_NIL;
             return;
+        }
 
         ret->str = newstr;
     }
@@ -35,6 +37,7 @@ void lily_str_concat(int num_args, lily_sym **args)
 
     ret->size = newsize;
     args[0]->value.str = ret;
+    args[0]->flags &= ~S_IS_NIL;
 }
 
 static lily_func_seed concat = {"concat", 2, 0, lily_str_concat,

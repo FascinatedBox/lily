@@ -157,7 +157,7 @@ int lily_try_add_storage(lily_symtab *symtab, lily_class *cls)
 
     storage->id = symtab->next_storage_id;
     symtab->next_storage_id++;
-    storage->flags = STORAGE_SYM;
+    storage->flags = STORAGE_SYM | S_IS_NIL;
     storage->expr_num = 0;
 
     /* Storages are circularly linked so it's easier to find them. */
