@@ -383,6 +383,7 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_class *cls, char *name)
     if (var->sig == NULL) {
         lily_free(var->name);
         lily_free(var);
+        return NULL;
     }
 
     strcpy(var->name, name);
