@@ -578,20 +578,52 @@ static void collect_args(lily_parse_state *parser, int *count, int flags)
                 call_sig->num_args = j;
             }
         }
+        else if (cls->id == SYM_CLASS_LIST) {
+            int dummy;
+            if ((flags & CA_MAKE_VARS) == 0) {
+                if (parser->sig_stack_pos == parser->sig_stack_size) {
+                    parser->sig_stack_size *= 2;
+                    lily_sig **new_sig_stack = lily_realloc(parser->sig_stack,
+                        sizeof(lily_sig *) * parser->sig_stack_size);
 
-        if ((flags & CA_MAKE_VARS) == 0) {
-            if (parser->sig_stack_pos == parser->sig_stack_size) {
-                parser->sig_stack_size *= 2;
-                lily_sig **new_sig_stack = lily_realloc(parser->sig_stack,
-                    sizeof(lily_sig *) * parser->sig_stack_size);
+                    if (new_sig_stack == NULL)
+                        lily_raise_nomem(parser->raiser);
 
-                if (new_sig_stack == NULL)
+                    parser->sig_stack = new_sig_stack;
+                }
+
+                lily_sig *list_sig = lily_malloc(sizeof(lily_sig));
+                if (list_sig == NULL)
                     lily_raise_nomem(parser->raiser);
 
-                parser->sig_stack = new_sig_stack;
+                list_sig->cls = lily_class_by_id(parser->symtab, SYM_CLASS_LIST);
+                list_sig->node.value_sig = NULL;
+                parser->sig_stack[parser->sig_stack_pos] = list_sig;
+                parser->sig_stack_pos++;
+
+                NEED_NEXT_TOK(tk_left_bracket)
+                lily_lexer(lex);
+                collect_args(parser, &dummy, CA_ONCE);
+                NEED_CURRENT_TOK(tk_right_bracket)
+                list_sig->node.value_sig = parser->sig_stack[parser->sig_stack_pos-1];
+                parser->sig_stack_pos--;
             }
-            parser->sig_stack[parser->sig_stack_pos] = cls->sig;
-            parser->sig_stack_pos++;
+        }
+        else {
+            if ((flags & CA_MAKE_VARS) == 0) {
+                if (parser->sig_stack_pos == parser->sig_stack_size) {
+                    parser->sig_stack_size *= 2;
+                    lily_sig **new_sig_stack = lily_realloc(parser->sig_stack,
+                        sizeof(lily_sig *) * parser->sig_stack_size);
+
+                    if (new_sig_stack == NULL)
+                        lily_raise_nomem(parser->raiser);
+
+                    parser->sig_stack = new_sig_stack;
+                }
+                parser->sig_stack[parser->sig_stack_pos] = cls->sig;
+                parser->sig_stack_pos++;
+            }
         }
         i++;
 
