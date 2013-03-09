@@ -56,13 +56,26 @@ static int try_seed_call_sig(lily_symtab *symtab,
     return 1;
 }
 
-/* All other signatures that vars use are copies of one held by a class. Those
-   will be free'd with the class. */
+/* The call sig holds more stuff that needs to get free'd. */
 static void free_call_sig(lily_sig *sig)
 {
     lily_call_sig *csig = sig->node.call;
     lily_free(csig->args);
     lily_free(csig);
+    lily_free(sig);
+}
+
+/* The value_sig part of a list sig might hold more lists. */
+static void free_list_sig(lily_sig *sig)
+{
+    lily_sig *inner_sig = sig->node.value_sig;
+
+    if (inner_sig != NULL) {
+        if (inner_sig->cls->id == SYM_CLASS_LIST)
+            free_list_sig(inner_sig);
+        else if (inner_sig->cls->id == SYM_CLASS_METHOD)
+            free_call_sig(inner_sig);
+    }
     lily_free(sig);
 }
 
@@ -134,7 +147,8 @@ static void free_sym_common(lily_sym *sym)
         lily_list_val *lv = sym->value.list;
         if (lv != NULL)
             lily_deref_list_val(lv);
-        lily_free(sym->sig);
+
+        free_list_sig(sym->sig);
     }
     else if (cls_id == SYM_CLASS_STR) {
         lily_str_val *sv = sym->value.str;
