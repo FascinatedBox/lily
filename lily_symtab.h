@@ -34,7 +34,7 @@ typedef struct lily_method_val_t {
 
 typedef struct lily_list_val_t {
     int refcount;
-    void **values;
+    lily_value *values;
     int num_values;
 } lily_list_val;
 

@@ -148,7 +148,10 @@ static void free_sym_common(lily_sym *sym)
         if (lv != NULL)
             lily_deref_list_val(lv);
 
-        free_list_sig(sym->sig);
+        if (sym->flags & VAR_SYM)
+            free_list_sig(sym->sig);
+        else
+            lily_free(sym->sig);
     }
     else if (cls_id == SYM_CLASS_STR) {
         lily_str_val *sv = sym->value.str;

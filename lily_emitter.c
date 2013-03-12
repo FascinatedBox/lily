@@ -324,8 +324,17 @@ static int sigmatch(lily_sig *lhs, lily_sig *rhs)
         ret = 1;
     else {
         if (lhs->cls->id == rhs->cls->id) {
-            /* todo: Need to do an in-depth match for funcs/methods. */
-            ret = 1;
+            if (lhs->cls->id == SYM_CLASS_LIST) {
+                if (sigmatch(lhs->node.value_sig,
+                             rhs->node.value_sig)) {
+                    ret = 1;
+                }
+                else
+                    ret = 0;
+            }
+            else
+                /* todo: Need to do an in-depth match for calls. */
+                ret = 1;
         }
         else
             ret = 0;
@@ -636,7 +645,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                 walk_tree(emit, arg);
 
             if (elem_sig != NULL) {
-                if (arg->result->sig != elem_sig) {
+                if (arg->result->sig != elem_sig &&
+                    sigmatch(arg->result->sig, elem_sig) == 0) {
                     emit->raiser->line_adjust = arg->line_num;
                     lily_raise(emit->raiser, lily_ErrSyntax,
                             "STUB: list of objects.\n");
@@ -645,6 +655,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             else
                 elem_sig = arg->result->sig;
         }
+
+        s->sig->node.value_sig = elem_sig;
         WRITE_PREP_LARGE(ast->args_collected + 5)
         m->code[m->pos] = o_build_list;
         m->code[m->pos+1] = ast->line_num;
