@@ -273,8 +273,8 @@ void do_list_assign(lily_sym **syms)
 
 void do_build_list(lily_vm_state *vm, lily_sym **syms, int i)
 {
-    lily_storage *storage = (lily_storage *)syms[i+2];
-    int num_elems = (intptr_t)syms[i+3];
+    lily_storage *storage = (lily_storage *)syms[2];
+    int num_elems = (intptr_t)(syms[3]);
     int j;
 
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
@@ -288,10 +288,12 @@ void do_build_list(lily_vm_state *vm, lily_sym **syms, int i)
     }
 
     for (j = 0;j < num_elems;j++)
-        lv->values[j] = syms[i+5+j];
+        lv->values[j] = syms[5+j]->value;
 
+    lv->num_values = num_elems;
     lv->refcount = 1;
     storage->value.list = lv;
+    storage->flags &= ~S_IS_NIL;
 }
 
 static void do_ref_deref(lily_class *cls, lily_sym *down_sym, lily_sym *up_sym)
