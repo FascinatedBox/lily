@@ -597,6 +597,7 @@ static void collect_args(lily_parse_state *parser, int *count, int flags)
                     lily_raise_nomem(parser->raiser);
 
                 list_sig->cls = lily_class_by_id(parser->symtab, SYM_CLASS_LIST);
+                list_sig->refcount = 1;
                 list_sig->node.value_sig = NULL;
                 parser->sig_stack[parser->sig_stack_pos] = list_sig;
                 parser->sig_stack_pos++;
@@ -606,6 +607,7 @@ static void collect_args(lily_parse_state *parser, int *count, int flags)
                 collect_args(parser, &dummy, CA_ONCE);
                 NEED_CURRENT_TOK(tk_right_bracket)
                 list_sig->node.value_sig = parser->sig_stack[parser->sig_stack_pos-1];
+                list_sig->node.value_sig->refcount++;
                 parser->sig_stack_pos--;
             }
         }
@@ -622,6 +624,7 @@ static void collect_args(lily_parse_state *parser, int *count, int flags)
                     parser->sig_stack = new_sig_stack;
                 }
                 parser->sig_stack[parser->sig_stack_pos] = cls->sig;
+                cls->sig->refcount++;
                 parser->sig_stack_pos++;
             }
         }

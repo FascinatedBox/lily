@@ -56,27 +56,24 @@ static int try_seed_call_sig(lily_symtab *symtab,
     return 1;
 }
 
-/* The call sig holds more stuff that needs to get free'd. */
-static void free_call_sig(lily_sig *sig)
+void lily_deref_sig(lily_sig *sig)
 {
-    lily_call_sig *csig = sig->node.call;
-    lily_free(csig->args);
-    lily_free(csig);
-    lily_free(sig);
-}
-
-/* The value_sig part of a list sig might hold more lists. */
-static void free_list_sig(lily_sig *sig)
-{
-    lily_sig *inner_sig = sig->node.value_sig;
-
-    if (inner_sig != NULL) {
-        if (inner_sig->cls->id == SYM_CLASS_LIST)
-            free_list_sig(inner_sig);
-        else if (inner_sig->cls->id == SYM_CLASS_METHOD)
-            free_call_sig(inner_sig);
+    sig->refcount--;
+    if (sig->refcount == 0) {
+        int cls_id = sig->cls->id;
+        if (cls_id == SYM_CLASS_METHOD ||
+            cls_id == SYM_CLASS_FUNCTION) {
+            lily_call_sig *csig = sig->node.call;
+            lily_free(csig->args);
+            lily_free(csig);
+        }
+        else if (cls_id == SYM_CLASS_LIST) {
+            lily_sig *inner_sig = sig->node.value_sig;
+            if (inner_sig != NULL)
+                lily_deref_sig(inner_sig);
+        }
+        lily_free(sig);
     }
-    lily_free(sig);
 }
 
 static void init_sym_common(lily_sym *sym, lily_class *cls)
@@ -88,6 +85,7 @@ static void init_sym_common(lily_sym *sym, lily_class *cls)
             sig->cls = cls;
             sig->node.value_sig = NULL;
         }
+        sig->refcount = 1;
         sym->value.ptr = NULL;
     }
     else if (cls->id == SYM_CLASS_METHOD ||
@@ -95,6 +93,7 @@ static void init_sym_common(lily_sym *sym, lily_class *cls)
         lily_call_sig *csig;
         sig = lily_malloc(sizeof(lily_sig));
         if (sig != NULL) {
+            sig->refcount = 1;
             csig = lily_malloc(sizeof(lily_call_sig));
             if (csig != NULL) {
                 csig->ret = NULL;
@@ -123,6 +122,7 @@ static void init_sym_common(lily_sym *sym, lily_class *cls)
             sym->value.str = NULL;
 
         sig = cls->sig;
+        cls->sig->refcount++;
     }
 
     sym->sig = sig;
@@ -133,31 +133,23 @@ static void free_sym_common(lily_sym *sym)
     int cls_id = sym->sig->cls->id;
 
     if (cls_id == SYM_CLASS_METHOD) {
-        free_call_sig(sym->sig);
         lily_method_val *mv = sym->value.method;
         /* This is currently safe, because method vars aren't created if a
            method val can't be created for them. */
         lily_deref_method_val(mv);
     }
-    else if (cls_id == SYM_CLASS_FUNCTION)
-        free_call_sig(sym->sig);
-    else if (cls_id == SYM_CLASS_OBJECT)
-        lily_free(sym->sig);
     else if (cls_id == SYM_CLASS_LIST) {
         lily_list_val *lv = sym->value.list;
         if (lv != NULL)
-            lily_deref_list_val(lv);
-
-        if (sym->flags & VAR_SYM)
-            free_list_sig(sym->sig);
-        else
-            lily_free(sym->sig);
+            lily_deref_list_val(sym->sig, lv);
     }
     else if (cls_id == SYM_CLASS_STR) {
         lily_str_val *sv = sym->value.str;
         if (sv != NULL)
             lily_deref_str_val(sv);
     }
+
+    lily_deref_sig(sym->sig);
 }
 
 int lily_try_add_storage(lily_symtab *symtab, lily_class *cls)
@@ -250,18 +242,11 @@ void lily_free_symtab(lily_symtab *symtab)
     while (lit != NULL) {
         lit_temp = lit->next;
 
-        if (lit->sig->cls->id == SYM_CLASS_STR)
-            lily_deref_str_val(lit->value.str);
-
+        free_sym_common((lily_sym *)lit);
         lily_free(lit);
 
         lit = lit_temp;
     }
-
-    if (symtab->var_start != NULL)
-        free_vars(symtab->var_start);
-    if (symtab->old_var_start != NULL)
-        free_vars(symtab->old_var_start);
 
     if (symtab->classes != NULL) {
         int i;
@@ -281,7 +266,20 @@ void lily_free_symtab(lily_symtab *symtab)
                 }
                 if (cls->call_start != NULL)
                     free_vars(cls->call_start);
+            }
+        }
+    }
 
+    if (symtab->var_start != NULL)
+        free_vars(symtab->var_start);
+    if (symtab->old_var_start != NULL)
+        free_vars(symtab->old_var_start);
+
+    if (symtab->classes != NULL) {
+        int i;
+        for (i = 0;i <= SYM_LAST_CLASS;i++) {
+            lily_class *cls = symtab->classes[i];
+            if (cls != NULL) {
                 lily_free(cls->sig);
                 lily_free(cls);
             }
@@ -323,8 +321,10 @@ static int init_classes(lily_symtab *symtab)
             lily_sig *sig;
 
             sig = lily_malloc(sizeof(lily_sig));
-            if (sig != NULL)
+            if (sig != NULL) {
                 sig->cls = new_class;
+                sig->refcount = 1;
+            }
             else
                 ret = 0;
 
@@ -363,6 +363,7 @@ static int init_literals(lily_symtab *symtab)
             lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
             lit->flags = LITERAL_SYM;
             lit->sig = cls->sig;
+            lit->sig->refcount++;
             lit->value.integer = i;
             lit->next = NULL;
 
@@ -542,6 +543,9 @@ lily_literal *lily_new_literal(lily_symtab *symtab, lily_class *cls, lily_value 
     }
     /* Literals are either str, integer, or number, so this is safe. */
     lit->sig = cls->sig;
+    /* ...as long as the refcount is bumped. */
+    cls->sig->refcount++;
+
     lit->flags = LITERAL_SYM;
     lit->next = NULL;
 
@@ -572,10 +576,16 @@ int lily_drop_block_vars(lily_symtab *symtab, lily_var *start)
     return ret;
 }
 
-void lily_deref_list_val(lily_list_val *lv)
+void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
 {
     lv->refcount--;
     if (lv->refcount == 0) {
+        int cls_id = sig->node.value_sig->cls->id;
+        int i;
+        if (cls_id == SYM_CLASS_LIST) {
+            for (i = 0;i < lv->num_values;i++)
+                lily_deref_list_val(sig->node.value_sig, lv->values[i].list);
+        }
         lily_free(lv->values);
         lily_free(lv);
     }
