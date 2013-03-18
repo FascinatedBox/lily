@@ -261,7 +261,7 @@ void do_list_assign(lily_sym **syms)
     lvalue = lhs->value.list;
 
     if (!(lhs->flags & S_IS_NIL))
-        lily_deref_list_val(lvalue);
+        lily_deref_list_val(lhs->sig, lvalue);
     if (!(rhs->flags & S_IS_NIL)) {
         rhs->value.list->refcount++;
         lhs->flags &= ~S_IS_NIL;
@@ -273,9 +273,16 @@ void do_list_assign(lily_sym **syms)
 
 void do_build_list(lily_vm_state *vm, lily_sym **syms, int i)
 {
+    lily_sig *elem_sig = (lily_sig *)syms[4];
     lily_storage *storage = (lily_storage *)syms[2];
     int num_elems = (intptr_t)(syms[3]);
     int j;
+
+    /* It's possible that the storage this will assign to was used to
+       assign a different list. Deref the old value, or it won't be
+       collected. */
+    if (!(storage->flags & S_IS_NIL))
+        lily_deref_list_val(storage->sig, storage->value.list);
 
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
     if (lv == NULL)
@@ -287,8 +294,17 @@ void do_build_list(lily_vm_state *vm, lily_sym **syms, int i)
         lily_raise_nomem(vm->raiser);
     }
 
-    for (j = 0;j < num_elems;j++)
-        lv->values[j] = syms[5+j]->value;
+    lv->elem_sig = elem_sig;
+    if (lv->elem_sig->cls->is_refcounted) {
+        for (j = 0;j < num_elems;j++) {
+            lv->values[j] = syms[5+j]->value;
+            lv->values[j].list->refcount++;
+        }
+    }
+    else {
+        for (j = 0;j < num_elems;j++)
+            lv->values[j] = syms[5+j]->value;
+    }
 
     lv->num_values = num_elems;
     lv->refcount = 1;
@@ -306,7 +322,7 @@ static void do_ref_deref(lily_class *cls, lily_sym *down_sym, lily_sym *up_sym)
         else if (cls->id == SYM_CLASS_METHOD)
             lily_deref_method_val(down_sym->value.method);
         else if (cls->id == SYM_CLASS_LIST)
-            lily_deref_list_val(down_sym->value.list);
+            lily_deref_list_val(down_sym->sig, down_sym->value.list);
     }
 
     up_gv->refcount++;

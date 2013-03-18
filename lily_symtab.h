@@ -34,6 +34,7 @@ typedef struct lily_method_val_t {
 
 typedef struct lily_list_val_t {
     int refcount;
+    struct lily_sig_t *elem_sig;
     lily_value *values;
     int num_values;
 } lily_list_val;
@@ -64,6 +65,10 @@ typedef struct lily_call_sig_t {
 
 typedef struct lily_sig_t {
     lily_class *cls;
+    /* This refcount was created so that complex list signatures could
+       be shared without worry of the inner signature being deleted.
+       Refcount is incremented even for basic signatures. */
+    int refcount;
     union {
         lily_call_sig *call;
         struct lily_sig_t *value_sig;
@@ -170,8 +175,9 @@ lily_var *lily_try_new_var(lily_symtab *, lily_class *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
 int lily_try_add_storage(lily_symtab *, lily_class *);
 lily_method_val *lily_try_new_method_val();
+void lily_deref_sig(lily_sig *);
 void lily_deref_method_val(lily_method_val *);
 void lily_deref_str_val(lily_str_val *);
-void lily_deref_list_val(lily_list_val *);
+void lily_deref_list_val(lily_sig *, lily_list_val *);
 int lily_drop_block_vars(lily_symtab *, lily_var *);
 #endif
