@@ -309,6 +309,11 @@ static void write_type(lily_msgbuf *mb, lily_sig *sig)
         else
             write_type(mb, csig->ret);
     }
+    else if (sig->cls->id == SYM_CLASS_LIST) {
+        lily_msgbuf_add(mb, "[");
+        write_type(mb, sig->node.value_sig);
+        lily_msgbuf_add(mb, "]");
+    }
 }
 
 /* Comparing a call's signature to what it got goes in three rounds. In the
@@ -385,6 +390,21 @@ static void do_bad_arg_error(lily_emit_state *emit, lily_ast *ast,
 
     /* Just in case this arg was on a different line than the call. */
     emit->raiser->line_adjust = ast->line_num;
+    lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
+}
+
+static void do_bad_assign(lily_emit_state *emit, int line_num,
+                          lily_sym *left, lily_sym *right)
+{
+    /* Remember that right is being assigned to left, so right should
+       get printed first. */
+    lily_msgbuf *mb = lily_new_msgbuf("Cannot assign ");
+    write_type(mb, right->sig);
+    lily_msgbuf_add(mb, " to ");
+    write_type(mb, left->sig);
+    lily_msgbuf_add(mb, ".\n");
+
+    emit->raiser->line_adjust = line_num;
     lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
 }
 
@@ -585,13 +605,9 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                     if (left_sym->sig->cls->id == SYM_CLASS_LIST)
                         opcode = o_list_assign;
                 }
-                else {
-                    emit->raiser->line_adjust = ast->line_num;
-                    lily_raise(emit->raiser, lily_ErrSyntax,
-                               "Cannot assign %s to %s.\n",
-                               left_sym->sig->cls->name,
-                               right_sym->sig->cls->name);
-                }
+                else
+                    do_bad_assign(emit, ast->line_num, left_sym,
+                                  right_sym);
             }
             else if (left_sym->sig->cls->id == SYM_CLASS_STR)
                 opcode = o_str_assign;
