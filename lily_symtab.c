@@ -622,6 +622,15 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
             for (i = 0;i < lv->num_values;i++)
                 lily_deref_list_val(sig->node.value_sig, lv->values[i].list);
         }
+        else if (cls_id == SYM_CLASS_STR) {
+            for (i = 0;i < lv->num_values;i++)
+                lily_deref_str_val(lv->values[i].str);
+        }
+        else if (cls_id == SYM_CLASS_METHOD) {
+            for (i = 0;i < lv->num_values;i++)
+                lily_deref_method_val(lv->values[i].method);
+        }
+
         lily_free(lv->values);
         lily_free(lv);
     }
