@@ -33,8 +33,28 @@ method r(integer s):method(integer):nil
     
 }
 
+method test_mval(integer mval_int):integer
+{
+    return 10
+}
+
+method test_mval_2(integer mval_int):integer
+{
+    return 20
+}
+
+method test_mval_3(integer mval_int):integer
+{
+    return 30
+}
+
 list[integer] y
+list[str] y2
+list[method (integer):integer] y3
+
 y = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+y2 = ["a", "b", "c", "d"]
+y3 = [test_mval, test_mval_2, test_mval_3]
 
 @>
 </body>
