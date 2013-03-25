@@ -295,7 +295,7 @@ void do_build_list(lily_vm_state *vm, lily_sym **syms, int i)
     }
 
     lv->elem_sig = elem_sig;
-    if (lv->elem_sig->cls->is_refcounted) {
+    if (elem_sig->cls->is_refcounted) {
         for (j = 0;j < num_elems;j++) {
             lv->values[j] = syms[5+j]->value;
             lv->values[j].list->refcount++;
