@@ -756,6 +756,10 @@ static void statement(lily_parse_state *parser)
 
 void lily_free_parse_state(lily_parse_state *parser)
 {
+    int i;
+    for (i = 0;i < parser->sig_stack_pos;i++)
+        lily_deref_sig(parser->sig_stack[i]);
+
     lily_ast_free_pool(parser->ast_pool);
     lily_free_symtab(parser->symtab);
     lily_free_lex_state(parser->lex);

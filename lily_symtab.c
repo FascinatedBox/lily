@@ -448,8 +448,10 @@ static int init_at_main(lily_symtab *symtab)
 
     lily_var *var = lily_try_new_var(symtab, new_sig, "@main");
 
-    if (var == NULL)
+    if (var == NULL) {
+        lily_deref_sig(new_sig);
         return 0;
+    }
 
     var->flags &= ~(S_IS_NIL);
 
@@ -482,8 +484,10 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
                 if (seed_ret == 0)
                     ret = 0;
             }
-            else
+            else {
+                lily_deref_sig(new_sig);
                 ret = 0;
+            }
         }
         else
             ret = 0;
