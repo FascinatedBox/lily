@@ -4,38 +4,38 @@
 </head>
 <body>
 <@lily
-integer which_test = 1
-# Test complex methods
-method test_method_arg(method method_arg(integer, integer):nil,
-                       integer a, integer b):nil
+integer a
+number b
+str c
+object d
+list[integer] e
+list[list[integer]] f, g
+list[list[list[list[list[list[number]]]]]] h
+
+method i():nil
 {
-    method_arg(a, b)
+    return
 }
 
-method method_for_arg(integer c, integer d):nil
+list[method ():nil] j
+
+method k(integer L, integer m, integer n, integer o, integer p):integer
 {
-    c = d
 }
 
-print("\n\nRunning test_complex.ly tests...\n")
-printfmt("#%i: Testing named method as argument...\n", which_test)
-which_test = which_test+1
-test_method_arg(method_for_arg, 10, 11)
+method q(integer r):nil
+{
 
+}
 
-# Test lists
-list[integer] x
-list[list[integer]]y
+method r(integer s):method(integer):nil
+{
+    
+}
 
-printfmt("#%i: Testing list[integer] static assignment...\n", which_test)
-which_test = which_test+1
-x = [1, 2, 3, 4, 5, 6]
+list[integer] y
+y = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
-printfmt("#%i: Testing list[list[integer]] static assignment...\n", which_test)
-which_test = which_test+1
-y = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
-
-print("Done.")
 @>
 </body>
 </html>
