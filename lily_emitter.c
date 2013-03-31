@@ -673,7 +673,6 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         }
 
         s->sig->node.value_sig = elem_sig;
-        elem_sig->refcount++;
         WRITE_PREP_LARGE(ast->args_collected + 5)
         m->code[m->pos] = o_build_list;
         m->code[m->pos+1] = ast->line_num;
