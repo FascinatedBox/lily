@@ -278,12 +278,6 @@ void do_build_list(lily_vm_state *vm, lily_sym **syms, int i)
     int num_elems = (intptr_t)(syms[3]);
     int j;
 
-    /* It's possible that the storage this will assign to was used to
-       assign a different list. Deref the old value, or it won't be
-       collected. */
-    if (!(storage->flags & S_IS_NIL))
-        lily_deref_list_val(storage->sig, storage->value.list);
-
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
     if (lv == NULL)
         lily_raise_nomem(vm->raiser);
@@ -294,11 +288,21 @@ void do_build_list(lily_vm_state *vm, lily_sym **syms, int i)
         lily_raise_nomem(vm->raiser);
     }
 
+    /* It's possible that the storage this will assign to was used to
+       assign a different list. Deref the old value, or it won't be
+       collected. This must be done after allocating the new value,
+       because symtab will want to deref the storage during cleanup
+       (resulting in an extra deref). */
+
+    if (!(storage->flags & S_IS_NIL))
+        lily_deref_list_val(storage->sig, storage->value.list);
+
     lv->elem_sig = elem_sig;
+    elem_sig->refcount++;
     if (elem_sig->cls->is_refcounted) {
         for (j = 0;j < num_elems;j++) {
             lv->values[j] = syms[5+j]->value;
-            lv->values[j].list->refcount++;
+            lv->values[j].generic->refcount++;
         }
     }
     else {

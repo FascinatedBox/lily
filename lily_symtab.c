@@ -164,7 +164,12 @@ static void free_sym_common(lily_sym *sym)
             lily_deref_str_val(sv);
     }
 
-    lily_deref_sig(sym->sig);
+    /* Note: List storages will rotate the type that they carry inside
+       of them. So don't deref the sig, just free it. */
+    if (sym->flags & STORAGE_SYM && cls_id == SYM_CLASS_LIST)
+        lily_free(sym->sig);
+    else
+        lily_deref_sig(sym->sig);
 }
 
 int lily_try_add_storage(lily_symtab *symtab, lily_class *cls)
@@ -631,6 +636,7 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
                 lily_deref_method_val(lv->values[i].method);
         }
 
+        lily_deref_sig(lv->elem_sig);
         lily_free(lv->values);
         lily_free(lv);
     }
