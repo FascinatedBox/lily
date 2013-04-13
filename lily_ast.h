@@ -45,10 +45,10 @@ typedef struct {
 } lily_ast_pool;
 
 void lily_ast_collect_arg(lily_ast_pool *);
-void lily_ast_enter_subexpr(lily_ast_pool *, lily_tree_type, lily_var *);
-void lily_ast_free_pool(lily_ast_pool *);
-lily_ast_pool *lily_ast_init_pool(lily_raiser *, int);
-void lily_ast_pop_tree(lily_ast_pool *);
+void lily_ast_enter_tree(lily_ast_pool *, lily_tree_type, lily_var *);
+void lily_free_ast_pool(lily_ast_pool *);
+lily_ast_pool *lily_new_ast_pool(lily_raiser *, int);
+void lily_ast_leave_tree(lily_ast_pool *);
 void lily_ast_push_binary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_sym(lily_ast_pool *, lily_sym *);
 void lily_ast_push_unary_op(lily_ast_pool *, lily_expr_op);

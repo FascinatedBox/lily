@@ -168,7 +168,7 @@ lily_parse_state *lily_new_parse_state(void)
     s->sig_stack_size = 4;
     raiser->line_adjust = 0;
     raiser->message = NULL;
-    s->ast_pool = lily_ast_init_pool(raiser, 8);
+    s->ast_pool = lily_new_ast_pool(raiser, 8);
     s->raiser = raiser;
 
     s->symtab = lily_new_symtab(raiser);
@@ -187,7 +187,7 @@ lily_parse_state *lily_new_parse_state(void)
         if (s->lex != NULL)
             lily_free_lex_state(s->lex);
         if (s->ast_pool != NULL)
-            lily_ast_free_pool(s->ast_pool);
+            lily_free_ast_pool(s->ast_pool);
         if (s->vm != NULL)
             lily_free_vm_state(s->vm);
         lily_free(sig_stack);
@@ -210,7 +210,7 @@ void lily_free_parse_state(lily_parse_state *parser)
     for (i = 0;i < parser->sig_stack_pos;i++)
         lily_deref_sig(parser->sig_stack[i]);
 
-    lily_ast_free_pool(parser->ast_pool);
+    lily_free_ast_pool(parser->ast_pool);
     lily_free_symtab(parser->symtab);
     lily_free_lex_state(parser->lex);
     lily_free_emit_state(parser->emit);
@@ -453,7 +453,7 @@ static void expression_oo(lily_parse_state *parser)
                    parser->lex->label);
     }
 
-    lily_ast_enter_subexpr(parser->ast_pool, tree_call, call_var);
+    lily_ast_enter_tree(parser->ast_pool, tree_call, call_var);
 }
 
 /* expression_unary
@@ -499,7 +499,7 @@ static void expression_value(lily_parse_state *parser)
 
                 /* New trees will get saved to the args section of this tree
                     when they are done. */
-                lily_ast_enter_subexpr(parser->ast_pool, tree_call, var);
+                lily_ast_enter_tree(parser->ast_pool, tree_call, var);
 
                 lily_lexer(lex);
                 if (lex->token == tk_right_parenth)
@@ -531,12 +531,12 @@ static void expression_value(lily_parse_state *parser)
             else if (lex->token == tk_left_parenth) {
                 /* A parenth expression is essentially a call, but without the
                    var part. */
-                lily_ast_enter_subexpr(parser->ast_pool, tree_parenth, NULL);
+                lily_ast_enter_tree(parser->ast_pool, tree_parenth, NULL);
                 lily_lexer(lex);
                 continue;
             }
             else if (lex->token == tk_left_bracket) {
-                lily_ast_enter_subexpr(parser->ast_pool, tree_list, NULL);
+                lily_ast_enter_tree(parser->ast_pool, tree_list, NULL);
                 lily_lexer(lex);
                 continue;
             }
@@ -583,7 +583,7 @@ static void expression(lily_parse_state *parser, int flags)
                 break;
             }
             else if (lex->token == tk_right_parenth) {
-                lily_ast_pop_tree(parser->ast_pool);
+                lily_ast_leave_tree(parser->ast_pool);
 
                 lily_lexer(lex);
                 if (parser->ast_pool->save_index == 0 &&
@@ -604,7 +604,7 @@ static void expression(lily_parse_state *parser, int flags)
                 }
             }
             else if (lex->token == tk_right_bracket) {
-                lily_ast_pop_tree(parser->ast_pool);
+                lily_ast_leave_tree(parser->ast_pool);
                 lily_lexer(lex);
                 if (parser->ast_pool->save_index == 0 &&
                     is_start_val[lex->token] == 1) {
