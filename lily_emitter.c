@@ -7,6 +7,37 @@
 #include "lily_opcode.h"
 #include "lily_emit_table.h"
 
+/** Emitter is responsible for:
+    * Taking an ast and writing instructions out to a given method value.
+    * Holding decision branch (if, elif, else, etc.) information for the
+      parser.
+    * Holding information about what methods that parser has entered.
+    * Creating 'blocks' to represent the blocks that the parser enters. These
+      blocks hold information like the last variable before block entry, the
+      type of block, and more.
+    * Handling the deletion of vars when a block goes out of scope.
+    * A block is any if, elif, etc. Blocks are created 
+    * Ensuring that the vm knows to save important method parameters and
+      storages to keep unintended consequences from occuring from a call. It
+      also writes the o_restore opcode for the vm to restore values.
+    * Writing the proper line number of an error to raiser's line_adjust if
+      emitter is walking a tree.
+
+    How do if/elif/else work?
+    * o_jump and o_jump_if are used to perform jumps to some location in the
+      future. They are initially written with a location of 0.
+    * The location of the 0 is added to an array of patches.
+    * When the first 'if' is discovered, it saves where the patches are.
+    * At the start of a branch (after the : is discovered after the statement),
+      a branch jump is created. When the next branch starts, that branch jump
+      will be patched with the start of the next branch. This is what makes each
+      branch jump to the next when the condition is met.
+    * At the end of a branch, an exit jump is written that will be patched when
+      the if is done.
+    * Additionally, and/or create blocks so that all of their jumps will go to
+      one location on failure. This allows and/or short-circuiting (stopping on
+      the first or to succeed or and to fail). **/
+
 #define WRITE_PREP(size) \
 if ((m->pos + size) > m->len) { \
     uintptr_t *save_code; \
@@ -78,13 +109,65 @@ m->code[m->pos+3] = four; \
 m->code[m->pos+4] = five; \
 m->pos += 5;
 
-/* The emitter sets raiser->line_adjust with a better line number before calling
-   lily_raise. This gives debuggers a chance at a more useful line number.
-   Example: integer a = 1.0 +
-   1.0
-   * line_adjust would be 1 (where the assignment happens), whereas the lexer
-   would have the line at 2 (where the 1.0 is collected).
-   * Note: This currently excludes nomem errors. */
+/** Emitter init and deletion **/
+lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
+{
+    lily_emit_state *s = lily_malloc(sizeof(lily_emit_state));
+
+    if (s == NULL)
+        return NULL;
+
+    s->patches = lily_malloc(sizeof(int) * 4);
+    s->ctrl_patch_starts = lily_malloc(sizeof(int) * 4);
+    s->block_var_starts = lily_malloc(sizeof(lily_var *) * 4);
+    s->block_types = lily_malloc(sizeof(int) * 4);
+    s->method_vals = lily_malloc(sizeof(lily_method_val *) * 4);
+    s->method_rets = lily_malloc(sizeof(lily_sig *) * 4);
+    s->method_targets = lily_malloc(sizeof(lily_var *) * 4);
+    s->method_id_offsets = lily_malloc(sizeof(int) * 4);
+    s->save_cache = lily_malloc(sizeof(uintptr_t) * 4);
+
+    if (s->patches == NULL || s->ctrl_patch_starts == NULL ||
+        s->block_var_starts == NULL || s->block_types == NULL ||
+        s->method_vals == NULL || s->method_rets == NULL ||
+        s->method_targets == NULL || s->method_id_offsets == NULL ||
+        s->save_cache == NULL) {
+        lily_free_emit_state(s);
+        return NULL;
+    }
+
+    s->patch_pos = 0;
+    s->patch_size = 4;
+    s->ctrl_patch_pos = 0;
+    s->ctrl_patch_size = 4;
+    s->block_pos = 0;
+    s->block_size = 4;
+    s->save_cache_pos = 0;
+    s->save_cache_size = 4;
+    s->method_pos = 0;
+    s->method_size = 4;
+
+    s->raiser = raiser;
+    s->expr_num = 1;
+
+    return s;
+}
+
+void lily_free_emit_state(lily_emit_state *emit)
+{
+    lily_free(emit->patches);
+    lily_free(emit->ctrl_patch_starts);
+    lily_free(emit->block_var_starts);
+    lily_free(emit->block_types);
+    lily_free(emit->method_vals);
+    lily_free(emit->method_rets);
+    lily_free(emit->method_targets);
+    lily_free(emit->method_id_offsets);
+    lily_free(emit->save_cache);
+    lily_free(emit);
+}
+
+/** Shared helper functions **/
 static char *opname(lily_expr_op op)
 {
     char *opnames[] = {"+", "-", "==", "<", "<=", ">", ">=", "-", "="};
@@ -92,7 +175,7 @@ static char *opname(lily_expr_op op)
     return opnames[op];
 }
 
-static inline lily_storage *get_storage_sym(lily_emit_state *emit,
+static lily_storage *storage_for_class(lily_emit_state *emit,
         lily_class *storage_class)
 {
     lily_storage *s = storage_class->storage;
@@ -111,9 +194,136 @@ static inline lily_storage *get_storage_sym(lily_emit_state *emit,
     return s;
 }
 
+/** Signature helper functions **/
+/* sigequal
+   This function checks to see if two signatures hold the same information. */
+static int sigequal(lily_sig *lhs, lily_sig *rhs)
+{
+    int ret;
+
+    if (lhs == rhs)
+        ret = 1;
+    else {
+        if (lhs->cls->id == rhs->cls->id) {
+            if (lhs->cls->id == SYM_CLASS_LIST) {
+                if (sigequal(lhs->node.value_sig,
+                             rhs->node.value_sig)) {
+                    ret = 1;
+                }
+                else
+                    ret = 0;
+            }
+            else
+                /* todo: Need to do an in-depth match for calls. */
+                ret = 1;
+        }
+        else
+            ret = 0;
+    }
+
+    return ret;
+}
+
+/* sigcast
+   This function is called after sigequal. This checks to see if the signature
+   on the left can become the signature on the right. */
+static int sigcast(lily_emit_state *emit, lily_ast *lhs_ast, lily_sig *rhs)
+{
+    int ret;
+
+    if (rhs->cls->id == SYM_CLASS_OBJECT) {
+        ret = 1;
+        lily_method_val *m = emit->target;
+        lily_storage *storage;
+        storage = storage_for_class(emit, rhs->cls);
+        WRITE_4(o_obj_assign,
+                lhs_ast->line_num,
+                (uintptr_t)storage,
+                (uintptr_t)lhs_ast->result)
+
+        lhs_ast->result = (lily_sym *)storage;
+    }
+    else
+        ret = 0;
+
+    return ret;
+}
+
+/* write_sig
+   This writes all detailed information about a signature into a message
+   buffer. lily_msgbuf's functions are guaranteed to never overflow, so no
+   checks are necessary. */
+static void write_sig(lily_msgbuf *mb, lily_sig *sig)
+{
+    lily_msgbuf_add(mb, sig->cls->name);
+
+    if (sig->cls->id == SYM_CLASS_METHOD ||
+        sig->cls->id == SYM_CLASS_FUNCTION) {
+        lily_call_sig *csig = sig->node.call;
+        lily_msgbuf_add(mb, " (");
+        int i;
+        for (i = 0;i < csig->num_args-1;i++) {
+            write_sig(mb, csig->args[i]);
+            lily_msgbuf_add(mb, ", ");
+        }
+        if (i != csig->num_args) {
+            write_sig(mb, csig->args[i]);
+            if (csig->is_varargs)
+                lily_msgbuf_add(mb, "...");
+        }
+        lily_msgbuf_add(mb, "):");
+        if (csig->ret == NULL)
+            lily_msgbuf_add(mb, "nil");
+        else
+            write_sig(mb, csig->ret);
+    }
+    else if (sig->cls->id == SYM_CLASS_LIST) {
+        lily_msgbuf_add(mb, "[");
+        write_sig(mb, sig->node.value_sig);
+        lily_msgbuf_add(mb, "]");
+    }
+}
+
+/** Error helpers **/
+static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
+    lily_sig *got, int arg_num)
+{
+    lily_var *v = (lily_var *)ast->result;
+    lily_call_sig *csig = v->sig->node.call;
+
+    lily_msgbuf *mb = lily_new_msgbuf(v->name);
+    lily_msgbuf_add(mb, " arg #");
+    lily_msgbuf_add_int(mb, arg_num);
+    lily_msgbuf_add(mb, " expects type '");
+    write_sig(mb, csig->args[arg_num]);
+    lily_msgbuf_add(mb, "' but got type '");
+    write_sig(mb, got);
+    lily_msgbuf_add(mb, "'.\n");
+
+    /* Just in case this arg was on a different line than the call. */
+    emit->raiser->line_adjust = ast->line_num;
+    lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
+}
+
+static void bad_assign_error(lily_emit_state *emit, int line_num,
+                          lily_sym *left, lily_sym *right)
+{
+    /* Remember that right is being assigned to left, so right should
+       get printed first. */
+    lily_msgbuf *mb = lily_new_msgbuf("Cannot assign ");
+    write_sig(mb, right->sig);
+    lily_msgbuf_add(mb, " to ");
+    write_sig(mb, left->sig);
+    lily_msgbuf_add(mb, ".\n");
+
+    emit->raiser->line_adjust = line_num;
+    lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
+}
+
+/** ast walking helpers **/
 static void walk_tree(lily_emit_state *, lily_ast *);
 
-static void do_jump_for_tree(lily_emit_state *emit, lily_ast *ast, int jump_on)
+static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
 {
     lily_method_val *m = emit->target;
 
@@ -134,112 +344,7 @@ static void do_jump_for_tree(lily_emit_state *emit, lily_ast *ast, int jump_on)
     emit->patch_pos++;
 }
 
-/* This handles both logical and, and logical or. */
-static void do_logical_op(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_symtab *symtab = emit->symtab;
-    lily_storage *result;
-    int is_top, jump_on;
-    lily_method_val *m = emit->target;
-
-    jump_on = (ast->op == expr_logical_or);
-
-    /* The first tree must create the block, so that subsequent trees have a
-       place to write the patches to. */
-    if (ast->parent == NULL || 
-        (ast->parent->tree_type == tree_binary && ast->parent->op != ast->op)) {
-        is_top = 1;
-        lily_emit_push_block(emit, BLOCK_ANDOR);
-    }
-    else
-        is_top = 0;
-
-    /* The bottom tree is responsible for getting the storage. */
-    if (ast->left->tree_type != tree_binary || ast->left->op != ast->op) {
-        result = get_storage_sym(emit,
-            lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER));
-
-        if (ast->left->tree_type != tree_var)
-            walk_tree(emit, ast->left);
-
-        do_jump_for_tree(emit, ast->left, jump_on);
-    }
-    else {
-        /* and/or do not require do_jump_for_tree, because that would be a
-           double-check! */
-        walk_tree(emit, ast->left);
-        result = (lily_storage *)ast->left->result;
-    }
-
-    if (ast->right->tree_type != tree_var)
-        walk_tree(emit, ast->right);
-
-    do_jump_for_tree(emit, ast->right, jump_on);
-
-    if (is_top == 1) {
-        /* The symtab adds literals 0 and 1 in that order during its init. */
-        int save_pos;
-        lily_literal *success, *failure;
-
-        success = symtab->lit_start;
-        if (ast->op == expr_logical_or)
-            failure = success->next;
-        else {
-            failure = success;
-            success = failure->next;
-        }
-
-        WRITE_4(o_assign,
-                ast->line_num,
-                (uintptr_t)result,
-                (uintptr_t)success);
-        WRITE_2(o_jump, 0);
-        save_pos = m->pos-1;
-
-        lily_emit_pop_block(emit);
-        WRITE_4(o_assign,
-                ast->line_num,
-                (uintptr_t)result,
-                (uintptr_t)failure);
-
-        m->code[save_pos] = m->pos;
-    }
-
-    ast->result = (lily_sym *)result;
-}
-
-static void do_unary_op(lily_emit_state *emit, lily_ast *ast)
-{
-    uintptr_t opcode;
-    lily_class *lhs_class;
-    lily_storage *s;
-    lily_method_val *m;
-
-    m = emit->target;
-    lhs_class = ast->left->result->sig->cls;
-    if (lhs_class->id != SYM_CLASS_INTEGER) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise(emit->raiser, lily_ErrSyntax, "Invalid operation: %s%s.\n",
-                   opname(ast->op), lhs_class->name);
-    }
-
-    s = get_storage_sym(emit,
-            lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER));
-
-    if (ast->op == expr_unary_minus)
-        opcode = o_unary_minus;
-    else if (ast->op == expr_unary_not)
-        opcode = o_unary_not;
-
-    WRITE_4(opcode,
-            (uintptr_t)ast->line_num,
-            (uintptr_t)ast->left->result,
-            (uintptr_t)s);
-
-    ast->result = (lily_sym *)s;
-}
-
-static void generic_binop(lily_emit_state *emit, lily_ast *ast)
+static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
 {
     int opcode;
     lily_method_val *m;
@@ -274,7 +379,7 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
            bool class (yet), so an integer class is used instead. */
         storage_class = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
 
-    s = get_storage_sym(emit, storage_class);
+    s = storage_for_class(emit, storage_class);
 
     WRITE_5(opcode,
             ast->line_num,
@@ -285,135 +390,123 @@ static void generic_binop(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)s;
 }
 
-static void write_type(lily_msgbuf *mb, lily_sig *sig)
+/* Forward decls of enter/leave block for emit_logical_op. */
+void lily_emit_enter_block(lily_emit_state *, int);
+void lily_emit_leave_block(lily_emit_state *);
+
+/* This handles both logical and, and logical or. */
+static void emit_logical_op(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_msgbuf_add(mb, sig->cls->name);
+    lily_symtab *symtab = emit->symtab;
+    lily_storage *result;
+    int is_top, jump_on;
+    lily_method_val *m = emit->target;
 
-    if (sig->cls->id == SYM_CLASS_METHOD ||
-        sig->cls->id == SYM_CLASS_FUNCTION) {
-        lily_call_sig *csig = sig->node.call;
-        lily_msgbuf_add(mb, " (");
-        int i;
-        for (i = 0;i < csig->num_args-1;i++) {
-            write_type(mb, csig->args[i]);
-            lily_msgbuf_add(mb, ", ");
-        }
-        if (i != csig->num_args) {
-            write_type(mb, csig->args[i]);
-            if (csig->is_varargs)
-                lily_msgbuf_add(mb, "...");
-        }
-        lily_msgbuf_add(mb, "):");
-        if (csig->ret == NULL)
-            lily_msgbuf_add(mb, "nil");
-        else
-            write_type(mb, csig->ret);
-    }
-    else if (sig->cls->id == SYM_CLASS_LIST) {
-        lily_msgbuf_add(mb, "[");
-        write_type(mb, sig->node.value_sig);
-        lily_msgbuf_add(mb, "]");
-    }
-}
+    jump_on = (ast->op == expr_logical_or);
 
-/* Comparing a call's signature to what it got goes in three rounds. In the
-   first two, what's received is in the lhs, and what was obtained is in the
-   rhs. */
-
-/* Round 1: See if the signatures of two things actually match. */
-static int sigmatch(lily_sig *lhs, lily_sig *rhs)
-{
-    int ret;
-
-    if (lhs == rhs)
-        ret = 1;
-    else {
-        if (lhs->cls->id == rhs->cls->id) {
-            if (lhs->cls->id == SYM_CLASS_LIST) {
-                if (sigmatch(lhs->node.value_sig,
-                             rhs->node.value_sig)) {
-                    ret = 1;
-                }
-                else
-                    ret = 0;
-            }
-            else
-                /* todo: Need to do an in-depth match for calls. */
-                ret = 1;
-        }
-        else
-            ret = 0;
-    }
-
-    return ret;
-}
-
-/* Round 2: The signatures don't match, but can lhs_ast's result become the type
-   of rhs? */
-static int sigcast(lily_emit_state *emit, lily_ast *lhs_ast, lily_sig *rhs)
-{
-    int ret;
-
-    if (rhs->cls->id == SYM_CLASS_OBJECT) {
-        ret = 1;
-        lily_method_val *m = emit->target;
-        lily_storage *storage;
-        storage = get_storage_sym(emit, rhs->cls);
-        WRITE_4(o_obj_assign,
-                lhs_ast->line_num,
-                (uintptr_t)storage,
-                (uintptr_t)lhs_ast->result)
-
-        lhs_ast->result = (lily_sym *)storage;
+    /* The first tree must create the block, so that subsequent trees have a
+       place to write the patches to. */
+    if (ast->parent == NULL || 
+        (ast->parent->tree_type == tree_binary && ast->parent->op != ast->op)) {
+        is_top = 1;
+        lily_emit_enter_block(emit, BLOCK_ANDOR);
     }
     else
-        ret = 0;
+        is_top = 0;
 
-    return ret;
+    /* The bottom tree is responsible for getting the storage. */
+    if (ast->left->tree_type != tree_binary || ast->left->op != ast->op) {
+        result = storage_for_class(emit,
+            lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER));
+
+        if (ast->left->tree_type != tree_var)
+            walk_tree(emit, ast->left);
+
+        emit_jump_if(emit, ast->left, jump_on);
+    }
+    else {
+        /* and/or do not require emit_jump_if, because that would be a
+           double-check! */
+        walk_tree(emit, ast->left);
+        result = (lily_storage *)ast->left->result;
+    }
+
+    if (ast->right->tree_type != tree_var)
+        walk_tree(emit, ast->right);
+
+    emit_jump_if(emit, ast->right, jump_on);
+
+    if (is_top == 1) {
+        /* The symtab adds literals 0 and 1 in that order during its init. */
+        int save_pos;
+        lily_literal *success, *failure;
+
+        success = symtab->lit_start;
+        if (ast->op == expr_logical_or)
+            failure = success->next;
+        else {
+            failure = success;
+            success = failure->next;
+        }
+
+        WRITE_4(o_assign,
+                ast->line_num,
+                (uintptr_t)result,
+                (uintptr_t)success);
+        WRITE_2(o_jump, 0);
+        save_pos = m->pos-1;
+
+        lily_emit_leave_block(emit);
+        WRITE_4(o_assign,
+                ast->line_num,
+                (uintptr_t)result,
+                (uintptr_t)failure);
+
+        m->code[save_pos] = m->pos;
+    }
+
+    ast->result = (lily_sym *)result;
 }
 
-/* Round 3: Show an error for the wrong type. */
-static void do_bad_arg_error(lily_emit_state *emit, lily_ast *ast,
-    lily_sig *got, int arg_num)
+static void emit_unary_op(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_var *v = (lily_var *)ast->result;
-    lily_call_sig *csig = v->sig->node.call;
+    uintptr_t opcode;
+    lily_class *lhs_class;
+    lily_storage *s;
+    lily_method_val *m;
 
-    lily_msgbuf *mb = lily_new_msgbuf(v->name);
-    lily_msgbuf_add(mb, " arg #");
-    lily_msgbuf_add_int(mb, arg_num);
-    lily_msgbuf_add(mb, " expects type '");
-    write_type(mb, csig->args[arg_num]);
-    lily_msgbuf_add(mb, "' but got type '");
-    write_type(mb, got);
-    lily_msgbuf_add(mb, "'.\n");
+    m = emit->target;
+    lhs_class = ast->left->result->sig->cls;
+    if (lhs_class->id != SYM_CLASS_INTEGER) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise(emit->raiser, lily_ErrSyntax, "Invalid operation: %s%s.\n",
+                   opname(ast->op), lhs_class->name);
+    }
 
-    /* Just in case this arg was on a different line than the call. */
-    emit->raiser->line_adjust = ast->line_num;
-    lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
+    s = storage_for_class(emit,
+            lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER));
+
+    if (ast->op == expr_unary_minus)
+        opcode = o_unary_minus;
+    else if (ast->op == expr_unary_not)
+        opcode = o_unary_not;
+
+    WRITE_4(opcode,
+            (uintptr_t)ast->line_num,
+            (uintptr_t)ast->left->result,
+            (uintptr_t)s);
+
+    ast->result = (lily_sym *)s;
 }
 
-static void do_bad_assign(lily_emit_state *emit, int line_num,
-                          lily_sym *left, lily_sym *right)
-{
-    /* Remember that right is being assigned to left, so right should
-       get printed first. */
-    lily_msgbuf *mb = lily_new_msgbuf("Cannot assign ");
-    write_type(mb, right->sig);
-    lily_msgbuf_add(mb, " to ");
-    write_type(mb, left->sig);
-    lily_msgbuf_add(mb, ".\n");
-
-    emit->raiser->line_adjust = line_num;
-    lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
-}
-
+/* check_call_args
+   This verifies that the args collected in an ast match what is expected. This
+   function will walk trees if they are an arg. */
 static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         lily_call_sig *csig)
 {
     lily_ast *arg = ast->arg_start;
     int i, is_varargs, num_args;
-    lily_method_val *m = emit->target;
 
     is_varargs = csig->is_varargs;
     num_args = csig->num_args;
@@ -429,9 +522,9 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             }
         }
 
-        if (!sigmatch(arg->result->sig, csig->args[i])) {
+        if (!sigequal(arg->result->sig, csig->args[i])) {
             if (!sigcast(emit, arg, csig->args[i]))
-                do_bad_arg_error(emit, ast, arg->result->sig, i);
+                bad_arg_error(emit, ast, arg->result->sig, i);
         }
     }
 
@@ -450,14 +543,17 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                 }
             }
 
-            if (!sigmatch(arg->result->sig, csig->args[i])) {
+            if (!sigequal(arg->result->sig, csig->args[i])) {
                 if (!sigcast(emit, arg, csig->args[i]))
-                    do_bad_arg_error(emit, ast, arg->result->sig, i);
+                    bad_arg_error(emit, ast, arg->result->sig, i);
             }
         }
     }
 }
 
+/* walk_tree
+   This is the main emit function. It determines what to do given a particular
+   ast type. */
 static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 {
     lily_method_val *m = emit->target;
@@ -557,7 +653,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         }
 
         if (csig->ret != NULL) {
-            lily_storage *s = get_storage_sym(emit, csig->ret->cls);
+            lily_storage *s = storage_for_class(emit, csig->ret->cls);
 
             ast->result = (lily_sym *)s;
         }
@@ -601,12 +697,12 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             if (left_sym->sig != right_sym->sig) {
                 if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
                     opcode = o_obj_assign;
-                else if (sigmatch(left_sym->sig, right_sym->sig)) {
+                else if (sigequal(left_sym->sig, right_sym->sig)) {
                     if (left_sym->sig->cls->id == SYM_CLASS_LIST)
                         opcode = o_list_assign;
                 }
                 else
-                    do_bad_assign(emit, ast->line_num, left_sym,
+                    bad_assign_error(emit, ast->line_num, left_sym,
                                   right_sym);
             }
             else if (left_sym->sig->cls->id == SYM_CLASS_STR)
@@ -620,7 +716,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                     (uintptr_t)right_sym)
         }
         else if (ast->op == expr_logical_or || ast->op == expr_logical_and)
-            do_logical_op(emit, ast);
+            emit_logical_op(emit, ast);
         else {
             if (ast->left->tree_type != tree_var)
                 walk_tree(emit, ast->left);
@@ -628,7 +724,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             if (ast->right->tree_type != tree_var)
                 walk_tree(emit, ast->right);
 
-            generic_binop(emit, ast);
+            emit_binary_op(emit, ast);
         }
     }
     else if (ast->tree_type == tree_parenth) {
@@ -640,7 +736,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         if (ast->left->tree_type != tree_var)
             walk_tree(emit, ast->left);
 
-        do_unary_op(emit, ast);
+        emit_unary_op(emit, ast);
     }
     else if (ast->tree_type == tree_list) {
         lily_sig *elem_sig = NULL;
@@ -649,7 +745,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         /* First, get a list storage to hold the values into. The elements
            will not have a class...yet.  */
         lily_class *store_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);
-        lily_storage *s = get_storage_sym(emit, store_cls);
+        lily_storage *s = storage_for_class(emit, store_cls);
 
         /* Walk through all of the list elements, keeping a note of the class
            of the results. The class of the list elements is determined as
@@ -662,7 +758,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
             if (elem_sig != NULL) {
                 if (arg->result->sig != elem_sig &&
-                    sigmatch(arg->result->sig, elem_sig) == 0) {
+                    sigequal(arg->result->sig, elem_sig) == 0) {
                     emit->raiser->line_adjust = arg->line_num;
                     lily_raise(emit->raiser, lily_ErrSyntax,
                             "STUB: list of objects.\n");
@@ -691,12 +787,20 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
     }
 }
 
+/** Emitter API functions **/
+
+/* lily_emit_ast
+   API function to call walk_tree on an ast and increment the expr_num of the
+   emitter. */
 void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)
 {
     walk_tree(emit, ast);
     emit->expr_num++;
 }
 
+/* lily_emit_conditional
+   API function to call walk_tree on an ast and increment the expr_num of the
+   emitter. This function writes an if jump afterward, for if conditions. */
 void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
 {
     /* This does emitting for the condition of an if or elif. */
@@ -714,12 +818,13 @@ void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
        else, or the end of the if. Save the position so it can be written over
        later.
        0 for jump_if_false. */
-    do_jump_for_tree(emit, ast, 0);
+    emit_jump_if(emit, ast, 0);
 }
 
-/* This is called at the end of an 'if' branch, but before the beginning of the
-   new one. */
-void lily_emit_clear_block(lily_emit_state *emit, int have_else)
+/* lily_emit_change_if_branch
+   This is called when an if or elif jump has finished, and a new branch is to
+   begin. have_else indicates if it's an else branch or an elif branch. */
+void lily_emit_change_if_branch(lily_emit_state *emit, int have_else)
 {
     int save_jump;
     lily_method_val *m = emit->target;
@@ -759,7 +864,10 @@ void lily_emit_clear_block(lily_emit_state *emit, int have_else)
     emit->patches[emit->patch_pos-1] = save_jump;
 }
 
-void lily_emit_push_block(lily_emit_state *emit, int btype)
+/* lily_emit_enter_block
+   This enters a block of a given block_type. Values for block_type can be
+   found in lily_emitter.h */
+void lily_emit_enter_block(lily_emit_state *emit, int block_type)
 {
     if (emit->block_pos == emit->block_size) {
         emit->block_size *= 2;
@@ -780,7 +888,7 @@ void lily_emit_push_block(lily_emit_state *emit, int btype)
         emit->block_var_starts = new_var_starts;
     }
 
-    if (btype == BLOCK_IF || btype == BLOCK_ANDOR) {
+    if (block_type == BLOCK_IF || block_type == BLOCK_ANDOR) {
         if (emit->ctrl_patch_pos == emit->ctrl_patch_size) {
             emit->ctrl_patch_size *= 2;
             int *new_starts = lily_realloc(emit->ctrl_patch_starts,
@@ -795,28 +903,31 @@ void lily_emit_push_block(lily_emit_state *emit, int btype)
         emit->ctrl_patch_pos++;
         emit->block_var_starts[emit->block_pos] = emit->symtab->var_top;
     }
-    else if (btype == BLOCK_METHOD) {
+    else if (block_type == BLOCK_METHOD) {
         lily_var *v = emit->method_targets[emit->method_pos-1];
         emit->block_var_starts[emit->block_pos] = v;
     }
 
-    emit->block_types[emit->block_pos] = btype;
+    emit->block_types[emit->block_pos] = block_type;
     emit->block_pos++;
 }
 
-void lily_emit_pop_block(lily_emit_state *emit)
+/* lily_emit_leave_block
+   This closes the last block that was added to the emitter. Any vars that were
+   added in the block are dropped. */
+void lily_emit_leave_block(lily_emit_state *emit)
 {
     lily_var *v;
-    int btype;
+    int block_type;
 
     if (emit->block_pos == 1)
         lily_raise(emit->raiser, lily_ErrSyntax, "'}' outside of a block.\n");
 
     emit->block_pos--;
     v = emit->block_var_starts[emit->block_pos];
-    btype = emit->block_types[emit->block_pos];
+    block_type = emit->block_types[emit->block_pos];
 
-    if (btype < BLOCK_METHOD) {
+    if (block_type < BLOCK_METHOD) {
         emit->ctrl_patch_pos--;
 
         int from, to, pos;
@@ -843,6 +954,8 @@ void lily_emit_pop_block(lily_emit_state *emit)
     }
 }
 
+/* lily_emit_enter_method
+   This enters a method, and then adds that block to the emitter's state. */
 void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
 {
     if (emit->method_pos == emit->method_size) {
@@ -883,9 +996,12 @@ void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
     emit->method_id_offsets[emit->method_pos] = var->id;
     emit->method_pos++;
     emit->target_ret = var->sig->node.call->ret;
-    lily_emit_push_block(emit, BLOCK_METHOD);
+    lily_emit_enter_block(emit, BLOCK_METHOD);
 }
 
+/* lily_emit_leave_method
+   This exits the last method entered. For methods that do not return anything,
+   this writes a return before exiting. */
 void lily_emit_leave_method(lily_emit_state *emit)
 {
     /* If the method returns nil, write an implicit 'return' at the end of it.
@@ -898,6 +1014,9 @@ void lily_emit_leave_method(lily_emit_state *emit)
     emit->target_ret = emit->method_rets[emit->method_pos-1];
 }
 
+/* lily_emit_return
+   This writes a return statement for a method. This also checks that the
+   value given matches what the method says it returns. */
 void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
 {
     walk_tree(emit, ast);
@@ -907,9 +1026,9 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
        when those can be returned. */
     if (ast->result->sig != ret_sig) {
         lily_msgbuf *mb = lily_new_msgbuf("'return' expected type '");
-        write_type(mb, ret_sig);
+        write_sig(mb, ret_sig);
         lily_msgbuf_add(mb, "' but got type '");
-        write_type(mb, ast->result->sig);
+        write_sig(mb, ast->result->sig);
         lily_msgbuf_add(mb, "'.\n");
 
         emit->raiser->line_adjust = ast->line_num;
@@ -920,77 +1039,25 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
     WRITE_2(o_return_val, (uintptr_t)ast->result)
 }
 
+/* lily_emit_return_noval
+   This writes the o_return_noval opcode for a method to return without sending
+   a value to the caller. */
 void lily_emit_return_noval(lily_emit_state *emit)
 {
     lily_method_val *m = emit->target;
     WRITE_1(o_return_noval)
 }
 
+/* lily_emit_vm_return
+   This writes the o_vm_return opcode at the end of the @main method. */
 void lily_emit_vm_return(lily_emit_state *emit)
 {
     lily_method_val *m = emit->target;
     WRITE_1(o_vm_return)
 }
 
-void lily_free_emit_state(lily_emit_state *emit)
-{
-    lily_free(emit->patches);
-    lily_free(emit->ctrl_patch_starts);
-    lily_free(emit->block_var_starts);
-    lily_free(emit->block_types);
-    lily_free(emit->method_vals);
-    lily_free(emit->method_rets);
-    lily_free(emit->method_targets);
-    lily_free(emit->method_id_offsets);
-    lily_free(emit->save_cache);
-    lily_free(emit);
-}
-
-lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
-{
-    lily_emit_state *s = lily_malloc(sizeof(lily_emit_state));
-
-    if (s == NULL)
-        return NULL;
-
-    s->patches = lily_malloc(sizeof(int) * 4);
-    s->ctrl_patch_starts = lily_malloc(sizeof(int) * 4);
-    s->block_var_starts = lily_malloc(sizeof(lily_var *) * 4);
-    s->block_types = lily_malloc(sizeof(int) * 4);
-    s->method_vals = lily_malloc(sizeof(lily_method_val *) * 4);
-    s->method_rets = lily_malloc(sizeof(lily_sig *) * 4);
-    s->method_targets = lily_malloc(sizeof(lily_var *) * 4);
-    s->method_id_offsets = lily_malloc(sizeof(int) * 4);
-    s->save_cache = lily_malloc(sizeof(uintptr_t) * 4);
-
-    if (s->patches == NULL || s->ctrl_patch_starts == NULL ||
-        s->block_var_starts == NULL || s->block_types == NULL ||
-        s->method_vals == NULL || s->method_rets == NULL ||
-        s->method_targets == NULL || s->method_id_offsets == NULL ||
-        s->save_cache == NULL) {
-        lily_free_emit_state(s);
-        return NULL;
-    }
-
-    s->patch_pos = 0;
-    s->patch_size = 4;
-    s->ctrl_patch_pos = 0;
-    s->ctrl_patch_size = 4;
-    s->block_pos = 0;
-    s->block_size = 4;
-    s->save_cache_pos = 0;
-    s->save_cache_size = 4;
-    s->method_pos = 0;
-    s->method_size = 4;
-
-    s->raiser = raiser;
-    s->expr_num = 1;
-
-    return s;
-}
-
-/* Prepare @lily_main to receive new instructions after a parse step. Debug and
-   the vm stay within 'pos', so no need to actually clear the code. */
+/* lily_reset_main
+   This resets the code position of @main, so it can receive new code. */
 void lily_reset_main(lily_emit_state *emit)
 {
     ((lily_method_val *)emit->target)->pos = 0;
