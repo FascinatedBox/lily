@@ -6,25 +6,25 @@
 #include "lily_vm.h"
 #include "lily_pkg.h"
 
-#define FAST_INTEGER_OP(OP) \
+#define INTEGER_OP(OP) \
 lhs = (lily_sym *)code[i+2]; \
 rhs = (lily_sym *)code[i+3]; \
 if (lhs->flags & S_IS_NIL) \
-    lily_vm_error(vm, i, lhs); \
+    novalue_error(vm, i, lhs); \
 else if (rhs->flags & S_IS_NIL) \
-    lily_vm_error(vm, i, rhs); \
+    novalue_error(vm, i, rhs); \
 ((lily_sym *)code[i+4])->value.integer = \
 lhs->value.integer OP rhs->value.integer; \
 ((lily_sym *)code[i+4])->flags &= ~S_IS_NIL; \
 i += 5; \
 
-#define NUMBER_OP(OP) \
+#define INTNUM_OP(OP) \
 lhs = (lily_sym *)code[i+2]; \
 rhs = (lily_sym *)code[i+3]; \
 if (lhs->flags & S_IS_NIL) \
-    lily_vm_error(vm, i, lhs); \
+    novalue_error(vm, i, lhs); \
 else if (rhs->flags & S_IS_NIL) \
-    lily_vm_error(vm, i, rhs); \
+    novalue_error(vm, i, rhs); \
 if (lhs->sig->cls->id == SYM_CLASS_NUMBER) { \
     if (rhs->sig->cls->id == SYM_CLASS_NUMBER) \
         ((lily_sym *)code[i+4])->value.number = \
@@ -43,9 +43,9 @@ i += 5;
 lhs = (lily_sym *)code[i+2]; \
 rhs = (lily_sym *)code[i+3]; \
 if (lhs->flags & S_IS_NIL) \
-    lily_vm_error(vm, i, lhs); \
+    novalue_error(vm, i, lhs); \
 else if (rhs->flags & S_IS_NIL) \
-    lily_vm_error(vm, i, rhs); \
+    novalue_error(vm, i, rhs); \
 if (lhs->sig->cls->id == SYM_CLASS_NUMBER) { \
     if (rhs->sig->cls->id == SYM_CLASS_NUMBER) \
         ((lily_sym *)code[i+4])->value.number = \
@@ -70,43 +70,7 @@ else if (lhs->sig->cls->id == SYM_CLASS_STR) { \
 ((lily_sym *)code[i+4])->flags &= ~S_IS_NIL; \
 i += 5;
 
-static void grow_vm(lily_vm_state *vm)
-{
-    int i;
-    lily_vm_stack_entry **new_stack;
-
-    vm->method_stack_size *= 2;
-    new_stack = lily_realloc(vm->method_stack,
-            sizeof(lily_vm_stack_entry *) * vm->method_stack_size);
-
-    if (new_stack == NULL)
-        lily_raise_nomem(vm->raiser);
-
-    vm->method_stack = new_stack;
-    for (i = vm->method_stack_pos;i < vm->method_stack_size;i++) {
-        vm->method_stack[i] = lily_malloc(sizeof(lily_vm_stack_entry));
-        if (vm->method_stack[i] == NULL) {
-            vm->method_stack_size = i;
-            lily_raise_nomem(vm->raiser);
-        }
-    }
-}
-
-static void grow_saved_vals(lily_vm_state *vm, int upto)
-{
-    do {
-        vm->val_size *= 2;
-    } while ((vm->val_pos + upto) > vm->val_size);
-
-    lily_saved_val *new_values = lily_realloc(vm->saved_values,
-            sizeof(lily_saved_val) * vm->val_size);
-
-    if (new_values == NULL)
-        lily_raise_nomem(vm->raiser);
-
-    vm->saved_values = new_values;
-}
-
+/** vm init and deletion **/
 lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
 {
     lily_vm_state *vm = lily_malloc(sizeof(lily_vm_state));
@@ -158,11 +122,83 @@ void lily_free_vm_state(lily_vm_state *vm)
     lily_free(vm);
 }
 
+/** VM helpers **/
+
+/* grow_method_stack
+   This function grows the vm's method stack so it can take more method info.
+   Calls lily_raise_nomem if unable to create method info. */
+static void grow_method_stack(lily_vm_state *vm)
+{
+    int i;
+    lily_vm_stack_entry **new_stack;
+
+    vm->method_stack_size *= 2;
+    new_stack = lily_realloc(vm->method_stack,
+            sizeof(lily_vm_stack_entry *) * vm->method_stack_size);
+
+    if (new_stack == NULL)
+        lily_raise_nomem(vm->raiser);
+
+    vm->method_stack = new_stack;
+    for (i = vm->method_stack_pos;i < vm->method_stack_size;i++) {
+        vm->method_stack[i] = lily_malloc(sizeof(lily_vm_stack_entry));
+        if (vm->method_stack[i] == NULL) {
+            vm->method_stack_size = i;
+            lily_raise_nomem(vm->raiser);
+        }
+    }
+}
+
+/* grow_method_stack
+   This function grows the vm's saved values so it can save more storages. Calls
+   lily_raise_nomem if unable to create method info. */
+static void grow_saved_vals(lily_vm_state *vm, int upto)
+{
+    do {
+        vm->val_size *= 2;
+    } while ((vm->val_pos + upto) > vm->val_size);
+
+    lily_saved_val *new_values = lily_realloc(vm->saved_values,
+            sizeof(lily_saved_val) * vm->val_size);
+
+    if (new_values == NULL)
+        lily_raise_nomem(vm->raiser);
+
+    vm->saved_values = new_values;
+}
+
+/* novalue_error
+   This is a helper routine that raises ErrNoValue because the given sym is
+   nil but should not be. code_pos is the current code position, because the
+   current method's info is not saved in the stack (because it would almost
+   always be stale). */
+static void novalue_error(lily_vm_state *vm, int code_pos, lily_sym *sym)
+{
+    /* ...So fill in the current method's info before dying. */
+    lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
+    /* Methods do not have a linetable that maps opcodes to line numbers.
+       Instead, the emitter writes the line number right after the opcode for
+       any opcode that might call novalue_error. */ 
+    top->line_num = top->code[code_pos+1];
+    /* Literals and storages can't be nil, so this must be a named var. */
+    lily_raise(vm->raiser, lily_ErrNoValue, "%s is nil.\n",
+               ((lily_var *)sym)->name);
+}
+
+/** Built-in functions. These are referenced by lily_seed_symtab.h **/
+
+/* lily_builtin_print
+   This is called by the vm to implement the print function. [0] is the return
+   (which isn't used), so args begin at [1]. */
 void lily_builtin_print(int num_args, lily_sym **args)
 {
     lily_impl_send_html(args[1]->value.str->str);
 }
 
+/* lily_builtin_printfmt
+   This is called by the vm to implement the printfmt function. [0] is the
+   return, which is ignored in this case. [1] is the format string, and [2]+
+   are the arguments. */
 void lily_builtin_printfmt(int num_args, lily_sym **args)
 {
     char fmtbuf[64];
@@ -231,7 +267,11 @@ void lily_builtin_printfmt(int num_args, lily_sym **args)
     lily_impl_send_html(str_start);
 }
 
-void do_str_assign(lily_sym **syms)
+/** VM opcode helpers **/
+
+/* op_str_assign
+   VM helper called for handling o_str_assign. [1] is lhs, [2] is rhs. */
+void op_str_assign(lily_sym **syms)
 {
     lily_sym *lhs, *rhs;
     lily_str_val *lvalue;
@@ -251,7 +291,9 @@ void do_str_assign(lily_sym **syms)
     lhs->value = rhs->value;
 }
 
-void do_list_assign(lily_sym **syms)
+/* op_str_assign
+   VM helper called for handling o_list_assign. [1] is lhs, [2] is rhs. */
+void op_list_assign(lily_sym **syms)
 {
     lily_sym *lhs, *rhs;
     lily_list_val *lvalue;
@@ -271,7 +313,14 @@ void do_list_assign(lily_sym **syms)
     lhs->value = rhs->value;
 }
 
-void do_build_list(lily_vm_state *vm, lily_sym **syms, int i)
+/* op_build_list
+   VM helper called for handling o_build_list. This is a bit tricky, becaus the
+   storage may have already had a previous list assigned to it. Additionally,
+   the new list info may fail to allocate.
+   But most importantly, list handling is a bit broken right now. Lists keep a
+   copy of their element sig in the value and in the value part of their own
+   sig. This...is a problem that will eventually get fixed. */
+void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
 {
     lily_sig *elem_sig = (lily_sig *)syms[4];
     lily_storage *storage = (lily_storage *)syms[2];
@@ -316,6 +365,8 @@ void do_build_list(lily_vm_state *vm, lily_sym **syms, int i)
     storage->flags &= ~S_IS_NIL;
 }
 
+/* do_ref_deref
+   Do an assignment where lhs loses a ref and rhs gains one. */
 static void do_ref_deref(lily_class *cls, lily_sym *down_sym, lily_sym *up_sym)
 {
     lily_generic_val *up_gv = up_sym->value.generic;
@@ -332,20 +383,15 @@ static void do_ref_deref(lily_class *cls, lily_sym *down_sym, lily_sym *up_sym)
     up_gv->refcount++;
 }
 
-void lily_vm_error(lily_vm_state *vm, int code_pos, lily_sym *sym)
-{
-    /* The stack only saves the line number for every call -but- the top-most
-       one. So fill that in before dying. */
-    lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
-    /* Methods do not have a linetable that maps opcodes to line numbers.
-       Instead, the emitter writes the line number right after the opcode for
-       any opcode that might call lily_vm_error. */ 
-    top->line_num = top->code[code_pos+1];
-    /* Literals and storages can't be nil, so this must be a named var. */
-    lily_raise(vm->raiser, lily_ErrNoValue, "%s is nil.\n",
-               ((lily_var *)sym)->name);
-}
+/** The mighty VM **/
 
+/* lily_vm_execute
+   This is the VM part of lily. It executes any code on @main, as well as
+   anything called by @main. Finishes when it encounters the o_vm_return
+   opcode.
+   This function occasionally farms work out to other routines to keep the size
+   from being too big. It does not recurse, instead saving everything necessary
+   to the vm state for each call. */
 void lily_vm_execute(lily_vm_state *vm)
 {
     uintptr_t *code;
@@ -379,16 +425,16 @@ void lily_vm_execute(lily_vm_state *vm)
                 i += 4;
                 break;
             case o_integer_add:
-                FAST_INTEGER_OP(+)
+                INTEGER_OP(+)
                 break;
             case o_integer_minus:
-                FAST_INTEGER_OP(-)
+                INTEGER_OP(-)
                 break;
             case o_number_add:
-                NUMBER_OP(+)
+                INTNUM_OP(+)
                 break;
             case o_number_minus:
-                NUMBER_OP(-)
+                INTNUM_OP(-)
                 break;
             case o_less:
                 COMPARE_OP(<, == -1)
@@ -470,7 +516,7 @@ void lily_vm_execute(lily_vm_state *vm)
             {
                 int j;
                 if (vm->method_stack_pos == vm->method_stack_size)
-                    grow_vm(vm);
+                    grow_method_stack(vm);
 
                 /* This has to be grabbed each time, because of methods passing
                    as args. This can't be written in at emit time, because the
@@ -511,7 +557,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_unary_not:
                 if (lhs->flags & S_IS_NIL)
-                    lily_vm_error(vm, i, lhs);
+                    novalue_error(vm, i, lhs);
                 lhs = (lily_sym *)code[i+2];
                 rhs = (lily_sym *)code[i+3];
                 rhs->flags &= ~S_IS_NIL;
@@ -520,7 +566,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_unary_minus:
                 if (lhs->flags & S_IS_NIL)
-                    lily_vm_error(vm, i, lhs);
+                    novalue_error(vm, i, lhs);
                 lhs = (lily_sym *)code[i+2];
                 rhs = (lily_sym *)code[i+3];
                 rhs->flags &= ~S_IS_NIL;
@@ -551,15 +597,15 @@ void lily_vm_execute(lily_vm_state *vm)
                 i = stack_entry->code_pos;
                 break;
             case o_str_assign:
-                do_str_assign(((lily_sym **)code+i+1));
+                op_str_assign(((lily_sym **)code+i+1));
                 i += 4;
                 break;
             case o_build_list:
-                do_build_list(vm, (lily_sym **)code+i, i);
+                op_build_list(vm, (lily_sym **)code+i, i);
                 i += code[i+3] + 5;
                 break;
             case o_list_assign:
-                do_list_assign(((lily_sym **)code+i+1));
+                op_list_assign(((lily_sym **)code+i+1));
                 i += 4;
                 break;
             case o_obj_assign:
