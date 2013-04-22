@@ -61,7 +61,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "[%d/%d] %s", i+1, num_tests, tests[i][0]);
         /* todo: It would probably be better to reset a single parser, instead
            of creating and destroying multiple ones. */
-        lily_parse_state *parser = lily_new_parse_state();
+        lily_parse_state *parser = lily_new_parse_state(POPT_SHOW_SYMTAB);
         if (parser == NULL) {
             fputs("ErrNoMemory: No memory to alloc interpreter.\n", stderr);
             exit(EXIT_FAILURE);

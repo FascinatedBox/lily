@@ -13,10 +13,13 @@ typedef enum {
     pm_execute
 } lily_parse_mode;
 
+# define POPT_SHOW_SYMTAB 0x1
+
 typedef struct {
     lily_sig **sig_stack;
     int sig_stack_pos;
     int sig_stack_size;
+    int options;
     lily_ast_pool *ast_pool;
     lily_lex_state *lex;
     lily_emit_state *emit;
@@ -27,7 +30,7 @@ typedef struct {
 } lily_parse_state;
 
 void lily_free_parse_state(lily_parse_state *);
-lily_parse_state *lily_new_parse_state(void);
+lily_parse_state *lily_new_parse_state(int);
 int lily_parse_file(lily_parse_state *, char *);
 int lily_parse_string(lily_parse_state *, char *);
 
