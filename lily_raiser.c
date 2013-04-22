@@ -3,9 +3,18 @@
 #include "lily_impl.h"
 #include "lily_raiser.h"
 
+/* This is used by lily_name_for_error to get a printable name for an error
+   code. This is used by lily_fs to show what kind of error occured. */
 static const char *lily_error_names[] =
     {"ErrNoMemory", "ErrSyntax", "ErrImport", "ErrEncoding", "ErrNoValue"};
 
+/* lily_raise
+   This stops the interpreter. error_code is one of the error codes defined in
+   lily_raiser.h, which are matched to lily_error_names. Every error passes
+   through here except ErrNoMemory.
+   Instead of printing the message, this function saves the message so that
+   whatever runs the interpreter can choose what to do with it (ignoring it,
+   printing it to a special file, printing it to an application window, etc.) */
 void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
 {
     /* A best effort at making sure raiser->message is the whole error message.
@@ -54,6 +63,9 @@ void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
     longjmp(raiser->jump, 1);
 }
 
+/* lily_raise_msgbuf
+   This is used by emitter when it has an error involving class info so that
+   raiser can focus on raising stuff. */
 void lily_raise_msgbuf(lily_raiser *raiser, int error_code, lily_msgbuf *mb)
 {
     raiser->error_code = error_code;

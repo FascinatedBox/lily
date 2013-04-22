@@ -2,6 +2,17 @@
 #include "lily_symtab.h"
 #include "lily_opcode.h"
 
+/** Debug is responsible for:
+    * Printing out the literals that have been scanned and their values.
+    * Pretty-printing out the code for @main, and every method scanned. This can
+      be extremely useful at times for identifying the source of a bug. However,
+      by printing ALL methods it can get pretty spammy.
+    This code has helped find many bugs. **/
+
+/* typename
+   This returns what type that a sym is. Literals, vars, and storages all have
+   their own ids, so knowing what type is important. This also helps to identify
+   situations where the wrong type of sym is being used. */
 static char *typename(lily_sym *sym)
 {
     char *ret;
@@ -17,6 +28,8 @@ static char *typename(lily_sym *sym)
 
     return ret;
 }
+
+/** Printing helpers for show_code. **/
 
 static void print_one(uintptr_t *code, char *str, int i)
 {
@@ -122,6 +135,9 @@ static void print_save(uintptr_t *code, char *str, int i)
     }
 }
 
+/* show_code
+   This is the complement to lily_vm_execute. This handles all the same opcodes,
+   but prints the values involved instead of running anything. */
 static void show_code(lily_var *var)
 {
     int i, len;
@@ -276,8 +292,14 @@ static void show_sym(lily_sym *sym)
     }
     else
         lily_impl_debugf("(nil)\n");
+
 }
 
+/** API for lily_debug.c **/
+
+/* lily_show_symtab
+   This is the API function for debugging. Just send the symtab and debug will
+   do the rest. */
 void lily_show_symtab(lily_symtab *symtab)
 {
     lily_var *var = symtab->var_start;
