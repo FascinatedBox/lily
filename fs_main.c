@@ -1,6 +1,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "lily_parser.h"
 
@@ -21,20 +22,53 @@ void lily_impl_send_html(char *htmldata)
     fputs(htmldata, stdout);
 }
 
-int main(int argc, char **argv)
+static void usage()
 {
-    if (argc != 2) {
-        fputs("Usage : lily_fs <filename>\n", stderr);
-        exit(EXIT_FAILURE);
+    fputs("usage: lily_fs [options] <filename>\n", stderr);
+    fputs("\n", stderr);
+    fputs("Where options are:\n", stderr);
+    fputs("    --show-symtab    Show symtab info before executing.\n", stderr);
+    exit(EXIT_FAILURE);
+}
+
+static char *fs_filename;
+
+static int parse_options(int argc, char **argv)
+{
+    int i, options;
+
+    if (argc < 2)
+        usage();
+
+    options = 0;
+    fs_filename = NULL;
+
+    for (i = 1;i < argc;i++) {
+        char *arg = argv[i];
+
+        if (strcmp("--show-symtab", arg) == 0)
+            options |= POPT_SHOW_SYMTAB;
+        else
+            fs_filename = argv[i];
     }
 
-    lily_parse_state *parser = lily_new_parse_state();
+    if (fs_filename == NULL)
+        usage();
+
+    return options;
+}
+
+int main(int argc, char **argv)
+{
+    int options = parse_options(argc, argv);
+
+    lily_parse_state *parser = lily_new_parse_state(options);
     if (parser == NULL) {
         fputs("ErrNoMemory: No memory to alloc interpreter.\n", stderr);
         exit(EXIT_FAILURE);
     }
 
-    if (lily_parse_file(parser, argv[1]) == 0) {
+    if (lily_parse_file(parser, fs_filename) == 0) {
         lily_raiser *raiser = parser->raiser;
         fprintf(stderr, "%s", lily_name_for_error(raiser->error_code));
         if (raiser->message)

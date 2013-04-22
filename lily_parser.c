@@ -150,7 +150,7 @@ static const int bin_op_for_token[] = {
 };
 
 /** Parser initialization and deletion **/
-lily_parse_state *lily_new_parse_state(void)
+lily_parse_state *lily_new_parse_state(int options)
 {
     lily_parse_state *s = lily_malloc(sizeof(lily_parse_state));
     lily_raiser *raiser = lily_malloc(sizeof(lily_raiser));
@@ -163,6 +163,7 @@ lily_parse_state *lily_new_parse_state(void)
         return NULL;
     }
 
+    s->options = options;
     s->sig_stack = sig_stack;
     s->sig_stack_pos = 0;
     s->sig_stack_size = 4;
@@ -908,7 +909,9 @@ void lily_parser(lily_parse_state *parser)
         else if (lex->token == tk_end_tag || lex->token == tk_eof) {
             lily_emit_vm_return(parser->emit);
             /* Show symtab until the bugs are gone. */
-            lily_show_symtab(parser->symtab);
+//            fprintf(stderr, "parser options is %d.\n", parser->options);
+            if (parser->options & POPT_SHOW_SYMTAB)
+                lily_show_symtab(parser->symtab);
 
             parser->mode = pm_execute;
             lily_vm_execute(parser->vm);

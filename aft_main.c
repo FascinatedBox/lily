@@ -203,7 +203,7 @@ int main(int argc, char **argv)
     }
 
     allowed_allocs = atoi(argv[1]);
-    lily_parse_state *parser = lily_new_parse_state();
+    lily_parse_state *parser = lily_new_parse_state(POPT_SHOW_SYMTAB);
     if (parser == NULL) {
         fputs("ErrNoMemory: No memory to alloc interpreter.\n", stderr);
         show_stats();
