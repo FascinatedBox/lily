@@ -272,27 +272,16 @@ static void show_code(lily_var *var)
     }
 }
 
-static void show_sym(lily_sym *sym)
+static void show_literal(lily_sym *sym)
 {
-    if (!(sym->flags & S_IS_NIL)) {
-        int cls_id;
-        if (sym->sig->cls->id != SYM_CLASS_OBJECT)
-            cls_id = sym->sig->cls->id;
-        else
-            cls_id = sym->sig->node.value_sig->cls->id;
+    int cls_id = sym->sig->cls->id;
 
-        if (cls_id == SYM_CLASS_STR) {
-            lily_impl_debugf("str(%-0.50s)\n",
-                             sym->value.str->str);
-        }
-        else if (cls_id == SYM_CLASS_INTEGER)
-            lily_impl_debugf("integer(%d)\n", sym->value.integer);
-        else if (cls_id == SYM_CLASS_NUMBER)
-            lily_impl_debugf("number(%f)\n", sym->value.number);
-    }
-    else
-        lily_impl_debugf("(nil)\n");
-
+    if (cls_id == SYM_CLASS_STR)
+        lily_impl_debugf("str(%-0.50s)\n", sym->value.str->str);
+    else if (cls_id == SYM_CLASS_INTEGER)
+        lily_impl_debugf("integer(%d)\n", sym->value.integer);
+    else if (cls_id == SYM_CLASS_NUMBER)
+        lily_impl_debugf("number(%f)\n", sym->value.number);
 }
 
 /** API for lily_debug.c **/
@@ -309,24 +298,19 @@ void lily_show_symtab(lily_symtab *symtab)
     /* Show literal values first. */
     while (lit != NULL) {
         lily_impl_debugf("#%d: ", lit->id);
-        show_sym((lily_sym *)lit);
+        show_literal((lily_sym *)lit);
         lit = lit->next;
     }
 
-    lily_impl_debugf("Vars:\n");
+    /* Now, give information about all of the methods that have code assigned to
+       them. Methods that are arguments get scoped out, and are thus ignored
+       since they do not have code. */
+    lily_impl_debugf("Methods:\n");
     while (var != NULL) {
-        lily_impl_debugf("#%d: ", var->id);
-        if (var->line_num == 0) {
-            /* This is a builtin symbol. */
-            lily_impl_debugf("(builtin) %s %s\n", var->sig->cls->name,
-                             var->name);
-        }
-        else {
-            lily_impl_debugf("%s %s @ line %d\n", var->sig->cls->name,
-                             var->name, var->line_num);
-        }
-        if (var->sig->cls->id == SYM_CLASS_METHOD)
+        if (var->sig->cls->id == SYM_CLASS_METHOD) {
+            lily_impl_debugf("method %s @ line %d\n", var->name, var->line_num);
             show_code(var);
+        }
         var = var->next;
     }
 }
