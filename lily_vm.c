@@ -556,18 +556,18 @@ void lily_vm_execute(lily_vm_state *vm)
             }
                 break;
             case o_unary_not:
+                lhs = (lily_sym *)code[i+2];
                 if (lhs->flags & S_IS_NIL)
                     novalue_error(vm, i, lhs);
-                lhs = (lily_sym *)code[i+2];
                 rhs = (lily_sym *)code[i+3];
                 rhs->flags &= ~S_IS_NIL;
                 rhs->value.integer = !(lhs->value.integer);
                 i += 4;
                 break;
             case o_unary_minus:
+                lhs = (lily_sym *)code[i+2];
                 if (lhs->flags & S_IS_NIL)
                     novalue_error(vm, i, lhs);
-                lhs = (lily_sym *)code[i+2];
                 rhs = (lily_sym *)code[i+3];
                 rhs->flags &= ~S_IS_NIL;
                 rhs->value.integer = -lhs->value.integer;
