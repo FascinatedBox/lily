@@ -261,6 +261,11 @@ static void collect_simple(lily_parse_state *parser, lily_class *cls,
         lily_lex_state *lex = parser->lex;
         lily_var *var;
         NEED_NEXT_TOK(tk_word)
+        var = lily_var_by_name(parser->symtab, lex->label);
+        if (var != NULL)
+            lily_raise(parser->raiser, lily_ErrSyntax,
+                       "%s has already been declared.\n", lex->label);
+
         var = lily_try_new_var(parser->symtab, cls->sig, lex->label);
         if (var == NULL)
             lily_raise_nomem(parser->raiser);
@@ -286,6 +291,11 @@ static void collect_call(lily_parse_state *parser, int flags)
     if (flags & CV_MAKE_VARS) {
         lily_lex_state *lex = parser->lex;
         NEED_NEXT_TOK(tk_word)
+        method_var = lily_var_by_name(parser->symtab, lex->label);
+        if (method_var != NULL)
+            lily_raise(parser->raiser, lily_ErrSyntax,
+                       "%s has already been declared.\n", lex->label);
+
         method_var = lily_try_new_var(parser->symtab, method_sig,
                 lex->label);
         if (method_var == NULL)
@@ -359,6 +369,14 @@ static void collect_list(lily_parse_state *parser, int flags)
         lily_lex_state *lex = parser->lex;
         lily_var *var;
         NEED_NEXT_TOK(tk_word)
+
+        var = lily_var_by_name(parser->symtab, lex->label);
+        if (var != NULL) {
+            lily_deref_sig(list_sig);
+            lily_raise(parser->raiser, lily_ErrSyntax,
+                       "%s has already been declared.\n", lex->label);
+        }
+
         var = lily_try_new_var(parser->symtab, list_sig,
                 lex->label);
         if (var == NULL)
@@ -692,7 +710,7 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
         var = lily_var_by_name(parser->symtab, lex->label);
         if (var != NULL)
             lily_raise(parser->raiser, lily_ErrSyntax,
-                       "%s has already been declared.\n", var->name);
+                       "%s has already been declared.\n", lex->label);
 
         var = lily_try_new_var(parser->symtab, sig, lex->label);
         if (var == NULL)

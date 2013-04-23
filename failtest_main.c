@@ -43,7 +43,16 @@ static char *tests[][2] =
      "}\n"},
     {"Testing 'if' with a nil return...",
      "method m():nil {}\n"
-     "if m():m()\n"}
+     "if m():m()\n"},
+    {"Testing method redeclaration...",
+     "method m():nil {}\n"
+     "method m():nil {}\n"},
+    {"Testing non-method simple value redeclaration...",
+     "integer a, b, b\n"},
+    {"Testing method simple value redeclaration...",
+     "method m(integer a, integer a):nil {}\n"},
+    {"Testing method list value redeclaration...",
+     "method m(list[integer] a, list[integer] a):nil {}\n"}
 };
 
 int main(int argc, char **argv)
