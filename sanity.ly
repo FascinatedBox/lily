@@ -13,7 +13,7 @@ method test_basic_assignments():nil
         method method2():integer {
             method method3():integer {
                 method method4():integer {
-                    method method4():integer {
+                    method method5():integer {
                         return 1
                     }
                     return 1
@@ -245,7 +245,7 @@ method test_assign_decl_list():nil
     # Now, with binary.
     integer d = a + b, e = a + b
 
-    method add(integer a, integer b):integer
+    method add(integer add_a, integer add_b):integer
     {
         return a + b
     }
