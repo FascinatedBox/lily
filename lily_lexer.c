@@ -4,6 +4,29 @@
 #include "lily_impl.h"
 #include "lily_lexer.h"
 
+/** The lexer is responsible for:
+    * Opening and reading the file given by parser. It also handles strings sent
+      by parser. The lexer has some mode-switching code, since scanning strings
+      needs to avoid calling read_line.
+    * Scanning the given file/string and returning a token based upon the info.
+      The lexer stores labels and strings scanned to lexer->label.
+    * The lexer assumes that all files/strings are valid utf-8, and will give up
+      upon finding invalid utf-8. Other encodings may be added in the future.
+      Additionally, utf-8 can be used in identifiers and strings. utf-8
+      validation is in read_line for files, and in lily_load_str for strings.
+    * For files, lily_lexer_handle_page_data is available to scan and push the
+      HTML outside of the lily tag. The lily tag starts with <@lily and ends
+      with @>. Parser is responsible for telling lexer to do the skip when it
+      encounters the end tag (@>)
+    Caveats:
+    * The lexer's way of scanning characters is fairly complicated, and could
+      probably be automated or added to a small database for ease of use.
+    * Currently, each character scanned is checked against ch_class, which
+      indicates what type of character it is. This allows several common cases
+      to be reduced into one.
+    * However, it's currently difficult to add new items in. New tokens need to
+      be placed in the right group, and also the right place in lily_token. **/
+
 /* Group 1: Increment pos, return a simple token. */
 #define CC_G_ONE_OFFSET  0
 #define CC_LEFT_PARENTH  0
@@ -39,8 +62,6 @@
 #define CC_AMPERSAND    23
 #define CC_VBAR         24
 #define CC_INVALID      25
-
-/* The lexer assumes any file given is utf-8. */
 
 /*  This table indicates how many more bytes need to be successfully read after
     that particular byte for proper utf-8. -1 = invalid.
@@ -107,6 +128,107 @@ static const lily_token grp_two_eq_table[] =
     tk_eq_eq, tk_lt_eq, tk_gr_eq, tk_not_eq
 };
 
+/** Lexer init and deletion **/
+lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
+{
+    lily_lex_state *s = lily_malloc(sizeof(lily_lex_state));
+    char *ch_class;
+
+    if (s == NULL)
+        return NULL;
+
+    s->lex_file = NULL;
+    s->filename = NULL;
+
+    /* File will be set by the loader. */
+    s->raiser = raiser;
+
+    s->lex_buffer = lily_malloc(128 * sizeof(char));
+    s->lex_bufpos = 0;
+    s->lex_bufsize = 127;
+    s->save_buffer = NULL;
+
+    s->label = lily_malloc(128 * sizeof(char));
+    /* This must start at 0 since the line reader will bump it by one. */
+    s->line_num = 0;
+
+    ch_class = lily_malloc(256 * sizeof(char));
+
+    if (ch_class == NULL || s->label == NULL || s->lex_buffer == NULL) {
+        lily_free(ch_class);
+        lily_free(s->label);
+        lily_free(s->lex_buffer);
+        lily_free(s);
+        return NULL;
+    }
+
+    /* Initialize ch_class, which is used to determine what 'class' a letter
+       is in. */
+    memset(ch_class, CC_INVALID, (256 * sizeof(char)));
+
+    int i;
+    for (i = 'a';i <= 'z';i++)
+        ch_class[i] = CC_WORD;
+
+    for (i = 'A';i <= 'Z';i++)
+        ch_class[i] = CC_WORD;
+
+    for (i = '0';i <= '9';i++)
+        ch_class[i] = CC_NUMBER;
+
+    /* These are valid 2, 3, and 4 byte sequence starters. */
+    for (i = 194;i <= 244;i++)
+        ch_class[i] = CC_WORD;
+
+    ch_class[(unsigned char)'_'] = CC_WORD;
+    ch_class[(unsigned char)'('] = CC_LEFT_PARENTH;
+    ch_class[(unsigned char)')'] = CC_RIGHT_PARENTH;
+    ch_class[(unsigned char)'"'] = CC_DOUBLE_QUOTE;
+    ch_class[(unsigned char)'@'] = CC_AT;
+    ch_class[(unsigned char)'#'] = CC_SHARP;
+    ch_class[(unsigned char)'='] = CC_EQUAL;
+    ch_class[(unsigned char)'.'] = CC_DOT;
+    ch_class[(unsigned char)','] = CC_COMMA;
+    ch_class[(unsigned char)'+'] = CC_PLUS;
+    ch_class[(unsigned char)'-'] = CC_MINUS;
+    ch_class[(unsigned char)'{'] = CC_LEFT_CURLY;
+    ch_class[(unsigned char)'}'] = CC_RIGHT_CURLY;
+    ch_class[(unsigned char)'<'] = CC_LESS;
+    ch_class[(unsigned char)'>'] = CC_GREATER;
+    ch_class[(unsigned char)':'] = CC_COLON;
+    ch_class[(unsigned char)'!'] = CC_NOT;
+    ch_class[(unsigned char)'&'] = CC_AMPERSAND;
+    ch_class[(unsigned char)'|'] = CC_VBAR;
+    ch_class[(unsigned char)'['] = CC_LEFT_BRACKET;
+    ch_class[(unsigned char)']'] = CC_RIGHT_BRACKET;
+    /* Prep for file-based, since lex_buffer isn't NULL. */
+    ch_class[(unsigned char)'\r'] = CC_NEWLINE;
+    ch_class[(unsigned char)'\n'] = CC_NEWLINE;
+
+    s->ch_class = ch_class;
+    return s;
+}
+
+void lily_free_lex_state(lily_lex_state *lex)
+{
+    if (lex->lex_file != NULL)
+        fclose(lex->lex_file);
+
+    if (lex->save_buffer == NULL)
+        lily_free(lex->lex_buffer);
+    else
+        lily_free(lex->save_buffer);
+
+    lily_free(lex->ch_class);
+    lily_free(lex->label);
+    lily_free(lex);
+}
+
+/** Scanning methods and helpers **/
+
+/* simple_escape
+   This takes in the character after an escape, and returns what the escape
+   character translates into. Returns 0 for invalid escapes. */
 static char simple_escape(char ch)
 {
     char ret;
@@ -133,6 +255,9 @@ static char simple_escape(char ch)
     return ret;
 }
 
+/* scan_str
+   This handles strings for lily_lexer. This updates the position in lex_buffer
+   for lily_lexer. */
 static void scan_str(lily_lex_state *lexer, int *pos)
 {
     char ch, i, esc_ch;
@@ -174,7 +299,7 @@ static void scan_str(lily_lex_state *lexer, int *pos)
 
             /* At this point, word_pos is right on the escape character (n in \n
                for example). Adjust word_start so that it doesn't include the
-               source escape characters the next time. Allow yyyyyyyyyyyyyyyy */
+               source escape characters the next time. */
             word_start = word_pos + 1;
             ch = lex_buffer[word_start];
         }
@@ -222,7 +347,56 @@ static void scan_str(lily_lex_state *lexer, int *pos)
     *pos = word_pos;
 }
 
-/* Add a line from the current page into the buffer. */
+/* scan_decimal_number
+   This handles decimals for lily_lexer. This updates the position in lex_buffer
+   for lily_lexer. */
+static double scan_decimal_number(char *buffer, int *start)
+{
+    int i, pos;
+    double div, total;
+
+    i = 0;
+    pos = *start;
+    div = 10.0;
+    total = (buffer[pos] - '0') / div;
+
+    pos++;
+
+    while (i < 9 && isdigit(buffer[pos])) {
+        div *= 10;
+        total += (buffer[pos] - '0') / div;
+        i++;
+        pos++;
+    }
+
+    *start = pos;
+    return total;
+}
+
+/* scan_whole_number
+   This handles the part of a number that's before the decimal. */
+static int scan_whole_number(char *buffer, int *start)
+{
+    int i, pos, total;
+
+    i = 0;
+    pos = *start;
+
+    total = buffer[pos] - '0';
+    pos++;
+
+    while (i < 9 && isdigit(buffer[pos])) {
+        total = (total * 10) + buffer[pos] - '0';
+        i++;
+        pos++;
+    }
+
+    *start = pos;
+    return total;
+}
+
+/* read_line
+   Add a line from the current page into the buffer. */
 static int read_line(lily_lex_state *lexer)
 {
     int bufsize, ch, followers, i, ok;
@@ -294,64 +468,53 @@ static int read_line(lily_lex_state *lexer)
     return ok;
 }
 
-static double scan_decimal_number(char *buffer, int *start)
+/* is_valid_utf8
+   This determines if the str (to be used for string-based scanning) is valid
+   utf-8. */
+static int is_valid_utf8(char *str)
 {
-    int i, pos;
-    double div, total;
+    char ch;
+    int i, ret;
 
     i = 0;
-    pos = *start;
-    div = 10.0;
-    total = (buffer[pos] - '0') / div;
+    ret = 1;
+    ch = str[i];
 
-    pos++;
+    while (ch) {
+        if (ch > 127) {
+            int followers = follower_table[(unsigned char)ch];
+            if (followers >= 2) {
+                int j;
+                i++;
+                for (j = 1;j < followers;j++,i++) {
+                    ch = str[i];
+                    if ((unsigned char)ch < 128) {
+                        ret = 0;
+                        break;
+                    }
+                    str[i] = ch;
+                }
+            }
+            else if (followers == -1) {
+                ret = 0;
+                break;
+            }
+        }
+        else
+            i++;
 
-    while (i < 9 && isdigit(buffer[pos])) {
-        div *= 10;
-        total += (buffer[pos] - '0') / div;
-        i++;
-        pos++;
+        ch = str[i];
     }
 
-    *start = pos;
-    return total;
+    return ret;
 }
 
-static int scan_whole_number(char *buffer, int *start)
-{
-    int i, pos, total;
+/** Lexer API **/
 
-    i = 0;
-    pos = *start;
-
-    total = buffer[pos] - '0';
-    pos++;
-
-    while (i < 9 && isdigit(buffer[pos])) {
-        total = (total * 10) + buffer[pos] - '0';
-        i++;
-        pos++;
-    }
-
-    *start = pos;
-    return total;
-}
-
-void lily_free_lex_state(lily_lex_state *lex)
-{
-    if (lex->lex_file != NULL)
-        fclose(lex->lex_file);
-
-    if (lex->save_buffer == NULL)
-        lily_free(lex->lex_buffer);
-    else
-        lily_free(lex->save_buffer);
-
-    lily_free(lex->ch_class);
-    lily_free(lex->label);
-    lily_free(lex);
-}
-
+/* lily_load_file
+   This function tells the given lexer to load the given filename. This will
+   switch the lexer's mode to being file-based.
+   Note: The lexer will not free the given filename. */
 void lily_load_file(lily_lex_state *lexer, char *filename)
 {
     if (lexer->lex_buffer == NULL) {
@@ -379,6 +542,38 @@ void lily_load_file(lily_lex_state *lexer, char *filename)
     lily_lexer_handle_page_data(lexer);
 }
 
+/* lily_load_str 
+   This function tells the given lexer to load a string for scanning. If str is
+   not valid utf-8, then the lexer will not load it and return 0. Otherwise, it
+   returns 1. */
+int lily_load_str(lily_lex_state *lexer, char *str)
+{
+    if (!is_valid_utf8(str))
+        return 0;
+
+    if (lexer->save_buffer == NULL) {
+        lexer->save_buffer = lexer->lex_buffer;
+        lexer->ch_class[(unsigned char)'\r'] = CC_STR_NEWLINE;
+        lexer->ch_class[(unsigned char)'\n'] = CC_STR_NEWLINE;
+        lexer->ch_class[0] = CC_STR_END;
+        lexer->lex_file = NULL;
+        lexer->lex_bufsize = strlen(str);
+        lexer->line_num = 1;
+    }
+
+    /* Line number isn't set, to allow for repl-like use. */
+    lexer->lex_buffer = str;
+
+    lexer->filename = "<str>";
+    /* String-based has no support for the html skipping, because I can't see
+       that being useful. */
+
+    return 1;
+}
+
+/* lily_lexer 
+   This is the main scanning function. It sometimes farms work out to other
+   functions in the case of strings and numeric values. */
 void lily_lexer(lily_lex_state *lexer)
 {
     char *ch_class;
@@ -528,6 +723,11 @@ void lily_lexer(lily_lex_state *lexer)
     }
 }
 
+/* lily_lexer_handle_page_data
+   This scans the html outside of the <@lily and @> tags, sending it off to
+   lily_impl_send_html (which differs depending on the runner). This is only
+   called when handling files (lily_lexer won't send the @> end_tag token for
+   string-based scanning).*/
 void lily_lexer_handle_page_data(lily_lex_state *lexer)
 {
     char c;
@@ -583,150 +783,9 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
     lexer->lex_bufpos = lbp;
 }
 
-static int is_valid_utf8(char *str)
-{
-    char ch;
-    int i, ret;
-
-    i = 0;
-    ret = 1;
-    ch = str[i];
-
-    while (ch) {
-        if (ch > 127) {
-            int followers = follower_table[(unsigned char)ch];
-            if (followers >= 2) {
-                int j;
-                i++;
-                for (j = 1;j < followers;j++,i++) {
-                    ch = str[i];
-                    if ((unsigned char)ch < 128) {
-                        ret = 0;
-                        break;
-                    }
-                    str[i] = ch;
-                }
-            }
-            else if (followers == -1) {
-                ret = 0;
-                break;
-            }
-        }
-        else
-            i++;
-
-        ch = str[i];
-    }
-
-    return ret;
-}
-
-/* Caller is responsible for free'ing the str. */
-int lily_load_str(lily_lex_state *lexer, char *str)
-{
-    if (!is_valid_utf8(str))
-        return 0;
-
-    if (lexer->save_buffer == NULL) {
-        lexer->save_buffer = lexer->lex_buffer;
-        lexer->ch_class[(unsigned char)'\r'] = CC_STR_NEWLINE;
-        lexer->ch_class[(unsigned char)'\n'] = CC_STR_NEWLINE;
-        lexer->ch_class[0] = CC_STR_END;
-        lexer->lex_file = NULL;
-        lexer->lex_bufsize = strlen(str);
-        lexer->line_num = 1;
-    }
-
-    /* Line number isn't set, to allow for repl-like use. */
-    lexer->lex_buffer = str;
-
-    lexer->filename = "<str>";
-    /* String-based has no support for the html skipping, because I can't see
-       that being useful. */
-
-    return 1;
-}
-
-lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
-{
-    lily_lex_state *s = lily_malloc(sizeof(lily_lex_state));
-    char *ch_class;
-
-    if (s == NULL)
-        return NULL;
-
-    s->lex_file = NULL;
-    s->filename = NULL;
-
-    /* File will be set by the loader. */
-    s->raiser = raiser;
-
-    s->lex_buffer = lily_malloc(128 * sizeof(char));
-    s->lex_bufpos = 0;
-    s->lex_bufsize = 127;
-    s->save_buffer = NULL;
-
-    s->label = lily_malloc(128 * sizeof(char));
-    /* This must start at 0 since the line reader will bump it by one. */
-    s->line_num = 0;
-
-    ch_class = lily_malloc(256 * sizeof(char));
-
-    if (ch_class == NULL || s->label == NULL || s->lex_buffer == NULL) {
-        lily_free(ch_class);
-        lily_free(s->label);
-        lily_free(s->lex_buffer);
-        lily_free(s);
-        return NULL;
-    }
-
-    /* Initialize ch_class, which is used to determine what 'class' a letter
-       is in. */
-    memset(ch_class, CC_INVALID, (256 * sizeof(char)));
-
-    int i;
-    for (i = 'a';i <= 'z';i++)
-        ch_class[i] = CC_WORD;
-
-    for (i = 'A';i <= 'Z';i++)
-        ch_class[i] = CC_WORD;
-
-    for (i = '0';i <= '9';i++)
-        ch_class[i] = CC_NUMBER;
-
-    /* These are valid 2, 3, and 4 byte sequence starters. */
-    for (i = 194;i <= 244;i++)
-        ch_class[i] = CC_WORD;
-
-    ch_class[(unsigned char)'_'] = CC_WORD;
-    ch_class[(unsigned char)'('] = CC_LEFT_PARENTH;
-    ch_class[(unsigned char)')'] = CC_RIGHT_PARENTH;
-    ch_class[(unsigned char)'"'] = CC_DOUBLE_QUOTE;
-    ch_class[(unsigned char)'@'] = CC_AT;
-    ch_class[(unsigned char)'#'] = CC_SHARP;
-    ch_class[(unsigned char)'='] = CC_EQUAL;
-    ch_class[(unsigned char)'.'] = CC_DOT;
-    ch_class[(unsigned char)','] = CC_COMMA;
-    ch_class[(unsigned char)'+'] = CC_PLUS;
-    ch_class[(unsigned char)'-'] = CC_MINUS;
-    ch_class[(unsigned char)'{'] = CC_LEFT_CURLY;
-    ch_class[(unsigned char)'}'] = CC_RIGHT_CURLY;
-    ch_class[(unsigned char)'<'] = CC_LESS;
-    ch_class[(unsigned char)'>'] = CC_GREATER;
-    ch_class[(unsigned char)':'] = CC_COLON;
-    ch_class[(unsigned char)'!'] = CC_NOT;
-    ch_class[(unsigned char)'&'] = CC_AMPERSAND;
-    ch_class[(unsigned char)'|'] = CC_VBAR;
-    ch_class[(unsigned char)'['] = CC_LEFT_BRACKET;
-    ch_class[(unsigned char)']'] = CC_RIGHT_BRACKET;
-    /* Prep for file-based, since lex_buffer isn't NULL. */
-    ch_class[(unsigned char)'\r'] = CC_NEWLINE;
-    ch_class[(unsigned char)'\n'] = CC_NEWLINE;
-
-    s->ch_class = ch_class;
-    return s;
-}
-
+/* tokname
+   This function returns a printable name for a given token. This is mostly for
+   parser to be able to print the token when it has an unexpected token. */
 char *tokname(lily_token t)
 {
     static char *toknames[] =
