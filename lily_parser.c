@@ -925,9 +925,15 @@ void lily_parser(lily_parse_state *parser)
             lily_lexer(parser->lex);
         }
         else if (lex->token == tk_end_tag || lex->token == tk_eof) {
+            /* Make sure that all if/method/etc. blocks have closed before
+               executing. This checks for pos at 1 because @main will always
+               occupy 0. */
+            if (parser->emit->block_pos != 1) {
+                lily_raise(parser->raiser, lily_ErrSyntax,
+                           "Unterminated block(s) at end of parsing.\n");
+            }
             lily_emit_vm_return(parser->emit);
             /* Show symtab until the bugs are gone. */
-//            fprintf(stderr, "parser options is %d.\n", parser->options);
             if (parser->options & POPT_SHOW_SYMTAB)
                 lily_show_symtab(parser->symtab);
 
