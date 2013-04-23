@@ -52,7 +52,13 @@ static char *tests[][2] =
     {"Testing method simple value redeclaration...",
      "method m(integer a, integer a):nil {}\n"},
     {"Testing method list value redeclaration...",
-     "method m(list[integer] a, list[integer] a):nil {}\n"}
+     "method m(list[integer] a, list[integer] a):nil {}\n"},
+    {"Testing unterminated multi-line if...",
+     "if 1:{\n"},
+    {"Testing unterminated single-line if...",
+     "if 1:\n"},
+    {"Testing unterminated method...",
+     "method m():nil {\n"}
 };
 
 int main(int argc, char **argv)
