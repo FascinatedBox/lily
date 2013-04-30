@@ -185,6 +185,18 @@ static void novalue_error(lily_vm_state *vm, int code_pos, lily_sym *sym)
                ((lily_var *)sym)->name);
 }
 
+/* divide_by_zero_error
+   This is copied from novalue_error, except it raises ErrDivisionByZero and
+   reports an attempt to divide by zero. */
+void divide_by_zero_error(lily_vm_state *vm, int code_pos, lily_sym *sym)
+{
+    lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
+    top->line_num = top->code[code_pos+1];
+    /* Literals and storages can't be nil, so this must be a named var. */
+    lily_raise(vm->raiser, lily_ErrDivideByZero,
+               "Attempt to divide by zero.\n");
+}
+
 /** Built-in functions. These are referenced by lily_seed_symtab.h **/
 
 /* lily_builtin_print
@@ -456,6 +468,39 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_jump:
                 i = code[i+1];
+                break;
+            case o_integer_mul:
+                INTEGER_OP(*)
+                break;
+            case o_number_mul:
+                INTNUM_OP(*)
+                break;
+            case o_integer_div:
+                /* Before doing INTEGER_OP, check for a division by zero. This
+                   will involve some redundant checking of the rhs, but better
+                   than dumping INTEGER_OP's contents here or rewriting
+                   INTEGER_OP for the special case of division. */
+                rhs = (lily_sym *)code[i+3];
+                if (rhs->flags & S_IS_NIL)
+                    novalue_error(vm, i, rhs);
+                if (rhs->value.integer == 0)
+                    divide_by_zero_error(vm, i, rhs);
+                INTEGER_OP(/)
+                break;
+            case o_number_div:
+                /* This is a little more tricky, because the rhs could be a
+                   number or an integer... */
+                rhs = (lily_sym *)code[i+3];
+                if (rhs->flags & S_IS_NIL)
+                    novalue_error(vm, i, rhs);
+                if (rhs->sig->cls->id == SYM_CLASS_INTEGER &&
+                    rhs->value.integer == 0)
+                    divide_by_zero_error(vm, i, rhs);
+                else if (rhs->sig->cls->id == SYM_CLASS_NUMBER &&
+                         rhs->value.number == 0)
+                    divide_by_zero_error(vm, i, rhs);
+
+                INTNUM_OP(/)
                 break;
             case o_jump_if:
                 lhs = (lily_sym *)code[i+2];

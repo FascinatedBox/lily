@@ -368,7 +368,8 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
                    opname(ast->op), rhs_class->name);
     }
 
-    if (ast->op == expr_plus || ast->op == expr_minus)
+    if (ast->op == expr_plus || ast->op == expr_minus ||
+        ast->op == expr_multiply || ast->op == expr_divide)
         if (lhs_class->id >= rhs_class->id)
             storage_class = lhs_class;
         else

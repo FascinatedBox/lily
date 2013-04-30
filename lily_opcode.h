@@ -25,6 +25,10 @@ typedef enum {
     o_greater,
     o_greater_eq,
     o_not_eq,
+    o_integer_mul,
+    o_number_mul,
+    o_integer_div,
+    o_number_div,
 
     /* pos
        Jump to pos. */

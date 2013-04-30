@@ -5,11 +5,12 @@
 
 # include "lily_msgbuf.h"
 
-# define lily_ErrNoMemory 0
-# define lily_ErrSyntax   1
-# define lily_ErrImport   2
-# define lily_ErrEncoding 3
-# define lily_ErrNoValue  4
+# define lily_ErrNoMemory     0
+# define lily_ErrSyntax       1
+# define lily_ErrImport       2
+# define lily_ErrEncoding     3
+# define lily_ErrNoValue      4
+# define lily_ErrDivideByZero 5
 
 typedef struct {
     jmp_buf jump;

@@ -176,12 +176,28 @@ static void show_code(lily_var *var)
                 print_three(code, "    [%d] integer_minus ", i);
                 i += 5;
                 break;
+            case o_integer_mul:
+                print_three(code, "    [%d] integer_mul   ", i);
+                i += 5;
+                break;
+            case o_integer_div:
+                print_three(code, "    [%d] integer_div   ", i);
+                i += 5;
+                break;
             case o_number_add:
                 print_three(code, "    [%d] number_add    ", i);
                 i += 5;
                 break;
             case o_number_minus:
                 print_three(code, "    [%d] number_minus  ", i);
+                i += 5;
+                break;
+            case o_number_mul:
+                print_three(code, "    [%d] number_mul    ", i);
+                i += 5;
+                break;
+            case o_number_div:
+                print_three(code, "    [%d] number_mul    ", i);
                 i += 5;
                 break;
             case o_less:

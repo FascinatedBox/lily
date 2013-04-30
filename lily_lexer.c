@@ -45,23 +45,25 @@
 #define CC_LESS          9
 #define CC_GREATER      10
 #define CC_NOT          11
-#define CC_G_TWO_LAST   11
+#define CC_MULTIPLY     12
+#define CC_DIVIDE       13
+#define CC_G_TWO_LAST   13
 
-#define CC_PLUS         12
-#define CC_MINUS        13
-#define CC_WORD         14
-#define CC_DOUBLE_QUOTE 15
-#define CC_NUMBER       16
+#define CC_PLUS         14
+#define CC_MINUS        15
+#define CC_WORD         16
+#define CC_DOUBLE_QUOTE 17
+#define CC_NUMBER       18
 
-#define CC_NEWLINE      17
-#define CC_SHARP        18
-#define CC_STR_NEWLINE  19
-#define CC_STR_END      20
-#define CC_DOT          21
-#define CC_AT           22
-#define CC_AMPERSAND    23
-#define CC_VBAR         24
-#define CC_INVALID      25
+#define CC_NEWLINE      19
+#define CC_SHARP        20
+#define CC_STR_NEWLINE  21
+#define CC_STR_END      22
+#define CC_DOT          23
+#define CC_AT           24
+#define CC_AMPERSAND    25
+#define CC_VBAR         26
+#define CC_INVALID      27
 
 /*  This table indicates how many more bytes need to be successfully read after
     that particular byte for proper utf-8. -1 = invalid.
@@ -120,12 +122,12 @@ static const char ident_table[256] =
 /* Group 1 doesn't need a table because the token is just ch_class[ch]. */
 static const lily_token grp_two_table[] =
 {
-    tk_equal, tk_lt, tk_gr, tk_not
+    tk_equal, tk_lt, tk_gr, tk_not, tk_multiply, tk_divide
 };
 
 static const lily_token grp_two_eq_table[] =
 {
-    tk_eq_eq, tk_lt_eq, tk_gr_eq, tk_not_eq
+    tk_eq_eq, tk_lt_eq, tk_gr_eq, tk_not_eq, tk_multiply_eq, tk_divide_eq,
 };
 
 /** Lexer init and deletion **/
@@ -197,6 +199,8 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     ch_class[(unsigned char)'>'] = CC_GREATER;
     ch_class[(unsigned char)':'] = CC_COLON;
     ch_class[(unsigned char)'!'] = CC_NOT;
+    ch_class[(unsigned char)'*'] = CC_MULTIPLY;
+    ch_class[(unsigned char)'/'] = CC_DIVIDE;
     ch_class[(unsigned char)'&'] = CC_AMPERSAND;
     ch_class[(unsigned char)'|'] = CC_VBAR;
     ch_class[(unsigned char)'['] = CC_LEFT_BRACKET;
@@ -790,8 +794,9 @@ char *tokname(lily_token t)
 {
     static char *toknames[] =
     {"(", ")", ",", "{", "}", ":", "[", "]", "=", "==", "<", "<=", ">", ">=",
-     "!", "!=", "+", "-", "a label", "a string", "an integer", "a number", ".",
-     "&", "&&", "|", "||", "invalid token", "@>", "end of file"};
+     "!", "!=", "*", "*=", "/", "/=", "+", "-", "a label", "a string",
+     "an integer", "a number", ".", "&", "&&", "|", "||", "invalid token", "@>",
+     "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];
