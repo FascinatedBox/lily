@@ -170,7 +170,8 @@ void lily_free_emit_state(lily_emit_state *emit)
 /** Shared helper functions **/
 static char *opname(lily_expr_op op)
 {
-    char *opnames[] = {"+", "-", "==", "<", "<=", ">", ">=", "-", "="};
+    char *opnames[] = {"+", "-", "==", "<", "<=", ">", ">=", "!=", "*", "/",
+                       "!", "-", "&&", "||", "=", "*=", "/="};
 
     return opnames[op];
 }
@@ -718,7 +719,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         }
         else if (ast->op == expr_logical_or || ast->op == expr_logical_and)
             emit_logical_op(emit, ast);
-        else {
+        else if (ast->op < expr_assign) {
             if (ast->left->tree_type != tree_var)
                 walk_tree(emit, ast->left);
 
@@ -726,6 +727,42 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                 walk_tree(emit, ast->right);
 
             emit_binary_op(emit, ast);
+        }
+        else {
+            /* op > expr_assign. This space is used to denote ops such as *=,
+               /=, and others that do some sort of binary op before an
+               assignment.
+               lhs ?= rhs is equivalent to 'lhs ? rhs -> storage; lhs = storage'
+               Since ?= ops only work for integers and numbers... */
+            int spoof_op;
+
+            if (ast->left->tree_type != tree_var) {
+                emit->raiser->line_adjust = ast->line_num;
+                lily_raise(emit->raiser, lily_ErrSyntax,
+                           "Left side of %s is not a var.\n", opname(ast->op));
+            }
+            if (ast->right->tree_type != tree_var)
+                walk_tree(emit, ast->right);
+
+            if (ast->op == expr_mul_assign)
+                spoof_op = expr_multiply;
+            else if (ast->op == expr_div_assign)
+                spoof_op = expr_divide;
+
+            /* Pretend the ast is lhs ? rhs, instead of lhs ?= rhs and give it
+               to the binary emitter to write the appropriate binary op. This
+               will set the ast with the result needed.
+               * Note: emit_binary_op will trap for impossible situations like
+                 integer *= function. */
+            ast->op = spoof_op;
+            emit_binary_op(emit, ast);
+
+            WRITE_4(o_assign,
+                    ast->line_num,
+                    (uintptr_t)ast->left->result,
+                    (uintptr_t)ast->result)
+
+            ast->result = ast->left;
         }
     }
     else if (ast->tree_type == tree_parenth) {

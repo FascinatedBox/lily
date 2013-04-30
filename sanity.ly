@@ -491,6 +491,29 @@ method test_parenth():nil
     }
 }
 
+method test_mul_div():nil
+{
+    printfmt("#%i: Testing *, *=, /, and /=...", test_id)
+    test_id = test_id + 1
+
+    integer i = 2
+    i *= i
+    i /= i
+    i = 1 * 1
+    i = 2 / 2
+
+    number n = 1.0
+    n *= n
+    n *= 1
+    n /= n
+    n = 2.0 / 2
+    n = 2.0 * 2
+    n = 2 * 2.0
+    n = 2.0 * 2
+
+    print("ok.\n")
+}
+
 test_basic_assignments()
 test_jumps()
 test_manyargs(1,2,3,4,5,6)
@@ -507,6 +530,7 @@ test_fib()
 test_unary()
 test_andor()
 test_parenth()
+test_mul_div()
 
 test_id = test_id - 1
 
