@@ -244,6 +244,8 @@ static int priority_for_op(lily_expr_op o)
 
     switch (o) {
         case expr_assign:
+        case expr_div_assign:
+        case expr_mul_assign:
             prio = 0;
             break;
         case expr_logical_or:
@@ -266,9 +268,13 @@ static int priority_for_op(lily_expr_op o)
         case expr_minus:
             prio = 5;
             break;
+        case expr_multiply:
+        case expr_divide:
+            prio = 6;
+            break;
         case expr_unary_not:
         case expr_unary_minus:
-            prio = 6;
+            prio = 7;
             break;
         default:
             /* Won't happen, but makes -Wall happy. */

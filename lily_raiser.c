@@ -6,7 +6,8 @@
 /* This is used by lily_name_for_error to get a printable name for an error
    code. This is used by lily_fs to show what kind of error occured. */
 static const char *lily_error_names[] =
-    {"ErrNoMemory", "ErrSyntax", "ErrImport", "ErrEncoding", "ErrNoValue"};
+    {"ErrNoMemory", "ErrSyntax", "ErrImport", "ErrEncoding", "ErrNoValue",
+     "ErrDivideByZero"};
 
 /* lily_raise
    This stops the interpreter. error_code is one of the error codes defined in

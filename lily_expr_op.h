@@ -10,11 +10,15 @@ typedef enum {
     expr_gr,
     expr_gr_eq,
     expr_not_eq,
+    expr_multiply,
+    expr_divide,
     expr_unary_not,
     expr_unary_minus,
     expr_logical_and,
     expr_logical_or,
-    expr_assign
+    expr_assign,
+    expr_mul_assign,
+    expr_div_assign
 } lily_expr_op;
 
 #endif
