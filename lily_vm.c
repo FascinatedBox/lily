@@ -358,8 +358,12 @@ void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
     if (!(storage->flags & S_IS_NIL))
         lily_deref_list_val(storage->sig, storage->value.list);
 
-    lv->elem_sig = elem_sig;
+    /* Won't be using the old sig now, so deref it. */
+    if (storage->sig->node.value_sig != NULL)
+        lily_deref_sig(storage->sig->node.value_sig);
+    storage->sig->node.value_sig = elem_sig;
     elem_sig->refcount++;
+
     if (elem_sig->cls->is_refcounted) {
         for (j = 0;j < num_elems;j++) {
             lv->values[j] = syms[5+j]->value;
