@@ -89,11 +89,21 @@ void *aft_realloc(char *filename, int line, void *oldptr, size_t newsize)
     }
 
     aft_entry *search = start;
+    aft_entry *result = NULL;
+
+    /* Occasionally, malloc will yield a block that was previously free'd. It's
+       important to return the LAST block matching the pointer, because that
+       will be the block not yet deleted. */
     while (search != NULL) {
-        if (search->block == oldptr)
-            break;
+        if (search->block == oldptr) {
+            result = search;
+            if (search->status != ST_DELETED)
+                break;
+        }
         search = search->next;
     }
+
+    search = result;
 
     if (search == NULL) {
         fprintf(stderr, "[aft]: warning: realloc #%d via %s:%d has foreign oldptr!\n",
@@ -131,13 +141,18 @@ void aft_free(char *filename, int line, void *ptr)
     }
 
     aft_entry *search = start;
+    aft_entry *result = NULL;
     int i = 1;
     while (search != NULL) {
-        if (search->block == ptr)
-            break;
+        if (search->block == ptr) {
+            /* Like with realloc, this needs to yield the last valid block. */
+            result = search;
+        }
         i++;
         search = search->next;
     }
+
+    search = result;
 
     if (search == NULL) {
         fprintf(stderr, "[aft]: warning: invalid free (%p) from %s:%d!\n", ptr,
