@@ -829,6 +829,62 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         m->pos += 5 + ast->args_collected;
         ast->result = (lily_sym *)s;
     }
+    else if (ast->tree_type == tree_subscript) {
+        lily_ast *var_ast = ast->arg_start;
+        lily_ast *index_ast = var_ast->next_arg;
+
+        if (var_ast->tree_type != tree_var)
+            walk_tree(emit, var_ast);
+
+        lily_sig *var_sig = var_ast->result->sig;
+        if (var_sig->cls->id != SYM_CLASS_LIST) {
+            emit->raiser->line_adjust = ast->line_num;
+            lily_msgbuf *mb = lily_new_msgbuf("Cannot subscript class ");
+            write_sig(mb, var_sig);
+            lily_msgbuf_add(mb, "\n");
+            lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
+        }
+
+        if (index_ast->tree_type != tree_var)
+            walk_tree(emit, index_ast);
+
+        if (index_ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
+            emit->raiser->line_adjust = ast->line_num;
+            lily_raise(emit->raiser, lily_ErrSyntax,
+                    "Subscript index is not an integer.\n");
+        }
+
+        lily_class *cls;
+        if (var_sig->cls->id == SYM_CLASS_LIST)
+            cls = var_sig->node.value_sig->cls;
+        else
+            cls = NULL;
+
+        lily_storage *result = storage_for_class(emit, cls);
+
+        /* Check the inner sig of the list(1). If there's another list(2)
+           inside, then grab the signature of (2) and use that as the inner
+           sig of the list to be returned.
+           A subscript peels away a single list layer. Since a list storage is
+           grabbed, using (1)'s sig would be wrong. Get (2)'s value_sig, since
+           the list is essentially (2) now. */
+        if (var_sig->node.value_sig != NULL &&
+            var_sig->node.value_sig->cls->id == SYM_CLASS_LIST) {
+            if (result->sig->node.value_sig != NULL)
+                lily_deref_sig(result->sig->node.value_sig);
+
+            result->sig->node.value_sig = var_sig->node.value_sig->node.value_sig;
+            result->sig->node.value_sig->refcount++;
+        }
+
+        WRITE_5(o_subscript,
+                ast->line_num,
+                (uintptr_t)var_ast->result,
+                (uintptr_t)index_ast->result,
+                (uintptr_t)result);
+
+        ast->result = (lily_sym *)result;
+    }
 }
 
 /** Emitter API functions **/

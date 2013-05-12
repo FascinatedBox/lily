@@ -192,9 +192,20 @@ void divide_by_zero_error(lily_vm_state *vm, int code_pos, lily_sym *sym)
 {
     lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
     top->line_num = top->code[code_pos+1];
-    /* Literals and storages can't be nil, so this must be a named var. */
+
     lily_raise(vm->raiser, lily_ErrDivideByZero,
-               "Attempt to divide by zero.\n");
+            "Attempt to divide by zero.\n");
+}
+
+/* boundary_error
+   Another copy of novalue_error, this one raising ErrOutOfRange. */
+void boundary_error(lily_vm_state *vm, int code_pos, int pos)
+{
+    lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
+    top->line_num = top->code[code_pos+1];
+
+    lily_raise(vm->raiser, lily_ErrOutOfRange,
+            "Subscript index %d is out of range.\n", pos);
 }
 
 /** Built-in functions. These are referenced by lily_seed_symtab.h **/
@@ -648,6 +659,52 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_str_assign:
                 op_str_assign(((lily_sym **)code+i+1));
                 i += 4;
+                break;
+            case o_subscript:
+                lhs = (lily_sym *)code[i+2];
+                rhs = (lily_sym *)code[i+3];
+                if (lhs->flags & S_IS_NIL)
+                    novalue_error(vm, i, lhs);
+
+                if (rhs->flags & S_IS_NIL)
+                    novalue_error(vm, i, rhs);
+
+                {
+                    /* lhs is the var, rhs is the subscript. Emitter has
+                       verified that rhs is an integer. */
+                    int rhs_index = rhs->value.integer;
+                    lily_sym *result = ((lily_sym *)code[i+4]);
+
+                    /* Too big! */
+                    if (rhs_index >= lhs->value.list->num_values)
+                        boundary_error(vm, i, rhs_index);
+
+                    /* todo: Wraparound would be nice. */
+                    if (rhs < 0)
+                        boundary_error(vm, i, rhs_index);
+
+                    /* Deref the old value, then set and ref the new one. */
+                    if (!(result->flags & S_IS_NIL))
+                        lily_deref_unknown_val(result->sig, result->value);
+
+                    result->value = lhs->value.list->values[rhs_index];
+                    if (result->sig->cls->is_refcounted)
+                        result->value.generic->refcount++;
+
+                    /* Deref old/ref new sig. */
+                    if (result->sig->cls->id == SYM_CLASS_LIST) {
+                        lily_sig *lhs_inner;
+                        if (result->sig->node.value_sig != NULL)
+                            lily_deref_sig(result->sig->node.value_sig);
+
+                        lhs_inner = lhs->sig->node.value_sig;
+                        lhs_inner->refcount++;
+                        result->sig->node.value_sig = lhs_inner;
+                    }
+
+                    result->flags &= ~S_IS_NIL;
+                }
+                i += 5;
                 break;
             case o_build_list:
                 op_build_list(vm, (lily_sym **)code+i, i);

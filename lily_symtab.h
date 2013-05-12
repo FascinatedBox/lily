@@ -179,5 +179,6 @@ void lily_deref_sig(lily_sig *);
 void lily_deref_method_val(lily_method_val *);
 void lily_deref_str_val(lily_str_val *);
 void lily_deref_list_val(lily_sig *, lily_list_val *);
+void lily_deref_unknown_val(lily_sig *, lily_value);
 int lily_drop_block_vars(lily_symtab *, lily_var *);
 #endif

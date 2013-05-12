@@ -7,7 +7,7 @@
    code. This is used by lily_fs to show what kind of error occured. */
 static const char *lily_error_names[] =
     {"ErrNoMemory", "ErrSyntax", "ErrImport", "ErrEncoding", "ErrNoValue",
-     "ErrDivideByZero"};
+     "ErrDivideByZero", "ErrOutOfRange"};
 
 /* lily_raise
    This stops the interpreter. error_code is one of the error codes defined in

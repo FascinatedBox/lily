@@ -11,6 +11,7 @@
 # define lily_ErrEncoding     3
 # define lily_ErrNoValue      4
 # define lily_ErrDivideByZero 5
+# define lily_ErrOutOfRange   6
 
 typedef struct {
     jmp_buf jump;

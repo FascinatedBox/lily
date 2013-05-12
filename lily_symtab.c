@@ -92,6 +92,21 @@ void lily_deref_str_val(lily_str_val *sv)
     }
 }
 
+/* lily_deref_unknown_val
+   This is a handy function for doing a deref but not knowing what class the
+   sig contained. This should be used to keep redundant checking code. In some
+   cases, such as list derefs, hoisting the loops is a better idea for speed. */
+void lily_deref_unknown_val(lily_sig *sig, lily_value v)
+{
+    int cls_id = sig->cls->id;
+    if (cls_id == SYM_CLASS_LIST)
+        lily_deref_list_val(sig, v.list);
+    else if (cls_id == SYM_CLASS_STR)
+        lily_deref_str_val(v.str);
+    else if (cls_id == SYM_CLASS_METHOD)
+        lily_deref_method_val(v.method);
+}
+
 /** Symtab init helpers, and shared code **/
 /* add_var
    This is a helper function to add a var to the symtab. */
