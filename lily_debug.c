@@ -274,6 +274,10 @@ static void show_code(lily_var *var)
                 print_two(code, "    [%d] unary_not     ", i);
                 i += 4;
                 break;
+            case o_subscript:
+                print_three(code, "    [%d] subscript     ", i);
+                i += 5;
+                break;
             case o_build_list:
                 print_build_list(code, "    [%d] build_list     ", i);
                 i += 5 + code[i+3];

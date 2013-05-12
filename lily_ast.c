@@ -334,7 +334,8 @@ inline void lily_ast_collect_arg(lily_ast_pool *ap)
    This begins an expression that takes comma-separated arguments.
    * Parenth: tt will be tree_parenth, var will be NULL.
    * List: tt will be tree_list, var will be NULL.
-   * Call: tt will be tree_call, var will be the call var. */
+   * Call: tt will be tree_call, var will be the call var.
+   * Subscript: tt will be tree_subscript, var will be NULL. */
 void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tt, lily_var *var)
 {
     lily_ast *a = next_pool_ast(ap);

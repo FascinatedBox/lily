@@ -586,6 +586,11 @@ static void expression_value(lily_parse_state *parser)
             lily_lexer(lex);
             continue;
         }
+        else if (lex->token == tk_left_bracket) {
+            lily_ast_enter_tree(parser->ast_pool, tree_subscript, NULL);
+            lily_lexer(lex);
+            continue;
+        }
         break;
     }
 }
@@ -638,6 +643,10 @@ static void expression(lily_parse_state *parser, int flags)
                     /* Since there are no parenths/calls left, then this value
                        must be the first in the next expression. */
                     break;
+                }
+                else if (lex->token == tk_left_bracket) {
+                    lily_ast_enter_tree(parser->ast_pool, tree_subscript, NULL);
+                    lily_lexer(lex);
                 }
                 else
                     continue;
