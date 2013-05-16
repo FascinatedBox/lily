@@ -230,6 +230,7 @@ void lily_builtin_printfmt(int num_args, lily_sym **args)
     int cls_id, is_nil;
     int arg_pos = 1, i = 0;
     lily_sym *arg;
+    lily_value val;
 
     fmt = args[1]->value.str->str;
     str_start = fmt;
@@ -247,7 +248,8 @@ void lily_builtin_printfmt(int num_args, lily_sym **args)
             i++;
 
             arg = args[arg_pos + 1];
-            cls_id = arg->sig->node.value_sig->cls->id;
+            cls_id = arg->value.object->sig->cls->id;
+            val = arg->value.object->value;
             is_nil = 0;
 
             if (fmt[i] == 'i') {
@@ -256,7 +258,7 @@ void lily_builtin_printfmt(int num_args, lily_sym **args)
                 if (is_nil)
                     lily_impl_send_html("(nil)");
                 else {
-                    snprintf(fmtbuf, 63, "%d", arg->value.integer);
+                    snprintf(fmtbuf, 63, "%d", val.integer);
                     lily_impl_send_html(fmtbuf);
                 }
             }
@@ -266,7 +268,7 @@ void lily_builtin_printfmt(int num_args, lily_sym **args)
                 if (is_nil)
                     lily_impl_send_html("(nil)");
                 else
-                    lily_impl_send_html(arg->value.str->str);
+                    lily_impl_send_html(val.str->str);
             }
             else if (fmt[i] == 'n') {
                 if (cls_id != SYM_CLASS_NUMBER)
@@ -275,7 +277,7 @@ void lily_builtin_printfmt(int num_args, lily_sym **args)
                 if (is_nil)
                     lily_impl_send_html("(nil)");
                 else {
-                    snprintf(fmtbuf, 63, "%f", arg->value.number);
+                    snprintf(fmtbuf, 63, "%f", val.number);
                     lily_impl_send_html(fmtbuf);
                 }
             }
@@ -405,6 +407,8 @@ static void do_ref_deref(lily_class *cls, lily_sym *down_sym, lily_sym *up_sym)
             lily_deref_method_val(down_sym->value.method);
         else if (cls->id == SYM_CLASS_LIST)
             lily_deref_list_val(down_sym->sig, down_sym->value.list);
+        else if (cls->id == SYM_CLASS_OBJECT)
+            lily_deref_object_val(down_sym->value.object);
     }
 
     up_gv->refcount++;
@@ -717,9 +721,46 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_obj_assign:
                 lhs = ((lily_sym *)code[i+2]);
                 rhs = ((lily_sym *)code[i+3]);
-                lhs->flags = (lhs->flags & ~S_IS_NIL) ^ (rhs->flags & S_IS_NIL);
-                lhs->value = rhs->value;
-                lhs->sig->node.value_sig = rhs->sig;
+
+                if (!(lhs->flags & S_IS_NIL)) {
+                    if (lhs->value.object->sig->cls->is_refcounted)
+                        lily_deref_unknown_val(lhs->value.object->sig,
+                                lhs->value.object->value);
+
+                    lily_deref_sig(lhs->value.object->sig);
+                }
+
+                /* Objects are treated like containers, wherein the value and
+                   the sig are ref/deref'd here, instead of the actual
+                   object. */
+                if (!(rhs->flags & S_IS_NIL)) {
+                    if (rhs->sig->cls->id != SYM_CLASS_OBJECT) {
+                        /* object = !object
+                           Just copy the sig and the value over. */
+                        rhs->sig->refcount++;
+                        lhs->value.object->sig = rhs->sig;
+                        if (rhs->sig->cls->is_refcounted)
+                            rhs->value.generic->refcount++;
+                        lhs->value.object->value = rhs->value;
+                    }
+                    else {
+                        /* object = object. Grab what's inside of the rhs
+                           object. This has the nice side-effect of making sure
+                           that objects aren't super-nested in each other. */
+                        lily_object_val *rhs_obj = rhs->value.object;
+                        rhs_obj->sig->refcount++;
+                        lhs->value.object->sig = rhs_obj->sig;
+                        if (rhs_obj->sig->cls->is_refcounted)
+                            rhs_obj->value.generic->refcount++;
+                        lhs->value.object->value = rhs_obj->value;
+                    }
+                    lhs->flags &= ~S_IS_NIL;
+                }
+                else {
+                    lhs->value.object->sig = NULL;
+                    lhs->flags |= S_IS_NIL;
+                }
+
                 i += 4;
                 break;
             case o_vm_return:

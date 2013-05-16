@@ -10,8 +10,9 @@
 typedef union {
     int integer;
     double number;
-    struct lily_method_val_t *method;
     struct lily_str_val_t *str;
+    struct lily_method_val_t *method;
+    struct lily_object_val_t *object;
     struct lily_list_val_t *list;
     struct lily_generic_val_t *generic;
     void *ptr;
@@ -31,6 +32,12 @@ typedef struct lily_method_val_t {
     int pos;
     int len;
 } lily_method_val;
+
+typedef struct lily_object_val_t {
+    int refcount;
+    lily_value value;
+    struct lily_sig_t *sig;
+} lily_object_val;
 
 typedef struct lily_list_val_t {
     int refcount;
@@ -174,10 +181,12 @@ lily_var *lily_try_new_var(lily_symtab *, lily_sig *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
 int lily_try_add_storage(lily_symtab *, lily_class *);
 lily_method_val *lily_try_new_method_val();
+lily_object_val *lily_try_new_object_val();
 lily_sig *lily_try_sig_for_class(lily_class *);
 void lily_deref_sig(lily_sig *);
 void lily_deref_method_val(lily_method_val *);
 void lily_deref_str_val(lily_str_val *);
+void lily_deref_object_val(lily_object_val *);
 void lily_deref_list_val(lily_sig *, lily_list_val *);
 void lily_deref_unknown_val(lily_sig *, lily_value);
 int lily_drop_block_vars(lily_symtab *, lily_var *);

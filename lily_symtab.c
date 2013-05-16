@@ -92,6 +92,18 @@ void lily_deref_str_val(lily_str_val *sv)
     }
 }
 
+void lily_deref_object_val(lily_object_val *ov)
+{
+    ov->refcount--;
+    if (ov->refcount == 0) {
+        if (ov->sig != NULL) {
+            lily_deref_unknown_val(ov->sig, ov->value);
+            lily_deref_sig(ov->sig);
+        }
+        lily_free(ov);
+    }
+}
+
 /* lily_deref_unknown_val
    This is a handy function for doing a deref but not knowing what class the
    sig contained. This should be used to keep redundant checking code. In some
@@ -132,8 +144,15 @@ static void add_var(lily_symtab *symtab, lily_var *s)
 static int init_sym_common(lily_sym *sym, lily_class *cls)
 {
     int ret = 1;
-    if (cls->id == SYM_CLASS_OBJECT || cls->id == SYM_CLASS_LIST)
+    if (cls->id == SYM_CLASS_LIST)
         sym->value.ptr = NULL;
+    else if (cls->id == SYM_CLASS_OBJECT) {
+        lily_object_val *o = lily_try_new_object_val();
+        if (o == NULL)
+            ret = 0;
+
+        sym->value.object = o;
+    }
     else if (cls->id == SYM_CLASS_METHOD) {
         lily_method_val *m = lily_try_new_method_val();
         if (m == NULL)
@@ -538,6 +557,11 @@ static void free_sym_common(lily_sym *sym)
         if (sv != NULL)
             lily_deref_str_val(sv);
     }
+    else if (cls_id == SYM_CLASS_OBJECT) {
+        lily_object_val *ov = sym->value.object;
+        if (ov != NULL)
+            lily_deref_object_val(ov);
+    }
 
     lily_deref_sig(sym->sig);
 }
@@ -696,6 +720,23 @@ lily_method_val *lily_try_new_method_val()
     m->pos = 0;
     m->len = 8;
     return m;
+}
+
+/* lily_try_new_object_val
+   This tries to create a new object value.
+   Note: 'try' means this call returns NULL on failure. */
+lily_object_val *lily_try_new_object_val()
+{
+    lily_object_val *o = lily_malloc(sizeof(lily_object_val));
+
+    if (o == NULL)
+        return NULL;
+
+    o->refcount = 1;
+    o->sig = NULL;
+    o->value.integer = 0;
+
+    return o;
 }
 
 /* lily_class_by_id
