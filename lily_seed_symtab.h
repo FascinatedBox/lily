@@ -15,7 +15,7 @@ class_seed class_seeds[7] =
     {"number",   0},
     {"str",      1},
     {"function", 0},
-    {"object",   0},
+    {"object",   1},
     {"method",   1},
     {"list",     1}
 };
