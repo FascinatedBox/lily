@@ -9,6 +9,7 @@ typedef enum {
     o_obj_assign,
     o_str_assign,
     o_list_assign,
+    o_sub_assign,
     o_integer_add,
     /* lhs, rhs, result
        All integers */

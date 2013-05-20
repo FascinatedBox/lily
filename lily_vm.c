@@ -338,6 +338,78 @@ void op_list_assign(lily_sym **syms)
     lhs->value = rhs->value;
 }
 
+/* op_sub_assign
+   This handles the o_sub_assign opcode for the vm. This first unpacks the 2, 3,
+   and 4 as the lhs, the index, and the rhs. Once it checks to make sure the
+   index is valid, then 'lhs[index] = rhs' is performed. This is a bit complex
+   because it has to handle any kind of assign.
+   Sometimes, value will be a storage from o_subscript. However, this code is
+   required because it assigns to the value in the list, instead of a storage
+   where that value is unloaded. */
+void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
+{
+    lily_sym *lhs, *rhs;
+    lily_sym *index_sym;
+    int index_int;
+    lily_value *values;
+
+    lhs = ((lily_sym *)code[pos+2]);
+    if (lhs->flags & S_IS_NIL)
+        novalue_error(vm, pos, lhs);
+    values = lhs->value.list->values;
+
+    index_sym = ((lily_sym *)code[pos+3]);
+    if (index_sym->flags & S_IS_NIL)
+        novalue_error(vm, pos, index_sym);
+    index_int = index_sym->value.integer;
+
+    rhs = ((lily_sym *)code[pos+4]);
+    if (rhs->flags & S_IS_NIL)
+        novalue_error(vm, pos, rhs);
+
+    if (index_int >= lhs->value.list->num_values)
+        boundary_error(vm, pos, index_int);
+
+    /* todo: Wraparound would be nice. */
+    if (index_int < 0)
+        boundary_error(vm, pos, index_int);
+
+    /* If this list does not contain objects, then standard
+       assign or ref/deref assign is enough. */
+    if (lhs->sig->node.value_sig->cls->id != SYM_CLASS_OBJECT) {
+        if (rhs->sig->cls->is_refcounted) {
+            /* This could be expanded to more specific derefs. However, it's
+               much more preferable to keep class-based code in as few places
+               as possible. The speed gain would be very little as well. */
+            lily_deref_unknown_val(rhs->sig, values[index_int]);
+            rhs->value.generic->refcount++;
+        }
+        /* else nothing to ref/deref, so do assign only. */
+
+        values[index_int] = rhs->value;
+    }
+    else {
+        /* Do an object assign to the value. */
+        lily_object_val *ov = values[index_int].object;
+        if (rhs->sig->cls->id != SYM_CLASS_OBJECT) {
+            lily_deref_unknown_val(ov->sig, ov->value);
+            if (rhs->sig->cls->is_refcounted)
+                rhs->value.generic->refcount++;
+
+            rhs->sig->refcount++;
+            ov->sig = rhs->sig;
+            ov->value = rhs->value;
+        }
+        else {
+            lily_object_val *rhs_obj = rhs->value.object;
+            rhs_obj->sig->refcount++;
+            if (rhs_obj->sig->cls->is_refcounted)
+                rhs_obj->value.generic->refcount++;
+            ov->value = rhs_obj->value;
+        }
+    }
+}
+
 /* op_build_list
    VM helper called for handling o_build_list. This is a bit tricky, becaus the
    storage may have already had a previous list assigned to it. Additionally,
@@ -708,6 +780,10 @@ void lily_vm_execute(lily_vm_state *vm)
 
                     result->flags &= ~S_IS_NIL;
                 }
+                i += 5;
+                break;
+            case o_sub_assign:
+                op_sub_assign(vm, code, i);
                 i += 5;
                 break;
             case o_build_list:

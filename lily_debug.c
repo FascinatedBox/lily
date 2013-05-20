@@ -168,6 +168,10 @@ static void show_code(lily_var *var)
                 print_two(code, "    [%d] list_assign   ", i);
                 i += 4;
                 break;
+            case o_sub_assign:
+                print_three(code, "    [%d] sub_assign    ", i);
+                i += 5;
+                break;
             case o_integer_add:
                 print_three(code, "    [%d] integer_add   ", i);
                 i += 5;

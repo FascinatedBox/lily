@@ -67,6 +67,10 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
             for (i = 0;i < lv->num_values;i++)
                 lily_deref_method_val(lv->values[i].method);
         }
+        else if (cls_id == SYM_CLASS_OBJECT) {
+            for (i = 0;i < lv->num_values;i++)
+                lily_deref_object_val(lv->values[i].object);
+        }
 
         lily_free(lv->values);
         lily_free(lv);
