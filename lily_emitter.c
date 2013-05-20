@@ -307,14 +307,14 @@ static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
 }
 
 static void bad_assign_error(lily_emit_state *emit, int line_num,
-                          lily_sym *left, lily_sym *right)
+                          lily_sig *left_sig, lily_sig *right_sig)
 {
     /* Remember that right is being assigned to left, so right should
        get printed first. */
     lily_msgbuf *mb = lily_new_msgbuf("Cannot assign ");
-    write_sig(mb, right->sig);
+    write_sig(mb, right_sig);
     lily_msgbuf_add(mb, " to ");
-    write_sig(mb, left->sig);
+    write_sig(mb, left_sig);
     lily_msgbuf_add(mb, ".\n");
 
     emit->raiser->line_adjust = line_num;
@@ -343,6 +343,42 @@ static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
 
     emit->patches[emit->patch_pos] = m->pos-1;
     emit->patch_pos++;
+}
+
+static void emit_assign(lily_emit_state *emit, lily_ast *ast)
+{
+    int opcode;
+    lily_sym *left_sym, *right_sym;
+    lily_method_val *m = emit->target;
+
+    if (ast->right->tree_type != tree_var)
+        walk_tree(emit, ast->right);
+
+    left_sym = ast->left->result;
+    right_sym = ast->right->result;
+
+    if (left_sym->sig != right_sym->sig) {
+        if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
+            opcode = o_obj_assign;
+        else if (sigequal(left_sym->sig, right_sym->sig)) {
+            if (left_sym->sig->cls->id == SYM_CLASS_LIST)
+                opcode = o_list_assign;
+        }
+        else
+            bad_assign_error(emit, ast->line_num, left_sym->sig,
+                          right_sym->sig);
+    }
+    else if (left_sym->sig->cls->id == SYM_CLASS_STR)
+        opcode = o_str_assign;
+    else if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
+        opcode = o_obj_assign;
+    else
+        opcode = o_assign;
+
+    WRITE_4(opcode,
+            ast->line_num,
+            (uintptr_t)left_sym,
+            (uintptr_t)right_sym)
 }
 
 static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
@@ -468,6 +504,65 @@ static void emit_logical_op(lily_emit_state *emit, lily_ast *ast)
     }
 
     ast->result = (lily_sym *)result;
+}
+
+/* emit_sub_assign
+   This handles subscript assignment, which is a bit tricky. */
+static void emit_sub_assign(lily_emit_state *emit, lily_ast *ast)
+{
+    /* It's impossible to walk the subscripts, then walk the assign and try to
+       just assign the two. Recall that subscripts will empty their values out
+       into a storage. So doing that would result in assigning a value to a
+       storage.
+       o_subs_assign is the opcode that does this magic, and it takes a var,
+       an index, and an rhs. This makes sure that the rhs is assigned to the
+       right place in the list, instead of to a storage. */
+    lily_method_val *m = emit->target;
+
+    lily_ast *var_ast = ast->left->arg_start;
+    lily_ast *index_ast = var_ast->next_arg;
+    lily_sym *rhs;
+    lily_sig *elem_sig;
+
+    if (var_ast->result->sig->cls->id != SYM_CLASS_LIST) {
+        emit->raiser->line_adjust = var_ast->line_num;
+        lily_msgbuf *mb = lily_new_msgbuf("Cannot subscript class ");
+        write_sig(mb, var_ast->result->sig);
+        lily_msgbuf_add(mb, "\n");
+        lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
+    }
+
+    if (var_ast->tree_type != tree_var)
+        walk_tree(emit, var_ast);
+
+    if (index_ast->tree_type != tree_var)
+        walk_tree(emit, index_ast);
+
+    if (index_ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
+        emit->raiser->line_adjust = index_ast->line_num;
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                   "Subscript index is not an integer.\n");
+    }
+
+    /* The subscript assign goes to the element, not the list. So... */
+    elem_sig = var_ast->result->sig->node.value_sig;
+
+    if (ast->right->tree_type != tree_var)
+        walk_tree(emit, ast->right);
+
+    rhs = ast->right->result;
+    if (elem_sig != rhs->sig && !sigequal(elem_sig, rhs->sig) &&
+        elem_sig->cls->id != SYM_CLASS_OBJECT) {
+        emit->raiser->line_adjust = ast->line_num;
+        bad_assign_error(emit, ast->line_num, elem_sig,
+                         rhs->sig);
+    }
+
+    WRITE_5(o_sub_assign,
+            ast->line_num,
+            (uintptr_t)var_ast->result,
+            (uintptr_t)index_ast->result,
+            (uintptr_t)rhs)
 }
 
 static void emit_unary_op(lily_emit_state *emit, lily_ast *ast)
@@ -681,43 +776,15 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
     }
     else if (ast->tree_type == tree_binary) {
         if (ast->op == expr_assign) {
-            int opcode;
-            lily_sym *left_sym, *right_sym;
-
-            if (ast->left->tree_type != tree_var) {
+            if (ast->left->tree_type == tree_var)
+                emit_assign(emit, ast);
+            else if (ast->left->tree_type == tree_subscript)
+                emit_sub_assign(emit, ast);
+            else {
                 emit->raiser->line_adjust = ast->line_num;
                 lily_raise(emit->raiser, lily_ErrSyntax,
                            "Left side of = is not a var.\n");
             }
-
-            if (ast->right->tree_type != tree_var)
-                walk_tree(emit, ast->right);
-
-            left_sym = ast->left->result;
-            right_sym = ast->right->result;
-
-            if (left_sym->sig != right_sym->sig) {
-                if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
-                    opcode = o_obj_assign;
-                else if (sigequal(left_sym->sig, right_sym->sig)) {
-                    if (left_sym->sig->cls->id == SYM_CLASS_LIST)
-                        opcode = o_list_assign;
-                }
-                else
-                    bad_assign_error(emit, ast->line_num, left_sym,
-                                  right_sym);
-            }
-            else if (left_sym->sig->cls->id == SYM_CLASS_STR)
-                opcode = o_str_assign;
-            else if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
-                opcode = o_obj_assign;
-            else
-                opcode = o_assign;
-
-            WRITE_4(opcode,
-                    ast->line_num,
-                    (uintptr_t)left_sym,
-                    (uintptr_t)right_sym)
         }
         else if (ast->op == expr_logical_or || ast->op == expr_logical_and)
             emit_logical_op(emit, ast);
