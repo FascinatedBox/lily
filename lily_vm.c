@@ -48,10 +48,10 @@ else if (rhs->flags & S_IS_NIL) \
     novalue_error(vm, i, rhs); \
 if (lhs->sig->cls->id == SYM_CLASS_NUMBER) { \
     if (rhs->sig->cls->id == SYM_CLASS_NUMBER) \
-        ((lily_sym *)code[i+4])->value.number = \
+        ((lily_sym *)code[i+4])->value.integer = \
         lhs->value.number OP rhs->value.number; \
     else \
-        ((lily_sym *)code[i+4])->value.number = \
+        ((lily_sym *)code[i+4])->value.integer = \
         lhs->value.number OP rhs->value.integer; \
 } \
 else if (lhs->sig->cls->id == SYM_CLASS_INTEGER) { \
@@ -59,7 +59,7 @@ else if (lhs->sig->cls->id == SYM_CLASS_INTEGER) { \
         ((lily_sym *)code[i+4])->value.integer =  \
         (lhs->value.integer OP rhs->value.integer); \
     else \
-        ((lily_sym *)code[i+4])->value.number = \
+        ((lily_sym *)code[i+4])->value.integer = \
         lhs->value.integer OP rhs->value.number; \
 } \
 else if (lhs->sig->cls->id == SYM_CLASS_STR) { \
