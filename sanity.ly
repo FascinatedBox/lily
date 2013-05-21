@@ -514,6 +514,133 @@ method test_mul_div():nil
     print("ok.\n")
 }
 
+method test_sub_assign():nil
+{
+    printfmt("#%i: Testing subs assign...(sub tests follow).\n", test_id)
+    test_id = test_id + 1
+    integer ok = 1
+
+    list[integer] list_integer = [1]
+    list_integer[0] = 2
+
+    if list_integer[0] == 2: {
+        print("     list[integer] ok.\n")
+    else:
+        print("     list[integer] failed.\n")
+        ok = 0
+    }
+
+    list[number] list_number = [1.0]
+    list_number[0] = 2.0
+
+    if list_number[0] == 2.0: {
+        print("     list[number] ok.\n")
+    else:
+        print("     list[number] failed.\n")
+        ok = 0
+    }
+
+    list[str] list_str = ["1"]
+    list_str[0] = "2"
+
+    if list_str[0] == "2": {
+        print("     list[str] ok.\n")
+    else:
+        print("     list[str] failed.\n")
+        ok = 0
+    }
+
+    list[list[str]] list_list_str = [["1"]]
+    list_list_str[0][0] = "2"
+
+    method ret_10():integer { return 10 }
+    method ret_20():integer { return 20 }
+    method ret_30():integer { return 30 }
+
+    # Objects can't be cast to anything, so there's no way to check them yet.
+    print("     list[object] ???.\n")
+
+    # Can't test functions yet because they all have different signatures (value
+    # testing can't be checked).
+    print("     list[function] ???.\n")
+
+    # Can't test methods yet because no way to call a subscript result.
+    list[method(integer):integer] list_method = [ret_10, ret_20, ret_30]
+    list_method[0] = ret_30
+    print("     list[method] ???.\n")
+
+    # What does this do, you may ask?
+    # [[0,1,2][1]]
+    # Create a list of 0,1,2
+    # Pick element 1 of it.
+    # Create a list (L) based off of that element.
+    # [[0,1,2][0]]
+    # Create a list of 0,1,2
+    # Pick element 0 of it.
+    # Use that as a subscript off of list (L).
+    integer test_i = [[1,2,3][1]] [[0,1,2][0]]
+
+    if test_i == 2: {
+        print("     [[1,2,3][1]] [[0,1,2][0]] is 2. ok.\n")
+    else:
+        ok = 0
+        print("     [[1,2,3][1]] [[0,1,2][0]] is not 2. failed.\n")
+    }
+
+    # Test declaration list
+    list[list[integer]] dlist1, dlist2, dlist3
+    # Test a deep list
+    list[list[list[list[list[list[number]]]]]] deep_list
+
+    if ok == 0:
+        fail_count = fail_count + 1
+}
+
+# Sigs is short for signatures. A complex signature is a signature that contains
+# more signature information inside of it. Lists and methods are good examples
+# of this. This tests that complex signatures are not leaked.
+method test_complex_sigs():nil
+{
+    printfmt("#%i: Testing complex sigs...", test_id)
+    test_id = test_id + 1
+    integer ok = 1
+
+    method lv1_method(  integer arg  ):nil{}
+    method lv2_method(  method lv1(  integer  ):nil  ):nil {}
+    method lv3_method(  method lv2(  method(integer):nil  ):nil  ):nil {}
+
+    # These won't do anything. This is more to test that parser is doing what
+    # it should when passing args.
+    lv1_method(ok)
+    lv2_method(lv1_method)
+    lv3_method(lv2_method)
+
+    list[method(integer):nil] list_method_n1
+
+    list[
+        method(
+            method(integer):nil
+        ):nil
+    ] list_method_n2
+
+    list[
+        method( 
+            list[
+                method(integer):nil
+            ]
+        ):list[integer]
+    ] list_method_n3
+
+    method mval_1():integer { return 10 }
+    method mval_2():integer { return 20 }
+    method mval_3():integer { return 30 }
+    list[
+        method():integer
+    ] list_method_n4 = [mval_1, mval_2, mval_3]
+
+    print("ok.\n")
+}
+
 test_basic_assignments()
 test_jumps()
 test_manyargs(1,2,3,4,5,6)
@@ -531,6 +658,8 @@ test_unary()
 test_andor()
 test_parenth()
 test_mul_div()
+test_sub_assign()
+test_complex_sigs()
 
 test_id = test_id - 1
 
