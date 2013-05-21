@@ -321,6 +321,18 @@ static void bad_assign_error(lily_emit_state *emit, int line_num,
     lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
 }
 
+/* bad_subs_class
+   Reports that the class of the value in var_ast cannot be subscripted. */
+static void bad_subs_class(lily_emit_state *emit, lily_ast *var_ast)
+{
+    lily_msgbuf *mb = lily_new_msgbuf("Cannot subscript class ");
+    write_sig(mb, var_ast->result->sig);
+    lily_msgbuf_add(mb, "\n");
+
+    emit->raiser->line_adjust = var_ast->line_num;
+    lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
+}
+
 /** ast walking helpers **/
 static void walk_tree(lily_emit_state *, lily_ast *);
 
@@ -524,16 +536,11 @@ static void emit_sub_assign(lily_emit_state *emit, lily_ast *ast)
     lily_sym *rhs;
     lily_sig *elem_sig;
 
-    if (var_ast->result->sig->cls->id != SYM_CLASS_LIST) {
-        emit->raiser->line_adjust = var_ast->line_num;
-        lily_msgbuf *mb = lily_new_msgbuf("Cannot subscript class ");
-        write_sig(mb, var_ast->result->sig);
-        lily_msgbuf_add(mb, "\n");
-        lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
-    }
-
     if (var_ast->tree_type != tree_var)
         walk_tree(emit, var_ast);
+
+    if (var_ast->result->sig->cls->id != SYM_CLASS_LIST)
+        bad_subs_class(emit, var_ast);
 
     if (index_ast->tree_type != tree_var)
         walk_tree(emit, index_ast);
@@ -906,13 +913,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             walk_tree(emit, var_ast);
 
         lily_sig *var_sig = var_ast->result->sig;
-        if (var_sig->cls->id != SYM_CLASS_LIST) {
-            emit->raiser->line_adjust = ast->line_num;
-            lily_msgbuf *mb = lily_new_msgbuf("Cannot subscript class ");
-            write_sig(mb, var_sig);
-            lily_msgbuf_add(mb, "\n");
-            lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
-        }
+        if (var_sig->cls->id != SYM_CLASS_LIST)
+            bad_subs_class(emit, var_ast);
 
         if (index_ast->tree_type != tree_var)
             walk_tree(emit, index_ast);
