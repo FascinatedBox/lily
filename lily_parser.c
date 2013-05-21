@@ -898,6 +898,8 @@ static void statement(lily_parse_state *parser)
                 lily_var *save_var = parser->symtab->var_top;
                 collect_var_sig(parser, CV_ONCE | CV_TOPLEVEL | CV_MAKE_VARS);
                 NEED_NEXT_TOK(tk_left_curly)
+                /* A value is being made for this method, so it's not nil. */
+                save_var->next->flags &= ~S_IS_NIL;
                 lily_emit_enter_method(parser->emit, save_var->next);
                 lily_lexer(lex);
                 lily_deref_sig(parser->sig_stack[parser->sig_stack_pos-1]);
