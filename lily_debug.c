@@ -70,19 +70,24 @@ static void print_call(uintptr_t *code, char *str, int i)
 {
     int j;
     lily_sym *ret;
-    lily_var *var;
-
+    lily_sym *call_sym;
     /* [1] line_num, [2] var, [3] #args, [4] ret, [5]+ args */
 
-    var = (lily_var *)code[i+2];
+    call_sym = (lily_var *)code[i+2];
     lily_impl_debugf(str, i);
 
-    if (var->line_num == 0)
-        lily_impl_debugf("name: (builtin) %s.\n        args:\n",
-                         var->name, code[i+3]);
+    if (call_sym->flags & VAR_SYM) {
+        lily_var *var = (lily_var *)call_sym;
+        if (var->line_num == 0)
+            lily_impl_debugf("name: (builtin) %s.\n        args:\n",
+                             var->name, code[i+3]);
+        else
+            lily_impl_debugf("name: %s (from line %d).\n        args:\n",
+                             var->name, var->line_num, code[i+3]);
+    }
     else
-        lily_impl_debugf("name: %s (from line %d).\n        args:\n",
-                         var->name, var->line_num, code[i+3]);
+        lily_impl_debugf("storage #%d (anonymous)\n        args:\n",
+                         call_sym->id);
 
     for (j = 0;j < code[i+3];j++) {
         lily_sym *sym = (lily_sym *)code[i+5+j];

@@ -376,40 +376,14 @@ void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tt, lily_var *var)
 
 /* lily_ast_leave_tree
    This takes the pool's root and adds it as an argument to the last tree that
-   was entered. The tree's args are checked, and then the active and root from
-   before the tree are restored. */
+   was entered. Emitter will check the arg count when it does type checking. */
 void lily_ast_leave_tree(lily_ast_pool *ap)
 {
     ap->save_index--;
     lily_ast *a = ap->saved_trees[ap->save_index];
-    lily_var *v = (lily_var *)a->result;
 
     push_tree_arg(ap, a, ap->root);
-    if (a->tree_type == tree_call) {
-        int args_needed = v->sig->node.call->num_args;
 
-        /* Func arg pushing doesn't check as it goes along, because that
-           wouldn't handle the case of too few args. But now the function is
-           supposed to be complete so... */
-        if (args_needed != a->args_collected) {
-            char *errstr;
-
-            if (v->sig->node.call->is_varargs)
-                errstr = "at least ";
-            else
-                errstr = "";
-
-            /* Allow for -extra- args, but -only- if it's var args. */
-            if ((a->args_collected > args_needed &&
-                v->sig->node.call->is_varargs) == 0) {
-                ap->raiser->line_adjust = a->line_num;
-                lily_raise(ap->raiser, lily_ErrSyntax,
-                           "%s expects %s%d args, got %d.\n",
-                           ((lily_var *)a->result)->name, errstr, args_needed,
-                           a->args_collected);
-            }
-        }
-    }
     ap->save_index--;
     ap->root = ap->saved_trees[ap->save_index];
     ap->active = a->parent;

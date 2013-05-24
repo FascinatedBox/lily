@@ -614,7 +614,8 @@ static void expression(lily_parse_state *parser, int flags)
 
                 break;
             }
-            else if (lex->token == tk_right_parenth) {
+            else if (lex->token == tk_right_parenth ||
+                     lex->token == tk_right_bracket) {
                 lily_ast_leave_tree(parser->ast_pool);
 
                 lily_lexer(lex);
@@ -623,9 +624,21 @@ static void expression(lily_parse_state *parser, int flags)
                     /* Since there are no parenths/calls left, then this value
                        must be the first in the next expression. */
                     break;
+                else if (lex->token == tk_left_bracket) {
+                    lily_ast_enter_tree(parser->ast_pool, tree_subscript, NULL);
+                    lily_lexer(lex);
+                }
+                else if (lex->token == tk_left_parenth) {
+                    lily_ast_enter_tree(parser->ast_pool, tree_call, NULL);
+                    lily_lexer(lex);
+                    if (lex->token == tk_right_parenth) {
+                        /* Don't leave the tree: This will do the leave when it
+                           jumps back up. */
+                        continue;
+                    }
+                }
                 else if (lex->token != tk_dot)
-                    /* Since the parenth finished a value, the token should be
-                       treated as a binary op. */
+                    /* If not '.', then assume it's a binary token. */
                     continue;
                 else {
                     /* 'a.concat("b").concat("c")'. Do a normal oo merge. */
@@ -634,22 +647,6 @@ static void expression(lily_parse_state *parser, int flags)
                     NEED_NEXT_TOK(tk_left_parenth);
                     lily_lexer(lex);
                 }
-            }
-            else if (lex->token == tk_right_bracket) {
-                lily_ast_leave_tree(parser->ast_pool);
-                lily_lexer(lex);
-                if (parser->ast_pool->save_index == 0 &&
-                    is_start_val[lex->token] == 1) {
-                    /* Since there are no parenths/calls left, then this value
-                       must be the first in the next expression. */
-                    break;
-                }
-                else if (lex->token == tk_left_bracket) {
-                    lily_ast_enter_tree(parser->ast_pool, tree_subscript, NULL);
-                    lily_lexer(lex);
-                }
-                else
-                    continue;
             }
             else if (lex->token == tk_comma) {
                 if (parser->ast_pool->active == NULL)
