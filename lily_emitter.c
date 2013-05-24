@@ -333,6 +333,35 @@ static void bad_subs_class(lily_emit_state *emit, lily_ast *var_ast)
     lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
 }
 
+/* bad_num_args
+   Reports that the ast didn't get as many args as it should have. Takes
+   anonymous calls and var args into account. */
+static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
+        lily_call_sig *csig)
+{
+    char *call_name;
+    char *va_text;
+
+    if (ast->result != NULL)
+        call_name = ((lily_var *)ast->result)->name;
+    else
+        /* This occurs when the call is based off of a subscript, such as
+           method_list[0]()
+           This is generic, but it's assumed that this will be enough when
+           paired with the line number. */
+        call_name = "(anonymous call)";
+
+    if (csig->is_varargs)
+        va_text = "at least ";
+    else
+        va_text = "";
+
+    emit->raiser->line_adjust = ast->line_num;
+    lily_raise(emit->raiser, lily_ErrSyntax,
+               "%s expects %s%d args, but got %d.\n", call_name, va_text,
+               csig->num_args, ast->args_collected);
+}
+
 /** ast walking helpers **/
 static void walk_tree(lily_emit_state *, lily_ast *);
 
@@ -610,12 +639,20 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         lily_call_sig *csig)
 {
     lily_ast *arg = ast->arg_start;
-    int i, is_varargs, num_args;
+    int have_args, i, is_varargs, num_args;
 
-    is_varargs = csig->is_varargs;
+    /* Ast doesn't check the call args. It can't check types, so why do only
+       half of the validation? */
+    have_args = ast->args_collected;
     num_args = csig->num_args;
+    is_varargs = csig->is_varargs;
+
+    if (have_args != num_args &&
+        ((have_args > num_args) && is_varargs) == 0) {
+        bad_num_args(emit, ast, csig);
+    }
+
     SAVE_PREP(num_args)
-    /* The parser has already verified argument count. */
     for (i = 0;i != num_args;arg = arg->next_arg, i++) {
         if (arg->tree_type != tree_var) {
             /* Walk the subexpressions so the result gets calculated. */
@@ -663,13 +700,33 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
     lily_method_val *m = emit->target;
 
     if (ast->tree_type == tree_call) {
-        lily_ast *arg = ast->arg_start;
-        lily_var *v = (lily_var *)ast->result;
-        lily_call_sig *csig = v->sig->node.call;
         int expect_size, i, is_method, num_local_saves, num_saves;
+        lily_ast *arg;
+        lily_call_sig *csig;
+        lily_sym *call_sym;
         lily_var *local_var;
 
-        is_method = (v->sig->cls->id == SYM_CLASS_METHOD);
+        if (ast->result != NULL)
+            call_sym = ast->result;
+        else {
+            /* This occurs when the method is obtained in some indirect way,
+               such as a call from a subscript.
+               Ex: method_list[0]()
+               First, walk the subscript to get the storage that the call will
+               go to. */
+            walk_tree(emit, ast->arg_start);
+
+            /* bad_num_args will want this. */
+            call_sym = (lily_sym *)ast->arg_start->result;
+
+            /* Then drop it from the arg list, since it's not an arg. */
+            ast->arg_start = ast->arg_start->next_arg;
+            ast->args_collected--;
+        }
+
+        csig = call_sym->sig->node.call;
+        arg = ast->arg_start;
+        is_method = (call_sym->sig->cls->id == SYM_CLASS_METHOD);
         expect_size = 5 + ast->args_collected;
 
         if (!is_method) {
@@ -747,7 +804,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             m->code[m->pos] = o_func_call;
 
         m->code[m->pos+1] = ast->line_num;
-        m->code[m->pos+2] = (uintptr_t)v;
+        m->code[m->pos+2] = (uintptr_t)call_sym;
         m->code[m->pos+3] = ast->args_collected;
 
         for (i = 5, arg = ast->arg_start;
@@ -775,6 +832,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
         m->code[m->pos+4] = (uintptr_t)ast->result;
         m->pos += 5 + ast->args_collected;
+
         if (num_saves) {
             m->code[m->pos] = o_restore;
             m->code[m->pos+1] = num_saves;
@@ -908,7 +966,6 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
     else if (ast->tree_type == tree_subscript) {
         lily_ast *var_ast = ast->arg_start;
         lily_ast *index_ast = var_ast->next_arg;
-
         if (var_ast->tree_type != tree_var)
             walk_tree(emit, var_ast);
 
@@ -946,6 +1003,12 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
             result->sig->node.value_sig = var_sig->node.value_sig->node.value_sig;
             result->sig->node.value_sig->refcount++;
+        }
+        else if (result->sig->cls->id == SYM_CLASS_METHOD ||
+                 result->sig->cls->id == SYM_CLASS_FUNCTION) {
+            lily_deref_sig(result->sig);
+            var_sig->node.value_sig->refcount++;
+            result->sig = var_sig->node.value_sig;
         }
 
         WRITE_5(o_subscript,

@@ -564,10 +564,17 @@ method test_sub_assign():nil
     # testing can't be checked).
     print("     list[function] ???.\n")
 
-    # Can't test methods yet because no way to call a subscript result.
-    list[method(integer):integer] list_method = [ret_10, ret_20, ret_30]
+    print("     list[method] ")
+
+    list[method():integer] list_method = [ret_10, ret_20, ret_30]
     list_method[0] = ret_30
-    print("     list[method] ???.\n")
+    integer call_ret = list_method[0]()
+    if call_ret == 30: {
+        print("ok.\n")
+    else:
+        ok = 0
+        print("failed.\n")
+    }
 
     # What does this do, you may ask?
     # [[0,1,2][1]]
