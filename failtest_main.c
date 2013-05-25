@@ -58,7 +58,10 @@ static char *tests[][2] =
     {"Testing unterminated single-line if...",
      "if 1:\n"},
     {"Testing unterminated method...",
-     "method m():nil {\n"}
+     "method m():nil {\n"},
+    {"Testing list assign with wrong class...",
+     "method mval(integer a):integer { return 10 }\n"
+     "list[method():integer] lst = [mval]\n"}
 };
 
 int main(int argc, char **argv)

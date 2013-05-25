@@ -214,8 +214,33 @@ static int sigequal(lily_sig *lhs, lily_sig *rhs)
                 else
                     ret = 0;
             }
+            else if (lhs->cls->id == SYM_CLASS_METHOD ||
+                     lhs->cls->id == SYM_CLASS_FUNCTION) {
+                lily_call_sig *lhs_csig = lhs->node.call;
+                lily_call_sig *rhs_csig = rhs->node.call;
+                int lhs_num_args = lhs_csig->num_args;
+
+                if (lhs_num_args != rhs_csig->num_args)
+                    ret = 0;
+                else {
+                    if (lhs_csig->ret != rhs_csig->ret &&
+                        sigequal(lhs_csig->ret, rhs_csig->ret) == 0)
+                        ret = 0;
+                    else {
+                        ret = 1;
+                        int i;
+                        for (i = 0;i < lhs_num_args;i++) {
+                            if (lhs_csig->args[i] != rhs_csig->args[i] &&
+                                sigequal(lhs_csig->args[i],
+                                         rhs_csig->args[i]) == 0) {
+                                ret = 0;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
             else
-                /* todo: Need to do an in-depth match for calls. */
                 ret = 1;
         }
         else
@@ -1256,9 +1281,11 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
     walk_tree(emit, ast);
     emit->expr_num++;
 
-    /* todo: Expand this to cover complex (ex: func/class) sigs later, but only
-       when those can be returned. */
-    if (ast->result->sig != ret_sig) {
+    /* sigcast will convert it to an object, if it gets that far. */
+    if (ast->result->sig != ret_sig &&
+        sigequal(ast->result->sig, ret_sig) == 0 &&
+        sigcast(emit, ast, ret_sig) == 0) {
+
         lily_msgbuf *mb = lily_new_msgbuf("'return' expected type '");
         write_sig(mb, ret_sig);
         lily_msgbuf_add(mb, "' but got type '");
