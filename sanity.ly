@@ -645,6 +645,9 @@ method test_complex_sigs():nil
         method():integer
     ] list_method_n4 = [mval_1, mval_2, mval_3]
 
+    method mval_4():list[integer] { return [10] }
+    method mval_5():object { return [10] }
+
     print("ok.\n")
 }
 
