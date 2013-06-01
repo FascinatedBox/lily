@@ -57,21 +57,27 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
         int i;
         if (cls_id == SYM_CLASS_LIST) {
             for (i = 0;i < lv->num_values;i++)
-                lily_deref_list_val(sig->node.value_sig, lv->values[i].list);
+                if (lv->val_is_nil[i] == 0)
+                    lily_deref_list_val(sig->node.value_sig,
+                            lv->values[i].list);
         }
         else if (cls_id == SYM_CLASS_STR) {
             for (i = 0;i < lv->num_values;i++)
-                lily_deref_str_val(lv->values[i].str);
+                if (lv->val_is_nil[i] == 0)
+                    lily_deref_str_val(lv->values[i].str);
         }
         else if (cls_id == SYM_CLASS_METHOD) {
             for (i = 0;i < lv->num_values;i++)
-                lily_deref_method_val(lv->values[i].method);
+                if (lv->val_is_nil[i] == 0)
+                    lily_deref_method_val(lv->values[i].method);
         }
         else if (cls_id == SYM_CLASS_OBJECT) {
             for (i = 0;i < lv->num_values;i++)
-                lily_deref_object_val(lv->values[i].object);
+                if (lv->val_is_nil[i] == 0)
+                    lily_deref_object_val(lv->values[i].object);
         }
 
+        lily_free(lv->val_is_nil);
         lily_free(lv->values);
         lily_free(lv);
     }
@@ -143,49 +149,39 @@ static void add_var(lily_symtab *symtab, lily_var *s)
     symtab->var_top = s;
 }
 
-/* init_sym_common
-   This initializes a sym's value. */
-static int init_sym_common(lily_sym *sym, lily_class *cls)
-{
-    int ret = 1;
-    if (cls->id == SYM_CLASS_LIST)
-        sym->value.ptr = NULL;
-    else if (cls->id == SYM_CLASS_OBJECT) {
-        lily_object_val *o = lily_try_new_object_val();
-        if (o == NULL)
-            ret = 0;
-
-        sym->value.object = o;
-    }
-    else if (cls->id == SYM_CLASS_METHOD) {
-        lily_method_val *m = lily_try_new_method_val();
-        if (m == NULL)
-            ret = 0;
-
-        sym->value.method = m;
-    }
-    else if (cls->id == SYM_CLASS_STR)
-        sym->value.str = NULL;
-
-    return ret;
-}
-
 /* lily_try_add_storage
    This adds a new storage to a given class. The symtab is used to give the
    storage a new id. */
 int lily_try_add_storage(lily_symtab *symtab, lily_class *cls)
 {
     lily_storage *storage = lily_malloc(sizeof(lily_storage));
+    int ok = 1;
+
     if (storage == NULL)
         return 0;
 
     lily_sig *sig = lily_try_sig_for_class(cls);
+
     if (sig == NULL) {
         lily_free(storage);
         return 0;
     }
 
-    if (init_sym_common((lily_sym *)storage, cls) == 0) {
+    storage->flags = STORAGE_SYM | S_IS_NIL;
+
+    /* Objects must always be available to receive sig and inner value info. */
+    if (cls->id == SYM_CLASS_OBJECT) {
+        lily_object_val *oval = lily_try_new_object_val();
+        if (oval == NULL)
+            ok = 0;
+
+        storage->value.object = oval;
+        storage->flags &= ~S_IS_NIL;
+    }
+    else if (cls->id == SYM_CLASS_STR)
+        storage->value.ptr = NULL;
+
+    if (ok == 0) {
         lily_deref_sig(sig);
         lily_free(storage);
         return 0;
@@ -194,7 +190,6 @@ int lily_try_add_storage(lily_symtab *symtab, lily_class *cls)
     storage->sig = sig;
     storage->id = symtab->next_storage_id;
     symtab->next_storage_id++;
-    storage->flags = STORAGE_SYM | S_IS_NIL;
     storage->expr_num = 0;
 
     /* Storages are circularly linked so it's easier to find them. */
@@ -228,6 +223,8 @@ int lily_try_add_storage(lily_symtab *symtab, lily_class *cls)
 lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name)
 {
     lily_var *var = lily_malloc(sizeof(lily_var));
+    int ok = 1;
+    int cls_id = sig->cls->id;
 
     if (var == NULL)
         return NULL;
@@ -238,7 +235,31 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name)
         return NULL;
     }
 
-    if (init_sym_common((lily_sym *)var, sig->cls) == 0) {
+    var->flags = VAR_SYM | S_IS_NIL;
+
+    /* Parser expects all methods to have a value to receive args and method
+       code. VM needs objects available at all times for receiving sig/value
+       stuff. */
+    if (cls_id == SYM_CLASS_METHOD) {
+        lily_method_val *mval = lily_try_new_method_val();
+        if (mval == NULL)
+            ok = 0;
+
+        var->flags &= ~S_IS_NIL;
+        var->value.method = mval;
+    }
+    else if (cls_id == SYM_CLASS_OBJECT) {
+        lily_object_val *oval = lily_try_new_object_val();
+        if (oval == NULL)
+            ok = 0;
+
+        var->flags &= ~S_IS_NIL;
+        var->value.object = oval;
+    }
+    else if (cls_id == SYM_CLASS_STR)
+        var->value.ptr = NULL;
+
+    if (ok == 0) {
         lily_free(var->name);
         lily_free(var);
         return NULL;
@@ -248,7 +269,6 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name)
 
     var->sig = sig;
     var->parent = NULL;
-    var->flags = VAR_SYM | S_IS_NIL;
     var->line_num = *symtab->lex_linenum;
 
     add_var(symtab, var);
@@ -545,26 +565,23 @@ static void free_sym_common(lily_sym *sym)
 {
     int cls_id = sym->sig->cls->id;
 
-    if (cls_id == SYM_CLASS_METHOD) {
-        lily_method_val *mv = sym->value.method;
-        /* This is currently safe, because method vars aren't created if a
-           method val can't be created for them. */
-        lily_deref_method_val(mv);
-    }
-    else if (cls_id == SYM_CLASS_LIST) {
-        lily_list_val *lv = sym->value.list;
-        if (lv != NULL)
-            lily_deref_list_val(sym->sig, lv);
-    }
-    else if (cls_id == SYM_CLASS_STR) {
-        lily_str_val *sv = sym->value.str;
-        if (sv != NULL)
-            lily_deref_str_val(sv);
-    }
-    else if (cls_id == SYM_CLASS_OBJECT) {
-        lily_object_val *ov = sym->value.object;
-        if (ov != NULL)
+    if (!(sym->flags & S_IS_NIL)) {
+        if (cls_id == SYM_CLASS_OBJECT) {
+            lily_object_val *ov = sym->value.object;
             lily_deref_object_val(ov);
+        }
+        else if (cls_id == SYM_CLASS_LIST) {
+            lily_list_val *lv = sym->value.list;
+            lily_deref_list_val(sym->sig, lv);
+        }
+        else if (cls_id == SYM_CLASS_METHOD) {
+            lily_method_val *mv = sym->value.method;
+            lily_deref_method_val(mv);
+        }
+        else if (cls_id == SYM_CLASS_STR) {
+            lily_str_val *sv = sym->value.str;
+            lily_deref_str_val(sv);
+        }
     }
 
     lily_deref_sig(sym->sig);

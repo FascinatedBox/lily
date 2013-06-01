@@ -208,6 +208,19 @@ void boundary_error(lily_vm_state *vm, int code_pos, int pos)
             "Subscript index %d is out of range.\n", pos);
 }
 
+/* very_bad_subs_assign_error
+   This happens when something is to be assigned to a list of object, but there
+   isn't an object to assign to. This is an error, because objects should never
+   be nil (parser always allocs a starting value for objects). */
+static void very_bad_subs_assign_error(lily_vm_state *vm, int code_pos)
+{
+    lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
+    top->line_num = top->code[code_pos+1];
+
+    lily_raise(vm->raiser, lily_ErrNoValue,
+            "Subscript assign has no object to assign to!\n");
+}
+
 /** Built-in functions. These are referenced by lily_seed_symtab.h **/
 
 /* lily_builtin_print
@@ -352,6 +365,7 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
     lily_sym *index_sym;
     int index_int;
     lily_value *values;
+    int val_is_nil;
 
     lhs = ((lily_sym *)code[pos+2]);
     if (lhs->flags & S_IS_NIL)
@@ -374,10 +388,12 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
     if (index_int < 0)
         boundary_error(vm, pos, index_int);
 
+    val_is_nil = lhs->value.list->val_is_nil[index_int];
+
     /* If this list does not contain objects, then standard
        assign or ref/deref assign is enough. */
     if (lhs->sig->node.value_sig->cls->id != SYM_CLASS_OBJECT) {
-        if (rhs->sig->cls->is_refcounted) {
+        if (rhs->sig->cls->is_refcounted && val_is_nil == 0) {
             /* This could be expanded to more specific derefs. However, it's
                much more preferable to keep class-based code in as few places
                as possible. The speed gain would be very little as well. */
@@ -389,6 +405,11 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
         values[index_int] = rhs->value;
     }
     else {
+        /* Objects are supposed to never be nil, so this should be impossible.
+           The name reflects this. */
+        if (val_is_nil)
+            very_bad_subs_assign_error(vm, pos);
+
         /* Do an object assign to the value. */
         lily_object_val *ov = values[index_int].object;
         if (rhs->sig->cls->id != SYM_CLASS_OBJECT) {
@@ -434,6 +455,13 @@ void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
         lily_raise_nomem(vm->raiser);
     }
 
+    lv->val_is_nil = lily_malloc(num_elems * sizeof(unsigned char));
+    if (lv->val_is_nil == NULL) {
+        lily_free(lv->values);
+        lily_free(lv);
+        lily_raise_nomem(vm->raiser);
+    }
+
     /* It's possible that the storage this will assign to was used to
        assign a different list. Deref the old value, or it won't be
        collected. This must be done after allocating the new value,
@@ -451,13 +479,24 @@ void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
 
     if (elem_sig->cls->is_refcounted) {
         for (j = 0;j < num_elems;j++) {
-            lv->values[j] = syms[5+j]->value;
-            lv->values[j].generic->refcount++;
+            if (!(syms[5+j]->flags & S_IS_NIL)) {
+                lv->values[j] = syms[5+j]->value;
+                lv->values[j].generic->refcount++;
+                lv->val_is_nil[j] = 0;
+            }
+            else
+                lv->val_is_nil[j] = 1;
         }
     }
     else {
-        for (j = 0;j < num_elems;j++)
-            lv->values[j] = syms[5+j]->value;
+        for (j = 0;j < num_elems;j++) {
+            if (!(syms[5+j]->flags & S_IS_NIL)) {
+                lv->values[j] = syms[5+j]->value;
+                lv->val_is_nil[j] = 0;
+            }
+            else
+                lv->val_is_nil[j] = 1;
+        }
     }
 
     lv->num_values = num_elems;
@@ -472,7 +511,7 @@ static void do_ref_deref(lily_class *cls, lily_sym *down_sym, lily_sym *up_sym)
 {
     lily_generic_val *up_gv = up_sym->value.generic;
 
-    if (down_sym->value.ptr != NULL) {
+    if ((down_sym->flags & S_IS_NIL) == 0) {
         if (cls->id == SYM_CLASS_STR)
             lily_deref_str_val(down_sym->value.str);
         else if (cls->id == SYM_CLASS_METHOD)
@@ -483,7 +522,8 @@ static void do_ref_deref(lily_class *cls, lily_sym *down_sym, lily_sym *up_sym)
             lily_deref_object_val(down_sym->value.object);
     }
 
-    up_gv->refcount++;
+    if (!(up_sym->flags & S_IS_NIL))
+        up_gv->refcount++;
 }
 
 /** The mighty VM **/
@@ -763,9 +803,15 @@ void lily_vm_execute(lily_vm_state *vm)
                     if (!(result->flags & S_IS_NIL))
                         lily_deref_unknown_val(result->sig, result->value);
 
-                    result->value = lhs->value.list->values[rhs_index];
-                    if (result->sig->cls->is_refcounted)
-                        result->value.generic->refcount++;
+                    if (lhs->value.list->val_is_nil[rhs_index] == 0) {
+                        result->value = lhs->value.list->values[rhs_index];
+                        if (result->sig->cls->is_refcounted)
+                            result->value.generic->refcount++;
+
+                        result->flags &= ~S_IS_NIL;
+                    }
+                    else
+                        result->flags |= S_IS_NIL;
 
                     /* Deref old/ref new sig. */
                     if (result->sig->cls->id == SYM_CLASS_LIST) {
@@ -777,8 +823,6 @@ void lily_vm_execute(lily_vm_state *vm)
                         lhs_inner->refcount++;
                         result->sig->node.value_sig = lhs_inner;
                     }
-
-                    result->flags &= ~S_IS_NIL;
                 }
                 i += 5;
                 break;
@@ -798,7 +842,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs = ((lily_sym *)code[i+2]);
                 rhs = ((lily_sym *)code[i+3]);
 
-                if (!(lhs->flags & S_IS_NIL)) {
+                if (lhs->value.object->sig != NULL) {
                     if (lhs->value.object->sig->cls->is_refcounted)
                         lily_deref_unknown_val(lhs->value.object->sig,
                                 lhs->value.object->value);
@@ -809,15 +853,9 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* Objects are treated like containers, wherein the value and
                    the sig are ref/deref'd here, instead of the actual
                    object. */
-                if (!(rhs->flags & S_IS_NIL)) {
-                    if (rhs->sig->cls->id != SYM_CLASS_OBJECT) {
-                        /* object = !object
-                           Just copy the sig and the value over. */
-                        rhs->sig->refcount++;
-                        lhs->value.object->sig = rhs->sig;
-                        if (rhs->sig->cls->is_refcounted)
-                            rhs->value.generic->refcount++;
-                        lhs->value.object->value = rhs->value;
+                if (rhs->sig->cls->id == SYM_CLASS_OBJECT) {
+                    if (rhs->value.object->sig == NULL) {
+                        lhs->value.object->sig = NULL;
                     }
                     else {
                         /* object = object. Grab what's inside of the rhs
@@ -830,13 +868,17 @@ void lily_vm_execute(lily_vm_state *vm)
                             rhs_obj->value.generic->refcount++;
                         lhs->value.object->value = rhs_obj->value;
                     }
-                    lhs->flags &= ~S_IS_NIL;
                 }
                 else {
-                    lhs->value.object->sig = NULL;
-                    lhs->flags |= S_IS_NIL;
+                        /* object = !object
+                           Just copy the sig and the value over. */
+                        rhs->sig->refcount++;
+                        lhs->value.object->sig = rhs->sig;
+                        if (rhs->sig->cls->is_refcounted)
+                            rhs->value.generic->refcount++;
+                    
+                        lhs->value.object->value = rhs->value;
                 }
-
                 i += 4;
                 break;
             case o_vm_return:

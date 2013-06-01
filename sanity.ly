@@ -598,6 +598,10 @@ method test_sub_assign():nil
     list[list[integer]] dlist1, dlist2, dlist3
     # Test a deep list
     list[list[list[list[list[list[number]]]]]] deep_list
+    # Check that list[str] doesn't crash if the str is nil.
+    str nil_s
+    list[str] test_nil_s = [nil_s]
+    test_nil_s[0] = "test"
 
     if ok == 0:
         fail_count = fail_count + 1

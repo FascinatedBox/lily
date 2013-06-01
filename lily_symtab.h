@@ -42,6 +42,7 @@ typedef struct lily_object_val_t {
 typedef struct lily_list_val_t {
     int refcount;
     lily_value *values;
+    unsigned char *val_is_nil;
     int num_values;
 } lily_list_val;
 
