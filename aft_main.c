@@ -143,15 +143,19 @@ void aft_free(char *filename, int line, void *ptr)
     aft_entry *search = start;
     aft_entry *result = NULL;
     int i = 1;
+    int last_i = 0;
+
     while (search != NULL) {
         if (search->block == ptr) {
             /* Like with realloc, this needs to yield the last valid block. */
             result = search;
+            last_i = i;
         }
         i++;
         search = search->next;
     }
 
+    i = last_i;
     search = result;
 
     if (search == NULL) {
