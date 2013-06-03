@@ -73,7 +73,7 @@ static void print_call(uintptr_t *code, char *str, int i)
     lily_sym *call_sym;
     /* [1] line_num, [2] var, [3] #args, [4] ret, [5]+ args */
 
-    call_sym = (lily_var *)code[i+2];
+    call_sym = (lily_sym *)code[i+2];
     lily_impl_debugf(str, i);
 
     if (call_sym->flags & VAR_SYM) {
@@ -105,7 +105,6 @@ static void print_call(uintptr_t *code, char *str, int i)
 static void print_build_list(uintptr_t *code, char *str, int i)
 {
     int j;
-    lily_sym *ret;
     lily_storage *storage;
 
     /* [1] line_num, [2] var, [3] #args, [4] ret, [5]+ args */
