@@ -511,6 +511,9 @@ static void do_ref_deref(lily_class *cls, lily_sym *down_sym, lily_sym *up_sym)
 {
     lily_generic_val *up_gv = up_sym->value.generic;
 
+    if ((up_sym->flags & S_IS_NIL) == 0)
+        up_gv->refcount++;
+
     if ((down_sym->flags & S_IS_NIL) == 0) {
         if (cls->id == SYM_CLASS_STR)
             lily_deref_str_val(down_sym->value.str);
@@ -521,9 +524,6 @@ static void do_ref_deref(lily_class *cls, lily_sym *down_sym, lily_sym *up_sym)
         else if (cls->id == SYM_CLASS_OBJECT)
             lily_deref_object_val(down_sym->value.object);
     }
-
-    if (!(up_sym->flags & S_IS_NIL))
-        up_gv->refcount++;
 }
 
 /** The mighty VM **/
