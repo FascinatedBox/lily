@@ -61,7 +61,13 @@ static char *tests[][2] =
      "method m():nil {\n"},
     {"Testing list assign with wrong class...",
      "method mval(integer a):integer { return 10 }\n"
-     "list[method():integer] lst = [mval]\n"}
+     "list[method():integer] lst = [mval]\n"},
+    {"Testing a bad comma...",
+     "integer a\n"
+     "a = 10,"},
+    {"Testing a bad right brace...",
+     "list[integer] a\n"
+     "a = [10]]"}
 };
 
 int main(int argc, char **argv)
