@@ -34,23 +34,23 @@ AFT_OBJECTS=$(AFT_DIR)/lily_aft_parser.o \
 FS_OBJECTS=$(CORE_OBJECTS) \
 			$(OBJDIR)/fs_main.o
 
-STRLOAD_OBJECTS=$(CORE_OBJECTS) \
-				$(OBJDIR)/strload_main.o
+CLIEXEC_OBJECTS=$(CORE_OBJECTS) \
+				$(OBJDIR)/cliexec_main.o
 
 FAILTEST_OBJECTS=$(CORE_OBJECTS) \
 					$(OBJDIR)/failtest_main.o
 
-all: lily_fs lily_strload lily_failtest lily_aft 
+all: lily_fs lily_cliexec lily_failtest lily_aft 
 
 clean:
-	rm -f $(OBJDIR)/* $(AFT_DIR)/* lily_fs lily_strload lily_failtest lily_aft
+	rm -f $(OBJDIR)/* $(AFT_DIR)/* lily_fs lily_cliexec lily_failtest lily_aft
 
 passfailcheck:
 	./lily_fs sanity.ly 2>/dev/null | grep "Tests passed"
 	./lily_failtest 2>/dev/stdout | grep "Tests failed"
 
-lily_strload: $(STRLOAD_OBJECTS)
-	$(CC) $(STRLOAD_OBJECTS) -o lily_strload
+lily_cliexec: $(CLIEXEC_OBJECTS)
+	$(CC) $(CLIEXEC_OBJECTS) -o lily_cliexec
 
 lily_fs: $(FS_OBJECTS)
 	$(CC) $(FS_OBJECTS) -o lily_fs
@@ -66,8 +66,8 @@ $(OBJDIR)/fs_main.o: fs_main.c lily_lexer.h lily_parser.h lily_emitter.h \
 					 lily_symtab.h
 	$(CC) $(CFLAGS) fs_main.c -o $(OBJDIR)/fs_main.o
 
-$(OBJDIR)/strload_main.o: strload_main.c lily_parser.h
-	$(CC) $(CFLAGS) strload_main.c -o $(OBJDIR)/strload_main.o
+$(OBJDIR)/cliexec_main.o: cliexec_main.c lily_parser.h
+	$(CC) $(CFLAGS) cliexec_main.c -o $(OBJDIR)/cliexec_main.o
 
 $(OBJDIR)/failtest_main.o: failtest_main.c lily_parser.h
 	$(CC) $(CFLAGS) failtest_main.c -o $(OBJDIR)/failtest_main.o
