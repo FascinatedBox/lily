@@ -616,6 +616,9 @@ static void expression(lily_parse_state *parser, int flags)
             }
             else if (lex->token == tk_right_parenth ||
                      lex->token == tk_right_bracket) {
+                if (parser->ast_pool->save_index == 0)
+                    lily_raise(parser->raiser, lily_ErrSyntax,
+                            "Unexpected token %s.\n", tokname(lex->token));
                 lily_ast_leave_tree(parser->ast_pool);
 
                 lily_lexer(lex);
@@ -660,6 +663,11 @@ static void expression(lily_parse_state *parser, int flags)
                     parser->ast_pool->save_index == 0) {
                     break;
                 }
+
+                if (parser->ast_pool->save_index == 0)
+                    lily_raise(parser->raiser, lily_ErrSyntax,
+                            "Unexpected token %s.\n", tokname(lex->token));
+
                 lily_ast_collect_arg(parser->ast_pool);
                 lily_lexer(lex);
             }
