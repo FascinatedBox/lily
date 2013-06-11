@@ -152,20 +152,14 @@ static void add_var(lily_symtab *symtab, lily_var *s)
 /* lily_try_add_storage
    This adds a new storage to a given class. The symtab is used to give the
    storage a new id. */
-int lily_try_add_storage(lily_symtab *symtab, lily_class *cls)
+int lily_try_add_storage(lily_symtab *symtab, lily_sig *sig)
 {
     lily_storage *storage = lily_malloc(sizeof(lily_storage));
+    lily_class *cls = sig->cls;
     int ok = 1;
 
     if (storage == NULL)
         return 0;
-
-    lily_sig *sig = lily_try_sig_for_class(cls);
-
-    if (sig == NULL) {
-        lily_free(storage);
-        return 0;
-    }
 
     storage->flags = STORAGE_SYM | S_IS_NIL;
 
@@ -182,7 +176,6 @@ int lily_try_add_storage(lily_symtab *symtab, lily_class *cls)
         storage->value.ptr = NULL;
 
     if (ok == 0) {
-        lily_deref_sig(sig);
         lily_free(storage);
         return 0;
     }
@@ -503,8 +496,11 @@ static int init_classes(lily_symtab *symtab)
                list is circular. */
             new_class->storage = NULL;
 
-            if (ret && !lily_try_add_storage(symtab, new_class))
-                ret = 0;
+            if (ret) {
+                ret = lily_try_add_storage(symtab, sig);
+                if (ret)
+                    sig->refcount++;
+            }
 
             new_class->name = class_seeds[i].name;
             new_class->is_refcounted = class_seeds[i].is_refcounted;

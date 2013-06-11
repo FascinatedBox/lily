@@ -22,6 +22,10 @@ typedef struct {
     int save_cache_pos;
     int save_cache_size;
 
+    lily_storage **storage_cache;
+    int storage_cache_pos;
+    int storage_cache_size;
+
     lily_method_val *target;
     lily_sig *target_ret;
     lily_method_val **method_vals;

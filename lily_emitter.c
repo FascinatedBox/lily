@@ -126,12 +126,13 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
     s->method_targets = lily_malloc(sizeof(lily_var *) * 4);
     s->method_id_offsets = lily_malloc(sizeof(int) * 4);
     s->save_cache = lily_malloc(sizeof(uintptr_t) * 4);
+    s->storage_cache = lily_malloc(sizeof(lily_storage *) * 4);
 
     if (s->patches == NULL || s->ctrl_patch_starts == NULL ||
         s->block_var_starts == NULL || s->block_types == NULL ||
         s->method_vals == NULL || s->method_rets == NULL ||
         s->method_targets == NULL || s->method_id_offsets == NULL ||
-        s->save_cache == NULL) {
+        s->save_cache == NULL || s->storage_cache == NULL) {
         lily_free_emit_state(s);
         return NULL;
     }
@@ -146,6 +147,8 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
     s->save_cache_size = 4;
     s->method_pos = 0;
     s->method_size = 4;
+    s->storage_cache_pos = 0;
+    s->storage_cache_size = 4;
 
     s->raiser = raiser;
     s->expr_num = 1;
@@ -155,6 +158,7 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
 
 void lily_free_emit_state(lily_emit_state *emit)
 {
+    lily_free(emit->storage_cache);
     lily_free(emit->patches);
     lily_free(emit->ctrl_patch_starts);
     lily_free(emit->block_var_starts);
@@ -183,8 +187,10 @@ static lily_storage *storage_for_class(lily_emit_state *emit,
     if (s->expr_num == emit->expr_num) {
         /* Storages are circularly linked, so this only occurs when all the
            storages have already been taken. */
-        if (!lily_try_add_storage(emit->symtab, storage_class))
+        if (!lily_try_add_storage(emit->symtab, storage_class->sig))
             lily_raise_nomem(emit->raiser);
+
+        storage_class->sig->refcount++;
         s = s->next;
     }
 
@@ -717,6 +723,59 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     }
 }
 
+/* try_find_storage_by_sig
+   This looks in emitter's storage cache to see if a storage with the given sig
+   has been created. This will return a storage previously allocated, return
+   a storage that gets allocated, or NULL on failure.
+   Note: The caller is expected to ref the sig beforehand, and deref it on
+         failure.
+         This call is only for complex signatures (lists and calls). All other
+         classes should use storage_for_class. */
+lily_storage *try_find_storage_by_sig(lily_emit_state *emit, lily_sig *sig)
+{
+    int i;
+    lily_storage *result = NULL;
+
+    for (i = 0;i < emit->storage_cache_pos;i++) {
+        /* Don't bother with a sig == sig check, since that will never work for
+           complex sigs. Do remember to check the expr_num to make sure that
+           the storage isn't reused within the same expression. */
+        if (sigequal(emit->storage_cache[i]->sig, sig) &&
+            emit->expr_num != emit->storage_cache[i]->expr_num) {
+            result = emit->storage_cache[i];
+            result->expr_num = emit->expr_num;
+
+            /* Found a storage with the sig, so the sig is now useless. */
+            lily_deref_sig(sig);
+            break;
+        }
+    }
+
+    if (result == NULL) {
+        if (i == emit->storage_cache_size) {
+            lily_storage **new_cache = lily_realloc(emit->storage_cache,
+                    sizeof(lily_storage *) * i * 2);
+            if (new_cache == NULL)
+                return NULL;
+
+            emit->storage_cache = new_cache;
+            emit->storage_cache_size *= 2;
+        }
+
+        result = sig->cls->storage;
+        if (lily_try_add_storage(emit->symtab, sig)) {
+            result = result->next;
+            result->expr_num = emit->expr_num;
+            emit->storage_cache[i] = result;
+            emit->storage_cache_pos++;
+        }
+        else
+            result = NULL;
+    }
+
+    return result;
+}
+
 /* walk_tree
    This is the main emit function. It determines what to do given a particular
    ast type. */
@@ -939,10 +998,6 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         lily_sig *elem_sig = NULL;
         lily_ast *arg;
         int i;
-        /* First, get a list storage to hold the values into. The elements
-           will not have a class...yet.  */
-        lily_class *store_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);
-        lily_storage *s = storage_for_class(emit, store_cls);
 
         /* Walk through all of the list elements, keeping a note of the class
            of the results. The class of the list elements is determined as
@@ -964,14 +1019,24 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             else
                 elem_sig = arg->result->sig;
         }
-        /* Deref the old sig. The vm will ref it when this o_build_list is
-           called. This is done now so emitter has type info, and later for the
-           vm to have type info too. */
-        if (s->sig->node.value_sig != NULL)
-            lily_deref_sig(s->sig->node.value_sig);
 
-        s->sig->node.value_sig = elem_sig;
+        lily_class *list_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);
+        lily_sig *new_sig = lily_try_sig_for_class(list_cls);
+        if (new_sig == NULL) {
+            emit->raiser->line_adjust = ast->line_num;
+            lily_raise_nomem(emit->raiser);
+        }
+
+        new_sig->node.value_sig = elem_sig;
         elem_sig->refcount++;
+        lily_storage *s = try_find_storage_by_sig(emit, new_sig);
+
+        if (s == NULL) {
+            lily_deref_sig(new_sig);
+            emit->raiser->line_adjust = ast->line_num;
+            lily_raise_nomem(emit->raiser);
+        }
+
         WRITE_PREP_LARGE(ast->args_collected + 5)
         m->code[m->pos] = o_build_list;
         m->code[m->pos+1] = ast->line_num;
@@ -1007,34 +1072,23 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                     "Subscript index is not an integer.\n");
         }
 
-        lily_class *cls;
-        if (var_sig->cls->id == SYM_CLASS_LIST)
-            cls = var_sig->node.value_sig->cls;
+        lily_sig *sig_for_result;
+        sig_for_result = var_sig->node.value_sig;
+
+        lily_storage *result = NULL;
+
+        if (sig_for_result->cls->is_refcounted &&
+            sig_for_result->cls->id != SYM_CLASS_OBJECT) {
+            sig_for_result->refcount++;
+            result = try_find_storage_by_sig(emit, sig_for_result);
+            if (result == NULL) {
+                lily_deref_sig(sig_for_result);
+                emit->raiser->line_adjust = ast->line_num;
+                lily_raise_nomem(emit->raiser);
+            }
+        }
         else
-            cls = NULL;
-
-        lily_storage *result = storage_for_class(emit, cls);
-
-        /* Check the inner sig of the list(1). If there's another list(2)
-           inside, then grab the signature of (2) and use that as the inner
-           sig of the list to be returned.
-           A subscript peels away a single list layer. Since a list storage is
-           grabbed, using (1)'s sig would be wrong. Get (2)'s value_sig, since
-           the list is essentially (2) now. */
-        if (var_sig->node.value_sig != NULL &&
-            var_sig->node.value_sig->cls->id == SYM_CLASS_LIST) {
-            if (result->sig->node.value_sig != NULL)
-                lily_deref_sig(result->sig->node.value_sig);
-
-            result->sig->node.value_sig = var_sig->node.value_sig->node.value_sig;
-            result->sig->node.value_sig->refcount++;
-        }
-        else if (result->sig->cls->id == SYM_CLASS_METHOD ||
-                 result->sig->cls->id == SYM_CLASS_FUNCTION) {
-            lily_deref_sig(result->sig);
-            var_sig->node.value_sig->refcount++;
-            result->sig = var_sig->node.value_sig;
-        }
+            result = storage_for_class(emit, sig_for_result->cls);
 
         WRITE_5(o_subscript,
                 ast->line_num,

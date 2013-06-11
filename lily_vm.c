@@ -471,12 +471,6 @@ void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
     if (!(storage->flags & S_IS_NIL))
         lily_deref_list_val(storage->sig, storage->value.list);
 
-    /* Won't be using the old sig now, so deref it. */
-    if (storage->sig->node.value_sig != NULL)
-        lily_deref_sig(storage->sig->node.value_sig);
-    storage->sig->node.value_sig = elem_sig;
-    elem_sig->refcount++;
-
     if (elem_sig->cls->is_refcounted) {
         for (j = 0;j < num_elems;j++) {
             if (!(syms[5+j]->flags & S_IS_NIL)) {
@@ -812,17 +806,6 @@ void lily_vm_execute(lily_vm_state *vm)
                     }
                     else
                         result->flags |= S_IS_NIL;
-
-                    /* Deref old/ref new sig. */
-                    if (result->sig->cls->id == SYM_CLASS_LIST) {
-                        lily_sig *lhs_inner;
-                        if (result->sig->node.value_sig != NULL)
-                            lily_deref_sig(result->sig->node.value_sig);
-
-                        lhs_inner = lhs->sig->node.value_sig;
-                        lhs_inner->refcount++;
-                        result->sig->node.value_sig = lhs_inner;
-                    }
                 }
                 i += 5;
                 break;
