@@ -83,6 +83,13 @@ void lily_free_ast_pool(lily_ast_pool *ap)
 {
     int i;
 
+    for (i = 0;i < ap->tree_index;i++) {
+        if (ap->tree_pool[i]->tree_type == tree_typecast &&
+            ap->tree_pool[i]->sig != NULL) {
+            lily_deref_sig(ap->tree_pool[i]->sig);
+        }
+    }
+
     for (i = 0;i < ap->tree_size;i++)
         lily_free(ap->tree_pool[i]);
 
@@ -179,16 +186,17 @@ static void merge_value(lily_ast_pool *ap, lily_ast *new_ast)
                 active->right = new_ast;
             else if (active->right->tree_type == tree_unary)
                 merge_unary(ap, active, new_ast);
+            else if (active->right->tree_type == tree_typecast)
+                active->right->left = new_ast;
             else
                 merge_oo(ap, active, new_ast);
         }
-        else if (active->tree_type != tree_unary)
-            merge_oo(ap, active, new_ast);
-        /* This happens for expressions like !!0. Make sure to do unary merge,
-           especially if a binary op has already been seen. Otherwise, oo
-           merge will cause part of the expression to vanish. */
-        else
+        else if (active->tree_type == tree_unary)
             merge_unary(ap, active, new_ast);
+        else if (active->tree_type == tree_typecast)
+            active->left = new_ast;
+        else
+            merge_oo(ap, active, new_ast);
     }
     else {
         /* If no root, then no value or call so far. So become root, if only
@@ -511,6 +519,21 @@ void lily_ast_push_sym(lily_ast_pool *ap, lily_sym *s)
     a->tree_type = tree_var;
     a->line_num = *ap->lex_linenum;
     a->result = s;
+
+    merge_value(ap, a);
+}
+
+/* lily_ast_push_sig
+   This 'creates' a typecast tree, and places a sig into it. The tree is merged
+   against the active tree. */
+void lily_ast_push_sig(lily_ast_pool *ap, lily_sig *sig)
+{
+    lily_ast *a = next_pool_ast(ap);
+
+    a->tree_type = tree_typecast;
+    a->sig = sig;
+    a->line_num = *ap->lex_linenum;
+    a->result = NULL;
 
     merge_value(ap, a);
 }

@@ -47,6 +47,7 @@ typedef enum {
     o_unary_minus,
     o_build_list,
     o_subscript,
+    o_obj_typecast,
     o_vm_return
     /* Arguments: none
        Makes the vm function return. */

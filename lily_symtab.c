@@ -155,6 +155,9 @@ static void add_var(lily_symtab *symtab, lily_var *s)
 int lily_try_add_storage(lily_symtab *symtab, lily_sig *sig)
 {
     lily_storage *storage = lily_malloc(sizeof(lily_storage));
+    if (storage == NULL)
+        return 0;
+
     lily_class *cls = sig->cls;
     int ok = 1;
 
@@ -884,5 +887,59 @@ int lily_drop_block_vars(lily_symtab *symtab, lily_var *start)
     symtab->var_top = start;
     /* Detach old and new vars. */
     start->next = NULL;
+    return ret;
+}
+
+/* lily_sigequal
+   This function checks to see if two signatures hold the same information. */
+int lily_sigequal(lily_sig *lhs, lily_sig *rhs)
+{
+    int ret;
+
+    if (lhs == rhs)
+        ret = 1;
+    else {
+        if (lhs->cls->id == rhs->cls->id) {
+            if (lhs->cls->id == SYM_CLASS_LIST) {
+                if (lily_sigequal(lhs->node.value_sig,
+                                  rhs->node.value_sig)) {
+                    ret = 1;
+                }
+                else
+                    ret = 0;
+            }
+            else if (lhs->cls->id == SYM_CLASS_METHOD ||
+                     lhs->cls->id == SYM_CLASS_FUNCTION) {
+                lily_call_sig *lhs_csig = lhs->node.call;
+                lily_call_sig *rhs_csig = rhs->node.call;
+                int lhs_num_args = lhs_csig->num_args;
+
+                if (lhs_num_args != rhs_csig->num_args)
+                    ret = 0;
+                else {
+                    if (lhs_csig->ret != rhs_csig->ret &&
+                        lily_sigequal(lhs_csig->ret, rhs_csig->ret) == 0)
+                        ret = 0;
+                    else {
+                        ret = 1;
+                        int i;
+                        for (i = 0;i < lhs_num_args;i++) {
+                            if (lhs_csig->args[i] != rhs_csig->args[i] &&
+                                lily_sigequal(lhs_csig->args[i],
+                                              rhs_csig->args[i]) == 0) {
+                                ret = 0;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            else
+                ret = 1;
+        }
+        else
+            ret = 0;
+    }
+
     return ret;
 }
