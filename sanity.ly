@@ -655,6 +655,52 @@ method test_complex_sigs():nil
     print("ok.\n")
 }
 
+method test_typecasts():nil
+{
+    printfmt("#%i: Testing typecasts from object...", test_id)
+    test_id = test_id + 1
+
+    object o
+    integer intval
+    o = 10
+    intval = @(integer: o)
+
+    number numval
+    o = 10.0
+    numval = @(number: o)
+
+    str strval
+    o = "10"
+    strval = @(str: o)
+
+    list[integer] list_intval
+    o = [1]
+    list_intval = @(list[integer]: o)
+
+    method mval_10():integer { return 10 }
+    method mval_20():integer { return 20 }
+    method mval_30():integer { return 30 }
+    method ret_obj():object { object o2 = 10 return o2 }
+
+    list[method():integer] list_mval = [mval_10]
+    o = mval_20
+    list_mval[0] = @(method():integer: o)
+
+    intval = list_mval[0]()
+    intval = @(method():integer: o)() +
+             @(method():integer: o)() +
+             @(method():integer: o)() +
+             @(method():integer: o)()
+
+    intval = @(method():integer: o)()
+
+    o = list_intval
+    intval = @(list[integer]: o)[0]
+    intval = @(integer: ret_obj())
+
+    print("ok.\n")
+}
+
 test_basic_assignments()
 test_jumps()
 test_manyargs(1,2,3,4,5,6)
@@ -674,6 +720,7 @@ test_parenth()
 test_mul_div()
 test_sub_assign()
 test_complex_sigs()
+test_typecasts()
 
 test_id = test_id - 1
 

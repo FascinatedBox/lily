@@ -139,6 +139,53 @@ static void print_save(uintptr_t *code, char *str, int i)
     }
 }
 
+static void debug_sig(lily_sig *sig)
+{
+    lily_impl_debugf(sig->cls->name);
+
+    if (sig->cls->id == SYM_CLASS_METHOD ||
+        sig->cls->id == SYM_CLASS_FUNCTION) {
+        lily_call_sig *csig = sig->node.call;
+        lily_impl_debugf(" (");
+        int i;
+        for (i = 0;i < csig->num_args-1;i++) {
+            debug_sig(csig->args[i]);
+            lily_impl_debugf(", ");
+        }
+        if (i != csig->num_args) {
+            debug_sig(csig->args[i]);
+            if (csig->is_varargs)
+                lily_impl_debugf("...");
+        }
+        lily_impl_debugf("):");
+        if (csig->ret == NULL)
+            lily_impl_debugf("nil");
+        else
+            debug_sig(csig->ret);
+    }
+    else if (sig->cls->id == SYM_CLASS_LIST) {
+        lily_impl_debugf("[");
+        debug_sig(sig->node.value_sig);
+        lily_impl_debugf("]");
+    }
+}
+
+static void print_obj_typecast(uintptr_t *code, char *str, int i)
+{
+    lily_impl_debugf(str, i, code[i+1]);
+
+    lily_sym *left = ((lily_sym *)code[i+2]);
+    lily_sym *right = ((lily_sym *)code[i+3]);
+
+    lily_impl_debugf("        from: (");
+    debug_sig(right->sig);
+    lily_impl_debugf(") [%s #%d]\n", typename((lily_sym *)right), right->id);
+
+    lily_impl_debugf("        to:   (");
+    debug_sig(left->sig);
+    lily_impl_debugf(") [%s #%d]\n", typename((lily_sym *)left), left->id);
+}
+
 /* show_code
    This is the complement to lily_vm_execute. This handles all the same opcodes,
    but prints the values involved instead of running anything. */
@@ -289,6 +336,10 @@ static void show_code(lily_var *var)
             case o_build_list:
                 print_build_list(code, "    [%d] build_list     ", i);
                 i += 5 + code[i+3];
+                break;
+            case o_obj_typecast:
+                print_obj_typecast(code, "    [%d] obj_typecast\n", i);
+                i += 4;
                 break;
             case o_vm_return:
                 lily_impl_debugf("    [%d] vm_return\n", i);

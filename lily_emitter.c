@@ -202,63 +202,9 @@ static lily_storage *storage_for_class(lily_emit_state *emit,
 }
 
 /** Signature helper functions **/
-/* sigequal
-   This function checks to see if two signatures hold the same information. */
-static int sigequal(lily_sig *lhs, lily_sig *rhs)
-{
-    int ret;
-
-    if (lhs == rhs)
-        ret = 1;
-    else {
-        if (lhs->cls->id == rhs->cls->id) {
-            if (lhs->cls->id == SYM_CLASS_LIST) {
-                if (sigequal(lhs->node.value_sig,
-                             rhs->node.value_sig)) {
-                    ret = 1;
-                }
-                else
-                    ret = 0;
-            }
-            else if (lhs->cls->id == SYM_CLASS_METHOD ||
-                     lhs->cls->id == SYM_CLASS_FUNCTION) {
-                lily_call_sig *lhs_csig = lhs->node.call;
-                lily_call_sig *rhs_csig = rhs->node.call;
-                int lhs_num_args = lhs_csig->num_args;
-
-                if (lhs_num_args != rhs_csig->num_args)
-                    ret = 0;
-                else {
-                    if (lhs_csig->ret != rhs_csig->ret &&
-                        sigequal(lhs_csig->ret, rhs_csig->ret) == 0)
-                        ret = 0;
-                    else {
-                        ret = 1;
-                        int i;
-                        for (i = 0;i < lhs_num_args;i++) {
-                            if (lhs_csig->args[i] != rhs_csig->args[i] &&
-                                sigequal(lhs_csig->args[i],
-                                         rhs_csig->args[i]) == 0) {
-                                ret = 0;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            else
-                ret = 1;
-        }
-        else
-            ret = 0;
-    }
-
-    return ret;
-}
-
 /* sigcast
-   This function is called after sigequal. This checks to see if the signature
-   on the left can become the signature on the right. */
+   This function is called after lily_sigequal. This checks to see if the
+   signature on the left can become the signature on the right. */
 static int sigcast(lily_emit_state *emit, lily_ast *lhs_ast, lily_sig *rhs)
 {
     int ret;
@@ -397,7 +343,7 @@ static void emit_assign(lily_emit_state *emit, lily_ast *ast)
     if (left_sym->sig != right_sym->sig) {
         if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
             opcode = o_obj_assign;
-        else if (sigequal(left_sym->sig, right_sym->sig)) {
+        else if (lily_sigequal(left_sym->sig, right_sym->sig)) {
             if (left_sym->sig->cls->id == SYM_CLASS_LIST)
                 opcode = o_list_assign;
         }
@@ -583,7 +529,7 @@ static void emit_sub_assign(lily_emit_state *emit, lily_ast *ast)
         walk_tree(emit, ast->right);
 
     rhs = ast->right->result;
-    if (elem_sig != rhs->sig && !sigequal(elem_sig, rhs->sig) &&
+    if (elem_sig != rhs->sig && !lily_sigequal(elem_sig, rhs->sig) &&
         elem_sig->cls->id != SYM_CLASS_OBJECT) {
         emit->raiser->line_adjust = ast->line_num;
         bad_assign_error(emit, ast->line_num, elem_sig,
@@ -595,6 +541,72 @@ static void emit_sub_assign(lily_emit_state *emit, lily_ast *ast)
             (uintptr_t)var_ast->result,
             (uintptr_t)index_ast->result,
             (uintptr_t)rhs)
+}
+
+lily_storage *try_find_storage_by_sig(lily_emit_state *emit, lily_sig *sig);
+
+static void emit_typecast(lily_emit_state *emit, lily_ast *ast)
+{
+    if (ast->left->tree_type != tree_var)
+        walk_tree(emit, ast->left);
+
+    lily_sig *cast_sig = ast->sig;
+    lily_sig *var_sig = ast->left->result->sig;
+    lily_method_val *m = emit->target;
+
+    if (lily_sigequal(cast_sig, var_sig)) {
+        ast->result = (lily_sym *)ast->left->result;
+        return;
+    }
+
+    lily_storage *result;
+
+    if (var_sig->cls->id == SYM_CLASS_OBJECT) {
+        if (cast_sig->cls->id == SYM_CLASS_LIST ||
+            cast_sig->cls->id == SYM_CLASS_METHOD ||
+            cast_sig->cls->id == SYM_CLASS_FUNCTION) {
+
+            result = try_find_storage_by_sig(emit, cast_sig);
+
+            /* try_find_storage_by_sig will either:
+               A) Return a previously allocated storage, and blast the sig.
+               B) Take the sig to create a new storage. The new storage will own
+                  the sig.
+               C) Fail, and do nothing to the sig.
+
+               The ast will free the sig of any typecast tree it has (this
+               prevents memory leaks). So set the ast's sig to null so that
+               can't happen. Deref the sig on failure.
+
+               From here on, the result's sig must be used, because cast_sig
+               may be invalid. */
+            ast->sig = NULL;
+            if (result == NULL) {
+                lily_deref_sig(cast_sig);
+                emit->raiser->line_adjust = ast->line_num;
+                lily_raise_nomem(emit->raiser);
+            }
+        }
+        else
+            result = storage_for_class(emit, cast_sig->cls);
+    }
+    else {
+        lily_msgbuf *mb = lily_new_msgbuf("Cannot cast type '");
+        lily_msgbuf_add_sig(mb, var_sig);
+        lily_msgbuf_add(mb, "' to type '");
+        lily_msgbuf_add_sig(mb, cast_sig);
+        lily_msgbuf_add(mb, "'.\n");
+
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise_msgbuf(emit->raiser, lily_ErrBadCast, mb);
+    }
+
+    WRITE_4(o_obj_typecast,
+            ast->line_num,
+            (uintptr_t)result,
+            (uintptr_t)ast->left->result)
+
+    ast->result = (lily_sym *)result;
 }
 
 static void emit_unary_op(lily_emit_state *emit, lily_ast *ast)
@@ -659,7 +671,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             }
         }
 
-        if (!sigequal(arg->result->sig, csig->args[i])) {
+        if (!lily_sigequal(arg->result->sig, csig->args[i])) {
             if (!sigcast(emit, arg, csig->args[i]))
                 bad_arg_error(emit, ast, arg->result->sig, i);
         }
@@ -680,7 +692,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                 }
             }
 
-            if (!sigequal(arg->result->sig, csig->args[i])) {
+            if (!lily_sigequal(arg->result->sig, csig->args[i])) {
                 if (!sigcast(emit, arg, csig->args[i]))
                     bad_arg_error(emit, ast, arg->result->sig, i);
             }
@@ -705,7 +717,7 @@ lily_storage *try_find_storage_by_sig(lily_emit_state *emit, lily_sig *sig)
         /* Don't bother with a sig == sig check, since that will never work for
            complex sigs. Do remember to check the expr_num to make sure that
            the storage isn't reused within the same expression. */
-        if (sigequal(emit->storage_cache[i]->sig, sig) &&
+        if (lily_sigequal(emit->storage_cache[i]->sig, sig) &&
             emit->expr_num != emit->storage_cache[i]->expr_num) {
             result = emit->storage_cache[i];
             result->expr_num = emit->expr_num;
@@ -975,7 +987,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
             if (elem_sig != NULL) {
                 if (arg->result->sig != elem_sig &&
-                    sigequal(arg->result->sig, elem_sig) == 0) {
+                    lily_sigequal(arg->result->sig, elem_sig) == 0) {
                     emit->raiser->line_adjust = arg->line_num;
                     lily_raise(emit->raiser, lily_ErrSyntax,
                             "STUB: list of objects.\n");
@@ -1063,6 +1075,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
         ast->result = (lily_sym *)result;
     }
+    else if (ast->tree_type == tree_typecast)
+        emit_typecast(emit, ast);
 }
 
 /** Emitter API functions **/
@@ -1302,7 +1316,7 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
 
     /* sigcast will convert it to an object, if it gets that far. */
     if (ast->result->sig != ret_sig &&
-        sigequal(ast->result->sig, ret_sig) == 0 &&
+        lily_sigequal(ast->result->sig, ret_sig) == 0 &&
         sigcast(emit, ast, ret_sig) == 0) {
 
         lily_msgbuf *mb = lily_new_msgbuf("'return' expected type '");

@@ -116,6 +116,7 @@ static const int is_start_val[] = {
     0,
     0,
     0,
+    0,
     0
 };
 
@@ -152,6 +153,7 @@ static const int bin_op_for_token[] = {
     expr_logical_and,
     -1,
     expr_logical_or,
+    -1,
     -1,
     -1,
     -1
@@ -442,6 +444,36 @@ static void collect_var_sig(lily_parse_state *parser, int flags)
   * expression_* functions are used by expression as helpers, and should not be
     called by any function except expression itself. **/
 
+/* expression_typecast
+   This function handles a typecast. In Lily, typecasts are done by
+   @(type:value)
+   @( is used instead of a standard parenth because it allows the parser and the
+   programmer to differentiate between a typecast, and parenth expression. */
+static void expression_typecast(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_sig *new_sig;
+
+    lily_lexer(lex);
+    collect_var_sig(parser, CV_ONCE);
+    new_sig = parser->sig_stack[parser->sig_stack_pos-1];
+
+    NEED_NEXT_TOK(tk_colon)
+
+    /* It's possible that the value will be a binary expression. A parenth tree
+       is entered so that binary can't parent the current root or do anything
+       strange. It also offsets the ending ). */
+    lily_ast_enter_tree(parser->ast_pool, tree_parenth, NULL);
+
+    /* The ast owns the sig until the emitter takes it over. */
+    lily_ast_push_sig(parser->ast_pool, new_sig);
+    parser->sig_stack_pos--;
+
+    /* This should be the value. Yield to expression_value in case the value
+       is more than just a var. */
+    lily_lexer(lex);
+}
+
 /* expression_oo
    This function handles an 'object-oriented' type of call on an object such as
    'stringA.concat("b")'. */
@@ -553,6 +585,10 @@ static void expression_value(lily_parse_state *parser)
                 cls = lily_class_by_id(symtab, SYM_CLASS_NUMBER);
             else if (lex->token == tk_minus || lex->token == tk_not) {
                 expression_unary(parser);
+                continue;
+            }
+            else if (lex->token == tk_typecast_parenth) {
+                expression_typecast(parser);
                 continue;
             }
             else if (lex->token == tk_left_parenth) {

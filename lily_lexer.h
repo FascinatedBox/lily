@@ -38,6 +38,7 @@ typedef enum {
     tk_logical_and,
     tk_bitwise_or,
     tk_logical_or,
+    tk_typecast_parenth,
     tk_invalid,
     tk_end_tag,
     tk_eof

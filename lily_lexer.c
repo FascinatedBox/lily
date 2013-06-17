@@ -714,6 +714,10 @@ void lily_lexer(lily_lex_state *lexer)
                 lex_bufpos++;
                 token = tk_end_tag;
             }
+            else if (lexer->lex_buffer[lex_bufpos] == '(') {
+                lex_bufpos++;
+                token = tk_typecast_parenth;
+            }
             else
                 lily_raise(lexer->raiser, lily_ErrSyntax,
                            "Expected '>' after '@'.\n");
@@ -795,8 +799,8 @@ char *tokname(lily_token t)
     static char *toknames[] =
     {"(", ")", ",", "{", "}", ":", "[", "]", "=", "==", "<", "<=", ">", ">=",
      "!", "!=", "*", "*=", "/", "/=", "+", "-", "a label", "a string",
-     "an integer", "a number", ".", "&", "&&", "|", "||", "invalid token", "@>",
-     "end of file"};
+     "an integer", "a number", ".", "&", "&&", "|", "||", "@(", "invalid token",
+     "@>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

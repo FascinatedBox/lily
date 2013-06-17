@@ -534,6 +534,7 @@ void lily_vm_execute(lily_vm_state *vm)
     uintptr_t *code;
     int flag, i, j, k;
     lily_method_val *mval;
+    lily_sig *cast_sig;
     lily_sym *lhs, *rhs;
     lily_var *v;
     lily_method_val *m;
@@ -819,6 +820,47 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_list_assign:
                 op_list_assign(((lily_sym **)code+i+1));
+                i += 4;
+                break;
+            case o_obj_typecast:
+                lhs = ((lily_sym *)code[i+2]);
+                rhs = ((lily_sym *)code[i+3]);
+                cast_sig = lhs->sig;
+
+                if (rhs->flags & S_IS_NIL || rhs->value.object->sig == NULL)
+                    novalue_error(vm, i, rhs);
+
+                if (lily_sigequal(cast_sig, rhs->value.object->sig)) {
+                    if (lhs->sig->cls->is_refcounted) {
+                        rhs->value.object->value.generic->refcount++;
+                        if ((lhs->flags & S_IS_NIL) == 0)
+                            lily_deref_unknown_val(lhs->sig, lhs->value);
+                        else
+                            lhs->flags &= ~S_IS_NIL;
+
+                        lhs->value = rhs->value.object->value;
+                    }
+                    else {
+                        lhs->value = rhs->value.object->value;
+                        lhs->flags &= ~S_IS_NIL;
+                    }
+                }
+                else {
+                    lily_msgbuf *mb;
+                    mb = lily_new_msgbuf("Cannot cast object containing '");
+                    if (mb == NULL)
+                        lily_raise_nomem(vm->raiser);
+                    lily_msgbuf_add_sig(mb, rhs->value.object->sig);
+                    lily_msgbuf_add(mb, "' to type '");
+                    lily_msgbuf_add_sig(mb, lhs->sig);
+                    lily_msgbuf_add(mb, "'.\n");
+
+                    lily_vm_stack_entry *top;
+                    top = vm->method_stack[vm->method_stack_pos-1];
+                    top->line_num = top->code[i+1];
+                    lily_raise_msgbuf(vm->raiser, lily_ErrBadCast, mb);
+                }
+
                 i += 4;
                 break;
             case o_obj_assign:
