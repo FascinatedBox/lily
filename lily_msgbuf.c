@@ -70,3 +70,34 @@ void lily_msgbuf_add_int(lily_msgbuf *mb, int i)
 
     lily_msgbuf_add(mb, buf);
 }
+
+void lily_msgbuf_add_sig(lily_msgbuf *mb, lily_sig *sig)
+{
+    lily_msgbuf_add(mb, sig->cls->name);
+
+    if (sig->cls->id == SYM_CLASS_METHOD ||
+        sig->cls->id == SYM_CLASS_FUNCTION) {
+        lily_call_sig *csig = sig->node.call;
+        lily_msgbuf_add(mb, " (");
+        int i;
+        for (i = 0;i < csig->num_args-1;i++) {
+            lily_msgbuf_add_sig(mb, csig->args[i]);
+            lily_msgbuf_add(mb, ", ");
+        }
+        if (i != csig->num_args) {
+            lily_msgbuf_add_sig(mb, csig->args[i]);
+            if (csig->is_varargs)
+                lily_msgbuf_add(mb, "...");
+        }
+        lily_msgbuf_add(mb, "):");
+        if (csig->ret == NULL)
+            lily_msgbuf_add(mb, "nil");
+        else
+            lily_msgbuf_add_sig(mb, csig->ret);
+    }
+    else if (sig->cls->id == SYM_CLASS_LIST) {
+        lily_msgbuf_add(mb, "[");
+        lily_msgbuf_add_sig(mb, sig->node.value_sig);
+        lily_msgbuf_add(mb, "]");
+    }
+}
