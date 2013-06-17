@@ -281,41 +281,6 @@ static int sigcast(lily_emit_state *emit, lily_ast *lhs_ast, lily_sig *rhs)
     return ret;
 }
 
-/* write_sig
-   This writes all detailed information about a signature into a message
-   buffer. lily_msgbuf's functions are guaranteed to never overflow, so no
-   checks are necessary. */
-static void write_sig(lily_msgbuf *mb, lily_sig *sig)
-{
-    lily_msgbuf_add(mb, sig->cls->name);
-
-    if (sig->cls->id == SYM_CLASS_METHOD ||
-        sig->cls->id == SYM_CLASS_FUNCTION) {
-        lily_call_sig *csig = sig->node.call;
-        lily_msgbuf_add(mb, " (");
-        int i;
-        for (i = 0;i < csig->num_args-1;i++) {
-            write_sig(mb, csig->args[i]);
-            lily_msgbuf_add(mb, ", ");
-        }
-        if (i != csig->num_args) {
-            write_sig(mb, csig->args[i]);
-            if (csig->is_varargs)
-                lily_msgbuf_add(mb, "...");
-        }
-        lily_msgbuf_add(mb, "):");
-        if (csig->ret == NULL)
-            lily_msgbuf_add(mb, "nil");
-        else
-            write_sig(mb, csig->ret);
-    }
-    else if (sig->cls->id == SYM_CLASS_LIST) {
-        lily_msgbuf_add(mb, "[");
-        write_sig(mb, sig->node.value_sig);
-        lily_msgbuf_add(mb, "]");
-    }
-}
-
 /** Error helpers **/
 static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
     lily_sig *got, int arg_num)
@@ -327,9 +292,9 @@ static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
     lily_msgbuf_add(mb, " arg #");
     lily_msgbuf_add_int(mb, arg_num);
     lily_msgbuf_add(mb, " expects type '");
-    write_sig(mb, csig->args[arg_num]);
+    lily_msgbuf_add_sig(mb, csig->args[arg_num]);
     lily_msgbuf_add(mb, "' but got type '");
-    write_sig(mb, got);
+    lily_msgbuf_add_sig(mb, got);
     lily_msgbuf_add(mb, "'.\n");
 
     /* Just in case this arg was on a different line than the call. */
@@ -343,9 +308,9 @@ static void bad_assign_error(lily_emit_state *emit, int line_num,
     /* Remember that right is being assigned to left, so right should
        get printed first. */
     lily_msgbuf *mb = lily_new_msgbuf("Cannot assign ");
-    write_sig(mb, right_sig);
+    lily_msgbuf_add_sig(mb, right_sig);
     lily_msgbuf_add(mb, " to ");
-    write_sig(mb, left_sig);
+    lily_msgbuf_add_sig(mb, left_sig);
     lily_msgbuf_add(mb, ".\n");
 
     emit->raiser->line_adjust = line_num;
@@ -357,7 +322,7 @@ static void bad_assign_error(lily_emit_state *emit, int line_num,
 static void bad_subs_class(lily_emit_state *emit, lily_ast *var_ast)
 {
     lily_msgbuf *mb = lily_new_msgbuf("Cannot subscript class ");
-    write_sig(mb, var_ast->result->sig);
+    lily_msgbuf_add_sig(mb, var_ast->result->sig);
     lily_msgbuf_add(mb, "\n");
 
     emit->raiser->line_adjust = var_ast->line_num;
@@ -1341,9 +1306,9 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
         sigcast(emit, ast, ret_sig) == 0) {
 
         lily_msgbuf *mb = lily_new_msgbuf("'return' expected type '");
-        write_sig(mb, ret_sig);
+        lily_msgbuf_add_sig(mb, ret_sig);
         lily_msgbuf_add(mb, "' but got type '");
-        write_sig(mb, ast->result->sig);
+        lily_msgbuf_add_sig(mb, ast->result->sig);
         lily_msgbuf_add(mb, "'.\n");
 
         emit->raiser->line_adjust = ast->line_num;
