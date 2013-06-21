@@ -799,9 +799,26 @@ void lily_vm_execute(lily_vm_state *vm)
                         lily_deref_unknown_val(result->sig, result->value);
 
                     if (lhs->value.list->val_is_nil[rhs_index] == 0) {
-                        result->value = lhs->value.list->values[rhs_index];
-                        if (result->sig->cls->is_refcounted)
-                            result->value.generic->refcount++;
+                        if (result->sig->cls->is_refcounted) {
+                            if (result->sig->cls->id == SYM_CLASS_OBJECT) {
+                                lily_object_val *oval;
+                                oval = lhs->value.list->values[rhs_index].object;
+
+                                result->value.object->value = oval->value;
+                                result->value.object->sig = oval->sig;
+                                if (oval->sig->cls->is_refcounted)
+                                    oval->value.generic->refcount++;
+
+                                oval->sig->refcount++;
+                            }
+                            else {
+                                result->value =
+                                        lhs->value.list->values[rhs_index];
+                                result->value.generic->refcount++;
+                            }
+                        }
+                        else
+                            result->value = lhs->value.list->values[rhs_index];
 
                         result->flags &= ~S_IS_NIL;
                     }
