@@ -1,5 +1,5 @@
 *.o
 lily_fs
-lily_strload
+lily_cliexec
 lily_aft
 lily_failtest
