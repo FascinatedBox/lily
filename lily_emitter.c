@@ -700,6 +700,40 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     }
 }
 
+/* cast_ast_list_to
+   This converts the results of the list_ast (type tree_list) to the given sig.
+   The caller is expected to verify that the cast is valid. */
+static void cast_ast_list_to(lily_emit_state *emit, lily_ast *list_ast,
+        lily_class *cls)
+{
+    lily_ast *arg = list_ast->arg_start;
+    lily_method_val *m = emit->target;
+    int opcode;
+
+    if (cls->id == SYM_CLASS_OBJECT)
+        opcode = o_obj_assign;
+    else {
+        /* This is probably a stub from implementing some new feature. */
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                "Stub: Unexpected autocast list type.\n");
+    }
+
+    for (arg = list_ast->arg_start;
+         arg != NULL;
+         arg = arg->next_arg) {
+        lily_storage *obj_store = storage_for_class(emit, cls);
+        /* This is weird. The ast has to be walked, so technically things on
+           future line numbers have been executed. At the same time, it would
+           be odd for a typecast to fail and reference a line that's different
+           from where the arg is from. */
+        WRITE_4(opcode,
+                arg->line_num,
+                (uintptr_t)obj_store,
+                (uintptr_t)arg->result)
+        arg->result = (lily_sym *)obj_store;
+    }
+}
+
 /* try_find_storage_by_sig
    This looks in emitter's storage cache to see if a storage with the given sig
    has been created. This will return a storage previously allocated, return
@@ -974,7 +1008,9 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
     else if (ast->tree_type == tree_list) {
         lily_sig *elem_sig = NULL;
         lily_ast *arg;
-        int i;
+        int i, make_objs;
+
+        make_objs = 0;
 
         /* Walk through all of the list elements, keeping a note of the class
            of the results. The class of the list elements is determined as
@@ -988,13 +1024,17 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             if (elem_sig != NULL) {
                 if (arg->result->sig != elem_sig &&
                     lily_sigequal(arg->result->sig, elem_sig) == 0) {
-                    emit->raiser->line_adjust = arg->line_num;
-                    lily_raise(emit->raiser, lily_ErrSyntax,
-                            "STUB: list of objects.\n");
+                    make_objs = 1;
                 }
             }
             else
                 elem_sig = arg->result->sig;
+        }
+
+        if (make_objs) {
+            lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_OBJECT);
+            cast_ast_list_to(emit, ast, cls);
+            elem_sig = cls->sig;
         }
 
         lily_class *list_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);

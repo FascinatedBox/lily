@@ -701,6 +701,22 @@ method test_typecasts():nil
     print("ok.\n")
 }
 
+method test_list_autocast():nil
+{
+    printfmt("#%i: Testing list autocasts...", test_id)
+    test_id = test_id + 1
+
+    # This tests that lists of varying types are autoconverted to list[object].
+    list[object] o1 = [1, 1.1, "1"]
+    list[object] o2 = [2, 2.2, "2", o1[0]]
+    object o3 = o1[0]
+    list[object] o4 = [o1[0], o2[2], o3]
+    object o5 = o4[0]
+    integer i = @(integer: o5)
+
+    print("ok.\n")
+}
+
 test_basic_assignments()
 test_jumps()
 test_manyargs(1,2,3,4,5,6)
@@ -721,6 +737,7 @@ test_mul_div()
 test_sub_assign()
 test_complex_sigs()
 test_typecasts()
+test_list_autocast()
 
 test_id = test_id - 1
 
