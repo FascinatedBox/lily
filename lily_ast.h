@@ -5,8 +5,8 @@
 # include "lily_expr_op.h"
 
 typedef enum {
-    tree_call, tree_subscript, tree_list, tree_parenth, tree_typecast, tree_var,
-    tree_unary, tree_binary
+    tree_call, tree_subscript, tree_list, tree_parenth, tree_var,
+    tree_unary, tree_typecast, tree_binary
 } lily_tree_type;
 
 typedef struct lily_ast_t {

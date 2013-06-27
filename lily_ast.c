@@ -114,12 +114,13 @@ void lily_ast_reset_pool(lily_ast_pool *ap)
    tree to be merged in. */
 static void merge_unary(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
 {
-    /* 'a = ', so there's no value for the right side...yet. */
-    if (active->tree_type == tree_binary && active->right == NULL)
+    /* 'a = ' or '@(type: ', so there's no value for the right side...yet. */
+    if (active->tree_type >= tree_typecast && active->right == NULL)
         active->right = new_ast;
     else {
-        /* Might be 'a = -', so there's already at least 1 unary value. */
-        if (active->tree_type == tree_binary)
+        /* Might be 'a = -' or '@(type: ', so there's already at least 1
+           unary value. */
+        if (active->tree_type >= tree_typecast)
             active = active->right;
 
         /* Unary ops are right->left (opposite of binary), and all have the same
@@ -141,7 +142,7 @@ static void merge_oo(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
 {
     lily_ast *target;
 
-    if (active->tree_type < tree_binary) {
+    if (active->tree_type < tree_typecast) {
         /* This gets called for two cases:
            1) a.concat("c") where a is active and root.
            2) a.concat(b.concat("c")) where b is active, but a is root.
@@ -157,8 +158,12 @@ static void merge_oo(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
         target = active;
     }
     else {
-        /* This gets called when the merge is against the rhs of a binary.
+        /* This gets called when the merge is against the rhs of a binary or the
+           rhs of a typecast.
            Ex: 'a = b.concat("c") < b.concat("d")
+               '@(type: value[0])'   ^
+                             ^
+
            This is always against the rhs, like how values always add to the
            rhs of a binary op. This cannot become current or root, because the
            binary always has priority over it. */
@@ -181,20 +186,18 @@ static void merge_value(lily_ast_pool *ap, lily_ast *new_ast)
     if (active != NULL) {
         /* It's an oo call if we're merging a call against an existing
            value. */
-        if (active->tree_type == tree_binary) {
+        if (active->tree_type >= tree_typecast) {
+            /* It's impossible to find another typecast here because inner
+               typecasts are wrapped inside of a parenth tree. */
             if (active->right == NULL)
                 active->right = new_ast;
             else if (active->right->tree_type == tree_unary)
                 merge_unary(ap, active, new_ast);
-            else if (active->right->tree_type == tree_typecast)
-                active->right->left = new_ast;
             else
                 merge_oo(ap, active, new_ast);
         }
         else if (active->tree_type == tree_unary)
             merge_unary(ap, active, new_ast);
-        else if (active->tree_type == tree_typecast)
-            active->left = new_ast;
         else
             merge_oo(ap, active, new_ast);
     }
@@ -525,13 +528,15 @@ void lily_ast_push_sym(lily_ast_pool *ap, lily_sym *s)
 
 /* lily_ast_push_sig
    This 'creates' a typecast tree, and places a sig into it. The tree is merged
-   against the active tree. */
+   against the active tree. Right is used to store the value because that allows
+   typecast to share some code with binary trees in some areas. */
 void lily_ast_push_sig(lily_ast_pool *ap, lily_sig *sig)
 {
     lily_ast *a = next_pool_ast(ap);
 
     a->tree_type = tree_typecast;
     a->sig = sig;
+    a->right = NULL;
     a->line_num = *ap->lex_linenum;
     a->result = NULL;
 

@@ -547,15 +547,15 @@ lily_storage *try_find_storage_by_sig(lily_emit_state *emit, lily_sig *sig);
 
 static void emit_typecast(lily_emit_state *emit, lily_ast *ast)
 {
-    if (ast->left->tree_type != tree_var)
-        walk_tree(emit, ast->left);
+    if (ast->right->tree_type != tree_var)
+        walk_tree(emit, ast->right);
 
     lily_sig *cast_sig = ast->sig;
-    lily_sig *var_sig = ast->left->result->sig;
+    lily_sig *var_sig = ast->right->result->sig;
     lily_method_val *m = emit->target;
 
     if (lily_sigequal(cast_sig, var_sig)) {
-        ast->result = (lily_sym *)ast->left->result;
+        ast->result = (lily_sym *)ast->right->result;
         return;
     }
 
@@ -604,7 +604,7 @@ static void emit_typecast(lily_emit_state *emit, lily_ast *ast)
     WRITE_4(o_obj_typecast,
             ast->line_num,
             (uintptr_t)result,
-            (uintptr_t)ast->left->result)
+            (uintptr_t)ast->right->result)
 
     ast->result = (lily_sym *)result;
 }
