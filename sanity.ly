@@ -677,6 +677,11 @@ method test_typecasts():nil
     o = [1]
     list_intval = @(list[integer]: o)
 
+    list[object] list_objval
+    object oval_1 = 10
+    object oval_2 = 1.1
+    list_objval = [oval_1, oval_2]
+
     method mval_10():integer { return 10 }
     method mval_20():integer { return 20 }
     method mval_30():integer { return 30 }
@@ -697,6 +702,7 @@ method test_typecasts():nil
     o = list_intval
     intval = @(list[integer]: o)[0]
     intval = @(integer: ret_obj())
+    intval = @(integer: list_objval[0])
 
     print("ok.\n")
 }
