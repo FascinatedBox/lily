@@ -109,33 +109,7 @@ void lily_ast_reset_pool(lily_ast_pool *ap)
 }
 
 /** Common private merging functions **/
-/* merge_unary
-   This handles a unary merge wherein 'active' is ap->active and new_ast is the
-   tree to be merged in. */
-static void merge_unary(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
-{
-    /* 'a = ' or '@(type: ', so there's no value for the right side...yet. */
-    if (active->tree_type >= tree_typecast && active->right == NULL)
-        active->right = new_ast;
-    else {
-        /* Might be 'a = -' or '@(type: ', so there's already at least 1
-           unary value. */
-        if (active->tree_type >= tree_typecast)
-            active = active->right;
-
-        /* Unary ops are right->left (opposite of binary), and all have the same
-           precedence. So values, calls, and even other unary ops will have to
-           walk down to become the child of the lowest unary op. */
-        while (active->tree_type == tree_unary && active->left != NULL)
-            active = active->left;
-
-        active->left = new_ast;
-    }
-
-    new_ast->parent = active;
-}
-
-/* merge_unary 
+/* merge_oo
    This handles an oo merge (ex: 'concat' to 'a' after a.concat) wherein
    'active' is ap->active and new_ast is the tree to be merged in. */
 static void merge_oo(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
@@ -148,7 +122,8 @@ static void merge_oo(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
            2) a.concat(b.concat("c")) where b is active, but a is root.
            If this current var isn't the root, then some previous call could be
            root, so don't become root. */
-        if (ap->root == ap->active)
+
+        if (ap->root == active)
             ap->root = new_ast;
 
         /* The call becomes active because it's taking over the var. Otherwise,
@@ -177,6 +152,49 @@ static void merge_oo(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
     new_ast->next_arg = NULL;
 }
 
+/* merge_unary
+   This handles a unary merge wherein 'active' is ap->active and new_ast is the
+   tree to be merged in. */
+static void merge_unary(lily_ast_pool *ap, lily_ast *new_active, lily_ast *new_ast)
+{
+    lily_ast *active = new_active;
+    /* 'a = ' or '@(type: ', so there's no value for the right side...yet. */
+    if (active->tree_type >= tree_typecast && active->right == NULL)
+        active->right = new_ast;
+    else {
+        /* Might be 'a = -' or '@(type: ', so there's already at least 1
+           unary value. */
+        if (active->tree_type >= tree_typecast)
+            active = active->right;
+
+        /* Unary ops are right->left (opposite of binary), and all have the same
+           precedence. So values, calls, and even other unary ops will have to
+           walk down to become the child of the lowest unary op.
+           The final condition ensures that we get the lowest unary tree,
+           instead of the lowest unary tree's value. This is important, because
+           that lowest unary tree may need to be updated. */
+        while (active->tree_type == tree_unary && active->left != NULL &&
+               active->left->tree_type == tree_unary)
+            active = active->left;
+
+        if (active->left == NULL)
+            active->left = new_ast;
+        else if (new_ast->tree_type == tree_subscript) {
+            /* Subscript is a special case because it comes after a var and
+               swallows it as the first arg. */
+            merge_oo(ap, active->left, new_ast);
+            /* new_ast contains the tree in active->left, so update the unary
+               tree... */
+            active->left = new_ast;
+        }
+        /* todo: As of now, there are no dot calls that yield an integer value.
+           However, I suspect that when that occurs, dotcall will also need to
+           be here. */
+    }
+
+    new_ast->parent = active;
+}
+
 /* merge_value
    This handles merging a var, call, or parenth expression. */
 static void merge_value(lily_ast_pool *ap, lily_ast *new_ast)
@@ -186,6 +204,7 @@ static void merge_value(lily_ast_pool *ap, lily_ast *new_ast)
     if (active != NULL) {
         /* It's an oo call if we're merging a call against an existing
            value. */
+
         if (active->tree_type >= tree_typecast) {
             /* It's impossible to find another typecast here because inner
                typecasts are wrapped inside of a parenth tree. */
@@ -491,6 +510,7 @@ void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
     lily_ast *active = ap->active;
 
     a->left = NULL;
+    a->line_num = *ap->lex_linenum;
     a->tree_type = tree_unary;
     a->priority = priority_for_op(op);
     a->op = op;
