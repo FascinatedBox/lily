@@ -785,7 +785,7 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
 
         /* This is the start of the next statement. */
         if (lex->token == tk_word || lex->token == tk_end_tag ||
-            lex->token == tk_eof)
+            lex->token == tk_eof || lex->token == tk_right_curly)
             break;
         else if (lex->token != tk_comma) {
             lily_raise(parser->raiser, lily_ErrSyntax,
