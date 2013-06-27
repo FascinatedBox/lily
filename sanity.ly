@@ -350,12 +350,16 @@ method test_unary():nil
     printfmt("#%i: Testing unary ops...", test_id)
     test_id = test_id + 1
 
-    integer a, b
+    integer a, b, c
 
     a = unary_call_checker(!!0 + !!0)
     b = -10 + --10 + -a + --a + unary_helper() + -unary_helper()
     b = b + !!0
-    if b == 0: {
+
+    list[integer] lsi = [10]
+    c = !lsi[0]
+
+    if b == 0 && c == 0: {
         print("ok.\n")
     else:
         print("failed.\n")
