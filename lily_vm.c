@@ -794,36 +794,52 @@ void lily_vm_execute(lily_vm_state *vm)
                     if (rhs < 0)
                         boundary_error(vm, i, rhs_index);
 
-                    /* Deref the old value, then set and ref the new one. */
-                    if (!(result->flags & S_IS_NIL))
-                        lily_deref_unknown_val(result->sig, result->value);
+                    if ((result->flags & S_IS_NIL) == 0) {
+                        /* Do not use && to combine these two if's, because
+                           objects are marked as refcounted. This would be a
+                           no-op now, but could be hazardous in the future. */
+                        if (result->sig->cls->id == SYM_CLASS_OBJECT) {
+                            if (result->value.object->sig != NULL) {
+                                lily_deref_unknown_val(
+                                        result->value.object->sig,
+                                        result->value.object->value);
+                            }
+                        }
+                        else if (result->sig->cls->is_refcounted)
+                            lily_deref_unknown_val(result->sig, result->value);
+                        /* no-op if not refcounted. */
+                    }
 
                     if (lhs->value.list->val_is_nil[rhs_index] == 0) {
-                        if (result->sig->cls->is_refcounted) {
-                            if (result->sig->cls->id == SYM_CLASS_OBJECT) {
-                                lily_object_val *oval;
-                                oval = lhs->value.list->values[rhs_index].object;
-
-                                result->value.object->value = oval->value;
-                                result->value.object->sig = oval->sig;
-                                if (oval->sig->cls->is_refcounted)
-                                    oval->value.generic->refcount++;
-
-                                oval->sig->refcount++;
-                            }
-                            else {
+                        if (result->sig->cls->id != SYM_CLASS_OBJECT) {
+                            if (result->sig->cls->is_refcounted) {
                                 result->value =
                                         lhs->value.list->values[rhs_index];
                                 result->value.generic->refcount++;
                             }
+                            else
+                                result->value =
+                                        lhs->value.list->values[rhs_index];
                         }
-                        else
-                            result->value = lhs->value.list->values[rhs_index];
+                        else {
+                            lily_object_val *oval;
+                            oval = lhs->value.list->values[rhs_index].object;
+
+                            if (oval->sig->cls->is_refcounted)
+                                oval->value.generic->refcount++;
+
+                            result->value.object->value = oval->value;
+                            result->value.object->sig = oval->sig;
+
+                            oval->sig->refcount++;
+                        }
 
                         result->flags &= ~S_IS_NIL;
                     }
-                    else
+                    else {
+                        
                         result->flags |= S_IS_NIL;
+                    }
                 }
                 i += 5;
                 break;
