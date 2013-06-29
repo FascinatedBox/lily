@@ -471,21 +471,63 @@ void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
     if (!(storage->flags & S_IS_NIL))
         lily_deref_list_val(storage->sig, storage->value.list);
 
-    if (elem_sig->cls->is_refcounted) {
-        for (j = 0;j < num_elems;j++) {
-            if (!(syms[5+j]->flags & S_IS_NIL)) {
-                lv->values[j] = syms[5+j]->value;
-                lv->values[j].generic->refcount++;
-                lv->val_is_nil[j] = 0;
+    /* This could be condensed down, but doing it this way improves speed since
+       the elem_sig won't change over the loop. */
+    if (elem_sig->cls->id != SYM_CLASS_OBJECT) {
+        if (elem_sig->cls->is_refcounted) {
+            for (j = 0;j < num_elems;j++) {
+                if (!(syms[5+j]->flags & S_IS_NIL)) {
+                    lv->values[j] = syms[5+j]->value;
+                    lv->values[j].generic->refcount++;
+                    lv->val_is_nil[j] = 0;
+                }
+                else
+                    lv->val_is_nil[j] = 1;
             }
-            else
-                lv->val_is_nil[j] = 1;
+        }
+        else {
+            for (j = 0;j < num_elems;j++) {
+                if (!(syms[5+j]->flags & S_IS_NIL)) {
+                    lv->values[j] = syms[5+j]->value;
+                    lv->val_is_nil[j] = 0;
+                }
+                else
+                    lv->val_is_nil[j] = 1;
+            }
         }
     }
     else {
         for (j = 0;j < num_elems;j++) {
             if (!(syms[5+j]->flags & S_IS_NIL)) {
-                lv->values[j] = syms[5+j]->value;
+                /* Without copying to a separate object:
+                   object o = 10    o = [o]
+                   (o is now a useless circular reference. What?)
+
+                   With copying to a separate object:
+                   object o = 10    o = [o]
+                   (o is now a list of object, with [0] being 10. */
+                lily_object_val *oval = lily_try_new_object_val();
+                if (oval == NULL) {
+                    /* The inner values must be destroyed here, because the
+                       symtab has no linkage for them. */
+                    int k;
+                    for (k = 0;k < j;k++) {
+                        if (lv->val_is_nil[k] == 0)
+                            lily_deref_object_val(lv->values[k].object);
+                    }
+                    lily_free(lv->val_is_nil);
+                    lily_free(lv->values);
+                    lily_free(lv);
+                    lily_raise_nomem(vm->raiser);
+                }
+                memcpy(oval, syms[5+j]->value.object, sizeof(lily_object_val));
+                oval->sig->refcount++;
+                oval->refcount = 1;
+
+                if (oval->sig->cls->is_refcounted)
+                    oval->value.generic->refcount++;
+
+                lv->values[j].object = oval;
                 lv->val_is_nil[j] = 0;
             }
             else
