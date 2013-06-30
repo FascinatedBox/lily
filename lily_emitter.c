@@ -558,6 +558,17 @@ static void emit_typecast(lily_emit_state *emit, lily_ast *ast)
         ast->result = (lily_sym *)ast->right->result;
         return;
     }
+    else if (cast_sig->cls->id == SYM_CLASS_OBJECT) {
+        /* An object assign will work here. */
+        lily_storage *storage;
+        storage = storage_for_class(emit, cast_sig->cls);
+        WRITE_4(o_obj_assign,
+                ast->line_num,
+                (uintptr_t)storage,
+                (uintptr_t)ast->right->result)
+        ast->result = storage;
+        return;
+    }
 
     lily_storage *result;
 
