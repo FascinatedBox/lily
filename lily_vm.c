@@ -124,6 +124,74 @@ void lily_free_vm_state(lily_vm_state *vm)
 
 /** VM helpers **/
 
+/* circle_buster
+   This function takes the current object (lhs_obj), and determines if assigning
+   rhs_value to it would cause a circular reference. This function recurses into
+   rhs_value, and fixes any circular references. This should be done before
+   putting rhs_value into lhs_obj. */
+static int circle_buster(lily_object_val *lhs_obj, lily_sig *rhs_sig,
+        lily_value rhs_value)
+{
+    int i, is_circle;
+
+    is_circle = 0;
+
+    if (rhs_sig->cls->id == SYM_CLASS_LIST) {
+        lily_list_val *value_list = rhs_value.list;
+        int inner_cls_id = rhs_sig->node.value_sig->cls->id;
+
+        if (inner_cls_id == SYM_CLASS_OBJECT) {
+            lily_object_val *inner_obj;
+            for (i = 0;i < value_list->num_values;i++) {
+                inner_obj = value_list->values[i].object;
+
+                if (inner_obj == lhs_obj) {
+                    /* This is a circular reference. Deref it, then yield that
+                       there was a circular ref. */
+                    lily_deref_list_val(rhs_sig, rhs_value.list);
+                    is_circle = 1;
+                }
+                else if (inner_obj->sig->cls->id == SYM_CLASS_LIST &&
+                         inner_obj->value.list->visited == 0) {
+                    /* If the object contains a list, then dive into that list
+                       to check for circular references. */
+                    inner_obj->value.list->visited = 1;
+                    is_circle = circle_buster(lhs_obj, inner_obj->sig,
+                            inner_obj->value);
+                    inner_obj->value.list->visited = 0;
+                }
+            }
+        }
+        else if (inner_cls_id == SYM_CLASS_LIST) {
+            lily_value inner_list_val;
+            for (i = 0;i < value_list->num_values;i++) {
+                inner_list_val = value_list->values[i];
+                if (inner_list_val.list->visited)
+                    continue;
+
+                inner_list_val.list->visited = 1;
+                is_circle = circle_buster(lhs_obj, rhs_sig->node.value_sig,
+                        inner_list_val);
+                inner_list_val.list->visited = 0;
+
+                if (is_circle) {
+                    /* The child was circular, so mark the array member as being
+                       circular as well. */
+                    value_list->flags[i] |= S_IS_CIRCULAR;
+                }
+            }
+
+            /* Suppose that there's a circular reference that's buried within at
+               one or more lists. Ex: a[0] = [[[[a]]]].
+               Only the bottom-most list has a circular reference, and can't
+               delete the object inside. The rest need to be deleted though. */
+            is_circle = 0;
+        }
+    }
+
+    return is_circle;
+}
+
 /* grow_method_stack
    This function grows the vm's method stack so it can take more method info.
    Calls lily_raise_nomem if unable to create method info. */
@@ -365,7 +433,7 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
     lily_sym *index_sym;
     int index_int;
     lily_value *values;
-    int val_is_nil;
+    int flags;
 
     lhs = ((lily_sym *)code[pos+2]);
     if (lhs->flags & S_IS_NIL)
@@ -388,12 +456,12 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
     if (index_int < 0)
         boundary_error(vm, pos, index_int);
 
-    val_is_nil = lhs->value.list->val_is_nil[index_int];
+    flags = lhs->value.list->flags[index_int];
 
     /* If this list does not contain objects, then standard
        assign or ref/deref assign is enough. */
     if (lhs->sig->node.value_sig->cls->id != SYM_CLASS_OBJECT) {
-        if (rhs->sig->cls->is_refcounted && val_is_nil == 0) {
+        if (rhs->sig->cls->is_refcounted && flags == 0) {
             /* This could be expanded to more specific derefs. However, it's
                much more preferable to keep class-based code in as few places
                as possible. The speed gain would be very little as well. */
@@ -407,15 +475,27 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
     else {
         /* Objects are supposed to never be nil, so this should be impossible.
            The name reflects this. */
-        if (val_is_nil)
+        if (flags & S_IS_NIL)
             very_bad_subs_assign_error(vm, pos);
 
         /* Do an object assign to the value. */
         lily_object_val *ov = values[index_int].object;
         if (rhs->sig->cls->id != SYM_CLASS_OBJECT) {
-            lily_deref_unknown_val(ov->sig, ov->value);
-            if (rhs->sig->cls->is_refcounted)
-                rhs->value.generic->refcount++;
+            /* Don't drop a circular ref. */
+            if (ov->sig->cls->is_refcounted && ((flags & S_IS_CIRCULAR) == 0))
+                lily_deref_unknown_val(ov->sig, ov->value);
+
+            lily_deref_sig(ov->sig);
+
+            if (rhs->sig->cls->id == SYM_CLASS_LIST)
+                lhs->value.list->flags[index_int] |= S_IS_CIRCULAR;
+            else {
+                lhs->value.list->flags[index_int] &= ~S_IS_CIRCULAR;
+                if (rhs->sig->cls->is_refcounted)
+                    rhs->value.generic->refcount++;
+
+                circle_buster(ov, rhs->sig, rhs->value);
+            }
 
             rhs->sig->refcount++;
             ov->sig = rhs->sig;
@@ -423,9 +503,15 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
         }
         else {
             lily_object_val *rhs_obj = rhs->value.object;
-            rhs_obj->sig->refcount++;
+            if (ov->sig->cls->is_refcounted)
+                lily_deref_unknown_val(ov->sig, ov->value);
+
+            lily_deref_sig(ov->sig);
             if (rhs_obj->sig->cls->is_refcounted)
                 rhs_obj->value.generic->refcount++;
+
+            rhs_obj->sig->refcount++;
+            ov->sig = rhs_obj->sig;
             ov->value = rhs_obj->value;
         }
     }
@@ -449,14 +535,15 @@ void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
     if (lv == NULL)
         lily_raise_nomem(vm->raiser);
 
+    lv->visited = 0;
     lv->values = lily_malloc(num_elems * sizeof(void *));
     if (lv->values == NULL) {
         lily_free(lv);
         lily_raise_nomem(vm->raiser);
     }
 
-    lv->val_is_nil = lily_malloc(num_elems * sizeof(unsigned char));
-    if (lv->val_is_nil == NULL) {
+    lv->flags = lily_malloc(num_elems * sizeof(int));
+    if (lv->flags == NULL) {
         lily_free(lv->values);
         lily_free(lv);
         lily_raise_nomem(vm->raiser);
@@ -479,20 +566,20 @@ void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
                 if (!(syms[5+j]->flags & S_IS_NIL)) {
                     lv->values[j] = syms[5+j]->value;
                     lv->values[j].generic->refcount++;
-                    lv->val_is_nil[j] = 0;
+                    lv->flags[j] = 0;
                 }
                 else
-                    lv->val_is_nil[j] = 1;
+                    lv->flags[j] = S_IS_NIL;
             }
         }
         else {
             for (j = 0;j < num_elems;j++) {
                 if (!(syms[5+j]->flags & S_IS_NIL)) {
                     lv->values[j] = syms[5+j]->value;
-                    lv->val_is_nil[j] = 0;
+                    lv->flags[j] = 0;
                 }
                 else
-                    lv->val_is_nil[j] = 1;
+                    lv->flags[j] = S_IS_NIL;
             }
         }
     }
@@ -512,10 +599,10 @@ void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
                        symtab has no linkage for them. */
                     int k;
                     for (k = 0;k < j;k++) {
-                        if (lv->val_is_nil[k] == 0)
+                        if (lv->flags[k] == 0)
                             lily_deref_object_val(lv->values[k].object);
                     }
-                    lily_free(lv->val_is_nil);
+                    lily_free(lv->flags);
                     lily_free(lv->values);
                     lily_free(lv);
                     lily_raise_nomem(vm->raiser);
@@ -528,10 +615,10 @@ void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
                     oval->value.generic->refcount++;
 
                 lv->values[j].object = oval;
-                lv->val_is_nil[j] = 0;
+                lv->flags[j] = 0;
             }
             else
-                lv->val_is_nil[j] = 1;
+                lv->flags[j] = S_IS_NIL;
         }
     }
 
@@ -852,7 +939,7 @@ void lily_vm_execute(lily_vm_state *vm)
                         /* no-op if not refcounted. */
                     }
 
-                    if (lhs->value.list->val_is_nil[rhs_index] == 0) {
+                    if (lhs->value.list->flags[rhs_index] == 0) {
                         if (result->sig->cls->id != SYM_CLASS_OBJECT) {
                             if (result->sig->cls->is_refcounted) {
                                 result->value =
@@ -878,10 +965,22 @@ void lily_vm_execute(lily_vm_state *vm)
 
                         result->flags &= ~S_IS_NIL;
                     }
-                    else {
-                        
-                        result->flags |= S_IS_NIL;
+                    else if (result->sig->cls->id == SYM_CLASS_OBJECT &&
+                             lhs->value.list->flags[rhs_index] & S_IS_CIRCULAR) {
+                        lily_object_val *oval;
+                        oval = lhs->value.list->values[rhs_index].object;
+
+                        /* Don't check if it's refcounted: If it were not, then
+                           it wouldn't be tagged as circular. */
+                        oval->value.generic->refcount++;
+                        result->value.object->value = oval->value;
+                        result->value.object->sig = oval->sig;
+                        oval->sig->refcount++;
+
+                        result->flags &= ~S_IS_NIL;
                     }
+                    else
+                        result->flags |= S_IS_NIL;
                 }
                 i += 5;
                 break;
@@ -970,14 +1069,18 @@ void lily_vm_execute(lily_vm_state *vm)
                     }
                 }
                 else {
-                        /* object = !object
-                           Just copy the sig and the value over. */
-                        rhs->sig->refcount++;
-                        lhs->value.object->sig = rhs->sig;
-                        if (rhs->sig->cls->is_refcounted)
-                            rhs->value.generic->refcount++;
-                    
-                        lhs->value.object->value = rhs->value;
+                    /* object = !object
+                       Just copy the sig and the value over, but make sure that
+                       there isn't a circular ref. */
+                    if (rhs->sig->cls->id == SYM_CLASS_LIST)
+                        circle_buster(lhs->value.object, rhs->sig, rhs->value);
+
+                    rhs->sig->refcount++;
+                    lhs->value.object->sig = rhs->sig;
+                    if (rhs->sig->cls->is_refcounted)
+                        rhs->value.generic->refcount++;
+
+                    lhs->value.object->value = rhs->value;
                 }
                 i += 4;
                 break;

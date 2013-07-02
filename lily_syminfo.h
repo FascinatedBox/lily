@@ -3,6 +3,22 @@
 
 # include <stdint.h>
 
+/* Here are the current flag values. The first three are only to be set on
+   symbols in the symtab. This allows lily_debug to give better debug info, and
+   a few other nifty tricks. */
+#define VAR_SYM       0x01
+#define LITERAL_SYM   0x02
+#define STORAGE_SYM   0x04
+/* If a symbol doesn't have a value, then the symbol's flags are set to S_IS_NIL
+   to indicate such. Lists contain an array of flags for each of their symbols.
+   S_IS_NIL is set if a particular position in a list is nil. However, lists do
+   not use any of the above flags, because only values are stored in lists. */
+#define S_IS_NIL      0x10
+/* This flag is set if the object points to a higher point in the list, usually
+   the top of the list itself. This is used to prevent objects containing
+   higher-level elements from deref-ing them. */
+#define S_IS_CIRCULAR 0x20
+
 /* This is where the raw data gets stored. Anything not an integer or a number
    is stored in ptr and cast appropriately. */
 typedef union {
@@ -40,7 +56,11 @@ typedef struct lily_object_val_t {
 typedef struct lily_list_val_t {
     int refcount;
     lily_value *values;
-    unsigned char *val_is_nil;
+    int *flags;
+    struct lily_list_val_t *parent;
+    /* This is used by circular reference checking to keep from going into an
+       infinite loop. */
+    int visited;
     int num_values;
 } lily_list_val;
 
@@ -79,11 +99,6 @@ typedef struct lily_sig_t {
         struct lily_sig_t *value_sig;
     } node;
 } lily_sig;
-
-#define VAR_SYM      0x01
-#define LITERAL_SYM  0x02
-#define STORAGE_SYM  0x04
-#define S_IS_NIL     0x10
 
 /* All symbols have at least these fields. The vm and debugging functions use
    this to cast and grab common info. */

@@ -56,28 +56,41 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
         int cls_id = sig->node.value_sig->cls->id;
         int i;
         if (cls_id == SYM_CLASS_LIST) {
-            for (i = 0;i < lv->num_values;i++)
-                if (lv->val_is_nil[i] == 0)
+            for (i = 0;i < lv->num_values;i++) {
+                if (lv->flags[i] == 0)
                     lily_deref_list_val(sig->node.value_sig,
                             lv->values[i].list);
+                /* else it's nil, or locked (if an object). */
+            }
         }
         else if (cls_id == SYM_CLASS_STR) {
             for (i = 0;i < lv->num_values;i++)
-                if (lv->val_is_nil[i] == 0)
+                if (lv->flags[i] == 0)
                     lily_deref_str_val(lv->values[i].str);
         }
         else if (cls_id == SYM_CLASS_METHOD) {
             for (i = 0;i < lv->num_values;i++)
-                if (lv->val_is_nil[i] == 0)
+                if (lv->flags[i] == 0)
                     lily_deref_method_val(lv->values[i].method);
         }
         else if (cls_id == SYM_CLASS_OBJECT) {
-            for (i = 0;i < lv->num_values;i++)
-                if (lv->val_is_nil[i] == 0)
+            for (i = 0;i < lv->num_values;i++) {
+                if (lv->flags[i] == 0)
                     lily_deref_object_val(lv->values[i].object);
+                else if (lv->flags[i] & S_IS_CIRCULAR) {
+                    /* If it has 1 ref left, then delete the object manually.
+                       This prevents the object from deref-ing something higher
+                       up, since there was no ref to counter that. */
+                    if (lv->values[i].object->refcount == 1) {
+                        lily_object_val *ov = lv->values[i].object;
+                        lily_deref_sig(ov->sig);
+                        lily_free(ov);
+                    }
+                }
+            }
         }
 
-        lily_free(lv->val_is_nil);
+        lily_free(lv->flags);
         lily_free(lv->values);
         lily_free(lv);
     }
@@ -635,6 +648,7 @@ void lily_free_symtab(lily_symtab *symtab)
                     lily_storage *store_curr = cls->storage;
                     lily_storage *store_start = store_curr;
                     lily_storage *store_next;
+
                     do {
                         store_next = store_curr->next;
                         free_sym_common((lily_sym *)store_curr);
