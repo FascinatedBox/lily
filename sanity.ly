@@ -727,6 +727,59 @@ method test_list_autocast():nil
     print("ok.\n")
 }
 
+method test_circular_ref_checks():nil
+{
+    printfmt("#%i: Testing circular reference checks...", test_id)
+    test_id = test_id + 1
+
+    # Catching circular references and making sure they get deref'd properly is
+    # rather tricky. Additions to this code are welcome.
+    # These are random tests, and they might be incomplete. This test should
+    # actually be verified by valgrind.
+
+    list[object] a = [1.1, 2]
+    a[0] = a
+    a[1] = a
+    a[1] = 1
+
+    object b = a[0]
+    object c = a[1]
+
+    list[object] d = [1, 1.1]
+    list[object] e = [1, 1.1]
+    d[0] = e
+    e[0] = d
+
+    object f = c
+    object g = d[0]
+    object h = @(list[object]: g)[0]
+
+    list[list[object]] i = [a, a, a, a]
+    i[0][0] = i[0]
+    i[0] = i[0]
+
+    list[object] j = [1, 1.1]
+    list[object] k = [1, 1.1]
+    k[0] = j
+    j[0] = k
+    j[1] = k
+    k[1] = j
+    j = [1, 1.1]
+    k = [1, 1.1]
+
+    object l = 10
+    list[list[object]] m = [[l]]
+    m[0][0] = m
+
+    object n = [10]
+    object o = [n]
+    object p = [o, o, o, o]
+    n = p
+    p = 1
+
+    print("ok.\n")
+}
+
 test_basic_assignments()
 test_jumps()
 test_manyargs(1,2,3,4,5,6)
@@ -748,6 +801,7 @@ test_sub_assign()
 test_complex_sigs()
 test_typecasts()
 test_list_autocast()
+test_circular_ref_checks()
 
 test_id = test_id - 1
 
