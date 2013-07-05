@@ -601,7 +601,13 @@ static void expression_value(lily_parse_state *parser)
             else if (lex->token == tk_left_bracket) {
                 lily_ast_enter_tree(parser->ast_pool, tree_list, NULL);
                 lily_lexer(lex);
-                continue;
+                if (lex->token == tk_right_bracket) {
+                    lily_ast_leave_tree(parser->ast_pool);
+                    lily_lexer(lex);
+                    break;
+                }
+                else
+                    continue;
             }
             else
                 lily_raise(parser->raiser, lily_ErrSyntax,

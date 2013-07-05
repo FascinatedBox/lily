@@ -745,6 +745,73 @@ static void cast_ast_list_to(lily_emit_state *emit, lily_ast *list_ast,
     }
 }
 
+/* autocast_ast_list
+   This takes a list, and determines what type it can be autocast into in order
+   to satisfy the parent. The returned signature is the type that the outgoing
+   list should contain (the inner sig, not the full signature). */
+static lily_sig *autocast_ast_list(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_ast *parent = ast->parent;
+    lily_sig *elem_sig = NULL;
+    int num_reductions = 0;
+
+    while (parent->tree_type == tree_list) {
+        num_reductions++;
+        /* This is important for calls. Suppose that:
+           somecall([[]])
+           ast must be adjusted to be the outer-most list, because the
+           inner-most list is not one of the args to the call. Reductions will
+           still be needed though. */
+        ast = parent;
+        parent = parent->parent;
+    }
+
+    if (parent->tree_type == tree_call) {
+        lily_ast *arg = parent->arg_start;
+        lily_sig *call_expect;
+        int arg_num = 0;
+        for (arg = parent->arg_start;
+             arg != NULL;
+             arg = arg->next_arg, arg_num++) {
+            if (arg == ast)
+                break;
+        }
+
+        /* fixme: This will be a bug when methods can be varargs. */
+        call_expect = parent->result->sig->node.call->args[arg_num];
+
+        /* Find out what kind of list it wants, and be it. */
+        if (call_expect->cls->id == SYM_CLASS_LIST)
+            elem_sig = call_expect->node.value_sig;
+    }
+    else if (parent->tree_type == tree_binary)
+        elem_sig = parent->left->result->sig->node.value_sig;
+
+    /* For each list that this tree is in, the sig's value needs to
+       be pulled out that many times. Ex:
+       list[list[integer]] abc = [ [ ] ]
+                                   ^
+       So this tree is 1 tree deep, and starts off with
+       list[integer] as the sig because it grabbed the value sig to
+       begin with. It needs to reduce by 1 (the tree depth), to come
+       out with integer.
+       The only caveat here is to also check for elem_sig being a
+       list so this doesn't reduce too deep. */
+    for (;
+        num_reductions && elem_sig->cls->id == SYM_CLASS_LIST;
+        num_reductions--)
+        elem_sig = elem_sig->node.value_sig;
+
+    if (elem_sig == NULL) {
+        /* This could be a bad use of an empty list (like the rhs of an
+           addition, the value of a typecast, etc.) */
+        lily_class *object_cls = lily_class_by_id(emit->symtab, SYM_CLASS_OBJECT);
+        elem_sig = object_cls->sig;
+    }
+
+    return elem_sig;
+}
+
 /* try_find_storage_by_sig
    This looks in emitter's storage cache to see if a storage with the given sig
    has been created. This will return a storage previously allocated, return
@@ -812,9 +879,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         lily_sym *call_sym;
         lily_var *local_var;
 
-        if (ast->result != NULL)
-            call_sym = ast->result;
-        else {
+        if (ast->result == NULL) {
             /* This occurs when the method is obtained in some indirect way,
                such as a call from a subscript.
                Ex: method_list[0]()
@@ -822,14 +887,17 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                go to. */
             walk_tree(emit, ast->arg_start);
 
-            /* bad_num_args will want this. */
-            call_sym = (lily_sym *)ast->arg_start->result;
+            /* Set the result, because things like having a result to use.
+               Ex: An empty list used as an arg may want to know what to
+               default to. */
+            ast->result = ast->arg_start->result;
 
             /* Then drop it from the arg list, since it's not an arg. */
             ast->arg_start = ast->arg_start->next_arg;
             ast->args_collected--;
         }
 
+        call_sym = ast->result;
         csig = call_sym->sig->node.call;
         arg = ast->arg_start;
         is_method = (call_sym->sig->cls->id == SYM_CLASS_METHOD);
@@ -1047,6 +1115,8 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             cast_ast_list_to(emit, ast, cls);
             elem_sig = cls->sig;
         }
+        else if (ast->arg_start == NULL)
+            elem_sig = autocast_ast_list(emit, ast);
 
         lily_class *list_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);
         lily_sig *new_sig = lily_try_sig_for_class(list_cls);

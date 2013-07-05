@@ -334,6 +334,9 @@ static void push_tree_arg(lily_ast_pool *ap, lily_ast *call, lily_ast *tree)
 
     /* Calls with 0 args have no value, so tree is null. */
     if (tree) {
+        /* This ensures that subtrees know what they're contained in. This is
+           essential for autocasts. */
+        tree->parent = call;
         tree->next_arg = NULL;
         call->args_collected++;
     }

@@ -724,6 +724,16 @@ method test_list_autocast():nil
     object o5 = o4[0]
     integer i = @(integer: o5)
 
+    # Check for empty list autocasts as well.
+    list[integer] lv1_list = []
+    list[list[list[list[integer]]]] lv4_list = [[[[]]]]
+    method m(list[integer] l):integer { return 10 }
+    method m2(list[list[integer]] l2):integer { return 10 }
+
+    list[method (list[integer]):integer] list_method = [m, m, m]
+    list[integer] lv1_list_2 = [list_method[0]([])]
+    list[integer] lv1_list_3 = [m2([[]])]
+
     print("ok.\n")
 }
 
