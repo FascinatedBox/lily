@@ -806,7 +806,7 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
    the emitter. */
 static void parse_return(lily_parse_state *parser)
 {
-    lily_sig *ret_sig = parser->emit->target_ret;
+    lily_sig *ret_sig = parser->emit->top_method_ret;
     if (ret_sig != NULL) {
         expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
         lily_emit_return(parser->emit, parser->ast_pool->root, ret_sig);
