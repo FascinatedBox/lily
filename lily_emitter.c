@@ -121,17 +121,14 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
     s->ctrl_patch_starts = lily_malloc(sizeof(int) * 4);
     s->block_var_starts = lily_malloc(sizeof(lily_var *) * 4);
     s->block_types = lily_malloc(sizeof(int) * 4);
-    s->method_vals = lily_malloc(sizeof(lily_method_val *) * 4);
-    s->method_rets = lily_malloc(sizeof(lily_sig *) * 4);
-    s->method_targets = lily_malloc(sizeof(lily_var *) * 4);
+    s->method_vars = lily_malloc(sizeof(lily_var *) * 4);
     s->method_id_offsets = lily_malloc(sizeof(int) * 4);
     s->save_cache = lily_malloc(sizeof(uintptr_t) * 4);
     s->storage_cache = lily_malloc(sizeof(lily_storage *) * 4);
 
     if (s->patches == NULL || s->ctrl_patch_starts == NULL ||
         s->block_var_starts == NULL || s->block_types == NULL ||
-        s->method_vals == NULL || s->method_rets == NULL ||
-        s->method_targets == NULL || s->method_id_offsets == NULL ||
+        s->method_vars == NULL || s->method_id_offsets == NULL ||
         s->save_cache == NULL || s->storage_cache == NULL) {
         lily_free_emit_state(s);
         return NULL;
@@ -163,9 +160,7 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free(emit->ctrl_patch_starts);
     lily_free(emit->block_var_starts);
     lily_free(emit->block_types);
-    lily_free(emit->method_vals);
-    lily_free(emit->method_rets);
-    lily_free(emit->method_targets);
+    lily_free(emit->method_vars);
     lily_free(emit->method_id_offsets);
     lily_free(emit->save_cache);
     lily_free(emit);
@@ -211,7 +206,7 @@ static int sigcast(lily_emit_state *emit, lily_ast *lhs_ast, lily_sig *rhs)
 
     if (rhs->cls->id == SYM_CLASS_OBJECT) {
         ret = 1;
-        lily_method_val *m = emit->target;
+        lily_method_val *m = emit->top_method;
         lily_storage *storage;
         storage = storage_for_class(emit, rhs->cls);
         WRITE_4(o_obj_assign,
@@ -309,7 +304,7 @@ static void walk_tree(lily_emit_state *, lily_ast *);
 
 static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
 {
-    lily_method_val *m = emit->target;
+    lily_method_val *m = emit->top_method;
 
     WRITE_4(o_jump_if, jump_on, (uintptr_t)ast->result, 0);
     if (emit->patch_pos == emit->patch_size) {
@@ -332,7 +327,7 @@ static void emit_assign(lily_emit_state *emit, lily_ast *ast)
 {
     int opcode;
     lily_sym *left_sym, *right_sym;
-    lily_method_val *m = emit->target;
+    lily_method_val *m = emit->top_method;
 
     if (ast->right->tree_type != tree_var)
         walk_tree(emit, ast->right);
@@ -371,7 +366,7 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
     lily_class *lhs_class, *rhs_class, *storage_class;
     lily_storage *s;
 
-    m = emit->target;
+    m = emit->top_method;
     lhs_class = ast->left->result->sig->cls;
     rhs_class = ast->right->result->sig->cls;
 
@@ -421,7 +416,7 @@ static void emit_logical_op(lily_emit_state *emit, lily_ast *ast)
     lily_symtab *symtab = emit->symtab;
     lily_storage *result;
     int is_top, jump_on;
-    lily_method_val *m = emit->target;
+    lily_method_val *m = emit->top_method;
 
     jump_on = (ast->op == expr_logical_or);
 
@@ -500,7 +495,7 @@ static void emit_sub_assign(lily_emit_state *emit, lily_ast *ast)
        o_subs_assign is the opcode that does this magic, and it takes a var,
        an index, and an rhs. This makes sure that the rhs is assigned to the
        right place in the list, instead of to a storage. */
-    lily_method_val *m = emit->target;
+    lily_method_val *m = emit->top_method;
 
     lily_ast *var_ast = ast->left->arg_start;
     lily_ast *index_ast = var_ast->next_arg;
@@ -552,7 +547,7 @@ static void emit_typecast(lily_emit_state *emit, lily_ast *ast)
 
     lily_sig *cast_sig = ast->sig;
     lily_sig *var_sig = ast->right->result->sig;
-    lily_method_val *m = emit->target;
+    lily_method_val *m = emit->top_method;
 
     if (lily_sigequal(cast_sig, var_sig)) {
         ast->result = (lily_sym *)ast->right->result;
@@ -566,7 +561,7 @@ static void emit_typecast(lily_emit_state *emit, lily_ast *ast)
                 ast->line_num,
                 (uintptr_t)storage,
                 (uintptr_t)ast->right->result)
-        ast->result = storage;
+        ast->result = (lily_sym *)storage;
         return;
     }
 
@@ -627,7 +622,7 @@ static void emit_unary_op(lily_emit_state *emit, lily_ast *ast)
     lily_storage *s;
     lily_method_val *m;
 
-    m = emit->target;
+    m = emit->top_method;
     lhs_class = ast->left->result->sig->cls;
     if (lhs_class->id != SYM_CLASS_INTEGER) {
         emit->raiser->line_adjust = ast->line_num;
@@ -718,7 +713,7 @@ static void cast_ast_list_to(lily_emit_state *emit, lily_ast *list_ast,
         lily_class *cls)
 {
     lily_ast *arg = list_ast->arg_start;
-    lily_method_val *m = emit->target;
+    lily_method_val *m = emit->top_method;
     int opcode;
 
     if (cls->id == SYM_CLASS_OBJECT)
@@ -870,7 +865,7 @@ lily_storage *try_find_storage_by_sig(lily_emit_state *emit, lily_sig *sig)
    ast type. */
 static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_method_val *m = emit->target;
+    lily_method_val *m = emit->top_method;
 
     if (ast->tree_type == tree_call) {
         int expect_size, i, is_method, num_local_saves, num_saves;
@@ -938,7 +933,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                 num_local_saves = emit->symtab->var_top->id -
                     emit->method_id_offsets[emit->method_pos-1];
                 num_saves += num_local_saves;
-                local_var = emit->method_targets[emit->method_pos-1]->next;
+                local_var = emit->method_vars[emit->method_pos-1]->next;
             }
             else
                 num_local_saves = 0;
@@ -1240,7 +1235,7 @@ void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
 void lily_emit_change_if_branch(lily_emit_state *emit, int have_else)
 {
     int save_jump;
-    lily_method_val *m = emit->target;
+    lily_method_val *m = emit->top_method;
     lily_var *v = emit->block_var_starts[emit->block_pos-1];
 
     if (emit->block_pos == 1) {
@@ -1317,7 +1312,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         emit->block_var_starts[emit->block_pos] = emit->symtab->var_top;
     }
     else if (block_type == BLOCK_METHOD) {
-        lily_var *v = emit->method_targets[emit->method_pos-1];
+        lily_var *v = emit->method_vars[emit->method_pos-1];
         emit->block_var_starts[emit->block_pos] = v;
     }
 
@@ -1346,10 +1341,10 @@ void lily_emit_leave_block(lily_emit_state *emit)
         int from, to, pos;
         from = emit->patch_pos-1;
         to = emit->ctrl_patch_starts[emit->ctrl_patch_pos];
-        pos = emit->target->pos;
+        pos = emit->top_method->pos;
 
         for (;from >= to;from--)
-            emit->target->code[emit->patches[from]] = pos;
+            emit->top_method->code[emit->patches[from]] = pos;
 
         /* Use the space for new patches now. */
         emit->patch_pos = to;
@@ -1373,42 +1368,31 @@ void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
 {
     if (emit->method_pos == emit->method_size) {
         emit->method_size *= 2;
-        lily_method_val **new_vals = lily_realloc(emit->method_vals,
-            sizeof(lily_method_val *) * emit->method_size);
-        lily_sig **new_rets = lily_realloc(emit->method_rets,
-            sizeof(lily_sig *) * emit->method_size);
-        lily_var **new_targets = lily_realloc(emit->method_targets,
+        lily_var **new_vars = lily_realloc(emit->method_vars,
             sizeof(lily_var *) * emit->method_size);
         int *new_offsets = lily_realloc(emit->method_id_offsets,
             sizeof(int) * emit->method_size);
 
-        if (new_vals == NULL || new_rets == NULL || new_targets == NULL ||
-            new_offsets == NULL) {
-            if (new_vals != NULL)
-                emit->method_vals = new_vals;
-            if (new_rets != NULL)
-                emit->method_rets = new_rets;
-            if (new_targets != NULL)
-                emit->method_targets = new_targets;
+        if (new_vars == NULL || new_offsets == NULL) {
+            if (new_vars != NULL)
+                emit->method_vars = new_vars;
             if (new_offsets != NULL)
                 emit->method_id_offsets = new_offsets;
 
             lily_raise_nomem(emit->raiser);
         }
 
-        emit->method_vals = new_vals;
-        emit->method_rets = new_rets;
-        emit->method_targets = new_targets;
+        emit->method_vars = new_vars;
         emit->method_id_offsets = new_offsets;
     }
 
-    emit->target = var->value.method;
-    emit->method_rets[emit->method_pos] = var->sig->node.call->ret;
-    emit->method_vals[emit->method_pos] = emit->target;
-    emit->method_targets[emit->method_pos] = var;
+    emit->top_method = var->value.method;
+    emit->top_var = var;
+    emit->top_method_ret = var->sig->node.call->ret;
+
+    emit->method_vars[emit->method_pos] = var;
     emit->method_id_offsets[emit->method_pos] = var->id;
     emit->method_pos++;
-    emit->target_ret = var->sig->node.call->ret;
     lily_emit_enter_block(emit, BLOCK_METHOD);
 }
 
@@ -1419,12 +1403,16 @@ void lily_emit_leave_method(lily_emit_state *emit)
 {
     /* If the method returns nil, write an implicit 'return' at the end of it.
        It's easiest to just blindly write it. */
-    if (emit->target_ret == NULL)
+    if (emit->top_method_ret == NULL)
         lily_emit_return_noval(emit);
 
     emit->method_pos--;
-    emit->target = emit->method_vals[emit->method_pos-1];
-    emit->target_ret = emit->method_rets[emit->method_pos-1];
+    /* The stack is ahead, so use pos-1 to get the correct method. */
+    lily_var *v = emit->method_vars[emit->method_pos-1];
+
+    emit->top_method = v->value.method;
+    emit->top_var = v;
+    emit->top_method_ret = v->sig->node.call->ret;
 }
 
 /* lily_emit_return
@@ -1450,7 +1438,7 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
         lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
     }
 
-    lily_method_val *m = emit->target;
+    lily_method_val *m = emit->top_method;
     WRITE_2(o_return_val, (uintptr_t)ast->result)
 }
 
@@ -1459,7 +1447,7 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
    a value to the caller. */
 void lily_emit_return_noval(lily_emit_state *emit)
 {
-    lily_method_val *m = emit->target;
+    lily_method_val *m = emit->top_method;
     WRITE_1(o_return_noval)
 }
 
@@ -1467,7 +1455,7 @@ void lily_emit_return_noval(lily_emit_state *emit)
    This writes the o_vm_return opcode at the end of the @main method. */
 void lily_emit_vm_return(lily_emit_state *emit)
 {
-    lily_method_val *m = emit->target;
+    lily_method_val *m = emit->top_method;
     WRITE_1(o_vm_return)
 }
 
@@ -1475,5 +1463,5 @@ void lily_emit_vm_return(lily_emit_state *emit)
    This resets the code position of @main, so it can receive new code. */
 void lily_reset_main(lily_emit_state *emit)
 {
-    ((lily_method_val *)emit->target)->pos = 0;
+    ((lily_method_val *)emit->top_method)->pos = 0;
 }
