@@ -886,7 +886,7 @@ lily_literal *lily_new_literal(lily_symtab *symtab, lily_class *cls,
    This function will take the vars from 'start' forward, and put them in the
    symtab's list of old vars. This is called by emitter when a if/elif/else/etc.
    block closes so that the symtab won't find them anymore. */
-int lily_drop_block_vars(lily_symtab *symtab, lily_var *start)
+void lily_drop_block_vars(lily_symtab *symtab, lily_var *start)
 {
     if (symtab->old_var_start == NULL)
         /* This becomes the list of vars. */
@@ -895,13 +895,11 @@ int lily_drop_block_vars(lily_symtab *symtab, lily_var *start)
         /* Since there's a list of old vars, add the first to the end. */
         symtab->old_var_top->next = start->next;
 
-    int ret = symtab->var_top->id - start->id;
     /* Put this at the end again, so new vars aren't lost. */
     symtab->old_var_top = symtab->var_top;
     symtab->var_top = start;
     /* Detach old and new vars. */
     start->next = NULL;
-    return ret;
 }
 
 /* lily_sigequal

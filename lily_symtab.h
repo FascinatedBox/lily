@@ -52,7 +52,7 @@ void lily_deref_str_val(lily_str_val *);
 void lily_deref_object_val(lily_object_val *);
 void lily_deref_list_val(lily_sig *, lily_list_val *);
 void lily_deref_unknown_val(lily_sig *, lily_value);
-int lily_drop_block_vars(lily_symtab *, lily_var *);
+void lily_drop_block_vars(lily_symtab *, lily_var *);
 int lily_sigequal(lily_sig *, lily_sig *);
 void lily_add_sig_to_msgbuf(lily_msgbuf *, lily_sig *);
 
