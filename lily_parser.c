@@ -281,6 +281,8 @@ static void collect_simple(lily_parse_state *parser, lily_class *cls,
             lily_raise_nomem(parser->raiser);
 
         cls->sig->refcount++;
+        if (parser->emit->method_pos > 1)
+            lily_emit_add_save_var(parser->emit, var);
     }
 }
 
@@ -312,6 +314,12 @@ static void collect_call(lily_parse_state *parser, int flags)
             lily_raise_nomem(parser->raiser);
 
         method_sig->refcount++;
+        if ((flags & CV_TOPLEVEL) == 0)
+            /* Not toplevel, so it must be an arg. */
+            lily_emit_add_save_var(parser->emit, method_var);
+        else
+            /* Toplevel, so enter it. */
+            lily_emit_enter_method(parser->emit, method_var);
     }
     /* else it doesn't have a name, so nothing to do here. */
 
@@ -355,6 +363,8 @@ static void collect_call(lily_parse_state *parser, int flags)
         method_sig->node.call->ret = parser->sig_stack[ssp-1];
         parser->sig_stack_pos--;
     }
+
+    lily_emit_update_return(parser->emit);
 }
 
 /* collect_list
@@ -392,6 +402,8 @@ static void collect_list(lily_parse_state *parser, int flags)
         if (var == NULL)
             lily_raise_nomem(parser->raiser);
         list_sig->refcount++;
+        if (parser->emit->method_pos > 1)
+            lily_emit_add_save_var(parser->emit, var);
     }
     list_sig->node.value_sig = parser->sig_stack[parser->sig_stack_pos-1];
     parser->sig_stack[parser->sig_stack_pos-1] = list_sig;
@@ -781,6 +793,8 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
             lily_raise_nomem(parser->raiser);
 
         sig->refcount++;
+        if (parser->emit->method_pos > 1)
+            lily_emit_add_save_var(parser->emit, var);
 
         lily_lexer(parser->lex);
         /* Handle an initializing assignment, if there is one. */
@@ -942,12 +956,9 @@ static void statement(lily_parse_state *parser)
 
         if (lclass != NULL) {
             if (lclass->id == SYM_CLASS_METHOD) {
-                lily_var *save_var = parser->symtab->var_top;
+                /* This will enter the method since the method is toplevel. */
                 collect_var_sig(parser, CV_ONCE | CV_TOPLEVEL | CV_MAKE_VARS);
                 NEED_NEXT_TOK(tk_left_curly)
-                /* A value is being made for this method, so it's not nil. */
-                save_var->next->flags &= ~S_IS_NIL;
-                lily_emit_enter_method(parser->emit, save_var->next);
                 lily_lexer(lex);
                 lily_deref_sig(parser->sig_stack[parser->sig_stack_pos-1]);
                 parser->sig_stack_pos--;

@@ -14,6 +14,7 @@ typedef struct {
     int ctrl_patch_size;
 
     int *block_types;
+    int *block_save_starts;
     lily_var **block_var_starts;
     int block_pos;
     int block_size;
@@ -44,6 +45,7 @@ typedef struct {
 # define BLOCK_ANDOR  0x04
 # define BLOCK_METHOD 0x10
 
+void lily_emit_add_save_var(lily_emit_state *, lily_var *);
 void lily_emit_ast(lily_emit_state *, lily_ast *);
 void lily_emit_conditional(lily_emit_state *, lily_ast *);
 void lily_emit_enter_method(lily_emit_state *, lily_var *);
@@ -53,6 +55,7 @@ void lily_emit_enter_block(lily_emit_state *, int);
 void lily_emit_leave_block(lily_emit_state *);
 void lily_emit_return(lily_emit_state *, lily_ast *, lily_sig *);
 void lily_emit_return_noval(lily_emit_state *);
+void lily_emit_update_return(lily_emit_state *);
 void lily_emit_vm_return(lily_emit_state *);
 void lily_free_emit_state(lily_emit_state *);
 void lily_reset_main(lily_emit_state *);

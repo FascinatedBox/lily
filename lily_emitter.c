@@ -120,15 +120,15 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
     s->patches = lily_malloc(sizeof(int) * 4);
     s->ctrl_patch_starts = lily_malloc(sizeof(int) * 4);
     s->block_var_starts = lily_malloc(sizeof(lily_var *) * 4);
+    s->block_save_starts = lily_malloc(sizeof(int) * 4);
     s->block_types = lily_malloc(sizeof(int) * 4);
     s->method_vars = lily_malloc(sizeof(lily_var *) * 4);
-    s->method_id_offsets = lily_malloc(sizeof(int) * 4);
     s->save_cache = lily_malloc(sizeof(uintptr_t) * 4);
     s->storage_cache = lily_malloc(sizeof(lily_storage *) * 4);
 
     if (s->patches == NULL || s->ctrl_patch_starts == NULL ||
-        s->block_var_starts == NULL || s->block_types == NULL ||
-        s->method_vars == NULL || s->method_id_offsets == NULL ||
+        s->block_var_starts == NULL || s->block_save_starts == NULL ||
+        s->block_types == NULL || s->method_vars == NULL ||
         s->save_cache == NULL || s->storage_cache == NULL) {
         lily_free_emit_state(s);
         return NULL;
@@ -159,9 +159,9 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free(emit->patches);
     lily_free(emit->ctrl_patch_starts);
     lily_free(emit->block_var_starts);
+    lily_free(emit->block_save_starts);
     lily_free(emit->block_types);
     lily_free(emit->method_vars);
-    lily_free(emit->method_id_offsets);
     lily_free(emit->save_cache);
     lily_free(emit);
 }
@@ -868,11 +868,10 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
     lily_method_val *m = emit->top_method;
 
     if (ast->tree_type == tree_call) {
-        int expect_size, i, is_method, num_local_saves, num_saves;
+        int expect_size, i, is_method, save_start;
         lily_ast *arg;
         lily_call_sig *csig;
         lily_sym *call_sym;
-        lily_var *local_var;
 
         if (ast->result == NULL) {
             /* This occurs when the method is obtained in some indirect way,
@@ -898,22 +897,16 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         is_method = (call_sym->sig->cls->id == SYM_CLASS_METHOD);
         expect_size = 5 + ast->args_collected;
 
-        if (!is_method) {
-            int cache_start = emit->save_cache_pos;
-            check_call_args(emit, ast, csig);
+        /* check_call_args will register each arg to be saved, in case one of
+           the args is a call that would modify previous storages. However, once
+           those inner calls are done, the storages of the args do not need to
+           be saved. This ensures that storages don't get saved (which is
+           pointless). */
+        save_start = emit->save_cache_pos;
+        check_call_args(emit, ast, csig);
+        emit->save_cache_pos = save_start;
 
-            /* For functions, the args are pushed to be saved in case one of
-               them is a method (which will drain the cache). If there were no
-               methods, then remove all of the function's args, since they won't
-               need saving. */
-            if (emit->save_cache_pos > cache_start)
-                emit->save_cache_pos = cache_start;
-
-            num_saves = 0;
-        }
-        else {
-            check_call_args(emit, ast, csig);
-
+        if (is_method) {
             if (ast->parent != NULL && ast->parent->tree_type == tree_binary &&
                 ast->parent->right == ast &&
                 ast->parent->left->tree_type != tree_var) {
@@ -927,44 +920,24 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                 emit->save_cache_pos++;
             }
 
-            num_saves = emit->save_cache_pos;
-            /* Do not save @main's "local's" (they're globals). */
-            if (emit->method_pos > 1) {
-                num_local_saves = emit->symtab->var_top->id -
-                    emit->method_id_offsets[emit->method_pos-1];
-                num_saves += num_local_saves;
-                local_var = emit->method_vars[emit->method_pos-1]->next;
-            }
-            else
-                num_local_saves = 0;
-
             /* o_save needs 2 + #saves, o_restore needs a flat 2. */
-            if (num_saves)
-                expect_size += num_saves + 4;
+            if (emit->save_cache_pos)
+                expect_size += emit->save_cache_pos + 4;
         }
 
         WRITE_PREP_LARGE(expect_size)
 
-        if (num_saves) {
+        /* Note that parser doesn't register vars in @main, so a method called
+           from @main would never save anything. */
+        if (is_method && emit->save_cache_pos) {
             m->code[m->pos] = o_save;
-            m->code[m->pos+1] = num_saves;
+            m->code[m->pos+1] = emit->save_cache_pos;
             m->pos += 2;
 
-            if (emit->save_cache_pos) {
-                memcpy(m->code + m->pos, emit->save_cache,
-                       emit->save_cache_pos * sizeof(uintptr_t));
+            memcpy(m->code + m->pos, emit->save_cache,
+                   emit->save_cache_pos * sizeof(uintptr_t));
 
-                m->pos += emit->save_cache_pos;
-                emit->save_cache_pos = 0;
-            }
-            if (num_local_saves) {
-                for (i = 0;i < num_local_saves;i++) {
-                    m->code[m->pos+i] = (uintptr_t)local_var;
-                    local_var = local_var->next;
-                }
-
-                m->pos += num_local_saves;
-            }
+            m->pos += emit->save_cache_pos;
         } 
 
         if (is_method)
@@ -1002,10 +975,11 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         m->code[m->pos+4] = (uintptr_t)ast->result;
         m->pos += 5 + ast->args_collected;
 
-        if (num_saves) {
+        if (is_method && emit->save_cache_pos) {
             m->code[m->pos] = o_restore;
-            m->code[m->pos+1] = num_saves;
+            m->code[m->pos+1] = emit->save_cache_pos;
             m->pos += 2;
+            emit->save_cache_pos = save_start;
         }
     }
     else if (ast->tree_type == tree_binary) {
@@ -1197,6 +1171,16 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
 
 /** Emitter API functions **/
 
+/* lily_emit_add_save_var
+   This tells the emitter to add a new var to the save cache. This is used to
+   keep track of what vars should be saved. */
+void lily_emit_add_save_var(lily_emit_state *emit, lily_var *v)
+{
+    SAVE_PREP(1)
+    emit->save_cache[emit->save_cache_pos] = (uintptr_t)v;
+    emit->save_cache_pos++;
+}
+
 /* lily_emit_ast
    API function to call walk_tree on an ast and increment the expr_num of the
    emitter. */
@@ -1256,8 +1240,8 @@ void lily_emit_change_if_branch(lily_emit_state *emit, int have_else)
                    "'elif' after 'else'.\n");
 
     if (v->next != NULL) {
-        int offset_add = lily_drop_block_vars(emit->symtab, v);
-        emit->method_id_offsets[emit->method_pos-1] += offset_add;
+        lily_drop_block_vars(emit->symtab, v);
+        emit->save_cache_pos = emit->block_save_starts[emit->block_pos-1];
     }
 
     /* Write an exit jump for this branch, thereby completing the branch. */
@@ -1283,17 +1267,24 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
             sizeof(int) * emit->block_size);
         lily_var **new_var_starts = lily_realloc(emit->block_var_starts,
             sizeof(lily_var *) * emit->block_size);
+        int *new_save_starts = lily_realloc(emit->block_save_starts,
+            sizeof(int) * emit->block_size);
 
-        if (new_types == NULL || new_var_starts == NULL) {
+        if (new_types == NULL || new_var_starts == NULL ||
+            new_save_starts == NULL) {
             if (new_types != NULL)
                 emit->block_types = new_types;
             if (new_var_starts != NULL)
                 emit->block_var_starts = new_var_starts;
+            if (new_save_starts != NULL)
+                emit->block_save_starts = new_save_starts;
 
             lily_raise_nomem(emit->raiser);
         }
+
         emit->block_types = new_types;
         emit->block_var_starts = new_var_starts;
+        emit->block_save_starts = new_save_starts;
     }
 
     if (block_type == BLOCK_IF || block_type == BLOCK_ANDOR) {
@@ -1316,6 +1307,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         emit->block_var_starts[emit->block_pos] = v;
     }
 
+    emit->block_save_starts[emit->block_pos] = emit->save_cache_pos;
     emit->block_types[emit->block_pos] = block_type;
     emit->block_pos++;
 }
@@ -1352,13 +1344,9 @@ void lily_emit_leave_block(lily_emit_state *emit)
     else
         lily_emit_leave_method(emit);
 
-    /* This is done after a method leaves, so that the offset gets added into
-       the outer method. Otherwise, if a method declares a variable after the
-       inner method is done, then saves will be wrong from then on. */
     if (v->next != NULL) {
-        int offset_add;
-        offset_add = lily_drop_block_vars(emit->symtab, v);
-        emit->method_id_offsets[emit->method_pos-1] += offset_add;
+        lily_drop_block_vars(emit->symtab, v);
+        emit->save_cache_pos = emit->block_save_starts[emit->block_pos];
     }
 }
 
@@ -1370,30 +1358,30 @@ void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
         emit->method_size *= 2;
         lily_var **new_vars = lily_realloc(emit->method_vars,
             sizeof(lily_var *) * emit->method_size);
-        int *new_offsets = lily_realloc(emit->method_id_offsets,
-            sizeof(int) * emit->method_size);
 
-        if (new_vars == NULL || new_offsets == NULL) {
-            if (new_vars != NULL)
-                emit->method_vars = new_vars;
-            if (new_offsets != NULL)
-                emit->method_id_offsets = new_offsets;
-
+        if (new_vars == NULL)
             lily_raise_nomem(emit->raiser);
-        }
 
         emit->method_vars = new_vars;
-        emit->method_id_offsets = new_offsets;
     }
 
     emit->top_method = var->value.method;
     emit->top_var = var;
-    emit->top_method_ret = var->sig->node.call->ret;
+    /* This is called before the args and return are collected, so don't try to
+       set the return. It will work, but only because methods default to nil for
+       their returns (NULL here). */
 
     emit->method_vars[emit->method_pos] = var;
-    emit->method_id_offsets[emit->method_pos] = var->id;
     emit->method_pos++;
     lily_emit_enter_block(emit, BLOCK_METHOD);
+}
+
+/* lily_emit_update_return
+   This is to be called after lily_emit_enter_method once the return value of
+   the method is known. */
+void lily_emit_update_return(lily_emit_state *emit)
+{
+    emit->top_method_ret = emit->top_var->sig->node.call->ret;
 }
 
 /* lily_emit_leave_method
