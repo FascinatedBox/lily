@@ -420,32 +420,24 @@ static void emit_logical_op(lily_emit_state *emit, lily_ast *ast)
 
     jump_on = (ast->op == expr_logical_or);
 
-    /* The first tree must create the block, so that subsequent trees have a
-       place to write the patches to. */
-    if (ast->parent == NULL || 
-        (ast->parent->tree_type == tree_binary && ast->parent->op != ast->op)) {
+    /* The top-most and/or creates an ANDOR block so that all of the jumps that
+       get written can be properly folded. */
+    if (ast->parent == NULL ||
+        (ast->parent->tree_type != tree_binary || ast->parent->op != ast->op)) {
         is_top = 1;
         lily_emit_enter_block(emit, BLOCK_ANDOR);
     }
     else
         is_top = 0;
 
-    /* The bottom tree is responsible for getting the storage. */
-    if (ast->left->tree_type != tree_binary || ast->left->op != ast->op) {
-        result = storage_for_class(emit,
-            lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER));
-
-        if (ast->left->tree_type != tree_var)
-            walk_tree(emit, ast->left);
-
-        emit_jump_if(emit, ast->left, jump_on);
-    }
-    else {
-        /* and/or do not require emit_jump_if, because that would be a
-           double-check! */
+    if (ast->left->tree_type != tree_var)
         walk_tree(emit, ast->left);
-        result = (lily_storage *)ast->left->result;
-    }
+
+    /* If the left is the same as this tree, then it's already checked itself
+       and doesn't need a retest. However, and/or are opposites, so they have
+       to check each other (so the op has to be exactly the same). */
+    if ((ast->left->tree_type == tree_binary && ast->left->op == ast->op) == 0)
+        emit_jump_if(emit, ast->left, jump_on);
 
     if (ast->right->tree_type != tree_var)
         walk_tree(emit, ast->right);
@@ -456,6 +448,8 @@ static void emit_logical_op(lily_emit_state *emit, lily_ast *ast)
         /* The symtab adds literals 0 and 1 in that order during its init. */
         int save_pos;
         lily_literal *success, *failure;
+        lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
+        result = storage_for_class(emit, cls);
 
         success = symtab->lit_start;
         if (ast->op == expr_logical_or)
@@ -469,6 +463,7 @@ static void emit_logical_op(lily_emit_state *emit, lily_ast *ast)
                 ast->line_num,
                 (uintptr_t)result,
                 (uintptr_t)success);
+
         WRITE_2(o_jump, 0);
         save_pos = m->pos-1;
 
@@ -479,9 +474,14 @@ static void emit_logical_op(lily_emit_state *emit, lily_ast *ast)
                 (uintptr_t)failure);
 
         m->code[save_pos] = m->pos;
+        ast->result = (lily_sym *)result;
     }
-
-    ast->result = (lily_sym *)result;
+    else
+        /* If is_top is false, then this tree has a parent that's binary and
+           has the same op. The parent won't write a jump_if for this tree,
+           because that would be a double-test.
+           Setting this to NULL anyway as a precaution. */
+        ast->result = NULL;
 }
 
 /* emit_sub_assign
