@@ -31,7 +31,6 @@ typedef struct {
     lily_method_val *top_method;
     lily_sig *top_method_ret;
     lily_var **method_vars;
-    int *method_id_offsets;
     int method_pos;
     int method_size;
 

@@ -926,7 +926,8 @@ int lily_sigequal(lily_sig *lhs, lily_sig *rhs)
                 lily_call_sig *rhs_csig = rhs->node.call;
                 int lhs_num_args = lhs_csig->num_args;
 
-                if (lhs_num_args != rhs_csig->num_args)
+                if (lhs_num_args != rhs_csig->num_args ||
+                    lhs_csig->is_varargs != rhs_csig->is_varargs)
                     ret = 0;
                 else {
                     if (lhs_csig->ret != rhs_csig->ret &&
