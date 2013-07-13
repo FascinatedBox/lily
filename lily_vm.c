@@ -957,6 +957,12 @@ void lily_vm_execute(lily_vm_state *vm)
                             if (oval->sig->cls->is_refcounted)
                                 oval->value.generic->refcount++;
 
+                            /* This is an object, so the sig was ref'd when it
+                               came in (and needs to be dropped). Don't drop the
+                               value though, since some other sym is probably
+                               using it. */
+                            lily_deref_sig(result->value.object->sig);
+
                             result->value.object->value = oval->value;
                             result->value.object->sig = oval->sig;
 
