@@ -790,6 +790,47 @@ method test_circular_ref_checks():nil
     print("ok.\n")
 }
 
+method test_method_varargs():nil
+{
+    printfmt("#%i: Testing method varargs...", test_id)
+    test_id = test_id + 1
+
+    # Method varargs must always be a list. Any extra args are packed into a
+    # list for methods (instead of flattened like for functions).
+    # The type that must be passed is the type of the list. So this first method
+    # will take any extra integers and pack them into a list.
+    method va_1(list[integer] abc...):nil {    }
+
+    # Since this one takes objects, any extra args also get converted to objects
+    # as needed. The list part of that isn't tested yet, because there is no
+    # list comparison utility.
+    method va_2(str format, list[object] args...):integer {
+        integer ok
+        # This next statement helped to uncover about 3 bugs. Leave it be.
+        if @(integer: args[0]) == 1 &&
+           @(number: args[1]) == 1.1 &&
+           @(str: args[2]) == "1":
+            ok = 1
+        else:
+            ok = 0
+
+        return 1
+    }
+    method va_3(integer abc, list[list[integer]] args...):nil {    }
+
+    object o = va_2
+    # Check it with a typecast too.
+    integer vx = @(method(str, list[object] ...):integer: o)("abc", 1, 1.1, "1")
+
+    list[method(str, list[object] ...):integer] lmtd = [va_2, va_2, va_2]
+
+    va_1(1,2,3,4,5)
+    va_2("abc", 1, 1.1, "1", [1])
+    va_3(1, [1], [2], [3])
+
+    print("ok.\n")
+}
+
 test_basic_assignments()
 test_jumps()
 test_manyargs(1,2,3,4,5,6)
@@ -812,6 +853,7 @@ test_complex_sigs()
 test_typecasts()
 test_list_autocast()
 test_circular_ref_checks()
+test_method_varargs()
 
 test_id = test_id - 1
 

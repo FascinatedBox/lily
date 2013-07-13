@@ -224,16 +224,15 @@ static int sigcast(lily_emit_state *emit, lily_ast *lhs_ast, lily_sig *rhs)
 
 /** Error helpers **/
 static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
-    lily_sig *got, int arg_num)
+    lily_sig *got, lily_sig *expected, int arg_num)
 {
     lily_var *v = (lily_var *)ast->result;
-    lily_call_sig *csig = v->sig->node.call;
 
     lily_msgbuf *mb = lily_new_msgbuf(v->name);
     lily_msgbuf_add(mb, " arg #");
     lily_msgbuf_add_int(mb, arg_num);
     lily_msgbuf_add(mb, " expects type '");
-    lily_msgbuf_add_sig(mb, csig->args[arg_num]);
+    lily_msgbuf_add_sig(mb, expected);
     lily_msgbuf_add(mb, "' but got type '");
     lily_msgbuf_add_sig(mb, got);
     lily_msgbuf_add(mb, "'.\n");
@@ -658,15 +657,17 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     /* Ast doesn't check the call args. It can't check types, so why do only
        half of the validation? */
     have_args = ast->args_collected;
-    num_args = csig->num_args;
     is_varargs = csig->is_varargs;
+    /* Take the last arg off of the arg count. This will be verified using the
+       var arg signature. */
+    num_args = csig->num_args - is_varargs;
 
-    if (have_args != num_args &&
-        ((have_args > num_args) && is_varargs) == 0) {
+    if ((is_varargs && (have_args <= num_args)) ||
+        (is_varargs == 0 && (have_args != num_args)))
         bad_num_args(emit, ast, csig);
-    }
 
-    SAVE_PREP(num_args)
+    /* Important! num_args was dropped, so this is the true count. */
+    SAVE_PREP(csig->num_args)
     for (i = 0;i != num_args;arg = arg->next_arg, i++) {
         if (arg->tree_type != tree_var) {
             /* Walk the subexpressions so the result gets calculated. */
@@ -679,16 +680,24 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
 
         if (!lily_sigequal(arg->result->sig, csig->args[i])) {
             if (!sigcast(emit, arg, csig->args[i]))
-                bad_arg_error(emit, ast, arg->result->sig, i);
+                bad_arg_error(emit, ast, arg->result->sig, csig->args[i], i);
         }
     }
 
     if (is_varargs) {
-        /* Remember that the above finishes with i == num_args, and the
-           args are 0-based. So fix i. */
-        i--;
-        int j = 0;
-        for (;arg != NULL;arg = arg->next_arg, j++) {
+        int is_method = (ast->result->sig->cls->id == SYM_CLASS_METHOD);
+        lily_sig *va_comp_sig = csig->args[i];
+        lily_ast *save_arg = arg;
+        lily_sig *save_sig;
+
+        /* Methods handle var-args by shoving them into a list so that they can
+           have a name. So the extra args need to verify against that type. */
+        if (is_method) {
+            save_sig = va_comp_sig;
+            va_comp_sig = va_comp_sig->node.value_sig;
+        }
+
+        for (;arg != NULL;arg = arg->next_arg) {
             if (arg->tree_type != tree_var) {
                 /* Walk the subexpressions so the result gets calculated. */
                 walk_tree(emit, arg);
@@ -697,11 +706,40 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                     emit->save_cache_pos++;
                 }
             }
-
-            if (!lily_sigequal(arg->result->sig, csig->args[i])) {
-                if (!sigcast(emit, arg, csig->args[i]))
-                    bad_arg_error(emit, ast, arg->result->sig, i);
+            if (!lily_sigequal(arg->result->sig, va_comp_sig)) {
+                if (!sigcast(emit, arg, va_comp_sig))
+                    bad_arg_error(emit, ast, arg->result->sig, va_comp_sig, i);
             }
+        }
+
+        i = (have_args - i);
+        if (is_method) {
+            lily_storage *s;
+            save_sig->refcount++;
+            s = try_find_storage_by_sig(emit, save_sig);
+            if (s == NULL) {
+                emit->raiser->line_adjust = ast->line_num;
+                lily_raise_nomem(emit->raiser);
+            }
+
+            arg = save_arg;
+            lily_method_val *m = emit->top_method;
+            int j = 0;
+            /* This -must- be a large prep, because it could be a very big
+               var arg call at the start of a method. */
+            WRITE_PREP_LARGE(i + 5)
+            m->code[m->pos] = o_build_list;
+            m->code[m->pos+1] = ast->line_num;
+            m->code[m->pos+2] = (uintptr_t)s;
+            m->code[m->pos+3] = i;
+            m->code[m->pos+4] = (uintptr_t)va_comp_sig;
+            for (j = 5;arg != NULL;arg = arg->next_arg, j++)
+                m->code[m->pos+j] = (uintptr_t)arg->result;
+
+            m->pos += j;
+            save_arg->result = (lily_sym *)s;
+            save_arg->next_arg = NULL;
+            ast->args_collected = num_args + 1;
         }
     }
 }

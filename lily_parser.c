@@ -117,6 +117,7 @@ static const int is_start_val[] = {
     0,
     0,
     0,
+    0,
     0
 };
 
@@ -153,6 +154,7 @@ static const int bin_op_for_token[] = {
     expr_logical_and,
     -1,
     expr_logical_or,
+    -1,
     -1,
     -1,
     -1,
@@ -354,6 +356,22 @@ static void collect_call(lily_parse_state *parser, int flags)
         method_sig->node.call->num_args = num_args;
         method_sig->node.call->args = args;
         parser->sig_stack_pos = save_pos;
+        /* If ... is at the end, then the call is varargs (and the last sig is
+           the sig that will use them). */
+        if (lex->token == tk_three_dots) {
+            fprintf(stderr, "have the dots...\n");
+            if (num_args == 0)
+                lily_raise(parser->raiser, lily_ErrSyntax,
+                           "Unexpected token %s.\n", tokname(lex->token));
+
+            if (args[i-1]->cls->id != SYM_CLASS_LIST) {
+                lily_raise(parser->raiser, lily_ErrSyntax,
+                        "A list is required for variable arguments (...).\n");
+            }
+
+            method_sig->node.call->is_varargs = 1;
+            NEED_NEXT_TOK(tk_right_parenth)
+        }
     }
     NEED_NEXT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_word)
