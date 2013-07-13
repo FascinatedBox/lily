@@ -459,16 +459,11 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
         new_prio = new_ast->priority;
         active_prio = active->priority;
         if (new_prio > active_prio) {
-            /* The new tree goes before the current one. It becomes the
-               active, but not the root. */
+            /* The new tree goes before the current one, so it steals the rhs
+               and becomes it (because lower trees have precedence). Since the
+               new tree still needs a right, it becomes current. */
             new_ast->left = active->right;
-            if (active->left->tree_type == tree_binary &&
-                active->priority < new_prio) {
-                active->right = active->left;
-                active->left = new_ast;
-            }
-            else
-                active->right = new_ast;
+            active->right = new_ast;
 
             new_ast->parent = active;
             ap->active = new_ast;
