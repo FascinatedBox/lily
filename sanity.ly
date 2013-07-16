@@ -831,6 +831,99 @@ method test_method_varargs():nil
     print("ok.\n")
 }
 
+method test_multiline_strs():nil
+{
+    printfmt("#%i: Testing multiline strings...(sub tests follow).", test_id)
+    test_id = test_id + 1
+    integer ok = 1
+
+    # Ensure that the text is being collected the same in multi-line as it is
+    # for single-line.
+
+    # Empty strs
+    print("\n     \"\" == \"\"\"\"\"\"...")
+    if "" == """""": {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    # Single-line, no escape
+    print("     \"abc\" == \"\"\"abc\"\"\"...")
+    if "abc" == """abc""": {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    # Single-line, start with escape
+    print("     \"\\aabc\" == \"\"\"\\aabc\"\"\"...")
+    if "\aabc" == """\aabc""": {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    # Single-line, escape in middle
+    print("     \"abc\\adef\" == \"\"\"abc\\adef\"\"\"...")
+    if "abc\adef" == """abc\adef""": {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    # Single-line, escape at end
+    print("     \"abcdef\\a\" == \"\"\"abcdef\\a\"\"\"...")
+    if "abcdef\a" == """abcdef\a""": {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    # Single-line, escape at start+mid
+    print("     \"\\aabc\\adef\" == \"\"\"\\aabc\\adef\"\"\"...")
+    if "\aabc\adef" == """\aabc\adef""": {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    # Single-line, escape at start+end
+    print("     \"\\aabcdef\\a\" == \"\"\"\\aabcdef\\a\"\"\"...")
+    if "\aabcdef\a" == """\aabcdef\a""": {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    # Single-line, escape at mid+end
+    print("     \"abc\\adef\\a\" == \"\"\"abc\\adef\\a\"\"\"...")
+    if "abc\adef\a" == """abc\adef\a""": {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    # Finish off with some multiline strings with escapes in interesting areas:
+    str s1 = """abc\n
+"""
+    str s2 = """abc\n
+\n"""
+    str s3 = """\aabc\a
+\aabc\a"""
+
+    if ok == 0:
+        fail_count = fail_count + 1
+}
+
 test_basic_assignments()
 test_jumps()
 test_manyargs(1,2,3,4,5,6)
@@ -854,6 +947,7 @@ test_typecasts()
 test_list_autocast()
 test_circular_ref_checks()
 test_method_varargs()
+test_multiline_strs()
 
 test_id = test_id - 1
 

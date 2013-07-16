@@ -147,10 +147,11 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
 
     s->lex_buffer = lily_malloc(128 * sizeof(char));
     s->lex_bufpos = 0;
-    s->lex_bufsize = 127;
+    s->lex_bufsize = 128;
     s->save_buffer = NULL;
 
     s->label = lily_malloc(128 * sizeof(char));
+    s->label_size = 128;
     /* This must start at 0 since the line reader will bump it by one. */
     s->line_num = 0;
 
@@ -259,39 +260,60 @@ static char simple_escape(char ch)
     return ret;
 }
 
+static int read_line(lily_lex_state *);
+
 /* scan_str
    This handles strings for lily_lexer. This updates the position in lex_buffer
    for lily_lexer. */
 static void scan_str(lily_lex_state *lexer, int *pos)
 {
-    char ch, i, esc_ch;
+    char ch, esc_ch;
     char *label, *lex_buffer, *str;
-    int label_pos, escape_seen, str_size, word_start, word_pos;
+    int i, is_multiline, label_pos, escape_this_line, multiline_start, str_size,
+        word_start, word_pos;
     lily_str_val *sv;
 
     lex_buffer = lexer->lex_buffer;
-    escape_seen = 0;
+    label = lexer->label;
+    escape_this_line = 0;
     /* Where to start cutting from. */
     word_start = *pos + 1;
     /* Where to finish cutting from. */
     word_pos = word_start;
 
     ch = lex_buffer[word_pos];
-    while (ch != '"') {
+
+    /* ch is actually the first char after the opening ". */
+    if (ch == '"' && lex_buffer[word_pos+1] == '"') {
+        is_multiline = 1;
+        /* This will be used to print out the line number the str starts on, in
+           case the str reaches EOF. */
+        multiline_start = lexer->line_num;
+        word_start += 2;
+        word_pos += 2;
+        ch = lex_buffer[word_pos];
+    }
+    else
+        is_multiline = 0;
+
+    label_pos = 0;
+    label[0] = '\0';
+
+    while (1) {
         if (ch == '\\') {
-            if (!escape_seen) {
-                label = lexer->label;
-                label[0] = '\0';
-                label_pos = 0;
-                escape_seen = 1;
-            }
             /* For escapes, the non-escape part of the data is copied to the
                label, then the escape value is written in. */
             i = word_pos - word_start;
-            for (;i > 0;i--, word_start++, label_pos++)
-                label[label_pos] = lex_buffer[word_start];
-
+            memcpy(&label[label_pos], &lex_buffer[word_start], i * sizeof(char));
+            label_pos += i;
+            word_start += i;
             word_pos++;
+
+            /* If there was an escape in the line, then the final part of the
+               str after the escape needs to be cut (unless there is nothing
+               after the escape). */
+            escape_this_line = 1;
+
             ch = lex_buffer[word_pos];
             esc_ch = simple_escape(ch);
             if (esc_ch == 0)
@@ -301,22 +323,100 @@ static void scan_str(lily_lex_state *lexer, int *pos)
             label[label_pos] = esc_ch;
             label_pos++;
 
-            /* At this point, word_pos is right on the escape character (n in \n
-               for example). Adjust word_start so that it doesn't include the
-               source escape characters the next time. */
-            word_start = word_pos + 1;
+            /* Add two so it starts off after the escape char the next time. */
+            word_start += 2;
             ch = lex_buffer[word_start];
         }
-        else if (ch == '\r' || ch == '\n')
-            lily_raise(lexer->raiser, lily_ErrSyntax, "Unterminated string.\n");
+        else if (ch == '\n' || ch == '\r') {
+            if (is_multiline) {
+                if (ch == '\r' &&
+                    lexer->lex_bufend != word_pos &&
+                    lex_buffer[word_pos+1] == '\n')
+                        /* Swallow the \r of the \r\n. */
+                        word_pos++;
+
+                /* Swallow the \n or \r. */
+                word_pos++;
+                i = word_pos - word_start;
+                memcpy(&label[label_pos], &lex_buffer[word_start],
+                       (i * sizeof(char)));
+                label_pos += i;
+
+                if (read_line(lexer) == 0) {
+                    lily_raise(lexer->raiser, lily_ErrSyntax,
+                               "Unterminated multi-line string (started at line %d).\n",
+                               multiline_start);
+                }
+                /* read_line may realloc lex_buffer, so it must be set again. */
+                lex_buffer = lexer->lex_buffer;
+                fprintf(stderr, "label pos is %d, lex bufend is %d, (%d), label size is %d.\n",
+                        label_pos, lexer->lex_bufend, (label_pos + lexer->lex_bufend),
+                        lexer->label_size);
+                if ((label_pos + lexer->lex_bufend) >= lexer->label_size) {
+                    /* lex_bufend is at most == label_pos, so a *2 grow will
+                       always solve this. */
+                    int new_label_size = lexer->label_size * 2;
+                    fprintf(stderr, "Growing the lexer's label to %d.\n",new_label_size);
+                    char *new_label;
+                    new_label = lily_realloc(lexer->label,
+                            (new_label_size * sizeof(char)));
+
+                    if (new_label == NULL)
+                        lily_raise_nomem(lexer->raiser);
+
+                    lexer->label = new_label;
+                    lexer->label_size = new_label_size;
+                }
+
+                label = lexer->label;
+                /* Set the buffer again, because read_line may realloc it and
+                   make it be at a different spot. */
+
+                /* This next line doesn't have an escape, so fix that. */
+                escape_this_line = 0;
+                /* Must manually set this + continue, or else the 0th letter
+                   will get skipped. */
+                word_start = 0;
+                word_pos = 0;
+                ch = lex_buffer[word_pos];
+                continue;
+            }
+            else
+                lily_raise(lexer->raiser, lily_ErrSyntax,
+                           "Unterminated string at line %d.\n",
+                           lexer->line_num);
+        }
+        else if (ch == '"') {
+            if (is_multiline == 0)
+                break;
+            else if (ch == '"' &&
+                     lex_buffer[word_pos+1] == '"' &&
+                     lex_buffer[word_pos+2] == '"')
+                break;
+        }
 
         word_pos++;
         ch = lex_buffer[word_pos];
     }
 
-    if (!escape_seen)
-        str_size = word_pos + 1 - word_start;
+    if (!escape_this_line) {
+        /* No escape chars seen, so copy the full string over. */
+        if (is_multiline) {
+            if (word_pos != word_start) {
+                i = word_pos - word_start;
+                memcpy(&label[label_pos], &lex_buffer[word_start], i * sizeof(char));
+                label_pos += i;
+            }
+            /* +1 for terminator. */
+            str_size = label_pos+1;
+
+            word_pos += 2;
+        }
+        else
+            str_size = word_pos + 1 - word_start;
+    }
     else {
+        /* Had escapes, so copy over the last section */
         if (word_pos != word_start) {
             i = word_pos - word_start;
             for (;i > 0;i--,  word_start++, label_pos++)
@@ -325,6 +425,8 @@ static void scan_str(lily_lex_state *lexer, int *pos)
         /* +1 for the terminator. */
         label_pos++;
         str_size = label_pos;
+        if (is_multiline)
+            word_pos += 2;
     }
 
     /* Prepare the string for the parser. */
@@ -337,7 +439,7 @@ static void scan_str(lily_lex_state *lexer, int *pos)
         lily_raise_nomem(lexer->raiser);
     }
 
-    if (!escape_seen)
+    if (!escape_this_line && is_multiline == 0)
         strncpy(str, lex_buffer+word_start, str_size-1);
     else
         strncpy(str, label, label_pos);
@@ -417,24 +519,34 @@ static int read_line(lily_lex_state *lexer)
             break;
         }
 
-        if (i == bufsize - 1) {
-            char *new_lb, *new_label;
+        /* size - 2 is used so that when \r\n that the \n can be safely added
+           to the buffer. Otherwise, it would be size-1. */
+        if (i == bufsize - 2) {
             bufsize *= 2;
+            /* The label buffer is grown when a large multi-line string is
+               collected. Don't resize it if it's bigger than the line buffer.
+               It's important that the label buffer be at least the size of the
+               line buffer at all times, so that lexer's word scanning does not
+               have to check for potential overflows. */
+            if (lexer->label_size == lexer->lex_bufsize) {
+                char *new_label;
+                new_label = lily_realloc(lexer->label, bufsize * sizeof(char));
 
-            new_label = lily_realloc(lexer->label, bufsize * sizeof(char));
+                if (new_label == NULL)
+                    lily_raise_nomem(lexer->raiser);
+
+                lexer->label = new_label;
+                lexer->label_size = bufsize;
+            }
+
+            char *new_lb;
             new_lb = lily_realloc(lexer->lex_buffer, bufsize * sizeof(char));
 
-            /* Realloc may have resized the block, or free'd the old one and
-               returned a new block. This makes sure that things get free'd,
-               regardless. */
-            if (new_label != NULL)
-                lexer->label = new_label;
-            if (new_lb != NULL)
-                lexer->lex_buffer = new_lb;
-
-            if (new_label == NULL || new_lb == NULL)
+            if (new_lb == NULL)
                 lily_raise_nomem(lexer->raiser);
 
+            lexer->lex_buffer = new_lb;
+            lex_buffer = lexer->lex_buffer;
             lexer->lex_bufsize = bufsize;
         }
         lexer->lex_buffer[i] = ch;
@@ -443,6 +555,17 @@ static int read_line(lily_lex_state *lexer)
             lexer->lex_bufend = i;
             lexer->line_num++;
             ok = 1;
+
+            if (ch == '\r') {
+                ch = fgetc(lex_file);
+                if (ch != '\n')
+                    ungetc(ch, lex_file);
+                else {
+                    /* This is safe: See size - 2 comment above. */
+                    lexer->lex_buffer[i+1] = ch;
+                    lexer->lex_bufend++;
+                }
+            }
             break;
         }
         else if (ch > 127) {
