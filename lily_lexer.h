@@ -55,6 +55,7 @@ typedef struct {
     int lex_bufpos;
     int lex_bufend;
     int lex_bufsize;
+    int label_size;
     char *label;
     lily_token token;
     lily_value value;
