@@ -311,7 +311,7 @@ method fib(integer n):integer
     elif n == 1:
         return 1
     else:
-        return fib(n-1) + fib(n-2)
+        return fib(n - 1) + fib(n - 2)
 }
 
 method test_fib():nil
@@ -924,6 +924,160 @@ method test_multiline_strs():nil
         fail_count = fail_count + 1
 }
 
+method test_digit_collection():nil
+{
+    printfmt("#%i: Testing digit collection...(sub tests follow).\n", test_id)
+    test_id = test_id + 1
+    integer ok = 1
+
+    # Integers are 64-bit signed integers. Maximum values are:
+    integer binary_max, binary_min
+    binary_max = +0b111111111111111111111111111111111111111111111111111111111111111
+    binary_min = -0b1000000000000000000000000000000000000000000000000000000000000000
+    integer octal_max   = +0c777777777777777777777
+    integer octal_min   = -0c1000000000000000000000
+    integer decimal_max = +9223372036854775807
+    integer decimal_min = -9223372036854775808
+    integer hex_max     = +0x7fffffffffffffff
+    integer hex_min     = -0x8000000000000000
+
+    # Binary tests
+
+    print("     0b0110 == 6...")
+    if 0b0110 == 6: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    print("     0b000110 == 6...")
+    if 0b000110 == 6: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    print("     binary_max == decimal_max...")
+    if binary_max == decimal_max: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    print("     binary_min == decimal_min...")
+    if binary_min == decimal_min: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    # Octal tests
+
+    print("     0c1234567 == 342391...")
+    if 0c1234567 == 342391: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    print("     octal_max == decimal_max...")
+    if octal_max == decimal_max: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    print("     octal_min == decimal_min...")
+    if octal_min == decimal_min: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    # Hex tests
+
+    print("     0x1234567890 == 78187493520...")
+    if 0x1234567890 == 78187493520: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    print("     0xabcdef == 11259375...")
+    if 0xabcdef == 11259375: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    print("     0xABCDEF == 11259375...")
+    if 0xABCDEF == 11259375: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    print("     hex_max == decimal_max...")
+    if hex_max == decimal_max: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    print("     hex_min == decimal_min...")
+    if hex_min == decimal_min: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    # Finally, some integer exponent tests.
+    print("     1e-1 == 0.1...")
+    if 1e-1 == 0.1: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    print("     1e+1 == 10...")
+    if 1e+1 == 10: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    print("     1e1 == 10...")
+    if 1e1 == 10: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    print("     .1 == 0.1...")
+    if .1 == 0.1: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+}
+
 test_basic_assignments()
 test_jumps()
 test_manyargs(1,2,3,4,5,6)
@@ -948,6 +1102,7 @@ test_list_autocast()
 test_circular_ref_checks()
 test_method_varargs()
 test_multiline_strs()
+test_digit_collection()
 
 test_id = test_id - 1
 

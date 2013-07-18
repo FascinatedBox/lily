@@ -22,7 +22,7 @@
 /* This is where the raw data gets stored. Anything not an integer or a number
    is stored in ptr and cast appropriately. */
 typedef union {
-    int integer;
+    int64_t integer;
     double number;
     struct lily_str_val_t *str;
     struct lily_method_val_t *method;
