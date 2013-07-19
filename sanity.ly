@@ -1075,7 +1075,6 @@ method test_digit_collection():nil
         print("failed.\n")
         ok = 0
     }
-
 }
 
 test_basic_assignments()
