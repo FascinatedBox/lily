@@ -1,4 +1,5 @@
 #include <string.h>
+#include <inttypes.h>
 
 #include "lily_impl.h"
 #include "lily_symtab.h"
@@ -339,7 +340,7 @@ void lily_builtin_printfmt(int num_args, lily_sym **args)
                 if (is_nil)
                     lily_impl_send_html("(nil)");
                 else {
-                    snprintf(fmtbuf, 63, "%d", val.integer);
+                    snprintf(fmtbuf, 63, "%" PRId64, val.integer);
                     lily_impl_send_html(fmtbuf);
                 }
             }

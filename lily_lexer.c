@@ -452,7 +452,6 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok)
     char ch;
     char *lex_buffer;
     int is_negative, is_integer, num_start, num_pos;
-    lily_value result;
     uint64_t integer_value;
     lily_value yield_val;
 
@@ -490,9 +489,6 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok)
     else
         integer_value = scan_decimal(lexer, &num_pos, &is_integer);
 
-    /* Setting is_integer to 0 and holding off the conversion allows the overly
-       large integers to be rolled over into numbers. This may be removed in
-       the future if this ends up biting people. */
     if (is_negative == 0) {
         if (integer_value <= INT64_MAX)
             yield_val.integer = (int64_t)integer_value;
@@ -501,6 +497,8 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok)
                        "Integer value is too large.\n");
     }
     else {
+        /* This is negative, and signed min is 1 higher than signed max. This is
+           written as a literal so that gcc doesn't complain about overflow. */
         uint64_t max = 9223372036854775808ULL;
         if (integer_value <= max)
             yield_val.integer = -(int64_t)integer_value;
@@ -509,6 +507,8 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok)
                        "Integer value is too large.\n");
     }
 
+    /* Not an integer, so use strtod to try converting it to a double so it can
+       be stored as a number. */
     if (is_integer == 0) {
         double number_result;
         int str_size = num_pos - num_start;
