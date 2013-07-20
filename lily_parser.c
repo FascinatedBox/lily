@@ -776,10 +776,6 @@ static void expression(lily_parse_state *parser, int flags)
     }
 }
 
-/** Basic parsing functions.
-    The following functions handle statements, which include declarations and
-    keyword handling (if, elif, else, etc). **/
-
 /* parse_decl
    This function takes a sig and handles a declaration wherein each var name
    is separated by a comma. Ex:
@@ -848,6 +844,35 @@ static void parse_return(lily_parse_state *parser)
         lily_emit_return_noval(parser->emit);
 }
 
+/* parse_while
+   This parses and enters a while statement. While statements are always
+   multi-line. */
+static void parse_while(lily_parse_state *parser)
+{
+    /* Syntax: while x: { ... }
+       This starts with the token on tk_word (while). */
+    lily_lex_state *lex = parser->lex;
+
+    /* First, tell the emitter we're entering a block, so that '}' will close
+       it properly. */
+    lily_emit_enter_block(parser->emit, BLOCK_WHILE);
+
+    /* Grab the condition after the 'while' keyword. Use EX_SAVE_AST so that
+       expression will not emit+dump the ast. */
+    expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
+    lily_emit_ast(parser->emit, parser->ast_pool->root);
+    /* 0 = jump_if_false. This jump will be patched later with the destination
+       of the end of the while loop. */
+    lily_emit_jump_if(parser->emit, parser->ast_pool->root, 0);
+    lily_ast_reset_pool(parser->ast_pool);
+
+    NEED_CURRENT_TOK(tk_colon)
+    NEED_NEXT_TOK(tk_left_curly)
+
+    /* Call up the next value for whatever. */
+    lily_lexer(lex);
+}
+
 /* parse_simple_condition
    This handles parsing for single-line ifs. This makes things a bit faster by
    not having to enter and leave functions as much. */
@@ -869,6 +894,19 @@ static void parse_simple_condition(lily_parse_state *parser)
             /* Skip the 'return' keyword. */
             lily_lexer(lex);
             parse_return(parser);
+        }
+        else if (key_id == KEY_WHILE) {
+            lily_raise(parser->raiser, lily_ErrSyntax,
+                    "'while' not allowed in single-line if.\n");
+        }
+        else if (key_id == KEY_CONTINUE) {
+            /* Skip past the keyword again. */
+            lily_lexer(lex);
+            lily_emit_continue(parser->emit);
+        }
+        else if (key_id == KEY_BREAK) {
+            lily_lexer(lex);
+            lily_emit_break(parser->emit);
         }
         else
             expression(parser, EX_NEED_VALUE | EX_SINGLE);
@@ -943,6 +981,12 @@ static void statement(lily_parse_state *parser)
 
         if (key_id == KEY_RETURN)
             parse_return(parser);
+        else if (key_id == KEY_WHILE)
+            parse_while(parser);
+        else if (key_id == KEY_CONTINUE)
+            lily_emit_continue(parser->emit);
+        else if (key_id == KEY_BREAK)
+            lily_emit_break(parser->emit);
         else {
             if (key_id == KEY_IF) {
                 lily_emit_enter_block(parser->emit, BLOCK_IF);

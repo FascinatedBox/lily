@@ -9,6 +9,10 @@ typedef struct {
     int patch_pos;
     int patch_size;
 
+    int *while_starts;
+    int while_start_pos;
+    int while_start_size;
+
     int *ctrl_patch_starts;
     int ctrl_patch_pos;
     int ctrl_patch_size;
@@ -42,15 +46,19 @@ typedef struct {
 # define BLOCK_IF     0x01
 # define BLOCK_IFELSE 0x02
 # define BLOCK_ANDOR  0x04
-# define BLOCK_METHOD 0x10
+# define BLOCK_WHILE  0x10
+# define BLOCK_METHOD 0x20
 
 void lily_emit_add_save_var(lily_emit_state *, lily_var *);
 void lily_emit_ast(lily_emit_state *, lily_ast *);
+void lily_emit_break(lily_emit_state *);
 void lily_emit_conditional(lily_emit_state *, lily_ast *);
+void lily_emit_continue(lily_emit_state *);
 void lily_emit_enter_method(lily_emit_state *, lily_var *);
 void lily_emit_leave_method(lily_emit_state *);
 void lily_emit_change_if_branch(lily_emit_state *, int);
 void lily_emit_enter_block(lily_emit_state *, int);
+void lily_emit_jump_if(lily_emit_state *, lily_ast *, int);
 void lily_emit_leave_block(lily_emit_state *);
 void lily_emit_return(lily_emit_state *, lily_ast *, lily_sig *);
 void lily_emit_return_noval(lily_emit_state *);

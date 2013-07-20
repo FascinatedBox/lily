@@ -1077,6 +1077,43 @@ method test_digit_collection():nil
     }
 }
 
+method test_while():nil
+{
+    printfmt("#%i: Testing while, break, and continue...", test_id)
+    test_id = test_id + 1
+
+    integer i = 10
+
+    while i != 0: {
+        i = i - 1
+    }
+
+    list[integer] lsi = [0, 1, 2, 3]
+
+    i = 0
+
+    while i < 3: {
+        i = i + 1
+        if lsi[i] == 2:
+            continue
+        elif lsi[i] == 3:
+            break
+    }
+
+    i = 0
+
+    while i < 3: {
+        break
+    }
+
+    while i < 3: {
+        i = i + 1
+        continue
+    }
+
+    print("ok.\n")
+}
+
 test_basic_assignments()
 test_jumps()
 test_manyargs(1,2,3,4,5,6)
@@ -1102,6 +1139,7 @@ test_circular_ref_checks()
 test_method_varargs()
 test_multiline_strs()
 test_digit_collection()
+test_while()
 
 test_id = test_id - 1
 
