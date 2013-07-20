@@ -1,3 +1,5 @@
+#include <inttypes.h>
+
 #include "lily_impl.h"
 #include "lily_symtab.h"
 #include "lily_opcode.h"
@@ -358,7 +360,7 @@ static void show_literal(lily_sym *sym)
     if (cls_id == SYM_CLASS_STR)
         lily_impl_debugf("str(%-0.50s)\n", sym->value.str->str);
     else if (cls_id == SYM_CLASS_INTEGER)
-        lily_impl_debugf("integer(%d)\n", sym->value.integer);
+        lily_impl_debugf("integer(%" PRId64 ")\n", sym->value.integer);
     else if (cls_id == SYM_CLASS_NUMBER)
         lily_impl_debugf("number(%f)\n", sym->value.number);
 }
