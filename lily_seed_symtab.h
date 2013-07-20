@@ -24,7 +24,10 @@ static const char *keywords[] = {
     "if",
     "elif",
     "else",
-    "return"
+    "return",
+    "while",
+    "continue",
+    "break"
 };
 
 void lily_builtin_print(int, lily_sym **);

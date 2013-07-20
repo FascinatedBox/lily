@@ -125,11 +125,13 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
     s->method_vars = lily_malloc(sizeof(lily_var *) * 4);
     s->save_cache = lily_malloc(sizeof(uintptr_t) * 4);
     s->storage_cache = lily_malloc(sizeof(lily_storage *) * 4);
+    s->while_starts = lily_malloc(sizeof(int) * 4);
 
     if (s->patches == NULL || s->ctrl_patch_starts == NULL ||
         s->block_var_starts == NULL || s->block_save_starts == NULL ||
         s->block_types == NULL || s->method_vars == NULL ||
-        s->save_cache == NULL || s->storage_cache == NULL) {
+        s->save_cache == NULL || s->storage_cache == NULL ||
+        s->while_starts == NULL) {
         lily_free_emit_state(s);
         return NULL;
     }
@@ -146,6 +148,8 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
     s->method_size = 4;
     s->storage_cache_pos = 0;
     s->storage_cache_size = 4;
+    s->while_start_pos = 0;
+    s->while_start_size = 4;
 
     s->raiser = raiser;
     s->expr_num = 1;
@@ -163,6 +167,7 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free(emit->block_types);
     lily_free(emit->method_vars);
     lily_free(emit->save_cache);
+    lily_free(emit->while_starts);
     lily_free(emit);
 }
 
@@ -194,6 +199,27 @@ static lily_storage *storage_for_class(lily_emit_state *emit,
     storage_class->storage = s->next;
 
     return s;
+}
+
+/* Find the inner-most while loop. Don't count a while loop if it's outside of
+   the current method though. Returns zero if a method was hit, or the block
+   position of the while. */
+static int find_deepest_while(lily_emit_state *emit)
+{
+    int i;
+
+    for (i = emit->block_pos-1;i >= 0;i--) {
+        int block_type = emit->block_types[i];
+
+        if (block_type == BLOCK_WHILE)
+            break;
+        else if (block_type == BLOCK_METHOD) {
+            i = 0;
+            break;
+        }
+    }
+
+    return i;
 }
 
 /** Signature helper functions **/
@@ -300,27 +326,6 @@ static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
 
 /** ast walking helpers **/
 static void walk_tree(lily_emit_state *, lily_ast *);
-
-static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
-{
-    lily_method_val *m = emit->top_method;
-
-    WRITE_4(o_jump_if, jump_on, (uintptr_t)ast->result, 0);
-    if (emit->patch_pos == emit->patch_size) {
-        emit->patch_size *= 2;
-
-        int *new_patches = lily_realloc(emit->patches,
-            sizeof(int) * emit->patch_size);
-
-        if (new_patches == NULL)
-            lily_raise_nomem(emit->raiser);
-
-        emit->patches = new_patches;
-    }
-
-    emit->patches[emit->patch_pos] = m->pos-1;
-    emit->patch_pos++;
-}
 
 static void emit_assign(lily_emit_state *emit, lily_ast *ast)
 {
@@ -436,12 +441,12 @@ static void emit_logical_op(lily_emit_state *emit, lily_ast *ast)
        and doesn't need a retest. However, and/or are opposites, so they have
        to check each other (so the op has to be exactly the same). */
     if ((ast->left->tree_type == tree_binary && ast->left->op == ast->op) == 0)
-        emit_jump_if(emit, ast->left, jump_on);
+        lily_emit_jump_if(emit, ast->left, jump_on);
 
     if (ast->right->tree_type != tree_var)
         walk_tree(emit, ast->right);
 
-    emit_jump_if(emit, ast->right, jump_on);
+    lily_emit_jump_if(emit, ast->right, jump_on);
 
     if (is_top == 1) {
         /* The symtab adds literals 0 and 1 in that order during its init. */
@@ -481,6 +486,18 @@ static void emit_logical_op(lily_emit_state *emit, lily_ast *ast)
            because that would be a double-test.
            Setting this to NULL anyway as a precaution. */
         ast->result = NULL;
+}
+
+/* emit_final_continue
+   This writes in a 'continue'-type jump at the end of the while, so that the
+   while runs multiple times. Since the while is definitely the top block, this
+   is a bit simpler. */
+static void emit_final_continue(lily_emit_state *emit)
+{
+    lily_method_val *m = emit->top_method;
+    int jump_to = emit->while_starts[emit->while_start_pos-1];
+
+    WRITE_2(o_jump, jump_to)
 }
 
 /* emit_sub_assign
@@ -1228,6 +1245,66 @@ void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)
     emit->expr_num++;
 }
 
+/* lily_emit_break
+   This writes a break (jump to the end of the while) for the parser. Since it
+   is called by parser, it needs to verify that it is called from within a
+   while. */
+void lily_emit_break(lily_emit_state *emit)
+{
+    lily_method_val *m = emit->top_method;
+    int while_pos;
+
+    while_pos = find_deepest_while(emit);
+
+    if (while_pos == 0) {
+        /* This is called by parser on the source line, so do not adjust the
+           raiser. */
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                "'break' used outside of a loop.\n");
+    }
+
+    if (emit->patch_pos == emit->patch_size) {
+        emit->patch_size *= 2;
+
+        int *new_patches = lily_realloc(emit->patches,
+            sizeof(int) * emit->patch_size);
+
+        if (new_patches == NULL)
+            lily_raise_nomem(emit->raiser);
+
+        emit->patches = new_patches;
+    }
+
+    /* Write the jump, then figure out where to put it. */
+    WRITE_2(o_jump, 0)
+
+    /* If the while is the most current, then add it to the end. */
+    if (while_pos == emit->block_pos-1) {
+        emit->patches[emit->patch_pos] = m->pos-1;
+        emit->patch_pos++;
+    }
+    else {
+        /* The while is not on top, so this will be fairly annoying... */
+        int j, move_by, move_start, next_start;
+
+        /* We can determine the while's patch spot by doing i - method_pos
+           since every block but methods adds to ctrl_patch_starts. */
+        next_start = (while_pos - emit->method_pos) + 1;
+        move_start = emit->ctrl_patch_starts[next_start];
+        move_by = emit->patch_pos - move_start;
+
+        /* Move everything after this patch start over one, so that there's a
+           hole after the last while patch to write in a new one. */
+        memmove(emit->patches+move_start+1, emit->patches+move_start,
+                move_by * sizeof(int));
+        emit->patch_pos++;
+        emit->patches[move_start] = m->pos-1;
+
+        for (j = next_start;j < emit->ctrl_patch_pos;j++)
+            emit->ctrl_patch_starts[j] += 1;
+    }
+}
+
 /* lily_emit_conditional
    API function to call walk_tree on an ast and increment the expr_num of the
    emitter. This function writes an if jump afterward, for if conditions. */
@@ -1248,7 +1325,29 @@ void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
        else, or the end of the if. Save the position so it can be written over
        later.
        0 for jump_if_false. */
-    emit_jump_if(emit, ast, 0);
+    lily_emit_jump_if(emit, ast, 0);
+}
+
+/* lily_emit_continue
+   This emits a jump to go back up to the top of a while. Since this is called
+   by parser, it also checks that emitter is in a while. */
+void lily_emit_continue(lily_emit_state *emit)
+{
+    lily_method_val *m = emit->top_method;
+    int jump_to, while_pos;
+
+    while_pos = find_deepest_while(emit);
+
+    if (while_pos == 0) {
+        /* This is called by parser on the source line, so do not adjust the
+           raiser. */
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                "'continue' used outside of a loop.\n");
+    }
+
+    jump_to = emit->while_starts[emit->while_start_pos-1];
+
+    WRITE_2(o_jump, jump_to)
 }
 
 /* lily_emit_change_if_branch
@@ -1325,7 +1424,8 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         emit->block_save_starts = new_save_starts;
     }
 
-    if (block_type == BLOCK_IF || block_type == BLOCK_ANDOR) {
+    if (block_type == BLOCK_IF || block_type == BLOCK_ANDOR ||
+        block_type == BLOCK_WHILE) {
         if (emit->ctrl_patch_pos == emit->ctrl_patch_size) {
             emit->ctrl_patch_size *= 2;
             int *new_starts = lily_realloc(emit->ctrl_patch_starts,
@@ -1336,8 +1436,29 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
 
             emit->ctrl_patch_starts = new_starts;
         }
+
         emit->ctrl_patch_starts[emit->ctrl_patch_pos] = emit->patch_pos;
         emit->ctrl_patch_pos++;
+
+        /* While needs to record where it starts at so that the end of the loop
+           can jump back up. */
+        if (block_type == BLOCK_WHILE) {
+            if (emit->while_start_pos == emit->while_start_size) {
+                emit->while_start_size *= 2;
+
+                int *new_starts = lily_realloc(emit->while_starts,
+                    sizeof(int) * emit->while_start_size);
+
+                if (new_starts == NULL)
+                    lily_raise_nomem(emit->raiser);
+
+                emit->while_starts = new_starts;
+            }
+
+            emit->while_starts[emit->while_start_pos] = emit->top_method->pos;
+            emit->while_start_pos++;
+        }
+
         emit->block_var_starts[emit->block_pos] = emit->symtab->var_top;
     }
     else if (block_type == BLOCK_METHOD) {
@@ -1361,11 +1482,19 @@ void lily_emit_leave_block(lily_emit_state *emit)
     if (emit->block_pos == 1)
         lily_raise(emit->raiser, lily_ErrSyntax, "'}' outside of a block.\n");
 
+    block_type = emit->block_types[emit->block_pos-1];
+
+    /* Write in a fake continue so that the end of a while jumps back up to the
+       top. */
+    if (block_type == BLOCK_WHILE) {
+        emit_final_continue(emit);
+        emit->while_start_pos--;
+    }
+
     emit->block_pos--;
     v = emit->block_var_starts[emit->block_pos];
-    block_type = emit->block_types[emit->block_pos];
 
-    if (block_type < BLOCK_METHOD) {
+    if (block_type != BLOCK_METHOD) {
         emit->ctrl_patch_pos--;
 
         int from, to, pos;
@@ -1439,6 +1568,33 @@ void lily_emit_leave_method(lily_emit_state *emit)
     emit->top_method = v->value.method;
     emit->top_var = v;
     emit->top_method_ret = v->sig->node.call->ret;
+}
+
+/* lily_emit_jump_if
+   This writes a conditional jump using the result of the given ast. The type
+   of jump (true/false) depends on 'jump_on'.
+   1: jump_if_true: The jump will be performed if the ast's result is true or
+      non-zero.
+   0: jump_if_false: The jump will be performed if the ast's result is zero. */
+void lily_emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
+{
+    lily_method_val *m = emit->top_method;
+
+    WRITE_4(o_jump_if, jump_on, (uintptr_t)ast->result, 0);
+    if (emit->patch_pos == emit->patch_size) {
+        emit->patch_size *= 2;
+
+        int *new_patches = lily_realloc(emit->patches,
+            sizeof(int) * emit->patch_size);
+
+        if (new_patches == NULL)
+            lily_raise_nomem(emit->raiser);
+
+        emit->patches = new_patches;
+    }
+
+    emit->patches[emit->patch_pos] = m->pos-1;
+    emit->patch_pos++;
 }
 
 /* lily_emit_return

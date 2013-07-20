@@ -25,12 +25,14 @@ typedef struct {
 } lily_symtab;
 
 /* Sync with keywords in lily_seed_symtab.h. */
-#define KEY_IF      0
-#define KEY_ELIF    1
-#define KEY_ELSE    2
-#define KEY_RETURN  3
-
-#define KEY_LAST_ID 3
+#define KEY_IF       0
+#define KEY_ELIF     1
+#define KEY_ELSE     2
+#define KEY_RETURN   3
+#define KEY_WHILE    4
+#define KEY_CONTINUE 5
+#define KEY_BREAK    6
+#define KEY_LAST_ID  6
 
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, char *);
