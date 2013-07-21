@@ -1,6 +1,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <limits.h>
 
 #include "lily_parser.h"
 
@@ -25,6 +27,10 @@ typedef struct aft_entry_ {
     struct aft_entry_ *next;
 } aft_entry;
 
+#define OPT_SHOW_ALLOC_INFO   0x1
+#define OPT_SHOW_SYMTAB       0x2
+int aft_options = 0;
+
 aft_entry *start = NULL;
 aft_entry *current = NULL;
 aft_entry *end = NULL;
@@ -41,6 +47,9 @@ int allowed_allocs = 0;
 
 void *aft_malloc(char *filename, int line, size_t size)
 {
+    /* Always show rejections. Sometimes, there might be multiple ones from
+       some function trying multiple allocs, then checking them all at once.
+       But rejections are useful for determining where a problem starts. */
     if (malloc_count + count_reallocs >= allowed_allocs) {
         fprintf(stderr, "[aft]: malloc via %s:%d for size %lu REJECTED.\n",
                 filename, line, size);
@@ -73,8 +82,10 @@ void *aft_malloc(char *filename, int line, size_t size)
         end->next = entry;
 
     end = entry;
-    fprintf(stderr, "[aft]: malloc #%d (%p) via %s:%d for size %lu OK.\n",
-            malloc_count+1, block, filename, line, size);
+    /* Make this optional, since it can get -very- verbose. */
+    if (aft_options & OPT_SHOW_ALLOC_INFO)
+        fprintf(stderr, "[aft]: malloc #%d (%p) via %s:%d for size %lu OK.\n",
+                malloc_count+1, block, filename, line, size);
     malloc_count++;
 
     return block;
@@ -126,8 +137,9 @@ void *aft_realloc(char *filename, int line, void *oldptr, size_t newsize)
         exit(EXIT_FAILURE);
     }
 
-    fprintf(stderr, "[aft]: realloc #%d via %s:%d OK. Result is %p.\n",
-            count_reallocs+1, filename, line, search->block);
+    if (aft_options & OPT_SHOW_ALLOC_INFO)
+        fprintf(stderr, "[aft]: realloc #%d via %s:%d OK. Result is %p.\n",
+                count_reallocs+1, filename, line, search->block);
     count_reallocs++;
     return search->block;
 }
@@ -136,7 +148,8 @@ void aft_free(char *filename, int line, void *ptr)
 {
     if (ptr == NULL) {
         /* This is a no-op, but report anyway for completeness. */
-        fprintf(stderr, "[aft]: null free from %s:%d.\n", filename, line);
+        if (aft_options & OPT_SHOW_ALLOC_INFO)
+            fprintf(stderr, "[aft]: null free from %s:%d.\n", filename, line);
         return;
     }
 
@@ -173,12 +186,15 @@ void aft_free(char *filename, int line, void *ptr)
     }
  
     search->status = ST_DELETED;
-    fprintf(stderr, "[aft]: free block #%d (%p) from %s:%d.\n", i, ptr,
-            filename, line);
+    if (aft_options & OPT_SHOW_ALLOC_INFO)
+        fprintf(stderr, "[aft]: free block #%d (%p) from %s:%d.\n", i, ptr,
+                filename, line);
     free(ptr);
     free_count++;
 }
 
+/* There's no supression for this because it won't get called if --show-symtab
+   isn't passed. */
 void lily_impl_debugf(char *format, ...)
 {
     va_list ap;
@@ -212,24 +228,73 @@ void show_stats()
             "[aft]: Stats: %d/%d malloc/free. %d reallocs, %d total allocs.\n",
             malloc_count, free_count, count_reallocs,
             malloc_count + count_reallocs);
+
+    /* It's only ever failure if malloc/free counts don't match. */
+    int exit_code;
+    if (malloc_count == free_count && warning_count == 0)
+        exit_code = EXIT_SUCCESS;
+    else
+        exit_code = EXIT_FAILURE;
+
+    exit(exit_code);
+}
+
+void usage()
+{
+    fputs("Usage : aft [options] <allocs> <filename>\n", stderr);
+    fputs("Where options are:\n", stderr);
+
+    fputs("\t--no-alloc-limit: Disable allocation checking.\n", stderr);
+    fputs("\taft will still give stats at the end, so this can be used to\n", stderr);
+    fputs("\tdetermine how many allocs are needed for a program to work.\n", stderr);
+    fputs("\tIf this is used, an alloc count is not needed.\n\n", stderr);
+
+    fputs("\t--show-symtab: Have the interpreter show symtab before executing.\n", stderr);
+    fputs("\tThis can help determine if bad code is being generated.\n", stderr);
+    fputs("\tAs a warning, this can be fairly verbose.\n\n", stderr);
+
+    fputs("\t--show-alloc-info: Show verbose alloc information from aft.\n", stderr);
+    fputs("\tAs a warning, this can get extremely verbose in some cases.\n", stderr);
+
+    exit(EXIT_FAILURE);
 }
 
 int main(int argc, char **argv)
 {
-    if (argc != 3) {
-        fputs("Usage : lily_aft <allocs> <filename>\n", stderr);
-        exit(EXIT_FAILURE);
+    char *filename = NULL;
+    int parse_opts = 0;
+    int i;
+
+    for (i = 1;i < argc;i++) {
+        char *arg = argv[i];
+        if (strcmp(arg, "--no-alloc-limit") == 0)
+            allowed_allocs = INT_MAX;
+        else if (strcmp(arg, "--show-alloc-info") == 0)
+            aft_options |= OPT_SHOW_ALLOC_INFO;
+        else if (strcmp(arg, "--show-symtab") == 0)
+            parse_opts |= POPT_SHOW_SYMTAB;
+        else {
+            if (allowed_allocs == 0) {
+                allowed_allocs = atoi(argv[i]);
+                if (allowed_allocs == 0)
+                    usage();
+            }
+            else if (filename == NULL)
+                filename = argv[i];
+            else
+                usage();
+        }
     }
 
-    allowed_allocs = atoi(argv[1]);
-    lily_parse_state *parser = lily_new_parse_state(POPT_SHOW_SYMTAB);
-    if (parser == NULL) {
-        fputs("ErrNoMemory: No memory to alloc interpreter.\n", stderr);
+    if (allowed_allocs == 0 || filename == NULL)
+        usage();
+
+    lily_parse_state *parser = lily_new_parse_state(parse_opts);
+    /* The alloc count was probably low. Show stats and give up. */
+    if (parser == NULL)
         show_stats();
-        exit(EXIT_FAILURE);
-    }
 
-    if (lily_parse_file(parser, argv[2]) == 0) {
+    if (lily_parse_file(parser, filename) == 0) {
         lily_raiser *raiser = parser->raiser;
         fprintf(stderr, "%s", lily_name_for_error(raiser->error_code));
         if (raiser->message)
@@ -264,9 +329,4 @@ int main(int argc, char **argv)
 
     lily_free_parse_state(parser);
     show_stats();
-
-    if (malloc_count == free_count && warning_count == 0)
-        exit(EXIT_SUCCESS);
-    else
-        exit(EXIT_FAILURE);
 }
