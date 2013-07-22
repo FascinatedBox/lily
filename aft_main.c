@@ -328,5 +328,8 @@ int main(int argc, char **argv)
     }
 
     lily_free_parse_state(parser);
+    /* This will always exit. */
     show_stats();
+    /* Never reached, but keeps gcc happy. */
+    exit(EXIT_SUCCESS);
 }

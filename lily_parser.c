@@ -359,7 +359,6 @@ static void collect_call(lily_parse_state *parser, int flags)
         /* If ... is at the end, then the call is varargs (and the last sig is
            the sig that will use them). */
         if (lex->token == tk_three_dots) {
-            fprintf(stderr, "have the dots...\n");
             if (num_args == 0)
                 lily_raise(parser->raiser, lily_ErrSyntax,
                            "Unexpected token %s.\n", tokname(lex->token));
