@@ -339,13 +339,13 @@ static void emit_assign(lily_emit_state *emit, lily_ast *ast)
     left_sym = ast->left->result;
     right_sym = ast->right->result;
 
-    if (left_sym->sig != right_sym->sig) {
+    if (left_sym->sig != right_sym->sig &&
+        lily_sigequal(left_sym->sig, right_sym->sig) == 0) {
+        /* These are either completely different, or complex classes where the
+           inner bits don't match. If it's object, object can be anything so
+           it's fine. */
         if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
             opcode = o_obj_assign;
-        else if (lily_sigequal(left_sym->sig, right_sym->sig)) {
-            if (left_sym->sig->cls->id == SYM_CLASS_LIST)
-                opcode = o_list_assign;
-        }
         else
             bad_assign_error(emit, ast->line_num, left_sym->sig,
                           right_sym->sig);
@@ -354,6 +354,9 @@ static void emit_assign(lily_emit_state *emit, lily_ast *ast)
         opcode = o_str_assign;
     else if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
         opcode = o_obj_assign;
+    /* list assign works for any kind of list, regardless of how complex. */
+    else if (left_sym->sig->cls->id == SYM_CLASS_LIST)
+        opcode = o_list_assign;
     else
         opcode = o_assign;
 
