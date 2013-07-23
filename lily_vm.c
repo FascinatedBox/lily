@@ -1027,19 +1027,13 @@ void lily_vm_execute(lily_vm_state *vm)
                     }
                 }
                 else {
-                    lily_msgbuf *mb;
-                    mb = lily_new_msgbuf("Cannot cast object containing '");
-                    if (mb == NULL)
-                        lily_raise_nomem(vm->raiser);
-                    lily_msgbuf_add_sig(mb, rhs->value.object->sig);
-                    lily_msgbuf_add(mb, "' to type '");
-                    lily_msgbuf_add_sig(mb, lhs->sig);
-                    lily_msgbuf_add(mb, "'.\n");
-
                     lily_vm_stack_entry *top;
                     top = vm->method_stack[vm->method_stack_pos-1];
                     top->line_num = top->code[i+1];
-                    lily_raise_msgbuf(vm->raiser, lily_ErrBadCast, mb);
+
+                    lily_raise(vm->raiser, lily_ErrBadCast,
+                            "Cannot cast object containing type '%T' to type '%T'.\n",
+                            rhs->value.object->sig, lhs->sig);
                 }
 
                 i += 4;

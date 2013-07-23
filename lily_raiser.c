@@ -1,4 +1,5 @@
 #include <stdarg.h>
+#include <string.h>
 
 #include "lily_impl.h"
 #include "lily_raiser.h"
@@ -9,6 +10,31 @@ static const char *lily_error_names[] =
     {"ErrNoMemory", "ErrSyntax", "ErrImport", "ErrEncoding", "ErrNoValue",
      "ErrDivideByZero", "ErrOutOfRange", "ErrBadCast"};
 
+lily_raiser *lily_new_raiser()
+{
+    lily_raiser *raiser = lily_malloc(sizeof(lily_raiser));
+    lily_msgbuf *msgbuf = lily_new_msgbuf();
+
+    if (msgbuf == NULL || raiser == NULL) {
+        if (msgbuf != NULL)
+            lily_free_msgbuf(msgbuf);
+        else if (raiser != NULL)
+            lily_free(raiser);
+
+        return NULL;
+    }
+
+    raiser->line_adjust = 0;
+    raiser->msgbuf = msgbuf;
+    return raiser;
+}
+
+void lily_free_raiser(lily_raiser *raiser)
+{
+    lily_free_msgbuf(raiser->msgbuf);
+    lily_free(raiser);
+}
+
 /* lily_raise
    This stops the interpreter. error_code is one of the error codes defined in
    lily_raiser.h, which are matched to lily_error_names. Every error passes
@@ -18,61 +44,46 @@ static const char *lily_error_names[] =
    printing it to a special file, printing it to an application window, etc.) */
 void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
 {
-    /* A best effort at making sure raiser->message is the whole error message.
-       message set to NULL if that's not possible. */
-    char *buffer, *tmpbuffer;
-    int va_size;
-    va_list arglist;
-    size_t cursize, nextsize;
+    int i, len, text_start;
+    va_list var_args;
 
-    cursize = 0;
-    while (1) {
-        if (cursize == 0) {
-            buffer = lily_malloc(64 * sizeof(char));
-            if (buffer == NULL) {
-                raiser->message = NULL;
+    va_start(var_args, fmt);
+
+    text_start = 0;
+    len = strlen(fmt);
+
+    for (i = 0;i < len;i++) {
+        char c = fmt[i];
+        if (c == '%') {
+            if (i + 1 == len)
                 break;
+
+            if (i != text_start)
+                lily_msgbuf_add_text_range(raiser->msgbuf, fmt, text_start, i);
+
+            i++;
+            c = fmt[i];
+            if (c == 's') {
+                char *str = va_arg(var_args, char *);
+                lily_msgbuf_add(raiser->msgbuf, str);
             }
-            cursize = 64;
-        }
-        else if ((tmpbuffer = lily_realloc(buffer, nextsize))) {
-            buffer = tmpbuffer;
-            nextsize = cursize;
-        }
-        else {
-            lily_free(buffer);
-            raiser->message = NULL;
-            break;
-        }
+            else if (c == 'd') {
+                int d = va_arg(var_args, int);
+                lily_msgbuf_add_int(raiser->msgbuf, d);
+            }
+            else if (c == 'T') {
+                lily_sig *sig = va_arg(var_args, lily_sig *);
+                lily_msgbuf_add_sig(raiser->msgbuf, sig);
+            }
 
-        va_start(arglist, fmt);
-        va_size = vsnprintf(buffer, cursize, fmt, arglist);
-
-        if (va_size == -1 ||
-            va_size == cursize ||
-            va_size == cursize - 1)
-            nextsize = va_size * 2;
-        else if (va_size > cursize)
-            nextsize = va_size + 2;
-        else {
-            raiser->message = buffer;
-            break;
+            text_start = i+1;
         }
     }
 
-    raiser->error_code = error_code;
-    longjmp(raiser->jump, 1);
-}
+    if (i != text_start)
+        lily_msgbuf_add_text_range(raiser->msgbuf, fmt, text_start, i);
 
-/* lily_raise_msgbuf
-   This is used by emitter when it has an error involving class info so that
-   raiser can focus on raising stuff. */
-void lily_raise_msgbuf(lily_raiser *raiser, int error_code, lily_msgbuf *mb)
-{
     raiser->error_code = error_code;
-    raiser->message = mb->msg;
-    lily_free(mb);
-
     longjmp(raiser->jump, 1);
 }
 
