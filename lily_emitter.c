@@ -254,18 +254,11 @@ static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
 {
     lily_var *v = (lily_var *)ast->result;
 
-    lily_msgbuf *mb = lily_new_msgbuf(v->name);
-    lily_msgbuf_add(mb, " arg #");
-    lily_msgbuf_add_int(mb, arg_num);
-    lily_msgbuf_add(mb, " expects type '");
-    lily_msgbuf_add_sig(mb, expected);
-    lily_msgbuf_add(mb, "' but got type '");
-    lily_msgbuf_add_sig(mb, got);
-    lily_msgbuf_add(mb, "'.\n");
-
     /* Just in case this arg was on a different line than the call. */
     emit->raiser->line_adjust = ast->line_num;
-    lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
+    lily_raise(emit->raiser, lily_ErrSyntax,
+            "%s arg #%d expects type '%T' but got type '%T'.\n",
+            v->name, arg_num, expected, got);
 }
 
 static void bad_assign_error(lily_emit_state *emit, int line_num,
@@ -273,26 +266,19 @@ static void bad_assign_error(lily_emit_state *emit, int line_num,
 {
     /* Remember that right is being assigned to left, so right should
        get printed first. */
-    lily_msgbuf *mb = lily_new_msgbuf("Cannot assign ");
-    lily_msgbuf_add_sig(mb, right_sig);
-    lily_msgbuf_add(mb, " to ");
-    lily_msgbuf_add_sig(mb, left_sig);
-    lily_msgbuf_add(mb, ".\n");
-
     emit->raiser->line_adjust = line_num;
-    lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
+    lily_raise(emit->raiser, lily_ErrSyntax,
+            "Cannot assign type '%T' to type '%T'.\n",
+            right_sig, left_sig);
 }
 
 /* bad_subs_class
    Reports that the class of the value in var_ast cannot be subscripted. */
 static void bad_subs_class(lily_emit_state *emit, lily_ast *var_ast)
 {
-    lily_msgbuf *mb = lily_new_msgbuf("Cannot subscript class ");
-    lily_msgbuf_add_sig(mb, var_ast->result->sig);
-    lily_msgbuf_add(mb, "\n");
-
     emit->raiser->line_adjust = var_ast->line_num;
-    lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
+    lily_raise(emit->raiser, lily_ErrSyntax, "Cannot subscript type '%T'.\n",
+            var_ast->result->sig);
 }
 
 /* bad_num_args
@@ -616,14 +602,10 @@ static void emit_typecast(lily_emit_state *emit, lily_ast *ast)
             result = storage_for_class(emit, cast_sig->cls);
     }
     else {
-        lily_msgbuf *mb = lily_new_msgbuf("Cannot cast type '");
-        lily_msgbuf_add_sig(mb, var_sig);
-        lily_msgbuf_add(mb, "' to type '");
-        lily_msgbuf_add_sig(mb, cast_sig);
-        lily_msgbuf_add(mb, "'.\n");
-
         emit->raiser->line_adjust = ast->line_num;
-        lily_raise_msgbuf(emit->raiser, lily_ErrBadCast, mb);
+        lily_raise(emit->raiser, lily_ErrBadCast,
+                "Cannot cast type '%T' to type '%T'.\n",
+                var_sig, cast_sig);
     }
 
     WRITE_4(o_obj_typecast,
@@ -1613,14 +1595,10 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
         lily_sigequal(ast->result->sig, ret_sig) == 0 &&
         sigcast(emit, ast, ret_sig) == 0) {
 
-        lily_msgbuf *mb = lily_new_msgbuf("'return' expected type '");
-        lily_msgbuf_add_sig(mb, ret_sig);
-        lily_msgbuf_add(mb, "' but got type '");
-        lily_msgbuf_add_sig(mb, ast->result->sig);
-        lily_msgbuf_add(mb, "'.\n");
-
         emit->raiser->line_adjust = ast->line_num;
-        lily_raise_msgbuf(emit->raiser, lily_ErrSyntax, mb);
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                "return expected type '%T' but got type '%T'.\n",
+                ret_sig, ast->result->sig);
     }
 
     lily_method_val *m = emit->top_method;

@@ -3,101 +3,124 @@
 #include "lily_impl.h"
 #include "lily_msgbuf.h"
 
-void lily_free_msgbuf(lily_msgbuf *mb)
+void lily_free_msgbuf(lily_msgbuf *msgbuf)
 {
-    lily_free(mb->msg);
-    lily_free(mb);
+    lily_free(msgbuf->message);
+    lily_free(msgbuf);
 }
 
-lily_msgbuf *lily_new_msgbuf(char *str)
+lily_msgbuf *lily_new_msgbuf(void)
 {
     lily_msgbuf *ret = lily_malloc(sizeof(lily_msgbuf));
     if (ret == NULL)
         return NULL;
 
-    int len, size;
+    char *message = lily_malloc(64 * sizeof(char));
 
-    len = strlen(str);
-    size = len + 4;
-
-    char *msg = lily_malloc(size);
-
-    if (msg == NULL) {
+    if (message == NULL) {
         lily_free(ret);
         return NULL;
     }
 
-    strcpy(msg, str);
+    message[0] = '\0';
 
-    ret->msg = msg;
-    ret->pos = len;
-    ret->size = size;
-    ret->has_err = 0;
+    ret->message = message;
+    ret->pos = 0;
+    ret->size = 64;
+    ret->truncated = 0;
 
     return ret;
 }
 
-void lily_msgbuf_add(lily_msgbuf *mb, char *str)
+void lily_msgbuf_add(lily_msgbuf *msgbuf, char *str)
 {
     int sl = strlen(str);
 
-    if (mb->has_err)
+    if (msgbuf->truncated)
         return;
 
-    if ((mb->pos + sl + 1) > mb->size) {
-        char *new_msg;
+    if ((msgbuf->pos + sl + 1) > msgbuf->size) {
+        char *new_message;
         int new_size;
 
-        new_size = mb->pos + sl + 1;
-        new_msg = lily_realloc(mb->msg, new_size);
-        if (new_msg == NULL) {
-            mb->has_err = 1;
+        new_size = msgbuf->pos + sl + 1;
+        new_message = lily_realloc(msgbuf->message, new_size);
+        if (new_message == NULL) {
+            msgbuf->truncated = 1;
             return;
         }
 
-        mb->msg = new_msg;
-        mb->size = mb->pos + sl + 1;
+        msgbuf->message = new_message;
+        msgbuf->size = msgbuf->pos + sl + 1;
     }
 
-    strcat(mb->msg, str);
-    mb->pos += sl;
+    strcat(msgbuf->message, str);
+    msgbuf->pos += sl;
 }
 
-void lily_msgbuf_add_int(lily_msgbuf *mb, int i)
+void lily_msgbuf_add_text_range(lily_msgbuf *msgbuf, char *text, int start,
+        int stop)
+{
+    int range = (stop - start);
+
+    if (msgbuf->truncated)
+        return;
+
+    if ((msgbuf->pos + range + 1) > msgbuf->size) {
+        char *new_message;
+        int new_size;
+
+        new_size = msgbuf->pos + range + 1;
+        new_message = lily_realloc(msgbuf->message, new_size);
+        if (new_message == NULL) {
+            msgbuf->truncated = 1;
+            return;
+        }
+
+        msgbuf->message = new_message;
+        msgbuf->size = msgbuf->pos + range + 1;
+    }
+
+    memcpy(msgbuf->message + msgbuf->pos, text + start, range);
+    msgbuf->pos += range;
+    msgbuf->message[msgbuf->pos] = '\0';
+}
+
+void lily_msgbuf_add_int(lily_msgbuf *msgbuf, int i)
 {
     char buf[64];
     sprintf(buf, "%d", i);
 
-    lily_msgbuf_add(mb, buf);
+    lily_msgbuf_add(msgbuf, buf);
 }
 
-void lily_msgbuf_add_sig(lily_msgbuf *mb, lily_sig *sig)
+void lily_msgbuf_add_sig(lily_msgbuf *msgbuf, lily_sig *sig)
 {
-    lily_msgbuf_add(mb, sig->cls->name);
+    lily_msgbuf_add(msgbuf, sig->cls->name);
 
     if (sig->cls->id == SYM_CLASS_METHOD ||
         sig->cls->id == SYM_CLASS_FUNCTION) {
         lily_call_sig *csig = sig->node.call;
-        lily_msgbuf_add(mb, " (");
+        lily_msgbuf_add(msgbuf, " (");
         int i;
         for (i = 0;i < csig->num_args-1;i++) {
-            lily_msgbuf_add_sig(mb, csig->args[i]);
-            lily_msgbuf_add(mb, ", ");
+            lily_msgbuf_add_sig(msgbuf, csig->args[i]);
+            lily_msgbuf_add(msgbuf, ", ");
         }
         if (i != csig->num_args) {
-            lily_msgbuf_add_sig(mb, csig->args[i]);
+            lily_msgbuf_add_sig(msgbuf, csig->args[i]);
             if (csig->is_varargs)
-                lily_msgbuf_add(mb, "...");
+                lily_msgbuf_add(msgbuf, "...");
         }
-        lily_msgbuf_add(mb, "):");
+        lily_msgbuf_add(msgbuf, "):");
         if (csig->ret == NULL)
-            lily_msgbuf_add(mb, "nil");
+            lily_msgbuf_add(msgbuf, "nil");
         else
-            lily_msgbuf_add_sig(mb, csig->ret);
+            lily_msgbuf_add_sig(msgbuf, csig->ret);
     }
     else if (sig->cls->id == SYM_CLASS_LIST) {
-        lily_msgbuf_add(mb, "[");
-        lily_msgbuf_add_sig(mb, sig->node.value_sig);
-        lily_msgbuf_add(mb, "]");
+        lily_msgbuf_add(msgbuf, "[");
+        lily_msgbuf_add_sig(msgbuf, sig->node.value_sig);
+        lily_msgbuf_add(msgbuf, "]");
     }
 }

@@ -17,7 +17,7 @@
 typedef struct {
     jmp_buf jump;
     int error_code;
-    char *message;
+    lily_msgbuf *msgbuf;
     /* This is 0 if the error line is the lexer's current line number.
        Otherwise, this is the line number to report. It is not an offset.
        Uses:
@@ -27,8 +27,9 @@ typedef struct {
     int line_adjust;
 } lily_raiser;
 
+lily_raiser *lily_new_raiser(void);
+void lily_free_raiser(lily_raiser *);
 void lily_raise(lily_raiser *, int, char *, ...);
-void lily_raise_msgbuf(lily_raiser *, int, lily_msgbuf *);
 void lily_raise_nomem(lily_raiser *);
 const char *lily_name_for_error(int);
 

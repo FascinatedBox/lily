@@ -38,8 +38,8 @@ int main(int argc, char **argv)
     if (lily_parse_string(parser, argv[1]) == 0) {
         lily_raiser *raiser = parser->raiser;
         fprintf(stderr, "%s", lily_name_for_error(raiser->error_code));
-        if (raiser->message)
-            fprintf(stderr, ": %s", raiser->message);
+        if (raiser->msgbuf->message[0] != '\0')
+            fprintf(stderr, ": %s", raiser->msgbuf->message);
         else
             fputc('\n', stderr);
 

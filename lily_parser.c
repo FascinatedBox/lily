@@ -165,24 +165,24 @@ static const int bin_op_for_token[] = {
 lily_parse_state *lily_new_parse_state(int options)
 {
     lily_parse_state *s = lily_malloc(sizeof(lily_parse_state));
-    lily_raiser *raiser = lily_malloc(sizeof(lily_raiser));
+    lily_raiser *raiser = lily_new_raiser();
     lily_sig **sig_stack = lily_malloc(4 * sizeof(lily_sig *));
 
     if (s == NULL || raiser == NULL || sig_stack == NULL) {
         lily_free(sig_stack);
-        lily_free(raiser);
+        if (raiser != NULL)
+            lily_free_raiser(raiser);
         lily_free(s);
         return NULL;
     }
 
     s->options = options;
+    s->raiser = raiser;
     s->sig_stack = sig_stack;
     s->sig_stack_pos = 0;
     s->sig_stack_size = 4;
-    raiser->line_adjust = 0;
-    raiser->message = NULL;
+
     s->ast_pool = lily_new_ast_pool(raiser, 8);
-    s->raiser = raiser;
 
     s->symtab = lily_new_symtab(raiser);
     s->emit = lily_new_emit_state(raiser);
@@ -203,8 +203,9 @@ lily_parse_state *lily_new_parse_state(int options)
             lily_free_ast_pool(s->ast_pool);
         if (s->vm != NULL)
             lily_free_vm_state(s->vm);
+
         lily_free(sig_stack);
-        lily_free(raiser);
+        lily_free_raiser(raiser);
         lily_free(s);
         return NULL;
     }
@@ -223,14 +224,13 @@ void lily_free_parse_state(lily_parse_state *parser)
     for (i = 0;i < parser->sig_stack_pos;i++)
         lily_deref_sig(parser->sig_stack[i]);
 
+    lily_free_raiser(parser->raiser);
     lily_free_ast_pool(parser->ast_pool);
     lily_free_symtab(parser->symtab);
     lily_free_lex_state(parser->lex);
     lily_free_emit_state(parser->emit);
     lily_free_vm_state(parser->vm);
     lily_free(parser->sig_stack);
-    lily_free(parser->raiser->message);
-    lily_free(parser->raiser);
     lily_free(parser);
 }
 
