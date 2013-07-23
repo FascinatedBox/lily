@@ -416,8 +416,11 @@ static void collect_list(lily_parse_state *parser, int flags)
 
         var = lily_try_new_var(parser->symtab, list_sig,
                 lex->label);
-        if (var == NULL)
+        if (var == NULL) {
+            lily_deref_sig(list_sig);
             lily_raise_nomem(parser->raiser);
+        }
+
         list_sig->refcount++;
         if (parser->emit->method_pos > 1)
             lily_emit_add_save_var(parser->emit, var);
