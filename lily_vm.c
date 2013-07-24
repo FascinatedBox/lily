@@ -201,15 +201,18 @@ static void grow_method_stack(lily_vm_state *vm)
     int i;
     lily_vm_stack_entry **new_stack;
 
-    vm->method_stack_size *= 2;
+    /* Methods are free'd from 0 to stack_size, so don't increase stack_size
+       just yet. */
     new_stack = lily_realloc(vm->method_stack,
-            sizeof(lily_vm_stack_entry *) * vm->method_stack_size);
+            sizeof(lily_vm_stack_entry *) * 2 * vm->method_stack_size);
 
     if (new_stack == NULL)
         lily_raise_nomem(vm->raiser);
 
     vm->method_stack = new_stack;
-    for (i = vm->method_stack_pos;i < vm->method_stack_size;i++) {
+    vm->method_stack_size *= 2;
+
+    for (i = vm->method_stack_pos+1;i < vm->method_stack_size;i++) {
         vm->method_stack[i] = lily_malloc(sizeof(lily_vm_stack_entry));
         if (vm->method_stack[i] == NULL) {
             vm->method_stack_size = i;
@@ -249,9 +252,13 @@ static void novalue_error(lily_vm_state *vm, int code_pos, lily_sym *sym)
        Instead, the emitter writes the line number right after the opcode for
        any opcode that might call novalue_error. */ 
     top->line_num = top->code[code_pos+1];
-    /* Literals and storages can't be nil, so this must be a named var. */
-    lily_raise(vm->raiser, lily_ErrNoValue, "%s is nil.\n",
-               ((lily_var *)sym)->name);
+
+    /* Show a var name, if possible... */
+    if (sym->flags & VAR_SYM)
+        lily_raise(vm->raiser, lily_ErrNoValue, "%s is nil.\n",
+                ((lily_var *)sym)->name);
+    else
+        lily_raise(vm->raiser, lily_ErrNoValue, "Attempt to use nil value.\n");
 }
 
 /* divide_by_zero_error
@@ -816,7 +823,7 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_method_call:
             {
                 int j;
-                if (vm->method_stack_pos == vm->method_stack_size)
+                if (vm->method_stack_pos+1 == vm->method_stack_size)
                     grow_method_stack(vm);
 
                 /* This has to be grabbed each time, because of methods passing
@@ -833,6 +840,9 @@ void lily_vm_execute(lily_vm_state *vm)
                 stack_entry->ret = (lily_sym *)code[i+4];
                 stack_entry = vm->method_stack[vm->method_stack_pos];
 
+                /* Add this entry to the call stack. */
+                stack_entry->method = (lily_sym *)code[i+2];
+
                 i += 5;
                 /* Map call values to method arguments. */
                 for (v = mval->first_arg; i < j;v = v->next, i++) {
@@ -846,8 +856,6 @@ void lily_vm_execute(lily_vm_state *vm)
                     v->value = ((lily_sym *)code[i])->value;
                 }
 
-                /* Add this entry to the call stack. */
-                stack_entry->method = (lily_sym *)code[i-5+2];
                 stack_entry->code = mval->code;
                 vm->method_stack_pos++;
 
