@@ -45,6 +45,10 @@ typedef struct lily_method_val_t {
     struct lily_var_t *last_arg;
     int pos;
     int len;
+    /* This is here so trace can print the actual name of the method being
+       called. This is necessary because of indirect and anonymous calls. This
+       is a copy of the var's data, so don't free it. */
+    char *trace_name;
 } lily_method_val;
 
 typedef struct lily_object_val_t {

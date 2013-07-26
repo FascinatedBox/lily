@@ -686,7 +686,7 @@ void lily_vm_execute(lily_vm_state *vm)
        error is thrown, it will need to write in the line number of the last
        call level. */
     stack_entry = vm->method_stack[0];
-    stack_entry->method = (lily_sym *)vm->main;
+    stack_entry->method = ((lily_sym *)vm->main)->value.method;
     stack_entry->code = code;
     vm->method_stack_pos = 1;
 
@@ -841,7 +841,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 stack_entry = vm->method_stack[vm->method_stack_pos];
 
                 /* Add this entry to the call stack. */
-                stack_entry->method = (lily_sym *)code[i+2];
+                stack_entry->method = mval;
 
                 i += 5;
                 /* Map call values to method arguments. */

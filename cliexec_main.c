@@ -63,7 +63,7 @@ int main(int argc, char **argv)
             for (i = parser->vm->method_stack_pos-1;i >= 0;i--) {
                 entry = vm_stack[i];
                 fprintf(stderr, "    Method \"%s\" at line %d.\n",
-                        ((lily_var *)entry->method)->name, entry->line_num);
+                        entry->method->trace_name, entry->line_num);
             }
         }
         exit(EXIT_FAILURE);
