@@ -676,7 +676,7 @@ static void scan_str(lily_lex_state *lexer, int *pos)
                 label_pos += i;
             }
             /* +1 for terminator. */
-            str_size = label_pos+1;
+            str_size = label_pos + 1;
 
             word_pos += 2;
         }
@@ -691,8 +691,7 @@ static void scan_str(lily_lex_state *lexer, int *pos)
                 label[label_pos] = lex_buffer[word_start];
         }
         /* +1 for the terminator. */
-        label_pos++;
-        str_size = label_pos;
+        str_size = label_pos + 1;
         if (is_multiline)
             word_pos += 2;
     }
