@@ -245,13 +245,17 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name)
     }
 
     var->flags = VAR_SYM | S_IS_NIL;
+    strcpy(var->name, name);
+    var->line_num = *symtab->lex_linenum;
 
     /* Parser expects all methods to have a value to receive args and method
        code. VM needs objects available at all times for receiving sig/value
        stuff. */
     if (cls_id == SYM_CLASS_METHOD) {
         lily_method_val *mval = lily_try_new_method_val();
-        if (mval == NULL)
+        if (mval != NULL)
+            mval->trace_name = var->name;
+        else
             ok = 0;
 
         var->flags &= ~S_IS_NIL;
@@ -274,11 +278,8 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name)
         return NULL;
     }
 
-    strcpy(var->name, name);
-
     var->sig = sig;
     var->parent = NULL;
-    var->line_num = *symtab->lex_linenum;
 
     add_var(symtab, var);
     return var;
