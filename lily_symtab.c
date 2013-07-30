@@ -6,6 +6,8 @@
 /* This creates the *_seed values. */
 #include "lily_seed_symtab.h"
 #include "lily_pkg_str.h"
+#include "lily_vm.h"
+
 /** Symtab is responsible for:
     * Holding all classes, literals, vars, you name it.
     * Using the 'seeds' provided by lily_seed_symtab to initialize the starting
@@ -189,7 +191,7 @@ int lily_try_add_storage(lily_symtab *symtab, lily_sig *sig)
         storage->flags &= ~S_IS_NIL;
     }
     else if (cls->id == SYM_CLASS_STR)
-        storage->value.ptr = NULL;
+        storage->value.str = NULL;
 
     if (ok == 0) {
         lily_free(storage);
@@ -270,7 +272,7 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name)
         var->value.object = oval;
     }
     else if (cls_id == SYM_CLASS_STR)
-        var->value.ptr = NULL;
+        var->value.str = NULL;
 
     if (ok == 0) {
         lily_free(var->name);
@@ -361,7 +363,7 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
                 int seed_ret;
 
                 var->flags &= ~(S_IS_NIL);
-                var->value.ptr = seed->func;
+                var->value.func = seed->func;
 
                 seed_ret = try_seed_call_sig(symtab, seed, var->sig->node.call);
                 if (seed_ret == 0)

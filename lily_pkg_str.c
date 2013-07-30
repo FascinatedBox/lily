@@ -3,8 +3,9 @@
 
 #include "lily_impl.h"
 #include "lily_pkg.h"
+#include "lily_vm.h"
 
-void lily_str_concat(int num_args, lily_sym **args)
+void lily_str_concat(lily_vm_state *vm, int num_args, lily_sym **args)
 {
     lily_str_val *ret, *arg1, *arg2;
     ret = args[0]->value.str;

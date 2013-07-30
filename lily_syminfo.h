@@ -3,6 +3,15 @@
 
 # include <stdint.h>
 
+/* lily_syminfo.h is included by a lot of things, because it defined lily_value
+   and lily_sig, which are core to lily. Functions get the vm state, so that
+   they can raise proper lily errors. The vm state is not filled in here because
+   few modules will want to touch the func of a value. */
+struct lily_vm_state_t;
+struct lily_sym_t;
+
+typedef void (*lily_func)(struct lily_vm_state_t *, int, struct lily_sym_t **);
+
 /* Here are the current flag values. The first three are only to be set on
    symbols in the symtab. This allows lily_debug to give better debug info, and
    a few other nifty tricks. */
@@ -29,7 +38,7 @@ typedef union {
     struct lily_object_val_t *object;
     struct lily_list_val_t *list;
     struct lily_generic_val_t *generic;
-    void *ptr;
+    lily_func func;
 } lily_value;
 
 typedef struct lily_str_val_t {

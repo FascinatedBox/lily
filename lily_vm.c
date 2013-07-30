@@ -5,7 +5,6 @@
 #include "lily_symtab.h"
 #include "lily_opcode.h"
 #include "lily_vm.h"
-#include "lily_pkg.h"
 
 #define INTEGER_OP(OP) \
 lhs = (lily_sym *)code[i+2]; \
@@ -302,7 +301,7 @@ static void very_bad_subs_assign_error(lily_vm_state *vm, int code_pos)
 /* lily_builtin_print
    This is called by the vm to implement the print function. [0] is the return
    (which isn't used), so args begin at [1]. */
-void lily_builtin_print(int num_args, lily_sym **args)
+void lily_builtin_print(lily_vm_state *vm, int num_args, lily_sym **args)
 {
     lily_impl_send_html(args[1]->value.str->str);
 }
@@ -311,7 +310,7 @@ void lily_builtin_print(int num_args, lily_sym **args)
    This is called by the vm to implement the printfmt function. [0] is the
    return, which is ignored in this case. [1] is the format string, and [2]+
    are the arguments. */
-void lily_builtin_printfmt(int num_args, lily_sym **args)
+void lily_builtin_printfmt(lily_vm_state *vm, int num_args, lily_sym **args)
 {
     char fmtbuf[64];
     char save_ch;
@@ -785,13 +784,13 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_func_call:
             {
                 /* var, func, #args, ret, args... */
-                lily_fast_func fc;
+                lily_func fc;
                 /* The func HAS to be grabbed from the var to support passing
                    funcs as args. */
-                fc = (lily_fast_func)((lily_var *)code[i+2])->value.ptr;;
+                fc = (lily_func)((lily_var *)code[i+2])->value.func;
                 int j = code[i+3];
-                fc(code[i+3], (lily_sym **)code+i+4);
-                i += 5+j;
+                fc(vm, j, (lily_sym **)code+i+4);
+                i += 5 + j;
             }
                 break;
             case o_save:
