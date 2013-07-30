@@ -18,7 +18,7 @@ typedef struct {
     int line_num;
 } lily_vm_stack_entry;
 
-typedef struct {
+typedef struct lily_vm_state_t {
     lily_saved_val *saved_values;
     int val_pos;
     int val_size;

@@ -2,6 +2,7 @@
 # define LILY_SEED_SYMTAB_H
 
 # include "lily_pkg.h"
+# include "lily_vm.h"
 
 /* Sync name order with SYM_CLASS_* #defines in lily_symtab.h */
 typedef const struct {
@@ -30,8 +31,8 @@ static const char *keywords[] = {
     "break"
 };
 
-void lily_builtin_print(int, lily_sym **);
-void lily_builtin_printfmt(int, lily_sym **);
+void lily_builtin_print(lily_vm_state *, int, lily_sym **);
+void lily_builtin_printfmt(struct lily_vm_state_t *, int, lily_sym **);
 
 static lily_func_seed print =
     {"print", 1, 0, lily_builtin_print, {-1, SYM_CLASS_STR}};
