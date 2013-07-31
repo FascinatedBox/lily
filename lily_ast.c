@@ -276,6 +276,8 @@ static int priority_for_op(lily_expr_op o)
         case expr_assign:
         case expr_div_assign:
         case expr_mul_assign:
+        case expr_plus_assign:
+        case expr_minus_assign:
             prio = 0;
             break;
         case expr_logical_or:

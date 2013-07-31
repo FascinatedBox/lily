@@ -17,6 +17,8 @@ typedef enum {
     expr_logical_and,
     expr_logical_or,
     expr_assign,
+    expr_plus_assign,
+    expr_minus_assign,
     expr_mul_assign,
     expr_div_assign
 } lily_expr_op;

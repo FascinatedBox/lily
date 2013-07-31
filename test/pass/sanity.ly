@@ -495,21 +495,36 @@ method test_parenth():nil
     }
 }
 
-method test_mul_div():nil
+method test_arith():nil
 {
-    printfmt("#%i: Testing *, *=, /, and /=...", test_id)
+    printfmt("#%i: Testing +, +=, -, -=, *, *=, /, and /=...", test_id)
     test_id = test_id + 1
 
     integer i = 2
     i *= i
+    i = i * i
     i /= i
+    i = i / i
+    i += i
+    i = i + i
+    
+    i -= i
+    i = i - 1
+
     i = 1 * 1
     i = 2 / 2
 
     number n = 1.0
     n *= n
-    n *= 1
+    n = n * n
     n /= n
+    n = n / n
+    n += n
+    n = n + n
+    n -= n
+    n = n - n
+    n = 2.0 - 2
+    n = 2.0 + 2
     n = 2.0 / 2
     n = 2.0 * 2
     n = 2 * 2.0
@@ -1130,7 +1145,7 @@ test_fib()
 test_unary()
 test_andor()
 test_parenth()
-test_mul_div()
+test_arith()
 test_sub_assign()
 test_complex_sigs()
 test_typecasts()
