@@ -791,6 +791,19 @@ void lily_vm_execute(lily_vm_state *vm)
                         result = (lhs->value.integer == 0);
                     else if (cls_id == SYM_CLASS_NUMBER)
                         result = (lhs->value.number == 0);
+                    else if (cls_id == SYM_CLASS_OBJECT) {
+                        if (lhs->value.object->sig->cls->id == SYM_CLASS_INTEGER)
+                            result = (lhs->value.object->value.integer == 0);
+                        else if (lhs->value.object->sig->cls->id == SYM_CLASS_NUMBER)
+                            result = (lhs->value.object->value.number == 0);
+                        else
+                            /* Objects will never have S_IS_NIL set because they
+                               must always exist so they can always store a
+                               value. So check for a sig, instead of a value. */
+                            result = (lhs->value.object->sig == NULL);
+                    }
+                    else
+                        result = (lhs->flags & S_IS_NIL);
 
                     if (result != code[i+1])
                         i = code[i+3];
