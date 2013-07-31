@@ -23,10 +23,18 @@ typedef struct lily_vm_state_t {
     int val_pos;
     int val_size;
 
+    /* The function that raised the current error, or NULL if it wasn't from a
+       function call. */
+    lily_function_val *err_function;
+
     lily_vm_stack_entry **method_stack;
     int method_stack_pos;
     int method_stack_size;
 
+    /* This lets the vm know that it was in a function when an error is raised
+       so it can set err_function properly. Runners should only check
+       err_function. */
+    int in_function;
     lily_raiser *raiser;
     lily_var *main;
 } lily_vm_state;

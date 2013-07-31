@@ -15,7 +15,13 @@
 # define lily_ErrBadCast      7
 
 typedef struct {
-    jmp_buf jump;
+    /* The raiser will typically have two jumps: One for the vm to catch runtime
+       errors, and a second for the runner to catch parser errors. The raiser
+       will use the highest jump it has (the vm, typically). */
+    jmp_buf *jumps;
+    int jump_pos;
+    int jump_size;
+
     int error_code;
     lily_msgbuf *msgbuf;
     /* This is 0 if the error line is the lexer's current line number.

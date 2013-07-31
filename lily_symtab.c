@@ -362,11 +362,18 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
             if (var != NULL) {
                 int seed_ret;
 
-                var->flags &= ~(S_IS_NIL);
-                var->value.func = seed->func;
+                var->value.function = lily_try_new_function_val(seed->func, 
+                        seed->name);
 
-                seed_ret = try_seed_call_sig(symtab, seed, var->sig->node.call);
-                if (seed_ret == 0)
+                if (var->value.function != NULL) {
+                    var->flags &= ~(S_IS_NIL);
+                    seed_ret = try_seed_call_sig(symtab, seed,
+                            var->sig->node.call);
+
+                    if (seed_ret == 0)
+                        ret = 0;
+                }
+                else
                     ret = 0;
             }
             else {
@@ -597,6 +604,9 @@ static void free_sym_common(lily_sym *sym)
             lily_str_val *sv = sym->value.str;
             lily_deref_str_val(sv);
         }
+        else if (cls_id == SYM_CLASS_FUNCTION) {
+            lily_free(sym->value.function);
+        }
     }
 
     lily_deref_sig(sym->sig);
@@ -735,6 +745,25 @@ lily_sig *lily_try_sig_for_class(lily_class *cls)
     }
 
     return sig;
+}
+
+/* lily_try_new_function_val
+   This will attempt to create a new function value (for storing a function
+   pointer and a name for it).
+   Note: 'try' means this call returns NULL on failure. */
+lily_function_val *lily_try_new_function_val(lily_func func, char *name)
+{
+    lily_function_val *f = lily_malloc(sizeof(lily_function_val));
+
+    if (f == NULL) {
+        lily_free(f);
+        return NULL;
+    }
+
+    f->refcount = 1;
+    f->func = func;
+    f->trace_name = name;
+    return f;
 }
 
 /* lily_try_new_method_val

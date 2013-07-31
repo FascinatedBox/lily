@@ -38,7 +38,7 @@ typedef union {
     struct lily_object_val_t *object;
     struct lily_list_val_t *list;
     struct lily_generic_val_t *generic;
-    lily_func func;
+    struct lily_function_val_t *function;
 } lily_value;
 
 typedef struct lily_str_val_t {
@@ -76,6 +76,12 @@ typedef struct lily_list_val_t {
     int visited;
     int num_values;
 } lily_list_val;
+
+typedef struct lily_function_val_t {
+    int refcount;
+    lily_func func;
+    char *trace_name;
+} lily_function_val;
 
 /* Every ref'd value is a superset of the 'generic' value (refcount
    comes first). This allows the vm to make refs/derefs a bit easier. */

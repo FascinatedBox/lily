@@ -101,6 +101,8 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
         return NULL;
     }
 
+    vm->err_function = NULL;
+    vm->in_function = 0;
     vm->method_stack = method_stack;
     vm->method_stack_pos = 0;
     vm->method_stack_size = 4;
@@ -689,6 +691,21 @@ void lily_vm_execute(lily_vm_state *vm)
     stack_entry->code = code;
     vm->method_stack_pos = 1;
 
+    if (setjmp(vm->raiser->jumps[vm->raiser->jump_pos]) == 0)
+        vm->raiser->jump_pos++;
+    else {
+        if (vm->in_function) {
+            vm->err_function = ((lily_var *)code[i+2])->value.function;
+
+            lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
+            top->line_num = top->code[i+1];
+        }
+
+        /* Don't yield to parser, because it will continue as if nothing
+           happened. Instead, jump to where it would jump. */
+        longjmp(vm->raiser->jumps[vm->raiser->jump_pos-2], 1);
+    }
+
     while (1) {
         switch(code[i]) {
             case o_assign:
@@ -784,12 +801,18 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_func_call:
             {
                 /* var, func, #args, ret, args... */
-                lily_func fc;
+                lily_function_val *fval;
+                lily_func func;
+                int j = code[i+3];
+
                 /* The func HAS to be grabbed from the var to support passing
                    funcs as args. */
-                fc = (lily_func)((lily_var *)code[i+2])->value.func;
-                int j = code[i+3];
-                fc(vm, j, (lily_sym **)code+i+4);
+                fval = (lily_function_val *)((lily_var *)code[i+2])->value.function;
+                func = fval->func;
+
+                vm->in_function = 1;
+                func(vm, j, (lily_sym **)code+i+4);
+                vm->in_function = 0;
                 i += 5 + j;
             }
                 break;
