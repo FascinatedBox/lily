@@ -1013,6 +1013,10 @@ void lily_lexer(lily_lex_state *lexer)
             ch = lexer->lex_buffer[lex_bufpos+1];
             if (ch_class[(unsigned char)ch] == CC_NUMBER)
                 scan_number(lexer, &lex_bufpos, &token);
+            else if (ch == '=') {
+                lex_bufpos += 2;
+                token = tk_plus_eq;
+            }
             else {
                 lex_bufpos++;
                 token = tk_plus;
@@ -1022,6 +1026,10 @@ void lily_lexer(lily_lex_state *lexer)
             ch = lexer->lex_buffer[lex_bufpos+1];
             if (ch_class[(unsigned char)ch] == CC_NUMBER)
                 scan_number(lexer, &lex_bufpos, &token);
+            else if (ch == '=') {
+                lex_bufpos += 2;
+                token = tk_minus_eq;
+            }
             else {
                 lex_bufpos++;
                 token = tk_minus;
@@ -1138,9 +1146,9 @@ char *tokname(lily_token t)
 {
     static char *toknames[] =
     {"(", ")", ",", "{", "}", ":", "[", "]", "=", "==", "<", "<=", ">", ">=",
-     "!", "!=", "*", "*=", "/", "/=", "+", "-", "a label", "a string",
-     "an integer", "a number", ".", "&", "&&", "|", "||", "@(", "...",
-     "invalid token", "@>", "end of file"};
+     "!", "!=", "*", "*=", "/", "/=", "+", "+=", "-", "-=", "a label",
+     "a string", "an integer", "a number", ".", "&", "&&", "|", "||", "@(",
+     "...", "invalid token", "@>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

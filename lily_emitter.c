@@ -1065,6 +1065,10 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                 spoof_op = expr_multiply;
             else if (ast->op == expr_div_assign)
                 spoof_op = expr_divide;
+            else if (ast->op == expr_plus_assign)
+                spoof_op = expr_plus;
+            else if (ast->op == expr_minus_assign)
+                spoof_op = expr_minus;
 
             /* Pretend the ast is lhs ? rhs, instead of lhs ?= rhs and give it
                to the binary emitter to write the appropriate binary op. This
