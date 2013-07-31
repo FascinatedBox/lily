@@ -93,6 +93,11 @@ int main(int argc, char **argv)
 
             vm_stack = parser->vm->method_stack;
             fprintf(stderr, "Traceback:\n");
+            if (parser->vm->err_function != NULL) {
+                fprintf(stderr, "    Function \"%s\"\n",
+                        parser->vm->err_function->trace_name);
+            }
+
             for (i = parser->vm->method_stack_pos-1;i >= 0;i--) {
                 entry = vm_stack[i];
                 fprintf(stderr, "    Method \"%s\" at line %d.\n",

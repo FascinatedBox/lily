@@ -45,6 +45,7 @@ lily_var *lily_try_new_var(lily_symtab *, lily_sig *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
 int lily_try_add_sig_storage(lily_symtab *, lily_sig *);
 int lily_try_add_storage(lily_symtab *, lily_sig *);
+lily_function_val *lily_try_new_function_val(lily_func, char *);
 lily_method_val *lily_try_new_method_val();
 lily_object_val *lily_try_new_object_val();
 lily_sig *lily_try_sig_for_class(lily_class *);

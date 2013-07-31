@@ -14,16 +14,22 @@ lily_raiser *lily_new_raiser()
 {
     lily_raiser *raiser = lily_malloc(sizeof(lily_raiser));
     lily_msgbuf *msgbuf = lily_new_msgbuf();
+    jmp_buf *jumps = lily_malloc(2 * sizeof(jmp_buf));
 
-    if (msgbuf == NULL || raiser == NULL) {
+    if (msgbuf == NULL || raiser == NULL || jumps == NULL) {
         if (msgbuf != NULL)
             lily_free_msgbuf(msgbuf);
-        else if (raiser != NULL)
+        if (raiser != NULL)
             lily_free(raiser);
+        if (jumps != NULL)
+            lily_free(jumps);
 
         return NULL;
     }
 
+    raiser->jump_pos = 0;
+    raiser->jump_size = 2;
+    raiser->jumps = jumps;
     raiser->line_adjust = 0;
     raiser->msgbuf = msgbuf;
     return raiser;
@@ -31,6 +37,7 @@ lily_raiser *lily_new_raiser()
 
 void lily_free_raiser(lily_raiser *raiser)
 {
+    lily_free(raiser->jumps);
     lily_free_msgbuf(raiser->msgbuf);
     lily_free(raiser);
 }
@@ -84,13 +91,13 @@ void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
         lily_msgbuf_add_text_range(raiser->msgbuf, fmt, text_start, i);
 
     raiser->error_code = error_code;
-    longjmp(raiser->jump, 1);
+    longjmp(raiser->jumps[raiser->jump_pos-1], 1);
 }
 
 void lily_raise_nomem(lily_raiser *raiser)
 {
     raiser->error_code = lily_ErrNoMemory;
-    longjmp(raiser->jump, 1);
+    longjmp(raiser->jumps[raiser->jump_pos-1], 1);
 }
 
 const char *lily_name_for_error(int error_code)

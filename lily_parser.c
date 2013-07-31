@@ -1104,7 +1104,8 @@ void lily_parser(lily_parse_state *parser)
    on success, and 0 on failure. */
 int lily_parse_file(lily_parse_state *parser, char *filename)
 {
-    if (setjmp(parser->raiser->jump) == 0) {
+    if (setjmp(parser->raiser->jumps[parser->raiser->jump_pos]) == 0) {
+        parser->raiser->jump_pos++;
         lily_load_file(parser->lex, filename);
         lily_parser(parser);
         return 1;
@@ -1118,7 +1119,8 @@ int lily_parse_file(lily_parse_state *parser, char *filename)
    for destroying the str as needed. */
 int lily_parse_string(lily_parse_state *parser, char *str)
 {
-    if (setjmp(parser->raiser->jump) == 0) {
+    if (setjmp(parser->raiser->jumps[parser->raiser->jump_pos]) == 0) {
+        parser->raiser->jump_pos++;
         lily_load_str(parser->lex, str);
         lily_parser(parser);
         parser->lex->lex_buffer = NULL;
