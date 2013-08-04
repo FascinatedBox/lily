@@ -15,6 +15,9 @@ typedef struct {
     lily_var *old_var_start;
     lily_var *old_var_top;
     lily_class **classes;
+    int class_pos;
+    int class_size;
+
     lily_literal *lit_start;
     lily_literal *lit_top;
     int next_var_id;

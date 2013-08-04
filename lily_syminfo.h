@@ -176,5 +176,6 @@ typedef struct lily_storage_t {
 #define SYM_CLASS_LIST     6
 
 #define SYM_LAST_CLASS     6
+#define INITIAL_CLASS_SIZE 8
 
 #endif

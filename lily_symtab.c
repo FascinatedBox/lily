@@ -490,7 +490,7 @@ static int init_classes(lily_symtab *symtab)
     int i, class_count, ret;
     lily_class **classes;
 
-    classes = lily_malloc(sizeof(lily_class *) * (SYM_LAST_CLASS+1));
+    classes = lily_malloc(sizeof(lily_class *) * INITIAL_CLASS_SIZE);
     if (classes == NULL)
         return 0;
 
@@ -537,6 +537,9 @@ static int init_classes(lily_symtab *symtab)
         classes[i] = new_class;
     }
 
+    /* This is so symtab cleanup catches all of the builtin classes, regardless
+       of what parts were initialized. */
+    symtab->class_pos = SYM_LAST_CLASS;
     return ret;
 }
 
@@ -552,6 +555,8 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
     if (s == NULL)
         return NULL;
 
+    s->class_pos = 0;
+    s->class_size = INITIAL_CLASS_SIZE;
     s->next_lit_id = 0;
     s->next_var_id = 0;
     s->next_storage_id = 0;
@@ -650,7 +655,7 @@ void lily_free_symtab(lily_symtab *symtab)
 
     if (symtab->classes != NULL) {
         int i;
-        for (i = 0;i <= SYM_LAST_CLASS;i++) {
+        for (i = 0;i <= symtab->class_pos;i++) {
             lily_class *cls = symtab->classes[i];
             if (cls != NULL) {
                 if (cls->call_start != NULL)
@@ -806,8 +811,8 @@ lily_object_val *lily_try_new_object_val()
 }
 
 /* lily_class_by_id
-   This function will return a class for a particular class id. This function
-   will need to be updated when users can create their own classes. */
+   This function will return a class for a particular class id. This is
+   typically used to quickly fetch builtin classes. */
 lily_class *lily_class_by_id(lily_symtab *symtab, int class_id)
 {
     return symtab->classes[class_id];
@@ -820,7 +825,7 @@ lily_class *lily_class_by_name(lily_symtab *symtab, char *name)
     int i;
     lily_class **classes = symtab->classes;
 
-    for (i = 0;i <= SYM_LAST_CLASS;i++) {
+    for (i = 0;i <= symtab->class_pos;i++) {
         if (strcmp(classes[i]->name, name) == 0)
             return classes[i];
     }
