@@ -83,13 +83,6 @@ void lily_free_ast_pool(lily_ast_pool *ap)
 {
     int i;
 
-    for (i = 0;i < ap->tree_index;i++) {
-        if (ap->tree_pool[i]->tree_type == tree_typecast &&
-            ap->tree_pool[i]->sig != NULL) {
-            lily_deref_sig(ap->tree_pool[i]->sig);
-        }
-    }
-
     for (i = 0;i < ap->tree_size;i++)
         lily_free(ap->tree_pool[i]);
 

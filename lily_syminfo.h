@@ -112,11 +112,11 @@ typedef struct lily_sig_t {
     /* This refcount was created so that complex list signatures could
        be shared without worry of the inner signature being deleted.
        Refcount is incremented even for basic signatures. */
-    int refcount;
     union {
         lily_call_sig *call;
         struct lily_sig_t *value_sig;
     } node;
+    struct lily_sig_t *next;
 } lily_sig;
 
 /* All symbols have at least these fields. The vm and debugging functions use

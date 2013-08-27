@@ -17,6 +17,7 @@ typedef struct {
     lily_class **classes;
     int class_pos;
     int class_size;
+    lily_sig *root_sig;
 
     lily_literal *lit_start;
     lily_literal *lit_top;
@@ -51,8 +52,7 @@ int lily_try_add_storage(lily_symtab *, lily_sig *);
 lily_function_val *lily_try_new_function_val(lily_func, char *);
 lily_method_val *lily_try_new_method_val();
 lily_object_val *lily_try_new_object_val();
-lily_sig *lily_try_sig_for_class(lily_class *);
-void lily_deref_sig(lily_sig *);
+lily_sig *lily_try_sig_for_class(lily_symtab *, lily_class *);
 void lily_deref_method_val(lily_method_val *);
 void lily_deref_str_val(lily_str_val *);
 void lily_deref_object_val(lily_object_val *);

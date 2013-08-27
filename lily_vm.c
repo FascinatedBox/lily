@@ -494,8 +494,6 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
             if (ov->sig->cls->is_refcounted && ((flags & S_IS_CIRCULAR) == 0))
                 lily_deref_unknown_val(ov->sig, ov->value);
 
-            lily_deref_sig(ov->sig);
-
             if (rhs->sig->cls->id == SYM_CLASS_LIST)
                 lhs->value.list->flags[index_int] |= S_IS_CIRCULAR;
             else {
@@ -506,7 +504,6 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
                 circle_buster(ov, rhs->sig, rhs->value);
             }
 
-            rhs->sig->refcount++;
             ov->sig = rhs->sig;
             ov->value = rhs->value;
         }
@@ -515,11 +512,9 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
             if (ov->sig->cls->is_refcounted)
                 lily_deref_unknown_val(ov->sig, ov->value);
 
-            lily_deref_sig(ov->sig);
             if (rhs_obj->sig->cls->is_refcounted)
                 rhs_obj->value.generic->refcount++;
 
-            rhs_obj->sig->refcount++;
             ov->sig = rhs_obj->sig;
             ov->value = rhs_obj->value;
         }
@@ -617,7 +612,6 @@ void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
                     lily_raise_nomem(vm->raiser);
                 }
                 memcpy(oval, syms[5+j]->value.object, sizeof(lily_object_val));
-                oval->sig->refcount++;
                 oval->refcount = 1;
 
                 if (oval->sig->cls->is_refcounted)
@@ -1001,16 +995,10 @@ void lily_vm_execute(lily_vm_state *vm)
                             if (oval->sig->cls->is_refcounted)
                                 oval->value.generic->refcount++;
 
-                            /* This is an object, so the sig was ref'd when it
-                               came in (and needs to be dropped). Don't drop the
-                               value though, since some other sym is probably
-                               using it. */
-                            lily_deref_sig(result->value.object->sig);
-
+                            /* Don't drop the result object's value, in case
+                               something else is using it. */
                             result->value.object->value = oval->value;
                             result->value.object->sig = oval->sig;
-
-                            oval->sig->refcount++;
                         }
 
                         result->flags &= ~S_IS_NIL;
@@ -1025,7 +1013,6 @@ void lily_vm_execute(lily_vm_state *vm)
                         oval->value.generic->refcount++;
                         result->value.object->value = oval->value;
                         result->value.object->sig = oval->sig;
-                        oval->sig->refcount++;
 
                         result->flags &= ~S_IS_NIL;
                     }
@@ -1089,8 +1076,6 @@ void lily_vm_execute(lily_vm_state *vm)
                     if (lhs->value.object->sig->cls->is_refcounted)
                         lily_deref_unknown_val(lhs->value.object->sig,
                                 lhs->value.object->value);
-
-                    lily_deref_sig(lhs->value.object->sig);
                 }
 
                 /* Objects are treated like containers, wherein the value and
@@ -1105,7 +1090,6 @@ void lily_vm_execute(lily_vm_state *vm)
                            object. This has the nice side-effect of making sure
                            that objects aren't super-nested in each other. */
                         lily_object_val *rhs_obj = rhs->value.object;
-                        rhs_obj->sig->refcount++;
                         lhs->value.object->sig = rhs_obj->sig;
                         if (rhs_obj->sig->cls->is_refcounted)
                             rhs_obj->value.generic->refcount++;
@@ -1119,7 +1103,6 @@ void lily_vm_execute(lily_vm_state *vm)
                     if (rhs->sig->cls->id == SYM_CLASS_LIST)
                         circle_buster(lhs->value.object, rhs->sig, rhs->value);
 
-                    rhs->sig->refcount++;
                     lhs->value.object->sig = rhs->sig;
                     if (rhs->sig->cls->is_refcounted)
                         rhs->value.generic->refcount++;

@@ -24,33 +24,7 @@
       parser is not completely allocated and set.
 **/
 
-/** Signature and value deref-ing. **/
-void lily_deref_sig(lily_sig *sig)
-{
-    sig->refcount--;
-    if (sig->refcount == 0) {
-        int cls_id = sig->cls->id;
-        if (cls_id == SYM_CLASS_METHOD ||
-            cls_id == SYM_CLASS_FUNCTION) {
-            lily_call_sig *csig = sig->node.call;
-            int i;
-            for (i = 0;i < csig->num_args;i++)
-                lily_deref_sig(csig->args[i]);
-
-            if (csig->ret != NULL)
-                lily_deref_sig(csig->ret);
-            lily_free(csig->args);
-            lily_free(csig);
-        }
-        else if (cls_id == SYM_CLASS_LIST) {
-            lily_sig *inner_sig = sig->node.value_sig;
-            if (inner_sig != NULL)
-                lily_deref_sig(inner_sig);
-        }
-        lily_free(sig);
-    }
-}
-
+/** Value deref-ing. **/
 void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
 {
     lv->refcount--;
@@ -85,7 +59,6 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
                        up, since there was no ref to counter that. */
                     if (lv->values[i].object->refcount == 1) {
                         lily_object_val *ov = lv->values[i].object;
-                        lily_deref_sig(ov->sig);
                         lily_free(ov);
                     }
                 }
@@ -121,10 +94,9 @@ void lily_deref_object_val(lily_object_val *ov)
 {
     ov->refcount--;
     if (ov->refcount == 0) {
-        if (ov->sig != NULL) {
+        if (ov->sig != NULL)
             lily_deref_unknown_val(ov->sig, ov->value);
-            lily_deref_sig(ov->sig);
-        }
+
         lily_free(ov);
     }
 }
@@ -226,8 +198,6 @@ int lily_try_add_storage(lily_symtab *symtab, lily_sig *sig)
      increase the refcount.
    * If this function succeeds, it will also add the var to the symtab to be
      collected later.
-   * If it fails, then lily_deref_sig may be necessary to ensure that the sig
-     is properly deleted.
    * If the same sig is to be used for multiple vars, the sig needs to be ref'd
      by the caller each time.
    Note: 'try' means this call returns NULL on failure. */
@@ -304,7 +274,6 @@ static int try_seed_call_sig(lily_symtab *symtab,
     else {
         lily_class *c = lily_class_by_id(symtab, seed->arg_ids[0]);
         csig->ret = c->sig;
-        c->sig->refcount++;
     }
 
     if (seed->arg_ids[1] == -1) {
@@ -318,7 +287,6 @@ static int try_seed_call_sig(lily_symtab *symtab,
             for (i = 1;i <= seed->num_args;i++) {
                 lily_class *cls = lily_class_by_id(symtab, seed->arg_ids[i]);
                 csig->args[i-1] = cls->sig;
-                cls->sig->refcount++;
             }
             csig->num_args = seed->num_args;
         }
@@ -355,7 +323,7 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
 
     for (i = 0;i < seed_count;i++) {
         lily_func_seed *seed = seeds[i];
-        lily_sig *new_sig = lily_try_sig_for_class(func_class);
+        lily_sig *new_sig = lily_try_sig_for_class(symtab, func_class);
         if (new_sig != NULL) {
             lily_var *var = lily_try_new_var(symtab, new_sig, seed->name);
 
@@ -376,10 +344,8 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
                 else
                     ret = 0;
             }
-            else {
-                lily_deref_sig(new_sig);
+            else
                 ret = 0;
-            }
         }
         else
             ret = 0;
@@ -424,16 +390,14 @@ int init_package(lily_symtab *symtab, int cls_id, lily_func_seed **seeds,
 static int init_at_main(lily_symtab *symtab)
 {
     lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_METHOD);
-    lily_sig *new_sig = lily_try_sig_for_class(cls);
+    lily_sig *new_sig = lily_try_sig_for_class(symtab, cls);
     if (new_sig == NULL)
         return 0;
 
     lily_var *var = lily_try_new_var(symtab, new_sig, "@main");
 
-    if (var == NULL) {
-        lily_deref_sig(new_sig);
+    if (var == NULL)
         return 0;
-    }
 
     var->flags &= ~(S_IS_NIL);
 
@@ -457,7 +421,6 @@ static int init_literals(lily_symtab *symtab)
         if (lit != NULL) {
             lit->flags = LITERAL_SYM;
             lit->sig = cls->sig;
-            lit->sig->refcount++;
             lit->value.integer = i;
             lit->next = NULL;
 
@@ -509,7 +472,14 @@ static int init_classes(lily_symtab *symtab)
             sig = lily_malloc(sizeof(lily_sig));
             if (sig != NULL) {
                 sig->cls = new_class;
-                sig->refcount = 1;
+                /* So that testing this later doesn't potentially cause an
+                   invalid read... */
+                sig->node.value_sig = NULL;
+
+                /* Link the signatures to the root sig too, so that they can be
+                   deleted. */
+                sig->next = symtab->root_sig;
+                symtab->root_sig = sig;
             }
             else
                 ret = 0;
@@ -522,11 +492,8 @@ static int init_classes(lily_symtab *symtab)
                list is circular. */
             new_class->storage = NULL;
 
-            if (ret) {
+            if (ret)
                 ret = lily_try_add_storage(symtab, sig);
-                if (ret)
-                    sig->refcount++;
-            }
 
             new_class->name = class_seeds[i].name;
             new_class->is_refcounted = class_seeds[i].is_refcounted;
@@ -571,6 +538,7 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
        0 is used, because these are all builtins, and the lexer may have failed
        to initialize anyway. */
     s->lex_linenum = &v;
+    s->root_sig = NULL;
 
     if (!init_classes(s) || !init_literals(s) ||
         !init_at_main(s) || !read_seeds(s, builtin_seeds, NUM_BUILTIN_SEEDS) ||
@@ -613,8 +581,6 @@ static void free_sym_common(lily_sym *sym)
             lily_free(sym->value.function);
         }
     }
-
-    lily_deref_sig(sym->sig);
 }
 
 /* free_vars
@@ -683,18 +649,33 @@ void lily_free_symtab(lily_symtab *symtab)
     if (symtab->old_var_start != NULL)
         free_vars(symtab->old_var_start);
 
-    /* At this point, there's nothing left to use the signatures of the
-       classes. These signatures can't be deref'd though, because lily_deref_sig
-       was causing errors in valgrind. Plus, this also ensures that everything
-       is free'd even if there are extra refs. */
+    lily_sig *sig, *sig_temp;
+
+    /* Destroy the signatures before the classes, since the sigs need to check
+       the class id to make sure there isn't a call sig to destroy. */
+    sig = symtab->root_sig;
+    int j = 0;
+    while (sig != NULL) {
+        j++;
+        sig_temp = sig->next;
+        if (sig->cls->id == SYM_CLASS_METHOD ||
+            sig->cls->id == SYM_CLASS_FUNCTION) {
+            lily_call_sig *csig = sig->node.call;
+            if (csig != NULL) {
+                lily_free(csig->args);
+                lily_free(csig);
+            }
+        }
+        lily_free(sig);
+        sig = sig_temp;
+    }
+
     if (symtab->classes != NULL) {
         int i;
         for (i = 0;i <= SYM_LAST_CLASS;i++) {
             lily_class *cls = symtab->classes[i];
-            if (cls != NULL) {
-                lily_free(cls->sig);
+            if (cls != NULL)
                 lily_free(cls);
-            }
         }
         lily_free(symtab->classes);
     }
@@ -711,7 +692,7 @@ void lily_free_symtab(lily_symtab *symtab)
    If the signature will require complex data, an attempt is made at allocating
    a new signature with 1 ref.
    Note: 'try' means this call returns NULL on failure. */
-lily_sig *lily_try_sig_for_class(lily_class *cls)
+lily_sig *lily_try_sig_for_class(lily_symtab *symtab, lily_class *cls)
 {
     lily_sig *sig;
 
@@ -720,7 +701,9 @@ lily_sig *lily_try_sig_for_class(lily_class *cls)
         if (sig != NULL) {
             sig->cls = cls;
             sig->node.value_sig = NULL;
-            sig->refcount = 1;
+
+            sig->next = symtab->root_sig;
+            symtab->root_sig = sig;
         }
     }
     else if (cls->id == SYM_CLASS_FUNCTION ||
@@ -728,7 +711,6 @@ lily_sig *lily_try_sig_for_class(lily_class *cls)
         sig = lily_malloc(sizeof(lily_sig));
         if (sig != NULL) {
             lily_call_sig *csig;
-            sig->refcount = 1;
             csig = lily_malloc(sizeof(lily_call_sig));
             if (csig != NULL) {
                 csig->ret = NULL;
@@ -737,6 +719,9 @@ lily_sig *lily_try_sig_for_class(lily_class *cls)
                 csig->is_varargs = 0;
                 sig->cls = cls;
                 sig->node.call = csig;
+
+                sig->next = symtab->root_sig;
+                symtab->root_sig = sig;
             }
             else {
                 lily_free(sig);
@@ -744,10 +729,8 @@ lily_sig *lily_try_sig_for_class(lily_class *cls)
             }
         }
     }
-    else {
+    else
         sig = cls->sig;
-        sig->refcount++;
-    }
 
     return sig;
 }
@@ -899,8 +882,6 @@ lily_literal *lily_new_literal(lily_symtab *symtab, lily_class *cls,
     }
     /* Literals are either str, integer, or number, so this is safe. */
     lit->sig = cls->sig;
-    /* ...as long as the refcount is bumped. */
-    cls->sig->refcount++;
 
     lit->flags = LITERAL_SYM;
     lit->next = NULL;
