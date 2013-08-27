@@ -190,7 +190,6 @@ static lily_storage *storage_for_class(lily_emit_state *emit,
         if (!lily_try_add_storage(emit->symtab, storage_class->sig))
             lily_raise_nomem(emit->raiser);
 
-        storage_class->sig->refcount++;
         s = s->next;
     }
 
@@ -593,7 +592,6 @@ static void emit_typecast(lily_emit_state *emit, lily_ast *ast)
                may be invalid. */
             ast->sig = NULL;
             if (result == NULL) {
-                lily_deref_sig(cast_sig);
                 emit->raiser->line_adjust = ast->line_num;
                 lily_raise_nomem(emit->raiser);
             }
@@ -717,7 +715,6 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         i = (have_args - i);
         if (is_method) {
             lily_storage *s;
-            save_sig->refcount++;
             s = try_find_storage_by_sig(emit, save_sig);
             if (s == NULL) {
                 emit->raiser->line_adjust = ast->line_num;
@@ -868,9 +865,6 @@ lily_storage *try_find_storage_by_sig(lily_emit_state *emit, lily_sig *sig)
             emit->expr_num != emit->storage_cache[i]->expr_num) {
             result = emit->storage_cache[i];
             result->expr_num = emit->expr_num;
-
-            /* Found a storage with the sig, so the sig is now useless. */
-            lily_deref_sig(sig);
             break;
         }
     }
@@ -1132,18 +1126,16 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
             elem_sig = autocast_ast_list(emit, ast);
 
         lily_class *list_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);
-        lily_sig *new_sig = lily_try_sig_for_class(list_cls);
+        lily_sig *new_sig = lily_try_sig_for_class(emit->symtab, list_cls);
         if (new_sig == NULL) {
             emit->raiser->line_adjust = ast->line_num;
             lily_raise_nomem(emit->raiser);
         }
 
         new_sig->node.value_sig = elem_sig;
-        elem_sig->refcount++;
         lily_storage *s = try_find_storage_by_sig(emit, new_sig);
 
         if (s == NULL) {
-            lily_deref_sig(new_sig);
             emit->raiser->line_adjust = ast->line_num;
             lily_raise_nomem(emit->raiser);
         }
@@ -1183,17 +1175,13 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                     "Subscript index is not an integer.\n");
         }
 
-        lily_sig *sig_for_result;
-        sig_for_result = var_sig->node.value_sig;
-
+        lily_sig *sig_for_result = var_sig->node.value_sig;
         lily_storage *result = NULL;
 
         if (sig_for_result->cls->is_refcounted &&
             sig_for_result->cls->id != SYM_CLASS_OBJECT) {
-            sig_for_result->refcount++;
             result = try_find_storage_by_sig(emit, sig_for_result);
             if (result == NULL) {
-                lily_deref_sig(sig_for_result);
                 emit->raiser->line_adjust = ast->line_num;
                 lily_raise_nomem(emit->raiser);
             }
