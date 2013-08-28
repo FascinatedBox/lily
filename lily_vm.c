@@ -1112,6 +1112,9 @@ void lily_vm_execute(lily_vm_state *vm)
                 i += 4;
                 break;
             case o_vm_return:
+                /* Remember to remove the jump that the vm installed, since it's
+                   no longer valid. */
+                vm->raiser->jump_pos--;
                 return;
         }
     }
