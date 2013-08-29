@@ -148,7 +148,6 @@ typedef struct lily_var_t {
     lily_value value;
     char *name;
     int line_num;
-    lily_class *parent;
     struct lily_var_t *next;
 } lily_var;
 

@@ -251,7 +251,6 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name)
     }
 
     var->sig = sig;
-    var->parent = NULL;
 
     add_var(symtab, var);
     return var;
@@ -368,13 +367,10 @@ int init_package(lily_symtab *symtab, int cls_id, lily_func_seed **seeds,
     if (ret) {
         /* The functions were created as regular global vars. Make them all
            class-local. */
-        lily_var *v;
         cls->call_start = save_top->next;
         cls->call_top = symtab->var_top;
         symtab->var_top = save_top;
         save_top->next = NULL;
-        for (v = cls->call_start;v != NULL;v = v->next)
-            v->parent = cls;
     }
 
     return ret;
