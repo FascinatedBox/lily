@@ -453,10 +453,12 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
         int new_prio, active_prio;
         new_prio = new_ast->priority;
         active_prio = active->priority;
-        if (new_prio > active_prio) {
+        if ((new_prio > active_prio) || new_prio == 0) {
             /* The new tree goes before the current one, so it steals the rhs
                and becomes it (because lower trees have precedence). Since the
-               new tree still needs a right, it becomes current. */
+               new tree still needs a right, it becomes current.
+               new_prio == 0 is so that assign and assign-like operations run
+               right-to-left. */
             new_ast->left = active->right;
             active->right = new_ast;
 

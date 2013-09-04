@@ -1129,6 +1129,71 @@ method test_while():nil
     print("ok.\n")
 }
 
+method test_assign_chain():nil
+{
+    printfmt("#%i: Testing assignment chains...(sub tests follow).\n", test_id)
+    test_id = test_id + 1
+    integer ok = 1
+    integer a = 10, b = 20, c = 30
+    str result
+
+    a = b = c
+
+    print("     a = 10, b = 20, c = 30\n")
+    print("     a = b = c...")
+    if a != 30 || b != 30 || c != 30: {
+        print("failed.\n")
+        ok = 0
+    else:
+        print("ok (30, 30, 30).\n")
+    }
+
+    a = 10
+    b = 20
+    c = 30
+
+    a *= b *= c
+    print("\n     a = 10, b = 20, c = 30\n")
+    print("     a *= b *= c...")
+    if a != 6000 || b != 600 || c != 30: {
+        print("failed.\n")
+        ok = 0
+    else:
+        print("ok (6000, 600, 30).\n")
+    }
+    if ok == 0:
+        fail_count = fail_count + 1
+
+    a = 1000
+    b = 100
+    c = 10
+    a /= b /= c
+    print("\n     a = 1000, b = 100, c = 10\n")
+    print("     a /= b /= c...")
+    if a != 100 || b != 10 || c != 10: {
+        print("failed.\n")
+        ok = 0
+    else:
+        print("ok (100, 10, 10).\n")
+    }
+
+    a = 10
+    list[integer] d = [20]
+    a += d[0] += a
+
+    print("\n     a = 10, d[0] = 20\n")
+    print("     a += d[0] += a...")
+    if a != 40 || d[0] != 30: {
+        print("failed.\n")
+        ok = 0
+    else:
+        print("ok (40, 30, 40).\n")
+    }
+
+    if ok == 0:
+        fail_count = fail_count + 1
+}
+
 test_basic_assignments()
 test_jumps()
 test_manyargs(1,2,3,4,5,6)
@@ -1155,6 +1220,7 @@ test_method_varargs()
 test_multiline_strs()
 test_digit_collection()
 test_while()
+test_assign_chain()
 
 test_id = test_id - 1
 

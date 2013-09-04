@@ -312,45 +312,6 @@ static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
 /** ast walking helpers **/
 static void walk_tree(lily_emit_state *, lily_ast *);
 
-static void emit_assign(lily_emit_state *emit, lily_ast *ast)
-{
-    int opcode;
-    lily_sym *left_sym, *right_sym;
-    lily_method_val *m = emit->top_method;
-
-    if (ast->right->tree_type != tree_var)
-        walk_tree(emit, ast->right);
-
-    left_sym = ast->left->result;
-    right_sym = ast->right->result;
-
-    if (left_sym->sig != right_sym->sig &&
-        lily_sigequal(left_sym->sig, right_sym->sig) == 0) {
-        /* These are either completely different, or complex classes where the
-           inner bits don't match. If it's object, object can be anything so
-           it's fine. */
-        if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
-            opcode = o_obj_assign;
-        else
-            bad_assign_error(emit, ast->line_num, left_sym->sig,
-                          right_sym->sig);
-    }
-    else if (left_sym->sig->cls->id == SYM_CLASS_STR)
-        opcode = o_str_assign;
-    else if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
-        opcode = o_obj_assign;
-    /* list assign works for any kind of list, regardless of how complex. */
-    else if (left_sym->sig->cls->id == SYM_CLASS_LIST)
-        opcode = o_list_assign;
-    else
-        opcode = o_assign;
-
-    WRITE_4(opcode,
-            ast->line_num,
-            (uintptr_t)left_sym,
-            (uintptr_t)right_sym)
-}
-
 static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
 {
     int opcode;
@@ -396,6 +357,111 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
             (uintptr_t)s)
 
     ast->result = (lily_sym *)s;
+}
+
+/*  emit_op_for_compound
+    Compound assignments are assignments that also have an operation that
+    includes the left side of the expression. Examples are +=, -=, *=, /=, and
+    more. Rather than leave this to the vm, these compound assignments are
+    broken down, then assigned to the left side of the expression.
+    So if we have this:
+
+    x *= y
+
+    it gets broken down into
+
+    x * y -> storage
+    x = storage
+
+    This takes in an ast that has an op that is a compound assignment, and calls
+    for it to be emitted as if it were a binary operation.
+
+    Notes:
+    * This assumes ast->left and ast->right have already been walked.
+    * This will raise lily_ErrSyntax if the ast's op is not a compound op, or
+      if the compound op is invalid (ex: list /= integer).
+    * This handles the 'x * y -> storage' part. The caller is expected to handle
+      the 'x = storage' part.
+    * The result of the binary expression is set to ast->result.
+*/
+static void emit_op_for_compound(lily_emit_state *emit, lily_ast *ast)
+{
+    int save_op = ast->op;
+    int spoof_op;
+
+    if (ast->op == expr_div_assign)
+        spoof_op = expr_divide;
+    else if (ast->op == expr_mul_assign)
+        spoof_op = expr_multiply;
+    else if (ast->op == expr_plus_assign)
+        spoof_op = expr_plus;
+    else if (ast->op == expr_minus_assign)
+        spoof_op = expr_minus;
+    else {
+        lily_raise(emit->raiser, lily_ErrSyntax, "Invalid compound op: %s.\n",
+                opname(ast->op));
+        spoof_op = -1;
+    }
+
+    ast->op = spoof_op;
+    emit_binary_op(emit, ast);
+    ast->op = save_op;
+}
+
+static void emit_assign(lily_emit_state *emit, lily_ast *ast)
+{
+    int opcode;
+    lily_sym *left_sym, *right_sym;
+    lily_method_val *m = emit->top_method;
+
+    if (ast->left->tree_type != tree_var)
+        walk_tree(emit, ast->left);
+
+    if ((ast->left->result->flags & VAR_SYM) == 0 &&
+        ast->left->tree_type != tree_subscript) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                "Left side of %s is not a var.\n", opname(ast->op));
+    }
+
+    if (ast->right->tree_type != tree_var)
+        walk_tree(emit, ast->right);
+
+    left_sym = ast->left->result;
+    right_sym = ast->right->result;
+
+    if (left_sym->sig != right_sym->sig &&
+        lily_sigequal(left_sym->sig, right_sym->sig) == 0) {
+        /* These are either completely different, or complex classes where the
+           inner bits don't match. If it's object, object can be anything so
+           it's fine. */
+        if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
+            opcode = o_obj_assign;
+        else
+            bad_assign_error(emit, ast->line_num, left_sym->sig,
+                          right_sym->sig);
+    }
+    else if (left_sym->sig->cls->id == SYM_CLASS_STR)
+        opcode = o_str_assign;
+    else if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
+        opcode = o_obj_assign;
+    /* list assign works for any kind of list, regardless of how complex. */
+    else if (left_sym->sig->cls->id == SYM_CLASS_LIST)
+        opcode = o_list_assign;
+    else
+        opcode = o_assign;
+
+    if (ast->op > expr_assign) {
+        emit_op_for_compound(emit, ast);
+        right_sym = ast->result;
+    }
+
+    WRITE_4(opcode,
+            ast->line_num,
+            (uintptr_t)left_sym,
+            (uintptr_t)right_sym)
+
+    ast->result = right_sym;
 }
 
 /* Forward decls of enter/leave block for emit_logical_op. */
@@ -488,6 +554,8 @@ static void emit_final_continue(lily_emit_state *emit)
     WRITE_2(o_jump, jump_to)
 }
 
+lily_storage *try_find_storage_by_sig(lily_emit_state *emit, lily_sig *sig);
+
 /* emit_sub_assign
    This handles subscript assignment, which is a bit tricky. */
 static void emit_sub_assign(lily_emit_state *emit, lily_ast *ast)
@@ -505,6 +573,11 @@ static void emit_sub_assign(lily_emit_state *emit, lily_ast *ast)
     lily_ast *index_ast = var_ast->next_arg;
     lily_sym *rhs;
     lily_sig *elem_sig;
+
+    if (ast->right->tree_type != tree_var)
+        walk_tree(emit, ast->right);
+
+    rhs = ast->right->result;
 
     if (var_ast->tree_type != tree_var)
         walk_tree(emit, var_ast);
@@ -524,10 +597,6 @@ static void emit_sub_assign(lily_emit_state *emit, lily_ast *ast)
     /* The subscript assign goes to the element, not the list. So... */
     elem_sig = var_ast->result->sig->node.value_sig;
 
-    if (ast->right->tree_type != tree_var)
-        walk_tree(emit, ast->right);
-
-    rhs = ast->right->result;
     if (elem_sig != rhs->sig && !lily_sigequal(elem_sig, rhs->sig) &&
         elem_sig->cls->id != SYM_CLASS_OBJECT) {
         emit->raiser->line_adjust = ast->line_num;
@@ -535,14 +604,36 @@ static void emit_sub_assign(lily_emit_state *emit, lily_ast *ast)
                          rhs->sig);
     }
 
+    if (ast->op > expr_assign) {
+        /* For a compound assignment to work, the left side must be subscripted
+           to get the value held. */
+
+        lily_storage *subs_storage = try_find_storage_by_sig(emit, elem_sig);
+        if (subs_storage == NULL)
+            lily_raise_nomem(emit->raiser);
+
+        WRITE_5(o_subscript,
+                ast->line_num,
+                (uintptr_t)var_ast->result,
+                (uintptr_t)index_ast->result,
+                (uintptr_t)subs_storage)
+
+        ast->left->result = subs_storage;
+
+        /* Run the compound op now that ->left is set properly. */
+        emit_op_for_compound(emit, ast);
+
+        rhs = ast->result;
+    }
+
     WRITE_5(o_sub_assign,
             ast->line_num,
             (uintptr_t)var_ast->result,
             (uintptr_t)index_ast->result,
             (uintptr_t)rhs)
-}
 
-lily_storage *try_find_storage_by_sig(lily_emit_state *emit, lily_sig *sig);
+    ast->result = rhs;
+}
 
 static void emit_typecast(lily_emit_state *emit, lily_ast *ast)
 {
@@ -1017,20 +1108,15 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         }
     }
     else if (ast->tree_type == tree_binary) {
-        if (ast->op == expr_assign) {
-            if (ast->left->tree_type == tree_var)
+        if (ast->op >= expr_assign) {
+            if (ast->left->tree_type != tree_subscript)
                 emit_assign(emit, ast);
-            else if (ast->left->tree_type == tree_subscript)
+            else
                 emit_sub_assign(emit, ast);
-            else {
-                emit->raiser->line_adjust = ast->line_num;
-                lily_raise(emit->raiser, lily_ErrSyntax,
-                           "Left side of = is not a var.\n");
-            }
         }
         else if (ast->op == expr_logical_or || ast->op == expr_logical_and)
             emit_logical_op(emit, ast);
-        else if (ast->op < expr_assign) {
+        else {
             if (ast->left->tree_type != tree_var)
                 walk_tree(emit, ast->left);
 
@@ -1038,46 +1124,6 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                 walk_tree(emit, ast->right);
 
             emit_binary_op(emit, ast);
-        }
-        else {
-            /* op > expr_assign. This space is used to denote ops such as *=,
-               /=, and others that do some sort of binary op before an
-               assignment.
-               lhs ?= rhs is equivalent to 'lhs ? rhs -> storage; lhs = storage'
-               Since ?= ops only work for integers and numbers... */
-            int spoof_op;
-
-            if (ast->left->tree_type != tree_var) {
-                emit->raiser->line_adjust = ast->line_num;
-                lily_raise(emit->raiser, lily_ErrSyntax,
-                           "Left side of %s is not a var.\n", opname(ast->op));
-            }
-            if (ast->right->tree_type != tree_var)
-                walk_tree(emit, ast->right);
-
-            if (ast->op == expr_mul_assign)
-                spoof_op = expr_multiply;
-            else if (ast->op == expr_div_assign)
-                spoof_op = expr_divide;
-            else if (ast->op == expr_plus_assign)
-                spoof_op = expr_plus;
-            else if (ast->op == expr_minus_assign)
-                spoof_op = expr_minus;
-
-            /* Pretend the ast is lhs ? rhs, instead of lhs ?= rhs and give it
-               to the binary emitter to write the appropriate binary op. This
-               will set the ast with the result needed.
-               * Note: emit_binary_op will trap for impossible situations like
-                 integer *= function. */
-            ast->op = spoof_op;
-            emit_binary_op(emit, ast);
-
-            WRITE_4(o_assign,
-                    ast->line_num,
-                    (uintptr_t)ast->left->result,
-                    (uintptr_t)ast->result)
-
-            ast->result = ast->left->result;
         }
     }
     else if (ast->tree_type == tree_parenth) {
