@@ -172,10 +172,6 @@ lily_parse_state *lily_new_parse_state(int options)
     lily_raiser *raiser = lily_new_raiser();
     lily_sig **sig_stack = lily_malloc(4 * sizeof(lily_sig *));
 
-    int a = 10;
-    int d[] = {20};
-    a += d[0] += a;
-    fprintf(stderr, "a is %d, d[0] is %d.\n", a, d[0]);
     if (s == NULL || raiser == NULL || sig_stack == NULL) {
         lily_free(sig_stack);
         if (raiser != NULL)
@@ -665,6 +661,32 @@ static void expression_value(lily_parse_state *parser)
     }
 }
 
+/* check_valid_close_tok
+   This is used to verify that the current lexer token is valid for closing the
+   current ast tree. This prevents code like:
+   list[integer] lsi = [10, 20, 30)
+                                  ^
+   by complaining that ) is the wrong close token.
+
+   This should be called before lily_ast_leave_tree in situations where the
+   calling tree is not _explicitly_ known. */
+static void check_valid_close_tok(lily_parse_state *parser)
+{
+    lily_token token = parser->lex->token;
+    lily_tree_type tt = lily_ast_caller_tree_type(parser->ast_pool);
+    lily_token expect;
+
+    if (tt == tree_call || tt == tree_parenth || tt == tree_typecast)
+        expect = tk_right_parenth;
+    else
+        expect = tk_right_bracket;
+
+    if (token != expect)
+        lily_raise(parser->raiser, lily_ErrSyntax,
+                "Expected closing token %s, not %s.\n", tokname(expect),
+                tokname(token));
+}
+
 /* expression
    This is the workhorse for handling expressions. 'flags' is used to determine
    if it needs a starting value, if it should run multiple times, etc. */
@@ -689,6 +711,8 @@ static void expression(lily_parse_state *parser, int flags)
                 if (parser->ast_pool->save_index == 0)
                     lily_raise(parser->raiser, lily_ErrSyntax,
                             "Unexpected token %s.\n", tokname(lex->token));
+
+                check_valid_close_tok(parser);
                 lily_ast_leave_tree(parser->ast_pool);
 
                 lily_lexer(lex);
