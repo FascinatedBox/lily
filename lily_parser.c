@@ -172,6 +172,10 @@ lily_parse_state *lily_new_parse_state(int options)
     lily_raiser *raiser = lily_new_raiser();
     lily_sig **sig_stack = lily_malloc(4 * sizeof(lily_sig *));
 
+    int a = 10;
+    int d[] = {20};
+    a += d[0] += a;
+    fprintf(stderr, "a is %d, d[0] is %d.\n", a, d[0]);
     if (s == NULL || raiser == NULL || sig_stack == NULL) {
         lily_free(sig_stack);
         if (raiser != NULL)
