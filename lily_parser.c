@@ -218,7 +218,12 @@ lily_parse_state *lily_new_parse_state(int options)
     s->symtab->lex_linenum = &s->lex->line_num;
     s->ast_pool->lex_linenum = &s->lex->line_num;
     s->emit->symtab = s->symtab;
+
+    /* Enter @main, so that code outside of user methods has a place to go. */
     lily_emit_enter_method(s->emit, s->symtab->var_start);
+    /* Then do this so that the return value is saved too. This keeps an invalid
+       'return' inside of @main from causing an invalid read in parse_return. */
+    lily_emit_update_return(s->emit);
     return s;
 }
 

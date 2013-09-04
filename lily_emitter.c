@@ -1648,6 +1648,11 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
    a value to the caller. */
 void lily_emit_return_noval(lily_emit_state *emit)
 {
+    /* Don't allow 'return' within @main. */
+    if (emit->method_pos == 1)
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                "'return' used outside of a method.\n");
+
     lily_method_val *m = emit->top_method;
     WRITE_1(o_return_noval)
 }
