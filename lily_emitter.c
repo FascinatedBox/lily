@@ -618,7 +618,7 @@ static void emit_sub_assign(lily_emit_state *emit, lily_ast *ast)
                 (uintptr_t)index_ast->result,
                 (uintptr_t)subs_storage)
 
-        ast->left->result = subs_storage;
+        ast->left->result = (lily_sym *)subs_storage;
 
         /* Run the compound op now that ->left is set properly. */
         emit_op_for_compound(emit, ast);
