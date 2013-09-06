@@ -3,33 +3,31 @@
 #include "lily_impl.h"
 #include "lily_msgbuf.h"
 
+lily_msgbuf *lily_new_msgbuf(void)
+{
+    lily_msgbuf *msgbuf = lily_malloc(sizeof(lily_msgbuf));
+    if (msgbuf == NULL)
+        return NULL;
+
+    msgbuf->message = lily_malloc(64 * sizeof(char));
+
+    if (msgbuf->message == NULL) {
+        lily_free_msgbuf(msgbuf);
+        return NULL;
+    }
+
+    msgbuf->message[0] = '\0';
+    msgbuf->pos = 0;
+    msgbuf->size = 64;
+    msgbuf->truncated = 0;
+
+    return msgbuf;
+}
+
 void lily_free_msgbuf(lily_msgbuf *msgbuf)
 {
     lily_free(msgbuf->message);
     lily_free(msgbuf);
-}
-
-lily_msgbuf *lily_new_msgbuf(void)
-{
-    lily_msgbuf *ret = lily_malloc(sizeof(lily_msgbuf));
-    if (ret == NULL)
-        return NULL;
-
-    char *message = lily_malloc(64 * sizeof(char));
-
-    if (message == NULL) {
-        lily_free(ret);
-        return NULL;
-    }
-
-    message[0] = '\0';
-
-    ret->message = message;
-    ret->pos = 0;
-    ret->size = 64;
-    ret->truncated = 0;
-
-    return ret;
 }
 
 void lily_msgbuf_add(lily_msgbuf *msgbuf, char *str)

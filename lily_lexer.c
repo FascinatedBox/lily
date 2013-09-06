@@ -134,37 +134,30 @@ static const lily_token grp_two_eq_table[] =
 /** Lexer init and deletion **/
 lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
 {
-    lily_lex_state *s = lily_malloc(sizeof(lily_lex_state));
+    lily_lex_state *lex = lily_malloc(sizeof(lily_lex_state));
     char *ch_class;
 
-    if (s == NULL)
+    if (lex == NULL)
         return NULL;
 
-    s->lex_file = NULL;
-    s->filename = NULL;
-
-    /* File will be set by the loader. */
-    s->raiser = raiser;
-
-    s->lex_buffer = lily_malloc(128 * sizeof(char));
-    s->lex_bufpos = 0;
-    s->lex_bufsize = 128;
-    s->save_buffer = NULL;
-
-    s->label = lily_malloc(128 * sizeof(char));
-    s->label_size = 128;
-    /* This must start at 0 since the line reader will bump it by one. */
-    s->line_num = 0;
-
+    lex->lex_file = NULL;
+    lex->filename = NULL;
+    lex->raiser = raiser;
+    lex->save_buffer = NULL;
+    lex->lex_buffer = lily_malloc(128 * sizeof(char));
+    lex->label = lily_malloc(128 * sizeof(char));
     ch_class = lily_malloc(256 * sizeof(char));
 
-    if (ch_class == NULL || s->label == NULL || s->lex_buffer == NULL) {
-        lily_free(ch_class);
-        lily_free(s->label);
-        lily_free(s->lex_buffer);
-        lily_free(s);
+    if (ch_class == NULL || lex->label == NULL || lex->lex_buffer == NULL) {
+        lily_free_lex_state(lex);
         return NULL;
     }
+
+    lex->lex_bufpos = 0;
+    lex->lex_bufsize = 128;
+    lex->label_size = 128;
+    /* This must start at 0 since the line reader will bump it by one. */
+    lex->line_num = 0;
 
     /* Initialize ch_class, which is used to determine what 'class' a letter
        is in. */
@@ -211,8 +204,8 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     ch_class[(unsigned char)'\r'] = CC_NEWLINE;
     ch_class[(unsigned char)'\n'] = CC_NEWLINE;
 
-    s->ch_class = ch_class;
-    return s;
+    lex->ch_class = ch_class;
+    return lex;
 }
 
 void lily_free_lex_state(lily_lex_state *lex)

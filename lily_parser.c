@@ -168,73 +168,64 @@ static const int bin_op_for_token[] = {
 /** Parser initialization and deletion **/
 lily_parse_state *lily_new_parse_state(int options)
 {
-    lily_parse_state *s = lily_malloc(sizeof(lily_parse_state));
+    lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
     lily_raiser *raiser = lily_new_raiser();
-    lily_sig **sig_stack = lily_malloc(4 * sizeof(lily_sig *));
 
-    if (s == NULL || raiser == NULL || sig_stack == NULL) {
-        lily_free(sig_stack);
-        if (raiser != NULL)
-            lily_free_raiser(raiser);
-        lily_free(s);
+    if (parser == NULL)
+        return NULL;
+
+    parser->options = options;
+    parser->sig_stack_pos = 0;
+    parser->sig_stack_size = 4;
+    parser->raiser = raiser;
+    parser->sig_stack = lily_malloc(4 * sizeof(lily_sig *));
+    parser->ast_pool = lily_new_ast_pool(raiser, 8);
+    parser->symtab = lily_new_symtab(raiser);
+    parser->emit = lily_new_emit_state(raiser);
+    parser->lex = lily_new_lex_state(raiser);
+    parser->vm = lily_new_vm_state(raiser);
+
+    if (parser->raiser == NULL || parser->sig_stack == NULL ||
+        parser->lex == NULL || parser->emit == NULL || parser->symtab == NULL ||
+        parser->ast_pool == NULL || parser->vm == NULL) {
+        lily_free_parse_state(parser);
+
         return NULL;
     }
 
-    s->options = options;
-    s->raiser = raiser;
-    s->sig_stack = sig_stack;
-    s->sig_stack_pos = 0;
-    s->sig_stack_size = 4;
-
-    s->ast_pool = lily_new_ast_pool(raiser, 8);
-
-    s->symtab = lily_new_symtab(raiser);
-    s->emit = lily_new_emit_state(raiser);
-    s->lex = lily_new_lex_state(raiser);
-    s->vm = lily_new_vm_state(raiser);
-
-    if (s->lex == NULL || s->emit == NULL || s->symtab == NULL ||
-        s->ast_pool == NULL || s->vm == NULL) {
-        /* Each of these functions is fairly complex, so don't call them without
-           checking the object == NULL first. */
-        if (s->symtab != NULL)
-            lily_free_symtab(s->symtab);
-        if (s->emit != NULL)
-            lily_free_emit_state(s->emit);
-        if (s->lex != NULL)
-            lily_free_lex_state(s->lex);
-        if (s->ast_pool != NULL)
-            lily_free_ast_pool(s->ast_pool);
-        if (s->vm != NULL)
-            lily_free_vm_state(s->vm);
-
-        lily_free(sig_stack);
-        lily_free_raiser(raiser);
-        lily_free(s);
-        return NULL;
-    }
-
-    s->vm->main = s->symtab->var_start;
-    s->symtab->lex_linenum = &s->lex->line_num;
-    s->ast_pool->lex_linenum = &s->lex->line_num;
-    s->emit->symtab = s->symtab;
+    parser->vm->main = parser->symtab->var_start;
+    parser->symtab->lex_linenum = &parser->lex->line_num;
+    parser->ast_pool->lex_linenum = &parser->lex->line_num;
+    parser->emit->symtab = parser->symtab;
 
     /* Enter @main, so that code outside of user methods has a place to go. */
-    lily_emit_enter_method(s->emit, s->symtab->var_start);
+    lily_emit_enter_method(parser->emit, parser->symtab->var_start);
     /* Then do this so that the return value is saved too. This keeps an invalid
        'return' inside of @main from causing an invalid read in parse_return. */
-    lily_emit_update_return(s->emit);
-    return s;
+    lily_emit_update_return(parser->emit);
+    return parser;
 }
 
 void lily_free_parse_state(lily_parse_state *parser)
 {
-    lily_free_raiser(parser->raiser);
-    lily_free_ast_pool(parser->ast_pool);
-    lily_free_symtab(parser->symtab);
-    lily_free_lex_state(parser->lex);
-    lily_free_emit_state(parser->emit);
-    lily_free_vm_state(parser->vm);
+    if (parser->raiser)
+        lily_free_raiser(parser->raiser);
+
+    if (parser->ast_pool)
+        lily_free_ast_pool(parser->ast_pool);
+
+    if (parser->symtab)
+        lily_free_symtab(parser->symtab);
+
+    if (parser->lex)
+        lily_free_lex_state(parser->lex);
+
+    if (parser->emit)
+        lily_free_emit_state(parser->emit);
+
+    if (parser->vm)
+        lily_free_vm_state(parser->vm);
+
     lily_free(parser->sig_stack);
     lily_free(parser);
 }

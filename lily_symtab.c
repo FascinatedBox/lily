@@ -512,41 +512,42 @@ static int init_classes(lily_symtab *symtab)
    Returns a valid symtab object, or NULL on failure. */
 lily_symtab *lily_new_symtab(lily_raiser *raiser)
 {
-    lily_symtab *s = lily_malloc(sizeof(lily_symtab));
+    lily_symtab *symtab = lily_malloc(sizeof(lily_symtab));
     int v = 0;
 
-    if (s == NULL)
+    if (symtab == NULL)
         return NULL;
 
-    s->class_pos = 0;
-    s->class_size = INITIAL_CLASS_SIZE;
-    s->next_lit_id = 0;
-    s->next_var_id = 0;
-    s->next_storage_id = 0;
-    s->var_start = NULL;
-    s->var_top = NULL;
-    s->classes = NULL;
-    s->lit_start = NULL;
-    s->lit_top = NULL;
-    s->old_var_start = NULL;
-    s->old_var_top = NULL;
+    symtab->class_pos = 0;
+    symtab->class_size = INITIAL_CLASS_SIZE;
+    symtab->next_lit_id = 0;
+    symtab->next_var_id = 0;
+    symtab->next_storage_id = 0;
+    symtab->var_start = NULL;
+    symtab->var_top = NULL;
+    symtab->classes = NULL;
+    symtab->lit_start = NULL;
+    symtab->lit_top = NULL;
+    symtab->old_var_start = NULL;
+    symtab->old_var_top = NULL;
     /* lily_try_new_var expects lex_linenum to be the lexer's line number.
        0 is used, because these are all builtins, and the lexer may have failed
        to initialize anyway. */
-    s->lex_linenum = &v;
-    s->root_sig = NULL;
+    symtab->lex_linenum = &v;
+    symtab->root_sig = NULL;
 
-    if (!init_classes(s) || !init_literals(s) ||
-        !init_at_main(s) || !read_seeds(s, builtin_seeds, NUM_BUILTIN_SEEDS) ||
-        !init_package(s, SYM_CLASS_STR, str_seeds, NUM_STR_SEEDS)) {
+    if (!init_classes(symtab) || !init_literals(symtab) ||
+        !init_at_main(symtab) ||
+        !read_seeds(symtab, builtin_seeds, NUM_BUILTIN_SEEDS) ||
+        !init_package(symtab, SYM_CLASS_STR, str_seeds, NUM_STR_SEEDS)) {
         /* This will free any symbols added, and the symtab object. */
-        lily_free_symtab(s);
+        lily_free_symtab(symtab);
         return NULL;
     }
 
-    s->raiser = raiser;
+    symtab->raiser = raiser;
 
-    return s;
+    return symtab;
 }
 
 /** Symtab free-ing **/
