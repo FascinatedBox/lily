@@ -13,32 +13,29 @@ static const char *lily_error_names[] =
 lily_raiser *lily_new_raiser()
 {
     lily_raiser *raiser = lily_malloc(sizeof(lily_raiser));
-    lily_msgbuf *msgbuf = lily_new_msgbuf();
-    jmp_buf *jumps = lily_malloc(2 * sizeof(jmp_buf));
+    if (raiser == NULL)
+        return NULL;
 
-    if (msgbuf == NULL || raiser == NULL || jumps == NULL) {
-        if (msgbuf != NULL)
-            lily_free_msgbuf(msgbuf);
-        if (raiser != NULL)
-            lily_free(raiser);
-        if (jumps != NULL)
-            lily_free(jumps);
+    raiser->msgbuf = lily_new_msgbuf();
+    raiser->jumps = lily_malloc(2 * sizeof(jmp_buf));
+    raiser->jump_pos = 0;
+    raiser->jump_size = 2;
+    raiser->line_adjust = 0;
 
+    if (raiser->msgbuf == NULL || raiser->jumps == NULL) {
+        lily_free_raiser(raiser);
         return NULL;
     }
 
-    raiser->jump_pos = 0;
-    raiser->jump_size = 2;
-    raiser->jumps = jumps;
-    raiser->line_adjust = 0;
-    raiser->msgbuf = msgbuf;
     return raiser;
 }
 
 void lily_free_raiser(lily_raiser *raiser)
 {
+    if (raiser->msgbuf)
+        lily_free_msgbuf(raiser->msgbuf);
+
     lily_free(raiser->jumps);
-    lily_free_msgbuf(raiser->msgbuf);
     lily_free(raiser);
 }
 

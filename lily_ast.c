@@ -36,47 +36,41 @@
 /** ast pool init, deletion, and reset. **/
 lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
 {
-    lily_ast_pool *ret;
-    int i;
+    lily_ast_pool *ap;
 
-    ret = lily_malloc(sizeof(lily_ast_pool));
-    if (ret == NULL)
+    ap = lily_malloc(sizeof(lily_ast_pool));
+    if (ap == NULL)
         return NULL;
 
-    ret->tree_pool = lily_malloc(sizeof(lily_ast *) * pool_size);
-    ret->saved_trees = lily_malloc(sizeof(lily_ast *) * pool_size);
-    ret->active = NULL;
-    ret->root = NULL;
+    ap->raiser = raiser;
+    ap->tree_pool = lily_malloc(sizeof(lily_ast *) * pool_size);
+    ap->saved_trees = lily_malloc(sizeof(lily_ast *) * pool_size);
+    ap->active = NULL;
+    ap->root = NULL;
+    ap->tree_index = 0;
+    ap->save_index = 0;
+    ap->save_size = pool_size;
 
-    if (ret->tree_pool == NULL || ret->saved_trees == NULL) {
-        lily_free(ret->tree_pool);
-        lily_free(ret->saved_trees);
-        lily_free(ret);
+    if (ap->tree_pool) {
+        int i;
+        for (i = 0;i < pool_size;i++) {
+            ap->tree_pool[i] = lily_malloc(sizeof(lily_ast));
+            if (ap->tree_pool[i] == NULL)
+                break;
+        }
+
+        ap->tree_size = i;
+    }
+    else
+        ap->tree_size = 0;
+
+    if (ap->tree_pool == NULL || ap->saved_trees == NULL ||
+        ap->tree_size != pool_size) {
+        lily_free_ast_pool(ap);
         return NULL;
     }
 
-    for (i = 0;i < pool_size;i++) {
-        ret->tree_pool[i] = lily_malloc(sizeof(lily_ast));
-        if (ret->tree_pool[i] == NULL)
-            break;
-    }
-
-    if (i != pool_size) {
-        for (;i != 0;i--)
-            lily_free(ret->tree_pool[i-1]);
-
-        lily_free(ret->tree_pool);
-        lily_free(ret->saved_trees);
-        lily_free(ret);
-        return NULL;
-    }
-
-    ret->raiser = raiser;
-    ret->tree_index = 0;
-    ret->tree_size = pool_size;
-    ret->save_index = 0;
-    ret->save_size = pool_size;
-    return ret;
+    return ap;
 }
 
 void lily_free_ast_pool(lily_ast_pool *ap)

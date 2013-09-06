@@ -77,39 +77,34 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     if (vm == NULL)
         return NULL;
 
-    lily_saved_val *saved_values = lily_malloc(sizeof(lily_saved_val) * 8);
-    lily_vm_stack_entry **method_stack = lily_malloc(
-            sizeof(lily_vm_stack_entry *) * 4);
+    vm->saved_values = lily_malloc(sizeof(lily_saved_val) * 8);
+    vm->method_stack = lily_malloc(sizeof(lily_vm_stack_entry *) * 4);
+    vm->err_function = NULL;
+    vm->in_function = 0;
+    vm->method_stack_pos = 0;
+    vm->raiser = raiser;
+    vm->val_pos = 0;
+    vm->val_size = 8;
 
-    int i = 0;
-    if (method_stack) {
+    if (vm->method_stack) {
+        int i;
         for (i = 0;i < 4;i++) {
-            method_stack[i] = lily_malloc(sizeof(lily_vm_stack_entry));
-            if (method_stack[i] == NULL)
+            vm->method_stack[i] = lily_malloc(sizeof(lily_vm_stack_entry));
+            if (vm->method_stack[i] == NULL)
                 break;
         }
+        vm->method_stack_size = i;
     }
+    else
+        vm->method_stack_size = 0;
 
-    if (saved_values == NULL || method_stack == NULL || i != 4) {
-        if (method_stack && i != 4) {
-            for (;i != 0;i--)
-                lily_free(method_stack[i-1]);
-        }
-        lily_free(saved_values);
-        lily_free(method_stack);
-        lily_free(vm);
+    if (vm->saved_values == NULL || vm->method_stack == NULL ||
+        vm->method_stack_size != 4) {
+
+        lily_free_vm_state(vm);
         return NULL;
     }
 
-    vm->err_function = NULL;
-    vm->in_function = 0;
-    vm->method_stack = method_stack;
-    vm->method_stack_pos = 0;
-    vm->method_stack_size = 4;
-    vm->raiser = raiser;
-    vm->saved_values = saved_values;
-    vm->val_pos = 0;
-    vm->val_size = 8;
     return vm;
 }
 
