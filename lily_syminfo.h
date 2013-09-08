@@ -70,9 +70,6 @@ typedef struct lily_list_val_t {
     int refcount;
     lily_value *values;
     int *flags;
-    struct lily_list_val_t *parent;
-    /* This is used by circular reference checking to keep from going into an
-       infinite loop. */
     int visited;
     int num_values;
 } lily_list_val;
