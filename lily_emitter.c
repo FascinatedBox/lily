@@ -999,6 +999,7 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
         lily_sym *call_sym;
 
         if (ast->result == NULL) {
+            int cls_id;
             /* This occurs when the method is obtained in some indirect way,
                such as a call from a subscript.
                Ex: method_list[0]()
@@ -1010,6 +1011,15 @@ static void walk_tree(lily_emit_state *emit, lily_ast *ast)
                Ex: An empty list used as an arg may want to know what to
                default to. */
             ast->result = ast->arg_start->result;
+
+            /* Make sure the result is callable (ex: NOT @(integer: 10) ()). */
+            cls_id = ast->result->sig->cls->id;
+            if (cls_id != SYM_CLASS_METHOD && cls_id != SYM_CLASS_FUNCTION) {
+                emit->raiser->line_adjust = ast->line_num;
+                lily_raise(emit->raiser, lily_ErrSyntax,
+                        "Cannot anonymously call resulting type '%T'.\n",
+                        ast->result->sig);
+            }
 
             /* Then drop it from the arg list, since it's not an arg. */
             ast->arg_start = ast->arg_start->next_arg;
