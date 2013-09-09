@@ -5,6 +5,11 @@
 # include "lily_symtab.h"
 # include "lily_expr_op.h"
 
+/* There's no particular arrangement to these enums, EXCEPT for typecast and
+   binary. Trees that are >= typecast will usually have their ->right value
+   used instead of themselves.
+   Ex: a + b.concat(c) results in the .concat stealing binary's right instead of
+       the whole binary tree. */
 typedef enum {
     tree_call, tree_subscript, tree_list, tree_parenth, tree_var, tree_unary,
     tree_typecast, tree_binary
@@ -15,22 +20,27 @@ typedef struct lily_ast_t {
     int line_num;
 
     lily_sig *sig;
-    /* var: This will be the var
-       call: This is the var to be called, except for anonymous calls.
-       anonymous call: This is null. The var to be called is the first arg.
-       other: Initially null. This will eventually be where the tree stores the
-       storage that will hold the result. */
+    /* This is used by the emitter to hold the result of evaluating the ast.
+       Additionally, tree_var will store the var here, so that emitter doesn't
+       have to do anything extra for vars.
+       tree_call will store the symbol to be called, if it's known at parse
+       time. For anonymous calls ( abc[0](), call()(), etc.), this is NULL and
+       the first arg will be evaluated to find the value to call. */
     lily_sym *result;
 
-    /* The next argument to a function, if this tree is in a function. */
+    /* If this tree is an argument or subtree, this is the pointer to the next
+       tree in the expression, or NULL if this tree is last. */
     struct lily_ast_t *next_arg;
 
-    /* For functions only. */
+    /* These three are used primarily by calls. However, some ops like parenth,
+       list, and subscript operate by storing their information as 'args', since
+       each value is an independent sub expression. */
     int args_collected;
     struct lily_ast_t *arg_start;
     struct lily_ast_t *arg_top;
 
-    /* Unary and binary ops share the rest of these, except right. */
+    /* These are for unary and binary ops mostly. Typecast stores a value in
+       right so that operations will use that like with binary. */
     int priority;
     lily_expr_op op;
     struct lily_ast_t *left;
