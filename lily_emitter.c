@@ -36,7 +36,15 @@
       the if is done.
     * Additionally, and/or create blocks so that all of their jumps will go to
       one location on failure. This allows and/or short-circuiting (stopping on
-      the first or to succeed or and to fail). **/
+      the first or to succeed or and to fail).
+
+    eval vs. emit:
+    * Functions with 'eval' in their name will run through a given ast and write
+      the appropriate code. Each ast should only be eval'd once, which is easy
+      to do with a top-down structure.
+    * Functions with 'emit' in their name will write code, but assume that the
+      eval has already been done. These functions are often used as helpers for
+      the eval functions. **/
 
 #define WRITE_PREP(size) \
 if ((m->pos + size) > m->len) { \
@@ -200,6 +208,56 @@ static lily_storage *storage_for_class(lily_emit_state *emit,
     return s;
 }
 
+/* try_find_storage_by_sig
+   This looks in emitter's storage cache to see if a storage with the given sig
+   has been created. This will return a storage previously allocated, return
+   a storage that gets allocated, or NULL on failure.
+   Note: The caller is expected to ref the sig beforehand, and deref it on
+         failure.
+         This call is only for complex signatures (lists and calls). All other
+         classes should use storage_for_class. */
+lily_storage *try_find_storage_by_sig(lily_emit_state *emit, lily_sig *sig)
+{
+    int i;
+    lily_storage *result = NULL;
+
+    for (i = 0;i < emit->storage_cache_pos;i++) {
+        /* Don't bother with a sig == sig check, since that will never work for
+           complex sigs. Do remember to check the expr_num to make sure that
+           the storage isn't reused within the same expression. */
+        if (lily_sigequal(emit->storage_cache[i]->sig, sig) &&
+            emit->expr_num != emit->storage_cache[i]->expr_num) {
+            result = emit->storage_cache[i];
+            result->expr_num = emit->expr_num;
+            break;
+        }
+    }
+
+    if (result == NULL) {
+        if (i == emit->storage_cache_size) {
+            lily_storage **new_cache = lily_realloc(emit->storage_cache,
+                    sizeof(lily_storage *) * i * 2);
+            if (new_cache == NULL)
+                return NULL;
+
+            emit->storage_cache = new_cache;
+            emit->storage_cache_size *= 2;
+        }
+
+        result = sig->cls->storage;
+        if (lily_try_add_storage(emit->symtab, sig)) {
+            result = result->next;
+            result->expr_num = emit->expr_num;
+            emit->storage_cache[i] = result;
+            emit->storage_cache_pos++;
+        }
+        else
+            result = NULL;
+    }
+
+    return result;
+}
+
 /* Find the inner-most while loop. Don't count a while loop if it's outside of
    the current method though. Returns zero if a method was hit, or the block
    position of the while. */
@@ -310,8 +368,13 @@ static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
 }
 
 /** ast walking helpers **/
-static void walk_tree(lily_emit_state *, lily_ast *);
+static void eval_tree(lily_emit_state *, lily_ast *);
 
+/* emit_binary_op
+   This handles an ast of type tree_binary wherein the op is not an assignment
+   of any type. This does not emit because eval_tree will eval the left and
+   right sides before calling this. This is good, because it allows
+   emit_op_for_compound to call this to handle compound assignments too. */
 static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
 {
     int opcode;
@@ -408,14 +471,18 @@ static void emit_op_for_compound(lily_emit_state *emit, lily_ast *ast)
     ast->op = save_op;
 }
 
-static void emit_assign(lily_emit_state *emit, lily_ast *ast)
+/* eval_assign
+   This handles asts with type tree_binary, wherein the left side is not a
+   subscript. This will handle compound assignments, as well as basic
+   assignments. */
+static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 {
     int opcode;
     lily_sym *left_sym, *right_sym;
     lily_method_val *m = emit->top_method;
 
     if (ast->left->tree_type != tree_var)
-        walk_tree(emit, ast->left);
+        eval_tree(emit, ast->left);
 
     if ((ast->left->result->flags & VAR_SYM) == 0 &&
         ast->left->tree_type != tree_subscript) {
@@ -425,7 +492,7 @@ static void emit_assign(lily_emit_state *emit, lily_ast *ast)
     }
 
     if (ast->right->tree_type != tree_var)
-        walk_tree(emit, ast->right);
+        eval_tree(emit, ast->right);
 
     left_sym = ast->left->result;
     right_sym = ast->right->result;
@@ -468,8 +535,10 @@ static void emit_assign(lily_emit_state *emit, lily_ast *ast)
 void lily_emit_enter_block(lily_emit_state *, int);
 void lily_emit_leave_block(lily_emit_state *);
 
-/* This handles both logical and, and logical or. */
-static void emit_logical_op(lily_emit_state *emit, lily_ast *ast)
+/* eval_logical_op
+   This handles an ast of type tree_binary, wherein the op is either
+   expr_logical_or (||) or expr_logical_and (&&). */
+static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 {
     lily_symtab *symtab = emit->symtab;
     lily_storage *result;
@@ -489,7 +558,7 @@ static void emit_logical_op(lily_emit_state *emit, lily_ast *ast)
         is_top = 0;
 
     if (ast->left->tree_type != tree_var)
-        walk_tree(emit, ast->left);
+        eval_tree(emit, ast->left);
 
     /* If the left is the same as this tree, then it's already checked itself
        and doesn't need a retest. However, and/or are opposites, so they have
@@ -498,7 +567,7 @@ static void emit_logical_op(lily_emit_state *emit, lily_ast *ast)
         lily_emit_jump_if(emit, ast->left, jump_on);
 
     if (ast->right->tree_type != tree_var)
-        walk_tree(emit, ast->right);
+        eval_tree(emit, ast->right);
 
     lily_emit_jump_if(emit, ast->right, jump_on);
 
@@ -542,31 +611,19 @@ static void emit_logical_op(lily_emit_state *emit, lily_ast *ast)
         ast->result = NULL;
 }
 
-/* emit_final_continue
-   This writes in a 'continue'-type jump at the end of the while, so that the
-   while runs multiple times. Since the while is definitely the top block, this
-   is a bit simpler. */
-static void emit_final_continue(lily_emit_state *emit)
-{
-    lily_method_val *m = emit->top_method;
-    int jump_to = emit->while_starts[emit->while_start_pos-1];
-
-    WRITE_2(o_jump, jump_to)
-}
-
-lily_storage *try_find_storage_by_sig(lily_emit_state *emit, lily_sig *sig);
-
 /* emit_sub_assign
-   This handles subscript assignment, which is a bit tricky. */
-static void emit_sub_assign(lily_emit_state *emit, lily_ast *ast)
+   This handles an ast of type tree_binary wherein the left side has a
+   subscript against it (ex: x[0] = y, x[0][0] = y, etc). This also handles
+   compound assignments.
+   This is necessary because subscripts place their value into a storage, so a
+   typical assignment would target a storage, instead of the list value. This
+   writes o_sub_assign to make sure the vm assigns to the list, and not a
+   storage.
+   Var is at ast->left->arg_start
+   Index is at ast->left->arg_start->next
+   Right is at ast->right */
+static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
 {
-    /* It's impossible to walk the subscripts, then walk the assign and try to
-       just assign the two. Recall that subscripts will empty their values out
-       into a storage. So doing that would result in assigning a value to a
-       storage.
-       o_subs_assign is the opcode that does this magic, and it takes a var,
-       an index, and an rhs. This makes sure that the rhs is assigned to the
-       right place in the list, instead of to a storage. */
     lily_method_val *m = emit->top_method;
 
     lily_ast *var_ast = ast->left->arg_start;
@@ -575,18 +632,18 @@ static void emit_sub_assign(lily_emit_state *emit, lily_ast *ast)
     lily_sig *elem_sig;
 
     if (ast->right->tree_type != tree_var)
-        walk_tree(emit, ast->right);
+        eval_tree(emit, ast->right);
 
     rhs = ast->right->result;
 
     if (var_ast->tree_type != tree_var)
-        walk_tree(emit, var_ast);
+        eval_tree(emit, var_ast);
 
     if (var_ast->result->sig->cls->id != SYM_CLASS_LIST)
         bad_subs_class(emit, var_ast);
 
     if (index_ast->tree_type != tree_var)
-        walk_tree(emit, index_ast);
+        eval_tree(emit, index_ast);
 
     if (index_ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
         emit->raiser->line_adjust = index_ast->line_num;
@@ -635,10 +692,17 @@ static void emit_sub_assign(lily_emit_state *emit, lily_ast *ast)
     ast->result = rhs;
 }
 
-static void emit_typecast(lily_emit_state *emit, lily_ast *ast)
+/* eval_typecast
+   This walks an ast of type tree_typecast, which is used to change an object
+   into a given type.
+   This has two parts: a signature, and a value. The signature is ast->sig, and
+   the value is ast->right. This currently only handles conversions of objects
+   to other types, but could handle other conversions in the future.
+   Any typecast that specifies object is transformed into an object assign. */
+static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 {
     if (ast->right->tree_type != tree_var)
-        walk_tree(emit, ast->right);
+        eval_tree(emit, ast->right);
 
     lily_sig *cast_sig = ast->sig;
     lily_sig *var_sig = ast->right->result->sig;
@@ -705,7 +769,12 @@ static void emit_typecast(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)result;
 }
 
-static void emit_unary_op(lily_emit_state *emit, lily_ast *ast)
+/* eval_unary_op
+   This takes an ast of type tree_unary, and evaluates it. The unary op is
+   stored in ast->op, and the value is at ast->left.
+   This currently only handles unary ops on integers, but that may eventually
+   change. */
+static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
 {
     uintptr_t opcode;
     lily_class *lhs_class;
@@ -734,104 +803,6 @@ static void emit_unary_op(lily_emit_state *emit, lily_ast *ast)
             (uintptr_t)s);
 
     ast->result = (lily_sym *)s;
-}
-
-/* check_call_args
-   This verifies that the args collected in an ast match what is expected. This
-   function will walk trees if they are an arg. */
-static void check_call_args(lily_emit_state *emit, lily_ast *ast,
-        lily_call_sig *csig)
-{
-    lily_ast *arg = ast->arg_start;
-    int have_args, i, is_varargs, num_args;
-
-    /* Ast doesn't check the call args. It can't check types, so why do only
-       half of the validation? */
-    have_args = ast->args_collected;
-    is_varargs = csig->is_varargs;
-    /* Take the last arg off of the arg count. This will be verified using the
-       var arg signature. */
-    num_args = csig->num_args - is_varargs;
-
-    if ((is_varargs && (have_args <= num_args)) ||
-        (is_varargs == 0 && (have_args != num_args)))
-        bad_num_args(emit, ast, csig);
-
-    /* Important! num_args was dropped, so this is the true count. */
-    SAVE_PREP(csig->num_args)
-    for (i = 0;i != num_args;arg = arg->next_arg, i++) {
-        if (arg->tree_type != tree_var) {
-            /* Walk the subexpressions so the result gets calculated. */
-            walk_tree(emit, arg);
-            if (arg->result != NULL) {
-                emit->save_cache[emit->save_cache_pos] = (uintptr_t)arg->result;
-                emit->save_cache_pos++;
-            }
-        }
-
-        if (!lily_sigequal(arg->result->sig, csig->args[i])) {
-            if (!sigcast(emit, arg, csig->args[i]))
-                bad_arg_error(emit, ast, arg->result->sig, csig->args[i], i);
-        }
-    }
-
-    if (is_varargs) {
-        int is_method = (ast->result->sig->cls->id == SYM_CLASS_METHOD);
-        lily_sig *va_comp_sig = csig->args[i];
-        lily_ast *save_arg = arg;
-        lily_sig *save_sig;
-
-        /* Methods handle var-args by shoving them into a list so that they can
-           have a name. So the extra args need to verify against that type. */
-        if (is_method) {
-            save_sig = va_comp_sig;
-            va_comp_sig = va_comp_sig->node.value_sig;
-        }
-
-        for (;arg != NULL;arg = arg->next_arg) {
-            if (arg->tree_type != tree_var) {
-                /* Walk the subexpressions so the result gets calculated. */
-                walk_tree(emit, arg);
-                if (arg->result != NULL) {
-                    emit->save_cache[emit->save_cache_pos] = (uintptr_t)arg->result;
-                    emit->save_cache_pos++;
-                }
-            }
-            if (!lily_sigequal(arg->result->sig, va_comp_sig)) {
-                if (!sigcast(emit, arg, va_comp_sig))
-                    bad_arg_error(emit, ast, arg->result->sig, va_comp_sig, i);
-            }
-        }
-
-        i = (have_args - i);
-        if (is_method) {
-            lily_storage *s;
-            s = try_find_storage_by_sig(emit, save_sig);
-            if (s == NULL) {
-                emit->raiser->line_adjust = ast->line_num;
-                lily_raise_nomem(emit->raiser);
-            }
-
-            arg = save_arg;
-            lily_method_val *m = emit->top_method;
-            int j = 0;
-            /* This -must- be a large prep, because it could be a very big
-               var arg call at the start of a method. */
-            WRITE_PREP_LARGE(i + 5)
-            m->code[m->pos] = o_build_list;
-            m->code[m->pos+1] = ast->line_num;
-            m->code[m->pos+2] = (uintptr_t)s;
-            m->code[m->pos+3] = i;
-            m->code[m->pos+4] = (uintptr_t)va_comp_sig;
-            for (j = 5;arg != NULL;arg = arg->next_arg, j++)
-                m->code[m->pos+j] = (uintptr_t)arg->result;
-
-            m->pos += j;
-            save_arg->result = (lily_sym *)s;
-            save_arg->next_arg = NULL;
-            ast->args_collected = num_args + 1;
-        }
-    }
 }
 
 /* cast_ast_list_to
@@ -935,326 +906,409 @@ static lily_sig *autocast_ast_list(lily_emit_state *emit, lily_ast *ast)
     return elem_sig;
 }
 
-/* try_find_storage_by_sig
-   This looks in emitter's storage cache to see if a storage with the given sig
-   has been created. This will return a storage previously allocated, return
-   a storage that gets allocated, or NULL on failure.
-   Note: The caller is expected to ref the sig beforehand, and deref it on
-         failure.
-         This call is only for complex signatures (lists and calls). All other
-         classes should use storage_for_class. */
-lily_storage *try_find_storage_by_sig(lily_emit_state *emit, lily_sig *sig)
-{
-    int i;
-    lily_storage *result = NULL;
-
-    for (i = 0;i < emit->storage_cache_pos;i++) {
-        /* Don't bother with a sig == sig check, since that will never work for
-           complex sigs. Do remember to check the expr_num to make sure that
-           the storage isn't reused within the same expression. */
-        if (lily_sigequal(emit->storage_cache[i]->sig, sig) &&
-            emit->expr_num != emit->storage_cache[i]->expr_num) {
-            result = emit->storage_cache[i];
-            result->expr_num = emit->expr_num;
-            break;
-        }
-    }
-
-    if (result == NULL) {
-        if (i == emit->storage_cache_size) {
-            lily_storage **new_cache = lily_realloc(emit->storage_cache,
-                    sizeof(lily_storage *) * i * 2);
-            if (new_cache == NULL)
-                return NULL;
-
-            emit->storage_cache = new_cache;
-            emit->storage_cache_size *= 2;
-        }
-
-        result = sig->cls->storage;
-        if (lily_try_add_storage(emit->symtab, sig)) {
-            result = result->next;
-            result->expr_num = emit->expr_num;
-            emit->storage_cache[i] = result;
-            emit->storage_cache_pos++;
-        }
-        else
-            result = NULL;
-    }
-
-    return result;
-}
-
-/* walk_tree
-   This is the main emit function. It determines what to do given a particular
-   ast type. */
-static void walk_tree(lily_emit_state *emit, lily_ast *ast)
+/* This walks an ast of type tree_list, which indicates a static list to be
+   build (ex: x = [1, 2, 3, 4...] or x = ["1", "2", "3", "4"]).
+   The values start in ast->arg_start, and end when ->next_arg is NULL.
+   There are a few caveats:
+   * Lists where all values are the same type are created as lists of that type.
+   * If any list value is different, then the list values are cast to object,
+     and the list's type is set to object.
+   * Empty lists will try to guess the type they should be and be that type,
+     with some success. This isn't fully tested, and may actually be removed in
+     the future in favor of empty lists needing to specify an explicit type. */
+static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
 {
     lily_method_val *m = emit->top_method;
+    lily_sig *elem_sig = NULL;
+    lily_ast *arg;
+    int i, make_objs;
 
-    if (ast->tree_type == tree_call) {
-        int expect_size, i, is_method, save_start;
-        lily_ast *arg;
-        lily_call_sig *csig;
-        lily_sym *call_sym;
+    make_objs = 0;
 
-        if (ast->result == NULL) {
-            int cls_id;
-            /* This occurs when the method is obtained in some indirect way,
-               such as a call from a subscript.
-               Ex: method_list[0]()
-               First, walk the subscript to get the storage that the call will
-               go to. */
-            walk_tree(emit, ast->arg_start);
+    /* Walk through all of the list elements, keeping a note of the class
+       of the results. The class of the list elements is determined as
+       follows:
+       * If all results have the same class, then use that class.
+       * If they do not, use object. */
+    for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
+        if (arg->tree_type != tree_var)
+            eval_tree(emit, arg);
 
-            /* Set the result, because things like having a result to use.
-               Ex: An empty list used as an arg may want to know what to
-               default to. */
-            ast->result = ast->arg_start->result;
-
-            /* Make sure the result is callable (ex: NOT @(integer: 10) ()). */
-            cls_id = ast->result->sig->cls->id;
-            if (cls_id != SYM_CLASS_METHOD && cls_id != SYM_CLASS_FUNCTION) {
-                emit->raiser->line_adjust = ast->line_num;
-                lily_raise(emit->raiser, lily_ErrSyntax,
-                        "Cannot anonymously call resulting type '%T'.\n",
-                        ast->result->sig);
+        if (elem_sig != NULL) {
+            if (arg->result->sig != elem_sig &&
+                lily_sigequal(arg->result->sig, elem_sig) == 0) {
+                make_objs = 1;
             }
-
-            /* Then drop it from the arg list, since it's not an arg. */
-            ast->arg_start = ast->arg_start->next_arg;
-            ast->args_collected--;
         }
-
-        call_sym = ast->result;
-        csig = call_sym->sig->node.call;
-        arg = ast->arg_start;
-        is_method = (call_sym->sig->cls->id == SYM_CLASS_METHOD);
-        expect_size = 5 + ast->args_collected;
-
-        /* check_call_args will register each arg to be saved, in case one of
-           the args is a call that would modify previous storages. However, once
-           those inner calls are done, the storages of the args do not need to
-           be saved. This ensures that storages don't get saved (which is
-           pointless). */
-        save_start = emit->save_cache_pos;
-        check_call_args(emit, ast, csig);
-        emit->save_cache_pos = save_start;
-
-        if (is_method) {
-            if (ast->parent != NULL && ast->parent->tree_type == tree_binary &&
-                ast->parent->right == ast &&
-                ast->parent->left->tree_type != tree_var) {
-                /* Ex: fib(n-1) + fib(n-2)
-                   In this case, the left side of the plus (the first fib call)
-                   is something saved to a storage. Since the plus hasn't been
-                   completed, this call could modify the storage of the left
-                   side. So save that storage. */
-                SAVE_PREP(1)
-                emit->save_cache[emit->save_cache_pos] = (uintptr_t)ast->parent->left->result;
-                emit->save_cache_pos++;
-            }
-
-            /* o_save needs 2 + #saves, o_restore needs a flat 2. */
-            if (emit->save_cache_pos)
-                expect_size += emit->save_cache_pos + 4;
-        }
-
-        WRITE_PREP_LARGE(expect_size)
-
-        /* Note that parser doesn't register vars in @main, so a method called
-           from @main would never save anything. */
-        if (is_method && emit->save_cache_pos) {
-            m->code[m->pos] = o_save;
-            m->code[m->pos+1] = emit->save_cache_pos;
-            m->pos += 2;
-
-            memcpy(m->code + m->pos, emit->save_cache,
-                   emit->save_cache_pos * sizeof(uintptr_t));
-
-            m->pos += emit->save_cache_pos;
-        } 
-
-        if (is_method)
-            m->code[m->pos] = o_method_call;
         else
-            m->code[m->pos] = o_func_call;
+            elem_sig = arg->result->sig;
+    }
 
-        m->code[m->pos+1] = ast->line_num;
-        m->code[m->pos+2] = (uintptr_t)call_sym;
-        m->code[m->pos+3] = ast->args_collected;
+    if (make_objs) {
+        lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_OBJECT);
+        cast_ast_list_to(emit, ast, cls);
+        elem_sig = cls->sig;
+    }
+    else if (ast->arg_start == NULL)
+        elem_sig = autocast_ast_list(emit, ast);
 
-        for (i = 5, arg = ast->arg_start;
-            arg != NULL;
-            arg = arg->next_arg, i++) {
-            m->code[m->pos + i] = (uintptr_t)arg->result;
-        }
+    lily_class *list_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);
+    lily_sig *new_sig = lily_try_sig_for_class(emit->symtab, list_cls);
+    if (new_sig == NULL) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise_nomem(emit->raiser);
+    }
 
-        if (csig->ret != NULL) {
-            lily_storage *s = storage_for_class(emit, csig->ret->cls);
+    new_sig->node.value_sig = elem_sig;
+    lily_storage *s = try_find_storage_by_sig(emit, new_sig);
 
-            ast->result = (lily_sym *)s;
-        }
-        else {
-            /* It's okay to not push a return value, unless something needs it.
-               Assume that if the tree has a parent, something needs a value. */
-            if (ast->parent == NULL)
-                ast->result = NULL;
-            else {
-                emit->raiser->line_adjust = ast->line_num;
-                lily_raise(emit->raiser, lily_ErrSyntax,
-                           "Call returning nil not at end of expression.");
-            }
-        }
+    if (s == NULL) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise_nomem(emit->raiser);
+    }
 
-        m->code[m->pos+4] = (uintptr_t)ast->result;
-        m->pos += 5 + ast->args_collected;
+    WRITE_PREP_LARGE(ast->args_collected + 5)
+    m->code[m->pos] = o_build_list;
+    m->code[m->pos+1] = ast->line_num;
+    m->code[m->pos+2] = (intptr_t)s;
+    m->code[m->pos+3] = ast->args_collected;
+    m->code[m->pos+4] = (intptr_t)elem_sig;
 
-        if (is_method && emit->save_cache_pos) {
-            m->code[m->pos] = o_restore;
-            m->code[m->pos+1] = emit->save_cache_pos;
-            m->pos += 2;
-            emit->save_cache_pos = save_start;
+    for (i = 5, arg = ast->arg_start;
+        arg != NULL;
+        arg = arg->next_arg, i++) {
+        m->code[m->pos + i] = (uintptr_t)arg->result;
+    }
+
+    m->pos += 5 + ast->args_collected;
+    ast->result = (lily_sym *)s;
+}
+
+/* eval_subscript
+   This handles an ast of type tree_subscript. The arguments for the subscript
+   start at ->arg_start.
+   Arguments are: var, index, value */
+static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_method_val *m = emit->top_method;
+    lily_ast *var_ast = ast->arg_start;
+    lily_ast *index_ast = var_ast->next_arg;
+    if (var_ast->tree_type != tree_var)
+        eval_tree(emit, var_ast);
+
+    lily_sig *var_sig = var_ast->result->sig;
+    if (var_sig->cls->id != SYM_CLASS_LIST)
+        bad_subs_class(emit, var_ast);
+
+    if (index_ast->tree_type != tree_var)
+        eval_tree(emit, index_ast);
+
+    if (index_ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                "Subscript index is not an integer.\n");
+    }
+
+    lily_sig *sig_for_result = var_sig->node.value_sig;
+    lily_storage *result = NULL;
+
+    if (sig_for_result->cls->is_refcounted &&
+        sig_for_result->cls->id != SYM_CLASS_OBJECT) {
+        result = try_find_storage_by_sig(emit, sig_for_result);
+        if (result == NULL) {
+            emit->raiser->line_adjust = ast->line_num;
+            lily_raise_nomem(emit->raiser);
         }
     }
+    else
+        result = storage_for_class(emit, sig_for_result->cls);
+
+    WRITE_5(o_subscript,
+            ast->line_num,
+            (uintptr_t)var_ast->result,
+            (uintptr_t)index_ast->result,
+            (uintptr_t)result);
+
+    ast->result = (lily_sym *)result;
+}
+
+/* check_call_args
+   This is used by eval_call to verify that the given arguments are all correct.
+   This handles walking all of the arguments given, as well as verifying that
+   the argument count is correct. For method varargs, this will pack the extra
+   arguments into a list. */
+static void check_call_args(lily_emit_state *emit, lily_ast *ast,
+        lily_call_sig *csig)
+{
+    lily_ast *arg = ast->arg_start;
+    int have_args, i, is_varargs, num_args;
+
+    /* Ast doesn't check the call args. It can't check types, so why do only
+       half of the validation? */
+    have_args = ast->args_collected;
+    is_varargs = csig->is_varargs;
+    /* Take the last arg off of the arg count. This will be verified using the
+       var arg signature. */
+    num_args = csig->num_args - is_varargs;
+
+    if ((is_varargs && (have_args <= num_args)) ||
+        (is_varargs == 0 && (have_args != num_args)))
+        bad_num_args(emit, ast, csig);
+
+    /* Important! num_args was dropped, so this is the true count. */
+    SAVE_PREP(csig->num_args)
+    for (i = 0;i != num_args;arg = arg->next_arg, i++) {
+        if (arg->tree_type != tree_var) {
+            /* Walk the subexpressions so the result gets calculated. */
+            eval_tree(emit, arg);
+            if (arg->result != NULL) {
+                emit->save_cache[emit->save_cache_pos] = (uintptr_t)arg->result;
+                emit->save_cache_pos++;
+            }
+        }
+
+        if (!lily_sigequal(arg->result->sig, csig->args[i])) {
+            if (!sigcast(emit, arg, csig->args[i]))
+                bad_arg_error(emit, ast, arg->result->sig, csig->args[i], i);
+        }
+    }
+
+    if (is_varargs) {
+        int is_method = (ast->result->sig->cls->id == SYM_CLASS_METHOD);
+        lily_sig *va_comp_sig = csig->args[i];
+        lily_ast *save_arg = arg;
+        lily_sig *save_sig;
+
+        /* Methods handle var-args by shoving them into a list so that they can
+           have a name. So the extra args need to verify against that type. */
+        if (is_method) {
+            save_sig = va_comp_sig;
+            va_comp_sig = va_comp_sig->node.value_sig;
+        }
+
+        for (;arg != NULL;arg = arg->next_arg) {
+            if (arg->tree_type != tree_var) {
+                /* Walk the subexpressions so the result gets calculated. */
+                eval_tree(emit, arg);
+                if (arg->result != NULL) {
+                    emit->save_cache[emit->save_cache_pos] = (uintptr_t)arg->result;
+                    emit->save_cache_pos++;
+                }
+            }
+            if (!lily_sigequal(arg->result->sig, va_comp_sig)) {
+                if (!sigcast(emit, arg, va_comp_sig))
+                    bad_arg_error(emit, ast, arg->result->sig, va_comp_sig, i);
+            }
+        }
+
+        i = (have_args - i);
+        if (is_method) {
+            lily_storage *s;
+            s = try_find_storage_by_sig(emit, save_sig);
+            if (s == NULL) {
+                emit->raiser->line_adjust = ast->line_num;
+                lily_raise_nomem(emit->raiser);
+            }
+
+            arg = save_arg;
+            lily_method_val *m = emit->top_method;
+            int j = 0;
+            /* This -must- be a large prep, because it could be a very big
+               var arg call at the start of a method. */
+            WRITE_PREP_LARGE(i + 5)
+            m->code[m->pos] = o_build_list;
+            m->code[m->pos+1] = ast->line_num;
+            m->code[m->pos+2] = (uintptr_t)s;
+            m->code[m->pos+3] = i;
+            m->code[m->pos+4] = (uintptr_t)va_comp_sig;
+            for (j = 5;arg != NULL;arg = arg->next_arg, j++)
+                m->code[m->pos+j] = (uintptr_t)arg->result;
+
+            m->pos += j;
+            save_arg->result = (lily_sym *)s;
+            save_arg->next_arg = NULL;
+            ast->args_collected = num_args + 1;
+        }
+    }
+}
+
+/* eval_call
+   This walks an ast of type tree_call. The arguments start at ast->arg_start.
+   If the call was to a known var at parse-time, then ast->result will be that
+   var. Otherwise, the value to call is the first 'argument', which will need
+   to be evaluated. */
+static void eval_call(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_method_val *m = emit->top_method;
+    int expect_size, i, is_method, save_start;
+    lily_ast *arg;
+    lily_call_sig *csig;
+    lily_sym *call_sym;
+
+    if (ast->result == NULL) {
+        int cls_id;
+        /* This occurs when the method is obtained in some indirect way,
+           such as a call from a subscript.
+           Ex: method_list[0]()
+           First, walk the subscript to get the storage that the call will
+           go to. */
+        eval_tree(emit, ast->arg_start);
+
+        /* Set the result, because things like having a result to use.
+           Ex: An empty list used as an arg may want to know what to
+           default to. */
+        ast->result = ast->arg_start->result;
+
+        /* Make sure the result is callable (ex: NOT @(integer: 10) ()). */
+        cls_id = ast->result->sig->cls->id;
+        if (cls_id != SYM_CLASS_METHOD && cls_id != SYM_CLASS_FUNCTION) {
+            emit->raiser->line_adjust = ast->line_num;
+            lily_raise(emit->raiser, lily_ErrSyntax,
+                    "Cannot anonymously call resulting type '%T'.\n",
+                    ast->result->sig);
+        }
+
+        /* Then drop it from the arg list, since it's not an arg. */
+        ast->arg_start = ast->arg_start->next_arg;
+        ast->args_collected--;
+    }
+
+    call_sym = ast->result;
+    csig = call_sym->sig->node.call;
+    arg = ast->arg_start;
+    is_method = (call_sym->sig->cls->id == SYM_CLASS_METHOD);
+    expect_size = 5 + ast->args_collected;
+
+    /* check_call_args will register each arg to be saved, in case one of
+       the args is a call that would modify previous storages. However, once
+       those inner calls are done, the storages of the args do not need to
+       be saved. This ensures that storages don't get saved (which is
+       pointless). */
+    save_start = emit->save_cache_pos;
+    check_call_args(emit, ast, csig);
+    emit->save_cache_pos = save_start;
+
+    if (is_method) {
+        if (ast->parent != NULL && ast->parent->tree_type == tree_binary &&
+            ast->parent->right == ast &&
+            ast->parent->left->tree_type != tree_var) {
+            /* Ex: fib(n-1) + fib(n-2)
+               In this case, the left side of the plus (the first fib call)
+               is something saved to a storage. Since the plus hasn't been
+               completed, this call could modify the storage of the left
+               side. So save that storage. */
+            SAVE_PREP(1)
+            emit->save_cache[emit->save_cache_pos] = (uintptr_t)ast->parent->left->result;
+            emit->save_cache_pos++;
+        }
+
+        /* o_save needs 2 + #saves, o_restore needs a flat 2. */
+        if (emit->save_cache_pos)
+            expect_size += emit->save_cache_pos + 4;
+    }
+
+    WRITE_PREP_LARGE(expect_size)
+
+    /* Note that parser doesn't register vars in @main, so a method called
+       from @main would never save anything. */
+    if (is_method && emit->save_cache_pos) {
+        m->code[m->pos] = o_save;
+        m->code[m->pos+1] = emit->save_cache_pos;
+        m->pos += 2;
+
+        memcpy(m->code + m->pos, emit->save_cache,
+               emit->save_cache_pos * sizeof(uintptr_t));
+
+        m->pos += emit->save_cache_pos;
+    }
+
+    if (is_method)
+        m->code[m->pos] = o_method_call;
+    else
+        m->code[m->pos] = o_func_call;
+
+    m->code[m->pos+1] = ast->line_num;
+    m->code[m->pos+2] = (uintptr_t)call_sym;
+    m->code[m->pos+3] = ast->args_collected;
+
+    for (i = 5, arg = ast->arg_start;
+        arg != NULL;
+        arg = arg->next_arg, i++) {
+        m->code[m->pos + i] = (uintptr_t)arg->result;
+    }
+
+    if (csig->ret != NULL) {
+        lily_storage *s = storage_for_class(emit, csig->ret->cls);
+
+        ast->result = (lily_sym *)s;
+    }
+    else {
+        /* It's okay to not push a return value, unless something needs it.
+           Assume that if the tree has a parent, something needs a value. */
+        if (ast->parent == NULL)
+            ast->result = NULL;
+        else {
+            emit->raiser->line_adjust = ast->line_num;
+            lily_raise(emit->raiser, lily_ErrSyntax,
+                       "Call returning nil not at end of expression.");
+        }
+    }
+
+    m->code[m->pos+4] = (uintptr_t)ast->result;
+    m->pos += 5 + ast->args_collected;
+
+    if (is_method && emit->save_cache_pos) {
+        m->code[m->pos] = o_restore;
+        m->code[m->pos+1] = emit->save_cache_pos;
+        m->pos += 2;
+        emit->save_cache_pos = save_start;
+    }
+}
+
+/* eval_tree
+   This is the main emit function. This doesn't evaluate anything itself, but
+   instead determines what call to shove the work off to. */
+static void eval_tree(lily_emit_state *emit, lily_ast *ast)
+{
+    if (ast->tree_type == tree_call)
+        eval_call(emit, ast);
     else if (ast->tree_type == tree_binary) {
         if (ast->op >= expr_assign) {
             if (ast->left->tree_type != tree_subscript)
-                emit_assign(emit, ast);
+                eval_assign(emit, ast);
             else
-                emit_sub_assign(emit, ast);
+                eval_sub_assign(emit, ast);
         }
         else if (ast->op == expr_logical_or || ast->op == expr_logical_and)
-            emit_logical_op(emit, ast);
+            eval_logical_op(emit, ast);
         else {
             if (ast->left->tree_type != tree_var)
-                walk_tree(emit, ast->left);
+                eval_tree(emit, ast->left);
 
             if (ast->right->tree_type != tree_var)
-                walk_tree(emit, ast->right);
+                eval_tree(emit, ast->right);
 
             emit_binary_op(emit, ast);
         }
     }
     else if (ast->tree_type == tree_parenth) {
         if (ast->arg_start->tree_type != tree_var)
-            walk_tree(emit, ast->arg_start);
+            eval_tree(emit, ast->arg_start);
+
         ast->result = ast->arg_start->result;
     }
     else if (ast->tree_type == tree_unary) {
         if (ast->left->tree_type != tree_var)
-            walk_tree(emit, ast->left);
+            eval_tree(emit, ast->left);
 
-        emit_unary_op(emit, ast);
+        eval_unary_op(emit, ast);
     }
-    else if (ast->tree_type == tree_list) {
-        lily_sig *elem_sig = NULL;
-        lily_ast *arg;
-        int i, make_objs;
-
-        make_objs = 0;
-
-        /* Walk through all of the list elements, keeping a note of the class
-           of the results. The class of the list elements is determined as
-           follows:
-           * If all results have the same class, then use that class.
-           * If they do not, use object. */
-        for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
-            if (arg->tree_type != tree_var)
-                walk_tree(emit, arg);
-
-            if (elem_sig != NULL) {
-                if (arg->result->sig != elem_sig &&
-                    lily_sigequal(arg->result->sig, elem_sig) == 0) {
-                    make_objs = 1;
-                }
-            }
-            else
-                elem_sig = arg->result->sig;
-        }
-
-        if (make_objs) {
-            lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_OBJECT);
-            cast_ast_list_to(emit, ast, cls);
-            elem_sig = cls->sig;
-        }
-        else if (ast->arg_start == NULL)
-            elem_sig = autocast_ast_list(emit, ast);
-
-        lily_class *list_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);
-        lily_sig *new_sig = lily_try_sig_for_class(emit->symtab, list_cls);
-        if (new_sig == NULL) {
-            emit->raiser->line_adjust = ast->line_num;
-            lily_raise_nomem(emit->raiser);
-        }
-
-        new_sig->node.value_sig = elem_sig;
-        lily_storage *s = try_find_storage_by_sig(emit, new_sig);
-
-        if (s == NULL) {
-            emit->raiser->line_adjust = ast->line_num;
-            lily_raise_nomem(emit->raiser);
-        }
-
-        WRITE_PREP_LARGE(ast->args_collected + 5)
-        m->code[m->pos] = o_build_list;
-        m->code[m->pos+1] = ast->line_num;
-        m->code[m->pos+2] = (intptr_t)s;
-        m->code[m->pos+3] = ast->args_collected;
-        m->code[m->pos+4] = (intptr_t)elem_sig;
-
-        for (i = 5, arg = ast->arg_start;
-            arg != NULL;
-            arg = arg->next_arg, i++) {
-            m->code[m->pos + i] = (uintptr_t)arg->result;
-        }
-
-        m->pos += 5 + ast->args_collected;
-        ast->result = (lily_sym *)s;
-    }
-    else if (ast->tree_type == tree_subscript) {
-        lily_ast *var_ast = ast->arg_start;
-        lily_ast *index_ast = var_ast->next_arg;
-        if (var_ast->tree_type != tree_var)
-            walk_tree(emit, var_ast);
-
-        lily_sig *var_sig = var_ast->result->sig;
-        if (var_sig->cls->id != SYM_CLASS_LIST)
-            bad_subs_class(emit, var_ast);
-
-        if (index_ast->tree_type != tree_var)
-            walk_tree(emit, index_ast);
-
-        if (index_ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
-            emit->raiser->line_adjust = ast->line_num;
-            lily_raise(emit->raiser, lily_ErrSyntax,
-                    "Subscript index is not an integer.\n");
-        }
-
-        lily_sig *sig_for_result = var_sig->node.value_sig;
-        lily_storage *result = NULL;
-
-        if (sig_for_result->cls->is_refcounted &&
-            sig_for_result->cls->id != SYM_CLASS_OBJECT) {
-            result = try_find_storage_by_sig(emit, sig_for_result);
-            if (result == NULL) {
-                emit->raiser->line_adjust = ast->line_num;
-                lily_raise_nomem(emit->raiser);
-            }
-        }
-        else
-            result = storage_for_class(emit, sig_for_result->cls);
-
-        WRITE_5(o_subscript,
-                ast->line_num,
-                (uintptr_t)var_ast->result,
-                (uintptr_t)index_ast->result,
-                (uintptr_t)result);
-
-        ast->result = (lily_sym *)result;
-    }
+    else if (ast->tree_type == tree_list)
+        eval_build_list(emit, ast);
+    else if (ast->tree_type == tree_subscript)
+        eval_subscript(emit, ast);
     else if (ast->tree_type == tree_typecast)
-        emit_typecast(emit, ast);
+        eval_typecast(emit, ast);
 }
 
 /** Emitter API functions **/
@@ -1270,11 +1324,11 @@ void lily_emit_add_save_var(lily_emit_state *emit, lily_var *v)
 }
 
 /* lily_emit_ast
-   API function to call walk_tree on an ast and increment the expr_num of the
+   API function to call eval_tree on an ast and increment the expr_num of the
    emitter. */
 void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)
 {
-    walk_tree(emit, ast);
+    eval_tree(emit, ast);
     emit->expr_num++;
 }
 
@@ -1339,12 +1393,12 @@ void lily_emit_break(lily_emit_state *emit)
 }
 
 /* lily_emit_conditional
-   API function to call walk_tree on an ast and increment the expr_num of the
+   API function to call eval_tree on an ast and increment the expr_num of the
    emitter. This function writes an if jump afterward, for if conditions. */
 void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
 {
     /* This does emitting for the condition of an if or elif. */
-    walk_tree(emit, ast);
+    eval_tree(emit, ast);
     emit->expr_num++;
 
     /* Calls returning nil check if they're inside of an expression. However,
@@ -1504,6 +1558,18 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
     emit->block_pos++;
 }
 
+/* emit_final_continue
+   This writes in a 'continue'-type jump at the end of the while, so that the
+   while runs multiple times. Since the while is definitely the top block, this
+   is a bit simpler. */
+static void emit_final_continue(lily_emit_state *emit)
+{
+    lily_method_val *m = emit->top_method;
+    int jump_to = emit->while_starts[emit->while_start_pos-1];
+
+    WRITE_2(o_jump, jump_to)
+}
+
 /* lily_emit_leave_block
    This closes the last block that was added to the emitter. Any vars that were
    added in the block are dropped. */
@@ -1635,7 +1701,7 @@ void lily_emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
    value given matches what the method says it returns. */
 void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
 {
-    walk_tree(emit, ast);
+    eval_tree(emit, ast);
     emit->expr_num++;
 
     /* sigcast will convert it to an object, if it gets that far. */
