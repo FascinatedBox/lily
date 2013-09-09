@@ -96,20 +96,18 @@ void lily_ast_reset_pool(lily_ast_pool *ap)
 }
 
 /** Common private merging functions **/
-/* merge_oo
-   This handles an oo merge (ex: 'concat' to 'a' after a.concat) wherein
-   'active' is ap->active and new_ast is the tree to be merged in. */
-static void merge_oo(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
+/* merge_absorb
+   This handles a merge wherein the active tree is taken over by the new ast
+   as an argument. This was originally done to handle turning things like
+   a.concat("b") into concat(a, "b"), but it also works for list build,
+   subscripts, and much more. */
+static void merge_absorb(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
 {
     lily_ast *target;
 
     if (active->tree_type < tree_typecast) {
-        /* This gets called for two cases:
-           1) a.concat("c") where a is active and root.
-           2) a.concat(b.concat("c")) where b is active, but a is root.
-           If this current var isn't the root, then some previous call could be
-           root, so don't become root. */
-
+        /* For non-binary/typecast trees, swallow the current tree as an
+           'argument', and become the new current tree. */
         if (ap->root == active)
             ap->root = new_ast;
 
@@ -169,7 +167,7 @@ static void merge_unary(lily_ast_pool *ap, lily_ast *new_active, lily_ast *new_a
         else if (new_ast->tree_type == tree_subscript) {
             /* Subscript is a special case because it comes after a var and
                swallows it as the first arg. */
-            merge_oo(ap, active->left, new_ast);
+            merge_absorb(ap, active->left, new_ast);
             /* new_ast contains the tree in active->left, so update the unary
                tree... */
             active->left = new_ast;
@@ -200,12 +198,12 @@ static void merge_value(lily_ast_pool *ap, lily_ast *new_ast)
             else if (active->right->tree_type == tree_unary)
                 merge_unary(ap, active, new_ast);
             else
-                merge_oo(ap, active, new_ast);
+                merge_absorb(ap, active, new_ast);
         }
         else if (active->tree_type == tree_unary)
             merge_unary(ap, active, new_ast);
         else
-            merge_oo(ap, active, new_ast);
+            merge_absorb(ap, active, new_ast);
     }
     else {
         /* If no root, then no value or call so far. So become root, if only
@@ -353,11 +351,9 @@ inline void lily_ast_collect_arg(lily_ast_pool *ap)
 }
 
 /* lily_ast_enter_tree
-   This begins an expression that takes comma-separated arguments.
-   * Parenth: tt will be tree_parenth, var will be NULL.
-   * List: tt will be tree_list, var will be NULL.
-   * Call: tt will be tree_call, var will be the call var.
-   * Subscript: tt will be tree_subscript, var will be NULL. */
+   This begins an expression that takes comma-separated arguments. 'var' is only
+   used by tree_call, and only when the call is a named variable. In all other
+   cases, 'var' is NULL and ignored. */
 void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tt, lily_var *var)
 {
     lily_ast *a = next_pool_ast(ap);
