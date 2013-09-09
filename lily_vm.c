@@ -912,13 +912,12 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs = stack_entry->ret;
                 rhs = (lily_sym *)code[i+1];
 
-                if (!(lhs->flags & S_IS_NIL)) {
-                    if (lhs->sig->cls->is_refcounted)
-                        do_ref_deref(lhs->sig->cls, (lily_sym *)lhs,
-                                     (lily_sym *)rhs);
-                }
+                if (lhs->sig->cls->is_refcounted)
+                    do_ref_deref(lhs->sig->cls, (lily_sym *)lhs,
+                                 (lily_sym *)rhs);
 
-                lhs->flags &= ~S_IS_NIL;
+                /* This may have been an accidental return of a nil value. */
+                lhs->flags = (lhs->flags & ~S_IS_NIL) ^ (rhs->flags & S_IS_NIL);
                 lhs->value = rhs->value;
                 code = stack_entry->code;
                 i = stack_entry->code_pos;
