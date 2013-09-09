@@ -8,8 +8,8 @@
 /* There's no particular arrangement to these enums, EXCEPT for typecast and
    binary. Trees that are >= typecast will usually have their ->right value
    used instead of themselves.
-   Ex: a + b.concat(c) results in the .concat stealing binary's right instead of
-       the whole binary tree. */
+   Ex: a == b.concat(c) results in the .concat stealing binary's right instead
+       of the whole binary tree. */
 typedef enum {
     tree_call, tree_subscript, tree_list, tree_parenth, tree_var, tree_unary,
     tree_typecast, tree_binary
