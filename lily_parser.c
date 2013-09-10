@@ -770,8 +770,12 @@ static void expression(lily_parse_state *parser, int flags)
                 }
                 else if (lex->token == tk_colon ||
                          lex->token == tk_right_curly ||
-                         lex->token == tk_end_tag || lex->token == tk_eof)
+                         lex->token == tk_end_tag || lex->token == tk_eof) {
+                    if (parser->ast_pool->save_index != 0)
+                        lily_raise(parser->raiser, lily_ErrSyntax,
+                                "Unexpected token %s.\n", tokname(lex->token));
                     break;
+                }
                 else {
                     lily_raise(parser->raiser, lily_ErrSyntax,
                                "Expected maybe a binary operator, not %s.\n",
