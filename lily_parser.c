@@ -619,15 +619,32 @@ static void expression_value(lily_parse_state *parser)
                 continue;
             }
             else if (lex->token == tk_left_bracket) {
-                lily_ast_enter_tree(parser->ast_pool, tree_list, NULL);
                 lily_lexer(lex);
-                if (lex->token == tk_right_bracket) {
-                    lily_ast_leave_tree(parser->ast_pool);
-                    lily_lexer(lex);
-                    break;
+
+                if (lex->token == tk_right_bracket)
+                    lily_raise(parser->raiser, lily_ErrSyntax,
+                            "Empty lists must specify a type (ex: [str]).\n");
+                else if (lex->token == tk_word) {
+                    lily_class *cls = lily_class_by_name(symtab, lex->label);
+                    lily_sig *sig;
+                    if (cls != NULL) {
+                        /* Make sure this works with complex signatures as well
+                           as simple ones. */
+                        collect_var_sig(parser, CV_ONCE);
+                        sig = parser->sig_stack[parser->sig_stack_pos-1];
+                        parser->sig_stack_pos--;
+                        NEED_NEXT_TOK(tk_right_bracket)
+                        lily_lexer(lex);
+
+                        /* Call this to avoid doing enter/leave when there will
+                           not be any subtrees. */
+                        lily_ast_push_empty_list(parser->ast_pool, sig);
+                        break;
+                    }
                 }
-                else
-                    continue;
+
+                lily_ast_enter_tree(parser->ast_pool, tree_list, NULL);
+                continue;
             }
             else
                 lily_raise(parser->raiser, lily_ErrSyntax,

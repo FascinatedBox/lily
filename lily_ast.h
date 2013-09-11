@@ -71,5 +71,6 @@ void lily_ast_push_binary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_sig(lily_ast_pool *, lily_sig *);
 void lily_ast_push_sym(lily_ast_pool *, lily_sym *);
 void lily_ast_push_unary_op(lily_ast_pool *, lily_expr_op);
+void lily_ast_push_empty_list(lily_ast_pool *ap, lily_sig *sig);
 void lily_ast_reset_pool(lily_ast_pool *);
 #endif
