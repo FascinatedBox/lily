@@ -498,6 +498,25 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
     }
 }
 
+/* lily_ast_push_empty_list
+   This creates a tree_list tree with no inner values. ->sig is set so the list
+   has a default sig. This is done because it's simpler than the enter/leave
+   needed otherwise. It's easier to set the sig too. */
+void lily_ast_push_empty_list(lily_ast_pool *ap, lily_sig *sig)
+{
+    lily_ast *a = next_pool_ast(ap);
+
+    a->tree_type = tree_list;
+    a->line_num = *ap->lex_linenum;
+    a->result = NULL;
+    a->args_collected = 0;
+    a->arg_start = NULL;
+    a->arg_top = NULL;
+    a->sig = sig;
+
+    merge_value(ap, a);
+}
+
 /* lily_ast_push_unary_op
    This 'creates' and merges a unary op against the active tree. */
 void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
