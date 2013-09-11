@@ -108,20 +108,74 @@ method test_obj_call():nil
 
 method test_oo():nil
 {
-    str a = "a"
-    integer i
+    str abc = "abc", rlt
+    integer i, ok
+    object abc_obj = "abc"
+    list[str] abc_list = ["abc"]
 
-    printfmt("#%i: Testing oo calls...", test_id)
+    printfmt("#%i: Testing oo calls...(sub tests follow).\n", test_id)
     test_id = test_id + 1
+    ok = 1
 
-    if a.concat("a") == "aa": {
-        # Check that oo works with regular binary ops.
-        i = a.concat("a").concat("a") < "bb"
+    rlt = abc.concat("def")
+    print("    \"abc\".concat(\"def\")             == \"abcdef\"...")
+    if rlt == "abcdef": {
         print("ok.\n")
     else:
-        fail_count = fail_count + 1
+        ok = 0
         print("failed.\n")
     }
+
+    rlt = (((abc))).concat("def")
+    print("    (((\"abc\"))).concat(\"def\")       == \"abcdef\"...")
+    if rlt == "abcdef": {
+        print("ok.\n")
+    else:
+        ok = 0
+        print("failed.\n")
+    }
+
+    rlt = @(str: abc_obj).concat("def")
+    print("    @(str: abc_obj).concat(\"def\")   == \"abcdef\"...")
+    if rlt == "abcdef": {
+        print("ok.\n")
+    else:
+        ok = 0
+        print("failed.\n")
+    }
+
+    rlt = ["abc", "def"][0].concat("def")
+    print("    [\"abc\", \"def\"][0].concat(\"def\") == \"abcdef\"...")
+    if rlt == "abcdef": {
+        print("ok.\n")
+    else:
+        ok = 0
+        print("failed.\n")
+    }
+
+    method return_abc():str { return "abc" }
+
+    rlt = return_abc().concat("def")
+    print("    return_abc().concat(\"def\")      == \"abcdef\"...")
+    if rlt == "abcdef": {
+        print("ok.\n")
+    else:
+        ok = 0
+        print("failed.\n")
+    }
+
+    # Make sure this works with binary ops.
+    i = abc.concat("def") == "abcdef"
+    print("    abc.concat(\"def\")               == \"abcdef\"...")
+    if i: {
+        print("ok.\n")
+    else:
+        ok = 0
+        print("failed.\n")
+    }
+
+    if ok == 0:
+        fail_count = fail_count + 1
 }
 
 method test_utf8():nil
