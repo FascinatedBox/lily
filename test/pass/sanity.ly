@@ -1238,6 +1238,28 @@ method test_assign_chain():nil
         fail_count = fail_count + 1
 }
 
+method test_misc():nil
+{
+    printfmt("#%i: Miscellaneous features...(sub tests follow).\n", test_id)
+    test_id = test_id + 1
+    integer ok = 1
+
+    print("     Call of returned method: m()()...")
+    method m1(): integer { return 10 }
+    method m2(): method():integer { return m1 }
+
+    integer i = m2()()
+    if i == 10: {
+        print("ok.\n")
+    else:
+        ok = 0
+        print("failed.\n")
+    }
+
+    if ok == 0:
+        fail_count = fail_count + 1
+}
+
 test_basic_assignments()
 test_jumps()
 test_manyargs(1,2,3,4,5,6)
@@ -1265,6 +1287,7 @@ test_multiline_strs()
 test_digit_collection()
 test_while()
 test_assign_chain()
+test_misc()
 
 test_id = test_id - 1
 

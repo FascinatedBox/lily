@@ -945,8 +945,15 @@ int lily_sigequal(lily_sig *lhs, lily_sig *rhs)
                     lhs_csig->is_varargs != rhs_csig->is_varargs)
                     ret = 0;
                 else {
+                    /* ret being NULL indicates that the method does not have
+                       a return value. lily_sigequal doesn't test this, because
+                       nobody else sends NULL sigs to test.
+                       The NULL checks are necessary because one of the sigs
+                       could be NULL (comparing a method that returns a value
+                       with one that does not, for example). */
                     if (lhs_csig->ret != rhs_csig->ret &&
-                        lily_sigequal(lhs_csig->ret, rhs_csig->ret) == 0)
+                        (lhs_csig->ret == NULL || rhs_csig->ret == NULL ||
+                         lily_sigequal(lhs_csig->ret, rhs_csig->ret) == 0))
                         ret = 0;
                     else {
                         ret = 1;

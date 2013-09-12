@@ -188,15 +188,22 @@ static char *opname(lily_expr_op op)
     return opnames[op];
 }
 
-static lily_storage *storage_for_class(lily_emit_state *emit,
+/* get_simple_storage
+   This obtains a storage from the class. The signature of the storage will only
+   have the class set, so this cannot be used for lists, methods, functions, or
+   any class where sig->node.* is used.
+   If unsure, use try_get_proper_storage.
+   'try' means this will return NULL if it cannot find a proper storage. */
+static lily_storage *try_get_simple_storage(lily_emit_state *emit,
         lily_class *storage_class)
 {
     lily_storage *s = storage_class->storage;
+
     if (s->expr_num == emit->expr_num) {
         /* Storages are circularly linked, so this only occurs when all the
            storages have already been taken. */
         if (!lily_try_add_storage(emit->symtab, storage_class->sig))
-            lily_raise_nomem(emit->raiser);
+            return NULL;
 
         s = s->next;
     }
@@ -209,14 +216,13 @@ static lily_storage *storage_for_class(lily_emit_state *emit,
 }
 
 /* try_find_storage_by_sig
-   This looks in emitter's storage cache to see if a storage with the given sig
-   has been created. This will return a storage previously allocated, return
-   a storage that gets allocated, or NULL on failure.
-   Note: The caller is expected to ref the sig beforehand, and deref it on
-         failure.
-         This call is only for complex signatures (lists and calls). All other
-         classes should use storage_for_class. */
-lily_storage *try_find_storage_by_sig(lily_emit_state *emit, lily_sig *sig)
+   This obtains a storage from the emitter's storage cache with a sig that
+   matches the given signature. Each of these storages does not change the sig,
+   and will also preserve the signature information given. This is suitable for
+   lists, methods, functions, and any type where sig->node.* is used.
+   If unsure, use try_get_proper_storage.
+   'try' means this will return NULL if it cannot find a proper storage. */
+lily_storage *try_get_complex_storage(lily_emit_state *emit, lily_sig *sig)
 {
     int i;
     lily_storage *result = NULL;
@@ -258,6 +264,27 @@ lily_storage *try_find_storage_by_sig(lily_emit_state *emit, lily_sig *sig)
     return result;
 }
 
+/* try_get_proper_storage
+   This is used to get a storage based off of the given signature. This picks
+   the proper way of getting a storage, and should be used instead of guessing,
+   which can be error-prone.
+   'try' means this will return NULL if it cannot find a proper storage. */
+static lily_storage *try_get_proper_storage(lily_emit_state *emit,
+        lily_sig *sig)
+{
+    int cls_id = sig->cls->id;
+    lily_storage *result;
+
+    if (cls_id == SYM_CLASS_METHOD ||
+        cls_id == SYM_CLASS_FUNCTION ||
+        cls_id == SYM_CLASS_LIST)
+        result = try_get_complex_storage(emit, sig);
+    else
+        result = try_get_simple_storage(emit, sig->cls);
+
+    return result;
+}
+
 /* Find the inner-most while loop. Don't count a while loop if it's outside of
    the current method though. Returns zero if a method was hit, or the block
    position of the while. */
@@ -291,7 +318,12 @@ static int sigcast(lily_emit_state *emit, lily_ast *lhs_ast, lily_sig *rhs)
         ret = 1;
         lily_method_val *m = emit->top_method;
         lily_storage *storage;
-        storage = storage_for_class(emit, rhs->cls);
+        storage = try_get_simple_storage(emit, rhs->cls);
+        if (storage == NULL) {
+            emit->raiser->line_adjust = lhs_ast->line_num;
+            lily_raise_nomem(emit->raiser);
+        }
+
         WRITE_4(o_obj_assign,
                 lhs_ast->line_num,
                 (uintptr_t)storage,
@@ -411,7 +443,11 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
            bool class (yet), so an integer class is used instead. */
         storage_class = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
 
-    s = storage_for_class(emit, storage_class);
+    s = try_get_simple_storage(emit, storage_class);
+    if (s == NULL) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise_nomem(emit->raiser);
+    }
 
     WRITE_5(opcode,
             ast->line_num,
@@ -576,7 +612,11 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         int save_pos;
         lily_literal *success, *failure;
         lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
-        result = storage_for_class(emit, cls);
+        result = try_get_simple_storage(emit, cls);
+        if (result == NULL) {
+            emit->raiser->line_adjust = ast->line_num;
+            lily_raise_nomem(emit->raiser);
+        }
 
         success = symtab->lit_start;
         if (ast->op == expr_logical_or)
@@ -665,7 +705,7 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
         /* For a compound assignment to work, the left side must be subscripted
            to get the value held. */
 
-        lily_storage *subs_storage = try_find_storage_by_sig(emit, elem_sig);
+        lily_storage *subs_storage = try_get_proper_storage(emit, elem_sig);
         if (subs_storage == NULL)
             lily_raise_nomem(emit->raiser);
 
@@ -714,8 +754,12 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     }
     else if (cast_sig->cls->id == SYM_CLASS_OBJECT) {
         /* An object assign will work here. */
-        lily_storage *storage;
-        storage = storage_for_class(emit, cast_sig->cls);
+        lily_storage *storage = try_get_simple_storage(emit, cast_sig->cls);
+        if (storage == NULL) {
+            emit->raiser->line_adjust = ast->line_num;
+            lily_raise_nomem(emit->raiser);
+        }
+
         WRITE_4(o_obj_assign,
                 ast->line_num,
                 (uintptr_t)storage,
@@ -727,32 +771,11 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     lily_storage *result;
 
     if (var_sig->cls->id == SYM_CLASS_OBJECT) {
-        if (cast_sig->cls->id == SYM_CLASS_LIST ||
-            cast_sig->cls->id == SYM_CLASS_METHOD ||
-            cast_sig->cls->id == SYM_CLASS_FUNCTION) {
-
-            result = try_find_storage_by_sig(emit, cast_sig);
-
-            /* try_find_storage_by_sig will either:
-               A) Return a previously allocated storage, and blast the sig.
-               B) Take the sig to create a new storage. The new storage will own
-                  the sig.
-               C) Fail, and do nothing to the sig.
-
-               The ast will free the sig of any typecast tree it has (this
-               prevents memory leaks). So set the ast's sig to null so that
-               can't happen. Deref the sig on failure.
-
-               From here on, the result's sig must be used, because cast_sig
-               may be invalid. */
-            ast->sig = NULL;
-            if (result == NULL) {
-                emit->raiser->line_adjust = ast->line_num;
-                lily_raise_nomem(emit->raiser);
-            }
+        result = try_get_proper_storage(emit, cast_sig);
+        if (result == NULL) {
+            emit->raiser->line_adjust = ast->line_num;
+            lily_raise_nomem(emit->raiser);
         }
-        else
-            result = storage_for_class(emit, cast_sig->cls);
     }
     else {
         emit->raiser->line_adjust = ast->line_num;
@@ -778,7 +801,7 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
 {
     uintptr_t opcode;
     lily_class *lhs_class;
-    lily_storage *s;
+    lily_storage *storage;
     lily_method_val *m;
 
     m = emit->top_method;
@@ -789,8 +812,12 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
                    opname(ast->op), lhs_class->name);
     }
 
-    s = storage_for_class(emit,
-            lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER));
+    lily_class *integer_cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
+    storage = try_get_simple_storage(emit, integer_cls);
+    if (storage == NULL) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise_nomem(emit->raiser);
+    }
 
     if (ast->op == expr_unary_minus)
         opcode = o_unary_minus;
@@ -800,9 +827,9 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     WRITE_4(opcode,
             (uintptr_t)ast->line_num,
             (uintptr_t)ast->left->result,
-            (uintptr_t)s);
+            (uintptr_t)storage);
 
-    ast->result = (lily_sym *)s;
+    ast->result = (lily_sym *)storage;
 }
 
 /* cast_ast_list_to
@@ -826,7 +853,12 @@ static void cast_ast_list_to(lily_emit_state *emit, lily_ast *list_ast,
     for (arg = list_ast->arg_start;
          arg != NULL;
          arg = arg->next_arg) {
-        lily_storage *obj_store = storage_for_class(emit, cls);
+        lily_storage *obj_store = try_get_simple_storage(emit, cls);
+        if (obj_store == NULL) {
+            emit->raiser->line_adjust = arg->line_num;
+            lily_raise_nomem(emit->raiser);
+        }
+
         /* This is weird. The ast has to be walked, so technically things on
            future line numbers have been executed. At the same time, it would
            be odd for a typecast to fail and reference a line that's different
@@ -896,7 +928,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
     }
 
     new_sig->node.value_sig = elem_sig;
-    lily_storage *s = try_find_storage_by_sig(emit, new_sig);
+    lily_storage *s = try_get_proper_storage(emit, new_sig);
 
     if (s == NULL) {
         emit->raiser->line_adjust = ast->line_num;
@@ -946,18 +978,13 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
     }
 
     lily_sig *sig_for_result = var_sig->node.value_sig;
-    lily_storage *result = NULL;
+    lily_storage *result;
 
-    if (sig_for_result->cls->is_refcounted &&
-        sig_for_result->cls->id != SYM_CLASS_OBJECT) {
-        result = try_find_storage_by_sig(emit, sig_for_result);
-        if (result == NULL) {
-            emit->raiser->line_adjust = ast->line_num;
-            lily_raise_nomem(emit->raiser);
-        }
+    result = try_get_proper_storage(emit, sig_for_result);
+    if (result == NULL) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise_nomem(emit->raiser);
     }
-    else
-        result = storage_for_class(emit, sig_for_result->cls);
 
     WRITE_5(o_subscript,
             ast->line_num,
@@ -1040,7 +1067,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         i = (have_args - i);
         if (is_method) {
             lily_storage *s;
-            s = try_find_storage_by_sig(emit, save_sig);
+            s = try_get_proper_storage(emit, save_sig);
             if (s == NULL) {
                 emit->raiser->line_adjust = ast->line_num;
                 lily_raise_nomem(emit->raiser);
@@ -1174,9 +1201,13 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     }
 
     if (csig->ret != NULL) {
-        lily_storage *s = storage_for_class(emit, csig->ret->cls);
+        lily_storage *storage = try_get_proper_storage(emit, csig->ret);
+        if (storage == NULL) {
+            emit->raiser->line_adjust = ast->line_num;
+            lily_raise_nomem(emit->raiser);
+        }
 
-        ast->result = (lily_sym *)s;
+        ast->result = (lily_sym *)storage;
     }
     else {
         /* It's okay to not push a return value, unless something needs it.
