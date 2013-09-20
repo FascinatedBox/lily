@@ -326,8 +326,8 @@ static int sigcast(lily_emit_state *emit, lily_ast *lhs_ast, lily_sig *rhs)
 
         WRITE_4(o_obj_assign,
                 lhs_ast->line_num,
-                (uintptr_t)storage,
-                (uintptr_t)lhs_ast->result)
+                (uintptr_t)lhs_ast->result,
+                (uintptr_t)storage)
 
         lhs_ast->result = (lily_sym *)storage;
     }
@@ -513,7 +513,7 @@ static void emit_op_for_compound(lily_emit_state *emit, lily_ast *ast)
    assignments. */
 static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 {
-    int opcode;
+    int left_cls_id, opcode;
     lily_sym *left_sym, *right_sym;
     lily_method_val *m = emit->top_method;
 
@@ -532,27 +532,26 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     left_sym = ast->left->result;
     right_sym = ast->right->result;
+    left_cls_id = left_sym->sig->cls->id;
 
     if (left_sym->sig != right_sym->sig &&
         lily_sigequal(left_sym->sig, right_sym->sig) == 0) {
         /* These are either completely different, or complex classes where the
            inner bits don't match. If it's object, object can be anything so
            it's fine. */
-        if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
+        if (left_cls_id == SYM_CLASS_OBJECT)
             opcode = o_obj_assign;
         else
             bad_assign_error(emit, ast->line_num, left_sym->sig,
                           right_sym->sig);
     }
-    else if (left_sym->sig->cls->id == SYM_CLASS_STR)
-        opcode = o_str_assign;
-    else if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
-        opcode = o_obj_assign;
-    /* list assign works for any kind of list, regardless of how complex. */
-    else if (left_sym->sig->cls->id == SYM_CLASS_LIST)
-        opcode = o_list_assign;
-    else
+    else if (left_cls_id == SYM_CLASS_INTEGER ||
+             left_cls_id == SYM_CLASS_NUMBER)
         opcode = o_assign;
+    else if (left_cls_id == SYM_CLASS_OBJECT)
+        opcode = o_obj_assign;
+    else
+        opcode = o_ref_assign;
 
     if (ast->op > expr_assign) {
         emit_op_for_compound(emit, ast);
@@ -561,9 +560,8 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     WRITE_4(opcode,
             ast->line_num,
-            (uintptr_t)left_sym,
-            (uintptr_t)right_sym)
-
+            (uintptr_t)right_sym,
+            (uintptr_t)left_sym)
     ast->result = right_sym;
 }
 
@@ -628,8 +626,8 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 
         WRITE_4(o_assign,
                 ast->line_num,
-                (uintptr_t)result,
-                (uintptr_t)success);
+                (uintptr_t)success,
+                (uintptr_t)result);
 
         WRITE_2(o_jump, 0);
         save_pos = m->pos-1;
@@ -637,8 +635,8 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         lily_emit_leave_block(emit);
         WRITE_4(o_assign,
                 ast->line_num,
-                (uintptr_t)result,
-                (uintptr_t)failure);
+                (uintptr_t)failure,
+                (uintptr_t)result);
 
         m->code[save_pos] = m->pos;
         ast->result = (lily_sym *)result;
@@ -762,8 +760,8 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 
         WRITE_4(o_obj_assign,
                 ast->line_num,
-                (uintptr_t)storage,
-                (uintptr_t)ast->right->result)
+                (uintptr_t)ast->right->result,
+                (uintptr_t)storage)
         ast->result = (lily_sym *)storage;
         return;
     }
@@ -786,8 +784,8 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 
     WRITE_4(o_obj_typecast,
             ast->line_num,
-            (uintptr_t)result,
-            (uintptr_t)ast->right->result)
+            (uintptr_t)ast->right->result,
+            (uintptr_t)result)
 
     ast->result = (lily_sym *)result;
 }
@@ -865,8 +863,8 @@ static void cast_ast_list_to(lily_emit_state *emit, lily_ast *list_ast,
            from where the arg is from. */
         WRITE_4(opcode,
                 arg->line_num,
-                (uintptr_t)obj_store,
-                (uintptr_t)arg->result)
+                (uintptr_t)arg->result,
+                (uintptr_t)obj_store)
         arg->result = (lily_sym *)obj_store;
     }
 }
@@ -935,20 +933,19 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
         lily_raise_nomem(emit->raiser);
     }
 
-    WRITE_PREP_LARGE(ast->args_collected + 5)
+    WRITE_PREP_LARGE(ast->args_collected + 4)
     m->code[m->pos] = o_build_list;
     m->code[m->pos+1] = ast->line_num;
-    m->code[m->pos+2] = (intptr_t)s;
-    m->code[m->pos+3] = ast->args_collected;
-    m->code[m->pos+4] = (intptr_t)elem_sig;
+    m->code[m->pos+2] = ast->args_collected;
 
-    for (i = 5, arg = ast->arg_start;
+    for (i = 3, arg = ast->arg_start;
         arg != NULL;
         arg = arg->next_arg, i++) {
         m->code[m->pos + i] = (uintptr_t)arg->result;
     }
+    m->code[m->pos+i] = (intptr_t)s;
 
-    m->pos += 5 + ast->args_collected;
+    m->pos += 4 + ast->args_collected;
     ast->result = (lily_sym *)s;
 }
 
@@ -1078,16 +1075,15 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             int j = 0;
             /* This -must- be a large prep, because it could be a very big
                var arg call at the start of a method. */
-            WRITE_PREP_LARGE(i + 5)
+            WRITE_PREP_LARGE(i + 4)
             m->code[m->pos] = o_build_list;
             m->code[m->pos+1] = ast->line_num;
-            m->code[m->pos+2] = (uintptr_t)s;
-            m->code[m->pos+3] = i;
-            m->code[m->pos+4] = (uintptr_t)va_comp_sig;
-            for (j = 5;arg != NULL;arg = arg->next_arg, j++)
+            m->code[m->pos+2] = i;
+            for (j = 3;arg != NULL;arg = arg->next_arg, j++)
                 m->code[m->pos+j] = (uintptr_t)arg->result;
 
-            m->pos += j;
+            m->code[m->pos+j] = (uintptr_t)s;
+            m->pos += j+1;
             save_arg->result = (lily_sym *)s;
             save_arg->next_arg = NULL;
             ast->args_collected = num_args + 1;
@@ -1194,7 +1190,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     m->code[m->pos+2] = (uintptr_t)call_sym;
     m->code[m->pos+3] = ast->args_collected;
 
-    for (i = 5, arg = ast->arg_start;
+    for (i = 4, arg = ast->arg_start;
         arg != NULL;
         arg = arg->next_arg, i++) {
         m->code[m->pos + i] = (uintptr_t)arg->result;
@@ -1221,7 +1217,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
         }
     }
 
-    m->code[m->pos+4] = (uintptr_t)ast->result;
+    m->code[m->pos+i] = (uintptr_t)ast->result;
     m->pos += 5 + ast->args_collected;
 
     if (is_method && emit->save_cache_pos) {
@@ -1683,7 +1679,7 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
     }
 
     lily_method_val *m = emit->top_method;
-    WRITE_2(o_return_val, (uintptr_t)ast->result)
+    WRITE_3(o_return_val, ast->line_num, (uintptr_t)ast->result)
 }
 
 /* lily_emit_return_noval
@@ -1697,7 +1693,7 @@ void lily_emit_return_noval(lily_emit_state *emit)
                 "'return' used outside of a method.\n");
 
     lily_method_val *m = emit->top_method;
-    WRITE_1(o_return_noval)
+    WRITE_2(o_return_noval, *emit->lex_linenum)
 }
 
 /* lily_emit_vm_return
@@ -1705,7 +1701,7 @@ void lily_emit_return_noval(lily_emit_state *emit)
 void lily_emit_vm_return(lily_emit_state *emit)
 {
     lily_method_val *m = emit->top_method;
-    WRITE_1(o_vm_return)
+    WRITE_1(o_return_from_vm)
 }
 
 /* lily_reset_main

@@ -196,6 +196,7 @@ lily_parse_state *lily_new_parse_state(int options)
     parser->vm->main = parser->symtab->var_start;
     parser->symtab->lex_linenum = &parser->lex->line_num;
     parser->ast_pool->lex_linenum = &parser->lex->line_num;
+    parser->emit->lex_linenum = &parser->lex->line_num;
     parser->emit->symtab = parser->symtab;
 
     /* Enter @main, so that code outside of user methods has a place to go. */

@@ -27,7 +27,6 @@
 /* D_LINENO: This position contains the line number upon which the opcode is
              executed. If this exists, it is always right after the opcode. */
 #define D_LINENO     0
-
 /* D_INPUT:      This specifies a symbol that is being read. */
 #define D_INPUT      1
 /* D_OUTPUT:     The opcode's result will be written to this place. */
@@ -50,37 +49,32 @@
                  in the future. This value is printed next to the opcode name.
                  save and restore use this. */
 #define D_SHOW_COUNT 10
-/* D_IGNORE:     This specifies a value that should be ignored. This is used to
-                 skip over o_build_list's sig, which isn't necessary because the
-                 output's sig is shown. */
-#define D_IGNORE     11
 
-char *opcode_names[33] = {
+char *opcode_names[32] = {
     "assign",
     "object assign",
-    "str assign",
-    "list assign",
+    "assign (ref/deref)",
     "subscript assign",
     "integer add (+)",
-    "number add (+)",
     "integer minus (-)",
+    "integer multiply (*)",
+    "integer divide (/)",
+    "number add (+)",
     "number minus (-)",
+    "number multiply (*)",
+    "number divide (/)",
     "is equal (==)",
+    "not equal (!=)",
     "less (<)",
     "less equal (<=)",
     "greater (>)",
     "greater equal (>=)",
-    "not equal (!=)",
-    "integer multiply (*)",
-    "number multiply (*)",
-    "integer divide (/)",
-    "number divide (/)",
     "jump",
     "jump if",
     "function call",
     "method call",
     "return value",
-    "return",
+    "return (no value)",
     "save",
     "restore",
     "unary not (!x)",
@@ -92,16 +86,16 @@ char *opcode_names[33] = {
 };
 
 static const int call_ci[]       =
-    {5, D_LINENO, D_INPUT, D_COUNT, D_OUTPUT, D_COUNT_LIST};
+    {5, D_LINENO, D_INPUT, D_COUNT, D_COUNT_LIST, D_OUTPUT};
 static const int build_list_ci[] =
-    {5, D_LINENO, D_OUTPUT, D_COUNT, D_IGNORE, D_COUNT_LIST};
+    {4, D_LINENO, D_COUNT, D_COUNT_LIST, D_OUTPUT};
 static const int sub_assign_ci[] = {4, D_LINENO, D_INPUT, D_INPUT, D_INPUT};
 static const int binary_ci[]     = {4, D_LINENO, D_INPUT, D_INPUT, D_OUTPUT};
-static const int unary_ci[]      = {3, D_LINENO, D_INPUT, D_OUTPUT};
-static const int assign_ci[]     = {3, D_LINENO, D_OUTPUT, D_INPUT};
+static const int in_out_ci[]     = {3, D_LINENO, D_INPUT, D_OUTPUT};
 static const int jump_if_ci[]    = {3, D_JUMP_ON, D_INPUT, D_JUMP};
 static const int save_ci[]       = {2, D_SHOW_COUNT, D_COUNT_LIST};
-static const int return_ci[]     = {1, D_OUTPUT};
+static const int return_ci[]     = {2, D_LINENO, D_OUTPUT};
+static const int return_nv_ci[]  = {1, D_LINENO};
 static const int restore_ci[]    = {1, D_SHOW_COUNT};
 static const int jump_ci[]       = {1, D_JUMP};
 static const int nop_ci[]        = {1, D_NOP};
@@ -143,11 +137,12 @@ static const int *code_info_for_opcode(int opcode)
 
     switch (opcode) {
         case o_assign:
-        case o_list_assign:
-        case o_str_assign:
+        case o_ref_assign:
         case o_obj_assign:
         case o_obj_typecast:
-            ret = assign_ci;
+        case o_unary_not:
+        case o_unary_minus:
+            ret = in_out_ci;
             break;
         case o_integer_add:
         case o_number_add:
@@ -170,13 +165,11 @@ static const int *code_info_for_opcode(int opcode)
         case o_func_call:
             ret = call_ci;
             break;
-        case o_return_noval:
-        case o_vm_return:
+        case o_return_from_vm:
             ret = nop_ci;
             break;
-        case o_unary_not:
-        case o_unary_minus:
-            ret = unary_ci;
+        case o_return_noval:
+            ret = return_nv_ci;
             break;
         case o_sub_assign:
             ret = sub_assign_ci;
@@ -273,8 +266,8 @@ static void show_code(lily_var *var)
            except for a few where that does not apply.
            Most that do not have a special starting opcode specific to them that
            will write in the newline.
-           These two do not, so write it in for them. */
-        if (code[i] == o_jump || code[i] == o_return_val)
+           o_jump doesn't, so write this in for it. */
+        if (code[i] == o_jump)
             lily_impl_debugf("\n");
 
         for (j = 0;j < opcode_data[0];j++) {
@@ -309,11 +302,11 @@ static void show_code(lily_var *var)
                     i--;
                 else {
                     int k;
-                    for (k = 0;k < count;k++, j++) {
+                    for (k = 0;k < count;k++, i++) {
                         lily_impl_debugf("|     <---- ");
                         show_code_sym((lily_sym *)code[i+j+1]);
                     }
-                    j--;
+                    i--;
                 }
             }
             else if (data_code == D_SHOW_COUNT) {
