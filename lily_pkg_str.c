@@ -8,9 +8,9 @@
 void lily_str_concat(lily_vm_state *vm, int num_args, lily_sym **args)
 {
     lily_str_val *ret, *arg1, *arg2;
-    ret = args[0]->value.str;
-    arg1 = args[1]->value.str;
-    arg2 = args[2]->value.str;
+    ret = args[2]->value.str;
+    arg1 = args[0]->value.str;
+    arg2 = args[1]->value.str;
 
     int newsize = arg1->size + arg2->size + 1;
     /* It's null if [0] is a storage that's never been assigned to before. */
@@ -39,8 +39,8 @@ void lily_str_concat(lily_vm_state *vm, int num_args, lily_sym **args)
     strcat(ret->str, arg2->str);
 
     ret->size = newsize;
-    args[0]->value.str = ret;
-    args[0]->flags &= ~S_IS_NIL;
+    args[2]->value.str = ret;
+    args[2]->flags &= ~S_IS_NIL;
 }
 
 static lily_func_seed concat = {"concat", 2, 0, lily_str_concat,

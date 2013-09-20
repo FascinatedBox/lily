@@ -38,6 +38,7 @@ typedef struct {
     int method_pos;
     int method_size;
 
+    int *lex_linenum;
     lily_raiser *raiser;
     lily_symtab *symtab;
     int expr_num;

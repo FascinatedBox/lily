@@ -300,7 +300,7 @@ static void very_bad_subs_assign_error(lily_vm_state *vm, int code_pos)
    (which isn't used), so args begin at [1]. */
 void lily_builtin_print(lily_vm_state *vm, int num_args, lily_sym **args)
 {
-    lily_impl_send_html(args[1]->value.str->str);
+    lily_impl_send_html(args[0]->value.str->str);
 }
 
 /* lily_builtin_printfmt
@@ -313,11 +313,11 @@ void lily_builtin_printfmt(lily_vm_state *vm, int num_args, lily_sym **args)
     char save_ch;
     char *fmt, *str_start;
     int cls_id, is_nil;
-    int arg_pos = 1, i = 0;
+    int arg_pos = 0, i = 0;
     lily_sym *arg;
     lily_value val;
 
-    fmt = args[1]->value.str->str;
+    fmt = args[0]->value.str->str;
     str_start = fmt;
     while (1) {
         if (fmt[i] == '\0')
@@ -379,43 +379,23 @@ void lily_builtin_printfmt(lily_vm_state *vm, int num_args, lily_sym **args)
 
 /** VM opcode helpers **/
 
-/* op_str_assign
-   VM helper called for handling o_str_assign. [1] is lhs, [2] is rhs. */
-void op_str_assign(lily_sym **syms)
+/* op_ref_assign
+   VM helper called for handling complex assigns. [1] is lhs, [2] is rhs. This
+   does an assign along with the appropriate ref/deref stuff. This is suitable
+   for anything that needs that ref/deref stuff except for object. */
+void op_ref_assign(lily_sym **syms)
 {
     lily_sym *lhs, *rhs;
-    lily_str_val *lvalue;
+    lily_value value;
 
-    lhs = ((lily_sym *)syms[1]);
-    rhs = ((lily_sym *)syms[2]);
-    lvalue = lhs->value.str;
-
-    if (!(lhs->flags & S_IS_NIL))
-        lily_deref_str_val(lvalue);
-    if (!(rhs->flags & S_IS_NIL)) {
-        rhs->value.str->refcount++;
-        lhs->flags &= ~S_IS_NIL;
-    }
-    else
-        lhs->flags |= S_IS_NIL;
-    lhs->value = rhs->value;
-}
-
-/* op_str_assign
-   VM helper called for handling o_list_assign. [1] is lhs, [2] is rhs. */
-void op_list_assign(lily_sym **syms)
-{
-    lily_sym *lhs, *rhs;
-    lily_list_val *lvalue;
-
-    lhs = ((lily_sym *)syms[1]);
-    rhs = ((lily_sym *)syms[2]);
-    lvalue = lhs->value.list;
+    lhs = ((lily_sym *)syms[2]);
+    rhs = ((lily_sym *)syms[1]);
+    value = lhs->value;
 
     if (!(lhs->flags & S_IS_NIL))
-        lily_deref_list_val(lhs->sig, lvalue);
+        lily_deref_unknown_val(lhs->sig, value);
     if (!(rhs->flags & S_IS_NIL)) {
-        rhs->value.list->refcount++;
+        rhs->value.generic->refcount++;
         lhs->flags &= ~S_IS_NIL;
     }
     else
@@ -525,10 +505,10 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
    sig. This...is a problem that will eventually get fixed. */
 void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
 {
-    lily_sig *elem_sig = (lily_sig *)syms[4];
-    lily_storage *storage = (lily_storage *)syms[2];
-    int num_elems = (intptr_t)(syms[3]);
+    int num_elems = (intptr_t)(syms[2]);
     int j;
+    lily_storage *storage = (lily_storage *)syms[3+num_elems];
+    lily_sig *elem_sig = storage->sig->node.value_sig;
 
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
     if (lv == NULL)
@@ -562,8 +542,8 @@ void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
     if (elem_sig->cls->id != SYM_CLASS_OBJECT) {
         if (elem_sig->cls->is_refcounted) {
             for (j = 0;j < num_elems;j++) {
-                if (!(syms[5+j]->flags & S_IS_NIL)) {
-                    lv->values[j] = syms[5+j]->value;
+                if (!(syms[3+j]->flags & S_IS_NIL)) {
+                    lv->values[j] = syms[3+j]->value;
                     lv->values[j].generic->refcount++;
                     lv->flags[j] = 0;
                 }
@@ -573,8 +553,8 @@ void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
         }
         else {
             for (j = 0;j < num_elems;j++) {
-                if (!(syms[5+j]->flags & S_IS_NIL)) {
-                    lv->values[j] = syms[5+j]->value;
+                if (!(syms[3+j]->flags & S_IS_NIL)) {
+                    lv->values[j] = syms[3+j]->value;
                     lv->flags[j] = 0;
                 }
                 else
@@ -584,7 +564,7 @@ void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
     }
     else {
         for (j = 0;j < num_elems;j++) {
-            if (!(syms[5+j]->flags & S_IS_NIL)) {
+            if (!(syms[3+j]->flags & S_IS_NIL)) {
                 /* Without copying to a separate object:
                    object o = 10    o = [o]
                    (o is now a useless circular reference. What?)
@@ -606,7 +586,7 @@ void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
                     lily_free(lv);
                     lily_raise_nomem(vm->raiser);
                 }
-                memcpy(oval, syms[5+j]->value.object, sizeof(lily_object_val));
+                memcpy(oval, syms[3+j]->value.object, sizeof(lily_object_val));
                 oval->refcount = 1;
 
                 if (oval->sig->cls->is_refcounted)
@@ -698,8 +678,9 @@ void lily_vm_execute(lily_vm_state *vm)
     while (1) {
         switch(code[i]) {
             case o_assign:
-                lhs = ((lily_sym *)code[i+2]);
-                rhs = ((lily_sym *)code[i+3]);
+                rhs = ((lily_sym *)code[i+2]);
+                lhs = ((lily_sym *)code[i+3]);
+
                 lhs->flags = (lhs->flags & ~S_IS_NIL) ^ (rhs->flags & S_IS_NIL);
                 lhs->value = rhs->value;
                 i += 4;
@@ -855,19 +836,22 @@ void lily_vm_execute(lily_vm_state *vm)
                    method arg would be empty then. */
                 mval = ((lily_var *)code[i+2])->value.method;
                 v = mval->first_arg;
-                j = i + 5 + code[i+3];
+                j = i + 4 + code[i+3];
 
                 stack_entry = vm->method_stack[vm->method_stack_pos-1];
                 stack_entry->line_num = code[i+1];
-                /* Remember to use j, because each arg will take a code spot. */
-                stack_entry->code_pos = j;
-                stack_entry->ret = (lily_sym *)code[i+4];
+                /* j is where the return is, so one after that will be where the
+                   next opcode starts. Don't use i because it doesn't count
+                   args. */
+                stack_entry->code_pos = j + 1;
+
+                stack_entry->ret = (lily_sym *)code[j];
                 stack_entry = vm->method_stack[vm->method_stack_pos];
 
                 /* Add this entry to the call stack. */
                 stack_entry->method = mval;
 
-                i += 5;
+                i += 4;
                 /* Map call values to method arguments. */
                 for (v = mval->first_arg; i < j;v = v->next, i++) {
                     flag = ((lily_sym *)code[i])->flags & S_IS_NIL;
@@ -910,7 +894,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 vm->method_stack_pos--;
                 stack_entry = vm->method_stack[vm->method_stack_pos-1];
                 lhs = stack_entry->ret;
-                rhs = (lily_sym *)code[i+1];
+                rhs = (lily_sym *)code[i+2];
 
                 if (lhs->sig->cls->is_refcounted)
                     do_ref_deref(lhs->sig->cls, (lily_sym *)lhs,
@@ -927,10 +911,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 stack_entry = vm->method_stack[vm->method_stack_pos-1];
                 code = stack_entry->code;
                 i = stack_entry->code_pos;
-                break;
-            case o_str_assign:
-                op_str_assign(((lily_sym **)code+i+1));
-                i += 4;
                 break;
             case o_subscript:
                 lhs = (lily_sym *)code[i+2];
@@ -1021,15 +1001,15 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_build_list:
                 op_build_list(vm, (lily_sym **)code+i, i);
-                i += code[i+3] + 5;
+                i += code[i+2] + 4;
                 break;
-            case o_list_assign:
-                op_list_assign(((lily_sym **)code+i+1));
+            case o_ref_assign:
+                op_ref_assign(((lily_sym **)code+i+1));
                 i += 4;
                 break;
             case o_obj_typecast:
-                lhs = ((lily_sym *)code[i+2]);
-                rhs = ((lily_sym *)code[i+3]);
+                rhs = ((lily_sym *)code[i+2]);
+                lhs = ((lily_sym *)code[i+3]);
                 cast_sig = lhs->sig;
 
                 if (rhs->flags & S_IS_NIL || rhs->value.object->sig == NULL)
@@ -1063,8 +1043,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 i += 4;
                 break;
             case o_obj_assign:
-                lhs = ((lily_sym *)code[i+2]);
-                rhs = ((lily_sym *)code[i+3]);
+                lhs = ((lily_sym *)code[i+3]);
+                rhs = ((lily_sym *)code[i+2]);
 
                 if (lhs->value.object->sig != NULL) {
                     if (lhs->value.object->sig->cls->is_refcounted)
@@ -1105,7 +1085,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 }
                 i += 4;
                 break;
-            case o_vm_return:
+            case o_return_from_vm:
                 /* Remember to remove the jump that the vm installed, since it's
                    no longer valid. */
                 vm->raiser->jump_pos--;
