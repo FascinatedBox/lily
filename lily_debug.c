@@ -50,39 +50,43 @@
                  save and restore use this. */
 #define D_SHOW_COUNT 10
 
+/* Opcodes that have line numbers also have extra space so they print the line
+   number at an even spot. This saves debug from having to calculate how much
+   (and possibly getting it wrong) at the cost of a little bit of memory.
+   No extra space means it doesn't have a line number. */
 char *opcode_names[32] = {
-    "assign",
-    "object assign",
-    "assign (ref/deref)",
-    "subscript assign",
-    "integer add (+)",
-    "integer minus (-)",
-    "integer multiply (*)",
-    "integer divide (/)",
-    "number add (+)",
-    "number minus (-)",
-    "number multiply (*)",
-    "number divide (/)",
-    "is equal (==)",
-    "not equal (!=)",
-    "less (<)",
-    "less equal (<=)",
-    "greater (>)",
-    "greater equal (>=)",
+    "assign               ",
+    "object assign        ",
+    "assign (ref/deref)   ",
+    "subscript assign     ",
+    "integer add (+)      ",
+    "integer minus (-)    ",
+    "integer multiply (*) ",
+    "integer divide (/)   ",
+    "number add (+)       ",
+    "number minus (-)     ",
+    "number multiply (*)  ",
+    "number divide (/)    ",
+    "is equal (==)        ",
+    "not equal (!=)       ",
+    "less (<)             ",
+    "less equal (<=)      ",
+    "greater (>)          ",
+    "greater equal (>=)   ",
     "jump",
     "jump if",
-    "function call",
-    "method call",
-    "return value",
-    "return (no value)",
+    "function call        ",
+    "method call          ",
+    "return value         ",
+    "return (no value)    ",
     "save",
     "restore",
-    "unary not (!x)",
-    "unary minus (-x)",
-    "build list",
-    "subscript",
-    "typecast",
-    "return from vm"
+    "unary not (!x)       ",
+    "unary minus (-x)     ",
+    "build list           ",
+    "subscript            ",
+    "typecast             ",
+    "return from vm       "
 };
 
 static const int call_ci[]       =
@@ -242,14 +246,35 @@ static void show_code_sym(lily_sym *sym)
    functions. */
 static void show_code(lily_var *var)
 {
-    int i, len;
+    char format[5];
+    int digits, i, len;
     uintptr_t *code;
     lily_method_val *m;
 
+    digits = 0;
     m = var->value.method;
     i = 0;
     code = m->code;
     len = m->pos;
+
+    while (len) {
+        len /= 10;
+        digits++;
+    }
+
+    len = m->pos;
+    format[0] = '%';
+    if (digits >= 10) {
+        format[1] = (digits / 10) + '0';
+        format[2] = (digits % 10) + '0';
+        format[3] = 'd';
+        format[4] = '\0';
+    }
+    else {
+        format[1] = digits + '0';
+        format[2] = 'd';
+        format[3] = '\0';
+    }
 
     while (i < len) {
         int opcode = code[i];
@@ -260,7 +285,9 @@ static void show_code(lily_var *var)
         if (i != 0)
             fputs("|\n", stderr);
 
-        lily_impl_debugf("|____ [%d] %s", i, opcode_name);
+        lily_impl_debugf("|____ [");
+        lily_impl_debugf(format, i);
+        lily_impl_debugf("] %s", opcode_name);
         /* A newline isn't printed after the opcode's name so that the line
            number can be on the same line. Most opcodes have a line number,
            except for a few where that does not apply.
@@ -330,20 +357,11 @@ static void show_code(lily_var *var)
 void lily_show_symtab(lily_symtab *symtab)
 {
     lily_var *var = symtab->var_start;
-    lily_literal *lit = symtab->lit_start;
-
-    lily_impl_debugf("Literals:\n");
-    /* Show literal values first. */
-    while (lit != NULL) {
-        lily_impl_debugf("#%d: ", lit->id);
-        show_literal((lily_sym *)lit);
-        lit = lit->next;
-    }
 
     /* Now, give information about all of the methods that have code assigned to
        them. Methods that are arguments get scoped out, and are thus ignored
        since they do not have code. */
-    lily_impl_debugf("Methods:\n");
+    lily_impl_debugf("Showing all methods:\n");
     while (var != NULL) {
         if (var->sig->cls->id == SYM_CLASS_METHOD) {
             lily_impl_debugf("method %s @ line %d\n", var->name, var->line_num);
