@@ -1188,7 +1188,7 @@ void lily_parser(lily_parse_state *parser)
             lily_emit_vm_return(parser->emit);
             /* Show symtab until the bugs are gone. */
             if (parser->options & POPT_SHOW_SYMTAB)
-                lily_show_symtab(parser->symtab);
+                lily_show_symtab(parser->symtab, parser->raiser->msgbuf);
 
             parser->mode = pm_execute;
             lily_vm_execute(parser->vm);

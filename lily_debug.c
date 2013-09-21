@@ -205,19 +205,81 @@ static const int *code_info_for_opcode(int opcode)
     return ret;
 }
 
-static void show_literal(lily_sym *sym)
+/* show_str
+   This displays a literal string in a safe way. It iterates over a string and
+   packs the data into a msgbuf as it goes along. */
+static void show_str(char *str, lily_msgbuf *msgbuf)
+{
+    char escape_char;
+    int i, len, start;
+
+    len = strlen(str);
+    if (len > 64)
+        len = 64;
+
+    lily_msgbuf_add(msgbuf, "(\"");
+    for (i = 0, start = 0;i < len;i++) {
+        char ch = str[i];
+
+        if (ch == '\n')
+            escape_char = 'n';
+        else if (ch == '\r')
+            escape_char = 'r';
+        else if (ch == '\t')
+            escape_char = 't';
+        else if (ch == '\'')
+            escape_char = '\'';
+        else if (ch == '"')
+            escape_char = '"';
+        else if (ch == '\\')
+            escape_char = '\\';
+        else if (ch == '\b')
+            escape_char = 'b';
+        else if (ch == '\a')
+            escape_char = 'a';
+        else
+            escape_char = 0;
+
+        if (escape_char) {
+            if (i != start)
+                lily_msgbuf_add_text_range(msgbuf, str, start, i);
+
+            lily_msgbuf_add_char(msgbuf, '\\');
+            lily_msgbuf_add_char(msgbuf, escape_char);
+
+            if (msgbuf->pos != 0) {
+                /* This is intentional, because literals are user-defined and
+                   could include %'s. This prevents an exploit. */
+                lily_impl_debugf("%s", msgbuf->message);
+                lily_msgbuf_reset(msgbuf);
+            }
+
+            start = i + 1;
+        }
+    }
+
+    if (i != start)
+        lily_msgbuf_add_text_range(msgbuf, str, start, i);
+
+    lily_msgbuf_add(msgbuf, "\")\n");
+    /* See above comment. */
+    lily_impl_debugf("%s", msgbuf->message);
+    lily_msgbuf_reset(msgbuf);
+}
+
+static void show_literal(lily_sym *sym, lily_msgbuf *msgbuf)
 {
     int cls_id = sym->sig->cls->id;
 
     if (cls_id == SYM_CLASS_STR)
-        lily_impl_debugf("(%-0.50s)\n", sym->value.str->str);
+        show_str(sym->value.str->str, msgbuf);
     else if (cls_id == SYM_CLASS_INTEGER)
         lily_impl_debugf("(%" PRId64 ")\n", sym->value.integer);
     else if (cls_id == SYM_CLASS_NUMBER)
         lily_impl_debugf("(%f)\n", sym->value.number);
 }
 
-static void show_code_sym(lily_sym *sym)
+static void show_code_sym(lily_sym *sym, lily_msgbuf *msgbuf)
 {
     lily_impl_debugf("(");
     show_sig(sym->sig);
@@ -230,7 +292,7 @@ static void show_code_sym(lily_sym *sym)
     }
     else if (sym->flags & LITERAL_SYM) {
         lily_impl_debugf("literal ");
-        show_literal(sym);
+        show_literal(sym, msgbuf);
     }
     else if (sym->flags & STORAGE_SYM)
         lily_impl_debugf("storage at %p.\n", sym);
@@ -244,7 +306,7 @@ static void show_code_sym(lily_sym *sym)
    This was done because many opcodes (all binary ones, for example), share the
    same basic structure. This also eliminates the need for specialized
    functions. */
-static void show_code(lily_var *var)
+static void show_code(lily_var *var, lily_msgbuf *msgbuf)
 {
     char format[5];
     int digits, i, len;
@@ -303,7 +365,7 @@ static void show_code(lily_var *var)
                 lily_impl_debugf("   (at line %d)\n", (int)code[i+j+1]);
             else if (data_code == D_INPUT) {
                 lily_impl_debugf("|     <---- ");
-                show_code_sym((lily_sym *)code[i+j+1]);
+                show_code_sym((lily_sym *)code[i+j+1], msgbuf);
             }
             else if (data_code == D_OUTPUT) {
                 /* output is NULL if it's a method or function that does not
@@ -311,7 +373,7 @@ static void show_code(lily_var *var)
                    output meaning it doesn't have one). */
                 if ((lily_sym *)code[i+j+1] != NULL) {
                     lily_impl_debugf("|     ====> ");
-                    show_code_sym((lily_sym *)code[i+j+1]);
+                    show_code_sym((lily_sym *)code[i+j+1], msgbuf);
                 }
             }
             else if (data_code == D_JUMP_ON) {
@@ -331,7 +393,7 @@ static void show_code(lily_var *var)
                     int k;
                     for (k = 0;k < count;k++, i++) {
                         lily_impl_debugf("|     <---- ");
-                        show_code_sym((lily_sym *)code[i+j+1]);
+                        show_code_sym((lily_sym *)code[i+j+1], msgbuf);
                     }
                     i--;
                 }
@@ -354,7 +416,7 @@ static void show_code(lily_var *var)
 /* lily_show_symtab
    This is the API function for debugging. Just send the symtab and debug will
    do the rest. */
-void lily_show_symtab(lily_symtab *symtab)
+void lily_show_symtab(lily_symtab *symtab, lily_msgbuf *msgbuf)
 {
     lily_var *var = symtab->var_start;
 
@@ -365,7 +427,7 @@ void lily_show_symtab(lily_symtab *symtab)
     while (var != NULL) {
         if (var->sig->cls->id == SYM_CLASS_METHOD) {
             lily_impl_debugf("method %s @ line %d\n", var->name, var->line_num);
-            show_code(var);
+            show_code(var, msgbuf);
         }
         var = var->next;
     }
