@@ -36,7 +36,8 @@ typedef struct {
 #define KEY_WHILE    4
 #define KEY_CONTINUE 5
 #define KEY_BREAK    6
-#define KEY_LAST_ID  6
+#define KEY_SHOW     7
+#define KEY_LAST_ID  7
 
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, char *);

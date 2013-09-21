@@ -189,6 +189,12 @@ typedef enum {
        This can be thought of as the converse of o_obj_assign. */
     o_obj_typecast,
 
+    /* Show:
+       * int lineno
+       * sym value
+       This displays information about the given value. */
+    o_show,
+
     /* Return from vm:
        This is a special opcode used to leave the vm. It does not take any
        values. This is written at the end of @main. */

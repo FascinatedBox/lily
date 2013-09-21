@@ -5,6 +5,7 @@
 #include "lily_symtab.h"
 #include "lily_opcode.h"
 #include "lily_vm.h"
+#include "lily_debug.h"
 
 #define INTEGER_OP(OP) \
 lhs = (lily_sym *)code[i+2]; \
@@ -606,6 +607,11 @@ void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
     storage->flags &= ~S_IS_NIL;
 }
 
+static void do_keyword_show(lily_vm_state *vm, lily_sym *sym)
+{
+    lily_show_sym(sym, vm->raiser->msgbuf);
+}
+
 /* do_ref_deref
    Do an assignment where lhs loses a ref and rhs gains one. */
 static void do_ref_deref(lily_class *cls, lily_sym *down_sym, lily_sym *up_sym)
@@ -1006,6 +1012,11 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_ref_assign:
                 op_ref_assign(((lily_sym **)code+i+1));
                 i += 4;
+                break;
+            case o_show:
+                rhs = (lily_sym *)code[i+2];
+                do_keyword_show(vm, rhs);
+                i += 3;
                 break;
             case o_obj_typecast:
                 rhs = ((lily_sym *)code[i+2]);

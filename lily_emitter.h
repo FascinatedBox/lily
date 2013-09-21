@@ -63,6 +63,7 @@ void lily_emit_jump_if(lily_emit_state *, lily_ast *, int);
 void lily_emit_leave_block(lily_emit_state *);
 void lily_emit_return(lily_emit_state *, lily_ast *, lily_sig *);
 void lily_emit_return_noval(lily_emit_state *);
+void lily_emit_show(lily_emit_state *, lily_ast *);
 void lily_emit_update_return(lily_emit_state *);
 void lily_emit_vm_return(lily_emit_state *);
 void lily_free_emit_state(lily_emit_state *);
