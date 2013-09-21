@@ -28,7 +28,8 @@ static const char *keywords[] = {
     "return",
     "while",
     "continue",
-    "break"
+    "break",
+    "show"
 };
 
 void lily_builtin_print(lily_vm_state *, int, lily_sym **);

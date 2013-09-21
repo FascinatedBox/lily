@@ -945,6 +945,16 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
     }
 }
 
+/* parse_show
+   This handles the 'show' keyword. This displays information on a given
+   expression. Type checking intentionally not performed. */
+static void parse_show(lily_parse_state *parser)
+{
+    expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
+    lily_emit_show(parser->emit, parser->ast_pool->root);
+    lily_ast_reset_pool(parser->ast_pool);
+}
+
 /* parse_return
    This parses a return statement, and writes the appropriate return info to
    the emitter. */
@@ -1023,6 +1033,10 @@ static void parse_simple_condition(lily_parse_state *parser)
         else if (key_id == KEY_BREAK) {
             lily_lexer(lex);
             lily_emit_break(parser->emit);
+        }
+        else if (key_id == KEY_SHOW) {
+            lily_lexer(lex);
+            parse_show(parser);
         }
         else
             expression(parser, EX_NEED_VALUE | EX_SINGLE);
@@ -1103,6 +1117,8 @@ static void statement(lily_parse_state *parser)
             lily_emit_continue(parser->emit);
         else if (key_id == KEY_BREAK)
             lily_emit_break(parser->emit);
+        else if (key_id == KEY_SHOW)
+            parse_show(parser);
         else {
             if (key_id == KEY_IF) {
                 lily_emit_enter_block(parser->emit, BLOCK_IF);

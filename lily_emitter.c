@@ -1682,6 +1682,18 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
     WRITE_3(o_return_val, ast->line_num, (uintptr_t)ast->result)
 }
 
+/* lily_emit_show
+   This evals the given ast, then writes o_show so the vm will show the result
+   of the ast. Type-checking is intentionally NOT performed. */
+void lily_emit_show(lily_emit_state *emit, lily_ast *ast)
+{
+    eval_tree(emit, ast);
+    emit->expr_num++;
+
+    lily_method_val *m = emit->top_method;
+    WRITE_3(o_show, ast->line_num, (uintptr_t)ast->result)
+}
+
 /* lily_emit_return_noval
    This writes the o_return_noval opcode for a method to return without sending
    a value to the caller. */
