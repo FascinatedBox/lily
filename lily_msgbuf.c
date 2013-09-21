@@ -24,6 +24,26 @@ lily_msgbuf *lily_new_msgbuf(void)
     return msgbuf;
 }
 
+static int try_resize_msgbuf(lily_msgbuf *msgbuf, int new_size)
+{
+    char *new_message;
+    int ret;
+
+    new_message = lily_realloc(msgbuf->message, new_size);
+
+    if (new_message == NULL) {
+        msgbuf->truncated = 1;
+        ret = 0;
+    }
+    else {
+        msgbuf->message = new_message;
+        msgbuf->size = new_size;
+        ret = 1;
+    }
+
+    return ret;
+}
+
 void lily_free_msgbuf(lily_msgbuf *msgbuf)
 {
     lily_free(msgbuf->message);
@@ -32,28 +52,18 @@ void lily_free_msgbuf(lily_msgbuf *msgbuf)
 
 void lily_msgbuf_add(lily_msgbuf *msgbuf, char *str)
 {
-    int sl = strlen(str);
+    int len = strlen(str);
 
     if (msgbuf->truncated)
         return;
 
-    if ((msgbuf->pos + sl + 1) > msgbuf->size) {
-        char *new_message;
-        int new_size;
-
-        new_size = msgbuf->pos + sl + 1;
-        new_message = lily_realloc(msgbuf->message, new_size);
-        if (new_message == NULL) {
-            msgbuf->truncated = 1;
+    if ((msgbuf->pos + len + 1) > msgbuf->size) {
+        if (try_resize_msgbuf(msgbuf, msgbuf->pos + len + 1) == 0)
             return;
-        }
-
-        msgbuf->message = new_message;
-        msgbuf->size = msgbuf->pos + sl + 1;
     }
 
     strcat(msgbuf->message, str);
-    msgbuf->pos += sl;
+    msgbuf->pos += len;
 }
 
 void lily_msgbuf_add_text_range(lily_msgbuf *msgbuf, char *text, int start,
@@ -64,24 +74,20 @@ void lily_msgbuf_add_text_range(lily_msgbuf *msgbuf, char *text, int start,
     if (msgbuf->truncated)
         return;
 
-    if ((msgbuf->pos + range + 1) > msgbuf->size) {
-        char *new_message;
-        int new_size;
-
-        new_size = msgbuf->pos + range + 1;
-        new_message = lily_realloc(msgbuf->message, new_size);
-        if (new_message == NULL) {
-            msgbuf->truncated = 1;
+    if ((msgbuf->pos + range + 1) > msgbuf->size)
+        if (try_resize_msgbuf(msgbuf, msgbuf->pos + range + 1) == 0)
             return;
-        }
-
-        msgbuf->message = new_message;
-        msgbuf->size = msgbuf->pos + range + 1;
-    }
 
     memcpy(msgbuf->message + msgbuf->pos, text + start, range);
     msgbuf->pos += range;
     msgbuf->message[msgbuf->pos] = '\0';
+}
+
+void lily_msgbuf_add_char(lily_msgbuf *msgbuf, char c)
+{
+    char ch_buf[2] = {c, '\0'};
+
+    lily_msgbuf_add(msgbuf, ch_buf);
 }
 
 void lily_msgbuf_add_int(lily_msgbuf *msgbuf, int i)
@@ -92,33 +98,9 @@ void lily_msgbuf_add_int(lily_msgbuf *msgbuf, int i)
     lily_msgbuf_add(msgbuf, buf);
 }
 
-void lily_msgbuf_add_sig(lily_msgbuf *msgbuf, lily_sig *sig)
+void lily_msgbuf_reset(lily_msgbuf *msgbuf)
 {
-    lily_msgbuf_add(msgbuf, sig->cls->name);
-
-    if (sig->cls->id == SYM_CLASS_METHOD ||
-        sig->cls->id == SYM_CLASS_FUNCTION) {
-        lily_call_sig *csig = sig->node.call;
-        lily_msgbuf_add(msgbuf, " (");
-        int i;
-        for (i = 0;i < csig->num_args-1;i++) {
-            lily_msgbuf_add_sig(msgbuf, csig->args[i]);
-            lily_msgbuf_add(msgbuf, ", ");
-        }
-        if (i != csig->num_args) {
-            lily_msgbuf_add_sig(msgbuf, csig->args[i]);
-            if (csig->is_varargs)
-                lily_msgbuf_add(msgbuf, "...");
-        }
-        lily_msgbuf_add(msgbuf, "):");
-        if (csig->ret == NULL)
-            lily_msgbuf_add(msgbuf, "nil");
-        else
-            lily_msgbuf_add_sig(msgbuf, csig->ret);
-    }
-    else if (sig->cls->id == SYM_CLASS_LIST) {
-        lily_msgbuf_add(msgbuf, "[");
-        lily_msgbuf_add_sig(msgbuf, sig->node.value_sig);
-        lily_msgbuf_add(msgbuf, "]");
-    }
+    msgbuf->pos = 0;
+    msgbuf->truncated = 0;
+    msgbuf->message[0] = '\0';
 }
