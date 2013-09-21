@@ -1,11 +1,9 @@
 #ifndef LILY_MSGBUF_H
 # define LILY_MSGBUF_H
 
-# include "lily_syminfo.h"
-
-/* The raiser includes a message buffer to be used for holding complex messages
-   not handlable through lily_raise. This typically involves messages that
-   include type information. */
+/* This is shared by different modules of the interpreter for different reasons.
+   Raiser uses it for formatting error messages, and debug uses it for holding
+   literals for printing. */
 typedef struct {
     /* The message being stored. */
     char *message;
@@ -22,8 +20,9 @@ typedef struct {
 void lily_free_msgbuf(lily_msgbuf *);
 lily_msgbuf *lily_new_msgbuf(void);
 void lily_msgbuf_add(lily_msgbuf *, char *);
+void lily_msgbuf_add_char(lily_msgbuf *, char);
 void lily_msgbuf_add_text_range(lily_msgbuf *, char *, int, int);
 void lily_msgbuf_add_int(lily_msgbuf *, int);
-void lily_msgbuf_add_sig(lily_msgbuf *, lily_sig *);
+void lily_msgbuf_reset(lily_msgbuf *);
 
 #endif
