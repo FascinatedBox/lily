@@ -71,6 +71,13 @@ else if (lhs->sig->cls->id == SYM_CLASS_STR) { \
 ((lily_sym *)code[i+4])->flags &= ~S_IS_NIL; \
 i += 5;
 
+/* This intentionally takes the input sym as 'to' and the flags for 'from'. It
+   does that so accidentally reversing the arguments will trigger a compile
+   error instead of working. This also helps to make what's being set a little
+   more obvious, since there is only one sym given. */
+#define COPY_NIL_FLAG(to, from) \
+to->flags = (to->flags & ~S_IS_NIL) ^ (from & S_IS_NIL);
+
 /** vm init and deletion **/
 lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
 {
@@ -645,7 +652,7 @@ static void do_ref_deref(lily_class *cls, lily_sym *down_sym, lily_sym *up_sym)
 void lily_vm_execute(lily_vm_state *vm)
 {
     uintptr_t *code;
-    int flag, i, j, k;
+    int i, j, k;
     lily_method_val *mval;
     lily_sig *cast_sig;
     lily_sym *lhs, *rhs;
@@ -687,7 +694,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs = ((lily_sym *)code[i+2]);
                 lhs = ((lily_sym *)code[i+3]);
 
-                lhs->flags = (lhs->flags & ~S_IS_NIL) ^ (rhs->flags & S_IS_NIL);
+                COPY_NIL_FLAG(lhs, rhs->flags)
                 lhs->value = rhs->value;
                 i += 4;
                 break;
@@ -860,14 +867,13 @@ void lily_vm_execute(lily_vm_state *vm)
                 i += 4;
                 /* Map call values to method arguments. */
                 for (v = mval->first_arg; i < j;v = v->next, i++) {
-                    flag = ((lily_sym *)code[i])->flags & S_IS_NIL;
+                    lily_sym *arg = (lily_sym *)code[i];
 
                     if (v->sig->cls->is_refcounted)
-                        do_ref_deref(v->sig->cls, (lily_sym *)v,
-                                     (lily_sym *)code[i]);
+                        do_ref_deref(v->sig->cls, (lily_sym *)v, arg);
 
-                    v->flags &= flag;
-                    v->value = ((lily_sym *)code[i])->value;
+                    COPY_NIL_FLAG(v, arg->flags)
+                    v->value = arg->value;
                 }
 
                 stack_entry->code = mval->code;
@@ -907,7 +913,7 @@ void lily_vm_execute(lily_vm_state *vm)
                                  (lily_sym *)rhs);
 
                 /* This may have been an accidental return of a nil value. */
-                lhs->flags = (lhs->flags & ~S_IS_NIL) ^ (rhs->flags & S_IS_NIL);
+                COPY_NIL_FLAG(lhs, rhs->flags)
                 lhs->value = rhs->value;
                 code = stack_entry->code;
                 i = stack_entry->code_pos;
