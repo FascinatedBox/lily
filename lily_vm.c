@@ -375,8 +375,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, int num_args, lily_sym **args)
                 }
             }
 
-            i++;
-            str_start = fmt + i;
+            str_start = fmt + i + 1;
             arg_pos++;
         }
         i++;
