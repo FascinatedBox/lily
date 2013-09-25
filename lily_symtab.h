@@ -57,6 +57,7 @@ lily_sig *lily_try_sig_for_class(lily_symtab *, lily_class *);
 void lily_deref_method_val(lily_method_val *);
 void lily_deref_str_val(lily_str_val *);
 void lily_deref_object_val(lily_object_val *);
+void lily_deref_list_val_by(lily_sig *, lily_list_val *, int);
 void lily_deref_list_val(lily_sig *, lily_list_val *);
 void lily_deref_unknown_val(lily_sig *, lily_value);
 void lily_drop_block_vars(lily_symtab *, lily_var *);
