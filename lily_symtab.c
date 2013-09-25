@@ -36,7 +36,6 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
                 if (lv->flags[i] == 0)
                     lily_deref_list_val(sig->node.value_sig,
                             lv->values[i].list);
-                /* else it's nil, or locked (if an object). */
             }
         }
         else if (cls_id == SYM_CLASS_STR) {
@@ -54,13 +53,11 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
                 if (lv->flags[i] == 0)
                     lily_deref_object_val(lv->values[i].object);
                 else if (lv->flags[i] & S_IS_CIRCULAR) {
-                    /* If it has 1 ref left, then delete the object manually.
-                       This prevents the object from deref-ing something higher
-                       up, since there was no ref to counter that. */
-                    if (lv->values[i].object->refcount == 1) {
-                        lily_object_val *ov = lv->values[i].object;
-                        lily_free(ov);
-                    }
+                    /* Objects are containers that are not shared across lists.
+                       The circularity applies to the value held in the object,
+                       not the object itself. */
+                    lily_object_val *ov = lv->values[i].object;
+                    lily_free(ov);
                 }
             }
         }
@@ -69,6 +66,20 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
         lily_free(lv->values);
         lily_free(lv);
     }
+}
+
+/* lily_deref_list_val_by
+   This is called to drop a list value by a given number of references. vm
+   currently uses this for fixing the refcount of a list after checking for
+   circular refs. */
+void lily_deref_list_val_by(lily_sig *sig, lily_list_val *lv, int drop)
+{
+    if (drop == lv->refcount) {
+        lv->refcount = 1;
+        lily_deref_list_val(sig, lv);
+    }
+    else
+        lv->refcount -= drop;
 }
 
 void lily_deref_method_val(lily_method_val *mv)

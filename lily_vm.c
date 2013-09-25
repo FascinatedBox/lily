@@ -133,13 +133,24 @@ void lily_free_vm_state(lily_vm_state *vm)
    This function takes the current object (lhs_obj), and determines if assigning
    rhs_value to it would cause a circular reference. This function recurses into
    rhs_value, and fixes any circular references. This should be done before
-   putting rhs_value into lhs_obj. */
+   putting rhs_value into lhs_obj.
+   Notes/Rules:
+   * Never tag lists as circular. Only objects that refer to the origin object
+     may be tagged circular. This is because lists may contain some
+     non-circular objects inside of them.
+   * This returns the number of references that have been fixed. Since the
+     symtab will not call these derefs, the caller must take 'num_circles' refs
+     away from lhs_obj.
+   * Don't touch things that are set S_IS_NIL, because they may be invalid.
+     Test that first, then for being visited already.
+   * Set ->visited to 1 before entering and 0 after leaving. This prevents this
+     function from infinitely recursing. */
 static int circle_buster(lily_object_val *lhs_obj, lily_sig *rhs_sig,
         lily_value rhs_value)
 {
-    int i, is_circle;
+    int i, inner_count, num_circles;
 
-    is_circle = 0;
+    num_circles = 0;
 
     if (rhs_sig->cls->id == SYM_CLASS_LIST) {
         lily_list_val *value_list = rhs_value.list;
@@ -148,53 +159,56 @@ static int circle_buster(lily_object_val *lhs_obj, lily_sig *rhs_sig,
         if (inner_cls_id == SYM_CLASS_OBJECT) {
             lily_object_val *inner_obj;
             for (i = 0;i < value_list->num_values;i++) {
+                if (value_list->flags[i] & S_IS_NIL)
+                    continue;
+
                 inner_obj = value_list->values[i].object;
 
                 if (inner_obj == lhs_obj) {
-                    /* This is a circular reference. Deref it, then yield that
-                       there was a circular ref. */
-                    lily_deref_list_val(rhs_sig, rhs_value.list);
-                    is_circle = 1;
+                    /* Mark this as circular if it isn't already marked as such.
+                       num_circles is always updated, which is necessary because
+                       there may be a list of circular refs
+                       (ex: a[0] = [a, a, a]) */
+                    if ((value_list->flags[i] & S_IS_CIRCULAR) == 0)
+                        value_list->flags[i] |= S_IS_CIRCULAR;
+
+                    num_circles++;
                 }
                 else if (inner_obj->sig->cls->id == SYM_CLASS_LIST &&
                          inner_obj->value.list->visited == 0) {
                     /* If the object contains a list, then dive into that list
                        to check for circular references. */
+                    if (value_list->flags[i] & S_IS_CIRCULAR)
+                        continue;
+
                     inner_obj->value.list->visited = 1;
-                    is_circle = circle_buster(lhs_obj, inner_obj->sig,
+                    inner_count = circle_buster(lhs_obj, inner_obj->sig,
                             inner_obj->value);
                     inner_obj->value.list->visited = 0;
+                    num_circles += inner_count;
                 }
             }
         }
         else if (inner_cls_id == SYM_CLASS_LIST) {
             lily_value inner_list_val;
             for (i = 0;i < value_list->num_values;i++) {
+                if (value_list->flags[i] & S_IS_NIL)
+                    continue;
+
                 inner_list_val = value_list->values[i];
                 if (inner_list_val.list->visited)
                     continue;
 
                 inner_list_val.list->visited = 1;
-                is_circle = circle_buster(lhs_obj, rhs_sig->node.value_sig,
+                inner_count = circle_buster(lhs_obj, rhs_sig->node.value_sig,
                         inner_list_val);
                 inner_list_val.list->visited = 0;
-
-                if (is_circle) {
-                    /* The child was circular, so mark the array member as being
-                       circular as well. */
-                    value_list->flags[i] |= S_IS_CIRCULAR;
-                }
+                num_circles += inner_count;
             }
-
-            /* Suppose that there's a circular reference that's buried within at
-               one or more lists. Ex: a[0] = [[[[a]]]].
-               Only the bottom-most list has a circular reference, and can't
-               delete the object inside. The rest need to be deleted though. */
-            is_circle = 0;
         }
     }
 
-    return is_circle;
+    return num_circles;
 }
 
 /* grow_method_stack
@@ -472,12 +486,25 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
         /* Do an object assign to the value. */
         lily_object_val *ov = values[index_int].object;
         if (rhs->sig->cls->id != SYM_CLASS_OBJECT) {
-            /* Don't drop a circular ref. */
-            if (ov->sig->cls->is_refcounted && ((flags & S_IS_CIRCULAR) == 0))
+            /* Only drop the ref if it's not circular. */
+            if (ov->sig->cls->is_refcounted && (flags & S_IS_CIRCULAR) == 0)
                 lily_deref_unknown_val(ov->sig, ov->value);
 
-            if (rhs->sig->cls->id == SYM_CLASS_LIST)
-                lhs->value.list->flags[index_int] |= S_IS_CIRCULAR;
+            if (rhs->sig->cls->id == SYM_CLASS_LIST) {
+                rhs->value.generic->refcount++;
+                int circle_count;
+                /* Does this list contain any circular references back to the
+                   object that holds it? If so, adjust the refcount. */
+                circle_count = circle_buster(ov, rhs->sig, rhs->value);
+
+                if (circle_count) {
+                    lhs->value.list->flags[index_int] |= S_IS_CIRCULAR;
+                    lily_deref_list_val_by(rhs->sig, rhs->value.list,
+                            circle_count);
+                }
+                else
+                    lhs->value.list->flags[index_int] &= ~S_IS_CIRCULAR;
+            }
             else {
                 lhs->value.list->flags[index_int] &= ~S_IS_CIRCULAR;
                 if (rhs->sig->cls->is_refcounted)
