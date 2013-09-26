@@ -630,8 +630,17 @@ method test_sub_assign():nil
     method ret_20():integer { return 20 }
     method ret_30():integer { return 30 }
 
-    # Objects can't be cast to anything, so there's no way to check them yet.
-    print("     list[object] ???.\n")
+    list[object] lso = [10, 1.1]
+    lso[0] = 10
+    lso[0] = 1.1
+    lso[0] = "11"
+    lso[0] = lso
+    lso[0] = @(object: lso)
+    lso[0] = lso[1]
+    lso[0] = print
+    lso[0] = list_list_str
+
+    print("     list[object] ok.\n")
 
     # Can't test functions yet because they all have different signatures (value
     # testing can't be checked).
