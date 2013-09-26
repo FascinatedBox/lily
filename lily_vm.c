@@ -487,7 +487,8 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
         lily_object_val *ov = values[index_int].object;
         if (rhs->sig->cls->id != SYM_CLASS_OBJECT) {
             /* Only drop the ref if it's not circular. */
-            if (ov->sig->cls->is_refcounted && (flags & S_IS_CIRCULAR) == 0)
+            if (ov->sig && ov->sig->cls->is_refcounted &&
+                (flags & S_IS_CIRCULAR) == 0)
                 lily_deref_unknown_val(ov->sig, ov->value);
 
             if (rhs->sig->cls->id == SYM_CLASS_LIST) {
@@ -526,6 +527,7 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
 
             ov->sig = rhs_obj->sig;
             ov->value = rhs_obj->value;
+            lhs->value.list->flags[index_int] &= ~S_IS_CIRCULAR;
         }
     }
 }
@@ -623,7 +625,7 @@ void op_build_list(lily_vm_state *vm, lily_sym **syms, int i)
                 memcpy(oval, syms[3+j]->value.object, sizeof(lily_object_val));
                 oval->refcount = 1;
 
-                if (oval->sig->cls->is_refcounted)
+                if (oval->sig && oval->sig->cls->is_refcounted)
                     oval->value.generic->refcount++;
 
                 lv->values[j].object = oval;
@@ -1004,12 +1006,12 @@ void lily_vm_execute(lily_vm_state *vm)
                             lily_object_val *oval;
                             oval = lhs->value.list->values[rhs_index].object;
 
-                            if (oval->sig->cls->is_refcounted)
-                                oval->value.generic->refcount++;
+                            if (oval->sig) {
+                                if (oval->sig->cls->is_refcounted)
+                                    oval->value.generic->refcount++;
 
-                            /* Don't drop the result object's value, in case
-                               something else is using it. */
-                            result->value.object->value = oval->value;
+                                result->value.object->value = oval->value;
+                            }
                             result->value.object->sig = oval->sig;
                         }
 

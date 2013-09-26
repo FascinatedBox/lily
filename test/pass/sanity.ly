@@ -846,6 +846,11 @@ method test_circular_ref_checks():nil
     n = p
     p = 1
 
+    # Test circular refs with nil.
+    object obj
+    list[object] listobj = [obj]
+    obj = listobj[0]
+
     print("ok.\n")
 }
 
