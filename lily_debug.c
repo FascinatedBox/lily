@@ -448,7 +448,7 @@ static void show_value(lily_sig *, lily_value, lily_msgbuf *, int);
 static void show_list_value(lily_sig *sig, lily_list_val *lv,
         lily_msgbuf *msgbuf, int indent)
 {
-    int i, j;
+    int i;
     lily_sig *elem_sig;
 
     /* This intentionally dives into circular refs so that (circular) can be
@@ -456,7 +456,7 @@ static void show_list_value(lily_sig *sig, lily_list_val *lv,
     if (lv->visited) {
         if (indent > 1)
             write_indent(indent-1);
-        lily_impl_debugf("(circular)");
+        lily_impl_debugf("(circular)\n");
         return;
     }
 
@@ -478,7 +478,7 @@ static void show_list_value(lily_sig *sig, lily_list_val *lv,
         lily_impl_debugf("[%d] = ", i);
 
         if (lv->flags[i] & S_IS_NIL)
-            lily_impl_debugf("(nil)");
+            lily_impl_debugf("(nil)\n");
         else
             show_value(elem_sig, lv->values[i], msgbuf, indent);
     }
@@ -530,7 +530,7 @@ static void show_value(lily_sig *sig, lily_value value, lily_msgbuf *msgbuf,
         lily_object_val *ov = value.object;
 
         if (ov->sig == NULL)
-            lily_impl_debugf("(nil)");
+            lily_impl_debugf("(nil)\n");
         else {
             lily_impl_debugf("(object) ");
             show_value(ov->sig, ov->value, msgbuf, indent);
