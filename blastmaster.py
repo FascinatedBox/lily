@@ -91,12 +91,12 @@ print "\nBlastmaster: Running %d pass tests, %d fail tests, %d total." \
 # The '\n' makes for two lines between each run, but I like how that splits
 # everything up to make it more readable and easier to discern what trace
 # belongs where.
-for i in range(len(fail_files)):
-    print "\n"
-    run_range[0] += 1
-    start_running(fail_files[i], run_range)
-
 for i in range(len(pass_files)):
     print "\n"
     run_range[0] += 1
     start_running(pass_files[i], run_range)
+
+for i in range(len(fail_files)):
+    print "\n"
+    run_range[0] += 1
+    start_running(fail_files[i], run_range)
