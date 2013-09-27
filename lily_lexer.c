@@ -204,6 +204,11 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     ch_class[(unsigned char)'\r'] = CC_NEWLINE;
     ch_class[(unsigned char)'\n'] = CC_NEWLINE;
 
+    /* This is set so that token is never invalid, which allows parser to check
+       the token before the first lily_lexer call. This is important, because
+       lily_lexer_handle_page_data may return tk_eof if there is nothing to
+       parse. */
+    lex->token = tk_invalid;
     lex->ch_class = ch_class;
     return lex;
 }
@@ -713,6 +718,40 @@ static void scan_str(lily_lex_state *lexer, int *pos)
     *pos = word_pos;
 }
 
+/* grow_lexer_buffers
+   This is used by read_line to resize the scanning buffer (lexer->lex_buffer).
+   It will resize lexer->label too if both buffers are the same size. */
+static void grow_lexer_buffers(lily_lex_state *lexer)
+{
+    int new_size = lexer->lex_bufsize;
+    new_size *= 2;
+
+    /* The label buffer is grown when a large multi-line string is
+       collected. Don't resize it if it's bigger than the line buffer.
+       It's important that the label buffer be at least the size of the
+       line buffer at all times, so that lexer's word scanning does not
+       have to check for potential overflows. */
+    if (lexer->label_size == lexer->lex_bufsize) {
+        char *new_label;
+        new_label = lily_realloc(lexer->label, new_size * sizeof(char));
+
+        if (new_label == NULL)
+            lily_raise_nomem(lexer->raiser);
+
+        lexer->label = new_label;
+        lexer->label_size = new_size;
+    }
+
+    char *new_lb;
+    new_lb = lily_realloc(lexer->lex_buffer, new_size * sizeof(char));
+
+    if (new_lb == NULL)
+        lily_raise_nomem(lexer->raiser);
+
+    lexer->lex_buffer = new_lb;
+    lexer->lex_bufsize = new_size;
+}
+
 /* read_line
    Add a line from the current page into the buffer. */
 static int read_line(lily_lex_state *lexer)
@@ -727,40 +766,30 @@ static int read_line(lily_lex_state *lexer)
     while (1) {
         ch = fgetc(lex_file);
         if (ch == EOF) {
+            if ((i + 1) == bufsize) {
+                grow_lexer_buffers(lexer);
+
+                lex_buffer = lexer->lex_buffer;
+            }
+
+            /* This line may still contain things on it. Make sure that
+               lily_lexer won't cause things to be read too far. */
+            lexer->lex_buffer[i] = '\n';
+            lexer->lex_bufend = i + 1;
+            lexer->line_num++;
             ok = 0;
             break;
         }
 
-        /* size - 2 is used so that when \r\n that the \n can be safely added
-           to the buffer. Otherwise, it would be size-1. */
-        if (i == bufsize - 2) {
-            bufsize *= 2;
-            /* The label buffer is grown when a large multi-line string is
-               collected. Don't resize it if it's bigger than the line buffer.
-               It's important that the label buffer be at least the size of the
-               line buffer at all times, so that lexer's word scanning does not
-               have to check for potential overflows. */
-            if (lexer->label_size == lexer->lex_bufsize) {
-                char *new_label;
-                new_label = lily_realloc(lexer->label, bufsize * sizeof(char));
-
-                if (new_label == NULL)
-                    lily_raise_nomem(lexer->raiser);
-
-                lexer->label = new_label;
-                lexer->label_size = bufsize;
-            }
-
-            char *new_lb;
-            new_lb = lily_realloc(lexer->lex_buffer, bufsize * sizeof(char));
-
-            if (new_lb == NULL)
-                lily_raise_nomem(lexer->raiser);
-
-            lexer->lex_buffer = new_lb;
+        /* i + 2 is used so that when \r\n that the \n can be safely added
+           to the buffer. Otherwise, it would be i + 1. */
+        if ((i + 2) == bufsize) {
+            grow_lexer_buffers(lexer);
+            /* Do this in case the realloc decides to use a different block
+               instead of growing what it had. */
             lex_buffer = lexer->lex_buffer;
-            lexer->lex_bufsize = bufsize;
         }
+
         lexer->lex_buffer[i] = ch;
 
         if (ch == '\r' || ch == '\n') {
@@ -773,7 +802,7 @@ static int read_line(lily_lex_state *lexer)
                 if (ch != '\n')
                     ungetc(ch, lex_file);
                 else {
-                    /* This is safe: See size - 2 comment above. */
+                    /* This is safe: See i + 2 == size comment above. */
                     lexer->lex_buffer[i+1] = ch;
                     lexer->lex_bufend++;
                 }
