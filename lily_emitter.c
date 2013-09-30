@@ -285,6 +285,16 @@ static lily_storage *try_get_proper_storage(lily_emit_state *emit,
     return result;
 }
 
+/* emit_return_expected
+   This writes o_return_expected with the current line number. This is done to
+   prevent methods that should return values from not doing so. */
+static void emit_return_expected(lily_emit_state *emit)
+{
+    lily_method_val *m = emit->top_method;
+
+    WRITE_2(o_return_expected, *emit->lex_linenum)
+}
+
 /* Find the inner-most while loop. Don't count a while loop if it's outside of
    the current method though. Returns zero if a method was hit, or the block
    position of the while. */
@@ -1677,6 +1687,10 @@ void lily_emit_leave_method(lily_emit_state *emit)
        It's easiest to just blindly write it. */
     if (emit->top_method_ret == NULL)
         lily_emit_return_noval(emit);
+    else
+        /* Ensure that methods that claim to return a value cannot leave without
+           doing so. */
+        emit_return_expected(emit);
 
     emit->method_pos--;
     /* The stack is ahead, so use pos-1 to get the correct method. */

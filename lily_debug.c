@@ -54,7 +54,7 @@
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[33] = {
+char *opcode_names[34] = {
     "assign               ",
     "object assign        ",
     "assign (ref/deref)   ",
@@ -87,6 +87,7 @@ char *opcode_names[33] = {
     "subscript            ",
     "typecast             ",
     "show                 ",
+    "return expected      ",
     "return from vm       "
 };
 
@@ -177,6 +178,7 @@ static const int *code_info_for_opcode(int opcode)
         case o_return_from_vm:
             ret = nop_ci;
             break;
+        case o_return_expected:
         case o_return_noval:
             ret = return_nv_ci;
             break;

@@ -1130,6 +1130,16 @@ void lily_vm_execute(lily_vm_state *vm)
                 }
                 i += 4;
                 break;
+            case o_return_expected:
+            {
+                lily_vm_stack_entry *top;
+                top = vm->method_stack[vm->method_stack_pos-1];
+                top->line_num = top->code[i+1];
+                lily_raise(vm->raiser, lily_ErrReturnExpected,
+                        "Method %s completed without returning a value.\n",
+                        top->method->trace_name);
+            }
+                break;
             case o_return_from_vm:
                 /* Remember to remove the jump that the vm installed, since it's
                    no longer valid. */
