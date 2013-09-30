@@ -195,6 +195,14 @@ typedef enum {
        This displays information about the given value. */
     o_show,
 
+    /* Return expected:
+       * int lineno
+       This is written at the end of every method that has a non-nil return
+       value. This raises ErrReturnExpected within the vm. This has lineno
+       included because the vm expects that any opcode that raises has a line
+       number after it. */
+    o_return_expected,
+
     /* Return from vm:
        This is a special opcode used to leave the vm. It does not take any
        values. This is written at the end of @main. */
