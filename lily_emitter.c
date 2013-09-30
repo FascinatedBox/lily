@@ -1091,6 +1091,67 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     }
 }
 
+/* do_save_for_parent
+   This is currently a helper for eval_call. This is used to write out all of
+   the saves that the call may need. eval_call first checks that the parent
+   tree exists and is either tree_binary or tree_list before calling this.
+
+   This is important because multiple calls might return values that need to be
+   held in the middle of a calculation. [a, b(), c()] and a = (b + c) + d()
+   are both examples of this. However, it is important to make sure that vars
+   are never saved. Local vars are already in emitter's save_cache, and doing
+   it to global values would be wrong.
+
+   Consider this:
+   * a = 10 # and a is global
+   * [a, b(), c()]
+   * where a is global, and b modifies a to be 20.
+   * If this saves 'a' (a global), it will result in the original value of 'a'
+     being restored after b is called.
+
+   The takeaway: Never ever save vars within here, or bad things will happen
+   that will be really hard to find. */
+static void do_save_for_parent(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_ast *parent = ast->parent;
+    lily_tree_type parent_tt = parent->tree_type;
+
+    if (parent_tt == tree_binary && parent->right == ast &&
+        parent->left->tree_type != tree_var) {
+        /* This is the right side of a binary op, and the left side has a value
+           put in a storage. The left has already eval'd, so only the storage
+           needs to be saved.
+           Example: fib(n-1) + fib(n-2) */
+        SAVE_PREP(1)
+        emit->save_cache[emit->save_cache_pos] =
+                (uintptr_t)ast->parent->left->result;
+        emit->save_cache_pos++;
+    }
+    else if (parent_tt == tree_list) {
+        /* This is a bit tougher. The parent is a static list (ex: [a, b, c]).
+           Everything that comes before this ast must be saved. This may
+           save/restore more than it needs to, but it's better than having a
+           storage overwritten.
+
+           This could be improved by saving only what needs to be saved, and
+           also by incrementally saving values as it goes along. */
+        lily_ast *iter_ast;
+
+        /* This is likely to be too much. However, doing it this way is simpler
+           than doing a counting loop, SAVE_PREP, and then a write loop. */
+        SAVE_PREP(parent->args_collected)
+        for (iter_ast = parent->arg_start;
+             iter_ast != ast;
+             iter_ast = iter_ast->next_arg) {
+            if (iter_ast->tree_type != tree_var) {
+                emit->save_cache[emit->save_cache_pos] =
+                        (uintptr_t)iter_ast->result;
+                emit->save_cache_pos++;
+            }
+        }
+    }
+}
+
 /* eval_call
    This walks an ast of type tree_call. The arguments start at ast->arg_start.
    If the call was to a known var at parse-time, then ast->result will be that
@@ -1148,18 +1209,12 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     emit->save_cache_pos = save_start;
 
     if (is_method) {
-        if (ast->parent != NULL && ast->parent->tree_type == tree_binary &&
-            ast->parent->right == ast &&
-            ast->parent->left->tree_type != tree_var) {
-            /* Ex: fib(n-1) + fib(n-2)
-               In this case, the left side of the plus (the first fib call)
-               is something saved to a storage. Since the plus hasn't been
-               completed, this call could modify the storage of the left
-               side. So save that storage. */
-            SAVE_PREP(1)
-            emit->save_cache[emit->save_cache_pos] = (uintptr_t)ast->parent->left->result;
-            emit->save_cache_pos++;
-        }
+        lily_ast *parent = ast->parent;
+        /* This ensures that storages used by the parent are not overwritten. */
+        if (parent != NULL &&
+            (parent->tree_type == tree_binary ||
+             parent->tree_type == tree_list))
+                do_save_for_parent(emit, ast);
 
         /* o_save needs 2 + #saves, o_restore needs a flat 2. */
         if (emit->save_cache_pos)
