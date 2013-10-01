@@ -778,7 +778,11 @@ static int read_line(lily_lex_state *lexer)
             lexer->lex_buffer[i] = '\n';
             lexer->lex_bufend = i + 1;
             lexer->line_num++;
-            ok = 0;
+
+            /* If i is 0, then nothing is on this line except eof.
+             * If it isn't, then there's stuff with an unexpected eof at the
+               end. */
+            ok = !!i;
             break;
         }
 
@@ -986,9 +990,12 @@ void lily_lexer(lily_lex_state *lexer)
             token = group;
         }
         else if (group == CC_NEWLINE || group == CC_SHARP) {
-            read_line(lexer);
-            lex_bufpos = 0;
-            continue;
+            if (read_line(lexer) == 1) {
+                lex_bufpos = 0;
+                continue;
+            }
+            else
+                token = tk_eof;
         }
         else if (group == CC_STR_NEWLINE) {
             /* This catches both \r and \n. Make sure that \r\n comes in as one
@@ -1002,6 +1009,8 @@ void lily_lexer(lily_lex_state *lexer)
             continue;
         }
         else if (group == CC_STR_END) {
+            /* todo: This should probably yield to the repl implementation and
+               possibly collect more data. */
             token = tk_eof;
         }
         else if (group == CC_DOUBLE_QUOTE) {
