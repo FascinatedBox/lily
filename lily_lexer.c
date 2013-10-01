@@ -146,6 +146,7 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     lex->save_buffer = NULL;
     lex->lex_buffer = lily_malloc(128 * sizeof(char));
     lex->label = lily_malloc(128 * sizeof(char));
+    lex->mode = lm_from_file;
     ch_class = lily_malloc(256 * sizeof(char));
 
     if (ch_class == NULL || lex->label == NULL || lex->lex_buffer == NULL) {
@@ -885,8 +886,9 @@ static int is_valid_utf8(char *str)
    Note: The lexer will not free the given filename. */
 void lily_load_file(lily_lex_state *lexer, char *filename)
 {
-    if (lexer->lex_buffer == NULL) {
+    if (lexer->mode != lm_from_file) {
         /* Change from string-based to file-based. */
+        lexer->mode = lm_from_file;
         lexer->lex_buffer = lexer->save_buffer;
         lexer->save_buffer = NULL;
         lexer->ch_class[(unsigned char)'\r'] = CC_NEWLINE;
@@ -919,7 +921,8 @@ int lily_load_str(lily_lex_state *lexer, char *str)
     if (!is_valid_utf8(str))
         return 0;
 
-    if (lexer->save_buffer == NULL) {
+    if (lexer->mode != lm_from_str) {
+        lexer->mode = lm_from_str;
         lexer->save_buffer = lexer->lex_buffer;
         lexer->ch_class[(unsigned char)'\r'] = CC_STR_NEWLINE;
         lexer->ch_class[(unsigned char)'\n'] = CC_STR_NEWLINE;
