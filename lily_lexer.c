@@ -534,6 +534,47 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok)
 
 static int read_line(lily_lex_state *);
 
+/* scan_multiline_comment
+   This handles a comment that begins with ### and ends with ###. This is called
+   after the opening ### has already been received. Position is updated to after
+   the # of the ending ###. */
+static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
+{
+    char *lex_buffer = lexer->lex_buffer;
+    int ch, comment_pos, start_line;
+
+    comment_pos = *pos + 3;
+    ch = lex_buffer[comment_pos];
+    comment_pos++;
+    start_line = lexer->line_num;
+    while (1) {
+        if (ch == '#') {
+            if (comment_pos + 2 <= lexer->lex_bufend &&
+                lex_buffer[comment_pos] == '#' &&
+                lex_buffer[comment_pos+1] == '#') {
+                comment_pos += 2;
+                break;
+            }
+        }
+        else if (ch == '\n') {
+            if (read_line(lexer) == 1) {
+                lex_buffer = lexer->lex_buffer;
+                comment_pos = 0;
+            }
+            else {
+                lily_raise(lexer->raiser, lily_ErrSyntax,
+                           "Unterminated multi-line comment (started at line %d).\n",
+                           start_line);
+            }
+        }
+
+        ch = lex_buffer[comment_pos];
+        comment_pos++;
+    }
+
+    *pos = comment_pos;
+}
+
 /* scan_str
    This handles strings for lily_lexer. This updates the position in lex_buffer
    for lily_lexer. */
@@ -1003,13 +1044,22 @@ void lily_lexer(lily_lex_state *lexer)
                 token = tk_eof;
         }
         else if (group == CC_SHARP) {
-            ch = lexer->lex_buffer[lex_bufpos];
-            if (read_line(lexer) == 1) {
-                lex_bufpos = 0;
+            if (lexer->lex_buffer[lex_bufpos] == '#' &&
+                lex_bufpos + 2 <= lexer->lex_bufend &&
+                lexer->lex_buffer[lex_bufpos + 1] == '#' &&
+                lexer->lex_buffer[lex_bufpos + 2] == '#') {
+                scan_multiline_comment(lexer, &lex_bufpos);
                 continue;
             }
-            else
-                token = tk_eof;
+            else {
+                ch = lexer->lex_buffer[lex_bufpos];
+                if (read_line(lexer) == 1) {
+                    lex_bufpos = 0;
+                    continue;
+                }
+                else
+                    token = tk_eof;
+            }
         }
         else if (group == CC_STR_NEWLINE) {
             /* This catches both \r and \n. Make sure that \r\n comes in as one
