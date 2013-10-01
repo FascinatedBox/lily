@@ -140,6 +140,7 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     if (lex == NULL)
         return NULL;
 
+    lex->hit_eof = 0;
     lex->lex_file = NULL;
     lex->filename = NULL;
     lex->raiser = raiser;
@@ -773,16 +774,19 @@ static int read_line(lily_lex_state *lexer)
                 lex_buffer = lexer->lex_buffer;
             }
 
-            /* This line may still contain things on it. Make sure that
-               lily_lexer won't cause things to be read too far. */
             lexer->lex_buffer[i] = '\n';
             lexer->lex_bufend = i + 1;
-            lexer->line_num++;
-
-            /* If i is 0, then nothing is on this line except eof.
+            /* If i is 0, then nothing is on this line except eof. Return 0 to
+               let the caller know this is the end.
              * If it isn't, then there's stuff with an unexpected eof at the
-               end. */
+               end. Return 1, then 0 the next time. */
             ok = !!i;
+            /* Make sure the second eof found does not increment the line
+               number again. */
+            if (lexer->hit_eof == 0) {
+                lexer->line_num++;
+                lexer->hit_eof = 1;
+            }
             break;
         }
 
@@ -910,6 +914,7 @@ void lily_load_file(lily_lex_state *lexer, char *filename)
 
     lexer->filename = filename;
     lexer->lex_file = lex_file;
+    lexer->hit_eof = 0;
 
     read_line(lexer);
     /* Make sure the lexer starts after the <@lily block. */
@@ -989,7 +994,16 @@ void lily_lexer(lily_lex_state *lexer)
                for it start at 0. */
             token = group;
         }
-        else if (group == CC_NEWLINE || group == CC_SHARP) {
+        else if (group == CC_NEWLINE) {
+            if (read_line(lexer) == 1) {
+                lex_bufpos = 0;
+                continue;
+            }
+            else
+                token = tk_eof;
+        }
+        else if (group == CC_SHARP) {
+            ch = lexer->lex_buffer[lex_bufpos];
             if (read_line(lexer) == 1) {
                 lex_bufpos = 0;
                 continue;

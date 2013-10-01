@@ -53,6 +53,7 @@ typedef enum {
 } lily_lexer_mode;
 
 typedef struct {
+    int hit_eof;
     FILE *lex_file;
     char *filename;
     int line_num;

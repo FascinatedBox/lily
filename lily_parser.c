@@ -1238,7 +1238,9 @@ int lily_parse_file(lily_parse_state *parser, char *filename)
     if (setjmp(parser->raiser->jumps[parser->raiser->jump_pos]) == 0) {
         parser->raiser->jump_pos++;
         lily_load_file(parser->lex, filename);
-        lily_parser(parser);
+        if (parser->lex->token != tk_eof)
+            lily_parser(parser);
+
         return 1;
     }
 
