@@ -1252,6 +1252,40 @@ method test_assign_chain():nil
         fail_count = fail_count + 1
 }
 
+method test_multiline_comment():nil
+{
+    # Comments now work as follows:
+    # If there is a #, but not three, it's single-line:
+    # This is a single-line comment
+    ## This is too.
+    # Test that ### start checking doesn't go past end of line:
+    #
+    ##
+    # If it's three #'s, it's a multi-line comment that ends on the next
+    # three #'s.
+    ### Multi-line comment. This is for consistency with multi-line strings
+        which start with """ and end with """ ###
+    # Single-line comments take precedence over multi-line since they skip the
+    # current line they are working on.
+    # ### (Single-line, valid)
+    # ##### (Single-line, valid)
+    # Multi-line comments can be empty:
+    ######
+    # Once inside a multi-line comment, it swallows #'s:
+    # Test that ### checking doesn't go past end of line:
+    ### Test 1:#
+    ###
+    ### Test 2:##
+    ###
+    # Single-line comments can come after multi-line ones:
+    ### test #### integer ?
+
+    integer######v######=######10
+
+    printfmt("#%i: Testing multi-line comments...ok.\n", test_id)
+    test_id = test_id + 1
+}
+
 method test_misc():nil
 {
     printfmt("#%i: Miscellaneous features...(sub tests follow).\n", test_id)
@@ -1301,6 +1335,7 @@ test_multiline_strs()
 test_digit_collection()
 test_while()
 test_assign_chain()
+test_multiline_comment()
 test_misc()
 
 test_id = test_id - 1
