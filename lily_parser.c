@@ -1193,7 +1193,8 @@ void lily_parser(lily_parse_state *parser)
             lily_emit_leave_block(parser->emit);
             lily_lexer(parser->lex);
         }
-        else if (lex->token == tk_end_tag || lex->token == tk_eof) {
+        else if (lex->token == tk_end_tag ||
+                 (lex->token == tk_eof && lex->mode != lm_from_file)) {
             /* Make sure that all if/method/etc. blocks have closed before
                executing. This checks for pos at 1 because @main will always
                occupy 0. */
@@ -1217,6 +1218,8 @@ void lily_parser(lily_parse_state *parser)
                 lily_lexer_handle_page_data(parser->lex);
                 if (lex->token == tk_eof)
                     break;
+                else
+                    lily_lexer(lex);
             }
             else
                 break;
