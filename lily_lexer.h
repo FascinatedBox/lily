@@ -47,6 +47,11 @@ typedef enum {
     tk_eof
 } lily_token;
 
+typedef enum {
+    lm_from_file,
+    lm_from_str
+} lily_lexer_mode;
+
 typedef struct {
     FILE *lex_file;
     char *filename;
@@ -60,6 +65,7 @@ typedef struct {
     int label_size;
     char *label;
     lily_token token;
+    lily_lexer_mode mode;
     lily_value value;
     lily_raiser *raiser;
 } lily_lex_state;
