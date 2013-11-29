@@ -557,7 +557,7 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
                false. */
             if (rhs->sig->cls->id == SYM_CLASS_LIST &&
                 nested_list_check(lhs, rhs))
-                lhs->value.list->flags[index_int] |= S_IS_CIRCULAR;
+                flags |= S_IS_CIRCULAR;
             else
                 rhs->value.generic->refcount++;
         }
@@ -587,15 +587,15 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
                 circle_count = circle_buster(ov, rhs->sig, rhs->value);
 
                 if (circle_count) {
-                    lhs->value.list->flags[index_int] |= S_IS_CIRCULAR;
+                    flags |= S_IS_CIRCULAR;
                     lily_deref_list_val_by(rhs->sig, rhs->value.list,
                             circle_count);
                 }
                 else
-                    lhs->value.list->flags[index_int] &= ~S_IS_CIRCULAR;
+                    flags &= ~S_IS_CIRCULAR;
             }
             else {
-                lhs->value.list->flags[index_int] &= ~S_IS_CIRCULAR;
+                flags &= ~S_IS_CIRCULAR;
                 if (rhs->sig->cls->is_refcounted)
                     rhs->value.generic->refcount++;
 
@@ -615,9 +615,15 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
 
             ov->sig = rhs_obj->sig;
             ov->value = rhs_obj->value;
-            lhs->value.list->flags[index_int] &= ~S_IS_CIRCULAR;
+            flags &= ~S_IS_CIRCULAR;
         }
     }
+
+    /* rhs was verified to be non-nil, so make sure the flags reflect that. This
+       is necessary because list creation allows for nil elements. */
+    flags &= ~S_IS_NIL;
+
+    lhs->value.list->flags[index_int] = flags;
 }
 
 /* op_build_list
