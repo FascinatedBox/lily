@@ -860,6 +860,15 @@ method test_circular_ref_checks():nil
     list[object] listobj = [obj]
     obj = listobj[0]
 
+    # Circular lists. These are lists which refer to each other infinitely. So
+    # far, this is the only time when a list is tagged as circular.
+    list[list[object]] q = [[1, 1.1]]
+    list[object] r = [1, 1.1, 1.1, 1.1]
+
+    r[0] = q
+    r[1] = [q, q, q, q, [[q]], 1.1, 5]
+    q[0] = r
+
     print("ok.\n")
 }
 
