@@ -1149,14 +1149,16 @@ static void statement(lily_parse_state *parser)
         lclass = lily_class_by_name(parser->symtab, label);
 
         if (lclass != NULL) {
-            if (lclass->id == SYM_CLASS_METHOD) {
+            int cls_id = lclass->id;
+
+            if (cls_id == SYM_CLASS_METHOD) {
                 /* This will enter the method since the method is toplevel. */
                 collect_var_sig(parser, CV_ONCE | CV_TOPLEVEL | CV_MAKE_VARS);
                 NEED_NEXT_TOK(tk_left_curly)
                 lily_lexer(lex);
                 parser->sig_stack_pos--;
             }
-            else if (lclass->id == SYM_CLASS_LIST) {
+            else if (cls_id == SYM_CLASS_LIST) {
                 collect_var_sig(parser, CV_ONCE);
 
                 lily_sig *list_sig;
@@ -1166,6 +1168,12 @@ static void statement(lily_parse_state *parser)
                 parse_decl(parser, list_sig);
                 parser->sig_stack_pos--;
             }
+            else if (cls_id == SYM_CLASS_FUNCTION)
+                /* As of now, user-declared functions can't do anything except
+                   alias the current builtins. Disable them until they're
+                   useful. */
+                lily_raise(parser->raiser, lily_ErrSyntax,
+                           "Cannot declare user functions (yet).\n");
             else
                 parse_decl(parser, lclass->sig);
         }
