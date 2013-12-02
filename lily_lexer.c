@@ -43,13 +43,16 @@
 /* Group 2: Return self, or self= */
 #define CC_G_TWO_OFFSET  8
 #define CC_EQUAL         8
-#define CC_LESS          9
-#define CC_GREATER      10
-#define CC_NOT          11
-#define CC_MULTIPLY     12
-#define CC_DIVIDE       13
-#define CC_G_TWO_LAST   13
+#define CC_NOT           9
+#define CC_MULTIPLY     10
+#define CC_DIVIDE       11
+#define CC_G_TWO_LAST   11
 
+/* Greater and Less are able to do shifts, self=, and self. However, they are
+   not put into a group because it's only two. This is why they are not in
+   group 2. */
+#define CC_GREATER      12
+#define CC_LESS         13
 #define CC_PLUS         14
 #define CC_MINUS        15
 #define CC_WORD         16
@@ -123,12 +126,12 @@ static const char ident_table[256] =
 /* Group 1 doesn't need a table because the token is just ch_class[ch]. */
 static const lily_token grp_two_table[] =
 {
-    tk_equal, tk_lt, tk_gr, tk_not, tk_multiply, tk_divide
+    tk_equal, tk_not, tk_multiply, tk_divide
 };
 
 static const lily_token grp_two_eq_table[] =
 {
-    tk_eq_eq, tk_lt_eq, tk_gr_eq, tk_not_eq, tk_multiply_eq, tk_divide_eq,
+    tk_eq_eq, tk_not_eq, tk_multiply_eq, tk_divide_eq,
 };
 
 /** Lexer init and deletion **/
@@ -1151,6 +1154,32 @@ void lily_lexer(lily_lex_state *lexer)
             else
                 token = tk_bitwise_or;
         }
+        else if (group == CC_GREATER || group == CC_LESS) {
+            /* This relies on the assumption that x= is the next token, xx is
+               the token after, and xx= is the token after that. This is
+               mentioned in lily_lexer.h. */
+            lex_bufpos++;
+            if (group == CC_GREATER)
+                token = tk_gt;
+            else
+                token = tk_lt;
+
+            if (lexer->lex_buffer[lex_bufpos] == '=') {
+                token++;
+                lex_bufpos++;
+            }
+            else if (lexer->lex_buffer[lex_bufpos] == ch) {
+                lex_bufpos++;
+                if (lexer->lex_buffer[lex_bufpos] == '=') {
+                    /* xx=, which should be 3 spots after x. */
+                    lex_bufpos++;
+                    token += 3;
+                }
+                else
+                    /* xx, which should be 2 spots after x. */
+                    token += 2;
+            }
+        }
         else if (group == CC_AT) {
             lex_bufpos++;
             /* Disable @> for string-based. */
@@ -1243,10 +1272,10 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
 char *tokname(lily_token t)
 {
     static char *toknames[] =
-    {"(", ")", ",", "{", "}", ":", "[", "]", "=", "==", "<", "<=", ">", ">=",
-     "!", "!=", "*", "*=", "/", "/=", "+", "+=", "-", "-=", "a label",
-     "a string", "an integer", "a number", ".", "&", "&&", "|", "||", "@(",
-     "...", "invalid token", "@>", "end of file"};
+    {"(", ")", ",", "{", "}", ":", "[", "]", "=", "==", "!", "!=", "*", "*=",
+     "/", "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>",
+     ">>=", "a label", "a string", "an integer", "a number", ".", "&", "&&",
+     "|", "||", "@(", "...", "invalid token", "@>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

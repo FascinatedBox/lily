@@ -871,6 +871,12 @@ void lily_vm_execute(lily_vm_state *vm)
                     divide_by_zero_error(vm, i, rhs);
                 INTEGER_OP(/)
                 break;
+            case o_left_shift:
+                INTEGER_OP(<<)
+                break;
+            case o_right_shift:
+                INTEGER_OP(>>)
+                break;
             case o_number_div:
                 /* This is a little more tricky, because the rhs could be a
                    number or an integer... */

@@ -12,6 +12,8 @@ typedef enum {
     expr_not_eq,
     expr_multiply,
     expr_divide,
+    expr_left_shift,
+    expr_right_shift,
     expr_unary_not,
     expr_unary_minus,
     expr_logical_and,
@@ -20,7 +22,9 @@ typedef enum {
     expr_plus_assign,
     expr_minus_assign,
     expr_mul_assign,
-    expr_div_assign
+    expr_div_assign,
+    expr_left_shift_assign,
+    expr_right_shift_assign
 } lily_expr_op;
 
 #endif
