@@ -69,6 +69,8 @@ typedef enum {
     o_integer_minus,
     o_integer_mul,
     o_integer_div,
+    o_left_shift,
+    o_right_shift,
 
     /* Numeric binary ops:
        * int lineno

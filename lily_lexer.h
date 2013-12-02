@@ -17,10 +17,6 @@ typedef enum {
     tk_right_bracket,
     tk_equal,
     tk_eq_eq,
-    tk_lt,
-    tk_lt_eq,
-    tk_gr,
-    tk_gr_eq,
     tk_not,
     tk_not_eq,
     tk_multiply,
@@ -31,6 +27,17 @@ typedef enum {
     tk_plus_eq,
     tk_minus,
     tk_minus_eq,
+    /* Note: Lexer assumes that less and greater have x_eq, x_shift, and
+       x_shift_eq are 1, 2, and 3 places after the less/greater token.
+       You can move lt/gt so long as all four tokens are moved together. */
+    tk_lt,
+    tk_lt_eq,
+    tk_left_shift,
+    tk_left_shift_eq,
+    tk_gt,
+    tk_gt_eq,
+    tk_right_shift,
+    tk_right_shift_eq,
     tk_word,
     tk_double_quote,
     tk_integer,

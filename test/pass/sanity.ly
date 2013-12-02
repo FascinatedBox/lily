@@ -551,7 +551,7 @@ method test_parenth():nil
 
 method test_arith():nil
 {
-    printfmt("#%i: Testing +, +=, -, -=, *, *=, /, and /=...", test_id)
+    printfmt("#%i: Testing +, +=, -, -=, *, *=, /, /=, etc...", test_id)
     test_id = test_id + 1
 
     integer i = 2
@@ -561,12 +561,17 @@ method test_arith():nil
     i = i / i
     i += i
     i = i + i
-    
+
     i -= i
     i = i - 1
 
     i = 1 * 1
     i = 2 / 2
+
+    i = 1 << 1 >> 1
+    i <<= 1
+    i >>= 1
+    i <<= 1
 
     number n = 1.0
     n *= n
