@@ -738,8 +738,6 @@ static void expression_value(lily_parse_state *parser)
                            tokname(lex->token));
 
             lit = lily_new_literal(symtab, cls, lex->value);
-            lit->value = lex->value;
-
             lily_ast_push_sym(parser->ast_pool, (lily_sym *)lit);
 
             lily_lexer(lex);

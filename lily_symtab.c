@@ -893,6 +893,7 @@ lily_literal *lily_new_literal(lily_symtab *symtab, lily_class *cls,
 
     lit->flags = LITERAL_SYM;
     lit->next = NULL;
+    lit->value = value;
 
     if (symtab->lit_top == NULL)
         symtab->lit_start = lit;
