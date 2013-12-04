@@ -37,7 +37,9 @@ typedef struct {
 #define KEY_CONTINUE 5
 #define KEY_BREAK    6
 #define KEY_SHOW     7
-#define KEY_LAST_ID  7
+#define KEY__LINE__  8
+#define KEY__FILE__  9
+#define KEY_LAST_ID  9
 
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, char *);
@@ -45,6 +47,8 @@ lily_var *lily_find_class_callable(lily_class *, char *);
 void lily_free_symtab(lily_symtab *);
 int lily_keyword_by_name(char *);
 lily_literal *lily_new_literal(lily_symtab *, lily_class *, lily_value);
+lily_literal *lily_get_line_literal(lily_symtab *);
+lily_literal *lily_get_file_literal(lily_symtab *, char *);
 lily_symtab *lily_new_symtab(lily_raiser *);
 lily_var *lily_try_new_var(lily_symtab *, lily_sig *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
