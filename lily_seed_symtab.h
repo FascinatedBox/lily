@@ -29,7 +29,9 @@ static const char *keywords[] = {
     "while",
     "continue",
     "break",
-    "show"
+    "show",
+    "__line__",
+    "__file__"
 };
 
 void lily_builtin_print(lily_vm_state *, int, lily_sym **);

@@ -692,6 +692,73 @@ void lily_free_symtab(lily_symtab *symtab)
 }
 
 /** Functions provided by symtab for other modules. **/
+lily_literal *lily_get_line_literal(lily_symtab *symtab)
+{
+    int line_num = *(symtab->lex_linenum);
+    lily_literal *lit, *ret;
+    ret = NULL;
+
+    for (lit = symtab->lit_start;lit;lit = lit->next) {
+        if (lit->sig->cls == SYM_CLASS_INTEGER &&
+            lit->value.integer == line_num) {
+            ret = lit;
+            break;
+        }
+    }
+
+    if (ret == NULL) {
+        lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
+        /* lily_new_literal is guaranteed to work or raise nomem, so this is
+           safe. */
+        lily_value v;
+        v.integer = line_num;
+        ret = lily_new_literal(symtab, cls, v);
+        ret->value = v;
+    }
+
+    return ret;
+}
+
+lily_literal *lily_get_file_literal(lily_symtab *symtab, char *name)
+{
+    int name_len;
+    lily_literal *lit, *ret;
+    name_len = strlen(name);
+    ret = NULL;
+
+    for (lit = symtab->lit_start;lit;lit = lit->next) {
+        if (lit->sig->cls->id == SYM_CLASS_STR &&
+            lit->value.str->size == name_len &&
+            strcmp(lit->value.str->str, name) == 0) {
+            ret = lit;
+            break;
+        }
+    }
+
+    if (ret == NULL) {
+        lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_STR);
+        /* lily_new_literal is guaranteed to work or raise nomem, so this is
+           safe. */
+        char *str_buffer = lily_malloc((name_len + 1) * sizeof(char));
+        lily_str_val *sv = lily_malloc(sizeof(lily_str_val));
+        if (sv == NULL || str_buffer == NULL) {
+            lily_free(sv);
+            lily_free(str_buffer);
+            lily_raise_nomem(symtab->raiser);
+        }
+
+        strcpy(str_buffer, name);
+        sv->str = str_buffer;
+        sv->size = name_len;
+        sv->refcount = 1;
+
+        lily_value v;
+        v.str = sv;
+        ret = lily_new_literal(symtab, cls, v);
+    }
+
+    return ret;
+}
 
 /* try_sig_for_class
    If the given class does not require extra data (like how lists need an inner

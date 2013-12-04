@@ -638,6 +638,21 @@ static void expression_unary(lily_parse_state *parser)
     }
 }
 
+static lily_literal *parse_special_keyword(lily_parse_state *parser, int key_id)
+{
+    lily_literal *ret;
+
+    if (key_id == KEY__LINE__)
+        /* This will succeed or raise nomem. */
+        ret = lily_get_line_literal(parser->symtab);
+    else if (key_id == KEY__FILE__)
+        /* ^--- */
+        ret = lily_get_file_literal(parser->symtab, parser->lex->filename);
+    /* So far, these are the only keywords that map to literals. */
+
+    return ret;
+}
+
 /* expression_value
    This handles getting a value for expression. It also handles oo calls and
    unary expressions as necessary. It will always push a value to the ast. */
@@ -650,33 +665,43 @@ static void expression_value(lily_parse_state *parser)
         if (lex->token == tk_word) {
             lily_var *var = lily_var_by_name(symtab, lex->label);
 
-            if (var == NULL)
-                lily_raise(parser->raiser, lily_ErrSyntax,
-                           "Variable '%s' is undefined.\n", lex->label);
-
-            lily_lexer(lex);
-            if (lex->token == tk_left_parenth) {
-                int cls_id = var->sig->cls->id;
-                if (cls_id != SYM_CLASS_METHOD &&
-                    cls_id != SYM_CLASS_FUNCTION)
-                    lily_raise(parser->raiser, lily_ErrSyntax,
-                               "%s is not callable.\n", var->name);
-
-                /* New trees will get saved to the args section of this tree
-                    when they are done. */
-                lily_ast_enter_tree(parser->ast_pool, tree_call, var);
-
+            if (var) {
                 lily_lexer(lex);
-                if (lex->token == tk_right_parenth)
-                    /* This call has no args (and therefore is not a value), so
-                       let expression handle it. */
-                    break;
+                if (lex->token == tk_left_parenth) {
+                    int cls_id = var->sig->cls->id;
+                    if (cls_id != SYM_CLASS_METHOD &&
+                        cls_id != SYM_CLASS_FUNCTION)
+                        lily_raise(parser->raiser, lily_ErrSyntax,
+                                "%s is not callable.\n", var->name);
+
+                    /* New trees will get saved to the args section of this tree
+                        when they are done. */
+                    lily_ast_enter_tree(parser->ast_pool, tree_call, var);
+
+                    lily_lexer(lex);
+                    if (lex->token == tk_right_parenth)
+                        /* This call has no args (and therefore is not a value),
+                           so let expression handle it. */
+                        break;
+                    else
+                        /* Get the first value of the call. */
+                        continue;
+                }
                 else
-                    /* Get the first value of the call. */
-                    continue;
+                    lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
             }
             else {
-                lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
+                int key_id = lily_keyword_by_name(lex->label);
+                if (key_id == KEY__LINE__ || key_id == KEY__FILE__) {
+                    lily_literal *lit;
+                    lit = parse_special_keyword(parser, key_id);
+                    lily_ast_push_sym(parser->ast_pool, (lily_sym *)lit);
+                    lily_lexer(lex);
+                }
+                else {
+                    lily_raise(parser->raiser, lily_ErrSyntax,
+                               "%s has not been declared.\n", lex->label);
+                }
             }
         }
         else {
@@ -1125,6 +1150,11 @@ static void statement(lily_parse_state *parser)
             lily_emit_break(parser->emit);
         else if (key_id == KEY_SHOW)
             parse_show(parser);
+        else if (key_id == KEY__LINE__ || key_id == KEY__FILE__)
+            /* These are useless outside of an expression anyway... */
+            lily_raise(parser->raiser, lily_ErrSyntax,
+                       "%s cannot be used outside of an expression.\n",
+                       parser->lex->label);
         else {
             if (key_id == KEY_IF) {
                 lily_emit_enter_block(parser->emit, BLOCK_IF);
