@@ -159,9 +159,6 @@ int lily_try_add_storage(lily_symtab *symtab, lily_sig *sig)
     lily_class *cls = sig->cls;
     int ok = 1;
 
-    if (storage == NULL)
-        return 0;
-
     storage->flags = STORAGE_SYM | S_IS_NIL;
 
     /* Objects must always be available to receive sig and inner value info. */
