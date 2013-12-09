@@ -195,7 +195,8 @@ lily_parse_state *lily_new_parse_state(int options)
 
     if (parser->raiser == NULL || parser->sig_stack == NULL ||
         parser->lex == NULL || parser->emit == NULL || parser->symtab == NULL ||
-        parser->ast_pool == NULL || parser->vm == NULL) {
+        parser->ast_pool == NULL || parser->vm == NULL ||
+        lily_emit_try_enter_main(parser->emit, parser->symtab->var_start) == 0) {
         lily_free_parse_state(parser);
 
         return NULL;
@@ -207,11 +208,6 @@ lily_parse_state *lily_new_parse_state(int options)
     parser->emit->lex_linenum = &parser->lex->line_num;
     parser->emit->symtab = parser->symtab;
 
-    /* Enter @main, so that code outside of user methods has a place to go. */
-    lily_emit_enter_method(parser->emit, parser->symtab->var_start);
-    /* Then do this so that the return value is saved too. This keeps an invalid
-       'return' inside of @main from causing an invalid read in parse_return. */
-    lily_emit_update_return(parser->emit);
     return parser;
 }
 
@@ -286,7 +282,7 @@ static void collect_simple(lily_parse_state *parser, lily_class *cls,
         if (var == NULL)
             lily_raise_nomem(parser->raiser);
 
-        if (parser->emit->method_pos > 1)
+        if (parser->emit->method_depth > 1)
             lily_emit_add_save_var(parser->emit, var);
     }
 }
@@ -302,6 +298,7 @@ static void collect_call(lily_parse_state *parser, int flags)
     lily_var *method_var;
     if (method_sig == NULL)
         lily_raise_nomem(parser->raiser);
+
     parser->sig_stack[parser->sig_stack_pos] = method_sig;
     parser->sig_stack_pos++;
 
@@ -322,8 +319,7 @@ static void collect_call(lily_parse_state *parser, int flags)
             /* Not toplevel, so it must be an arg. */
             lily_emit_add_save_var(parser->emit, method_var);
         else
-            /* Toplevel, so enter it. */
-            lily_emit_enter_method(parser->emit, method_var);
+            lily_emit_enter_block(parser->emit, BLOCK_METHOD);
     }
     /* else it doesn't have a name, so nothing to do here. */
 
@@ -383,7 +379,9 @@ static void collect_call(lily_parse_state *parser, int flags)
         parser->sig_stack_pos--;
     }
 
-    lily_emit_update_return(parser->emit);
+    /* Update the return of the method that was entered now that it's known. */
+    if (flags & CV_TOPLEVEL)
+        parser->emit->top_method_ret = method_sig->node.call->ret;
 }
 
 /* collect_list
@@ -419,7 +417,7 @@ static void collect_list(lily_parse_state *parser, int flags)
         if (var == NULL)
             lily_raise_nomem(parser->raiser);
 
-        if (parser->emit->method_pos > 1)
+        if (parser->emit->method_depth > 1)
             lily_emit_add_save_var(parser->emit, var);
     }
     list_sig->node.value_sig = parser->sig_stack[parser->sig_stack_pos-1];
@@ -954,7 +952,7 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
         if (var == NULL)
             lily_raise_nomem(parser->raiser);
 
-        if (parser->emit->method_pos > 1)
+        if (parser->emit->method_depth > 1)
             lily_emit_add_save_var(parser->emit, var);
 
         lily_lexer(parser->lex);
@@ -1242,7 +1240,7 @@ void lily_parser(lily_parse_state *parser)
             /* Make sure that all if/method/etc. blocks have closed before
                executing. This checks for pos at 1 because @main will always
                occupy 0. */
-            if (parser->emit->block_pos != 1) {
+            if (parser->emit->current_block != parser->emit->first_block) {
                 lily_raise(parser->raiser, lily_ErrSyntax,
                            "Unterminated block(s) at end of parsing.\n");
             }

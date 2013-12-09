@@ -126,38 +126,25 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
         return NULL;
 
     s->patches = lily_malloc(sizeof(int) * 4);
-    s->ctrl_patch_starts = lily_malloc(sizeof(int) * 4);
-    s->block_var_starts = lily_malloc(sizeof(lily_var *) * 4);
-    s->block_save_starts = lily_malloc(sizeof(int) * 4);
-    s->block_types = lily_malloc(sizeof(int) * 4);
-    s->method_vars = lily_malloc(sizeof(lily_var *) * 4);
     s->save_cache = lily_malloc(sizeof(uintptr_t) * 4);
     s->storage_cache = lily_malloc(sizeof(lily_storage *) * 4);
-    s->while_starts = lily_malloc(sizeof(int) * 4);
+    s->first_block = NULL;
+    s->current_block = NULL;
+    s->block_depth = 0;
 
-    if (s->patches == NULL || s->ctrl_patch_starts == NULL ||
-        s->block_var_starts == NULL || s->block_save_starts == NULL ||
-        s->block_types == NULL || s->method_vars == NULL ||
-        s->save_cache == NULL || s->storage_cache == NULL ||
-        s->while_starts == NULL) {
+    if (s->patches == NULL || s->save_cache == NULL ||
+        s->storage_cache == NULL) {
         lily_free_emit_state(s);
         return NULL;
     }
 
     s->patch_pos = 0;
     s->patch_size = 4;
-    s->ctrl_patch_pos = 0;
-    s->ctrl_patch_size = 4;
-    s->block_pos = 0;
-    s->block_size = 4;
     s->save_cache_pos = 0;
     s->save_cache_size = 4;
-    s->method_pos = 0;
-    s->method_size = 4;
     s->storage_cache_pos = 0;
     s->storage_cache_size = 4;
-    s->while_start_pos = 0;
-    s->while_start_size = 4;
+    s->method_depth = 0;
 
     s->raiser = raiser;
     s->expr_num = 1;
@@ -167,15 +154,16 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
 
 void lily_free_emit_state(lily_emit_state *emit)
 {
+    lily_block *current, *temp;
+    current = emit->first_block;
+    while (current) {
+        temp = current->next;
+        lily_free(current);
+        current = temp;
+    }
     lily_free(emit->storage_cache);
     lily_free(emit->patches);
-    lily_free(emit->ctrl_patch_starts);
-    lily_free(emit->block_var_starts);
-    lily_free(emit->block_save_starts);
-    lily_free(emit->block_types);
-    lily_free(emit->method_vars);
     lily_free(emit->save_cache);
-    lily_free(emit->while_starts);
     lily_free(emit);
 }
 
@@ -295,25 +283,42 @@ static void emit_return_expected(lily_emit_state *emit)
     WRITE_2(o_return_expected, *emit->lex_linenum)
 }
 
-/* Find the inner-most while loop. Don't count a while loop if it's outside of
-   the current method though. Returns zero if a method was hit, or the block
-   position of the while. */
-static int find_deepest_while(lily_emit_state *emit)
+/* find_deepest_loop
+   This is used to find the deepest block that is a loop. Returns a block that
+   represents a loop, or NULL if not in a loop. */
+static lily_block *find_deepest_loop(lily_emit_state *emit)
 {
-    int i;
+    lily_block *block, *ret;
+    ret = NULL;
 
-    for (i = emit->block_pos-1;i >= 0;i--) {
-        int block_type = emit->block_types[i];
-
-        if (block_type == BLOCK_WHILE)
+    for (block = emit->current_block;
+         block;
+         block = block->prev) {
+        if (block->block_type == BLOCK_WHILE) {
+            ret = block;
             break;
-        else if (block_type == BLOCK_METHOD) {
-            i = 0;
+        }
+        else if (block->block_type == BLOCK_METHOD) {
+            ret = NULL;
             break;
         }
     }
 
-    return i;
+    return ret;
+}
+
+/* try_new_block
+   Attempt to create a new block. Returns a new block, or NULL if unable to
+   create a new block. If successful, the new 
+   block->next is set to NULL here too. */
+static lily_block *try_new_block()
+{
+    lily_block *ret = lily_malloc(sizeof(lily_block));
+
+    if (ret)
+        ret->next = NULL;
+
+    return ret;
 }
 
 /** Signature helper functions **/
@@ -1365,17 +1370,14 @@ void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)
 }
 
 /* lily_emit_break
-   This writes a break (jump to the end of the while) for the parser. Since it
+   This writes a break (jump to the end of a loop) for the parser. Since it
    is called by parser, it needs to verify that it is called from within a
-   while. */
+   loop. */
 void lily_emit_break(lily_emit_state *emit)
 {
     lily_method_val *m = emit->top_method;
-    int while_pos;
 
-    while_pos = find_deepest_while(emit);
-
-    if (while_pos == 0) {
+    if (emit->current_block->loop_start == -1) {
         /* This is called by parser on the source line, so do not adjust the
            raiser. */
         lily_raise(emit->raiser, lily_ErrSyntax,
@@ -1398,18 +1400,16 @@ void lily_emit_break(lily_emit_state *emit)
     WRITE_2(o_jump, 0)
 
     /* If the while is the most current, then add it to the end. */
-    if (while_pos == emit->block_pos-1) {
+    if (emit->current_block->block_type == BLOCK_WHILE) {
         emit->patches[emit->patch_pos] = m->pos-1;
         emit->patch_pos++;
     }
     else {
+        lily_block *block = find_deepest_loop(emit);
         /* The while is not on top, so this will be fairly annoying... */
-        int j, move_by, move_start, next_start;
+        int move_by, move_start;
 
-        /* We can determine the while's patch spot by doing i - method_pos
-           since every block but methods adds to ctrl_patch_starts. */
-        next_start = (while_pos - emit->method_pos) + 1;
-        move_start = emit->ctrl_patch_starts[next_start];
+        move_start = block->next->patch_start;
         move_by = emit->patch_pos - move_start;
 
         /* Move everything after this patch start over one, so that there's a
@@ -1419,8 +1419,10 @@ void lily_emit_break(lily_emit_state *emit)
         emit->patch_pos++;
         emit->patches[move_start] = m->pos-1;
 
-        for (j = next_start;j < emit->ctrl_patch_pos;j++)
-            emit->ctrl_patch_starts[j] += 1;
+        for (block = block->next;
+             block;
+             block = block->next)
+            block->patch_start++;
     }
 }
 
@@ -1453,20 +1455,15 @@ void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
 void lily_emit_continue(lily_emit_state *emit)
 {
     lily_method_val *m = emit->top_method;
-    int jump_to, while_pos;
 
-    while_pos = find_deepest_while(emit);
-
-    if (while_pos == 0) {
-        /* This is called by parser on the source line, so do not adjust the
-           raiser. */
+    /* This is called by parser on the source line, so do not adjust the
+       raiser. */
+    if (emit->current_block->loop_start == -1) {
         lily_raise(emit->raiser, lily_ErrSyntax,
                 "'continue' used outside of a loop.\n");
     }
 
-    jump_to = emit->while_starts[emit->while_start_pos-1];
-
-    WRITE_2(o_jump, jump_to)
+    WRITE_2(o_jump, emit->current_block->loop_start)
 }
 
 /* lily_emit_change_if_branch
@@ -1476,28 +1473,28 @@ void lily_emit_change_if_branch(lily_emit_state *emit, int have_else)
 {
     int save_jump;
     lily_method_val *m = emit->top_method;
-    lily_var *v = emit->block_var_starts[emit->block_pos-1];
+    lily_block *block = emit->current_block;
+    lily_var *v = block->var_start;
 
-    if (emit->block_pos == 1) {
+    if (emit->current_block == emit->first_block) {
         char *name = (have_else ? "else" : "elif");
         lily_raise(emit->raiser, lily_ErrSyntax,
                    "'%s' without 'if'.\n", name);
     }
 
     if (have_else) {
-        if (emit->block_types[emit->block_pos-1] == BLOCK_IFELSE)
+        if (block->block_type == BLOCK_IFELSE)
             lily_raise(emit->raiser, lily_ErrSyntax,
                        "Only one 'else' per 'if' allowed.\n");
         else
-            emit->block_types[emit->block_pos-1] = BLOCK_IFELSE;
+            block->block_type = BLOCK_IFELSE;
     }
-    else if (emit->block_types[emit->block_pos-1] == BLOCK_IFELSE)
-        lily_raise(emit->raiser, lily_ErrSyntax,
-                   "'elif' after 'else'.\n");
+    else if (block->block_type == BLOCK_IFELSE)
+        lily_raise(emit->raiser, lily_ErrSyntax, "'elif' after 'else'.\n");
 
     if (v->next != NULL) {
         lily_drop_block_vars(emit->symtab, v);
-        emit->save_cache_pos = emit->block_save_starts[emit->block_pos-1];
+        emit->save_cache_pos = block->save_cache_start;
     }
 
     /* Write an exit jump for this branch, thereby completing the branch. */
@@ -1512,84 +1509,6 @@ void lily_emit_change_if_branch(lily_emit_state *emit, int have_else)
     emit->patches[emit->patch_pos-1] = save_jump;
 }
 
-/* lily_emit_enter_block
-   This enters a block of a given block_type. Values for block_type can be
-   found in lily_emitter.h */
-void lily_emit_enter_block(lily_emit_state *emit, int block_type)
-{
-    if (emit->block_pos == emit->block_size) {
-        emit->block_size *= 2;
-        int *new_types = lily_realloc(emit->block_types,
-            sizeof(int) * emit->block_size);
-        lily_var **new_var_starts = lily_realloc(emit->block_var_starts,
-            sizeof(lily_var *) * emit->block_size);
-        int *new_save_starts = lily_realloc(emit->block_save_starts,
-            sizeof(int) * emit->block_size);
-
-        if (new_types == NULL || new_var_starts == NULL ||
-            new_save_starts == NULL) {
-            if (new_types != NULL)
-                emit->block_types = new_types;
-            if (new_var_starts != NULL)
-                emit->block_var_starts = new_var_starts;
-            if (new_save_starts != NULL)
-                emit->block_save_starts = new_save_starts;
-
-            lily_raise_nomem(emit->raiser);
-        }
-
-        emit->block_types = new_types;
-        emit->block_var_starts = new_var_starts;
-        emit->block_save_starts = new_save_starts;
-    }
-
-    if (block_type == BLOCK_IF || block_type == BLOCK_ANDOR ||
-        block_type == BLOCK_WHILE) {
-        if (emit->ctrl_patch_pos == emit->ctrl_patch_size) {
-            emit->ctrl_patch_size *= 2;
-            int *new_starts = lily_realloc(emit->ctrl_patch_starts,
-                sizeof(int) * emit->ctrl_patch_size);
-
-            if (new_starts == NULL)
-                lily_raise_nomem(emit->raiser);
-
-            emit->ctrl_patch_starts = new_starts;
-        }
-
-        emit->ctrl_patch_starts[emit->ctrl_patch_pos] = emit->patch_pos;
-        emit->ctrl_patch_pos++;
-
-        /* While needs to record where it starts at so that the end of the loop
-           can jump back up. */
-        if (block_type == BLOCK_WHILE) {
-            if (emit->while_start_pos == emit->while_start_size) {
-                emit->while_start_size *= 2;
-
-                int *new_starts = lily_realloc(emit->while_starts,
-                    sizeof(int) * emit->while_start_size);
-
-                if (new_starts == NULL)
-                    lily_raise_nomem(emit->raiser);
-
-                emit->while_starts = new_starts;
-            }
-
-            emit->while_starts[emit->while_start_pos] = emit->top_method->pos;
-            emit->while_start_pos++;
-        }
-
-        emit->block_var_starts[emit->block_pos] = emit->symtab->var_top;
-    }
-    else if (block_type == BLOCK_METHOD) {
-        lily_var *v = emit->method_vars[emit->method_pos-1];
-        emit->block_var_starts[emit->block_pos] = v;
-    }
-
-    emit->block_save_starts[emit->block_pos] = emit->save_cache_pos;
-    emit->block_types[emit->block_pos] = block_type;
-    emit->block_pos++;
-}
-
 /* emit_final_continue
    This writes in a 'continue'-type jump at the end of the while, so that the
    while runs multiple times. Since the while is definitely the top block, this
@@ -1597,112 +1516,8 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
 static void emit_final_continue(lily_emit_state *emit)
 {
     lily_method_val *m = emit->top_method;
-    int jump_to = emit->while_starts[emit->while_start_pos-1];
 
-    WRITE_2(o_jump, jump_to)
-}
-
-/* lily_emit_leave_block
-   This closes the last block that was added to the emitter. Any vars that were
-   added in the block are dropped. */
-void lily_emit_leave_block(lily_emit_state *emit)
-{
-    lily_var *v;
-    int block_type;
-
-    if (emit->block_pos == 1)
-        lily_raise(emit->raiser, lily_ErrSyntax, "'}' outside of a block.\n");
-
-    block_type = emit->block_types[emit->block_pos-1];
-
-    /* Write in a fake continue so that the end of a while jumps back up to the
-       top. */
-    if (block_type == BLOCK_WHILE) {
-        emit_final_continue(emit);
-        emit->while_start_pos--;
-    }
-
-    emit->block_pos--;
-    v = emit->block_var_starts[emit->block_pos];
-
-    if (block_type != BLOCK_METHOD) {
-        emit->ctrl_patch_pos--;
-
-        int from, to, pos;
-        from = emit->patch_pos-1;
-        to = emit->ctrl_patch_starts[emit->ctrl_patch_pos];
-        pos = emit->top_method->pos;
-
-        for (;from >= to;from--)
-            emit->top_method->code[emit->patches[from]] = pos;
-
-        /* Use the space for new patches now. */
-        emit->patch_pos = to;
-    }
-    else
-        lily_emit_leave_method(emit);
-
-    if (v->next != NULL) {
-        lily_drop_block_vars(emit->symtab, v);
-        emit->save_cache_pos = emit->block_save_starts[emit->block_pos];
-    }
-}
-
-/* lily_emit_enter_method
-   This enters a method, and then adds that block to the emitter's state. */
-void lily_emit_enter_method(lily_emit_state *emit, lily_var *var)
-{
-    if (emit->method_pos == emit->method_size) {
-        emit->method_size *= 2;
-        lily_var **new_vars = lily_realloc(emit->method_vars,
-            sizeof(lily_var *) * emit->method_size);
-
-        if (new_vars == NULL)
-            lily_raise_nomem(emit->raiser);
-
-        emit->method_vars = new_vars;
-    }
-
-    emit->top_method = var->value.method;
-    emit->top_var = var;
-    /* This is called before the args and return are collected, so don't try to
-       set the return. It will work, but only because methods default to nil for
-       their returns (NULL here). */
-
-    emit->method_vars[emit->method_pos] = var;
-    emit->method_pos++;
-    lily_emit_enter_block(emit, BLOCK_METHOD);
-}
-
-/* lily_emit_update_return
-   This is to be called after lily_emit_enter_method once the return value of
-   the method is known. */
-void lily_emit_update_return(lily_emit_state *emit)
-{
-    emit->top_method_ret = emit->top_var->sig->node.call->ret;
-}
-
-/* lily_emit_leave_method
-   This exits the last method entered. For methods that do not return anything,
-   this writes a return before exiting. */
-void lily_emit_leave_method(lily_emit_state *emit)
-{
-    /* If the method returns nil, write an implicit 'return' at the end of it.
-       It's easiest to just blindly write it. */
-    if (emit->top_method_ret == NULL)
-        lily_emit_return_noval(emit);
-    else
-        /* Ensure that methods that claim to return a value cannot leave without
-           doing so. */
-        emit_return_expected(emit);
-
-    emit->method_pos--;
-    /* The stack is ahead, so use pos-1 to get the correct method. */
-    lily_var *v = emit->method_vars[emit->method_pos-1];
-
-    emit->top_method = v->value.method;
-    emit->top_var = v;
-    emit->top_method_ret = v->sig->node.call->ret;
+    WRITE_2(o_jump, emit->current_block->loop_start)
 }
 
 /* lily_emit_jump_if
@@ -1773,7 +1588,7 @@ void lily_emit_show(lily_emit_state *emit, lily_ast *ast)
 void lily_emit_return_noval(lily_emit_state *emit)
 {
     /* Don't allow 'return' within @main. */
-    if (emit->method_pos == 1)
+    if (emit->current_block == emit->first_block)
         lily_raise(emit->raiser, lily_ErrSyntax,
                 "'return' used outside of a method.\n");
 
@@ -1794,4 +1609,135 @@ void lily_emit_vm_return(lily_emit_state *emit)
 void lily_reset_main(lily_emit_state *emit)
 {
     ((lily_method_val *)emit->top_method)->pos = 0;
+}
+
+/** Block entry/exit **/
+
+/* lily_emit_enter_block
+   Enter a block of the given block_type. It will try to use an existing block
+   if able, or create a new one if it cannot.
+   For methods, top_method_ret is not set (because this is called when a method
+   var is seen), and must be patched later.
+   Note that this will call lily_raise_nomem if unable to create a block. */
+void lily_emit_enter_block(lily_emit_state *emit, int block_type)
+{
+    lily_block *new_block;
+    if (emit->current_block->next == NULL) {
+        new_block = try_new_block();
+        if (new_block == NULL)
+            lily_raise_nomem(emit->raiser);
+
+        emit->current_block->next = new_block;
+        new_block->prev = emit->current_block;
+    }
+    else
+        new_block = emit->current_block->next;
+
+    new_block->block_type = block_type;
+    new_block->var_start = emit->symtab->var_top;
+    new_block->save_cache_start = emit->save_cache_pos;
+
+    if (block_type != BLOCK_METHOD) {
+        new_block->patch_start = emit->patch_pos;
+        if (block_type == BLOCK_WHILE) {
+            new_block->loop_start = emit->top_method->pos;
+        }
+        else
+            new_block->loop_start = emit->current_block->loop_start;
+    }
+    else {
+        lily_var *v = emit->symtab->var_top;
+
+        new_block->method_var = v;
+        new_block->loop_start = -1;
+        emit->top_method = v->value.method;
+        emit->top_var = v;
+        emit->method_depth++;
+    }
+
+    emit->current_block = new_block;
+}
+
+static void leave_method(lily_emit_state *emit, lily_block *block)
+{
+    /* If the method returns nil, write an implicit 'return' at the end of it.
+       It's easiest to just blindly write it. */
+    if (emit->top_method_ret == NULL)
+        lily_emit_return_noval(emit);
+    else
+        /* Ensure that methods that claim to return a value cannot leave without
+           doing so. */
+        emit_return_expected(emit);
+
+    /* Warning: This assumes that only methods can contain other methods. */
+    lily_var *v = block->prev->method_var;
+
+    emit->top_method = v->value.method;
+    emit->top_var = v;
+    emit->top_method_ret = v->sig->node.call->ret;
+    emit->method_depth--;
+}
+
+/* lily_emit_leave_block
+   This closes the last block that was added to the emitter. Any vars that were
+   added in the block are dropped. */
+void lily_emit_leave_block(lily_emit_state *emit)
+{
+    lily_var *v;
+    lily_block *block;
+    int block_type;
+
+    if (emit->first_block == emit->current_block)
+        lily_raise(emit->raiser, lily_ErrSyntax, "'}' outside of a block.\n");
+
+    block = emit->current_block;
+    block_type = block->block_type;
+
+    /* Write in a fake continue so that the end of a while jumps back up to the
+       top. */
+    if (block_type == BLOCK_WHILE)
+        emit_final_continue(emit);
+
+    v = block->var_start;
+
+    if (block_type != BLOCK_METHOD) {
+        int from, to, pos;
+        from = emit->patch_pos-1;
+        to = block->patch_start;
+        pos = emit->top_method->pos;
+
+        for (;from >= to;from--)
+            emit->top_method->code[emit->patches[from]] = pos;
+
+        /* Use the space for new patches now. */
+        emit->patch_pos = to;
+    }
+    else
+        leave_method(emit, block);
+
+    if (v->next != NULL) {
+        lily_drop_block_vars(emit->symtab, v);
+        emit->save_cache_pos = block->save_cache_start;
+    }
+
+    emit->current_block = emit->current_block->prev;
+}
+
+/* lily_emit_try_enter_main
+   Attempt to create a block representing @main, then enter it. main_var is the
+   var representing @main. Returns 1 on success, or 0 on failure.
+   Emitter hasn't had the symtab set, which is why the var must be sent. */
+int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
+{
+    lily_block *main_block = try_new_block(emit);
+    if (main_block == NULL)
+        return 0;
+
+    main_block->method_var = main_var;
+    emit->top_method = main_var->value.method;
+    emit->top_var = main_var;
+    emit->first_block = main_block;
+    emit->current_block = main_block;
+    emit->method_depth++;
+    return 1;
 }
