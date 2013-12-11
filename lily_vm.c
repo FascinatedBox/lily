@@ -543,11 +543,12 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
     /* If this list does not contain objects, then standard
        assign or ref/deref assign is enough. */
     if (lhs->sig->node.value_sig->cls->id != SYM_CLASS_OBJECT) {
-        if (rhs->sig->cls->is_refcounted && flags == 0) {
-            /* This could be expanded to more specific derefs. However, it's
-               much more preferable to keep class-based code in as few places
-               as possible. The speed gain would be very little as well. */
-            lily_deref_unknown_val(rhs->sig, values[index_int]);
+        if (rhs->sig->cls->is_refcounted) {
+            /* Don't touch circular or nil values. */
+            if (flags == 0)
+                /* Deref whatever is inside of this. rhs->sig is used because
+                   it's simpler than lhs->sig->node.value_sig. */
+                lily_deref_unknown_val(rhs->sig, values[index_int]);
 
             /* If the right list contains the left (and the left will soon
                contain the right), do NOT ref the list. It's circular, so tag it
@@ -558,8 +559,10 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
             if (rhs->sig->cls->id == SYM_CLASS_LIST &&
                 nested_list_check(lhs, rhs))
                 flags |= S_IS_CIRCULAR;
-            else
+            else {
+                flags &= ~S_IS_CIRCULAR;
                 rhs->value.generic->refcount++;
+            }
         }
         /* else nothing to ref/deref, so do assign only. */
 
@@ -607,7 +610,8 @@ void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
         }
         else {
             lily_object_val *rhs_obj = rhs->value.object;
-            if (ov->sig->cls->is_refcounted)
+            /* Make sure it's refcounted AND it's not circular. */
+            if (ov->sig->cls->is_refcounted && flags == 0)
                 lily_deref_unknown_val(ov->sig, ov->value);
 
             if (rhs_obj->sig->cls->is_refcounted)
