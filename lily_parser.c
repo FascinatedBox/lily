@@ -74,12 +74,6 @@ if (lex->token != expected) \
     lily_raise(parser->raiser, lily_ErrSyntax, "Expected '%s', not %s.\n", \
                tokname(expected), tokname(lex->token));
 
-#define NEED_NEXT_TOK_MSG(expected, msg) \
-lily_lexer(lex); \
-if (lex->token != expected) \
-    lily_raise(parser->raiser, lily_ErrSyntax, "Expected " msg ", not %s.\n", \
-               tokname(lex->token)); \
-
 /* table[token] = true/false. Used to check if a given token can be the start of
    an expression. */
 static const int is_start_val[] = {
@@ -235,6 +229,35 @@ void lily_free_parse_state(lily_parse_state *parser)
     lily_free(parser);
 }
 
+/** Shared code **/
+/* get_named_var
+   This calls lexer to get a name, then uses that to declare a new var. The
+   var is checked for having a unique name. var_sig is the signature used to
+   create the new var.
+
+   Success: The newly created var is returned.
+   Failure: An error is raised. */
+static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_var *var;
+    NEED_NEXT_TOK(tk_word)
+
+    var = lily_var_by_name(parser->symtab, lex->label);
+    if (var != NULL)
+        lily_raise(parser->raiser, lily_ErrSyntax,
+                   "%s has already been declared.\n", lex->label);
+
+    var = lily_try_new_var(parser->symtab, var_sig, lex->label);
+    if (var == NULL)
+        lily_raise_nomem(parser->raiser);
+
+    if (parser->emit->method_depth > 1)
+        lily_emit_add_save_var(parser->emit, var);
+
+    return var;
+}
+
 /** Var sig collection
   * collect_* functions are used by collect_var_sig as helpers, and should not
     be called by any function except expression itself.
@@ -269,22 +292,8 @@ static void collect_simple(lily_parse_state *parser, lily_class *cls,
     check_sig_stack(parser);
     parser->sig_stack[parser->sig_stack_pos] = cls->sig;
     parser->sig_stack_pos++;
-    if (flags & CV_MAKE_VARS) {
-        lily_lex_state *lex = parser->lex;
-        lily_var *var;
-        NEED_NEXT_TOK(tk_word)
-        var = lily_var_by_name(parser->symtab, lex->label);
-        if (var != NULL)
-            lily_raise(parser->raiser, lily_ErrSyntax,
-                       "%s has already been declared.\n", lex->label);
-
-        var = lily_try_new_var(parser->symtab, cls->sig, lex->label);
-        if (var == NULL)
-            lily_raise_nomem(parser->raiser);
-
-        if (parser->emit->method_depth > 1)
-            lily_emit_add_save_var(parser->emit, var);
-    }
+    if (flags & CV_MAKE_VARS)
+        get_named_var(parser, cls->sig);
 }
 
 /* collect_call handles methods. */
@@ -303,23 +312,11 @@ static void collect_call(lily_parse_state *parser, int flags)
     parser->sig_stack_pos++;
 
     if (flags & CV_MAKE_VARS) {
-        lily_lex_state *lex = parser->lex;
-        NEED_NEXT_TOK(tk_word)
-        method_var = lily_var_by_name(parser->symtab, lex->label);
-        if (method_var != NULL)
-            lily_raise(parser->raiser, lily_ErrSyntax,
-                       "%s has already been declared.\n", lex->label);
+        method_var = get_named_var(parser, method_sig);
 
-        method_var = lily_try_new_var(parser->symtab, method_sig,
-                lex->label);
-        if (method_var == NULL)
-            lily_raise_nomem(parser->raiser);
-
-        if ((flags & CV_TOPLEVEL) == 0)
-            /* Not toplevel, so it must be an arg. */
-            lily_emit_add_save_var(parser->emit, method_var);
-        else
+        if ((flags & CV_TOPLEVEL) != 0)
             lily_emit_enter_block(parser->emit, BLOCK_METHOD);
+        /* If not toplevel, then it's been registered already. */
     }
     /* else it doesn't have a name, so nothing to do here. */
 
@@ -402,24 +399,9 @@ static void collect_list(lily_parse_state *parser, int flags)
 
     if (list_sig == NULL)
         lily_raise_nomem(parser->raiser);
-    if (flags & CV_MAKE_VARS) {
-        lily_lex_state *lex = parser->lex;
-        lily_var *var;
-        NEED_NEXT_TOK(tk_word)
+    if (flags & CV_MAKE_VARS)
+        get_named_var(parser, list_sig);
 
-        var = lily_var_by_name(parser->symtab, lex->label);
-        if (var != NULL)
-            lily_raise(parser->raiser, lily_ErrSyntax,
-                       "%s has already been declared.\n", lex->label);
-
-        var = lily_try_new_var(parser->symtab, list_sig,
-                lex->label);
-        if (var == NULL)
-            lily_raise_nomem(parser->raiser);
-
-        if (parser->emit->method_depth > 1)
-            lily_emit_add_save_var(parser->emit, var);
-    }
     list_sig->node.value_sig = parser->sig_stack[parser->sig_stack_pos-1];
     parser->sig_stack[parser->sig_stack_pos-1] = list_sig;
 }
@@ -941,19 +923,7 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
 
     while (1) {
         /* This starts at the class name, or the comma. The label is next. */
-        NEED_NEXT_TOK_MSG(tk_word, "a variable name")
-
-        var = lily_var_by_name(parser->symtab, lex->label);
-        if (var != NULL)
-            lily_raise(parser->raiser, lily_ErrSyntax,
-                       "%s has already been declared.\n", lex->label);
-
-        var = lily_try_new_var(parser->symtab, sig, lex->label);
-        if (var == NULL)
-            lily_raise_nomem(parser->raiser);
-
-        if (parser->emit->method_depth > 1)
-            lily_emit_add_save_var(parser->emit, var);
+        var = get_named_var(parser, sig);
 
         lily_lexer(parser->lex);
         /* Handle an initializing assignment, if there is one. */
