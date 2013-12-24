@@ -176,6 +176,19 @@ static char *opname(lily_expr_op op)
     return opnames[op];
 }
 
+static void grow_patches(lily_emit_state *emit)
+{
+    emit->patch_size *= 2;
+
+    int *new_patches = lily_realloc(emit->patches,
+        sizeof(int) * emit->patch_size);
+
+    if (new_patches == NULL)
+        lily_raise_nomem(emit->raiser);
+
+    emit->patches = new_patches;
+}
+
 /* get_simple_storage
    This obtains a storage from the class. The signature of the storage will only
    have the class set, so this cannot be used for lists, methods, functions, or
@@ -1384,17 +1397,8 @@ void lily_emit_break(lily_emit_state *emit)
                 "'break' used outside of a loop.\n");
     }
 
-    if (emit->patch_pos == emit->patch_size) {
-        emit->patch_size *= 2;
-
-        int *new_patches = lily_realloc(emit->patches,
-            sizeof(int) * emit->patch_size);
-
-        if (new_patches == NULL)
-            lily_raise_nomem(emit->raiser);
-
-        emit->patches = new_patches;
-    }
+    if (emit->patch_pos == emit->patch_size)
+        grow_patches(emit);
 
     /* Write the jump, then figure out where to put it. */
     WRITE_2(o_jump, 0)
@@ -1531,17 +1535,8 @@ void lily_emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
     lily_method_val *m = emit->top_method;
 
     WRITE_4(o_jump_if, jump_on, (uintptr_t)ast->result, 0);
-    if (emit->patch_pos == emit->patch_size) {
-        emit->patch_size *= 2;
-
-        int *new_patches = lily_realloc(emit->patches,
-            sizeof(int) * emit->patch_size);
-
-        if (new_patches == NULL)
-            lily_raise_nomem(emit->raiser);
-
-        emit->patches = new_patches;
-    }
+    if (emit->patch_pos == emit->patch_size)
+        grow_patches(emit);
 
     emit->patches[emit->patch_pos] = m->pos-1;
     emit->patch_pos++;
