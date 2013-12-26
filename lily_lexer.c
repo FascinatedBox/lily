@@ -388,7 +388,11 @@ static uint64_t scan_decimal(lily_lex_state *lexer, int *pos, int *is_integer)
         }
         else if (ch == '.') {
             if (have_dot == 1)
-                break;
+                break; /* Assume that this dot belongs to something else. */
+            else if (lex_buffer[num_pos+1] == '.')
+                break; /* This is for 'for..in' loops. This allows
+                          for i in 1..5
+                          to work. */
             have_dot = 1;
             *is_integer = 0;
         }

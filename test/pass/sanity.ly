@@ -1300,6 +1300,46 @@ method test_multiline_comment():nil
     test_id = test_id + 1
 }
 
+method test_for_in():nil
+{
+    printfmt("#%i: Testing for..in loops...(sub tests follow).\n", test_id)
+    test_id = test_id + 1
+
+    integer ok = 1
+    integer i
+
+    for i in 1..10: { }
+    print("     Checking that 1 .. 10 ends at 10...")
+    if i == 10: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    for i in 10..1: { }
+    print("     Checking that 10 .. 1 ends at 1...")
+    if i == 1: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    print("     Checking that 1 .. 5 by 2 == 1, 3, 5...")
+    list[integer] intlist = [0, 0, 0, 0, 0, 0]
+    for i in 1..5 by 2: {
+        intlist[i] = 1
+    }
+
+    if intlist[1] == 1 && intlist[3] == 1 && intlist[5] == 1: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+}
+
 method test_misc():nil
 {
     printfmt("#%i: Miscellaneous features...(sub tests follow).\n", test_id)
@@ -1350,6 +1390,7 @@ test_digit_collection()
 test_while()
 test_assign_chain()
 test_multiline_comment()
+test_for_in()
 test_misc()
 
 test_id = test_id - 1

@@ -1099,12 +1099,13 @@ static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
     lily_ast_pool *ap = parser->ast_pool;
     expression(parser, EX_SINGLE | EX_SAVE_AST | EX_NEED_VALUE);
 
-    /* todo: This should allow binary ops, but not compound assignments or
-             assign-like operations. */
+    /* Don't allow assigning expressions, since that just looks weird.
+       ex: for i in a += 10..5
+       Also, it makes no real sense to do that. */
     if (ap->root->tree_type == tree_binary &&
         ap->root->op >= expr_assign) {
         lily_raise(parser->raiser, lily_ErrSyntax,
-                   "For range value contains an assigning expression.");
+                   "For range value expression contains an assignment.");
     }
 
     lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_INTEGER);
