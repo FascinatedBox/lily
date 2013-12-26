@@ -781,7 +781,7 @@ void lily_vm_execute(lily_vm_state *vm)
     int i, j, k;
     lily_method_val *mval;
     lily_sig *cast_sig;
-    lily_sym *lhs, *rhs;
+    lily_sym *lhs, *rhs, *loop_var, *step_var;
     lily_var *v;
     lily_method_val *m;
     lily_vm_stack_entry *stack_entry;
@@ -1233,6 +1233,55 @@ void lily_vm_execute(lily_vm_state *vm)
                     lhs->value.object->value = rhs->value;
                 }
                 i += 4;
+                break;
+            case o_integer_for:
+                loop_var = (lily_sym *)code[i+2];
+                /* lhs is the start, and also incremented. This is done so that
+                   user assignments cannot cause the loop to leave early. This
+                   may be changed in the future.
+                   rhs is the stop value. */
+                lhs      = (lily_sym *)code[i+3];
+                rhs      = (lily_sym *)code[i+4];
+                step_var = (lily_sym *)code[i+5];
+
+                if (lhs->value.integer != rhs->value.integer) {
+                    lhs->value.integer += step_var->value.integer;
+                    loop_var->value.integer = lhs->value.integer;
+                    /* The loop var may have been altered and set nil. Make sure
+                       it is not nil. */
+                    loop_var->flags &= ~S_IS_NIL;
+                    i += 7;
+                }
+                else
+                    i = code[i+6];
+
+                break;
+            case o_for_setup:
+                loop_var = (lily_sym *)code[i+2];
+                /* lhs is the start, rhs is the stop. */
+                lhs      = (lily_sym *)code[i+3];
+                rhs      = (lily_sym *)code[i+4];
+                step_var = (lily_sym *)code[i+5];
+
+                if (lhs->flags & S_IS_NIL)
+                    novalue_error(vm, i, lhs);
+                if (rhs->flags & S_IS_NIL)
+                    novalue_error(vm, i, rhs);
+
+                /* +6 is used to indicate if the step needs to be generated, or
+                   if it's already calculated. */
+                if (code[i+6] == 1) {
+                    if (lhs->value.integer <= rhs->value.integer)
+                        step_var->value.integer = +1;
+                    else
+                        step_var->value.integer = -1;
+                    step_var->flags &= ~S_IS_NIL;
+
+                    loop_var->value.integer = lhs->value.integer;
+                    loop_var->flags &= ~S_IS_NIL;
+                }
+
+                i += 7;
                 break;
             case o_return_expected:
             {

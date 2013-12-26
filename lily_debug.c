@@ -49,12 +49,16 @@
                  in the future. This value is printed next to the opcode name.
                  save and restore use this. */
 #define D_SHOW_COUNT 10
+/* D_INT_VAL:    Show a value that's just an integer. This is used by
+                 o_for_setup to determine if it should init the step value or
+                 not. */
+#define D_INT_VAL    11
 
 /* Opcodes that have line numbers also have extra space so they print the line
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[36] = {
+char *opcode_names[38] = {
     "assign               ",
     "object assign        ",
     "assign (ref/deref)   ",
@@ -90,12 +94,18 @@ char *opcode_names[36] = {
     "typecast             ",
     "show                 ",
     "return expected      ",
+    "for (integer range)  ",
+    "for setup            ",
     "return from vm       "
 };
 
-static const int call_ci[]       =
+static const int for_setup_ci[] =
+    {6, D_LINENO, D_INPUT, D_INPUT, D_INPUT, D_INPUT, D_INT_VAL};
+static const int for_integer_ci[] =
+    {6, D_LINENO, D_INPUT, D_INPUT, D_INPUT, D_INPUT, D_JUMP};
+static const int call_ci[]        =
     {5, D_LINENO, D_INPUT, D_COUNT, D_COUNT_LIST, D_OUTPUT};
-static const int build_list_ci[] =
+static const int build_list_ci[]  =
     {4, D_LINENO, D_COUNT, D_COUNT_LIST, D_OUTPUT};
 static const int sub_assign_ci[] = {4, D_LINENO, D_INPUT, D_INPUT, D_INPUT};
 static const int binary_ci[]     = {4, D_LINENO, D_INPUT, D_INPUT, D_OUTPUT};
@@ -209,6 +219,12 @@ static const int *code_info_for_opcode(int opcode)
             break;
         case o_jump_if:
             ret = jump_if_ci;
+            break;
+        case o_integer_for:
+            ret = for_integer_ci;
+            break;
+        case o_for_setup:
+            ret = for_setup_ci;
             break;
         default:
             lily_impl_debugf("warning: Opcode %d has no ci.\n", opcode);
@@ -439,6 +455,12 @@ static void show_code(lily_method_val *mval, lily_msgbuf *msgbuf, int indent)
             else if (data_code == D_SHOW_COUNT) {
                 count = (int)code[i+j+1];
                 lily_impl_debugf(" (%d)\n", count);
+            }
+            else if (data_code == D_INT_VAL) {
+                if (indent != 0)
+                    write_indent(indent);
+
+                lily_impl_debugf("|     <---- %d\n", (int)code[i+j+1]);
             }
             else if (data_code == D_NOP) {
                 lily_impl_debugf("\n");

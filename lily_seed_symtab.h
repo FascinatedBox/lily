@@ -31,7 +31,8 @@ static const char *keywords[] = {
     "break",
     "show",
     "__line__",
-    "__file__"
+    "__file__",
+    "for"
 };
 
 void lily_builtin_print(lily_vm_state *, int, lily_sym **);

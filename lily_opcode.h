@@ -205,6 +205,34 @@ typedef enum {
        number after it. */
     o_return_expected,
 
+    /* for (integer range):
+       * int lineno
+       * sym(integer) user loop var
+       * sym(integer) start
+       * sym(integer) end
+       * sym(integer) step
+       * int jump
+       This implements a for loop over an integer range. This increments start
+       by step until end is reached. This sets user loop var to start on each
+       pass. This is done so that user modifications of user loop var do not
+       cause the loop to exit early.
+       If start == end, then control jumps to the given jump. */
+    o_integer_for,
+
+    /* for setup:
+       * int lineno
+       * sym(integer) user loop var
+       * sym(integer) start
+       * sym(integer) end
+       * sym(integer) step
+       * int setup step
+       This is run before entering a for loop, and acts as a quick sanity check
+       before entering the loop. Both start and end are checked for being nil
+       here. If setup setp is 1, then the step will be calculated as -1 or +1.
+       This sets user loop var to start, so that it has a proper initial value
+       before entering the loop. */
+    o_for_setup,
+
     /* Return from vm:
        This is a special opcode used to leave the vm. It does not take any
        values. This is written at the end of @main. */

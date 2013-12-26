@@ -1101,10 +1101,15 @@ void lily_lexer(lily_lex_state *lexer)
                 scan_number(lexer, &lex_bufpos, &token);
             else {
                 lex_bufpos++;
-                if (lexer->lex_buffer[lex_bufpos] == '.' &&
-                    lexer->lex_buffer[lex_bufpos + 1] == '.') {
-                    lex_bufpos += 2;
-                    token = tk_three_dots;
+                if (lexer->lex_buffer[lex_bufpos] == '.') {
+                    lex_bufpos++;
+
+                    if (lexer->lex_buffer[lex_bufpos] == '.') {
+                        lex_bufpos++;
+                        token = tk_three_dots;
+                    }
+                    else
+                        token = tk_two_dots;
                 }
                 else
                     token = tk_dot;
@@ -1275,7 +1280,7 @@ char *tokname(lily_token t)
     {"(", ")", ",", "{", "}", ":", "[", "]", "=", "==", "!", "!=", "*", "*=",
      "/", "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>",
      ">>=", "a label", "a string", "an integer", "a number", ".", "&", "&&",
-     "|", "||", "@(", "...", "invalid token", "@>", "end of file"};
+     "|", "||", "@(", "..", "...", "invalid token", "@>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

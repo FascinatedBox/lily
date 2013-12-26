@@ -307,7 +307,8 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
     for (block = emit->current_block;
          block;
          block = block->prev) {
-        if (block->block_type == BLOCK_WHILE) {
+        if (block->block_type == BLOCK_WHILE ||
+            block->block_type == BLOCK_FOR_IN) {
             ret = block;
             break;
         }
@@ -1382,6 +1383,39 @@ void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)
     emit->expr_num++;
 }
 
+/* lily_emit_ast_to_var
+   API function to call eval_tree on an ast to evaluate it. Afterward, the
+   result is assigned to the given storage. The storage is added to the save
+   cache in case to be saved if there is a method call. */
+void lily_emit_ast_to_var(lily_emit_state *emit, lily_ast *ast,
+        lily_var *var)
+{
+    eval_tree(emit, ast);
+    emit->expr_num++;
+
+    if (ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                   "Expected type 'integer', but got type '%T'.\n",
+                   ast->result->sig);
+    }
+
+    /* Note: This works because the only time this is called is to handle
+             for..in range expressions, which are always integers. */
+    lily_method_val *m = emit->top_method;
+
+    WRITE_4(o_assign,
+            ast->line_num,
+            (uintptr_t)ast->result,
+            (uintptr_t)var)
+
+    /* Important! One of the range values might include a call. Also, the loop
+       itself might call other things.
+       As usual, don't save things from @main (method_pos == 1), because @main
+       can't recurse. */
+    if (emit->method_depth > 1)
+        lily_emit_add_save_var(emit, var);
+}
+
 /* lily_emit_break
    This writes a break (jump to the end of a loop) for the parser. Since it
    is called by parser, it needs to verify that it is called from within a
@@ -1634,9 +1668,8 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
 
     if (block_type != BLOCK_METHOD) {
         new_block->patch_start = emit->patch_pos;
-        if (block_type == BLOCK_WHILE) {
+        if (block_type == BLOCK_WHILE || block_type == BLOCK_FOR_IN)
             new_block->loop_start = emit->top_method->pos;
-        }
         else
             new_block->loop_start = emit->current_block->loop_start;
     }
@@ -1690,7 +1723,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
 
     /* Write in a fake continue so that the end of a while jumps back up to the
        top. */
-    if (block_type == BLOCK_WHILE)
+    if (block_type == BLOCK_WHILE || block_type == BLOCK_FOR_IN)
         emit_final_continue(emit);
 
     v = block->var_start;
@@ -1735,4 +1768,63 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     emit->current_block = main_block;
     emit->method_depth++;
     return 1;
+}
+
+/* lily_emit_finalize_for_in
+   This function takes the symbols used in a for..in loop and writes out the
+   appropriate code to start off a for loop. This should be done at the very end
+   of a for..in loop, after the 'by' expression has been collected.
+   * user_loop_var: This is the user var that will have the range value written
+                    to it.
+   * for_start:     The var holding the start of the range.
+   * for_end:      The var holding the end of the range.
+   * line_num:      A line number for writing code to be run before the actual
+                    for code. */
+void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
+        lily_var *for_start, lily_var *for_end, int line_num)
+{
+    lily_block *loop_block = emit->current_block;
+    lily_method_val *m = emit->top_method;
+    lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
+
+    lily_var *for_step;
+    for_step = lily_try_new_var(emit->symtab, cls->sig, "(for step)");
+    if (for_step == NULL)
+        lily_raise_nomem(emit->raiser);
+
+    WRITE_PREP_LARGE(16)
+    m->code[m->pos  ] = o_for_setup;
+    m->code[m->pos+1] = line_num;
+    m->code[m->pos+2] = (uintptr_t)user_loop_var;
+    m->code[m->pos+3] = (uintptr_t)for_start;
+    m->code[m->pos+4] = (uintptr_t)for_end;
+    m->code[m->pos+5] = (uintptr_t)for_step;
+    /* 1 indicates that the step needs to be calculated at vm time. */
+    m->code[m->pos+6] = (uintptr_t)1;
+
+    /* for..in is entered right after 'for' is seen. However, range values can
+       be expressions. This needs to be fixed, or the loop will jump back up to
+       re-eval those expressions. */
+    loop_block->loop_start = m->pos+9;
+
+    /* Write a jump to the inside of the loop. This prevents the value from
+       being incremented before being seen by the inside of the loop. */
+    m->code[m->pos+7] = o_jump;
+    m->code[m->pos+8] = m->pos + 16;
+
+    m->code[m->pos+9] = o_integer_for;
+    m->code[m->pos+10] = line_num;
+    m->code[m->pos+11] = (uintptr_t)user_loop_var;
+    m->code[m->pos+12] = (uintptr_t)for_start;
+    m->code[m->pos+13] = (uintptr_t)for_end;
+    m->code[m->pos+14] = (uintptr_t)for_step;
+    m->code[m->pos+15] = 0;
+
+    m->pos += 16;
+
+    if (emit->patch_pos == emit->patch_size)
+        grow_patches(emit);
+
+    emit->patches[emit->patch_pos] = m->pos-1;
+    emit->patch_pos++;
 }
