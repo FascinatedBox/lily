@@ -1777,20 +1777,25 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
    * user_loop_var: This is the user var that will have the range value written
                     to it.
    * for_start:     The var holding the start of the range.
-   * for_end:      The var holding the end of the range.
+   * for_end:       The var holding the end of the range.
+   * for_step:      The var holding the step of the range. This is NULL if the
+                    user did not specify a step.
    * line_num:      A line number for writing code to be run before the actual
                     for code. */
 void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
-        lily_var *for_start, lily_var *for_end, int line_num)
+        lily_var *for_start, lily_var *for_end, lily_var *for_step,
+        int line_num)
 {
     lily_block *loop_block = emit->current_block;
     lily_method_val *m = emit->top_method;
     lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
 
-    lily_var *for_step;
-    for_step = lily_try_new_var(emit->symtab, cls->sig, "(for step)");
-    if (for_step == NULL)
-        lily_raise_nomem(emit->raiser);
+    int have_step = (for_step != NULL);
+    if (have_step == 0) {
+        for_step = lily_try_new_var(emit->symtab, cls->sig, "(for step)");
+        if (for_step == NULL)
+            lily_raise_nomem(emit->raiser);
+    }
 
     WRITE_PREP_LARGE(16)
     m->code[m->pos  ] = o_for_setup;
@@ -1799,8 +1804,8 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     m->code[m->pos+3] = (uintptr_t)for_start;
     m->code[m->pos+4] = (uintptr_t)for_end;
     m->code[m->pos+5] = (uintptr_t)for_step;
-    /* 1 indicates that the step needs to be calculated at vm time. */
-    m->code[m->pos+6] = (uintptr_t)1;
+    /* This value is used to determine if the step needs to be calculated. */
+    m->code[m->pos+6] = (uintptr_t)!have_step;
 
     /* for..in is entered right after 'for' is seen. However, range values can
        be expressions. This needs to be fixed, or the loop will jump back up to
