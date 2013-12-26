@@ -689,14 +689,15 @@ void lily_free_symtab(lily_symtab *symtab)
 }
 
 /** Functions provided by symtab for other modules. **/
-lily_literal *lily_get_integer_literal(lily_symtab *symtab, int want_value)
+lily_literal *lily_get_line_literal(lily_symtab *symtab)
 {
+    int line_num = *(symtab->lex_linenum);
     lily_literal *lit, *ret;
     ret = NULL;
 
     for (lit = symtab->lit_start;lit;lit = lit->next) {
         if (lit->sig->cls == SYM_CLASS_INTEGER &&
-            lit->value.integer == want_value) {
+            lit->value.integer == line_num) {
             ret = lit;
             break;
         }
@@ -707,7 +708,7 @@ lily_literal *lily_get_integer_literal(lily_symtab *symtab, int want_value)
         /* lily_new_literal is guaranteed to work or raise nomem, so this is
            safe. */
         lily_value v;
-        v.integer = want_value;
+        v.integer = line_num;
         ret = lily_new_literal(symtab, cls, v);
         ret->value = v;
     }

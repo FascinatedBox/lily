@@ -1107,7 +1107,6 @@ static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
                    "For range value contains an assigning expression.");
     }
 
-    int loop_id = parser->emit->loop_id;
     lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_INTEGER);
 
     /* For loop values are created as vars so there's a name in case of a
@@ -1152,17 +1151,28 @@ static void parse_for_in(lily_parse_state *parser)
 
     lily_lexer(lex);
 
-    lily_var *range_start, *range_end;
+    lily_var *for_start, *for_end, *for_step;
 
-    range_start = parse_for_range_value(parser, "(for range start)");
+    for_start = parse_for_range_value(parser, "(for start)");
 
     NEED_CURRENT_TOK(tk_two_dots)
     lily_lexer(lex);
 
-    range_end = parse_for_range_value(parser, "(for range end)");
+    for_end = parse_for_range_value(parser, "(for end)");
 
-    lily_emit_finalize_for_in(parser->emit, loop_var, range_start, range_end,
-                              parser->lex->line_num);
+    if (lex->token == tk_word) {
+        if (strcmp(lex->label, "by") != 0)
+            lily_raise(parser->raiser, lily_ErrSyntax,
+                       "Expected 'by', not '%s'.\n", lex->label);
+
+        lily_lexer(lex);
+        for_step = parse_for_range_value(parser, "(for step)");
+    }
+    else
+        for_step = NULL;
+
+    lily_emit_finalize_for_in(parser->emit, loop_var, for_start, for_end,
+                              for_step, parser->lex->line_num);
 
     NEED_CURRENT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_left_curly)

@@ -785,6 +785,7 @@ void lily_vm_execute(lily_vm_state *vm)
     lily_var *v;
     lily_method_val *m;
     lily_vm_stack_entry *stack_entry;
+    int64_t for_temp;
 
     m = vm->main->value.method;
     code = m->code;
@@ -1244,9 +1245,18 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs      = (lily_sym *)code[i+4];
                 step_var = (lily_sym *)code[i+5];
 
-                if (lhs->value.integer != rhs->value.integer) {
-                    lhs->value.integer += step_var->value.integer;
-                    loop_var->value.integer = lhs->value.integer;
+                for_temp = lhs->value.integer + step_var->value.integer;
+                /* Copied from Lua's for loop. */
+                if ((step_var->value.integer > 0)
+                        /* Positive bound check */
+                        ? (for_temp <= rhs->value.integer)
+                        /* Negative bound check */
+                        : (for_temp >= rhs->value.integer)) {
+
+                    /* Haven't reached the end yet, so bump the internal and
+                       external values.*/
+                    lhs->value.integer = for_temp;
+                    loop_var->value.integer = for_temp;
                     /* The loop var may have been altered and set nil. Make sure
                        it is not nil. */
                     loop_var->flags &= ~S_IS_NIL;
@@ -1276,10 +1286,18 @@ void lily_vm_execute(lily_vm_state *vm)
                     else
                         step_var->value.integer = -1;
                     step_var->flags &= ~S_IS_NIL;
-
-                    loop_var->value.integer = lhs->value.integer;
-                    loop_var->flags &= ~S_IS_NIL;
                 }
+                else {
+                    if (step_var->flags & S_IS_NIL)
+                        novalue_error(vm, i, step_var);
+
+                    if (step_var->value.integer == 0)
+                        lily_raise(vm->raiser, lily_ErrBadValue,
+                                   "for loop step cannot be 0.\n");
+                }
+
+                loop_var->value.integer = lhs->value.integer;
+                loop_var->flags &= ~S_IS_NIL;
 
                 i += 7;
                 break;

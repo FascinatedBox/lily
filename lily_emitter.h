@@ -73,7 +73,7 @@ void lily_emit_vm_return(lily_emit_state *);
 void lily_free_emit_state(lily_emit_state *);
 void lily_reset_main(lily_emit_state *);
 void lily_emit_finalize_for_in(lily_emit_state *, lily_var *, lily_var *,
-        lily_var *, int);
+        lily_var *, lily_var *, int);
 int lily_emit_try_enter_main(lily_emit_state *, lily_var *);
 lily_emit_state *lily_new_emit_state(lily_raiser *);
 

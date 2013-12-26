@@ -14,6 +14,7 @@
 # define lily_ErrOutOfRange     6
 # define lily_ErrBadCast        7
 # define lily_ErrReturnExpected 8
+# define lily_ErrBadValue       9
 
 typedef struct {
     /* The raiser will typically have two jumps: One for the vm to catch runtime
