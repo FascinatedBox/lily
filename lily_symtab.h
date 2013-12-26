@@ -39,7 +39,8 @@ typedef struct {
 #define KEY_SHOW     7
 #define KEY__LINE__  8
 #define KEY__FILE__  9
-#define KEY_LAST_ID  9
+#define KEY_FOR      10
+#define KEY_LAST_ID  10
 
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, char *);

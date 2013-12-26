@@ -876,7 +876,8 @@ static void expression(lily_parse_state *parser, int flags)
                 }
                 else if (lex->token == tk_colon ||
                          lex->token == tk_right_curly ||
-                         lex->token == tk_end_tag || lex->token == tk_eof) {
+                         lex->token == tk_end_tag || lex->token == tk_eof ||
+                         lex->token == tk_two_dots) {
                     if (parser->ast_pool->save_index != 0)
                         lily_raise(parser->raiser, lily_ErrSyntax,
                                 "Unexpected token %s.\n", tokname(lex->token));
@@ -1093,6 +1094,81 @@ static void parse_simple_condition(lily_parse_state *parser)
     lily_emit_leave_block(parser->emit);
 }
 
+static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
+{
+    lily_ast_pool *ap = parser->ast_pool;
+    expression(parser, EX_SINGLE | EX_SAVE_AST | EX_NEED_VALUE);
+
+    /* todo: This should allow binary ops, but not compound assignments or
+             assign-like operations. */
+    if (ap->root->tree_type == tree_binary &&
+        ap->root->op >= expr_assign) {
+        lily_raise(parser->raiser, lily_ErrSyntax,
+                   "For range value contains an assigning expression.");
+    }
+
+    int loop_id = parser->emit->loop_id;
+    lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_INTEGER);
+
+    /* For loop values are created as vars so there's a name in case of a
+       problem. This name doesn't have to be unique, since it will never be
+       found by the user.  */
+    lily_var *var = lily_try_new_var(parser->symtab, cls->sig, name);
+    if (var == NULL)
+        lily_raise_nomem(parser->raiser);
+
+    lily_emit_ast_to_var(parser->emit, ap->root, var);
+    lily_ast_reset_pool(parser->ast_pool);
+
+    return var;
+}
+
+static void parse_for_in(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_var *loop_var;
+
+    NEED_CURRENT_TOK(tk_word)
+
+    lily_emit_enter_block(parser->emit, BLOCK_FOR_IN);
+
+    loop_var = lily_var_by_name(parser->symtab, lex->label);
+    if (loop_var == NULL) {
+        lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_INTEGER);
+        loop_var = lily_try_new_var(parser->symtab, cls->sig, lex->label);
+        if (loop_var == NULL)
+            lily_raise_nomem(parser->raiser);
+    }
+    else if (loop_var->sig->cls->id != SYM_CLASS_INTEGER) {
+        lily_raise(parser->raiser, lily_ErrSyntax,
+                   "Loop var must be type integer, not type '%T'.\n",
+                   loop_var->sig);
+    }
+
+    NEED_NEXT_TOK(tk_word)
+    if (strcmp(lex->label, "in") != 0)
+        lily_raise(parser->raiser, lily_ErrSyntax, "Expected 'in', not '%s'.\n",
+                   lex->label);
+
+    lily_lexer(lex);
+
+    lily_var *range_start, *range_end;
+
+    range_start = parse_for_range_value(parser, "(for range start)");
+
+    NEED_CURRENT_TOK(tk_two_dots)
+    lily_lexer(lex);
+
+    range_end = parse_for_range_value(parser, "(for range end)");
+
+    lily_emit_finalize_for_in(parser->emit, loop_var, range_start, range_end,
+                              parser->lex->line_num);
+
+    NEED_CURRENT_TOK(tk_colon)
+    NEED_NEXT_TOK(tk_left_curly)
+    lily_lexer(lex);
+}
+
 /* statement
    This handles anything that starts with a label. Expressions, conditions,
    declarations, etc. */
@@ -1118,6 +1194,8 @@ static void statement(lily_parse_state *parser)
             lily_emit_break(parser->emit);
         else if (key_id == KEY_SHOW)
             parse_show(parser);
+        else if (key_id == KEY_FOR)
+            parse_for_in(parser);
         else if (key_id == KEY__LINE__ || key_id == KEY__FILE__)
             /* These are useless outside of an expression anyway... */
             lily_raise(parser->raiser, lily_ErrSyntax,
