@@ -191,6 +191,14 @@ typedef enum {
        This can be thought of as the converse of o_obj_assign. */
     o_obj_typecast,
 
+    /* Integer<->Number typecast:
+       * int lineno
+       * sym(integer OR number) left
+       * sym(integer OR number) right
+       This handles conversion from integer to number, and vice versa. Left is
+       the opposite type of right, and the appropriate conversion is made. */
+    o_intnum_typecast,
+
     /* Show:
        * int lineno
        * sym value
