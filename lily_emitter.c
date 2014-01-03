@@ -800,22 +800,36 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     }
 
     lily_storage *result;
+    int cast_opcode;
 
     if (var_sig->cls->id == SYM_CLASS_OBJECT) {
+        cast_opcode = o_obj_typecast;
         result = try_get_proper_storage(emit, cast_sig);
-        if (result == NULL) {
-            emit->raiser->line_adjust = ast->line_num;
-            lily_raise_nomem(emit->raiser);
-        }
     }
     else {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise(emit->raiser, lily_ErrBadCast,
-                "Cannot cast type '%T' to type '%T'.\n",
-                var_sig, cast_sig);
+        if ((var_sig->cls->id == SYM_CLASS_INTEGER &&
+             cast_sig->cls->id == SYM_CLASS_NUMBER) ||
+            (var_sig->cls->id == SYM_CLASS_NUMBER &&
+             cast_sig->cls->id == SYM_CLASS_INTEGER))
+        {
+            cast_opcode = o_intnum_typecast;
+            result = try_get_simple_storage(emit, cast_sig->cls);
+        }
+        else {
+            cast_opcode = -1;
+            emit->raiser->line_adjust = ast->line_num;
+            lily_raise(emit->raiser, lily_ErrBadCast,
+                       "Cannot cast type '%T' to type '%T'.\n",
+                       var_sig, cast_sig);
+        }
     }
 
-    WRITE_4(o_obj_typecast,
+    if (result == NULL) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise_nomem(emit->raiser);
+    }
+
+    WRITE_4(cast_opcode,
             ast->line_num,
             (uintptr_t)ast->right->result,
             (uintptr_t)result)

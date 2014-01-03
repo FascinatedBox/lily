@@ -334,6 +334,45 @@ static void grow_saved_vals(lily_vm_state *vm, int upto)
     vm->saved_values = new_values;
 }
 
+/* maybe_crossover_assign
+   This handles assignment between two symbols which don't have the exact same
+   type. This assumes the caller has verified that rhs is not nil.
+   Returns 1 if the assignment happened, 0 otherwise. */
+int maybe_crossover_assign(lily_sym *lhs, lily_sym *rhs)
+{
+    int ret = 1;
+
+    if (rhs->sig->cls->id != SYM_CLASS_OBJECT) {
+        if (lhs->sig->cls->id == SYM_CLASS_INTEGER &&
+            rhs->sig->cls->id == SYM_CLASS_NUMBER)
+            lhs->value.integer = (int64_t)(rhs->value.number);
+        else if (lhs->sig->cls->id == SYM_CLASS_NUMBER &&
+                 rhs->sig->cls->id == SYM_CLASS_INTEGER)
+            lhs->value.number = (double)(rhs->value.integer);
+        else
+            ret = 0;
+    }
+    else {
+        lily_value obj_val = rhs->value.object->value;
+        int obj_class_id = rhs->value.object->sig->cls->id;
+
+        if (lhs->sig->cls->id == SYM_CLASS_INTEGER &&
+            obj_class_id == SYM_CLASS_NUMBER)
+            lhs->value.integer = (int64_t)(obj_val.number);
+        else if (lhs->sig->cls->id == SYM_CLASS_NUMBER &&
+                 obj_class_id == SYM_CLASS_INTEGER)
+            lhs->value.number = (double)(obj_val.integer);
+        else {
+            ret = 0;
+        }
+    }
+
+    if (ret)
+        lhs->flags &= ~S_IS_NIL;
+
+    return ret;
+}
+
 /* novalue_error
    This is a helper routine that raises ErrNoValue because the given sym is
    nil but should not be. code_pos is the current code position, because the
@@ -1180,7 +1219,9 @@ void lily_vm_execute(lily_vm_state *vm)
                         lhs->flags &= ~S_IS_NIL;
                     }
                 }
-                else {
+                /* Since integer and number can be cast between each other,
+                   allow that with object casts as well. */
+                else if (maybe_crossover_assign(lhs, rhs) == 0) {
                     lily_vm_stack_entry *top;
                     top = vm->method_stack[vm->method_stack_pos-1];
                     top->line_num = top->code[i+1];
@@ -1233,6 +1274,18 @@ void lily_vm_execute(lily_vm_state *vm)
 
                     lhs->value.object->value = rhs->value;
                 }
+                i += 4;
+                break;
+            case o_intnum_typecast:
+                rhs = (lily_sym *)code[i+2];
+                lhs = (lily_sym *)code[i+3];
+                if (rhs->flags & S_IS_NIL)
+                    novalue_error(vm, i, rhs);
+
+                /* Guaranteed to work, because rhs is non-nil and emitter has
+                   already verified the types. This will also make sure that the
+                   nil flag isn't set on lhs. */
+                maybe_crossover_assign(lhs, rhs);
                 i += 4;
                 break;
             case o_integer_for:

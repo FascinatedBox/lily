@@ -1340,6 +1340,41 @@ method test_for_in():nil
     }
 }
 
+method test_intnum_cast():nil
+{
+    printfmt("#%i: Testing integer to number casting...", test_id)
+    test_id = test_id + 1
+
+    integer int1, int2
+    number num1, num2
+
+    ###
+    This works against objects as well so that a user doesn't have to cast the
+    cast away from object.
+
+    Without:
+        number n = @(number: @(integer: int_obj))
+    With:
+        number n = @(number: int_obj)
+    ###
+
+    object int_obj = -5
+    object num_obj = 10.5
+
+    int1 = @(integer: 10.5)
+    num1 = @(number: -5)
+
+    int2 = @(integer: num_obj)
+    num2 = @(number: int_obj)
+
+    if int1 == 10 && int2 == 10 && num1 == -5.0 && num2 == -5.0: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        fail_count = fail_count + 1
+    }
+}
+
 method test_misc():nil
 {
     printfmt("#%i: Miscellaneous features...(sub tests follow).\n", test_id)
@@ -1391,6 +1426,7 @@ test_while()
 test_assign_chain()
 test_multiline_comment()
 test_for_in()
+test_intnum_cast()
 test_misc()
 
 test_id = test_id - 1

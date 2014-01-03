@@ -58,7 +58,7 @@
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[38] = {
+char *opcode_names[39] = {
     "assign               ",
     "object assign        ",
     "assign (ref/deref)   ",
@@ -92,6 +92,7 @@ char *opcode_names[38] = {
     "build list           ",
     "subscript            ",
     "typecast             ",
+    "integer <-> number   ",
     "show                 ",
     "return expected      ",
     "for (integer range)  ",
@@ -111,6 +112,7 @@ static const int sub_assign_ci[] = {4, D_LINENO, D_INPUT, D_INPUT, D_INPUT};
 static const int binary_ci[]     = {4, D_LINENO, D_INPUT, D_INPUT, D_OUTPUT};
 static const int in_out_ci[]     = {3, D_LINENO, D_INPUT, D_OUTPUT};
 static const int jump_if_ci[]    = {3, D_JUMP_ON, D_INPUT, D_JUMP};
+static const int intnum_ci[]     = {3, D_LINENO, D_INPUT, D_OUTPUT};
 static const int save_ci[]       = {2, D_SHOW_COUNT, D_COUNT_LIST};
 static const int return_ci[]     = {2, D_LINENO, D_OUTPUT};
 static const int show_ci[]       = {2, D_LINENO, D_INPUT};
@@ -219,6 +221,9 @@ static const int *code_info_for_opcode(int opcode)
             break;
         case o_jump_if:
             ret = jump_if_ci;
+            break;
+        case o_intnum_typecast:
+            ret = intnum_ci;
             break;
         case o_integer_for:
             ret = for_integer_ci;
