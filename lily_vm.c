@@ -921,6 +921,15 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_right_shift:
                 INTEGER_OP(>>)
                 break;
+            case o_bitwise_and:
+                INTEGER_OP(&)
+                break;
+            case o_bitwise_or:
+                INTEGER_OP(|)
+                break;
+            case o_bitwise_xor:
+                INTEGER_OP(^)
+                break;
             case o_number_div:
                 /* This is a little more tricky, because the rhs could be a
                    number or an integer... */

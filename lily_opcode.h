@@ -71,6 +71,9 @@ typedef enum {
     o_integer_div,
     o_left_shift,
     o_right_shift,
+    o_bitwise_and,
+    o_bitwise_or,
+    o_bitwise_xor,
 
     /* Numeric binary ops:
        * int lineno

@@ -11,7 +11,7 @@
    * Integer, number, and str have id 0, 1, and 2 respectively.
    Access it by [opcode][lhs id][rhs id]. -1 means the operation is not
    supported. */
-static const int generic_binop_table[12][3][3] =
+static const int generic_binop_table[15][3][3] =
 {
     {
         {o_integer_add, o_number_add, -1},
@@ -70,6 +70,21 @@ static const int generic_binop_table[12][3][3] =
     },
     {
         {o_right_shift, -1, -1},
+        {-1, -1, -1},
+        {-1, -1, -1}
+    },
+    {
+        {o_bitwise_and, -1, -1},
+        {-1, -1, -1},
+        {-1, -1, -1}
+    },
+    {
+        {o_bitwise_or, -1, -1},
+        {-1, -1, -1},
+        {-1, -1, -1}
+    },
+    {
+        {o_bitwise_xor, -1, -1},
         {-1, -1, -1},
         {-1, -1, -1}
     },
