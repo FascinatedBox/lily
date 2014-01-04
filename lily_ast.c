@@ -283,21 +283,36 @@ static int priority_for_op(lily_expr_op o)
         case expr_gr_eq:
             prio = 4;
             break;
+        /* Bitwise ops are intentionally put before equality operations. This
+           allows users to use bitwise ops without parens.
+           This:        a & 0x10 == x
+           Instead of: (a & 0x10) == x
+
+           Keeping their different precendence levels for now though. */
+        case expr_bitwise_or:
+            prio = 5;
+            break;
+        case expr_bitwise_xor:
+            prio = 6;
+            break;
+        case expr_bitwise_and:
+            prio = 7;
+            break;
         case expr_left_shift:
         case expr_right_shift:
-            prio = 5;
+            prio = 8;
             break;
         case expr_plus:
         case expr_minus:
-            prio = 6;
+            prio = 9;
             break;
         case expr_multiply:
         case expr_divide:
-            prio = 7;
+            prio = 10;
             break;
         case expr_unary_not:
         case expr_unary_minus:
-            prio = 8;
+            prio = 11;
             break;
         default:
             /* Won't happen, but makes -Wall happy. */

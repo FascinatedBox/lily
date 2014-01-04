@@ -58,7 +58,7 @@
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[39] = {
+char *opcode_names[42] = {
     "assign               ",
     "object assign        ",
     "assign (ref/deref)   ",
@@ -69,6 +69,9 @@ char *opcode_names[39] = {
     "integer divide (/)   ",
     "left shift (<<)      ",
     "right shift (>>)     ",
+    "bitwise and (a & b)  ",
+    "bitwise or (a | b)   ",
+    "bitwise xor (a ^ b)  ",
     "number add (+)       ",
     "number minus (-)     ",
     "number multiply (*)  ",
@@ -185,6 +188,9 @@ static const int *code_info_for_opcode(int opcode)
         case o_subscript:
         case o_left_shift:
         case o_right_shift:
+        case o_bitwise_and:
+        case o_bitwise_or:
+        case o_bitwise_xor:
             ret = binary_ci;
             break;
         case o_method_call:

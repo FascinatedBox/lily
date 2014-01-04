@@ -15,6 +15,7 @@ typedef enum {
     tk_colon,
     tk_left_bracket,
     tk_right_bracket,
+    tk_caret,
     tk_equal,
     tk_eq_eq,
     tk_not,
