@@ -49,12 +49,13 @@ typedef struct {
     int expr_num;
 } lily_emit_state;
 
-# define BLOCK_IF     0x01
-# define BLOCK_IFELSE 0x02
-# define BLOCK_ANDOR  0x04
-# define BLOCK_WHILE  0x10
-# define BLOCK_FOR_IN 0x20
-# define BLOCK_METHOD 0x40
+# define BLOCK_IF       0x001
+# define BLOCK_IFELSE   0x002
+# define BLOCK_ANDOR    0x004
+# define BLOCK_WHILE    0x010
+# define BLOCK_DO_WHILE 0x020
+# define BLOCK_FOR_IN   0x040
+# define BLOCK_METHOD   0x100
 
 void lily_emit_add_save_var(lily_emit_state *, lily_var *);
 void lily_emit_ast(lily_emit_state *, lily_ast *);
@@ -74,6 +75,7 @@ void lily_free_emit_state(lily_emit_state *);
 void lily_reset_main(lily_emit_state *);
 void lily_emit_finalize_for_in(lily_emit_state *, lily_var *, lily_var *,
         lily_var *, lily_var *, int);
+void lily_eval_do_while_expr(lily_emit_state *, lily_ast *);
 int lily_emit_try_enter_main(lily_emit_state *, lily_var *);
 lily_emit_state *lily_new_emit_state(lily_raiser *);
 

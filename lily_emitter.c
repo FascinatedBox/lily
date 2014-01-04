@@ -117,6 +117,8 @@ m->code[m->pos+3] = four; \
 m->code[m->pos+4] = five; \
 m->pos += 5;
 
+# define IS_LOOP_BLOCK(b) (b & (BLOCK_WHILE | BLOCK_DO_WHILE | BLOCK_FOR_IN))
+
 /** Emitter init and deletion **/
 lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
 {
@@ -307,8 +309,7 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
     for (block = emit->current_block;
          block;
          block = block->prev) {
-        if (block->block_type == BLOCK_WHILE ||
-            block->block_type == BLOCK_FOR_IN) {
+        if (IS_LOOP_BLOCK(block->block_type)) {
             ret = block;
             break;
         }
@@ -1501,6 +1502,27 @@ void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
     lily_emit_jump_if(emit, ast, 0);
 }
 
+/* lily_eval_do_while_expr
+   This handles the eval of a while expression for a do...while loop. */
+void lily_eval_do_while_expr(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_method_val *m = emit->top_method;
+
+    eval_tree(emit, ast);
+    emit->expr_num++;
+
+    if (ast->result == NULL)
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                   "Conditional statement has no value.\n");
+
+    /* If condition isn't met, jump back to where the loop started. Otherwise,
+       fall out of the loop. */
+    WRITE_4(o_jump_if,
+            0,
+            (uintptr_t)ast->result,
+            emit->current_block->loop_start)
+}
+
 /* lily_emit_continue
    This emits a jump to go back up to the top of a while. Since this is called
    by parser, it also checks that emitter is in a while. */
@@ -1682,7 +1704,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
 
     if (block_type != BLOCK_METHOD) {
         new_block->patch_start = emit->patch_pos;
-        if (block_type == BLOCK_WHILE || block_type == BLOCK_FOR_IN)
+        if (IS_LOOP_BLOCK(block_type))
             new_block->loop_start = emit->top_method->pos;
         else
             new_block->loop_start = emit->current_block->loop_start;
