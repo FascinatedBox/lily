@@ -20,6 +20,8 @@ typedef enum {
     tk_eq_eq,
     tk_not,
     tk_not_eq,
+    tk_modulo,
+    tk_modulo_eq,
     tk_multiply,
     tk_multiply_eq,
     tk_divide,

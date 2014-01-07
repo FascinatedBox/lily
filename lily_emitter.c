@@ -172,8 +172,10 @@ void lily_free_emit_state(lily_emit_state *emit)
 /** Shared helper functions **/
 static char *opname(lily_expr_op op)
 {
-    char *opnames[] = {"+", "-", "==", "<", "<=", ">", ">=", "!=", "*", "/",
-                       "!", "-", "&&", "||", "=", "*=", "/="};
+    static char *opnames[] =
+    {"+", "-", "==", "<", "<=", ">", ">=", "!=", "%", "*", "/", "<<", ">>", "&",
+     "|", "^", "!", "-", "&&", "||", "=", "+=", "-=", "%=", "*=", "/=", "<<=",
+     ">>="};
 
     return opnames[op];
 }
@@ -522,6 +524,8 @@ static void emit_op_for_compound(lily_emit_state *emit, lily_ast *ast)
         spoof_op = expr_divide;
     else if (ast->op == expr_mul_assign)
         spoof_op = expr_multiply;
+    else if (ast->op == expr_modulo_assign)
+        spoof_op = expr_modulo;
     else if (ast->op == expr_plus_assign)
         spoof_op = expr_plus;
     else if (ast->op == expr_minus_assign)

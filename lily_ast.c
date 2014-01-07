@@ -308,6 +308,7 @@ static int priority_for_op(lily_expr_op o)
             break;
         case expr_multiply:
         case expr_divide:
+        case expr_modulo:
             prio = 10;
             break;
         case expr_unary_not:

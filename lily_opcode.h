@@ -64,9 +64,13 @@ typedef enum {
        * sym(integer) left
        * sym(integer) right
        * sym(integer) result
-       These are the integer-only fast version of the number arith ops. */
+       Opcodes that start with o_integer_ are integer-only versions of
+       operations for which there is a more flexible numeric version.
+       Those here that don't (like o_modulo, o_left_shift, etc.) do not have
+       numeric versions. */
     o_integer_add,
     o_integer_minus,
+    o_modulo,
     o_integer_mul,
     o_integer_div,
     o_left_shift,
