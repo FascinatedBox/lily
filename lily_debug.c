@@ -58,13 +58,14 @@
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[42] = {
+char *opcode_names[43] = {
     "assign               ",
     "object assign        ",
     "assign (ref/deref)   ",
     "subscript assign     ",
     "integer add (+)      ",
     "integer minus (-)    ",
+    "modulo (%)           ",
     "integer multiply (*) ",
     "integer divide (/)   ",
     "left shift (<<)      ",
@@ -181,6 +182,7 @@ static const int *code_info_for_opcode(int opcode)
         case o_greater:
         case o_greater_eq:
         case o_not_eq:
+        case o_modulo:
         case o_integer_mul:
         case o_number_mul:
         case o_integer_div:

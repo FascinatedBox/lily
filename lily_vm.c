@@ -897,6 +897,9 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_jump:
                 i = code[i+1];
                 break;
+            case o_modulo:
+                INTEGER_OP(%)
+                break;
             case o_integer_mul:
                 INTEGER_OP(*)
                 break;

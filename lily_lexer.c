@@ -45,30 +45,31 @@
 #define CC_G_TWO_OFFSET  9
 #define CC_EQUAL         9
 #define CC_NOT          10
-#define CC_MULTIPLY     11
-#define CC_DIVIDE       12
-#define CC_G_TWO_LAST   12
+#define CC_PERCENT      11
+#define CC_MULTIPLY     12
+#define CC_DIVIDE       13
+#define CC_G_TWO_LAST   13
 
 /* Greater and Less are able to do shifts, self=, and self. However, they are
    not put into a group because it's only two. This is why they are not in
    group 2. */
-#define CC_GREATER      13
-#define CC_LESS         14
-#define CC_PLUS         15
-#define CC_MINUS        16
-#define CC_WORD         17
-#define CC_DOUBLE_QUOTE 18
-#define CC_NUMBER       19
+#define CC_GREATER      14
+#define CC_LESS         15
+#define CC_PLUS         16
+#define CC_MINUS        17
+#define CC_WORD         18
+#define CC_DOUBLE_QUOTE 19
+#define CC_NUMBER       20
 
-#define CC_NEWLINE      20
-#define CC_SHARP        21
-#define CC_STR_NEWLINE  22
-#define CC_STR_END      23
-#define CC_DOT          24
-#define CC_AT           25
-#define CC_AMPERSAND    26
-#define CC_VBAR         27
-#define CC_INVALID      28
+#define CC_NEWLINE      21
+#define CC_SHARP        22
+#define CC_STR_NEWLINE  23
+#define CC_STR_END      24
+#define CC_DOT          25
+#define CC_AT           26
+#define CC_AMPERSAND    27
+#define CC_VBAR         28
+#define CC_INVALID      29
 
 /*  This table indicates how many more bytes need to be successfully read after
     that particular byte for proper utf-8. -1 = invalid.
@@ -127,12 +128,12 @@ static const char ident_table[256] =
 /* Group 1 doesn't need a table because the token is just ch_class[ch]. */
 static const lily_token grp_two_table[] =
 {
-    tk_equal, tk_not, tk_multiply, tk_divide
+    tk_equal, tk_not, tk_modulo, tk_multiply, tk_divide
 };
 
 static const lily_token grp_two_eq_table[] =
 {
-    tk_eq_eq, tk_not_eq, tk_multiply_eq, tk_divide_eq,
+    tk_eq_eq, tk_not_eq, tk_modulo_eq, tk_multiply_eq, tk_divide_eq,
 };
 
 /** Lexer init and deletion **/
@@ -203,6 +204,7 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     ch_class[(unsigned char)'*'] = CC_MULTIPLY;
     ch_class[(unsigned char)'/'] = CC_DIVIDE;
     ch_class[(unsigned char)'&'] = CC_AMPERSAND;
+    ch_class[(unsigned char)'%'] = CC_PERCENT;
     ch_class[(unsigned char)'|'] = CC_VBAR;
     ch_class[(unsigned char)'['] = CC_LEFT_BRACKET;
     ch_class[(unsigned char)']'] = CC_RIGHT_BRACKET;
@@ -1282,10 +1284,11 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
 char *tokname(lily_token t)
 {
     static char *toknames[] =
-    {"(", ")", ",", "{", "}", ":", "[", "]", "^", "=", "==", "!", "!=", "*",
-     "*=", "/", "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=",
-     ">>", ">>=", "a label", "a string", "an integer", "a number", ".", "&",
-     "&&", "|", "||", "@(", "..", "...", "invalid token", "@>", "end of file"};
+    {"(", ")", ",", "{", "}", ":", "[", "]", "^", "=", "==", "!", "!=", "%",
+     "%=", "*", "*=", "/", "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=",
+     ">", ">=", ">>", ">>=", "a label", "a string", "an integer", "a number",
+     ".", "&", "&&", "|", "||", "@(", "..", "...", "invalid token", "@>",
+     "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];
