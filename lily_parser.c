@@ -59,10 +59,6 @@
    for collecting a method that may have named arguments. */
 #define CV_TOPLEVEL   0x040
 
-/* This is set if collect_var_sig should only run once. If not set, then
-   it will collect args separated by commas. */
-#define CV_ONCE       0x100
-
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
 if (lex->token != expected) \
@@ -271,183 +267,164 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig)
     example). It shouldn't be called for simple classes.
   * Sigs are put into the parser's sig stack to keep them from being leaked
     in case of lily_raise/lily_raise_nomem being called. **/
-static void collect_var_sig(lily_parse_state *parser, int flags);
+static lily_sig *collect_var_sig(lily_parse_state *parser, int flags);
 
-/* check_sig_stack ensures that the parser's signature stack has
-   enough space to hold another signature. */
-static void check_sig_stack(lily_parse_state *parser)
+static void grow_sig_stack(lily_parse_state *parser)
 {
-    if (parser->sig_stack_pos == parser->sig_stack_size) {
-        parser->sig_stack_size *= 2;
-        lily_sig **new_sig_stack = lily_realloc(parser->sig_stack,
-            sizeof(lily_sig *) * parser->sig_stack_size);
+    parser->sig_stack_size *= 2;
 
-        if (new_sig_stack == NULL)
-            lily_raise_nomem(parser->raiser);
+    lily_sig **new_sig_stack = lily_realloc(parser->sig_stack,
+        sizeof(lily_sig *) * parser->sig_stack_size);
 
-        parser->sig_stack = new_sig_stack;
-    }
-}
-
-/* collect_simple handles any class that doesn't contain inner
-   signatures. Currently, this is everything BUT list, function, and
-   method. */
-static void collect_simple(lily_parse_state *parser, lily_class *cls,
-                           int flags)
-{
-    check_sig_stack(parser);
-    parser->sig_stack[parser->sig_stack_pos] = cls->sig;
-    parser->sig_stack_pos++;
-    if (flags & CV_MAKE_VARS)
-        get_named_var(parser, cls->sig);
-}
-
-/* collect_call handles methods. */
-static void collect_call(lily_parse_state *parser, int flags)
-{
-    lily_lex_state *lex = parser->lex;
-    lily_class *cls = lily_class_by_id(parser->symtab,
-            SYM_CLASS_METHOD);
-    check_sig_stack(parser);
-    lily_sig *method_sig = lily_try_sig_for_class(parser->symtab, cls);
-    lily_var *method_var;
-    if (method_sig == NULL)
+    if (new_sig_stack == NULL)
         lily_raise_nomem(parser->raiser);
 
-    parser->sig_stack[parser->sig_stack_pos] = method_sig;
-    parser->sig_stack_pos++;
-
-    if (flags & CV_MAKE_VARS) {
-        method_var = get_named_var(parser, method_sig);
-
-        if ((flags & CV_TOPLEVEL) != 0)
-            lily_emit_enter_block(parser->emit, BLOCK_METHOD);
-        /* If not toplevel, then it's been registered already. */
-    }
-    /* else it doesn't have a name, so nothing to do here. */
-
-    NEED_NEXT_TOK(tk_left_parenth)
-    lily_lexer(lex);
-    if (lex->token != tk_right_parenth) {
-        int method_flags = 0;
-        int save_pos = parser->sig_stack_pos;
-        lily_var *var_start;
-        if (flags & CV_TOPLEVEL) {
-            method_flags |= CV_MAKE_VARS;
-            var_start = parser->symtab->var_top;
-        }
-
-        collect_var_sig(parser, method_flags);
-
-        lily_sig **args;
-        int num_args = parser->sig_stack_pos - save_pos;
-        int i;
-        args = lily_malloc(num_args * sizeof(lily_sig *));
-        if (args == NULL)
-            lily_raise_nomem(parser->raiser);
-
-        for (i = 0;i < num_args;i++)
-            args[i] = parser->sig_stack[save_pos + i];
-
-        if (flags & CV_TOPLEVEL) {
-            method_var->value.method->first_arg = var_start->next;
-            method_var->value.method->last_arg = parser->symtab->var_top;
-        }
-
-        method_sig->node.call->num_args = num_args;
-        method_sig->node.call->args = args;
-        parser->sig_stack_pos = save_pos;
-        /* If ... is at the end, then the call is varargs (and the last sig is
-           the sig that will use them). */
-        if (lex->token == tk_three_dots) {
-            if (num_args == 0)
-                lily_raise(parser->raiser, lily_ErrSyntax,
-                           "Unexpected token %s.\n", tokname(lex->token));
-
-            if (args[i-1]->cls->id != SYM_CLASS_LIST) {
-                lily_raise(parser->raiser, lily_ErrSyntax,
-                        "A list is required for variable arguments (...).\n");
-            }
-
-            method_sig->node.call->is_varargs = 1;
-            NEED_NEXT_TOK(tk_right_parenth)
-        }
-    }
-    NEED_NEXT_TOK(tk_colon)
-    NEED_NEXT_TOK(tk_word)
-    if (strcmp(lex->label, "nil") != 0) {
-        collect_var_sig(parser, CV_ONCE);
-        int ssp = parser->sig_stack_pos;
-        method_sig->node.call->ret = parser->sig_stack[ssp-1];
-        parser->sig_stack_pos--;
-    }
-
-    /* Update the return of the method that was entered now that it's known. */
-    if (flags & CV_TOPLEVEL)
-        parser->emit->top_method_ret = method_sig->node.call->ret;
+    parser->sig_stack = new_sig_stack;
 }
 
-/* collect_list
-   This does the list collection for collect_var_sig. */
-static void collect_list(lily_parse_state *parser, int flags)
+static void collect_call_args(lily_parse_state *parser, int flags,
+        lily_sig *call_sig, lily_var *call_var)
 {
-    lily_class *cls;
-    lily_sig *list_sig;
+    int call_flags = 0;
+    int i = 0;
+    int save_pos = parser->sig_stack_pos;
     lily_lex_state *lex = parser->lex;
+    lily_var *var_start;
 
-    NEED_NEXT_TOK(tk_left_bracket)
-    NEED_NEXT_TOK(tk_word)
-    collect_var_sig(parser, CV_ONCE);
-    NEED_NEXT_TOK(tk_right_bracket)
+    /* A callable's arguments are named if it's not an argument to something
+       else. */
+    if (flags & CV_TOPLEVEL) {
+        call_flags |= CV_MAKE_VARS;
+        var_start = parser->symtab->var_top;
+    }
 
-    cls = lily_class_by_id(parser->symtab, SYM_CLASS_LIST);
-    list_sig = lily_try_sig_for_class(parser->symtab, cls);
+    while (1) {
+        if (parser->sig_stack_pos == parser->sig_stack_size)
+            grow_sig_stack(parser);
 
-    if (list_sig == NULL)
+        lily_sig *arg_sig = collect_var_sig(parser, call_flags);
+        parser->sig_stack[parser->sig_stack_pos] = arg_sig;
+        parser->sig_stack_pos++;
+
+        lily_lexer(lex);
+        if (lex->token == tk_right_parenth ||
+            lex->token == tk_three_dots)
+            break;
+
+        NEED_CURRENT_TOK(tk_comma)
+        lily_lexer(lex);
+    }
+
+    lily_sig **args;
+    int num_args = parser->sig_stack_pos - save_pos;
+    args = lily_malloc(num_args * sizeof(lily_sig *));
+    if (args == NULL)
         lily_raise_nomem(parser->raiser);
-    if (flags & CV_MAKE_VARS)
-        get_named_var(parser, list_sig);
 
-    list_sig->node.value_sig = parser->sig_stack[parser->sig_stack_pos-1];
-    parser->sig_stack[parser->sig_stack_pos-1] = list_sig;
+    for (i = 0;i < num_args;i++)
+        args[i] = parser->sig_stack[save_pos + i];
+
+    /* This is safe because only methods can be declared right now. */
+    if (flags & CV_TOPLEVEL) {
+        call_var->value.method->first_arg = var_start->next;
+        call_var->value.method->last_arg = parser->symtab->var_top;
+    }
+
+    call_sig->node.call->num_args = i;
+    call_sig->node.call->args = args;
+    parser->sig_stack_pos = save_pos;
+
+    /* If ... is at the end, then the call is varargs (and the last sig is
+       the sig that will use them). */
+    if (lex->token == tk_three_dots) {
+        if (num_args == 0)
+            lily_raise(parser->raiser, lily_ErrSyntax,
+                       "Unexpected token %s.\n", tokname(lex->token));
+
+        if (args[i-1]->cls->id != SYM_CLASS_LIST) {
+            lily_raise(parser->raiser, lily_ErrSyntax,
+                    "A list is required for variable arguments (...).\n");
+        }
+
+        call_sig->node.call->is_varargs = 1;
+        NEED_NEXT_TOK(tk_right_parenth)
+    }
 }
 
 /* collect_var_sig
    This is the entry point for complex signature collection. */
-static void collect_var_sig(lily_parse_state *parser, int flags)
+static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
 {
     lily_lex_state *lex = parser->lex;
     lily_class *cls;
-    int collect_multi;
 
-    /* This is inverted to collect_multi because most collections will be of
-       multiple args. */
-    collect_multi = !(flags & CV_ONCE);
-    while (1) {
-        NEED_CURRENT_TOK(tk_word)
-        cls = lily_class_by_name(parser->symtab, lex->label);
-        if (cls == NULL)
-            lily_raise(parser->raiser, lily_ErrSyntax,
-                       "unknown class name %s.\n", lex->label);
+    NEED_CURRENT_TOK(tk_word)
+    cls = lily_class_by_name(parser->symtab, lex->label);
+    if (cls == NULL)
+        lily_raise(parser->raiser, lily_ErrSyntax,
+                   "unknown class name %s.\n", lex->label);
 
-        if (cls->id == SYM_CLASS_METHOD ||
-            cls->id == SYM_CLASS_FUNCTION)
-            collect_call(parser, flags);
-        else if (cls->id == SYM_CLASS_LIST)
-            collect_list(parser, flags);
-        else
-            collect_simple(parser, cls, flags);
+    lily_sig *result;
 
-        if (!collect_multi)
-            break;
-        else {
-            lily_lexer(lex);
-            if (lex->token != tk_comma)
-                break;
-            lily_lexer(lex);
-            continue;
-        }
+    if (cls->id != SYM_CLASS_METHOD && cls->id != SYM_CLASS_FUNCTION &&
+        cls->id != SYM_CLASS_LIST) {
+        result = cls->sig;
+        if (flags & CV_MAKE_VARS)
+            get_named_var(parser, cls->sig);
     }
+    else if (cls->id == SYM_CLASS_LIST) {
+        NEED_NEXT_TOK(tk_left_bracket)
+        lily_lexer(lex);
+        result = collect_var_sig(parser, 0);
+        NEED_NEXT_TOK(tk_right_bracket)
+
+        lily_sig *list_sig = lily_try_sig_for_class(parser->symtab, cls);
+        if (list_sig == NULL)
+            lily_raise_nomem(parser->raiser);
+
+        list_sig->node.value_sig = result;
+        result = list_sig;
+        if (flags & CV_MAKE_VARS)
+            get_named_var(parser, result);
+    }
+    else if (cls->id == SYM_CLASS_METHOD ||
+             cls->id == SYM_CLASS_FUNCTION) {
+        lily_sig *call_sig = lily_try_sig_for_class(parser->symtab, cls);
+        lily_var *call_var;
+        if (call_sig == NULL)
+            lily_raise_nomem(parser->raiser);
+
+        if (flags & CV_MAKE_VARS) {
+            call_var = get_named_var(parser, call_sig);
+
+            if (flags & CV_TOPLEVEL)
+                lily_emit_enter_block(parser->emit, BLOCK_METHOD);
+        }
+
+        NEED_NEXT_TOK(tk_left_parenth)
+        lily_lexer(lex);
+        if (lex->token != tk_right_parenth)
+            collect_call_args(parser, flags, call_sig, call_var);
+
+        NEED_NEXT_TOK(tk_colon)
+        NEED_NEXT_TOK(tk_word)
+        if (strcmp(lex->label, "nil") == 0)
+            call_sig->node.call->ret = NULL;
+        else {
+            lily_sig *call_ret_sig = collect_var_sig(parser, 0);
+            call_sig->node.call->ret = call_ret_sig;
+        }
+
+        /* Let emitter know the true return type. */
+        if (flags & CV_TOPLEVEL)
+            parser->emit->top_method_ret = call_sig->node.call->ret;
+
+        result = call_sig;
+    }
+    else
+        result = NULL;
+
+    return result;
 }
 
 /** Expression handling, and helpers.
@@ -470,8 +447,7 @@ static void expression_typecast(lily_parse_state *parser)
     lily_sig *new_sig;
 
     lily_lexer(lex);
-    collect_var_sig(parser, CV_ONCE);
-    new_sig = parser->sig_stack[parser->sig_stack_pos-1];
+    new_sig = collect_var_sig(parser, 0);
 
     NEED_NEXT_TOK(tk_colon)
 
@@ -482,7 +458,6 @@ static void expression_typecast(lily_parse_state *parser)
 
     /* The ast owns the sig until the emitter takes it over. */
     lily_ast_push_sig(parser->ast_pool, new_sig);
-    parser->sig_stack_pos--;
 
     /* This should be the value. Yield to expression_value in case the value
        is more than just a var. */
@@ -727,9 +702,7 @@ static void expression_value(lily_parse_state *parser)
                     if (cls != NULL) {
                         /* Make sure this works with complex signatures as well
                            as simple ones. */
-                        collect_var_sig(parser, CV_ONCE);
-                        sig = parser->sig_stack[parser->sig_stack_pos-1];
-                        parser->sig_stack_pos--;
+                        sig = collect_var_sig(parser, 0);
                         NEED_NEXT_TOK(tk_right_bracket)
                         lily_lexer(lex);
 
@@ -1291,20 +1264,13 @@ static void statement(lily_parse_state *parser)
 
             if (cls_id == SYM_CLASS_METHOD) {
                 /* This will enter the method since the method is toplevel. */
-                collect_var_sig(parser, CV_ONCE | CV_TOPLEVEL | CV_MAKE_VARS);
+                collect_var_sig(parser, CV_TOPLEVEL | CV_MAKE_VARS);
                 NEED_NEXT_TOK(tk_left_curly)
                 lily_lexer(lex);
-                parser->sig_stack_pos--;
             }
             else if (cls_id == SYM_CLASS_LIST) {
-                collect_var_sig(parser, CV_ONCE);
-
-                lily_sig *list_sig;
-                list_sig = parser->sig_stack[parser->sig_stack_pos-1];
-                /* parse_decl might have something that raises, so don't take
-                   this from the sig stack yet. */
+                lily_sig *list_sig = collect_var_sig(parser, 0);
                 parse_decl(parser, list_sig);
-                parser->sig_stack_pos--;
             }
             else if (cls_id == SYM_CLASS_FUNCTION)
                 /* As of now, user-declared functions can't do anything except
