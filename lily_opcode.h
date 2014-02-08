@@ -16,29 +16,32 @@
      explanation of how it works here.
    Legend:
    * int: Describes an int value written to the code array.
-   * sym: Describes a symbol that could be of any type.
-   * sym(x): Describes a symbol that is guaranteed by the emitter to be of a
-             given type. Negative qualifiers are okay (ex: !object), as well
-             as specifying anything of a basic type (ex: list[*] to denote a
-             list that may contain any type).
-   * sym...: Indicates a series of arguments. Typically, a num_args is given
-             beforehand to indicate how many syms are coming.
+   * addr: The given value is an address, rather than an index to something.
+           This is necessary for o_get_const.
+   * reg: An integer index that maps to a local register, unless otherwise
+          specified. Each method has its own set of registers to work with.
+   * reg(x): Describes an index to a local register that is guaranteed by the
+             emitter to be of a given type. Negative qualifiers are okay (ex:
+             !object), as well as specifying anything of a basic type (ex:
+             list[*] to denote a list that may contain any type).
+   * reg...: Indicates a series of indexes to registers that will be used as
+             arguments. An argument count is provided beforehand.
    * T: A type that could be anything. This is used to indicate that two syms
         share a type. Ex:
-        * A sym(list[T])
-        * B sym(T)
+        * A reg(list[T])
+        * B reg(T)
         This indicates that A has a list of some type, and that B is a value of
         that same type. List-related ops use this.
-        
+
    Additionally, 'right' is used in place of 'result' where there is no true
    result.*/
 typedef enum {
-    /* Assignments: int lineno, sym left, sym right. */
+    /* Assignments: int lineno, reg left, reg right. */
     o_assign,
     /* Object assignment:
        * int lineno
-       * sym(object) left
-       * sym(*) right
+       * reg(object) left
+       * reg(*) right
        This makes sure that objects can be assigned any value. Updates the
        object's value sig and the value. Also does ref/deref. */
     o_obj_assign,
@@ -50,9 +53,9 @@ typedef enum {
 
     /* Subscript assignment:
        * int lineno
-       * sym(list[T]) left
-       * sym(integer) index
-       * sym(T) right
+       * reg(list[T]) left
+       * reg(integer) index
+       * reg(T) right
        Subscript assignment is special cased so that the list holding the value
        is updated. Subscript and then assign also wouldn't work for primitives
        (the assign would be targeting an integer storage, not the list value).
@@ -61,9 +64,9 @@ typedef enum {
 
     /* Integer binary ops:
        * int lineno
-       * sym(integer) left
-       * sym(integer) right
-       * sym(integer) result
+       * reg(integer) left
+       * reg(integer) right
+       * reg(integer) result
        Opcodes that start with o_integer_ are integer-only versions of
        operations for which there is a more flexible numeric version.
        Those here that don't (like o_modulo, o_left_shift, etc.) do not have
@@ -81,9 +84,9 @@ typedef enum {
 
     /* Numeric binary ops:
        * int lineno
-       * sym(number/integer) left
-       * sym(number/integer) right
-       * sym(number) result
+       * reg(number/integer) left
+       * reg(number/integer) right
+       * reg(number) result
        These are the slower arith ops, because they have to handle different
        type combinations. */
     o_number_add,
@@ -93,9 +96,9 @@ typedef enum {
 
     /* Binary comparison ops:
        * int lineno
-       * sym(integer/number/str) left
-       * sym(typeof(left)) right
-       * sym(integer) result */
+       * reg(integer/number/str) left
+       * reg(typeof(left)) right
+       * reg(integer) result */
     o_is_equal,
     o_not_eq,
     o_less,
@@ -111,7 +114,7 @@ typedef enum {
 
     /* jump_if:
        * int jump_on
-       * sym left
+       * reg left
        * int jump
        If jump_on is 1, move to jump if left is TRUE.
        If jump_on is 0, move to jump if left is FALSE.
@@ -126,18 +129,18 @@ typedef enum {
        future.
        Both are: 
        * int lineno
-       * sym(method * / func *) input
+       * reg(method * / func *) input
        * int num_args
-       * sym args...
-       * sym result
-       Input -must- be a sym, or passing methods/functions as arguments will
+       * reg args...
+       * reg result
+       Input -must- be a reg, or passing methods/functions as arguments will
        fail. */
     o_func_call,
     o_method_call,
 
     /* return val:
        * int lineno
-       * sym result
+       * reg result
        Pushes the result to the storage that the caller reserved for it. The
        lineno is added for debug. */
     o_return_val,
@@ -147,19 +150,6 @@ typedef enum {
        Returns from the current call but doesn't push a value. Lineno is
        strictly for debug. */
     o_return_noval,
-
-    /* Save:
-       * int num_args
-       * sym(*) args...
-       This is used to save locals and parameters (and occasionally storages)
-       before doing a method call. */
-    o_save,
-
-    /* Restore:
-       * int num_args
-       The converse of o_save. This restores the symbols saved, and is done
-       after a method call. */
-    o_restore,
 
     /* Unary operations:
        * int lineno
@@ -171,8 +161,8 @@ typedef enum {
     /* Build list:
        * int lineno
        * int num_args
-       * sym args...
-       * sym result
+       * reg args...
+       * reg result
        This creates a new list. Emitter has already set the sig of result, and
        that is the type the elements are assumed to be. Emitter also guarantees
        that all elements are of the same type. */
@@ -180,17 +170,17 @@ typedef enum {
 
     /* Subscript: 
        * int lineno
-       * sym(list[T]) list
-       * sym(integer) index
-       * sym(T) right
+       * reg(list[T]) list
+       * reg(integer) index
+       * reg(T) right
        This is used to take a value from a list and place it in a storage
        indicated by 'right'. This handles ref/deref and objects. */
     o_subscript,
 
     /* Object typecast:
        * int lineno
-       * sym(object) left
-       * sym(!object) result
+       * reg(object) left
+       * reg(!object) result
        This checks that the value contained by left is the same type as result.
        If it is, left's held value is set to 'right'. This is not checked by
        emitter (because what objects actually contain cannot be known at
@@ -200,16 +190,21 @@ typedef enum {
 
     /* Integer<->Number typecast:
        * int lineno
-       * sym(integer OR number) left
-       * sym(integer OR number) right
+       * reg(integer OR number) left
+       * reg(integer OR number) right
        This handles conversion from integer to number, and vice versa. Left is
        the opposite type of right, and the appropriate conversion is made. */
     o_intnum_typecast,
 
     /* Show:
        * int lineno
-       * sym value
-       This displays information about the given value. */
+       * int is_global
+       * reg value
+       This shows detailed information about the value within the given
+       register. If is_global is 1, then the register given is a global
+       register. Otherwise, the given register is a local. This is done so that
+       globals don't need to be loaded into a local register, since that would
+       make show much less helpful. */
     o_show,
 
     /* Return expected:
@@ -222,10 +217,10 @@ typedef enum {
 
     /* for (integer range):
        * int lineno
-       * sym(integer) user loop var
-       * sym(integer) start
-       * sym(integer) end
-       * sym(integer) step
+       * reg(integer) user loop var
+       * reg(integer) start
+       * reg(integer) end
+       * reg(integer) step
        * int jump
        This implements a for loop over an integer range. This increments start
        by step until end is reached. This sets user loop var to start on each
@@ -236,10 +231,10 @@ typedef enum {
 
     /* for setup:
        * int lineno
-       * sym(integer) user loop var
-       * sym(integer) start
-       * sym(integer) end
-       * sym(integer) step
+       * reg(integer) user loop var
+       * reg(integer) start
+       * reg(integer) end
+       * reg(integer) step
        * int setup step
        This is run before entering a for loop, and acts as a quick sanity check
        before entering the loop. Both start and end are checked for being nil
@@ -247,6 +242,31 @@ typedef enum {
        This sets user loop var to start, so that it has a proper initial value
        before entering the loop. */
     o_for_setup,
+
+    /* get global:
+       * int lineno
+       * reg global_reg
+       * reg local_reg
+       This handles loading a global value from @main's registers, and putting
+       it into a local register of the current method. This also handles
+       ref/deref if necessary. */
+    o_get_global,
+
+    /* set global:
+       * int lineno
+       * reg local_reg
+       * reg global_reg
+       This sets a global value in one of @main's registers. Like get global,
+       this will do ref/deref if necessary. */
+    o_set_global,
+
+    /* get const:
+       * int lineno
+       * addr lit
+       * reg result 
+       This loads a literal value from the given address, and stores the value
+       into the given register. */
+    o_get_const,
 
     /* Return from vm:
        This is a special opcode used to leave the vm. It does not take any

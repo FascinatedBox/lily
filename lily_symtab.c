@@ -52,7 +52,7 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
             for (i = 0;i < lv->num_values;i++) {
                 if (lv->flags[i] == 0)
                     lily_deref_object_val(lv->values[i].object);
-                else if (lv->flags[i] & S_IS_CIRCULAR) {
+                else if (lv->flags[i] & SYM_IS_CIRCULAR) {
                     /* Objects are containers that are not shared across lists.
                        The circularity applies to the value held in the object,
                        not the object itself. */
@@ -86,6 +86,13 @@ void lily_deref_method_val(lily_method_val *mv)
 {
     mv->refcount--;
     if (mv->refcount == 0) {
+        if (mv->reg_info != NULL) {
+            int i;
+            for (i = 0;i < mv->reg_count;i++)
+                lily_free(mv->reg_info[i].name);
+        }
+
+        lily_free(mv->reg_info);
         lily_free(mv->code);
         lily_free(mv);
     }
@@ -125,77 +132,11 @@ void lily_deref_unknown_val(lily_sig *sig, lily_value v)
         lily_deref_str_val(v.str);
     else if (cls_id == SYM_CLASS_METHOD)
         lily_deref_method_val(v.method);
+    else if (cls_id == SYM_CLASS_OBJECT)
+        lily_deref_object_val(v.object);
 }
 
 /** Symtab init helpers, and shared code **/
-/* add_var
-   This is a helper function to add a var to the symtab. */
-static void add_var(lily_symtab *symtab, lily_var *s)
-{
-    s->id = symtab->next_var_id;
-    symtab->next_var_id++;
-
-    s->next = NULL;
-    /* The symtab is the oldest, for iteration. The symtab_top is the newest,
-       for adding new elements. */
-    if (symtab->var_start == NULL)
-        /* If no symtab, this is both the oldest and newest. */
-        symtab->var_start = s;
-    else
-        symtab->var_top->next = s;
-
-    symtab->var_top = s;
-}
-
-/* lily_try_add_storage
-   This adds a new storage to a given class. The symtab is used to give the
-   storage a new id. */
-int lily_try_add_storage(lily_symtab *symtab, lily_sig *sig)
-{
-    lily_storage *storage = lily_malloc(sizeof(lily_storage));
-    if (storage == NULL)
-        return 0;
-
-    lily_class *cls = sig->cls;
-    int ok = 1;
-
-    storage->flags = STORAGE_SYM | S_IS_NIL;
-
-    /* Objects must always be available to receive sig and inner value info. */
-    if (cls->id == SYM_CLASS_OBJECT) {
-        lily_object_val *oval = lily_try_new_object_val();
-        if (oval == NULL)
-            ok = 0;
-
-        storage->value.object = oval;
-        storage->flags &= ~S_IS_NIL;
-    }
-    else if (cls->id == SYM_CLASS_STR)
-        storage->value.str = NULL;
-
-    if (ok == 0) {
-        lily_free(storage);
-        return 0;
-    }
-
-    storage->sig = sig;
-    storage->id = symtab->next_storage_id;
-    symtab->next_storage_id++;
-    storage->expr_num = 0;
-
-    /* Storages are circularly linked so it's easier to find them. */
-    if (cls->storage == NULL) {
-        cls->storage = storage;
-        cls->storage->next = cls->storage;
-    }
-    else {
-        storage->next = cls->storage->next;
-        cls->storage->next = storage;
-    }
-
-    return 1;
-}
-
 /* lily_try_new_var
    This creates a new var using the signature given, and copying the name.
    It is okay to pass a sig without list element/call info, since
@@ -212,9 +153,6 @@ int lily_try_add_storage(lily_symtab *symtab, lily_sig *sig)
 lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name)
 {
     lily_var *var = lily_malloc(sizeof(lily_var));
-    int ok = 1;
-    int cls_id = sig->cls->id;
-
     if (var == NULL)
         return NULL;
 
@@ -224,43 +162,23 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name)
         return NULL;
     }
 
-    var->flags = VAR_SYM | S_IS_NIL;
+    var->flags = symtab->scope | SYM_IS_NIL | SYM_TYPE_VAR;
     strcpy(var->name, name);
     var->line_num = *symtab->lex_linenum;
 
-    /* Parser expects all methods to have a value to receive args and method
-       code. VM needs objects available at all times for receiving sig/value
-       stuff. */
-    if (cls_id == SYM_CLASS_METHOD) {
-        lily_method_val *mval = lily_try_new_method_val();
-        if (mval != NULL)
-            mval->trace_name = var->name;
-        else
-            ok = 0;
-
-        var->flags &= ~S_IS_NIL;
-        var->value.method = mval;
-    }
-    else if (cls_id == SYM_CLASS_OBJECT) {
-        lily_object_val *oval = lily_try_new_object_val();
-        if (oval == NULL)
-            ok = 0;
-
-        var->flags &= ~S_IS_NIL;
-        var->value.object = oval;
-    }
-    else if (cls_id == SYM_CLASS_STR)
-        var->value.str = NULL;
-
-    if (ok == 0) {
-        lily_free(var->name);
-        lily_free(var);
-        return NULL;
-    }
-
+    var->method_depth = symtab->method_depth;
     var->sig = sig;
+    var->next = NULL;
+    var->reg_spot = symtab->next_register_spot;
+    symtab->next_register_spot++;
 
-    add_var(symtab, var);
+    if (symtab->var_start == NULL)
+        symtab->var_start = var;
+    else
+        symtab->var_top->next = var;
+
+    symtab->var_top = var;
+
     return var;
 }
 
@@ -341,7 +259,7 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
                         seed->name);
 
                 if (var->value.function != NULL) {
-                    var->flags &= ~(S_IS_NIL);
+                    var->flags &= ~(SYM_IS_NIL);
                     seed_ret = try_seed_call_sig(symtab, seed,
                             var->sig->node.call);
 
@@ -403,7 +321,12 @@ static int init_at_main(lily_symtab *symtab)
     if (var == NULL)
         return 0;
 
-    var->flags &= ~(S_IS_NIL);
+    /* It would be rather silly to load @main into a register since it's not
+       callable. This will cause the next var to occupy the register that @main
+       would have gotten, so there's no gap. */
+    symtab->next_register_spot--;
+    /* The emitter will mark @main as non-nil when it's entered. Until then,
+       leave it alone because it doesn't have a value. */
 
     return 1;
 }
@@ -423,7 +346,7 @@ static int init_literals(lily_symtab *symtab)
     for (i = 0;i < 2;i++) {
         lit = lily_malloc(sizeof(lily_literal));
         if (lit != NULL) {
-            lit->flags = LITERAL_SYM;
+            lit->flags = SYM_TYPE_LITERAL;
             lit->sig = cls->sig;
             lit->value.integer = i;
             lit->next = NULL;
@@ -434,12 +357,9 @@ static int init_literals(lily_symtab *symtab)
                 symtab->lit_top->next = lit;
 
             symtab->lit_top = lit;
-            lit->id = symtab->next_lit_id;
-            symtab->next_lit_id++;
         }
         else
             ret = 0;
-
     }
 
     return ret;
@@ -492,12 +412,6 @@ static int init_classes(lily_symtab *symtab)
             new_class->call_top = NULL;
             new_class->sig = sig;
             new_class->id = i;
-            /* try_add_storage checks for the storage being there, since the
-               list is circular. */
-            new_class->storage = NULL;
-
-            if (ret)
-                ret = lily_try_add_storage(symtab, sig);
 
             new_class->name = class_seeds[i].name;
             new_class->is_refcounted = class_seeds[i].is_refcounted;
@@ -526,18 +440,17 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
     if (symtab == NULL)
         return NULL;
 
+    symtab->next_register_spot = 0;
+    symtab->scope = SYM_SCOPE_GLOBAL;
     symtab->class_pos = 0;
     symtab->class_size = INITIAL_CLASS_SIZE;
-    symtab->next_lit_id = 0;
-    symtab->next_var_id = 0;
-    symtab->next_storage_id = 0;
     symtab->var_start = NULL;
     symtab->var_top = NULL;
+    symtab->old_method_chain = NULL;
     symtab->classes = NULL;
     symtab->lit_start = NULL;
     symtab->lit_top = NULL;
-    symtab->old_var_start = NULL;
-    symtab->old_var_top = NULL;
+    symtab->method_depth = 1;
     /* lily_try_new_var expects lex_linenum to be the lexer's line number.
        0 is used, because these are all builtins, and the lexer may have failed
        to initialize anyway. */
@@ -559,35 +472,6 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
 }
 
 /** Symtab free-ing **/
-/* free_sym_common
-   This handles the common value deref-ing needed by lily_free_symtab. */
-static void free_sym_common(lily_sym *sym)
-{
-    int cls_id = sym->sig->cls->id;
-
-    if (!(sym->flags & S_IS_NIL)) {
-        if (cls_id == SYM_CLASS_OBJECT) {
-            lily_object_val *ov = sym->value.object;
-            lily_deref_object_val(ov);
-        }
-        else if (cls_id == SYM_CLASS_LIST) {
-            lily_list_val *lv = sym->value.list;
-            lily_deref_list_val(sym->sig, lv);
-        }
-        else if (cls_id == SYM_CLASS_METHOD) {
-            lily_method_val *mv = sym->value.method;
-            lily_deref_method_val(mv);
-        }
-        else if (cls_id == SYM_CLASS_STR) {
-            lily_str_val *sv = sym->value.str;
-            lily_deref_str_val(sv);
-        }
-        else if (cls_id == SYM_CLASS_FUNCTION) {
-            lily_free(sym->value.function);
-        }
-    }
-}
-
 /* free_vars
    This holds common code to free a linked list of vars. When the symtab is
    being free'd, this is called on the table of old vars and the active vars. */
@@ -597,13 +481,25 @@ void free_vars(lily_var *var)
 
     while (var != NULL) {
         var_temp = var->next;
-        free_sym_common((lily_sym *)var);
-
+        if ((var->flags & SYM_IS_NIL) == 0) {
+            int cls_id = var->sig->cls->id;
+            if (cls_id == SYM_CLASS_METHOD)
+                lily_deref_method_val(var->value.method);
+            else if (cls_id == SYM_CLASS_FUNCTION)
+                lily_free(var->value.function);
+        }
         lily_free(var->name);
         lily_free(var);
 
         var = var_temp;
     }
+}
+
+static void free_at_main(lily_method_val *mv)
+{
+    lily_free(mv->reg_info);
+    lily_free(mv->code);
+    lily_free(mv);
 }
 
 /* lily_free_symtab
@@ -618,7 +514,9 @@ void lily_free_symtab(lily_symtab *symtab)
     while (lit != NULL) {
         lit_temp = lit->next;
 
-        free_sym_common((lily_sym *)lit);
+        if (lit->sig->cls->is_refcounted)
+            lily_deref_str_val(lit->value.str);
+
         lily_free(lit);
 
         lit = lit_temp;
@@ -628,31 +526,25 @@ void lily_free_symtab(lily_symtab *symtab)
         int i;
         for (i = 0;i <= symtab->class_pos;i++) {
             lily_class *cls = symtab->classes[i];
-            if (cls != NULL) {
-                if (cls->call_start != NULL)
-                    free_vars(cls->call_start);
-                /* Remember that storages are circularly linked. So free them
-                   until we run in the first storage twice. */
-                if (cls->storage != NULL) {
-                    lily_storage *store_curr = cls->storage;
-                    lily_storage *store_start = store_curr;
-                    lily_storage *store_next;
-
-                    do {
-                        store_next = store_curr->next;
-                        free_sym_common((lily_sym *)store_curr);
-                        lily_free(store_curr);
-                        store_curr = store_next;
-                    } while (store_curr != store_start);
-                }
-            }
+            if (cls != NULL && cls->call_start != NULL)
+                free_vars(cls->call_start);
         }
     }
 
+    lily_method_val *main_method;
+
+    if (symtab->var_start &&
+        ((symtab->var_start->flags & SYM_IS_NIL) == 0))
+        main_method = symtab->var_start->value.method;
+    else
+        main_method = NULL;
+
     if (symtab->var_start != NULL)
         free_vars(symtab->var_start);
-    if (symtab->old_var_start != NULL)
-        free_vars(symtab->old_var_start);
+    if (symtab->old_method_chain != NULL)
+        free_vars(symtab->old_method_chain);
+    if (main_method != NULL)
+        free_at_main(main_method);
 
     lily_sig *sig, *sig_temp;
 
@@ -841,6 +733,7 @@ lily_method_val *lily_try_new_method_val()
         return NULL;
     }
 
+    m->reg_info = NULL;
     m->refcount = 1;
     m->code = code;
     m->pos = 0;
@@ -926,17 +819,20 @@ lily_var *lily_var_by_name(lily_symtab *symtab, char *name)
     lily_var *var = symtab->var_start;
 
     while (var != NULL) {
-        if (var->name != NULL && strcmp(var->name, name) == 0)
+        if (var->name != NULL &&
+            strcmp(var->name, name) == 0 &&
+            ((var->flags & SYM_OUT_OF_SCOPE) == 0))
             return var;
         var = var->next;
     }
+
     return NULL;
 }
 
 /* lily_new_literal
    This adds a new literal to the given symtab. The literal will be of the class
    'cls', and be given the value 'value'. The symbol created does not have
-   S_IS_NIL set, because the literal is assumed to never be nil.
+   SYM_IS_NIL set, because the literal is assumed to never be nil.
    This function currently handles only integer, number, and str values.
    Warning: This function calls lily_raise_nomem instead of returning NULL. */
 lily_literal *lily_new_literal(lily_symtab *symtab, lily_class *cls,
@@ -955,9 +851,11 @@ lily_literal *lily_new_literal(lily_symtab *symtab, lily_class *cls,
     /* Literals are either str, integer, or number, so this is safe. */
     lit->sig = cls->sig;
 
-    lit->flags = LITERAL_SYM;
+    lit->flags = SYM_TYPE_LITERAL;
     lit->next = NULL;
     lit->value = value;
+    /* Literals are never saved to a register. */
+    lit->reg_spot = -1;
 
     if (symtab->lit_top == NULL)
         symtab->lit_start = lit;
@@ -966,31 +864,20 @@ lily_literal *lily_new_literal(lily_symtab *symtab, lily_class *cls,
 
     symtab->lit_top = lit;
 
-    symtab->lit_top = lit;
-    lit->id = symtab->next_lit_id;
-    symtab->next_lit_id++;
-
     return lit;
 }
 
-/* lily_drop_block_vars
-   This function will take the vars from 'start' forward, and put them in the
-   symtab's list of old vars. This is called by emitter when a if/elif/else/etc.
-   block closes so that the symtab won't find them anymore. */
-void lily_drop_block_vars(lily_symtab *symtab, lily_var *start)
+void lily_hide_block_vars(lily_symtab *symtab, lily_var *start)
 {
-    if (symtab->old_var_start == NULL)
-        /* This becomes the list of vars. */
-        symtab->old_var_start = start->next;
-    else
-        /* Since there's a list of old vars, add the first to the end. */
-        symtab->old_var_top->next = start->next;
+    start = start->next;
 
-    /* Put this at the end again, so new vars aren't lost. */
-    symtab->old_var_top = symtab->var_top;
-    symtab->var_top = start;
-    /* Detach old and new vars. */
-    start->next = NULL;
+    /* The current method will need the vars later to set the reg_info part of
+       it. This is much, much easier if the vars are never moved to another
+       table, so mark them out of scope for now. */
+    while (start) {
+        start->flags |= SYM_OUT_OF_SCOPE;
+        start = start->next;
+    }
 }
 
 /* lily_sigequal
@@ -1053,4 +940,13 @@ int lily_sigequal(lily_sig *lhs, lily_sig *rhs)
     }
 
     return ret;
+}
+
+/* lily_save_declared_method
+   This is called when a method is closing, and it has a var representing
+   another method var inside. */
+void lily_save_declared_method(lily_symtab *symtab, lily_var *method_var)
+{
+    method_var->next = symtab->old_method_chain;
+    symtab->old_method_chain = method_var;
 }

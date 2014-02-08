@@ -14,9 +14,10 @@ typedef struct lily_block_ {
     int loop_start;
     int patch_start;
     int block_type;
-    int save_cache_start;
     lily_var *var_start;
     lily_var *method_var;
+    int save_register_spot;
+    lily_storage *storage_start;
     struct lily_block_ *next;
     struct lily_block_ *prev;
 } lily_block;
@@ -26,19 +27,14 @@ typedef struct {
     int patch_pos;
     int patch_size;
 
-    uintptr_t *save_cache;
-    int save_cache_pos;
-    int save_cache_size;
-
-    lily_storage **storage_cache;
-    int storage_cache_pos;
-    int storage_cache_size;
-
     lily_var *top_var;
     lily_method_val *top_method;
     lily_sig *top_method_ret;
 
     int *lex_linenum;
+
+    lily_storage *all_storage_start;
+    lily_storage *all_storage_top;
 
     lily_block *first_block;
     lily_block *current_block;

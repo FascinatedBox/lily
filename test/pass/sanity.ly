@@ -301,7 +301,7 @@ method test_assign_decl_list():nil
 
     method add(integer add_a, integer add_b):integer
     {
-        return a + b
+        return add_a + add_b
     }
 
     # Finally, with a call.
@@ -1382,8 +1382,13 @@ method test_misc():nil
     integer ok = 1
 
     print("     Call of returned method: m()()...")
-    method m1(): integer { return 10 }
-    method m2(): method():integer { return m1 }
+    method m2(): method():integer {
+        method m1(): integer
+        {
+            return 10
+        }
+        return m1
+    }
 
     integer i = m2()()
     if i == 10: {

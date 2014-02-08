@@ -192,7 +192,8 @@ lily_parse_state *lily_new_parse_state(int options)
     if (parser->raiser == NULL || parser->sig_stack == NULL ||
         parser->lex == NULL || parser->emit == NULL || parser->symtab == NULL ||
         parser->ast_pool == NULL || parser->vm == NULL ||
-        lily_emit_try_enter_main(parser->emit, parser->symtab->var_start) == 0) {
+        lily_emit_try_enter_main(parser->emit,
+                                 parser->symtab->var_start) == 0) {
         lily_free_parse_state(parser);
 
         return NULL;
@@ -215,6 +216,9 @@ void lily_free_parse_state(lily_parse_state *parser)
     if (parser->ast_pool)
         lily_free_ast_pool(parser->ast_pool);
 
+    if (parser->vm)
+        lily_free_vm_state(parser->vm);
+
     if (parser->symtab)
         lily_free_symtab(parser->symtab);
 
@@ -223,9 +227,6 @@ void lily_free_parse_state(lily_parse_state *parser)
 
     if (parser->emit)
         lily_free_emit_state(parser->emit);
-
-    if (parser->vm)
-        lily_free_vm_state(parser->vm);
 
     lily_free(parser->sig_stack);
     lily_free(parser);
@@ -253,9 +254,6 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig)
     var = lily_try_new_var(parser->symtab, var_sig, lex->label);
     if (var == NULL)
         lily_raise_nomem(parser->raiser);
-
-    if (parser->emit->method_depth > 1)
-        lily_emit_add_save_var(parser->emit, var);
 
     return var;
 }
@@ -289,14 +287,11 @@ static void collect_call_args(lily_parse_state *parser, int flags,
     int i = 0;
     int save_pos = parser->sig_stack_pos;
     lily_lex_state *lex = parser->lex;
-    lily_var *var_start;
 
     /* A callable's arguments are named if it's not an argument to something
        else. */
-    if (flags & CV_TOPLEVEL) {
+    if (flags & CV_TOPLEVEL)
         call_flags |= CV_MAKE_VARS;
-        var_start = parser->symtab->var_top;
-    }
 
     while (1) {
         if (parser->sig_stack_pos == parser->sig_stack_size)
@@ -323,12 +318,6 @@ static void collect_call_args(lily_parse_state *parser, int flags,
 
     for (i = 0;i < num_args;i++)
         args[i] = parser->sig_stack[save_pos + i];
-
-    /* This is safe because only methods can be declared right now. */
-    if (flags & CV_TOPLEVEL) {
-        call_var->value.method->first_arg = var_start->next;
-        call_var->value.method->last_arg = parser->symtab->var_top;
-    }
 
     call_sig->node.call->num_args = i;
     call_sig->node.call->args = args;
@@ -473,7 +462,8 @@ static lily_sig *determine_ast_sig(lily_parse_state *parser, lily_ast *ast)
             ast = ast->arg_start;
 
         /* a.concat("str") */
-        if (ast->tree_type == tree_var)
+        if (ast->tree_type == tree_var ||
+            ast->tree_type == tree_local_var)
             ret = ast->result->sig;
         /* strcall(a, b, c).concat("str") */
         else if (ast->tree_type == tree_call)
@@ -648,8 +638,19 @@ static void expression_value(lily_parse_state *parser)
                         /* Get the first value of the call. */
                         continue;
                 }
-                else
-                    lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
+                else {
+                    if (var->method_depth == parser->emit->method_depth)
+                        /* In this current scope? Load as a local var. */
+                        lily_ast_push_local_var(parser->ast_pool, var);
+                    else if (var->method_depth == 1)
+                        /* It's in @main as a global. */
+                        lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
+                    else
+                        /* todo: Handle upvalues later, maybe. */
+                        lily_raise(parser->raiser, lily_ErrSyntax,
+                                   "Attempt to use %s, which is not in the current scope.\n",
+                                   var->name);
+                }
             }
             else {
                 int key_id = lily_keyword_by_name(lex->label);
@@ -1321,6 +1322,7 @@ void lily_parser(lily_parse_state *parser)
             if (parser->options & POPT_SHOW_SYMTAB)
                 lily_show_symtab(parser->symtab, parser->raiser->msgbuf);
 
+            lily_vm_prep(parser->vm, parser->symtab);
             parser->mode = pm_execute;
             lily_vm_execute(parser->vm);
             parser->mode = pm_parse;

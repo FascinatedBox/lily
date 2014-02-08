@@ -10,20 +10,31 @@ typedef struct {
     /* The first symbol in the table (for itering from). This is also @main,
        since @main is the first symbol. */
     lily_var *var_start;
-    /* The last symbol (for adding to). */
     lily_var *var_top;
-    lily_var *old_var_start;
-    lily_var *old_var_top;
+
+    /* Methods declared inside of other methods are inserted into @main's
+       registers. This was seen as the sanest approach (instead of making them
+       literals or some special new type).
+       When the outer method leaves, the inner method is added to this list.
+       This is important for keeping track of signature information. */
+    lily_var *old_method_chain;
+
+    int scope;
+
     lily_class **classes;
     int class_pos;
     int class_size;
     lily_sig *root_sig;
 
+    int method_depth;
+
+    /* @main is kept by itself because it doesn't get loaded into any register.
+       This keeps the vm from seeing it and thinking @main needs a ref. */
+    lily_var *at_main;
+
     lily_literal *lit_start;
     lily_literal *lit_top;
-    int next_var_id;
-    int next_lit_id;
-    int next_storage_id;
+    int next_register_spot;
     int *lex_linenum;
     lily_raiser *raiser;
 } lily_symtab;
@@ -54,8 +65,6 @@ lily_literal *lily_get_file_literal(lily_symtab *, char *);
 lily_symtab *lily_new_symtab(lily_raiser *);
 lily_var *lily_try_new_var(lily_symtab *, lily_sig *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
-int lily_try_add_sig_storage(lily_symtab *, lily_sig *);
-int lily_try_add_storage(lily_symtab *, lily_sig *);
 lily_function_val *lily_try_new_function_val(lily_func, char *);
 lily_method_val *lily_try_new_method_val();
 lily_object_val *lily_try_new_object_val();
@@ -66,8 +75,9 @@ void lily_deref_object_val(lily_object_val *);
 void lily_deref_list_val_by(lily_sig *, lily_list_val *, int);
 void lily_deref_list_val(lily_sig *, lily_list_val *);
 void lily_deref_unknown_val(lily_sig *, lily_value);
-void lily_drop_block_vars(lily_symtab *, lily_var *);
+void lily_hide_block_vars(lily_symtab *, lily_var *);
 int lily_sigequal(lily_sig *, lily_sig *);
 void lily_add_sig_to_msgbuf(lily_msgbuf *, lily_sig *);
+void lily_save_declared_method(lily_symtab *, lily_var *);
 
 #endif
