@@ -127,7 +127,7 @@ typedef enum {
        args differently. Method wants the varargs packed into a list, and that
        would be a waste of time for functions. This may be changed in the
        future.
-       Both are: 
+       Both are:
        * int lineno
        * reg(method * / func *) input
        * int num_args

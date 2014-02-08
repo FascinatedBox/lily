@@ -34,6 +34,7 @@ typedef struct {
     int *lex_linenum;
 
     lily_storage *all_storage_start;
+    lily_storage *unused_storage_start;
     lily_storage *all_storage_top;
 
     lily_block *first_block;
