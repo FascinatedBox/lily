@@ -608,7 +608,7 @@ lily_literal *lily_get_line_literal(lily_symtab *symtab)
     return ret;
 }
 
-lily_literal *lily_get_file_literal(lily_symtab *symtab, char *name)
+lily_literal *lily_get_str_literal(lily_symtab *symtab, char *name)
 {
     int name_len;
     lily_literal *lit, *ret;

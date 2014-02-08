@@ -40,19 +40,20 @@ typedef struct {
 } lily_symtab;
 
 /* Sync with keywords in lily_seed_symtab.h. */
-#define KEY_IF       0
-#define KEY_ELIF     1
-#define KEY_ELSE     2
-#define KEY_RETURN   3
-#define KEY_WHILE    4
-#define KEY_CONTINUE 5
-#define KEY_BREAK    6
-#define KEY_SHOW     7
-#define KEY__LINE__  8
-#define KEY__FILE__  9
-#define KEY_FOR      10
-#define KEY_DO       11
-#define KEY_LAST_ID  11
+#define KEY_IF        0
+#define KEY_ELIF      1
+#define KEY_ELSE      2
+#define KEY_RETURN    3
+#define KEY_WHILE     4
+#define KEY_CONTINUE  5
+#define KEY_BREAK     6
+#define KEY_SHOW      7
+#define KEY__LINE__   8
+#define KEY__FILE__   9
+#define KEY__METHOD__ 10
+#define KEY_FOR       11
+#define KEY_DO        12
+#define KEY_LAST_ID   12
 
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, char *);
@@ -61,7 +62,7 @@ void lily_free_symtab(lily_symtab *);
 int lily_keyword_by_name(char *);
 lily_literal *lily_new_literal(lily_symtab *, lily_class *, lily_value);
 lily_literal *lily_get_line_literal(lily_symtab *);
-lily_literal *lily_get_file_literal(lily_symtab *, char *);
+lily_literal *lily_get_str_literal(lily_symtab *, char *);
 lily_symtab *lily_new_symtab(lily_raiser *);
 lily_var *lily_try_new_var(lily_symtab *, lily_sig *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
