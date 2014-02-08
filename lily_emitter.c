@@ -121,6 +121,7 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
     s->first_block = NULL;
     s->current_block = NULL;
     s->block_depth = 0;
+    s->unused_storage_start = NULL;
     s->all_storage_start = NULL;
     s->all_storage_top = NULL;
 
@@ -235,6 +236,11 @@ static lily_storage *try_get_storage(lily_emit_state *emit,
                 start->expr_num = expr_num;
                 start->reg_spot = emit->symtab->next_register_spot;
                 emit->symtab->next_register_spot++;
+                /* Since this stops on the first unused storage it finds, this
+                   must be unused_storage_start, which is also the first unused
+                   storage. Make sure to bump the unused start ahead to the next
+                   one (or NULL, if no next one). */
+                emit->unused_storage_start = emit->unused_storage_start->next;
                 ret = start;
                 break;
             }
@@ -1697,6 +1703,9 @@ static void finalize_method_val(lily_emit_state *emit, lily_block *method_block)
             storage_iter->sig = NULL;
             storage_iter = storage_iter->next;
         }
+
+        /* Unused storages now begin where the method starting zapping them. */
+        emit->unused_storage_start = method_block->storage_start;
     }
     else {
         /* If @main, add global functions like str's concat and all global
@@ -1799,9 +1808,9 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         emit->symtab->next_register_spot = 0;
         /* All vars should now be created in a local scope. */
         emit->symtab->scope = 0;
-        /* This prevents this method from using the storages of the method it's
-           in. Doing so allows each method to be independent of others. */
-        new_block->storage_start = NULL;
+        /* This method's storages start where the unused ones start, or NULL if
+           all are currently taken. */
+        new_block->storage_start = emit->unused_storage_start;
         new_block->method_var = v;
         /* -1 to indicate that there is no current loop. */
         new_block->loop_start = -1;
@@ -1828,6 +1837,11 @@ static void leave_method(lily_emit_state *emit, lily_block *block)
 
     /* Warning: This assumes that only methods can contain other methods. */
     lily_var *v = block->prev->method_var;
+
+    /* If this method has no storages, then it can use the ones from the method
+       that just exited. This reuse cuts down on a lot of memory. */
+    if (block->prev->storage_start == NULL)
+        block->prev->storage_start = emit->unused_storage_start;
 
     emit->symtab->var_top = block->method_var;
     block->method_var->next = NULL;
