@@ -5,23 +5,21 @@
 # include "lily_symtab.h"
 
 typedef struct {
-    lily_value value;
-    int flags;
-    lily_sym *sym;
-} lily_saved_val;
-
-typedef struct {
     lily_method_val *method;
-    lily_sym *ret;
+    signed int return_reg;
+    /* How many registers this call uses. This is used to fix the vm's register
+       stack after a call. */
+    int regs_used;
     uintptr_t *code;
     int code_pos;
     int line_num;
 } lily_vm_stack_entry;
 
 typedef struct lily_vm_state_t {
-    lily_saved_val *saved_values;
-    int val_pos;
-    int val_size;
+    lily_vm_register **vm_regs;
+    lily_vm_register **regs_from_main;
+    int num_registers;
+    int max_registers;
 
     /* The function that raised the current error, or NULL if it wasn't from a
        function call. */
@@ -30,6 +28,10 @@ typedef struct lily_vm_state_t {
     lily_vm_stack_entry **method_stack;
     int method_stack_pos;
     int method_stack_size;
+
+    /* This is the default signature used when created new registers. This is
+       used because it isn't refcounted. */
+    lily_sig *integer_sig;
 
     /* This lets the vm know that it was in a function when an error is raised
        so it can set err_function properly. Runners should only check
@@ -41,6 +43,7 @@ typedef struct lily_vm_state_t {
 
 lily_vm_state *lily_new_vm_state(lily_raiser *);
 void lily_free_vm_state(lily_vm_state *);
+void lily_vm_prep(lily_vm_state *, lily_symtab *);
 void lily_vm_execute(lily_vm_state *);
 
 #endif

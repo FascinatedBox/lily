@@ -102,9 +102,11 @@ void *aft_realloc(char *filename, int line, void *oldptr, size_t newsize)
     aft_entry *search = start;
     aft_entry *result = NULL;
 
-    /* Occasionally, malloc will yield a block that was previously free'd. It's
-       important to return the LAST block matching the pointer, because that
-       will be the block not yet deleted. */
+    /* Since aft frees as it goes, malloc can return the same block multiple
+       times. Rather than filter these entries out (the correct way), this
+       instead looks until it finds the one currently allocated.
+       There can only be one block at a particular address at a time, so this is
+       a safe assertion. */
     while (search != NULL) {
         if (search->block == oldptr) {
             result = search;
@@ -158,11 +160,13 @@ void aft_free(char *filename, int line, void *ptr)
     int i = 1;
     int last_i = 0;
 
+    /* See comment about realloc's search. */
     while (search != NULL) {
         if (search->block == ptr) {
-            /* Like with realloc, this needs to yield the last valid block. */
             result = search;
             last_i = i;
+            if (search->status != ST_DELETED)
+                break;
         }
         i++;
         search = search->next;

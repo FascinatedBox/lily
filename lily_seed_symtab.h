@@ -36,8 +36,8 @@ static const char *keywords[] = {
     "do"
 };
 
-void lily_builtin_print(lily_vm_state *, int, lily_sym **);
-void lily_builtin_printfmt(struct lily_vm_state_t *, int, lily_sym **);
+void lily_builtin_print(lily_vm_state *, uintptr_t *, int);
+void lily_builtin_printfmt(lily_vm_state *, uintptr_t *, int);
 
 static lily_func_seed print =
     {"print", 1, 0, lily_builtin_print, {-1, SYM_CLASS_STR}};

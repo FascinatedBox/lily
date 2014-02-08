@@ -17,9 +17,6 @@
       type of block, and more.
     * Handling the deletion of vars when a block goes out of scope.
     * A block is any if, elif, etc. Blocks are created 
-    * Ensuring that the vm knows to save important method parameters and
-      storages to keep unintended consequences from occuring from a call. It
-      also writes the o_restore opcode for the vm to restore values.
     * Writing the proper line number of an error to raiser's line_adjust if
       emitter is walking a tree.
 
@@ -54,18 +51,6 @@ if ((m->pos + size) > m->len) { \
     if (save_code == NULL) \
         lily_raise_nomem(emit->raiser); \
     m->code = save_code; \
-}
-
-#define SAVE_PREP(size) \
-if ((emit->save_cache_pos + size) > emit->save_cache_size) { \
-    uintptr_t *save_cache = emit->save_cache; \
-    while ((emit->save_cache_pos + size) > emit->save_cache_size) \
-        emit->save_cache_size *= 2; \
-    save_cache = lily_realloc(emit->save_cache, sizeof(uintptr_t) * \
-            emit->save_cache_size); \
-    if (save_cache == NULL) \
-        lily_raise_nomem(emit->raiser); \
-    emit->save_cache = save_cache; \
 }
 
 /* Most ops need 4 or less code spaces, so only growing once is okay. However,
@@ -128,24 +113,19 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
         return NULL;
 
     s->patches = lily_malloc(sizeof(int) * 4);
-    s->save_cache = lily_malloc(sizeof(uintptr_t) * 4);
-    s->storage_cache = lily_malloc(sizeof(lily_storage *) * 4);
-    s->first_block = NULL;
-    s->current_block = NULL;
-    s->block_depth = 0;
-
-    if (s->patches == NULL || s->save_cache == NULL ||
-        s->storage_cache == NULL) {
-        lily_free_emit_state(s);
+    if (s->patches == NULL) {
+        lily_free(s);
         return NULL;
     }
 
+    s->first_block = NULL;
+    s->current_block = NULL;
+    s->block_depth = 0;
+    s->all_storage_start = NULL;
+    s->all_storage_top = NULL;
+
     s->patch_pos = 0;
     s->patch_size = 4;
-    s->save_cache_pos = 0;
-    s->save_cache_size = 4;
-    s->storage_cache_pos = 0;
-    s->storage_cache_size = 4;
     s->method_depth = 0;
 
     s->raiser = raiser;
@@ -157,15 +137,21 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
 void lily_free_emit_state(lily_emit_state *emit)
 {
     lily_block *current, *temp;
+    lily_storage *current_store, *temp_store;
     current = emit->first_block;
     while (current) {
         temp = current->next;
         lily_free(current);
         current = temp;
     }
-    lily_free(emit->storage_cache);
+    current_store = emit->all_storage_start;
+    while (current_store) {
+        temp_store = current_store->next;
+        lily_free(current_store);
+        current_store = temp_store;
+    }
+
     lily_free(emit->patches);
-    lily_free(emit->save_cache);
     lily_free(emit);
 }
 
@@ -180,6 +166,8 @@ static char *opname(lily_expr_op op)
     return opnames[op];
 }
 
+/* grow_patches
+   This is a helper function for resizing emitter's patch array. */
 static void grow_patches(lily_emit_state *emit)
 {
     emit->patch_size *= 2;
@@ -193,101 +181,107 @@ static void grow_patches(lily_emit_state *emit)
     emit->patches = new_patches;
 }
 
-/* get_simple_storage
-   This obtains a storage from the class. The signature of the storage will only
-   have the class set, so this cannot be used for lists, methods, functions, or
-   any class where sig->node.* is used.
-   If unsure, use try_get_proper_storage.
-   'try' means this will return NULL if it cannot find a proper storage. */
-static lily_storage *try_get_simple_storage(lily_emit_state *emit,
-        lily_class *storage_class)
+/* try_add_storage
+   Attempt to add a new storage to emitter's chain of storages with the given
+   signature. This should be seen as a helper for try_get_storage, and not used
+   outside of it.
+   On success, the newly created storage is returned.
+   On failure, NULL is returned. */
+static lily_storage *try_add_storage(lily_emit_state *emit, lily_sig *sig)
 {
-    lily_storage *s = storage_class->storage;
+    lily_storage *ret = lily_malloc(sizeof(lily_storage));
+    if (ret == NULL)
+        return ret;
 
-    if (s->expr_num == emit->expr_num) {
-        /* Storages are circularly linked, so this only occurs when all the
-           storages have already been taken. */
-        if (!lily_try_add_storage(emit->symtab, storage_class->sig))
-            return NULL;
+    ret->sig = sig;
+    ret->next = NULL;
+    ret->expr_num = emit->expr_num;
+    ret->flags = 0;
 
-        s = s->next;
-    }
+    ret->reg_spot = emit->symtab->next_register_spot;
+    emit->symtab->next_register_spot++;
 
-    s->expr_num = emit->expr_num;
-    /* Make it so the next node is grabbed next time. */
-    storage_class->storage = s->next;
+    if (emit->all_storage_start == NULL)
+        emit->all_storage_start = ret;
+    else
+        emit->all_storage_top->next = ret;
 
-    return s;
+    emit->all_storage_top = ret;
+    return ret;
 }
 
-/* try_find_storage_by_sig
-   This obtains a storage from the emitter's storage cache with a sig that
-   matches the given signature. Each of these storages does not change the sig,
-   and will also preserve the signature information given. This is suitable for
-   lists, methods, functions, and any type where sig->node.* is used.
-   If unsure, use try_get_proper_storage.
-   'try' means this will return NULL if it cannot find a proper storage. */
-lily_storage *try_get_complex_storage(lily_emit_state *emit, lily_sig *sig)
-{
-    int i;
-    lily_storage *result = NULL;
-
-    for (i = 0;i < emit->storage_cache_pos;i++) {
-        /* Don't bother with a sig == sig check, since that will never work for
-           complex sigs. Do remember to check the expr_num to make sure that
-           the storage isn't reused within the same expression. */
-        if (lily_sigequal(emit->storage_cache[i]->sig, sig) &&
-            emit->expr_num != emit->storage_cache[i]->expr_num) {
-            result = emit->storage_cache[i];
-            result->expr_num = emit->expr_num;
-            break;
-        }
-    }
-
-    if (result == NULL) {
-        if (i == emit->storage_cache_size) {
-            lily_storage **new_cache = lily_realloc(emit->storage_cache,
-                    sizeof(lily_storage *) * i * 2);
-            if (new_cache == NULL)
-                return NULL;
-
-            emit->storage_cache = new_cache;
-            emit->storage_cache_size *= 2;
-        }
-
-        result = sig->cls->storage;
-        if (lily_try_add_storage(emit->symtab, sig)) {
-            result = result->next;
-            result->expr_num = emit->expr_num;
-            emit->storage_cache[i] = result;
-            emit->storage_cache_pos++;
-        }
-        else
-            result = NULL;
-    }
-
-    return result;
-}
-
-/* try_get_proper_storage
-   This is used to get a storage based off of the given signature. This picks
-   the proper way of getting a storage, and should be used instead of guessing,
-   which can be error-prone.
-   'try' means this will return NULL if it cannot find a proper storage. */
-static lily_storage *try_get_proper_storage(lily_emit_state *emit,
+/* try_get_storage
+   This attempts to get a storage that contains the given signature. This may
+   repurpose an unused storage (wherein the sig is NULL). It will attempt to
+   create a new storage if there are no unused ones on the emitter's storage
+   chain.
+   Additionally, this starts the storage search based on the current block's
+   first storage. This is so that methods inside of methods don't touch storages
+   of outside methods (which already have registers). */
+static lily_storage *try_get_storage(lily_emit_state *emit,
         lily_sig *sig)
 {
-    int cls_id = sig->cls->id;
-    lily_storage *result;
+    lily_storage *ret = NULL;
+    lily_storage *start = emit->current_block->storage_start;
+    int expr_num = emit->expr_num;
 
-    if (cls_id == SYM_CLASS_METHOD ||
-        cls_id == SYM_CLASS_FUNCTION ||
-        cls_id == SYM_CLASS_LIST)
-        result = try_get_complex_storage(emit, sig);
-    else
-        result = try_get_simple_storage(emit, sig->cls);
+    if (start) {
+        while (start) {
+            /* The signature is only null if it belonged to a method that is
+               now done. It can be taken, but don't forget to set a proper
+               register place for it. */
+            if (start->sig == NULL) {
+                start->sig = sig;
+                start->expr_num = expr_num;
+                start->reg_spot = emit->symtab->next_register_spot;
+                emit->symtab->next_register_spot++;
+                ret = start;
+                break;
+            }
 
-    return result;
+            /* The first case is for simple signatures, and the second is for
+               complex ones (methods, functions, and lists). */
+            if ((start->sig == sig || lily_sigequal(start->sig, sig))
+                && start->expr_num != expr_num) {
+                start->expr_num = expr_num;
+                ret = start;
+                break;
+            }
+
+            start = start->next;
+        }
+    }
+
+    if (ret == NULL) {
+        ret = try_add_storage(emit, sig);
+        if (ret == NULL)
+            return NULL;
+
+        ret->expr_num = expr_num;
+        /* Non-method blocks inherit their storage start from the method block
+           that they are in. */
+        if (emit->current_block->storage_start == NULL) {
+            if (emit->current_block->block_type == BLOCK_METHOD)
+                /* Easy mode: Just fill in for the method. */
+                emit->current_block->storage_start = ret;
+            else {
+                /* Non-method block, so keep setting storage_start until the
+                   method block is reached. This will allow other blocks to use
+                   this storage. This is also important because not doing this
+                   causes the method block to miss this storage when the method
+                   is being finalized. */
+                lily_block *block = emit->current_block;
+                while (block->block_type != BLOCK_METHOD) {
+                    block->storage_start = ret;
+                    block = block->prev;
+                }
+
+                block->storage_start = ret;
+            }
+        }
+    }
+
+    return ret;
 }
 
 /* emit_return_expected
@@ -328,7 +322,7 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
    Attempt to create a new block. Returns a new block, or NULL if unable to
    create a new block. If successful, the new 
    block->next is set to NULL here too. */
-static lily_block *try_new_block()
+static lily_block *try_new_block(void)
 {
     lily_block *ret = lily_malloc(sizeof(lily_block));
 
@@ -349,8 +343,7 @@ static int sigcast(lily_emit_state *emit, lily_ast *lhs_ast, lily_sig *rhs)
     if (rhs->cls->id == SYM_CLASS_OBJECT) {
         ret = 1;
         lily_method_val *m = emit->top_method;
-        lily_storage *storage;
-        storage = try_get_simple_storage(emit, rhs->cls);
+        lily_storage *storage = try_get_storage(emit, rhs);
         if (storage == NULL) {
             emit->raiser->line_adjust = lhs_ast->line_num;
             lily_raise_nomem(emit->raiser);
@@ -358,8 +351,8 @@ static int sigcast(lily_emit_state *emit, lily_ast *lhs_ast, lily_sig *rhs)
 
         WRITE_4(o_obj_assign,
                 lhs_ast->line_num,
-                (uintptr_t)lhs_ast->result,
-                (uintptr_t)storage)
+                lhs_ast->result->reg_spot,
+                storage->reg_spot)
 
         lhs_ast->result = (lily_sym *)storage;
     }
@@ -475,7 +468,7 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
            bool class (yet), so an integer class is used instead. */
         storage_class = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
 
-    s = try_get_simple_storage(emit, storage_class);
+    s = try_get_storage(emit, storage_class->sig);
     if (s == NULL) {
         emit->raiser->line_adjust = ast->line_num;
         lily_raise_nomem(emit->raiser);
@@ -483,9 +476,9 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
 
     WRITE_5(opcode,
             ast->line_num,
-            (uintptr_t)ast->left->result,
-            (uintptr_t)ast->right->result,
-            (uintptr_t)s)
+            ast->left->result->reg_spot,
+            ast->right->result->reg_spot,
+            s->reg_spot)
 
     ast->result = (lily_sym *)s;
 }
@@ -558,14 +551,14 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     if (ast->left->tree_type != tree_var)
         eval_tree(emit, ast->left);
 
-    if ((ast->left->result->flags & VAR_SYM) == 0 &&
+    if ((ast->left->result->flags & SYM_TYPE_VAR) == 0 &&
         ast->left->tree_type != tree_subscript) {
         emit->raiser->line_adjust = ast->line_num;
         lily_raise(emit->raiser, lily_ErrSyntax,
                 "Left side of %s is not a var.\n", opname(ast->op));
     }
 
-    if (ast->right->tree_type != tree_var)
+    if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right);
 
     left_sym = ast->left->result;
@@ -596,10 +589,13 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
         right_sym = ast->result;
     }
 
+    if ((left_sym->flags & SYM_SCOPE_GLOBAL) && emit->method_depth > 1)
+        opcode = o_set_global;
+
     WRITE_4(opcode,
             ast->line_num,
-            (uintptr_t)right_sym,
-            (uintptr_t)left_sym)
+            right_sym->reg_spot,
+            left_sym->reg_spot)
     ast->result = right_sym;
 }
 
@@ -629,7 +625,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
     else
         is_top = 0;
 
-    if (ast->left->tree_type != tree_var)
+    if (ast->left->tree_type != tree_local_var)
         eval_tree(emit, ast->left);
 
     /* If the left is the same as this tree, then it's already checked itself
@@ -638,44 +634,46 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
     if ((ast->left->tree_type == tree_binary && ast->left->op == ast->op) == 0)
         lily_emit_jump_if(emit, ast->left, jump_on);
 
-    if (ast->right->tree_type != tree_var)
+    if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right);
 
     lily_emit_jump_if(emit, ast->right, jump_on);
 
     if (is_top == 1) {
-        /* The symtab adds literals 0 and 1 in that order during its init. */
         int save_pos;
-        lily_literal *success, *failure;
+        lily_literal *success_lit, *failure_lit;
         lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
-        result = try_get_simple_storage(emit, cls);
+
+        /* The literals need to be pulled into storages before they can be used,
+           so grab two more for them. */
+        result = try_get_storage(emit, cls->sig);
         if (result == NULL) {
             emit->raiser->line_adjust = ast->line_num;
             lily_raise_nomem(emit->raiser);
         }
 
-        success = symtab->lit_start;
+        /* The symtab adds literals 0 and 1 in that order during its init. */
+        success_lit = symtab->lit_start;
         if (ast->op == expr_logical_or)
-            failure = success->next;
+            failure_lit = success_lit->next;
         else {
-            failure = success;
-            success = failure->next;
+            failure_lit = success_lit;
+            success_lit = failure_lit->next;
         }
 
-        WRITE_4(o_assign,
+        WRITE_4(o_get_const,
                 ast->line_num,
-                (uintptr_t)success,
-                (uintptr_t)result);
+                (uintptr_t)success_lit,
+                result->reg_spot)
 
-        WRITE_2(o_jump, 0);
-        save_pos = m->pos-1;
+        WRITE_2(o_jump, 0)
+        save_pos = m->pos - 1;
 
         lily_emit_leave_block(emit);
-        WRITE_4(o_assign,
+        WRITE_4(o_get_const,
                 ast->line_num,
-                (uintptr_t)failure,
-                (uintptr_t)result);
-
+                (uintptr_t)failure_lit,
+                result->reg_spot);
         m->code[save_pos] = m->pos;
         ast->result = (lily_sym *)result;
     }
@@ -707,18 +705,18 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
     lily_sym *rhs;
     lily_sig *elem_sig;
 
-    if (ast->right->tree_type != tree_var)
+    if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right);
 
     rhs = ast->right->result;
 
-    if (var_ast->tree_type != tree_var)
+    if (var_ast->tree_type != tree_local_var)
         eval_tree(emit, var_ast);
 
     if (var_ast->result->sig->cls->id != SYM_CLASS_LIST)
         bad_subs_class(emit, var_ast);
 
-    if (index_ast->tree_type != tree_var)
+    if (index_ast->tree_type != tree_local_var)
         eval_tree(emit, index_ast);
 
     if (index_ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
@@ -741,15 +739,15 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
         /* For a compound assignment to work, the left side must be subscripted
            to get the value held. */
 
-        lily_storage *subs_storage = try_get_proper_storage(emit, elem_sig);
+        lily_storage *subs_storage = try_get_storage(emit, elem_sig);
         if (subs_storage == NULL)
             lily_raise_nomem(emit->raiser);
 
         WRITE_5(o_subscript,
                 ast->line_num,
-                (uintptr_t)var_ast->result,
-                (uintptr_t)index_ast->result,
-                (uintptr_t)subs_storage)
+                var_ast->result->reg_spot,
+                index_ast->result->reg_spot,
+                subs_storage->reg_spot)
 
         ast->left->result = (lily_sym *)subs_storage;
 
@@ -761,9 +759,9 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
 
     WRITE_5(o_sub_assign,
             ast->line_num,
-            (uintptr_t)var_ast->result,
-            (uintptr_t)index_ast->result,
-            (uintptr_t)rhs)
+            var_ast->result->reg_spot,
+            index_ast->result->reg_spot,
+            rhs->reg_spot)
 
     ast->result = rhs;
 }
@@ -777,7 +775,7 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
    Any typecast that specifies object is transformed into an object assign. */
 static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 {
-    if (ast->right->tree_type != tree_var)
+    if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right);
 
     lily_sig *cast_sig = ast->sig;
@@ -790,7 +788,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     }
     else if (cast_sig->cls->id == SYM_CLASS_OBJECT) {
         /* An object assign will work here. */
-        lily_storage *storage = try_get_simple_storage(emit, cast_sig->cls);
+        lily_storage *storage = try_get_storage(emit, cast_sig);
         if (storage == NULL) {
             emit->raiser->line_adjust = ast->line_num;
             lily_raise_nomem(emit->raiser);
@@ -798,8 +796,8 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 
         WRITE_4(o_obj_assign,
                 ast->line_num,
-                (uintptr_t)ast->right->result,
-                (uintptr_t)storage)
+                ast->right->result->reg_spot,
+                storage->reg_spot)
         ast->result = (lily_sym *)storage;
         return;
     }
@@ -809,7 +807,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 
     if (var_sig->cls->id == SYM_CLASS_OBJECT) {
         cast_opcode = o_obj_typecast;
-        result = try_get_proper_storage(emit, cast_sig);
+        result = try_get_storage(emit, cast_sig);
     }
     else {
         if ((var_sig->cls->id == SYM_CLASS_INTEGER &&
@@ -818,10 +816,11 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
              cast_sig->cls->id == SYM_CLASS_INTEGER))
         {
             cast_opcode = o_intnum_typecast;
-            result = try_get_simple_storage(emit, cast_sig->cls);
+            result = try_get_storage(emit, cast_sig);
         }
         else {
             cast_opcode = -1;
+            result = NULL;
             emit->raiser->line_adjust = ast->line_num;
             lily_raise(emit->raiser, lily_ErrBadCast,
                        "Cannot cast type '%T' to type '%T'.\n",
@@ -836,8 +835,8 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 
     WRITE_4(cast_opcode,
             ast->line_num,
-            (uintptr_t)ast->right->result,
-            (uintptr_t)result)
+            ast->right->result->reg_spot,
+            result->reg_spot)
 
     ast->result = (lily_sym *)result;
 }
@@ -863,7 +862,8 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     }
 
     lily_class *integer_cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
-    storage = try_get_simple_storage(emit, integer_cls);
+
+    storage = try_get_storage(emit, integer_cls->sig);
     if (storage == NULL) {
         emit->raiser->line_adjust = ast->line_num;
         lily_raise_nomem(emit->raiser);
@@ -873,11 +873,13 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
         opcode = o_unary_minus;
     else if (ast->op == expr_unary_not)
         opcode = o_unary_not;
+    else
+        opcode = -1;
 
     WRITE_4(opcode,
-            (uintptr_t)ast->line_num,
-            (uintptr_t)ast->left->result,
-            (uintptr_t)storage);
+            ast->line_num,
+            ast->left->result->reg_spot,
+            storage->reg_spot);
 
     ast->result = (lily_sym *)storage;
 }
@@ -903,7 +905,7 @@ static void cast_ast_list_to(lily_emit_state *emit, lily_ast *list_ast,
     for (arg = list_ast->arg_start;
          arg != NULL;
          arg = arg->next_arg) {
-        lily_storage *obj_store = try_get_simple_storage(emit, cls);
+        lily_storage *obj_store = try_get_storage(emit, cls->sig);
         if (obj_store == NULL) {
             emit->raiser->line_adjust = arg->line_num;
             lily_raise_nomem(emit->raiser);
@@ -915,8 +917,8 @@ static void cast_ast_list_to(lily_emit_state *emit, lily_ast *list_ast,
            from where the arg is from. */
         WRITE_4(opcode,
                 arg->line_num,
-                (uintptr_t)arg->result,
-                (uintptr_t)obj_store)
+                arg->result->reg_spot,
+                obj_store->reg_spot)
         arg->result = (lily_sym *)obj_store;
     }
 }
@@ -946,7 +948,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
        * If all results have the same class, then use that class.
        * If they do not, use object. */
     for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
-        if (arg->tree_type != tree_var)
+        if (arg->tree_type != tree_local_var)
             eval_tree(emit, arg);
 
         if (elem_sig != NULL) {
@@ -978,7 +980,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
     }
 
     new_sig->node.value_sig = elem_sig;
-    lily_storage *s = try_get_proper_storage(emit, new_sig);
+    lily_storage *s = try_get_storage(emit, new_sig);
 
     if (s == NULL) {
         emit->raiser->line_adjust = ast->line_num;
@@ -993,9 +995,9 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
     for (i = 3, arg = ast->arg_start;
         arg != NULL;
         arg = arg->next_arg, i++) {
-        m->code[m->pos + i] = (uintptr_t)arg->result;
+        m->code[m->pos + i] = arg->result->reg_spot;
     }
-    m->code[m->pos+i] = (intptr_t)s;
+    m->code[m->pos+i] = s->reg_spot;
 
     m->pos += 4 + ast->args_collected;
     ast->result = (lily_sym *)s;
@@ -1017,7 +1019,7 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
     if (var_sig->cls->id != SYM_CLASS_LIST)
         bad_subs_class(emit, var_ast);
 
-    if (index_ast->tree_type != tree_var)
+    if (index_ast->tree_type != tree_local_var)
         eval_tree(emit, index_ast);
 
     if (index_ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
@@ -1029,7 +1031,7 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
     lily_sig *sig_for_result = var_sig->node.value_sig;
     lily_storage *result;
 
-    result = try_get_proper_storage(emit, sig_for_result);
+    result = try_get_storage(emit, sig_for_result);
     if (result == NULL) {
         emit->raiser->line_adjust = ast->line_num;
         lily_raise_nomem(emit->raiser);
@@ -1037,9 +1039,9 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
 
     WRITE_5(o_subscript,
             ast->line_num,
-            (uintptr_t)var_ast->result,
-            (uintptr_t)index_ast->result,
-            (uintptr_t)result);
+            var_ast->result->reg_spot,
+            index_ast->result->reg_spot,
+            result->reg_spot);
 
     ast->result = (lily_sym *)result;
 }
@@ -1067,17 +1069,10 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         (is_varargs == 0 && (have_args != num_args)))
         bad_num_args(emit, ast, csig);
 
-    /* Important! num_args was dropped, so this is the true count. */
-    SAVE_PREP(csig->num_args)
     for (i = 0;i != num_args;arg = arg->next_arg, i++) {
-        if (arg->tree_type != tree_var) {
+        if (arg->tree_type != tree_local_var)
             /* Walk the subexpressions so the result gets calculated. */
             eval_tree(emit, arg);
-            if (arg->result != NULL) {
-                emit->save_cache[emit->save_cache_pos] = (uintptr_t)arg->result;
-                emit->save_cache_pos++;
-            }
-        }
 
         if (!lily_sigequal(arg->result->sig, csig->args[i])) {
             if (!sigcast(emit, arg, csig->args[i]))
@@ -1099,14 +1094,10 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         }
 
         for (;arg != NULL;arg = arg->next_arg) {
-            if (arg->tree_type != tree_var) {
+            if (arg->tree_type != tree_local_var)
                 /* Walk the subexpressions so the result gets calculated. */
                 eval_tree(emit, arg);
-                if (arg->result != NULL) {
-                    emit->save_cache[emit->save_cache_pos] = (uintptr_t)arg->result;
-                    emit->save_cache_pos++;
-                }
-            }
+
             if (!lily_sigequal(arg->result->sig, va_comp_sig)) {
                 if (!sigcast(emit, arg, va_comp_sig))
                     bad_arg_error(emit, ast, arg->result->sig, va_comp_sig, i);
@@ -1116,7 +1107,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         i = (have_args - i);
         if (is_method) {
             lily_storage *s;
-            s = try_get_proper_storage(emit, save_sig);
+            s = try_get_storage(emit, save_sig);
             if (s == NULL) {
                 emit->raiser->line_adjust = ast->line_num;
                 lily_raise_nomem(emit->raiser);
@@ -1132,74 +1123,13 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             m->code[m->pos+1] = ast->line_num;
             m->code[m->pos+2] = i;
             for (j = 3;arg != NULL;arg = arg->next_arg, j++)
-                m->code[m->pos+j] = (uintptr_t)arg->result;
+                m->code[m->pos+j] = arg->result->reg_spot;
 
-            m->code[m->pos+j] = (uintptr_t)s;
+            m->code[m->pos+j] = s->reg_spot;
             m->pos += j+1;
             save_arg->result = (lily_sym *)s;
             save_arg->next_arg = NULL;
             ast->args_collected = num_args + 1;
-        }
-    }
-}
-
-/* do_save_for_parent
-   This is currently a helper for eval_call. This is used to write out all of
-   the saves that the call may need. eval_call first checks that the parent
-   tree exists and is either tree_binary or tree_list before calling this.
-
-   This is important because multiple calls might return values that need to be
-   held in the middle of a calculation. [a, b(), c()] and a = (b + c) + d()
-   are both examples of this. However, it is important to make sure that vars
-   are never saved. Local vars are already in emitter's save_cache, and doing
-   it to global values would be wrong.
-
-   Consider this:
-   * a = 10 # and a is global
-   * [a, b(), c()]
-   * where a is global, and b modifies a to be 20.
-   * If this saves 'a' (a global), it will result in the original value of 'a'
-     being restored after b is called.
-
-   The takeaway: Never ever save vars within here, or bad things will happen
-   that will be really hard to find. */
-static void do_save_for_parent(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_ast *parent = ast->parent;
-    lily_tree_type parent_tt = parent->tree_type;
-
-    if (parent_tt == tree_binary && parent->right == ast &&
-        parent->left->tree_type != tree_var) {
-        /* This is the right side of a binary op, and the left side has a value
-           put in a storage. The left has already eval'd, so only the storage
-           needs to be saved.
-           Example: fib(n-1) + fib(n-2) */
-        SAVE_PREP(1)
-        emit->save_cache[emit->save_cache_pos] =
-                (uintptr_t)ast->parent->left->result;
-        emit->save_cache_pos++;
-    }
-    else if (parent_tt == tree_list) {
-        /* This is a bit tougher. The parent is a static list (ex: [a, b, c]).
-           Everything that comes before this ast must be saved. This may
-           save/restore more than it needs to, but it's better than having a
-           storage overwritten.
-
-           This could be improved by saving only what needs to be saved, and
-           also by incrementally saving values as it goes along. */
-        lily_ast *iter_ast;
-
-        /* This is likely to be too much. However, doing it this way is simpler
-           than doing a counting loop, SAVE_PREP, and then a write loop. */
-        SAVE_PREP(parent->args_collected)
-        for (iter_ast = parent->arg_start;
-             iter_ast != ast;
-             iter_ast = iter_ast->next_arg) {
-            if (iter_ast->tree_type != tree_var) {
-                emit->save_cache[emit->save_cache_pos] =
-                        (uintptr_t)iter_ast->result;
-                emit->save_cache_pos++;
-            }
         }
     }
 }
@@ -1212,7 +1142,7 @@ static void do_save_for_parent(lily_emit_state *emit, lily_ast *ast)
 static void eval_call(lily_emit_state *emit, lily_ast *ast)
 {
     lily_method_val *m = emit->top_method;
-    int expect_size, i, is_method, save_start;
+    int expect_size, i, is_method;
     lily_ast *arg;
     lily_call_sig *csig;
     lily_sym *call_sym;
@@ -1251,42 +1181,24 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     is_method = (call_sym->sig->cls->id == SYM_CLASS_METHOD);
     expect_size = 5 + ast->args_collected;
 
-    /* check_call_args will register each arg to be saved, in case one of
-       the args is a call that would modify previous storages. However, once
-       those inner calls are done, the storages of the args do not need to
-       be saved. This ensures that storages don't get saved (which is
-       pointless). */
-    save_start = emit->save_cache_pos;
     check_call_args(emit, ast, csig);
-    emit->save_cache_pos = save_start;
 
-    if (is_method) {
-        lily_ast *parent = ast->parent;
-        /* This ensures that storages used by the parent are not overwritten. */
-        if (parent != NULL &&
-            (parent->tree_type == tree_binary ||
-             parent->tree_type == tree_list))
-                do_save_for_parent(emit, ast);
+    if ((call_sym->flags & SYM_SCOPE_GLOBAL) && emit->method_depth > 1) {
+        lily_storage *storage = try_get_storage(emit, call_sym->sig);
+        if (storage == NULL) {
+            emit->raiser->line_adjust = ast->line_num;
+            lily_raise_nomem(emit->raiser);
+        }
 
-        /* o_save needs 2 + #saves, o_restore needs a flat 2. */
-        if (emit->save_cache_pos)
-            expect_size += emit->save_cache_pos + 4;
+        WRITE_4(o_get_global,
+                ast->line_num,
+                call_sym->reg_spot,
+                storage->reg_spot);
+
+        call_sym = (lily_sym *)storage;
     }
 
     WRITE_PREP_LARGE(expect_size)
-
-    /* Note that parser doesn't register vars in @main, so a method called
-       from @main would never save anything. */
-    if (is_method && emit->save_cache_pos) {
-        m->code[m->pos] = o_save;
-        m->code[m->pos+1] = emit->save_cache_pos;
-        m->pos += 2;
-
-        memcpy(m->code + m->pos, emit->save_cache,
-               emit->save_cache_pos * sizeof(uintptr_t));
-
-        m->pos += emit->save_cache_pos;
-    }
 
     if (is_method)
         m->code[m->pos] = o_method_call;
@@ -1294,23 +1206,24 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
         m->code[m->pos] = o_func_call;
 
     m->code[m->pos+1] = ast->line_num;
-    m->code[m->pos+2] = (uintptr_t)call_sym;
+    m->code[m->pos+2] = call_sym->reg_spot;
     m->code[m->pos+3] = ast->args_collected;
 
     for (i = 4, arg = ast->arg_start;
         arg != NULL;
         arg = arg->next_arg, i++) {
-        m->code[m->pos + i] = (uintptr_t)arg->result;
+        m->code[m->pos + i] = arg->result->reg_spot;
     }
 
     if (csig->ret != NULL) {
-        lily_storage *storage = try_get_proper_storage(emit, csig->ret);
+        lily_storage *storage = try_get_storage(emit, csig->ret);
         if (storage == NULL) {
             emit->raiser->line_adjust = ast->line_num;
             lily_raise_nomem(emit->raiser);
         }
 
         ast->result = (lily_sym *)storage;
+        m->code[m->pos+i] = ast->result->reg_spot;
     }
     else {
         /* It's okay to not push a return value, unless something needs it.
@@ -1322,16 +1235,49 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
             lily_raise(emit->raiser, lily_ErrSyntax,
                        "Call returning nil not at end of expression.");
         }
+        m->code[m->pos+i] = -1;
     }
 
-    m->code[m->pos+i] = (uintptr_t)ast->result;
     m->pos += 5 + ast->args_collected;
+}
 
-    if (is_method && emit->save_cache_pos) {
-        m->code[m->pos] = o_restore;
-        m->code[m->pos+1] = emit->save_cache_pos;
-        m->pos += 2;
-        emit->save_cache_pos = save_start;
+/* emit_nonlocal_var
+   This handles vars that are not local and are on the right hand side of an
+   expression. This handles loading both literals and globals into a local
+   register. */
+static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_method_val *m = emit->top_method;
+    lily_storage *ret;
+
+    if (ast->result->flags & SYM_TYPE_LITERAL) {
+        ret = try_get_storage(emit, ast->result->sig);
+        if (ret == NULL) {
+            emit->raiser->line_adjust = ast->line_num;
+            lily_raise_nomem(emit->raiser);
+        }
+
+        WRITE_4(o_get_const,
+                ast->line_num,
+                (uintptr_t)ast->result,
+                ret->reg_spot)
+
+        ast->result = (lily_sym *)ret;
+    }
+    else if (ast->result->flags & SYM_TYPE_VAR) {
+        ret = try_get_storage(emit, ast->result->sig);
+        if (ret == NULL) {
+            emit->raiser->line_adjust = ast->line_num;
+            lily_raise_nomem(emit->raiser);
+        }
+
+        /* We'll load this from an absolute position within @main's globals. */
+        WRITE_4(o_get_global,
+                ast->line_num,
+                ast->result->reg_spot,
+                ret->reg_spot)
+
+        ast->result = (lily_sym *)ret;
     }
 }
 
@@ -1340,7 +1286,9 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
    instead determines what call to shove the work off to. */
 static void eval_tree(lily_emit_state *emit, lily_ast *ast)
 {
-    if (ast->tree_type == tree_call)
+    if (ast->tree_type == tree_var)
+        emit_nonlocal_var(emit, ast);
+    else if (ast->tree_type == tree_call)
         eval_call(emit, ast);
     else if (ast->tree_type == tree_binary) {
         if (ast->op >= expr_assign) {
@@ -1352,23 +1300,23 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast)
         else if (ast->op == expr_logical_or || ast->op == expr_logical_and)
             eval_logical_op(emit, ast);
         else {
-            if (ast->left->tree_type != tree_var)
+            if (ast->left->tree_type != tree_local_var)
                 eval_tree(emit, ast->left);
 
-            if (ast->right->tree_type != tree_var)
+            if (ast->right->tree_type != tree_local_var)
                 eval_tree(emit, ast->right);
 
             emit_binary_op(emit, ast);
         }
     }
     else if (ast->tree_type == tree_parenth) {
-        if (ast->arg_start->tree_type != tree_var)
+        if (ast->arg_start->tree_type != tree_local_var)
             eval_tree(emit, ast->arg_start);
 
         ast->result = ast->arg_start->result;
     }
     else if (ast->tree_type == tree_unary) {
-        if (ast->left->tree_type != tree_var)
+        if (ast->left->tree_type != tree_local_var)
             eval_tree(emit, ast->left);
 
         eval_unary_op(emit, ast);
@@ -1383,16 +1331,6 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast)
 
 /** Emitter API functions **/
 
-/* lily_emit_add_save_var
-   This tells the emitter to add a new var to the save cache. This is used to
-   keep track of what vars should be saved. */
-void lily_emit_add_save_var(lily_emit_state *emit, lily_var *v)
-{
-    SAVE_PREP(1)
-    emit->save_cache[emit->save_cache_pos] = (uintptr_t)v;
-    emit->save_cache_pos++;
-}
-
 /* lily_emit_ast
    API function to call eval_tree on an ast and increment the expr_num of the
    emitter. */
@@ -1404,8 +1342,7 @@ void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)
 
 /* lily_emit_ast_to_var
    API function to call eval_tree on an ast to evaluate it. Afterward, the
-   result is assigned to the given storage. The storage is added to the save
-   cache in case to be saved if there is a method call. */
+   result is assigned to the given storage. */
 void lily_emit_ast_to_var(lily_emit_state *emit, lily_ast *ast,
         lily_var *var)
 {
@@ -1424,15 +1361,8 @@ void lily_emit_ast_to_var(lily_emit_state *emit, lily_ast *ast,
 
     WRITE_4(o_assign,
             ast->line_num,
-            (uintptr_t)ast->result,
-            (uintptr_t)var)
-
-    /* Important! One of the range values might include a call. Also, the loop
-       itself might call other things.
-       As usual, don't save things from @main (method_pos == 1), because @main
-       can't recurse. */
-    if (emit->method_depth > 1)
-        lily_emit_add_save_var(emit, var);
+            ast->result->reg_spot,
+            var->reg_spot)
 }
 
 /* lily_emit_break
@@ -1515,7 +1445,7 @@ void lily_eval_do_while_expr(lily_emit_state *emit, lily_ast *ast)
     eval_tree(emit, ast);
     emit->expr_num++;
 
-    if (ast->result == NULL)
+    if (ast->result->reg_spot == -1)
         lily_raise(emit->raiser, lily_ErrSyntax,
                    "Conditional statement has no value.\n");
 
@@ -1523,7 +1453,7 @@ void lily_eval_do_while_expr(lily_emit_state *emit, lily_ast *ast)
        fall out of the loop. */
     WRITE_4(o_jump_if,
             0,
-            (uintptr_t)ast->result,
+            ast->result->reg_spot,
             emit->current_block->loop_start)
 }
 
@@ -1570,10 +1500,8 @@ void lily_emit_change_if_branch(lily_emit_state *emit, int have_else)
     else if (block->block_type == BLOCK_IFELSE)
         lily_raise(emit->raiser, lily_ErrSyntax, "'elif' after 'else'.\n");
 
-    if (v->next != NULL) {
-        lily_drop_block_vars(emit->symtab, v);
-        emit->save_cache_pos = block->save_cache_start;
-    }
+    if (v->next != NULL)
+        lily_hide_block_vars(emit->symtab, v);
 
     /* Write an exit jump for this branch, thereby completing the branch. */
     WRITE_2(o_jump, 0);
@@ -1608,7 +1536,7 @@ void lily_emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
 {
     lily_method_val *m = emit->top_method;
 
-    WRITE_4(o_jump_if, jump_on, (uintptr_t)ast->result, 0);
+    WRITE_4(o_jump_if, jump_on, ast->result->reg_spot, 0);
     if (emit->patch_pos == emit->patch_size)
         grow_patches(emit);
 
@@ -1636,7 +1564,7 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
     }
 
     lily_method_val *m = emit->top_method;
-    WRITE_3(o_return_val, ast->line_num, (uintptr_t)ast->result)
+    WRITE_3(o_return_val, ast->line_num, ast->result->reg_spot)
 }
 
 /* lily_emit_show
@@ -1644,11 +1572,22 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
    of the ast. Type-checking is intentionally NOT performed. */
 void lily_emit_show(lily_emit_state *emit, lily_ast *ast)
 {
-    eval_tree(emit, ast);
+    int is_global = (ast->tree_type == tree_var &&
+                     ast->result->flags & SYM_SCOPE_GLOBAL);
+
+    /* Don't eval if it's a global var and nothing more. This makes it so
+       globals show with their name and their proper register. Otherwise, the
+       global gets loaded into a local storage, making show a bit less helpful.
+       This also makes sure that global and local vars are treated consistently
+       by show. */
+    if (is_global == 0)
+        eval_tree(emit, ast);
+
     emit->expr_num++;
 
     lily_method_val *m = emit->top_method;
-    WRITE_3(o_show, ast->line_num, (uintptr_t)ast->result)
+
+    WRITE_4(o_show, ast->line_num, is_global, ast->result->reg_spot)
 }
 
 /* lily_emit_return_noval
@@ -1665,11 +1604,123 @@ void lily_emit_return_noval(lily_emit_state *emit)
     WRITE_2(o_return_noval, *emit->lex_linenum)
 }
 
+/* add_var_chain_to_info
+   This adds a chain of vars to a method's info. If not @main, then methods
+   declared within the currently-exiting method are skipped. */
+static void add_var_chain_to_info(lily_emit_state *emit,
+        lily_register_info *info, lily_var *var)
+{
+    if (emit->method_depth > 1) {
+        while (var) {
+            if ((var->flags & SYM_SCOPE_GLOBAL) == 0) {
+                info[var->reg_spot].sig = var->sig;
+                info[var->reg_spot].name = var->name;
+                info[var->reg_spot].line_num = var->line_num;
+            }
+
+            var = var->next;
+        }
+    }
+    else {
+        while (var) {
+            info[var->reg_spot].sig = var->sig;
+            info[var->reg_spot].name = var->name;
+            info[var->reg_spot].line_num = var->line_num;
+
+            var = var->next;
+        }
+    }
+}
+
+/* add_storage_chain_to_info
+   This adds the storages that a method has used to the method's info. */
+static void add_storage_chain_to_info(lily_register_info *info,
+        lily_storage *storage)
+{
+    while (storage && storage->sig) {
+        info[storage->reg_spot].sig = storage->sig;
+        info[storage->reg_spot].name = NULL;
+        info[storage->reg_spot].line_num = -1;
+        storage = storage->next;
+    }
+}
+
+/* finalize_method_val
+   A method is closing (or @main is about to be called). Since this method is
+   done, prepare the reg_info part of it. This will be used to allocate the
+   registers it needs at vm-time. */
+static void finalize_method_val(lily_emit_state *emit, lily_block *method_block)
+{
+    int register_count = emit->symtab->next_register_spot;
+    lily_method_val *m = emit->top_method;
+    lily_var *var_iter = method_block->method_var->next;
+    lily_storage *storage_iter = method_block->storage_start;
+
+    lily_register_info *info;
+    if (m->reg_info == NULL)
+        info = lily_malloc(register_count * sizeof(lily_register_info));
+    else
+        info = lily_realloc(m->reg_info,
+                register_count * sizeof(lily_register_info));
+
+    if (info == NULL)
+        /* This is called directly from parser, so don't set an adjust. */
+        lily_raise_nomem(emit->raiser);
+
+    add_var_chain_to_info(emit, info, method_block->method_var->next);
+    add_storage_chain_to_info(info, method_block->storage_start);
+
+    if (emit->method_depth > 1) {
+        /* todo: Reuse the var shells instead of destroying. Seems petty, but
+                 malloc isn't cheap if there are a lot of vars. */
+        lily_var *var_temp;
+        var_iter = method_block->method_var->next;
+        while (var_iter) {
+            var_temp = var_iter->next;
+            if ((var_iter->flags & SYM_SCOPE_GLOBAL) == 0)
+                lily_free(var_iter);
+            else {
+                /* This is a declared method that was placed into a register of
+                   @main. Instead of destroying it, save it where the vm can
+                   find it later for initializing @main's registers. */
+                lily_save_declared_method(emit->symtab, var_iter);
+            }
+
+            /* The method value now owns the var names, so don't free them. */
+            var_iter = var_temp;
+        }
+
+        /* Blank the signatures of the storages that were used. This lets other
+           methods know that the signatures are not in use. */
+        storage_iter = method_block->storage_start;
+        while (storage_iter) {
+            storage_iter->sig = NULL;
+            storage_iter = storage_iter->next;
+        }
+    }
+    else {
+        /* If @main, add global functions like str's concat and all global
+           vars. */
+        int i;
+        for (i = 0;i < emit->symtab->class_pos;i++) {
+            lily_class *cls = emit->symtab->classes[i];
+            if (cls->call_start)
+                add_var_chain_to_info(emit, info, cls->call_start);
+        }
+        add_var_chain_to_info(emit, info, emit->symtab->old_method_chain);
+    }
+
+    m->reg_info = info;
+    m->reg_count = register_count;
+}
+
 /* lily_emit_vm_return
    This writes the o_vm_return opcode at the end of the @main method. */
 void lily_emit_vm_return(lily_emit_state *emit)
 {
     lily_method_val *m = emit->top_method;
+
+    finalize_method_val(emit, emit->current_block);
     WRITE_1(o_return_from_vm)
 }
 
@@ -1704,10 +1755,13 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
 
     new_block->block_type = block_type;
     new_block->var_start = emit->symtab->var_top;
-    new_block->save_cache_start = emit->save_cache_pos;
 
     if (block_type != BLOCK_METHOD) {
         new_block->patch_start = emit->patch_pos;
+        /* Non-methods will continue using the storages that the parent uses.
+           Additionally, the same technique is used to allow loop starts to
+           bubble upward until a method gets in the way. */
+        new_block->storage_start = emit->current_block->storage_start;
         if (IS_LOOP_BLOCK(block_type))
             new_block->loop_start = emit->top_method->pos;
         else
@@ -1715,8 +1769,41 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
     }
     else {
         lily_var *v = emit->symtab->var_top;
+        v->value.method = lily_try_new_method_val();
+        if (v->value.method == NULL)
+            lily_raise_nomem(emit->raiser);
 
+        /* If this is a method within a method, then put it in @main since it's
+           flagged as a global. */
+        if (emit->method_depth > 1) {
+            lily_block *block = emit->first_block->next;
+            emit->symtab->next_register_spot--;
+            if (emit->method_depth >= 2) {
+                v->reg_spot = block->save_register_spot;
+                block->save_register_spot++;
+            }
+        }
+
+        v->value.method->trace_name = v->name;
+        /* All declared methods are loaded into @main's registers for later
+           access. */
+        v->flags |= SYM_SCOPE_GLOBAL;
+        v->flags &= ~(SYM_IS_NIL);
+        v->method_depth = 1;
+
+        new_block->save_register_spot = emit->symtab->next_register_spot;
+
+        emit->symtab->method_depth++;
+        /* Make sure registers start at 0 again. This will be restored when this
+           method leaves. */
+        emit->symtab->next_register_spot = 0;
+        /* All vars should now be created in a local scope. */
+        emit->symtab->scope = 0;
+        /* This prevents this method from using the storages of the method it's
+           in. Doing so allows each method to be independent of others. */
+        new_block->storage_start = NULL;
         new_block->method_var = v;
+        /* -1 to indicate that there is no current loop. */
         new_block->loop_start = -1;
         emit->top_method = v->value.method;
         emit->top_var = v;
@@ -1737,13 +1824,22 @@ static void leave_method(lily_emit_state *emit, lily_block *block)
            doing so. */
         emit_return_expected(emit);
 
+    finalize_method_val(emit, block);
+
     /* Warning: This assumes that only methods can contain other methods. */
     lily_var *v = block->prev->method_var;
 
+    emit->symtab->var_top = block->method_var;
+    block->method_var->next = NULL;
+    emit->symtab->method_depth--;
+    emit->symtab->next_register_spot = block->save_register_spot;
     emit->top_method = v->value.method;
     emit->top_var = v;
     emit->top_method_ret = v->sig->node.call->ret;
     emit->method_depth--;
+    /* If returning to @main, all vars default to a global scope again. */
+    if (emit->method_depth == 1)
+        emit->symtab->scope = SYM_SCOPE_GLOBAL;
 }
 
 /* lily_emit_leave_block
@@ -1779,14 +1875,11 @@ void lily_emit_leave_block(lily_emit_state *emit)
 
         /* Use the space for new patches now. */
         emit->patch_pos = to;
+
+        lily_hide_block_vars(emit->symtab, v);
     }
     else
         leave_method(emit, block);
-
-    if (v->next != NULL) {
-        lily_drop_block_vars(emit->symtab, v);
-        emit->save_cache_pos = block->save_cache_start;
-    }
 
     emit->current_block = emit->current_block->prev;
 }
@@ -1797,11 +1890,25 @@ void lily_emit_leave_block(lily_emit_state *emit)
    Emitter hasn't had the symtab set, which is why the var must be sent. */
 int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
 {
-    lily_block *main_block = try_new_block(emit);
+    lily_block *main_block = try_new_block();
     if (main_block == NULL)
         return 0;
 
+    main_var->value.method = lily_try_new_method_val();
+    if (main_var->value.method == NULL) {
+        lily_free(main_block);
+        return 0;
+    }
+
+    /* @main is given two refs so that it must go through a custom deref to be
+       destroyed. This is because the names in the method info it has are shared
+       with vars that are still around. */
+    main_var->value.method->refcount++;
+    main_var->flags &= ~SYM_IS_NIL;
+    main_var->value.method->trace_name = main_var->name;
+    main_block->block_type = BLOCK_METHOD;
     main_block->method_var = main_var;
+    main_block->storage_start = NULL;
     emit->top_method = main_var->value.method;
     emit->top_var = main_var;
     emit->first_block = main_block;
@@ -1840,10 +1947,10 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     WRITE_PREP_LARGE(16)
     m->code[m->pos  ] = o_for_setup;
     m->code[m->pos+1] = line_num;
-    m->code[m->pos+2] = (uintptr_t)user_loop_var;
-    m->code[m->pos+3] = (uintptr_t)for_start;
-    m->code[m->pos+4] = (uintptr_t)for_end;
-    m->code[m->pos+5] = (uintptr_t)for_step;
+    m->code[m->pos+2] = user_loop_var->reg_spot;
+    m->code[m->pos+3] = for_start->reg_spot;
+    m->code[m->pos+4] = for_end->reg_spot;
+    m->code[m->pos+5] = for_step->reg_spot;
     /* This value is used to determine if the step needs to be calculated. */
     m->code[m->pos+6] = (uintptr_t)!have_step;
 
@@ -1859,10 +1966,10 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
 
     m->code[m->pos+9] = o_integer_for;
     m->code[m->pos+10] = line_num;
-    m->code[m->pos+11] = (uintptr_t)user_loop_var;
-    m->code[m->pos+12] = (uintptr_t)for_start;
-    m->code[m->pos+13] = (uintptr_t)for_end;
-    m->code[m->pos+14] = (uintptr_t)for_step;
+    m->code[m->pos+11] = user_loop_var->reg_spot;
+    m->code[m->pos+12] = for_start->reg_spot;
+    m->code[m->pos+13] = for_end->reg_spot;
+    m->code[m->pos+14] = for_step->reg_spot;
     m->code[m->pos+15] = 0;
 
     m->pos += 16;

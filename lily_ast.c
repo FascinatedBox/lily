@@ -553,7 +553,9 @@ void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
     a->op = op;
 
     if (active != NULL) {
-        if (active->tree_type == tree_var || active->tree_type == tree_call) {
+        if (active->tree_type == tree_var ||
+            active->tree_type == tree_local_var ||
+            active->tree_type == tree_call) {
             active->parent = a;
             ap->active = a;
             ap->root = a;
@@ -567,15 +569,28 @@ void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
     }
 }
 
+void lily_ast_push_local_var(lily_ast_pool *ap, lily_var *var)
+{
+    lily_ast *a = next_pool_ast(ap);
+
+    /* Local vars already have a register allocated. Mark them so that the
+       emitter can do a no-op for them. */
+    a->tree_type = tree_local_var;
+    a->line_num = *ap->lex_linenum;
+    a->result = (lily_sym *)var;
+
+    merge_value(ap, a);
+}
+
 /* lily_ast_push_sym
-   This 'creates' and merges a symbol against the active tree. */
+   This creates and merges a symbol holding a value. This symbol can be either
+   a literal, or a global var.
+   These are separated from local vars because literals and globals need to be
+   loaded into a register before use. */
 void lily_ast_push_sym(lily_ast_pool *ap, lily_sym *s)
 {
     lily_ast *a = next_pool_ast(ap);
 
-    /* The value is stored in result, because that's where functions and
-       binary ops store the object containing the result. It allows the emitter
-       to do nothing for vars. */
     a->tree_type = tree_var;
     a->line_num = *ap->lex_linenum;
     a->result = s;

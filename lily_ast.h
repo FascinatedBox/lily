@@ -11,8 +11,8 @@
    Ex: a == b.concat(c) results in the .concat stealing binary's right instead
        of the whole binary tree. */
 typedef enum {
-    tree_call, tree_subscript, tree_list, tree_parenth, tree_var, tree_unary,
-    tree_typecast, tree_binary
+    tree_call, tree_subscript, tree_list, tree_parenth, tree_local_var,
+    tree_var, tree_unary, tree_typecast, tree_binary
 } lily_tree_type;
 
 typedef struct lily_ast_t {
@@ -67,6 +67,7 @@ void lily_free_ast_pool(lily_ast_pool *);
 lily_ast_pool *lily_new_ast_pool(lily_raiser *, int);
 void lily_ast_leave_tree(lily_ast_pool *);
 lily_tree_type lily_ast_caller_tree_type(lily_ast_pool *);
+void lily_ast_push_local_var(lily_ast_pool *, lily_var *);
 void lily_ast_push_binary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_sig(lily_ast_pool *, lily_sig *);
 void lily_ast_push_sym(lily_ast_pool *, lily_sym *);
