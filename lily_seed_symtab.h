@@ -32,6 +32,7 @@ static const char *keywords[] = {
     "show",
     "__line__",
     "__file__",
+    "__method__",
     "for",
     "do"
 };

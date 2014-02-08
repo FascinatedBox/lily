@@ -598,7 +598,11 @@ static lily_literal *parse_special_keyword(lily_parse_state *parser, int key_id)
         ret = lily_get_line_literal(parser->symtab);
     else if (key_id == KEY__FILE__)
         /* ^--- */
-        ret = lily_get_file_literal(parser->symtab, parser->lex->filename);
+        ret = lily_get_str_literal(parser->symtab, parser->lex->filename);
+    else if (key_id == KEY__METHOD__)
+        /* __method__ is the C equivalent of __func__. */
+        ret = lily_get_str_literal(parser->symtab,
+                parser->emit->top_var->name);
     /* So far, these are the only keywords that map to literals. */
 
     return ret;
@@ -654,7 +658,8 @@ static void expression_value(lily_parse_state *parser)
             }
             else {
                 int key_id = lily_keyword_by_name(lex->label);
-                if (key_id == KEY__LINE__ || key_id == KEY__FILE__) {
+                if (key_id == KEY__LINE__ || key_id == KEY__FILE__ ||
+                    key_id == KEY__METHOD__) {
                     lily_literal *lit;
                     lit = parse_special_keyword(parser, key_id);
                     lily_ast_push_sym(parser->ast_pool, (lily_sym *)lit);
@@ -1226,7 +1231,8 @@ static void statement(lily_parse_state *parser)
             parse_for_in(parser);
         else if (key_id == KEY_DO)
             parse_do_while(parser);
-        else if (key_id == KEY__LINE__ || key_id == KEY__FILE__)
+        else if (key_id == KEY__LINE__ || key_id == KEY__FILE__ ||
+                 key_id == KEY__METHOD__)
             /* These are useless outside of an expression anyway... */
             lily_raise(parser->raiser, lily_ErrSyntax,
                        "%s cannot be used outside of an expression.\n",
