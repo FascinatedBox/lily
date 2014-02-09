@@ -1953,7 +1953,8 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
 
     int have_step = (for_step != NULL);
     if (have_step == 0) {
-        for_step = lily_try_new_var(emit->symtab, cls->sig, "(for step)");
+        /* This var isn't visible, so don't bother with a valid shorthash. */
+        for_step = lily_try_new_var(emit->symtab, cls->sig, "(for step)", 0);
         if (for_step == NULL)
             lily_raise_nomem(emit->raiser);
     }

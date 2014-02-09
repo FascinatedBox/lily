@@ -8,33 +8,39 @@
 typedef const struct {
     char *name;
     int is_refcounted;
+    uint64_t shorthash;
 } class_seed;
 
 class_seed class_seeds[7] =
 {
-    {"integer",  0},
-    {"number",   0},
-    {"str",      1},
-    {"function", 0},
-    {"object",   1},
-    {"method",   1},
-    {"list",     1}
+    {"integer",  0, 32199642103180905},
+    {"number",   0, 125779768604014},
+    {"str",      1, 7500915},
+    {"function", 0, 7957695015192261990},
+    {"object",   1, 127970252055151},
+    {"method",   1, 110429656606061},
+    {"list",     1, 1953720684}
 };
 
-static const char *keywords[] = {
-    "if",
-    "elif",
-    "else",
-    "return",
-    "while",
-    "continue",
-    "break",
-    "show",
-    "__line__",
-    "__file__",
-    "__method__",
-    "for",
-    "do"
+typedef const struct {
+    char *name;
+    uint64_t shorthash;
+} keyword_seed;
+
+keyword_seed keywords[] = {
+    {"if",         26217},
+    {"elif",       1718185061},
+    {"else",       1702063205},
+    {"return",     121437875889522},
+    {"while",      435610544247},
+    {"continue",   7310870969309884259},
+    {"break",      461195539042},
+    {"show",       2003789939},
+    {"__line__",   6872323081280184159},
+    {"__file__",   6872323072689856351},
+    {"__method__", 7237117975334838111},
+    {"for",        7499622},
+    {"do",         28516}
 };
 
 void lily_builtin_print(lily_vm_state *, uintptr_t *, int);
