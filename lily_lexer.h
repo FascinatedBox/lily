@@ -76,6 +76,7 @@ typedef struct {
     int lex_bufsize;
     int label_size;
     char *label;
+    uint64_t label_shorthash;
     lily_token token;
     lily_lexer_mode mode;
     lily_value value;

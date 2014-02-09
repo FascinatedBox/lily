@@ -246,12 +246,13 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig)
     lily_var *var;
     NEED_NEXT_TOK(tk_word)
 
-    var = lily_var_by_name(parser->symtab, lex->label);
+    var = lily_var_by_name(parser->symtab, lex->label, lex->label_shorthash);
     if (var != NULL)
         lily_raise(parser->raiser, lily_ErrSyntax,
                    "%s has already been declared.\n", lex->label);
 
-    var = lily_try_new_var(parser->symtab, var_sig, lex->label);
+    var = lily_try_new_var(parser->symtab, var_sig, lex->label,
+            lex->label_shorthash);
     if (var == NULL)
         lily_raise_nomem(parser->raiser);
 
@@ -348,7 +349,7 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
     lily_class *cls;
 
     NEED_CURRENT_TOK(tk_word)
-    cls = lily_class_by_name(parser->symtab, lex->label);
+    cls = lily_class_by_hash(parser->symtab, lex->label_shorthash);
     if (cls == NULL)
         lily_raise(parser->raiser, lily_ErrSyntax,
                    "unknown class name %s.\n", lex->label);
@@ -562,7 +563,8 @@ static void expression_oo(lily_parse_state *parser)
     ast_sig = determine_ast_sig(parser, parser->ast_pool->active);
     cls = ast_sig->cls;
 
-    call_var = lily_find_class_callable(cls, parser->lex->label);
+    call_var = lily_find_class_callable(cls, parser->lex->label,
+            parser->lex->label_shorthash);
     if (call_var == NULL) {
         lily_raise(parser->raiser, lily_ErrSyntax,
                    "Class %s has no callable named %s.\n", cls->name,
@@ -618,7 +620,8 @@ static void expression_value(lily_parse_state *parser)
 
     while (1) {
         if (lex->token == tk_word) {
-            lily_var *var = lily_var_by_name(symtab, lex->label);
+            lily_var *var = lily_var_by_name(symtab, lex->label,
+                    lex->label_shorthash);
 
             if (var) {
                 lily_lexer(lex);
@@ -657,7 +660,8 @@ static void expression_value(lily_parse_state *parser)
                 }
             }
             else {
-                int key_id = lily_keyword_by_name(lex->label);
+                int key_id = lily_keyword_by_name(lex->label,
+                        lex->label_shorthash);
                 if (key_id == KEY__LINE__ || key_id == KEY__FILE__ ||
                     key_id == KEY__METHOD__) {
                     lily_literal *lit;
@@ -703,7 +707,9 @@ static void expression_value(lily_parse_state *parser)
                     lily_raise(parser->raiser, lily_ErrSyntax,
                             "Empty lists must specify a type (ex: [str]).\n");
                 else if (lex->token == tk_word) {
-                    lily_class *cls = lily_class_by_name(symtab, lex->label);
+                    lily_class *cls = lily_class_by_hash(symtab,
+                            lex->label_shorthash);
+
                     lily_sig *sig;
                     if (cls != NULL) {
                         /* Make sure this works with complex signatures as well
@@ -997,7 +1003,8 @@ static void parse_simple_condition(lily_parse_state *parser)
 
     while (1) {
         if (lex->token == tk_word)
-            key_id = lily_keyword_by_name(parser->lex->label);
+            key_id = lily_keyword_by_name(parser->lex->label,
+                    parser->lex->label_shorthash);
         else
             key_id = -1;
 
@@ -1027,7 +1034,8 @@ static void parse_simple_condition(lily_parse_state *parser)
             expression(parser, EX_NEED_VALUE | EX_SINGLE);
 
         if (lex->token == tk_word) {
-            key_id = lily_keyword_by_name(parser->lex->label);
+            key_id = lily_keyword_by_name(parser->lex->label,
+                    parser->lex->label_shorthash);
             if (key_id == KEY_IF) {
                 /* Close this branch and start another one. */
                 lily_emit_leave_block(parser->emit);
@@ -1134,8 +1142,9 @@ static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
 
     /* For loop values are created as vars so there's a name in case of a
        problem. This name doesn't have to be unique, since it will never be
-       found by the user.  */
-    lily_var *var = lily_try_new_var(parser->symtab, cls->sig, name);
+       found by the user. Since it's not user-findable, don't bother making a
+       shorthash for it either. */
+    lily_var *var = lily_try_new_var(parser->symtab, cls->sig, name, 0);
     if (var == NULL)
         lily_raise_nomem(parser->raiser);
 
@@ -1154,10 +1163,12 @@ static void parse_for_in(lily_parse_state *parser)
 
     lily_emit_enter_block(parser->emit, BLOCK_FOR_IN);
 
-    loop_var = lily_var_by_name(parser->symtab, lex->label);
+    loop_var = lily_var_by_name(parser->symtab, lex->label,
+            lex->label_shorthash);
     if (loop_var == NULL) {
         lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_INTEGER);
-        loop_var = lily_try_new_var(parser->symtab, cls->sig, lex->label);
+        loop_var = lily_try_new_var(parser->symtab, cls->sig, lex->label,
+                lex->label_shorthash);
         if (loop_var == NULL)
             lily_raise_nomem(parser->raiser);
     }
@@ -1207,12 +1218,12 @@ static void parse_for_in(lily_parse_state *parser)
    declarations, etc. */
 static void statement(lily_parse_state *parser)
 {
-    char *label = parser->lex->label;
+    uint64_t label_shorthash = parser->lex->label_shorthash;
     int key_id;
     lily_class *lclass;
     lily_lex_state *lex = parser->lex;
 
-    key_id = lily_keyword_by_name(label);
+    key_id = lily_keyword_by_name(lex->label, label_shorthash);
     if (key_id != -1) {
         lily_lex_state *lex = parser->lex;
         lily_lexer(lex);
@@ -1264,7 +1275,7 @@ static void statement(lily_parse_state *parser)
         }
     }
     else {
-        lclass = lily_class_by_name(parser->symtab, label);
+        lclass = lily_class_by_hash(parser->symtab, label_shorthash);
 
         if (lclass != NULL) {
             int cls_id = lclass->id;

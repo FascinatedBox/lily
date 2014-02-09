@@ -1037,6 +1037,12 @@ void lily_lexer(lily_lex_state *lexer)
                 ch = lexer->lex_buffer[lex_bufpos];
             } while (ident_table[(unsigned char)ch]);
             label[word_pos] = '\0';
+            /* If it's not 8 bytes wide, zero out the rest. This prevents
+               returning different hashes due to old data. */
+            for (;word_pos < 8;word_pos++)
+                label[word_pos] = '\0';
+
+            lexer->label_shorthash = *(uint64_t *)label;
             token = tk_word;
         }
         else if (group <= CC_G_ONE_LAST) {

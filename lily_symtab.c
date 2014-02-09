@@ -22,6 +22,9 @@
       will never call lily_raise.
     * During symtab initialization, lily_raise cannot be called because the
       parser is not completely allocated and set.
+    * A shorthash is a uint64 value that holds the integer value of up to the
+      first 8 bytes of a string. The lexer generates these for doing any kind of
+      lookup.
 **/
 
 /** Value deref-ing. **/
@@ -150,7 +153,8 @@ void lily_deref_unknown_val(lily_sig *sig, lily_value v)
    * If the same sig is to be used for multiple vars, the sig needs to be ref'd
      by the caller each time.
    Note: 'try' means this call returns NULL on failure. */
-lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name)
+lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
+        uint64_t shorthash)
 {
     lily_var *var = lily_malloc(sizeof(lily_var));
     if (var == NULL)
@@ -166,6 +170,7 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name)
     strcpy(var->name, name);
     var->line_num = *symtab->lex_linenum;
 
+    var->shorthash = shorthash;
     var->method_depth = symtab->method_depth;
     var->sig = sig;
     var->next = NULL;
@@ -248,9 +253,11 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
 
     for (i = 0;i < seed_count;i++) {
         lily_func_seed *seed = seeds[i];
+        uint64_t shorthash = *(uint64_t *)(seed->name);
         lily_sig *new_sig = lily_try_sig_for_class(symtab, func_class);
         if (new_sig != NULL) {
-            lily_var *var = lily_try_new_var(symtab, new_sig, seed->name);
+            lily_var *var = lily_try_new_var(symtab, new_sig, seed->name,
+                    shorthash);
 
             if (var != NULL) {
                 int seed_ret;
@@ -316,7 +323,7 @@ static int init_at_main(lily_symtab *symtab)
     if (new_sig == NULL)
         return 0;
 
-    lily_var *var = lily_try_new_var(symtab, new_sig, "@main");
+    lily_var *var = lily_try_new_var(symtab, new_sig, "@main", 0);
 
     if (var == NULL)
         return 0;
@@ -412,6 +419,7 @@ static int init_classes(lily_symtab *symtab)
             new_class->call_top = NULL;
             new_class->sig = sig;
             new_class->id = i;
+            new_class->shorthash = class_seeds[i].shorthash;
 
             new_class->name = class_seeds[i].name;
             new_class->is_refcounted = class_seeds[i].is_refcounted;
@@ -767,14 +775,15 @@ lily_class *lily_class_by_id(lily_symtab *symtab, int class_id)
 }
 
 /* lily_class_by_name
-   This function returns a class for a given name, or NULL. */
-lily_class *lily_class_by_name(lily_symtab *symtab, char *name)
+   This function returns a class for a given shorthash, or NULL. This doesn't
+   take a name, because all class names are <= 8 bytes in name length. */
+lily_class *lily_class_by_hash(lily_symtab *symtab, uint64_t shorthash)
 {
     int i;
     lily_class **classes = symtab->classes;
 
     for (i = 0;i <= symtab->class_pos;i++) {
-        if (strcmp(classes[i]->name, name) == 0)
+        if (classes[i]->shorthash == shorthash)
             return classes[i];
     }
 
@@ -784,12 +793,13 @@ lily_class *lily_class_by_name(lily_symtab *symtab, char *name)
 /* lily_find_class_callable
    This function will see if a given clas has a function with the given name.
    NULL is returned on failure. */
-lily_var *lily_find_class_callable(lily_class *cls, char *name)
+lily_var *lily_find_class_callable(lily_class *cls, char *name,
+        uint64_t shorthash)
 {
     lily_var *iter = cls->call_start;
     if (iter != NULL) {
         for (;iter != NULL;iter = iter->next) {
-            if (strcmp(iter->name, name) == 0)
+            if (iter->shorthash == shorthash && strcmp(iter->name, name) == 0)
                 break;
         }
     }
@@ -798,13 +808,15 @@ lily_var *lily_find_class_callable(lily_class *cls, char *name)
 }
 
 /* lily_keyword_by_name
-   Attempt to lookup a keyword based on a name. Keywords are in a static list,
-   (via lily_seed_symtab.h), so this doesn't require a symtab. */
-int lily_keyword_by_name(char *name)
+   Attempt to lookup a keyword based on 64-bit short hash, then on a name if
+   necessary. Keywords are in a static list, (via lily_seed_symtab.h), so this
+   doesn't require a symtab. */
+int lily_keyword_by_name(char *name, uint64_t shorthash)
 {
     int i;
     for (i = 0;i <= KEY_LAST_ID;i++) {
-        if (strcmp(keywords[i], name) == 0)
+        if (keywords[i].shorthash == shorthash &&
+            strcmp(keywords[i].name, name) == 0)
             return i;
     }
 
@@ -814,14 +826,15 @@ int lily_keyword_by_name(char *name)
 /* lily_var_by_name
    Search the symtab for a var with a name of 'name'. This will return the var
    or NULL. */
-lily_var *lily_var_by_name(lily_symtab *symtab, char *name)
+lily_var *lily_var_by_name(lily_symtab *symtab, char *name, uint64_t shorthash)
 {
     lily_var *var = symtab->var_start;
 
     while (var != NULL) {
         if (var->name != NULL &&
-            strcmp(var->name, name) == 0 &&
-            ((var->flags & SYM_OUT_OF_SCOPE) == 0))
+            var->shorthash == shorthash &&
+            ((var->flags & SYM_OUT_OF_SCOPE) == 0) &&
+            strcmp(var->name, name) == 0)
             return var;
         var = var->next;
     }

@@ -76,6 +76,7 @@ typedef struct lily_generic_val_t {
 /* Indicates what kind of value is being stored. */
 typedef struct lily_class_t {
     char *name;
+    uint64_t shorthash;
     int id;
     int is_refcounted;
     struct lily_sig_t *sig;
@@ -151,6 +152,7 @@ typedef struct lily_var_t {
     lily_value value;
     int reg_spot;
     char *name;
+    uint64_t shorthash;
     int line_num;
     /* This is used to make sure that methods can't access vars out of their
        current depth (or at the global level). */
