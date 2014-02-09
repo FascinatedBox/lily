@@ -796,12 +796,11 @@ lily_class *lily_class_by_hash(lily_symtab *symtab, uint64_t shorthash)
 lily_var *lily_find_class_callable(lily_class *cls, char *name,
         uint64_t shorthash)
 {
-    lily_var *iter = cls->call_start;
-    if (iter != NULL) {
-        for (;iter != NULL;iter = iter->next) {
-            if (iter->shorthash == shorthash && strcmp(iter->name, name) == 0)
-                break;
-        }
+    lily_var *iter;
+
+    for (iter = cls->call_start;iter != NULL;iter = iter->next) {
+        if (iter->shorthash == shorthash && strcmp(iter->name, name) == 0)
+            break;
     }
 
     return iter;
@@ -831,8 +830,7 @@ lily_var *lily_var_by_name(lily_symtab *symtab, char *name, uint64_t shorthash)
     lily_var *var = symtab->var_start;
 
     while (var != NULL) {
-        if (var->name != NULL &&
-            var->shorthash == shorthash &&
+        if (var->shorthash == shorthash &&
             ((var->flags & SYM_OUT_OF_SCOPE) == 0) &&
             strcmp(var->name, name) == 0)
             return var;
