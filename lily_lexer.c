@@ -591,10 +591,9 @@ static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
 static void scan_str(lily_lex_state *lexer, int *pos)
 {
     char ch, esc_ch;
-    char *label, *lex_buffer, *str;
+    char *label, *lex_buffer;
     int i, is_multiline, label_pos, escape_this_line, multiline_start, str_size,
         word_start, word_pos;
-    lily_str_val *sv;
 
     lex_buffer = lexer->lex_buffer;
     label = lexer->label;
@@ -747,26 +746,13 @@ static void scan_str(lily_lex_state *lexer, int *pos)
             word_pos += 2;
     }
 
-    /* Prepare the string for the parser. */
-    sv = lily_malloc(sizeof(lily_str_val));
-    if (sv == NULL)
-        lily_raise_nomem(lexer->raiser);
-    str = lily_malloc(str_size);
-    if (str == NULL) {
-        lily_free(sv);
-        lily_raise_nomem(lexer->raiser);
+    if (!escape_this_line && is_multiline == 0) {
+        strncpy(label, lex_buffer+word_start, str_size-1);
+        label[str_size-1] = '\0';
     }
-
-    if (!escape_this_line && is_multiline == 0)
-        strncpy(str, lex_buffer+word_start, str_size-1);
     else
-        strncpy(str, label, label_pos);
+        label[label_pos] = '\0';
 
-    str[str_size-1] = '\0';
-    sv->refcount = 1;
-    sv->str = str;
-    sv->size = word_pos;
-    lexer->value.str = sv;
     word_pos++;
     *pos = word_pos;
 }

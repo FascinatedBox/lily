@@ -589,26 +589,32 @@ void lily_free_symtab(lily_symtab *symtab)
 }
 
 /** Functions provided by symtab for other modules. **/
-lily_literal *lily_get_line_literal(lily_symtab *symtab)
+lily_literal *lily_get_intnum_literal(lily_symtab *symtab, lily_class *cls,
+        lily_value want_value)
 {
-    int line_num = *(symtab->lex_linenum);
     lily_literal *lit, *ret;
     ret = NULL;
+    lily_sig *want_sig = cls->sig;
 
-    for (lit = symtab->lit_start;lit;lit = lit->next) {
-        if (lit->sig->cls == SYM_CLASS_INTEGER &&
-            lit->value.integer == line_num) {
-            ret = lit;
-            break;
+    for (lit = symtab->lit_start;lit != NULL;lit = lit->next) {
+        if (lit->sig == want_sig) {
+            if ((cls->id == SYM_CLASS_INTEGER &&
+                 lit->value.integer == want_value.integer) ||
+                (cls->id == SYM_CLASS_NUMBER &&
+                 lit->value.number == want_value.number))
+                break;
         }
     }
 
     if (ret == NULL) {
-        lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
+        lily_value v;
+        if (cls->id == SYM_CLASS_INTEGER)
+            v.integer = want_value.integer;
+        else
+            v.number = want_value.number;
+
         /* lily_new_literal is guaranteed to work or raise nomem, so this is
            safe. */
-        lily_value v;
-        v.integer = line_num;
         ret = lily_new_literal(symtab, cls, v);
         ret->value = v;
     }
@@ -616,19 +622,23 @@ lily_literal *lily_get_line_literal(lily_symtab *symtab)
     return ret;
 }
 
-lily_literal *lily_get_str_literal(lily_symtab *symtab, char *name)
+lily_literal *lily_get_str_literal(lily_symtab *symtab, char *want_str)
 {
-    int name_len;
+    /* The length is given because this can come from a user-defined string, or
+       from something like __file__ or __method__.
+       In the first case, the user may have added \0's, which is why a size
+       requirement was added. */
     lily_literal *lit, *ret;
-    name_len = strlen(name);
     ret = NULL;
+    int want_str_len = strlen(want_str);
 
     for (lit = symtab->lit_start;lit;lit = lit->next) {
-        if (lit->sig->cls->id == SYM_CLASS_STR &&
-            lit->value.str->size == name_len &&
-            strcmp(lit->value.str->str, name) == 0) {
-            ret = lit;
-            break;
+        if (lit->sig->cls->id == SYM_CLASS_STR) {
+            if (lit->value.str->size == want_str_len &&
+                strcmp(lit->value.str->str, want_str) == 0) {
+                ret = lit;
+                break;
+            }
         }
     }
 
@@ -636,7 +646,7 @@ lily_literal *lily_get_str_literal(lily_symtab *symtab, char *name)
         lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_STR);
         /* lily_new_literal is guaranteed to work or raise nomem, so this is
            safe. */
-        char *str_buffer = lily_malloc((name_len + 1) * sizeof(char));
+        char *str_buffer = lily_malloc((want_str_len + 1) * sizeof(char));
         lily_str_val *sv = lily_malloc(sizeof(lily_str_val));
         if (sv == NULL || str_buffer == NULL) {
             lily_free(sv);
@@ -644,9 +654,9 @@ lily_literal *lily_get_str_literal(lily_symtab *symtab, char *name)
             lily_raise_nomem(symtab->raiser);
         }
 
-        strcpy(str_buffer, name);
+        strcpy(str_buffer, want_str);
         sv->str = str_buffer;
-        sv->size = name_len;
+        sv->size = want_str_len;
         sv->refcount = 1;
 
         lily_value v;

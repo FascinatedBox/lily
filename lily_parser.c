@@ -593,19 +593,26 @@ static void expression_unary(lily_parse_state *parser)
 
 static lily_literal *parse_special_keyword(lily_parse_state *parser, int key_id)
 {
+    lily_symtab *symtab = parser->symtab;
     lily_literal *ret;
 
-    if (key_id == KEY__LINE__)
-        /* This will succeed or raise nomem. */
-        ret = lily_get_line_literal(parser->symtab);
+    /* So far, these are the only keywords that map to literals.
+       Additionally, these literal fetching routines are guaranteed to either
+       return a literal with the given value, or raise nomem. */
+    if (key_id == KEY__LINE__) {
+        lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
+        lily_value value;
+
+        value.integer = parser->lex->line_num;
+
+        ret = lily_get_intnum_literal(symtab, cls, value);
+    }
     else if (key_id == KEY__FILE__)
-        /* ^--- */
-        ret = lily_get_str_literal(parser->symtab, parser->lex->filename);
+        ret = lily_get_str_literal(symtab, parser->lex->filename);
     else if (key_id == KEY__METHOD__)
-        /* __method__ is the C equivalent of __func__. */
-        ret = lily_get_str_literal(parser->symtab,
-                parser->emit->top_var->name);
-    /* So far, these are the only keywords that map to literals. */
+        ret = lily_get_str_literal(symtab, parser->emit->top_var->name);
+    else
+        ret = NULL;
 
     return ret;
 }
@@ -675,69 +682,78 @@ static void expression_value(lily_parse_state *parser)
                 }
             }
         }
-        else {
+        else if (lex->token == tk_double_quote) {
             lily_literal *lit;
-            lily_class *cls;
+            lit = lily_get_str_literal(symtab, lex->label);
 
-            if (lex->token == tk_double_quote)
-                cls = lily_class_by_id(symtab, SYM_CLASS_STR);
-            else if (lex->token == tk_integer)
-                cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
-            else if (lex->token == tk_number)
-                cls = lily_class_by_id(symtab, SYM_CLASS_NUMBER);
-            else if (lex->token == tk_minus || lex->token == tk_not) {
-                expression_unary(parser);
-                continue;
-            }
-            else if (lex->token == tk_typecast_parenth) {
-                expression_typecast(parser);
-                continue;
-            }
-            else if (lex->token == tk_left_parenth) {
-                /* A parenth expression is essentially a call, but without the
-                   var part. */
-                lily_ast_enter_tree(parser->ast_pool, tree_parenth, NULL);
-                lily_lexer(lex);
-                continue;
-            }
-            else if (lex->token == tk_left_bracket) {
-                lily_lexer(lex);
-
-                if (lex->token == tk_right_bracket)
-                    lily_raise(parser->raiser, lily_ErrSyntax,
-                            "Empty lists must specify a type (ex: [str]).\n");
-                else if (lex->token == tk_word) {
-                    lily_class *cls = lily_class_by_hash(symtab,
-                            lex->label_shorthash);
-
-                    lily_sig *sig;
-                    if (cls != NULL) {
-                        /* Make sure this works with complex signatures as well
-                           as simple ones. */
-                        sig = collect_var_sig(parser, 0);
-                        NEED_NEXT_TOK(tk_right_bracket)
-                        lily_lexer(lex);
-
-                        /* Call this to avoid doing enter/leave when there will
-                           not be any subtrees. */
-                        lily_ast_push_empty_list(parser->ast_pool, sig);
-                        break;
-                    }
-                }
-
-                lily_ast_enter_tree(parser->ast_pool, tree_list, NULL);
-                continue;
-            }
-            else
-                lily_raise(parser->raiser, lily_ErrSyntax,
-                           "Expected a value, not '%s'.\n", 
-                           tokname(lex->token));
-
-            lit = lily_new_literal(symtab, cls, lex->value);
             lily_ast_push_sym(parser->ast_pool, (lily_sym *)lit);
 
             lily_lexer(lex);
         }
+        else if (lex->token == tk_integer) {
+            lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
+            lily_literal *lit;
+            lit = lily_get_intnum_literal(symtab, cls, lex->value);
+            lily_ast_push_sym(parser->ast_pool, (lily_sym *)lit);
+
+            lily_lexer(lex);
+        }
+        else if (lex->token == tk_number) {
+            lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_NUMBER);
+            lily_literal *lit;
+            lit = lily_get_intnum_literal(symtab, cls, lex->value);
+            lily_ast_push_sym(parser->ast_pool, (lily_sym *)lit);
+
+            lily_lexer(lex);
+        }
+        else if (lex->token == tk_minus || lex->token == tk_not) {
+            expression_unary(parser);
+            continue;
+        }
+        else if (lex->token == tk_typecast_parenth) {
+            expression_typecast(parser);
+            continue;
+        }
+        else if (lex->token == tk_left_parenth) {
+            /* A parenth expression is essentially a call, but without the
+               var part. */
+            lily_ast_enter_tree(parser->ast_pool, tree_parenth, NULL);
+            lily_lexer(lex);
+            continue;
+        }
+        else if (lex->token == tk_left_bracket) {
+            lily_lexer(lex);
+
+            if (lex->token == tk_right_bracket)
+                lily_raise(parser->raiser, lily_ErrSyntax,
+                        "Empty lists must specify a type (ex: [str]).\n");
+            else if (lex->token == tk_word) {
+                lily_class *cls = lily_class_by_hash(symtab,
+                        lex->label_shorthash);
+
+                lily_sig *sig;
+                if (cls != NULL) {
+                    /* Make sure this works with complex signatures as well
+                       as simple ones. */
+                    sig = collect_var_sig(parser, 0);
+                    NEED_NEXT_TOK(tk_right_bracket)
+                    lily_lexer(lex);
+
+                    /* Call this to avoid doing enter/leave when there will
+                       not be any subtrees. */
+                    lily_ast_push_empty_list(parser->ast_pool, sig);
+                    break;
+                }
+            }
+
+            lily_ast_enter_tree(parser->ast_pool, tree_list, NULL);
+            continue;
+        }
+        else
+            lily_raise(parser->raiser, lily_ErrSyntax,
+                       "Expected a value, not '%s'.\n",
+                       tokname(lex->token));
+
         if (lex->token == tk_dot) {
             NEED_NEXT_TOK(tk_word)
             expression_oo(parser);
