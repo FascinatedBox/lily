@@ -555,7 +555,8 @@ void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
     if (active != NULL) {
         if (active->tree_type == tree_var ||
             active->tree_type == tree_local_var ||
-            active->tree_type == tree_call) {
+            active->tree_type == tree_call ||
+            active->tree_type == tree_literal) {
             active->parent = a;
             ap->active = a;
             ap->root = a;
@@ -594,6 +595,17 @@ void lily_ast_push_sym(lily_ast_pool *ap, lily_sym *s)
     a->tree_type = tree_var;
     a->line_num = *ap->lex_linenum;
     a->result = s;
+
+    merge_value(ap, a);
+}
+
+void lily_ast_push_literal(lily_ast_pool *ap, lily_literal *lit)
+{
+    lily_ast *a = next_pool_ast(ap);
+
+    a->tree_type = tree_literal;
+    a->line_num = *ap->lex_linenum;
+    a->result = (lily_sym *)lit;
 
     merge_value(ap, a);
 }
