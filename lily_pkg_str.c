@@ -16,18 +16,30 @@ void lily_str_concat(lily_vm_state *vm, uintptr_t *code, int num_args)
     arg2 = vm_regs[code[1]]->value.str;
 
     int newsize = arg1->size + arg2->size + 1;
-    /* It's null if [0] is a storage that's never been assigned to before. */
-    if (ret_reg->flags & SYM_IS_NIL) {
-        ret = lily_malloc(sizeof(lily_str_val));
-        if (ret == NULL)
-            return;
 
-        ret->str = lily_malloc(sizeof(char) * newsize);
-        if (ret->str == NULL) {
-            lily_free(ret);
+        /* Create a str if there isn't one. */
+    if ((ret_reg->flags & SYM_IS_NIL) ||
+        /* ...or to preserve immutability. */
+        ret == arg1 || ret == arg2) {
+        lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
+        char *new_str = lily_malloc(sizeof(char) * newsize);
+        if (new_sv == NULL || new_str == NULL) {
+            lily_free(new_sv);
+            lily_free(new_str);
             return;
         }
-        ret->refcount = 1;
+
+        new_sv->str = new_str;
+        new_sv->refcount = 1;
+        new_sv->size = newsize;
+
+        strcpy(new_sv->str, arg1->str);
+        strcat(new_sv->str, arg2->str);
+
+        if ((ret_reg->flags & SYM_IS_NIL) == 0)
+            ret_reg->value.generic->refcount--;
+
+        ret = new_sv;
     }
     else if (ret->size < newsize) {
         char *newstr;
@@ -36,12 +48,10 @@ void lily_str_concat(lily_vm_state *vm, uintptr_t *code, int num_args)
             return;
 
         ret->str = newstr;
+        strcpy(ret->str, arg1->str);
+        strcat(ret->str, arg2->str);
     }
 
-    strcpy(ret->str, arg1->str);
-    strcat(ret->str, arg2->str);
-
-    ret->size = newsize;
     vm_regs[code[2]]->value.str = ret;
     vm_regs[code[2]]->flags &= ~SYM_IS_NIL;
 }
