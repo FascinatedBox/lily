@@ -464,7 +464,8 @@ static lily_sig *determine_ast_sig(lily_parse_state *parser, lily_ast *ast)
 
         /* a.concat("str") */
         if (ast->tree_type == tree_var ||
-            ast->tree_type == tree_local_var)
+            ast->tree_type == tree_local_var ||
+            ast->tree_type == tree_literal)
             ret = ast->result->sig;
         /* strcall(a, b, c).concat("str") */
         else if (ast->tree_type == tree_call)
@@ -673,7 +674,7 @@ static void expression_value(lily_parse_state *parser)
                     key_id == KEY__METHOD__) {
                     lily_literal *lit;
                     lit = parse_special_keyword(parser, key_id);
-                    lily_ast_push_sym(parser->ast_pool, (lily_sym *)lit);
+                    lily_ast_push_literal(parser->ast_pool, lit);
                     lily_lexer(lex);
                 }
                 else {
@@ -686,7 +687,7 @@ static void expression_value(lily_parse_state *parser)
             lily_literal *lit;
             lit = lily_get_str_literal(symtab, lex->label);
 
-            lily_ast_push_sym(parser->ast_pool, (lily_sym *)lit);
+            lily_ast_push_literal(parser->ast_pool, lit);
 
             lily_lexer(lex);
         }
@@ -694,7 +695,7 @@ static void expression_value(lily_parse_state *parser)
             lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
             lily_literal *lit;
             lit = lily_get_intnum_literal(symtab, cls, lex->value);
-            lily_ast_push_sym(parser->ast_pool, (lily_sym *)lit);
+            lily_ast_push_literal(parser->ast_pool, lit);
 
             lily_lexer(lex);
         }
@@ -702,7 +703,7 @@ static void expression_value(lily_parse_state *parser)
             lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_NUMBER);
             lily_literal *lit;
             lit = lily_get_intnum_literal(symtab, cls, lex->value);
-            lily_ast_push_sym(parser->ast_pool, (lily_sym *)lit);
+            lily_ast_push_literal(parser->ast_pool, lit);
 
             lily_lexer(lex);
         }

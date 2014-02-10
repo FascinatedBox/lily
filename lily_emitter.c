@@ -544,6 +544,64 @@ static void emit_op_for_compound(lily_emit_state *emit, lily_ast *ast)
     ast->op = save_op;
 }
 
+/* assign_optimize_check
+   This takes a given ast and determines if an assignment -really- needs to be
+   written for it. This is somewhat complex, but anything that can be optimized
+   out at emit-time has huge gains at vm-time.
+   This can be written as one very large if check with multiple or's, but for
+   sanity, has been broken down into explainable chunks. */
+static int assign_optimize_check(lily_ast *ast)
+{
+    int can_optimize = 1;
+
+    do {
+        /* Most opcodes assume that the register index is a local index for
+           simplicity. This is an index of a global, so this isn't possible. */
+        if (ast->left->tree_type == tree_var) {
+            can_optimize = 0;
+            break;
+        }
+
+        lily_ast *right_tree = ast->right;
+
+        /* Can't optimize out basic assignments like a = b. */
+        if (right_tree->tree_type == tree_var ||
+            right_tree->tree_type == tree_local_var) {
+            can_optimize = 0;
+            break;
+        }
+
+        /* If the parent is binary, then it is an assignment or compound op.
+           Those eval from right-to-left, so leave them alone. */
+        if (ast->parent != NULL && ast->parent->tree_type == tree_binary) {
+            can_optimize = 0;
+            break;
+        }
+
+        /* Also check if the right side is an assignment or compound op. */
+        if (right_tree->tree_type == tree_binary &&
+            right_tree->op >= expr_assign) {
+            can_optimize = 0;
+            break;
+        }
+
+        /* Parenths don't write anything, so dive to the bottom of them. */
+        while (right_tree->tree_type == tree_parenth)
+            right_tree = right_tree->left;
+
+        /* If the left is an object and the right is not, then don't reduce.
+           Object assignment is written so that it puts the right side into a
+           container. */
+        if (ast->left->result->sig->cls->id == SYM_CLASS_OBJECT &&
+            right_tree->result->sig->cls->id != SYM_CLASS_OBJECT) {
+            can_optimize = 0;
+            break;
+        }
+    } while (0);
+
+    return can_optimize;
+}
+
 /* eval_assign
    This handles asts with type tree_binary, wherein the left side is not a
    subscript. This will handle compound assignments, as well as basic
@@ -598,10 +656,16 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     if ((left_sym->flags & SYM_SCOPE_GLOBAL) && emit->method_depth > 1)
         opcode = o_set_global;
 
-    WRITE_4(opcode,
-            ast->line_num,
-            right_sym->reg_spot,
-            left_sym->reg_spot)
+    /* If assign can be optimized out, then rewrite the last result to point to
+       the left side. */
+    if (assign_optimize_check(ast))
+        m->code[m->pos-1] = left_sym->reg_spot;
+    else {
+        WRITE_4(opcode,
+                ast->line_num,
+                right_sym->reg_spot,
+                left_sym->reg_spot)
+    }
     ast->result = right_sym;
 }
 
@@ -1292,7 +1356,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
    instead determines what call to shove the work off to. */
 static void eval_tree(lily_emit_state *emit, lily_ast *ast)
 {
-    if (ast->tree_type == tree_var)
+    if (ast->tree_type == tree_var || ast->tree_type == tree_literal)
         emit_nonlocal_var(emit, ast);
     else if (ast->tree_type == tree_call)
         eval_call(emit, ast);
