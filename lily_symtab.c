@@ -398,22 +398,27 @@ static int init_classes(lily_symtab *symtab)
         if (new_class != NULL) {
             lily_sig *sig;
 
-            /* Do not use try_sig_for_class, since that assumes that classes
-               have sigs. */
-            sig = lily_malloc(sizeof(lily_sig));
-            if (sig != NULL) {
-                sig->cls = new_class;
-                /* So that testing this later doesn't potentially cause an
-                   invalid read... */
-                sig->node.value_sig = NULL;
-
-                /* Link the signatures to the root sig too, so that they can be
-                   deleted. */
-                sig->next = symtab->root_sig;
-                symtab->root_sig = sig;
+            if (i == SYM_CLASS_METHOD ||
+                i == SYM_CLASS_LIST ||
+                i == SYM_CLASS_FUNCTION) {
+                /* lily_try_sig_for_class will always yield a new signature when
+                   these are given. So these classes do not need a default
+                   signature. */
+                sig = NULL;
             }
-            else
-                ret = 0;
+            else {
+                /* The signatures for everything else (integer, number, etc.)
+                   never have inner elements that are modified. So this creates
+                   a simple sig for lily_try_sig_for_class to return. */
+                sig = lily_malloc(sizeof(lily_sig));
+                if (sig != NULL) {
+                    sig->cls = new_class;
+                    sig->next = symtab->root_sig;
+                    symtab->root_sig = sig;
+                }
+                else
+                    ret = 0;
+            }
 
             new_class->call_start = NULL;
             new_class->call_top = NULL;
@@ -678,7 +683,7 @@ lily_sig *lily_try_sig_for_class(lily_symtab *symtab, lily_class *cls)
 {
     lily_sig *sig;
 
-    if (cls->id == SYM_CLASS_OBJECT || cls->id == SYM_CLASS_LIST) {
+    if (cls->id == SYM_CLASS_LIST) {
         sig = lily_malloc(sizeof(lily_sig));
         if (sig != NULL) {
             sig->cls = cls;
