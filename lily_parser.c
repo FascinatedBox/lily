@@ -373,6 +373,8 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
             lily_raise_nomem(parser->raiser);
 
         list_sig->node.value_sig = result;
+        list_sig = lily_ensure_unique_sig(parser->symtab, list_sig);
+
         result = list_sig;
         if (flags & CV_MAKE_VARS)
             get_named_var(parser, result);
@@ -404,6 +406,10 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
             lily_sig *call_ret_sig = collect_var_sig(parser, 0);
             call_sig->node.call->ret = call_ret_sig;
         }
+
+        call_sig = lily_ensure_unique_sig(parser->symtab, call_sig);
+        if (flags & CV_MAKE_VARS)
+            call_var->sig = call_sig;
 
         /* Let emitter know the true return type. */
         if (flags & CV_TOPLEVEL)
@@ -518,8 +524,7 @@ static lily_sig *determine_ast_sig(lily_parse_state *parser, lily_ast *ast)
                 for (arg = ast->arg_start; arg!= NULL; arg = arg->next_arg) {
                     arg_sig = determine_ast_sig(parser, arg);
                     if (common_sig != NULL) {
-                        if (arg_sig != common_sig &&
-                            lily_sigequal(arg_sig, common_sig) == 0) {
+                        if (arg_sig != common_sig) {
                             lily_class *cls;
 
                             cls = lily_class_by_id(parser->symtab,
@@ -542,6 +547,7 @@ static lily_sig *determine_ast_sig(lily_parse_state *parser, lily_ast *ast)
                     lily_raise_nomem(parser->raiser);
 
                 result_sig->node.value_sig = common_sig;
+                result_sig = lily_ensure_unique_sig(parser->symtab, result_sig);
                 ret = result_sig;
             }
         }

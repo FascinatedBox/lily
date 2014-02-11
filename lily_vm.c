@@ -1545,7 +1545,10 @@ void lily_vm_execute(lily_vm_state *vm)
                 if (rhs_reg->flags & SYM_IS_NIL || rhs_reg->value.object->sig == NULL)
                     novalue_error(vm, i, rhs_reg);
 
-                if (lily_sigequal(cast_sig, rhs_reg->value.object->sig)) {
+                /* This works because lily_ensure_unique_sig makes sure that
+                   no two signatures describe the same thing. So if it's the
+                   same, then they share the same sig pointer. */
+                if (cast_sig == rhs_reg->value.object->sig) {
                     if (lhs_reg->sig->cls->is_refcounted) {
                         rhs_reg->value.object->value.generic->refcount++;
                         if ((lhs_reg->flags & SYM_IS_NIL) == 0)
