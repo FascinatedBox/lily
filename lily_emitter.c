@@ -245,10 +245,10 @@ static lily_storage *try_get_storage(lily_emit_state *emit,
                 break;
             }
 
-            /* The first case is for simple signatures, and the second is for
-               complex ones (methods, functions, and lists). */
-            if ((start->sig == sig || lily_sigequal(start->sig, sig))
-                && start->expr_num != expr_num) {
+            /* Signatures can be compared by ptr because lily_ensure_unique_sig
+               makes so that all signatures are unique. So it isn't necessary
+               to deep compare them. */
+            if (start->sig == sig && start->expr_num != expr_num) {
                 start->expr_num = expr_num;
                 ret = start;
                 break;
@@ -340,7 +340,7 @@ static lily_block *try_new_block(void)
 
 /** Signature helper functions **/
 /* sigcast
-   This function is called after lily_sigequal. This checks to see if the
+   This is called if two signatures don't match to each other. It checks if the
    signature on the left can become the signature on the right. */
 static int sigcast(lily_emit_state *emit, lily_ast *lhs_ast, lily_sig *rhs)
 {
@@ -629,8 +629,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     right_sym = ast->right->result;
     left_cls_id = left_sym->sig->cls->id;
 
-    if (left_sym->sig != right_sym->sig &&
-        lily_sigequal(left_sym->sig, right_sym->sig) == 0) {
+    if (left_sym->sig != right_sym->sig) {
         /* These are either completely different, or complex classes where the
            inner bits don't match. If it's object, object can be anything so
            it's fine. */
@@ -798,8 +797,7 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
     /* The subscript assign goes to the element, not the list. So... */
     elem_sig = var_ast->result->sig->node.value_sig;
 
-    if (elem_sig != rhs->sig && !lily_sigequal(elem_sig, rhs->sig) &&
-        elem_sig->cls->id != SYM_CLASS_OBJECT) {
+    if (elem_sig != rhs->sig && elem_sig->cls->id != SYM_CLASS_OBJECT) {
         emit->raiser->line_adjust = ast->line_num;
         bad_assign_error(emit, ast->line_num, elem_sig,
                          rhs->sig);
@@ -852,7 +850,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     lily_sig *var_sig = ast->right->result->sig;
     lily_method_val *m = emit->top_method;
 
-    if (lily_sigequal(cast_sig, var_sig)) {
+    if (cast_sig == var_sig) {
         ast->result = (lily_sym *)ast->right->result;
         return;
     }
@@ -1022,10 +1020,8 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
             eval_tree(emit, arg);
 
         if (elem_sig != NULL) {
-            if (arg->result->sig != elem_sig &&
-                lily_sigequal(arg->result->sig, elem_sig) == 0) {
+            if (arg->result->sig != elem_sig)
                 make_objs = 1;
-            }
         }
         else
             elem_sig = arg->result->sig;
@@ -1050,8 +1046,9 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
     }
 
     new_sig->node.value_sig = elem_sig;
-    lily_storage *s = try_get_storage(emit, new_sig);
+    new_sig = lily_ensure_unique_sig(emit->symtab, new_sig);
 
+    lily_storage *s = try_get_storage(emit, new_sig);
     if (s == NULL) {
         emit->raiser->line_adjust = ast->line_num;
         lily_raise_nomem(emit->raiser);
@@ -1144,7 +1141,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             /* Walk the subexpressions so the result gets calculated. */
             eval_tree(emit, arg);
 
-        if (!lily_sigequal(arg->result->sig, csig->args[i])) {
+        if (arg->result->sig != csig->args[i]) {
             if (!sigcast(emit, arg, csig->args[i]))
                 bad_arg_error(emit, ast, arg->result->sig, csig->args[i], i);
         }
@@ -1168,7 +1165,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                 /* Walk the subexpressions so the result gets calculated. */
                 eval_tree(emit, arg);
 
-            if (!lily_sigequal(arg->result->sig, va_comp_sig)) {
+            if (arg->result->sig != va_comp_sig) {
                 if (!sigcast(emit, arg, va_comp_sig))
                     bad_arg_error(emit, ast, arg->result->sig, va_comp_sig, i);
             }
@@ -1623,10 +1620,7 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
     emit->expr_num++;
 
     /* sigcast will convert it to an object, if it gets that far. */
-    if (ast->result->sig != ret_sig &&
-        lily_sigequal(ast->result->sig, ret_sig) == 0 &&
-        sigcast(emit, ast, ret_sig) == 0) {
-
+    if (ast->result->sig != ret_sig && sigcast(emit, ast, ret_sig) == 0) {
         emit->raiser->line_adjust = ast->line_num;
         lily_raise(emit->raiser, lily_ErrSyntax,
                 "return expected type '%T' but got type '%T'.\n",

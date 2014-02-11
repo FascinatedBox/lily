@@ -267,11 +267,19 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
 
                 if (var->value.function != NULL) {
                     var->flags &= ~(SYM_IS_NIL);
+                    /* Now that the var has been created, initialize the call
+                       part of the sig. This is done in this order so that var
+                       deletion will collect any unfinished sigs if there is an
+                       error. */
                     seed_ret = try_seed_call_sig(symtab, seed,
                             var->sig->node.call);
 
                     if (seed_ret == 0)
                         ret = 0;
+                    else {
+                        new_sig = lily_ensure_unique_sig(symtab, new_sig);
+                        var->sig = new_sig;
+                    }
                 }
                 else
                     ret = 0;
@@ -906,68 +914,6 @@ void lily_hide_block_vars(lily_symtab *symtab, lily_var *start)
     }
 }
 
-/* lily_sigequal
-   This function checks to see if two signatures hold the same information. */
-int lily_sigequal(lily_sig *lhs, lily_sig *rhs)
-{
-    int ret;
-
-    if (lhs == rhs)
-        ret = 1;
-    else {
-        if (lhs->cls->id == rhs->cls->id) {
-            if (lhs->cls->id == SYM_CLASS_LIST) {
-                if (lily_sigequal(lhs->node.value_sig,
-                                  rhs->node.value_sig)) {
-                    ret = 1;
-                }
-                else
-                    ret = 0;
-            }
-            else if (lhs->cls->id == SYM_CLASS_METHOD ||
-                     lhs->cls->id == SYM_CLASS_FUNCTION) {
-                lily_call_sig *lhs_csig = lhs->node.call;
-                lily_call_sig *rhs_csig = rhs->node.call;
-                int lhs_num_args = lhs_csig->num_args;
-
-                if (lhs_num_args != rhs_csig->num_args ||
-                    lhs_csig->is_varargs != rhs_csig->is_varargs)
-                    ret = 0;
-                else {
-                    /* ret being NULL indicates that the method does not have
-                       a return value. lily_sigequal doesn't test this, because
-                       nobody else sends NULL sigs to test.
-                       The NULL checks are necessary because one of the sigs
-                       could be NULL (comparing a method that returns a value
-                       with one that does not, for example). */
-                    if (lhs_csig->ret != rhs_csig->ret &&
-                        (lhs_csig->ret == NULL || rhs_csig->ret == NULL ||
-                         lily_sigequal(lhs_csig->ret, rhs_csig->ret) == 0))
-                        ret = 0;
-                    else {
-                        ret = 1;
-                        int i;
-                        for (i = 0;i < lhs_num_args;i++) {
-                            if (lhs_csig->args[i] != rhs_csig->args[i] &&
-                                lily_sigequal(lhs_csig->args[i],
-                                              rhs_csig->args[i]) == 0) {
-                                ret = 0;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            else
-                ret = 1;
-        }
-        else
-            ret = 0;
-    }
-
-    return ret;
-}
-
 /* lily_save_declared_method
    This is called when a method is closing, and it has a var representing
    another method var inside. */
@@ -975,4 +921,103 @@ void lily_save_declared_method(lily_symtab *symtab, lily_var *method_var)
 {
     method_var->next = symtab->old_method_chain;
     symtab->old_method_chain = method_var;
+}
+
+/* lily_ensure_unique_sig
+   This looks through the symtab's current signatures to see if any describe the
+   same thing as the given signature.
+   * If a match is not found, the input_sig is returned.
+   * If a match is found, input_sig is destroyed and removed from symtab's sig
+     chain. The matching signature is returned. Because of this, the return of
+     this function must NEVER be ignored, unless no var is currently using
+     input_sig.
+   As the name suggests, this ensures that each signature describes a unique
+   thing.
+   It is expected that inner signatures will be ensured before outer signatures
+   are: a list[list[list[list[integer]]]] first checking that list[integer] is
+   unique, then list[list[integer]] is unique, and so on.
+   Because of this, it is not necessary to do deep comparisons.
+   Additionally, signatures can be compared by pointer, and a deep matching
+   function is no longer necessary. */
+lily_sig *lily_ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
+{
+    lily_sig *iter_sig = symtab->root_sig;
+    lily_sig *previous_sig = NULL;
+    int match = 0;
+
+    /* This just means that input_sig was the last signature created. */
+    if (iter_sig == input_sig)
+        iter_sig = iter_sig->next;
+
+    while (iter_sig) {
+        if (iter_sig->cls == input_sig->cls) {
+            if (iter_sig->cls->id == SYM_CLASS_LIST) {
+                if (iter_sig->node.value_sig == input_sig->node.value_sig &&
+                    iter_sig != input_sig) {
+                    match = 1;
+                    break;
+                }
+            }
+            else if (iter_sig->cls->id == SYM_CLASS_METHOD ||
+                     iter_sig->cls->id == SYM_CLASS_FUNCTION) {
+
+                lily_call_sig *iter_call_sig = iter_sig->node.call;
+                lily_call_sig *input_call_sig = input_sig->node.call;
+                if (iter_call_sig->num_args   == input_call_sig->num_args &&
+                    iter_call_sig->ret        == input_call_sig->ret &&
+                    iter_call_sig->is_varargs == input_call_sig->is_varargs &&
+                    /* Make sure it isn't comparing against itself! */
+                    iter_sig                  != input_sig) {
+                    /* Set this to 1 by default so that empty args which won't
+                       loop will trigger a match. */
+                    match = 1;
+
+                    int i;
+                    for (i = 0;i < iter_call_sig->num_args;i++) {
+                        if (iter_call_sig->args[i] != input_call_sig->args[i]) {
+                            match = 0;
+                            break;
+                        }
+                    }
+
+                    if (match && iter_sig != input_sig)
+                        break;
+                }
+            }
+        }
+
+        if (iter_sig->next == input_sig)
+            previous_sig = iter_sig;
+
+        iter_sig = iter_sig->next;
+    }
+
+    if (match) {
+        /* Remove input_sig from the symtab's sig chain. */
+        if (symtab->root_sig == input_sig)
+            /* It is the root, so just advance the root. */
+            symtab->root_sig = symtab->root_sig->next;
+        else {
+            /* Make the sig before it link to the node after it. This is
+               theoretically safe because the chain goes from recent to least
+               recent. So this should find the input signature before it finds
+               one that equals it (and set previous_sig to something valid). */
+            previous_sig->next = input_sig->next;
+        }
+
+        /* The data made for the signature can be deleted now. Don't delete
+           inner information though, because that's still in the chain. */
+        if (input_sig->cls->id == SYM_CLASS_LIST)
+            lily_free(input_sig);
+        else if (input_sig->cls->id == SYM_CLASS_FUNCTION ||
+                 input_sig->cls->id == SYM_CLASS_METHOD) {
+            lily_free(input_sig->node.call->args);
+            lily_free(input_sig->node.call);
+            lily_free(input_sig);
+        }
+
+        input_sig = iter_sig;
+    }
+
+    return input_sig;
 }

@@ -77,8 +77,8 @@ void lily_deref_list_val_by(lily_sig *, lily_list_val *, int);
 void lily_deref_list_val(lily_sig *, lily_list_val *);
 void lily_deref_unknown_val(lily_sig *, lily_value);
 void lily_hide_block_vars(lily_symtab *, lily_var *);
-int lily_sigequal(lily_sig *, lily_sig *);
 void lily_add_sig_to_msgbuf(lily_msgbuf *, lily_sig *);
 void lily_save_declared_method(lily_symtab *, lily_var *);
+lily_sig *lily_ensure_unique_sig(lily_symtab *, lily_sig *);
 
 #endif
