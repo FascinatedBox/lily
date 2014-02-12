@@ -93,9 +93,6 @@ typedef struct lily_call_sig_t {
 
 typedef struct lily_sig_t {
     lily_class *cls;
-    /* This refcount was created so that complex list signatures could
-       be shared without worry of the inner signature being deleted.
-       Refcount is incremented even for basic signatures. */
     union {
         lily_call_sig *call;
         struct lily_sig_t *value_sig;

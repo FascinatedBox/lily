@@ -929,7 +929,6 @@ static void expression(lily_parse_state *parser, int flags)
 
    The complexity of the signature does not matter. Methods will typically not
    come here (unless they are a named argument to another method).
-   This function will ref the sig for each var that is created.
    Expected token: A label (the first variable name). */
 static void parse_decl(lily_parse_state *parser, lily_sig *sig)
 {
