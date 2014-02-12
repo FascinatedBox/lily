@@ -13,8 +13,7 @@
     * Using the 'seeds' provided by lily_seed_symtab to initialize the starting
       symbols (@main, literals 0 and 1, etc.).
     * On destruction, destroying all symbols.
-    * Symtab currently handles all signature and value derefs. However, this
-      may change in the future.
+    * Symtab currently handles all value derefs.
     * Hiding variables when they go out of scope (see lily_drop_block_vars)
 
     Notes:
@@ -144,14 +143,7 @@ void lily_deref_unknown_val(lily_sig *sig, lily_value v)
    This creates a new var using the signature given, and copying the name.
    It is okay to pass a sig without list element/call info, since
    lily_try_sig_for_class ensures that important parts are set to NULL.
-   Caveats:
-   * If this function succeeds, the signature is considered owned by the var
-     and will be collected by the symtab later on. However, it does not
-     increase the refcount.
-   * If this function succeeds, it will also add the var to the symtab to be
-     collected later.
-   * If the same sig is to be used for multiple vars, the sig needs to be ref'd
-     by the caller each time.
+   This function will add the var to the symtab on success.
    Note: 'try' means this call returns NULL on failure. */
 lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
         uint64_t shorthash)
@@ -683,10 +675,9 @@ lily_literal *lily_get_str_literal(lily_symtab *symtab, char *want_str)
 /* try_sig_for_class
    If the given class does not require extra data (like how lists need an inner
    element, calls need args, etc), then this will return the shared signature
-   of a class and bump the refcount.
+   of a class. This won't fail.
    If the signature will require complex data, an attempt is made at allocating
-   a new signature with 1 ref.
-   Note: 'try' means this call returns NULL on failure. */
+   a new signature. If this allocation fails, NULL is returned. */
 lily_sig *lily_try_sig_for_class(lily_symtab *symtab, lily_class *cls)
 {
     lily_sig *sig;
