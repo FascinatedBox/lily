@@ -6,7 +6,7 @@
 typedef const struct {
     char *name;
     int num_args;
-    int is_varargs;
+    int flags;
     lily_func func;
     int arg_ids[];
 } lily_func_seed;

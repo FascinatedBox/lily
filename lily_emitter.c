@@ -405,7 +405,7 @@ static void bad_subs_class(lily_emit_state *emit, lily_ast *var_ast)
    Reports that the ast didn't get as many args as it should have. Takes
    anonymous calls and var args into account. */
 static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
-        lily_call_sig *csig)
+        lily_sig *call_sig)
 {
     char *call_name;
     char *va_text;
@@ -419,7 +419,7 @@ static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
            paired with the line number. */
         call_name = "(anonymous call)";
 
-    if (csig->is_varargs)
+    if (call_sig->flags & SIG_IS_VARARGS)
         va_text = "at least ";
     else
         va_text = "";
@@ -427,7 +427,7 @@ static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
     emit->raiser->line_adjust = ast->line_num;
     lily_raise(emit->raiser, lily_ErrSyntax,
                "%s expects %s%d args, but got %d.\n", call_name, va_text,
-               csig->num_args, ast->args_collected);
+               call_sig->siglist_size - 1, ast->args_collected);
 }
 
 /** ast walking helpers **/
@@ -795,7 +795,7 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
     }
 
     /* The subscript assign goes to the element, not the list. So... */
-    elem_sig = var_ast->result->sig->node.value_sig;
+    elem_sig = var_ast->result->sig->siglist[0];
 
     if (elem_sig != rhs->sig && elem_sig->cls->id != SYM_CLASS_OBJECT) {
         emit->raiser->line_adjust = ast->line_num;
@@ -1045,7 +1045,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
         lily_raise_nomem(emit->raiser);
     }
 
-    new_sig->node.value_sig = elem_sig;
+    new_sig->siglist[0] = elem_sig;
     new_sig = lily_ensure_unique_sig(emit->symtab, new_sig);
 
     lily_storage *s = try_get_storage(emit, new_sig);
@@ -1095,7 +1095,7 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
                 "Subscript index is not an integer.\n");
     }
 
-    lily_sig *sig_for_result = var_sig->node.value_sig;
+    lily_sig *sig_for_result = var_sig->siglist[0];
     lily_storage *result;
 
     result = try_get_storage(emit, sig_for_result);
@@ -1119,7 +1119,7 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
    the argument count is correct. For method varargs, this will pack the extra
    arguments into a list. */
 static void check_call_args(lily_emit_state *emit, lily_ast *ast,
-        lily_call_sig *csig)
+        lily_sig *call_sig)
 {
     lily_ast *arg = ast->arg_start;
     int have_args, i, is_varargs, num_args;
@@ -1127,29 +1127,30 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     /* Ast doesn't check the call args. It can't check types, so why do only
        half of the validation? */
     have_args = ast->args_collected;
-    is_varargs = csig->is_varargs;
+    is_varargs = call_sig->flags & SIG_IS_VARARGS;
     /* Take the last arg off of the arg count. This will be verified using the
        var arg signature. */
-    num_args = csig->num_args - is_varargs;
+    num_args = (call_sig->siglist_size - 1) - is_varargs;
 
     if ((is_varargs && (have_args <= num_args)) ||
         (is_varargs == 0 && (have_args != num_args)))
-        bad_num_args(emit, ast, csig);
+        bad_num_args(emit, ast, call_sig);
 
     for (i = 0;i != num_args;arg = arg->next_arg, i++) {
         if (arg->tree_type != tree_local_var)
             /* Walk the subexpressions so the result gets calculated. */
             eval_tree(emit, arg);
 
-        if (arg->result->sig != csig->args[i]) {
-            if (!sigcast(emit, arg, csig->args[i]))
-                bad_arg_error(emit, ast, arg->result->sig, csig->args[i], i);
+        if (arg->result->sig != call_sig->siglist[i + 1]) {
+            if (!sigcast(emit, arg, call_sig->siglist[i + 1]))
+                bad_arg_error(emit, ast, arg->result->sig, call_sig->siglist[i + 1],
+                        i);
         }
     }
 
     if (is_varargs) {
         int is_method = (ast->result->sig->cls->id == SYM_CLASS_METHOD);
-        lily_sig *va_comp_sig = csig->args[i];
+        lily_sig *va_comp_sig = call_sig->siglist[i + 1];
         lily_ast *save_arg = arg;
         lily_sig *save_sig;
 
@@ -1157,7 +1158,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
            have a name. So the extra args need to verify against that type. */
         if (is_method) {
             save_sig = va_comp_sig;
-            va_comp_sig = va_comp_sig->node.value_sig;
+            va_comp_sig = va_comp_sig->siglist[0];
         }
 
         for (;arg != NULL;arg = arg->next_arg) {
@@ -1211,7 +1212,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     lily_method_val *m = emit->top_method;
     int expect_size, i, is_method;
     lily_ast *arg;
-    lily_call_sig *csig;
+    lily_sig *call_sig;
     lily_sym *call_sym;
 
     if (ast->result == NULL) {
@@ -1243,12 +1244,12 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     }
 
     call_sym = ast->result;
-    csig = call_sym->sig->node.call;
+    call_sig = call_sym->sig;
     arg = ast->arg_start;
     is_method = (call_sym->sig->cls->id == SYM_CLASS_METHOD);
     expect_size = 5 + ast->args_collected;
 
-    check_call_args(emit, ast, csig);
+    check_call_args(emit, ast, call_sig);
 
     if ((call_sym->flags & SYM_SCOPE_GLOBAL) && emit->method_depth > 1) {
         lily_storage *storage = try_get_storage(emit, call_sym->sig);
@@ -1282,8 +1283,8 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
         m->code[m->pos + i] = arg->result->reg_spot;
     }
 
-    if (csig->ret != NULL) {
-        lily_storage *storage = try_get_storage(emit, csig->ret);
+    if (call_sig->siglist[0] != NULL) {
+        lily_storage *storage = try_get_storage(emit, call_sig->siglist[0]);
         if (storage == NULL) {
             emit->raiser->line_adjust = ast->line_num;
             lily_raise_nomem(emit->raiser);
@@ -1907,7 +1908,7 @@ static void leave_method(lily_emit_state *emit, lily_block *block)
     emit->symtab->next_register_spot = block->save_register_spot;
     emit->top_method = v->value.method;
     emit->top_var = v;
-    emit->top_method_ret = v->sig->node.call->ret;
+    emit->top_method_ret = v->sig->siglist[0];
     emit->method_depth--;
     /* If returning to @main, all vars default to a global scope again. */
     if (emit->method_depth == 1)

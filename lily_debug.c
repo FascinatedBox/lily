@@ -147,27 +147,27 @@ static void show_sig(lily_sig *sig, char *name)
         if (name != NULL)
             lily_impl_debugf(" %s", name);
 
-        lily_call_sig *csig = sig->node.call;
         lily_impl_debugf(" (");
-        int i;
-        for (i = 0;i < csig->num_args-1;i++) {
-            show_sig(csig->args[i], NULL);
-            lily_impl_debugf(", ");
-        }
-        if (i != csig->num_args) {
-            show_sig(csig->args[i], NULL);
-            if (csig->is_varargs)
+        if (sig->siglist[1] != NULL) {
+            int i;
+            for (i = 1;i < sig->siglist_size - 1;i++) {
+                show_sig(sig->siglist[i], NULL);
+                lily_impl_debugf(", ");
+            }
+            show_sig(sig->siglist[i], NULL);
+            if (sig->flags & SIG_IS_VARARGS)
                 lily_impl_debugf("...");
         }
+
         lily_impl_debugf("):");
-        if (csig->ret == NULL)
+        if (sig->siglist[0] == NULL)
             lily_impl_debugf("nil");
         else
-            show_sig(csig->ret, NULL);
+            show_sig(sig->siglist[0], NULL);
     }
     else if (sig->cls->id == SYM_CLASS_LIST) {
         lily_impl_debugf("[");
-        show_sig(sig->node.value_sig, NULL);
+        show_sig(sig->siglist[0], NULL);
         lily_impl_debugf("]");
     }
 }
@@ -565,7 +565,7 @@ static void show_list_value(lily_method_val *at_main, lily_sig *sig,
     }
 
     lv->visited = 1;
-    elem_sig = sig->node.value_sig;
+    elem_sig = sig->siglist[0];
     for (i = 0;i < lv->num_values;i++) {
         /* Write out one blank line, so each value has a space between the next.
            This keeps things from appearing crammed together.

@@ -167,7 +167,7 @@ static int circle_buster(lily_object_val *lhs_obj, lily_sig *rhs_sig,
 
     if (rhs_sig->cls->id == SYM_CLASS_LIST) {
         lily_list_val *value_list = rhs_value.list;
-        int inner_cls_id = rhs_sig->node.value_sig->cls->id;
+        int inner_cls_id = rhs_sig->siglist[0]->cls->id;
 
         if (inner_cls_id == SYM_CLASS_OBJECT) {
             lily_object_val *inner_obj;
@@ -213,7 +213,7 @@ static int circle_buster(lily_object_val *lhs_obj, lily_sig *rhs_sig,
                     continue;
 
                 inner_list_val.list->visited = 1;
-                inner_count = circle_buster(lhs_obj, rhs_sig->node.value_sig,
+                inner_count = circle_buster(lhs_obj, rhs_sig->siglist[0],
                         inner_list_val);
                 inner_list_val.list->visited = 0;
                 num_circles += inner_count;
@@ -235,7 +235,7 @@ static int is_list_in_list(lily_sig *lhs_sig, lily_list_val *lhs_list,
     int found = 0;
     int num_values = lhs_list->num_values;
     int *flags = lhs_list->flags;
-    lily_sig *elem_sig = lhs_sig->node.value_sig;
+    lily_sig *elem_sig = lhs_sig->siglist[0];
 
     /* Each element has the same signature, so hoist the loops to keep from
        checking it repeatedly. This might be more verbose, but will definitely
@@ -281,14 +281,14 @@ int nested_list_check(lily_vm_register *lhs_reg, lily_vm_register *rhs_reg)
     int is_nested = 0;
     lily_sig *node_sig;
 
-    node_sig = lhs_reg->sig->node.value_sig;
+    node_sig = lhs_reg->sig->siglist[0];
     while (node_sig->cls->id == SYM_CLASS_LIST)
-        node_sig = node_sig->node.value_sig;
+        node_sig = node_sig->siglist[0];
 
     if (node_sig->cls->id == SYM_CLASS_OBJECT) {
-        node_sig = rhs_reg->sig->node.value_sig;
+        node_sig = rhs_reg->sig->siglist[0];
         while (node_sig->cls->id == SYM_CLASS_LIST)
-            node_sig = node_sig->node.value_sig;
+            node_sig = node_sig->siglist[0];
 
             if (is_list_in_list(rhs_reg->sig, rhs_reg->value.list,
                                 lhs_reg->value.list))
@@ -557,12 +557,12 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
 
     /* If this list does not contain objects, then standard
        assign or ref/deref assign is enough. */
-    if (lhs_reg->sig->node.value_sig->cls->id != SYM_CLASS_OBJECT) {
+    if (lhs_reg->sig->siglist[0]->cls->id != SYM_CLASS_OBJECT) {
         if (rhs_reg->sig->cls->is_refcounted) {
             /* Don't touch circular or nil values. */
             if (flags == 0) {
                 /* Deref whatever is inside of this. rhs_reg->sig is used because
-                   it's simpler than lhs_reg->sig->node.value_sig. */
+                   it's simpler than lhs_reg->sig->siglist[0]. */
                 lily_deref_unknown_val(rhs_reg->sig, values[index_int]);
             }
 
@@ -663,7 +663,7 @@ void op_build_list(lily_vm_state *vm, lily_vm_register **vm_regs,
     int num_elems = (intptr_t)(code[2]);
     int j;
     lily_vm_register *result = vm_regs[code[3+num_elems]];
-    lily_sig *elem_sig = result->sig->node.value_sig;
+    lily_sig *elem_sig = result->sig->siglist[0];
 
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
     if (lv == NULL)
