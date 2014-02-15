@@ -311,17 +311,18 @@ static void collect_call_args(lily_parse_state *parser, int flags,
         lily_lexer(lex);
     }
 
-    lily_sig **args;
+    /* +1 for the return which gets added at [0] later. */
     int num_args = parser->sig_stack_pos - save_pos;
-    args = lily_malloc(num_args * sizeof(lily_sig *));
-    if (args == NULL)
+    lily_sig **siglist = lily_malloc((num_args + 1) * sizeof(lily_sig *));
+    if (siglist == NULL)
         lily_raise_nomem(parser->raiser);
 
     for (i = 0;i < num_args;i++)
-        args[i] = parser->sig_stack[save_pos + i];
+        siglist[i + 1] = parser->sig_stack[save_pos + i];
 
-    call_sig->node.call->num_args = i;
-    call_sig->node.call->args = args;
+    siglist[0] = NULL;
+    call_sig->siglist_size = i + 1;
+    call_sig->siglist = siglist;
     parser->sig_stack_pos = save_pos;
 
     /* If ... is at the end, then the call is varargs (and the last sig is
@@ -331,12 +332,12 @@ static void collect_call_args(lily_parse_state *parser, int flags,
             lily_raise(parser->raiser, lily_ErrSyntax,
                        "Unexpected token %s.\n", tokname(lex->token));
 
-        if (args[i-1]->cls->id != SYM_CLASS_LIST) {
+        if (siglist[i]->cls->id != SYM_CLASS_LIST) {
             lily_raise(parser->raiser, lily_ErrSyntax,
                     "A list is required for variable arguments (...).\n");
         }
 
-        call_sig->node.call->is_varargs = 1;
+        call_sig->flags |= SIG_IS_VARARGS;
         NEED_NEXT_TOK(tk_right_parenth)
     }
 }
@@ -372,7 +373,7 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
         if (list_sig == NULL)
             lily_raise_nomem(parser->raiser);
 
-        list_sig->node.value_sig = result;
+        list_sig->siglist[0] = result;
         list_sig = lily_ensure_unique_sig(parser->symtab, list_sig);
 
         result = list_sig;
@@ -383,6 +384,7 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
              cls->id == SYM_CLASS_FUNCTION) {
         lily_sig *call_sig = lily_try_sig_for_class(parser->symtab, cls);
         lily_var *call_var;
+
         if (call_sig == NULL)
             lily_raise_nomem(parser->raiser);
 
@@ -397,14 +399,23 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
         lily_lexer(lex);
         if (lex->token != tk_right_parenth)
             collect_call_args(parser, flags, call_sig, call_var);
+        else {
+            call_sig->siglist = lily_malloc(2 * sizeof(lily_sig));
+            if (call_sig->siglist == NULL)
+                lily_raise_nomem(parser->raiser);
+
+            call_sig->siglist[0] = NULL;
+            call_sig->siglist[1] = NULL;
+            call_sig->siglist_size = 1;
+        }
 
         NEED_NEXT_TOK(tk_colon)
         NEED_NEXT_TOK(tk_word)
         if (strcmp(lex->label, "nil") == 0)
-            call_sig->node.call->ret = NULL;
+            call_sig->siglist[0] = NULL;
         else {
             lily_sig *call_ret_sig = collect_var_sig(parser, 0);
-            call_sig->node.call->ret = call_ret_sig;
+            call_sig->siglist[0] = call_ret_sig;
         }
 
         call_sig = lily_ensure_unique_sig(parser->symtab, call_sig);
@@ -413,7 +424,7 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
 
         /* Let emitter know the true return type. */
         if (flags & CV_TOPLEVEL)
-            parser->emit->top_method_ret = call_sig->node.call->ret;
+            parser->emit->top_method_ret = call_sig->siglist[0];
 
         result = call_sig;
     }
@@ -475,7 +486,7 @@ static lily_sig *determine_ast_sig(lily_parse_state *parser, lily_ast *ast)
             ret = ast->result->sig;
         /* strcall(a, b, c).concat("str") */
         else if (ast->tree_type == tree_call)
-            ret = ast->result->sig->node.call->ret;
+            ret = ast->result->sig->siglist[0];
         /* a = b.concat("str") */
         else if (ast->tree_type == tree_binary) {
             ast = ast->right;
@@ -495,7 +506,7 @@ static lily_sig *determine_ast_sig(lily_parse_state *parser, lily_ast *ast)
                         "Cannot subscript type '%T'.\n", var_sig);
             }
 
-            ret = var_sig->node.value_sig;
+            ret = var_sig->siglist[0];
         }
         /* @(str: ???).concat("a").
            Assume that the typecast succeeds. Either the emitter or the vm will
@@ -546,7 +557,7 @@ static lily_sig *determine_ast_sig(lily_parse_state *parser, lily_ast *ast)
                 if (result_sig == NULL)
                     lily_raise_nomem(parser->raiser);
 
-                result_sig->node.value_sig = common_sig;
+                result_sig->siglist[0] = common_sig;
                 result_sig = lily_ensure_unique_sig(parser->symtab, result_sig);
                 ret = result_sig;
             }

@@ -31,12 +31,12 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
 {
     lv->refcount--;
     if (lv->refcount == 0) {
-        int cls_id = sig->node.value_sig->cls->id;
+        int cls_id = sig->siglist[0]->cls->id;
         int i;
         if (cls_id == SYM_CLASS_LIST) {
             for (i = 0;i < lv->num_values;i++) {
                 if (lv->flags[i] == 0)
-                    lily_deref_list_val(sig->node.value_sig,
+                    lily_deref_list_val(sig->siglist[0],
                             lv->values[i].list);
             }
         }
@@ -179,49 +179,43 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
     return var;
 }
 
-/* try_seed_call_sig
+/* try_seed_sig
    This function takes a seed and attempts to initialize the given call sig
    from the seed. This function will either leave csig completely initialized,
    or with free-able fields set to NULL (to allow for safe deletion). However,
    it is suggested that the caller just lily_free the csig. */
-static int try_seed_call_sig(lily_symtab *symtab,
-        lily_func_seed *seed, lily_call_sig *csig)
+static int try_seed_sig(lily_symtab *symtab,
+        lily_func_seed *seed, lily_sig *sig)
 {
+    lily_sig **siglist = lily_malloc((seed->num_args + 1) * sizeof(lily_sig));
+    if (siglist == NULL)
+        return 0;
+
     /* The first arg always exists, and is the return type. */
-    int ret;
-
-    ret = 1;
     if (seed->arg_ids[0] == -1)
-        csig->ret = NULL;
+        siglist[0] = NULL;
     else {
-        lily_class *c = lily_class_by_id(symtab, seed->arg_ids[0]);
-        csig->ret = c->sig;
+        lily_class *cls = lily_class_by_id(symtab, seed->arg_ids[0]);
+        siglist[0] = cls->sig;
     }
 
-    if (seed->arg_ids[1] == -1) {
-        csig->num_args = 0;
-        csig->args = NULL;
-    }
+    if (seed->arg_ids[1] == -1)
+        siglist[1] = NULL;
     else {
-        csig->args = lily_malloc(sizeof(lily_sig *) * seed->num_args);
-        if (csig->args != NULL) {
-            int i;
-            for (i = 1;i <= seed->num_args;i++) {
-                lily_class *cls = lily_class_by_id(symtab, seed->arg_ids[i]);
-                csig->args[i-1] = cls->sig;
-            }
-            csig->num_args = seed->num_args;
-        }
-        else {
-            csig->num_args = 0;
-            ret = 0;
+        int i;
+        for (i = 1;i <= seed->num_args;i++) {
+            lily_class *cls = lily_class_by_id(symtab, seed->arg_ids[i]);
+            siglist[i] = cls->sig;
         }
     }
 
+    /* +1 because the siglist includes the arg count and the return. */
+    sig->siglist_size = seed->num_args + 1;
+    sig->siglist = siglist;
     /* This will always be 0 if there are no args. It won't matter if there was
        a problem. However, it's simpler to do it here for all cases. */
-    csig->is_varargs = seed->is_varargs;
-    return ret;
+    sig->flags = seed->flags;
+    return 1;
 }
 
 /** Symtab initialization **/
@@ -263,8 +257,7 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
                        part of the sig. This is done in this order so that var
                        deletion will collect any unfinished sigs if there is an
                        error. */
-                    seed_ret = try_seed_call_sig(symtab, seed,
-                            var->sig->node.call);
+                    seed_ret = try_seed_sig(symtab, seed, new_sig);
 
                     if (seed_ret == 0)
                         ret = 0;
@@ -322,6 +315,15 @@ static int init_at_main(lily_symtab *symtab)
     lily_sig *new_sig = lily_try_sig_for_class(symtab, cls);
     if (new_sig == NULL)
         return 0;
+
+    new_sig->siglist = lily_malloc(2 * sizeof(lily_sig));
+    if (new_sig->siglist == NULL)
+        return 0;
+
+    new_sig->siglist[0] = NULL;
+    new_sig->siglist[1] = NULL;
+    new_sig->siglist_size = 2;
+    new_sig->flags = 0;
 
     lily_var *var = lily_try_new_var(symtab, new_sig, "@main", 0);
 
@@ -413,6 +415,11 @@ static int init_classes(lily_symtab *symtab)
                 sig = lily_malloc(sizeof(lily_sig));
                 if (sig != NULL) {
                     sig->cls = new_class;
+                    /* Make sure this is null so any attempt to free it won't
+                       cause a problem. */
+                    sig->siglist = NULL;
+                    sig->siglist_size = 0;
+                    sig->flags = 0;
                     sig->next = symtab->root_sig;
                     symtab->root_sig = sig;
                 }
@@ -568,14 +575,10 @@ void lily_free_symtab(lily_symtab *symtab)
     while (sig != NULL) {
         j++;
         sig_temp = sig->next;
-        if (sig->cls->id == SYM_CLASS_METHOD ||
-            sig->cls->id == SYM_CLASS_FUNCTION) {
-            lily_call_sig *csig = sig->node.call;
-            if (csig != NULL) {
-                lily_free(csig->args);
-                lily_free(csig);
-            }
-        }
+
+        /* The siglist is either NULL or set to something that needs to be
+           deleted. */
+        lily_free(sig->siglist);
         lily_free(sig);
         sig = sig_temp;
     }
@@ -682,36 +685,29 @@ lily_sig *lily_try_sig_for_class(lily_symtab *symtab, lily_class *cls)
 {
     lily_sig *sig;
 
-    if (cls->id == SYM_CLASS_LIST) {
+    /* init_classes doesn't make a default sig for classes that need complex
+       sigs. This works so long as init_classes works right. */
+    if (cls->sig == NULL) {
         sig = lily_malloc(sizeof(lily_sig));
         if (sig != NULL) {
             sig->cls = cls;
-            sig->node.value_sig = NULL;
+            sig->siglist = NULL;
+            sig->siglist_size = 0;
+            sig->flags = 0;
 
-            sig->next = symtab->root_sig;
-            symtab->root_sig = sig;
-        }
-    }
-    else if (cls->id == SYM_CLASS_FUNCTION ||
-             cls->id == SYM_CLASS_METHOD) {
-        sig = lily_malloc(sizeof(lily_sig));
-        if (sig != NULL) {
-            lily_call_sig *csig;
-            csig = lily_malloc(sizeof(lily_call_sig));
-            if (csig != NULL) {
-                csig->ret = NULL;
-                csig->args = NULL;
-                csig->num_args = 0;
-                csig->is_varargs = 0;
-                sig->cls = cls;
-                sig->node.call = csig;
+            if (cls->id == SYM_CLASS_LIST) {
+                sig->siglist = lily_malloc(sizeof(lily_sig));
+                if (sig->siglist == NULL) {
+                    lily_free(sig);
+                    sig = NULL;
+                }
+                else
+                    sig->siglist_size = 1;
+            }
 
+            if (sig) {
                 sig->next = symtab->root_sig;
                 symtab->root_sig = sig;
-            }
-            else {
-                lily_free(sig);
-                sig = NULL;
             }
         }
     }
@@ -942,38 +938,20 @@ lily_sig *lily_ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
 
     while (iter_sig) {
         if (iter_sig->cls == input_sig->cls) {
-            if (iter_sig->cls->id == SYM_CLASS_LIST) {
-                if (iter_sig->node.value_sig == input_sig->node.value_sig &&
-                    iter_sig != input_sig) {
-                    match = 1;
-                    break;
-                }
-            }
-            else if (iter_sig->cls->id == SYM_CLASS_METHOD ||
-                     iter_sig->cls->id == SYM_CLASS_FUNCTION) {
-
-                lily_call_sig *iter_call_sig = iter_sig->node.call;
-                lily_call_sig *input_call_sig = input_sig->node.call;
-                if (iter_call_sig->num_args   == input_call_sig->num_args &&
-                    iter_call_sig->ret        == input_call_sig->ret &&
-                    iter_call_sig->is_varargs == input_call_sig->is_varargs &&
-                    /* Make sure it isn't comparing against itself! */
-                    iter_sig                  != input_sig) {
-                    /* Set this to 1 by default so that empty args which won't
-                       loop will trigger a match. */
-                    match = 1;
-
-                    int i;
-                    for (i = 0;i < iter_call_sig->num_args;i++) {
-                        if (iter_call_sig->args[i] != input_call_sig->args[i]) {
-                            match = 0;
-                            break;
-                        }
-                    }
-
-                    if (match && iter_sig != input_sig)
+            if (iter_sig->siglist      != NULL &&
+                iter_sig->siglist_size == input_sig->siglist_size &&
+                iter_sig               != input_sig) {
+                int i;
+                match = 1;
+                for (i = 0;i < iter_sig->siglist_size;i++) {
+                    if (iter_sig->siglist[i] != input_sig->siglist[i]) {
+                        match = 0;
                         break;
+                    }
                 }
+
+                if (match == 1)
+                    break;
             }
         }
 
@@ -996,16 +974,11 @@ lily_sig *lily_ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
             previous_sig->next = input_sig->next;
         }
 
-        /* The data made for the signature can be deleted now. Don't delete
-           inner information though, because that's still in the chain. */
-        if (input_sig->cls->id == SYM_CLASS_LIST)
-            lily_free(input_sig);
-        else if (input_sig->cls->id == SYM_CLASS_FUNCTION ||
-                 input_sig->cls->id == SYM_CLASS_METHOD) {
-            lily_free(input_sig->node.call->args);
-            lily_free(input_sig->node.call);
-            lily_free(input_sig);
-        }
+        /* This is either NULL or something that only this sig uses. Don't free
+           what's inside of the siglist though, since that's other signatures
+           still in the chain. */
+        lily_free(input_sig->siglist);
+        lily_free(input_sig);
 
         input_sig = iter_sig;
     }

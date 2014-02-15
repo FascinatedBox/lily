@@ -50,27 +50,28 @@ void add_sig_to_msgbuf(lily_msgbuf *msgbuf, lily_sig *sig)
 
     if (sig->cls->id == SYM_CLASS_METHOD ||
         sig->cls->id == SYM_CLASS_FUNCTION) {
-        lily_call_sig *csig = sig->node.call;
         lily_msgbuf_add(msgbuf, " (");
-        int i;
-        for (i = 0;i < csig->num_args-1;i++) {
-            add_sig_to_msgbuf(msgbuf, csig->args[i]);
-            lily_msgbuf_add(msgbuf, ", ");
-        }
-        if (i != csig->num_args) {
-            add_sig_to_msgbuf(msgbuf, csig->args[i]);
-            if (csig->is_varargs)
+        if (sig->siglist[1] != NULL) {
+            int i;
+
+            for (i = 1;i < sig->siglist_size - 1;i++) {
+                add_sig_to_msgbuf(msgbuf, sig->siglist[i]);
+                lily_msgbuf_add(msgbuf, ", ");
+            }
+
+            add_sig_to_msgbuf(msgbuf, sig->siglist[i]);
+            if (sig->flags & SIG_IS_VARARGS)
                 lily_msgbuf_add(msgbuf, "...");
         }
         lily_msgbuf_add(msgbuf, "):");
-        if (csig->ret == NULL)
+        if (sig->siglist[0] == NULL)
             lily_msgbuf_add(msgbuf, "nil");
         else
-            add_sig_to_msgbuf(msgbuf, csig->ret);
+            add_sig_to_msgbuf(msgbuf, sig->siglist[0]);
     }
     else if (sig->cls->id == SYM_CLASS_LIST) {
         lily_msgbuf_add(msgbuf, "[");
-        add_sig_to_msgbuf(msgbuf, sig->node.value_sig);
+        add_sig_to_msgbuf(msgbuf, sig->siglist[0]);
         lily_msgbuf_add(msgbuf, "]");
     }
 }

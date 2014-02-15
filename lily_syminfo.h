@@ -84,19 +84,17 @@ typedef struct lily_class_t {
     struct lily_var_t *call_top;
 } lily_class;
 
-typedef struct lily_call_sig_t {
-    struct lily_sig_t *ret;
-    struct lily_sig_t **args;
-    int num_args;
-    int is_varargs;
-} lily_call_sig;
+/* If set, the signature is either a vararg method or function. The last
+   argument is the type for varargs. */
+#define SIG_IS_VARARGS 0x1
 
 typedef struct lily_sig_t {
     lily_class *cls;
-    union {
-        lily_call_sig *call;
-        struct lily_sig_t *value_sig;
-    } node;
+
+    struct lily_sig_t **siglist;
+    int siglist_size;
+    int flags;
+
     struct lily_sig_t *next;
 } lily_sig;
 
