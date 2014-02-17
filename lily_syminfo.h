@@ -86,8 +86,10 @@ typedef struct lily_class_t {
 
 /* If set, the signature is either a vararg method or function. The last
    argument is the type for varargs. */
-#define SIG_IS_VARARGS 0x1
-
+#define SIG_IS_VARARGS     0x1
+/* If this is set, then this value might be circular if put inside a list. This
+   is used to check if circle_buster needs to be called. */
+#define SIG_MAYBE_CIRCULAR 0x2
 typedef struct lily_sig_t {
     lily_class *cls;
 
