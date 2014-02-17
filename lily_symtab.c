@@ -420,6 +420,9 @@ static int init_classes(lily_symtab *symtab)
                     sig->siglist = NULL;
                     sig->siglist_size = 0;
                     sig->flags = 0;
+                    if (i == SYM_CLASS_OBJECT)
+                        sig->flags |= SIG_MAYBE_CIRCULAR;
+
                     sig->next = symtab->root_sig;
                     symtab->root_sig = sig;
                 }
@@ -960,6 +963,12 @@ lily_sig *lily_ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
 
         iter_sig = iter_sig->next;
     }
+
+    /* Special case: Lists holding something that can be circular are
+       marked as circular themselves. */
+    if (input_sig->cls->id == SYM_CLASS_LIST &&
+        input_sig->siglist[0]->flags & SIG_MAYBE_CIRCULAR)
+        input_sig->flags |= SIG_MAYBE_CIRCULAR;
 
     if (match) {
         /* Remove input_sig from the symtab's sig chain. */

@@ -273,9 +273,9 @@ static int is_list_in_list(lily_sig *lhs_sig, lily_list_val *lhs_list,
 
 /* nested_list_check
    Both symbols contain a list, and right's list is to be put inside of left's
-   list. Before checking that the lists could be nested, find out if they both
-   contain objects at some point. If they do not, then they cannot be nested
-   in each other. */
+   list. The vm checks that the sig of the right side is possibly circular
+   before calling this. However, this still needs to dig down and do circle
+   buster on every object because the object may contain the lhs list. */
 int nested_list_check(lily_vm_register *lhs_reg, lily_vm_register *rhs_reg)
 {
     int is_nested = 0;
@@ -571,8 +571,11 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
                as being circular instead.
                This only applies if both lists hold objects at some point.
                Otherwise, a circular ref is impossible and nested_list_check is
-               false. */
+               false.
+               Symtab tags signatures when the value could be circular, so use
+               that to filter out false positives. */
             if (rhs_reg->sig->cls->id == SYM_CLASS_LIST &&
+                rhs_reg->sig->flags & SIG_MAYBE_CIRCULAR &&
                 nested_list_check(lhs_reg, rhs_reg))
                 flags |= SYM_IS_CIRCULAR;
             else {
