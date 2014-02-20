@@ -373,7 +373,12 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
         if (list_sig == NULL)
             lily_raise_nomem(parser->raiser);
 
+        list_sig->siglist = lily_malloc(sizeof(lily_sig));
+        if (list_sig->siglist == NULL)
+            lily_raise_nomem(parser->raiser);
+
         list_sig->siglist[0] = result;
+        list_sig->siglist_size = 1;
         list_sig = lily_ensure_unique_sig(parser->symtab, list_sig);
 
         result = list_sig;
@@ -557,7 +562,12 @@ static lily_sig *determine_ast_sig(lily_parse_state *parser, lily_ast *ast)
                 if (result_sig == NULL)
                     lily_raise_nomem(parser->raiser);
 
+                result_sig->siglist = lily_malloc(sizeof(lily_sig));
+                if (result_sig->siglist == NULL)
+                    lily_raise_nomem(parser->raiser);
+
                 result_sig->siglist[0] = common_sig;
+                result_sig->siglist_size = 1;
                 result_sig = lily_ensure_unique_sig(parser->symtab, result_sig);
                 ret = result_sig;
             }

@@ -1045,7 +1045,14 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
         lily_raise_nomem(emit->raiser);
     }
 
+    new_sig->siglist = lily_malloc(1 * sizeof(lily_sig *));
+    if (new_sig->siglist == NULL) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise_nomem(emit->raiser);
+    }
+
     new_sig->siglist[0] = elem_sig;
+    new_sig->siglist_size = 1;
     new_sig = lily_ensure_unique_sig(emit->symtab, new_sig);
 
     lily_storage *s = try_get_storage(emit, new_sig);
