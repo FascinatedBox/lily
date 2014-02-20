@@ -11,7 +11,7 @@ typedef const struct {
     uint64_t shorthash;
 } class_seed;
 
-class_seed class_seeds[7] =
+class_seed class_seeds[8] =
 {
     {"integer",  0, 32199642103180905},
     {"number",   0, 125779768604014},
@@ -19,7 +19,11 @@ class_seed class_seeds[7] =
     {"function", 0, 7957695015192261990},
     {"object",   1, 127970252055151},
     {"method",   1, 110429656606061},
-    {"list",     1, 1953720684}
+    {"list",     1, 1953720684},
+    /* * is the name of the template class. This was chosen because it's not a
+       valid name so the user can't directly declare members of it. The hash is
+       also invalid too. */
+    {"*",        0, 0}
 };
 
 typedef const struct {
@@ -47,9 +51,12 @@ void lily_builtin_print(lily_vm_state *, uintptr_t *, int);
 void lily_builtin_printfmt(lily_vm_state *, uintptr_t *, int);
 
 static lily_func_seed print =
-    {"print", 1, 0, lily_builtin_print, {-1, SYM_CLASS_STR}};
+    {"print", lily_builtin_print,
+        {SYM_CLASS_FUNCTION, 2, 0, -1, SYM_CLASS_STR}};
 static lily_func_seed printfmt =
-    {"printfmt", 2, 1, lily_builtin_printfmt, {-1, SYM_CLASS_STR, SYM_CLASS_OBJECT}};
+    {"printfmt", lily_builtin_printfmt,
+        {SYM_CLASS_FUNCTION, 3, SIG_IS_VARARGS, -1, SYM_CLASS_STR, SYM_CLASS_OBJECT}};
+
 static lily_func_seed *builtin_seeds[] = {&print, &printfmt};
 #define NUM_BUILTIN_SEEDS 2
 

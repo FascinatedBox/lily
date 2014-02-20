@@ -92,6 +92,7 @@ typedef struct lily_class_t {
 #define SIG_MAYBE_CIRCULAR 0x2
 typedef struct lily_sig_t {
     lily_class *cls;
+    int template_pos;
 
     struct lily_sig_t **siglist;
     int siglist_size;
@@ -184,8 +185,9 @@ typedef struct lily_literal_t {
 #define SYM_CLASS_OBJECT   4
 #define SYM_CLASS_METHOD   5
 #define SYM_CLASS_LIST     6
+#define SYM_CLASS_TEMPLATE 7
 
-#define SYM_LAST_CLASS     6
+#define SYM_LAST_CLASS     7
 #define INITIAL_CLASS_SIZE 8
 
 #endif

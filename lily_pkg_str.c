@@ -56,7 +56,8 @@ void lily_str_concat(lily_vm_state *vm, uintptr_t *code, int num_args)
     vm_regs[code[2]]->flags &= ~SYM_IS_NIL;
 }
 
-static lily_func_seed concat = {"concat", 2, 0, lily_str_concat,
-        {SYM_CLASS_STR, SYM_CLASS_STR, SYM_CLASS_STR}};
+static lily_func_seed concat =
+    {"concat", lily_str_concat,
+        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STR, SYM_CLASS_STR, SYM_CLASS_STR}};
 
 lily_func_seed *str_seeds[] = {&concat};
