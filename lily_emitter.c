@@ -338,34 +338,26 @@ static lily_block *try_new_block(void)
     return ret;
 }
 
-/** Signature helper functions **/
-/* sigcast
-   This is called if two signatures don't match to each other. It checks if the
-   signature on the left can become the signature on the right. */
-static int sigcast(lily_emit_state *emit, lily_ast *lhs_ast, lily_sig *rhs)
+/* emit_obj_assign
+   The given ast is a non-object, and the caller has checked that an object is
+   wanted. This converts the ast's result so that it contains an object by
+   using o_obj_assign. */
+static void emit_obj_assign(lily_emit_state *emit, lily_ast *ast)
 {
-    int ret;
-
-    if (rhs->cls->id == SYM_CLASS_OBJECT) {
-        ret = 1;
-        lily_method_val *m = emit->top_method;
-        lily_storage *storage = try_get_storage(emit, rhs);
-        if (storage == NULL) {
-            emit->raiser->line_adjust = lhs_ast->line_num;
-            lily_raise_nomem(emit->raiser);
-        }
-
-        WRITE_4(o_obj_assign,
-                lhs_ast->line_num,
-                lhs_ast->result->reg_spot,
-                storage->reg_spot)
-
-        lhs_ast->result = (lily_sym *)storage;
+    lily_method_val *m = emit->top_method;
+    lily_class *obj_class = lily_class_by_id(emit->symtab, SYM_CLASS_OBJECT);
+    lily_storage *storage = try_get_storage(emit, obj_class->sig);
+    if (storage == NULL) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise_nomem(emit->raiser);
     }
-    else
-        ret = 0;
 
-    return ret;
+    WRITE_4(o_obj_assign,
+            ast->line_num,
+            ast->result->reg_spot,
+            storage->reg_spot)
+
+    ast->result = (lily_sym *)storage;
 }
 
 /** Error helpers **/
@@ -1138,6 +1130,8 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     /* Take the last arg off of the arg count. This will be verified using the
        var arg signature. */
     num_args = (call_sig->siglist_size - 1) - is_varargs;
+    lily_class *obj_class = lily_class_by_id(emit->symtab, SYM_CLASS_OBJECT);
+    lily_sig *object_sig = obj_class->sig;
 
     if ((is_varargs && (have_args <= num_args)) ||
         (is_varargs == 0 && (have_args != num_args)))
@@ -1149,7 +1143,9 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             eval_tree(emit, arg);
 
         if (arg->result->sig != call_sig->siglist[i + 1]) {
-            if (!sigcast(emit, arg, call_sig->siglist[i + 1]))
+            if (call_sig->siglist[i + 1] == object_sig)
+                emit_obj_assign(emit, arg);
+            else
                 bad_arg_error(emit, ast, arg->result->sig, call_sig->siglist[i + 1],
                         i);
         }
@@ -1174,7 +1170,9 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                 eval_tree(emit, arg);
 
             if (arg->result->sig != va_comp_sig) {
-                if (!sigcast(emit, arg, va_comp_sig))
+                if (va_comp_sig == object_sig)
+                    emit_obj_assign(emit, arg);
+                else
                     bad_arg_error(emit, ast, arg->result->sig, va_comp_sig, i);
             }
         }
@@ -1627,12 +1625,15 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
     eval_tree(emit, ast);
     emit->expr_num++;
 
-    /* sigcast will convert it to an object, if it gets that far. */
-    if (ast->result->sig != ret_sig && sigcast(emit, ast, ret_sig) == 0) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise(emit->raiser, lily_ErrSyntax,
-                "return expected type '%T' but got type '%T'.\n",
-                ret_sig, ast->result->sig);
+    if (ast->result->sig != ret_sig) {
+        if (ret_sig->cls->id == SYM_CLASS_OBJECT)
+            emit_obj_assign(emit, ast);
+        else {
+            emit->raiser->line_adjust = ast->line_num;
+            lily_raise(emit->raiser, lily_ErrSyntax,
+                    "return expected type '%T' but got type '%T'.\n",
+                    ret_sig, ast->result->sig);
+        }
     }
 
     lily_method_val *m = emit->top_method;
