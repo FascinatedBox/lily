@@ -6,6 +6,7 @@
 /* This creates the *_seed values. */
 #include "lily_seed_symtab.h"
 #include "lily_pkg_str.h"
+#include "lily_pkg_list.h"
 #include "lily_vm.h"
 
 /** Symtab is responsible for:
@@ -516,6 +517,7 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
     if (!init_classes(symtab) || !init_literals(symtab) ||
         !init_at_main(symtab) ||
         !read_seeds(symtab, builtin_seeds, NUM_BUILTIN_SEEDS) ||
+        !init_package(symtab, SYM_CLASS_LIST, list_seeds, NUM_LIST_SEEDS) ||
         !init_package(symtab, SYM_CLASS_STR, str_seeds, NUM_STR_SEEDS)) {
         /* This will free any symbols added, and the symtab object. */
         lily_free_symtab(symtab);

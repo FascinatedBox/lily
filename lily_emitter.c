@@ -360,6 +360,29 @@ static void emit_obj_assign(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)storage;
 }
 
+/* template_check
+   lhs and rhs don't match, but see if the lhs has a part that's a template
+   which rhs satisfies. In calls, self is the first argument given. */
+static int template_check(lily_sig *self_sig, lily_sig *lhs, lily_sig *rhs)
+{
+    int ret = 0;
+
+    if (lhs->cls->id == SYM_CLASS_LIST &&
+        rhs->cls->id == SYM_CLASS_LIST) {
+        ret = template_check(self_sig, lhs->siglist[0], rhs->siglist[0]);
+    }
+    else if (lhs->cls->id == SYM_CLASS_TEMPLATE) {
+        lily_sig *comp_sig;
+        comp_sig = self_sig->siglist[lhs->template_pos];
+        if (comp_sig == rhs)
+            ret = 1;
+        else
+            ret = 0;
+    }
+
+    return ret;
+}
+
 /** Error helpers **/
 static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
     lily_sig *got, lily_sig *expected, int arg_num)
@@ -1122,6 +1145,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
 {
     lily_ast *arg = ast->arg_start;
     int have_args, i, is_varargs, num_args;
+    lily_sig *self_sig = NULL;
 
     /* Ast doesn't check the call args. It can't check types, so why do only
        half of the validation? */
@@ -1142,9 +1166,16 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             /* Walk the subexpressions so the result gets calculated. */
             eval_tree(emit, arg);
 
+        if (i == 0)
+            self_sig = arg->result->sig;
+
         if (arg->result->sig != call_sig->siglist[i + 1]) {
             if (call_sig->siglist[i + 1] == object_sig)
                 emit_obj_assign(emit, arg);
+            else if (template_check(self_sig, call_sig->siglist[i + 1],
+                     arg->result->sig))
+                ; /* Allow it if the arg satisfies what the template in the call
+                     wants. */
             else
                 bad_arg_error(emit, ast, arg->result->sig, call_sig->siglist[i + 1],
                         i);
@@ -1172,6 +1203,9 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             if (arg->result->sig != va_comp_sig) {
                 if (va_comp_sig == object_sig)
                     emit_obj_assign(emit, arg);
+                else if (template_check(self_sig, va_comp_sig,
+                         arg->result->sig))
+                    ;
                 else
                     bad_arg_error(emit, ast, arg->result->sig, va_comp_sig, i);
             }

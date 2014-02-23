@@ -787,7 +787,10 @@ static void expression_value(lily_parse_state *parser)
             expression_oo(parser);
             NEED_NEXT_TOK(tk_left_parenth);
             lily_lexer(lex);
-            continue;
+            if (lex->token == tk_right_parenth)
+                break;
+            else
+                continue;
         }
         else if (lex->token == tk_left_bracket) {
             lily_ast_enter_tree(parser->ast_pool, tree_subscript, NULL);
