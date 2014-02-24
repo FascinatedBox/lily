@@ -528,6 +528,7 @@ static void show_code(lily_method_val *at_main, lily_method_val *mval,
                 lily_impl_debugf("|     ====> ");
                 /* Critical: This is a global, so use @main instead of the
                    current method. */
+                show_register_info(at_main->reg_info, "global", code[i+j+1]);
             }
             else if (data_code == D_IS_GLOBAL)
                 is_global = code[i+j+1];
