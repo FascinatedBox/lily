@@ -212,7 +212,7 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, lily_func_seed *seed,
             }
             else {
                 if (arg_id == SYM_CLASS_LIST) {
-                    siglist = lily_malloc(1 * sizeof(lily_sig));
+                    siglist = lily_malloc(1 * sizeof(lily_sig *));
                     siglist_size = 1;
                     if (siglist) {
                         siglist[0] = scan_seed_arg(symtab, seed, &seed_pos);
@@ -228,7 +228,7 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, lily_func_seed *seed,
                     seed_pos++;
                     flags = seed->arg_ids[seed_pos];
                     seed_pos++;
-                    siglist = lily_malloc(siglist_size * sizeof(lily_sig));
+                    siglist = lily_malloc(siglist_size * sizeof(lily_sig *));
                     if (siglist) {
                         int i, ok;
                         ok = 1;
