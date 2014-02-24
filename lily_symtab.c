@@ -204,7 +204,8 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, lily_func_seed *seed,
             int flags = 0;
 
             if (arg_id == SYM_CLASS_TEMPLATE) {
-                complex_sig->template_pos = seed->arg_ids[seed_pos];
+                if (complex_sig)
+                    complex_sig->template_pos = seed->arg_ids[seed_pos];
                 seed_pos++;
                 siglist = NULL;
                 siglist_size = 0;
