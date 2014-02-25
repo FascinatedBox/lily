@@ -602,7 +602,7 @@ static int assign_optimize_check(lily_ast *ast)
 
         /* Parenths don't write anything, so dive to the bottom of them. */
         while (right_tree->tree_type == tree_parenth)
-            right_tree = right_tree->left;
+            right_tree = right_tree->arg_start;
 
         /* If the left is an object and the right is not, then don't reduce.
            Object assignment is written so that it puts the right side into a
