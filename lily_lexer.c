@@ -987,6 +987,7 @@ int lily_load_str(lily_lex_state *lexer, char *str)
 
     return 1;
 }
+#include <inttypes.h>
 
 /* lily_lexer 
    This is the main scanning function. It sometimes farms work out to other

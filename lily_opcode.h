@@ -247,8 +247,8 @@ typedef enum {
        * int lineno
        * reg global_reg
        * reg local_reg
-       This handles loading a global value from @main's registers, and putting
-       it into a local register of the current method. This also handles
+       This handles loading a global value from __main__'s registers, and
+       putting it into a local register of the current method. This also handles
        ref/deref if necessary. */
     o_get_global,
 
@@ -256,7 +256,7 @@ typedef enum {
        * int lineno
        * reg local_reg
        * reg global_reg
-       This sets a global value in one of @main's registers. Like get global,
+       This sets a global value in one of __main__'s registers. Like get global,
        this will do ref/deref if necessary. */
     o_set_global,
 
@@ -270,7 +270,7 @@ typedef enum {
 
     /* Return from vm:
        This is a special opcode used to leave the vm. It does not take any
-       values. This is written at the end of @main. */
+       values. This is written at the end of __main__. */
     o_return_from_vm
 } lily_opcode;
 
