@@ -359,9 +359,13 @@ static void show_register_info(lily_register_info *method_info, char *reg_type,
     show_sig(reg_info.sig, NULL);
     lily_impl_debugf(") %s register #%d", reg_type, reg_num);
 
-    if (reg_info.name != NULL)
-        lily_impl_debugf(" (%s from line %d)\n", reg_info.name,
-                         reg_info.line_num);
+    if (reg_info.name != NULL) {
+        if (reg_info.line_num != 0)
+            lily_impl_debugf(" (%s from line %d)\n", reg_info.name,
+                    reg_info.line_num);
+        else
+            lily_impl_debugf(" (builtin value %s)\n", reg_info.name);
+    }
     else
         lily_impl_debugf("\n");
 }
@@ -673,7 +677,12 @@ void lily_show_symtab(lily_symtab *symtab, lily_msgbuf *msgbuf)
     lily_impl_debugf("Showing all methods:\n");
     while (var != NULL) {
         if (var->sig->cls->id == SYM_CLASS_METHOD) {
-            lily_impl_debugf("method %s @ line %d\n", var->name, var->line_num);
+            if (var->line_num != 0)
+                lily_impl_debugf("method %s @ line %d\n", var->name,
+                        var->line_num);
+            else
+                lily_impl_debugf("builtin method %s\n", var->name);
+
             show_code(lily_main->value.method, var->value.method, msgbuf, 0);
         }
         var = var->next;
@@ -689,8 +698,13 @@ void lily_show_sym(lily_method_val *lily_main, lily_vm_register *reg,
     scope_str = is_global ? "global" : "local";
 
     lily_impl_debugf("Showing %s register #%d", scope_str, reg_id);
-    if (reg->name != NULL)
-        lily_impl_debugf(" (%s from line %d)\n", reg->name, reg->line_num);
+    if (reg->name != NULL) {
+        if (reg->line_num != 0)
+            lily_impl_debugf(" (%s from line %d)\n", reg->name,
+                    reg->line_num);
+        else
+            lily_impl_debugf(" (builtin value %s)\n", reg->name);
+    }
     else
         lily_impl_debugf("\n");
 
