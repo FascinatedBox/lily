@@ -70,50 +70,50 @@
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
 char *opcode_names[44] = {
-    "assign               ",
-    "object assign        ",
-    "assign (ref/deref)   ",
-    "subscript assign     ",
-    "integer add (+)      ",
-    "integer minus (-)    ",
-    "modulo (%)           ",
-    "integer multiply (*) ",
-    "integer divide (/)   ",
-    "left shift (<<)      ",
-    "right shift (>>)     ",
-    "bitwise and (a & b)  ",
-    "bitwise or (a | b)   ",
-    "bitwise xor (a ^ b)  ",
-    "number add (+)       ",
-    "number minus (-)     ",
-    "number multiply (*)  ",
-    "number divide (/)    ",
-    "is equal (==)        ",
-    "not equal (!=)       ",
-    "less (<)             ",
-    "less equal (<=)      ",
-    "greater (>)          ",
-    "greater equal (>=)   ",
+    "assign",
+    "object assign",
+    "assign (ref/deref)",
+    "subscript assign",
+    "integer add (+)",
+    "integer minus (-)",
+    "modulo (%)",
+    "integer multiply (*)",
+    "integer divide (/)",
+    "left shift (<<)",
+    "right shift (>>)",
+    "bitwise and (a & b)",
+    "bitwise or (a | b)",
+    "bitwise xor (a ^ b)",
+    "number add (+)",
+    "number minus (-)",
+    "number multiply (*)",
+    "number divide (/)",
+    "is equal (==)",
+    "not equal (!=)",
+    "less (<)",
+    "less equal (<=)",
+    "greater (>)",
+    "greater equal (>=)",
     "jump",
     "jump if",
-    "function call        ",
-    "method call          ",
-    "return value         ",
-    "return (no value)    ",
-    "unary not (!x)       ",
-    "unary minus (-x)     ",
-    "build list           ",
-    "subscript            ",
-    "typecast             ",
-    "integer <-> number   ",
-    "show                 ",
-    "return expected      ",
-    "for (integer range)  ",
-    "for setup            ",
-    "get global           ",
-    "set global           ",
-    "get const            ",
-    "return from vm       "
+    "function call",
+    "method call",
+    "return value",
+    "return (no value)",
+    "unary not (!x)",
+    "unary minus (-x)",
+    "build list",
+    "subscript",
+    "typecast",
+    "integer <-> number",
+    "show",
+    "return expected",
+    "for (integer range)",
+    "for setup",
+    "get global",
+    "set global",
+    "get const",
+    "return from vm"
 };
 
 static const int for_setup_ci[] =
@@ -413,12 +413,27 @@ static void show_code(lily_method_val *at_main, lily_method_val *mval,
     }
 
     lily_register_info *method_info = mval->reg_info;
+    int last_line_num = -1;
+    /* Add one indent level for the line numbers under which code will be
+       grouped. */
+    indent++;
 
     while (i < len) {
         int opcode = code[i];
         const int *opcode_data = code_info_for_opcode(opcode);
         char *opcode_name = opcode_names[opcode];
         int count, data_code, is_global, j;
+
+        /* Group under a new line number if the current one isn't the last one
+           seen. This makes it easy to see what operations that are caused by
+           a particular line number. After that, the [] indicates the position
+           of i for extra debugging. */
+        if (opcode_data[1] == D_LINENO && code[i+1] != last_line_num) {
+            /* Line numbers are the heading, so don't indent those. */
+            write_indent(indent - 1);
+            lily_impl_debugf("|____ (line %d)\n", code[i+1]);
+            last_line_num = code[i+1];
+        }
 
         if (i != 0) {
             write_indent(indent);
@@ -444,7 +459,7 @@ static void show_code(lily_method_val *at_main, lily_method_val *mval,
             data_code = opcode_data[j+1];
 
             if (data_code == D_LINENO)
-                lily_impl_debugf("   (at line %d)\n", (int)code[i+j+1]);
+                lily_impl_debugf("\n");
             else if (data_code == D_INPUT) {
                 if (indent)
                     write_indent(indent);
