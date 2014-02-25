@@ -7,7 +7,7 @@
 
 /** Debug is responsible for:
     * Pretty printing out the code for all methods that have been scanned,
-      notably @main.
+      notably __main__.
 
     Debug starts by being given a symtab, and then walking over it to determine
     what methods to print out, then printing them out. This is extremely useful
@@ -53,9 +53,9 @@
 /* D_LIT_INPUT:     The input is the address of a literal. The literal's value
                     is shown. */
 #define D_LIT_INPUT     11
-/* D_GLOBAL_INPUT:  The input is the address of a global (@main) register. */
+/* D_GLOBAL_INPUT:  The INput is the address of a global register. */
 #define D_GLOBAL_INPUT  12
-/* D_GLOBAL_OUTPUT: The output is the address of a global (@main) register. */
+/* D_GLOBAL_OUTPUT: The OUTput is the address of a global register. */
 #define D_GLOBAL_OUTPUT 13
 /* D_IS_GLOBAL:     This specifies if an upcoming value is a global or a local.
                     This is used by show, where the value might be a global var,
@@ -381,7 +381,7 @@ static void write_indent(int indent)
    This was done because many opcodes (all binary ones, for example), share the
    same basic structure. This also eliminates the need for specialized
    functions. */
-static void show_code(lily_method_val *at_main, lily_method_val *mval,
+static void show_code(lily_method_val *lily_main, lily_method_val *mval,
         lily_msgbuf *msgbuf, int indent)
 {
     char format[5];
@@ -530,9 +530,9 @@ static void show_code(lily_method_val *at_main, lily_method_val *mval,
                     write_indent(indent);
 
                 lily_impl_debugf("|     <---- ");
-                /* Critical: This is a global, so use @main instead of the
+                /* Critical: This is a global, so use __main__ instead of the
                    current method. */
-                show_register_info(at_main->reg_info, "global", code[i+j+1]);
+                show_register_info(lily_main->reg_info, "global", code[i+j+1]);
             }
             else if (data_code == D_GLOBAL_OUTPUT) {
                 /* This doesn't have to be checked because D_GLOBAL_OUTPUT is
@@ -541,9 +541,9 @@ static void show_code(lily_method_val *at_main, lily_method_val *mval,
                     write_indent(indent);
 
                 lily_impl_debugf("|     ====> ");
-                /* Critical: This is a global, so use @main instead of the
+                /* Critical: This is a global, so use __main__ instead of the
                    current method. */
-                show_register_info(at_main->reg_info, "global", code[i+j+1]);
+                show_register_info(lily_main->reg_info, "global", code[i+j+1]);
             }
             else if (data_code == D_IS_GLOBAL)
                 is_global = code[i+j+1];
@@ -553,7 +553,7 @@ static void show_code(lily_method_val *at_main, lily_method_val *mval,
 
                 lily_impl_debugf("|     <---- ");
                 if (is_global)
-                    show_register_info(at_main->reg_info, "global",
+                    show_register_info(lily_main->reg_info, "global",
                             code[i+j+1]);
                 else
                     show_register_info(method_info, "local", code[i+j+1]);
@@ -565,7 +565,7 @@ static void show_code(lily_method_val *at_main, lily_method_val *mval,
 
 static void show_value(lily_method_val *, lily_sig *, lily_value, lily_msgbuf *,
         int);
-static void show_list_value(lily_method_val *at_main, lily_sig *sig,
+static void show_list_value(lily_method_val *lily_main, lily_sig *sig,
         lily_list_val *lv, lily_msgbuf *msgbuf, int indent)
 {
     int i;
@@ -600,7 +600,7 @@ static void show_list_value(lily_method_val *at_main, lily_sig *sig,
         if (lv->flags[i] & SYM_IS_NIL)
             lily_impl_debugf("(nil)\n");
         else
-            show_value(at_main, elem_sig, lv->values[i], msgbuf, indent);
+            show_value(lily_main, elem_sig, lv->values[i], msgbuf, indent);
     }
 
     lv->visited = 0;
@@ -613,7 +613,7 @@ static void show_list_value(lily_method_val *at_main, lily_sig *sig,
    Each command should end with an extra '\n' in some way. This consistency is
    important for making sure that any value sent to show results in the same
    amount of \n's written after it. */
-static void show_value(lily_method_val *at_main, lily_sig *sig,
+static void show_value(lily_method_val *lily_main, lily_sig *sig,
         lily_value value, lily_msgbuf *msgbuf, int indent)
 {
     int cls_id = sig->cls->id;
@@ -629,7 +629,7 @@ static void show_value(lily_method_val *at_main, lily_sig *sig,
 
         show_sig(sig, NULL);
         lily_impl_debugf("\n");
-        show_list_value(at_main, sig, lv, msgbuf, indent+1);
+        show_list_value(lily_main, sig, lv, msgbuf, indent+1);
         /* The \n at the end comes from the last value's \n. */
     }
     else if (cls_id == SYM_CLASS_FUNCTION) {
@@ -643,7 +643,7 @@ static void show_value(lily_method_val *at_main, lily_sig *sig,
 
         show_sig(sig, mv->trace_name);
         lily_impl_debugf("\n");
-        show_code(at_main, mv, msgbuf, indent);
+        show_code(lily_main, mv, msgbuf, indent);
         /* The \n at the end comes from show_code always finishing that way. */
     }
     else if (cls_id == SYM_CLASS_OBJECT) {
@@ -653,7 +653,7 @@ static void show_value(lily_method_val *at_main, lily_sig *sig,
             lily_impl_debugf("(nil)\n");
         else {
             lily_impl_debugf("(object) ");
-            show_value(at_main, ov->sig, ov->value, msgbuf, indent);
+            show_value(lily_main, ov->sig, ov->value, msgbuf, indent);
         }
     }
 }
@@ -665,7 +665,7 @@ static void show_value(lily_method_val *at_main, lily_sig *sig,
 void lily_show_symtab(lily_symtab *symtab, lily_msgbuf *msgbuf)
 {
     lily_var *var = symtab->var_start;
-    lily_var *at_main = var;
+    lily_var *lily_main = var;
 
     /* Now, give information about all of the methods that have code assigned to
        them. Methods that are arguments get scoped out, and are thus ignored
@@ -674,7 +674,7 @@ void lily_show_symtab(lily_symtab *symtab, lily_msgbuf *msgbuf)
     while (var != NULL) {
         if (var->sig->cls->id == SYM_CLASS_METHOD) {
             lily_impl_debugf("method %s @ line %d\n", var->name, var->line_num);
-            show_code(at_main->value.method, var->value.method, msgbuf, 0);
+            show_code(lily_main->value.method, var->value.method, msgbuf, 0);
         }
         var = var->next;
     }
@@ -682,7 +682,7 @@ void lily_show_symtab(lily_symtab *symtab, lily_msgbuf *msgbuf)
 
 /* lily_show_sym
    This handles showing the information for a symbol at vm-time. */
-void lily_show_sym(lily_method_val *at_main, lily_vm_register *reg,
+void lily_show_sym(lily_method_val *lily_main, lily_vm_register *reg,
         int is_global, int reg_id, lily_msgbuf *msgbuf)
 {
     char *scope_str;
@@ -702,5 +702,5 @@ void lily_show_sym(lily_method_val *at_main, lily_vm_register *reg,
     if (reg->flags & SYM_IS_NIL)
         lily_impl_debugf("(nil)");
     else
-        show_value(at_main, reg->sig, reg->value, msgbuf, 0);
+        show_value(lily_main, reg->sig, reg->value, msgbuf, 0);
 }

@@ -12,7 +12,7 @@
 /** Symtab is responsible for:
     * Holding all classes, literals, vars, you name it.
     * Using the 'seeds' provided by lily_seed_symtab to initialize the starting
-      symbols (@main, literals 0 and 1, etc.).
+      symbols (__main__, literals 0 and 1, etc.).
     * On destruction, destroying all symbols.
     * Symtab currently handles all value derefs.
     * Hiding variables when they go out of scope (see lily_drop_block_vars)
@@ -336,14 +336,14 @@ int init_package(lily_symtab *symtab, int cls_id, lily_func_seed **seeds,
     return ret;
 }
 
-/* init_at_main
+/* init_lily_main
    Symtab init, stage 4
-   This creates @main, which is a hidden method that holds all code that is not
-   put inside of a lily method. This is outside of read_seeds since it's the
+   This creates __main__, which is a hidden method that holds all code that is
+   not put inside of a lily method. This is outside of read_seeds since it's the
    only builtin method. It also takes no args.
-   @main is always the first var, and thus can always be found at the symtab's
-   var_start. */
-static int init_at_main(lily_symtab *symtab)
+   __main__ is always the first var, and thus can always be found at the
+   symtab's var_start. */
+static int init_lily_main(lily_symtab *symtab)
 {
     lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_METHOD);
     lily_sig *new_sig = lily_try_sig_for_class(symtab, cls);
@@ -359,16 +359,13 @@ static int init_at_main(lily_symtab *symtab)
     new_sig->siglist_size = 2;
     new_sig->flags = 0;
 
-    lily_var *var = lily_try_new_var(symtab, new_sig, "@main", 0);
+    lily_var *var = lily_try_new_var(symtab, new_sig, "__main__",
+            6872332955275845471);
 
     if (var == NULL)
         return 0;
 
-    /* It would be rather silly to load @main into a register since it's not
-       callable. This will cause the next var to occupy the register that @main
-       would have gotten, so there's no gap. */
-    symtab->next_register_spot--;
-    /* The emitter will mark @main as non-nil when it's entered. Until then,
+    /* The emitter will mark __main__ as non-nil when it's entered. Until then,
        leave it alone because it doesn't have a value. */
 
     return 1;
@@ -516,7 +513,7 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
     symtab->root_sig = NULL;
 
     if (!init_classes(symtab) || !init_literals(symtab) ||
-        !init_at_main(symtab) ||
+        !init_lily_main(symtab) ||
         !read_seeds(symtab, builtin_seeds, NUM_BUILTIN_SEEDS) ||
         !init_package(symtab, SYM_CLASS_LIST, list_seeds, NUM_LIST_SEEDS) ||
         !init_package(symtab, SYM_CLASS_STR, str_seeds, NUM_STR_SEEDS)) {
@@ -554,7 +551,7 @@ void free_vars(lily_var *var)
     }
 }
 
-static void free_at_main(lily_method_val *mv)
+static void free_lily_main(lily_method_val *mv)
 {
     lily_free(mv->reg_info);
     lily_free(mv->code);
@@ -603,7 +600,7 @@ void lily_free_symtab(lily_symtab *symtab)
     if (symtab->old_method_chain != NULL)
         free_vars(symtab->old_method_chain);
     if (main_method != NULL)
-        free_at_main(main_method);
+        free_lily_main(main_method);
 
     lily_sig *sig, *sig_temp;
 

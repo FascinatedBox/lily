@@ -1378,7 +1378,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
             lily_raise_nomem(emit->raiser);
         }
 
-        /* We'll load this from an absolute position within @main's globals. */
+        /* We'll load this from an absolute position within __main__. */
         WRITE_4(o_get_global,
                 ast->line_num,
                 ast->result->reg_spot,
@@ -1702,7 +1702,7 @@ void lily_emit_show(lily_emit_state *emit, lily_ast *ast)
    a value to the caller. */
 void lily_emit_return_noval(lily_emit_state *emit)
 {
-    /* Don't allow 'return' within @main. */
+    /* Don't allow 'return' within __main__. */
     if (emit->current_block == emit->first_block)
         lily_raise(emit->raiser, lily_ErrSyntax,
                 "'return' used outside of a method.\n");
@@ -1712,7 +1712,7 @@ void lily_emit_return_noval(lily_emit_state *emit)
 }
 
 /* add_var_chain_to_info
-   This adds a chain of vars to a method's info. If not @main, then methods
+   This adds a chain of vars to a method's info. If not __main__, then methods
    declared within the currently-exiting method are skipped. */
 static void add_var_chain_to_info(lily_emit_state *emit,
         lily_register_info *info, lily_var *var)
@@ -1753,14 +1753,14 @@ static void add_storage_chain_to_info(lily_register_info *info,
 }
 
 /* finalize_method_val
-   A method is closing (or @main is about to be called). Since this method is
+   A method is closing (or __main__ is about to be called). Since this method is
    done, prepare the reg_info part of it. This will be used to allocate the
    registers it needs at vm-time. */
 static void finalize_method_val(lily_emit_state *emit, lily_block *method_block)
 {
     int register_count = emit->symtab->next_register_spot;
     lily_method_val *m = emit->top_method;
-    lily_var *var_iter = method_block->method_var->next;
+    lily_var *var_iter;
     lily_storage *storage_iter = method_block->storage_start;
 
     lily_register_info *info;
@@ -1774,22 +1774,29 @@ static void finalize_method_val(lily_emit_state *emit, lily_block *method_block)
         /* This is called directly from parser, so don't set an adjust. */
         lily_raise_nomem(emit->raiser);
 
-    add_var_chain_to_info(emit, info, method_block->method_var->next);
+    var_iter = method_block->method_var;
+
+    /* Don't include methods inside of themselves... */
+    if (emit->method_depth > 1)
+        var_iter = var_iter->next;
+    /* else we're in __main__, which does include itself as an arg so it can be
+       passed to show and other neat stuff. */
+
+    add_var_chain_to_info(emit, info, var_iter);
     add_storage_chain_to_info(info, method_block->storage_start);
 
     if (emit->method_depth > 1) {
         /* todo: Reuse the var shells instead of destroying. Seems petty, but
                  malloc isn't cheap if there are a lot of vars. */
         lily_var *var_temp;
-        var_iter = method_block->method_var->next;
         while (var_iter) {
             var_temp = var_iter->next;
             if ((var_iter->flags & SYM_SCOPE_GLOBAL) == 0)
                 lily_free(var_iter);
             else {
                 /* This is a declared method that was placed into a register of
-                   @main. Instead of destroying it, save it where the vm can
-                   find it later for initializing @main's registers. */
+                   __main__. Instead of destroying it, save it where the vm can
+                   find it later for initializing __main__'s registers. */
                 lily_save_declared_method(emit->symtab, var_iter);
             }
 
@@ -1809,7 +1816,7 @@ static void finalize_method_val(lily_emit_state *emit, lily_block *method_block)
         emit->unused_storage_start = method_block->storage_start;
     }
     else {
-        /* If @main, add global functions like str's concat and all global
+        /* If __main__, add global functions like str's concat and all global
            vars. */
         int i;
         for (i = 0;i < emit->symtab->class_pos;i++) {
@@ -1825,7 +1832,7 @@ static void finalize_method_val(lily_emit_state *emit, lily_block *method_block)
 }
 
 /* lily_emit_vm_return
-   This writes the o_vm_return opcode at the end of the @main method. */
+   This writes the o_vm_return opcode at the end of the __main__ method. */
 void lily_emit_vm_return(lily_emit_state *emit)
 {
     lily_method_val *m = emit->top_method;
@@ -1835,7 +1842,7 @@ void lily_emit_vm_return(lily_emit_state *emit)
 }
 
 /* lily_reset_main
-   This resets the code position of @main, so it can receive new code. */
+   This resets the code position of __main__, so it can receive new code. */
 void lily_reset_main(lily_emit_state *emit)
 {
     ((lily_method_val *)emit->top_method)->pos = 0;
@@ -1883,8 +1890,8 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         if (v->value.method == NULL)
             lily_raise_nomem(emit->raiser);
 
-        /* If this is a method within a method, then put it in @main since it's
-           flagged as a global. */
+        /* If this is a method within a method, then put it in __main__ since
+           it's flagged as a global. */
         if (emit->method_depth > 1) {
             lily_block *block = emit->first_block->next;
             emit->symtab->next_register_spot--;
@@ -1895,7 +1902,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         }
 
         v->value.method->trace_name = v->name;
-        /* All declared methods are loaded into @main's registers for later
+        /* All declared methods are loaded into __main__'s registers for later
            access. */
         v->flags |= SYM_SCOPE_GLOBAL;
         v->flags &= ~(SYM_IS_NIL);
@@ -1952,7 +1959,7 @@ static void leave_method(lily_emit_state *emit, lily_block *block)
     emit->top_var = v;
     emit->top_method_ret = v->sig->siglist[0];
     emit->method_depth--;
-    /* If returning to @main, all vars default to a global scope again. */
+    /* If returning to __main__, all vars default to a global scope again. */
     if (emit->method_depth == 1)
         emit->symtab->scope = SYM_SCOPE_GLOBAL;
 }
@@ -2000,8 +2007,8 @@ void lily_emit_leave_block(lily_emit_state *emit)
 }
 
 /* lily_emit_try_enter_main
-   Attempt to create a block representing @main, then enter it. main_var is the
-   var representing @main. Returns 1 on success, or 0 on failure.
+   Attempt to create a block representing __main__, then enter it. main_var is
+   the var representing __main__. Returns 1 on success, or 0 on failure.
    Emitter hasn't had the symtab set, which is why the var must be sent. */
 int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
 {
@@ -2015,9 +2022,9 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
         return 0;
     }
 
-    /* @main is given two refs so that it must go through a custom deref to be
-       destroyed. This is because the names in the method info it has are shared
-       with vars that are still around. */
+    /* __main__ is given two refs so that it must go through a custom deref to
+       be destroyed. This is because the names in the method info it has are
+       shared with vars that are still around. */
     main_var->value.method->refcount++;
     main_var->flags &= ~SYM_IS_NIL;
     main_var->value.method->trace_name = main_var->name;

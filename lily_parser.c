@@ -685,7 +685,7 @@ static void expression_value(lily_parse_state *parser)
                         /* In this current scope? Load as a local var. */
                         lily_ast_push_local_var(parser->ast_pool, var);
                     else if (var->method_depth == 1)
-                        /* It's in @main as a global. */
+                        /* It's in __main__ as a global. */
                         lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
                     else
                         /* todo: Handle upvalues later, maybe. */
@@ -1374,7 +1374,7 @@ void lily_parser(lily_parse_state *parser)
         else if (lex->token == tk_end_tag ||
                  (lex->token == tk_eof && lex->mode != lm_from_file)) {
             /* Make sure that all if/method/etc. blocks have closed before
-               executing. This checks for pos at 1 because @main will always
+               executing. This checks for pos at 1 because __main__ will always
                occupy 0. */
             if (parser->emit->current_block != parser->emit->first_block) {
                 lily_raise(parser->raiser, lily_ErrSyntax,
@@ -1390,7 +1390,7 @@ void lily_parser(lily_parse_state *parser)
             lily_vm_execute(parser->vm);
             parser->mode = pm_parse;
 
-            /* Clear @main for the next pass. */
+            /* Clear __main__ for the next pass. */
             lily_reset_main(parser->emit);
 
             if (lex->token == tk_end_tag) {

@@ -770,15 +770,15 @@ void op_build_list(lily_vm_state *vm, lily_vm_register **vm_regs,
 static void do_keyword_show(lily_vm_state *vm, int is_global, int reg_id)
 {
     lily_vm_register *reg;
-    lily_method_val *at_main;
+    lily_method_val *lily_main;
 
     if (is_global)
         reg = vm->regs_from_main[reg_id];
     else
         reg = vm->vm_regs[reg_id];
 
-    at_main = vm->method_stack[0]->method;
-    lily_show_sym(at_main, reg, reg_id, is_global, vm->raiser->msgbuf);
+    lily_main = vm->method_stack[0]->method;
+    lily_show_sym(lily_main, reg, reg_id, is_global, vm->raiser->msgbuf);
 }
 
 /** vm registers handling and stack growing **/
@@ -981,8 +981,8 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
 /** The mighty VM **/
 
 /* lily_vm_execute
-   This is the VM part of lily. It executes any code on @main, as well as
-   anything called by @main. Finishes when it encounters the o_vm_return
+   This is the VM part of lily. It executes any code on __main__, as well as
+   anything called by __main__. Finishes when it encounters the o_vm_return
    opcode.
    This function occasionally farms work out to other routines to keep the size
    from being too big. It does not recurse, instead saving everything necessary

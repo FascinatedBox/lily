@@ -7,12 +7,12 @@
 # include "lily_syminfo.h"
 
 typedef struct {
-    /* The first symbol in the table (for itering from). This is also @main,
-       since @main is the first symbol. */
+    /* The first symbol in the table (for itering from). This is also __main__,
+       since __main__ is the first symbol. */
     lily_var *var_start;
     lily_var *var_top;
 
-    /* Methods declared inside of other methods are inserted into @main's
+    /* Methods declared inside of other methods are inserted into __main__'s
        registers. This was seen as the sanest approach (instead of making them
        literals or some special new type).
        When the outer method leaves, the inner method is added to this list.
@@ -28,9 +28,10 @@ typedef struct {
 
     int method_depth;
 
-    /* @main is kept by itself because it doesn't get loaded into any register.
-       This keeps the vm from seeing it and thinking @main needs a ref. */
-    lily_var *at_main;
+    /* __main__ is kept by itself because it doesn't get loaded into any
+       register. This keeps the vm from seeing it and thinking __main__ needs a
+       ref. */
+    lily_var *lily_main;
 
     lily_literal *lit_start;
     lily_literal *lit_top;
