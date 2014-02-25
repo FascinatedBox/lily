@@ -2031,6 +2031,8 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     main_block->block_type = BLOCK_METHOD;
     main_block->method_var = main_var;
     main_block->storage_start = NULL;
+    /* This is necessary for trapping break/continue inside of __main__. */
+    main_block->loop_start = -1;
     emit->top_method = main_var->value.method;
     emit->top_var = main_var;
     emit->first_block = main_block;
