@@ -46,17 +46,20 @@ typedef struct lily_ast_t {
     struct lily_ast_t *left;
     struct lily_ast_t *right;
     struct lily_ast_t *parent;
+
+    /* All trees are linked together so that the ast pool can quickly grab the
+       next unused one. */
+    struct lily_ast_t *next_tree;
 } lily_ast;
 
 typedef struct {
     lily_ast **saved_trees;
-    lily_ast **tree_pool;
+    lily_ast *available_start;
+    lily_ast *available_current;
     lily_ast *root;
     lily_ast *active;
     int save_index;
     int save_size;
-    int tree_index;
-    int tree_size;
     lily_raiser *raiser;
     int *lex_linenum;
 } lily_ast_pool;

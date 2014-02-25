@@ -23,6 +23,9 @@
       added. The top tree is the tree that is the parent of all other trees.
       This is given by the parser to the emitter so the emitter can recurse
       through all trees.
+    * The pool stores the asts used for an expression, and reuses those on the
+      next pass. The trees are linked to each other through the ->next_tree
+      field. New trees are added as they are needed, so there is no waste.
 
     ast is responsible for:
     * Providing an API to parser for merging in trees. Parser is expected to
@@ -36,36 +39,38 @@
 /** ast pool init, deletion, and reset. **/
 lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
 {
-    lily_ast_pool *ap;
+    lily_ast_pool *ap = lily_malloc(sizeof(lily_ast_pool));
+    int i, ok = 1;
+    lily_ast *last_tree;
 
-    ap = lily_malloc(sizeof(lily_ast_pool));
     if (ap == NULL)
         return NULL;
 
     ap->raiser = raiser;
-    ap->tree_pool = lily_malloc(sizeof(lily_ast *) * pool_size);
     ap->saved_trees = lily_malloc(sizeof(lily_ast *) * pool_size);
     ap->active = NULL;
     ap->root = NULL;
-    ap->tree_index = 0;
     ap->save_index = 0;
     ap->save_size = pool_size;
+    ap->available_start = NULL;
+    ap->available_current = NULL;
 
-    if (ap->tree_pool) {
-        int i;
-        for (i = 0;i < pool_size;i++) {
-            ap->tree_pool[i] = lily_malloc(sizeof(lily_ast));
-            if (ap->tree_pool[i] == NULL)
-                break;
+    last_tree = NULL;
+    for (i = 0;i < pool_size;i++) {
+        lily_ast *new_tree = lily_malloc(sizeof(lily_ast));
+        if (new_tree == NULL) {
+            ok = 0;
+            break;
         }
 
-        ap->tree_size = i;
+        new_tree->next_tree = last_tree;
+        last_tree = new_tree;
     }
-    else
-        ap->tree_size = 0;
 
-    if (ap->tree_pool == NULL || ap->saved_trees == NULL ||
-        ap->tree_size != pool_size) {
+    ap->available_start = last_tree;
+    ap->available_current = last_tree;
+
+    if (ap->saved_trees == NULL || ok == 0) {
         lily_free_ast_pool(ap);
         return NULL;
     }
@@ -75,13 +80,18 @@ lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
 
 void lily_free_ast_pool(lily_ast_pool *ap)
 {
-    int i;
+    lily_ast *ast_iter = ap->available_start;
+    lily_ast *ast_temp;
 
-    for (i = 0;i < ap->tree_size;i++)
-        lily_free(ap->tree_pool[i]);
+    while (ast_iter) {
+        ast_temp = ast_iter->next_tree;
+
+        lily_free(ast_iter);
+
+        ast_iter = ast_temp;
+    }
 
     lily_free(ap->saved_trees);
-    lily_free(ap->tree_pool);
     lily_free(ap);
 }
 
@@ -90,9 +100,9 @@ void lily_free_ast_pool(lily_ast_pool *ap)
    again. */
 void lily_ast_reset_pool(lily_ast_pool *ap)
 {
-    ap->tree_index = 0;
     ap->root = NULL;
     ap->active = NULL;
+    ap->available_current = ap->available_start;
 }
 
 /** Common private merging functions **/
@@ -216,38 +226,23 @@ static void merge_value(lily_ast_pool *ap, lily_ast *new_ast)
 }
 
 /** Common merge helpers **/
-/* next_pool_ast
-   This function returns the next usable ast in the pool. If it can't find one,
-   then the pool will grow and add more asts.
-   This function calls lily_raise_nomem if unable to make more asts. */
-static lily_ast *next_pool_ast(lily_ast_pool *ap)
+/* make_new_tree
+   Create a new tree, which becomes the start of the chain of available trees
+   for the pool to use. The tree is returned as well, so it can be used.
+   This raises ErrNoMem if unable to make a new tree. */
+static lily_ast *make_new_tree(lily_ast_pool *ap)
 {
-    if (ap->tree_index == ap->tree_size) {
-        lily_ast **new_tree_pool;
+    lily_ast *new_ast = lily_malloc(sizeof(lily_ast));
+    if (new_ast == NULL)
+        lily_raise_nomem(ap->raiser);
 
-        new_tree_pool = lily_realloc(ap->tree_pool,
-                   sizeof(lily_ast *) * ap->tree_size * 2);
+    new_ast->next_tree = ap->available_start;
+    ap->available_start = new_ast;
+    /* The pool will never re-use any trees that have already been used until
+       the ast has been walked. Therefore, there is no need to update
+       ->available_current. */
 
-        if (new_tree_pool == NULL)
-            lily_raise_nomem(ap->raiser);
-
-        ap->tree_size *= 2;
-        ap->tree_pool = new_tree_pool;
-
-        int i;
-        for (i = ap->tree_index;i < ap->tree_size;i++) {
-            ap->tree_pool[i] = lily_malloc(sizeof(lily_ast));
-            if (ap->tree_pool[i] == NULL) {
-                ap->tree_size = i+1;
-                lily_raise_nomem(ap->raiser);
-            }
-        }
-    }
-
-    lily_ast *ret = ap->tree_pool[ap->tree_index];
-    ap->tree_index++;
-
-    return ret;
+    return new_ast;
 }
 
 /* priority_for_op
@@ -378,7 +373,13 @@ inline void lily_ast_collect_arg(lily_ast_pool *ap)
    cases, 'var' is NULL and ignored. */
 void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tt, lily_var *var)
 {
-    lily_ast *a = next_pool_ast(ap);
+    lily_ast *a;
+    if (ap->available_current) {
+        a = ap->available_current;
+        ap->available_current = a->next_tree;
+    }
+    else
+        a = make_new_tree(ap);
 
     a->tree_type = tt;
     a->line_num = *ap->lex_linenum;
@@ -450,7 +451,14 @@ void lily_ast_leave_tree(lily_ast_pool *ap)
    This 'creates' and merges a binary op against the active tree. */
 void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
 {
-    lily_ast *new_ast = next_pool_ast(ap);
+    lily_ast *new_ast;
+    if (ap->available_current) {
+        new_ast = ap->available_current;
+        ap->available_current = new_ast->next_tree;
+    }
+    else
+        new_ast = make_new_tree(ap);
+
     lily_ast *active = ap->active;
 
     new_ast->tree_type = tree_binary;
@@ -526,7 +534,13 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
    needed otherwise. It's easier to set the sig too. */
 void lily_ast_push_empty_list(lily_ast_pool *ap, lily_sig *sig)
 {
-    lily_ast *a = next_pool_ast(ap);
+    lily_ast *a;
+    if (ap->available_current) {
+        a = ap->available_current;
+        ap->available_current = a->next_tree;
+    }
+    else
+        a = make_new_tree(ap);
 
     a->tree_type = tree_list;
     a->line_num = *ap->lex_linenum;
@@ -543,7 +557,14 @@ void lily_ast_push_empty_list(lily_ast_pool *ap, lily_sig *sig)
    This 'creates' and merges a unary op against the active tree. */
 void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
 {
-    lily_ast *a = next_pool_ast(ap);
+    lily_ast *a;
+    if (ap->available_current) {
+        a = ap->available_current;
+        ap->available_current = a->next_tree;
+    }
+    else
+        a = make_new_tree(ap);
+
     lily_ast *active = ap->active;
 
     a->left = NULL;
@@ -572,7 +593,13 @@ void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
 
 void lily_ast_push_local_var(lily_ast_pool *ap, lily_var *var)
 {
-    lily_ast *a = next_pool_ast(ap);
+    lily_ast *a;
+    if (ap->available_current) {
+        a = ap->available_current;
+        ap->available_current = a->next_tree;
+    }
+    else
+        a = make_new_tree(ap);
 
     /* Local vars already have a register allocated. Mark them so that the
        emitter can do a no-op for them. */
@@ -590,7 +617,13 @@ void lily_ast_push_local_var(lily_ast_pool *ap, lily_var *var)
    loaded into a register before use. */
 void lily_ast_push_sym(lily_ast_pool *ap, lily_sym *s)
 {
-    lily_ast *a = next_pool_ast(ap);
+    lily_ast *a;
+    if (ap->available_current) {
+        a = ap->available_current;
+        ap->available_current = a->next_tree;
+    }
+    else
+        a = make_new_tree(ap);
 
     a->tree_type = tree_var;
     a->line_num = *ap->lex_linenum;
@@ -601,7 +634,13 @@ void lily_ast_push_sym(lily_ast_pool *ap, lily_sym *s)
 
 void lily_ast_push_literal(lily_ast_pool *ap, lily_literal *lit)
 {
-    lily_ast *a = next_pool_ast(ap);
+    lily_ast *a;
+    if (ap->available_current) {
+        a = ap->available_current;
+        ap->available_current = a->next_tree;
+    }
+    else
+        a = make_new_tree(ap);
 
     a->tree_type = tree_literal;
     a->line_num = *ap->lex_linenum;
@@ -616,7 +655,13 @@ void lily_ast_push_literal(lily_ast_pool *ap, lily_literal *lit)
    typecast to share some code with binary trees in some areas. */
 void lily_ast_push_sig(lily_ast_pool *ap, lily_sig *sig)
 {
-    lily_ast *a = next_pool_ast(ap);
+    lily_ast *a;
+    if (ap->available_current) {
+        a = ap->available_current;
+        ap->available_current = a->next_tree;
+    }
+    else
+        a = make_new_tree(ap);
 
     a->tree_type = tree_typecast;
     a->sig = sig;
