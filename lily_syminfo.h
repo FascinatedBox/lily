@@ -79,6 +79,7 @@ typedef struct lily_class_t {
     uint64_t shorthash;
     int id;
     int is_refcounted;
+    int template_count;
     struct lily_sig_t *sig;
     struct lily_var_t *call_start;
     struct lily_var_t *call_top;
