@@ -185,11 +185,12 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
    for it. This is able to handle complex signatures nested inside of each
    other. */
 static lily_sig *scan_seed_arg(lily_symtab *symtab, lily_func_seed *seed,
-        int *pos)
+        int *pos, int *ok)
 {
     lily_sig *ret;
     int arg_id = seed->arg_ids[*pos];
     int seed_pos = *pos + 1;
+    *ok = 1;
 
     if (arg_id == -1)
         ret = NULL;
@@ -211,53 +212,37 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, lily_func_seed *seed,
                 siglist_size = 0;
             }
             else {
-                if (arg_id == SYM_CLASS_LIST) {
-                    siglist = lily_malloc(1 * sizeof(lily_sig *));
-                    siglist_size = 1;
-                    if (siglist) {
-                        siglist[0] = scan_seed_arg(symtab, seed, &seed_pos);
-                        if (siglist[0] == NULL) {
-                            lily_free(siglist);
-                            siglist = NULL;
-                        }
-                    }
-                }
-                else if (arg_id == SYM_CLASS_METHOD ||
-                         arg_id == SYM_CLASS_FUNCTION) {
+                if (arg_id == SYM_CLASS_METHOD ||
+                    arg_id == SYM_CLASS_FUNCTION) {
                     siglist_size = seed->arg_ids[seed_pos];
                     seed_pos++;
                     flags = seed->arg_ids[seed_pos];
                     seed_pos++;
-                    siglist = lily_malloc(siglist_size * sizeof(lily_sig *));
-                    if (siglist) {
-                        int i, ok;
-                        ok = 1;
-                        for (i = 0;i < siglist_size;i++) {
-                            siglist[i] = scan_seed_arg(symtab, seed, &seed_pos);
-                            if (siglist[i] == NULL && i > 2) {
-                                ok = 0;
-                                break;
-                            }
-                        }
+                }
+                else
+                    siglist_size = arg_class->template_count;
 
-                        if (ok == 0) {
-                            lily_free(siglist);
-                            siglist = NULL;
-                        }
+                siglist = lily_malloc(siglist_size * sizeof(lily_sig *));
+
+                if (siglist) {
+                    int i;
+                    for (i = 0;i < siglist_size;i++) {
+                        siglist[i] = scan_seed_arg(symtab, seed, &seed_pos,
+                                ok);
+                        if (*ok == 0)
+                            break;
+                    }
+
+                    if (*ok == 0) {
+                        /* This isn't tied to anything, so free it. Inner args
+                           have already been ensured, so don't touch them. */
+                        lily_free(siglist);
+                        siglist = NULL;
                     }
                 }
             }
 
-            if ((siglist == NULL && siglist_size != 0) ||
-                complex_sig == NULL) {
-                /* The sig is attached to the sig chain on creation, but given a
-                   NULL siglist. Inner sigs in the siglist have been finalized
-                   too. So don't free either of those.
-                   DO free the siglist, because that's not attached anywhere. */
-                lily_free(siglist);
-                ret = NULL;
-            }
-            else {
+            if (*ok) {
                 complex_sig->siglist = siglist;
                 complex_sig->siglist_size = siglist_size;
                 complex_sig->flags = flags;
@@ -290,8 +275,8 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
     for (i = 0;i < seed_count;i++) {
         lily_func_seed *seed = seeds[i];
         uint64_t shorthash = *(uint64_t *)(seed->name);
-        int pos = 0;
-        lily_sig *new_sig = scan_seed_arg(symtab, seed, &pos);
+        int ok = 1, pos = 0;
+        lily_sig *new_sig = scan_seed_arg(symtab, seed, &pos, &ok);
         if (new_sig != NULL) {
             lily_var *var = lily_try_new_var(symtab, new_sig, seed->name,
                     shorthash);
@@ -466,6 +451,7 @@ static int init_classes(lily_symtab *symtab)
             new_class->call_top = NULL;
             new_class->sig = sig;
             new_class->id = i;
+            new_class->template_count = class_seeds[i].template_count;
             new_class->shorthash = class_seeds[i].shorthash;
 
             new_class->name = class_seeds[i].name;
