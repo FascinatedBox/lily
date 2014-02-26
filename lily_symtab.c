@@ -184,11 +184,11 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
    This takes a seed that defines a signature and creates the appropriate sig
    for it. This is able to handle complex signatures nested inside of each
    other. */
-static lily_sig *scan_seed_arg(lily_symtab *symtab, lily_func_seed *seed,
+static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
         int *pos, int *ok)
 {
     lily_sig *ret;
-    int arg_id = seed->arg_ids[*pos];
+    int arg_id = arg_ids[*pos];
     int seed_pos = *pos + 1;
     *ok = 1;
 
@@ -206,7 +206,7 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, lily_func_seed *seed,
 
             if (arg_id == SYM_CLASS_TEMPLATE) {
                 if (complex_sig)
-                    complex_sig->template_pos = seed->arg_ids[seed_pos];
+                    complex_sig->template_pos = arg_ids[seed_pos];
                 seed_pos++;
                 siglist = NULL;
                 siglist_size = 0;
@@ -214,9 +214,9 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, lily_func_seed *seed,
             else {
                 if (arg_id == SYM_CLASS_METHOD ||
                     arg_id == SYM_CLASS_FUNCTION) {
-                    siglist_size = seed->arg_ids[seed_pos];
+                    siglist_size = arg_ids[seed_pos];
                     seed_pos++;
-                    flags = seed->arg_ids[seed_pos];
+                    flags = arg_ids[seed_pos];
                     seed_pos++;
                 }
                 else
@@ -227,7 +227,7 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, lily_func_seed *seed,
                 if (siglist) {
                     int i;
                     for (i = 0;i < siglist_size;i++) {
-                        siglist[i] = scan_seed_arg(symtab, seed, &seed_pos,
+                        siglist[i] = scan_seed_arg(symtab, arg_ids, &seed_pos,
                                 ok);
                         if (*ok == 0)
                             break;
@@ -276,7 +276,7 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
         lily_func_seed *seed = seeds[i];
         uint64_t shorthash = *(uint64_t *)(seed->name);
         int ok = 1, pos = 0;
-        lily_sig *new_sig = scan_seed_arg(symtab, seed, &pos, &ok);
+        lily_sig *new_sig = scan_seed_arg(symtab, seed->arg_ids, &pos, &ok);
         if (new_sig != NULL) {
             lily_var *var = lily_try_new_var(symtab, new_sig, seed->name,
                     shorthash);
