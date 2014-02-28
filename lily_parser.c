@@ -419,8 +419,26 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
         if (strcmp(lex->label, "nil") == 0)
             call_sig->siglist[0] = NULL;
         else {
+            /* It isn't nil, so it's an argument to be scanned. There's a bit of
+               an interesting problem here:
+
+               The method currently has NULL as the return, which means there
+               is none. It's also been added to symtab's chain of sigs. If the
+               return that gets scanned is the same part as the rest, then
+               symtab assumes they are the same. This results in the method
+               having itself as a return, which causes an infinite loop when
+               anything is done with that sig.
+
+               This is rather easy to do: 'method m(): method() :nil'.
+
+               The solution is to temporarily say that the call sig has 1 arg.
+               This makes it impossible to match, but also makes sure that the
+               siglist will get free'd if there is a problem. */
+            int save_size = call_sig->siglist_size;
+            call_sig->siglist_size = 0;
             lily_sig *call_ret_sig = collect_var_sig(parser, 0);
             call_sig->siglist[0] = call_ret_sig;
+            call_sig->siglist_size = save_size;
         }
 
         call_sig = lily_ensure_unique_sig(parser->symtab, call_sig);
