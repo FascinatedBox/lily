@@ -207,6 +207,9 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
             if (arg_id == SYM_CLASS_TEMPLATE) {
                 if (complex_sig)
                     complex_sig->template_pos = arg_ids[seed_pos];
+                else
+                    *ok = 0;
+
                 seed_pos++;
                 siglist = NULL;
                 siglist_size = 0;
@@ -219,8 +222,10 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
                     flags = arg_ids[seed_pos];
                     seed_pos++;
                 }
-                else
+                else {
                     siglist_size = arg_class->template_count;
+                    flags = 0;
+                }
 
                 siglist = lily_malloc(siglist_size * sizeof(lily_sig *));
 
@@ -229,6 +234,7 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
                     for (i = 0;i < siglist_size;i++) {
                         siglist[i] = scan_seed_arg(symtab, arg_ids, &seed_pos,
                                 ok);
+
                         if (*ok == 0)
                             break;
                     }
@@ -238,17 +244,22 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
                            have already been ensured, so don't touch them. */
                         lily_free(siglist);
                         siglist = NULL;
+                        *ok = 0;
                     }
                 }
+                else
+                    *ok = 0;
             }
 
-            if (*ok) {
+            if (*ok == 1 && complex_sig != NULL) {
                 complex_sig->siglist = siglist;
                 complex_sig->siglist_size = siglist_size;
                 complex_sig->flags = flags;
                 complex_sig = lily_ensure_unique_sig(symtab, complex_sig);
                 ret = complex_sig;
             }
+            else
+                ret = NULL;
         }
     }
 
