@@ -1013,7 +1013,7 @@ void lily_vm_execute(lily_vm_state *vm)
         vm->raiser->jump_pos++;
     else {
         if (vm->in_function) {
-            vm->err_function = ((lily_var *)code[i+2])->value.function;
+            vm->err_function = vm_regs[code[i+2]]->value.function;
 
             lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
             top->line_num = top->code[i+1];
