@@ -1390,6 +1390,14 @@ method test_misc():nil
         return m1
     }
 
+    method m3(): nil {  }
+    ###
+    This checks for a parser bug where the parser thought that the return was
+    the same as itself. This would cause an infinite loop when trying to raise
+    an error when the return type wasn't what was expected.
+    ###
+    method m4(): method(): nil { return m3 }
+
     integer i = m2()()
     if i == 10: {
         print("ok.\n")
