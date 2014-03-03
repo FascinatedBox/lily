@@ -187,12 +187,17 @@ static int circle_buster(lily_object_val *lhs_obj, lily_sig *rhs_sig,
 
                     num_circles++;
                 }
-                else if (inner_obj->sig->cls->id == SYM_CLASS_LIST &&
-                         inner_obj->value.list->visited == 0) {
+                else if (inner_obj->sig->cls->id == SYM_CLASS_LIST) {
                     /* If the object contains a list, then dive into that list
                        to check for circular references. */
                     if (value_list->flags[i] & SYM_IS_CIRCULAR)
                         continue;
+
+                    if (inner_obj->value.list->visited == 1) {
+                        value_list->flags[i] |= SYM_IS_CIRCULAR;
+                        num_circles++;
+                        continue;
+                    }
 
                     inner_obj->value.list->visited = 1;
                     inner_count = circle_buster(lhs_obj, inner_obj->sig,
@@ -645,6 +650,20 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
 
             ov->sig = rhs_obj->sig;
             ov->value = rhs_obj->value;
+
+            if (rhs_obj->sig && rhs_obj->sig->cls->id == SYM_CLASS_LIST) {
+                int circle_count;
+                circle_count = circle_buster(rhs_obj, lhs_reg->sig,
+                        lhs_reg->value);
+                if (circle_count) {
+                    flags |= SYM_IS_CIRCULAR;
+                    lily_deref_list_val_by(lhs_reg->sig, lhs_reg->value.list,
+                            circle_count);
+                }
+                else
+                    flags &= ~SYM_IS_CIRCULAR;
+            }
+
             flags &= ~SYM_IS_CIRCULAR;
         }
     }

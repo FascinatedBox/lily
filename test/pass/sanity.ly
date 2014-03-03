@@ -874,6 +874,10 @@ method test_circular_ref_checks():nil
     r[1] = [q, q, q, q, [[q]], 1.1, 5]
     q[0] = r
 
+    list[object] s = [1, 2.1, 3]
+    object t = s
+    s[0] = t
+
     print("ok.\n")
 }
 
