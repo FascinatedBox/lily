@@ -663,32 +663,6 @@ static void show_value(lily_method_val *lily_main, lily_sig *sig,
 }
 
 /** API for lily_debug.c **/
-/* lily_show_symtab
-   This is the API function for debugging. Just send the symtab and debug will
-   do the rest. */
-void lily_show_symtab(lily_symtab *symtab, lily_msgbuf *msgbuf)
-{
-    lily_var *var = symtab->var_start;
-    lily_var *lily_main = var;
-
-    /* Now, give information about all of the methods that have code assigned to
-       them. Methods that are arguments get scoped out, and are thus ignored
-       since they do not have code. */
-    lily_impl_debugf("Showing all methods:\n");
-    while (var != NULL) {
-        if (var->sig->cls->id == SYM_CLASS_METHOD) {
-            if (var->line_num != 0)
-                lily_impl_debugf("method %s @ line %d\n", var->name,
-                        var->line_num);
-            else
-                lily_impl_debugf("builtin method %s\n", var->name);
-
-            show_code(lily_main->value.method, var->value.method, msgbuf, 0);
-        }
-        var = var->next;
-    }
-}
-
 /* lily_show_sym
    This handles showing the information for a symbol at vm-time. */
 void lily_show_sym(lily_method_val *lily_main, lily_vm_register *reg,
