@@ -459,8 +459,8 @@ static void show_code(lily_method_val *lily_main, lily_method_val *mval,
         if (code[i] == o_jump)
             lily_impl_debugf("\n");
 
-        for (j = 0;j < opcode_data[0];j++) {
-            data_code = opcode_data[j+1];
+        for (j = 1;j <= opcode_data[0];j++) {
+            data_code = opcode_data[j];
 
             if (data_code == D_LINENO)
                 lily_impl_debugf("\n");
@@ -468,21 +468,21 @@ static void show_code(lily_method_val *lily_main, lily_method_val *mval,
                 if (indent)
                     write_indent(indent);
                 lily_impl_debugf("|     <---- ");
-                show_register_info(method_info, "local", code[i+j+1]);
+                show_register_info(method_info, "local", code[i+j]);
             }
             else if (data_code == D_OUTPUT) {
                 /* output is NULL if it's a method or function that does not
                    return a value. Omit this for brevity (the lack of a stated
                    output meaning it doesn't have one). */
-                if (code[i+j+1] != -1) {
+                if (code[i+j] != -1) {
                     if (indent)
                         write_indent(indent);
                     lily_impl_debugf("|     ====> ");
-                    show_register_info(method_info, "local", code[i+j+1]);
+                    show_register_info(method_info, "local", code[i+j]);
                 }
             }
             else if (data_code == D_JUMP_ON) {
-                if (code[i+1+j] == 0)
+                if (code[i+j] == 0)
                     lily_impl_debugf(" false\n");
                 else
                     lily_impl_debugf(" true\n");
@@ -490,10 +490,10 @@ static void show_code(lily_method_val *lily_main, lily_method_val *mval,
             else if (data_code == D_JUMP) {
                 if (indent)
                     write_indent(indent);
-                lily_impl_debugf("|     -> | [%d]\n", (int)code[i+j+1]);
+                lily_impl_debugf("|     -> | [%d]\n", (int)code[i+j]);
             }
             else if (data_code == D_COUNT)
-                count = (int)code[i+j+1];
+                count = (int)code[i+j];
             else if (data_code == D_COUNT_LIST) {
                 if (count == 0)
                     i--;
@@ -504,7 +504,7 @@ static void show_code(lily_method_val *lily_main, lily_method_val *mval,
                             write_indent(indent);
 
                         lily_impl_debugf("|     <---- ");
-                        show_register_info(method_info, "local", code[i+j+1]);
+                        show_register_info(method_info, "local", code[i+j]);
                     }
                     i--;
                 }
@@ -514,16 +514,16 @@ static void show_code(lily_method_val *lily_main, lily_method_val *mval,
                     write_indent(indent);
 
                 lily_impl_debugf("|     <---- ");
-                lily_literal *lit = (lily_literal *)code[i+j+1];
+                lily_literal *lit = (lily_literal *)code[i+j];
                 show_literal(lit->sig, lit->value, msgbuf);
             }
             else if (data_code == D_COUNT)
-                count = (int)code[i+j+1];
+                count = (int)code[i+j];
             else if (data_code == D_INT_VAL) {
                 if (indent)
                     write_indent(indent);
 
-                lily_impl_debugf("|     <---- %d\n", (int)code[i+j+1]);
+                lily_impl_debugf("|     <---- %d\n", (int)code[i+j]);
             }
             else if (data_code == D_NOP) {
                 lily_impl_debugf("\n");
@@ -536,7 +536,7 @@ static void show_code(lily_method_val *lily_main, lily_method_val *mval,
                 lily_impl_debugf("|     <---- ");
                 /* Critical: This is a global, so use __main__ instead of the
                    current method. */
-                show_register_info(lily_main->reg_info, "global", code[i+j+1]);
+                show_register_info(lily_main->reg_info, "global", code[i+j]);
             }
             else if (data_code == D_GLOBAL_OUTPUT) {
                 /* This doesn't have to be checked because D_GLOBAL_OUTPUT is
@@ -547,10 +547,10 @@ static void show_code(lily_method_val *lily_main, lily_method_val *mval,
                 lily_impl_debugf("|     ====> ");
                 /* Critical: This is a global, so use __main__ instead of the
                    current method. */
-                show_register_info(lily_main->reg_info, "global", code[i+j+1]);
+                show_register_info(lily_main->reg_info, "global", code[i+j]);
             }
             else if (data_code == D_IS_GLOBAL)
-                is_global = code[i+j+1];
+                is_global = code[i+j];
             else if (data_code == D_SHOW_INPUT) {
                 if (indent)
                     write_indent(indent);
@@ -558,12 +558,12 @@ static void show_code(lily_method_val *lily_main, lily_method_val *mval,
                 lily_impl_debugf("|     <---- ");
                 if (is_global)
                     show_register_info(lily_main->reg_info, "global",
-                            code[i+j+1]);
+                            code[i+j]);
                 else
-                    show_register_info(method_info, "local", code[i+j+1]);
+                    show_register_info(method_info, "local", code[i+j]);
             }
         }
-        i += j + 1;
+        i += j;
     }
 }
 
