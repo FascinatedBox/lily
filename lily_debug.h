@@ -3,7 +3,6 @@
 
 # include "lily_symtab.h"
 
-void lily_show_symtab(lily_symtab *, lily_msgbuf *);
 void lily_show_sym(lily_method_val *, lily_vm_register *, int, int,
         lily_msgbuf *);
 

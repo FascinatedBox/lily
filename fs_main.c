@@ -24,45 +24,18 @@ void lily_impl_send_html(char *htmldata)
 
 static void usage()
 {
-    fputs("usage: lily_fs [options] <filename>\n", stderr);
-    fputs("\n", stderr);
-    fputs("Where options are:\n", stderr);
-    fputs("    --show-symtab    Show symtab info before executing.\n", stderr);
+    fputs("usage: lily_fs <filename>\n", stderr);
     exit(EXIT_FAILURE);
-}
-
-static char *fs_filename;
-
-static int parse_options(int argc, char **argv)
-{
-    int i, options;
-
-    if (argc < 2)
-        usage();
-
-    options = 0;
-    fs_filename = NULL;
-
-    for (i = 1;i < argc;i++) {
-        char *arg = argv[i];
-
-        if (strcmp("--show-symtab", arg) == 0)
-            options |= POPT_SHOW_SYMTAB;
-        else
-            fs_filename = argv[i];
-    }
-
-    if (fs_filename == NULL)
-        usage();
-
-    return options;
 }
 
 int main(int argc, char **argv)
 {
-    int options = parse_options(argc, argv);
+    if (argc != 2)
+        usage();
 
-    lily_parse_state *parser = lily_new_parse_state(options);
+    char *fs_filename = argv[1];
+
+    lily_parse_state *parser = lily_new_parse_state();
     if (parser == NULL) {
         fputs("ErrNoMemory: No memory to alloc interpreter.\n", stderr);
         exit(EXIT_FAILURE);

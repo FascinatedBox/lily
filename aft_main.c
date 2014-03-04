@@ -28,7 +28,6 @@ typedef struct aft_entry_ {
 } aft_entry;
 
 #define OPT_SHOW_ALLOC_INFO   0x1
-#define OPT_SHOW_SYMTAB       0x2
 int aft_options = 0;
 
 aft_entry *start = NULL;
@@ -197,8 +196,6 @@ void aft_free(char *filename, int line, void *ptr)
     free_count++;
 }
 
-/* There's no supression for this because it won't get called if --show-symtab
-   isn't passed. */
 void lily_impl_debugf(char *format, ...)
 {
     va_list ap;
@@ -253,10 +250,6 @@ void usage()
     fputs("\tdetermine how many allocs are needed for a program to work.\n", stderr);
     fputs("\tIf this is used, an alloc count is not needed.\n\n", stderr);
 
-    fputs("\t--show-symtab: Have the interpreter show symtab before executing.\n", stderr);
-    fputs("\tThis can help determine if bad code is being generated.\n", stderr);
-    fputs("\tAs a warning, this can be fairly verbose.\n\n", stderr);
-
     fputs("\t--show-alloc-info: Show verbose alloc information from aft.\n", stderr);
     fputs("\tAs a warning, this can get extremely verbose in some cases.\n", stderr);
 
@@ -275,8 +268,6 @@ int main(int argc, char **argv)
             allowed_allocs = INT_MAX;
         else if (strcmp(arg, "--show-alloc-info") == 0)
             aft_options |= OPT_SHOW_ALLOC_INFO;
-        else if (strcmp(arg, "--show-symtab") == 0)
-            parse_opts |= POPT_SHOW_SYMTAB;
         else {
             if (allowed_allocs == 0) {
                 allowed_allocs = atoi(argv[i]);

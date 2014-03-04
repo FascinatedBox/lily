@@ -1,7 +1,6 @@
 #include <string.h>
 
 #include "lily_ast.h"
-#include "lily_debug.h"
 #include "lily_emitter.h"
 #include "lily_impl.h"
 #include "lily_lexer.h"
@@ -170,7 +169,7 @@ static const int bin_op_for_token[] = {
 };
 
 /** Parser initialization and deletion **/
-lily_parse_state *lily_new_parse_state(int options)
+lily_parse_state *lily_new_parse_state()
 {
     lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
     lily_raiser *raiser = lily_new_raiser();
@@ -178,7 +177,6 @@ lily_parse_state *lily_new_parse_state(int options)
     if (parser == NULL)
         return NULL;
 
-    parser->options = options;
     parser->sig_stack_pos = 0;
     parser->sig_stack_size = 4;
     parser->raiser = raiser;
@@ -1399,9 +1397,6 @@ void lily_parser(lily_parse_state *parser)
                            "Unterminated block(s) at end of parsing.\n");
             }
             lily_emit_vm_return(parser->emit);
-            /* Show symtab until the bugs are gone. */
-            if (parser->options & POPT_SHOW_SYMTAB)
-                lily_show_symtab(parser->symtab, parser->raiser->msgbuf);
 
             lily_vm_prep(parser->vm, parser->symtab);
             parser->mode = pm_execute;
