@@ -790,6 +790,7 @@ static void do_keyword_show(lily_vm_state *vm, int is_global, int reg_id)
 {
     lily_vm_register *reg;
     lily_method_val *lily_main;
+    lily_method_val *current_method;
 
     if (is_global)
         reg = vm->regs_from_main[reg_id];
@@ -797,7 +798,9 @@ static void do_keyword_show(lily_vm_state *vm, int is_global, int reg_id)
         reg = vm->vm_regs[reg_id];
 
     lily_main = vm->method_stack[0]->method;
-    lily_show_sym(lily_main, reg, is_global, reg_id, vm->raiser->msgbuf);
+    current_method = vm->method_stack[vm->method_stack_pos - 1]->method;
+    lily_show_sym(lily_main, current_method, reg, is_global, reg_id,
+            vm->raiser->msgbuf);
 }
 
 /** vm registers handling and stack growing **/

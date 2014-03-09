@@ -65,6 +65,24 @@
                     local register. */
 #define D_SHOW_INPUT    15
 
+/** Flags for show_register_info: **/
+/* This means the number given is for a register in __main__. By default, the
+   current method's info is used. */
+#define RI_GLOBAL 0x1
+/* This is an input value, and should have an input prefix. */
+#define RI_INPUT  0x2
+/* This is an output value, and should have an output prefix. These two are not
+   to be used together. However, both can be omitted if the value isn't an input
+   or output to a particular place. */
+#define RI_OUTPUT 0x4
+
+typedef struct lily_debug_state_t {
+    lily_method_val *main_method;
+    lily_method_val *current_method;
+    lily_msgbuf *msgbuf;
+    int indent;
+} lily_debug_state;
+
 /* Opcodes that have line numbers also have extra space so they print the line
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
@@ -267,10 +285,11 @@ static const int *code_info_for_opcode(int opcode)
 /* show_str
    This displays a literal string in a safe way. It iterates over a string and
    packs the data into a msgbuf as it goes along. */
-static void show_str(char *str, lily_msgbuf *msgbuf)
+static void show_str(lily_debug_state *debug, char *str)
 {
     char escape_char;
     int i, len, start;
+    lily_msgbuf *msgbuf = debug->msgbuf;
 
     len = strlen(str);
     if (len > 64)
@@ -330,34 +349,62 @@ static void show_str(char *str, lily_msgbuf *msgbuf)
    This handles printing str, integer, and number values that are not nil. This
    is used by show_code_sym for literals, and show_value for non-nil simple
    values. */
-static void show_simple_value(lily_sig *sig, lily_value value,
-        lily_msgbuf *msgbuf)
+static void show_simple_value(lily_debug_state *debug, lily_sig *sig,
+        lily_value value)
 {
     int cls_id = sig->cls->id;
 
     if (cls_id == SYM_CLASS_STR)
-        show_str(value.str->str, msgbuf);
+        show_str(debug, value.str->str);
     else if (cls_id == SYM_CLASS_INTEGER)
         lily_impl_debugf("%" PRId64 "\n", value.integer);
     else if (cls_id == SYM_CLASS_NUMBER)
         lily_impl_debugf("%f\n", value.number);
 }
 
-static void show_literal(lily_sig *sig, lily_value value, lily_msgbuf *msgbuf)
+static void show_literal(lily_debug_state *debug, lily_sig *sig,
+        lily_value value)
 {
     lily_impl_debugf("(");
     show_sig(sig, NULL);
     lily_impl_debugf(") ");
-    show_simple_value(sig, value, msgbuf);
+    show_simple_value(debug, sig, value);
 }
 
-static void show_register_info(lily_register_info *method_info, char *reg_type,
-        int reg_num)
+static void write_indent(int indent)
 {
-    lily_register_info reg_info = method_info[reg_num];
-    lily_impl_debugf("(");
+    int i;
+    for (i = 0;i < indent;i++)
+        lily_impl_debugf("|    ");
+}
+
+static void show_register_info(lily_debug_state *debug, int flags, int reg_num)
+{
+    lily_register_info reg_info;
+    char *arrow_str, *scope_str;
+
+    if (flags & RI_GLOBAL) {
+        scope_str = "global";
+        reg_info = debug->main_method->reg_info[reg_num];
+    }
+    else {
+        scope_str = "local";
+        reg_info = debug->current_method->reg_info[reg_num];
+    }
+
+    if (flags & RI_INPUT)
+        arrow_str = "|     <---- ";
+    else if (flags & RI_OUTPUT)
+        arrow_str = "|     ====> ";
+    else
+        arrow_str = "";
+
+    if (debug->indent)
+        write_indent(debug->indent);
+
+    lily_impl_debugf("%s(", arrow_str);
     show_sig(reg_info.sig, NULL);
-    lily_impl_debugf(") %s register #%d", reg_type, reg_num);
+    lily_impl_debugf(") %s register #%d", scope_str, reg_num);
 
     if (reg_info.name != NULL) {
         if (reg_info.line_num != 0)
@@ -370,13 +417,6 @@ static void show_register_info(lily_register_info *method_info, char *reg_type,
         lily_impl_debugf("\n");
 }
 
-static void write_indent(int indent)
-{
-    int i;
-    for (i = 0;i < indent;i++)
-        lily_impl_debugf("|    ");
-}
-
 /* show_code
    This shows all the code in a var that holds a method. This displays the
    operations in a simple way so that users can get an idea of what the vm is
@@ -385,8 +425,7 @@ static void write_indent(int indent)
    This was done because many opcodes (all binary ones, for example), share the
    same basic structure. This also eliminates the need for specialized
    functions. */
-static void show_code(lily_method_val *lily_main, lily_method_val *mval,
-        lily_msgbuf *msgbuf, int indent)
+static void show_code(lily_debug_state *debug)
 {
     char format[5];
     int digits, i, len;
@@ -394,15 +433,15 @@ static void show_code(lily_method_val *lily_main, lily_method_val *mval,
 
     digits = 0;
     i = 0;
-    code = mval->code;
-    len = mval->pos;
+    code = debug->current_method->code;
+    len = debug->current_method->pos;
 
     while (len) {
         len /= 10;
         digits++;
     }
 
-    len = mval->pos;
+    len = debug->current_method->pos;
     format[0] = '%';
     if (digits >= 10) {
         format[1] = (digits / 10) + '0';
@@ -416,11 +455,13 @@ static void show_code(lily_method_val *lily_main, lily_method_val *mval,
         format[3] = '\0';
     }
 
-    lily_register_info *method_info = mval->reg_info;
     int last_line_num = -1;
+    int indent;
+
     /* Add one indent level for the line numbers under which code will be
        grouped. */
-    indent++;
+    debug->indent++;
+    indent = debug->indent;
 
     while (i < len) {
         int opcode = code[i];
@@ -464,22 +505,14 @@ static void show_code(lily_method_val *lily_main, lily_method_val *mval,
 
             if (data_code == D_LINENO)
                 lily_impl_debugf("\n");
-            else if (data_code == D_INPUT) {
-                if (indent)
-                    write_indent(indent);
-                lily_impl_debugf("|     <---- ");
-                show_register_info(method_info, "local", code[i+j]);
-            }
+            else if (data_code == D_INPUT)
+                show_register_info(debug, RI_INPUT, code[i+j]);
             else if (data_code == D_OUTPUT) {
                 /* output is NULL if it's a method or function that does not
                    return a value. Omit this for brevity (the lack of a stated
                    output meaning it doesn't have one). */
-                if (code[i+j] != -1) {
-                    if (indent)
-                        write_indent(indent);
-                    lily_impl_debugf("|     ====> ");
-                    show_register_info(method_info, "local", code[i+j]);
-                }
+                if (code[i+j] != -1)
+                    show_register_info(debug, RI_OUTPUT, code[i+j]);
             }
             else if (data_code == D_JUMP_ON) {
                 if (code[i+j] == 0)
@@ -499,13 +532,9 @@ static void show_code(lily_method_val *lily_main, lily_method_val *mval,
                     i--;
                 else {
                     int k;
-                    for (k = 0;k < count;k++, i++) {
-                        if (indent)
-                            write_indent(indent);
+                    for (k = 0;k < count;k++, i++)
+                        show_register_info(debug, RI_INPUT, code[i+j]);
 
-                        lily_impl_debugf("|     <---- ");
-                        show_register_info(method_info, "local", code[i+j]);
-                    }
                     i--;
                 }
             }
@@ -515,7 +544,7 @@ static void show_code(lily_method_val *lily_main, lily_method_val *mval,
 
                 lily_impl_debugf("|     <---- ");
                 lily_literal *lit = (lily_literal *)code[i+j];
-                show_literal(lit->sig, lit->value, msgbuf);
+                show_literal(debug, lit->sig, lit->value);
             }
             else if (data_code == D_COUNT)
                 count = (int)code[i+j];
@@ -529,51 +558,36 @@ static void show_code(lily_method_val *lily_main, lily_method_val *mval,
                 lily_impl_debugf("\n");
                 break;
             }
-            else if (data_code == D_GLOBAL_INPUT) {
-                if (indent)
-                    write_indent(indent);
-
-                lily_impl_debugf("|     <---- ");
-                /* Critical: This is a global, so use __main__ instead of the
-                   current method. */
-                show_register_info(lily_main->reg_info, "global", code[i+j]);
-            }
+            else if (data_code == D_GLOBAL_INPUT)
+                show_register_info(debug, RI_GLOBAL | RI_INPUT, code[i+j]);
             else if (data_code == D_GLOBAL_OUTPUT) {
                 /* This doesn't have to be checked because D_GLOBAL_OUTPUT is
                    only for writes to a global, and always exists. */
-                if (indent)
-                    write_indent(indent);
-
-                lily_impl_debugf("|     ====> ");
-                /* Critical: This is a global, so use __main__ instead of the
-                   current method. */
-                show_register_info(lily_main->reg_info, "global", code[i+j]);
+                show_register_info(debug, RI_GLOBAL | RI_OUTPUT, code[i+j]);
             }
             else if (data_code == D_IS_GLOBAL)
                 is_global = code[i+j];
             else if (data_code == D_SHOW_INPUT) {
-                if (indent)
-                    write_indent(indent);
-
-                lily_impl_debugf("|     <---- ");
+                int flags = RI_INPUT;
                 if (is_global)
-                    show_register_info(lily_main->reg_info, "global",
-                            code[i+j]);
-                else
-                    show_register_info(method_info, "local", code[i+j]);
+                    flags |= RI_GLOBAL;
+
+                show_register_info(debug, flags, code[i+j]);
             }
         }
         i += j;
     }
 }
 
-static void show_value(lily_method_val *, lily_sig *, lily_value, lily_msgbuf *,
-        int);
-static void show_list_value(lily_method_val *lily_main, lily_sig *sig,
-        lily_list_val *lv, lily_msgbuf *msgbuf, int indent)
+static void show_value(lily_debug_state *debug, lily_sig *, lily_value);
+
+static void show_list_value(lily_debug_state *debug, lily_sig *sig,
+        lily_list_val *lv)
 {
-    int i;
+    int i, indent;
     lily_sig *elem_sig;
+
+    indent = debug->indent;
 
     /* This intentionally dives into circular refs so that (circular) can be
        written with proper indentation. */
@@ -592,11 +606,12 @@ static void show_list_value(lily_method_val *lily_main, lily_sig *sig,
            Not needed for the first line though. */
         if (i != 0) {
             if (indent > 1)
-                write_indent(indent-1);
+                write_indent(indent - 1);
+
             lily_impl_debugf("|\n");
         }
         if (indent > 1)
-            write_indent(indent-1);
+            write_indent(indent - 1);
 
         lily_impl_debugf("|____");
         lily_impl_debugf("[%d] = ", i);
@@ -604,7 +619,7 @@ static void show_list_value(lily_method_val *lily_main, lily_sig *sig,
         if (lv->flags[i] & SYM_IS_NIL)
             lily_impl_debugf("(nil)\n");
         else
-            show_value(lily_main, elem_sig, lv->values[i], msgbuf, indent);
+            show_value(debug, elem_sig, lv->values[i]);
     }
 
     lv->visited = 0;
@@ -617,15 +632,14 @@ static void show_list_value(lily_method_val *lily_main, lily_sig *sig,
    Each command should end with an extra '\n' in some way. This consistency is
    important for making sure that any value sent to show results in the same
    amount of \n's written after it. */
-static void show_value(lily_method_val *lily_main, lily_sig *sig,
-        lily_value value, lily_msgbuf *msgbuf, int indent)
+static void show_value(lily_debug_state *debug, lily_sig *sig, lily_value value)
 {
     int cls_id = sig->cls->id;
 
     if (cls_id == SYM_CLASS_STR ||
         cls_id == SYM_CLASS_INTEGER ||
         cls_id == SYM_CLASS_NUMBER) {
-        show_simple_value(sig, value, msgbuf);
+        show_simple_value(debug, sig, value);
         /* This always finishes with \n. */
     }
     else if (cls_id == SYM_CLASS_LIST) {
@@ -633,7 +647,10 @@ static void show_value(lily_method_val *lily_main, lily_sig *sig,
 
         show_sig(sig, NULL);
         lily_impl_debugf("\n");
-        show_list_value(lily_main, sig, lv, msgbuf, indent+1);
+
+        debug->indent++;
+        show_list_value(debug, sig, lv);
+        debug->indent--;
         /* The \n at the end comes from the last value's \n. */
     }
     else if (cls_id == SYM_CLASS_FUNCTION) {
@@ -644,10 +661,15 @@ static void show_value(lily_method_val *lily_main, lily_sig *sig,
     }
     else if (cls_id == SYM_CLASS_METHOD) {
         lily_method_val *mv = value.method;
+        lily_method_val *save_current;
 
         show_sig(sig, mv->trace_name);
         lily_impl_debugf("\n");
-        show_code(lily_main, mv, msgbuf, indent);
+
+        save_current = debug->current_method;
+        debug->current_method = mv;
+        show_code(debug);
+        debug->current_method = save_current;
         /* The \n at the end comes from show_code always finishing that way. */
     }
     else if (cls_id == SYM_CLASS_OBJECT) {
@@ -657,7 +679,7 @@ static void show_value(lily_method_val *lily_main, lily_sig *sig,
             lily_impl_debugf("(nil)\n");
         else {
             lily_impl_debugf("(object) ");
-            show_value(lily_main, ov->sig, ov->value, msgbuf, indent);
+            show_value(debug, ov->sig, ov->value);
         }
     }
 }
@@ -665,30 +687,25 @@ static void show_value(lily_method_val *lily_main, lily_sig *sig,
 /** API for lily_debug.c **/
 /* lily_show_sym
    This handles showing the information for a symbol at vm-time. */
-void lily_show_sym(lily_method_val *lily_main, lily_vm_register *reg,
-        int is_global, int reg_id, lily_msgbuf *msgbuf)
+void lily_show_sym(lily_method_val *lily_main, lily_method_val *current_method,
+        lily_vm_register *reg, int is_global, int reg_id, lily_msgbuf *msgbuf)
 {
-    char *scope_str;
-    scope_str = is_global ? "global" : "local";
+    lily_debug_state debug;
+    debug.indent = 0;
+    debug.main_method = lily_main;
+    debug.current_method = current_method;
+    debug.msgbuf = msgbuf;
 
-    lily_impl_debugf("Showing %s register #%d", scope_str, reg_id);
-    if (reg->name != NULL) {
-        if (reg->line_num != 0)
-            lily_impl_debugf(" (%s from line %d)\n", reg->name,
-                    reg->line_num);
-        else
-            lily_impl_debugf(" (builtin value %s)\n", reg->name);
-    }
-    else
-        lily_impl_debugf("\n");
+    int flags = 0;
+    if (is_global)
+        flags |= RI_GLOBAL;
 
-    lily_impl_debugf("Type:  ");
-    show_sig(reg->sig, NULL);
-    lily_impl_debugf("\n");
+    lily_impl_debugf("Showing ");
+    show_register_info(&debug, flags, reg_id);
 
     lily_impl_debugf("Value: ");
     if (reg->flags & SYM_IS_NIL)
         lily_impl_debugf("(nil)");
     else
-        show_value(lily_main, reg->sig, reg->value, msgbuf, 0);
+        show_value(&debug, reg->sig, reg->value);
 }
