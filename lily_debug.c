@@ -411,7 +411,7 @@ static void show_register_info(lily_debug_state *debug, int flags, int reg_num)
             lily_impl_debugf(" (%s from line %d)\n", reg_info.name,
                     reg_info.line_num);
         else
-            lily_impl_debugf(" (builtin value %s)\n", reg_info.name);
+            lily_impl_debugf(" (%s [builtin])\n", reg_info.name);
     }
     else
         lily_impl_debugf("\n");
