@@ -407,11 +407,15 @@ static void show_register_info(lily_debug_state *debug, int flags, int reg_num)
     lily_impl_debugf(") %s register #%d", scope_str, reg_num);
 
     if (reg_info.name != NULL) {
+        lily_impl_debugf(" (");
+        if (reg_info.class_name)
+            lily_impl_debugf("%s%s", reg_info.class_name, "::");
+
         if (reg_info.line_num != 0)
-            lily_impl_debugf(" (%s from line %d)\n", reg_info.name,
-                    reg_info.line_num);
+            lily_impl_debugf("%s from line %d)\n", reg_info.name,
+                             reg_info.line_num);
         else
-            lily_impl_debugf(" (%s [builtin])\n", reg_info.name);
+            lily_impl_debugf("%s [builtin])\n", reg_info.name);
     }
     else
         lily_impl_debugf("\n");
