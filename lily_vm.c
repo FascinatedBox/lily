@@ -8,69 +8,75 @@
 #include "lily_vm.h"
 #include "lily_debug.h"
 
+/* LOAD_CHECKED_REG is used to load a register and check it for not having a
+   value. Using this macro ensures that novalue_error will be called with the
+   correct index (since it's given the same index as the code position).
+   Arguments are:
+   * load_reg:      The register to load the value into.
+   * load_code_pos: The current code position. In the vm, this is always
+                    code_pos.
+   * load_pos:      How far after load_code_pos to look for the register value.
+                    This is also used by novalue_error to locate the register in
+                    case there is an error.
+
+   This macro is the preferred way of checking for something being nil because
+   it ensures that novalue_error gets the correct index. */
+#define LOAD_CHECKED_REG(load_reg, load_code_pos, load_pos) \
+load_reg = vm_regs[code[load_code_pos + load_pos]]; \
+if (load_reg->flags & SYM_IS_NIL) \
+    novalue_error(vm, load_code_pos, load_pos); \
+
 #define INTEGER_OP(OP) \
-lhs_reg = vm_regs[code[i+2]]; \
-rhs_reg = vm_regs[code[i+3]]; \
-if (lhs_reg->flags & SYM_IS_NIL) \
-    novalue_error(vm, i, lhs_reg); \
-else if (rhs_reg->flags & SYM_IS_NIL) \
-    novalue_error(vm, i, lhs_reg); \
-vm_regs[code[i+4]]->value.integer = \
+LOAD_CHECKED_REG(lhs_reg, code_pos, 2) \
+LOAD_CHECKED_REG(rhs_reg, code_pos, 3) \
+vm_regs[code[code_pos+4]]->value.integer = \
 lhs_reg->value.integer OP rhs_reg->value.integer; \
-vm_regs[code[i+4]]->flags &= ~SYM_IS_NIL; \
-i += 5;
+vm_regs[code[code_pos+4]]->flags &= ~SYM_IS_NIL; \
+code_pos += 5;
 
 #define INTNUM_OP(OP) \
-lhs_reg = vm_regs[code[i+2]]; \
-rhs_reg = vm_regs[code[i+3]]; \
-if (lhs_reg->flags & SYM_IS_NIL) \
-    novalue_error(vm, i, lhs_reg); \
-else if (rhs_reg->flags & SYM_IS_NIL) \
-    novalue_error(vm, i, rhs_reg); \
+LOAD_CHECKED_REG(lhs_reg, code_pos, 2) \
+LOAD_CHECKED_REG(rhs_reg, code_pos, 3) \
 if (lhs_reg->sig->cls->id == SYM_CLASS_NUMBER) { \
     if (rhs_reg->sig->cls->id == SYM_CLASS_NUMBER) \
-        vm_regs[code[i+4]]->value.number = \
+        vm_regs[code[code_pos+4]]->value.number = \
         lhs_reg->value.number OP rhs_reg->value.number; \
     else \
-        vm_regs[code[i+4]]->value.number = \
+        vm_regs[code[code_pos+4]]->value.number = \
         lhs_reg->value.number OP rhs_reg->value.integer; \
 } \
 else \
-    vm_regs[code[i+4]]->value.number = \
+    vm_regs[code[code_pos+4]]->value.number = \
     lhs_reg->value.integer OP rhs_reg->value.number; \
-vm_regs[code[i+4]]->flags &= ~SYM_IS_NIL; \
-i += 5;
+vm_regs[code[code_pos+4]]->flags &= ~SYM_IS_NIL; \
+code_pos += 5;
 
 #define COMPARE_OP(OP, STROP) \
-lhs_reg = vm_regs[code[i+2]]; \
-rhs_reg = vm_regs[code[i+3]]; \
-if (lhs_reg->flags & SYM_IS_NIL) \
-    novalue_error(vm, i, lhs_reg); \
-else if (rhs_reg->flags & SYM_IS_NIL) \
-    novalue_error(vm, i, rhs_reg); \
+LOAD_CHECKED_REG(lhs_reg, code_pos, 2) \
+LOAD_CHECKED_REG(rhs_reg, code_pos, 3) \
 if (lhs_reg->sig->cls->id == SYM_CLASS_NUMBER) { \
     if (rhs_reg->sig->cls->id == SYM_CLASS_NUMBER) \
-        vm_regs[code[i+4]]->value.integer = \
+        vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.number OP rhs_reg->value.number); \
     else \
-        vm_regs[code[i+4]]->value.integer = \
+        vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.number OP rhs_reg->value.integer); \
 } \
 else if (lhs_reg->sig->cls->id == SYM_CLASS_INTEGER) { \
     if (rhs_reg->sig->cls->id == SYM_CLASS_INTEGER) \
-        vm_regs[code[i+4]]->value.integer =  \
+        vm_regs[code[code_pos+4]]->value.integer =  \
         (lhs_reg->value.integer OP rhs_reg->value.integer); \
     else \
-        vm_regs[code[i+4]]->value.integer = \
+        vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.integer OP rhs_reg->value.number); \
 } \
 else if (lhs_reg->sig->cls->id == SYM_CLASS_STR) { \
-    vm_regs[code[i+4]]->value.integer = \
+    vm_regs[code[code_pos+4]]->value.integer = \
     strcmp(lhs_reg->value.str->str, \
            rhs_reg->value.str->str) STROP; \
 } \
-vm_regs[code[i+4]]->flags &= ~SYM_IS_NIL; \
-i += 5;
+vm_regs[code[code_pos+4]]->flags &= ~SYM_IS_NIL; \
+code_pos += 5;
 
 /* This intentionally takes the input sym as 'to' and the flags for 'from'. It
    does that so accidentally reversing the arguments will trigger a compile
@@ -374,8 +380,7 @@ int maybe_crossover_assign(lily_vm_register *lhs_reg, lily_vm_register *rhs_reg)
    nil but should not be. code_pos is the current code position, because the
    current method's info is not saved in the stack (because it would almost
    always be stale). */
-static void novalue_error(lily_vm_state *vm, int code_pos,
-        lily_vm_register *reg)
+static void novalue_error(lily_vm_state *vm, int code_pos, int reg_pos)
 {
     /* ...So fill in the current method's info before dying. */
     lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
@@ -384,10 +389,22 @@ static void novalue_error(lily_vm_state *vm, int code_pos,
        any opcode that might call novalue_error. */ 
     top->line_num = top->code[code_pos+1];
 
-    /* All registers either hold a value for a variable, or hold intermediate
-       values. The former have a name, the latter have it as NULL. */
-    if (reg->name != NULL)
-        lily_raise(vm->raiser, lily_ErrNoValue, "%s is nil.\n", reg->name);
+    /* Instead of using the register, grab the register info for the current
+       method. This will have the name, if this particular register is used to
+       hold a named var. */
+    lily_register_info *reg_info;
+    reg_info = vm->method_stack[vm->method_stack_pos - 1]->method->reg_info;
+
+    /* A method's register info and the registers are the same size. The info at
+       position one is for the first register, the second for the second
+       register, etc. */
+    lily_register_info err_reg_info;
+    err_reg_info = reg_info[top->code[code_pos+reg_pos]];
+
+    /* If this register corresponds to a named value, show that. */
+    if (err_reg_info.name != NULL)
+        lily_raise(vm->raiser, lily_ErrNoValue, "%s is nil.\n",
+                   err_reg_info.name);
     else
         lily_raise(vm->raiser, lily_ErrNoValue, "Attempt to use nil value.\n");
 }
@@ -395,8 +412,7 @@ static void novalue_error(lily_vm_state *vm, int code_pos,
 /* divide_by_zero_error
    This is copied from novalue_error, except it raises ErrDivisionByZero and
    reports an attempt to divide by zero. */
-void divide_by_zero_error(lily_vm_state *vm, int code_pos,
-        lily_vm_register *reg)
+void divide_by_zero_error(lily_vm_state *vm, int code_pos, int reg_pos)
 {
     lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
     top->line_num = top->code[code_pos+1];
@@ -407,13 +423,13 @@ void divide_by_zero_error(lily_vm_state *vm, int code_pos,
 
 /* boundary_error
    Another copy of novalue_error, this one raising ErrOutOfRange. */
-void boundary_error(lily_vm_state *vm, int code_pos, int pos)
+void boundary_error(lily_vm_state *vm, int code_pos, int bad_index)
 {
     lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
     top->line_num = top->code[code_pos+1];
 
     lily_raise(vm->raiser, lily_ErrOutOfRange,
-            "Subscript index %d is out of range.\n", pos);
+            "Subscript index %d is out of range.\n", bad_index);
 }
 
 /* lily_builtin_print
@@ -528,7 +544,7 @@ void op_ref_assign(lily_vm_register *lhs_reg, lily_vm_register *rhs_reg)
    Sometimes, value will be a storage from o_subscript. However, this code is
    required because it assigns to the value in the list, instead of a storage
    where that value is unloaded. */
-static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
+static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
 {
     lily_vm_register **vm_regs = vm->vm_regs;
     lily_vm_register *lhs_reg, *rhs_reg;
@@ -537,26 +553,20 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int pos)
     lily_value *values;
     int flags;
 
-    lhs_reg = vm_regs[code[pos+2]];
-    if (lhs_reg->flags & SYM_IS_NIL)
-        novalue_error(vm, pos, lhs_reg);
+    LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
     values = lhs_reg->value.list->values;
 
-    index_reg = vm_regs[code[pos+3]];
-    if (index_reg->flags & SYM_IS_NIL)
-        novalue_error(vm, pos, index_reg);
+    LOAD_CHECKED_REG(index_reg, code_pos, 3)
     index_int = index_reg->value.integer;
 
-    rhs_reg = vm_regs[code[pos+4]];
-    if (rhs_reg->flags & SYM_IS_NIL)
-        novalue_error(vm, pos, rhs_reg);
+    LOAD_CHECKED_REG(rhs_reg, code_pos, 4)
 
     if (index_int >= lhs_reg->value.list->num_values)
-        boundary_error(vm, pos, index_int);
+        boundary_error(vm, code_pos, index_int);
 
     /* todo: Wraparound would be nice. */
     if (index_int < 0)
-        boundary_error(vm, pos, index_int);
+        boundary_error(vm, code_pos, index_int);
 
     flags = lhs_reg->value.list->flags[index_int];
 
@@ -1016,10 +1026,10 @@ void lily_vm_execute(lily_vm_state *vm)
     lily_vm_stack_entry *stack_entry;
     lily_vm_register **regs_from_main;
     lily_vm_register **vm_regs;
-    int num_registers, max_registers;
+    int i, num_registers, max_registers;
     lily_sig *cast_sig;
     register int64_t for_temp;
-    register int i;
+    register int code_pos;
     register lily_vm_register *lhs_reg, *rhs_reg, *loop_reg, *step_reg;
     register lily_literal *literal;
     lily_method_val *mval;
@@ -1029,16 +1039,16 @@ void lily_vm_execute(lily_vm_state *vm)
     regs_from_main = vm->regs_from_main;
     num_registers = vm->num_registers;
     max_registers = vm->max_registers;
-    i = 0;
+    code_pos = 0;
 
     if (setjmp(vm->raiser->jumps[vm->raiser->jump_pos]) == 0)
         vm->raiser->jump_pos++;
     else {
         if (vm->in_function) {
-            vm->err_function = vm_regs[code[i+2]]->value.function;
+            vm->err_function = vm_regs[code[code_pos+2]]->value.function;
 
             lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
-            top->line_num = top->code[i+1];
+            top->line_num = top->code[code_pos+1];
         }
 
         /* Don't yield to parser, because it will continue as if nothing
@@ -1047,17 +1057,17 @@ void lily_vm_execute(lily_vm_state *vm)
     }
 
     while (1) {
-        switch(code[i]) {
+        switch(code[code_pos]) {
             case o_assign:
-                rhs_reg = vm_regs[code[i+2]];
-                lhs_reg = vm_regs[code[i+3]];
+                rhs_reg = vm_regs[code[code_pos+2]];
+                lhs_reg = vm_regs[code[code_pos+3]];
                 COPY_NIL_FLAG(lhs_reg, rhs_reg->flags)
                 lhs_reg->value = rhs_reg->value;
-                i += 4;
+                code_pos += 4;
                 break;
             case o_get_const:
-                literal = (lily_literal *)code[i+2];
-                lhs_reg = vm_regs[code[i+3]];
+                literal = (lily_literal *)code[code_pos+2];
+                lhs_reg = vm_regs[code[code_pos+3]];
                 if (lhs_reg->sig->cls->is_refcounted) {
                     if ((lhs_reg->flags & SYM_IS_NIL) == 0)
                         lily_deref_unknown_val(lhs_reg->sig, lhs_reg->value);
@@ -1066,7 +1076,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 }
                 lhs_reg->value = literal->value;
                 lhs_reg->flags &= ~SYM_IS_NIL;
-                i += 4;
+                code_pos += 4;
                 break;
             case o_integer_add:
                 INTEGER_OP(+)
@@ -1099,7 +1109,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 COMPARE_OP(!=, != 0)
                 break;
             case o_jump:
-                i = code[i+1];
+                code_pos = code[code_pos+1];
                 break;
             case o_modulo:
                 INTEGER_OP(%)
@@ -1115,11 +1125,9 @@ void lily_vm_execute(lily_vm_state *vm)
                    will involve some redundant checking of the rhs, but better
                    than dumping INTEGER_OP's contents here or rewriting
                    INTEGER_OP for the special case of division. */
-                rhs_reg = vm_regs[code[i+3]];
-                if (rhs_reg->flags & SYM_IS_NIL)
-                    novalue_error(vm, i, rhs_reg);
+                LOAD_CHECKED_REG(rhs_reg, code_pos, 3)
                 if (rhs_reg->value.integer == 0)
-                    divide_by_zero_error(vm, i, rhs_reg);
+                    divide_by_zero_error(vm, code_pos, 3);
                 INTEGER_OP(/)
                 break;
             case o_left_shift:
@@ -1140,20 +1148,18 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_number_div:
                 /* This is a little more tricky, because the rhs could be a
                    number or an integer... */
-                rhs_reg = vm_regs[code[i+3]];
-                if (rhs_reg->flags & SYM_IS_NIL)
-                    novalue_error(vm, i, rhs_reg);
+                LOAD_CHECKED_REG(rhs_reg, code_pos, 3)
                 if (rhs_reg->sig->cls->id == SYM_CLASS_INTEGER &&
                     rhs_reg->value.integer == 0)
-                    divide_by_zero_error(vm, i, rhs_reg);
+                    divide_by_zero_error(vm, code_pos, 3);
                 else if (rhs_reg->sig->cls->id == SYM_CLASS_NUMBER &&
                          rhs_reg->value.number == 0)
-                    divide_by_zero_error(vm, i, rhs_reg);
+                    divide_by_zero_error(vm, code_pos, 3);
 
                 INTNUM_OP(/)
                 break;
             case o_jump_if:
-                lhs_reg = vm_regs[code[i+2]];
+                lhs_reg = vm_regs[code[code_pos+2]];
                 {
                     int cls_id, result;
 
@@ -1178,10 +1184,10 @@ void lily_vm_execute(lily_vm_state *vm)
                     else
                         result = 1;
 
-                    if (result != code[i+1])
-                        i = code[i+3];
+                    if (result != code[code_pos+1])
+                        code_pos = code[code_pos+3];
                     else
-                        i += 4;
+                        code_pos += 4;
                 }
                 break;
             case o_func_call:
@@ -1189,8 +1195,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* var, func, #args, ret, args... */
                 lily_function_val *fval;
                 lily_func func;
-                int j = code[i+3];
-                lhs_reg = vm_regs[code[i+2]];
+                int j = code[code_pos+3];
+                lhs_reg = vm_regs[code[code_pos+2]];
 
                 /* The func HAS to be grabbed from the var to support passing
                    funcs as args. */
@@ -1198,9 +1204,9 @@ void lily_vm_execute(lily_vm_state *vm)
                 func = fval->func;
 
                 vm->in_function = 1;
-                func(vm, code+i+4, j);
+                func(vm, code+code_pos+4, j);
                 vm->in_function = 0;
-                i += 5 + j;
+                code_pos += 5 + j;
             }
                 break;
             case o_method_call:
@@ -1208,7 +1214,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 if (vm->method_stack_pos+1 == vm->method_stack_size)
                     grow_method_stack(vm);
 
-                mval = vm_regs[code[i+2]]->value.method;
+                mval = vm_regs[code[code_pos+2]]->value.method;
                 int register_need = mval->reg_count + num_registers;
                 int j;
 
@@ -1220,20 +1226,20 @@ void lily_vm_execute(lily_vm_state *vm)
                     max_registers  = register_need;
                 }
 
-                j = code[i+3];
+                j = code[code_pos+3];
                 /* Prepare the registers for what the method wants. Afterward,
                    update num_registers since prep_registers changes it. */
-                prep_registers(vm, mval, code+i);
+                prep_registers(vm, mval, code+code_pos);
                 num_registers = vm->num_registers;
 
                 stack_entry = vm->method_stack[vm->method_stack_pos-1];
-                stack_entry->line_num = code[i+1];
-                stack_entry->code_pos = i + j + 5;
+                stack_entry->line_num = code[code_pos+1];
+                stack_entry->code_pos = code_pos + j + 5;
 
                 vm_regs = vm_regs + stack_entry->regs_used;
                 vm->vm_regs = vm_regs;
 
-                stack_entry->return_reg = -(stack_entry->method->reg_count - code[i+4+j]);
+                stack_entry->return_reg = -(stack_entry->method->reg_count - code[code_pos+4+j]);
                 stack_entry = vm->method_stack[vm->method_stack_pos];
                 stack_entry->regs_used = mval->reg_count;
                 stack_entry->code = mval->code;
@@ -1241,26 +1247,24 @@ void lily_vm_execute(lily_vm_state *vm)
                 vm->method_stack_pos++;
 
                 code = mval->code;
-                i = 0;
+                code_pos = 0;
             }
                 break;
             case o_unary_not:
-                lhs_reg = vm_regs[code[i+2]];
-                if (lhs_reg->flags & SYM_IS_NIL)
-                    novalue_error(vm, i, lhs_reg);
-                rhs_reg = vm_regs[code[i+3]];
+                LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
+
+                rhs_reg = vm_regs[code[code_pos+3]];
                 rhs_reg->flags &= ~SYM_IS_NIL;
                 rhs_reg->value.integer = !(lhs_reg->value.integer);
-                i += 4;
+                code_pos += 4;
                 break;
             case o_unary_minus:
-                lhs_reg = vm_regs[code[i+2]];
-                if (lhs_reg->flags & SYM_IS_NIL)
-                    novalue_error(vm, i, lhs_reg);
-                rhs_reg = vm_regs[code[i+3]];
+                LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
+
+                rhs_reg = vm_regs[code[code_pos+3]];
                 rhs_reg->flags &= ~SYM_IS_NIL;
                 rhs_reg->value.integer = -(lhs_reg->value.integer);
-                i += 4;
+                code_pos += 4;
                 break;
             case o_return_val:
                 /* The current method is at -1.
@@ -1274,7 +1278,7 @@ void lily_vm_execute(lily_vm_state *vm)
                    that goes back into the caller's stack. */
 
                 lhs_reg = vm_regs[stack_entry->return_reg];
-                rhs_reg = vm_regs[code[i+2]];
+                rhs_reg = vm_regs[code[code_pos+2]];
 
                 /* rhs_reg and lhs_reg are both the same type, so only one
                    is_refcounted check is necessary. */
@@ -1303,11 +1307,11 @@ void lily_vm_execute(lily_vm_state *vm)
                 vm_regs = vm_regs - stack_entry->regs_used;
                 vm->vm_regs = vm_regs;
                 code = stack_entry->code;
-                i = stack_entry->code_pos;
+                code_pos = stack_entry->code_pos;
                 break;
             case o_get_global:
-                rhs_reg = regs_from_main[code[i+2]];
-                lhs_reg = vm_regs[code[i+3]];
+                rhs_reg = regs_from_main[code[code_pos+2]];
+                lhs_reg = vm_regs[code[code_pos+3]];
                           /* Important: vm_regs starts at the local scope, and
                              this index is based on the global scope. */
                 if (rhs_reg->sig->cls->is_refcounted) {
@@ -1320,11 +1324,11 @@ void lily_vm_execute(lily_vm_state *vm)
                 }
                 COPY_NIL_FLAG(lhs_reg, rhs_reg->flags)
                 lhs_reg->value = rhs_reg->value;
-                i += 4;
+                code_pos += 4;
                 break;
             case o_set_global:
-                rhs_reg = vm_regs[code[i+2]];
-                lhs_reg = regs_from_main[code[i+3]];
+                rhs_reg = vm_regs[code[code_pos+2]];
+                lhs_reg = regs_from_main[code[code_pos+3]];
 
                 if (rhs_reg->sig->cls->is_refcounted) {
                     /* However, one or both could be nil. */
@@ -1337,21 +1341,21 @@ void lily_vm_execute(lily_vm_state *vm)
                 COPY_NIL_FLAG(lhs_reg, rhs_reg->flags)
                 lhs_reg->value = rhs_reg->value;
 
-                i += 4;
+                code_pos += 4;
                 break;
             case o_return_expected:
             {
                 lily_vm_stack_entry *top;
                 top = vm->method_stack[vm->method_stack_pos-1];
-                top->line_num = top->code[i+1];
+                top->line_num = top->code[code_pos+1];
                 lily_raise(vm->raiser, lily_ErrReturnExpected,
                         "Method %s completed without returning a value.\n",
                         top->method->trace_name);
             }
                 break;
             case o_obj_assign:
-                rhs_reg = vm_regs[code[i+2]];
-                lhs_reg = vm_regs[code[i+3]];
+                rhs_reg = vm_regs[code[code_pos+2]];
+                lhs_reg = vm_regs[code[code_pos+3]];
                 {
                     lily_value right_val;
                     lily_sig *right_sig;
@@ -1426,42 +1430,35 @@ void lily_vm_execute(lily_vm_state *vm)
                     lhs_obj->value = right_val;
                 }
 
-                i += 4;
+                code_pos += 4;
                 break;
             case o_intnum_typecast:
-                rhs_reg = vm_regs[code[i+2]];
-                lhs_reg = vm_regs[code[i+3]];
-                if (rhs_reg->flags & SYM_IS_NIL)
-                    novalue_error(vm, i, rhs_reg);
+                lhs_reg = vm_regs[code[code_pos+3]];
+                LOAD_CHECKED_REG(rhs_reg, code_pos, 2)
 
                 /* Guaranteed to work, because rhs is non-nil and emitter has
                    already verified the types. This will also make sure that the
                    nil flag isn't set on lhs. */
                 maybe_crossover_assign(lhs_reg, rhs_reg);
-                i += 4;
+                code_pos += 4;
                 break;
             case o_subscript:
-                lhs_reg = vm_regs[code[i+2]];
-                rhs_reg = vm_regs[code[i+3]];
-                if (lhs_reg->flags & SYM_IS_NIL)
-                    novalue_error(vm, i, lhs_reg);
-
-                if (rhs_reg->flags & SYM_IS_NIL)
-                    novalue_error(vm, i, rhs_reg);
+                LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
+                LOAD_CHECKED_REG(rhs_reg, code_pos, 3)
 
                 {
                     /* lhs is the var, rhs is the subscript. Emitter has
                        verified that rhs is an integer. */
                     int rhs_index = rhs_reg->value.integer;
-                    lily_vm_register *result = vm_regs[code[i+4]];
+                    lily_vm_register *result = vm_regs[code[code_pos+4]];
 
                     /* Too big! */
                     if (rhs_index >= lhs_reg->value.list->num_values)
-                        boundary_error(vm, i, rhs_index);
+                        boundary_error(vm, code_pos, rhs_index);
 
                     /* todo: Wraparound would be nice. */
                     if (rhs_index < 0)
-                        boundary_error(vm, i, rhs_index);
+                        boundary_error(vm, code_pos, rhs_index);
 
                     if ((result->flags & SYM_IS_NIL) == 0) {
                         /* Do not use && to combine these two if's, because
@@ -1541,34 +1538,34 @@ void lily_vm_execute(lily_vm_state *vm)
                             result->flags |= SYM_IS_NIL;
                     }
                 }
-                i += 5;
+                code_pos += 5;
                 break;
             case o_sub_assign:
-                op_sub_assign(vm, code, i);
-                i += 5;
+                op_sub_assign(vm, code, code_pos);
+                code_pos += 5;
                 break;
             case o_build_list:
-                op_build_list(vm, vm_regs, code+i);
-                i += code[i+2] + 4;
+                op_build_list(vm, vm_regs, code+code_pos);
+                code_pos += code[code_pos+2] + 4;
                 break;
             case o_ref_assign:
-                lhs_reg = vm_regs[code[i+3]];
-                rhs_reg = vm_regs[code[i+2]];
+                lhs_reg = vm_regs[code[code_pos+3]];
+                rhs_reg = vm_regs[code[code_pos+2]];
 
                 op_ref_assign(lhs_reg, rhs_reg);
-                i += 4;
+                code_pos += 4;
                 break;
             case o_show:
-                do_keyword_show(vm, code[i+2], code[i+3]);
-                i += 4;
+                do_keyword_show(vm, code[code_pos+2], code[code_pos+3]);
+                code_pos += 4;
                 break;
             case o_obj_typecast:
-                rhs_reg = vm_regs[code[i+2]];
-                lhs_reg = vm_regs[code[i+3]];
+                lhs_reg = vm_regs[code[code_pos+3]];
                 cast_sig = lhs_reg->sig;
 
-                if (rhs_reg->flags & SYM_IS_NIL || rhs_reg->value.object->sig == NULL)
-                    novalue_error(vm, i, rhs_reg);
+                LOAD_CHECKED_REG(rhs_reg, code_pos, 2)
+                if (rhs_reg->value.object->sig == NULL)
+                    novalue_error(vm, code_pos, 2);
 
                 /* This works because lily_ensure_unique_sig makes sure that
                    no two signatures describe the same thing. So if it's the
@@ -1593,24 +1590,24 @@ void lily_vm_execute(lily_vm_state *vm)
                 else if (maybe_crossover_assign(lhs_reg, rhs_reg) == 0) {
                     lily_vm_stack_entry *top;
                     top = vm->method_stack[vm->method_stack_pos-1];
-                    top->line_num = top->code[i+1];
+                    top->line_num = top->code[code_pos+1];
 
                     lily_raise(vm->raiser, lily_ErrBadCast,
                             "Cannot cast object containing type '%T' to type '%T'.\n",
                             rhs_reg->value.object->sig, lhs_reg->sig);
                 }
 
-                i += 4;
+                code_pos += 4;
                 break;
             case o_integer_for:
-                loop_reg = vm_regs[code[i+2]];
+                loop_reg = vm_regs[code[code_pos+2]];
                 /* lhs is the start, and also incremented. This is done so that
                    user assignments cannot cause the loop to leave early. This
                    may be changed in the future.
                    rhs is the stop value. */
-                lhs_reg  = vm_regs[code[i+3]];
-                rhs_reg  = vm_regs[code[i+4]];
-                step_reg = vm_regs[code[i+5]];
+                lhs_reg  = vm_regs[code[code_pos+3]];
+                rhs_reg  = vm_regs[code[code_pos+4]];
+                step_reg = vm_regs[code[code_pos+5]];
 
                 for_temp = lhs_reg->value.integer + step_reg->value.integer;
                 /* Copied from Lua's for loop. */
@@ -1627,46 +1624,39 @@ void lily_vm_execute(lily_vm_state *vm)
                     /* The loop var may have been altered and set nil. Make sure
                        it is not nil. */
                     loop_reg->flags &= ~SYM_IS_NIL;
-                    i += 7;
+                    code_pos += 7;
                 }
                 else
-                    i = code[i+6];
+                    code_pos = code[code_pos+6];
 
                 break;
             case o_for_setup:
-                loop_reg = vm_regs[code[i+2]];
+                loop_reg = vm_regs[code[code_pos+2]];
                 /* lhs_reg is the start, rhs_reg is the stop. */
-                lhs_reg  = vm_regs[code[i+3]];
-                rhs_reg  = vm_regs[code[i+4]];
-                step_reg = vm_regs[code[i+5]];
-
-                if (lhs_reg->flags & SYM_IS_NIL)
-                    novalue_error(vm, i, lhs_reg);
-                if (rhs_reg->flags & SYM_IS_NIL)
-                    novalue_error(vm, i, lhs_reg);
+                step_reg = vm_regs[code[code_pos+5]];
+                LOAD_CHECKED_REG(lhs_reg, code_pos, 3)
+                LOAD_CHECKED_REG(rhs_reg, code_pos, 4)
+                LOAD_CHECKED_REG(step_reg, code_pos, 5)
 
                 /* +6 is used to indicate if the step needs to be generated, or
                    if it's already calculated. */
-                if (code[i+6] == 1) {
+                if (code[code_pos+6] == 1) {
                     if (lhs_reg->value.integer <= rhs_reg->value.integer)
                         step_reg->value.integer = +1;
                     else
                         step_reg->value.integer = -1;
+
                     step_reg->flags &= ~SYM_IS_NIL;
                 }
-                else {
-                    if (step_reg->flags & SYM_IS_NIL)
-                        novalue_error(vm, i, step_reg);
-
-                    if (step_reg->value.integer == 0)
-                        lily_raise(vm->raiser, lily_ErrBadValue,
-                                   "for loop step cannot be 0.\n");
+                else if (step_reg->value.integer == 0) {
+                    lily_raise(vm->raiser, lily_ErrBadValue,
+                               "for loop step cannot be 0.\n");
                 }
 
                 loop_reg->value.integer = lhs_reg->value.integer;
                 loop_reg->flags &= ~SYM_IS_NIL;
 
-                i += 7;
+                code_pos += 7;
                 break;
             case o_return_from_vm:
                 for (i = max_registers-1;i >= 0;i--) {
