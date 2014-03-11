@@ -105,6 +105,7 @@ typedef struct lily_sig_t {
 /* This is used to initialize the registers that a method uses. */
 typedef struct lily_register_info_t {
     lily_sig *sig;
+    char *class_name;
     char *name;
     int line_num;
 } lily_register_info;

@@ -1715,13 +1715,14 @@ void lily_emit_return_noval(lily_emit_state *emit)
    This adds a chain of vars to a method's info. If not __main__, then methods
    declared within the currently-exiting method are skipped. */
 static void add_var_chain_to_info(lily_emit_state *emit,
-        lily_register_info *info, lily_var *var)
+        lily_register_info *info, char *class_name, lily_var *var)
 {
     if (emit->method_depth > 1) {
         while (var) {
             if ((var->flags & SYM_SCOPE_GLOBAL) == 0) {
                 info[var->reg_spot].sig = var->sig;
                 info[var->reg_spot].name = var->name;
+                info[var->reg_spot].class_name = class_name;
                 info[var->reg_spot].line_num = var->line_num;
             }
 
@@ -1732,6 +1733,7 @@ static void add_var_chain_to_info(lily_emit_state *emit,
         while (var) {
             info[var->reg_spot].sig = var->sig;
             info[var->reg_spot].name = var->name;
+            info[var->reg_spot].class_name = class_name;
             info[var->reg_spot].line_num = var->line_num;
 
             var = var->next;
@@ -1747,6 +1749,7 @@ static void add_storage_chain_to_info(lily_register_info *info,
     while (storage && storage->sig) {
         info[storage->reg_spot].sig = storage->sig;
         info[storage->reg_spot].name = NULL;
+        info[storage->reg_spot].class_name = NULL;
         info[storage->reg_spot].line_num = -1;
         storage = storage->next;
     }
@@ -1782,7 +1785,7 @@ static void finalize_method_val(lily_emit_state *emit, lily_block *method_block)
     /* else we're in __main__, which does include itself as an arg so it can be
        passed to show and other neat stuff. */
 
-    add_var_chain_to_info(emit, info, var_iter);
+    add_var_chain_to_info(emit, info, NULL, var_iter);
     add_storage_chain_to_info(info, method_block->storage_start);
 
     if (emit->method_depth > 1) {
@@ -1822,9 +1825,9 @@ static void finalize_method_val(lily_emit_state *emit, lily_block *method_block)
         for (i = 0;i < emit->symtab->class_pos;i++) {
             lily_class *cls = emit->symtab->classes[i];
             if (cls->call_start)
-                add_var_chain_to_info(emit, info, cls->call_start);
+                add_var_chain_to_info(emit, info, cls->name, cls->call_start);
         }
-        add_var_chain_to_info(emit, info, emit->symtab->old_method_chain);
+        add_var_chain_to_info(emit, info, NULL, emit->symtab->old_method_chain);
     }
 
     m->reg_info = info;
