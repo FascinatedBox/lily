@@ -891,8 +891,6 @@ static void prep_registers(lily_vm_state *vm, lily_method_val *mval,
         set_reg->sig = seed.sig;
         /* This will be null if this register doesn't belong to a
            var, or non-null if it's for a local. */
-        set_reg->name = seed.name;
-        set_reg->line_num = seed.line_num;
 
         if ((get_reg->flags & SYM_IS_NIL) == 0)
             set_reg->value = get_reg->value;
@@ -913,8 +911,6 @@ static void prep_registers(lily_vm_state *vm, lily_method_val *mval,
 
         reg->flags |= SYM_IS_NIL;
         reg->sig = seed.sig;
-        reg->name = seed.name;
-        reg->line_num = seed.line_num;
     }
 
     vm->num_registers = num_registers;
@@ -970,8 +966,6 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
         reg->value.integer = 0;
         reg->flags = SYM_IS_NIL | SYM_SCOPE_GLOBAL;
         reg->sig = seed.sig;
-        reg->name = seed.name;
-        reg->line_num = seed.line_num;
     }
 
     while (global_iter) {
