@@ -132,8 +132,6 @@ typedef struct lily_vm_register_t {
     int flags;
     lily_sig *sig;
     lily_value value;
-    char *name;
-    int line_num;
 } lily_vm_register;
 
 typedef struct lily_storage_t {
