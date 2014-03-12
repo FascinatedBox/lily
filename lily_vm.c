@@ -1630,7 +1630,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 step_reg = vm_regs[code[code_pos+5]];
                 LOAD_CHECKED_REG(lhs_reg, code_pos, 3)
                 LOAD_CHECKED_REG(rhs_reg, code_pos, 4)
-                LOAD_CHECKED_REG(step_reg, code_pos, 5)
 
                 /* +6 is used to indicate if the step needs to be generated, or
                    if it's already calculated. */
@@ -1643,6 +1642,8 @@ void lily_vm_execute(lily_vm_state *vm)
                     step_reg->flags &= ~SYM_IS_NIL;
                 }
                 else if (step_reg->value.integer == 0) {
+                    LOAD_CHECKED_REG(step_reg, code_pos, 5)
+
                     lily_raise(vm->raiser, lily_ErrBadValue,
                                "for loop step cannot be 0.\n");
                 }
