@@ -40,7 +40,6 @@ typedef struct {
     lily_block *first_block;
     lily_block *current_block;
     int method_depth;
-    int block_depth;
     lily_raiser *raiser;
     lily_symtab *symtab;
     int expr_num;
