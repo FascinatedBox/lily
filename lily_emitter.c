@@ -1591,7 +1591,8 @@ void lily_emit_change_if_branch(lily_emit_state *emit, int have_else)
     lily_block *block = emit->current_block;
     lily_var *v = block->var_start;
 
-    if (emit->current_block == emit->first_block) {
+    if (emit->current_block->block_type != BLOCK_IF &&
+        emit->current_block->block_type != BLOCK_IFELSE) {
         char *name = (have_else ? "else" : "elif");
         lily_raise(emit->raiser, lily_ErrSyntax,
                    "'%s' without 'if'.\n", name);
