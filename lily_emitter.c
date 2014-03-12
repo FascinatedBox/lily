@@ -1552,7 +1552,7 @@ void lily_eval_do_while_expr(lily_emit_state *emit, lily_ast *ast)
     eval_tree(emit, ast);
     emit->expr_num++;
 
-    if (ast->result->reg_spot == -1)
+    if (ast->result == NULL)
         lily_raise(emit->raiser, lily_ErrSyntax,
                    "Conditional statement has no value.\n");
 
