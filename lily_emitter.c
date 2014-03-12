@@ -1704,7 +1704,7 @@ void lily_emit_show(lily_emit_state *emit, lily_ast *ast)
 void lily_emit_return_noval(lily_emit_state *emit)
 {
     /* Don't allow 'return' within __main__. */
-    if (emit->current_block == emit->first_block)
+    if (emit->method_depth == 1)
         lily_raise(emit->raiser, lily_ErrSyntax,
                 "'return' used outside of a method.\n");
 
