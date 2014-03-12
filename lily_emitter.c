@@ -120,7 +120,6 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
 
     s->first_block = NULL;
     s->current_block = NULL;
-    s->block_depth = 0;
     s->unused_storage_start = NULL;
     s->all_storage_start = NULL;
     s->all_storage_top = NULL;
