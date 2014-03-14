@@ -9,7 +9,7 @@
 
 # Name inspired by Lufia 2. :)
 
-import os, subprocess
+import os, subprocess, sys
 
 pass_files = []
 fail_files = []
@@ -21,7 +21,11 @@ def load_filenames(path):
             ret.append(os.path.join(dirpath, filename))
     return ret
 
-def runs_for_file(filename):
+def get_file_info(filename):
+    # Run the file with aft but without a maximum number of allocs. aft will
+    # print the alloc count, as well as any error raised. Some files should
+    # pass, but others should always raise an error.
+    file_info = {"runs": 0, "success": 1}
     subp = subprocess.Popen(["./lily_aft --no-alloc-limit %s" % filename], stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, shell=True)
     (subp_stdout, subp_stderr) = subp.communicate()
@@ -31,15 +35,32 @@ def runs_for_file(filename):
     print subp_stderr[0:-1]
     for line in stderr_lines:
         if line.startswith('[aft]: Stats'):
-            return int(line.split(" ")[6])
+            file_info["runs"] = int(line.split(" ")[6])
+        elif line.startswith('Err'):
+            file_info["success"] = 0
 
-    raise Exception("aft did not return stats for %s.\n" % filename)
+    if file_info["runs"] == 0:
+        raise Exception("aft did not return stats for %s.\n" % filename)
+    else:
+        return file_info
 
 MODE_PASS = 1
 MODE_FAIL = 0
 
-def start_running(filename, run_range):
-    run_count = runs_for_file(filename)
+def start_running(filename, mode, run_range):
+    file_info = get_file_info(filename)
+    run_count = file_info["runs"]
+    did_pass = file_info["success"]
+
+    if (did_pass == True and mode == MODE_FAIL) or (did_pass == False and mode == MODE_PASS):
+        if mode == MODE_PASS:
+            msg = "pass"
+        else:
+            msg = "fail"
+
+        print "blastmaster: Test '%s' did not %s. Stopping." % (filename, msg)
+        sys.exit(1)
+
     name = "[%d/%d] %s" % (run_range[0], run_range[1], os.path.basename(filename))
     just_printed = True
     block_end = 0
@@ -94,9 +115,9 @@ print "\nBlastmaster: Running %d pass tests, %d fail tests, %d total." \
 for i in range(len(pass_files)):
     print "\n"
     run_range[0] += 1
-    start_running(pass_files[i], run_range)
+    start_running(pass_files[i], MODE_PASS, run_range)
 
 for i in range(len(fail_files)):
     print "\n"
     run_range[0] += 1
-    start_running(fail_files[i], run_range)
+    start_running(fail_files[i], MODE_FAIL, run_range)
