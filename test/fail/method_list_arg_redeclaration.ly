@@ -1,1 +1,1 @@
-<@ method m(list[integer] a, list[integer] a):nil {} @>
+<@lily method m(list[integer] a, list[integer] a):nil {} @>
