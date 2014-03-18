@@ -551,7 +551,7 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
     lily_vm_register *index_reg;
     int index_int;
     lily_value *values;
-    int flags;
+    int flags, new_flags;
 
     LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
     values = lhs_reg->value.list->values;
@@ -569,6 +569,7 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
         boundary_error(vm, code_pos, index_int);
 
     flags = lhs_reg->value.list->flags[index_int];
+    new_flags = flags & ~(SYM_IS_NIL | SYM_IS_CIRCULAR);
 
     /* If this list does not contain objects, then standard
        assign or ref/deref assign is enough. */
@@ -592,11 +593,9 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
             if (rhs_reg->sig->cls->id == SYM_CLASS_LIST &&
                 rhs_reg->sig->flags & SIG_MAYBE_CIRCULAR &&
                 nested_list_check(lhs_reg, rhs_reg))
-                flags |= SYM_IS_CIRCULAR;
-            else {
-                flags &= ~SYM_IS_CIRCULAR;
+                new_flags |= SYM_IS_CIRCULAR;
+            else
                 rhs_reg->value.generic->refcount++;
-            }
         }
         /* else nothing to ref/deref, so do assign only. */
 
@@ -612,77 +611,44 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
             ov->refcount = 1;
             ov->sig = NULL;
             values[index_int].object = ov;
-            flags &= ~SYM_IS_NIL;
         }
 
         /* Do an object assign to the value. */
         lily_object_val *ov = values[index_int].object;
+        lily_sig *rhs_sig;
+        lily_value rhs_value;
         if (rhs_reg->sig->cls->id != SYM_CLASS_OBJECT) {
-            /* Only drop the ref if it's not circular. */
-            if (ov->sig && ov->sig->cls->is_refcounted &&
-                (flags & SYM_IS_CIRCULAR) == 0)
-                lily_deref_unknown_val(ov->sig, ov->value);
-
-            if (rhs_reg->sig->cls->id == SYM_CLASS_LIST) {
-                rhs_reg->value.generic->refcount++;
-                int circle_count;
-                /* Does this list contain any circular references back to the
-                   object that holds it? If so, adjust the refcount. */
-                circle_count = circle_buster(ov, rhs_reg->sig, rhs_reg->value);
-
-                if (circle_count) {
-                    flags |= SYM_IS_CIRCULAR;
-                    lily_deref_list_val_by(rhs_reg->sig, rhs_reg->value.list,
-                            circle_count);
-                }
-                else
-                    flags &= ~SYM_IS_CIRCULAR;
-            }
-            else {
-                flags &= ~SYM_IS_CIRCULAR;
-                if (rhs_reg->sig->cls->is_refcounted)
-                    rhs_reg->value.generic->refcount++;
-
-                circle_buster(ov, rhs_reg->sig, rhs_reg->value);
-            }
-
-            ov->sig = rhs_reg->sig;
-            ov->value = rhs_reg->value;
+            rhs_sig = rhs_reg->sig;
+            rhs_value = rhs_reg->value;
         }
         else {
-            lily_object_val *rhs_obj = rhs_reg->value.object;
-            /* Make sure it's refcounted AND it's not circular. */
-            if (ov->sig->cls->is_refcounted && flags == 0)
-                lily_deref_unknown_val(ov->sig, ov->value);
-
-            if (rhs_obj->sig->cls->is_refcounted)
-                rhs_obj->value.generic->refcount++;
-
-            ov->sig = rhs_obj->sig;
-            ov->value = rhs_obj->value;
-
-            if (rhs_obj->sig && rhs_obj->sig->cls->id == SYM_CLASS_LIST) {
-                int circle_count;
-                circle_count = circle_buster(rhs_obj, lhs_reg->sig,
-                        lhs_reg->value);
-                if (circle_count) {
-                    flags |= SYM_IS_CIRCULAR;
-                    lily_deref_list_val_by(lhs_reg->sig, lhs_reg->value.list,
-                            circle_count);
-                }
-                else
-                    flags &= ~SYM_IS_CIRCULAR;
-            }
-
-            flags &= ~SYM_IS_CIRCULAR;
+            rhs_sig = rhs_reg->value.object->sig;
+            rhs_value = rhs_reg->value.object->value;
         }
+
+        /* Only drop the ref if it's not circular. */
+        if (ov->sig && ov->sig->cls->is_refcounted &&
+            (flags & SYM_IS_CIRCULAR) == 0)
+            lily_deref_unknown_val(ov->sig, ov->value);
+
+        if (rhs_sig) {
+            if (rhs_sig->cls->is_refcounted)
+                rhs_value.generic->refcount++;
+
+            if (rhs_sig->cls->id == SYM_CLASS_LIST) {
+                int circle_count = circle_buster(ov, rhs_sig, rhs_value);
+                if (circle_count) {
+                    new_flags |= SYM_IS_CIRCULAR;
+                    lily_deref_list_val_by(rhs_sig, rhs_value.list, circle_count);
+                }
+            }
+        }
+
+        ov->sig = rhs_sig;
+        ov->value = rhs_value;
     }
 
-    /* rhs was verified to be non-nil, so make sure the flags reflect that. This
-       is necessary because list creation allows for nil elements. */
-    flags &= ~SYM_IS_NIL;
-
-    lhs_reg->value.list->flags[index_int] = flags;
+    lhs_reg->value.list->flags[index_int] = new_flags;
 }
 
 /* op_build_list
