@@ -536,6 +536,102 @@ void op_ref_assign(lily_vm_register *lhs_reg, lily_vm_register *rhs_reg)
     lhs_reg->value = rhs_reg->value;
 }
 
+static void op_subscript(lily_vm_state *vm, uintptr_t *code, int code_pos)
+{
+    lily_vm_register **vm_regs = vm->vm_regs;
+    lily_vm_register *list_reg, *index_reg, *result_reg;
+
+    LOAD_CHECKED_REG(list_reg, code_pos, 2)
+    LOAD_CHECKED_REG(index_reg, code_pos, 3)
+    result_reg = vm_regs[code[code_pos+4]];
+
+    int rhs_index = index_reg->value.integer;
+
+    /* Too big! */
+    if (rhs_index >= list_reg->value.list->num_values)
+        boundary_error(vm, code_pos, rhs_index);
+
+    /* todo: Wraparound would be nice. */
+    if (rhs_index < 0)
+        boundary_error(vm, code_pos, rhs_index);
+
+    int value_flags = list_reg->value.list->flags[rhs_index];
+    lily_sig *new_sig;
+    lily_value new_value;
+
+    if (result_reg->sig->cls->id == SYM_CLASS_OBJECT) {
+        if ((value_flags & SYM_IS_NIL) == 0) {
+            lily_object_val *ov;
+            ov = list_reg->value.list->values[rhs_index].object;
+
+            new_sig = ov->sig;
+            new_value = ov->value;
+
+            /* Make an object to hold a value if necessary. This is best done
+               before doing the ref, so that the ref doesn't have to be undone
+               if there is an issue. */
+            if (result_reg->flags & SYM_IS_NIL) {
+                result_reg->value.object = lily_try_new_object_val();
+                if (result_reg->value.object == NULL)
+                    lily_raise_nomem(vm->raiser);
+
+                result_reg->flags &= ~SYM_IS_NIL;
+            }
+        }
+        else {
+            new_sig = vm->integer_sig;
+            new_value.integer = 0;
+        }
+    }
+    else {
+        new_sig = result_reg->sig;
+        if ((value_flags & SYM_IS_NIL) == 0)
+            new_value = list_reg->value.list->values[rhs_index];
+    }
+
+    /* Give the new value a ref if it needs one. This should be done before
+       doing the deref to be consistent with other parts of the vm. */
+    if (new_sig &&
+        new_sig->cls->is_refcounted &&
+        ((value_flags & SYM_IS_NIL) == 0))
+        new_value.generic->refcount++;
+
+    if (result_reg->sig->cls->id == SYM_CLASS_OBJECT) {
+        if ((value_flags & SYM_IS_NIL) == 0) {
+            /* If the value isn't nil, then an object was made above to hold
+               the new value. */
+            lily_object_val *ov = result_reg->value.object;
+
+            if (ov->sig &&
+                ov->sig->cls->is_refcounted &&
+                (result_reg->flags & SYM_IS_NIL) == 0)
+                lily_deref_unknown_val(ov->sig, ov->value);
+
+            ov->sig = new_sig;
+            ov->value = new_value;
+        }
+        else {
+            if ((result_reg->flags & SYM_IS_NIL) == 0) {
+                result_reg->value.object->sig = NULL;
+                result_reg->value.object->value.integer = 0;
+            }
+        }
+    }
+    else {
+        /* If the result contains a ref'd value, then deref it. */
+        if (result_reg->sig->cls->is_refcounted &&
+            (result_reg->flags & SYM_IS_NIL) == 0)
+            lily_deref_unknown_val(result_reg->sig, result_reg->value);
+
+        if ((value_flags & SYM_IS_NIL) == 0) {
+            result_reg->flags &= ~SYM_IS_NIL;
+            result_reg->value = new_value;
+        }
+        else
+            result_reg->flags |= SYM_IS_NIL;
+    }
+}
+
 /* op_sub_assign
    This handles the o_sub_assign opcode for the vm. This first unpacks the 2, 3,
    and 4 as the lhs, the index, and the rhs. Once it checks to make sure the
@@ -1403,101 +1499,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 4;
                 break;
             case o_subscript:
-                LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
-                LOAD_CHECKED_REG(rhs_reg, code_pos, 3)
-
-                {
-                    /* lhs is the var, rhs is the subscript. Emitter has
-                       verified that rhs is an integer. */
-                    int rhs_index = rhs_reg->value.integer;
-                    lily_vm_register *result = vm_regs[code[code_pos+4]];
-
-                    /* Too big! */
-                    if (rhs_index >= lhs_reg->value.list->num_values)
-                        boundary_error(vm, code_pos, rhs_index);
-
-                    /* todo: Wraparound would be nice. */
-                    if (rhs_index < 0)
-                        boundary_error(vm, code_pos, rhs_index);
-
-                    if ((result->flags & SYM_IS_NIL) == 0) {
-                        /* Do not use && to combine these two if's, because
-                           objects are marked as refcounted. This would be a
-                           no-op now, but could be hazardous in the future. */
-                        if (result->sig->cls->id == SYM_CLASS_OBJECT) {
-                            if (result->value.object->sig != NULL) {
-                                lily_deref_unknown_val(
-                                        result->value.object->sig,
-                                        result->value.object->value);
-                            }
-                        }
-                        else if (result->sig->cls->is_refcounted)
-                            lily_deref_unknown_val(result->sig, result->value);
-                        /* no-op if not refcounted. */
-                    }
-
-                    if (lhs_reg->value.list->flags[rhs_index] == 0) {
-                        if (result->sig->cls->id != SYM_CLASS_OBJECT) {
-                            if (result->sig->cls->is_refcounted) {
-                                result->value =
-                                        lhs_reg->value.list->values[rhs_index];
-                                result->value.generic->refcount++;
-                            }
-                            else
-                                result->value =
-                                        lhs_reg->value.list->values[rhs_index];
-                        }
-                        else {
-                            lily_object_val *oval;
-                            oval = lhs_reg->value.list->values[rhs_index].object;
-
-                            if (result->flags & SYM_IS_NIL) {
-                                lily_object_val *result_obj;
-                                result_obj = lily_try_new_object_val();
-                                if (result_obj == NULL)
-                                    lily_raise_nomem(vm->raiser);
-
-                                result_obj->sig = NULL;
-                                result_obj->value.integer = 0;
-                                result->value.object = result_obj;
-                                result->flags &= ~SYM_IS_NIL;
-                            }
-
-                            if (oval->sig) {
-                                if (oval->sig->cls->is_refcounted)
-                                    oval->value.generic->refcount++;
-
-                                result->value.object->value = oval->value;
-                            }
-                            result->value.object->sig = oval->sig;
-                        }
-
-                        result->flags &= ~SYM_IS_NIL;
-                    }
-                    else if (result->sig->cls->id == SYM_CLASS_OBJECT &&
-                             lhs_reg->value.list->flags[rhs_index] & SYM_IS_CIRCULAR) {
-                        lily_object_val *oval;
-                        oval = lhs_reg->value.list->values[rhs_index].object;
-
-                        /* Don't check if it's refcounted: If it were not, then
-                           it wouldn't be tagged as circular. */
-                        oval->value.generic->refcount++;
-                        result->value.object->value = oval->value;
-                        result->value.object->sig = oval->sig;
-
-                        result->flags &= ~SYM_IS_NIL;
-                    }
-                    else if (lhs_reg->value.list->flags[rhs_index] & SYM_IS_NIL) {
-                        if (result->sig->cls->id == SYM_CLASS_OBJECT) {
-                            if ((result->flags & SYM_IS_NIL) == 0) {
-                                result->value.object->value.integer = 0;
-                                result->value.object->sig = NULL;
-                            }
-                        }
-                        else
-                            result->flags |= SYM_IS_NIL;
-                    }
-                }
+                op_subscript(vm, code, code_pos);
                 code_pos += 5;
                 break;
             case o_sub_assign:
