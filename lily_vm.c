@@ -188,10 +188,10 @@ static int circle_buster(lily_object_val *lhs_obj, lily_sig *rhs_sig,
                        num_circles is always updated, which is necessary because
                        there may be a list of circular refs
                        (ex: a[0] = [a, a, a]) */
-                    if ((value_list->flags[i] & SYM_IS_CIRCULAR) == 0)
+                    if ((value_list->flags[i] & SYM_IS_CIRCULAR) == 0) {
                         value_list->flags[i] |= SYM_IS_CIRCULAR;
-
-                    num_circles++;
+                        num_circles++;
+                    }
                 }
                 else if (inner_obj->sig->cls->id == SYM_CLASS_LIST) {
                     /* If the object contains a list, then dive into that list
@@ -727,6 +727,11 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
             (flags & SYM_IS_CIRCULAR) == 0)
             lily_deref_unknown_val(ov->sig, ov->value);
 
+        ov->sig = rhs_sig;
+        ov->value = rhs_value;
+        /* Don't assume the new value is circular. */
+        lhs_reg->value.list->flags[index_int] = flags & ~SYM_IS_CIRCULAR;
+
         if (rhs_sig) {
             if (rhs_sig->cls->is_refcounted)
                 rhs_value.generic->refcount++;
@@ -740,8 +745,6 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
             }
         }
 
-        ov->sig = rhs_sig;
-        ov->value = rhs_value;
     }
 
     lhs_reg->value.list->flags[index_int] = new_flags;

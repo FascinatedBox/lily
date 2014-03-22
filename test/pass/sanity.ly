@@ -641,6 +641,7 @@ method test_sub_assign():nil
     lso[0] = "11"
     lso[0] = lso
     lso[0] = @(object: lso)
+    lso[0] = [@(object: lso), @(object: lso), @(object: lso)]
     lso[0] = lso[1]
     lso[0] = print
     lso[0] = list_list_str
