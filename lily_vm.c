@@ -1340,6 +1340,9 @@ void lily_vm_execute(lily_vm_state *vm)
                 {
                     lily_value right_val;
                     lily_sig *right_sig;
+                    /* object assign should not do a circle_buster check because
+                       the result is a register, not part of a list. It is thus
+                       impossible for this to cause a circular reference. */
 
                     /* If the right side has no value, mark the left's sig as
                        null. This way, the object value doesn't have to be
@@ -1352,7 +1355,6 @@ void lily_vm_execute(lily_vm_state *vm)
                         }
                         else {
                             lily_object_val *rhs_obj = rhs_reg->value.object;
-                            /* Hmm...Should this do a circle check if a list? */
                             if (rhs_obj->sig->cls->is_refcounted)
                                 rhs_obj->value.generic->refcount++;
 
@@ -1362,14 +1364,6 @@ void lily_vm_execute(lily_vm_state *vm)
                     }
                     else {
                         /* object = non-object */
-
-                        /* If the rhs is a list, this may have made a circular
-                           reference...unless lhs is nil. */
-                        if (rhs_reg->sig->cls->id == SYM_CLASS_LIST &&
-                            ((lhs_reg->flags & SYM_IS_NIL) == 0))
-                            circle_buster(lhs_reg->value.object, rhs_reg->sig,
-                                          rhs_reg->value);
-
                         if (rhs_reg->sig->cls->is_refcounted)
                             rhs_reg->value.generic->refcount++;
 
@@ -1399,7 +1393,6 @@ void lily_vm_execute(lily_vm_state *vm)
                            refcounted. */
                         lhs_obj = lhs_reg->value.object;
 
-                        /* Hmm...Does this need to do a circle check? */
                         if (lhs_obj->sig != NULL &&
                             lhs_obj->sig->cls->is_refcounted) {
                             lily_deref_unknown_val(lhs_obj->sig,
