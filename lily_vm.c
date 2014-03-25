@@ -629,6 +629,9 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
             ov->refcount = 1;
             ov->sig = NULL;
             values[index_int].object = ov;
+            /* Must do this, or circle_buster will ignore this value and
+               circularity won't be noticed. */
+            flags &= ~SYM_IS_NIL;
         }
 
         /* Do an object assign to the value. */
