@@ -235,80 +235,6 @@ static int circle_buster(lily_object_val *lhs_obj, lily_sig *rhs_sig,
     return num_circles;
 }
 
-/* Returns 1 if the first list given contains the second list. This is used by
-   op_sub_assign to help prevent a circular reference issue.
-   The caller is expected to verify that both lists contain objects at some
-   depth, since lists cannot be circular otherwise. */
-static int is_list_in_list(lily_sig *lhs_sig, lily_list_val *lhs_list,
-                           lily_list_val *rhs_list)
-{
-    int i;
-    int found = 0;
-    int num_values = lhs_list->num_values;
-    int *flags = lhs_list->flags;
-    lily_sig *elem_sig = lhs_sig->siglist[0];
-
-    /* Each element has the same signature, so hoist the loops to keep from
-       checking it repeatedly. This might be more verbose, but will definitely
-       be faster for large lists (which is more important). */
-    if (elem_sig->cls->id == SYM_CLASS_LIST) {
-        for (i = 0;i < num_values;i++) {
-            if ((flags[i] & (SYM_IS_NIL | SYM_IS_CIRCULAR)) == 0) {
-                lily_list_val *lv = lhs_list->values[i].list;
-                if (lv == rhs_list ||
-                    is_list_in_list(elem_sig, lv, rhs_list)) {
-                    found = 1;
-                    break;
-                }
-            }
-        }
-    }
-    else if (elem_sig->cls->id == SYM_CLASS_OBJECT) {
-        for (i = 0;i < num_values;i++) {
-            if ((flags[i] & (SYM_IS_NIL | SYM_IS_CIRCULAR)) == 0) {
-                lily_object_val *ov = lhs_list->values[i].object;
-                /* The object's sig is NULL if it does not contain anything. */
-                if (ov->sig != NULL && ov->sig->cls->id == SYM_CLASS_LIST) {
-                    if (ov->value.list == rhs_list) {
-                        found = 1;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    /* else it's a basic type, and cannot contain the list. */
-
-    return found;
-}
-
-/* nested_list_check
-   Both symbols contain a list, and right's list is to be put inside of left's
-   list. The vm checks that the sig of the right side is possibly circular
-   before calling this. However, this still needs to dig down and do circle
-   buster on every object because the object may contain the lhs list. */
-int nested_list_check(lily_vm_register *lhs_reg, lily_vm_register *rhs_reg)
-{
-    int is_nested = 0;
-    lily_sig *node_sig;
-
-    node_sig = lhs_reg->sig->siglist[0];
-    while (node_sig->cls->id == SYM_CLASS_LIST)
-        node_sig = node_sig->siglist[0];
-
-    if (node_sig->cls->id == SYM_CLASS_OBJECT) {
-        node_sig = rhs_reg->sig->siglist[0];
-        while (node_sig->cls->id == SYM_CLASS_LIST)
-            node_sig = node_sig->siglist[0];
-
-            if (is_list_in_list(rhs_reg->sig, rhs_reg->value.list,
-                                lhs_reg->value.list))
-                is_nested = 1;
-    }
-
-    return is_nested;
-}
-
 /* grow_method_stack
    This function grows the vm's method stack so it can take more method info.
    Calls lily_raise_nomem if unable to create method info. */
@@ -673,25 +599,21 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
         if (rhs_reg->sig->cls->is_refcounted) {
             /* Don't touch circular or nil values. */
             if (flags == 0) {
-                /* Deref whatever is inside of this. rhs_reg->sig is used because
-                   it's simpler than lhs_reg->sig->siglist[0]. */
+                /* Deref whatever is inside of this. rhs_reg->sig is used
+                   because it's simpler than lhs_reg->sig->siglist[0]. */
                 lily_deref_unknown_val(rhs_reg->sig, values[index_int]);
             }
 
-            /* If the right list contains the left (and the left will soon
-               contain the right), do NOT ref the list. It's circular, so tag it
-               as being circular instead.
-               This only applies if both lists hold objects at some point.
-               Otherwise, a circular ref is impossible and nested_list_check is
-               false.
-               Symtab tags signatures when the value could be circular, so use
-               that to filter out false positives. */
-            if (rhs_reg->sig->cls->id == SYM_CLASS_LIST &&
-                rhs_reg->sig->flags & SIG_MAYBE_CIRCULAR &&
-                nested_list_check(lhs_reg, rhs_reg))
+            values[index_int] = rhs_reg->value;
+
+            rhs_reg->value.generic->refcount++;
+            /* If symtab thinks it could be circular, mark it as such and deref
+               it. This prevents strangeness if the new list references the
+               parent. */
+            if (rhs_reg->sig->flags & SIG_MAYBE_CIRCULAR) {
+                lily_deref_list_val(rhs_reg->sig, rhs_reg->value.list);
                 new_flags |= SYM_IS_CIRCULAR;
-            else
-                rhs_reg->value.generic->refcount++;
+            }
         }
         /* else nothing to ref/deref, so do assign only. */
 
