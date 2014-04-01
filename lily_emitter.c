@@ -378,6 +378,8 @@ static int template_check(lily_sig *self_sig, lily_sig *lhs, lily_sig *rhs)
         else
             ret = 0;
     }
+    else if (lhs->cls == rhs->cls)
+        ret = 1;
 
     return ret;
 }
@@ -768,6 +770,41 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         ast->result = NULL;
 }
 
+static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
+        lily_ast *index_ast)
+{
+    if (var_ast->result->sig->cls->id == SYM_CLASS_LIST &&
+        index_ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
+        emit->raiser->line_adjust = var_ast->line_num;
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                "list index is not an integer.\n");
+    }
+    else if (var_ast->result->sig->cls->id == SYM_CLASS_HASH) {
+        int match_check = template_check(var_ast->result->sig,
+                var_ast->result->sig->siglist[0], index_ast->result->sig);
+
+        if (match_check == 0) {
+            emit->raiser->line_adjust = var_ast->line_num;
+            lily_raise(emit->raiser, lily_ErrSyntax,
+                    "hash expects an index of type '%T', but got type '%T'.\n",
+                    var_ast->result->sig->siglist[0], index_ast->result->sig);
+        }
+    }
+}
+
+static lily_sig *get_subscript_result(lily_sig *sig)
+{
+    lily_sig *result;
+    if (sig->cls->id == SYM_CLASS_LIST)
+        result = sig->siglist[0];
+    else if (sig->cls->id == SYM_CLASS_HASH)
+        result = sig->siglist[1];
+    else
+        result = NULL;
+
+    return result;
+}
+
 /* emit_sub_assign
    This handles an ast of type tree_binary wherein the left side has a
    subscript against it (ex: x[0] = y, x[0][0] = y, etc). This also handles
@@ -796,20 +833,13 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
     if (var_ast->tree_type != tree_local_var)
         eval_tree(emit, var_ast);
 
-    if (var_ast->result->sig->cls->id != SYM_CLASS_LIST)
-        bad_subs_class(emit, var_ast);
-
     if (index_ast->tree_type != tree_local_var)
         eval_tree(emit, index_ast);
 
-    if (index_ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
-        emit->raiser->line_adjust = index_ast->line_num;
-        lily_raise(emit->raiser, lily_ErrSyntax,
-                   "Subscript index is not an integer.\n");
-    }
+    check_valid_subscript(emit, var_ast, index_ast);
 
     /* The subscript assign goes to the element, not the list. So... */
-    elem_sig = var_ast->result->sig->siglist[0];
+    elem_sig = get_subscript_result(var_ast->result->sig);
 
     if (elem_sig != rhs->sig && elem_sig->cls->id != SYM_CLASS_OBJECT) {
         emit->raiser->line_adjust = ast->line_num;
@@ -1104,17 +1134,14 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
         eval_tree(emit, var_ast);
 
     lily_sig *var_sig = var_ast->result->sig;
-    if (var_sig->cls->id != SYM_CLASS_LIST)
+    if (var_sig->cls->id != SYM_CLASS_LIST &&
+        var_sig->cls->id != SYM_CLASS_HASH)
         bad_subs_class(emit, var_ast);
 
     if (index_ast->tree_type != tree_local_var)
         eval_tree(emit, index_ast);
 
-    if (index_ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise(emit->raiser, lily_ErrSyntax,
-                "Subscript index is not an integer.\n");
-    }
+    check_valid_subscript(emit, var_ast, index_ast);
 
     lily_sig *sig_for_result = var_sig->siglist[0];
     lily_storage *result;

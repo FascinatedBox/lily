@@ -69,9 +69,15 @@ void add_sig_to_msgbuf(lily_msgbuf *msgbuf, lily_sig *sig)
         else
             add_sig_to_msgbuf(msgbuf, sig->siglist[0]);
     }
-    else if (sig->cls->id == SYM_CLASS_LIST) {
+    else if (sig->cls->id == SYM_CLASS_LIST ||
+             sig->cls->id == SYM_CLASS_HASH) {
+        int i;
         lily_msgbuf_add(msgbuf, "[");
-        add_sig_to_msgbuf(msgbuf, sig->siglist[0]);
+        for (i = 0;i < sig->cls->template_count;i++) {
+            add_sig_to_msgbuf(msgbuf, sig->siglist[i]);
+            if (i != (sig->cls->template_count - 1))
+                lily_msgbuf_add(msgbuf, ", ");
+        }
         lily_msgbuf_add(msgbuf, "]");
     }
 }
@@ -131,6 +137,15 @@ void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
 void lily_raise_nomem(lily_raiser *raiser)
 {
     raiser->error_code = lily_ErrNoMemory;
+    longjmp(raiser->jumps[raiser->jump_pos-1], 1);
+}
+
+/* lily_raise_prebuilt
+   This is similar to lily_raise, except that the raiser's msgbuf has already
+   been prepared with the proper error message. */
+void lily_raise_prebuilt(lily_raiser *raiser, int error_code)
+{
+    raiser->error_code = error_code;
     longjmp(raiser->jumps[raiser->jump_pos-1], 1);
 }
 

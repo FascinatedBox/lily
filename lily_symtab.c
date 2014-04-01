@@ -28,6 +28,36 @@
 **/
 
 /** Value deref-ing. **/
+void lily_deref_hash_val(lily_sig *sig, lily_hash_val *hv)
+{
+    hv->refcount--;
+    if (hv->refcount == 0) {
+        lily_sig *value_sig = sig->siglist[1];
+        int value_cls_id = value_sig->cls->id;
+        int value_is_refcounted = value_sig->cls->is_refcounted;
+        lily_hash_elem *elem, *save_next;
+        elem = hv->elem_chain;
+        while (elem) {
+            if (elem->flags == 0 && value_is_refcounted)
+                lily_deref_unknown_val(value_sig, elem->value);
+            else if (elem->flags & SYM_IS_CIRCULAR &&
+                     value_cls_id == SYM_CLASS_OBJECT) {
+                /* Objects are containers that are not shared. This circularity
+                   applies to what's inside the object, not the object itself.
+                   Make sure to destroy the object. */
+                lily_object_val *ov = elem->value.object;
+                lily_free(ov);
+            }
+
+            save_next = elem->next;
+            lily_free(elem);
+            elem = save_next;
+        }
+
+        lily_free(hv);
+    }
+}
+
 void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
 {
     lv->refcount--;
@@ -39,6 +69,13 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
                 if (lv->flags[i] == 0)
                     lily_deref_list_val(sig->siglist[0],
                             lv->values[i].list);
+            }
+        }
+        else if (cls_id == SYM_CLASS_HASH) {
+            for (i = 0;i < lv->num_values;i++) {
+                if (lv->flags[i] == 0)
+                    lily_deref_hash_val(sig->siglist[0],
+                            lv->values[i].hash);
             }
         }
         else if (cls_id == SYM_CLASS_STR) {
@@ -137,6 +174,8 @@ void lily_deref_unknown_val(lily_sig *sig, lily_value v)
         lily_deref_method_val(v.method);
     else if (cls_id == SYM_CLASS_OBJECT)
         lily_deref_object_val(v.object);
+    else if (cls_id == SYM_CLASS_HASH)
+        lily_deref_hash_val(sig, v.hash);
 }
 
 /** Symtab init helpers, and shared code **/
@@ -430,7 +469,8 @@ static int init_classes(lily_symtab *symtab)
             if (i == SYM_CLASS_METHOD ||
                 i == SYM_CLASS_LIST ||
                 i == SYM_CLASS_FUNCTION ||
-                i == SYM_CLASS_TEMPLATE) {
+                i == SYM_CLASS_TEMPLATE ||
+                i == SYM_CLASS_HASH) {
                 /* lily_try_sig_for_class will always yield a new signature when
                    these are given. So these classes do not need a default
                    signature. */
@@ -778,6 +818,40 @@ lily_method_val *lily_try_new_method_val()
     m->pos = 0;
     m->len = 8;
     return m;
+}
+
+/* lily_try_new_hash_val
+   This attempts to create a new hash value, for storing hash elements.
+   Note: 'try' means this call returns NULL on failure. */
+lily_hash_val *lily_try_new_hash_val()
+{
+    lily_hash_val *h = lily_malloc(sizeof(lily_hash_val));
+
+    if (h == NULL)
+        return NULL;
+
+    h->refcount = 1;
+    h->visited = 0;
+    h->num_elems = 0;
+    h->elem_chain = NULL;
+    return h;
+}
+
+/* lily_try_new_hash_elem
+   This attempts to create a new hash element for storing a key and a value.
+   The caller is responsible for adding this element to a hash value.
+   Note: 'try' means this call returns NULL on failure. */
+lily_hash_elem *lily_try_new_hash_elem()
+{
+    lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
+
+    if (elem == NULL)
+        return NULL;
+
+    elem->flags = SYM_IS_NIL;
+    elem->value.integer = 0;
+    elem->next = NULL;
+    return elem;
 }
 
 /* lily_try_new_object_val

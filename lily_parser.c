@@ -356,30 +356,56 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
     lily_sig *result;
 
     if (cls->id != SYM_CLASS_METHOD && cls->id != SYM_CLASS_FUNCTION &&
-        cls->id != SYM_CLASS_LIST) {
+        cls->id != SYM_CLASS_LIST && cls->id != SYM_CLASS_HASH) {
         result = cls->sig;
         if (flags & CV_MAKE_VARS)
             get_named_var(parser, cls->sig);
     }
-    else if (cls->id == SYM_CLASS_LIST) {
+    else if (cls->id == SYM_CLASS_LIST || cls->id == SYM_CLASS_HASH) {
+        int i;
+        lily_sig *new_sig = lily_try_sig_for_class(parser->symtab, cls);
+        if (new_sig == NULL)
+            lily_raise_nomem(parser->raiser);
+
+        lily_sig **siglist;
+        siglist = lily_malloc(cls->template_count * sizeof(lily_sig));
+        if (siglist == NULL)
+            lily_raise_nomem(parser->raiser);
+
+        new_sig->siglist = siglist;
+        new_sig->siglist_size = 0;
+
         NEED_NEXT_TOK(tk_left_bracket)
         lily_lexer(lex);
-        result = collect_var_sig(parser, 0);
+
+        for (i = 0;i < cls->template_count;i++) {
+            lily_sig *inner_sig = collect_var_sig(parser, 0);
+            siglist[i] = inner_sig;
+            if (i != (cls->template_count - 1)) {
+                lily_lexer(lex);
+                NEED_CURRENT_TOK(tk_comma)
+                lily_lexer(lex);
+            }
+        }
         NEED_NEXT_TOK(tk_right_bracket)
 
-        lily_sig *list_sig = lily_try_sig_for_class(parser->symtab, cls);
-        if (list_sig == NULL)
-            lily_raise_nomem(parser->raiser);
+        new_sig->siglist_size = cls->template_count;
+        new_sig = lily_ensure_unique_sig(parser->symtab, new_sig);
 
-        list_sig->siglist = lily_malloc(sizeof(lily_sig));
-        if (list_sig->siglist == NULL)
-            lily_raise_nomem(parser->raiser);
+        /* For hashes, make sure that the first argument (the key) is a valid
+           key type. Valid key types are ones which are primitive, or ones that
+           are immutable. */
+        if (cls->id == SYM_CLASS_HASH) {
+            int key_class_id = siglist[0]->cls->id;
+            if (key_class_id != SYM_CLASS_INTEGER &&
+                key_class_id != SYM_CLASS_NUMBER &&
+                key_class_id != SYM_CLASS_STR) {
+                lily_raise(parser->raiser, lily_ErrSyntax,
+                        "'%T' is not a valid hash key.\n", siglist[0]);
+            }
+        }
 
-        list_sig->siglist[0] = result;
-        list_sig->siglist_size = 1;
-        list_sig = lily_ensure_unique_sig(parser->symtab, list_sig);
-
-        result = list_sig;
+        result = new_sig;
         if (flags & CV_MAKE_VARS)
             get_named_var(parser, result);
     }
@@ -1348,9 +1374,9 @@ static void statement(lily_parse_state *parser)
                 NEED_NEXT_TOK(tk_left_curly)
                 lily_lexer(lex);
             }
-            else if (cls_id == SYM_CLASS_LIST) {
-                lily_sig *list_sig = collect_var_sig(parser, 0);
-                parse_decl(parser, list_sig);
+            else if (cls_id == SYM_CLASS_LIST || cls_id == SYM_CLASS_HASH) {
+                lily_sig *cls_sig = collect_var_sig(parser, 0);
+                parse_decl(parser, cls_sig);
             }
             else if (cls_id == SYM_CLASS_FUNCTION)
                 /* As of now, user-declared functions can't do anything except

@@ -1391,6 +1391,29 @@ method test_intnum_cast():nil
     }
 }
 
+method test_hashes():nil
+{
+    printfmt("#%i: Testing hashes...(sub tests follow).\n", test_id)
+    test_id = test_id + 1
+    integer ok = 1
+
+    # First, that hashes create values on-demand.
+    hash[str, str] config_dict
+    config_dict["aaa"] = "bbb"
+    config_dict["bbb"] = "ccc"
+
+    # Second, that hashes can use different keys.
+    hash[integer, str] int_str_map
+    int_str_map[10] = "10"
+    int_str_map[5000] = "11"
+    int_str_map[0x10] = "12"
+
+    # Numbers as keys, with some exponential stuff too.
+    hash[number, str] num_str_map
+    num_str_map[5.5] = "10"
+    num_str_map[1e1] = "12"
+}
+
 method test_misc():nil
 {
     printfmt("#%i: Miscellaneous features...(sub tests follow).\n", test_id)
@@ -1456,6 +1479,7 @@ test_assign_chain()
 test_multiline_comment()
 test_for_in()
 test_intnum_cast()
+test_hashes()
 test_misc()
 
 test_id = test_id - 1
