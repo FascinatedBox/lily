@@ -8,6 +8,8 @@
 #include "lily_vm.h"
 #include "lily_debug.h"
 
+extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
+
 /* LOAD_CHECKED_REG is used to load a register and check it for not having a
    value. Using this macro ensures that novalue_error will be called with the
    correct index (since it's given the same index as the code position).
@@ -92,6 +94,10 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     if (vm == NULL)
         return NULL;
 
+    /* todo: This is a terrible, horrible key to use. Make a better one using
+             some randomness or...something. Just not this. */
+    char sipkey[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf};
+
     vm->method_stack = lily_malloc(sizeof(lily_vm_stack_entry *) * 4);
     vm->err_function = NULL;
     vm->in_function = 0;
@@ -102,6 +108,7 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     vm->regs_from_main = NULL;
     vm->num_registers = 0;
     vm->max_registers = 0;
+    vm->sipkey = sipkey;
 
     if (vm->method_stack) {
         int i;
@@ -335,6 +342,42 @@ static void novalue_error(lily_vm_state *vm, int code_pos, int reg_pos)
         lily_raise(vm->raiser, lily_ErrNoValue, "Attempt to use nil value.\n");
 }
 
+/*  no_such_key_error
+    This is a helper routine that raises ErrNoSuchKey when there is an attempt
+    to read a hash that does not have the given key.
+    Note: This is intentionally not called by subscript assign so that assigning
+          to a non-existant part of a hash automatically adds that key.
+
+    vm:       The currently running vm.
+    code_pos: The start of the opcode, for getting line info.
+    key_sig:  The signature of the key given. This is used to display a nice
+              value for the key.
+    key:      The invalid key passed. */
+void no_such_key_error(lily_vm_state *vm, int code_pos, lily_sig *key_sig,
+        lily_value key)
+{
+    lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos - 1];
+    top->line_num = top->code[code_pos + 1];
+
+    lily_msgbuf *msgbuf = vm->raiser->msgbuf;
+
+    lily_msgbuf_add(msgbuf, "ErrNoSuchKey: ");
+    if (key_sig->cls->id == SYM_CLASS_INTEGER)
+        lily_msgbuf_add_int(msgbuf, key.integer);
+    else if (key_sig->cls->id == SYM_CLASS_NUMBER)
+        lily_msgbuf_add_double(msgbuf, key.number);
+    else if (key_sig->cls->id == SYM_CLASS_STR) {
+        lily_msgbuf_add_char(msgbuf, '\"');
+        /* Note: This is fine for now because strings can't contain \0. */
+        lily_msgbuf_add(msgbuf, key.str->str);
+        lily_msgbuf_add_char(msgbuf, '\"');
+    }
+    else
+        lily_msgbuf_add(msgbuf, "? (unable to print key).");
+
+    lily_raise_prebuilt(vm->raiser, lily_ErrNoSuchKey);
+}
+
 /* divide_by_zero_error
    This is copied from novalue_error, except it raises ErrDivisionByZero and
    reports an attempt to divide by zero. */
@@ -462,33 +505,177 @@ void op_ref_assign(lily_vm_register *lhs_reg, lily_vm_register *rhs_reg)
     lhs_reg->value = rhs_reg->value;
 }
 
+/*  calculate_siphash
+    Return a siphash based using the given siphash for the given key.
+
+    sipkey:  The vm's sipkey for creating the hash.
+    key_sig: The signature describing the key given.
+    key:     The key to be hashed.
+
+    Notes:
+    * The caller must not pass a non-hashable type (such as object). Parser is
+      responsible for ensuring that hashes only use valid key types.
+    * The caller must not pass a key that is a nil value. */
+static uint64_t calculate_siphash(char *sipkey, lily_sig *key_sig, lily_value key)
+{
+    int key_cls_id = key_sig->cls->id;
+    uint64_t key_hash;
+
+    if (key_cls_id == SYM_CLASS_STR)
+        key_hash = siphash24(key.str->str, key.str->size, sipkey);
+    else if (key_cls_id == SYM_CLASS_INTEGER)
+        key_hash = key.integer;
+    else if (key_cls_id == SYM_CLASS_NUMBER)
+        /* siphash thinks it's sent a pointer (and will try to deref it), so
+           send the address. */
+        key_hash = siphash24(&(key.number), sizeof(double), sipkey);
+    else /* Should not happen, because no other classes are valid keys. */
+        key_hash = 0;
+
+    return key_hash;
+}
+
+/*  try_lookup_hash_elem
+    This attempts to find a hash element by key in the given hash. This will not
+    create a new element if it fails.
+
+    hash:        A valid hash, which may or may not have elements.
+    key_siphash: The calculated siphash of the given key. Use calculate_siphash
+                 to get this.
+    key_sig:     A signature describing the type of the key.
+    key:         The key used for doing the search.
+
+    On success: The hash element that was inserted into the hash value is
+                returned.
+    On failure: NULL is returned. */
+static lily_hash_elem *try_lookup_hash_elem(lily_hash_val *hash,
+        uint64_t key_siphash, lily_sig *key_sig, lily_value key)
+{
+    int key_cls_id = key_sig->cls->id;
+
+    lily_hash_elem *elem_iter = hash->elem_chain;
+    while (elem_iter) {
+        if (elem_iter->key_siphash == key_siphash) {
+            int ok;
+
+            if (key_cls_id == SYM_CLASS_INTEGER &&
+                elem_iter->key.integer == key.integer)
+                ok = 1;
+            else if (key_cls_id == SYM_CLASS_NUMBER &&
+                     elem_iter->key.number  == key.number)
+                ok = 1;
+            else if (key_cls_id == SYM_CLASS_STR &&
+                    /* strings are immutable, so try a ptr compare first. */
+                    ((elem_iter->key.str == key.str) ||
+                     /* No? Make sure the sizes match, then call for a strcmp.
+                        The size check is an easy way to potentially skip a
+                        strcmp in case of hash collision. */
+                      (elem_iter->key.str->size == key.str->size &&
+                       strcmp(elem_iter->key.str->str, key.str->str) == 0)))
+                ok = 1;
+            else
+                ok = 0;
+
+            if (ok)
+                break;
+        }
+        elem_iter = elem_iter->next;
+    }
+
+    return elem_iter;
+}
+
+/*  try_get_make_hash_elem
+    This attempts to get a hash element from a given hash. This will try to
+    make a new hash element if none currently exists.
+
+    hash:        A valid hash, which may or may not have elements.
+    key_siphash: The calculated siphash of the given key. Use calculate_siphash
+                 to get this.
+    key_sig:     A signature describing the type of the key.
+    key:         The key used for doing the search.
+
+    This returns the newly-made element, or NULL if unable to make a new
+    element. */
+static lily_hash_elem *try_get_make_hash_elem(lily_hash_val *hash,
+        uint64_t key_siphash, lily_sig *key_sig, lily_value key)
+{
+    lily_hash_elem *elem = try_lookup_hash_elem(hash, key_siphash, key_sig, key);
+
+    if (elem == NULL) {
+        elem = lily_try_new_hash_elem();
+        if (elem != NULL) {
+            elem->key = key;
+            elem->key_siphash = key_siphash;
+
+            elem->next = hash->elem_chain;
+            hash->elem_chain = elem;
+
+            hash->num_elems++;
+        }
+    }
+
+    return elem;
+}
+
 static void op_subscript(lily_vm_state *vm, uintptr_t *code, int code_pos)
 {
     lily_vm_register **vm_regs = vm->vm_regs;
-    lily_vm_register *list_reg, *index_reg, *result_reg;
-
-    LOAD_CHECKED_REG(list_reg, code_pos, 2)
-    LOAD_CHECKED_REG(index_reg, code_pos, 3)
-    result_reg = vm_regs[code[code_pos+4]];
-
-    int rhs_index = index_reg->value.integer;
-
-    /* Too big! */
-    if (rhs_index >= list_reg->value.list->num_values)
-        boundary_error(vm, code_pos, rhs_index);
-
-    /* todo: Wraparound would be nice. */
-    if (rhs_index < 0)
-        boundary_error(vm, code_pos, rhs_index);
-
-    int value_flags = list_reg->value.list->flags[rhs_index];
+    lily_vm_register *lhs_reg, *index_reg, *result_reg;
+    int flags, index_int;
     lily_sig *new_sig;
     lily_value new_value;
+    lily_hash_elem *hash_elem;
+
+    lhs_reg = vm_regs[code[code_pos + 2]];
+    LOAD_CHECKED_REG(index_reg, code_pos, 3)
+    result_reg = vm_regs[code[code_pos + 4]];
+
+    if (lhs_reg->sig->cls->id == SYM_CLASS_LIST) {
+        LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
+        index_int = index_reg->value.integer;
+
+        /* Too big! */
+        if (index_int >= lhs_reg->value.list->num_values)
+            boundary_error(vm, code_pos, index_int);
+
+        /* todo: Wraparound would be nice. */
+        if (index_int < 0)
+            boundary_error(vm, code_pos, index_int);
+
+        hash_elem = NULL;
+        flags = lhs_reg->value.list->flags[index_int];
+    }
+    else {
+        if (lhs_reg->flags & SYM_IS_NIL) {
+            lily_hash_val *hv = lily_try_new_hash_val();
+            if (hv == NULL)
+                lily_raise_nomem(vm->raiser);
+
+            lhs_reg->value.hash = hv;
+            lhs_reg->flags &= ~SYM_IS_NIL;
+        }
+        uint64_t siphash;
+        siphash = calculate_siphash(vm->sipkey, index_reg->sig,
+                index_reg->value);
+        hash_elem = try_lookup_hash_elem(lhs_reg->value.hash,
+                siphash, index_reg->sig, index_reg->value);
+
+        /* Give up if the key doesn't exist. */
+        if (hash_elem == NULL)
+            no_such_key_error(vm, code_pos, index_reg->sig, index_reg->value);
+
+        index_int = 0;
+        flags = hash_elem->flags;
+    }
 
     if (result_reg->sig->cls->id == SYM_CLASS_OBJECT) {
-        if ((value_flags & SYM_IS_NIL) == 0) {
+        if ((flags & SYM_IS_NIL) == 0) {
             lily_object_val *ov;
-            ov = list_reg->value.list->values[rhs_index].object;
+            if (hash_elem == NULL)
+                ov = lhs_reg->value.list->values[index_int].object;
+            else
+                ov = hash_elem->value.object;
 
             new_sig = ov->sig;
             new_value = ov->value;
@@ -511,19 +698,23 @@ static void op_subscript(lily_vm_state *vm, uintptr_t *code, int code_pos)
     }
     else {
         new_sig = result_reg->sig;
-        if ((value_flags & SYM_IS_NIL) == 0)
-            new_value = list_reg->value.list->values[rhs_index];
+        if ((flags & SYM_IS_NIL) == 0) {
+            if (hash_elem == NULL)
+                new_value = lhs_reg->value.list->values[index_int];
+            else
+                new_value = hash_elem->value;
+        }
     }
 
     /* Give the new value a ref if it needs one. This should be done before
        doing the deref to be consistent with other parts of the vm. */
     if (new_sig &&
         new_sig->cls->is_refcounted &&
-        ((value_flags & SYM_IS_NIL) == 0))
+        ((flags & SYM_IS_NIL) == 0))
         new_value.generic->refcount++;
 
     if (result_reg->sig->cls->id == SYM_CLASS_OBJECT) {
-        if ((value_flags & SYM_IS_NIL) == 0) {
+        if ((flags & SYM_IS_NIL) == 0) {
             /* If the value isn't nil, then an object was made above to hold
                the new value. */
             lily_object_val *ov = result_reg->value.object;
@@ -549,7 +740,7 @@ static void op_subscript(lily_vm_state *vm, uintptr_t *code, int code_pos)
             (result_reg->flags & SYM_IS_NIL) == 0)
             lily_deref_unknown_val(result_reg->sig, result_reg->value);
 
-        if ((value_flags & SYM_IS_NIL) == 0) {
+        if ((flags & SYM_IS_NIL) == 0) {
             result_reg->flags &= ~SYM_IS_NIL;
             result_reg->value = new_value;
         }
@@ -572,39 +763,69 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
     lily_vm_register *lhs_reg, *rhs_reg;
     lily_vm_register *index_reg;
     int index_int;
-    lily_value *values;
+    lily_value *list_values;
     int flags, new_flags;
+    lily_sig *result_sig;
+    lily_hash_elem *hash_elem;
+    lily_value old_value;
 
-    LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
-    values = lhs_reg->value.list->values;
-
+    lhs_reg = vm_regs[code[code_pos + 2]];
     LOAD_CHECKED_REG(index_reg, code_pos, 3)
-    index_int = index_reg->value.integer;
+
+    if (lhs_reg->sig->cls->id == SYM_CLASS_LIST) {
+        LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
+        index_int = index_reg->value.integer;
+
+        if (index_int >= lhs_reg->value.list->num_values)
+            boundary_error(vm, code_pos, index_int);
+
+        /* todo: Wraparound would be nice. */
+        if (index_int < 0)
+            boundary_error(vm, code_pos, index_int);
+
+        list_values = lhs_reg->value.list->values;
+        hash_elem = NULL;
+        result_sig = lhs_reg->sig->siglist[0];
+        flags = lhs_reg->value.list->flags[index_int];
+        old_value = list_values[index_int];
+    }
+    else {
+        if (lhs_reg->flags & SYM_IS_NIL) {
+            lily_hash_val *hv = lily_try_new_hash_val();
+            if (hv == NULL)
+                lily_raise_nomem(vm->raiser);
+
+            lhs_reg->value.hash = hv;
+            lhs_reg->flags &= ~SYM_IS_NIL;
+        }
+        uint64_t siphash;
+        siphash = calculate_siphash(vm->sipkey, index_reg->sig,
+                index_reg->value);
+        hash_elem = try_get_make_hash_elem(lhs_reg->value.hash,
+                siphash, index_reg->sig, index_reg->value);
+        if (hash_elem == NULL)
+            lily_raise_nomem(vm->raiser);
+
+        index_int = 0;
+        list_values = NULL;
+        result_sig = lhs_reg->sig->siglist[1];
+        flags = hash_elem->flags;
+        old_value = hash_elem->value;
+    }
 
     LOAD_CHECKED_REG(rhs_reg, code_pos, 4)
-
-    if (index_int >= lhs_reg->value.list->num_values)
-        boundary_error(vm, code_pos, index_int);
-
-    /* todo: Wraparound would be nice. */
-    if (index_int < 0)
-        boundary_error(vm, code_pos, index_int);
-
-    flags = lhs_reg->value.list->flags[index_int];
     new_flags = flags & ~(SYM_IS_NIL | SYM_IS_CIRCULAR);
 
     /* If this list does not contain objects, then standard
        assign or ref/deref assign is enough. */
-    if (lhs_reg->sig->siglist[0]->cls->id != SYM_CLASS_OBJECT) {
+    if (result_sig->cls->id != SYM_CLASS_OBJECT) {
         if (rhs_reg->sig->cls->is_refcounted) {
-            /* Don't touch circular or nil values. */
-            if (flags == 0) {
-                /* Deref whatever is inside of this. rhs_reg->sig is used
-                   because it's simpler than lhs_reg->sig->siglist[0]. */
-                lily_deref_unknown_val(rhs_reg->sig, values[index_int]);
-            }
+            /* Make sure the old value isn't circular or nil before trying to
+               deref it. */
+            if (flags == 0)
+                lily_deref_unknown_val(result_sig, old_value);
 
-            values[index_int] = rhs_reg->value;
+            old_value = rhs_reg->value;
 
             rhs_reg->value.generic->refcount++;
             /* If symtab thinks it could be circular, mark it as such and deref
@@ -617,25 +838,34 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
         }
         /* else nothing to ref/deref, so do assign only. */
 
-        values[index_int] = rhs_reg->value;
+        old_value = rhs_reg->value;
     }
     else {
+        /* Do an object assign to the value. */
+        lily_object_val *ov;
         if (flags & SYM_IS_NIL) {
-            lily_object_val *ov = lily_try_new_object_val();
+            ov = lily_try_new_object_val();
             if (ov == NULL)
                 lily_raise_nomem(vm->raiser);
 
             ov->value.integer = 0;
             ov->refcount = 1;
             ov->sig = NULL;
-            values[index_int].object = ov;
             /* Must do this, or circle_buster will ignore this value and
                circularity won't be noticed. */
             flags &= ~SYM_IS_NIL;
+            if (hash_elem == NULL)
+                list_values[index_int].object = ov;
+            else
+                hash_elem->value.object = ov;
+        }
+        else {
+            if (hash_elem == NULL)
+                ov = list_values[index_int].object;
+            else
+                ov = hash_elem->value.object;
         }
 
-        /* Do an object assign to the value. */
-        lily_object_val *ov = values[index_int].object;
         lily_sig *rhs_sig;
         lily_value rhs_value;
         if (rhs_reg->sig->cls->id != SYM_CLASS_OBJECT) {
@@ -654,8 +884,13 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
 
         ov->sig = rhs_sig;
         ov->value = rhs_value;
+        old_value.object = ov;
+
         /* Don't assume the new value is circular. */
-        lhs_reg->value.list->flags[index_int] = flags & ~SYM_IS_CIRCULAR;
+        if (hash_elem == NULL)
+            lhs_reg->value.list->flags[index_int] = new_flags;
+        else
+            hash_elem->flags = new_flags;
 
         if (rhs_sig) {
             if (rhs_sig->cls->is_refcounted)
@@ -672,7 +907,14 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
 
     }
 
-    lhs_reg->value.list->flags[index_int] = new_flags;
+    if (hash_elem == NULL) {
+        lhs_reg->value.list->flags[index_int] = new_flags;
+        lhs_reg->value.list->values[index_int] = old_value;
+    }
+    else {
+        hash_elem->flags = new_flags;
+        hash_elem->value = old_value;
+    }
 }
 
 /* op_build_list

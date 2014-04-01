@@ -23,6 +23,7 @@ void lily_msgbuf_add(lily_msgbuf *, char *);
 void lily_msgbuf_add_char(lily_msgbuf *, char);
 void lily_msgbuf_add_text_range(lily_msgbuf *, char *, int, int);
 void lily_msgbuf_add_int(lily_msgbuf *, int);
+void lily_msgbuf_add_double(lily_msgbuf *, double);
 void lily_msgbuf_reset(lily_msgbuf *);
 
 #endif

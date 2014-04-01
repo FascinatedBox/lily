@@ -183,9 +183,15 @@ static void show_sig(lily_sig *sig, char *name)
         else
             show_sig(sig->siglist[0], NULL);
     }
-    else if (sig->cls->id == SYM_CLASS_LIST) {
+    else if (sig->cls->id == SYM_CLASS_LIST ||
+             sig->cls->id == SYM_CLASS_HASH) {
+        int i;
         lily_impl_debugf("[");
-        show_sig(sig->siglist[0], NULL);
+        for (i = 0;i < sig->cls->template_count;i++) {
+            show_sig(sig->siglist[i], NULL);
+            if (i != (sig->cls->template_count - 1))
+                lily_impl_debugf(", ");
+        }
         lily_impl_debugf("]");
     }
 }
@@ -339,7 +345,7 @@ static void show_str(lily_debug_state *debug, char *str)
     if (i != start)
         lily_msgbuf_add_text_range(msgbuf, str, start, i);
 
-    lily_msgbuf_add(msgbuf, "\"\n");
+    lily_msgbuf_add(msgbuf, "\"");
     /* See above comment. */
     lily_impl_debugf("%s", msgbuf->message);
     lily_msgbuf_reset(msgbuf);
@@ -357,9 +363,9 @@ static void show_simple_value(lily_debug_state *debug, lily_sig *sig,
     if (cls_id == SYM_CLASS_STR)
         show_str(debug, value.str->str);
     else if (cls_id == SYM_CLASS_INTEGER)
-        lily_impl_debugf("%" PRId64 "\n", value.integer);
+        lily_impl_debugf("%" PRId64, value.integer);
     else if (cls_id == SYM_CLASS_NUMBER)
-        lily_impl_debugf("%f\n", value.number);
+        lily_impl_debugf("%g", value.number);
 }
 
 static void show_literal(lily_debug_state *debug, lily_sig *sig,
@@ -369,6 +375,7 @@ static void show_literal(lily_debug_state *debug, lily_sig *sig,
     show_sig(sig, NULL);
     lily_impl_debugf(") ");
     show_simple_value(debug, sig, value);
+    lily_impl_debugf("\n");
 }
 
 static void write_indent(int indent)
@@ -629,6 +636,59 @@ static void show_list_value(lily_debug_state *debug, lily_sig *sig,
     lv->visited = 0;
 }
 
+static void show_hash_value(lily_debug_state *debug, lily_sig *sig,
+        lily_hash_val *hash_val)
+{
+    int indent;
+    lily_sig *key_sig, *value_sig;
+    lily_hash_elem *elem_iter;
+
+    indent = debug->indent;
+
+    /* This intentionally dives into circular refs so that (circular) can be
+       written with proper indentation. */
+    if (hash_val->visited) {
+        if (indent > 1)
+            write_indent(indent-1);
+        lily_impl_debugf("(circular)\n");
+        return;
+    }
+
+    hash_val->visited = 1;
+    key_sig = sig->siglist[0];
+    value_sig = sig->siglist[1];
+    elem_iter = hash_val->elem_chain;
+    while (elem_iter) {
+        /* Write out one blank line, so each value has a space between the next.
+           This keeps things from appearing crammed together.
+           Not needed for the first line though. */
+        if (elem_iter != hash_val->elem_chain) {
+            if (indent > 1)
+                write_indent(indent - 1);
+
+            lily_impl_debugf("|\n");
+        }
+
+        if (indent > 1)
+            write_indent(indent - 1);
+
+        lily_impl_debugf("|____[");
+        /* vm does not allow creating hashes with nil keys, so this should be
+           safe. */
+        show_simple_value(debug, key_sig, elem_iter->key);
+        lily_impl_debugf("] = ");
+
+        if (elem_iter->flags & SYM_IS_NIL)
+            lily_impl_debugf("(nil)\n");
+        else
+            show_value(debug, value_sig, elem_iter->value);
+
+        elem_iter = elem_iter->next;
+    }
+
+    hash_val->visited = 0;
+}
+
 /* show_value
    This determines how to show a value given to 'show'. Most things are handled
    here, except for lists (which recursively call this for each non-nil value),
@@ -644,16 +704,26 @@ static void show_value(lily_debug_state *debug, lily_sig *sig, lily_value value)
         cls_id == SYM_CLASS_INTEGER ||
         cls_id == SYM_CLASS_NUMBER) {
         show_simple_value(debug, sig, value);
-        /* This always finishes with \n. */
+        lily_impl_debugf("\n");
     }
-    else if (cls_id == SYM_CLASS_LIST) {
-        lily_list_val *lv = value.list;
+    else if (cls_id == SYM_CLASS_LIST ||
+             cls_id == SYM_CLASS_HASH) {
+        lily_list_val *lv = NULL;
+        lily_hash_val *hv = NULL;
+
+        if (cls_id == SYM_CLASS_LIST)
+            lv = value.list;
+        else
+            hv = value.hash;
 
         show_sig(sig, NULL);
         lily_impl_debugf("\n");
 
         debug->indent++;
-        show_list_value(debug, sig, lv);
+        if (cls_id == SYM_CLASS_LIST)
+            show_list_value(debug, sig, lv);
+        else
+            show_hash_value(debug, sig, hv);
         debug->indent--;
         /* The \n at the end comes from the last value's \n. */
     }
@@ -709,7 +779,7 @@ void lily_show_sym(lily_method_val *lily_main, lily_method_val *current_method,
 
     lily_impl_debugf("Value: ");
     if (reg->flags & SYM_IS_NIL)
-        lily_impl_debugf("(nil)");
+        lily_impl_debugf("(nil)\n");
     else
         show_value(&debug, reg->sig, reg->value);
 }

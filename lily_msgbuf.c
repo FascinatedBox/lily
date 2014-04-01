@@ -98,6 +98,14 @@ void lily_msgbuf_add_int(lily_msgbuf *msgbuf, int i)
     lily_msgbuf_add(msgbuf, buf);
 }
 
+void lily_msgbuf_add_double(lily_msgbuf *msgbuf, double d)
+{
+    char buf[64];
+    sprintf(buf, "%g", d);
+
+    lily_msgbuf_add(msgbuf, buf);
+}
+
 void lily_msgbuf_reset(lily_msgbuf *msgbuf)
 {
     msgbuf->pos = 0;

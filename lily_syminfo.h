@@ -25,6 +25,7 @@ typedef union {
     struct lily_list_val_t *list;
     struct lily_generic_val_t *generic;
     struct lily_function_val_t *function;
+    struct lily_hash_val_t *hash;
 } lily_value;
 
 typedef struct lily_str_val_t {
@@ -66,6 +67,21 @@ typedef struct lily_function_val_t {
     lily_func func;
     char *trace_name;
 } lily_function_val;
+
+typedef struct lily_hash_elem_t {
+    int flags;
+    lily_value key;
+    uint64_t key_siphash;
+    lily_value value;
+    struct lily_hash_elem_t *next;
+} lily_hash_elem;
+
+typedef struct lily_hash_val_t {
+    int refcount;
+    int visited;
+    int num_elems;
+    lily_hash_elem *elem_chain;
+} lily_hash_val;
 
 /* Every ref'd value is a superset of the 'generic' value (refcount
    comes first). This allows the vm to make refs/derefs a bit easier. */
@@ -185,9 +201,10 @@ typedef struct lily_literal_t {
 #define SYM_CLASS_OBJECT   4
 #define SYM_CLASS_METHOD   5
 #define SYM_CLASS_LIST     6
-#define SYM_CLASS_TEMPLATE 7
+#define SYM_CLASS_HASH     7
+#define SYM_CLASS_TEMPLATE 8
 
-#define SYM_LAST_CLASS     7
-#define INITIAL_CLASS_SIZE 8
+#define SYM_LAST_CLASS     8
+#define INITIAL_CLASS_SIZE 9
 
 #endif

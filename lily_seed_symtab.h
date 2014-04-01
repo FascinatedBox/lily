@@ -12,7 +12,7 @@ typedef const struct {
     uint64_t shorthash;
 } class_seed;
 
-class_seed class_seeds[8] =
+class_seed class_seeds[9] =
 {
     {"integer",  0, 0, 32199642103180905},
     {"number",   0, 0, 125779768604014},
@@ -21,6 +21,7 @@ class_seed class_seeds[8] =
     {"object",   1, 0, 127970252055151},
     {"method",   1, 0, 110429656606061},
     {"list",     1, 1, 1953720684},
+    {"hash",     1, 2, 1752392040},
     /* * is the name of the template class. This was chosen because it's not a
        valid name so the user can't directly declare members of it. The hash is
        also invalid too. */
