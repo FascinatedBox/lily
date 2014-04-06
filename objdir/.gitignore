@@ -1,0 +1,2 @@
+# objdir is just a dump for *.o files to keep them away.
+*.o
