@@ -241,25 +241,26 @@ void lily_free_lex_state(lily_lex_state *lex)
 /* simple_escape
    This takes in the character after an escape, and returns what the escape
    character translates into. Returns 0 for invalid escapes. */
-static char simple_escape(char ch)
+static char simple_escape(char *ch)
 {
     char ret;
+    ch++;
 
-    if (ch == 'n')
+    if (*ch == 'n')
         ret = '\n';
-    else if (ch == 'r')
+    else if (*ch == 'r')
         ret = '\r';
-    else if (ch == 't')
+    else if (*ch == 't')
         ret = '\t';
-    else if (ch == '\'')
+    else if (*ch == '\'')
         ret = '\'';
-    else if (ch == '"')
+    else if (*ch == '"')
         ret = '"';
-    else if (ch == '\\')
+    else if (*ch == '\\')
         ret = '\\';
-    else if (ch == 'b')
+    else if (*ch == 'b')
         ret = '\b';
-    else if (ch == 'a')
+    else if (*ch == 'a')
         ret = '\a';
     else
         ret = 0;
@@ -277,31 +278,29 @@ static char simple_escape(char ch)
    This scans across the exponent of a decimal number to find where the end is.
    Since the result will definitely be a number, no value calculation is done
    (scan_number will handle it). */
-static void scan_exponent(lily_lex_state *lexer, int *pos)
+static void scan_exponent(lily_lex_state *lexer, int *pos, char *new_ch)
 {
-    char ch;
-    char *lex_buffer = lexer->lex_buffer;
     int num_pos = *pos + 1;
     int num_digits = 0;
-    ch = lex_buffer[num_pos];
 
-    if (ch == '+' || ch == '-') {
+    new_ch++;
+    if (*new_ch == '+' || *new_ch == '-') {
         num_pos++;
-        ch = lex_buffer[num_pos];
+        new_ch++;
     }
 
-    if (ch < '0' || ch > '9')
+    if (*new_ch < '0' || *new_ch > '9')
         lily_raise(lexer->raiser, lily_ErrSyntax,
                    "Expected a base 10 number after exponent.\n");
 
-    while (ch >= '0' && ch <= '9') {
+    while (*new_ch >= '0' && *new_ch <= '9') {
         num_digits++;
         if (num_digits > 3) {
             lily_raise(lexer->raiser, lily_ErrSyntax,
                        "Exponent is too large.\n");
         }
         num_pos++;
-        ch = lex_buffer[num_pos];
+        new_ch++;
     }
 
     *pos = num_pos;
@@ -309,25 +308,26 @@ static void scan_exponent(lily_lex_state *lexer, int *pos)
 
 /* scan_binary
    Helper for scan_number. This handles binary numbers. */
-static uint64_t scan_binary(lily_lex_state *lexer, int *pos)
+static uint64_t scan_binary(int *pos, char *ch)
 {
     uint64_t result = 0;
     int num_digits = 0;
     int max_digits = 65;
-    int num_pos = *pos+1;
-    char *lex_buffer = lexer->lex_buffer;
-    char ch = lex_buffer[num_pos];
+    int num_pos = *pos + 1;
 
-    while (ch == '0') {
+    /* Skip the 'b' part of the 0b intro. */
+    ch++;
+
+    while (*ch == '0') {
         num_pos++;
-        ch = lex_buffer[num_pos];
+        ch++;
     }
 
-    while ((ch == '0' || ch == '1') && num_digits != max_digits) {
+    while ((*ch == '0' || *ch == '1') && num_digits != max_digits) {
         num_digits++;
-        result = (result * 2) + ch - '0';
+        result = (result * 2) + *ch - '0';
+        ch++;
         num_pos++;
-        ch = lex_buffer[num_pos];
     }
 
     *pos = num_pos;
@@ -336,25 +336,26 @@ static uint64_t scan_binary(lily_lex_state *lexer, int *pos)
 
 /* scan_octal
    Helper for scan_number. This handles octal numbers. */
-static uint64_t scan_octal(lily_lex_state *lexer, int *pos)
+static uint64_t scan_octal(int *pos, char *ch)
 {
     uint64_t result = 0;
     int num_digits = 0;
     int max_digits = 23;
-    int num_pos = *pos+1;
-    char *lex_buffer = lexer->lex_buffer;
-    char ch = lex_buffer[num_pos];
+    int num_pos = *pos + 1;
 
-    while (ch == '0') {
+    /* Skip the 'c' part of the 0c intro. */
+    ch++;
+
+    while (*ch == '0') {
         num_pos++;
-        ch = lex_buffer[num_pos];
+        ch++;
     }
 
-    while (ch >= '0' && ch <= '7' && num_digits != max_digits) {
+    while (*ch >= '0' && *ch <= '7' && num_digits != max_digits) {
         num_digits++;
-        result = (result * 8) + ch - '0';
+        result = (result * 8) + *ch - '0';
         num_pos++;
-        ch = lex_buffer[num_pos];
+        ch++;
     }
 
     *pos = num_pos;
@@ -365,7 +366,8 @@ static uint64_t scan_octal(lily_lex_state *lexer, int *pos)
    Helper for scan_number. This handles decimal numbers, including dots and
    exponent values. This takes in is_integer because a dot or exponent will
    make is_integer = 0. */
-static uint64_t scan_decimal(lily_lex_state *lexer, int *pos, int *is_integer)
+static uint64_t scan_decimal(lily_lex_state *lexer, int *pos, int *is_integer,
+        char *new_ch)
 {
     uint64_t result = 0;
     int num_digits = 0;
@@ -374,34 +376,32 @@ static uint64_t scan_decimal(lily_lex_state *lexer, int *pos, int *is_integer)
        there's no formatting character to skip over. */
     int num_pos = *pos;
     int have_dot = 0;
-    char *lex_buffer = lexer->lex_buffer;
-    char ch = lex_buffer[num_pos];
 
-    while (ch == '0') {
+    while (*new_ch == '0') {
         num_pos++;
-        ch = lex_buffer[num_pos];
+        new_ch++;
     }
 
     while (num_digits != max_digits) {
-        if (ch >= '0' && ch <= '9') {
+        if (*new_ch >= '0' && *new_ch <= '9') {
             if (*is_integer) {
                 num_digits++;
-                result = (result * 10) + ch - '0';
+                result = (result * 10) + *new_ch - '0';
             }
         }
-        else if (ch == '.') {
+        else if (*new_ch == '.') {
             if (have_dot == 1)
                 break; /* Assume that this dot belongs to something else. */
-            else if (lex_buffer[num_pos+1] == '.')
+            else if (*(new_ch + 1) == '.')
                 break; /* This is for 'for..in' loops. This allows
                           for i in 1..5
                           to work. */
             have_dot = 1;
             *is_integer = 0;
         }
-        else if (ch == 'e') {
+        else if (*new_ch == 'e') {
             *is_integer = 0;
-            scan_exponent(lexer, &num_pos);
+            scan_exponent(lexer, &num_pos, new_ch);
             break;
         }
         else
@@ -409,7 +409,7 @@ static uint64_t scan_decimal(lily_lex_state *lexer, int *pos, int *is_integer)
 
         num_digits++;
         num_pos++;
-        ch = lex_buffer[num_pos];
+        new_ch++;
     }
 
     *pos = num_pos;
@@ -418,35 +418,36 @@ static uint64_t scan_decimal(lily_lex_state *lexer, int *pos, int *is_integer)
 
 /* scan_hex
    Helper for scan_number. This handles hex numbers. */
-static uint64_t scan_hex(lily_lex_state *lexer, int *pos)
+static uint64_t scan_hex(int *pos, char *new_ch)
 {
     uint64_t result = 0;
     int num_digits = 0;
     int max_digits = 17;
-    int num_pos = *pos+1;
-    char *lex_buffer = lexer->lex_buffer;
-    char ch = lex_buffer[num_pos];
+    int num_pos = *pos + 1;
 
-    while (ch == '0') {
+    /* Skip the 'x' part of the 0x intro. */
+    new_ch++;
+
+    while (*new_ch == '0') {
         num_pos++;
-        ch = lex_buffer[num_pos];
+        new_ch++;
     }
 
     while (num_digits != max_digits) {
         char mod;
-        if (ch >= '0' && ch <= '9')
+        if (*new_ch >= '0' && *new_ch <= '9')
             mod = '0';
-        else if (ch >= 'a' && ch <= 'f')
+        else if (*new_ch >= 'a' && *new_ch <= 'f')
             mod = 'a' - 10;
-        else if (ch >= 'A' && ch <= 'F')
+        else if (*new_ch >= 'A' && *new_ch <= 'F')
             mod = 'A' - 10;
         else
             break;
 
-        result = (result * 16) + ch - mod;
+        result = (result * 16) + *new_ch - mod;
         num_digits++;
         num_pos++;
-        ch = lex_buffer[num_pos];
+        new_ch++;
     }
 
     *pos = num_pos;
@@ -457,47 +458,44 @@ static uint64_t scan_hex(lily_lex_state *lexer, int *pos)
    This handles all integer and number scanning within Lily. Updates the
    position in lex_buffer for lily_lexer. This also takes a pointer to the
    lexer's token so it can update that (to either tk_number or tk_integer). */
-static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok)
+static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
+        char *new_ch)
 {
-    char ch;
-    char *lex_buffer;
     int is_negative, is_integer, num_start, num_pos;
     uint64_t integer_value;
     lily_value yield_val;
 
     num_pos = *pos;
     num_start = num_pos;
-    lex_buffer = lexer->lex_buffer;
-    ch = lex_buffer[num_pos];
     is_negative = 0;
     is_integer = 1;
     integer_value = 0;
 
-    if (ch == '-') {
+    if (*new_ch == '-') {
         is_negative = 1;
         num_pos++;
-        ch = lex_buffer[num_pos];
+        new_ch++;
     }
-    else if (ch == '+') {
+    else if (*new_ch == '+') {
         num_pos++;
-        ch = lex_buffer[num_pos];
+        new_ch++;
     }
 
-    if (ch == '0') {
+    if (*new_ch == '0') {
         num_pos++;
-        ch = lex_buffer[num_pos];
+        new_ch++;
 
-        if (ch == 'b')
-            integer_value = scan_binary(lexer, &num_pos);
-        else if (ch == 'c')
-            integer_value = scan_octal(lexer, &num_pos);
-        else if (ch == 'x')
-            integer_value = scan_hex(lexer, &num_pos);
+        if (*new_ch == 'b')
+            integer_value = scan_binary(&num_pos, new_ch);
+        else if (*new_ch == 'c')
+            integer_value = scan_octal(&num_pos, new_ch);
+        else if (*new_ch == 'x')
+            integer_value = scan_hex(&num_pos, new_ch);
         else
-            integer_value = scan_decimal(lexer, &num_pos, &is_integer);
+            integer_value = scan_decimal(lexer, &num_pos, &is_integer, new_ch);
     }
     else
-        integer_value = scan_decimal(lexer, &num_pos, &is_integer);
+        integer_value = scan_decimal(lexer, &num_pos, &is_integer, new_ch);
 
     if (is_negative == 0) {
         if (integer_value <= INT64_MAX)
@@ -521,6 +519,7 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok)
        be stored as a number. */
     if (is_integer == 0) {
         double number_result;
+        char *lex_buffer = lexer->lex_buffer;
         int str_size = num_pos - num_start;
         strncpy(lexer->label, lex_buffer+num_start, str_size * sizeof(char));
 
@@ -550,25 +549,27 @@ static int read_line(lily_lex_state *);
    the # of the ending ###. */
 static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
 {
-    char *lex_buffer = lexer->lex_buffer;
-    int ch, comment_pos, start_line;
+    int comment_pos, start_line;
+
+    /* +3 to skip the ### intro. */
+    char *new_ch = &(lexer->lex_buffer[*pos + 3]);
 
     comment_pos = *pos + 3;
-    ch = lex_buffer[comment_pos];
     comment_pos++;
     start_line = lexer->line_num;
+
     while (1) {
-        if (ch == '#') {
+        if (*new_ch == '#') {
             if (comment_pos + 2 <= lexer->lex_bufend &&
-                lex_buffer[comment_pos] == '#' &&
-                lex_buffer[comment_pos+1] == '#') {
+                *(new_ch + 1) == '#' &&
+                *(new_ch + 2) == '#') {
                 comment_pos += 2;
                 break;
             }
         }
-        else if (ch == '\n') {
+        else if (*new_ch == '\n') {
             if (read_line(lexer) == 1) {
-                lex_buffer = lexer->lex_buffer;
+                new_ch = &(lexer->lex_buffer[0]);
                 comment_pos = 0;
             }
             else {
@@ -578,8 +579,8 @@ static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
             }
         }
 
-        ch = lex_buffer[comment_pos];
         comment_pos++;
+        new_ch++;
     }
 
     *pos = comment_pos;
@@ -588,9 +589,9 @@ static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
 /* scan_str
    This handles strings for lily_lexer. This updates the position in lex_buffer
    for lily_lexer. */
-static void scan_str(lily_lex_state *lexer, int *pos)
+static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
 {
-    char ch, esc_ch;
+    char esc_ch;
     char *label, *lex_buffer;
     int i, is_multiline, label_pos, escape_this_line, multiline_start, str_size,
         word_start, word_pos;
@@ -603,26 +604,28 @@ static void scan_str(lily_lex_state *lexer, int *pos)
     /* Where to finish cutting from. */
     word_pos = word_start;
 
-    ch = lex_buffer[word_pos];
-
     /* ch is actually the first char after the opening ". */
-    if (ch == '"' && lex_buffer[word_pos+1] == '"') {
+    if (*(new_ch + 1) == '"' &&
+        *(new_ch + 2) == '"') {
         is_multiline = 1;
         /* This will be used to print out the line number the str starts on, in
            case the str reaches EOF. */
         multiline_start = lexer->line_num;
         word_start += 2;
         word_pos += 2;
-        ch = lex_buffer[word_pos];
+        new_ch += 2;
     }
     else
         is_multiline = 0;
 
+    /* Skip over the last " of a multi-line string, or the " of a single-line
+       string. */
+    new_ch++;
     label_pos = 0;
     label[0] = '\0';
 
     while (1) {
-        if (ch == '\\') {
+        if (*new_ch == '\\') {
             /* For escapes, the non-escape part of the data is copied to the
                label, then the escape value is written in. */
             i = word_pos - word_start;
@@ -636,24 +639,23 @@ static void scan_str(lily_lex_state *lexer, int *pos)
                after the escape). */
             escape_this_line = 1;
 
-            ch = lex_buffer[word_pos];
-            esc_ch = simple_escape(ch);
+            esc_ch = simple_escape(new_ch);
             if (esc_ch == 0)
                 lily_raise(lexer->raiser, lily_ErrSyntax,
-                           "Invalid escape \\%c\n", ch);
+                           "Invalid escape \\%c\n", *(new_ch + 1));
 
             label[label_pos] = esc_ch;
             label_pos++;
 
             /* Add two so it starts off after the escape char the next time. */
             word_start += 2;
-            ch = lex_buffer[word_start];
+            new_ch = &(lex_buffer[word_start - 1]);
         }
-        else if (ch == '\n' || ch == '\r') {
+        else if (*new_ch == '\n' || *new_ch == '\r') {
             if (is_multiline) {
-                if (ch == '\r' &&
+                if (*new_ch == '\r' &&
                     lexer->lex_bufend != word_pos &&
-                    lex_buffer[word_pos+1] == '\n')
+                    *(new_ch + 1) == '\n')
                         /* Swallow the \r of the \r\n. */
                         word_pos++;
 
@@ -696,7 +698,7 @@ static void scan_str(lily_lex_state *lexer, int *pos)
                    will get skipped. */
                 word_start = 0;
                 word_pos = 0;
-                ch = lex_buffer[word_pos];
+                new_ch = &(lex_buffer[word_pos]);
                 continue;
             }
             else
@@ -704,17 +706,16 @@ static void scan_str(lily_lex_state *lexer, int *pos)
                            "Unterminated string at line %d.\n",
                            lexer->line_num);
         }
-        else if (ch == '"') {
+        else if (*new_ch == '"') {
             if (is_multiline == 0)
                 break;
-            else if (ch == '"' &&
-                     lex_buffer[word_pos+1] == '"' &&
-                     lex_buffer[word_pos+2] == '"')
+            else if (*(new_ch + 1) == '"' &&
+                     *(new_ch + 2) == '"')
                 break;
         }
 
         word_pos++;
-        ch = lex_buffer[word_pos];
+        new_ch++;
     }
 
     if (!escape_this_line) {
@@ -987,7 +988,6 @@ int lily_load_str(lily_lex_state *lexer, char *str)
 
     return 1;
 }
-#include <inttypes.h>
 
 /* lily_lexer 
    This is the main scanning function. It sometimes farms work out to other
@@ -1001,16 +1001,17 @@ void lily_lexer(lily_lex_state *lexer)
     ch_class = lexer->ch_class;
 
     while (1) {
-        char ch;
+        char *start_ch, *ch;
         int group;
 
-        ch = lexer->lex_buffer[lex_bufpos];
-        while (ch == ' ' || ch == '\t') {
-            lex_bufpos++;
-            ch = lexer->lex_buffer[lex_bufpos];
-        }
+        ch = &lexer->lex_buffer[lex_bufpos];
+        start_ch = ch;
 
-        group = ch_class[(unsigned char)ch];
+        while (*ch == ' ' || *ch == '\t')
+            ch++;
+
+        lex_bufpos += ch - start_ch;
+        group = ch_class[(unsigned char)*ch];
         if (group == CC_WORD) {
             /* The word and line buffers have the same size, plus \n is not a
                valid word character. So, there's no point in checking for
@@ -1018,11 +1019,11 @@ void lily_lexer(lily_lex_state *lexer)
             int word_pos = 0;
             char *label = lexer->label;
             do {
-                label[word_pos] = ch;
+                label[word_pos] = *ch;
                 word_pos++;
-                lex_bufpos++;
-                ch = lexer->lex_buffer[lex_bufpos];
-            } while (ident_table[(unsigned char)ch]);
+                ch++;
+            } while (ident_table[(unsigned char)*ch]);
+            lex_bufpos += word_pos;
             label[word_pos] = '\0';
             /* If it's not 8 bytes wide, zero out the rest. This prevents
                returning different hashes due to old data. */
@@ -1047,15 +1048,13 @@ void lily_lexer(lily_lex_state *lexer)
                 token = tk_eof;
         }
         else if (group == CC_SHARP) {
-            if (lexer->lex_buffer[lex_bufpos] == '#' &&
-                lex_bufpos + 2 <= lexer->lex_bufend &&
-                lexer->lex_buffer[lex_bufpos + 1] == '#' &&
-                lexer->lex_buffer[lex_bufpos + 2] == '#') {
+            if (*ch       == '#' &&
+                *(ch + 1) == '#' &&
+                *(ch + 2) == '#') {
                 scan_multiline_comment(lexer, &lex_bufpos);
                 continue;
             }
             else {
-                ch = lexer->lex_buffer[lex_bufpos];
                 if (read_line(lexer) == 1) {
                     lex_bufpos = 0;
                     continue;
@@ -1067,7 +1066,8 @@ void lily_lexer(lily_lex_state *lexer)
         else if (group == CC_STR_NEWLINE) {
             /* This catches both \r and \n. Make sure that \r\n comes in as one
                newline though. */
-            if (ch == '\r' && lexer->lex_buffer[lex_bufpos+1] == '\n')
+            if (*ch       == '\r' &&
+                *(ch + 1) == '\n')
                 lex_bufpos += 2;
             else
                 lex_bufpos++;
@@ -1081,7 +1081,7 @@ void lily_lexer(lily_lex_state *lexer)
             token = tk_eof;
         }
         else if (group == CC_DOUBLE_QUOTE) {
-            scan_str(lexer, &lex_bufpos);
+            scan_str(lexer, &lex_bufpos, ch);
             token = tk_double_quote;
         }
         else if (group <= CC_G_TWO_LAST) {
@@ -1094,17 +1094,18 @@ void lily_lexer(lily_lex_state *lexer)
                 token = grp_two_table[group - CC_G_TWO_OFFSET];
         }
         else if (group == CC_NUMBER)
-            scan_number(lexer, &lex_bufpos, &token);
+            scan_number(lexer, &lex_bufpos, &token, ch);
         else if (group == CC_DOT) {
-            ch = lexer->lex_buffer[lex_bufpos+1];
-            if (ch_class[(unsigned char)ch] == CC_NUMBER)
-                scan_number(lexer, &lex_bufpos, &token);
+            if (ch_class[(unsigned char)*(ch + 1)] == CC_NUMBER)
+                scan_number(lexer, &lex_bufpos, &token, ch);
             else {
+                ch++;
                 lex_bufpos++;
-                if (lexer->lex_buffer[lex_bufpos] == '.') {
+                if (*ch == '.') {
+                    ch++;
                     lex_bufpos++;
 
-                    if (lexer->lex_buffer[lex_bufpos] == '.') {
+                    if (*ch == '.') {
                         lex_bufpos++;
                         token = tk_three_dots;
                     }
@@ -1116,35 +1117,40 @@ void lily_lexer(lily_lex_state *lexer)
             }
         }
         else if (group == CC_PLUS) {
-            ch = lexer->lex_buffer[lex_bufpos+1];
-            if (ch_class[(unsigned char)ch] == CC_NUMBER)
-                scan_number(lexer, &lex_bufpos, &token);
-            else if (ch == '=') {
+            if (ch_class[(unsigned char)*(ch + 1)] == CC_NUMBER)
+                scan_number(lexer, &lex_bufpos, &token, ch);
+            else if (*(ch + 1) == '=') {
+                ch += 2;
                 lex_bufpos += 2;
                 token = tk_plus_eq;
             }
             else {
+                ch++;
                 lex_bufpos++;
                 token = tk_plus;
             }
         }
         else if (group == CC_MINUS) {
-            ch = lexer->lex_buffer[lex_bufpos+1];
-            if (ch_class[(unsigned char)ch] == CC_NUMBER)
-                scan_number(lexer, &lex_bufpos, &token);
-            else if (ch == '=') {
+            if (ch_class[(unsigned char)*(ch + 1)] == CC_NUMBER)
+                scan_number(lexer, &lex_bufpos, &token, ch);
+            else if (*(ch + 1) == '=') {
+                ch += 2;
                 lex_bufpos += 2;
                 token = tk_minus_eq;
             }
             else {
+                ch++;
                 lex_bufpos++;
                 token = tk_minus;
             }
         }
         else if (group == CC_AMPERSAND) {
             lex_bufpos++;
-            if (lexer->lex_buffer[lex_bufpos] == '&') {
+            ch++;
+
+            if (*ch == '&') {
                 lex_bufpos++;
+                ch++;
                 token = tk_logical_and;
             }
             else
@@ -1152,8 +1158,11 @@ void lily_lexer(lily_lex_state *lexer)
         }
         else if (group == CC_VBAR) {
             lex_bufpos++;
-            if (lexer->lex_buffer[lex_bufpos] == '|') {
+            ch++;
+
+            if (*ch == '|') {
                 lex_bufpos++;
+                ch++;
                 token = tk_logical_or;
             }
             else
@@ -1169,13 +1178,15 @@ void lily_lexer(lily_lex_state *lexer)
             else
                 token = tk_lt;
 
-            if (lexer->lex_buffer[lex_bufpos] == '=') {
+            ch++;
+            if (*ch == '=') {
                 token++;
                 lex_bufpos++;
             }
-            else if (lexer->lex_buffer[lex_bufpos] == ch) {
+            else if (*ch == *(ch - 1)) {
                 lex_bufpos++;
-                if (lexer->lex_buffer[lex_bufpos] == '=') {
+                ch++;
+                if (*ch == '=') {
                     /* xx=, which should be 3 spots after x. */
                     lex_bufpos++;
                     token += 3;
@@ -1187,14 +1198,15 @@ void lily_lexer(lily_lex_state *lexer)
         }
         else if (group == CC_AT) {
             lex_bufpos++;
+            ch++;
             /* Disable @> for string-based. */
-            if (lexer->lex_buffer[lex_bufpos] == '>' &&
+            if (*ch == '>' &&
                 lexer->save_buffer == NULL) {
                 /* Skip the > of @> so it's not sent as html. */
                 lex_bufpos++;
                 token = tk_end_tag;
             }
-            else if (lexer->lex_buffer[lex_bufpos] == '(') {
+            else if (*ch == '(') {
                 lex_bufpos++;
                 token = tk_typecast_parenth;
             }
