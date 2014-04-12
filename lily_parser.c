@@ -882,7 +882,7 @@ static void expression(lily_parse_state *parser, int flags)
     while (1) {
         while (1) {
             if (lex->token == tk_word) {
-                if (parser->ast_pool->save_index != 0)
+                if (parser->ast_pool->save_depth != 0)
                     lily_raise(parser->raiser, lily_ErrSyntax,
                                "Expected ')' or a binary op, not a label.\n");
 
@@ -890,7 +890,7 @@ static void expression(lily_parse_state *parser, int flags)
             }
             else if (lex->token == tk_right_parenth ||
                      lex->token == tk_right_bracket) {
-                if (parser->ast_pool->save_index == 0)
+                if (parser->ast_pool->save_depth == 0)
                     lily_raise(parser->raiser, lily_ErrSyntax,
                             "Unexpected token %s.\n", tokname(lex->token));
 
@@ -898,7 +898,7 @@ static void expression(lily_parse_state *parser, int flags)
                 lily_ast_leave_tree(parser->ast_pool);
 
                 lily_lexer(lex);
-                if (parser->ast_pool->save_index == 0 &&
+                if (parser->ast_pool->save_depth == 0 &&
                     is_start_val[lex->token] == 1)
                     /* Since there are no parenths/calls left, then this value
                        must be the first in the next expression. */
@@ -936,11 +936,11 @@ static void expression(lily_parse_state *parser, int flags)
                    the comma is the end of the decl unless it's part of a call
                    used in the decl (integer a = add(1, 2), b = 1...). */
                 if (((flags & EX_NEED_VALUE) == 0) &&
-                    parser->ast_pool->save_index == 0) {
+                    parser->ast_pool->save_depth == 0) {
                     break;
                 }
 
-                if (parser->ast_pool->save_index == 0)
+                if (parser->ast_pool->save_depth == 0)
                     lily_raise(parser->raiser, lily_ErrSyntax,
                             "Unexpected token %s.\n", tokname(lex->token));
 
@@ -958,7 +958,7 @@ static void expression(lily_parse_state *parser, int flags)
                          lex->token == tk_right_curly ||
                          lex->token == tk_end_tag || lex->token == tk_eof ||
                          lex->token == tk_two_dots) {
-                    if (parser->ast_pool->save_index != 0)
+                    if (parser->ast_pool->save_depth != 0)
                         lily_raise(parser->raiser, lily_ErrSyntax,
                                 "Unexpected token %s.\n", tokname(lex->token));
                     break;

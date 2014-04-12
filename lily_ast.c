@@ -47,11 +47,8 @@ lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
         return NULL;
 
     ap->raiser = raiser;
-    ap->saved_trees = lily_malloc(sizeof(lily_ast *) * pool_size);
     ap->active = NULL;
     ap->root = NULL;
-    ap->save_index = 0;
-    ap->save_size = pool_size;
     ap->available_start = NULL;
     ap->available_current = NULL;
 
@@ -67,10 +64,24 @@ lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
         last_tree = new_tree;
     }
 
+    if (ok == 1) {
+        ap->save_chain = lily_malloc(sizeof(lily_ast_save_entry));
+        if (ap->save_chain != NULL) {
+            ap->save_chain->next = NULL;
+            ap->save_chain->prev = NULL;
+            ap->save_chain->root_tree = NULL;
+            ap->save_chain->active_tree = NULL;
+        }
+        else
+            ok = 0;
+
+        ap->save_depth = 0;
+    }
+
     ap->available_start = last_tree;
     ap->available_current = last_tree;
 
-    if (ap->saved_trees == NULL || ok == 0) {
+    if (ok == 0) {
         lily_free_ast_pool(ap);
         return NULL;
     }
@@ -91,7 +102,29 @@ void lily_free_ast_pool(lily_ast_pool *ap)
         ast_iter = ast_temp;
     }
 
-    lily_free(ap->saved_trees);
+    /* Destroying ->save_chain is a bit tricky because it's updated for new
+       entries. It could be at the beginning, the middle, or the end. So start
+       off by moving it to the front. The first entry is the only one that will
+       have ->prev set to NULL.
+       Also, ap->save_chain may be NULL if this is called from
+       lily_new_ast_pool, so watch out for that too. */
+    lily_ast_save_entry *save_iter = ap->save_chain;
+    if (save_iter != NULL) {
+        /* First get to the very front... */
+        while (save_iter->prev)
+            save_iter = save_iter->prev;
+
+        /* Then go from front to back and delete them as usual. */
+        lily_ast_save_entry *save_temp;
+        while (save_iter) {
+            save_temp = save_iter->next;
+
+            lily_free(save_iter);
+
+            save_iter = save_temp;
+        }
+    }
+
     lily_free(ap);
 }
 
@@ -245,6 +278,36 @@ static lily_ast *make_new_tree(lily_ast_pool *ap)
     return new_ast;
 }
 
+/*  make_new_save_entry
+    This is a helper routine that will attempt to create a new
+    lily_ast_save_entry.
+
+    ap: The ast pool to put the new save entry into.
+
+    On failure: lily_raise_nomem is called, raising ErrNoMem.
+    On success: * The new entry is added to the linked list at the pool's
+                  ap's ->save_chain. It then becomes the ap's ->save_chain.
+                * The new entry's fields are initially set to NULL.
+                * The new entry is returned for convenince. */
+static lily_ast_save_entry *make_new_save_entry(lily_ast_pool *ap)
+{
+    lily_ast_save_entry *new_entry = lily_malloc(sizeof(lily_ast_save_entry));
+    if (new_entry == NULL)
+        lily_raise_nomem(ap->raiser);
+
+    /* Must link both ways, or the pool won't be able to find this entry the
+       next time it looks for it. */
+    new_entry->prev      = ap->save_chain;
+    ap->save_chain->next = new_entry;
+
+    new_entry->root_tree = NULL;
+    new_entry->active_tree = NULL;
+    new_entry->entered_tree = NULL;
+    new_entry->next = NULL;
+
+    return new_entry;
+}
+
 /* priority_for_op
    Returns the priority of a given op. The higher the number, the more important
    that it is. This usually follow's C's precedence table. */
@@ -356,11 +419,9 @@ static void push_tree_arg(lily_ast_pool *ap, lily_ast *call, lily_ast *tree)
    last tree that was entered and clear root+active for reuse. */
 inline void lily_ast_collect_arg(lily_ast_pool *ap)
 {
-    /* This is where the function is. Don't drop the index, because it's not
-       done yet. */
-    lily_ast *a = ap->saved_trees[ap->save_index-1];
+    lily_ast_save_entry *entry = ap->save_chain;
 
-    push_tree_arg(ap, a, ap->root);
+    push_tree_arg(ap, entry->entered_tree, ap->root);
 
     /* Keep all of the expressions independent. */
     ap->root = NULL;
@@ -387,32 +448,31 @@ void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tt, lily_var *var)
     a->args_collected = 0;
     a->arg_start = NULL;
     a->arg_top = NULL;
+    /* This is important for calls, which check if they have a parent to make
+       sure they don't return nil when a value is needed. */
+    a->parent = NULL;
 
     merge_value(ap, a);
 
-    /* This is used to save the current value. If this call will be current,
-       then parent will be set to NULL properly later.
-       The emitter checks this to see if the call returns to anything. */
-    a->parent = ap->active;
+    lily_ast_save_entry *save_entry;
+    if (ap->save_depth == 0)
+        save_entry = ap->save_chain;
+    else {
+        if (ap->save_chain->next != NULL)
+            save_entry = ap->save_chain->next;
+        else
+            save_entry = make_new_save_entry(ap);
 
-    if (ap->save_index + 2 >= ap->save_size) {
-        ap->save_size *= 2;
-        lily_ast **new_saved;
-        new_saved = lily_realloc(ap->saved_trees, sizeof(lily_ast *) *
-                                 ap->save_size);
-
-        if (new_saved == NULL)
-            lily_raise_nomem(ap->raiser);
-
-        ap->saved_trees = new_saved;
+        ap->save_chain = save_entry;
     }
 
-    ap->saved_trees[ap->save_index] = ap->root;
-    ap->saved_trees[ap->save_index+1] = a;
+    save_entry->root_tree = ap->root;
+    save_entry->active_tree = ap->active;
+    save_entry->entered_tree = a;
+    ap->save_depth++;
+
     ap->root = NULL;
     ap->active = NULL;
-
-    ap->save_index += 2;
 }
 
 /* lily_ast_caller_tree_type
@@ -421,9 +481,9 @@ void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tt, lily_var *var)
    tree. */
 lily_tree_type lily_ast_caller_tree_type(lily_ast_pool *ap)
 {
-    lily_ast *a = ap->saved_trees[ap->save_index-1];
+    lily_ast_save_entry *save_entry = ap->save_chain;
 
-    return a->tree_type;
+    return save_entry->entered_tree->tree_type;
 }
 
 /* lily_ast_leave_tree
@@ -431,20 +491,25 @@ lily_tree_type lily_ast_caller_tree_type(lily_ast_pool *ap)
    was entered. Emitter will check the arg count when it does type checking. */
 void lily_ast_leave_tree(lily_ast_pool *ap)
 {
-    ap->save_index--;
-    lily_ast *a = ap->saved_trees[ap->save_index];
+    lily_ast_save_entry *entry = ap->save_chain;
 
-    push_tree_arg(ap, a, ap->root);
+    push_tree_arg(ap, entry->entered_tree, ap->root);
 
-    ap->save_index--;
-    ap->root = ap->saved_trees[ap->save_index];
-    ap->active = a->parent;
+    ap->root = entry->root_tree;
+    ap->active = entry->active_tree;
+
+    /* The first tree takes ap->save_chain's bottom and doesn't move
+       ->save_chain. Further entries move it, so undo that move. */
+    if (ap->save_depth > 1)
+        ap->save_chain = ap->save_chain->prev;
+
+    ap->save_depth--;
 
     /* Current gets saved to a->parent when making a call. In some cases, the
        call was to be current, which makes the ast think it is the parent of
        itself. */
-    if (a->parent == a)
-        a->parent = NULL;
+//    if (a->parent == a)
+//        a->parent = NULL;
 }
 
 /* lily_ast_push_binary_op
