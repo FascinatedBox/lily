@@ -5,11 +5,10 @@
 # include "lily_symtab.h"
 # include "lily_expr_op.h"
 
-/* There's no particular arrangement to these enums, EXCEPT for typecast and
-   binary. Trees that are >= typecast will usually have their ->right value
-   used instead of themselves.
-   Ex: a == b.concat(c) results in the .concat stealing binary's right instead
-       of the whole binary tree. */
+/* tree_typecast and anything after it will use ->right instead of itself when
+   merging. This is useful for things like subscripts, so they merge against
+   the right thing. Consider: 'a + b[0]'. Here, it's important that the
+   subscript tree use the right side of the binary tree. */
 typedef enum {
     tree_call, tree_subscript, tree_list, tree_parenth, tree_local_var,
     tree_literal, tree_var, tree_unary, tree_typecast, tree_binary
@@ -52,14 +51,34 @@ typedef struct lily_ast_t {
     struct lily_ast_t *next_tree;
 } lily_ast;
 
+/* The ast handles subexpressions by merging the new tree, then storing the
+   current and root of the ast pool. The save chain keeps track of what trees
+   have been entered. */
+typedef struct lily_ast_save_entry_t {
+    /* This is a link to a newer entry, or NULL if this entry is the most
+       recent. */
+    struct lily_ast_save_entry_t *next;
+    /* This is a link to an older entry, or NULL if this entry is the first. */
+    struct lily_ast_save_entry_t *prev;
+    /* This is the tree that was active before ->entered_tree was entered. */
+    lily_ast *active_tree;
+    /* This is the tree that was the root before ->entered_tree was entered. */
+    lily_ast *root_tree;
+    /* This is the tree that is taking arguments. */
+    lily_ast *entered_tree;
+} lily_ast_save_entry;
+
 typedef struct {
-    lily_ast **saved_trees;
     lily_ast *available_start;
     lily_ast *available_current;
     lily_ast *root;
     lily_ast *active;
-    int save_index;
-    int save_size;
+
+    /* This goes from oldest (prev), to newest (next). The save_chain is always
+       updated to the most recent entry when a tree is entered. */
+    lily_ast_save_entry *save_chain;
+    int save_depth;
+
     lily_raiser *raiser;
     int *lex_linenum;
 } lily_ast_pool;
