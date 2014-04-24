@@ -11,6 +11,7 @@ struct lily_vm_state_t;
 struct lily_sym_t;
 struct lily_method_info_t;
 struct lily_vm_register_t;
+struct lily_sig_t;
 
 typedef void (*lily_func)(struct lily_vm_state_t *, uintptr_t *code, int);
 
@@ -24,9 +25,12 @@ typedef union {
     struct lily_object_val_t *object;
     struct lily_list_val_t *list;
     struct lily_generic_val_t *generic;
+    struct lily_generic_gc_val_t *gc_generic;
     struct lily_function_val_t *function;
     struct lily_hash_val_t *hash;
 } lily_value;
+
+typedef void (*gc_marker_func)(int, struct lily_sig_t *, lily_value);
 
 typedef struct lily_str_val_t {
     int refcount;
@@ -50,12 +54,27 @@ typedef struct lily_method_val_t {
 
 typedef struct lily_object_val_t {
     int refcount;
+    /* Objects always have a gc_entry, because they can easily circularly
+       reference. */
+    struct lily_gc_entry_t *gc_entry;
     lily_value value;
     struct lily_sig_t *sig;
 } lily_object_val;
 
+typedef struct lily_gc_entry_t {
+    struct lily_sig_t *value_sig;
+    lily_value value;
+    int last_pass;
+    struct lily_gc_entry_t *next;
+} lily_gc_entry;
+
 typedef struct lily_list_val_t {
     int refcount;
+    /* Lists have a gc_entry ONLY if their signature says they can be circular.
+       A list can currently only be circular if it contains objects at some
+       point. This avoids creating gc entries for, say, list[integer] which can
+       be collected via refcounting. */
+    struct lily_gc_entry_t *gc_entry;
     lily_value *values;
     int *flags;
     int visited;
@@ -89,6 +108,14 @@ typedef struct lily_generic_val_t {
     int refcount;
 } lily_generic_val;
 
+/* Every value that can be garbage collected is a superset of this type. This
+   allows using the gc_entry field without having to worry about which type is
+   being used. */
+typedef struct lily_generic_gc_val_t {
+    int refcount;
+    lily_gc_entry *gc_entry;
+} lily_generic_gc_val;
+
 /* Indicates what kind of value is being stored. */
 typedef struct lily_class_t {
     char *name;
@@ -99,6 +126,11 @@ typedef struct lily_class_t {
     struct lily_sig_t *sig;
     struct lily_var_t *call_start;
     struct lily_var_t *call_top;
+
+    /* This is an internal function that dives into a value and marks the value
+       and anything inside of the value as being visited. This lets the gc know
+       what values are visible by marking them as visited, hence the name. */
+    gc_marker_func gc_marker;
 } lily_class;
 
 /* If set, the signature is either a vararg method or function. The last
@@ -126,22 +158,18 @@ typedef struct lily_register_info_t {
     int line_num;
 } lily_register_info;
 
-#define SYM_SCOPE_GLOBAL       0x001
-#define SYM_TYPE_LITERAL       0x002
-#define SYM_TYPE_VAR           0x004
-#define SYM_TYPE_STORAGE       0x010
+#define SYM_SCOPE_GLOBAL       0x01
+#define SYM_TYPE_LITERAL       0x02
+#define SYM_TYPE_VAR           0x04
+#define SYM_TYPE_STORAGE       0x10
 /* If a symbol doesn't have a value, then the symbol's flags are set to S_IS_NIL
    to indicate such. Lists contain an array of flags for each of their symbols.
    S_IS_NIL is set if a particular position in a list is nil. However, lists do
    not use any of the above flags, because only values are stored in lists. */
-#define SYM_IS_NIL             0x020
-/* This flag is set if the object points to a higher point in the list, usually
-   the top of the list itself. This is used to prevent objects containing
-   higher-level elements from deref-ing them. */
-#define SYM_IS_CIRCULAR        0x040
+#define SYM_IS_NIL             0x20
 /* This var is out of scope. This is set when a var in a non-method block goes
    out of scope. */
-#define SYM_OUT_OF_SCOPE       0x100
+#define SYM_OUT_OF_SCOPE       0x40
 
 /* Registers are allocated to hold values for calls. Opcodes reference registers
    instead of specific addresses. */

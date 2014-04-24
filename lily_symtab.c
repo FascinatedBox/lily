@@ -40,8 +40,7 @@ void lily_deref_hash_val(lily_sig *sig, lily_hash_val *hv)
         while (elem) {
             if (elem->flags == 0 && value_is_refcounted)
                 lily_deref_unknown_val(value_sig, elem->value);
-            else if (elem->flags & SYM_IS_CIRCULAR &&
-                     value_cls_id == SYM_CLASS_OBJECT) {
+            else if (value_cls_id == SYM_CLASS_OBJECT) {
                 /* Objects are containers that are not shared. This circularity
                    applies to what's inside the object, not the object itself.
                    Make sure to destroy the object. */
@@ -62,6 +61,12 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
 {
     lv->refcount--;
     if (lv->refcount == 0) {
+        /* If this list has a gc entry, then make the value of it NULL. This
+           prevents the gc from trying to access the list once it has been
+           destroyed. */
+        if (lv->gc_entry != NULL)
+            lv->gc_entry->value.generic = NULL;
+
         int cls_id = sig->siglist[0]->cls->id;
         int i;
         if (cls_id == SYM_CLASS_LIST) {
@@ -92,13 +97,6 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
             for (i = 0;i < lv->num_values;i++) {
                 if (lv->flags[i] == 0)
                     lily_deref_object_val(lv->values[i].object);
-                else if (lv->flags[i] & SYM_IS_CIRCULAR) {
-                    /* Objects are containers that are not shared across lists.
-                       The circularity applies to the value held in the object,
-                       not the object itself. */
-                    lily_object_val *ov = lv->values[i].object;
-                    lily_free(ov);
-                }
             }
         }
 
@@ -152,6 +150,11 @@ void lily_deref_object_val(lily_object_val *ov)
 {
     ov->refcount--;
     if (ov->refcount == 0) {
+        /* Objects always have a gc entry, so make sure the value of it is set
+           to NULL. This prevents the gc from trying to access this object that
+           is about to be destroyed. */
+        ov->gc_entry->value.generic = NULL;
+
         if (ov->sig != NULL)
             lily_deref_unknown_val(ov->sig, ov->value);
 
@@ -504,6 +507,7 @@ static int init_classes(lily_symtab *symtab)
             new_class->id = i;
             new_class->template_count = class_seeds[i].template_count;
             new_class->shorthash = class_seeds[i].shorthash;
+            new_class->gc_marker = class_seeds[i].gc_marker;
 
             new_class->name = class_seeds[i].name;
             new_class->is_refcounted = class_seeds[i].is_refcounted;
@@ -554,7 +558,9 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
         !read_seeds(symtab, builtin_seeds, NUM_BUILTIN_SEEDS) ||
         !init_package(symtab, SYM_CLASS_LIST, list_seeds, NUM_LIST_SEEDS) ||
         !init_package(symtab, SYM_CLASS_STR, str_seeds, NUM_STR_SEEDS)) {
-        /* This will free any symbols added, and the symtab object. */
+        /* First the literals and vars created, if any... */
+        lily_free_symtab_lits_and_vars(symtab);
+        /* then delete the symtab. */
         lily_free_symtab(symtab);
         return NULL;
     }
@@ -595,10 +601,21 @@ static void free_lily_main(lily_method_val *mv)
     lily_free(mv);
 }
 
-/* lily_free_symtab
-   As the name suggests, this destroys the symtab. Some init stuff may have
-   failed, so the NULL checking is important. */
-void lily_free_symtab(lily_symtab *symtab)
+/*  lily_free_symtab_lits_and_vars
+
+    This frees all literals and vars within the symtab. This is the first step
+    to tearing down the symtab, with the second being to call lily_free_symtab.
+
+    Symtab's teardown is in two steps so that the gc can have one final pass
+    after the vars get a deref. This allows the gc to attempt cleanly destroying
+    all values. It needs signature and class info, which is why that IS NOT
+    touched here.
+
+    Additionally, parts of symtab init may have failed, so NULL checks are
+    important.
+
+    symtab: The symtab to delete the vars and literals of. */
+void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
 {
     lily_literal *lit, *lit_temp;
 
@@ -615,6 +632,8 @@ void lily_free_symtab(lily_symtab *symtab)
         lit = lit_temp;
     }
 
+    /* This should be okay, because nothing will want to use the vars at this
+       point. */
     if (symtab->classes != NULL) {
         int i;
         for (i = 0;i <= symtab->class_pos;i++) {
@@ -638,7 +657,17 @@ void lily_free_symtab(lily_symtab *symtab)
         free_vars(symtab->old_method_chain);
     if (main_method != NULL)
         free_lily_main(main_method);
+}
 
+/*  lily_free_symtab
+
+    This destroys the classes and signatures stored in the symtab, as well as
+    the symtab itself. This is called after the vm has had a chance to tell the
+    gc to do a final sweep (where type info is necessary).
+
+    symtab: The symtab to destroy the vars of. */
+void lily_free_symtab(lily_symtab *symtab)
+{
     lily_sig *sig, *sig_temp;
 
     /* Destroy the signatures before the classes, since the sigs need to check
@@ -864,6 +893,7 @@ lily_object_val *lily_try_new_object_val()
     if (o == NULL)
         return NULL;
 
+    o->gc_entry = NULL;
     o->refcount = 1;
     o->sig = NULL;
     o->value.integer = 0;
