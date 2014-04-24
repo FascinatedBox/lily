@@ -7,6 +7,7 @@
 #include "lily_opcode.h"
 #include "lily_vm.h"
 #include "lily_debug.h"
+#include "lily_gc.h"
 
 extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
 
@@ -108,7 +109,12 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     vm->regs_from_main = NULL;
     vm->num_registers = 0;
     vm->max_registers = 0;
+    vm->gc_live_entries = NULL;
+    vm->gc_spare_entries = NULL;
+    vm->gc_live_entry_count = 0;
+    vm->gc_threshold = 100;
     vm->sipkey = sipkey;
+    vm->gc_pass = 0;
 
     if (vm->method_stack) {
         int i;
@@ -130,14 +136,11 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     return vm;
 }
 
-void lily_free_vm_state(lily_vm_state *vm)
+void lily_vm_free_registers(lily_vm_state *vm)
 {
-    int i;
-    for (i = 0;i < vm->method_stack_size;i++)
-        lily_free(vm->method_stack[i]);
-
     lily_vm_register **regs_from_main = vm->regs_from_main;
     lily_vm_register *reg;
+    int i;
     for (i = vm->max_registers-1;i >= 0;i--) {
         reg = regs_from_main[i];
 
@@ -147,101 +150,222 @@ void lily_free_vm_state(lily_vm_state *vm)
         lily_free(reg);
     }
 
+    /* This keeps the final gc invoke from touching the now-deleted registers.
+       It also ensures the last invoke will get everything. */
+    vm->num_registers = 0;
+    vm->max_registers = 0;
+
     lily_free(regs_from_main);
+}
+
+void lily_vm_invoke_gc(lily_vm_state *);
+void lily_vm_destroy_gc(lily_vm_state *);
+
+void lily_free_vm_state(lily_vm_state *vm)
+{
+    int i;
+    for (i = 0;i < vm->method_stack_size;i++)
+        lily_free(vm->method_stack[i]);
+
+    /* Force an invoke, even if it's not time. This should clear everything that
+       is still left. */
+    lily_vm_invoke_gc(vm);
+
+    lily_vm_destroy_gc(vm);
+
     lily_free(vm->method_stack);
     lily_free(vm);
 }
 
-/** VM helpers **/
-/* circle_buster
-   This function takes the current object (lhs_obj), and determines if assigning
-   rhs_value to it would cause a circular reference. This function recurses into
-   rhs_value, and fixes any circular references. This should be done before
-   putting rhs_value into lhs_obj.
-   Notes/Rules:
-   * This will only tag objects that refer to lists as circular, but there are
-     times when lists should be tagged as circular. Two lists containing each
-     other is one such example.
-     Right now, subscript assign checks for circular lists with
-     nested_list_check.
-   * This returns the number of references that have been fixed. Since the
-     symtab will not call these derefs, the caller must take 'num_circles' refs
-     away from lhs_obj.
-   * Don't touch things that are set SYM_IS_NIL, because they may be invalid.
-     Test that first, then for being visited already.
-   * Set ->visited to 1 before entering and 0 after leaving. This prevents this
-     function from infinitely recursing. */
-static int circle_buster(lily_object_val *lhs_obj, lily_sig *rhs_sig,
-        lily_value rhs_value)
+void lily_vm_destroy_gc(lily_vm_state *vm)
 {
-    int i, inner_count, num_circles;
+    lily_gc_entry *gc_iter, *gc_temp;
+    gc_iter = vm->gc_live_entries;
 
-    num_circles = 0;
+    while (gc_iter != NULL) {
+        gc_temp = gc_iter->next;
 
-    if (rhs_sig->cls->id == SYM_CLASS_LIST) {
-        lily_list_val *value_list = rhs_value.list;
-        int inner_cls_id = rhs_sig->siglist[0]->cls->id;
+        lily_free(gc_iter);
 
-        if (inner_cls_id == SYM_CLASS_OBJECT) {
-            lily_object_val *inner_obj;
-            for (i = 0;i < value_list->num_values;i++) {
-                if (value_list->flags[i] & SYM_IS_NIL)
-                    continue;
+        gc_iter = gc_temp;
+    }
 
-                inner_obj = value_list->values[i].object;
+    gc_iter = vm->gc_spare_entries;
+    while (gc_iter != NULL) {
+        gc_temp = gc_iter->next;
 
-                if (inner_obj == lhs_obj) {
-                    /* Mark this as circular if it isn't already marked as such.
-                       num_circles is always updated, which is necessary because
-                       there may be a list of circular refs
-                       (ex: a[0] = [a, a, a]) */
-                    if ((value_list->flags[i] & SYM_IS_CIRCULAR) == 0) {
-                        value_list->flags[i] |= SYM_IS_CIRCULAR;
-                        num_circles++;
-                    }
-                }
-                else if (inner_obj->sig->cls->id == SYM_CLASS_LIST) {
-                    /* If the object contains a list, then dive into that list
-                       to check for circular references. */
-                    if (value_list->flags[i] & SYM_IS_CIRCULAR)
-                        continue;
+        lily_free(gc_iter);
 
-                    if (inner_obj->value.list->visited == 1) {
-                        value_list->flags[i] |= SYM_IS_CIRCULAR;
-                        num_circles++;
-                        continue;
-                    }
+        gc_iter = gc_temp;
+    }
+}
 
-                    inner_obj->value.list->visited = 1;
-                    inner_count = circle_buster(lhs_obj, inner_obj->sig,
-                            inner_obj->value);
-                    inner_obj->value.list->visited = 0;
-                    num_circles += inner_count;
-                }
-            }
+/*  lily_vm_invoke_gc
+    This is Lily's garbage collector. It runs in multiple stages:
+    1: Go to each _in-use_ register that is not nil and use the appropriate
+       gc_marker call to mark all values inside that value which are visible.
+       Visible items are set to the vm's ->gc_pass.
+    2: Go through all the gc items now. Anything which doesn't have the current
+       pass as its last_pass is considered unreachable. This will deref values
+       that cannot be circular, or forcibly collect possibly-circular values.
+       Caveats:
+       * Some gc_entries may have their value set to 0/NULL. This happens when
+         a possibly-circular value has been deleted through typical ref/deref
+         means.
+       * The lily_gc_collect_* will collect everything inside a non-circular
+         value, but not the value itself. It will set last_pass to -1 when it
+         does this. This is necessary because it's possible that a value may be
+         sent to lily_gc_collect_* calls multiple times (because circular
+         references). If it's deleted, then there will be invalid reads.
+    3: Stage 1 skipped registers that are not in-use, because Lily just hasn't
+       gotten around to clearing them yet. However, some of those registers may
+       contain a value that has a gc_entry that indicates that the value is to
+       be destroyed. It's -very- important that these registers be marked as nil
+       so that prep_registers will not try to deref a value that has been
+       destroyed by the gc.
+    4: Finally, destroy the lists, objects, etc. that stage 2 didn't clear.
+       Absolutely nothing is using these now, so it's safe to destroy them.
+
+    vm: The vm to invoke the gc of. */
+void lily_vm_invoke_gc(lily_vm_state *vm)
+{
+    /* This is (sort of) a mark-and-sweep garbage collector. This is called when
+       a certain number of allocations have been done. Take note that values
+       can be destroyed by deref. However, those values will have the gc_entry's
+       value set to NULL as an indicator. */
+    vm->gc_pass++;
+
+    lily_vm_register **regs_from_main = vm->regs_from_main;
+    int pass = vm->gc_pass;
+    int num_registers = vm->num_registers;
+    int i;
+    lily_gc_entry *gc_iter;
+
+    /* Stage 1: Go through all registers and use the appropriate gc_marker call
+                that will mark every inner value that's visible. */
+    for (i = 0;i < vm->num_registers;i++) {
+        lily_vm_register *reg = regs_from_main[i];
+        if ((reg->sig->flags & SIG_MAYBE_CIRCULAR) &&
+            (reg->flags & SYM_IS_NIL) == 0 &&
+             reg->value.gc_generic->gc_entry != NULL) {
+            (*reg->sig->cls->gc_marker)(pass, reg->sig, reg->value);
         }
-        else if (inner_cls_id == SYM_CLASS_LIST) {
-            lily_value inner_list_val;
-            for (i = 0;i < value_list->num_values;i++) {
-                if (value_list->flags[i] & SYM_IS_NIL)
-                    continue;
+    }
 
-                inner_list_val = value_list->values[i];
-                if (inner_list_val.list->visited)
-                    continue;
+    /* Stage 2: Start destroying everything that wasn't marked as visible.
+                Don't forget to check ->value for NULL in case the value was
+                destroyed through normal ref/deref means. */
+    for (gc_iter = vm->gc_live_entries;
+         gc_iter;
+         gc_iter = gc_iter->next) {
+        if (gc_iter->last_pass != pass &&
+            gc_iter->value.generic != NULL) {
+            lily_gc_collect_value(gc_iter->value_sig, gc_iter->value);
+        }
+    }
 
-                inner_list_val.list->visited = 1;
-                inner_count = circle_buster(lhs_obj, rhs_sig->siglist[0],
-                        inner_list_val);
-                inner_list_val.list->visited = 0;
-                num_circles += inner_count;
+    /* num_registers is -1 if the vm is calling this from lily_free_vm_state and
+       there are no registers left. */
+    if (num_registers != -1) {
+        int i;
+        /* Stage 3: Check registers not currently in use to see if they hold a
+                    value that's going to be collected. If so, then mark the
+                    register as nil so that */
+        for (i = vm->num_registers;i < vm->max_registers;i++) {
+            lily_vm_register *reg = regs_from_main[i];
+            if ((reg->sig->flags & SIG_MAYBE_CIRCULAR) &&
+                (reg->flags & SYM_IS_NIL) == 0 &&
+                /* Not sure if this next line is necessary though... */
+                reg->value.gc_generic->gc_entry != NULL &&
+                reg->value.gc_generic->gc_entry->last_pass == -1) {
+                reg->flags |= SYM_IS_NIL;
             }
         }
     }
 
-    return num_circles;
+    /* Stage 4: Delete the lists/objects/etc. that stage 2 didn't delete.
+                Nothing is using them anymore. Also, sort entries into those
+                that are living and those that are no longer used. */
+    i = 0;
+    lily_gc_entry *new_live_entries = NULL;
+    lily_gc_entry *new_spare_entries = vm->gc_spare_entries;
+    lily_gc_entry *iter_next = NULL;
+    gc_iter = vm->gc_live_entries;
+
+    while (gc_iter) {
+        iter_next = gc_iter->next;
+        i++;
+
+        if (gc_iter->last_pass == -1) {
+            lily_free(gc_iter->value.generic);
+
+            gc_iter->next = new_spare_entries;
+            new_spare_entries = gc_iter;
+        }
+        else {
+            gc_iter->next = new_live_entries;
+            new_live_entries = gc_iter;
+        }
+
+        gc_iter = iter_next;
+    }
+
+    vm->gc_live_entry_count = i;
+    vm->gc_live_entries = new_live_entries;
+    vm->gc_spare_entries = new_spare_entries;
 }
 
+/*  lily_try_add_gc_item
+
+    This attempts to get a lily_gc_entry for the given value. This may call the
+    gc into action if there are vm->gc_threshold entries in vm->gc_live_entries
+    before the attempt to get a new value.
+
+    Take note, the gc may be invoked regardless of what this call returns.
+
+    vm:        This is sent in case the gc needs to be collected. The new
+               gc entry is also added to the vm's ->gc_live_entries.
+    value_sig: The sig describing the value given.
+    value:     The value to attach a gc_entry to. This can be any lily_value
+               that is a superset of lily_generic_gc_val.
+
+    Returns 1 if successful, 0 otherwise. Additionally, the value's ->gc_entry
+    is set to the new gc_entry on success. */
+int lily_try_add_gc_item(lily_vm_state *vm, lily_sig *value_sig,
+        lily_generic_gc_val *value)
+{
+    /* The given value is likely not in a register, so run the gc before adding
+       the value to an entry. Otherwise, the value will be destroyed if the gc
+       runs. */
+    if (vm->gc_live_entry_count >= vm->gc_threshold)
+        lily_vm_invoke_gc(vm);
+
+    lily_gc_entry *new_entry;
+    if (vm->gc_spare_entries != NULL) {
+        new_entry = vm->gc_spare_entries;
+        vm->gc_spare_entries = vm->gc_spare_entries->next;
+    }
+    else {
+        new_entry = lily_malloc(sizeof(lily_gc_entry));
+        if (new_entry == NULL)
+            return 0;
+    }
+
+    new_entry->value_sig = value_sig;
+    new_entry->value.gc_generic = value;
+    new_entry->last_pass = 0;
+
+    new_entry->next = vm->gc_live_entries;
+    vm->gc_live_entries = new_entry;
+
+    /* Attach the gc_entry to the value so the caller doesn't have to. */
+    value->gc_entry = new_entry;
+    vm->gc_live_entry_count++;
+
+    return 1;
+}
+
+/** VM helpers **/
 /* grow_method_stack
    This function grows the vm's method stack so it can take more method info.
    Calls lily_raise_nomem if unable to create method info. */
@@ -684,10 +808,15 @@ static void op_subscript(lily_vm_state *vm, uintptr_t *code, int code_pos)
                before doing the ref, so that the ref doesn't have to be undone
                if there is an issue. */
             if (result_reg->flags & SYM_IS_NIL) {
-                result_reg->value.object = lily_try_new_object_val();
-                if (result_reg->value.object == NULL)
+                lily_object_val *new_ov = lily_try_new_object_val();
+                if (new_ov == NULL ||
+                    lily_try_add_gc_item(vm, result_reg->sig,
+                            (lily_generic_gc_val *)new_ov) == 0) {
+                    lily_free(new_ov);
                     lily_raise_nomem(vm->raiser);
+                }
 
+                result_reg->value.object = new_ov;
                 result_reg->flags &= ~SYM_IS_NIL;
             }
         }
@@ -814,27 +943,18 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
     }
 
     LOAD_CHECKED_REG(rhs_reg, code_pos, 4)
-    new_flags = flags & ~(SYM_IS_NIL | SYM_IS_CIRCULAR);
+    new_flags = flags & ~SYM_IS_NIL;
 
     /* If this list does not contain objects, then standard
        assign or ref/deref assign is enough. */
     if (result_sig->cls->id != SYM_CLASS_OBJECT) {
         if (rhs_reg->sig->cls->is_refcounted) {
-            /* Make sure the old value isn't circular or nil before trying to
-               deref it. */
-            if (flags == 0)
+            /* Deref the old value as long as it's not nil. */
+            if ((flags & SYM_IS_NIL) == 0)
                 lily_deref_unknown_val(result_sig, old_value);
 
-            old_value = rhs_reg->value;
-
+            /* Now give the new value a ref bump and fall down to assignment. */
             rhs_reg->value.generic->refcount++;
-            /* If symtab thinks it could be circular, mark it as such and deref
-               it. This prevents strangeness if the new list references the
-               parent. */
-            if (rhs_reg->sig->flags & SIG_MAYBE_CIRCULAR) {
-                lily_deref_list_val(rhs_reg->sig, rhs_reg->value.list);
-                new_flags |= SYM_IS_CIRCULAR;
-            }
         }
         /* else nothing to ref/deref, so do assign only. */
 
@@ -844,20 +964,19 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
         /* Do an object assign to the value. */
         lily_object_val *ov;
         if (flags & SYM_IS_NIL) {
+            /* Objects are containers, so make one to receive the value that is
+               coming. */
             ov = lily_try_new_object_val();
-            if (ov == NULL)
+            if (ov == NULL ||
+                lily_try_add_gc_item(vm, result_sig,
+                        (lily_generic_gc_val *)ov) == 0) {
+                lily_free(ov);
                 lily_raise_nomem(vm->raiser);
+            }
 
             ov->value.integer = 0;
             ov->refcount = 1;
             ov->sig = NULL;
-            /* Must do this, or circle_buster will ignore this value and
-               circularity won't be noticed. */
-            flags &= ~SYM_IS_NIL;
-            if (hash_elem == NULL)
-                list_values[index_int].object = ov;
-            else
-                hash_elem->value.object = ov;
         }
         else {
             if (hash_elem == NULL)
@@ -877,34 +996,15 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
             rhs_value = rhs_reg->value.object->value;
         }
 
-        /* Only drop the ref if it's not circular. */
-        if (ov->sig && ov->sig->cls->is_refcounted &&
-            (flags & SYM_IS_CIRCULAR) == 0)
+        if (ov->sig && ov->sig->cls->is_refcounted)
             lily_deref_unknown_val(ov->sig, ov->value);
 
         ov->sig = rhs_sig;
         ov->value = rhs_value;
         old_value.object = ov;
 
-        /* Don't assume the new value is circular. */
-        if (hash_elem == NULL)
-            lhs_reg->value.list->flags[index_int] = new_flags;
-        else
-            hash_elem->flags = new_flags;
-
-        if (rhs_sig) {
-            if (rhs_sig->cls->is_refcounted)
-                rhs_value.generic->refcount++;
-
-            if (rhs_sig->cls->id == SYM_CLASS_LIST) {
-                int circle_count = circle_buster(ov, rhs_sig, rhs_value);
-                if (circle_count) {
-                    new_flags |= SYM_IS_CIRCULAR;
-                    lily_deref_list_val_by(rhs_sig, rhs_value.list, circle_count);
-                }
-            }
-        }
-
+        if (rhs_sig && rhs_sig->cls->is_refcounted)
+            rhs_value.generic->refcount++;
     }
 
     if (hash_elem == NULL) {
@@ -933,25 +1033,35 @@ void op_build_list(lily_vm_state *vm, lily_vm_register **vm_regs,
     if (lv == NULL)
         lily_raise_nomem(vm->raiser);
 
+    /* This is set in case the gc looks at this list. This prevents the gc and
+       deref calls from touching ->values and ->flags. */
+    lv->num_values = -1;
     lv->visited = 0;
+    lv->refcount = 1;
     lv->values = lily_malloc(num_elems * sizeof(void *));
-    if (lv->values == NULL) {
-        lily_free(lv);
-        lily_raise_nomem(vm->raiser);
-    }
-
     lv->flags = lily_malloc(num_elems * sizeof(int));
-    if (lv->flags == NULL) {
-        lily_free(lv->values);
-        lily_free(lv);
+    lv->gc_entry = NULL;
+
+    /* If attaching a gc entry fails, then list deref will collect everything
+       which is what's wanted anyway. */
+    if (lv->values == NULL || lv->flags == NULL ||
+        ((result->sig->flags & SIG_MAYBE_CIRCULAR) &&
+          lily_try_add_gc_item(vm, result->sig,
+                (lily_generic_gc_val *)lv) == 0)) {
+
+        lily_deref_list_val(result->sig, lv);
         lily_raise_nomem(vm->raiser);
     }
 
-    /* It's possible that the storage this will assign to was used to
-       assign a different list. Deref the old value, or it won't be
-       collected. This must be done after allocating the new value,
-       because symtab will want to deref the storage during cleanup
-       (resulting in an extra deref). */
+    /* The old value can be destroyed, now that the new value has been made. */
+    if (!(result->flags & SYM_IS_NIL))
+        lily_deref_list_val(result->sig, result->value.list);
+
+    /* Put the new list in the register so the gc doesn't try to collect it. */
+    result->value.list = lv;
+    /* And make sure it's not marked as nil, or the gc will think that anything
+       inside of it is unreachable. That's really bad for list[object]. */
+    result->flags &= ~SYM_IS_NIL;
 
     /* This could be condensed down, but doing it this way improves speed since
        the elem_sig won't change over the loop. */
@@ -960,6 +1070,8 @@ void op_build_list(lily_vm_state *vm, lily_vm_register **vm_regs,
             for (j = 0;j < num_elems;j++) {
                 if (!(vm_regs[code[3+j]]->flags & SYM_IS_NIL)) {
                     lv->values[j] = vm_regs[code[3+j]]->value;
+                    /* The elements are refcounted, so give a ref bump to each
+                       element scanned in as well as copying the value. */
                     lv->values[j].generic->refcount++;
                     lv->flags[j] = 0;
                 }
@@ -981,29 +1093,30 @@ void op_build_list(lily_vm_state *vm, lily_vm_register **vm_regs,
     else {
         for (j = 0;j < num_elems;j++) {
             if (!(vm_regs[code[3+j]]->flags & SYM_IS_NIL)) {
-                /* Without copying to a separate object:
-                   object o = 10    o = [o]
-                   (o is now a useless circular reference. What?)
-
-                   With copying to a separate object:
-                   object o = 10    o = [o]
-                   (o is now a list of object, with [0] being 10. */
+                /* Objects are supposed to act like containers which can hold
+                   any value. Because of this, the inner value of the other
+                   object must be copied over.
+                   Objects are also potentially circular, which means each one
+                   needs a gc entry. This also means that the list holding the
+                   objects has a gc entry. */
                 lily_object_val *oval = lily_try_new_object_val();
-                if (oval == NULL) {
-                    /* The inner values must be destroyed here, because the
-                       symtab has no linkage for them. */
-                    int k;
-                    for (k = 0;k < j;k++) {
-                        if (lv->flags[k] == 0)
-                            lily_deref_object_val(lv->values[k].object);
-                    }
-                    lily_free(lv->flags);
-                    lily_free(lv->values);
-                    lily_free(lv);
+                lily_object_val *reg_object = vm_regs[code[3+j]]->value.object;
+                if (oval == NULL ||
+                    lily_try_add_gc_item(vm, elem_sig,
+                            (lily_generic_gc_val *)oval) == 0) {
+                    /* Make sure to free the object value made. If it wasn't
+                       made, this will be NULL, which is fine. */
+                    lily_free(oval);
+
+                    /* This one's nil. */
+                    lv->flags[j] = SYM_IS_NIL;
+
+                    /* Give up. The gc will have an entry for the list, so it
+                       will correctly collect the list. */
                     lily_raise_nomem(vm->raiser);
                 }
-                memcpy(oval, vm_regs[code[3+j]]->value.object,
-                       sizeof(lily_object_val));
+                oval->value = reg_object->value;
+                oval->sig = reg_object->sig;
                 oval->refcount = 1;
 
                 if (oval->sig && oval->sig->cls->is_refcounted)
@@ -1014,18 +1127,14 @@ void op_build_list(lily_vm_state *vm, lily_vm_register **vm_regs,
             }
             else
                 lv->flags[j] = SYM_IS_NIL;
+
+            /* Update this with each pass, in case the vm decides to run the gc
+               when a new object asks for a gc_entry. */
+            lv->num_values = j + 1;
         }
     }
 
-    /* This deref must come after the ref, or an error during the ref will
-       cause a double-deref. */
-    if (!(result->flags & SYM_IS_NIL))
-        lily_deref_list_val(result->sig, result->value.list);
-
     lv->num_values = num_elems;
-    lv->refcount = 1;
-    result->value.list = lv;
-    result->flags &= ~SYM_IS_NIL;
 }
 
 static void do_keyword_show(lily_vm_state *vm, int is_global, int reg_id)
@@ -1622,14 +1731,18 @@ void lily_vm_execute(lily_vm_state *vm)
                        it. */
                     if (lhs_reg->flags & SYM_IS_NIL) {
                         lhs_obj = lily_try_new_object_val();
-                        if (lhs_obj == NULL) {
+                        if (lhs_obj == NULL ||
+                            lily_try_add_gc_item(vm, lhs_reg->sig,
+                                    (lily_generic_gc_val *)lhs_obj) == 0) {
                             /* Something above may have done a ref, but never
                                assigned. Undo that. */
                             if (right_sig->cls->is_refcounted)
                                 right_val.generic->refcount--;
 
+                            lily_free(lhs_obj);
                             lily_raise_nomem(vm->raiser);
                         }
+
                         lhs_reg->value.object = lhs_obj;
                         lhs_reg->flags &= ~SYM_IS_NIL;
                     }

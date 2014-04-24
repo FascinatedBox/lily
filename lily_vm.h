@@ -29,6 +29,22 @@ typedef struct lily_vm_state_t {
     int method_stack_pos;
     int method_stack_size;
 
+    /* A linked list of entries that are currently being used. */
+    lily_gc_entry *gc_live_entries;
+    /* A linked list of entries not currently used. Entries which have their
+       values swept are put here. This is checked before making a new node. */
+    lily_gc_entry *gc_spare_entries;
+    /* How many entries are in ->gc_live_entries. If this is >= ->gc_threshold,
+       then the gc is triggered when there is an attempt to attach a gc_entry
+       to a value. */
+    int gc_live_entry_count;
+    /* How many entries to allow in ->gc_live_entries before doing a sweep. */
+    int gc_threshold;
+    /* An always-increasing value indicating the current pass, used to determine
+       if an entry has been seen. An entry is visible if
+       'entry->last_pass == gc_pass' */
+    int gc_pass;
+
     /* This is the default signature used when created new registers. This is
        used because it isn't refcounted. */
     lily_sig *integer_sig;
@@ -46,5 +62,6 @@ lily_vm_state *lily_new_vm_state(lily_raiser *);
 void lily_free_vm_state(lily_vm_state *);
 void lily_vm_prep(lily_vm_state *, lily_symtab *);
 void lily_vm_execute(lily_vm_state *);
+void lily_vm_free_registers(lily_vm_state *);
 
 #endif

@@ -3,29 +3,31 @@
 
 # include "lily_pkg.h"
 # include "lily_vm.h"
+# include "lily_gc.h"
 
 /* Sync name order with SYM_CLASS_* #defines in lily_symtab.h */
 typedef const struct {
     char *name;
     int is_refcounted;
     int template_count;
+    gc_marker_func gc_marker;
     uint64_t shorthash;
 } class_seed;
 
 class_seed class_seeds[9] =
 {
-    {"integer",  0, 0, 32199642103180905},
-    {"number",   0, 0, 125779768604014},
-    {"str",      1, 0, 7500915},
-    {"function", 0, 0, 7957695015192261990},
-    {"object",   1, 0, 127970252055151},
-    {"method",   1, 0, 110429656606061},
-    {"list",     1, 1, 1953720684},
-    {"hash",     1, 2, 1752392040},
+    {"integer",  0, 0, NULL,                   32199642103180905},
+    {"number",   0, 0, NULL,                   125779768604014},
+    {"str",      1, 0, NULL,                   7500915},
+    {"function", 0, 0, NULL,                   7957695015192261990},
+    {"object",   1, 0, &lily_gc_object_marker, 127970252055151},
+    {"method",   1, 0, NULL,                   110429656606061},
+    {"list",     1, 1, &lily_gc_list_marker,   1953720684},
+    {"hash",     1, 2, &lily_gc_hash_marker,   1752392040},
     /* * is the name of the template class. This was chosen because it's not a
        valid name so the user can't directly declare members of it. The hash is
        also invalid too. */
-    {"*",        0, 0, 0}
+    {"*",        0, 0, NULL, 0}
 };
 
 typedef const struct {

@@ -59,6 +59,7 @@ typedef struct {
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_hash(lily_symtab *, uint64_t);
 lily_var *lily_find_class_callable(lily_class *, char *, uint64_t);
+void lily_free_symtab_lits_and_vars(lily_symtab *);
 void lily_free_symtab(lily_symtab *);
 int lily_keyword_by_name(char *, uint64_t);
 lily_literal *lily_new_literal(lily_symtab *, lily_class *, lily_value);
