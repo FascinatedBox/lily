@@ -468,14 +468,29 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
     if (lhs_class->id <= SYM_CLASS_STR &&
         rhs_class->id <= SYM_CLASS_STR)
         opcode = generic_binop_table[ast->op][lhs_class->id][rhs_class->id];
-    else
-        opcode = -1;
+    else {
+        /* Allow == and != for any class, so long as the signatures both match.
+           This allows useful things like comparing methods, functions, and
+           more. */
+        if (ast->left->result->sig == ast->right->result->sig) {
+            if (ast->op == expr_eq_eq)
+                opcode = o_is_equal;
+            else if (ast->op == expr_not_eq)
+                opcode = o_not_eq;
+            else
+                opcode = -1;
+        }
+        else
+            opcode = -1;
+    }
 
     if (opcode == -1) {
         emit->raiser->line_adjust = ast->line_num;
+        /* Print the full type, in case there's an attempt to do something like
+           list[integer] == list[str]. */
         lily_raise(emit->raiser, lily_ErrSyntax,
-                   "Invalid operation: %s %s %s.\n", lhs_class->name,
-                   opname(ast->op), rhs_class->name);
+                   "Invalid operation: %T %s %T.\n", ast->left->result->sig,
+                   opname(ast->op), ast->right->result->sig);
     }
 
     if (ast->op == expr_plus || ast->op == expr_minus ||

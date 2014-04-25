@@ -54,6 +54,52 @@ else \
 vm_regs[code[code_pos+4]]->flags &= ~SYM_IS_NIL; \
 code_pos += 5;
 
+/* EQUALITY_COMPARE_OP is used for == and !=, instead of a normal COMPARE_OP.
+   The difference is that this will allow op on any type, so long as the lhs
+   and rhs agree on the full type. This allows comparing methods, functions,
+   lists, and more.
+
+   Note: This results in lists being compared by pointer. As a result,
+         [1] == [1] will return 0, because they are different lists.
+
+   Arguments are:
+   * op:    The operation to perform relative to the values given. This will be
+            substituted like: lhs->value OP rhs->value
+            This is done for everything BUT str.
+   * strop: The operation to perform relative to the result of strcmp. == does
+            == 0, as an example. */
+#define EQUALITY_COMPARE_OP(OP, STROP) \
+LOAD_CHECKED_REG(lhs_reg, code_pos, 2) \
+LOAD_CHECKED_REG(rhs_reg, code_pos, 3) \
+if (lhs_reg->sig->cls->id == SYM_CLASS_NUMBER) { \
+    if (rhs_reg->sig->cls->id == SYM_CLASS_NUMBER) \
+        vm_regs[code[code_pos+4]]->value.integer = \
+        (lhs_reg->value.number OP rhs_reg->value.number); \
+    else \
+        vm_regs[code[code_pos+4]]->value.integer = \
+        (lhs_reg->value.number OP rhs_reg->value.integer); \
+} \
+else if (lhs_reg->sig->cls->id == SYM_CLASS_INTEGER) { \
+    if (rhs_reg->sig->cls->id == SYM_CLASS_INTEGER) \
+        vm_regs[code[code_pos+4]]->value.integer =  \
+        (lhs_reg->value.integer OP rhs_reg->value.integer); \
+    else \
+        vm_regs[code[code_pos+4]]->value.integer = \
+        (lhs_reg->value.integer OP rhs_reg->value.number); \
+} \
+else if (lhs_reg->sig->cls->id == SYM_CLASS_STR) { \
+    vm_regs[code[code_pos+4]]->value.integer = \
+    strcmp(lhs_reg->value.str->str, \
+           rhs_reg->value.str->str) STROP; \
+} \
+else if (lhs_reg->sig == rhs_reg->sig) { \
+    vm_regs[code[code_pos+4]]->value.integer = \
+    /* Use int compare as pointer compare. A bit evil. */ \
+    lhs_reg->value.integer == rhs_reg->value.integer; \
+} \
+vm_regs[code[code_pos+4]]->flags &= ~SYM_IS_NIL; \
+code_pos += 5;
+
 #define COMPARE_OP(OP, STROP) \
 LOAD_CHECKED_REG(lhs_reg, code_pos, 2) \
 LOAD_CHECKED_REG(rhs_reg, code_pos, 3) \
@@ -1437,7 +1483,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 COMPARE_OP(<=, <= 0)
                 break;
             case o_is_equal:
-                COMPARE_OP(==, == 0)
+                EQUALITY_COMPARE_OP(==, == 0)
                 break;
             case o_greater:
                 COMPARE_OP(>, == 1)
@@ -1446,7 +1492,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 COMPARE_OP(>, >= 0)
                 break;
             case o_not_eq:
-                COMPARE_OP(!=, != 0)
+                EQUALITY_COMPARE_OP(!=, != 0)
                 break;
             case o_jump:
                 code_pos = code[code_pos+1];
