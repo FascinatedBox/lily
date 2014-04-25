@@ -1379,12 +1379,17 @@ void lily_vm_execute(lily_vm_state *vm)
     if (setjmp(vm->raiser->jumps[vm->raiser->jump_pos]) == 0)
         vm->raiser->jump_pos++;
     else {
-        if (vm->in_function) {
+        /* The vm doesn't set ->err_function when it calls because it assumes
+           most functions won't have an error. So if there is one, set this for
+           a proper stack. */
+        if (vm->in_function)
             vm->err_function = vm_regs[code[code_pos+2]]->value.function;
 
-            lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
-            top->line_num = top->code[code_pos+1];
-        }
+        /* The top of the stack is always changing, so make sure the top's
+           line number is set. This is safe because any opcode that can raise
+           will also have a line number right after the opcode. */
+        lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
+        top->line_num = top->code[code_pos+1];
 
         /* Don't yield to parser, because it will continue as if nothing
            happened. Instead, jump to where it would jump. */
