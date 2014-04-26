@@ -504,12 +504,6 @@ void lily_ast_leave_tree(lily_ast_pool *ap)
         ap->save_chain = ap->save_chain->prev;
 
     ap->save_depth--;
-
-    /* Current gets saved to a->parent when making a call. In some cases, the
-       call was to be current, which makes the ast think it is the parent of
-       itself. */
-//    if (a->parent == a)
-//        a->parent = NULL;
 }
 
 /* lily_ast_push_binary_op
