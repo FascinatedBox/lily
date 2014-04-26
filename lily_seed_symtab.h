@@ -11,23 +11,21 @@ typedef const struct {
     int is_refcounted;
     int template_count;
     gc_marker_func gc_marker;
-    uint64_t shorthash;
 } class_seed;
 
 class_seed class_seeds[9] =
 {
-    {"integer",  0, 0, NULL,                   32199642103180905},
-    {"number",   0, 0, NULL,                   125779768604014},
-    {"str",      1, 0, NULL,                   7500915},
-    {"function", 0, 0, NULL,                   7957695015192261990},
-    {"object",   1, 0, &lily_gc_object_marker, 127970252055151},
-    {"method",   1, 0, NULL,                   110429656606061},
-    {"list",     1, 1, &lily_gc_list_marker,   1953720684},
-    {"hash",     1, 2, &lily_gc_hash_marker,   1752392040},
+    {"integer",  0, 0, NULL},
+    {"number",   0, 0, NULL},
+    {"str",      1, 0, NULL},
+    {"function", 0, 0, NULL},
+    {"object",   1, 0, &lily_gc_object_marker},
+    {"method",   1, 0, NULL},
+    {"list",     1, 1, &lily_gc_list_marker},
+    {"hash",     1, 2, &lily_gc_hash_marker},
     /* * is the name of the template class. This was chosen because it's not a
-       valid name so the user can't directly declare members of it. The hash is
-       also invalid too. */
-    {"*",        0, 0, NULL, 0}
+       valid name so the user can't directly declare members of it. */
+    {"*",        0, 0, NULL}
 };
 
 typedef const struct {
@@ -50,7 +48,6 @@ keyword_seed keywords[] = {
     {"for",        7499622},
     {"do",         28516}
 };
-
 void lily_builtin_print(lily_vm_state *, uintptr_t *, int);
 void lily_builtin_printfmt(lily_vm_state *, uintptr_t *, int);
 
