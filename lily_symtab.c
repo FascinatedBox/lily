@@ -324,10 +324,17 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
     /* Turn the keywords into symbols. */
     int i, ret;
     ret = 1;
+    char shorthash_buf[8];
 
     for (i = 0;i < seed_count;i++) {
         lily_func_seed *seed = seeds[i];
-        uint64_t shorthash = *(uint64_t *)(seed->name);
+
+        /* This zaps all of shorthash_buf because of the cast. This is done so
+           that previous uses don't affect the hash of the rest. */
+        *((uint64_t *)shorthash_buf) = 0;
+        strncpy(shorthash_buf, seed->name, 8);
+
+        uint64_t shorthash = *(uint64_t *)shorthash_buf;
         int ok = 1, pos = 0;
         lily_sig *new_sig = scan_seed_arg(symtab, seed->arg_ids, &pos, &ok);
         if (new_sig != NULL) {
@@ -454,6 +461,7 @@ static int init_classes(lily_symtab *symtab)
 {
     int i, class_count, ret;
     lily_class **classes;
+    char shorthash_buf[8];
 
     classes = lily_malloc(sizeof(lily_class *) * INITIAL_CLASS_SIZE);
     if (classes == NULL)
@@ -501,15 +509,20 @@ static int init_classes(lily_symtab *symtab)
                     ret = 0;
             }
 
+            new_class->name = class_seeds[i].name;
+            /* This zaps all of shorthash_buf because of the cast. This is done
+               so that previous uses don't affect the hash of the rest. */
+            *((uint64_t *)shorthash_buf) = 0;
+            strncpy(shorthash_buf, new_class->name, 8);
+
             new_class->call_start = NULL;
             new_class->call_top = NULL;
             new_class->sig = sig;
             new_class->id = i;
             new_class->template_count = class_seeds[i].template_count;
-            new_class->shorthash = class_seeds[i].shorthash;
+            new_class->shorthash = *(uint64_t *)shorthash_buf;
             new_class->gc_marker = class_seeds[i].gc_marker;
 
-            new_class->name = class_seeds[i].name;
             new_class->is_refcounted = class_seeds[i].is_refcounted;
         }
         else
