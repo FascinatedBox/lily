@@ -1077,9 +1077,6 @@ static void op_object_assign(lily_vm_state *vm, lily_vm_register *lhs_reg,
 {
     lily_value right_val;
     lily_sig *right_sig;
-    /* object assign should not do a circle_buster check because
-       the result is a register, not part of a list. It is thus
-       impossible for this to cause a circular reference. */
 
     /* If the right side has no value, mark the left's sig as
        null. This way, the object value doesn't have to be
