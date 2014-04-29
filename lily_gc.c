@@ -1,6 +1,6 @@
 #include "lily_impl.h"
 #include "lily_gc.h"
-#include "lily_symtab.h"
+#include "lily_value.h"
 
 /** gc collection functions
     These are responsible for tearing everything inside a value. These don't
