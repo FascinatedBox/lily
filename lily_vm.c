@@ -1142,6 +1142,97 @@ static void op_object_assign(lily_vm_state *vm, lily_vm_register *lhs_reg,
     lhs_obj->value = right_val;
 }
 
+void op_build_hash(lily_vm_state *vm, uintptr_t *code, int code_pos)
+{
+    lily_vm_register **vm_regs = vm->vm_regs;
+    int i, num_values, value_is_refcounted;
+    lily_vm_register *result, *key_reg, *value_reg;
+    lily_sig *key_sig, *value_sig;
+
+    num_values = (intptr_t)(code[code_pos + 2]);
+    result = vm_regs[code[code_pos + 3 + num_values]];
+    key_sig = result->sig->siglist[0];
+    value_sig = result->sig->siglist[1];
+    value_is_refcounted = value_sig->cls->is_refcounted;
+
+    lily_hash_val *hash_val = lily_try_new_hash_val();
+    if (hash_val == NULL)
+        lily_raise_nomem(vm->raiser);
+
+    if ((result->sig->flags & SIG_MAYBE_CIRCULAR) &&
+        lily_try_add_gc_item(vm, result->sig,
+            (lily_generic_gc_val *)hash_val) == 0) {
+        lily_free(hash_val);
+        lily_raise_nomem(vm->raiser);
+    }
+
+    if ((result->flags & SYM_IS_NIL) == 0)
+        lily_deref_hash_val(result->sig, result->value.hash);
+
+    result->value.hash = hash_val;
+    result->flags &= ~SYM_IS_NIL;
+
+    for (i = 0;
+         i < num_values;
+         i += 2) {
+        key_reg = vm_regs[code[code_pos + 3 + i]];
+        value_reg = vm_regs[code[code_pos + 3 + i + 1]];
+
+        if (key_reg->flags & SYM_IS_NIL)
+            lily_raise_nomem(vm->raiser);
+
+        uint64_t key_siphash;
+        lily_hash_elem *elem;
+
+        key_siphash = calculate_siphash(vm->sipkey, key_sig,
+                key_reg->value);
+        elem = try_get_make_hash_elem(hash_val, key_siphash, key_sig,
+                key_reg->value);
+
+        if (elem == NULL)
+            lily_raise_nomem(vm->raiser);
+
+        if (value_reg->sig->cls->id == SYM_CLASS_OBJECT) {
+            lily_object_val *obj_val = elem->value.object;
+            if (value_reg->flags & SYM_IS_NIL) {
+                if ((elem->flags & SYM_IS_NIL) == 0) {
+                    obj_val->sig = NULL;
+                    obj_val->value.integer = 0;
+                }
+                /* else both are nil, no-op. */
+            }
+            else {
+                if (elem->flags & SYM_IS_NIL) {
+                    obj_val = lily_try_new_object_val();
+                    if (obj_val == NULL ||
+                        lily_try_add_gc_item(vm, value_reg->sig,
+                                (lily_generic_gc_val *)obj_val) == 0) {
+                        /* Either this is NULL or allocated but never swept
+                           because it's not in the gc. */
+                        lily_free(obj_val);
+                        lily_raise_nomem(vm->raiser);
+                    }
+                }
+                obj_val->sig = value_reg->value.object->sig;
+                obj_val->value = value_reg->value.object->value;
+                elem->flags &= ~SYM_IS_NIL;
+            }
+        }
+        else {
+            if (value_is_refcounted) {
+                if ((value_reg->flags & SYM_IS_NIL) == 0)
+                    value_reg->value.generic->refcount++;
+                if ((elem->flags & SYM_IS_NIL) == 0)
+                    lily_deref_unknown_val(value_reg->sig, elem->value);
+            }
+
+            elem->value = value_reg->value;
+            elem->flags = value_reg->flags;
+            COPY_NIL_FLAG(elem, value_reg->flags)
+        }
+    }
+}
+
 /* op_build_list
    VM helper called for handling o_build_list. This is a bit tricky, becaus the
    storage may have already had a previous list assigned to it. Additionally,
@@ -1849,6 +1940,10 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_sub_assign:
                 op_sub_assign(vm, code, code_pos);
                 code_pos += 5;
+                break;
+            case o_build_hash:
+                op_build_hash(vm, code, code_pos);
+                code_pos += code[code_pos+2] + 4;
                 break;
             case o_build_list:
                 op_build_list(vm, vm_regs, code+code_pos);

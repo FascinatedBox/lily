@@ -369,7 +369,7 @@ static int init_classes(lily_symtab *symtab)
             new_class->template_count = class_seeds[i].template_count;
             new_class->shorthash = *(uint64_t *)shorthash_buf;
             new_class->gc_marker = class_seeds[i].gc_marker;
-
+            new_class->flags = class_seeds[i].flags;
             new_class->is_refcounted = class_seeds[i].is_refcounted;
         }
         else

@@ -1412,6 +1412,13 @@ method test_hashes():nil
     hash[number, str] num_str_map
     num_str_map[5.5] = "10"
     num_str_map[1e1] = "12"
+
+    # static hash creation
+    hash[str, str] str_str_map = ["a" => "b", "c" => "d", "e" => "f"]
+    # Again, but some of the keys repeat. In this case, the right-most key
+    # gets the value.
+    hash[str, str] str_str_map_two = ["a" => "a", "a" => "b", "a" => "c",
+                                      "d" => "e"]
 }
 
 method test_misc():nil

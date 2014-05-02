@@ -103,6 +103,7 @@ static const int is_start_val[] = {
     0,
     0,
     0,
+    0,
     1,
     1,
     1,
@@ -130,8 +131,6 @@ static const int bin_op_for_token[] = {
     -1,
     -1,
     expr_bitwise_xor,
-    expr_assign,
-    expr_eq_eq,
     -1,
     expr_not_eq,
     expr_modulo,
@@ -152,6 +151,9 @@ static const int bin_op_for_token[] = {
     expr_gr_eq,
     expr_right_shift,
     expr_right_shift_assign,
+    expr_assign,
+    expr_eq_eq,
+    -1,
     -1,
     -1,
     -1,
@@ -420,12 +422,14 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
            key type. Valid key types are ones which are primitive, or ones that
            are immutable. */
         if (cls->id == SYM_CLASS_HASH) {
-            int key_class_id = siglist[0]->cls->id;
+            /* Must use new_sig->siglist because lily_ensure_unique_sig can
+               destroy the old sig and make 'siglist' itself invalid. */
+            int key_class_id = new_sig->siglist[0]->cls->id;
             if (key_class_id != SYM_CLASS_INTEGER &&
                 key_class_id != SYM_CLASS_NUMBER &&
                 key_class_id != SYM_CLASS_STR) {
                 lily_raise(parser->raiser, lily_ErrSyntax,
-                        "'%T' is not a valid hash key.\n", siglist[0]);
+                        "'%T' is not a valid hash key.\n", new_sig->siglist[0]);
             }
         }
 
@@ -567,7 +571,6 @@ static lily_sig *determine_ast_sig(lily_parse_state *parser, lily_ast *ast)
            Return the type used for list elements. */
         else if (ast->tree_type == tree_subscript) {
             lily_sig *var_sig = determine_ast_sig(parser, ast->arg_start);
-
             /* Ensure that this can be subscripted. This is less to enforce
                proper subscripts, and more to prevent crashing from trying to
                do something like 0[10].abc(). */
@@ -951,7 +954,7 @@ static void expression(lily_parse_state *parser, int flags)
                     lily_lexer(lex);
                 }
             }
-            else if (lex->token == tk_comma) {
+            else if (lex->token == tk_comma || lex->token == tk_arrow) {
                 if (parser->ast_pool->active == NULL)
                     lily_raise(parser->raiser, lily_ErrSyntax,
                                "Expected a value, not ','.\n");
@@ -960,13 +963,35 @@ static void expression(lily_parse_state *parser, int flags)
                    the comma is the end of the decl unless it's part of a call
                    used in the decl (integer a = add(1, 2), b = 1...). */
                 if (((flags & EX_NEED_VALUE) == 0) &&
-                    parser->ast_pool->save_depth == 0) {
+                    parser->ast_pool->save_depth == 0 &&
+                    lex->token == tk_comma) {
                     break;
                 }
 
                 if (parser->ast_pool->save_depth == 0)
                     lily_raise(parser->raiser, lily_ErrSyntax,
                             "Unexpected token %s.\n", tokname(lex->token));
+
+                lily_ast *last_tree = lily_ast_get_saved_tree(parser->ast_pool);
+                if (lex->token == tk_comma) {
+                    if (last_tree->tree_type == tree_hash &&
+                        (last_tree->args_collected & 0x1) == 0)
+                        lily_raise(parser->raiser, lily_ErrSyntax,
+                                "Expected a key => value pair before ','.\n");
+                }
+                else if (lex->token == tk_arrow) {
+                    if (last_tree->tree_type == tree_list) {
+                        if (last_tree->args_collected == 0)
+                            last_tree->tree_type = tree_hash;
+                        else
+                            lily_raise(parser->raiser, lily_ErrSyntax,
+                                    "Unexpected token '%s'.\n", tokname(tk_arrow));
+                    }
+                    else if (last_tree->tree_type != tree_hash ||
+                             (last_tree->args_collected & 0x1) == 1)
+                            lily_raise(parser->raiser, lily_ErrSyntax,
+                                    "Unexpected token '%s'.\n", tokname(tk_arrow));
+                }
 
                 lily_ast_collect_arg(parser->ast_pool);
                 lily_lexer(lex);
