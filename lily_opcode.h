@@ -168,6 +168,19 @@ typedef enum {
        that all elements are of the same type. */
     o_build_list,
 
+    /* Build hash:
+       * int lineno
+       * int num_values
+       * reg values...
+       * reg result
+       This creates a new hash, and is fairly similar to o_build_list in that
+       the sig of the result is already set. 'values' is a series of key and
+       value pairs. It should be noted that num_values is the number of values,
+       NOT the number of pairs. So there are (num_values / 2) pairs to create.
+       This was done intentionally to follow calls and o_build_list in that the
+       count always precedes the exact number of values. */
+    o_build_hash,
+
     /* Subscript: 
        * int lineno
        * reg(list[T]) list

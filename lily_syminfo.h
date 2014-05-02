@@ -116,11 +116,16 @@ typedef struct lily_generic_gc_val_t {
     lily_gc_entry *gc_entry;
 } lily_generic_gc_val;
 
+/* If this is set, the class can be used as a hash key. This should only be set
+   on primitive and immutable classes. */
+#define CLS_VALID_HASH_KEY 0x1
+
 /* Indicates what kind of value is being stored. */
 typedef struct lily_class_t {
     char *name;
     uint64_t shorthash;
     int id;
+    int flags;
     int is_refcounted;
     int template_count;
     struct lily_sig_t *sig;

@@ -506,6 +506,19 @@ void lily_ast_leave_tree(lily_ast_pool *ap)
     ap->save_depth--;
 }
 
+/*  lily_ast_get_saved_tree
+    This returns the tree that was last entered. This is used by parser to
+    determine if tk_arrow / tk_comma are valid.
+
+    ap: The ast pool that the parser is using.
+
+    Parser is responsible for ensuring that this is only called when the pool
+    has entered a tree (ap->save_index != 0) before calling this. */
+lily_ast *lily_ast_get_saved_tree(lily_ast_pool *ap)
+{
+    return ap->save_chain->entered_tree;
+}
+
 /* lily_ast_push_binary_op
    This 'creates' and merges a binary op against the active tree. */
 void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)

@@ -1051,6 +1051,121 @@ static void cast_ast_list_to(lily_emit_state *emit, lily_ast *list_ast,
     }
 }
 
+/*  eval_build_hash
+    This handles evaluating trees that are of type tree_hash. This tree is
+    created from a static hash (ex: ["a" => 1, "b" => 2, ...]). Parser has
+    chained the keys and values in a tree_hash as arguments. The arguments are
+    key, value, key, value, key, value. Thus, ->args_collected is the number of
+    items, not the number of pairs collected.
+
+    Caveats:
+    * Keys can't default to object like values in a list can. This is because
+      objects are not immutable.
+
+    emit: The emit state containing a method to write the resulting code to.
+    ast:  An ast of type tree_hash. */
+static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_method_val *m = emit->top_method;
+    lily_sig *key_sig, *value_sig;
+    lily_ast *tree_iter;
+    int i, make_objs;
+
+    key_sig = NULL;
+    value_sig = NULL;
+    make_objs = 0;
+
+    for (tree_iter = ast->arg_start;
+         tree_iter != NULL;
+         tree_iter = tree_iter->next_arg->next_arg) {
+
+        lily_ast *key_tree, *value_tree;
+        key_tree = tree_iter;
+        value_tree = tree_iter->next_arg;
+
+        if (key_tree->tree_type != tree_local_var)
+            eval_tree(emit, key_tree);
+
+        /* Keys -must- all be the same type. They cannot be converted to object
+           later on because objects are not valid keys (not immutable). */
+        if (key_tree->result->sig != key_sig) {
+            if (key_sig == NULL) {
+                if ((key_tree->result->sig->cls->flags & CLS_VALID_HASH_KEY) == 0) {
+                    emit->raiser->line_adjust = key_tree->line_num;
+                    lily_raise(emit->raiser, lily_ErrSyntax,
+                            "Resulting type '%T' is not a valid hash key.\n",
+                            key_tree->result->sig);
+                }
+
+                key_sig = key_tree->result->sig;
+            }
+            else {
+                emit->raiser->line_adjust = key_tree->line_num;
+                lily_raise(emit->raiser, lily_ErrSyntax,
+                        "Expected a key of type '%T', but key is of type '%T'.\n",
+                        key_sig, key_tree->result->sig);
+            }
+        }
+
+        if (value_tree->tree_type != tree_local_var)
+            eval_tree(emit, value_tree);
+
+        /* Values being promoted to object is okay though. :) */
+        if (value_tree->result->sig != value_sig) {
+            if (value_sig == NULL)
+                value_sig = value_tree->result->sig;
+            else {
+                make_objs = 1;
+            }
+        }
+    }
+
+    lily_class *hash_cls = lily_class_by_id(emit->symtab, SYM_CLASS_HASH);
+    lily_sig *new_sig = lily_try_sig_for_class(emit->symtab, hash_cls);
+    if (new_sig == NULL) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise_nomem(emit->raiser);
+    }
+
+    new_sig->siglist = lily_malloc(2 * sizeof(lily_sig *));
+    if (new_sig->siglist == NULL) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise_nomem(emit->raiser);
+    }
+
+    new_sig->siglist[0] = key_sig;
+    new_sig->siglist[1] = value_sig;
+    new_sig->siglist_size = 2;
+    new_sig = lily_ensure_unique_sig(emit->symtab, new_sig);
+
+    lily_storage *s = try_get_storage(emit, new_sig);
+    if (s == NULL) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise_nomem(emit->raiser);
+    }
+
+    /* There are args_collected/2 pairs, but write in the number of items. This
+       keeps things consistent with o_build_list and calls. */
+    WRITE_PREP_LARGE(ast->args_collected + 4)
+    m->code[m->pos] = o_build_hash;
+    m->code[m->pos+1] = ast->line_num;
+    m->code[m->pos+2] = ast->args_collected;
+
+    /* The trees are linked together as key, value, key, value, ...
+       Write them out like that too. vm and debug can follow along since the
+       number of values is given. */
+    for (i = 3, tree_iter = ast->arg_start;
+        tree_iter != NULL;
+        i += 2, tree_iter = tree_iter->next_arg->next_arg) {
+        m->code[m->pos + i] = tree_iter->result->reg_spot;
+        m->code[m->pos + i + 1] = tree_iter->next_arg->result->reg_spot;
+    }
+    m->code[m->pos+i] = s->reg_spot;
+
+    m->pos += 4 + ast->args_collected;
+    ast->result = (lily_sym *)s;
+}
+
 /* This walks an ast of type tree_list, which indicates a static list to be
    build (ex: x = [1, 2, 3, 4...] or x = ["1", "2", "3", "4"]).
    The values start in ast->arg_start, and end when ->next_arg is NULL.
@@ -1472,6 +1587,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast)
     }
     else if (ast->tree_type == tree_list)
         eval_build_list(emit, ast);
+    else if (ast->tree_type == tree_hash)
+        eval_build_hash(emit, ast);
     else if (ast->tree_type == tree_subscript)
         eval_subscript(emit, ast);
     else if (ast->tree_type == tree_typecast)

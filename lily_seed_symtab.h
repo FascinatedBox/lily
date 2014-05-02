@@ -10,22 +10,27 @@ typedef const struct {
     char *name;
     int is_refcounted;
     int template_count;
+    int flags;
     gc_marker_func gc_marker;
 } class_seed;
 
+/* Note: If CLS_VALID_HASH_KEY is added to other classes, the vm will need to be
+         updated to hash those classes right. It will also need ErrNoSuchKey
+         printing to be touched up for that. Other things may also need updating
+         too. */
 class_seed class_seeds[9] =
 {
-    {"integer",  0, 0, NULL},
-    {"number",   0, 0, NULL},
-    {"str",      1, 0, NULL},
-    {"function", 0, 0, NULL},
-    {"object",   1, 0, &lily_gc_object_marker},
-    {"method",   1, 0, NULL},
-    {"list",     1, 1, &lily_gc_list_marker},
-    {"hash",     1, 2, &lily_gc_hash_marker},
+    {"integer",  0, 0, CLS_VALID_HASH_KEY, NULL},
+    {"number",   0, 0, CLS_VALID_HASH_KEY, NULL},
+    {"str",      1, 0, CLS_VALID_HASH_KEY, NULL},
+    {"function", 0, 0, 0,                  NULL},
+    {"object",   1, 0, 0,                  &lily_gc_object_marker},
+    {"method",   1, 0, 0,                  NULL},
+    {"list",     1, 1, 0,                  &lily_gc_list_marker},
+    {"hash",     1, 2, 0,                  &lily_gc_hash_marker},
     /* * is the name of the template class. This was chosen because it's not a
        valid name so the user can't directly declare members of it. */
-    {"*",        0, 0, NULL}
+    {"*",        0, 0, 0,                  NULL}
 };
 
 typedef const struct {
