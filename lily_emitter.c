@@ -270,8 +270,8 @@ static lily_storage *get_storage(lily_emit_state *emit,
 
         if (ret != NULL) {
             ret->expr_num = expr_num;
-            /* Non-method blocks inherit their storage start from the method block
-            that they are in. */
+            /* Non-method blocks inherit their storage start from the method
+               block that they are in. */
             if (emit->current_block->storage_start == NULL) {
                 if (emit->current_block->block_type == BLOCK_METHOD)
                     /* Easy mode: Just fill in for the method. */
