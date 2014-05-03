@@ -852,10 +852,13 @@ lily_sig *lily_ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
         iter_sig = iter_sig->next;
     }
 
-    /* Special case: Lists holding something that can be circular are
-       marked as circular themselves. */
-    if (input_sig->cls->id == SYM_CLASS_LIST &&
-        input_sig->siglist[0]->flags & SIG_MAYBE_CIRCULAR)
+    /* Lists that hold something circular can be something circular themselves.
+       Hashes are circular if they have a value that's circular (the key is
+       never circular). */
+    if ((input_sig->cls->id == SYM_CLASS_LIST &&
+         input_sig->siglist[0]->flags & SIG_MAYBE_CIRCULAR) ||
+        (input_sig->cls->id == SYM_CLASS_HASH &&
+         input_sig->siglist[1]->flags & SIG_MAYBE_CIRCULAR))
         input_sig->flags |= SIG_MAYBE_CIRCULAR;
 
     if (match) {
