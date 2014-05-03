@@ -184,7 +184,7 @@ static void grow_patches(lily_emit_state *emit)
 
 /* try_add_storage
    Attempt to add a new storage to emitter's chain of storages with the given
-   signature. This should be seen as a helper for try_get_storage, and not used
+   signature. This should be seen as a helper for get_storage, and not used
    outside of it.
    On success, the newly created storage is returned.
    On failure, NULL is returned. */
@@ -211,16 +211,23 @@ static lily_storage *try_add_storage(lily_emit_state *emit, lily_sig *sig)
     return ret;
 }
 
-/* try_get_storage
-   This attempts to get a storage that contains the given signature. This may
-   repurpose an unused storage (wherein the sig is NULL). It will attempt to
-   create a new storage if there are no unused ones on the emitter's storage
-   chain.
-   Additionally, this starts the storage search based on the current block's
-   first storage. This is so that methods inside of methods don't touch storages
-   of outside methods (which already have registers). */
-static lily_storage *try_get_storage(lily_emit_state *emit,
-        lily_sig *sig)
+/*  get_storage
+    Attempt to get an available storage register for the given signature. This
+    will first attempt to get an available storage in the current method, then
+    try to create a new one. This has the side-effect of fixing storage_start in
+    the event that storage_start is NULL. This fixup is done up to the current
+    method block.
+
+    emit:     The emitter to search for a storage in.
+    sig:      The signature to search for.
+    line_num: If a storage cannot be obtained, lily_raise_nomem is called after
+              fixing the raiser's line number to line_num. This cuts down on
+              boilerplate code from checking that obtaining a storage succeded.
+
+    This call shall either return a valid storage of the given signature, or
+    raise ErrNoMem with the given line_num.*/
+static lily_storage *get_storage(lily_emit_state *emit,
+        lily_sig *sig, int line_num)
 {
     lily_storage *ret = NULL;
     lily_storage *start = emit->current_block->storage_start;
@@ -260,31 +267,36 @@ static lily_storage *try_get_storage(lily_emit_state *emit,
 
     if (ret == NULL) {
         ret = try_add_storage(emit, sig);
-        if (ret == NULL)
-            return NULL;
 
-        ret->expr_num = expr_num;
-        /* Non-method blocks inherit their storage start from the method block
-           that they are in. */
-        if (emit->current_block->storage_start == NULL) {
-            if (emit->current_block->block_type == BLOCK_METHOD)
-                /* Easy mode: Just fill in for the method. */
-                emit->current_block->storage_start = ret;
-            else {
-                /* Non-method block, so keep setting storage_start until the
-                   method block is reached. This will allow other blocks to use
-                   this storage. This is also important because not doing this
-                   causes the method block to miss this storage when the method
-                   is being finalized. */
-                lily_block *block = emit->current_block;
-                while (block->block_type != BLOCK_METHOD) {
+        if (ret != NULL) {
+            ret->expr_num = expr_num;
+            /* Non-method blocks inherit their storage start from the method block
+            that they are in. */
+            if (emit->current_block->storage_start == NULL) {
+                if (emit->current_block->block_type == BLOCK_METHOD)
+                    /* Easy mode: Just fill in for the method. */
+                    emit->current_block->storage_start = ret;
+                else {
+                    /* Non-method block, so keep setting storage_start until the
+                       method block is reached. This will allow other blocks to
+                       use this storage. This is also important because not
+                       doing this causes the method block to miss this storage
+                       when the method is being finalized. */
+                    lily_block *block = emit->current_block;
+                    while (block->block_type != BLOCK_METHOD) {
+                        block->storage_start = ret;
+                        block = block->prev;
+                    }
+
                     block->storage_start = ret;
-                    block = block->prev;
                 }
-
-                block->storage_start = ret;
             }
         }
+    }
+
+    if (ret == NULL) {
+        emit->raiser->line_adjust = line_num;
+        lily_raise_nomem(emit->raiser);
     }
 
     return ret;
@@ -383,11 +395,7 @@ static void emit_obj_assign(lily_emit_state *emit, lily_ast *ast)
 {
     lily_method_val *m = emit->top_method;
     lily_class *obj_class = lily_class_by_id(emit->symtab, SYM_CLASS_OBJECT);
-    lily_storage *storage = try_get_storage(emit, obj_class->sig);
-    if (storage == NULL) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise_nomem(emit->raiser);
-    }
+    lily_storage *storage = get_storage(emit, obj_class->sig, ast->line_num);
 
     WRITE_4(o_obj_assign,
             ast->line_num,
@@ -543,11 +551,7 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
            bool class (yet), so an integer class is used instead. */
         storage_class = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
 
-    s = try_get_storage(emit, storage_class->sig);
-    if (s == NULL) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise_nomem(emit->raiser);
-    }
+    s = get_storage(emit, storage_class->sig, ast->line_num);
 
     WRITE_5(opcode,
             ast->line_num,
@@ -784,11 +788,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 
         /* The literals need to be pulled into storages before they can be used,
            so grab two more for them. */
-        result = try_get_storage(emit, cls->sig);
-        if (result == NULL) {
-            emit->raiser->line_adjust = ast->line_num;
-            lily_raise_nomem(emit->raiser);
-        }
+        result = get_storage(emit, cls->sig, ast->line_num);
 
         /* The symtab adds literals 0 and 1 in that order during its init. */
         success_lit = symtab->lit_start;
@@ -904,9 +904,7 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
         /* For a compound assignment to work, the left side must be subscripted
            to get the value held. */
 
-        lily_storage *subs_storage = try_get_storage(emit, elem_sig);
-        if (subs_storage == NULL)
-            lily_raise_nomem(emit->raiser);
+        lily_storage *subs_storage = get_storage(emit, elem_sig, ast->line_num);
 
         WRITE_5(o_subscript,
                 ast->line_num,
@@ -953,11 +951,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     }
     else if (cast_sig->cls->id == SYM_CLASS_OBJECT) {
         /* An object assign will work here. */
-        lily_storage *storage = try_get_storage(emit, cast_sig);
-        if (storage == NULL) {
-            emit->raiser->line_adjust = ast->line_num;
-            lily_raise_nomem(emit->raiser);
-        }
+        lily_storage *storage = get_storage(emit, cast_sig, ast->line_num);
 
         WRITE_4(o_obj_assign,
                 ast->line_num,
@@ -972,7 +966,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 
     if (var_sig->cls->id == SYM_CLASS_OBJECT) {
         cast_opcode = o_obj_typecast;
-        result = try_get_storage(emit, cast_sig);
+        result = get_storage(emit, cast_sig, ast->line_num);
     }
     else {
         if ((var_sig->cls->id == SYM_CLASS_INTEGER &&
@@ -981,7 +975,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
              cast_sig->cls->id == SYM_CLASS_INTEGER))
         {
             cast_opcode = o_intnum_typecast;
-            result = try_get_storage(emit, cast_sig);
+            result = get_storage(emit, cast_sig, ast->line_num);
         }
         else {
             cast_opcode = -1;
@@ -991,11 +985,6 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
                        "Cannot cast type '%T' to type '%T'.\n",
                        var_sig, cast_sig);
         }
-    }
-
-    if (result == NULL) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise_nomem(emit->raiser);
     }
 
     WRITE_4(cast_opcode,
@@ -1028,11 +1017,7 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
 
     lily_class *integer_cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
 
-    storage = try_get_storage(emit, integer_cls->sig);
-    if (storage == NULL) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise_nomem(emit->raiser);
-    }
+    storage = get_storage(emit, integer_cls->sig, ast->line_num);
 
     if (ast->op == expr_unary_minus)
         opcode = o_unary_minus;
@@ -1070,11 +1055,7 @@ static void cast_ast_list_to(lily_emit_state *emit, lily_ast *list_ast,
     for (arg = list_ast->arg_start;
          arg != NULL;
          arg = arg->next_arg) {
-        lily_storage *obj_store = try_get_storage(emit, cls->sig);
-        if (obj_store == NULL) {
-            emit->raiser->line_adjust = arg->line_num;
-            lily_raise_nomem(emit->raiser);
-        }
+        lily_storage *obj_store = get_storage(emit, cls->sig, arg->line_num);
 
         /* This is weird. The ast has to be walked, so technically things on
            future line numbers have been executed. At the same time, it would
@@ -1174,11 +1155,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
     new_sig->siglist_size = 2;
     new_sig = lily_ensure_unique_sig(emit->symtab, new_sig);
 
-    lily_storage *s = try_get_storage(emit, new_sig);
-    if (s == NULL) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise_nomem(emit->raiser);
-    }
+    lily_storage *s = get_storage(emit, new_sig, ast->line_num);
 
     write_build_op(emit, o_build_hash, ast->arg_start, ast->line_num,
             ast->args_collected, s->reg_spot);
@@ -1248,11 +1225,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
     new_sig->siglist_size = 1;
     new_sig = lily_ensure_unique_sig(emit->symtab, new_sig);
 
-    lily_storage *s = try_get_storage(emit, new_sig);
-    if (s == NULL) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise_nomem(emit->raiser);
-    }
+    lily_storage *s = get_storage(emit, new_sig, ast->line_num);
 
     write_build_op(emit, o_build_list, ast->arg_start, ast->line_num,
             ast->args_collected, s->reg_spot);
@@ -1284,11 +1257,7 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
     lily_sig *sig_for_result = var_sig->siglist[0];
     lily_storage *result;
 
-    result = try_get_storage(emit, sig_for_result);
-    if (result == NULL) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise_nomem(emit->raiser);
-    }
+    result = get_storage(emit, sig_for_result, ast->line_num);
 
     WRITE_5(o_subscript,
             ast->line_num,
@@ -1378,11 +1347,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         i = (have_args - i);
         if (is_method) {
             lily_storage *s;
-            s = try_get_storage(emit, save_sig);
-            if (s == NULL) {
-                emit->raiser->line_adjust = ast->line_num;
-                lily_raise_nomem(emit->raiser);
-            }
+            s = get_storage(emit, save_sig, ast->line_num);
 
             /* Put all of the extra arguments into a list, then fix the ast so
                eval_call has the right args and argument count.
@@ -1448,11 +1413,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     check_call_args(emit, ast, call_sig);
 
     if ((call_sym->flags & SYM_SCOPE_GLOBAL) && emit->method_depth > 1) {
-        lily_storage *storage = try_get_storage(emit, call_sym->sig);
-        if (storage == NULL) {
-            emit->raiser->line_adjust = ast->line_num;
-            lily_raise_nomem(emit->raiser);
-        }
+        lily_storage *storage = get_storage(emit, call_sym->sig, ast->line_num);
 
         WRITE_4(o_get_global,
                 ast->line_num,
@@ -1480,11 +1441,8 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     }
 
     if (call_sig->siglist[0] != NULL) {
-        lily_storage *storage = try_get_storage(emit, call_sig->siglist[0]);
-        if (storage == NULL) {
-            emit->raiser->line_adjust = ast->line_num;
-            lily_raise_nomem(emit->raiser);
-        }
+        lily_storage *storage = get_storage(emit, call_sig->siglist[0],
+                ast->line_num);
 
         ast->result = (lily_sym *)storage;
         m->code[m->pos+i] = ast->result->reg_spot;
@@ -1515,11 +1473,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     lily_storage *ret;
 
     if (ast->result->flags & SYM_TYPE_LITERAL) {
-        ret = try_get_storage(emit, ast->result->sig);
-        if (ret == NULL) {
-            emit->raiser->line_adjust = ast->line_num;
-            lily_raise_nomem(emit->raiser);
-        }
+        ret = get_storage(emit, ast->result->sig, ast->line_num);
 
         WRITE_4(o_get_const,
                 ast->line_num,
@@ -1529,11 +1483,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
         ast->result = (lily_sym *)ret;
     }
     else if (ast->result->flags & SYM_TYPE_VAR) {
-        ret = try_get_storage(emit, ast->result->sig);
-        if (ret == NULL) {
-            emit->raiser->line_adjust = ast->line_num;
-            lily_raise_nomem(emit->raiser);
-        }
+        ret = get_storage(emit, ast->result->sig, ast->line_num);
 
         /* We'll load this from an absolute position within __main__. */
         WRITE_4(o_get_global,
