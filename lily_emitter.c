@@ -338,6 +338,43 @@ static lily_block *try_new_block(void)
     return ret;
 }
 
+/*  write_build_op
+
+    This is responsible for writing the actual o_build_list or o_build_hash
+    code, depending on the opcode given. The list will be put into a register
+    at reg_spot, which is assumed to have the correct type to hold the given
+    list.
+
+    emit:       The emitter holding the method to write to.
+    opcode:     The opcode to write: o_build_list for a list, o_build_hash for a
+                hash.
+    first_arg:  The first argument to start iterating over.
+    line_num:   A line number for the o_build_* opcode.
+    num_values: The number of values that will be written. This is typically
+                the parent's args_collected.
+    reg_spot:   The id of a register where the opcode's result will go. The
+                caller is expected to ensure that the register has the proper
+                type to hold the resulting list.
+*/
+static void write_build_op(lily_emit_state *emit, int opcode,
+        lily_ast *first_arg, int line_num, int num_values, int reg_spot)
+{
+    lily_method_val *m = emit->top_method;
+    int i;
+    lily_ast *arg;
+
+    WRITE_PREP_LARGE(num_values + 4)
+    m->code[m->pos] = opcode;
+    m->code[m->pos+1] = first_arg->line_num;
+    m->code[m->pos+2] = num_values;
+
+    for (i = 3, arg = first_arg; arg != NULL; arg = arg->next_arg, i++)
+        m->code[m->pos + i] = arg->result->reg_spot;
+
+    m->code[m->pos+i] = reg_spot;
+    m->pos += 4 + num_values;
+}
+
 /* emit_obj_assign
    The given ast is a non-object, and the caller has checked that an object is
    wanted. This converts the ast's result so that it contains an object by
@@ -1066,10 +1103,9 @@ static void cast_ast_list_to(lily_emit_state *emit, lily_ast *list_ast,
     ast:  An ast of type tree_hash. */
 static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_method_val *m = emit->top_method;
     lily_sig *key_sig, *value_sig;
     lily_ast *tree_iter;
-    int i, make_objs;
+    int make_objs;
 
     key_sig = NULL;
     value_sig = NULL;
@@ -1144,25 +1180,8 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
         lily_raise_nomem(emit->raiser);
     }
 
-    /* There are args_collected/2 pairs, but write in the number of items. This
-       keeps things consistent with o_build_list and calls. */
-    WRITE_PREP_LARGE(ast->args_collected + 4)
-    m->code[m->pos] = o_build_hash;
-    m->code[m->pos+1] = ast->line_num;
-    m->code[m->pos+2] = ast->args_collected;
-
-    /* The trees are linked together as key, value, key, value, ...
-       Write them out like that too. vm and debug can follow along since the
-       number of values is given. */
-    for (i = 3, tree_iter = ast->arg_start;
-        tree_iter != NULL;
-        i += 2, tree_iter = tree_iter->next_arg->next_arg) {
-        m->code[m->pos + i] = tree_iter->result->reg_spot;
-        m->code[m->pos + i + 1] = tree_iter->next_arg->result->reg_spot;
-    }
-    m->code[m->pos+i] = s->reg_spot;
-
-    m->pos += 4 + ast->args_collected;
+    write_build_op(emit, o_build_hash, ast->arg_start, ast->line_num,
+            ast->args_collected, s->reg_spot);
     ast->result = (lily_sym *)s;
 }
 
@@ -1178,10 +1197,9 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
      sig specified. */
 static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_method_val *m = emit->top_method;
     lily_sig *elem_sig = NULL;
     lily_ast *arg;
-    int i, make_objs;
+    int make_objs;
 
     make_objs = 0;
 
@@ -1236,19 +1254,8 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
         lily_raise_nomem(emit->raiser);
     }
 
-    WRITE_PREP_LARGE(ast->args_collected + 4)
-    m->code[m->pos] = o_build_list;
-    m->code[m->pos+1] = ast->line_num;
-    m->code[m->pos+2] = ast->args_collected;
-
-    for (i = 3, arg = ast->arg_start;
-        arg != NULL;
-        arg = arg->next_arg, i++) {
-        m->code[m->pos + i] = arg->result->reg_spot;
-    }
-    m->code[m->pos+i] = s->reg_spot;
-
-    m->pos += 4 + ast->args_collected;
+    write_build_op(emit, o_build_list, ast->arg_start, ast->line_num,
+            ast->args_collected, s->reg_spot);
     ast->result = (lily_sym *)s;
 }
 
@@ -1377,20 +1384,13 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                 lily_raise_nomem(emit->raiser);
             }
 
-            arg = save_arg;
-            lily_method_val *m = emit->top_method;
-            int j = 0;
-            /* This -must- be a large prep, because it could be a very big
-               var arg call at the start of a method. */
-            WRITE_PREP_LARGE(i + 4)
-            m->code[m->pos] = o_build_list;
-            m->code[m->pos+1] = ast->line_num;
-            m->code[m->pos+2] = i;
-            for (j = 3;arg != NULL;arg = arg->next_arg, j++)
-                m->code[m->pos+j] = arg->result->reg_spot;
+            /* Put all of the extra arguments into a list, then fix the ast so
+               eval_call has the right args and argument count.
 
-            m->code[m->pos+j] = s->reg_spot;
-            m->pos += j+1;
+               save_arg's line number is used in case the varargs is on a
+               different line than the opening (. */
+            write_build_op(emit, o_build_list, save_arg, save_arg->line_num, i,
+                    s->reg_spot);
             save_arg->result = (lily_sym *)s;
             save_arg->next_arg = NULL;
             ast->args_collected = num_args + 1;
