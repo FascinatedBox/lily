@@ -1419,6 +1419,12 @@ method test_hashes():nil
     # gets the value.
     hash[str, str] str_str_map_two = ["a" => "a", "a" => "b", "a" => "c",
                                       "d" => "e"]
+
+    # Test for object defaulting with duplicate keys.
+    hash[str, object] str_obj_map = ["a" => "1", "b" => 2, "c" => 2, "a" => 1]
+
+    object nil_obj
+    hash[str, object] str_obj_map_2 = ["a" => nil_obj, "b" => 11, "b" => nil_obj]
 }
 
 method test_misc():nil

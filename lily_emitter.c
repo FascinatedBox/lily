@@ -1034,6 +1034,42 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)storage;
 }
 
+/*  hash_values_to_objects
+
+    This converts all of the values of the given ast into objects using
+    o_obj_assign. The result of each value is rewritten to be the object,
+    instead of the old value.
+
+    emit:     The emitter holding the method to write code to.
+    hash_ast: An ast of type tree_hash which has already been evaluated.
+
+    Caveats:
+    * Caller must do this before writing the o_build_hash instruction out.
+    * Caller must evaluate the hash before calling this.
+    * This will call lily_raise_nomem in the event of being unable to allocate
+      an object value. */
+static void emit_hash_values_to_objects(lily_emit_state *emit,
+        lily_ast *hash_ast)
+{
+    /* The keys and values are in hash_ast as args. Since they're in pairs and
+       this only modifies the values, this is how many values there are. */
+    int value_count = hash_ast->args_collected / 2;
+    lily_method_val *m = emit->top_method;
+
+    /* Make a single large prep that will cover everything needed. This ensures
+       that any growing will be done all at once, instead of in smaller
+       blocks. */
+    WRITE_PREP_LARGE(value_count * 4)
+
+    lily_ast *iter_ast;
+    for (iter_ast = hash_ast->arg_start;
+         iter_ast != NULL;
+         iter_ast = iter_ast->next_arg->next_arg) {
+
+        emit_obj_assign(emit, iter_ast->next_arg);
+    }
+}
+
 /* cast_ast_list_to
    This converts the results of the list_ast (type tree_list) to the given sig.
    The caller is expected to verify that the cast is valid. */
@@ -1131,10 +1167,15 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
         if (value_tree->result->sig != value_sig) {
             if (value_sig == NULL)
                 value_sig = value_tree->result->sig;
-            else {
+            else
                 make_objs = 1;
-            }
         }
+    }
+
+    if (make_objs == 1) {
+        lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_OBJECT);
+        value_sig = cls->sig;
+        emit_hash_values_to_objects(emit, ast);
     }
 
     lily_class *hash_cls = lily_class_by_id(emit->symtab, SYM_CLASS_HASH);
