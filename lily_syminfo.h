@@ -97,6 +97,7 @@ typedef struct lily_hash_elem_t {
 
 typedef struct lily_hash_val_t {
     int refcount;
+    struct lily_gc_entry_t *gc_entry;
     int visited;
     int num_elems;
     lily_hash_elem *elem_chain;

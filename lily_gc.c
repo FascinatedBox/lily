@@ -15,6 +15,8 @@ void lily_gc_collect_value(lily_sig *value_sig, lily_value value)
 
     if (entry_cls_id == SYM_CLASS_LIST)
         lily_gc_collect_list(value_sig, value.list);
+    else if (entry_cls_id == SYM_CLASS_HASH)
+        lily_gc_collect_hash(value_sig, value.hash);
     else if (entry_cls_id == SYM_CLASS_OBJECT)
         lily_gc_collect_object(value.object);
     else
@@ -89,6 +91,60 @@ void lily_gc_collect_list(lily_sig *list_sig, lily_list_val *list_val)
     }
 }
 
+/*  lily_gc_collect_hash
+
+    This call is responsible for destroying a hash value. This can be called
+    directly from the gc through lily_gc_collect_value, or it may be called for
+    values inside something circular.
+
+    This code is pretty similar to lily_gc_collect_list, except that the
+    elements are in a linked list and only the hash value may be circular.
+
+    The values in the hash (inner values) are deref'd (or deleted if at 1 ref).
+    The actual hash is not deleted if there is a gc entry, because subsequent
+    entries may circularly link to it. In such a case, the gc will do a final
+    sweep of the hash value.
+
+    * hash_sig: The signature of the hash given.
+    * hash_val: The hash value to destroy the inner values of. If this hash
+                value does not have a gc entry, it will be deleted as well. */
+void lily_gc_collect_hash(lily_sig *hash_sig, lily_hash_val *hash_val)
+{
+    int marked = 0;
+    if (hash_val->gc_entry == NULL ||
+        (hash_val->gc_entry->last_pass != -1 &&
+         hash_val->gc_entry->value.generic != NULL)) {
+
+        lily_sig *hash_value_sig = hash_sig->siglist[1];
+
+        if (hash_val->gc_entry) {
+            hash_val->gc_entry->last_pass = -1;
+
+            marked = 1;
+        }
+
+        if (hash_value_sig->cls->is_refcounted) {
+            lily_hash_elem *elem_iter = hash_val->elem_chain;
+            lily_hash_elem *elem_temp;
+            while (elem_iter) {
+                elem_temp = elem_iter->next;
+                if ((elem_iter->flags & SYM_IS_NIL) == 0) {
+                    lily_value v = elem_iter->value;
+                    if (v.generic->refcount == 1)
+                        lily_gc_collect_value(hash_value_sig, v);
+                    else
+                        v.generic->refcount--;
+                }
+                lily_free(elem_iter);
+                elem_iter = elem_temp;
+            }
+        }
+
+        if (marked == 0)
+            lily_free(hash_val);
+    }
+}
+
 /** gc 'marker' functions.
     These are responsible for diving into values with a gc_entry attached and
     setting ->last_pass to the pass given. This is how the mark phase of the
@@ -96,8 +152,24 @@ void lily_gc_collect_list(lily_sig *list_sig, lily_list_val *list_val)
 
 void lily_gc_hash_marker(int pass, lily_sig *value_sig, lily_value v)
 {
-    /* todo: Do this after doing static hashes. */
-    return;
+    lily_hash_val *hash_val = v.hash;
+    if (hash_val->gc_entry &&
+        hash_val->gc_entry->last_pass != pass) {
+        hash_val->gc_entry->last_pass = pass;
+
+        lily_sig *hash_value_sig = value_sig->siglist[1];
+        void (*gc_marker)(int, lily_sig *, lily_value);
+
+        gc_marker = hash_value_sig->cls->gc_marker;
+
+        lily_hash_elem *elem_iter = hash_val->elem_chain;
+        while (elem_iter) {
+            if ((elem_iter->flags & SYM_IS_NIL) == 0)
+                gc_marker(pass, hash_value_sig, elem_iter->value);
+
+            elem_iter = elem_iter->next;
+        }
+    }
 }
 
 void lily_gc_object_marker(int pass, lily_sig *value_sig, lily_value v)
