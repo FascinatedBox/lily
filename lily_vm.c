@@ -1215,6 +1215,7 @@ void op_build_hash(lily_vm_state *vm, uintptr_t *code, int code_pos)
                 }
                 obj_val->sig = value_reg->value.object->sig;
                 obj_val->value = value_reg->value.object->value;
+                elem->value.object = obj_val;
                 elem->flags &= ~SYM_IS_NIL;
             }
         }

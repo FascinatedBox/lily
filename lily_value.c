@@ -9,6 +9,9 @@ void lily_deref_hash_val(lily_sig *sig, lily_hash_val *hv)
 {
     hv->refcount--;
     if (hv->refcount == 0) {
+        if (hv->gc_entry != NULL)
+            hv->gc_entry->value.generic = NULL;
+
         lily_sig *value_sig = sig->siglist[1];
         int value_cls_id = value_sig->cls->id;
         int value_is_refcounted = value_sig->cls->is_refcounted;
@@ -198,6 +201,7 @@ lily_hash_val *lily_try_new_hash_val()
     if (h == NULL)
         return NULL;
 
+    h->gc_entry = NULL;
     h->refcount = 1;
     h->visited = 0;
     h->num_elems = 0;
