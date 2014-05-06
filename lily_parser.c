@@ -750,12 +750,12 @@ static void expression_value(lily_parse_state *parser)
                         continue;
                 }
                 else {
-                    if (var->method_depth == parser->emit->method_depth)
-                        /* In this current scope? Load as a local var. */
-                        lily_ast_push_local_var(parser->ast_pool, var);
-                    else if (var->method_depth == 1)
+                    if (var->method_depth == 1)
                         /* It's in __main__ as a global. */
                         lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
+                    else if (var->method_depth == parser->emit->method_depth)
+                        /* In this current scope? Load as a local var. */
+                        lily_ast_push_local_var(parser->ast_pool, var);
                     else
                         /* todo: Handle upvalues later, maybe. */
                         lily_raise(parser->raiser, lily_ErrSyntax,
