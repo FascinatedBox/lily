@@ -19,8 +19,6 @@ typedef struct {
        This is important for keeping track of signature information. */
     lily_var *old_method_chain;
 
-    int scope;
-
     lily_class **classes;
     int class_pos;
     int class_size;

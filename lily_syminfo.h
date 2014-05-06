@@ -165,18 +165,17 @@ typedef struct lily_register_info_t {
     int line_num;
 } lily_register_info;
 
-#define SYM_SCOPE_GLOBAL       0x01
-#define SYM_TYPE_LITERAL       0x02
-#define SYM_TYPE_VAR           0x04
-#define SYM_TYPE_STORAGE       0x10
+#define SYM_TYPE_LITERAL       0x01
+#define SYM_TYPE_VAR           0x02
+#define SYM_TYPE_STORAGE       0x04
 /* If a symbol doesn't have a value, then the symbol's flags are set to S_IS_NIL
    to indicate such. Lists contain an array of flags for each of their symbols.
    S_IS_NIL is set if a particular position in a list is nil. However, lists do
    not use any of the above flags, because only values are stored in lists. */
-#define SYM_IS_NIL             0x20
+#define SYM_IS_NIL             0x10
 /* This var is out of scope. This is set when a var in a non-method block goes
    out of scope. */
-#define SYM_OUT_OF_SCOPE       0x40
+#define SYM_OUT_OF_SCOPE       0x20
 
 /* Registers are allocated to hold values for calls. Opcodes reference registers
    instead of specific addresses. */

@@ -104,6 +104,9 @@ m->code[m->pos+4] = five; \
 m->pos += 5;
 
 # define IS_LOOP_BLOCK(b) (b & (BLOCK_WHILE | BLOCK_DO_WHILE | BLOCK_FOR_IN))
+# define GLOBAL_LOAD_CHECK(sym) \
+    ((sym->flags & SYM_TYPE_VAR) && \
+     ((lily_var *)sym)->method_depth == 1)
 
 /** Emitter init and deletion **/
 lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
@@ -725,7 +728,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
         right_sym = ast->result;
     }
 
-    if ((left_sym->flags & SYM_SCOPE_GLOBAL) && emit->method_depth > 1)
+    if (GLOBAL_LOAD_CHECK(left_sym))
         opcode = o_set_global;
 
     /* If assign can be optimized out, then rewrite the last result to point to
@@ -1453,7 +1456,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
 
     check_call_args(emit, ast, call_sig);
 
-    if ((call_sym->flags & SYM_SCOPE_GLOBAL) && emit->method_depth > 1) {
+    if (GLOBAL_LOAD_CHECK(call_sym)) {
         lily_storage *storage = get_storage(emit, call_sym->sig, ast->line_num);
 
         WRITE_4(o_get_global,
@@ -1830,8 +1833,7 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
    of the ast. Type-checking is intentionally NOT performed. */
 void lily_emit_show(lily_emit_state *emit, lily_ast *ast)
 {
-    int is_global = (ast->tree_type == tree_var &&
-                     ast->result->flags & SYM_SCOPE_GLOBAL);
+    int is_global = (ast->tree_type == tree_var);
 
     /* Don't eval if it's a global var and nothing more. This makes it so
        globals show with their name and their proper register. Otherwise, the
@@ -1870,7 +1872,7 @@ static void add_var_chain_to_info(lily_emit_state *emit,
 {
     if (emit->method_depth > 1) {
         while (var) {
-            if ((var->flags & SYM_SCOPE_GLOBAL) == 0) {
+            if (var->method_depth > 1) {
                 info[var->reg_spot].sig = var->sig;
                 info[var->reg_spot].name = var->name;
                 info[var->reg_spot].class_name = class_name;
@@ -1945,7 +1947,7 @@ static void finalize_method_val(lily_emit_state *emit, lily_block *method_block)
         lily_var *var_temp;
         while (var_iter) {
             var_temp = var_iter->next;
-            if ((var_iter->flags & SYM_SCOPE_GLOBAL) == 0)
+            if (var_iter->method_depth > 1)
                 lily_free(var_iter);
             else {
                 /* This is a declared method that was placed into a register of
@@ -2058,7 +2060,6 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         v->value.method->trace_name = v->name;
         /* All declared methods are loaded into __main__'s registers for later
            access. */
-        v->flags |= SYM_SCOPE_GLOBAL;
         v->flags &= ~(SYM_IS_NIL);
         v->method_depth = 1;
 
@@ -2068,8 +2069,6 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         /* Make sure registers start at 0 again. This will be restored when this
            method leaves. */
         emit->symtab->next_register_spot = 0;
-        /* All vars should now be created in a local scope. */
-        emit->symtab->scope = 0;
         /* This method's storages start where the unused ones start, or NULL if
            all are currently taken. */
         new_block->storage_start = emit->unused_storage_start;
@@ -2113,9 +2112,6 @@ static void leave_method(lily_emit_state *emit, lily_block *block)
     emit->top_var = v;
     emit->top_method_ret = v->sig->siglist[0];
     emit->method_depth--;
-    /* If returning to __main__, all vars default to a global scope again. */
-    if (emit->method_depth == 1)
-        emit->symtab->scope = SYM_SCOPE_GLOBAL;
 }
 
 /* lily_emit_leave_block

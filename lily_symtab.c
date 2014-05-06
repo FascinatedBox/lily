@@ -48,7 +48,7 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
         return NULL;
     }
 
-    var->flags = symtab->scope | SYM_IS_NIL | SYM_TYPE_VAR;
+    var->flags = SYM_IS_NIL | SYM_TYPE_VAR;
     strcpy(var->name, name);
     var->line_num = *symtab->lex_linenum;
 
@@ -397,7 +397,6 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
         return NULL;
 
     symtab->next_register_spot = 0;
-    symtab->scope = SYM_SCOPE_GLOBAL;
     symtab->class_pos = 0;
     symtab->class_size = INITIAL_CLASS_SIZE;
     symtab->var_start = NULL;
