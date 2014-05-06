@@ -127,12 +127,13 @@ else if (lhs_reg->sig->cls->id == SYM_CLASS_STR) { \
 vm_regs[code[code_pos+4]]->flags &= ~SYM_IS_NIL; \
 code_pos += 5;
 
-/* This intentionally takes the input sym as 'to' and the flags for 'from'. It
-   does that so accidentally reversing the arguments will trigger a compile
-   error instead of working. This also helps to make what's being set a little
-   more obvious, since there is only one sym given. */
-#define COPY_NIL_FLAG(to, from) \
-to->flags = (to->flags & ~SYM_IS_NIL) ^ (from & SYM_IS_NIL);
+/*  COPY_FLAGS_TO_FROM
+    This is a handy macro for copying the flags from one register to another.
+    It has also been named such that there is no confusion to the order of
+    arguments. This order was chosen because it acts like an assignment (to is
+    left, from is right). */
+#define COPY_FLAGS_TO_FROM(to, from) \
+to->flags = (to->flags & ~SYM_IS_NIL) ^ (from->flags & SYM_IS_NIL);
 
 /** vm init and deletion **/
 lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
@@ -1229,7 +1230,7 @@ void op_build_hash(lily_vm_state *vm, uintptr_t *code, int code_pos)
 
             elem->value = value_reg->value;
             elem->flags = value_reg->flags;
-            COPY_NIL_FLAG(elem, value_reg->flags)
+            COPY_FLAGS_TO_FROM(elem, value_reg)
         }
     }
 }
@@ -1455,7 +1456,7 @@ static void prep_registers(lily_vm_state *vm, lily_method_val *mval,
         else
             set_reg->value.integer = 0;
 
-        COPY_NIL_FLAG(set_reg, get_reg->flags)
+        COPY_FLAGS_TO_FROM(set_reg, get_reg)
     }
 
     /* For the rest of the registers, clear whatever value they have. */
@@ -1618,7 +1619,7 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_assign:
                 rhs_reg = vm_regs[code[code_pos+2]];
                 lhs_reg = vm_regs[code[code_pos+3]];
-                COPY_NIL_FLAG(lhs_reg, rhs_reg->flags)
+                COPY_FLAGS_TO_FROM(lhs_reg, rhs_reg)
                 lhs_reg->value = rhs_reg->value;
                 code_pos += 4;
                 break;
@@ -1847,7 +1848,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     if ((lhs_reg->flags & SYM_IS_NIL) == 0)
                         lily_deref_unknown_val(lhs_reg->sig, lhs_reg->value);
                 }
-                COPY_NIL_FLAG(lhs_reg, rhs_reg->flags)
+                COPY_FLAGS_TO_FROM(lhs_reg, rhs_reg)
                 lhs_reg->value = rhs_reg->value;
 
                 /* DO NOT BREAK HERE.
@@ -1879,7 +1880,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     if ((lhs_reg->flags & SYM_IS_NIL) == 0)
                         lily_deref_unknown_val(lhs_reg->sig, lhs_reg->value);
                 }
-                COPY_NIL_FLAG(lhs_reg, rhs_reg->flags)
+                COPY_FLAGS_TO_FROM(lhs_reg, rhs_reg)
                 lhs_reg->value = rhs_reg->value;
                 code_pos += 4;
                 break;
@@ -1898,7 +1899,7 @@ void lily_vm_execute(lily_vm_state *vm)
                             lily_deref_unknown_val(lhs_reg->sig, lhs_reg->value);
                     }
 
-                    COPY_NIL_FLAG(lhs_reg, rhs_reg->flags)
+                    COPY_FLAGS_TO_FROM(lhs_reg, rhs_reg)
                     lhs_reg->value = rhs_reg->value;
                 }
                 else
