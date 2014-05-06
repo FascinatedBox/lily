@@ -1068,49 +1068,12 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
 static void op_object_assign(lily_vm_state *vm, lily_vm_register *lhs_reg,
         lily_vm_register *rhs_reg)
 {
-    lily_value right_val;
-    lily_sig *right_sig;
-
-    /* If the right side has no value, mark the left's sig as
-       null. This way, the object value doesn't have to be
-       free'd. */
-    if (rhs_reg->sig->cls->id == SYM_CLASS_OBJECT) {
-        if (rhs_reg->flags & SYM_IS_NIL ||
-            rhs_reg->value.object->sig == NULL) {
-            right_val.integer = 0;
-            right_sig = vm->integer_sig;
-        }
-        else {
-            lily_object_val *rhs_obj = rhs_reg->value.object;
-            if (rhs_obj->sig->cls->is_refcounted)
-                rhs_obj->value.generic->refcount++;
-
-            right_val = rhs_obj->value;
-            right_sig = rhs_obj->sig;
-        }
-    }
-    else {
-        /* object = non-object */
-        if (rhs_reg->sig->cls->is_refcounted)
-            rhs_reg->value.generic->refcount++;
-
-        right_val = rhs_reg->value;
-        right_sig = rhs_reg->sig;
-    }
-
     lily_object_val *lhs_obj;
-
-    /* If the lhs register is nil, allocate an object val for
-       it. */
     if (lhs_reg->flags & SYM_IS_NIL) {
         lhs_obj = lily_try_new_object_val();
         if (lhs_obj == NULL ||
             lily_try_add_gc_item(vm, lhs_reg->sig,
                     (lily_generic_gc_val *)lhs_obj) == 0) {
-            /* Something above may have done a ref, but never
-               assigned. Undo that. */
-            if (right_sig->cls->is_refcounted)
-                right_val.generic->refcount--;
 
             lily_free(lhs_obj);
             lily_raise_nomem(vm->raiser);
@@ -1119,20 +1082,40 @@ static void op_object_assign(lily_vm_state *vm, lily_vm_register *lhs_reg,
         lhs_reg->value.object = lhs_obj;
         lhs_reg->flags &= ~SYM_IS_NIL;
     }
-    else {
-        /* Deref what the object contains if the value is
-           refcounted. */
+    else
         lhs_obj = lhs_reg->value.object;
 
-        if (lhs_obj->sig != NULL &&
-            lhs_obj->sig->cls->is_refcounted) {
-            lily_deref_unknown_val(lhs_obj->sig,
-                    lhs_obj->value);
+    lily_sig *new_sig;
+    lily_value new_value;
+
+    if (rhs_reg->sig->cls->id == SYM_CLASS_OBJECT) {
+        if (rhs_reg->flags & SYM_IS_NIL ||
+            rhs_reg->value.object->sig == NULL) {
+
+            new_sig = NULL;
+            new_value.integer = 0;
+        }
+        else {
+            lily_object_val *rhs_obj = rhs_reg->value.object;
+
+            new_sig = rhs_obj->sig;
+            new_value = rhs_obj->value;
         }
     }
+    else {
+        new_sig = rhs_reg->sig;
+        new_value = rhs_reg->value;
+    }
 
-    lhs_obj->sig = right_sig;
-    lhs_obj->value = right_val;
+    if (new_sig && new_sig->cls->is_refcounted)
+        new_value.generic->refcount++;
+
+    if (lhs_obj->sig != NULL &&
+        lhs_obj->sig->cls->is_refcounted)
+        lily_deref_unknown_val(lhs_obj->sig, lhs_obj->value);
+
+    lhs_obj->sig = new_sig;
+    lhs_obj->value = new_value;
 }
 
 void op_build_hash(lily_vm_state *vm, uintptr_t *code, int code_pos)
