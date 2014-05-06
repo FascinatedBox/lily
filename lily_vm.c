@@ -1522,7 +1522,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
         /* This allows o_assign to copy data over without having to check for
            a nil flag. */
         reg->value.integer = 0;
-        reg->flags = SYM_IS_NIL | SYM_SCOPE_GLOBAL;
+        reg->flags = SYM_IS_NIL;
         reg->sig = seed.sig;
     }
 
