@@ -57,6 +57,7 @@ typedef struct lily_object_val_t {
     /* Objects always have a gc_entry, because they can easily circularly
        reference. */
     struct lily_gc_entry_t *gc_entry;
+    int value_flags;
     lily_value value;
     struct lily_sig_t *sig;
 } lily_object_val;
@@ -68,6 +69,14 @@ typedef struct lily_gc_entry_t {
     struct lily_gc_entry_t *next;
 } lily_gc_entry;
 
+/* Registers are allocated to hold values for calls. Opcodes reference registers
+   instead of specific addresses. */
+typedef struct lily_vm_register_t {
+    int flags;
+    struct lily_sig_t *sig;
+    lily_value value;
+} lily_vm_register;
+
 typedef struct lily_list_val_t {
     int refcount;
     /* Lists have a gc_entry ONLY if their signature says they can be circular.
@@ -75,8 +84,7 @@ typedef struct lily_list_val_t {
        point. This avoids creating gc entries for, say, list[integer] which can
        be collected via refcounting. */
     struct lily_gc_entry_t *gc_entry;
-    lily_value *values;
-    int *flags;
+    lily_vm_register **elems;
     int visited;
     int num_values;
 } lily_list_val;
@@ -176,14 +184,6 @@ typedef struct lily_register_info_t {
 /* This var is out of scope. This is set when a var in a non-method block goes
    out of scope. */
 #define SYM_OUT_OF_SCOPE       0x20
-
-/* Registers are allocated to hold values for calls. Opcodes reference registers
-   instead of specific addresses. */
-typedef struct lily_vm_register_t {
-    int flags;
-    lily_sig *sig;
-    lily_value value;
-} lily_vm_register;
 
 typedef struct lily_storage_t {
     int flags;

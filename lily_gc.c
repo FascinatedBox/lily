@@ -66,26 +66,34 @@ void lily_gc_collect_list(lily_sig *list_sig, lily_list_val *list_val)
             marked = 1;
         }
 
+        int i;
+
         /* This is important because this could be a list[str], and the strings
            will need to be free'd. */
         if (value_sig->cls->is_refcounted) {
-            int i;
             for (i = 0;i < list_val->num_values;i++) {
                 /* Pass stuff off to the gc to collect. This will use a typical
                    deref for stuff like str. */
-                if ((list_val->flags[i] & SYM_IS_NIL) == 0) {
-                    lily_value v = list_val->values[i];
+                lily_vm_register *elem = list_val->elems[i];
+                if ((elem->flags & SYM_IS_NIL) == 0) {
+                    lily_value v = elem->value;
                     if (v.generic->refcount == 1)
                         lily_gc_collect_value(value_sig, v);
                     else
                         v.generic->refcount--;
                 }
+                lily_free(elem);
             }
+        }
+        else {
+            /* Still need to free all the list elements, even if not
+               refcounted. */
+            for (i = 0;i < list_val->num_values;i++)
+                lily_free(list_val->elems[i]);
         }
         /* else the values aren't refcounted (ex: list[integer]). No-op. */
 
-        lily_free(list_val->flags);
-        lily_free(list_val->values);
+        lily_free(list_val->elems);
         if (marked == 0)
             lily_free(list_val);
     }
@@ -201,8 +209,10 @@ void lily_gc_list_marker(int pass, lily_sig *value_sig, lily_value v)
 
         if (gc_marker) {
             for (i = 0;i < list_val->num_values;i++) {
-                if ((list_val->flags[i] & SYM_IS_NIL) == 0)
-                    gc_marker(pass, elem_sig, list_val->values[i]);
+                lily_vm_register *elem = list_val->elems[i];
+
+                if ((elem->flags & SYM_IS_NIL) == 0)
+                    gc_marker(pass, elem_sig, elem->value);
             }
         }
     }

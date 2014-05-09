@@ -781,281 +781,6 @@ static lily_hash_elem *try_get_make_hash_elem(lily_hash_val *hash,
     return elem;
 }
 
-static void op_subscript(lily_vm_state *vm, uintptr_t *code, int code_pos)
-{
-    lily_vm_register **vm_regs = vm->vm_regs;
-    lily_vm_register *lhs_reg, *index_reg, *result_reg;
-    int flags, index_int;
-    lily_sig *new_sig;
-    lily_value new_value;
-    lily_hash_elem *hash_elem;
-
-    lhs_reg = vm_regs[code[code_pos + 2]];
-    LOAD_CHECKED_REG(index_reg, code_pos, 3)
-    result_reg = vm_regs[code[code_pos + 4]];
-
-    if (lhs_reg->sig->cls->id == SYM_CLASS_LIST) {
-        LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
-        index_int = index_reg->value.integer;
-
-        /* Too big! */
-        if (index_int >= lhs_reg->value.list->num_values)
-            boundary_error(vm, code_pos, index_int);
-
-        /* todo: Wraparound would be nice. */
-        if (index_int < 0)
-            boundary_error(vm, code_pos, index_int);
-
-        hash_elem = NULL;
-        flags = lhs_reg->value.list->flags[index_int];
-    }
-    else {
-        if (lhs_reg->flags & SYM_IS_NIL) {
-            lily_hash_val *hv = lily_try_new_hash_val();
-            if (hv == NULL)
-                lily_raise_nomem(vm->raiser);
-
-            lhs_reg->value.hash = hv;
-            lhs_reg->flags &= ~SYM_IS_NIL;
-        }
-        uint64_t siphash;
-        siphash = calculate_siphash(vm->sipkey, index_reg->sig,
-                index_reg->value);
-        hash_elem = try_lookup_hash_elem(lhs_reg->value.hash,
-                siphash, index_reg->sig, index_reg->value);
-
-        /* Give up if the key doesn't exist. */
-        if (hash_elem == NULL)
-            no_such_key_error(vm, code_pos, index_reg->sig, index_reg->value);
-
-        index_int = 0;
-        flags = hash_elem->flags;
-    }
-
-    if (result_reg->sig->cls->id == SYM_CLASS_OBJECT) {
-        if ((flags & SYM_IS_NIL) == 0) {
-            lily_object_val *ov;
-            if (hash_elem == NULL)
-                ov = lhs_reg->value.list->values[index_int].object;
-            else
-                ov = hash_elem->value.object;
-
-            new_sig = ov->sig;
-            new_value = ov->value;
-
-            /* Make an object to hold a value if necessary. This is best done
-               before doing the ref, so that the ref doesn't have to be undone
-               if there is an issue. */
-            if (result_reg->flags & SYM_IS_NIL) {
-                lily_object_val *new_ov = lily_try_new_object_val();
-                if (new_ov == NULL ||
-                    lily_try_add_gc_item(vm, result_reg->sig,
-                            (lily_generic_gc_val *)new_ov) == 0) {
-                    lily_free(new_ov);
-                    lily_raise_nomem(vm->raiser);
-                }
-
-                result_reg->value.object = new_ov;
-                result_reg->flags &= ~SYM_IS_NIL;
-            }
-        }
-        else {
-            new_sig = vm->integer_sig;
-            new_value.integer = 0;
-        }
-    }
-    else {
-        new_sig = result_reg->sig;
-        if ((flags & SYM_IS_NIL) == 0) {
-            if (hash_elem == NULL)
-                new_value = lhs_reg->value.list->values[index_int];
-            else
-                new_value = hash_elem->value;
-        }
-    }
-
-    /* Give the new value a ref if it needs one. This should be done before
-       doing the deref to be consistent with other parts of the vm. */
-    if (new_sig &&
-        new_sig->cls->is_refcounted &&
-        ((flags & SYM_IS_NIL) == 0))
-        new_value.generic->refcount++;
-
-    if (result_reg->sig->cls->id == SYM_CLASS_OBJECT) {
-        if ((flags & SYM_IS_NIL) == 0) {
-            /* If the value isn't nil, then an object was made above to hold
-               the new value. */
-            lily_object_val *ov = result_reg->value.object;
-
-            if (ov->sig &&
-                ov->sig->cls->is_refcounted &&
-                (result_reg->flags & SYM_IS_NIL) == 0)
-                lily_deref_unknown_val(ov->sig, ov->value);
-
-            ov->sig = new_sig;
-            ov->value = new_value;
-        }
-        else {
-            if ((result_reg->flags & SYM_IS_NIL) == 0) {
-                result_reg->value.object->sig = NULL;
-                result_reg->value.object->value.integer = 0;
-            }
-        }
-    }
-    else {
-        /* If the result contains a ref'd value, then deref it. */
-        if (result_reg->sig->cls->is_refcounted &&
-            (result_reg->flags & SYM_IS_NIL) == 0)
-            lily_deref_unknown_val(result_reg->sig, result_reg->value);
-
-        if ((flags & SYM_IS_NIL) == 0) {
-            result_reg->flags &= ~SYM_IS_NIL;
-            result_reg->value = new_value;
-        }
-        else
-            result_reg->flags |= SYM_IS_NIL;
-    }
-}
-
-/* op_sub_assign
-   This handles the o_sub_assign opcode for the vm. This first unpacks the 2, 3,
-   and 4 as the lhs, the index, and the rhs. Once it checks to make sure the
-   index is valid, then 'lhs[index] = rhs' is performed. This is a bit complex
-   because it has to handle any kind of assign.
-   Sometimes, value will be a storage from o_subscript. However, this code is
-   required because it assigns to the value in the list, instead of a storage
-   where that value is unloaded. */
-static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
-{
-    lily_vm_register **vm_regs = vm->vm_regs;
-    lily_vm_register *lhs_reg, *rhs_reg;
-    lily_vm_register *index_reg;
-    int index_int;
-    lily_value *list_values;
-    int flags, new_flags;
-    lily_sig *result_sig;
-    lily_hash_elem *hash_elem;
-    lily_value old_value;
-
-    lhs_reg = vm_regs[code[code_pos + 2]];
-    LOAD_CHECKED_REG(index_reg, code_pos, 3)
-
-    if (lhs_reg->sig->cls->id == SYM_CLASS_LIST) {
-        LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
-        index_int = index_reg->value.integer;
-
-        if (index_int >= lhs_reg->value.list->num_values)
-            boundary_error(vm, code_pos, index_int);
-
-        /* todo: Wraparound would be nice. */
-        if (index_int < 0)
-            boundary_error(vm, code_pos, index_int);
-
-        list_values = lhs_reg->value.list->values;
-        hash_elem = NULL;
-        result_sig = lhs_reg->sig->siglist[0];
-        flags = lhs_reg->value.list->flags[index_int];
-        old_value = list_values[index_int];
-    }
-    else {
-        if (lhs_reg->flags & SYM_IS_NIL) {
-            lily_hash_val *hv = lily_try_new_hash_val();
-            if (hv == NULL)
-                lily_raise_nomem(vm->raiser);
-
-            lhs_reg->value.hash = hv;
-            lhs_reg->flags &= ~SYM_IS_NIL;
-        }
-        uint64_t siphash;
-        siphash = calculate_siphash(vm->sipkey, index_reg->sig,
-                index_reg->value);
-        hash_elem = try_get_make_hash_elem(lhs_reg->value.hash,
-                siphash, index_reg->sig, index_reg->value);
-        if (hash_elem == NULL)
-            lily_raise_nomem(vm->raiser);
-
-        index_int = 0;
-        list_values = NULL;
-        result_sig = lhs_reg->sig->siglist[1];
-        flags = hash_elem->flags;
-        old_value = hash_elem->value;
-    }
-
-    LOAD_CHECKED_REG(rhs_reg, code_pos, 4)
-    new_flags = flags & ~SYM_IS_NIL;
-
-    /* If this list does not contain objects, then standard
-       assign or ref/deref assign is enough. */
-    if (result_sig->cls->id != SYM_CLASS_OBJECT) {
-        if (rhs_reg->sig->cls->is_refcounted) {
-            /* Deref the old value as long as it's not nil. */
-            if ((flags & SYM_IS_NIL) == 0)
-                lily_deref_unknown_val(result_sig, old_value);
-
-            /* Now give the new value a ref bump and fall down to assignment. */
-            rhs_reg->value.generic->refcount++;
-        }
-        /* else nothing to ref/deref, so do assign only. */
-
-        old_value = rhs_reg->value;
-    }
-    else {
-        /* Do an object assign to the value. */
-        lily_object_val *ov;
-        if (flags & SYM_IS_NIL) {
-            /* Objects are containers, so make one to receive the value that is
-               coming. */
-            ov = lily_try_new_object_val();
-            if (ov == NULL ||
-                lily_try_add_gc_item(vm, result_sig,
-                        (lily_generic_gc_val *)ov) == 0) {
-                lily_free(ov);
-                lily_raise_nomem(vm->raiser);
-            }
-
-            ov->value.integer = 0;
-            ov->refcount = 1;
-            ov->sig = NULL;
-        }
-        else {
-            if (hash_elem == NULL)
-                ov = list_values[index_int].object;
-            else
-                ov = hash_elem->value.object;
-        }
-
-        lily_sig *rhs_sig;
-        lily_value rhs_value;
-        if (rhs_reg->sig->cls->id != SYM_CLASS_OBJECT) {
-            rhs_sig = rhs_reg->sig;
-            rhs_value = rhs_reg->value;
-        }
-        else {
-            rhs_sig = rhs_reg->value.object->sig;
-            rhs_value = rhs_reg->value.object->value;
-        }
-
-        if (ov->sig && ov->sig->cls->is_refcounted)
-            lily_deref_unknown_val(ov->sig, ov->value);
-
-        ov->sig = rhs_sig;
-        ov->value = rhs_value;
-        old_value.object = ov;
-
-        if (rhs_sig && rhs_sig->cls->is_refcounted)
-            rhs_value.generic->refcount++;
-    }
-
-    if (hash_elem == NULL) {
-        lhs_reg->value.list->flags[index_int] = new_flags;
-        lhs_reg->value.list->values[index_int] = old_value;
-    }
-    else {
-        hash_elem->flags = new_flags;
-        hash_elem->value = old_value;
-    }
-}
-
 /*  op_object_assign
     This is a vm helper for handling an assignment to an object from another
     value that may or may not be an object.
@@ -1116,6 +841,293 @@ static void op_object_assign(lily_vm_state *vm, lily_vm_register *lhs_reg,
 
     lhs_obj->sig = new_sig;
     lhs_obj->value = new_value;
+}
+
+static void generic_assignment(lily_vm_state *vm, lily_vm_register *left,
+        lily_vm_register *right)
+{
+    lily_class *cls = left->sig->cls;
+
+    if (cls->id == SYM_CLASS_OBJECT)
+        /* Object assignment is...complicated. Have someone else do it. */
+        op_object_assign(vm, left, right);
+    else {
+        if (cls->is_refcounted) {
+            if ((right->flags & SYM_IS_NIL) == 0)
+                right->value.generic->refcount++;
+    
+            if ((left->flags & SYM_IS_NIL) == 0)
+                lily_deref_unknown_val(left->sig, left->value);
+        }
+
+        left->value = right->value;
+        left->flags = right->flags;
+    }
+}
+
+/* op_sub_assign
+   This handles the o_sub_assign opcode for the vm. This first unpacks the 2, 3,
+   and 4 as the lhs, the index, and the rhs. Once it checks to make sure the
+   index is valid, then 'lhs[index] = rhs' is performed. This is a bit complex
+   because it has to handle any kind of assign.
+   Sometimes, value will be a storage from o_subscript. However, this code is
+   required because it assigns to the value in the list, instead of a storage
+   where that value is unloaded. */
+static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
+{
+    lily_vm_register **vm_regs = vm->vm_regs;
+    lily_vm_register *lhs_reg, *rhs_reg;
+    lily_vm_register *index_reg;
+    int index_int;
+    int flags, new_flags;
+    lily_sig *result_sig;
+    lily_hash_elem *hash_elem;
+    lily_value old_value;
+
+    lhs_reg = vm_regs[code[code_pos + 2]];
+    LOAD_CHECKED_REG(index_reg, code_pos, 3)
+
+    if (lhs_reg->sig->cls->id == SYM_CLASS_LIST) {
+        LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
+        index_int = index_reg->value.integer;
+
+        if (index_int >= lhs_reg->value.list->num_values)
+            boundary_error(vm, code_pos, index_int);
+
+        /* todo: Wraparound would be nice. */
+        if (index_int < 0)
+            boundary_error(vm, code_pos, index_int);
+
+        LOAD_CHECKED_REG(rhs_reg, code_pos, 4)
+
+        lily_list_val *list_val = lhs_reg->value.list;
+        /// I think this is a good example of why this is so necessary.
+        /// Every value is now passable anywhere.
+        /// No more flags/values/etc.
+        /// downside is more memory.
+        /// upside is sanity. Less bugs from putting stuff in one place.
+        generic_assignment(vm, list_val->elems[index_int], rhs_reg);
+        /// temp hack, obviously!!!
+        return;
+    }
+    else {
+        if (lhs_reg->flags & SYM_IS_NIL) {
+            lily_hash_val *hv = lily_try_new_hash_val();
+            if (hv == NULL)
+                lily_raise_nomem(vm->raiser);
+
+            lhs_reg->value.hash = hv;
+            lhs_reg->flags &= ~SYM_IS_NIL;
+        }
+        uint64_t siphash;
+        siphash = calculate_siphash(vm->sipkey, index_reg->sig,
+                index_reg->value);
+        hash_elem = try_get_make_hash_elem(lhs_reg->value.hash,
+                siphash, index_reg->sig, index_reg->value);
+        if (hash_elem == NULL)
+            lily_raise_nomem(vm->raiser);
+
+        index_int = 0;
+        result_sig = lhs_reg->sig->siglist[1];
+        flags = hash_elem->flags;
+        old_value = hash_elem->value;
+    }
+
+    LOAD_CHECKED_REG(rhs_reg, code_pos, 4)
+    new_flags = flags & ~SYM_IS_NIL;
+
+    /* If this list does not contain objects, then standard
+       assign or ref/deref assign is enough. */
+    if (result_sig->cls->id != SYM_CLASS_OBJECT) {
+        if (rhs_reg->sig->cls->is_refcounted) {
+            /* Deref the old value as long as it's not nil. */
+            if ((flags & SYM_IS_NIL) == 0)
+                lily_deref_unknown_val(result_sig, old_value);
+
+            /* Now give the new value a ref bump and fall down to assignment. */
+            rhs_reg->value.generic->refcount++;
+        }
+        /* else nothing to ref/deref, so do assign only. */
+
+        old_value = rhs_reg->value;
+    }
+    else {
+        /* Do an object assign to the value. */
+        lily_object_val *ov;
+        if (flags & SYM_IS_NIL) {
+            /* Objects are containers, so make one to receive the value that is
+               coming. */
+            ov = lily_try_new_object_val();
+            if (ov == NULL ||
+                lily_try_add_gc_item(vm, result_sig,
+                        (lily_generic_gc_val *)ov) == 0) {
+                lily_free(ov);
+                lily_raise_nomem(vm->raiser);
+            }
+
+            ov->value.integer = 0;
+            ov->refcount = 1;
+            ov->sig = NULL;
+        }
+        else {
+            ov = hash_elem->value.object;
+        }
+
+        lily_sig *rhs_sig;
+        lily_value rhs_value;
+        if (rhs_reg->sig->cls->id != SYM_CLASS_OBJECT) {
+            rhs_sig = rhs_reg->sig;
+            rhs_value = rhs_reg->value;
+        }
+        else {
+            rhs_sig = rhs_reg->value.object->sig;
+            rhs_value = rhs_reg->value.object->value;
+        }
+
+        if (ov->sig && ov->sig->cls->is_refcounted)
+            lily_deref_unknown_val(ov->sig, ov->value);
+
+        ov->sig = rhs_sig;
+        ov->value = rhs_value;
+        old_value.object = ov;
+
+        if (rhs_sig && rhs_sig->cls->is_refcounted)
+            rhs_value.generic->refcount++;
+    }
+
+    hash_elem->flags = new_flags;
+    hash_elem->value = old_value;
+}
+
+static void op_subscript(lily_vm_state *vm, uintptr_t *code, int code_pos)
+{
+    lily_vm_register **vm_regs = vm->vm_regs;
+    lily_vm_register *lhs_reg, *index_reg, *result_reg;
+    int flags, index_int;
+    lily_sig *new_sig;
+    lily_value new_value;
+    lily_hash_elem *hash_elem;
+
+    lhs_reg = vm_regs[code[code_pos + 2]];
+    LOAD_CHECKED_REG(index_reg, code_pos, 3)
+    result_reg = vm_regs[code[code_pos + 4]];
+
+    if (lhs_reg->sig->cls->id == SYM_CLASS_LIST) {
+        LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
+        index_int = index_reg->value.integer;
+
+        /* Too big! */
+        if (index_int >= lhs_reg->value.list->num_values)
+            boundary_error(vm, code_pos, index_int);
+
+        /* todo: Wraparound would be nice. */
+        if (index_int < 0)
+            boundary_error(vm, code_pos, index_int);
+
+        lily_list_val *list_val = lhs_reg->value.list;
+        generic_assignment(vm, result_reg, list_val->elems[index_int]);
+        return;
+    }
+    else {
+        if (lhs_reg->flags & SYM_IS_NIL) {
+            lily_hash_val *hv = lily_try_new_hash_val();
+            if (hv == NULL)
+                lily_raise_nomem(vm->raiser);
+
+            lhs_reg->value.hash = hv;
+            lhs_reg->flags &= ~SYM_IS_NIL;
+        }
+        uint64_t siphash;
+        siphash = calculate_siphash(vm->sipkey, index_reg->sig,
+                index_reg->value);
+        hash_elem = try_lookup_hash_elem(lhs_reg->value.hash,
+                siphash, index_reg->sig, index_reg->value);
+
+        /* Give up if the key doesn't exist. */
+        if (hash_elem == NULL)
+            no_such_key_error(vm, code_pos, index_reg->sig, index_reg->value);
+
+        index_int = 0;
+        flags = hash_elem->flags;
+    }
+
+    if (result_reg->sig->cls->id == SYM_CLASS_OBJECT) {
+        if ((flags & SYM_IS_NIL) == 0) {
+            lily_object_val *ov;
+            ov = hash_elem->value.object;
+
+            new_sig = ov->sig;
+            new_value = ov->value;
+
+            /* Make an object to hold a value if necessary. This is best done
+               before doing the ref, so that the ref doesn't have to be undone
+               if there is an issue. */
+            if (result_reg->flags & SYM_IS_NIL) {
+                lily_object_val *new_ov = lily_try_new_object_val();
+                if (new_ov == NULL ||
+                    lily_try_add_gc_item(vm, result_reg->sig,
+                            (lily_generic_gc_val *)new_ov) == 0) {
+                    lily_free(new_ov);
+                    lily_raise_nomem(vm->raiser);
+                }
+
+                result_reg->value.object = new_ov;
+                result_reg->flags &= ~SYM_IS_NIL;
+            }
+        }
+        else {
+            new_sig = vm->integer_sig;
+            new_value.integer = 0;
+        }
+    }
+    else {
+        new_sig = result_reg->sig;
+        if ((flags & SYM_IS_NIL) == 0) {
+            new_value = hash_elem->value;
+        }
+    }
+
+    /* Give the new value a ref if it needs one. This should be done before
+       doing the deref to be consistent with other parts of the vm. */
+    if (new_sig &&
+        new_sig->cls->is_refcounted &&
+        ((flags & SYM_IS_NIL) == 0))
+        new_value.generic->refcount++;
+
+    if (result_reg->sig->cls->id == SYM_CLASS_OBJECT) {
+        if ((flags & SYM_IS_NIL) == 0) {
+            /* If the value isn't nil, then an object was made above to hold
+               the new value. */
+            lily_object_val *ov = result_reg->value.object;
+
+            if (ov->sig &&
+                ov->sig->cls->is_refcounted &&
+                (result_reg->flags & SYM_IS_NIL) == 0)
+                lily_deref_unknown_val(ov->sig, ov->value);
+
+            ov->sig = new_sig;
+            ov->value = new_value;
+        }
+        else {
+            if ((result_reg->flags & SYM_IS_NIL) == 0) {
+                result_reg->value.object->sig = NULL;
+                result_reg->value.object->value.integer = 0;
+            }
+        }
+    }
+    else {
+        /* If the result contains a ref'd value, then deref it. */
+        if (result_reg->sig->cls->is_refcounted &&
+            (result_reg->flags & SYM_IS_NIL) == 0)
+            lily_deref_unknown_val(result_reg->sig, result_reg->value);
+
+        if ((flags & SYM_IS_NIL) == 0) {
+            result_reg->flags &= ~SYM_IS_NIL;
+            result_reg->value = new_value;
+        }
+        else
+            result_reg->flags |= SYM_IS_NIL;
+    }
 }
 
 void op_build_hash(lily_vm_state *vm, uintptr_t *code, int code_pos)
@@ -1230,13 +1242,12 @@ void op_build_list(lily_vm_state *vm, lily_vm_register **vm_regs,
     lv->num_values = -1;
     lv->visited = 0;
     lv->refcount = 1;
-    lv->values = lily_malloc(num_elems * sizeof(void *));
-    lv->flags = lily_malloc(num_elems * sizeof(int));
+    lv->elems = lily_malloc(num_elems * sizeof(lily_vm_register *));
     lv->gc_entry = NULL;
 
     /* If attaching a gc entry fails, then list deref will collect everything
        which is what's wanted anyway. */
-    if (lv->values == NULL || lv->flags == NULL ||
+    if (lv->elems == NULL ||
         ((result->sig->flags & SIG_MAYBE_CIRCULAR) &&
           lily_try_add_gc_item(vm, result->sig,
                 (lily_generic_gc_val *)lv) == 0)) {
@@ -1246,45 +1257,35 @@ void op_build_list(lily_vm_state *vm, lily_vm_register **vm_regs,
     }
 
     /* The old value can be destroyed, now that the new value has been made. */
-    if (!(result->flags & SYM_IS_NIL))
+    if ((result->flags & SYM_IS_NIL) == 0)
         lily_deref_list_val(result->sig, result->value.list);
 
     /* Put the new list in the register so the gc doesn't try to collect it. */
     result->value.list = lv;
-    /* And make sure it's not marked as nil, or the gc will think that anything
-       inside of it is unreachable. That's really bad for list[object]. */
-    result->flags &= ~SYM_IS_NIL;
+    /* This is important for list[object], because it prevents the gc from
+       collecting all objects if it's triggered from within the list build. */
+    result->flags = 0;
 
     /* This could be condensed down, but doing it this way improves speed since
        the elem_sig won't change over the loop. */
-    if (elem_sig->cls->id != SYM_CLASS_OBJECT) {
-        if (elem_sig->cls->is_refcounted) {
-            for (j = 0;j < num_elems;j++) {
-                if (!(vm_regs[code[3+j]]->flags & SYM_IS_NIL)) {
-                    lv->values[j] = vm_regs[code[3+j]]->value;
-                    /* The elements are refcounted, so give a ref bump to each
-                       element scanned in as well as copying the value. */
-                    lv->values[j].generic->refcount++;
-                    lv->flags[j] = 0;
-                }
-                else
-                    lv->flags[j] = SYM_IS_NIL;
-            }
-        }
-        else {
-            for (j = 0;j < num_elems;j++) {
-                if (!(vm_regs[code[3+j]]->flags & SYM_IS_NIL)) {
-                    lv->values[j] = vm_regs[code[3+j]]->value;
-                    lv->flags[j] = 0;
-                }
-                else
-                    lv->flags[j] = SYM_IS_NIL;
-            }
-        }
-    }
-    else {
+    if (elem_sig->cls->id == SYM_CLASS_OBJECT) {
         for (j = 0;j < num_elems;j++) {
-            if (!(vm_regs[code[3+j]]->flags & SYM_IS_NIL)) {
+            lv->elems[j] = lily_malloc(sizeof(lily_vm_register));
+            if (lv->elems[j] == NULL) {
+                lv->num_values = j;
+                lily_raise_nomem(vm->raiser);
+            }
+
+            /* Fix the element in case the next attempt to grab an object
+               triggers the gc. */
+            lily_vm_register *new_elem = lv->elems[j];
+            new_elem->sig = elem_sig;
+            new_elem->flags = SYM_IS_NIL;
+            new_elem->value.integer = 0;
+            lv->num_values = j + 1;
+
+            lily_vm_register *rhs_reg = vm_regs[code[3+j]];
+            if ((rhs_reg->flags & SYM_IS_NIL) == 0) {
                 /* Objects are supposed to act like containers which can hold
                    any value. Because of this, the inner value of the other
                    object must be copied over.
@@ -1292,7 +1293,6 @@ void op_build_list(lily_vm_state *vm, lily_vm_register **vm_regs,
                    needs a gc entry. This also means that the list holding the
                    objects has a gc entry. */
                 lily_object_val *oval = lily_try_new_object_val();
-                lily_object_val *reg_object = vm_regs[code[3+j]]->value.object;
                 if (oval == NULL ||
                     lily_try_add_gc_item(vm, elem_sig,
                             (lily_generic_gc_val *)oval) == 0) {
@@ -1300,29 +1300,50 @@ void op_build_list(lily_vm_state *vm, lily_vm_register **vm_regs,
                        made, this will be NULL, which is fine. */
                     lily_free(oval);
 
-                    /* This one's nil. */
-                    lv->flags[j] = SYM_IS_NIL;
-
                     /* Give up. The gc will have an entry for the list, so it
                        will correctly collect the list. */
                     lily_raise_nomem(vm->raiser);
                 }
-                oval->value = reg_object->value;
-                oval->sig = reg_object->sig;
+
+                lily_object_val *rhs_object = rhs_reg->value.object;
+                oval->value = rhs_object->value;
+                oval->sig = rhs_object->sig;
                 oval->refcount = 1;
 
                 if (oval->sig && oval->sig->cls->is_refcounted)
                     oval->value.generic->refcount++;
 
-                lv->values[j].object = oval;
-                lv->flags[j] = 0;
+                new_elem->value.object = oval;
+                new_elem->flags = 0;
             }
-            else
-                lv->flags[j] = SYM_IS_NIL;
 
-            /* Update this with each pass, in case the vm decides to run the gc
-               when a new object asks for a gc_entry. */
+        }
+    }
+    else {
+        int is_refcounted = elem_sig->cls->is_refcounted;
+        fprintf(stderr, "\n\n");
+        for (j = 0;j < num_elems;j++) {
+            lv->elems[j] = lily_malloc(sizeof(lily_vm_register));
+            if (lv->elems[j] == NULL) {
+                lv->num_values = j;
+                /* The gc will come later and collect this list. */
+                lily_raise_nomem(vm->raiser);
+            }
+
+            lily_vm_register *elem = lv->elems[j];
+            elem->sig = elem_sig;
+            elem->flags = SYM_IS_NIL;
+            elem->value.integer = 0;
             lv->num_values = j + 1;
+
+            lily_vm_register *rhs_reg = vm_regs[code[3+j]];
+            if ((rhs_reg->flags & SYM_IS_NIL) == 0) {
+                lv->elems[j]->value = rhs_reg->value;
+                if (is_refcounted)
+                    rhs_reg->value.generic->refcount++;
+
+                lv->elems[j]->flags = 0;
+            }
         }
     }
 
