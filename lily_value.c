@@ -47,41 +47,16 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
         if (lv->gc_entry != NULL)
             lv->gc_entry->value.generic = NULL;
 
-        int cls_id = sig->siglist[0]->cls->id;
+        lily_sig *elem_sig = sig->siglist[0];
         int i;
-        if (cls_id == SYM_CLASS_LIST) {
-            for (i = 0;i < lv->num_values;i++) {
-                if (lv->flags[i] == 0)
-                    lily_deref_list_val(sig->siglist[0],
-                            lv->values[i].list);
-            }
-        }
-        else if (cls_id == SYM_CLASS_HASH) {
-            for (i = 0;i < lv->num_values;i++) {
-                if (lv->flags[i] == 0)
-                    lily_deref_hash_val(sig->siglist[0],
-                            lv->values[i].hash);
-            }
-        }
-        else if (cls_id == SYM_CLASS_STR) {
-            for (i = 0;i < lv->num_values;i++)
-                if (lv->flags[i] == 0)
-                    lily_deref_str_val(lv->values[i].str);
-        }
-        else if (cls_id == SYM_CLASS_METHOD) {
-            for (i = 0;i < lv->num_values;i++)
-                if (lv->flags[i] == 0)
-                    lily_deref_method_val(lv->values[i].method);
-        }
-        else if (cls_id == SYM_CLASS_OBJECT) {
-            for (i = 0;i < lv->num_values;i++) {
-                if (lv->flags[i] == 0)
-                    lily_deref_object_val(lv->values[i].object);
-            }
+        for (i = 0;i < lv->num_values;i++) {
+            if (lv->elems[i]->flags == 0)
+                lily_deref_unknown_val(elem_sig, lv->elems[i]->value);
+
+            lily_free(lv->elems[i]);
         }
 
-        lily_free(lv->flags);
-        lily_free(lv->values);
+        lily_free(lv->elems);
         lily_free(lv);
     }
 }
