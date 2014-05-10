@@ -629,10 +629,10 @@ static void show_list_value(lily_debug_state *debug, lily_sig *sig,
         lily_impl_debugf("|____");
         lily_impl_debugf("[%d] = ", i);
 
-        if (lv->flags[i] & SYM_IS_NIL)
+        if (lv->elems[i]->flags & SYM_IS_NIL)
             lily_impl_debugf("(nil)\n");
         else
-            show_value(debug, elem_sig, lv->values[i]);
+            show_value(debug, elem_sig, lv->elems[i]->value);
     }
 
     lv->visited = 0;
@@ -677,13 +677,13 @@ static void show_hash_value(lily_debug_state *debug, lily_sig *sig,
         lily_impl_debugf("|____[");
         /* vm does not allow creating hashes with nil keys, so this should be
            safe. */
-        show_simple_value(debug, key_sig, elem_iter->key);
+        show_simple_value(debug, key_sig, elem_iter->elem_key->value);
         lily_impl_debugf("] = ");
 
-        if (elem_iter->flags & SYM_IS_NIL)
+        if (elem_iter->elem_value->flags & SYM_IS_NIL)
             lily_impl_debugf("(nil)\n");
         else
-            show_value(debug, value_sig, elem_iter->value);
+            show_value(debug, value_sig, elem_iter->elem_value->value);
 
         elem_iter = elem_iter->next;
     }

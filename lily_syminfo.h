@@ -96,10 +96,9 @@ typedef struct lily_function_val_t {
 } lily_function_val;
 
 typedef struct lily_hash_elem_t {
-    int flags;
-    lily_value key;
     uint64_t key_siphash;
-    lily_value value;
+    lily_vm_register *elem_key;
+    lily_vm_register *elem_value;
     struct lily_hash_elem_t *next;
 } lily_hash_elem;
 
