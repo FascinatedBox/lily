@@ -18,17 +18,20 @@ void lily_deref_hash_val(lily_sig *sig, lily_hash_val *hv)
         lily_hash_elem *elem, *save_next;
         elem = hv->elem_chain;
         while (elem) {
-            if (elem->flags == 0 && value_is_refcounted)
-                lily_deref_unknown_val(value_sig, elem->value);
+            lily_vm_register *elem_value = elem->elem_value;
+            if (elem_value->flags == 0 && value_is_refcounted)
+                lily_deref_unknown_val(value_sig, elem_value->value);
             else if (value_cls_id == SYM_CLASS_OBJECT) {
                 /* Objects are containers that are not shared. This circularity
                    applies to what's inside the object, not the object itself.
                    Make sure to destroy the object. */
-                lily_object_val *ov = elem->value.object;
+                lily_object_val *ov = elem_value->value.object;
                 lily_free(ov);
             }
 
             save_next = elem->next;
+            lily_free(elem->elem_key);
+            lily_free(elem->elem_value);
             lily_free(elem);
             elem = save_next;
         }
@@ -195,8 +198,23 @@ lily_hash_elem *lily_try_new_hash_elem()
     if (elem == NULL)
         return NULL;
 
-    elem->flags = SYM_IS_NIL;
-    elem->value.integer = 0;
+    elem->elem_key = lily_malloc(sizeof(lily_vm_register));
+    elem->elem_value = lily_malloc(sizeof(lily_vm_register));
+    if (elem->elem_key == NULL || elem->elem_value == NULL) {
+        lily_free(elem->elem_key);
+        lily_free(elem->elem_value);
+        lily_free(elem);
+        return NULL;
+    }
+
+    /* Hash lookup does not take into account or allow nil keys. So this should
+       be set to a non-nil value as soon as possible. */
+    elem->elem_key->flags = SYM_IS_NIL;
+    elem->elem_key->value.integer = 0;
+
+    elem->elem_value->flags = SYM_IS_NIL;
+    elem->elem_value->value.integer = 0;
+
     elem->next = NULL;
     return elem;
 }

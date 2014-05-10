@@ -135,14 +135,17 @@ void lily_gc_collect_hash(lily_sig *hash_sig, lily_hash_val *hash_val)
             lily_hash_elem *elem_iter = hash_val->elem_chain;
             lily_hash_elem *elem_temp;
             while (elem_iter) {
+                lily_vm_register *elem_value = elem_iter->elem_value;
                 elem_temp = elem_iter->next;
-                if ((elem_iter->flags & SYM_IS_NIL) == 0) {
-                    lily_value v = elem_iter->value;
+                if ((elem_value->flags & SYM_IS_NIL) == 0) {
+                    lily_value v = elem_value->value;
                     if (v.generic->refcount == 1)
                         lily_gc_collect_value(hash_value_sig, v);
                     else
                         v.generic->refcount--;
                 }
+                lily_free(elem_iter->elem_key);
+                lily_free(elem_iter->elem_value);
                 lily_free(elem_iter);
                 elem_iter = elem_temp;
             }
@@ -172,8 +175,9 @@ void lily_gc_hash_marker(int pass, lily_sig *value_sig, lily_value v)
 
         lily_hash_elem *elem_iter = hash_val->elem_chain;
         while (elem_iter) {
-            if ((elem_iter->flags & SYM_IS_NIL) == 0)
-                gc_marker(pass, hash_value_sig, elem_iter->value);
+            lily_vm_register *elem_value = elem_iter->elem_value;
+            if ((elem_value->flags & SYM_IS_NIL) == 0)
+                gc_marker(pass, hash_value_sig, elem_value->value);
 
             elem_iter = elem_iter->next;
         }
