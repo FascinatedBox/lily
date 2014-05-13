@@ -48,7 +48,7 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
         return NULL;
     }
 
-    var->flags = SYM_IS_NIL | SYM_TYPE_VAR;
+    var->flags = VAL_IS_NIL | SYM_TYPE_VAR;
     strcpy(var->name, name);
     var->line_num = *symtab->lex_linenum;
 
@@ -193,7 +193,7 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
                         seed->name);
 
                 if (var->value.function != NULL)
-                    var->flags &= ~(SYM_IS_NIL);
+                    var->flags &= ~(VAL_IS_NIL);
             }
             else
                 ret = 0;
@@ -439,7 +439,7 @@ void free_vars(lily_var *var)
 
     while (var != NULL) {
         var_temp = var->next;
-        if ((var->flags & SYM_IS_NIL) == 0) {
+        if ((var->flags & VAL_IS_NIL) == 0) {
             int cls_id = var->sig->cls->id;
             if (cls_id == SYM_CLASS_METHOD)
                 lily_deref_method_val(var->value.method);
@@ -505,7 +505,7 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
     lily_method_val *main_method;
 
     if (symtab->var_start &&
-        ((symtab->var_start->flags & SYM_IS_NIL) == 0))
+        ((symtab->var_start->flags & VAL_IS_NIL) == 0))
         main_method = symtab->var_start->value.method;
     else
         main_method = NULL;
@@ -743,7 +743,7 @@ lily_var *lily_var_by_name(lily_symtab *symtab, char *name, uint64_t shorthash)
 /* lily_new_literal
    This adds a new literal to the given symtab. The literal will be of the class
    'cls', and be given the value 'value'. The symbol created does not have
-   SYM_IS_NIL set, because the literal is assumed to never be nil.
+   VAL_IS_NIL set, because the literal is assumed to never be nil.
    This function currently handles only integer, number, and str values.
    Warning: This function calls lily_raise_nomem instead of returning NULL. */
 lily_literal *lily_new_literal(lily_symtab *symtab, lily_class *cls,

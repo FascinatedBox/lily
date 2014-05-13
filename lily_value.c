@@ -104,7 +104,7 @@ void lily_deref_object_val(lily_object_val *ov)
            is about to be destroyed. */
         ov->gc_entry->value.generic = NULL;
 
-        if ((ov->inner_value->flags & SYM_IS_NIL) == 0 &&
+        if ((ov->inner_value->flags & VAL_IS_NIL) == 0 &&
             ov->inner_value->sig->cls->is_refcounted)
             lily_deref_unknown_val(ov->inner_value);
 
@@ -248,10 +248,10 @@ lily_hash_elem *lily_try_new_hash_elem()
 
     /* Hash lookup does not take into account or allow nil keys. So this should
        be set to a non-nil value as soon as possible. */
-    elem->elem_key->flags = SYM_IS_NIL;
+    elem->elem_key->flags = VAL_IS_NIL;
     elem->elem_key->value.integer = 0;
 
-    elem->elem_value->flags = SYM_IS_NIL;
+    elem->elem_value->flags = VAL_IS_NIL;
     elem->elem_value->value.integer = 0;
 
     elem->next = NULL;
@@ -274,7 +274,7 @@ lily_object_val *lily_try_new_object_val()
         return NULL;
     }
 
-    o->inner_value->flags = SYM_IS_NIL;
+    o->inner_value->flags = VAL_IS_NIL;
     o->inner_value->sig = NULL;
     o->inner_value->value.integer = 0;
     o->gc_entry = NULL;

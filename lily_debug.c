@@ -629,7 +629,7 @@ static void show_list_value(lily_debug_state *debug, lily_sig *sig,
         lily_impl_debugf("|____");
         lily_impl_debugf("[%d] = ", i);
 
-        if (lv->elems[i]->flags & SYM_IS_NIL)
+        if (lv->elems[i]->flags & VAL_IS_NIL)
             lily_impl_debugf("(nil)\n");
         else
             show_value(debug, elem_sig, lv->elems[i]->value);
@@ -680,7 +680,7 @@ static void show_hash_value(lily_debug_state *debug, lily_sig *sig,
         show_simple_value(debug, key_sig, elem_iter->elem_key->value);
         lily_impl_debugf("] = ");
 
-        if (elem_iter->elem_value->flags & SYM_IS_NIL)
+        if (elem_iter->elem_value->flags & VAL_IS_NIL)
             lily_impl_debugf("(nil)\n");
         else
             show_value(debug, value_sig, elem_iter->elem_value->value);
@@ -752,7 +752,7 @@ static void show_value(lily_debug_state *debug, lily_sig *sig,
     else if (cls_id == SYM_CLASS_OBJECT) {
         lily_value *obj_value = value.object->inner_value;
 
-        if (obj_value->flags & SYM_IS_NIL)
+        if (obj_value->flags & VAL_IS_NIL)
             lily_impl_debugf("(nil)\n");
         else {
             lily_impl_debugf("(object) ");
@@ -781,7 +781,7 @@ void lily_show_sym(lily_method_val *lily_main, lily_method_val *current_method,
     show_register_info(&debug, flags, reg_id);
 
     lily_impl_debugf("Value: ");
-    if (value->flags & SYM_IS_NIL)
+    if (value->flags & VAL_IS_NIL)
         lily_impl_debugf("(nil)\n");
     else
         show_value(&debug, value->sig, value->value);

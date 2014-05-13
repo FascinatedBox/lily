@@ -18,7 +18,7 @@ void lily_str_concat(lily_vm_state *vm, uintptr_t *code, int num_args)
     int newsize = arg1->size + arg2->size + 1;
 
         /* Create a str if there isn't one. */
-    if ((ret_reg->flags & SYM_IS_NIL) ||
+    if ((ret_reg->flags & VAL_IS_NIL) ||
         /* ...or to preserve immutability. */
         ret == arg1 || ret == arg2) {
         lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
@@ -36,7 +36,7 @@ void lily_str_concat(lily_vm_state *vm, uintptr_t *code, int num_args)
         strcpy(new_sv->str, arg1->str);
         strcat(new_sv->str, arg2->str);
 
-        if ((ret_reg->flags & SYM_IS_NIL) == 0)
+        if ((ret_reg->flags & VAL_IS_NIL) == 0)
             ret_reg->value.generic->refcount--;
 
         ret = new_sv;
@@ -53,7 +53,7 @@ void lily_str_concat(lily_vm_state *vm, uintptr_t *code, int num_args)
     }
 
     vm_regs[code[2]]->value.str = ret;
-    vm_regs[code[2]]->flags &= ~SYM_IS_NIL;
+    vm_regs[code[2]]->flags &= ~VAL_IS_NIL;
 }
 
 static lily_func_seed concat =
