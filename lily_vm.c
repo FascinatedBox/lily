@@ -8,7 +8,6 @@
 #include "lily_vm.h"
 #include "lily_debug.h"
 #include "lily_gc.h"
-
 extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
 
 /* LOAD_CHECKED_REG is used to load a register and check it for not having a
@@ -441,29 +440,19 @@ int maybe_crossover_assign(lily_vm_register *lhs_reg, lily_vm_register *rhs_reg)
 {
     int ret = 1;
 
-    if (rhs_reg->sig->cls->id != SYM_CLASS_OBJECT) {
-        if (lhs_reg->sig->cls->id == SYM_CLASS_INTEGER &&
-            rhs_reg->sig->cls->id == SYM_CLASS_NUMBER)
-            lhs_reg->value.integer = (int64_t)(rhs_reg->value.number);
-        else if (lhs_reg->sig->cls->id == SYM_CLASS_NUMBER &&
-                 rhs_reg->sig->cls->id == SYM_CLASS_INTEGER)
-            lhs_reg->value.number = (double)(rhs_reg->value.integer);
-        else
-            ret = 0;
-    }
-    else {
-        lily_value obj_val = rhs_reg->value.object->value;
-        int obj_class_id = rhs_reg->value.object->sig->cls->id;
+    /// and just like that, object inner val extraction allowing objects
+    /// to seamlessly be other types.
+    if (rhs_reg->sig->cls->id == SYM_CLASS_OBJECT)
+        rhs_reg = rhs_reg->value.object->inner_value;
 
-        if (lhs_reg->sig->cls->id == SYM_CLASS_INTEGER &&
-            obj_class_id == SYM_CLASS_NUMBER)
-            lhs_reg->value.integer = (int64_t)(obj_val.number);
-        else if (lhs_reg->sig->cls->id == SYM_CLASS_NUMBER &&
-                 obj_class_id == SYM_CLASS_INTEGER)
-            lhs_reg->value.number = (double)(obj_val.integer);
-        else
-            ret = 0;
-    }
+    if (lhs_reg->sig->cls->id == SYM_CLASS_INTEGER &&
+        rhs_reg->sig->cls->id == SYM_CLASS_NUMBER)
+        lhs_reg->value.integer = (int64_t)(rhs_reg->value.number);
+    else if (lhs_reg->sig->cls->id == SYM_CLASS_NUMBER &&
+             rhs_reg->sig->cls->id == SYM_CLASS_INTEGER)
+        lhs_reg->value.number = (double)(rhs_reg->value.integer);
+    else
+        ret = 0;
 
     if (ret)
         lhs_reg->flags &= ~SYM_IS_NIL;
@@ -603,9 +592,9 @@ void lily_builtin_printfmt(lily_vm_state *vm, uintptr_t *code, int num_args)
             fmt[i] = save_ch;
             i++;
 
-            arg = vm_regs[code[arg_pos + 1]];
-            cls_id = arg->value.object->sig->cls->id;
-            val = arg->value.object->value;
+            arg = vm_regs[code[arg_pos + 1]]->value.object->inner_value;
+            cls_id = arg->sig->cls->id;
+            val = arg->value;
             is_nil = 0;
 
             if (fmt[i] == 'i') {
@@ -768,6 +757,9 @@ static void op_object_assign(lily_vm_state *vm, lily_vm_register *lhs_reg,
             lily_try_add_gc_item(vm, lhs_reg->sig,
                     (lily_generic_gc_val *)lhs_obj) == 0) {
 
+            if (lhs_obj)
+                lily_free(lhs_obj->inner_value);
+
             lily_free(lhs_obj);
             lily_raise_nomem(vm->raiser);
         }
@@ -780,35 +772,42 @@ static void op_object_assign(lily_vm_state *vm, lily_vm_register *lhs_reg,
 
     lily_sig *new_sig;
     lily_value new_value;
+    int new_flags;
 
     if (rhs_reg->sig->cls->id == SYM_CLASS_OBJECT) {
-        if (rhs_reg->flags & SYM_IS_NIL ||
-            rhs_reg->value.object->sig == NULL) {
+        if ((rhs_reg->flags & SYM_IS_NIL) ||
+            (rhs_reg->value.object->inner_value->flags & SYM_IS_NIL)) {
 
             new_sig = NULL;
             new_value.integer = 0;
+            new_flags = SYM_IS_NIL;
         }
         else {
-            lily_object_val *rhs_obj = rhs_reg->value.object;
+            lily_vm_register *rhs_inner = rhs_reg->value.object->inner_value;
 
-            new_sig = rhs_obj->sig;
-            new_value = rhs_obj->value;
+            new_sig = rhs_inner->sig;
+            new_value = rhs_inner->value;
+            new_flags = rhs_inner->flags;
         }
     }
     else {
         new_sig = rhs_reg->sig;
         new_value = rhs_reg->value;
+        new_flags = rhs_reg->flags;
     }
 
-    if (new_sig && new_sig->cls->is_refcounted)
+    if ((new_flags & SYM_IS_NIL) == 0 &&
+        new_sig->cls->is_refcounted)
         new_value.generic->refcount++;
 
-    if (lhs_obj->sig != NULL &&
-        lhs_obj->sig->cls->is_refcounted)
-        lily_deref_unknown_val(lhs_obj->sig, lhs_obj->value);
+    lily_vm_register *lhs_inner = lhs_obj->inner_value;
+    if ((lhs_inner->flags & SYM_IS_NIL) == 0 &&
+        lhs_inner->sig->cls->is_refcounted)
+        lily_deref_unknown_val(lhs_inner->sig, lhs_inner->value);
 
-    lhs_obj->sig = new_sig;
-    lhs_obj->value = new_value;
+    lhs_inner->sig = new_sig;
+    lhs_inner->value = new_value;
+    lhs_inner->flags = new_flags;
 }
 
 static void generic_assignment(lily_vm_state *vm, lily_vm_register *left,
@@ -1092,9 +1091,11 @@ void op_build_list(lily_vm_state *vm, lily_vm_register **vm_regs,
             new_elem->flags = SYM_IS_NIL;
             new_elem->value.integer = 0;
             lv->num_values = j + 1;
-
             lily_vm_register *rhs_reg = vm_regs[code[3+j]];
+
             if ((rhs_reg->flags & SYM_IS_NIL) == 0) {
+                lily_vm_register *rhs_inner_val;
+                rhs_inner_val = rhs_reg->value.object->inner_value;
                 /* Objects are supposed to act like containers which can hold
                    any value. Because of this, the inner value of the other
                    object must be copied over.
@@ -1107,6 +1108,9 @@ void op_build_list(lily_vm_state *vm, lily_vm_register **vm_regs,
                             (lily_generic_gc_val *)oval) == 0) {
                     /* Make sure to free the object value made. If it wasn't
                        made, this will be NULL, which is fine. */
+                    if (oval)
+                        lily_free(oval->inner_value);
+
                     lily_free(oval);
 
                     /* Give up. The gc will have an entry for the list, so it
@@ -1114,13 +1118,14 @@ void op_build_list(lily_vm_state *vm, lily_vm_register **vm_regs,
                     lily_raise_nomem(vm->raiser);
                 }
 
-                lily_object_val *rhs_object = rhs_reg->value.object;
-                oval->value = rhs_object->value;
-                oval->sig = rhs_object->sig;
+                oval->inner_value->value = rhs_inner_val->value;
+                oval->inner_value->sig = rhs_inner_val->sig;
+                oval->inner_value->flags = rhs_inner_val->flags;
                 oval->refcount = 1;
 
-                if (oval->sig && oval->sig->cls->is_refcounted)
-                    oval->value.generic->refcount++;
+                if ((rhs_inner_val->flags & SYM_IS_NIL) == 0 &&
+                    rhs_inner_val->sig->cls->is_refcounted)
+                    rhs_inner_val->value.generic->refcount++;
 
                 new_elem->value.object = oval;
                 new_elem->flags = 0;
@@ -1524,21 +1529,16 @@ void lily_vm_execute(lily_vm_state *vm)
                 {
                     int cls_id, result;
 
+                    if (lhs_reg->sig->cls->id == SYM_CLASS_OBJECT &&
+                        (lhs_reg->flags & SYM_IS_NIL) == 0)
+                        lhs_reg = lhs_reg->value.object->inner_value;
+
                     if ((lhs_reg->flags & SYM_IS_NIL) == 0) {
                         cls_id = lhs_reg->sig->cls->id;
                         if (cls_id == SYM_CLASS_INTEGER)
                             result = (lhs_reg->value.integer == 0);
                         else if (cls_id == SYM_CLASS_NUMBER)
                             result = (lhs_reg->value.number == 0);
-                        else if (cls_id == SYM_CLASS_OBJECT) {
-                            lily_object_val *ov = lhs_reg->value.object;
-                            if (ov->sig->cls->id == SYM_CLASS_INTEGER)
-                                result = (ov->value.integer == 0);
-                            else if (ov->sig->cls->id == SYM_CLASS_NUMBER)
-                                result = (ov->value.integer == 0);
-                            else
-                                result = 0;
-                        }
                         else
                             result = 0;
                     }
@@ -1770,24 +1770,27 @@ void lily_vm_execute(lily_vm_state *vm)
                 cast_sig = lhs_reg->sig;
 
                 LOAD_CHECKED_REG(rhs_reg, code_pos, 2)
-                if (rhs_reg->value.object->sig == NULL)
+                if ((rhs_reg->flags & SYM_IS_NIL) ||
+                    (rhs_reg->value.object->inner_value->flags & SYM_IS_NIL))
                     novalue_error(vm, code_pos, 2);
+
+                rhs_reg = rhs_reg->value.object->inner_value;
 
                 /* This works because lily_ensure_unique_sig makes sure that
                    no two signatures describe the same thing. So if it's the
                    same, then they share the same sig pointer. */
-                if (cast_sig == rhs_reg->value.object->sig) {
+                if (cast_sig == rhs_reg->sig) {
                     if (lhs_reg->sig->cls->is_refcounted) {
-                        rhs_reg->value.object->value.generic->refcount++;
+                        rhs_reg->value.generic->refcount++;
                         if ((lhs_reg->flags & SYM_IS_NIL) == 0)
                             lily_deref_unknown_val(lhs_reg->sig, lhs_reg->value);
                         else
                             lhs_reg->flags &= ~SYM_IS_NIL;
 
-                        lhs_reg->value = rhs_reg->value.object->value;
+                        lhs_reg->value = rhs_reg->value;
                     }
                     else {
-                        lhs_reg->value = rhs_reg->value.object->value;
+                        lhs_reg->value = rhs_reg->value;
                         lhs_reg->flags &= ~SYM_IS_NIL;
                     }
                 }
@@ -1800,7 +1803,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
                     lily_raise(vm->raiser, lily_ErrBadCast,
                             "Cannot cast object containing type '%T' to type '%T'.\n",
-                            rhs_reg->value.object->sig, lhs_reg->sig);
+                            rhs_reg->sig, lhs_reg->sig);
                 }
 
                 code_pos += 4;

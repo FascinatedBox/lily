@@ -749,13 +749,13 @@ static void show_value(lily_debug_state *debug, lily_sig *sig, lily_value value)
         /* The \n at the end comes from show_code always finishing that way. */
     }
     else if (cls_id == SYM_CLASS_OBJECT) {
-        lily_object_val *ov = value.object;
+        lily_vm_register *inner_obj_value = value.object->inner_value;
 
-        if (ov->sig == NULL)
+        if (inner_obj_value->flags & SYM_IS_NIL)
             lily_impl_debugf("(nil)\n");
         else {
             lily_impl_debugf("(object) ");
-            show_value(debug, ov->sig, ov->value);
+            show_value(debug, inner_obj_value->sig, inner_obj_value->value);
         }
     }
 }

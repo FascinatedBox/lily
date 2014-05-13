@@ -52,14 +52,20 @@ typedef struct lily_method_val_t {
     char *trace_name;
 } lily_method_val;
 
+/* Registers are allocated to hold values for calls. Opcodes reference registers
+   instead of specific addresses. */
+typedef struct lily_vm_register_t {
+    int flags;
+    struct lily_sig_t *sig;
+    lily_value value;
+} lily_vm_register;
+
 typedef struct lily_object_val_t {
     int refcount;
     /* Objects always have a gc_entry, because they can easily circularly
        reference. */
     struct lily_gc_entry_t *gc_entry;
-    int value_flags;
-    lily_value value;
-    struct lily_sig_t *sig;
+    lily_vm_register *inner_value;
 } lily_object_val;
 
 typedef struct lily_gc_entry_t {
@@ -68,14 +74,6 @@ typedef struct lily_gc_entry_t {
     int last_pass;
     struct lily_gc_entry_t *next;
 } lily_gc_entry;
-
-/* Registers are allocated to hold values for calls. Opcodes reference registers
-   instead of specific addresses. */
-typedef struct lily_vm_register_t {
-    int flags;
-    struct lily_sig_t *sig;
-    lily_value value;
-} lily_vm_register;
 
 typedef struct lily_list_val_t {
     int refcount;

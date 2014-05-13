@@ -99,9 +99,11 @@ void lily_deref_object_val(lily_object_val *ov)
            is about to be destroyed. */
         ov->gc_entry->value.generic = NULL;
 
-        if (ov->sig != NULL)
-            lily_deref_unknown_val(ov->sig, ov->value);
+        if ((ov->inner_value->flags & SYM_IS_NIL) == 0 &&
+            ov->inner_value->sig->cls->is_refcounted)
+            lily_deref_unknown_val(ov->inner_value->sig, ov->inner_value->value);
 
+        lily_free(ov->inner_value);
         lily_free(ov);
     }
 }
@@ -229,10 +231,17 @@ lily_object_val *lily_try_new_object_val()
     if (o == NULL)
         return NULL;
 
+    o->inner_value = lily_malloc(sizeof(lily_vm_register));
+    if (o->inner_value == NULL) {
+        lily_free(o);
+        return NULL;
+    }
+
+    o->inner_value->flags = SYM_IS_NIL;
+    o->inner_value->sig = NULL;
+    o->inner_value->value.integer = 0;
     o->gc_entry = NULL;
     o->refcount = 1;
-    o->sig = NULL;
-    o->value.integer = 0;
 
     return o;
 }
