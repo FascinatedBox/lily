@@ -31,14 +31,17 @@ void lily_gc_collect_object(lily_object_val *object_val)
            has been free'd except the object. The gc will free the object once
            all inner values have been deref'd/deleted. */
         object_val->gc_entry->last_pass = -1;
-        if (object_val->sig && object_val->sig->cls->is_refcounted) {
-            lily_generic_val *generic_val = object_val->value.generic;
+        lily_vm_register *inner_value = object_val->inner_value;
+        if ((inner_value->flags & SYM_IS_NIL) == 0 &&
+            inner_value->sig->cls->is_refcounted) {
+            lily_generic_val *generic_val = inner_value->value.generic;
             if (generic_val->refcount == 1)
-                lily_gc_collect_value(object_val->sig, object_val->value);
+                lily_gc_collect_value(inner_value->sig, inner_value->value);
             else
                 generic_val->refcount--;
         }
 
+        lily_free(object_val->inner_value);
         /* Do not free object_val here: Let the gc do that later. */
     }
 }
@@ -190,9 +193,12 @@ void lily_gc_object_marker(int pass, lily_sig *value_sig, lily_value v)
 
     if (obj_val->gc_entry->last_pass != pass) {
         obj_val->gc_entry->last_pass = pass;
-        if (obj_val->sig != NULL &&
-            obj_val->sig->cls->gc_marker != NULL) {
-            (*obj_val->sig->cls->gc_marker)(pass, obj_val->sig, obj_val->value);
+        lily_vm_register *inner_value = obj_val->inner_value;
+
+        if ((inner_value->flags & SYM_IS_NIL) == 0 &&
+            inner_value->sig->cls->gc_marker != NULL) {
+            (*inner_value->sig->cls->gc_marker)(pass, inner_value->sig,
+                    inner_value->value);
         }
     }
 }
