@@ -80,7 +80,7 @@ typedef struct {
     uint64_t label_shorthash;
     lily_token token;
     lily_lexer_mode mode;
-    lily_value value;
+    lily_raw_value value;
     lily_raiser *raiser;
 } lily_lex_state;
 

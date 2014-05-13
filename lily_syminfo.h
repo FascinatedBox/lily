@@ -3,10 +3,11 @@
 
 # include <stdint.h>
 
-/* lily_syminfo.h is included by a lot of things, because it defined lily_value
-   and lily_sig, which are core to lily. Functions get the vm state, so that
-   they can raise proper lily errors. The vm state is not filled in here because
-   few modules will want to touch the func of a value. */
+/* lily_syminfo.h is included by a lot of things, because it defines
+   lily_raw_value, lily_sig, and lily_value, which are core to lily. Functions
+   get the vm state, so that they can raise proper lily errors. The vm state
+   is not filled in here because few modules will want to touch the func of a
+   value. */
 struct lily_vm_state_t;
 struct lily_sym_t;
 struct lily_method_info_t;
@@ -15,8 +16,8 @@ struct lily_sig_t;
 
 typedef void (*lily_func)(struct lily_vm_state_t *, uintptr_t *code, int);
 
-/* This is where the raw data gets stored. Anything not an integer or a number
-   is stored in ptr and cast appropriately. */
+/* This is the base for all lily values. This is commonly paired up with a sig
+   to determine type, and flags to determine other stuff. */
 typedef union {
     int64_t integer;
     double number;
@@ -28,9 +29,17 @@ typedef union {
     struct lily_generic_gc_val_t *gc_generic;
     struct lily_function_val_t *function;
     struct lily_hash_val_t *hash;
+} lily_raw_value;
+
+/* This is a proper value in Lily. Flags are used to determine if the value is
+   nil, the sig tells the type, and the value contains the actual data. */
+typedef struct lily_value_t {
+    int flags;
+    struct lily_sig_t *sig;
+    lily_raw_value value;
 } lily_value;
 
-typedef void (*gc_marker_func)(int, struct lily_sig_t *, lily_value);
+typedef void (*gc_marker_func)(int, lily_value *);
 
 typedef struct lily_str_val_t {
     int refcount;
@@ -52,25 +61,17 @@ typedef struct lily_method_val_t {
     char *trace_name;
 } lily_method_val;
 
-/* Registers are allocated to hold values for calls. Opcodes reference registers
-   instead of specific addresses. */
-typedef struct lily_vm_register_t {
-    int flags;
-    struct lily_sig_t *sig;
-    lily_value value;
-} lily_vm_register;
-
 typedef struct lily_object_val_t {
     int refcount;
     /* Objects always have a gc_entry, because they can easily circularly
        reference. */
     struct lily_gc_entry_t *gc_entry;
-    lily_vm_register *inner_value;
+    lily_value *inner_value;
 } lily_object_val;
 
 typedef struct lily_gc_entry_t {
     struct lily_sig_t *value_sig;
-    lily_value value;
+    lily_raw_value value;
     int last_pass;
     struct lily_gc_entry_t *next;
 } lily_gc_entry;
@@ -82,7 +83,7 @@ typedef struct lily_list_val_t {
        point. This avoids creating gc entries for, say, list[integer] which can
        be collected via refcounting. */
     struct lily_gc_entry_t *gc_entry;
-    lily_vm_register **elems;
+    lily_value **elems;
     int visited;
     int num_values;
 } lily_list_val;
@@ -95,8 +96,8 @@ typedef struct lily_function_val_t {
 
 typedef struct lily_hash_elem_t {
     uint64_t key_siphash;
-    lily_vm_register *elem_key;
-    lily_vm_register *elem_value;
+    lily_value *elem_key;
+    lily_value *elem_value;
     struct lily_hash_elem_t *next;
 } lily_hash_elem;
 
@@ -185,7 +186,7 @@ typedef struct lily_register_info_t {
 typedef struct lily_storage_t {
     int flags;
     lily_sig *sig;
-    lily_value unused;
+    lily_raw_value unused;
     int reg_spot;
     int expr_num;
     struct lily_storage_t *next;
@@ -194,7 +195,7 @@ typedef struct lily_storage_t {
 typedef struct lily_var_t {
     int flags;
     lily_sig *sig;
-    lily_value value;
+    lily_raw_value value;
     int reg_spot;
     char *name;
     uint64_t shorthash;
@@ -210,7 +211,7 @@ typedef struct lily_var_t {
 typedef struct lily_sym_t {
     int flags;
     lily_sig *sig;
-    lily_value value;
+    lily_raw_value value;
     int reg_spot;
 } lily_sym;
 
@@ -219,7 +220,7 @@ typedef struct lily_sym_t {
 typedef struct lily_literal_t {
     int flags;
     lily_sig *sig;
-    lily_value value;
+    lily_raw_value value;
     int reg_spot;
     struct lily_literal_t *next;
 } lily_literal;

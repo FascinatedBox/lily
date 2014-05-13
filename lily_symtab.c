@@ -559,7 +559,7 @@ void lily_free_symtab(lily_symtab *symtab)
 
 /** Functions provided by symtab for other modules. **/
 lily_literal *lily_get_intnum_literal(lily_symtab *symtab, lily_class *cls,
-        lily_value want_value)
+        lily_raw_value want_value)
 {
     lily_literal *lit, *ret;
     ret = NULL;
@@ -576,7 +576,7 @@ lily_literal *lily_get_intnum_literal(lily_symtab *symtab, lily_class *cls,
     }
 
     if (ret == NULL) {
-        lily_value v;
+        lily_raw_value v;
         if (cls->id == SYM_CLASS_INTEGER)
             v.integer = want_value.integer;
         else
@@ -628,7 +628,7 @@ lily_literal *lily_get_str_literal(lily_symtab *symtab, char *want_str)
         sv->size = want_str_len;
         sv->refcount = 1;
 
-        lily_value v;
+        lily_raw_value v;
         v.str = sv;
         ret = lily_new_literal(symtab, cls, v);
     }
@@ -747,7 +747,7 @@ lily_var *lily_var_by_name(lily_symtab *symtab, char *name, uint64_t shorthash)
    This function currently handles only integer, number, and str values.
    Warning: This function calls lily_raise_nomem instead of returning NULL. */
 lily_literal *lily_new_literal(lily_symtab *symtab, lily_class *cls,
-        lily_value value)
+        lily_raw_value value)
 {
     lily_literal *lit = lily_malloc(sizeof(lily_literal));
     if (lit == NULL) {

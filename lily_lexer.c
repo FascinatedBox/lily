@@ -463,7 +463,7 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
 {
     int is_negative, is_integer, num_start, num_pos;
     uint64_t integer_value;
-    lily_value yield_val;
+    lily_raw_value yield_val;
 
     num_pos = *pos;
     num_start = num_pos;

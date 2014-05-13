@@ -7,9 +7,9 @@
 
 void lily_str_concat(lily_vm_state *vm, uintptr_t *code, int num_args)
 {
-    lily_vm_register **vm_regs = vm->vm_regs;
+    lily_value **vm_regs = vm->vm_regs;
     lily_str_val *ret, *arg1, *arg2;
-    lily_vm_register *ret_reg;
+    lily_value *ret_reg;
     ret_reg = vm_regs[code[2]];
     ret = vm_regs[code[2]]->value.str;
     arg1 = vm_regs[code[0]]->value.str;
