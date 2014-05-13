@@ -25,7 +25,7 @@ extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[
    it ensures that novalue_error gets the correct index. */
 #define LOAD_CHECKED_REG(load_reg, load_code_pos, load_pos) \
 load_reg = vm_regs[code[load_code_pos + load_pos]]; \
-if (load_reg->flags & SYM_IS_NIL) \
+if (load_reg->flags & VAL_IS_NIL) \
     novalue_error(vm, load_code_pos, load_pos); \
 
 #define INTEGER_OP(OP) \
@@ -33,7 +33,7 @@ LOAD_CHECKED_REG(lhs_reg, code_pos, 2) \
 LOAD_CHECKED_REG(rhs_reg, code_pos, 3) \
 vm_regs[code[code_pos+4]]->value.integer = \
 lhs_reg->value.integer OP rhs_reg->value.integer; \
-vm_regs[code[code_pos+4]]->flags &= ~SYM_IS_NIL; \
+vm_regs[code[code_pos+4]]->flags &= ~VAL_IS_NIL; \
 code_pos += 5;
 
 #define INTNUM_OP(OP) \
@@ -50,7 +50,7 @@ if (lhs_reg->sig->cls->id == SYM_CLASS_NUMBER) { \
 else \
     vm_regs[code[code_pos+4]]->value.number = \
     lhs_reg->value.integer OP rhs_reg->value.number; \
-vm_regs[code[code_pos+4]]->flags &= ~SYM_IS_NIL; \
+vm_regs[code[code_pos+4]]->flags &= ~VAL_IS_NIL; \
 code_pos += 5;
 
 /* EQUALITY_COMPARE_OP is used for == and !=, instead of a normal COMPARE_OP.
@@ -96,7 +96,7 @@ else if (lhs_reg->sig == rhs_reg->sig) { \
     /* Use int compare as pointer compare. A bit evil. */ \
     lhs_reg->value.integer == rhs_reg->value.integer; \
 } \
-vm_regs[code[code_pos+4]]->flags &= ~SYM_IS_NIL; \
+vm_regs[code[code_pos+4]]->flags &= ~VAL_IS_NIL; \
 code_pos += 5;
 
 #define COMPARE_OP(OP, STROP) \
@@ -123,7 +123,7 @@ else if (lhs_reg->sig->cls->id == SYM_CLASS_STR) { \
     strcmp(lhs_reg->value.str->str, \
            rhs_reg->value.str->str) STROP; \
 } \
-vm_regs[code[code_pos+4]]->flags &= ~SYM_IS_NIL; \
+vm_regs[code[code_pos+4]]->flags &= ~VAL_IS_NIL; \
 code_pos += 5;
 
 /** vm init and deletion **/
@@ -182,7 +182,7 @@ void lily_vm_free_registers(lily_vm_state *vm)
     for (i = vm->max_registers-1;i >= 0;i--) {
         reg = regs_from_main[i];
 
-        if (reg->sig->cls->is_refcounted && (reg->flags & SYM_IS_NIL) == 0)
+        if (reg->sig->cls->is_refcounted && (reg->flags & VAL_IS_NIL) == 0)
             lily_deref_unknown_val(reg);
 
         lily_free(reg);
@@ -284,7 +284,7 @@ void lily_vm_invoke_gc(lily_vm_state *vm)
     for (i = 0;i < vm->num_registers;i++) {
         lily_value *reg = regs_from_main[i];
         if ((reg->sig->flags & SIG_MAYBE_CIRCULAR) &&
-            (reg->flags & SYM_IS_NIL) == 0 &&
+            (reg->flags & VAL_IS_NIL) == 0 &&
              reg->value.gc_generic->gc_entry != NULL) {
             (*reg->sig->cls->gc_marker)(pass, reg);
         }
@@ -312,11 +312,11 @@ void lily_vm_invoke_gc(lily_vm_state *vm)
         for (i = vm->num_registers;i < vm->max_registers;i++) {
             lily_value *reg = regs_from_main[i];
             if ((reg->sig->flags & SIG_MAYBE_CIRCULAR) &&
-                (reg->flags & SYM_IS_NIL) == 0 &&
+                (reg->flags & VAL_IS_NIL) == 0 &&
                 /* Not sure if this next line is necessary though... */
                 reg->value.gc_generic->gc_entry != NULL &&
                 reg->value.gc_generic->gc_entry->last_pass == -1) {
-                reg->flags |= SYM_IS_NIL;
+                reg->flags |= VAL_IS_NIL;
             }
         }
     }
@@ -455,7 +455,7 @@ int maybe_crossover_assign(lily_value *lhs_reg, lily_value *rhs_reg)
         ret = 0;
 
     if (ret)
-        lhs_reg->flags &= ~SYM_IS_NIL;
+        lhs_reg->flags &= ~VAL_IS_NIL;
 
     return ret;
 }
@@ -641,14 +641,14 @@ void lily_builtin_printfmt(lily_vm_state *vm, uintptr_t *code, int num_args)
    for anything that needs that ref/deref stuff except for object. */
 void op_ref_assign(lily_value *lhs_reg, lily_value *rhs_reg)
 {
-    if (!(lhs_reg->flags & SYM_IS_NIL))
+    if (!(lhs_reg->flags & VAL_IS_NIL))
         lily_deref_unknown_val(lhs_reg);
-    if (!(rhs_reg->flags & SYM_IS_NIL)) {
+    if (!(rhs_reg->flags & VAL_IS_NIL)) {
         rhs_reg->value.generic->refcount++;
-        lhs_reg->flags &= ~SYM_IS_NIL;
+        lhs_reg->flags &= ~VAL_IS_NIL;
     }
     else
-        lhs_reg->flags |= SYM_IS_NIL;
+        lhs_reg->flags |= VAL_IS_NIL;
 
     lhs_reg->value = rhs_reg->value;
 }
@@ -749,7 +749,7 @@ static void op_object_assign(lily_vm_state *vm, lily_value *lhs_reg,
         lily_value *rhs_reg)
 {
     lily_object_val *lhs_obj;
-    if (lhs_reg->flags & SYM_IS_NIL) {
+    if (lhs_reg->flags & VAL_IS_NIL) {
         lhs_obj = lily_try_new_object_val();
         if (lhs_obj == NULL ||
             lily_try_add_gc_item(vm, lhs_reg->sig,
@@ -763,7 +763,7 @@ static void op_object_assign(lily_vm_state *vm, lily_value *lhs_reg,
         }
 
         lhs_reg->value.object = lhs_obj;
-        lhs_reg->flags &= ~SYM_IS_NIL;
+        lhs_reg->flags &= ~VAL_IS_NIL;
     }
     else
         lhs_obj = lhs_reg->value.object;
@@ -773,12 +773,12 @@ static void op_object_assign(lily_vm_state *vm, lily_value *lhs_reg,
     int new_flags;
 
     if (rhs_reg->sig->cls->id == SYM_CLASS_OBJECT) {
-        if ((rhs_reg->flags & SYM_IS_NIL) ||
-            (rhs_reg->value.object->inner_value->flags & SYM_IS_NIL)) {
+        if ((rhs_reg->flags & VAL_IS_NIL) ||
+            (rhs_reg->value.object->inner_value->flags & VAL_IS_NIL)) {
 
             new_sig = NULL;
             new_value.integer = 0;
-            new_flags = SYM_IS_NIL;
+            new_flags = VAL_IS_NIL;
         }
         else {
             lily_value *rhs_inner = rhs_reg->value.object->inner_value;
@@ -794,12 +794,12 @@ static void op_object_assign(lily_vm_state *vm, lily_value *lhs_reg,
         new_flags = rhs_reg->flags;
     }
 
-    if ((new_flags & SYM_IS_NIL) == 0 &&
+    if ((new_flags & VAL_IS_NIL) == 0 &&
         new_sig->cls->is_refcounted)
         new_value.generic->refcount++;
 
     lily_value *lhs_inner = lhs_obj->inner_value;
-    if ((lhs_inner->flags & SYM_IS_NIL) == 0 &&
+    if ((lhs_inner->flags & VAL_IS_NIL) == 0 &&
         lhs_inner->sig->cls->is_refcounted)
         lily_deref_unknown_val(lhs_inner);
 
@@ -818,10 +818,10 @@ static void generic_assignment(lily_vm_state *vm, lily_value *left,
         op_object_assign(vm, left, right);
     else {
         if (cls->is_refcounted) {
-            if ((right->flags & SYM_IS_NIL) == 0)
+            if ((right->flags & VAL_IS_NIL) == 0)
                 right->value.generic->refcount++;
     
-            if ((left->flags & SYM_IS_NIL) == 0)
+            if ((left->flags & VAL_IS_NIL) == 0)
                 lily_deref_unknown_val(left);
         }
 
@@ -909,13 +909,13 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
         generic_assignment(vm, list_val->elems[index_int], rhs_reg);
     }
     else {
-        if (lhs_reg->flags & SYM_IS_NIL) {
+        if (lhs_reg->flags & VAL_IS_NIL) {
             lily_hash_val *hv = lily_try_new_hash_val();
             if (hv == NULL)
                 lily_raise_nomem(vm->raiser);
 
             lhs_reg->value.hash = hv;
-            lhs_reg->flags &= ~SYM_IS_NIL;
+            lhs_reg->flags &= ~VAL_IS_NIL;
         }
         uint64_t siphash;
         siphash = calculate_siphash(vm->sipkey, index_reg);
@@ -999,7 +999,7 @@ void op_build_hash(lily_vm_state *vm, uintptr_t *code, int code_pos)
         lily_raise_nomem(vm->raiser);
     }
 
-    if ((result->flags & SYM_IS_NIL) == 0)
+    if ((result->flags & VAL_IS_NIL) == 0)
         lily_deref_hash_val(result->sig, result->value.hash);
 
     result->value.hash = hash_val;
@@ -1011,7 +1011,7 @@ void op_build_hash(lily_vm_state *vm, uintptr_t *code, int code_pos)
         key_reg = vm_regs[code[code_pos + 3 + i]];
         value_reg = vm_regs[code[code_pos + 3 + i + 1]];
 
-        if (key_reg->flags & SYM_IS_NIL)
+        if (key_reg->flags & VAL_IS_NIL)
             lily_raise_nomem(vm->raiser);
 
         uint64_t key_siphash;
@@ -1057,7 +1057,7 @@ void op_build_list(lily_vm_state *vm, lily_value **vm_regs,
     }
 
     /* The old value can be destroyed, now that the new value has been made. */
-    if ((result->flags & SYM_IS_NIL) == 0)
+    if ((result->flags & VAL_IS_NIL) == 0)
         lily_deref_list_val(result->sig, result->value.list);
 
     /* Put the new list in the register so the gc doesn't try to collect it. */
@@ -1080,12 +1080,12 @@ void op_build_list(lily_vm_state *vm, lily_value **vm_regs,
                triggers the gc. */
             lily_value *new_elem = lv->elems[j];
             new_elem->sig = elem_sig;
-            new_elem->flags = SYM_IS_NIL;
+            new_elem->flags = VAL_IS_NIL;
             new_elem->value.integer = 0;
             lv->num_values = j + 1;
             lily_value *rhs_reg = vm_regs[code[3+j]];
 
-            if ((rhs_reg->flags & SYM_IS_NIL) == 0) {
+            if ((rhs_reg->flags & VAL_IS_NIL) == 0) {
                 lily_value *rhs_inner_val;
                 rhs_inner_val = rhs_reg->value.object->inner_value;
                 /* Objects are supposed to act like containers which can hold
@@ -1115,7 +1115,7 @@ void op_build_list(lily_vm_state *vm, lily_value **vm_regs,
                 oval->inner_value->flags = rhs_inner_val->flags;
                 oval->refcount = 1;
 
-                if ((rhs_inner_val->flags & SYM_IS_NIL) == 0 &&
+                if ((rhs_inner_val->flags & VAL_IS_NIL) == 0 &&
                     rhs_inner_val->sig->cls->is_refcounted)
                     rhs_inner_val->value.generic->refcount++;
 
@@ -1137,12 +1137,12 @@ void op_build_list(lily_vm_state *vm, lily_value **vm_regs,
 
             lily_value *elem = lv->elems[j];
             elem->sig = elem_sig;
-            elem->flags = SYM_IS_NIL;
+            elem->flags = VAL_IS_NIL;
             elem->value.integer = 0;
             lv->num_values = j + 1;
 
             lily_value *rhs_reg = vm_regs[code[3+j]];
-            if ((rhs_reg->flags & SYM_IS_NIL) == 0) {
+            if ((rhs_reg->flags & VAL_IS_NIL) == 0) {
                 lv->elems[j]->value = rhs_reg->value;
                 if (is_refcounted)
                     rhs_reg->value.generic->refcount++;
@@ -1207,7 +1207,7 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
         }
 
         new_regs[i]->sig = integer_sig;
-        new_regs[i]->flags = SYM_IS_NIL;
+        new_regs[i]->flags = VAL_IS_NIL;
     }
 
     vm->max_registers = register_need;
@@ -1240,18 +1240,18 @@ static void prep_registers(lily_vm_state *vm, lily_method_val *mval,
            destroyed from a deref, then an invalid value ref'd.
            This may not be possible here, but it is elsewhere. */
         if (get_reg->sig->cls->is_refcounted &&
-            ((get_reg->flags & SYM_IS_NIL) == 0))
+            ((get_reg->flags & VAL_IS_NIL) == 0))
             get_reg->value.generic->refcount++;
 
         if (set_reg->sig->cls->is_refcounted &&
-            ((set_reg->flags & SYM_IS_NIL) == 0))
+            ((set_reg->flags & VAL_IS_NIL) == 0))
             lily_deref_unknown_val(set_reg);
 
         set_reg->sig = seed.sig;
         /* This will be null if this register doesn't belong to a
            var, or non-null if it's for a local. */
 
-        if ((get_reg->flags & SYM_IS_NIL) == 0)
+        if ((get_reg->flags & VAL_IS_NIL) == 0)
             set_reg->value = get_reg->value;
         else
             set_reg->value.integer = 0;
@@ -1265,10 +1265,10 @@ static void prep_registers(lily_vm_state *vm, lily_method_val *mval,
 
         lily_value *reg = regs_from_main[num_registers];
         if (reg->sig->cls->is_refcounted &&
-            (reg->flags & SYM_IS_NIL) == 0)
+            (reg->flags & VAL_IS_NIL) == 0)
             lily_deref_unknown_val(reg);
 
-        reg->flags |= SYM_IS_NIL;
+        reg->flags |= VAL_IS_NIL;
         reg->sig = seed.sig;
     }
 
@@ -1281,11 +1281,11 @@ static void prep_registers(lily_vm_state *vm, lily_method_val *mval,
 static void load_vm_regs(lily_value **vm_regs, lily_var *iter_var)
 {
     while (iter_var) {
-        if ((iter_var->flags & SYM_IS_NIL) == 0) {
+        if ((iter_var->flags & VAL_IS_NIL) == 0) {
             if (iter_var->sig->cls->is_refcounted)
                 iter_var->value.generic->refcount++;
 
-            vm_regs[iter_var->reg_spot]->flags &= ~SYM_IS_NIL;
+            vm_regs[iter_var->reg_spot]->flags &= ~VAL_IS_NIL;
             vm_regs[iter_var->reg_spot]->value = iter_var->value;
         }
 
@@ -1323,16 +1323,16 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
         /* This allows o_assign to copy data over without having to check for
            a nil flag. */
         reg->value.integer = 0;
-        reg->flags = SYM_IS_NIL;
+        reg->flags = VAL_IS_NIL;
         reg->sig = seed.sig;
     }
 
     while (global_iter) {
-        if ((global_iter->flags & SYM_IS_NIL) == 0) {
+        if ((global_iter->flags & VAL_IS_NIL) == 0) {
             if (global_iter->sig->cls->is_refcounted)
                 global_iter->value.generic->refcount++;
 
-            vm_regs[global_iter->reg_spot]->flags &= ~SYM_IS_NIL;
+            vm_regs[global_iter->reg_spot]->flags &= ~VAL_IS_NIL;
             vm_regs[global_iter->reg_spot]->value = global_iter->value;
         }
 
@@ -1427,13 +1427,13 @@ void lily_vm_execute(lily_vm_state *vm)
                 literal = (lily_literal *)code[code_pos+2];
                 lhs_reg = vm_regs[code[code_pos+3]];
                 if (lhs_reg->sig->cls->is_refcounted) {
-                    if ((lhs_reg->flags & SYM_IS_NIL) == 0)
+                    if ((lhs_reg->flags & VAL_IS_NIL) == 0)
                         lily_deref_unknown_val(lhs_reg);
 
                     literal->value.generic->refcount++;
                 }
                 lhs_reg->value = literal->value;
-                lhs_reg->flags &= ~SYM_IS_NIL;
+                lhs_reg->flags &= ~VAL_IS_NIL;
                 code_pos += 4;
                 break;
             case o_integer_add:
@@ -1522,10 +1522,10 @@ void lily_vm_execute(lily_vm_state *vm)
                     int cls_id, result;
 
                     if (lhs_reg->sig->cls->id == SYM_CLASS_OBJECT &&
-                        (lhs_reg->flags & SYM_IS_NIL) == 0)
+                        (lhs_reg->flags & VAL_IS_NIL) == 0)
                         lhs_reg = lhs_reg->value.object->inner_value;
 
-                    if ((lhs_reg->flags & SYM_IS_NIL) == 0) {
+                    if ((lhs_reg->flags & VAL_IS_NIL) == 0) {
                         cls_id = lhs_reg->sig->cls->id;
                         if (cls_id == SYM_CLASS_INTEGER)
                             result = (lhs_reg->value.integer == 0);
@@ -1607,7 +1607,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
 
                 rhs_reg = vm_regs[code[code_pos+3]];
-                rhs_reg->flags &= ~SYM_IS_NIL;
+                rhs_reg->flags &= ~VAL_IS_NIL;
                 rhs_reg->value.integer = !(lhs_reg->value.integer);
                 code_pos += 4;
                 break;
@@ -1615,7 +1615,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
 
                 rhs_reg = vm_regs[code[code_pos+3]];
-                rhs_reg->flags &= ~SYM_IS_NIL;
+                rhs_reg->flags &= ~VAL_IS_NIL;
                 rhs_reg->value.integer = -(lhs_reg->value.integer);
                 code_pos += 4;
                 break;
@@ -1637,10 +1637,10 @@ void lily_vm_execute(lily_vm_state *vm)
                    is_refcounted check is necessary. */
                 if (rhs_reg->sig->cls->is_refcounted) {
                     /* However, one or both could be nil. */
-                    if ((rhs_reg->flags & SYM_IS_NIL) == 0)
+                    if ((rhs_reg->flags & VAL_IS_NIL) == 0)
                         rhs_reg->value.generic->refcount++;
 
-                    if ((lhs_reg->flags & SYM_IS_NIL) == 0)
+                    if ((lhs_reg->flags & VAL_IS_NIL) == 0)
                         lily_deref_unknown_val(lhs_reg);
                 }
                 lhs_reg->flags = rhs_reg->flags;
@@ -1669,10 +1669,10 @@ void lily_vm_execute(lily_vm_state *vm)
                              this index is based on the global scope. */
                 if (rhs_reg->sig->cls->is_refcounted) {
                     /* However, one or both could be nil. */
-                    if ((rhs_reg->flags & SYM_IS_NIL) == 0)
+                    if ((rhs_reg->flags & VAL_IS_NIL) == 0)
                         rhs_reg->value.generic->refcount++;
 
-                    if ((lhs_reg->flags & SYM_IS_NIL) == 0)
+                    if ((lhs_reg->flags & VAL_IS_NIL) == 0)
                         lily_deref_unknown_val(lhs_reg);
                 }
                 lhs_reg->flags = rhs_reg->flags;
@@ -1687,10 +1687,10 @@ void lily_vm_execute(lily_vm_state *vm)
                 if (lhs_reg->sig->cls->id != SYM_CLASS_OBJECT) {
                     if (lhs_reg->sig->cls->is_refcounted) {
                         /* However, one or both could be nil. */
-                        if ((rhs_reg->flags & SYM_IS_NIL) == 0)
+                        if ((rhs_reg->flags & VAL_IS_NIL) == 0)
                             rhs_reg->value.generic->refcount++;
 
-                        if ((lhs_reg->flags & SYM_IS_NIL) == 0)
+                        if ((lhs_reg->flags & VAL_IS_NIL) == 0)
                             lily_deref_unknown_val(lhs_reg);
                     }
 
@@ -1762,8 +1762,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 cast_sig = lhs_reg->sig;
 
                 LOAD_CHECKED_REG(rhs_reg, code_pos, 2)
-                if ((rhs_reg->flags & SYM_IS_NIL) ||
-                    (rhs_reg->value.object->inner_value->flags & SYM_IS_NIL))
+                if ((rhs_reg->flags & VAL_IS_NIL) ||
+                    (rhs_reg->value.object->inner_value->flags & VAL_IS_NIL))
                     novalue_error(vm, code_pos, 2);
 
                 rhs_reg = rhs_reg->value.object->inner_value;
@@ -1774,16 +1774,16 @@ void lily_vm_execute(lily_vm_state *vm)
                 if (cast_sig == rhs_reg->sig) {
                     if (lhs_reg->sig->cls->is_refcounted) {
                         rhs_reg->value.generic->refcount++;
-                        if ((lhs_reg->flags & SYM_IS_NIL) == 0)
+                        if ((lhs_reg->flags & VAL_IS_NIL) == 0)
                             lily_deref_unknown_val(lhs_reg);
                         else
-                            lhs_reg->flags &= ~SYM_IS_NIL;
+                            lhs_reg->flags &= ~VAL_IS_NIL;
 
                         lhs_reg->value = rhs_reg->value;
                     }
                     else {
                         lhs_reg->value = rhs_reg->value;
-                        lhs_reg->flags &= ~SYM_IS_NIL;
+                        lhs_reg->flags &= ~VAL_IS_NIL;
                     }
                 }
                 /* Since integer and number can be cast between each other,
@@ -1824,7 +1824,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     loop_reg->value.integer = for_temp;
                     /* The loop var may have been altered and set nil. Make sure
                        it is not nil. */
-                    loop_reg->flags &= ~SYM_IS_NIL;
+                    loop_reg->flags &= ~VAL_IS_NIL;
                     code_pos += 7;
                 }
                 else
@@ -1846,7 +1846,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     else
                         step_reg->value.integer = -1;
 
-                    step_reg->flags &= ~SYM_IS_NIL;
+                    step_reg->flags &= ~VAL_IS_NIL;
                 }
                 else if (step_reg->value.integer == 0) {
                     LOAD_CHECKED_REG(step_reg, code_pos, 5)
@@ -1856,14 +1856,14 @@ void lily_vm_execute(lily_vm_state *vm)
                 }
 
                 loop_reg->value.integer = lhs_reg->value.integer;
-                loop_reg->flags &= ~SYM_IS_NIL;
+                loop_reg->flags &= ~VAL_IS_NIL;
 
                 code_pos += 7;
                 break;
             case o_return_from_vm:
                 for (i = max_registers-1;i >= 0;i--) {
                     if (regs_from_main[i]->sig->cls->is_refcounted &&
-                        (regs_from_main[i]->flags & SYM_IS_NIL) == 0) {
+                        (regs_from_main[i]->flags & VAL_IS_NIL) == 0) {
                         lily_deref_unknown_val(regs_from_main[i]);
                     }
 

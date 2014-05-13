@@ -32,7 +32,7 @@ void lily_gc_collect_object(lily_object_val *object_val)
            all inner values have been deref'd/deleted. */
         object_val->gc_entry->last_pass = -1;
         lily_value *inner_value = object_val->inner_value;
-        if ((inner_value->flags & SYM_IS_NIL) == 0 &&
+        if ((inner_value->flags & VAL_IS_NIL) == 0 &&
             inner_value->sig->cls->is_refcounted) {
             lily_generic_val *generic_val = inner_value->value.generic;
             if (generic_val->refcount == 1)
@@ -78,7 +78,7 @@ void lily_gc_collect_list(lily_sig *list_sig, lily_list_val *list_val)
                 /* Pass stuff off to the gc to collect. This will use a typical
                    deref for stuff like str. */
                 lily_value *elem = list_val->elems[i];
-                if ((elem->flags & SYM_IS_NIL) == 0) {
+                if ((elem->flags & VAL_IS_NIL) == 0) {
                     lily_raw_value v = elem->value;
                     if (v.generic->refcount == 1)
                         lily_gc_collect_value(value_sig, v);
@@ -140,7 +140,7 @@ void lily_gc_collect_hash(lily_sig *hash_sig, lily_hash_val *hash_val)
             while (elem_iter) {
                 lily_value *elem_value = elem_iter->elem_value;
                 elem_temp = elem_iter->next;
-                if ((elem_value->flags & SYM_IS_NIL) == 0) {
+                if ((elem_value->flags & VAL_IS_NIL) == 0) {
                     lily_raw_value v = elem_value->value;
                     if (v.generic->refcount == 1)
                         lily_gc_collect_value(hash_value_sig, v);
@@ -179,7 +179,7 @@ void lily_gc_hash_marker(int pass, lily_value *v)
         lily_hash_elem *elem_iter = hash_val->elem_chain;
         while (elem_iter) {
             lily_value *elem_value = elem_iter->elem_value;
-            if ((elem_value->flags & SYM_IS_NIL) == 0)
+            if ((elem_value->flags & VAL_IS_NIL) == 0)
                 gc_marker(pass, elem_value);
 
             elem_iter = elem_iter->next;
@@ -195,7 +195,7 @@ void lily_gc_object_marker(int pass, lily_value *v)
         obj_val->gc_entry->last_pass = pass;
         lily_value *inner_value = obj_val->inner_value;
 
-        if ((inner_value->flags & SYM_IS_NIL) == 0 &&
+        if ((inner_value->flags & VAL_IS_NIL) == 0 &&
             inner_value->sig->cls->gc_marker != NULL) {
             (*inner_value->sig->cls->gc_marker)(pass, inner_value);
         }
@@ -220,7 +220,7 @@ void lily_gc_list_marker(int pass, lily_value *v)
             for (i = 0;i < list_val->num_values;i++) {
                 lily_value *elem = list_val->elems[i];
 
-                if ((elem->flags & SYM_IS_NIL) == 0)
+                if ((elem->flags & VAL_IS_NIL) == 0)
                     gc_marker(pass, elem);
             }
         }

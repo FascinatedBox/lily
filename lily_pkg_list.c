@@ -9,7 +9,7 @@ void lily_list_size(lily_vm_state *vm, uintptr_t *code, int num_args)
     lily_value *ret_reg = vm_regs[code[1]];
 
     ret_reg->value.integer = list_val->num_values;
-    ret_reg->flags &= ~SYM_IS_NIL;
+    ret_reg->flags &= ~VAL_IS_NIL;
 }
 
 static lily_func_seed size =

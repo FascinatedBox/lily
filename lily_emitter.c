@@ -2060,7 +2060,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         v->value.method->trace_name = v->name;
         /* All declared methods are loaded into __main__'s registers for later
            access. */
-        v->flags &= ~(SYM_IS_NIL);
+        v->flags &= ~(VAL_IS_NIL);
         v->method_depth = 1;
 
         new_block->save_register_spot = emit->symtab->next_register_spot;
@@ -2176,7 +2176,7 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
        be destroyed. This is because the names in the method info it has are
        shared with vars that are still around. */
     main_var->value.method->refcount++;
-    main_var->flags &= ~SYM_IS_NIL;
+    main_var->flags &= ~VAL_IS_NIL;
     main_var->value.method->trace_name = main_var->name;
     main_block->block_type = BLOCK_METHOD;
     main_block->method_var = main_var;

@@ -174,14 +174,16 @@ typedef struct lily_register_info_t {
 #define SYM_TYPE_LITERAL       0x01
 #define SYM_TYPE_VAR           0x02
 #define SYM_TYPE_STORAGE       0x04
-/* If a symbol doesn't have a value, then the symbol's flags are set to S_IS_NIL
-   to indicate such. Lists contain an array of flags for each of their symbols.
-   S_IS_NIL is set if a particular position in a list is nil. However, lists do
-   not use any of the above flags, because only values are stored in lists. */
-#define SYM_IS_NIL             0x10
 /* This var is out of scope. This is set when a var in a non-method block goes
    out of scope. */
-#define SYM_OUT_OF_SCOPE       0x20
+#define SYM_OUT_OF_SCOPE       0x10
+
+/* If this is set, the associated value should be treated as if it were unset,
+   Don't ref/deref things which have this value associated with them.
+   Objects: An object is nil if a value has not been allocated for it. If nil
+            values are given to an object, then the object's inner_value should
+            be set to nil. */
+#define VAL_IS_NIL             0x100
 
 typedef struct lily_storage_t {
     int flags;
