@@ -18,9 +18,9 @@ void lily_deref_hash_val(lily_sig *sig, lily_hash_val *hv)
         lily_hash_elem *elem, *save_next;
         elem = hv->elem_chain;
         while (elem) {
-            lily_vm_register *elem_value = elem->elem_value;
+            lily_value *elem_value = elem->elem_value;
             if (elem_value->flags == 0 && value_is_refcounted)
-                lily_deref_unknown_val(value_sig, elem_value->value);
+                lily_deref_unknown_val(elem_value);
             else if (value_cls_id == SYM_CLASS_OBJECT) {
                 /* Objects are containers that are not shared. This circularity
                    applies to what's inside the object, not the object itself.
@@ -50,13 +50,18 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
         if (lv->gc_entry != NULL)
             lv->gc_entry->value.generic = NULL;
 
-        lily_sig *elem_sig = sig->siglist[0];
         int i;
-        for (i = 0;i < lv->num_values;i++) {
-            if (lv->elems[i]->flags == 0)
-                lily_deref_unknown_val(elem_sig, lv->elems[i]->value);
+        if (sig->siglist[0]->cls->is_refcounted) {
+            for (i = 0;i < lv->num_values;i++) {
+                if (lv->elems[i]->flags == 0)
+                    lily_deref_unknown_val(lv->elems[i]);
 
-            lily_free(lv->elems[i]);
+                lily_free(lv->elems[i]);
+            }
+        }
+        else {
+            for (i = 0;i < lv->num_values;i++)
+                lily_free(lv->elems[i]);
         }
 
         lily_free(lv->elems);
@@ -101,30 +106,62 @@ void lily_deref_object_val(lily_object_val *ov)
 
         if ((ov->inner_value->flags & SYM_IS_NIL) == 0 &&
             ov->inner_value->sig->cls->is_refcounted)
-            lily_deref_unknown_val(ov->inner_value->sig, ov->inner_value->value);
+            lily_deref_unknown_val(ov->inner_value);
 
         lily_free(ov->inner_value);
         lily_free(ov);
     }
 }
 
-/* lily_deref_unknown_val
-   This is a handy function for doing a deref but not knowing what class the
-   sig contained. This should be used to keep redundant checking code. In some
-   cases, such as list derefs, hoisting the loops is a better idea for speed. */
-void lily_deref_unknown_val(lily_sig *sig, lily_value v)
+/*  lily_deref_unknown_val
+    This takes a proper value and determines the proper call to deref the given
+    value. This is useful if you want to deref something but don't know exactly
+    what type it is.
+
+    This should (ideally) not be called if the given value is not refcounted.
+    This must never be called with a value that has the nil flag set.
+
+    value: The value to deref. */
+void lily_deref_unknown_val(lily_value *value)
 {
-    int cls_id = sig->cls->id;
+    lily_raw_value raw = value->value;
+    int cls_id = value->sig->cls->id;
+
     if (cls_id == SYM_CLASS_LIST)
-        lily_deref_list_val(sig, v.list);
+        lily_deref_list_val(value->sig, raw.list);
     else if (cls_id == SYM_CLASS_STR)
-        lily_deref_str_val(v.str);
+        lily_deref_str_val(raw.str);
     else if (cls_id == SYM_CLASS_METHOD)
-        lily_deref_method_val(v.method);
+        lily_deref_method_val(raw.method);
     else if (cls_id == SYM_CLASS_OBJECT)
-        lily_deref_object_val(v.object);
+        lily_deref_object_val(raw.object);
     else if (cls_id == SYM_CLASS_HASH)
-        lily_deref_hash_val(sig, v.hash);
+        lily_deref_hash_val(value->sig, raw.hash);
+}
+
+/*  lily_deref_unknown_raw_value
+    This takes a sig and a raw value and determines the proper call to deref
+    the raw value. This should be thought of as a failsafe in the event that
+    a raw_value needs to be destroyed.
+
+    This should (ideally) not be called if the given value is not refcounted.
+    This must never be called with a value that has the nil flag set.
+
+    value_sig: The signature describing the raw value to be deref'd.
+    raw:       The raw value to be deref'd. */
+void lily_deref_unknown_raw_val(lily_sig *value_sig, lily_raw_value raw)
+{
+    int cls_id = value_sig->cls->id;
+    if (cls_id == SYM_CLASS_LIST)
+        lily_deref_list_val(value_sig, raw.list);
+    else if (cls_id == SYM_CLASS_STR)
+        lily_deref_str_val(raw.str);
+    else if (cls_id == SYM_CLASS_METHOD)
+        lily_deref_method_val(raw.method);
+    else if (cls_id == SYM_CLASS_OBJECT)
+        lily_deref_object_val(raw.object);
+    else if (cls_id == SYM_CLASS_HASH)
+        lily_deref_hash_val(value_sig, raw.hash);
 }
 
 /** Value creation calls **/
@@ -200,8 +237,8 @@ lily_hash_elem *lily_try_new_hash_elem()
     if (elem == NULL)
         return NULL;
 
-    elem->elem_key = lily_malloc(sizeof(lily_vm_register));
-    elem->elem_value = lily_malloc(sizeof(lily_vm_register));
+    elem->elem_key = lily_malloc(sizeof(lily_value));
+    elem->elem_value = lily_malloc(sizeof(lily_value));
     if (elem->elem_key == NULL || elem->elem_value == NULL) {
         lily_free(elem->elem_key);
         lily_free(elem->elem_value);
@@ -231,7 +268,7 @@ lily_object_val *lily_try_new_object_val()
     if (o == NULL)
         return NULL;
 
-    o->inner_value = lily_malloc(sizeof(lily_vm_register));
+    o->inner_value = lily_malloc(sizeof(lily_value));
     if (o->inner_value == NULL) {
         lily_free(o);
         return NULL;

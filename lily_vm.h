@@ -16,8 +16,8 @@ typedef struct {
 } lily_vm_stack_entry;
 
 typedef struct lily_vm_state_t {
-    lily_vm_register **vm_regs;
-    lily_vm_register **regs_from_main;
+    lily_value **vm_regs;
+    lily_value **regs_from_main;
     int num_registers;
     int max_registers;
 

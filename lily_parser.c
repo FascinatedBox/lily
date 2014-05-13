@@ -698,7 +698,7 @@ static lily_literal *parse_special_keyword(lily_parse_state *parser, int key_id)
        return a literal with the given value, or raise nomem. */
     if (key_id == KEY__LINE__) {
         lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
-        lily_value value;
+        lily_raw_value value;
 
         value.integer = parser->lex->line_num;
 

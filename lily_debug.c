@@ -358,7 +358,7 @@ static void show_str(lily_debug_state *debug, char *str)
    is used by show_code_sym for literals, and show_value for non-nil simple
    values. */
 static void show_simple_value(lily_debug_state *debug, lily_sig *sig,
-        lily_value value)
+        lily_raw_value value)
 {
     int cls_id = sig->cls->id;
 
@@ -371,7 +371,7 @@ static void show_simple_value(lily_debug_state *debug, lily_sig *sig,
 }
 
 static void show_literal(lily_debug_state *debug, lily_sig *sig,
-        lily_value value)
+        lily_raw_value value)
 {
     lily_impl_debugf("(");
     show_sig(sig, NULL);
@@ -592,7 +592,7 @@ static void show_code(lily_debug_state *debug)
     }
 }
 
-static void show_value(lily_debug_state *debug, lily_sig *, lily_value);
+static void show_value(lily_debug_state *debug, lily_sig *, lily_raw_value);
 
 static void show_list_value(lily_debug_state *debug, lily_sig *sig,
         lily_list_val *lv)
@@ -698,7 +698,8 @@ static void show_hash_value(lily_debug_state *debug, lily_sig *sig,
    Each command should end with an extra '\n' in some way. This consistency is
    important for making sure that any value sent to show results in the same
    amount of \n's written after it. */
-static void show_value(lily_debug_state *debug, lily_sig *sig, lily_value value)
+static void show_value(lily_debug_state *debug, lily_sig *sig,
+        lily_raw_value value)
 {
     int cls_id = sig->cls->id;
 
@@ -749,13 +750,13 @@ static void show_value(lily_debug_state *debug, lily_sig *sig, lily_value value)
         /* The \n at the end comes from show_code always finishing that way. */
     }
     else if (cls_id == SYM_CLASS_OBJECT) {
-        lily_vm_register *inner_obj_value = value.object->inner_value;
+        lily_value *obj_value = value.object->inner_value;
 
-        if (inner_obj_value->flags & SYM_IS_NIL)
+        if (obj_value->flags & SYM_IS_NIL)
             lily_impl_debugf("(nil)\n");
         else {
             lily_impl_debugf("(object) ");
-            show_value(debug, inner_obj_value->sig, inner_obj_value->value);
+            show_value(debug, obj_value->sig, obj_value->value);
         }
     }
 }
@@ -764,7 +765,7 @@ static void show_value(lily_debug_state *debug, lily_sig *sig, lily_value value)
 /* lily_show_sym
    This handles showing the information for a symbol at vm-time. */
 void lily_show_sym(lily_method_val *lily_main, lily_method_val *current_method,
-        lily_vm_register *reg, int is_global, int reg_id, lily_msgbuf *msgbuf)
+        lily_value *value, int is_global, int reg_id, lily_msgbuf *msgbuf)
 {
     lily_debug_state debug;
     debug.indent = 0;
@@ -780,8 +781,8 @@ void lily_show_sym(lily_method_val *lily_main, lily_method_val *current_method,
     show_register_info(&debug, flags, reg_id);
 
     lily_impl_debugf("Value: ");
-    if (reg->flags & SYM_IS_NIL)
+    if (value->flags & SYM_IS_NIL)
         lily_impl_debugf("(nil)\n");
     else
-        show_value(&debug, reg->sig, reg->value);
+        show_value(&debug, value->sig, value->value);
 }

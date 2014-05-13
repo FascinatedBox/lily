@@ -14,6 +14,7 @@ void lily_deref_object_val(lily_object_val *);
 void lily_deref_list_val_by(lily_sig *, lily_list_val *, int);
 void lily_deref_list_val(lily_sig *, lily_list_val *);
 void lily_deref_hash_val(lily_sig *, lily_hash_val *);
-void lily_deref_unknown_val(lily_sig *, lily_value);
+void lily_deref_unknown_val(lily_value *);
+void lily_deref_unknown_raw_val(lily_sig *, lily_raw_value);
 
 #endif
