@@ -104,7 +104,7 @@ void lily_deref_object_val(lily_object_val *ov)
            is about to be destroyed. */
         ov->gc_entry->value.generic = NULL;
 
-        if ((ov->inner_value->flags & VAL_IS_NIL) == 0 &&
+        if ((ov->inner_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
             ov->inner_value->sig->cls->is_refcounted)
             lily_deref_unknown_val(ov->inner_value);
 
