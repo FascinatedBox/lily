@@ -183,7 +183,13 @@ typedef struct lily_register_info_t {
    Objects: An object is nil if a value has not been allocated for it. If nil
             values are given to an object, then the object's inner_value should
             be set to nil. */
-#define VAL_IS_NIL             0x100
+#define VAL_IS_NIL              0x100
+/* If this is set, the associated value is valid, but should not get any refs
+   or derefs. This is set on values that load literals to prevent literals from
+   getting unnecessary refcount adjustments. */
+#define VAL_IS_PROTECTED        0x200
+
+#define VAL_IS_NIL_OR_PROTECTED 0x300
 
 typedef struct lily_storage_t {
     int flags;

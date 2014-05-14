@@ -32,7 +32,7 @@ void lily_gc_collect_object(lily_object_val *object_val)
            all inner values have been deref'd/deleted. */
         object_val->gc_entry->last_pass = -1;
         lily_value *inner_value = object_val->inner_value;
-        if ((inner_value->flags & VAL_IS_NIL) == 0 &&
+        if ((inner_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
             inner_value->sig->cls->is_refcounted) {
             lily_generic_val *generic_val = inner_value->value.generic;
             if (generic_val->refcount == 1)
@@ -78,7 +78,7 @@ void lily_gc_collect_list(lily_sig *list_sig, lily_list_val *list_val)
                 /* Pass stuff off to the gc to collect. This will use a typical
                    deref for stuff like str. */
                 lily_value *elem = list_val->elems[i];
-                if ((elem->flags & VAL_IS_NIL) == 0) {
+                if ((elem->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
                     lily_raw_value v = elem->value;
                     if (v.generic->refcount == 1)
                         lily_gc_collect_value(value_sig, v);
@@ -140,7 +140,7 @@ void lily_gc_collect_hash(lily_sig *hash_sig, lily_hash_val *hash_val)
             while (elem_iter) {
                 lily_value *elem_value = elem_iter->elem_value;
                 elem_temp = elem_iter->next;
-                if ((elem_value->flags & VAL_IS_NIL) == 0) {
+                if ((elem_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
                     lily_raw_value v = elem_value->value;
                     if (v.generic->refcount == 1)
                         lily_gc_collect_value(hash_value_sig, v);
