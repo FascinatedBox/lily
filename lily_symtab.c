@@ -195,7 +195,7 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
         lily_sig *new_sig = scan_seed_arg(symtab, seed->arg_ids, &pos, &ok);
         if (new_sig != NULL) {
             lily_var *var = lily_try_new_var(symtab, new_sig, seed->name,
-                    shorthash, 0);
+                    shorthash, VAR_IS_READONLY);
 
             if (var != NULL) {
                 var->value.function = lily_try_new_function_val(seed->func, 

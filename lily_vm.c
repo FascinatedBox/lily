@@ -1284,7 +1284,7 @@ static void load_vm_regs(lily_value **vm_regs, lily_var *iter_var)
     while (iter_var) {
         /* These shouldn't be marked as protected, because they're vars and
            they haven't had a chance to be assigned to anything yet. */
-        if ((iter_var->flags & VAL_IS_NIL) == 0) {
+        if ((iter_var->flags & (VAL_IS_NIL | VAR_IS_READONLY)) == 0) {
             if (iter_var->sig->cls->is_refcounted)
                 iter_var->value.generic->refcount++;
 
