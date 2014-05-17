@@ -264,7 +264,8 @@ void lily_free_parse_state(lily_parse_state *parser)
 
    Success: The newly created var is returned.
    Failure: An error is raised. */
-static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig)
+static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig,
+        int flags)
 {
     lily_lex_state *lex = parser->lex;
     lily_var *var;
@@ -276,7 +277,7 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig)
                    "%s has already been declared.\n", lex->label);
 
     var = lily_try_new_var(parser->symtab, var_sig, lex->label,
-            lex->label_shorthash);
+            lex->label_shorthash, flags);
     if (var == NULL)
         lily_raise_nomem(parser->raiser);
 
@@ -385,7 +386,7 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
         cls->id != SYM_CLASS_LIST && cls->id != SYM_CLASS_HASH) {
         result = cls->sig;
         if (flags & CV_MAKE_VARS)
-            get_named_var(parser, cls->sig);
+            get_named_var(parser, cls->sig, 0);
     }
     else if (cls->id == SYM_CLASS_LIST || cls->id == SYM_CLASS_HASH) {
         int i;
@@ -435,7 +436,7 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
 
         result = new_sig;
         if (flags & CV_MAKE_VARS)
-            get_named_var(parser, result);
+            get_named_var(parser, result, 0);
     }
     else if (cls->id == SYM_CLASS_METHOD ||
              cls->id == SYM_CLASS_FUNCTION) {
@@ -446,10 +447,12 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
             lily_raise_nomem(parser->raiser);
 
         if (flags & CV_MAKE_VARS) {
-            call_var = get_named_var(parser, call_sig);
-
-            if (flags & CV_TOPLEVEL)
+            if (flags & CV_TOPLEVEL) {
+                call_var = get_named_var(parser, call_sig, VAR_IS_READONLY);
                 lily_emit_enter_block(parser->emit, BLOCK_METHOD);
+            }
+            else
+                call_var = get_named_var(parser, call_sig, 0);
         }
 
         NEED_NEXT_TOK(tk_left_parenth)
@@ -557,7 +560,7 @@ static lily_sig *determine_ast_sig(lily_parse_state *parser, lily_ast *ast)
         /* a.concat("str") */
         if (ast->tree_type == tree_var ||
             ast->tree_type == tree_local_var ||
-            ast->tree_type == tree_literal)
+            ast->tree_type == tree_readonly)
             ret = ast->result->sig;
         /* strcall(a, b, c).concat("str") */
         else if (ast->tree_type == tree_call)
@@ -756,6 +759,10 @@ static void expression_value(lily_parse_state *parser)
                     else if (var->method_depth == parser->emit->method_depth)
                         /* In this current scope? Load as a local var. */
                         lily_ast_push_local_var(parser->ast_pool, var);
+                    else if (var->method_depth == -1)
+                        /* This is a call that's not in a register. It's kind of
+                           like a literal. */
+                        lily_ast_push_readonly(parser->ast_pool, (lily_sym *)var);
                     else
                         /* todo: Handle upvalues later, maybe. */
                         lily_raise(parser->raiser, lily_ErrSyntax,
@@ -770,7 +777,7 @@ static void expression_value(lily_parse_state *parser)
                     key_id == KEY__METHOD__) {
                     lily_literal *lit;
                     lit = parse_special_keyword(parser, key_id);
-                    lily_ast_push_literal(parser->ast_pool, lit);
+                    lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
                     lily_lexer(lex);
                 }
                 else {
@@ -783,7 +790,7 @@ static void expression_value(lily_parse_state *parser)
             lily_literal *lit;
             lit = lily_get_str_literal(symtab, lex->label);
 
-            lily_ast_push_literal(parser->ast_pool, lit);
+            lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
 
             lily_lexer(lex);
         }
@@ -791,7 +798,7 @@ static void expression_value(lily_parse_state *parser)
             lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
             lily_literal *lit;
             lit = lily_get_intnum_literal(symtab, cls, lex->value);
-            lily_ast_push_literal(parser->ast_pool, lit);
+            lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
 
             lily_lexer(lex);
         }
@@ -799,7 +806,7 @@ static void expression_value(lily_parse_state *parser)
             lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_NUMBER);
             lily_literal *lit;
             lit = lily_get_intnum_literal(symtab, cls, lex->value);
-            lily_ast_push_literal(parser->ast_pool, lit);
+            lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
 
             lily_lexer(lex);
         }
@@ -1052,7 +1059,7 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
 
     while (1) {
         /* This starts at the class name, or the comma. The label is next. */
-        var = get_named_var(parser, sig);
+        var = get_named_var(parser, sig, 0);
 
         lily_lexer(parser->lex);
         /* Handle an initializing assignment, if there is one. */
@@ -1281,7 +1288,7 @@ static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
        problem. This name doesn't have to be unique, since it will never be
        found by the user. Since it's not user-findable, don't bother making a
        shorthash for it either. */
-    lily_var *var = lily_try_new_var(parser->symtab, cls->sig, name, 0);
+    lily_var *var = lily_try_new_var(parser->symtab, cls->sig, name, 0, 0);
     if (var == NULL)
         lily_raise_nomem(parser->raiser);
 
@@ -1305,7 +1312,7 @@ static void parse_for_in(lily_parse_state *parser)
     if (loop_var == NULL) {
         lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_INTEGER);
         loop_var = lily_try_new_var(parser->symtab, cls->sig, lex->label,
-                lex->label_shorthash);
+                lex->label_shorthash, 0);
         if (loop_var == NULL)
             lily_raise_nomem(parser->raiser);
     }

@@ -27,43 +27,51 @@
 /* D_LINENO:        This position contains the line number upon which the opcode
                     is executed. If this exists, it is always right after the
                     opcode. */
-#define D_LINENO         0
-/* D_INPUT:         This specifies a symbol that is being read. */
-#define D_INPUT          1
-/* D_OUTPUT:        The opcode's result will be written to this place. */
-#define D_OUTPUT         2
-/* D_NOP:           This position does not do anything. */
-#define D_NOP            3
-/* D_JUMP:          This position contains a jump to a future location. The
-                    position is an int, not a sym. */
-#define D_JUMP           4
-/* D_JUMP_ON:       This contains 1 or 0. This is used to determine if o_jump_if
-                    should jump on truth or false value. */
-#define D_JUMP_ON        5
-/* D_COUNT:         This specifies a number of arguments or values to come. This
-                    value is stored but not shown. */
-#define D_COUNT          8
-/* D_COUNT_LIST:    This specifies the start of an argument list, using the
-                    value recorded by D_COUNT. */
-#define D_COUNT_LIST     9
-/* D_INT_VAL:       Show a value that's just an integer. This is used by
-                    o_for_setup to determine if it should init the step value or
-                    not. */
-#define D_INT_VAL       10
-/* D_LIT_INPUT:     The input is the address of a literal. The literal's value
-                    is shown. */
-#define D_LIT_INPUT     11
-/* D_GLOBAL_INPUT:  The INput is the address of a global register. */
-#define D_GLOBAL_INPUT  12
-/* D_GLOBAL_OUTPUT: The OUTput is the address of a global register. */
-#define D_GLOBAL_OUTPUT 13
-/* D_IS_GLOBAL:     This specifies if an upcoming value is a global or a local.
-                    This is used by show, where the value might be a global var,
-                    or a local one. */
-#define D_IS_GLOBAL     14
-/* D_SHOW_INPUT:    A value given to show. This can be either a global or a
-                    local register. */
-#define D_SHOW_INPUT    15
+#define D_LINENO           0
+/* D_INPUT:           This specifies a symbol that is being read. */
+#define D_INPUT            1
+/* D_OUTPUT:          The opcode's result will be written to this place. */
+#define D_OUTPUT           2
+/* D_NOP:             This position does not do anything. */
+#define D_NOP              3
+/* D_JUMP:            This position contains a jump to a future location. The
+                      position is an int, not a sym. */
+#define D_JUMP             4
+/* D_JUMP_ON:         This contains 1 or 0. This is used to determine if
+                      o_jump_if should jump on truth or false value. */
+#define D_JUMP_ON          5
+/* D_COUNT:           This specifies a number of arguments or values to come.
+                      This value is stored but not shown. */
+#define D_COUNT            8
+/* D_COUNT_LIST:      This specifies the start of an argument list, using the
+                      value recorded by D_COUNT. */
+#define D_COUNT_LIST       9
+/* D_INT_VAL:         Show a value that's just an integer. This is used by
+                      o_for_setup to determine if it should init the step value
+                      or not. */
+#define D_INT_VAL         10
+/* D_LIT_INPUT:       The input is the address of a literal. The literal's
+                      value is shown. */
+#define D_LIT_INPUT       11
+/* D_GLOBAL_INPUT:    The INput is the address of a global register. */
+#define D_GLOBAL_INPUT    12
+/* D_GLOBAL_OUTPUT:   The OUTput is the address of a global register. */
+#define D_GLOBAL_OUTPUT   13
+/* D_IS_GLOBAL:       This specifies if an upcoming value is a global or a
+                      local. This is used by show, where the value might be a
+                      global var, or a local one. */
+#define D_IS_GLOBAL       14
+/* D_SHOW_INPUT:      A value given to show. This can be either a global or a
+                      local register. */
+#define D_SHOW_INPUT      15
+/* D_CALL_INPUT_TYPE: This is used by calls to determine how the call is
+                      stored:
+                      0: The input is a readonly var.
+                      1: The input is a local register. */
+#define D_CALL_INPUT_TYPE 16
+/* D_CALL_INPUT:      Input to either a method or function call. This is shown
+                      according to what D_CALL_INPUT_TYPE picked up. */
+#define D_CALL_INPUT      17
 
 /** Flags for show_register_info: **/
 /* This means the number given is for a register in __main__. By default, the
@@ -140,7 +148,8 @@ static const int for_setup_ci[] =
 static const int for_integer_ci[] =
     {6, D_LINENO, D_INPUT, D_INPUT, D_INPUT, D_INPUT, D_JUMP};
 static const int call_ci[]        =
-    {5, D_LINENO, D_INPUT, D_COUNT, D_COUNT_LIST, D_OUTPUT};
+    {6, D_LINENO, D_CALL_INPUT_TYPE, D_CALL_INPUT, D_COUNT, D_COUNT_LIST,
+        D_OUTPUT};
 static const int build_list_ci[]  =
     {4, D_LINENO, D_COUNT, D_COUNT_LIST, D_OUTPUT};
 static const int sub_assign_ci[] = {4, D_LINENO, D_INPUT, D_INPUT, D_INPUT};
@@ -387,6 +396,23 @@ static void write_indent(int indent)
         lily_impl_debugf("|    ");
 }
 
+static void show_readonly_var(lily_debug_state *debug, lily_var *var)
+{
+    if (debug->indent)
+        write_indent(debug->indent);
+
+    lily_impl_debugf("|     <---- ");
+
+    lily_impl_debugf("(");
+    show_sig(var->sig, NULL);
+    lily_impl_debugf(") ");
+
+    if (var->line_num != 0)
+        lily_impl_debugf("%s from line %d\n", var->name, var->line_num);
+    else
+        lily_impl_debugf("%s [builtin]\n", var->name);
+}
+
 static void show_register_info(lily_debug_state *debug, int flags, int reg_num)
 {
     lily_register_info reg_info;
@@ -480,7 +506,7 @@ static void show_code(lily_debug_state *debug)
         int opcode = code[i];
         const int *opcode_data = code_info_for_opcode(opcode);
         char *opcode_name = opcode_names[opcode];
-        int count, data_code, is_global, j;
+        int call_input_type, count, data_code, is_global, j;
 
         /* Group under a new line number if the current one isn't the last one
            seen. This makes it easy to see what operations that are caused by
@@ -586,6 +612,14 @@ static void show_code(lily_debug_state *debug)
                     flags |= RI_GLOBAL;
 
                 show_register_info(debug, flags, code[i+j]);
+            }
+            else if (data_code == D_CALL_INPUT_TYPE)
+                call_input_type = code[i+j];
+            else if (data_code == D_CALL_INPUT) {
+                if (call_input_type == 1)
+                    show_readonly_var(debug, (lily_var *)code[i+j]);
+                else
+                    show_register_info(debug, RI_INPUT, code[i+j]);
             }
         }
         i += j;

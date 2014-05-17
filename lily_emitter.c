@@ -1452,7 +1452,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     call_sig = call_sym->sig;
     arg = ast->arg_start;
     is_method = (call_sym->sig->cls->id == SYM_CLASS_METHOD);
-    expect_size = 5 + ast->args_collected;
+    expect_size = 6 + ast->args_collected;
 
     check_call_args(emit, ast, call_sig);
 
@@ -1475,10 +1475,19 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
         m->code[m->pos] = o_func_call;
 
     m->code[m->pos+1] = ast->line_num;
-    m->code[m->pos+2] = call_sym->reg_spot;
-    m->code[m->pos+3] = ast->args_collected;
 
-    for (i = 4, arg = ast->arg_start;
+    if (call_sym->flags & VAR_IS_READONLY) {
+        m->code[m->pos+2] = 1;
+        m->code[m->pos+3] = (uintptr_t)call_sym;
+    }
+    else {
+        m->code[m->pos+2] = 0;
+        m->code[m->pos+3] = call_sym->reg_spot;
+    }
+
+    m->code[m->pos+4] = ast->args_collected;
+
+    for (i = 5, arg = ast->arg_start;
         arg != NULL;
         arg = arg->next_arg, i++) {
         m->code[m->pos + i] = arg->result->reg_spot;
@@ -1504,7 +1513,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
         m->code[m->pos+i] = -1;
     }
 
-    m->pos += 5 + ast->args_collected;
+    m->pos += 6 + ast->args_collected;
 }
 
 /* emit_nonlocal_var
@@ -1516,7 +1525,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     lily_method_val *m = emit->top_method;
     lily_storage *ret;
 
-    if (ast->result->flags & SYM_TYPE_LITERAL) {
+    if (ast->result->flags & (SYM_TYPE_LITERAL | VAR_IS_READONLY)) {
         ret = get_storage(emit, ast->result->sig, ast->line_num);
 
         WRITE_4(o_get_const,
@@ -1544,7 +1553,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
    instead determines what call to shove the work off to. */
 static void eval_tree(lily_emit_state *emit, lily_ast *ast)
 {
-    if (ast->tree_type == tree_var || ast->tree_type == tree_literal)
+    if (ast->tree_type == tree_var || ast->tree_type == tree_readonly)
         emit_nonlocal_var(emit, ast);
     else if (ast->tree_type == tree_call)
         eval_call(emit, ast);
@@ -1870,27 +1879,15 @@ void lily_emit_return_noval(lily_emit_state *emit)
 static void add_var_chain_to_info(lily_emit_state *emit,
         lily_register_info *info, char *class_name, lily_var *var)
 {
-    if (emit->method_depth > 1) {
-        while (var) {
-            if (var->method_depth > 1) {
-                info[var->reg_spot].sig = var->sig;
-                info[var->reg_spot].name = var->name;
-                info[var->reg_spot].class_name = class_name;
-                info[var->reg_spot].line_num = var->line_num;
-            }
-
-            var = var->next;
-        }
-    }
-    else {
-        while (var) {
+    while (var) {
+        if ((var->flags & VAR_IS_READONLY) == 0) {
             info[var->reg_spot].sig = var->sig;
             info[var->reg_spot].name = var->name;
             info[var->reg_spot].class_name = class_name;
             info[var->reg_spot].line_num = var->line_num;
-
-            var = var->next;
         }
+
+        var = var->next;
     }
 }
 
@@ -1947,13 +1944,13 @@ static void finalize_method_val(lily_emit_state *emit, lily_block *method_block)
         lily_var *var_temp;
         while (var_iter) {
             var_temp = var_iter->next;
-            if (var_iter->method_depth > 1)
+            if ((var_iter->flags & VAR_IS_READONLY) == 0)
                 lily_free(var_iter);
             else {
-                /* This is a declared method that was placed into a register of
-                   __main__. Instead of destroying it, save it where the vm can
-                   find it later for initializing __main__'s registers. */
-                lily_save_declared_method(emit->symtab, var_iter);
+                /* This is a method declared within the current method. Hide it
+                   in symtab's old methods since it's going out of scope. */
+                var_iter->next = emit->symtab->old_method_chain;
+                emit->symtab->old_method_chain = var_iter;
             }
 
             /* The method value now owns the var names, so don't free them. */
@@ -1980,7 +1977,6 @@ static void finalize_method_val(lily_emit_state *emit, lily_block *method_block)
             if (cls->call_start)
                 add_var_chain_to_info(emit, info, cls->name, cls->call_start);
         }
-        add_var_chain_to_info(emit, info, NULL, emit->symtab->old_method_chain);
     }
 
     m->reg_info = info;
@@ -2046,22 +2042,8 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         if (v->value.method == NULL)
             lily_raise_nomem(emit->raiser);
 
-        /* If this is a method within a method, then put it in __main__ since
-           it's flagged as a global. */
-        if (emit->method_depth > 1) {
-            lily_block *block = emit->first_block->next;
-            emit->symtab->next_register_spot--;
-            if (emit->method_depth >= 2) {
-                v->reg_spot = block->save_register_spot;
-                block->save_register_spot++;
-            }
-        }
-
         v->value.method->trace_name = v->name;
-        /* All declared methods are loaded into __main__'s registers for later
-           access. */
         v->flags &= ~(VAL_IS_NIL);
-        v->method_depth = 1;
 
         new_block->save_register_spot = emit->symtab->next_register_spot;
 
@@ -2214,7 +2196,7 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     int have_step = (for_step != NULL);
     if (have_step == 0) {
         /* This var isn't visible, so don't bother with a valid shorthash. */
-        for_step = lily_try_new_var(emit->symtab, cls->sig, "(for step)", 0);
+        for_step = lily_try_new_var(emit->symtab, cls->sig, "(for step)", 0, 0);
         if (for_step == NULL)
             lily_raise_nomem(emit->raiser);
     }

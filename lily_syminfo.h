@@ -177,6 +177,9 @@ typedef struct lily_register_info_t {
 /* This var is out of scope. This is set when a var in a non-method block goes
    out of scope. */
 #define SYM_OUT_OF_SCOPE       0x10
+/* Don't put this in a register. This is used for declared methods and
+   functions, which are loaded as if they were literals. */
+#define VAR_IS_READONLY        0x40
 
 /* If this is set, the associated value should be treated as if it were unset,
    Don't ref/deref things which have this value associated with them.

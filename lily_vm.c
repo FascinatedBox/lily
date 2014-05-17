@@ -1229,9 +1229,9 @@ static void prep_registers(lily_vm_state *vm, lily_method_val *mval,
 
     /* A method's args always come first, so copy arguments over while clearing
        old values. */
-    for (i = 0;i < code[3];i++, num_registers++) {
+    for (i = 0;i < code[4];i++, num_registers++) {
         lily_register_info seed = register_seeds[i];
-        lily_value *get_reg = vm_regs[code[4+i]];
+        lily_value *get_reg = vm_regs[code[5+i]];
         lily_value *set_reg = regs_from_main[num_registers];
 
         /* The get must be run before the set. Otherwise, if
@@ -1331,7 +1331,9 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     }
 
     while (global_iter) {
-        if ((global_iter->flags & VAL_IS_NIL) == 0) {
+        /* Declared methods still visible will have VAR_IS_READONLY set. These
+           don't actually get a register, so don't try loading them. */
+        if ((global_iter->flags & (VAL_IS_NIL | VAR_IS_READONLY)) == 0) {
             if (global_iter->sig->cls->is_refcounted)
                 global_iter->value.generic->refcount++;
 
@@ -1347,9 +1349,6 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
         if (cls->call_start != NULL)
             load_vm_regs(vm_regs, cls->call_start);
     }
-
-    if (symtab->old_method_chain != NULL)
-        load_vm_regs(vm_regs, symtab->old_method_chain);
 
     vm->main = main_var;
     vm->num_registers = main_method->reg_count;
@@ -1387,7 +1386,7 @@ void lily_vm_execute(lily_vm_state *vm)
     register int64_t for_temp;
     register int code_pos;
     register lily_value *lhs_reg, *rhs_reg, *loop_reg, *step_reg;
-    register lily_literal *literal;
+    register lily_sym *readonly_sym;
     lily_method_val *mval;
 
     /* Initialize local vars from the vm state's vars. */
@@ -1427,13 +1426,14 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 4;
                 break;
             case o_get_const:
-                literal = (lily_literal *)code[code_pos+2];
+                readonly_sym = (lily_sym *)code[code_pos+2];
                 lhs_reg = vm_regs[code[code_pos+3]];
+
                 if (lhs_reg->sig->cls->is_refcounted &&
                     (lhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
                     lily_deref_unknown_val(lhs_reg);
 
-                lhs_reg->value = literal->value;
+                lhs_reg->value = readonly_sym->value;
                 lhs_reg->flags = VAL_IS_PROTECTED;
                 code_pos += 4;
                 break;
@@ -1546,21 +1546,23 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_func_call:
             {
-                /* var, func, #args, ret, args... */
                 lily_function_val *fval;
                 lily_func func;
-                int j = code[code_pos+3];
-                lhs_reg = vm_regs[code[code_pos+2]];
+                int j = code[code_pos+4];
 
-                /* The func HAS to be grabbed from the var to support passing
-                   funcs as args. */
-                fval = (lily_function_val *)(lhs_reg->value.function);
+                if (code[code_pos+2] == 1)
+                    fval = ((lily_var *)(code[code_pos+3]))->value.function;
+                else {
+                    lhs_reg = vm_regs[code[code_pos+3]];
+                    fval = (lily_function_val *)(lhs_reg->value.function);
+                }
+
                 func = fval->func;
 
                 vm->in_function = 1;
-                func(vm, code+code_pos+4, j);
+                func(vm, code+code_pos+5, j);
                 vm->in_function = 0;
-                code_pos += 5 + j;
+                code_pos += 6 + j;
             }
                 break;
             case o_method_call:
@@ -1568,7 +1570,13 @@ void lily_vm_execute(lily_vm_state *vm)
                 if (vm->method_stack_pos+1 == vm->method_stack_size)
                     grow_method_stack(vm);
 
-                mval = vm_regs[code[code_pos+2]]->value.method;
+                if (code[code_pos+2] == 1)
+                    mval = ((lily_var *)(code[code_pos+3]))->value.method;
+                else {
+                    lhs_reg = vm_regs[code[code_pos+3]];
+                    mval = (lily_method_val *)(lhs_reg->value.method);
+                }
+
                 int register_need = mval->reg_count + num_registers;
                 int j;
 
@@ -1580,7 +1588,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     max_registers  = register_need;
                 }
 
-                j = code[code_pos+3];
+                j = code[code_pos+4];
                 /* Prepare the registers for what the method wants. Afterward,
                    update num_registers since prep_registers changes it. */
                 prep_registers(vm, mval, code+code_pos);
@@ -1588,12 +1596,13 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 stack_entry = vm->method_stack[vm->method_stack_pos-1];
                 stack_entry->line_num = code[code_pos+1];
-                stack_entry->code_pos = code_pos + j + 5;
+                stack_entry->code_pos = code_pos + j + 6;
 
                 vm_regs = vm_regs + stack_entry->regs_used;
                 vm->vm_regs = vm_regs;
 
-                stack_entry->return_reg = -(stack_entry->method->reg_count - code[code_pos+4+j]);
+                stack_entry->return_reg =
+                    -(stack_entry->method->reg_count - code[code_pos+5+j]);
                 stack_entry = vm->method_stack[vm->method_stack_pos];
                 stack_entry->regs_used = mval->reg_count;
                 stack_entry->code = mval->code;

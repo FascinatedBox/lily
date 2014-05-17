@@ -12,11 +12,12 @@ typedef struct {
     lily_var *var_start;
     lily_var *var_top;
 
-    /* Methods declared inside of other methods are inserted into __main__'s
-       registers. This was seen as the sanest approach (instead of making them
-       literals or some special new type).
-       When the outer method leaves, the inner method is added to this list.
-       This is important for keeping track of signature information. */
+    /* When a method has methods declared inside of it, those methods fall out
+       of scope when the other method goes out of scope. The inner methods end
+       up going in here. This makes the inner methods no longer reachable, but
+       keeps them alive (for obvious reasons)!
+       Emitter adds to this as needed. Symtab is only responsible for ensuring
+       that it's destroyed properly at exit. */
     lily_var *old_method_chain;
 
     lily_class **classes;
@@ -66,7 +67,7 @@ lily_literal *lily_get_intnum_literal(lily_symtab *, lily_class *,
 
 lily_literal *lily_get_str_literal(lily_symtab *, char *);
 lily_symtab *lily_new_symtab(lily_raiser *);
-lily_var *lily_try_new_var(lily_symtab *, lily_sig *, char *, uint64_t);
+lily_var *lily_try_new_var(lily_symtab *, lily_sig *, char *, uint64_t, int);
 lily_var *lily_var_by_name(lily_symtab *, char *, uint64_t);
 lily_function_val *lily_try_new_function_val(lily_func, char *);
 lily_sig *lily_try_sig_for_class(lily_symtab *, lily_class *);
