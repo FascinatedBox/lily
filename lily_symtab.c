@@ -36,7 +36,7 @@
    This function will add the var to the symtab on success.
    Note: 'try' means this call returns NULL on failure. */
 lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
-        uint64_t shorthash)
+        uint64_t shorthash, int flags)
 {
     lily_var *var = lily_malloc(sizeof(lily_var));
     if (var == NULL)
@@ -48,16 +48,25 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
         return NULL;
     }
 
-    var->flags = VAL_IS_NIL | SYM_TYPE_VAR;
+    var->flags = VAL_IS_NIL | SYM_TYPE_VAR | flags;
     strcpy(var->name, name);
     var->line_num = *symtab->lex_linenum;
 
     var->shorthash = shorthash;
-    var->method_depth = symtab->method_depth;
     var->sig = sig;
     var->next = NULL;
-    var->reg_spot = symtab->next_register_spot;
-    symtab->next_register_spot++;
+
+    if ((flags & VAR_IS_READONLY) == 0) {
+        var->reg_spot = symtab->next_register_spot;
+        symtab->next_register_spot++;
+        var->method_depth = symtab->method_depth;
+    }
+    else {
+        /* Vars that are never intended to be assigned to (such as builtin
+           functions and declared methods) are not placed in a register. */
+        var->reg_spot = -1;
+        var->method_depth = -1;
+    }
 
     if (symtab->var_start == NULL)
         symtab->var_start = var;
@@ -186,7 +195,7 @@ static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
         lily_sig *new_sig = scan_seed_arg(symtab, seed->arg_ids, &pos, &ok);
         if (new_sig != NULL) {
             lily_var *var = lily_try_new_var(symtab, new_sig, seed->name,
-                    shorthash);
+                    shorthash, 0);
 
             if (var != NULL) {
                 var->value.function = lily_try_new_function_val(seed->func, 
@@ -217,8 +226,6 @@ int init_package(lily_symtab *symtab, int cls_id, lily_func_seed **seeds,
     int ret = read_seeds(symtab, seeds, num_seeds);
 
     if (ret) {
-        /* The functions were created as regular global vars. Make them all
-           class-local. */
         cls->call_start = save_top->next;
         cls->call_top = symtab->var_top;
         symtab->var_top = save_top;
@@ -252,7 +259,7 @@ static int init_lily_main(lily_symtab *symtab)
     new_sig->flags = 0;
 
     lily_var *var = lily_try_new_var(symtab, new_sig, "__main__",
-            6872332955275845471);
+            6872332955275845471, 0);
 
     if (var == NULL)
         return 0;
@@ -514,6 +521,7 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
         free_vars(symtab->var_start);
     if (symtab->old_method_chain != NULL)
         free_vars(symtab->old_method_chain);
+
     if (main_method != NULL)
         free_lily_main(main_method);
 }
