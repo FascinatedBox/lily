@@ -1303,7 +1303,6 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
 {
     lily_var *main_var = symtab->var_start;
     lily_method_val *main_method = main_var->value.method;
-    lily_var *global_iter = main_var;
     int i;
 
     lily_value **vm_regs;
@@ -1330,19 +1329,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
         reg->sig = seed.sig;
     }
 
-    while (global_iter) {
-        /* Declared methods still visible will have VAR_IS_READONLY set. These
-           don't actually get a register, so don't try loading them. */
-        if ((global_iter->flags & (VAL_IS_NIL | VAR_IS_READONLY)) == 0) {
-            if (global_iter->sig->cls->is_refcounted)
-                global_iter->value.generic->refcount++;
-
-            vm_regs[global_iter->reg_spot]->flags &= ~VAL_IS_NIL;
-            vm_regs[global_iter->reg_spot]->value = global_iter->value;
-        }
-
-        global_iter = global_iter->next;
-    }
+    load_vm_regs(vm_regs, main_var);
 
     for (i = 0;i < symtab->class_pos;i++) {
         lily_class *cls = symtab->classes[i];
