@@ -1073,38 +1073,33 @@ static void emit_hash_values_to_objects(lily_emit_state *emit,
     }
 }
 
-/* cast_ast_list_to
-   This converts the results of the list_ast (type tree_list) to the given sig.
-   The caller is expected to verify that the cast is valid. */
-static void cast_ast_list_to(lily_emit_state *emit, lily_ast *list_ast,
-        lily_class *cls)
+/*  emit_list_values_to_objects
+
+    This converts all of the values of the given ast into objects using
+    o_obj_assign. The result of each value is rewritten to be the object,
+    instead of the old value.
+
+    emit:     The emitter holding the method to write code to.
+    list_ast: An ast of type tree_list which has already been evaluated.
+
+    Caveats:
+    * Caller must do this before writing the o_build_list instruction out.
+    * Caller must evaluate the list before calling this.
+    * This will call lily_raise_nomem in the event of being unable to allocate
+      an object value. */
+static void emit_list_values_to_objects(lily_emit_state *emit,
+        lily_ast *list_ast)
 {
-    lily_ast *arg = list_ast->arg_start;
+    int value_count = list_ast->args_collected;
     lily_method_val *m = emit->top_method;
-    int opcode;
 
-    if (cls->id == SYM_CLASS_OBJECT)
-        opcode = o_obj_assign;
-    else {
-        /* This is probably a stub from implementing some new feature. */
-        lily_raise(emit->raiser, lily_ErrSyntax,
-                "Stub: Unexpected autocast list type.\n");
-    }
+    WRITE_PREP_LARGE(value_count * 4)
 
-    for (arg = list_ast->arg_start;
-         arg != NULL;
-         arg = arg->next_arg) {
-        lily_storage *obj_store = get_storage(emit, cls->sig, arg->line_num);
-
-        /* This is weird. The ast has to be walked, so technically things on
-           future line numbers have been executed. At the same time, it would
-           be odd for a typecast to fail and reference a line that's different
-           from where the arg is from. */
-        WRITE_4(opcode,
-                arg->line_num,
-                arg->result->reg_spot,
-                obj_store->reg_spot)
-        arg->result = (lily_sym *)obj_store;
+    lily_ast *iter_ast;
+    for (iter_ast = list_ast->arg_start;
+         iter_ast != NULL;
+         iter_ast = iter_ast->next_arg) {
+        emit_obj_assign(emit, iter_ast);
     }
 }
 
@@ -1248,8 +1243,8 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
 
     if (make_objs) {
         lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_OBJECT);
-        cast_ast_list_to(emit, ast, cls);
         elem_sig = cls->sig;
+        emit_list_values_to_objects(emit, ast);
     }
 
     lily_class *list_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);
