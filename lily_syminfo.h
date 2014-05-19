@@ -3,104 +3,219 @@
 
 # include <stdint.h>
 
-/* lily_syminfo.h is included by a lot of things, because it defines
-   lily_raw_value, lily_sig, and lily_value, which are core to lily. Functions
-   get the vm state, so that they can raise proper lily errors. The vm state
-   is not filled in here because few modules will want to touch the func of a
-   value. */
-struct lily_vm_state_t;
-struct lily_sym_t;
-struct lily_method_info_t;
-struct lily_vm_register_t;
-struct lily_sig_t;
+/* lily_syminfo.h defines all core types used by the language. Many of these
+   types reference each other. Some are left incomplete, because not every
+   part of the interpreter uses all of them. */
 
+struct lily_vm_state_t;
+struct lily_value_t;
+struct lily_var_t;
+struct lily_sig_t;
+struct lily_register_info_t;
+
+/* gc_marker_func is a function called to mark all values within a given value.
+   The is used by the gc to mark values as being visited. Values not visited
+   will be collected. */
+typedef void (*gc_marker_func)(int, struct lily_value_t *);
+/* Lily's functions are C functions which look like this. */
 typedef void (*lily_func)(struct lily_vm_state_t *, uintptr_t *code, int);
 
-/* This is the base for all lily values. This is commonly paired up with a sig
-   to determine type, and flags to determine other stuff. */
-typedef union {
+
+/* lily_raw_value is a union of all possible values, plus a bit more. This is
+   not common, because lily_value (which has flags and a sig) is typically
+   used for parameters and such instead. However, this does have some uses. */
+typedef union lily_raw_value_t {
     int64_t integer;
     double number;
     struct lily_str_val_t *str;
     struct lily_method_val_t *method;
     struct lily_object_val_t *object;
     struct lily_list_val_t *list;
+    /* generic is a subset of any type that is refcounted. */
     struct lily_generic_val_t *generic;
+    /* gc_generic is a subset of any type that is refcounted AND has a gc
+       entry. */
     struct lily_generic_gc_val_t *gc_generic;
     struct lily_function_val_t *function;
     struct lily_hash_val_t *hash;
 } lily_raw_value;
 
-/* This is a proper value in Lily. Flags are used to determine if the value is
-   nil, the sig tells the type, and the value contains the actual data. */
-typedef struct lily_value_t {
+/* lily_class represents a class in the language. Each class can have private
+   members (call_start to call_top). */
+typedef struct lily_class_t {
+    char *name;
+    /* This holds (up to) the first 8 bytes of the name. This is checked before
+       doing a strcmp against the name. */
+    uint64_t shorthash;
+    int id;
     int flags;
+    /* If true, then values of this class have a reference count. More on that
+       in a bit. */
+    int is_refcounted;
+    /* During declaration, how many subclasses are allowed. List, for example,
+       allows one class that will define what class the elements are. */
+    int template_count;
+    /* Signatures are used to represent the type of a var. Signatures are used
+       to represent list[integer], hash[str, integer], and more. Classes are
+       just classes.
+       The sig of a class is the default signature. The integer class does not
+       need a unique signature, as an example. Therefore, sig is set to a
+       default that all can share.
+       Sig is set only if the class is a simple one. */
     struct lily_sig_t *sig;
+    struct lily_var_t *call_start;
+    struct lily_var_t *call_top;
+
+    gc_marker_func gc_marker;
+} lily_class;
+
+/* Signatures are a bit more complicated. They're also very common. A signature
+   stores a class and possibly other signatures.
+   When creating a new signature, make sure to call symtab's
+   lily_ensure_unique_sig. This function ensures that every signature
+   represents a unique thing (so you won't find two list[integer] signatures,
+   for example). */
+typedef struct lily_sig_t {
+    lily_class *cls;
+    /* If cls is the template class, this is the position within the parent.
+       Hashes have two parts: a key and a value. 0 is the key, 1 is the value.
+       Lists have one part, which is the element type. */
+    int template_pos;
+
+    /* Call arguments and call return type go here. Note that a call's return
+       type is always at siglist[0]. */
+    struct lily_sig_t **siglist;
+    int siglist_size;
+    int flags;
+
+    /* The symtab stores all signatures in a linked list (symtab's root_sig)
+       so they can be destroyed at exit. */
+    struct lily_sig_t *next;
+} lily_sig;
+
+
+
+/* Next are the structs that emitter and symtab use to represent things. */
+
+
+
+/* lily_sym is a subset of all symbol-related structs. Nothing should create
+   values of this type. This is just for casting arguments. */
+typedef struct lily_sym_t {
+    int flags;
+    lily_sig *sig;
+    union lily_raw_value_t value;
+    /* Every method has a set of registers that it puts the values it has into.
+       Intermediate values (such as the result of addition or a method call),
+       parameters, and variables.
+       Note that builtin functions and declared methods do not go into
+       registers, and are instead loaded like literals. */
+    int reg_spot;
+} lily_sym;
+
+/* lily_literal holds string, number, and integer literals. */
+typedef struct lily_literal_t {
+    int flags;
+    lily_sig *sig;
     lily_raw_value value;
-} lily_value;
+    /* reg_spot is unused here, because literals are loaded by address. */
+    int reg_spot;
+    struct lily_literal_t *next;
+} lily_literal;
 
-typedef void (*gc_marker_func)(int, lily_value *);
+/* lily_storage is a struct used by emitter to hold info for intermediate
+   values (such as the result of an addition). The emitter will reuse these
+   where possible. For example: If two different lines need to store an
+   integer, then the same storage will be picked. However, reuse does not
+   happen on the same line. */
+typedef struct lily_storage_t {
+    int flags;
+    lily_sig *sig;
+    /* This is provided to keep it a superset of lily_sym. */
+    union lily_raw_value_t unused;
+    int reg_spot;
+    /* Each expression has a different expr_num. This prevents the same
+       expression from using the same storage twice (which could lead to
+       incorrect data). */
+    int expr_num;
+    struct lily_storage_t *next;
+} lily_storage;
 
+/* lily_var is used to represent a declared variable. */
+typedef struct lily_var_t {
+    int flags;
+    lily_sig *sig;
+    /* If this var represents a method, then a valid method is created and put
+       here. Otherwise, this value is not used. */
+    union lily_raw_value_t value;
+    int reg_spot;
+    char *name;
+    /* (Up to) the first 8 bytes of the name. This is compared before comparing
+       the name. */
+    uint64_t shorthash;
+    /* The line on which this var was declared. If this is a builtin var, then
+       line_num will be 0. */
+    int line_num;
+    /* How deep that methods were when this var was declared. If this is 1,
+       then the var is in __main__ and a global. Otherwise, it is a local.
+       This is an important difference, because the vm has to do different
+       loads for globals versus locals. */
+    int method_depth;
+    struct lily_var_t *next;
+} lily_var;
+
+
+
+/* Now, values.  */
+
+
+
+/* This is a str. It's pretty simple. These are refcounted. */
 typedef struct lily_str_val_t {
     int refcount;
     char *str;
     int size;
 } lily_str_val;
 
-typedef struct lily_method_val_t {
-    int refcount;
-    uintptr_t *code;
-
-    struct lily_register_info_t *reg_info;
-    int reg_count;
-    int pos;
-    int len;
-    /* This is here so trace can print the actual name of the method being
-       called. This is necessary because of indirect and anonymous calls. This
-       is a copy of the var's data, so don't free it. */
-    char *trace_name;
-} lily_method_val;
-
+/* Next are objects. These are marked as refcounted, but that's just to keep
+   them from being treated like simple values (such as integer or number).
+   In reality, these copy their inner_value when assigning to other stuff.
+   Because an object can hold any value, it has a gc entry to allow Lily's gc
+   to check for circularity. */
 typedef struct lily_object_val_t {
     int refcount;
-    /* Objects always have a gc_entry, because they can easily circularly
-       reference. */
     struct lily_gc_entry_t *gc_entry;
-    lily_value *inner_value;
+    struct lily_value_t *inner_value;
 } lily_object_val;
 
-typedef struct lily_gc_entry_t {
-    struct lily_sig_t *value_sig;
-    lily_raw_value value;
-    int last_pass;
-    struct lily_gc_entry_t *next;
-} lily_gc_entry;
-
+/* This is Lily's list. The gc_entry is only set if the symtab determines that
+   the signature of the list can be refcounted. This means that list[integer]
+   will not have a gc entry, but something like list[list[object]] will. */
 typedef struct lily_list_val_t {
     int refcount;
-    /* Lists have a gc_entry ONLY if their signature says they can be circular.
-       A list can currently only be circular if it contains objects at some
-       point. This avoids creating gc entries for, say, list[integer] which can
-       be collected via refcounting. */
     struct lily_gc_entry_t *gc_entry;
-    lily_value **elems;
-    int visited;
+    struct lily_value_t **elems;
     int num_values;
+    /* visited is used by lily_debug to make sure that it doesn't enter an
+       infinite loop when trying to print info. */
+    int visited;
 } lily_list_val;
 
-typedef struct lily_function_val_t {
-    int refcount;
-    lily_func func;
-    char *trace_name;
-} lily_function_val;
-
+/* Lily's hashes are in two parts: The hash value, and the hash element. The
+   hash element represents one key + value pair. */
 typedef struct lily_hash_elem_t {
+    /* Lily uses siphash2-4 to calculate the hash of given keys. This is the
+       siphash for elem_key.*/
     uint64_t key_siphash;
-    lily_value *elem_key;
-    lily_value *elem_value;
+    struct lily_value_t *elem_key;
+    struct lily_value_t *elem_value;
     struct lily_hash_elem_t *next;
 } lily_hash_elem;
 
+/* Here's the hash value. Hashes are similar to lists in that there is only a
+   gc entry if the associated signature is determined to be possibly circualar.
+   Also, visited is there to protect lily_debug against a circular reference
+   causing an infinite loop. */
 typedef struct lily_hash_val_t {
     int refcount;
     struct lily_gc_entry_t *gc_entry;
@@ -109,61 +224,82 @@ typedef struct lily_hash_val_t {
     lily_hash_elem *elem_chain;
 } lily_hash_val;
 
-/* Every ref'd value is a superset of the 'generic' value (refcount
-   comes first). This allows the vm to make refs/derefs a bit easier. */
+/* Here's what Lily's function looks like. The C function contained takes the
+   vm as the first arg so it can raise things, make gc entries, and more fun
+   stuff. */
+typedef struct lily_function_val_t {
+    int refcount;
+    lily_func func;
+    /* This is so that anonymously calling a function doesn't result in not
+       knowing where it came from. */
+    char *trace_name;
+} lily_function_val;
+
+/* Finally, methods. Methods are the most complicated of all the structs in
+   lily_raw_value. */
+typedef struct lily_method_val_t {
+    int refcount;
+    /* This is the code of the method. */
+    uintptr_t *code;
+    /* For the emitter, the current position that new instructions will be
+       written to. */
+    int pos;
+    /* How much space is allocated in code.*/
+    int len;
+
+    /* This contains the necessary info to initialize registers when calling
+       this method. */
+    struct lily_register_info_t *reg_info;
+    /* The number of registers that this method needs. This is also the number
+       of elements in reg_info. */
+    int reg_count;
+    /* The name of this method. This allows trace to print the name of the
+       method when there's an indirect call. */
+    char *trace_name;
+} lily_method_val;
+
+/* Every value that is refcounted is a superset of this. */
 typedef struct lily_generic_val_t {
     int refcount;
 } lily_generic_val;
 
-/* Every value that can be garbage collected is a superset of this type. This
-   allows using the gc_entry field without having to worry about which type is
-   being used. */
+/* Every value that has a gc entry is a superset of this. */
 typedef struct lily_generic_gc_val_t {
     int refcount;
-    lily_gc_entry *gc_entry;
+    struct lily_gc_entry_t *gc_entry;
 } lily_generic_gc_val;
 
-/* If this is set, the class can be used as a hash key. This should only be set
-   on primitive and immutable classes. */
-#define CLS_VALID_HASH_KEY 0x1
 
-/* Indicates what kind of value is being stored. */
-typedef struct lily_class_t {
-    char *name;
-    uint64_t shorthash;
-    int id;
+
+/* Next, miscellanous structs. */
+
+
+
+/* Here's a proper value in Lily. It has flags (for nil and other stuff), a
+   sig, and the actual value. */
+typedef struct lily_value_t {
     int flags;
-    int is_refcounted;
-    int template_count;
     struct lily_sig_t *sig;
-    struct lily_var_t *call_start;
-    struct lily_var_t *call_top;
+    lily_raw_value value;
+} lily_value;
 
-    /* This is an internal function that dives into a value and marks the value
-       and anything inside of the value as being visited. This lets the gc know
-       what values are visible by marking them as visited, hence the name. */
-    gc_marker_func gc_marker;
-} lily_class;
+/* This is a gc entry. When these are created, the gc entry copies the value's
+   raw value and the value's signature. It's important to NOT copy the value,
+   because the value may be a register, and the sig will change. */
+typedef struct lily_gc_entry_t {
+    struct lily_sig_t *value_sig;
+    /* If this is destroyed outside of the gc, then value.generic should be set
+       to NULL to keep the gc from looking at an invalid data. */
+    lily_raw_value value;
+    /* Each gc pass has a different number that always goes up. If an entry's
+       last_pass is not the current number, then the contained value is
+       destroyed. */
+    int last_pass;
+    struct lily_gc_entry_t *next;
+} lily_gc_entry;
 
-/* If set, the signature is either a vararg method or function. The last
-   argument is the type for varargs. */
-#define SIG_IS_VARARGS     0x1
-/* If this is set, a gc entry is allocated for the type. This means that the
-   value is a superset of lily_generic_gc_val_t. */
-#define SIG_MAYBE_CIRCULAR 0x2
-
-typedef struct lily_sig_t {
-    lily_class *cls;
-    int template_pos;
-
-    struct lily_sig_t **siglist;
-    int siglist_size;
-    int flags;
-
-    struct lily_sig_t *next;
-} lily_sig;
-
-/* This is used to initialize the registers that a method uses. */
+/* This is used to initialize the registers that a method uses. It also holds
+   names for doing trace. */
 typedef struct lily_register_info_t {
     lily_sig *sig;
     char *class_name;
@@ -171,16 +307,44 @@ typedef struct lily_register_info_t {
     int line_num;
 } lily_register_info;
 
+
+
+/* Finally, various definitions. */
+
+
+
+/* CLS_* defines are for the flags of a lily_class. */
+/* If this is set, the class can be used as a hash key. This should only be set
+   on primitive and immutable classes. */
+#define CLS_VALID_HASH_KEY 0x1
+
+
+/* SIG_* defines are for the flags of a lily_sig. */
+/* If set, the signature is either a vararg method or function. The last
+   argument is the type for varargs. */
+#define SIG_IS_VARARGS     0x1
+/* If this is set, a gc entry is allocated for the type. This means that the
+   value is a superset of lily_generic_gc_val_t. */
+#define SIG_MAYBE_CIRCULAR 0x2
+
+
+/* SYM_* defines are for identifying the type of symbol given. Emitter uses
+   these sometimes. */
 #define SYM_TYPE_LITERAL       0x01
 #define SYM_TYPE_VAR           0x02
 #define SYM_TYPE_STORAGE       0x04
 /* This var is out of scope. This is set when a var in a non-method block goes
    out of scope. */
 #define SYM_OUT_OF_SCOPE       0x10
+
+
+/* VAR_* defines are meant mostly for the vm. However, emitter and symtab put
+   VAR_IS_READONLY on vars that won't get a register. The vm will never see
+   that flag. */
+
 /* Don't put this in a register. This is used for declared methods and
    functions, which are loaded as if they were literals. */
 #define VAR_IS_READONLY        0x40
-
 /* If this is set, the associated value should be treated as if it were unset,
    Don't ref/deref things which have this value associated with them.
    Objects: An object is nil if a value has not been allocated for it. If nil
@@ -191,52 +355,13 @@ typedef struct lily_register_info_t {
    or derefs. This is set on values that load literals to prevent literals from
    getting unnecessary refcount adjustments. */
 #define VAL_IS_PROTECTED        0x200
-
+/* For convenience, check for nil or protected set. */
 #define VAL_IS_NIL_OR_PROTECTED 0x300
 
-typedef struct lily_storage_t {
-    int flags;
-    lily_sig *sig;
-    lily_raw_value unused;
-    int reg_spot;
-    int expr_num;
-    struct lily_storage_t *next;
-} lily_storage;
 
-typedef struct lily_var_t {
-    int flags;
-    lily_sig *sig;
-    lily_raw_value value;
-    int reg_spot;
-    char *name;
-    uint64_t shorthash;
-    int line_num;
-    /* This is used to make sure that methods can't access vars out of their
-       current depth (or at the global level). */
-    /* todo: A better way to do this would be to scope out values that should
-             not be accessed. */
-    int method_depth;
-    struct lily_var_t *next;
-} lily_var;
-
-typedef struct lily_sym_t {
-    int flags;
-    lily_sig *sig;
-    lily_raw_value value;
-    int reg_spot;
-} lily_sym;
-
-/* Literals are syms created to hold values that the lexer finds. These syms
-   always have a value set. */
-typedef struct lily_literal_t {
-    int flags;
-    lily_sig *sig;
-    lily_raw_value value;
-    int reg_spot;
-    struct lily_literal_t *next;
-} lily_literal;
-
-/* Sync with classname_seeds in lily_seed_symtab.h. */
+/* SYM_CLASS_* defines are for checking ids of a signature's class. These are
+   used very frequently. These must be kept in sync with the class loading
+   order given by lily_seed_symtab.h */
 #define SYM_CLASS_INTEGER  0
 #define SYM_CLASS_NUMBER   1
 #define SYM_CLASS_STR      2
