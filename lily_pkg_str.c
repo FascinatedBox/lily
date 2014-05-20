@@ -2,7 +2,7 @@
 #include <string.h>
 
 #include "lily_impl.h"
-#include "lily_pkg.h"
+#include "lily_syminfo.h"
 #include "lily_vm.h"
 
 void lily_str_concat(lily_vm_state *vm, uintptr_t *code, int num_args)
@@ -57,8 +57,14 @@ void lily_str_concat(lily_vm_state *vm, uintptr_t *code, int num_args)
     vm_regs[code[2]]->flags &= ~VAL_IS_NIL;
 }
 
-static lily_func_seed concat =
-    {"concat", lily_str_concat,
+static const lily_func_seed concat =
+    {"concat", lily_str_concat, NULL,
         {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STR, SYM_CLASS_STR, SYM_CLASS_STR}};
 
-lily_func_seed *str_seeds[] = {&concat};
+#define SEED_START concat
+
+int lily_str_setup(lily_class *cls)
+{
+    cls->seed_table = &SEED_START;
+    return 1;
+}

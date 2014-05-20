@@ -663,8 +663,8 @@ static void expression_oo(lily_parse_state *parser)
     ast_sig = determine_ast_sig(parser, parser->ast_pool->active);
     cls = ast_sig->cls;
 
-    call_var = lily_find_class_callable(cls, parser->lex->label,
-            parser->lex->label_shorthash);
+    call_var = lily_find_class_callable(parser->symtab, cls,
+            parser->lex->label, parser->lex->label_shorthash);
     if (call_var == NULL) {
         lily_raise(parser->raiser, lily_ErrSyntax,
                    "Class %s has no callable named %s.\n", cls->name,
