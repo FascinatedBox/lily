@@ -170,66 +170,87 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
     parser is not completely initialized yet. NULL is returned if it cannot be
     avoided. **/
 
-/* read_seeds
-   Symtab init, stage 5 (also helps with 6).
-   This function takes in static data (seeds) to create the functions in the
-   symtab. An example of seeds can be found in lily_seed_symtab.h */
-static int read_seeds(lily_symtab *symtab, lily_func_seed **seeds,
-        int seed_count)
+
+/*  init_func_seed
+    This function takes a seed and creates a new var and function for it. The
+    var is added to symtab's globals, with a function value created for it as
+    well.
+
+    symtab: The symtab to put the new var in.
+    seed:   A valid seed to create a new var+function for.
+
+    Returns the newly created var on success, or NULL on failure. */
+static lily_var *init_func_seed(lily_symtab *symtab,
+        const lily_func_seed *seed)
 {
-    /* Turn the keywords into symbols. */
-    int i, ret;
-    ret = 1;
     char shorthash_buf[8];
+    lily_var *ret = NULL;
 
-    for (i = 0;i < seed_count;i++) {
-        lily_func_seed *seed = seeds[i];
+    /* This zaps all of shorthash_buf because of the cast. This is done so
+       that previous uses don't affect the hash of the rest. */
+    *((uint64_t *)shorthash_buf) = 0;
+    strncpy(shorthash_buf, seed->name, 8);
 
-        /* This zaps all of shorthash_buf because of the cast. This is done so
-           that previous uses don't affect the hash of the rest. */
-        *((uint64_t *)shorthash_buf) = 0;
-        strncpy(shorthash_buf, seed->name, 8);
+    uint64_t shorthash = *(uint64_t *)shorthash_buf;
+    int ok = 1, pos = 0;
+    lily_sig *new_sig = scan_seed_arg(symtab, seed->arg_ids, &pos, &ok);
+    if (new_sig != NULL) {
+        ret = lily_try_new_var(symtab, new_sig, seed->name,
+                shorthash, VAR_IS_READONLY);
 
-        uint64_t shorthash = *(uint64_t *)shorthash_buf;
-        int ok = 1, pos = 0;
-        lily_sig *new_sig = scan_seed_arg(symtab, seed->arg_ids, &pos, &ok);
-        if (new_sig != NULL) {
-            lily_var *var = lily_try_new_var(symtab, new_sig, seed->name,
-                    shorthash, VAR_IS_READONLY);
+        if (ret != NULL) {
+            ret->value.function = lily_try_new_function_val(seed->func, 
+                    seed->name);
 
-            if (var != NULL) {
-                var->value.function = lily_try_new_function_val(seed->func, 
-                        seed->name);
-
-                if (var->value.function != NULL)
-                    var->flags &= ~(VAL_IS_NIL);
-            }
-            else
-                ret = 0;
+            if (ret->value.function != NULL)
+                ret->flags &= ~(VAL_IS_NIL);
         }
-        else
-            ret = 0;
     }
 
     return ret;
 }
 
-/* init_package
-   Symtab init, stage 6
-   This is called to initialize the str package, but could be used to initialize
-   other packages in the future. */
-int init_package(lily_symtab *symtab, int cls_id, lily_func_seed **seeds,
-        int num_seeds)
+/*  call_setups
+    Symtab init, stage 6
+    This calls the setup func of any class that has one. This is reponsible for
+    setting up the seed_table of the class, and possibly more in the future. */
+static int call_class_setups(lily_symtab *symtab)
 {
-    lily_var *save_top = symtab->var_top;
-    lily_class *cls = lily_class_by_id(symtab, cls_id);
-    int ret = read_seeds(symtab, seeds, num_seeds);
+    int i, ret = 1;
+    for (i = 0;i < SYM_LAST_CLASS;i++) {
+        if (symtab->classes[i]->setup_func &&
+            symtab->classes[i]->setup_func(symtab->classes[i]) == 0) {
+            ret = 0;
+            break;
+        }
+    }
 
-    if (ret) {
-        cls->call_start = save_top->next;
-        cls->call_top = symtab->var_top;
-        symtab->var_top = save_top;
-        save_top->next = NULL;
+    return ret;
+}
+
+/*  read_global_seeds
+    Symtab init, stage 5
+    This initializes Lily's builtin functions through init_func_seed which
+    automatically adds the seeds to var_top where they should be (since they're
+    globals).
+    All global functions are always loaded because the seeds don't have a
+    shorthash, and seeds can't be modified either. So lily_var_by_name would
+    end up doing a lot of unnecessary name comparisons for each new var. */
+static int read_global_seeds(lily_symtab *symtab)
+{
+    int ret;
+    const lily_func_seed *seed_iter;
+
+    ret = 1;
+
+    for (seed_iter = &GLOBAL_SEED_START;
+         seed_iter != NULL;
+         seed_iter = seed_iter->next) {
+
+        if (init_func_seed(symtab, seed_iter) == NULL) {
+            ret = 0;
+            break;
+        }
     }
 
     return ret;
@@ -378,6 +399,8 @@ static int init_classes(lily_symtab *symtab)
             new_class->gc_marker = class_seeds[i].gc_marker;
             new_class->flags = class_seeds[i].flags;
             new_class->is_refcounted = class_seeds[i].is_refcounted;
+            new_class->seed_table = NULL;
+            new_class->setup_func = class_seeds[i].setup_func;
         }
         else
             ret = 0;
@@ -421,9 +444,8 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
 
     if (!init_classes(symtab) || !init_literals(symtab) ||
         !init_lily_main(symtab) ||
-        !read_seeds(symtab, builtin_seeds, NUM_BUILTIN_SEEDS) ||
-        !init_package(symtab, SYM_CLASS_LIST, list_seeds, NUM_LIST_SEEDS) ||
-        !init_package(symtab, SYM_CLASS_STR, str_seeds, NUM_STR_SEEDS)) {
+        !read_global_seeds(symtab) ||
+        !call_class_setups(symtab)) {
         /* First the literals and vars created, if any... */
         lily_free_symtab_lits_and_vars(symtab);
         /* then delete the symtab. */
@@ -701,14 +723,48 @@ lily_class *lily_class_by_hash(lily_symtab *symtab, uint64_t shorthash)
 /* lily_find_class_callable
    This function will see if a given clas has a function with the given name.
    NULL is returned on failure. */
-lily_var *lily_find_class_callable(lily_class *cls, char *name,
-        uint64_t shorthash)
+lily_var *lily_find_class_callable(lily_symtab *symtab, lily_class *cls,
+        char *name, uint64_t shorthash)
 {
     lily_var *iter;
 
     for (iter = cls->call_start;iter != NULL;iter = iter->next) {
         if (iter->shorthash == shorthash && strcmp(iter->name, name) == 0)
             break;
+    }
+
+    /* Maybe it's something that hasn't been loaded in the symtab yet. */
+    if (iter == NULL && cls->seed_table != NULL) {
+        const lily_func_seed *seed = cls->seed_table;
+        while (seed) {
+            if (strcmp(seed->name, name) == 0) {
+                lily_var *save_top = symtab->var_top;
+
+                iter = init_func_seed(symtab, seed);
+                if (iter == NULL)
+                    lily_raise_nomem(symtab->raiser);
+                else {
+                    /* The new var is added to symtab's vars. Take it off of
+                       there since this var shouldn't be globally reachable.
+                       __main__ is the first var, so this shouldn't have to
+                       check for var_top == var_start. */
+                    if (cls->call_start == NULL)
+                        cls->call_start = iter;
+
+                    if (cls->call_top != NULL)
+                        cls->call_top->next = iter;
+                    else
+                        cls->call_top = iter;
+
+                    /* This is a builtin, so fix the line number to 0. */
+                    iter->line_num = 0;
+                    symtab->var_top = save_top;
+                    symtab->var_top->next = NULL;
+                }
+                break;
+            }
+            seed = seed->next;
+        }
     }
 
     return iter;

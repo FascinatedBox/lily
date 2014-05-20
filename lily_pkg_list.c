@@ -1,5 +1,5 @@
 #include "lily_impl.h"
-#include "lily_pkg.h"
+#include "lily_syminfo.h"
 #include "lily_vm.h"
 
 void lily_list_size(lily_vm_state *vm, uintptr_t *code, int num_args)
@@ -12,8 +12,14 @@ void lily_list_size(lily_vm_state *vm, uintptr_t *code, int num_args)
     ret_reg->flags &= ~VAL_IS_NIL;
 }
 
-static lily_func_seed size =
-    {"size", lily_list_size,
+static const lily_func_seed size =
+    {"size", lily_list_size, NULL,
         {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_LIST, SYM_CLASS_TEMPLATE, 0}};
 
-lily_func_seed *list_seeds[] = {&size};
+#define SEED_START size
+
+int lily_list_setup(lily_class *cls)
+{
+    cls->seed_table = &SEED_START;
+    return 1;
+}

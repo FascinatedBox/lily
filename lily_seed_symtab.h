@@ -1,7 +1,8 @@
 #ifndef LILY_SEED_SYMTAB_H
 # define LILY_SEED_SYMTAB_H
 
-# include "lily_pkg.h"
+# include "lily_pkg_str.h"
+# include "lily_pkg_list.h"
 # include "lily_vm.h"
 # include "lily_gc.h"
 
@@ -11,6 +12,7 @@ typedef const struct {
     int is_refcounted;
     int template_count;
     int flags;
+    class_setup_func setup_func;
     gc_marker_func gc_marker;
 } class_seed;
 
@@ -20,17 +22,17 @@ typedef const struct {
          too. */
 class_seed class_seeds[9] =
 {
-    {"integer",  0, 0, CLS_VALID_HASH_KEY, NULL},
-    {"number",   0, 0, CLS_VALID_HASH_KEY, NULL},
-    {"str",      1, 0, CLS_VALID_HASH_KEY, NULL},
-    {"function", 0, 0, 0,                  NULL},
-    {"object",   1, 0, 0,                  &lily_gc_object_marker},
-    {"method",   1, 0, 0,                  NULL},
-    {"list",     1, 1, 0,                  &lily_gc_list_marker},
-    {"hash",     1, 2, 0,                  &lily_gc_hash_marker},
+    {"integer",  0, 0, CLS_VALID_HASH_KEY, NULL,            NULL},
+    {"number",   0, 0, CLS_VALID_HASH_KEY, NULL,            NULL},
+    {"str",      1, 0, CLS_VALID_HASH_KEY, lily_str_setup,  NULL},
+    {"function", 0, 0, 0,                  NULL,            NULL},
+    {"object",   1, 0, 0,                  NULL,            &lily_gc_object_marker},
+    {"method",   1, 0, 0,                  NULL,            NULL},
+    {"list",     1, 1, 0,                  lily_list_setup, &lily_gc_list_marker},
+    {"hash",     1, 2, 0,                  NULL,            &lily_gc_hash_marker},
     /* * is the name of the template class. This was chosen because it's not a
        valid name so the user can't directly declare members of it. */
-    {"*",        0, 0, 0,                  NULL}
+    {"*",        0, 0, 0,                  NULL,            NULL}
 };
 
 typedef const struct {
@@ -56,14 +58,14 @@ keyword_seed keywords[] = {
 void lily_builtin_print(lily_vm_state *, uintptr_t *, int);
 void lily_builtin_printfmt(lily_vm_state *, uintptr_t *, int);
 
-static lily_func_seed print =
-    {"print", lily_builtin_print,
+static const lily_func_seed print =
+    {"print", lily_builtin_print, NULL,
         {SYM_CLASS_FUNCTION, 2, 0, -1, SYM_CLASS_STR}};
-static lily_func_seed printfmt =
-    {"printfmt", lily_builtin_printfmt,
+static const lily_func_seed printfmt =
+    {"printfmt", lily_builtin_printfmt, &print,
         {SYM_CLASS_FUNCTION, 3, SIG_IS_VARARGS, -1, SYM_CLASS_STR, SYM_CLASS_OBJECT}};
 
-static lily_func_seed *builtin_seeds[] = {&print, &printfmt};
-#define NUM_BUILTIN_SEEDS 2
+/* This must always be set to the last func seed defined here. */
+#define GLOBAL_SEED_START printfmt
 
 #endif

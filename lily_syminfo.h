@@ -7,11 +7,13 @@
    types reference each other. Some are left incomplete, because not every
    part of the interpreter uses all of them. */
 
+struct lily_class_t;
 struct lily_vm_state_t;
 struct lily_value_t;
 struct lily_var_t;
 struct lily_sig_t;
 struct lily_register_info_t;
+struct lily_func_seed_t;
 
 /* gc_marker_func is a function called to mark all values within a given value.
    The is used by the gc to mark values as being visited. Values not visited
@@ -19,7 +21,11 @@ struct lily_register_info_t;
 typedef void (*gc_marker_func)(int, struct lily_value_t *);
 /* Lily's functions are C functions which look like this. */
 typedef void (*lily_func)(struct lily_vm_state_t *, uintptr_t *code, int);
-
+/* This is called to set the seed_table of a class to a something non-NULL. It
+   can also do other setup if the class wants to. This is called after all
+   classes have been created.
+   Returns 1 if successful, 0 otherwise. */
+typedef int (*class_setup_func)(struct lily_class_t *);
 
 /* lily_raw_value is a union of all possible values, plus a bit more. This is
    not common, because lily_value (which has flags and a sig) is typically
@@ -66,6 +72,13 @@ typedef struct lily_class_t {
     struct lily_var_t *call_start;
     struct lily_var_t *call_top;
 
+    /* Instead of loading all class members during init, Lily stores the needed
+       information in the seed_table of a class. If the symtab can't find the
+       name for a given class, then it's loaded into the vars of that class. */
+    const struct lily_func_seed_t *seed_table;
+    /* If not NULL, then setup_func will set seed_table since seed_table is
+       typically a static const somewhere. */
+    class_setup_func setup_func;
     gc_marker_func gc_marker;
 } lily_class;
 
@@ -307,6 +320,13 @@ typedef struct lily_register_info_t {
     int line_num;
 } lily_register_info;
 
+/* This holds all the information necessary to make a new Lily function. */
+typedef struct lily_func_seed_t {
+    char *name;
+    lily_func func;
+    const struct lily_func_seed_t *next;
+    int arg_ids[];
+} lily_func_seed;
 
 
 /* Finally, various definitions. */
