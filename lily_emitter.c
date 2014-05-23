@@ -108,6 +108,8 @@ m->pos += 5;
     ((sym->flags & SYM_TYPE_VAR) && \
      ((lily_var *)sym)->method_depth == 1)
 
+static int type_matchup(lily_emit_state *, lily_sig *, lily_sig *, lily_ast *);
+
 /** Emitter init and deletion **/
 lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
 {
@@ -687,6 +689,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     int left_cls_id, opcode;
     lily_sym *left_sym, *right_sym;
     lily_method_val *m = emit->top_method;
+    opcode = -1;
 
     if (ast->left->tree_type != tree_var)
         eval_tree(emit, ast->left);
@@ -706,22 +709,30 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     left_cls_id = left_sym->sig->cls->id;
 
     if (left_sym->sig != right_sym->sig) {
-        /* These are either completely different, or complex classes where the
-           inner bits don't match. If it's object, object can be anything so
-           it's fine. */
-        if (left_cls_id == SYM_CLASS_OBJECT)
+        if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
+            opcode = o_obj_assign;
+        else {
+            if (type_matchup(emit, NULL, ast->left->result->sig,
+                           ast->right) == 0) {
+                bad_assign_error(emit, ast->line_num, left_sym->sig,
+                                 right_sym->sig);
+            }
+            else {
+                /* type_matchup may update the result, so update the cache. */
+                right_sym = ast->right->result;
+            }
+        }
+    }
+
+    if (opcode == -1) {
+        if (left_cls_id == SYM_CLASS_INTEGER ||
+            left_cls_id == SYM_CLASS_NUMBER)
+            opcode = o_assign;
+        else if (left_cls_id == SYM_CLASS_OBJECT)
             opcode = o_obj_assign;
         else
-            bad_assign_error(emit, ast->line_num, left_sym->sig,
-                          right_sym->sig);
+            opcode = o_ref_assign;
     }
-    else if (left_cls_id == SYM_CLASS_INTEGER ||
-             left_cls_id == SYM_CLASS_NUMBER)
-        opcode = o_assign;
-    else if (left_cls_id == SYM_CLASS_OBJECT)
-        opcode = o_obj_assign;
-    else
-        opcode = o_ref_assign;
 
     if (ast->op > expr_assign) {
         emit_op_for_compound(emit, ast);
@@ -1201,6 +1212,74 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)s;
 }
 
+/*  type_matchup
+    This function checks if the given ast's result can be coerced into the
+    wanted type. Self is passed to allow for template checking as well.
+    This also handles converting lists[!object] to list[object], and
+    hash[?, !object] to hash[?, object]
+
+    emit:     The emitter, in case code needs to be written.
+    self:     The self, in the event that want_sig uses templates. If it does
+              not, then passing NULL is acceptable here.
+    want_sig: The signature to be matched.
+    right:    The ast which has a result to be converted to want_sig.
+
+    Returns 1 if successful, 0 otherwise.
+    Caveats:
+    * This may rewrite right's result if it succeeds. */
+static int type_matchup(lily_emit_state *emit, lily_sig *self,
+        lily_sig *want_sig, lily_ast *right)
+{
+    int ret = 0;
+
+    if (self != NULL && template_check(self, want_sig, right->result->sig))
+        ret = 1;
+    else if (want_sig->cls->id == SYM_CLASS_OBJECT) {
+        emit_obj_assign(emit, right);
+        ret = 1;
+    }
+    else if ((right->tree_type == tree_list &&
+         want_sig->cls->id == SYM_CLASS_LIST &&
+         want_sig->siglist[0]->cls->id == SYM_CLASS_OBJECT)
+        ||
+        (right->tree_type == tree_hash &&
+         want_sig->cls->id == SYM_CLASS_HASH &&
+         want_sig->siglist[0] == right->result->sig->siglist[0] &&
+         want_sig->siglist[1]->cls->id == SYM_CLASS_OBJECT)) {
+        /* tree_list: Want list[object], have list[!object]
+           tree_hash: Want hash[?, object], have hash[?, !object] */
+        /* In either case, convert each of the values to objects, then rewrite
+           the build to pump out the right resulting type. */
+        lily_method_val *m = emit->top_method;
+        int element_count = right->args_collected;
+        lily_storage *s = get_storage(emit, want_sig, right->line_num);
+        if (s == NULL)
+            lily_raise_nomem(emit->raiser);
+
+        /* WARNING: This is only safe because the tree was just evaluated and
+           nothing has happened since the o_build_* was written. */
+        m->pos = m->pos - (4 + element_count);
+
+        int build_op;
+        if (right->tree_type == tree_list) {
+            build_op = o_build_list;
+            emit_list_values_to_objects(emit, right);
+        }
+        else {
+            build_op = o_build_hash;
+            emit_hash_values_to_objects(emit, right);
+        }
+
+        write_build_op(emit, build_op, right->arg_start, right->line_num,
+                right->args_collected, s->reg_spot);
+
+        right->result = (lily_sym *)s;
+        ret = 1;
+    }
+
+    return ret;
+}
+
 /* This walks an ast of type tree_list, which indicates a static list to be
    build (ex: x = [1, 2, 3, 4...] or x = ["1", "2", "3", "4"]).
    The values start in ast->arg_start, and end when ->next_arg is NULL.
@@ -1326,8 +1405,6 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     /* Take the last arg off of the arg count. This will be verified using the
        var arg signature. */
     num_args = (call_sig->siglist_size - 1) - is_varargs;
-    lily_class *obj_class = lily_class_by_id(emit->symtab, SYM_CLASS_OBJECT);
-    lily_sig *object_sig = obj_class->sig;
 
     if ((is_varargs && (have_args <= num_args)) ||
         (is_varargs == 0 && (have_args != num_args)))
@@ -1341,16 +1418,10 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         if (i == 0)
             self_sig = arg->result->sig;
 
-        if (arg->result->sig != call_sig->siglist[i + 1]) {
-            if (call_sig->siglist[i + 1] == object_sig)
-                emit_obj_assign(emit, arg);
-            else if (template_check(self_sig, call_sig->siglist[i + 1],
-                     arg->result->sig))
-                ; /* Allow it if the arg satisfies what the template in the call
-                     wants. */
-            else
-                bad_arg_error(emit, ast, arg->result->sig, call_sig->siglist[i + 1],
-                        i);
+        if (arg->result->sig != call_sig->siglist[i + 1] &&
+            type_matchup(emit, self_sig, call_sig->siglist[i+1], arg) == 0) {
+            bad_arg_error(emit, ast, arg->result->sig, call_sig->siglist[i + 1],
+                          i);
         }
     }
 
@@ -1372,14 +1443,9 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                 /* Walk the subexpressions so the result gets calculated. */
                 eval_tree(emit, arg);
 
-            if (arg->result->sig != va_comp_sig) {
-                if (va_comp_sig == object_sig)
-                    emit_obj_assign(emit, arg);
-                else if (template_check(self_sig, va_comp_sig,
-                         arg->result->sig))
-                    ;
-                else
-                    bad_arg_error(emit, ast, arg->result->sig, va_comp_sig, i);
+            if (arg->result->sig != va_comp_sig &&
+                type_matchup(emit, self_sig, va_comp_sig, arg) == 0) {
+                bad_arg_error(emit, ast, arg->result->sig, va_comp_sig, i);
             }
         }
 

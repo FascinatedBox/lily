@@ -829,8 +829,8 @@ method test_circular_ref_checks():nil
     object b = a[0]
     object c = a[1]
 
-    list[object] d = [1, 1.1]
-    list[object] e = [1, 1.1]
+    list[object] d = [1, 1]
+    list[object] e = [1, 1]
     d[0] = e
     e[0] = d
 
@@ -842,8 +842,8 @@ method test_circular_ref_checks():nil
     i[0][0] = i[0]
     i[0] = i[0]
 
-    list[object] j = [1, 1.1]
-    list[object] k = [1, 1.1]
+    list[object] j = ["1", "1"]
+    list[object] k = [1.1, 1.1]
     k[0] = j
     j[0] = k
     j[1] = k
