@@ -4,72 +4,141 @@
 </head>
 <body>
 <@lily
+# This is Lily's main sanity test. This ensures that the interpreter is working
+# correctly. New features should add to the tests here, to help prevent
+# accidental regressions.
+
 integer test_id = 1
 integer fail_count = 0
 
 method test_basic_assignments():nil
 {
-    method method1():integer {
-        method method2():integer {
-            method method3():integer {
-                method method4():integer {
-                    method method5():integer {
-                        return 1
-                    }
-                    return 1
-                }
-                return 1
-            }
-            return 1
-        }
-        return 1
+    # Begin by testing that basic assignments for common types work.
+
+    # integers are 64-bit signed values.
+    integer a = 10
+
+    # Numbers are the more precise value type. C doubles.
+    number b = 1.1
+
+    # str is Lily's string class.
+    str c = "11"
+
+    # Lists are collections of values, and need a type specified.
+    # Additionally, static lists, such as [1, 2, 3] automatically guess their
+    # resulting type based on what they contain.
+    list[integer] d = [1, 2, 3]
+    # Lists can also include other lists.
+    # This is a static list containing only lists of integers, so it the
+    # interpreter sees that it's valid.
+    list[list[integer]] e = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    e[0] = [4, 5, 6]
+
+    # hash is the associative array type. Hashes require two inner type: the
+    # key, and the value.
+    hash[str, integer] f = ["a" => 1, "b" => 2, "c" => 3]
+    # Items can be added through subscript assignment. Lists can't do that
+    # though.
+    f["d"] = 4
+
+    # Method is a callable block of Lily code. These are different than
+    # functions, which are builtin callable blocks.
+
+    # Methods can be declared in other methods, but upvalues aren't supported
+    # quite yet. The part after the : defines the return value of the method.
+    # nil is a special word that is accepted that means the method does not
+    # return a value.
+    method g():nil {
+        integer g_1 = 10
     }
-    # Test valid assignments.
-    integer a = 1
-    number b = 2.0
-    str c = "c"
-    object o = "o"
 
-    # Decl list test.
-    integer dl1, dl2, dl3, dl4
+    # Finally, objects. Objects are containers that can hold any value.
+    object h = 10
+    h = "1"
+    h = 1.1
+    h = [1, 2, 3]
+    h = g
+    h = ["a" => 1, "b" => 2]
 
-    # Objects can be assigned any value.
-    o = 1
-    o = 2.0
-    # Make sure that strings don't reference leak.
-    c = "c"
-    c = "cc"
-    o = "o"
-    o = "oo"
+    # Now, for something more interesting...
 
+    method ret_10():integer { return 10 }
+    method ret_20():integer { return 20 }
+    method ret_30():integer { return 30 }
+
+    list[method():integer] method_list = [ret_10, ret_20, ret_30]
+
+    # Subscript out the method, then call it. Returns 10.
+    integer method_list_ret = method_list[0]()
+
+    # Shuffle the method list around a bit.
+    method_list[2] = method_list[0]
+    method_list[0] = method_list[1]
+
+    hash[integer, list[method():integer]] super_hash = [1 => method_list]
+
+    # printfmt is a function that works like C's printf. It takes in a
+    # variable amount of objects as values.
+    # Since anything can be an object, this converts test_id to object before
+    # doing the call.
+    # %1 is for integers.
     printfmt("#%i: Testing basic assignments...ok.\n", test_id)
     test_id = test_id + 1
 }
 
-method test_jumps():nil
+method test_conditions():nil
 {
-    integer a, ok
-
-    a = 1
-    printfmt("#%i: Testing jumps...", test_id)
+    printfmt("#%i: Testing conditions...", test_id)
     test_id = test_id + 1
 
-    if a == a: {
+    integer ok = 0
+    integer a = 10
+
+    # Lily has two kind of if statements: single-line, and multi-line.
+    # A single-line statement only allows one line before needing either a
+    # close or an elif/else.
+
+    if a == 10:
+        a = 11
+    elif a == 11:
+        ok = 0
+    else:
+        ok = 0
+
+    # Multi-line ifs begin by putting a { after the : of the if.
+    # Unlike most curly brace languages, the } is only required
+    # at the end of the if.
+    if a == 11: {
+        # Multi-line ifs can contain single-line ifs.
+        a = 12
+        # This is a single-line if. It closes after 'ok = 0'
+        if a == 12:
+            a = 13
+        else:
+            ok = 0
+        ok = 1
+    # Lily deduces that this else is multi-line, because it hasn't found
+    # a } for the {.
+    else:
+        # Lily deduces that this else is multi-line
+        ok = 0
+        ok = 0
+        ok = 0
+    }
+
+    # Now, if with some different things used for the condition.
+    if 1.1 != 1.1:
+        ok = 0
+
+    if "1" != "1":
+        ok = 0
+
+    if ok == 1: {
         print("ok.\n")
     else:
         print("failed.\n")
-        # Make sure jumps aren't miswired...again.
-        fail_count = fail_count + 1
+        fail_count += 1
     }
-}
-
-method test_manyargs (integer a, integer b, integer c, integer d,
-    integer e, integer f):integer
-{
-    printfmt("#%i: 8-arg call...ok.\n", test_id)
-    test_id = test_id + 1
-
-    return a
 }
 
 method test_printfmt():nil
@@ -88,22 +157,70 @@ method test_printfmt():nil
     printfmt("    a, b, c are %i, %n, %s.\n", a, b, c)
 }
 
-method test_obj_call():nil
+method test_object_defaulting():nil
 {
-    object o
-
-    method sample_ocall(object a, object b):integer
-    {
-        return 1
-    }
-
-    sample_ocall("a", "a")
-    sample_ocall(1, 1)
-    sample_ocall(1.1, 1.1)
-    sample_ocall(o, o)
-
-    printfmt("#%i: Testing autocast of object calls...ok.\n", test_id)
+    printfmt("#%i: Testing object defaulting...", test_id)
     test_id = test_id + 1
+
+    method m():nil {}
+
+    object other_obj = 10
+    # Object can accept any value
+    object a
+    a = 1
+    a = 1.1
+    a = "10"
+    a = [1]
+    a = ["1" => 10]
+    a = m
+    a = printfmt
+    a = other_obj
+
+    # If a static list contains various types, they should default to object.
+    list[object] obj_list = [1, 1.1, "10", [1], ["1" => 10], m, printfmt,
+                             other_obj]
+
+    # Ensure that subscript assign for lists autoconverts to object.
+    obj_list[0] = 1
+    obj_list[0] = 1.1
+    obj_list[0] = "10"
+    obj_list[0] = [1]
+    obj_list[0] = ["1" => 10]
+    obj_list[0] = m
+    obj_list[0] = printfmt
+    obj_list[0] = other_obj
+
+    hash[str, object] obj_hash = ["integer" => 1,
+                                  "number" => 1.1,
+                                  "str" => "10",
+                                  "list" => [1],
+                                  "hash" => ["1" => 10],
+                                  "method" => m,
+                                  "function" => printfmt,
+                                  "object" => other_obj,
+                                  "test" => 1]
+
+    obj_hash["test"] = 1
+    obj_hash["test"] = 1.1
+    obj_hash["test"] = "10"
+    obj_hash["test"] = [1]
+    obj_hash["test"] = ["1" => 10]
+    obj_hash["test"] = m
+    obj_hash["test"] = printfmt
+    obj_hash["test"] = other_obj
+
+    method test(object x):nil {}
+
+    test(1)
+    test(1.1)
+    test("10")
+    test([1])
+    test(["1" => 10])
+    test(m)
+    test(printfmt)
+    test(other_obj)
+
+    print("ok.\n")
 }
 
 method test_oo():nil
@@ -202,160 +319,6 @@ method test_escapes():nil
 
     printfmt("#%i: Testing escape string...%s.\n", test_id, s)
     test_id = test_id + 1
-}
-
-method test_nested_if():nil
-{
-    integer a, ok = 0
-    str s = "a"
-    a = 1
-    printfmt("#%i: Testing nested if...", test_id)
-    test_id = test_id + 1
-
-    if a == 1: {
-        if a == 1: {
-            if a == 1: {
-                if a == 1: {
-    if a == 1: {
-        if a == 1: {
-            if a == 1: {
-                if a == 1: {
-    if a == 1: {
-        if a == 1: {
-            if a == 1: {
-                if a == 1: {
-                    ok = 1
-                }
-            }
-        }
-    }
-                }
-            }
-        }
-    }
-                }
-            }
-        }
-    }
-
-    # In Lily, braces are only needed for the start and end of an if. This is a
-    # multi-line if test.
-    if a == 1: {
-        a = 2
-        a = 3
-    elif a == 2:
-        a = 4
-        a = 5
-    else:
-        a = 6
-        a = 7
-    }
-
-    if ok == 1: {
-        print("ok.\n")
-    else:
-        print("failed.\n")
-        fail_count = fail_count + 1
-    }
-}
-
-method test_add():nil
-{
-    # This tests ast merging.
-    integer i1, ok
-    str s1, s2
-
-    i1 = "1" >= "1"
-    i1 = "1" > "1"
-    i1 = "1" < "1"
-    i1 = "1" <= "1"
-    i1 = "1" == "1"
-
-    method add(integer a, integer b):integer
-    {
-        return a + b
-    }
-
-    i1 = add(1, 1) + add(1, 1)
-    printfmt("#%i: Testing add(1, 1) + add(1, 1)...", test_id)
-    test_id = test_id + 1
-
-    if i1 == 4: {
-        print("ok.\n")
-    else:
-        print("failed.\n")
-        fail_count = fail_count + 1
-    }
-}
-
-method test_assign_decl_list():nil
-{
-    printfmt("#%i: Testing assigning to decl list...", test_id)
-    test_id = test_id + 1
-
-    # First, basic stuff...
-    integer a = 1, b = 2, c = 3
-
-    # Now, with binary.
-    integer d = a + b, e = a + b
-
-    method add(integer add_a, integer add_b):integer
-    {
-        return add_a + add_b
-    }
-
-    # Finally, with a call.
-    integer f = add(a, b), g = 4
-
-    if f == 3: {
-        print("ok.\n")
-    else:
-        print("failed.\n")
-        fail_count = fail_count + 1
-    }
-}
-
-method oneline_helper():integer
-{
-    # oneline conditions go through a different path than multiline ones. This
-    # tests the single-line path to make sure everything is ok.
-    integer a = 1
-    if a == 2:
-        return 0
-    elif a == 3:
-        return 0
-
-    if a == 1:
-        a = 1
-    elif a == 2:
-        a = 2
-    else:
-        a = a
-
-    # Test transitioning from single to multi.
-    if a == 1: {
-        a = 1
-    }
-
-    if "a" == "a":
-        a = 1
-    else:
-        return 0
-
-    return 1
-}
-
-method test_oneline_if():nil
-{
-    printfmt("#%i: Testing one-line conditions...", test_id)
-    test_id = test_id + 1
-
-    if oneline_helper() == 1: {
-        print("ok.\n")
-    else:
-        print("failed.\n")
-        fail_count = fail_count + 1
-    }
 }
 
 method fib(integer n):integer
@@ -795,31 +758,16 @@ method test_typecasts():nil
     print("ok.\n")
 }
 
-method test_list_autocast():nil
-{
-    printfmt("#%i: Testing list autocasts...", test_id)
-    test_id = test_id + 1
-
-    # This tests that lists of varying types are autoconverted to list[object].
-    list[object] o1 = [1, 1.1, "1"]
-    list[object] o2 = [2, 2.2, "2", o1[0]]
-    object o3 = o1[0]
-    list[object] o4 = [o1[0], o2[2], o3]
-    object o5 = o4[0]
-    integer i = @(integer: o5)
-
-    print("ok.\n")
-}
-
 method test_circular_ref_checks():nil
 {
     printfmt("#%i: Testing circular reference checks...", test_id)
     test_id = test_id + 1
 
-    # Catching circular references and making sure they get deref'd properly is
-    # rather tricky. Additions to this code are welcome.
-    # These are random tests, and they might be incomplete. This test should
-    # actually be verified by valgrind.
+    # This used to be really important because circular references were tracked
+    # by fiddling with refcounts, marking lists, and crossing fingers.
+    # It was horrible.
+    # Lily has a gc now, so this is important but not as fragile as it used to
+    # be. Hurray!
 
     list[object] a = [1.1, 2]
     a[0] = a
@@ -866,8 +814,6 @@ method test_circular_ref_checks():nil
     list[object] listobj = [obj]
     obj = listobj[0]
 
-    # Circular lists. These are lists which refer to each other infinitely. So
-    # far, this is the only time when a list is tagged as circular.
     list[list[object]] q = [[1, 1.1]]
     list[object] r = [1, 1.1, 1.1, 1.1]
 
@@ -1180,12 +1126,14 @@ method test_digit_collection():nil
     }
 }
 
-method test_while():nil
+method test_loops():nil
 {
-    printfmt("#%i: Testing while, break, and continue...", test_id)
+    printfmt("#%i: Testing loops (while, for in, break, continue)...\n", test_id)
     test_id = test_id + 1
 
-    integer i = 10
+    integer i, ok
+    i = 10
+    ok = 1
 
     while i != 0: {
         i = i - 1
@@ -1214,7 +1162,41 @@ method test_while():nil
         continue
     }
 
-    print("ok.\n")
+    print("     While loops ok.\n")
+
+    for i in 1..10: { }
+    print("     Checking that 1 .. 10 ends at 10...")
+    if i == 10: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    for i in 10..1: { }
+    print("     Checking that 10 .. 1 ends at 1...")
+    if i == 1: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    print("     Checking that 1 .. 5 by 2 == 1, 3, 5...")
+    list[integer] intlist = [0, 0, 0, 0, 0, 0]
+    for i in 1..5 by 2: {
+        intlist[i] = 1
+    }
+
+    if intlist[1] == 1 && intlist[3] == 1 && intlist[5] == 1: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    if ok == 0:
+        fail_count += 1
 }
 
 method test_assign_chain():nil
@@ -1314,46 +1296,6 @@ method test_multiline_comment():nil
 
     printfmt("#%i: Testing multi-line comments...ok.\n", test_id)
     test_id = test_id + 1
-}
-
-method test_for_in():nil
-{
-    printfmt("#%i: Testing for..in loops...(sub tests follow).\n", test_id)
-    test_id = test_id + 1
-
-    integer ok = 1
-    integer i
-
-    for i in 1..10: { }
-    print("     Checking that 1 .. 10 ends at 10...")
-    if i == 10: {
-        print("ok.\n")
-    else:
-        print("failed.\n")
-        ok = 0
-    }
-
-    for i in 10..1: { }
-    print("     Checking that 10 .. 1 ends at 1...")
-    if i == 1: {
-        print("ok.\n")
-    else:
-        print("failed.\n")
-        ok = 0
-    }
-
-    print("     Checking that 1 .. 5 by 2 == 1, 3, 5...")
-    list[integer] intlist = [0, 0, 0, 0, 0, 0]
-    for i in 1..5 by 2: {
-        intlist[i] = 1
-    }
-
-    if intlist[1] == 1 && intlist[3] == 1 && intlist[5] == 1: {
-        print("ok.\n")
-    else:
-        print("failed.\n")
-        ok = 0
-    }
 }
 
 method test_intnum_cast():nil
@@ -1462,38 +1404,38 @@ method test_misc():nil
         fail_count = fail_count + 1
 }
 
-test_basic_assignments()
-test_jumps()
-test_manyargs(1,2,3,4,5,6)
-test_printfmt()
-test_obj_call()
-test_oo()
-test_utf8()
-test_escapes()
-test_nested_if()
-test_add()
-test_assign_decl_list()
-test_oneline_if()
-test_fib()
-test_unary()
-test_andor()
-test_parenth()
-test_arith()
-test_sub_assign()
-test_complex_sigs()
-test_typecasts()
-test_list_autocast()
-test_circular_ref_checks()
-test_method_varargs()
-test_multiline_strs()
-test_digit_collection()
-test_while()
-test_assign_chain()
-test_multiline_comment()
-test_for_in()
-test_intnum_cast()
-test_hashes()
-test_misc()
+list[method():nil] method_list =
+[
+    test_basic_assignments,
+    test_conditions,
+    test_printfmt,
+    test_object_defaulting,
+    test_oo,
+    test_utf8,
+    test_escapes,
+    test_fib,
+    test_unary,
+    test_andor,
+    test_parenth,
+    test_arith,
+    test_sub_assign,
+    test_complex_sigs,
+    test_typecasts,
+    test_circular_ref_checks,
+    test_method_varargs,
+    test_multiline_strs,
+    test_digit_collection,
+    test_loops,
+    test_assign_chain,
+    test_multiline_comment,
+    test_intnum_cast,
+    test_hashes,
+    test_misc
+]
+
+for i in 0..method_list.size() - 1: {
+    method_list[i]()
+}
 
 test_id = test_id - 1
 
