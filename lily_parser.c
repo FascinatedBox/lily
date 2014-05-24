@@ -35,28 +35,26 @@
 
 /* First, the flags for expression. */
 
-/* Execute only one expression. */
-#define EX_SINGLE     0x001
 /* Get the lhs via expression_value. */
-#define EX_NEED_VALUE 0x002
+#define EX_NEED_VALUE 0x001
 /* For if and elif to work, the expression has to be tested for being true or
    false. This tells the emitter to write in that test (o_jump_if_false) after
    writing the condition. This must be done within expression, because the
    ast is 'cleaned' by expression after each run. */
-#define EX_CONDITION  0x004
+#define EX_CONDITION  0x002
 /* Don't clear the ast within 'expression'. This allows the finished ast to be
    inspected. */
-#define EX_SAVE_AST   0x010
+#define EX_SAVE_AST   0x004
 
 /* These flags are for collect_var_sig. */
 
 /* Expect a name with every class given. Create a var for each class+name pair.
    This is suitable for collecting the args of a method. */
-#define CV_MAKE_VARS  0x020
+#define CV_MAKE_VARS  0x010
 
 /* This is set if the variable is not inside another variable. This is suitable
    for collecting a method that may have named arguments. */
-#define CV_TOPLEVEL   0x040
+#define CV_TOPLEVEL   0x020
 
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
@@ -914,130 +912,127 @@ static void expression(lily_parse_state *parser, int flags)
         expression_value(parser);
 
     while (1) {
-        while (1) {
-            if (lex->token == tk_word) {
-                if (parser->ast_pool->save_depth != 0)
-                    lily_raise(parser->raiser, lily_ErrSyntax,
-                               "Expected ')' or a binary op, not a label.\n");
+        if (lex->token == tk_word) {
+            if (parser->ast_pool->save_depth != 0)
+                lily_raise(parser->raiser, lily_ErrSyntax,
+                           "Expected ')' or a binary op, not a label.\n");
 
+            break;
+        }
+        else if (lex->token == tk_right_parenth ||
+                 lex->token == tk_right_bracket) {
+            if (parser->ast_pool->save_depth == 0)
+                lily_raise(parser->raiser, lily_ErrSyntax,
+                        "Unexpected token %s.\n", tokname(lex->token));
+
+            check_valid_close_tok(parser);
+            lily_ast_leave_tree(parser->ast_pool);
+
+            lily_lexer(lex);
+            if (parser->ast_pool->save_depth == 0 &&
+                is_start_val[lex->token] == 1)
+                /* Since there are no parenths/calls left, then this value
+                   must be the first in the next expression. */
+                break;
+            else if (lex->token == tk_left_bracket) {
+                lily_ast_enter_tree(parser->ast_pool, tree_subscript, NULL);
+                lily_lexer(lex);
+            }
+            else if (lex->token == tk_left_parenth) {
+                lily_ast_enter_tree(parser->ast_pool, tree_call, NULL);
+                lily_lexer(lex);
+                if (lex->token == tk_right_parenth) {
+                    /* Don't leave the tree: This will do the leave when it
+                       jumps back up. */
+                    continue;
+                }
+            }
+            else if (lex->token != tk_dot)
+                /* If not '.', then assume it's a binary token. */
+                continue;
+            else {
+                /* 'a.concat("b").concat("c")'. Do a normal oo merge. */
+                NEED_NEXT_TOK(tk_word)
+                expression_oo(parser);
+                NEED_NEXT_TOK(tk_left_parenth);
+                lily_lexer(lex);
+            }
+        }
+        else if (lex->token == tk_comma || lex->token == tk_arrow) {
+            if (parser->ast_pool->active == NULL)
+                lily_raise(parser->raiser, lily_ErrSyntax,
+                           "Expected a value, not ','.\n");
+
+            /* If this is inside of a decl list (integer a, b, c...), then
+               the comma is the end of the decl unless it's part of a call
+               used in the decl (integer a = add(1, 2), b = 1...). */
+            if (((flags & EX_NEED_VALUE) == 0) &&
+                parser->ast_pool->save_depth == 0 &&
+                lex->token == tk_comma) {
                 break;
             }
-            else if (lex->token == tk_right_parenth ||
-                     lex->token == tk_right_bracket) {
-                if (parser->ast_pool->save_depth == 0)
+
+            if (parser->ast_pool->save_depth == 0)
+                lily_raise(parser->raiser, lily_ErrSyntax,
+                        "Unexpected token %s.\n", tokname(lex->token));
+
+            lily_ast *last_tree = lily_ast_get_saved_tree(parser->ast_pool);
+            if (lex->token == tk_comma) {
+                if (last_tree->tree_type == tree_hash &&
+                    (last_tree->args_collected & 0x1) == 0)
                     lily_raise(parser->raiser, lily_ErrSyntax,
-                            "Unexpected token %s.\n", tokname(lex->token));
-
-                check_valid_close_tok(parser);
-                lily_ast_leave_tree(parser->ast_pool);
-
-                lily_lexer(lex);
-                if (parser->ast_pool->save_depth == 0 &&
-                    is_start_val[lex->token] == 1)
-                    /* Since there are no parenths/calls left, then this value
-                       must be the first in the next expression. */
-                    break;
-                else if (lex->token == tk_left_bracket) {
-                    lily_ast_enter_tree(parser->ast_pool, tree_subscript, NULL);
-                    lily_lexer(lex);
-                }
-                else if (lex->token == tk_left_parenth) {
-                    lily_ast_enter_tree(parser->ast_pool, tree_call, NULL);
-                    lily_lexer(lex);
-                    if (lex->token == tk_right_parenth) {
-                        /* Don't leave the tree: This will do the leave when it
-                           jumps back up. */
-                        continue;
-                    }
-                }
-                else if (lex->token != tk_dot)
-                    /* If not '.', then assume it's a binary token. */
-                    continue;
-                else {
-                    /* 'a.concat("b").concat("c")'. Do a normal oo merge. */
-                    NEED_NEXT_TOK(tk_word)
-                    expression_oo(parser);
-                    NEED_NEXT_TOK(tk_left_parenth);
-                    lily_lexer(lex);
-                }
+                            "Expected a key => value pair before ','.\n");
             }
-            else if (lex->token == tk_comma || lex->token == tk_arrow) {
-                if (parser->ast_pool->active == NULL)
-                    lily_raise(parser->raiser, lily_ErrSyntax,
-                               "Expected a value, not ','.\n");
-
-                /* If this is inside of a decl list (integer a, b, c...), then
-                   the comma is the end of the decl unless it's part of a call
-                   used in the decl (integer a = add(1, 2), b = 1...). */
-                if (((flags & EX_NEED_VALUE) == 0) &&
-                    parser->ast_pool->save_depth == 0 &&
-                    lex->token == tk_comma) {
-                    break;
+            else if (lex->token == tk_arrow) {
+                if (last_tree->tree_type == tree_list) {
+                    if (last_tree->args_collected == 0)
+                        last_tree->tree_type = tree_hash;
+                    else
+                        lily_raise(parser->raiser, lily_ErrSyntax,
+                                "Unexpected token '%s'.\n", tokname(tk_arrow));
                 }
+                else if (last_tree->tree_type != tree_hash ||
+                         (last_tree->args_collected & 0x1) == 1)
+                        lily_raise(parser->raiser, lily_ErrSyntax,
+                                "Unexpected token '%s'.\n", tokname(tk_arrow));
+            }
 
-                if (parser->ast_pool->save_depth == 0)
+            lily_ast_collect_arg(parser->ast_pool);
+            lily_lexer(lex);
+        }
+        else {
+            int expr_op = bin_op_for_token[lex->token];
+            if (expr_op != -1) {
+                lily_ast_push_binary_op(parser->ast_pool,
+                        (lily_expr_op)expr_op);
+                lily_lexer(lex);
+            }
+            else if (lex->token == tk_colon ||
+                     lex->token == tk_right_curly ||
+                     lex->token == tk_end_tag ||
+                     lex->token == tk_eof ||
+                     lex->token == tk_two_dots) {
+                if (parser->ast_pool->save_depth != 0)
                     lily_raise(parser->raiser, lily_ErrSyntax,
                             "Unexpected token %s.\n", tokname(lex->token));
-
-                lily_ast *last_tree = lily_ast_get_saved_tree(parser->ast_pool);
-                if (lex->token == tk_comma) {
-                    if (last_tree->tree_type == tree_hash &&
-                        (last_tree->args_collected & 0x1) == 0)
-                        lily_raise(parser->raiser, lily_ErrSyntax,
-                                "Expected a key => value pair before ','.\n");
-                }
-                else if (lex->token == tk_arrow) {
-                    if (last_tree->tree_type == tree_list) {
-                        if (last_tree->args_collected == 0)
-                            last_tree->tree_type = tree_hash;
-                        else
-                            lily_raise(parser->raiser, lily_ErrSyntax,
-                                    "Unexpected token '%s'.\n", tokname(tk_arrow));
-                    }
-                    else if (last_tree->tree_type != tree_hash ||
-                             (last_tree->args_collected & 0x1) == 1)
-                            lily_raise(parser->raiser, lily_ErrSyntax,
-                                    "Unexpected token '%s'.\n", tokname(tk_arrow));
-                }
-
-                lily_ast_collect_arg(parser->ast_pool);
-                lily_lexer(lex);
+                break;
             }
             else {
-                int expr_op = bin_op_for_token[lex->token];
-                if (expr_op != -1) {
-                    lily_ast_push_binary_op(parser->ast_pool,
-                            (lily_expr_op)expr_op);
-                    lily_lexer(lex);
-                }
-                else if (lex->token == tk_colon ||
-                         lex->token == tk_right_curly ||
-                         lex->token == tk_end_tag || lex->token == tk_eof ||
-                         lex->token == tk_two_dots) {
-                    if (parser->ast_pool->save_depth != 0)
-                        lily_raise(parser->raiser, lily_ErrSyntax,
-                                "Unexpected token %s.\n", tokname(lex->token));
-                    break;
-                }
-                else {
-                    lily_raise(parser->raiser, lily_ErrSyntax,
-                               "Expected maybe a binary operator, not %s.\n",
-                               tokname(lex->token));
-                }
-            }
-            expression_value(parser);
-        }
-        if (flags & EX_SINGLE) {
-            if (flags & EX_CONDITION) {
-                lily_emit_conditional(parser->emit, parser->ast_pool->root);
-                lily_ast_reset_pool(parser->ast_pool);
-            }
-            else if (!(flags & EX_SAVE_AST)) {
-                lily_emit_ast(parser->emit, parser->ast_pool->root);
-                lily_ast_reset_pool(parser->ast_pool);
+                lily_raise(parser->raiser, lily_ErrSyntax,
+                           "Expected maybe a binary operator, not %s.\n",
+                           tokname(lex->token));
             }
         }
-        break;
+        expression_value(parser);
+    }
+
+    if (flags & EX_CONDITION) {
+        lily_emit_conditional(parser->emit, parser->ast_pool->root);
+        lily_ast_reset_pool(parser->ast_pool);
+    }
+    else if (!(flags & EX_SAVE_AST)) {
+        lily_emit_ast(parser->emit, parser->ast_pool->root);
+        lily_ast_reset_pool(parser->ast_pool);
     }
 }
 
@@ -1065,7 +1060,7 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
         /* Handle an initializing assignment, if there is one. */
         if (lex->token == tk_equal) {
             lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
-            expression(parser, EX_SINGLE);
+            expression(parser, 0);
         }
 
         /* This is the start of the next statement. */
@@ -1105,7 +1100,7 @@ static void parse_do_while_expr(lily_parse_state *parser)
 static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
 {
     lily_ast_pool *ap = parser->ast_pool;
-    expression(parser, EX_SINGLE | EX_SAVE_AST | EX_NEED_VALUE);
+    expression(parser, EX_SAVE_AST | EX_NEED_VALUE);
 
     /* Don't allow assigning expressions, since that just looks weird.
        ex: for i in a += 10..5
@@ -1219,7 +1214,7 @@ static void statement(lily_parse_state *parser, int in_multiline)
                     parse_decl(parser, lclass->sig);
             }
             else
-                expression(parser, EX_NEED_VALUE | EX_SINGLE);
+                expression(parser, EX_NEED_VALUE);
         }
     } while (in_multiline && lex->token == tk_word);
 }
@@ -1237,7 +1232,7 @@ static void if_handler(lily_parse_state *parser, int in_multiline)
     lily_lex_state *lex = parser->lex;
 
     lily_emit_enter_block(parser->emit, BLOCK_IF);
-    expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
+    expression(parser, EX_NEED_VALUE | EX_CONDITION);
     NEED_CURRENT_TOK(tk_colon)
 
     lily_lexer(lex);
@@ -1284,7 +1279,7 @@ static void elif_handler(lily_parse_state *parser, int in_multiline)
 {
     lily_lex_state *lex = parser->lex;
     lily_emit_change_if_branch(parser->emit, /*have_else=*/0);
-    expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
+    expression(parser, EX_NEED_VALUE | EX_CONDITION);
     NEED_CURRENT_TOK(tk_colon)
 
     lily_lexer(lex);
@@ -1334,7 +1329,7 @@ static void return_handler(lily_parse_state *parser, int is_multiline)
 {
     lily_sig *ret_sig = parser->emit->top_method_ret;
     if (ret_sig != NULL) {
-        expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
+        expression(parser, EX_NEED_VALUE | EX_SAVE_AST);
         lily_emit_return(parser->emit, parser->ast_pool->root, ret_sig);
         lily_ast_reset_pool(parser->ast_pool);
     }
@@ -1361,7 +1356,7 @@ static void while_handler(lily_parse_state *parser, int is_multiline)
 
     /* Grab the condition after the 'while' keyword. Use EX_SAVE_AST so that
        expression will not emit+dump the ast. */
-    expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
+    expression(parser, EX_NEED_VALUE | EX_SAVE_AST);
     lily_emit_ast(parser->emit, parser->ast_pool->root);
     /* 0 = jump_if_false. This jump will be patched later with the destination
        of the end of the while loop. */
@@ -1403,7 +1398,7 @@ static void break_handler(lily_parse_state *parser, int is_multiline)
     to handle any kind of value: vars, literals, results of commands, etc. */
 static void show_handler(lily_parse_state *parser, int is_multiline)
 {
-    expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
+    expression(parser, EX_NEED_VALUE | EX_SAVE_AST);
     lily_emit_show(parser->emit, parser->ast_pool->root);
     lily_ast_reset_pool(parser->ast_pool);
 }
@@ -1541,7 +1536,7 @@ static void do_handler(lily_parse_state *parser, int is_multiline)
     /* Now prep the token for expression. Save the resulting tree so that
        it can be eval'd specially. */
     lily_lexer(lex);
-    expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
+    expression(parser, EX_NEED_VALUE | EX_SAVE_AST);
     lily_eval_do_while_expr(parser->emit, parser->ast_pool->root);
     /* Drop the tree and leave the block. */
     lily_ast_reset_pool(parser->ast_pool);
