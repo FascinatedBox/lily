@@ -62,7 +62,7 @@
 lily_lexer(lex); \
 if (lex->token != expected) \
     lily_raise(parser->raiser, lily_ErrSyntax, "Expected '%s', not %s.\n", \
-               tokname(expected), tokname(lex->token)); \
+               tokname(expected), tokname(lex->token));
 
 #define NEED_CURRENT_TOK(expected) \
 if (lex->token != expected) \
@@ -1080,172 +1080,6 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
     }
 }
 
-/* parse_show
-   This handles the 'show' keyword. This displays information on a given
-   expression. Type checking intentionally not performed. */
-static void parse_show(lily_parse_state *parser)
-{
-    expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
-    lily_emit_show(parser->emit, parser->ast_pool->root);
-    lily_ast_reset_pool(parser->ast_pool);
-}
-
-/* parse_return
-   This parses a return statement, and writes the appropriate return info to
-   the emitter. */
-static void parse_return(lily_parse_state *parser)
-{
-    lily_sig *ret_sig = parser->emit->top_method_ret;
-    if (ret_sig != NULL) {
-        expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
-        lily_emit_return(parser->emit, parser->ast_pool->root, ret_sig);
-        lily_ast_reset_pool(parser->ast_pool);
-    }
-    else
-        lily_emit_return_noval(parser->emit);
-}
-
-/* parse_while
-   This parses and enters a while statement. While statements are always
-   multi-line. */
-static void parse_while(lily_parse_state *parser)
-{
-    /* Syntax: while x: { ... }
-       This starts with the token on tk_word (while). */
-    lily_lex_state *lex = parser->lex;
-
-    /* First, tell the emitter we're entering a block, so that '}' will close
-       it properly. */
-    lily_emit_enter_block(parser->emit, BLOCK_WHILE);
-
-    /* Grab the condition after the 'while' keyword. Use EX_SAVE_AST so that
-       expression will not emit+dump the ast. */
-    expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
-    lily_emit_ast(parser->emit, parser->ast_pool->root);
-    /* 0 = jump_if_false. This jump will be patched later with the destination
-       of the end of the while loop. */
-    lily_emit_jump_if(parser->emit, parser->ast_pool->root, 0);
-    lily_ast_reset_pool(parser->ast_pool);
-
-    NEED_CURRENT_TOK(tk_colon)
-    NEED_NEXT_TOK(tk_left_curly)
-
-    /* Call up the next value for whatever. */
-    lily_lexer(lex);
-}
-
-/* parse_simple_condition
-   This handles parsing for single-line ifs. This makes things a bit faster by
-   not having to enter and leave functions as much. */
-static void parse_simple_condition(lily_parse_state *parser)
-{
-    /* In a simple condition, each if, elif, and else have only a single
-       expression. This is called when an 'if' is caught, and the token after
-       the : is not {. */
-    int key_id;
-    lily_lex_state *lex = parser->lex;
-
-    while (1) {
-        if (lex->token == tk_word)
-            key_id = lily_keyword_by_name(parser->lex->label,
-                    parser->lex->label_shorthash);
-        else
-            key_id = -1;
-
-        if (key_id == KEY_RETURN) {
-            /* Skip the 'return' keyword. */
-            lily_lexer(lex);
-            parse_return(parser);
-        }
-        else if (key_id == KEY_WHILE) {
-            lily_raise(parser->raiser, lily_ErrSyntax,
-                    "'while' not allowed in single-line if.\n");
-        }
-        else if (key_id == KEY_CONTINUE) {
-            /* Skip past the keyword again. */
-            lily_lexer(lex);
-            lily_emit_continue(parser->emit);
-        }
-        else if (key_id == KEY_BREAK) {
-            lily_lexer(lex);
-            lily_emit_break(parser->emit);
-        }
-        else if (key_id == KEY_SHOW) {
-            lily_lexer(lex);
-            parse_show(parser);
-        }
-        else
-            expression(parser, EX_NEED_VALUE | EX_SINGLE);
-
-        if (lex->token == tk_word) {
-            key_id = lily_keyword_by_name(parser->lex->label,
-                    parser->lex->label_shorthash);
-            if (key_id == KEY_IF) {
-                /* Close this branch and start another one. */
-                lily_emit_leave_block(parser->emit);
-                lily_lexer(lex);
-                lily_emit_enter_block(parser->emit, BLOCK_IF);
-                expression(parser, EX_NEED_VALUE | EX_SINGLE |
-                               EX_CONDITION);
-
-                if (lex->token != tk_colon)
-                    lily_raise(parser->raiser, lily_ErrSyntax,
-                               "Expected ':', not %s.\n", tokname(lex->token));
-
-                lily_lexer(lex);
-                if (lex->token == tk_left_curly) {
-                    /* This func handles single-line ifs, but this is a
-                       multi-line one. Swallow the {, then yield control. */
-                    lily_lexer(lex);
-                    return;
-                }
-            }
-            else if (key_id == KEY_ELIF) {
-                lily_emit_change_if_branch(parser->emit, /*have_else=*/0);
-                lily_lexer(lex);
-                expression(parser, EX_NEED_VALUE | EX_SINGLE |
-                               EX_CONDITION);
-
-                if (lex->token != tk_colon)
-                    lily_raise(parser->raiser, lily_ErrSyntax,
-                               "Expected ':', not %s.\n", tokname(lex->token));
-
-                lily_lexer(lex);
-            }
-            else if (key_id == KEY_ELSE) {
-                lily_emit_change_if_branch(parser->emit, /*have_else=*/1);
-
-                lily_lexer(lex);
-                if (lex->token != tk_colon)
-                    lily_raise(parser->raiser, lily_ErrSyntax,
-                               "Expected ':', not %s.\n", tokname(lex->token));
-
-                lily_lexer(lex);
-            }
-            else
-                break;
-        }
-        else
-            break;
-    }
-    lily_emit_leave_block(parser->emit);
-}
-
-/* parse_do_while
-   This handles the 'do: {' part of a do: { ... } while ...: expression.
-   Not much to do since there's no expression yet. */
-static void parse_do_while(lily_parse_state *parser)
-{
-    lily_lex_state *lex = parser->lex;
-
-    lily_emit_enter_block(parser->emit, BLOCK_DO_WHILE);
-
-    NEED_CURRENT_TOK(tk_colon)
-    NEED_NEXT_TOK(tk_left_curly)
-
-    lily_lexer(lex);
-}
-
 /* parse_do_while_expr
    Now that the inner expressions have been parsed, this handles the
    'while ...:' part of the expression. */
@@ -1298,8 +1132,321 @@ static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
     return var;
 }
 
-static void parse_for_in(lily_parse_state *parser)
+/** Statement and statement helpers.
+    These *_handler functions are used to handle a keyword. This allows one to
+    grab a keyword, then do 'handlers[key_id](parser, is_multiline)' and not
+    have to worry about anything.
+    These handler functions should not be called directly: In most cases,
+    statement should be called, because it's fairly smart.
+    Each of the helper functions gets the parser state and a 0/1 indicating if
+    the current block is a multi-line block or not. **/
+
+static void if_handler(lily_parse_state *, int);
+static void elif_handler(lily_parse_state *, int);
+static void else_handler(lily_parse_state *, int);
+static void return_handler(lily_parse_state *, int);
+static void while_handler(lily_parse_state *, int);
+static void continue_handler(lily_parse_state *, int);
+static void break_handler(lily_parse_state *, int);
+static void show_handler(lily_parse_state *, int);
+static void file_kw_handler(lily_parse_state *, int);
+static void line_kw_handler(lily_parse_state *, int);
+static void method_kw_handler(lily_parse_state *, int);
+static void for_handler(lily_parse_state *, int);
+static void do_handler(lily_parse_state *, int);
+
+typedef void (keyword_handler)(lily_parse_state *, int);
+
+static keyword_handler *handlers[] = {
+    if_handler,
+    elif_handler,
+    else_handler,
+    return_handler,
+    while_handler,
+    continue_handler,
+    break_handler,
+    show_handler,
+    file_kw_handler,
+    line_kw_handler,
+    method_kw_handler,
+    for_handler,
+    do_handler
+};
+
+/*  statement
+    This is a magic function that handles keywords outside of expression,
+    as well as getting declarations started.
+    If in_multiline is set, this function will do the above until it finds
+    a starting token that isn't a label. */
+static void statement(lily_parse_state *parser, int in_multiline)
 {
+    int key_id;
+    lily_class *lclass;
+    lily_lex_state *lex = parser->lex;
+
+    do {
+        uint64_t label_shorthash = parser->lex->label_shorthash;
+        key_id = lily_keyword_by_name(lex->label, label_shorthash);
+
+        if (key_id != -1) {
+            /* Ask the handler for this keyword what to do. */
+            lily_lexer(lex);
+            handlers[key_id](parser, in_multiline);
+        }
+        else {
+            lclass = lily_class_by_hash(parser->symtab, label_shorthash);
+
+            if (lclass != NULL) {
+                int cls_id = lclass->id;
+
+                if (cls_id == SYM_CLASS_METHOD) {
+                    /* This will enter the method since the method is toplevel. */
+                    collect_var_sig(parser, CV_TOPLEVEL | CV_MAKE_VARS);
+                    NEED_NEXT_TOK(tk_left_curly)
+                    lily_lexer(lex);
+                }
+                else if (cls_id == SYM_CLASS_LIST || cls_id == SYM_CLASS_HASH) {
+                    lily_sig *cls_sig = collect_var_sig(parser, 0);
+                    parse_decl(parser, cls_sig);
+                }
+                else if (cls_id == SYM_CLASS_FUNCTION)
+                    /* As of now, user-declared functions can't do anything except
+                       alias the current builtins. Disable them until they're
+                       useful. */
+                    lily_raise(parser->raiser, lily_ErrSyntax,
+                               "Cannot declare user functions (yet).\n");
+                else
+                    parse_decl(parser, lclass->sig);
+            }
+            else
+                expression(parser, EX_NEED_VALUE | EX_SINGLE);
+        }
+    } while (in_multiline && lex->token == tk_word);
+}
+
+/*  if_handler
+    This handles parsing 'if'. There are two kinds of if blocks:
+    A single-line if block begins like this:
+        if x: ...
+    A multi-line if block begins like this:
+        if x: { ... }
+
+    Each elif and else of a multi-line block is also multiline. */
+static void if_handler(lily_parse_state *parser, int in_multiline)
+{
+    lily_lex_state *lex = parser->lex;
+
+    lily_emit_enter_block(parser->emit, BLOCK_IF);
+    expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
+    NEED_CURRENT_TOK(tk_colon)
+
+    lily_lexer(lex);
+    if (lex->token == tk_left_curly) {
+        lily_lexer(lex);
+        /* The multi-line version of statement handles inner blocks and all
+           that fancy stuff, (hopefully) finishing with }. */
+        if (lex->token != tk_right_curly)
+            statement(parser, 1);
+        NEED_CURRENT_TOK(tk_right_curly)
+
+        lily_emit_leave_block(parser->emit);
+        lily_lexer(lex);
+    }
+    else {
+        /* Single-line statement won't jump into other blocks though. */
+        statement(parser, 0);
+        if (lex->token == tk_word) {
+            uint64_t label_shorthash = parser->lex->label_shorthash;
+            int key_id = lily_keyword_by_name(lex->label, label_shorthash);
+
+            if (key_id == KEY_ELIF || key_id == KEY_ELSE) {
+                /* Don't go back into statement, because this is a single-line
+                   block and may be within a multi-line block. Instead, call
+                   these directly. */
+                lily_lexer(parser->lex);
+                handlers[key_id](parser, 0);
+            }
+            else
+                lily_emit_leave_block(parser->emit);
+        }
+        else
+            lily_emit_leave_block(parser->emit);
+    }
+}
+
+/*  elif_handler
+    This handles the elif keyword. The { after if decides if this is
+    multi-line, so elif doesn't have very much to do. The only tricky part is
+    making sure that single-line elif's call each other. They can't fall back
+    to statement because parsing goes wrong if it's a single-line block in a
+    multi-line block. */
+static void elif_handler(lily_parse_state *parser, int in_multiline)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_emit_change_if_branch(parser->emit, /*have_else=*/0);
+    expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
+    NEED_CURRENT_TOK(tk_colon)
+
+    lily_lexer(lex);
+    statement(parser, in_multiline);
+
+    if (in_multiline == 0) {
+        if (lex->token == tk_word) {
+            uint64_t label_shorthash = parser->lex->label_shorthash;
+            int key_id = lily_keyword_by_name(lex->label, label_shorthash);
+
+            if (key_id == KEY_ELIF || key_id == KEY_ELSE) {
+                /* Don't go back into statement, because this is a single-line
+                   block and may be within a multi-line block. Instead, call
+                   these directly. */
+                lily_lexer(parser->lex);
+                handlers[key_id](parser, 0);
+            }
+            else
+                lily_emit_leave_block(parser->emit);
+        }
+        else
+            lily_emit_leave_block(parser->emit);
+    }
+}
+
+/*  else_handler
+    This handles the else keyword. Since is the last part of the if/elif/else
+    combo, there's VERY little to do here except one statement and leaving the
+    if block. */
+static void else_handler(lily_parse_state *parser, int in_multiline)
+{
+    lily_lex_state *lex = parser->lex;
+
+    lily_emit_change_if_branch(parser->emit, /*have_else=*/1);
+    NEED_CURRENT_TOK(tk_colon)
+    lily_lexer(lex);
+
+    statement(parser, in_multiline);
+    if (in_multiline == 0)
+        lily_emit_leave_block(parser->emit);
+}
+
+/*  return_handler
+    This handles the return keyword. It'll look up the current method to see
+    if an expression is needed, or if just 'return' alone is fine. */
+static void return_handler(lily_parse_state *parser, int is_multiline)
+{
+    lily_sig *ret_sig = parser->emit->top_method_ret;
+    if (ret_sig != NULL) {
+        expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
+        lily_emit_return(parser->emit, parser->ast_pool->root, ret_sig);
+        lily_ast_reset_pool(parser->ast_pool);
+    }
+    else
+        lily_emit_return_noval(parser->emit);
+}
+
+/*  while_handler
+    Syntax: 'while x: { ... }'
+    This handles entering and parsing of a while statement. These are always
+    multi-line. */
+static void while_handler(lily_parse_state *parser, int is_multiline)
+{
+    if (is_multiline == 0)
+        lily_raise(parser->raiser, lily_ErrSyntax, "While in single-line block.\n");
+
+    /* Syntax: while x: { ... }
+       This starts with the token on tk_word (while). */
+    lily_lex_state *lex = parser->lex;
+
+    /* First, tell the emitter we're entering a block, so that '}' will close
+       it properly. */
+    lily_emit_enter_block(parser->emit, BLOCK_WHILE);
+
+    /* Grab the condition after the 'while' keyword. Use EX_SAVE_AST so that
+       expression will not emit+dump the ast. */
+    expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
+    lily_emit_ast(parser->emit, parser->ast_pool->root);
+    /* 0 = jump_if_false. This jump will be patched later with the destination
+       of the end of the while loop. */
+    lily_emit_jump_if(parser->emit, parser->ast_pool->root, 0);
+    lily_ast_reset_pool(parser->ast_pool);
+
+    NEED_CURRENT_TOK(tk_colon)
+    NEED_NEXT_TOK(tk_left_curly)
+
+    /* Prep things for statement. */
+    lily_lexer(lex);
+    if (lex->token != tk_right_curly)
+        statement(parser, 1);
+
+    NEED_CURRENT_TOK(tk_right_curly)
+    lily_emit_leave_block(parser->emit);
+    lily_lexer(lex);
+}
+
+/*  continue_handler
+    This handles a 'continue' command. This just tells the emitter to insert a
+    continue, nothing fancy. */
+static void continue_handler(lily_parse_state *parser, int is_multiline)
+{
+    lily_emit_continue(parser->emit);
+}
+
+/*  break_handler
+    This handles the 'break' statement. Just a wrapper for emitter to call
+    to emit a break. */
+static void break_handler(lily_parse_state *parser, int is_multiline)
+{
+    lily_emit_break(parser->emit);
+}
+
+/*  show_handler
+    This handles the show keyword. Show is a builtin command (not a function)
+    that will print detailed information about a particular value. This is able
+    to handle any kind of value: vars, literals, results of commands, etc. */
+static void show_handler(lily_parse_state *parser, int is_multiline)
+{
+    expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
+    lily_emit_show(parser->emit, parser->ast_pool->root);
+    lily_ast_reset_pool(parser->ast_pool);
+}
+
+/*  line_kw_handler
+    This handles __line__. This raises an error because it's not considered all
+    that useful outside of an expression. */
+static void line_kw_handler(lily_parse_state *parser, int is_multiline)
+{
+    lily_raise(parser->raiser, lily_ErrSyntax,
+               "__line__ cannot be used outside of an expression.\n");
+}
+
+/*  file_kw_handler
+    This handles __file__. This raises an error because it's not considered all
+    that useful outside of an expression. */
+static void file_kw_handler(lily_parse_state *parser, int is_multiline)
+{
+    lily_raise(parser->raiser, lily_ErrSyntax,
+               "__file__ cannot be used outside of an expression.\n");
+}
+
+/*  line_kw_handler
+    This handles __method__. This raises an error because it's not considered
+    all that useful outside of an expression. */
+static void method_kw_handler(lily_parse_state *parser, int is_multiline)
+{
+    lily_raise(parser->raiser, lily_ErrSyntax,
+               "__method__ cannot be used outside of an expression.\n");
+}
+
+/*  for_handler
+    This handles a for..in statement, which is always multi-line.
+    Syntax: 'for i in x..y: { ... }'
+    If the loop var given does not exist, it is created as an integer and will
+    fall out of scope when the loop is done.
+    If it does not, then the loop var will be left alive at the end. */
+static void for_handler(lily_parse_state *parser, int is_multiline)
+{
+    if (is_multiline == 0)
+        lily_raise(parser->raiser, lily_ErrSyntax,
+                   "for..in within single-line block.\n");
+
     lily_lex_state *lex = parser->lex;
     lily_var *loop_var;
 
@@ -1355,97 +1502,50 @@ static void parse_for_in(lily_parse_state *parser)
     NEED_CURRENT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_left_curly)
     lily_lexer(lex);
+    if (lex->token != tk_right_curly)
+        statement(parser, 1);
+    NEED_CURRENT_TOK(tk_right_curly)
+    lily_emit_leave_block(parser->emit);
+    lily_lexer(lex);
 }
 
-/* statement
-   This handles anything that starts with a label. Expressions, conditions,
-   declarations, etc. */
-static void statement(lily_parse_state *parser)
+/*  do_handler
+    This handles a do...while expression, and is always multi-line.
+    Syntax: 'do: { ... } while ...'
+    This starts at the ':' after 'do'. */
+static void do_handler(lily_parse_state *parser, int is_multiline)
 {
-    uint64_t label_shorthash = parser->lex->label_shorthash;
-    int key_id;
-    lily_class *lclass;
+    if (is_multiline == 0)
+        lily_raise(parser->raiser, lily_ErrSyntax,
+                   "do...while in non-multi-line block.\n");
+
     lily_lex_state *lex = parser->lex;
 
-    key_id = lily_keyword_by_name(lex->label, label_shorthash);
-    if (key_id != -1) {
-        lily_lex_state *lex = parser->lex;
-        lily_lexer(lex);
+    lily_emit_enter_block(parser->emit, BLOCK_DO_WHILE);
+    NEED_CURRENT_TOK(tk_colon)
+    NEED_NEXT_TOK(tk_left_curly)
 
-        if (key_id == KEY_RETURN)
-            parse_return(parser);
-        else if (key_id == KEY_WHILE)
-            parse_while(parser);
-        else if (key_id == KEY_CONTINUE)
-            lily_emit_continue(parser->emit);
-        else if (key_id == KEY_BREAK)
-            lily_emit_break(parser->emit);
-        else if (key_id == KEY_SHOW)
-            parse_show(parser);
-        else if (key_id == KEY_FOR)
-            parse_for_in(parser);
-        else if (key_id == KEY_DO)
-            parse_do_while(parser);
-        else if (key_id == KEY__LINE__ || key_id == KEY__FILE__ ||
-                 key_id == KEY__METHOD__)
-            /* These are useless outside of an expression anyway... */
-            lily_raise(parser->raiser, lily_ErrSyntax,
-                       "%s cannot be used outside of an expression.\n",
-                       parser->lex->label);
-        else {
-            if (key_id == KEY_IF) {
-                lily_emit_enter_block(parser->emit, BLOCK_IF);
-                expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
-            }
-            else if (key_id == KEY_ELIF) {
-                lily_emit_change_if_branch(parser->emit, /*have_else=*/0);
-                expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_CONDITION);
-            }
-            else if (key_id == KEY_ELSE)
-                lily_emit_change_if_branch(parser->emit, /*have_else=*/1);
+    /* Pull up the next token to get statement started. */
+    lily_lexer(lex);
+    if (lex->token != tk_right_curly)
+        statement(parser, 1);
 
-            NEED_CURRENT_TOK(tk_colon)
+    NEED_CURRENT_TOK(tk_right_curly)
+    NEED_NEXT_TOK(tk_word)
+    /* This could do a keyword scan, but there's only one correct answer
+       so...nah. */
+    if (strcmp(lex->label, "while") != 0)
+        lily_raise(parser->raiser, lily_ErrSyntax,
+                   "Expected 'while', not '%s'.\n", lex->label);
 
-            lily_lexer(lex);
-            if (key_id == KEY_IF) {
-                if (lex->token != tk_left_curly)
-                    parse_simple_condition(parser);
-                else {
-                    NEED_CURRENT_TOK(tk_left_curly)
-
-                    lily_lexer(parser->lex);
-                }
-            }
-        }
-    }
-    else {
-        lclass = lily_class_by_hash(parser->symtab, label_shorthash);
-
-        if (lclass != NULL) {
-            int cls_id = lclass->id;
-
-            if (cls_id == SYM_CLASS_METHOD) {
-                /* This will enter the method since the method is toplevel. */
-                collect_var_sig(parser, CV_TOPLEVEL | CV_MAKE_VARS);
-                NEED_NEXT_TOK(tk_left_curly)
-                lily_lexer(lex);
-            }
-            else if (cls_id == SYM_CLASS_LIST || cls_id == SYM_CLASS_HASH) {
-                lily_sig *cls_sig = collect_var_sig(parser, 0);
-                parse_decl(parser, cls_sig);
-            }
-            else if (cls_id == SYM_CLASS_FUNCTION)
-                /* As of now, user-declared functions can't do anything except
-                   alias the current builtins. Disable them until they're
-                   useful. */
-                lily_raise(parser->raiser, lily_ErrSyntax,
-                           "Cannot declare user functions (yet).\n");
-            else
-                parse_decl(parser, lclass->sig);
-        }
-        else
-            expression(parser, EX_NEED_VALUE | EX_SINGLE);
-    }
+    /* Now prep the token for expression. Save the resulting tree so that
+       it can be eval'd specially. */
+    lily_lexer(lex);
+    expression(parser, EX_NEED_VALUE | EX_SINGLE | EX_SAVE_AST);
+    lily_eval_do_while_expr(parser->emit, parser->ast_pool->root);
+    /* Drop the tree and leave the block. */
+    lily_ast_reset_pool(parser->ast_pool);
+    lily_emit_leave_block(parser->emit);
 }
 
 /** Main parser function, and public calling API.
@@ -1462,7 +1562,7 @@ void lily_parser(lily_parse_state *parser)
 
     while (1) {
         if (lex->token == tk_word)
-            statement(parser);
+            statement(parser, 1);
         else if (lex->token == tk_right_curly) {
             if (parser->emit->current_block->block_type == BLOCK_DO_WHILE)
                 parse_do_while_expr(parser);
