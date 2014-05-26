@@ -1066,28 +1066,6 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
     }
 }
 
-/* parse_do_while_expr
-   Now that the inner expressions have been parsed, this handles the
-   'while ...:' part of the expression. */
-static void parse_do_while_expr(lily_parse_state *parser)
-{
-    lily_lex_state *lex = parser->lex;
-
-    NEED_NEXT_TOK(tk_word)
-    if (strcmp(lex->label, "while") != 0)
-        lily_raise(parser->raiser, lily_ErrSyntax,
-                   "Expected 'while', not '%s'.\n", lex->label);
-
-    /* Grab the while expression, and feed it into a custom emitter call that
-       will write it down, then a jump if false back to the top. */
-    lily_lexer(lex);
-    expression(parser, EX_NEED_VALUE | EX_SAVE_AST);
-    lily_eval_do_while_expr(parser->emit, parser->ast_pool->root);
-    /* Finally, reset the ast pool and leave the block. */
-    lily_ast_reset_pool(parser->ast_pool);
-    lily_emit_leave_block(parser->emit);
-}
-
 static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
 {
     lily_ast_pool *ap = parser->ast_pool;
@@ -1256,7 +1234,7 @@ static void if_handler(lily_parse_state *parser, int in_multiline)
     lily_lex_state *lex = parser->lex;
 
     lily_emit_enter_block(parser->emit, BLOCK_IF);
-    expression(parser, EX_NEED_VALUE);
+    expression(parser, EX_SAVE_AST | EX_NEED_VALUE);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
     NEED_CURRENT_TOK(tk_colon)
 
@@ -1297,7 +1275,7 @@ static void elif_handler(lily_parse_state *parser, int in_multiline)
 {
     lily_lex_state *lex = parser->lex;
     lily_emit_change_if_branch(parser->emit, /*have_else=*/0);
-    expression(parser, EX_NEED_VALUE);
+    expression(parser, EX_SAVE_AST | EX_NEED_VALUE);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
 
     NEED_CURRENT_TOK(tk_colon)
@@ -1567,6 +1545,10 @@ void lily_parser(lily_parse_state *parser)
     while (1) {
         if (lex->token == tk_word)
             statement(parser, 1);
+        else if (lex->token == tk_right_curly) {
+            lily_emit_leave_block(parser->emit);
+            lily_lexer(lex);
+        }
         else if (lex->token == tk_end_tag ||
                  (lex->token == tk_eof && lex->mode != lm_from_file)) {
             if (parser->emit->current_block != parser->emit->first_block) {
