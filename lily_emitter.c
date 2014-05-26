@@ -1743,27 +1743,36 @@ void lily_emit_break(lily_emit_state *emit)
     }
 }
 
-/* lily_emit_conditional
-   API function to call eval_tree on an ast and increment the expr_num of the
-   emitter. This function writes an if jump afterward, for if conditions. */
-void lily_emit_conditional(lily_emit_state *emit, lily_ast *ast)
+/*  lily_emit_eval_condition
+    This function evaluates an ast that will decide if a block should be
+    entered. This will write o_jump_if_false which will jump to the next
+    branch or outside the block if the ast's result is false.
+
+    This is suitable for 'if', 'elif', and 'while'.
+
+    This clears the ast pool for the next pass. */
+void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
 {
+    lily_ast *ast = ap->root;
+
     /* This does emitting for the condition of an if or elif. */
     eval_tree(emit, ast);
     emit->expr_num++;
 
-    /* Calls returning nil check if they're inside of an expression. However,
-       they can still be at the top of an if-type statement. This is a problem,
-       since they don't return a value at all. */
+    /* Sometimes, there won't be a result. This happens when there's a
+       condition that returns nil, as one example. Make sure there is a
+       result to check. */
     if (ast->result == NULL)
         lily_raise(emit->raiser, lily_ErrSyntax,
-                   "Conditional statement has no value.\n");
+                   "Conditional expression has no value.\n");
 
-    /* This jump will need to be rewritten with the first part of the next elif,
-       else, or the end of the if. Save the position so it can be written over
-       later.
-       0 for jump_if_false. */
+    /* If the expression is false, then jump to a future location. This will
+       get patched to jump to the end of this block. For 'if'/'elif', it will
+       go to the next 'elif' or the 'else'. For 'while', this will result in
+       the block being skipped. */
     lily_emit_jump_if(emit, ast, 0);
+
+    lily_ast_reset_pool(ap);
 }
 
 /* lily_eval_do_while_expr
