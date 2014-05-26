@@ -1779,10 +1779,9 @@ void lily_eval_do_while_expr(lily_emit_state *emit, lily_ast *ast)
         lily_raise(emit->raiser, lily_ErrSyntax,
                    "Conditional statement has no value.\n");
 
-    /* If condition isn't met, jump back to where the loop started. Otherwise,
-       fall out of the loop. */
+    /* If it passes, go back up to the top. Otherwise, fall out of the loop. */
     WRITE_4(o_jump_if,
-            0,
+            1,
             ast->result->reg_spot,
             emit->current_block->loop_start)
 }

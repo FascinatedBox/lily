@@ -1219,14 +1219,47 @@ static void statement(lily_parse_state *parser, int in_multiline)
     } while (in_multiline && lex->token == tk_word);
 }
 
+/*  parse_block_body
+    This is a helper function for parsing the body of a simple (but multi-line)
+    block. This is suitable for 'while', 'do while', and 'for...in'.
+
+    This is called when the current token is the ':'. It will handle the '{',
+    call statement, then check that '}' is found after the statement. Finally,
+    it calls up the next token for the parent.
+
+    for i in 1..10: { ... }
+                  ^
+    do: {  ... } while 1:
+      ^
+    while 1: { ... }
+           ^
+    if 1: { ... }
+        ^
+    */
+static void parse_multiline_block_body(lily_parse_state *parser,
+        int in_multiline)
+{
+    lily_lex_state *lex = parser->lex;
+
+    if (in_multiline == 0)
+        lily_raise(parser->raiser, lily_ErrSyntax,
+                   "Multi-line block within single-line block.\n");
+
+    lily_lexer(lex);
+    /* statement expects the token to be ready. */
+    if (lex->token != tk_right_curly)
+        statement(parser, 1);
+    NEED_CURRENT_TOK(tk_right_curly)
+    lily_lexer(lex);
+}
+
 /*  if_handler
     This handles parsing 'if'. There are two kinds of if blocks:
-    A single-line if block begins like this:
-        if x: ...
-    A multi-line if block begins like this:
-        if x: { ... }
+    (multi-line)  if expr { expr... }
+    (single-line) if expr: expr
 
-    Each elif and else of a multi-line block is also multiline. */
+    'elif' and 'else' are multi-line if 'if' is multi-line. The 'if' is closed
+    by a single '}', rather than by each 'elif'/'else' (like with C). */
 static void if_handler(lily_parse_state *parser, int in_multiline)
 {
     lily_lex_state *lex = parser->lex;
@@ -1237,15 +1270,8 @@ static void if_handler(lily_parse_state *parser, int in_multiline)
 
     lily_lexer(lex);
     if (lex->token == tk_left_curly) {
-        lily_lexer(lex);
-        /* The multi-line version of statement handles inner blocks and all
-           that fancy stuff, (hopefully) finishing with }. */
-        if (lex->token != tk_right_curly)
-            statement(parser, 1);
-        NEED_CURRENT_TOK(tk_right_curly)
-
+        parse_multiline_block_body(parser, in_multiline);
         lily_emit_leave_block(parser->emit);
-        lily_lexer(lex);
     }
     else {
         /* Single-line statement won't jump into other blocks though. */
@@ -1338,20 +1364,14 @@ static void return_handler(lily_parse_state *parser, int is_multiline)
 }
 
 /*  while_handler
-    Syntax: 'while x: { ... }'
-    This handles entering and parsing of a while statement. These are always
-    multi-line. */
+    Syntax:
+        (multi-line)  while expr: { expr... }
+        (single-line) while expr: expr
+    */
 static void while_handler(lily_parse_state *parser, int is_multiline)
 {
-    if (is_multiline == 0)
-        lily_raise(parser->raiser, lily_ErrSyntax, "While in single-line block.\n");
-
-    /* Syntax: while x: { ... }
-       This starts with the token on tk_word (while). */
     lily_lex_state *lex = parser->lex;
 
-    /* First, tell the emitter we're entering a block, so that '}' will close
-       it properly. */
     lily_emit_enter_block(parser->emit, BLOCK_WHILE);
 
     /* Grab the condition after the 'while' keyword. Use EX_SAVE_AST so that
@@ -1364,16 +1384,13 @@ static void while_handler(lily_parse_state *parser, int is_multiline)
     lily_ast_reset_pool(parser->ast_pool);
 
     NEED_CURRENT_TOK(tk_colon)
-    NEED_NEXT_TOK(tk_left_curly)
-
-    /* Prep things for statement. */
     lily_lexer(lex);
-    if (lex->token != tk_right_curly)
-        statement(parser, 1);
+    if (lex->token == tk_left_curly)
+        parse_multiline_block_body(parser, is_multiline);
+    else
+        statement(parser, 0);
 
-    NEED_CURRENT_TOK(tk_right_curly)
     lily_emit_leave_block(parser->emit);
-    lily_lexer(lex);
 }
 
 /*  continue_handler
@@ -1431,17 +1448,22 @@ static void method_kw_handler(lily_parse_state *parser, int is_multiline)
 }
 
 /*  for_handler
-    This handles a for..in statement, which is always multi-line.
-    Syntax: 'for i in x..y: { ... }'
-    If the loop var given does not exist, it is created as an integer and will
-    fall out of scope when the loop is done.
-    If it does not, then the loop var will be left alive at the end. */
+    Syntax:
+        (multi-line)  for var in start..end: { expr... }
+        (single-line) for var in start..end: expr
+
+    This handles for..in statements. These only accept integers for var, start,
+    and end. Additionally, start and end can be expressions, but may not
+    contain any sort of assignment.
+
+    (So this would be invalid: for i in a = 10..11: ...)
+    (But this is okay: for i in 1+2..4*4: ...)
+
+    If var does not exist, it is created as an integer, and falls out of scope
+    when the loop exits.
+    If var does exist, then it will exist after the loop. */
 static void for_handler(lily_parse_state *parser, int is_multiline)
 {
-    if (is_multiline == 0)
-        lily_raise(parser->raiser, lily_ErrSyntax,
-                   "for..in within single-line block.\n");
-
     lily_lex_state *lex = parser->lex;
     lily_var *loop_var;
 
@@ -1495,38 +1517,35 @@ static void for_handler(lily_parse_state *parser, int is_multiline)
                               for_step, parser->lex->line_num);
 
     NEED_CURRENT_TOK(tk_colon)
-    NEED_NEXT_TOK(tk_left_curly)
     lily_lexer(lex);
-    if (lex->token != tk_right_curly)
-        statement(parser, 1);
-    NEED_CURRENT_TOK(tk_right_curly)
+    if (lex->token == tk_left_curly)
+        parse_multiline_block_body(parser, is_multiline);
+    else
+        statement(parser, 0);
+
     lily_emit_leave_block(parser->emit);
-    lily_lexer(lex);
 }
 
 /*  do_handler
-    This handles a do...while expression, and is always multi-line.
-    Syntax: 'do: { ... } while ...'
-    This starts at the ':' after 'do'. */
+    Syntax:
+        (multi-line)  do: { expr... } while expr:
+        (single-line) do: expr while expr:
+    This is like while, except there's no check on entry and the while check
+    jumps to the top if successful. */
 static void do_handler(lily_parse_state *parser, int is_multiline)
 {
-    if (is_multiline == 0)
-        lily_raise(parser->raiser, lily_ErrSyntax,
-                   "do...while in non-multi-line block.\n");
-
     lily_lex_state *lex = parser->lex;
 
     lily_emit_enter_block(parser->emit, BLOCK_DO_WHILE);
+
     NEED_CURRENT_TOK(tk_colon)
-    NEED_NEXT_TOK(tk_left_curly)
-
-    /* Pull up the next token to get statement started. */
     lily_lexer(lex);
-    if (lex->token != tk_right_curly)
-        statement(parser, 1);
+    if (lex->token == tk_left_curly)
+        parse_multiline_block_body(parser, is_multiline);
+    else
+        statement(parser, 0);
 
-    NEED_CURRENT_TOK(tk_right_curly)
-    NEED_NEXT_TOK(tk_word)
+    NEED_CURRENT_TOK(tk_word)
     /* This could do a keyword scan, but there's only one correct answer
        so...nah. */
     if (strcmp(lex->label, "while") != 0)
@@ -1558,12 +1577,6 @@ void lily_parser(lily_parse_state *parser)
     while (1) {
         if (lex->token == tk_word)
             statement(parser, 1);
-        else if (lex->token == tk_right_curly) {
-            if (parser->emit->current_block->block_type == BLOCK_DO_WHILE)
-                parse_do_while_expr(parser);
-            lily_emit_leave_block(parser->emit);
-            lily_lexer(parser->lex);
-        }
         else if (lex->token == tk_end_tag ||
                  (lex->token == tk_eof && lex->mode != lm_from_file)) {
             if (parser->emit->current_block != parser->emit->first_block) {
