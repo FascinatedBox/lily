@@ -1524,9 +1524,7 @@ static void do_handler(lily_parse_state *parser, int multi)
        it can be eval'd specially. */
     lily_lexer(lex);
     expression(parser, EX_NEED_VALUE | EX_SAVE_AST);
-    lily_eval_do_while_expr(parser->emit, parser->ast_pool->root);
-    /* Drop the tree and leave the block. */
-    lily_ast_reset_pool(parser->ast_pool);
+    lily_emit_eval_do_while_expr(parser->emit, parser->ast_pool);
     lily_emit_leave_block(parser->emit);
 }
 

@@ -1775,24 +1775,33 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
     lily_ast_reset_pool(ap);
 }
 
-/* lily_eval_do_while_expr
-   This handles the eval of a while expression for a do...while loop. */
-void lily_eval_do_while_expr(lily_emit_state *emit, lily_ast *ast)
+/*  lily_emit_eval_do_while_expr
+    This handles evaluates an ast that will decide if a jump to the top of the
+    current loop should be executed. This will write o_jump_if_true which will
+    jump back up to the top of the loop on success.
+
+    This is suitable for 'do...while'.
+
+    This clears the ast pool for the next pass. */
+void lily_emit_eval_do_while_expr(lily_emit_state *emit, lily_ast_pool *ap)
 {
-    lily_method_val *m = emit->top_method;
+    lily_ast *ast = ap->root;
 
     eval_tree(emit, ast);
     emit->expr_num++;
 
     if (ast->result == NULL)
         lily_raise(emit->raiser, lily_ErrSyntax,
-                   "Conditional statement has no value.\n");
+                   "Conditional expression has no value.\n");
 
+    lily_method_val *m = emit->top_method;
     /* If it passes, go back up to the top. Otherwise, fall out of the loop. */
     WRITE_4(o_jump_if,
             1,
             ast->result->reg_spot,
             emit->current_block->loop_start)
+
+    lily_ast_reset_pool(ap);
 }
 
 /* lily_emit_continue
