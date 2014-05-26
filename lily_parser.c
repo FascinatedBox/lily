@@ -37,11 +37,6 @@
 
 /* Get the lhs via expression_value. */
 #define EX_NEED_VALUE 0x001
-/* For if and elif to work, the expression has to be tested for being true or
-   false. This tells the emitter to write in that test (o_jump_if_false) after
-   writing the condition. This must be done within expression, because the
-   ast is 'cleaned' by expression after each run. */
-#define EX_CONDITION  0x002
 /* Don't clear the ast within 'expression'. This allows the finished ast to be
    inspected. */
 #define EX_SAVE_AST   0x004
@@ -1026,11 +1021,7 @@ static void expression(lily_parse_state *parser, int flags)
         expression_value(parser);
     }
 
-    if (flags & EX_CONDITION) {
-        lily_emit_conditional(parser->emit, parser->ast_pool->root);
-        lily_ast_reset_pool(parser->ast_pool);
-    }
-    else if (!(flags & EX_SAVE_AST)) {
+    if (!(flags & EX_SAVE_AST)) {
         lily_emit_ast(parser->emit, parser->ast_pool->root);
         lily_ast_reset_pool(parser->ast_pool);
     }
@@ -1265,7 +1256,8 @@ static void if_handler(lily_parse_state *parser, int in_multiline)
     lily_lex_state *lex = parser->lex;
 
     lily_emit_enter_block(parser->emit, BLOCK_IF);
-    expression(parser, EX_NEED_VALUE | EX_CONDITION);
+    expression(parser, EX_NEED_VALUE);
+    lily_emit_eval_condition(parser->emit, parser->ast_pool);
     NEED_CURRENT_TOK(tk_colon)
 
     lily_lexer(lex);
@@ -1305,7 +1297,9 @@ static void elif_handler(lily_parse_state *parser, int in_multiline)
 {
     lily_lex_state *lex = parser->lex;
     lily_emit_change_if_branch(parser->emit, /*have_else=*/0);
-    expression(parser, EX_NEED_VALUE | EX_CONDITION);
+    expression(parser, EX_NEED_VALUE);
+    lily_emit_eval_condition(parser->emit, parser->ast_pool);
+
     NEED_CURRENT_TOK(tk_colon)
 
     lily_lexer(lex);
@@ -1377,11 +1371,7 @@ static void while_handler(lily_parse_state *parser, int is_multiline)
     /* Grab the condition after the 'while' keyword. Use EX_SAVE_AST so that
        expression will not emit+dump the ast. */
     expression(parser, EX_NEED_VALUE | EX_SAVE_AST);
-    lily_emit_ast(parser->emit, parser->ast_pool->root);
-    /* 0 = jump_if_false. This jump will be patched later with the destination
-       of the end of the while loop. */
-    lily_emit_jump_if(parser->emit, parser->ast_pool->root, 0);
-    lily_ast_reset_pool(parser->ast_pool);
+    lily_emit_eval_condition(parser->emit, parser->ast_pool);
 
     NEED_CURRENT_TOK(tk_colon)
     lily_lexer(lex);
