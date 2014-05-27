@@ -1,8 +1,6 @@
-#include <stdio.h>
 #include <string.h>
 
 #include "lily_impl.h"
-#include "lily_syminfo.h"
 #include "lily_vm.h"
 
 void lily_str_concat(lily_vm_state *vm, uintptr_t *code, int num_args)

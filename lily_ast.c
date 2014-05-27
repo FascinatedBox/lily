@@ -1,5 +1,5 @@
-#include "lily_ast.h"
 #include "lily_impl.h"
+#include "lily_ast.h"
 
 /** How ast works
     * Every tree represents something, either an operation, or a value. Some

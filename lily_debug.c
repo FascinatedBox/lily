@@ -2,7 +2,8 @@
 #include <string.h>
 
 #include "lily_impl.h"
-#include "lily_symtab.h"
+#include "lily_msgbuf.h"
+#include "lily_syminfo.h"
 #include "lily_opcode.h"
 
 /** Debug is responsible for:

@@ -1,8 +1,7 @@
-#include <stdlib.h>
 #include <string.h>
 
-#include "lily_ast.h"
 #include "lily_impl.h"
+#include "lily_ast.h"
 #include "lily_value.h"
 #include "lily_emitter.h"
 #include "lily_opcode.h"

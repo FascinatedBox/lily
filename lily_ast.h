@@ -1,8 +1,8 @@
 #ifndef LILY_AST_H
 # define LILY_AST_H
 
-# include "lily_lexer.h"
-# include "lily_symtab.h"
+# include "lily_raiser.h"
+# include "lily_syminfo.h"
 # include "lily_expr_op.h"
 
 /* tree_typecast and anything after it will use ->right instead of itself when

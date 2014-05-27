@@ -1,13 +1,7 @@
 #include <string.h>
 
-#include "lily_ast.h"
-#include "lily_emitter.h"
 #include "lily_impl.h"
-#include "lily_lexer.h"
 #include "lily_parser.h"
-#include "lily_msgbuf.h"
-#include "lily_symtab.h"
-#include "lily_vm.h"
 
 /** Parser is responsible for:
     * Creating all other major structures (ast pool, emitter, lexer, etc.)

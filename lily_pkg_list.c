@@ -1,5 +1,4 @@
 #include "lily_impl.h"
-#include "lily_syminfo.h"
 #include "lily_vm.h"
 
 void lily_list_size(lily_vm_state *vm, uintptr_t *code, int num_args)
