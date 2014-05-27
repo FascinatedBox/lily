@@ -181,7 +181,7 @@ typedef enum {
        count always precedes the exact number of values. */
     o_build_hash,
 
-    /* Subscript: 
+    /* Subscript:
        * int lineno
        * reg(list[T]) list
        * reg(integer) index
@@ -276,7 +276,7 @@ typedef enum {
     /* get const:
        * int lineno
        * addr lit
-       * reg result 
+       * reg result
        This loads a literal value from the given address, and stores the value
        into the given register. */
     o_get_const,

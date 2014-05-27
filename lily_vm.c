@@ -470,7 +470,7 @@ static void novalue_error(lily_vm_state *vm, int code_pos, int reg_pos)
     lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
     /* Methods do not have a linetable that maps opcodes to line numbers.
        Instead, the emitter writes the line number right after the opcode for
-       any opcode that might call novalue_error. */ 
+       any opcode that might call novalue_error. */
     top->line_num = top->code[code_pos+1];
 
     /* Instead of using the register, grab the register info for the current
@@ -817,7 +817,7 @@ static void generic_assignment(lily_vm_state *vm, lily_value *left,
         if (cls->is_refcounted) {
             if ((right->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
                 right->value.generic->refcount++;
-    
+
             if ((left->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
                 lily_deref_unknown_val(left);
         }
