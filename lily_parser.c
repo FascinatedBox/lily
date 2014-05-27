@@ -2,6 +2,7 @@
 
 #include "lily_impl.h"
 #include "lily_parser.h"
+#include "lily_parser_tok_table.h"
 
 /** Parser is responsible for:
     * Creating all other major structures (ast pool, emitter, lexer, etc.)
@@ -44,107 +45,6 @@ if (lex->token != expected) \
 if (lex->token != expected) \
     lily_raise(parser->raiser, lily_ErrSyntax, "Expected '%s', not %s.\n", \
                tokname(expected), tokname(lex->token));
-
-/* table[token] = true/false. Used to check if a given token can be the start of
-   an expression. */
-static const int is_start_val[] = {
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    1,
-    1,
-    1,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-};
-
-/* table[token] = binary_op. -1 indicates invalid. */
-static const int bin_op_for_token[] = {
-    -1,
-    -1,
-    -1,
-    -1,
-    -1,
-    -1,
-    -1,
-    -1,
-    expr_bitwise_xor,
-    -1,
-    expr_not_eq,
-    expr_modulo,
-    expr_modulo_assign,
-    expr_multiply,
-    expr_mul_assign,
-    expr_divide,
-    expr_div_assign,
-    expr_plus,
-    expr_plus_assign,
-    expr_minus,
-    expr_minus_assign,
-    expr_lt,
-    expr_lt_eq,
-    expr_left_shift,
-    expr_left_shift_assign,
-    expr_gr,
-    expr_gr_eq,
-    expr_right_shift,
-    expr_right_shift_assign,
-    expr_assign,
-    expr_eq_eq,
-    -1,
-    -1,
-    -1,
-    -1,
-    -1,
-    -1,
-    expr_bitwise_and,
-    expr_logical_and,
-    expr_bitwise_or,
-    expr_logical_or,
-    -1,
-    -1,
-    -1,
-    -1,
-    -1
-};
 
 /** Parser initialization and deletion **/
 lily_parse_state *lily_new_parse_state()
@@ -912,7 +812,7 @@ static void expression(lily_parse_state *parser)
 
             lily_lexer(lex);
             if (parser->ast_pool->save_depth == 0 &&
-                is_start_val[lex->token] == 1)
+                parser_tok_table[lex->token].val_or_end == 1)
                 /* Since there are no parenths/calls left, then this value
                    must be the first in the next expression. */
                 break;
@@ -982,7 +882,7 @@ static void expression(lily_parse_state *parser)
             lily_lexer(lex);
         }
         else {
-            int expr_op = bin_op_for_token[lex->token];
+            int expr_op = parser_tok_table[lex->token].expr_op;
             if (expr_op != -1) {
                 lily_ast_push_binary_op(parser->ast_pool,
                         (lily_expr_op)expr_op);
@@ -1038,8 +938,7 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
                Push the var and the = into the pool, and let expression handle
                the right side. */
             lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
-            lily_ast_push_binary_op(parser->ast_pool,
-                    bin_op_for_token[tk_equal]);
+            lily_ast_push_binary_op(parser->ast_pool, expr_assign);
             lily_lexer(lex);
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->ast_pool);
