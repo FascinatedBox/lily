@@ -199,7 +199,7 @@ static lily_var *init_func_seed(lily_symtab *symtab,
                 shorthash, VAR_IS_READONLY);
 
         if (ret != NULL) {
-            ret->value.function = lily_try_new_function_val(seed->func, 
+            ret->value.function = lily_try_new_function_val(seed->func,
                     seed->name);
 
             if (ret->value.function != NULL)

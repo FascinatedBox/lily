@@ -17,7 +17,7 @@
       blocks hold information like the last variable before block entry, the
       type of block, and more.
     * Handling the deletion of vars when a block goes out of scope.
-    * A block is any if, elif, etc. Blocks are created 
+    * A block is any if, elif, etc. Blocks are created
     * Writing the proper line number of an error to raiser's line_adjust if
       emitter is walking a tree.
 
@@ -343,7 +343,7 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
 
 /* try_new_block
    Attempt to create a new block. Returns a new block, or NULL if unable to
-   create a new block. If successful, the new 
+   create a new block. If successful, the new
    block->next is set to NULL here too. */
 static lily_block *try_new_block(void)
 {

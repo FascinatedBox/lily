@@ -187,7 +187,7 @@ void aft_free(char *filename, int line, void *ptr)
         warning_count++;
         return;
     }
- 
+
     search->status = ST_DELETED;
     if (aft_options & OPT_SHOW_ALLOC_INFO)
         fprintf(stderr, "[aft]: free block #%d (%p) from %s:%d.\n", i, ptr,

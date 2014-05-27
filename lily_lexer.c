@@ -79,7 +79,7 @@
     FE-FF : The standard was originally 31-bits.
 
     Table idea, above info came from wikipedia. */
-static const char follower_table[256] = 
+static const char follower_table[256] =
 {
      /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
 /* 0 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -104,7 +104,7 @@ static const char follower_table[256] =
    first letter, so it includes numbers.
    The 80-BF range is marked as okay because read_line verifies that they are
    not starting a sequence. */
-static const char ident_table[256] = 
+static const char ident_table[256] =
 {
      /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
 /* 0 */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -959,7 +959,7 @@ void lily_load_file(lily_lex_state *lexer, char *filename)
     lily_lexer_handle_page_data(lexer);
 }
 
-/* lily_load_str 
+/* lily_load_str
    This function tells the given lexer to load a string for scanning. If str is
    not valid utf-8, then the lexer will not load it and return 0. Otherwise, it
    returns 1. */
@@ -989,7 +989,7 @@ int lily_load_str(lily_lex_state *lexer, char *str)
     return 1;
 }
 
-/* lily_lexer 
+/* lily_lexer
    This is the main scanning function. It sometimes farms work out to other
    functions in the case of strings and numeric values. */
 void lily_lexer(lily_lex_state *lexer)
