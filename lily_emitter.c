@@ -1661,21 +1661,30 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast)
 
 /** Emitter API functions **/
 
-/* lily_emit_ast
-   API function to call eval_tree on an ast and increment the expr_num of the
-   emitter. */
-void lily_emit_ast(lily_emit_state *emit, lily_ast *ast)
+/*  lily_emit_expr
+    This evaluates the root of the ast pool given (the expression), then clears
+    the pool for the next expression. */
+void lily_emit_eval_expr(lily_emit_state *emit, lily_ast_pool *ap)
 {
-    eval_tree(emit, ast);
+    eval_tree(emit, ap->root);
     emit->expr_num++;
+
+    lily_ast_reset_pool(ap);
 }
 
-/* lily_emit_ast_to_var
-   API function to call eval_tree on an ast to evaluate it. Afterward, the
-   result is assigned to the given storage. */
-void lily_emit_ast_to_var(lily_emit_state *emit, lily_ast *ast,
+/*  lily_emit_eval_expr_to_var
+    This evaluates the root of the current ast pool, then assigns the result
+    to the given var.
+
+    This is used for expressions within 'for..in', and thus the var is expected
+    to always be an integer.
+
+    This clears the ast pool for the next pass. */
+void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_ast_pool *ap,
         lily_var *var)
 {
+    lily_ast *ast = ap->root;
+
     eval_tree(emit, ast);
     emit->expr_num++;
 
@@ -1693,6 +1702,8 @@ void lily_emit_ast_to_var(lily_emit_state *emit, lily_ast *ast,
             ast->line_num,
             ast->result->reg_spot,
             var->reg_spot)
+
+    lily_ast_reset_pool(ap);
 }
 
 /* lily_emit_break

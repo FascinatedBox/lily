@@ -30,26 +30,15 @@
       do so.
 **/
 
-/** Flags for expression and collect_var_sig. Expand upon these as necessary
-    to add to the functionality of each. **/
-
-/* First, the flags for expression. */
-
-/* Get the lhs via expression_value. */
-#define EX_NEED_VALUE 0x001
-/* Don't clear the ast within 'expression'. This allows the finished ast to be
-   inspected. */
-#define EX_SAVE_AST   0x004
-
 /* These flags are for collect_var_sig. */
 
 /* Expect a name with every class given. Create a var for each class+name pair.
    This is suitable for collecting the args of a method. */
-#define CV_MAKE_VARS  0x010
+#define CV_MAKE_VARS  0x1
 
 /* This is set if the variable is not inside another variable. This is suitable
    for collecting a method that may have named arguments. */
-#define CV_TOPLEVEL   0x020
+#define CV_TOPLEVEL   0x2
 
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
@@ -896,15 +885,23 @@ static void check_valid_close_tok(lily_parse_state *parser)
                 tokname(token));
 }
 
-/* expression
-   This is the workhorse for handling expressions. 'flags' is used to determine
-   if it needs a starting value, if it should run multiple times, etc. */
-static void expression(lily_parse_state *parser, int flags)
+/*  expression
+
+    This is the function to call for parsing an expression of any sort. This
+    will call the helpers it has (expression_* functions) when it needs to.
+
+    This function expects that the token is setup for it. So it may be
+    necessary to call lily_lexer to prep the token before calling this.
+
+    This will not cause the ast to be evaluated. Use a lily_emit_eval_*
+    function to actually evaluate the built up expression. Those functions
+    will also clear the ast pool when they emit, so that expression never has
+    to worry about clearing the pool. */
+static void expression(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
-    if ((flags & EX_NEED_VALUE) != 0)
-        expression_value(parser);
+    expression_value(parser);
 
     while (1) {
         if (lex->token == tk_word) {
@@ -958,18 +955,17 @@ static void expression(lily_parse_state *parser, int flags)
                 lily_raise(parser->raiser, lily_ErrSyntax,
                            "Expected a value, not ','.\n");
 
-            /* If this is inside of a decl list (integer a, b, c...), then
-               the comma is the end of the decl unless it's part of a call
-               used in the decl (integer a = add(1, 2), b = 1...). */
-            if (((flags & EX_NEED_VALUE) == 0) &&
-                parser->ast_pool->save_depth == 0 &&
-                lex->token == tk_comma) {
-                break;
+            if (parser->ast_pool->save_depth == 0) {
+                /* This is done so that decl lists (integer a, b, c) can allow
+                   expressions, (ex: integer a = add(1, 2), b = 1...). In the
+                   event that this isn't a decl list, then the caller or
+                   someone else will complain about an invalid comma. */
+                if (lex->token == tk_comma)
+                    break;
+                else
+                    lily_raise(parser->raiser, lily_ErrSyntax,
+                               "Unexpected token %s.\n", tokname(lex->token));
             }
-
-            if (parser->ast_pool->save_depth == 0)
-                lily_raise(parser->raiser, lily_ErrSyntax,
-                        "Unexpected token %s.\n", tokname(lex->token));
 
             lily_ast *last_tree = lily_ast_get_saved_tree(parser->ast_pool);
             if (lex->token == tk_comma) {
@@ -1020,11 +1016,6 @@ static void expression(lily_parse_state *parser, int flags)
         }
         expression_value(parser);
     }
-
-    if (!(flags & EX_SAVE_AST)) {
-        lily_emit_ast(parser->emit, parser->ast_pool->root);
-        lily_ast_reset_pool(parser->ast_pool);
-    }
 }
 
 /* parse_decl
@@ -1050,8 +1041,18 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
         lily_lexer(parser->lex);
         /* Handle an initializing assignment, if there is one. */
         if (lex->token == tk_equal) {
+            /* expression expects to start at the beginning of an expression,
+               but it's too late for that. This can't call expression unless
+               there's an assignment (and it has to be =, no += or
+               fancy stuff).
+               Push the var and the = into the pool, and let expression handle
+               the right side. */
             lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
-            expression(parser, 0);
+            lily_ast_push_binary_op(parser->ast_pool,
+                    bin_op_for_token[tk_equal]);
+            lily_lexer(lex);
+            expression(parser);
+            lily_emit_eval_expr(parser->emit, parser->ast_pool);
         }
 
         /* This is the start of the next statement. */
@@ -1069,7 +1070,7 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
 static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
 {
     lily_ast_pool *ap = parser->ast_pool;
-    expression(parser, EX_SAVE_AST | EX_NEED_VALUE);
+    expression(parser);
 
     /* Don't allow assigning expressions, since that just looks weird.
        ex: for i in a += 10..5
@@ -1090,8 +1091,7 @@ static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
     if (var == NULL)
         lily_raise_nomem(parser->raiser);
 
-    lily_emit_ast_to_var(parser->emit, ap->root, var);
-    lily_ast_reset_pool(parser->ast_pool);
+    lily_emit_eval_expr_to_var(parser->emit, ap, var);
 
     return var;
 }
@@ -1182,8 +1182,10 @@ static void statement(lily_parse_state *parser, int multi)
                 else
                     parse_decl(parser, lclass->sig);
             }
-            else
-                expression(parser, EX_NEED_VALUE);
+            else {
+                expression(parser);
+                lily_emit_eval_expr(parser->emit, parser->ast_pool);
+            }
         }
     } while (multi && lex->token == tk_word);
 }
@@ -1234,7 +1236,7 @@ static void if_handler(lily_parse_state *parser, int multi)
     lily_lex_state *lex = parser->lex;
 
     lily_emit_enter_block(parser->emit, BLOCK_IF);
-    expression(parser, EX_SAVE_AST | EX_NEED_VALUE);
+    expression(parser);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
     NEED_CURRENT_TOK(tk_colon)
 
@@ -1275,7 +1277,7 @@ static void elif_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
     lily_emit_change_if_branch(parser->emit, /*have_else=*/0);
-    expression(parser, EX_SAVE_AST | EX_NEED_VALUE);
+    expression(parser);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
 
     NEED_CURRENT_TOK(tk_colon)
@@ -1327,7 +1329,7 @@ static void return_handler(lily_parse_state *parser, int multi)
 {
     lily_sig *ret_sig = parser->emit->top_method_ret;
     if (ret_sig != NULL) {
-        expression(parser, EX_NEED_VALUE | EX_SAVE_AST);
+        expression(parser);
         lily_emit_return(parser->emit, parser->ast_pool->root, ret_sig);
         lily_ast_reset_pool(parser->ast_pool);
     }
@@ -1346,9 +1348,7 @@ static void while_handler(lily_parse_state *parser, int multi)
 
     lily_emit_enter_block(parser->emit, BLOCK_WHILE);
 
-    /* Grab the condition after the 'while' keyword. Use EX_SAVE_AST so that
-       expression will not emit+dump the ast. */
-    expression(parser, EX_NEED_VALUE | EX_SAVE_AST);
+    expression(parser);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
 
     NEED_CURRENT_TOK(tk_colon)
@@ -1383,7 +1383,7 @@ static void break_handler(lily_parse_state *parser, int multi)
     to handle any kind of value: vars, literals, results of commands, etc. */
 static void show_handler(lily_parse_state *parser, int multi)
 {
-    expression(parser, EX_NEED_VALUE | EX_SAVE_AST);
+    expression(parser);
     lily_emit_show(parser->emit, parser->ast_pool->root);
     lily_ast_reset_pool(parser->ast_pool);
 }
@@ -1523,7 +1523,7 @@ static void do_handler(lily_parse_state *parser, int multi)
     /* Now prep the token for expression. Save the resulting tree so that
        it can be eval'd specially. */
     lily_lexer(lex);
-    expression(parser, EX_NEED_VALUE | EX_SAVE_AST);
+    expression(parser);
     lily_emit_eval_do_while_expr(parser->emit, parser->ast_pool);
     lily_emit_leave_block(parser->emit);
 }
