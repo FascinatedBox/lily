@@ -92,7 +92,6 @@ void lily_ast_leave_tree(lily_ast_pool *);
 lily_tree_type lily_ast_caller_tree_type(lily_ast_pool *);
 lily_ast *lily_ast_get_saved_tree(lily_ast_pool *);
 void lily_ast_push_local_var(lily_ast_pool *, lily_var *);
-void lily_ast_push_call_literal(lily_ast_pool *, lily_var *);
 void lily_ast_push_binary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_sig(lily_ast_pool *, lily_sig *);
 void lily_ast_push_sym(lily_ast_pool *, lily_sym *);

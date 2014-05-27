@@ -855,15 +855,6 @@ void lily_hide_block_vars(lily_symtab *symtab, lily_var *start)
     }
 }
 
-/* lily_save_declared_method
-   This is called when a method is closing, and it has a var representing
-   another method var inside. */
-void lily_save_declared_method(lily_symtab *symtab, lily_var *method_var)
-{
-    method_var->next = symtab->old_method_chain;
-    symtab->old_method_chain = method_var;
-}
-
 /* lily_ensure_unique_sig
    This looks through the symtab's current signatures to see if any describe the
    same thing as the given signature.
