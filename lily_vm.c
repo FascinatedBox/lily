@@ -441,8 +441,6 @@ int maybe_crossover_assign(lily_value *lhs_reg, lily_value *rhs_reg)
 {
     int ret = 1;
 
-    /// and just like that, object inner val extraction allowing objects
-    /// to seamlessly be other types.
     if (rhs_reg->sig->cls->id == SYM_CLASS_OBJECT)
         rhs_reg = rhs_reg->value.object->inner_value;
 
