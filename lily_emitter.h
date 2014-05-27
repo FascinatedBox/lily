@@ -55,10 +55,11 @@ typedef struct {
 
 void lily_emit_eval_condition(lily_emit_state *, lily_ast_pool *);
 void lily_emit_eval_do_while_expr(lily_emit_state *, lily_ast_pool *);
+void lily_emit_eval_expr_to_var(lily_emit_state *, lily_ast_pool *,
+        lily_var *);
+void lily_emit_eval_expr(lily_emit_state *, lily_ast_pool *);
 
 void lily_emit_add_save_var(lily_emit_state *, lily_var *);
-void lily_emit_ast(lily_emit_state *, lily_ast *);
-void lily_emit_ast_to_var(lily_emit_state *, lily_ast *, lily_var *);
 void lily_emit_break(lily_emit_state *);
 void lily_emit_continue(lily_emit_state *);
 void lily_emit_change_if_branch(lily_emit_state *, int);
