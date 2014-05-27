@@ -1,5 +1,4 @@
 #include <string.h>
-#include <ctype.h>
 #include <errno.h>
 
 #include "lily_impl.h"

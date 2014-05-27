@@ -1,5 +1,3 @@
-#include <stdlib.h>
-
 #include "lily_impl.h"
 #include "lily_value.h"
 

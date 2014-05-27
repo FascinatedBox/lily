@@ -3,8 +3,6 @@
 
 # include "lily_syminfo.h"
 # include "lily_raiser.h"
-# include "lily_opcode.h"
-# include "lily_syminfo.h"
 
 typedef struct {
     /* The first symbol in the table (for itering from). This is also __main__,

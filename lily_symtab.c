@@ -6,9 +6,6 @@
 
 /* This creates the *_seed values. */
 #include "lily_seed_symtab.h"
-#include "lily_pkg_str.h"
-#include "lily_pkg_list.h"
-#include "lily_vm.h"
 
 /** Symtab is responsible for:
     * Holding all classes, literals, vars, you name it.

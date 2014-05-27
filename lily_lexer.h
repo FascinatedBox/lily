@@ -4,7 +4,7 @@
 # include <stdio.h>
 
 # include "lily_raiser.h"
-# include "lily_symtab.h"
+# include "lily_syminfo.h"
 
 typedef enum {
     tk_left_parenth,
