@@ -71,11 +71,8 @@ lily_literal *lily_get_str_literal(lily_symtab *, char *);
 lily_symtab *lily_new_symtab(lily_raiser *);
 lily_var *lily_try_new_var(lily_symtab *, lily_sig *, char *, uint64_t, int);
 lily_var *lily_var_by_name(lily_symtab *, char *, uint64_t);
-lily_function_val *lily_try_new_function_val(lily_func, char *);
 lily_sig *lily_try_sig_for_class(lily_symtab *, lily_class *);
 void lily_hide_block_vars(lily_symtab *, lily_var *);
-void lily_add_sig_to_msgbuf(lily_msgbuf *, lily_sig *);
-void lily_save_declared_method(lily_symtab *, lily_var *);
 lily_sig *lily_ensure_unique_sig(lily_symtab *, lily_sig *);
 
 #endif
