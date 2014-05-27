@@ -401,16 +401,12 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
         new_sig->siglist_size = cls->template_count;
         new_sig = lily_ensure_unique_sig(parser->symtab, new_sig);
 
-        /* For hashes, make sure that the first argument (the key) is a valid
-           key type. Valid key types are ones which are primitive, or ones that
-           are immutable. */
         if (cls->id == SYM_CLASS_HASH) {
-            /* Must use new_sig->siglist because lily_ensure_unique_sig can
-               destroy the old sig and make 'siglist' itself invalid. */
-            int key_class_id = new_sig->siglist[0]->cls->id;
-            if (key_class_id != SYM_CLASS_INTEGER &&
-                key_class_id != SYM_CLASS_NUMBER &&
-                key_class_id != SYM_CLASS_STR) {
+            /* Don't use siglist for this check, because lily_ensure_unique_sig
+               could have destroyed it. Instead, do new_sig->siglist.
+               Classes that are valid hash keys are flagged as such, so check
+               for that flag. */
+            if ((new_sig->siglist[0]->cls->flags & CLS_VALID_HASH_KEY) == 0) {
                 lily_raise(parser->raiser, lily_ErrSyntax,
                         "'%T' is not a valid hash key.\n", new_sig->siglist[0]);
             }
