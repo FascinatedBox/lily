@@ -1940,6 +1940,10 @@ void lily_emit_show(lily_emit_state *emit, lily_ast *ast)
     if (is_global == 0)
         eval_tree(emit, ast);
 
+    if (ast->result == NULL)
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                   "show expression has no value.\n");
+
     emit->expr_num++;
 
     lily_method_val *m = emit->top_method;
