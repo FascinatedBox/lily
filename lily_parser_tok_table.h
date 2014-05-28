@@ -24,10 +24,10 @@ static const lily_tok_info parser_tok_table[] =
 	/* token name       | val_or_end | expr_op */
 	{tk_left_parenth,     0          , -1},
     {tk_right_parenth,    0          , -1},
-    {tk_comma,            0          , -1},
+    {tk_comma,            1          , -1},
     {tk_left_curly,       0          , -1},
     {tk_right_curly,      1          , -1},
-    {tk_colon,            0          , -1},
+    {tk_colon,            1          , -1},
     {tk_left_bracket,     0          , -1},
     {tk_right_bracket,    0          , -1},
     {tk_caret,            0          , expr_bitwise_xor},
@@ -64,10 +64,10 @@ static const lily_tok_info parser_tok_table[] =
     {tk_bitwise_or,       0          , expr_bitwise_or},
     {tk_logical_or,       0          , expr_logical_or},
     {tk_typecast_parenth, 0          , -1},
-    {tk_two_dots,         0          , -1},
+    {tk_two_dots,         1          , -1},
     {tk_three_dots,       0          , -1},
     {tk_invalid,          0          , -1},
-    {tk_end_tag,          0          , -1},
+    {tk_end_tag,          1          , -1},
     {tk_eof,              0          , -1}
 };
 

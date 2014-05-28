@@ -794,13 +794,14 @@ static void expression(lily_parse_state *parser)
     expression_value(parser);
 
     while (1) {
-        if (lex->token == tk_word) {
-            if (parser->ast_pool->save_depth != 0)
-                lily_raise(parser->raiser, lily_ErrSyntax,
-                           "Expected ')' or a binary op, not a label.\n");
-
-            break;
+        int expr_op = parser_tok_table[lex->token].expr_op;
+        if (expr_op != -1) {
+            lily_ast_push_binary_op(parser->ast_pool, (lily_expr_op)expr_op);
+            lily_lexer(lex);
         }
+        else if (parser->ast_pool->save_depth == 0 &&
+                 parser_tok_table[lex->token].val_or_end)
+            break;
         else if (lex->token == tk_right_parenth ||
                  lex->token == tk_right_bracket) {
             if (parser->ast_pool->save_depth == 0)
@@ -845,18 +846,6 @@ static void expression(lily_parse_state *parser)
                 lily_raise(parser->raiser, lily_ErrSyntax,
                            "Expected a value, not ','.\n");
 
-            if (parser->ast_pool->save_depth == 0) {
-                /* This is done so that decl lists (integer a, b, c) can allow
-                   expressions, (ex: integer a = add(1, 2), b = 1...). In the
-                   event that this isn't a decl list, then the caller or
-                   someone else will complain about an invalid comma. */
-                if (lex->token == tk_comma)
-                    break;
-                else
-                    lily_raise(parser->raiser, lily_ErrSyntax,
-                               "Unexpected token %s.\n", tokname(lex->token));
-            }
-
             lily_ast *last_tree = lily_ast_get_saved_tree(parser->ast_pool);
             if (lex->token == tk_comma) {
                 if (last_tree->tree_type == tree_hash &&
@@ -882,27 +871,9 @@ static void expression(lily_parse_state *parser)
             lily_lexer(lex);
         }
         else {
-            int expr_op = parser_tok_table[lex->token].expr_op;
-            if (expr_op != -1) {
-                lily_ast_push_binary_op(parser->ast_pool,
-                        (lily_expr_op)expr_op);
-                lily_lexer(lex);
-            }
-            else if (lex->token == tk_colon ||
-                     lex->token == tk_right_curly ||
-                     lex->token == tk_end_tag ||
-                     lex->token == tk_eof ||
-                     lex->token == tk_two_dots) {
-                if (parser->ast_pool->save_depth != 0)
-                    lily_raise(parser->raiser, lily_ErrSyntax,
-                            "Unexpected token %s.\n", tokname(lex->token));
-                break;
-            }
-            else {
-                lily_raise(parser->raiser, lily_ErrSyntax,
-                           "Expected maybe a binary operator, not %s.\n",
-                           tokname(lex->token));
-            }
+            lily_raise(parser->raiser, lily_ErrSyntax,
+                       "Unexpected token %s during expression.\n",
+                       tokname(lex->token));
         }
         expression_value(parser);
     }
