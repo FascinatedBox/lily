@@ -570,6 +570,8 @@ static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
             if (read_line(lexer) == 1) {
                 new_ch = &(lexer->lex_buffer[0]);
                 comment_pos = 0;
+                /* Must continue, in case the first char is the # of ###.\n */
+                continue;
             }
             else {
                 lily_raise(lexer->raiser, lily_ErrSyntax,
