@@ -1294,6 +1294,11 @@ method test_multiline_comment():nil
 
     integer######v######=######10
 
+# Make sure it works when the sign is the first char of the line too.
+
+###
+
+###
     printfmt("#%i: Testing multi-line comments...ok.\n", test_id)
     test_id = test_id + 1
 }
