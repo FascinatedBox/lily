@@ -805,28 +805,6 @@ static void op_object_assign(lily_vm_state *vm, lily_value *lhs_reg,
     lhs_inner->flags = new_flags;
 }
 
-static void generic_assignment(lily_vm_state *vm, lily_value *left,
-        lily_value *right)
-{
-    lily_class *cls = left->sig->cls;
-
-    if (cls->id == SYM_CLASS_OBJECT)
-        /* Object assignment is...complicated. Have someone else do it. */
-        op_object_assign(vm, left, right);
-    else {
-        if (cls->is_refcounted) {
-            if ((right->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                right->value.generic->refcount++;
-
-            if ((left->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                lily_deref_unknown_val(left);
-        }
-
-        left->value = right->value;
-        left->flags = right->flags;
-    }
-}
-
 /*  update_hash_key_value
     This attempts to set a new value for a given hash key. This first checks
     for an existing key to set. If none is found, then it attempts to create a
@@ -856,7 +834,7 @@ static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
             elem->elem_key->sig = hash_key->sig;
             elem->key_siphash = key_siphash;
 
-            /* generic_assignment needs a sig for the left side. */
+            /* lily_assign_value needs a sig for the left side. */
             elem->elem_value->sig = hash_value->sig;
 
             elem->next = hash->elem_chain;
@@ -867,7 +845,7 @@ static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
     }
 
     if (elem != NULL)
-        generic_assignment(vm, elem->elem_value, hash_value);
+        lily_assign_value(vm, elem->elem_value, hash_value);
     else
         lily_raise_nomem(vm->raiser);
 }
@@ -903,7 +881,7 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
         if (index_int < 0)
             boundary_error(vm, code_pos, index_int);
 
-        generic_assignment(vm, list_val->elems[index_int], rhs_reg);
+        lily_assign_value(vm, list_val->elems[index_int], rhs_reg);
     }
     else {
         if (lhs_reg->flags & VAL_IS_NIL) {
@@ -958,7 +936,7 @@ static void op_subscript(lily_vm_state *vm, uintptr_t *code, int code_pos)
         if (index_int < 0)
             boundary_error(vm, code_pos, index_int);
 
-        generic_assignment(vm, result_reg, list_val->elems[index_int]);
+        lily_assign_value(vm, result_reg, list_val->elems[index_int]);
     }
     else {
         uint64_t siphash;
@@ -972,7 +950,7 @@ static void op_subscript(lily_vm_state *vm, uintptr_t *code, int code_pos)
         if (hash_elem == NULL)
             no_such_key_error(vm, code_pos, index_reg);
 
-        generic_assignment(vm, result_reg, hash_elem->elem_value);
+        lily_assign_value(vm, result_reg, hash_elem->elem_value);
     }
 }
 
@@ -1348,6 +1326,44 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     stack_entry->code = main_method->code;
     stack_entry->regs_used = main_method->reg_count;
     vm->method_stack_pos = 1;
+}
+
+/*  lily_assign_value
+    This is an extremely handy function that assigns 'left' to 'right'. This is
+    handy because it will handle any refs/derefs needed, nil, and object
+    copying.
+
+    vm:    The vm holding the two values. This is needed because if 'left' is
+           an object, then a gc pass may be triggered.
+    left:  The value to assign to.
+           The type of left determines what assignment is used. This is
+           important because it means that left must have a type set.
+    right: The value to assign.
+
+    Caveats:
+    * May raise a nomem error if left is an object and it cannot allocate a
+      value to copy right's value.
+    * May trigger the vm if if needs to make a new object.
+    * Will crash if left does not have a type set. */
+void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
+{
+    lily_class *cls = left->sig->cls;
+
+    if (cls->id == SYM_CLASS_OBJECT)
+        /* Object assignment is...complicated. Have someone else do it. */
+        op_object_assign(vm, left, right);
+    else {
+        if (cls->is_refcounted) {
+            if ((right->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+                right->value.generic->refcount++;
+
+            if ((left->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+                lily_deref_unknown_val(left);
+        }
+
+        left->value = right->value;
+        left->flags = right->flags;
+    }
 }
 
 /** The mighty VM **/

@@ -63,5 +63,6 @@ void lily_free_vm_state(lily_vm_state *);
 void lily_vm_prep(lily_vm_state *, lily_symtab *);
 void lily_vm_execute(lily_vm_state *);
 void lily_vm_free_registers(lily_vm_state *);
+void lily_assign_value(lily_vm_state *, lily_value *, lily_value *);
 
 #endif
