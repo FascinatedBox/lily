@@ -1,6 +1,8 @@
+#include <ctype.h>
 #include <string.h>
 
 #include "lily_impl.h"
+#include "lily_value.h"
 #include "lily_vm.h"
 
 void lily_str_concat(lily_vm_state *vm, uintptr_t *code, int num_args)
@@ -55,8 +57,56 @@ void lily_str_concat(lily_vm_state *vm, uintptr_t *code, int num_args)
     vm_regs[code[2]]->flags &= ~VAL_IS_NIL;
 }
 
+#define CTYPE_WRAP(WRAP_NAME, WRAPPED_CALL) \
+void WRAP_NAME(lily_vm_state *vm, uintptr_t *code, int num_args) \
+{ \
+    lily_value **vm_regs = vm->vm_regs; \
+    lily_value *ret_arg = vm_regs[code[1]]; \
+    lily_value *input_arg = vm_regs[code[0]]; \
+\
+    if (input_arg->flags & VAL_IS_NIL || \
+        input_arg->value.str->size == 0) { \
+        ret_arg->value.integer = 0; \
+        ret_arg->flags = 0; \
+        return; \
+    } \
+\
+    char *loop_str = input_arg->value.str->str; \
+    int i = 0; \
+\
+    ret_arg->value.integer = 1; \
+    ret_arg->flags = 0; \
+    for (i = 0;i < input_arg->value.str->size;i++) { \
+        if (WRAPPED_CALL(loop_str[i]) == 0) { \
+            ret_arg->value.integer = 0; \
+            break; \
+        } \
+    } \
+}
+
+CTYPE_WRAP(lily_str_isdigit, isdigit)
+CTYPE_WRAP(lily_str_isalpha, isalpha)
+CTYPE_WRAP(lily_str_isspace, isspace)
+CTYPE_WRAP(lily_str_isalnum, isalnum)
+
+static const lily_func_seed isalnum_fn =
+    {"isalnum", lily_str_isalnum, NULL,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_STR}};
+
+static const lily_func_seed isdigit_fn =
+    {"isdigit", lily_str_isdigit, &isalnum_fn,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_STR}};
+
+static const lily_func_seed isalpha_fn =
+    {"isalpha", lily_str_isalpha, &isdigit_fn,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_STR}};
+
+static const lily_func_seed isspace_fn =
+    {"isspace", lily_str_isspace, &isalpha_fn,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_STR}};
+
 static const lily_func_seed concat =
-    {"concat", lily_str_concat, NULL,
+    {"concat", lily_str_concat, &isspace_fn,
         {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STR, SYM_CLASS_STR, SYM_CLASS_STR}};
 
 #define SEED_START concat
