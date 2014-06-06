@@ -303,8 +303,47 @@ void lily_str_lstrip(lily_vm_state *vm, uintptr_t *code, int num_args)
     result_arg->value.str = new_sv;
 }
 
+void lily_str_startswith(lily_vm_state *vm, uintptr_t *code, int num_args)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *input_arg = vm_regs[code[0]];
+    lily_value *prefix_arg = vm_regs[code[1]];
+    lily_value *result_arg = vm_regs[code[2]];
+
+    if (input_arg->flags & VAL_IS_NIL)
+        lily_raise(vm->raiser, lily_ErrBadValue, "Input is nil.\n");
+
+    if (prefix_arg->flags & VAL_IS_NIL)
+        lily_raise(vm->raiser, lily_ErrBadValue, "Prefix is nil.\n");
+
+    char *input_raw_str = input_arg->value.str->str;
+    char *prefix_raw_str = prefix_arg->value.str->str;
+    int prefix_size = prefix_arg->value.str->size;
+
+    if (input_arg->value.str->size < prefix_size) {
+        result_arg->value.integer = 0;
+        result_arg->flags = 0;
+        return;
+    }
+
+    int i, ok = 1;
+    for (i = 0;i < prefix_size;i++) {
+        if (input_raw_str[i] != prefix_raw_str[i]) {
+            ok = 0;
+            break;
+        }
+    }
+
+    result_arg->flags = 0;
+    result_arg->value.integer = ok;
+}
+
+static const lily_func_seed startswith =
+    {"startswith", lily_str_startswith, NULL,
+        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_INTEGER, SYM_CLASS_STR, SYM_CLASS_STR}};
+
 static const lily_func_seed lstrip =
-    {"lstrip", lily_str_lstrip, NULL,
+    {"lstrip", lily_str_lstrip, &startswith,
         {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STR, SYM_CLASS_STR, SYM_CLASS_STR}};
 
 static const lily_func_seed isalnum_fn =
