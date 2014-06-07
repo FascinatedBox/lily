@@ -338,8 +338,177 @@ void lily_str_startswith(lily_vm_state *vm, uintptr_t *code, int num_args)
     result_arg->value.integer = ok;
 }
 
+/*  rstrip_utf8_stop
+    This is a helper for str's rstrip that handles the case where there are
+    no utf-8 chunks. This has a fast loop for stripping one byte, and a more
+    general one for stripping out different bytes.
+    This returns where string copying should stop at. */
+static int rstrip_ascii_stop(lily_value *input_arg, lily_value *strip_arg)
+{
+    int i;
+    char *input_str = input_arg->value.str->str;
+    int input_length = input_arg->value.str->size;
+
+    if (strip_arg->value.str->size == 1) {
+        char strip_ch = strip_arg->value.str->str[0];
+        for (i = input_length - 1;i >= 0;i--) {
+            if (input_str[i] != strip_ch)
+                break;
+        }
+    }
+    else {
+        char *strip_str = strip_arg->value.str->str;
+        int strip_length = strip_arg->value.str->size;
+        for (i = input_length - 1;i >= 0;i--) {
+            char ch = input_str[i];
+            int found = 0;
+            int j;
+            for (j = 0;j < strip_length;j++) {
+                if (ch == strip_str[j]) {
+                    found = 1;
+                    break;
+                }
+            }
+            if (found == 0)
+                break;
+        }
+    }
+
+    return i + 1;
+}
+
+/*  rstrip_utf8_stop
+    This is a helper for str's rstrip that handles the case where the part to
+    remove has at least one utf-8 chunk inside of it.
+    This returns where string copying should stop at. */
+static int rstrip_utf8_stop(lily_value *input_arg, lily_value *strip_arg)
+{
+    char *input_str = input_arg->value.str->str;
+    int input_length = input_arg->value.str->size;
+
+    char *strip_str = strip_arg->value.str->str;
+    int strip_length = strip_arg->value.str->size;
+    int i, j;
+
+    i = input_length - 1;
+    j = 0;
+    while (i >= 0) {
+        /* First find out how many bytes are in the current chunk. */
+        int follow_count = follower_table[(unsigned char)strip_str[j]];
+        /* Now get the last byte of this chunk. Since the follower table
+           includes the total, offset by -1. */
+        char last_strip_byte = strip_str[j + (follow_count - 1)];
+        /* Input is going from right to left. See if input matches the last
+           byte of the current utf-8 chunk. But also check that there are
+           enough chars left to protect against underflow. */
+        if (input_str[i] == last_strip_byte &&
+            i + 1 >= follow_count) {
+            int match = 1;
+            int input_i, strip_i, k;
+            /* input_i starts at i - 1 to skip the last byte.
+               strip_i starts at follow_count so it can stop things. */
+            for (input_i = i - 1, strip_i = j + (follow_count - 2), k = 1;
+                 k < follow_count;
+                 input_i--, strip_i--, k++) {
+                if (input_str[input_i] != strip_str[strip_i]) {
+                    match = 0;
+                    break;
+                }
+            }
+
+            if (match == 1) {
+                i -= follow_count;
+                j = 0;
+                continue;
+            }
+        }
+
+        /* Either the first byte or one of the inner bytes didn't match.
+           Go to the next chunk and try again. */
+        j += follow_count;
+        if (j == strip_length)
+            break;
+
+        continue;
+    }
+
+    return i + 1;
+}
+
+void lily_str_rstrip(lily_vm_state *vm, uintptr_t *code, int num_args)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *input_arg = vm_regs[code[0]];
+    lily_value *strip_arg = vm_regs[code[1]];
+    lily_value *result_arg = vm_regs[code[2]];
+
+    char *strip_str;
+    unsigned char ch;
+    int copy_to, i, has_multibyte_char, strip_str_len;
+
+    if (input_arg->flags & VAL_IS_NIL)
+        lily_raise(vm->raiser, lily_ErrBadValue, "Input string is nil.\n");
+
+    if (input_arg->value.str->size == 0) {
+        lily_assign_value(vm, result_arg, input_arg);
+        return;
+    }
+
+    if (strip_arg->flags & VAL_IS_NIL)
+        lily_raise(vm->raiser, lily_ErrBadValue, "Cannot strip nil value.\n");
+
+    if (strip_arg->value.str->size == 0) {
+        lily_assign_value(vm, result_arg, strip_arg);
+        return;
+    }
+
+    strip_str = strip_arg->value.str->str;
+    strip_str_len = strlen(strip_str);
+    has_multibyte_char = 0;
+
+    for (i = 0;i < strip_str_len;i++) {
+        ch = (unsigned char)strip_str[i];
+        if (ch > 127) {
+            has_multibyte_char = 1;
+            break;
+        }
+    }
+
+    if (has_multibyte_char == 0)
+        copy_to = rstrip_ascii_stop(input_arg, strip_arg);
+    else
+        copy_to = rstrip_utf8_stop(input_arg, strip_arg);
+
+    lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
+    /* +1 for the \0 at the end. */
+    char *sv_str = lily_malloc(copy_to + 1);
+
+    if (new_sv == NULL || sv_str == NULL) {
+        lily_free(new_sv);
+        lily_free(sv_str);
+        lily_raise_nomem(vm->raiser);
+    }
+
+    new_sv->str = sv_str;
+    new_sv->size = copy_to;
+    new_sv->refcount = 1;
+    strncpy(sv_str, input_arg->value.str->str, copy_to);
+    /* This will always copy a partial string, so make sure to add a terminator. */
+    new_sv->str[copy_to] = '\0';
+
+    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+        lily_deref_str_val(result_arg->value.str);
+
+    result_arg->flags = 0;
+    result_arg->value.str = new_sv;
+}
+
+static const lily_func_seed rstrip =
+    {"rstrip", lily_str_rstrip, NULL,
+        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STR, SYM_CLASS_STR, SYM_CLASS_STR}};
+
 static const lily_func_seed startswith =
-    {"startswith", lily_str_startswith, NULL,
+    {"startswith", lily_str_startswith, &rstrip,
         {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_INTEGER, SYM_CLASS_STR, SYM_CLASS_STR}};
 
 static const lily_func_seed lstrip =
