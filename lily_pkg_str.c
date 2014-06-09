@@ -541,8 +541,98 @@ void lily_str_endswith(lily_vm_state *vm, uintptr_t *code, int num_args)
     result_arg->value.integer = ok;
 }
 
+void lily_str_lower(lily_vm_state *vm, uintptr_t *code, int num_args)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *input_arg = vm_regs[code[0]];
+    lily_value *result_arg = vm_regs[code[1]];
+
+    if (input_arg->flags & VAL_IS_NIL)
+        lily_raise(vm->raiser, lily_ErrBadValue, "Input is nil.\n");
+
+    lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
+    char *sv_str = lily_malloc(input_arg->value.str->size + 1);
+    if (new_sv == NULL || sv_str == NULL) {
+        lily_free(new_sv);
+        lily_free(sv_str);
+        lily_raise_nomem(vm->raiser);
+    }
+
+    new_sv->refcount = 1;
+    new_sv->size = input_arg->value.str->size;
+    new_sv->str = sv_str;
+
+    char *input_str = input_arg->value.str->str;
+    int input_length = input_arg->value.str->size;
+    int i;
+
+    for (i = 0;i < input_length;i++) {
+        char ch = input_str[i];
+        if (isupper(ch))
+            sv_str[i] = tolower(ch);
+        else
+            sv_str[i] = ch;
+    }
+    sv_str[input_length] = '\0';
+
+    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+        lily_deref_str_val(result_arg->value.str);
+
+    result_arg->flags = 0;
+    result_arg->value.str = new_sv;
+}
+
+void lily_str_upper(lily_vm_state *vm, uintptr_t *code, int num_args)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *input_arg = vm_regs[code[0]];
+    lily_value *result_arg = vm_regs[code[1]];
+
+    if (input_arg->flags & VAL_IS_NIL)
+        lily_raise(vm->raiser, lily_ErrBadValue, "Input is nil.\n");
+
+    lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
+    char *sv_str = lily_malloc(input_arg->value.str->size + 1);
+    if (new_sv == NULL || sv_str == NULL) {
+        lily_free(new_sv);
+        lily_free(sv_str);
+        lily_raise_nomem(vm->raiser);
+    }
+
+    new_sv->refcount = 1;
+    new_sv->size = input_arg->value.str->size;
+    new_sv->str = sv_str;
+
+    char *input_str = input_arg->value.str->str;
+    int input_length = input_arg->value.str->size;
+    int i;
+
+    for (i = 0;i < input_length;i++) {
+        char ch = input_str[i];
+        if (islower(ch))
+            sv_str[i] = toupper(ch);
+        else
+            sv_str[i] = ch;
+    }
+    sv_str[input_length] = '\0';
+
+    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+        lily_deref_str_val(result_arg->value.str);
+
+    result_arg->flags = 0;
+    result_arg->value.str = new_sv;
+}
+
+static const lily_func_seed upper =
+    {"upper", lily_str_upper, NULL,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STR, SYM_CLASS_STR}};
+
+static const lily_func_seed lower =
+    {"lower", lily_str_lower, &upper,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STR, SYM_CLASS_STR}};
+
 static const lily_func_seed endswith =
-    {"endswith", lily_str_endswith, NULL,
+    {"endswith", lily_str_endswith, &lower,
         {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_INTEGER, SYM_CLASS_STR, SYM_CLASS_STR}};
 
 static const lily_func_seed rstrip =
