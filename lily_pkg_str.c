@@ -681,8 +681,85 @@ void lily_str_find(lily_vm_state *vm, uintptr_t *code, int num_args)
     result_arg->value.integer = i;
 }
 
+void lily_str_strip(lily_vm_state *vm, uintptr_t *code, int num_args)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *input_arg = vm_regs[code[0]];
+    lily_value *strip_arg = vm_regs[code[1]];
+    lily_value *result_arg = vm_regs[code[2]];
+
+    if (input_arg->flags & VAL_IS_NIL)
+        lily_raise(vm->raiser, lily_ErrBadValue, "Input string is nil.\n");
+
+    if (strip_arg->flags & VAL_IS_NIL)
+        lily_raise(vm->raiser, lily_ErrBadValue, "Cannot strip nil value.\n");
+
+    /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
+    if (input_arg->value.str->size == 0 ||
+        strip_arg->value.str->size == 0) {
+        lily_assign_value(vm, result_arg, input_arg);
+        return;
+    }
+
+    char ch;
+    char *strip_str = strip_arg->value.str->str;
+    int strip_str_len = strlen(strip_str);
+    int has_multibyte_char = 0;
+    int copy_from, copy_to, i;
+
+    for (i = 0;i < strip_str_len;i++) {
+        ch = (unsigned char)strip_str[i];
+        if (ch > 127) {
+            has_multibyte_char = 1;
+            break;
+        }
+    }
+
+    if (has_multibyte_char == 0)
+        copy_from = lstrip_ascii_start(input_arg, strip_arg);
+    else
+        copy_from = lstrip_utf8_start(input_arg, strip_arg);
+
+    if (copy_from != input_arg->value.str->size) {
+        if (has_multibyte_char)
+            copy_to = rstrip_ascii_stop(input_arg, strip_arg);
+        else
+            copy_to = rstrip_utf8_stop(input_arg, strip_arg);
+    }
+    else
+        /* The whole string consists of stuff in strip_str. Do this so the
+           result is an empty string. */
+        copy_to = copy_from;
+
+    int copy_range = copy_to - copy_from;
+    lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
+    char *sv_str = lily_malloc(copy_range + 1);
+    if (new_sv == NULL || sv_str == NULL) {
+        lily_free(new_sv);
+        lily_free(sv_str);
+        lily_raise_nomem(vm->raiser);
+    }
+
+    new_sv->str = sv_str;
+    new_sv->refcount = 1;
+    new_sv->size = copy_range;
+
+    strncpy(sv_str, input_arg->value.str->str + copy_from, copy_range);
+    sv_str[copy_range] = '\0';
+
+    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+        lily_deref_str_val(result_arg->value.str);
+
+    result_arg->flags = 0;
+    result_arg->value.str = new_sv;
+}
+
+static const lily_func_seed strip =
+    {"strip", lily_str_strip, NULL,
+        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STR, SYM_CLASS_STR, SYM_CLASS_STR}};
+
 static const lily_func_seed find =
-    {"find", lily_str_find, NULL,
+    {"find", lily_str_find, &strip,
         {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_INTEGER, SYM_CLASS_STR, SYM_CLASS_STR}};
 
 static const lily_func_seed upper =
