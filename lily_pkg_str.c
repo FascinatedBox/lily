@@ -253,16 +253,13 @@ void lily_str_lstrip(lily_vm_state *vm, uintptr_t *code, int num_args)
     if (input_arg->flags & VAL_IS_NIL)
         lily_raise(vm->raiser, lily_ErrBadValue, "Input string is nil.\n");
 
-    if (input_arg->value.str->size == 0) {
-        lily_assign_value(vm, result_arg, input_arg);
-        return;
-    }
-
     if (strip_arg->flags & VAL_IS_NIL)
         lily_raise(vm->raiser, lily_ErrBadValue, "Cannot strip nil value.\n");
 
-    if (strip_arg->value.str->size == 0) {
-        lily_assign_value(vm, result_arg, strip_arg);
+    /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
+    if (input_arg->value.str->size == 0 ||
+        strip_arg->value.str->size == 0) {
+        lily_assign_value(vm, result_arg, input_arg);
         return;
     }
 
@@ -449,16 +446,13 @@ void lily_str_rstrip(lily_vm_state *vm, uintptr_t *code, int num_args)
     if (input_arg->flags & VAL_IS_NIL)
         lily_raise(vm->raiser, lily_ErrBadValue, "Input string is nil.\n");
 
-    if (input_arg->value.str->size == 0) {
-        lily_assign_value(vm, result_arg, input_arg);
-        return;
-    }
-
     if (strip_arg->flags & VAL_IS_NIL)
         lily_raise(vm->raiser, lily_ErrBadValue, "Cannot strip nil value.\n");
 
-    if (strip_arg->value.str->size == 0) {
-        lily_assign_value(vm, result_arg, strip_arg);
+    /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
+    if (input_arg->value.str->size == 0 ||
+        strip_arg->value.str->size == 0) {
+        lily_assign_value(vm, result_arg, input_arg);
         return;
     }
 
