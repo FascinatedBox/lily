@@ -623,8 +623,76 @@ void lily_str_upper(lily_vm_state *vm, uintptr_t *code, int num_args)
     result_arg->value.str = new_sv;
 }
 
+void lily_str_find(lily_vm_state *vm, uintptr_t *code, int num_args)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *input_arg = vm_regs[code[0]];
+    lily_value *find_arg = vm_regs[code[1]];
+    lily_value *result_arg = vm_regs[code[2]];
+
+    if (input_arg->flags & VAL_IS_NIL)
+        lily_raise(vm->raiser, lily_ErrBadValue, "Input is nil.\n");
+
+    if (find_arg->flags & VAL_IS_NIL)
+        lily_raise(vm->raiser, lily_ErrBadValue, "Find str is nil.\n");
+
+    char *input_str = input_arg->value.str->str;
+    int input_length = input_arg->value.str->size;
+
+    char *find_str = find_arg->value.str->str;
+    int find_length = find_arg->value.str->size;
+
+    if (find_length > input_length) {
+        result_arg->flags = 0;
+        result_arg->value.integer = -1;
+        return;
+    }
+    else if (find_length == 0) {
+        result_arg->flags = 0;
+        result_arg->value.integer = 0;
+        return;
+    }
+
+    char find_ch;
+    int i, j, k, length_diff, match;
+
+    length_diff = input_length - find_length;
+    find_ch = find_str[0];
+    match = 0;
+
+    /* This stops at length_diff for two reasons:
+       * The inner loop won't have to do a boundary check.
+       * Search will stop if there isn't enough length left for a match
+         (ex: "abcdef".find("defg")) */
+    for (i = 0;i <= length_diff;i++) {
+        if (input_str[i] == find_ch) {
+            match = 1;
+            /* j starts at i + 1 to skip the first match.
+               k starts at 1 for the same reason. */
+            for (j = i + 1, k = 1;k < find_length;j++, k++) {
+                if (input_str[j] != find_str[k]) {
+                    match = 0;
+                    break;
+                }
+            }
+            if (match == 1)
+                break;
+        }
+    }
+
+    if (match == 0)
+        i = -1;
+
+    result_arg->flags = 0;
+    result_arg->value.integer = i;
+}
+
+static const lily_func_seed find =
+    {"find", lily_str_find, NULL,
+        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_INTEGER, SYM_CLASS_STR, SYM_CLASS_STR}};
+
 static const lily_func_seed upper =
-    {"upper", lily_str_upper, NULL,
+    {"upper", lily_str_upper, &find,
         {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STR, SYM_CLASS_STR}};
 
 static const lily_func_seed lower =
