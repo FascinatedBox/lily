@@ -20,8 +20,8 @@ CORE_OBJECTS=$(OBJDIR)/csiphash.o \
 			$(OBJDIR)/lily_msgbuf.o \
 			$(OBJDIR)/lily_gc.o \
 			$(OBJDIR)/lily_value.o \
-			$(OBJDIR)/lily_pkg_list.o \
-			$(OBJDIR)/lily_pkg_str.o \
+			$(OBJDIR)/lily_cls_list.o \
+			$(OBJDIR)/lily_cls_str.o \
 			$(OBJDIR)/lily_pkg_sys.o \
 
 AFT_OBJECTS=$(AFT_DIR)/aft_csiphash.o \
@@ -112,11 +112,11 @@ $(OBJDIR)/lily_gc.o: lily_gc.c lily_gc.h
 $(OBJDIR)/lily_value.o: lily_value.c lily_value.h
 	$(CC) $(CFLAGS) lily_value.c -o $(OBJDIR)/lily_value.o
 
-$(OBJDIR)/lily_pkg_list.o: lily_pkg_list.c lily_pkg_list.h
-	$(CC) $(CFLAGS) lily_pkg_list.c -o $(OBJDIR)/lily_pkg_list.o
+$(OBJDIR)/lily_cls_list.o: lily_cls_list.c lily_cls_list.h
+	$(CC) $(CFLAGS) lily_cls_list.c -o $(OBJDIR)/lily_cls_list.o
 
-$(OBJDIR)/lily_pkg_str.o: lily_pkg_str.c lily_pkg_str.h
-	$(CC) $(CFLAGS) lily_pkg_str.c -o $(OBJDIR)/lily_pkg_str.o
+$(OBJDIR)/lily_cls_str.o: lily_cls_str.c lily_cls_str.h
+	$(CC) $(CFLAGS) lily_cls_str.c -o $(OBJDIR)/lily_cls_str.o
 
 $(OBJDIR)/lily_pkg_sys.o: lily_pkg_sys.c lily_pkg_sys.h
 	$(CC) $(CFLAGS) lily_pkg_sys.c -o $(OBJDIR)/lily_pkg_sys.o
@@ -164,11 +164,11 @@ $(AFT_DIR)/lily_aft_gc.o: lily_gc.c lily_gc.h
 $(AFT_DIR)/lily_aft_value.o: lily_value.c lily_value.h
 	$(CC) $(AFT_CFLAGS) lily_value.c -o $(AFT_DIR)/lily_aft_value.o
 
-$(AFT_DIR)/lily_aft_pkg_list.o: lily_pkg_list.c lily_pkg_list.h
-	$(CC) $(AFT_CFLAGS) lily_pkg_list.c -o $(AFT_DIR)/lily_aft_pkg_list.o
+$(AFT_DIR)/lily_aft_pkg_list.o: lily_cls_list.c lily_cls_list.h
+	$(CC) $(AFT_CFLAGS) lily_cls_list.c -o $(AFT_DIR)/lily_aft_pkg_list.o
 
-$(AFT_DIR)/lily_aft_pkg_str.o: lily_pkg_str.c lily_pkg_str.h
-	$(CC) $(AFT_CFLAGS) lily_pkg_str.c -o $(AFT_DIR)/lily_aft_pkg_str.o
+$(AFT_DIR)/lily_aft_pkg_str.o: lily_cls_str.c lily_cls_str.h
+	$(CC) $(AFT_CFLAGS) lily_cls_str.c -o $(AFT_DIR)/lily_aft_pkg_str.o
 
 $(AFT_DIR)/lily_aft_pkg_sys.o: lily_pkg_sys.c lily_pkg_sys.h
 	$(CC) $(AFT_CFLAGS) lily_pkg_sys.c -o $(AFT_DIR)/lily_aft_pkg_sys.o

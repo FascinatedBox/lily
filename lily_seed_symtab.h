@@ -1,8 +1,8 @@
 #ifndef LILY_SEED_SYMTAB_H
 # define LILY_SEED_SYMTAB_H
 
-# include "lily_pkg_str.h"
-# include "lily_pkg_list.h"
+# include "lily_cls_str.h"
+# include "lily_cls_list.h"
 # include "lily_vm.h"
 # include "lily_gc.h"
 
