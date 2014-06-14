@@ -3,6 +3,7 @@
 #include "lily_impl.h"
 #include "lily_parser.h"
 #include "lily_parser_tok_table.h"
+#include "lily_pkg_sys.h"
 
 /** Parser is responsible for:
     * Creating all other major structures (ast pool, emitter, lexer, etc.)
@@ -47,7 +48,7 @@ if (lex->token != expected) \
                tokname(expected), tokname(lex->token));
 
 /** Parser initialization and deletion **/
-lily_parse_state *lily_new_parse_state()
+lily_parse_state *lily_new_parse_state(int argc, char **argv)
 {
     lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
     lily_raiser *raiser = lily_new_raiser();
@@ -80,6 +81,13 @@ lily_parse_state *lily_new_parse_state()
     parser->ast_pool->lex_linenum = &parser->lex->line_num;
     parser->emit->lex_linenum = &parser->lex->line_num;
     parser->emit->symtab = parser->symtab;
+
+    /* This creates a new var, so it has to be done after symtab's lex_linenum
+       is set. */
+    if (lily_pkg_sys_init(parser->symtab, argc, argv) == 0) {
+        lily_free_parse_state(parser);
+        return NULL;
+    }
 
     return parser;
 }
