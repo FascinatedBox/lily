@@ -21,7 +21,8 @@ CORE_OBJECTS=$(OBJDIR)/csiphash.o \
 			$(OBJDIR)/lily_gc.o \
 			$(OBJDIR)/lily_value.o \
 			$(OBJDIR)/lily_pkg_list.o \
-			$(OBJDIR)/lily_pkg_str.o
+			$(OBJDIR)/lily_pkg_str.o \
+			$(OBJDIR)/lily_pkg_sys.o \
 
 AFT_OBJECTS=$(AFT_DIR)/aft_csiphash.o \
 			$(AFT_DIR)/lily_aft_parser.o \
@@ -37,6 +38,7 @@ AFT_OBJECTS=$(AFT_DIR)/aft_csiphash.o \
 			$(AFT_DIR)/lily_aft_value.o \
 			$(AFT_DIR)/lily_aft_pkg_list.o \
 			$(AFT_DIR)/lily_aft_pkg_str.o \
+			$(AFT_DIR)/lily_aft_pkg_sys.o \
 			$(AFT_DIR)/aft_main.o
 
 FS_OBJECTS=$(CORE_OBJECTS) \
@@ -116,6 +118,9 @@ $(OBJDIR)/lily_pkg_list.o: lily_pkg_list.c lily_pkg_list.h
 $(OBJDIR)/lily_pkg_str.o: lily_pkg_str.c lily_pkg_str.h
 	$(CC) $(CFLAGS) lily_pkg_str.c -o $(OBJDIR)/lily_pkg_str.o
 
+$(OBJDIR)/lily_pkg_sys.o: lily_pkg_sys.c lily_pkg_sys.h
+	$(CC) $(CFLAGS) lily_pkg_sys.c -o $(OBJDIR)/lily_pkg_sys.o
+
 # These are the aft's version of core files. These cannot be mixed with the
 # standard core files because they use aft_main.c's replacements for malloc,
 # realloc, and free. 
@@ -164,5 +169,8 @@ $(AFT_DIR)/lily_aft_pkg_list.o: lily_pkg_list.c lily_pkg_list.h
 
 $(AFT_DIR)/lily_aft_pkg_str.o: lily_pkg_str.c lily_pkg_str.h
 	$(CC) $(AFT_CFLAGS) lily_pkg_str.c -o $(AFT_DIR)/lily_aft_pkg_str.o
+
+$(AFT_DIR)/lily_aft_pkg_sys.o: lily_pkg_sys.c lily_pkg_sys.h
+	$(CC) $(AFT_CFLAGS) lily_pkg_sys.c -o $(AFT_DIR)/lily_aft_pkg_sys.o
 
 .PHONY: clean all

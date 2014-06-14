@@ -259,7 +259,6 @@ void usage()
 int main(int argc, char **argv)
 {
     char *filename = NULL;
-    int parse_opts = 0;
     int i;
 
     for (i = 1;i < argc;i++) {
@@ -284,7 +283,7 @@ int main(int argc, char **argv)
     if (allowed_allocs == 0 || filename == NULL)
         usage();
 
-    lily_parse_state *parser = lily_new_parse_state(parse_opts);
+    lily_parse_state *parser = lily_new_parse_state(argc, argv);
     /* The alloc count was probably low. Show stats and give up. */
     if (parser == NULL)
         show_stats();

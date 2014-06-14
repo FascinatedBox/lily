@@ -471,6 +471,8 @@ void free_vars(lily_var *var)
                 lily_deref_method_val(var->value.method);
             else if (cls_id == SYM_CLASS_FUNCTION)
                 lily_free(var->value.function);
+            else
+                lily_deref_unknown_raw_val(var->sig, var->value);
         }
         lily_free(var->name);
         lily_free(var);
@@ -850,6 +852,12 @@ void lily_hide_block_vars(lily_symtab *symtab, lily_var *start)
         start->flags |= SYM_OUT_OF_SCOPE;
         start = start->next;
     }
+}
+
+lily_sig *lily_try_sig_from_ids(lily_symtab *symtab, const int *ids)
+{
+    int pos = 0, ok = 1;
+    return scan_seed_arg(symtab, ids, &pos, &ok);
 }
 
 /* lily_ensure_unique_sig

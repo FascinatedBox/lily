@@ -27,7 +27,7 @@ typedef struct {
 } lily_parse_state;
 
 void lily_free_parse_state(lily_parse_state *);
-lily_parse_state *lily_new_parse_state();
+lily_parse_state *lily_new_parse_state(int, char **);
 int lily_parse_file(lily_parse_state *, char *);
 int lily_parse_string(lily_parse_state *, char *);
 
