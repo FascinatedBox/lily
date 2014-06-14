@@ -1,5 +1,5 @@
-#ifndef LILY_PKG_LIST_H
-#define LILY_PKG_LIST_H
+#ifndef LILY_CLS_LIST_H
+#define LILY_CLS_LIST_H
 
 # include "lily_syminfo.h"
 
