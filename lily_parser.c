@@ -55,7 +55,6 @@ lily_parse_state *lily_new_parse_state(int argc, char **argv)
 
     if (parser == NULL)
         return NULL;
-
     parser->sig_stack_pos = 0;
     parser->sig_stack_size = 4;
     parser->raiser = raiser;
@@ -604,10 +603,11 @@ static void expression_value(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
+    lily_var *scope = symtab->var_start;
 
     while (1) {
         if (lex->token == tk_word) {
-            lily_var *var = lily_var_by_name(symtab, lex->label,
+            lily_var *var = lily_scoped_var_by_name(symtab, scope, lex->label,
                     lex->label_shorthash);
 
             if (var) {
@@ -633,9 +633,21 @@ static void expression_value(lily_parse_state *parser)
                         continue;
                 }
                 else {
-                    if (var->method_depth == 1)
-                        /* It's in __main__ as a global. */
-                        lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
+                    if (var->method_depth == 1) {
+                        if (var->sig->cls->id == SYM_CLASS_PACKAGE) {
+                            NEED_CURRENT_TOK(tk_colon_colon);
+                            NEED_NEXT_TOK(tk_word);
+                            scope = var->value.package->vars[0];
+                            lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
+                            lily_ast_push_package(parser->ast_pool);
+                            continue;
+                        }
+                        else {
+                            /* It's in __main__ as a global. */
+                            lily_ast_push_sym(parser->ast_pool,
+                                    (lily_sym *)var);
+                        }
+                    }
                     else if (var->method_depth == parser->emit->method_depth)
                         /* In this current scope? Load as a local var. */
                         lily_ast_push_local_var(parser->ast_pool, var);
@@ -745,12 +757,15 @@ static void expression_value(lily_parse_state *parser)
             lily_lexer(lex);
             if (lex->token == tk_right_parenth)
                 break;
-            else
+            else {
+                scope = symtab->var_start;
                 continue;
+            }
         }
         else if (lex->token == tk_left_bracket) {
             lily_ast_enter_tree(parser->ast_pool, tree_subscript, NULL);
             lily_lexer(lex);
+            scope = symtab->var_start;
             continue;
         }
         break;

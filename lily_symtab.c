@@ -405,6 +405,11 @@ static int init_classes(lily_symtab *symtab)
         classes[i] = new_class;
     }
 
+    /* Packages are a bit too complicated for the parser now, so make them
+       where the user can't declare them. */
+    if (ret == 1)
+        classes[SYM_CLASS_PACKAGE]->shorthash = 0;
+
     /* This is so symtab cleanup catches all of the builtin classes, regardless
        of what parts were initialized. */
     symtab->class_pos = SYM_LAST_CLASS;
@@ -783,6 +788,25 @@ int lily_keyword_by_name(char *name, uint64_t shorthash)
     }
 
     return -1;
+}
+
+/* lily_var_by_name
+   Search the symtab for a var with a name of 'name'. This will return the var
+   or NULL. */
+lily_var *lily_scoped_var_by_name(lily_symtab *symtab, lily_var *scope_chain,
+        char *name, uint64_t shorthash)
+{
+    lily_var *var = scope_chain;
+
+    while (var != NULL) {
+        if (var->shorthash == shorthash &&
+            ((var->flags & SYM_OUT_OF_SCOPE) == 0) &&
+            strcmp(var->name, name) == 0)
+            return var;
+        var = var->next;
+    }
+
+    return NULL;
 }
 
 /* lily_var_by_name

@@ -51,7 +51,7 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
         int i;
         if (sig->siglist[0]->cls->is_refcounted) {
             for (i = 0;i < lv->num_values;i++) {
-                if (lv->elems[i]->flags == 0)
+                if ((lv->elems[i]->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
                     lily_deref_unknown_val(lv->elems[i]);
 
                 lily_free(lv->elems[i]);
@@ -111,6 +111,30 @@ void lily_deref_object_val(lily_object_val *ov)
     }
 }
 
+void lily_deref_package_val(lily_package_val *pv)
+{
+    pv->refcount--;
+    if (pv->refcount == 0) {
+        if (pv->gc_entry)
+            pv->gc_entry->value.generic = NULL;
+
+        int i;
+        /* Packages take ownership of the vars they hold from the symtab.
+           Therefore, they are responsible for destroying the vars held. */
+        for (i = 0;i < pv->var_count;i++) {
+            lily_var *var_iter = pv->vars[i];
+            if ((var_iter->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+                lily_deref_unknown_raw_val(var_iter->sig, var_iter->value);
+
+            lily_free(var_iter->name);
+            lily_free(var_iter);
+        }
+
+        lily_free(pv->vars);
+        lily_free(pv);
+    }
+}
+
 /*  lily_deref_unknown_val
     This takes a proper value and determines the proper call to deref the given
     value. This is useful if you want to deref something but don't know exactly
@@ -135,6 +159,8 @@ void lily_deref_unknown_val(lily_value *value)
         lily_deref_object_val(raw.object);
     else if (cls_id == SYM_CLASS_HASH)
         lily_deref_hash_val(value->sig, raw.hash);
+    else if (cls_id == SYM_CLASS_PACKAGE)
+        lily_deref_package_val(raw.package);
 }
 
 /*  lily_deref_unknown_raw_value
@@ -160,6 +186,8 @@ void lily_deref_unknown_raw_val(lily_sig *value_sig, lily_raw_value raw)
         lily_deref_object_val(raw.object);
     else if (cls_id == SYM_CLASS_HASH)
         lily_deref_hash_val(value_sig, raw.hash);
+    else if (cls_id == SYM_CLASS_PACKAGE)
+        lily_deref_package_val(raw.package);
 }
 
 /** Value creation calls **/

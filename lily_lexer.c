@@ -34,30 +34,30 @@
 #define CC_COMMA         2
 #define CC_LEFT_CURLY    3
 #define CC_RIGHT_CURLY   4
-#define CC_COLON         5
-#define CC_LEFT_BRACKET  6
-#define CC_RIGHT_BRACKET 7
-#define CC_CARET         8
-#define CC_G_ONE_LAST    8
+#define CC_LEFT_BRACKET  5
+#define CC_RIGHT_BRACKET 6
+#define CC_CARET         7
+#define CC_G_ONE_LAST    7
 
 /* Group 2: Return self, or self= */
-#define CC_G_TWO_OFFSET  9
-#define CC_NOT           9
-#define CC_PERCENT      10
-#define CC_MULTIPLY     11
-#define CC_DIVIDE       12
-#define CC_G_TWO_LAST   12
+#define CC_G_TWO_OFFSET  8
+#define CC_NOT           8
+#define CC_PERCENT       9
+#define CC_MULTIPLY     10
+#define CC_DIVIDE       11
+#define CC_G_TWO_LAST   11
 
 /* Greater and Less are able to do shifts, self=, and self. However, they are
    not put into a group because it's only two. This is why they are not in
    group 2. */
-#define CC_GREATER      13
-#define CC_LESS         14
-#define CC_PLUS         15
-#define CC_MINUS        16
-#define CC_WORD         17
-#define CC_DOUBLE_QUOTE 18
-#define CC_NUMBER       19
+#define CC_GREATER      12
+#define CC_LESS         13
+#define CC_PLUS         14
+#define CC_MINUS        15
+#define CC_WORD         16
+#define CC_DOUBLE_QUOTE 17
+#define CC_NUMBER       18
+#define CC_COLON        19
 
 #define CC_EQUAL        20
 #define CC_NEWLINE      21
@@ -1146,6 +1146,17 @@ void lily_lexer(lily_lex_state *lexer)
                 token = tk_minus;
             }
         }
+        else if (group == CC_COLON) {
+            lex_bufpos++;
+            ch++;
+            if (*ch == ':') {
+                lex_bufpos++;
+                ch++;
+                token = tk_colon_colon;
+            }
+            else
+                token = tk_colon;
+        }
         else if (group == CC_AMPERSAND) {
             lex_bufpos++;
             ch++;
@@ -1304,10 +1315,10 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
 char *tokname(lily_token t)
 {
     static char *toknames[] =
-    {"(", ")", ",", "{", "}", ":", "[", "]", "^", "!", "!=", "%", "%=", "*",
-     "*=", "/", "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=",
-     ">>", ">>=", "=", "==", "=>", "a label", "a string", "an integer",
-     "a number", ".", "&", "&&", "|", "||", "@(", "..", "...", "invalid token",
+    {"(", ")", ",", "{", "}", "[", "]", "^", "!", "!=", "%", "%=", "*", "*=",
+     "/", "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>",
+     ">>=", "=", "==", "=>", "a label", "a string", "an integer", "a number",
+     ".", ":", "::", "&", "&&", "|", "||", "@(", "..", "...", "invalid token",
      "@>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))

@@ -693,8 +693,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     if (ast->left->tree_type != tree_var)
         eval_tree(emit, ast->left);
 
-    if ((ast->left->result->flags & SYM_TYPE_VAR) == 0 &&
-        ast->left->tree_type != tree_subscript) {
+    if ((ast->left->result->flags & SYM_TYPE_VAR) == 0) {
         emit->raiser->line_adjust = ast->line_num;
         lily_raise(emit->raiser, lily_ErrSyntax,
                 "Left side of %s is not a var.\n", opname(ast->op));
@@ -752,6 +751,46 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
                 left_sym->reg_spot)
     }
     ast->result = right_sym;
+}
+
+static int get_package_index(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_package_val *pval = ast->left->result->value.package;
+    lily_var *want_var = (lily_var *)(ast->right->result);
+
+    int i;
+    for (i = 0;i < pval->var_count;i++) {
+        if (pval->vars[i] == want_var)
+            break;
+    }
+
+    return i;
+}
+
+static void eval_package_assign(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_method_val *m = emit->top_method;
+
+    /* For now, there are no packages in packages, so ast->left will always be
+       of type tree_package, with a var as the left and the right. */
+    if (ast->right->tree_type != tree_var)
+        eval_tree(emit, ast->right);
+
+    /* Don't eval the lhs, because an assignment has to be done directly to the
+       package var. The left's right is the var that needs to be pulled out. So
+       get the signature of that and make sure it's a match. */
+    lily_sig *result_sig = ast->left->right->result->sig;
+
+    if (result_sig != ast->right->result->sig &&
+        type_matchup(emit, NULL, result_sig, ast->right) == 0) {
+        bad_assign_error(emit, ast->line_num, result_sig,
+                ast->right->result->sig);
+    }
+
+    int index = get_package_index(emit, ast->left);
+
+    WRITE_5(o_package_set, ast->line_num, ast->left->left->result->reg_spot,
+            index, ast->right->result->reg_spot)
 }
 
 /* Forward decls of enter/leave block for emit_logical_op. */
@@ -1615,6 +1654,25 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     }
 }
 
+static void eval_package(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_method_val *m = emit->top_method;
+
+    if (ast->left->tree_type != tree_var)
+        eval_tree(emit, ast->left);
+
+    int index;
+    lily_storage *s;
+
+    index = get_package_index(emit, ast);
+    s = get_storage(emit, ast->right->result->sig, ast->line_num);
+
+    WRITE_5(o_package_get, ast->line_num, ast->left->result->reg_spot, index,
+            s->reg_spot)
+
+    ast->result = (lily_sym *)s;
+}
+
 /* eval_tree
    This is the main emit function. This doesn't evaluate anything itself, but
    instead determines what call to shove the work off to. */
@@ -1626,9 +1684,12 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast)
         eval_call(emit, ast);
     else if (ast->tree_type == tree_binary) {
         if (ast->op >= expr_assign) {
-            if (ast->left->tree_type != tree_subscript)
+            if (ast->left->tree_type != tree_subscript &&
+                ast->left->tree_type != tree_package)
                 eval_assign(emit, ast);
-            else
+            else if (ast->left->tree_type == tree_package)
+                eval_package_assign(emit, ast);
+            else if (ast->left->tree_type == tree_subscript)
                 eval_sub_assign(emit, ast);
         }
         else if (ast->op == expr_logical_or || ast->op == expr_logical_and)
@@ -1661,6 +1722,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast)
         eval_build_hash(emit, ast);
     else if (ast->tree_type == tree_subscript)
         eval_subscript(emit, ast);
+    else if (ast->tree_type == tree_package)
+        eval_package(emit, ast);
     else if (ast->tree_type == tree_typecast)
         eval_typecast(emit, ast);
 }

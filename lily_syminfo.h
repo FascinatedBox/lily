@@ -44,6 +44,7 @@ typedef union lily_raw_value_t {
     struct lily_generic_gc_val_t *gc_generic;
     struct lily_function_val_t *function;
     struct lily_hash_val_t *hash;
+    struct lily_package_val_t *package;
 } lily_raw_value;
 
 /* lily_class represents a class in the language. Each class can have private
@@ -248,6 +249,15 @@ typedef struct lily_function_val_t {
     char *trace_name;
 } lily_function_val;
 
+/* Packages hold vars of different types, and are created internally. */
+typedef struct lily_package_val_t {
+    int refcount;
+    struct lily_gc_entry_t *gc_entry;
+    lily_var **vars;
+    int var_count;
+    char *name;
+} lily_package_val;
+
 /* Finally, methods. Methods are the most complicated of all the structs in
    lily_raw_value. */
 typedef struct lily_method_val_t {
@@ -391,8 +401,9 @@ typedef struct lily_func_seed_t {
 #define SYM_CLASS_LIST     6
 #define SYM_CLASS_HASH     7
 #define SYM_CLASS_TEMPLATE 8
+#define SYM_CLASS_PACKAGE  9
 
-#define SYM_LAST_CLASS     8
-#define INITIAL_CLASS_SIZE 9
+#define SYM_LAST_CLASS     9
+#define INITIAL_CLASS_SIZE 10
 
 #endif

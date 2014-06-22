@@ -180,6 +180,24 @@ static void merge_absorb(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
     new_ast->next_arg = NULL;
 }
 
+static void merge_package(lily_ast_pool *ap, lily_ast *new_active, lily_ast *new_ast)
+{
+    lily_ast *active = new_active;
+
+    /* merge_package is called after a var has a value, so binary will always have a
+       value at this point. No need to check for that like with unary. */
+    if (new_active->tree_type >= tree_binary)
+        active = active->right;
+
+    if (new_ast->tree_type == tree_var)
+        active->right = new_ast;
+    else if (new_ast->tree_type == tree_subscript) {
+        merge_absorb(ap, active, new_ast);
+        if (new_active->tree_type == tree_binary)
+            new_active->right = new_ast;
+    }
+}
+
 /* merge_unary
    This handles a unary merge wherein 'active' is ap->active and new_ast is the
    tree to be merged in. */
@@ -215,6 +233,12 @@ static void merge_unary(lily_ast_pool *ap, lily_ast *new_active, lily_ast *new_a
                tree... */
             active->left = new_ast;
         }
+        else if (new_ast->tree_type == tree_package) {
+            merge_package(ap, active->left, new_ast);
+            active->left = new_ast;
+        }
+        else if (active->left->tree_type == tree_package)
+            active->left->right = new_ast;
         /* todo: As of now, there are no dot calls that yield an integer value.
            However, I suspect that when that occurs, dotcall will also need to
            be here. */
@@ -240,11 +264,15 @@ static void merge_value(lily_ast_pool *ap, lily_ast *new_ast)
                 active->right = new_ast;
             else if (active->right->tree_type == tree_unary)
                 merge_unary(ap, active, new_ast);
+            else if (active->right->tree_type == tree_package)
+                merge_package(ap, active, new_ast);
             else
                 merge_absorb(ap, active, new_ast);
         }
         else if (active->tree_type == tree_unary)
             merge_unary(ap, active, new_ast);
+        else if (active->tree_type == tree_package)
+            merge_package(ap, active, new_ast);
         else
             merge_absorb(ap, active, new_ast);
     }
@@ -661,6 +689,36 @@ void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
         ap->active = a;
         ap->root = a;
     }
+}
+
+void lily_ast_push_package(lily_ast_pool *ap)
+{
+    lily_ast *a;
+    if (ap->available_current) {
+        a = ap->available_current;
+        ap->available_current = a->next_tree;
+    }
+    else
+        a = make_new_tree(ap);
+
+    lily_ast *active = ap->active;
+
+    a->left = NULL;
+    a->right = NULL;
+    a->line_num = *ap->lex_linenum;
+    a->tree_type = tree_package;
+
+    if (active->tree_type == tree_var) {
+        a->left = active;
+        ap->active = a;
+        ap->root = a;
+    }
+    else if (active->tree_type >= tree_typecast) {
+        a->left = active->right;
+        active->right = a;
+    }
+    else
+        merge_value(ap, a);
 }
 
 void lily_ast_push_local_var(lily_ast_pool *ap, lily_var *var)

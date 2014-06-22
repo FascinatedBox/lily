@@ -281,6 +281,9 @@ typedef enum {
        into the given register. */
     o_get_const,
 
+    o_package_set,
+    o_package_get,
+
     /* Return from vm:
        This is a special opcode used to leave the vm. It does not take any
        values. This is written at the end of __main__. */

@@ -1384,6 +1384,7 @@ void lily_vm_execute(lily_vm_state *vm)
     lily_value **vm_regs;
     int i, num_registers, max_registers;
     lily_sig *cast_sig;
+    lily_var *temp_var;
     register int64_t for_temp;
     register int code_pos;
     register lily_value *lhs_reg, *rhs_reg, *loop_reg, *step_reg;
@@ -1837,6 +1838,26 @@ void lily_vm_execute(lily_vm_state *vm)
                 else
                     code_pos = code[code_pos+6];
 
+                break;
+            case o_package_set:
+                lhs_reg = regs_from_main[code[code_pos + 2]];
+                i = code[code_pos + 3];
+                temp_var = lhs_reg->value.package->vars[i];
+                rhs_reg = vm_regs[code[code_pos + 4]];
+                /* Here, the temp receives the value. */
+                lily_assign_value(vm, (lily_value *)temp_var, rhs_reg);
+
+                code_pos += 5;
+                break;
+            case o_package_get:
+                lhs_reg = regs_from_main[code[code_pos + 2]];
+                i = code[code_pos + 3];
+                temp_var = lhs_reg->value.package->vars[i];
+                rhs_reg = vm_regs[code[code_pos + 4]];
+                /* This time, the rhs takes the value. */
+                lily_assign_value(vm, rhs_reg, (lily_value *)temp_var);
+
+                code_pos += 5;
                 break;
             case o_for_setup:
                 loop_reg = vm_regs[code[code_pos+2]];
