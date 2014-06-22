@@ -20,7 +20,7 @@ typedef const struct {
          updated to hash those classes right. It will also need ErrNoSuchKey
          printing to be touched up for that. Other things may also need updating
          too. */
-class_seed class_seeds[9] =
+class_seed class_seeds[] =
 {
     {"integer",  0, 0, CLS_VALID_HASH_KEY, NULL,            NULL},
     {"number",   0, 0, CLS_VALID_HASH_KEY, NULL,            NULL},
@@ -32,7 +32,8 @@ class_seed class_seeds[9] =
     {"hash",     1, 2, 0,                  NULL,            &lily_gc_hash_marker},
     /* * is the name of the template class. This was chosen because it's not a
        valid name so the user can't directly declare members of it. */
-    {"*",        0, 0, 0,                  NULL,            NULL}
+    {"*",        0, 0, 0,                  NULL,            NULL},
+    {"package",  0, 0, 0,                  NULL,            NULL}
 };
 
 typedef const struct {

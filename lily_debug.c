@@ -96,7 +96,7 @@ typedef struct lily_debug_state_t {
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[45] = {
+char *opcode_names[47] = {
     "assign",
     "object assign",
     "assign (ref/deref)",
@@ -141,6 +141,8 @@ char *opcode_names[45] = {
     "get global",
     "set global",
     "get const",
+    "package set",
+    "package get",
     "return from vm"
 };
 
@@ -151,6 +153,10 @@ static const int for_integer_ci[] =
 static const int call_ci[]        =
     {6, D_LINENO, D_CALL_INPUT_TYPE, D_CALL_INPUT, D_COUNT, D_COUNT_LIST,
         D_OUTPUT};
+static const int package_get_ci[] =
+    {5, D_LINENO, D_GLOBAL_INPUT, D_INT_VAL, D_OUTPUT};
+static const int package_set_ci[] =
+    {5, D_LINENO, D_GLOBAL_INPUT, D_INT_VAL, D_INPUT};
 static const int build_list_ci[]  =
     {4, D_LINENO, D_COUNT, D_COUNT_LIST, D_OUTPUT};
 static const int sub_assign_ci[] = {4, D_LINENO, D_INPUT, D_INPUT, D_INPUT};
@@ -290,6 +296,12 @@ static const int *code_info_for_opcode(int opcode)
             break;
         case o_get_global:
             ret = get_global_ci;
+            break;
+        case o_package_set:
+            ret = package_set_ci;
+            break;
+        case o_package_get:
+            ret = package_get_ci;
             break;
         default:
             lily_impl_debugf("warning: Opcode %d has no ci.\n", opcode);
@@ -794,6 +806,9 @@ static void show_value(lily_debug_state *debug, lily_sig *sig,
             show_value(debug, obj_value->sig, obj_value->value);
         }
     }
+    /* A show for package is not included because it's not currently possible
+       to see packages. Any time that a package value is seen, the parser
+       enforces a check for ::, so only elements of a package get seen. */
 }
 
 /** API for lily_debug.c **/
