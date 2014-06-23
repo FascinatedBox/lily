@@ -1020,10 +1020,6 @@ void lily_lexer(lily_lex_state *lexer)
             int word_pos = 0;
             char *label = lexer->label;
 
-            /* Make sure that the first 8 are empty, so that previous values
-               don't mess up the hash. */
-            *((uint64_t *)label) = 0;
-
             do {
                 label[word_pos] = *ch;
                 word_pos++;
@@ -1031,8 +1027,6 @@ void lily_lexer(lily_lex_state *lexer)
             } while (ident_table[(unsigned char)*ch]);
             lex_bufpos += word_pos;
             label[word_pos] = '\0';
-
-            lexer->label_shorthash = *(uint64_t *)label;
             token = tk_word;
         }
         else if (group <= CC_G_ONE_LAST) {

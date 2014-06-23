@@ -14,8 +14,7 @@ static void bind_strlist(lily_symtab *symtab, int strlist_size, char **strlist, 
         return;
 
     lily_sig *str_sig = list_str_sig->siglist[0];
-    lily_var *bound_var = lily_try_new_var(symtab, list_str_sig, "argv",
-        1986490977, 0);
+    lily_var *bound_var = lily_try_new_var(symtab, list_str_sig, "argv", 0);
     if (bound_var == NULL)
         return;
 
@@ -78,8 +77,7 @@ int lily_pkg_sys_init(lily_symtab *symtab, int argc, char **argv)
     int ok = 0;
     lily_class *package_cls = lily_class_by_id(symtab, SYM_CLASS_PACKAGE);
     lily_sig *package_sig = lily_try_sig_for_class(symtab, package_cls);
-    lily_var *bound_var = lily_try_new_var(symtab, package_sig, "sys",
-        7567731, 0);
+    lily_var *bound_var = lily_try_new_var(symtab, package_sig, "sys", 0);
 
     if (bound_var) {
         lily_var *save_top = symtab->var_top;

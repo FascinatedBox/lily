@@ -54,22 +54,21 @@ typedef struct {
 #define KEY_LAST_ID   12
 
 lily_class *lily_class_by_id(lily_symtab *, int);
-lily_class *lily_class_by_hash(lily_symtab *, uint64_t);
-lily_var *lily_find_class_callable(lily_symtab *, lily_class *, char *,
-        uint64_t);
+lily_class *lily_class_by_name(lily_symtab *, char *);
+lily_var *lily_find_class_callable(lily_symtab *, lily_class *, char *);
 
 void lily_free_symtab_lits_and_vars(lily_symtab *);
 void lily_free_symtab(lily_symtab *);
-int lily_keyword_by_name(char *, uint64_t);
+int lily_keyword_by_name(char *);
 lily_literal *lily_new_literal(lily_symtab *, lily_class *, lily_raw_value);
 lily_literal *lily_get_intnum_literal(lily_symtab *, lily_class *,
         lily_raw_value);
 
 lily_literal *lily_get_str_literal(lily_symtab *, char *);
 lily_symtab *lily_new_symtab(lily_raiser *);
-lily_var *lily_try_new_var(lily_symtab *, lily_sig *, char *, uint64_t, int);
-lily_var *lily_scoped_var_by_name(lily_symtab *, lily_var *, char *, uint64_t);
-lily_var *lily_var_by_name(lily_symtab *, char *, uint64_t);
+lily_var *lily_try_new_var(lily_symtab *, lily_sig *, char *, int);
+lily_var *lily_scoped_var_by_name(lily_symtab *, lily_var *, char *);
+lily_var *lily_var_by_name(lily_symtab *, char *);
 lily_sig *lily_try_sig_for_class(lily_symtab *, lily_class *);
 void lily_hide_block_vars(lily_symtab *, lily_var *);
 lily_sig *lily_try_sig_from_ids(lily_symtab *, const int *);
