@@ -1437,7 +1437,7 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
    the argument count is correct. For method varargs, this will pack the extra
    arguments into a list. */
 static void check_call_args(lily_emit_state *emit, lily_ast *ast,
-        lily_sig *call_sig)
+        lily_sig *call_sig, int skip_first_arg)
 {
     lily_ast *arg = ast->arg_start;
     int have_args, i, is_varargs, num_args;
@@ -1451,11 +1451,20 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
        var arg signature. */
     num_args = (call_sig->siglist_size - 1) - is_varargs;
 
+    /* If skip_first_arg is set, then do as it says. This is necessary for
+       dotcalls (ex: abc.xyz()). The first value (the abc) has already been
+       evaluated and compared, so no need to eval again.
+       In this case, the first arg is not typechecked. This should only be an
+       issue if a callable for a class doesn't take self as the first argument
+       (and when have you ever heard of that? :) ) */
+    if (skip_first_arg)
+        arg = arg->next_arg;
+
     if ((is_varargs && (have_args <= num_args)) ||
         (is_varargs == 0 && (have_args != num_args)))
         bad_num_args(emit, ast, call_sig);
 
-    for (i = 0;i != num_args;arg = arg->next_arg, i++) {
+    for (i = skip_first_arg;i != num_args;arg = arg->next_arg, i++) {
         if (arg->tree_type != tree_local_var)
             /* Walk the subexpressions so the result gets calculated. */
             eval_tree(emit, arg);
@@ -1525,6 +1534,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     lily_ast *arg;
     lily_sig *call_sig;
     lily_sym *call_sym;
+    int skip_first_arg = 0;
 
     if (ast->result == NULL) {
         int cls_id;
@@ -1539,6 +1549,8 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
            Ex: An empty list used as an arg may want to know what to
            default to. */
         ast->result = ast->arg_start->result;
+        if (ast->result == NULL)
+            lily_raise_nomem(emit->raiser);
 
         /* Make sure the result is callable (ex: NOT @(integer: 10) ()). */
         cls_id = ast->result->sig->cls->id;
@@ -1549,9 +1561,19 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
                     ast->result->sig);
         }
 
-        /* Then drop it from the arg list, since it's not an arg. */
-        ast->arg_start = ast->arg_start->next_arg;
-        ast->args_collected--;
+        if (ast->arg_start->tree_type != tree_oo_call) {
+            /* Then drop it from the arg list, since it's not an arg. */
+            ast->arg_start = ast->arg_start->next_arg;
+            ast->args_collected--;
+        }
+        else {
+            /* Patch the oo_call's result to be the tree it swallowed, since
+               that tree is the call's first argument. The first argument's
+               type-check gets skipped, since it would be a double-eval to do
+               otherwise. */
+            ast->arg_start->result = ast->arg_start->arg_start->result;
+            skip_first_arg = 1;
+        }
     }
 
     call_sym = ast->result;
@@ -1560,7 +1582,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     is_method = (call_sym->sig->cls->id == SYM_CLASS_METHOD);
     expect_size = 6 + ast->args_collected;
 
-    check_call_args(emit, ast, call_sig);
+    check_call_args(emit, ast, call_sig, skip_first_arg);
 
     if (GLOBAL_LOAD_CHECK(call_sym)) {
         lily_storage *storage = get_storage(emit, call_sym->sig, ast->line_num);
@@ -1673,6 +1695,37 @@ static void eval_package(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)s;
 }
 
+/*  eval_oo_call
+    This is a 'abc.xyz' sort of call. This ast's arg_start is the 'abc' part
+    of the call. Eval this, then use the resulting signature and the ast's
+    oo_pool_index to do a lookup (for the xyz part). This yields the found var
+    as a result.
+    eval_call takes the result as the var to call, then patches it later to
+    have the ast arg_start's result for emitting.
+    Note: This tree's arg_start is the first argument of the call, but is
+          never type-checked. This isn't considered a problem, because the
+          first argument of a class callable always takes self.
+          Have you ever seen a class method NOT take the class as the first
+          argument? Exactly. */
+static void eval_oo_call(lily_emit_state *emit, lily_ast *ast)
+{
+    if (ast->arg_start->tree_type != tree_local_var)
+        eval_tree(emit, ast->arg_start);
+
+    char *oo_name = emit->oo_name_pool->str + ast->oo_pool_index;
+    lily_var *var = lily_find_class_callable(emit->symtab,
+            ast->arg_start->result->sig->cls, oo_name);
+
+    if (var == NULL) {
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                "Class %s has no callable named %s.\n",
+                ast->arg_start->result->sig->cls->name,
+                oo_name);
+    }
+
+    ast->result = (lily_sym *)var;
+}
+
 /* eval_tree
    This is the main emit function. This doesn't evaluate anything itself, but
    instead determines what call to shove the work off to. */
@@ -1726,6 +1779,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast)
         eval_package(emit, ast);
     else if (ast->tree_type == tree_typecast)
         eval_typecast(emit, ast);
+    else if (ast->tree_type == tree_oo_call)
+        eval_oo_call(emit, ast);
 }
 
 /** Emitter API functions **/

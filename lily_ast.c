@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "lily_impl.h"
 #include "lily_ast.h"
 
@@ -51,6 +53,7 @@ lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
     ap->root = NULL;
     ap->available_start = NULL;
     ap->available_current = NULL;
+    ap->oo_name_pool = NULL;
 
     last_tree = NULL;
     for (i = 0;i < pool_size;i++) {
@@ -80,6 +83,20 @@ lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
 
     ap->available_start = last_tree;
     ap->available_current = last_tree;
+
+    lily_ast_str_pool *oo_name_pool = lily_malloc(sizeof(lily_ast_str_pool));
+    char *pool_str = lily_malloc(8 * sizeof(char));
+    if (oo_name_pool == NULL || pool_str == NULL) {
+        lily_free(oo_name_pool);
+        lily_free(pool_str);
+        ok = 0;
+    }
+    else {
+        ap->oo_name_pool = oo_name_pool;
+        oo_name_pool->str = pool_str;
+        oo_name_pool->pos = 0;
+        oo_name_pool->size = 8;
+    }
 
     if (ok == 0) {
         lily_free_ast_pool(ap);
@@ -125,6 +142,11 @@ void lily_free_ast_pool(lily_ast_pool *ap)
         }
     }
 
+    if (ap->oo_name_pool) {
+        lily_free(ap->oo_name_pool->str);
+        lily_free(ap->oo_name_pool);
+    }
+
     lily_free(ap);
 }
 
@@ -135,6 +157,7 @@ void lily_ast_reset_pool(lily_ast_pool *ap)
 {
     ap->root = NULL;
     ap->active = NULL;
+    ap->oo_name_pool->pos = 0;
     ap->available_current = ap->available_start;
 }
 
@@ -171,6 +194,7 @@ static void merge_absorb(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
            rhs of a binary op. This cannot become current or root, because the
            binary always has priority over it. */
         target = active->right;
+        active->right->parent = new_ast;
         active->right = new_ast;
     }
 
@@ -798,6 +822,62 @@ void lily_ast_push_sig(lily_ast_pool *ap, lily_sig *sig)
     a->right = NULL;
     a->line_num = *ap->lex_linenum;
     a->result = NULL;
+
+    merge_value(ap, a);
+}
+
+static void add_name_to_pool(lily_ast_pool *ap, char *name)
+{
+    int oo_name_length = strlen(name);
+    lily_ast_str_pool *str_pool = ap->oo_name_pool;
+    int size_wanted = str_pool->pos + oo_name_length + 1;
+    if (size_wanted > str_pool->size) {
+        int new_size = str_pool->size;
+
+        do {
+            new_size *= 2;
+        } while (size_wanted > new_size);
+
+        char *new_str = lily_realloc(str_pool->str, new_size * sizeof(char));
+
+        if (new_str == NULL)
+            lily_raise_nomem(ap->raiser);
+
+        str_pool->str = new_str;
+        str_pool->size = new_size;
+    }
+
+    if (str_pool->pos == 0)
+        strcpy(str_pool->str, name);
+    else {
+        str_pool->str[str_pool->pos] = '\0';
+        strcat(str_pool->str + str_pool->pos, name);
+    }
+
+    str_pool->pos = size_wanted;
+}
+
+void lily_ast_push_oo_call(lily_ast_pool *ap, char *oo_name)
+{
+    int oo_index = ap->oo_name_pool->pos;
+    add_name_to_pool(ap, oo_name);
+
+    lily_ast *a;
+    if (ap->available_current) {
+        a = ap->available_current;
+        ap->available_current = a->next_tree;
+    }
+    else
+        a = make_new_tree(ap);
+
+    a->oo_pool_index = oo_index;
+    a->tree_type = tree_oo_call;
+    a->line_num = *ap->lex_linenum;
+    a->result = NULL;
+    a->args_collected = 0;
+    a->arg_start = NULL;
+    a->arg_top = NULL;
+    a->parent = NULL;
 
     merge_value(ap, a);
 }

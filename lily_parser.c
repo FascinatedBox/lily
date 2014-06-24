@@ -80,6 +80,7 @@ lily_parse_state *lily_new_parse_state(int argc, char **argv)
     parser->ast_pool->lex_linenum = &parser->lex->line_num;
     parser->emit->lex_linenum = &parser->lex->line_num;
     parser->emit->symtab = parser->symtab;
+    parser->emit->oo_name_pool = parser->ast_pool->oo_name_pool;
 
     /* This creates a new var, so it has to be done after symtab's lex_linenum
        is set. */
@@ -427,129 +428,13 @@ static void expression_typecast(lily_parse_state *parser)
     lily_lexer(lex);
 }
 
-static lily_sig *determine_ast_sig(lily_parse_state *parser, lily_ast *ast)
-{
-    lily_sig *ret;
-
-    while (1) {
-        while (ast->tree_type == tree_parenth)
-            ast = ast->arg_start;
-
-        /* a.concat("str") */
-        if (ast->tree_type == tree_var ||
-            ast->tree_type == tree_local_var ||
-            ast->tree_type == tree_readonly)
-            ret = ast->result->sig;
-        /* strcall(a, b, c).concat("str") */
-        else if (ast->tree_type == tree_call)
-            ret = ast->result->sig->siglist[0];
-        /* a = b.concat("str") */
-        else if (ast->tree_type == tree_binary) {
-            ast = ast->right;
-            continue;
-        }
-        /* a = strlist[0].concat(b)
-           Return the type used for list elements. */
-        else if (ast->tree_type == tree_subscript) {
-            lily_sig *var_sig = determine_ast_sig(parser, ast->arg_start);
-            /* Ensure that this can be subscripted. This is less to enforce
-               proper subscripts, and more to prevent crashing from trying to
-               do something like 0[10].abc(). */
-            if (var_sig->cls->id != SYM_CLASS_LIST) {
-                parser->raiser->line_adjust = ast->line_num;
-                lily_raise(parser->raiser, lily_ErrSyntax,
-                        "Cannot subscript type '%T'.\n", var_sig);
-            }
-
-            ret = var_sig->siglist[0];
-        }
-        /* @(str: ???).concat("a").
-           Assume that the typecast succeeds. Either the emitter or the vm will
-           complain about it if it's wrong. */
-        else if (ast->tree_type == tree_typecast)
-            ret = ast->sig;
-        /* Warning: Unary has not been verified yet, because str.concat is the
-           only oo call. Fix this when that gets fixed. */
-        else if (ast->tree_type == tree_unary) {
-            ast = ast->left;
-            continue;
-        }
-        /* [a, b, c].concat(d)
-           If a list is empty, use the type specified within it. Otherwise, walk
-           the args to determine the type. This is similar to emitter's
-           eval_build_list, except that it doesn't eval. */
-        else if (ast->tree_type == tree_list) {
-            if (ast->arg_start == NULL)
-                ret = ast->sig;
-            else {
-                lily_sig *arg_sig, *common_sig;
-                lily_ast *arg;
-
-                common_sig = NULL;
-
-                for (arg = ast->arg_start; arg!= NULL; arg = arg->next_arg) {
-                    arg_sig = determine_ast_sig(parser, arg);
-                    if (common_sig != NULL) {
-                        if (arg_sig != common_sig) {
-                            lily_class *cls;
-
-                            cls = lily_class_by_id(parser->symtab,
-                                    SYM_CLASS_OBJECT);
-                            common_sig = cls->sig;
-                            /* Parser can break here, because it's only
-                               concerned about the resulting type. */
-                            break;
-                        }
-                    }
-                    else
-                        common_sig = arg_sig;
-                }
-
-                lily_class *cls;
-                lily_sig *result_sig;
-                cls = lily_class_by_id(parser->symtab, SYM_CLASS_LIST);
-                result_sig = lily_try_sig_for_class(parser->symtab, cls);
-                if (result_sig == NULL)
-                    lily_raise_nomem(parser->raiser);
-
-                result_sig->siglist = lily_malloc(sizeof(lily_sig));
-                if (result_sig->siglist == NULL)
-                    lily_raise_nomem(parser->raiser);
-
-                result_sig->siglist[0] = common_sig;
-                result_sig->siglist_size = 1;
-                result_sig = lily_ensure_unique_sig(parser->symtab, result_sig);
-                ret = result_sig;
-            }
-        }
-
-        break;
-    }
-
-    return ret;
-}
-
 /* expression_oo
    This function handles an 'object-oriented' type of call on an object such as
    'stringA.concat("b")'. */
 static void expression_oo(lily_parse_state *parser)
 {
-    lily_var *call_var;
-    lily_sig *ast_sig;
-    lily_class *cls;
-
-    ast_sig = determine_ast_sig(parser, parser->ast_pool->active);
-    cls = ast_sig->cls;
-
-    call_var = lily_find_class_callable(parser->symtab, cls,
-            parser->lex->label);
-    if (call_var == NULL) {
-        lily_raise(parser->raiser, lily_ErrSyntax,
-                   "Class %s has no callable named %s.\n", cls->name,
-                   parser->lex->label);
-    }
-
-    lily_ast_enter_tree(parser->ast_pool, tree_call, call_var);
+    lily_ast_push_oo_call(parser->ast_pool, parser->lex->label);
+    lily_ast_enter_tree(parser->ast_pool, tree_call, NULL);
 }
 
 /* expression_unary
