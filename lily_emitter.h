@@ -41,6 +41,7 @@ typedef struct {
     lily_block *current_block;
     int method_depth;
     lily_raiser *raiser;
+    lily_ast_str_pool *oo_name_pool;
     lily_symtab *symtab;
     int expr_num;
 } lily_emit_state;

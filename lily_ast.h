@@ -11,9 +11,15 @@
    subscript tree use the right side of the binary tree. */
 typedef enum {
     tree_call, tree_subscript, tree_list, tree_hash, tree_arrow, tree_parenth,
-    tree_local_var, tree_readonly, tree_var, tree_package, tree_unary,
-    tree_typecast, tree_binary
+    tree_local_var, tree_readonly, tree_var, tree_package, tree_oo_call,
+    tree_unary, tree_typecast, tree_binary
 } lily_tree_type;
+
+typedef struct {
+    char *str;
+    int pos;
+    int size;
+} lily_ast_str_pool;
 
 typedef struct lily_ast_t {
     lily_tree_type tree_type;
@@ -38,6 +44,8 @@ typedef struct lily_ast_t {
     int args_collected;
     struct lily_ast_t *arg_start;
     struct lily_ast_t *arg_top;
+
+    int oo_pool_index;
 
     /* These are for unary and binary ops mostly. Typecast stores a value in
        right so that operations will use that like with binary. */
@@ -75,6 +83,18 @@ typedef struct {
     lily_ast *root;
     lily_ast *active;
 
+    /* This holds the names of calls invoked through dots. Ex: 'abc.def()'.
+       Each tree_oo that uses this will have a starting index saying the string
+       it's interested in starts at. An index is used so that the ast pool can
+       realloc the one large string and not worry about invalidating anything.
+       Each string copied in is \0 terminated.
+       Ex: abc.concat("def").concat("ghi")
+           Pool:   "def\0ghi\0"
+           Starts:  ^    ^
+       This scheme is done so that the parser does not have to guess the type
+       to do the  */
+    lily_ast_str_pool *oo_name_pool;
+
     /* This goes from oldest (prev), to newest (next). The save_chain is always
        updated to the most recent entry when a tree is entered. */
     lily_ast_save_entry *save_chain;
@@ -99,5 +119,6 @@ void lily_ast_push_sym(lily_ast_pool *, lily_sym *);
 void lily_ast_push_readonly(lily_ast_pool *, lily_sym *);
 void lily_ast_push_unary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_empty_list(lily_ast_pool *ap, lily_sig *sig);
+void lily_ast_push_oo_call(lily_ast_pool *, char *);
 void lily_ast_reset_pool(lily_ast_pool *);
 #endif
