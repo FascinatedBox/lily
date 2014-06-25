@@ -477,6 +477,48 @@ static lily_literal *parse_special_keyword(lily_parse_state *parser, int key_id)
     return ret;
 }
 
+/*  expression_package
+    This handles x::y kinds of expressions. This is called when a var is seen
+    that is a package. There are a few caveats to this:
+    * A check for :: is forced so that an inner var can be collected, instead
+      of letting packages be assignable. This was done so that package accesses
+      can be effectively computed at emit time (given that packages are
+      initialized through parser and not assignable or able to be put in lists).
+    * This does not check for packages in packages, because those don't
+      currently exist.
+    * For the same reason, a callable inner var is also not checked for.
+    * This enters a package tree to stay consistent with all non-(binary/unary)
+      trees.
+    * This enters tree_package to be consistent with how other things
+      (subscripts, list building, typecasts, etc.) all create enterable trees
+      to handle things. */
+static void expression_package(lily_parse_state *parser, lily_var *package_var)
+{
+    lily_ast_pool *ap = parser->ast_pool;
+    lily_lex_state *lex = parser->lex;
+    lily_var *scope = package_var->value.package->vars[0];
+
+    lily_ast_enter_tree(ap, tree_package, NULL);
+    lily_ast_push_sym(ap, (lily_sym *)package_var);
+    lily_ast_collect_arg(ap);
+
+    NEED_CURRENT_TOK(tk_colon_colon)
+    NEED_NEXT_TOK(tk_word)
+
+    lily_var *inner_var = lily_scoped_var_by_name(parser->symtab, scope,
+            lex->label);
+    if (inner_var == NULL) {
+        lily_raise(parser->raiser, lily_ErrSyntax,
+                "Package %s has no member %s.\n",
+                package_var->name, lex->label);
+    }
+
+    lily_ast_push_sym(ap, (lily_sym *)inner_var);
+    lily_ast_collect_arg(ap);
+    lily_ast_leave_tree(ap);
+    lily_lexer(lex);
+}
+
 /* expression_value
    This handles getting a value for expression. It also handles oo calls and
    unary expressions as necessary. It will always push a value to the ast. */
@@ -484,11 +526,10 @@ static void expression_value(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
-    lily_var *scope = symtab->var_start;
 
     while (1) {
         if (lex->token == tk_word) {
-            lily_var *var = lily_scoped_var_by_name(symtab, scope, lex->label);
+            lily_var *var = lily_var_by_name(symtab, lex->label);
 
             if (var) {
                 lily_lexer(lex);
@@ -514,14 +555,8 @@ static void expression_value(lily_parse_state *parser)
                 }
                 else {
                     if (var->method_depth == 1) {
-                        if (var->sig->cls->id == SYM_CLASS_PACKAGE) {
-                            NEED_CURRENT_TOK(tk_colon_colon);
-                            NEED_NEXT_TOK(tk_word);
-                            scope = var->value.package->vars[0];
-                            lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
-                            lily_ast_push_package(parser->ast_pool);
-                            continue;
-                        }
+                        if (var->sig->cls->id == SYM_CLASS_PACKAGE)
+                            expression_package(parser, var);
                         else {
                             /* It's in __main__ as a global. */
                             lily_ast_push_sym(parser->ast_pool,
@@ -635,15 +670,12 @@ static void expression_value(lily_parse_state *parser)
             lily_lexer(lex);
             if (lex->token == tk_right_parenth)
                 break;
-            else {
-                scope = symtab->var_start;
+            else
                 continue;
-            }
         }
         else if (lex->token == tk_left_bracket) {
             lily_ast_enter_tree(parser->ast_pool, tree_subscript, NULL);
             lily_lexer(lex);
-            scope = symtab->var_start;
             continue;
         }
         break;
