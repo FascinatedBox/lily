@@ -990,11 +990,12 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
    Any typecast that specifies object is transformed into an object assign. */
 static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 {
-    if (ast->right->tree_type != tree_local_var)
-        eval_tree(emit, ast->right);
+    lily_sig *cast_sig = ast->arg_start->sig;
+    lily_ast *right_tree = ast->arg_start->next_arg;
+    if (right_tree->tree_type != tree_local_var)
+        eval_tree(emit, right_tree);
 
-    lily_sig *cast_sig = ast->sig;
-    lily_sig *var_sig = ast->right->result->sig;
+    lily_sig *var_sig = right_tree->result->sig;
     lily_method_val *m = emit->top_method;
 
     if (cast_sig == var_sig) {
@@ -1007,7 +1008,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 
         WRITE_4(o_obj_assign,
                 ast->line_num,
-                ast->right->result->reg_spot,
+                right_tree->result->reg_spot,
                 storage->reg_spot)
         ast->result = (lily_sym *)storage;
         return;
@@ -1041,7 +1042,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 
     WRITE_4(cast_opcode,
             ast->line_num,
-            ast->right->result->reg_spot,
+            right_tree->result->reg_spot,
             result->reg_spot)
 
     ast->result = (lily_sym *)result;
