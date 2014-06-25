@@ -171,8 +171,8 @@ static void merge_absorb(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
 {
     lily_ast *target;
 
-    if (active->tree_type < tree_typecast) {
-        /* For non-binary/typecast trees, swallow the current tree as an
+    if (active->tree_type != tree_binary) {
+        /* For non-binary trees, swallow the current tree as an
            'argument', and become the new current tree. */
         if (ap->root == active)
             ap->root = new_ast;
@@ -184,8 +184,7 @@ static void merge_absorb(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
         target = active;
     }
     else {
-        /* This gets called when the merge is against the rhs of a binary or the
-           rhs of a typecast.
+        /* This gets called when the merge is against the rhs of a binary.
            Ex: 'a = b.concat("c") < b.concat("d")
                '@(type: value[0])'   ^
                              ^
@@ -210,7 +209,7 @@ static void merge_package(lily_ast_pool *ap, lily_ast *new_active, lily_ast *new
 
     /* merge_package is called after a var has a value, so binary will always have a
        value at this point. No need to check for that like with unary. */
-    if (new_active->tree_type >= tree_binary)
+    if (new_active->tree_type == tree_binary)
         active = active->right;
 
     if (new_ast->tree_type == tree_var)
@@ -229,12 +228,11 @@ static void merge_unary(lily_ast_pool *ap, lily_ast *new_active, lily_ast *new_a
 {
     lily_ast *active = new_active;
     /* 'a = ' or '@(type: ', so there's no value for the right side...yet. */
-    if (active->tree_type >= tree_typecast && active->right == NULL)
+    if (active->tree_type == tree_binary && active->right == NULL)
         active->right = new_ast;
     else {
-        /* Might be 'a = -' or '@(type: ', so there's already at least 1
-           unary value. */
-        if (active->tree_type >= tree_typecast)
+        /* Might be 'a = -', so there's already at least 1 unary value. */
+        if (active->tree_type == tree_binary)
             active = active->right;
 
         /* Unary ops are right->left (opposite of binary), and all have the same
@@ -281,9 +279,7 @@ static void merge_value(lily_ast_pool *ap, lily_ast *new_ast)
         /* It's an oo call if we're merging a call against an existing
            value. */
 
-        if (active->tree_type >= tree_typecast) {
-            /* It's impossible to find another typecast here because inner
-               typecasts are wrapped inside of a parenth tree. */
+        if (active->tree_type == tree_binary) {
             if (active->right == NULL)
                 active->right = new_ast;
             else if (active->right->tree_type == tree_unary)
@@ -677,6 +673,35 @@ void lily_ast_push_empty_list(lily_ast_pool *ap, lily_sig *sig)
     merge_value(ap, a);
 }
 
+/* lily_ast_push_sig
+   This 'creates' a sig tree for tree_typecast. This tree's purpose is to hold
+   the signature that the typecast will try to coerce its value to. */
+static void push_sig(lily_ast_pool *ap, lily_sig *sig)
+{
+    lily_ast *a;
+    if (ap->available_current) {
+        a = ap->available_current;
+        ap->available_current = a->next_tree;
+    }
+    else
+        a = make_new_tree(ap);
+
+    a->tree_type = tree_sig;
+    a->sig = sig;
+    a->right = NULL;
+    a->line_num = *ap->lex_linenum;
+    a->result = NULL;
+
+    merge_value(ap, a);
+}
+
+void lily_ast_enter_typecast(lily_ast_pool *ap, lily_sig *sig)
+{
+    lily_ast_enter_tree(ap, tree_typecast, NULL);
+    push_sig(ap, sig);
+    lily_ast_collect_arg(ap);
+}
+
 /* lily_ast_push_unary_op
    This 'creates' and merges a unary op against the active tree. */
 void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
@@ -737,7 +762,7 @@ void lily_ast_push_package(lily_ast_pool *ap)
         ap->active = a;
         ap->root = a;
     }
-    else if (active->tree_type >= tree_typecast) {
+    else if (active->tree_type == tree_binary) {
         a->left = active->right;
         active->right = a;
     }
@@ -799,29 +824,6 @@ void lily_ast_push_readonly(lily_ast_pool *ap, lily_sym *ro_sym)
     a->tree_type = tree_readonly;
     a->line_num = *ap->lex_linenum;
     a->result = ro_sym;
-
-    merge_value(ap, a);
-}
-
-/* lily_ast_push_sig
-   This 'creates' a typecast tree, and places a sig into it. The tree is merged
-   against the active tree. Right is used to store the value because that allows
-   typecast to share some code with binary trees in some areas. */
-void lily_ast_push_sig(lily_ast_pool *ap, lily_sig *sig)
-{
-    lily_ast *a;
-    if (ap->available_current) {
-        a = ap->available_current;
-        ap->available_current = a->next_tree;
-    }
-    else
-        a = make_new_tree(ap);
-
-    a->tree_type = tree_typecast;
-    a->sig = sig;
-    a->right = NULL;
-    a->line_num = *ap->lex_linenum;
-    a->result = NULL;
 
     merge_value(ap, a);
 }

@@ -418,10 +418,7 @@ static void expression_typecast(lily_parse_state *parser)
     /* It's possible that the value will be a binary expression. A parenth tree
        is entered so that binary can't parent the current root or do anything
        strange. It also offsets the ending ). */
-    lily_ast_enter_tree(parser->ast_pool, tree_parenth, NULL);
-
-    /* The ast owns the sig until the emitter takes it over. */
-    lily_ast_push_sig(parser->ast_pool, new_sig);
+    lily_ast_enter_typecast(parser->ast_pool, new_sig);
 
     /* This should be the value. Yield to expression_value in case the value
        is more than just a var. */

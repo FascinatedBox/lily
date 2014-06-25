@@ -1405,6 +1405,10 @@ method test_misc():nil
         print("failed.\n")
     }
 
+    # This is a test for GH #21, where this command would result in a complaint
+    # about being unable to add object to integer.
+    object o = @(object: 1 + 1)
+
     if ok == 0:
         fail_count = fail_count + 1
 }
