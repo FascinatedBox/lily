@@ -177,10 +177,12 @@ static void merge_absorb(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
         if (ap->root == active)
             ap->root = new_ast;
 
-        /* The call becomes active because it's taking over the var. Otherwise,
-           lily_ast_enter_call will think the var is the parent, and make the
-           var the current when the call is done. That's bad. */
-        ap->active = new_ast;
+        /* Sometimes, this merge is called with active as unary's left. So
+           active isn't always ap->active. If it isn't, don't become
+           ap->active. */
+        if (active == ap->active)
+            ap->active = new_ast;
+
         target = active;
     }
     else {
@@ -229,18 +231,11 @@ static void merge_unary(lily_ast_pool *ap, lily_ast *new_active, lily_ast *new_a
 
         if (active->left == NULL)
             active->left = new_ast;
-        else if (new_ast->tree_type == tree_subscript ||
-                 new_ast->tree_type == tree_package) {
-            /* These two both swallow whatever unary is currently holding as
-               their first arg. */
+        else {
+            /* Absorb the left side, then become the left side. */
             merge_absorb(ap, active->left, new_ast);
-            /* new_ast contains the tree in active->left, so update the unary
-               tree... */
             active->left = new_ast;
         }
-        /* todo: As of now, there are no dot calls that yield an integer value.
-           However, I suspect that when that occurs, dotcall will also need to
-           be here. */
     }
 
     new_ast->parent = active;
