@@ -1411,6 +1411,14 @@ method test_misc():nil
     # This checks that parser properly handles () from a dot call routed
     # through a ] check.
     integer i2 = [1].size()
+    # This is a test for GH #20, where unary wasn't handling deep subscripts
+    # and calls being merged right
+
+    method ret10():integer { return 10 }
+    list[list[method(): integer]] llm = [[ret10]]
+    list[list[integer]] llsi = [[1]]
+    i2 = !llsi[0][0]
+    i2 = !llm[0][0]()
 
     if ok == 0:
         fail_count = fail_count + 1
