@@ -740,6 +740,9 @@ static void expression(lily_parse_state *parser)
                 expression_oo(parser);
                 NEED_NEXT_TOK(tk_left_parenth);
                 lily_lexer(lex);
+                /* Jump back up in case of (), like above. */
+                if (lex->token == tk_right_parenth)
+                    continue;
             }
         }
         else if (lex->token == tk_comma || lex->token == tk_arrow) {
