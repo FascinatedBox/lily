@@ -755,8 +755,8 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
 static int get_package_index(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_package_val *pval = ast->left->result->value.package;
-    lily_var *want_var = (lily_var *)(ast->right->result);
+    lily_package_val *pval = ast->arg_start->result->value.package;
+    lily_var *want_var = (lily_var *)(ast->arg_start->next_arg->result);
 
     int i;
     for (i = 0;i < pval->var_count;i++) {
@@ -767,30 +767,39 @@ static int get_package_index(lily_emit_state *emit, lily_ast *ast)
     return i;
 }
 
+/*  eval_package_assign
+    This is like eval_package, except the var is going to be assigned to
+    instead of read from.
+    * ast->left is the package tree.
+    * ast->right is the value to assign. */
 static void eval_package_assign(lily_emit_state *emit, lily_ast *ast)
 {
     lily_method_val *m = emit->top_method;
+    lily_ast *rhs_tree = ast->right;
+    lily_ast *package_left = ast->left->arg_start;
+    lily_ast *package_right = ast->left->arg_start->next_arg;
 
     /* For now, there are no packages in packages, so ast->left will always be
        of type tree_package, with a var as the left and the right. */
     if (ast->right->tree_type != tree_var)
         eval_tree(emit, ast->right);
 
-    /* Don't eval the lhs, because an assignment has to be done directly to the
-       package var. The left's right is the var that needs to be pulled out. So
-       get the signature of that and make sure it's a match. */
-    lily_sig *result_sig = ast->left->right->result->sig;
+    /* Don't evaluate the package tree. Like subscript assign, this has to
+       write directly to the var at the given part of the package. Since parser
+       passes the var to be assigned, just grab that from result for checking
+       the sig. No need to do a symtab lookup of a name. */
+    lily_sig *result_sig = package_right->result->sig;
 
-    if (result_sig != ast->right->result->sig &&
-        type_matchup(emit, NULL, result_sig, ast->right) == 0) {
+    if (result_sig != rhs_tree->result->sig &&
+        type_matchup(emit, NULL, result_sig, rhs_tree) == 0) {
         bad_assign_error(emit, ast->line_num, result_sig,
-                ast->right->result->sig);
+                rhs_tree->result->sig);
     }
 
     int index = get_package_index(emit, ast->left);
 
-    WRITE_5(o_package_set, ast->line_num, ast->left->left->result->reg_spot,
-            index, ast->right->result->reg_spot)
+    WRITE_5(o_package_set, ast->line_num, package_left->result->reg_spot,
+            index, rhs_tree->result->reg_spot)
 }
 
 /* Forward decls of enter/leave block for emit_logical_op. */
@@ -1677,21 +1686,31 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     }
 }
 
+/*  eval_package
+    This is a x::y sort of call. Since parser -really- prefers not to send
+    strings (those have to be malloc'd or managed like ast's string pool),
+    parser instead gives vars.
+    * ast->arg_start:
+      This is the package to lookup.
+    * ast->arg_start->next_arg:
+      This is the var in the package to be read. The index within the package
+      must be obtained first. */
 static void eval_package(lily_emit_state *emit, lily_ast *ast)
 {
     lily_method_val *m = emit->top_method;
 
-    if (ast->left->tree_type != tree_var)
+    if (ast->arg_start->tree_type != tree_var)
         eval_tree(emit, ast->left);
 
     int index;
     lily_storage *s;
 
     index = get_package_index(emit, ast);
-    s = get_storage(emit, ast->right->result->sig, ast->line_num);
+    s = get_storage(emit, ast->arg_start->next_arg->result->sig,
+            ast->line_num);
 
-    WRITE_5(o_package_get, ast->line_num, ast->left->result->reg_spot, index,
-            s->reg_spot)
+    WRITE_5(o_package_get, ast->line_num, ast->arg_start->result->reg_spot,
+            index, s->reg_spot)
 
     ast->result = (lily_sym *)s;
 }
