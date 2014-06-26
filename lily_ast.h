@@ -10,7 +10,7 @@
    the right thing. Consider: 'a + b[0]'. Here, it's important that the
    subscript tree use the right side of the binary tree. */
 typedef enum {
-    tree_call, tree_subscript, tree_list, tree_hash, tree_arrow, tree_parenth,
+    tree_call, tree_subscript, tree_list, tree_hash, tree_parenth,
     tree_local_var, tree_readonly, tree_var, tree_package, tree_oo_call,
     tree_unary, tree_sig, tree_typecast, tree_binary
 } lily_tree_type;
