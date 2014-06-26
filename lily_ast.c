@@ -4,10 +4,14 @@
 #include "lily_ast.h"
 
 /** How ast works
-    * Every tree represents something, either an operation, or a value. Some
-      trees make use of some of the trees inside of them. As an example, binary
-      uses left, right, and parent to refer to the left of the expression, the
-      right of it, and the expression that is above it.
+    * Every kind of a tree represents something different. It's always either a
+      value, or an operation that needs to be performed.
+    * There are two important trees: active, and root.
+      * active: This is what new trees will interact with when merging.
+      * root:   This is the tree that holds all others (it has no parents).
+    * Binary trees use left and right. These trees have precedence which
+      determines how they merge with each other. Unary trees are right to left,
+      so new values always merge against the lowest value of them.
     * Evaluation is done from the bottom up, and left to right. Parents are
       higher up in the tree, and go later.
     * Example: 5 + 6 * 7
@@ -19,24 +23,47 @@
       |        |        |        |   /   |   / \  |
       |        |        |        |  6    |  6   7 |
       ---------------------------------------------
-    * The ast pool keeps track of two important trees: the active and the top.
-      The active tree is what new values will be given to. In the above example,
-      5 is initially current until + is added. * becomes current when it is
-      added. The top tree is the tree that is the parent of all other trees.
-      This is given by the parser to the emitter so the emitter can recurse
-      through all trees.
+    * Most trees, however, are left to right with no precedence rules, and will
+      simply absorb (usually the current) tree as an argument.
     * The pool stores the asts used for an expression, and reuses those on the
       next pass. The trees are linked to each other through the ->next_tree
       field. New trees are added as they are needed, so there is no waste.
 
     ast is responsible for:
-    * Providing an API to parser for merging in trees. Parser is expected to
-      use this right (ex: not giving 3 values to a binary op, etc.), so there is
-      no extra checking in ast.
+    * Providing an API to parser for merging in trees. The ast pool does not
+      perform sanity checking (parser is responsible for only allowing valid
+      merges).
     * Keeping track of the depth of the current expression (how many calls/
       parent ops/lists there are). This is used by parser to guard against an
       expression ending early (save_index is 0 if there are no subtrees).
 **/
+
+/*  AST_COMMON_INIT
+    This macro does common initialization for all new asts. This doesn't set
+    result to NULL, because value trees set a result. */
+#define AST_COMMON_INIT(a, tt) \
+lily_ast *a; \
+if (ap->available_current) { \
+    a = ap->available_current; \
+    ap->available_current = a->next_tree; \
+} \
+else \
+    a = make_new_tree(ap); \
+a->tree_type = tt; \
+a->line_num = *ap->lex_linenum; \
+a->parent = NULL;
+
+
+/*  AST_ENTERABLE_INIT
+    This macro does common initialization for trees that are meant to be
+    entered (and will collect args). */
+#define AST_ENTERABLE_INIT(a, tt) \
+AST_COMMON_INIT(a, tt) \
+a->args_collected = 0; \
+a->arg_start = NULL; \
+a->arg_top = NULL; \
+a->result = NULL;
+
 
 /** ast pool init, deletion, and reset. **/
 lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
@@ -162,115 +189,90 @@ void lily_ast_reset_pool(lily_ast_pool *ap)
 }
 
 /** Common private merging functions **/
-/* merge_absorb
-   This handles a merge wherein the active tree is taken over by the new ast
-   as an argument. This was originally done to handle turning things like
-   a.concat("b") into concat(a, "b"), but it also works for list build,
-   subscripts, and much more. */
-static void merge_absorb(lily_ast_pool *ap, lily_ast *active, lily_ast *new_ast)
+/*  merge_absorb
+    This does a merge where 'given' will be swallowed by 'new_tree' as an
+    argument. This is the most common merge (aside from binary). This handles
+    lists (each element is an argument), typecasts (1 arg is the type, the
+    other is the value to cast), calls, and much, much more.
+    Note: 'given' may not be the active tree. */
+static void merge_absorb(lily_ast_pool *ap, lily_ast *given, lily_ast *new_tree)
 {
-    lily_ast *target;
-
-    if (active->tree_type != tree_binary) {
-        /* For non-binary trees, swallow the current tree as an
-           'argument', and become the new current tree. */
-        if (ap->root == active)
-            ap->root = new_ast;
-
-        /* Sometimes, this merge is called with active as unary's left. So
-           active isn't always ap->active. If it isn't, don't become
-           ap->active. */
-        if (active == ap->active)
-            ap->active = new_ast;
-
-        target = active;
-    }
-    else {
-        /* This gets called when the merge is against the rhs of a binary.
-           Ex: 'a = b.concat("c") < b.concat("d")
-               '@(type: value[0])'   ^
-                             ^
-
-           This is always against the rhs, like how values always add to the
-           rhs of a binary op. This cannot become current or root, because the
-           binary always has priority over it. */
-        target = active->right;
-        active->right->parent = new_ast;
-        active->right = new_ast;
+    /* If the swallowed tree is active/root, become those. */
+    if (given == ap->active) {
+        ap->active = new_tree;
+        if (given == ap->root)
+            ap->root = new_tree;
     }
 
-    new_ast->arg_start = target;
-    new_ast->arg_top = target;
-    new_ast->args_collected = 1;
-    new_ast->next_arg = NULL;
+    new_tree->parent = given->parent;
+    new_tree->arg_start = given;
+    new_tree->arg_top = given;
+    new_tree->args_collected = 1;
+    new_tree->next_arg = NULL;
 }
 
 /* merge_unary
    This handles a unary merge wherein 'active' is ap->active and new_ast is the
    tree to be merged in. */
-static void merge_unary(lily_ast_pool *ap, lily_ast *new_active, lily_ast *new_ast)
+static void merge_unary(lily_ast_pool *ap, lily_ast *given, lily_ast *new_tree)
 {
-    lily_ast *active = new_active;
-    /* 'a = ' or '@(type: ', so there's no value for the right side...yet. */
-    if (active->tree_type == tree_binary && active->right == NULL)
-        active->right = new_ast;
+    /* Unary ops are right to left, so newer trees go lower. Descend to find
+       the lowest unary tree, so that the merge will be against the value it
+       holds. */
+    while (given->tree_type == tree_unary && given->left != NULL &&
+           given->left->tree_type == tree_unary)
+        given = given->left;
+
+    if (given->left == NULL)
+        /* Either a value, or another unary tree. */
+        given->left = new_tree;
     else {
-        /* Might be 'a = -', so there's already at least 1 unary value. */
-        if (active->tree_type == tree_binary)
-            active = active->right;
-
-        /* Unary ops are right->left (opposite of binary), and all have the same
-           precedence. So values, calls, and even other unary ops will have to
-           walk down to become the child of the lowest unary op.
-           The final condition ensures that we get the lowest unary tree,
-           instead of the lowest unary tree's value. This is important, because
-           that lowest unary tree may need to be updated. */
-        while (active->tree_type == tree_unary && active->left != NULL &&
-               active->left->tree_type == tree_unary)
-            active = active->left;
-
-        if (active->left == NULL)
-            active->left = new_ast;
-        else {
-            /* Absorb the left side, then become the left side. */
-            merge_absorb(ap, active->left, new_ast);
-            active->left = new_ast;
-        }
+        /* This won't be a unary, binary, or a value, so absorb the unary's
+           value and become the new unary value. */
+        merge_absorb(ap, given->left, new_tree);
+        given->left = new_tree;
     }
 
-    new_ast->parent = active;
+    new_tree->parent = given;
 }
 
-/* merge_value
-   This handles merging a var, call, or parenth expression. */
-static void merge_value(lily_ast_pool *ap, lily_ast *new_ast)
+/*  merge_value
+    This handles merging in of any new tree. It will dispatch to other merges
+    based on the current tree. In most cases, this does the correct merge.
+    However, there are some cases where this won't be right (such as merging
+    in a unary tree when the current is a value). */
+static void merge_value(lily_ast_pool *ap, lily_ast *new_tree)
 {
     lily_ast *active = ap->active;
 
     if (active != NULL) {
-        /* It's an oo call if we're merging a call against an existing
-           value. */
-
         if (active->tree_type == tree_binary) {
-            if (active->right == NULL)
-                active->right = new_ast;
+            /* New trees merge against binary's right. */
+            if (active->right == NULL) {
+                active->right = new_tree;
+                new_tree->parent = active;
+            }
             else if (active->right->tree_type == tree_unary)
-                merge_unary(ap, active, new_ast);
-            else
-                merge_absorb(ap, active, new_ast);
+                /* Unary merges right to left, so ->right does not have to be
+                   fixed afterward. */
+                merge_unary(ap, active->right, new_tree);
+            else {
+                /* new_tree swallows active->right, but doesn't update the
+                   parent. The parent has to be updated because this is a
+                   left to right merge. */
+                merge_absorb(ap, active->right, new_tree);
+                active->right = new_tree;
+            }
         }
         else if (active->tree_type == tree_unary)
-            merge_unary(ap, active, new_ast);
+            merge_unary(ap, active, new_tree);
         else
-            merge_absorb(ap, active, new_ast);
+            merge_absorb(ap, active, new_tree);
     }
     else {
-        /* If no root, then no value or call so far. So become root, if only
-           temporarily. */
-        if (ap->root == NULL)
-            ap->root = new_ast;
-
-        ap->active = new_ast;
+        /* If there's no active, then there's no root. Become both. */
+        ap->root = new_tree;
+        ap->active = new_tree;
     }
 }
 
@@ -448,25 +450,11 @@ inline void lily_ast_collect_arg(lily_ast_pool *ap)
    This begins an expression that takes comma-separated arguments. 'var' is only
    used by tree_call, and only when the call is a named variable. In all other
    cases, 'var' is NULL and ignored. */
-void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tt, lily_var *var)
+void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type,
+        lily_var *var)
 {
-    lily_ast *a;
-    if (ap->available_current) {
-        a = ap->available_current;
-        ap->available_current = a->next_tree;
-    }
-    else
-        a = make_new_tree(ap);
-
-    a->tree_type = tt;
-    a->line_num = *ap->lex_linenum;
+    AST_ENTERABLE_INIT(a, tree_type)
     a->result = (lily_sym *)var;
-    a->args_collected = 0;
-    a->arg_start = NULL;
-    a->arg_top = NULL;
-    /* This is important for calls, which check if they have a parent to make
-       sure they don't return nil when a value is needed. */
-    a->parent = NULL;
 
     merge_value(ap, a);
 
@@ -539,23 +527,14 @@ lily_ast *lily_ast_get_saved_tree(lily_ast_pool *ap)
    This 'creates' and merges a binary op against the active tree. */
 void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
 {
-    lily_ast *new_ast;
-    if (ap->available_current) {
-        new_ast = ap->available_current;
-        ap->available_current = new_ast->next_tree;
-    }
-    else
-        new_ast = make_new_tree(ap);
-
-    lily_ast *active = ap->active;
-
-    new_ast->tree_type = tree_binary;
-    new_ast->line_num = *ap->lex_linenum;
+    /* Call it 'new_ast', because this merge is a bit complex. */
+    AST_COMMON_INIT(new_ast, tree_binary)
     new_ast->priority = priority_for_op(op);
     new_ast->op = op;
     new_ast->left = NULL;
     new_ast->right = NULL;
-    new_ast->parent = NULL;
+
+    lily_ast *active = ap->active;
 
     /* Active is always non-NULL, because binary always comes after a value of
        some kind. */
@@ -566,6 +545,7 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
 
         new_ast->left = active;
         ap->active = new_ast;
+        fprintf(stderr, "binary becoming active.\n");
     }
     else if (active->tree_type == tree_binary) {
         /* Figure out how the two trees will fit together. */
@@ -622,21 +602,9 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
    needed otherwise. It's easier to set the sig too. */
 void lily_ast_push_empty_list(lily_ast_pool *ap, lily_sig *sig)
 {
-    lily_ast *a;
-    if (ap->available_current) {
-        a = ap->available_current;
-        ap->available_current = a->next_tree;
-    }
-    else
-        a = make_new_tree(ap);
-
-    a->tree_type = tree_list;
-    a->line_num = *ap->lex_linenum;
-    a->result = NULL;
-    a->args_collected = 0;
-    a->arg_start = NULL;
-    a->arg_top = NULL;
+    AST_ENTERABLE_INIT(a, tree_list)
     a->sig = sig;
+    a->result = NULL;
 
     merge_value(ap, a);
 }
@@ -646,18 +614,8 @@ void lily_ast_push_empty_list(lily_ast_pool *ap, lily_sig *sig)
    the signature that the typecast will try to coerce its value to. */
 static void push_sig(lily_ast_pool *ap, lily_sig *sig)
 {
-    lily_ast *a;
-    if (ap->available_current) {
-        a = ap->available_current;
-        ap->available_current = a->next_tree;
-    }
-    else
-        a = make_new_tree(ap);
-
-    a->tree_type = tree_sig;
+    AST_COMMON_INIT(a, tree_sig)
     a->sig = sig;
-    a->right = NULL;
-    a->line_num = *ap->lex_linenum;
     a->result = NULL;
 
     merge_value(ap, a);
@@ -674,23 +632,17 @@ void lily_ast_enter_typecast(lily_ast_pool *ap, lily_sig *sig)
    This 'creates' and merges a unary op against the active tree. */
 void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
 {
-    lily_ast *a;
-    if (ap->available_current) {
-        a = ap->available_current;
-        ap->available_current = a->next_tree;
-    }
-    else
-        a = make_new_tree(ap);
-
-    lily_ast *active = ap->active;
-
+    AST_COMMON_INIT(a, tree_unary)
+    a->result = NULL;
     a->left = NULL;
-    a->line_num = *ap->lex_linenum;
-    a->tree_type = tree_unary;
     a->priority = priority_for_op(op);
     a->op = op;
 
+    lily_ast *active = ap->active;
+
     if (active != NULL) {
+        /* Don't use merge_value, because it picks based off the active tree
+           and will select an absorb merge. That's wrong for unary. */
         if (active->tree_type == tree_var ||
             active->tree_type == tree_local_var ||
             active->tree_type == tree_call ||
@@ -700,7 +652,7 @@ void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
             ap->root = a;
         }
         else
-            merge_unary(ap, active, a);
+            merge_value(ap, a);
     }
     else {
         ap->active = a;
@@ -710,18 +662,7 @@ void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
 
 void lily_ast_push_local_var(lily_ast_pool *ap, lily_var *var)
 {
-    lily_ast *a;
-    if (ap->available_current) {
-        a = ap->available_current;
-        ap->available_current = a->next_tree;
-    }
-    else
-        a = make_new_tree(ap);
-
-    /* Local vars already have a register allocated. Mark them so that the
-       emitter can do a no-op for them. */
-    a->tree_type = tree_local_var;
-    a->line_num = *ap->lex_linenum;
+    AST_COMMON_INIT(a, tree_local_var);
     a->result = (lily_sym *)var;
 
     merge_value(ap, a);
@@ -734,16 +675,7 @@ void lily_ast_push_local_var(lily_ast_pool *ap, lily_var *var)
    loaded into a register before use. */
 void lily_ast_push_sym(lily_ast_pool *ap, lily_sym *s)
 {
-    lily_ast *a;
-    if (ap->available_current) {
-        a = ap->available_current;
-        ap->available_current = a->next_tree;
-    }
-    else
-        a = make_new_tree(ap);
-
-    a->tree_type = tree_var;
-    a->line_num = *ap->lex_linenum;
+    AST_COMMON_INIT(a, tree_var);
     a->result = s;
 
     merge_value(ap, a);
@@ -751,16 +683,7 @@ void lily_ast_push_sym(lily_ast_pool *ap, lily_sym *s)
 
 void lily_ast_push_readonly(lily_ast_pool *ap, lily_sym *ro_sym)
 {
-    lily_ast *a;
-    if (ap->available_current) {
-        a = ap->available_current;
-        ap->available_current = a->next_tree;
-    }
-    else
-        a = make_new_tree(ap);
-
-    a->tree_type = tree_readonly;
-    a->line_num = *ap->lex_linenum;
+    AST_COMMON_INIT(a, tree_readonly);
     a->result = ro_sym;
 
     merge_value(ap, a);
@@ -802,22 +725,8 @@ void lily_ast_push_oo_call(lily_ast_pool *ap, char *oo_name)
     int oo_index = ap->oo_name_pool->pos;
     add_name_to_pool(ap, oo_name);
 
-    lily_ast *a;
-    if (ap->available_current) {
-        a = ap->available_current;
-        ap->available_current = a->next_tree;
-    }
-    else
-        a = make_new_tree(ap);
-
+    AST_ENTERABLE_INIT(a, tree_oo_call)
     a->oo_pool_index = oo_index;
-    a->tree_type = tree_oo_call;
-    a->line_num = *ap->lex_linenum;
-    a->result = NULL;
-    a->args_collected = 0;
-    a->arg_start = NULL;
-    a->arg_top = NULL;
-    a->parent = NULL;
 
     merge_value(ap, a);
 }
