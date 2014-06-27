@@ -545,7 +545,6 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
 
         new_ast->left = active;
         ap->active = new_ast;
-        fprintf(stderr, "binary becoming active.\n");
     }
     else if (active->tree_type == tree_binary) {
         /* Figure out how the two trees will fit together. */
