@@ -1287,35 +1287,42 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
         prep_var_start = main_var;
 
     lily_value **vm_regs;
-    /* Note: num_registers can never be zero for a second pass, because the
-       first pass will have at least __main__ and the sys package even if
-       there's no code to run. */
-    if (vm->num_registers == 0)
-        vm_regs = lily_malloc(main_method->reg_count * sizeof(lily_value *));
-    else if (main_method->reg_count > vm->num_registers)
-        vm_regs = lily_realloc(vm->regs_from_main,
-                 main_method->reg_count * sizeof(lily_value *));
-    else
+    if (vm->num_registers > main_method->reg_count)
         vm_regs = vm->vm_regs;
+    else {
+        /* Note: num_registers can never be zero for a second pass, because the
+           first pass will have at least __main__ and the sys package even if
+           there's no code to run. */
+        if (vm->num_registers == 0)
+            vm_regs = lily_malloc(main_method->reg_count *
+                    sizeof(lily_value *));
+        else
+            vm_regs = lily_realloc(vm->regs_from_main,
+                    main_method->reg_count * sizeof(lily_value *));
 
-    if (vm_regs == NULL)
-        lily_raise_nomem(vm->raiser);
+        if (vm_regs == NULL)
+            lily_raise_nomem(vm->raiser);
+
+        vm->vm_regs = vm_regs;
+    }
+
+    vm->regs_from_main = vm_regs;
 
     /* Do a special pass to make sure there are values. This allows the second
        loop to just worry about initializing the registers. */
     if (main_method->reg_count > vm->num_registers) {
         for (i = vm->max_registers;i < main_method->reg_count;i++) {
             lily_value *reg = lily_malloc(sizeof(lily_value));
-            if (reg == NULL) {
-                vm->max_registers = i;
-                lily_raise_nomem(vm->raiser);
-                continue;
-            }
             vm_regs[i] = reg;
+            if (reg == NULL) {
+                for (;i >= vm->max_registers;i--)
+                    lily_free(vm_regs[i]);
+
+                lily_raise_nomem(vm->raiser);
+            }
         }
     }
 
-    vm->regs_from_main = vm_regs;
     for (i = vm->prep_id_start;i < main_method->reg_count;i++) {
         lily_value *reg = vm_regs[i];
         lily_register_info seed = main_method->reg_info[i];
@@ -1345,7 +1352,6 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
         vm->num_registers = main_method->reg_count;
         vm->max_registers = main_method->reg_count;
     }
-    vm->vm_regs = vm_regs;
 
     lily_vm_stack_entry *stack_entry = vm->method_stack[0];
     stack_entry->method = main_method;
