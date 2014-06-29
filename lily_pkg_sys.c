@@ -40,7 +40,7 @@ static void bind_strlist(lily_symtab *symtab, int strlist_size, char **strlist, 
     for (i = 0;i < strlist_size;i++) {
         values[i] = lily_malloc(sizeof(lily_value));
         if (values[i] == NULL) {
-            lv->num_values = i - 1;
+            lv->num_values = i;
             err = 1;
             break;
         }
@@ -56,6 +56,8 @@ static void bind_strlist(lily_symtab *symtab, int strlist_size, char **strlist, 
             if (sv == NULL || raw_str == NULL) {
                 lily_free(sv);
                 lily_free(raw_str);
+                err = 1;
+                break;
             }
             strcpy(raw_str, strlist[i]);
             sv->size = strlen(strlist[i]);
@@ -66,7 +68,7 @@ static void bind_strlist(lily_symtab *symtab, int strlist_size, char **strlist, 
         }
     }
 
-    *ok = 1;
+    *ok = !err;
 }
 
 int lily_pkg_sys_init(lily_symtab *symtab, int argc, char **argv)
