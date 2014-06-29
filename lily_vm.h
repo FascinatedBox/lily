@@ -49,6 +49,9 @@ typedef struct lily_vm_state_t {
        used because it isn't refcounted. */
     lily_sig *integer_sig;
 
+    int prep_id_start;
+    lily_var *prep_var_start;
+
     char *sipkey;
     /* This lets the vm know that it was in a function when an error is raised
        so it can set err_function properly. Runners should only check

@@ -153,6 +153,8 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     vm->gc_threshold = 100;
     vm->sipkey = sipkey;
     vm->gc_pass = 0;
+    vm->prep_id_start = 0;
+    vm->prep_var_start = NULL;
 
     if (vm->method_stack) {
         int i;
@@ -1280,46 +1282,70 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     lily_var *main_var = symtab->var_start;
     lily_method_val *main_method = main_var->value.method;
     int i;
+    lily_var *prep_var_start = vm->prep_var_start;
+    if (prep_var_start == NULL)
+        prep_var_start = main_var;
 
     lily_value **vm_regs;
-    vm_regs = lily_malloc(main_method->reg_count * sizeof(lily_value *));
+    /* Note: num_registers can never be zero for a second pass, because the
+       first pass will have at least __main__ and the sys package even if
+       there's no code to run. */
+    if (vm->num_registers == 0)
+        vm_regs = lily_malloc(main_method->reg_count * sizeof(lily_value *));
+    else if (main_method->reg_count > vm->num_registers)
+        vm_regs = lily_realloc(vm->regs_from_main,
+                 main_method->reg_count * sizeof(lily_value *));
+    else
+        vm_regs = vm->vm_regs;
+
     if (vm_regs == NULL)
         lily_raise_nomem(vm->raiser);
 
-    vm->regs_from_main = vm_regs;
-    for (i = 0;i < main_method->reg_count;i++) {
-        lily_value *reg = lily_malloc(sizeof(lily_value));
-        if (reg == NULL) {
-            vm->max_registers = i;
-            lily_raise_nomem(vm->raiser);
-            continue;
+    /* Do a special pass to make sure there are values. This allows the second
+       loop to just worry about initializing the registers. */
+    if (main_method->reg_count > vm->num_registers) {
+        for (i = vm->max_registers;i < main_method->reg_count;i++) {
+            lily_value *reg = lily_malloc(sizeof(lily_value));
+            if (reg == NULL) {
+                vm->max_registers = i;
+                lily_raise_nomem(vm->raiser);
+                continue;
+            }
+            vm_regs[i] = reg;
         }
+    }
 
-        vm_regs[i] = reg;
+    vm->regs_from_main = vm_regs;
+    for (i = vm->prep_id_start;i < main_method->reg_count;i++) {
+        lily_value *reg = vm_regs[i];
         lily_register_info seed = main_method->reg_info[i];
 
-        /* This allows o_assign to copy data over without having to check for
-           a nil flag. */
+        /* This allows opcodes to copy over a register value without checking
+           if VAL_IS_NIL is set. This is fine, because the value won't actually
+           be used if VAL_IS_NIL is set (optimization!) */
         reg->value.integer = 0;
         reg->flags = VAL_IS_NIL;
         reg->sig = seed.sig;
     }
 
-    load_vm_regs(vm_regs, main_var);
+    load_vm_regs(vm_regs, prep_var_start);
 
-    for (i = 0;i < symtab->class_pos;i++) {
-        lily_class *cls = symtab->classes[i];
-        if (cls->call_start != NULL)
-            load_vm_regs(vm_regs, cls->call_start);
+    /* Load only the new globals next time. */
+    vm->prep_var_start = symtab->var_top;
+    /* Zap only the slots that new globals need next time. */
+    vm->prep_id_start = i;
+
+    if (main_method->reg_count > vm->num_registers) {
+        if (vm->num_registers == 0) {
+            lily_class *integer_cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
+            vm->integer_sig = integer_cls->sig;
+            vm->main = main_var;
+        }
+
+        vm->num_registers = main_method->reg_count;
+        vm->max_registers = main_method->reg_count;
     }
-
-    vm->main = main_var;
-    vm->num_registers = main_method->reg_count;
-    vm->max_registers = main_method->reg_count;
     vm->vm_regs = vm_regs;
-    vm->regs_from_main = vm_regs;
-    lily_class *integer_cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
-    vm->integer_sig = integer_cls->sig;
 
     lily_vm_stack_entry *stack_entry = vm->method_stack[0];
     stack_entry->method = main_method;
@@ -1889,22 +1915,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 7;
                 break;
             case o_return_from_vm:
-                for (i = max_registers-1;i >= 0;i--) {
-                    lily_value *reg = regs_from_main[i];
-                    if (reg->sig->cls->is_refcounted &&
-                        (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
-                        lily_deref_unknown_val(reg);
-                    }
-
-                    lily_free(reg);
-                }
-
-                lily_free(vm_regs);
-                vm->vm_regs = NULL;
-                vm->regs_from_main = NULL;
-                vm->num_registers = 0;
-                vm->max_registers = 0;
-
                 /* Remember to remove the jump that the vm installed, since it's
                    no longer valid. */
                 vm->raiser->jump_pos--;
