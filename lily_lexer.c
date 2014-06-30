@@ -149,18 +149,18 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     lex->filename = NULL;
     lex->raiser = raiser;
     lex->save_buffer = NULL;
-    lex->lex_buffer = lily_malloc(128 * sizeof(char));
+    lex->input_buffer = lily_malloc(128 * sizeof(char));
     lex->label = lily_malloc(128 * sizeof(char));
     lex->mode = lm_from_file;
     ch_class = lily_malloc(256 * sizeof(char));
 
-    if (ch_class == NULL || lex->label == NULL || lex->lex_buffer == NULL) {
+    if (ch_class == NULL || lex->label == NULL || lex->input_buffer == NULL) {
         lily_free_lex_state(lex);
         return NULL;
     }
 
-    lex->lex_bufpos = 0;
-    lex->lex_bufsize = 128;
+    lex->input_pos = 0;
+    lex->input_size = 128;
     lex->label_size = 128;
     /* This must start at 0 since the line reader will bump it by one. */
     lex->line_num = 0;
@@ -207,7 +207,7 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     ch_class[(unsigned char)'|'] = CC_VBAR;
     ch_class[(unsigned char)'['] = CC_LEFT_BRACKET;
     ch_class[(unsigned char)']'] = CC_RIGHT_BRACKET;
-    /* Prep for file-based, since lex_buffer isn't NULL. */
+    /* Prep for file-based, since input_buffer isn't NULL. */
     ch_class[(unsigned char)'\r'] = CC_NEWLINE;
     ch_class[(unsigned char)'\n'] = CC_NEWLINE;
 
@@ -226,7 +226,7 @@ void lily_free_lex_state(lily_lex_state *lex)
         fclose(lex->lex_file);
 
     if (lex->save_buffer == NULL)
-        lily_free(lex->lex_buffer);
+        lily_free(lex->input_buffer);
     else
         lily_free(lex->save_buffer);
 
@@ -455,8 +455,9 @@ static uint64_t scan_hex(int *pos, char *new_ch)
 
 /* scan_number
    This handles all integer and number scanning within Lily. Updates the
-   position in lex_buffer for lily_lexer. This also takes a pointer to the
-   lexer's token so it can update that (to either tk_number or tk_integer). */
+   position in lexer's input_buffer for lily_lexer. This also takes a pointer to
+   the lexer's token so it can update that (to either tk_number or
+   tk_integer). */
 static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
         char *new_ch)
 {
@@ -518,9 +519,9 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
        be stored as a number. */
     if (is_integer == 0) {
         double number_result;
-        char *lex_buffer = lexer->lex_buffer;
+        char *input_buffer = lexer->input_buffer;
         int str_size = num_pos - num_start;
-        strncpy(lexer->label, lex_buffer+num_start, str_size * sizeof(char));
+        strncpy(lexer->label, input_buffer+num_start, str_size * sizeof(char));
 
         lexer->label[str_size] = '\0';
         errno = 0;
@@ -551,7 +552,7 @@ static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
     int comment_pos, start_line;
 
     /* +3 to skip the ### intro. */
-    char *new_ch = &(lexer->lex_buffer[*pos + 3]);
+    char *new_ch = &(lexer->input_buffer[*pos + 3]);
 
     comment_pos = *pos + 3;
     comment_pos++;
@@ -559,7 +560,7 @@ static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
 
     while (1) {
         if (*new_ch == '#') {
-            if (comment_pos + 2 <= lexer->lex_bufend &&
+            if (comment_pos + 2 <= lexer->input_end &&
                 *(new_ch + 1) == '#' &&
                 *(new_ch + 2) == '#') {
                 comment_pos += 2;
@@ -568,7 +569,7 @@ static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
         }
         else if (*new_ch == '\n') {
             if (read_line(lexer) == 1) {
-                new_ch = &(lexer->lex_buffer[0]);
+                new_ch = &(lexer->input_buffer[0]);
                 comment_pos = 0;
                 /* Must continue, in case the first char is the # of ###.\n */
                 continue;
@@ -588,16 +589,16 @@ static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
 }
 
 /* scan_str
-   This handles strings for lily_lexer. This updates the position in lex_buffer
-   for lily_lexer. */
+   This handles strings for lily_lexer. This updates the position in lexer's
+   input_buffer for lily_lexer. */
 static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
 {
     char esc_ch;
-    char *label, *lex_buffer;
+    char *label, *input_buffer;
     int i, is_multiline, label_pos, escape_this_line, multiline_start, str_size,
         word_start, word_pos;
 
-    lex_buffer = lexer->lex_buffer;
+    input_buffer = lexer->input_buffer;
     label = lexer->label;
     escape_this_line = 0;
     /* Where to start cutting from. */
@@ -630,7 +631,8 @@ static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
             /* For escapes, the non-escape part of the data is copied to the
                label, then the escape value is written in. */
             i = word_pos - word_start;
-            memcpy(&label[label_pos], &lex_buffer[word_start], i * sizeof(char));
+            memcpy(&label[label_pos], &input_buffer[word_start],
+                    i * sizeof(char));
             label_pos += i;
             word_start += i;
             word_pos++;
@@ -650,12 +652,12 @@ static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
 
             /* Add two so it starts off after the escape char the next time. */
             word_start += 2;
-            new_ch = &(lex_buffer[word_start - 1]);
+            new_ch = &(input_buffer[word_start - 1]);
         }
         else if (*new_ch == '\n' || *new_ch == '\r') {
             if (is_multiline) {
                 if (*new_ch == '\r' &&
-                    lexer->lex_bufend != word_pos &&
+                    lexer->input_end != word_pos &&
                     *(new_ch + 1) == '\n')
                         /* Swallow the \r of the \r\n. */
                         word_pos++;
@@ -663,7 +665,7 @@ static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
                 /* Swallow the \n or \r. */
                 word_pos++;
                 i = word_pos - word_start;
-                memcpy(&label[label_pos], &lex_buffer[word_start],
+                memcpy(&label[label_pos], &input_buffer[word_start],
                        (i * sizeof(char)));
                 label_pos += i;
 
@@ -672,10 +674,10 @@ static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
                                "Unterminated multi-line string (started at line %d).\n",
                                multiline_start);
                 }
-                /* read_line may realloc lex_buffer, so it must be set again. */
-                lex_buffer = lexer->lex_buffer;
-                if ((label_pos + lexer->lex_bufend) >= lexer->label_size) {
-                    /* lex_bufend is at most == label_pos, so a *2 grow will
+                /* read_line may realloc input_buffer, so it must be set again. */
+                input_buffer = lexer->input_buffer;
+                if ((label_pos + lexer->input_end) >= lexer->label_size) {
+                    /* input_end is at most == label_pos, so a *2 grow will
                        always solve this. */
                     int new_label_size = lexer->label_size * 2;
                     char *new_label;
@@ -699,7 +701,7 @@ static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
                    will get skipped. */
                 word_start = 0;
                 word_pos = 0;
-                new_ch = &(lex_buffer[word_pos]);
+                new_ch = &(input_buffer[word_pos]);
                 continue;
             }
             else
@@ -724,7 +726,8 @@ static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
         if (is_multiline) {
             if (word_pos != word_start) {
                 i = word_pos - word_start;
-                memcpy(&label[label_pos], &lex_buffer[word_start], i * sizeof(char));
+                memcpy(&label[label_pos], &input_buffer[word_start],
+                        i * sizeof(char));
                 label_pos += i;
             }
             /* +1 for terminator. */
@@ -740,7 +743,7 @@ static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
         if (word_pos != word_start) {
             i = word_pos - word_start;
             for (;i > 0;i--,  word_start++, label_pos++)
-                label[label_pos] = lex_buffer[word_start];
+                label[label_pos] = input_buffer[word_start];
         }
         /* +1 for the terminator. */
         str_size = label_pos + 1;
@@ -749,7 +752,7 @@ static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
     }
 
     if (!escape_this_line && is_multiline == 0) {
-        strncpy(label, lex_buffer+word_start, str_size-1);
+        strncpy(label, input_buffer+word_start, str_size-1);
         label[str_size-1] = '\0';
     }
     else
@@ -760,11 +763,11 @@ static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
 }
 
 /* grow_lexer_buffers
-   This is used by read_line to resize the scanning buffer (lexer->lex_buffer).
-   It will resize lexer->label too if both buffers are the same size. */
+   This is used by read_line to resize the lexer->input_buffer. It will resize
+   lexer->label too if both buffers are the same size. */
 static void grow_lexer_buffers(lily_lex_state *lexer)
 {
-    int new_size = lexer->lex_bufsize;
+    int new_size = lexer->input_size;
     new_size *= 2;
 
     /* The label buffer is grown when a large multi-line string is
@@ -772,7 +775,7 @@ static void grow_lexer_buffers(lily_lex_state *lexer)
        It's important that the label buffer be at least the size of the
        line buffer at all times, so that lexer's word scanning does not
        have to check for potential overflows. */
-    if (lexer->label_size == lexer->lex_bufsize) {
+    if (lexer->label_size == lexer->input_size) {
         char *new_label;
         new_label = lily_realloc(lexer->label, new_size * sizeof(char));
 
@@ -784,13 +787,13 @@ static void grow_lexer_buffers(lily_lex_state *lexer)
     }
 
     char *new_lb;
-    new_lb = lily_realloc(lexer->lex_buffer, new_size * sizeof(char));
+    new_lb = lily_realloc(lexer->input_buffer, new_size * sizeof(char));
 
     if (new_lb == NULL)
         lily_raise_nomem(lexer->raiser);
 
-    lexer->lex_buffer = new_lb;
-    lexer->lex_bufsize = new_size;
+    lexer->input_buffer = new_lb;
+    lexer->input_size = new_size;
 }
 
 /* read_line
@@ -798,10 +801,10 @@ static void grow_lexer_buffers(lily_lex_state *lexer)
 static int read_line(lily_lex_state *lexer)
 {
     int bufsize, ch, followers, i, ok;
-    char *lex_buffer = lexer->lex_buffer;
+    char *input_buffer = lexer->input_buffer;
     FILE *lex_file = lexer->lex_file;
 
-    bufsize = lexer->lex_bufsize;
+    bufsize = lexer->input_size;
     i = 0;
 
     while (1) {
@@ -810,11 +813,11 @@ static int read_line(lily_lex_state *lexer)
             if ((i + 1) == bufsize) {
                 grow_lexer_buffers(lexer);
 
-                lex_buffer = lexer->lex_buffer;
+                input_buffer = lexer->input_buffer;
             }
 
-            lexer->lex_buffer[i] = '\n';
-            lexer->lex_bufend = i + 1;
+            lexer->input_buffer[i] = '\n';
+            lexer->input_end = i + 1;
             /* If i is 0, then nothing is on this line except eof. Return 0 to
                let the caller know this is the end.
              * If it isn't, then there's stuff with an unexpected eof at the
@@ -835,13 +838,13 @@ static int read_line(lily_lex_state *lexer)
             grow_lexer_buffers(lexer);
             /* Do this in case the realloc decides to use a different block
                instead of growing what it had. */
-            lex_buffer = lexer->lex_buffer;
+            input_buffer = lexer->input_buffer;
         }
 
-        lexer->lex_buffer[i] = ch;
+        lexer->input_buffer[i] = ch;
 
         if (ch == '\r' || ch == '\n') {
-            lexer->lex_bufend = i;
+            lexer->input_end = i;
             lexer->line_num++;
             ok = 1;
 
@@ -851,8 +854,8 @@ static int read_line(lily_lex_state *lexer)
                     ungetc(ch, lex_file);
                 else {
                     /* This is safe: See i + 2 == size comment above. */
-                    lexer->lex_buffer[i+1] = ch;
-                    lexer->lex_bufend++;
+                    lexer->input_buffer[i+1] = ch;
+                    lexer->input_end++;
                 }
             }
             break;
@@ -869,7 +872,7 @@ static int read_line(lily_lex_state *lexer)
                                    "Invalid utf-8 sequence on line %d.\n",
                                    lexer->line_num);
                     }
-                    lex_buffer[i] = ch;
+                    input_buffer[i] = ch;
                 }
             }
             else if (followers == -1) {
@@ -936,7 +939,7 @@ void lily_load_file(lily_lex_state *lexer, char *filename)
     if (lexer->mode != lm_from_file) {
         /* Change from string-based to file-based. */
         lexer->mode = lm_from_file;
-        lexer->lex_buffer = lexer->save_buffer;
+        lexer->input_buffer = lexer->save_buffer;
         lexer->save_buffer = NULL;
         lexer->ch_class[(unsigned char)'\r'] = CC_NEWLINE;
         lexer->ch_class[(unsigned char)'\n'] = CC_NEWLINE;
@@ -971,17 +974,17 @@ int lily_load_str(lily_lex_state *lexer, char *str)
 
     if (lexer->mode != lm_from_str) {
         lexer->mode = lm_from_str;
-        lexer->save_buffer = lexer->lex_buffer;
+        lexer->save_buffer = lexer->input_buffer;
         lexer->ch_class[(unsigned char)'\r'] = CC_STR_NEWLINE;
         lexer->ch_class[(unsigned char)'\n'] = CC_STR_NEWLINE;
         lexer->ch_class[0] = CC_STR_END;
         lexer->lex_file = NULL;
-        lexer->lex_bufsize = strlen(str);
+        lexer->input_size = strlen(str);
         lexer->line_num = 1;
     }
 
     /* Line number isn't set, to allow for repl-like use. */
-    lexer->lex_buffer = str;
+    lexer->input_buffer = str;
 
     lexer->filename = "<str>";
     /* String-based has no support for the html skipping, because I can't see
@@ -996,7 +999,7 @@ int lily_load_str(lily_lex_state *lexer, char *str)
 void lily_lexer(lily_lex_state *lexer)
 {
     char *ch_class;
-    int lex_bufpos = lexer->lex_bufpos;
+    int input_pos = lexer->input_pos;
     lily_token token;
 
     ch_class = lexer->ch_class;
@@ -1005,13 +1008,13 @@ void lily_lexer(lily_lex_state *lexer)
         char *start_ch, *ch;
         int group;
 
-        ch = &lexer->lex_buffer[lex_bufpos];
+        ch = &lexer->input_buffer[input_pos];
         start_ch = ch;
 
         while (*ch == ' ' || *ch == '\t')
             ch++;
 
-        lex_bufpos += ch - start_ch;
+        input_pos += ch - start_ch;
         group = ch_class[(unsigned char)*ch];
         if (group == CC_WORD) {
             /* The word and line buffers have the same size, plus \n is not a
@@ -1025,19 +1028,19 @@ void lily_lexer(lily_lex_state *lexer)
                 word_pos++;
                 ch++;
             } while (ident_table[(unsigned char)*ch]);
-            lex_bufpos += word_pos;
+            input_pos += word_pos;
             label[word_pos] = '\0';
             token = tk_word;
         }
         else if (group <= CC_G_ONE_LAST) {
-            lex_bufpos++;
+            input_pos++;
             /* This is okay because the first group starts at 0, and the tokens
                for it start at 0. */
             token = group;
         }
         else if (group == CC_NEWLINE) {
             if (read_line(lexer) == 1) {
-                lex_bufpos = 0;
+                input_pos = 0;
                 continue;
             }
             else
@@ -1047,12 +1050,12 @@ void lily_lexer(lily_lex_state *lexer)
             if (*ch       == '#' &&
                 *(ch + 1) == '#' &&
                 *(ch + 2) == '#') {
-                scan_multiline_comment(lexer, &lex_bufpos);
+                scan_multiline_comment(lexer, &input_pos);
                 continue;
             }
             else {
                 if (read_line(lexer) == 1) {
-                    lex_bufpos = 0;
+                    input_pos = 0;
                     continue;
                 }
                 else
@@ -1064,9 +1067,9 @@ void lily_lexer(lily_lex_state *lexer)
                newline though. */
             if (*ch       == '\r' &&
                 *(ch + 1) == '\n')
-                lex_bufpos += 2;
+                input_pos += 2;
             else
-                lex_bufpos++;
+                input_pos++;
 
             lexer->line_num++;
             continue;
@@ -1077,32 +1080,32 @@ void lily_lexer(lily_lex_state *lexer)
             token = tk_eof;
         }
         else if (group == CC_DOUBLE_QUOTE) {
-            scan_str(lexer, &lex_bufpos, ch);
+            scan_str(lexer, &input_pos, ch);
             token = tk_double_quote;
         }
         else if (group <= CC_G_TWO_LAST) {
-            lex_bufpos++;
-            if (lexer->lex_buffer[lex_bufpos] == '=') {
-                lex_bufpos++;
+            input_pos++;
+            if (lexer->input_buffer[input_pos] == '=') {
+                input_pos++;
                 token = grp_two_eq_table[group - CC_G_TWO_OFFSET];
             }
             else
                 token = grp_two_table[group - CC_G_TWO_OFFSET];
         }
         else if (group == CC_NUMBER)
-            scan_number(lexer, &lex_bufpos, &token, ch);
+            scan_number(lexer, &input_pos, &token, ch);
         else if (group == CC_DOT) {
             if (ch_class[(unsigned char)*(ch + 1)] == CC_NUMBER)
-                scan_number(lexer, &lex_bufpos, &token, ch);
+                scan_number(lexer, &input_pos, &token, ch);
             else {
                 ch++;
-                lex_bufpos++;
+                input_pos++;
                 if (*ch == '.') {
                     ch++;
-                    lex_bufpos++;
+                    input_pos++;
 
                     if (*ch == '.') {
-                        lex_bufpos++;
+                        input_pos++;
                         token = tk_three_dots;
                     }
                     else
@@ -1114,37 +1117,37 @@ void lily_lexer(lily_lex_state *lexer)
         }
         else if (group == CC_PLUS) {
             if (ch_class[(unsigned char)*(ch + 1)] == CC_NUMBER)
-                scan_number(lexer, &lex_bufpos, &token, ch);
+                scan_number(lexer, &input_pos, &token, ch);
             else if (*(ch + 1) == '=') {
                 ch += 2;
-                lex_bufpos += 2;
+                input_pos += 2;
                 token = tk_plus_eq;
             }
             else {
                 ch++;
-                lex_bufpos++;
+                input_pos++;
                 token = tk_plus;
             }
         }
         else if (group == CC_MINUS) {
             if (ch_class[(unsigned char)*(ch + 1)] == CC_NUMBER)
-                scan_number(lexer, &lex_bufpos, &token, ch);
+                scan_number(lexer, &input_pos, &token, ch);
             else if (*(ch + 1) == '=') {
                 ch += 2;
-                lex_bufpos += 2;
+                input_pos += 2;
                 token = tk_minus_eq;
             }
             else {
                 ch++;
-                lex_bufpos++;
+                input_pos++;
                 token = tk_minus;
             }
         }
         else if (group == CC_COLON) {
-            lex_bufpos++;
+            input_pos++;
             ch++;
             if (*ch == ':') {
-                lex_bufpos++;
+                input_pos++;
                 ch++;
                 token = tk_colon_colon;
             }
@@ -1152,11 +1155,11 @@ void lily_lexer(lily_lex_state *lexer)
                 token = tk_colon;
         }
         else if (group == CC_AMPERSAND) {
-            lex_bufpos++;
+            input_pos++;
             ch++;
 
             if (*ch == '&') {
-                lex_bufpos++;
+                input_pos++;
                 ch++;
                 token = tk_logical_and;
             }
@@ -1164,11 +1167,11 @@ void lily_lexer(lily_lex_state *lexer)
                 token = tk_bitwise_and;
         }
         else if (group == CC_VBAR) {
-            lex_bufpos++;
+            input_pos++;
             ch++;
 
             if (*ch == '|') {
-                lex_bufpos++;
+                input_pos++;
                 ch++;
                 token = tk_logical_or;
             }
@@ -1179,7 +1182,7 @@ void lily_lexer(lily_lex_state *lexer)
             /* This relies on the assumption that x= is the next token, xx is
                the token after, and xx= is the token after that. This is
                mentioned in lily_lexer.h. */
-            lex_bufpos++;
+            input_pos++;
             if (group == CC_GREATER)
                 token = tk_gt;
             else
@@ -1188,14 +1191,14 @@ void lily_lexer(lily_lex_state *lexer)
             ch++;
             if (*ch == '=') {
                 token++;
-                lex_bufpos++;
+                input_pos++;
             }
             else if (*ch == *(ch - 1)) {
-                lex_bufpos++;
+                input_pos++;
                 ch++;
                 if (*ch == '=') {
                     /* xx=, which should be 3 spots after x. */
-                    lex_bufpos++;
+                    input_pos++;
                     token += 3;
                 }
                 else
@@ -1204,30 +1207,32 @@ void lily_lexer(lily_lex_state *lexer)
             }
         }
         else if (group == CC_EQUAL) {
-            lex_bufpos++;
-            if (lexer->lex_buffer[lex_bufpos] == '=') {
+            input_pos++;
+            if (lexer->input_buffer[input_pos] == '=') {
                 token = tk_eq_eq;
-                lex_bufpos++;
+                input_pos++;
             }
-            else if (lexer->lex_buffer[lex_bufpos] == '>') {
+            else if (lexer->input_buffer[input_pos] == '>') {
                 token = tk_arrow;
-                lex_bufpos++;
+                input_pos++;
             }
             else
                 token = tk_equal;
         }
         else if (group == CC_AT) {
-            lex_bufpos++;
+            if (*ch == '>') {}
+            input_pos++;
             ch++;
-            /* Disable @> for string-based. */
+            if (*ch == '>') {}
+
             if (*ch == '>' &&
                 lexer->save_buffer == NULL) {
                 /* Skip the > of @> so it's not sent as html. */
-                lex_bufpos++;
+                input_pos++;
                 token = tk_end_tag;
             }
             else if (*ch == '(') {
-                lex_bufpos++;
+                input_pos++;
                 token = tk_typecast_parenth;
             }
             else
@@ -1237,7 +1242,7 @@ void lily_lexer(lily_lex_state *lexer)
         else
             token = tk_invalid;
 
-        lexer->lex_bufpos = lex_bufpos;
+        lexer->input_pos = input_pos;
         lexer->token = token;
         return;
     }
@@ -1254,8 +1259,8 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
     int lbp, htmlp;
 
     /* htmlp and lbp are used so it's obvious they aren't globals. */
-    lbp = lexer->lex_bufpos;
-    c = lexer->lex_buffer[lbp];
+    lbp = lexer->input_pos;
+    c = lexer->input_buffer[lbp];
     htmlp = 0;
 
     /* Send html to the server either when unable to hold more or the lily tag
@@ -1263,8 +1268,8 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
     while (1) {
         lbp++;
         if (c == '<') {
-            if ((lbp + 4) <= lexer->lex_bufend &&
-                strncmp(lexer->lex_buffer + lbp, "@lily", 5) == 0) {
+            if ((lbp + 4) <= lexer->input_end &&
+                strncmp(lexer->input_buffer + lbp, "@lily", 5) == 0) {
                 if (htmlp != 0) {
                     /* Don't include the '<', because it goes with <@lily. */
                     lexer->label[htmlp] = '\0';
@@ -1277,7 +1282,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
         }
         lexer->label[htmlp] = c;
         htmlp++;
-        if (htmlp == (lexer->lex_bufsize - 1)) {
+        if (htmlp == (lexer->input_size - 1)) {
             lexer->label[htmlp] = '\0';
             lily_impl_send_html(lexer->label);
             /* This isn't done, so fix htmlp. */
@@ -1297,10 +1302,10 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
             }
         }
 
-        c = lexer->lex_buffer[lbp];
+        c = lexer->input_buffer[lbp];
     }
 
-    lexer->lex_bufpos = lbp;
+    lexer->input_pos = lbp;
 }
 
 /* tokname

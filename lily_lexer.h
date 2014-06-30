@@ -66,18 +66,18 @@ typedef enum {
 } lily_lexer_mode;
 
 typedef struct {
-    int hit_eof;
     FILE *lex_file;
     char *filename;
-    int line_num;
-    char *ch_class;
-    char *lex_buffer;
     char *save_buffer;
-    int lex_bufpos;
-    int lex_bufend;
-    int lex_bufsize;
-    int label_size;
+    char *ch_class;
+    char *input_buffer;
+    int input_end;
+    int input_size;
+    int input_pos;
     char *label;
+    int label_size;
+    int hit_eof;
+    int line_num;
     lily_token token;
     lily_lexer_mode mode;
     lily_raw_value value;
