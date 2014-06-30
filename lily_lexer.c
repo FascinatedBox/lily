@@ -144,11 +144,10 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     if (lex == NULL)
         return NULL;
 
+    lex->entry = NULL;
     lex->hit_eof = 0;
-    lex->lex_file = NULL;
     lex->filename = NULL;
     lex->raiser = raiser;
-    lex->save_buffer = NULL;
     lex->input_buffer = lily_malloc(128 * sizeof(char));
     lex->label = lily_malloc(128 * sizeof(char));
     lex->mode = lm_from_file;
@@ -207,7 +206,6 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     ch_class[(unsigned char)'|'] = CC_VBAR;
     ch_class[(unsigned char)'['] = CC_LEFT_BRACKET;
     ch_class[(unsigned char)']'] = CC_RIGHT_BRACKET;
-    /* Prep for file-based, since input_buffer isn't NULL. */
     ch_class[(unsigned char)'\r'] = CC_NEWLINE;
     ch_class[(unsigned char)'\n'] = CC_NEWLINE;
 
@@ -222,17 +220,225 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
 
 void lily_free_lex_state(lily_lex_state *lex)
 {
-    if (lex->lex_file != NULL)
-        fclose(lex->lex_file);
+    if (lex->entry) {
+        lex->entry->close_fn(lex->entry);
+        lily_free(lex->entry);
+    }
 
-    if (lex->save_buffer == NULL)
-        lily_free(lex->input_buffer);
-    else
-        lily_free(lex->save_buffer);
-
+    lily_free(lex->input_buffer);
     lily_free(lex->ch_class);
     lily_free(lex->label);
     lily_free(lex);
+}
+
+/** file and str reading functions **/
+
+static void grow_lexer_buffers(lily_lex_state *);
+
+/*  file_read_line_fn
+    This is the function that scans in a line to input_buffer when the source
+    is a raw C FILE *. */
+static int file_read_line_fn(lily_lex_entry *entry)
+{
+    int bufsize, ch, followers, i, ok;
+    lily_lex_state *lexer = entry->lexer;
+    char *input_buffer = lexer->input_buffer;
+    FILE *input_file = (FILE *)entry->source;
+
+    bufsize = lexer->input_size;
+    i = 0;
+
+    while (1) {
+        ch = fgetc(input_file);
+        if (ch == EOF) {
+            if ((i + 1) == bufsize) {
+                grow_lexer_buffers(lexer);
+
+                input_buffer = lexer->input_buffer;
+            }
+
+            lexer->input_buffer[i] = '\n';
+            lexer->input_end = i + 1;
+            /* If i is 0, then nothing is on this line except eof. Return 0 to
+               let the caller know this is the end.
+             * If it isn't, then there's stuff with an unexpected eof at the
+               end. Return 1, then 0 the next time. */
+            ok = !!i;
+            /* Make sure the second eof found does not increment the line
+               number again. */
+            if (lexer->hit_eof == 0) {
+                lexer->line_num++;
+                lexer->hit_eof = 1;
+            }
+            break;
+        }
+
+        /* i + 2 is used so that when \r\n that the \n can be safely added
+           to the buffer. Otherwise, it would be i + 1. */
+        if ((i + 2) == bufsize) {
+            grow_lexer_buffers(lexer);
+            /* Do this in case the realloc decides to use a different block
+               instead of growing what it had. */
+            input_buffer = lexer->input_buffer;
+        }
+
+        lexer->input_buffer[i] = ch;
+
+        if (ch == '\r' || ch == '\n') {
+            lexer->input_end = i;
+            lexer->line_num++;
+            ok = 1;
+
+            if (ch == '\r') {
+                ch = fgetc(input_file);
+                if (ch != '\n')
+                    ungetc(ch, input_file);
+                else {
+                    /* This is safe: See i + 2 == size comment above. */
+                    lexer->input_buffer[i+1] = ch;
+                    lexer->input_end++;
+                }
+            }
+            break;
+        }
+        else if (ch > 127) {
+            followers = follower_table[(unsigned int)ch];
+            if (followers >= 2) {
+                int j;
+                i++;
+                for (j = 1;j < followers;j++,i++) {
+                    ch = fgetc(input_file);
+                    if ((unsigned char)ch < 128 || ch == EOF) {
+                        lily_raise(lexer->raiser, lily_ErrEncoding,
+                                   "Invalid utf-8 sequence on line %d.\n",
+                                   lexer->line_num);
+                    }
+                    input_buffer[i] = ch;
+                }
+            }
+            else if (followers == -1) {
+                lily_raise(lexer->raiser, lily_ErrEncoding,
+                           "Invalid utf-8 sequence on line %d.\n",
+                           lexer->line_num);
+            }
+        }
+        else
+            i++;
+    }
+    return ok;
+}
+
+/*  str_read_line_fn
+    This is the function that scans text into input_buffer when the source is
+    a string. The address of the string to start at is at entry->source. It's
+    much the same as file_read_line_fn, except that *ch and ch++ are
+    used instead of C's file IO. */
+static int str_read_line_fn(lily_lex_entry *entry)
+{
+    int bufsize, followers, i, ok;
+    lily_lex_state *lexer = entry->lexer;
+    char *input_buffer = lexer->input_buffer;
+    char *ch = (char *)entry->source;
+
+    bufsize = lexer->input_size;
+    i = 0;
+
+    fprintf(stderr, "first char is '%c'.\n", *ch);
+
+    while (1) {
+        if (*ch == '\0') {
+            if ((i + 1) == bufsize) {
+                grow_lexer_buffers(lexer);
+
+                input_buffer = lexer->input_buffer;
+            }
+
+            lexer->input_buffer[i] = '\n';
+            lexer->input_end = i + 1;
+            /* If i is 0, then nothing is on this line except eof. Return 0 to
+               let the caller know this is the end.
+             * If it isn't, then there's stuff with an unexpected eof at the
+               end. Return 1, then 0 the next time. */
+            ok = !!i;
+            /* Make sure the second eof found does not increment the line
+               number again. */
+            if (lexer->hit_eof == 0) {
+                lexer->line_num++;
+                lexer->hit_eof = 1;
+            }
+            break;
+        }
+
+        /* i + 2 is used so that when \r\n that the \n can be safely added
+           to the buffer. Otherwise, it would be i + 1. */
+        if ((i + 2) == bufsize) {
+            grow_lexer_buffers(lexer);
+            /* Do this in case the realloc decides to use a different block
+               instead of growing what it had. */
+            input_buffer = lexer->input_buffer;
+        }
+
+        lexer->input_buffer[i] = *ch;
+
+        if (*ch == '\r' || *ch == '\n') {
+            lexer->input_end = i;
+            lexer->line_num++;
+            ok = 1;
+
+            if (*ch == '\r') {
+                ch++;
+                if (*ch == '\n') {
+                    /* This is safe: See i + 2 == size comment above. */
+                    lexer->input_buffer[i+1] = *ch;
+                    lexer->input_end++;
+                    ch++;
+                }
+            }
+            else
+                ch++;
+
+            break;
+        }
+        else if (*ch > 127) {
+            followers = follower_table[(unsigned int)(*ch)];
+            if (followers >= 2) {
+                int j;
+                i++;
+                for (j = 1;j < followers;j++,i++) {
+                    ch++;
+                    if ((unsigned char)(*ch) < 128 || *ch == 0) {
+                        lily_raise(lexer->raiser, lily_ErrEncoding,
+                                   "Invalid utf-8 sequence on line %d.\n",
+                                   lexer->line_num);
+                    }
+                    input_buffer[i] = *ch;
+                }
+            }
+            else if (followers == -1) {
+                lily_raise(lexer->raiser, lily_ErrEncoding,
+                           "Invalid utf-8 sequence on line %d.\n",
+                           lexer->line_num);
+            }
+        }
+        else
+            i++;
+        ch++;
+    }
+    fprintf(stderr, "entry started at %p, now %p.\n",
+            entry->source, ch);
+    entry->source = ch;
+    return ok;
+}
+
+static void file_close_fn(lily_lex_entry *entry)
+{
+    fclose((FILE *)entry->source);
+}
+
+static void str_close_fn(lily_lex_entry *entry)
+{
+    /* The string is assumed to be non-malloced (coming from argv), so there's
+       nothing to do here. */
 }
 
 /** Scanning methods and helpers **/
@@ -541,8 +747,6 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
     lexer->value = yield_val;
 }
 
-static int read_line(lily_lex_state *);
-
 /* scan_multiline_comment
    This handles a comment that begins with ### and ends with ###. This is called
    after the opening ### has already been received. Position is updated to after
@@ -568,7 +772,7 @@ static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
             }
         }
         else if (*new_ch == '\n') {
-            if (read_line(lexer) == 1) {
+            if (lexer->entry->read_line_fn(lexer->entry) == 1) {
                 new_ch = &(lexer->input_buffer[0]);
                 comment_pos = 0;
                 /* Must continue, in case the first char is the # of ###.\n */
@@ -669,12 +873,13 @@ static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
                        (i * sizeof(char)));
                 label_pos += i;
 
-                if (read_line(lexer) == 0) {
+                if (lexer->entry->read_line_fn(lexer->entry) == 0) {
                     lily_raise(lexer->raiser, lily_ErrSyntax,
                                "Unterminated multi-line string (started at line %d).\n",
                                multiline_start);
                 }
-                /* read_line may realloc input_buffer, so it must be set again. */
+                /* The read line function may reallocate lexer's input_buffer,
+                   so set it again here. */
                 input_buffer = lexer->input_buffer;
                 if ((label_pos + lexer->input_end) >= lexer->label_size) {
                     /* input_end is at most == label_pos, so a *2 grow will
@@ -691,9 +896,8 @@ static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
                     lexer->label_size = new_label_size;
                 }
 
+                /* It can also realloc lexer's label... */
                 label = lexer->label;
-                /* Set the buffer again, because read_line may realloc it and
-                   make it be at a different spot. */
 
                 /* This next line doesn't have an escape, so fix that. */
                 escape_this_line = 0;
@@ -763,8 +967,8 @@ static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
 }
 
 /* grow_lexer_buffers
-   This is used by read_line to resize the lexer->input_buffer. It will resize
-   lexer->label too if both buffers are the same size. */
+   This is used by the file's line reader to resize the lexer->input_buffer. It
+   will resize lexer->label too if both buffers are the same size. */
 static void grow_lexer_buffers(lily_lex_state *lexer)
 {
     int new_size = lexer->input_size;
@@ -796,201 +1000,63 @@ static void grow_lexer_buffers(lily_lex_state *lexer)
     lexer->input_size = new_size;
 }
 
-/* read_line
-   Add a line from the current page into the buffer. */
-static int read_line(lily_lex_state *lexer)
-{
-    int bufsize, ch, followers, i, ok;
-    char *input_buffer = lexer->input_buffer;
-    FILE *lex_file = lexer->lex_file;
-
-    bufsize = lexer->input_size;
-    i = 0;
-
-    while (1) {
-        ch = fgetc(lex_file);
-        if (ch == EOF) {
-            if ((i + 1) == bufsize) {
-                grow_lexer_buffers(lexer);
-
-                input_buffer = lexer->input_buffer;
-            }
-
-            lexer->input_buffer[i] = '\n';
-            lexer->input_end = i + 1;
-            /* If i is 0, then nothing is on this line except eof. Return 0 to
-               let the caller know this is the end.
-             * If it isn't, then there's stuff with an unexpected eof at the
-               end. Return 1, then 0 the next time. */
-            ok = !!i;
-            /* Make sure the second eof found does not increment the line
-               number again. */
-            if (lexer->hit_eof == 0) {
-                lexer->line_num++;
-                lexer->hit_eof = 1;
-            }
-            break;
-        }
-
-        /* i + 2 is used so that when \r\n that the \n can be safely added
-           to the buffer. Otherwise, it would be i + 1. */
-        if ((i + 2) == bufsize) {
-            grow_lexer_buffers(lexer);
-            /* Do this in case the realloc decides to use a different block
-               instead of growing what it had. */
-            input_buffer = lexer->input_buffer;
-        }
-
-        lexer->input_buffer[i] = ch;
-
-        if (ch == '\r' || ch == '\n') {
-            lexer->input_end = i;
-            lexer->line_num++;
-            ok = 1;
-
-            if (ch == '\r') {
-                ch = fgetc(lex_file);
-                if (ch != '\n')
-                    ungetc(ch, lex_file);
-                else {
-                    /* This is safe: See i + 2 == size comment above. */
-                    lexer->input_buffer[i+1] = ch;
-                    lexer->input_end++;
-                }
-            }
-            break;
-        }
-        else if (ch > 127) {
-            followers = follower_table[(unsigned int)ch];
-            if (followers >= 2) {
-                int j;
-                i++;
-                for (j = 1;j < followers;j++,i++) {
-                    ch = fgetc(lex_file);
-                    if ((unsigned char)ch < 128 || ch == EOF) {
-                        lily_raise(lexer->raiser, lily_ErrEncoding,
-                                   "Invalid utf-8 sequence on line %d.\n",
-                                   lexer->line_num);
-                    }
-                    input_buffer[i] = ch;
-                }
-            }
-            else if (followers == -1) {
-                lily_raise(lexer->raiser, lily_ErrEncoding,
-                           "Invalid utf-8 sequence on line %d.\n",
-                           lexer->line_num);
-            }
-        }
-        else
-            i++;
-    }
-    return ok;
-}
-
-/* is_valid_utf8
-   This determines if the str (to be used for string-based scanning) is valid
-   utf-8. */
-static int is_valid_utf8(char *str)
-{
-    char ch;
-    int i, ret;
-
-    i = 0;
-    ret = 1;
-    ch = str[i];
-
-    while (ch) {
-        if (ch > 127) {
-            int followers = follower_table[(unsigned char)ch];
-            if (followers >= 2) {
-                int j;
-                i++;
-                for (j = 1;j < followers;j++,i++) {
-                    ch = str[i];
-                    if ((unsigned char)ch < 128) {
-                        ret = 0;
-                        break;
-                    }
-                    str[i] = ch;
-                }
-            }
-            else if (followers == -1) {
-                ret = 0;
-                break;
-            }
-        }
-        else
-            i++;
-
-        ch = str[i];
-    }
-
-    return ret;
-}
-
 /** Lexer API **/
 
-/* lily_load_file
-   This function tells the given lexer to load the given filename. This will
-   switch the lexer's mode to being file-based.
-   Note: The lexer will not free the given filename. */
+/*  lily_load_file
+    This function creates a new entry for the lexer based off a fopen-ing the
+    given path. This will call up the first line and ensure the lexer starts
+    after the <@lily block.
+
+    Note: If unable to create a new entry, ErrNoMem is raised.
+          If unable to open the given path, ErrImport is raised. */
 void lily_load_file(lily_lex_state *lexer, char *filename)
 {
-    if (lexer->mode != lm_from_file) {
-        /* Change from string-based to file-based. */
-        lexer->mode = lm_from_file;
-        lexer->input_buffer = lexer->save_buffer;
-        lexer->save_buffer = NULL;
-        lexer->ch_class[(unsigned char)'\r'] = CC_NEWLINE;
-        lexer->ch_class[(unsigned char)'\n'] = CC_NEWLINE;
-        lexer->ch_class[0] = CC_INVALID;
-        lexer->line_num = 0;
-    }
+    lily_lex_entry *new_entry = lily_malloc(sizeof(lily_lex_entry));
+    if (new_entry == NULL)
+        lily_raise_nomem(lexer->raiser);
 
-    FILE *lex_file = fopen(filename, "r");
-    if (lex_file == NULL) {
-        lexer->filename = NULL;
+    new_entry->source = fopen(filename, "r");
+    if (new_entry->source == NULL) {
+        lily_free(new_entry);
         lily_raise(lexer->raiser, lily_ErrImport, "Failed to open %s.\n",
                    filename);
     }
 
+    new_entry->read_line_fn = file_read_line_fn;
+    new_entry->close_fn = file_close_fn;
+    new_entry->filename = filename;
+    new_entry->lexer = lexer;
+    lexer->mode = lm_from_file;
+    lexer->entry = new_entry;
     lexer->filename = filename;
-    lexer->lex_file = lex_file;
-    lexer->hit_eof = 0;
 
-    read_line(lexer);
+    file_read_line_fn(lexer->entry);
     /* Make sure the lexer starts after the <@lily block. */
     lily_lexer_handle_page_data(lexer);
 }
 
-/* lily_load_str
-   This function tells the given lexer to load a string for scanning. If str is
-   not valid utf-8, then the lexer will not load it and return 0. Otherwise, it
-   returns 1. */
-int lily_load_str(lily_lex_state *lexer, char *str)
+/*  lily_load_str
+    This creates a new entry for the lexer that will use the given string as
+    the source. This calls up the first line, but doesn't do <@lily or @>
+    because that seems silly.
+
+    Note: If unable to allocate a new entry, ErrNoMem is raised. */
+void lily_load_str(lily_lex_state *lexer, char *str)
 {
-    if (!is_valid_utf8(str))
-        return 0;
+    lily_lex_entry *new_entry = lily_malloc(sizeof(lily_lex_entry));
+    if (new_entry == NULL)
+        lily_raise_nomem(lexer->raiser);
 
-    if (lexer->mode != lm_from_str) {
-        lexer->mode = lm_from_str;
-        lexer->save_buffer = lexer->input_buffer;
-        lexer->ch_class[(unsigned char)'\r'] = CC_STR_NEWLINE;
-        lexer->ch_class[(unsigned char)'\n'] = CC_STR_NEWLINE;
-        lexer->ch_class[0] = CC_STR_END;
-        lexer->lex_file = NULL;
-        lexer->input_size = strlen(str);
-        lexer->line_num = 1;
-    }
-
-    /* Line number isn't set, to allow for repl-like use. */
-    lexer->input_buffer = str;
-
+    new_entry->source = &str[0];
+    new_entry->read_line_fn = str_read_line_fn;
+    new_entry->close_fn = str_close_fn;
+    new_entry->filename = "<str>";
+    new_entry->lexer = lexer;
+    lexer->mode = lm_from_str;
+    lexer->entry = new_entry;
     lexer->filename = "<str>";
-    /* String-based has no support for the html skipping, because I can't see
-       that being useful. */
 
-    return 1;
+    str_read_line_fn(lexer->entry);
 }
 
 /* lily_lexer
@@ -1039,7 +1105,7 @@ void lily_lexer(lily_lex_state *lexer)
             token = group;
         }
         else if (group == CC_NEWLINE) {
-            if (read_line(lexer) == 1) {
+            if (lexer->entry->read_line_fn(lexer->entry) == 1) {
                 input_pos = 0;
                 continue;
             }
@@ -1054,7 +1120,7 @@ void lily_lexer(lily_lex_state *lexer)
                 continue;
             }
             else {
-                if (read_line(lexer) == 1) {
+                if (lexer->entry->read_line_fn(lexer->entry) == 1) {
                     input_pos = 0;
                     continue;
                 }
@@ -1220,13 +1286,10 @@ void lily_lexer(lily_lex_state *lexer)
                 token = tk_equal;
         }
         else if (group == CC_AT) {
-            if (*ch == '>') {}
-            input_pos++;
             ch++;
-            if (*ch == '>') {}
-
+            input_pos++;
             if (*ch == '>' &&
-                lexer->save_buffer == NULL) {
+                lexer->mode == lm_from_file) {
                 /* Skip the > of @> so it's not sent as html. */
                 input_pos++;
                 token = tk_end_tag;
@@ -1290,7 +1353,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
         }
 
         if (c == '\n' || c == '\r') {
-            if (read_line(lexer))
+            if (lexer->entry->read_line_fn(lexer->entry))
                 lbp = 0;
             else {
                 if (htmlp != 0) {

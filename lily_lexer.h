@@ -65,10 +65,23 @@ typedef enum {
     lm_from_str
 } lily_lexer_mode;
 
-typedef struct {
-    FILE *lex_file;
+struct lily_lex_entry_t;
+typedef int (*lily_reader_fn)(struct lily_lex_entry_t *);
+typedef void (*lily_close_fn)(struct lily_lex_entry_t *);
+
+typedef struct lily_lex_entry_t {
+    void *source;
+
+    lily_reader_fn read_line_fn;
+    lily_close_fn  close_fn;
+
     char *filename;
-    char *save_buffer;
+    struct lily_lex_state_t *lexer;
+} lily_lex_entry;
+
+typedef struct lily_lex_state_t {
+    lily_lex_entry *entry;
+    char *filename;
     char *ch_class;
     char *input_buffer;
     int input_end;
@@ -88,7 +101,7 @@ void lily_free_lex_state(lily_lex_state *);
 void lily_lexer(lily_lex_state *);
 void lily_lexer_handle_page_data(lily_lex_state *);
 void lily_load_file(lily_lex_state *, char *);
-int lily_load_str(lily_lex_state *, char *);
+void lily_load_str(lily_lex_state *, char *);
 lily_lex_state *lily_new_lex_state(lily_raiser *);
 char *tokname(lily_token);
 
