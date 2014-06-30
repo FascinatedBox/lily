@@ -1395,7 +1395,7 @@ int lily_parse_string(lily_parse_state *parser, char *str)
         parser->raiser->jump_pos++;
         lily_load_str(parser->lex, str);
         lily_parser(parser);
-        parser->lex->lex_buffer = NULL;
+        parser->lex->input_buffer = NULL;
         return 1;
     }
 
