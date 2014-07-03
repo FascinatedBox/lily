@@ -17,7 +17,8 @@ void lily_deref_hash_val(lily_sig *sig, lily_hash_val *hv)
         elem = hv->elem_chain;
         while (elem) {
             lily_value *elem_value = elem->elem_value;
-            if (elem_value->flags == 0 && value_is_refcounted)
+            if ((elem_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
+                value_is_refcounted)
                 lily_deref_unknown_val(elem_value);
             else if (value_cls_id == SYM_CLASS_OBJECT) {
                 /* Objects are containers that are not shared. This circularity
