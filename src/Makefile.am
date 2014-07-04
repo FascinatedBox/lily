@@ -1,3 +1,9 @@
+if APACHE_MOD
+SUBDIRS = apache
+else
+SUBDIRS =
+endif
+
 # These files form the core of the interpreter.
 lily_SRCS=csiphash.c \
 	lily_parser.c \
