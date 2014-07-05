@@ -343,8 +343,6 @@ static int str_read_line_fn(lily_lex_entry *entry)
     bufsize = lexer->input_size;
     i = 0;
 
-    fprintf(stderr, "first char is '%c'.\n", *ch);
-
     while (1) {
         if (*ch == '\0') {
             if ((i + 1) == bufsize) {
@@ -424,8 +422,6 @@ static int str_read_line_fn(lily_lex_entry *entry)
             i++;
         ch++;
     }
-    fprintf(stderr, "entry started at %p, now %p.\n",
-            entry->source, ch);
     entry->source = ch;
     return ok;
 }
