@@ -1309,8 +1309,8 @@ void lily_lexer(lily_lex_state *lexer)
 
 /* lily_lexer_handle_page_data
    This scans the html outside of the <@lily and @> tags, sending it off to
-   lily_impl_send_html (which differs depending on the runner). This is only
-   called when handling files (lily_lexer won't send the @> end_tag token for
+   lily_impl_puts (which differs depending on the runner). This is only called
+   when handling files (lily_lexer won't send the @> end_tag token for
    string-based scanning).*/
 void lily_lexer_handle_page_data(lily_lex_state *lexer)
 {
@@ -1332,7 +1332,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
                 if (htmlp != 0) {
                     /* Don't include the '<', because it goes with <@lily. */
                     lexer->label[htmlp] = '\0';
-                    lily_impl_send_html(lexer->label);
+                    lily_impl_puts(lexer->label);
                 }
                 lbp += 5;
                 /* Yield control to the lexer. */
@@ -1343,7 +1343,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
         htmlp++;
         if (htmlp == (lexer->input_size - 1)) {
             lexer->label[htmlp] = '\0';
-            lily_impl_send_html(lexer->label);
+            lily_impl_puts(lexer->label);
             /* This isn't done, so fix htmlp. */
             htmlp = 0;
         }
@@ -1354,7 +1354,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
             else {
                 if (htmlp != 0) {
                     lexer->label[htmlp] = '\0';
-                    lily_impl_send_html(lexer->label);
+                    lily_impl_puts(lexer->label);
                 }
                 lexer->token = tk_eof;
                 break;

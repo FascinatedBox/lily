@@ -204,9 +204,9 @@ void lily_impl_debugf(char *format, ...)
     va_end(ap);
 }
 
-void lily_impl_send_html(char *htmldata)
+void lily_impl_puts(char *text)
 {
-
+    fputs(text, stdout);
 }
 
 void show_stats()

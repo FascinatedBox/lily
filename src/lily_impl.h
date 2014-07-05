@@ -9,9 +9,9 @@
 /* Used for sending debug messages. */
 void lily_impl_debugf(char *, ...);
 
-/* Tells the server running lily to send a chunk of HTML data. The data is not
-   to be free'd. */
-void lily_impl_send_html(char *);
+/* This tells the runner that there's a block of text to write. How that gets
+   done is up to the runner. */
+void lily_impl_puts(char *);
 
 #ifndef AFT_ALLOC
 # define lily_malloc(size) malloc(size)
