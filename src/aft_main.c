@@ -196,7 +196,7 @@ void aft_free(char *filename, int line, void *ptr)
     free_count++;
 }
 
-void lily_impl_puts(char *text)
+void lily_impl_puts(void *data, char *text)
 {
     fputs(text, stdout);
 }
@@ -275,7 +275,7 @@ int main(int argc, char **argv)
     if (allowed_allocs == 0 || filename == NULL)
         usage();
 
-    lily_parse_state *parser = lily_new_parse_state(argc, argv);
+    lily_parse_state *parser = lily_new_parse_state(NULL, argc, argv);
     /* The alloc count was probably low. Show stats and give up. */
     if (parser == NULL)
         show_stats();

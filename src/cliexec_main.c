@@ -9,7 +9,7 @@
    This is a nice tool to quickly check a piece of code, or to toy with the
    language without editing a file. */
 
-void lily_impl_puts(char *text)
+void lily_impl_puts(void *, char *text)
 {
     fputs(text, stdout);
 }
@@ -21,7 +21,7 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    lily_parse_state *parser = lily_new_parse_state(argc, argv);
+    lily_parse_state *parser = lily_new_parse_state(NULL, argc, argv);
     if (parser == NULL) {
         fputs("ErrNoMemory: No memory to alloc interpreter.\n", stderr);
         exit(EXIT_FAILURE);

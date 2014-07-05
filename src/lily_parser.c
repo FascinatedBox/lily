@@ -48,7 +48,7 @@ if (lex->token != expected) \
                tokname(expected), tokname(lex->token));
 
 /** Parser initialization and deletion **/
-lily_parse_state *lily_new_parse_state(int argc, char **argv)
+lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
 {
     lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
     lily_raiser *raiser = lily_new_raiser();
@@ -62,8 +62,8 @@ lily_parse_state *lily_new_parse_state(int argc, char **argv)
     parser->ast_pool = lily_new_ast_pool(raiser, 8);
     parser->symtab = lily_new_symtab(raiser);
     parser->emit = lily_new_emit_state(raiser);
-    parser->lex = lily_new_lex_state(raiser);
-    parser->vm = lily_new_vm_state(raiser);
+    parser->lex = lily_new_lex_state(raiser, data);
+    parser->vm = lily_new_vm_state(raiser, data);
 
     if (parser->raiser == NULL || parser->sig_stack == NULL ||
         parser->lex == NULL || parser->emit == NULL || parser->symtab == NULL ||

@@ -9,7 +9,7 @@
    fs stands for 'fake server'. This is designed to simulate Lily being run from
    a server. This is considered the 'default' or 'normal' Lily runner. */
 
-void lily_impl_puts(char *text)
+void lily_impl_puts(void *data, char *text)
 {
     fputs(text, stdout);
 }
@@ -27,7 +27,7 @@ int main(int argc, char **argv)
 
     char *fs_filename = argv[1];
 
-    lily_parse_state *parser = lily_new_parse_state(argc, argv);
+    lily_parse_state *parser = lily_new_parse_state(NULL, argc, argv);
     if (parser == NULL) {
         fputs("ErrNoMemory: No memory to alloc interpreter.\n", stderr);
         exit(EXIT_FAILURE);

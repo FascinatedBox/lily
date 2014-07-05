@@ -23,11 +23,12 @@ typedef struct {
     lily_symtab *symtab;
     lily_vm_state *vm;
     lily_raiser *raiser;
+    void *data;
     lily_parse_mode mode;
 } lily_parse_state;
 
 void lily_free_parse_state(lily_parse_state *);
-lily_parse_state *lily_new_parse_state(int, char **);
+lily_parse_state *lily_new_parse_state(void *, int, char **);
 int lily_parse_file(lily_parse_state *, char *);
 int lily_parse_string(lily_parse_state *, char *);
 
