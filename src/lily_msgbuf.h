@@ -1,6 +1,9 @@
 #ifndef LILY_MSGBUF_H
 # define LILY_MSGBUF_H
 
+/* Don't include lily_syminfo.h when this is all that's needed from it. */
+struct lily_sig_t;
+
 /* This is shared by different modules of the interpreter for different reasons.
    Raiser uses it for formatting error messages, and debug uses it for holding
    literals for printing. */
@@ -24,6 +27,10 @@ void lily_msgbuf_add_char(lily_msgbuf *, char);
 void lily_msgbuf_add_text_range(lily_msgbuf *, char *, int, int);
 void lily_msgbuf_add_int(lily_msgbuf *, int);
 void lily_msgbuf_add_double(lily_msgbuf *, double);
+void lily_msgbuf_add_sig(lily_msgbuf *, struct lily_sig_t *);
+void lily_msgbuf_add_fmt(lily_msgbuf *, char *, ...);
+void lily_msgbuf_escaped_add_str(lily_msgbuf *, char *);
+void lily_msgbuf_flush(lily_msgbuf *);
 void lily_msgbuf_reset(lily_msgbuf *);
 
 #endif

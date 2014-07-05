@@ -9,14 +9,6 @@
    fs stands for 'fake server'. This is designed to simulate Lily being run from
    a server. This is considered the 'default' or 'normal' Lily runner. */
 
-void lily_impl_debugf(char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    vfprintf(stderr, format, ap);
-    va_end(ap);
-}
-
 void lily_impl_puts(char *text)
 {
     fputs(text, stdout);

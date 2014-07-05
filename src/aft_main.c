@@ -196,14 +196,6 @@ void aft_free(char *filename, int line, void *ptr)
     free_count++;
 }
 
-void lily_impl_debugf(char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    vprintf(format, ap);
-    va_end(ap);
-}
-
 void lily_impl_puts(char *text)
 {
     fputs(text, stdout);

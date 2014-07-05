@@ -6,9 +6,6 @@
 
 /* This file defines functions that a lily implementation must define. */
 
-/* Used for sending debug messages. */
-void lily_impl_debugf(char *, ...);
-
 /* This tells the runner that there's a block of text to write. How that gets
    done is up to the runner. */
 void lily_impl_puts(char *);
