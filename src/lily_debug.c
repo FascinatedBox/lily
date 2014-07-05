@@ -90,6 +90,7 @@ typedef struct lily_debug_state_t {
     lily_method_val *current_method;
     lily_msgbuf *msgbuf;
     int indent;
+    void *data;
 } lily_debug_state;
 
 /* Opcodes that have line numbers also have extra space so they print the line
@@ -173,10 +174,10 @@ static const int return_nv_ci[]  = {1, D_LINENO};
 static const int jump_ci[]       = {1, D_JUMP};
 static const int nop_ci[]        = {1, D_NOP};
 
-static void write_msgbuf(lily_msgbuf *msgbuf)
+static void write_msgbuf(lily_debug_state *debug)
 {
-    lily_impl_puts(msgbuf->message);
-    lily_msgbuf_flush(msgbuf);
+    lily_impl_puts(debug->data, debug->msgbuf->message);
+    lily_msgbuf_flush(debug->msgbuf);
 }
 
 static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
@@ -272,7 +273,7 @@ static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
         default:
             lily_msgbuf_add_fmt(debug->msgbuf,
                     "warning: Opcode %d has no ci.\n",opcode);
-            write_msgbuf(debug->msgbuf);
+            write_msgbuf(debug);
             ret = NULL;
             break;
     }
@@ -296,16 +297,16 @@ static void show_simple_value(lily_debug_state *debug, lily_sig *sig,
     else if (cls_id == SYM_CLASS_NUMBER)
         lily_msgbuf_add_double(debug->msgbuf, value.number);
 
-    write_msgbuf(debug->msgbuf);
+    write_msgbuf(debug);
 }
 
 static void show_literal(lily_debug_state *debug, lily_sig *sig,
         lily_raw_value value)
 {
     lily_msgbuf_add_fmt(debug->msgbuf, "(^T) ", sig);
-    write_msgbuf(debug->msgbuf);
+    write_msgbuf(debug);
     show_simple_value(debug, sig, value);
-    lily_impl_puts("\n");
+    lily_impl_puts(debug->data, "\n");
 }
 
 static void show_readonly_var(lily_debug_state *debug, lily_var *var)
@@ -319,7 +320,7 @@ static void show_readonly_var(lily_debug_state *debug, lily_var *var)
     else
         lily_msgbuf_add_fmt(debug->msgbuf, "%s [builtin]\n", var->name);
 
-    write_msgbuf(debug->msgbuf);
+    write_msgbuf(debug);
 }
 
 static void show_register_info(lily_debug_state *debug, int flags, int reg_num)
@@ -361,7 +362,7 @@ static void show_register_info(lily_debug_state *debug, int flags, int reg_num)
     else
         lily_msgbuf_add(msgbuf, "\n");
 
-    write_msgbuf(msgbuf);
+    write_msgbuf(debug);
 }
 
 /* show_code
@@ -378,6 +379,7 @@ static void show_code(lily_debug_state *debug)
     int digits, i, len;
     uintptr_t *code;
     lily_msgbuf *msgbuf = debug->msgbuf;
+    void *data = debug->data;
 
     digits = 0;
     i = 0;
@@ -433,7 +435,7 @@ static void show_code(lily_debug_state *debug)
         lily_msgbuf_add_fmt(msgbuf, "^I|____ [", indent);
         lily_msgbuf_add_fmt(msgbuf, format, i);
         lily_msgbuf_add_fmt(msgbuf, "] %s", opcode_name);
-        write_msgbuf(msgbuf);
+        write_msgbuf(debug);
         /* A newline isn't printed after the opcode's name so that the line
            number can be on the same line. Most opcodes have a line number,
            except for a few where that does not apply.
@@ -441,13 +443,13 @@ static void show_code(lily_debug_state *debug)
            will write in the newline.
            o_jump doesn't, so write this in for it. */
         if (code[i] == o_jump)
-            lily_impl_puts("\n");
+            lily_impl_puts(data, "\n");
 
         for (j = 1;j <= opcode_data[0];j++) {
             data_code = opcode_data[j];
 
             if (data_code == D_LINENO)
-                lily_impl_puts("\n");
+                lily_impl_puts(data, "\n");
             else if (data_code == D_INPUT)
                 show_register_info(debug, RI_INPUT, code[i+j]);
             else if (data_code == D_OUTPUT) {
@@ -459,14 +461,14 @@ static void show_code(lily_debug_state *debug)
             }
             else if (data_code == D_JUMP_ON) {
                 if (code[i+j] == 0)
-                    lily_impl_puts(" false\n");
+                    lily_impl_puts(data, " false\n");
                 else
-                    lily_impl_puts(" true\n");
+                    lily_impl_puts(data, " true\n");
             }
             else if (data_code == D_JUMP) {
                 lily_msgbuf_add_fmt(msgbuf, "^I|     -> | [%d]\n",
                         (int)code[i+j]);
-                write_msgbuf(msgbuf);
+                write_msgbuf(debug);
             }
             else if (data_code == D_COUNT)
                 count = (int)code[i+j];
@@ -483,7 +485,7 @@ static void show_code(lily_debug_state *debug)
             }
             else if (data_code == D_LIT_INPUT) {
                 lily_msgbuf_add_fmt(msgbuf, "^I|     <---- ", indent);
-                write_msgbuf(msgbuf);
+                write_msgbuf(debug);
 
                 lily_literal *lit = (lily_literal *)code[i+j];
                 show_literal(debug, lit->sig, lit->value);
@@ -493,10 +495,10 @@ static void show_code(lily_debug_state *debug)
             else if (data_code == D_INT_VAL) {
                 lily_msgbuf_add_fmt(msgbuf, "^I|     <---- %d\n",
                         indent, (int)code[i+j]);
-                write_msgbuf(msgbuf);
+                write_msgbuf(debug);
             }
             else if (data_code == D_NOP) {
-                lily_impl_puts("\n");
+                lily_impl_puts(data, "\n");
                 break;
             }
             else if (data_code == D_GLOBAL_INPUT)
@@ -542,7 +544,7 @@ static void show_list_value(lily_debug_state *debug, lily_sig *sig,
        written with proper indentation. */
     if (lv->visited) {
         lily_msgbuf_add_fmt(msgbuf, "^I(circular)\n");
-        write_msgbuf(msgbuf);
+        write_msgbuf(debug);
         return;
     }
 
@@ -555,7 +557,7 @@ static void show_list_value(lily_debug_state *debug, lily_sig *sig,
             lily_msgbuf_add_fmt(msgbuf, "^I|\n", indent - 1);
 
         lily_msgbuf_add_fmt(msgbuf, "^I|____[%d] = ", indent - 1, i);
-        write_msgbuf(msgbuf);
+        write_msgbuf(debug);
 
         show_value(debug, lv->elems[i]);
     }
@@ -577,7 +579,7 @@ static void show_hash_value(lily_debug_state *debug, lily_sig *sig,
        written with proper indentation. */
     if (hash_val->visited) {
         lily_msgbuf_add_fmt(msgbuf, "^I(circular)\n", indent - 1);
-        write_msgbuf(msgbuf);
+        write_msgbuf(debug);
         return;
     }
 
@@ -592,11 +594,11 @@ static void show_hash_value(lily_debug_state *debug, lily_sig *sig,
             lily_msgbuf_add_fmt(msgbuf, "^I|\n", indent - 1);
 
         lily_msgbuf_add_fmt(msgbuf, "^I|____[", indent - 1);
-        write_msgbuf(msgbuf);
+        write_msgbuf(debug);
         /* vm does not allow creating hashes with nil keys, so this should be
            safe. */
         show_simple_value(debug, key_sig, elem_iter->elem_key->value);
-        lily_impl_puts("] = ");
+        lily_impl_puts(debug->data, "] = ");
 
         show_value(debug, elem_iter->elem_value);
 
@@ -620,7 +622,7 @@ static void show_value(lily_debug_state *debug, lily_value *value)
     lily_raw_value raw_value = value->value;
 
     if (value->flags & VAL_IS_NIL) {
-        lily_impl_puts("(nil)\n");
+        lily_impl_puts(debug->data, "(nil)\n");
         return;
     }
 
@@ -628,7 +630,7 @@ static void show_value(lily_debug_state *debug, lily_value *value)
         cls_id == SYM_CLASS_INTEGER ||
         cls_id == SYM_CLASS_NUMBER) {
         show_simple_value(debug, sig, raw_value);
-        lily_impl_puts("\n");
+        lily_impl_puts(debug->data, "\n");
     }
     else if (cls_id == SYM_CLASS_LIST ||
              cls_id == SYM_CLASS_HASH) {
@@ -641,7 +643,7 @@ static void show_value(lily_debug_state *debug, lily_value *value)
             hv = raw_value.hash;
 
         lily_msgbuf_add_fmt(debug->msgbuf, "^T\n", sig);
-        write_msgbuf(debug->msgbuf);
+        write_msgbuf(debug);
 
         debug->indent++;
         if (cls_id == SYM_CLASS_LIST)
@@ -655,14 +657,14 @@ static void show_value(lily_debug_state *debug, lily_value *value)
         lily_function_val *fv = raw_value.function;
 
         lily_msgbuf_add_fmt(debug->msgbuf, "^T %s\n", sig, fv->trace_name);
-        write_msgbuf(debug->msgbuf);
+        write_msgbuf(debug);
     }
     else if (cls_id == SYM_CLASS_METHOD) {
         lily_method_val *mv = raw_value.method;
         lily_method_val *save_current;
 
         lily_msgbuf_add_fmt(debug->msgbuf, "^T %s\n", sig, mv->trace_name);
-        write_msgbuf(debug->msgbuf);
+        write_msgbuf(debug);
 
         save_current = debug->current_method;
         debug->current_method = mv;
@@ -676,9 +678,9 @@ static void show_value(lily_debug_state *debug, lily_value *value)
         /* Don't condense, or it'll be (object) (nil), which seems a bit
            strange. */
         if (obj_value->flags & VAL_IS_NIL)
-            lily_impl_puts("(nil)\n");
+            lily_impl_puts(debug->data, "(nil)\n");
         else {
-            lily_impl_puts("(object) ");
+            lily_impl_puts(debug->data, "(object) ");
             show_value(debug, obj_value);
         }
     }
@@ -691,21 +693,23 @@ static void show_value(lily_debug_state *debug, lily_value *value)
 /* lily_show_sym
    This handles showing the information for a symbol at vm-time. */
 void lily_show_sym(lily_method_val *lily_main, lily_method_val *current_method,
-        lily_value *value, int is_global, int reg_id, lily_msgbuf *msgbuf)
+        lily_value *value, int is_global, int reg_id, lily_msgbuf *msgbuf,
+        void *data)
 {
     lily_debug_state debug;
     debug.indent = 0;
     debug.main_method = lily_main;
     debug.current_method = current_method;
     debug.msgbuf = msgbuf;
+    debug.data = data;
 
     int flags = 0;
     if (is_global)
         flags |= RI_GLOBAL;
 
-    lily_impl_puts("Showing ");
+    lily_impl_puts(data, "Showing ");
     show_register_info(&debug, flags, reg_id);
 
-    lily_impl_puts("Value: ");
+    lily_impl_puts(data, "Value: ");
     show_value(&debug, value);
 }

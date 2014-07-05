@@ -127,7 +127,7 @@ vm_regs[code[code_pos+4]]->flags &= ~VAL_IS_NIL; \
 code_pos += 5;
 
 /** vm init and deletion **/
-lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
+lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
 {
     lily_vm_state *vm = lily_malloc(sizeof(lily_vm_state));
     if (vm == NULL)
@@ -142,6 +142,7 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     vm->in_function = 0;
     vm->method_stack_pos = 0;
     vm->raiser = raiser;
+    vm->data = data;
     vm->main = NULL;
     vm->vm_regs = NULL;
     vm->regs_from_main = NULL;
@@ -558,7 +559,7 @@ void boundary_error(lily_vm_state *vm, int code_pos, int bad_index)
 void lily_builtin_print(lily_vm_state *vm, uintptr_t *code, int num_args)
 {
     lily_value *reg = vm->vm_regs[code[0]];
-    lily_impl_puts(reg->value.str->str);
+    lily_impl_puts(vm->data, reg->value.str->str);
 }
 
 /* lily_builtin_printfmt
@@ -575,6 +576,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, uintptr_t *code, int num_args)
     lily_value **vm_regs = vm->vm_regs;
     lily_value *arg;
     lily_raw_value val;
+    void *data = vm->data;
 
     fmt = vm_regs[code[0]]->value.str->str;
     str_start = fmt;
@@ -587,7 +589,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, uintptr_t *code, int num_args)
 
             save_ch = fmt[i];
             fmt[i] = '\0';
-            lily_impl_puts(str_start);
+            lily_impl_puts(data, str_start);
             fmt[i] = save_ch;
             i++;
 
@@ -600,29 +602,29 @@ void lily_builtin_printfmt(lily_vm_state *vm, uintptr_t *code, int num_args)
                 if (cls_id != SYM_CLASS_INTEGER)
                     return;
                 if (is_nil)
-                    lily_impl_puts("(nil)");
+                    lily_impl_puts(data, "(nil)");
                 else {
                     snprintf(fmtbuf, 63, "%" PRId64, val.integer);
-                    lily_impl_puts(fmtbuf);
+                    lily_impl_puts(data, fmtbuf);
                 }
             }
             else if (fmt[i] == 's') {
                 if (cls_id != SYM_CLASS_STR)
                     return;
                 if (is_nil)
-                    lily_impl_puts("(nil)");
+                    lily_impl_puts(data, "(nil)");
                 else
-                    lily_impl_puts(val.str->str);
+                    lily_impl_puts(data, val.str->str);
             }
             else if (fmt[i] == 'n') {
                 if (cls_id != SYM_CLASS_NUMBER)
                     return;
 
                 if (is_nil)
-                    lily_impl_puts("(nil)");
+                    lily_impl_puts(data, "(nil)");
                 else {
                     snprintf(fmtbuf, 63, "%f", val.number);
-                    lily_impl_puts(fmtbuf);
+                    lily_impl_puts(data, fmtbuf);
                 }
             }
 
@@ -632,7 +634,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, uintptr_t *code, int num_args)
         i++;
     }
 
-    lily_impl_puts(str_start);
+    lily_impl_puts(data, str_start);
 }
 /** VM opcode helpers **/
 
@@ -1146,7 +1148,7 @@ static void do_keyword_show(lily_vm_state *vm, int is_global, int reg_id)
     lily_main = vm->method_stack[0]->method;
     current_method = vm->method_stack[vm->method_stack_pos - 1]->method;
     lily_show_sym(lily_main, current_method, reg, is_global, reg_id,
-            vm->raiser->msgbuf);
+            vm->raiser->msgbuf, vm->data);
 }
 
 /** vm registers handling and stack growing **/

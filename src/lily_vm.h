@@ -58,10 +58,11 @@ typedef struct lily_vm_state_t {
        err_function. */
     int in_function;
     lily_raiser *raiser;
+    void *data;
     lily_var *main;
 } lily_vm_state;
 
-lily_vm_state *lily_new_vm_state(lily_raiser *);
+lily_vm_state *lily_new_vm_state(lily_raiser *, void *);
 void lily_free_vm_state(lily_vm_state *);
 void lily_vm_prep(lily_vm_state *, lily_symtab *);
 void lily_vm_execute(lily_vm_state *);

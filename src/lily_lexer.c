@@ -136,7 +136,7 @@ static const lily_token grp_two_eq_table[] =
 };
 
 /** Lexer init and deletion **/
-lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
+lily_lex_state *lily_new_lex_state(lily_raiser *raiser, void *data)
 {
     lily_lex_state *lex = lily_malloc(sizeof(lily_lex_state));
     char *ch_class;
@@ -148,6 +148,7 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     lex->hit_eof = 0;
     lex->filename = NULL;
     lex->raiser = raiser;
+    lex->data = data;
     lex->input_buffer = lily_malloc(128 * sizeof(char));
     lex->label = lily_malloc(128 * sizeof(char));
     lex->mode = lm_from_file;
@@ -1316,6 +1317,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
 {
     char c;
     int lbp, htmlp;
+    void *data = lexer->data;
 
     /* htmlp and lbp are used so it's obvious they aren't globals. */
     lbp = lexer->input_pos;
@@ -1332,7 +1334,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
                 if (htmlp != 0) {
                     /* Don't include the '<', because it goes with <@lily. */
                     lexer->label[htmlp] = '\0';
-                    lily_impl_puts(lexer->label);
+                    lily_impl_puts(data, lexer->label);
                 }
                 lbp += 5;
                 /* Yield control to the lexer. */
@@ -1343,7 +1345,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
         htmlp++;
         if (htmlp == (lexer->input_size - 1)) {
             lexer->label[htmlp] = '\0';
-            lily_impl_puts(lexer->label);
+            lily_impl_puts(data, lexer->label);
             /* This isn't done, so fix htmlp. */
             htmlp = 0;
         }
@@ -1354,7 +1356,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
             else {
                 if (htmlp != 0) {
                     lexer->label[htmlp] = '\0';
-                    lily_impl_puts(lexer->label);
+                    lily_impl_puts(data, lexer->label);
                 }
                 lexer->token = tk_eof;
                 break;

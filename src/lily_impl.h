@@ -8,7 +8,7 @@
 
 /* This tells the runner that there's a block of text to write. How that gets
    done is up to the runner. */
-void lily_impl_puts(char *);
+void lily_impl_puts(void *, char *);
 
 #ifndef AFT_ALLOC
 # define lily_malloc(size) malloc(size)

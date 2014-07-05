@@ -8,9 +8,9 @@
 
 #include "lily_parser.h"
 
-void lily_impl_puts(char *text)
+void lily_impl_puts(void *data, char *text)
 {
-    /* todo: The interpreter needs to provide the request_rec. */
+
 }
 
 /* The sample content handler */
