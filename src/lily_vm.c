@@ -558,7 +558,7 @@ void boundary_error(lily_vm_state *vm, int code_pos, int bad_index)
 void lily_builtin_print(lily_vm_state *vm, uintptr_t *code, int num_args)
 {
     lily_value *reg = vm->vm_regs[code[0]];
-    lily_impl_send_html(reg->value.str->str);
+    lily_impl_puts(reg->value.str->str);
 }
 
 /* lily_builtin_printfmt
@@ -587,7 +587,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, uintptr_t *code, int num_args)
 
             save_ch = fmt[i];
             fmt[i] = '\0';
-            lily_impl_send_html(str_start);
+            lily_impl_puts(str_start);
             fmt[i] = save_ch;
             i++;
 
@@ -600,29 +600,29 @@ void lily_builtin_printfmt(lily_vm_state *vm, uintptr_t *code, int num_args)
                 if (cls_id != SYM_CLASS_INTEGER)
                     return;
                 if (is_nil)
-                    lily_impl_send_html("(nil)");
+                    lily_impl_puts("(nil)");
                 else {
                     snprintf(fmtbuf, 63, "%" PRId64, val.integer);
-                    lily_impl_send_html(fmtbuf);
+                    lily_impl_puts(fmtbuf);
                 }
             }
             else if (fmt[i] == 's') {
                 if (cls_id != SYM_CLASS_STR)
                     return;
                 if (is_nil)
-                    lily_impl_send_html("(nil)");
+                    lily_impl_puts("(nil)");
                 else
-                    lily_impl_send_html(val.str->str);
+                    lily_impl_puts(val.str->str);
             }
             else if (fmt[i] == 'n') {
                 if (cls_id != SYM_CLASS_NUMBER)
                     return;
 
                 if (is_nil)
-                    lily_impl_send_html("(nil)");
+                    lily_impl_puts("(nil)");
                 else {
                     snprintf(fmtbuf, 63, "%f", val.number);
-                    lily_impl_send_html(fmtbuf);
+                    lily_impl_puts(fmtbuf);
                 }
             }
 
@@ -632,7 +632,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, uintptr_t *code, int num_args)
         i++;
     }
 
-    lily_impl_send_html(str_start);
+    lily_impl_puts(str_start);
 }
 /** VM opcode helpers **/
 
