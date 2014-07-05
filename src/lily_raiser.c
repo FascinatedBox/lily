@@ -41,47 +41,6 @@ void lily_free_raiser(lily_raiser *raiser)
     lily_free(raiser);
 }
 
-/* add_sig_to_msgbuf
-   This is kept out of lily_msgbuf.{c,h} so that things using the raiser don't
-   have to pull even more info about other modules. Sigs are fairly complex. */
-void add_sig_to_msgbuf(lily_msgbuf *msgbuf, lily_sig *sig)
-{
-    lily_msgbuf_add(msgbuf, sig->cls->name);
-
-    if (sig->cls->id == SYM_CLASS_METHOD ||
-        sig->cls->id == SYM_CLASS_FUNCTION) {
-        lily_msgbuf_add(msgbuf, " (");
-        if (sig->siglist[1] != NULL) {
-            int i;
-
-            for (i = 1;i < sig->siglist_size - 1;i++) {
-                add_sig_to_msgbuf(msgbuf, sig->siglist[i]);
-                lily_msgbuf_add(msgbuf, ", ");
-            }
-
-            add_sig_to_msgbuf(msgbuf, sig->siglist[i]);
-            if (sig->flags & SIG_IS_VARARGS)
-                lily_msgbuf_add(msgbuf, "...");
-        }
-        lily_msgbuf_add(msgbuf, "):");
-        if (sig->siglist[0] == NULL)
-            lily_msgbuf_add(msgbuf, "nil");
-        else
-            add_sig_to_msgbuf(msgbuf, sig->siglist[0]);
-    }
-    else if (sig->cls->id == SYM_CLASS_LIST ||
-             sig->cls->id == SYM_CLASS_HASH) {
-        int i;
-        lily_msgbuf_add(msgbuf, "[");
-        for (i = 0;i < sig->cls->template_count;i++) {
-            add_sig_to_msgbuf(msgbuf, sig->siglist[i]);
-            if (i != (sig->cls->template_count - 1))
-                lily_msgbuf_add(msgbuf, ", ");
-        }
-        lily_msgbuf_add(msgbuf, "]");
-    }
-}
-
 /* lily_raise
    This stops the interpreter. error_code is one of the error codes defined in
    lily_raiser.h, which are matched to lily_error_names. Every error passes
@@ -93,6 +52,10 @@ void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
 {
     int i, len, text_start;
     va_list var_args;
+
+    /* Make this ready to use again, in case 'show' caused the truncated flag
+       to be set. */
+    lily_msgbuf_reset(raiser->msgbuf);
 
     va_start(var_args, fmt);
 
@@ -120,7 +83,7 @@ void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
             }
             else if (c == 'T') {
                 lily_sig *sig = va_arg(var_args, lily_sig *);
-                add_sig_to_msgbuf(raiser->msgbuf, sig);
+                lily_msgbuf_add_sig(raiser->msgbuf, sig);
             }
 
             text_start = i+1;

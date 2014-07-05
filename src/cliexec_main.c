@@ -9,14 +9,6 @@
    This is a nice tool to quickly check a piece of code, or to toy with the
    language without editing a file. */
 
-void lily_impl_debugf(char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    vfprintf(stderr, format, ap);
-    va_end(ap);
-}
-
 void lily_impl_puts(char *text)
 {
     fputs(text, stdout);

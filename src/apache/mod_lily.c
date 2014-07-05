@@ -8,11 +8,6 @@
 
 #include "lily_parser.h"
 
-void lily_impl_debugf(char *format, ...)
-{
-    /* todo: The interpreter needs to provide the request_rec. */
-}
-
 void lily_impl_puts(char *text)
 {
     /* todo: The interpreter needs to provide the request_rec. */
