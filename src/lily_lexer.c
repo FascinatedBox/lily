@@ -234,8 +234,6 @@ void lily_free_lex_state(lily_lex_state *lex)
 
 /** file and str reading functions **/
 
-static void grow_lexer_buffers(lily_lex_state *);
-
 /*  file_read_line_fn
     This is the function that scans in a line to input_buffer when the source
     is a raw C FILE *. */
@@ -253,7 +251,7 @@ static int file_read_line_fn(lily_lex_entry *entry)
         ch = fgetc(input_file);
         if (ch == EOF) {
             if ((i + 1) == bufsize) {
-                grow_lexer_buffers(lexer);
+                lily_grow_lexer_buffers(lexer);
 
                 input_buffer = lexer->input_buffer;
             }
@@ -277,7 +275,7 @@ static int file_read_line_fn(lily_lex_entry *entry)
         /* i + 2 is used so that when \r\n that the \n can be safely added
            to the buffer. Otherwise, it would be i + 1. */
         if ((i + 2) == bufsize) {
-            grow_lexer_buffers(lexer);
+            lily_grow_lexer_buffers(lexer);
             /* Do this in case the realloc decides to use a different block
                instead of growing what it had. */
             input_buffer = lexer->input_buffer;
@@ -347,7 +345,7 @@ static int str_read_line_fn(lily_lex_entry *entry)
     while (1) {
         if (*ch == '\0') {
             if ((i + 1) == bufsize) {
-                grow_lexer_buffers(lexer);
+                lily_grow_lexer_buffers(lexer);
 
                 input_buffer = lexer->input_buffer;
             }
@@ -371,7 +369,7 @@ static int str_read_line_fn(lily_lex_entry *entry)
         /* i + 2 is used so that when \r\n that the \n can be safely added
            to the buffer. Otherwise, it would be i + 1. */
         if ((i + 2) == bufsize) {
-            grow_lexer_buffers(lexer);
+            lily_grow_lexer_buffers(lexer);
             /* Do this in case the realloc decides to use a different block
                instead of growing what it had. */
             input_buffer = lexer->input_buffer;
@@ -963,10 +961,14 @@ static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
     *pos = word_pos;
 }
 
-/* grow_lexer_buffers
-   This is used by the file's line reader to resize the lexer->input_buffer. It
-   will resize lexer->label too if both buffers are the same size. */
-static void grow_lexer_buffers(lily_lex_state *lexer)
+/** Lexer API **/
+
+/*  lily_grow_lexer_buffers
+    This is used to grow lexer->input_buffer. If it's the same size as
+    lexer->label, then both of them will be resized. By keeping lexer->label
+    the same size or more than lexer->input_buffer, the lexer does not have to
+    worry about an overflow when scanning in a label. */
+void lily_grow_lexer_buffers(lily_lex_state *lexer)
 {
     int new_size = lexer->input_size;
     new_size *= 2;
@@ -996,8 +998,6 @@ static void grow_lexer_buffers(lily_lex_state *lexer)
     lexer->input_buffer = new_lb;
     lexer->input_size = new_size;
 }
-
-/** Lexer API **/
 
 /*  lily_load_file
     This function creates a new entry for the lexer based off a fopen-ing the
@@ -1054,6 +1054,38 @@ void lily_load_str(lily_lex_state *lexer, char *str)
     lexer->filename = "<str>";
 
     str_read_line_fn(lexer->entry);
+}
+
+/*  lily_load_special
+    This creates a new entry for the lexer that will use data provided by the
+    runner. The runner is responsible for providing a data source, a filename,
+    a read function, and a close function.
+
+    The mode determines if the given entry will parse tags or not.
+
+    This function should only be called by lily_parse_special, since it raises
+    ErrNoMem if unable to allocate a new entry (and that's very bad if there's
+    no jump installed in the raiser). */
+void lily_load_special(lily_lex_state *lexer, void *source,
+    lily_lexer_mode mode, char *filename, lily_reader_fn read_line_fn,
+    lily_close_fn close_fn)
+{
+    lily_lex_entry *new_entry = lily_malloc(sizeof(lily_lex_entry));
+    if (new_entry == NULL)
+        lily_raise_nomem(lexer->raiser);
+
+    new_entry->source = source;
+    new_entry->read_line_fn = read_line_fn;
+    new_entry->close_fn = close_fn;
+    new_entry->filename = filename;
+    new_entry->lexer = lexer;
+    lexer->mode = mode;
+    lexer->entry = new_entry;
+    lexer->filename = filename;
+
+    read_line_fn(lexer->entry);
+    if (mode == lm_from_file)
+        lily_lexer_handle_page_data(lexer);
 }
 
 /* lily_lexer

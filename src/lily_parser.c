@@ -1400,3 +1400,31 @@ int lily_parse_string(lily_parse_state *parser, char *str)
 
     return 0;
 }
+
+/*  lily_parse_special
+    This function starts parsing from a source given by the runner. Use this if
+    a given source isn't a file or a str.
+
+    parser:       The parser that will be used to parse and run the data.
+    source:       The source providing text for the lexer to read.
+    mode:         This determines if <@lily @> tags are parsed or not.
+    filename:     A filename for this source.
+    read_line_fn: A function for the lexer to call to read a line from the
+                  source.
+    close_fn:     A function for the lexer to call to close the data source. If
+                  the source does not need to be closed, this should be a no-op
+                  function, not NULL. */
+int lily_parse_special(lily_parse_state *parser, void *source,
+    lily_lexer_mode mode, char *filename, lily_reader_fn read_line_fn,
+    lily_close_fn close_fn)
+{
+    if (setjmp(parser->raiser->jumps[parser->raiser->jump_pos]) == 0) {
+        parser->raiser->jump_pos++;
+        lily_load_special(parser->lex, source, mode, filename, read_line_fn,
+                close_fn);
+        lily_parser(parser);
+        return 1;
+    }
+
+    return 0;
+}
