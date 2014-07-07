@@ -9,7 +9,7 @@
    This is a nice tool to quickly check a piece of code, or to toy with the
    language without editing a file. */
 
-void lily_impl_puts(void *, char *text)
+void lily_impl_puts(void *data, char *text)
 {
     fputs(text, stdout);
 }
