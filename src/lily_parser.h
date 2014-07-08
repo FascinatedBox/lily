@@ -9,6 +9,7 @@
 # include "lily_vm.h"
 
 typedef enum {
+    pm_init,
     pm_parse,
     pm_execute
 } lily_parse_mode;

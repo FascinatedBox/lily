@@ -55,6 +55,10 @@ lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
 
     if (parser == NULL)
         return NULL;
+
+    /* This ensures that runners always have a valid parser mode when trying to
+       figure out how to show an error. */
+    parser->mode = pm_init;
     parser->sig_stack_pos = 0;
     parser->sig_stack_size = 4;
     parser->raiser = raiser;
