@@ -280,7 +280,7 @@ int main(int argc, char **argv)
     if (parser == NULL)
         show_stats();
 
-    if (lily_parse_file(parser, filename) == 0) {
+    if (lily_parse_file(parser, lm_tags, filename) == 0) {
         lily_raiser *raiser = parser->raiser;
         fprintf(stderr, "%s", lily_name_for_error(raiser->error_code));
         if (raiser->msgbuf->message[0] != '\0')

@@ -151,7 +151,6 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser, void *data)
     lex->data = data;
     lex->input_buffer = lily_malloc(128 * sizeof(char));
     lex->label = lily_malloc(128 * sizeof(char));
-    lex->mode = lm_from_file;
     ch_class = lily_malloc(256 * sizeof(char));
 
     if (ch_class == NULL || lex->label == NULL || lex->input_buffer == NULL) {
@@ -1006,7 +1005,7 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
 
     Note: If unable to create a new entry, ErrNoMem is raised.
           If unable to open the given path, ErrImport is raised. */
-void lily_load_file(lily_lex_state *lexer, char *filename)
+void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
 {
     lily_lex_entry *new_entry = lily_malloc(sizeof(lily_lex_entry));
     if (new_entry == NULL)
@@ -1023,13 +1022,14 @@ void lily_load_file(lily_lex_state *lexer, char *filename)
     new_entry->close_fn = file_close_fn;
     new_entry->filename = filename;
     new_entry->lexer = lexer;
-    lexer->mode = lm_from_file;
+    lexer->mode = mode;
     lexer->entry = new_entry;
     lexer->filename = filename;
 
     file_read_line_fn(lexer->entry);
-    /* Make sure the lexer starts after the <@lily block. */
-    lily_lexer_handle_page_data(lexer);
+
+    if (mode == lm_tags)
+        lily_lexer_handle_page_data(lexer);
 }
 
 /*  lily_load_str
@@ -1038,7 +1038,7 @@ void lily_load_file(lily_lex_state *lexer, char *filename)
     because that seems silly.
 
     Note: If unable to allocate a new entry, ErrNoMem is raised. */
-void lily_load_str(lily_lex_state *lexer, char *str)
+void lily_load_str(lily_lex_state *lexer, lily_lex_mode mode, char *str)
 {
     lily_lex_entry *new_entry = lily_malloc(sizeof(lily_lex_entry));
     if (new_entry == NULL)
@@ -1049,11 +1049,13 @@ void lily_load_str(lily_lex_state *lexer, char *str)
     new_entry->close_fn = str_close_fn;
     new_entry->filename = "<str>";
     new_entry->lexer = lexer;
-    lexer->mode = lm_from_str;
+    lexer->mode = mode;
     lexer->entry = new_entry;
     lexer->filename = "<str>";
 
     str_read_line_fn(lexer->entry);
+    if (mode == lm_tags)
+        lily_lexer_handle_page_data(lexer);
 }
 
 /*  lily_load_special
@@ -1066,9 +1068,8 @@ void lily_load_str(lily_lex_state *lexer, char *str)
     This function should only be called by lily_parse_special, since it raises
     ErrNoMem if unable to allocate a new entry (and that's very bad if there's
     no jump installed in the raiser). */
-void lily_load_special(lily_lex_state *lexer, void *source,
-    lily_lexer_mode mode, char *filename, lily_reader_fn read_line_fn,
-    lily_close_fn close_fn)
+void lily_load_special(lily_lex_state *lexer, lily_lex_mode mode, void *source,
+    char *filename, lily_reader_fn read_line_fn, lily_close_fn close_fn)
 {
     lily_lex_entry *new_entry = lily_malloc(sizeof(lily_lex_entry));
     if (new_entry == NULL)
@@ -1084,7 +1085,7 @@ void lily_load_special(lily_lex_state *lexer, void *source,
     lexer->filename = filename;
 
     read_line_fn(lexer->entry);
-    if (mode == lm_from_file)
+    if (mode == lm_tags)
         lily_lexer_handle_page_data(lexer);
 }
 
@@ -1318,7 +1319,7 @@ void lily_lexer(lily_lex_state *lexer)
             ch++;
             input_pos++;
             if (*ch == '>' &&
-                lexer->mode == lm_from_file) {
+                lexer->mode == lm_tags) {
                 /* Skip the > of @> so it's not sent as html. */
                 input_pos++;
                 token = tk_end_tag;
