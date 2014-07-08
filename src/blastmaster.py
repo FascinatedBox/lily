@@ -47,19 +47,9 @@ def get_file_info(filename):
 MODE_PASS = 1
 MODE_FAIL = 0
 
-def start_running(filename, mode, run_range):
+def deep_scan(filename, mode, run_range):
     file_info = get_file_info(filename)
     run_count = file_info["runs"]
-    did_pass = file_info["success"]
-
-    if (did_pass == True and mode == MODE_FAIL) or (did_pass == False and mode == MODE_PASS):
-        if mode == MODE_PASS:
-            msg = "pass"
-        else:
-            msg = "fail"
-
-        print "blastmaster: Test '%s' did not %s. Stopping." % (filename, msg)
-        sys.exit(1)
 
     name = "[%d/%d] %s" % (run_range[0], run_range[1], os.path.basename(filename))
     just_printed = True
@@ -102,22 +92,74 @@ def start_running(filename, mode, run_range):
             if line_error:
                 print "%s @ %d: Error: Bad line number." % (name, i)
 
+def basic_run(filename, mode, run_range):
+    should_pass = (mode == MODE_PASS)
+    mode_str = ""
+    if mode == MODE_PASS:
+        mode_str = "pass"
+    else:
+        mode_str = "fail"
+
+    sys.stdout.write("[%d/%d] Running %s test %s..." % (run_range[0], \
+            run_range[1], mode_str, os.path.basename(filename)))
+
+    command = "./lily_fs %s" % (filename)
+    subp = subprocess.Popen([command], stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, shell=True)
+    (subp_stdout, subp_stderr) = subp.communicate()
+    subp.wait()
+
+    line_error = 0
+
+    where_str_pos = subp_stderr.find("Where")
+    if where_str_pos != -1:
+        did_pass = False
+        newline_str_pos = subp_stderr.find("\n", where_str_pos)
+        where_str = subp_stderr[where_str_pos:newline_str_pos]
+        error_line_pos = int(where_str.split(" ")[-1])
+        if error_line_pos == 0:
+            line_error = 1
+    else:
+        if subp_stderr.find("Traceback") != -1:
+            did_pass = False
+        else:
+            did_pass = True
+
+    if did_pass == True:
+        print "passed."
+    else:
+        print "failed."
+        print subp_stderr
+
+    if did_pass != should_pass:
+        did_pass_str = ""
+        if did_pass == True:
+            did_pass_str = "pass"
+        else:
+            did_pass_str = "fail"
+
+        print "Blastmaster.py: Test %s should not %s. Stopping.\n" \
+                % (os.path.basename(filename), did_pass_str)
+        sys.exit(1)
+
 pass_files = sorted(load_filenames('test/pass'))
 fail_files = sorted(load_filenames('test/fail'))
-run_range = [0, len(pass_files) + len(fail_files)]
+run_range = [1, len(pass_files) + len(fail_files)]
+sanity_test = pass_files.pop(pass_files.index("test/pass/sanity.ly"))
 
 print "\nBlastmaster: Running %d pass tests, %d fail tests, %d total." \
         % (len(pass_files), len(fail_files), run_range[1])
 
-# The '\n' makes for two lines between each run, but I like how that splits
-# everything up to make it more readable and easier to discern what trace
-# belongs where.
+print "Blastmaster: Running passing tests."
 for i in range(len(pass_files)):
-    print "\n"
     run_range[0] += 1
-    start_running(pass_files[i], MODE_PASS, run_range)
+    basic_run(pass_files[i], MODE_PASS, run_range)
 
+print "Blastmaster: Running failing tests."
 for i in range(len(fail_files)):
-    print "\n"
     run_range[0] += 1
-    start_running(fail_files[i], MODE_FAIL, run_range)
+    basic_run(fail_files[i], MODE_FAIL, run_range)
+
+# Finish off by deep scanning sanity because it takes a LONG time.
+print "Blastmaster: Deep scanning sanity.ly."
+deep_scan(sanity_test, MODE_PASS, run_range)
