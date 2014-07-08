@@ -61,5 +61,11 @@ lily_cliexec_SOURCES = cliexec_main.c \
 sanity: lily_fs
 	./lily_fs test/pass/sanity.ly
 
+# Run the sanity test again, this time through valgrind. This can be thought
+# of as a precursor to doing blastmaster.py: If this fails, then blastmaster's
+# tests are sure to do so.
+vg-sanity: lily_fs
+	valgrind ./lily_fs test/pass/sanity.ly
+
 blastmaster: lily_fs lily_aft
 	python blastmaster.py
