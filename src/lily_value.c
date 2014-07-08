@@ -29,6 +29,10 @@ void lily_deref_hash_val(lily_sig *sig, lily_hash_val *hv)
             }
 
             save_next = elem->next;
+            if (elem->elem_key->sig->cls->is_refcounted &&
+                (elem->elem_key->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+                lily_deref_unknown_val(elem->elem_key);
+
             lily_free(elem->elem_key);
             lily_free(elem->elem_value);
             lily_free(elem);
