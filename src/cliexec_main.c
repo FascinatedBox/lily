@@ -27,7 +27,7 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    if (lily_parse_string(parser, argv[1]) == 0) {
+    if (lily_parse_string(parser, lm_no_tags, argv[1]) == 0) {
         lily_raiser *raiser = parser->raiser;
         fprintf(stderr, "%s", lily_name_for_error(raiser->error_code));
         if (raiser->msgbuf->message[0] != '\0')

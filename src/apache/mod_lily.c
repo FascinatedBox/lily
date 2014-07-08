@@ -161,7 +161,7 @@ static int lily_handler(request_rec *r)
     if (parser == NULL)
         return DECLINED;
 
-    lily_parse_special(parser, lily_file, lm_from_file, r->filename,
+    lily_parse_special(parser, lm_tags, lily_file, r->filename,
         apache_read_line_fn, apache_close_fn);
 
     lily_free_parse_state(parser);

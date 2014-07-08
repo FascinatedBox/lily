@@ -61,9 +61,13 @@ typedef enum {
 } lily_token;
 
 typedef enum {
-    lm_from_file,
-    lm_from_str
-} lily_lexer_mode;
+    /* Code is the data between '<@lily' and '@>'. Everything else is html and
+       written as-is. Multiple runs are possible, and eof should be reached
+       within html handling. */
+    lm_tags,
+    /* Everything is code, and code terminates with eof. */
+    lm_no_tags
+} lily_lex_mode;
 
 struct lily_lex_entry_t;
 typedef int (*lily_reader_fn)(struct lily_lex_entry_t *);
@@ -92,7 +96,7 @@ typedef struct lily_lex_state_t {
     int hit_eof;
     int line_num;
     lily_token token;
-    lily_lexer_mode mode;
+    lily_lex_mode mode;
     lily_raw_value value;
     lily_raiser *raiser;
     void *data;
@@ -102,9 +106,9 @@ void lily_free_lex_state(lily_lex_state *);
 void lily_grow_lexer_buffers(lily_lex_state *);
 void lily_lexer(lily_lex_state *);
 void lily_lexer_handle_page_data(lily_lex_state *);
-void lily_load_file(lily_lex_state *, char *);
-void lily_load_str(lily_lex_state *, char *);
-void lily_load_special(lily_lex_state *, void *, lily_lexer_mode, char *,
+void lily_load_file(lily_lex_state *, lily_lex_mode, char *);
+void lily_load_str(lily_lex_state *, lily_lex_mode, char *);
+void lily_load_special(lily_lex_state *, lily_lex_mode, void *, char *,
     lily_reader_fn, lily_close_fn);
 lily_lex_state *lily_new_lex_state(lily_raiser *, void *);
 char *tokname(lily_token);

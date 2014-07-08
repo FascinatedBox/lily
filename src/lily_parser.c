@@ -1338,7 +1338,7 @@ void lily_parser(lily_parse_state *parser)
             lily_lexer(lex);
         }
         else if (lex->token == tk_end_tag ||
-                 (lex->token == tk_eof && lex->mode != lm_from_file)) {
+                 (lex->token == tk_eof && lex->mode == lm_no_tags)) {
             if (parser->emit->current_block != parser->emit->first_block) {
                 lily_raise(parser->raiser, lily_ErrSyntax,
                            "Unterminated block(s) at end of parsing.\n");
@@ -1369,14 +1369,21 @@ void lily_parser(lily_parse_state *parser)
     }
 }
 
-/* lily_parse_file
-   This function will begin parsing based off of the given filename. Returns 1
-   on success, and 0 on failure. */
-int lily_parse_file(lily_parse_state *parser, char *filename)
+/*  lily_parse_file
+    This function starts parsing from a file indicated by the given filename.
+    The file is opened through fopen, and is automatically destroyed when the
+    parser is free'd.
+
+    parser:  The parser that will be used to parse and run the data.
+    mode:    This determines if <@lily @> tags are parsed or not.
+    str:     The string to parse.
+
+    Returns 1 if successful, or 0 if an error was raised. */
+int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode, char *filename)
 {
     if (setjmp(parser->raiser->jumps[parser->raiser->jump_pos]) == 0) {
         parser->raiser->jump_pos++;
-        lily_load_file(parser->lex, filename);
+        lily_load_file(parser->lex, mode, filename);
         if (parser->lex->token != tk_eof)
             lily_parser(parser);
 
@@ -1386,14 +1393,20 @@ int lily_parse_file(lily_parse_state *parser, char *filename)
     return 0;
 }
 
-/* lily_parse_string
-   This function will begin parsing from a given str. The caller is responsible
-   for destroying the str as needed. */
-int lily_parse_string(lily_parse_state *parser, char *str)
+/*  lily_parse_string
+    This function starts parsing from a source that is a string passed. The caller
+    is responsible for destroying the string if it needs to be destroyed.
+
+    parser:  The parser that will be used to parse and run the data.
+    mode:    This determines if <@lily @> tags are parsed or not.
+    str:     The string to parse.
+
+    Returns 1 if successful, or 0 if some error occured. */
+int lily_parse_string(lily_parse_state *parser, lily_lex_mode mode, char *str)
 {
     if (setjmp(parser->raiser->jumps[parser->raiser->jump_pos]) == 0) {
         parser->raiser->jump_pos++;
-        lily_load_str(parser->lex, str);
+        lily_load_str(parser->lex, mode, str);
         lily_parser(parser);
         return 1;
     }
@@ -1406,21 +1419,21 @@ int lily_parse_string(lily_parse_state *parser, char *str)
     a given source isn't a file or a str.
 
     parser:       The parser that will be used to parse and run the data.
-    source:       The source providing text for the lexer to read.
     mode:         This determines if <@lily @> tags are parsed or not.
+    source:       The source providing text for the lexer to read.
     filename:     A filename for this source.
     read_line_fn: A function for the lexer to call to read a line from the
                   source.
     close_fn:     A function for the lexer to call to close the data source. If
                   the source does not need to be closed, this should be a no-op
                   function, not NULL. */
-int lily_parse_special(lily_parse_state *parser, void *source,
-    lily_lexer_mode mode, char *filename, lily_reader_fn read_line_fn,
+int lily_parse_special(lily_parse_state *parser, lily_lex_mode mode,
+    void *source, char *filename, lily_reader_fn read_line_fn,
     lily_close_fn close_fn)
 {
     if (setjmp(parser->raiser->jumps[parser->raiser->jump_pos]) == 0) {
         parser->raiser->jump_pos++;
-        lily_load_special(parser->lex, source, mode, filename, read_line_fn,
+        lily_load_special(parser->lex, mode, source, filename, read_line_fn,
                 close_fn);
         lily_parser(parser);
         return 1;
