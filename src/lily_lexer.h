@@ -104,6 +104,8 @@ void lily_lexer(lily_lex_state *);
 void lily_lexer_handle_page_data(lily_lex_state *);
 void lily_load_file(lily_lex_state *, char *);
 void lily_load_str(lily_lex_state *, char *);
+void lily_load_special(lily_lex_state *, void *, lily_lexer_mode, char *,
+    lily_reader_fn, lily_close_fn);
 lily_lex_state *lily_new_lex_state(lily_raiser *, void *);
 char *tokname(lily_token);
 
