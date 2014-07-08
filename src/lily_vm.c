@@ -838,7 +838,10 @@ static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
     if (elem == NULL) {
         elem = lily_try_new_hash_elem();
         if (elem != NULL) {
-            elem->elem_key->flags = 0;
+            /* It's important to copy over the flags, in case the key is a
+               literal and marked VAL_IS_PROTECTED. Doing so keeps hash deref
+               from trying to deref the key. */
+            elem->elem_key->flags = hash_key->flags;
             elem->elem_key->value = hash_key->value;
             elem->elem_key->sig = hash_key->sig;
             elem->key_siphash = key_siphash;
