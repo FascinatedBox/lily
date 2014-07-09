@@ -659,44 +659,13 @@ void op_ref_assign(lily_value *lhs_reg, lily_value *rhs_reg)
     lhs_reg->value = rhs_reg->value;
 }
 
-/*  calculate_siphash
-    Return a siphash based using the given siphash for the given key.
-
-    sipkey:  The vm's sipkey for creating the hash.
-    key_sig: The signature describing the key given.
-    key:     The key to be hashed.
-
-    Notes:
-    * The caller must not pass a non-hashable type (such as object). Parser is
-      responsible for ensuring that hashes only use valid key types.
-    * The caller must not pass a key that is a nil value. */
-static uint64_t calculate_siphash(char *sipkey, lily_value *key)
-{
-    int key_cls_id = key->sig->cls->id;
-    uint64_t key_hash;
-
-    if (key_cls_id == SYM_CLASS_STR)
-        key_hash = siphash24(key->value.str->str, key->value.str->size,
-                sipkey);
-    else if (key_cls_id == SYM_CLASS_INTEGER)
-        key_hash = key->value.integer;
-    else if (key_cls_id == SYM_CLASS_NUMBER)
-        /* siphash thinks it's sent a pointer (and will try to deref it), so
-           send the address. */
-        key_hash = siphash24(&(key->value.number), sizeof(double), sipkey);
-    else /* Should not happen, because no other classes are valid keys. */
-        key_hash = 0;
-
-    return key_hash;
-}
-
 /*  try_lookup_hash_elem
     This attempts to find a hash element by key in the given hash. This will not
     create a new element if it fails.
 
     hash:        A valid hash, which may or may not have elements.
-    key_siphash: The calculated siphash of the given key. Use calculate_siphash
-                 to get this.
+    key_siphash: The calculated siphash of the given key. Use
+                 lily_calculate_siphash to get this.
     key:         The key used for doing the search.
 
     On success: The hash element that was inserted into the hash value is
@@ -822,8 +791,8 @@ static void op_object_assign(lily_vm_state *vm, lily_value *lhs_reg,
     vm:          The vm that the hash is in. This is passed in case ErrNoMem
                  needs to be raised.
     hash:        A valid hash, which may or may not have elements.
-    key_siphash: The calculated siphash of the given key. Use calculate_siphash
-                 to get this.
+    key_siphash: The calculated siphash of the given key. Use
+                 lily_calculate_siphash to get this.
     hash_key:    The key value, used for lookup. This should not be nil.
     hash_value:  The new value to associate with the given key. This may or may
                  not be nil.
@@ -905,7 +874,7 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
             lhs_reg->flags &= ~VAL_IS_NIL;
         }
         uint64_t siphash;
-        siphash = calculate_siphash(vm->sipkey, index_reg);
+        siphash = lily_calculate_siphash(vm->sipkey, index_reg);
 
         update_hash_key_value(vm, lhs_reg->value.hash, siphash, index_reg,
                 rhs_reg);
@@ -954,7 +923,7 @@ static void op_subscript(lily_vm_state *vm, uintptr_t *code, int code_pos)
         uint64_t siphash;
         lily_hash_elem *hash_elem;
 
-        siphash = calculate_siphash(vm->sipkey, index_reg);
+        siphash = lily_calculate_siphash(vm->sipkey, index_reg);
         hash_elem = try_lookup_hash_elem(lhs_reg->value.hash,
                 siphash, index_reg);
 
@@ -1002,7 +971,7 @@ void op_build_hash(lily_vm_state *vm, uintptr_t *code, int code_pos)
             lily_raise_nomem(vm->raiser);
 
         uint64_t key_siphash;
-        key_siphash = calculate_siphash(vm->sipkey, key_reg);
+        key_siphash = lily_calculate_siphash(vm->sipkey, key_reg);
 
         update_hash_key_value(vm, hash_val, key_siphash, key_reg, value_reg);
     }
@@ -1406,6 +1375,36 @@ void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
         left->value = right->value;
         left->flags = right->flags;
     }
+}
+
+/*  lily_calculate_siphash
+    Return a siphash based using the given siphash for the given key.
+
+    sipkey:  The vm's sipkey for creating the hash.
+    key:     A non-nil value to make a hash for.
+
+    Notes:
+    * The caller must not pass a non-hashable type (such as object). Parser is
+      responsible for ensuring that hashes only use valid key types.
+    * The caller must not pass a key that is a nil value. */
+uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
+{
+    int key_cls_id = key->sig->cls->id;
+    uint64_t key_hash;
+
+    if (key_cls_id == SYM_CLASS_STR)
+        key_hash = siphash24(key->value.str->str, key->value.str->size,
+                sipkey);
+    else if (key_cls_id == SYM_CLASS_INTEGER)
+        key_hash = key->value.integer;
+    else if (key_cls_id == SYM_CLASS_NUMBER)
+        /* siphash thinks it's sent a pointer (and will try to deref it), so
+           send the address. */
+        key_hash = siphash24(&(key->value.number), sizeof(double), sipkey);
+    else /* Should not happen, because no other classes are valid keys. */
+        key_hash = 0;
+
+    return key_hash;
 }
 
 /** The mighty VM **/
