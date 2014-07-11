@@ -18,45 +18,18 @@ void lily_impl_puts(void *data, char *text)
     ap_rputs(text, (request_rec *)data);
 }
 
-/*  This table indicates how many more bytes need to be successfully read after
-    that particular byte for proper utf-8. -1 = invalid.
-    80-BF : These only follow.
-    C0-C1 : Can only be used for overlong encoding of ascii.
-    F5-FD : RFC 3629 took these out.
-    FE-FF : The standard was originally 31-bits.
-
-    Table idea, above info came from wikipedia. */
-static const char follower_table[256] =
-{
-     /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
-/* 0 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 1 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 2 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 3 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 4 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 5 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 6 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 7 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 8 */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-/* 9 */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-/* A */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-/* B */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-/* C */-1,-1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-/* D */ 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-/* E */ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-/* F */ 4, 4, 4, 4, 4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
-};
-
 static int apache_read_line_fn(lily_lex_entry *entry)
 {
     char ch;
-    int bufsize, followers, i, ok;
+    int bufsize, i, ok, utf8_check;
     lily_lex_state *lexer = entry->lexer;
     char *input_buffer = lexer->input_buffer;
     apr_file_t *input_file = (apr_file_t *)entry->source;
     apr_status_t result;
     bufsize = lexer->input_size;
+
     i = 0;
+    utf8_check = 0;
 
     while (1) {
         result = apr_file_getc(&ch, input_file);
@@ -92,7 +65,7 @@ static int apache_read_line_fn(lily_lex_entry *entry)
             input_buffer = lexer->input_buffer;
         }
 
-        lexer->input_buffer[i] = ch;
+        input_buffer[i] = ch;
 
         if (ch == '\r' || ch == '\n') {
             lexer->input_end = i;
@@ -111,30 +84,15 @@ static int apache_read_line_fn(lily_lex_entry *entry)
             }
             break;
         }
-        else if (ch > 127) {
-            followers = follower_table[(unsigned int)ch];
-            if (followers >= 2) {
-                int j;
-                i++;
-                for (j = 1;j < followers;j++,i++) {
-                    result = apr_file_getc(&ch, input_file);
-                    if ((unsigned char)ch < 128 || result != APR_SUCCESS) {
-                        lily_raise(lexer->raiser, lily_ErrEncoding,
-                                   "Invalid utf-8 sequence on line %d.\n",
-                                   lexer->line_num);
-                    }
-                    input_buffer[i] = ch;
-                }
-            }
-            else if (followers == -1) {
-                lily_raise(lexer->raiser, lily_ErrEncoding,
-                           "Invalid utf-8 sequence on line %d.\n",
-                           lexer->line_num);
-            }
-        }
-        else
-            i++;
+        else if (((unsigned char)ch) > 127)
+            utf8_check = 1;
+
+        i++;
     }
+
+    if (utf8_check)
+        lily_lexer_utf8_check(lexer);
+
     return ok;
 }
 
