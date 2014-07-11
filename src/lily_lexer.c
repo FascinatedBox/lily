@@ -238,13 +238,14 @@ void lily_free_lex_state(lily_lex_state *lex)
     is a raw C FILE *. */
 static int file_read_line_fn(lily_lex_entry *entry)
 {
-    int bufsize, ch, followers, i, ok;
+    int bufsize, ch, i, ok;
     lily_lex_state *lexer = entry->lexer;
     char *input_buffer = lexer->input_buffer;
     FILE *input_file = (FILE *)entry->source;
 
     bufsize = lexer->input_size;
     i = 0;
+    int utf8_check = 0;
 
     while (1) {
         ch = fgetc(input_file);
@@ -280,7 +281,7 @@ static int file_read_line_fn(lily_lex_entry *entry)
             input_buffer = lexer->input_buffer;
         }
 
-        lexer->input_buffer[i] = ch;
+        input_buffer[i] = ch;
 
         if (ch == '\r' || ch == '\n') {
             lexer->input_end = i;
@@ -299,30 +300,15 @@ static int file_read_line_fn(lily_lex_entry *entry)
             }
             break;
         }
-        else if (ch > 127) {
-            followers = follower_table[(unsigned int)ch];
-            if (followers >= 2) {
-                int j;
-                i++;
-                for (j = 1;j < followers;j++,i++) {
-                    ch = fgetc(input_file);
-                    if ((unsigned char)ch < 128 || ch == EOF) {
-                        lily_raise(lexer->raiser, lily_ErrEncoding,
-                                   "Invalid utf-8 sequence on line %d.\n",
-                                   lexer->line_num);
-                    }
-                    input_buffer[i] = ch;
-                }
-            }
-            else if (followers == -1) {
-                lily_raise(lexer->raiser, lily_ErrEncoding,
-                           "Invalid utf-8 sequence on line %d.\n",
-                           lexer->line_num);
-            }
-        }
-        else
-            i++;
+        else if ((unsigned char)ch > 127)
+            utf8_check = 1;
+
+        i++;
     }
+
+    if (utf8_check)
+        lily_lexer_utf8_check(lexer);
+
     return ok;
 }
 
@@ -333,13 +319,14 @@ static int file_read_line_fn(lily_lex_entry *entry)
     used instead of C's file IO. */
 static int str_read_line_fn(lily_lex_entry *entry)
 {
-    int bufsize, followers, i, ok;
+    int bufsize, i, ok, utf8_check;
     lily_lex_state *lexer = entry->lexer;
     char *input_buffer = lexer->input_buffer;
     char *ch = (char *)entry->source;
 
     bufsize = lexer->input_size;
     i = 0;
+    utf8_check = 0;
 
     while (1) {
         if (*ch == '\0') {
@@ -374,7 +361,7 @@ static int str_read_line_fn(lily_lex_entry *entry)
             input_buffer = lexer->input_buffer;
         }
 
-        lexer->input_buffer[i] = *ch;
+        input_buffer[i] = *ch;
 
         if (*ch == '\r' || *ch == '\n') {
             lexer->input_end = i;
@@ -395,31 +382,16 @@ static int str_read_line_fn(lily_lex_entry *entry)
 
             break;
         }
-        else if (*ch > 127) {
-            followers = follower_table[(unsigned int)(*ch)];
-            if (followers >= 2) {
-                int j;
-                i++;
-                for (j = 1;j < followers;j++,i++) {
-                    ch++;
-                    if ((unsigned char)(*ch) < 128 || *ch == 0) {
-                        lily_raise(lexer->raiser, lily_ErrEncoding,
-                                   "Invalid utf-8 sequence on line %d.\n",
-                                   lexer->line_num);
-                    }
-                    input_buffer[i] = *ch;
-                }
-            }
-            else if (followers == -1) {
-                lily_raise(lexer->raiser, lily_ErrEncoding,
-                           "Invalid utf-8 sequence on line %d.\n",
-                           lexer->line_num);
-            }
-        }
-        else
-            i++;
+        else if (((unsigned char)*ch) > 127)
+            utf8_check = 1;
+
+        i++;
         ch++;
     }
+
+    if (utf8_check)
+        lily_lexer_utf8_check(lexer);
+
     entry->source = ch;
     return ok;
 }
@@ -961,6 +933,38 @@ static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
 }
 
 /** Lexer API **/
+
+void lily_lexer_utf8_check(lily_lex_state *lexer)
+{
+    char *input_buffer = lexer->input_buffer;
+    char *ch = &input_buffer[0];
+    int followers;
+
+    while (1) {
+        if (((unsigned char)*ch) > 127) {
+            followers = follower_table[(unsigned char)*ch];
+            if (followers >= 2) {
+                int j;
+                for (j = 1;j < followers;j++,ch++) {
+                    if (((unsigned char)*ch) < 128) {
+                        lily_raise(lexer->raiser, lily_ErrEncoding,
+                                   "Invalid utf-8 sequence on line %d.\n",
+                                   lexer->line_num);
+                    }
+                }
+            }
+            else if (followers == -1) {
+                lily_raise(lexer->raiser, lily_ErrEncoding,
+                           "Invalid utf-8 sequence on line %d.\n",
+                           lexer->line_num);
+            }
+        }
+        else if (*ch == '\n')
+            break;
+
+        ch++;
+    }
+}
 
 /*  lily_grow_lexer_buffers
     This is used to grow lexer->input_buffer. If it's the same size as

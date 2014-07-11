@@ -104,6 +104,7 @@ typedef struct lily_lex_state_t {
 
 void lily_free_lex_state(lily_lex_state *);
 void lily_grow_lexer_buffers(lily_lex_state *);
+void lily_lexer_utf8_check(lily_lex_state *);
 void lily_lexer(lily_lex_state *);
 void lily_lexer_handle_page_data(lily_lex_state *);
 void lily_load_file(lily_lex_state *, lily_lex_mode, char *);
