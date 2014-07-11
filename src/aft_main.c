@@ -18,7 +18,6 @@
 
 typedef struct aft_entry_ {
     int line;
-    int id;
     int status;
     char *filename;
     void *block;
@@ -71,7 +70,6 @@ void *aft_malloc(char *filename, int line, size_t size)
     entry->block = block;
     entry->next = NULL;
     entry->status = ST_ALLOCATED;
-    entry->id = malloc_count;
 
     if (start == NULL)
         start = entry;
