@@ -21,7 +21,6 @@ typedef struct aft_entry_ {
     int id;
     int status;
     char *filename;
-    char *funcname;
     void *block;
     struct aft_entry_ *prev;
     struct aft_entry_ *next;
