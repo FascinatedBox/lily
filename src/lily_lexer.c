@@ -567,6 +567,8 @@ static uint64_t scan_decimal(lily_lex_state *lexer, int *pos, int *is_integer,
                 break; /* This is for 'for..in' loops. This allows
                           for i in 1..5
                           to work. */
+            else if (*(new_ch + 1) == '@')
+                break; /* Assume a typecast: `10.@(...` and stop. */
             have_dot = 1;
             *is_integer = 0;
         }
