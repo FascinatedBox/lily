@@ -19,5 +19,5 @@
     # debug trying to show the value. Using a list causes a crash, which is more
     # noticeable.
     # If the bug is fixed, this works fine.
-    integer i = @(list[integer]: o)[0]
+    integer i = o.@(list[integer])[0]
 @>

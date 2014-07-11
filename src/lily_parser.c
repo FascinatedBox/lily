@@ -404,38 +404,35 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
   * expression_* functions are used by expression as helpers, and should not be
     called by any function except expression itself. **/
 
-/* expression_typecast
-   This function handles a typecast. In Lily, typecasts are done by
-   @(type:value)
-   @( is used instead of a standard parenth because it allows the parser and the
-   programmer to differentiate between a typecast, and parenth expression. */
-static void expression_typecast(lily_parse_state *parser)
-{
-    lily_lex_state *lex = parser->lex;
-    lily_sig *new_sig;
-
-    lily_lexer(lex);
-    new_sig = collect_var_sig(parser, 0);
-
-    NEED_NEXT_TOK(tk_colon)
-
-    /* It's possible that the value will be a binary expression. A parenth tree
-       is entered so that binary can't parent the current root or do anything
-       strange. It also offsets the ending ). */
-    lily_ast_enter_typecast(parser->ast_pool, new_sig);
-
-    /* This should be the value. Yield to expression_value in case the value
-       is more than just a var. */
-    lily_lexer(lex);
-}
-
 /* expression_oo
-   This function handles an 'object-oriented' type of call on an object such as
-   'stringA.concat("b")'. */
+   This handles calls to a member of a particular value, as well as typecasts.
+   Calls to a member look like this: `value.member()`
+   * This enters the member, which will later take the value as the first
+     argument to it.
+   Typecasts look like this: `value.@(newtype)`.
+   * This handles calling for type collection and adding the typecast tree. */
 static void expression_oo(lily_parse_state *parser)
 {
-    lily_ast_push_oo_call(parser->ast_pool, parser->lex->label);
-    lily_ast_enter_tree(parser->ast_pool, tree_call, NULL);
+    lily_lex_state *lex = parser->lex;
+    lily_lexer(lex);
+    if (lex->token == tk_word) {
+        /* Syntax: `value.member()`. Add this as a special 'oo_call' tree. The
+           emitter will handle doing the member lookup at emit-time. */
+        lily_ast_push_oo_call(parser->ast_pool, parser->lex->label);
+        lily_ast_enter_tree(parser->ast_pool, tree_call, NULL);
+        NEED_NEXT_TOK(tk_left_parenth);
+        lily_lexer(lex);
+    }
+    else if (lex->token == tk_typecast_parenth) {
+        /* Syntax: `value.@(type)`. This is at the @(, so prep for
+           collect_var_sig. */
+        lily_lexer(lex);
+        lily_sig *new_sig = collect_var_sig(parser, 0);
+        lily_ast_enter_typecast(parser->ast_pool, new_sig);
+        /* Verify that ')' is next so that the caller will close the tree. This
+           causes the typecast result to be seen as a proper value.sub */
+        NEED_NEXT_TOK(tk_right_parenth)
+    }
 }
 
 /* expression_unary
@@ -624,10 +621,6 @@ static void expression_value(lily_parse_state *parser)
             expression_unary(parser);
             continue;
         }
-        else if (lex->token == tk_typecast_parenth) {
-            expression_typecast(parser);
-            continue;
-        }
         else if (lex->token == tk_left_parenth) {
             /* A parenth expression is essentially a call, but without the
                var part. */
@@ -668,10 +661,7 @@ static void expression_value(lily_parse_state *parser)
                        tokname(lex->token));
 
         if (lex->token == tk_dot) {
-            NEED_NEXT_TOK(tk_word)
             expression_oo(parser);
-            NEED_NEXT_TOK(tk_left_parenth);
-            lily_lexer(lex);
             if (lex->token == tk_right_parenth)
                 break;
             else
@@ -772,10 +762,7 @@ static void expression(lily_parse_state *parser)
                 continue;
             else {
                 /* 'a.concat("b").concat("c")'. Do a normal oo merge. */
-                NEED_NEXT_TOK(tk_word)
                 expression_oo(parser);
-                NEED_NEXT_TOK(tk_left_parenth);
-                lily_lexer(lex);
                 /* Jump back up in case of (), like above. */
                 if (lex->token == tk_right_parenth)
                     continue;

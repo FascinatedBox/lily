@@ -252,8 +252,8 @@ method test_oo():nil
         print("failed.\n")
     }
 
-    rlt = @(str: abc_obj).concat("def")
-    print("    @(str: abc_obj).concat(\"def\")   == \"abcdef\"...")
+    rlt = abc_obj.@(str).concat("def")
+    print("    abc_obj.@(str).concat(\"def\")   == \"abcdef\"...")
     if rlt == "abcdef": {
         print("ok.\n")
     else:
@@ -603,8 +603,8 @@ method test_sub_assign():nil
     lso[0] = 1.1
     lso[0] = "11"
     lso[0] = lso
-    lso[0] = @(object: lso)
-    lso[0] = [@(object: lso), @(object: lso), @(object: lso)]
+    lso[0] = lso.@(object)
+    lso[0] = [lso.@(object), lso.@(object), lso.@(object)]
     lso[0] = lso[1]
     lso[0] = print
     lso[0] = list_list_str
@@ -714,19 +714,19 @@ method test_typecasts():nil
     object o
     integer intval
     o = 10
-    intval = @(integer: o)
+    intval = o.@(integer)
 
     number numval
     o = 10.0
-    numval = @(number: o)
+    numval = o.@(number)
 
     str strval
     o = "10"
-    strval = @(str: o)
+    strval = o.@(str)
 
     list[integer] list_intval
     o = [1]
-    list_intval = @(list[integer]: o)
+    list_intval = o.@(list[integer])
 
     list[object] list_objval
     object oval_1 = 10
@@ -740,20 +740,20 @@ method test_typecasts():nil
 
     list[method():integer] list_mval = [mval_10]
     o = mval_20
-    list_mval[0] = @(method():integer: o)
+    list_mval[0] = o.@(method():integer)
 
     intval = list_mval[0]()
-    intval = @(method():integer: o)() +
-             @(method():integer: o)() +
-             @(method():integer: o)() +
-             @(method():integer: o)()
+    intval = o.@(method():integer)() +
+             o.@(method():integer)() +
+             o.@(method():integer)() +
+             o.@(method():integer)()
 
-    intval = @(method():integer: o)()
+    intval = o.@(method():integer)()
 
     o = list_intval
-    intval = @(list[integer]: o)[0]
-    intval = @(integer: ret_obj())
-    intval = @(integer: list_objval[0])
+    intval = o.@(list[integer])[0]
+    intval = ret_obj().@(integer)
+    intval = list_objval[0].@(integer)
 
     print("ok.\n")
 }
@@ -784,7 +784,7 @@ method test_circular_ref_checks():nil
 
     object f = c
     object g = d[0]
-    object h = @(list[object]: g)[0]
+    object h = g.@(list[object])[0]
 
     list[list[object]] i = [a, a, a, a]
     i[0][0] = i[0]
@@ -856,9 +856,9 @@ method test_method_varargs():nil
     method va_2(str format, list[object] args...):integer {
         integer ok
         # This next statement helped to uncover about 3 bugs. Leave it be.
-        if @(integer: args[0]) == 1 &&
-           @(number: args[1]) == 1.1 &&
-           @(str: args[2]) == "1":
+        if args[0].@(integer) == 1 &&
+           args[1].@(number) == 1.1 &&
+           args[2].@(str) == "1":
             ok = 1
         else:
             ok = 0
@@ -869,7 +869,7 @@ method test_method_varargs():nil
 
     object o = va_2
     # Check it with a typecast too.
-    integer vx = @(method(str, list[object] ...):integer: o)("abc", 1, 1.1, "1")
+    integer vx = o.@(method(str, list[object] ...):integer)("abc", 1, 1.1, "1")
 
     list[method(str, list[object] ...):integer] lmtd = [va_2, va_2, va_2]
 
@@ -1316,19 +1316,19 @@ method test_intnum_cast():nil
     cast away from object.
 
     Without:
-        number n = @(number: @(integer: int_obj))
+        number n = intobj.@(integer).@(number)
     With:
-        number n = @(number: int_obj)
+        number n = intobj.@(number)
     ###
 
     object int_obj = -5
     object num_obj = 10.5
 
-    int1 = @(integer: 10.5)
-    num1 = @(number: -5)
+    int1 = 10.5 .@(integer)
+    num1 = -5 .@(number)
 
-    int2 = @(integer: num_obj)
-    num2 = @(number: int_obj)
+    int2 = num_obj.@(integer)
+    num2 = int_obj.@(number)
 
     if int1 == 10 && int2 == 10 && num1 == -5.0 && num2 == -5.0: {
         print("ok.\n")
@@ -1405,9 +1405,6 @@ method test_misc():nil
         print("failed.\n")
     }
 
-    # This is a test for GH #21, where this command would result in a complaint
-    # about being unable to add object to integer.
-    object o = @(object: 1 + 1)
     # This checks that parser properly handles () from a dot call routed
     # through a ] check.
     integer i2 = [1].size()
