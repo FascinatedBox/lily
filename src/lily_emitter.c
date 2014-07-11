@@ -990,17 +990,19 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
     ast->result = rhs;
 }
 
-/* eval_typecast
-   This walks an ast of type tree_typecast, which is used to change an object
-   into a given type.
-   This has two parts: a signature, and a value. The signature is ast->sig, and
-   the value is ast->right. This currently only handles conversions of objects
-   to other types, but could handle other conversions in the future.
-   Any typecast that specifies object is transformed into an object assign. */
+/*  eval_typecast
+    This handles an ast of type tree_typecast. A typecast has two parts: A
+    signature to cast to, and a value to cast.
+    * The value is at ast->arg_start
+    * The signature is at ast->arg_start->next_arg->sig
+
+    This does some basic conversions: Anything can become object, and object
+    can be cast to anything (this is checked at vm-time). integer<->number
+    conversion is also done here. */
 static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_sig *cast_sig = ast->arg_start->sig;
-    lily_ast *right_tree = ast->arg_start->next_arg;
+    lily_sig *cast_sig = ast->arg_start->next_arg->sig;
+    lily_ast *right_tree = ast->arg_start;
     if (right_tree->tree_type != tree_local_var)
         eval_tree(emit, right_tree);
 
@@ -1008,7 +1010,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     lily_method_val *m = emit->top_method;
 
     if (cast_sig == var_sig) {
-        ast->result = (lily_sym *)ast->right->result;
+        ast->result = (lily_sym *)right_tree->result;
         return;
     }
     else if (cast_sig->cls->id == SYM_CLASS_OBJECT) {

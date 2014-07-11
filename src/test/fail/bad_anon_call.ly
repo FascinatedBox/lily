@@ -1,1 +1,1 @@
-<@lily @(integer: 10) () @>
+<@lily 10 .@(integer) () @>
