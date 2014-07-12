@@ -598,8 +598,9 @@ void lily_builtin_printfmt(lily_vm_state *vm, uintptr_t *code, int num_args)
         if (fmt[i] == '\0')
             break;
         else if (fmt[i] == '%') {
-            if (arg_pos == num_args)
-                return;
+            if (arg_pos == (num_args - 1))
+                lily_raise(vm->raiser, lily_ErrFormat,
+                        "Not enough args for printfmt.\n");
 
             save_ch = fmt[i];
             fmt[i] = '\0';
@@ -1439,6 +1440,7 @@ void lily_vm_execute(lily_vm_state *vm)
     register int code_pos;
     register lily_value *lhs_reg, *rhs_reg, *loop_reg, *step_reg;
     register lily_sym *readonly_sym;
+    lily_function_val *err_function = NULL;
     lily_method_val *mval;
 
     /* Initialize local vars from the vm state's vars. */
@@ -1451,11 +1453,9 @@ void lily_vm_execute(lily_vm_state *vm)
     if (setjmp(vm->raiser->jumps[vm->raiser->jump_pos]) == 0)
         vm->raiser->jump_pos++;
     else {
-        /* The vm doesn't set ->err_function when it calls because it assumes
-           most functions won't have an error. So if there is one, set this for
-           a proper stack. */
+        /* If within a function, update vm's err_function to reflect that. */
         if (vm->in_function)
-            vm->err_function = vm_regs[code[code_pos+2]]->value.function;
+            vm->err_function = err_function;
 
         /* The top of the stack is always changing, so make sure the top's
            line number is set. This is safe because any opcode that can raise
@@ -1610,6 +1610,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 }
 
                 func = fval->func;
+                err_function = fval;
 
                 vm->in_function = 1;
                 func(vm, code+code_pos+5, j);
