@@ -467,7 +467,7 @@ static void show_code(lily_debug_state *debug)
             }
             else if (data_code == D_JUMP) {
                 lily_msgbuf_add_fmt(msgbuf, "^I|     -> | [%d]\n",
-                        (int)code[i+j]);
+                        indent, (int)code[i+j]);
                 write_msgbuf(debug);
             }
             else if (data_code == D_COUNT)
