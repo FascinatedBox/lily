@@ -1374,6 +1374,36 @@ method test_hashes():nil
     hash[str, object] str_obj_map_2 = ["a" => nil_obj, "b" => 11, "b" => nil_obj]
 }
 
+method test_eq():nil
+{
+    printfmt("#%i: Testing == for complex values...", test_id)
+    test_id = test_id + 1
+
+    integer ok = 1
+
+    if [1 => "a", 2 => "b"] != [2 => "b", 1 => "a"]:
+        ok = 0
+
+    if [[1]] == [[2]]:
+        ok = 0
+
+    if test_eq == test_hashes:
+        ok = 0
+
+    if printfmt != printfmt:
+        ok = 0
+
+    if [1, 1.1, "3"] != [1, 1.1, "3"]:
+        ok = 0
+
+    if ok: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        fail_count = fail_count + 1
+    }
+}
+
 method test_misc():nil
 {
     printfmt("#%i: Miscellaneous features...(sub tests follow).\n", test_id)
@@ -1447,6 +1477,7 @@ list[method():nil] method_list =
     test_multiline_comment,
     test_intnum_cast,
     test_hashes,
+    test_eq,
     test_misc
 ]
 

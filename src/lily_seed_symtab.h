@@ -5,6 +5,7 @@
 # include "lily_cls_list.h"
 # include "lily_vm.h"
 # include "lily_gc.h"
+# include "lily_class_funcs.h"
 
 /* Sync name order with SYM_CLASS_* #defines in lily_symtab.h */
 typedef const struct {
@@ -14,6 +15,7 @@ typedef const struct {
     int flags;
     class_setup_func setup_func;
     gc_marker_func gc_marker;
+    class_eq_func eq_func;
 } class_seed;
 
 /* Note: If CLS_VALID_HASH_KEY is added to other classes, the vm will need to be
@@ -22,18 +24,34 @@ typedef const struct {
          too. */
 class_seed class_seeds[] =
 {
-    {"integer",  0, 0, CLS_VALID_HASH_KEY, NULL,            NULL},
-    {"number",   0, 0, CLS_VALID_HASH_KEY, NULL,            NULL},
-    {"str",      1, 0, CLS_VALID_HASH_KEY, lily_str_setup,  NULL},
-    {"function", 0, 0, 0,                  NULL,            NULL},
-    {"object",   1, 0, 0,                  NULL,            &lily_gc_object_marker},
-    {"method",   1, 0, 0,                  NULL,            NULL},
-    {"list",     1, 1, 0,                  lily_list_setup, &lily_gc_list_marker},
-    {"hash",     1, 2, 0,                  NULL,            &lily_gc_hash_marker},
+    {"integer",  0, 0, CLS_VALID_HASH_KEY, NULL,            NULL,
+     &lily_integer_eq},
+
+    {"number",   0, 0, CLS_VALID_HASH_KEY, NULL,            NULL,
+     &lily_number_eq},
+
+    {"str",      1, 0, CLS_VALID_HASH_KEY, lily_str_setup,  NULL,
+     &lily_str_eq},
+
+    {"function", 0, 0, 0,                  NULL,            NULL,
+     &lily_generic_eq},
+
+    {"object",   1, 0, 0,                  NULL,            &lily_gc_object_marker,
+     &lily_object_eq},
+
+    {"method",   1, 0, 0,                  NULL,            NULL,
+     &lily_generic_eq},
+
+    {"list",     1, 1, 0,                  lily_list_setup, &lily_gc_list_marker,
+     &lily_list_eq},
+
+    {"hash",     1, 2, 0,                  NULL,            &lily_gc_hash_marker,
+     &lily_hash_eq},
+
     /* * is the name of the template class. This was chosen because it's not a
        valid name so the user can't directly declare members of it. */
-    {"*",        0, 0, 0,                  NULL,            NULL},
-    {"package",  0, 0, 0,                  NULL,            NULL}
+    {"*",        0, 0, 0,                  NULL,            NULL, NULL},
+    {"package",  0, 0, 0,                  NULL,            NULL, NULL}
 };
 
 typedef const struct {

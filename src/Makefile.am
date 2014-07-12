@@ -19,7 +19,8 @@ lily_SRCS=csiphash.c \
 	lily_value.c \
 	lily_cls_list.c \
 	lily_cls_str.c \
-	lily_pkg_sys.c
+	lily_pkg_sys.c \
+	lily_class_funcs.c
 
 bin_PROGRAMS = lily_fs lily_aft lily_cliexec
 

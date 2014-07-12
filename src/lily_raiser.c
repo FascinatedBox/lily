@@ -10,7 +10,7 @@
 static const char *lily_error_names[] =
     {"ErrNoMemory", "ErrSyntax", "ErrImport", "ErrEncoding", "ErrNoValue",
      "ErrDivideByZero", "ErrOutOfRange", "ErrBadCast", "ErrReturnExpected",
-     "ErrBadValue"};
+     "ErrBadValue", "ErrRecursion"};
 
 lily_raiser *lily_new_raiser()
 {
