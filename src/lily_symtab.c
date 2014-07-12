@@ -396,6 +396,7 @@ static int init_classes(lily_symtab *symtab)
             new_class->is_refcounted = class_seeds[i].is_refcounted;
             new_class->seed_table = NULL;
             new_class->setup_func = class_seeds[i].setup_func;
+            new_class->eq_func = class_seeds[i].eq_func;
         }
         else
             ret = 0;

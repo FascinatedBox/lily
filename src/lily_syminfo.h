@@ -26,6 +26,11 @@ typedef void (*lily_func)(struct lily_vm_state_t *, uintptr_t *code, int);
    classes have been created.
    Returns 1 if successful, 0 otherwise. */
 typedef int (*class_setup_func)(struct lily_class_t *);
+/* This is called to do == and != when the vm has complex values, and also for
+   comparing values held in an object. The vm is passed as a guard against
+   an infinite loop. */
+typedef int (*class_eq_func)(struct lily_vm_state_t *, int *,
+        struct lily_value_t *, struct lily_value_t *);
 
 /* lily_raw_value is a union of all possible values, plus a bit more. This is
    not common, because lily_value (which has flags and a sig) is typically
@@ -81,6 +86,7 @@ typedef struct lily_class_t {
        typically a static const somewhere. */
     class_setup_func setup_func;
     gc_marker_func gc_marker;
+    class_eq_func eq_func;
 } lily_class;
 
 /* Signatures are a bit more complicated. They're also very common. A signature

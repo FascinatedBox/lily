@@ -58,9 +58,6 @@ code_pos += 5;
    and rhs agree on the full type. This allows comparing methods, functions,
    lists, and more.
 
-   Note: This results in lists being compared by pointer. As a result,
-         [1] == [1] will return 0, because they are different lists.
-
    Arguments are:
    * op:    The operation to perform relative to the values given. This will be
             substituted like: lhs->value OP rhs->value
@@ -93,8 +90,7 @@ else if (lhs_reg->sig->cls->id == SYM_CLASS_STR) { \
 } \
 else if (lhs_reg->sig == rhs_reg->sig) { \
     vm_regs[code[code_pos+4]]->value.integer = \
-    /* Use int compare as pointer compare. A bit evil. */ \
-    lhs_reg->value.integer == rhs_reg->value.integer; \
+    compare_values(vm, lhs_reg, rhs_reg) OP 1; \
 } \
 vm_regs[code[code_pos+4]]->flags &= ~VAL_IS_NIL; \
 code_pos += 5;
@@ -413,6 +409,19 @@ int lily_try_add_gc_item(lily_vm_state *vm, lily_sig *value_sig,
 }
 
 /** VM helpers **/
+
+/*  compare_values
+    This is a helper function to call the class_eq_func on the values given.
+    The vm is passed in case an error needs to be raised. */
+static int compare_values(lily_vm_state *vm, lily_value *left, lily_value *right)
+{
+    class_eq_func eq_func = left->sig->cls->eq_func;
+    int depth = 0;
+
+    int result = eq_func(vm, &depth, left, right);
+    return result;
+}
+
 /* grow_method_stack
    This function grows the vm's method stack so it can take more method info.
    Calls lily_raise_nomem if unable to create method info. */
