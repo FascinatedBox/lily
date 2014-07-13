@@ -62,9 +62,10 @@
                       local. This is used by show, where the value might be a
                       global var, or a local one. */
 #define D_IS_GLOBAL       14
-/* D_SHOW_INPUT:      A value given to show. This can be either a global or a
-                      local register. */
-#define D_SHOW_INPUT      15
+/* D_COND_INPUT:      This follows D_IS_GLOBAL. If D_IS_GLOBAL's position was
+                      1, this register is a global. Otherwise, the register is
+                      a local. */
+#define D_COND_INPUT      15
 /* D_CALL_INPUT_TYPE: This is used by calls to determine how the call is
                       stored:
                       0: The input is a readonly var.
@@ -97,7 +98,7 @@ typedef struct lily_debug_state_t {
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[47] = {
+char *opcode_names[48] = {
     "assign",
     "object assign",
     "assign (ref/deref)",
@@ -144,6 +145,7 @@ char *opcode_names[47] = {
     "get const",
     "package set",
     "package get",
+    "isnil",
     "return from vm"
 };
 
@@ -160,6 +162,8 @@ static const int package_set_ci[] =
     {5, D_LINENO, D_GLOBAL_INPUT, D_INT_VAL, D_INPUT};
 static const int build_list_ci[]  =
     {4, D_LINENO, D_COUNT, D_COUNT_LIST, D_OUTPUT};
+static const int isnil_ci[]      =
+    {4, D_LINENO, D_IS_GLOBAL, D_COND_INPUT, D_OUTPUT};
 static const int sub_assign_ci[] = {4, D_LINENO, D_INPUT, D_INPUT, D_INPUT};
 static const int binary_ci[]     = {4, D_LINENO, D_INPUT, D_INPUT, D_OUTPUT};
 static const int get_const_ci[]  = {3, D_LINENO, D_LIT_INPUT, D_OUTPUT};
@@ -168,7 +172,7 @@ static const int set_global_ci[] = {3, D_LINENO, D_INPUT, D_GLOBAL_OUTPUT};
 static const int in_out_ci[]     = {3, D_LINENO, D_INPUT, D_OUTPUT};
 static const int jump_if_ci[]    = {3, D_JUMP_ON, D_INPUT, D_JUMP};
 static const int intnum_ci[]     = {3, D_LINENO, D_INPUT, D_OUTPUT};
-static const int show_ci[]       = {3, D_LINENO, D_IS_GLOBAL, D_SHOW_INPUT};
+static const int show_ci[]       = {3, D_LINENO, D_IS_GLOBAL, D_COND_INPUT};
 static const int return_ci[]     = {2, D_LINENO, D_INPUT};
 static const int return_nv_ci[]  = {1, D_LINENO};
 static const int jump_ci[]       = {1, D_JUMP};
@@ -269,6 +273,9 @@ static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
             break;
         case o_package_get:
             ret = package_get_ci;
+            break;
+        case o_isnil:
+            ret = isnil_ci;
             break;
         default:
             lily_msgbuf_add_fmt(debug->msgbuf,
@@ -510,7 +517,7 @@ static void show_code(lily_debug_state *debug)
             }
             else if (data_code == D_IS_GLOBAL)
                 is_global = code[i+j];
-            else if (data_code == D_SHOW_INPUT) {
+            else if (data_code == D_COND_INPUT) {
                 int flags = RI_INPUT;
                 if (is_global)
                     flags |= RI_GLOBAL;

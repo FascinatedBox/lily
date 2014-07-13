@@ -587,6 +587,12 @@ static void expression_value(lily_parse_state *parser)
                     lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
                     lily_lexer(lex);
                 }
+                else if (key_id == KEY_ISNIL) {
+                    lily_ast_enter_tree(parser->ast_pool, tree_isnil, NULL);
+                    NEED_NEXT_TOK(tk_left_parenth)
+                    lily_lexer(lex);
+                    continue;
+                }
                 else {
                     lily_raise(parser->raiser, lily_ErrSyntax,
                                "%s has not been declared.\n", lex->label);
@@ -691,7 +697,8 @@ static void check_valid_close_tok(lily_parse_state *parser)
     lily_tree_type tt = lily_ast_caller_tree_type(parser->ast_pool);
     lily_token expect;
 
-    if (tt == tree_call || tt == tree_parenth || tt == tree_typecast)
+    if (tt == tree_call || tt == tree_parenth || tt == tree_typecast ||
+        tt == tree_isnil)
         expect = tk_right_parenth;
     else
         expect = tk_right_bracket;
@@ -904,6 +911,7 @@ static void line_kw_handler(lily_parse_state *, int);
 static void method_kw_handler(lily_parse_state *, int);
 static void for_handler(lily_parse_state *, int);
 static void do_handler(lily_parse_state *, int);
+static void isnil_handler(lily_parse_state *, int);
 
 typedef void (keyword_handler)(lily_parse_state *, int);
 
@@ -920,7 +928,8 @@ static keyword_handler *handlers[] = {
     line_kw_handler,
     method_kw_handler,
     for_handler,
-    do_handler
+    do_handler,
+    isnil_handler
 };
 
 /*  statement
@@ -1307,6 +1316,12 @@ static void do_handler(lily_parse_state *parser, int multi)
     expression(parser);
     lily_emit_eval_do_while_expr(parser->emit, parser->ast_pool);
     lily_emit_leave_block(parser->emit);
+}
+
+static void isnil_handler(lily_parse_state *parser, int multi)
+{
+    lily_raise(parser->raiser, lily_ErrSyntax,
+               "isnil() cannot be used outside of an expression.\n");
 }
 
 /** Main parser function, and public calling API.

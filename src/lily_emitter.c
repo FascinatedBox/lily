@@ -1748,6 +1748,35 @@ static void eval_oo_call(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)var;
 }
 
+/*  eval_isnil
+    Eval a special tree representing the 'isnil' keyword. This tree has one
+    value: The inner tree swallowed. For speed, the code emitted will select
+    either a global or local register at vm-time. This may or may not be
+    changed in the future.
+    * ast->arg_start is the one and only expression to evaluate. */
+static void eval_isnil(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_method_val *m = emit->top_method;
+    lily_ast *inner_tree = ast->arg_start;
+
+    if (ast->args_collected != 1)
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                "isnil expects 1 arg, but got %d args.\n", ast->args_collected);
+
+    if (inner_tree->tree_type != tree_local_var &&
+        inner_tree->tree_type != tree_var)
+        eval_tree(emit, inner_tree);
+
+    int is_global = (inner_tree->tree_type == tree_var);
+
+    lily_class *integer_cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
+    lily_storage *s = get_storage(emit, integer_cls->sig, ast->line_num);
+
+    WRITE_5(o_isnil, ast->line_num, is_global, inner_tree->result->reg_spot,
+            s->reg_spot);
+    ast->result = (lily_sym *)s;
+}
+
 /* eval_tree
    This is the main emit function. This doesn't evaluate anything itself, but
    instead determines what call to shove the work off to. */
@@ -1803,6 +1832,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast)
         eval_typecast(emit, ast);
     else if (ast->tree_type == tree_oo_call)
         eval_oo_call(emit, ast);
+    else if (ast->tree_type == tree_isnil)
+        eval_isnil(emit, ast);
 }
 
 /** Emitter API functions **/
