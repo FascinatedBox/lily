@@ -116,13 +116,13 @@ static const char follower_table[256] =
 /*  lstrip_utf8_start
     This is a helper for lstrip where input_arg's string has been checked to
     hold at least one utf8 chunk. */
-static int lstrip_utf8_start(lily_value *input_arg, lily_value *strip_arg)
+static int lstrip_utf8_start(lily_value *input_arg, lily_str_val *strip_sv)
 {
     char *input_str = input_arg->value.str->str;
     int input_length = input_arg->value.str->size;
 
-    char *strip_str = strip_arg->value.str->str;
-    int strip_length = strip_arg->value.str->size;
+    char *strip_str = strip_sv->str;
+    int strip_length = strip_sv->size;
     int i = 0, j = 0, match = 1;
 
     char ch = strip_str[0];
@@ -202,16 +202,16 @@ static int lstrip_utf8_start(lily_value *input_arg, lily_value *strip_arg)
     This is a helper for lstrip where input_arg's string has been checked to
     hold no utf8 chunks. This does byte stripping, which is simpler than utf8
     chunk check+strip. */
-static int lstrip_ascii_start(lily_value *input_arg, lily_value *strip_arg)
+static int lstrip_ascii_start(lily_value *input_arg, lily_str_val *strip_sv)
 {
     int i;
     char *input_str = input_arg->value.str->str;
     int input_length = input_arg->value.str->size;
 
-    if (strip_arg->value.str->size == 1) {
+    if (strip_sv->size == 1) {
         /* Strip a single byte really fast. The easiest case. */
         char strip_ch;
-        strip_ch = strip_arg->value.str->str[0];
+        strip_ch = strip_sv->str[0];
         for (i = 0;i < input_length;i++) {
             if (input_str[i] != strip_ch)
                 break;
@@ -219,8 +219,8 @@ static int lstrip_ascii_start(lily_value *input_arg, lily_value *strip_arg)
     }
     else {
         /* Strip one of many ascii bytes. A bit tougher, but not much. */
-        char *strip_str = strip_arg->value.str->str;
-        int strip_length = strip_arg->value.str->size;
+        char *strip_str = strip_sv->str;
+        int strip_length = strip_sv->size;
         for (i = 0;i < input_length;i++) {
             char ch = input_str[i];
             int found = 0;
@@ -249,6 +249,7 @@ void lily_str_lstrip(lily_vm_state *vm, uintptr_t *code, int num_args)
     char *strip_str;
     unsigned char ch;
     int copy_from, i, has_multibyte_char, strip_str_len;
+    lily_str_val *strip_sv;
 
     if (input_arg->flags & VAL_IS_NIL)
         lily_raise(vm->raiser, lily_ErrBadValue, "Input string is nil.\n");
@@ -263,7 +264,8 @@ void lily_str_lstrip(lily_vm_state *vm, uintptr_t *code, int num_args)
         return;
     }
 
-    strip_str = strip_arg->value.str->str;
+    strip_sv = strip_arg->value.str;
+    strip_str = strip_sv->str;
     strip_str_len = strlen(strip_str);
     has_multibyte_char = 0;
 
@@ -276,9 +278,9 @@ void lily_str_lstrip(lily_vm_state *vm, uintptr_t *code, int num_args)
     }
 
     if (has_multibyte_char == 0)
-        copy_from = lstrip_ascii_start(input_arg, strip_arg);
+        copy_from = lstrip_ascii_start(input_arg, strip_sv);
     else
-        copy_from = lstrip_utf8_start(input_arg, strip_arg);
+        copy_from = lstrip_utf8_start(input_arg, strip_sv);
 
     lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
     char *sv_str = lily_malloc((input_arg->value.str->size - copy_from) + 1);
@@ -340,22 +342,22 @@ void lily_str_startswith(lily_vm_state *vm, uintptr_t *code, int num_args)
     no utf-8 chunks. This has a fast loop for stripping one byte, and a more
     general one for stripping out different bytes.
     This returns where string copying should stop at. */
-static int rstrip_ascii_stop(lily_value *input_arg, lily_value *strip_arg)
+static int rstrip_ascii_stop(lily_value *input_arg, lily_str_val *strip_sv)
 {
     int i;
     char *input_str = input_arg->value.str->str;
     int input_length = input_arg->value.str->size;
 
-    if (strip_arg->value.str->size == 1) {
-        char strip_ch = strip_arg->value.str->str[0];
+    if (strip_sv->size == 1) {
+        char strip_ch = strip_sv->str[0];
         for (i = input_length - 1;i >= 0;i--) {
             if (input_str[i] != strip_ch)
                 break;
         }
     }
     else {
-        char *strip_str = strip_arg->value.str->str;
-        int strip_length = strip_arg->value.str->size;
+        char *strip_str = strip_sv->str;
+        int strip_length = strip_sv->size;
         for (i = input_length - 1;i >= 0;i--) {
             char ch = input_str[i];
             int found = 0;
@@ -378,13 +380,13 @@ static int rstrip_ascii_stop(lily_value *input_arg, lily_value *strip_arg)
     This is a helper for str's rstrip that handles the case where the part to
     remove has at least one utf-8 chunk inside of it.
     This returns where string copying should stop at. */
-static int rstrip_utf8_stop(lily_value *input_arg, lily_value *strip_arg)
+static int rstrip_utf8_stop(lily_value *input_arg, lily_str_val *strip_sv)
 {
     char *input_str = input_arg->value.str->str;
     int input_length = input_arg->value.str->size;
 
-    char *strip_str = strip_arg->value.str->str;
-    int strip_length = strip_arg->value.str->size;
+    char *strip_str = strip_sv->str;
+    int strip_length = strip_sv->size;
     int i, j;
 
     i = input_length - 1;
@@ -442,6 +444,7 @@ void lily_str_rstrip(lily_vm_state *vm, uintptr_t *code, int num_args)
     char *strip_str;
     unsigned char ch;
     int copy_to, i, has_multibyte_char, strip_str_len;
+    lily_str_val *strip_sv;
 
     if (input_arg->flags & VAL_IS_NIL)
         lily_raise(vm->raiser, lily_ErrBadValue, "Input string is nil.\n");
@@ -456,7 +459,8 @@ void lily_str_rstrip(lily_vm_state *vm, uintptr_t *code, int num_args)
         return;
     }
 
-    strip_str = strip_arg->value.str->str;
+    strip_sv = strip_arg->value.str;
+    strip_str = strip_sv->str;
     strip_str_len = strlen(strip_str);
     has_multibyte_char = 0;
 
@@ -469,9 +473,9 @@ void lily_str_rstrip(lily_vm_state *vm, uintptr_t *code, int num_args)
     }
 
     if (has_multibyte_char == 0)
-        copy_to = rstrip_ascii_stop(input_arg, strip_arg);
+        copy_to = rstrip_ascii_stop(input_arg, strip_sv);
     else
-        copy_to = rstrip_utf8_stop(input_arg, strip_arg);
+        copy_to = rstrip_utf8_stop(input_arg, strip_sv);
 
     lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
     /* +1 for the \0 at the end. */
@@ -702,7 +706,8 @@ void lily_str_strip(lily_vm_state *vm, uintptr_t *code, int num_args)
     }
 
     char ch;
-    char *strip_str = strip_arg->value.str->str;
+    lily_str_val *strip_sv = strip_arg->value.str;
+    char *strip_str = strip_sv->str;
     int strip_str_len = strlen(strip_str);
     int has_multibyte_char = 0;
     int copy_from, copy_to, i;
@@ -716,15 +721,15 @@ void lily_str_strip(lily_vm_state *vm, uintptr_t *code, int num_args)
     }
 
     if (has_multibyte_char == 0)
-        copy_from = lstrip_ascii_start(input_arg, strip_arg);
+        copy_from = lstrip_ascii_start(input_arg, strip_sv);
     else
-        copy_from = lstrip_utf8_start(input_arg, strip_arg);
+        copy_from = lstrip_utf8_start(input_arg, strip_sv);
 
     if (copy_from != input_arg->value.str->size) {
         if (has_multibyte_char)
-            copy_to = rstrip_ascii_stop(input_arg, strip_arg);
+            copy_to = rstrip_ascii_stop(input_arg, strip_sv);
         else
-            copy_to = rstrip_utf8_stop(input_arg, strip_arg);
+            copy_to = rstrip_utf8_stop(input_arg, strip_sv);
     }
     else
         /* The whole string consists of stuff in strip_str. Do this so the
@@ -754,8 +759,63 @@ void lily_str_strip(lily_vm_state *vm, uintptr_t *code, int num_args)
     result_arg->value.str = new_sv;
 }
 
+/*  lily_str_trim
+    Implements str::trim
+
+    Arguments:
+    * input: The string to be stripped. If this is nil, ErrBadValue is raised.
+
+    This removes all whitespace from the front and the back of 'input'.
+    Whitespace is any of: ' \t\r\n'.
+
+    Returns the newly made string. */
+void lily_str_trim(lily_vm_state *vm, uintptr_t *code, int num_args)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *input_arg = vm_regs[code[0]];
+    lily_value *result_arg = vm_regs[code[1]];
+
+    if (input_arg->flags & VAL_IS_NIL)
+        lily_raise(vm->raiser, lily_ErrBadValue, "Input is nil.\n");
+
+    char fake_buffer[5] = " \t\r\n";
+    lily_str_val fake_sv;
+    fake_sv.str = fake_buffer;
+    fake_sv.size = strlen(fake_buffer);
+
+    int copy_from, copy_to;
+    copy_from = lstrip_ascii_start(input_arg, &fake_sv);
+    copy_to = rstrip_ascii_stop(input_arg, &fake_sv);
+
+    int copy_range = copy_to - copy_from;
+    lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
+    char *sv_str = lily_malloc(copy_range + 1);
+    if (new_sv == NULL || sv_str == NULL) {
+        lily_free(new_sv);
+        lily_free(sv_str);
+        lily_raise_nomem(vm->raiser);
+    }
+
+    new_sv->str = sv_str;
+    new_sv->refcount = 1;
+    new_sv->size = copy_range;
+
+    strncpy(sv_str, input_arg->value.str->str + copy_from, copy_range);
+    sv_str[copy_range] = '\0';
+
+    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+        lily_deref_str_val(result_arg->value.str);
+
+    result_arg->flags = 0;
+    result_arg->value.str = new_sv;
+}
+
+static const lily_func_seed trim =
+    {"trim", lily_str_trim, NULL,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STR, SYM_CLASS_STR}};
+
 static const lily_func_seed strip =
-    {"strip", lily_str_strip, NULL,
+    {"strip", lily_str_strip, &trim,
         {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STR, SYM_CLASS_STR, SYM_CLASS_STR}};
 
 static const lily_func_seed find =
