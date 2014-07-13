@@ -284,6 +284,16 @@ typedef enum {
     o_package_set,
     o_package_get,
 
+    /* isnil:
+       * int lineno
+       * int is_global
+       * reg value
+       * reg result
+       This checks for the nil flag being set on the given value, storing the
+       result in the result register. If 'value' is an object, an additional
+       check is done to see if the object contains a nil value. */
+    o_isnil,
+
     /* Return from vm:
        This is a special opcode used to leave the vm. It does not take any
        values. This is written at the end of __main__. */

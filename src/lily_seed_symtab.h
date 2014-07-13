@@ -72,8 +72,10 @@ keyword_seed keywords[] = {
     {"__file__",   6872323072689856351},
     {"__method__", 7237117975334838111},
     {"for",        7499622},
-    {"do",         28516}
+    {"do",         28516},
+    {"isnil",      465625314153}
 };
+
 void lily_builtin_print(lily_vm_state *, uintptr_t *, int);
 void lily_builtin_printfmt(lily_vm_state *, uintptr_t *, int);
 
