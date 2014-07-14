@@ -5,6 +5,24 @@
 #include "lily_value.h"
 #include "lily_vm.h"
 
+static lily_str_val *try_make_sv(int size)
+{
+    lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
+    char *new_str = lily_malloc(sizeof(char) * size);
+
+    if (new_sv == NULL || new_str == NULL) {
+        lily_free(new_sv);
+        lily_free(new_str);
+        return NULL;
+    }
+
+    new_sv->str = new_str;
+    new_sv->size = size - 1;
+    new_sv->refcount = 1;
+
+    return new_sv;
+}
+
 /*  lily_str_concat
     Implements str::concat
 
@@ -30,19 +48,13 @@ void lily_str_concat(lily_vm_state *vm, uintptr_t *code, int num_args)
     lily_str_val *other_sv = other_arg->value.str;
 
     int new_size = self_sv->size + other_sv->size + 1;
-    lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
-    char *new_str = lily_malloc(sizeof(char) * new_size);
-    if (new_sv == NULL || new_str == NULL) {
-        lily_free(new_sv);
-        lily_free(new_str);
+    lily_str_val *new_sv = try_make_sv(new_size);
+    if (new_sv == NULL)
         lily_raise_nomem(vm->raiser);
-    }
 
+    char *new_str = new_sv->str;
     strcpy(new_str, self_sv->str);
     strcat(new_str, other_sv->str);
-    new_sv->str = new_str;
-    new_sv->size = new_size;
-    new_sv->refcount = 1;
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
         lily_deref_str_val(result_arg->value.str);
@@ -276,19 +288,12 @@ void lily_str_lstrip(lily_vm_state *vm, uintptr_t *code, int num_args)
     else
         copy_from = lstrip_utf8_start(input_arg, strip_sv);
 
-    lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
-    char *sv_str = lily_malloc((input_arg->value.str->size - copy_from) + 1);
-
-    if (new_sv == NULL || sv_str == NULL) {
-        lily_free(new_sv);
-        lily_free(sv_str);
+    int new_size = (input_arg->value.str->size - copy_from) + 1;
+    lily_str_val *new_sv = try_make_sv(new_size);
+    if (new_sv == NULL)
         lily_raise_nomem(vm->raiser);
-    }
 
-    new_sv->str = sv_str;
-    new_sv->size = (input_arg->value.str->size - copy_from);
-    new_sv->refcount = 1;
-    strcpy(sv_str, input_arg->value.str->str + copy_from);
+    strcpy(new_sv->str, input_arg->value.str->str + copy_from);
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
         lily_deref_str_val(result_arg->value.str);
 
@@ -471,20 +476,12 @@ void lily_str_rstrip(lily_vm_state *vm, uintptr_t *code, int num_args)
     else
         copy_to = rstrip_utf8_stop(input_arg, strip_sv);
 
-    lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
-    /* +1 for the \0 at the end. */
-    char *sv_str = lily_malloc(copy_to + 1);
-
-    if (new_sv == NULL || sv_str == NULL) {
-        lily_free(new_sv);
-        lily_free(sv_str);
+    int new_size = copy_to + 1;
+    lily_str_val *new_sv = try_make_sv(new_size);
+    if (new_sv == NULL)
         lily_raise_nomem(vm->raiser);
-    }
 
-    new_sv->str = sv_str;
-    new_sv->size = copy_to;
-    new_sv->refcount = 1;
-    strncpy(sv_str, input_arg->value.str->str, copy_to);
+    strncpy(new_sv->str, input_arg->value.str->str, copy_to);
     /* This will always copy a partial string, so make sure to add a terminator. */
     new_sv->str[copy_to] = '\0';
 
@@ -542,18 +539,12 @@ void lily_str_lower(lily_vm_state *vm, uintptr_t *code, int num_args)
     if (input_arg->flags & VAL_IS_NIL)
         lily_raise(vm->raiser, lily_ErrBadValue, "Input is nil.\n");
 
-    lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
-    char *sv_str = lily_malloc(input_arg->value.str->size + 1);
-    if (new_sv == NULL || sv_str == NULL) {
-        lily_free(new_sv);
-        lily_free(sv_str);
+    int new_size = input_arg->value.str->size + 1;
+    lily_str_val *new_sv = try_make_sv(new_size);
+    if (new_sv == NULL)
         lily_raise_nomem(vm->raiser);
-    }
 
-    new_sv->refcount = 1;
-    new_sv->size = input_arg->value.str->size;
-    new_sv->str = sv_str;
-
+    char *new_str = new_sv->str;
     char *input_str = input_arg->value.str->str;
     int input_length = input_arg->value.str->size;
     int i;
@@ -561,11 +552,11 @@ void lily_str_lower(lily_vm_state *vm, uintptr_t *code, int num_args)
     for (i = 0;i < input_length;i++) {
         char ch = input_str[i];
         if (isupper(ch))
-            sv_str[i] = tolower(ch);
+            new_str[i] = tolower(ch);
         else
-            sv_str[i] = ch;
+            new_str[i] = ch;
     }
-    sv_str[input_length] = '\0';
+    new_str[input_length] = '\0';
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
         lily_deref_str_val(result_arg->value.str);
@@ -583,18 +574,12 @@ void lily_str_upper(lily_vm_state *vm, uintptr_t *code, int num_args)
     if (input_arg->flags & VAL_IS_NIL)
         lily_raise(vm->raiser, lily_ErrBadValue, "Input is nil.\n");
 
-    lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
-    char *sv_str = lily_malloc(input_arg->value.str->size + 1);
-    if (new_sv == NULL || sv_str == NULL) {
-        lily_free(new_sv);
-        lily_free(sv_str);
+    int new_size = input_arg->value.str->size + 1;
+    lily_str_val *new_sv = try_make_sv(new_size);
+    if (new_sv == NULL)
         lily_raise_nomem(vm->raiser);
-    }
 
-    new_sv->refcount = 1;
-    new_sv->size = input_arg->value.str->size;
-    new_sv->str = sv_str;
-
+    char *new_str = new_sv->str;
     char *input_str = input_arg->value.str->str;
     int input_length = input_arg->value.str->size;
     int i;
@@ -602,11 +587,11 @@ void lily_str_upper(lily_vm_state *vm, uintptr_t *code, int num_args)
     for (i = 0;i < input_length;i++) {
         char ch = input_str[i];
         if (islower(ch))
-            sv_str[i] = toupper(ch);
+            new_str[i] = toupper(ch);
         else
-            sv_str[i] = ch;
+            new_str[i] = ch;
     }
-    sv_str[input_length] = '\0';
+    new_str[input_length] = '\0';
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
         lily_deref_str_val(result_arg->value.str);
@@ -730,21 +715,14 @@ void lily_str_strip(lily_vm_state *vm, uintptr_t *code, int num_args)
            result is an empty string. */
         copy_to = copy_from;
 
-    int copy_range = copy_to - copy_from;
-    lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
-    char *sv_str = lily_malloc(copy_range + 1);
-    if (new_sv == NULL || sv_str == NULL) {
-        lily_free(new_sv);
-        lily_free(sv_str);
+    int new_size = (copy_to - copy_from) + 1;
+    lily_str_val *new_sv = try_make_sv(new_size);
+    if (new_sv == NULL)
         lily_raise_nomem(vm->raiser);
-    }
 
-    new_sv->str = sv_str;
-    new_sv->refcount = 1;
-    new_sv->size = copy_range;
-
-    strncpy(sv_str, input_arg->value.str->str + copy_from, copy_range);
-    sv_str[copy_range] = '\0';
+    char *new_str = new_sv->str;
+    strncpy(new_str, input_arg->value.str->str + copy_from, new_size - 1);
+    new_str[new_size - 1] = '\0';
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
         lily_deref_str_val(result_arg->value.str);
@@ -781,21 +759,15 @@ void lily_str_trim(lily_vm_state *vm, uintptr_t *code, int num_args)
     copy_from = lstrip_ascii_start(input_arg, &fake_sv);
     copy_to = rstrip_ascii_stop(input_arg, &fake_sv);
 
-    int copy_range = copy_to - copy_from;
-    lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
-    char *sv_str = lily_malloc(copy_range + 1);
-    if (new_sv == NULL || sv_str == NULL) {
-        lily_free(new_sv);
-        lily_free(sv_str);
+    int new_size = (copy_to - copy_from) + 1;
+    lily_str_val *new_sv = try_make_sv(new_size);
+    if (new_sv == NULL)
         lily_raise_nomem(vm->raiser);
-    }
 
-    new_sv->str = sv_str;
-    new_sv->refcount = 1;
-    new_sv->size = copy_range;
+    char *new_str = new_sv->str;
 
-    strncpy(sv_str, input_arg->value.str->str + copy_from, copy_range);
-    sv_str[copy_range] = '\0';
+    strncpy(new_str, input_arg->value.str->str + copy_from, new_size - 1);
+    new_str[new_size - 1] = '\0';
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
         lily_deref_str_val(result_arg->value.str);
