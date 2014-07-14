@@ -758,8 +758,8 @@ lily_var *lily_find_class_callable(lily_symtab *symtab, lily_class *cls,
 
                     if (cls->call_top != NULL)
                         cls->call_top->next = iter;
-                    else
-                        cls->call_top = iter;
+
+                    cls->call_top = iter;
 
                     /* This is a builtin, so fix the line number to 0. */
                     iter->line_num = 0;
