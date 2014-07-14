@@ -5,56 +5,50 @@
 #include "lily_value.h"
 #include "lily_vm.h"
 
+/*  lily_str_concat
+    Implements str::concat
+
+    Arguments:
+    * input: The base string.
+    * other: The string to add.
+
+    This creates a new string comprised of 'self' and 'other'. */
 void lily_str_concat(lily_vm_state *vm, uintptr_t *code, int num_args)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_str_val *ret, *arg1, *arg2;
-    lily_value *ret_reg;
-    ret_reg = vm_regs[code[2]];
-    ret = vm_regs[code[2]]->value.str;
-    arg1 = vm_regs[code[0]]->value.str;
-    arg2 = vm_regs[code[1]]->value.str;
+    lily_value *result_arg = vm_regs[code[2]];
+    lily_value *self_arg = vm_regs[code[0]];
+    lily_value *other_arg = vm_regs[code[1]];
 
-    int newsize = arg1->size + arg2->size + 1;
+    if (self_arg->flags & VAL_IS_NIL)
+        lily_raise(vm->raiser, lily_ErrBadValue, "Input string is nil.\n");
 
-        /* Create a str if there isn't one. */
-    if ((ret_reg->flags & VAL_IS_NIL_OR_PROTECTED) ||
-        /* ...or to preserve immutability. */
-        ret == arg1 || ret == arg2) {
-        lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
-        char *new_str = lily_malloc(sizeof(char) * newsize);
-        if (new_sv == NULL || new_str == NULL) {
-            lily_free(new_sv);
-            lily_free(new_str);
-            return;
-        }
+    if (other_arg->flags & VAL_IS_NIL)
+        lily_raise(vm->raiser, lily_ErrBadValue, "String to append is nil.\n");
 
-        new_sv->str = new_str;
-        new_sv->refcount = 1;
-        new_sv->size = newsize;
+    lily_str_val *self_sv = self_arg->value.str;
+    lily_str_val *other_sv = other_arg->value.str;
 
-        strcpy(new_sv->str, arg1->str);
-        strcat(new_sv->str, arg2->str);
-
-        if ((ret_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-            ret_reg->value.generic->refcount--;
-
-        ret = new_sv;
-        ret_reg->flags &= ~VAL_IS_PROTECTED;
-    }
-    else if (ret->size < newsize) {
-        char *newstr;
-        newstr = lily_realloc(ret->str, sizeof(char) * newsize);
-        if (newstr == NULL)
-            return;
-
-        ret->str = newstr;
-        strcpy(ret->str, arg1->str);
-        strcat(ret->str, arg2->str);
+    int new_size = self_sv->size + other_sv->size + 1;
+    lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
+    char *new_str = lily_malloc(sizeof(char) * new_size);
+    if (new_sv == NULL || new_str == NULL) {
+        lily_free(new_sv);
+        lily_free(new_str);
+        lily_raise_nomem(vm->raiser);
     }
 
-    vm_regs[code[2]]->value.str = ret;
-    vm_regs[code[2]]->flags &= ~VAL_IS_NIL;
+    strcpy(new_str, self_sv->str);
+    strcat(new_str, other_sv->str);
+    new_sv->str = new_str;
+    new_sv->size = new_size;
+    new_sv->refcount = 1;
+
+    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+        lily_deref_str_val(result_arg->value.str);
+
+    result_arg->flags = 0;
+    result_arg->value.str = new_sv;
 }
 
 #define CTYPE_WRAP(WRAP_NAME, WRAPPED_CALL) \
