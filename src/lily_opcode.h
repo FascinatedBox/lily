@@ -51,17 +51,6 @@ typedef enum {
        objects. */
     o_ref_assign,
 
-    /* Subscript assignment:
-       * int lineno
-       * reg(list[T]) left
-       * reg(integer) index
-       * reg(T) right
-       Subscript assignment is special cased so that the list holding the value
-       is updated. Subscript and then assign also wouldn't work for primitives
-       (the assign would be targeting an integer storage, not the list value).
-       This handles objects and ref/deref situations. */
-    o_sub_assign,
-
     /* Integer binary ops:
        * int lineno
        * reg(integer) left
@@ -181,15 +170,6 @@ typedef enum {
        count always precedes the exact number of values. */
     o_build_hash,
 
-    /* Subscript:
-       * int lineno
-       * reg(list[T]) list
-       * reg(integer) index
-       * reg(T) right
-       This is used to take a value from a list and place it in a storage
-       indicated by 'right'. This handles ref/deref and objects. */
-    o_subscript,
-
     /* Object typecast:
        * int lineno
        * reg(object) left
@@ -255,6 +235,43 @@ typedef enum {
        This sets user loop var to start, so that it has a proper initial value
        before entering the loop. */
     o_for_setup,
+
+    /* Get Item:
+       * int lineno
+       * reg(?) left
+       * reg(?) index
+       * reg(?) right
+
+       o_get_item handles getting a value at the given index and placing it
+       into 'right'. Object creation and ref/deref are handled automatically.
+
+       Lists:
+       * left is the list to take a value from.
+       * index is what element to grab. It's always an integer.
+       * right is the value. The type is of the list's value.
+       Hashes:
+       * left is the hash to take a value from.
+       * index is the hash key. The type is the key of the hash.
+       * right is the value. The type is the value of the hash.  */
+    o_get_item,
+
+    /* Set Item:
+       * int lineno
+       * reg(?) left
+       * reg(?) index
+       * reg(?) right
+       o_set_item handles setting an item for a complex type. Object creation
+       and ref/deref are done as well.
+
+       Lists:
+       * left is the list to take a value from.
+       * index is what element to grab. It's always an integer.
+       * right is the value. The type is of the list's value.
+       Hashes:
+       * left is the hash to take a value from.
+       * index is the hash key. The type is the key of the hash.
+       * right is the value. The type is the value of the hash.  */
+    o_set_item,
 
     /* get global:
        * int lineno

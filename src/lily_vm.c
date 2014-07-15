@@ -513,8 +513,8 @@ static void novalue_error(lily_vm_state *vm, int code_pos, int reg_pos)
 /*  no_such_key_error
     This is a helper routine that raises ErrNoSuchKey when there is an attempt
     to read a hash that does not have the given key.
-    Note: This is intentionally not called by subscript assign so that assigning
-          to a non-existant part of a hash automatically adds that key.
+    Note: This is intentionally not called by o_set_item so that assigning to a
+          non-existant part of a hash automatically adds that key.
 
     vm:       The currently running vm.
     code_pos: The start of the opcode, for getting line info.
@@ -841,7 +841,7 @@ static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
         lily_raise_nomem(vm->raiser);
 }
 
-/*  op_sub_assign
+/*  op_set_item
     This handles subscript assignment for both lists and hashes.
     The vm calls this with the code and the current code position. There are
     three arguments to unpack:
@@ -850,7 +850,7 @@ static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
     +3 is the index. This must not be nil. Lists only allow integer indexes,
        while this is a hash key of the correct type.
     +4 is the new value. This allowed to be nil. */
-static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
+static void op_set_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *lhs_reg, *index_reg, *rhs_reg;
@@ -891,8 +891,8 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
     }
 }
 
-/*  op_sub_assign
-    This handles subscripting elements from lists and hashes.
+/*  op_get_item
+    This handles subscripting an element from the given hash or list.
     The vm calls this with the code and the current code position. There are
     three arguments to unpack:
     +2 is the list or hash to take a value from.
@@ -902,15 +902,15 @@ static void op_sub_assign(lily_vm_state *vm, uintptr_t *code, int code_pos)
 
     Note: If the hash is nil, then ErrNoValue is raised instead of
           ErrNoSuchKey. */
-static void op_subscript(lily_vm_state *vm, uintptr_t *code, int code_pos)
+static void op_get_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *lhs_reg, *index_reg, *result_reg;
 
-    /* The lhs is checked, unlike subscript assign. The reason for this is
-       because not finding a key results in ErrNoSuchKey. So creating a hash
-       where none exists would be useless, because the key that this wants
-       is not going to be in an empty hash. */
+    /* The lhs is checked, unlike with o_set_item. The reason for this is not
+       finding a key results in ErrNoSuchKey. So creating a hash where none
+       exists would be useless, because the key that this wants is not going to
+       be in an empty hash. */
     LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
     LOAD_CHECKED_REG(index_reg, code_pos, 3)
     result_reg = vm_regs[code[code_pos + 4]];
@@ -1793,12 +1793,12 @@ void lily_vm_execute(lily_vm_state *vm)
                 maybe_crossover_assign(lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
-            case o_subscript:
-                op_subscript(vm, code, code_pos);
+            case o_get_item:
+                op_get_item(vm, code, code_pos);
                 code_pos += 5;
                 break;
-            case o_sub_assign:
-                op_sub_assign(vm, code, code_pos);
+            case o_set_item:
+                op_set_item(vm, code, code_pos);
                 code_pos += 5;
                 break;
             case o_build_hash:
