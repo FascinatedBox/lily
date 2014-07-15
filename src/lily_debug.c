@@ -164,7 +164,7 @@ static const int build_list_ci[]  =
     {4, D_LINENO, D_COUNT, D_COUNT_LIST, D_OUTPUT};
 static const int isnil_ci[]      =
     {4, D_LINENO, D_IS_GLOBAL, D_COND_INPUT, D_OUTPUT};
-static const int sub_assign_ci[] = {4, D_LINENO, D_INPUT, D_INPUT, D_INPUT};
+static const int set_item_ci[]   = {4, D_LINENO, D_INPUT, D_INPUT, D_INPUT};
 static const int binary_ci[]     = {4, D_LINENO, D_INPUT, D_INPUT, D_OUTPUT};
 static const int get_const_ci[]  = {3, D_LINENO, D_LIT_INPUT, D_OUTPUT};
 static const int get_global_ci[] = {3, D_LINENO, D_GLOBAL_INPUT, D_OUTPUT};
@@ -212,7 +212,7 @@ static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
         case o_number_mul:
         case o_integer_div:
         case o_number_div:
-        case o_subscript:
+        case o_get_item:
         case o_left_shift:
         case o_right_shift:
         case o_bitwise_and:
@@ -231,8 +231,8 @@ static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
         case o_return_noval:
             ret = return_nv_ci;
             break;
-        case o_sub_assign:
-            ret = sub_assign_ci;
+        case o_set_item:
+            ret = set_item_ci;
             break;
         case o_build_list:
         case o_build_hash:

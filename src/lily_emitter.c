@@ -925,7 +925,7 @@ static lily_sig *get_subscript_result(lily_sig *sig)
    compound assignments.
    This is necessary because subscripts place their value into a storage, so a
    typical assignment would target a storage, instead of the list value. This
-   writes o_sub_assign to make sure the vm assigns to the list, and not a
+   writes o_set_item to make sure the vm assigns to the list, and not a
    storage.
    Var is at ast->left->arg_start
    Index is at ast->left->arg_start->next
@@ -967,7 +967,7 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
 
         lily_storage *subs_storage = get_storage(emit, elem_sig, ast->line_num);
 
-        WRITE_5(o_subscript,
+        WRITE_5(o_get_item,
                 ast->line_num,
                 var_ast->result->reg_spot,
                 index_ast->result->reg_spot,
@@ -981,7 +981,7 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
         rhs = ast->result;
     }
 
-    WRITE_5(o_sub_assign,
+    WRITE_5(o_set_item,
             ast->line_num,
             var_ast->result->reg_spot,
             index_ast->result->reg_spot,
@@ -1434,7 +1434,7 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
 
     result = get_storage(emit, sig_for_result, ast->line_num);
 
-    WRITE_5(o_subscript,
+    WRITE_5(o_get_item,
             ast->line_num,
             var_ast->result->reg_spot,
             index_ast->result->reg_spot,
