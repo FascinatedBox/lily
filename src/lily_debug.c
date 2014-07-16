@@ -102,7 +102,6 @@ char *opcode_names[48] = {
     "assign",
     "object assign",
     "assign (ref/deref)",
-    "subscript assign",
     "integer add (+)",
     "integer minus (-)",
     "modulo (%)",
@@ -133,13 +132,14 @@ char *opcode_names[48] = {
     "unary minus (-x)",
     "build list",
     "build hash",
-    "subscript",
     "typecast",
     "integer <-> number",
     "show",
     "return expected",
     "for (integer range)",
     "for setup",
+    "get item",
+    "set item",
     "get global",
     "set global",
     "get const",
@@ -157,9 +157,9 @@ static const int call_ci[]        =
     {6, D_LINENO, D_CALL_INPUT_TYPE, D_CALL_INPUT, D_COUNT, D_COUNT_LIST,
         D_OUTPUT};
 static const int package_get_ci[] =
-    {5, D_LINENO, D_GLOBAL_INPUT, D_INT_VAL, D_OUTPUT};
+    {4, D_LINENO, D_GLOBAL_INPUT, D_INT_VAL, D_OUTPUT};
 static const int package_set_ci[] =
-    {5, D_LINENO, D_GLOBAL_INPUT, D_INT_VAL, D_INPUT};
+    {4, D_LINENO, D_GLOBAL_INPUT, D_INT_VAL, D_INPUT};
 static const int build_list_ci[]  =
     {4, D_LINENO, D_COUNT, D_COUNT_LIST, D_OUTPUT};
 static const int isnil_ci[]      =
