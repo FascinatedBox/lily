@@ -204,7 +204,7 @@ static void merge_absorb(lily_ast_pool *ap, lily_ast *given, lily_ast *new_tree)
             ap->root = new_tree;
     }
 
-    new_tree->parent = given->parent;
+    given->parent = new_tree;
     new_tree->arg_start = given;
     new_tree->arg_top = given;
     new_tree->args_collected = 1;
