@@ -6,16 +6,10 @@
 #include "lily_syminfo.h"
 #include "lily_opcode.h"
 
-/** Debug is responsible for:
-    * Pretty printing out the code for all methods that have been scanned,
-      notably __main__.
-
-    Debug starts by being given a symtab, and then walking over it to determine
-    what methods to print out, then printing them out. This is extremely useful
-    for seeing what the vm is seeing.
-
-    This is also nice because one can opt to not show the symtab, and then this
-    will be skipped entirely. **/
+/** Debug is responsible for pretty printing whatever value it's given. This
+    may entail methods, lists, hashes, and more. For methods, the code inside
+    of the method gets dumped. This is used to determine if an error is within
+    the emitter's code generation or the vm. **/
 
 /* Opcode printing is handled by getting a 'call info' array for the given
    opcode. This specifies values that start with D_ that indicate how to handle
