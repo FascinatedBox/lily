@@ -1701,18 +1701,70 @@ static void eval_package(lily_emit_state *emit, lily_ast *ast)
 {
     lily_method_val *m = emit->top_method;
 
-    if (ast->arg_start->tree_type != tree_var)
-        eval_tree(emit, ast->left);
-
-    int index;
     lily_storage *s;
 
-    index = get_package_index(emit, ast);
-    s = get_storage(emit, ast->arg_start->next_arg->result->sig,
-            ast->line_num);
+    /* If the argument is a package, then this contains at least two package
+       accesses (a::b::c at least, maybe more). So instead of doing multiple
+       single-level access, combine them into one. */
+    if (ast->arg_start->tree_type == tree_package) {
+        int depth = 1;
+        lily_ast *dive_tree = ast->arg_start;
+        while (dive_tree->tree_type == tree_package) {
+            dive_tree = dive_tree->arg_start;
+            depth++;
+        }
 
-    WRITE_5(o_package_get, ast->line_num, ast->arg_start->result->reg_spot,
-            index, s->reg_spot)
+        dive_tree = dive_tree->parent;
+
+        WRITE_PREP_LARGE(5 + depth)
+
+        m->code[m->pos] = o_package_get_deep;
+        m->code[m->pos+1] = ast->line_num;
+        m->code[m->pos+2] = dive_tree->arg_start->result->reg_spot;
+        m->code[m->pos+3] = depth;
+
+        lily_package_val *pval;
+        pval = dive_tree->arg_start->result->value.package;
+        int j = 0;
+
+        /* For each access, find out the index to use to get the package at
+           that level. Write it down, then go to the next level. */
+        while (1) {
+            lily_var *index_var;
+            index_var = (lily_var *)dive_tree->arg_start->next_arg->result;
+
+            int i;
+            for (i = 0;i < pval->var_count;i++) {
+                if (pval->vars[i] == index_var)
+                    break;
+            }
+
+            m->code[m->pos+4+j] = i;
+
+            dive_tree = dive_tree->parent;
+            if (dive_tree == NULL)
+                break;
+
+            pval = index_var->value.package;
+            j++;
+        }
+
+        s = get_storage(emit, ast->arg_start->next_arg->result->sig,
+                ast->line_num);
+
+        m->code[m->pos+5+j] = s->reg_spot;
+        m->pos += 5 + depth;
+    }
+    else {
+        int index;
+
+        index = get_package_index(emit, ast);
+        s = get_storage(emit, ast->arg_start->next_arg->result->sig,
+                ast->line_num);
+
+        WRITE_5(o_package_get, ast->line_num, ast->arg_start->result->reg_spot,
+                index, s->reg_spot)
+    }
 
     ast->result = (lily_sym *)s;
 }

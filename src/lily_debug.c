@@ -68,6 +68,9 @@
 /* D_CALL_INPUT:      Input to either a method or function call. This is shown
                       according to what D_CALL_INPUT_TYPE picked up. */
 #define D_CALL_INPUT      17
+/* D_COUNT_DEPTH:     What follows is a series of indexes used in package
+                      accesses. */
+#define D_COUNT_DEPTH     18
 
 /** Flags for show_register_info: **/
 /* This means the number given is for a register in __main__. By default, the
@@ -92,7 +95,7 @@ typedef struct lily_debug_state_t {
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[48] = {
+char *opcode_names[49] = {
     "assign",
     "object assign",
     "assign (ref/deref)",
@@ -139,6 +142,7 @@ char *opcode_names[48] = {
     "get const",
     "package set",
     "package get",
+    "package get (deep)",
     "isnil",
     "return from vm"
 };
@@ -150,6 +154,8 @@ static const int for_integer_ci[] =
 static const int call_ci[]        =
     {6, D_LINENO, D_CALL_INPUT_TYPE, D_CALL_INPUT, D_COUNT, D_COUNT_LIST,
         D_OUTPUT};
+static const int package_get_deep_ci[] =
+    {5, D_LINENO, D_GLOBAL_INPUT, D_COUNT, D_COUNT_DEPTH, D_OUTPUT};
 static const int package_get_ci[] =
     {4, D_LINENO, D_GLOBAL_INPUT, D_INT_VAL, D_OUTPUT};
 static const int package_set_ci[] =
@@ -267,6 +273,9 @@ static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
             break;
         case o_package_get:
             ret = package_get_ci;
+            break;
+        case o_package_get_deep:
+            ret = package_get_deep_ci;
             break;
         case o_isnil:
             ret = isnil_ci;
@@ -525,6 +534,16 @@ static void show_code(lily_debug_state *debug)
                     show_readonly_var(debug, (lily_var *)code[i+j]);
                 else
                     show_register_info(debug, RI_INPUT, code[i+j]);
+            }
+            else if (data_code == D_COUNT_DEPTH) {
+                int k;
+                for (k = 0;k < count;k++, i++) {
+                    lily_msgbuf_add_fmt(msgbuf, "^I|     <---- %d\n",
+                            indent, (int)code[i+j]);
+                }
+                write_msgbuf(debug);
+
+                i--;
             }
         }
         i += j;

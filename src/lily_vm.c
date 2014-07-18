@@ -1910,6 +1910,27 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 code_pos += 5;
                 break;
+            case o_package_get_deep:
+            {
+                int loops;
+
+                lhs_reg = regs_from_main[code[code_pos + 2]];
+                /* This is a multi-level package access (ex: a::b::c). Each
+                   package that isn't the last one will contain another package
+                   to grab. So...keep doing that until the last one is hit. */
+                for (loops = code[code_pos + 3];
+                     loops > 0;
+                     loops--, code_pos++) {
+                    lhs_reg = (lily_value *)lhs_reg->value.package->vars
+                            [code[code_pos + 4]];
+                }
+
+                rhs_reg = vm_regs[code[code_pos + 4]];
+
+                lily_assign_value(vm, rhs_reg, (lily_value *)lhs_reg);
+                code_pos += 5;
+                break;
+            }
             case o_isnil:
             {
                 int is_global = code[code_pos + 2];

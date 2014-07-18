@@ -300,6 +300,7 @@ typedef enum {
 
     o_package_set,
     o_package_get,
+    o_package_get_deep,
 
     /* isnil:
        * int lineno
