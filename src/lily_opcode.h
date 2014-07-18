@@ -299,6 +299,7 @@ typedef enum {
     o_get_const,
 
     o_package_set,
+    o_package_set_deep,
     o_package_get,
     o_package_get_deep,
 

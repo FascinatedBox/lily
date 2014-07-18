@@ -767,6 +767,104 @@ static int get_package_index(lily_emit_state *emit, lily_ast *ast)
     return i;
 }
 
+/*  eval_package_tree_for_op
+    This function will scan the given package tree (a::b sort of access).
+    * ast->arg_start
+      This is either a global var, or another package tree. If it's a global
+      var, then it's something like 'a::b'. If it's a package, it's 'a::b::c'
+      or deeper.
+    * ast->arg_start->next_arg
+      This is a var within the current package. The name of this var will be
+      looked up to get its index in the package.
+
+    emit:      The emit state to write to.
+    ast:       A tree of type tree_package.
+    is_set_op: If 1: Use get operations to yield a value.
+               If 0: Use set operations to set a value.
+    set_value: If is_set_op is 1, this is the value to assign. */
+static void eval_package_tree_for_op(lily_emit_state *emit, lily_ast *ast,
+        int is_set_op, lily_sym *set_value)
+{
+    lily_method_val *m = emit->top_method;
+
+    lily_sym *s = set_value;
+    int opcode;
+
+    /* If the argument is a package, then this contains at least two package
+       accesses (a::b::c at least, maybe more). So instead of doing multiple
+       single-level access, combine them into one. */
+    if (ast->arg_start->tree_type == tree_package) {
+        if (is_set_op)
+            opcode = o_package_set_deep;
+        else
+            opcode = o_package_get_deep;
+
+        int depth = 1;
+        lily_ast *dive_tree = ast->arg_start;
+        while (dive_tree->tree_type == tree_package) {
+            dive_tree = dive_tree->arg_start;
+            depth++;
+        }
+
+        dive_tree = dive_tree->parent;
+
+        WRITE_PREP_LARGE(5 + depth)
+
+        m->code[m->pos] = opcode;
+        m->code[m->pos+1] = ast->line_num;
+        m->code[m->pos+2] = dive_tree->arg_start->result->reg_spot;
+        m->code[m->pos+3] = depth;
+
+        lily_package_val *pval;
+        pval = dive_tree->arg_start->result->value.package;
+        int j = 0;
+
+        /* For each access, find out the index to use to get the package at
+           that level. Write it down, then go to the next level. */
+        while (1) {
+            lily_var *index_var;
+            index_var = (lily_var *)dive_tree->arg_start->next_arg->result;
+
+            int i;
+            for (i = 0;i < pval->var_count;i++) {
+                if (pval->vars[i] == index_var)
+                    break;
+            }
+
+            m->code[m->pos+4+j] = i;
+
+            dive_tree = dive_tree->parent;
+            if (dive_tree == NULL)
+                break;
+
+            pval = index_var->value.package;
+            j++;
+        }
+
+        if (is_set_op == 0)
+            s = (lily_sym *)get_storage(emit,
+                ast->arg_start->next_arg->result->sig, ast->line_num);
+
+        m->code[m->pos+5+j] = s->reg_spot;
+        m->pos += 5 + depth;
+    }
+    else {
+        int index = get_package_index(emit, ast);
+        if (is_set_op)
+            opcode = o_package_set;
+        else {
+            s = (lily_sym *)get_storage(emit,
+                ast->arg_start->next_arg->result->sig, ast->line_num);
+            opcode = o_package_get;
+        }
+
+        WRITE_5(opcode, ast->line_num, ast->arg_start->result->reg_spot,
+                index, s->reg_spot)
+    }
+
+    ast->result = s;
+}
+
 /*  eval_package_assign
     This is like eval_package, except the var is going to be assigned to
     instead of read from.
@@ -774,13 +872,12 @@ static int get_package_index(lily_emit_state *emit, lily_ast *ast)
     * ast->right is the value to assign. */
 static void eval_package_assign(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_method_val *m = emit->top_method;
     lily_ast *rhs_tree = ast->right;
-    lily_ast *package_left = ast->left->arg_start;
+
+    /* The left may contain packages in it. However, the resulting value will
+       always be the var at the very top. */
     lily_ast *package_right = ast->left->arg_start->next_arg;
 
-    /* For now, there are no packages in packages, so ast->left will always be
-       of type tree_package, with a var as the left and the right. */
     if (ast->right->tree_type != tree_var)
         eval_tree(emit, ast->right);
 
@@ -790,16 +887,19 @@ static void eval_package_assign(lily_emit_state *emit, lily_ast *ast)
        the sig. No need to do a symtab lookup of a name. */
     lily_sig *result_sig = package_right->result->sig;
 
+    /* Before doing an eval, make sure that the two types actually match up. */
     if (result_sig != rhs_tree->result->sig &&
         type_matchup(emit, NULL, result_sig, rhs_tree) == 0) {
         bad_assign_error(emit, ast->line_num, result_sig,
                 rhs_tree->result->sig);
     }
 
-    int index = get_package_index(emit, ast->left);
+    /* Evaluate the tree grab on the left side. Use set opcodes instead of get
+       opcodes. The result given is what will be assigned. */
+    eval_package_tree_for_op(emit, ast->left, 1, (lily_sym *)rhs_tree->result);
 
-    WRITE_5(o_package_set, ast->line_num, package_left->result->reg_spot,
-            index, rhs_tree->result->reg_spot)
+    /* This is necessary for assignment chains. */
+    ast->result = rhs_tree->result;
 }
 
 /* Forward decls of enter/leave block for emit_logical_op. */
@@ -1689,84 +1789,13 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
 }
 
 /*  eval_package
-    This is a x::y sort of call. Since parser -really- prefers not to send
-    strings (those have to be malloc'd or managed like ast's string pool),
-    parser instead gives vars.
-    * ast->arg_start:
-      This is the package to lookup.
-    * ast->arg_start->next_arg:
-      This is the var in the package to be read. The index within the package
-      must be obtained first. */
+    This is a wrapper for eval_package_tree_for_op. */
 static void eval_package(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_method_val *m = emit->top_method;
-
-    lily_storage *s;
-
-    /* If the argument is a package, then this contains at least two package
-       accesses (a::b::c at least, maybe more). So instead of doing multiple
-       single-level access, combine them into one. */
-    if (ast->arg_start->tree_type == tree_package) {
-        int depth = 1;
-        lily_ast *dive_tree = ast->arg_start;
-        while (dive_tree->tree_type == tree_package) {
-            dive_tree = dive_tree->arg_start;
-            depth++;
-        }
-
-        dive_tree = dive_tree->parent;
-
-        WRITE_PREP_LARGE(5 + depth)
-
-        m->code[m->pos] = o_package_get_deep;
-        m->code[m->pos+1] = ast->line_num;
-        m->code[m->pos+2] = dive_tree->arg_start->result->reg_spot;
-        m->code[m->pos+3] = depth;
-
-        lily_package_val *pval;
-        pval = dive_tree->arg_start->result->value.package;
-        int j = 0;
-
-        /* For each access, find out the index to use to get the package at
-           that level. Write it down, then go to the next level. */
-        while (1) {
-            lily_var *index_var;
-            index_var = (lily_var *)dive_tree->arg_start->next_arg->result;
-
-            int i;
-            for (i = 0;i < pval->var_count;i++) {
-                if (pval->vars[i] == index_var)
-                    break;
-            }
-
-            m->code[m->pos+4+j] = i;
-
-            dive_tree = dive_tree->parent;
-            if (dive_tree == NULL)
-                break;
-
-            pval = index_var->value.package;
-            j++;
-        }
-
-        s = get_storage(emit, ast->arg_start->next_arg->result->sig,
-                ast->line_num);
-
-        m->code[m->pos+5+j] = s->reg_spot;
-        m->pos += 5 + depth;
-    }
-    else {
-        int index;
-
-        index = get_package_index(emit, ast);
-        s = get_storage(emit, ast->arg_start->next_arg->result->sig,
-                ast->line_num);
-
-        WRITE_5(o_package_get, ast->line_num, ast->arg_start->result->reg_spot,
-                index, s->reg_spot)
-    }
-
-    ast->result = (lily_sym *)s;
+    /* Evaluate this tree using a generic function that can write get/set ops
+       as needed. 0 = use get opcodes, NULL, because a value is only needed if
+       using a set opcode. */
+    eval_package_tree_for_op(emit, ast, 0, NULL);
 }
 
 /*  eval_oo_call
