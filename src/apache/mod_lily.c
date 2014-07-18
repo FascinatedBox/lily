@@ -270,7 +270,7 @@ static void bind_env(int *count, lily_parse_state *parser, request_rec *r)
     if (data.ok == 0)
         *count = -1;
     else
-        *count = *count + 1;
+        (*count)++;
 }
 
 
@@ -394,6 +394,9 @@ static void bind_get(int *count, lily_parse_state *parser, request_rec *r)
     }
     else
         *count = -1;
+
+    if (*count != -1)
+        (*count)++;
 }
 
 
