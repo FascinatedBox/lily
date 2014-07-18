@@ -336,6 +336,15 @@ static int bind_get_entry(void *data, const char *key, const char *value)
 
     lily_class *str_cls = lily_class_by_id(d->parser->symtab, SYM_CLASS_STR);
     lily_sig *str_sig = str_cls->sig;
+    lily_var *var_lookup = lily_var_by_name(d->parser->symtab, name_buffer);
+    if (var_lookup != NULL) {
+        lily_free(sv);
+        lily_free(name_buffer);
+        lily_free(value_buffer);
+        d->count = -1;
+        return FALSE;
+    }
+
     lily_var *new_var = lily_try_new_var(d->parser->symtab, str_sig,
             name_buffer, 0);
 
