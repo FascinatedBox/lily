@@ -95,7 +95,7 @@ typedef struct lily_debug_state_t {
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[49] = {
+char *opcode_names[50] = {
     "assign",
     "object assign",
     "assign (ref/deref)",
@@ -141,6 +141,7 @@ char *opcode_names[49] = {
     "set global",
     "get const",
     "package set",
+    "package set (deep)",
     "package get",
     "package get (deep)",
     "isnil",
@@ -154,6 +155,8 @@ static const int for_integer_ci[] =
 static const int call_ci[]        =
     {6, D_LINENO, D_CALL_INPUT_TYPE, D_CALL_INPUT, D_COUNT, D_COUNT_LIST,
         D_OUTPUT};
+static const int package_set_deep_ci[] =
+    {5, D_LINENO, D_GLOBAL_INPUT, D_COUNT, D_COUNT_DEPTH, D_INPUT};
 static const int package_get_deep_ci[] =
     {5, D_LINENO, D_GLOBAL_INPUT, D_COUNT, D_COUNT_DEPTH, D_OUTPUT};
 static const int package_get_ci[] =
@@ -276,6 +279,9 @@ static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
             break;
         case o_package_get_deep:
             ret = package_get_deep_ci;
+            break;
+        case o_package_set_deep:
+            ret = package_set_deep_ci;
             break;
         case o_isnil:
             ret = isnil_ci;
