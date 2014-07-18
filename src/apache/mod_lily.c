@@ -1,5 +1,6 @@
 /*  mod_lily.c
     This is an apache binding for the Lily language. */
+#include <ctype.h>
 
 #include "httpd.h"
 #include "http_config.h"
@@ -101,6 +102,10 @@ static void apache_close_fn(lily_lex_entry *entry)
     apr_file_close(entry->source);
 }
 
+
+/** Shared common functions **/
+
+
 static lily_value *bind_str(lily_sig *str_sig, const char *str)
 {
     lily_value *new_value = lily_malloc(sizeof(lily_value));
@@ -152,7 +157,45 @@ static lily_hash_elem *bind_hash_elem_with_values(char *sipkey,
     return elem;
 }
 
-struct bind_data {
+static void make_package(int *ok, lily_parse_state *parser,
+        lily_var *package_var, int var_count, int register_save,
+        lily_var *var_save)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_package_val *pval = lily_malloc(sizeof(lily_package_val));
+    lily_var **package_vars = lily_malloc(var_count * sizeof(lily_var *));
+    if (pval == NULL || package_vars == NULL) {
+        lily_free(pval);
+        lily_free(package_vars);
+        *ok = 0;
+    }
+    else {
+        int i = 0;
+        lily_var *var_iter = var_save->next;
+        while (var_iter) {
+            package_vars[i] = var_iter;
+            i++;
+            var_iter = var_iter->next;
+        }
+        symtab->var_top = var_save;
+        var_save->next = NULL;
+        symtab->next_register_spot = register_save;
+
+        pval->refcount = 1;
+        pval->name = package_var->name;
+        pval->gc_entry = NULL;
+        pval->var_count = i;
+        pval->vars = package_vars;
+        package_var->flags &= ~VAL_IS_NIL;
+        package_var->value.package = pval;
+    }
+}
+
+
+/** Binding server::env **/
+
+
+struct env_bind_data {
     lily_parse_state *parser;
     request_rec *r;
     int ok;
@@ -163,7 +206,7 @@ struct bind_data {
 
 static int bind_env_entry(void *data, const char *key, const char *value)
 {
-    struct bind_data *d = data;
+    struct env_bind_data *d = data;
 
     lily_value *elem_key = bind_str(d->str_sig, key);
     lily_value *elem_value = bind_str(d->str_sig, value);
@@ -215,7 +258,7 @@ static void bind_env(int *count, lily_parse_state *parser, request_rec *r)
     env_var->flags &= ~VAL_IS_NIL;
 
     lily_class *str_cls = lily_class_by_id(parser->symtab, SYM_CLASS_STR);
-    struct bind_data data;
+    struct env_bind_data data;
     data.parser = parser;
     data.r = r;
     data.ok = 1;
@@ -230,6 +273,124 @@ static void bind_env(int *count, lily_parse_state *parser, request_rec *r)
         *count = *count + 1;
 }
 
+
+/** Binding server::get **/
+
+
+struct get_bind_data {
+    lily_parse_state *parser;
+    request_rec *r;
+    int count;
+};
+
+static int bind_get_entry(void *data, const char *key, const char *value)
+{
+    struct get_bind_data *d = data;
+    const char *ch = &key[0];
+    int ident_start, ident_end;
+
+    ident_start = 0;
+    ident_end = 0;
+    /* This transforms the server's GET data into Lily's server::get namespace.
+       Each key is checked for being a valid identifier before being added
+       as a var.
+       TRUE is always returned to continue scanning to the next entry. */
+
+    while (*ch == ' ' || *ch == '\t') {
+        ch++;
+        ident_start++;
+    }
+
+    /* Identifiers must start with a letter or '_'.
+       TODO: utf-8 support? */
+    if (isalpha(*ch) == 0 && *ch != '_')
+        return TRUE;
+
+    ident_end = ident_start;
+    for (;
+        *ch;
+        ch++, ident_end++)
+        ;
+
+    int size = (ident_end - ident_start) + 1;
+
+    char *name_buffer = lily_malloc(size);
+    lily_str_val *sv = lily_malloc(sizeof(lily_str_val));
+    char *value_buffer = lily_malloc(strlen(value) + 1);
+    if (name_buffer == NULL || sv == NULL || value_buffer == NULL) {
+        lily_free(name_buffer);
+        lily_free(sv);
+        lily_free(value_buffer);
+        d->count = -1;
+        return FALSE;
+    }
+
+    sv->str = value_buffer;
+    sv->refcount = 1;
+    sv->size = strlen(value_buffer);
+
+    strncpy(name_buffer, key + ident_start, size - 1);
+    name_buffer[size - 1] = '\0';
+
+    strcpy(value_buffer, value);
+
+    lily_class *str_cls = lily_class_by_id(d->parser->symtab, SYM_CLASS_STR);
+    lily_sig *str_sig = str_cls->sig;
+    lily_var *new_var = lily_try_new_var(d->parser->symtab, str_sig,
+            name_buffer, 0);
+
+    lily_free(name_buffer);
+
+    if (new_var == NULL) {
+        lily_free(sv);
+        lily_free(value_buffer);
+        d->count = -1;
+        return FALSE;
+    }
+
+    new_var->value.str = sv;
+    new_var->flags &= ~VAL_IS_NIL;
+
+    return TRUE;
+}
+
+static void bind_get(int *count, lily_parse_state *parser, request_rec *r)
+{
+    if (*count == -1)
+        return;
+
+    lily_symtab *symtab = parser->symtab;
+    apr_table_t *http_get_args;
+    struct get_bind_data data;
+
+    lily_class *package_cls = lily_class_by_id(symtab, SYM_CLASS_PACKAGE);
+    lily_sig *package_sig = lily_try_sig_for_class(symtab, package_cls);
+    lily_var *bound_var = lily_try_new_var(symtab, package_sig, "get", 0);
+
+    data.parser = parser;
+    data.r = r;
+    data.count = 0;
+
+    lily_var *save_top = symtab->var_top;
+    int save_spot = symtab->next_register_spot;
+
+    ap_args_to_table(r, &http_get_args);
+    apr_table_do(bind_get_entry, &data, http_get_args, NULL);
+
+    if (data.count != -1) {
+        int ok = 1;
+        make_package(&ok, parser, bound_var, data.count, save_spot, save_top);
+        if (ok == 0)
+            *count = -1;
+    }
+    else
+        *count = -1;
+}
+
+
+/** Binding the server package itself **/
+
+
 static int apache_bind_server(lily_parse_state *parser, request_rec *r)
 {
     int ret = 1;
@@ -243,35 +404,13 @@ static int apache_bind_server(lily_parse_state *parser, request_rec *r)
         int count = 0;
 
         bind_env(&count, parser, r);
+        bind_get(&count, parser, r);
 
         if (count != -1) {
-            lily_package_val *pval = lily_malloc(sizeof(lily_package_val));
-            lily_var **package_vars = lily_malloc(count * sizeof(lily_var *));
-            if (pval == NULL || package_vars == NULL) {
-                lily_free(pval);
-                lily_free(package_vars);
+            int ok = 1;
+            make_package(&ok, parser, bound_var, count, save_spot, save_top);
+            if (ok == 0)
                 ret = 0;
-            }
-            else {
-                int i = 0;
-                lily_var *var_iter = save_top->next;
-                while (var_iter) {
-                    package_vars[i] = var_iter;
-                    i++;
-                    var_iter = var_iter->next;
-                }
-                symtab->var_top = save_top;
-                save_top->next = NULL;
-                symtab->next_register_spot = save_spot;
-
-                pval->refcount = 1;
-                pval->name = bound_var->name;
-                pval->gc_entry = NULL;
-                pval->var_count = i;
-                pval->vars = package_vars;
-                bound_var->flags &= ~VAL_IS_NIL;
-                bound_var->value.package = pval;
-            }
         }
         else
             ret = 0;
@@ -282,7 +421,6 @@ static int apache_bind_server(lily_parse_state *parser, request_rec *r)
     return ret;
 }
 
-/* The sample content handler */
 static int lily_handler(request_rec *r)
 {
     if (strcmp(r->handler, "lily"))
@@ -307,6 +445,7 @@ static int lily_handler(request_rec *r)
        server::env. */
     ap_add_cgi_vars(r);
     ap_add_common_vars(r);
+
     if (apache_bind_server(parser, r) == 0)
         return DECLINED;
 

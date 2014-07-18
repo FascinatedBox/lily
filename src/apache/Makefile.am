@@ -15,7 +15,8 @@ lily_SRCS=../csiphash.c \
 	../lily_value.c \
 	../lily_cls_list.c \
 	../lily_cls_str.c \
-	../lily_pkg_sys.c
+	../lily_pkg_sys.c \
+	../lily_class_funcs.c
 
 lib_LTLIBRARIES = mod_lily.la
 mod_lily_la_SOURCES = mod_lily.c \
