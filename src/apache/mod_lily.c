@@ -400,6 +400,39 @@ static void bind_get(int *count, lily_parse_state *parser, request_rec *r)
 }
 
 
+/** Bind server::httpmethod. This data is already available through
+    server::env["REQUEST_METHOD"], so this is simply for convenience. **/
+
+
+static void bind_httpmethod(int *count, lily_parse_state *parser, request_rec *r)
+{
+    if (*count == -1)
+        return;
+
+    lily_class *str_cls = lily_class_by_id(parser->symtab, SYM_CLASS_STR);
+    lily_sig *str_sig = str_cls->sig;
+    lily_var *var = lily_try_new_var(parser->symtab, str_sig, "httpmethod", 0);
+    lily_str_val *sv = lily_malloc(sizeof(lily_str_val));
+    char *sv_buffer = lily_malloc(strlen(r->method) + 1);
+    if (var == NULL || sv == NULL || sv_buffer == NULL) {
+        lily_free(sv);
+        lily_free(sv_buffer);
+        *count = -1;
+        return;
+    }
+
+    strcpy(sv_buffer, r->method);
+
+    sv->str = sv_buffer;
+    sv->refcount = 1;
+    sv->size = strlen(r->method);
+
+    var->value.str = sv;
+    var->flags &= ~VAL_IS_NIL;
+    (*count)++;
+}
+
+
 /** Binding the server package itself **/
 
 
@@ -417,6 +450,7 @@ static int apache_bind_server(lily_parse_state *parser, request_rec *r)
 
         bind_env(&count, parser, r);
         bind_get(&count, parser, r);
+        bind_httpmethod(&count, parser, r);
 
         if (count != -1) {
             int ok = 1;
