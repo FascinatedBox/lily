@@ -498,26 +498,45 @@ static void expression_package(lily_parse_state *parser, lily_var *package_var)
     lily_ast_pool *ap = parser->ast_pool;
     lily_lex_state *lex = parser->lex;
     lily_var *scope = package_var->value.package->vars[0];
+    int depth = 1;
 
-    lily_ast_enter_tree(ap, tree_package, NULL);
-    lily_ast_push_sym(ap, (lily_sym *)package_var);
-    lily_ast_collect_arg(ap);
+    while (1) {
+        lily_ast_enter_tree(ap, tree_package, NULL);
+        /* For the first pass, push the var given as the package. Subsequent
+           entries will swallow the last tree entered as their first argument,
+           so this next bit isn't necessary. */
+        if (depth == 1) {
+            lily_ast_push_sym(ap, (lily_sym *)package_var);
+            lily_ast_collect_arg(ap);
+        }
 
-    NEED_CURRENT_TOK(tk_colon_colon)
-    NEED_NEXT_TOK(tk_word)
+        NEED_CURRENT_TOK(tk_colon_colon)
+        NEED_NEXT_TOK(tk_word)
 
-    lily_var *inner_var = lily_scoped_var_by_name(parser->symtab, scope,
-            lex->label);
-    if (inner_var == NULL) {
-        lily_raise(parser->raiser, lily_ErrSyntax,
-                "Package %s has no member %s.\n",
-                package_var->name, lex->label);
+        lily_var *inner_var = lily_scoped_var_by_name(parser->symtab, scope,
+                lex->label);
+        if (inner_var == NULL) {
+            lily_raise(parser->raiser, lily_ErrSyntax,
+                    "Package %s has no member %s.\n",
+                    package_var->name, lex->label);
+        }
+
+        lily_ast_push_sym(ap, (lily_sym *)inner_var);
+        lily_ast_collect_arg(ap);
+        lily_ast_leave_tree(ap);
+        lily_lexer(lex);
+        if (lex->token == tk_colon_colon) {
+            depth++;
+            scope = inner_var->value.package->vars[0];
+            if (inner_var->sig->cls->id != SYM_CLASS_PACKAGE) {
+                lily_raise(parser->raiser, lily_ErrSyntax,
+                    "'%s' is not a package.\n", inner_var->name);
+            }
+            continue;
+        }
+
+        break;
     }
-
-    lily_ast_push_sym(ap, (lily_sym *)inner_var);
-    lily_ast_collect_arg(ap);
-    lily_ast_leave_tree(ap);
-    lily_lexer(lex);
 }
 
 /* expression_value
