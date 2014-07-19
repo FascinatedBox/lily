@@ -106,21 +106,28 @@ static void apache_close_fn(lily_lex_entry *entry)
 /** Shared common functions **/
 
 
-static lily_value *bind_str(lily_sig *str_sig, const char *str)
+/*  bind_str_and_buffer
+    str_sig: The signature representing a str, for the new value.
+    buffer:  A malloc'd buffer holding a \0 terminated string.
+
+    On success: A proper value is returned containing a str using the buffer.
+                The buffer is taken over by the newly-created str value.
+    On failure: NULL is returned, and the buffer given is free'd. */
+static lily_value *bind_str_and_buffer(lily_sig *str_sig, char *buffer)
 {
     lily_value *new_value = lily_malloc(sizeof(lily_value));
     lily_str_val *sv = lily_malloc(sizeof(lily_str_val));
-    int str_size = strlen(str);
-    char *buffer = lily_malloc(str_size + 1);
+    int str_size = strlen(buffer);
 
-    if (sv == NULL || buffer == NULL || new_value == NULL) {
+    if (sv == NULL || new_value == NULL) {
         lily_free(sv);
+        /* This function takes over the buffer on success, so make sure if
+           there is an error that it destroys the buffer. */
         lily_free(buffer);
         lily_free(new_value);
         return NULL;
     }
 
-    strcpy(buffer, str);
     sv->refcount = 1;
     sv->str = buffer;
     sv->size = str_size;
@@ -130,6 +137,26 @@ static lily_value *bind_str(lily_sig *str_sig, const char *str)
     new_value->sig = str_sig;
 
     return new_value;
+}
+
+/*  bind_str
+    str_sig: The signature representing a str, for the new value.
+    str:     A \0 terminated string.
+
+    On success: A lily_value is returned that holds a lily_str_value which
+                holds the given str.
+    On failure: NULL is returned. The buffer is not free'd.
+
+    This function creates a copy of the given str, instead of taking ownership
+    of it. */
+static lily_value *bind_str(lily_sig *str_sig, const char *str)
+{
+    char *buffer = lily_malloc(strlen(str) + 1);
+    if (buffer == NULL)
+        return NULL;
+
+    strcpy(buffer, str);
+    return bind_str_and_buffer(str_sig, buffer);
 }
 
 static void deref_destroy_value(lily_value *value)
@@ -155,6 +182,28 @@ static lily_hash_elem *bind_hash_elem_with_values(char *sipkey,
     elem->elem_key = key;
     elem->elem_value = value;
     return elem;
+}
+
+static lily_var *bind_hash_str_str_var(lily_symtab *symtab, char *name)
+{
+    /* hash[str, str] */
+    const int ids[] = {SYM_CLASS_HASH, SYM_CLASS_STR, SYM_CLASS_STR};
+
+    lily_sig *hash_sig = lily_try_sig_from_ids(symtab, ids);
+    if (hash_sig == NULL)
+        return NULL;
+
+    lily_var *bind_var = lily_try_new_var(symtab, hash_sig, name, 0);
+    if (bind_var == NULL)
+        return NULL;
+
+    lily_hash_val *var_hash = lily_try_new_hash_val();
+    if (var_hash == NULL)
+        return NULL;
+
+    bind_var->value.hash = var_hash;
+    bind_var->flags &= ~VAL_IS_NIL;
+    return bind_var;
 }
 
 static void make_package(int *ok, lily_parse_state *parser,
@@ -234,29 +283,7 @@ static void bind_table_as(int *count, lily_parse_state *parser, request_rec *r,
 
     lily_symtab *symtab = parser->symtab;
 
-    /* hash[str, str] */
-    const int ids[] = {SYM_CLASS_HASH, SYM_CLASS_STR, SYM_CLASS_STR};
-
-    lily_sig *hash_sig = lily_try_sig_from_ids(symtab, ids);
-    if (hash_sig == NULL) {
-        *count = -1;
-        return;
-    }
-
-    lily_var *table_var = lily_try_new_var(symtab, hash_sig, name, 0);
-    if (table_var == NULL) {
-        *count = -1;
-        return;
-    }
-
-    lily_hash_val *table_hash = lily_try_new_hash_val();
-    if (table_hash == NULL) {
-        *count = -1;
-        return;
-    }
-
-    table_var->value.hash = table_hash;
-    table_var->flags &= ~VAL_IS_NIL;
+    lily_var *hash_var = bind_hash_str_str_var(symtab, name);
 
     lily_class *str_cls = lily_class_by_id(parser->symtab, SYM_CLASS_STR);
     struct table_bind_data data;
@@ -264,7 +291,7 @@ static void bind_table_as(int *count, lily_parse_state *parser, request_rec *r,
     data.r = r;
     data.ok = 1;
     data.str_sig = str_cls->sig;
-    data.hash_val = table_hash;
+    data.hash_val = hash_var->value.hash;
     data.sipkey = parser->vm->sipkey;
     apr_table_do(bind_table_entry, &data, table, NULL);
 
@@ -308,6 +335,65 @@ static void bind_httpmethod(int *count, lily_parse_state *parser, request_rec *r
 }
 
 
+/** Binding server::post **/
+
+
+static void bind_post(int *count, lily_parse_state *parser, request_rec *r)
+{
+    if (*count == -1)
+        return;
+
+    lily_var *post_var = bind_hash_str_str_var(parser->symtab, "post");
+    lily_hash_val *hash_val = post_var->value.hash;
+
+    apr_array_header_t *pairs;
+    apr_off_t len;
+    apr_size_t size;
+    char *buffer;
+    char *sipkey = parser->vm->sipkey;
+    lily_class *str_cls = lily_class_by_id(parser->symtab, SYM_CLASS_STR);
+    lily_sig *str_sig = str_cls->sig;
+
+    /* Credit: I found out how to use this by reading httpd 2.4's mod_lua
+       (specifically req_parsebody of lua_request.c). */
+    int res = ap_parse_form_data(r, NULL, &pairs, -1, 1024 * 8);
+    if (res == OK) {
+        while (pairs && !apr_is_empty_array(pairs)) {
+            ap_form_pair_t *pair = (ap_form_pair_t *) apr_array_pop(pairs);
+            apr_brigade_length(pair->value, 1, &len);
+            size = (apr_size_t) len;
+            buffer = lily_malloc(size + 1);
+            if (buffer == NULL) {
+                *count = -1;
+                return;
+            }
+
+            apr_brigade_flatten(pair->value, buffer, &size);
+            buffer[len] = 0;
+
+            lily_value *elem_key = bind_str(str_sig, pair->name);
+            /* Give the buffer to the value to save memory. */
+            lily_value *elem_value = bind_str_and_buffer(str_sig, buffer);
+            lily_hash_elem *new_elem = bind_hash_elem_with_values(sipkey,
+                    elem_key, elem_value);
+
+            if (elem_key == NULL || elem_value == NULL || new_elem == NULL) {
+                lily_free(new_elem);
+                deref_destroy_value(elem_key);
+                deref_destroy_value(elem_value);
+                *count = -1;
+                return;
+            }
+
+            new_elem->next = hash_val->elem_chain;
+            hash_val->elem_chain = new_elem;
+        }
+    }
+
+    (*count)++;
+}
+
+
 /** Binding the server package itself **/
 
 
@@ -330,6 +416,8 @@ static int apache_bind_server(lily_parse_state *parser, request_rec *r)
         apr_table_t *http_get_args;
         ap_args_to_table(r, &http_get_args);
         bind_table_as(&count, parser, r, http_get_args, "get");
+
+        bind_post(&count, parser, r);
 
         bind_httpmethod(&count, parser, r);
 
