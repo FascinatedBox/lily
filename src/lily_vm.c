@@ -132,9 +132,12 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
     /* todo: This is a terrible, horrible key to use. Make a better one using
              some randomness or...something. Just not this. */
     char sipkey[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf};
+    lily_vm_stringbuf *stringbuf = lily_malloc(sizeof(lily_vm_stringbuf));
+    char *string_data = lily_malloc(64);
 
     vm->method_stack = lily_malloc(sizeof(lily_vm_stack_entry *) * 4);
     vm->sipkey = lily_malloc(16);
+    vm->string_buffer = NULL;
     vm->err_function = NULL;
     vm->in_function = 0;
     vm->method_stack_pos = 0;
@@ -169,10 +172,16 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
         memcpy(vm->sipkey, sipkey, 16);
 
     if (vm->method_stack == NULL || vm->method_stack_size != 4 ||
-        vm->sipkey == NULL) {
+        vm->sipkey == NULL || stringbuf == NULL || string_data == NULL) {
+        lily_free(stringbuf);
+        lily_free(string_data);
         lily_free_vm_state(vm);
         return NULL;
     }
+
+    stringbuf->data = string_data;
+    stringbuf->data_size = 64;
+    vm->string_buffer = stringbuf;
 
     return vm;
 }
@@ -215,6 +224,10 @@ void lily_free_vm_state(lily_vm_state *vm)
 
     lily_vm_destroy_gc(vm);
 
+    if (vm->string_buffer) {
+        lily_free(vm->string_buffer->data);
+        lily_free(vm->string_buffer);
+    }
     lily_free(vm->sipkey);
     lily_free(vm->method_stack);
     lily_free(vm);

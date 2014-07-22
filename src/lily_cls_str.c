@@ -776,8 +776,98 @@ void lily_str_trim(lily_vm_state *vm, uintptr_t *code, int num_args)
     result_arg->value.str = new_sv;
 }
 
+/*  lily_str_htmlencode
+    Implements str::htmlencode
+
+    Arguments:
+    * input: The string to be encoded. If this is nil, ErrBadValue is raised.
+
+    This transforms any html entities to their encoded versions:
+    < becomes &lt;
+    > becomes &gt;
+    & becomes &amp; */
+void lily_str_htmlencode(lily_vm_state *vm, uintptr_t *code, int num_args)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *input_arg = vm_regs[code[0]];
+    lily_value *result_arg = vm_regs[code[1]];
+
+    if (input_arg->flags & VAL_IS_NIL)
+        lily_raise(vm->raiser, lily_ErrBadValue, "Input is nil.\n");
+
+    lily_vm_stringbuf *string_buffer = vm->string_buffer;
+    char *str = string_buffer->data;
+    int str_size = string_buffer->data_size;
+    int string_fakemax = string_buffer->data_size - 5;
+
+    int i = 0;
+    char *input_str = input_arg->value.str->str;
+    char *ch = &input_str[0];
+
+    while (1) {
+        if (i == string_fakemax) {
+            char *new_str = lily_realloc(str, str_size * 2);
+            if (new_str == NULL)
+                lily_raise_nomem(vm->raiser);
+
+            string_buffer->data = new_str;
+            str = new_str;
+
+            str_size *= 2;
+            string_buffer->data_size = str_size;
+            string_fakemax = str_size - 5;
+        }
+
+        if (*ch == '&') {
+            str[i    ] = '&';
+            str[i + 1] = 'a';
+            str[i + 2] = 'm';
+            str[i + 3] = 'p';
+            str[i + 4] = ';';
+            i += 5;
+        }
+        else if (*ch == '<') {
+            str[i    ] = '&';
+            str[i + 1] = 'l';
+            str[i + 2] = 't';
+            str[i + 3] = ';';
+            i += 4;
+        }
+        else if (*ch == '>') {
+            str[i    ] = '&';
+            str[i + 1] = 'g';
+            str[i + 2] = 't';
+            str[i + 3] = ';';
+            i += 4;
+        }
+        else {
+            str[i] = *ch;
+            if (*ch == '\0')
+                break;
+        }
+
+        ch++;
+    }
+
+    lily_str_val *new_sv = try_make_sv(i + 1);
+    if (new_sv == NULL)
+        lily_raise_nomem(vm->raiser);
+
+    strcpy(new_sv->str, str);
+
+    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+        lily_deref_str_val(result_arg->value.str);
+
+    result_arg->flags = 0;
+    result_arg->value.str = new_sv;
+}
+
+static const lily_func_seed htmlencode =
+    {"htmlencode", lily_str_htmlencode, NULL,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STR, SYM_CLASS_STR}};
+
 static const lily_func_seed trim =
-    {"trim", lily_str_trim, NULL,
+    {"trim", lily_str_trim, &htmlencode,
         {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STR, SYM_CLASS_STR}};
 
 static const lily_func_seed strip =
