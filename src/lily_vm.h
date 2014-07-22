@@ -15,6 +15,11 @@ typedef struct {
     int line_num;
 } lily_vm_stack_entry;
 
+typedef struct {
+    char *data;
+    int data_size;
+} lily_vm_stringbuf;
+
 typedef struct lily_vm_state_t {
     lily_value **vm_regs;
     lily_value **regs_from_main;
@@ -57,6 +62,7 @@ typedef struct lily_vm_state_t {
        so it can set err_function properly. Runners should only check
        err_function. */
     int in_function;
+    lily_vm_stringbuf *string_buffer;
     lily_raiser *raiser;
     void *data;
     lily_var *main;
