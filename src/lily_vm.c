@@ -1743,16 +1743,21 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg = vm_regs[code[code_pos+3]];
                           /* Important: vm_regs starts at the local scope, and
                              this index is based on the global scope. */
-                if (rhs_reg->sig->cls->is_refcounted) {
-                    /* However, one or both could be nil. */
-                    if ((rhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                        rhs_reg->value.generic->refcount++;
+                if (rhs_reg->sig->cls->id != SYM_CLASS_OBJECT) {
+                    if (rhs_reg->sig->cls->is_refcounted) {
+                        /* However, one or both could be nil. */
+                        if ((rhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+                            rhs_reg->value.generic->refcount++;
 
-                    if ((lhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                        lily_deref_unknown_val(lhs_reg);
+                        if ((lhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+                            lily_deref_unknown_val(lhs_reg);
+                    }
+                    lhs_reg->flags = rhs_reg->flags;
+                    lhs_reg->value = rhs_reg->value;
                 }
-                lhs_reg->flags = rhs_reg->flags;
-                lhs_reg->value = rhs_reg->value;
+                else
+                    op_object_assign(vm, lhs_reg, rhs_reg);
+
                 code_pos += 4;
                 break;
             case o_set_global:
