@@ -1,7 +1,8 @@
 #include "lily_impl.h"
 #include "lily_vm.h"
 
-void lily_list_size(lily_vm_state *vm, uintptr_t *code, int num_args)
+void lily_list_size(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
+        int num_args)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_list_val *list_val = vm_regs[code[0]]->value.list;
@@ -11,7 +12,8 @@ void lily_list_size(lily_vm_state *vm, uintptr_t *code, int num_args)
     ret_reg->flags &= ~VAL_IS_NIL;
 }
 
-void lily_list_append(lily_vm_state *vm, uintptr_t *code, int num_args)
+void lily_list_append(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
+        int num_args)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_list_val *list_val = vm_regs[code[0]]->value.list;

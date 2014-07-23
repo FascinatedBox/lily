@@ -76,8 +76,8 @@ keyword_seed keywords[] = {
     {"isnil",      465625314153}
 };
 
-void lily_builtin_print(lily_vm_state *, uintptr_t *, int);
-void lily_builtin_printfmt(lily_vm_state *, uintptr_t *, int);
+void lily_builtin_print(lily_vm_state *, lily_function_val *, uintptr_t *, int);
+void lily_builtin_printfmt(lily_vm_state *, lily_function_val *, uintptr_t *, int);
 
 static const lily_func_seed print =
     {"print", lily_builtin_print, NULL,

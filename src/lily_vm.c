@@ -583,7 +583,8 @@ void boundary_error(lily_vm_state *vm, int code_pos, int bad_index)
 /* lily_builtin_print
    This is called by the vm to implement the print function. [0] is the return
    (which isn't used), so args begin at [1]. */
-void lily_builtin_print(lily_vm_state *vm, uintptr_t *code, int num_args)
+void lily_builtin_print(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
+        int num_args)
 {
     lily_value *reg = vm->vm_regs[code[0]];
     lily_impl_puts(vm->data, reg->value.str->str);
@@ -593,7 +594,8 @@ void lily_builtin_print(lily_vm_state *vm, uintptr_t *code, int num_args)
    This is called by the vm to implement the printfmt function. [0] is the
    return, which is ignored in this case. [1] is the format string, and [2]+
    are the arguments. */
-void lily_builtin_printfmt(lily_vm_state *vm, uintptr_t *code, int num_args)
+void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
+        int num_args)
 {
     char fmtbuf[64];
     char save_ch;
@@ -1626,7 +1628,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 err_function = fval;
 
                 vm->in_function = 1;
-                func(vm, code+code_pos+5, j);
+                func(vm, fval, code+code_pos+5, j);
                 vm->in_function = 0;
                 code_pos += 6 + j;
             }
