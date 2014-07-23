@@ -14,13 +14,15 @@ struct lily_var_t;
 struct lily_sig_t;
 struct lily_register_info_t;
 struct lily_func_seed_t;
+struct lily_function_val_t;
 
 /* gc_marker_func is a function called to mark all values within a given value.
    The is used by the gc to mark values as being visited. Values not visited
    will be collected. */
 typedef void (*gc_marker_func)(int, struct lily_value_t *);
 /* Lily's functions are C functions which look like this. */
-typedef void (*lily_func)(struct lily_vm_state_t *, uintptr_t *code, int);
+typedef void (*lily_func)(struct lily_vm_state_t *, struct lily_function_val_t *,
+        uintptr_t *, int);
 /* This is called to set the seed_table of a class to a something non-NULL. It
    can also do other setup if the class wants to. This is called after all
    classes have been created.
