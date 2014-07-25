@@ -309,8 +309,12 @@ int main(int argc, char **argv)
 
             for (i = parser->vm->method_stack_pos-1;i >= 0;i--) {
                 entry = vm_stack[i];
-                fprintf(stderr, "    Method \"%s\" at line %d.\n",
-                        entry->method->trace_name, entry->line_num);
+                if (entry->method)
+                    fprintf(stderr, "    Method \"%s\" at line %d.\n",
+                            entry->method->trace_name, entry->line_num);
+                else
+                    fprintf(stderr, "    Function \"%s\".\n",
+                            entry->function->trace_name);
             }
         }
     }

@@ -6,6 +6,9 @@
 
 typedef struct {
     lily_method_val *method;
+    /* If the caller is a function, then this is that function. Otherwise, this
+       is NULL. */
+    lily_function_val *function;
     signed int return_reg;
     /* How many registers this call uses. This is used to fix the vm's register
        stack after a call. */
@@ -57,6 +60,10 @@ typedef struct lily_vm_state_t {
     int prep_id_start;
     lily_var *prep_var_start;
 
+    /* This is a block of code given to foreign fake methods so that they'll
+       jump back to the function that did the foreign call of the vm. */
+    uintptr_t *foreign_code;
+
     char *sipkey;
     /* This lets the vm know that it was in a function when an error is raised
        so it can set err_function properly. Runners should only check
@@ -76,4 +83,8 @@ void lily_vm_free_registers(lily_vm_state *);
 void lily_assign_value(lily_vm_state *, lily_value *, lily_value *);
 uint64_t lily_calculate_siphash(char *, lily_value *);
 
+void lily_vm_foreign_call(lily_vm_state *vm);
+void lily_vm_foreign_prep(lily_vm_state *, lily_function_val *, lily_value *);
+void lily_vm_foreign_load_by_val(lily_vm_state *, int, lily_value *);
+lily_value *lily_vm_get_foreign_reg(lily_vm_state *, int);
 #endif
