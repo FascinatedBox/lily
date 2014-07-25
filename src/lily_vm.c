@@ -137,6 +137,7 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
 
     vm->method_stack = lily_malloc(sizeof(lily_vm_stack_entry *) * 4);
     vm->sipkey = lily_malloc(16);
+    vm->foreign_code = lily_malloc(sizeof(uintptr_t));
     vm->string_buffer = NULL;
     vm->err_function = NULL;
     vm->in_function = 0;
@@ -172,7 +173,8 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
         memcpy(vm->sipkey, sipkey, 16);
 
     if (vm->method_stack == NULL || vm->method_stack_size != 4 ||
-        vm->sipkey == NULL || stringbuf == NULL || string_data == NULL) {
+        vm->sipkey == NULL || stringbuf == NULL || string_data == NULL ||
+        vm->foreign_code == NULL) {
         lily_free(stringbuf);
         lily_free(string_data);
         lily_free_vm_state(vm);
@@ -182,6 +184,7 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
     stringbuf->data = string_data;
     stringbuf->data_size = 64;
     vm->string_buffer = stringbuf;
+    vm->foreign_code[0] = o_return_from_vm;
 
     return vm;
 }
@@ -228,6 +231,8 @@ void lily_free_vm_state(lily_vm_state *vm)
         lily_free(vm->string_buffer->data);
         lily_free(vm->string_buffer);
     }
+
+    lily_free(vm->foreign_code);
     lily_free(vm->sipkey);
     lily_free(vm->method_stack);
     lily_free(vm);
@@ -1258,6 +1263,164 @@ static void prep_registers(lily_vm_state *vm, lily_method_val *mval,
     vm->num_registers = num_registers;
 }
 
+/** Foreign calls **/
+
+/*  lily_vm_foreign_call
+    This calls the vm from a foreign source. The stack is adjusted before and
+    after this call, so it can be done as many times as needed.
+
+    Caveats:
+    * lily_vm_foreign_prep MUST be called before this. It sets up the stack
+      and the registers for the callee method. The method passed to
+      lily_vm_foreign_prep is the one that is called. If it isn't called, the
+      vm will crash.
+
+    * lily_vm_foreign_load_by_val needs to be called to give values to the
+      registers that the callee uses. If it isn't called, the registers will
+      simply be nil. */
+void lily_vm_foreign_call(lily_vm_state *vm)
+{
+    /* Simulate the stack growing before entry. This is reserved until now so
+       that any stack trace does not show up as being inside of the method.
+       -1: This is the method that called the function triggering the foreign
+           call.
+       +0: This is the fake method that the function put up. */
+    int regs_adjust = vm->method_stack[vm->method_stack_pos-1]->regs_used +
+                      vm->method_stack[vm->method_stack_pos]->regs_used;
+
+    /* Make it so the callee's register indexes target the right things. */
+    vm->vm_regs += regs_adjust;
+
+    /* Bump the stack too. */
+    vm->method_stack_pos += 2;
+
+
+    lily_vm_execute(vm);
+
+
+    /* Now simulate a stack exit. */
+
+    /* -1 is correct. The callee method will return via a normal way, and bring
+       the method stack down by -1. This does a final adjustment. */
+    vm->method_stack_pos--;
+    vm->vm_regs -= vm->method_stack[vm->method_stack_pos-1]->regs_used;
+}
+
+/*  lily_vm_get_foreign_reg
+    Obtain a value, adjusted for the method to be called. 0 is the value of the
+    return (if there is one). Otherwise, this may not be useful. */
+lily_value *lily_vm_get_foreign_reg(lily_vm_state *vm, int reg_pos)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    int load_start = vm->method_stack[vm->method_stack_pos-1]->regs_used +
+                     vm->method_stack[vm->method_stack_pos]->regs_used;
+
+    /* Intentionally adjust by -1 so the return register will be at 0. */
+    return vm_regs[load_start - 1 + reg_pos];
+}
+
+/*  lily_vm_foreign_load_by_val
+    This loads a value into the callee method at the given position. The callee
+    method's registers start at 1.
+
+    vm:        The vm to do the foreign call.
+    index:     The index to use. Arguments start at index 1.
+    new_value: The new value to give the register at the given index.
+
+    Caveats:
+    * Do not assign an invalid value to the given position. */
+void lily_vm_foreign_load_by_val(lily_vm_state *vm, int index,
+        lily_value *new_value)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    int load_start = vm->method_stack[vm->method_stack_pos-1]->regs_used +
+                     vm->method_stack[vm->method_stack_pos]->regs_used;
+
+    /* Intentionally adjust by -1 so the first arg starts at index 1. */
+    lily_value *reg = vm_regs[load_start - 1 + index];
+    lily_assign_value(vm, reg, new_value);
+}
+
+/*  lily_vm_foreign_prep
+    Prepare the given vm for a call from a foreign function. This will ensure
+    that the vm has stack space, and also initialize the registers to the
+    proper types. The stack entry is updated, but the stack depth is not
+    updated (so that raises show the proper value).
+
+    vm:     The vm to prepare to enter.
+    caller: The function that is doing the call. This function is added to the
+            fake entry so that the stack trace prints out the function's
+            information.
+    tocall: A value holding a non-nil method to call. */
+void lily_vm_foreign_prep(lily_vm_state *vm, lily_function_val *caller,
+        lily_value *to_call)
+{
+    /* Warning: This assumes that the method isn't nil. This may not be true in
+                the future. */
+
+    /* Step 1: Determine the total register need of this method. */
+    int register_need = to_call->value.method->reg_count;
+    lily_sig *method_val_return_sig = to_call->sig->siglist[0];
+    lily_method_val *method_val = to_call->value.method;
+    /* In normal method calls, the caller is a method that reserves a register
+       to get a value back from the callee. Since that is not the case here,
+       add one more register to get a value in case one is needed. */
+    if (method_val_return_sig != NULL)
+        register_need++;
+
+    register_need += vm->num_registers;
+
+    /* Step 2: If there aren't enough registers, make them. This may fail. */
+    if (register_need > vm->max_registers) {
+        grow_vm_registers(vm, register_need);
+        /* grow_vm_registers doesn't set this because prep_registers often
+           comes after it and initializes registers from vm->num_registers to
+           vm->max_registers. So...fix this up. */
+        vm->num_registers = register_need;
+    }
+
+    /* Step 3: If there's a return register, set it to the proper signature. */
+    int method_vals_used = vm->method_stack[vm->method_stack_pos-1]->regs_used;
+
+    if (method_val_return_sig != NULL) {
+        lily_value *foreign_reg = vm->vm_regs[method_vals_used];
+        /* Set it to the right sig, in case something looks at it later. */
+        foreign_reg->sig = method_val_return_sig;
+    }
+
+    /* Step 4: Ensure that there are at least 2 stack entries:
+       * The first one is for a fake method that just returns to the function.
+       * The second is for the method itself.
+       These are added to the stack, but the index is not updated. This allows
+       lily_vm_foreign_call to just bump the stack before/after the call. */
+
+    if (vm->method_stack_pos + 2 == vm->method_stack_size)
+        grow_method_stack(vm);
+
+    /* Step 5: Set the first stack entry (the fake method). */
+    lily_vm_stack_entry *foreign_entry = vm->method_stack[vm->method_stack_pos];
+    foreign_entry->code = lily_malloc(1 * sizeof(uintptr_t));
+    foreign_entry->code[0] = o_return_from_vm;
+    foreign_entry->code_pos = 0;
+    foreign_entry->regs_used = (method_val_return_sig != NULL);
+    foreign_entry->return_reg = -1;
+    foreign_entry->method = NULL;
+    foreign_entry->line_num = 0;
+    foreign_entry->function = caller;
+
+    /* Step 6: Set the second stack entry (the actual method). */
+    lily_vm_stack_entry *method_entry = vm->method_stack[vm->method_stack_pos+1];
+    method_entry->code = method_val->code;
+    method_entry->code_pos = 0;
+    method_entry->regs_used = method_val->reg_count;
+    method_entry->return_reg = 0;
+    method_entry->method = method_val;
+    method_entry->line_num = 0;
+    method_entry->function = NULL;
+}
+
+/** VM prep, API functions  **/
+
 /* load_vm_regs
    This is a helper for lily_vm_prep that loads a chain of vars into the
    registers given. */
@@ -1361,6 +1524,8 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     stack_entry->method = main_method;
     stack_entry->code = main_method->code;
     stack_entry->regs_used = main_method->reg_count;
+    stack_entry->return_reg = 0;
+    stack_entry->code_pos = 0;
     vm->method_stack_pos = 1;
 }
 
@@ -1443,8 +1608,8 @@ uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
    to the vm state for each call. */
 void lily_vm_execute(lily_vm_state *vm)
 {
-    lily_method_val *m = vm->main->value.method;
-    uintptr_t *code = m->code;
+    lily_method_val *m;
+    uintptr_t *code;
     lily_vm_stack_entry *stack_entry;
     lily_value **regs_from_main;
     lily_value **vm_regs;
@@ -1458,6 +1623,9 @@ void lily_vm_execute(lily_vm_state *vm)
     lily_function_val *err_function = NULL;
     lily_method_val *mval;
 
+    m = vm->method_stack[vm->method_stack_pos-1]->method;
+    code = m->code;
+
     /* Initialize local vars from the vm state's vars. */
     vm_regs = vm->vm_regs;
     regs_from_main = vm->regs_from_main;
@@ -1465,22 +1633,22 @@ void lily_vm_execute(lily_vm_state *vm)
     max_registers = vm->max_registers;
     code_pos = 0;
 
-    if (setjmp(vm->raiser->jumps[vm->raiser->jump_pos]) == 0)
-        vm->raiser->jump_pos++;
-    else {
-        /* If within a function, update vm's err_function to reflect that. */
-        if (vm->in_function)
-            vm->err_function = err_function;
+    /* Only install a raiser jump on the first vm entry. */
+    if (vm->method_stack_pos == 1) {
+        if (setjmp(vm->raiser->jumps[vm->raiser->jump_pos]) == 0)
+            vm->raiser->jump_pos++;
+        else {
+            if (vm->in_function)
+                vm->err_function = err_function;
 
-        /* The top of the stack is always changing, so make sure the top's
-           line number is set. This is safe because any opcode that can raise
-           will also have a line number right after the opcode. */
-        lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
-        top->line_num = top->code[code_pos+1];
+            lily_vm_stack_entry *top = vm->method_stack[vm->method_stack_pos-1];
+            top->line_num = top->code[code_pos+1];
 
-        /* Don't yield to parser, because it will continue as if nothing
-           happened. Instead, jump to where it would jump. */
-        longjmp(vm->raiser->jumps[vm->raiser->jump_pos-2], 1);
+            /* The top of the stack is always changing, so make sure the top's
+               line number is set. This is safe because any opcode that can
+               raise will also have a line number right after the opcode. */
+            longjmp(vm->raiser->jumps[vm->raiser->jump_pos-2], 1);
+        }
     }
 
     while (1) {
@@ -1630,6 +1798,14 @@ void lily_vm_execute(lily_vm_state *vm)
                 vm->in_function = 1;
                 func(vm, fval, code+code_pos+5, j);
                 vm->in_function = 0;
+                /* This function may have called the vm, thus growing the
+                   number of registers. Copy over important data if that's
+                   happened. */
+                if (vm->max_registers != max_registers) {
+                    regs_from_main = vm->regs_from_main;
+                    vm_regs        = vm->vm_regs;
+                    max_registers  = vm->max_registers;
+                }
                 code_pos += 6 + j;
             }
                 break;
@@ -1663,6 +1839,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 num_registers = vm->num_registers;
 
                 stack_entry = vm->method_stack[vm->method_stack_pos-1];
+                stack_entry->function = NULL;
                 stack_entry->line_num = code[code_pos+1];
                 stack_entry->code_pos = code_pos + j + 6;
 
@@ -2027,9 +2204,9 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 7;
                 break;
             case o_return_from_vm:
-                /* Remember to remove the jump that the vm installed, since it's
-                   no longer valid. */
-                vm->raiser->jump_pos--;
+                /* Only the first entry to the vm adds a stack entry... */
+                if (vm->method_stack_pos == 1)
+                    vm->raiser->jump_pos--;
                 return;
         }
     }

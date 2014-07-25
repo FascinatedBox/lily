@@ -420,6 +420,32 @@ static int template_check(lily_sig *self_sig, lily_sig *lhs, lily_sig *rhs)
         rhs->cls->id == SYM_CLASS_LIST) {
         ret = template_check(self_sig, lhs->siglist[0], rhs->siglist[0]);
     }
+    else if (lhs->cls->id == SYM_CLASS_METHOD &&
+             rhs->cls->id == SYM_CLASS_METHOD) {
+        if (lhs->siglist_size == rhs->siglist_size) {
+            ret = 1;
+
+            lily_sig **left_siglist = lhs->siglist;
+            lily_sig **right_siglist = rhs->siglist;
+            int i;
+            for (i = 0;i < lhs->siglist_size;i++) {
+                lily_sig *left_entry = left_siglist[i];
+                lily_sig *right_entry = right_siglist[i];
+                if (left_entry == right_entry)
+                    continue;
+
+                if (left_entry == NULL || right_entry == NULL) {
+                    ret = 0;
+                    break;
+                }
+
+                if (template_check(self_sig, left_entry, right_entry) == 0) {
+                    ret = 0;
+                    break;
+                }
+            }
+        }
+    }
     else if (lhs->cls->id == SYM_CLASS_TEMPLATE) {
         lily_sig *comp_sig;
         comp_sig = self_sig->siglist[lhs->template_pos];
@@ -1581,7 +1607,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             /* Walk the subexpressions so the result gets calculated. */
             eval_tree(emit, arg);
 
-        if (i == 0)
+        if (i == skip_first_arg)
             self_sig = arg->result->sig;
 
         if (arg->result->sig != call_sig->siglist[i + 1] &&
