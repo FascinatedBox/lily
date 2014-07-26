@@ -1447,6 +1447,10 @@ method test_misc():nil
     i2 = !llsi[0][0]
     i2 = !llm[0][0]()
 
+    # Issue #36: '1+1' does not work because parser sees it as '1, +1' (two
+    # integer literals) instead of breaking it down to '1, +, 1'.
+    integer test_36 = 1+1
+
     if ok == 0:
         fail_count = fail_count + 1
 }
