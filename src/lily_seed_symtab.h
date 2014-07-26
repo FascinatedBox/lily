@@ -3,6 +3,7 @@
 
 # include "lily_cls_str.h"
 # include "lily_cls_list.h"
+# include "lily_cls_hash.h"
 # include "lily_vm.h"
 # include "lily_gc.h"
 # include "lily_class_funcs.h"
@@ -45,7 +46,7 @@ class_seed class_seeds[] =
     {"list",     1, 1, 0,                  lily_list_setup, &lily_gc_list_marker,
      &lily_list_eq},
 
-    {"hash",     1, 2, 0,                  NULL,            &lily_gc_hash_marker,
+    {"hash",     1, 2, 0,                  lily_hash_setup, &lily_gc_hash_marker,
      &lily_hash_eq},
 
     /* * is the name of the template class. This was chosen because it's not a

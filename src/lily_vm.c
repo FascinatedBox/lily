@@ -689,58 +689,6 @@ void op_ref_assign(lily_value *lhs_reg, lily_value *rhs_reg)
     lhs_reg->value = rhs_reg->value;
 }
 
-/*  try_lookup_hash_elem
-    This attempts to find a hash element by key in the given hash. This will not
-    create a new element if it fails.
-
-    hash:        A valid hash, which may or may not have elements.
-    key_siphash: The calculated siphash of the given key. Use
-                 lily_calculate_siphash to get this.
-    key:         The key used for doing the search.
-
-    On success: The hash element that was inserted into the hash value is
-                returned.
-    On failure: NULL is returned. */
-static lily_hash_elem *try_lookup_hash_elem(lily_hash_val *hash,
-        uint64_t key_siphash, lily_value *key)
-{
-    int key_cls_id = key->sig->cls->id;
-
-    lily_hash_elem *elem_iter = hash->elem_chain;
-    lily_raw_value key_value = key->value;
-
-    while (elem_iter) {
-        if (elem_iter->key_siphash == key_siphash) {
-            int ok;
-            lily_raw_value iter_value = elem_iter->elem_key->value;
-
-            if (key_cls_id == SYM_CLASS_INTEGER &&
-                iter_value.integer == key_value.integer)
-                ok = 1;
-            else if (key_cls_id == SYM_CLASS_NUMBER &&
-                     iter_value.number == key_value.number)
-                ok = 1;
-            else if (key_cls_id == SYM_CLASS_STR &&
-                    /* strings are immutable, so try a ptr compare first. */
-                    ((iter_value.str == key_value.str) ||
-                     /* No? Make sure the sizes match, then call for a strcmp.
-                        The size check is an easy way to potentially skip a
-                        strcmp in case of hash collision. */
-                      (iter_value.str->size == key_value.str->size &&
-                       strcmp(iter_value.str->str, key_value.str->str) == 0)))
-                ok = 1;
-            else
-                ok = 0;
-
-            if (ok)
-                break;
-        }
-        elem_iter = elem_iter->next;
-    }
-
-    return elem_iter;
-}
-
 /*  op_object_assign
     This is a vm helper for handling an assignment to an object from another
     value that may or may not be an object.
@@ -832,7 +780,8 @@ static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
         uint64_t key_siphash, lily_value *hash_key,
         lily_value *hash_value)
 {
-    lily_hash_elem *elem = try_lookup_hash_elem(hash, key_siphash, hash_key);
+    lily_hash_elem *elem;
+    elem = lily_try_lookup_hash_elem(hash, key_siphash, hash_key);
 
     if (elem == NULL) {
         elem = lily_try_new_hash_elem();
@@ -954,7 +903,7 @@ static void op_get_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
         lily_hash_elem *hash_elem;
 
         siphash = lily_calculate_siphash(vm->sipkey, index_reg);
-        hash_elem = try_lookup_hash_elem(lhs_reg->value.hash,
+        hash_elem = lily_try_lookup_hash_elem(lhs_reg->value.hash,
                 siphash, index_reg);
 
         /* Give up if the key doesn't exist. */
@@ -1527,6 +1476,58 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     stack_entry->return_reg = 0;
     stack_entry->code_pos = 0;
     vm->method_stack_pos = 1;
+}
+
+/*  lily_try_lookup_hash_elem
+    This attempts to find a hash element by key in the given hash. This will not
+    create a new element if it fails.
+
+    hash:        A valid hash, which may or may not have elements.
+    key_siphash: The calculated siphash of the given key. Use
+                 lily_calculate_siphash to get this.
+    key:         The key used for doing the search.
+
+    On success: The hash element that was inserted into the hash value is
+                returned.
+    On failure: NULL is returned. */
+lily_hash_elem *lily_try_lookup_hash_elem(lily_hash_val *hash,
+        uint64_t key_siphash, lily_value *key)
+{
+    int key_cls_id = key->sig->cls->id;
+
+    lily_hash_elem *elem_iter = hash->elem_chain;
+    lily_raw_value key_value = key->value;
+
+    while (elem_iter) {
+        if (elem_iter->key_siphash == key_siphash) {
+            int ok;
+            lily_raw_value iter_value = elem_iter->elem_key->value;
+
+            if (key_cls_id == SYM_CLASS_INTEGER &&
+                iter_value.integer == key_value.integer)
+                ok = 1;
+            else if (key_cls_id == SYM_CLASS_NUMBER &&
+                     iter_value.number == key_value.number)
+                ok = 1;
+            else if (key_cls_id == SYM_CLASS_STR &&
+                    /* strings are immutable, so try a ptr compare first. */
+                    ((iter_value.str == key_value.str) ||
+                     /* No? Make sure the sizes match, then call for a strcmp.
+                        The size check is an easy way to potentially skip a
+                        strcmp in case of hash collision. */
+                      (iter_value.str->size == key_value.str->size &&
+                       strcmp(iter_value.str->str, key_value.str->str) == 0)))
+                ok = 1;
+            else
+                ok = 0;
+
+            if (ok)
+                break;
+        }
+        elem_iter = elem_iter->next;
+    }
+
+    return elem_iter;
 }
 
 /*  lily_assign_value
