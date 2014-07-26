@@ -854,6 +854,7 @@ void lily_str_htmlencode(lily_vm_state *vm, lily_function_val *self, uintptr_t *
         }
         else {
             str[i] = *ch;
+            i++;
             if (*ch == '\0')
                 break;
         }
