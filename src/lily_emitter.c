@@ -1595,8 +1595,11 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
        In this case, the first arg is not typechecked. This should only be an
        issue if a callable for a class doesn't take self as the first argument
        (and when have you ever heard of that? :) ) */
-    if (skip_first_arg)
+    if (skip_first_arg) {
+        /* It's still the first arg, so grab 'self' before it's unreachable. */
+        self_sig = arg->result->sig;
         arg = arg->next_arg;
+    }
 
     if ((is_varargs && (have_args <= num_args)) ||
         (is_varargs == 0 && (have_args != num_args)))
@@ -1607,7 +1610,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             /* Walk the subexpressions so the result gets calculated. */
             eval_tree(emit, arg);
 
-        if (i == skip_first_arg)
+        if (i == 0)
             self_sig = arg->result->sig;
 
         if (arg->result->sig != call_sig->siglist[i + 1] &&

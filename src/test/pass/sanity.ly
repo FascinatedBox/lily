@@ -1451,6 +1451,13 @@ method test_misc():nil
     # integer literals) instead of breaking it down to '1, +, 1'.
     integer test_36 = 1+1
 
+    # Bug (no issue): Introducing list::apply created a bug in type matching
+    # where passing values of a simple type caused an error.
+    # This wasn't caught because list::apply uses a complex type. However,
+    # list::append does, so test that.
+    list[integer] bug_check = [1, 2, 3]
+    bug_check.append(4)
+
     if ok == 0:
         fail_count = fail_count + 1
 }
