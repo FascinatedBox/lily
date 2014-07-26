@@ -539,6 +539,49 @@ static void expression_package(lily_parse_state *parser, lily_var *package_var)
     }
 }
 
+/*  maybe_digit_fixup
+    This is called when parser is expecting a binary op and gets an integer or
+    number constant. The value may be part of the next expression, or it may be
+    something like '+1'. If the former, there's no fixup to do. If the latter,
+    it's fixed up and added to the ast as '+' and the value.
+    This allows 'a = 1+1' to work correctly.
+
+    * did_fixup: This is set to 1 if a fixup was done, 0 otherwise. */
+static void maybe_digit_fixup(lily_parse_state *parser, int *did_fixup)
+{
+    /* The lexer records where the last digit scan started. So check if it
+       started with '+' or '-'. */
+    lily_lex_state *lex = parser->lex;
+    char ch = lex->input_buffer[lex->last_digit_start];
+
+    if (ch == '-' || ch == '+') {
+        int expr_op;
+        lily_class *cls;
+        lily_symtab *symtab = parser->symtab;
+
+        if (ch == '-')
+            expr_op = parser_tok_table[tk_minus].expr_op;
+        else
+            expr_op = parser_tok_table[tk_plus].expr_op;
+
+        if (lex->token == tk_integer)
+            cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
+        else
+            cls = lily_class_by_id(symtab, SYM_CLASS_NUMBER);
+
+        lily_ast_push_binary_op(parser->ast_pool, (lily_expr_op)expr_op);
+        /* Call this to force a rescan from the proper starting point, yielding
+           a proper new token. */
+        lily_lexer_digit_rescan(lex);
+        lily_literal *lit;
+        lit = lily_get_intnum_literal(symtab, cls, lex->value);
+        lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
+        *did_fixup = 1;
+    }
+    else
+        *did_fixup = 0;
+}
+
 /* expression_value
    This handles getting a value for expression. It also handles oo calls and
    unary expressions as necessary. It will always push a value to the ast. */
@@ -822,6 +865,25 @@ static void expression(lily_parse_state *parser)
 
             lily_ast_collect_arg(parser->ast_pool);
             lily_lexer(lex);
+        }
+        else if (lex->token == tk_integer || lex->token == tk_number) {
+            int did_fixup = 0;
+            maybe_digit_fixup(parser, &did_fixup);
+            if (did_fixup) {
+                /* If it gets broken down, then it becomes a binary op and a
+                   value. Call up the next token, and go back up since there's
+                   no state change. */
+                lily_lexer(lex);
+                continue;
+            }
+            /* It's the start of the next expression so long as there's no
+               currently-running expressions. */
+            else if (parser->ast_pool->save_depth == 0)
+                break;
+            else
+                lily_raise(parser->raiser, lily_ErrSyntax,
+                           "Unexpected token %s during expression.\n",
+                           tokname(lex->token));
         }
         else {
             lily_raise(parser->raiser, lily_ErrSyntax,

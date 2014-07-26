@@ -144,6 +144,7 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser, void *data)
     if (lex == NULL)
         return NULL;
 
+    lex->last_digit_start = 0;
     lex->entry = NULL;
     lex->hit_eof = 0;
     lex->filename = NULL;
@@ -641,6 +642,7 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
 
     num_pos = *pos;
     num_start = num_pos;
+    lexer->last_digit_start = num_pos;
     is_negative = 0;
     is_integer = 1;
     integer_value = 0;
@@ -932,6 +934,22 @@ static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
 
     word_pos++;
     *pos = word_pos;
+}
+
+/*  lily_lexer_digit_rescan
+    The lexer doesn't have context, so it scanned '-1' or something like that
+    as a single value (negative 1 as a literal). But...parser was expecting a
+    binary value, so it should have really just been the digit value by itself.
+    A rescan is done because it will trap over/under-flows.
+    This should only be called by parser. */
+void lily_lexer_digit_rescan(lily_lex_state *lexer)
+{
+    /* Reset the scanning position to just after the '+' or '-' and try
+       again. This is safe, because the lexer hasn't been invoked since the
+       digit scan. */
+    lexer->input_pos = lexer->last_digit_start + 1;
+
+    lily_lexer(lexer);
 }
 
 /** Lexer API **/
