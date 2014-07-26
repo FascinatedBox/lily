@@ -119,3 +119,10 @@ object_list.append(integer_list)
 
 #### list::size(list[T] _input_):integer
 Returns a count of the elements within **input**.
+
+
+## Class Hash
+The first type of hash is referred to as **K**, the key. The second type is **V**, the value.
+
+#### hash::get(hash[K, V] _input_, K _to_find_, V _default_value_):V
+This attempts to find **to_find** within **input**. If the key can be found, then the value associated with that key is returned. If it cannot be found, then **default_value** is returned.

@@ -1412,8 +1412,13 @@ static int type_matchup(lily_emit_state *emit, lily_sig *self,
        what the template result in for this case. This allows template
        arguments to also use object copying and such.
        This is safe, because want_sig won't be a template if self is NULL. */
-    if (want_sig->cls->id == SYM_CLASS_TEMPLATE)
+    if (want_sig->cls->id == SYM_CLASS_TEMPLATE) {
+        fprintf(stderr, "attempt to access self (%p) at position %d.\n",
+                self, want_sig->template_pos);
+        fprintf(stderr, "self has class %s, siglist size %d.\n",
+                self->cls->name, self->siglist_size);
         want_sig = self->siglist[want_sig->template_pos];
+    }
 
     if (self != NULL && template_check(self, want_sig, right->result->sig))
         ret = 1;
@@ -1763,8 +1768,20 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     }
 
     if (call_sig->siglist[0] != NULL) {
-        lily_storage *storage = get_storage(emit, call_sig->siglist[0],
-                ast->line_num);
+        lily_sig *return_sig = call_sig->siglist[0];
+
+        /* If the return is a template, use self (the first arg) to determine
+           what the result should -really- be.
+           Note! This won't work for more complex templated types. There are
+           none of those now, so this works until then. */
+        if (return_sig->cls->id == SYM_CLASS_TEMPLATE) {
+            /* Grab self again, via the first argument. */
+            lily_sig *first_arg_result = ast->arg_start->result->sig;
+            /* Now grab out the wanted template position. */
+            return_sig = first_arg_result->siglist[return_sig->template_pos];
+        }
+
+        lily_storage *storage = get_storage(emit, return_sig, ast->line_num);
 
         ast->result = (lily_sym *)storage;
         m->code[m->pos+i] = ast->result->reg_spot;

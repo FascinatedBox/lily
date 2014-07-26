@@ -136,7 +136,6 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
                 }
 
                 siglist = lily_malloc(siglist_size * sizeof(lily_sig *));
-
                 if (siglist) {
                     int i;
                     for (i = 0;i < siglist_size;i++) {
