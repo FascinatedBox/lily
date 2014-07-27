@@ -1412,13 +1412,8 @@ static int type_matchup(lily_emit_state *emit, lily_sig *self,
        what the template result in for this case. This allows template
        arguments to also use object copying and such.
        This is safe, because want_sig won't be a template if self is NULL. */
-    if (want_sig->cls->id == SYM_CLASS_TEMPLATE) {
-        fprintf(stderr, "attempt to access self (%p) at position %d.\n",
-                self, want_sig->template_pos);
-        fprintf(stderr, "self has class %s, siglist size %d.\n",
-                self->cls->name, self->siglist_size);
+    if (want_sig->cls->id == SYM_CLASS_TEMPLATE)
         want_sig = self->siglist[want_sig->template_pos];
-    }
 
     if (self != NULL && template_check(self, want_sig, right->result->sig))
         ret = 1;
