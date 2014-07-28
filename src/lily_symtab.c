@@ -65,6 +65,7 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
     var->shorthash = shorthash_for_str(name);
     var->sig = sig;
     var->next = NULL;
+    var->parent = NULL;
 
     if ((flags & VAR_IS_READONLY) == 0) {
         var->reg_spot = symtab->next_register_spot;
@@ -186,13 +187,20 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
     well.
 
     symtab: The symtab to put the new var in.
+    cls:    The class that the seed belongs to, or NULL if the seed is for a
+            global value.
     seed:   A valid seed to create a new var+function for.
 
     Returns the newly created var on success, or NULL on failure. */
 static lily_var *init_func_seed(lily_symtab *symtab,
-        const lily_func_seed *seed)
+        lily_class *cls, const lily_func_seed *seed)
 {
     lily_var *ret = NULL;
+    char *cls_name;
+    if (cls)
+        cls_name = cls->name;
+    else
+        cls_name = "";
 
     int ok = 1, pos = 0;
     lily_sig *new_sig = scan_seed_arg(symtab, seed->arg_ids, &pos, &ok);
@@ -201,11 +209,13 @@ static lily_var *init_func_seed(lily_symtab *symtab,
 
         if (ret != NULL) {
             ret->value.function = lily_try_new_function_val(seed->func,
-                    seed->name);
+                    cls_name, seed->name);
 
             if (ret->value.function != NULL)
                 ret->flags &= ~(VAL_IS_NIL);
         }
+
+        ret->parent = cls;
     }
 
     return ret;
@@ -248,7 +258,7 @@ static int read_global_seeds(lily_symtab *symtab)
          seed_iter != NULL;
          seed_iter = seed_iter->next) {
 
-        if (init_func_seed(symtab, seed_iter) == NULL) {
+        if (init_func_seed(symtab, NULL, seed_iter) == NULL) {
             ret = 0;
             break;
         }
@@ -744,7 +754,7 @@ lily_var *lily_find_class_callable(lily_symtab *symtab, lily_class *cls,
             if (strcmp(seed->name, name) == 0) {
                 lily_var *save_top = symtab->var_top;
 
-                iter = init_func_seed(symtab, seed);
+                iter = init_func_seed(symtab, cls, seed);
                 if (iter == NULL)
                     lily_raise_nomem(symtab->raiser);
                 else {

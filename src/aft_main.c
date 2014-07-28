@@ -312,9 +312,20 @@ int main(int argc, char **argv)
                 if (entry->method)
                     fprintf(stderr, "    Method \"%s\" at line %d.\n",
                             entry->method->trace_name, entry->line_num);
-                else
-                    fprintf(stderr, "    Function \"%s\".\n",
+                else {
+                    char *class_name = entry->function->class_name;
+                    char *separator;
+                    if (class_name == NULL) {
+                        class_name = "";
+                        separator = "";
+                    }
+                    else
+                        separator = "::";
+
+                    fprintf(stderr, "    Function \"%s%s%s\".\n",
+                            class_name, separator,
                             entry->function->trace_name);
+                }
             }
         }
     }

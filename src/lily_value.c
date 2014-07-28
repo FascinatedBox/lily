@@ -199,9 +199,10 @@ void lily_deref_unknown_raw_val(lily_sig *value_sig, lily_raw_value raw)
 
 /* lily_try_new_function_val
    This will attempt to create a new function value (for storing a function
-   pointer and a name for it).
+   pointer, its class name, and its actual name).
    Note: 'try' means this call returns NULL on failure. */
-lily_function_val *lily_try_new_function_val(lily_func func, char *name)
+lily_function_val *lily_try_new_function_val(lily_func func, char *class_name,
+        char *name)
 {
     lily_function_val *f = lily_malloc(sizeof(lily_function_val));
 
@@ -210,6 +211,7 @@ lily_function_val *lily_try_new_function_val(lily_func func, char *name)
         return NULL;
     }
 
+    f->class_name = class_name;
     f->refcount = 1;
     f->func = func;
     f->trace_name = name;

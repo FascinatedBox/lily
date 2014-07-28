@@ -183,6 +183,7 @@ typedef struct lily_var_t {
        This is an important difference, because the vm has to do different
        loads for globals versus locals. */
     int method_depth;
+    struct lily_class_t *parent;
     struct lily_var_t *next;
 } lily_var;
 
@@ -252,6 +253,7 @@ typedef struct lily_hash_val_t {
 typedef struct lily_function_val_t {
     int refcount;
     lily_func func;
+    char *class_name;
     /* This is so that anonymously calling a function doesn't result in not
        knowing where it came from. */
     char *trace_name;
