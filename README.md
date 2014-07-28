@@ -11,7 +11,7 @@ Lily is a statically-typed language that can be used to make dynamically generat
 
 The language currently recognizes 8 datatypes:
 
-* integer: A 64-bit unsigned int.
+* integer: A 64-bit signed int.
 * number: A C double.
 * str: A bunch of text.
 * list: A list of a given element.
