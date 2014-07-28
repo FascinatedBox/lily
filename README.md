@@ -121,14 +121,14 @@ Types can also get pretty complex:
 ```
 list[object] olist = [1, 1.1, [1], "1"]
 
-# A typecast is needed to get data out of an object list. It looks like this:
-# @(type: value)
-integer abc = @(integer: olist[0])
+# A typecast is needed to get data out of an object. It looks like this:
+# value.@(type)
+integer abc = olist[0].@(integer)
 
 # Typecasts allow access to the values with objects while retaining static typing.
 # Typecasts can also convert integers to/from numbers:
 
-integer a = @(integer: 1.1)
+integer a = 1.1.@(integer)
 
 
 method r(): list[integer] { return [1, 2, 3] }
