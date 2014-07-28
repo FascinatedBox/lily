@@ -465,12 +465,23 @@ static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
     lily_sig *got, lily_sig *expected, int arg_num)
 {
     lily_var *v = (lily_var *)ast->result;
+    char *class_name;
+    char *separator;
+
+    if (v->parent) {
+        class_name = v->parent->name;
+        separator = "::";
+    }
+    else {
+        class_name = "";
+        separator = "";
+    }
 
     /* Just in case this arg was on a different line than the call. */
     emit->raiser->line_adjust = ast->line_num;
     lily_raise(emit->raiser, lily_ErrSyntax,
-            "%s arg #%d expects type '%T' but got type '%T'.\n",
-            v->name, arg_num, expected, got);
+            "%s%s%s arg #%d expects type '%T' but got type '%T'.\n",
+            class_name, separator, v->name, arg_num, expected, got);
 }
 
 static void bad_assign_error(lily_emit_state *emit, int line_num,
@@ -499,26 +510,40 @@ static void bad_subs_class(lily_emit_state *emit, lily_ast *var_ast)
 static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
         lily_sig *call_sig)
 {
-    char *call_name;
-    char *va_text;
+    char *call_name, *class_name, *separator, *va_text;
+    lily_var *var;
 
-    if (ast->result != NULL)
-        call_name = ((lily_var *)ast->result)->name;
-    else
+    if (ast->result != NULL) {
+        var = (lily_var *)ast->result;
+        call_name = var->name;
+    }
+    else {
         /* This occurs when the call is based off of a subscript, such as
            method_list[0]()
            This is generic, but it's assumed that this will be enough when
            paired with the line number. */
         call_name = "(anonymous call)";
+        var = NULL;
+    }
 
     if (call_sig->flags & SIG_IS_VARARGS)
         va_text = "at least ";
     else
         va_text = "";
 
+    if (var->parent) {
+        class_name = var->parent->name;
+        separator = "::";
+    }
+    else {
+        class_name = "";
+        separator = "";
+    }
+
     emit->raiser->line_adjust = ast->line_num;
     lily_raise(emit->raiser, lily_ErrSyntax,
-               "%s expects %s%d args, but got %d.\n", call_name, va_text,
+               "%s%s%s expects %s%d args, but got %d.\n",
+               class_name, separator, call_name, va_text,
                call_sig->siglist_size - 1, ast->args_collected);
 }
 

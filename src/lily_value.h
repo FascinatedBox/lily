@@ -7,7 +7,7 @@ lily_method_val *lily_try_new_method_val();
 lily_object_val *lily_try_new_object_val();
 lily_hash_val *lily_try_new_hash_val();
 lily_hash_elem *lily_try_new_hash_elem();
-lily_function_val *lily_try_new_function_val();
+lily_function_val *lily_try_new_function_val(lily_func, char *, char *);
 
 void lily_deref_method_val(lily_method_val *);
 void lily_deref_str_val(lily_str_val *);
