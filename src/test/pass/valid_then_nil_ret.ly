@@ -1,9 +1,9 @@
 <@lily
 
-method ret_str():str { return "str" }
-method ret_nil_str():str { str s    return s }
+method ret_string():string { return "str" }
+method ret_nil_string():string { string s    return s }
 
-ret_str()
-ret_nil_str()
+ret_string()
+ret_nil_string()
 
 @>

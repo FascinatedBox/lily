@@ -59,12 +59,12 @@ code_pos += 5;
    lists, and more.
 
    Arguments are:
-   * op:    The operation to perform relative to the values given. This will be
-            substituted like: lhs->value OP rhs->value
-            This is done for everything BUT str.
-   * strop: The operation to perform relative to the result of strcmp. == does
-            == 0, as an example. */
-#define EQUALITY_COMPARE_OP(OP, STROP) \
+   * op:       The operation to perform relative to the values given. This will
+               be substituted like: lhs->value OP rhs->value
+               This is done for everything BUT string.
+   * stringop: The operation to perform relative to the result of strcmp. ==
+               does == 0, as an example. */
+#define EQUALITY_COMPARE_OP(OP, STRINGOP) \
 LOAD_CHECKED_REG(lhs_reg, code_pos, 2) \
 LOAD_CHECKED_REG(rhs_reg, code_pos, 3) \
 if (lhs_reg->sig->cls->id == SYM_CLASS_NUMBER) { \
@@ -83,10 +83,10 @@ else if (lhs_reg->sig->cls->id == SYM_CLASS_INTEGER) { \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.integer OP rhs_reg->value.number); \
 } \
-else if (lhs_reg->sig->cls->id == SYM_CLASS_STR) { \
+else if (lhs_reg->sig->cls->id == SYM_CLASS_STRING) { \
     vm_regs[code[code_pos+4]]->value.integer = \
-    strcmp(lhs_reg->value.str->str, \
-           rhs_reg->value.str->str) STROP; \
+    strcmp(lhs_reg->value.string->string, \
+           rhs_reg->value.string->string) STRINGOP; \
 } \
 else if (lhs_reg->sig == rhs_reg->sig) { \
     vm_regs[code[code_pos+4]]->value.integer = \
@@ -95,7 +95,7 @@ else if (lhs_reg->sig == rhs_reg->sig) { \
 vm_regs[code[code_pos+4]]->flags &= ~VAL_IS_NIL; \
 code_pos += 5;
 
-#define COMPARE_OP(OP, STROP) \
+#define COMPARE_OP(OP, STRINGOP) \
 LOAD_CHECKED_REG(lhs_reg, code_pos, 2) \
 LOAD_CHECKED_REG(rhs_reg, code_pos, 3) \
 if (lhs_reg->sig->cls->id == SYM_CLASS_NUMBER) { \
@@ -114,10 +114,10 @@ else if (lhs_reg->sig->cls->id == SYM_CLASS_INTEGER) { \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.integer OP rhs_reg->value.number); \
 } \
-else if (lhs_reg->sig->cls->id == SYM_CLASS_STR) { \
+else if (lhs_reg->sig->cls->id == SYM_CLASS_STRING) { \
     vm_regs[code[code_pos+4]]->value.integer = \
-    strcmp(lhs_reg->value.str->str, \
-           rhs_reg->value.str->str) STROP; \
+    strcmp(lhs_reg->value.string->string, \
+           rhs_reg->value.string->string) STRINGOP; \
 } \
 vm_regs[code[code_pos+4]]->flags &= ~VAL_IS_NIL; \
 code_pos += 5;
@@ -550,10 +550,10 @@ void no_such_key_error(lily_vm_state *vm, int code_pos, lily_value *key)
         lily_msgbuf_add_int(msgbuf, key->value.integer);
     else if (key_cls_id == SYM_CLASS_NUMBER)
         lily_msgbuf_add_double(msgbuf, key->value.number);
-    else if (key_cls_id == SYM_CLASS_STR) {
+    else if (key_cls_id == SYM_CLASS_STRING) {
         lily_msgbuf_add_char(msgbuf, '\"');
         /* Note: This is fine for now because strings can't contain \0. */
-        lily_msgbuf_add(msgbuf, key->value.str->str);
+        lily_msgbuf_add(msgbuf, key->value.string->string);
         lily_msgbuf_add_char(msgbuf, '\"');
     }
     else
@@ -592,7 +592,7 @@ void lily_builtin_print(lily_vm_state *vm, lily_function_val *self, uintptr_t *c
         int num_args)
 {
     lily_value *reg = vm->vm_regs[code[0]];
-    lily_impl_puts(vm->data, reg->value.str->str);
+    lily_impl_puts(vm->data, reg->value.string->string);
 }
 
 /* lily_builtin_printfmt
@@ -612,7 +612,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self, uintptr_t
     lily_raw_value val;
     void *data = vm->data;
 
-    fmt = vm_regs[code[0]]->value.str->str;
+    fmt = vm_regs[code[0]]->value.string->string;
     str_start = fmt;
     while (1) {
         if (fmt[i] == '\0')
@@ -644,12 +644,12 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self, uintptr_t
                 }
             }
             else if (fmt[i] == 's') {
-                if (cls_id != SYM_CLASS_STR)
+                if (cls_id != SYM_CLASS_STRING)
                     return;
                 if (is_nil)
                     lily_impl_puts(data, "(nil)");
                 else
-                    lily_impl_puts(data, val.str->str);
+                    lily_impl_puts(data, val.string->string);
             }
             else if (fmt[i] == 'n') {
                 if (cls_id != SYM_CLASS_NUMBER)
@@ -1509,14 +1509,15 @@ lily_hash_elem *lily_try_lookup_hash_elem(lily_hash_val *hash,
             else if (key_cls_id == SYM_CLASS_NUMBER &&
                      iter_value.number == key_value.number)
                 ok = 1;
-            else if (key_cls_id == SYM_CLASS_STR &&
+            else if (key_cls_id == SYM_CLASS_STRING &&
                     /* strings are immutable, so try a ptr compare first. */
-                    ((iter_value.str == key_value.str) ||
+                    ((iter_value.string == key_value.string) ||
                      /* No? Make sure the sizes match, then call for a strcmp.
                         The size check is an easy way to potentially skip a
                         strcmp in case of hash collision. */
-                      (iter_value.str->size == key_value.str->size &&
-                       strcmp(iter_value.str->str, key_value.str->str) == 0)))
+                      (iter_value.string->size == key_value.string->size &&
+                       strcmp(iter_value.string->string,
+                              key_value.string->string) == 0)))
                 ok = 1;
             else
                 ok = 0;
@@ -1583,9 +1584,9 @@ uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
     int key_cls_id = key->sig->cls->id;
     uint64_t key_hash;
 
-    if (key_cls_id == SYM_CLASS_STR)
-        key_hash = siphash24(key->value.str->str, key->value.str->size,
-                sipkey);
+    if (key_cls_id == SYM_CLASS_STRING)
+        key_hash = siphash24(key->value.string->string,
+                key->value.string->size, sipkey);
     else if (key_cls_id == SYM_CLASS_INTEGER)
         key_hash = key->value.integer;
     else if (key_cls_id == SYM_CLASS_NUMBER)

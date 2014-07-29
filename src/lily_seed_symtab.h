@@ -1,7 +1,7 @@
 #ifndef LILY_SEED_SYMTAB_H
 # define LILY_SEED_SYMTAB_H
 
-# include "lily_cls_str.h"
+# include "lily_cls_string.h"
 # include "lily_cls_list.h"
 # include "lily_cls_hash.h"
 # include "lily_vm.h"
@@ -25,28 +25,28 @@ typedef const struct {
          too. */
 class_seed class_seeds[] =
 {
-    {"integer",  0, 0, CLS_VALID_HASH_KEY, NULL,            NULL,
+    {"integer",  0, 0, CLS_VALID_HASH_KEY, NULL,               NULL,
      &lily_integer_eq},
 
-    {"number",   0, 0, CLS_VALID_HASH_KEY, NULL,            NULL,
+    {"number",   0, 0, CLS_VALID_HASH_KEY, NULL,               NULL,
      &lily_number_eq},
 
-    {"str",      1, 0, CLS_VALID_HASH_KEY, lily_str_setup,  NULL,
-     &lily_str_eq},
+    {"string",   1, 0, CLS_VALID_HASH_KEY, lily_string_setup,  NULL,
+     &lily_string_eq},
 
-    {"function", 0, 0, 0,                  NULL,            NULL,
+    {"function", 0, 0, 0,                  NULL,               NULL,
      &lily_generic_eq},
 
-    {"object",   1, 0, 0,                  NULL,            &lily_gc_object_marker,
+    {"object",   1, 0, 0,                  NULL,               &lily_gc_object_marker,
      &lily_object_eq},
 
-    {"method",   1, 0, 0,                  NULL,            NULL,
+    {"method",   1, 0, 0,                  NULL,               NULL,
      &lily_generic_eq},
 
-    {"list",     1, 1, 0,                  lily_list_setup, &lily_gc_list_marker,
+    {"list",     1, 1, 0,                  lily_list_setup,    &lily_gc_list_marker,
      &lily_list_eq},
 
-    {"hash",     1, 2, 0,                  lily_hash_setup, &lily_gc_hash_marker,
+    {"hash",     1, 2, 0,                  lily_hash_setup,    &lily_gc_hash_marker,
      &lily_hash_eq},
 
     /* * is the name of the template class. This was chosen because it's not a
@@ -82,10 +82,10 @@ void lily_builtin_printfmt(lily_vm_state *, lily_function_val *, uintptr_t *, in
 
 static const lily_func_seed print =
     {"print", lily_builtin_print, NULL,
-        {SYM_CLASS_FUNCTION, 2, 0, -1, SYM_CLASS_STR}};
+        {SYM_CLASS_FUNCTION, 2, 0, -1, SYM_CLASS_STRING}};
 static const lily_func_seed printfmt =
     {"printfmt", lily_builtin_printfmt, &print,
-        {SYM_CLASS_FUNCTION, 3, SIG_IS_VARARGS, -1, SYM_CLASS_STR, SYM_CLASS_OBJECT}};
+        {SYM_CLASS_FUNCTION, 3, SIG_IS_VARARGS, -1, SYM_CLASS_STRING, SYM_CLASS_OBJECT}};
 
 /* This must always be set to the last func seed defined here. */
 #define GLOBAL_SEED_START printfmt

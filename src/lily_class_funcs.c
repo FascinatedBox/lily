@@ -48,16 +48,16 @@ int lily_number_eq(lily_vm_state *vm, int *depth, lily_value *left,
 
 /** str **/
 
-int lily_str_eq(lily_vm_state *vm, int *depth, lily_value *left,
+int lily_string_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
 {
     int ret;
 
     if (((left->flags & VAL_IS_NIL) == 0) &&
         ((right->flags & VAL_IS_NIL) == 0) &&
-        left->value.str->size == right->value.str->size &&
-        (left->value.str == right->value.str ||
-         strcmp(left->value.str->str, right->value.str->str) == 0))
+        left->value.string->size == right->value.string->size &&
+        (left->value.string == right->value.string ||
+         strcmp(left->value.string->string, right->value.string->string) == 0))
         ret = 1;
     else if ((left->flags & VAL_IS_NIL) && (right->flags & VAL_IS_NIL))
         ret = 1;

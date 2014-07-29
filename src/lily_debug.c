@@ -306,8 +306,8 @@ static void show_simple_value(lily_debug_state *debug, lily_sig *sig,
 {
     int cls_id = sig->cls->id;
 
-    if (cls_id == SYM_CLASS_STR)
-        lily_msgbuf_add_fmt(debug->msgbuf, "\"^E\"", value.str->str);
+    if (cls_id == SYM_CLASS_STRING)
+        lily_msgbuf_add_fmt(debug->msgbuf, "\"^E\"", value.string->string);
     else if (cls_id == SYM_CLASS_INTEGER)
         lily_msgbuf_add_int(debug->msgbuf, value.integer);
     else if (cls_id == SYM_CLASS_NUMBER)
@@ -652,7 +652,7 @@ static void show_value(lily_debug_state *debug, lily_value *value)
         return;
     }
 
-    if (cls_id == SYM_CLASS_STR ||
+    if (cls_id == SYM_CLASS_STRING ||
         cls_id == SYM_CLASS_INTEGER ||
         cls_id == SYM_CLASS_NUMBER) {
         show_simple_value(debug, sig, raw_value);

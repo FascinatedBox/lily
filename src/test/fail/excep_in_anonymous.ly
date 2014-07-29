@@ -1,7 +1,7 @@
 <@lily 
 method m():nil {
     object o = 10
-    str s = o.@(str)
+    string s = o.@(string)
 }
 
 list[method():nil] method_list = [m, m, m]

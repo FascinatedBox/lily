@@ -76,7 +76,7 @@ void lily_gc_collect_list(lily_sig *list_sig, lily_list_val *list_val)
         if (value_sig->cls->is_refcounted) {
             for (i = 0;i < list_val->num_values;i++) {
                 /* Pass stuff off to the gc to collect. This will use a typical
-                   deref for stuff like str. */
+                   deref for stuff like string. */
                 lily_value *elem = list_val->elems[i];
                 if ((elem->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
                     lily_raw_value v = elem->value;

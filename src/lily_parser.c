@@ -469,9 +469,9 @@ static lily_literal *parse_special_keyword(lily_parse_state *parser, int key_id)
         ret = lily_get_intnum_literal(symtab, cls, value);
     }
     else if (key_id == KEY__FILE__)
-        ret = lily_get_str_literal(symtab, parser->lex->filename);
+        ret = lily_get_string_literal(symtab, parser->lex->filename);
     else if (key_id == KEY__METHOD__)
-        ret = lily_get_str_literal(symtab, parser->emit->top_var->name);
+        ret = lily_get_string_literal(symtab, parser->emit->top_var->name);
     else
         ret = NULL;
 
@@ -663,7 +663,7 @@ static void expression_value(lily_parse_state *parser)
         }
         else if (lex->token == tk_double_quote) {
             lily_literal *lit;
-            lit = lily_get_str_literal(symtab, lex->label);
+            lit = lily_get_string_literal(symtab, lex->label);
 
             lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
 
@@ -701,7 +701,7 @@ static void expression_value(lily_parse_state *parser)
 
             if (lex->token == tk_right_bracket)
                 lily_raise(parser->raiser, lily_ErrSyntax,
-                        "Empty lists must specify a type (ex: [str]).\n");
+                        "Empty lists must specify a type (ex: [string]).\n");
             else if (lex->token == tk_word) {
                 lily_class *cls = lily_class_by_name(symtab, lex->label);
 

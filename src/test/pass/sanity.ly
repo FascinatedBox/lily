@@ -21,8 +21,8 @@ method test_basic_assignments():nil
     # Numbers are the more precise value type. C doubles.
     number b = 1.1
 
-    # str is Lily's string class.
-    str c = "11"
+    # string is Lily's string class.
+    string c = "11"
 
     # Lists are collections of values, and need a type specified.
     # Additionally, static lists, such as [1, 2, 3] automatically guess their
@@ -36,7 +36,7 @@ method test_basic_assignments():nil
 
     # hash is the associative array type. Hashes require two inner type: the
     # key, and the value.
-    hash[str, integer] f = ["a" => 1, "b" => 2, "c" => 3]
+    hash[string, integer] f = ["a" => 1, "b" => 2, "c" => 3]
     # Items can be added through subscript assignment. Lists can't do that
     # though.
     f["d"] = 4
@@ -145,14 +145,14 @@ method test_printfmt():nil
 {
     integer a = 1
     number b = 12.34
-    str c = "abcd"
+    string c = "abcd"
 
     printfmt("#%i: Testing printfmt:...(check results)\n", test_id)
     test_id = test_id + 1
 
     printfmt("    integer a (1)     is %i.\n", a)
     printfmt("    number  b (12.34) is %n.\n", b)
-    printfmt("    str     c (abcd)  is %s.\n", c)
+    printfmt("    string  c (abcd)  is %s.\n", c)
     # Make sure varargs calls are taking the extra ones too.
     printfmt("    a, b, c are %i, %n, %s.\n", a, b, c)
 }
@@ -190,7 +190,7 @@ method test_object_defaulting():nil
     obj_list[0] = printfmt
     obj_list[0] = other_obj
 
-    hash[str, object] obj_hash = ["integer" => 1,
+    hash[string, object] obj_hash = ["integer" => 1,
                                   "number" => 1.1,
                                   "str" => "10",
                                   "list" => [1],
@@ -225,10 +225,10 @@ method test_object_defaulting():nil
 
 method test_oo():nil
 {
-    str abc = "abc", rlt
+    string abc = "abc", rlt
     integer i, ok
     object abc_obj = "abc"
-    list[str] abc_list = ["abc"]
+    list[string] abc_list = ["abc"]
 
     printfmt("#%i: Testing oo calls...(sub tests follow).\n", test_id)
     test_id = test_id + 1
@@ -252,8 +252,8 @@ method test_oo():nil
         print("failed.\n")
     }
 
-    rlt = abc_obj.@(str).concat("def")
-    print("    abc_obj.@(str).concat(\"def\")   == \"abcdef\"...")
+    rlt = abc_obj.@(string).concat("def")
+    print("    abc_obj.@(string).concat(\"def\")   == \"abcdef\"...")
     if rlt == "abcdef": {
         print("ok.\n")
     else:
@@ -270,7 +270,7 @@ method test_oo():nil
         print("failed.\n")
     }
 
-    method return_abc():str { return "abc" }
+    method return_abc():string { return "abc" }
 
     rlt = return_abc().concat("def")
     print("    return_abc().concat(\"def\")      == \"abcdef\"...")
@@ -297,8 +297,8 @@ method test_oo():nil
 
 method test_utf8():nil
 {
-    str h3llö = "hello"
-    str ustr = "á"
+    string h3llö = "hello"
+    string ustr = "á"
 
     printfmt("#%i: Testing concat with utf8...", test_id)
     test_id  = test_id + 1
@@ -313,9 +313,9 @@ method test_utf8():nil
 
 method test_escapes():nil
 {
-    str s = "\\a\\b\\\\c\\d\\"
-    str s2 = "Hello, world.\n"
-    str s3 = ""
+    string s = "\\a\\b\\\\c\\d\\"
+    string s2 = "Hello, world.\n"
+    string s3 = ""
 
     printfmt("#%i: Testing escape string...%s.\n", test_id, s)
     test_id = test_id + 1
@@ -490,7 +490,7 @@ method test_parenth():nil
 
     integer a = 1
     integer ok = 1
-    str s = "a"
+    string s = "a"
 
     if (((a))) != 1:
         ok = 0
@@ -581,18 +581,18 @@ method test_sub_assign():nil
         ok = 0
     }
 
-    list[str] list_str = ["1"]
-    list_str[0] = "2"
+    list[string] list_string = ["1"]
+    list_string[0] = "2"
 
-    if list_str[0] == "2": {
-        print("     list[str] ok.\n")
+    if list_string[0] == "2": {
+        print("     list[string] ok.\n")
     else:
-        print("     list[str] failed.\n")
+        print("     list[string] failed.\n")
         ok = 0
     }
 
-    list[list[str]] list_list_str = [["1"]]
-    list_list_str[0][0] = "2"
+    list[list[string]] list_list_string = [["1"]]
+    list_list_string[0][0] = "2"
 
     method ret_10():integer { return 10 }
     method ret_20():integer { return 20 }
@@ -607,7 +607,7 @@ method test_sub_assign():nil
     lso[0] = [lso.@(object), lso.@(object), lso.@(object)]
     lso[0] = lso[1]
     lso[0] = print
-    lso[0] = list_list_str
+    lso[0] = list_list_string
 
     print("     list[object] ok.\n")
 
@@ -649,9 +649,9 @@ method test_sub_assign():nil
     list[list[integer]] dlist1, dlist2, dlist3
     # Test a deep list
     list[list[list[list[list[list[number]]]]]] deep_list
-    # Check that list[str] doesn't crash if the str is nil.
-    str nil_s
-    list[str] test_nil_s = [nil_s]
+    # Check that list[string] doesn't crash if the string is nil.
+    string nil_s
+    list[string] test_nil_s = [nil_s]
     test_nil_s[0] = "test"
 
     if ok == 0:
@@ -720,9 +720,9 @@ method test_typecasts():nil
     o = 10.0
     numval = o.@(number)
 
-    str strval
+    string strval
     o = "10"
-    strval = o.@(str)
+    strval = o.@(string)
 
     list[integer] list_intval
     o = [1]
@@ -853,12 +853,12 @@ method test_method_varargs():nil
     # Since this one takes objects, any extra args also get converted to objects
     # as needed. The list part of that isn't tested yet, because there is no
     # list comparison utility.
-    method va_2(str format, list[object] args...):integer {
+    method va_2(string format, list[object] args...):integer {
         integer ok
         # This next statement helped to uncover about 3 bugs. Leave it be.
         if args[0].@(integer) == 1 &&
            args[1].@(number) == 1.1 &&
-           args[2].@(str) == "1":
+           args[2].@(string) == "1":
             ok = 1
         else:
             ok = 0
@@ -869,9 +869,9 @@ method test_method_varargs():nil
 
     object o = va_2
     # Check it with a typecast too.
-    integer vx = o.@(method(str, list[object] ...):integer)("abc", 1, 1.1, "1")
+    integer vx = o.@(method(string, list[object] ...):integer)("abc", 1, 1.1, "1")
 
-    list[method(str, list[object] ...):integer] lmtd = [va_2, va_2, va_2]
+    list[method(string, list[object] ...):integer] lmtd = [va_2, va_2, va_2]
 
     va_1(1,2,3,4,5)
     va_2("abc", 1, 1.1, "1", [1])
@@ -962,11 +962,11 @@ method test_multiline_strs():nil
     }
 
     # Finish off with some multiline strings with escapes in interesting areas:
-    str s1 = """abc\n
+    string s1 = """abc\n
 """
-    str s2 = """abc\n
+    string s2 = """abc\n
 \n"""
-    str s3 = """\aabc\a
+    string s3 = """\aabc\a
 \aabc\a"""
 
     if ok == 0:
@@ -1205,7 +1205,7 @@ method test_assign_chain():nil
     test_id = test_id + 1
     integer ok = 1
     integer a = 10, b = 20, c = 30
-    str result
+    string result
 
     a = b = c
 
@@ -1345,33 +1345,35 @@ method test_hashes():nil
     integer ok = 1
 
     # First, that hashes create values on-demand.
-    hash[str, str] config_dict
+    hash[string, string] config_dict
     config_dict["aaa"] = "bbb"
     config_dict["bbb"] = "ccc"
 
     # Second, that hashes can use different keys.
-    hash[integer, str] int_str_map
+    hash[integer, string] int_str_map
     int_str_map[10] = "10"
     int_str_map[5000] = "11"
     int_str_map[0x10] = "12"
 
     # Numbers as keys, with some exponential stuff too.
-    hash[number, str] num_str_map
+    hash[number, string] num_str_map
     num_str_map[5.5] = "10"
     num_str_map[1e1] = "12"
 
     # static hash creation
-    hash[str, str] str_str_map = ["a" => "b", "c" => "d", "e" => "f"]
+    hash[string, string] str_str_map = ["a" => "b", "c" => "d", "e" => "f"]
     # Again, but some of the keys repeat. In this case, the right-most key
     # gets the value.
-    hash[str, str] str_str_map_two = ["a" => "a", "a" => "b", "a" => "c",
-                                      "d" => "e"]
+    hash[string, string] str_str_map_two = ["a" => "a", "a" => "b", "a" => "c",
+        "d" => "e"]
 
     # Test for object defaulting with duplicate keys.
-    hash[str, object] str_obj_map = ["a" => "1", "b" => 2, "c" => 2, "a" => 1]
+    hash[string, object] str_obj_map = ["a" => "1", "b" => 2, "c" => 2,
+        "a" => 1]
 
     object nil_obj
-    hash[str, object] str_obj_map_2 = ["a" => nil_obj, "b" => 11, "b" => nil_obj]
+    hash[string, object] str_obj_map_2 = ["a" => nil_obj, "b" => 11,
+        "b" => nil_obj]
 }
 
 method test_eq():nil

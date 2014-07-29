@@ -25,9 +25,9 @@
       lookup.
 **/
 
-static uint64_t shorthash_for_str(char *str)
+static uint64_t shorthash_for_name(char *name)
 {
-    char *ch = &str[0];
+    char *ch = &name[0];
     int i, shift;
     uint64_t ret;
     for (i = 0, shift = 0, ret = 0;
@@ -62,7 +62,7 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
     strcpy(var->name, name);
     var->line_num = *symtab->lex_linenum;
 
-    var->shorthash = shorthash_for_str(name);
+    var->shorthash = shorthash_for_name(name);
     var->sig = sig;
     var->next = NULL;
     var->parent = NULL;
@@ -399,7 +399,7 @@ static int init_classes(lily_symtab *symtab)
             new_class->sig = sig;
             new_class->id = i;
             new_class->template_count = class_seeds[i].template_count;
-            new_class->shorthash = shorthash_for_str(new_class->name);
+            new_class->shorthash = shorthash_for_name(new_class->name);
             new_class->gc_marker = class_seeds[i].gc_marker;
             new_class->flags = class_seeds[i].flags;
             new_class->is_refcounted = class_seeds[i].is_refcounted;
@@ -525,7 +525,7 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
         lit_temp = lit->next;
 
         if (lit->sig->cls->is_refcounted)
-            lily_deref_str_val(lit->value.str);
+            lily_deref_string_val(lit->value.string);
 
         lily_free(lit);
 
@@ -633,7 +633,7 @@ lily_literal *lily_get_intnum_literal(lily_symtab *symtab, lily_class *cls,
     return ret;
 }
 
-lily_literal *lily_get_str_literal(lily_symtab *symtab, char *want_str)
+lily_literal *lily_get_string_literal(lily_symtab *symtab, char *want_string)
 {
     /* The length is given because this can come from a user-defined string, or
        from something like __file__ or __method__.
@@ -641,12 +641,12 @@ lily_literal *lily_get_str_literal(lily_symtab *symtab, char *want_str)
        requirement was added. */
     lily_literal *lit, *ret;
     ret = NULL;
-    int want_str_len = strlen(want_str);
+    int want_string_len = strlen(want_string);
 
     for (lit = symtab->lit_start;lit;lit = lit->next) {
-        if (lit->sig->cls->id == SYM_CLASS_STR) {
-            if (lit->value.str->size == want_str_len &&
-                strcmp(lit->value.str->str, want_str) == 0) {
+        if (lit->sig->cls->id == SYM_CLASS_STRING) {
+            if (lit->value.string->size == want_string_len &&
+                strcmp(lit->value.string->string, want_string) == 0) {
                 ret = lit;
                 break;
             }
@@ -654,24 +654,24 @@ lily_literal *lily_get_str_literal(lily_symtab *symtab, char *want_str)
     }
 
     if (ret == NULL) {
-        lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_STR);
+        lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_STRING);
         /* lily_new_literal is guaranteed to work or raise nomem, so this is
            safe. */
-        char *str_buffer = lily_malloc((want_str_len + 1) * sizeof(char));
-        lily_str_val *sv = lily_malloc(sizeof(lily_str_val));
-        if (sv == NULL || str_buffer == NULL) {
+        char *string_buffer = lily_malloc((want_string_len + 1) * sizeof(char));
+        lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
+        if (sv == NULL || string_buffer == NULL) {
             lily_free(sv);
-            lily_free(str_buffer);
+            lily_free(string_buffer);
             lily_raise_nomem(symtab->raiser);
         }
 
-        strcpy(str_buffer, want_str);
-        sv->str = str_buffer;
-        sv->size = want_str_len;
+        strcpy(string_buffer, want_string);
+        sv->string = string_buffer;
+        sv->size = want_string_len;
         sv->refcount = 1;
 
         lily_raw_value v;
-        v.str = sv;
+        v.string = sv;
         ret = lily_new_literal(symtab, cls, v);
     }
 
@@ -723,7 +723,7 @@ lily_class *lily_class_by_name(lily_symtab *symtab, char *name)
 {
     int i;
     lily_class **classes = symtab->classes;
-    uint64_t shorthash = shorthash_for_str(name);
+    uint64_t shorthash = shorthash_for_name(name);
 
     for (i = 0;i <= symtab->class_pos;i++) {
         if (classes[i]->shorthash == shorthash)
@@ -740,7 +740,7 @@ lily_var *lily_find_class_callable(lily_symtab *symtab, lily_class *cls,
         char *name)
 {
     lily_var *iter;
-    uint64_t shorthash = shorthash_for_str(name);
+    uint64_t shorthash = shorthash_for_name(name);
 
     for (iter = cls->call_start;iter != NULL;iter = iter->next) {
         if (iter->shorthash == shorthash && strcmp(iter->name, name) == 0)
@@ -791,7 +791,7 @@ lily_var *lily_find_class_callable(lily_symtab *symtab, lily_class *cls,
 int lily_keyword_by_name(char *name)
 {
     int i;
-    uint64_t shorthash = shorthash_for_str(name);
+    uint64_t shorthash = shorthash_for_name(name);
 
     for (i = 0;i <= KEY_LAST_ID;i++) {
         if (keywords[i].shorthash == shorthash &&
@@ -809,7 +809,7 @@ lily_var *lily_scoped_var_by_name(lily_symtab *symtab, lily_var *scope_chain,
         char *name)
 {
     lily_var *var = scope_chain;
-    uint64_t shorthash = shorthash_for_str(name);
+    uint64_t shorthash = shorthash_for_name(name);
 
     while (var != NULL) {
         if (var->shorthash == shorthash &&
@@ -828,7 +828,7 @@ lily_var *lily_scoped_var_by_name(lily_symtab *symtab, lily_var *scope_chain,
 lily_var *lily_var_by_name(lily_symtab *symtab, char *name)
 {
     lily_var *var = symtab->var_start;
-    uint64_t shorthash = shorthash_for_str(name);
+    uint64_t shorthash = shorthash_for_name(name);
 
     while (var != NULL) {
         if (var->shorthash == shorthash &&
@@ -845,22 +845,22 @@ lily_var *lily_var_by_name(lily_symtab *symtab, char *name)
    This adds a new literal to the given symtab. The literal will be of the class
    'cls', and be given the value 'value'. The symbol created does not have
    VAL_IS_NIL set, because the literal is assumed to never be nil.
-   This function currently handles only integer, number, and str values.
+   This function currently handles only integer, number, and string values.
    Warning: This function calls lily_raise_nomem instead of returning NULL. */
 lily_literal *lily_new_literal(lily_symtab *symtab, lily_class *cls,
         lily_raw_value value)
 {
     lily_literal *lit = lily_malloc(sizeof(lily_literal));
     if (lit == NULL) {
-        /* Make sure any str sent will be properly free'd. */
-        if (cls->id == SYM_CLASS_STR) {
-            lily_str_val *sv = value.str;
-            lily_free(sv->str);
+        /* Make sure any string sent will be properly free'd. */
+        if (cls->id == SYM_CLASS_STRING) {
+            lily_string_val *sv = value.string;
+            lily_free(sv->string);
             lily_free(sv);
         }
         lily_raise_nomem(symtab->raiser);
     }
-    /* Literals are either str, integer, or number, so this is safe. */
+    /* Literals are either a string, integer, or number, so this is safe. */
     lit->sig = cls->sig;
 
     lit->flags = SYM_TYPE_LITERAL;
