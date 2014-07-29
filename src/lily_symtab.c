@@ -208,14 +208,13 @@ static lily_var *init_func_seed(lily_symtab *symtab,
         ret = lily_try_new_var(symtab, new_sig, seed->name, VAR_IS_READONLY);
 
         if (ret != NULL) {
+            ret->parent = cls;
             ret->value.function = lily_try_new_function_val(seed->func,
                     cls_name, seed->name);
 
             if (ret->value.function != NULL)
                 ret->flags &= ~(VAL_IS_NIL);
         }
-
-        ret->parent = cls;
     }
 
     return ret;
