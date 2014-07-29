@@ -47,7 +47,7 @@ typedef enum {
     o_obj_assign,
 
     /* Ref assign handles assignments where left and right may need a ref/deref.
-       str, method, and function are examples of this. This does not handle
+       string, method, and function are examples of this. This does not handle
        objects. */
     o_ref_assign,
 
@@ -85,7 +85,7 @@ typedef enum {
 
     /* Binary comparison ops:
        * int lineno
-       * reg(integer/number/str) left
+       * reg(integer/number/string) left
        * reg(typeof(left)) right
        * reg(integer) result */
     o_is_equal,

@@ -762,10 +762,10 @@ static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
     *pos = comment_pos;
 }
 
-/* scan_str
+/* scan_string
    This handles strings for lily_lexer. This updates the position in lexer's
    input_buffer for lily_lexer. */
-static void scan_str(lily_lex_state *lexer, int *pos, char *new_ch)
+static void scan_string(lily_lex_state *lexer, int *pos, char *new_ch)
 {
     char esc_ch;
     char *label, *input_buffer;
@@ -1200,7 +1200,7 @@ void lily_lexer(lily_lex_state *lexer)
             token = tk_eof;
         }
         else if (group == CC_DOUBLE_QUOTE) {
-            scan_str(lexer, &input_pos, ch);
+            scan_string(lexer, &input_pos, ch);
             token = tk_double_quote;
         }
         else if (group <= CC_G_TWO_LAST) {

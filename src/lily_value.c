@@ -88,12 +88,12 @@ void lily_deref_method_val(lily_method_val *mv)
     }
 }
 
-void lily_deref_str_val(lily_str_val *sv)
+void lily_deref_string_val(lily_string_val *sv)
 {
     sv->refcount--;
     if (sv->refcount == 0) {
-        if (sv->str)
-            lily_free(sv->str);
+        if (sv->string)
+            lily_free(sv->string);
         lily_free(sv);
     }
 }
@@ -156,8 +156,8 @@ void lily_deref_unknown_val(lily_value *value)
 
     if (cls_id == SYM_CLASS_LIST)
         lily_deref_list_val(value->sig, raw.list);
-    else if (cls_id == SYM_CLASS_STR)
-        lily_deref_str_val(raw.str);
+    else if (cls_id == SYM_CLASS_STRING)
+        lily_deref_string_val(raw.string);
     else if (cls_id == SYM_CLASS_METHOD)
         lily_deref_method_val(raw.method);
     else if (cls_id == SYM_CLASS_OBJECT)
@@ -183,8 +183,8 @@ void lily_deref_unknown_raw_val(lily_sig *value_sig, lily_raw_value raw)
     int cls_id = value_sig->cls->id;
     if (cls_id == SYM_CLASS_LIST)
         lily_deref_list_val(value_sig, raw.list);
-    else if (cls_id == SYM_CLASS_STR)
-        lily_deref_str_val(raw.str);
+    else if (cls_id == SYM_CLASS_STRING)
+        lily_deref_string_val(raw.string);
     else if (cls_id == SYM_CLASS_METHOD)
         lily_deref_method_val(raw.method);
     else if (cls_id == SYM_CLASS_OBJECT)

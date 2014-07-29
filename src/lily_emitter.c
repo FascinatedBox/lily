@@ -566,8 +566,8 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
     lhs_class = ast->left->result->sig->cls;
     rhs_class = ast->right->result->sig->cls;
 
-    if (lhs_class->id <= SYM_CLASS_STR &&
-        rhs_class->id <= SYM_CLASS_STR)
+    if (lhs_class->id <= SYM_CLASS_STRING &&
+        rhs_class->id <= SYM_CLASS_STRING)
         opcode = generic_binop_table[ast->op][lhs_class->id][rhs_class->id];
     else {
         /* Allow == and != for any class, so long as the signatures both match.
@@ -588,7 +588,7 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
     if (opcode == -1) {
         emit->raiser->line_adjust = ast->line_num;
         /* Print the full type, in case there's an attempt to do something like
-           list[integer] == list[str]. */
+           list[integer] == list[string]. */
         lily_raise(emit->raiser, lily_ErrSyntax,
                    "Invalid operation: %T %s %T.\n", ast->left->result->sig,
                    opname(ast->op), ast->right->result->sig);
@@ -1495,9 +1495,9 @@ static int type_matchup(lily_emit_state *emit, lily_sig *self,
    * Lists where all values are the same type are created as lists of that type.
    * If any list value is different, then the list values are cast to object,
      and the list's type is set to object.
-   * Empty lists have a type specified in them, like x = [str]. This can be a
-     complex type, if wanted. These lists will have 0 args and ->sig set to the
-     sig specified. */
+   * Empty lists have a type specified in them, like x = [string]. This can be
+     a complex type, if wanted. These lists will have 0 args and ->sig set to
+     the sig specified. */
 static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
 {
     lily_sig *elem_sig = NULL;
@@ -2386,7 +2386,7 @@ static void finalize_method_val(lily_emit_state *emit, lily_block *method_block)
         emit->unused_storage_start = method_block->storage_start;
     }
     else {
-        /* If __main__, add global functions like str's concat and all global
+        /* If __main__, add class functions like string::concat and all global
            vars. */
         int i;
         for (i = 0;i < emit->symtab->class_pos;i++) {

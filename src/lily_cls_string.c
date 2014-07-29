@@ -5,25 +5,25 @@
 #include "lily_value.h"
 #include "lily_vm.h"
 
-static lily_str_val *try_make_sv(int size)
+static lily_string_val *try_make_sv(int size)
 {
-    lily_str_val *new_sv = lily_malloc(sizeof(lily_str_val));
-    char *new_str = lily_malloc(sizeof(char) * size);
+    lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
+    char *new_string = lily_malloc(sizeof(char) * size);
 
-    if (new_sv == NULL || new_str == NULL) {
+    if (new_sv == NULL || new_string == NULL) {
         lily_free(new_sv);
-        lily_free(new_str);
+        lily_free(new_string);
         return NULL;
     }
 
-    new_sv->str = new_str;
+    new_sv->string = new_string;
     new_sv->size = size - 1;
     new_sv->refcount = 1;
 
     return new_sv;
 }
 
-/*  lily_str_concat
+/*  lily_string_concat
     Implements str::concat
 
     Arguments:
@@ -31,8 +31,8 @@ static lily_str_val *try_make_sv(int size)
     * other: The string to add.
 
     This creates a new string comprised of 'self' and 'other'. */
-void lily_str_concat(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
-        int num_args)
+void lily_string_concat(lily_vm_state *vm, lily_function_val *self,
+        uintptr_t *code, int num_args)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *result_arg = vm_regs[code[2]];
@@ -45,23 +45,23 @@ void lily_str_concat(lily_vm_state *vm, lily_function_val *self, uintptr_t *code
     if (other_arg->flags & VAL_IS_NIL)
         lily_raise(vm->raiser, lily_ErrBadValue, "String to append is nil.\n");
 
-    lily_str_val *self_sv = self_arg->value.str;
-    lily_str_val *other_sv = other_arg->value.str;
+    lily_string_val *self_sv = self_arg->value.string;
+    lily_string_val *other_sv = other_arg->value.string;
 
     int new_size = self_sv->size + other_sv->size + 1;
-    lily_str_val *new_sv = try_make_sv(new_size);
+    lily_string_val *new_sv = try_make_sv(new_size);
     if (new_sv == NULL)
         lily_raise_nomem(vm->raiser);
 
-    char *new_str = new_sv->str;
-    strcpy(new_str, self_sv->str);
-    strcat(new_str, other_sv->str);
+    char *new_str = new_sv->string;
+    strcpy(new_str, self_sv->string);
+    strcat(new_str, other_sv->string);
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_str_val(result_arg->value.str);
+        lily_deref_string_val(result_arg->value.string);
 
     result_arg->flags = 0;
-    result_arg->value.str = new_sv;
+    result_arg->value.string = new_sv;
 }
 
 #define CTYPE_WRAP(WRAP_NAME, WRAPPED_CALL) \
@@ -73,18 +73,18 @@ void WRAP_NAME(lily_vm_state *vm, lily_function_val *self, uintptr_t *code, \
     lily_value *input_arg = vm_regs[code[0]]; \
 \
     if (input_arg->flags & VAL_IS_NIL || \
-        input_arg->value.str->size == 0) { \
+        input_arg->value.string->size == 0) { \
         ret_arg->value.integer = 0; \
         ret_arg->flags = 0; \
         return; \
     } \
 \
-    char *loop_str = input_arg->value.str->str; \
+    char *loop_str = input_arg->value.string->string; \
     int i = 0; \
 \
     ret_arg->value.integer = 1; \
     ret_arg->flags = 0; \
-    for (i = 0;i < input_arg->value.str->size;i++) { \
+    for (i = 0;i < input_arg->value.string->size;i++) { \
         if (WRAPPED_CALL(loop_str[i]) == 0) { \
             ret_arg->value.integer = 0; \
             break; \
@@ -92,10 +92,10 @@ void WRAP_NAME(lily_vm_state *vm, lily_function_val *self, uintptr_t *code, \
     } \
 }
 
-CTYPE_WRAP(lily_str_isdigit, isdigit)
-CTYPE_WRAP(lily_str_isalpha, isalpha)
-CTYPE_WRAP(lily_str_isspace, isspace)
-CTYPE_WRAP(lily_str_isalnum, isalnum)
+CTYPE_WRAP(lily_string_isdigit, isdigit)
+CTYPE_WRAP(lily_string_isalpha, isalpha)
+CTYPE_WRAP(lily_string_isspace, isspace)
+CTYPE_WRAP(lily_string_isalnum, isalnum)
 
 /* This table indicates how many more bytes need to be successfully read after
    that particular byte for proper utf-8. -1 = invalid.
@@ -124,12 +124,12 @@ static const char follower_table[256] =
 /*  lstrip_utf8_start
     This is a helper for lstrip where input_arg's string has been checked to
     hold at least one utf8 chunk. */
-static int lstrip_utf8_start(lily_value *input_arg, lily_str_val *strip_sv)
+static int lstrip_utf8_start(lily_value *input_arg, lily_string_val *strip_sv)
 {
-    char *input_str = input_arg->value.str->str;
-    int input_length = input_arg->value.str->size;
+    char *input_str = input_arg->value.string->string;
+    int input_length = input_arg->value.string->size;
 
-    char *strip_str = strip_sv->str;
+    char *strip_str = strip_sv->string;
     int strip_length = strip_sv->size;
     int i = 0, j = 0, match = 1;
 
@@ -210,16 +210,16 @@ static int lstrip_utf8_start(lily_value *input_arg, lily_str_val *strip_sv)
     This is a helper for lstrip where input_arg's string has been checked to
     hold no utf8 chunks. This does byte stripping, which is simpler than utf8
     chunk check+strip. */
-static int lstrip_ascii_start(lily_value *input_arg, lily_str_val *strip_sv)
+static int lstrip_ascii_start(lily_value *input_arg, lily_string_val *strip_sv)
 {
     int i;
-    char *input_str = input_arg->value.str->str;
-    int input_length = input_arg->value.str->size;
+    char *input_str = input_arg->value.string->string;
+    int input_length = input_arg->value.string->size;
 
     if (strip_sv->size == 1) {
         /* Strip a single byte really fast. The easiest case. */
         char strip_ch;
-        strip_ch = strip_sv->str[0];
+        strip_ch = strip_sv->string[0];
         for (i = 0;i < input_length;i++) {
             if (input_str[i] != strip_ch)
                 break;
@@ -227,7 +227,7 @@ static int lstrip_ascii_start(lily_value *input_arg, lily_str_val *strip_sv)
     }
     else {
         /* Strip one of many ascii bytes. A bit tougher, but not much. */
-        char *strip_str = strip_sv->str;
+        char *strip_str = strip_sv->string;
         int strip_length = strip_sv->size;
         for (i = 0;i < input_length;i++) {
             char ch = input_str[i];
@@ -247,8 +247,8 @@ static int lstrip_ascii_start(lily_value *input_arg, lily_str_val *strip_sv)
     return i;
 }
 
-void lily_str_lstrip(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
-        int num_args)
+void lily_string_lstrip(lily_vm_state *vm, lily_function_val *self,
+        uintptr_t *code, int num_args)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -258,7 +258,7 @@ void lily_str_lstrip(lily_vm_state *vm, lily_function_val *self, uintptr_t *code
     char *strip_str;
     unsigned char ch;
     int copy_from, i, has_multibyte_char, strip_str_len;
-    lily_str_val *strip_sv;
+    lily_string_val *strip_sv;
 
     if (input_arg->flags & VAL_IS_NIL)
         lily_raise(vm->raiser, lily_ErrBadValue, "Input string is nil.\n");
@@ -267,14 +267,14 @@ void lily_str_lstrip(lily_vm_state *vm, lily_function_val *self, uintptr_t *code
         lily_raise(vm->raiser, lily_ErrBadValue, "Cannot strip nil value.\n");
 
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
-    if (input_arg->value.str->size == 0 ||
-        strip_arg->value.str->size == 0) {
+    if (input_arg->value.string->size == 0 ||
+        strip_arg->value.string->size == 0) {
         lily_assign_value(vm, result_arg, input_arg);
         return;
     }
 
-    strip_sv = strip_arg->value.str;
-    strip_str = strip_sv->str;
+    strip_sv = strip_arg->value.string;
+    strip_str = strip_sv->string;
     strip_str_len = strlen(strip_str);
     has_multibyte_char = 0;
 
@@ -291,21 +291,21 @@ void lily_str_lstrip(lily_vm_state *vm, lily_function_val *self, uintptr_t *code
     else
         copy_from = lstrip_utf8_start(input_arg, strip_sv);
 
-    int new_size = (input_arg->value.str->size - copy_from) + 1;
-    lily_str_val *new_sv = try_make_sv(new_size);
+    int new_size = (input_arg->value.string->size - copy_from) + 1;
+    lily_string_val *new_sv = try_make_sv(new_size);
     if (new_sv == NULL)
         lily_raise_nomem(vm->raiser);
 
-    strcpy(new_sv->str, input_arg->value.str->str + copy_from);
+    strcpy(new_sv->string, input_arg->value.string->string + copy_from);
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_str_val(result_arg->value.str);
+        lily_deref_string_val(result_arg->value.string);
 
     result_arg->flags = 0;
-    result_arg->value.str = new_sv;
+    result_arg->value.string = new_sv;
 }
 
-void lily_str_startswith(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
-        int num_args)
+void lily_string_startswith(lily_vm_state *vm, lily_function_val *self,
+        uintptr_t *code, int num_args)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -318,11 +318,11 @@ void lily_str_startswith(lily_vm_state *vm, lily_function_val *self, uintptr_t *
     if (prefix_arg->flags & VAL_IS_NIL)
         lily_raise(vm->raiser, lily_ErrBadValue, "Prefix is nil.\n");
 
-    char *input_raw_str = input_arg->value.str->str;
-    char *prefix_raw_str = prefix_arg->value.str->str;
-    int prefix_size = prefix_arg->value.str->size;
+    char *input_raw_str = input_arg->value.string->string;
+    char *prefix_raw_str = prefix_arg->value.string->string;
+    int prefix_size = prefix_arg->value.string->size;
 
-    if (input_arg->value.str->size < prefix_size) {
+    if (input_arg->value.string->size < prefix_size) {
         result_arg->value.integer = 0;
         result_arg->flags = 0;
         return;
@@ -345,21 +345,21 @@ void lily_str_startswith(lily_vm_state *vm, lily_function_val *self, uintptr_t *
     no utf-8 chunks. This has a fast loop for stripping one byte, and a more
     general one for stripping out different bytes.
     This returns where string copying should stop at. */
-static int rstrip_ascii_stop(lily_value *input_arg, lily_str_val *strip_sv)
+static int rstrip_ascii_stop(lily_value *input_arg, lily_string_val *strip_sv)
 {
     int i;
-    char *input_str = input_arg->value.str->str;
-    int input_length = input_arg->value.str->size;
+    char *input_str = input_arg->value.string->string;
+    int input_length = input_arg->value.string->size;
 
     if (strip_sv->size == 1) {
-        char strip_ch = strip_sv->str[0];
+        char strip_ch = strip_sv->string[0];
         for (i = input_length - 1;i >= 0;i--) {
             if (input_str[i] != strip_ch)
                 break;
         }
     }
     else {
-        char *strip_str = strip_sv->str;
+        char *strip_str = strip_sv->string;
         int strip_length = strip_sv->size;
         for (i = input_length - 1;i >= 0;i--) {
             char ch = input_str[i];
@@ -383,12 +383,12 @@ static int rstrip_ascii_stop(lily_value *input_arg, lily_str_val *strip_sv)
     This is a helper for str's rstrip that handles the case where the part to
     remove has at least one utf-8 chunk inside of it.
     This returns where string copying should stop at. */
-static int rstrip_utf8_stop(lily_value *input_arg, lily_str_val *strip_sv)
+static int rstrip_utf8_stop(lily_value *input_arg, lily_string_val *strip_sv)
 {
-    char *input_str = input_arg->value.str->str;
-    int input_length = input_arg->value.str->size;
+    char *input_str = input_arg->value.string->string;
+    int input_length = input_arg->value.string->size;
 
-    char *strip_str = strip_sv->str;
+    char *strip_str = strip_sv->string;
     int strip_length = strip_sv->size;
     int i, j;
 
@@ -437,8 +437,8 @@ static int rstrip_utf8_stop(lily_value *input_arg, lily_str_val *strip_sv)
     return i + 1;
 }
 
-void lily_str_rstrip(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
-        int num_args)
+void lily_string_rstrip(lily_vm_state *vm, lily_function_val *self,
+        uintptr_t *code, int num_args)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -448,7 +448,7 @@ void lily_str_rstrip(lily_vm_state *vm, lily_function_val *self, uintptr_t *code
     char *strip_str;
     unsigned char ch;
     int copy_to, i, has_multibyte_char, strip_str_len;
-    lily_str_val *strip_sv;
+    lily_string_val *strip_sv;
 
     if (input_arg->flags & VAL_IS_NIL)
         lily_raise(vm->raiser, lily_ErrBadValue, "Input string is nil.\n");
@@ -457,14 +457,14 @@ void lily_str_rstrip(lily_vm_state *vm, lily_function_val *self, uintptr_t *code
         lily_raise(vm->raiser, lily_ErrBadValue, "Cannot strip nil value.\n");
 
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
-    if (input_arg->value.str->size == 0 ||
-        strip_arg->value.str->size == 0) {
+    if (input_arg->value.string->size == 0 ||
+        strip_arg->value.string->size == 0) {
         lily_assign_value(vm, result_arg, input_arg);
         return;
     }
 
-    strip_sv = strip_arg->value.str;
-    strip_str = strip_sv->str;
+    strip_sv = strip_arg->value.string;
+    strip_str = strip_sv->string;
     strip_str_len = strlen(strip_str);
     has_multibyte_char = 0;
 
@@ -482,23 +482,23 @@ void lily_str_rstrip(lily_vm_state *vm, lily_function_val *self, uintptr_t *code
         copy_to = rstrip_utf8_stop(input_arg, strip_sv);
 
     int new_size = copy_to + 1;
-    lily_str_val *new_sv = try_make_sv(new_size);
+    lily_string_val *new_sv = try_make_sv(new_size);
     if (new_sv == NULL)
         lily_raise_nomem(vm->raiser);
 
-    strncpy(new_sv->str, input_arg->value.str->str, copy_to);
+    strncpy(new_sv->string, input_arg->value.string->string, copy_to);
     /* This will always copy a partial string, so make sure to add a terminator. */
-    new_sv->str[copy_to] = '\0';
+    new_sv->string[copy_to] = '\0';
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_str_val(result_arg->value.str);
+        lily_deref_string_val(result_arg->value.string);
 
     result_arg->flags = 0;
-    result_arg->value.str = new_sv;
+    result_arg->value.string = new_sv;
 }
 
-void lily_str_endswith(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
-        int num_args)
+void lily_string_endswith(lily_vm_state *vm, lily_function_val *self,
+        uintptr_t *code, int num_args)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -511,10 +511,10 @@ void lily_str_endswith(lily_vm_state *vm, lily_function_val *self, uintptr_t *co
     if (suffix_arg->flags & VAL_IS_NIL)
         lily_raise(vm->raiser, lily_ErrBadValue, "Suffix is nil.\n");
 
-    char *input_raw_str = input_arg->value.str->str;
-    char *suffix_raw_str = suffix_arg->value.str->str;
-    int input_size = input_arg->value.str->size;
-    int suffix_size = suffix_arg->value.str->size;
+    char *input_raw_str = input_arg->value.string->string;
+    char *suffix_raw_str = suffix_arg->value.string->string;
+    int input_size = input_arg->value.string->size;
+    int suffix_size = suffix_arg->value.string->size;
 
     if (suffix_size > input_size) {
         result_arg->value.integer = 0;
@@ -536,8 +536,8 @@ void lily_str_endswith(lily_vm_state *vm, lily_function_val *self, uintptr_t *co
     result_arg->value.integer = ok;
 }
 
-void lily_str_lower(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
-        int num_args)
+void lily_string_lower(lily_vm_state *vm, lily_function_val *self,
+        uintptr_t *code, int num_args)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -546,14 +546,14 @@ void lily_str_lower(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
     if (input_arg->flags & VAL_IS_NIL)
         lily_raise(vm->raiser, lily_ErrBadValue, "Input is nil.\n");
 
-    int new_size = input_arg->value.str->size + 1;
-    lily_str_val *new_sv = try_make_sv(new_size);
+    int new_size = input_arg->value.string->size + 1;
+    lily_string_val *new_sv = try_make_sv(new_size);
     if (new_sv == NULL)
         lily_raise_nomem(vm->raiser);
 
-    char *new_str = new_sv->str;
-    char *input_str = input_arg->value.str->str;
-    int input_length = input_arg->value.str->size;
+    char *new_str = new_sv->string;
+    char *input_str = input_arg->value.string->string;
+    int input_length = input_arg->value.string->size;
     int i;
 
     for (i = 0;i < input_length;i++) {
@@ -566,14 +566,14 @@ void lily_str_lower(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
     new_str[input_length] = '\0';
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_str_val(result_arg->value.str);
+        lily_deref_string_val(result_arg->value.string);
 
     result_arg->flags = 0;
-    result_arg->value.str = new_sv;
+    result_arg->value.string = new_sv;
 }
 
-void lily_str_upper(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
-        int num_args)
+void lily_string_upper(lily_vm_state *vm, lily_function_val *self,
+        uintptr_t *code, int num_args)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -582,14 +582,14 @@ void lily_str_upper(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
     if (input_arg->flags & VAL_IS_NIL)
         lily_raise(vm->raiser, lily_ErrBadValue, "Input is nil.\n");
 
-    int new_size = input_arg->value.str->size + 1;
-    lily_str_val *new_sv = try_make_sv(new_size);
+    int new_size = input_arg->value.string->size + 1;
+    lily_string_val *new_sv = try_make_sv(new_size);
     if (new_sv == NULL)
         lily_raise_nomem(vm->raiser);
 
-    char *new_str = new_sv->str;
-    char *input_str = input_arg->value.str->str;
-    int input_length = input_arg->value.str->size;
+    char *new_str = new_sv->string;
+    char *input_str = input_arg->value.string->string;
+    int input_length = input_arg->value.string->size;
     int i;
 
     for (i = 0;i < input_length;i++) {
@@ -602,14 +602,14 @@ void lily_str_upper(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
     new_str[input_length] = '\0';
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_str_val(result_arg->value.str);
+        lily_deref_string_val(result_arg->value.string);
 
     result_arg->flags = 0;
-    result_arg->value.str = new_sv;
+    result_arg->value.string = new_sv;
 }
 
-void lily_str_find(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
-        int num_args)
+void lily_string_find(lily_vm_state *vm, lily_function_val *self,
+        uintptr_t *code, int num_args)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -622,11 +622,11 @@ void lily_str_find(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
     if (find_arg->flags & VAL_IS_NIL)
         lily_raise(vm->raiser, lily_ErrBadValue, "Find str is nil.\n");
 
-    char *input_str = input_arg->value.str->str;
-    int input_length = input_arg->value.str->size;
+    char *input_str = input_arg->value.string->string;
+    int input_length = input_arg->value.string->size;
 
-    char *find_str = find_arg->value.str->str;
-    int find_length = find_arg->value.str->size;
+    char *find_str = find_arg->value.string->string;
+    int find_length = find_arg->value.string->size;
 
     if (find_length > input_length) {
         result_arg->flags = 0;
@@ -673,8 +673,8 @@ void lily_str_find(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
     result_arg->value.integer = i;
 }
 
-void lily_str_strip(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
-        int num_args)
+void lily_string_strip(lily_vm_state *vm, lily_function_val *self,
+        uintptr_t *code, int num_args)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -688,15 +688,15 @@ void lily_str_strip(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
         lily_raise(vm->raiser, lily_ErrBadValue, "Cannot strip nil value.\n");
 
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
-    if (input_arg->value.str->size == 0 ||
-        strip_arg->value.str->size == 0) {
+    if (input_arg->value.string->size == 0 ||
+        strip_arg->value.string->size == 0) {
         lily_assign_value(vm, result_arg, input_arg);
         return;
     }
 
     char ch;
-    lily_str_val *strip_sv = strip_arg->value.str;
-    char *strip_str = strip_sv->str;
+    lily_string_val *strip_sv = strip_arg->value.string;
+    char *strip_str = strip_sv->string;
     int strip_str_len = strlen(strip_str);
     int has_multibyte_char = 0;
     int copy_from, copy_to, i;
@@ -714,7 +714,7 @@ void lily_str_strip(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
     else
         copy_from = lstrip_utf8_start(input_arg, strip_sv);
 
-    if (copy_from != input_arg->value.str->size) {
+    if (copy_from != input_arg->value.string->size) {
         if (has_multibyte_char)
             copy_to = rstrip_ascii_stop(input_arg, strip_sv);
         else
@@ -726,22 +726,22 @@ void lily_str_strip(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
         copy_to = copy_from;
 
     int new_size = (copy_to - copy_from) + 1;
-    lily_str_val *new_sv = try_make_sv(new_size);
+    lily_string_val *new_sv = try_make_sv(new_size);
     if (new_sv == NULL)
         lily_raise_nomem(vm->raiser);
 
-    char *new_str = new_sv->str;
-    strncpy(new_str, input_arg->value.str->str + copy_from, new_size - 1);
+    char *new_str = new_sv->string;
+    strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
     new_str[new_size - 1] = '\0';
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_str_val(result_arg->value.str);
+        lily_deref_string_val(result_arg->value.string);
 
     result_arg->flags = 0;
-    result_arg->value.str = new_sv;
+    result_arg->value.string = new_sv;
 }
 
-/*  lily_str_trim
+/*  lily_string_trim
     Implements str::trim
 
     Arguments:
@@ -751,8 +751,8 @@ void lily_str_strip(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
     Whitespace is any of: ' \t\r\n'.
 
     Returns the newly made string. */
-void lily_str_trim(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
-        int num_args)
+void lily_string_trim(lily_vm_state *vm, lily_function_val *self,
+        uintptr_t *code, int num_args)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -762,8 +762,8 @@ void lily_str_trim(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
         lily_raise(vm->raiser, lily_ErrBadValue, "Input is nil.\n");
 
     char fake_buffer[5] = " \t\r\n";
-    lily_str_val fake_sv;
-    fake_sv.str = fake_buffer;
+    lily_string_val fake_sv;
+    fake_sv.string = fake_buffer;
     fake_sv.size = strlen(fake_buffer);
 
     int copy_from, copy_to;
@@ -771,23 +771,23 @@ void lily_str_trim(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
     copy_to = rstrip_ascii_stop(input_arg, &fake_sv);
 
     int new_size = (copy_to - copy_from) + 1;
-    lily_str_val *new_sv = try_make_sv(new_size);
+    lily_string_val *new_sv = try_make_sv(new_size);
     if (new_sv == NULL)
         lily_raise_nomem(vm->raiser);
 
-    char *new_str = new_sv->str;
+    char *new_str = new_sv->string;
 
-    strncpy(new_str, input_arg->value.str->str + copy_from, new_size - 1);
+    strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
     new_str[new_size - 1] = '\0';
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_str_val(result_arg->value.str);
+        lily_deref_string_val(result_arg->value.string);
 
     result_arg->flags = 0;
-    result_arg->value.str = new_sv;
+    result_arg->value.string = new_sv;
 }
 
-/*  lily_str_htmlencode
+/*  lily_string_htmlencode
     Implements str::htmlencode
 
     Arguments:
@@ -797,8 +797,8 @@ void lily_str_trim(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
     < becomes &lt;
     > becomes &gt;
     & becomes &amp; */
-void lily_str_htmlencode(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
-        int num_args)
+void lily_string_htmlencode(lily_vm_state *vm, lily_function_val *self,
+        uintptr_t *code, int num_args)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -813,7 +813,7 @@ void lily_str_htmlencode(lily_vm_state *vm, lily_function_val *self, uintptr_t *
     int string_fakemax = string_buffer->data_size - 5;
 
     int i = 0;
-    char *input_str = input_arg->value.str->str;
+    char *input_str = input_arg->value.string->string;
     char *ch = &input_str[0];
 
     while (1) {
@@ -862,82 +862,82 @@ void lily_str_htmlencode(lily_vm_state *vm, lily_function_val *self, uintptr_t *
         ch++;
     }
 
-    lily_str_val *new_sv = try_make_sv(i + 1);
+    lily_string_val *new_sv = try_make_sv(i + 1);
     if (new_sv == NULL)
         lily_raise_nomem(vm->raiser);
 
-    strcpy(new_sv->str, str);
+    strcpy(new_sv->string, str);
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_str_val(result_arg->value.str);
+        lily_deref_string_val(result_arg->value.string);
 
     result_arg->flags = 0;
-    result_arg->value.str = new_sv;
+    result_arg->value.string = new_sv;
 }
 
 static const lily_func_seed htmlencode =
-    {"htmlencode", lily_str_htmlencode, NULL,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STR, SYM_CLASS_STR}};
+    {"htmlencode", lily_string_htmlencode, NULL,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STRING, SYM_CLASS_STRING}};
 
 static const lily_func_seed trim =
-    {"trim", lily_str_trim, &htmlencode,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STR, SYM_CLASS_STR}};
+    {"trim", lily_string_trim, &htmlencode,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STRING, SYM_CLASS_STRING}};
 
 static const lily_func_seed strip =
-    {"strip", lily_str_strip, &trim,
-        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STR, SYM_CLASS_STR, SYM_CLASS_STR}};
+    {"strip", lily_string_strip, &trim,
+        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STRING, SYM_CLASS_STRING, SYM_CLASS_STRING}};
 
 static const lily_func_seed find =
-    {"find", lily_str_find, &strip,
-        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_INTEGER, SYM_CLASS_STR, SYM_CLASS_STR}};
+    {"find", lily_string_find, &strip,
+        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_INTEGER, SYM_CLASS_STRING, SYM_CLASS_STRING}};
 
 static const lily_func_seed upper =
-    {"upper", lily_str_upper, &find,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STR, SYM_CLASS_STR}};
+    {"upper", lily_string_upper, &find,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STRING, SYM_CLASS_STRING}};
 
 static const lily_func_seed lower =
-    {"lower", lily_str_lower, &upper,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STR, SYM_CLASS_STR}};
+    {"lower", lily_string_lower, &upper,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STRING, SYM_CLASS_STRING}};
 
 static const lily_func_seed endswith =
-    {"endswith", lily_str_endswith, &lower,
-        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_INTEGER, SYM_CLASS_STR, SYM_CLASS_STR}};
+    {"endswith", lily_string_endswith, &lower,
+        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_INTEGER, SYM_CLASS_STRING, SYM_CLASS_STRING}};
 
 static const lily_func_seed rstrip =
-    {"rstrip", lily_str_rstrip, &endswith,
-        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STR, SYM_CLASS_STR, SYM_CLASS_STR}};
+    {"rstrip", lily_string_rstrip, &endswith,
+        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STRING, SYM_CLASS_STRING, SYM_CLASS_STRING}};
 
 static const lily_func_seed startswith =
-    {"startswith", lily_str_startswith, &rstrip,
-        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_INTEGER, SYM_CLASS_STR, SYM_CLASS_STR}};
+    {"startswith", lily_string_startswith, &rstrip,
+        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_INTEGER, SYM_CLASS_STRING, SYM_CLASS_STRING}};
 
 static const lily_func_seed lstrip =
-    {"lstrip", lily_str_lstrip, &startswith,
-        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STR, SYM_CLASS_STR, SYM_CLASS_STR}};
+    {"lstrip", lily_string_lstrip, &startswith,
+        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STRING, SYM_CLASS_STRING, SYM_CLASS_STRING}};
 
 static const lily_func_seed isalnum_fn =
-    {"isalnum", lily_str_isalnum, &lstrip,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_STR}};
+    {"isalnum", lily_string_isalnum, &lstrip,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_STRING}};
 
 static const lily_func_seed isdigit_fn =
-    {"isdigit", lily_str_isdigit, &isalnum_fn,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_STR}};
+    {"isdigit", lily_string_isdigit, &isalnum_fn,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_STRING}};
 
 static const lily_func_seed isalpha_fn =
-    {"isalpha", lily_str_isalpha, &isdigit_fn,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_STR}};
+    {"isalpha", lily_string_isalpha, &isdigit_fn,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_STRING}};
 
 static const lily_func_seed isspace_fn =
-    {"isspace", lily_str_isspace, &isalpha_fn,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_STR}};
+    {"isspace", lily_string_isspace, &isalpha_fn,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_STRING}};
 
 static const lily_func_seed concat =
-    {"concat", lily_str_concat, &isspace_fn,
-        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STR, SYM_CLASS_STR, SYM_CLASS_STR}};
+    {"concat", lily_string_concat, &isspace_fn,
+        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STRING, SYM_CLASS_STRING, SYM_CLASS_STRING}};
 
 #define SEED_START concat
 
-int lily_str_setup(lily_class *cls)
+int lily_string_setup(lily_class *cls)
 {
     cls->seed_table = &SEED_START;
     return 1;

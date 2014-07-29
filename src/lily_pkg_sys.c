@@ -3,23 +3,24 @@
 #include "lily_impl.h"
 #include "lily_symtab.h"
 
-static void bind_strlist(lily_symtab *symtab, int strlist_size, char **strlist, int *ok)
+static void bind_stringlist(lily_symtab *symtab, int stringlist_size,
+        char **stringlist, int *ok)
 {
     *ok = 0;
 
-    const int ids[] = {SYM_CLASS_LIST, SYM_CLASS_STR};
+    const int ids[] = {SYM_CLASS_LIST, SYM_CLASS_STRING};
 
-    lily_sig *list_str_sig = lily_try_sig_from_ids(symtab, ids);
-    if (list_str_sig == NULL)
+    lily_sig *list_string_sig = lily_try_sig_from_ids(symtab, ids);
+    if (list_string_sig == NULL)
         return;
 
-    lily_sig *str_sig = list_str_sig->siglist[0];
-    lily_var *bound_var = lily_try_new_var(symtab, list_str_sig, "argv", 0);
+    lily_sig *string_sig = list_string_sig->siglist[0];
+    lily_var *bound_var = lily_try_new_var(symtab, list_string_sig, "argv", 0);
     if (bound_var == NULL)
         return;
 
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
-    lily_value **values = lily_malloc(strlist_size * sizeof(lily_value));
+    lily_value **values = lily_malloc(stringlist_size * sizeof(lily_value));
     if (lv == NULL || values == NULL) {
         lily_free(lv);
         lily_free(values);
@@ -28,7 +29,7 @@ static void bind_strlist(lily_symtab *symtab, int strlist_size, char **strlist, 
 
     lv->gc_entry = NULL;
     lv->elems = values;
-    lv->num_values = strlist_size;
+    lv->num_values = stringlist_size;
     lv->refcount = 1;
     lv->elems = values;
     lv->visited = 0;
@@ -37,34 +38,34 @@ static void bind_strlist(lily_symtab *symtab, int strlist_size, char **strlist, 
 
     int i, err;
     err = 0;
-    for (i = 0;i < strlist_size;i++) {
+    for (i = 0;i < stringlist_size;i++) {
         values[i] = lily_malloc(sizeof(lily_value));
         if (values[i] == NULL) {
             lv->num_values = i;
             err = 1;
             break;
         }
-        values[i]->sig = str_sig;
+        values[i]->sig = string_sig;
         values[i]->flags = VAL_IS_NIL;
     }
 
     if (err == 0) {
-        for (i = 0;i < strlist_size;i++) {
-            lily_str_val *sv = lily_malloc(sizeof(lily_str_val));
-            char *raw_str = lily_malloc(strlen(strlist[i]) + 1);
+        for (i = 0;i < stringlist_size;i++) {
+            lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
+            char *raw_string = lily_malloc(strlen(stringlist[i]) + 1);
 
-            if (sv == NULL || raw_str == NULL) {
+            if (sv == NULL || raw_string == NULL) {
                 lily_free(sv);
-                lily_free(raw_str);
+                lily_free(raw_string);
                 err = 1;
                 break;
             }
-            strcpy(raw_str, strlist[i]);
-            sv->size = strlen(strlist[i]);
+            strcpy(raw_string, stringlist[i]);
+            sv->size = strlen(stringlist[i]);
             sv->refcount = 1;
-            sv->str = raw_str;
+            sv->string = raw_string;
             values[i]->flags = 0;
-	        values[i]->value.str = sv;
+	        values[i]->value.string = sv;
         }
     }
 
@@ -85,7 +86,7 @@ int lily_pkg_sys_init(lily_symtab *symtab, int argc, char **argv)
         lily_var *save_top = symtab->var_top;
         int save_spot = symtab->next_register_spot;
 
-        bind_strlist(symtab, argc, argv, &ok);
+        bind_stringlist(symtab, argc, argv, &ok);
 
         if (ok) {
             lily_package_val *pval = lily_malloc(sizeof(lily_package_val));

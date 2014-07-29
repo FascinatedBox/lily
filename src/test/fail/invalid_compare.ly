@@ -1,6 +1,6 @@
 <@lily
 list[integer] a = [1]
-list[str] b = ["a"]
+list[string] b = ["a"]
 if a == b: {
 }
 @>

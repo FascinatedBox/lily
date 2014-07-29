@@ -40,7 +40,7 @@ typedef int (*class_eq_func)(struct lily_vm_state_t *, int *,
 typedef union lily_raw_value_t {
     int64_t integer;
     double number;
-    struct lily_str_val_t *str;
+    struct lily_string_val_t *string;
     struct lily_method_val_t *method;
     struct lily_object_val_t *object;
     struct lily_list_val_t *list;
@@ -70,7 +70,7 @@ typedef struct lily_class_t {
        allows one class that will define what class the elements are. */
     int template_count;
     /* Signatures are used to represent the type of a var. Signatures are used
-       to represent list[integer], hash[str, integer], and more. Classes are
+       to represent list[integer], hash[string, integer], and more. Classes are
        just classes.
        The sig of a class is the default signature. The integer class does not
        need a unique signature, as an example. Therefore, sig is set to a
@@ -193,12 +193,12 @@ typedef struct lily_var_t {
 
 
 
-/* This is a str. It's pretty simple. These are refcounted. */
-typedef struct lily_str_val_t {
+/* This is a string. It's pretty simple. These are refcounted. */
+typedef struct lily_string_val_t {
     int refcount;
-    char *str;
+    char *string;
     int size;
-} lily_str_val;
+} lily_string_val;
 
 /* Next are objects. These are marked as refcounted, but that's just to keep
    them from being treated like simple values (such as integer or number).
@@ -404,7 +404,7 @@ typedef struct lily_func_seed_t {
    order given by lily_seed_symtab.h */
 #define SYM_CLASS_INTEGER  0
 #define SYM_CLASS_NUMBER   1
-#define SYM_CLASS_STR      2
+#define SYM_CLASS_STRING   2
 #define SYM_CLASS_FUNCTION 3
 #define SYM_CLASS_OBJECT   4
 #define SYM_CLASS_METHOD   5

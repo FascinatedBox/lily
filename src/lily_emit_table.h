@@ -7,7 +7,7 @@
    So far, this just means plus.
    This depends on a couple assumptions:
    * The expr_assign opcode is last.
-   * Integer, number, and str have id 0, 1, and 2 respectively.
+   * Integer, number, and string have id 0, 1, and 2 respectively.
    Access it by [opcode][lhs id][rhs id]. -1 means the operation is not
    supported. */
 static const int generic_binop_table[16][3][3] =
