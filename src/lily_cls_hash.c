@@ -1,8 +1,7 @@
 #include "lily_impl.h"
 #include "lily_vm.h"
 
-void lily_hash_get(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
-        int num_args)
+void lily_hash_get(lily_vm_state *vm, lily_function_val *self, uintptr_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input = vm_regs[code[0]];

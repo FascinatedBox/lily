@@ -1646,17 +1646,14 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     }
 
     if (is_varargs) {
-        int is_method = (ast->result->sig->cls->id == SYM_CLASS_METHOD);
         lily_sig *va_comp_sig = call_sig->siglist[i + 1];
         lily_ast *save_arg = arg;
         lily_sig *save_sig;
 
-        /* Methods handle var-args by shoving them into a list so that they can
-           have a name. So the extra args need to verify against that type. */
-        if (is_method) {
-            save_sig = va_comp_sig;
-            va_comp_sig = va_comp_sig->siglist[0];
-        }
+        /* varargs is handled by shoving the excess into a list. The elements
+           need to be the type of what the list holds. */
+        save_sig = va_comp_sig;
+        va_comp_sig = va_comp_sig->siglist[0];
 
         for (;arg != NULL;arg = arg->next_arg) {
             if (arg->tree_type != tree_local_var)
@@ -1670,21 +1667,16 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         }
 
         i = (have_args - i);
-        if (is_method) {
-            lily_storage *s;
-            s = get_storage(emit, save_sig, ast->line_num);
+        lily_storage *s;
+        s = get_storage(emit, save_sig, ast->line_num);
 
-            /* Put all of the extra arguments into a list, then fix the ast so
-               eval_call has the right args and argument count.
+        write_build_op(emit, o_build_list, save_arg, save_arg->line_num, i,
+                s->reg_spot);
 
-               save_arg's line number is used in case the varargs is on a
-               different line than the opening (. */
-            write_build_op(emit, o_build_list, save_arg, save_arg->line_num, i,
-                    s->reg_spot);
-            save_arg->result = (lily_sym *)s;
-            save_arg->next_arg = NULL;
-            ast->args_collected = num_args + 1;
-        }
+        /* Fix the ast so that it thinks the vararg list is the last value. */
+        save_arg->result = (lily_sym *)s;
+        save_arg->next_arg = NULL;
+        ast->args_collected = num_args + 1;
     }
 }
 

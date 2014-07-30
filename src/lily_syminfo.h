@@ -22,7 +22,7 @@ struct lily_function_val_t;
 typedef void (*gc_marker_func)(int, struct lily_value_t *);
 /* Lily's functions are C functions which look like this. */
 typedef void (*lily_func)(struct lily_vm_state_t *, struct lily_function_val_t *,
-        uintptr_t *, int);
+        uintptr_t *);
 /* This is called to set the seed_table of a class to a something non-NULL. It
    can also do other setup if the class wants to. This is called after all
    classes have been created.
