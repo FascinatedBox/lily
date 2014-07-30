@@ -32,7 +32,7 @@ static lily_string_val *try_make_sv(int size)
 
     This creates a new string comprised of 'self' and 'other'. */
 void lily_string_concat(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code, int num_args)
+        uintptr_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *result_arg = vm_regs[code[2]];
@@ -65,8 +65,7 @@ void lily_string_concat(lily_vm_state *vm, lily_function_val *self,
 }
 
 #define CTYPE_WRAP(WRAP_NAME, WRAPPED_CALL) \
-void WRAP_NAME(lily_vm_state *vm, lily_function_val *self, uintptr_t *code, \
-        int num_args) \
+void WRAP_NAME(lily_vm_state *vm, lily_function_val *self, uintptr_t *code) \
 { \
     lily_value **vm_regs = vm->vm_regs; \
     lily_value *ret_arg = vm_regs[code[1]]; \
@@ -248,7 +247,7 @@ static int lstrip_ascii_start(lily_value *input_arg, lily_string_val *strip_sv)
 }
 
 void lily_string_lstrip(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code, int num_args)
+        uintptr_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -305,7 +304,7 @@ void lily_string_lstrip(lily_vm_state *vm, lily_function_val *self,
 }
 
 void lily_string_startswith(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code, int num_args)
+        uintptr_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -438,7 +437,7 @@ static int rstrip_utf8_stop(lily_value *input_arg, lily_string_val *strip_sv)
 }
 
 void lily_string_rstrip(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code, int num_args)
+        uintptr_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -498,7 +497,7 @@ void lily_string_rstrip(lily_vm_state *vm, lily_function_val *self,
 }
 
 void lily_string_endswith(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code, int num_args)
+        uintptr_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -537,7 +536,7 @@ void lily_string_endswith(lily_vm_state *vm, lily_function_val *self,
 }
 
 void lily_string_lower(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code, int num_args)
+        uintptr_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -573,7 +572,7 @@ void lily_string_lower(lily_vm_state *vm, lily_function_val *self,
 }
 
 void lily_string_upper(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code, int num_args)
+        uintptr_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -609,7 +608,7 @@ void lily_string_upper(lily_vm_state *vm, lily_function_val *self,
 }
 
 void lily_string_find(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code, int num_args)
+        uintptr_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -674,7 +673,7 @@ void lily_string_find(lily_vm_state *vm, lily_function_val *self,
 }
 
 void lily_string_strip(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code, int num_args)
+        uintptr_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -752,7 +751,7 @@ void lily_string_strip(lily_vm_state *vm, lily_function_val *self,
 
     Returns the newly made string. */
 void lily_string_trim(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code, int num_args)
+        uintptr_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -798,7 +797,7 @@ void lily_string_trim(lily_vm_state *vm, lily_function_val *self,
     > becomes &gt;
     & becomes &amp; */
 void lily_string_htmlencode(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code, int num_args)
+        uintptr_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];

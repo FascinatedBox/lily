@@ -588,8 +588,8 @@ void boundary_error(lily_vm_state *vm, int code_pos, int bad_index)
 /* lily_builtin_print
    This is called by the vm to implement the print function. [0] is the return
    (which isn't used), so args begin at [1]. */
-void lily_builtin_print(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
-        int num_args)
+void lily_builtin_print(lily_vm_state *vm, lily_function_val *self,
+        uintptr_t *code)
 {
     lily_value *reg = vm->vm_regs[code[0]];
     lily_impl_puts(vm->data, reg->value.string->string);
@@ -599,26 +599,30 @@ void lily_builtin_print(lily_vm_state *vm, lily_function_val *self, uintptr_t *c
    This is called by the vm to implement the printfmt function. [0] is the
    return, which is ignored in this case. [1] is the format string, and [2]+
    are the arguments. */
-void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
-        int num_args)
+void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
+        uintptr_t *code)
 {
     char fmtbuf[64];
     char save_ch;
     char *fmt, *str_start;
-    int cls_id, is_nil;
+    int cls_id;
     int arg_pos = 0, i = 0;
     lily_value **vm_regs = vm->vm_regs;
     lily_value *arg;
     lily_raw_value val;
+    lily_list_val *vararg_lv;
+    lily_object_val *arg_obj;
     void *data = vm->data;
 
     fmt = vm_regs[code[0]]->value.string->string;
+    vararg_lv = vm_regs[code[1]]->value.list;
+
     str_start = fmt;
     while (1) {
         if (fmt[i] == '\0')
             break;
         else if (fmt[i] == '%') {
-            if (arg_pos == (num_args - 1))
+            if (arg_pos == vararg_lv->num_values)
                 lily_raise(vm->raiser, lily_ErrFormat,
                         "Not enough args for printfmt.\n");
 
@@ -628,26 +632,24 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self, uintptr_t
             fmt[i] = save_ch;
             i++;
 
-            arg = vm_regs[code[arg_pos + 1]]->value.object->inner_value;
+            arg_obj = vararg_lv->elems[arg_pos]->value.object;
+            if (arg_obj->inner_value->flags & VAL_IS_NIL)
+                lily_raise(vm->raiser, lily_ErrFormat,
+                        "Argument #%d to printfmt is nil.\n", arg_pos + 2);
+
+            arg = arg_obj->inner_value;
             cls_id = arg->sig->cls->id;
             val = arg->value;
-            is_nil = 0;
 
             if (fmt[i] == 'i') {
                 if (cls_id != SYM_CLASS_INTEGER)
                     return;
-                if (is_nil)
-                    lily_impl_puts(data, "(nil)");
-                else {
-                    snprintf(fmtbuf, 63, "%" PRId64, val.integer);
-                    lily_impl_puts(data, fmtbuf);
-                }
+                snprintf(fmtbuf, 63, "%" PRId64, val.integer);
+                lily_impl_puts(data, fmtbuf);
             }
             else if (fmt[i] == 's') {
                 if (cls_id != SYM_CLASS_STRING)
                     return;
-                if (is_nil)
-                    lily_impl_puts(data, "(nil)");
                 else
                     lily_impl_puts(data, val.string->string);
             }
@@ -655,12 +657,8 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self, uintptr_t
                 if (cls_id != SYM_CLASS_NUMBER)
                     return;
 
-                if (is_nil)
-                    lily_impl_puts(data, "(nil)");
-                else {
-                    snprintf(fmtbuf, 63, "%f", val.number);
-                    lily_impl_puts(data, fmtbuf);
-                }
+                snprintf(fmtbuf, 63, "%f", val.number);
+                lily_impl_puts(data, fmtbuf);
             }
 
             str_start = fmt + i + 1;
@@ -1798,7 +1796,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 err_function = fval;
 
                 vm->in_function = 1;
-                func(vm, fval, code+code_pos+5, j);
+                func(vm, fval, code+code_pos+5);
                 vm->in_function = 0;
                 /* This function may have called the vm, thus growing the
                    number of registers. Copy over important data if that's

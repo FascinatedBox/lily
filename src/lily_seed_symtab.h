@@ -77,15 +77,15 @@ keyword_seed keywords[] = {
     {"isnil",      465625314153}
 };
 
-void lily_builtin_print(lily_vm_state *, lily_function_val *, uintptr_t *, int);
-void lily_builtin_printfmt(lily_vm_state *, lily_function_val *, uintptr_t *, int);
+void lily_builtin_print(lily_vm_state *, lily_function_val *, uintptr_t *);
+void lily_builtin_printfmt(lily_vm_state *, lily_function_val *, uintptr_t *);
 
 static const lily_func_seed print =
     {"print", lily_builtin_print, NULL,
         {SYM_CLASS_FUNCTION, 2, 0, -1, SYM_CLASS_STRING}};
 static const lily_func_seed printfmt =
     {"printfmt", lily_builtin_printfmt, &print,
-        {SYM_CLASS_FUNCTION, 3, SIG_IS_VARARGS, -1, SYM_CLASS_STRING, SYM_CLASS_OBJECT}};
+        {SYM_CLASS_FUNCTION, 3, SIG_IS_VARARGS, -1, SYM_CLASS_STRING, SYM_CLASS_LIST, SYM_CLASS_OBJECT}};
 
 /* This must always be set to the last func seed defined here. */
 #define GLOBAL_SEED_START printfmt
