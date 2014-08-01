@@ -13,7 +13,7 @@ The language currently recognizes 8 datatypes:
 
 * integer: A 64-bit signed int.
 * number: A C double.
-* str: A bunch of text.
+* string: A bunch of text.
 * list: A list of a given element.
 * hash: An associative array, having a key and value type.
 * function: A callable body of code. Some are native (defined by Lily code), and some are foreign (defined outside of Lily code). The interpreter doesn't make a distinction.
@@ -25,13 +25,13 @@ Values must be declared before they are used:
 # Here's some basic initializations.
 integer a = 10
 number b = 10.1
-str c = "abc"
+string c = "abc"
 
 # This is a list of integers. It will only take integers.
 list[integer] d = [1, 2, 3]
 
 # This is a hash that takes integers, and gives strings.
-hash[integer, str] e = [1 => "10", 2 => "20"]
+hash[integer, string] e = [1 => "10", 2 => "20"]
 
 # Here's a function that returns an integer:
 function return_10():integer
@@ -61,10 +61,10 @@ Okay, so what can things actually do?
 
 * Integers can do these operations: + - * / << >> % & | ^
 * Numbers can do these operations: + - * / %
-* Integers, numbers, and strs can all be compared using < > <= >= ==
+* Integers, numbers, and strings can all be compared using < > <= >= ==
 
 ```
-function letter_for_grade(integer grade):str
+function letter_for_grade(integer grade):string
 {
 	str letter
 	# Each condition has a : after it, similar to Python.
@@ -158,6 +158,6 @@ show [1 => "1"]
 The following are the functions that come with Lily:
 * print(text): This prints a string to stdout
 * printfmt(fmt, object...): This uses format strings to print the objects given.
-* %i for integer, %n for a number, %s for a str.
+* %i for integer, %n for a number, %s for a string.
 
 The sanity test (src/test/pass/sanity.ly) contains more examples of what the language can do.

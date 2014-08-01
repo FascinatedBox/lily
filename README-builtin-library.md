@@ -15,7 +15,7 @@ This writes the string **format** to output. **args** is a series of values pass
 ```
 object a = 10
 number b = 5.5
-str c = "abc"
+string c = "abc"
 
 printfmt("a is %i, b is %n, c is %s.\n", a, b, c)
 # a is 10, b is 5.5, c is abc.
@@ -24,62 +24,62 @@ printfmt("a is %i, b is %n, c is %s.\n", a, b, c)
 #### print(string text):nil
 * This writes **text** to output.
 
-## Class str
-Library functions are called using an object of that class, like so:
+## Class string
+Library functions are called using a value of that class, like so:
 ```
-str abc = "abc"
-str abcdef = abc.concat("def") # "abcdef"
+string abc = "abc"
+string abcdef = abc.concat("def") # "abcdef"
 ```
 
-#### str::concat(str _input_, str _to_append_):str
+#### string::concat(string _input_, string _to_append_):string
 This creates a new string based upon two strings joined together.
 
-#### str::endswith(str _input_, str _suffix_):integer
+#### string::endswith(string _input_, string _suffix_):integer
 Checks if **input** ends with **suffix**. Returns 1 if yes, 0 if no.
 
-#### str::find(str _input_, str _tofind_):integer
+#### string::find(string _input_, string _tofind_):integer
 Attempt to locate the first occurance of **tofind** within **input**. On success, the start of the match is returned (a valid index). On failure, -1 is returned.
 
-#### str::htmlencode(str _input_):str
+#### string::htmlencode(string _input_):string
 Returns a newly-made string but with the html entities within **input** converted. Here are the conversions done:
 * & becomes &amp;amp;
 * < becomes &amp;lt;
 * > becomes &amp;gt;
 
-#### str::isalpha(str _input_):integer
+#### string::isalpha(string _input_):integer
 Checks if **input** is composed of entirely alphabetic characters. Returns 1 if yes, 0 if no.
 
-#### str::isalnum(str _input_):integer
+#### string::isalnum(string _input_):integer
 Checks if **input** is composed of entirely alphanumeric characters. Returns 1 if yes, 0 if no.
 
-#### str::isdigit(str _input_):integer
+#### string::isdigit(string _input_):integer
 Checks if **input** is composed of entirely numeric characters. Returns 1 if yes, 0 if no.
 
-#### str::isspace(str _input_):integer
+#### string::isspace(string _input_):integer
 Checks if **input** is composed of entirely space characters. Space characters are defined as " \t\n\v\f\r". Returns 1 or 0.
 
-#### str::lower(str _input_):str
+#### string::lower(string _input_):string
 Creates a new string based off of **input** but with all uppercase characters turned into lowercase ones. Utf-8 characters are ignored.
 
-#### str::lstrip(str _input_, str _tostrip_):str
+#### string::lstrip(string _input_, string _tostrip_):string
 Returns a newly-made string with **tostrip** removed from the *left* of **input**. **tostrip** can be a single character or a series of characters. Utf-8 characters also allowed.
 
-#### str::rstrip(str _input_, str _tostrip_):str
+#### string::rstrip(string _input_, string _tostrip_):string
 Returns a newly-made string with **tostrip** removed from the *right* of **input**. **tostrip** can be a single character or a series of characters. Utf-8 characters also allowed.
 
-#### str::startswith(str _input_, str _prefix_):integer
+#### string::startswith(string _input_, string _prefix_):integer
 Checks if **input** starts with **prefix**. Returns 1 if yes, 0 if no.
 
-#### str::strip(str _input_, str _tostrip_):str
+#### string::strip(string _input_, string _tostrip_):string
 Returns a newly-made string with **tostrip** removed from the *left* and *right* of **input**. **tostrip** can be a single character or a series of characters. Utf-8 characters also allowed.
 
-#### str::trim(str _input_):str
+#### string::trim(string _input_):string
 Returns a newly-made string with the characters " \t\r\n" removed from *both* sides of the string. This is a convenience function that does the same as:
 ```
 input.strip(" \t\r\n")
 ```
 
-#### str::upper(str _input_):str
+#### string::upper(string _input_):string
 Creates a new string based off of **input** but with all lowercase characters turned into uppercase ones. Utf-8 characters are ignored.
 
 

@@ -19,27 +19,27 @@ From here, it should be possible to access Lily files from http://localhost/lily
 
 
 ## The server package
-It is recommended to use str::htmlencode to encode any html entities that may be present in user-sent data. The htmlencode function can be done on any str, like so:
+It is recommended to use string::htmlencode to encode any html entities that may be present in user-sent data. The htmlencode function can be done on any string, like so:
 ```
 # If "name" exists in POST vars, get it. If not, use ""
 # Take that and htmlencode it to avoid vulnerabilities.
-str name = server::post.get("name", "").htmlencode()
+string name = server::post.get("name", "").htmlencode()
 ```
 
-#### str server::httpmethod
-This is a str containing the request method sent, in all caps. For post, it's POST, get is GET, etc.
+#### string server::httpmethod
+This is a string containing the request method sent, in all caps. For post, it's POST, get is GET, etc.
 Since **server** is a package, values within it are accessed like this:
 ```
 if server::httpmethod == "POST": ...
 ```
 
-#### hash[str, str] server::env
+#### hash[string, string] server::env
 This contains a bunch of different environment variables. They differ depending on the request sent. To see what it contains, try doing this
 ```
 show server::env
 ```
 
-#### hash[str, str] server::get
+#### hash[string, string] server::get
 This contains all of the server's GET variables. If the request is not a GET request, this will be empty.
 While this is a hash, it is recommended to use the hash::get to retrieve the values, since values that don't exist will cause an error to be raised.
 ```
@@ -47,6 +47,6 @@ While this is a hash, it is recommended to use the hash::get to retrieve the val
 server::get.get("test").htmlencode()
 ```
 
-#### hash[str, str] server::post
+#### hash[string, string] server::post
 This contains all of the server's POST variables. If the request is not a POST request, this will be empty.
 This should be accessed using hash::get, just like server::get should, for the same reasons.
