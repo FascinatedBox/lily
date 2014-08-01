@@ -1,1 +1,1 @@
-<@lily    method m():nil {  } show m()    @>
+<@lily    function f():nil {  } show f()    @>

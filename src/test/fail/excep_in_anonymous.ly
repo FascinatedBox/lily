@@ -1,9 +1,9 @@
 <@lily 
-method m():nil {
+function f():nil {
     object o = 10
     string s = o.@(string)
 }
 
-list[method():nil] method_list = [m, m, m]
-method_list[0]()
+list[function():nil] function_list = [m, m, m]
+function_list[0]()
 @>

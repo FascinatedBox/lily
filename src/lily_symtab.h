@@ -10,20 +10,20 @@ typedef struct {
     lily_var *var_start;
     lily_var *var_top;
 
-    /* When a method has methods declared inside of it, those methods fall out
-       of scope when the other method goes out of scope. The inner methods end
-       up going in here. This makes the inner methods no longer reachable, but
-       keeps them alive (for obvious reasons)!
+    /* When a function has functions declared inside of it, those functions
+       fall out of scope when the other function goes out of scope. The inner
+       functions end up going in here. This makes the inner functions no longer
+       reachable, but keeps them alive (for obvious reasons)!
        Emitter adds to this as needed. Symtab is only responsible for ensuring
        that it's destroyed properly at exit. */
-    lily_var *old_method_chain;
+    lily_var *old_function_chain;
 
     lily_class **classes;
     int class_pos;
     int class_size;
     lily_sig *root_sig;
 
-    int method_depth;
+    int function_depth;
 
     /* __main__ is kept by itself because it doesn't get loaded into any
        register. This keeps the vm from seeing it and thinking __main__ needs a
@@ -38,21 +38,21 @@ typedef struct {
 } lily_symtab;
 
 /* Sync with keywords in lily_seed_symtab.h. */
-#define KEY_IF        0
-#define KEY_ELIF      1
-#define KEY_ELSE      2
-#define KEY_RETURN    3
-#define KEY_WHILE     4
-#define KEY_CONTINUE  5
-#define KEY_BREAK     6
-#define KEY_SHOW      7
-#define KEY__LINE__   8
-#define KEY__FILE__   9
-#define KEY__METHOD__ 10
-#define KEY_FOR       11
-#define KEY_DO        12
-#define KEY_ISNIL     13
-#define KEY_LAST_ID   13
+#define KEY_IF          0
+#define KEY_ELIF        1
+#define KEY_ELSE        2
+#define KEY_RETURN      3
+#define KEY_WHILE       4
+#define KEY_CONTINUE    5
+#define KEY_BREAK       6
+#define KEY_SHOW        7
+#define KEY__LINE__     8
+#define KEY__FILE__     9
+#define KEY__FUNCTION__ 10
+#define KEY_FOR         11
+#define KEY_DO          12
+#define KEY_ISNIL       13
+#define KEY_LAST_ID     13
 
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, char *);

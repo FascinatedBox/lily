@@ -3,13 +3,14 @@
 
 # include "lily_syminfo.h"
 
-lily_method_val *lily_try_new_method_val();
 lily_object_val *lily_try_new_object_val();
 lily_hash_val *lily_try_new_hash_val();
 lily_hash_elem *lily_try_new_hash_elem();
-lily_function_val *lily_try_new_function_val(lily_func, char *, char *);
+lily_function_val *lily_try_new_native_function_val(char *);
+lily_function_val *lily_try_new_foreign_function_val(lily_foreign_func, char *,
+		char *);
 
-void lily_deref_method_val(lily_method_val *);
+void lily_deref_function_val(lily_function_val *);
 void lily_deref_string_val(lily_string_val *);
 void lily_deref_object_val(lily_object_val *);
 void lily_deref_list_val(lily_sig *, lily_list_val *);

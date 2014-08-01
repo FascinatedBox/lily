@@ -6,16 +6,16 @@
 
 typedef struct lily_block_ {
     /* This is where the position in code where the last loop started.
-       while:  This is where the while was started.
-       method: loop_start is set to -1 to indicate no loop.
-       others: The loop_start of the previous block is used. This allows the
-               loop_start of the last loop to 'bubble up' to the top if inside
-               of one. */
+       while:    This is where the while was started.
+       function: loop_start is set to -1 to indicate no loop.
+       others:   The loop_start of the previous block is used. This allows the
+                 loop_start of the last loop to 'bubble up' to the top if
+                 inside of one. */
     int loop_start;
     int patch_start;
     int block_type;
     lily_var *var_start;
-    lily_var *method_var;
+    lily_var *function_var;
     int save_register_spot;
     lily_storage *storage_start;
     struct lily_block_ *next;
@@ -28,8 +28,8 @@ typedef struct {
     int patch_size;
 
     lily_var *top_var;
-    lily_method_val *top_method;
-    lily_sig *top_method_ret;
+    lily_function_val *top_function;
+    lily_sig *top_function_ret;
 
     int *lex_linenum;
 
@@ -39,7 +39,7 @@ typedef struct {
 
     lily_block *first_block;
     lily_block *current_block;
-    int method_depth;
+    int function_depth;
     lily_raiser *raiser;
     lily_ast_str_pool *oo_name_pool;
     lily_symtab *symtab;
@@ -52,7 +52,7 @@ typedef struct {
 # define BLOCK_WHILE    0x010
 # define BLOCK_DO_WHILE 0x020
 # define BLOCK_FOR_IN   0x040
-# define BLOCK_METHOD   0x100
+# define BLOCK_FUNCTION 0x100
 
 void lily_emit_eval_condition(lily_emit_state *, lily_ast_pool *);
 void lily_emit_eval_do_while_expr(lily_emit_state *, lily_ast_pool *);

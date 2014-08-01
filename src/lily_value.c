@@ -72,19 +72,19 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
     }
 }
 
-void lily_deref_method_val(lily_method_val *mv)
+void lily_deref_function_val(lily_function_val *fv)
 {
-    mv->refcount--;
-    if (mv->refcount == 0) {
-        if (mv->reg_info != NULL) {
+    fv->refcount--;
+    if (fv->refcount == 0) {
+        if (fv->reg_info != NULL) {
             int i;
-            for (i = 0;i < mv->reg_count;i++)
-                lily_free(mv->reg_info[i].name);
+            for (i = 0;i < fv->reg_count;i++)
+                lily_free(fv->reg_info[i].name);
         }
 
-        lily_free(mv->reg_info);
-        lily_free(mv->code);
-        lily_free(mv);
+        lily_free(fv->reg_info);
+        lily_free(fv->code);
+        lily_free(fv);
     }
 }
 
@@ -158,8 +158,8 @@ void lily_deref_unknown_val(lily_value *value)
         lily_deref_list_val(value->sig, raw.list);
     else if (cls_id == SYM_CLASS_STRING)
         lily_deref_string_val(raw.string);
-    else if (cls_id == SYM_CLASS_METHOD)
-        lily_deref_method_val(raw.method);
+    else if (cls_id == SYM_CLASS_FUNCTION)
+        lily_deref_function_val(raw.function);
     else if (cls_id == SYM_CLASS_OBJECT)
         lily_deref_object_val(raw.object);
     else if (cls_id == SYM_CLASS_HASH)
@@ -185,8 +185,8 @@ void lily_deref_unknown_raw_val(lily_sig *value_sig, lily_raw_value raw)
         lily_deref_list_val(value_sig, raw.list);
     else if (cls_id == SYM_CLASS_STRING)
         lily_deref_string_val(raw.string);
-    else if (cls_id == SYM_CLASS_METHOD)
-        lily_deref_method_val(raw.method);
+    else if (cls_id == SYM_CLASS_FUNCTION)
+        lily_deref_function_val(raw.function);
     else if (cls_id == SYM_CLASS_OBJECT)
         lily_deref_object_val(raw.object);
     else if (cls_id == SYM_CLASS_HASH)
@@ -197,12 +197,16 @@ void lily_deref_unknown_raw_val(lily_sig *value_sig, lily_raw_value raw)
 
 /** Value creation calls **/
 
-/* lily_try_new_function_val
-   This will attempt to create a new function value (for storing a function
-   pointer, its class name, and its actual name).
-   Note: 'try' means this call returns NULL on failure. */
-lily_function_val *lily_try_new_function_val(lily_func func, char *class_name,
-        char *name)
+/*  lily_try_new_foreign_function_val
+    Attempt to create a function that will hold a foreign value.
+
+    func:       The call to be invoked when this function gets called.
+    class_name: The name of the class that this function belongs to, or NULL.
+    name:       The name of the function itself.
+
+    Note: 'try' means this call returns NULL on failure. */
+lily_function_val *lily_try_new_foreign_function_val(lily_foreign_func func,
+        char *class_name, char *name)
 {
     lily_function_val *f = lily_malloc(sizeof(lily_function_val));
 
@@ -211,34 +215,47 @@ lily_function_val *lily_try_new_function_val(lily_func func, char *class_name,
         return NULL;
     }
 
-    f->class_name = class_name;
     f->refcount = 1;
-    f->func = func;
+    f->class_name = class_name;
     f->trace_name = name;
+    f->foreign_func = func;
+    f->code = NULL;
+    f->pos = -1;
+    f->len = -1;
+    f->reg_info = NULL;
+    f->reg_count = -1;
     return f;
 }
 
-/* lily_try_new_method_val
-   This will attempt to create a new method value (for storing code and the
-   position of it).
-   Note: 'try' means this call returns NULL on failure. */
-lily_method_val *lily_try_new_method_val()
+/*  lily_try_new_native_function_val
+    Attempt to create a function that will hold native code. This doesn't take
+    a class_name as well, because there are currently no native functions
+    within classes.
+
+    name: The name of this function.
+
+    Note: 'try' means this call returns NULL on failure. */
+lily_function_val *lily_try_new_native_function_val(char *name)
 {
-    lily_method_val *m = lily_malloc(sizeof(lily_method_val));
+    lily_function_val *f = lily_malloc(sizeof(lily_function_val));
     uintptr_t *code = lily_malloc(8 * sizeof(uintptr_t));
 
-    if (m == NULL || code == NULL) {
-        lily_free(m);
+    if (f == NULL || code == NULL) {
+        lily_free(f);
         lily_free(code);
         return NULL;
     }
 
-    m->reg_info = NULL;
-    m->refcount = 1;
-    m->code = code;
-    m->pos = 0;
-    m->len = 8;
-    return m;
+    f->refcount = 1;
+    f->class_name = NULL;
+    f->trace_name = name;
+    f->foreign_func = NULL;
+    f->code = code;
+    f->pos = 0;
+    f->len = 8;
+    f->reg_info = NULL;
+    f->reg_count = -1;
+    return f;
 }
 
 /* lily_try_new_hash_val
