@@ -56,32 +56,28 @@ int main(int argc, char **argv)
             lily_vm_stack_entry *entry;
             int i;
 
-            vm_stack = parser->vm->method_stack;
+            vm_stack = parser->vm->function_stack;
             fprintf(stderr, "Traceback:\n");
-            if (parser->vm->err_function != NULL) {
-                fprintf(stderr, "    Function \"%s\"\n",
-                        parser->vm->err_function->trace_name);
-            }
 
-            for (i = parser->vm->method_stack_pos-1;i >= 0;i--) {
+            for (i = parser->vm->function_stack_pos-1;i >= 0;i--) {
                 entry = vm_stack[i];
-                if (entry->method)
-                    fprintf(stderr, "    Method \"%s\" at line %d.\n",
-                            entry->method->trace_name, entry->line_num);
-                else {
-                    char *class_name = entry->function->class_name;
-                    char *separator;
-                    if (class_name == NULL) {
-                        class_name = "";
-                        separator = "";
-                    }
-                    else
-                        separator = "::";
+                char *class_name = entry->function->class_name;
+                char *separator;
+                if (class_name == NULL) {
+                    class_name = "";
+                    separator = "";
+                }
+                else
+                    separator = "::";
 
-                    fprintf(stderr, "    Function \"%s%s%s\".\n",
+                if (entry->function->code == NULL)
+                    fprintf(stderr, "    Function %s%s%s [builtin]\n",
                             class_name, separator,
                             entry->function->trace_name);
-                }
+                else
+                    fprintf(stderr, "    Function %s%s%s at line %d\n",
+                            class_name, separator,
+                            entry->function->trace_name, entry->line_num);
             }
         }
         exit(EXIT_FAILURE);

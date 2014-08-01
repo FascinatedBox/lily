@@ -20,8 +20,8 @@ struct lily_function_val_t;
    The is used by the gc to mark values as being visited. Values not visited
    will be collected. */
 typedef void (*gc_marker_func)(int, struct lily_value_t *);
-/* Lily's functions are C functions which look like this. */
-typedef void (*lily_func)(struct lily_vm_state_t *, struct lily_function_val_t *,
+/* Lily's foreign functions look like this. */
+typedef void (*lily_foreign_func)(struct lily_vm_state_t *, struct lily_function_val_t *,
         uintptr_t *);
 /* This is called to set the seed_table of a class to a something non-NULL. It
    can also do other setup if the class wants to. This is called after all
@@ -41,7 +41,6 @@ typedef union lily_raw_value_t {
     int64_t integer;
     double number;
     struct lily_string_val_t *string;
-    struct lily_method_val_t *method;
     struct lily_object_val_t *object;
     struct lily_list_val_t *list;
     /* generic is a subset of any type that is refcounted. */
@@ -127,11 +126,11 @@ typedef struct lily_sym_t {
     int flags;
     lily_sig *sig;
     union lily_raw_value_t value;
-    /* Every method has a set of registers that it puts the values it has into.
-       Intermediate values (such as the result of addition or a method call),
+    /* Every function has a set of registers that it puts the values it has into.
+       Intermediate values (such as the result of addition or a function call),
        parameters, and variables.
-       Note that builtin functions and declared methods do not go into
-       registers, and are instead loaded like literals. */
+       Note that functions do not go into registers, and are instead loaded
+       like literals. */
     int reg_spot;
 } lily_sym;
 
@@ -167,8 +166,8 @@ typedef struct lily_storage_t {
 typedef struct lily_var_t {
     int flags;
     lily_sig *sig;
-    /* If this var represents a method, then a valid method is created and put
-       here. Otherwise, this value is not used. */
+    /* If this var is declared function, then the native function info is
+       stored here. */
     union lily_raw_value_t value;
     int reg_spot;
     char *name;
@@ -178,11 +177,11 @@ typedef struct lily_var_t {
     /* The line on which this var was declared. If this is a builtin var, then
        line_num will be 0. */
     int line_num;
-    /* How deep that methods were when this var was declared. If this is 1,
+    /* How deep that functions were when this var was declared. If this is 1,
        then the var is in __main__ and a global. Otherwise, it is a local.
        This is an important difference, because the vm has to do different
        loads for globals versus locals. */
-    int method_depth;
+    int function_depth;
     struct lily_class_t *parent;
     struct lily_var_t *next;
 } lily_var;
@@ -247,18 +246,6 @@ typedef struct lily_hash_val_t {
     lily_hash_elem *elem_chain;
 } lily_hash_val;
 
-/* Here's what Lily's function looks like. The C function contained takes the
-   vm as the first arg so it can raise things, make gc entries, and more fun
-   stuff. */
-typedef struct lily_function_val_t {
-    int refcount;
-    lily_func func;
-    char *class_name;
-    /* This is so that anonymously calling a function doesn't result in not
-       knowing where it came from. */
-    char *trace_name;
-} lily_function_val;
-
 /* Packages hold vars of different types, and are created internally. */
 typedef struct lily_package_val_t {
     int refcount;
@@ -268,28 +255,43 @@ typedef struct lily_package_val_t {
     char *name;
 } lily_package_val;
 
-/* Finally, methods. Methods are the most complicated of all the structs in
-   lily_raw_value. */
-typedef struct lily_method_val_t {
-    int refcount;
-    /* This is the code of the method. */
-    uintptr_t *code;
-    /* For the emitter, the current position that new instructions will be
-       written to. */
-    int pos;
-    /* How much space is allocated in code.*/
-    int len;
+/* Finally, functions. Functions come in two flavors: Native and foreign.
+   * Native:  This function is declared and defined by a user. It has a code
+              section (which the vm will execute), and has to initialize
+              registers that it will use.
+   * Foreign: This function is automatically created by the interpreter. The
+              implementation is defined outside of Lily code.
 
-    /* This contains the necessary info to initialize registers when calling
-       this method. */
-    struct lily_register_info_t *reg_info;
-    /* The number of registers that this method needs. This is also the number
-       of elements in reg_info. */
-    int reg_count;
-    /* The name of this method. This allows trace to print the name of the
-       method when there's an indirect call. */
+   These two are mutually exclusive (a function must never have a foreign_func
+   set AND code). The interpreter makes no difference between either function
+   (it's the vm's job to do the right call), so they're both passable as
+   arguments to a function themselves. */
+typedef struct lily_function_val_t {
+    int refcount;
+
+    /* The name of the class that this function belongs to OR "". */
+    char *class_name;
+    /* The name of this function, for use by debug and stack trace. */
     char *trace_name;
-} lily_method_val;
+
+    /* Foreign functions only. To determine if a function is foreign, simply
+       check 'foreign_func == NULL'. */
+    lily_foreign_func foreign_func;
+
+    /* Native functions only */
+
+    /* Here's where the function's code is stored. */
+    uintptr_t *code;
+    /* This is where new instructions will get written to. It's for the
+       emitter. */
+    int pos;
+    /* This is how much space the code has allocated (again for the emitter). */
+    int len;
+    /* This is used to initialize registers when entering this function.  */
+    struct lily_register_info_t *reg_info;
+    /* Finally, this is how many registers that this function uses. */
+    int reg_count;
+} lily_function_val;
 
 /* Every value that is refcounted is a superset of this. */
 typedef struct lily_generic_val_t {
@@ -331,7 +333,7 @@ typedef struct lily_gc_entry_t {
     struct lily_gc_entry_t *next;
 } lily_gc_entry;
 
-/* This is used to initialize the registers that a method uses. It also holds
+/* This is used to initialize the registers that a function uses. It also holds
    names for doing trace. */
 typedef struct lily_register_info_t {
     lily_sig *sig;
@@ -343,7 +345,7 @@ typedef struct lily_register_info_t {
 /* This holds all the information necessary to make a new Lily function. */
 typedef struct lily_func_seed_t {
     char *name;
-    lily_func func;
+    lily_foreign_func func;
     const struct lily_func_seed_t *next;
     int arg_ids[];
 } lily_func_seed;
@@ -360,8 +362,8 @@ typedef struct lily_func_seed_t {
 
 
 /* SIG_* defines are for the flags of a lily_sig. */
-/* If set, the signature is either a vararg method or function. The last
-   argument is the type for varargs. */
+/* If set, the signature is either a vararg function. The last argument is the
+   type for varargs. */
 #define SIG_IS_VARARGS     0x1
 /* If this is set, a gc entry is allocated for the type. This means that the
    value is a superset of lily_generic_gc_val_t. */
@@ -373,8 +375,8 @@ typedef struct lily_func_seed_t {
 #define SYM_TYPE_LITERAL       0x01
 #define SYM_TYPE_VAR           0x02
 #define SYM_TYPE_STORAGE       0x04
-/* This var is out of scope. This is set when a var in a non-method block goes
-   out of scope. */
+/* This var is out of scope. This is set when a var in a non-function block
+   goes out of scope. */
 #define SYM_OUT_OF_SCOPE       0x10
 
 
@@ -382,8 +384,8 @@ typedef struct lily_func_seed_t {
    VAR_IS_READONLY on vars that won't get a register. The vm will never see
    that flag. */
 
-/* Don't put this in a register. This is used for declared methods and
-   functions, which are loaded as if they were literals. */
+/* Don't put this in a register. This is used for functions, which are loaded
+   as if they were literals. */
 #define VAR_IS_READONLY        0x40
 /* If this is set, the associated value should be treated as if it were unset,
    Don't ref/deref things which have this value associated with them.
@@ -407,13 +409,12 @@ typedef struct lily_func_seed_t {
 #define SYM_CLASS_STRING   2
 #define SYM_CLASS_FUNCTION 3
 #define SYM_CLASS_OBJECT   4
-#define SYM_CLASS_METHOD   5
-#define SYM_CLASS_LIST     6
-#define SYM_CLASS_HASH     7
-#define SYM_CLASS_TEMPLATE 8
-#define SYM_CLASS_PACKAGE  9
+#define SYM_CLASS_LIST     5
+#define SYM_CLASS_HASH     6
+#define SYM_CLASS_TEMPLATE 7
+#define SYM_CLASS_PACKAGE  8
 
-#define SYM_LAST_CLASS     9
-#define INITIAL_CLASS_SIZE 10
+#define SYM_LAST_CLASS     8
+#define INITIAL_CLASS_SIZE 9
 
 #endif

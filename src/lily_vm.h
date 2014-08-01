@@ -5,9 +5,6 @@
 # include "lily_symtab.h"
 
 typedef struct {
-    lily_method_val *method;
-    /* If the caller is a function, then this is that function. Otherwise, this
-       is NULL. */
     lily_function_val *function;
     signed int return_reg;
     /* How many registers this call uses. This is used to fix the vm's register
@@ -29,13 +26,9 @@ typedef struct lily_vm_state_t {
     int num_registers;
     int max_registers;
 
-    /* The function that raised the current error, or NULL if it wasn't from a
-       function call. */
-    lily_function_val *err_function;
-
-    lily_vm_stack_entry **method_stack;
-    int method_stack_pos;
-    int method_stack_size;
+    lily_vm_stack_entry **function_stack;
+    int function_stack_pos;
+    int function_stack_size;
 
     /* A linked list of entries that are currently being used. */
     lily_gc_entry *gc_live_entries;
@@ -60,15 +53,18 @@ typedef struct lily_vm_state_t {
     int prep_id_start;
     lily_var *prep_var_start;
 
-    /* This is a block of code given to foreign fake methods so that they'll
-       jump back to the function that did the foreign call of the vm. */
+    /* Most of the stack entries will be native functions, with the lowest
+       being __main__. __main__ has o_return_from_vm at the end, so native
+       functions are fine.
+       Foreign functions do not have native code, and they need to bail out of
+       the vm. So the vm lies and says this "foreign code" as its code. This
+       contains a o_return_from_vm as its instruction. */
     uintptr_t *foreign_code;
 
     char *sipkey;
     /* This lets the vm know that it was in a function when an error is raised
        so it can set err_function properly. Runners should only check
        err_function. */
-    int in_function;
     lily_vm_stringbuf *string_buffer;
     lily_raiser *raiser;
     void *data;

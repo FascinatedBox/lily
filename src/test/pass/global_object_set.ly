@@ -4,10 +4,10 @@
     # First, make a global object.
     object o = 10
 
-    # Make a method that sets the object to something refcounted. The bug was in
-    # the vm's o_set_global. It was treating the object like a plain refcounted
-    # value, instead of putting the new value in the object.
-    method m():nil { o = [10] }
+    # Make a function that sets the object to something refcounted. The bug was
+    # in the vm's o_set_global. It was treating the object like a plain
+    # refcounted value, instead of putting the new value in the object.
+    function m():nil { o = [10] }
 
     # Don't forget to call it!
     m()

@@ -51,24 +51,24 @@ void lily_list_append(lily_vm_state *vm, lily_function_val *self,
 
     Arguments:
     * Input: A list to iterate over. If this is nil, ErrBadValue is raised.
-    * Call:  A method to call for each element of the list.
-             This method takes the type of the list as an argument, and returns
+    * Call:  A function to call for each element of the list.
+             This function takes the type of the list as an argument, and returns
              a value of the type of the list.
 
              If the list is type 'T'
-             then the call is 'method (T):T' */
-void lily_list_apply(lily_vm_state *vm, lily_function_val *self, uintptr_t *code,
-        int num_args)
+             then the call is 'function (T):T' */
+void lily_list_apply(lily_vm_state *vm, lily_function_val *self,
+        uintptr_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_list_val *list_val = vm_regs[code[0]]->value.list;
-    lily_value *method_reg = vm_regs[code[1]];
+    lily_value *function_reg = vm_regs[code[1]];
     lily_value *vm_result;
 
     /* This must be called exactly once at the beginning of a foreign call to
        the vm. This ensures the vm has enough registers + stack for a foreign
        call (among other things). */
-    lily_vm_foreign_prep(vm, self, method_reg);
+    lily_vm_foreign_prep(vm, self, function_reg);
     int i;
     for (i = 0;i < list_val->num_values;i++) {
         /* Arguments to the native call begin at index 1. The native call needs
@@ -90,7 +90,7 @@ static lily_func_seed apply =
         {SYM_CLASS_FUNCTION, 3, 0,
             -1,
             SYM_CLASS_LIST, SYM_CLASS_TEMPLATE, 0,
-            SYM_CLASS_METHOD, 2, 0,
+            SYM_CLASS_FUNCTION, 2, 0,
                 SYM_CLASS_TEMPLATE, 0,
                 SYM_CLASS_TEMPLATE, 0
         }

@@ -1,1 +1,1 @@
-<@lily method m():nil {} if m():m() @>
+<@lily function f():nil {} if f():f() @>

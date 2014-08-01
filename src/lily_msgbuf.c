@@ -173,8 +173,7 @@ void lily_msgbuf_add_sig(lily_msgbuf *msgbuf, lily_sig *sig)
 {
     lily_msgbuf_add(msgbuf, sig->cls->name);
 
-    if (sig->cls->id == SYM_CLASS_METHOD ||
-        sig->cls->id == SYM_CLASS_FUNCTION) {
+    if (sig->cls->id == SYM_CLASS_FUNCTION) {
         lily_msgbuf_add(msgbuf, " (");
         if (sig->siglist[1] != NULL) {
             int i;

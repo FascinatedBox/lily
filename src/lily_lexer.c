@@ -408,7 +408,7 @@ static void str_close_fn(lily_lex_entry *entry)
        nothing to do here. */
 }
 
-/** Scanning methods and helpers **/
+/** Scanning functions and helpers **/
 
 /* simple_escape
    This takes in the character after an escape, and returns what the escape

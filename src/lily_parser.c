@@ -29,11 +29,11 @@
 /* These flags are for collect_var_sig. */
 
 /* Expect a name with every class given. Create a var for each class+name pair.
-   This is suitable for collecting the args of a method. */
+   This is suitable for collecting the args of a function. */
 #define CV_MAKE_VARS  0x1
 
 /* This is set if the variable is not inside another variable. This is suitable
-   for collecting a method that may have named arguments. */
+   for collecting a function that may have named arguments. */
 #define CV_TOPLEVEL   0x2
 
 #define NEED_NEXT_TOK(expected) \
@@ -174,7 +174,7 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig,
 /** Var sig collection
   * collect_* functions are used by collect_var_sig as helpers, and should not
     be called by any function except expression itself.
-  * This handles sig collection for complex signatures (lists and methods, for
+  * This handles sig collection for complex signatures (lists and function, for
     example). It shouldn't be called for simple classes.
   * Sigs are put into the parser's sig stack to keep them from being leaked
     in case of lily_raise/lily_raise_nomem being called. **/
@@ -269,7 +269,7 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
 
     lily_sig *result;
 
-    if (cls->id != SYM_CLASS_METHOD && cls->id != SYM_CLASS_FUNCTION &&
+    if (cls->id != SYM_CLASS_FUNCTION &&
         cls->id != SYM_CLASS_LIST && cls->id != SYM_CLASS_HASH) {
         result = cls->sig;
         if (flags & CV_MAKE_VARS)
@@ -321,8 +321,7 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
         if (flags & CV_MAKE_VARS)
             get_named_var(parser, result, 0);
     }
-    else if (cls->id == SYM_CLASS_METHOD ||
-             cls->id == SYM_CLASS_FUNCTION) {
+    else if (cls->id == SYM_CLASS_FUNCTION) {
         lily_sig *call_sig = lily_try_sig_for_class(parser->symtab, cls);
         lily_var *call_var;
 
@@ -332,7 +331,7 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
         if (flags & CV_MAKE_VARS) {
             if (flags & CV_TOPLEVEL) {
                 call_var = get_named_var(parser, call_sig, VAR_IS_READONLY);
-                lily_emit_enter_block(parser->emit, BLOCK_METHOD);
+                lily_emit_enter_block(parser->emit, BLOCK_FUNCTION);
             }
             else
                 call_var = get_named_var(parser, call_sig, 0);
@@ -360,14 +359,14 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
             /* It isn't nil, so it's an argument to be scanned. There's a bit of
                an interesting problem here:
 
-               The method currently has NULL as the return, which means there
+               The function currently has NULL as the return, which means there
                is none. It's also been added to symtab's chain of sigs. If the
                return that gets scanned is the same part as the rest, then
-               symtab assumes they are the same. This results in the method
+               symtab assumes they are the same. This results in the function
                having itself as a return, which causes an infinite loop when
                anything is done with that sig.
 
-               This is rather easy to do: 'method m(): method() :nil'.
+               This is rather easy to do: 'function m(): function() :nil'.
 
                The solution is to temporarily say that the call sig has 1 arg.
                This makes it impossible to match, but also makes sure that the
@@ -385,7 +384,7 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
 
         /* Let emitter know the true return type. */
         if (flags & CV_TOPLEVEL)
-            parser->emit->top_method_ret = call_sig->siglist[0];
+            parser->emit->top_function_ret = call_sig->siglist[0];
 
         result = call_sig;
     }
@@ -470,7 +469,7 @@ static lily_literal *parse_special_keyword(lily_parse_state *parser, int key_id)
     }
     else if (key_id == KEY__FILE__)
         ret = lily_get_string_literal(symtab, parser->lex->filename);
-    else if (key_id == KEY__METHOD__)
+    else if (key_id == KEY__FUNCTION__)
         ret = lily_get_string_literal(symtab, parser->emit->top_var->name);
     else
         ret = NULL;
@@ -598,8 +597,7 @@ static void expression_value(lily_parse_state *parser)
                 lily_lexer(lex);
                 if (lex->token == tk_left_parenth) {
                     int cls_id = var->sig->cls->id;
-                    if (cls_id != SYM_CLASS_METHOD &&
-                        cls_id != SYM_CLASS_FUNCTION)
+                    if (cls_id != SYM_CLASS_FUNCTION)
                         lily_raise(parser->raiser, lily_ErrSyntax,
                                 "%s is not callable.\n", var->name);
 
@@ -617,7 +615,7 @@ static void expression_value(lily_parse_state *parser)
                         continue;
                 }
                 else {
-                    if (var->method_depth == 1) {
+                    if (var->function_depth == 1) {
                         if (var->sig->cls->id == SYM_CLASS_PACKAGE)
                             expression_package(parser, var);
                         else {
@@ -626,10 +624,10 @@ static void expression_value(lily_parse_state *parser)
                                     (lily_sym *)var);
                         }
                     }
-                    else if (var->method_depth == parser->emit->method_depth)
+                    else if (var->function_depth == parser->emit->function_depth)
                         /* In this current scope? Load as a local var. */
                         lily_ast_push_local_var(parser->ast_pool, var);
-                    else if (var->method_depth == -1)
+                    else if (var->function_depth == -1)
                         /* This is a call that's not in a register. It's kind of
                            like a literal. */
                         lily_ast_push_readonly(parser->ast_pool, (lily_sym *)var);
@@ -643,7 +641,7 @@ static void expression_value(lily_parse_state *parser)
             else {
                 int key_id = lily_keyword_by_name(lex->label);
                 if (key_id == KEY__LINE__ || key_id == KEY__FILE__ ||
-                    key_id == KEY__METHOD__) {
+                    key_id == KEY__FUNCTION__) {
                     lily_literal *lit;
                     lit = parse_special_keyword(parser, key_id);
                     lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
@@ -902,8 +900,7 @@ static void expression(lily_parse_state *parser)
    number d
    list[integer] e
 
-   The complexity of the signature does not matter. Methods will typically not
-   come here (unless they are a named argument to another method).
+   This handles anything but function declarations.
    Expected token: A label (the first variable name). */
 static void parse_decl(lily_parse_state *parser, lily_sig *sig)
 {
@@ -989,7 +986,7 @@ static void break_handler(lily_parse_state *, int);
 static void show_handler(lily_parse_state *, int);
 static void file_kw_handler(lily_parse_state *, int);
 static void line_kw_handler(lily_parse_state *, int);
-static void method_kw_handler(lily_parse_state *, int);
+static void function_kw_handler(lily_parse_state *, int);
 static void for_handler(lily_parse_state *, int);
 static void do_handler(lily_parse_state *, int);
 static void isnil_handler(lily_parse_state *, int);
@@ -1007,7 +1004,7 @@ static keyword_handler *handlers[] = {
     show_handler,
     file_kw_handler,
     line_kw_handler,
-    method_kw_handler,
+    function_kw_handler,
     for_handler,
     do_handler,
     isnil_handler
@@ -1038,8 +1035,8 @@ static void statement(lily_parse_state *parser, int multi)
             if (lclass != NULL) {
                 int cls_id = lclass->id;
 
-                if (cls_id == SYM_CLASS_METHOD) {
-                    /* This will enter the method since the method is toplevel. */
+                if (cls_id == SYM_CLASS_FUNCTION) {
+                    /* This will enter the function since the function is toplevel. */
                     collect_var_sig(parser, CV_TOPLEVEL | CV_MAKE_VARS);
                     NEED_NEXT_TOK(tk_left_curly)
                     lily_lexer(lex);
@@ -1048,12 +1045,6 @@ static void statement(lily_parse_state *parser, int multi)
                     lily_sig *cls_sig = collect_var_sig(parser, 0);
                     parse_decl(parser, cls_sig);
                 }
-                else if (cls_id == SYM_CLASS_FUNCTION)
-                    /* As of now, user-declared functions can't do anything except
-                       alias the current builtins. Disable them until they're
-                       useful. */
-                    lily_raise(parser->raiser, lily_ErrSyntax,
-                               "Cannot declare user functions (yet).\n");
                 else
                     parse_decl(parser, lclass->sig);
             }
@@ -1196,11 +1187,11 @@ static void else_handler(lily_parse_state *parser, int multi)
 }
 
 /*  return_handler
-    This handles the return keyword. It'll look up the current method to see
+    This handles the return keyword. It'll look up the current function to see
     if an expression is needed, or if just 'return' alone is fine. */
 static void return_handler(lily_parse_state *parser, int multi)
 {
-    lily_sig *ret_sig = parser->emit->top_method_ret;
+    lily_sig *ret_sig = parser->emit->top_function_ret;
     if (ret_sig != NULL) {
         expression(parser);
         lily_emit_return(parser->emit, parser->ast_pool->root, ret_sig);
@@ -1279,13 +1270,13 @@ static void file_kw_handler(lily_parse_state *parser, int multi)
                "__file__ cannot be used outside of an expression.\n");
 }
 
-/*  line_kw_handler
-    This handles __method__. This raises an error because it's not considered
+/*  function_kw_handler
+    This handles __function__. This raises an error because it's not considered
     all that useful outside of an expression. */
-static void method_kw_handler(lily_parse_state *parser, int multi)
+static void function_kw_handler(lily_parse_state *parser, int multi)
 {
     lily_raise(parser->raiser, lily_ErrSyntax,
-               "__method__ cannot be used outside of an expression.\n");
+               "__function__ cannot be used outside of an expression.\n");
 }
 
 /*  for_handler

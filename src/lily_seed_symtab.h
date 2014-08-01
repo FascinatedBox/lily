@@ -40,9 +40,6 @@ class_seed class_seeds[] =
     {"object",   1, 0, 0,                  NULL,               &lily_gc_object_marker,
      &lily_object_eq},
 
-    {"method",   1, 0, 0,                  NULL,               NULL,
-     &lily_generic_eq},
-
     {"list",     1, 1, 0,                  lily_list_setup,    &lily_gc_list_marker,
      &lily_list_eq},
 
@@ -61,20 +58,20 @@ typedef const struct {
 } keyword_seed;
 
 keyword_seed keywords[] = {
-    {"if",         26217},
-    {"elif",       1718185061},
-    {"else",       1702063205},
-    {"return",     121437875889522},
-    {"while",      435610544247},
-    {"continue",   7310870969309884259},
-    {"break",      461195539042},
-    {"show",       2003789939},
-    {"__line__",   6872323081280184159},
-    {"__file__",   6872323072689856351},
-    {"__method__", 7237117975334838111},
-    {"for",        7499622},
-    {"do",         28516},
-    {"isnil",      465625314153}
+    {"if",           26217},
+    {"elif",         1718185061},
+    {"else",         1702063205},
+    {"return",       121437875889522},
+    {"while",        435610544247},
+    {"continue",     7310870969309884259},
+    {"break",        461195539042},
+    {"show",         2003789939},
+    {"__line__",     6872323081280184159},
+    {"__file__",     6872323072689856351},
+    {"__function__", 7598807797348065119},
+    {"for",          7499622},
+    {"do",           28516},
+    {"isnil",        465625314153}
 };
 
 void lily_builtin_print(lily_vm_state *, lily_function_val *, uintptr_t *);

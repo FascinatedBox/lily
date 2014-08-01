@@ -7,9 +7,9 @@
 #include "lily_opcode.h"
 
 /** Debug is responsible for pretty printing whatever value it's given. This
-    may entail methods, lists, hashes, and more. For methods, the code inside
-    of the method gets dumped. This is used to determine if an error is within
-    the emitter's code generation or the vm. **/
+    may entail functions, lists, hashes, and more. For native functions, the
+    code inside of the function gets dumped. This is used to determine if an
+    error is within the emitter's code generation or the vm. **/
 
 /* Opcode printing is handled by getting a 'call info' array for the given
    opcode. This specifies values that start with D_ that indicate how to handle
@@ -65,8 +65,8 @@
                       0: The input is a readonly var.
                       1: The input is a local register. */
 #define D_CALL_INPUT_TYPE 16
-/* D_CALL_INPUT:      Input to either a method or function call. This is shown
-                      according to what D_CALL_INPUT_TYPE picked up. */
+/* D_CALL_INPUT:      Input to a function call. This is shown according to what
+                      D_CALL_INPUT_TYPE picked up. */
 #define D_CALL_INPUT      17
 /* D_COUNT_DEPTH:     What follows is a series of indexes used in package
                       accesses. */
@@ -74,7 +74,7 @@
 
 /** Flags for show_register_info: **/
 /* This means the number given is for a register in __main__. By default, the
-   current method's info is used. */
+   current function's info is used. */
 #define RI_GLOBAL 0x1
 /* This is an input value, and should have an input prefix. */
 #define RI_INPUT  0x2
@@ -84,8 +84,8 @@
 #define RI_OUTPUT 0x4
 
 typedef struct lily_debug_state_t {
-    lily_method_val *main_method;
-    lily_method_val *current_method;
+    lily_function_val *main_function;
+    lily_function_val *current_function;
     lily_msgbuf *msgbuf;
     int indent;
     void *data;
@@ -95,7 +95,7 @@ typedef struct lily_debug_state_t {
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[50] = {
+char *opcode_names[49] = {
     "assign",
     "object assign",
     "assign (ref/deref)",
@@ -122,7 +122,6 @@ char *opcode_names[50] = {
     "jump",
     "jump if",
     "function call",
-    "method call",
     "return value",
     "return (no value)",
     "unary not (!x)",
@@ -223,8 +222,7 @@ static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
         case o_bitwise_xor:
             ret = binary_ci;
             break;
-        case o_method_call:
-        case o_func_call:
+        case o_function_call:
             ret = call_ci;
             break;
         case o_return_from_vm:
@@ -347,11 +345,11 @@ static void show_register_info(lily_debug_state *debug, int flags, int reg_num)
 
     if (flags & RI_GLOBAL) {
         scope_str = "global";
-        reg_info = debug->main_method->reg_info[reg_num];
+        reg_info = debug->main_function->reg_info[reg_num];
     }
     else {
         scope_str = "local";
-        reg_info = debug->current_method->reg_info[reg_num];
+        reg_info = debug->current_function->reg_info[reg_num];
     }
 
     if (flags & RI_INPUT)
@@ -382,7 +380,7 @@ static void show_register_info(lily_debug_state *debug, int flags, int reg_num)
 }
 
 /* show_code
-   This shows all the code in a var that holds a method. This displays the
+   This shows all the code in a var that holds a function. This displays the
    operations in a simple way so that users can get an idea of what the vm is
    seeing.
    This function uses call info (ci) to determine how to handle given opcodes.
@@ -399,15 +397,15 @@ static void show_code(lily_debug_state *debug)
 
     digits = 0;
     i = 0;
-    code = debug->current_method->code;
-    len = debug->current_method->pos;
+    code = debug->current_function->code;
+    len = debug->current_function->pos;
 
     while (len) {
         len /= 10;
         digits++;
     }
 
-    len = debug->current_method->pos;
+    len = debug->current_function->pos;
     format[0] = '%';
     if (digits >= 10) {
         format[1] = (digits / 10) + '0';
@@ -469,9 +467,9 @@ static void show_code(lily_debug_state *debug)
             else if (data_code == D_INPUT)
                 show_register_info(debug, RI_INPUT, code[i+j]);
             else if (data_code == D_OUTPUT) {
-                /* output is NULL if it's a method or function that does not
-                   return a value. Omit this for brevity (the lack of a stated
-                   output meaning it doesn't have one). */
+                /* output is NULL if it's a function that does not return a
+                   value. Omit this for brevity (the lack of a stated output
+                   meaning it doesn't have one). */
                 if (code[i+j] != -1)
                     show_register_info(debug, RI_OUTPUT, code[i+j]);
             }
@@ -635,9 +633,8 @@ static void show_hash_value(lily_debug_state *debug, lily_sig *sig,
 }
 
 /* show_value
-   This determines how to show a value given to 'show'. Most things are handled
-   here, except for lists (which recursively call this for each non-nil value),
-   and methods (which use show_code).
+   This shows a value given. Things like list and hash will call this
+   recursively for each of their elements.
    Each command should end with an extra '\n' in some way. This consistency is
    important for making sure that any value sent to show results in the same
    amount of \n's written after it. */
@@ -684,19 +681,16 @@ static void show_value(lily_debug_state *debug, lily_value *value)
 
         lily_msgbuf_add_fmt(debug->msgbuf, "^T %s\n", sig, fv->trace_name);
         write_msgbuf(debug);
-    }
-    else if (cls_id == SYM_CLASS_METHOD) {
-        lily_method_val *mv = raw_value.method;
-        lily_method_val *save_current;
 
-        lily_msgbuf_add_fmt(debug->msgbuf, "^T %s\n", sig, mv->trace_name);
-        write_msgbuf(debug);
+        if (fv->foreign_func == NULL) {
+            lily_function_val *save_current;
 
-        save_current = debug->current_method;
-        debug->current_method = mv;
-        show_code(debug);
-        debug->current_method = save_current;
-        /* The \n at the end comes from show_code always finishing that way. */
+            save_current = debug->current_function;
+            debug->current_function = fv;
+            show_code(debug);
+            debug->current_function = save_current;
+            /* The \n at the end comes from show_code always finishing that way. */
+        }
     }
     else if (cls_id == SYM_CLASS_OBJECT) {
         lily_value *obj_value = raw_value.object->inner_value;
@@ -718,14 +712,14 @@ static void show_value(lily_debug_state *debug, lily_value *value)
 /** API for lily_debug.c **/
 /* lily_show_sym
    This handles showing the information for a symbol at vm-time. */
-void lily_show_sym(lily_method_val *lily_main, lily_method_val *current_method,
-        lily_value *value, int is_global, int reg_id, lily_msgbuf *msgbuf,
-        void *data)
+void lily_show_sym(lily_function_val *lily_main,
+        lily_function_val *current_function, lily_value *value, int is_global,
+        int reg_id, lily_msgbuf *msgbuf, void *data)
 {
     lily_debug_state debug;
     debug.indent = 0;
-    debug.main_method = lily_main;
-    debug.current_method = current_method;
+    debug.main_function = lily_main;
+    debug.current_function = current_function;
     debug.msgbuf = msgbuf;
     debug.data = data;
 

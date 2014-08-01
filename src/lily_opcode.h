@@ -19,7 +19,8 @@
    * addr: The given value is an address, rather than an index to something.
            This is necessary for o_get_const.
    * reg: An integer index that maps to a local register, unless otherwise
-          specified. Each method has its own set of registers to work with.
+          specified. Each native function has its own set of registers to work
+          with.
    * reg(x): Describes an index to a local register that is guaranteed by the
              emitter to be of a given type. Negative qualifiers are okay (ex:
              !object), as well as specifying anything of a basic type (ex:
@@ -47,8 +48,7 @@ typedef enum {
     o_obj_assign,
 
     /* Ref assign handles assignments where left and right may need a ref/deref.
-       string, method, and function are examples of this. This does not handle
-       objects. */
+       string, list, and hash are examples of this. */
     o_ref_assign,
 
     /* Integer binary ops:
@@ -112,20 +112,14 @@ typedef enum {
        Emitter is responsible for ensuring the jump is valid. */
     o_jump_if,
 
-    /* Function and method calls are treated differently because they do their
-       args differently. Method wants the varargs packed into a list, and that
-       would be a waste of time for functions. This may be changed in the
-       future.
-       Both are:
+    /* Function calls:
        * int lineno
-       * reg(method * / func *) input
+       * reg(func *) input
        * int num_args
        * reg args...
        * reg result
-       Input -must- be a reg, or passing methods/functions as arguments will
-       fail. */
-    o_func_call,
-    o_method_call,
+       Input -must- be a reg, or passing functions as arguments will fail. */
+    o_function_call,
 
     /* return val:
        * int lineno
@@ -202,10 +196,10 @@ typedef enum {
 
     /* Return expected:
        * int lineno
-       This is written at the end of every method that has a non-nil return
-       value. This raises ErrReturnExpected within the vm. This has lineno
-       included because the vm expects that any opcode that raises has a line
-       number after it. */
+       This is written at the end of every native function that has a non-nil
+       return value. This raises ErrReturnExpected within the vm. This has
+       lineno included because the vm expects that any opcode that raises has
+       a line number after it. */
     o_return_expected,
 
     /* for (integer range):
@@ -278,8 +272,8 @@ typedef enum {
        * reg global_reg
        * reg local_reg
        This handles loading a global value from __main__'s registers, and
-       putting it into a local register of the current method. This also handles
-       ref/deref if necessary. */
+       putting it into a local register of the current function. This also
+       handles ref/deref if necessary. */
     o_get_global,
 
     /* set global:

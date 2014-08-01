@@ -70,13 +70,13 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
     if ((flags & VAR_IS_READONLY) == 0) {
         var->reg_spot = symtab->next_register_spot;
         symtab->next_register_spot++;
-        var->method_depth = symtab->method_depth;
+        var->function_depth = symtab->function_depth;
     }
     else {
-        /* Vars that are never intended to be assigned to (such as builtin
-           functions and declared methods) are not placed in a register. */
+        /* Vars that are never intended to be assigned to (like functions) are
+           not placed in a register. */
         var->reg_spot = -1;
-        var->method_depth = -1;
+        var->function_depth = -1;
     }
 
     if (symtab->var_start == NULL)
@@ -124,8 +124,7 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
                 siglist_size = 0;
             }
             else {
-                if (arg_id == SYM_CLASS_METHOD ||
-                    arg_id == SYM_CLASS_FUNCTION) {
+                if (arg_id == SYM_CLASS_FUNCTION) {
                     siglist_size = arg_ids[seed_pos];
                     seed_pos++;
                     flags = arg_ids[seed_pos];
@@ -200,7 +199,7 @@ static lily_var *init_func_seed(lily_symtab *symtab,
     if (cls)
         cls_name = cls->name;
     else
-        cls_name = "";
+        cls_name = NULL;
 
     int ok = 1, pos = 0;
     lily_sig *new_sig = scan_seed_arg(symtab, seed->arg_ids, &pos, &ok);
@@ -209,7 +208,7 @@ static lily_var *init_func_seed(lily_symtab *symtab,
 
         if (ret != NULL) {
             ret->parent = cls;
-            ret->value.function = lily_try_new_function_val(seed->func,
+            ret->value.function = lily_try_new_foreign_function_val(seed->func,
                     cls_name, seed->name);
 
             if (ret->value.function != NULL)
@@ -268,14 +267,13 @@ static int read_global_seeds(lily_symtab *symtab)
 
 /* init_lily_main
    Symtab init, stage 4
-   This creates __main__, which is a hidden method that holds all code that is
-   not put inside of a lily method. This is outside of read_seeds since it's the
-   only builtin method. It also takes no args.
-   __main__ is always the first var, and thus can always be found at the
-   symtab's var_start. */
+   This creates __main__, which is a function that holds all code that is not
+   put inside of a lily function. This is outside of read_seeds since it makes
+   a native function instead of a foreign one. __main__ is always the first var,
+   and thus can always be found at the symtab's var_start. */
 static int init_lily_main(lily_symtab *symtab)
 {
-    lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_METHOD);
+    lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_FUNCTION);
     lily_sig *new_sig = lily_try_sig_for_class(symtab, cls);
     if (new_sig == NULL)
         return 0;
@@ -360,8 +358,7 @@ static int init_classes(lily_symtab *symtab)
         if (new_class != NULL) {
             lily_sig *sig;
 
-            if (i == SYM_CLASS_METHOD ||
-                i == SYM_CLASS_LIST ||
+            if (i == SYM_CLASS_LIST ||
                 i == SYM_CLASS_FUNCTION ||
                 i == SYM_CLASS_TEMPLATE ||
                 i == SYM_CLASS_HASH) {
@@ -440,11 +437,11 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
     symtab->class_size = INITIAL_CLASS_SIZE;
     symtab->var_start = NULL;
     symtab->var_top = NULL;
-    symtab->old_method_chain = NULL;
+    symtab->old_function_chain = NULL;
     symtab->classes = NULL;
     symtab->lit_start = NULL;
     symtab->lit_top = NULL;
-    symtab->method_depth = 1;
+    symtab->function_depth = 1;
     /* lily_try_new_var expects lex_linenum to be the lexer's line number.
        0 is used, because these are all builtins, and the lexer may have failed
        to initialize anyway. */
@@ -479,10 +476,8 @@ void free_vars(lily_var *var)
         var_temp = var->next;
         if ((var->flags & VAL_IS_NIL) == 0) {
             int cls_id = var->sig->cls->id;
-            if (cls_id == SYM_CLASS_METHOD)
-                lily_deref_method_val(var->value.method);
-            else if (cls_id == SYM_CLASS_FUNCTION)
-                lily_free(var->value.function);
+            if (cls_id == SYM_CLASS_FUNCTION)
+                lily_deref_function_val(var->value.function);
             else
                 lily_deref_unknown_raw_val(var->sig, var->value);
         }
@@ -493,11 +488,11 @@ void free_vars(lily_var *var)
     }
 }
 
-static void free_lily_main(lily_method_val *mv)
+static void free_lily_main(lily_function_val *fv)
 {
-    lily_free(mv->reg_info);
-    lily_free(mv->code);
-    lily_free(mv);
+    lily_free(fv->reg_info);
+    lily_free(fv->code);
+    lily_free(fv);
 }
 
 /*  lily_free_symtab_lits_and_vars
@@ -542,21 +537,21 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
         }
     }
 
-    lily_method_val *main_method;
+    lily_function_val *main_function;
 
     if (symtab->var_start &&
         ((symtab->var_start->flags & VAL_IS_NIL) == 0))
-        main_method = symtab->var_start->value.method;
+        main_function = symtab->var_start->value.function;
     else
-        main_method = NULL;
+        main_function = NULL;
 
     if (symtab->var_start != NULL)
         free_vars(symtab->var_start);
-    if (symtab->old_method_chain != NULL)
-        free_vars(symtab->old_method_chain);
+    if (symtab->old_function_chain != NULL)
+        free_vars(symtab->old_function_chain);
 
-    if (main_method != NULL)
-        free_lily_main(main_method);
+    if (main_function != NULL)
+        free_lily_main(main_function);
 }
 
 /*  lily_free_symtab
@@ -635,7 +630,7 @@ lily_literal *lily_get_intnum_literal(lily_symtab *symtab, lily_class *cls,
 lily_literal *lily_get_string_literal(lily_symtab *symtab, char *want_string)
 {
     /* The length is given because this can come from a user-defined string, or
-       from something like __file__ or __method__.
+       from something like __file__ or __function__.
        In the first case, the user may have added \0's, which is why a size
        requirement was added. */
     lily_literal *lit, *ret;
@@ -725,7 +720,8 @@ lily_class *lily_class_by_name(lily_symtab *symtab, char *name)
     uint64_t shorthash = shorthash_for_name(name);
 
     for (i = 0;i <= symtab->class_pos;i++) {
-        if (classes[i]->shorthash == shorthash)
+        if (classes[i]->shorthash == shorthash &&
+            strcmp(classes[i]->name, name) == 0)
             return classes[i];
     }
 
@@ -882,8 +878,8 @@ void lily_hide_block_vars(lily_symtab *symtab, lily_var *start)
 {
     start = start->next;
 
-    /* The current method will need the vars later to set the reg_info part of
-       it. This is much, much easier if the vars are never moved to another
+    /* The current function will need the vars later to set the reg_info part
+       of it. This is much, much easier if the vars are never moved to another
        table, so mark them out of scope for now. */
     while (start) {
         start->flags |= SYM_OUT_OF_SCOPE;

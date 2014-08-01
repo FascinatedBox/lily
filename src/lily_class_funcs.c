@@ -272,7 +272,7 @@ int lily_hash_eq(lily_vm_state *vm, int *depth, lily_value *left,
 
 /* generic */
 
-/* This is used by method and function for == and !=. It's a simple pointer comparison. */
+/* This is used by function for == and !=. It's a simple pointer comparison. */
 int lily_generic_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
 {

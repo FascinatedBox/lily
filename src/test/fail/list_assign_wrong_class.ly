@@ -1,3 +1,3 @@
 <@lily
-    method mval(integer a):integer { return 10 }
-    list[method():integer] lst = [mval] @>
+    function fval(integer a):integer { return 10 }
+    list[function():integer] lst = [fval] @>

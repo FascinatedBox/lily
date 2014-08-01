@@ -1,4 +1,4 @@
 <@lily
-method m():integer { }
-m()
+function f():integer { }
+f()
 @>

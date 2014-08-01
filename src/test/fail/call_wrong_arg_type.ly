@@ -1,1 +1,1 @@
-<@lily method m(integer a):nil {} m("a") @>
+<@lily function m(integer a):nil {} f("a") @>
