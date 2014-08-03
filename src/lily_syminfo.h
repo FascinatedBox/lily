@@ -29,7 +29,7 @@ typedef void (*lily_foreign_func)(struct lily_vm_state_t *, struct lily_function
    Returns 1 if successful, 0 otherwise. */
 typedef int (*class_setup_func)(struct lily_class_t *);
 /* This is called to do == and != when the vm has complex values, and also for
-   comparing values held in an object. The vm is passed as a guard against
+   comparing values held in an any. The vm is passed as a guard against
    an infinite loop. */
 typedef int (*class_eq_func)(struct lily_vm_state_t *, int *,
         struct lily_value_t *, struct lily_value_t *);
@@ -41,7 +41,7 @@ typedef union lily_raw_value_t {
     int64_t integer;
     double number;
     struct lily_string_val_t *string;
-    struct lily_object_val_t *object;
+    struct lily_any_val_t *any;
     struct lily_list_val_t *list;
     /* generic is a subset of any type that is refcounted. */
     struct lily_generic_val_t *generic;
@@ -199,20 +199,20 @@ typedef struct lily_string_val_t {
     int size;
 } lily_string_val;
 
-/* Next are objects. These are marked as refcounted, but that's just to keep
+/* Next are anys. These are marked as refcounted, but that's just to keep
    them from being treated like simple values (such as integer or number).
    In reality, these copy their inner_value when assigning to other stuff.
-   Because an object can hold any value, it has a gc entry to allow Lily's gc
+   Because an any can hold any value, it has a gc entry to allow Lily's gc
    to check for circularity. */
-typedef struct lily_object_val_t {
+typedef struct lily_any_val_t {
     int refcount;
     struct lily_gc_entry_t *gc_entry;
     struct lily_value_t *inner_value;
-} lily_object_val;
+} lily_any_val;
 
 /* This is Lily's list. The gc_entry is only set if the symtab determines that
    the signature of the list can be refcounted. This means that list[integer]
-   will not have a gc entry, but something like list[list[object]] will. */
+   will not have a gc entry, but something like list[list[any]] will. */
 typedef struct lily_list_val_t {
     int refcount;
     struct lily_gc_entry_t *gc_entry;
@@ -389,9 +389,9 @@ typedef struct lily_func_seed_t {
 #define VAR_IS_READONLY        0x40
 /* If this is set, the associated value should be treated as if it were unset,
    Don't ref/deref things which have this value associated with them.
-   Objects: An object is nil if a value has not been allocated for it. If nil
-            values are given to an object, then the object's inner_value should
-            be set to nil. */
+   Anys: An any is nil if a value has not been allocated for it. If nil values
+         are given to an any, then the any's inner_value should be set to
+         nil. */
 #define VAL_IS_NIL              0x100
 /* If this is set, the associated value is valid, but should not get any refs
    or derefs. This is set on values that load literals to prevent literals from
@@ -408,7 +408,7 @@ typedef struct lily_func_seed_t {
 #define SYM_CLASS_NUMBER   1
 #define SYM_CLASS_STRING   2
 #define SYM_CLASS_FUNCTION 3
-#define SYM_CLASS_OBJECT   4
+#define SYM_CLASS_ANY      4
 #define SYM_CLASS_LIST     5
 #define SYM_CLASS_HASH     6
 #define SYM_CLASS_TEMPLATE 7

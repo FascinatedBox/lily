@@ -17,21 +17,21 @@ void lily_gc_collect_value(lily_sig *value_sig, lily_raw_value value)
         lily_gc_collect_list(value_sig, value.list);
     else if (entry_cls_id == SYM_CLASS_HASH)
         lily_gc_collect_hash(value_sig, value.hash);
-    else if (entry_cls_id == SYM_CLASS_OBJECT)
-        lily_gc_collect_object(value.object);
+    else if (entry_cls_id == SYM_CLASS_ANY)
+        lily_gc_collect_any(value.any);
     else
         lily_deref_unknown_raw_val(value_sig, value);
 }
 
-void lily_gc_collect_object(lily_object_val *object_val)
+void lily_gc_collect_any(lily_any_val *any_val)
 {
-    if (object_val->gc_entry->value.generic != NULL &&
-        object_val->gc_entry->last_pass != -1) {
-        /* Setting ->last_pass to -1 indicates that everything within the object
-           has been free'd except the object. The gc will free the object once
+    if (any_val->gc_entry->value.generic != NULL &&
+        any_val->gc_entry->last_pass != -1) {
+        /* Setting ->last_pass to -1 indicates that everything within the any
+           has been free'd except the any. The gc will free the any once
            all inner values have been deref'd/deleted. */
-        object_val->gc_entry->last_pass = -1;
-        lily_value *inner_value = object_val->inner_value;
+        any_val->gc_entry->last_pass = -1;
+        lily_value *inner_value = any_val->inner_value;
         if ((inner_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
             inner_value->sig->cls->is_refcounted) {
             lily_generic_val *generic_val = inner_value->value.generic;
@@ -41,14 +41,14 @@ void lily_gc_collect_object(lily_object_val *object_val)
                 generic_val->refcount--;
         }
 
-        lily_free(object_val->inner_value);
-        /* Do not free object_val here: Let the gc do that later. */
+        lily_free(any_val->inner_value);
+        /* Do not free any_val here: Let the gc do that later. */
     }
 }
 
 void lily_gc_collect_list(lily_sig *list_sig, lily_list_val *list_val)
 {
-    /* The first check is done because this list might be inside of an object
+    /* The first check is done because this list might be inside of an any
        that is being collected. So it may not be in the gc, but it needs to be
        destroyed because it was trapped in a circular ref.
        The second check acts as a 'lock' to make sure that this cannot be done

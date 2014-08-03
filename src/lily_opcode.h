@@ -23,7 +23,7 @@
           with.
    * reg(x): Describes an index to a local register that is guaranteed by the
              emitter to be of a given type. Negative qualifiers are okay (ex:
-             !object), as well as specifying anything of a basic type (ex:
+             !any), as well as specifying anything of a basic type (ex:
              list[*] to denote a list that may contain any type).
    * reg...: Indicates a series of indexes to registers that will be used as
              arguments. An argument count is provided beforehand.
@@ -39,13 +39,13 @@
 typedef enum {
     /* Assignments: int lineno, reg left, reg right. */
     o_assign,
-    /* Object assignment:
+    /* Any assignment:
        * int lineno
-       * reg(object) left
+       * reg(any) left
        * reg(*) right
-       This makes sure that objects can be assigned any value. Updates the
-       object's value sig and the value. Also does ref/deref. */
-    o_obj_assign,
+       This makes sure that anys can be assigned any value. Updates the
+       any's value sig and the value. Also does ref/deref. */
+    o_any_assign,
 
     /* Ref assign handles assignments where left and right may need a ref/deref.
        string, list, and hash are examples of this. */
@@ -164,16 +164,16 @@ typedef enum {
        count always precedes the exact number of values. */
     o_build_hash,
 
-    /* Object typecast:
+    /* Any typecast:
        * int lineno
-       * reg(object) left
-       * reg(!object) result
+       * reg(any) left
+       * reg(!any) result
        This checks that the value contained by left is the same type as result.
        If it is, left's held value is set to 'right'. This is not checked by
-       emitter (because what objects actually contain cannot be known at
+       emitter (because what anys actually contain cannot be known at
        emit-time), and may raise ErrBadCast if the types do not match.
-       This can be thought of as the converse of o_obj_assign. */
-    o_obj_typecast,
+       This can be thought of as the converse of o_any_assign. */
+    o_any_typecast,
 
     /* Integer<->Number typecast:
        * int lineno
@@ -237,7 +237,7 @@ typedef enum {
        * reg(?) right
 
        o_get_item handles getting a value at the given index and placing it
-       into 'right'. Object creation and ref/deref are handled automatically.
+       into 'right'. Any creation and ref/deref are handled automatically.
 
        Lists:
        * left is the list to take a value from.
@@ -254,8 +254,8 @@ typedef enum {
        * reg(?) left
        * reg(?) index
        * reg(?) right
-       o_set_item handles setting an item for a complex type. Object creation
-       and ref/deref are done as well.
+       o_set_item handles setting an item for a complex type. Any creation and
+       ref/deref are done as well.
 
        Lists:
        * left is the list to take a value from.
@@ -303,8 +303,8 @@ typedef enum {
        * reg value
        * reg result
        This checks for the nil flag being set on the given value, storing the
-       result in the result register. If 'value' is an object, an additional
-       check is done to see if the object contains a nil value. */
+       result in the result register. If 'value' is an any, an additional check
+       is done to see if the any contains a nil value. */
     o_isnil,
 
     /* Return from vm:

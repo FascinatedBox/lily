@@ -97,7 +97,7 @@ typedef struct lily_debug_state_t {
    No extra space means it doesn't have a line number. */
 char *opcode_names[49] = {
     "assign",
-    "object assign",
+    "any assign",
     "assign (ref/deref)",
     "integer add (+)",
     "integer minus (-)",
@@ -193,8 +193,8 @@ static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
     switch (opcode) {
         case o_assign:
         case o_ref_assign:
-        case o_obj_assign:
-        case o_obj_typecast:
+        case o_any_assign:
+        case o_any_typecast:
         case o_unary_not:
         case o_unary_minus:
             ret = in_out_ci;
@@ -692,16 +692,16 @@ static void show_value(lily_debug_state *debug, lily_value *value)
             /* The \n at the end comes from show_code always finishing that way. */
         }
     }
-    else if (cls_id == SYM_CLASS_OBJECT) {
-        lily_value *obj_value = raw_value.object->inner_value;
+    else if (cls_id == SYM_CLASS_ANY) {
+        lily_value *any_value = raw_value.any->inner_value;
 
-        /* Don't condense, or it'll be (object) (nil), which seems a bit
+        /* Don't condense, or it'll be (any) (nil), which seems a bit
            strange. */
-        if (obj_value->flags & VAL_IS_NIL)
+        if (any_value->flags & VAL_IS_NIL)
             lily_impl_puts(debug->data, "(nil)\n");
         else {
-            lily_impl_puts(debug->data, "(object) ");
-            show_value(debug, obj_value);
+            lily_impl_puts(debug->data, "(any) ");
+            show_value(debug, any_value);
         }
     }
     /* A show for package is not included because it's not currently possible

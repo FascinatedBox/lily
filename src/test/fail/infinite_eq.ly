@@ -1,5 +1,5 @@
 <@lily
-list[object] lso = [1, 2, 3]
+list[any] lso = [1, 2, 3]
 lso[0] = lso
 if lso == lso:
 	print("This will never happen.\n")
