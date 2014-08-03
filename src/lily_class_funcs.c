@@ -67,15 +67,15 @@ int lily_string_eq(lily_vm_state *vm, int *depth, lily_value *left,
     return ret;
 }
 
-/* object */
+/* any */
 
-void lily_gc_object_marker(int pass, lily_value *v)
+void lily_gc_any_marker(int pass, lily_value *v)
 {
-    lily_object_val *obj_val = v->value.object;
+    lily_any_val *any_val = v->value.any;
 
-    if (obj_val->gc_entry->last_pass != pass) {
-        obj_val->gc_entry->last_pass = pass;
-        lily_value *inner_value = obj_val->inner_value;
+    if (any_val->gc_entry->last_pass != pass) {
+        any_val->gc_entry->last_pass = pass;
+        lily_value *inner_value = any_val->inner_value;
 
         if ((inner_value->flags & VAL_IS_NIL) == 0 &&
             inner_value->sig->cls->gc_marker != NULL) {
@@ -84,7 +84,7 @@ void lily_gc_object_marker(int pass, lily_value *v)
     }
 }
 
-int lily_object_eq(lily_vm_state *vm, int *depth, lily_value *left,
+int lily_any_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
 {
     int ret;
@@ -94,8 +94,8 @@ int lily_object_eq(lily_vm_state *vm, int *depth, lily_value *left,
 
     if (((left->flags & VAL_IS_NIL) == 0) &&
         ((right->flags & VAL_IS_NIL) == 0)) {
-        lily_value *left_inner = left->value.object->inner_value;
-        lily_value *right_inner = right->value.object->inner_value;
+        lily_value *left_inner = left->value.any->inner_value;
+        lily_value *right_inner = right->value.any->inner_value;
         if (left_inner->sig == right_inner->sig) {
             class_eq_func eq_func = left_inner->sig->cls->eq_func;
 

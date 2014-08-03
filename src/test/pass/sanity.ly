@@ -52,8 +52,8 @@ function test_basic_assignments():nil
         integer g_1 = 10
     }
 
-    # Finally, objects. Objects are containers that can hold any value.
-    object h = 10
+    # Finally, anys. Anys are containers that can hold any value.
+    any h = 10
     h = "1"
     h = 1.1
     h = [1, 2, 3]
@@ -78,8 +78,8 @@ function test_basic_assignments():nil
     hash[integer, list[function():integer]] super_hash = [1 => function_list]
 
     # printfmt is a function that works like C's printf. It takes in a
-    # variable amount of objects as values.
-    # Since anything can be an object, this converts test_id to object before
+    # variable amount of anys as values.
+    # Since anything can be an any, this converts test_id to any before
     # doing the call.
     # %1 is for integers.
     printfmt("#%i: Testing basic assignments...ok.\n", test_id)
@@ -157,16 +157,16 @@ function test_printfmt():nil
     printfmt("    a, b, c are %i, %n, %s.\n", a, b, c)
 }
 
-function test_object_defaulting():nil
+function test_any_defaulting():nil
 {
-    printfmt("#%i: Testing object defaulting...", test_id)
+    printfmt("#%i: Testing any defaulting...", test_id)
     test_id = test_id + 1
 
     function m():nil {}
 
-    object other_obj = 10
-    # Object can accept any value
-    object a
+    any other_any = 10
+    # Any can accept any value
+    any a
     a = 1
     a = 1.1
     a = "10"
@@ -174,40 +174,40 @@ function test_object_defaulting():nil
     a = ["1" => 10]
     a = m
     a = printfmt
-    a = other_obj
+    a = other_any
 
-    # If a static list contains various types, they should default to object.
-    list[object] obj_list = [1, 1.1, "10", [1], ["1" => 10], m, printfmt,
-                             other_obj]
+    # If a static list contains various types, they should default to any.
+    list[any] any_list = [1, 1.1, "10", [1], ["1" => 10], m, printfmt,
+                             other_any]
 
-    # Ensure that subscript assign for lists autoconverts to object.
-    obj_list[0] = 1
-    obj_list[0] = 1.1
-    obj_list[0] = "10"
-    obj_list[0] = [1]
-    obj_list[0] = ["1" => 10]
-    obj_list[0] = m
-    obj_list[0] = printfmt
-    obj_list[0] = other_obj
+    # Ensure that subscript assign for lists autoconverts to any.
+    any_list[0] = 1
+    any_list[0] = 1.1
+    any_list[0] = "10"
+    any_list[0] = [1]
+    any_list[0] = ["1" => 10]
+    any_list[0] = m
+    any_list[0] = printfmt
+    any_list[0] = other_any
 
-    hash[string, object] obj_hash = ["integer" => 1,
+    hash[string, any] any_hash = ["integer" => 1,
                                   "number" => 1.1,
                                   "str" => "10",
                                   "list" => [1],
                                   "hash" => ["1" => 10],
                                   "function" => printfmt,
-                                  "object" => other_obj,
+                                  "any" => other_any,
                                   "test" => 1]
 
-    obj_hash["test"] = 1
-    obj_hash["test"] = 1.1
-    obj_hash["test"] = "10"
-    obj_hash["test"] = [1]
-    obj_hash["test"] = ["1" => 10]
-    obj_hash["test"] = printfmt
-    obj_hash["test"] = other_obj
+    any_hash["test"] = 1
+    any_hash["test"] = 1.1
+    any_hash["test"] = "10"
+    any_hash["test"] = [1]
+    any_hash["test"] = ["1" => 10]
+    any_hash["test"] = printfmt
+    any_hash["test"] = other_any
 
-    function test(object x):nil {}
+    function test(any x):nil {}
 
     test(1)
     test(1.1)
@@ -216,7 +216,7 @@ function test_object_defaulting():nil
     test(["1" => 10])
     test(m)
     test(printfmt)
-    test(other_obj)
+    test(other_any)
 
     print("ok.\n")
 }
@@ -225,7 +225,7 @@ function test_oo():nil
 {
     string abc = "abc", rlt
     integer i, ok
-    object abc_obj = "abc"
+    any abc_any = "abc"
     list[string] abc_list = ["abc"]
 
     printfmt("#%i: Testing oo calls...(sub tests follow).\n", test_id)
@@ -250,8 +250,8 @@ function test_oo():nil
         print("failed.\n")
     }
 
-    rlt = abc_obj.@(string).concat("def")
-    print("    abc_obj.@(string).concat(\"def\")   == \"abcdef\"...")
+    rlt = abc_any.@(string).concat("def")
+    print("    abc_any.@(string).concat(\"def\")   == \"abcdef\"...")
     if rlt == "abcdef": {
         print("ok.\n")
     else:
@@ -596,18 +596,18 @@ function test_sub_assign():nil
     function ret_20():integer { return 20 }
     function ret_30():integer { return 30 }
 
-    list[object] lso = [10, 1.1]
+    list[any] lso = [10, 1.1]
     lso[0] = 10
     lso[0] = 1.1
     lso[0] = "11"
     lso[0] = lso
-    lso[0] = lso.@(object)
-    lso[0] = [lso.@(object), lso.@(object), lso.@(object)]
+    lso[0] = lso.@(any)
+    lso[0] = [lso.@(any), lso.@(any), lso.@(any)]
     lso[0] = lso[1]
     lso[0] = print
     lso[0] = list_list_string
 
-    print("     list[object] ok.\n")
+    print("     list[any] ok.\n")
 
     print("     list[function] ")
 
@@ -695,59 +695,59 @@ function test_complex_sigs():nil
     ] list_function_n4 = [mval_1, mval_2, mval_3]
 
     function mval_4():list[integer] { return [10] }
-    function mval_5():object { return [10] }
+    function mval_5():any { return [10] }
 
     print("ok.\n")
 }
 
 function test_typecasts():nil
 {
-    printfmt("#%i: Testing typecasts from object...", test_id)
+    printfmt("#%i: Testing typecasts from any...", test_id)
     test_id = test_id + 1
 
-    object o
+    any a
     integer intval
-    o = 10
-    intval = o.@(integer)
+    a = 10
+    intval = a.@(integer)
 
     number numval
-    o = 10.0
-    numval = o.@(number)
+    a = 10.0
+    numval = a.@(number)
 
     string strval
-    o = "10"
-    strval = o.@(string)
+    a = "10"
+    strval = a.@(string)
 
     list[integer] list_intval
-    o = [1]
-    list_intval = o.@(list[integer])
+    a = [1]
+    list_intval = a.@(list[integer])
 
-    list[object] list_objval
-    object oval_1 = 10
-    object oval_2 = 1.1
-    list_objval = [oval_1, oval_2]
+    list[any] list_anyval
+    any aval_1 = 10
+    any aval_2 = 1.1
+    list_anyval = [aval_1, aval_2]
 
     function mval_10():integer { return 10 }
     function mval_20():integer { return 20 }
     function mval_30():integer { return 30 }
-    function ret_obj():object { object o2 = 10 return o2 }
+    function ret_any():any { any a2 = 10 return a2 }
 
     list[function():integer] list_mval = [mval_10]
-    o = mval_20
-    list_mval[0] = o.@(function():integer)
+    a = mval_20
+    list_mval[0] = a.@(function():integer)
 
     intval = list_mval[0]()
-    intval = o.@(function():integer)() +
-             o.@(function():integer)() +
-             o.@(function():integer)() +
-             o.@(function():integer)()
+    intval = a.@(function():integer)() +
+             a.@(function():integer)() +
+             a.@(function():integer)() +
+             a.@(function():integer)()
 
-    intval = o.@(function():integer)()
+    intval = a.@(function():integer)()
 
-    o = list_intval
-    intval = o.@(list[integer])[0]
-    intval = ret_obj().@(integer)
-    intval = list_objval[0].@(integer)
+    a = list_intval
+    intval = a.@(list[integer])[0]
+    intval = ret_any().@(integer)
+    intval = list_anyval[0].@(integer)
 
     print("ok.\n")
 }
@@ -763,29 +763,29 @@ function test_circular_ref_checks():nil
     # Lily has a gc now, so this is important but not as fragile as it used to
     # be. Hurray!
 
-    list[object] a = [1.1, 2]
+    list[any] a = [1.1, 2]
     a[0] = a
     a[1] = a
     a[1] = 1
 
-    object b = a[0]
-    object c = a[1]
+    any b = a[0]
+    any c = a[1]
 
-    list[object] d = [1, 1]
-    list[object] e = [1, 1]
+    list[any] d = [1, 1]
+    list[any] e = [1, 1]
     d[0] = e
     e[0] = d
 
-    object f = c
-    object g = d[0]
-    object h = g.@(list[object])[0]
+    any f = c
+    any g = d[0]
+    any h = g.@(list[any])[0]
 
-    list[list[object]] i = [a, a, a, a]
+    list[list[any]] i = [a, a, a, a]
     i[0][0] = i[0]
     i[0] = i[0]
 
-    list[object] j = ["1", "1"]
-    list[object] k = [1.1, 1.1]
+    list[any] j = ["1", "1"]
+    list[any] k = [1.1, 1.1]
     k[0] = j
     j[0] = k
     j[1] = k
@@ -793,42 +793,42 @@ function test_circular_ref_checks():nil
     j = [1, 1.1]
     k = [1, 1.1]
 
-    object l = 10
-    list[list[object]] m = [[l]]
+    any l = 10
+    list[list[any]] m = [[l]]
     m[0][0] = m
 
-    object n = [10]
-    object o = [n]
-    object p = [o, o, o, o]
+    any n = [10]
+    any o = [n]
+    any p = [o, o, o, o]
     n = p
     p = 1
 
-    # Test circular refs with nil.
-    object obj
-    list[object] listobj = [obj]
-    obj = listobj[0]
-
-    list[list[object]] q = [[1, 1.1]]
-    list[object] r = [1, 1.1, 1.1, 1.1]
+    list[list[any]] q = [[1, 1.1]]
+    list[any] r = [1, 1.1, 1.1, 1.1]
 
     r[0] = q
     r[1] = [q, q, q, q, [[q]], 1.1, 5]
     q[0] = r
 
-    list[object] s = [1, 2.1, 3]
-    object t = s
+    list[any] s = [1, 2.1, 3]
+    any t = s
     s[0] = t
 
-    list[object] u = [1, 2.2]
-    list[list[object]] v = [[1, 2.2]]
+    list[any] u = [1, 2.2]
+    list[list[any]] v = [[1, 2.2]]
     u[0] = [v, v, v]
     v[0] = u
     u = [1, 1.1]
     v = [[1, 1.1]]
 
-    object w
-    list[object] x = [w, w, w]
+    any w
+    list[any] x = [w, w, w]
     x[0] = x
+
+    # Test circular refs with nil.
+    any y
+    list[any] listany = [y]
+    y = listany[0]
 
     print("ok.\n")
 }
@@ -844,10 +844,10 @@ function test_function_varargs():nil
     # will take any extra integers and pack them into a list.
     function va_1(list[integer] abc...):nil {    }
 
-    # Since this one takes objects, any extra args also get converted to objects
-    # as needed. The list part of that isn't tested yet, because there is no
-    # list comparison utility.
-    function va_2(string format, list[object] args...):integer {
+    # Since this one takes anys, any extra args also get converted to anys as
+    # needed. The list part of that isn't tested yet, because there is no list
+    # comparison utility.
+    function va_2(string format, list[any] args...):integer {
         integer ok
         # This next statement helped to uncover about 3 bugs. Leave it be.
         if args[0].@(integer) == 1 &&
@@ -861,11 +861,11 @@ function test_function_varargs():nil
     }
     function va_3(integer abc, list[list[integer]] args...):nil {    }
 
-    object o = va_2
+    any a = va_2
     # Check it with a typecast too.
-    integer vx = o.@(function(string, list[object] ...):integer)("abc", 1, 1.1, "1")
+    integer vx = a.@(function(string, list[any] ...):integer)("abc", 1, 1.1, "1")
 
-    list[function(string, list[object] ...):integer] lmtd = [va_2, va_2, va_2]
+    list[function(string, list[any] ...):integer] lmtd = [va_2, va_2, va_2]
 
     va_1(1,2,3,4,5)
     va_2("abc", 1, 1.1, "1", [1])
@@ -1306,23 +1306,23 @@ function test_intnum_cast():nil
     number num1, num2
 
     ###
-    This works against objects as well so that a user doesn't have to cast the
-    cast away from object.
+    This works against anys as well so that a user doesn't have to cast the
+    cast away from any.
 
     Without:
-        number n = intobj.@(integer).@(number)
+        number n = int_any.@(integer).@(number)
     With:
-        number n = intobj.@(number)
+        number n = int_any.@(number)
     ###
 
-    object int_obj = -5
-    object num_obj = 10.5
+    any int_any = -5
+    any num_any = 10.5
 
     int1 = 10.5 .@(integer)
     num1 = -5 .@(number)
 
-    int2 = num_obj.@(integer)
-    num2 = int_obj.@(number)
+    int2 = num_any.@(integer)
+    num2 = int_any.@(number)
 
     if int1 == 10 && int2 == 10 && num1 == -5.0 && num2 == -5.0: {
         print("ok.\n")
@@ -1361,13 +1361,13 @@ function test_hashes():nil
     hash[string, string] str_str_map_two = ["a" => "a", "a" => "b", "a" => "c",
         "d" => "e"]
 
-    # Test for object defaulting with duplicate keys.
-    hash[string, object] str_obj_map = ["a" => "1", "b" => 2, "c" => 2,
+    # Test for any defaulting with duplicate keys.
+    hash[string, any] str_any_map = ["a" => "1", "b" => 2, "c" => 2,
         "a" => 1]
 
-    object nil_obj
-    hash[string, object] str_obj_map_2 = ["a" => nil_obj, "b" => 11,
-        "b" => nil_obj]
+    any nil_any
+    hash[string, any] str_any_map_2 = ["a" => nil_any, "b" => 11,
+        "b" => nil_any]
 }
 
 function test_eq():nil
@@ -1463,7 +1463,7 @@ list[function():nil] function_list =
     test_basic_assignments,
     test_conditions,
     test_printfmt,
-    test_object_defaulting,
+    test_any_defaulting,
     test_oo,
     test_utf8,
     test_escapes,

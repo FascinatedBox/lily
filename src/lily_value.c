@@ -20,12 +20,9 @@ void lily_deref_hash_val(lily_sig *sig, lily_hash_val *hv)
             if ((elem_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
                 value_is_refcounted)
                 lily_deref_unknown_val(elem_value);
-            else if (value_cls_id == SYM_CLASS_OBJECT) {
-                /* Objects are containers that are not shared. This circularity
-                   applies to what's inside the object, not the object itself.
-                   Make sure to destroy the object. */
-                lily_object_val *ov = elem_value->value.object;
-                lily_free(ov);
+            else if (value_cls_id == SYM_CLASS_ANY) {
+                lily_any_val *av = elem_value->value.any;
+                lily_free(av);
             }
 
             save_next = elem->next;
@@ -98,21 +95,21 @@ void lily_deref_string_val(lily_string_val *sv)
     }
 }
 
-void lily_deref_object_val(lily_object_val *ov)
+void lily_deref_any_val(lily_any_val *av)
 {
-    ov->refcount--;
-    if (ov->refcount == 0) {
-        /* Objects always have a gc entry, so make sure the value of it is set
-           to NULL. This prevents the gc from trying to access this object that
-           is about to be destroyed. */
-        ov->gc_entry->value.generic = NULL;
+    av->refcount--;
+    if (av->refcount == 0) {
+        /* Values of type Any always have a gc entry, so make sure the value of
+           it is set to NULL. This prevents the gc from trying to access this
+           Any that is about to be destroyed. */
+        av->gc_entry->value.generic = NULL;
 
-        if ((ov->inner_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
-            ov->inner_value->sig->cls->is_refcounted)
-            lily_deref_unknown_val(ov->inner_value);
+        if ((av->inner_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
+            av->inner_value->sig->cls->is_refcounted)
+            lily_deref_unknown_val(av->inner_value);
 
-        lily_free(ov->inner_value);
-        lily_free(ov);
+        lily_free(av->inner_value);
+        lily_free(av);
     }
 }
 
@@ -160,8 +157,8 @@ void lily_deref_unknown_val(lily_value *value)
         lily_deref_string_val(raw.string);
     else if (cls_id == SYM_CLASS_FUNCTION)
         lily_deref_function_val(raw.function);
-    else if (cls_id == SYM_CLASS_OBJECT)
-        lily_deref_object_val(raw.object);
+    else if (cls_id == SYM_CLASS_ANY)
+        lily_deref_any_val(raw.any);
     else if (cls_id == SYM_CLASS_HASH)
         lily_deref_hash_val(value->sig, raw.hash);
     else if (cls_id == SYM_CLASS_PACKAGE)
@@ -187,8 +184,8 @@ void lily_deref_unknown_raw_val(lily_sig *value_sig, lily_raw_value raw)
         lily_deref_string_val(raw.string);
     else if (cls_id == SYM_CLASS_FUNCTION)
         lily_deref_function_val(raw.function);
-    else if (cls_id == SYM_CLASS_OBJECT)
-        lily_deref_object_val(raw.object);
+    else if (cls_id == SYM_CLASS_ANY)
+        lily_deref_any_val(raw.any);
     else if (cls_id == SYM_CLASS_HASH)
         lily_deref_hash_val(value_sig, raw.hash);
     else if (cls_id == SYM_CLASS_PACKAGE)
@@ -308,27 +305,27 @@ lily_hash_elem *lily_try_new_hash_elem()
     return elem;
 }
 
-/* lily_try_new_object_val
-   This tries to create a new object value.
+/* lily_try_new_any_val
+   This tries to create a new "any" value.
    Note: 'try' means this call returns NULL on failure. */
-lily_object_val *lily_try_new_object_val()
+lily_any_val *lily_try_new_any_val()
 {
-    lily_object_val *o = lily_malloc(sizeof(lily_object_val));
+    lily_any_val *a = lily_malloc(sizeof(lily_any_val));
 
-    if (o == NULL)
+    if (a == NULL)
         return NULL;
 
-    o->inner_value = lily_malloc(sizeof(lily_value));
-    if (o->inner_value == NULL) {
-        lily_free(o);
+    a->inner_value = lily_malloc(sizeof(lily_value));
+    if (a->inner_value == NULL) {
+        lily_free(a);
         return NULL;
     }
 
-    o->inner_value->flags = VAL_IS_NIL;
-    o->inner_value->sig = NULL;
-    o->inner_value->value.integer = 0;
-    o->gc_entry = NULL;
-    o->refcount = 1;
+    a->inner_value->flags = VAL_IS_NIL;
+    a->inner_value->sig = NULL;
+    a->inner_value->value.integer = 0;
+    a->gc_entry = NULL;
+    a->refcount = 1;
 
-    return o;
+    return a;
 }

@@ -1,6 +1,6 @@
 <@lily 
 function f():nil {
-    object o = 10
+    any a = 10
     string s = o.@(string)
 }
 

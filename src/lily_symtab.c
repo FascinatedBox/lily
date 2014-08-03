@@ -379,7 +379,7 @@ static int init_classes(lily_symtab *symtab)
                     sig->siglist = NULL;
                     sig->siglist_size = 0;
                     sig->flags = 0;
-                    if (i == SYM_CLASS_OBJECT)
+                    if (i == SYM_CLASS_ANY)
                         sig->flags |= SIG_MAYBE_CIRCULAR;
 
                     sig->next = symtab->root_sig;
@@ -423,7 +423,7 @@ static int init_classes(lily_symtab *symtab)
 /* lily_new_symtab:
    Symtab init, stage 1
    This function is responsible for creating a symtab struct for the parser.
-   Returns a valid symtab object, or NULL on failure. */
+   Returns a valid symtab, or NULL on failure. */
 lily_symtab *lily_new_symtab(lily_raiser *raiser)
 {
     lily_symtab *symtab = lily_malloc(sizeof(lily_symtab));

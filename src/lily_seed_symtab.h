@@ -37,8 +37,8 @@ class_seed class_seeds[] =
     {"function", 0, 0, 0,                  NULL,               NULL,
      &lily_generic_eq},
 
-    {"object",   1, 0, 0,                  NULL,               &lily_gc_object_marker,
-     &lily_object_eq},
+    {"any",      1, 0, 0,                  NULL,               &lily_gc_any_marker,
+     &lily_any_eq},
 
     {"list",     1, 1, 0,                  lily_list_setup,    &lily_gc_list_marker,
      &lily_list_eq},
@@ -82,7 +82,7 @@ static const lily_func_seed print =
         {SYM_CLASS_FUNCTION, 2, 0, -1, SYM_CLASS_STRING}};
 static const lily_func_seed printfmt =
     {"printfmt", lily_builtin_printfmt, &print,
-        {SYM_CLASS_FUNCTION, 3, SIG_IS_VARARGS, -1, SYM_CLASS_STRING, SYM_CLASS_LIST, SYM_CLASS_OBJECT}};
+        {SYM_CLASS_FUNCTION, 3, SIG_IS_VARARGS, -1, SYM_CLASS_STRING, SYM_CLASS_LIST, SYM_CLASS_ANY}};
 
 /* This must always be set to the last func seed defined here. */
 #define GLOBAL_SEED_START printfmt

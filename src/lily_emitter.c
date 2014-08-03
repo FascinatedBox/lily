@@ -391,17 +391,17 @@ static void write_build_op(lily_emit_state *emit, int opcode,
     f->pos += 4 + num_values;
 }
 
-/* emit_obj_assign
-   The given ast is a non-object, and the caller has checked that an object is
-   wanted. This converts the ast's result so that it contains an object by
-   using o_obj_assign. */
-static void emit_obj_assign(lily_emit_state *emit, lily_ast *ast)
+/* emit_any_assign
+   The given ast is a non-any, and the caller has checked that an any is
+   wanted. This converts the ast's result so that it contains an any by
+   using o_any_assign. */
+static void emit_any_assign(lily_emit_state *emit, lily_ast *ast)
 {
     lily_function_val *f = emit->top_function;
-    lily_class *obj_class = lily_class_by_id(emit->symtab, SYM_CLASS_OBJECT);
-    lily_storage *storage = get_storage(emit, obj_class->sig, ast->line_num);
+    lily_class *any_class = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
+    lily_storage *storage = get_storage(emit, any_class->sig, ast->line_num);
 
-    WRITE_4(o_obj_assign,
+    WRITE_4(o_any_assign,
             ast->line_num,
             ast->result->reg_spot,
             storage->reg_spot)
@@ -715,11 +715,11 @@ static int assign_optimize_check(lily_ast *ast)
         while (right_tree->tree_type == tree_parenth)
             right_tree = right_tree->arg_start;
 
-        /* If the left is an object and the right is not, then don't reduce.
-           Object assignment is written so that it puts the right side into a
+        /* If the left is an any and the right is not, then don't reduce.
+           Any assignment is written so that it puts the right side into a
            container. */
-        if (ast->left->result->sig->cls->id == SYM_CLASS_OBJECT &&
-            right_tree->result->sig->cls->id != SYM_CLASS_OBJECT) {
+        if (ast->left->result->sig->cls->id == SYM_CLASS_ANY &&
+            right_tree->result->sig->cls->id != SYM_CLASS_ANY) {
             can_optimize = 0;
             break;
         }
@@ -756,8 +756,8 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     left_cls_id = left_sym->sig->cls->id;
 
     if (left_sym->sig != right_sym->sig) {
-        if (left_sym->sig->cls->id == SYM_CLASS_OBJECT)
-            opcode = o_obj_assign;
+        if (left_sym->sig->cls->id == SYM_CLASS_ANY)
+            opcode = o_any_assign;
         else {
             if (type_matchup(emit, NULL, ast->left->result->sig,
                            ast->right) == 0) {
@@ -775,8 +775,8 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
         if (left_cls_id == SYM_CLASS_INTEGER ||
             left_cls_id == SYM_CLASS_NUMBER)
             opcode = o_assign;
-        else if (left_cls_id == SYM_CLASS_OBJECT)
-            opcode = o_obj_assign;
+        else if (left_cls_id == SYM_CLASS_ANY)
+            opcode = o_any_assign;
         else
             opcode = o_ref_assign;
     }
@@ -1104,7 +1104,7 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
     /* The subscript assign goes to the element, not the list. So... */
     elem_sig = get_subscript_result(var_ast->result->sig);
 
-    if (elem_sig != rhs->sig && elem_sig->cls->id != SYM_CLASS_OBJECT) {
+    if (elem_sig != rhs->sig && elem_sig->cls->id != SYM_CLASS_ANY) {
         emit->raiser->line_adjust = ast->line_num;
         bad_assign_error(emit, ast->line_num, elem_sig,
                          rhs->sig);
@@ -1145,9 +1145,10 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
     * The value is at ast->arg_start
     * The signature is at ast->arg_start->next_arg->sig
 
-    This does some basic conversions: Anything can become object, and object
-    can be cast to anything (this is checked at vm-time). integer<->number
-    conversion is also done here. */
+    This does some basic conversions:
+    * Anything can be converted into 'any'.
+    * 'any' can be converted into anything (with a check done at vm-time).
+    * integer<->number conversion. */
 static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 {
     lily_sig *cast_sig = ast->arg_start->next_arg->sig;
@@ -1162,11 +1163,11 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
         ast->result = (lily_sym *)right_tree->result;
         return;
     }
-    else if (cast_sig->cls->id == SYM_CLASS_OBJECT) {
-        /* An object assign will work here. */
+    else if (cast_sig->cls->id == SYM_CLASS_ANY) {
+        /* Throw it into an 'any'. */
         lily_storage *storage = get_storage(emit, cast_sig, ast->line_num);
 
-        WRITE_4(o_obj_assign,
+        WRITE_4(o_any_assign,
                 ast->line_num,
                 right_tree->result->reg_spot,
                 storage->reg_spot)
@@ -1177,8 +1178,8 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     lily_storage *result;
     int cast_opcode;
 
-    if (var_sig->cls->id == SYM_CLASS_OBJECT) {
-        cast_opcode = o_obj_typecast;
+    if (var_sig->cls->id == SYM_CLASS_ANY) {
+        cast_opcode = o_any_typecast;
         result = get_storage(emit, cast_sig, ast->line_num);
     }
     else {
@@ -1246,10 +1247,10 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)storage;
 }
 
-/*  hash_values_to_objects
+/*  hash_values_to_anys
 
-    This converts all of the values of the given ast into objects using
-    o_obj_assign. The result of each value is rewritten to be the object,
+    This converts all of the values of the given ast into anys using
+    o_any_assign. The result of each value is rewritten to be the any,
     instead of the old value.
 
     emit:     The emitter holding the function to write code to.
@@ -1259,8 +1260,8 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     * Caller must do this before writing the o_build_hash instruction out.
     * Caller must evaluate the hash before calling this.
     * This will call lily_raise_nomem in the event of being unable to allocate
-      an object value. */
-static void emit_hash_values_to_objects(lily_emit_state *emit,
+      an any value. */
+static void emit_hash_values_to_anys(lily_emit_state *emit,
         lily_ast *hash_ast)
 {
     /* The keys and values are in hash_ast as args. Since they're in pairs and
@@ -1278,14 +1279,14 @@ static void emit_hash_values_to_objects(lily_emit_state *emit,
          iter_ast != NULL;
          iter_ast = iter_ast->next_arg->next_arg) {
 
-        emit_obj_assign(emit, iter_ast->next_arg);
+        emit_any_assign(emit, iter_ast->next_arg);
     }
 }
 
-/*  emit_list_values_to_objects
+/*  emit_list_values_to_anys
 
-    This converts all of the values of the given ast into objects using
-    o_obj_assign. The result of each value is rewritten to be the object,
+    This converts all of the values of the given ast into anys using
+    o_any_assign. The result of each value is rewritten to be the any,
     instead of the old value.
 
     emit:     The emitter holding the function to write code to.
@@ -1295,8 +1296,8 @@ static void emit_hash_values_to_objects(lily_emit_state *emit,
     * Caller must do this before writing the o_build_list instruction out.
     * Caller must evaluate the list before calling this.
     * This will call lily_raise_nomem in the event of being unable to allocate
-      an object value. */
-static void emit_list_values_to_objects(lily_emit_state *emit,
+      an any value. */
+static void emit_list_values_to_anys(lily_emit_state *emit,
         lily_ast *list_ast)
 {
     int value_count = list_ast->args_collected;
@@ -1308,7 +1309,7 @@ static void emit_list_values_to_objects(lily_emit_state *emit,
     for (iter_ast = list_ast->arg_start;
          iter_ast != NULL;
          iter_ast = iter_ast->next_arg) {
-        emit_obj_assign(emit, iter_ast);
+        emit_any_assign(emit, iter_ast);
     }
 }
 
@@ -1320,8 +1321,7 @@ static void emit_list_values_to_objects(lily_emit_state *emit,
     items, not the number of pairs collected.
 
     Caveats:
-    * Keys can't default to object like values in a list can. This is because
-      objects are not immutable.
+    * Keys can't default to "any", because "any" is not immutable.
 
     emit: The emit state containing a function to write the resulting code to.
     ast:  An ast of type tree_hash. */
@@ -1329,11 +1329,11 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
 {
     lily_sig *key_sig, *value_sig;
     lily_ast *tree_iter;
-    int make_objs;
+    int make_anys;
 
     key_sig = NULL;
     value_sig = NULL;
-    make_objs = 0;
+    make_anys = 0;
 
     for (tree_iter = ast->arg_start;
          tree_iter != NULL;
@@ -1346,8 +1346,8 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
         if (key_tree->tree_type != tree_local_var)
             eval_tree(emit, key_tree);
 
-        /* Keys -must- all be the same type. They cannot be converted to object
-           later on because objects are not valid keys (not immutable). */
+        /* Keys -must- all be the same type. They cannot be converted to any
+           later on because any are not valid keys (not immutable). */
         if (key_tree->result->sig != key_sig) {
             if (key_sig == NULL) {
                 if ((key_tree->result->sig->cls->flags & CLS_VALID_HASH_KEY) == 0) {
@@ -1370,19 +1370,19 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
         if (value_tree->tree_type != tree_local_var)
             eval_tree(emit, value_tree);
 
-        /* Values being promoted to object is okay though. :) */
+        /* Values being promoted to any is okay though. :) */
         if (value_tree->result->sig != value_sig) {
             if (value_sig == NULL)
                 value_sig = value_tree->result->sig;
             else
-                make_objs = 1;
+                make_anys = 1;
         }
     }
 
-    if (make_objs == 1) {
-        lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_OBJECT);
+    if (make_anys == 1) {
+        lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
         value_sig = cls->sig;
-        emit_hash_values_to_objects(emit, ast);
+        emit_hash_values_to_anys(emit, ast);
     }
 
     lily_class *hash_cls = lily_class_by_id(emit->symtab, SYM_CLASS_HASH);
@@ -1413,8 +1413,8 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
 /*  type_matchup
     This function checks if the given ast's result can be coerced into the
     wanted type. Self is passed to allow for template checking as well.
-    This also handles converting lists[!object] to list[object], and
-    hash[?, !object] to hash[?, object]
+    This also handles converting lists[!any] to list[any], and
+    hash[?, !any] to hash[?, any]
 
     emit:     The emitter, in case code needs to be written.
     self:     The self, in the event that want_sig uses templates. If it does
@@ -1432,29 +1432,29 @@ static int type_matchup(lily_emit_state *emit, lily_sig *self,
 
     /* If the wanted value is a template, then pull from 'self' to determine
        what the template result in for this case. This allows template
-       arguments to also use object copying and such.
+       arguments to also use any copying and such.
        This is safe, because want_sig won't be a template if self is NULL. */
     if (want_sig->cls->id == SYM_CLASS_TEMPLATE)
         want_sig = self->siglist[want_sig->template_pos];
 
     if (self != NULL && template_check(self, want_sig, right->result->sig))
         ret = 1;
-    else if (want_sig->cls->id == SYM_CLASS_OBJECT) {
-        emit_obj_assign(emit, right);
+    else if (want_sig->cls->id == SYM_CLASS_ANY) {
+        emit_any_assign(emit, right);
         ret = 1;
     }
     else if ((right->tree_type == tree_list &&
          want_sig->cls->id == SYM_CLASS_LIST &&
-         want_sig->siglist[0]->cls->id == SYM_CLASS_OBJECT)
+         want_sig->siglist[0]->cls->id == SYM_CLASS_ANY)
         ||
         (right->tree_type == tree_hash &&
          want_sig->cls->id == SYM_CLASS_HASH &&
          want_sig->siglist[0] == right->result->sig->siglist[0] &&
-         want_sig->siglist[1]->cls->id == SYM_CLASS_OBJECT)) {
-        /* tree_list: Want list[object], have list[!object]
-           tree_hash: Want hash[?, object], have hash[?, !object] */
-        /* In either case, convert each of the values to objects, then rewrite
-           the build to pump out the right resulting type. */
+         want_sig->siglist[1]->cls->id == SYM_CLASS_ANY)) {
+        /* tree_list: Want list[any], have list[!any]
+           tree_hash: Want hash[?, any], have hash[?, !any] */
+        /* In either case, convert each of the values to anys, then rewrite the
+           build to pump out the right resulting type. */
         lily_function_val *f = emit->top_function;
         int element_count = right->args_collected;
         lily_storage *s = get_storage(emit, want_sig, right->line_num);
@@ -1468,11 +1468,11 @@ static int type_matchup(lily_emit_state *emit, lily_sig *self,
         int build_op;
         if (right->tree_type == tree_list) {
             build_op = o_build_list;
-            emit_list_values_to_objects(emit, right);
+            emit_list_values_to_anys(emit, right);
         }
         else {
             build_op = o_build_hash;
-            emit_hash_values_to_objects(emit, right);
+            emit_hash_values_to_anys(emit, right);
         }
 
         write_build_op(emit, build_op, right->arg_start, right->line_num,
@@ -1490,8 +1490,8 @@ static int type_matchup(lily_emit_state *emit, lily_sig *self,
    The values start in ast->arg_start, and end when ->next_arg is NULL.
    There are a few caveats:
    * Lists where all values are the same type are created as lists of that type.
-   * If any list value is different, then the list values are cast to object,
-     and the list's type is set to object.
+   * If any list value is different, then the list values are cast to any,
+     and the list's type is set to any.
    * Empty lists have a type specified in them, like x = [string]. This can be
      a complex type, if wanted. These lists will have 0 args and ->sig set to
      the sig specified. */
@@ -1499,22 +1499,22 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
 {
     lily_sig *elem_sig = NULL;
     lily_ast *arg;
-    int make_objs;
+    int make_anys;
 
-    make_objs = 0;
+    make_anys = 0;
 
     /* Walk through all of the list elements, keeping a note of the class
        of the results. The class of the list elements is determined as
        follows:
        * If all results have the same class, then use that class.
-       * If they do not, use object. */
+       * If they do not, use any. */
     for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
         if (arg->tree_type != tree_local_var)
             eval_tree(emit, arg);
 
         if (elem_sig != NULL) {
             if (arg->result->sig != elem_sig)
-                make_objs = 1;
+                make_anys = 1;
         }
         else
             elem_sig = arg->result->sig;
@@ -1525,10 +1525,10 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
     if (elem_sig == NULL)
         elem_sig = ast->sig;
 
-    if (make_objs) {
-        lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_OBJECT);
+    if (make_anys) {
+        lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
         elem_sig = cls->sig;
-        emit_list_values_to_objects(emit, ast);
+        emit_list_values_to_anys(emit, ast);
     }
 
     lily_class *list_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);
@@ -2220,8 +2220,8 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
     emit->expr_num++;
 
     if (ast->result->sig != ret_sig) {
-        if (ret_sig->cls->id == SYM_CLASS_OBJECT)
-            emit_obj_assign(emit, ast);
+        if (ret_sig->cls->id == SYM_CLASS_ANY)
+            emit_any_assign(emit, ast);
         else {
             emit->raiser->line_adjust = ast->line_num;
             lily_raise(emit->raiser, lily_ErrSyntax,

@@ -282,7 +282,7 @@ void lily_vm_destroy_gc(lily_vm_state *vm)
        be destroyed. It's -very- important that these registers be marked as nil
        so that prep_registers will not try to deref a value that has been
        destroyed by the gc.
-    4: Finally, destroy the lists, objects, etc. that stage 2 didn't clear.
+    4: Finally, destroy the lists, anys, etc. that stage 2 didn't clear.
        Absolutely nothing is using these now, so it's safe to destroy them.
 
     vm: The vm to invoke the gc of. */
@@ -342,7 +342,7 @@ void lily_vm_invoke_gc(lily_vm_state *vm)
         }
     }
 
-    /* Stage 4: Delete the lists/objects/etc. that stage 2 didn't delete.
+    /* Stage 4: Delete the lists/anys/etc. that stage 2 didn't delete.
                 Nothing is using them anymore. Also, sort entries into those
                 that are living and those that are no longer used. */
     i = 0;
@@ -474,8 +474,8 @@ int maybe_crossover_assign(lily_value *lhs_reg, lily_value *rhs_reg)
 {
     int ret = 1;
 
-    if (rhs_reg->sig->cls->id == SYM_CLASS_OBJECT)
-        rhs_reg = rhs_reg->value.object->inner_value;
+    if (rhs_reg->sig->cls->id == SYM_CLASS_ANY)
+        rhs_reg = rhs_reg->value.any->inner_value;
 
     if (lhs_reg->sig->cls->id == SYM_CLASS_INTEGER &&
         rhs_reg->sig->cls->id == SYM_CLASS_NUMBER)
@@ -609,7 +609,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
     lily_value *arg;
     lily_raw_value val;
     lily_list_val *vararg_lv;
-    lily_object_val *arg_obj;
+    lily_any_val *arg_av;
     void *data = vm->data;
 
     fmt = vm_regs[code[0]]->value.string->string;
@@ -630,12 +630,12 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
             fmt[i] = save_ch;
             i++;
 
-            arg_obj = vararg_lv->elems[arg_pos]->value.object;
-            if (arg_obj->inner_value->flags & VAL_IS_NIL)
+            arg_av = vararg_lv->elems[arg_pos]->value.any;
+            if (arg_av->inner_value->flags & VAL_IS_NIL)
                 lily_raise(vm->raiser, lily_ErrFormat,
                         "Argument #%d to printfmt is nil.\n", arg_pos + 2);
 
-            arg = arg_obj->inner_value;
+            arg = arg_av->inner_value;
             cls_id = arg->sig->cls->id;
             val = arg->value;
 
@@ -672,7 +672,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
 /* op_ref_assign
    VM helper called for handling complex assigns. [1] is lhs, [2] is rhs. This
    does an assign along with the appropriate ref/deref stuff. This is suitable
-   for anything that needs that ref/deref stuff except for object. */
+   for anything that needs that ref/deref stuff except for any. */
 void op_ref_assign(lily_value *lhs_reg, lily_value *rhs_reg)
 {
     if ((lhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
@@ -685,52 +685,52 @@ void op_ref_assign(lily_value *lhs_reg, lily_value *rhs_reg)
     lhs_reg->value = rhs_reg->value;
 }
 
-/*  op_object_assign
-    This is a vm helper for handling an assignment to an object from another
-    value that may or may not be an object.
+/*  op_any_assign
+    This is a vm helper for handling an assignment to an any from another value
+    that may or may not be an any.
     Since this call only uses two values, those are passed instead of using
     vm_regs and code like some other vm helpers do.
-    vm:      If lhs_reg is nil, an object will be made that needs a gc entry.
+    vm:      If lhs_reg is nil, an any will be made that needs a gc entry.
              The entry will be added to the vm's gc entries.
-    lhs_reg: The register containing an object to be assigned to. Might be nil.
-    rhs_reg: The register providing a value for the object. Might be nil. */
-static void op_object_assign(lily_vm_state *vm, lily_value *lhs_reg,
+    lhs_reg: The register containing an any to be assigned to. Might be nil.
+    rhs_reg: The register providing a value for the any. Might be nil. */
+static void op_any_assign(lily_vm_state *vm, lily_value *lhs_reg,
         lily_value *rhs_reg)
 {
-    lily_object_val *lhs_obj;
+    lily_any_val *lhs_any;
     if (lhs_reg->flags & VAL_IS_NIL) {
-        lhs_obj = lily_try_new_object_val();
-        if (lhs_obj == NULL ||
+        lhs_any = lily_try_new_any_val();
+        if (lhs_any == NULL ||
             lily_try_add_gc_item(vm, lhs_reg->sig,
-                    (lily_generic_gc_val *)lhs_obj) == 0) {
+                    (lily_generic_gc_val *)lhs_any) == 0) {
 
-            if (lhs_obj)
-                lily_free(lhs_obj->inner_value);
+            if (lhs_any)
+                lily_free(lhs_any->inner_value);
 
-            lily_free(lhs_obj);
+            lily_free(lhs_any);
             lily_raise_nomem(vm->raiser);
         }
 
-        lhs_reg->value.object = lhs_obj;
+        lhs_reg->value.any = lhs_any;
         lhs_reg->flags &= ~VAL_IS_NIL;
     }
     else
-        lhs_obj = lhs_reg->value.object;
+        lhs_any = lhs_reg->value.any;
 
     lily_sig *new_sig;
     lily_raw_value new_value;
     int new_flags;
 
-    if (rhs_reg->sig->cls->id == SYM_CLASS_OBJECT) {
+    if (rhs_reg->sig->cls->id == SYM_CLASS_ANY) {
         if ((rhs_reg->flags & VAL_IS_NIL) ||
-            (rhs_reg->value.object->inner_value->flags & VAL_IS_NIL)) {
+            (rhs_reg->value.any->inner_value->flags & VAL_IS_NIL)) {
 
             new_sig = NULL;
             new_value.integer = 0;
             new_flags = VAL_IS_NIL;
         }
         else {
-            lily_value *rhs_inner = rhs_reg->value.object->inner_value;
+            lily_value *rhs_inner = rhs_reg->value.any->inner_value;
 
             new_sig = rhs_inner->sig;
             new_value = rhs_inner->value;
@@ -747,7 +747,7 @@ static void op_object_assign(lily_vm_state *vm, lily_value *lhs_reg,
         new_sig->cls->is_refcounted)
         new_value.generic->refcount++;
 
-    lily_value *lhs_inner = lhs_obj->inner_value;
+    lily_value *lhs_inner = lhs_any->inner_value;
     if ((lhs_inner->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
         lhs_inner->sig->cls->is_refcounted)
         lily_deref_unknown_val(lhs_inner);
@@ -993,13 +993,13 @@ void op_build_list(lily_vm_state *vm, lily_value **vm_regs,
 
     /* Put the new list in the register so the gc doesn't try to collect it. */
     result->value.list = lv;
-    /* This is important for list[object], because it prevents the gc from
-       collecting all objects if it's triggered from within the list build. */
+    /* This is important for list[any], because it prevents the gc from
+       collecting all anys if it's triggered from within the list build. */
     result->flags = 0;
 
     /* List deref expects that num_elems elements are all allocated.
        Unfortunately, this means having to allocate during each loop. */
-    if (elem_sig->cls->id == SYM_CLASS_OBJECT) {
+    if (elem_sig->cls->id == SYM_CLASS_ANY) {
         for (j = 0;j < num_elems;j++) {
             lv->elems[j] = lily_malloc(sizeof(lily_value));
             if (lv->elems[j] == NULL) {
@@ -1007,7 +1007,7 @@ void op_build_list(lily_vm_state *vm, lily_value **vm_regs,
                 lily_raise_nomem(vm->raiser);
             }
 
-            /* Fix the element in case the next attempt to grab an object
+            /* Fix the element in case the next attempt to grab an any
                triggers the gc. */
             lily_value *new_elem = lv->elems[j];
             new_elem->sig = elem_sig;
@@ -1018,18 +1018,18 @@ void op_build_list(lily_vm_state *vm, lily_value **vm_regs,
 
             if ((rhs_reg->flags & VAL_IS_NIL) == 0) {
                 lily_value *rhs_inner_val;
-                rhs_inner_val = rhs_reg->value.object->inner_value;
-                /* Objects are supposed to act like containers which can hold
+                rhs_inner_val = rhs_reg->value.any->inner_value;
+                /* Anys are supposed to act like containers which can hold
                    any value. Because of this, the inner value of the other
-                   object must be copied over.
-                   Objects are also potentially circular, which means each one
+                   any must be copied over.
+                   Anys are also potentially circular, which means each one
                    needs a gc entry. This also means that the list holding the
-                   objects has a gc entry. */
-                lily_object_val *oval = lily_try_new_object_val();
+                   anys has a gc entry. */
+                lily_any_val *oval = lily_try_new_any_val();
                 if (oval == NULL ||
                     lily_try_add_gc_item(vm, elem_sig,
                             (lily_generic_gc_val *)oval) == 0) {
-                    /* Make sure to free the object value made. If it wasn't
+                    /* Make sure to free the any value made. If it wasn't
                        made, this will be NULL, which is fine. */
                     if (oval)
                         lily_free(oval->inner_value);
@@ -1050,7 +1050,7 @@ void op_build_list(lily_vm_state *vm, lily_value **vm_regs,
                     rhs_inner_val->sig->cls->is_refcounted)
                     rhs_inner_val->value.generic->refcount++;
 
-                new_elem->value.object = oval;
+                new_elem->value.any = oval;
                 new_elem->flags = 0;
             }
 
@@ -1525,28 +1525,28 @@ lily_hash_elem *lily_try_lookup_hash_elem(lily_hash_val *hash,
 
 /*  lily_assign_value
     This is an extremely handy function that assigns 'left' to 'right'. This is
-    handy because it will handle any refs/derefs needed, nil, and object
+    handy because it will handle any refs/derefs needed, nil, and any
     copying.
 
     vm:    The vm holding the two values. This is needed because if 'left' is
-           an object, then a gc pass may be triggered.
+           an any, then a gc pass may be triggered.
     left:  The value to assign to.
            The type of left determines what assignment is used. This is
            important because it means that left must have a type set.
     right: The value to assign.
 
     Caveats:
-    * May raise a nomem error if left is an object and it cannot allocate a
+    * May raise a nomem error if left is an any and it cannot allocate a
       value to copy right's value.
-    * May trigger the vm if if needs to make a new object.
+    * May trigger the vm if if needs to make a new any.
     * Will crash if left does not have a type set. */
 void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
 {
     lily_class *cls = left->sig->cls;
 
-    if (cls->id == SYM_CLASS_OBJECT)
-        /* Object assignment is...complicated. Have someone else do it. */
-        op_object_assign(vm, left, right);
+    if (cls->id == SYM_CLASS_ANY)
+        /* Any assignment is...complicated. Have someone else do it. */
+        op_any_assign(vm, left, right);
     else {
         if (cls->is_refcounted) {
             if ((right->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
@@ -1568,7 +1568,7 @@ void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
     key:     A non-nil value to make a hash for.
 
     Notes:
-    * The caller must not pass a non-hashable type (such as object). Parser is
+    * The caller must not pass a non-hashable type (such as any). Parser is
       responsible for ensuring that hashes only use valid key types.
     * The caller must not pass a key that is a nil value. */
 uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
@@ -1750,9 +1750,9 @@ void lily_vm_execute(lily_vm_state *vm)
                 {
                     int cls_id, result;
 
-                    if (lhs_reg->sig->cls->id == SYM_CLASS_OBJECT &&
+                    if (lhs_reg->sig->cls->id == SYM_CLASS_ANY &&
                         (lhs_reg->flags & VAL_IS_NIL) == 0)
-                        lhs_reg = lhs_reg->value.object->inner_value;
+                        lhs_reg = lhs_reg->value.any->inner_value;
 
                     if ((lhs_reg->flags & VAL_IS_NIL) == 0) {
                         cls_id = lhs_reg->sig->cls->id;
@@ -1907,7 +1907,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg = vm_regs[code[code_pos+3]];
                           /* Important: vm_regs starts at the local scope, and
                              this index is based on the global scope. */
-                if (rhs_reg->sig->cls->id != SYM_CLASS_OBJECT) {
+                if (rhs_reg->sig->cls->id != SYM_CLASS_ANY) {
                     if (rhs_reg->sig->cls->is_refcounted) {
                         /* However, one or both could be nil. */
                         if ((rhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
@@ -1920,7 +1920,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     lhs_reg->value = rhs_reg->value;
                 }
                 else
-                    op_object_assign(vm, lhs_reg, rhs_reg);
+                    op_any_assign(vm, lhs_reg, rhs_reg);
 
                 code_pos += 4;
                 break;
@@ -1928,8 +1928,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs_reg = vm_regs[code[code_pos+2]];
                 lhs_reg = regs_from_main[code[code_pos+3]];
 
-                /* Use the lhs, because it may be a global object. */
-                if (lhs_reg->sig->cls->id != SYM_CLASS_OBJECT) {
+                /* Use the lhs, because it may be a global any. */
+                if (lhs_reg->sig->cls->id != SYM_CLASS_ANY) {
                     if (lhs_reg->sig->cls->is_refcounted) {
                         /* However, one or both could be nil. */
                         if ((rhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
@@ -1943,8 +1943,8 @@ void lily_vm_execute(lily_vm_state *vm)
                     lhs_reg->value = rhs_reg->value;
                 }
                 else
-                    /* The lhs is an object, so do what object assign does. */
-                    op_object_assign(vm, lhs_reg, rhs_reg);
+                    /* The lhs is an any, so do what any assign does. */
+                    op_any_assign(vm, lhs_reg, rhs_reg);
 
                 code_pos += 4;
                 break;
@@ -1958,11 +1958,11 @@ void lily_vm_execute(lily_vm_state *vm)
                         top->function->trace_name);
             }
                 break;
-            case o_obj_assign:
+            case o_any_assign:
                 rhs_reg = vm_regs[code[code_pos+2]];
                 lhs_reg = vm_regs[code[code_pos+3]];
 
-                op_object_assign(vm, lhs_reg, rhs_reg);
+                op_any_assign(vm, lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
             case o_intnum_typecast:
@@ -2002,16 +2002,16 @@ void lily_vm_execute(lily_vm_state *vm)
                 do_keyword_show(vm, code[code_pos+2], code[code_pos+3]);
                 code_pos += 4;
                 break;
-            case o_obj_typecast:
+            case o_any_typecast:
                 lhs_reg = vm_regs[code[code_pos+3]];
                 cast_sig = lhs_reg->sig;
 
                 LOAD_CHECKED_REG(rhs_reg, code_pos, 2)
                 if ((rhs_reg->flags & VAL_IS_NIL) ||
-                    (rhs_reg->value.object->inner_value->flags & VAL_IS_NIL))
+                    (rhs_reg->value.any->inner_value->flags & VAL_IS_NIL))
                     novalue_error(vm, code_pos, 2);
 
-                rhs_reg = rhs_reg->value.object->inner_value;
+                rhs_reg = rhs_reg->value.any->inner_value;
 
                 /* This works because lily_ensure_unique_sig makes sure that
                    no two signatures describe the same thing. So if it's the
@@ -2028,14 +2028,14 @@ void lily_vm_execute(lily_vm_state *vm)
                     lhs_reg->value = rhs_reg->value;
                 }
                 /* Since integer and number can be cast between each other,
-                   allow that with object casts as well. */
+                   allow that with any casts as well. */
                 else if (maybe_crossover_assign(lhs_reg, rhs_reg) == 0) {
                     lily_vm_stack_entry *top;
                     top = vm->function_stack[vm->function_stack_pos-1];
                     top->line_num = top->code[code_pos+1];
 
                     lily_raise(vm->raiser, lily_ErrBadCast,
-                            "Cannot cast object containing type '%T' to type '%T'.\n",
+                            "Cannot cast any containing type '%T' to type '%T'.\n",
                             rhs_reg->sig, lhs_reg->sig);
                 }
 
@@ -2142,13 +2142,13 @@ void lily_vm_execute(lily_vm_state *vm)
                     rhs_reg = vm_regs[code[code_pos + 3]];
 
                 int is_nil;
-                /* Consider objects nil if they are nil OR they carry a nil
+                /* Consider anys nil if they are nil OR they carry a nil
                    value. Otherwise, a typecast to the last type given would
                    be needed to get the inner value to check that for nil-ness
                    too. */
-                if (rhs_reg->sig->cls->id == SYM_CLASS_OBJECT) {
+                if (rhs_reg->sig->cls->id == SYM_CLASS_ANY) {
                     is_nil = (rhs_reg->flags & VAL_IS_NIL) ||
-                             (rhs_reg->value.object->inner_value->flags & VAL_IS_NIL);
+                             (rhs_reg->value.any->inner_value->flags & VAL_IS_NIL);
                 }
                 else
                     is_nil = (rhs_reg->flags & VAL_IS_NIL);
