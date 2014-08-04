@@ -187,11 +187,13 @@ void lily_msgbuf_add_sig(lily_msgbuf *msgbuf, lily_sig *sig)
             if (sig->flags & SIG_IS_VARARGS)
                 lily_msgbuf_add(msgbuf, "...");
         }
-        lily_msgbuf_add(msgbuf, "):");
         if (sig->siglist[0] == NULL)
-            lily_msgbuf_add(msgbuf, "nil");
-        else
+            lily_msgbuf_add(msgbuf, ")");
+        else {
+            lily_msgbuf_add(msgbuf, " => ");
             lily_msgbuf_add_sig(msgbuf, sig->siglist[0]);
+            lily_msgbuf_add(msgbuf, ")");
+        }
     }
     else if (sig->cls->id == SYM_CLASS_LIST ||
              sig->cls->id == SYM_CLASS_HASH) {

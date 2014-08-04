@@ -1,4 +1,4 @@
 <@lily
-function f():integer { }
+function f( => integer) { }
 f()
 @>
