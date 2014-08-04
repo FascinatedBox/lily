@@ -200,31 +200,65 @@ static void collect_call_args(lily_parse_state *parser, int flags,
     int i = 0;
     int save_pos = parser->sig_stack_pos;
     lily_lex_state *lex = parser->lex;
+    lily_sig *last_arg_sig = NULL;
 
     /* A callable's arguments are named if it's not an argument to something
        else. */
     if (flags & CV_TOPLEVEL)
         call_flags |= CV_MAKE_VARS;
 
-    while (1) {
-        if (parser->sig_stack_pos == parser->sig_stack_size)
-            grow_sig_stack(parser);
+    if (lex->token != tk_arrow) {
+        while (1) {
+            if (parser->sig_stack_pos == parser->sig_stack_size)
+                grow_sig_stack(parser);
 
-        lily_sig *arg_sig = collect_var_sig(parser, call_flags);
-        parser->sig_stack[parser->sig_stack_pos] = arg_sig;
-        parser->sig_stack_pos++;
+            last_arg_sig = collect_var_sig(parser, call_flags);
+            parser->sig_stack[parser->sig_stack_pos] = last_arg_sig;
+            parser->sig_stack_pos++;
 
-        lily_lexer(lex);
-        if (lex->token == tk_right_parenth ||
-            lex->token == tk_three_dots)
-            break;
+            lily_lexer(lex);
+            if (lex->token == tk_arrow ||
+                lex->token == tk_right_parenth ||
+                lex->token == tk_three_dots)
+                break;
 
-        NEED_CURRENT_TOK(tk_comma)
-        lily_lexer(lex);
+            NEED_CURRENT_TOK(tk_comma)
+            lily_lexer(lex);
+        }
     }
 
-    /* +1 for the return which gets added at [0] later. */
     int num_args = parser->sig_stack_pos - save_pos;
+
+    /* ... at the end means it's varargs. It must be a list of some type,
+       because the interpreter boxes the varargs into a list. */
+    if (lex->token == tk_three_dots) {
+        if (num_args == 0)
+            lily_raise(parser->raiser, lily_ErrSyntax,
+                       "Unexpected token %s.\n", tokname(lex->token));
+
+        if (last_arg_sig->cls->id != SYM_CLASS_LIST) {
+            lily_raise(parser->raiser, lily_ErrSyntax,
+                    "A list is required for variable arguments (...).\n");
+        }
+
+        call_sig->flags |= SIG_IS_VARARGS;
+        lily_lexer(lex);
+        if (lex->token != tk_right_parenth &&
+            lex->token != tk_arrow)
+            lily_raise(parser->raiser, lily_ErrSyntax,
+                    "Expected either '=>' or ')' after '...' .\n");
+    }
+
+    /* This doesn't need to be registered in the sig stack because there's
+       only going to be one return. */
+    lily_sig *return_sig = NULL;
+    if (lex->token == tk_arrow) {
+        lily_lexer(lex);
+        return_sig = collect_var_sig(parser, 0);
+        NEED_NEXT_TOK(tk_right_parenth);
+    }
+
+    /* +1 for the return. */
     lily_sig **siglist = lily_malloc((num_args + 1) * sizeof(lily_sig *));
     if (siglist == NULL)
         lily_raise_nomem(parser->raiser);
@@ -232,26 +266,10 @@ static void collect_call_args(lily_parse_state *parser, int flags,
     for (i = 0;i < num_args;i++)
         siglist[i + 1] = parser->sig_stack[save_pos + i];
 
-    siglist[0] = NULL;
+    siglist[0] = return_sig;
     call_sig->siglist_size = i + 1;
     call_sig->siglist = siglist;
     parser->sig_stack_pos = save_pos;
-
-    /* If ... is at the end, then the call is varargs (and the last sig is
-       the sig that will use them). */
-    if (lex->token == tk_three_dots) {
-        if (num_args == 0)
-            lily_raise(parser->raiser, lily_ErrSyntax,
-                       "Unexpected token %s.\n", tokname(lex->token));
-
-        if (siglist[i]->cls->id != SYM_CLASS_LIST) {
-            lily_raise(parser->raiser, lily_ErrSyntax,
-                    "A list is required for variable arguments (...).\n");
-        }
-
-        call_sig->flags |= SIG_IS_VARARGS;
-        NEED_NEXT_TOK(tk_right_parenth)
-    }
 }
 
 /* collect_var_sig
@@ -349,33 +367,6 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
             call_sig->siglist[0] = NULL;
             call_sig->siglist[1] = NULL;
             call_sig->siglist_size = 1;
-        }
-
-        NEED_NEXT_TOK(tk_colon)
-        NEED_NEXT_TOK(tk_word)
-        if (strcmp(lex->label, "nil") == 0)
-            call_sig->siglist[0] = NULL;
-        else {
-            /* It isn't nil, so it's an argument to be scanned. There's a bit of
-               an interesting problem here:
-
-               The function currently has NULL as the return, which means there
-               is none. It's also been added to symtab's chain of sigs. If the
-               return that gets scanned is the same part as the rest, then
-               symtab assumes they are the same. This results in the function
-               having itself as a return, which causes an infinite loop when
-               anything is done with that sig.
-
-               This is rather easy to do: 'function m(): function() :nil'.
-
-               The solution is to temporarily say that the call sig has 1 arg.
-               This makes it impossible to match, but also makes sure that the
-               siglist will get free'd if there is a problem. */
-            int save_size = call_sig->siglist_size;
-            call_sig->siglist_size = 0;
-            lily_sig *call_ret_sig = collect_var_sig(parser, 0);
-            call_sig->siglist[0] = call_ret_sig;
-            call_sig->siglist_size = save_size;
         }
 
         call_sig = lily_ensure_unique_sig(parser->symtab, call_sig);

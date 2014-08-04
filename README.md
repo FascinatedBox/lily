@@ -17,7 +17,7 @@ The language currently recognizes 8 datatypes:
 * list: A list of a given element.
 * hash: An associative array, having a key and value type.
 * function: A callable body of code. Some are native (defined by Lily code), and some are foreign (defined outside of Lily code). The interpreter doesn't make a distinction.
-* object: Anything.
+* any: A container that can hold any value.
 
 Values must be declared before they are used:
 ```
@@ -33,28 +33,33 @@ list[integer] d = [1, 2, 3]
 # This is a hash that takes integers, and gives strings.
 hash[integer, string] e = [1 => "10", 2 => "20"]
 
-# Here's a function that returns an integer:
-function return_10():integer
+# This is a function that doesn't take any arguments or return anything:
+function no_op()
 {
-    return 10
+
 }
-# To return no value, use 'nil'.
+
+# This one takes an integer and adds 10.
+function return_plus_10(integer a => integer)
+{
+    return a + 10
+}
 
 # How about something more difficult?
-list[function():integer] function_list = [return_10, return_10, return_10]
+list[function( => integer)] function_list = [return_10, return_10, return_10]
 
 # Subscript results can be called.
 function_list[1]()
 
 list[list[integer]] multiple_dimensions = [1, 2, 3], [4, 5, 6], [7, 8, 9]
 
-But what about objects?
+But what about any?
 
-object o
-o = function_list
-o = multiple_dimensions
-o = return_10
-o = 11
+any a
+a = function_list
+a = multiple_dimensions
+a = return_10
+a = 11
 ```
 
 Okay, so what can things actually do?
@@ -64,9 +69,9 @@ Okay, so what can things actually do?
 * Integers, numbers, and strings can all be compared using < > <= >= ==
 
 ```
-function letter_for_grade(integer grade):string
+function letter_for_grade(integer grade => string)
 {
-	str letter
+	string letter
 	# Each condition has a : after it, similar to Python.
 	# Indentation is NOT enforced though.
 	# Each condition allows one expression, no more.
@@ -86,9 +91,9 @@ function letter_for_grade(integer grade):string
 
 # How about something multi-line though?
 
-function something(integer abc):nil {  }
+function something(integer abc) {  }
 
-function algorithm(integer a):integer
+function algorithm(integer a => integer)
 {
 	integer ret
 	if a == 10: { # This starts the multi-line block
@@ -117,28 +122,28 @@ Lily also supports continue and break within loops.
 
 Types can also get pretty complex:
 ```
-list[object] olist = [1, 1.1, [1], "1"]
+list[any] alist = [1, 1.1, [1], "1"]
 
-# A typecast is needed to get data out of an object. It looks like this:
+# A typecast is needed to get data out of an any. It looks like this:
 # value.@(type)
-integer abc = olist[0].@(integer)
+integer abc = alist[0].@(integer)
 
-# Typecasts allow access to the values with objects while retaining static typing.
+# Typecasts allow access to the values with anys while retaining static typing.
 # Typecasts can also convert integers to/from numbers:
 
 integer a = 1.1.@(integer)
 
 
-function r(): list[integer] { return [1, 2, 3] }
+function r( => list[integer]) { return [1, 2, 3] }
 ```
 
 Here are some other nifty things:
 
 ```
-Functions can take type variable arguments:
+Functions can take variable arguments (which are typed):
 
 # The variable arguments are all thrown together in a list.
-function total_values(list[integer] values...):integer
+function total_values(list[integer] values... => integer)
 {
 	int output = 0
 	for i in 1..values.size()
@@ -157,7 +162,7 @@ show [1 => "1"]
 
 The following are the functions that come with Lily:
 * print(text): This prints a string to stdout
-* printfmt(fmt, object...): This uses format strings to print the objects given.
+* printfmt(fmt, any...): This uses format strings to print the anys given.
 * %i for integer, %n for a number, %s for a string.
 
 The sanity test (src/test/pass/sanity.ly) contains more examples of what the language can do.

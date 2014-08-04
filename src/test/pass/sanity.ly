@@ -11,7 +11,7 @@
 integer test_id = 1
 integer fail_count = 0
 
-function test_basic_assignments():nil
+function test_basic_assignments()
 {
     # Begin by testing that basic assignments for common types work.
 
@@ -48,7 +48,7 @@ function test_basic_assignments():nil
     # quite yet. The part after the : defines the return value of the function.
     # nil is a special word that is accepted that means the function does not
     # return a value.
-    function g():nil {
+    function g() {
         integer g_1 = 10
     }
 
@@ -62,11 +62,11 @@ function test_basic_assignments():nil
 
     # Now, for something more interesting...
 
-    function ret_10():integer { return 10 }
-    function ret_20():integer { return 20 }
-    function ret_30():integer { return 30 }
+    function ret_10( => integer) { return 10 }
+    function ret_20( => integer) { return 20 }
+    function ret_30( => integer) { return 30 }
 
-    list[function():integer] function_list = [ret_10, ret_20, ret_30]
+    list[function( => integer)] function_list = [ret_10, ret_20, ret_30]
 
     # Subscript out the function, then call it. Returns 10.
     integer function_list_ret = function_list[0]()
@@ -75,7 +75,7 @@ function test_basic_assignments():nil
     function_list[2] = function_list[0]
     function_list[0] = function_list[1]
 
-    hash[integer, list[function():integer]] super_hash = [1 => function_list]
+    hash[integer, list[function( => integer)]] super_hash = [1 => function_list]
 
     # printfmt is a function that works like C's printf. It takes in a
     # variable amount of anys as values.
@@ -86,7 +86,7 @@ function test_basic_assignments():nil
     test_id = test_id + 1
 }
 
-function test_conditions():nil
+function test_conditions()
 {
     printfmt("#%i: Testing conditions...", test_id)
     test_id = test_id + 1
@@ -141,7 +141,7 @@ function test_conditions():nil
     }
 }
 
-function test_printfmt():nil
+function test_printfmt()
 {
     integer a = 1
     number b = 12.34
@@ -157,12 +157,12 @@ function test_printfmt():nil
     printfmt("    a, b, c are %i, %n, %s.\n", a, b, c)
 }
 
-function test_any_defaulting():nil
+function test_any_defaulting()
 {
     printfmt("#%i: Testing any defaulting...", test_id)
     test_id = test_id + 1
 
-    function m():nil {}
+    function m() {}
 
     any other_any = 10
     # Any can accept any value
@@ -207,7 +207,7 @@ function test_any_defaulting():nil
     any_hash["test"] = printfmt
     any_hash["test"] = other_any
 
-    function test(any x):nil {}
+    function test(any x) {}
 
     test(1)
     test(1.1)
@@ -221,7 +221,7 @@ function test_any_defaulting():nil
     print("ok.\n")
 }
 
-function test_oo():nil
+function test_oo()
 {
     string abc = "abc", rlt
     integer i, ok
@@ -268,7 +268,7 @@ function test_oo():nil
         print("failed.\n")
     }
 
-    function return_abc():string { return "abc" }
+    function return_abc( => string) { return "abc" }
 
     rlt = return_abc().concat("def")
     print("    return_abc().concat(\"def\")      == \"abcdef\"...")
@@ -293,7 +293,7 @@ function test_oo():nil
         fail_count = fail_count + 1
 }
 
-function test_utf8():nil
+function test_utf8()
 {
     string h3llö = "hello"
     string ustr = "á"
@@ -309,7 +309,7 @@ function test_utf8():nil
     }
 }
 
-function test_escapes():nil
+function test_escapes()
 {
     string s = "\\a\\b\\\\c\\d\\"
     string s2 = "Hello, world.\n"
@@ -319,7 +319,7 @@ function test_escapes():nil
     test_id = test_id + 1
 }
 
-function fib(integer n):integer
+function fib(integer n => integer)
 {
     if n == 0:
         return 0
@@ -329,7 +329,7 @@ function fib(integer n):integer
         return fib(n - 1) + fib(n - 2)
 }
 
-function test_fib():nil
+function test_fib()
 {
     printfmt("#%i: Testing fibonacci...(check results)\n", test_id)
     test_id = test_id + 1
@@ -350,17 +350,17 @@ function test_fib():nil
     print("     Should be   0, 1, 1, 2, 3, 5, 8, 13, 21, 34.\n")
 }
 
-function unary_helper():integer
+function unary_helper( => integer)
 {
     return 10
 }
 
-function unary_call_checker(integer a):integer
+function unary_call_checker(integer a => integer)
 {
     return 10
 }
 
-function test_unary():nil
+function test_unary()
 {
     printfmt("#%i: Testing unary ops...", test_id)
     test_id = test_id + 1
@@ -382,7 +382,7 @@ function test_unary():nil
     }
 }
 
-function test_andor():nil
+function test_andor()
 {
     printfmt("#%i: Testing and/or conditions...(sub tests follow).\n", test_id)
     test_id = test_id + 1
@@ -459,7 +459,7 @@ function test_andor():nil
         ok = 0
     }
 
-    function return_1():integer {
+    function return_1( => integer) {
         return 1
     }
 
@@ -481,7 +481,7 @@ function test_andor():nil
         fail_count = fail_count + 1
 }
 
-function test_parenth():nil
+function test_parenth()
 {
     printfmt("#%i: Testing parenth expressions...", test_id)
     test_id = test_id + 1
@@ -510,7 +510,7 @@ function test_parenth():nil
     }
 }
 
-function test_arith():nil
+function test_arith()
 {
     printfmt("#%i: Testing +, +=, -, -=, *, *=, /, /=, etc...", test_id)
     test_id = test_id + 1
@@ -553,7 +553,7 @@ function test_arith():nil
     print("ok.\n")
 }
 
-function test_sub_assign():nil
+function test_sub_assign()
 {
     printfmt("#%i: Testing subs assign...(sub tests follow).\n", test_id)
     test_id = test_id + 1
@@ -592,9 +592,9 @@ function test_sub_assign():nil
     list[list[string]] list_list_string = [["1"]]
     list_list_string[0][0] = "2"
 
-    function ret_10():integer { return 10 }
-    function ret_20():integer { return 20 }
-    function ret_30():integer { return 30 }
+    function ret_10( => integer) { return 10 }
+    function ret_20( => integer) { return 20 }
+    function ret_30( => integer) { return 30 }
 
     list[any] lso = [10, 1.1]
     lso[0] = 10
@@ -611,7 +611,7 @@ function test_sub_assign():nil
 
     print("     list[function] ")
 
-    list[function():integer] list_function = [ret_10, ret_20, ret_30]
+    list[function( => integer)] list_function = [ret_10, ret_20, ret_30]
     list_function[0] = ret_30
     integer call_ret = list_function[0]()
     if call_ret == 30: {
@@ -655,15 +655,15 @@ function test_sub_assign():nil
 # Sigs is short for signatures. A complex signature is a signature that contains
 # more signature information inside of it. Lists and functions are good examples
 # of this. This tests that complex signatures are not leaked.
-function test_complex_sigs():nil
+function test_complex_sigs()
 {
     printfmt("#%i: Testing complex sigs...", test_id)
     test_id = test_id + 1
     integer ok = 1
 
-    function lv1_function(  integer arg  ):nil{}
-    function lv2_function(  function lv1(  integer  ):nil  ):nil {}
-    function lv3_function(  function lv2(  function(integer):nil  ):nil  ):nil {}
+    function lv1_function(  integer arg  ){}
+    function lv2_function(  function lv1(  integer  )  ) {}
+    function lv3_function(  function lv2(  function(integer)  )  ) {}
 
     # These won't do anything. This is more to test that parser is doing what
     # it should when passing args.
@@ -671,36 +671,37 @@ function test_complex_sigs():nil
     lv2_function(lv1_function)
     lv3_function(lv2_function)
 
-    list[function(integer):nil] list_function_n1
+    list[function(integer)] list_function_n1
 
     list[
         function(
-            function(integer):nil
-        ):nil
+            function(integer)
+        )
     ] list_function_n2
 
     list[
         function( 
             list[
-                function(integer):nil
+                function(integer)
             ]
-        ):list[integer]
+            => list[integer]
+        )
     ] list_function_n3
 
-    function mval_1():integer { return 10 }
-    function mval_2():integer { return 20 }
-    function mval_3():integer { return 30 }
+    function mval_1( => integer) { return 10 }
+    function mval_2( => integer) { return 20 }
+    function mval_3( => integer) { return 30 }
     list[
-        function():integer
+        function( => integer)
     ] list_function_n4 = [mval_1, mval_2, mval_3]
 
-    function mval_4():list[integer] { return [10] }
-    function mval_5():any { return [10] }
+    function mval_4( => list[integer]) { return [10] }
+    function mval_5( => any) { return [10] }
 
     print("ok.\n")
 }
 
-function test_typecasts():nil
+function test_typecasts()
 {
     printfmt("#%i: Testing typecasts from any...", test_id)
     test_id = test_id + 1
@@ -727,22 +728,22 @@ function test_typecasts():nil
     any aval_2 = 1.1
     list_anyval = [aval_1, aval_2]
 
-    function mval_10():integer { return 10 }
-    function mval_20():integer { return 20 }
-    function mval_30():integer { return 30 }
-    function ret_any():any { any a2 = 10 return a2 }
+    function mval_10( => integer) { return 10 }
+    function mval_20( => integer) { return 20 }
+    function mval_30( => integer) { return 30 }
+    function ret_any( => any) { any a2 = 10 return a2 }
 
-    list[function():integer] list_mval = [mval_10]
+    list[function( => integer)] list_mval = [mval_10]
     a = mval_20
-    list_mval[0] = a.@(function():integer)
+    list_mval[0] = a.@(function( => integer))
 
     intval = list_mval[0]()
-    intval = a.@(function():integer)() +
-             a.@(function():integer)() +
-             a.@(function():integer)() +
-             a.@(function():integer)()
+    intval = a.@(function( => integer))() +
+             a.@(function( => integer))() +
+             a.@(function( => integer))() +
+             a.@(function( => integer))()
 
-    intval = a.@(function():integer)()
+    intval = a.@(function( => integer))()
 
     a = list_intval
     intval = a.@(list[integer])[0]
@@ -752,7 +753,7 @@ function test_typecasts():nil
     print("ok.\n")
 }
 
-function test_circular_ref_checks():nil
+function test_circular_ref_checks()
 {
     printfmt("#%i: Testing circular reference checks...", test_id)
     test_id = test_id + 1
@@ -833,7 +834,7 @@ function test_circular_ref_checks():nil
     print("ok.\n")
 }
 
-function test_function_varargs():nil
+function test_function_varargs()
 {
     printfmt("#%i: Testing function varargs...", test_id)
     test_id = test_id + 1
@@ -842,12 +843,12 @@ function test_function_varargs():nil
     # list for functions (instead of flattened like for functions).
     # The type that must be passed is the type of the list. So this first function
     # will take any extra integers and pack them into a list.
-    function va_1(list[integer] abc...):nil {    }
+    function va_1(list[integer] abc...) {    }
 
     # Since this one takes anys, any extra args also get converted to anys as
     # needed. The list part of that isn't tested yet, because there is no list
     # comparison utility.
-    function va_2(string format, list[any] args...):integer {
+    function va_2(string format, list[any] args... => integer) {
         integer ok
         # This next statement helped to uncover about 3 bugs. Leave it be.
         if args[0].@(integer) == 1 &&
@@ -859,13 +860,13 @@ function test_function_varargs():nil
 
         return 1
     }
-    function va_3(integer abc, list[list[integer]] args...):nil {    }
+    function va_3(integer abc, list[list[integer]] args...) {    }
 
     any a = va_2
     # Check it with a typecast too.
-    integer vx = a.@(function(string, list[any] ...):integer)("abc", 1, 1.1, "1")
+    integer vx = a.@(function(string, list[any] ... => integer))("abc", 1, 1.1, "1")
 
-    list[function(string, list[any] ...):integer] lmtd = [va_2, va_2, va_2]
+    list[function(string, list[any] ... => integer)] lmtd = [va_2, va_2, va_2]
 
     va_1(1,2,3,4,5)
     va_2("abc", 1, 1.1, "1", [1])
@@ -874,7 +875,7 @@ function test_function_varargs():nil
     print("ok.\n")
 }
 
-function test_multiline_strs():nil
+function test_multiline_strs()
 {
     printfmt("#%i: Testing multiline strings...(sub tests follow).", test_id)
     test_id = test_id + 1
@@ -967,7 +968,7 @@ function test_multiline_strs():nil
         fail_count = fail_count + 1
 }
 
-function test_digit_collection():nil
+function test_digit_collection()
 {
     printfmt("#%i: Testing digit collection...(sub tests follow).\n", test_id)
     test_id = test_id + 1
@@ -1120,7 +1121,7 @@ function test_digit_collection():nil
     }
 }
 
-function test_loops():nil
+function test_loops()
 {
     printfmt("#%i: Testing loops (while, for in, break, continue)...\n", test_id)
     test_id = test_id + 1
@@ -1193,7 +1194,7 @@ function test_loops():nil
         fail_count += 1
 }
 
-function test_assign_chain():nil
+function test_assign_chain()
 {
     printfmt("#%i: Testing assignment chains...(sub tests follow).\n", test_id)
     test_id = test_id + 1
@@ -1258,7 +1259,7 @@ function test_assign_chain():nil
         fail_count = fail_count + 1
 }
 
-function test_multiline_comment():nil
+function test_multiline_comment()
 {
     # Comments now work as follows:
     # If there is a #, but not three, it's single-line:
@@ -1297,7 +1298,7 @@ function test_multiline_comment():nil
     test_id = test_id + 1
 }
 
-function test_intnum_cast():nil
+function test_intnum_cast()
 {
     printfmt("#%i: Testing integer to number casting...", test_id)
     test_id = test_id + 1
@@ -1332,7 +1333,7 @@ function test_intnum_cast():nil
     }
 }
 
-function test_hashes():nil
+function test_hashes()
 {
     printfmt("#%i: Testing hashes...(sub tests follow).\n", test_id)
     test_id = test_id + 1
@@ -1370,7 +1371,7 @@ function test_hashes():nil
         "b" => nil_any]
 }
 
-function test_eq():nil
+function test_eq()
 {
     printfmt("#%i: Testing == for complex values...", test_id)
     test_id = test_id + 1
@@ -1400,28 +1401,28 @@ function test_eq():nil
     }
 }
 
-function test_misc():nil
+function test_misc()
 {
     printfmt("#%i: Miscellaneous features...(sub tests follow).\n", test_id)
     test_id = test_id + 1
     integer ok = 1
 
     print("     Call of returned function: m()()...")
-    function m2(): function():integer {
-        function m1(): integer
+    function m2( => function( => integer)) {
+        function m1( => integer)
         {
             return 10
         }
         return m1
     }
 
-    function m3(): nil {  }
+    function m3() {  }
     ###
     This checks for a parser bug where the parser thought that the return was
     the same as itself. This would cause an infinite loop when trying to raise
     an error when the return type wasn't what was expected.
     ###
-    function m4(): function(): nil { return m3 }
+    function m4( => function()) { return m3 }
 
     integer i = m2()()
     if i == 10: {
@@ -1437,8 +1438,8 @@ function test_misc():nil
     # This is a test for GH #20, where unary wasn't handling deep subscripts
     # and calls being merged right
 
-    function ret10():integer { return 10 }
-    list[list[function(): integer]] llm = [[ret10]]
+    function ret10( => integer) { return 10 }
+    list[list[function( => integer)]] llm = [[ret10]]
     list[list[integer]] llsi = [[1]]
     i2 = !llsi[0][0]
     i2 = !llm[0][0]()
@@ -1458,7 +1459,7 @@ function test_misc():nil
         fail_count = fail_count + 1
 }
 
-list[function():nil] function_list =
+list[function()] function_list =
 [
     test_basic_assignments,
     test_conditions,

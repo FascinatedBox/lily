@@ -1,1 +1,1 @@
-<@lily function f():nil {} function f():nil {} @>
+<@lily function f() {} function f() {} @>
