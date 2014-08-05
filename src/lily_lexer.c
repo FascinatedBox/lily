@@ -1342,8 +1342,11 @@ void lily_lexer(lily_lex_state *lexer)
         else if (group == CC_AT) {
             ch++;
             input_pos++;
-            if (*ch == '>' &&
-                lexer->mode == lm_tags) {
+            if (*ch == '>') {
+                if (lexer->mode == lm_no_tags)
+                    lily_raise(lexer->raiser, lily_ErrSyntax,
+                            "Found @> but not expecting tags.\n");
+
                 /* Skip the > of @> so it's not sent as html. */
                 input_pos++;
                 token = tk_end_tag;
@@ -1353,8 +1356,7 @@ void lily_lexer(lily_lex_state *lexer)
                 token = tk_typecast_parenth;
             }
             else
-                lily_raise(lexer->raiser, lily_ErrSyntax,
-                           "Expected '>' after '@'.\n");
+                token = tk_invalid;
         }
         else
             token = tk_invalid;
