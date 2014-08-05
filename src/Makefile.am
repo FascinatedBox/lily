@@ -57,6 +57,10 @@ lily_cliexec_SOURCES = cliexec_main.c \
 
 # Here are some targets to make things easier.
 
+# Ensure that cliexec is running correctly.
+cliexec-tests: lily_cliexec
+	python cliexec_tests.py
+
 # This runs the basic sanity test which is at the given location. This runs
 # quite a few tests to make sure the interpreter is still sane (hence the
 # name). 
