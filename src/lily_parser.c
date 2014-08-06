@@ -47,6 +47,10 @@ if (lex->token != expected) \
     lily_raise(parser->raiser, lily_ErrSyntax, "Expected '%s', not %s.\n", \
                tokname(expected), tokname(lex->token));
 
+/* This flag is for expression. If it's set, then expression won't try to get
+   a value. */
+#define EXPR_DONT_NEED_VALUE 0x1
+
 /** Parser initialization and deletion **/
 lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
 {
@@ -772,11 +776,12 @@ static void check_valid_close_tok(lily_parse_state *parser)
     function to actually evaluate the built up expression. Those functions
     will also clear the ast pool when they emit, so that expression never has
     to worry about clearing the pool. */
-static void expression(lily_parse_state *parser)
+static void expression(lily_parse_state *parser, int options)
 {
     lily_lex_state *lex = parser->lex;
 
-    expression_value(parser);
+    if ((options & EXPR_DONT_NEED_VALUE) == 0)
+        expression_value(parser);
 
     while (1) {
         int expr_op = parser_tok_table[lex->token].expr_op;
@@ -905,16 +910,11 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
         lily_lexer(parser->lex);
         /* Handle an initializing assignment, if there is one. */
         if (lex->token == tk_equal) {
-            /* expression expects to start at the beginning of an expression,
-               but it's too late for that. This can't call expression unless
-               there's an assignment (and it has to be =, no += or
-               fancy stuff).
-               Push the var and the = into the pool, and let expression handle
-               the right side. */
+            /* Push the value and the assignment, then call up expresison. */
             lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
             lily_ast_push_binary_op(parser->ast_pool, expr_assign);
             lily_lexer(lex);
-            expression(parser);
+            expression(parser, 0);
             lily_emit_eval_expr(parser->emit, parser->ast_pool);
         }
 
@@ -933,7 +933,7 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
 static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
 {
     lily_ast_pool *ap = parser->ast_pool;
-    expression(parser);
+    expression(parser, 0);
 
     /* Don't allow assigning expressions, since that just looks weird.
        ex: for i in a += 10..5
@@ -993,8 +993,8 @@ static keyword_handler *handlers[] = {
     continue_handler,
     break_handler,
     show_handler,
-    file_kw_handler,
     line_kw_handler,
+    file_kw_handler,
     function_kw_handler,
     for_handler,
     do_handler,
@@ -1040,7 +1040,7 @@ static void statement(lily_parse_state *parser, int multi)
                     parse_decl(parser, lclass->sig);
             }
             else {
-                expression(parser);
+                expression(parser, 0);
                 lily_emit_eval_expr(parser->emit, parser->ast_pool);
             }
         }
@@ -1093,7 +1093,7 @@ static void if_handler(lily_parse_state *parser, int multi)
     lily_lex_state *lex = parser->lex;
 
     lily_emit_enter_block(parser->emit, BLOCK_IF);
-    expression(parser);
+    expression(parser, 0);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
     NEED_CURRENT_TOK(tk_colon)
 
@@ -1133,7 +1133,7 @@ static void elif_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
     lily_emit_change_if_branch(parser->emit, /*have_else=*/0);
-    expression(parser);
+    expression(parser, 0);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
 
     NEED_CURRENT_TOK(tk_colon)
@@ -1184,7 +1184,7 @@ static void return_handler(lily_parse_state *parser, int multi)
 {
     lily_sig *ret_sig = parser->emit->top_function_ret;
     if (ret_sig != NULL) {
-        expression(parser);
+        expression(parser, 0);
         lily_emit_return(parser->emit, parser->ast_pool->root, ret_sig);
         lily_ast_reset_pool(parser->ast_pool);
     }
@@ -1203,7 +1203,7 @@ static void while_handler(lily_parse_state *parser, int multi)
 
     lily_emit_enter_block(parser->emit, BLOCK_WHILE);
 
-    expression(parser);
+    expression(parser, 0);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
 
     NEED_CURRENT_TOK(tk_colon)
@@ -1238,9 +1238,24 @@ static void break_handler(lily_parse_state *parser, int multi)
     to handle any kind of value: vars, literals, results of commands, etc. */
 static void show_handler(lily_parse_state *parser, int multi)
 {
-    expression(parser);
+    expression(parser, 0);
     lily_emit_show(parser->emit, parser->ast_pool->root);
     lily_ast_reset_pool(parser->ast_pool);
+}
+
+/*  do_keyword
+    This handles simple keywords that can start expressions. It unifies common
+    code in __line__, __file__, and __function__.
+
+    key_id: The id of the keyword to handle. */
+static void do_keyword(lily_parse_state *parser, int key_id)
+{
+    lily_literal *lit;
+    lit = parse_special_keyword(parser, key_id);
+    lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
+
+    expression(parser, EXPR_DONT_NEED_VALUE);
+    lily_emit_eval_expr(parser->emit, parser->ast_pool);
 }
 
 /*  line_kw_handler
@@ -1248,8 +1263,7 @@ static void show_handler(lily_parse_state *parser, int multi)
     that useful outside of an expression. */
 static void line_kw_handler(lily_parse_state *parser, int multi)
 {
-    lily_raise(parser->raiser, lily_ErrSyntax,
-               "__line__ cannot be used outside of an expression.\n");
+    do_keyword(parser, KEY__LINE__);
 }
 
 /*  file_kw_handler
@@ -1257,8 +1271,7 @@ static void line_kw_handler(lily_parse_state *parser, int multi)
     that useful outside of an expression. */
 static void file_kw_handler(lily_parse_state *parser, int multi)
 {
-    lily_raise(parser->raiser, lily_ErrSyntax,
-               "__file__ cannot be used outside of an expression.\n");
+    do_keyword(parser, KEY__FILE__);
 }
 
 /*  function_kw_handler
@@ -1266,8 +1279,7 @@ static void file_kw_handler(lily_parse_state *parser, int multi)
     all that useful outside of an expression. */
 static void function_kw_handler(lily_parse_state *parser, int multi)
 {
-    lily_raise(parser->raiser, lily_ErrSyntax,
-               "__function__ cannot be used outside of an expression.\n");
+    do_keyword(parser, KEY__FUNCTION__);
 }
 
 /*  for_handler
@@ -1376,15 +1388,19 @@ static void do_handler(lily_parse_state *parser, int multi)
     /* Now prep the token for expression. Save the resulting tree so that
        it can be eval'd specially. */
     lily_lexer(lex);
-    expression(parser);
+    expression(parser, 0);
     lily_emit_eval_do_while_expr(parser->emit, parser->ast_pool);
     lily_emit_leave_block(parser->emit);
 }
 
 static void isnil_handler(lily_parse_state *parser, int multi)
 {
-    lily_raise(parser->raiser, lily_ErrSyntax,
-               "isnil() cannot be used outside of an expression.\n");
+    lily_lex_state *lex = parser->lex;
+    lily_ast_enter_tree(parser->ast_pool, tree_isnil, NULL);
+    NEED_CURRENT_TOK(tk_left_parenth)
+    lily_lexer(lex);
+    expression(parser, 0);
+    lily_emit_eval_expr(parser->emit, parser->ast_pool);
 }
 
 /** Main parser function, and public calling API.
@@ -1431,6 +1447,15 @@ void lily_parser(lily_parse_state *parser)
             }
             else
                 break;
+        }
+        /* This makes it possible to have expressions that don't start with a
+           var. This may be useful later for building a repl. */
+        else if (lex->token == tk_integer || lex->token == tk_number ||
+                 lex->token == tk_double_quote ||
+                 lex->token == tk_left_parenth ||
+                 lex->token == tk_left_bracket) {
+            expression(parser, 0);
+            lily_emit_eval_expr(parser->emit, parser->ast_pool);
         }
         else
             lily_raise(parser->raiser, lily_ErrSyntax, "Unexpected token %s.\n",
