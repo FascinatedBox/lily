@@ -1,7 +1,9 @@
 # test_cliexec.py
 # This contains some tests to make sure that the cliexec runner hasn't been
-# broken by some change. This doesn't test much, since the only difference
-# between this and the usual lily_fs runner is that the input is a string.
+# broken by some change.
+
+# This also contains other tests so that new files don't have to be created
+# for really short tests.
 
 import subprocess, sys
 
@@ -27,6 +29,42 @@ Where: File "<str>" at line 1\n""",
      "message": "Make sure __line__ is right",
      "stderr": "",
      "stdout": "ok"
+    },
+    {
+     "command": """  1  """,
+     "message": "Make sure integers can start an expression",
+     "stderr": "",
+     "stdout": ""
+    },
+    {
+     "command": """  "1"  """,
+     "message": "Make sure strings can start an expression",
+     "stderr": "",
+     "stdout": ""
+    },
+    {
+     "command": """  11.5  """,
+     "message": "Make sure numbers can start an expression",
+     "stderr": "",
+     "stdout": ""
+    },
+    {
+     "command": """  (1)  """,
+     "message": "Make sure parentheses can start an expression",
+     "stderr": "",
+     "stdout": ""
+    },
+    {
+     "command": """  [1, 2, 3].size()  """,
+     "message": "Make sure static lists can start an expression",
+     "stderr": "",
+     "stdout": ""
+    },
+    {
+     "command": """  __line__  """,
+     "message": "Make sure __line__ can start an expression",
+     "stderr": "",
+     "stdout": ""
     },
 ]
 
