@@ -1393,12 +1393,32 @@ function test_eq()
     if [1, 1.1, "3"] != [1, 1.1, "3"]:
         ok = 0
 
+    if <[1, "1", [1]]> != <[1, "1", [1]]>:
+        ok = 0
+
     if ok: {
         print("ok.\n")
     else:
         print("failed.\n")
         fail_count = fail_count + 1
     }
+}
+
+function test_tuples()
+{
+    printfmt("#%i: Testing tuples...", test_id)
+
+    # First a test of tuple literals.
+    tuple[integer, string, list[integer]] t = <[1, "1", [1]]>
+
+    # The first and final default to any.
+    tuple[integer, integer, any] t2 = <[11, 21, 31]>
+
+    # Make sure that t[1] yields the proper sig at emit time by forcing a call
+    # to string::concat after it.
+    string s = t[1].concat("1")
+
+    print("ok.\n")
 }
 
 function test_misc()
@@ -1486,6 +1506,7 @@ list[function()] function_list =
     test_intnum_cast,
     test_hashes,
     test_eq,
+    test_tuples,
     test_misc
 ]
 

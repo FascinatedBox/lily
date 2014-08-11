@@ -164,6 +164,17 @@ typedef enum {
        count always precedes the exact number of values. */
     o_build_hash,
 
+    /* Build tuple:
+       * int lineno
+       * int num_values
+       * reg values...
+       * reg result
+       This creates a new tuple that holds the values given. The resulting type
+       depends on the values given. The values may have different types (that's
+       sort of encouraged), and the result is a tuple with the appropriate
+       type. */
+    o_build_tuple,
+
     /* Any typecast:
        * int lineno
        * reg(any) left

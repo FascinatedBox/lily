@@ -16,6 +16,7 @@ The language currently recognizes 8 datatypes:
 * string: A bunch of text.
 * list: A list of a given element.
 * hash: An associative array, having a key and value type.
+* tuple: A collection of different types.
 * function: A callable body of code. Some are native (defined by Lily code), and some are foreign (defined outside of Lily code). The interpreter doesn't make a distinction.
 * any: A container that can hold any value.
 
@@ -32,6 +33,9 @@ list[integer] d = [1, 2, 3]
 
 # This is a hash that takes integers, and gives strings.
 hash[integer, string] e = [1 => "10", 2 => "20"]
+
+# This is a tuple holding an integer, a string, and a string.
+tuple[integer, string, string] t = <[1, "2", "3"]>
 
 # This is a function that doesn't take any arguments or return anything:
 function no_op()

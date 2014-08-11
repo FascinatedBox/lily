@@ -95,7 +95,7 @@ typedef struct lily_debug_state_t {
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[49] = {
+char *opcode_names[50] = {
     "assign",
     "any assign",
     "assign (ref/deref)",
@@ -128,6 +128,7 @@ char *opcode_names[49] = {
     "unary minus (-x)",
     "build list",
     "build hash",
+    "build tuple",
     "typecast",
     "integer <-> number",
     "show",
@@ -237,6 +238,7 @@ static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
             break;
         case o_build_list:
         case o_build_hash:
+        case o_build_tuple:
             ret = build_list_ci;
             break;
         case o_jump:
@@ -656,23 +658,18 @@ static void show_value(lily_debug_state *debug, lily_value *value)
         lily_impl_puts(debug->data, "\n");
     }
     else if (cls_id == SYM_CLASS_LIST ||
-             cls_id == SYM_CLASS_HASH) {
-        lily_list_val *lv = NULL;
-        lily_hash_val *hv = NULL;
-
-        if (cls_id == SYM_CLASS_LIST)
-            lv = raw_value.list;
-        else
-            hv = raw_value.hash;
-
+             cls_id == SYM_CLASS_HASH ||
+             cls_id == SYM_CLASS_TUPLE) {
         lily_msgbuf_add_fmt(debug->msgbuf, "^T\n", sig);
         write_msgbuf(debug);
 
         debug->indent++;
-        if (cls_id == SYM_CLASS_LIST)
-            show_list_value(debug, sig, lv);
-        else
-            show_hash_value(debug, sig, hv);
+        if (cls_id == SYM_CLASS_LIST ||
+            cls_id == SYM_CLASS_TUPLE)
+            show_list_value(debug, sig, raw_value.list);
+        else if (cls_id == SYM_CLASS_HASH)
+            show_hash_value(debug, sig, raw_value.hash);
+
         debug->indent--;
         /* The \n at the end comes from the last value's \n. */
     }

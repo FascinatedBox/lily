@@ -196,12 +196,13 @@ void lily_msgbuf_add_sig(lily_msgbuf *msgbuf, lily_sig *sig)
         }
     }
     else if (sig->cls->id == SYM_CLASS_LIST ||
-             sig->cls->id == SYM_CLASS_HASH) {
+             sig->cls->id == SYM_CLASS_HASH ||
+             sig->cls->id == SYM_CLASS_TUPLE) {
         int i;
         lily_msgbuf_add(msgbuf, "[");
-        for (i = 0;i < sig->cls->template_count;i++) {
+        for (i = 0;i < sig->siglist_size;i++) {
             lily_msgbuf_add_sig(msgbuf, sig->siglist[i]);
-            if (i != (sig->cls->template_count - 1))
+            if (i != (sig->siglist_size - 1))
                 lily_msgbuf_add(msgbuf, ", ");
         }
         lily_msgbuf_add(msgbuf, "]");

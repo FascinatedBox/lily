@@ -361,7 +361,8 @@ static int init_classes(lily_symtab *symtab)
             if (i == SYM_CLASS_LIST ||
                 i == SYM_CLASS_FUNCTION ||
                 i == SYM_CLASS_TEMPLATE ||
-                i == SYM_CLASS_HASH) {
+                i == SYM_CLASS_HASH ||
+                i == SYM_CLASS_TUPLE) {
                 /* lily_try_sig_for_class will always yield a new signature when
                    these are given. So these classes do not need a default
                    signature. */
@@ -952,6 +953,17 @@ lily_sig *lily_ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
         (input_sig->cls->id == SYM_CLASS_HASH &&
          input_sig->siglist[1]->flags & SIG_MAYBE_CIRCULAR))
         input_sig->flags |= SIG_MAYBE_CIRCULAR;
+    else if (input_sig->cls->id == SYM_CLASS_TUPLE) {
+        /* Tuple allows various types inside, so check all of them for
+           circularity. */
+        int i;
+        for (i = 0;i < input_sig->siglist_size;i++) {
+            if (input_sig->siglist[i]->flags & SIG_MAYBE_CIRCULAR) {
+                input_sig->flags |= SIG_MAYBE_CIRCULAR;
+                break;
+            }
+        }
+    }
 
     if (match) {
         /* Remove input_sig from the symtab's sig chain. */

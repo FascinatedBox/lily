@@ -880,7 +880,11 @@ static void op_get_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
     LOAD_CHECKED_REG(index_reg, code_pos, 3)
     result_reg = vm_regs[code[code_pos + 4]];
 
-    if (lhs_reg->sig->cls->id == SYM_CLASS_LIST) {
+    /* list and tuple have the same representation internally. Since list
+       stores proper values, lily_assign_value automagically set the type to
+       the right thing. */
+    if (lhs_reg->sig->cls->id == SYM_CLASS_LIST ||
+        lhs_reg->sig->cls->id == SYM_CLASS_TUPLE) {
         lily_list_val *list_val = lhs_reg->value.list;
         int index_int = index_reg->value.integer;
 
@@ -1084,6 +1088,61 @@ void op_build_list(lily_vm_state *vm, lily_value **vm_regs,
     }
 
     lv->num_values = num_elems;
+}
+
+void op_build_tuple(lily_vm_state *vm, lily_value **vm_regs,
+        uintptr_t *code)
+{
+    int num_elems = (intptr_t)(code[2]);
+    lily_value *result = vm_regs[code[3+num_elems]];
+    lily_list_val *tuple = lily_malloc(sizeof(lily_list_val));
+    if (tuple == NULL)
+        lily_raise_nomem(vm->raiser);
+
+    /* This is set in case the gc looks at this list. This prevents the gc and
+       deref calls from touching ->values and ->flags. */
+    tuple->num_values = -1;
+    tuple->visited = 0;
+    tuple->refcount = 1;
+    tuple->elems = lily_malloc(num_elems * sizeof(lily_value *));
+    tuple->gc_entry = NULL;
+
+    /* If attaching a gc entry fails, then list deref will collect everything
+       which is what's wanted anyway. */
+    if (tuple->elems == NULL ||
+        ((result->sig->flags & SIG_MAYBE_CIRCULAR) &&
+          lily_try_add_gc_item(vm, result->sig,
+                (lily_generic_gc_val *)tuple) == 0)) {
+
+        lily_deref_tuple_val(result->sig, tuple);
+        lily_raise_nomem(vm->raiser);
+    }
+
+    /* Deref the old value and install the new one. */
+    if ((result->flags & VAL_IS_NIL) == 0)
+        lily_deref_tuple_val(result->sig, result->value.list);
+
+    result->value.list = tuple;
+    /* This must be done in case the old tuple was nil. */
+    result->flags = 0;
+
+    int i;
+    for (i = 0;i < num_elems;i++) {
+        tuple->elems[i] = lily_malloc(sizeof(lily_value));
+        if (tuple->elems[i] == NULL) {
+            tuple->num_values = i;
+            lily_raise_nomem(vm->raiser);
+        }
+        tuple->elems[i]->flags = VAL_IS_NIL;
+        tuple->elems[i]->sig = result->sig->siglist[i];
+        tuple->elems[i]->value.integer = 0;
+        tuple->num_values = i + 1;
+        lily_value *rhs_reg = vm_regs[code[3+i]];
+
+        lily_assign_value(vm, tuple->elems[i], rhs_reg);
+    }
+
+    tuple->num_values = num_elems;
 }
 
 static void do_keyword_show(lily_vm_state *vm, int is_global, int reg_id)
@@ -1989,6 +2048,10 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_build_list:
                 op_build_list(vm, vm_regs, code+code_pos);
+                code_pos += code[code_pos+2] + 4;
+                break;
+            case o_build_tuple:
+                op_build_tuple(vm, vm_regs, code+code_pos);
                 code_pos += code[code_pos+2] + 4;
                 break;
             case o_ref_assign:

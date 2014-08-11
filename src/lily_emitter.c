@@ -363,7 +363,7 @@ static lily_block *try_new_block(void)
 
     emit:       The emitter holding the function to write to.
     opcode:     The opcode to write: o_build_list for a list, o_build_hash for a
-                hash.
+                hash, o_build_tuple for a tuple.
     first_arg:  The first argument to start iterating over.
     line_num:   A line number for the o_build_* opcode.
     num_values: The number of values that will be written. This is typically
@@ -1034,15 +1034,16 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 }
 
 static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
-        lily_ast *index_ast)
+        lily_ast *index_ast, lily_literal *index_literal)
 {
-    if (var_ast->result->sig->cls->id == SYM_CLASS_LIST &&
+    int var_cls_id = var_ast->result->sig->cls->id;
+    if (var_cls_id == SYM_CLASS_LIST &&
         index_ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
         emit->raiser->line_adjust = var_ast->line_num;
         lily_raise(emit->raiser, lily_ErrSyntax,
                 "list index is not an integer.\n");
     }
-    else if (var_ast->result->sig->cls->id == SYM_CLASS_HASH) {
+    else if (var_cls_id == SYM_CLASS_HASH) {
         int match_check = template_check(var_ast->result->sig,
                 var_ast->result->sig->siglist[0], index_ast->result->sig);
 
@@ -1053,15 +1054,37 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
                     var_ast->result->sig->siglist[0], index_ast->result->sig);
         }
     }
+    else if (var_cls_id == SYM_CLASS_TUPLE) {
+        if (index_ast->result->sig->cls->id != SYM_CLASS_INTEGER ||
+            index_ast->tree_type != tree_readonly) {
+            emit->raiser->line_adjust = var_ast->line_num;
+            lily_raise(emit->raiser, lily_ErrSyntax,
+                    "tuple subscripts must be integer literals.\n");
+        }
+        lily_sig *var_sig = var_ast->result->sig;
+        if (index_literal->value.integer < 0 ||
+            index_literal->value.integer >= var_sig->siglist_size) {
+
+            emit->raiser->line_adjust = var_ast->line_num;
+            lily_raise(emit->raiser, lily_ErrSyntax,
+                "Index %d is out of range for %T.\n",
+                index_literal->value.integer, var_sig);
+        }
+    }
 }
 
-static lily_sig *get_subscript_result(lily_sig *sig)
+static lily_sig *get_subscript_result(lily_sig *sig, lily_ast *index_ast,
+        lily_literal *tuple_index_lit)
 {
     lily_sig *result;
     if (sig->cls->id == SYM_CLASS_LIST)
         result = sig->siglist[0];
     else if (sig->cls->id == SYM_CLASS_HASH)
         result = sig->siglist[1];
+    else if (sig->cls->id == SYM_CLASS_TUPLE)
+        /* check_valid_subscript verifies that the literal is an integer with
+           a sane index. */
+        result = sig->siglist[tuple_index_lit->value.integer];
     else
         result = NULL;
 
@@ -1096,13 +1119,21 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
     if (var_ast->tree_type != tree_local_var)
         eval_tree(emit, var_ast);
 
-    if (index_ast->tree_type != tree_local_var)
+    lily_literal *tuple_literal = NULL;
+
+    if (index_ast->tree_type != tree_local_var) {
+        if (index_ast->tree_type == tree_readonly &&
+            var_ast->result->sig->cls->id == SYM_CLASS_TUPLE) {
+            /* Save the literal before evaluating the tree wipes it out. */
+            tuple_literal = (lily_literal *)index_ast->result;
+        }
         eval_tree(emit, index_ast);
+    }
 
-    check_valid_subscript(emit, var_ast, index_ast);
+    check_valid_subscript(emit, var_ast, index_ast, tuple_literal);
 
-    /* The subscript assign goes to the element, not the list. So... */
-    elem_sig = get_subscript_result(var_ast->result->sig);
+    elem_sig = get_subscript_result(var_ast->result->sig, index_ast,
+            tuple_literal);
 
     if (elem_sig != rhs->sig && elem_sig->cls->id != SYM_CLASS_ANY) {
         emit->raiser->line_adjust = ast->line_num;
@@ -1481,6 +1512,46 @@ static int type_matchup(lily_emit_state *emit, lily_sig *self,
         right->result = (lily_sym *)s;
         ret = 1;
     }
+    else if (right->tree_type == tree_tuple &&
+             want_sig->cls->id == SYM_CLASS_TUPLE &&
+             right->result->sig->siglist_size == want_sig->siglist_size) {
+        lily_function_val *f = emit->top_function;
+        int element_count = right->args_collected;
+        /* Tuple is a bit strange: Each entry can have a different type. So
+           only put the values into an 'any' if an 'any' is wanted. */
+        ret = 1;
+        int i;
+        lily_ast *arg;
+
+        /* WARNING: This is only safe because the tree was just evaluated and
+           nothing has happened since the o_build_* was written. */
+        f->pos = f->pos - (4 + element_count);
+
+        for (i = 0, arg = right->arg_start;
+             i < want_sig->siglist_size;
+             i++, arg = arg->next_arg) {
+            lily_sig *want = want_sig->siglist[i];
+            lily_sig *have = right->result->sig->siglist[i];
+            if (want != have) {
+                if (want->cls->id == SYM_CLASS_ANY)
+                    emit_any_assign(emit, arg);
+                else {
+                    ret = 0;
+                    break;
+                }
+            }
+        }
+
+        if (ret == 1) {
+            lily_storage *s = get_storage(emit, want_sig, right->line_num);
+            if (s == NULL)
+                lily_raise_nomem(emit->raiser);
+
+            write_build_op(emit, o_build_tuple, right->arg_start, right->line_num,
+                    right->args_collected, s->reg_spot);
+            right->result = (lily_sym *)s;
+        }
+    }
 
     return ret;
 }
@@ -1555,6 +1626,53 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)s;
 }
 
+/*  eval_build_tuple */
+static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast)
+{
+    if (ast->args_collected == 0) {
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                "Cannot create an empty tuple.\n");
+    }
+
+    lily_ast *arg;
+
+    /* Tuple lets the args be whatever they want to be. :) */
+    for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
+        if (arg->tree_type != tree_local_var)
+            eval_tree(emit, arg);
+    }
+
+    lily_class *tuple_cls = lily_class_by_id(emit->symtab, SYM_CLASS_TUPLE);
+    lily_sig *new_sig = lily_try_sig_for_class(emit->symtab, tuple_cls);
+    if (new_sig == NULL) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise_nomem(emit->raiser);
+    }
+
+    lily_sig **siglist = lily_malloc(ast->args_collected * sizeof(lily_sig *));
+    if (siglist == NULL) {
+        emit->raiser->line_adjust = ast->line_num;
+        lily_raise_nomem(emit->raiser);
+    }
+
+    new_sig->siglist = siglist;
+    new_sig->siglist_size = ast->args_collected;
+
+    int i;
+    for (i = 0, arg = ast->arg_start;
+         arg != NULL;
+         i++, arg = arg->next_arg) {
+        siglist[i] = arg->result->sig;
+    }
+
+    new_sig = lily_ensure_unique_sig(emit->symtab, new_sig);
+    lily_storage *s = get_storage(emit, new_sig, ast->line_num);
+
+    write_build_op(emit, o_build_tuple, ast->arg_start, ast->line_num,
+            ast->args_collected, s->reg_spot);
+    ast->result = (lily_sym *)s;
+}
+
 /* eval_subscript
    This handles an ast of type tree_subscript. The arguments for the subscript
    start at ->arg_start.
@@ -1569,18 +1687,30 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
 
     lily_sig *var_sig = var_ast->result->sig;
     if (var_sig->cls->id != SYM_CLASS_LIST &&
-        var_sig->cls->id != SYM_CLASS_HASH)
+        var_sig->cls->id != SYM_CLASS_HASH &&
+        var_sig->cls->id != SYM_CLASS_TUPLE)
         bad_subs_class(emit, var_ast);
 
-    if (index_ast->tree_type != tree_local_var)
+    lily_literal *tuple_literal = NULL;
+
+    if (index_ast->tree_type != tree_local_var) {
+        if (index_ast->tree_type == tree_readonly &&
+            var_ast->result->sig->cls->id == SYM_CLASS_TUPLE) {
+            /* Save the literal before evaluating the tree wipes it out. This
+               will be used later to determine what the result of the subscript
+               should actually be. */
+            tuple_literal = (lily_literal *)index_ast->result;
+        }
         eval_tree(emit, index_ast);
+    }
 
-    check_valid_subscript(emit, var_ast, index_ast);
+    check_valid_subscript(emit, var_ast, index_ast, tuple_literal);
 
-    lily_sig *sig_for_result = var_sig->siglist[0];
-    lily_storage *result;
+    lily_sig *sig_for_result;
+    sig_for_result = get_subscript_result(var_ast->result->sig, index_ast,
+            tuple_literal);
 
-    result = get_storage(emit, sig_for_result, ast->line_num);
+    lily_storage *result = get_storage(emit, sig_for_result, ast->line_num);
 
     WRITE_5(o_get_item,
             ast->line_num,
@@ -1815,7 +1945,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     lily_function_val *f = emit->top_function;
     lily_storage *ret;
 
-    if (ast->result->flags & (SYM_TYPE_LITERAL | VAR_IS_READONLY)) {
+    if (ast->tree_type == tree_readonly) {
         ret = get_storage(emit, ast->result->sig, ast->line_num);
 
         WRITE_4(o_get_const,
@@ -1955,6 +2085,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast)
         eval_build_list(emit, ast);
     else if (ast->tree_type == tree_hash)
         eval_build_hash(emit, ast);
+    else if (ast->tree_type == tree_tuple)
+        eval_build_tuple(emit, ast);
     else if (ast->tree_type == tree_subscript)
         eval_subscript(emit, ast);
     else if (ast->tree_type == tree_package)
