@@ -69,6 +69,32 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
     }
 }
 
+void lily_deref_tuple_val(lily_sig *sig, lily_list_val *tv)
+{
+    tv->refcount--;
+    if (tv->refcount == 0) {
+        /* If this tuple has a gc entry, then make the value of it NULL. This
+           prevents the gc from trying to access the tuple once it has been
+           destroyed. */
+        if (tv->gc_entry != NULL)
+            tv->gc_entry->value.generic = NULL;
+
+        int i;
+        for (i = 0;i < tv->num_values;i++) {
+            lily_value *elem_val = tv->elems[i];
+
+            if (elem_val->sig->cls->is_refcounted &&
+                (elem_val->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+                lily_deref_unknown_val(elem_val);
+
+            lily_free(elem_val);
+        }
+
+        lily_free(tv->elems);
+        lily_free(tv);
+    }
+}
+
 void lily_deref_function_val(lily_function_val *fv)
 {
     fv->refcount--;
@@ -161,6 +187,8 @@ void lily_deref_unknown_val(lily_value *value)
         lily_deref_any_val(raw.any);
     else if (cls_id == SYM_CLASS_HASH)
         lily_deref_hash_val(value->sig, raw.hash);
+    else if (cls_id == SYM_CLASS_TUPLE)
+        lily_deref_tuple_val(value->sig, raw.list);
     else if (cls_id == SYM_CLASS_PACKAGE)
         lily_deref_package_val(raw.package);
 }
@@ -188,6 +216,8 @@ void lily_deref_unknown_raw_val(lily_sig *value_sig, lily_raw_value raw)
         lily_deref_any_val(raw.any);
     else if (cls_id == SYM_CLASS_HASH)
         lily_deref_hash_val(value_sig, raw.hash);
+    else if (cls_id == SYM_CLASS_TUPLE)
+        lily_deref_tuple_val(value_sig, raw.list);
     else if (cls_id == SYM_CLASS_PACKAGE)
         lily_deref_package_val(raw.package);
 }

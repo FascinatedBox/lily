@@ -17,6 +17,8 @@ void lily_gc_collect_value(lily_sig *value_sig, lily_raw_value value)
         lily_gc_collect_list(value_sig, value.list);
     else if (entry_cls_id == SYM_CLASS_HASH)
         lily_gc_collect_hash(value_sig, value.hash);
+    else if (entry_cls_id == SYM_CLASS_TUPLE)
+        lily_gc_collect_tuple(value_sig, value.list);
     else if (entry_cls_id == SYM_CLASS_ANY)
         lily_gc_collect_any(value.any);
     else
@@ -156,5 +158,40 @@ void lily_gc_collect_hash(lily_sig *hash_sig, lily_hash_val *hash_val)
 
         if (marked == 0)
             lily_free(hash_val);
+    }
+}
+
+void lily_gc_collect_tuple(lily_sig *tuple_sig, lily_list_val *tuple_val)
+{
+    int marked = 0;
+    if (tuple_val->gc_entry == NULL ||
+        (tuple_val->gc_entry->last_pass != -1 &&
+         tuple_val->gc_entry->value.generic != NULL)) {
+
+        if (tuple_val->gc_entry) {
+            tuple_val->gc_entry->last_pass = -1;
+            marked = 1;
+        }
+
+        int i;
+
+        for (i = 0;i < tuple_val->num_values;i++) {
+            lily_value *elem = tuple_val->elems[i];
+            /* Each value the tuple holds may or may not be refcounted, so they
+               must be checked individually. */
+            if (elem->sig->cls->is_refcounted &&
+                (elem->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
+                lily_raw_value v = elem->value;
+                if (v.generic->refcount == 1)
+                    lily_gc_collect_value(elem->sig, v);
+                else
+                    v.generic->refcount--;
+            }
+            lily_free(elem);
+        }
+
+        lily_free(tuple_val->elems);
+        if (marked == 0)
+            lily_free(tuple_val);
     }
 }

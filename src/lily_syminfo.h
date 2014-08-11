@@ -210,9 +210,11 @@ typedef struct lily_any_val_t {
     struct lily_value_t *inner_value;
 } lily_any_val;
 
-/* This is Lily's list. The gc_entry is only set if the symtab determines that
-   the signature of the list can be refcounted. This means that list[integer]
-   will not have a gc entry, but something like list[list[any]] will. */
+/* This implements Lily's list, and tuple as well. The list class only allows
+   the elements to have a single type. However, the tuple class allows for
+   different types (but checking for the proper type).
+   The gc_entry field is only set if the symtab determines that this particular
+   list/tuple can become circular. */
 typedef struct lily_list_val_t {
     int refcount;
     struct lily_gc_entry_t *gc_entry;
@@ -411,10 +413,11 @@ typedef struct lily_func_seed_t {
 #define SYM_CLASS_ANY      4
 #define SYM_CLASS_LIST     5
 #define SYM_CLASS_HASH     6
-#define SYM_CLASS_TEMPLATE 7
-#define SYM_CLASS_PACKAGE  8
+#define SYM_CLASS_TUPLE    7
+#define SYM_CLASS_TEMPLATE 8
+#define SYM_CLASS_PACKAGE  9
 
-#define SYM_LAST_CLASS     8
-#define INITIAL_CLASS_SIZE 9
+#define SYM_LAST_CLASS     9
+#define INITIAL_CLASS_SIZE 10
 
 #endif

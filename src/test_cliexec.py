@@ -66,6 +66,21 @@ Where: File "<str>" at line 1\n""",
      "stderr": "",
      "stdout": ""
     },
+    {
+     "command": """  string s = <[1, "2"]> [1]  """
+     "message": "Make sure tuple subscripts know the type",
+     "stderr": "",
+     "stdout": ""
+    },
+    {
+     "command": """  string s = <[1, "2"]> [3]"""
+     "message": "Make sure tuple subscripts don't overflow",
+     "stderr": """\
+ErrSyntax: Index 3 is out of range for tuple[integer, string].\n\
+
+",
+     "stdout": ""
+    }
 ]
 
 test_number = 1

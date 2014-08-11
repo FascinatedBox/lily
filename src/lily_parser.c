@@ -291,11 +291,52 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
 
     lily_sig *result;
 
-    if (cls->id != SYM_CLASS_FUNCTION &&
+    if (cls->id != SYM_CLASS_FUNCTION && cls->id != SYM_CLASS_TUPLE &&
         cls->id != SYM_CLASS_LIST && cls->id != SYM_CLASS_HASH) {
         result = cls->sig;
         if (flags & CV_MAKE_VARS)
             get_named_var(parser, cls->sig, 0);
+    }
+    else if (cls->id == SYM_CLASS_TUPLE) {
+        int i, save_pos;
+
+        save_pos = parser->sig_stack_pos;
+        lily_sig *new_sig = lily_try_sig_for_class(parser->symtab, cls);
+        if (new_sig == NULL)
+            lily_raise_nomem(parser->raiser);
+
+        NEED_NEXT_TOK(tk_left_bracket)
+        lily_lexer(lex);
+        for (i = 1;    ;i++) {
+            if (parser->sig_stack_pos == parser->sig_stack_size)
+                grow_sig_stack(parser);
+
+            lily_sig *sig = collect_var_sig(parser, 0);
+            parser->sig_stack[parser->sig_stack_pos] = sig;
+            parser->sig_stack_pos++;
+            lily_lexer(lex);
+            if (lex->token == tk_comma) {
+                lily_lexer(lex);
+                continue;
+            }
+            else if (lex->token == tk_right_bracket)
+                break;
+        }
+
+        lily_sig **siglist = lily_malloc(i * sizeof(lily_sig *));
+        if (siglist == NULL)
+            lily_raise_nomem(parser->raiser);
+
+        new_sig->siglist = siglist;
+        new_sig->siglist_size = i;
+        int j;
+        for (j = 0;j < i;j++)
+            siglist[j] = parser->sig_stack[save_pos + j];
+
+        parser->sig_stack_pos = save_pos;
+        result = lily_ensure_unique_sig(parser->symtab, new_sig);
+        if (flags & CV_MAKE_VARS)
+            get_named_var(parser, result, 0);
     }
     else if (cls->id == SYM_CLASS_LIST || cls->id == SYM_CLASS_HASH) {
         int i;
@@ -716,6 +757,11 @@ static void expression_value(lily_parse_state *parser)
             lily_ast_enter_tree(parser->ast_pool, tree_list, NULL);
             continue;
         }
+        else if (lex->token == tk_tuple_open) {
+            lily_ast_enter_tree(parser->ast_pool, tree_tuple, NULL);
+            lily_lexer(lex);
+            continue;
+        }
         else
             lily_raise(parser->raiser, lily_ErrSyntax,
                        "Expected a value, not '%s'.\n",
@@ -755,12 +801,14 @@ static void check_valid_close_tok(lily_parse_state *parser)
     if (tt == tree_call || tt == tree_parenth || tt == tree_typecast ||
         tt == tree_isnil)
         expect = tk_right_parenth;
+    else if (tt == tree_tuple)
+        expect = tk_tuple_close;
     else
         expect = tk_right_bracket;
 
     if (token != expect)
         lily_raise(parser->raiser, lily_ErrSyntax,
-                "Expected closing token %s, not %s.\n", tokname(expect),
+                "Expected closing token '%s', not '%s'.\n", tokname(expect),
                 tokname(token));
 }
 
@@ -793,7 +841,8 @@ static void expression(lily_parse_state *parser, int options)
                  parser_tok_table[lex->token].val_or_end)
             break;
         else if (lex->token == tk_right_parenth ||
-                 lex->token == tk_right_bracket) {
+                 lex->token == tk_right_bracket ||
+                 lex->token == tk_tuple_close) {
             if (parser->ast_pool->save_depth == 0)
                 lily_raise(parser->raiser, lily_ErrSyntax,
                         "Unexpected token %s.\n", tokname(lex->token));
@@ -819,6 +868,12 @@ static void expression(lily_parse_state *parser, int options)
                        jumps back up. */
                     continue;
                 }
+            }
+            else if (lex->token == tk_tuple_open) {
+                lily_ast_enter_tree(parser->ast_pool, tree_tuple, NULL);
+                lily_lexer(lex);
+                if (lex->token == tk_tuple_close)
+                    continue;
             }
             else if (lex->token != tk_dot)
                 /* If not '.', then assume it's a binary token. */
@@ -1032,7 +1087,8 @@ static void statement(lily_parse_state *parser, int multi)
                     NEED_NEXT_TOK(tk_left_curly)
                     lily_lexer(lex);
                 }
-                else if (cls_id == SYM_CLASS_LIST || cls_id == SYM_CLASS_HASH) {
+                else if (cls_id == SYM_CLASS_LIST || cls_id == SYM_CLASS_HASH ||
+                         cls_id == SYM_CLASS_TUPLE) {
                     lily_sig *cls_sig = collect_var_sig(parser, 0);
                     parse_decl(parser, cls_sig);
                 }

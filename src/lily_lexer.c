@@ -35,40 +35,40 @@
 #define CC_LEFT_CURLY    3
 #define CC_RIGHT_CURLY   4
 #define CC_LEFT_BRACKET  5
-#define CC_RIGHT_BRACKET 6
-#define CC_CARET         7
-#define CC_G_ONE_LAST    7
+#define CC_CARET         6
+#define CC_G_ONE_LAST    6
 
 /* Group 2: Return self, or self= */
-#define CC_G_TWO_OFFSET  8
-#define CC_NOT           8
-#define CC_PERCENT       9
-#define CC_MULTIPLY     10
-#define CC_DIVIDE       11
-#define CC_G_TWO_LAST   11
+#define CC_G_TWO_OFFSET  7
+#define CC_NOT           7
+#define CC_PERCENT       8
+#define CC_MULTIPLY      9
+#define CC_DIVIDE       10
+#define CC_G_TWO_LAST   10
 
-/* Greater and Less are able to do shifts, self=, and self. However, they are
-   not put into a group because it's only two. This is why they are not in
-   group 2. */
-#define CC_GREATER      12
-#define CC_LESS         13
-#define CC_PLUS         14
-#define CC_MINUS        15
-#define CC_WORD         16
-#define CC_DOUBLE_QUOTE 17
-#define CC_NUMBER       18
-#define CC_COLON        19
+/* Greater and Less are able to do shifts, self=, and self. < can become <[,
+   but the reverse of that is ]>, so these two aren't exactly the same. So
+   there's no group for them. */
+#define CC_GREATER       11
+#define CC_LESS          12
+#define CC_PLUS          13
+#define CC_MINUS         14
+#define CC_WORD          15
+#define CC_DOUBLE_QUOTE  16
+#define CC_NUMBER        17
+#define CC_COLON         18
+#define CC_RIGHT_BRACKET 19
 
-#define CC_EQUAL        20
-#define CC_NEWLINE      21
-#define CC_SHARP        22
-#define CC_STR_NEWLINE  23
-#define CC_STR_END      24
-#define CC_DOT          25
-#define CC_AT           26
-#define CC_AMPERSAND    27
-#define CC_VBAR         28
-#define CC_INVALID      29
+#define CC_EQUAL         20
+#define CC_NEWLINE       21
+#define CC_SHARP         22
+#define CC_STR_NEWLINE   23
+#define CC_STR_END       24
+#define CC_DOT           25
+#define CC_AT            26
+#define CC_AMPERSAND     27
+#define CC_VBAR          28
+#define CC_INVALID       29
 
 /*  This table indicates how many more bytes need to be successfully read after
     that particular byte for proper utf-8. -1 = invalid.
@@ -1325,6 +1325,10 @@ void lily_lexer(lily_lex_state *lexer)
                     /* xx, which should be 2 spots after x. */
                     token += 2;
             }
+            else if (*ch == '[' && token == tk_lt) {
+                input_pos++;
+                token = tk_tuple_open;
+            }
         }
         else if (group == CC_EQUAL) {
             input_pos++;
@@ -1338,6 +1342,16 @@ void lily_lexer(lily_lex_state *lexer)
             }
             else
                 token = tk_equal;
+        }
+        else if (group == CC_RIGHT_BRACKET) {
+            input_pos++;
+            ch++;
+            if (*ch == '>') {
+                input_pos++;
+                token = tk_tuple_close;
+            }
+            else
+                token = tk_right_bracket;
         }
         else if (group == CC_AT) {
             ch++;
@@ -1434,11 +1448,11 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
 char *tokname(lily_token t)
 {
     static char *toknames[] =
-    {"(", ")", ",", "{", "}", "[", "]", "^", "!", "!=", "%", "%=", "*", "*=",
+    {"(", ")", ",", "{", "}", "[", "^", "!", "!=", "%", "%=", "*", "*=",
      "/", "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>",
-     ">>=", "=", "==", "=>", "a label", "a string", "an integer", "a number",
-     ".", ":", "::", "&", "&&", "|", "||", "@(", "..", "...", "invalid token",
-     "@>", "end of file"};
+     ">>=", "=", "==", "<[", "]>", "]", "=>", "a label", "a string",
+     "an integer", "a number", ".", ":", "::", "&", "&&", "|", "||", "@(",
+     "..", "...", "invalid token", "@>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

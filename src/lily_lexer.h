@@ -13,7 +13,6 @@ typedef enum {
     tk_left_curly,
     tk_right_curly,
     tk_left_bracket,
-    tk_right_bracket,
     tk_caret,
     tk_not,
     tk_not_eq,
@@ -40,6 +39,9 @@ typedef enum {
     tk_right_shift_eq,
     tk_equal,
     tk_eq_eq,
+    tk_tuple_open,   /* <[ */
+    tk_tuple_close,  /* ]> */
+    tk_right_bracket,
     tk_arrow,
     tk_word,
     tk_double_quote,

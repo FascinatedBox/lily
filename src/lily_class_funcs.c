@@ -270,6 +270,64 @@ int lily_hash_eq(lily_vm_state *vm, int *depth, lily_value *left,
     return ret;
 }
 
+/* tuple */
+
+void lily_gc_tuple_marker(int pass, lily_value *v)
+{
+    lily_list_val *tuple_val = v->value.list;
+    int i;
+
+    if (tuple_val->gc_entry &&
+        tuple_val->gc_entry->last_pass != pass) {
+        tuple_val->gc_entry->last_pass = pass;
+
+        for (i = 0;i < tuple_val->num_values;i++) {
+            lily_value *elem = tuple_val->elems[i];
+
+            void (*gc_marker)(int, lily_value *) = elem->sig->cls->gc_marker;
+
+            if (gc_marker && (elem->flags & VAL_IS_NIL) == 0)
+                gc_marker(pass, elem);
+        }
+    }
+}
+
+int lily_tuple_eq(lily_vm_state *vm, int *depth, lily_value *left,
+        lily_value *right)
+{
+    if (*depth == 100)
+        lily_raise(vm->raiser, lily_ErrRecursion, "Infinite loop in comparison.\n");
+
+    int ret;
+
+    if (((left->flags & VAL_IS_NIL) == 0) &&
+        ((right->flags & VAL_IS_NIL) == 0) &&
+        left->value.list->num_values == right->value.list->num_values) {
+        lily_value **left_elems = left->value.list->elems;
+        lily_value **right_elems = right->value.list->elems;
+
+        int i;
+        ret = 1;
+
+        for (i = 0;i < left->value.list->num_values;i++) {
+            class_eq_func eq_func = left->sig->siglist[i]->cls->eq_func;
+            (*depth)++;
+            if (eq_func(vm, depth, left_elems[i], right_elems[i]) == 0) {
+                ret = 0;
+                (*depth)--;
+                break;
+            }
+            (*depth)--;
+        }
+    }
+    else if ((left->flags & VAL_IS_NIL) && (right->flags & VAL_IS_NIL))
+        ret = 1;
+    else
+        ret = 0;
+
+    return ret;
+}
+
 /* generic */
 
 /* This is used by function for == and !=. It's a simple pointer comparison. */
