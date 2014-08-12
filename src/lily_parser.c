@@ -602,7 +602,7 @@ static void maybe_digit_fixup(lily_parse_state *parser, int *did_fixup)
         if (lex->token == tk_integer)
             cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
         else
-            cls = lily_class_by_id(symtab, SYM_CLASS_NUMBER);
+            cls = lily_class_by_id(symtab, SYM_CLASS_DOUBLE);
 
         lily_ast_push_binary_op(parser->ast_pool, (lily_expr_op)expr_op);
         /* Call this to force a rescan from the proper starting point, yielding
@@ -711,8 +711,8 @@ static void expression_value(lily_parse_state *parser)
 
             lily_lexer(lex);
         }
-        else if (lex->token == tk_number) {
-            lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_NUMBER);
+        else if (lex->token == tk_double) {
+            lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_DOUBLE);
             lily_literal *lit;
             lit = lily_get_intnum_literal(symtab, cls, lex->value);
             lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
@@ -915,7 +915,7 @@ static void expression(lily_parse_state *parser, int options)
             lily_ast_collect_arg(parser->ast_pool);
             lily_lexer(lex);
         }
-        else if (lex->token == tk_integer || lex->token == tk_number) {
+        else if (lex->token == tk_integer || lex->token == tk_double) {
             int did_fixup = 0;
             maybe_digit_fixup(parser, &did_fixup);
             if (did_fixup) {
@@ -948,7 +948,7 @@ static void expression(lily_parse_state *parser, int options)
    is separated by a comma. Ex:
 
    integer a, b, c
-   number d
+   double d
    list[integer] e
 
    This handles anything but function declarations.
@@ -1506,7 +1506,7 @@ void lily_parser(lily_parse_state *parser)
         }
         /* This makes it possible to have expressions that don't start with a
            var. This may be useful later for building a repl. */
-        else if (lex->token == tk_integer || lex->token == tk_number ||
+        else if (lex->token == tk_integer || lex->token == tk_double ||
                  lex->token == tk_double_quote ||
                  lex->token == tk_left_parenth ||
                  lex->token == tk_left_bracket) {

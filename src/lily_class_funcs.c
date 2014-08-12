@@ -27,16 +27,16 @@ int lily_integer_eq(lily_vm_state *vm, int *depth, lily_value *left,
     return ret;
 }
 
-/** number **/
+/** double **/
 
-int lily_number_eq(lily_vm_state *vm, int *depth, lily_value *left,
+int lily_double_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
 {
     int ret;
 
     if (((left->flags & VAL_IS_NIL) == 0) &&
         ((right->flags & VAL_IS_NIL) == 0) &&
-        left->value.number == right->value.number)
+        left->value.doubleval == right->value.doubleval)
         ret = 1;
     else if ((left->flags & VAL_IS_NIL) && (right->flags & VAL_IS_NIL))
         ret = 1;

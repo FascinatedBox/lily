@@ -773,7 +773,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     if (opcode == -1) {
         if (left_cls_id == SYM_CLASS_INTEGER ||
-            left_cls_id == SYM_CLASS_NUMBER)
+            left_cls_id == SYM_CLASS_DOUBLE)
             opcode = o_assign;
         else if (left_cls_id == SYM_CLASS_ANY)
             opcode = o_any_assign;
@@ -1179,7 +1179,7 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
     This does some basic conversions:
     * Anything can be converted into 'any'.
     * 'any' can be converted into anything (with a check done at vm-time).
-    * integer<->number conversion. */
+    * integer<->double conversion. */
 static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 {
     lily_sig *cast_sig = ast->arg_start->next_arg->sig;
@@ -1215,11 +1215,11 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     }
     else {
         if ((var_sig->cls->id == SYM_CLASS_INTEGER &&
-             cast_sig->cls->id == SYM_CLASS_NUMBER) ||
-            (var_sig->cls->id == SYM_CLASS_NUMBER &&
+             cast_sig->cls->id == SYM_CLASS_DOUBLE) ||
+            (var_sig->cls->id == SYM_CLASS_DOUBLE &&
              cast_sig->cls->id == SYM_CLASS_INTEGER))
         {
-            cast_opcode = o_intnum_typecast;
+            cast_opcode = o_intdbl_typecast;
             result = get_storage(emit, cast_sig, ast->line_num);
         }
         else {

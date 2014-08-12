@@ -10,14 +10,14 @@ Global functions are available in any scope at any time.
 #### printfmt(string format, any args...)
 This writes the string **format** to output. **args** is a series of values passed. The following format specifiers are allowed:
 * %i : An integer
-* %n : A number
+* %d : A double
 * %s : A string
 ```
 any a = 10
-number b = 5.5
+double b = 5.5
 string c = "abc"
 
-printfmt("a is %i, b is %n, c is %s.\n", a, b, c)
+printfmt("a is %i, b is %d, c is %s.\n", a, b, c)
 # a is 10, b is 5.5, c is abc.
 ```
 

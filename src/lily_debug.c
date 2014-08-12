@@ -109,10 +109,10 @@ char *opcode_names[50] = {
     "bitwise and (a & b)",
     "bitwise or (a | b)",
     "bitwise xor (a ^ b)",
-    "number add (+)",
-    "number minus (-)",
-    "number multiply (*)",
-    "number divide (/)",
+    "double add (+)",
+    "double minus (-)",
+    "double multiply (*)",
+    "double divide (/)",
     "is equal (==)",
     "not equal (!=)",
     "less (<)",
@@ -130,7 +130,7 @@ char *opcode_names[50] = {
     "build hash",
     "build tuple",
     "typecast",
-    "integer <-> number",
+    "integer <-> double",
     "show",
     "return expected",
     "for (integer range)",
@@ -174,7 +174,7 @@ static const int get_global_ci[] = {3, D_LINENO, D_GLOBAL_INPUT, D_OUTPUT};
 static const int set_global_ci[] = {3, D_LINENO, D_INPUT, D_GLOBAL_OUTPUT};
 static const int in_out_ci[]     = {3, D_LINENO, D_INPUT, D_OUTPUT};
 static const int jump_if_ci[]    = {3, D_JUMP_ON, D_INPUT, D_JUMP};
-static const int intnum_ci[]     = {3, D_LINENO, D_INPUT, D_OUTPUT};
+static const int intdbl_ci[]     = {3, D_LINENO, D_INPUT, D_OUTPUT};
 static const int show_ci[]       = {3, D_LINENO, D_IS_GLOBAL, D_COND_INPUT};
 static const int return_ci[]     = {2, D_LINENO, D_INPUT};
 static const int return_nv_ci[]  = {1, D_LINENO};
@@ -201,9 +201,9 @@ static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
             ret = in_out_ci;
             break;
         case o_integer_add:
-        case o_number_add:
+        case o_double_add:
         case o_integer_minus:
-        case o_number_minus:
+        case o_double_minus:
         case o_is_equal:
         case o_less:
         case o_less_eq:
@@ -212,9 +212,9 @@ static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
         case o_not_eq:
         case o_modulo:
         case o_integer_mul:
-        case o_number_mul:
+        case o_double_mul:
         case o_integer_div:
-        case o_number_div:
+        case o_double_div:
         case o_get_item:
         case o_left_shift:
         case o_right_shift:
@@ -253,8 +253,8 @@ static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
         case o_jump_if:
             ret = jump_if_ci;
             break;
-        case o_intnum_typecast:
-            ret = intnum_ci;
+        case o_intdbl_typecast:
+            ret = intdbl_ci;
             break;
         case o_integer_for:
             ret = for_integer_ci;
@@ -298,7 +298,7 @@ static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
 }
 
 /* show_simple_value
-   This handles printing str, integer, and number values that are not nil. This
+   This handles printing str, integer, and double values that are not nil. This
    is used by show_code_sym for literals, and show_value for non-nil simple
    values. */
 static void show_simple_value(lily_debug_state *debug, lily_sig *sig,
@@ -310,8 +310,8 @@ static void show_simple_value(lily_debug_state *debug, lily_sig *sig,
         lily_msgbuf_add_fmt(debug->msgbuf, "\"^E\"", value.string->string);
     else if (cls_id == SYM_CLASS_INTEGER)
         lily_msgbuf_add_int(debug->msgbuf, value.integer);
-    else if (cls_id == SYM_CLASS_NUMBER)
-        lily_msgbuf_add_double(debug->msgbuf, value.number);
+    else if (cls_id == SYM_CLASS_DOUBLE)
+        lily_msgbuf_add_double(debug->msgbuf, value.doubleval);
 
     write_msgbuf(debug);
 }
@@ -653,7 +653,7 @@ static void show_value(lily_debug_state *debug, lily_value *value)
 
     if (cls_id == SYM_CLASS_STRING ||
         cls_id == SYM_CLASS_INTEGER ||
-        cls_id == SYM_CLASS_NUMBER) {
+        cls_id == SYM_CLASS_DOUBLE) {
         show_simple_value(debug, sig, raw_value);
         lily_impl_puts(debug->data, "\n");
     }

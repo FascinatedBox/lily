@@ -39,7 +39,7 @@ typedef int (*class_eq_func)(struct lily_vm_state_t *, int *,
    used for parameters and such instead. However, this does have some uses. */
 typedef union lily_raw_value_t {
     int64_t integer;
-    double number;
+    double doubleval;
     struct lily_string_val_t *string;
     struct lily_any_val_t *any;
     struct lily_list_val_t *list;
@@ -407,7 +407,7 @@ typedef struct lily_func_seed_t {
    used very frequently. These must be kept in sync with the class loading
    order given by lily_seed_symtab.h */
 #define SYM_CLASS_INTEGER  0
-#define SYM_CLASS_NUMBER   1
+#define SYM_CLASS_DOUBLE   1
 #define SYM_CLASS_STRING   2
 #define SYM_CLASS_FUNCTION 3
 #define SYM_CLASS_ANY      4

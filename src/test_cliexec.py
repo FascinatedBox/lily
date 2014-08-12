@@ -44,7 +44,7 @@ Where: File "<str>" at line 1\n""",
     },
     {
      "command": """  11.5  """,
-     "message": "Make sure numbers can start an expression",
+     "message": "Make sure doubles can start an expression",
      "stderr": "",
      "stdout": ""
     },

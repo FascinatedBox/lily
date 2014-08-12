@@ -36,20 +36,20 @@ lhs_reg->value.integer OP rhs_reg->value.integer; \
 vm_regs[code[code_pos+4]]->flags &= ~VAL_IS_NIL; \
 code_pos += 5;
 
-#define INTNUM_OP(OP) \
+#define INTDBL_OP(OP) \
 LOAD_CHECKED_REG(lhs_reg, code_pos, 2) \
 LOAD_CHECKED_REG(rhs_reg, code_pos, 3) \
-if (lhs_reg->sig->cls->id == SYM_CLASS_NUMBER) { \
-    if (rhs_reg->sig->cls->id == SYM_CLASS_NUMBER) \
-        vm_regs[code[code_pos+4]]->value.number = \
-        lhs_reg->value.number OP rhs_reg->value.number; \
+if (lhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) { \
+    if (rhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) \
+        vm_regs[code[code_pos+4]]->value.doubleval = \
+        lhs_reg->value.doubleval OP rhs_reg->value.doubleval; \
     else \
-        vm_regs[code[code_pos+4]]->value.number = \
-        lhs_reg->value.number OP rhs_reg->value.integer; \
+        vm_regs[code[code_pos+4]]->value.doubleval = \
+        lhs_reg->value.doubleval OP rhs_reg->value.integer; \
 } \
 else \
-    vm_regs[code[code_pos+4]]->value.number = \
-    lhs_reg->value.integer OP rhs_reg->value.number; \
+    vm_regs[code[code_pos+4]]->value.doubleval = \
+    lhs_reg->value.integer OP rhs_reg->value.doubleval; \
 vm_regs[code[code_pos+4]]->flags &= ~VAL_IS_NIL; \
 code_pos += 5;
 
@@ -67,13 +67,13 @@ code_pos += 5;
 #define EQUALITY_COMPARE_OP(OP, STRINGOP) \
 LOAD_CHECKED_REG(lhs_reg, code_pos, 2) \
 LOAD_CHECKED_REG(rhs_reg, code_pos, 3) \
-if (lhs_reg->sig->cls->id == SYM_CLASS_NUMBER) { \
-    if (rhs_reg->sig->cls->id == SYM_CLASS_NUMBER) \
+if (lhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) { \
+    if (rhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) \
         vm_regs[code[code_pos+4]]->value.integer = \
-        (lhs_reg->value.number OP rhs_reg->value.number); \
+        (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
     else \
         vm_regs[code[code_pos+4]]->value.integer = \
-        (lhs_reg->value.number OP rhs_reg->value.integer); \
+        (lhs_reg->value.doubleval OP rhs_reg->value.integer); \
 } \
 else if (lhs_reg->sig->cls->id == SYM_CLASS_INTEGER) { \
     if (rhs_reg->sig->cls->id == SYM_CLASS_INTEGER) \
@@ -81,7 +81,7 @@ else if (lhs_reg->sig->cls->id == SYM_CLASS_INTEGER) { \
         (lhs_reg->value.integer OP rhs_reg->value.integer); \
     else \
         vm_regs[code[code_pos+4]]->value.integer = \
-        (lhs_reg->value.integer OP rhs_reg->value.number); \
+        (lhs_reg->value.integer OP rhs_reg->value.doubleval); \
 } \
 else if (lhs_reg->sig->cls->id == SYM_CLASS_STRING) { \
     vm_regs[code[code_pos+4]]->value.integer = \
@@ -98,13 +98,13 @@ code_pos += 5;
 #define COMPARE_OP(OP, STRINGOP) \
 LOAD_CHECKED_REG(lhs_reg, code_pos, 2) \
 LOAD_CHECKED_REG(rhs_reg, code_pos, 3) \
-if (lhs_reg->sig->cls->id == SYM_CLASS_NUMBER) { \
-    if (rhs_reg->sig->cls->id == SYM_CLASS_NUMBER) \
+if (lhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) { \
+    if (rhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) \
         vm_regs[code[code_pos+4]]->value.integer = \
-        (lhs_reg->value.number OP rhs_reg->value.number); \
+        (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
     else \
         vm_regs[code[code_pos+4]]->value.integer = \
-        (lhs_reg->value.number OP rhs_reg->value.integer); \
+        (lhs_reg->value.doubleval OP rhs_reg->value.integer); \
 } \
 else if (lhs_reg->sig->cls->id == SYM_CLASS_INTEGER) { \
     if (rhs_reg->sig->cls->id == SYM_CLASS_INTEGER) \
@@ -112,7 +112,7 @@ else if (lhs_reg->sig->cls->id == SYM_CLASS_INTEGER) { \
         (lhs_reg->value.integer OP rhs_reg->value.integer); \
     else \
         vm_regs[code[code_pos+4]]->value.integer = \
-        (lhs_reg->value.integer OP rhs_reg->value.number); \
+        (lhs_reg->value.integer OP rhs_reg->value.doubleval); \
 } \
 else if (lhs_reg->sig->cls->id == SYM_CLASS_STRING) { \
     vm_regs[code[code_pos+4]]->value.integer = \
@@ -478,11 +478,11 @@ int maybe_crossover_assign(lily_value *lhs_reg, lily_value *rhs_reg)
         rhs_reg = rhs_reg->value.any->inner_value;
 
     if (lhs_reg->sig->cls->id == SYM_CLASS_INTEGER &&
-        rhs_reg->sig->cls->id == SYM_CLASS_NUMBER)
-        lhs_reg->value.integer = (int64_t)(rhs_reg->value.number);
-    else if (lhs_reg->sig->cls->id == SYM_CLASS_NUMBER &&
+        rhs_reg->sig->cls->id == SYM_CLASS_DOUBLE)
+        lhs_reg->value.integer = (int64_t)(rhs_reg->value.doubleval);
+    else if (lhs_reg->sig->cls->id == SYM_CLASS_DOUBLE &&
              rhs_reg->sig->cls->id == SYM_CLASS_INTEGER)
-        lhs_reg->value.number = (double)(rhs_reg->value.integer);
+        lhs_reg->value.doubleval = (double)(rhs_reg->value.integer);
     else
         ret = 0;
 
@@ -546,8 +546,8 @@ void no_such_key_error(lily_vm_state *vm, int code_pos, lily_value *key)
     lily_msgbuf_add(msgbuf, "ErrNoSuchKey: ");
     if (key_cls_id == SYM_CLASS_INTEGER)
         lily_msgbuf_add_int(msgbuf, key->value.integer);
-    else if (key_cls_id == SYM_CLASS_NUMBER)
-        lily_msgbuf_add_double(msgbuf, key->value.number);
+    else if (key_cls_id == SYM_CLASS_DOUBLE)
+        lily_msgbuf_add_double(msgbuf, key->value.doubleval);
     else if (key_cls_id == SYM_CLASS_STRING) {
         lily_msgbuf_add_char(msgbuf, '\"');
         /* Note: This is fine for now because strings can't contain \0. */
@@ -651,11 +651,11 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
                 else
                     lily_impl_puts(data, val.string->string);
             }
-            else if (fmt[i] == 'n') {
-                if (cls_id != SYM_CLASS_NUMBER)
+            else if (fmt[i] == 'd') {
+                if (cls_id != SYM_CLASS_DOUBLE)
                     return;
 
-                snprintf(fmtbuf, 63, "%f", val.number);
+                snprintf(fmtbuf, 63, "%f", val.doubleval);
                 lily_impl_puts(data, fmtbuf);
             }
 
@@ -1557,8 +1557,8 @@ lily_hash_elem *lily_try_lookup_hash_elem(lily_hash_val *hash,
             if (key_cls_id == SYM_CLASS_INTEGER &&
                 iter_value.integer == key_value.integer)
                 ok = 1;
-            else if (key_cls_id == SYM_CLASS_NUMBER &&
-                     iter_value.number == key_value.number)
+            else if (key_cls_id == SYM_CLASS_DOUBLE &&
+                     iter_value.doubleval == key_value.doubleval)
                 ok = 1;
             else if (key_cls_id == SYM_CLASS_STRING &&
                     /* strings are immutable, so try a ptr compare first. */
@@ -1640,10 +1640,10 @@ uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
                 key->value.string->size, sipkey);
     else if (key_cls_id == SYM_CLASS_INTEGER)
         key_hash = key->value.integer;
-    else if (key_cls_id == SYM_CLASS_NUMBER)
+    else if (key_cls_id == SYM_CLASS_DOUBLE)
         /* siphash thinks it's sent a pointer (and will try to deref it), so
            send the address. */
-        key_hash = siphash24(&(key->value.number), sizeof(double), sipkey);
+        key_hash = siphash24(&(key->value.doubleval), sizeof(double), sipkey);
     else /* Should not happen, because no other classes are valid keys. */
         key_hash = 0;
 
@@ -1730,11 +1730,11 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_integer_minus:
                 INTEGER_OP(-)
                 break;
-            case o_number_add:
-                INTNUM_OP(+)
+            case o_double_add:
+                INTDBL_OP(+)
                 break;
-            case o_number_minus:
-                INTNUM_OP(-)
+            case o_double_minus:
+                INTDBL_OP(-)
                 break;
             case o_less:
                 COMPARE_OP(<, == -1)
@@ -1763,8 +1763,8 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_integer_mul:
                 INTEGER_OP(*)
                 break;
-            case o_number_mul:
-                INTNUM_OP(*)
+            case o_double_mul:
+                INTDBL_OP(*)
                 break;
             case o_integer_div:
                 /* Before doing INTEGER_OP, check for a division by zero. This
@@ -1791,18 +1791,18 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_bitwise_xor:
                 INTEGER_OP(^)
                 break;
-            case o_number_div:
+            case o_double_div:
                 /* This is a little more tricky, because the rhs could be a
                    number or an integer... */
                 LOAD_CHECKED_REG(rhs_reg, code_pos, 3)
                 if (rhs_reg->sig->cls->id == SYM_CLASS_INTEGER &&
                     rhs_reg->value.integer == 0)
                     divide_by_zero_error(vm, code_pos, 3);
-                else if (rhs_reg->sig->cls->id == SYM_CLASS_NUMBER &&
-                         rhs_reg->value.number == 0)
+                else if (rhs_reg->sig->cls->id == SYM_CLASS_DOUBLE &&
+                         rhs_reg->value.doubleval == 0)
                     divide_by_zero_error(vm, code_pos, 3);
 
-                INTNUM_OP(/)
+                INTDBL_OP(/)
                 break;
             case o_jump_if:
                 lhs_reg = vm_regs[code[code_pos+2]];
@@ -1817,8 +1817,8 @@ void lily_vm_execute(lily_vm_state *vm)
                         cls_id = lhs_reg->sig->cls->id;
                         if (cls_id == SYM_CLASS_INTEGER)
                             result = (lhs_reg->value.integer == 0);
-                        else if (cls_id == SYM_CLASS_NUMBER)
-                            result = (lhs_reg->value.number == 0);
+                        else if (cls_id == SYM_CLASS_DOUBLE)
+                            result = (lhs_reg->value.doubleval == 0);
                         else
                             result = 0;
                     }
@@ -2024,7 +2024,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 op_any_assign(vm, lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
-            case o_intnum_typecast:
+            case o_intdbl_typecast:
                 lhs_reg = vm_regs[code[code_pos+3]];
                 LOAD_CHECKED_REG(rhs_reg, code_pos, 2)
 
