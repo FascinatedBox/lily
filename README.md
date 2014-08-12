@@ -12,7 +12,7 @@ Lily is a statically-typed language that can be used to make dynamically generat
 The language currently recognizes 8 datatypes:
 
 * integer: A 64-bit signed int.
-* number: A C double.
+* double: A C double.
 * string: A bunch of text.
 * list: A list of a given element.
 * hash: An associative array, having a key and value type.
@@ -25,7 +25,7 @@ Values must be declared before they are used:
 # This is a comment
 # Here's some basic initializations.
 integer a = 10
-number b = 10.1
+double b = 10.1
 string c = "abc"
 
 # This is a list of integers. It will only take integers.
@@ -69,8 +69,8 @@ a = 11
 Okay, so what can things actually do?
 
 * Integers can do these operations: + - * / << >> % & | ^
-* Numbers can do these operations: + - * / %
-* Integers, numbers, and strings can all be compared using < > <= >= ==
+* Doubles can do these operations: + - * / %
+* Integers, doubles, and strings can all be compared using < > <= >= ==
 
 ```
 function letter_for_grade(integer grade => string)
@@ -133,7 +133,7 @@ list[any] alist = [1, 1.1, [1], "1"]
 integer abc = alist[0].@(integer)
 
 # Typecasts allow access to the values with anys while retaining static typing.
-# Typecasts can also convert integers to/from numbers:
+# Typecasts can also convert integers to/from doubles:
 
 integer a = 1.1.@(integer)
 
@@ -167,6 +167,6 @@ show [1 => "1"]
 The following are the functions that come with Lily:
 * print(text): This prints a string to stdout
 * printfmt(fmt, any...): This uses format strings to print the anys given.
-* %i for integer, %n for a number, %s for a string.
+* %i for integer, %d for a double, %s for a string.
 
 The sanity test (src/test/pass/sanity.ly) contains more examples of what the language can do.

@@ -606,8 +606,8 @@ lily_literal *lily_get_intnum_literal(lily_symtab *symtab, lily_class *cls,
         if (lit->sig == want_sig) {
             if ((cls->id == SYM_CLASS_INTEGER &&
                  lit->value.integer == want_value.integer) ||
-                (cls->id == SYM_CLASS_NUMBER &&
-                 lit->value.number == want_value.number))
+                (cls->id == SYM_CLASS_DOUBLE &&
+                 lit->value.doubleval == want_value.doubleval))
                 break;
         }
     }
@@ -617,7 +617,7 @@ lily_literal *lily_get_intnum_literal(lily_symtab *symtab, lily_class *cls,
         if (cls->id == SYM_CLASS_INTEGER)
             v.integer = want_value.integer;
         else
-            v.number = want_value.number;
+            v.doubleval = want_value.doubleval;
 
         /* lily_new_literal is guaranteed to work or raise nomem, so this is
            safe. */

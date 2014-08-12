@@ -4,7 +4,7 @@
 # include "lily_syminfo.h"
 
 int lily_integer_eq(struct lily_vm_state_t *, int *, lily_value *, lily_value *);
-int lily_number_eq(struct lily_vm_state_t *, int *, lily_value *, lily_value *);
+int lily_double_eq(struct lily_vm_state_t *, int *, lily_value *, lily_value *);
 int lily_string_eq(struct lily_vm_state_t *, int *, lily_value *, lily_value *);
 int lily_any_eq(struct lily_vm_state_t *, int *, lily_value *, lily_value *);
 int lily_list_eq(struct lily_vm_state_t *, int *, lily_value *, lily_value *);

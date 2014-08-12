@@ -46,7 +46,7 @@ typedef enum {
     tk_word,
     tk_double_quote,
     tk_integer,
-    tk_number,
+    tk_double,
     tk_dot,
     tk_colon,
     tk_colon_colon,

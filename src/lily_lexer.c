@@ -441,14 +441,14 @@ static char simple_escape(char *ch)
 }
 
 /** Numeric scanning **/
-/* Most of the number scanning functions follow a pattern: Each defines the max
+/* Most of the numeric scanning functions follow a pattern: Each defines the max
    number of digits it can take so that the unsigned result cannot overflow.
    scan_decimal takes an extra is_integer param because it may have an exponent
-   which automatically meant it will yield a number result. */
+   which automatically meant it will yield a double result. */
 
 /* scan_exponent
    This scans across the exponent of a decimal number to find where the end is.
-   Since the result will definitely be a number, no value calculation is done
+   Since the result will definitely be a double, no value calculation is done
    (scan_number will handle it). */
 static void scan_exponent(lily_lex_state *lexer, int *pos, char *new_ch)
 {
@@ -629,9 +629,9 @@ static uint64_t scan_hex(int *pos, char *new_ch)
 }
 
 /* scan_number
-   This handles all integer and number scanning within Lily. Updates the
+   This handles all integer and double scanning within Lily. Updates the
    position in lexer's input_buffer for lily_lexer. This also takes a pointer to
-   the lexer's token so it can update that (to either tk_number or
+   the lexer's token so it can update that (to either tk_double or
    tk_integer). */
 static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
         char *new_ch)
@@ -692,23 +692,23 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
     }
 
     /* Not an integer, so use strtod to try converting it to a double so it can
-       be stored as a number. */
+       be stored as a double. */
     if (is_integer == 0) {
-        double number_result;
+        double double_result;
         char *input_buffer = lexer->input_buffer;
         int str_size = num_pos - num_start;
         strncpy(lexer->label, input_buffer+num_start, str_size * sizeof(char));
 
         lexer->label[str_size] = '\0';
         errno = 0;
-        number_result = strtod(lexer->label, NULL);
+        double_result = strtod(lexer->label, NULL);
         if (errno == ERANGE) {
             lily_raise(lexer->raiser, lily_ErrSyntax,
-                       "Number value is too large.\n");
+                       "Double value is too large.\n");
         }
 
-        yield_val.number = number_result;
-        *tok = tk_number;
+        yield_val.doubleval = double_result;
+        *tok = tk_double;
     }
     else
         *tok = tk_integer;
@@ -1451,7 +1451,7 @@ char *tokname(lily_token t)
     {"(", ")", ",", "{", "}", "[", "^", "!", "!=", "%", "%=", "*", "*=",
      "/", "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>",
      ">>=", "=", "==", "<[", "]>", "]", "=>", "a label", "a string",
-     "an integer", "a number", ".", ":", "::", "&", "&&", "|", "||", "@(",
+     "an integer", "a double", ".", ":", "::", "&", "&&", "|", "||", "@(",
      "..", "...", "invalid token", "@>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))

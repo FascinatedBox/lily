@@ -18,8 +18,8 @@ function test_basic_assignments()
     # integers are 64-bit signed values.
     integer a = 10
 
-    # Numbers are the more precise value type. C doubles.
-    number b = 1.1
+    # Doubles are C doubles, a more precise type than integer.
+    double b = 1.1
 
     # string is Lily's string class.
     string c = "11"
@@ -144,14 +144,14 @@ function test_conditions()
 function test_printfmt()
 {
     integer a = 1
-    number b = 12.34
+    double b = 12.34
     string c = "abcd"
 
     printfmt("#%i: Testing printfmt:...(check results)\n", test_id)
     test_id = test_id + 1
 
     printfmt("    integer a (1)     is %i.\n", a)
-    printfmt("    number  b (12.34) is %n.\n", b)
+    printfmt("    double  b (12.34) is %d.\n", b)
     printfmt("    string  c (abcd)  is %s.\n", c)
     # Make sure varargs calls are taking the extra ones too.
     printfmt("    a, b, c are %i, %n, %s.\n", a, b, c)
@@ -191,7 +191,7 @@ function test_any_defaulting()
     any_list[0] = other_any
 
     hash[string, any] any_hash = ["integer" => 1,
-                                  "number" => 1.1,
+                                  "double" => 1.1,
                                   "str" => "10",
                                   "list" => [1],
                                   "hash" => ["1" => 10],
@@ -534,7 +534,7 @@ function test_arith()
     i >>= 1
     i <<= 1
 
-    number n = 1.0
+    double n = 1.0
     n *= n
     n = n * n
     n /= n
@@ -569,13 +569,13 @@ function test_sub_assign()
         ok = 0
     }
 
-    list[number] list_number = [1.0]
-    list_number[0] = 2.0
+    list[double] list_double = [1.0]
+    list_double[0] = 2.0
 
-    if list_number[0] == 2.0: {
-        print("     list[number] ok.\n")
+    if list_double[0] == 2.0: {
+        print("     list[double] ok.\n")
     else:
-        print("     list[number] failed.\n")
+        print("     list[double] failed.\n")
         ok = 0
     }
 
@@ -642,7 +642,7 @@ function test_sub_assign()
     # Test declaration list
     list[list[integer]] dlist1, dlist2, dlist3
     # Test a deep list
-    list[list[list[list[list[list[number]]]]]] deep_list
+    list[list[list[list[list[list[double]]]]]] deep_list
     # Check that list[string] doesn't crash if the string is nil.
     string nil_s
     list[string] test_nil_s = [nil_s]
@@ -711,9 +711,9 @@ function test_typecasts()
     a = 10
     intval = a.@(integer)
 
-    number numval
+    double dblval
     a = 10.0
-    numval = a.@(number)
+    dblval = a.@(double)
 
     string strval
     a = "10"
@@ -852,7 +852,7 @@ function test_function_varargs()
         integer ok
         # This next statement helped to uncover about 3 bugs. Leave it be.
         if args[0].@(integer) == 1 &&
-           args[1].@(number) == 1.1 &&
+           args[1].@(double) == 1.1 &&
            args[2].@(string) == "1":
             ok = 1
         else:
@@ -1300,30 +1300,30 @@ function test_multiline_comment()
 
 function test_intnum_cast()
 {
-    printfmt("#%i: Testing integer to number casting...", test_id)
+    printfmt("#%i: Testing integer to double casting...", test_id)
     test_id = test_id + 1
 
     integer int1, int2
-    number num1, num2
+    double num1, num2
 
     ###
     This works against anys as well so that a user doesn't have to cast the
     cast away from any.
 
     Without:
-        number n = int_any.@(integer).@(number)
+        double n = int_any.@(integer).@(double)
     With:
-        number n = int_any.@(number)
+        double n = int_any.@(double)
     ###
 
     any int_any = -5
     any num_any = 10.5
 
     int1 = 10.5 .@(integer)
-    num1 = -5 .@(number)
+    num1 = -5 .@(double)
 
     int2 = num_any.@(integer)
-    num2 = int_any.@(number)
+    num2 = int_any.@(double)
 
     if int1 == 10 && int2 == 10 && num1 == -5.0 && num2 == -5.0: {
         print("ok.\n")
@@ -1350,8 +1350,8 @@ function test_hashes()
     int_str_map[5000] = "11"
     int_str_map[0x10] = "12"
 
-    # Numbers as keys, with some exponential stuff too.
-    hash[number, string] num_str_map
+    # Doubles as keys, with some exponential stuff too.
+    hash[double, string] num_str_map
     num_str_map[5.5] = "10"
     num_str_map[1e1] = "12"
 

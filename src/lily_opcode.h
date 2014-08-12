@@ -73,19 +73,19 @@ typedef enum {
 
     /* Numeric binary ops:
        * int lineno
-       * reg(number/integer) left
-       * reg(number/integer) right
-       * reg(number) result
+       * reg(double/integer) left
+       * reg(double/integer) right
+       * reg(double) result
        These are the slower arith ops, because they have to handle different
        type combinations. */
-    o_number_add,
-    o_number_minus,
-    o_number_mul,
-    o_number_div,
+    o_double_add,
+    o_double_minus,
+    o_double_mul,
+    o_double_div,
 
     /* Binary comparison ops:
        * int lineno
-       * reg(integer/number/string) left
+       * reg(integer/double/string) left
        * reg(typeof(left)) right
        * reg(integer) result */
     o_is_equal,
@@ -186,13 +186,13 @@ typedef enum {
        This can be thought of as the converse of o_any_assign. */
     o_any_typecast,
 
-    /* Integer<->Number typecast:
+    /* integer<->double typecast:
        * int lineno
        * reg(integer OR number) left
-       * reg(integer OR number) right
-       This handles conversion from integer to number, and vice versa. Left is
+       * reg(integer OR double) right
+       This handles conversion from integer to double, and vice versa. Left is
        the opposite type of right, and the appropriate conversion is made. */
-    o_intnum_typecast,
+    o_intdbl_typecast,
 
     /* Show:
        * int lineno
@@ -210,7 +210,7 @@ typedef enum {
        This is written at the end of every native function that has a non-nil
        return value. This raises ErrReturnExpected within the vm. This has
        lineno included because the vm expects that any opcode that raises has
-       a line number after it. */
+       a line double after it. */
     o_return_expected,
 
     /* for (integer range):

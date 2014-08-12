@@ -28,8 +28,8 @@ class_seed class_seeds[] =
     {"integer",  0, 0,  CLS_VALID_HASH_KEY, NULL,               NULL,
      &lily_integer_eq},
 
-    {"number",   0, 0,  CLS_VALID_HASH_KEY, NULL,               NULL,
-     &lily_number_eq},
+    {"double",   0, 0,  CLS_VALID_HASH_KEY, NULL,               NULL,
+     &lily_double_eq},
 
     {"string",   1, 0,  CLS_VALID_HASH_KEY, lily_string_setup,  NULL,
      &lily_string_eq},
