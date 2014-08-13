@@ -964,7 +964,6 @@ void op_build_list(lily_vm_state *vm, lily_value **vm_regs,
         uintptr_t *code)
 {
     int num_elems = (intptr_t)(code[2]);
-    int j;
     lily_value *result = vm_regs[code[3+num_elems]];
     lily_sig *elem_sig = result->sig->siglist[0];
 
@@ -1001,90 +1000,20 @@ void op_build_list(lily_vm_state *vm, lily_value **vm_regs,
        collecting all anys if it's triggered from within the list build. */
     result->flags = 0;
 
-    /* List deref expects that num_elems elements are all allocated.
-       Unfortunately, this means having to allocate during each loop. */
-    if (elem_sig->cls->id == SYM_CLASS_ANY) {
-        for (j = 0;j < num_elems;j++) {
-            lv->elems[j] = lily_malloc(sizeof(lily_value));
-            if (lv->elems[j] == NULL) {
-                lv->num_values = j;
-                lily_raise_nomem(vm->raiser);
-            }
-
-            /* Fix the element in case the next attempt to grab an any
-               triggers the gc. */
-            lily_value *new_elem = lv->elems[j];
-            new_elem->sig = elem_sig;
-            new_elem->flags = VAL_IS_NIL;
-            new_elem->value.integer = 0;
-            lv->num_values = j + 1;
-            lily_value *rhs_reg = vm_regs[code[3+j]];
-
-            if ((rhs_reg->flags & VAL_IS_NIL) == 0) {
-                lily_value *rhs_inner_val;
-                rhs_inner_val = rhs_reg->value.any->inner_value;
-                /* Anys are supposed to act like containers which can hold
-                   any value. Because of this, the inner value of the other
-                   any must be copied over.
-                   Anys are also potentially circular, which means each one
-                   needs a gc entry. This also means that the list holding the
-                   anys has a gc entry. */
-                lily_any_val *oval = lily_try_new_any_val();
-                if (oval == NULL ||
-                    lily_try_add_gc_item(vm, elem_sig,
-                            (lily_generic_gc_val *)oval) == 0) {
-                    /* Make sure to free the any value made. If it wasn't
-                       made, this will be NULL, which is fine. */
-                    if (oval)
-                        lily_free(oval->inner_value);
-
-                    lily_free(oval);
-
-                    /* Give up. The gc will have an entry for the list, so it
-                       will correctly collect the list. */
-                    lily_raise_nomem(vm->raiser);
-                }
-
-                oval->inner_value->value = rhs_inner_val->value;
-                oval->inner_value->sig = rhs_inner_val->sig;
-                oval->inner_value->flags = rhs_inner_val->flags;
-                oval->refcount = 1;
-
-                if ((rhs_inner_val->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
-                    rhs_inner_val->sig->cls->is_refcounted)
-                    rhs_inner_val->value.generic->refcount++;
-
-                new_elem->value.any = oval;
-                new_elem->flags = 0;
-            }
-
+    int i;
+    for (i = 0;i < num_elems;i++) {
+        lv->elems[i] = lily_malloc(sizeof(lily_value));
+        if (lv->elems[i] == NULL) {
+            lv->num_values = i;
+            lily_raise_nomem(vm->raiser);
         }
-    }
-    else {
-        int is_refcounted = elem_sig->cls->is_refcounted;
-        for (j = 0;j < num_elems;j++) {
-            lv->elems[j] = lily_malloc(sizeof(lily_value));
-            if (lv->elems[j] == NULL) {
-                lv->num_values = j;
-                /* The gc will come later and collect this list. */
-                lily_raise_nomem(vm->raiser);
-            }
+        lv->elems[i]->flags = VAL_IS_NIL;
+        lv->elems[i]->sig = elem_sig;
+        lv->elems[i]->value.integer = 0;
+        lv->num_values = i + 1;
+        lily_value *rhs_reg = vm_regs[code[3+i]];
 
-            lily_value *elem = lv->elems[j];
-            elem->sig = elem_sig;
-            elem->flags = VAL_IS_NIL;
-            elem->value.integer = 0;
-            lv->num_values = j + 1;
-
-            lily_value *rhs_reg = vm_regs[code[3+j]];
-            if ((rhs_reg->flags & VAL_IS_NIL) == 0) {
-                lv->elems[j]->value = rhs_reg->value;
-                if (is_refcounted && (rhs_reg->flags & VAL_IS_PROTECTED) == 0)
-                    rhs_reg->value.generic->refcount++;
-            }
-
-            lv->elems[j]->flags = rhs_reg->flags;
-        }
+        lily_assign_value(vm, lv->elems[i], rhs_reg);
     }
 
     lv->num_values = num_elems;
