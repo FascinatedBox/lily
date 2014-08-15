@@ -1524,8 +1524,6 @@ static int type_matchup(lily_emit_state *emit, lily_sig *self,
         lily_function_val *f = emit->top_function;
         int element_count = right->args_collected;
         lily_storage *s = get_storage(emit, want_sig, right->line_num);
-        if (s == NULL)
-            lily_raise_nomem(emit->raiser);
 
         /* WARNING: This is only safe because the tree was just evaluated and
            nothing has happened since the o_build_* was written. */
@@ -1579,8 +1577,6 @@ static int type_matchup(lily_emit_state *emit, lily_sig *self,
 
         if (ret == 1) {
             lily_storage *s = get_storage(emit, want_sig, right->line_num);
-            if (s == NULL)
-                lily_raise_nomem(emit->raiser);
 
             write_build_op(emit, o_build_tuple, right->arg_start, right->line_num,
                     right->args_collected, s->reg_spot);
