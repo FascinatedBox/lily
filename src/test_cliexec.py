@@ -86,6 +86,12 @@ Where: File "<str>" at line 1\n""",
      "stderr": "",
      "stdout": ""
     }
+    {
+     "command": """  [1, 1.1].append("10")  """
+     "message": "Test templates and defaulting to any.",
+     "stderr": "",
+     "stdout": ""
+    }
 ]
 
 test_number = 1

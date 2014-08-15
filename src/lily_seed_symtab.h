@@ -49,10 +49,8 @@ class_seed class_seeds[] =
     {"tuple",    1, -1, 0,                  NULL,               &lily_gc_tuple_marker,
      &lily_tuple_eq},
 
-    /* * is the name of the template class. This was chosen because it's not a
-       valid name so the user can't directly declare members of it. */
-    {"*",        0, 0, 0,                  NULL,            NULL, NULL},
-    {"package",  0, 0, 0,                  NULL,            NULL, NULL}
+    {"",         0, 0, 0,                  NULL,            NULL, NULL},
+    {"package",  0, 0, 0,                  NULL,            NULL, NULL},
 };
 
 typedef const struct {

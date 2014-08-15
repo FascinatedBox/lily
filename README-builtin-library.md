@@ -84,10 +84,10 @@ Creates a new string based off of **input** but with all lowercase characters tu
 
 
 ## Class List
-The first type of a list is referred to as **T**
-list[T] as the first argument means that the function can take a list of any type.
+The first type of a list is referred to as **A**
+list[A] as the first argument means that the function can take a list of any type.
 
-#### list::apply(list[T] _input_, function callee(T => T))
+#### list::apply(list[A] _input_, function callee(A => A))
 This calls the function **callee** on each element of **input**. The result of calling **callee** is set onto the corresponding element of **input**.
 ```
 function times_two(integer a => integer)
@@ -100,9 +100,9 @@ integer_list.apply(times_two)
 # integer_list is now [2, 4, 6]
 ```
 
-#### list::append(list[T] _input_, T newelem)
+#### list::append(list[A] _input_, A newelem)
 Adds **newelem** to the end of **input**. A syntax error occurs if **newelem** has a different type than **input** contains.
-Note: If **T** is an any, then values passed as **newelem** are automatically made into anys.
+Note: If **A** is an any, then values passed as **newelem** are automatically made into anys.
 ```
 list[integer] integer_list = [1, 2, 3]
 integer_list.append(10) # integer_list is now [1, 2, 3, 4]
@@ -117,12 +117,12 @@ any_list.append(89)
 any_list.append(integer_list)
 ```
 
-#### list::size(list[T] _input_ => integer)
+#### list::size(list[A] _input_ => integer)
 Returns a count of the elements within **input**.
 
 
 ## Class Hash
-The first type of hash is referred to as **K**, the key. The second type is **V**, the value.
+Hash has two different types inside of it: **A** is the key, **B** is the value.
 
-#### hash::get(hash[K, V] _input_, K _to_find_, V _default_value_ => V)
+#### hash::get(hash[A, B] _input_, A _to_find_, B _default_value_ => V)
 This attempts to find **to_find** within **input**. If the key can be found, then the value associated with that key is returned. If it cannot be found, then **default_value** is returned.

@@ -27,6 +27,10 @@ typedef struct {
     int patch_pos;
     int patch_size;
 
+    lily_sig **sig_stack;
+    int sig_stack_pos;
+    int sig_stack_size;
+
     lily_var *top_var;
     lily_function_val *top_function;
     lily_sig *top_function_ret;

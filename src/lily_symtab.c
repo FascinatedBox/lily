@@ -894,6 +894,33 @@ lily_sig *lily_try_sig_from_ids(lily_symtab *symtab, const int *ids)
     return scan_seed_arg(symtab, ids, &pos, &ok);
 }
 
+/*  get_template_max
+    Recurse into a signature and determine the number of templates used. This
+    is important for emitter, which needs to know how many sigs to blank before
+    evaluating a call.
+
+    sig:          The signature to check.
+    template_max: This is a pointer set to the number of templates that the
+                  given sig takes (template index + 1). This is 0 if the given
+                  signature does not use templates. */
+static void get_template_max(lily_sig *sig, int *template_max)
+{
+    /* function uses NULL at [1] to mean it takes no args, and NULL at [0] to
+       mean that nothing is returned. */
+    if (sig == NULL)
+        return;
+
+    if (sig->cls->id == SYM_CLASS_TEMPLATE) {
+        if ((sig->template_pos + 1) > *template_max)
+            *template_max = sig->template_pos + 1;
+    }
+    else if (sig->siglist) {
+        int i;
+        for (i = 0;i < sig->siglist_size;i++)
+            get_template_max(sig->siglist[i], template_max);
+    }
+}
+
 /* lily_ensure_unique_sig
    This looks through the symtab's current signatures to see if any describe the
    same thing as the given signature.
@@ -963,6 +990,11 @@ lily_sig *lily_ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
                 break;
             }
         }
+    }
+    else if (input_sig->cls->id == SYM_CLASS_FUNCTION) {
+        int max = 0;
+        get_template_max(input_sig, &max);
+        input_sig->template_pos = max;
     }
 
     if (match) {
