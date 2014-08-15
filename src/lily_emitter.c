@@ -446,28 +446,22 @@ static int template_check(lily_emit_state *emit, lily_sig *lhs, lily_sig *rhs)
 {
     int ret = 0;
 
-    if (lhs->cls->id == SYM_CLASS_LIST &&
-        rhs->cls->id == SYM_CLASS_LIST) {
-        ret = template_check(emit, lhs->siglist[0], rhs->siglist[0]);
-    }
-    else if (lhs->cls->id == SYM_CLASS_FUNCTION &&
-             rhs->cls->id == SYM_CLASS_FUNCTION) {
+    if (lhs == NULL || rhs == NULL)
+        ret = (lhs == rhs);
+    else if (lhs->cls->id == rhs->cls->id) {
         if (lhs->siglist_size == rhs->siglist_size) {
             ret = 1;
 
             lily_sig **left_siglist = lhs->siglist;
             lily_sig **right_siglist = rhs->siglist;
             int i;
+            /* Simple types have siglist_size as 0, so they'll skip this and
+               yield 1. */
             for (i = 0;i < lhs->siglist_size;i++) {
                 lily_sig *left_entry = left_siglist[i];
                 lily_sig *right_entry = right_siglist[i];
                 if (left_entry == right_entry)
                     continue;
-
-                if (left_entry == NULL || right_entry == NULL) {
-                    ret = 0;
-                    break;
-                }
 
                 if (template_check(emit, left_entry, right_entry) == 0) {
                     ret = 0;
@@ -484,8 +478,6 @@ static int template_check(lily_emit_state *emit, lily_sig *lhs, lily_sig *rhs)
         else if (emit->sig_stack[template_pos] != rhs)
             ret = 0;
     }
-    else if (lhs->cls == rhs->cls)
-        ret = 1;
 
     return ret;
 }
