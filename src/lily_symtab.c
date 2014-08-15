@@ -972,17 +972,12 @@ lily_sig *lily_ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
         iter_sig = iter_sig->next;
     }
 
-    /* Lists that hold something circular can be something circular themselves.
-       Hashes are circular if they have a value that's circular (the key is
-       never circular). */
-    if ((input_sig->cls->id == SYM_CLASS_LIST &&
-         input_sig->siglist[0]->flags & SIG_MAYBE_CIRCULAR) ||
-        (input_sig->cls->id == SYM_CLASS_HASH &&
-         input_sig->siglist[1]->flags & SIG_MAYBE_CIRCULAR))
-        input_sig->flags |= SIG_MAYBE_CIRCULAR;
-    else if (input_sig->cls->id == SYM_CLASS_TUPLE) {
-        /* Tuple allows various types inside, so check all of them for
-           circularity. */
+    /* input_sig can be circular if anything that it holds can be circular.
+       This is provided as a convenience for the vm so it can quickly determine
+       if something should have a gc_entry.
+       function is excluded because it's not a container (the inner types are
+       arguments). */
+    if (input_sig->siglist && input_sig->cls->id != SYM_CLASS_FUNCTION) {
         int i;
         for (i = 0;i < input_sig->siglist_size;i++) {
             if (input_sig->siglist[i]->flags & SIG_MAYBE_CIRCULAR) {
@@ -992,6 +987,8 @@ lily_sig *lily_ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
         }
     }
     else if (input_sig->cls->id == SYM_CLASS_FUNCTION) {
+        /* Count the number of templates for the emitter, so that it knows how
+           many signatures to reserve for template matching. */
         int max = 0;
         get_template_max(input_sig, &max);
         input_sig->template_pos = max;
