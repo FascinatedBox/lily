@@ -207,6 +207,8 @@ void lily_msgbuf_add_sig(lily_msgbuf *msgbuf, lily_sig *sig)
         }
         lily_msgbuf_add(msgbuf, "]");
     }
+    else if (sig->cls->id == SYM_CLASS_TEMPLATE)
+        lily_msgbuf_add_char(msgbuf, 'A' + sig->template_pos);
 }
 
 /*  msgbuf_add_indent

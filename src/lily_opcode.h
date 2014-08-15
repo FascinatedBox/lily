@@ -27,12 +27,12 @@
              list[*] to denote a list that may contain any type).
    * reg...: Indicates a series of indexes to registers that will be used as
              arguments. An argument count is provided beforehand.
-   * T: A type that could be anything. This is used to indicate that two syms
+   * A: A type that could be anything. This is used to indicate that two syms
         share a type. Ex:
-        * A reg(list[T])
-        * B reg(T)
-        This indicates that A has a list of some type, and that B is a value of
-        that same type. List-related ops use this.
+        * reg(list[A])
+        * reg(A)
+        In this case, the first registers has a list of some type, and the
+        second register has a value of that same type.
 
    Additionally, 'right' is used in place of 'result' where there is no true
    result.*/

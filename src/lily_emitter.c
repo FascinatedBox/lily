@@ -118,7 +118,10 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
         return NULL;
 
     s->patches = lily_malloc(sizeof(int) * 4);
-    if (s->patches == NULL) {
+    s->sig_stack = lily_malloc(sizeof(lily_sig *) * 4);
+    if (s->patches == NULL || s->sig_stack == NULL) {
+        lily_free(s->patches);
+        lily_free(s->sig_stack);
         lily_free(s);
         return NULL;
     }
@@ -128,6 +131,9 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
     s->unused_storage_start = NULL;
     s->all_storage_start = NULL;
     s->all_storage_top = NULL;
+
+    s->sig_stack_pos = 0;
+    s->sig_stack_size = 4;
 
     s->patch_pos = 0;
     s->patch_size = 4;
@@ -156,6 +162,7 @@ void lily_free_emit_state(lily_emit_state *emit)
         current_store = temp_store;
     }
 
+    lily_free(emit->sig_stack);
     lily_free(emit->patches);
     lily_free(emit);
 }
@@ -184,6 +191,21 @@ static void grow_patches(lily_emit_state *emit)
         lily_raise_nomem(emit->raiser);
 
     emit->patches = new_patches;
+}
+
+/* grow_sig_stack
+   This is a helper function for resizing emitter's sig_stack. */
+static void grow_sig_stack(lily_emit_state *emit)
+{
+    emit->sig_stack_size *= 2;
+
+    lily_sig **new_sig_stack = lily_realloc(emit->sig_stack,
+        sizeof(lily_sig *) * emit->sig_stack_size);
+
+    if (new_sig_stack == NULL)
+        lily_raise_nomem(emit->raiser);
+
+    emit->sig_stack = new_sig_stack;
 }
 
 /* try_add_storage
@@ -409,16 +431,24 @@ static void emit_any_assign(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)storage;
 }
 
-/* template_check
-   lhs and rhs don't match, but see if the lhs has a part that's a template
-   which rhs satisfies. In calls, self is the first argument given. */
-static int template_check(lily_sig *self_sig, lily_sig *lhs, lily_sig *rhs)
+/*  template_check
+    This is called to check if the wanted value (lhs) is the same as the given
+    value (rhs) once templates are applied.
+    Templates are pretty simple: The first time they're seen, the corresponding
+    lhs becomes the type. Subsequent passes need to have the same type.
+
+    Consider: list::append(list[A] self, A newvalue)
+              [1].append(10)
+
+              lhs: function(list[integer], integer)
+              (correct: both A's are integer). */
+static int template_check(lily_emit_state *emit, lily_sig *lhs, lily_sig *rhs)
 {
     int ret = 0;
 
     if (lhs->cls->id == SYM_CLASS_LIST &&
         rhs->cls->id == SYM_CLASS_LIST) {
-        ret = template_check(self_sig, lhs->siglist[0], rhs->siglist[0]);
+        ret = template_check(emit, lhs->siglist[0], rhs->siglist[0]);
     }
     else if (lhs->cls->id == SYM_CLASS_FUNCTION &&
              rhs->cls->id == SYM_CLASS_FUNCTION) {
@@ -439,7 +469,7 @@ static int template_check(lily_sig *self_sig, lily_sig *lhs, lily_sig *rhs)
                     break;
                 }
 
-                if (template_check(self_sig, left_entry, right_entry) == 0) {
+                if (template_check(emit, left_entry, right_entry) == 0) {
                     ret = 0;
                     break;
                 }
@@ -447,11 +477,11 @@ static int template_check(lily_sig *self_sig, lily_sig *lhs, lily_sig *rhs)
         }
     }
     else if (lhs->cls->id == SYM_CLASS_TEMPLATE) {
-        lily_sig *comp_sig;
-        comp_sig = self_sig->siglist[lhs->template_pos];
-        if (comp_sig == rhs)
-            ret = 1;
-        else
+        int template_pos = emit->sig_stack_pos + lhs->template_pos;
+        ret = 1;
+        if (emit->sig_stack[template_pos] == NULL)
+            emit->sig_stack[template_pos] = rhs;
+        else if (emit->sig_stack[template_pos] != rhs)
             ret = 0;
     }
     else if (lhs->cls == rhs->cls)
@@ -1044,14 +1074,14 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
                 "list index is not an integer.\n");
     }
     else if (var_cls_id == SYM_CLASS_HASH) {
-        int match_check = template_check(var_ast->result->sig,
-                var_ast->result->sig->siglist[0], index_ast->result->sig);
+        lily_sig *want_key = var_ast->result->sig->siglist[0];
+        lily_sig *have_key = index_ast->result->sig;
 
-        if (match_check == 0) {
+        if (want_key != have_key) {
             emit->raiser->line_adjust = var_ast->line_num;
             lily_raise(emit->raiser, lily_ErrSyntax,
-                    "hash expects an index of type '%T', but got type '%T'.\n",
-                    var_ast->result->sig->siglist[0], index_ast->result->sig);
+                    "hash index should be type '%T', not type '%T'.\n",
+                    want_key, have_key);
         }
     }
     else if (var_cls_id == SYM_CLASS_TUPLE) {
@@ -1461,19 +1491,24 @@ static int type_matchup(lily_emit_state *emit, lily_sig *self,
 {
     int ret = 0;
 
-    /* If the wanted value is a template, then pull from 'self' to determine
-       what the template result in for this case. This allows template
-       arguments to also use any copying and such.
-       This is safe, because want_sig won't be a template if self is NULL. */
-    if (want_sig->cls->id == SYM_CLASS_TEMPLATE)
-        want_sig = self->siglist[want_sig->template_pos];
+    /* If it's just a template, see if the type that the template wants is
+       known. If it is, do a lookup using the replaced value. This makes it
+       so that defaulting to any works with templates.
+       Example: [1, 1.1].append(10)
+       This can't be done in template_check, because defaulting doesn't work
+       inside of another type. */
+    if (want_sig->cls->id == SYM_CLASS_TEMPLATE) {
+        int index = emit->sig_stack_pos + want_sig->template_pos;
+        if (emit->sig_stack[index] != NULL)
+            want_sig = emit->sig_stack[index];
+    }
 
-    if (self != NULL && template_check(self, want_sig, right->result->sig))
-        ret = 1;
-    else if (want_sig->cls->id == SYM_CLASS_ANY) {
+    if (want_sig->cls->id == SYM_CLASS_ANY) {
         emit_any_assign(emit, right);
         ret = 1;
     }
+    else if (template_check(emit, want_sig, right->result->sig))
+        ret = 1;
     else if ((right->tree_type == tree_list &&
          want_sig->cls->id == SYM_CLASS_LIST &&
          want_sig->siglist[0]->cls->id == SYM_CLASS_ANY)
@@ -1727,7 +1762,7 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
    the argument count is correct. For function varargs, this will pack the extra
    arguments into a list. */
 static void check_call_args(lily_emit_state *emit, lily_ast *ast,
-        lily_sig *call_sig, int skip_first_arg)
+        lily_sig *call_sig)
 {
     lily_ast *arg = ast->arg_start;
     int have_args, i, is_varargs, num_args;
@@ -1741,26 +1776,30 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
        var arg signature. */
     num_args = (call_sig->siglist_size - 1) - is_varargs;
 
-    /* If skip_first_arg is set, then do as it says. This is necessary for
-       dotcalls (ex: abc.xyz()). The first value (the abc) has already been
-       evaluated and compared, so no need to eval again.
-       In this case, the first arg is not typechecked. This should only be an
-       issue if a callable for a class doesn't take self as the first argument
-       (and when have you ever heard of that? :) ) */
-    if (skip_first_arg) {
-        /* It's still the first arg, so grab 'self' before it's unreachable. */
-        self_sig = arg->result->sig;
-        arg = arg->next_arg;
+    /* Templates are rather simple: The first time they're seen, the type they
+       see is written into emitter's sig stack. Subsequent passes check that
+       the type seen is the same one (so multiple uses of A have the same
+       type). */
+    int template_adjust = call_sig->template_pos;
+    if (template_adjust) {
+        if (emit->sig_stack_pos + template_adjust >= emit->sig_stack_size)
+            grow_sig_stack(emit);
+
+        for (i = 0;i < template_adjust;i++)
+            emit->sig_stack[emit->sig_stack_pos + i] = NULL;
     }
 
     if ((is_varargs && (have_args <= num_args)) ||
         (is_varargs == 0 && (have_args != num_args)))
         bad_num_args(emit, ast, call_sig);
 
-    for (i = skip_first_arg;i != num_args;arg = arg->next_arg, i++) {
-        if (arg->tree_type != tree_local_var)
+    for (i = 0;i != num_args;arg = arg->next_arg, i++) {
+        if (arg->tree_type != tree_local_var) {
             /* Walk the subexpressions so the result gets calculated. */
+            emit->sig_stack_pos += template_adjust;
             eval_tree(emit, arg);
+            emit->sig_stack_pos -= template_adjust;
+        }
 
         if (i == 0)
             self_sig = arg->result->sig;
@@ -1783,9 +1822,12 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         va_comp_sig = va_comp_sig->siglist[0];
 
         for (;arg != NULL;arg = arg->next_arg) {
-            if (arg->tree_type != tree_local_var)
+            if (arg->tree_type != tree_local_var) {
                 /* Walk the subexpressions so the result gets calculated. */
+                emit->sig_stack_pos += template_adjust;
                 eval_tree(emit, arg);
+                emit->sig_stack_pos -= template_adjust;
+            }
 
             if (arg->result->sig != va_comp_sig &&
                 type_matchup(emit, self_sig, va_comp_sig, arg) == 0) {
@@ -1819,7 +1861,6 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     lily_ast *arg;
     lily_sig *call_sig;
     lily_sym *call_sym;
-    int skip_first_arg = 0;
 
     if (ast->result == NULL) {
         int cls_id;
@@ -1852,12 +1893,11 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
             ast->args_collected--;
         }
         else {
-            /* Patch the oo_call's result to be the tree it swallowed, since
-               that tree is the call's first argument. The first argument's
-               type-check gets skipped, since it would be a double-eval to do
-               otherwise. */
+            /* Fix the oo call to return the first arg it had, since that's the
+               call's first value. It's really important that check_call_args
+               get all the args, because the first is the most likely to have a
+               template parameter. */
             ast->arg_start->result = ast->arg_start->arg_start->result;
-            skip_first_arg = 1;
         }
     }
 
@@ -1866,7 +1906,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     arg = ast->arg_start;
     expect_size = 6 + ast->args_collected;
 
-    check_call_args(emit, ast, call_sig, skip_first_arg);
+    check_call_args(emit, ast, call_sig);
 
     if (GLOBAL_LOAD_CHECK(call_sym)) {
         lily_storage *storage = get_storage(emit, call_sym->sig, ast->line_num);
@@ -1992,6 +2032,9 @@ static void eval_package(lily_emit_state *emit, lily_ast *ast)
           argument? Exactly. */
 static void eval_oo_call(lily_emit_state *emit, lily_ast *ast)
 {
+    if (ast->result)
+        return;
+
     if (ast->arg_start->tree_type != tree_local_var)
         eval_tree(emit, ast->arg_start);
 
