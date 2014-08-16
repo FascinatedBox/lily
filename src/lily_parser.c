@@ -297,13 +297,12 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
         if (flags & CV_MAKE_VARS)
             get_named_var(parser, cls->sig, 0);
     }
-    else if (cls->id == SYM_CLASS_TUPLE) {
+    else if (cls->id == SYM_CLASS_TUPLE ||
+             cls->id == SYM_CLASS_LIST ||
+             cls->id == SYM_CLASS_HASH) {
         int i, save_pos;
 
         save_pos = parser->sig_stack_pos;
-        lily_sig *new_sig = lily_try_sig_for_class(parser->symtab, cls);
-        if (new_sig == NULL)
-            lily_raise_nomem(parser->raiser);
 
         NEED_NEXT_TOK(tk_left_bracket)
         lily_lexer(lex);
@@ -323,64 +322,27 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
                 break;
         }
 
-        lily_sig **siglist = lily_malloc(i * sizeof(lily_sig *));
-        if (siglist == NULL)
-            lily_raise_nomem(parser->raiser);
-
-        new_sig->siglist = siglist;
-        new_sig->siglist_size = i;
-        int j;
-        for (j = 0;j < i;j++)
-            siglist[j] = parser->sig_stack[save_pos + j];
-
-        parser->sig_stack_pos = save_pos;
-        result = lily_ensure_unique_sig(parser->symtab, new_sig);
-        if (flags & CV_MAKE_VARS)
-            get_named_var(parser, result, 0);
-    }
-    else if (cls->id == SYM_CLASS_LIST || cls->id == SYM_CLASS_HASH) {
-        int i;
-        lily_sig *new_sig = lily_try_sig_for_class(parser->symtab, cls);
-        if (new_sig == NULL)
-            lily_raise_nomem(parser->raiser);
-
-        lily_sig **siglist;
-        siglist = lily_malloc(cls->template_count * sizeof(lily_sig));
-        if (siglist == NULL)
-            lily_raise_nomem(parser->raiser);
-
-        new_sig->siglist = siglist;
-        new_sig->siglist_size = 0;
-
-        NEED_NEXT_TOK(tk_left_bracket)
-        lily_lexer(lex);
-
-        for (i = 0;i < cls->template_count;i++) {
-            lily_sig *inner_sig = collect_var_sig(parser, 0);
-            siglist[i] = inner_sig;
-            if (i != (cls->template_count - 1)) {
-                lily_lexer(lex);
-                NEED_CURRENT_TOK(tk_comma)
-                lily_lexer(lex);
-            }
+        if (parser->sig_stack_pos - save_pos != cls->template_count &&
+            cls->template_count != -1) {
+            lily_raise(parser->raiser, lily_ErrSyntax,
+                    "Class %s expects %d type(s), but got %d type(s).\n",
+                    cls->name, cls->template_count,
+                    parser->sig_stack_pos - save_pos);
         }
-        NEED_NEXT_TOK(tk_right_bracket)
-
-        new_sig->siglist_size = cls->template_count;
-        new_sig = lily_ensure_unique_sig(parser->symtab, new_sig);
 
         if (cls->id == SYM_CLASS_HASH) {
-            /* Don't use siglist for this check, because lily_ensure_unique_sig
-               could have destroyed it. Instead, do new_sig->siglist.
-               Classes that are valid hash keys are flagged as such, so check
-               for that flag. */
-            if ((new_sig->siglist[0]->cls->flags & CLS_VALID_HASH_KEY) == 0) {
+            /* For hash, make sure this type is a valid key. */
+            lily_sig *check_sig = parser->sig_stack[save_pos];
+            if ((check_sig->cls->flags & CLS_VALID_HASH_KEY) == 0) {
                 lily_raise(parser->raiser, lily_ErrSyntax,
-                        "'%T' is not a valid hash key.\n", new_sig->siglist[0]);
+                        "'%T' is not a valid hash key.\n", check_sig);
             }
         }
 
-        result = new_sig;
+        result = lily_build_ensure_sig(parser->symtab, cls, i,
+                parser->sig_stack, save_pos);
+
+        parser->sig_stack_pos = save_pos;
         if (flags & CV_MAKE_VARS)
             get_named_var(parser, result, 0);
     }

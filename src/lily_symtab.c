@@ -921,6 +921,79 @@ static void get_template_max(lily_sig *sig, int *template_max)
     }
 }
 
+/*  lookup_sig
+    Determine if the current signature exists in the symtab.
+
+    Success: The signature from the symtab is returned.
+    Failure: NULL is returned. */
+lily_sig *lookup_sig(lily_symtab *symtab, lily_sig *input_sig)
+{
+    lily_sig *iter_sig = symtab->root_sig;
+    lily_sig *ret = NULL;
+
+    /* This just means that input_sig was the last signature created. */
+    if (iter_sig == input_sig)
+        iter_sig = iter_sig->next;
+
+    while (iter_sig) {
+        if (iter_sig->cls == input_sig->cls) {
+            if (iter_sig->siglist      != NULL &&
+                iter_sig->siglist_size == input_sig->siglist_size &&
+                iter_sig               != input_sig) {
+                int i, match = 1;
+                for (i = 0;i < iter_sig->siglist_size;i++) {
+                    if (iter_sig->siglist[i] != input_sig->siglist[i]) {
+                        match = 0;
+                        break;
+                    }
+                }
+
+                if (match == 1) {
+                    ret = iter_sig;
+                    break;
+                }
+            }
+        }
+
+        iter_sig = iter_sig->next;
+    }
+
+    return ret;
+}
+
+/*  finalize_sig
+    Determine if the given signature is circular. Also, if its class is not the
+    template class, determine how many templates the signature uses.
+
+    The symtab doesn't use this information at all. These are convenience
+    things for the emitter and the vm. */
+void finalize_sig(lily_sig *input_sig)
+{
+    if (input_sig->siglist) {
+        /* functions are not containers, so circularity doesn't apply to them. */
+        if (input_sig->cls->id != SYM_CLASS_FUNCTION) {
+            int i;
+            for (i = 0;i < input_sig->siglist_size;i++) {
+                if (input_sig->siglist[i]->flags & SIG_MAYBE_CIRCULAR) {
+                    input_sig->flags |= SIG_MAYBE_CIRCULAR;
+                    break;
+                }
+            }
+        }
+
+        /* Find out the highest template index that this type has inside of it.
+           For functions, this allows the emitter to reserve blank sigs for
+           holding template matches. For other sigs, it allows the emitter to
+           determine if a call result uses templates (since it has to be broken
+           down if it does. */
+        if (input_sig->cls->id != SYM_CLASS_TEMPLATE) {
+            int max = 0;
+            get_template_max(input_sig, &max);
+            input_sig->template_pos = max;
+        }
+    }
+}
+
 /* lily_ensure_unique_sig
    This looks through the symtab's current signatures to see if any describe the
    same thing as the given signature.
@@ -972,27 +1045,7 @@ lily_sig *lily_ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
         iter_sig = iter_sig->next;
     }
 
-    /* input_sig can be circular if anything that it holds can be circular.
-       This is provided as a convenience for the vm so it can quickly determine
-       if something should have a gc_entry.
-       function is excluded because it's not a container (the inner types are
-       arguments). */
-    if (input_sig->siglist && input_sig->cls->id != SYM_CLASS_FUNCTION) {
-        int i;
-        for (i = 0;i < input_sig->siglist_size;i++) {
-            if (input_sig->siglist[i]->flags & SIG_MAYBE_CIRCULAR) {
-                input_sig->flags |= SIG_MAYBE_CIRCULAR;
-                break;
-            }
-        }
-    }
-    else if (input_sig->cls->id == SYM_CLASS_FUNCTION) {
-        /* Count the number of templates for the emitter, so that it knows how
-           many signatures to reserve for template matching. */
-        int max = 0;
-        get_template_max(input_sig, &max);
-        input_sig->template_pos = max;
-    }
+    finalize_sig(input_sig);
 
     if (match) {
         /* Remove input_sig from the symtab's sig chain. */
@@ -1017,4 +1070,48 @@ lily_sig *lily_ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
     }
 
     return input_sig;
+}
+
+lily_sig *lily_build_ensure_sig(lily_symtab *symtab, lily_class *cls,
+        int entries_to_use, lily_sig **siglist, int offset)
+{
+    lily_sig fake_sig;
+
+    fake_sig.cls = cls;
+    fake_sig.template_pos = 0;
+    fake_sig.siglist = siglist + offset;
+    fake_sig.siglist_size = entries_to_use;
+    fake_sig.flags = 0;
+    fake_sig.next = NULL;
+
+    fprintf(stderr, "build ensure: there are %d sigs available.\n", entries_to_use);
+    fprintf(stderr, "build ensure: the first one is %p/%s.\n", siglist[offset],
+            siglist[offset]->cls->name);
+    /* The reason it's done like this is purely to save memory. There's no
+       point in creating a new signature if it already exists (since that just
+       means the new one has to be destroyed). */
+    lily_sig *result_sig = lookup_sig(symtab, &fake_sig);
+    if (result_sig == NULL) {
+        lily_sig *new_sig = lily_malloc(sizeof(lily_sig));
+        lily_sig **new_siglist = lily_malloc(entries_to_use *
+                sizeof(lily_sig *));
+
+        if (new_sig == NULL || new_siglist == NULL) {
+            lily_free(new_sig);
+            lily_free(new_siglist);
+            lily_raise_nomem(symtab->raiser);
+        }
+
+        memcpy(new_sig, &fake_sig, sizeof(lily_sig));
+        memcpy(new_siglist, siglist + offset, sizeof(lily_sig *) * entries_to_use);
+        new_sig->siglist = new_siglist;
+
+        new_sig->next = symtab->root_sig;
+        symtab->root_sig = new_sig;
+
+        finalize_sig(new_sig);
+        result_sig = new_sig;
+    }
+
+    return result_sig;
 }
