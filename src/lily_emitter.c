@@ -482,6 +482,65 @@ static int template_check(lily_emit_state *emit, lily_sig *lhs, lily_sig *rhs)
     return ret;
 }
 
+/*  recursively_build_sig
+    This function is called when the return of a function uses templates.
+    It will return a signature that has the current template types replaced.
+
+    One example is the 'some' function, defined as 'function(A => maybe[A])'
+    some(10) # A = integer, so the result is maybe[integer]
+
+    This should only be called by build_templated_sig, because it needs some
+    adjustments to emitter's sig_stack_pos before and after it's called.
+
+    emit:
+    template_index: For templates, the offset where templates should grab
+                    signatures from. This is important because the emitter's
+                    sig stack is also used to store sigs in place.
+    sig:            The signature to examine. */
+static lily_sig *recursively_build_sig(lily_emit_state *emit, int template_index,
+        lily_sig *sig)
+{
+    lily_sig *ret = sig;
+
+    if (sig->siglist != NULL) {
+        int i, save_start;
+        lily_sig **siglist = sig->siglist;
+        if (emit->sig_stack_pos + sig->siglist_size > emit->sig_stack_size)
+            grow_sig_stack(emit);
+
+        save_start = emit->sig_stack_pos;
+
+        for (i = 0;i < sig->siglist_size;i++) {
+            lily_sig *inner_sig = recursively_build_sig(emit, template_index, siglist[i]);
+            emit->sig_stack[emit->sig_stack_pos] = inner_sig;
+            emit->sig_stack_pos++;
+        }
+
+        ret = lily_build_ensure_sig(emit->symtab, sig->cls, i,
+                emit->sig_stack, save_start);
+
+        emit->sig_stack_pos -= i;
+    }
+    else if (sig->cls->id == SYM_CLASS_TEMPLATE)
+        ret = emit->sig_stack[template_index + sig->template_pos];
+
+    return ret;
+}
+
+/*  build_untemplated_sig
+    This takes a given sig that has templates inside and returns a sig that has
+    those templates replaced. */
+static lily_sig *build_untemplated_sig(lily_emit_state *emit, lily_sig *sig)
+{
+    int save_template_index = emit->sig_stack_pos;
+
+    emit->sig_stack_pos += sig->template_pos;
+    lily_sig *ret = recursively_build_sig(emit, save_template_index, sig);
+    emit->sig_stack_pos -= sig->template_pos;
+
+    return ret;
+}
+
 /** Error helpers **/
 static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
     lily_sig *got, lily_sig *expected, int arg_num)
@@ -1942,6 +2001,8 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
             /* Now grab out the wanted template position. */
             return_sig = first_arg_result->siglist[return_sig->template_pos];
         }
+        else if (return_sig->template_pos != 0)
+            return_sig = build_untemplated_sig(emit, return_sig);
 
         lily_storage *storage = get_storage(emit, return_sig, ast->line_num);
 
