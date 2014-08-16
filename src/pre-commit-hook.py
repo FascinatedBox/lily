@@ -1,9 +1,10 @@
-# test_cliexec.py
-# This contains some tests to make sure that the cliexec runner hasn't been
-# broken by some change.
-
-# This also contains other tests so that new files don't have to be created
-# for really short tests.
+# pre-commit-hook.py
+# An interpreter is a strange and complex beast. It's very easy to accidentally
+# break something without realizing that it's been broken. This pre-commit
+# script runs a bunch of small tests to ensure some basic sanity, then runs
+# the actual sanity test.
+# This should only be used to hold simple tests no more than a line or two.
+# More complex tests should really get their own file.
 
 import subprocess, sys
 
@@ -14,7 +15,6 @@ tests = [
      "stderr": """\
 ErrSyntax: Cannot assign type 'string' to type 'integer'.\n\
 Where: File "<str>" at line 2\n""",
-     "stdout": ""
     },
     {
      "command": """  @>  """,
@@ -22,61 +22,43 @@ Where: File "<str>" at line 2\n""",
      "stderr": """\
 ErrSyntax: Found @> but not expecting tags.\n\
 Where: File "<str>" at line 1\n""",
-     "stdout": ""
     },
     {
      "command": """  \n\n\nif __line__ == 4: print("ok") else: print("failed")  """,
      "message": "Make sure __line__ is right",
-     "stderr": "",
      "stdout": "ok"
     },
     {
      "command": """  1  """,
      "message": "Make sure integers can start an expression",
-     "stderr": "",
-     "stdout": ""
     },
     {
      "command": """  "1"  """,
      "message": "Make sure strings can start an expression",
-     "stderr": "",
-     "stdout": ""
     },
     {
      "command": """  11.5  """,
      "message": "Make sure doubles can start an expression",
-     "stderr": "",
-     "stdout": ""
     },
     {
      "command": """  (1)  """,
      "message": "Make sure parentheses can start an expression",
-     "stderr": "",
-     "stdout": ""
     },
     {
      "command": """  <[1]>  """,
      "message": "Make sure tuple literals can start an expression",
-     "stderr": "",
-     "stdout": ""
     },
     {
      "command": """  [1, 2, 3].size()  """,
      "message": "Make sure static lists can start an expression",
-     "stderr": "",
-     "stdout": ""
     },
     {
      "command": """  __line__  """,
      "message": "Make sure __line__ can start an expression",
-     "stderr": "",
-     "stdout": ""
     },
     {
      "command": """  string s = <[1, "2"]> [1]  """,
      "message": "Make sure tuple subscripts know the type",
-     "stderr": "",
-     "stdout": ""
     },
     {
      "command": """  string s = <[1, "2"]> [3]""",
@@ -88,15 +70,11 @@ Where: File "<str>" at line 1\n""",
     },
     {
      "command": """  <[1, "1"]> == <[1, "1"]> """,
-     "message": "Make sure tuple literals can compare.",
-     "stderr": "",
-     "stdout": ""
+     "message": "Make sure tuple literals can compare."
     },
     {
      "command": """  [1, 1.1].append("10")  """,
-     "message": "Test that template arguments can default to any.",
-     "stderr": "",
-     "stdout": ""
+     "message": "Test that template arguments can default to any."
     }
 ]
 
@@ -105,6 +83,16 @@ test_total = len(tests)
 exit_code = 0
 
 for t in tests:
+    try:
+        t["stderr"]
+    except:
+        t["stderr"] = ""
+
+    try:
+        t["stdout"]
+    except:
+        t["stdout"] = ""
+
     sys.stdout.write("[%2d of %2d] Test: %s..." % (test_number, \
         test_total, t["message"]))
 
