@@ -55,6 +55,12 @@ Where: File "<str>" at line 1\n""",
      "stdout": ""
     },
     {
+     "command": """  <[1]>  """,
+     "message": "Make sure tuple literals can start an expression",
+     "stderr": "",
+     "stdout": ""
+    },
+    {
      "command": """  [1, 2, 3].size()  """,
      "message": "Make sure static lists can start an expression",
      "stderr": "",
@@ -67,28 +73,28 @@ Where: File "<str>" at line 1\n""",
      "stdout": ""
     },
     {
-     "command": """  string s = <[1, "2"]> [1]  """
+     "command": """  string s = <[1, "2"]> [1]  """,
      "message": "Make sure tuple subscripts know the type",
      "stderr": "",
      "stdout": ""
     },
     {
-     "command": """  string s = <[1, "2"]> [3]"""
+     "command": """  string s = <[1, "2"]> [3]""",
      "message": "Make sure tuple subscripts don't overflow",
      "stderr": """\
-ErrSyntax: Index 3 is out of range for tuple[integer, string]\n\
+ErrSyntax: Index 3 is out of range for tuple[integer, string].\n\
 Where: File "<str>" at line 1\n""",
      "stdout": ""
-    }
+    },
     {
-     "command": """  <[1, "1"]> == <[1, "1"]> """
+     "command": """  <[1, "1"]> == <[1, "1"]> """,
      "message": "Make sure tuple literals can compare.",
      "stderr": "",
      "stdout": ""
-    }
+    },
     {
-     "command": """  [1, 1.1].append("10")  """
-     "message": "Test templates and defaulting to any.",
+     "command": """  [1, 1.1].append("10")  """,
+     "message": "Test that template arguments can default to any.",
      "stderr": "",
      "stdout": ""
     }
@@ -99,8 +105,8 @@ test_total = len(tests)
 exit_code = 0
 
 for t in tests:
-    sys.stdout.write("[%d of %d] Test: %s..." % (test_number, \
-        test_number, t["message"]))
+    sys.stdout.write("[%2d of %2d] Test: %s..." % (test_number, \
+        test_total, t["message"]))
 
     subp = subprocess.Popen(["./lily_cliexec '%s'" % (t["command"])], \
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
