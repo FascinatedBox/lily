@@ -1084,9 +1084,6 @@ lily_sig *lily_build_ensure_sig(lily_symtab *symtab, lily_class *cls,
     fake_sig.flags = 0;
     fake_sig.next = NULL;
 
-    fprintf(stderr, "build ensure: there are %d sigs available.\n", entries_to_use);
-    fprintf(stderr, "build ensure: the first one is %p/%s.\n", siglist[offset],
-            siglist[offset]->cls->name);
     /* The reason it's done like this is purely to save memory. There's no
        point in creating a new signature if it already exists (since that just
        means the new one has to be destroyed). */
