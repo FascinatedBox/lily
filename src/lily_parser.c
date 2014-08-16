@@ -1471,7 +1471,8 @@ void lily_parser(lily_parse_state *parser)
         else if (lex->token == tk_integer || lex->token == tk_double ||
                  lex->token == tk_double_quote ||
                  lex->token == tk_left_parenth ||
-                 lex->token == tk_left_bracket) {
+                 lex->token == tk_left_bracket ||
+                 lex->token == tk_tuple_open) {
             expression(parser, 0);
             lily_emit_eval_expr(parser->emit, parser->ast_pool);
         }
