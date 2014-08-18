@@ -380,6 +380,9 @@ static int init_classes(lily_symtab *symtab)
                     sig->siglist = NULL;
                     sig->siglist_size = 0;
                     sig->flags = 0;
+                    /* Non-template signatures use this to mean that this sig
+                       does not have templates inside. */
+                    sig->template_pos = 0;
                     if (i == SYM_CLASS_ANY)
                         sig->flags |= SIG_MAYBE_CIRCULAR;
 
