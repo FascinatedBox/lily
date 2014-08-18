@@ -362,20 +362,16 @@ static int init_classes(lily_symtab *symtab)
         if (new_class != NULL) {
             lily_sig *sig;
 
-            if (i == SYM_CLASS_LIST ||
-                i == SYM_CLASS_FUNCTION ||
-                i == SYM_CLASS_TEMPLATE ||
-                i == SYM_CLASS_HASH ||
-                i == SYM_CLASS_TUPLE) {
-                /* lily_try_sig_for_class will always yield a new signature when
-                   these are given. So these classes do not need a default
-                   signature. */
+            /* If a class doesn't take templates (or isn't template), then
+               it can have a default sig that lily_try_sig_for_class can yield.
+               This saves memory, and is necessary now that sig comparison is
+               by pointer. */
+            if (class_seeds[i].template_count != 0 ||
+                i == SYM_CLASS_TEMPLATE) {
                 sig = NULL;
             }
             else {
-                /* The signatures for everything else (integer, number, etc.)
-                   never have inner elements that are modified. So this creates
-                   a simple sig for lily_try_sig_for_class to return. */
+                /* A basic class? Make a quick default sig for it. */
                 sig = lily_malloc(sizeof(lily_sig));
                 if (sig != NULL) {
                     sig->cls = new_class;
