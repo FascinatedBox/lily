@@ -124,11 +124,15 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
                 siglist_size = 0;
             }
             else {
-                if (arg_id == SYM_CLASS_FUNCTION) {
+                if (arg_class->template_count == -1) {
+                    /* -1 means it takes a specified number of values. */
                     siglist_size = arg_ids[seed_pos];
                     seed_pos++;
-                    flags = arg_ids[seed_pos];
-                    seed_pos++;
+                    /* Function needs flags in case the thing is varargs. */
+                    if (arg_id == SYM_CLASS_FUNCTION) {
+                        flags = arg_ids[seed_pos];
+                        seed_pos++;
+                    }
                 }
                 else {
                     siglist_size = arg_class->template_count;
