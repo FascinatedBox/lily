@@ -450,6 +450,10 @@ static int init_classes(lily_symtab *symtab)
             new_class->eq_func = class_seeds[i].eq_func;
             new_class->properties = NULL;
             new_class->prop_start = 0;
+<<<<<<< Updated upstream
+            new_class->parent = NULL;
+=======
+>>>>>>> Stashed changes
 
             if (ret && class_seeds[i].prop_seeds != NULL)
                 ret = init_prop_seeds(symtab, new_class,
@@ -461,10 +465,21 @@ static int init_classes(lily_symtab *symtab)
         classes[i] = new_class;
     }
 
-    /* Packages are a bit too complicated for the parser now, so make them
-       where the user can't declare them. */
-    if (ret == 1)
+    /* Disable direct package declaration for now. The problem with it is that
+       it's not very useful (packages as vars doesn't allow for getting
+       properties out). */
+    if (ret == 1) {
         classes[SYM_CLASS_PACKAGE]->shorthash = 0;
+
+        /* Now that all classes are established, fix class parents to their
+           real values. */
+        for (i = 0;i < class_count;i++) {
+            if (class_seeds[i].parent_name != NULL) {
+                classes[i]->parent = lily_class_by_name(symtab,
+                        class_seeds[i].parent_name);
+            }
+        }
+    }
 
     /* This is so symtab cleanup catches all of the builtin classes, regardless
        of what parts were initialized. */
@@ -1182,4 +1197,9 @@ lily_sig *lily_build_ensure_sig(lily_symtab *symtab, lily_class *cls,
     }
 
     return result_sig;
+}
+
+int lily_inheritance_check(lily_class *left, lily_class *right)
+{
+    return 1;
 }
