@@ -2519,7 +2519,11 @@ void lily_emit_except(lily_emit_state *emit, lily_class *cls,
     lily_function_val *f = emit->top_function;
 
     if (emit->current_block->block_type != BLOCK_TRY) {
+<<<<<<< Updated upstream
         lily_raise(emit->raiser, lily_SyntaxError,
+=======
+        lily_raise(emit->raiser, lily_ErrSyntax,
+>>>>>>> Stashed changes
                 "'except' not within 'try' block.\n");
     }
 
