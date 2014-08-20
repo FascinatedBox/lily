@@ -308,6 +308,9 @@ typedef enum {
     o_package_get,
     o_package_get_deep,
 
+    o_push_try,
+    o_except,
+
     /* isnil:
        * int lineno
        * int is_global

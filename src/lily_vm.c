@@ -134,6 +134,7 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
     char sipkey[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf};
     lily_vm_stringbuf *stringbuf = lily_malloc(sizeof(lily_vm_stringbuf));
     char *string_data = lily_malloc(64);
+    lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(lily_vm_catch_entry));
 
     vm->function_stack = lily_malloc(sizeof(lily_vm_stack_entry *) * 4);
     vm->sipkey = lily_malloc(16);
@@ -154,6 +155,9 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
     vm->gc_pass = 0;
     vm->prep_id_start = 0;
     vm->prep_var_start = NULL;
+    vm->catch_chain = NULL;
+    vm->catch_top = NULL;
+    vm->symtab = NULL;
 
     if (vm->function_stack) {
         int i;
@@ -172,12 +176,17 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
 
     if (vm->function_stack == NULL || vm->function_stack_size != 4 ||
         vm->sipkey == NULL || stringbuf == NULL || string_data == NULL ||
-        vm->foreign_code == NULL) {
+        vm->foreign_code == NULL || catch_entry == NULL) {
+        lily_free(catch_entry);
         lily_free(stringbuf);
         lily_free(string_data);
         lily_free_vm_state(vm);
         return NULL;
     }
+
+    vm->catch_chain = catch_entry;
+    catch_entry->prev = NULL;
+    catch_entry->next = NULL;
 
     stringbuf->data = string_data;
     stringbuf->data_size = 64;
@@ -192,6 +201,17 @@ void lily_vm_free_registers(lily_vm_state *vm)
     lily_value **regs_from_main = vm->regs_from_main;
     lily_value *reg;
     int i;
+    if (vm->catch_chain != NULL) {
+        vm->catch_chain = vm->catch_chain->prev;
+        lily_vm_catch_entry *catch_iter = vm->catch_chain;
+        lily_vm_catch_entry *catch_next;
+        while (catch_iter) {
+            catch_next = catch_iter->next;
+            lily_free(catch_iter);
+            catch_iter = catch_next;
+        }
+    }
+
     for (i = vm->max_registers-1;i >= 0;i--) {
         reg = regs_from_main[i];
 
@@ -464,6 +484,17 @@ static void grow_function_stack(lily_vm_state *vm)
             lily_raise_nomem(vm->raiser);
         }
     }
+}
+
+static void add_catch_entry(lily_vm_state *vm)
+{
+    lily_vm_catch_entry *new_entry = lily_malloc(sizeof(lily_vm_catch_entry));
+    if (new_entry == NULL)
+        lily_raise_nomem(vm->raiser);
+
+    vm->catch_chain->next = new_entry;
+    new_entry->next = NULL;
+    new_entry->prev = vm->catch_chain;
 }
 
 /* maybe_crossover_assign
@@ -1579,6 +1610,84 @@ uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
     return key_hash;
 }
 
+/*  maybe_catch_exception
+    Something somewhere has caused an exception of some sort to get raised.
+    This is called to see if the vm is in a try block with an except case for
+    the current exception. */
+static int maybe_catch_exception(lily_vm_state *vm)
+{
+    if (vm->catch_top == NULL)
+        return 0;
+
+    if (vm->raiser->error_code != lily_ErrDivideByZero)
+        return 0;
+
+    char *except_name = "DivisionByZeroError";
+    lily_class *raised_class = lily_class_by_name(vm->symtab, except_name);
+    lily_vm_catch_entry *catch_iter = vm->catch_top;
+
+    lily_value **stack_regs = vm->vm_regs;
+    int jump_location, match;
+
+    match = 0;
+
+    while (catch_iter != NULL) {
+        lily_vm_stack_entry *catch_stack = catch_iter->stack_entry;
+        uintptr_t *stack_code = catch_stack->code;
+        /* A try block is done when the next jump is at 0 (because 0 would
+           always be going back, which is illogical otherwise). */
+        jump_location = catch_stack->code[catch_iter->code_pos];
+
+        /* TODO: Either determine what vm_regs is here, or update a vm_regs
+                 property on every stack entry whenever vm->vm_regs moves
+                 because of realloc. */
+        if (vm->function_stack_pos == catch_iter->entry_depth)
+            ;
+
+        while (jump_location != 0) {
+            /* Instead of the vm hopping around to different o_except blocks,
+               this function visits them to find out which (if any) handles
+               the current exception.
+               +1 is the line number (for debug), +2 is the spot for the next
+               jump, and +3 is a register that holds a value to store this
+               particular exception. */
+            int next_location = stack_code[jump_location + 2];
+            lily_value *exception_reg = stack_regs[stack_code[jump_location + 3]];
+
+            /* TODO: Also consider this caught if the catching class is higher
+                     up than the class raised. This will allow catching for
+                     ExceptionBase to catch everything. */
+            lily_class *catch_class = exception_reg->sig->cls;
+            if (catch_class == raised_class) {
+                /* ...So that execution resumes from within the except block. */
+                jump_location += 4;
+                match = 1;
+                break;
+            }
+
+            jump_location = next_location;
+        }
+
+        if (match)
+            break;
+
+        catch_iter = catch_iter->prev;
+    }
+
+    if (match) {
+        /* TODO: Make a proper exception object at the right place. */
+        /* Note: The function stack's pos is always ahead one. */
+        vm->function_stack_pos = catch_iter->entry_depth + 1;
+        vm->vm_regs = stack_regs;
+        vm->function_stack[catch_iter->entry_depth]->code_pos = jump_location;
+        /* Each try block can only successfully handle one exception, so use
+           ->prev to prevent using the same block again. */
+        vm->catch_top = catch_iter->prev;
+    }
+
+    return match;
+}
+
 /** The mighty VM **/
 
 /* lily_vm_execute
@@ -1625,10 +1734,12 @@ void lily_vm_execute(lily_vm_state *vm)
             if (top->function->code != NULL)
                 top->line_num = top->code[code_pos+1];
 
-            /* The top of the stack is always changing, so make sure the top's
-               line number is set. This is safe because any opcode that can
-               raise will also have a line number right after the opcode. */
-            longjmp(vm->raiser->jumps[vm->raiser->jump_pos-2], 1);
+            if (maybe_catch_exception(vm) == 0)
+                longjmp(vm->raiser->jumps[vm->raiser->jump_pos-2], 1);
+            else {
+                code = vm->function_stack[vm->function_stack_pos - 1]->code;
+                code_pos = vm->function_stack[vm->function_stack_pos - 1]->code_pos;
+            }
         }
     }
 
@@ -2084,6 +2195,20 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 code_pos += 5;
                 break;
+            case o_push_try:
+            {
+                if (vm->catch_chain->next == NULL)
+                    add_catch_entry(vm);
+
+                lily_vm_catch_entry *catch_entry = vm->catch_chain;
+                catch_entry->stack_entry = vm->function_stack[vm->function_stack_pos - 1];
+                catch_entry->entry_depth = vm->function_stack_pos - 1;
+                catch_entry->code_pos = code_pos + 2;
+                vm->catch_top = vm->catch_chain;
+                vm->catch_chain = vm->catch_chain->next;
+                code_pos += 3;
+                break;
+            }
             case o_package_get_deep:
             {
                 int loops;
