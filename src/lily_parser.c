@@ -1470,7 +1470,8 @@ static void except_handler(lily_parse_state *parser, int multi)
     lily_emit_except(parser->emit, exception_class, lex->line_num);
 
     lily_lexer(lex);
-    statement(parser, 1);
+    if (lex->token != tk_right_curly)
+        statement(parser, 1);
 }
 
 /** Main parser function, and public calling API.

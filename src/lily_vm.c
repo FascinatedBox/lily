@@ -1619,11 +1619,10 @@ static int maybe_catch_exception(lily_vm_state *vm)
     if (vm->catch_top == NULL)
         return 0;
 
-    if (vm->raiser->error_code != lily_DivisionByZeroError)
-        return 0;
-
-    char *except_name = "DivisionByZeroError";
+    const char *except_name = lily_name_for_error(vm->raiser->error_code);
     lily_class *raised_class = lily_class_by_name(vm->symtab, except_name);
+    /* Until user-declared exception classes arrive, raised_class should not
+       be NULL since all errors raiseable -should- be covered... */
     lily_vm_catch_entry *catch_iter = vm->catch_top;
 
     lily_value **stack_regs = vm->vm_regs;

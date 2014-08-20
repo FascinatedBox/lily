@@ -60,8 +60,19 @@ class_seed class_seeds[] =
 
     {"",          0,  0, 0,                   NULL, NULL,            NULL, NULL},
     {"package",   0,  0, 0,                   NULL, NULL,            NULL, NULL},
-    {"Exception", 1,  0, 0,                   &traceback, NULL, NULL, NULL},
-    {"DivisionByZeroError", 1,  0, 0,         NULL, NULL, NULL, NULL}
+    {"Exception",           1, 0, 0, &traceback, NULL, NULL, NULL},
+    /* SyntaxError, ImportError, and EncodingError are intentionally missing
+       because they cannot be raised while the vm is running. */
+    {"NoMemoryError",       1, 0, 0, NULL, NULL, NULL, NULL},
+    {"NoValueError",        1, 0, 0, NULL, NULL, NULL, NULL},
+    {"DivisionByZeroError", 1, 0, 0, NULL, NULL, NULL, NULL},
+    {"RangeError",          1, 0, 0, NULL, NULL, NULL, NULL},
+    {"BadTypecastError",    1, 0, 0, NULL, NULL, NULL, NULL},
+    {"NoReturnError",       1, 0, 0, NULL, NULL, NULL, NULL},
+    {"ValueError",          1, 0, 0, NULL, NULL, NULL, NULL},
+    {"RecursionError",      1, 0, 0, NULL, NULL, NULL, NULL},
+    {"KeyError",            1, 0, 0, NULL, NULL, NULL, NULL},
+    {"FormatError",         1, 0, 0, NULL, NULL, NULL, NULL}
 };
 
 typedef const struct {

@@ -437,7 +437,8 @@ typedef struct lily_prop_seed_t {
 /* There's no SYM_CLASS_* define for exception-derived classes because there's
    no special-casing of them anywhere. */
 
-#define SYM_LAST_CLASS      11
-#define INITIAL_CLASS_SIZE  12
+/* TODO: Make classes into a linked list so this can go away. */
+#define SYM_LAST_CLASS      20
+#define INITIAL_CLASS_SIZE  21
 
 #endif
