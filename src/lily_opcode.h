@@ -309,6 +309,7 @@ typedef enum {
     o_package_get_deep,
 
     o_push_try,
+    o_pop_try,
     o_except,
 
     /* isnil:
