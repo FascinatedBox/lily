@@ -95,7 +95,7 @@ typedef struct lily_debug_state_t {
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[52] = {
+char *opcode_names[53] = {
     "assign",
     "any assign",
     "assign (ref/deref)",
@@ -145,6 +145,7 @@ char *opcode_names[52] = {
     "package get",
     "package get (deep)",
     "push try",
+    "pop try",
     "except",
     "isnil",
     "return from vm"
@@ -231,6 +232,7 @@ static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
             ret = call_ci;
             break;
         case o_return_from_vm:
+        case o_pop_try:
             ret = nop_ci;
             break;
         case o_return_expected:

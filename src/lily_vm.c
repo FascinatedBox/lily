@@ -2206,6 +2206,10 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 3;
                 break;
             }
+            case o_pop_try:
+                vm->catch_top = vm->catch_top->prev;
+                code_pos++;
+                break;
             case o_package_get_deep:
             {
                 int loops;

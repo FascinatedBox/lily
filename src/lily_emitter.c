@@ -2526,6 +2526,13 @@ void lily_emit_except(lily_emit_state *emit, lily_class *cls,
     lily_sig *except_sig = cls->sig;
     lily_storage *except_store = get_storage(emit, except_sig, line_num);
 
+    int patch_count = emit->patch_pos - emit->current_block->patch_start;
+    /* patch_count is 1 if the current block is the initial part of the 'try'.
+       If nothing in the 'try' raises, then the vm needs to pop the catch entry
+       from it's series of catch entries. This opcode does that. */
+    if (patch_count == 1)
+        WRITE_1(o_pop_try)
+
     /* Write a jump that will go to the end of the try. */
     WRITE_2(o_jump, 0)
     int save_jump = f->pos - 1;
