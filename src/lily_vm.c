@@ -551,10 +551,10 @@ static void novalue_error(lily_vm_state *vm, int code_pos, int reg_pos)
 
     /* If this register corresponds to a named value, show that. */
     if (err_reg_info.name != NULL)
-        lily_raise(vm->raiser, lily_ErrNoValue, "%s is nil.\n",
+        lily_raise(vm->raiser, lily_NoValueError, "%s is nil.\n",
                    err_reg_info.name);
     else
-        lily_raise(vm->raiser, lily_ErrNoValue, "Attempt to use nil value.\n");
+        lily_raise(vm->raiser, lily_NoValueError, "Attempt to use nil value.\n");
 }
 
 /*  no_such_key_error
@@ -588,7 +588,7 @@ void no_such_key_error(lily_vm_state *vm, int code_pos, lily_value *key)
     else
         lily_msgbuf_add(msgbuf, "? (unable to print key).");
 
-    lily_raise_prebuilt(vm->raiser, lily_ErrNoSuchKey);
+    lily_raise_prebuilt(vm->raiser, lily_KeyError);
 }
 
 /* divide_by_zero_error
@@ -599,7 +599,7 @@ void divide_by_zero_error(lily_vm_state *vm, int code_pos, int reg_pos)
     lily_vm_stack_entry *top = vm->function_stack[vm->function_stack_pos-1];
     top->line_num = top->code[code_pos+1];
 
-    lily_raise(vm->raiser, lily_ErrDivideByZero,
+    lily_raise(vm->raiser, lily_DivisionByZeroError,
             "Attempt to divide by zero.\n");
 }
 
@@ -610,7 +610,7 @@ void boundary_error(lily_vm_state *vm, int code_pos, int bad_index)
     lily_vm_stack_entry *top = vm->function_stack[vm->function_stack_pos-1];
     top->line_num = top->code[code_pos+1];
 
-    lily_raise(vm->raiser, lily_ErrOutOfRange,
+    lily_raise(vm->raiser, lily_RangeError,
             "Subscript index %d is out of range.\n", bad_index);
 }
 
@@ -652,7 +652,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
             break;
         else if (fmt[i] == '%') {
             if (arg_pos == vararg_lv->num_values)
-                lily_raise(vm->raiser, lily_ErrFormat,
+                lily_raise(vm->raiser, lily_FormatError,
                         "Not enough args for printfmt.\n");
 
             save_ch = fmt[i];
@@ -663,7 +663,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
 
             arg_av = vararg_lv->elems[arg_pos]->value.any;
             if (arg_av->inner_value->flags & VAL_IS_NIL)
-                lily_raise(vm->raiser, lily_ErrFormat,
+                lily_raise(vm->raiser, lily_FormatError,
                         "Argument #%d to printfmt is nil.\n", arg_pos + 2);
 
             arg = arg_av->inner_value;
@@ -1619,7 +1619,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
     if (vm->catch_top == NULL)
         return 0;
 
-    if (vm->raiser->error_code != lily_ErrDivideByZero)
+    if (vm->raiser->error_code != lily_DivisionByZeroError)
         return 0;
 
     char *except_name = "DivisionByZeroError";
@@ -2052,7 +2052,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 lily_vm_stack_entry *top;
                 top = vm->function_stack[vm->function_stack_pos-1];
                 top->line_num = top->code[code_pos+1];
-                lily_raise(vm->raiser, lily_ErrReturnExpected,
+                lily_raise(vm->raiser, lily_ReturnExpectedError,
                         "Function %s completed without returning a value.\n",
                         top->function->trace_name);
             }
@@ -2137,7 +2137,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     top = vm->function_stack[vm->function_stack_pos-1];
                     top->line_num = top->code[code_pos+1];
 
-                    lily_raise(vm->raiser, lily_ErrBadCast,
+                    lily_raise(vm->raiser, lily_BadTypecastError,
                             "Cannot cast any containing type '%T' to type '%T'.\n",
                             rhs_reg->sig, lhs_reg->sig);
                 }
@@ -2296,7 +2296,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 else if (step_reg->value.integer == 0) {
                     LOAD_CHECKED_REG(step_reg, code_pos, 5)
 
-                    lily_raise(vm->raiser, lily_ErrBadValue,
+                    lily_raise(vm->raiser, lily_ValueError,
                                "for loop step cannot be 0.\n");
                 }
 

@@ -10,7 +10,7 @@ void lily_hash_get(lily_vm_state *vm, lily_function_val *self, uintptr_t *code)
     lily_value *result = vm_regs[code[3]];
 
     if (input->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ErrSyntax, "Input is nil.\n");
+        lily_raise(vm->raiser, lily_SyntaxError, "Input is nil.\n");
 
     if (find_key->flags & VAL_IS_NIL) {
         /* Hashes don't have nil keys, so this key won't be found. */

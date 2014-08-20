@@ -23,7 +23,7 @@ int main(int argc, char **argv)
 
     lily_parse_state *parser = lily_new_parse_state(NULL, argc, argv);
     if (parser == NULL) {
-        fputs("ErrNoMemory: No memory to alloc interpreter.\n", stderr);
+        fputs("NoMemoryError: No memory to alloc interpreter.\n", stderr);
         exit(EXIT_FAILURE);
     }
 

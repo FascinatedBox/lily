@@ -8,9 +8,10 @@
 /* This is used by lily_name_for_error to get a printable name for an error
    code. This is used by lily_fs to show what kind of error occured. */
 static const char *lily_error_names[] =
-    {"ErrNoMemory", "ErrSyntax", "ErrImport", "ErrEncoding", "ErrNoValue",
-     "ErrDivideByZero", "ErrOutOfRange", "ErrBadCast", "ErrReturnExpected",
-     "ErrBadValue", "ErrRecursion", "ErrNoSuchKey", "ErrFormat"};
+    {"NoMemoryError", "SyntaxError", "ImportError", "EncodingError",
+     "NoValueError", "DivisionByZeroError", "RangeError", "BadTypecastError",
+     "NoReturnError", "ValueError", "RecursionError", "KeyError",
+     "FormatError"};
 
 lily_raiser *lily_new_raiser()
 {
@@ -99,7 +100,7 @@ void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
 
 void lily_raise_nomem(lily_raiser *raiser)
 {
-    raiser->error_code = lily_ErrNoMemory;
+    raiser->error_code = lily_NoMemoryError;
     longjmp(raiser->jumps[raiser->jump_pos-1], 1);
 }
 
