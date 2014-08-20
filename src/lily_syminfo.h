@@ -87,10 +87,7 @@ typedef struct lily_class_t {
     struct lily_var_t *call_start;
     struct lily_var_t *call_top;
 
-<<<<<<< Updated upstream
     struct lily_class_t *parent;
-=======
->>>>>>> Stashed changes
     lily_prop_entry *properties;
     int prop_start;
 
@@ -438,18 +435,11 @@ typedef struct lily_prop_seed_t {
 #define SYM_CLASS_TEMPLATE  8
 #define SYM_CLASS_PACKAGE   9
 #define SYM_CLASS_EXCEPTION 10
-<<<<<<< Updated upstream
 /* There's no SYM_CLASS_* define for exception-derived classes because there's
    no special-casing of them anywhere. */
 
 /* TODO: Make classes into a linked list so this can go away. */
 #define SYM_LAST_CLASS      20
 #define INITIAL_CLASS_SIZE  21
-=======
-#define SYM_CLASS_DBZERROR  11
-
-#define SYM_LAST_CLASS      11
-#define INITIAL_CLASS_SIZE  12
->>>>>>> Stashed changes
 
 #endif

@@ -450,10 +450,7 @@ static int init_classes(lily_symtab *symtab)
             new_class->eq_func = class_seeds[i].eq_func;
             new_class->properties = NULL;
             new_class->prop_start = 0;
-<<<<<<< Updated upstream
             new_class->parent = NULL;
-=======
->>>>>>> Stashed changes
 
             if (ret && class_seeds[i].prop_seeds != NULL)
                 ret = init_prop_seeds(symtab, new_class,
