@@ -1459,37 +1459,18 @@ static void except_handler(lily_parse_state *parser, int multi)
     NEED_CURRENT_TOK(tk_word)
     lily_class *exception_class = lily_class_by_name(parser->symtab, lex->label);
     if (exception_class == NULL)
-<<<<<<< Updated upstream
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' is not a class.\n", lex->label);
 
     /* TODO: Check if a given class can be raised. It's raiseable if it derives
        from Exception (or is Exception). */
-=======
-        lily_raise(parser->raiser, lily_ErrSyntax,
-                "'%s' is not a class.\n", lex->label);
-
-    lily_class *exception_base = lily_class_by_name(parser->symtab,
-            "ExceptionBase");
-
-    int is_valid = lily_inheritance_check(exception_base,
-            exception_class);
-
-    if (is_valid == 0)
-        lily_raise(parser->raiser, lily_ErrSyntax,
-                "Class '%s' does not derive from ExceptionBase.\n");
->>>>>>> Stashed changes
 
     NEED_NEXT_TOK(tk_colon)
     lily_emit_except(parser->emit, exception_class, lex->line_num);
 
     lily_lexer(lex);
-<<<<<<< Updated upstream
     if (lex->token != tk_right_curly)
         statement(parser, 1);
-=======
-    statement(parser, 1);
->>>>>>> Stashed changes
 }
 
 /** Main parser function, and public calling API.

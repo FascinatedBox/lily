@@ -1619,18 +1619,10 @@ static int maybe_catch_exception(lily_vm_state *vm)
     if (vm->catch_top == NULL)
         return 0;
 
-<<<<<<< Updated upstream
     const char *except_name = lily_name_for_error(vm->raiser->error_code);
     lily_class *raised_class = lily_class_by_name(vm->symtab, except_name);
     /* Until user-declared exception classes arrive, raised_class should not
        be NULL since all errors raiseable -should- be covered... */
-=======
-    if (vm->raiser->error_code != lily_ErrDivideByZero)
-        return 0;
-
-    char *except_name = "DivisionByZeroError";
-    lily_class *raised_class = lily_class_by_name(vm->symtab, except_name);
->>>>>>> Stashed changes
     lily_vm_catch_entry *catch_iter = vm->catch_top;
 
     lily_value **stack_regs = vm->vm_regs;
@@ -1687,12 +1679,9 @@ static int maybe_catch_exception(lily_vm_state *vm)
         vm->function_stack_pos = catch_iter->entry_depth + 1;
         vm->vm_regs = stack_regs;
         vm->function_stack[catch_iter->entry_depth]->code_pos = jump_location;
-<<<<<<< Updated upstream
         /* Each try block can only successfully handle one exception, so use
            ->prev to prevent using the same block again. */
         vm->catch_top = catch_iter->prev;
-=======
->>>>>>> Stashed changes
     }
 
     return match;

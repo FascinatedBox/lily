@@ -14,10 +14,7 @@ typedef const struct {
     int is_refcounted;
     int template_count;
     int flags;
-<<<<<<< Updated upstream
     char *parent_name;
-=======
->>>>>>> Stashed changes
     const lily_prop_seed_t *prop_seeds;
     class_setup_func setup_func;
     gc_marker_func gc_marker;
@@ -38,7 +35,6 @@ static const lily_prop_seed_t traceback =
          too. */
 class_seed class_seeds[] =
 {
-<<<<<<< Updated upstream
     {"integer",              /* name */
      0,                      /* is_refcounted */
      0,                      /* template_count */
@@ -253,36 +249,6 @@ class_seed class_seeds[] =
      NULL,                  /* setup_func */
      NULL,                  /* gc_marker */
      NULL},                 /* eq_func */
-=======
-    {"integer",   0,  0,  CLS_VALID_HASH_KEY, NULL, NULL,               NULL,
-     &lily_integer_eq},
-
-    {"double",    0,  0,  CLS_VALID_HASH_KEY, NULL, NULL,               NULL,
-     &lily_double_eq},
-
-    {"string",    1,  0,  CLS_VALID_HASH_KEY, NULL, lily_string_setup,  NULL,
-     &lily_string_eq},
-
-    {"function",  0, -1,  0,                  NULL, NULL,               NULL,
-     &lily_generic_eq},
-
-    {"any",       1,  0,  0,                  NULL, NULL,               &lily_gc_any_marker,
-     &lily_any_eq},
-
-    {"list",      1,  1,  0,                  NULL, lily_list_setup,    &lily_gc_list_marker,
-     &lily_list_eq},
-
-    {"hash",      1,  2,  0,                  NULL, lily_hash_setup,    &lily_gc_hash_marker,
-     &lily_hash_eq},
-
-    {"tuple",     1, -1, 0,                   NULL, NULL,               &lily_gc_tuple_marker,
-     &lily_tuple_eq},
-
-    {"",          0,  0, 0,                   NULL, NULL,            NULL, NULL},
-    {"package",   0,  0, 0,                   NULL, NULL,            NULL, NULL},
-    {"Exception", 1,  0, 0,                   &traceback, NULL, NULL, NULL},
-    {"DivisionByZeroError", 1,  0, 0,         &traceback, NULL, NULL, NULL}
->>>>>>> Stashed changes
 };
 
 typedef const struct {
