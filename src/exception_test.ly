@@ -18,4 +18,12 @@ except RangeError:
 	print ("RangeError successfully caught!\n")
 }
 
+# Test 3: If a catching exception is a base of a raised exception, allow it.
+#         This is useful for catching any of a group of exceptions.
+try: {
+	printfmt("%s%s%s%s%s", "")
+except Exception:
+	print("Successfully caught FormatError as Exception!\n")
+}
+
 @>

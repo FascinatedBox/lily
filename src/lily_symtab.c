@@ -462,6 +462,10 @@ static int init_classes(lily_symtab *symtab)
         classes[i] = new_class;
     }
 
+    /* This is so symtab cleanup catches all of the builtin classes, regardless
+       of what parts were initialized. */
+    symtab->class_pos = SYM_LAST_CLASS;
+
     /* Disable direct package declaration for now. The problem with it is that
        it's not very useful (packages as vars doesn't allow for getting
        properties out). */
@@ -478,9 +482,6 @@ static int init_classes(lily_symtab *symtab)
         }
     }
 
-    /* This is so symtab cleanup catches all of the builtin classes, regardless
-       of what parts were initialized. */
-    symtab->class_pos = SYM_LAST_CLASS;
     return ret;
 }
 
@@ -1196,7 +1197,24 @@ lily_sig *lily_build_ensure_sig(lily_symtab *symtab, lily_class *cls,
     return result_sig;
 }
 
-int lily_inheritance_check(lily_class *left, lily_class *right)
+/*  lily_check_right_inherits_or_is
+    This function has an odd name as a reminder of which class should be the
+    parent, and which should be the child. Otherwise, I'm rather certain that
+    someone will accidentally swap them at some point.*/
+int lily_check_right_inherits_or_is(lily_class *left, lily_class *right)
 {
-    return 1;
+    int ret = 0;
+    if (left != right) {
+        while (right != NULL) {
+            right = right->parent;
+            if (right == left) {
+                ret = 1;
+                break;
+            }
+        }
+    }
+    else
+        ret = 1;
+
+    return ret;
 }
