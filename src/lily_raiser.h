@@ -5,19 +5,19 @@
 
 # include "lily_msgbuf.h"
 
-# define lily_ErrNoMemory        0
-# define lily_ErrSyntax          1
-# define lily_ErrImport          2
-# define lily_ErrEncoding        3
-# define lily_ErrNoValue         4
-# define lily_ErrDivideByZero    5
-# define lily_ErrOutOfRange      6
-# define lily_ErrBadCast         7
-# define lily_ErrReturnExpected  8
-# define lily_ErrBadValue        9
-# define lily_ErrRecursion      10
-# define lily_ErrNoSuchKey      11
-# define lily_ErrFormat         12
+# define lily_NoMemoryError        0
+# define lily_SyntaxError          1
+# define lily_ImportError          2
+# define lily_EncodingError        3
+# define lily_NoValueError         4
+# define lily_DivisionByZeroError  5
+# define lily_RangeError           6
+# define lily_BadTypecastError     7
+# define lily_ReturnExpectedError  8
+# define lily_ValueError           9
+# define lily_RecursionError      10
+# define lily_KeyError            11
+# define lily_FormatError         12
 
 typedef struct {
     /* The raiser will typically have two jumps: One for the vm to catch runtime

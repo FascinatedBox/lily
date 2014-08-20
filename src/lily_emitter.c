@@ -560,7 +560,7 @@ static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
 
     /* Just in case this arg was on a different line than the call. */
     emit->raiser->line_adjust = ast->line_num;
-    lily_raise(emit->raiser, lily_ErrSyntax,
+    lily_raise(emit->raiser, lily_SyntaxError,
             "%s%s%s arg #%d expects type '%T' but got type '%T'.\n",
             class_name, separator, v->name, arg_num, expected, got);
 }
@@ -571,7 +571,7 @@ static void bad_assign_error(lily_emit_state *emit, int line_num,
     /* Remember that right is being assigned to left, so right should
        get printed first. */
     emit->raiser->line_adjust = line_num;
-    lily_raise(emit->raiser, lily_ErrSyntax,
+    lily_raise(emit->raiser, lily_SyntaxError,
             "Cannot assign type '%T' to type '%T'.\n",
             right_sig, left_sig);
 }
@@ -581,7 +581,7 @@ static void bad_assign_error(lily_emit_state *emit, int line_num,
 static void bad_subs_class(lily_emit_state *emit, lily_ast *var_ast)
 {
     emit->raiser->line_adjust = var_ast->line_num;
-    lily_raise(emit->raiser, lily_ErrSyntax, "Cannot subscript type '%T'.\n",
+    lily_raise(emit->raiser, lily_SyntaxError, "Cannot subscript type '%T'.\n",
             var_ast->result->sig);
 }
 
@@ -622,7 +622,7 @@ static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
     }
 
     emit->raiser->line_adjust = ast->line_num;
-    lily_raise(emit->raiser, lily_ErrSyntax,
+    lily_raise(emit->raiser, lily_SyntaxError,
                "%s%s%s expects %s%d args, but got %d.\n",
                class_name, separator, call_name, va_text,
                call_sig->siglist_size - 1, ast->args_collected);
@@ -668,7 +668,7 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
         emit->raiser->line_adjust = ast->line_num;
         /* Print the full type, in case there's an attempt to do something like
            list[integer] == list[string]. */
-        lily_raise(emit->raiser, lily_ErrSyntax,
+        lily_raise(emit->raiser, lily_SyntaxError,
                    "Invalid operation: %T %s %T.\n", ast->left->result->sig,
                    opname(ast->op), ast->right->result->sig);
     }
@@ -715,7 +715,7 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
 
     Notes:
     * This assumes ast->left and ast->right have already been walked.
-    * This will raise lily_ErrSyntax if the ast's op is not a compound op, or
+    * This will raise lily_SyntaxError if the ast's op is not a compound op, or
       if the compound op is invalid (ex: list /= integer).
     * This handles the 'x * y -> storage' part. The caller is expected to handle
       the 'x = storage' part.
@@ -741,7 +741,7 @@ static void emit_op_for_compound(lily_emit_state *emit, lily_ast *ast)
     else if (ast->op == expr_right_shift_assign)
         spoof_op = expr_right_shift;
     else {
-        lily_raise(emit->raiser, lily_ErrSyntax, "Invalid compound op: %s.\n",
+        lily_raise(emit->raiser, lily_SyntaxError, "Invalid compound op: %s.\n",
                 opname(ast->op));
         spoof_op = -1;
     }
@@ -825,7 +825,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     if ((ast->left->result->flags & SYM_TYPE_VAR) == 0) {
         emit->raiser->line_adjust = ast->line_num;
-        lily_raise(emit->raiser, lily_ErrSyntax,
+        lily_raise(emit->raiser, lily_SyntaxError,
                 "Left side of %s is not a var.\n", opname(ast->op));
     }
 
@@ -1121,7 +1121,7 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
     if (var_cls_id == SYM_CLASS_LIST &&
         index_ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
         emit->raiser->line_adjust = var_ast->line_num;
-        lily_raise(emit->raiser, lily_ErrSyntax,
+        lily_raise(emit->raiser, lily_SyntaxError,
                 "list index is not an integer.\n");
     }
     else if (var_cls_id == SYM_CLASS_HASH) {
@@ -1130,7 +1130,7 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
 
         if (want_key != have_key) {
             emit->raiser->line_adjust = var_ast->line_num;
-            lily_raise(emit->raiser, lily_ErrSyntax,
+            lily_raise(emit->raiser, lily_SyntaxError,
                     "hash index should be type '%T', not type '%T'.\n",
                     want_key, have_key);
         }
@@ -1139,7 +1139,7 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
         if (index_ast->result->sig->cls->id != SYM_CLASS_INTEGER ||
             index_ast->tree_type != tree_readonly) {
             emit->raiser->line_adjust = var_ast->line_num;
-            lily_raise(emit->raiser, lily_ErrSyntax,
+            lily_raise(emit->raiser, lily_SyntaxError,
                     "tuple subscripts must be integer literals.\n");
         }
         lily_sig *var_sig = var_ast->result->sig;
@@ -1147,7 +1147,7 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
             index_literal->value.integer >= var_sig->siglist_size) {
 
             emit->raiser->line_adjust = var_ast->line_num;
-            lily_raise(emit->raiser, lily_ErrSyntax,
+            lily_raise(emit->raiser, lily_SyntaxError,
                 "Index %d is out of range for %T.\n",
                 index_literal->value.integer, var_sig);
         }
@@ -1307,7 +1307,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
             cast_opcode = -1;
             result = NULL;
             emit->raiser->line_adjust = ast->line_num;
-            lily_raise(emit->raiser, lily_ErrBadCast,
+            lily_raise(emit->raiser, lily_BadTypecastError,
                        "Cannot cast type '%T' to type '%T'.\n",
                        var_sig, cast_sig);
         }
@@ -1336,7 +1336,7 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
 
     if (lhs_class->id != SYM_CLASS_INTEGER) {
         emit->raiser->line_adjust = ast->line_num;
-        lily_raise(emit->raiser, lily_ErrSyntax, "Invalid operation: %s%s.\n",
+        lily_raise(emit->raiser, lily_SyntaxError, "Invalid operation: %s%s.\n",
                    opname(ast->op), lhs_class->name);
     }
 
@@ -1464,7 +1464,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
             if (key_sig == NULL) {
                 if ((key_tree->result->sig->cls->flags & CLS_VALID_HASH_KEY) == 0) {
                     emit->raiser->line_adjust = key_tree->line_num;
-                    lily_raise(emit->raiser, lily_ErrSyntax,
+                    lily_raise(emit->raiser, lily_SyntaxError,
                             "Resulting type '%T' is not a valid hash key.\n",
                             key_tree->result->sig);
                 }
@@ -1473,7 +1473,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
             }
             else {
                 emit->raiser->line_adjust = key_tree->line_num;
-                lily_raise(emit->raiser, lily_ErrSyntax,
+                lily_raise(emit->raiser, lily_SyntaxError,
                         "Expected a key of type '%T', but key is of type '%T'.\n",
                         key_sig, key_tree->result->sig);
             }
@@ -1712,7 +1712,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
 static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast)
 {
     if (ast->args_collected == 0) {
-        lily_raise(emit->raiser, lily_ErrSyntax,
+        lily_raise(emit->raiser, lily_SyntaxError,
                 "Cannot create an empty tuple.\n");
     }
 
@@ -1929,7 +1929,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
         cls_id = ast->result->sig->cls->id;
         if (cls_id != SYM_CLASS_FUNCTION) {
             emit->raiser->line_adjust = ast->line_num;
-            lily_raise(emit->raiser, lily_ErrSyntax,
+            lily_raise(emit->raiser, lily_SyntaxError,
                     "Cannot anonymously call resulting type '%T'.\n",
                     ast->result->sig);
         }
@@ -2016,7 +2016,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
             ast->result = NULL;
         else {
             emit->raiser->line_adjust = ast->line_num;
-            lily_raise(emit->raiser, lily_ErrSyntax,
+            lily_raise(emit->raiser, lily_SyntaxError,
                        "Call returning nil not at end of expression.");
         }
         f->code[f->pos+i] = -1;
@@ -2092,7 +2092,7 @@ static void eval_oo_call(lily_emit_state *emit, lily_ast *ast)
             ast->arg_start->result->sig->cls, oo_name);
 
     if (var == NULL) {
-        lily_raise(emit->raiser, lily_ErrSyntax,
+        lily_raise(emit->raiser, lily_SyntaxError,
                 "Class %s has no callable named %s.\n",
                 ast->arg_start->result->sig->cls->name,
                 oo_name);
@@ -2113,7 +2113,7 @@ static void eval_isnil(lily_emit_state *emit, lily_ast *ast)
     lily_ast *inner_tree = ast->arg_start;
 
     if (ast->args_collected != 1)
-        lily_raise(emit->raiser, lily_ErrSyntax,
+        lily_raise(emit->raiser, lily_SyntaxError,
                 "isnil expects 1 arg, but got %d args.\n", ast->args_collected);
 
     if (inner_tree->tree_type != tree_local_var &&
@@ -2221,7 +2221,7 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_ast_pool *ap,
     emit->expr_num++;
 
     if (ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
-        lily_raise(emit->raiser, lily_ErrSyntax,
+        lily_raise(emit->raiser, lily_SyntaxError,
                    "Expected type 'integer', but got type '%T'.\n",
                    ast->result->sig);
     }
@@ -2249,7 +2249,7 @@ void lily_emit_break(lily_emit_state *emit)
     if (emit->current_block->loop_start == -1) {
         /* This is called by parser on the source line, so do not adjust the
            raiser. */
-        lily_raise(emit->raiser, lily_ErrSyntax,
+        lily_raise(emit->raiser, lily_SyntaxError,
                 "'break' used outside of a loop.\n");
     }
 
@@ -2306,7 +2306,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
        condition that returns nil, as one example. Make sure there is a
        result to check. */
     if (ast->result == NULL)
-        lily_raise(emit->raiser, lily_ErrSyntax,
+        lily_raise(emit->raiser, lily_SyntaxError,
                    "Conditional expression has no value.\n");
 
     /* If the expression is false, then jump to a future location. This will
@@ -2334,7 +2334,7 @@ void lily_emit_eval_do_while_expr(lily_emit_state *emit, lily_ast_pool *ap)
     emit->expr_num++;
 
     if (ast->result == NULL)
-        lily_raise(emit->raiser, lily_ErrSyntax,
+        lily_raise(emit->raiser, lily_SyntaxError,
                    "Conditional expression has no value.\n");
 
     lily_function_val *f = emit->top_function;
@@ -2357,7 +2357,7 @@ void lily_emit_continue(lily_emit_state *emit)
     /* This is called by parser on the source line, so do not adjust the
        raiser. */
     if (emit->current_block->loop_start == -1) {
-        lily_raise(emit->raiser, lily_ErrSyntax,
+        lily_raise(emit->raiser, lily_SyntaxError,
                 "'continue' used outside of a loop.\n");
     }
 
@@ -2377,19 +2377,19 @@ void lily_emit_change_if_branch(lily_emit_state *emit, int have_else)
     if (emit->current_block->block_type != BLOCK_IF &&
         emit->current_block->block_type != BLOCK_IFELSE) {
         char *name = (have_else ? "else" : "elif");
-        lily_raise(emit->raiser, lily_ErrSyntax,
+        lily_raise(emit->raiser, lily_SyntaxError,
                    "'%s' without 'if'.\n", name);
     }
 
     if (have_else) {
         if (block->block_type == BLOCK_IFELSE)
-            lily_raise(emit->raiser, lily_ErrSyntax,
+            lily_raise(emit->raiser, lily_SyntaxError,
                        "Only one 'else' per 'if' allowed.\n");
         else
             block->block_type = BLOCK_IFELSE;
     }
     else if (block->block_type == BLOCK_IFELSE)
-        lily_raise(emit->raiser, lily_ErrSyntax, "'elif' after 'else'.\n");
+        lily_raise(emit->raiser, lily_SyntaxError, "'elif' after 'else'.\n");
 
     if (v->next != NULL)
         lily_hide_block_vars(emit->symtab, v);
@@ -2448,7 +2448,7 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
             emit_any_assign(emit, ast);
         else {
             emit->raiser->line_adjust = ast->line_num;
-            lily_raise(emit->raiser, lily_ErrSyntax,
+            lily_raise(emit->raiser, lily_SyntaxError,
                     "return expected type '%T' but got type '%T'.\n",
                     ret_sig, ast->result->sig);
         }
@@ -2474,7 +2474,7 @@ void lily_emit_show(lily_emit_state *emit, lily_ast *ast)
         eval_tree(emit, ast);
 
     if (ast->result == NULL)
-        lily_raise(emit->raiser, lily_ErrSyntax,
+        lily_raise(emit->raiser, lily_SyntaxError,
                    "show expression has no value.\n");
 
     emit->expr_num++;
@@ -2491,7 +2491,7 @@ void lily_emit_return_noval(lily_emit_state *emit)
 {
     /* Don't allow 'return' within __main__. */
     if (emit->function_depth == 1)
-        lily_raise(emit->raiser, lily_ErrSyntax,
+        lily_raise(emit->raiser, lily_SyntaxError,
                 "'return' used outside of a function.\n");
 
     lily_function_val *f = emit->top_function;
@@ -2519,7 +2519,7 @@ void lily_emit_except(lily_emit_state *emit, lily_class *cls,
     lily_function_val *f = emit->top_function;
 
     if (emit->current_block->block_type != BLOCK_TRY) {
-        lily_raise(emit->raiser, lily_ErrSyntax,
+        lily_raise(emit->raiser, lily_SyntaxError,
                 "'except' not within 'try' block.\n");
     }
 
@@ -2781,7 +2781,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
     int block_type;
 
     if (emit->first_block == emit->current_block)
-        lily_raise(emit->raiser, lily_ErrSyntax, "'}' outside of a block.\n");
+        lily_raise(emit->raiser, lily_SyntaxError, "'}' outside of a block.\n");
 
     block = emit->current_block;
     block_type = block->block_type;

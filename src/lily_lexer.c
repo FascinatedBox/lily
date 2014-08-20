@@ -462,13 +462,13 @@ static void scan_exponent(lily_lex_state *lexer, int *pos, char *new_ch)
     }
 
     if (*new_ch < '0' || *new_ch > '9')
-        lily_raise(lexer->raiser, lily_ErrSyntax,
+        lily_raise(lexer->raiser, lily_SyntaxError,
                    "Expected a base 10 number after exponent.\n");
 
     while (*new_ch >= '0' && *new_ch <= '9') {
         num_digits++;
         if (num_digits > 3) {
-            lily_raise(lexer->raiser, lily_ErrSyntax,
+            lily_raise(lexer->raiser, lily_SyntaxError,
                        "Exponent is too large.\n");
         }
         num_pos++;
@@ -677,7 +677,7 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
         if (integer_value <= INT64_MAX)
             yield_val.integer = (int64_t)integer_value;
         else
-            lily_raise(lexer->raiser, lily_ErrSyntax,
+            lily_raise(lexer->raiser, lily_SyntaxError,
                        "Integer value is too large.\n");
     }
     else {
@@ -687,7 +687,7 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
         if (integer_value <= max)
             yield_val.integer = -(int64_t)integer_value;
         else
-            lily_raise(lexer->raiser, lily_ErrSyntax,
+            lily_raise(lexer->raiser, lily_SyntaxError,
                        "Integer value is too large.\n");
     }
 
@@ -703,7 +703,7 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
         errno = 0;
         double_result = strtod(lexer->label, NULL);
         if (errno == ERANGE) {
-            lily_raise(lexer->raiser, lily_ErrSyntax,
+            lily_raise(lexer->raiser, lily_SyntaxError,
                        "Double value is too large.\n");
         }
 
@@ -749,7 +749,7 @@ static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
                 continue;
             }
             else {
-                lily_raise(lexer->raiser, lily_ErrSyntax,
+                lily_raise(lexer->raiser, lily_SyntaxError,
                            "Unterminated multi-line comment (started at line %d).\n",
                            start_line);
             }
@@ -818,7 +818,7 @@ static void scan_string(lily_lex_state *lexer, int *pos, char *new_ch)
 
             esc_ch = simple_escape(new_ch);
             if (esc_ch == 0)
-                lily_raise(lexer->raiser, lily_ErrSyntax,
+                lily_raise(lexer->raiser, lily_SyntaxError,
                            "Invalid escape \\%c\n", *(new_ch + 1));
 
             label[label_pos] = esc_ch;
@@ -844,7 +844,7 @@ static void scan_string(lily_lex_state *lexer, int *pos, char *new_ch)
                 label_pos += i;
 
                 if (lexer->entry->read_line_fn(lexer->entry) == 0) {
-                    lily_raise(lexer->raiser, lily_ErrSyntax,
+                    lily_raise(lexer->raiser, lily_SyntaxError,
                                "Unterminated multi-line string (started at line %d).\n",
                                multiline_start);
                 }
@@ -879,7 +879,7 @@ static void scan_string(lily_lex_state *lexer, int *pos, char *new_ch)
                 continue;
             }
             else
-                lily_raise(lexer->raiser, lily_ErrSyntax,
+                lily_raise(lexer->raiser, lily_SyntaxError,
                            "Unterminated string at line %d.\n",
                            lexer->line_num);
         }
@@ -967,14 +967,14 @@ void lily_lexer_utf8_check(lily_lex_state *lexer)
                 int j;
                 for (j = 1;j < followers;j++,ch++) {
                     if (((unsigned char)*ch) < 128) {
-                        lily_raise(lexer->raiser, lily_ErrEncoding,
+                        lily_raise(lexer->raiser, lily_EncodingError,
                                    "Invalid utf-8 sequence on line %d.\n",
                                    lexer->line_num);
                     }
                 }
             }
             else if (followers == -1) {
-                lily_raise(lexer->raiser, lily_ErrEncoding,
+                lily_raise(lexer->raiser, lily_EncodingError,
                            "Invalid utf-8 sequence on line %d.\n",
                            lexer->line_num);
             }
@@ -1038,7 +1038,7 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
     new_entry->source = fopen(filename, "r");
     if (new_entry->source == NULL) {
         lily_free(new_entry);
-        lily_raise(lexer->raiser, lily_ErrImport, "Failed to open %s.\n",
+        lily_raise(lexer->raiser, lily_ImportError, "Failed to open %s.\n",
                    filename);
     }
 
@@ -1358,7 +1358,7 @@ void lily_lexer(lily_lex_state *lexer)
             input_pos++;
             if (*ch == '>') {
                 if (lexer->mode == lm_no_tags)
-                    lily_raise(lexer->raiser, lily_ErrSyntax,
+                    lily_raise(lexer->raiser, lily_SyntaxError,
                             "Found @> but not expecting tags.\n");
 
                 /* Skip the > of @> so it's not sent as html. */
