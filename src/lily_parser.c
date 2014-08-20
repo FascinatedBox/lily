@@ -1462,8 +1462,15 @@ static void except_handler(lily_parse_state *parser, int multi)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' is not a class.\n", lex->label);
 
-    /* TODO: Check if a given class can be raised. It's raiseable if it derives
-       from Exception (or is Exception). */
+    /* Exception is likely to always be the base exception class. */
+    lily_class *exception_base = lily_class_by_name(parser->symtab,
+            "Exception");
+
+    int is_valid = lily_check_right_inherits_or_is(exception_base,
+            exception_class);
+    if (is_valid == 0)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'%s' is not a valid exception class.\n");
 
     NEED_NEXT_TOK(tk_colon)
     lily_emit_except(parser->emit, exception_class, lex->line_num);

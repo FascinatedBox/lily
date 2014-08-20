@@ -1653,11 +1653,9 @@ static int maybe_catch_exception(lily_vm_state *vm)
             int next_location = stack_code[jump_location + 2];
             lily_value *exception_reg = stack_regs[stack_code[jump_location + 3]];
 
-            /* TODO: Also consider this caught if the catching class is higher
-                     up than the class raised. This will allow catching for
-                     ExceptionBase to catch everything. */
             lily_class *catch_class = exception_reg->sig->cls;
-            if (catch_class == raised_class) {
+            if (catch_class == raised_class ||
+                lily_check_right_inherits_or_is(catch_class, raised_class)) {
                 /* ...So that execution resumes from within the except block. */
                 jump_location += 4;
                 match = 1;
