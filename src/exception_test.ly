@@ -7,9 +7,15 @@
 try: {
 	integer a = 1 / 0
 except DivisionByZeroError:
-	print("Test 1 (catch division by zero) passed!")
+	print("DBZError successfully caught!\n")
 }
 
-show __main__
+# Test 2: Catch a different error.
+try: {
+	list[integer] lsi = [1]
+	integer v = lsi[1000]
+except RangeError:
+	print ("RangeError successfully caught!\n")
+}
 
 @>

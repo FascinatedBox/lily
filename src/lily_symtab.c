@@ -25,9 +25,9 @@
       lookup.
 **/
 
-static uint64_t shorthash_for_name(char *name)
+static uint64_t shorthash_for_name(const char *name)
 {
-    char *ch = &name[0];
+    const char *ch = &name[0];
     int i, shift;
     uint64_t ret;
     for (i = 0, shift = 0, ret = 0;
@@ -781,10 +781,11 @@ lily_class *lily_class_by_id(lily_symtab *symtab, int class_id)
     return symtab->classes[class_id];
 }
 
-/* lily_class_by_name
-   This function returns a class for a given name, or NULL. This doesn't
-   take a name, because all class names are <= 8 bytes in name length. */
-lily_class *lily_class_by_name(lily_symtab *symtab, char *name)
+/*  lily_class_by_name
+    Try to find a class from a given non-NULL name.
+    On success: The class is returned.
+    On failure: NULL is returned. */
+lily_class *lily_class_by_name(lily_symtab *symtab, const char *name)
 {
     int i;
     lily_class **classes = symtab->classes;

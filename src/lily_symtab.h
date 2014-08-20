@@ -57,7 +57,7 @@ typedef struct {
 #define KEY_LAST_ID     15
 
 lily_class *lily_class_by_id(lily_symtab *, int);
-lily_class *lily_class_by_name(lily_symtab *, char *);
+lily_class *lily_class_by_name(lily_symtab *, const char *);
 lily_var *lily_find_class_callable(lily_symtab *, lily_class *, char *);
 
 void lily_free_symtab_lits_and_vars(lily_symtab *);
