@@ -336,6 +336,48 @@ static int init_literals(lily_symtab *symtab)
     return ret;
 }
 
+static int init_prop_seeds(lily_symtab *symtab, lily_class *cls,
+        const lily_prop_seed_t *seeds)
+{
+    const lily_prop_seed_t *seed_iter = seeds;
+    lily_prop_entry *top = NULL;
+    int ret = 1;
+    int id = 0;
+
+    do {
+        int pos = 0, ok = 1;
+        lily_sig *entry_sig = scan_seed_arg(symtab, seed_iter->prop_ids, &pos,
+                &ok);
+        lily_prop_entry *entry = lily_malloc(sizeof(lily_prop_entry));
+        char *entry_name = lily_malloc(strlen(seed_iter->name) + 1);
+        if (entry_sig == NULL || entry == NULL || entry_name == NULL) {
+            /* Signatures are attached to symtab's root_sig when they get made,
+               so there's no teardown for the sig necessary. */
+            lily_free(entry);
+            lily_free(entry_name);
+            ret = 0;
+            break;
+        }
+        strcpy(entry_name, seed_iter->name);
+        entry->id = id;
+        entry->name = entry_name;
+        entry->sig = entry_sig;
+        entry->name_shorthash = shorthash_for_name(entry_name);
+        entry->next = NULL;
+        if (top == NULL) {
+            cls->properties = entry;
+            top = entry;
+        }
+        else
+            top->next = entry;
+
+        id++;
+        seed_iter = seed_iter->next;
+    } while (seed_iter);
+
+    return ret;
+}
+
 /* init_classes
    Symtab init, stage 2
    This function initializes the classes of a symtab, as well as their
@@ -406,6 +448,12 @@ static int init_classes(lily_symtab *symtab)
             new_class->seed_table = NULL;
             new_class->setup_func = class_seeds[i].setup_func;
             new_class->eq_func = class_seeds[i].eq_func;
+            new_class->properties = NULL;
+            new_class->prop_start = 0;
+
+            if (ret && class_seeds[i].prop_seeds != NULL)
+                ret = init_prop_seeds(symtab, new_class,
+                        class_seeds[i].prop_seeds);
         }
         else
             ret = 0;
@@ -492,6 +540,20 @@ void free_vars(lily_var *var)
     }
 }
 
+static void free_properties(lily_class *cls)
+{
+    lily_prop_entry *prop_iter = cls->properties;
+    lily_prop_entry *next_prop;
+    while (prop_iter) {
+        next_prop = prop_iter->next;
+
+        lily_free(prop_iter->name);
+        lily_free(prop_iter);
+
+        prop_iter = next_prop;
+    }
+}
+
 static void free_lily_main(lily_function_val *fv)
 {
     lily_free(fv->reg_info);
@@ -536,8 +598,13 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
         int i;
         for (i = 0;i <= symtab->class_pos;i++) {
             lily_class *cls = symtab->classes[i];
-            if (cls != NULL && cls->call_start != NULL)
-                free_vars(cls->call_start);
+            if (cls != NULL) {
+                if (cls->properties != NULL)
+                    free_properties(cls);
+
+                if (cls->call_start != NULL)
+                    free_vars(cls->call_start);
+            }
         }
     }
 

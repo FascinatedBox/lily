@@ -14,10 +14,19 @@ typedef const struct {
     int is_refcounted;
     int template_count;
     int flags;
+    const lily_prop_seed_t *prop_seeds;
     class_setup_func setup_func;
     gc_marker_func gc_marker;
     class_eq_func eq_func;
 } class_seed;
+
+static const lily_prop_seed_t message =
+    {"message", NULL,
+        {SYM_CLASS_STRING}};
+
+static const lily_prop_seed_t traceback =
+    {"traceback", &message,
+        {SYM_CLASS_TUPLE, SYM_CLASS_LIST, SYM_CLASS_STRING, SYM_CLASS_STRING, SYM_CLASS_INTEGER}};
 
 /* Note: If CLS_VALID_HASH_KEY is added to other classes, the vm will need to be
          updated to hash those classes right. It will also need ErrNoSuchKey
@@ -25,32 +34,34 @@ typedef const struct {
          too. */
 class_seed class_seeds[] =
 {
-    {"integer",  0,  0,  CLS_VALID_HASH_KEY, NULL,               NULL,
+    {"integer",   0,  0,  CLS_VALID_HASH_KEY, NULL, NULL,               NULL,
      &lily_integer_eq},
 
-    {"double",   0,  0,  CLS_VALID_HASH_KEY, NULL,               NULL,
+    {"double",    0,  0,  CLS_VALID_HASH_KEY, NULL, NULL,               NULL,
      &lily_double_eq},
 
-    {"string",   1,  0,  CLS_VALID_HASH_KEY, lily_string_setup,  NULL,
+    {"string",    1,  0,  CLS_VALID_HASH_KEY, NULL, lily_string_setup,  NULL,
      &lily_string_eq},
 
-    {"function", 0, -1,  0,                  NULL,               NULL,
+    {"function",  0, -1,  0,                  NULL, NULL,               NULL,
      &lily_generic_eq},
 
-    {"any",      1,  0,  0,                  NULL,               &lily_gc_any_marker,
+    {"any",       1,  0,  0,                  NULL, NULL,               &lily_gc_any_marker,
      &lily_any_eq},
 
-    {"list",     1,  1,  0,                  lily_list_setup,    &lily_gc_list_marker,
+    {"list",      1,  1,  0,                  NULL, lily_list_setup,    &lily_gc_list_marker,
      &lily_list_eq},
 
-    {"hash",     1,  2,  0,                  lily_hash_setup,    &lily_gc_hash_marker,
+    {"hash",      1,  2,  0,                  NULL, lily_hash_setup,    &lily_gc_hash_marker,
      &lily_hash_eq},
 
-    {"tuple",    1, -1, 0,                  NULL,               &lily_gc_tuple_marker,
+    {"tuple",     1, -1, 0,                   NULL, NULL,               &lily_gc_tuple_marker,
      &lily_tuple_eq},
 
-    {"",         0,  0, 0,                  NULL,            NULL, NULL},
-    {"package",  0,  0, 0,                  NULL,            NULL, NULL},
+    {"",          0,  0, 0,                   NULL, NULL,            NULL, NULL},
+    {"package",   0,  0, 0,                   NULL, NULL,            NULL, NULL},
+    {"Exception", 1,  0, 0,                   &traceback, NULL, NULL, NULL},
+    {"DivisionByZeroError", 1,  0, 0,         NULL, NULL, NULL, NULL}
 };
 
 typedef const struct {
@@ -72,7 +83,9 @@ keyword_seed keywords[] = {
     {"__function__", 7598807797348065119},
     {"for",          7499622},
     {"do",           28516},
-    {"isnil",        465625314153}
+    {"isnil",        465625314153},
+    {"try",          7959156},
+    {"except",       128026086176869}
 };
 
 void lily_builtin_print(lily_vm_state *, lily_function_val *, uintptr_t *);

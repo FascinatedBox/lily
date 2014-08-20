@@ -84,6 +84,7 @@ lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
     }
 
     parser->vm->main = parser->symtab->var_start;
+    parser->vm->symtab = parser->symtab;
     parser->symtab->lex_linenum = &parser->lex->line_num;
     parser->ast_pool->lex_linenum = &parser->lex->line_num;
     parser->emit->lex_linenum = &parser->lex->line_num;
@@ -998,6 +999,8 @@ static void function_kw_handler(lily_parse_state *, int);
 static void for_handler(lily_parse_state *, int);
 static void do_handler(lily_parse_state *, int);
 static void isnil_handler(lily_parse_state *, int);
+static void try_handler(lily_parse_state *, int);
+static void except_handler(lily_parse_state *, int);
 
 typedef void (keyword_handler)(lily_parse_state *, int);
 
@@ -1015,7 +1018,9 @@ static keyword_handler *handlers[] = {
     function_kw_handler,
     for_handler,
     do_handler,
-    isnil_handler
+    isnil_handler,
+    try_handler,
+    except_handler
 };
 
 /*  statement
@@ -1419,6 +1424,53 @@ static void isnil_handler(lily_parse_state *parser, int multi)
     lily_lexer(lex);
     expression(parser, 0);
     lily_emit_eval_expr(parser->emit, parser->ast_pool);
+}
+
+static void try_handler(lily_parse_state *parser, int multi)
+{
+    lily_lex_state *lex = parser->lex;
+
+    lily_emit_enter_block(parser->emit, BLOCK_TRY);
+    lily_emit_try(parser->emit, parser->lex->line_num);
+
+    NEED_CURRENT_TOK(tk_colon)
+    lily_lexer(lex);
+    if (lex->token == tk_left_curly)
+        parse_multiline_block_body(parser, multi);
+
+    /* Trust me, this is important. Why?
+       For a series of N except blocks, N - 1 are jumps that want the end
+       location, and N wants the next except block. This next instruction makes
+       it where all N entries want a jump to the end, and the last except (or
+       the try if there are no excepts) gets a next location of 0.
+       If this is not done, the last except block will be patched to the try
+       block's exit (which will not be an except block). The vm WILL crash.
+       If this is done, the last except block won't be patched, so its 'next'
+       spot will be 0 (the vm sees this and knows it's the end of that try
+       block). */
+    parser->emit->patch_pos--;
+
+    lily_emit_leave_block(parser->emit);
+}
+
+static void except_handler(lily_parse_state *parser, int multi)
+{
+    lily_lex_state *lex = parser->lex;
+
+    NEED_CURRENT_TOK(tk_word)
+    lily_class *exception_class = lily_class_by_name(parser->symtab, lex->label);
+    if (exception_class == NULL)
+        lily_raise(parser->raiser, lily_ErrSyntax,
+                "'%s' is not a class.\n", lex->label);
+
+    /* TODO: Check if a given class can be raised. It's raiseable if it derives
+       from Exception (or is Exception). */
+
+    NEED_NEXT_TOK(tk_colon)
+    lily_emit_except(parser->emit, exception_class, lex->line_num);
+
+    lily_lexer(lex);
+    statement(parser, 1);
 }
 
 /** Main parser function, and public calling API.

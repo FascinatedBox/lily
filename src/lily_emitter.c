@@ -2498,6 +2498,57 @@ void lily_emit_return_noval(lily_emit_state *emit)
     WRITE_2(o_return_noval, *emit->lex_linenum)
 }
 
+void lily_emit_try(lily_emit_state *emit, int line_num)
+{
+    lily_function_val *f = emit->top_function;
+
+    WRITE_3(o_push_try,
+            line_num,
+            0)
+
+    if (emit->patch_pos == emit->patch_size)
+        grow_patches(emit);
+
+    emit->patches[emit->patch_pos] = f->pos - 1;
+    emit->patch_pos++;
+}
+
+void lily_emit_except(lily_emit_state *emit, lily_class *cls,
+        int line_num)
+{
+    lily_function_val *f = emit->top_function;
+
+    if (emit->current_block->block_type != BLOCK_TRY) {
+        lily_raise(emit->raiser, lily_ErrSyntax,
+                "'except' not within 'try' block.\n");
+    }
+
+    lily_sig *except_sig = cls->sig;
+    lily_storage *except_store = get_storage(emit, except_sig, line_num);
+
+    /* Write a jump that will go to the end of the try. */
+    WRITE_2(o_jump, 0)
+    int save_jump = f->pos - 1;
+
+    /* The last jump is always wanting to know where the next except block
+       starts. That's now known.
+       However, since that block is done, it now needs to know where the end
+       of the try block is. */
+    f->code[emit->patches[emit->patch_pos - 1]] = f->pos;
+    emit->patches[emit->patch_pos - 1] = save_jump;
+
+    WRITE_4(o_except,
+            line_num,
+            0,
+            except_store->reg_spot)
+
+    if (emit->patch_pos == emit->patch_size)
+        grow_patches(emit);
+
+    emit->patches[emit->patch_pos] = f->pos - 2;
+    emit->patch_pos++;
+}
+
 /* add_var_chain_to_info
    This adds a chain of vars to a function's info. If not __main__, then functions
    declared within the currently-exiting function are skipped. */

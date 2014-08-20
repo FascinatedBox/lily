@@ -53,6 +53,14 @@ typedef union lily_raw_value_t {
     struct lily_package_val_t *package;
 } lily_raw_value;
 
+typedef struct lily_prop_entry_t {
+    struct lily_sig_t *sig;
+    int id;
+    char *name;
+    uint64_t name_shorthash;
+    struct lily_prop_entry_t *next;
+} lily_prop_entry;
+
 /* lily_class represents a class in the language. Each class can have private
    members (call_start to call_top). */
 typedef struct lily_class_t {
@@ -78,6 +86,9 @@ typedef struct lily_class_t {
     struct lily_sig_t *sig;
     struct lily_var_t *call_start;
     struct lily_var_t *call_top;
+
+    lily_prop_entry *properties;
+    int prop_start;
 
     /* Instead of loading all class members during init, Lily stores the needed
        information in the seed_table of a class. If the symtab can't find the
@@ -352,6 +363,12 @@ typedef struct lily_func_seed_t {
     int arg_ids[];
 } lily_func_seed;
 
+/* This is used for seeding new properties. */
+typedef struct lily_prop_seed_t {
+    char *name;
+    const struct lily_prop_seed_t *next;
+    int prop_ids[];
+} lily_prop_seed_t;
 
 /* Finally, various definitions. */
 
@@ -406,18 +423,21 @@ typedef struct lily_func_seed_t {
 /* SYM_CLASS_* defines are for checking ids of a signature's class. These are
    used very frequently. These must be kept in sync with the class loading
    order given by lily_seed_symtab.h */
-#define SYM_CLASS_INTEGER  0
-#define SYM_CLASS_DOUBLE   1
-#define SYM_CLASS_STRING   2
-#define SYM_CLASS_FUNCTION 3
-#define SYM_CLASS_ANY      4
-#define SYM_CLASS_LIST     5
-#define SYM_CLASS_HASH     6
-#define SYM_CLASS_TUPLE    7
-#define SYM_CLASS_TEMPLATE 8
-#define SYM_CLASS_PACKAGE  9
+#define SYM_CLASS_INTEGER   0
+#define SYM_CLASS_DOUBLE    1
+#define SYM_CLASS_STRING    2
+#define SYM_CLASS_FUNCTION  3
+#define SYM_CLASS_ANY       4
+#define SYM_CLASS_LIST      5
+#define SYM_CLASS_HASH      6
+#define SYM_CLASS_TUPLE     7
+#define SYM_CLASS_TEMPLATE  8
+#define SYM_CLASS_PACKAGE   9
+#define SYM_CLASS_EXCEPTION 10
+/* There's no SYM_CLASS_* define for exception-derived classes because there's
+   no special-casing of them anywhere. */
 
-#define SYM_LAST_CLASS     9
-#define INITIAL_CLASS_SIZE 10
+#define SYM_LAST_CLASS      11
+#define INITIAL_CLASS_SIZE  12
 
 #endif

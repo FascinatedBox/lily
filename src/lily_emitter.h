@@ -56,7 +56,8 @@ typedef struct {
 # define BLOCK_WHILE    0x010
 # define BLOCK_DO_WHILE 0x020
 # define BLOCK_FOR_IN   0x040
-# define BLOCK_FUNCTION 0x100
+# define BLOCK_TRY      0x100
+# define BLOCK_FUNCTION 0x200
 
 void lily_emit_eval_condition(lily_emit_state *, lily_ast_pool *);
 void lily_emit_eval_do_while_expr(lily_emit_state *, lily_ast_pool *);
@@ -75,6 +76,8 @@ void lily_emit_return(lily_emit_state *, lily_ast *, lily_sig *);
 void lily_emit_return_noval(lily_emit_state *);
 void lily_emit_show(lily_emit_state *, lily_ast *);
 void lily_emit_vm_return(lily_emit_state *);
+void lily_emit_try(lily_emit_state *, int);
+void lily_emit_except(lily_emit_state *, lily_class *, int);
 void lily_free_emit_state(lily_emit_state *);
 void lily_reset_main(lily_emit_state *);
 void lily_emit_finalize_for_in(lily_emit_state *, lily_var *, lily_var *,
