@@ -26,4 +26,32 @@ except Exception:
 	print("Successfully caught FormatError as Exception!\n")
 }
 
+function g( => integer) {
+	return 10 / 0
+}
+
+function f() {
+	integer a1, b, c, d, e = 10
+	integer z = g()
+}
+
+# Test 4: Attempt to catch an exception triggered in a function. This forces
+#         the vm to unwind the stack back into __main__.
+try: {
+	f()
+except DivisionByZeroError:
+	print("Caught a nested exception!\n")
+}
+
+# Test 5: Nested catching. The first try fails to catch it, but the second one
+#         has the right filter.
+try: {
+	try: {
+		integer a = 1 / 0
+	except ValueError:
+		print("Incorrect exception caught!!!\n")
+	}
+except DivisionByZeroError:
+	print("Caught an error missed by an inner block!")
+}
 @>
