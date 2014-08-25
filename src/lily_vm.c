@@ -1626,10 +1626,20 @@ static int maybe_catch_exception(lily_vm_state *vm)
     lily_vm_catch_entry *catch_iter = vm->catch_top;
 
     lily_value **stack_regs = vm->vm_regs;
-    int jump_location, match;
+    int adjusted_stack, jump_location, match;
+
+    /* If the last call was to a foreign function, then that function did not
+       do a proper stack adjustment (or it wouldn't be able to access the
+       caller's registers). So don't include that in stack unwinding
+       calculations. */
+    if (vm->function_stack[vm->function_stack_pos-1]->function->code == NULL) {
+        vm->function_stack_pos--;
+        adjusted_stack = 1;
+    }
+    else
+        adjusted_stack = 0;
 
     match = 0;
-
     while (catch_iter != NULL) {
         lily_vm_stack_entry *catch_stack = catch_iter->stack_entry;
         uintptr_t *stack_code = catch_stack->code;
@@ -1637,11 +1647,21 @@ static int maybe_catch_exception(lily_vm_state *vm)
            always be going back, which is illogical otherwise). */
         jump_location = catch_stack->code[catch_iter->code_pos];
 
-        /* TODO: Either determine what vm_regs is here, or update a vm_regs
-                 property on every stack entry whenever vm->vm_regs moves
-                 because of realloc. */
-        if (vm->function_stack_pos == catch_iter->entry_depth)
-            ;
+        if (vm->function_stack_pos != (catch_iter->entry_depth + 1)) {
+            int i;
+
+            /* If the exception is being caught in another scope, then vm_regs
+               needs be adjusted backwards so that the matching registers
+               accesses will target the right thing.
+               -1: Because vm->function_stack_pos is ahead.
+               -1: Because the last vm->function_stack_pos entry is not
+                   entered, only prepared if/when it gets entered. */
+            for (i = vm->function_stack_pos - 2;
+                 i >= catch_iter->entry_depth;
+                 i--) {
+                stack_regs = stack_regs - vm->function_stack[i]->regs_used;
+            }
+        }
 
         while (jump_location != 0) {
             /* Instead of the vm hopping around to different o_except blocks,
@@ -1681,6 +1701,8 @@ static int maybe_catch_exception(lily_vm_state *vm)
            ->prev to prevent using the same block again. */
         vm->catch_top = catch_iter->prev;
     }
+    else if (adjusted_stack)
+        vm->function_stack_pos++;
 
     return match;
 }
@@ -1736,6 +1758,10 @@ void lily_vm_execute(lily_vm_state *vm)
             else {
                 code = vm->function_stack[vm->function_stack_pos - 1]->code;
                 code_pos = vm->function_stack[vm->function_stack_pos - 1]->code_pos;
+                /* If an exception is caught outside the function it's raised
+                   in, then vm->vm_regs will get adjusted, so make sure to
+                   update the local version. */
+                vm_regs = vm->vm_regs;
             }
         }
     }
