@@ -171,11 +171,11 @@ static const int build_list_ci[]  =
 static const int isnil_ci[]      =
     {4, D_LINENO, D_IS_GLOBAL, D_COND_INPUT, D_OUTPUT};
 static const int set_item_ci[]   = {4, D_LINENO, D_INPUT, D_INPUT, D_INPUT};
+static const int except_ci[]     = {4, D_LINENO, D_JUMP, D_INT_VAL, D_OUTPUT};
 static const int binary_ci[]     = {4, D_LINENO, D_INPUT, D_INPUT, D_OUTPUT};
 static const int get_const_ci[]  = {3, D_LINENO, D_LIT_INPUT, D_OUTPUT};
 static const int get_global_ci[] = {3, D_LINENO, D_GLOBAL_INPUT, D_OUTPUT};
 static const int set_global_ci[] = {3, D_LINENO, D_INPUT, D_GLOBAL_OUTPUT};
-static const int except_ci[]     = {3, D_LINENO, D_JUMP, D_OUTPUT};
 static const int in_out_ci[]     = {3, D_LINENO, D_INPUT, D_OUTPUT};
 static const int jump_if_ci[]    = {3, D_JUMP_ON, D_INPUT, D_JUMP};
 static const int intdbl_ci[]     = {3, D_LINENO, D_INPUT, D_OUTPUT};
