@@ -1472,8 +1472,29 @@ static void except_handler(lily_parse_state *parser, int multi)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' is not a valid exception class.\n");
 
-    NEED_NEXT_TOK(tk_colon)
-    lily_emit_except(parser->emit, exception_class, lex->line_num);
+    lily_var *exception_var = NULL;
+
+    lily_lexer(lex);
+    if (lex->token == tk_word) {
+        if (strcmp(parser->lex->label, "as") != 0)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                "Expected 'as', not '%s'.\n", lex->label);
+
+        NEED_NEXT_TOK(tk_word)
+        exception_var = lily_var_by_name(parser->symtab, lex->label);
+        if (exception_var != NULL)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                "%s has already been declared.\n", exception_var->name);
+
+        exception_var = lily_try_new_var(parser->symtab, exception_class->sig,
+                lex->label, 0);
+
+        lily_lexer(lex);
+    }
+
+    NEED_CURRENT_TOK(tk_colon)
+    lily_emit_except(parser->emit, exception_class, exception_var,
+            lex->line_num);
 
     lily_lexer(lex);
     if (lex->token != tk_right_curly)

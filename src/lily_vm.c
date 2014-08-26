@@ -154,6 +154,7 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
     vm->gc_threshold = 100;
     vm->gc_pass = 0;
     vm->prep_id_start = 0;
+    vm->building_error = 0;
     vm->prep_var_start = NULL;
     vm->catch_chain = NULL;
     vm->catch_top = NULL;
@@ -1610,6 +1611,228 @@ uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
     return key_hash;
 }
 
+static lily_value *bind_string_and_buffer(lily_sig *string_sig, char *buffer)
+{
+    lily_value *new_value = lily_malloc(sizeof(lily_value));
+    lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
+    int string_size = strlen(buffer);
+
+    if (sv == NULL || new_value == NULL) {
+        lily_free(sv);
+        /* This function takes over the buffer on success, so make sure if
+           there is an error that it destroys the buffer. */
+        lily_free(buffer);
+        lily_free(new_value);
+        return NULL;
+    }
+
+    sv->refcount = 1;
+    sv->string = buffer;
+    sv->size = string_size;
+
+    new_value->value.string = sv;
+    new_value->flags = 0;
+    new_value->sig = string_sig;
+
+    return new_value;
+}
+
+static lily_value *bind_integer(lily_sig *integer_sig, int64_t intval)
+{
+    lily_value *new_value = lily_malloc(sizeof(lily_value));
+    if (new_value) {
+        new_value->value.integer = intval;
+        new_value->sig = integer_sig;
+        new_value->flags = 0;
+    }
+
+    return new_value;
+}
+
+static lily_value *bind_string(lily_sig *string_sig, const char *string)
+{
+    char *buffer = lily_malloc(strlen(string) + 1);
+    if (buffer == NULL)
+        return NULL;
+
+    strcpy(buffer, string);
+    return bind_string_and_buffer(string_sig, buffer);
+}
+
+static lily_value *bind_function_name(lily_sig *string_sig,
+        lily_function_val *fval)
+{
+    char *class_name = fval->class_name;
+    char *separator;
+    if (class_name == NULL) {
+        class_name = "";
+        separator = "";
+    }
+    else
+        separator = "::";
+
+    int buffer_size = strlen(class_name) + strlen(separator) +
+            strlen(fval->trace_name);
+
+    char *buffer = lily_malloc(buffer_size + 1);
+    if (buffer == NULL)
+        return NULL;
+
+    strcpy(buffer, class_name);
+    strcat(buffer, separator);
+    strcat(buffer, fval->trace_name);
+
+    return bind_string_and_buffer(string_sig, buffer);
+}
+
+static void deref_destroy_value(lily_value *value)
+{
+    if (value != NULL) {
+        lily_deref_unknown_val(value);
+        lily_free(value);
+    }
+}
+
+static lily_value *build_traceback(lily_vm_state *vm, lily_sig *traceback_sig)
+{
+    lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
+    if (lv == NULL)
+        return NULL;
+
+    lv->elems = lily_malloc(vm->function_stack_pos * sizeof(lily_value *));
+    lv->num_values = -1;
+    lv->visited = 0;
+    lv->refcount = 1;
+    lv->gc_entry = NULL;
+
+    if (lv->elems == NULL) {
+        lily_deref_list_val(traceback_sig, lv);
+        return NULL;
+    }
+
+    lily_class *integer_cls = lily_class_by_id(vm->symtab, SYM_CLASS_INTEGER);
+    lily_sig *integer_sig = integer_cls->sig;
+    lily_class *string_cls = lily_class_by_id(vm->symtab, SYM_CLASS_STRING);
+    lily_sig *string_sig = string_cls->sig;
+
+    int i;
+    for (i = 0;i < vm->function_stack_pos;i++) {
+        lily_vm_stack_entry *stack_entry = vm->function_stack[i];
+        lily_value *tuple_holder = lily_malloc(sizeof(lily_value));
+        lily_list_val *stack_tuple = lily_malloc(sizeof(lily_list_val));
+        lily_value **tuple_values = lily_malloc(2 * sizeof(lily_value *));
+
+        lily_value *func_string = bind_function_name(string_sig,
+                stack_entry->function);
+        lily_value *linenum_integer = bind_integer(integer_sig,
+                stack_entry->line_num);
+
+        if (tuple_holder == NULL || stack_tuple == NULL ||
+            tuple_values == NULL || func_string == NULL ||
+            linenum_integer == NULL) {
+            deref_destroy_value(func_string);
+            deref_destroy_value(linenum_integer);
+            lily_free(stack_tuple);
+            lily_free(tuple_values);
+            lily_free(tuple_holder);
+            lv->num_values = i;
+            lily_deref_list_val(traceback_sig, lv);
+            return NULL;
+        }
+
+        stack_tuple->num_values = 2;
+        stack_tuple->visited = 0;
+        stack_tuple->refcount = 1;
+        stack_tuple->gc_entry = NULL;
+        stack_tuple->elems = tuple_values;
+        tuple_values[0] = func_string;
+        tuple_values[1] = linenum_integer;
+        tuple_holder->sig = traceback_sig->siglist[0];
+        tuple_holder->value.list = stack_tuple;
+        tuple_holder->flags = 0;
+        lv->elems[i] = tuple_holder;
+        lv->num_values = i + 1;
+    }
+
+    lily_value *v = lily_malloc(sizeof(lily_value));
+    if (v == NULL) {
+        lily_deref_list_val(traceback_sig, lv);
+        return NULL;
+    }
+
+    v->value.list = lv;
+    v->sig = traceback_sig;
+    v->flags = 0;
+
+    return v;
+}
+
+/*  make_proper_exception_val
+    This is called when an exception is NOT raised by 'raise'. It's used to
+    create a exception object that holds the traceback and the message from the
+    raiser.
+    If this function fails due to being out of memory, the resulting
+    NoMemoryError will not be catchable. This prevents an out of memory
+    situation from making the interpreter loop forever trying to build an
+    exception. */
+static void make_proper_exception_val(lily_vm_state *vm,
+        lily_class *raised_class, lily_value *result)
+{
+    /* This is how the vm knows to not catch this. */
+    vm->building_error = 1;
+
+    lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
+    if (ival == NULL)
+        lily_raise_nomem(vm->raiser);
+
+    ival->values = lily_malloc(2 * sizeof(lily_value *));
+    ival->num_values = -1;
+    ival->visited = 0;
+    ival->refcount = 1;
+    ival->gc_entry = NULL;
+    ival->true_class = raised_class;
+    if (ival->values == NULL) {
+        lily_deref_instance_val(result->sig, ival);
+        lily_raise_nomem(vm->raiser);
+    }
+
+    lily_class *string_class = lily_class_by_id(vm->symtab, SYM_CLASS_STRING);
+    lily_sig *string_sig = string_class->sig;
+    lily_value *message_val = bind_string(string_sig,
+            vm->raiser->msgbuf->message);
+
+    if (message_val == NULL) {
+        lily_deref_instance_val(result->sig, ival);
+        lily_raise_nomem(vm->raiser);
+    }
+    lily_msgbuf_reset(vm->raiser->msgbuf);
+    ival->values[0] = message_val;
+    ival->num_values = 1;
+
+    /* This is safe because this function is only called for builtin errors
+       which are always direct subclasses of Exception. */
+    lily_class *exception_class = raised_class->parent;
+    /* Traceback is always the first property of Exception. */
+    lily_sig *traceback_sig = exception_class->properties->sig;
+
+    lily_value *traceback_val = build_traceback(vm, traceback_sig);
+    if (traceback_val == NULL) {
+        lily_deref_instance_val(result->sig, ival);
+        lily_raise_nomem(vm->raiser);
+    }
+
+    ival->values[1] = traceback_val;
+    ival->num_values = 2;
+
+    if ((result->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+        lily_deref_instance_val(result->sig, result->value.instance);
+
+    result->value.instance = ival;
+    result->flags = 0;
+
+    vm->building_error = 0;
+}
+
 /*  maybe_catch_exception
     Something somewhere has caused an exception of some sort to get raised.
     This is called to see if the vm is in a try block with an except case for
@@ -1624,9 +1847,10 @@ static int maybe_catch_exception(lily_vm_state *vm)
     /* Until user-declared exception classes arrive, raised_class should not
        be NULL since all errors raiseable -should- be covered... */
     lily_vm_catch_entry *catch_iter = vm->catch_top;
+    lily_value *catch_reg = NULL;
 
     lily_value **stack_regs = vm->vm_regs;
-    int adjusted_stack, jump_location, match;
+    int adjusted_stack, do_unbox, jump_location, match;
 
     /* If the last call was to a foreign function, then that function did not
        do a proper stack adjustment (or it wouldn't be able to access the
@@ -1671,13 +1895,14 @@ static int maybe_catch_exception(lily_vm_state *vm)
                jump, and +3 is a register that holds a value to store this
                particular exception. */
             int next_location = stack_code[jump_location + 2];
-            lily_value *exception_reg = stack_regs[stack_code[jump_location + 3]];
+            catch_reg = stack_regs[stack_code[jump_location + 4]];
 
-            lily_class *catch_class = exception_reg->sig->cls;
+            lily_class *catch_class = catch_reg->sig->cls;
             if (catch_class == raised_class ||
                 lily_check_right_inherits_or_is(catch_class, raised_class)) {
                 /* ...So that execution resumes from within the except block. */
-                jump_location += 4;
+                do_unbox = stack_code[jump_location + 3];
+                jump_location += 5;
                 match = 1;
                 break;
             }
@@ -1692,7 +1917,9 @@ static int maybe_catch_exception(lily_vm_state *vm)
     }
 
     if (match) {
-        /* TODO: Make a proper exception object at the right place. */
+        if (do_unbox)
+            make_proper_exception_val(vm, raised_class, catch_reg);
+
         /* Note: The function stack's pos is always ahead one. */
         vm->function_stack_pos = catch_iter->entry_depth + 1;
         vm->vm_regs = stack_regs;
@@ -1753,7 +1980,9 @@ void lily_vm_execute(lily_vm_state *vm)
             if (top->function->code != NULL)
                 top->line_num = top->code[code_pos+1];
 
-            if (maybe_catch_exception(vm) == 0)
+            /* If the vm raises an exception trying to build an exception value
+               instance, just...stop and give up. */
+            if (vm->building_error || maybe_catch_exception(vm) == 0)
                 longjmp(vm->raiser->jumps[vm->raiser->jump_pos-2], 1);
             else {
                 code = vm->function_stack[vm->function_stack_pos - 1]->code;

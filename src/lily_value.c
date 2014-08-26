@@ -95,6 +95,13 @@ void lily_deref_tuple_val(lily_sig *sig, lily_list_val *tv)
     }
 }
 
+void lily_deref_instance_val(lily_sig *sig, lily_instance_val *iv)
+{
+    /* Instance values are essentially a tuple but with a class attribute
+       tacked on at the end. So use that. */
+    lily_deref_tuple_val(sig, (lily_list_val *)iv);
+}
+
 void lily_deref_function_val(lily_function_val *fv)
 {
     fv->refcount--;
@@ -187,7 +194,7 @@ void lily_deref_unknown_val(lily_value *value)
         lily_deref_any_val(raw.any);
     else if (cls_id == SYM_CLASS_HASH)
         lily_deref_hash_val(value->sig, raw.hash);
-    else if (cls_id == SYM_CLASS_TUPLE)
+    else if (cls_id == SYM_CLASS_TUPLE || cls_id >= SYM_CLASS_EXCEPTION)
         lily_deref_tuple_val(value->sig, raw.list);
     else if (cls_id == SYM_CLASS_PACKAGE)
         lily_deref_package_val(raw.package);
@@ -216,7 +223,7 @@ void lily_deref_unknown_raw_val(lily_sig *value_sig, lily_raw_value raw)
         lily_deref_any_val(raw.any);
     else if (cls_id == SYM_CLASS_HASH)
         lily_deref_hash_val(value_sig, raw.hash);
-    else if (cls_id == SYM_CLASS_TUPLE)
+    else if (cls_id == SYM_CLASS_TUPLE || cls_id >= SYM_CLASS_EXCEPTION)
         lily_deref_tuple_val(value_sig, raw.list);
     else if (cls_id == SYM_CLASS_PACKAGE)
         lily_deref_package_val(raw.package);

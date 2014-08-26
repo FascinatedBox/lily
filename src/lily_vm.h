@@ -78,6 +78,7 @@ typedef struct lily_vm_state_t {
 
     lily_vm_catch_entry *catch_top;
     lily_vm_catch_entry *catch_chain;
+    int building_error;
 
     lily_symtab *symtab;
     lily_raiser *raiser;
