@@ -51,6 +51,7 @@ typedef union lily_raw_value_t {
     struct lily_function_val_t *function;
     struct lily_hash_val_t *hash;
     struct lily_package_val_t *package;
+    struct lily_instance_val_t *instance;
 } lily_raw_value;
 
 typedef struct lily_prop_entry_t {
@@ -268,6 +269,19 @@ typedef struct lily_package_val_t {
     int var_count;
     char *name;
 } lily_package_val;
+
+/* This represents an instance of a class. */
+typedef struct lily_instance_val_t {
+    int refcount;
+    struct lily_gc_entry_t *gc_entry;
+    struct lily_value_t **values;
+    int num_values;
+    int visited;
+    /* This is used to determine what class this value really belongs to. For
+       example, this value might be a SyntaxError instance set to a register of
+       class Exception. */
+    lily_class *true_class;
+} lily_instance_val;
 
 /* Finally, functions. Functions come in two flavors: Native and foreign.
    * Native:  This function is declared and defined by a user. It has a code

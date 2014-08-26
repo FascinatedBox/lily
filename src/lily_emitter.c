@@ -2514,7 +2514,7 @@ void lily_emit_try(lily_emit_state *emit, int line_num)
 }
 
 void lily_emit_except(lily_emit_state *emit, lily_class *cls,
-        int line_num)
+        lily_var *except_var, int line_num)
 {
     lily_function_val *f = emit->top_function;
 
@@ -2524,7 +2524,9 @@ void lily_emit_except(lily_emit_state *emit, lily_class *cls,
     }
 
     lily_sig *except_sig = cls->sig;
-    lily_storage *except_store = get_storage(emit, except_sig, line_num);
+    lily_sym *except_sym = (lily_sym *)except_var;
+    if (except_sym == NULL)
+        except_sym = (lily_sym *)get_storage(emit, except_sig, line_num);
 
     int patch_count = emit->patch_pos - emit->current_block->patch_start;
     /* patch_count is 1 if the current block is the initial part of the 'try'.
@@ -2544,15 +2546,16 @@ void lily_emit_except(lily_emit_state *emit, lily_class *cls,
     f->code[emit->patches[emit->patch_pos - 1]] = f->pos;
     emit->patches[emit->patch_pos - 1] = save_jump;
 
-    WRITE_4(o_except,
+    WRITE_5(o_except,
             line_num,
             0,
-            except_store->reg_spot)
+            (except_var != NULL),
+            except_sym->reg_spot)
 
     if (emit->patch_pos == emit->patch_size)
         grow_patches(emit);
 
-    emit->patches[emit->patch_pos] = f->pos - 2;
+    emit->patches[emit->patch_pos] = f->pos - 3;
     emit->patch_pos++;
 }
 

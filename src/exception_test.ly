@@ -44,7 +44,7 @@ except DivisionByZeroError:
 }
 
 # Test 5: Nested catching. The first try fails to catch it, but the second one
-#         has the right filter.
+#         has the right class.
 try: {
 	try: {
 		integer a = 1 / 0
@@ -54,4 +54,14 @@ try: {
 except DivisionByZeroError:
 	print("Caught an error missed by an inner block!")
 }
+
+# Test 6: Put exception information into a var. For now, use show to force a
+#         simple dump of the exception's properties.
+try: {
+	list[integer] lsi = [1]
+	integer a = lsi[3]
+except RangeError as e:
+	show e
+}
+
 @>

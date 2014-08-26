@@ -671,16 +671,16 @@ static void show_value(lily_debug_state *debug, lily_value *value)
     }
     else if (cls_id == SYM_CLASS_LIST ||
              cls_id == SYM_CLASS_HASH ||
-             cls_id == SYM_CLASS_TUPLE) {
+             cls_id == SYM_CLASS_TUPLE ||
+             cls_id >= SYM_CLASS_EXCEPTION) {
         lily_msgbuf_add_fmt(debug->msgbuf, "^T\n", sig);
         write_msgbuf(debug);
 
         debug->indent++;
-        if (cls_id == SYM_CLASS_LIST ||
-            cls_id == SYM_CLASS_TUPLE)
-            show_list_value(debug, sig, raw_value.list);
-        else if (cls_id == SYM_CLASS_HASH)
+        if (cls_id == SYM_CLASS_HASH)
             show_hash_value(debug, sig, raw_value.hash);
+        else
+            show_list_value(debug, sig, raw_value.list);
 
         debug->indent--;
         /* The \n at the end comes from the last value's \n. */

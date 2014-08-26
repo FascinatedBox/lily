@@ -21,13 +21,14 @@ typedef const struct {
     class_eq_func eq_func;
 } class_seed;
 
-static const lily_prop_seed_t message =
-    {"message", NULL,
-        {SYM_CLASS_STRING}};
-
+/* Exceptions always have these two properties, and in this order. */
 static const lily_prop_seed_t traceback =
-    {"traceback", &message,
-        {SYM_CLASS_TUPLE, SYM_CLASS_LIST, SYM_CLASS_STRING, SYM_CLASS_STRING, SYM_CLASS_INTEGER}};
+    {"traceback", NULL,
+        {SYM_CLASS_LIST, SYM_CLASS_TUPLE, 2, SYM_CLASS_STRING, SYM_CLASS_INTEGER}};
+
+static const lily_prop_seed_t message =
+    {"message", &traceback,
+        {SYM_CLASS_STRING}};
 
 /* Note: If CLS_VALID_HASH_KEY is added to other classes, the vm will need to be
          updated to hash those classes right. It will also need ErrNoSuchKey
