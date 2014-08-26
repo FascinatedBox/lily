@@ -203,7 +203,9 @@ void lily_vm_free_registers(lily_vm_state *vm)
     lily_value *reg;
     int i;
     if (vm->catch_chain != NULL) {
-        vm->catch_chain = vm->catch_chain->prev;
+        while (vm->catch_chain->prev)
+            vm->catch_chain = vm->catch_chain->prev;
+
         lily_vm_catch_entry *catch_iter = vm->catch_chain;
         lily_vm_catch_entry *catch_next;
         while (catch_iter) {
@@ -1850,7 +1852,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
     lily_value *catch_reg = NULL;
 
     lily_value **stack_regs = vm->vm_regs;
-    int adjusted_stack, do_unbox, jump_location, match;
+    int adjusted_stack, do_unbox, jump_location, match, stack_pos;
 
     /* If the last call was to a foreign function, then that function did not
        do a proper stack adjustment (or it wouldn't be able to access the
@@ -1864,6 +1866,8 @@ static int maybe_catch_exception(lily_vm_state *vm)
         adjusted_stack = 0;
 
     match = 0;
+    stack_pos = vm->function_stack_pos;
+
     while (catch_iter != NULL) {
         lily_vm_stack_entry *catch_stack = catch_iter->stack_entry;
         uintptr_t *stack_code = catch_stack->code;
@@ -1871,7 +1875,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
            always be going back, which is illogical otherwise). */
         jump_location = catch_stack->code[catch_iter->code_pos];
 
-        if (vm->function_stack_pos != (catch_iter->entry_depth + 1)) {
+        if (stack_pos != (catch_iter->entry_depth + 1)) {
             int i;
 
             /* If the exception is being caught in another scope, then vm_regs
@@ -1880,11 +1884,13 @@ static int maybe_catch_exception(lily_vm_state *vm)
                -1: Because vm->function_stack_pos is ahead.
                -1: Because the last vm->function_stack_pos entry is not
                    entered, only prepared if/when it gets entered. */
-            for (i = vm->function_stack_pos - 2;
+            for (i = stack_pos - 2;
                  i >= catch_iter->entry_depth;
                  i--) {
                 stack_regs = stack_regs - vm->function_stack[i]->regs_used;
             }
+
+            stack_pos = catch_iter->entry_depth + 1;
         }
 
         while (jump_location != 0) {
@@ -1896,7 +1902,6 @@ static int maybe_catch_exception(lily_vm_state *vm)
                particular exception. */
             int next_location = stack_code[jump_location + 2];
             catch_reg = stack_regs[stack_code[jump_location + 4]];
-
             lily_class *catch_class = catch_reg->sig->cls;
             if (catch_class == raised_class ||
                 lily_check_right_inherits_or_is(catch_class, raised_class)) {
@@ -1920,13 +1925,16 @@ static int maybe_catch_exception(lily_vm_state *vm)
         if (do_unbox)
             make_proper_exception_val(vm, raised_class, catch_reg);
 
-        /* Note: The function stack's pos is always ahead one. */
-        vm->function_stack_pos = catch_iter->entry_depth + 1;
+        vm->function_stack_pos = stack_pos;
         vm->vm_regs = stack_regs;
         vm->function_stack[catch_iter->entry_depth]->code_pos = jump_location;
         /* Each try block can only successfully handle one exception, so use
            ->prev to prevent using the same block again. */
         vm->catch_top = catch_iter->prev;
+        if (vm->catch_top != NULL)
+            vm->catch_chain = vm->catch_top;
+        else
+            vm->catch_chain = catch_iter;
     }
     else if (adjusted_stack)
         vm->function_stack_pos++;
