@@ -14,8 +14,8 @@ except DivisionByZeroError:
 try: {
 	list[integer] lsi = [1]
 	integer v = lsi[1000]
-except RangeError:
-	print ("RangeError successfully caught!\n")
+except IndexError:
+	print ("IndexError successfully caught!\n")
 }
 
 # Test 3: If a catching exception is a base of a raised exception, allow it.
@@ -60,7 +60,7 @@ except DivisionByZeroError:
 try: {
 	list[integer] lsi = [1]
 	integer a = lsi[3]
-except RangeError as e:
+except IndexError as e:
 	show e
 }
 

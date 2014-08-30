@@ -162,16 +162,6 @@ class_seed class_seeds[] =
      NULL,                  /* gc_marker */
      NULL},                 /* eq_func */
 
-    {"NoValueError",        /* name */
-     1,                     /* is_refcounted */
-     0,                     /* template_count */
-     0,                     /* flags */
-     "Exception",           /* parent name */
-     NULL,                  /* property seeds */
-     NULL,                  /* setup_func */
-     NULL,                  /* gc_marker */
-     NULL},                 /* eq_func */
-
     {"DivisionByZeroError", /* name */
      1,                     /* is_refcounted */
      0,                     /* template_count */
@@ -182,7 +172,7 @@ class_seed class_seeds[] =
      NULL,                  /* gc_marker */
      NULL},                 /* eq_func */
 
-    {"RangeError",          /* name */
+    {"IndexError",          /* name */
      1,                     /* is_refcounted */
      0,                     /* template_count */
      0,                     /* flags */
