@@ -454,7 +454,7 @@ typedef struct lily_prop_seed_t {
    no special-casing of them anywhere. */
 
 /* TODO: Make classes into a linked list so this can go away. */
-#define SYM_LAST_CLASS      20
-#define INITIAL_CLASS_SIZE  21
+#define SYM_LAST_CLASS      19
+#define INITIAL_CLASS_SIZE  20
 
 #endif

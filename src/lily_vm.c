@@ -527,8 +527,8 @@ int maybe_crossover_assign(lily_value *lhs_reg, lily_value *rhs_reg)
 }
 
 /* novalue_error
-   This is a helper routine that raises ErrNoValue because the given sym is
-   nil but should not be. code_pos is the current code position, because the
+   This is a helper routine that raises ValueError because the given register
+   is nil but should not be. code_pos is the current code position, because the
    current function's info is not saved in the stack (because it would almost
    always be stale). */
 static void novalue_error(lily_vm_state *vm, int code_pos, int reg_pos)
@@ -554,14 +554,14 @@ static void novalue_error(lily_vm_state *vm, int code_pos, int reg_pos)
 
     /* If this register corresponds to a named value, show that. */
     if (err_reg_info.name != NULL)
-        lily_raise(vm->raiser, lily_NoValueError, "%s is nil.\n",
+        lily_raise(vm->raiser, lily_ValueError, "%s is nil.\n",
                    err_reg_info.name);
     else
-        lily_raise(vm->raiser, lily_NoValueError, "Attempt to use nil value.\n");
+        lily_raise(vm->raiser, lily_ValueError, "Attempt to use nil value.\n");
 }
 
-/*  no_such_key_error
-    This is a helper routine that raises ErrNoSuchKey when there is an attempt
+/*  key_error
+    This is a helper routine that raises KeyError when there is an attempt
     to read a hash that does not have the given key.
     Note: This is intentionally not called by o_set_item so that assigning to a
           non-existant part of a hash automatically adds that key.
@@ -569,7 +569,7 @@ static void novalue_error(lily_vm_state *vm, int code_pos, int reg_pos)
     vm:       The currently running vm.
     code_pos: The start of the opcode, for getting line info.
     key:      The invalid key passed. */
-void no_such_key_error(lily_vm_state *vm, int code_pos, lily_value *key)
+void key_error(lily_vm_state *vm, int code_pos, lily_value *key)
 {
     lily_vm_stack_entry *top = vm->function_stack[vm->function_stack_pos - 1];
     top->line_num = top->code[code_pos + 1];
@@ -577,7 +577,7 @@ void no_such_key_error(lily_vm_state *vm, int code_pos, lily_value *key)
     lily_msgbuf *msgbuf = vm->raiser->msgbuf;
     int key_cls_id = key->sig->cls->id;
 
-    lily_msgbuf_add(msgbuf, "ErrNoSuchKey: ");
+    lily_msgbuf_add(msgbuf, "KeyError: ");
     if (key_cls_id == SYM_CLASS_INTEGER)
         lily_msgbuf_add_int(msgbuf, key->value.integer);
     else if (key_cls_id == SYM_CLASS_DOUBLE)
@@ -613,7 +613,7 @@ void boundary_error(lily_vm_state *vm, int code_pos, int bad_index)
     lily_vm_stack_entry *top = vm->function_stack[vm->function_stack_pos-1];
     top->line_num = top->code[code_pos+1];
 
-    lily_raise(vm->raiser, lily_RangeError,
+    lily_raise(vm->raiser, lily_IndexError,
             "Subscript index %d is out of range.\n", bad_index);
 }
 
@@ -942,7 +942,7 @@ static void op_get_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
 
         /* Give up if the key doesn't exist. */
         if (hash_elem == NULL)
-            no_such_key_error(vm, code_pos, index_reg);
+            key_error(vm, code_pos, index_reg);
 
         lily_assign_value(vm, result_reg, hash_elem->elem_value);
     }

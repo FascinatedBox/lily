@@ -9,15 +9,14 @@
 # define lily_SyntaxError          1
 # define lily_ImportError          2
 # define lily_EncodingError        3
-# define lily_NoValueError         4
-# define lily_DivisionByZeroError  5
-# define lily_RangeError           6
-# define lily_BadTypecastError     7
-# define lily_ReturnExpectedError  8
-# define lily_ValueError           9
-# define lily_RecursionError      10
-# define lily_KeyError            11
-# define lily_FormatError         12
+# define lily_DivisionByZeroError  4
+# define lily_IndexError           5
+# define lily_BadTypecastError     6
+# define lily_ReturnExpectedError  7
+# define lily_ValueError           8
+# define lily_RecursionError       9
+# define lily_KeyError            10
+# define lily_FormatError         11
 
 typedef struct {
     /* The raiser will typically have two jumps: One for the vm to catch runtime
