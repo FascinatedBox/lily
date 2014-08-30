@@ -162,7 +162,6 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig,
 {
     lily_lex_state *lex = parser->lex;
     lily_var *var;
-    NEED_NEXT_TOK(tk_word)
 
     var = lily_var_by_name(parser->symtab, lex->label);
     if (var != NULL)
@@ -173,6 +172,7 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig,
     if (var == NULL)
         lily_raise_nomem(parser->raiser);
 
+    lily_lexer(lex);
     return var;
 }
 
@@ -183,7 +183,8 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig,
     example). It shouldn't be called for simple classes.
   * Sigs are put into the parser's sig stack to keep them from being leaked
     in case of lily_raise/lily_raise_nomem being called. **/
-static lily_sig *collect_var_sig(lily_parse_state *parser, int flags);
+static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
+        int flags);
 
 static void grow_sig_stack(lily_parse_state *parser)
 {
@@ -217,11 +218,10 @@ static void collect_call_args(lily_parse_state *parser, int flags,
             if (parser->sig_stack_pos == parser->sig_stack_size)
                 grow_sig_stack(parser);
 
-            last_arg_sig = collect_var_sig(parser, call_flags);
+            last_arg_sig = collect_var_sig(parser, NULL, call_flags);
             parser->sig_stack[parser->sig_stack_pos] = last_arg_sig;
             parser->sig_stack_pos++;
 
-            lily_lexer(lex);
             if (lex->token == tk_arrow ||
                 lex->token == tk_right_parenth ||
                 lex->token == tk_three_dots)
@@ -259,8 +259,8 @@ static void collect_call_args(lily_parse_state *parser, int flags,
     lily_sig *return_sig = NULL;
     if (lex->token == tk_arrow) {
         lily_lexer(lex);
-        return_sig = collect_var_sig(parser, 0);
-        NEED_NEXT_TOK(tk_right_parenth);
+        return_sig = collect_var_sig(parser, NULL, 0);
+        NEED_CURRENT_TOK(tk_right_parenth);
     }
 
     /* +1 for the return. */
@@ -279,16 +279,19 @@ static void collect_call_args(lily_parse_state *parser, int flags,
 
 /* collect_var_sig
    This is the entry point for complex signature collection. */
-static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
+static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
+        int flags)
 {
     lily_lex_state *lex = parser->lex;
-    lily_class *cls;
+    if (cls == NULL) {
+        NEED_CURRENT_TOK(tk_word)
+        cls = lily_class_by_name(parser->symtab, lex->label);
+        if (cls == NULL)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                       "unknown class name %s.\n", lex->label);
 
-    NEED_CURRENT_TOK(tk_word)
-    cls = lily_class_by_name(parser->symtab, lex->label);
-    if (cls == NULL)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                   "unknown class name %s.\n", lex->label);
+        lily_lexer(lex);
+    }
 
     lily_sig *result;
 
@@ -305,16 +308,15 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
 
         save_pos = parser->sig_stack_pos;
 
-        NEED_NEXT_TOK(tk_left_bracket)
+        NEED_CURRENT_TOK(tk_left_bracket)
         lily_lexer(lex);
         for (i = 1;    ;i++) {
             if (parser->sig_stack_pos == parser->sig_stack_size)
                 grow_sig_stack(parser);
 
-            lily_sig *sig = collect_var_sig(parser, 0);
+            lily_sig *sig = collect_var_sig(parser, NULL, 0);
             parser->sig_stack[parser->sig_stack_pos] = sig;
             parser->sig_stack_pos++;
-            lily_lexer(lex);
             if (lex->token == tk_comma) {
                 lily_lexer(lex);
                 continue;
@@ -344,6 +346,8 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
                 parser->sig_stack, save_pos);
 
         parser->sig_stack_pos = save_pos;
+
+        lily_lexer(lex);
         if (flags & CV_MAKE_VARS)
             get_named_var(parser, result, 0);
     }
@@ -363,7 +367,7 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
                 call_var = get_named_var(parser, call_sig, 0);
         }
 
-        NEED_NEXT_TOK(tk_left_parenth)
+        NEED_CURRENT_TOK(tk_left_parenth)
         lily_lexer(lex);
         if (lex->token != tk_right_parenth)
             collect_call_args(parser, flags, call_sig, call_var);
@@ -386,6 +390,7 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
             parser->emit->top_function_ret = call_sig->siglist[0];
 
         result = call_sig;
+        lily_lexer(lex);
     }
     else
         result = NULL;
@@ -399,8 +404,30 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, int flags)
   * The parser creates an ast (abstract syntax tree) as it goes along to
     represent the expression. The ast is then fed to emitter, which will usually
     reset the pool when done.
-  * expression_* functions are used by expression as helpers, and should not be
-    called by any function except expression itself. **/
+  * Most expression_* functions are used by expression as helpers, and should
+    not be called by any function except expression itself. **/
+
+/*  expression_static_call
+    This handles expressions like `<type>::member`. */
+static void expression_static_call(lily_parse_state *parser, lily_class *cls)
+{
+    lily_lex_state *lex = parser->lex;
+    NEED_NEXT_TOK(tk_word)
+
+    lily_var *v = lily_find_class_callable(parser->symtab, cls, lex->label);
+    if (v == NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "%s::%s does not exist.\n", cls->name, lex->label);
+
+    NEED_NEXT_TOK(tk_left_parenth)
+
+    /* TODO: As of right now, the only things that can be accessed like this
+             are functions. So this is safe to do. However, it would be nice
+             to be able to call this. Unfortunately, that requires doing a lot
+             of adjusting to the parser. */
+    lily_ast_enter_tree(parser->ast_pool, tree_call, v);
+    lily_lexer(lex);
+}
 
 /* expression_oo
    This handles calls to a member of a particular value, as well as typecasts.
@@ -425,11 +452,10 @@ static void expression_oo(lily_parse_state *parser)
         /* Syntax: `value.@(type)`. This is at the @(, so prep for
            collect_var_sig. */
         lily_lexer(lex);
-        lily_sig *new_sig = collect_var_sig(parser, 0);
+        lily_sig *new_sig = collect_var_sig(parser, NULL, 0);
         lily_ast_enter_typecast(parser->ast_pool, new_sig);
-        /* Verify that ')' is next so that the caller will close the tree. This
-           causes the typecast result to be seen as a proper value.sub */
-        NEED_NEXT_TOK(tk_right_parenth)
+        /* Don't leave this tree: expression_binary will do it. */
+        NEED_CURRENT_TOK(tk_right_parenth)
     }
 }
 
@@ -638,23 +664,34 @@ static void expression_value(lily_parse_state *parser)
                 }
             }
             else {
-                int key_id = lily_keyword_by_name(lex->label);
-                if (key_id == KEY__LINE__ || key_id == KEY__FILE__ ||
-                    key_id == KEY__FUNCTION__) {
-                    lily_literal *lit;
-                    lit = parse_special_keyword(parser, key_id);
-                    lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
+                lily_class *cls = lily_class_by_name(parser->symtab,
+                        lex->label);
+                if (cls != NULL) {
                     lily_lexer(lex);
-                }
-                else if (key_id == KEY_ISNIL) {
-                    lily_ast_enter_tree(parser->ast_pool, tree_isnil, NULL);
-                    NEED_NEXT_TOK(tk_left_parenth)
-                    lily_lexer(lex);
+                    expression_static_call(parser, cls);
                     continue;
                 }
                 else {
-                    lily_raise(parser->raiser, lily_SyntaxError,
-                               "%s has not been declared.\n", lex->label);
+                    int key_id = lily_keyword_by_name(lex->label);
+                    if (key_id == KEY__LINE__ || key_id == KEY__FILE__ ||
+                        key_id == KEY__FUNCTION__) {
+                        lily_literal *lit;
+                        lit = parse_special_keyword(parser, key_id);
+                        lily_ast_push_readonly(parser->ast_pool,
+                                (lily_sym *)lit);
+                        lily_lexer(lex);
+                    }
+                    else if (key_id == KEY_ISNIL) {
+                        lily_ast_enter_tree(parser->ast_pool, tree_isnil,
+                                NULL);
+                        NEED_NEXT_TOK(tk_left_parenth)
+                        lily_lexer(lex);
+                        continue;
+                    }
+                    else {
+                        lily_raise(parser->raiser, lily_SyntaxError,
+                                   "%s has not been declared.\n", lex->label);
+                    }
                 }
             }
         }
@@ -706,7 +743,7 @@ static void expression_value(lily_parse_state *parser)
                 if (cls != NULL) {
                     /* Make sure this works with complex signatures as well
                        as simple ones. */
-                    sig = collect_var_sig(parser, 0);
+                    sig = collect_var_sig(parser, NULL, 0);
                     NEED_NEXT_TOK(tk_right_bracket)
                     lily_lexer(lex);
 
@@ -925,7 +962,6 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
         /* This starts at the class name, or the comma. The label is next. */
         var = get_named_var(parser, sig, 0);
 
-        lily_lexer(parser->lex);
         /* Handle an initializing assignment, if there is one. */
         if (lex->token == tk_equal) {
             /* Push the value and the assignment, then call up expresison. */
@@ -944,7 +980,9 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
             lily_raise(parser->raiser, lily_SyntaxError,
                        "Expected ',' or ')', not %s.\n", tokname(lex->token));
         }
-        /* else comma, so just jump back up. */
+        /* else it's a comma, so make sure a word is next. */
+
+        NEED_NEXT_TOK(tk_word)
     }
 }
 
@@ -1045,21 +1083,28 @@ static void statement(lily_parse_state *parser, int multi)
             lclass = lily_class_by_name(parser->symtab, lex->label);
 
             if (lclass != NULL) {
-                int cls_id = lclass->id;
+                lily_lexer(lex);
+                if (lex->token == tk_colon_colon) {
+                    expression_static_call(parser, lclass);
+                    expression(parser, 0);
+                    lily_emit_eval_expr(parser->emit, parser->ast_pool);
+                }
+                else {
+                    int cls_id = lclass->id;
 
-                if (cls_id == SYM_CLASS_FUNCTION) {
-                    /* This will enter the function since the function is toplevel. */
-                    collect_var_sig(parser, CV_TOPLEVEL | CV_MAKE_VARS);
-                    NEED_NEXT_TOK(tk_left_curly)
-                    lily_lexer(lex);
+                    if (cls_id == SYM_CLASS_FUNCTION) {
+                        /* This will enter the function since the function is
+                           toplevel. */
+                        collect_var_sig(parser, lclass,
+                                CV_TOPLEVEL | CV_MAKE_VARS);
+                        NEED_CURRENT_TOK(tk_left_curly)
+                        lily_lexer(lex);
+                    }
+                    else {
+                        lily_sig *cls_sig = collect_var_sig(parser, lclass, 0);
+                        parse_decl(parser, cls_sig);
+                    }
                 }
-                else if (cls_id == SYM_CLASS_LIST || cls_id == SYM_CLASS_HASH ||
-                         cls_id == SYM_CLASS_TUPLE) {
-                    lily_sig *cls_sig = collect_var_sig(parser, 0);
-                    parse_decl(parser, cls_sig);
-                }
-                else
-                    parse_decl(parser, lclass->sig);
             }
             else {
                 expression(parser, 0);

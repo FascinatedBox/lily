@@ -16,6 +16,7 @@ lily_SRCS=../csiphash.c \
 	../lily_cls_list.c \
 	../lily_cls_string.c \
 	../lily_cls_hash.c \
+	../lily_cls_all_exceptions.c \
 	../lily_pkg_sys.c \
 	../lily_class_funcs.c
 

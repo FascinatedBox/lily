@@ -4,6 +4,7 @@
 # include "lily_cls_string.h"
 # include "lily_cls_list.h"
 # include "lily_cls_hash.h"
+# include "lily_cls_all_exceptions.h"
 # include "lily_vm.h"
 # include "lily_gc.h"
 # include "lily_class_funcs.h"
@@ -157,7 +158,7 @@ class_seed class_seeds[] =
      0,                     /* flags */
      "Exception",           /* parent name */
      NULL,                  /* property seeds */
-     NULL,                  /* setup_func */
+     lily_nomemoryerror_setup, /* setup_func */
      NULL,                  /* gc_marker */
      NULL},                 /* eq_func */
 
