@@ -6,6 +6,8 @@
 lily_any_val *lily_try_new_any_val();
 lily_hash_val *lily_try_new_hash_val();
 lily_hash_elem *lily_try_new_hash_elem();
+lily_list_val *lily_try_new_list_val();
+lily_instance_val *lily_try_new_instance_val();
 lily_function_val *lily_try_new_native_function_val(char *);
 lily_function_val *lily_try_new_foreign_function_val(lily_foreign_func, char *,
 		char *);

@@ -231,6 +231,35 @@ void lily_deref_unknown_raw_val(lily_sig *value_sig, lily_raw_value raw)
 
 /** Value creation calls **/
 
+lily_list_val *lily_try_new_list_val()
+{
+    lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
+    if (lv != NULL) {
+        lv->refcount = 1;
+        lv->gc_entry = NULL;
+        lv->elems = NULL;
+        lv->num_values = -1;
+        lv->visited = 0;
+    }
+
+    return lv;
+}
+
+lily_instance_val *lily_try_new_instance_val()
+{
+    lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
+    if (ival != NULL) {
+        ival->refcount = 1;
+        ival->gc_entry = NULL;
+        ival->values = NULL;
+        ival->num_values = -1;
+        ival->visited = 0;
+        ival->true_class = NULL;
+    }
+
+    return ival;
+}
+
 /*  lily_try_new_foreign_function_val
     Attempt to create a function that will hold a foreign value.
 
