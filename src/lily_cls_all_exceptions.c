@@ -49,21 +49,74 @@ static void make_error(lily_vm_state *vm, char *exception_name,
     result_reg->flags = 0;
 }
 
-void lily_nomemoryerror_new(lily_vm_state *vm, lily_function_val *self,
+void lily_error_new(lily_vm_state *vm, lily_function_val *self,
         uintptr_t *code)
 {
     lily_value *message_reg = vm->vm_regs[code[0]];
     lily_value *result_reg = vm->vm_regs[code[1]];
 
-    make_error(vm, "NoMemoryError", result_reg, message_reg);
+    make_error(vm, result_reg->sig->cls->name, result_reg, message_reg);
 }
 
 static const lily_func_seed nomemory_new =
-    {"new", lily_nomemoryerror_new, NULL,
+    {"new", lily_error_new, NULL,
         {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_NOMEMORYERROR, SYM_CLASS_STRING}};
 
-int lily_nomemoryerror_setup(lily_class *cls)
+static const lily_func_seed dbz_new =
+    {"new", lily_error_new, NULL,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_DBZERROR, SYM_CLASS_STRING}};
+
+static const lily_func_seed index_new =
+    {"new", lily_error_new, NULL,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INDEXERROR, SYM_CLASS_STRING}};
+
+static const lily_func_seed badtc_new =
+    {"new", lily_error_new, NULL,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_BADTCERROR, SYM_CLASS_STRING}};
+
+static const lily_func_seed noreturn_new =
+    {"new", lily_error_new, NULL,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_NORETURNERROR, SYM_CLASS_STRING}};
+
+static const lily_func_seed value_new =
+    {"new", lily_error_new, NULL,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_VALUEERROR, SYM_CLASS_STRING}};
+
+static const lily_func_seed recursion_new =
+    {"new", lily_error_new, NULL,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_RECURSIONERROR, SYM_CLASS_STRING}};
+
+static const lily_func_seed key_new =
+    {"new", lily_error_new, NULL,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_KEYERROR, SYM_CLASS_STRING}};
+
+static const lily_func_seed format_new =
+    {"new", lily_error_new, NULL,
+        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_FORMATERROR, SYM_CLASS_STRING}};
+
+int lily_error_setup(lily_class *cls)
 {
-    cls->seed_table = &nomemory_new;
+    if (cls->id == SYM_CLASS_NOMEMORYERROR)
+        cls->seed_table = &nomemory_new;
+    else if (cls->id == SYM_CLASS_DBZERROR)
+        cls->seed_table = &dbz_new;
+
     return 1;
 }
+
+#define SETUP_PROC(name) \
+int lily_##name##error_setup(lily_class *cls) \
+{ \
+    cls->seed_table = &name##_new; \
+    return 1; \
+}
+
+SETUP_PROC(nomemory)
+SETUP_PROC(dbz)
+SETUP_PROC(index)
+SETUP_PROC(badtc)
+SETUP_PROC(noreturn)
+SETUP_PROC(value)
+SETUP_PROC(recursion)
+SETUP_PROC(key)
+SETUP_PROC(format)

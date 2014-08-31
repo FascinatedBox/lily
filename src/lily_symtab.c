@@ -230,7 +230,7 @@ static lily_var *init_func_seed(lily_symtab *symtab,
 static int call_class_setups(lily_symtab *symtab)
 {
     int i, ret = 1;
-    for (i = 0;i < SYM_LAST_CLASS;i++) {
+    for (i = 0;i <= SYM_LAST_CLASS;i++) {
         if (symtab->classes[i]->setup_func &&
             symtab->classes[i]->setup_func(symtab->classes[i]) == 0) {
             ret = 0;

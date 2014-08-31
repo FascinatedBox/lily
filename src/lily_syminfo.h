@@ -438,20 +438,26 @@ typedef struct lily_prop_seed_t {
 /* SYM_CLASS_* defines are for checking ids of a signature's class. These are
    used very frequently. These must be kept in sync with the class loading
    order given by lily_seed_symtab.h */
-#define SYM_CLASS_INTEGER   0
-#define SYM_CLASS_DOUBLE    1
-#define SYM_CLASS_STRING    2
-#define SYM_CLASS_FUNCTION  3
-#define SYM_CLASS_ANY       4
-#define SYM_CLASS_LIST      5
-#define SYM_CLASS_HASH      6
-#define SYM_CLASS_TUPLE     7
-#define SYM_CLASS_TEMPLATE  8
-#define SYM_CLASS_PACKAGE   9
-#define SYM_CLASS_EXCEPTION 10
-#define SYM_CLASS_NOMEMORYERROR 11
-/* There's no SYM_CLASS_* define for exception-derived classes because there's
-   no special-casing of them anywhere. */
+#define SYM_CLASS_INTEGER         0
+#define SYM_CLASS_DOUBLE          1
+#define SYM_CLASS_STRING          2
+#define SYM_CLASS_FUNCTION        3
+#define SYM_CLASS_ANY             4
+#define SYM_CLASS_LIST            5
+#define SYM_CLASS_HASH            6
+#define SYM_CLASS_TUPLE           7
+#define SYM_CLASS_TEMPLATE        8
+#define SYM_CLASS_PACKAGE         9
+#define SYM_CLASS_EXCEPTION      10
+#define SYM_CLASS_NOMEMORYERROR  11
+#define SYM_CLASS_DBZERROR       12 /* > 9000 */
+#define SYM_CLASS_INDEXERROR     13
+#define SYM_CLASS_BADTCERROR     14
+#define SYM_CLASS_NORETURNERROR  15
+#define SYM_CLASS_VALUEERROR     16
+#define SYM_CLASS_RECURSIONERROR 17
+#define SYM_CLASS_KEYERROR       18
+#define SYM_CLASS_FORMATERROR    19
 
 /* TODO: Make classes into a linked list so this can go away. */
 #define SYM_LAST_CLASS      19

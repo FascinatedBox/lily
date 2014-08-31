@@ -37,210 +37,210 @@ static const lily_prop_seed_t message =
          too. */
 class_seed class_seeds[] =
 {
-    {"integer",              /* name */
-     0,                      /* is_refcounted */
-     0,                      /* template_count */
-     CLS_VALID_HASH_KEY,     /* flags */
-     NULL,                   /* parent name */
-     NULL,                   /* property seeds */
-     NULL,                   /* setup_func */
-     NULL,                   /* gc_marker */
-     &lily_integer_eq        /* eq_func */
+    {"integer",                 /* name */
+     0,                         /* is_refcounted */
+     0,                         /* template_count */
+     CLS_VALID_HASH_KEY,        /* flags */
+     NULL,                      /* parent name */
+     NULL,                      /* property seeds */
+     NULL,                      /* setup_func */
+     NULL,                      /* gc_marker */
+     &lily_integer_eq           /* eq_func */
     },
 
-    {"double",               /* name */
-     0,                      /* is_refcounted */
-     0,                      /* template_count */
-     CLS_VALID_HASH_KEY,     /* flags */
-     NULL,                   /* parent name */
-     NULL,                   /* property seeds */
-     NULL,                   /* setup_func */
-     NULL,                   /* gc_marker */
-     &lily_double_eq         /* eq_func */
+    {"double",                  /* name */
+     0,                         /* is_refcounted */
+     0,                         /* template_count */
+     CLS_VALID_HASH_KEY,        /* flags */
+     NULL,                      /* parent name */
+     NULL,                      /* property seeds */
+     NULL,                      /* setup_func */
+     NULL,                      /* gc_marker */
+     &lily_double_eq            /* eq_func */
     },
 
-    {"string",               /* name */
-     1,                      /* is_refcounted */
-     0,                      /* template_count */
-     CLS_VALID_HASH_KEY,     /* flags */
-     NULL,                   /* parent name */
-     NULL,                   /* property seeds */
-     lily_string_setup,      /* setup_func */
-     NULL,                   /* gc_marker */
-     &lily_string_eq},       /* eq_func */
+    {"string",                  /* name */
+     1,                         /* is_refcounted */
+     0,                         /* template_count */
+     CLS_VALID_HASH_KEY,        /* flags */
+     NULL,                      /* parent name */
+     NULL,                      /* property seeds */
+     lily_string_setup,         /* setup_func */
+     NULL,                      /* gc_marker */
+     &lily_string_eq},          /* eq_func */
 
-    {"function",             /* name */
-     0,                      /* is_refcounted */
-     -1,                     /* template_count */
-     0,                      /* flags */
-     NULL,                   /* parent name */
-     NULL,                   /* property seeds */
-     NULL,                   /* setup_func */
-     NULL,                   /* gc_marker */
-     &lily_generic_eq},      /* eq_func */
+    {"function",                /* name */
+     0,                         /* is_refcounted */
+     -1,                        /* template_count */
+     0,                         /* flags */
+     NULL,                      /* parent name */
+     NULL,                      /* property seeds */
+     NULL,                      /* setup_func */
+     NULL,                      /* gc_marker */
+     &lily_generic_eq},         /* eq_func */
 
-    {"any",                  /* name */
-     1,                      /* is_refcounted */
-     0,                      /* template_count */
-     0,                      /* flags */
-     NULL,                   /* parent name */
-     NULL,                   /* property seeds */
-     NULL,                   /* setup_func */
-     &lily_gc_any_marker,    /* gc_marker */
-     &lily_any_eq},          /* eq_func */
+    {"any",                     /* name */
+     1,                         /* is_refcounted */
+     0,                         /* template_count */
+     0,                         /* flags */
+     NULL,                      /* parent name */
+     NULL,                      /* property seeds */
+     NULL,                      /* setup_func */
+     &lily_gc_any_marker,       /* gc_marker */
+     &lily_any_eq},             /* eq_func */
 
-    {"list",                /* name */
-     1,                     /* is_refcounted */
-     1,                     /* template_count */
-     0,                     /* flags */
-     NULL,                  /* parent name */
-     NULL,                  /* property seeds */
-     lily_list_setup,       /* setup_func */
-     &lily_gc_list_marker,  /* gc_marker */
-     &lily_list_eq},        /* eq_func */
+    {"list",                    /* name */
+     1,                         /* is_refcounted */
+     1,                         /* template_count */
+     0,                         /* flags */
+     NULL,                      /* parent name */
+     NULL,                      /* property seeds */
+     lily_list_setup,           /* setup_func */
+     &lily_gc_list_marker,      /* gc_marker */
+     &lily_list_eq},            /* eq_func */
 
-    {"hash",                /* name */
-     1,                     /* is_refcounted */
-     2,                     /* template_count */
-     0,                     /* flags */
-     NULL,                  /* parent name */
-     NULL,                  /* property seeds */
-     lily_hash_setup,       /* setup_func */
-     &lily_gc_hash_marker,  /* gc_marker */
-     &lily_hash_eq},        /* eq_func */
+    {"hash",                    /* name */
+     1,                         /* is_refcounted */
+     2,                         /* template_count */
+     0,                         /* flags */
+     NULL,                      /* parent name */
+     NULL,                      /* property seeds */
+     lily_hash_setup,           /* setup_func */
+     &lily_gc_hash_marker,      /* gc_marker */
+     &lily_hash_eq},            /* eq_func */
 
-    {"tuple",               /* name */
-     1,                     /* is_refcounted */
-     -1,                    /* template_count */
-     0,                     /* flags */
-     NULL,                  /* parent name */
-     NULL,                  /* property seeds */
-     NULL,                  /* setup_func */
-     &lily_gc_tuple_marker, /* gc_marker */
-     &lily_tuple_eq},       /* eq_func */
+    {"tuple",                   /* name */
+     1,                         /* is_refcounted */
+     -1,                        /* template_count */
+     0,                         /* flags */
+     NULL,                      /* parent name */
+     NULL,                      /* property seeds */
+     NULL,                      /* setup_func */
+     &lily_gc_tuple_marker,     /* gc_marker */
+     &lily_tuple_eq},           /* eq_func */
 
-    {"",                    /* name */
-     0,                     /* is_refcounted */
-     0,                     /* template_count */
-     0,                     /* flags */
-     NULL,                  /* parent name */
-     NULL,                  /* property seeds */
-     NULL,                  /* setup_func */
-     NULL,                  /* gc_marker */
-     NULL},                 /* eq_func */
+    {"",                        /* name */
+     0,                         /* is_refcounted */
+     0,                         /* template_count */
+     0,                         /* flags */
+     NULL,                      /* parent name */
+     NULL,                      /* property seeds */
+     NULL,                      /* setup_func */
+     NULL,                      /* gc_marker */
+     NULL},                     /* eq_func */
 
-    {"package",             /* name */
-     0,                     /* is_refcounted */
-     0,                     /* template_count */
-     0,                     /* flags */
-     NULL,                  /* parent name */
-     NULL,                  /* property seeds */
-     NULL,                  /* setup_func */
-     NULL,                  /* gc_marker */
-     NULL},                 /* eq_func */
+    {"package",                 /* name */
+     0,                         /* is_refcounted */
+     0,                         /* template_count */
+     0,                         /* flags */
+     NULL,                      /* parent name */
+     NULL,                      /* property seeds */
+     NULL,                      /* setup_func */
+     NULL,                      /* gc_marker */
+     NULL},                     /* eq_func */
 
-    {"Exception",           /* name */
-     1,                     /* is_refcounted */
-     0,                     /* template_count */
-     0,                     /* flags */
-     NULL,                  /* parent name */
-     &traceback,            /* property seeds */
-     NULL,                  /* setup_func */
-     NULL,                  /* gc_marker */
-     NULL},                 /* eq_func */
+    {"Exception",               /* name */
+     1,                         /* is_refcounted */
+     0,                         /* template_count */
+     0,                         /* flags */
+     NULL,                      /* parent name */
+     &traceback,                /* property seeds */
+     NULL,                      /* setup_func */
+     NULL,                      /* gc_marker */
+     NULL},                     /* eq_func */
 
     /* SyntaxError, ImportError, and EncodingError are intentionally missing
        because they cannot be raised while the vm is running. */
 
-    {"NoMemoryError",       /* name */
-     1,                     /* is_refcounted */
-     0,                     /* template_count */
-     0,                     /* flags */
-     "Exception",           /* parent name */
-     NULL,                  /* property seeds */
-     lily_nomemoryerror_setup, /* setup_func */
-     NULL,                  /* gc_marker */
-     NULL},                 /* eq_func */
+    {"NoMemoryError",           /* name */
+     1,                         /* is_refcounted */
+     0,                         /* template_count */
+     0,                         /* flags */
+     "Exception",               /* parent name */
+     NULL,                      /* property seeds */
+     lily_nomemoryerror_setup,  /* setup_func */
+     NULL,                      /* gc_marker */
+     lily_instance_eq},         /* eq_func */
 
-    {"DivisionByZeroError", /* name */
-     1,                     /* is_refcounted */
-     0,                     /* template_count */
-     0,                     /* flags */
-     "Exception",           /* parent name */
-     NULL,                  /* property seeds */
-     NULL,                  /* setup_func */
-     NULL,                  /* gc_marker */
-     NULL},                 /* eq_func */
+    {"DivisionByZeroError",     /* name */
+     1,                         /* is_refcounted */
+     0,                         /* template_count */
+     0,                         /* flags */
+     "Exception",               /* parent name */
+     NULL,                      /* property seeds */
+     lily_dbzerror_setup,       /* setup_func */
+     NULL,                      /* gc_marker */
+     lily_instance_eq},         /* eq_func */
 
-    {"IndexError",          /* name */
-     1,                     /* is_refcounted */
-     0,                     /* template_count */
-     0,                     /* flags */
-     "Exception",           /* parent name */
-     NULL,                  /* property seeds */
-     NULL,                  /* setup_func */
-     NULL,                  /* gc_marker */
-     NULL},                 /* eq_func */
+    {"IndexError",              /* name */
+     1,                         /* is_refcounted */
+     0,                         /* template_count */
+     0,                         /* flags */
+     "Exception",               /* parent name */
+     NULL,                      /* property seeds */
+     lily_indexerror_setup,     /* setup_func */
+     NULL,                      /* gc_marker */
+     lily_instance_eq},         /* eq_func */
 
-    {"BadTypecastError",    /* name */
-     1,                     /* is_refcounted */
-     0,                     /* template_count */
-     0,                     /* flags */
-     "Exception",           /* parent name */
-     NULL,                  /* property seeds */
-     NULL,                  /* setup_func */
-     NULL,                  /* gc_marker */
-     NULL},                 /* eq_func */
+    {"BadTypecastError",        /* name */
+     1,                         /* is_refcounted */
+     0,                         /* template_count */
+     0,                         /* flags */
+     "Exception",               /* parent name */
+     NULL,                      /* property seeds */
+     lily_badtcerror_setup,     /* setup_func */
+     NULL,                      /* gc_marker */
+     lily_instance_eq},         /* eq_func */
 
-    {"NoReturnError",       /* name */
-     1,                     /* is_refcounted */
-     0,                     /* template_count */
-     0,                     /* flags */
-     "Exception",           /* parent name */
-     NULL,                  /* property seeds */
-     NULL,                  /* setup_func */
-     NULL,                  /* gc_marker */
-     NULL},                 /* eq_func */
+    {"NoReturnError",           /* name */
+     1,                         /* is_refcounted */
+     0,                         /* template_count */
+     0,                         /* flags */
+     "Exception",               /* parent name */
+     NULL,                      /* property seeds */
+     lily_noreturnerror_setup,  /* setup_func */
+     NULL,                      /* gc_marker */
+     lily_instance_eq},         /* eq_func */
 
-    {"ValueError",          /* name */
-     1,                     /* is_refcounted */
-     0,                     /* template_count */
-     0,                     /* flags */
-     "Exception",           /* parent name */
-     NULL,                  /* property seeds */
-     NULL,                  /* setup_func */
-     NULL,                  /* gc_marker */
-     NULL},                 /* eq_func */
+    {"ValueError",              /* name */
+     1,                         /* is_refcounted */
+     0,                         /* template_count */
+     0,                         /* flags */
+     "Exception",               /* parent name */
+     NULL,                      /* property seeds */
+     lily_valueerror_setup,     /* setup_func */
+     NULL,                      /* gc_marker */
+     lily_instance_eq},         /* eq_func */
 
-    {"RecursionError",      /* name */
-     1,                     /* is_refcounted */
-     0,                     /* template_count */
-     0,                     /* flags */
-     "Exception",           /* parent name */
-     NULL,                  /* property seeds */
-     NULL,                  /* setup_func */
-     NULL,                  /* gc_marker */
-     NULL},                 /* eq_func */
+    {"RecursionError",          /* name */
+     1,                         /* is_refcounted */
+     0,                         /* template_count */
+     0,                         /* flags */
+     "Exception",               /* parent name */
+     NULL,                      /* property seeds */
+     lily_recursionerror_setup, /* setup_func */
+     NULL,                      /* gc_marker */
+     lily_instance_eq},         /* eq_func */
 
-    {"KeyError",            /* name */
-     1,                     /* is_refcounted */
-     0,                     /* template_count */
-     0,                     /* flags */
-     "Exception",           /* parent name */
-     NULL,                  /* property seeds */
-     NULL,                  /* setup_func */
-     NULL,                  /* gc_marker */
-     NULL},                 /* eq_func */
+    {"KeyError",                /* name */
+     1,                         /* is_refcounted */
+     0,                         /* template_count */
+     0,                         /* flags */
+     "Exception",               /* parent name */
+     NULL,                      /* property seeds */
+     lily_keyerror_setup,       /* setup_func */
+     NULL,                      /* gc_marker */
+     lily_instance_eq},         /* eq_func */
 
-    {"FormatError",         /* name */
-     1,                     /* is_refcounted */
-     0,                     /* template_count */
-     0,                     /* flags */
-     "Exception",           /* parent name */
-     NULL,                  /* property seeds */
-     NULL,                  /* setup_func */
-     NULL,                  /* gc_marker */
-     NULL},                 /* eq_func */
+    {"FormatError",             /* name */
+     1,                         /* is_refcounted */
+     0,                         /* template_count */
+     0,                         /* flags */
+     "Exception",               /* parent name */
+     NULL,                      /* property seeds */
+     lily_formaterror_setup,    /* setup_func */
+     NULL,                      /* gc_marker */
+     lily_instance_eq},         /* eq_func */
 };
 
 typedef const struct {

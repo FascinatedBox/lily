@@ -348,3 +348,43 @@ int lily_generic_eq(lily_vm_state *vm, int *depth, lily_value *left,
 
     return ret;
 }
+
+/* instance */
+
+int lily_instance_eq(lily_vm_state *vm, int *depth, lily_value *left,
+        lily_value *right)
+{
+    int ret;
+
+    if ((left->flags & VAL_IS_NIL) == 0 &&
+        (right->flags & VAL_IS_NIL) == 0) {
+        if (left->value.instance->true_class ==
+            right->value.instance->true_class) {
+
+            int i;
+            ret = 1;
+
+            for (i = 0;i < left->value.instance->num_values;i++) {
+                lily_value **left_values = left->value.instance->values;
+                lily_value **right_values = right->value.instance->values;
+
+                class_eq_func eq_func = left_values[i]->sig->cls->eq_func;
+                (*depth)++;
+                if (eq_func(vm, depth, left_values[i], right_values[i]) == 0) {
+                    ret = 0;
+                    (*depth)--;
+                    break;
+                }
+                (*depth)--;
+            }
+        }
+        else
+            ret = 0;
+    }
+    else if ((left->flags & VAL_IS_NIL) && (right->flags & VAL_IS_NIL))
+        ret = 1;
+    else
+        ret = 0;
+
+    return ret;
+}
