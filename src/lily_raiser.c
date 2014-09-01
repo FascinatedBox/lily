@@ -3,7 +3,6 @@
 
 #include "lily_impl.h"
 #include "lily_raiser.h"
-#include "lily_syminfo.h"
 
 /* This is used by lily_name_for_error to get a printable name for an error
    code. This is used by lily_fs to show what kind of error occured. */
@@ -23,6 +22,7 @@ lily_raiser *lily_new_raiser()
     raiser->jump_pos = 0;
     raiser->jump_size = 2;
     raiser->line_adjust = 0;
+    raiser->exception = NULL;
 
     if (raiser->msgbuf == NULL || raiser->jumps == NULL) {
         lily_free_raiser(raiser);
@@ -109,6 +109,12 @@ void lily_raise_nomem(lily_raiser *raiser)
 void lily_raise_prebuilt(lily_raiser *raiser, int error_code)
 {
     raiser->error_code = error_code;
+    longjmp(raiser->jumps[raiser->jump_pos-1], 1);
+}
+
+void lily_raise_value(lily_raiser *raiser, lily_value *value)
+{
+    raiser->exception = value;
     longjmp(raiser->jumps[raiser->jump_pos-1], 1);
 }
 

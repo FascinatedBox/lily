@@ -264,7 +264,8 @@ keyword_seed keywords[] = {
     {"do",           28516},
     {"isnil",        465625314153},
     {"try",          7959156},
-    {"except",       128026086176869}
+    {"except",       128026086176869},
+    {"raise",        435727982962}
 };
 
 void lily_builtin_print(lily_vm_state *, lily_function_val *, uintptr_t *);

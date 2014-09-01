@@ -311,6 +311,7 @@ typedef enum {
     o_push_try,
     o_pop_try,
     o_except,
+    o_raise,
 
     /* isnil:
        * int lineno

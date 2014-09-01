@@ -2458,6 +2458,29 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
     WRITE_3(o_return_val, ast->line_num, ast->result->reg_spot)
 }
 
+void lily_emit_raise(lily_emit_state *emit, lily_ast *ast)
+{
+    eval_tree(emit, ast);
+    emit->expr_num++;
+
+    if (ast->result == NULL)
+        lily_raise(emit->raiser, lily_SyntaxError,
+                   "raise expression has no value.\n");
+
+    lily_class *result_cls = ast->result->sig->cls;
+    lily_class *except_cls = lily_class_by_name(emit->symtab, "Exception");
+    if (lily_check_right_inherits_or_is(except_cls, result_cls) == 0) {
+        lily_raise(emit->raiser, lily_SyntaxError,
+                "Invalid class '%s' given to raise.\n", result_cls->name);
+    }
+
+    lily_function_val *f = emit->top_function;
+
+    WRITE_3(o_raise,
+            ast->line_num,
+            ast->result->reg_spot)
+}
+
 /* lily_emit_show
    This evals the given ast, then writes o_show so the vm will show the result
    of the ast. Type-checking is intentionally NOT performed. */

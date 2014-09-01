@@ -64,4 +64,11 @@ except IndexError as e:
 	show e
 }
 
+# Test 7: Attempt to raise and catch an exception created by the user.
+try: {
+	raise ValueError::new("Bad value encountered")
+except Exception as e:
+	show e
+}
+
 @>

@@ -3,6 +3,7 @@
 
 # include <setjmp.h>
 
+# include "lily_syminfo.h"
 # include "lily_msgbuf.h"
 
 # define lily_NoMemoryError        0
@@ -26,6 +27,7 @@ typedef struct {
     int jump_pos;
     int jump_size;
 
+    lily_value *exception;
     int error_code;
     lily_msgbuf *msgbuf;
     /* This is 0 if the error line is the lexer's current line number.
@@ -42,6 +44,8 @@ void lily_free_raiser(lily_raiser *);
 void lily_raise(lily_raiser *, int, char *, ...);
 void lily_raise_nomem(lily_raiser *);
 void lily_raise_prebuilt(lily_raiser *, int);
+void lily_raise_value(lily_raiser *, lily_value *);
+
 const char *lily_name_for_error(int);
 
 #endif

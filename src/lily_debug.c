@@ -95,7 +95,7 @@ typedef struct lily_debug_state_t {
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[53] = {
+char *opcode_names[54] = {
     "assign",
     "any assign",
     "assign (ref/deref)",
@@ -147,6 +147,7 @@ char *opcode_names[53] = {
     "push try",
     "pop try",
     "except",
+    "raise",
     "isnil",
     "return from vm"
 };
@@ -180,6 +181,7 @@ static const int in_out_ci[]     = {3, D_LINENO, D_INPUT, D_OUTPUT};
 static const int jump_if_ci[]    = {3, D_JUMP_ON, D_INPUT, D_JUMP};
 static const int intdbl_ci[]     = {3, D_LINENO, D_INPUT, D_OUTPUT};
 static const int show_ci[]       = {3, D_LINENO, D_IS_GLOBAL, D_COND_INPUT};
+static const int raise_ci[]      = {2, D_LINENO, D_INPUT};
 static const int push_try_ci[]   = {2, D_LINENO, D_JUMP};
 static const int return_ci[]     = {2, D_LINENO, D_INPUT};
 static const int return_nv_ci[]  = {1, D_LINENO};
@@ -297,6 +299,9 @@ static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
             break;
         case o_except:
             ret = except_ci;
+            break;
+        case o_raise:
+            ret = raise_ci;
             break;
         default:
             lily_msgbuf_add_fmt(debug->msgbuf,
