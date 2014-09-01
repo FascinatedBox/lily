@@ -50,14 +50,15 @@ typedef struct {
     int expr_num;
 } lily_emit_state;
 
-# define BLOCK_IF       0x001
-# define BLOCK_IFELSE   0x002
-# define BLOCK_ANDOR    0x004
-# define BLOCK_WHILE    0x010
-# define BLOCK_DO_WHILE 0x020
-# define BLOCK_FOR_IN   0x040
-# define BLOCK_TRY      0x100
-# define BLOCK_FUNCTION 0x200
+# define BLOCK_IF         0x001
+# define BLOCK_IFELSE     0x002
+# define BLOCK_ANDOR      0x004
+# define BLOCK_WHILE      0x010
+# define BLOCK_DO_WHILE   0x020
+# define BLOCK_FOR_IN     0x040
+# define BLOCK_TRY        0x100
+# define BLOCK_TRY_EXCEPT 0x200
+# define BLOCK_FUNCTION   0x400
 
 void lily_emit_eval_condition(lily_emit_state *, lily_ast_pool *);
 void lily_emit_eval_do_while_expr(lily_emit_state *, lily_ast_pool *);

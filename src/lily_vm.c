@@ -2505,7 +2505,9 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             }
             case o_pop_try:
+                vm->catch_chain = vm->catch_top;
                 vm->catch_top = vm->catch_top->prev;
+
                 code_pos++;
                 break;
             case o_raise:
