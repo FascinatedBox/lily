@@ -178,6 +178,34 @@ static char *opname(lily_expr_op op)
     return opnames[op];
 }
 
+static int count_inner_try_blocks(lily_emit_state *emit)
+{
+    lily_block *block_iter = emit->current_block;
+    int ret = 0;
+    while (IS_LOOP_BLOCK(block_iter->block_type) == 0 &&
+           block_iter->block_type != BLOCK_FUNCTION) {
+        if (block_iter->block_type == BLOCK_TRY)
+            ret++;
+
+        block_iter = block_iter->prev;
+    }
+    return ret;
+}
+
+static void write_pop_inner_try_blocks(lily_emit_state *emit)
+{
+    int try_count = count_inner_try_blocks(emit);
+    if (try_count) {
+        lily_function_val *f = emit->top_function;
+        WRITE_PREP_LARGE(try_count)
+        int i;
+        for (i = 0;i <= try_count;i++)
+            f->code[f->pos+i] = o_pop_try;
+
+        f->pos += try_count;
+    }
+}
+
 /* grow_patches
    This is a helper function for resizing emitter's patch array. */
 static void grow_patches(lily_emit_state *emit)
@@ -2256,6 +2284,8 @@ void lily_emit_break(lily_emit_state *emit)
     if (emit->patch_pos == emit->patch_size)
         grow_patches(emit);
 
+    write_pop_inner_try_blocks(emit);
+
     /* Write the jump, then figure out where to put it. */
     WRITE_2(o_jump, 0)
 
@@ -2361,6 +2391,8 @@ void lily_emit_continue(lily_emit_state *emit)
                 "'continue' used outside of a loop.\n");
     }
 
+    write_pop_inner_try_blocks(emit);
+
     WRITE_2(o_jump, emit->current_block->loop_start)
 }
 
@@ -2454,6 +2486,8 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
         }
     }
 
+    write_pop_inner_try_blocks(emit);
+
     lily_function_val *f = emit->top_function;
     WRITE_3(o_return_val, ast->line_num, ast->result->reg_spot)
 }
@@ -2517,6 +2551,8 @@ void lily_emit_return_noval(lily_emit_state *emit)
         lily_raise(emit->raiser, lily_SyntaxError,
                 "'return' used outside of a function.\n");
 
+    write_pop_inner_try_blocks(emit);
+
     lily_function_val *f = emit->top_function;
     WRITE_2(o_return_noval, *emit->lex_linenum)
 }
@@ -2551,12 +2587,12 @@ void lily_emit_except(lily_emit_state *emit, lily_class *cls,
     if (except_sym == NULL)
         except_sym = (lily_sym *)get_storage(emit, except_sig, line_num);
 
-    int patch_count = emit->patch_pos - emit->current_block->patch_start;
-    /* patch_count is 1 if the current block is the initial part of the 'try'.
-       If nothing in the 'try' raises, then the vm needs to pop the catch entry
-       from it's series of catch entries. This opcode does that. */
-    if (patch_count == 1)
+    /* This is done so that if the 'try' doesn't have anything that raises
+       that the vm unregisters the 'try' block. */
+    if (emit->current_block->block_type == BLOCK_TRY) {
         WRITE_1(o_pop_try)
+        emit->current_block->block_type = BLOCK_TRY_EXCEPT;
+    }
 
     /* Write a jump that will go to the end of the try. */
     WRITE_2(o_jump, 0)
