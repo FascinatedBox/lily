@@ -1835,6 +1835,27 @@ static void make_proper_exception_val(lily_vm_state *vm,
     vm->building_error = 0;
 }
 
+static void op_raise(lily_vm_state *vm, lily_value *exception_val)
+{
+    /* The Exception class has values[0] as the message, values[1] as the
+       container for traceback. */
+    if (exception_val->flags & VAL_IS_NIL)
+        lily_raise(vm->raiser, lily_ValueError,
+                "Cannot raise nil exception.\n");
+
+    lily_instance_val *ival = exception_val->value.instance;
+    lily_sig *traceback_sig = ival->values[1]->sig;
+    lily_value *traceback = build_traceback(vm, traceback_sig);
+    if (traceback == NULL)
+        lily_raise_nomem(vm->raiser);
+
+    lily_assign_value(vm, ival->values[1], traceback);
+    ival->values[1]->value.list->refcount--;
+    lily_free(traceback);
+
+    lily_raise_value(vm->raiser, exception_val);
+}
+
 /*  maybe_catch_exception
     Something somewhere has caused an exception of some sort to get raised.
     This is called to see if the vm is in a try block with an except case for
@@ -1844,8 +1865,18 @@ static int maybe_catch_exception(lily_vm_state *vm)
     if (vm->catch_top == NULL)
         return 0;
 
-    const char *except_name = lily_name_for_error(vm->raiser->error_code);
-    lily_class *raised_class = lily_class_by_name(vm->symtab, except_name);
+    const char *except_name;
+    lily_class *raised_class;
+
+    if (vm->raiser->exception == NULL) {
+        except_name = lily_name_for_error(vm->raiser->error_code);
+        raised_class = lily_class_by_name(vm->symtab, except_name);
+    }
+    else {
+        lily_value *raise_val = vm->raiser->exception;
+        raised_class = raise_val->sig->cls;
+        except_name = raised_class->name;
+    }
     /* Until user-declared exception classes arrive, raised_class should not
        be NULL since all errors raiseable -should- be covered... */
     lily_vm_catch_entry *catch_iter = vm->catch_top;
@@ -1922,8 +1953,12 @@ static int maybe_catch_exception(lily_vm_state *vm)
     }
 
     if (match) {
-        if (do_unbox)
-            make_proper_exception_val(vm, raised_class, catch_reg);
+        if (do_unbox) {
+            if (vm->raiser->exception == NULL)
+                make_proper_exception_val(vm, raised_class, catch_reg);
+            else
+                lily_assign_value(vm, catch_reg, vm->raiser->exception);
+        }
 
         vm->function_stack_pos = stack_pos;
         vm->vm_regs = stack_regs;
@@ -2472,6 +2507,11 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_pop_try:
                 vm->catch_top = vm->catch_top->prev;
                 code_pos++;
+                break;
+            case o_raise:
+                lhs_reg = vm_regs[code[code_pos+2]];
+                op_raise(vm, lhs_reg);
+                code_pos += 3;
                 break;
             case o_package_get_deep:
             {

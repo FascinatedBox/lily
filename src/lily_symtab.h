@@ -54,7 +54,8 @@ typedef struct {
 #define KEY_ISNIL       13
 #define KEY_TRY         14
 #define KEY_EXCEPT      15
-#define KEY_LAST_ID     15
+#define KEY_RAISE       16
+#define KEY_LAST_ID     16
 
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, const char *);

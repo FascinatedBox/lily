@@ -1039,6 +1039,7 @@ static void do_handler(lily_parse_state *, int);
 static void isnil_handler(lily_parse_state *, int);
 static void try_handler(lily_parse_state *, int);
 static void except_handler(lily_parse_state *, int);
+static void raise_handler(lily_parse_state *, int);
 
 typedef void (keyword_handler)(lily_parse_state *, int);
 
@@ -1058,7 +1059,8 @@ static keyword_handler *handlers[] = {
     do_handler,
     isnil_handler,
     try_handler,
-    except_handler
+    except_handler,
+    raise_handler
 };
 
 /*  statement
@@ -1544,6 +1546,13 @@ static void except_handler(lily_parse_state *parser, int multi)
     lily_lexer(lex);
     if (lex->token != tk_right_curly)
         statement(parser, 1);
+}
+
+static void raise_handler(lily_parse_state *parser, int multi)
+{
+    expression(parser, 0);
+    lily_emit_raise(parser->emit, parser->ast_pool->root);
+    lily_ast_reset_pool(parser->ast_pool);
 }
 
 /** Main parser function, and public calling API.
