@@ -126,7 +126,6 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
         return NULL;
     }
 
-    s->first_block = NULL;
     s->current_block = NULL;
     s->unused_storage_start = NULL;
     s->all_storage_start = NULL;
@@ -149,12 +148,16 @@ void lily_free_emit_state(lily_emit_state *emit)
 {
     lily_block *current, *temp;
     lily_storage *current_store, *temp_store;
-    current = emit->first_block;
+    current = emit->current_block;
+    while (current && current->prev)
+        current = current->prev;
+
     while (current) {
         temp = current->next;
         lily_free(current);
         current = temp;
     }
+
     current_store = emit->all_storage_start;
     while (current_store) {
         temp_store = current_store->next;
@@ -2849,7 +2852,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
     lily_block *block;
     int block_type;
 
-    if (emit->first_block == emit->current_block)
+    if (emit->current_block->prev == NULL)
         lily_raise(emit->raiser, lily_SyntaxError, "'}' outside of a block.\n");
 
     block = emit->current_block;
@@ -2910,7 +2913,6 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     main_block->loop_start = -1;
     emit->top_function = main_var->value.function;
     emit->top_var = main_var;
-    emit->first_block = main_block;
     emit->current_block = main_block;
     emit->function_depth++;
     return 1;
