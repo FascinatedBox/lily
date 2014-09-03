@@ -1576,7 +1576,7 @@ void lily_parser(lily_parse_state *parser)
         }
         else if (lex->token == tk_end_tag ||
                  (lex->token == tk_eof && lex->mode == lm_no_tags)) {
-            if (parser->emit->current_block != parser->emit->first_block) {
+            if (parser->emit->current_block->prev != NULL) {
                 lily_raise(parser->raiser, lily_SyntaxError,
                            "Unterminated block(s) at end of parsing.\n");
             }
