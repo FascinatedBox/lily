@@ -661,15 +661,6 @@ static void bad_assign_error(lily_emit_state *emit, int line_num,
             right_sig, left_sig);
 }
 
-/* bad_subs_class
-   Reports that the class of the value in var_ast cannot be subscripted. */
-static void bad_subs_class(lily_emit_state *emit, lily_ast *var_ast)
-{
-    emit->raiser->line_adjust = var_ast->line_num;
-    lily_raise(emit->raiser, lily_SyntaxError, "Cannot subscript type '%T'.\n",
-            var_ast->result->sig);
-}
-
 /* bad_num_args
    Reports that the ast didn't get as many args as it should have. Takes
    anonymous calls and var args into account. */
@@ -1239,6 +1230,11 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
                 "Index %d is out of range for %T.\n",
                 index_literal->value.integer, var_sig);
         }
+    }
+    else {
+        emit->raiser->line_adjust = var_ast->line_num;
+        lily_raise(emit->raiser, lily_SyntaxError, "Cannot subscript type '%T'.\n",
+                var_ast->result->sig);
     }
 }
 
@@ -1853,12 +1849,6 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
     lily_ast *index_ast = var_ast->next_arg;
     if (var_ast->tree_type != tree_var)
         eval_tree(emit, var_ast);
-
-    lily_sig *var_sig = var_ast->result->sig;
-    if (var_sig->cls->id != SYM_CLASS_LIST &&
-        var_sig->cls->id != SYM_CLASS_HASH &&
-        var_sig->cls->id != SYM_CLASS_TUPLE)
-        bad_subs_class(emit, var_ast);
 
     lily_literal *tuple_literal = NULL;
 
