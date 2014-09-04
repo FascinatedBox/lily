@@ -323,6 +323,23 @@ static void grow_sig_stack(lily_emit_state *emit)
     emit->sig_stack = new_sig_stack;
 }
 
+/*  emit_jump_if
+    Write a conditional jump and add it to emitter's current patches.
+    0 == o_jump_if_false
+        The jump happens if the ast's result is 0/false.
+    1 == o_jump_if_true
+        The jump happens if the ast's result is non-zero. */
+static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
+{
+    write_4(emit, o_jump_if, jump_on, ast->result->reg_spot, 0);
+    if (emit->patch_pos == emit->patch_size)
+        grow_patches(emit);
+
+    lily_function_val *f = emit->top_function;
+    emit->patches[emit->patch_pos] = f->pos-1;
+    emit->patch_pos++;
+}
+
 /*  try_new_block
     Attempt to create a new block.
 
@@ -337,7 +354,6 @@ static lily_block *try_new_block(void)
 
     return ret;
 }
-
 
 /* try_add_storage
    Attempt to add a new storage to emitter's chain of storages with the given
@@ -1130,12 +1146,12 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
        and doesn't need a retest. However, and/or are opposites, so they have
        to check each other (so the op has to be exactly the same). */
     if ((ast->left->tree_type == tree_binary && ast->left->op == ast->op) == 0)
-        lily_emit_jump_if(emit, ast->left, jump_on);
+        emit_jump_if(emit, ast->left, jump_on);
 
     if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right);
 
-    lily_emit_jump_if(emit, ast->right, jump_on);
+    emit_jump_if(emit, ast->right, jump_on);
 
     if (is_top == 1) {
         int save_pos;
@@ -2340,7 +2356,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
        get patched to jump to the end of this block. For 'if'/'elif', it will
        go to the next 'elif' or the 'else'. For 'while', this will result in
        the block being skipped. */
-    lily_emit_jump_if(emit, ast, 0);
+    emit_jump_if(emit, ast, 0);
 
     lily_ast_reset_pool(ap);
 }
@@ -2432,23 +2448,6 @@ void lily_emit_change_if_branch(lily_emit_state *emit, int have_else)
     /* Write the exit jump where the branch jump was. Since the branch jump got
        patched, storing the location is pointless. */
     emit->patches[emit->patch_pos-1] = save_jump;
-}
-
-/* lily_emit_jump_if
-   This writes a conditional jump using the result of the given ast. The type
-   of jump (true/false) depends on 'jump_on'.
-   1: jump_if_true: The jump will be performed if the ast's result is true or
-      non-zero.
-   0: jump_if_false: The jump will be performed if the ast's result is zero. */
-void lily_emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
-{
-    write_4(emit, o_jump_if, jump_on, ast->result->reg_spot, 0);
-    if (emit->patch_pos == emit->patch_size)
-        grow_patches(emit);
-
-    lily_function_val *f = emit->top_function;
-    emit->patches[emit->patch_pos] = f->pos-1;
-    emit->patch_pos++;
 }
 
 /* lily_emit_return
