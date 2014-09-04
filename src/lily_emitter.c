@@ -1573,23 +1573,14 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
         emit_hash_values_to_anys(emit, ast);
     }
 
+    if ((emit->sig_stack_pos + 2) > emit->sig_stack_size)
+        grow_sig_stack(emit);
+
     lily_class *hash_cls = lily_class_by_id(emit->symtab, SYM_CLASS_HASH);
-    lily_sig *new_sig = lily_try_sig_for_class(emit->symtab, hash_cls);
-    if (new_sig == NULL) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise_nomem(emit->raiser);
-    }
-
-    new_sig->siglist = lily_malloc(2 * sizeof(lily_sig *));
-    if (new_sig->siglist == NULL) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise_nomem(emit->raiser);
-    }
-
-    new_sig->siglist[0] = key_sig;
-    new_sig->siglist[1] = value_sig;
-    new_sig->siglist_size = 2;
-    new_sig = lily_ensure_unique_sig(emit->symtab, new_sig);
+    emit->sig_stack[emit->sig_stack_pos] = key_sig;
+    emit->sig_stack[emit->sig_stack_pos+1] = value_sig;
+    lily_sig *new_sig = lily_build_ensure_sig(emit->symtab, hash_cls, 2,
+                emit->sig_stack, emit->sig_stack_pos);
 
     lily_storage *s = get_storage(emit, new_sig, ast->line_num);
 
@@ -1760,22 +1751,13 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
         emit_list_values_to_anys(emit, ast);
     }
 
+    if ((emit->sig_stack_pos + 1) > emit->sig_stack_size)
+        grow_sig_stack(emit);
+
     lily_class *list_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);
-    lily_sig *new_sig = lily_try_sig_for_class(emit->symtab, list_cls);
-    if (new_sig == NULL) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise_nomem(emit->raiser);
-    }
-
-    new_sig->siglist = lily_malloc(1 * sizeof(lily_sig *));
-    if (new_sig->siglist == NULL) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise_nomem(emit->raiser);
-    }
-
-    new_sig->siglist[0] = elem_sig;
-    new_sig->siglist_size = 1;
-    new_sig = lily_ensure_unique_sig(emit->symtab, new_sig);
+    emit->sig_stack[emit->sig_stack_pos] = elem_sig;
+    lily_sig *new_sig = lily_build_ensure_sig(emit->symtab, list_cls, 1,
+                emit->sig_stack, emit->sig_stack_pos);
 
     lily_storage *s = get_storage(emit, new_sig, ast->line_num);
 
@@ -1792,38 +1774,25 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast)
                 "Cannot create an empty tuple.\n");
     }
 
+    int i;
     lily_ast *arg;
 
+    if ((emit->sig_stack_pos + ast->args_collected) > emit->sig_stack_size)
+        grow_sig_stack(emit);
+
     /* Tuple lets the args be whatever they want to be. :) */
-    for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
-        if (arg->tree_type != tree_local_var)
-            eval_tree(emit, arg);
-    }
-
-    lily_class *tuple_cls = lily_class_by_id(emit->symtab, SYM_CLASS_TUPLE);
-    lily_sig *new_sig = lily_try_sig_for_class(emit->symtab, tuple_cls);
-    if (new_sig == NULL) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise_nomem(emit->raiser);
-    }
-
-    lily_sig **siglist = lily_malloc(ast->args_collected * sizeof(lily_sig *));
-    if (siglist == NULL) {
-        emit->raiser->line_adjust = ast->line_num;
-        lily_raise_nomem(emit->raiser);
-    }
-
-    new_sig->siglist = siglist;
-    new_sig->siglist_size = ast->args_collected;
-
-    int i;
     for (i = 0, arg = ast->arg_start;
          arg != NULL;
          i++, arg = arg->next_arg) {
-        siglist[i] = arg->result->sig;
+        if (arg->tree_type != tree_local_var)
+            eval_tree(emit, arg);
+
+        emit->sig_stack[emit->sig_stack_pos + i] = arg->result->sig;
     }
 
-    new_sig = lily_ensure_unique_sig(emit->symtab, new_sig);
+    lily_class *tuple_cls = lily_class_by_id(emit->symtab, SYM_CLASS_TUPLE);
+    lily_sig *new_sig = lily_build_ensure_sig(emit->symtab, tuple_cls, i,
+                emit->sig_stack, emit->sig_stack_pos);
     lily_storage *s = get_storage(emit, new_sig, ast->line_num);
 
     write_build_op(emit, o_build_tuple, ast->arg_start, ast->line_num,
