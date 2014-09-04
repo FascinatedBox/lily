@@ -1991,8 +1991,6 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
            Ex: An empty list used as an arg may want to know what to
            default to. */
         ast->result = ast->arg_start->result;
-        if (ast->result == NULL)
-            lily_raise_nomem(emit->raiser);
 
         /* Make sure the result is callable (ex: NOT @(integer: 10) ()). */
         cls_id = ast->result->sig->cls->id;
