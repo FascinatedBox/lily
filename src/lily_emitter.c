@@ -2434,15 +2434,6 @@ void lily_emit_change_if_branch(lily_emit_state *emit, int have_else)
     emit->patches[emit->patch_pos-1] = save_jump;
 }
 
-/* emit_final_continue
-   This writes in a 'continue'-type jump at the end of the while, so that the
-   while runs multiple times. Since the while is definitely the top block, this
-   is a bit simpler. */
-static void emit_final_continue(lily_emit_state *emit)
-{
-    write_2(emit, o_jump, emit->current_block->loop_start);
-}
-
 /* lily_emit_jump_if
    This writes a conditional jump using the result of the given ast. The type
    of jump (true/false) depends on 'jump_on'.
@@ -2841,10 +2832,9 @@ void lily_emit_leave_block(lily_emit_state *emit)
     block = emit->current_block;
     block_type = block->block_type;
 
-    /* Write in a fake continue so that the end of a while jumps back up to the
-       top. */
+    /* These blocks need to jump back up when the bottom is hit. */
     if (block_type == BLOCK_WHILE || block_type == BLOCK_FOR_IN)
-        emit_final_continue(emit);
+        write_2(emit, o_jump, emit->current_block->loop_start);
 
     v = block->var_start;
 
