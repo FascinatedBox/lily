@@ -1194,10 +1194,10 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
         lily_ast *index_ast, lily_literal *index_literal)
 {
     int var_cls_id = var_ast->result->sig->cls->id;
-    if (var_cls_id == SYM_CLASS_LIST &&
-        index_ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
-        lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
-                "list index is not an integer.\n", "");
+    if (var_cls_id == SYM_CLASS_LIST) {
+        if (index_ast->result->sig->cls->id != SYM_CLASS_INTEGER)
+            lily_raise_adjusted(emit->raiser, var_ast->line_num,
+                    lily_SyntaxError, "list index is not an integer.\n", "");
     }
     else if (var_cls_id == SYM_CLASS_HASH) {
         lily_sig *want_key = var_ast->result->sig->siglist[0];
