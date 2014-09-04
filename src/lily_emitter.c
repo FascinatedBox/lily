@@ -458,14 +458,6 @@ static lily_storage *get_storage(lily_emit_state *emit,
     return ret;
 }
 
-/* emit_return_expected
-   This writes o_return_expected with the current line number. This is done to
-   prevent functions that should return values from not doing so. */
-static void emit_return_expected(lily_emit_state *emit)
-{
-    write_2(emit, o_return_expected, *emit->lex_linenum);
-}
-
 /*  write_build_op
 
     This is responsible for writing the actual o_build_list or o_build_hash
@@ -2804,14 +2796,15 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
 
 static void leave_function(lily_emit_state *emit, lily_block *block)
 {
-    /* If the function returns nil, write an implicit 'return' at the end of
-       it. It's easiest to just blindly write it. */
     if (emit->top_function_ret == NULL)
-        lily_emit_return_noval(emit);
+        /* Write an implicit 'return' at the end of a function claiming to not
+           return a value. This saves the user from having to write an explicit
+           'return'. */
+        write_2(emit, o_return_noval, *emit->lex_linenum);
     else
-        /* Ensure that functions that claim to return a value cannot leave without
-           doing so. */
-        emit_return_expected(emit);
+        /* Ensure that if the function does not raise a value that an error is
+           raised at vm-time. */
+        write_2(emit, o_return_expected, *emit->lex_linenum);
 
     finalize_function_val(emit, block);
 
