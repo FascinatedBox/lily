@@ -449,11 +449,10 @@ static lily_storage *get_storage(lily_emit_state *emit,
                 }
             }
         }
-    }
-
-    if (ret == NULL) {
-        emit->raiser->line_adjust = line_num;
-        lily_raise_nomem(emit->raiser);
+        else {
+            emit->raiser->line_adjust = line_num;
+            lily_raise_nomem(emit->raiser);
+        }
     }
 
     return ret;
