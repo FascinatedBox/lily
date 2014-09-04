@@ -2097,31 +2097,32 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
    register. */
 static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
 {
-     lily_storage *ret;
+    lily_storage *ret;
+    int opcode;
+    uintptr_t value_spot;
 
     if (ast->tree_type == tree_readonly) {
-        ret = get_storage(emit, ast->result->sig, ast->line_num);
-
-        write_4(emit,
-                o_get_const,
-                ast->line_num,
-                (uintptr_t)ast->result,
-                ret->reg_spot);
-
-        ast->result = (lily_sym *)ret;
+        opcode = o_get_const;
+        value_spot = (uintptr_t)ast->result;
     }
     else if (ast->result->flags & SYM_TYPE_VAR) {
-        ret = get_storage(emit, ast->result->sig, ast->line_num);
-
-        /* We'll load this from an absolute position within __main__. */
-        write_4(emit,
-                o_get_global,
-                ast->line_num,
-                ast->result->reg_spot,
-                ret->reg_spot);
-
-        ast->result = (lily_sym *)ret;
+        opcode = o_get_global;
+        value_spot = ast->result->reg_spot;
     }
+    else {
+        opcode = -1;
+        value_spot = 0;
+    }
+
+    ret = get_storage(emit, ast->result->sig, ast->line_num);
+
+    write_4(emit,
+            opcode,
+            ast->line_num,
+            value_spot,
+            ret->reg_spot);
+
+    ast->result = (lily_sym *)ret;
 }
 
 /*  eval_package
