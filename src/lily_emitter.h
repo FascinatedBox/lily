@@ -66,7 +66,6 @@ void lily_emit_eval_expr_to_var(lily_emit_state *, lily_ast_pool *,
         lily_var *);
 void lily_emit_eval_expr(lily_emit_state *, lily_ast_pool *);
 
-void lily_emit_add_save_var(lily_emit_state *, lily_var *);
 void lily_emit_break(lily_emit_state *);
 void lily_emit_continue(lily_emit_state *);
 void lily_emit_change_block_to(lily_emit_state *emit, int);
