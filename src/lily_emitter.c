@@ -38,7 +38,7 @@
     lily_raise(r, error_code, message, __VA_ARGS__); \
 }
 
-static int type_matchup(lily_emit_state *, lily_sig *, lily_sig *, lily_ast *);
+static int type_matchup(lily_emit_state *, lily_sig *, lily_ast *);
 static void eval_tree(lily_emit_state *, lily_ast *);
 
 /*****************************************************************************/
@@ -1130,8 +1130,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
         if (left_sym->sig->cls->id == SYM_CLASS_ANY)
             opcode = o_any_assign;
         else {
-            if (type_matchup(emit, NULL, ast->left->result->sig,
-                           ast->right) == 0) {
+            if (type_matchup(emit, ast->left->result->sig, ast->right) == 0) {
                 bad_assign_error(emit, ast->line_num, left_sym->sig,
                                  right_sym->sig);
             }
@@ -1311,7 +1310,7 @@ static void eval_package_assign(lily_emit_state *emit, lily_ast *ast)
 
     /* Before doing an eval, make sure that the two types actually match up. */
     if (result_sig != rhs_tree->result->sig &&
-        type_matchup(emit, NULL, result_sig, rhs_tree) == 0) {
+        type_matchup(emit, result_sig, rhs_tree) == 0) {
         bad_assign_error(emit, ast->line_num, result_sig,
                 rhs_tree->result->sig);
     }
@@ -1740,16 +1739,14 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
     hash[?, !any] to hash[?, any]
 
     emit:     The emitter, in case code needs to be written.
-    self:     The self, in the event that want_sig uses templates. If it does
-              not, then passing NULL is acceptable here.
     want_sig: The signature to be matched.
     right:    The ast which has a result to be converted to want_sig.
 
     Returns 1 if successful, 0 otherwise.
     Caveats:
     * This may rewrite right's result if it succeeds. */
-static int type_matchup(lily_emit_state *emit, lily_sig *self,
-        lily_sig *want_sig, lily_ast *right)
+static int type_matchup(lily_emit_state *emit, lily_sig *want_sig,
+        lily_ast *right)
 {
     int ret = 0;
 
@@ -1992,7 +1989,6 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
 {
     lily_ast *arg = ast->arg_start;
     int have_args, i, is_varargs, num_args;
-    lily_sig *self_sig = NULL;
 
     /* Ast doesn't check the call args. It can't check types, so why do only
        half of the validation? */
@@ -2027,11 +2023,8 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             emit->sig_stack_pos -= template_adjust;
         }
 
-        if (i == 0)
-            self_sig = arg->result->sig;
-
         if (arg->result->sig != call_sig->siglist[i + 1] &&
-            type_matchup(emit, self_sig, call_sig->siglist[i+1], arg) == 0) {
+            type_matchup(emit, call_sig->siglist[i+1], arg) == 0) {
             bad_arg_error(emit, ast, arg->result->sig, call_sig->siglist[i + 1],
                           i);
         }
@@ -2056,7 +2049,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             }
 
             if (arg->result->sig != va_comp_sig &&
-                type_matchup(emit, self_sig, va_comp_sig, arg) == 0) {
+                type_matchup(emit, va_comp_sig, arg) == 0) {
                 bad_arg_error(emit, ast, arg->result->sig, va_comp_sig, i);
             }
         }
