@@ -5,19 +5,15 @@
 # include "lily_symtab.h"
 
 typedef struct lily_block_ {
-    /* This is where the position in code where the last loop started.
-       while:    This is where the while was started.
-       function: loop_start is set to -1 to indicate no loop.
-       others:   The loop_start of the previous block is used. This allows the
-                 loop_start of the last loop to 'bubble up' to the top if
-                 inside of one. */
     int loop_start;
     int patch_start;
     int block_type;
+
     lily_var *var_start;
     lily_var *function_var;
     int save_register_spot;
     lily_storage *storage_start;
+
     struct lily_block_ *next;
     struct lily_block_ *prev;
 } lily_block;
@@ -43,6 +39,7 @@ typedef struct {
 
     lily_block *first_block;
     lily_block *current_block;
+
     int function_depth;
     lily_raiser *raiser;
     lily_ast_str_pool *oo_name_pool;
@@ -65,22 +62,27 @@ void lily_emit_eval_condition(lily_emit_state *, lily_ast_pool *);
 void lily_emit_eval_expr_to_var(lily_emit_state *, lily_ast_pool *,
         lily_var *);
 void lily_emit_eval_expr(lily_emit_state *, lily_ast_pool *);
+void lily_emit_finalize_for_in(lily_emit_state *, lily_var *, lily_var *,
+        lily_var *, lily_var *, int);
 
 void lily_emit_break(lily_emit_state *);
 void lily_emit_continue(lily_emit_state *);
+void lily_emit_return(lily_emit_state *, lily_ast *);
+
 void lily_emit_change_block_to(lily_emit_state *emit, int);
 void lily_emit_enter_block(lily_emit_state *, int);
 void lily_emit_leave_block(lily_emit_state *);
-void lily_emit_return(lily_emit_state *, lily_ast *);
-void lily_emit_show(lily_emit_state *, lily_ast *);
-void lily_emit_raise(lily_emit_state *, lily_ast *);
-void lily_emit_vm_return(lily_emit_state *);
+
 void lily_emit_try(lily_emit_state *, int);
 void lily_emit_except(lily_emit_state *, lily_class *, lily_var *, int);
-void lily_free_emit_state(lily_emit_state *);
+void lily_emit_raise(lily_emit_state *, lily_ast *);
+
+void lily_emit_show(lily_emit_state *, lily_ast *);
+
+void lily_emit_vm_return(lily_emit_state *);
 void lily_reset_main(lily_emit_state *);
-void lily_emit_finalize_for_in(lily_emit_state *, lily_var *, lily_var *,
-        lily_var *, lily_var *, int);
+
+void lily_free_emit_state(lily_emit_state *);
 int lily_emit_try_enter_main(lily_emit_state *, lily_var *);
 lily_emit_state *lily_new_emit_state(lily_raiser *);
 
