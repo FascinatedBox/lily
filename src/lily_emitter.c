@@ -855,6 +855,18 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     emit->function_depth--;
 }
 
+/*  eval_enforce_value
+    Evaluate a given ast and make sure it returns a value. */
+static void eval_enforce_value(lily_emit_state *emit, lily_ast *ast,
+        char *message)
+{
+    eval_tree(emit, ast);
+    emit->expr_num++;
+
+    if (ast->result == NULL)
+        lily_raise(emit->raiser, lily_SyntaxError, message);
+}
+
 /*****************************************************************************/
 /* Error raising functions                                                   */
 /*****************************************************************************/
@@ -2513,12 +2525,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
 {
     lily_ast *ast = ap->root;
 
-    eval_tree(emit, ast);
-    emit->expr_num++;
-
-    if (ast->result == NULL)
-        lily_raise(emit->raiser, lily_SyntaxError,
-                   "Conditional expression has no value.\n");
+    eval_enforce_value(emit, ast, "Conditional expression has no value.\n");
 
     int current_type = emit->current_block->block_type;
     if (current_type != BLOCK_DO_WHILE)
@@ -2570,12 +2577,7 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
                 "'return' used outside of a function.\n");
 
     if (ast) {
-        eval_tree(emit, ast);
-        emit->expr_num++;
-
-        if (ast->result == NULL)
-            lily_raise(emit->raiser, lily_SyntaxError,
-                   "Expression to 'return' has no value.\n");
+        eval_enforce_value(emit, ast, "'return' expression has no value.\n");
 
         lily_sig *ret_sig = emit->top_function_ret;
 
@@ -2599,12 +2601,7 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
 
 void lily_emit_raise(lily_emit_state *emit, lily_ast *ast)
 {
-    eval_tree(emit, ast);
-    emit->expr_num++;
-
-    if (ast->result == NULL)
-        lily_raise(emit->raiser, lily_SyntaxError,
-                   "raise expression has no value.\n");
+    eval_enforce_value(emit, ast, "'raise' expression has no value.\n");
 
     lily_class *result_cls = ast->result->sig->cls;
     lily_class *except_cls = lily_class_by_name(emit->symtab, "Exception");
@@ -2632,13 +2629,9 @@ void lily_emit_show(lily_emit_state *emit, lily_ast *ast)
        This also makes sure that global and local vars are treated consistently
        by show. */
     if (is_global == 0)
-        eval_tree(emit, ast);
-
-    if (ast->result == NULL)
-        lily_raise(emit->raiser, lily_SyntaxError,
-                   "show expression has no value.\n");
-
-    emit->expr_num++;
+        eval_enforce_value(emit, ast, "'show' expression has no value.\n");
+    else
+        emit->expr_num++;
 
     write_4(emit, o_show, ast->line_num, is_global, ast->result->reg_spot);
 }

@@ -244,7 +244,7 @@ Where: File "<str>" at line 1\n""",
      "command": """  function f() {  } function g( => integer) { return f() } """,
      "message": "Failcheck: 'return' with a no-value expression.",
      "stderr": """\
-SyntaxError: Expression to 'return' has no value.\n\
+SyntaxError: 'return' expression has no value.\n\
 Where: File "<str>" at line 1\n"""
     }
 ]
