@@ -24,7 +24,10 @@
       twice.
     * emit: This writes some code, but doesn't evaluate any tree. **/
 
-# define IS_LOOP_BLOCK(b) (b & (BLOCK_WHILE | BLOCK_DO_WHILE | BLOCK_FOR_IN))
+# define IS_LOOP_BLOCK(b) (b == BLOCK_WHILE || \
+                           b == BLOCK_DO_WHILE || \
+                           b == BLOCK_FOR_IN)
+
 # define GLOBAL_LOAD_CHECK(sym) \
     ((sym->flags & SYM_TYPE_VAR) && \
      ((lily_var *)sym)->function_depth == 1)
