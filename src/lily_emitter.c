@@ -129,7 +129,7 @@ static void small_grow(lily_emit_state *emit)
     This will grow emitter's code until it's the right size, if necessary. */
 static void write_prep(lily_emit_state *emit, int size)
 {
-    lily_function_val *f = emit->top_function; 
+    lily_function_val *f = emit->top_function;
     if ((f->pos + size) > f->len) {
         uintptr_t *save_code;
         while ((f->pos + size) > f->len)
@@ -255,7 +255,7 @@ static int count_inner_try_blocks(lily_emit_state *emit)
 static void write_pop_inner_try_blocks(lily_emit_state *emit)
 {
     int try_count = count_inner_try_blocks(emit);
-    if (try_count) { 
+    if (try_count) {
         write_prep(emit, try_count);
         int i;
         lily_function_val *f = emit->top_function;
@@ -356,6 +356,10 @@ static lily_block *try_new_block(void)
     return ret;
 }
 
+/*  check_valid_subscript
+    Determine if the given var is subscriptable by the type of the given index.
+    Additionally, an 'index literal' is given as a special-case for tuples.
+    This raises an error for unsubscriptable types. */
 static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
         lily_ast *index_ast, lily_literal *index_literal)
 {
@@ -397,6 +401,9 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
     }
 }
 
+/*  get_subscript_result
+    Get the type that would result from doing a subscript. tuple_index_lit is
+    a special case for tuples. */
 static lily_sig *get_subscript_result(lily_sig *sig, lily_ast *index_ast,
         lily_literal *tuple_index_lit)
 {
@@ -410,17 +417,18 @@ static lily_sig *get_subscript_result(lily_sig *sig, lily_ast *index_ast,
            a sane index. */
         result = sig->siglist[tuple_index_lit->value.integer];
     else
+        /* Won't happen, but keeps the compiler from complaining. */
         result = NULL;
 
     return result;
 }
 
-/* try_add_storage
-   Attempt to add a new storage to emitter's chain of storages with the given
-   signature. This should be seen as a helper for get_storage, and not used
-   outside of it.
-   On success, the newly created storage is returned.
-   On failure, NULL is returned. */
+/*  try_add_storage
+    This is a helper for get_storage which attempts to add a new storage to
+    emitter's chain of storages with the given signature.
+
+    Success: A new storage is returned.
+    Failure: NULL is returned. */
 static lily_storage *try_add_storage(lily_emit_state *emit, lily_sig *sig)
 {
     lily_storage *ret = lily_malloc(sizeof(lily_storage));
@@ -458,7 +466,7 @@ static lily_storage *try_add_storage(lily_emit_state *emit, lily_sig *sig)
               boilerplate code from checking that obtaining a storage succeded.
 
     This call shall either return a valid storage of the given signature, or
-    raise ErrNoMem with the given line_num.*/
+    raise NoMemoryError with the given line_num. */
 static lily_storage *get_storage(lily_emit_state *emit,
         lily_sig *sig, int line_num)
 {
@@ -571,10 +579,9 @@ static void write_build_op(lily_emit_state *emit, int opcode,
     f->pos += 4 + num_values;
 }
 
-/* emit_any_assign
-   The given ast is a non-any, and the caller has checked that an any is
-   wanted. This converts the ast's result so that it contains an any by
-   using o_any_assign. */
+/*  emit_any_assign
+    Write an 'o_any_assign' op and rewrite the given ast to yield that. This
+    is used frequently to implement 'defaulting to any'. */
 static void emit_any_assign(lily_emit_state *emit, lily_ast *ast)
 {
     lily_class *any_class = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
@@ -641,20 +648,16 @@ static int template_check(lily_emit_state *emit, lily_sig *lhs, lily_sig *rhs)
 }
 
 /*  recursively_build_sig
-    This function is called when the return of a function uses templates.
-    It will return a signature that has the current template types replaced.
+    This is a helper function for build_untemplated_sig. This function takes a
+    signature which has template information in it, and builds a signature with
+    the template information replaced out.
 
-    One example is the 'some' function, defined as 'function(A => maybe[A])'
-    some(10) # A = integer, so the result is maybe[integer]
+    Example:
+        Input:  list[A]        (where A is known to be 'integer')
+        Output: list[integer]
 
-    This should only be called by build_templated_sig, because it needs some
-    adjustments to emitter's sig_stack_pos before and after it's called.
-
-    emit:
-    template_index: For templates, the offset where templates should grab
-                    signatures from. This is important because the emitter's
-                    sig stack is also used to store sigs in place.
-    sig:            The signature to examine. */
+    template_index is the offset where the current function started storing the
+    template information that it obtained. */
 static lily_sig *recursively_build_sig(lily_emit_state *emit, int template_index,
         lily_sig *sig)
 {
@@ -669,7 +672,8 @@ static lily_sig *recursively_build_sig(lily_emit_state *emit, int template_index
         save_start = emit->sig_stack_pos;
 
         for (i = 0;i < sig->siglist_size;i++) {
-            lily_sig *inner_sig = recursively_build_sig(emit, template_index, siglist[i]);
+            lily_sig *inner_sig = recursively_build_sig(emit, template_index,
+                    siglist[i]);
             emit->sig_stack[emit->sig_stack_pos] = inner_sig;
             emit->sig_stack_pos++;
         }
@@ -699,9 +703,9 @@ static lily_sig *build_untemplated_sig(lily_emit_state *emit, lily_sig *sig)
     return ret;
 }
 
-/* add_var_chain_to_info
-   This adds a chain of vars to a function's info. If not __main__, then functions
-   declared within the currently-exiting function are skipped. */
+/*  add_var_chain_to_info
+    Add info for a linked-list of vars to the given register info. Functions do
+    not get a register (VAR_IS_READONLY), so don't add them. */
 static void add_var_chain_to_info(lily_emit_state *emit,
         lily_register_info *info, char *class_name, lily_var *var)
 {
@@ -717,8 +721,9 @@ static void add_var_chain_to_info(lily_emit_state *emit,
     }
 }
 
-/* add_storage_chain_to_info
-   This adds the storages that a function has used to the function's info. */
+/*  add_storage_chain_to_info
+    Add info for a linked-list of storages to the given register info. Only
+    used by finalize_function_val. */
 static void add_storage_chain_to_info(lily_register_info *info,
         lily_storage *storage)
 {
@@ -731,11 +736,17 @@ static void add_storage_chain_to_info(lily_register_info *info,
     }
 }
 
-/* finalize_function_val
-   A function is closing (or __main__ is about to be called). Since this function is
-   done, prepare the reg_info part of it. This will be used to allocate the
-   registers it needs at vm-time. */
-static void finalize_function_val(lily_emit_state *emit, lily_block *function_block)
+/*  finalize_function_val
+    This is a helper called when a function block is being exited, OR __main__
+    needs to run.
+
+    In both cases, the register info that the vm needs to init the registers
+    for this function is created.
+
+    For non-__main__ functions, inner functions are hidden in symtab's
+    old_function_chain, and the vars go out of scope. */
+static void finalize_function_val(lily_emit_state *emit,
+        lily_block *function_block)
 {
     int register_count = emit->symtab->next_register_spot;
     lily_var *var_iter;
@@ -981,30 +992,14 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
 }
 
 /*  emit_op_for_compound
-    Compound assignments are assignments that also have an operation that
-    includes the left side of the expression. Examples are +=, -=, *=, /=, and
-    more. Rather than leave this to the vm, these compound assignments are
-    broken down, then assigned to the left side of the expression.
-    So if we have this:
+    Examples: +=, -=, *=, /=, etc.
 
-    x *= y
+    X Y= Z
+    can be folded into
+    X = X Y Z
 
-    it gets broken down into
-
-    x * y -> storage
-    x = storage
-
-    This takes in an ast that has an op that is a compound assignment, and calls
-    for it to be emitted as if it were a binary operation.
-
-    Notes:
-    * This assumes ast->left and ast->right have already been walked.
-    * This will raise lily_SyntaxError if the ast's op is not a compound op, or
-      if the compound op is invalid (ex: list /= integer).
-    * This handles the 'x * y -> storage' part. The caller is expected to handle
-      the 'x = storage' part.
-    * The result of the binary expression is set to ast->result.
-*/
+    This allows the vm to not have compound expression opcodes. This assumes
+    that the left and the right have already been walked. */
 static void emit_op_for_compound(lily_emit_state *emit, lily_ast *ast)
 {
     int save_op = ast->op;
@@ -1035,12 +1030,13 @@ static void emit_op_for_compound(lily_emit_state *emit, lily_ast *ast)
     ast->op = save_op;
 }
 
-/* assign_optimize_check
-   This takes a given ast and determines if an assignment -really- needs to be
-   written for it. This is somewhat complex, but anything that can be optimized
-   out at emit-time has huge gains at vm-time.
-   This can be written as one very large if check with multiple or's, but for
-   sanity, has been broken down into explainable chunks. */
+/*  assign_optimize_check
+    ALL opcodes that return a result always have the result as the last value
+    written. This is no accident: There are many cases where the emitter makes
+    a storage that isn't needed.
+
+    This function determines if an assignment can be optimized out by rewriting
+    the last emitted opcode to return to what would have been assigned to. */
 static int assign_optimize_check(lily_ast *ast)
 {
     int can_optimize = 1;
@@ -1093,10 +1089,8 @@ static int assign_optimize_check(lily_ast *ast)
     return can_optimize;
 }
 
-/* eval_assign
-   This handles asts with type tree_binary, wherein the left side is not a
-   subscript. This will handle compound assignments, as well as basic
-   assignments. */
+/*  eval_assign
+    This handles assignments where the left is not a subscript. */
 static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 {
     int left_cls_id, opcode;
@@ -1315,9 +1309,8 @@ static void eval_package_assign(lily_emit_state *emit, lily_ast *ast)
     ast->result = rhs_tree->result;
 }
 
-/* eval_logical_op
-   This handles an ast of type tree_binary, wherein the op is either
-   expr_logical_or (||) or expr_logical_and (&&). */
+/*  eval_logical_op
+    This handles || (or) as well as && (and). */
 static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 {
     lily_symtab *symtab = emit->symtab;
@@ -1395,17 +1388,16 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         ast->result = NULL;
 }
 
-/* emit_sub_assign
-   This handles an ast of type tree_binary wherein the left side has a
-   subscript against it (ex: x[0] = y, x[0][0] = y, etc). This also handles
-   compound assignments.
-   This is necessary because subscripts place their value into a storage, so a
-   typical assignment would target a storage, instead of the list value. This
-   writes o_set_item to make sure the vm assigns to the list, and not a
-   storage.
-   Var is at ast->left->arg_start
-   Index is at ast->left->arg_start->next
-   Right is at ast->right */
+/*  emit_sub_assign
+    This handles an assignment where the left side has a subscript involved
+    (ex: x[0] = 10). This handles compound ops as well as all subscript
+    assigning types (list, hash, and tuple)
+
+    There are three parts: The var, the index, and the new value (right).
+
+    Var:   ast->left->arg_start
+    Index: ast->left->arg_start->next
+    Right: ast->right */
 static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
 {
     lily_ast *var_ast = ast->left->arg_start;
@@ -1475,15 +1467,9 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
 }
 
 /*  eval_typecast
-    This handles an ast of type tree_typecast. A typecast has two parts: A
-    signature to cast to, and a value to cast.
-    * The value is at ast->arg_start
-    * The signature is at ast->arg_start->next_arg->sig
-
-    This does some basic conversions:
-    * Anything can be converted into 'any'.
-    * 'any' can be converted into anything (with a check done at vm-time).
-    * integer<->double conversion. */
+    This handles writing a typecast. A typecast has two parts:
+    Value:     ast->arg_start
+    Signature: ast->arg_start->next_arg->sig */
 static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 {
     lily_sig *cast_sig = ast->arg_start->next_arg->sig;
@@ -1546,11 +1532,8 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)result;
 }
 
-/* eval_unary_op
-   This takes an ast of type tree_unary, and evaluates it. The unary op is
-   stored in ast->op, and the value is at ast->left.
-   This currently only handles unary ops on integers, but that may eventually
-   change. */
+/*  eval_unary_op
+    This handles unary ops. Unary ops currently only work on integers. */
 static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
 {
     uintptr_t opcode;
@@ -1603,7 +1586,7 @@ static void emit_hash_values_to_anys(lily_emit_state *emit,
     /* The keys and values are in hash_ast as args. Since they're in pairs and
        this only modifies the values, this is how many values there are. */
     int value_count = hash_ast->args_collected / 2;
- 
+
     /* Make a single large prep that will cover everything needed. This ensures
        that any growing will be done all at once, instead of in smaller
        blocks. */
@@ -1636,7 +1619,7 @@ static void emit_list_values_to_anys(lily_emit_state *emit,
         lily_ast *list_ast)
 {
     int value_count = list_ast->args_collected;
- 
+
     write_prep(emit, value_count * 4);
 
     lily_ast *iter_ast;
@@ -1851,16 +1834,13 @@ static int type_matchup(lily_emit_state *emit, lily_sig *self,
     return ret;
 }
 
-/* This walks an ast of type tree_list, which indicates a static list to be
-   build (ex: x = [1, 2, 3, 4...] or x = ["1", "2", "3", "4"]).
-   The values start in ast->arg_start, and end when ->next_arg is NULL.
-   There are a few caveats:
-   * Lists where all values are the same type are created as lists of that type.
-   * If any list value is different, then the list values are cast to any,
-     and the list's type is set to any.
-   * Empty lists have a type specified in them, like x = [string]. This can be
-     a complex type, if wanted. These lists will have 0 args and ->sig set to
-     the sig specified. */
+/*  eval_build_list
+    This writes an instruction to build a list from a set of values given.
+
+    If all list elements have the same type, the resulting list shall be of the
+    common type (Ex: [1, 2, 3] is a list[integer]).
+
+    If they do not, the resulting type shall be list[any]. */
 static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
 {
     lily_sig *elem_sig = NULL;
@@ -1869,11 +1849,6 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
 
     make_anys = 0;
 
-    /* Walk through all of the list elements, keeping a note of the class
-       of the results. The class of the list elements is determined as
-       follows:
-       * If all results have the same class, then use that class.
-       * If they do not, use any. */
     for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
         if (arg->tree_type != tree_local_var)
             eval_tree(emit, arg);
@@ -1912,7 +1887,13 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)s;
 }
 
-/*  eval_build_tuple */
+/*  eval_build_tuple
+    This handles creation of a tuple from a series of values. The resulting
+    tuple will have a signature that matches what it obtained.
+
+    <[1, "2", 3.3]> # tuple[integer, string, double]
+
+    No defaulting to any is done here, ever. */
 static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast)
 {
     if (ast->args_collected == 0) {
@@ -1926,7 +1907,6 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast)
     if ((emit->sig_stack_pos + ast->args_collected) > emit->sig_stack_size)
         grow_sig_stack(emit);
 
-    /* Tuple lets the args be whatever they want to be. :) */
     for (i = 0, arg = ast->arg_start;
          arg != NULL;
          i++, arg = arg->next_arg) {
@@ -1946,10 +1926,9 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)s;
 }
 
-/* eval_subscript
-   This handles an ast of type tree_subscript. The arguments for the subscript
-   start at ->arg_start.
-   Arguments are: var, index, value */
+/*  eval_subscript
+    Evaluate a subscript, returning the resulting value. This handles
+    subscripts of list, hash, and tuple. */
 static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
 {
      lily_ast *var_ast = ast->arg_start;
@@ -1988,11 +1967,11 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)result;
 }
 
-/* check_call_args
-   This is used by eval_call to verify that the given arguments are all correct.
-   This handles walking all of the arguments given, as well as verifying that
-   the argument count is correct. For function varargs, this will pack the extra
-   arguments into a list. */
+/*  check_call_args
+    eval_call uses this to make sure the types of all the arguments are right.
+
+    If the function takes varargs, the extra arguments are packed into a list
+    of the vararg type. */
 static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         lily_sig *call_sig)
 {
@@ -2081,11 +2060,9 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     }
 }
 
-/* eval_call
-   This walks an ast of type tree_call. The arguments start at ast->arg_start.
-   If the call was to a known var at parse-time, then ast->result will be that
-   var. Otherwise, the value to call is the first 'argument', which will need
-   to be evaluated. */
+/*  eval_call
+    This handles doing calls to what should be a function. It handles doing oo
+    calls by farming out the oo lookup elsewhere. */
 static void eval_call(lily_emit_state *emit, lily_ast *ast)
 {
      int expect_size, i;
@@ -2254,16 +2231,13 @@ static void eval_package(lily_emit_state *emit, lily_ast *ast)
     This is a 'abc.xyz' sort of call. This ast's arg_start is the 'abc' part
     of the call. Eval this, then use the resulting signature and the ast's
     oo_pool_index to do a lookup (for the xyz part). This yields the found var
-    as a result.
-    eval_call takes the result as the var to call, then patches it later to
-    have the ast arg_start's result for emitting.
-    Note: This tree's arg_start is the first argument of the call, but is
-          never type-checked. This isn't considered a problem, because the
-          first argument of a class callable always takes self.
-          Have you ever seen a class function NOT take the class as the first
-          argument? Exactly. */
+    as a result. */
 static void eval_oo_call(lily_emit_state *emit, lily_ast *ast)
 {
+    /* This gets evaluated twice: The first time by eval_call to determine that
+       the oo lookup is correct, and again when checking arguments so that
+       template info is properly populated. Do this so the tree doesn't do a
+       double lookup. */
     if (ast->result)
         return;
 
@@ -2312,9 +2286,8 @@ static void eval_isnil(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)s;
 }
 
-/* eval_tree
-   This is the main emit function. This doesn't evaluate anything itself, but
-   instead determines what call to shove the work off to. */
+/*  eval_tree
+    Magically determine what function actually handles the given ast. */
 static void eval_tree(lily_emit_state *emit, lily_ast *ast)
 {
     if (ast->tree_type == tree_var || ast->tree_type == tree_readonly)
@@ -2529,9 +2502,9 @@ void lily_emit_eval_do_while_expr(lily_emit_state *emit, lily_ast_pool *ap)
     lily_ast_reset_pool(ap);
 }
 
-/* lily_emit_continue
-   This emits a jump to go back up to the top of a while. Since this is called
-   by parser, it also checks that emitter is in a while. */
+/*  lily_emit_continue
+    The parser wants to write a jump to the top of the current loop (continue
+    keyword). */
 void lily_emit_continue(lily_emit_state *emit)
 {
     /* This is called by parser on the source line, so do not adjust the
@@ -2546,9 +2519,8 @@ void lily_emit_continue(lily_emit_state *emit)
     write_2(emit, o_jump, emit->current_block->loop_start);
 }
 
-/* lily_emit_change_if_branch
-   This is called when an if or elif jump has finished, and a new branch is to
-   begin. have_else indicates if it's an else branch or an elif branch. */
+/*  lily_emit_change_if_branch
+    An if/elif is done and a new branch is starting. */
 void lily_emit_change_if_branch(lily_emit_state *emit, int have_else)
 {
     int save_jump;
@@ -2634,9 +2606,9 @@ void lily_emit_raise(lily_emit_state *emit, lily_ast *ast)
             ast->result->reg_spot);
 }
 
-/* lily_emit_show
-   This evals the given ast, then writes o_show so the vm will show the result
-   of the ast. Type-checking is intentionally NOT performed. */
+/*  lily_emit_show
+    This evals the given ast, then writes o_show so the vm will show the result
+    of the ast. Type-checking is intentionally NOT performed. */
 void lily_emit_show(lily_emit_state *emit, lily_ast *ast)
 {
     int is_global = (ast->tree_type == tree_var);
@@ -2751,12 +2723,8 @@ void lily_reset_main(lily_emit_state *emit)
 
 /** Block entry/exit **/
 
-/* lily_emit_enter_block
-   Enter a block of the given block_type. It will try to use an existing block
-   if able, or create a new one if it cannot.
-   For functions, top_function_ret is not set (because this is called when a
-   function var is seen), and must be patched later.
-   Note that this will call lily_raise_nomem if unable to create a block. */
+/*  lily_emit_enter_block
+    Enter a block of a given type. */
 void lily_emit_enter_block(lily_emit_state *emit, int block_type)
 {
     lily_block *new_block;
@@ -2813,9 +2781,10 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
     emit->current_block = new_block;
 }
 
-/* lily_emit_leave_block
-   This closes the last block that was added to the emitter. Any vars that were
-   added in the block are dropped. */
+/*  lily_emit_leave_block
+    Leave a block. This includes a check for trying to leave from __main__.
+    This hides vars that are no longer in scope, as well as finializing
+    functions. */
 void lily_emit_leave_block(lily_emit_state *emit)
 {
     lily_var *v;
@@ -2854,10 +2823,9 @@ void lily_emit_leave_block(lily_emit_state *emit)
     emit->current_block = emit->current_block->prev;
 }
 
-/* lily_emit_try_enter_main
-   Attempt to create a block representing __main__, then enter it. main_var is
-   the var representing __main__. Returns 1 on success, or 0 on failure.
-   Emitter hasn't had the symtab set, which is why the var must be sent. */
+/*  lily_emit_try_enter_main
+    Make a block representing __main__ and go inside of it. Returns 1 on
+    success, 0 on failure. This should only be called once. */
 int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
 {
     lily_block *main_block = try_new_block();
@@ -2888,18 +2856,18 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     return 1;
 }
 
-/* lily_emit_finalize_for_in
-   This function takes the symbols used in a for..in loop and writes out the
-   appropriate code to start off a for loop. This should be done at the very end
-   of a for..in loop, after the 'by' expression has been collected.
-   * user_loop_var: This is the user var that will have the range value written
-                    to it.
-   * for_start:     The var holding the start of the range.
-   * for_end:       The var holding the end of the range.
-   * for_step:      The var holding the step of the range. This is NULL if the
-                    user did not specify a step.
-   * line_num:      A line number for writing code to be run before the actual
-                    for code. */
+/*  lily_emit_finalize_for_in
+    This function takes the symbols used in a for..in loop and writes out the
+    appropriate code to start off a for loop. This should be done at the very
+    end of a for..in loop, after the 'by' expression has been collected.
+    * user_loop_var: This is the user var that will have the range value
+                     written to it.
+    * for_start:     The var holding the start of the range.
+    * for_end:       The var holding the end of the range.
+    * for_step:      The var holding the step of the range. This is NULL if the
+                     user did not specify a step.
+    * line_num:      A line number for writing code to be run before the actual
+                     for code. */
 void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
         lily_var *for_start, lily_var *for_end, lily_var *for_step,
         int line_num)
