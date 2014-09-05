@@ -2351,6 +2351,63 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast)
 
 /** Emitter API functions **/
 
+/*  lily_emit_change_block_to
+    This is called when the parser would like to change the current block into
+    another block type.
+
+    One example is when the parser sees 'elif'. In that case, it wants to
+    change the current block into 'BLOCK_IF_ELIF'. */
+void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
+{
+    int current_type = emit->current_block->block_type;
+    int save_jump;
+
+    if (new_type == BLOCK_IF_ELIF || new_type == BLOCK_IF_ELSE) {
+        char *block_name;
+        if (new_type == BLOCK_IF_ELIF)
+            block_name = "elif";
+        else
+            block_name = "else";
+
+        if (current_type != BLOCK_IF && current_type != BLOCK_IF_ELIF)
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "'%s' without 'if'.\n", block_name);
+
+        if (current_type == BLOCK_IF_ELSE)
+            lily_raise(emit->raiser, lily_SyntaxError, "'%s' after 'else'.\n",
+                    block_name);
+
+        lily_var *v = emit->current_block->var_start;
+        if (v->next != NULL)
+            lily_hide_block_vars(emit->symtab, v);
+    }
+    else if (new_type == BLOCK_TRY_EXCEPT) {
+        if (current_type != BLOCK_TRY && current_type != BLOCK_TRY_EXCEPT)
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "'except' outside 'try'.\n");
+
+        /* If nothing in the 'try' block raises an error, the vm needs to be
+           told to unregister the 'try' block since will become unreachable
+           when the jump below occurs. */
+        if (current_type == BLOCK_TRY)
+            write_1(emit, o_pop_try);
+    }
+
+    lily_function_val *f = emit->top_function;
+
+    /* Transitioning between blocks is simple: First write a jump at the end of
+       the current branch. This will get patched to the if/try's exit. */
+    write_2(emit, o_jump, 0);
+    save_jump = f->pos - 1;
+
+    /* The last jump of the previous branch wants to know where the check for
+       the next branch starts. It's right now. */
+    f->code[emit->patches[emit->patch_pos-1]] = f->pos;
+    emit->patches[emit->patch_pos-1] = save_jump;
+
+    emit->current_block->block_type = new_type;
+}
+
 /*  lily_emit_expr
     This evaluates the root of the ast pool given (the expression), then clears
     the pool for the next expression. */
@@ -2522,48 +2579,6 @@ void lily_emit_continue(lily_emit_state *emit)
     write_2(emit, o_jump, emit->current_block->loop_start);
 }
 
-/*  lily_emit_change_if_branch
-    An if/elif is done and a new branch is starting. */
-void lily_emit_change_if_branch(lily_emit_state *emit, int have_else)
-{
-    int save_jump;
-    lily_block *block = emit->current_block;
-    lily_var *v = block->var_start;
-
-    if (emit->current_block->block_type != BLOCK_IF &&
-        emit->current_block->block_type != BLOCK_IFELSE) {
-        char *name = (have_else ? "else" : "elif");
-        lily_raise(emit->raiser, lily_SyntaxError,
-                   "'%s' without 'if'.\n", name);
-    }
-
-    if (have_else) {
-        if (block->block_type == BLOCK_IFELSE)
-            lily_raise(emit->raiser, lily_SyntaxError,
-                       "Only one 'else' per 'if' allowed.\n");
-        else
-            block->block_type = BLOCK_IFELSE;
-    }
-    else if (block->block_type == BLOCK_IFELSE)
-        lily_raise(emit->raiser, lily_SyntaxError, "'elif' after 'else'.\n");
-
-    if (v->next != NULL)
-        lily_hide_block_vars(emit->symtab, v);
-
-    lily_function_val *f = emit->top_function;
-
-    /* Write an exit jump for this branch, thereby completing the branch. */
-    write_2(emit, o_jump, 0);
-    save_jump = f->pos - 1;
-
-    /* The last jump actually collected wanted to know where the next branch
-       would start. It's where the code is now. */
-    f->code[emit->patches[emit->patch_pos-1]] = f->pos;
-    /* Write the exit jump where the branch jump was. Since the branch jump got
-       patched, storing the location is pointless. */
-    emit->patches[emit->patch_pos-1] = save_jump;
-}
-
 /* lily_emit_return
    This writes a return statement for a function. This also checks that the
    value given matches what the function says it returns. */
@@ -2666,34 +2681,10 @@ void lily_emit_try(lily_emit_state *emit, int line_num)
 void lily_emit_except(lily_emit_state *emit, lily_class *cls,
         lily_var *except_var, int line_num)
 {
-    if (emit->current_block->block_type != BLOCK_TRY) {
-        lily_raise(emit->raiser, lily_SyntaxError,
-                "'except' not within 'try' block.\n");
-    }
-
     lily_sig *except_sig = cls->sig;
     lily_sym *except_sym = (lily_sym *)except_var;
     if (except_sym == NULL)
         except_sym = (lily_sym *)get_storage(emit, except_sig, line_num);
-
-    /* This is done so that if the 'try' doesn't have anything that raises
-       that the vm unregisters the 'try' block. */
-    if (emit->current_block->block_type == BLOCK_TRY) {
-        write_1(emit, o_pop_try);
-        emit->current_block->block_type = BLOCK_TRY_EXCEPT;
-    }
-
-    /* Write a jump that will go to the end of the try. */
-    write_2(emit, o_jump, 0);
-    lily_function_val *f = emit->top_function;
-    int save_jump = f->pos - 1;
-
-    /* The last jump is always wanting to know where the next except block
-       starts. That's now known.
-       However, since that block is done, it now needs to know where the end
-       of the try block is. */
-    f->code[emit->patches[emit->patch_pos - 1]] = f->pos;
-    emit->patches[emit->patch_pos - 1] = save_jump;
 
     write_5(emit,
             o_except,
@@ -2701,6 +2692,8 @@ void lily_emit_except(lily_emit_state *emit, lily_class *cls,
             0,
             (except_var != NULL),
             except_sym->reg_spot);
+
+    lily_function_val *f = emit->top_function;
 
     if (emit->patch_pos == emit->patch_size)
         grow_patches(emit);
