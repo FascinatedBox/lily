@@ -36,6 +36,7 @@
 }
 
 static int type_matchup(lily_emit_state *, lily_sig *, lily_sig *, lily_ast *);
+static void eval_tree(lily_emit_state *, lily_ast *);
 
 /*****************************************************************************/
 /* Emitter setup and teardown                                                */
@@ -355,6 +356,65 @@ static lily_block *try_new_block(void)
     return ret;
 }
 
+static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
+        lily_ast *index_ast, lily_literal *index_literal)
+{
+    int var_cls_id = var_ast->result->sig->cls->id;
+    if (var_cls_id == SYM_CLASS_LIST) {
+        if (index_ast->result->sig->cls->id != SYM_CLASS_INTEGER)
+            lily_raise_adjusted(emit->raiser, var_ast->line_num,
+                    lily_SyntaxError, "list index is not an integer.\n", "");
+    }
+    else if (var_cls_id == SYM_CLASS_HASH) {
+        lily_sig *want_key = var_ast->result->sig->siglist[0];
+        lily_sig *have_key = index_ast->result->sig;
+
+        if (want_key != have_key) {
+            lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
+                    "hash index should be type '%T', not type '%T'.\n",
+                    want_key, have_key);
+        }
+    }
+    else if (var_cls_id == SYM_CLASS_TUPLE) {
+        if (index_ast->result->sig->cls->id != SYM_CLASS_INTEGER ||
+            index_ast->tree_type != tree_readonly) {
+            lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
+                    "tuple subscripts must be integer literals.\n", "");
+        }
+        lily_sig *var_sig = var_ast->result->sig;
+        if (index_literal->value.integer < 0 ||
+            index_literal->value.integer >= var_sig->siglist_size) {
+
+            lily_raise_adjusted(emit->raiser, var_ast->line_num,
+                    lily_SyntaxError, "Index %d is out of range for %T.\n",
+                    index_literal->value.integer, var_sig);
+        }
+    }
+    else {
+        lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
+                "Cannot subscript type '%T'.\n",
+                var_ast->result->sig);
+    }
+}
+
+static lily_sig *get_subscript_result(lily_sig *sig, lily_ast *index_ast,
+        lily_literal *tuple_index_lit)
+{
+    lily_sig *result;
+    if (sig->cls->id == SYM_CLASS_LIST)
+        result = sig->siglist[0];
+    else if (sig->cls->id == SYM_CLASS_HASH)
+        result = sig->siglist[1];
+    else if (sig->cls->id == SYM_CLASS_TUPLE)
+        /* check_valid_subscript verifies that the literal is an integer with
+           a sane index. */
+        result = sig->siglist[tuple_index_lit->value.integer];
+    else
+        result = NULL;
+
+    return result;
+}
+
 /* try_add_storage
    Attempt to add a new storage to emitter's chain of storages with the given
    signature. This should be seen as a helper for get_storage, and not used
@@ -639,7 +699,152 @@ static lily_sig *build_untemplated_sig(lily_emit_state *emit, lily_sig *sig)
     return ret;
 }
 
-/** Error helpers **/
+/* add_var_chain_to_info
+   This adds a chain of vars to a function's info. If not __main__, then functions
+   declared within the currently-exiting function are skipped. */
+static void add_var_chain_to_info(lily_emit_state *emit,
+        lily_register_info *info, char *class_name, lily_var *var)
+{
+    while (var) {
+        if ((var->flags & VAR_IS_READONLY) == 0) {
+            info[var->reg_spot].sig = var->sig;
+            info[var->reg_spot].name = var->name;
+            info[var->reg_spot].class_name = class_name;
+            info[var->reg_spot].line_num = var->line_num;
+        }
+
+        var = var->next;
+    }
+}
+
+/* add_storage_chain_to_info
+   This adds the storages that a function has used to the function's info. */
+static void add_storage_chain_to_info(lily_register_info *info,
+        lily_storage *storage)
+{
+    while (storage && storage->sig) {
+        info[storage->reg_spot].sig = storage->sig;
+        info[storage->reg_spot].name = NULL;
+        info[storage->reg_spot].class_name = NULL;
+        info[storage->reg_spot].line_num = -1;
+        storage = storage->next;
+    }
+}
+
+/* finalize_function_val
+   A function is closing (or __main__ is about to be called). Since this function is
+   done, prepare the reg_info part of it. This will be used to allocate the
+   registers it needs at vm-time. */
+static void finalize_function_val(lily_emit_state *emit, lily_block *function_block)
+{
+    int register_count = emit->symtab->next_register_spot;
+    lily_var *var_iter;
+    lily_storage *storage_iter = function_block->storage_start;
+
+    lily_register_info *info;
+    lily_function_val *f = emit->top_function;
+    if (f->reg_info == NULL)
+        info = lily_malloc(register_count * sizeof(lily_register_info));
+    else
+        info = lily_realloc(f->reg_info,
+                register_count * sizeof(lily_register_info));
+
+    if (info == NULL)
+        /* This is called directly from parser, so don't set an adjust. */
+        lily_raise_nomem(emit->raiser);
+
+    var_iter = function_block->function_var;
+
+    /* Don't include functions inside of themselves... */
+    if (emit->function_depth > 1)
+        var_iter = var_iter->next;
+    /* else we're in __main__, which does include itself as an arg so it can be
+       passed to show and other neat stuff. */
+
+    add_var_chain_to_info(emit, info, NULL, var_iter);
+    add_storage_chain_to_info(info, function_block->storage_start);
+
+    if (emit->function_depth > 1) {
+        /* todo: Reuse the var shells instead of destroying. Seems petty, but
+                 malloc isn't cheap if there are a lot of vars. */
+        lily_var *var_temp;
+        while (var_iter) {
+            var_temp = var_iter->next;
+            if ((var_iter->flags & VAR_IS_READONLY) == 0)
+                lily_free(var_iter);
+            else {
+                /* This is a function declared within the current function. Hide it
+                   in symtab's old functions since it's going out of scope. */
+                var_iter->next = emit->symtab->old_function_chain;
+                emit->symtab->old_function_chain = var_iter;
+            }
+
+            /* The function value now owns the var names, so don't free them. */
+            var_iter = var_temp;
+        }
+
+        /* Blank the signatures of the storages that were used. This lets other
+           functions know that the signatures are not in use. */
+        storage_iter = function_block->storage_start;
+        while (storage_iter) {
+            storage_iter->sig = NULL;
+            storage_iter = storage_iter->next;
+        }
+
+        /* Unused storages now begin where the function starting zapping them. */
+        emit->unused_storage_start = function_block->storage_start;
+    }
+    else {
+        /* If __main__, add class functions like string::concat and all global
+           vars. */
+        int i;
+        for (i = 0;i < emit->symtab->class_pos;i++) {
+            lily_class *cls = emit->symtab->classes[i];
+            if (cls->call_start)
+                add_var_chain_to_info(emit, info, cls->name, cls->call_start);
+        }
+    }
+
+    f->reg_info = info;
+    f->reg_count = register_count;
+}
+
+static void leave_function(lily_emit_state *emit, lily_block *block)
+{
+    if (emit->top_function_ret == NULL)
+        /* Write an implicit 'return' at the end of a function claiming to not
+           return a value. This saves the user from having to write an explicit
+           'return'. */
+        write_2(emit, o_return_noval, *emit->lex_linenum);
+    else
+        /* Ensure that if the function does not raise a value that an error is
+           raised at vm-time. */
+        write_2(emit, o_return_expected, *emit->lex_linenum);
+
+    finalize_function_val(emit, block);
+
+    /* Warning: This assumes that only functions can contain other functions. */
+    lily_var *v = block->prev->function_var;
+
+    /* If this function has no storages, then it can use the ones from the function
+       that just exited. This reuse cuts down on a lot of memory. */
+    if (block->prev->storage_start == NULL)
+        block->prev->storage_start = emit->unused_storage_start;
+
+    emit->symtab->var_top = block->function_var;
+    block->function_var->next = NULL;
+    emit->symtab->function_depth--;
+    emit->symtab->next_register_spot = block->save_register_spot;
+    emit->top_function = v->value.function;
+    emit->top_var = v;
+    emit->top_function_ret = v->sig->siglist[0];
+    emit->function_depth--;
+}
+
+/*****************************************************************************/
+/* Error raising functions                                                   */
+/*****************************************************************************/
+
 static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
     lily_sig *got, lily_sig *expected, int arg_num)
 {
@@ -713,9 +918,6 @@ static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
                class_name, separator, call_name, va_text,
                call_sig->siglist_size - 1, ast->args_collected);
 }
-
-/** ast walking helpers **/
-static void eval_tree(lily_emit_state *, lily_ast *);
 
 /* emit_binary_op
    This handles an ast of type tree_binary wherein the op is not an assignment
@@ -1113,10 +1315,6 @@ static void eval_package_assign(lily_emit_state *emit, lily_ast *ast)
     ast->result = rhs_tree->result;
 }
 
-/* Forward decls of enter/leave block for emit_logical_op. */
-void lily_emit_enter_block(lily_emit_state *, int);
-void lily_emit_leave_block(lily_emit_state *);
-
 /* eval_logical_op
    This handles an ast of type tree_binary, wherein the op is either
    expr_logical_or (||) or expr_logical_and (&&). */
@@ -1195,65 +1393,6 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
            because that would be a double-test.
            Setting this to NULL anyway as a precaution. */
         ast->result = NULL;
-}
-
-static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
-        lily_ast *index_ast, lily_literal *index_literal)
-{
-    int var_cls_id = var_ast->result->sig->cls->id;
-    if (var_cls_id == SYM_CLASS_LIST) {
-        if (index_ast->result->sig->cls->id != SYM_CLASS_INTEGER)
-            lily_raise_adjusted(emit->raiser, var_ast->line_num,
-                    lily_SyntaxError, "list index is not an integer.\n", "");
-    }
-    else if (var_cls_id == SYM_CLASS_HASH) {
-        lily_sig *want_key = var_ast->result->sig->siglist[0];
-        lily_sig *have_key = index_ast->result->sig;
-
-        if (want_key != have_key) {
-            lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
-                    "hash index should be type '%T', not type '%T'.\n",
-                    want_key, have_key);
-        }
-    }
-    else if (var_cls_id == SYM_CLASS_TUPLE) {
-        if (index_ast->result->sig->cls->id != SYM_CLASS_INTEGER ||
-            index_ast->tree_type != tree_readonly) {
-            lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
-                    "tuple subscripts must be integer literals.\n", "");
-        }
-        lily_sig *var_sig = var_ast->result->sig;
-        if (index_literal->value.integer < 0 ||
-            index_literal->value.integer >= var_sig->siglist_size) {
-
-            lily_raise_adjusted(emit->raiser, var_ast->line_num,
-                    lily_SyntaxError, "Index %d is out of range for %T.\n",
-                    index_literal->value.integer, var_sig);
-        }
-    }
-    else {
-        lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
-                "Cannot subscript type '%T'.\n",
-                var_ast->result->sig);
-    }
-}
-
-static lily_sig *get_subscript_result(lily_sig *sig, lily_ast *index_ast,
-        lily_literal *tuple_index_lit)
-{
-    lily_sig *result;
-    if (sig->cls->id == SYM_CLASS_LIST)
-        result = sig->siglist[0];
-    else if (sig->cls->id == SYM_CLASS_HASH)
-        result = sig->siglist[1];
-    else if (sig->cls->id == SYM_CLASS_TUPLE)
-        /* check_valid_subscript verifies that the literal is an integer with
-           a sane index. */
-        result = sig->siglist[tuple_index_lit->value.integer];
-    else
-        result = NULL;
-
-    return result;
 }
 
 /* emit_sub_assign
@@ -2595,116 +2734,6 @@ void lily_emit_except(lily_emit_state *emit, lily_class *cls,
     emit->patch_pos++;
 }
 
-/* add_var_chain_to_info
-   This adds a chain of vars to a function's info. If not __main__, then functions
-   declared within the currently-exiting function are skipped. */
-static void add_var_chain_to_info(lily_emit_state *emit,
-        lily_register_info *info, char *class_name, lily_var *var)
-{
-    while (var) {
-        if ((var->flags & VAR_IS_READONLY) == 0) {
-            info[var->reg_spot].sig = var->sig;
-            info[var->reg_spot].name = var->name;
-            info[var->reg_spot].class_name = class_name;
-            info[var->reg_spot].line_num = var->line_num;
-        }
-
-        var = var->next;
-    }
-}
-
-/* add_storage_chain_to_info
-   This adds the storages that a function has used to the function's info. */
-static void add_storage_chain_to_info(lily_register_info *info,
-        lily_storage *storage)
-{
-    while (storage && storage->sig) {
-        info[storage->reg_spot].sig = storage->sig;
-        info[storage->reg_spot].name = NULL;
-        info[storage->reg_spot].class_name = NULL;
-        info[storage->reg_spot].line_num = -1;
-        storage = storage->next;
-    }
-}
-
-/* finalize_function_val
-   A function is closing (or __main__ is about to be called). Since this function is
-   done, prepare the reg_info part of it. This will be used to allocate the
-   registers it needs at vm-time. */
-static void finalize_function_val(lily_emit_state *emit, lily_block *function_block)
-{
-    int register_count = emit->symtab->next_register_spot;
-    lily_var *var_iter;
-    lily_storage *storage_iter = function_block->storage_start;
-
-    lily_register_info *info;
-    lily_function_val *f = emit->top_function;
-    if (f->reg_info == NULL)
-        info = lily_malloc(register_count * sizeof(lily_register_info));
-    else
-        info = lily_realloc(f->reg_info,
-                register_count * sizeof(lily_register_info));
-
-    if (info == NULL)
-        /* This is called directly from parser, so don't set an adjust. */
-        lily_raise_nomem(emit->raiser);
-
-    var_iter = function_block->function_var;
-
-    /* Don't include functions inside of themselves... */
-    if (emit->function_depth > 1)
-        var_iter = var_iter->next;
-    /* else we're in __main__, which does include itself as an arg so it can be
-       passed to show and other neat stuff. */
-
-    add_var_chain_to_info(emit, info, NULL, var_iter);
-    add_storage_chain_to_info(info, function_block->storage_start);
-
-    if (emit->function_depth > 1) {
-        /* todo: Reuse the var shells instead of destroying. Seems petty, but
-                 malloc isn't cheap if there are a lot of vars. */
-        lily_var *var_temp;
-        while (var_iter) {
-            var_temp = var_iter->next;
-            if ((var_iter->flags & VAR_IS_READONLY) == 0)
-                lily_free(var_iter);
-            else {
-                /* This is a function declared within the current function. Hide it
-                   in symtab's old functions since it's going out of scope. */
-                var_iter->next = emit->symtab->old_function_chain;
-                emit->symtab->old_function_chain = var_iter;
-            }
-
-            /* The function value now owns the var names, so don't free them. */
-            var_iter = var_temp;
-        }
-
-        /* Blank the signatures of the storages that were used. This lets other
-           functions know that the signatures are not in use. */
-        storage_iter = function_block->storage_start;
-        while (storage_iter) {
-            storage_iter->sig = NULL;
-            storage_iter = storage_iter->next;
-        }
-
-        /* Unused storages now begin where the function starting zapping them. */
-        emit->unused_storage_start = function_block->storage_start;
-    }
-    else {
-        /* If __main__, add class functions like string::concat and all global
-           vars. */
-        int i;
-        for (i = 0;i < emit->symtab->class_pos;i++) {
-            lily_class *cls = emit->symtab->classes[i];
-            if (cls->call_start)
-                add_var_chain_to_info(emit, info, cls->name, cls->call_start);
-        }
-    }
-
-    f->reg_info = info;
-    f->reg_count = register_count;
-}
-
 /* lily_emit_vm_return
    This writes the o_vm_return opcode at the end of the __main__ function. */
 void lily_emit_vm_return(lily_emit_state *emit)
@@ -2782,38 +2811,6 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
     }
 
     emit->current_block = new_block;
-}
-
-static void leave_function(lily_emit_state *emit, lily_block *block)
-{
-    if (emit->top_function_ret == NULL)
-        /* Write an implicit 'return' at the end of a function claiming to not
-           return a value. This saves the user from having to write an explicit
-           'return'. */
-        write_2(emit, o_return_noval, *emit->lex_linenum);
-    else
-        /* Ensure that if the function does not raise a value that an error is
-           raised at vm-time. */
-        write_2(emit, o_return_expected, *emit->lex_linenum);
-
-    finalize_function_val(emit, block);
-
-    /* Warning: This assumes that only functions can contain other functions. */
-    lily_var *v = block->prev->function_var;
-
-    /* If this function has no storages, then it can use the ones from the function
-       that just exited. This reuse cuts down on a lot of memory. */
-    if (block->prev->storage_start == NULL)
-        block->prev->storage_start = emit->unused_storage_start;
-
-    emit->symtab->var_top = block->function_var;
-    block->function_var->next = NULL;
-    emit->symtab->function_depth--;
-    emit->symtab->next_register_spot = block->save_register_spot;
-    emit->top_function = v->value.function;
-    emit->top_var = v;
-    emit->top_function_ret = v->sig->siglist[0];
-    emit->function_depth--;
 }
 
 /* lily_emit_leave_block
