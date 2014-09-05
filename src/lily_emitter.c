@@ -945,11 +945,14 @@ static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
                call_sig->siglist_size - 1, ast->args_collected);
 }
 
-/* emit_binary_op
-   This handles an ast of type tree_binary wherein the op is not an assignment
-   of any type. This does not emit because eval_tree will eval the left and
-   right sides before calling this. This is good, because it allows
-   emit_op_for_compound to call this to handle compound assignments too. */
+/*****************************************************************************/
+/* Tree evaluation functions (and tree-related helpers).                     */
+/*****************************************************************************/
+
+/*  emit_binary_op
+    This is called to handle simple binary ops (except for assign). Compound
+    ops will route through here via emit_op_for_compound, and depend on this
+    function NOT doing any evaluation. */
 static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
 {
     int opcode;
@@ -1105,7 +1108,8 @@ static int assign_optimize_check(lily_ast *ast)
 }
 
 /*  eval_assign
-    This handles assignments where the left is not a subscript. */
+    This handles assignments where the left is not a subscript or package
+    access. */
 static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 {
     int left_cls_id, opcode;
@@ -2354,7 +2358,9 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast)
         eval_isnil(emit, ast);
 }
 
-/** Emitter API functions **/
+/*****************************************************************************/
+/* Exported functions                                                        */
+/*****************************************************************************/
 
 /*  lily_emit_change_block_to
     This is called when the parser would like to change the current block into
@@ -2457,6 +2463,104 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_ast_pool *ap,
     lily_ast_reset_pool(ap);
 }
 
+/*  lily_emit_eval_condition
+    This function evaluates an ast that will decide if a block should be
+    entered. This will write o_jump_if_false which will jump to the next
+    branch or outside the block if the ast's result is false.
+
+    This is suitable for 'if', 'elif', 'while', and 'do...while'.
+
+    This clears the ast pool for the next pass. */
+void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
+{
+    lily_ast *ast = ap->root;
+
+    eval_enforce_value(emit, ast, "Conditional expression has no value.\n");
+
+    int current_type = emit->current_block->block_type;
+    if (current_type != BLOCK_DO_WHILE)
+        /* If this doesn't work, add a jump which will get fixed to the next
+           branch start or the end of the block. */
+        emit_jump_if(emit, ast, 0);
+    else {
+        /* In a 'do...while' block, the condition is at the end, so the jump is
+           reversed: If successful, go back to the top, otherwise fall out of
+           the loop. */
+        write_4(emit,
+                o_jump_if,
+                1,
+                ast->result->reg_spot,
+                emit->current_block->loop_start);
+    }
+
+    lily_ast_reset_pool(ap);
+}
+
+/*  lily_emit_finalize_for_in
+    This function takes the symbols used in a for..in loop and writes out the
+    appropriate code to start off a for loop. This should be done at the very
+    end of a for..in loop, after the 'by' expression has been collected.
+    * user_loop_var: This is the user var that will have the range value
+                     written to it.
+    * for_start:     The var holding the start of the range.
+    * for_end:       The var holding the end of the range.
+    * for_step:      The var holding the step of the range. This is NULL if the
+                     user did not specify a step.
+    * line_num:      A line number for writing code to be run before the actual
+                     for code. */
+void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
+        lily_var *for_start, lily_var *for_end, lily_var *for_step,
+        int line_num)
+{
+    lily_block *loop_block = emit->current_block;
+    lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
+
+    int have_step = (for_step != NULL);
+    if (have_step == 0) {
+        /* This var isn't visible, so don't bother with a valid shorthash. */
+        for_step = lily_try_new_var(emit->symtab, cls->sig, "(for step)", 0);
+        if (for_step == NULL)
+            lily_raise_nomem(emit->raiser);
+    }
+
+    write_prep(emit, 16);
+    lily_function_val *f = emit->top_function;
+    f->code[f->pos  ] = o_for_setup;
+    f->code[f->pos+1] = line_num;
+    f->code[f->pos+2] = user_loop_var->reg_spot;
+    f->code[f->pos+3] = for_start->reg_spot;
+    f->code[f->pos+4] = for_end->reg_spot;
+    f->code[f->pos+5] = for_step->reg_spot;
+    /* This value is used to determine if the step needs to be calculated. */
+    f->code[f->pos+6] = (uintptr_t)!have_step;
+
+    /* for..in is entered right after 'for' is seen. However, range values can
+       be expressions. This needs to be fixed, or the loop will jump back up to
+       re-eval those expressions. */
+    loop_block->loop_start = f->pos+9;
+
+    /* Write a jump to the inside of the loop. This prevents the value from
+       being incremented before being seen by the inside of the loop. */
+    f->code[f->pos+7] = o_jump;
+    f->code[f->pos+8] = f->pos + 16;
+
+    f->code[f->pos+9] = o_integer_for;
+    f->code[f->pos+10] = line_num;
+    f->code[f->pos+11] = user_loop_var->reg_spot;
+    f->code[f->pos+12] = for_start->reg_spot;
+    f->code[f->pos+13] = for_end->reg_spot;
+    f->code[f->pos+14] = for_step->reg_spot;
+    f->code[f->pos+15] = 0;
+
+    f->pos += 16;
+
+    if (emit->patch_pos == emit->patch_size)
+        grow_patches(emit);
+
+    emit->patches[emit->patch_pos] = f->pos-1;
+    emit->patch_pos++;
+}
+
 /* lily_emit_break
    This writes a break (jump to the end of a loop) for the parser. Since it
    is called by parser, it needs to verify that it is called from within a
@@ -2504,39 +2608,6 @@ void lily_emit_break(lily_emit_state *emit)
              block = block->next)
             block->patch_start++;
     }
-}
-
-/*  lily_emit_eval_condition
-    This function evaluates an ast that will decide if a block should be
-    entered. This will write o_jump_if_false which will jump to the next
-    branch or outside the block if the ast's result is false.
-
-    This is suitable for 'if', 'elif', 'while', and 'do...while'.
-
-    This clears the ast pool for the next pass. */
-void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
-{
-    lily_ast *ast = ap->root;
-
-    eval_enforce_value(emit, ast, "Conditional expression has no value.\n");
-
-    int current_type = emit->current_block->block_type;
-    if (current_type != BLOCK_DO_WHILE)
-        /* If this doesn't work, add a jump which will get fixed to the next
-           branch start or the end of the block. */
-        emit_jump_if(emit, ast, 0);
-    else {
-        /* In a 'do...while' block, the condition is at the end, so the jump is
-           reversed: If successful, go back to the top, otherwise fall out of
-           the loop. */
-        write_4(emit,
-                o_jump_if,
-                1,
-                ast->result->reg_spot,
-                emit->current_block->loop_start);
-    }
-
-    lily_ast_reset_pool(ap);
 }
 
 /*  lily_emit_continue
@@ -2592,23 +2663,6 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
         write_2(emit, o_return_noval, *emit->lex_linenum);
 }
 
-void lily_emit_raise(lily_emit_state *emit, lily_ast *ast)
-{
-    eval_enforce_value(emit, ast, "'raise' expression has no value.\n");
-
-    lily_class *result_cls = ast->result->sig->cls;
-    lily_class *except_cls = lily_class_by_name(emit->symtab, "Exception");
-    if (lily_check_right_inherits_or_is(except_cls, result_cls) == 0) {
-        lily_raise(emit->raiser, lily_SyntaxError,
-                "Invalid class '%s' given to raise.\n", result_cls->name);
-    }
-
-    write_3(emit,
-            o_raise,
-            ast->line_num,
-            ast->result->reg_spot);
-}
-
 /*  lily_emit_show
     This evals the given ast, then writes o_show so the vm will show the result
     of the ast. Type-checking is intentionally NOT performed. */
@@ -2629,6 +2683,14 @@ void lily_emit_show(lily_emit_state *emit, lily_ast *ast)
     write_4(emit, o_show, ast->line_num, is_global, ast->result->reg_spot);
 }
 
+/*  lily_emit_try
+    This should be called after adding a TRY block. This registers a try and
+    mentions the line in which it starts (for debug).
+
+    At the end of a 'try' block, there is an o_pop_try that gets written to
+    unregister this try from the vm. Similarly, write_pop_try_blocks is called
+    for each current 'try' when a continue/break/return is called to exit any
+    current 'try' entries. */
 void lily_emit_try(lily_emit_state *emit, int line_num)
 {
     write_3(emit,
@@ -2644,6 +2706,35 @@ void lily_emit_try(lily_emit_state *emit, int line_num)
     emit->patch_pos++;
 }
 
+/*  lily_emit_raise
+    Process the given ast and write an instruction that will attempt to raise
+    the resulting value. The ast is checked to ensure it can be raised. */
+void lily_emit_raise(lily_emit_state *emit, lily_ast *ast)
+{
+    eval_enforce_value(emit, ast, "'raise' expression has no value.\n");
+
+    lily_class *result_cls = ast->result->sig->cls;
+    lily_class *except_cls = lily_class_by_name(emit->symtab, "Exception");
+    if (lily_check_right_inherits_or_is(except_cls, result_cls) == 0) {
+        lily_raise(emit->raiser, lily_SyntaxError,
+                "Invalid class '%s' given to raise.\n", result_cls->name);
+    }
+
+    write_3(emit,
+            o_raise,
+            ast->line_num,
+            ast->result->reg_spot);
+}
+
+/*  lily_emit_except
+    This handles writing an 'except' block. It should be called after calling
+    to change the current block to a TRY_EXCEPT block.
+
+    cls:        The class that this 'except' will catch.
+    except_var: If an 'as x' clause is specified, this is the var that will be
+                given the exception value. If there is no clause, then the
+                parser will send NULL.
+    line_num:   The line on which the 'except' starts. */
 void lily_emit_except(lily_emit_state *emit, lily_class *cls,
         lily_var *except_var, int line_num)
 {
@@ -2668,25 +2759,28 @@ void lily_emit_except(lily_emit_state *emit, lily_class *cls,
     emit->patch_pos++;
 }
 
-/* lily_emit_vm_return
-   This writes the o_vm_return opcode at the end of the __main__ function. */
+/*  lily_emit_vm_return
+    This is called just before __main__ is to be executed. It 'finalizes'
+    __main__ so the vm knows what signatures to use for different registers,
+    and writes the o_return_from_vm instruction that will leave the vm. */
 void lily_emit_vm_return(lily_emit_state *emit)
 {
     finalize_function_val(emit, emit->current_block);
     write_1(emit, o_return_from_vm);
 }
 
-/* lily_reset_main
-   This resets the code position of __main__, so it can receive new code. */
+/*  lily_reset_main
+    (tagged mode) This is called after __main__ is executed to prepare __main__
+    for new code. */
 void lily_reset_main(lily_emit_state *emit)
 {
     ((lily_function_val *)emit->top_function)->pos = 0;
 }
 
-/** Block entry/exit **/
-
 /*  lily_emit_enter_block
-    Enter a block of a given type. */
+    Enter a block of a given type. If unable to get a block, this will call
+    lily_raise_nomem. This only handles block states, not multi/single line
+    information. */
 void lily_emit_enter_block(lily_emit_state *emit, int block_type)
 {
     lily_block *new_block;
@@ -2816,69 +2910,4 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     emit->current_block = main_block;
     emit->function_depth++;
     return 1;
-}
-
-/*  lily_emit_finalize_for_in
-    This function takes the symbols used in a for..in loop and writes out the
-    appropriate code to start off a for loop. This should be done at the very
-    end of a for..in loop, after the 'by' expression has been collected.
-    * user_loop_var: This is the user var that will have the range value
-                     written to it.
-    * for_start:     The var holding the start of the range.
-    * for_end:       The var holding the end of the range.
-    * for_step:      The var holding the step of the range. This is NULL if the
-                     user did not specify a step.
-    * line_num:      A line number for writing code to be run before the actual
-                     for code. */
-void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
-        lily_var *for_start, lily_var *for_end, lily_var *for_step,
-        int line_num)
-{
-    lily_block *loop_block = emit->current_block;
-    lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
-
-    int have_step = (for_step != NULL);
-    if (have_step == 0) {
-        /* This var isn't visible, so don't bother with a valid shorthash. */
-        for_step = lily_try_new_var(emit->symtab, cls->sig, "(for step)", 0);
-        if (for_step == NULL)
-            lily_raise_nomem(emit->raiser);
-    }
-
-    write_prep(emit, 16);
-    lily_function_val *f = emit->top_function;
-    f->code[f->pos  ] = o_for_setup;
-    f->code[f->pos+1] = line_num;
-    f->code[f->pos+2] = user_loop_var->reg_spot;
-    f->code[f->pos+3] = for_start->reg_spot;
-    f->code[f->pos+4] = for_end->reg_spot;
-    f->code[f->pos+5] = for_step->reg_spot;
-    /* This value is used to determine if the step needs to be calculated. */
-    f->code[f->pos+6] = (uintptr_t)!have_step;
-
-    /* for..in is entered right after 'for' is seen. However, range values can
-       be expressions. This needs to be fixed, or the loop will jump back up to
-       re-eval those expressions. */
-    loop_block->loop_start = f->pos+9;
-
-    /* Write a jump to the inside of the loop. This prevents the value from
-       being incremented before being seen by the inside of the loop. */
-    f->code[f->pos+7] = o_jump;
-    f->code[f->pos+8] = f->pos + 16;
-
-    f->code[f->pos+9] = o_integer_for;
-    f->code[f->pos+10] = line_num;
-    f->code[f->pos+11] = user_loop_var->reg_spot;
-    f->code[f->pos+12] = for_start->reg_spot;
-    f->code[f->pos+13] = for_end->reg_spot;
-    f->code[f->pos+14] = for_step->reg_spot;
-    f->code[f->pos+15] = 0;
-
-    f->pos += 16;
-
-    if (emit->patch_pos == emit->patch_size)
-        grow_patches(emit);
-
-    emit->patches[emit->patch_pos] = f->pos-1;
-    emit->patch_pos++;
 }
