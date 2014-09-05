@@ -1201,7 +1201,7 @@ static void if_handler(lily_parse_state *parser, int multi)
 static void elif_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
-    lily_emit_change_if_branch(parser->emit, /*have_else=*/0);
+    lily_emit_change_block_to(parser->emit, BLOCK_IF_ELIF);
     expression(parser, 0);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
 
@@ -1237,7 +1237,7 @@ static void else_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
 
-    lily_emit_change_if_branch(parser->emit, /*have_else=*/1);
+    lily_emit_change_block_to(parser->emit, BLOCK_IF_ELSE);
     NEED_CURRENT_TOK(tk_colon)
     lily_lexer(lex);
 
@@ -1540,6 +1540,7 @@ static void except_handler(lily_parse_state *parser, int multi)
     }
 
     NEED_CURRENT_TOK(tk_colon)
+    lily_emit_change_block_to(parser->emit, BLOCK_TRY_EXCEPT);
     lily_emit_except(parser->emit, exception_class, exception_var,
             lex->line_num);
 
