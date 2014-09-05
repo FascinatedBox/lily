@@ -1463,7 +1463,7 @@ static void do_handler(lily_parse_state *parser, int multi)
        it can be eval'd specially. */
     lily_lexer(lex);
     expression(parser, 0);
-    lily_emit_eval_do_while_expr(parser->emit, parser->ast_pool);
+    lily_emit_eval_condition(parser->emit, parser->ast_pool);
     lily_emit_leave_block(parser->emit);
 }
 

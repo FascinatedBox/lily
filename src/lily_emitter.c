@@ -2506,45 +2506,13 @@ void lily_emit_break(lily_emit_state *emit)
     entered. This will write o_jump_if_false which will jump to the next
     branch or outside the block if the ast's result is false.
 
-    This is suitable for 'if', 'elif', and 'while'.
+    This is suitable for 'if', 'elif', 'while', and 'do...while'.
 
     This clears the ast pool for the next pass. */
 void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
 {
     lily_ast *ast = ap->root;
 
-    /* This does emitting for the condition of an if or elif. */
-    eval_tree(emit, ast);
-    emit->expr_num++;
-
-    /* Sometimes, there won't be a result. This happens when there's a
-       condition that returns nil, as one example. Make sure there is a
-       result to check. */
-    if (ast->result == NULL)
-        lily_raise(emit->raiser, lily_SyntaxError,
-                   "Conditional expression has no value.\n");
-
-    /* If the expression is false, then jump to a future location. This will
-       get patched to jump to the end of this block. For 'if'/'elif', it will
-       go to the next 'elif' or the 'else'. For 'while', this will result in
-       the block being skipped. */
-    emit_jump_if(emit, ast, 0);
-
-    lily_ast_reset_pool(ap);
-}
-
-/*  lily_emit_eval_do_while_expr
-    This handles evaluates an ast that will decide if a jump to the top of the
-    current loop should be executed. This will write o_jump_if_true which will
-    jump back up to the top of the loop on success.
-
-    This is suitable for 'do...while'.
-
-    This clears the ast pool for the next pass. */
-void lily_emit_eval_do_while_expr(lily_emit_state *emit, lily_ast_pool *ap)
-{
-    lily_ast *ast = ap->root;
-
     eval_tree(emit, ast);
     emit->expr_num++;
 
@@ -2552,12 +2520,21 @@ void lily_emit_eval_do_while_expr(lily_emit_state *emit, lily_ast_pool *ap)
         lily_raise(emit->raiser, lily_SyntaxError,
                    "Conditional expression has no value.\n");
 
-     /* If it passes, go back up to the top. Otherwise, fall out of the loop. */
-    write_4(emit,
-            o_jump_if,
-            1,
-            ast->result->reg_spot,
-            emit->current_block->loop_start);
+    int current_type = emit->current_block->block_type;
+    if (current_type != BLOCK_DO_WHILE)
+        /* If this doesn't work, add a jump which will get fixed to the next
+           branch start or the end of the block. */
+        emit_jump_if(emit, ast, 0);
+    else {
+        /* In a 'do...while' block, the condition is at the end, so the jump is
+           reversed: If successful, go back to the top, otherwise fall out of
+           the loop. */
+        write_4(emit,
+                o_jump_if,
+                1,
+                ast->result->reg_spot,
+                emit->current_block->loop_start);
+    }
 
     lily_ast_reset_pool(ap);
 }

@@ -62,7 +62,6 @@ typedef struct {
 # define BLOCK_FUNCTION   9
 
 void lily_emit_eval_condition(lily_emit_state *, lily_ast_pool *);
-void lily_emit_eval_do_while_expr(lily_emit_state *, lily_ast_pool *);
 void lily_emit_eval_expr_to_var(lily_emit_state *, lily_ast_pool *,
         lily_var *);
 void lily_emit_eval_expr(lily_emit_state *, lily_ast_pool *);
