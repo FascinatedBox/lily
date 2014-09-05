@@ -1252,13 +1252,18 @@ static void else_handler(lily_parse_state *parser, int multi)
 static void return_handler(lily_parse_state *parser, int multi)
 {
     lily_sig *ret_sig = parser->emit->top_function_ret;
+    lily_ast *ast;
+
     if (ret_sig != NULL) {
         expression(parser, 0);
-        lily_emit_return(parser->emit, parser->ast_pool->root, ret_sig);
-        lily_ast_reset_pool(parser->ast_pool);
+        ast = parser->ast_pool->root;
     }
     else
-        lily_emit_return_noval(parser->emit);
+        ast = NULL;
+
+    lily_emit_return(parser->emit, ast);
+    if (ast)
+        lily_ast_reset_pool(parser->ast_pool);
 }
 
 /*  while_handler

@@ -2579,27 +2579,45 @@ void lily_emit_continue(lily_emit_state *emit)
     write_2(emit, o_jump, emit->current_block->loop_start);
 }
 
-/* lily_emit_return
-   This writes a return statement for a function. This also checks that the
-   value given matches what the function says it returns. */
-void lily_emit_return(lily_emit_state *emit, lily_ast *ast, lily_sig *ret_sig)
-{
-    eval_tree(emit, ast);
-    emit->expr_num++;
+/*  lily_emit_return
+    This handles the 'return' keyword for the parser.
 
-    if (ast->result->sig != ret_sig) {
-        if (ret_sig->cls->id == SYM_CLASS_ANY)
-            emit_any_assign(emit, ast);
-        else {
-            lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                    "return expected type '%T' but got type '%T'.\n",
-                    ret_sig, ast->result->sig);
+    If the current function DOES return a value, then ast should NOT be NULL.
+    The ast given will be evaluated and the type checked.
+
+    If it does not, then ast should be NULL. */
+void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
+{
+    if (emit->function_depth == 1)
+        lily_raise(emit->raiser, lily_SyntaxError,
+                "'return' used outside of a function.\n");
+
+    if (ast) {
+        eval_tree(emit, ast);
+        emit->expr_num++;
+
+        if (ast->result == NULL)
+            lily_raise(emit->raiser, lily_SyntaxError,
+                   "Expression to 'return' has no value.\n");
+
+        lily_sig *ret_sig = emit->top_function_ret;
+
+        if (ast->result->sig != ret_sig) {
+            if (ret_sig->cls->id == SYM_CLASS_ANY)
+                emit_any_assign(emit, ast);
+            else
+                lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+                        "return expected type '%T' but got type '%T'.\n",
+                        ret_sig, ast->result->sig);
         }
     }
 
     write_pop_inner_try_blocks(emit);
 
-    write_3(emit, o_return_val, ast->line_num, ast->result->reg_spot);
+    if (ast)
+        write_3(emit, o_return_val, ast->line_num, ast->result->reg_spot);
+    else
+        write_2(emit, o_return_noval, *emit->lex_linenum);
 }
 
 void lily_emit_raise(lily_emit_state *emit, lily_ast *ast)
@@ -2646,21 +2664,6 @@ void lily_emit_show(lily_emit_state *emit, lily_ast *ast)
     emit->expr_num++;
 
     write_4(emit, o_show, ast->line_num, is_global, ast->result->reg_spot);
-}
-
-/* lily_emit_return_noval
-   This writes the o_return_noval opcode for a function to return without sending
-   a value to the caller. */
-void lily_emit_return_noval(lily_emit_state *emit)
-{
-    /* Don't allow 'return' within __main__. */
-    if (emit->function_depth == 1)
-        lily_raise(emit->raiser, lily_SyntaxError,
-                "'return' used outside of a function.\n");
-
-    write_pop_inner_try_blocks(emit);
-
-    write_2(emit, o_return_noval, *emit->lex_linenum);
 }
 
 void lily_emit_try(lily_emit_state *emit, int line_num)

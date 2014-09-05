@@ -239,6 +239,13 @@ Where: File "<str>" at line 1\n"""
      "stderr": """\
 SyntaxError: Index 3 is out of range for tuple[integer, string].\n\
 Where: File "<str>" at line 1\n""",
+    },
+    {
+     "command": """  function f() {  } function g( => integer) { return f() } """,
+     "message": "Failcheck: 'return' with a no-value expression.",
+     "stderr": """\
+SyntaxError: Expression to 'return' has no value.\n\
+Where: File "<str>" at line 1\n"""
     }
 ]
 
