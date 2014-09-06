@@ -1075,45 +1075,64 @@ static void statement(lily_parse_state *parser, int multi)
     lily_lex_state *lex = parser->lex;
 
     do {
-        key_id = lily_keyword_by_name(lex->label);
-        if (key_id != -1) {
-            /* Ask the handler for this keyword what to do. */
-            lily_lexer(lex);
-            handlers[key_id](parser, multi);
-        }
-        else {
-            lclass = lily_class_by_name(parser->symtab, lex->label);
+        lily_token token = lex->token;
 
-            if (lclass != NULL) {
+        if (token == tk_word) {
+            key_id = lily_keyword_by_name(lex->label);
+            if (key_id != -1) {
+                /* Ask the handler for this keyword what to do. */
                 lily_lexer(lex);
-                if (lex->token == tk_colon_colon) {
-                    expression_static_call(parser, lclass);
+                handlers[key_id](parser, multi);
+            }
+            else {
+                lclass = lily_class_by_name(parser->symtab, lex->label);
+
+                if (lclass != NULL) {
+                    lily_lexer(lex);
+                    if (lex->token == tk_colon_colon) {
+                        expression_static_call(parser, lclass);
+                        expression(parser, 0);
+                        lily_emit_eval_expr(parser->emit, parser->ast_pool);
+                    }
+                    else {
+                        int cls_id = lclass->id;
+
+                        if (cls_id == SYM_CLASS_FUNCTION) {
+                            /* This will enter the function since the function is
+                               toplevel. */
+                            collect_var_sig(parser, lclass,
+                                    CV_TOPLEVEL | CV_MAKE_VARS);
+                            NEED_CURRENT_TOK(tk_left_curly)
+                            lily_lexer(lex);
+                        }
+                        else {
+                            lily_sig *cls_sig = collect_var_sig(parser, lclass, 0);
+                            parse_decl(parser, cls_sig);
+                        }
+                    }
+                }
+                else {
                     expression(parser, 0);
                     lily_emit_eval_expr(parser->emit, parser->ast_pool);
                 }
-                else {
-                    int cls_id = lclass->id;
-
-                    if (cls_id == SYM_CLASS_FUNCTION) {
-                        /* This will enter the function since the function is
-                           toplevel. */
-                        collect_var_sig(parser, lclass,
-                                CV_TOPLEVEL | CV_MAKE_VARS);
-                        NEED_CURRENT_TOK(tk_left_curly)
-                        lily_lexer(lex);
-                    }
-                    else {
-                        lily_sig *cls_sig = collect_var_sig(parser, lclass, 0);
-                        parse_decl(parser, cls_sig);
-                    }
-                }
-            }
-            else {
-                expression(parser, 0);
-                lily_emit_eval_expr(parser->emit, parser->ast_pool);
             }
         }
-    } while (multi && lex->token == tk_word);
+        else if (token == tk_integer || token == tk_double ||
+                 token == tk_double_quote || token == tk_left_parenth ||
+                 token == tk_left_bracket || token == tk_tuple_open) {
+            expression(parser, 0);
+            lily_emit_eval_expr(parser->emit, parser->ast_pool);
+        }
+        /* The caller will be expecting '}' or maybe @> / EOF if it's the main
+           parse loop. */
+        else if (multi)
+            break;
+        /* Single-line expressions need a value to prevent things like
+           'if 1: }' and 'if 1: @>'. */
+        else
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Expected a value, not '%s'.\n", tokname(token));
+    } while (multi);
 }
 
 /*  parse_block_body

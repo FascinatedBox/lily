@@ -223,7 +223,7 @@ Traceback:\n\
      "command": """  if 1: {  """,
      "message": "Failcheck: Unterminated multi-line if",
      "stderr": """\
-SyntaxError: Expected a value, not 'end of file'.\n\
+SyntaxError: Expected '}', not end of file.\n\
 Where: File "<str>" at line 1\n"""
     },
     {
