@@ -484,14 +484,8 @@ static lily_literal *parse_special_keyword(lily_parse_state *parser, int key_id)
     /* So far, these are the only keywords that map to literals.
        Additionally, these literal fetching routines are guaranteed to either
        return a literal with the given value, or raise nomem. */
-    if (key_id == KEY__LINE__) {
-        lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
-        lily_raw_value value;
-
-        value.integer = parser->lex->line_num;
-
-        ret = lily_get_intnum_literal(symtab, cls, value);
-    }
+    if (key_id == KEY__LINE__)
+        ret = lily_get_integer_literal(symtab, parser->lex->line_num);
     else if (key_id == KEY__FILE__)
         ret = lily_get_string_literal(symtab, parser->lex->filename);
     else if (key_id == KEY__FUNCTION__)
@@ -580,7 +574,6 @@ static void maybe_digit_fixup(lily_parse_state *parser, int *did_fixup)
 
     if (ch == '-' || ch == '+') {
         int expr_op;
-        lily_class *cls;
         lily_symtab *symtab = parser->symtab;
 
         if (ch == '-')
@@ -588,17 +581,17 @@ static void maybe_digit_fixup(lily_parse_state *parser, int *did_fixup)
         else
             expr_op = parser_tok_table[tk_plus].expr_op;
 
-        if (lex->token == tk_integer)
-            cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
-        else
-            cls = lily_class_by_id(symtab, SYM_CLASS_DOUBLE);
-
         lily_ast_push_binary_op(parser->ast_pool, (lily_expr_op)expr_op);
         /* Call this to force a rescan from the proper starting point, yielding
            a proper new token. */
         lily_lexer_digit_rescan(lex);
+
         lily_literal *lit;
-        lit = lily_get_intnum_literal(symtab, cls, lex->value);
+        if (lex->token == tk_integer)
+            lit = lily_get_integer_literal(symtab, lex->value.integer);
+        else
+            lit = lily_get_double_literal(symtab, lex->value.doubleval);
+
         lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
         *did_fixup = 1;
     }
@@ -704,19 +697,15 @@ static void expression_value(lily_parse_state *parser)
             lily_lexer(lex);
         }
         else if (lex->token == tk_integer) {
-            lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
-            lily_literal *lit;
-            lit = lily_get_intnum_literal(symtab, cls, lex->value);
+            lily_literal *lit = lily_get_integer_literal(symtab,
+                    lex->value.integer);
             lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
-
             lily_lexer(lex);
         }
         else if (lex->token == tk_double) {
-            lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_DOUBLE);
-            lily_literal *lit;
-            lit = lily_get_intnum_literal(symtab, cls, lex->value);
+            lily_literal *lit = lily_get_double_literal(symtab,
+                    lex->value.doubleval);
             lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
-
             lily_lexer(lex);
         }
         else if (lex->token == tk_minus || lex->token == tk_not) {
