@@ -678,33 +678,46 @@ void lily_free_symtab(lily_symtab *symtab)
 }
 
 /** Functions provided by symtab for other modules. **/
-lily_literal *lily_get_intnum_literal(lily_symtab *symtab, lily_class *cls,
-        lily_raw_value want_value)
+lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
 {
     lily_literal *lit, *ret;
     ret = NULL;
-    lily_sig *want_sig = cls->sig;
+    lily_class *integer_cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
+    lily_sig *want_sig = integer_cls->sig;
 
     for (lit = symtab->lit_start;lit != NULL;lit = lit->next) {
-        if (lit->sig == want_sig) {
-            if ((cls->id == SYM_CLASS_INTEGER &&
-                 lit->value.integer == want_value.integer) ||
-                (cls->id == SYM_CLASS_DOUBLE &&
-                 lit->value.doubleval == want_value.doubleval))
-                break;
+        if (lit->sig == want_sig && lit->value.integer == int_val) {
+            ret = lit;
+            break;
         }
     }
 
     if (ret == NULL) {
-        lily_raw_value v;
-        if (cls->id == SYM_CLASS_INTEGER)
-            v.integer = want_value.integer;
-        else
-            v.doubleval = want_value.doubleval;
+        lily_raw_value v = {.integer = int_val};
+        ret = lily_new_literal(symtab, integer_cls, v);
+        ret->value = v;
+    }
 
-        /* lily_new_literal is guaranteed to work or raise nomem, so this is
-           safe. */
-        ret = lily_new_literal(symtab, cls, v);
+    return ret;
+}
+
+lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
+{
+    lily_literal *lit, *ret;
+    ret = NULL;
+    lily_class *double_cls = lily_class_by_id(symtab, SYM_CLASS_DOUBLE);
+    lily_sig *want_sig = double_cls->sig;
+
+    for (lit = symtab->lit_start;lit != NULL;lit = lit->next) {
+        if (lit->sig == want_sig && lit->value.doubleval == dbl_val) {
+            ret = lit;
+            break;
+        }
+    }
+
+    if (ret == NULL) {
+        lily_raw_value v = {.doubleval = dbl_val};
+        ret = lily_new_literal(symtab, double_cls, v);
         ret->value = v;
     }
 

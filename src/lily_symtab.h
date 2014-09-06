@@ -65,10 +65,10 @@ void lily_free_symtab_lits_and_vars(lily_symtab *);
 void lily_free_symtab(lily_symtab *);
 int lily_keyword_by_name(char *);
 lily_literal *lily_new_literal(lily_symtab *, lily_class *, lily_raw_value);
-lily_literal *lily_get_intnum_literal(lily_symtab *, lily_class *,
-        lily_raw_value);
-
+lily_literal *lily_get_integer_literal(lily_symtab *, int64_t);
+lily_literal *lily_get_double_literal(lily_symtab *, double);
 lily_literal *lily_get_string_literal(lily_symtab *, char *);
+
 lily_symtab *lily_new_symtab(lily_raiser *);
 lily_var *lily_try_new_var(lily_symtab *, lily_sig *, char *, int);
 lily_var *lily_scoped_var_by_name(lily_symtab *, lily_var *, char *);
