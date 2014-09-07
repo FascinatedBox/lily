@@ -1036,7 +1036,8 @@ lily_sig *lookup_sig(lily_symtab *symtab, lily_sig *input_sig)
         if (iter_sig->cls == input_sig->cls) {
             if (iter_sig->siglist      != NULL &&
                 iter_sig->siglist_size == input_sig->siglist_size &&
-                iter_sig               != input_sig) {
+                iter_sig               != input_sig &&
+                (iter_sig->flags & ~SIG_MAYBE_CIRCULAR) == input_sig->flags) {
                 int i, match = 1;
                 for (i = 0;i < iter_sig->siglist_size;i++) {
                     if (iter_sig->siglist[i] != input_sig->siglist[i]) {
@@ -1170,7 +1171,7 @@ lily_sig *lily_ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
 }
 
 lily_sig *lily_build_ensure_sig(lily_symtab *symtab, lily_class *cls,
-        int entries_to_use, lily_sig **siglist, int offset)
+        int flags, lily_sig **siglist, int offset, int entries_to_use)
 {
     lily_sig fake_sig;
 
@@ -1178,7 +1179,7 @@ lily_sig *lily_build_ensure_sig(lily_symtab *symtab, lily_class *cls,
     fake_sig.template_pos = 0;
     fake_sig.siglist = siglist + offset;
     fake_sig.siglist_size = entries_to_use;
-    fake_sig.flags = 0;
+    fake_sig.flags = flags;
     fake_sig.next = NULL;
 
     /* The reason it's done like this is purely to save memory. There's no

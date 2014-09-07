@@ -338,8 +338,8 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
             }
         }
 
-        result = lily_build_ensure_sig(parser->symtab, cls, i,
-                parser->sig_stack, save_pos);
+        result = lily_build_ensure_sig(parser->symtab, cls, 0,
+                parser->sig_stack, save_pos, i);
 
         parser->sig_stack_pos = save_pos;
 

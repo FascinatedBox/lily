@@ -681,8 +681,8 @@ static lily_sig *recursively_build_sig(lily_emit_state *emit, int template_index
             emit->sig_stack_pos++;
         }
 
-        ret = lily_build_ensure_sig(emit->symtab, sig->cls, i,
-                emit->sig_stack, save_start);
+        ret = lily_build_ensure_sig(emit->symtab, sig->cls, sig->flags,
+                emit->sig_stack, save_start, i);
 
         emit->sig_stack_pos -= i;
     }
@@ -1726,8 +1726,8 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
     lily_class *hash_cls = lily_class_by_id(emit->symtab, SYM_CLASS_HASH);
     emit->sig_stack[emit->sig_stack_pos] = key_sig;
     emit->sig_stack[emit->sig_stack_pos+1] = value_sig;
-    lily_sig *new_sig = lily_build_ensure_sig(emit->symtab, hash_cls, 2,
-                emit->sig_stack, emit->sig_stack_pos);
+    lily_sig *new_sig = lily_build_ensure_sig(emit->symtab, hash_cls, 0,
+                emit->sig_stack, emit->sig_stack_pos, 2);
 
     lily_storage *s = get_storage(emit, new_sig, ast->line_num);
 
@@ -1893,8 +1893,8 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
 
     lily_class *list_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);
     emit->sig_stack[emit->sig_stack_pos] = elem_sig;
-    lily_sig *new_sig = lily_build_ensure_sig(emit->symtab, list_cls, 1,
-                emit->sig_stack, emit->sig_stack_pos);
+    lily_sig *new_sig = lily_build_ensure_sig(emit->symtab, list_cls, 0,
+                emit->sig_stack, emit->sig_stack_pos, 1);
 
     lily_storage *s = get_storage(emit, new_sig, ast->line_num);
 
@@ -1933,8 +1933,8 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast)
     }
 
     lily_class *tuple_cls = lily_class_by_id(emit->symtab, SYM_CLASS_TUPLE);
-    lily_sig *new_sig = lily_build_ensure_sig(emit->symtab, tuple_cls, i,
-                emit->sig_stack, emit->sig_stack_pos);
+    lily_sig *new_sig = lily_build_ensure_sig(emit->symtab, tuple_cls, 0,
+                emit->sig_stack, emit->sig_stack_pos, i);
     lily_storage *s = get_storage(emit, new_sig, ast->line_num);
 
     write_build_op(emit, o_build_tuple, ast->arg_start, ast->line_num,
