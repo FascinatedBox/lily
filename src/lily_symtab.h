@@ -77,7 +77,7 @@ lily_sig *lily_try_sig_for_class(lily_symtab *, lily_class *);
 void lily_hide_block_vars(lily_symtab *, lily_var *);
 lily_sig *lily_try_sig_from_ids(lily_symtab *, const int *);
 lily_sig *lily_ensure_unique_sig(lily_symtab *, lily_sig *);
-lily_sig *lily_build_ensure_sig(lily_symtab *, lily_class *, int, lily_sig **, int);
+lily_sig *lily_build_ensure_sig(lily_symtab *, lily_class *, int, lily_sig **, int, int);
 int lily_check_right_inherits_or_is(lily_class *, lily_class *);
 
 #endif
