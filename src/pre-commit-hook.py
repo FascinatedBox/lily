@@ -102,14 +102,7 @@ Traceback:\n\
      "command": """  list[integer] a    a = [10]]  """,
      "message": "Failcheck: Bad right brace",
      "stderr": """\
-SyntaxError: Unexpected token ].\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  list[integer] a    a = [10]]  """,
-     "message": "Failcheck: Bad right brace",
-     "stderr": """\
-SyntaxError: Unexpected token ].\n\
+SyntaxError: Unexpected token ']'.\n\
 Where: File "<str>" at line 1\n"""
     },
     {
@@ -130,7 +123,7 @@ Where: File "<str>" at line 1\n"""
      "command": """  integer a    a = ((a)  """,
      "message": "Failcheck: Missing matching '('.",
      "stderr": """\
-SyntaxError: Unexpected token end of file during expression.\n\
+SyntaxError: Unexpected token 'end of file'.\n\
 Where: File "<str>" at line 1\n"""
     },
     {

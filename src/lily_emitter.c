@@ -2084,12 +2084,11 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
 
     if (ast->result == NULL) {
         int cls_id;
-        /* This occurs when the function is obtained in some indirect way,
-           such as a call from a subscript.
-           Ex: function_list[0]()
-           First, walk the subscript to get the storage that the call will
-           go to. */
-        eval_tree(emit, ast->arg_start);
+        /* Special case: Don't walk tree_readonly. Doing so will rewrite the
+           var given to it with a storage result...which emitter cannot use
+           for printing error information. */
+        if (ast->arg_start->tree_type != tree_readonly)
+            eval_tree(emit, ast->arg_start);
 
         /* Set the result, because things like having a result to use.
            Ex: An empty list used as an arg may want to know what to

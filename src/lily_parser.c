@@ -47,10 +47,6 @@ if (lex->token != expected) \
     lily_raise(parser->raiser, lily_SyntaxError, "Expected '%s', not %s.\n", \
                tokname(expected), tokname(lex->token));
 
-/* This flag is for expression. If it's set, then expression won't try to get
-   a value. */
-#define EXPR_DONT_NEED_VALUE 0x1
-
 /** Parser initialization and deletion **/
 lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
 {
@@ -398,14 +394,18 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
     return result;
 }
 
-/** Expression handling, and helpers.
-  * Expressions are assignments, binary ops, unary ops, etc, etc. The building
-    blocks of anything and everything.
-  * The parser creates an ast (abstract syntax tree) as it goes along to
-    represent the expression. The ast is then fed to emitter, which will usually
-    reset the pool when done.
-  * Most expression_* functions are used by expression as helpers, and should
-    not be called by any function except expression itself. **/
+/*****************************************************************************/
+/* Expression handling                                                       */
+/*****************************************************************************/
+
+/* I need a value to work with. */
+#define ST_DEMAND_VALUE  1
+/* A binary op or an operation (dot call, call, subscript), or a close. */
+#define ST_WANT_OPERATOR 2
+/* A value is nice, but not required (ex: call arguments). */
+#define ST_WANT_VALUE    3
+#define ST_DONE          4
+#define ST_BAD_TOKEN     5
 
 /*  expression_static_call
     This handles expressions like `<type>::member`. */
@@ -426,56 +426,10 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
              to be able to call this. Unfortunately, that requires doing a lot
              of adjusting to the parser. */
     lily_ast_enter_tree(parser->ast_pool, tree_call, v);
-    lily_lexer(lex);
 }
 
-/* expression_oo
-   This handles calls to a member of a particular value, as well as typecasts.
-   Calls to a member look like this: `value.member()`
-   * This enters the member, which will later take the value as the first
-     argument to it.
-   Typecasts look like this: `value.@(newtype)`.
-   * This handles calling for type collection and adding the typecast tree. */
-static void expression_oo(lily_parse_state *parser)
-{
-    lily_lex_state *lex = parser->lex;
-    lily_lexer(lex);
-    if (lex->token == tk_word) {
-        /* Syntax: `value.member()`. Add this as a special 'oo_call' tree. The
-           emitter will handle doing the member lookup at emit-time. */
-        lily_ast_push_oo_call(parser->ast_pool, parser->lex->label);
-        lily_ast_enter_tree(parser->ast_pool, tree_call, NULL);
-        NEED_NEXT_TOK(tk_left_parenth);
-        lily_lexer(lex);
-    }
-    else if (lex->token == tk_typecast_parenth) {
-        /* Syntax: `value.@(type)`. This is at the @(, so prep for
-           collect_var_sig. */
-        lily_lexer(lex);
-        lily_sig *new_sig = collect_var_sig(parser, NULL, 0);
-        lily_ast_enter_typecast(parser->ast_pool, new_sig);
-        /* Don't leave this tree: expression_binary will do it. */
-        NEED_CURRENT_TOK(tk_right_parenth)
-    }
-}
-
-/* expression_unary
-   This function handles unary expressions such as !a and -a. */
-static void expression_unary(lily_parse_state *parser)
-{
-    lily_lex_state *lex = parser->lex;
-    while (1) {
-        if (lex->token == tk_minus)
-            lily_ast_push_unary_op(parser->ast_pool, expr_unary_minus);
-        else if (lex->token == tk_not)
-            lily_ast_push_unary_op(parser->ast_pool, expr_unary_not);
-        else
-            break;
-
-        lily_lexer(lex);
-    }
-}
-
+/*  parse_special_keyword
+    This handles all the simple keywords that map to a string/integer value. */
 static lily_literal *parse_special_keyword(lily_parse_state *parser, int key_id)
 {
     lily_symtab *symtab = parser->symtab;
@@ -557,14 +511,91 @@ static void expression_package(lily_parse_state *parser, lily_var *package_var)
     }
 }
 
-/*  maybe_digit_fixup
-    This is called when parser is expecting a binary op and gets an integer or
-    number constant. The value may be part of the next expression, or it may be
-    something like '+1'. If the former, there's no fixup to do. If the latter,
-    it's fixed up and added to the ast as '+' and the value.
-    This allows 'a = 1+1' to work correctly.
+/*  expression_word
+    This is a helper function that handles words in expressions. These are
+    sort of complicated. :( */
+static void expression_word(lily_parse_state *parser, int *state)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_lex_state *lex = parser->lex;
+    lily_var *var = lily_var_by_name(symtab, lex->label);
 
-    * did_fixup: This is set to 1 if a fixup was done, 0 otherwise. */
+    if (var) {
+        if (var->function_depth == 1) {
+            /* It's in __main__ as a global. */
+            if (var->sig->cls->id == SYM_CLASS_PACKAGE)
+                expression_package(parser, var);
+            else
+                lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
+        }
+        else if (var->function_depth == parser->emit->function_depth)
+            /* In this current scope? Load as a local var. */
+            lily_ast_push_local_var(parser->ast_pool, var);
+        else if (var->function_depth == -1)
+            /* This is a call that's not in a register. It's kind of
+               like a literal. */
+            lily_ast_push_readonly(parser->ast_pool, (lily_sym *)var);
+        else
+            /* todo: Handle upvalues later, maybe. */
+            lily_raise(parser->raiser, lily_SyntaxError,
+                       "Attempt to use %s, which is not in the current scope.\n",
+                       var->name);
+
+        *state = ST_WANT_OPERATOR;
+    }
+    else {
+        int key_id = lily_keyword_by_name(lex->label);
+        if (key_id == KEY_ISNIL) {
+            lily_ast_enter_tree(parser->ast_pool, tree_isnil, NULL);
+            NEED_NEXT_TOK(tk_left_parenth)
+            *state = ST_WANT_VALUE;
+        }
+        else if (key_id != -1) {
+            lily_literal *lit = parse_special_keyword(parser, key_id);
+            lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
+            *state = ST_WANT_OPERATOR;
+        }
+        else {
+            lily_class *cls = lily_class_by_name(parser->symtab, lex->label);
+
+            if (cls != NULL) {
+                lily_lexer(lex);
+                expression_static_call(parser, cls);
+                *state = ST_WANT_VALUE;
+            }
+            else
+                lily_raise(parser->raiser, lily_SyntaxError,
+                       "%s has not been declared.\n", lex->label);
+        }
+    }
+}
+
+/*  check_valid_close_tok
+    This is a helper function that makes sure blocks get the right close token.
+    It prevents things like 'abc(1, 2, 3]>' and '[1, 2, 3)'. */
+static void check_valid_close_tok(lily_parse_state *parser)
+{
+    lily_token token = parser->lex->token;
+    lily_tree_type tt = lily_ast_caller_tree_type(parser->ast_pool);
+    lily_token expect;
+
+    if (tt == tree_call || tt == tree_parenth || tt == tree_typecast ||
+        tt == tree_isnil)
+        expect = tk_right_parenth;
+    else if (tt == tree_tuple)
+        expect = tk_tuple_close;
+    else
+        expect = tk_right_bracket;
+
+    if (token != expect)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Expected closing token '%s', not '%s'.\n", tokname(expect),
+                tokname(token));
+}
+
+/*  maybe_digit_fixup
+    Sometimes 1+1 should actually be 1 + 1 instead of 1 +1. This will either
+    split it into two things or it won't if it can't. */
 static void maybe_digit_fixup(lily_parse_state *parser, int *did_fixup)
 {
     /* The lexer records where the last digit scan started. So check if it
@@ -599,337 +630,217 @@ static void maybe_digit_fixup(lily_parse_state *parser, int *did_fixup)
         *did_fixup = 0;
 }
 
-/* expression_value
-   This handles getting a value for expression. It also handles oo calls and
-   unary expressions as necessary. It will always push a value to the ast. */
-static void expression_value(lily_parse_state *parser)
+/*  expression_literal
+    This handles all literals: integer, double, and string. */
+static void expression_literal(lily_parse_state *parser, int *state)
 {
+    lily_literal *lit;
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
+    lily_token token = parser->lex->token;
 
-    while (1) {
-        if (lex->token == tk_word) {
-            lily_var *var = lily_var_by_name(symtab, lex->label);
-
-            if (var) {
-                lily_lexer(lex);
-                if (lex->token == tk_left_parenth) {
-                    int cls_id = var->sig->cls->id;
-                    if (cls_id != SYM_CLASS_FUNCTION)
-                        lily_raise(parser->raiser, lily_SyntaxError,
-                                "%s is not callable.\n", var->name);
-
-                    /* New trees will get saved to the args section of this tree
-                        when they are done. */
-                    lily_ast_enter_tree(parser->ast_pool, tree_call, var);
-
-                    lily_lexer(lex);
-                    if (lex->token == tk_right_parenth)
-                        /* This call has no args (and therefore is not a value),
-                           so let expression handle it. */
-                        break;
-                    else
-                        /* Get the first value of the call. */
-                        continue;
-                }
-                else {
-                    if (var->function_depth == 1) {
-                        if (var->sig->cls->id == SYM_CLASS_PACKAGE)
-                            expression_package(parser, var);
-                        else {
-                            /* It's in __main__ as a global. */
-                            lily_ast_push_sym(parser->ast_pool,
-                                    (lily_sym *)var);
-                        }
-                    }
-                    else if (var->function_depth == parser->emit->function_depth)
-                        /* In this current scope? Load as a local var. */
-                        lily_ast_push_local_var(parser->ast_pool, var);
-                    else if (var->function_depth == -1)
-                        /* This is a call that's not in a register. It's kind of
-                           like a literal. */
-                        lily_ast_push_readonly(parser->ast_pool, (lily_sym *)var);
-                    else
-                        /* todo: Handle upvalues later, maybe. */
-                        lily_raise(parser->raiser, lily_SyntaxError,
-                                   "Attempt to use %s, which is not in the current scope.\n",
-                                   var->name);
-                }
-            }
-            else {
-                lily_class *cls = lily_class_by_name(parser->symtab,
-                        lex->label);
-                if (cls != NULL) {
-                    lily_lexer(lex);
-                    expression_static_call(parser, cls);
-                    continue;
-                }
-                else {
-                    int key_id = lily_keyword_by_name(lex->label);
-                    if (key_id == KEY__LINE__ || key_id == KEY__FILE__ ||
-                        key_id == KEY__FUNCTION__) {
-                        lily_literal *lit;
-                        lit = parse_special_keyword(parser, key_id);
-                        lily_ast_push_readonly(parser->ast_pool,
-                                (lily_sym *)lit);
-                        lily_lexer(lex);
-                    }
-                    else if (key_id == KEY_ISNIL) {
-                        lily_ast_enter_tree(parser->ast_pool, tree_isnil,
-                                NULL);
-                        NEED_NEXT_TOK(tk_left_parenth)
-                        lily_lexer(lex);
-                        continue;
-                    }
-                    else {
-                        lily_raise(parser->raiser, lily_SyntaxError,
-                                   "%s has not been declared.\n", lex->label);
-                    }
-                }
-            }
-        }
-        else if (lex->token == tk_double_quote) {
-            lily_literal *lit;
+    if (*state == ST_WANT_OPERATOR && token != tk_double_quote) {
+        int did_fixup;
+        maybe_digit_fixup(parser, &did_fixup);
+        if (did_fixup == 0)
+            *state = ST_DONE;
+    }
+    else {
+        if (token == tk_double_quote)
             lit = lily_get_string_literal(symtab, lex->label);
-
-            lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
-
-            lily_lexer(lex);
-        }
-        else if (lex->token == tk_integer) {
-            lily_literal *lit = lily_get_integer_literal(symtab,
-                    lex->value.integer);
-            lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
-            lily_lexer(lex);
-        }
-        else if (lex->token == tk_double) {
-            lily_literal *lit = lily_get_double_literal(symtab,
-                    lex->value.doubleval);
-            lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
-            lily_lexer(lex);
-        }
-        else if (lex->token == tk_minus || lex->token == tk_not) {
-            expression_unary(parser);
-            continue;
-        }
-        else if (lex->token == tk_left_parenth) {
-            /* A parenth expression is essentially a call, but without the
-               var part. */
-            lily_ast_enter_tree(parser->ast_pool, tree_parenth, NULL);
-            lily_lexer(lex);
-            continue;
-        }
-        else if (lex->token == tk_left_bracket) {
-            lily_lexer(lex);
-
-            if (lex->token == tk_right_bracket)
-                lily_raise(parser->raiser, lily_SyntaxError,
-                        "Empty lists must specify a type (ex: [string]).\n");
-            else if (lex->token == tk_word) {
-                lily_class *cls = lily_class_by_name(symtab, lex->label);
-
-                lily_sig *sig;
-                if (cls != NULL) {
-                    /* Make sure this works with complex signatures as well
-                       as simple ones. */
-                    sig = collect_var_sig(parser, NULL, 0);
-                    NEED_NEXT_TOK(tk_right_bracket)
-                    lily_lexer(lex);
-
-                    /* Call this to avoid doing enter/leave when there will
-                       not be any subtrees. */
-                    lily_ast_push_empty_list(parser->ast_pool, sig);
-                    break;
-                }
-            }
-
-            lily_ast_enter_tree(parser->ast_pool, tree_list, NULL);
-            continue;
-        }
-        else if (lex->token == tk_tuple_open) {
-            lily_ast_enter_tree(parser->ast_pool, tree_tuple, NULL);
-            lily_lexer(lex);
-            continue;
-        }
+        else if (token == tk_integer)
+            lit = lily_get_integer_literal(symtab, lex->value.integer);
+        else if (token == tk_double)
+            lit = lily_get_double_literal(symtab, lex->value.doubleval);
         else
-            lily_raise(parser->raiser, lily_SyntaxError,
-                       "Expected a value, not '%s'.\n",
-                       tokname(lex->token));
+            lit = NULL;
 
-        if (lex->token == tk_dot) {
-            expression_oo(parser);
-            if (lex->token == tk_right_parenth)
-                break;
-            else
-                continue;
-        }
-        else if (lex->token == tk_left_bracket) {
-            lily_ast_enter_tree(parser->ast_pool, tree_subscript, NULL);
-            lily_lexer(lex);
-            continue;
-        }
-        break;
+        lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
+        *state = ST_WANT_OPERATOR;
     }
 }
 
-/* check_valid_close_tok
-   This is used to verify that the current lexer token is valid for closing the
-   current ast tree. This prevents code like:
-   list[integer] lsi = [10, 20, 30)
-                                  ^
-   by complaining that ) is the wrong close token.
-
-   This should be called before lily_ast_leave_tree in situations where the
-   calling tree is not _explicitly_ known. */
-static void check_valid_close_tok(lily_parse_state *parser)
-{
-    lily_token token = parser->lex->token;
-    lily_tree_type tt = lily_ast_caller_tree_type(parser->ast_pool);
-    lily_token expect;
-
-    if (tt == tree_call || tt == tree_parenth || tt == tree_typecast ||
-        tt == tree_isnil)
-        expect = tk_right_parenth;
-    else if (tt == tree_tuple)
-        expect = tk_tuple_close;
-    else
-        expect = tk_right_bracket;
-
-    if (token != expect)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "Expected closing token '%s', not '%s'.\n", tokname(expect),
-                tokname(token));
-}
-
-/*  expression
-
-    This is the function to call for parsing an expression of any sort. This
-    will call the helpers it has (expression_* functions) when it needs to.
-
-    This function expects that the token is setup for it. So it may be
-    necessary to call lily_lexer to prep the token before calling this.
-
-    This will not cause the ast to be evaluated. Use a lily_emit_eval_*
-    function to actually evaluate the built up expression. Those functions
-    will also clear the ast pool when they emit, so that expression never has
-    to worry about clearing the pool. */
-static void expression(lily_parse_state *parser, int options)
+/*  expression_comma_arrow
+    This handles commas and arrows. The & 0x1 is nothing magical: a proper
+    hash will always have pairs of values. The values to the left side of
+    the arrow will always be odd, and the right ones will be even. */
+static void expression_comma_arrow(lily_parse_state *parser, int *state)
 {
     lily_lex_state *lex = parser->lex;
 
-    if ((options & EXPR_DONT_NEED_VALUE) == 0)
-        expression_value(parser);
+    if (parser->ast_pool->active == NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                    "Expected a value, not ','.\n");
 
+    lily_ast *last_tree = lily_ast_get_saved_tree(parser->ast_pool);
+    if (lex->token == tk_comma) {
+        if (last_tree->tree_type == tree_hash &&
+            (last_tree->args_collected & 0x1) == 0)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Expected a key => value pair before ','.\n");
+    }
+    else if (lex->token == tk_arrow) {
+        if (last_tree->tree_type == tree_list) {
+            if (last_tree->args_collected == 0)
+                last_tree->tree_type = tree_hash;
+            else
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Unexpected token '%s'.\n", tokname(tk_arrow));
+        }
+        else if (last_tree->tree_type != tree_hash ||
+                 (last_tree->args_collected & 0x1) == 1)
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Unexpected token '%s'.\n", tokname(tk_arrow));
+    }
+
+    lily_ast_collect_arg(parser->ast_pool);
+    *state = ST_DEMAND_VALUE;
+}
+
+static void expression_unary(lily_parse_state *parser, int *state)
+{
+    if (*state == ST_WANT_OPERATOR)
+        *state = ST_BAD_TOKEN;
+    else {
+        lily_token token = parser->lex->token;
+        if (token == tk_minus)
+            lily_ast_push_unary_op(parser->ast_pool, expr_unary_minus);
+        else if (token == tk_not)
+            lily_ast_push_unary_op(parser->ast_pool, expr_unary_not);
+
+        *state = ST_DEMAND_VALUE;
+    }
+}
+
+/*  expression_dot
+    This handles "oo-style" calls: `abc.xyz()`.
+    It also handles typecasts: `abc.@(type)`. */
+static void expression_dot(lily_parse_state *parser, int *state)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_lexer(lex);
+    if (lex->token == tk_word) {
+        /* Create a magic oo call tree. The lookup gets deferred until
+           emit-time when the type is known. */
+        lily_ast_push_oo_call(parser->ast_pool, parser->lex->label);
+        lily_ast_enter_tree(parser->ast_pool, tree_call, NULL);
+        NEED_NEXT_TOK(tk_left_parenth);
+        *state = ST_WANT_VALUE;
+    }
+    else if (lex->token == tk_typecast_parenth) {
+        lily_lexer(lex);
+        lily_sig *new_sig = collect_var_sig(parser, NULL, 0);
+        lily_ast_enter_typecast(parser->ast_pool, new_sig);
+        lily_ast_leave_tree(parser->ast_pool);
+        *state = ST_WANT_OPERATOR;
+    }
+}
+
+/*  expression_raw
+    BEHOLD! This is the magic function that handles expressions. The expression
+    state is viewed as being in one of a handful of states. The ast pool takes
+    care of knowing how deep a current expression is.
+
+    It is recommended that expression be used instead of this, unless the
+    caller -really- needs to have a starting state that requires a word (yes,
+    this does happen). */
+static void expression_raw(lily_parse_state *parser, int state)
+{
+    lily_lex_state *lex = parser->lex;
     while (1) {
         int expr_op = parser_tok_table[lex->token].expr_op;
-        if (expr_op != -1) {
-            lily_ast_push_binary_op(parser->ast_pool, (lily_expr_op)expr_op);
-            lily_lexer(lex);
+        if (lex->token == tk_word) {
+            if (state == ST_WANT_OPERATOR)
+                state = ST_DONE;
+            else
+                expression_word(parser, &state);
         }
-        else if (parser->ast_pool->save_depth == 0 &&
-                 parser_tok_table[lex->token].val_or_end)
-            break;
+        else if (expr_op != -1) {
+            if (state == ST_WANT_OPERATOR) {
+                lily_ast_push_binary_op(parser->ast_pool, (lily_expr_op)expr_op);
+                state = ST_DEMAND_VALUE;
+            }
+            else if (lex->token == tk_minus)
+                expression_unary(parser, &state);
+            else
+                state = ST_BAD_TOKEN;
+        }
+        else if (lex->token == tk_left_parenth) {
+            if (state == ST_WANT_VALUE || state == ST_DEMAND_VALUE) {
+                lily_ast_enter_tree(parser->ast_pool, tree_parenth, NULL);
+                state = ST_DEMAND_VALUE;
+            }
+            else if (state == ST_WANT_OPERATOR) {
+                lily_ast_enter_tree(parser->ast_pool, tree_call, NULL);
+                state = ST_WANT_VALUE;
+            }
+        }
+        else if (lex->token == tk_left_bracket) {
+            if (state == ST_WANT_VALUE || state == ST_DEMAND_VALUE) {
+                lily_ast_enter_tree(parser->ast_pool, tree_list, NULL);
+                state = ST_WANT_VALUE;
+            }
+            else if (state == ST_WANT_OPERATOR) {
+                lily_ast_enter_tree(parser->ast_pool, tree_subscript, NULL);
+                state = ST_DEMAND_VALUE;
+            }
+        }
+        else if (lex->token == tk_tuple_open) {
+            if (state == ST_WANT_OPERATOR)
+                state = ST_DONE;
+            else {
+                lily_ast_enter_tree(parser->ast_pool, tree_tuple, NULL);
+                state = ST_WANT_VALUE;
+            }
+        }
         else if (lex->token == tk_right_parenth ||
                  lex->token == tk_right_bracket ||
                  lex->token == tk_tuple_close) {
-            if (parser->ast_pool->save_depth == 0)
-                lily_raise(parser->raiser, lily_SyntaxError,
-                        "Unexpected token %s.\n", tokname(lex->token));
-
-            check_valid_close_tok(parser);
-            lily_ast_leave_tree(parser->ast_pool);
-
-            lily_lexer(lex);
-            if (parser->ast_pool->save_depth == 0 &&
-                parser_tok_table[lex->token].val_or_end == 1)
-                /* Since there are no parenths/calls left, then this value
-                   must be the first in the next expression. */
-                break;
-            else if (lex->token == tk_left_bracket) {
-                lily_ast_enter_tree(parser->ast_pool, tree_subscript, NULL);
-                lily_lexer(lex);
+            if (state == ST_DEMAND_VALUE ||
+                parser->ast_pool->save_depth == 0) {
+                state = ST_BAD_TOKEN;
             }
-            else if (lex->token == tk_left_parenth) {
-                lily_ast_enter_tree(parser->ast_pool, tree_call, NULL);
-                lily_lexer(lex);
-                if (lex->token == tk_right_parenth) {
-                    /* Don't leave the tree: This will do the leave when it
-                       jumps back up. */
-                    continue;
-                }
-            }
-            else if (lex->token == tk_tuple_open) {
-                lily_ast_enter_tree(parser->ast_pool, tree_tuple, NULL);
-                lily_lexer(lex);
-                if (lex->token == tk_tuple_close)
-                    continue;
-            }
-            else if (lex->token != tk_dot)
-                /* If not '.', then assume it's a binary token. */
-                continue;
             else {
-                /* 'a.concat("b").concat("c")'. Do a normal oo merge. */
-                expression_oo(parser);
-                /* Jump back up in case of (), like above. */
-                if (lex->token == tk_right_parenth)
-                    continue;
+                check_valid_close_tok(parser);
+                lily_ast_leave_tree(parser->ast_pool);
+                state = ST_WANT_OPERATOR;
             }
         }
-        else if (lex->token == tk_comma || lex->token == tk_arrow) {
-            if (parser->ast_pool->active == NULL)
-                lily_raise(parser->raiser, lily_SyntaxError,
-                           "Expected a value, not ','.\n");
+        else if (lex->token == tk_integer || lex->token == tk_double ||
+                 lex->token == tk_double_quote)
+            expression_literal(parser, &state);
+        else if (lex->token == tk_dot)
+            expression_dot(parser, &state);
+        else if (lex->token == tk_minus || lex->token == tk_not)
+            expression_unary(parser, &state);
+        else if (parser_tok_table[lex->token].val_or_end &&
+                 parser->ast_pool->save_depth == 0 &&
+                 state == ST_WANT_OPERATOR)
+            state = ST_DONE;
+        else if (lex->token == tk_comma || lex->token == tk_arrow)
+            expression_comma_arrow(parser, &state);
+        else
+            state = ST_BAD_TOKEN;
 
-            lily_ast *last_tree = lily_ast_get_saved_tree(parser->ast_pool);
-            if (lex->token == tk_comma) {
-                if (last_tree->tree_type == tree_hash &&
-                    (last_tree->args_collected & 0x1) == 0)
-                    lily_raise(parser->raiser, lily_SyntaxError,
-                            "Expected a key => value pair before ','.\n");
-            }
-            else if (lex->token == tk_arrow) {
-                if (last_tree->tree_type == tree_list) {
-                    if (last_tree->args_collected == 0)
-                        last_tree->tree_type = tree_hash;
-                    else
-                        lily_raise(parser->raiser, lily_SyntaxError,
-                                "Unexpected token '%s'.\n", tokname(tk_arrow));
-                }
-                else if (last_tree->tree_type != tree_hash ||
-                         (last_tree->args_collected & 0x1) == 1)
-                        lily_raise(parser->raiser, lily_SyntaxError,
-                                "Unexpected token '%s'.\n", tokname(tk_arrow));
-            }
-
-            lily_ast_collect_arg(parser->ast_pool);
-            lily_lexer(lex);
-        }
-        else if (lex->token == tk_integer || lex->token == tk_double) {
-            int did_fixup = 0;
-            maybe_digit_fixup(parser, &did_fixup);
-            if (did_fixup) {
-                /* If it gets broken down, then it becomes a binary op and a
-                   value. Call up the next token, and go back up since there's
-                   no state change. */
-                lily_lexer(lex);
-                continue;
-            }
-            /* It's the start of the next expression so long as there's no
-               currently-running expressions. */
-            else if (parser->ast_pool->save_depth == 0)
-                break;
-            else
-                lily_raise(parser->raiser, lily_SyntaxError,
-                           "Unexpected token %s during expression.\n",
-                           tokname(lex->token));
-        }
-        else {
+        if (state == ST_DONE)
+            break;
+        else if (state == ST_BAD_TOKEN)
             lily_raise(parser->raiser, lily_SyntaxError,
-                       "Unexpected token %s during expression.\n",
-                       tokname(lex->token));
-        }
-        expression_value(parser);
+                    "Unexpected token '%s'.\n", tokname(lex->token));
+        else
+            lily_lexer(lex);
     }
+}
+
+/*  expression
+    This calls expression_raw with a starting state of ST_DEMAND_VALUE. 99%
+    of the time, that's what's needed.
+
+    Calling this function is preferred, as there's no weird 'ST_DEMAND_VALUE'
+    showing up everywhere. */
+static void expression(lily_parse_state *parser)
+{
+    expression_raw(parser, ST_DEMAND_VALUE);
 }
 
 /* parse_decl
@@ -957,7 +868,7 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
             lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
             lily_ast_push_binary_op(parser->ast_pool, expr_assign);
             lily_lexer(lex);
-            expression(parser, 0);
+            expression(parser);
             lily_emit_eval_expr(parser->emit, parser->ast_pool);
         }
 
@@ -978,7 +889,7 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
 static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
 {
     lily_ast_pool *ap = parser->ast_pool;
-    expression(parser, 0);
+    expression(parser);
 
     /* Don't allow assigning expressions, since that just looks weird.
        ex: for i in a += 10..5
@@ -1080,7 +991,7 @@ static void statement(lily_parse_state *parser, int multi)
                     lily_lexer(lex);
                     if (lex->token == tk_colon_colon) {
                         expression_static_call(parser, lclass);
-                        expression(parser, 0);
+                        expression(parser);
                         lily_emit_eval_expr(parser->emit, parser->ast_pool);
                     }
                     else {
@@ -1101,7 +1012,7 @@ static void statement(lily_parse_state *parser, int multi)
                     }
                 }
                 else {
-                    expression(parser, 0);
+                    expression(parser);
                     lily_emit_eval_expr(parser->emit, parser->ast_pool);
                 }
             }
@@ -1109,7 +1020,7 @@ static void statement(lily_parse_state *parser, int multi)
         else if (token == tk_integer || token == tk_double ||
                  token == tk_double_quote || token == tk_left_parenth ||
                  token == tk_left_bracket || token == tk_tuple_open) {
-            expression(parser, 0);
+            expression(parser);
             lily_emit_eval_expr(parser->emit, parser->ast_pool);
         }
         /* The caller will be expecting '}' or maybe @> / EOF if it's the main
@@ -1170,7 +1081,7 @@ static void if_handler(lily_parse_state *parser, int multi)
     lily_lex_state *lex = parser->lex;
 
     lily_emit_enter_block(parser->emit, BLOCK_IF);
-    expression(parser, 0);
+    expression(parser);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
     NEED_CURRENT_TOK(tk_colon)
 
@@ -1210,7 +1121,7 @@ static void elif_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
     lily_emit_change_block_to(parser->emit, BLOCK_IF_ELIF);
-    expression(parser, 0);
+    expression(parser);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
 
     NEED_CURRENT_TOK(tk_colon)
@@ -1263,7 +1174,7 @@ static void return_handler(lily_parse_state *parser, int multi)
     lily_ast *ast;
 
     if (ret_sig != NULL) {
-        expression(parser, 0);
+        expression(parser);
         ast = parser->ast_pool->root;
     }
     else
@@ -1285,7 +1196,7 @@ static void while_handler(lily_parse_state *parser, int multi)
 
     lily_emit_enter_block(parser->emit, BLOCK_WHILE);
 
-    expression(parser, 0);
+    expression(parser);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
 
     NEED_CURRENT_TOK(tk_colon)
@@ -1320,7 +1231,7 @@ static void break_handler(lily_parse_state *parser, int multi)
     to handle any kind of value: vars, literals, results of commands, etc. */
 static void show_handler(lily_parse_state *parser, int multi)
 {
-    expression(parser, 0);
+    expression(parser);
     lily_emit_show(parser->emit, parser->ast_pool->root);
     lily_ast_reset_pool(parser->ast_pool);
 }
@@ -1336,7 +1247,7 @@ static void do_keyword(lily_parse_state *parser, int key_id)
     lit = parse_special_keyword(parser, key_id);
     lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
 
-    expression(parser, EXPR_DONT_NEED_VALUE);
+    expression_raw(parser, ST_WANT_OPERATOR);
     lily_emit_eval_expr(parser->emit, parser->ast_pool);
 }
 
@@ -1470,7 +1381,7 @@ static void do_handler(lily_parse_state *parser, int multi)
     /* Now prep the token for expression. Save the resulting tree so that
        it can be eval'd specially. */
     lily_lexer(lex);
-    expression(parser, 0);
+    expression(parser);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
     lily_emit_leave_block(parser->emit);
 }
@@ -1481,7 +1392,7 @@ static void isnil_handler(lily_parse_state *parser, int multi)
     lily_ast_enter_tree(parser->ast_pool, tree_isnil, NULL);
     NEED_CURRENT_TOK(tk_left_parenth)
     lily_lexer(lex);
-    expression(parser, 0);
+    expression(parser);
     lily_emit_eval_expr(parser->emit, parser->ast_pool);
 }
 
@@ -1564,7 +1475,7 @@ static void except_handler(lily_parse_state *parser, int multi)
 
 static void raise_handler(lily_parse_state *parser, int multi)
 {
-    expression(parser, 0);
+    expression(parser);
     lily_emit_raise(parser->emit, parser->ast_pool->root);
     lily_ast_reset_pool(parser->ast_pool);
 }
@@ -1621,7 +1532,7 @@ void lily_parser(lily_parse_state *parser)
                  lex->token == tk_left_parenth ||
                  lex->token == tk_left_bracket ||
                  lex->token == tk_tuple_open) {
-            expression(parser, 0);
+            expression(parser);
             lily_emit_eval_expr(parser->emit, parser->ast_pool);
         }
         else
