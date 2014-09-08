@@ -1060,8 +1060,8 @@ static int assign_optimize_check(lily_ast *ast)
     int can_optimize = 1;
 
     do {
-        /* Most opcodes assume that the register index is a local index for
-           simplicity. This is an index of a global, so this isn't possible. */
+        /* Assigning to a global is done differently than with a local, so it
+           can't be optimized. */
         if (ast->left->tree_type == tree_var) {
             can_optimize = 0;
             break;
@@ -1069,9 +1069,8 @@ static int assign_optimize_check(lily_ast *ast)
 
         lily_ast *right_tree = ast->right;
 
-        /* Can't optimize out basic assignments like a = b. */
-        if (right_tree->tree_type == tree_var ||
-            right_tree->tree_type == tree_local_var) {
+        /* Gotta do basic assignments. */
+        if (right_tree->tree_type == tree_local_var) {
             can_optimize = 0;
             break;
         }
