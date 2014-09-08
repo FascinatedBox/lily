@@ -878,8 +878,13 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
 
         /* Handle an initializing assignment, if there is one. */
         if (lex->token == tk_equal) {
-            /* Push the value and the assignment, then call up expresison. */
-            lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
+            /* This makes a difference: The emitter cannot do opcode optimizing
+               for global reads/writes. */
+            if (parser->emit->function_depth == 1)
+                lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
+            else
+                lily_ast_push_local_var(parser->ast_pool, var);
+
             lily_ast_push_binary_op(parser->ast_pool, expr_assign);
             lily_lexer(lex);
             expression(parser);
