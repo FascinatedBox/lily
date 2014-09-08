@@ -1100,37 +1100,32 @@ static void if_handler(lily_parse_state *parser, int multi)
     NEED_CURRENT_TOK(tk_colon)
 
     lily_lexer(lex);
-    if (lex->token == tk_left_curly) {
+    if (lex->token == tk_left_curly)
         parse_multiline_block_body(parser, multi);
-        lily_emit_leave_block(parser->emit);
-    }
     else {
-        /* Single-line statement won't jump into other blocks though. */
         statement(parser, 0);
-        if (lex->token == tk_word) {
+        while (lex->token == tk_word) {
             int key_id = lily_keyword_by_name(lex->label);
 
+            /* Jump directly into elif/else. Doing it this way (instead of
+               through statement) means that the 'if' block can be popped in a
+               single place. */
             if (key_id == KEY_ELIF || key_id == KEY_ELSE) {
-                /* Don't go back into statement, because this is a single-line
-                   block and may be within a multi-line block. Instead, call
-                   these directly. */
                 lily_lexer(parser->lex);
                 handlers[key_id](parser, 0);
             }
             else
-                lily_emit_leave_block(parser->emit);
+                break;
         }
-        else
-            lily_emit_leave_block(parser->emit);
     }
+
+    lily_emit_leave_block(parser->emit);
 }
 
 /*  elif_handler
-    This handles the elif keyword. The { after if decides if this is
-    multi-line, so elif doesn't have very much to do. The only tricky part is
-    making sure that single-line elif's call each other. They can't fall back
-    to statement because parsing goes wrong if it's a single-line block in a
-    multi-line block. */
+    This handles elif. Both elif and else don't call the block because they're
+    always called somehow through if_handler calling statement.
+    The multi-line-ness has already been determined by the if block. */
 static void elif_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
@@ -1142,30 +1137,10 @@ static void elif_handler(lily_parse_state *parser, int multi)
 
     lily_lexer(lex);
     statement(parser, multi);
-
-    if (multi == 0) {
-        if (lex->token == tk_word) {
-            int key_id = lily_keyword_by_name(lex->label);
-
-            if (key_id == KEY_ELIF || key_id == KEY_ELSE) {
-                /* Don't go back into statement, because this is a single-line
-                   block and may be within a multi-line block. Instead, call
-                   these directly. */
-                lily_lexer(parser->lex);
-                handlers[key_id](parser, 0);
-            }
-            else
-                lily_emit_leave_block(parser->emit);
-        }
-        else
-            lily_emit_leave_block(parser->emit);
-    }
 }
 
 /*  else_handler
-    This handles the else keyword. Since is the last part of the if/elif/else
-    combo, there's VERY little to do here except one statement and leaving the
-    if block. */
+    This handles the else keyword. Doesn't get much easier. */
 static void else_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
@@ -1175,8 +1150,6 @@ static void else_handler(lily_parse_state *parser, int multi)
     lily_lexer(lex);
 
     statement(parser, multi);
-    if (multi == 0)
-        lily_emit_leave_block(parser->emit);
 }
 
 /*  return_handler

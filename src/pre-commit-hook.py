@@ -69,6 +69,10 @@ Where: File "<str>" at line 1\n""",
      "message": "Test that template arguments can default to any."
     },
     {
+     "command": """  if 1: elif 1: 1  """,
+     "message": "Test a blank if expression."
+    },
+    {
      "command": """  10.@(integer)()  """,
      "message": "Failcheck: Bad anonymous call",
      "stderr": """\
