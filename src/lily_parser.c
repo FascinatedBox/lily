@@ -172,16 +172,8 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig,
     return var;
 }
 
-/** Var sig collection
-  * collect_* functions are used by collect_var_sig as helpers, and should not
-    be called by any function except expression itself.
-  * This handles sig collection for complex signatures (lists and function, for
-    example). It shouldn't be called for simple classes.
-  * Sigs are put into the parser's sig stack to keep them from being leaked
-    in case of lily_raise/lily_raise_nomem being called. **/
-static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
-        int flags);
-
+/*  grow_sig_stack
+    Make the stack holding type information bigger for more types. */
 static void grow_sig_stack(lily_parse_state *parser)
 {
     parser->sig_stack_size *= 2;
@@ -195,86 +187,158 @@ static void grow_sig_stack(lily_parse_state *parser)
     parser->sig_stack = new_sig_stack;
 }
 
-static void collect_call_args(lily_parse_state *parser, int flags,
-        lily_sig *call_sig, lily_var *call_var)
+/*****************************************************************************/
+/* Type collection                                                           */
+/*****************************************************************************/
+
+static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
+        int flags);
+
+#define TC_DEMAND_VALUE  1
+#define TC_WANT_VALUE    2
+/* In this case, an operator is => or , or ... */
+#define TC_WANT_OPERATOR 3
+#define TC_BAD_TOKEN     4
+#define TC_DONE          5
+
+/*  inner_type_collector
+    Given a class that takes inner types (like list, hash, function, etc.),
+    collect those inner types. A valid, unique signature is returned. */
+static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
+        int flags)
 {
-    int call_flags = 0;
-    int i = 0;
-    int save_pos = parser->sig_stack_pos;
+    int i;
+    int state = TC_WANT_VALUE, stack_start = parser->sig_stack_pos;
+    int sig_flags = 0, have_arrow = 0, have_dots = 0;
+    lily_token end_token;
+    if (cls->id == SYM_CLASS_FUNCTION) {
+        /* Functions have their return as the first type, so leave a hole. */
+        if ((parser->sig_stack_pos + 2) == parser->sig_stack_size)
+            grow_sig_stack(parser);
+
+        /* No value returned by default. */
+        parser->sig_stack[parser->sig_stack_pos] = NULL;
+        parser->sig_stack_pos++;
+        /* No value needed either. But don't bump the pos again so this can be
+           overwritten by incoming args. */
+        parser->sig_stack[parser->sig_stack_pos + 1] = NULL;
+
+        end_token = tk_right_parenth;
+        i = 1;
+    }
+    else {
+        end_token = tk_right_bracket;
+        i = 0;
+    }
+
+    if (flags & CV_TOPLEVEL) {
+        flags |= CV_MAKE_VARS;
+        flags &= ~CV_TOPLEVEL;
+    }
+    else
+        flags &= ~CV_MAKE_VARS;
+
     lily_lex_state *lex = parser->lex;
-    lily_sig *last_arg_sig = NULL;
-
-    /* A callable's arguments are named if it's not an argument to something
-       else. */
-    if (flags & CV_TOPLEVEL)
-        call_flags |= CV_MAKE_VARS;
-
-    if (lex->token != tk_arrow) {
-        while (1) {
+    while (1) {
+        if (lex->token == tk_word) {
             if (parser->sig_stack_pos == parser->sig_stack_size)
                 grow_sig_stack(parser);
 
-            last_arg_sig = collect_var_sig(parser, NULL, call_flags);
-            parser->sig_stack[parser->sig_stack_pos] = last_arg_sig;
-            parser->sig_stack_pos++;
+            if (have_arrow)
+                flags &= ~(CV_MAKE_VARS);
 
-            if (lex->token == tk_arrow ||
-                lex->token == tk_right_parenth ||
-                lex->token == tk_three_dots)
-                break;
+            lily_sig *sig = collect_var_sig(parser, NULL, flags);
+            if (have_arrow == 0) {
+                parser->sig_stack[parser->sig_stack_pos] = sig;
+                parser->sig_stack_pos++;
+                i++;
+            }
+            else
+                parser->sig_stack[stack_start] = sig;
 
-            NEED_CURRENT_TOK(tk_comma)
+            state = TC_WANT_OPERATOR;
+            continue;
+        }
+        else if (lex->token == tk_comma) {
+            if (have_arrow || have_dots ||
+                state != TC_WANT_OPERATOR)
+                state = TC_BAD_TOKEN;
+            else
+                state = TC_DEMAND_VALUE;
+        }
+        else if (lex->token == tk_arrow) {
+            if (state == TC_DEMAND_VALUE || have_arrow ||
+                end_token == tk_right_bracket)
+                state = TC_BAD_TOKEN;
+            else if (state == TC_WANT_VALUE || state == TC_WANT_OPERATOR)
+                state = TC_DEMAND_VALUE;
+
+            have_arrow = 1;
+        }
+        else if (lex->token == end_token) {
+            if (state == TC_DEMAND_VALUE)
+                state = TC_BAD_TOKEN;
+            else
+                state = TC_DONE;
+        }
+        else if (lex->token == tk_three_dots) {
+            if (have_dots || end_token == tk_right_bracket ||
+                state != TC_WANT_OPERATOR)
+                state = TC_BAD_TOKEN;
+            else {
+                lily_sig *last_sig;
+                last_sig = parser->sig_stack[parser->sig_stack_pos - 1];
+                if (last_sig->cls->id != SYM_CLASS_LIST)
+                    lily_raise(parser->raiser, lily_SyntaxError,
+                        "A list is required for variable arguments (...).\n");
+
+                have_dots = 1;
+                sig_flags |= SIG_IS_VARARGS;
+                state = TC_WANT_OPERATOR;
+            }
+        }
+        else
+            state = TC_BAD_TOKEN;
+
+        if (state == TC_DONE)
+            break;
+        else if (state == TC_BAD_TOKEN)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Unexpected token '%s'.\n", tokname(lex->token));
+        else
             lily_lexer(lex);
+    }
+
+    if (parser->sig_stack_pos - stack_start != cls->template_count &&
+        cls->template_count != -1) {
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Class %s expects %d type(s), but got %d type(s).\n",
+                cls->name, cls->template_count,
+                parser->sig_stack_pos - stack_start);
+    }
+
+    if (cls->id == SYM_CLASS_HASH) {
+        /* For hash, make sure that the key (the first type) is valid. */
+        lily_sig *check_sig = parser->sig_stack[stack_start];
+        if ((check_sig->cls->flags & CLS_VALID_HASH_KEY) == 0) {
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "'%T' is not a valid hash key.\n", check_sig);
         }
     }
 
-    int num_args = parser->sig_stack_pos - save_pos;
+    lily_sig *result = lily_build_ensure_sig(parser->symtab, cls, sig_flags,
+            parser->sig_stack, stack_start, i);
+    parser->sig_stack_pos = stack_start;
 
-    /* ... at the end means it's varargs. It must be a list of some type,
-       because the interpreter boxes the varargs into a list. */
-    if (lex->token == tk_three_dots) {
-        if (num_args == 0)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                       "Unexpected token %s.\n", tokname(lex->token));
-
-        if (last_arg_sig->cls->id != SYM_CLASS_LIST) {
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "A list is required for variable arguments (...).\n");
-        }
-
-        call_sig->flags |= SIG_IS_VARARGS;
-        lily_lexer(lex);
-        if (lex->token != tk_right_parenth &&
-            lex->token != tk_arrow)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "Expected either '=>' or ')' after '...' .\n");
-    }
-
-    /* This doesn't need to be registered in the sig stack because there's
-       only going to be one return. */
-    lily_sig *return_sig = NULL;
-    if (lex->token == tk_arrow) {
-        lily_lexer(lex);
-        return_sig = collect_var_sig(parser, NULL, 0);
-        NEED_CURRENT_TOK(tk_right_parenth);
-    }
-
-    /* +1 for the return. */
-    lily_sig **siglist = lily_malloc((num_args + 1) * sizeof(lily_sig *));
-    if (siglist == NULL)
-        lily_raise_nomem(parser->raiser);
-
-    for (i = 0;i < num_args;i++)
-        siglist[i + 1] = parser->sig_stack[save_pos + i];
-
-    siglist[0] = return_sig;
-    call_sig->siglist_size = i + 1;
-    call_sig->siglist = siglist;
-    parser->sig_stack_pos = save_pos;
+    return result;
 }
 
-/* collect_var_sig
-   This is the entry point for complex signature collection. */
+/*  collect_var_sig
+    This is the outer part of type collection. This takes flags (CV_* defines)
+    which tell it how to act. Additionally, if the parser has already scanned
+    the class info, then 'cls' should be the scanned class. Otherwise, 'cls' 
+    will be NULL. This is so parser can check if it's 'sometype T' or
+    'sometype::member' without rewinding. */
 static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
         int flags)
 {
@@ -291,8 +355,7 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
 
     lily_sig *result;
 
-    if (cls->id != SYM_CLASS_FUNCTION && cls->id != SYM_CLASS_TUPLE &&
-        cls->id != SYM_CLASS_LIST && cls->id != SYM_CLASS_HASH) {
+    if (cls->template_count == 0) {
         result = cls->sig;
         if (flags & CV_MAKE_VARS)
             get_named_var(parser, cls->sig, 0);
@@ -300,48 +363,10 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
     else if (cls->id == SYM_CLASS_TUPLE ||
              cls->id == SYM_CLASS_LIST ||
              cls->id == SYM_CLASS_HASH) {
-        int i, save_pos;
-
-        save_pos = parser->sig_stack_pos;
 
         NEED_CURRENT_TOK(tk_left_bracket)
         lily_lexer(lex);
-        for (i = 1;    ;i++) {
-            if (parser->sig_stack_pos == parser->sig_stack_size)
-                grow_sig_stack(parser);
-
-            lily_sig *sig = collect_var_sig(parser, NULL, 0);
-            parser->sig_stack[parser->sig_stack_pos] = sig;
-            parser->sig_stack_pos++;
-            if (lex->token == tk_comma) {
-                lily_lexer(lex);
-                continue;
-            }
-            else if (lex->token == tk_right_bracket)
-                break;
-        }
-
-        if (parser->sig_stack_pos - save_pos != cls->template_count &&
-            cls->template_count != -1) {
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "Class %s expects %d type(s), but got %d type(s).\n",
-                    cls->name, cls->template_count,
-                    parser->sig_stack_pos - save_pos);
-        }
-
-        if (cls->id == SYM_CLASS_HASH) {
-            /* For hash, make sure this type is a valid key. */
-            lily_sig *check_sig = parser->sig_stack[save_pos];
-            if ((check_sig->cls->flags & CLS_VALID_HASH_KEY) == 0) {
-                lily_raise(parser->raiser, lily_SyntaxError,
-                        "'%T' is not a valid hash key.\n", check_sig);
-            }
-        }
-
-        result = lily_build_ensure_sig(parser->symtab, cls, 0,
-                parser->sig_stack, save_pos, i);
-
-        parser->sig_stack_pos = save_pos;
+        result = inner_type_collector(parser, cls, flags);
 
         lily_lexer(lex);
         if (flags & CV_MAKE_VARS)
@@ -365,19 +390,8 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
 
         NEED_CURRENT_TOK(tk_left_parenth)
         lily_lexer(lex);
-        if (lex->token != tk_right_parenth)
-            collect_call_args(parser, flags, call_sig, call_var);
-        else {
-            call_sig->siglist = lily_malloc(2 * sizeof(lily_sig));
-            if (call_sig->siglist == NULL)
-                lily_raise_nomem(parser->raiser);
+        call_sig = inner_type_collector(parser, cls, flags);
 
-            call_sig->siglist[0] = NULL;
-            call_sig->siglist[1] = NULL;
-            call_sig->siglist_size = 1;
-        }
-
-        call_sig = lily_ensure_unique_sig(parser->symtab, call_sig);
         if (flags & CV_MAKE_VARS)
             call_var->sig = call_sig;
 
