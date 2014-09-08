@@ -1388,33 +1388,6 @@ static void isnil_handler(lily_parse_state *parser, int multi)
     lily_emit_eval_expr(parser->emit, parser->ast_pool);
 }
 
-static void try_handler(lily_parse_state *parser, int multi)
-{
-    lily_lex_state *lex = parser->lex;
-
-    lily_emit_enter_block(parser->emit, BLOCK_TRY);
-    lily_emit_try(parser->emit, parser->lex->line_num);
-
-    NEED_CURRENT_TOK(tk_colon)
-    lily_lexer(lex);
-    if (lex->token == tk_left_curly)
-        parse_multiline_block_body(parser, multi);
-
-    /* Trust me, this is important. Why?
-       For a series of N except blocks, N - 1 are jumps that want the end
-       location, and N wants the next except block. This next instruction makes
-       it where all N entries want a jump to the end, and the last except (or
-       the try if there are no excepts) gets a next location of 0.
-       If this is not done, the last except block will be patched to the try
-       block's exit (which will not be an except block). The vm WILL crash.
-       If this is done, the last except block won't be patched, so its 'next'
-       spot will be 0 (the vm sees this and knows it's the end of that try
-       block). */
-    parser->emit->patch_pos--;
-
-    lily_emit_leave_block(parser->emit);
-}
-
 static void except_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
@@ -1463,6 +1436,37 @@ static void except_handler(lily_parse_state *parser, int multi)
     lily_lexer(lex);
     if (lex->token != tk_right_curly)
         statement(parser, 1);
+}
+
+static void try_handler(lily_parse_state *parser, int multi)
+{
+    lily_lex_state *lex = parser->lex;
+
+    lily_emit_enter_block(parser->emit, BLOCK_TRY);
+    lily_emit_try(parser->emit, parser->lex->line_num);
+
+    NEED_CURRENT_TOK(tk_colon)
+    lily_lexer(lex);
+    if (lex->token == tk_left_curly)
+        parse_multiline_block_body(parser, multi);
+    else {
+        statement(parser, 0);
+        while (lex->token == tk_word) {
+            if (strcmp("except", lex->label) == 0) {
+                lily_lexer(parser->lex);
+                except_handler(parser, multi);
+            }
+            else
+                break;
+        }
+    }
+
+    /* The vm expects that the last except block will have a 'next' of 0 to
+       indicate the end of the 'except' chain. Remove the patch that the last
+       except block installed so it doesn't get patched. */
+    parser->emit->patch_pos--;
+
+    lily_emit_leave_block(parser->emit);
 }
 
 static void raise_handler(lily_parse_state *parser, int multi)
