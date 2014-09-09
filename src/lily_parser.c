@@ -47,7 +47,10 @@ if (lex->token != expected) \
     lily_raise(parser->raiser, lily_SyntaxError, "Expected '%s', not %s.\n", \
                tokname(expected), tokname(lex->token));
 
-/** Parser initialization and deletion **/
+/*****************************************************************************/
+/* Parser creation and teardown                                              */
+/*****************************************************************************/
+
 lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
 {
     lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
@@ -145,14 +148,13 @@ void lily_free_parse_state(lily_parse_state *parser)
     lily_free(parser);
 }
 
-/** Shared code **/
-/* get_named_var
-   This calls lexer to get a name, then uses that to declare a new var. The
-   var is checked for having a unique name. var_sig is the signature used to
-   create the new var.
+/*****************************************************************************/
+/* Shared code                                                               */
+/*****************************************************************************/
 
-   Success: The newly created var is returned.
-   Failure: An error is raised. */
+/*  get_named_var
+    Attempt to create a var with the given signature. This will call lexer to
+    get the name, as well as ensuring that the given var is unique. */
 static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig,
         int flags)
 {
@@ -933,15 +935,12 @@ static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
     return var;
 }
 
-/** Statement and statement helpers.
-    These *_handler functions are used to handle a keyword. This allows one to
-    grab a keyword, then do 'handlers[key_id](parser, multi)' and not have to
-    worry about anything.
-    These handler functions should not be called directly: In most cases,
-    statement should be called, because it's fairly smart.
-    Each of the helper functions gets the parser state and a 0/1 indicating if
-    the current block is a multi-line block or not. **/
+/*****************************************************************************/
+/* Statement handling                                                        */
+/*****************************************************************************/
 
+/* Every keyword has an associated handler, even if it's something rather
+   simple. */
 static void if_handler(lily_parse_state *, int);
 static void elif_handler(lily_parse_state *, int);
 static void else_handler(lily_parse_state *, int);
@@ -962,6 +961,7 @@ static void raise_handler(lily_parse_state *, int);
 
 typedef void (keyword_handler)(lily_parse_state *, int);
 
+/* This is setup so that handlers[key_id] is the handler for that keyword. */
 static keyword_handler *handlers[] = {
     if_handler,
     elif_handler,
@@ -1476,11 +1476,11 @@ static void raise_handler(lily_parse_state *parser, int multi)
     lily_ast_reset_pool(parser->ast_pool);
 }
 
-/** Main parser function, and public calling API.
-    Most of the work has been pushed into statement the helpers that statement
-    calls. The API serves as a way to launch the parser without the raises
-    resulting in a longjmp to an invalid place. **/
-void lily_parser(lily_parse_state *parser)
+/*  parser_loop
+    This is the main parsing function. This is called by a lily_parse_*
+    function which will set the raiser and give the lexer a file before calling
+    this function. */
+static void parser_loop(lily_parse_state *parser)
 {
     /* Must do this first, in the rare case this next call fails. */
     parser->mode = pm_parse;
@@ -1537,6 +1537,10 @@ void lily_parser(lily_parse_state *parser)
     }
 }
 
+/*****************************************************************************/
+/* Exported API                                                              */
+/*****************************************************************************/
+
 /*  lily_parse_file
     This function starts parsing from a file indicated by the given filename.
     The file is opened through fopen, and is automatically destroyed when the
@@ -1553,7 +1557,7 @@ int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode, char *filename
         parser->raiser->jump_pos++;
         lily_load_file(parser->lex, mode, filename);
         if (parser->lex->token != tk_eof)
-            lily_parser(parser);
+            parser_loop(parser);
 
         return 1;
     }
@@ -1575,7 +1579,7 @@ int lily_parse_string(lily_parse_state *parser, lily_lex_mode mode, char *str)
     if (setjmp(parser->raiser->jumps[parser->raiser->jump_pos]) == 0) {
         parser->raiser->jump_pos++;
         lily_load_str(parser->lex, mode, str);
-        lily_parser(parser);
+        parser_loop(parser);
         return 1;
     }
 
@@ -1603,7 +1607,7 @@ int lily_parse_special(lily_parse_state *parser, lily_lex_mode mode,
         parser->raiser->jump_pos++;
         lily_load_special(parser->lex, mode, source, filename, read_line_fn,
                 close_fn);
-        lily_parser(parser);
+        parser_loop(parser);
         return 1;
     }
 
