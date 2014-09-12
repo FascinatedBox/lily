@@ -594,7 +594,8 @@ static void expression_word(lily_parse_state *parser, int *state)
 static void check_valid_close_tok(lily_parse_state *parser)
 {
     lily_token token = parser->lex->token;
-    lily_tree_type tt = lily_ast_caller_tree_type(parser->ast_pool);
+    lily_ast *ast = lily_ast_get_saved_tree(parser->ast_pool);
+    lily_tree_type tt = ast->tree_type;
     lily_token expect;
 
     if (tt == tree_call || tt == tree_parenth || tt == tree_typecast ||
