@@ -375,24 +375,26 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
             get_named_var(parser, result, 0);
     }
     else if (cls->id == SYM_CLASS_FUNCTION) {
-        lily_sig *call_sig = lily_try_sig_for_class(parser->symtab, cls);
+        /* Function doesn't have a default signature, but integer does. Save
+           memory by lying and swapping the signature out later when the
+           function's sig is known. */
+        lily_class *integer_cls = lily_class_by_id(parser->symtab,
+                SYM_CLASS_INTEGER);
         lily_var *call_var;
-
-        if (call_sig == NULL)
-            lily_raise_nomem(parser->raiser);
 
         if (flags & CV_MAKE_VARS) {
             if (flags & CV_TOPLEVEL) {
-                call_var = get_named_var(parser, call_sig, VAR_IS_READONLY);
+                call_var = get_named_var(parser, integer_cls->sig,
+                        VAR_IS_READONLY);
                 lily_emit_enter_block(parser->emit, BLOCK_FUNCTION);
             }
             else
-                call_var = get_named_var(parser, call_sig, 0);
+                call_var = get_named_var(parser, integer_cls->sig, 0);
         }
 
         NEED_CURRENT_TOK(tk_left_parenth)
         lily_lexer(lex);
-        call_sig = inner_type_collector(parser, cls, flags);
+        lily_sig *call_sig = inner_type_collector(parser, cls, flags);
 
         if (flags & CV_MAKE_VARS)
             call_var->sig = call_sig;
