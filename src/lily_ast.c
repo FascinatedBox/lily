@@ -610,26 +610,7 @@ void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
     a->priority = priority_for_op(op);
     a->op = op;
 
-    lily_ast *active = ap->active;
-
-    if (active != NULL) {
-        /* Don't use merge_value, because it picks based off the active tree
-           and will select an absorb merge. That's wrong for unary. */
-        if (active->tree_type == tree_var ||
-            active->tree_type == tree_local_var ||
-            active->tree_type == tree_call ||
-            active->tree_type == tree_readonly) {
-            active->parent = a;
-            ap->active = a;
-            ap->root = a;
-        }
-        else
-            merge_value(ap, a);
-    }
-    else {
-        ap->active = a;
-        ap->root = a;
-    }
+    merge_value(ap, a);
 }
 
 void lily_ast_push_local_var(lily_ast_pool *ap, lily_var *var)
