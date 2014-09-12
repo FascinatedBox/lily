@@ -50,6 +50,7 @@ if (ap->available_current) { \
 else \
     a = make_new_tree(ap); \
 a->tree_type = tt; \
+a->next_arg = NULL; \
 a->line_num = *ap->lex_linenum; \
 a->parent = NULL;
 
@@ -61,7 +62,6 @@ a->parent = NULL;
 AST_COMMON_INIT(a, tt) \
 a->args_collected = 0; \
 a->arg_start = NULL; \
-a->arg_top = NULL; \
 a->result = NULL;
 
 
@@ -207,7 +207,6 @@ static void merge_absorb(lily_ast_pool *ap, lily_ast *given, lily_ast *new_tree)
 
     given->parent = new_tree;
     new_tree->arg_start = given;
-    new_tree->arg_top = given;
     new_tree->args_collected = 1;
     new_tree->next_arg = NULL;
 }
@@ -445,10 +444,13 @@ static void push_tree_arg(lily_ast_pool *ap, lily_ast *call, lily_ast *tree)
        functions would be using different ASTs. */
     if (call->arg_start == NULL)
         call->arg_start = tree;
-    else
-        call->arg_top->next_arg = tree;
+    else {
+        lily_ast *call_iter = call->arg_start;
+        while (call_iter->next_arg != NULL)
+            call_iter = call_iter->next_arg;
 
-    call->arg_top = tree;
+        call_iter->next_arg = tree;
+    }
 
     /* Calls with 0 args have no value, so tree is null. */
     if (tree) {
