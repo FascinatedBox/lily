@@ -22,24 +22,15 @@ typedef struct lily_ast_t {
     int line_num;
 
     lily_sig *sig;
-    /* This is used by the emitter to hold the result of evaluating the ast.
-       Additionally, tree_var will store the var here, so that emitter doesn't
-       have to do anything extra for vars.
-       tree_call will store the symbol to be called, if it's known at parse
-       time. For anonymous calls ( abc[0](), call()(), etc.), this is NULL and
-       the first arg will be evaluated to find the value to call. */
+    /* This is where the result of evaluating the tree goes. This is used
+       because it's a subset of both lily_var and lily_storage, either of which
+       it may be set to. */
     lily_sym *result;
 
-    /* If this tree is an argument or subtree, this is the pointer to the next
-       tree in the expression, or NULL if this tree is last. */
-    struct lily_ast_t *next_arg;
-
-    /* These three are used primarily by calls. However, some ops like parenth,
-       list, and subscript operate by storing their information as 'args', since
-       each value is an independent sub expression. */
+    /* These three are used by anything that has subtrees...which is a lot. */
     int args_collected;
     struct lily_ast_t *arg_start;
-    struct lily_ast_t *arg_top;
+    struct lily_ast_t *next_arg;
 
     int oo_pool_index;
 
