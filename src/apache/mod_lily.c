@@ -10,6 +10,7 @@
 #include "util_script.h"
 
 #include "lily_parser.h"
+#include "lily_bind.h"
 #include "lily_lexer.h"
 #include "lily_value.h"
 #include "lily_impl.h"
@@ -106,68 +107,6 @@ static void apache_close_fn(lily_lex_entry *entry)
 /** Shared common functions **/
 
 
-/*  bind_string_and_buffer
-    string_sig: The signature representing a string, for the new value.
-    buffer:     A malloc'd buffer holding a \0 terminated string.
-
-    On success: A proper value is returned containing a string using the
-                buffer.
-                The buffer is taken over by the newly-created string value.
-    On failure: NULL is returned, and the buffer given is free'd. */
-static lily_value *bind_string_and_buffer(lily_sig *string_sig, char *buffer)
-{
-    lily_value *new_value = lily_malloc(sizeof(lily_value));
-    lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
-    int string_size = strlen(buffer);
-
-    if (sv == NULL || new_value == NULL) {
-        lily_free(sv);
-        /* This function takes over the buffer on success, so make sure if
-           there is an error that it destroys the buffer. */
-        lily_free(buffer);
-        lily_free(new_value);
-        return NULL;
-    }
-
-    sv->refcount = 1;
-    sv->string = buffer;
-    sv->size = string_size;
-
-    new_value->value.string = sv;
-    new_value->flags = 0;
-    new_value->sig = string_sig;
-
-    return new_value;
-}
-
-/*  bind_string
-    string_sig: The signature representing a string, for the new value.
-    str:         A \0 terminated string.
-
-    On success: A lily_value is returned that holds a lily_string_value which
-                holds the given string.
-    On failure: NULL is returned. The buffer is not free'd.
-
-    This function creates a copy of the given str, instead of taking ownership
-    of it. */
-static lily_value *bind_string(lily_sig *string_sig, const char *string)
-{
-    char *buffer = lily_malloc(strlen(string) + 1);
-    if (buffer == NULL)
-        return NULL;
-
-    strcpy(buffer, string);
-    return bind_string_and_buffer(string_sig, buffer);
-}
-
-static void deref_destroy_value(lily_value *value)
-{
-    if (value != NULL) {
-        lily_deref_unknown_val(value);
-        lily_free(value);
-    }
-}
-
 static lily_hash_elem *bind_hash_elem_with_values(char *sipkey,
     lily_value *key, lily_value *value)
 {
@@ -247,9 +186,9 @@ static void make_package(int *ok, lily_parse_state *parser,
 
 struct table_bind_data {
     lily_parse_state *parser;
+    lily_symtab *symtab;
     request_rec *r;
     int ok;
-    lily_sig *string_sig;
     lily_hash_val *hash_val;
     char *sipkey;
 };
@@ -258,15 +197,15 @@ static int bind_table_entry(void *data, const char *key, const char *value)
 {
     struct table_bind_data *d = data;
 
-    lily_value *elem_key = bind_string(d->string_sig, key);
-    lily_value *elem_value = bind_string(d->string_sig, value);
+    lily_value *elem_key = lily_bind_string(d->symtab, key);
+    lily_value *elem_value = lily_bind_string(d->symtab, value);
     lily_hash_elem *new_elem = bind_hash_elem_with_values(d->sipkey,
             elem_key, elem_value);
 
     if (elem_key == NULL || elem_value == NULL || new_elem == NULL) {
         lily_free(new_elem);
-        deref_destroy_value(elem_key);
-        deref_destroy_value(elem_value);
+        lily_bind_destroy(elem_key);
+        lily_bind_destroy(elem_value);
         d->ok = 0;
         return FALSE;
     }
@@ -286,12 +225,11 @@ static void bind_table_as(int *count, lily_parse_state *parser, request_rec *r,
 
     lily_var *hash_var = bind_hash_str_str_var(symtab, name);
 
-    lily_class *string_cls = lily_class_by_id(parser->symtab, SYM_CLASS_STRING);
     struct table_bind_data data;
     data.parser = parser;
+    data.symtab = parser->symtab;
     data.r = r;
     data.ok = 1;
-    data.string_sig = string_cls->sig;
     data.hash_val = hash_var->value.hash;
     data.sipkey = parser->vm->sipkey;
     apr_table_do(bind_table_entry, &data, table, NULL);
@@ -356,8 +294,7 @@ static void bind_post(int *count, lily_parse_state *parser, request_rec *r)
     apr_size_t size;
     char *buffer;
     char *sipkey = parser->vm->sipkey;
-    lily_class *string_cls = lily_class_by_id(parser->symtab, SYM_CLASS_STRING);
-    lily_sig *string_sig = string_cls->sig;
+    lily_symtab *symtab = parser->symtab;
 
     /* Credit: I found out how to use this by reading httpd 2.4's mod_lua
        (specifically req_parsebody of lua_request.c). */
@@ -376,16 +313,17 @@ static void bind_post(int *count, lily_parse_state *parser, request_rec *r)
             apr_brigade_flatten(pair->value, buffer, &size);
             buffer[len] = 0;
 
-            lily_value *elem_key = bind_string(string_sig, pair->name);
+            lily_value *elem_key = lily_bind_string(symtab, pair->name);
             /* Give the buffer to the value to save memory. */
-            lily_value *elem_value = bind_string_and_buffer(string_sig, buffer);
+            lily_value *elem_value = lily_bind_string_take_buffer(symtab,
+                    buffer);
             lily_hash_elem *new_elem = bind_hash_elem_with_values(sipkey,
                     elem_key, elem_value);
 
             if (elem_key == NULL || elem_value == NULL || new_elem == NULL) {
                 lily_free(new_elem);
-                deref_destroy_value(elem_key);
-                deref_destroy_value(elem_value);
+                lily_bind_destroy(elem_key);
+                lily_bind_destroy(elem_value);
                 *count = -1;
                 return;
             }

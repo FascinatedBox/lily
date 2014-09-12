@@ -8,6 +8,8 @@
 #include "lily_vm.h"
 #include "lily_debug.h"
 #include "lily_gc.h"
+#include "lily_bind.h"
+
 extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
 
 /* LOAD_CHECKED_REG is used to load a register and check it for not having a
@@ -1596,55 +1598,7 @@ uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
     return key_hash;
 }
 
-static lily_value *bind_string_and_buffer(lily_sig *string_sig, char *buffer)
-{
-    lily_value *new_value = lily_malloc(sizeof(lily_value));
-    lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
-    int string_size = strlen(buffer);
-
-    if (sv == NULL || new_value == NULL) {
-        lily_free(sv);
-        /* This function takes over the buffer on success, so make sure if
-           there is an error that it destroys the buffer. */
-        lily_free(buffer);
-        lily_free(new_value);
-        return NULL;
-    }
-
-    sv->refcount = 1;
-    sv->string = buffer;
-    sv->size = string_size;
-
-    new_value->value.string = sv;
-    new_value->flags = 0;
-    new_value->sig = string_sig;
-
-    return new_value;
-}
-
-static lily_value *bind_integer(lily_sig *integer_sig, int64_t intval)
-{
-    lily_value *new_value = lily_malloc(sizeof(lily_value));
-    if (new_value) {
-        new_value->value.integer = intval;
-        new_value->sig = integer_sig;
-        new_value->flags = 0;
-    }
-
-    return new_value;
-}
-
-static lily_value *bind_string(lily_sig *string_sig, const char *string)
-{
-    char *buffer = lily_malloc(strlen(string) + 1);
-    if (buffer == NULL)
-        return NULL;
-
-    strcpy(buffer, string);
-    return bind_string_and_buffer(string_sig, buffer);
-}
-
-static lily_value *bind_function_name(lily_sig *string_sig,
+static lily_value *bind_function_name(lily_symtab *symtab,
         lily_function_val *fval)
 {
     char *class_name = fval->class_name;
@@ -1667,15 +1621,7 @@ static lily_value *bind_function_name(lily_sig *string_sig,
     strcat(buffer, separator);
     strcat(buffer, fval->trace_name);
 
-    return bind_string_and_buffer(string_sig, buffer);
-}
-
-static void deref_destroy_value(lily_value *value)
-{
-    if (value != NULL) {
-        lily_deref_unknown_val(value);
-        lily_free(value);
-    }
+    return lily_bind_string_take_buffer(symtab, buffer);
 }
 
 static lily_value *build_traceback(lily_vm_state *vm, lily_sig *traceback_sig)
@@ -1695,10 +1641,7 @@ static lily_value *build_traceback(lily_vm_state *vm, lily_sig *traceback_sig)
         return NULL;
     }
 
-    lily_class *integer_cls = lily_class_by_id(vm->symtab, SYM_CLASS_INTEGER);
-    lily_sig *integer_sig = integer_cls->sig;
-    lily_class *string_cls = lily_class_by_id(vm->symtab, SYM_CLASS_STRING);
-    lily_sig *string_sig = string_cls->sig;
+    lily_symtab *symtab = vm->symtab;
 
     int i;
     for (i = 0;i < vm->function_stack_pos;i++) {
@@ -1707,16 +1650,16 @@ static lily_value *build_traceback(lily_vm_state *vm, lily_sig *traceback_sig)
         lily_list_val *stack_tuple = lily_malloc(sizeof(lily_list_val));
         lily_value **tuple_values = lily_malloc(2 * sizeof(lily_value *));
 
-        lily_value *func_string = bind_function_name(string_sig,
+        lily_value *func_string = bind_function_name(symtab,
                 stack_entry->function);
-        lily_value *linenum_integer = bind_integer(integer_sig,
+        lily_value *linenum_integer = lily_bind_integer(symtab,
                 stack_entry->line_num);
 
         if (tuple_holder == NULL || stack_tuple == NULL ||
             tuple_values == NULL || func_string == NULL ||
             linenum_integer == NULL) {
-            deref_destroy_value(func_string);
-            deref_destroy_value(linenum_integer);
+            lily_bind_destroy(func_string);
+            lily_bind_destroy(linenum_integer);
             lily_free(stack_tuple);
             lily_free(tuple_values);
             lily_free(tuple_holder);
@@ -1781,9 +1724,7 @@ static void make_proper_exception_val(lily_vm_state *vm,
         lily_raise_nomem(vm->raiser);
     }
 
-    lily_class *string_class = lily_class_by_id(vm->symtab, SYM_CLASS_STRING);
-    lily_sig *string_sig = string_class->sig;
-    lily_value *message_val = bind_string(string_sig,
+    lily_value *message_val = lily_bind_string(vm->symtab,
             vm->raiser->msgbuf->message);
 
     if (message_val == NULL) {

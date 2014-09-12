@@ -13,6 +13,7 @@ lily_SRCS=../csiphash.c \
 	../lily_msgbuf.c \
 	../lily_gc.c \
 	../lily_value.c \
+	../lily_bind.c \
 	../lily_cls_list.c \
 	../lily_cls_string.c \
 	../lily_cls_hash.c \
