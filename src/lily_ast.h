@@ -101,7 +101,7 @@ typedef struct {
 } lily_ast_pool;
 
 void lily_ast_collect_arg(lily_ast_pool *);
-void lily_ast_enter_tree(lily_ast_pool *, lily_tree_type, lily_var *);
+void lily_ast_enter_tree(lily_ast_pool *, lily_tree_type);
 void lily_free_ast_pool(lily_ast_pool *);
 lily_ast_pool *lily_new_ast_pool(lily_raiser *, int);
 void lily_ast_leave_tree(lily_ast_pool *);

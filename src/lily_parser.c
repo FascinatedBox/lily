@@ -445,11 +445,12 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
 
     NEED_NEXT_TOK(tk_left_parenth)
 
+    lily_ast_push_readonly(parser->ast_pool, (lily_sym *) v);
     /* TODO: As of right now, the only things that can be accessed like this
              are functions. So this is safe to do. However, it would be nice
              to be able to call this. Unfortunately, that requires doing a lot
              of adjusting to the parser. */
-    lily_ast_enter_tree(parser->ast_pool, tree_call, v);
+    lily_ast_enter_tree(parser->ast_pool, tree_call);
 }
 
 /*  parse_special_keyword
@@ -497,7 +498,7 @@ static void expression_package(lily_parse_state *parser, lily_var *package_var)
     int depth = 1;
 
     while (1) {
-        lily_ast_enter_tree(ap, tree_package, NULL);
+        lily_ast_enter_tree(ap, tree_package);
         /* For the first pass, push the var given as the package. Subsequent
            entries will swallow the last tree entered as their first argument,
            so this next bit isn't necessary. */
@@ -570,7 +571,7 @@ static void expression_word(lily_parse_state *parser, int *state)
     else {
         int key_id = lily_keyword_by_name(lex->label);
         if (key_id == KEY_ISNIL) {
-            lily_ast_enter_tree(parser->ast_pool, tree_isnil, NULL);
+            lily_ast_enter_tree(parser->ast_pool, tree_isnil);
             NEED_NEXT_TOK(tk_left_parenth)
             *state = ST_WANT_VALUE;
         }
@@ -748,7 +749,7 @@ static void expression_dot(lily_parse_state *parser, int *state)
         /* Create a magic oo call tree. The lookup gets deferred until
            emit-time when the type is known. */
         lily_ast_push_oo_call(parser->ast_pool, parser->lex->label);
-        lily_ast_enter_tree(parser->ast_pool, tree_call, NULL);
+        lily_ast_enter_tree(parser->ast_pool, tree_call);
         NEED_NEXT_TOK(tk_left_parenth);
         *state = ST_WANT_VALUE;
     }
@@ -792,21 +793,21 @@ static void expression_raw(lily_parse_state *parser, int state)
         }
         else if (lex->token == tk_left_parenth) {
             if (state == ST_WANT_VALUE || state == ST_DEMAND_VALUE) {
-                lily_ast_enter_tree(parser->ast_pool, tree_parenth, NULL);
+                lily_ast_enter_tree(parser->ast_pool, tree_parenth);
                 state = ST_DEMAND_VALUE;
             }
             else if (state == ST_WANT_OPERATOR) {
-                lily_ast_enter_tree(parser->ast_pool, tree_call, NULL);
+                lily_ast_enter_tree(parser->ast_pool, tree_call);
                 state = ST_WANT_VALUE;
             }
         }
         else if (lex->token == tk_left_bracket) {
             if (state == ST_WANT_VALUE || state == ST_DEMAND_VALUE) {
-                lily_ast_enter_tree(parser->ast_pool, tree_list, NULL);
+                lily_ast_enter_tree(parser->ast_pool, tree_list);
                 state = ST_WANT_VALUE;
             }
             else if (state == ST_WANT_OPERATOR) {
-                lily_ast_enter_tree(parser->ast_pool, tree_subscript, NULL);
+                lily_ast_enter_tree(parser->ast_pool, tree_subscript);
                 state = ST_DEMAND_VALUE;
             }
         }
@@ -814,7 +815,7 @@ static void expression_raw(lily_parse_state *parser, int state)
             if (state == ST_WANT_OPERATOR)
                 state = ST_DONE;
             else {
-                lily_ast_enter_tree(parser->ast_pool, tree_tuple, NULL);
+                lily_ast_enter_tree(parser->ast_pool, tree_tuple);
                 state = ST_WANT_VALUE;
             }
         }
@@ -1390,7 +1391,7 @@ static void do_handler(lily_parse_state *parser, int multi)
 static void isnil_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
-    lily_ast_enter_tree(parser->ast_pool, tree_isnil, NULL);
+    lily_ast_enter_tree(parser->ast_pool, tree_isnil);
     NEED_CURRENT_TOK(tk_left_parenth)
     lily_lexer(lex);
     expression(parser);
