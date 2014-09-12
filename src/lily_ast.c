@@ -447,14 +447,11 @@ inline void lily_ast_collect_arg(lily_ast_pool *ap)
 }
 
 /* lily_ast_enter_tree
-   This begins an expression that takes comma-separated arguments. 'var' is only
-   used by tree_call, and only when the call is a named variable. In all other
-   cases, 'var' is NULL and ignored. */
-void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type,
-        lily_var *var)
+   This begins an expression that takes comma-separated arguments. */
+void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type)
 {
     AST_ENTERABLE_INIT(a, tree_type)
-    a->result = (lily_sym *)var;
+    a->result = NULL;
 
     merge_value(ap, a);
 
@@ -598,7 +595,7 @@ static void push_sig(lily_ast_pool *ap, lily_sig *sig)
 
 void lily_ast_enter_typecast(lily_ast_pool *ap, lily_sig *sig)
 {
-    lily_ast_enter_tree(ap, tree_typecast, NULL);
+    lily_ast_enter_tree(ap, tree_typecast);
     push_sig(ap, sig);
     lily_ast_collect_arg(ap);
 }
