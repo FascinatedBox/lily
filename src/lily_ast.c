@@ -479,17 +479,6 @@ void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type,
     ap->active = NULL;
 }
 
-/* lily_ast_caller_tree_type
-   This function returns the type of tree that is currently receiving arguments.
-   This is used by parser to ensure that the proper token is used to close the
-   tree. */
-lily_tree_type lily_ast_caller_tree_type(lily_ast_pool *ap)
-{
-    lily_ast_save_entry *save_entry = ap->save_chain;
-
-    return save_entry->entered_tree->tree_type;
-}
-
 /* lily_ast_leave_tree
    This takes the pool's root and adds it as an argument to the last tree that
    was entered. Emitter will check the arg count when it does type checking. */
