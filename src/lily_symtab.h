@@ -64,7 +64,6 @@ lily_var *lily_find_class_callable(lily_symtab *, lily_class *, char *);
 void lily_free_symtab_lits_and_vars(lily_symtab *);
 void lily_free_symtab(lily_symtab *);
 int lily_keyword_by_name(char *);
-lily_literal *lily_new_literal(lily_symtab *, lily_class *, lily_raw_value);
 lily_literal *lily_get_integer_literal(lily_symtab *, int64_t);
 lily_literal *lily_get_double_literal(lily_symtab *, double);
 lily_literal *lily_get_string_literal(lily_symtab *, char *);
