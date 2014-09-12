@@ -65,7 +65,10 @@ a->arg_top = NULL; \
 a->result = NULL;
 
 
-/** ast pool init, deletion, and reset. **/
+/******************************************************************************/
+/* Ast pool creation and teardown.                                            */
+/******************************************************************************/
+
 lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
 {
     lily_ast_pool *ap = lily_malloc(sizeof(lily_ast_pool));
@@ -177,9 +180,8 @@ void lily_free_ast_pool(lily_ast_pool *ap)
     lily_free(ap);
 }
 
-/* lily_ast_reset_pool
-   This sets the trees in the pool as not being used so that they can be used
-   again. */
+/*  lily_ast_reset_pool
+    Clear out old ast information for a new expression. */
 void lily_ast_reset_pool(lily_ast_pool *ap)
 {
     ap->root = NULL;
@@ -188,13 +190,12 @@ void lily_ast_reset_pool(lily_ast_pool *ap)
     ap->available_current = ap->available_start;
 }
 
-/** Common private merging functions **/
+/******************************************************************************/
+/* Merging functions                                                          */
+/******************************************************************************/
+
 /*  merge_absorb
-    This does a merge where 'given' will be swallowed by 'new_tree' as an
-    argument. This is the most common merge (aside from binary). This handles
-    lists (each element is an argument), typecasts (1 arg is the type, the
-    other is the value to cast), calls, and much, much more.
-    Note: 'given' may not be the active tree. */
+    new_tree wishes to absorb the current tree as an argument. */
 static void merge_absorb(lily_ast_pool *ap, lily_ast *given, lily_ast *new_tree)
 {
     /* If the swallowed tree is active/root, become those. */
@@ -211,9 +212,9 @@ static void merge_absorb(lily_ast_pool *ap, lily_ast *given, lily_ast *new_tree)
     new_tree->next_arg = NULL;
 }
 
-/* merge_unary
-   This handles a unary merge wherein 'active' is ap->active and new_ast is the
-   tree to be merged in. */
+/*  merge_unary
+    given is the top-most part of a unary expression. new_tree goes at the
+    bottom of it. */
 static void merge_unary(lily_ast_pool *ap, lily_ast *given, lily_ast *new_tree)
 {
     /* Unary ops are right to left, so newer trees go lower. Descend to find
@@ -237,10 +238,9 @@ static void merge_unary(lily_ast_pool *ap, lily_ast *given, lily_ast *new_tree)
 }
 
 /*  merge_value
-    This handles merging in of any new tree. It will dispatch to other merges
-    based on the current tree. In most cases, this does the correct merge.
-    However, there are some cases where this won't be right (such as merging
-    in a unary tree when the current is a value). */
+    Merge a new value against the current tree. This attempts to pick the right
+    merge to used based upon the current tree. In most cases, this picks the
+    correct tree. */
 static void merge_value(lily_ast_pool *ap, lily_ast *new_tree)
 {
     lily_ast *active = ap->active;
@@ -276,11 +276,13 @@ static void merge_value(lily_ast_pool *ap, lily_ast *new_tree)
     }
 }
 
-/** Common merge helpers **/
-/* make_new_tree
-   Create a new tree, which becomes the start of the chain of available trees
-   for the pool to use. The tree is returned as well, so it can be used.
-   This raises ErrNoMem if unable to make a new tree. */
+/******************************************************************************/
+/* Helper functions                                                           */
+/******************************************************************************/
+
+/*  make_new_tree
+    Add a new tree to the set of available trees, and return it. If unable to
+    make a new tree, NoMemoryError is raised. */
 static lily_ast *make_new_tree(lily_ast_pool *ap)
 {
     lily_ast *new_ast = lily_malloc(sizeof(lily_ast));
@@ -297,16 +299,8 @@ static lily_ast *make_new_tree(lily_ast_pool *ap)
 }
 
 /*  make_new_save_entry
-    This is a helper routine that will attempt to create a new
-    lily_ast_save_entry.
-
-    ap: The ast pool to put the new save entry into.
-
-    On failure: lily_raise_nomem is called, raising ErrNoMem.
-    On success: * The new entry is added to the linked list at the pool's
-                  ap's ->save_chain. It then becomes the ap's ->save_chain.
-                * The new entry's fields are initially set to NULL.
-                * The new entry is returned for convenince. */
+    This attempts to create a new entry to save ast info into, and return it.
+    If it fails to make a new entry, NoMemoryError is raised. */
 static lily_ast_save_entry *make_new_save_entry(lily_ast_pool *ap)
 {
     lily_ast_save_entry *new_entry = lily_malloc(sizeof(lily_ast_save_entry));
@@ -326,9 +320,8 @@ static lily_ast_save_entry *make_new_save_entry(lily_ast_pool *ap)
     return new_entry;
 }
 
-/* priority_for_op
-   Returns the priority of a given op. The higher the number, the more important
-   that it is. This usually follow's C's precedence table. */
+/*  priority_for_op
+    For binary: Determine the priority of the current op. */
 static int priority_for_op(lily_expr_op o)
 {
     int prio;
@@ -400,22 +393,62 @@ static int priority_for_op(lily_expr_op o)
     return prio;
 }
 
-/* push_tree_arg
-   This takes the current root and adds it as an argument to the last tree that
-   was entered. Call is the call, and tree is typically the root. */
+static void push_sig(lily_ast_pool *ap, lily_sig *sig)
+{
+    AST_COMMON_INIT(a, tree_sig)
+    a->sig = sig;
+    a->result = NULL;
+
+    merge_value(ap, a);
+}
+
+/*  add_name_to_pool
+    This is called when adding an oo_call tree. It adds the name that will be
+    looked up to the oo_name_pool that will be used later. */
+static void add_name_to_pool(lily_ast_pool *ap, char *name)
+{
+    int oo_name_length = strlen(name);
+    lily_ast_str_pool *str_pool = ap->oo_name_pool;
+    int size_wanted = str_pool->pos + oo_name_length + 1;
+    if (size_wanted > str_pool->size) {
+        int new_size = str_pool->size;
+
+        do {
+            new_size *= 2;
+        } while (size_wanted > new_size);
+
+        char *new_str = lily_realloc(str_pool->str, new_size * sizeof(char));
+
+        if (new_str == NULL)
+            lily_raise_nomem(ap->raiser);
+
+        str_pool->str = new_str;
+        str_pool->size = new_size;
+    }
+
+    if (str_pool->pos == 0)
+        strcpy(str_pool->str, name);
+    else {
+        str_pool->str[str_pool->pos] = '\0';
+        strcat(str_pool->str + str_pool->pos, name);
+    }
+
+    str_pool->pos = size_wanted;
+}
+
+/*  push_tree_arg
+    Take 'tree' and add it to 'call' as an argument. */
 static void push_tree_arg(lily_ast_pool *ap, lily_ast *call, lily_ast *tree)
 {
     /* The args of a callable are linked to themselves, with the last one
        set to NULL. This will work for multiple functions, because the
        functions would be using different ASTs. */
-    if (call->arg_start == NULL) {
+    if (call->arg_start == NULL)
         call->arg_start = tree;
-        call->arg_top = tree;
-    }
-    else {
+    else
         call->arg_top->next_arg = tree;
-        call->arg_top = tree;
-    }
+
+    call->arg_top = tree;
 
     /* Calls with 0 args have no value, so tree is null. */
     if (tree) {
@@ -427,15 +460,14 @@ static void push_tree_arg(lily_ast_pool *ap, lily_ast *call, lily_ast *tree)
     }
 }
 
-/** API for ast. The ast is responsible for creating and merging the trees in
-    properly, instead of having the parser create the trees. Do note that trees
-    are reused by setting the index to 0. Only relevant fields need to be set
-    (ast will never check the arg_start of a unary op, for example). **/
+/******************************************************************************/
+/* Exported functions                                                         */
+/******************************************************************************/
 
-/* lily_ast_collect_arg
-   This function will take the pool's root and add it as an argument to the
-   last tree that was entered and clear root+active for reuse. */
-inline void lily_ast_collect_arg(lily_ast_pool *ap)
+/*  lily_ast_collect_arg
+    The current tree is an argument to whatever tree was saved last. Add it, then
+    reset for another tree. */
+void lily_ast_collect_arg(lily_ast_pool *ap)
 {
     lily_ast_save_entry *entry = ap->save_chain;
 
@@ -446,12 +478,11 @@ inline void lily_ast_collect_arg(lily_ast_pool *ap)
     ap->active = NULL;
 }
 
-/* lily_ast_enter_tree
-   This begins an expression that takes comma-separated arguments. */
+/*  lily_ast_enter_tree
+    This begins a subexpression that takes comma-separated arguments. */
 void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type)
 {
     AST_ENTERABLE_INIT(a, tree_type)
-    a->result = NULL;
 
     merge_value(ap, a);
 
@@ -476,9 +507,10 @@ void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type)
     ap->active = NULL;
 }
 
-/* lily_ast_leave_tree
-   This takes the pool's root and adds it as an argument to the last tree that
-   was entered. Emitter will check the arg count when it does type checking. */
+/*  lily_ast_leave_tree
+    This leaves the currently-entered tree. Parser is expected to check that
+    the right token was used to close the tree. The last tree is added as an
+    argument, but no type-checking is done (emitter does that). */
 void lily_ast_leave_tree(lily_ast_pool *ap)
 {
     lily_ast_save_entry *entry = ap->save_chain;
@@ -508,6 +540,10 @@ lily_ast *lily_ast_get_saved_tree(lily_ast_pool *ap)
 {
     return ap->save_chain->entered_tree;
 }
+
+/*****************************************************************************/
+/* Ast pushing functions                                                     */
+/*****************************************************************************/
 
 /* lily_ast_push_binary_op
    This 'creates' and merges a binary op against the active tree. */
@@ -581,18 +617,6 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
     }
 }
 
-/* lily_ast_push_sig
-   This 'creates' a sig tree for tree_typecast. This tree's purpose is to hold
-   the signature that the typecast will try to coerce its value to. */
-static void push_sig(lily_ast_pool *ap, lily_sig *sig)
-{
-    AST_COMMON_INIT(a, tree_sig)
-    a->sig = sig;
-    a->result = NULL;
-
-    merge_value(ap, a);
-}
-
 void lily_ast_enter_typecast(lily_ast_pool *ap, lily_sig *sig)
 {
     lily_ast_enter_tree(ap, tree_typecast);
@@ -600,8 +624,6 @@ void lily_ast_enter_typecast(lily_ast_pool *ap, lily_sig *sig)
     lily_ast_collect_arg(ap);
 }
 
-/* lily_ast_push_unary_op
-   This 'creates' and merges a unary op against the active tree. */
 void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
 {
     AST_COMMON_INIT(a, tree_unary)
@@ -621,11 +643,6 @@ void lily_ast_push_local_var(lily_ast_pool *ap, lily_var *var)
     merge_value(ap, a);
 }
 
-/* lily_ast_push_sym
-   This creates and merges a symbol holding a value. This symbol can be either
-   a literal, or a global var.
-   These are separated from local vars because literals and globals need to be
-   loaded into a register before use. */
 void lily_ast_push_sym(lily_ast_pool *ap, lily_sym *s)
 {
     AST_COMMON_INIT(a, tree_var);
@@ -640,37 +657,6 @@ void lily_ast_push_readonly(lily_ast_pool *ap, lily_sym *ro_sym)
     a->result = ro_sym;
 
     merge_value(ap, a);
-}
-
-static void add_name_to_pool(lily_ast_pool *ap, char *name)
-{
-    int oo_name_length = strlen(name);
-    lily_ast_str_pool *str_pool = ap->oo_name_pool;
-    int size_wanted = str_pool->pos + oo_name_length + 1;
-    if (size_wanted > str_pool->size) {
-        int new_size = str_pool->size;
-
-        do {
-            new_size *= 2;
-        } while (size_wanted > new_size);
-
-        char *new_str = lily_realloc(str_pool->str, new_size * sizeof(char));
-
-        if (new_str == NULL)
-            lily_raise_nomem(ap->raiser);
-
-        str_pool->str = new_str;
-        str_pool->size = new_size;
-    }
-
-    if (str_pool->pos == 0)
-        strcpy(str_pool->str, name);
-    else {
-        str_pool->str[str_pool->pos] = '\0';
-        strcat(str_pool->str + str_pool->pos, name);
-    }
-
-    str_pool->pos = size_wanted;
 }
 
 void lily_ast_push_oo_call(lily_ast_pool *ap, char *oo_name)
