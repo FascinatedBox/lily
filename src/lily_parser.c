@@ -90,6 +90,12 @@ lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
     parser->emit->symtab = parser->symtab;
     parser->emit->oo_name_pool = parser->ast_pool->oo_name_pool;
 
+    /* When declaring a new function, initially give it the same signature as
+       __main__. This ensures that, should building the proper sig fail, the
+       symtab will still see the function as a function and destroy the
+       contents. */
+    parser->default_call_sig = parser->vm->main->sig;
+
     /* This creates a new var, so it has to be done after symtab's lex_linenum
        is set. */
     if (lily_pkg_sys_init(parser->symtab, argc, argv) == 0) {
@@ -375,26 +381,26 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
             get_named_var(parser, result, 0);
     }
     else if (cls->id == SYM_CLASS_FUNCTION) {
-        /* Function doesn't have a default signature, but integer does. Save
-           memory by lying and swapping the signature out later when the
-           function's sig is known. */
-        lily_class *integer_cls = lily_class_by_id(parser->symtab,
-                SYM_CLASS_INTEGER);
+        /* This is a dummy until the real signature is known. */
+        lily_sig *call_sig = parser->default_call_sig;
         lily_var *call_var;
 
         if (flags & CV_MAKE_VARS) {
             if (flags & CV_TOPLEVEL) {
-                call_var = get_named_var(parser, integer_cls->sig,
+                call_var = get_named_var(parser, call_sig,
                         VAR_IS_READONLY);
+                /* This creates a function value to hold new code, so it's
+                   essential that call_var have a function signature...or the
+                   symtab may not free the function value. */
                 lily_emit_enter_block(parser->emit, BLOCK_FUNCTION);
             }
             else
-                call_var = get_named_var(parser, integer_cls->sig, 0);
+                call_var = get_named_var(parser, call_sig, 0);
         }
 
         NEED_CURRENT_TOK(tk_left_parenth)
         lily_lexer(lex);
-        lily_sig *call_sig = inner_type_collector(parser, cls, flags);
+        call_sig = inner_type_collector(parser, cls, flags);
 
         if (flags & CV_MAKE_VARS)
             call_var->sig = call_sig;

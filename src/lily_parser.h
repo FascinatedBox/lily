@@ -18,6 +18,9 @@ typedef struct {
     lily_sig **sig_stack;
     int sig_stack_pos;
     int sig_stack_size;
+
+    lily_sig *default_call_sig;
+
     lily_ast_pool *ast_pool;
     lily_lex_state *lex;
     lily_emit_state *emit;
