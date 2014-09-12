@@ -842,7 +842,7 @@ static void op_set_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
     LOAD_CHECKED_REG(index_reg, code_pos, 3)
     rhs_reg = vm_regs[code[code_pos + 4]];
 
-    if (lhs_reg->sig->cls->id == SYM_CLASS_LIST) {
+    if (lhs_reg->sig->cls->id != SYM_CLASS_HASH) {
         lily_list_val *list_val = lhs_reg->value.list;
         int index_int = index_reg->value.integer;
 
@@ -901,8 +901,7 @@ static void op_get_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
     /* list and tuple have the same representation internally. Since list
        stores proper values, lily_assign_value automagically set the type to
        the right thing. */
-    if (lhs_reg->sig->cls->id == SYM_CLASS_LIST ||
-        lhs_reg->sig->cls->id == SYM_CLASS_TUPLE) {
+    if (lhs_reg->sig->cls->id != SYM_CLASS_HASH) {
         lily_list_val *list_val = lhs_reg->value.list;
         int index_int = index_reg->value.integer;
 
