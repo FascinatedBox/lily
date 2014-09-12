@@ -977,9 +977,9 @@ void op_build_hash(lily_vm_state *vm, uintptr_t *code, int code_pos)
    VM helper called for handling o_build_list. This is a bit tricky, becaus the
    storage may have already had a previous list assigned to it. Additionally,
    the new list info may fail to allocate. If it does, ErrNoMem is raised. */
-void op_build_list(lily_vm_state *vm, lily_value **vm_regs,
-        uintptr_t *code)
+void op_build_list(lily_vm_state *vm, uintptr_t *code)
 {
+    lily_value **vm_regs = vm->vm_regs;
     int num_elems = (intptr_t)(code[2]);
     lily_value *result = vm_regs[code[3+num_elems]];
     lily_sig *elem_sig = result->sig->siglist[0];
@@ -1036,9 +1036,9 @@ void op_build_list(lily_vm_state *vm, lily_value **vm_regs,
     lv->num_values = num_elems;
 }
 
-void op_build_tuple(lily_vm_state *vm, lily_value **vm_regs,
-        uintptr_t *code)
+void op_build_tuple(lily_vm_state *vm, uintptr_t *code)
 {
+    lily_value **vm_regs = vm->vm_regs;
     int num_elems = (intptr_t)(code[2]);
     lily_value *result = vm_regs[code[3+num_elems]];
     lily_list_val *tuple = lily_malloc(sizeof(lily_list_val));
@@ -2322,11 +2322,11 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += code[code_pos+2] + 4;
                 break;
             case o_build_list:
-                op_build_list(vm, vm_regs, code+code_pos);
+                op_build_list(vm, code+code_pos);
                 code_pos += code[code_pos+2] + 4;
                 break;
             case o_build_tuple:
-                op_build_tuple(vm, vm_regs, code+code_pos);
+                op_build_tuple(vm, code+code_pos);
                 code_pos += code[code_pos+2] + 4;
                 break;
             case o_ref_assign:
