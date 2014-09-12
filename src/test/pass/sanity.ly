@@ -1407,6 +1407,7 @@ function test_eq()
 function test_tuples()
 {
     printfmt("#%i: Testing tuples...", test_id)
+    integer ok = 1
 
     # First a test of tuple literals.
     tuple[integer, string, list[integer]] t = <[1, "1", [1]]>
@@ -1418,7 +1419,17 @@ function test_tuples()
     # to string::concat after it.
     string s = t[1].concat("1")
 
-    print("ok.\n")
+    # Check tuple assignment too...
+    t2[0] = 12
+    if t2[0] != 12:
+        ok = 0
+
+    if ok: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        fail_count = fail_count + 1
+    }
 }
 
 function test_misc()
