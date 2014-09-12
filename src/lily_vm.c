@@ -2251,18 +2251,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg = vm_regs[stack_entry->return_reg];
                 rhs_reg = vm_regs[code[code_pos+2]];
 
-                /* rhs_reg and lhs_reg are both the same type, so only one
-                   is_refcounted check is necessary. */
-                if (rhs_reg->sig->cls->is_refcounted) {
-                    /* However, one or both could be nil. */
-                    if ((rhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                        rhs_reg->value.generic->refcount++;
-
-                    if ((lhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                        lily_deref_unknown_val(lhs_reg);
-                }
-                lhs_reg->flags = rhs_reg->flags;
-                lhs_reg->value = rhs_reg->value;
+                lily_assign_value(vm, lhs_reg, rhs_reg);
 
                 /* DO NOT BREAK HERE.
                    These two do the same thing from here on, so fall through to
@@ -2283,47 +2272,15 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_get_global:
                 rhs_reg = regs_from_main[code[code_pos+2]];
                 lhs_reg = vm_regs[code[code_pos+3]];
-                          /* Important: vm_regs starts at the local scope, and
-                             this index is based on the global scope. */
-                if (rhs_reg->sig->cls->id != SYM_CLASS_ANY) {
-                    if (rhs_reg->sig->cls->is_refcounted) {
-                        /* However, one or both could be nil. */
-                        if ((rhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                            rhs_reg->value.generic->refcount++;
 
-                        if ((lhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                            lily_deref_unknown_val(lhs_reg);
-                    }
-                    lhs_reg->flags = rhs_reg->flags;
-                    lhs_reg->value = rhs_reg->value;
-                }
-                else
-                    op_any_assign(vm, lhs_reg, rhs_reg);
-
+                lily_assign_value(vm, lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
             case o_set_global:
                 rhs_reg = vm_regs[code[code_pos+2]];
                 lhs_reg = regs_from_main[code[code_pos+3]];
 
-                /* Use the lhs, because it may be a global any. */
-                if (lhs_reg->sig->cls->id != SYM_CLASS_ANY) {
-                    if (lhs_reg->sig->cls->is_refcounted) {
-                        /* However, one or both could be nil. */
-                        if ((rhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                            rhs_reg->value.generic->refcount++;
-
-                        if ((lhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                            lily_deref_unknown_val(lhs_reg);
-                    }
-
-                    lhs_reg->flags = rhs_reg->flags;
-                    lhs_reg->value = rhs_reg->value;
-                }
-                else
-                    /* The lhs is an any, so do what any assign does. */
-                    op_any_assign(vm, lhs_reg, rhs_reg);
-
+                lily_assign_value(vm, lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
             case o_return_expected:
@@ -2398,17 +2355,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* This works because lily_ensure_unique_sig makes sure that
                    no two signatures describe the same thing. So if it's the
                    same, then they share the same sig pointer. */
-                if (cast_sig == rhs_reg->sig) {
-                    if (lhs_reg->sig->cls->is_refcounted) {
-                        if ((rhs_reg->flags & VAL_IS_PROTECTED) == 0)
-                            rhs_reg->value.generic->refcount++;
-
-                        if ((lhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                            lily_deref_unknown_val(lhs_reg);
-                    }
-                    lhs_reg->flags = rhs_reg->flags;
-                    lhs_reg->value = rhs_reg->value;
-                }
+                if (cast_sig == rhs_reg->sig)
+                    lily_assign_value(vm, lhs_reg, rhs_reg);
                 /* Since integer and number can be cast between each other,
                    allow that with any casts as well. */
                 else if (maybe_crossover_assign(lhs_reg, rhs_reg) == 0) {
