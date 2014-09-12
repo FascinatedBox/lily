@@ -124,7 +124,9 @@ else if (lhs_reg->sig->cls->id == SYM_CLASS_STRING) { \
 vm_regs[code[code_pos+4]]->flags &= ~VAL_IS_NIL; \
 code_pos += 5;
 
-/** vm init and deletion **/
+/*****************************************************************************/
+/* VM setup and teardown                                                     */
+/*****************************************************************************/
 lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
 {
     lily_vm_state *vm = lily_malloc(sizeof(lily_vm_state));
@@ -199,6 +201,9 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
     return vm;
 }
 
+/*  lily_vm_free_registers
+    This is called during parser's teardown to destroy all of the registers.
+    The last invoke of the vm is saved until symtab can destroy some stuff. */
 void lily_vm_free_registers(lily_vm_state *vm)
 {
     lily_value **regs_from_main = vm->regs_from_main;
@@ -235,8 +240,8 @@ void lily_vm_free_registers(lily_vm_state *vm)
     lily_free(regs_from_main);
 }
 
-void lily_vm_invoke_gc(lily_vm_state *);
-void lily_vm_destroy_gc(lily_vm_state *);
+static void invoke_gc(lily_vm_state *);
+static void destroy_gc_entries(lily_vm_state *);
 
 void lily_free_vm_state(lily_vm_state *vm)
 {
@@ -244,11 +249,9 @@ void lily_free_vm_state(lily_vm_state *vm)
     for (i = 0;i < vm->function_stack_size;i++)
         lily_free(vm->function_stack[i]);
 
-    /* Force an invoke, even if it's not time. This should clear everything that
-       is still left. */
-    lily_vm_invoke_gc(vm);
-
-    lily_vm_destroy_gc(vm);
+    /* vm->num_registers is now 0, so this will sweep everything. */
+    invoke_gc(vm);
+    destroy_gc_entries(vm);
 
     if (vm->string_buffer) {
         lily_free(vm->string_buffer->data);
@@ -261,28 +264,9 @@ void lily_free_vm_state(lily_vm_state *vm)
     lily_free(vm);
 }
 
-void lily_vm_destroy_gc(lily_vm_state *vm)
-{
-    lily_gc_entry *gc_iter, *gc_temp;
-    gc_iter = vm->gc_live_entries;
-
-    while (gc_iter != NULL) {
-        gc_temp = gc_iter->next;
-
-        lily_free(gc_iter);
-
-        gc_iter = gc_temp;
-    }
-
-    gc_iter = vm->gc_spare_entries;
-    while (gc_iter != NULL) {
-        gc_temp = gc_iter->next;
-
-        lily_free(gc_iter);
-
-        gc_iter = gc_temp;
-    }
-}
+/******************************************************************************/
+/* Garbage collector                                                          */
+/******************************************************************************/
 
 /*  lily_vm_invoke_gc
     This is Lily's garbage collector. It runs in multiple stages:
@@ -311,7 +295,7 @@ void lily_vm_destroy_gc(lily_vm_state *vm)
        Absolutely nothing is using these now, so it's safe to destroy them.
 
     vm: The vm to invoke the gc of. */
-void lily_vm_invoke_gc(lily_vm_state *vm)
+static void invoke_gc(lily_vm_state *vm)
 {
     /* This is (sort of) a mark-and-sweep garbage collector. This is called when
        a certain number of allocations have been done. Take note that values
@@ -399,7 +383,37 @@ void lily_vm_invoke_gc(lily_vm_state *vm)
     vm->gc_spare_entries = new_spare_entries;
 }
 
-/*  lily_try_add_gc_item
+/*  destroy_gc_entries
+    This is called after the last gc invoke to destroy whatever gc_entry values
+    are still left. This should only be called when tearing down the vm. */
+static void destroy_gc_entries(lily_vm_state *vm)
+{
+    lily_gc_entry *gc_iter, *gc_temp;
+    gc_iter = vm->gc_live_entries;
+
+    while (gc_iter != NULL) {
+        gc_temp = gc_iter->next;
+
+        lily_free(gc_iter);
+
+        gc_iter = gc_temp;
+    }
+
+    gc_iter = vm->gc_spare_entries;
+    while (gc_iter != NULL) {
+        gc_temp = gc_iter->next;
+
+        lily_free(gc_iter);
+
+        gc_iter = gc_temp;
+    }
+}
+
+/*****************************************************************************/
+/* Shared code                                                               */
+/*****************************************************************************/
+
+/*  try_add_gc_item
 
     This attempts to get a lily_gc_entry for the given value. This may call the
     gc into action if there are vm->gc_threshold entries in vm->gc_live_entries
@@ -415,14 +429,14 @@ void lily_vm_invoke_gc(lily_vm_state *vm)
 
     Returns 1 if successful, 0 otherwise. Additionally, the value's ->gc_entry
     is set to the new gc_entry on success. */
-int lily_try_add_gc_item(lily_vm_state *vm, lily_sig *value_sig,
+static int try_add_gc_item(lily_vm_state *vm, lily_sig *value_sig,
         lily_generic_gc_val *value)
 {
     /* The given value is likely not in a register, so run the gc before adding
        the value to an entry. Otherwise, the value will be destroyed if the gc
        runs. */
     if (vm->gc_live_entry_count >= vm->gc_threshold)
-        lily_vm_invoke_gc(vm);
+        invoke_gc(vm);
 
     lily_gc_entry *new_entry;
     if (vm->gc_spare_entries != NULL) {
@@ -449,8 +463,6 @@ int lily_try_add_gc_item(lily_vm_state *vm, lily_sig *value_sig,
     return 1;
 }
 
-/** VM helpers **/
-
 /*  compare_values
     This is a helper function to call the class_eq_func on the values given.
     The vm is passed in case an error needs to be raised. */
@@ -463,9 +475,8 @@ static int compare_values(lily_vm_state *vm, lily_value *left, lily_value *right
     return result;
 }
 
-/* grow_function_stack
-   This function grows the vm's function stack so it can take more function
-   info. Calls lily_raise_nomem if unable to create function info. */
+/*  grow_function_stack
+    The vm wants to hold more functions, so grow the stack. */
 static void grow_function_stack(lily_vm_state *vm)
 {
     int i;
@@ -491,6 +502,8 @@ static void grow_function_stack(lily_vm_state *vm)
     }
 }
 
+/*  add_catch_entry
+    The vm wants to register a new 'try' block. Give it the space needed. */
 static void add_catch_entry(lily_vm_state *vm)
 {
     lily_vm_catch_entry *new_entry = lily_malloc(sizeof(lily_vm_catch_entry));
@@ -502,11 +515,11 @@ static void add_catch_entry(lily_vm_state *vm)
     new_entry->prev = vm->catch_chain;
 }
 
-/* maybe_crossover_assign
-   This handles assignment between two symbols which don't have the exact same
-   type. This assumes the caller has verified that rhs is not nil.
-   Returns 1 if the assignment happened, 0 otherwise. */
-int maybe_crossover_assign(lily_value *lhs_reg, lily_value *rhs_reg)
+/*  maybe_crossover_assign
+    This ugly function handles automatically converting integer to double in
+    some cases. Give this the axe when there's a proper integer::to_double and
+    double::to_integer. This is ugly and special-casey. */
+static int maybe_crossover_assign(lily_value *lhs_reg, lily_value *rhs_reg)
 {
     int ret = 1;
 
@@ -528,11 +541,245 @@ int maybe_crossover_assign(lily_value *lhs_reg, lily_value *rhs_reg)
     return ret;
 }
 
-/* novalue_error
-   This is a helper routine that raises ValueError because the given register
-   is nil but should not be. code_pos is the current code position, because the
-   current function's info is not saved in the stack (because it would almost
-   always be stale). */
+/*  grow_vm_registers
+    The vm is about to do a function call which requires more registers than it
+    has. Make space for more registers, then create initial register values.
+
+    This reallocs vm->regs_from_main. If vm->regs_from_main moves, then
+    vm->vm_regs and vm->regs_from_main are updated appropriately.
+
+    Registers created are given the signature of integer, marked nil, and given
+    a value of zero (to prevent complaints about invalid reads). */
+static void grow_vm_registers(lily_vm_state *vm, int register_need)
+{
+    lily_value **new_regs;
+    lily_sig *integer_sig = vm->integer_sig;
+    int i = vm->max_registers;
+
+    ptrdiff_t reg_offset = vm->vm_regs - vm->regs_from_main;
+
+    /* Remember, use regs_from_main, NOT vm_regs, which is likely adjusted. */
+    new_regs = lily_realloc(vm->regs_from_main, register_need *
+            sizeof(lily_value));
+
+    if (new_regs == NULL)
+        lily_raise_nomem(vm->raiser);
+
+    /* Realloc can move the pointer, so always recalculate vm_regs again using
+       regs_from_main and the offset. */
+    vm->regs_from_main = new_regs;
+    vm->vm_regs = new_regs + reg_offset;
+
+    /* Start creating new registers. Have them default to an integer sig so that
+       nothing has to check for a NULL sig. Integer is used as the default
+       because it is not ref'd. */
+    for (;i < register_need;i++) {
+        new_regs[i] = lily_malloc(sizeof(lily_value));
+        if (new_regs[i] == NULL) {
+            vm->max_registers = i;
+            lily_raise_nomem(vm->raiser);
+        }
+
+        new_regs[i]->sig = integer_sig;
+        new_regs[i]->flags = VAL_IS_NIL;
+    }
+
+    vm->max_registers = register_need;
+}
+
+/*  prep_registers
+    This prepares the vm's registers for a 'native' function call. This blasts
+    values in the registers for the native call while copying the callee's
+    values over. For the rest of the registers that the callee needs, the
+    registers are just blasted. */
+static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
+        uintptr_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value **regs_from_main = vm->regs_from_main;
+    lily_register_info *register_seeds = fval->reg_info;
+    int num_registers = vm->num_registers;
+    int register_need = vm->num_registers + fval->reg_count;
+    int i;
+
+    /* A function's args always come first, so copy arguments over while clearing
+       old values. */
+    for (i = 0;i < code[4];i++, num_registers++) {
+        lily_register_info seed = register_seeds[i];
+        lily_value *get_reg = vm_regs[code[5+i]];
+        lily_value *set_reg = regs_from_main[num_registers];
+
+        /* The get must be run before the set. Otherwise, if
+           something has 1 ref and assigns to itself, it will be
+           destroyed from a deref, then an invalid value ref'd.
+           This may not be possible here, but it is elsewhere. */
+        if (get_reg->sig->cls->is_refcounted &&
+            ((get_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0))
+            get_reg->value.generic->refcount++;
+
+        if (set_reg->sig->cls->is_refcounted &&
+            ((set_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0))
+            lily_deref_unknown_val(set_reg);
+
+        set_reg->sig = seed.sig;
+        /* This will be null if this register doesn't belong to a
+           var, or non-null if it's for a local. */
+
+        if ((get_reg->flags & VAL_IS_NIL) == 0)
+            set_reg->value = get_reg->value;
+        else
+            set_reg->value.integer = 0;
+
+        set_reg->flags = get_reg->flags;
+    }
+
+    /* For the rest of the registers, clear whatever value they have. */
+    for (;num_registers < register_need;i++, num_registers++) {
+        lily_register_info seed = fval->reg_info[i];
+
+        lily_value *reg = regs_from_main[num_registers];
+        if (reg->sig->cls->is_refcounted &&
+            (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+            lily_deref_unknown_val(reg);
+
+        /* SET the flags to nil so that VAL_IS_PROTECTED gets blasted away if
+           it happens to be set. */
+        reg->flags = VAL_IS_NIL;
+        reg->sig = seed.sig;
+    }
+
+    vm->num_registers = num_registers;
+}
+
+/*  load_vm_regs
+    This is a helper for lily_vm_prep that loads a series of vars into the
+    registers given.
+    This is currently used to load the sys package and __main__, which have
+    values while still in the symtab. It may be used for more stuff in the
+    future. */
+static void load_vm_regs(lily_value **vm_regs, lily_var *iter_var)
+{
+    while (iter_var) {
+        if ((iter_var->flags & (VAL_IS_NIL | VAR_IS_READONLY)) == 0) {
+            if (iter_var->sig->cls->is_refcounted)
+                iter_var->value.generic->refcount++;
+
+            vm_regs[iter_var->reg_spot]->flags &= ~VAL_IS_NIL;
+            vm_regs[iter_var->reg_spot]->value = iter_var->value;
+        }
+
+        iter_var = iter_var->next;
+    }
+}
+
+/*  bind_function_name
+    Create a proper lily_value that represent the name of the given function.
+    If the function is from a class, the classname is added too. */
+static lily_value *bind_function_name(lily_symtab *symtab,
+        lily_function_val *fval)
+{
+    char *class_name = fval->class_name;
+    char *separator;
+    if (class_name == NULL) {
+        class_name = "";
+        separator = "";
+    }
+    else
+        separator = "::";
+
+    int buffer_size = strlen(class_name) + strlen(separator) +
+            strlen(fval->trace_name);
+
+    char *buffer = lily_malloc(buffer_size + 1);
+    if (buffer == NULL)
+        return NULL;
+
+    strcpy(buffer, class_name);
+    strcat(buffer, separator);
+    strcat(buffer, fval->trace_name);
+
+    return lily_bind_string_take_buffer(symtab, buffer);
+}
+
+/*  build_traceback
+    Create the list[tuple[string, integer]] stack used to represent traceback
+    for an exception. Returns the built traceback, or NULL on fallure. */
+static lily_value *build_traceback(lily_vm_state *vm, lily_sig *traceback_sig)
+{
+    lily_symtab *symtab = vm->symtab;
+    lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
+    if (lv == NULL)
+        return NULL;
+
+    lv->elems = lily_malloc(vm->function_stack_pos * sizeof(lily_value *));
+    lv->num_values = -1;
+    lv->visited = 0;
+    lv->refcount = 1;
+    lv->gc_entry = NULL;
+
+    if (lv->elems == NULL) {
+        lily_deref_list_val(traceback_sig, lv);
+        return NULL;
+    }
+
+    int i;
+    for (i = 0;i < vm->function_stack_pos;i++) {
+        lily_vm_stack_entry *stack_entry = vm->function_stack[i];
+        lily_value *tuple_holder = lily_malloc(sizeof(lily_value));
+        lily_list_val *stack_tuple = lily_malloc(sizeof(lily_list_val));
+        lily_value **tuple_values = lily_malloc(2 * sizeof(lily_value *));
+
+        lily_value *func_string = bind_function_name(symtab,
+                stack_entry->function);
+        lily_value *linenum_integer = lily_bind_integer(symtab,
+                stack_entry->line_num);
+
+        if (tuple_holder == NULL || stack_tuple == NULL ||
+            tuple_values == NULL || func_string == NULL ||
+            linenum_integer == NULL) {
+            lily_bind_destroy(func_string);
+            lily_bind_destroy(linenum_integer);
+            lily_free(stack_tuple);
+            lily_free(tuple_values);
+            lily_free(tuple_holder);
+            lv->num_values = i;
+            lily_deref_list_val(traceback_sig, lv);
+            return NULL;
+        }
+
+        stack_tuple->num_values = 2;
+        stack_tuple->visited = 0;
+        stack_tuple->refcount = 1;
+        stack_tuple->gc_entry = NULL;
+        stack_tuple->elems = tuple_values;
+        tuple_values[0] = func_string;
+        tuple_values[1] = linenum_integer;
+        tuple_holder->sig = traceback_sig->siglist[0];
+        tuple_holder->value.list = stack_tuple;
+        tuple_holder->flags = 0;
+        lv->elems[i] = tuple_holder;
+        lv->num_values = i + 1;
+    }
+
+    lily_value *v = lily_malloc(sizeof(lily_value));
+    if (v == NULL) {
+        lily_deref_list_val(traceback_sig, lv);
+        return NULL;
+    }
+
+    v->value.list = lv;
+    v->sig = traceback_sig;
+    v->flags = 0;
+
+    return v;
+}
+
+/*  novalue_error
+    Oh no. This is called when some value is nil and there's an attempt to
+    access it. This would be fine...except it TRIES to print the name of the
+    thing used if it's a var.
+    This function will be DESTROYED when optional values arrive. For now,
+    pretend it doesn't exist. Lalalalala. */
 static void novalue_error(lily_vm_state *vm, int code_pos, int reg_pos)
 {
     /* ...So fill in the current function's info before dying. */
@@ -571,7 +818,7 @@ static void novalue_error(lily_vm_state *vm, int code_pos, int reg_pos)
     vm:       The currently running vm.
     code_pos: The start of the opcode, for getting line info.
     key:      The invalid key passed. */
-void key_error(lily_vm_state *vm, int code_pos, lily_value *key)
+static void key_error(lily_vm_state *vm, int code_pos, lily_value *key)
 {
     lily_vm_stack_entry *top = vm->function_stack[vm->function_stack_pos - 1];
     top->line_num = top->code[code_pos + 1];
@@ -596,32 +843,21 @@ void key_error(lily_vm_state *vm, int code_pos, lily_value *key)
     lily_raise_prebuilt(vm->raiser, lily_KeyError);
 }
 
-/* divide_by_zero_error
-   This is copied from novalue_error, except it raises ErrDivisionByZero and
-   reports an attempt to divide by zero. */
-void divide_by_zero_error(lily_vm_state *vm, int code_pos, int reg_pos)
+/*  boundary_error
+    Raise IndexError for an invalid index. This is here because a lot of things
+    call it. */
+static void boundary_error(lily_vm_state *vm, int bad_index)
 {
-    lily_vm_stack_entry *top = vm->function_stack[vm->function_stack_pos-1];
-    top->line_num = top->code[code_pos+1];
-
-    lily_raise(vm->raiser, lily_DivisionByZeroError,
-            "Attempt to divide by zero.\n");
-}
-
-/* boundary_error
-   Another copy of novalue_error, this one raising ErrOutOfRange. */
-void boundary_error(lily_vm_state *vm, int code_pos, int bad_index)
-{
-    lily_vm_stack_entry *top = vm->function_stack[vm->function_stack_pos-1];
-    top->line_num = top->code[code_pos+1];
-
     lily_raise(vm->raiser, lily_IndexError,
             "Subscript index %d is out of range.\n", bad_index);
 }
 
-/* lily_builtin_print
-   This is called by the vm to implement the print function. [0] is the return
-   (which isn't used), so args begin at [1]. */
+/*****************************************************************************/
+/* Built-in function implementations                                         */
+/*****************************************************************************/
+
+/*  lily_builtin_print
+    Implements: function print(string) */
 void lily_builtin_print(lily_vm_state *vm, lily_function_val *self,
         uintptr_t *code)
 {
@@ -629,10 +865,8 @@ void lily_builtin_print(lily_vm_state *vm, lily_function_val *self,
     lily_impl_puts(vm->data, reg->value.string->string);
 }
 
-/* lily_builtin_printfmt
-   This is called by the vm to implement the printfmt function. [0] is the
-   return, which is ignored in this case. [1] is the format string, and [2]+
-   are the arguments. */
+/*  lily_builtin_printfmt
+    Implements: function printfmt(string, any...) */
 void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
         uintptr_t *code)
 {
@@ -703,25 +937,133 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
 
     lily_impl_puts(data, str_start);
 }
-/** VM opcode helpers **/
 
-/*  op_any_assign
-    This is a vm helper for handling an assignment to an any from another value
-    that may or may not be an any.
-    Since this call only uses two values, those are passed instead of using
-    vm_regs and code like some other vm helpers do.
+/*****************************************************************************/
+/* Hash related functions                                                    */
+/*****************************************************************************/
+
+/*  lily_try_lookup_hash_elem
+    This attempts to find a hash element by key in the given hash. This will not
+    create a new element if it fails.
+
+    hash:        A valid hash, which may or may not have elements.
+    key_siphash: The calculated siphash of the given key. Use
+                 lily_calculate_siphash to get this.
+    key:         The key used for doing the search.
+
+    On success: The hash element that was inserted into the hash value is
+                returned.
+    On failure: NULL is returned. */
+lily_hash_elem *lily_try_lookup_hash_elem(lily_hash_val *hash,
+        uint64_t key_siphash, lily_value *key)
+{
+    int key_cls_id = key->sig->cls->id;
+
+    lily_hash_elem *elem_iter = hash->elem_chain;
+    lily_raw_value key_value = key->value;
+
+    while (elem_iter) {
+        if (elem_iter->key_siphash == key_siphash) {
+            int ok;
+            lily_raw_value iter_value = elem_iter->elem_key->value;
+
+            if (key_cls_id == SYM_CLASS_INTEGER &&
+                iter_value.integer == key_value.integer)
+                ok = 1;
+            else if (key_cls_id == SYM_CLASS_DOUBLE &&
+                     iter_value.doubleval == key_value.doubleval)
+                ok = 1;
+            else if (key_cls_id == SYM_CLASS_STRING &&
+                    /* strings are immutable, so try a ptr compare first. */
+                    ((iter_value.string == key_value.string) ||
+                     /* No? Make sure the sizes match, then call for a strcmp.
+                        The size check is an easy way to potentially skip a
+                        strcmp in case of hash collision. */
+                      (iter_value.string->size == key_value.string->size &&
+                       strcmp(iter_value.string->string,
+                              key_value.string->string) == 0)))
+                ok = 1;
+            else
+                ok = 0;
+
+            if (ok)
+                break;
+        }
+        elem_iter = elem_iter->next;
+    }
+
+    return elem_iter;
+}
+
+/*  update_hash_key_value
+    This attempts to set a new value for a given hash key. This first checks
+    for an existing key to set. If none is found, then it attempts to create a
+    new entry in the given hash with the given key and value.
+
+    vm:          The vm that the hash is in. This is passed in case ErrNoMem
+                 needs to be raised.
+    hash:        A valid hash, which may or may not have elements.
+    key_siphash: The calculated siphash of the given key. Use
+                 lily_calculate_siphash to get this.
+    hash_key:    The key value, used for lookup. This should not be nil.
+    hash_value:  The new value to associate with the given key. This may or may
+                 not be nil.
+
+    This raises NoMemoryError on failure. */
+static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
+        uint64_t key_siphash, lily_value *hash_key,
+        lily_value *hash_value)
+{
+    lily_hash_elem *elem;
+    elem = lily_try_lookup_hash_elem(hash, key_siphash, hash_key);
+
+    if (elem == NULL) {
+        elem = lily_try_new_hash_elem();
+        if (elem != NULL) {
+            /* It's important to copy over the flags, in case the key is a
+               literal and marked VAL_IS_PROTECTED. Doing so keeps hash deref
+               from trying to deref the key. */
+            elem->elem_key->flags = hash_key->flags;
+            elem->elem_key->value = hash_key->value;
+            elem->elem_key->sig = hash_key->sig;
+            elem->key_siphash = key_siphash;
+
+            /* lily_assign_value needs a sig for the left side. */
+            elem->elem_value->sig = hash_value->sig;
+
+            elem->next = hash->elem_chain;
+            hash->elem_chain = elem;
+
+            hash->num_elems++;
+        }
+    }
+
+    if (elem != NULL)
+        lily_assign_value(vm, elem->elem_value, hash_value);
+    else
+        lily_raise_nomem(vm->raiser);
+}
+
+/*****************************************************************************/
+/* Opcode implementations                                                    */
+/*****************************************************************************/
+
+/*  do_o_any_assign
+    This does o_any_assign for the vm. It's also called by lily_assign_value to
+    handle assignments to any (yay code reuse)!
+
     vm:      If lhs_reg is nil, an any will be made that needs a gc entry.
              The entry will be added to the vm's gc entries.
     lhs_reg: The register containing an any to be assigned to. Might be nil.
     rhs_reg: The register providing a value for the any. Might be nil. */
-static void op_any_assign(lily_vm_state *vm, lily_value *lhs_reg,
+static void do_o_any_assign(lily_vm_state *vm, lily_value *lhs_reg,
         lily_value *rhs_reg)
 {
     lily_any_val *lhs_any;
     if (lhs_reg->flags & VAL_IS_NIL) {
         lhs_any = lily_try_new_any_val();
         if (lhs_any == NULL ||
-            lily_try_add_gc_item(vm, lhs_reg->sig,
+            try_add_gc_item(vm, lhs_reg->sig,
                     (lily_generic_gc_val *)lhs_any) == 0) {
 
             if (lhs_any)
@@ -777,65 +1119,15 @@ static void op_any_assign(lily_vm_state *vm, lily_value *lhs_reg,
     lhs_inner->flags = new_flags;
 }
 
-/*  update_hash_key_value
-    This attempts to set a new value for a given hash key. This first checks
-    for an existing key to set. If none is found, then it attempts to create a
-    new entry in the given hash with the given key and value.
+/*  do_o_set_item
+    This handles A[B] = C, where A is some sort of list/hash/tuple/whatever.
+    If a hash is nil, then it's created and the hash entry is put inside.
+    Arguments are pulled from the given code at code_pos.
 
-    vm:          The vm that the hash is in. This is passed in case ErrNoMem
-                 needs to be raised.
-    hash:        A valid hash, which may or may not have elements.
-    key_siphash: The calculated siphash of the given key. Use
-                 lily_calculate_siphash to get this.
-    hash_key:    The key value, used for lookup. This should not be nil.
-    hash_value:  The new value to associate with the given key. This may or may
-                 not be nil.
-
-    This raises ErrNoMem on failure. */
-static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
-        uint64_t key_siphash, lily_value *hash_key,
-        lily_value *hash_value)
-{
-    lily_hash_elem *elem;
-    elem = lily_try_lookup_hash_elem(hash, key_siphash, hash_key);
-
-    if (elem == NULL) {
-        elem = lily_try_new_hash_elem();
-        if (elem != NULL) {
-            /* It's important to copy over the flags, in case the key is a
-               literal and marked VAL_IS_PROTECTED. Doing so keeps hash deref
-               from trying to deref the key. */
-            elem->elem_key->flags = hash_key->flags;
-            elem->elem_key->value = hash_key->value;
-            elem->elem_key->sig = hash_key->sig;
-            elem->key_siphash = key_siphash;
-
-            /* lily_assign_value needs a sig for the left side. */
-            elem->elem_value->sig = hash_value->sig;
-
-            elem->next = hash->elem_chain;
-            hash->elem_chain = elem;
-
-            hash->num_elems++;
-        }
-    }
-
-    if (elem != NULL)
-        lily_assign_value(vm, elem->elem_value, hash_value);
-    else
-        lily_raise_nomem(vm->raiser);
-}
-
-/*  op_set_item
-    This handles subscript assignment for both lists and hashes.
-    The vm calls this with the code and the current code position. There are
-    three arguments to unpack:
-    +2 is the list or hash to assign to. If the hash is nil, a hash value is
-       created and a value is put inside.
-    +3 is the index. This must not be nil. Lists only allow integer indexes,
-       while this is a hash key of the correct type.
-    +4 is the new value. This allowed to be nil. */
-static void op_set_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
+    +2: The list-like thing to assign to.
+    +3: The index, which can't be nil.
+    +4: The new value. */
+static void do_o_set_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *lhs_reg, *index_reg, *rhs_reg;
@@ -851,11 +1143,11 @@ static void op_set_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
         LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
 
         if (index_int >= list_val->num_values)
-            boundary_error(vm, code_pos, index_int);
+            boundary_error(vm, index_int);
 
         /* todo: Wraparound would be nice. */
         if (index_int < 0)
-            boundary_error(vm, code_pos, index_int);
+            boundary_error(vm, index_int);
 
         lily_assign_value(vm, list_val->elems[index_int], rhs_reg);
     }
@@ -876,18 +1168,17 @@ static void op_set_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
     }
 }
 
-/*  op_get_item
-    This handles subscripting an element from the given hash or list.
-    The vm calls this with the code and the current code position. There are
-    three arguments to unpack:
-    +2 is the list or hash to take a value from.
-    +3 is the index to lookup. For hashes, ErrNoSuchKey if the key is not in
-       the hash.
-    +4 is the new value. This allowed to be nil.
+/*  do_o_get_item
+    This handles A = B[C], where B is some list-like thing, C is an index,
+    and A is what will receive the value.
+    If B is a hash and nil, or does not have the given key, then KeyError is
+    raised.
+    Arguments are pulled from the given code at code_pos.
 
-    Note: If the hash is nil, then ErrNoValue is raised instead of
-          ErrNoSuchKey. */
-static void op_get_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
+    +2: The list-like thing to assign to.
+    +3: The index, which can't be nil.
+    +4: The new value. */
+static void do_o_get_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *lhs_reg, *index_reg, *result_reg;
@@ -909,11 +1200,11 @@ static void op_get_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
 
         /* Too big! */
         if (index_int >= lhs_reg->value.list->num_values)
-            boundary_error(vm, code_pos, index_int);
+            boundary_error(vm, index_int);
 
         /* todo: Wraparound would be nice. */
         if (index_int < 0)
-            boundary_error(vm, code_pos, index_int);
+            boundary_error(vm, index_int);
 
         lily_assign_value(vm, result_reg, list_val->elems[index_int]);
     }
@@ -922,8 +1213,8 @@ static void op_get_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
         lily_hash_elem *hash_elem;
 
         siphash = lily_calculate_siphash(vm->sipkey, index_reg);
-        hash_elem = lily_try_lookup_hash_elem(lhs_reg->value.hash,
-                siphash, index_reg);
+        hash_elem = lily_try_lookup_hash_elem(lhs_reg->value.hash, siphash,
+                index_reg);
 
         /* Give up if the key doesn't exist. */
         if (hash_elem == NULL)
@@ -933,7 +1224,15 @@ static void op_get_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
     }
 }
 
-void op_build_hash(lily_vm_state *vm, uintptr_t *code, int code_pos)
+/*  do_o_build_hash
+    This creates a new hash value. The emitter ensures that the values are of a
+    consistent type and are valid keys. Values must be pulled from the code
+    given.
+
+    +2: How many values there are. There are half this many entries.
+    +3..*: The pairs, given as (key, value)...
+    final: The result to assign the new hash to. */
+static void do_o_build_hash(lily_vm_state *vm, uintptr_t *code, int code_pos)
 {
     lily_value **vm_regs = vm->vm_regs;
     int i, num_values;
@@ -947,7 +1246,7 @@ void op_build_hash(lily_vm_state *vm, uintptr_t *code, int code_pos)
         lily_raise_nomem(vm->raiser);
 
     if ((result->sig->flags & SIG_MAYBE_CIRCULAR) &&
-        lily_try_add_gc_item(vm, result->sig,
+        try_add_gc_item(vm, result->sig,
             (lily_generic_gc_val *)hash_val) == 0) {
         lily_free(hash_val);
         lily_raise_nomem(vm->raiser);
@@ -975,11 +1274,16 @@ void op_build_hash(lily_vm_state *vm, uintptr_t *code, int code_pos)
     }
 }
 
-/* op_build_list
-   VM helper called for handling o_build_list. This is a bit tricky, becaus the
-   storage may have already had a previous list assigned to it. Additionally,
-   the new list info may fail to allocate. If it does, ErrNoMem is raised. */
-void op_build_list(lily_vm_state *vm, uintptr_t *code)
+/*  do_o_build_list
+    This implements creating a new list. The code given has code_pos adjusted
+    into it, so values can be pulled as 'code[X]' instead of 'code[code_pos+X]'
+
+    Arguments are pulled from the given code as follows:
+
+    +2: The number of values.
+    +3..*: The values.
+    final: The result to assign the new list to. */
+static void do_o_build_list(lily_vm_state *vm, uintptr_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     int num_elems = (intptr_t)(code[2]);
@@ -1002,7 +1306,7 @@ void op_build_list(lily_vm_state *vm, uintptr_t *code)
        which is what's wanted anyway. */
     if (lv->elems == NULL ||
         ((result->sig->flags & SIG_MAYBE_CIRCULAR) &&
-          lily_try_add_gc_item(vm, result->sig,
+          try_add_gc_item(vm, result->sig,
                 (lily_generic_gc_val *)lv) == 0)) {
 
         lily_deref_list_val(result->sig, lv);
@@ -1038,7 +1342,11 @@ void op_build_list(lily_vm_state *vm, uintptr_t *code)
     lv->num_values = num_elems;
 }
 
-void op_build_tuple(lily_vm_state *vm, uintptr_t *code)
+/*  do_o_build_tuple
+    This is the same thing as do_o_build_list, except the result is a tuple.
+    The difference between a tuple and a list is that a tuple allows a certain
+    number of statically-checked types, whereas list only allows one type. */
+static void do_o_build_tuple(lily_vm_state *vm, uintptr_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     int num_elems = (intptr_t)(code[2]);
@@ -1059,7 +1367,7 @@ void op_build_tuple(lily_vm_state *vm, uintptr_t *code)
        which is what's wanted anyway. */
     if (tuple->elems == NULL ||
         ((result->sig->flags & SIG_MAYBE_CIRCULAR) &&
-          lily_try_add_gc_item(vm, result->sig,
+          try_add_gc_item(vm, result->sig,
                 (lily_generic_gc_val *)tuple) == 0)) {
 
         lily_deref_tuple_val(result->sig, tuple);
@@ -1093,7 +1401,10 @@ void op_build_tuple(lily_vm_state *vm, uintptr_t *code)
     tuple->num_values = num_elems;
 }
 
-static void do_keyword_show(lily_vm_state *vm, int is_global, int reg_id)
+/*  do_o_show
+    This implements 'show', which should really, really be a plain old function
+    instead of this mess of arguments. */
+static void do_o_show(lily_vm_state *vm, int is_global, int reg_id)
 {
     lily_value *reg;
     lily_function_val *lily_main;
@@ -1110,112 +1421,233 @@ static void do_keyword_show(lily_vm_state *vm, int is_global, int reg_id)
             vm->raiser->msgbuf, vm->data);
 }
 
-/** vm registers handling and stack growing **/
-
-/* grow_vm_registers
-   Increase the amount of registers available to the given 'register_need'.  */
-static void grow_vm_registers(lily_vm_state *vm, int register_need)
+/*  do_o_raise
+    Raise a user-defined exception. A proper traceback value is created and
+    given to the user's exception before raising it. */
+static void do_o_raise(lily_vm_state *vm, lily_value *exception_val)
 {
-    lily_value **new_regs;
-    lily_sig *integer_sig = vm->integer_sig;
-    int i = vm->max_registers;
+    /* The Exception class has values[0] as the message, values[1] as the
+       container for traceback. */
+    if (exception_val->flags & VAL_IS_NIL)
+        lily_raise(vm->raiser, lily_ValueError,
+                "Cannot raise nil exception.\n");
 
-    ptrdiff_t reg_offset = vm->vm_regs - vm->regs_from_main;
-
-    /* Remember, use regs_from_main, NOT vm_regs, which is likely adjusted. */
-    new_regs = lily_realloc(vm->regs_from_main, register_need *
-            sizeof(lily_value));
-
-    if (new_regs == NULL)
+    lily_instance_val *ival = exception_val->value.instance;
+    lily_sig *traceback_sig = ival->values[1]->sig;
+    lily_value *traceback = build_traceback(vm, traceback_sig);
+    if (traceback == NULL)
         lily_raise_nomem(vm->raiser);
 
-    /* Realloc can move the pointer, so always recalculate vm_regs again using
-       regs_from_main and the offset. */
-    vm->regs_from_main = new_regs;
-    vm->vm_regs = new_regs + reg_offset;
+    lily_assign_value(vm, ival->values[1], traceback);
+    ival->values[1]->value.list->refcount--;
+    lily_free(traceback);
 
-    /* Start creating new registers. Have them default to an integer sig so that
-       nothing has to check for a NULL sig. Integer is used as the default
-       because it is not ref'd. */
-    for (;i < register_need;i++) {
-        new_regs[i] = lily_malloc(sizeof(lily_value));
-        if (new_regs[i] == NULL) {
-            vm->max_registers = i;
-            lily_raise_nomem(vm->raiser);
+    lily_raise_value(vm->raiser, exception_val);
+}
+
+/*****************************************************************************/
+/* Exception handling                                                        */
+/*****************************************************************************/
+
+/*  make_proper_exception_val
+    This is called when an exception is NOT raised by 'raise'. It's used to
+    create a exception object that holds the traceback and the message from the
+    raiser.
+    If this function fails due to being out of memory, the resulting
+    NoMemoryError will not be catchable. This prevents an out of memory
+    situation from making the interpreter loop forever trying to build an
+    exception. */
+static void make_proper_exception_val(lily_vm_state *vm,
+        lily_class *raised_class, lily_value *result)
+{
+    /* This is how the vm knows to not catch this. */
+    vm->building_error = 1;
+
+    lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
+    if (ival == NULL)
+        lily_raise_nomem(vm->raiser);
+
+    ival->values = lily_malloc(2 * sizeof(lily_value *));
+    ival->num_values = -1;
+    ival->visited = 0;
+    ival->refcount = 1;
+    ival->gc_entry = NULL;
+    ival->true_class = raised_class;
+    if (ival->values == NULL) {
+        lily_deref_instance_val(result->sig, ival);
+        lily_raise_nomem(vm->raiser);
+    }
+
+    lily_value *message_val = lily_bind_string(vm->symtab,
+            vm->raiser->msgbuf->message);
+
+    if (message_val == NULL) {
+        lily_deref_instance_val(result->sig, ival);
+        lily_raise_nomem(vm->raiser);
+    }
+    lily_msgbuf_reset(vm->raiser->msgbuf);
+    ival->values[0] = message_val;
+    ival->num_values = 1;
+
+    /* This is safe because this function is only called for builtin errors
+       which are always direct subclasses of Exception. */
+    lily_class *exception_class = raised_class->parent;
+    /* Traceback is always the first property of Exception. */
+    lily_sig *traceback_sig = exception_class->properties->sig;
+
+    lily_value *traceback_val = build_traceback(vm, traceback_sig);
+    if (traceback_val == NULL) {
+        lily_deref_instance_val(result->sig, ival);
+        lily_raise_nomem(vm->raiser);
+    }
+
+    ival->values[1] = traceback_val;
+    ival->num_values = 2;
+
+    if ((result->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+        lily_deref_instance_val(result->sig, result->value.instance);
+
+    result->value.instance = ival;
+    result->flags = 0;
+
+    vm->building_error = 0;
+}
+
+/*  maybe_catch_exception
+    This is called when the vm has an exception raised, either from an internal
+    operation, or by the user. This looks through the exceptions that the vm
+    has registered to see if one of them can handle the current exception.
+
+    Note: In the event that the interpreter hits an out of memory error while
+          trying to build an exception value, NoMemoryError is raised and the
+          NoMemoryError _is not catchable_. This prevents the interpreter from
+          infinite looping trying to make an exception.
+
+    On success: An exception value is created, if the user specified that they
+                wanted it.
+                Control goes to the appropriate 'except' block.
+                1 is returned.
+    On failure: 0 is returned, which will result in the vm exiting. */
+static int maybe_catch_exception(lily_vm_state *vm)
+{
+    if (vm->catch_top == NULL)
+        return 0;
+
+    const char *except_name;
+    lily_class *raised_class;
+
+    if (vm->raiser->exception == NULL) {
+        except_name = lily_name_for_error(vm->raiser->error_code);
+        raised_class = lily_class_by_name(vm->symtab, except_name);
+    }
+    else {
+        lily_value *raise_val = vm->raiser->exception;
+        raised_class = raise_val->sig->cls;
+        except_name = raised_class->name;
+    }
+    /* Until user-declared exception classes arrive, raised_class should not
+       be NULL since all errors raiseable -should- be covered... */
+    lily_vm_catch_entry *catch_iter = vm->catch_top;
+    lily_value *catch_reg = NULL;
+
+    lily_value **stack_regs = vm->vm_regs;
+    int adjusted_stack, do_unbox, jump_location, match, stack_pos;
+
+    /* If the last call was to a foreign function, then that function did not
+       do a proper stack adjustment (or it wouldn't be able to access the
+       caller's registers). So don't include that in stack unwinding
+       calculations. */
+    if (vm->function_stack[vm->function_stack_pos-1]->function->code == NULL) {
+        vm->function_stack_pos--;
+        adjusted_stack = 1;
+    }
+    else
+        adjusted_stack = 0;
+
+    match = 0;
+    stack_pos = vm->function_stack_pos;
+
+    while (catch_iter != NULL) {
+        lily_vm_stack_entry *catch_stack = catch_iter->stack_entry;
+        uintptr_t *stack_code = catch_stack->code;
+        /* A try block is done when the next jump is at 0 (because 0 would
+           always be going back, which is illogical otherwise). */
+        jump_location = catch_stack->code[catch_iter->code_pos];
+
+        if (stack_pos != (catch_iter->entry_depth + 1)) {
+            int i;
+
+            /* If the exception is being caught in another scope, then vm_regs
+               needs be adjusted backwards so that the matching registers
+               accesses will target the right thing.
+               -1: Because vm->function_stack_pos is ahead.
+               -1: Because the last vm->function_stack_pos entry is not
+                   entered, only prepared if/when it gets entered. */
+            for (i = stack_pos - 2;
+                 i >= catch_iter->entry_depth;
+                 i--) {
+                stack_regs = stack_regs - vm->function_stack[i]->regs_used;
+            }
+
+            stack_pos = catch_iter->entry_depth + 1;
         }
 
-        new_regs[i]->sig = integer_sig;
-        new_regs[i]->flags = VAL_IS_NIL;
+        while (jump_location != 0) {
+            /* Instead of the vm hopping around to different o_except blocks,
+               this function visits them to find out which (if any) handles
+               the current exception.
+               +1 is the line number (for debug), +2 is the spot for the next
+               jump, and +3 is a register that holds a value to store this
+               particular exception. */
+            int next_location = stack_code[jump_location + 2];
+            catch_reg = stack_regs[stack_code[jump_location + 4]];
+            lily_class *catch_class = catch_reg->sig->cls;
+            if (catch_class == raised_class ||
+                lily_check_right_inherits_or_is(catch_class, raised_class)) {
+                /* ...So that execution resumes from within the except block. */
+                do_unbox = stack_code[jump_location + 3];
+                jump_location += 5;
+                match = 1;
+                break;
+            }
+
+            jump_location = next_location;
+        }
+
+        if (match)
+            break;
+
+        catch_iter = catch_iter->prev;
     }
 
-    vm->max_registers = register_need;
-}
+    if (match) {
+        if (do_unbox) {
+            if (vm->raiser->exception == NULL)
+                make_proper_exception_val(vm, raised_class, catch_reg);
+            else
+                lily_assign_value(vm, catch_reg, vm->raiser->exception);
+        }
 
-/* prep_registers
-   This sets up the registers for a function call. This is called after
-   grow_registers, and thus assumes that the right number of registers are
-   available.
-   This also handles copying args for functions. */
-static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
-        uintptr_t *code)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    lily_value **regs_from_main = vm->regs_from_main;
-    lily_register_info *register_seeds = fval->reg_info;
-    int num_registers = vm->num_registers;
-    int register_need = vm->num_registers + fval->reg_count;
-    int i;
-
-    /* A function's args always come first, so copy arguments over while clearing
-       old values. */
-    for (i = 0;i < code[4];i++, num_registers++) {
-        lily_register_info seed = register_seeds[i];
-        lily_value *get_reg = vm_regs[code[5+i]];
-        lily_value *set_reg = regs_from_main[num_registers];
-
-        /* The get must be run before the set. Otherwise, if
-           something has 1 ref and assigns to itself, it will be
-           destroyed from a deref, then an invalid value ref'd.
-           This may not be possible here, but it is elsewhere. */
-        if (get_reg->sig->cls->is_refcounted &&
-            ((get_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0))
-            get_reg->value.generic->refcount++;
-
-        if (set_reg->sig->cls->is_refcounted &&
-            ((set_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0))
-            lily_deref_unknown_val(set_reg);
-
-        set_reg->sig = seed.sig;
-        /* This will be null if this register doesn't belong to a
-           var, or non-null if it's for a local. */
-
-        if ((get_reg->flags & VAL_IS_NIL) == 0)
-            set_reg->value = get_reg->value;
+        vm->function_stack_pos = stack_pos;
+        vm->vm_regs = stack_regs;
+        vm->function_stack[catch_iter->entry_depth]->code_pos = jump_location;
+        /* Each try block can only successfully handle one exception, so use
+           ->prev to prevent using the same block again. */
+        vm->catch_top = catch_iter->prev;
+        if (vm->catch_top != NULL)
+            vm->catch_chain = vm->catch_top;
         else
-            set_reg->value.integer = 0;
-
-        set_reg->flags = get_reg->flags;
+            vm->catch_chain = catch_iter;
     }
+    else if (adjusted_stack)
+        vm->function_stack_pos++;
 
-    /* For the rest of the registers, clear whatever value they have. */
-    for (;num_registers < register_need;i++, num_registers++) {
-        lily_register_info seed = fval->reg_info[i];
-
-        lily_value *reg = regs_from_main[num_registers];
-        if (reg->sig->cls->is_refcounted &&
-            (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-            lily_deref_unknown_val(reg);
-
-        /* SET the flags to nil so that VAL_IS_PROTECTED gets blasted away if
-           it happens to be set. */
-        reg->flags = VAL_IS_NIL;
-        reg->sig = seed.sig;
-    }
-
-    vm->num_registers = num_registers;
+    return match;
 }
 
-/** Foreign calls **/
+/******************************************************************************/
+/* Foreign call API                                                           */
+/******************************************************************************/
 
 /*  lily_vm_foreign_call
     This calls the vm from a foreign source. The stack is adjusted before and
@@ -1367,31 +1799,85 @@ void lily_vm_foreign_prep(lily_vm_state *vm, lily_function_val *caller,
     native_entry->line_num = 0;
 }
 
-/** VM prep, API functions  **/
+/******************************************************************************/
+/* Exported functions                                                         */
+/******************************************************************************/
 
-/* load_vm_regs
-   This is a helper for lily_vm_prep that loads a chain of vars into the
-   registers given. */
-static void load_vm_regs(lily_value **vm_regs, lily_var *iter_var)
+/*  lily_assign_value
+    This is an extremely handy function that assigns 'left' to 'right'. This is
+    handy because it will handle any refs/derefs needed, nil, and any
+    copying.
+
+    vm:    The vm holding the two values. This is needed because if 'left' is
+           an any, then a gc pass may be triggered.
+    left:  The value to assign to.
+           The type of left determines what assignment is used. This is
+           important because it means that left must have a type set.
+    right: The value to assign.
+
+    Caveats:
+    * If 'left' is an any and there is no memory, NoMemoryError is raised.
+    * 'left' must have a type set. */
+void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
 {
-    while (iter_var) {
-        /* These shouldn't be marked as protected, because they're vars and
-           they haven't had a chance to be assigned to anything yet. */
-        if ((iter_var->flags & (VAL_IS_NIL | VAR_IS_READONLY)) == 0) {
-            if (iter_var->sig->cls->is_refcounted)
-                iter_var->value.generic->refcount++;
+    lily_class *cls = left->sig->cls;
 
-            vm_regs[iter_var->reg_spot]->flags &= ~VAL_IS_NIL;
-            vm_regs[iter_var->reg_spot]->value = iter_var->value;
+    if (cls->id == SYM_CLASS_ANY)
+        /* Any assignment is...complicated. Have someone else do it. */
+        do_o_any_assign(vm, left, right);
+    else {
+        if (cls->is_refcounted) {
+            if ((right->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+                right->value.generic->refcount++;
+
+            if ((left->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+                lily_deref_unknown_val(left);
         }
 
-        iter_var = iter_var->next;
+        left->value = right->value;
+        left->flags = right->flags;
     }
 }
 
-/* lily_vm_prep
-   This is called before lily_vm_execute to make sure that all global values are
-   copied into starting registers. */
+/*  lily_calculate_siphash
+    Return a siphash based using the given siphash for the given key.
+
+    sipkey:  The vm's sipkey for creating the hash.
+    key:     A non-nil value to make a hash for.
+
+    Notes:
+    * The caller must not pass a non-hashable type (such as any). Parser is
+      responsible for ensuring that hashes only use valid key types.
+    * The caller must not pass a key that is a nil value. */
+uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
+{
+    int key_cls_id = key->sig->cls->id;
+    uint64_t key_hash;
+
+    if (key_cls_id == SYM_CLASS_STRING)
+        key_hash = siphash24(key->value.string->string,
+                key->value.string->size, sipkey);
+    else if (key_cls_id == SYM_CLASS_INTEGER)
+        key_hash = key->value.integer;
+    else if (key_cls_id == SYM_CLASS_DOUBLE)
+        /* siphash thinks it's sent a pointer (and will try to deref it), so
+           send the address. */
+        key_hash = siphash24(&(key->value.doubleval), sizeof(double), sipkey);
+    else /* Should not happen, because no other classes are valid keys. */
+        key_hash = 0;
+
+    return key_hash;
+}
+
+/*  lily_vm_prep
+    This is called before calling lily_vm_execute if code will start at
+    __main__. Foreign callers will use lily_vm_foreign_prep before calling the
+    lily_vm_execute.
+
+    * Ensure that there are enough registers to run __main__. If new registers
+      are allocated, they're set to a proper signature.
+    * Load __main__ and the sys package from symtab into registers.
+    * Set stack entry 0 (__main__'s entry). */
 void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
 {
     lily_var *main_var = symtab->var_start;
@@ -1477,439 +1963,13 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     vm->function_stack_pos = 1;
 }
 
-/*  lily_try_lookup_hash_elem
-    This attempts to find a hash element by key in the given hash. This will not
-    create a new element if it fails.
-
-    hash:        A valid hash, which may or may not have elements.
-    key_siphash: The calculated siphash of the given key. Use
-                 lily_calculate_siphash to get this.
-    key:         The key used for doing the search.
-
-    On success: The hash element that was inserted into the hash value is
-                returned.
-    On failure: NULL is returned. */
-lily_hash_elem *lily_try_lookup_hash_elem(lily_hash_val *hash,
-        uint64_t key_siphash, lily_value *key)
-{
-    int key_cls_id = key->sig->cls->id;
-
-    lily_hash_elem *elem_iter = hash->elem_chain;
-    lily_raw_value key_value = key->value;
-
-    while (elem_iter) {
-        if (elem_iter->key_siphash == key_siphash) {
-            int ok;
-            lily_raw_value iter_value = elem_iter->elem_key->value;
-
-            if (key_cls_id == SYM_CLASS_INTEGER &&
-                iter_value.integer == key_value.integer)
-                ok = 1;
-            else if (key_cls_id == SYM_CLASS_DOUBLE &&
-                     iter_value.doubleval == key_value.doubleval)
-                ok = 1;
-            else if (key_cls_id == SYM_CLASS_STRING &&
-                    /* strings are immutable, so try a ptr compare first. */
-                    ((iter_value.string == key_value.string) ||
-                     /* No? Make sure the sizes match, then call for a strcmp.
-                        The size check is an easy way to potentially skip a
-                        strcmp in case of hash collision. */
-                      (iter_value.string->size == key_value.string->size &&
-                       strcmp(iter_value.string->string,
-                              key_value.string->string) == 0)))
-                ok = 1;
-            else
-                ok = 0;
-
-            if (ok)
-                break;
-        }
-        elem_iter = elem_iter->next;
-    }
-
-    return elem_iter;
-}
-
-/*  lily_assign_value
-    This is an extremely handy function that assigns 'left' to 'right'. This is
-    handy because it will handle any refs/derefs needed, nil, and any
-    copying.
-
-    vm:    The vm holding the two values. This is needed because if 'left' is
-           an any, then a gc pass may be triggered.
-    left:  The value to assign to.
-           The type of left determines what assignment is used. This is
-           important because it means that left must have a type set.
-    right: The value to assign.
-
-    Caveats:
-    * May raise a nomem error if left is an any and it cannot allocate a
-      value to copy right's value.
-    * May trigger the vm if if needs to make a new any.
-    * Will crash if left does not have a type set. */
-void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
-{
-    lily_class *cls = left->sig->cls;
-
-    if (cls->id == SYM_CLASS_ANY)
-        /* Any assignment is...complicated. Have someone else do it. */
-        op_any_assign(vm, left, right);
-    else {
-        if (cls->is_refcounted) {
-            if ((right->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                right->value.generic->refcount++;
-
-            if ((left->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                lily_deref_unknown_val(left);
-        }
-
-        left->value = right->value;
-        left->flags = right->flags;
-    }
-}
-
-/*  lily_calculate_siphash
-    Return a siphash based using the given siphash for the given key.
-
-    sipkey:  The vm's sipkey for creating the hash.
-    key:     A non-nil value to make a hash for.
-
-    Notes:
-    * The caller must not pass a non-hashable type (such as any). Parser is
-      responsible for ensuring that hashes only use valid key types.
-    * The caller must not pass a key that is a nil value. */
-uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
-{
-    int key_cls_id = key->sig->cls->id;
-    uint64_t key_hash;
-
-    if (key_cls_id == SYM_CLASS_STRING)
-        key_hash = siphash24(key->value.string->string,
-                key->value.string->size, sipkey);
-    else if (key_cls_id == SYM_CLASS_INTEGER)
-        key_hash = key->value.integer;
-    else if (key_cls_id == SYM_CLASS_DOUBLE)
-        /* siphash thinks it's sent a pointer (and will try to deref it), so
-           send the address. */
-        key_hash = siphash24(&(key->value.doubleval), sizeof(double), sipkey);
-    else /* Should not happen, because no other classes are valid keys. */
-        key_hash = 0;
-
-    return key_hash;
-}
-
-static lily_value *bind_function_name(lily_symtab *symtab,
-        lily_function_val *fval)
-{
-    char *class_name = fval->class_name;
-    char *separator;
-    if (class_name == NULL) {
-        class_name = "";
-        separator = "";
-    }
-    else
-        separator = "::";
-
-    int buffer_size = strlen(class_name) + strlen(separator) +
-            strlen(fval->trace_name);
-
-    char *buffer = lily_malloc(buffer_size + 1);
-    if (buffer == NULL)
-        return NULL;
-
-    strcpy(buffer, class_name);
-    strcat(buffer, separator);
-    strcat(buffer, fval->trace_name);
-
-    return lily_bind_string_take_buffer(symtab, buffer);
-}
-
-static lily_value *build_traceback(lily_vm_state *vm, lily_sig *traceback_sig)
-{
-    lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
-    if (lv == NULL)
-        return NULL;
-
-    lv->elems = lily_malloc(vm->function_stack_pos * sizeof(lily_value *));
-    lv->num_values = -1;
-    lv->visited = 0;
-    lv->refcount = 1;
-    lv->gc_entry = NULL;
-
-    if (lv->elems == NULL) {
-        lily_deref_list_val(traceback_sig, lv);
-        return NULL;
-    }
-
-    lily_symtab *symtab = vm->symtab;
-
-    int i;
-    for (i = 0;i < vm->function_stack_pos;i++) {
-        lily_vm_stack_entry *stack_entry = vm->function_stack[i];
-        lily_value *tuple_holder = lily_malloc(sizeof(lily_value));
-        lily_list_val *stack_tuple = lily_malloc(sizeof(lily_list_val));
-        lily_value **tuple_values = lily_malloc(2 * sizeof(lily_value *));
-
-        lily_value *func_string = bind_function_name(symtab,
-                stack_entry->function);
-        lily_value *linenum_integer = lily_bind_integer(symtab,
-                stack_entry->line_num);
-
-        if (tuple_holder == NULL || stack_tuple == NULL ||
-            tuple_values == NULL || func_string == NULL ||
-            linenum_integer == NULL) {
-            lily_bind_destroy(func_string);
-            lily_bind_destroy(linenum_integer);
-            lily_free(stack_tuple);
-            lily_free(tuple_values);
-            lily_free(tuple_holder);
-            lv->num_values = i;
-            lily_deref_list_val(traceback_sig, lv);
-            return NULL;
-        }
-
-        stack_tuple->num_values = 2;
-        stack_tuple->visited = 0;
-        stack_tuple->refcount = 1;
-        stack_tuple->gc_entry = NULL;
-        stack_tuple->elems = tuple_values;
-        tuple_values[0] = func_string;
-        tuple_values[1] = linenum_integer;
-        tuple_holder->sig = traceback_sig->siglist[0];
-        tuple_holder->value.list = stack_tuple;
-        tuple_holder->flags = 0;
-        lv->elems[i] = tuple_holder;
-        lv->num_values = i + 1;
-    }
-
-    lily_value *v = lily_malloc(sizeof(lily_value));
-    if (v == NULL) {
-        lily_deref_list_val(traceback_sig, lv);
-        return NULL;
-    }
-
-    v->value.list = lv;
-    v->sig = traceback_sig;
-    v->flags = 0;
-
-    return v;
-}
-
-/*  make_proper_exception_val
-    This is called when an exception is NOT raised by 'raise'. It's used to
-    create a exception object that holds the traceback and the message from the
-    raiser.
-    If this function fails due to being out of memory, the resulting
-    NoMemoryError will not be catchable. This prevents an out of memory
-    situation from making the interpreter loop forever trying to build an
-    exception. */
-static void make_proper_exception_val(lily_vm_state *vm,
-        lily_class *raised_class, lily_value *result)
-{
-    /* This is how the vm knows to not catch this. */
-    vm->building_error = 1;
-
-    lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
-    if (ival == NULL)
-        lily_raise_nomem(vm->raiser);
-
-    ival->values = lily_malloc(2 * sizeof(lily_value *));
-    ival->num_values = -1;
-    ival->visited = 0;
-    ival->refcount = 1;
-    ival->gc_entry = NULL;
-    ival->true_class = raised_class;
-    if (ival->values == NULL) {
-        lily_deref_instance_val(result->sig, ival);
-        lily_raise_nomem(vm->raiser);
-    }
-
-    lily_value *message_val = lily_bind_string(vm->symtab,
-            vm->raiser->msgbuf->message);
-
-    if (message_val == NULL) {
-        lily_deref_instance_val(result->sig, ival);
-        lily_raise_nomem(vm->raiser);
-    }
-    lily_msgbuf_reset(vm->raiser->msgbuf);
-    ival->values[0] = message_val;
-    ival->num_values = 1;
-
-    /* This is safe because this function is only called for builtin errors
-       which are always direct subclasses of Exception. */
-    lily_class *exception_class = raised_class->parent;
-    /* Traceback is always the first property of Exception. */
-    lily_sig *traceback_sig = exception_class->properties->sig;
-
-    lily_value *traceback_val = build_traceback(vm, traceback_sig);
-    if (traceback_val == NULL) {
-        lily_deref_instance_val(result->sig, ival);
-        lily_raise_nomem(vm->raiser);
-    }
-
-    ival->values[1] = traceback_val;
-    ival->num_values = 2;
-
-    if ((result->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_instance_val(result->sig, result->value.instance);
-
-    result->value.instance = ival;
-    result->flags = 0;
-
-    vm->building_error = 0;
-}
-
-static void op_raise(lily_vm_state *vm, lily_value *exception_val)
-{
-    /* The Exception class has values[0] as the message, values[1] as the
-       container for traceback. */
-    if (exception_val->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError,
-                "Cannot raise nil exception.\n");
-
-    lily_instance_val *ival = exception_val->value.instance;
-    lily_sig *traceback_sig = ival->values[1]->sig;
-    lily_value *traceback = build_traceback(vm, traceback_sig);
-    if (traceback == NULL)
-        lily_raise_nomem(vm->raiser);
-
-    lily_assign_value(vm, ival->values[1], traceback);
-    ival->values[1]->value.list->refcount--;
-    lily_free(traceback);
-
-    lily_raise_value(vm->raiser, exception_val);
-}
-
-/*  maybe_catch_exception
-    Something somewhere has caused an exception of some sort to get raised.
-    This is called to see if the vm is in a try block with an except case for
-    the current exception. */
-static int maybe_catch_exception(lily_vm_state *vm)
-{
-    if (vm->catch_top == NULL)
-        return 0;
-
-    const char *except_name;
-    lily_class *raised_class;
-
-    if (vm->raiser->exception == NULL) {
-        except_name = lily_name_for_error(vm->raiser->error_code);
-        raised_class = lily_class_by_name(vm->symtab, except_name);
-    }
-    else {
-        lily_value *raise_val = vm->raiser->exception;
-        raised_class = raise_val->sig->cls;
-        except_name = raised_class->name;
-    }
-    /* Until user-declared exception classes arrive, raised_class should not
-       be NULL since all errors raiseable -should- be covered... */
-    lily_vm_catch_entry *catch_iter = vm->catch_top;
-    lily_value *catch_reg = NULL;
-
-    lily_value **stack_regs = vm->vm_regs;
-    int adjusted_stack, do_unbox, jump_location, match, stack_pos;
-
-    /* If the last call was to a foreign function, then that function did not
-       do a proper stack adjustment (or it wouldn't be able to access the
-       caller's registers). So don't include that in stack unwinding
-       calculations. */
-    if (vm->function_stack[vm->function_stack_pos-1]->function->code == NULL) {
-        vm->function_stack_pos--;
-        adjusted_stack = 1;
-    }
-    else
-        adjusted_stack = 0;
-
-    match = 0;
-    stack_pos = vm->function_stack_pos;
-
-    while (catch_iter != NULL) {
-        lily_vm_stack_entry *catch_stack = catch_iter->stack_entry;
-        uintptr_t *stack_code = catch_stack->code;
-        /* A try block is done when the next jump is at 0 (because 0 would
-           always be going back, which is illogical otherwise). */
-        jump_location = catch_stack->code[catch_iter->code_pos];
-
-        if (stack_pos != (catch_iter->entry_depth + 1)) {
-            int i;
-
-            /* If the exception is being caught in another scope, then vm_regs
-               needs be adjusted backwards so that the matching registers
-               accesses will target the right thing.
-               -1: Because vm->function_stack_pos is ahead.
-               -1: Because the last vm->function_stack_pos entry is not
-                   entered, only prepared if/when it gets entered. */
-            for (i = stack_pos - 2;
-                 i >= catch_iter->entry_depth;
-                 i--) {
-                stack_regs = stack_regs - vm->function_stack[i]->regs_used;
-            }
-
-            stack_pos = catch_iter->entry_depth + 1;
-        }
-
-        while (jump_location != 0) {
-            /* Instead of the vm hopping around to different o_except blocks,
-               this function visits them to find out which (if any) handles
-               the current exception.
-               +1 is the line number (for debug), +2 is the spot for the next
-               jump, and +3 is a register that holds a value to store this
-               particular exception. */
-            int next_location = stack_code[jump_location + 2];
-            catch_reg = stack_regs[stack_code[jump_location + 4]];
-            lily_class *catch_class = catch_reg->sig->cls;
-            if (catch_class == raised_class ||
-                lily_check_right_inherits_or_is(catch_class, raised_class)) {
-                /* ...So that execution resumes from within the except block. */
-                do_unbox = stack_code[jump_location + 3];
-                jump_location += 5;
-                match = 1;
-                break;
-            }
-
-            jump_location = next_location;
-        }
-
-        if (match)
-            break;
-
-        catch_iter = catch_iter->prev;
-    }
-
-    if (match) {
-        if (do_unbox) {
-            if (vm->raiser->exception == NULL)
-                make_proper_exception_val(vm, raised_class, catch_reg);
-            else
-                lily_assign_value(vm, catch_reg, vm->raiser->exception);
-        }
-
-        vm->function_stack_pos = stack_pos;
-        vm->vm_regs = stack_regs;
-        vm->function_stack[catch_iter->entry_depth]->code_pos = jump_location;
-        /* Each try block can only successfully handle one exception, so use
-           ->prev to prevent using the same block again. */
-        vm->catch_top = catch_iter->prev;
-        if (vm->catch_top != NULL)
-            vm->catch_chain = vm->catch_top;
-        else
-            vm->catch_chain = catch_iter;
-    }
-    else if (adjusted_stack)
-        vm->function_stack_pos++;
-
-    return match;
-}
-
 /** The mighty VM **/
 
-/* lily_vm_execute
-   This is the VM part of lily. It executes any code on __main__, as well as
-   anything called by __main__. Finishes when it encounters the o_vm_return
-   opcode.
-   This function occasionally farms work out to other routines to keep the size
-   from being too big. It does not recurse, instead saving everything necessary
-   to the vm state for each call. */
+/*  lily_vm_execute
+    This is Lily's vm. It usually processes code from __main__, but this is
+    also called from foreign functions to process native ones.
+    This tries to shove big chunks of code out into helper functions, keeping
+    the important and hot opcodes in here. */
 void lily_vm_execute(lily_vm_state *vm)
 {
     lily_function_val *f;
@@ -2032,7 +2092,8 @@ void lily_vm_execute(lily_vm_state *vm)
                    INTEGER_OP for the special case of division. */
                 LOAD_CHECKED_REG(rhs_reg, code_pos, 3)
                 if (rhs_reg->value.integer == 0)
-                    divide_by_zero_error(vm, code_pos, 3);
+                    lily_raise(vm->raiser, lily_DivisionByZeroError,
+                            "Attempt to divide by zero.\n");
                 INTEGER_OP(/)
                 break;
             case o_left_shift:
@@ -2056,10 +2117,12 @@ void lily_vm_execute(lily_vm_state *vm)
                 LOAD_CHECKED_REG(rhs_reg, code_pos, 3)
                 if (rhs_reg->sig->cls->id == SYM_CLASS_INTEGER &&
                     rhs_reg->value.integer == 0)
-                    divide_by_zero_error(vm, code_pos, 3);
+                    lily_raise(vm->raiser, lily_DivisionByZeroError,
+                            "Attempt to divide by zero.\n");
                 else if (rhs_reg->sig->cls->id == SYM_CLASS_DOUBLE &&
                          rhs_reg->value.doubleval == 0)
-                    divide_by_zero_error(vm, code_pos, 3);
+                    lily_raise(vm->raiser, lily_DivisionByZeroError,
+                            "Attempt to divide by zero.\n");
 
                 INTDBL_OP(/)
                 break;
@@ -2237,7 +2300,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs_reg = vm_regs[code[code_pos+2]];
                 lhs_reg = vm_regs[code[code_pos+3]];
 
-                op_any_assign(vm, lhs_reg, rhs_reg);
+                do_o_any_assign(vm, lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
             case o_intdbl_typecast:
@@ -2251,23 +2314,23 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 4;
                 break;
             case o_get_item:
-                op_get_item(vm, code, code_pos);
+                do_o_get_item(vm, code, code_pos);
                 code_pos += 5;
                 break;
             case o_set_item:
-                op_set_item(vm, code, code_pos);
+                do_o_set_item(vm, code, code_pos);
                 code_pos += 5;
                 break;
             case o_build_hash:
-                op_build_hash(vm, code, code_pos);
+                do_o_build_hash(vm, code, code_pos);
                 code_pos += code[code_pos+2] + 4;
                 break;
             case o_build_list:
-                op_build_list(vm, code+code_pos);
+                do_o_build_list(vm, code+code_pos);
                 code_pos += code[code_pos+2] + 4;
                 break;
             case o_build_tuple:
-                op_build_tuple(vm, code+code_pos);
+                do_o_build_tuple(vm, code+code_pos);
                 code_pos += code[code_pos+2] + 4;
                 break;
             case o_ref_assign:
@@ -2278,7 +2341,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 4;
                 break;
             case o_show:
-                do_keyword_show(vm, code[code_pos+2], code[code_pos+3]);
+                do_o_show(vm, code[code_pos+2], code[code_pos+3]);
                 code_pos += 4;
                 break;
             case o_any_typecast:
@@ -2384,7 +2447,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_raise:
                 lhs_reg = vm_regs[code[code_pos+2]];
-                op_raise(vm, lhs_reg);
+                do_o_raise(vm, lhs_reg);
                 code_pos += 3;
                 break;
             case o_package_get_deep:
