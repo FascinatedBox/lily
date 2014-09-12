@@ -38,6 +38,45 @@ static uint64_t shorthash_for_name(const char *name)
     return ret;
 }
 
+/*  try_new_literal
+    Attempt to add a new literal of the given class to the symtab. The literal
+    will be created with the given value (copying it if it's a string).
+
+    On success: A new literal is created and added to symtab's literals. For
+                convenience, it's also returned.
+    On failure: NULL is returned. */
+static lily_literal *try_new_literal(lily_symtab *symtab, lily_class *cls,
+        lily_raw_value value)
+{
+    lily_literal *lit = lily_malloc(sizeof(lily_literal));
+    if (lit == NULL) {
+        /* Make sure any string sent will be properly free'd. */
+        if (cls->id == SYM_CLASS_STRING) {
+            lily_string_val *sv = value.string;
+            lily_free(sv->string);
+            lily_free(sv);
+        }
+        return NULL;
+    }
+    /* Literals are either a string, integer, or number, so this is safe. */
+    lit->sig = cls->sig;
+
+    lit->flags = SYM_TYPE_LITERAL;
+    lit->next = NULL;
+    lit->value = value;
+    /* Literals are never saved to a register. */
+    lit->reg_spot = -1;
+
+    if (symtab->lit_top == NULL)
+        symtab->lit_start = lit;
+    else
+        symtab->lit_top->next = lit;
+
+    symtab->lit_top = lit;
+
+    return lit;
+}
+
 /** Symtab init helpers, and shared code **/
 /* lily_try_new_var
    This creates a new var using the signature given, and copying the name.
@@ -313,23 +352,12 @@ static int init_literals(lily_symtab *symtab)
     lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
     lily_literal *lit;
     ret = 1;
+    lily_raw_value raw;
 
     for (i = 0;i < 2;i++) {
-        lit = lily_malloc(sizeof(lily_literal));
-        if (lit != NULL) {
-            lit->flags = SYM_TYPE_LITERAL;
-            lit->sig = cls->sig;
-            lit->value.integer = i;
-            lit->next = NULL;
-
-            if (symtab->lit_start == NULL)
-                symtab->lit_start = lit;
-            else
-                symtab->lit_top->next = lit;
-
-            symtab->lit_top = lit;
-        }
-        else
+        raw.integer = i;
+        lit = try_new_literal(symtab, cls, raw);
+        if (lit == NULL)
             ret = 0;
     }
 
@@ -694,7 +722,10 @@ lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
 
     if (ret == NULL) {
         lily_raw_value v = {.integer = int_val};
-        ret = lily_new_literal(symtab, integer_cls, v);
+        ret = try_new_literal(symtab, integer_cls, v);
+        if (ret == NULL)
+            lily_raise_nomem(symtab->raiser);
+
         ret->value = v;
     }
 
@@ -717,7 +748,10 @@ lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
 
     if (ret == NULL) {
         lily_raw_value v = {.doubleval = dbl_val};
-        ret = lily_new_literal(symtab, double_cls, v);
+        ret = try_new_literal(symtab, double_cls, v);
+        if (ret == NULL)
+            lily_raise_nomem(symtab->raiser);
+
         ret->value = v;
     }
 
@@ -746,8 +780,6 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab, char *want_string)
 
     if (ret == NULL) {
         lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_STRING);
-        /* lily_new_literal is guaranteed to work or raise nomem, so this is
-           safe. */
         char *string_buffer = lily_malloc((want_string_len + 1) * sizeof(char));
         lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
         if (sv == NULL || string_buffer == NULL) {
@@ -763,7 +795,9 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab, char *want_string)
 
         lily_raw_value v;
         v.string = sv;
-        ret = lily_new_literal(symtab, cls, v);
+        ret = try_new_literal(symtab, cls, v);
+        if (ret == NULL)
+            lily_raise_nomem(symtab->raiser);
     }
 
     return ret;
@@ -932,44 +966,6 @@ lily_var *lily_var_by_name(lily_symtab *symtab, char *name)
     }
 
     return NULL;
-}
-
-/* lily_new_literal
-   This adds a new literal to the given symtab. The literal will be of the class
-   'cls', and be given the value 'value'. The symbol created does not have
-   VAL_IS_NIL set, because the literal is assumed to never be nil.
-   This function currently handles only integer, number, and string values.
-   Warning: This function calls lily_raise_nomem instead of returning NULL. */
-lily_literal *lily_new_literal(lily_symtab *symtab, lily_class *cls,
-        lily_raw_value value)
-{
-    lily_literal *lit = lily_malloc(sizeof(lily_literal));
-    if (lit == NULL) {
-        /* Make sure any string sent will be properly free'd. */
-        if (cls->id == SYM_CLASS_STRING) {
-            lily_string_val *sv = value.string;
-            lily_free(sv->string);
-            lily_free(sv);
-        }
-        lily_raise_nomem(symtab->raiser);
-    }
-    /* Literals are either a string, integer, or number, so this is safe. */
-    lit->sig = cls->sig;
-
-    lit->flags = SYM_TYPE_LITERAL;
-    lit->next = NULL;
-    lit->value = value;
-    /* Literals are never saved to a register. */
-    lit->reg_spot = -1;
-
-    if (symtab->lit_top == NULL)
-        symtab->lit_start = lit;
-    else
-        symtab->lit_top->next = lit;
-
-    symtab->lit_top = lit;
-
-    return lit;
 }
 
 void lily_hide_block_vars(lily_symtab *symtab, lily_var *start)
