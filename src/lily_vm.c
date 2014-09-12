@@ -703,22 +703,6 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
 }
 /** VM opcode helpers **/
 
-/* op_ref_assign
-   VM helper called for handling complex assigns. [1] is lhs, [2] is rhs. This
-   does an assign along with the appropriate ref/deref stuff. This is suitable
-   for anything that needs that ref/deref stuff except for any. */
-void op_ref_assign(lily_value *lhs_reg, lily_value *rhs_reg)
-{
-    if ((lhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_unknown_val(lhs_reg);
-
-    if ((rhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        rhs_reg->value.generic->refcount++;
-
-    lhs_reg->flags = rhs_reg->flags;
-    lhs_reg->value = rhs_reg->value;
-}
-
 /*  op_any_assign
     This is a vm helper for handling an assignment to an any from another value
     that may or may not be an any.
@@ -2393,7 +2377,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg = vm_regs[code[code_pos+3]];
                 rhs_reg = vm_regs[code[code_pos+2]];
 
-                op_ref_assign(lhs_reg, rhs_reg);
+                lily_assign_value(vm, lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
             case o_show:
