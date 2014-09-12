@@ -110,11 +110,9 @@ lily_ast *lily_ast_get_saved_tree(lily_ast_pool *);
 void lily_ast_enter_typecast(lily_ast_pool *ap, lily_sig *sig);
 void lily_ast_push_local_var(lily_ast_pool *, lily_var *);
 void lily_ast_push_binary_op(lily_ast_pool *, lily_expr_op);
-void lily_ast_push_package(lily_ast_pool *);
 void lily_ast_push_sym(lily_ast_pool *, lily_sym *);
 void lily_ast_push_readonly(lily_ast_pool *, lily_sym *);
 void lily_ast_push_unary_op(lily_ast_pool *, lily_expr_op);
-void lily_ast_push_empty_list(lily_ast_pool *ap, lily_sig *sig);
 void lily_ast_push_oo_call(lily_ast_pool *, char *);
 void lily_ast_reset_pool(lily_ast_pool *);
 #endif

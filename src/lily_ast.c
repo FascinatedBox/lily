@@ -595,19 +595,6 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
     }
 }
 
-/* lily_ast_push_empty_list
-   This creates a tree_list tree with no inner values. ->sig is set so the list
-   has a default sig. This is done because it's simpler than the enter/leave
-   needed otherwise. It's easier to set the sig too. */
-void lily_ast_push_empty_list(lily_ast_pool *ap, lily_sig *sig)
-{
-    AST_ENTERABLE_INIT(a, tree_list)
-    a->sig = sig;
-    a->result = NULL;
-
-    merge_value(ap, a);
-}
-
 /* lily_ast_push_sig
    This 'creates' a sig tree for tree_typecast. This tree's purpose is to hold
    the signature that the typecast will try to coerce its value to. */
