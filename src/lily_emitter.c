@@ -496,9 +496,8 @@ static lily_storage *get_storage(lily_emit_state *emit,
                 break;
             }
 
-            /* Signatures can be compared by ptr because lily_ensure_unique_sig
-               makes so that all signatures are unique. So it isn't necessary
-               to deep compare them. */
+            /* The symtab ensures that each signature represents something
+               different, so this works. */
             if (start->sig == sig && start->expr_num != expr_num) {
                 start->expr_num = expr_num;
                 ret = start;

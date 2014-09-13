@@ -2355,9 +2355,8 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 rhs_reg = rhs_reg->value.any->inner_value;
 
-                /* This works because lily_ensure_unique_sig makes sure that
-                   no two signatures describe the same thing. So if it's the
-                   same, then they share the same sig pointer. */
+                /* Symtab ensures that two signatures don't define the same
+                   thing, so this is okay. */
                 if (cast_sig == rhs_reg->sig)
                     lily_assign_value(vm, lhs_reg, rhs_reg);
                 /* Since integer and number can be cast between each other,

@@ -105,10 +105,8 @@ typedef struct lily_class_t {
 
 /* Signatures are a bit more complicated. They're also very common. A signature
    stores a class and possibly other signatures.
-   When creating a new signature, make sure to call symtab's
-   lily_ensure_unique_sig. This function ensures that every signature
-   represents a unique thing (so you won't find two list[integer] signatures,
-   for example). */
+   The symtab makes sure that when new signatures are created that they are all
+   unique, allowing pointer compares of signatures. */
 typedef struct lily_sig_t {
     lily_class *cls;
     /* If cls is the template class, this is the position within the parent.

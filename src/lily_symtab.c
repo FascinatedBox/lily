@@ -20,11 +20,15 @@
       will never call lily_raise.
     * During symtab initialization, lily_raise cannot be called because the
       parser is not completely allocated and set.
-    * A shorthash is a uint64 value that holds the integer value of up to the
-      first 8 bytes of a string. The lexer generates these for doing any kind of
-      lookup.
 **/
 
+/*****************************************************************************/
+/* Shared code                                                               */
+/*****************************************************************************/
+
+/*  shorthash_for_name
+    This captures (up to) the first 8 bytes in a name. This is used for symbol
+    comparisons before doing a strcmp to save time. */
 static uint64_t shorthash_for_name(const char *name)
 {
     const char *ch = &name[0];
@@ -77,13 +81,14 @@ static lily_literal *try_new_literal(lily_symtab *symtab, lily_class *cls,
     return lit;
 }
 
-/** Symtab init helpers, and shared code **/
-/* lily_try_new_var
-   This creates a new var using the signature given, and copying the name.
-   It is okay to pass a sig without list element/call info, since
-   lily_try_sig_for_class ensures that important parts are set to NULL.
-   This function will add the var to the symtab on success.
-   Note: 'try' means this call returns NULL on failure. */
+/*  lily_try_new_var
+    Attempt to create a new var in the symtab that will have the given
+    signature and name. The flags given are used to determine if the var is
+    'readonly'. If it's readonly, it doesn't go into the vm's registers.
+
+    On success: Returns a newly-created var that is automatically added to the
+                symtab.
+    On failure: NULL is returned. */
 lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
         int flags)
 {
@@ -128,10 +133,190 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
     return var;
 }
 
-/* scan_seed_arg
-   This takes a seed that defines a signature and creates the appropriate sig
-   for it. This is able to handle complex signatures nested inside of each
-   other. */
+/*  get_template_max
+    Recurse into a signature and determine the number of templates used. This
+    is important for emitter, which needs to know how many sigs to blank before
+    evaluating a call.
+
+    sig:          The signature to check.
+    template_max: This is a pointer set to the number of templates that the
+                  given sig takes (template index + 1). This is 0 if the given
+                  signature does not use templates. */
+static void get_template_max(lily_sig *sig, int *template_max)
+{
+    /* function uses NULL at [1] to mean it takes no args, and NULL at [0] to
+       mean that nothing is returned. */
+    if (sig == NULL)
+        return;
+
+    if (sig->cls->id == SYM_CLASS_TEMPLATE) {
+        if ((sig->template_pos + 1) > *template_max)
+            *template_max = sig->template_pos + 1;
+    }
+    else if (sig->siglist) {
+        int i;
+        for (i = 0;i < sig->siglist_size;i++)
+            get_template_max(sig->siglist[i], template_max);
+    }
+}
+
+/*  lookup_sig
+    Determine if the current signature exists in the symtab.
+
+    Success: The signature from the symtab is returned.
+    Failure: NULL is returned. */
+static lily_sig *lookup_sig(lily_symtab *symtab, lily_sig *input_sig)
+{
+    lily_sig *iter_sig = symtab->root_sig;
+    lily_sig *ret = NULL;
+
+    /* This just means that input_sig was the last signature created. */
+    if (iter_sig == input_sig)
+        iter_sig = iter_sig->next;
+
+    while (iter_sig) {
+        if (iter_sig->cls == input_sig->cls) {
+            if (iter_sig->siglist      != NULL &&
+                iter_sig->siglist_size == input_sig->siglist_size &&
+                iter_sig               != input_sig &&
+                (iter_sig->flags & ~SIG_MAYBE_CIRCULAR) == input_sig->flags) {
+                int i, match = 1;
+                for (i = 0;i < iter_sig->siglist_size;i++) {
+                    if (iter_sig->siglist[i] != input_sig->siglist[i]) {
+                        match = 0;
+                        break;
+                    }
+                }
+
+                if (match == 1) {
+                    ret = iter_sig;
+                    break;
+                }
+            }
+        }
+
+        iter_sig = iter_sig->next;
+    }
+
+    return ret;
+}
+
+/*  finalize_sig
+    Determine if the given signature is circular. Also, if its class is not the
+    template class, determine how many templates the signature uses.
+
+    The symtab doesn't use this information at all. These are convenience
+    things for the emitter and the vm. */
+static void finalize_sig(lily_sig *input_sig)
+{
+    if (input_sig->siglist) {
+        /* functions are not containers, so circularity doesn't apply to them. */
+        if (input_sig->cls->id != SYM_CLASS_FUNCTION) {
+            int i;
+            for (i = 0;i < input_sig->siglist_size;i++) {
+                if (input_sig->siglist[i]->flags & SIG_MAYBE_CIRCULAR) {
+                    input_sig->flags |= SIG_MAYBE_CIRCULAR;
+                    break;
+                }
+            }
+        }
+
+        /* Find out the highest template index that this type has inside of it.
+           For functions, this allows the emitter to reserve blank sigs for
+           holding template matches. For other sigs, it allows the emitter to
+           determine if a call result uses templates (since it has to be broken
+           down if it does. */
+        if (input_sig->cls->id != SYM_CLASS_TEMPLATE) {
+            int max = 0;
+            get_template_max(input_sig, &max);
+            input_sig->template_pos = max;
+        }
+    }
+}
+
+/*  ensure_unique_sig
+    This function is used by seed scanning to make sure that something with the
+    same meaning as the given signature doesn't exist. This is a good thing,
+    because it allows sig == sig comparisons (emitter and vm do this often).
+
+    However, this function relies upon building a signature to check it. The
+    problem with this is that it...trashes signatures if they're duplicates. So
+    it's rather wasteful. This will go away when seed scanning goes away. */
+static lily_sig *ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
+{
+    lily_sig *iter_sig = symtab->root_sig;
+    lily_sig *previous_sig = NULL;
+    int match = 0;
+
+    /* This just means that input_sig was the last signature created. */
+    if (iter_sig == input_sig)
+        iter_sig = iter_sig->next;
+
+    while (iter_sig) {
+        if (iter_sig->cls == input_sig->cls) {
+            if (iter_sig->siglist      != NULL &&
+                iter_sig->siglist_size == input_sig->siglist_size &&
+                iter_sig               != input_sig) {
+                int i;
+                match = 1;
+                for (i = 0;i < iter_sig->siglist_size;i++) {
+                    if (iter_sig->siglist[i] != input_sig->siglist[i]) {
+                        match = 0;
+                        break;
+                    }
+                }
+
+                if (match == 1)
+                    break;
+            }
+        }
+
+        if (iter_sig->next == input_sig)
+            previous_sig = iter_sig;
+
+        iter_sig = iter_sig->next;
+    }
+
+    finalize_sig(input_sig);
+
+    if (match) {
+        /* Remove input_sig from the symtab's sig chain. */
+        if (symtab->root_sig == input_sig)
+            /* It is the root, so just advance the root. */
+            symtab->root_sig = symtab->root_sig->next;
+        else {
+            /* Make the sig before it link to the node after it. This is
+               theoretically safe because the chain goes from recent to least
+               recent. So this should find the input signature before it finds
+               one that equals it (and set previous_sig to something valid). */
+            previous_sig->next = input_sig->next;
+        }
+
+        /* This is either NULL or something that only this sig uses. Don't free
+           what's inside of the siglist though, since that's other signatures
+           still in the chain. */
+        lily_free(input_sig->siglist);
+        lily_free(input_sig);
+
+        input_sig = iter_sig;
+    }
+
+    return input_sig;
+}
+
+/*****************************************************************************/
+/* 'Seed'-handling functions                                                 */
+/*****************************************************************************/
+
+/*  scan_seed_arg
+    This takes a series of int's and uses them to define a new signature. This
+    is currently only used by lily_cls_* files and builtin functions for
+    defining function information. This also gets used to help create the sig
+    for properties.
+
+    This function will be destroyed soon. Passing a series of integers makes it
+    impossible to have various modules imported by the interpreter (class 50
+    could be a regexp or a database class). */
 static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
         int *pos, int *ok)
 {
@@ -205,7 +390,7 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
                 complex_sig->siglist = siglist;
                 complex_sig->siglist_size = siglist_size;
                 complex_sig->flags = flags;
-                complex_sig = lily_ensure_unique_sig(symtab, complex_sig);
+                complex_sig = ensure_unique_sig(symtab, complex_sig);
                 ret = complex_sig;
             }
             else
@@ -217,23 +402,12 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
     return ret;
 }
 
-/** Symtab initialization **/
-/** During symtab initialization, lily_raise cannot be called, because the
-    parser is not completely initialized yet. NULL is returned if it cannot be
-    avoided. **/
-
-
 /*  init_func_seed
-    This function takes a seed and creates a new var and function for it. The
-    var is added to symtab's globals, with a function value created for it as
-    well.
+    This uses scan_seed_arg to create a new function value. This is used to
+    make space for new functions.
 
-    symtab: The symtab to put the new var in.
-    cls:    The class that the seed belongs to, or NULL if the seed is for a
-            global value.
-    seed:   A valid seed to create a new var+function for.
-
-    Returns the newly created var on success, or NULL on failure. */
+    On success: Returns the newly created var.
+    On failure: Returns NULL. */
 static lily_var *init_func_seed(lily_symtab *symtab,
         lily_class *cls, const lily_func_seed *seed)
 {
@@ -261,6 +435,59 @@ static lily_var *init_func_seed(lily_symtab *symtab,
 
     return ret;
 }
+
+/*  init_prop_seeds
+    This takes a series of "property seeds" for a given class and creates space
+    in the class to hold those values. It also specifies where those values will
+    be relative to the class.
+    For example: Exception has two fields: a message, and traceback. The message
+    will be at 0, and the traceback at 1. Complex classes are -really- just
+    tuple's internally. */
+static int init_prop_seeds(lily_symtab *symtab, lily_class *cls,
+        const lily_prop_seed_t *seeds)
+{
+    const lily_prop_seed_t *seed_iter = seeds;
+    lily_prop_entry *top = NULL;
+    int ret = 1;
+    int id = 0;
+
+    do {
+        int pos = 0, ok = 1;
+        lily_sig *entry_sig = scan_seed_arg(symtab, seed_iter->prop_ids, &pos,
+                &ok);
+        lily_prop_entry *entry = lily_malloc(sizeof(lily_prop_entry));
+        char *entry_name = lily_malloc(strlen(seed_iter->name) + 1);
+        if (entry_sig == NULL || entry == NULL || entry_name == NULL) {
+            /* Signatures are attached to symtab's root_sig when they get made,
+               so there's no teardown for the sig necessary. */
+            lily_free(entry);
+            lily_free(entry_name);
+            ret = 0;
+            break;
+        }
+        strcpy(entry_name, seed_iter->name);
+        entry->id = id;
+        entry->name = entry_name;
+        entry->sig = entry_sig;
+        entry->name_shorthash = shorthash_for_name(entry_name);
+        entry->next = NULL;
+        if (top == NULL) {
+            cls->properties = entry;
+            top = entry;
+        }
+        else
+            top->next = entry;
+
+        id++;
+        seed_iter = seed_iter->next;
+    } while (seed_iter);
+
+    return ret;
+}
+
+/*****************************************************************************/
+/* Symtab initialization */
+/*****************************************************************************/
 
 /*  call_setups
     Symtab init, stage 6
@@ -308,12 +535,10 @@ static int read_global_seeds(lily_symtab *symtab)
     return ret;
 }
 
-/* init_lily_main
-   Symtab init, stage 4
-   This creates __main__, which is a function that holds all code that is not
-   put inside of a lily function. This is outside of read_seeds since it makes
-   a native function instead of a foreign one. __main__ is always the first var,
-   and thus can always be found at the symtab's var_start. */
+/*  init_lily_main
+    Symtab init, stage 4
+    This creates __main__, which holds all code that is not explicitly put
+    inside of a Lily function. */
 static int init_lily_main(lily_symtab *symtab)
 {
     lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_FUNCTION);
@@ -341,11 +566,10 @@ static int init_lily_main(lily_symtab *symtab)
     return 1;
 }
 
-/* init_literals
-   Symtab init, stage 3
-   This function creates literals 0 and 1, and always in that order. These are
-   used so that and/or ops can be a combo of 'jump_if_true' and 'assign',
-   instead of creating a special op for them. */
+/*  init_literals
+    Symtab init, stage 3
+    This creates literal values for 0 and 1. This is done for and/or handling
+    in emitter. */
 static int init_literals(lily_symtab *symtab)
 {
     int i, ret;
@@ -360,48 +584,6 @@ static int init_literals(lily_symtab *symtab)
         if (lit == NULL)
             ret = 0;
     }
-
-    return ret;
-}
-
-static int init_prop_seeds(lily_symtab *symtab, lily_class *cls,
-        const lily_prop_seed_t *seeds)
-{
-    const lily_prop_seed_t *seed_iter = seeds;
-    lily_prop_entry *top = NULL;
-    int ret = 1;
-    int id = 0;
-
-    do {
-        int pos = 0, ok = 1;
-        lily_sig *entry_sig = scan_seed_arg(symtab, seed_iter->prop_ids, &pos,
-                &ok);
-        lily_prop_entry *entry = lily_malloc(sizeof(lily_prop_entry));
-        char *entry_name = lily_malloc(strlen(seed_iter->name) + 1);
-        if (entry_sig == NULL || entry == NULL || entry_name == NULL) {
-            /* Signatures are attached to symtab's root_sig when they get made,
-               so there's no teardown for the sig necessary. */
-            lily_free(entry);
-            lily_free(entry_name);
-            ret = 0;
-            break;
-        }
-        strcpy(entry_name, seed_iter->name);
-        entry->id = id;
-        entry->name = entry_name;
-        entry->sig = entry_sig;
-        entry->name_shorthash = shorthash_for_name(entry_name);
-        entry->next = NULL;
-        if (top == NULL) {
-            cls->properties = entry;
-            top = entry;
-        }
-        else
-            top->next = entry;
-
-        id++;
-        seed_iter = seed_iter->next;
-    } while (seed_iter);
 
     return ret;
 }
@@ -513,10 +695,12 @@ static int init_classes(lily_symtab *symtab)
     return ret;
 }
 
-/* lily_new_symtab:
-   Symtab init, stage 1
-   This function is responsible for creating a symtab struct for the parser.
-   Returns a valid symtab, or NULL on failure. */
+/*  lily_new_symtab:
+    Symtab init, stage 1
+    This creates a new symtab, then calls the init stages in order.
+
+    On success: The newly-created symtab is returned.
+    On failure: NULL is returned. */
 lily_symtab *lily_new_symtab(lily_raiser *raiser)
 {
     lily_symtab *symtab = lily_malloc(sizeof(lily_symtab));
@@ -557,10 +741,15 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
     return symtab;
 }
 
+/*****************************************************************************/
+/* Symtab teardown                                                           */
+/*****************************************************************************/
+
 /** Symtab free-ing **/
-/* free_vars
-   This holds common code to free a linked list of vars. When the symtab is
-   being free'd, this is called on the table of old vars and the active vars. */
+/*  free_vars
+    Given a chain of vars, free the ones that are not marked nil. Most symtab
+    vars don't get values, but a few special ones (like the sys package and
+    __main__) have values. */
 void free_vars(lily_var *var)
 {
     lily_var *var_temp;
@@ -581,6 +770,8 @@ void free_vars(lily_var *var)
     }
 }
 
+/*  free_properties
+    Free property information associated with a given class. */
 static void free_properties(lily_class *cls)
 {
     lily_prop_entry *prop_iter = cls->properties;
@@ -595,6 +786,9 @@ static void free_properties(lily_class *cls)
     }
 }
 
+/*  free_lily_main
+    Regular function teardown can't be done on __main__ because __main__ does
+    not keep a copy of function names. So it uses this. */
 static void free_lily_main(lily_function_val *fv)
 {
     lily_free(fv->reg_info);
@@ -705,7 +899,14 @@ void lily_free_symtab(lily_symtab *symtab)
     lily_free(symtab);
 }
 
-/** Functions provided by symtab for other modules. **/
+/*****************************************************************************/
+/* Exported function                                                         */
+/*****************************************************************************/
+
+/* These next three are used to get an integer, double, or string literal.
+   They first look to see of the symtab has a literal with that value, then
+   attempt to create it if there isn't one. */
+
 lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
 {
     lily_literal *lit, *ret;
@@ -760,10 +961,6 @@ lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
 
 lily_literal *lily_get_string_literal(lily_symtab *symtab, char *want_string)
 {
-    /* The length is given because this can come from a user-defined string, or
-       from something like __file__ or __function__.
-       In the first case, the user may have added \0's, which is why a size
-       requirement was added. */
     lily_literal *lit, *ret;
     ret = NULL;
     int want_string_len = strlen(want_string);
@@ -803,12 +1000,10 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab, char *want_string)
     return ret;
 }
 
-/* try_sig_for_class
-   If the given class does not require extra data (like how lists need an inner
-   element, calls need args, etc), then this will return the shared signature
-   of a class. This won't fail.
-   If the signature will require complex data, an attempt is made at allocating
-   a new signature. If this allocation fails, NULL is returned. */
+/*  lily_try_sig_for_class
+    Attempt to get the default signature of the given class. If the given class
+    doesn't have a default signature (because it takes templates), then create
+    a new signature without a siglist and return that. */
 lily_sig *lily_try_sig_for_class(lily_symtab *symtab, lily_class *cls)
 {
     lily_sig *sig;
@@ -833,9 +1028,6 @@ lily_sig *lily_try_sig_for_class(lily_symtab *symtab, lily_class *cls)
     return sig;
 }
 
-/* lily_class_by_id
-   This function will return a class for a particular class id. This is
-   typically used to quickly fetch builtin classes. */
 lily_class *lily_class_by_id(lily_symtab *symtab, int class_id)
 {
     return symtab->classes[class_id];
@@ -860,9 +1052,13 @@ lily_class *lily_class_by_name(lily_symtab *symtab, const char *name)
     return NULL;
 }
 
-/* lily_find_class_callable
-   This function will see if a given clas has a function with the given name.
-   NULL is returned on failure. */
+/*  lily_find_class_callable
+    Check if a class has a given function within it. If it doesn't, see if the
+    class comes with a 'seed_table' that defines more functions. If it has a
+    seed table, attempt to do a dynamic load of the given function.
+
+    This is a bit complicated, but it saves a LOT of memory from not having to
+    make signature+var information for every builtin thing. */
 lily_var *lily_find_class_callable(lily_symtab *symtab, lily_class *cls,
         char *name)
 {
@@ -911,10 +1107,6 @@ lily_var *lily_find_class_callable(lily_symtab *symtab, lily_class *cls,
     return iter;
 }
 
-/* lily_keyword_by_name
-   Attempt to lookup a keyword based on 64-bit short hash, then on a name if
-   necessary. Keywords are in a static list, (via lily_seed_symtab.h), so this
-   doesn't require a symtab. */
 int lily_keyword_by_name(char *name)
 {
     int i;
@@ -929,9 +1121,9 @@ int lily_keyword_by_name(char *name)
     return -1;
 }
 
-/* lily_var_by_name
-   Search the symtab for a var with a name of 'name'. This will return the var
-   or NULL. */
+/*  lily_scoped_var_by_name
+    Do a var lookup but start from the given var. This is used for looking up
+    values within a package. Returns the var wanted or NULL. */
 lily_var *lily_scoped_var_by_name(lily_symtab *symtab, lily_var *scope_chain,
         char *name)
 {
@@ -949,9 +1141,6 @@ lily_var *lily_scoped_var_by_name(lily_symtab *symtab, lily_var *scope_chain,
     return NULL;
 }
 
-/* lily_var_by_name
-   Search the symtab for a var with a name of 'name'. This will return the var
-   or NULL. */
 lily_var *lily_var_by_name(lily_symtab *symtab, char *name)
 {
     lily_var *var = symtab->var_start;
@@ -968,204 +1157,50 @@ lily_var *lily_var_by_name(lily_symtab *symtab, char *name)
     return NULL;
 }
 
+/*  lily_hide_block_vars
+    This function is called by emitter when a block goes out of scope. Vars
+    after 'start' are now out of scope. But...don't delete them because the
+    emitter will need to know their type info later. */
 void lily_hide_block_vars(lily_symtab *symtab, lily_var *start)
 {
     start = start->next;
 
-    /* The current function will need the vars later to set the reg_info part
-       of it. This is much, much easier if the vars are never moved to another
-       table, so mark them out of scope for now. */
     while (start) {
         start->flags |= SYM_OUT_OF_SCOPE;
         start = start->next;
     }
 }
 
+/*  lily_try_sig_from_ids
+    This is used by the apache module to create a signature in a less-awful
+    way than doing it manually. This unfortunately uses the really awful seed
+    scanning functions.
+    In the future, there will be something to get a signature from a string. */
 lily_sig *lily_try_sig_from_ids(lily_symtab *symtab, const int *ids)
 {
     int pos = 0, ok = 1;
     return scan_seed_arg(symtab, ids, &pos, &ok);
 }
 
-/*  get_template_max
-    Recurse into a signature and determine the number of templates used. This
-    is important for emitter, which needs to know how many sigs to blank before
-    evaluating a call.
+/*  lily_build_ensure_sig
+    This function is used to ensure that creating a signature for 'cls' with
+    the given information will not result in a duplicate signature entry.
+    Unique signatures are a good thing, because that allows sig == sig
+    comparisons by emitter and the vm.
+    This creates a new signature if, and only if, it would be unique.
 
-    sig:          The signature to check.
-    template_max: This is a pointer set to the number of templates that the
-                  given sig takes (template index + 1). This is 0 if the given
-                  signature does not use templates. */
-static void get_template_max(lily_sig *sig, int *template_max)
-{
-    /* function uses NULL at [1] to mean it takes no args, and NULL at [0] to
-       mean that nothing is returned. */
-    if (sig == NULL)
-        return;
+    cls:            The base class to look for.
+    flags:          Flags for the signature. Important for functions, which
+                    may/may not be SIG_IS_VARARGS.
+    siglist:        The siglist that proper signatures will be pulled from.
+    offset:         In siglist, where to start taking signatures.
+    entries_to_use: How many signatures to take after 'offset'.
 
-    if (sig->cls->id == SYM_CLASS_TEMPLATE) {
-        if ((sig->template_pos + 1) > *template_max)
-            *template_max = sig->template_pos + 1;
-    }
-    else if (sig->siglist) {
-        int i;
-        for (i = 0;i < sig->siglist_size;i++)
-            get_template_max(sig->siglist[i], template_max);
-    }
-}
+    This is used by parser and emitter to make sure they don't create
+    signatures they'll have to throw away.
 
-/*  lookup_sig
-    Determine if the current signature exists in the symtab.
-
-    Success: The signature from the symtab is returned.
-    Failure: NULL is returned. */
-lily_sig *lookup_sig(lily_symtab *symtab, lily_sig *input_sig)
-{
-    lily_sig *iter_sig = symtab->root_sig;
-    lily_sig *ret = NULL;
-
-    /* This just means that input_sig was the last signature created. */
-    if (iter_sig == input_sig)
-        iter_sig = iter_sig->next;
-
-    while (iter_sig) {
-        if (iter_sig->cls == input_sig->cls) {
-            if (iter_sig->siglist      != NULL &&
-                iter_sig->siglist_size == input_sig->siglist_size &&
-                iter_sig               != input_sig &&
-                (iter_sig->flags & ~SIG_MAYBE_CIRCULAR) == input_sig->flags) {
-                int i, match = 1;
-                for (i = 0;i < iter_sig->siglist_size;i++) {
-                    if (iter_sig->siglist[i] != input_sig->siglist[i]) {
-                        match = 0;
-                        break;
-                    }
-                }
-
-                if (match == 1) {
-                    ret = iter_sig;
-                    break;
-                }
-            }
-        }
-
-        iter_sig = iter_sig->next;
-    }
-
-    return ret;
-}
-
-/*  finalize_sig
-    Determine if the given signature is circular. Also, if its class is not the
-    template class, determine how many templates the signature uses.
-
-    The symtab doesn't use this information at all. These are convenience
-    things for the emitter and the vm. */
-void finalize_sig(lily_sig *input_sig)
-{
-    if (input_sig->siglist) {
-        /* functions are not containers, so circularity doesn't apply to them. */
-        if (input_sig->cls->id != SYM_CLASS_FUNCTION) {
-            int i;
-            for (i = 0;i < input_sig->siglist_size;i++) {
-                if (input_sig->siglist[i]->flags & SIG_MAYBE_CIRCULAR) {
-                    input_sig->flags |= SIG_MAYBE_CIRCULAR;
-                    break;
-                }
-            }
-        }
-
-        /* Find out the highest template index that this type has inside of it.
-           For functions, this allows the emitter to reserve blank sigs for
-           holding template matches. For other sigs, it allows the emitter to
-           determine if a call result uses templates (since it has to be broken
-           down if it does. */
-        if (input_sig->cls->id != SYM_CLASS_TEMPLATE) {
-            int max = 0;
-            get_template_max(input_sig, &max);
-            input_sig->template_pos = max;
-        }
-    }
-}
-
-/* lily_ensure_unique_sig
-   This looks through the symtab's current signatures to see if any describe the
-   same thing as the given signature.
-   * If a match is not found, the input_sig is returned.
-   * If a match is found, input_sig is destroyed and removed from symtab's sig
-     chain. The matching signature is returned. Because of this, the return of
-     this function must NEVER be ignored, unless no var is currently using
-     input_sig.
-   As the name suggests, this ensures that each signature describes a unique
-   thing.
-   It is expected that inner signatures will be ensured before outer signatures
-   are: a list[list[list[list[integer]]]] first checking that list[integer] is
-   unique, then list[list[integer]] is unique, and so on.
-   Because of this, it is not necessary to do deep comparisons.
-   Additionally, signatures can be compared by pointer, and a deep matching
-   function is no longer necessary. */
-lily_sig *lily_ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
-{
-    lily_sig *iter_sig = symtab->root_sig;
-    lily_sig *previous_sig = NULL;
-    int match = 0;
-
-    /* This just means that input_sig was the last signature created. */
-    if (iter_sig == input_sig)
-        iter_sig = iter_sig->next;
-
-    while (iter_sig) {
-        if (iter_sig->cls == input_sig->cls) {
-            if (iter_sig->siglist      != NULL &&
-                iter_sig->siglist_size == input_sig->siglist_size &&
-                iter_sig               != input_sig) {
-                int i;
-                match = 1;
-                for (i = 0;i < iter_sig->siglist_size;i++) {
-                    if (iter_sig->siglist[i] != input_sig->siglist[i]) {
-                        match = 0;
-                        break;
-                    }
-                }
-
-                if (match == 1)
-                    break;
-            }
-        }
-
-        if (iter_sig->next == input_sig)
-            previous_sig = iter_sig;
-
-        iter_sig = iter_sig->next;
-    }
-
-    finalize_sig(input_sig);
-
-    if (match) {
-        /* Remove input_sig from the symtab's sig chain. */
-        if (symtab->root_sig == input_sig)
-            /* It is the root, so just advance the root. */
-            symtab->root_sig = symtab->root_sig->next;
-        else {
-            /* Make the sig before it link to the node after it. This is
-               theoretically safe because the chain goes from recent to least
-               recent. So this should find the input signature before it finds
-               one that equals it (and set previous_sig to something valid). */
-            previous_sig->next = input_sig->next;
-        }
-
-        /* This is either NULL or something that only this sig uses. Don't free
-           what's inside of the siglist though, since that's other signatures
-           still in the chain. */
-        lily_free(input_sig->siglist);
-        lily_free(input_sig);
-
-        input_sig = iter_sig;
-    }
-
-    return input_sig;
-}
-
+    This raises NoMemoryError if it needs to make a sig and can't. Otherwise,
+    a unique, valid signature is always returned. */
 lily_sig *lily_build_ensure_sig(lily_symtab *symtab, lily_class *cls,
         int flags, lily_sig **siglist, int offset, int entries_to_use)
 {
@@ -1208,9 +1243,9 @@ lily_sig *lily_build_ensure_sig(lily_symtab *symtab, lily_class *cls,
 }
 
 /*  lily_check_right_inherits_or_is
-    This function has an odd name as a reminder of which class should be the
-    parent, and which should be the child. Otherwise, I'm rather certain that
-    someone will accidentally swap them at some point.*/
+    Check if 'right' is the same class as 'left' or inherits from it. This
+    function has a specific name so that the parameters won't get accidentally
+    swapped at some point in the future. */
 int lily_check_right_inherits_or_is(lily_class *left, lily_class *right)
 {
     int ret = 0;
