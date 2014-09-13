@@ -175,7 +175,7 @@ void lily_msgbuf_add_sig(lily_msgbuf *msgbuf, lily_sig *sig)
 
     if (sig->cls->id == SYM_CLASS_FUNCTION) {
         lily_msgbuf_add(msgbuf, " (");
-        if (sig->siglist[1] != NULL) {
+        if (sig->siglist_size > 1) {
             int i;
 
             for (i = 1;i < sig->siglist_size - 1;i++) {

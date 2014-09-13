@@ -551,8 +551,7 @@ static int init_lily_main(lily_symtab *symtab)
         return 0;
 
     new_sig->siglist[0] = NULL;
-    new_sig->siglist[1] = NULL;
-    new_sig->siglist_size = 2;
+    new_sig->siglist_size = 1;
     new_sig->flags = 0;
 
     lily_var *var = lily_try_new_var(symtab, new_sig, "__main__", 0);
@@ -1231,6 +1230,7 @@ lily_sig *lily_build_ensure_sig(lily_symtab *symtab, lily_class *cls,
         memcpy(new_sig, &fake_sig, sizeof(lily_sig));
         memcpy(new_siglist, siglist + offset, sizeof(lily_sig *) * entries_to_use);
         new_sig->siglist = new_siglist;
+        new_sig->siglist_size = entries_to_use;
 
         new_sig->next = symtab->root_sig;
         symtab->root_sig = new_sig;
