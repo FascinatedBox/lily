@@ -227,9 +227,6 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
         /* No value returned by default. */
         parser->sig_stack[parser->sig_stack_pos] = NULL;
         parser->sig_stack_pos++;
-        /* No value needed either. But don't bump the pos again so this can be
-           overwritten by incoming args. */
-        parser->sig_stack[parser->sig_stack_pos + 1] = NULL;
 
         end_token = tk_right_parenth;
         i = 1;
@@ -284,6 +281,8 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
             have_arrow = 1;
         }
         else if (lex->token == end_token) {
+            /* If there are no args, bump i anyway so that the sig will have
+               NULL at [1] to indicate no args. */
             if (state == TC_DEMAND_VALUE)
                 state = TC_BAD_TOKEN;
             else
