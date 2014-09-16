@@ -19,7 +19,7 @@ typedef struct {
 
 typedef struct lily_ast_t {
     lily_tree_type tree_type;
-    int line_num;
+    uint16_t line_num;
 
     lily_sig *sig;
     /* This is where the result of evaluating the tree goes. This is used
@@ -88,7 +88,7 @@ typedef struct {
     int save_depth;
 
     lily_raiser *raiser;
-    int *lex_linenum;
+    uint16_t *lex_linenum;
 } lily_ast_pool;
 
 void lily_ast_collect_arg(lily_ast_pool *);

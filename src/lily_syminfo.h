@@ -22,7 +22,7 @@ struct lily_function_val_t;
 typedef void (*gc_marker_func)(int, struct lily_value_t *);
 /* Lily's foreign functions look like this. */
 typedef void (*lily_foreign_func)(struct lily_vm_state_t *, struct lily_function_val_t *,
-        uintptr_t *);
+        uint16_t *);
 /* This is called to set the seed_table of a class to a something non-NULL. It
    can also do other setup if the class wants to. This is called after all
    classes have been created.
@@ -308,7 +308,7 @@ typedef struct lily_function_val_t {
     /* Native functions only */
 
     /* Here's where the function's code is stored. */
-    uintptr_t *code;
+    uint16_t *code;
     /* This is where new instructions will get written to. It's for the
        emitter. */
     int pos;

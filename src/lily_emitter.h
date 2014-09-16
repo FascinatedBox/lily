@@ -31,7 +31,7 @@ typedef struct {
     lily_function_val *top_function;
     lily_sig *top_function_ret;
 
-    int *lex_linenum;
+    uint16_t *lex_linenum;
 
     lily_storage *all_storage_start;
     lily_storage *unused_storage_start;

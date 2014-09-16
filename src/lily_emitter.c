@@ -119,9 +119,9 @@ static void small_grow(lily_emit_state *emit)
 {
     lily_function_val *f = emit->top_function;
 
-    uintptr_t *save_code;
+    uint16_t *save_code;
     f->len *= 2;
-    save_code = lily_realloc(f->code, sizeof(uintptr_t) * f->len);
+    save_code = lily_realloc(f->code, sizeof(uint16_t) * f->len);
     if (save_code == NULL)
         lily_raise_nomem(emit->raiser);
     f->code = save_code;
@@ -134,10 +134,10 @@ static void write_prep(lily_emit_state *emit, int size)
 {
     lily_function_val *f = emit->top_function;
     if ((f->pos + size) > f->len) {
-        uintptr_t *save_code;
+        uint16_t *save_code;
         while ((f->pos + size) > f->len)
             f->len *= 2;
-        save_code = lily_realloc(f->code, sizeof(uintptr_t) * f->len);
+        save_code = lily_realloc(f->code, sizeof(uint16_t) * f->len);
         if (save_code == NULL)
             lily_raise_nomem(emit->raiser);
         f->code = save_code;
@@ -150,7 +150,7 @@ static void write_prep(lily_emit_state *emit, int size)
    * write_5 and write_2 is better than inlining a "write_7", except for
      certain circumstances.
    * If implementing new instructions, 'show' is helpful when debugging. */
-static void write_1(lily_emit_state *emit, int one)
+static void write_1(lily_emit_state *emit, uint16_t one)
 {
     lily_function_val *f = emit->top_function;
 
@@ -161,7 +161,7 @@ static void write_1(lily_emit_state *emit, int one)
     f->pos += 1;
 }
 
-static void write_2(lily_emit_state *emit, int one, int two)
+static void write_2(lily_emit_state *emit, uint16_t one, uint16_t two)
 {
     lily_function_val *f = emit->top_function;
 
@@ -173,7 +173,8 @@ static void write_2(lily_emit_state *emit, int one, int two)
     f->pos += 2;
 }
 
-static void write_3(lily_emit_state *emit, int one, int two, int three)
+static void write_3(lily_emit_state *emit, uint16_t one, uint16_t two,
+        uint16_t three)
 {
     lily_function_val *f = emit->top_function;
 
@@ -186,8 +187,8 @@ static void write_3(lily_emit_state *emit, int one, int two, int three)
     f->pos += 3;
 }
 
-static void write_4(lily_emit_state *emit, int one, int two, int three,
-        int four)
+static void write_4(lily_emit_state *emit, uint16_t one, uint16_t two,
+        uint16_t three, uint16_t four)
 {
     lily_function_val *f = emit->top_function;
 
@@ -201,8 +202,8 @@ static void write_4(lily_emit_state *emit, int one, int two, int three,
     f->pos += 4;
 }
 
-static void write_5(lily_emit_state *emit, int one, int two, int three,
-        int four, int five)
+static void write_5(lily_emit_state *emit, uint16_t one, uint16_t two,
+        uint16_t three, uint16_t four, uint16_t five)
 {
     lily_function_val *f = emit->top_function;
 
@@ -1552,7 +1553,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     This handles unary ops. Unary ops currently only work on integers. */
 static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
 {
-    uintptr_t opcode;
+    uint16_t opcode;
     lily_class *lhs_class;
     lily_storage *storage;
      lhs_class = ast->left->result->sig->cls;

@@ -707,7 +707,7 @@ static int init_classes(lily_symtab *symtab)
 lily_symtab *lily_new_symtab(lily_raiser *raiser)
 {
     lily_symtab *symtab = lily_malloc(sizeof(lily_symtab));
-    int v = 0;
+    uint16_t v = 0;
 
     if (symtab == NULL)
         return NULL;

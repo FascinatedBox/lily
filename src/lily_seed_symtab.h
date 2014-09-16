@@ -268,8 +268,8 @@ keyword_seed keywords[] = {
     {"raise",        435727982962}
 };
 
-void lily_builtin_print(lily_vm_state *, lily_function_val *, uintptr_t *);
-void lily_builtin_printfmt(lily_vm_state *, lily_function_val *, uintptr_t *);
+void lily_builtin_print(lily_vm_state *, lily_function_val *, uint16_t *);
+void lily_builtin_printfmt(lily_vm_state *, lily_function_val *, uint16_t *);
 
 static const lily_func_seed print =
     {"print", lily_builtin_print, NULL,

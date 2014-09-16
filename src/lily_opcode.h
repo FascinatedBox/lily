@@ -3,7 +3,7 @@
 
 /* This file defines the opcodes used by the Lily VM. This file is shared by
    emitter, debug, and (obviously) the vm. These codes, along with the operands,
-   are written to the code array (uintptr_t *). There are a few rules to make
+   are written to the code array (uint16_t *). There are a few rules to make
    sure things run smoothly though.
    * New opcodes must be showable by debug. There is no exception to this, and
      there never will be. This is the most important rule.

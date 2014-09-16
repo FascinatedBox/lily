@@ -2,7 +2,7 @@
 #include "lily_vm.h"
 
 void lily_list_size(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code)
+        uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_list_val *list_val = vm_regs[code[0]]->value.list;
@@ -13,7 +13,7 @@ void lily_list_size(lily_vm_state *vm, lily_function_val *self,
 }
 
 void lily_list_append(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code)
+        uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_list_val *list_val = vm_regs[code[0]]->value.list;
@@ -58,7 +58,7 @@ void lily_list_append(lily_vm_state *vm, lily_function_val *self,
              If the list is type 'T'
              then the call is 'function (T):T' */
 void lily_list_apply(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code)
+        uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_list_val *list_val = vm_regs[code[0]]->value.list;

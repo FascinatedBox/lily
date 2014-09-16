@@ -142,7 +142,7 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
 
     vm->function_stack = lily_malloc(sizeof(lily_vm_stack_entry *) * 4);
     vm->sipkey = lily_malloc(16);
-    vm->foreign_code = lily_malloc(sizeof(uintptr_t));
+    vm->foreign_code = lily_malloc(sizeof(uint16_t));
     vm->string_buffer = NULL;
     vm->function_stack_pos = 0;
     vm->raiser = raiser;
@@ -600,7 +600,7 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
     values over. For the rest of the registers that the callee needs, the
     registers are just blasted. */
 static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
-        uintptr_t *code)
+        uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value **regs_from_main = vm->regs_from_main;
@@ -972,7 +972,7 @@ static void boundary_error(lily_vm_state *vm, int bad_index)
 /*  lily_builtin_print
     Implements: function print(string) */
 void lily_builtin_print(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code)
+        uint16_t *code)
 {
     lily_value *reg = vm->vm_regs[code[0]];
     lily_impl_puts(vm->data, reg->value.string->string);
@@ -981,7 +981,7 @@ void lily_builtin_print(lily_vm_state *vm, lily_function_val *self,
 /*  lily_builtin_printfmt
     Implements: function printfmt(string, any...) */
 void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code)
+        uint16_t *code)
 {
     char fmtbuf[64];
     char save_ch;
@@ -1240,7 +1240,7 @@ static void do_o_any_assign(lily_vm_state *vm, lily_value *lhs_reg,
     +2: The list-like thing to assign to.
     +3: The index, which can't be nil.
     +4: The new value. */
-static void do_o_set_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
+static void do_o_set_item(lily_vm_state *vm, uint16_t *code, int code_pos)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *lhs_reg, *index_reg, *rhs_reg;
@@ -1291,7 +1291,7 @@ static void do_o_set_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
     +2: The list-like thing to assign to.
     +3: The index, which can't be nil.
     +4: The new value. */
-static void do_o_get_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
+static void do_o_get_item(lily_vm_state *vm, uint16_t *code, int code_pos)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *lhs_reg, *index_reg, *result_reg;
@@ -1345,7 +1345,7 @@ static void do_o_get_item(lily_vm_state *vm, uintptr_t *code, int code_pos)
     +2: How many values there are. There are half this many entries.
     +3..*: The pairs, given as (key, value)...
     final: The result to assign the new hash to. */
-static void do_o_build_hash(lily_vm_state *vm, uintptr_t *code, int code_pos)
+static void do_o_build_hash(lily_vm_state *vm, uint16_t *code, int code_pos)
 {
     lily_value **vm_regs = vm->vm_regs;
     int i, num_values;
@@ -1396,7 +1396,7 @@ static void do_o_build_hash(lily_vm_state *vm, uintptr_t *code, int code_pos)
     +2: The number of values.
     +3..*: The values.
     final: The result to assign the new list to. */
-static void do_o_build_list(lily_vm_state *vm, uintptr_t *code)
+static void do_o_build_list(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     int num_elems = (intptr_t)(code[2]);
@@ -1459,7 +1459,7 @@ static void do_o_build_list(lily_vm_state *vm, uintptr_t *code)
     This is the same thing as do_o_build_list, except the result is a tuple.
     The difference between a tuple and a list is that a tuple allows a certain
     number of statically-checked types, whereas list only allows one type. */
-static void do_o_build_tuple(lily_vm_state *vm, uintptr_t *code)
+static void do_o_build_tuple(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     int num_elems = (intptr_t)(code[2]);
@@ -1682,7 +1682,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
 
     while (catch_iter != NULL) {
         lily_vm_stack_entry *catch_stack = catch_iter->stack_entry;
-        uintptr_t *stack_code = catch_stack->code;
+        uint16_t *stack_code = catch_stack->code;
         /* A try block is done when the next jump is at 0 (because 0 would
            always be going back, which is illogical otherwise). */
         jump_location = catch_stack->code[catch_iter->code_pos];
@@ -2091,7 +2091,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
 void lily_vm_execute(lily_vm_state *vm)
 {
     lily_function_val *f;
-    uintptr_t *code;
+    uint16_t *code;
     lily_vm_stack_entry *stack_entry;
     lily_value **regs_from_main;
     lily_value **vm_regs;

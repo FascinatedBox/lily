@@ -96,7 +96,7 @@ typedef struct lily_lex_state_t {
     char *label;
     int label_size;
     int hit_eof;
-    int line_num;
+    uint16_t line_num;
 
     /* Where the last digit scan started at. This is used by parser to fixup
        the '1+1' case. */
