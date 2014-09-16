@@ -33,6 +33,8 @@ typedef struct {
     lily_literal *lit_start;
     lily_literal *lit_top;
     int next_register_spot;
+    int next_lit_spot;
+    int next_function_spot;
     int *lex_linenum;
     lily_raiser *raiser;
 } lily_symtab;

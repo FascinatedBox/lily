@@ -68,8 +68,10 @@ static lily_literal *try_new_literal(lily_symtab *symtab, lily_class *cls,
     lit->flags = SYM_TYPE_LITERAL;
     lit->next = NULL;
     lit->value = value;
-    /* Literals are never saved to a register. */
-    lit->reg_spot = -1;
+    /* Literals aren't put in registers, but they ARE put in a special vm
+       table. This is the literal's index into that table. */
+    lit->reg_spot = symtab->next_lit_spot;
+    symtab->next_lit_spot++;
 
     if (symtab->lit_top == NULL)
         symtab->lit_start = lit;
@@ -117,9 +119,10 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
         var->function_depth = symtab->function_depth;
     }
     else {
-        /* Vars that are never intended to be assigned to (like functions) are
-           not placed in a register. */
-        var->reg_spot = -1;
+        /* Built-in and user-declared functions are both put into a table of
+           functions. */
+        var->reg_spot = symtab->next_function_spot;
+        symtab->next_function_spot++;
         var->function_depth = -1;
     }
 
@@ -552,6 +555,7 @@ static int init_lily_main(lily_symtab *symtab)
 
     new_sig->siglist[0] = NULL;
     new_sig->siglist_size = 1;
+    new_sig->template_pos = 0;
     new_sig->flags = 0;
 
     lily_var *var = lily_try_new_var(symtab, new_sig, "__main__", 0);
@@ -709,6 +713,8 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
         return NULL;
 
     symtab->next_register_spot = 0;
+    symtab->next_lit_spot = 0;
+    symtab->next_function_spot = 0;
     symtab->class_pos = 0;
     symtab->class_size = INITIAL_CLASS_SIZE;
     symtab->var_start = NULL;

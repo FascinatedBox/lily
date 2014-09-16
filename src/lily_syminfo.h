@@ -150,7 +150,8 @@ typedef struct lily_literal_t {
     int flags;
     lily_sig *sig;
     lily_raw_value value;
-    /* reg_spot is unused here, because literals are loaded by address. */
+    /* Literals are loaded in a special table in the vm. A literal's reg_spot
+       is the position of it in the vm's literal_table. */
     int reg_spot;
     struct lily_literal_t *next;
 } lily_literal;

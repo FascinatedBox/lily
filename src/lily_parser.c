@@ -556,8 +556,7 @@ static void expression_word(lily_parse_state *parser, int *state)
             /* In this current scope? Load as a local var. */
             lily_ast_push_local_var(parser->ast_pool, var);
         else if (var->function_depth == -1)
-            /* This is a call that's not in a register. It's kind of
-               like a literal. */
+            /* This is a declared function. For now, add as "readonly". */
             lily_ast_push_readonly(parser->ast_pool, (lily_sym *)var);
         else
             /* todo: Handle upvalues later, maybe. */

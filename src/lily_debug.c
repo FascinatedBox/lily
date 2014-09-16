@@ -5,6 +5,7 @@
 #include "lily_msgbuf.h"
 #include "lily_syminfo.h"
 #include "lily_opcode.h"
+#include "lily_vm.h"
 
 /** Debug is responsible for pretty printing whatever value it's given. This
     may entail functions, lists, hashes, and more. For native functions, the
@@ -88,6 +89,7 @@ typedef struct lily_debug_state_t {
     lily_function_val *current_function;
     lily_msgbuf *msgbuf;
     int indent;
+    lily_vm_state *vm;
     void *data;
 } lily_debug_state;
 
@@ -95,7 +97,7 @@ typedef struct lily_debug_state_t {
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[54] = {
+char *opcode_names[55] = {
     "assign",
     "any assign",
     "assign (ref/deref)",
@@ -140,6 +142,7 @@ char *opcode_names[54] = {
     "get global",
     "set global",
     "get const",
+    "get function",
     "package set",
     "package set (deep)",
     "package get",
@@ -333,17 +336,18 @@ static void show_simple_value(lily_debug_state *debug, lily_sig *sig,
     write_msgbuf(debug);
 }
 
-static void show_literal(lily_debug_state *debug, lily_sig *sig,
-        lily_raw_value value)
+static void show_literal(lily_debug_state *debug, int lit_pos)
 {
-    lily_msgbuf_add_fmt(debug->msgbuf, "(^T) ", sig);
+    lily_literal *lit = debug->vm->literal_table[lit_pos];
+    lily_msgbuf_add_fmt(debug->msgbuf, "(^T) ", lit->sig);
     write_msgbuf(debug);
-    show_simple_value(debug, sig, value);
+    show_simple_value(debug, lit->sig, lit->value);
     lily_impl_puts(debug->data, "\n");
 }
 
-static void show_readonly_var(lily_debug_state *debug, lily_var *var)
+static void show_function(lily_debug_state *debug, int position)
 {
+    lily_var *var = debug->vm->function_table[position];
     lily_msgbuf_add_fmt(debug->msgbuf, "^I|     <---- (^T) ", debug->indent,
             var->sig);
 
@@ -520,8 +524,7 @@ static void show_code(lily_debug_state *debug)
                 lily_msgbuf_add_fmt(msgbuf, "^I|     <---- ", indent);
                 write_msgbuf(debug);
 
-                lily_literal *lit = (lily_literal *)code[i+j];
-                show_literal(debug, lit->sig, lit->value);
+                show_literal(debug, code[i+j]);
             }
             else if (data_code == D_COUNT)
                 count = (int)code[i+j];
@@ -554,7 +557,7 @@ static void show_code(lily_debug_state *debug)
                 call_input_type = code[i+j];
             else if (data_code == D_CALL_INPUT) {
                 if (call_input_type == 1)
-                    show_readonly_var(debug, (lily_var *)code[i+j]);
+                    show_function(debug, code[i+j]);
                 else
                     show_register_info(debug, RI_INPUT, code[i+j]);
             }
@@ -726,24 +729,25 @@ static void show_value(lily_debug_state *debug, lily_value *value)
 /** API for lily_debug.c **/
 /* lily_show_sym
    This handles showing the information for a symbol at vm-time. */
-void lily_show_sym(lily_function_val *lily_main,
+void lily_show_sym(lily_vm_state *vm, lily_function_val *lily_main,
         lily_function_val *current_function, lily_value *value, int is_global,
-        int reg_id, lily_msgbuf *msgbuf, void *data)
+        int reg_id, lily_msgbuf *msgbuf)
 {
     lily_debug_state debug;
     debug.indent = 0;
     debug.main_function = lily_main;
     debug.current_function = current_function;
     debug.msgbuf = msgbuf;
-    debug.data = data;
+    debug.vm = vm;
+    debug.data = vm->data;
 
     int flags = 0;
     if (is_global)
         flags |= RI_GLOBAL;
 
-    lily_impl_puts(data, "Showing ");
+    lily_impl_puts(debug.data, "Showing ");
     show_register_info(&debug, flags, reg_id);
 
-    lily_impl_puts(data, "Value: ");
+    lily_impl_puts(debug.data, "Value: ");
     show_value(&debug, value);
 }
