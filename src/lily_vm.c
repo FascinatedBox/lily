@@ -163,6 +163,11 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
     vm->catch_chain = NULL;
     vm->catch_top = NULL;
     vm->symtab = NULL;
+    vm->literal_table = NULL;
+    vm->literal_count = 0;
+    vm->function_table = NULL;
+    vm->function_count = 0;
+    vm->prep_literal_start = NULL;
 
     if (vm->function_stack) {
         int i;
@@ -258,6 +263,8 @@ void lily_free_vm_state(lily_vm_state *vm)
         lily_free(vm->string_buffer);
     }
 
+    lily_free(vm->function_table);
+    lily_free(vm->literal_table);
     lily_free(vm->foreign_code);
     lily_free(vm->sipkey);
     lily_free(vm->function_stack);
@@ -649,6 +656,112 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
     }
 
     vm->num_registers = num_registers;
+}
+
+/*  copy_literals
+    This copies the symtab's literals into the vm's literal_table. This table
+    is used so that o_get_const can use a spot for the literal, instead of the
+    literal's address. */
+static void copy_literals(lily_vm_state *vm)
+{
+    lily_symtab *symtab = vm->symtab;
+
+    if (vm->literal_count == symtab->next_lit_spot)
+        return;
+
+    int count = symtab->next_lit_spot;
+    lily_literal **literals;
+
+    if (vm->literal_table == NULL)
+        literals = lily_malloc(count * sizeof(lily_literal *));
+    else
+        literals = lily_realloc(vm->literal_table, count *
+                sizeof(lily_literal *));
+
+    if (literals == NULL)
+        lily_raise_nomem(vm->raiser);
+
+    lily_literal *lit_iter = vm->prep_literal_start;
+    if (lit_iter == NULL)
+        lit_iter = symtab->lit_start;
+
+    while (1) {
+        literals[lit_iter->reg_spot] = lit_iter;
+        if (lit_iter->next == NULL)
+            break;
+
+        lit_iter = lit_iter->next;
+    }
+
+    vm->literal_table = literals;
+    vm->literal_count = count;
+    vm->prep_literal_start = lit_iter;
+}
+
+/*  copy_vars_to_functions
+    This takes a working copy of the function table and adds every function
+    in a particular var iter to it. A 'need' is dropped every time. When it is
+    0, the caller, copy_functions, will stop loading functions. This is an
+    attempt at stopping early when possible. */
+static void copy_vars_to_functions(lily_var **functions, lily_var *var_iter,
+        int *need)
+{
+    while (var_iter) {
+        if (var_iter->flags & VAR_IS_READONLY) {
+            functions[var_iter->reg_spot] = var_iter;
+            (*need)--;
+            if (*need == 0)
+                break;
+        }
+
+        var_iter = var_iter->next;
+    }
+}
+
+/*  copy_functions
+    Copy built-in and user-declared functions into the table of functions.
+    This is tricker than literals, because functions can come from three
+    different places:
+    1: In scope functions will be somewhere in symtab->var_start. This includes
+       print and printfmt.
+    2: Out of scope functions will be in symtab->old_function_chain.
+    3: Lastly, any functions needing to be copied will be in a the callable
+       section of a class. */
+static void copy_functions(lily_vm_state *vm)
+{
+    lily_symtab *symtab = vm->symtab;
+
+    if (vm->function_count == symtab->next_function_spot)
+        return;
+
+    int count = symtab->next_function_spot;
+    lily_var **functions;
+
+    if (vm->function_table == NULL)
+        functions = lily_malloc(count * sizeof(lily_var *));
+    else
+        functions = lily_realloc(vm->function_table, count *
+                sizeof(lily_var *));
+
+    if (functions == NULL)
+        lily_raise_nomem(vm->raiser);
+
+    int need = count - vm->function_count;
+
+    copy_vars_to_functions(functions, symtab->var_start, &need);
+    copy_vars_to_functions(functions, symtab->old_function_chain, &need);
+    if (need != 0) {
+        int i;
+        for (i = 0;i < symtab->class_pos;i++) {
+            lily_class *cls = symtab->classes[i];
+            copy_vars_to_functions(functions, cls->call_start, &need);
+            if (need == 0)
+                break;
+        }
+    }
+
+    vm->function_table = functions;
+    vm->function_count = count;
 }
 
 /*  load_vm_regs
@@ -1417,8 +1530,8 @@ static void do_o_show(lily_vm_state *vm, int is_global, int reg_id)
 
     lily_main = vm->function_stack[0]->function;
     current_function = vm->function_stack[vm->function_stack_pos - 1]->function;
-    lily_show_sym(lily_main, current_function, reg, is_global, reg_id,
-            vm->raiser->msgbuf, vm->data);
+    lily_show_sym(vm, lily_main, current_function, reg, is_global, reg_id,
+            vm->raiser->msgbuf);
 }
 
 /*  do_o_raise
@@ -1954,6 +2067,11 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
         vm->max_registers = main_function->reg_count;
     }
 
+    /* Copy literals and functions into their respective tables. This must be
+       done after the above block, because these two may lily_raise_nomem. */
+    copy_literals(vm);
+    copy_functions(vm);
+
     lily_vm_stack_entry *stack_entry = vm->function_stack[0];
     stack_entry->function = main_function;
     stack_entry->code = main_function->code;
@@ -1983,7 +2101,7 @@ void lily_vm_execute(lily_vm_state *vm)
     register int64_t for_temp;
     register int code_pos;
     register lily_value *lhs_reg, *rhs_reg, *loop_reg, *step_reg;
-    register lily_sym *readonly_sym;
+    register lily_literal *literal_val;
     lily_function_val *fval;
 
     f = vm->function_stack[vm->function_stack_pos-1]->function;
@@ -2032,14 +2150,26 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 4;
                 break;
             case o_get_const:
-                readonly_sym = (lily_sym *)code[code_pos+2];
+                literal_val = vm->literal_table[code[code_pos+2]];
                 lhs_reg = vm_regs[code[code_pos+3]];
 
                 if (lhs_reg->sig->cls->is_refcounted &&
                     (lhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
                     lily_deref_unknown_val(lhs_reg);
 
-                lhs_reg->value = readonly_sym->value;
+                lhs_reg->value = literal_val->value;
+                lhs_reg->flags = VAL_IS_PROTECTED;
+                code_pos += 4;
+                break;
+            case o_get_function:
+                rhs_reg = (lily_value *)(vm->function_table[code[code_pos+2]]);
+                lhs_reg = vm_regs[code[code_pos+3]];
+
+                if (lhs_reg->sig->cls->is_refcounted &&
+                    (lhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+                    lily_deref_unknown_val(lhs_reg);
+
+                lhs_reg->value = rhs_reg->value;
                 lhs_reg->flags = VAL_IS_PROTECTED;
                 code_pos += 4;
                 break;
@@ -2159,11 +2289,11 @@ void lily_vm_execute(lily_vm_state *vm)
                     grow_function_stack(vm);
 
                 if (code[code_pos+2] == 1)
-                    fval = ((lily_var *)(code[code_pos+3]))->value.function;
-                else {
+                    lhs_reg = (lily_value *)vm->function_table[code[code_pos+3]];
+                else
                     lhs_reg = vm_regs[code[code_pos+3]];
-                    fval = (lily_function_val *)(lhs_reg->value.function);
-                }
+
+                fval = (lily_function_val *)(lhs_reg->value.function);
 
                 int j = code[code_pos+4];
                 stack_entry = vm->function_stack[vm->function_stack_pos-1];

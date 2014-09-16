@@ -1381,7 +1381,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         write_4(emit,
                 o_get_const,
                 ast->line_num,
-                (uintptr_t)success_lit,
+                success_lit->reg_spot,
                 result->reg_spot);
 
         write_2(emit, o_jump, 0);
@@ -1391,7 +1391,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         write_4(emit,
                 o_get_const,
                 ast->line_num,
-                (uintptr_t)failure_lit,
+                failure_lit->reg_spot,
                 result->reg_spot);
         f->code[save_pos] = f->pos;
         ast->result = (lily_sym *)result;
@@ -2141,7 +2141,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
 
     if (call_sym->flags & VAR_IS_READONLY) {
         f->code[f->pos+2] = 1;
-        f->code[f->pos+3] = (uintptr_t)call_sym;
+        f->code[f->pos+3] = call_sym->reg_spot;
     }
     else {
         f->code[f->pos+2] = 0;
@@ -2200,27 +2200,23 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
 {
     lily_storage *ret;
     int opcode;
-    uintptr_t value_spot;
 
     if (ast->tree_type == tree_readonly) {
-        opcode = o_get_const;
-        value_spot = (uintptr_t)ast->result;
+        if (ast->result->flags & SYM_TYPE_LITERAL)
+            opcode = o_get_const;
+        else
+            opcode = o_get_function;
     }
-    else if (ast->result->flags & SYM_TYPE_VAR) {
+    else if (ast->result->flags & SYM_TYPE_VAR)
         opcode = o_get_global;
-        value_spot = ast->result->reg_spot;
-    }
-    else {
+    else
         opcode = -1;
-        value_spot = 0;
-    }
 
     ret = get_storage(emit, ast->result->sig, ast->line_num);
-
     write_4(emit,
             opcode,
             ast->line_num,
-            value_spot,
+            ast->result->reg_spot,
             ret->reg_spot);
 
     ast->result = (lily_sym *)ret;
@@ -2529,7 +2525,7 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     f->code[f->pos+4] = for_end->reg_spot;
     f->code[f->pos+5] = for_step->reg_spot;
     /* This value is used to determine if the step needs to be calculated. */
-    f->code[f->pos+6] = (uintptr_t)!have_step;
+    f->code[f->pos+6] = !have_step;
 
     /* for..in is entered right after 'for' is seen. However, range values can
        be expressions. This needs to be fixed, or the loop will jump back up to

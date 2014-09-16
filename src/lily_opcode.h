@@ -297,11 +297,18 @@ typedef enum {
 
     /* get const:
        * int lineno
-       * addr lit
+       * int index
        * reg result
-       This loads a literal value from the given address, and stores the value
-       into the given register. */
+       This loads a literal value from the vm's table of literals at the given
+       index. The value is put into 'result'. */
     o_get_const,
+
+    /* get function:
+      * int lineno
+      * int index
+      * reg result
+      The above, but from the table of functions this time. */
+    o_get_function,
 
     o_package_set,
     o_package_set_deep,
