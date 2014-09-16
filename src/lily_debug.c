@@ -493,7 +493,7 @@ static void show_code(lily_debug_state *debug)
                 /* output is NULL if it's a function that does not return a
                    value. Omit this for brevity (the lack of a stated output
                    meaning it doesn't have one). */
-                if (code[i+j] != -1)
+                if ((int16_t)code[i+j] != -1)
                     show_register_info(debug, RI_OUTPUT, code[i+j]);
             }
             else if (data_code == D_JUMP_ON) {
