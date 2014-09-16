@@ -25,11 +25,6 @@ typedef struct {
 
     int function_depth;
 
-    /* __main__ is kept by itself because it doesn't get loaded into any
-       register. This keeps the vm from seeing it and thinking __main__ needs a
-       ref. */
-    lily_var *lily_main;
-
     lily_literal *lit_start;
     lily_literal *lit_top;
     int next_register_spot;
