@@ -808,16 +808,6 @@ static void finalize_function_val(lily_emit_state *emit,
         /* Unused storages now begin where the function starting zapping them. */
         emit->unused_storage_start = function_block->storage_start;
     }
-    else {
-        /* If __main__, add class functions like string::concat and all global
-           vars. */
-        int i;
-        for (i = 0;i < emit->symtab->class_pos;i++) {
-            lily_class *cls = emit->symtab->classes[i];
-            if (cls->call_start)
-                add_var_chain_to_info(emit, info, cls->name, cls->call_start);
-        }
-    }
 
     f->reg_info = info;
     f->reg_count = register_count;
