@@ -73,6 +73,10 @@ Where: File "<str>" at line 1\n""",
      "message": "Test a blank if expression."
     },
     {
+     "command": """ integer a = 10 function f() { a += 10 } f() """,
+     "message": "Test compound ops with a global."
+    },
+    {
      "command": """  10.@(integer)()  """,
      "message": "Failcheck: Bad anonymous call",
      "stderr": """\
