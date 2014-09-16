@@ -35,7 +35,7 @@ typedef struct {
     int next_register_spot;
     int next_lit_spot;
     int next_function_spot;
-    int *lex_linenum;
+    uint16_t *lex_linenum;
     lily_raiser *raiser;
 } lily_symtab;
 

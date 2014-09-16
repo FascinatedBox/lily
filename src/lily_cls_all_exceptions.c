@@ -50,7 +50,7 @@ static void make_error(lily_vm_state *vm, char *exception_name,
 }
 
 void lily_error_new(lily_vm_state *vm, lily_function_val *self,
-        uintptr_t *code)
+        uint16_t *code)
 {
     lily_value *message_reg = vm->vm_regs[code[0]];
     lily_value *result_reg = vm->vm_regs[code[1]];

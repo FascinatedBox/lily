@@ -301,7 +301,7 @@ lily_function_val *lily_try_new_foreign_function_val(lily_foreign_func func,
 lily_function_val *lily_try_new_native_function_val(char *name)
 {
     lily_function_val *f = lily_malloc(sizeof(lily_function_val));
-    uintptr_t *code = lily_malloc(8 * sizeof(uintptr_t));
+    uint16_t *code = lily_malloc(8 * sizeof(uint16_t));
 
     if (f == NULL || code == NULL) {
         lily_free(f);

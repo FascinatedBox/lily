@@ -414,7 +414,7 @@ static void show_code(lily_debug_state *debug)
 {
     char format[5];
     int digits, i, len;
-    uintptr_t *code;
+    uint16_t *code;
     lily_msgbuf *msgbuf = debug->msgbuf;
     void *data = debug->data;
 

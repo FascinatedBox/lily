@@ -10,7 +10,7 @@ typedef struct {
     /* How many registers this call uses. This is used to fix the vm's register
        stack after a call. */
     int regs_used;
-    uintptr_t *code;
+    uint16_t *code;
     int code_pos;
     int line_num;
 } lily_vm_stack_entry;
@@ -75,7 +75,7 @@ typedef struct lily_vm_state_t {
        Foreign functions do not have native code, and they need to bail out of
        the vm. So the vm lies and says this "foreign code" as its code. This
        contains a o_return_from_vm as its instruction. */
-    uintptr_t *foreign_code;
+    uint16_t *foreign_code;
 
     char *sipkey;
     /* This lets the vm know that it was in a function when an error is raised
