@@ -18,9 +18,7 @@ typedef struct {
        that it's destroyed properly at exit. */
     lily_var *old_function_chain;
 
-    lily_class **classes;
-    int class_pos;
-    int class_size;
+    lily_class *class_chain;
     lily_sig *root_sig;
 
     int function_depth;

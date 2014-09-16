@@ -751,12 +751,13 @@ static void copy_functions(lily_vm_state *vm)
     copy_vars_to_functions(functions, symtab->var_start, &need);
     copy_vars_to_functions(functions, symtab->old_function_chain, &need);
     if (need != 0) {
-        int i;
-        for (i = 0;i < symtab->class_pos;i++) {
-            lily_class *cls = symtab->classes[i];
-            copy_vars_to_functions(functions, cls->call_start, &need);
+        lily_class *class_iter = symtab->class_chain;
+        while (class_iter) {
+            copy_vars_to_functions(functions, class_iter->call_start, &need);
             if (need == 0)
                 break;
+
+            class_iter = class_iter->next;
         }
     }
 

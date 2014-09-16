@@ -498,13 +498,16 @@ static int init_prop_seeds(lily_symtab *symtab, lily_class *cls,
     setting up the seed_table of the class, and possibly more in the future. */
 static int call_class_setups(lily_symtab *symtab)
 {
-    int i, ret = 1;
-    for (i = 0;i <= SYM_LAST_CLASS;i++) {
-        if (symtab->classes[i]->setup_func &&
-            symtab->classes[i]->setup_func(symtab->classes[i]) == 0) {
+    int ret = 1;
+    lily_class *class_iter = symtab->class_chain;
+    while (class_iter) {
+        if (class_iter->setup_func &&
+            class_iter->setup_func(class_iter) == 0) {
             ret = 0;
             break;
         }
+
+        class_iter = class_iter->next;
     }
 
     return ret;
@@ -601,13 +604,7 @@ static int init_literals(lily_symtab *symtab)
 static int init_classes(lily_symtab *symtab)
 {
     int i, class_count, ret;
-    lily_class **classes;
 
-    classes = lily_malloc(sizeof(lily_class *) * INITIAL_CLASS_SIZE);
-    if (classes == NULL)
-        return 0;
-
-    symtab->classes = classes;
     class_count = sizeof(class_seeds) / sizeof(class_seeds[0]);
     ret = 1;
 
@@ -665,6 +662,9 @@ static int init_classes(lily_symtab *symtab)
             new_class->prop_start = 0;
             new_class->parent = NULL;
 
+            new_class->next = symtab->class_chain;
+            symtab->class_chain = new_class;
+
             if (ret && class_seeds[i].prop_seeds != NULL)
                 ret = init_prop_seeds(symtab, new_class,
                         class_seeds[i].prop_seeds);
@@ -672,24 +672,23 @@ static int init_classes(lily_symtab *symtab)
         else
             ret = 0;
 
-        classes[i] = new_class;
+        if (ret == 0)
+            break;
     }
 
-    /* This is so symtab cleanup catches all of the builtin classes, regardless
-       of what parts were initialized. */
-    symtab->class_pos = SYM_LAST_CLASS;
-
-    /* Disable direct package declaration for now. The problem with it is that
-       it's not very useful (packages as vars doesn't allow for getting
-       properties out). */
     if (ret == 1) {
-        classes[SYM_CLASS_PACKAGE]->shorthash = 0;
+        /* No direct declaration of packages (for now?) */
+        lily_class *package_cls = lily_class_by_id(symtab, SYM_CLASS_PACKAGE);
+        package_cls->shorthash = 0;
 
         /* Now that all classes are established, fix class parents to their
            real values. */
-        for (i = 0;i < class_count;i++) {
+        lily_class *class_iter;
+        for (class_iter = symtab->class_chain, i = 0;
+             class_iter;
+             class_iter = class_iter->next, i++) {
             if (class_seeds[i].parent_name != NULL) {
-                classes[i]->parent = lily_class_by_name(symtab,
+                class_iter->parent = lily_class_by_name(symtab,
                         class_seeds[i].parent_name);
             }
         }
@@ -715,12 +714,10 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
     symtab->next_register_spot = 0;
     symtab->next_lit_spot = 0;
     symtab->next_function_spot = 0;
-    symtab->class_pos = 0;
-    symtab->class_size = INITIAL_CLASS_SIZE;
     symtab->var_start = NULL;
     symtab->var_top = NULL;
     symtab->old_function_chain = NULL;
-    symtab->classes = NULL;
+    symtab->class_chain = NULL;
     symtab->lit_start = NULL;
     symtab->lit_top = NULL;
     symtab->function_depth = 1;
@@ -834,18 +831,15 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
 
     /* This should be okay, because nothing will want to use the vars at this
        point. */
-    if (symtab->classes != NULL) {
-        int i;
-        for (i = 0;i <= symtab->class_pos;i++) {
-            lily_class *cls = symtab->classes[i];
-            if (cls != NULL) {
-                if (cls->properties != NULL)
-                    free_properties(cls);
+    lily_class *class_iter = symtab->class_chain;
+    while (class_iter) {
+        if (class_iter->properties != NULL)
+            free_properties(class_iter);
 
-                if (cls->call_start != NULL)
-                    free_vars(cls->call_start);
-            }
-        }
+        if (class_iter->call_start != NULL)
+            free_vars(class_iter->call_start);
+
+        class_iter = class_iter->next;
     }
 
     lily_function_val *main_function;
@@ -891,14 +885,11 @@ void lily_free_symtab(lily_symtab *symtab)
         sig = sig_temp;
     }
 
-    if (symtab->classes != NULL) {
-        int i;
-        for (i = 0;i <= SYM_LAST_CLASS;i++) {
-            lily_class *cls = symtab->classes[i];
-            if (cls != NULL)
-                lily_free(cls);
-        }
-        lily_free(symtab->classes);
+    lily_class *class_iter = symtab->class_chain;
+    while (class_iter) {
+        lily_class *class_next = class_iter->next;
+        lily_free(class_iter);
+        class_iter = class_next;
     }
 
     lily_free(symtab);
@@ -1035,7 +1026,15 @@ lily_sig *lily_try_sig_for_class(lily_symtab *symtab, lily_class *cls)
 
 lily_class *lily_class_by_id(lily_symtab *symtab, int class_id)
 {
-    return symtab->classes[class_id];
+    lily_class *class_iter = symtab->class_chain;
+    while (class_iter) {
+        if (class_iter->id == class_id)
+            break;
+
+        class_iter = class_iter->next;
+    }
+
+    return class_iter;
 }
 
 /*  lily_class_by_name
@@ -1044,17 +1043,17 @@ lily_class *lily_class_by_id(lily_symtab *symtab, int class_id)
     On failure: NULL is returned. */
 lily_class *lily_class_by_name(lily_symtab *symtab, const char *name)
 {
-    int i;
-    lily_class **classes = symtab->classes;
     uint64_t shorthash = shorthash_for_name(name);
+    lily_class *class_iter = symtab->class_chain;
+    while (class_iter) {
+        if (class_iter->shorthash == shorthash &&
+            strcmp(class_iter->name, name) == 0)
+            break;
 
-    for (i = 0;i <= symtab->class_pos;i++) {
-        if (classes[i]->shorthash == shorthash &&
-            strcmp(classes[i]->name, name) == 0)
-            return classes[i];
+        class_iter = class_iter->next;
     }
 
-    return NULL;
+    return class_iter;
 }
 
 /*  lily_find_class_callable
