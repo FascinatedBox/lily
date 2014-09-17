@@ -6,8 +6,8 @@
 </style>
 </head>
 <body>
-<@lily
-# This is a simple form example in Lily. Code starts at <@lily and ends with @>
+<?lily
+# This is a simple form example in Lily. Code starts at <?lily and ends with ?>
 # Anything not within those tags is sent as html.
 # This form is a modified version of the one here:
 # http://www.w3schools.com/php/showphp.asp?filename=demo_form_validation_escapechar
@@ -51,28 +51,28 @@ else:
     website = comment = ""
 }
 
-@>
+?>
 
 <p><span class="error">* required field.</span></p>
-<form method="post" action="<@lily print (server::env["SCRIPT_NAME"]) @>">
-   Name: <input type="text" name="name" value="<@lily print (name) @>">
-   <span class="error">* <@lily print(nameError) @></span>
+<form method="post" action="<?lily print (server::env["SCRIPT_NAME"]) ?>">
+   Name: <input type="text" name="name" value="<?lily print (name) ?>">
+   <span class="error">* <?lily print(nameError) ?></span>
    <br><br>
-   Website: <input type="text" name="website" value="<@lily print (website) @>">
-   <span class="error"><@lily print(websiteError)@></span>
+   Website: <input type="text" name="website" value="<?lily print (website) ?>">
+   <span class="error"><?lily print(websiteError)?></span>
    <br><br>
-   Comment: <textarea name="comment" rows="5" cols="40"><@lily print (comment) @></textarea>
+   Comment: <textarea name="comment" rows="5" cols="40"><?lily print (comment) ?></textarea>
    <br><br>
    Gender:
-   <input type="radio" name="gender" <@lily if gender == "female": print ("checked") @> value="female">Female
-   <input type="radio" name="gender" <@lily if gender == "male": print ("checked") @> value="male">Male
-   <span class="error">* <@lily print (genderError) @></span>
+   <input type="radio" name="gender" <?lily if gender == "female": print ("checked") ?> value="female">Female
+   <input type="radio" name="gender" <?lily if gender == "male": print ("checked") ?> value="male">Male
+   <span class="error">* <?lily print (genderError) ?></span>
    <br><br>
    <input type="submit" name="submit" value="Submit">
 </form>
 
-<@lily
+<?lily
 
 printfmt("<h2>Your Input:</h2> name: %s <br> website: %s <br> comment: %s <br> gender: %s ",
      	name, website, comment, gender)
-@>
+?>

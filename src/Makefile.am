@@ -34,7 +34,7 @@ bin_PROGRAMS = lily_fs lily_aft lily_cliexec
 ### The runners ###
 
 # lily_fs (fs = fake server) was designed to simulate how lily would work on a
-# server, which is why the <@lily and @> are needed.
+# server, which is why the <?lily and ?> are needed.
 # This runner expects a file from the command-line, and I consider it to be the
 # standard-bearer of the language.
 lily_fs_SOURCES = fs_main.c \

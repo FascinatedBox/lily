@@ -1,4 +1,4 @@
-<@lily
+<?lily
     # This is a test for bug GH #10
 
     # First, make a global any.
@@ -20,4 +20,4 @@
     # noticeable.
     # If the bug is fixed, this works fine.
     integer i = o.@(list[integer])[0]
-@>
+?>

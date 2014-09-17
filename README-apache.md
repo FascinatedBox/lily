@@ -14,7 +14,7 @@ From here, it should be possible to access Lily files from http://localhost/lily
 
 ## Using mod_lily
 * I recommend checking that mod_lily works by trying to access an html-only page before doing anything else. This way, you'll know if a problem is with the server or the interpreter.
-* Anything NOT in <@lily ... @> is considered raw html and sent. Within those tags, only data explictly printed (via print or printfmt) is sent.
+* Anything NOT in <?lily ... ?> is considered raw html and sent. Within those tags, only data explictly printed (via print or printfmt) is sent.
 * The module creates a package called 'server', available globally. This can be used to get information about the server.
 
 

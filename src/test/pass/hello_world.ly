@@ -3,7 +3,7 @@
 <title>Lily Hello world</title>
 </head>
 <body>
-<@lily
-print("Hello, world.")@>
+<?lily
+print("Hello, world.")?>
 </body>
 </html>

@@ -63,7 +63,7 @@ typedef enum {
 } lily_token;
 
 typedef enum {
-    /* Code is the data between '<@lily' and '@>'. Everything else is html and
+    /* Code is the data between '<?lily' and '?>'. Everything else is html and
        written as-is. Multiple runs are possible, and eof should be reached
        within html handling. */
     lm_tags,

@@ -1050,12 +1050,12 @@ static void statement(lily_parse_state *parser, int multi)
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->ast_pool);
         }
-        /* The caller will be expecting '}' or maybe @> / EOF if it's the main
+        /* The caller will be expecting '}' or maybe ?> / EOF if it's the main
            parse loop. */
         else if (multi)
             break;
         /* Single-line expressions need a value to prevent things like
-           'if 1: }' and 'if 1: @>'. */
+           'if 1: }' and 'if 1: ?>'. */
         else
             lily_raise(parser->raiser, lily_SyntaxError,
                     "Expected a value, not '%s'.\n", tokname(token));
@@ -1555,7 +1555,7 @@ static void parser_loop(lily_parse_state *parser)
     parser is free'd.
 
     parser:  The parser that will be used to parse and run the data.
-    mode:    This determines if <@lily @> tags are parsed or not.
+    mode:    This determines if <?lily ?> tags are parsed or not.
     str:     The string to parse.
 
     Returns 1 if successful, or 0 if an error was raised. */
@@ -1578,7 +1578,7 @@ int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode, char *filename
     is responsible for destroying the string if it needs to be destroyed.
 
     parser:  The parser that will be used to parse and run the data.
-    mode:    This determines if <@lily @> tags are parsed or not.
+    mode:    This determines if <?lily ?> tags are parsed or not.
     str:     The string to parse.
 
     Returns 1 if successful, or 0 if some error occured. */
@@ -1599,7 +1599,7 @@ int lily_parse_string(lily_parse_state *parser, lily_lex_mode mode, char *str)
     a given source isn't a file or a str.
 
     parser:       The parser that will be used to parse and run the data.
-    mode:         This determines if <@lily @> tags are parsed or not.
+    mode:         This determines if <?lily ?> tags are parsed or not.
     source:       The source providing text for the lexer to read.
     filename:     A filename for this source.
     read_line_fn: A function for the lexer to call to read a line from the

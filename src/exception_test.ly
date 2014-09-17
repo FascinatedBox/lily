@@ -1,4 +1,4 @@
-<@lily
+<?lily
 
 # This file was made to test exceptions. I'll merge it into sanity testing
 # once exceptions are more complete.
@@ -71,4 +71,4 @@ except Exception as e:
 	show e
 }
 
-@>
+?>
