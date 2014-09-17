@@ -1486,6 +1486,14 @@ function test_misc()
     list[integer] bug_check = [1, 2, 3]
     bug_check.append(4)
 
+    function toapply(integer a => integer) { return a * 2 }
+
+    # Make sure list::apply isn't horribly broken.
+    list[integer] lsi = [1, 2, 3]
+    lsi.apply(toapply)
+    if lsi != [2, 4, 6]:
+        ok = 0
+
     if ok == 0:
         fail_count = fail_count + 1
 }

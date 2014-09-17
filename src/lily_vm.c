@@ -1763,6 +1763,17 @@ static int maybe_catch_exception(lily_vm_state *vm)
 /* Foreign call API                                                           */
 /******************************************************************************/
 
+/* This handles calling a foreign function which will call a native one.
+   There are always three interesting functions:
+   * (-2) The native caller
+   * (-1) The foreign callee
+   * (0)  The called native
+   When a foreign function is entered, the vm does not adjust vm_regs. This is
+   intentional, because builtin functions wouldn't be able to get their values
+   if the registers were adjusted.
+   Consequently, much of the foreign call stuff adjusts for registers used in
+   -2 and -1 to put vm regs where the called native starts. */
+
 /*  lily_vm_foreign_call
     This calls the vm from a foreign source. The stack is adjusted before and
     after this call, so it can be done as many times as needed.
@@ -1778,12 +1789,10 @@ static int maybe_catch_exception(lily_vm_state *vm)
       simply be nil. */
 void lily_vm_foreign_call(lily_vm_state *vm)
 {
-    /* Simulate the stack growing before entry. This is reserved until now so
-       that any stack trace does not show up as being inside of the function.
-       -1: This is the native function that called the foreign function.
-       +0: This is the foreign function that was called. */
-    int regs_adjust = vm->function_stack[vm->function_stack_pos-1]->regs_used +
-                      vm->function_stack[vm->function_stack_pos]->regs_used;
+    /* Adjust for the native caller, and the foreign callee. This puts vm_regs
+       where the called native func needs them. */
+    int regs_adjust = vm->function_stack[vm->function_stack_pos-2]->regs_used +
+                      vm->function_stack[vm->function_stack_pos-1]->regs_used;
 
     /* Make it so the callee's register indexes target the right things. */
     vm->vm_regs += regs_adjust;
@@ -1796,12 +1805,9 @@ void lily_vm_foreign_call(lily_vm_state *vm)
     lily_vm_execute(vm);
 
 
-    /* Now simulate a stack exit. */
-
-    /* -1 is correct. The callee function will return via a normal way, and bring
-       the function stack down by -1. This does a final adjustment. */
-    vm->function_stack_pos--;
-    vm->vm_regs -= vm->function_stack[vm->function_stack_pos-1]->regs_used;
+    /* The return done adjusts for the foreign callee, but not for the native
+       caller. Do this or the foreign caller will have busted registers. */
+    vm->vm_regs -= vm->function_stack[vm->function_stack_pos-2]->regs_used;
 }
 
 /*  lily_vm_get_foreign_reg
@@ -1810,11 +1816,11 @@ void lily_vm_foreign_call(lily_vm_state *vm)
 lily_value *lily_vm_get_foreign_reg(lily_vm_state *vm, int reg_pos)
 {
     lily_value **vm_regs = vm->vm_regs;
-    int load_start = vm->function_stack[vm->function_stack_pos-1]->regs_used +
-                     vm->function_stack[vm->function_stack_pos]->regs_used;
+    int load_start = vm->function_stack[vm->function_stack_pos-2]->regs_used +
+                     vm->function_stack[vm->function_stack_pos-1]->regs_used;
 
     /* Intentionally adjust by -1 so the return register will be at 0. */
-    return vm_regs[load_start - 1 + reg_pos];
+    return vm_regs[load_start + reg_pos - 1];
 }
 
 /*  lily_vm_foreign_load_by_val
@@ -1831,12 +1837,32 @@ void lily_vm_foreign_load_by_val(lily_vm_state *vm, int index,
         lily_value *new_value)
 {
     lily_value **vm_regs = vm->vm_regs;
-    int load_start = vm->function_stack[vm->function_stack_pos-1]->regs_used +
-                     vm->function_stack[vm->function_stack_pos]->regs_used;
+    int load_start = vm->function_stack[vm->function_stack_pos-2]->regs_used +
+                     vm->function_stack[vm->function_stack_pos-1]->regs_used;
 
     /* Intentionally adjust by -1 so the first arg starts at index 1. */
-    lily_value *reg = vm_regs[load_start - 1 + index];
+    lily_value *reg = vm_regs[load_start + index - 1];
     lily_assign_value(vm, reg, new_value);
+}
+
+static void seed_registers(lily_vm_state *vm, lily_function_val *f, int start)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_register_info *info = f->reg_info;
+    int max = start + f->reg_count;
+    int i;
+
+    for (i = 0;start < max;start++,i++) {
+        lily_value *reg = vm->regs_from_main[start];
+
+        if (reg->sig->cls->is_refcounted &&
+            (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+            lily_deref_unknown_val(reg);
+
+        reg->sig = info[i].sig;
+        reg->value.integer = 0;
+        reg->flags = VAL_IS_NIL;
+    }
 }
 
 /*  lily_vm_foreign_prep
@@ -1860,6 +1886,7 @@ void lily_vm_foreign_prep(lily_vm_state *vm, lily_function_val *caller,
     int register_need = to_call->value.function->reg_count;
     lily_sig *function_val_return_sig = to_call->sig->siglist[0];
     lily_function_val *function_val = to_call->value.function;
+    int callee_start;
     /* In normal function calls, the caller is a function that reserves a
        register to get a value back from the callee. Since that is not the
        case here, add one more register to get a value in case one is
@@ -1867,6 +1894,7 @@ void lily_vm_foreign_prep(lily_vm_state *vm, lily_function_val *caller,
     if (function_val_return_sig != NULL)
         register_need++;
 
+    callee_start = vm->num_registers + (function_val_return_sig != NULL);
     register_need += vm->num_registers;
 
     /* Step 2: If there aren't enough registers, make them. This may fail. */
@@ -1890,6 +1918,8 @@ void lily_vm_foreign_prep(lily_vm_state *vm, lily_function_val *caller,
         foreign_reg->sig = function_val_return_sig;
     }
 
+    seed_registers(vm, function_val, callee_start);
+
     /* Step 4: Make sure there is enough room for the new native entry. The
                foreign function already had an entry added which just needs to
                be updated. */
@@ -1902,6 +1932,7 @@ void lily_vm_foreign_prep(lily_vm_state *vm, lily_function_val *caller,
     foreign_entry->code = vm->foreign_code;
     foreign_entry->code_pos = 0;
     foreign_entry->regs_used = (function_val_return_sig != NULL);
+    foreign_entry->return_reg = -1;
 
     /* Step 6: Set the second stack entry (the native function). */
     lily_vm_stack_entry *native_entry = vm->function_stack[vm->function_stack_pos];
@@ -2384,7 +2415,6 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 lhs_reg = vm_regs[stack_entry->return_reg];
                 rhs_reg = vm_regs[code[code_pos+2]];
-
                 lily_assign_value(vm, lhs_reg, rhs_reg);
 
                 /* DO NOT BREAK HERE.
