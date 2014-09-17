@@ -3,7 +3,7 @@ Lily
 
 ```
 <html>
-<@lily print("Hello, world!") @>
+<?lily print("Hello, world!") ?>
 </html>
 ```
 

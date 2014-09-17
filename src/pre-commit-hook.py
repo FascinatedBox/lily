@@ -17,10 +17,10 @@ SyntaxError: Cannot assign type 'string' to type 'integer'.\n\
 Where: File "<str>" at line 2\n""",
     },
     {
-     "command": """  @>  """,
-     "message": "Make sure @> is a parse error if not parsing tags",
+     "command": """  ?>  """,
+     "message": "Make sure ?> is a parse error if not parsing tags",
      "stderr": """\
-SyntaxError: Found @> but not expecting tags.\n\
+SyntaxError: Found ?> but not expecting tags.\n\
 Where: File "<str>" at line 1\n""",
     },
     {

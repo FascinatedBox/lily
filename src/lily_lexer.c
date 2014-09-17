@@ -15,9 +15,9 @@
       Additionally, utf-8 can be used in identifiers and strings. utf-8
       validation is in read_line for files, and in lily_load_str for strings.
     * For files, lily_lexer_handle_page_data is available to scan and push the
-      HTML outside of the lily tag. The lily tag starts with <@lily and ends
-      with @>. Parser is responsible for telling lexer to do the skip when it
-      encounters the end tag (@>)
+      HTML outside of the lily tag. The lily tag starts with <?lily and ends
+      with ?>. Parser is responsible for telling lexer to do the skip when it
+      encounters the end tag (?>)
     Caveats:
     * The lexer's way of scanning characters is fairly complicated, and could
       probably be automated or added to a small database for ease of use.
@@ -68,7 +68,8 @@
 #define CC_AT            26
 #define CC_AMPERSAND     27
 #define CC_VBAR          28
-#define CC_INVALID       29
+#define CC_QUESTION      29
+#define CC_INVALID       30
 
 /*  This table indicates how many more bytes need to be successfully read after
     that particular byte for proper utf-8. -1 = invalid.
@@ -188,6 +189,7 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser, void *data)
     ch_class[(unsigned char)')'] = CC_RIGHT_PARENTH;
     ch_class[(unsigned char)'"'] = CC_DOUBLE_QUOTE;
     ch_class[(unsigned char)'@'] = CC_AT;
+    ch_class[(unsigned char)'?'] = CC_QUESTION;
     ch_class[(unsigned char)'#'] = CC_SHARP;
     ch_class[(unsigned char)'='] = CC_EQUAL;
     ch_class[(unsigned char)'.'] = CC_DOT;
@@ -1025,7 +1027,7 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
 /*  lily_load_file
     This function creates a new entry for the lexer based off a fopen-ing the
     given path. This will call up the first line and ensure the lexer starts
-    after the <@lily block.
+    after the <?lily block.
 
     Note: If unable to create a new entry, ErrNoMem is raised.
           If unable to open the given path, ErrImport is raised. */
@@ -1058,7 +1060,7 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
 
 /*  lily_load_str
     This creates a new entry for the lexer that will use the given string as
-    the source. This calls up the first line, but doesn't do <@lily or @>
+    the source. This calls up the first line, but doesn't do <?lily or ?>
     because that seems silly.
 
     Note: If unable to allocate a new entry, ErrNoMem is raised. */
@@ -1356,18 +1358,23 @@ void lily_lexer(lily_lex_state *lexer)
         else if (group == CC_AT) {
             ch++;
             input_pos++;
+            if (*ch == '(') {
+                input_pos++;
+                token = tk_typecast_parenth;
+            }
+            else
+                token = tk_invalid;
+        }
+        else if (group == CC_QUESTION) {
+            ch++;
+            input_pos++;
             if (*ch == '>') {
                 if (lexer->mode == lm_no_tags)
                     lily_raise(lexer->raiser, lily_SyntaxError,
-                            "Found @> but not expecting tags.\n");
+                            "Found ?> but not expecting tags.\n");
 
-                /* Skip the > of @> so it's not sent as html. */
                 input_pos++;
                 token = tk_end_tag;
-            }
-            else if (*ch == '(') {
-                input_pos++;
-                token = tk_typecast_parenth;
             }
             else
                 token = tk_invalid;
@@ -1382,9 +1389,9 @@ void lily_lexer(lily_lex_state *lexer)
 }
 
 /* lily_lexer_handle_page_data
-   This scans the html outside of the <@lily and @> tags, sending it off to
+   This scans the html outside of the <?lily and ?> tags, sending it off to
    lily_impl_puts (which differs depending on the runner). This is only called
-   when handling files (lily_lexer won't send the @> end_tag token for
+   when handling files (lily_lexer won't send the ?> end_tag token for
    string-based scanning).*/
 void lily_lexer_handle_page_data(lily_lex_state *lexer)
 {
@@ -1403,9 +1410,9 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
         lbp++;
         if (c == '<') {
             if ((lbp + 4) <= lexer->input_end &&
-                strncmp(lexer->input_buffer + lbp, "@lily", 5) == 0) {
+                strncmp(lexer->input_buffer + lbp, "?lily", 5) == 0) {
                 if (htmlp != 0) {
-                    /* Don't include the '<', because it goes with <@lily. */
+                    /* Don't include the '<', because it goes with <?lily. */
                     lexer->label[htmlp] = '\0';
                     lily_impl_puts(data, lexer->label);
                 }
@@ -1452,7 +1459,7 @@ char *tokname(lily_token t)
      "/", "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>",
      ">>=", "=", "==", "<[", "]>", "]", "=>", "a label", "a string",
      "an integer", "a double", ".", ":", "::", "&", "&&", "|", "||", "@(",
-     "..", "...", "invalid token", "@>", "end of file"};
+     "..", "...", "invalid token", "?>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];
