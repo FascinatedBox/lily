@@ -83,6 +83,11 @@ input.strip(" \t\r\n")
 Creates a new string based off of **input** but with all lowercase characters turned into uppercase ones. Utf-8 characters are ignored.
 
 
+## Class integer
+#### integer::to_string(integer input => string)
+Returns a string representing the decimal value of the given integer.
+
+
 ## Class List
 The first type of a list is referred to as **A**
 list[A] as the first argument means that the function can take a list of any type.
