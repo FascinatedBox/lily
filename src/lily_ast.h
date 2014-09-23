@@ -7,7 +7,7 @@
 
 typedef enum {
     tree_call, tree_subscript, tree_list, tree_hash, tree_parenth,
-    tree_local_var, tree_readonly, tree_var, tree_package, tree_oo_call,
+    tree_local_var, tree_readonly, tree_var, tree_package, tree_oo_access,
     tree_unary, tree_sig, tree_typecast, tree_isnil, tree_tuple, tree_binary
 } lily_tree_type;
 
@@ -32,6 +32,10 @@ typedef struct lily_ast_t {
     struct lily_ast_t *arg_start;
     struct lily_ast_t *next_arg;
 
+    /* If tree_oo_access looks up a property, then it stores the index of that
+       property here. This is used by oo assign to prevent two lookups of the
+       same property. */
+    int oo_property_index;
     int oo_pool_index;
 
     /* These are for unary and binary ops mostly. Typecast stores a value in
@@ -104,6 +108,6 @@ void lily_ast_push_binary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_sym(lily_ast_pool *, lily_sym *);
 void lily_ast_push_readonly(lily_ast_pool *, lily_sym *);
 void lily_ast_push_unary_op(lily_ast_pool *, lily_expr_op);
-void lily_ast_push_oo_call(lily_ast_pool *, char *);
+void lily_ast_push_oo_access(lily_ast_pool *, char *);
 void lily_ast_reset_pool(lily_ast_pool *);
 #endif

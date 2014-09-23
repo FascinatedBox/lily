@@ -1112,6 +1112,36 @@ lily_var *lily_find_class_callable(lily_symtab *symtab, lily_class *cls,
     return iter;
 }
 
+/*  lily_find_property
+    Attempt to find a property with the given name in the class. If the class
+    given inherits other classes, then they're checked too.
+
+    On success: A valid property entry is returned.
+    On failure: NULL is returned. */
+lily_prop_entry *lily_find_property(lily_symtab *symtab, lily_class *cls, char *name)
+{
+    lily_prop_entry *ret = NULL;
+
+    if (cls->properties != NULL) {
+        uint64_t shorthash = shorthash_for_name(name);
+        lily_prop_entry *prop_iter = cls->properties;
+        while (prop_iter) {
+            if (prop_iter->name_shorthash == shorthash &&
+                strcmp(prop_iter->name, name) == 0) {
+                ret = prop_iter;
+                break;
+            }
+
+            prop_iter = prop_iter->next;
+        }
+    }
+
+    if (ret == NULL && cls->parent != NULL)
+        ret = lily_find_property(symtab, cls->parent, name);
+
+    return ret;
+}
+
 int lily_keyword_by_name(char *name)
 {
     int i;
