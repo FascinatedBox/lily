@@ -564,14 +564,12 @@ static uint64_t scan_decimal(lily_lex_state *lexer, int *pos, int *is_integer,
             }
         }
         else if (*new_ch == '.') {
-            if (have_dot == 1)
-                break; /* Assume that this dot belongs to something else. */
-            else if (*(new_ch + 1) == '.')
-                break; /* This is for 'for..in' loops. This allows
-                          for i in 1..5
-                          to work. */
-            else if (*(new_ch + 1) == '@')
-                break; /* Assume a typecast: `10.@(...` and stop. */
+            /* The second check is important for things like '10.@(...',
+               10.to_string, and more. */
+            if (have_dot == 1 ||
+                isdigit(*(new_ch + 1)) == 0)
+                break;
+
             have_dot = 1;
             *is_integer = 0;
         }

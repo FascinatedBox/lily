@@ -77,6 +77,10 @@ Where: File "<str>" at line 1\n""",
      "message": "Test compound ops with a global."
     },
     {
+     "command": """ 10.to_string() """,
+     "message": "Test to_string on a bare integer."
+    },
+    {
      "command": """  10.@(integer)()  """,
      "message": "Failcheck: Bad anonymous call",
      "stderr": """\
