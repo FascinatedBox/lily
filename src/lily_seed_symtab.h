@@ -23,7 +23,7 @@ typedef const struct {
     class_eq_func eq_func;
 } class_seed;
 
-/* Exceptions always have these two properties, and in this order. */
+/* Exception properties. [0] is message, [1] is traceback. */
 static const lily_prop_seed_t traceback =
     {"traceback", NULL,
         {SYM_CLASS_LIST, SYM_CLASS_TUPLE, 2, SYM_CLASS_STRING, SYM_CLASS_INTEGER}};
@@ -145,7 +145,7 @@ class_seed class_seeds[] =
      0,                         /* template_count */
      0,                         /* flags */
      NULL,                      /* parent name */
-     &traceback,                /* property seeds */
+     &message,                  /* property seeds */
      NULL,                      /* setup_func */
      NULL,                      /* gc_marker */
      NULL},                     /* eq_func */
