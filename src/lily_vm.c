@@ -1606,8 +1606,8 @@ static void make_proper_exception_val(lily_vm_state *vm,
     /* This is safe because this function is only called for builtin errors
        which are always direct subclasses of Exception. */
     lily_class *exception_class = raised_class->parent;
-    /* Traceback is always the first property of Exception. */
-    lily_sig *traceback_sig = exception_class->properties->sig;
+    /* Traceback is always the second property of Exception. */
+    lily_sig *traceback_sig = exception_class->properties->next->sig;
 
     lily_value *traceback_val = build_traceback(vm, traceback_sig);
     if (traceback_val == NULL) {

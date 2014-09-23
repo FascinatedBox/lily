@@ -30,7 +30,7 @@ static void make_error(lily_vm_state *vm, char *exception_name,
     message_value->flags = message_reg->flags;
     message_value->sig = message_reg->sig;
 
-    lily_sig *traceback_sig = base_except_class->properties->sig;
+    lily_sig *traceback_sig = base_except_class->properties->next->sig;
     trace_value->value.list = trace_list;
     trace_value->flags = 0;
     trace_value->sig = traceback_sig;
