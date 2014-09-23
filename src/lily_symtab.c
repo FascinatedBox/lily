@@ -687,9 +687,10 @@ static int init_classes(lily_symtab *symtab)
         for (class_iter = symtab->class_chain, i = 0;
              class_iter;
              class_iter = class_iter->next, i++) {
-            if (class_seeds[i].parent_name != NULL) {
+            /* Must use class_iter->id because classes from finish to start. */
+            if (class_seeds[class_iter->id].parent_name != NULL) {
                 class_iter->parent = lily_class_by_name(symtab,
-                        class_seeds[i].parent_name);
+                        class_seeds[class_iter->id].parent_name);
             }
         }
     }
