@@ -402,7 +402,7 @@ static void push_sig(lily_ast_pool *ap, lily_sig *sig)
 }
 
 /*  add_name_to_pool
-    This is called when adding an oo_call tree. It adds the name that will be
+    This is called when adding an oo_access tree. It adds the name that will be
     looked up to the oo_name_pool that will be used later. */
 static void add_name_to_pool(lily_ast_pool *ap, char *name)
 {
@@ -661,12 +661,12 @@ void lily_ast_push_readonly(lily_ast_pool *ap, lily_sym *ro_sym)
     merge_value(ap, a);
 }
 
-void lily_ast_push_oo_call(lily_ast_pool *ap, char *oo_name)
+void lily_ast_push_oo_access(lily_ast_pool *ap, char *oo_name)
 {
     int oo_index = ap->oo_name_pool->pos;
     add_name_to_pool(ap, oo_name);
 
-    AST_ENTERABLE_INIT(a, tree_oo_call)
+    AST_ENTERABLE_INIT(a, tree_oo_access)
     a->oo_pool_index = oo_index;
 
     merge_value(ap, a);

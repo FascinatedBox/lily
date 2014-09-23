@@ -445,10 +445,6 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
     NEED_NEXT_TOK(tk_left_parenth)
 
     lily_ast_push_readonly(parser->ast_pool, (lily_sym *) v);
-    /* TODO: As of right now, the only things that can be accessed like this
-             are functions. So this is safe to do. However, it would be nice
-             to be able to call this. Unfortunately, that requires doing a lot
-             of adjusting to the parser. */
     lily_ast_enter_tree(parser->ast_pool, tree_call);
 }
 
@@ -737,19 +733,25 @@ static void expression_unary(lily_parse_state *parser, int *state)
 }
 
 /*  expression_dot
-    This handles "oo-style" calls: `abc.xyz()`.
+    This handles "oo-style" accesses.
+        Those can be either for a callable member:
+            string x = "abc"
+            abc.concat("def")
+        Or for getting properties of a class:
+            ValueError v = ValueError::new("test")
+            show v.message
     It also handles typecasts: `abc.@(type)`. */
 static void expression_dot(lily_parse_state *parser, int *state)
 {
     lily_lex_state *lex = parser->lex;
     lily_lexer(lex);
     if (lex->token == tk_word) {
-        /* Create a magic oo call tree. The lookup gets deferred until
-           emit-time when the type is known. */
-        lily_ast_push_oo_call(parser->ast_pool, parser->lex->label);
-        lily_ast_enter_tree(parser->ast_pool, tree_call);
-        NEED_NEXT_TOK(tk_left_parenth);
-        *state = ST_WANT_VALUE;
+        /* Create a magic oo access tree and expect an operator. This allows
+           the property to be called or not, important for implementing
+           properties and callables through dot. */
+        lily_ast_push_oo_access(parser->ast_pool, parser->lex->label);
+
+        *state = ST_WANT_OPERATOR;
     }
     else if (lex->token == tk_typecast_parenth) {
         lily_lexer(lex);

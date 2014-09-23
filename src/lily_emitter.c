@@ -1185,6 +1185,58 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     ast->result = right_sym;
 }
 
+/*  eval_oo_assign
+    This is called to handle assignments when the left side is of type
+    tree_oo_access. Example:
+        ValueError v = ValueError::new("test")
+        v.message = "test\n" */
+static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
+{
+    eval_tree(emit, ast->left);
+
+    /* Make sure that it was a property access, and not a class member access.
+       The latter is not reassignable.*/
+    if (ast->left->result->flags & SYM_TYPE_VAR) {
+        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+                "Left side of assignment is not assignable.\n", "");
+    }
+
+    if (ast->right->tree_type != tree_local_var)
+        eval_tree(emit, ast->right);
+
+    lily_sig *left_sig = ast->left->result->sig;
+    lily_sig *right_sig = ast->right->result->sig;
+
+    if (left_sig != right_sig && left_sig->cls->id == SYM_CLASS_ANY) {
+        emit->raiser->line_adjust = ast->line_num;
+        bad_assign_error(emit, ast->line_num, left_sig,
+                         right_sig);
+    }
+
+    lily_literal *lit = lily_get_integer_literal(emit->symtab,
+            ast->left->oo_property_index);
+    lily_storage *lit_result = get_storage(emit, lit->sig,
+            ast->line_num);
+
+    /* Don't use lookup_class->sig, in case the class doesn't have a
+       default signature. */
+
+    write_4(emit,
+            o_get_const,
+            ast->line_num,
+            lit->reg_spot,
+            lit_result->reg_spot);
+
+    write_5(emit,
+            o_set_item,
+            ast->line_num,
+            ast->left->arg_start->result->reg_spot,
+            lit_result->reg_spot,
+            ast->right->result->reg_spot);
+
+    ast->result = (lily_sym *)ast->right;
+}
+
 static int get_package_index(lily_emit_state *emit, lily_ast *ast)
 {
     lily_package_val *pval = ast->arg_start->result->value.package;
@@ -2108,16 +2160,16 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
                     "Cannot anonymously call resulting type '%T'.\n",
                     ast->result->sig);
 
-        if (ast->arg_start->tree_type != tree_oo_call) {
+        if (ast->arg_start->tree_type != tree_oo_access) {
             /* Then drop it from the arg list, since it's not an arg. */
             ast->arg_start = ast->arg_start->next_arg;
             ast->args_collected--;
         }
         else {
-            /* Fix the oo call to return the first arg it had, since that's the
-               call's first value. It's really important that check_call_args
-               get all the args, because the first is the most likely to have a
-               template parameter. */
+            /* Fix the oo access to return the first arg it had, since that's
+               the call's first value. It's really important that
+               check_call_args get all the args, because the first is the most
+               likely to have a template parameter. */
             ast->arg_start->result = ast->arg_start->arg_start->result;
         }
     }
@@ -2240,35 +2292,76 @@ static void eval_package(lily_emit_state *emit, lily_ast *ast)
     eval_package_tree_for_op(emit, ast, 0, NULL);
 }
 
-/*  eval_oo_call
-    This is a 'abc.xyz' sort of call. This ast's arg_start is the 'abc' part
-    of the call. Eval this, then use the resulting signature and the ast's
-    oo_pool_index to do a lookup (for the xyz part). This yields the found var
-    as a result. */
-static void eval_oo_call(lily_emit_state *emit, lily_ast *ast)
+/*  eval_oo_access
+    This is an access like 'abc.xyz'. There are two fairly different cases for
+    this:
+    1: The given class has a method named xyz. This is checked first.
+       Examples: 'string.concat' and 'integer.to_string'.
+    2: The given class has a property named xyz. In this case, the value is a
+       class which is subscripted for the right property. */
+static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
 {
-    /* This gets evaluated twice: The first time by eval_call to determine that
-       the oo lookup is correct, and again when checking arguments so that
-       template info is properly populated. Do this so the tree doesn't do a
-       double lookup. */
+    /* If this tree is to be called, it will be evaluated twice: First by
+       eval_call to figure out what to call, and then by check_call_args since
+       the result is the first argument. */
     if (ast->result)
         return;
 
     if (ast->arg_start->tree_type != tree_local_var)
         eval_tree(emit, ast->arg_start);
 
+    lily_class *lookup_class = ast->arg_start->result->sig->cls;
     char *oo_name = emit->oo_name_pool->str + ast->oo_pool_index;
     lily_var *var = lily_find_class_callable(emit->symtab,
-            ast->arg_start->result->sig->cls, oo_name);
+            lookup_class, oo_name);
 
-    if (var == NULL) {
-        lily_raise(emit->raiser, lily_SyntaxError,
-                "Class %s has no callable named %s.\n",
-                ast->arg_start->result->sig->cls->name,
-                oo_name);
+    if (var)
+        ast->result = (lily_sym *)var;
+    else {
+        lily_prop_entry *prop = lily_find_property(emit->symtab,
+                lookup_class, oo_name);
+
+        if (prop == NULL) {
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "Class %s has no callable or property named %s.\n",
+                    lookup_class->name, oo_name);
+        }
+
+        /* oo_assign also needs this. Might as well set it for all. */
+        ast->oo_property_index = prop->id;
+        lily_storage *result = get_storage(emit, prop->sig,
+                ast->line_num);
+
+        /* Hack: If the parent is really oo_assign, then don't load the result
+                 into a register. The parent tree just wants to know the
+                 resulting type and the property index. */
+        if (ast->parent == NULL ||
+            ast->parent->tree_type != tree_binary ||
+            ast->parent->op < expr_assign) {
+            lily_literal *lit = lily_get_integer_literal(emit->symtab, prop->id);
+            lily_storage *lit_result = get_storage(emit, lit->sig,
+                    ast->line_num);
+            /* Don't use lookup_class->sig, in case the class doesn't have a
+               default signature. */
+
+            ast->result = (lily_sym *)result;
+
+            write_4(emit,
+                    o_get_const,
+                    ast->line_num,
+                    lit->reg_spot,
+                    lit_result->reg_spot);
+
+            write_5(emit,
+                    o_get_item,
+                    ast->line_num,
+                    ast->arg_start->result->reg_spot,
+                    lit_result->reg_spot,
+                    result->reg_spot);
+        }
+
+        ast->result = (lily_sym *)result;
     }
-
-    ast->result = (lily_sym *)var;
 }
 
 /*  eval_isnil
@@ -2310,12 +2403,15 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast)
     else if (ast->tree_type == tree_binary) {
         if (ast->op >= expr_assign) {
             if (ast->left->tree_type != tree_subscript &&
-                ast->left->tree_type != tree_package)
+                ast->left->tree_type != tree_package &&
+                ast->left->tree_type != tree_oo_access)
                 eval_assign(emit, ast);
             else if (ast->left->tree_type == tree_package)
                 eval_package_assign(emit, ast);
             else if (ast->left->tree_type == tree_subscript)
                 eval_sub_assign(emit, ast);
+            else if (ast->left->tree_type == tree_oo_access)
+                eval_oo_assign(emit, ast);
         }
         else if (ast->op == expr_logical_or || ast->op == expr_logical_and)
             eval_logical_op(emit, ast);
@@ -2353,8 +2449,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast)
         eval_package(emit, ast);
     else if (ast->tree_type == tree_typecast)
         eval_typecast(emit, ast);
-    else if (ast->tree_type == tree_oo_call)
-        eval_oo_call(emit, ast);
+    else if (ast->tree_type == tree_oo_access)
+        eval_oo_access(emit, ast);
     else if (ast->tree_type == tree_isnil)
         eval_isnil(emit, ast);
 }
