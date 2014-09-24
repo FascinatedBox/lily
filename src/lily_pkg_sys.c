@@ -83,7 +83,7 @@ int lily_pkg_sys_init(lily_symtab *symtab, int argc, char **argv)
     lily_var *bound_var = lily_try_new_var(symtab, package_sig, "sys", 0);
 
     if (bound_var) {
-        lily_var *save_top = symtab->var_top;
+        lily_var *save_chain = symtab->var_chain;
         int save_spot = symtab->next_register_spot;
 
         bind_stringlist(symtab, argc, argv, &ok);
@@ -98,14 +98,13 @@ int lily_pkg_sys_init(lily_symtab *symtab, int argc, char **argv)
             }
             else {
                 int i = 0;
-                lily_var *var_iter = save_top->next;
-                while (var_iter) {
+                lily_var *var_iter = symtab->var_chain;
+                while (var_iter != save_chain) {
                     package_vars[i] = var_iter;
                     i++;
                     var_iter = var_iter->next;
                 }
-                symtab->var_top = save_top;
-                save_top->next = NULL;
+                symtab->var_chain = save_chain;
                 symtab->next_register_spot = save_spot;
 
                 pval->refcount = 1;

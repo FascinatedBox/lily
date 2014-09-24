@@ -148,7 +148,7 @@ static lily_var *bind_hash_str_str_var(lily_symtab *symtab, char *name)
 
 static void make_package(int *ok, lily_parse_state *parser,
         lily_var *package_var, int var_count, int register_save,
-        lily_var *var_save)
+        lily_var *save_chain)
 {
     lily_symtab *symtab = parser->symtab;
     lily_package_val *pval = lily_malloc(sizeof(lily_package_val));
@@ -160,14 +160,13 @@ static void make_package(int *ok, lily_parse_state *parser,
     }
     else {
         int i = 0;
-        lily_var *var_iter = var_save->next;
-        while (var_iter) {
+        lily_var *var_iter = parser->symtab->var_chain;
+        while (var_iter != save_chain) {
             package_vars[i] = var_iter;
             i++;
             var_iter = var_iter->next;
         }
-        symtab->var_top = var_save;
-        var_save->next = NULL;
+        symtab->var_chain = save_chain;
         symtab->next_register_spot = register_save;
 
         pval->refcount = 1;
@@ -348,7 +347,7 @@ static int apache_bind_server(lily_parse_state *parser, request_rec *r)
     lily_sig *package_sig = lily_try_sig_for_class(symtab, package_cls);
     lily_var *bound_var = lily_try_new_var(symtab, package_sig, "server", 0);
     if (bound_var) {
-        lily_var *save_top = symtab->var_top;
+        lily_var *save_chain = symtab->var_chain;
         int save_spot = symtab->next_register_spot;
         int count = 0;
 
@@ -366,7 +365,7 @@ static int apache_bind_server(lily_parse_state *parser, request_rec *r)
 
         if (count != -1) {
             int ok = 1;
-            make_package(&ok, parser, bound_var, count, save_spot, save_top);
+            make_package(&ok, parser, bound_var, count, save_spot, save_chain);
             if (ok == 0)
                 ret = 0;
         }
