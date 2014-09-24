@@ -126,12 +126,8 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
         var->function_depth = -1;
     }
 
-    if (symtab->var_start == NULL)
-        symtab->var_start = var;
-    else
-        symtab->var_top->next = var;
-
-    symtab->var_top = var;
+    var->next = symtab->var_chain;
+    symtab->var_chain = var;
 
     return var;
 }
@@ -516,7 +512,7 @@ static int call_class_setups(lily_symtab *symtab)
 /*  read_global_seeds
     Symtab init, stage 5
     This initializes Lily's builtin functions through init_func_seed which
-    automatically adds the seeds to var_top where they should be (since they're
+    automatically adds the seeds to var_chain where they should be (since they're
     globals).
     All global functions are always loaded because the seeds don't have a
     shorthash, and seeds can't be modified either. So lily_var_by_name would
@@ -561,15 +557,9 @@ static int init_lily_main(lily_symtab *symtab)
     new_sig->template_pos = 0;
     new_sig->flags = 0;
 
-    lily_var *var = lily_try_new_var(symtab, new_sig, "__main__", 0);
+    symtab->main_var = lily_try_new_var(symtab, new_sig, "__main__", 0);
 
-    if (var == NULL)
-        return 0;
-
-    /* The emitter will mark __main__ as non-nil when it's entered. Until then,
-       leave it alone because it doesn't have a value. */
-
-    return 1;
+    return (symtab->main_var != NULL);
 }
 
 /*  init_literals
@@ -715,8 +705,8 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
     symtab->next_register_spot = 0;
     symtab->next_lit_spot = 0;
     symtab->next_function_spot = 0;
-    symtab->var_start = NULL;
-    symtab->var_top = NULL;
+    symtab->var_chain = NULL;
+    symtab->main_var = NULL;
     symtab->old_function_chain = NULL;
     symtab->class_chain = NULL;
     symtab->lit_start = NULL;
@@ -843,21 +833,21 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
         class_iter = class_iter->next;
     }
 
-    lily_function_val *main_function;
+    lily_function_val *main_vartion;
 
-    if (symtab->var_start &&
-        ((symtab->var_start->flags & VAL_IS_NIL) == 0))
-        main_function = symtab->var_start->value.function;
+    if (symtab->main_var &&
+        ((symtab->main_var->flags & VAL_IS_NIL) == 0))
+        main_vartion = symtab->main_var->value.function;
     else
-        main_function = NULL;
+        main_vartion = NULL;
 
-    if (symtab->var_start != NULL)
-        free_vars(symtab->var_start);
+    if (symtab->var_chain != NULL)
+        free_vars(symtab->var_chain);
     if (symtab->old_function_chain != NULL)
         free_vars(symtab->old_function_chain);
 
-    if (main_function != NULL)
-        free_lily_main(main_function);
+    if (main_vartion != NULL)
+        free_lily_main(main_vartion);
 }
 
 /*  lily_free_symtab
@@ -1080,16 +1070,12 @@ lily_var *lily_find_class_callable(lily_symtab *symtab, lily_class *cls,
         const lily_func_seed *seed = cls->seed_table;
         while (seed) {
             if (strcmp(seed->name, name) == 0) {
-                lily_var *save_top = symtab->var_top;
-
                 iter = init_func_seed(symtab, cls, seed);
                 if (iter == NULL)
                     lily_raise_nomem(symtab->raiser);
                 else {
-                    /* The new var is added to symtab's vars. Take it off of
-                       there since this var shouldn't be globally reachable.
-                       __main__ is the first var, so this shouldn't have to
-                       check for var_top == var_start. */
+                    /* It was added to symtab->var_chain, so pull it from
+                       there and add it to class callables. */
                     if (cls->call_start == NULL)
                         cls->call_start = iter;
 
@@ -1100,8 +1086,8 @@ lily_var *lily_find_class_callable(lily_symtab *symtab, lily_class *cls,
 
                     /* This is a builtin, so fix the line number to 0. */
                     iter->line_num = 0;
-                    symtab->var_top = save_top;
-                    symtab->var_top->next = NULL;
+                    symtab->var_chain = symtab->var_chain->next;
+                    iter->next = NULL;
                 }
                 break;
             }
@@ -1178,7 +1164,7 @@ lily_var *lily_scoped_var_by_name(lily_symtab *symtab, lily_var *scope_chain,
 
 lily_var *lily_var_by_name(lily_symtab *symtab, char *name)
 {
-    lily_var *var = symtab->var_start;
+    lily_var *var = symtab->var_chain;
     uint64_t shorthash = shorthash_for_name(name);
 
     while (var != NULL) {
@@ -1194,15 +1180,15 @@ lily_var *lily_var_by_name(lily_symtab *symtab, char *name)
 
 /*  lily_hide_block_vars
     This function is called by emitter when a block goes out of scope. Vars
-    after 'start' are now out of scope. But...don't delete them because the
+    until 'var_stop' are now out of scope. But...don't delete them because the
     emitter will need to know their type info later. */
-void lily_hide_block_vars(lily_symtab *symtab, lily_var *start)
+void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
 {
-    start = start->next;
+    lily_var *var_iter = symtab->var_chain;
 
-    while (start) {
-        start->flags |= SYM_OUT_OF_SCOPE;
-        start = start->next;
+    while (var_iter != var_stop) {
+        var_iter->flags |= SYM_OUT_OF_SCOPE;
+        var_iter = var_iter->next;
     }
 }
 

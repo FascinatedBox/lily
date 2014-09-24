@@ -5,10 +5,9 @@
 # include "lily_raiser.h"
 
 typedef struct {
-    /* The first symbol in the table (for itering from). This is also __main__,
-       since __main__ is the first symbol. */
-    lily_var *var_start;
-    lily_var *var_top;
+    lily_var *var_chain;
+
+    lily_var *main_var;
 
     /* When a function has functions declared inside of it, those functions
        fall out of scope when the other function goes out of scope. The inner

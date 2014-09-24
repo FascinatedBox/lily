@@ -710,17 +710,18 @@ static lily_sig *build_untemplated_sig(lily_emit_state *emit, lily_sig *sig)
     Add info for a linked-list of vars to the given register info. Functions do
     not get a register (VAR_IS_READONLY), so don't add them. */
 static void add_var_chain_to_info(lily_emit_state *emit,
-        lily_register_info *info, char *class_name, lily_var *var)
+        lily_register_info *info, char *class_name, lily_var *from_var,
+        lily_var *to_var)
 {
-    while (var) {
-        if ((var->flags & VAR_IS_READONLY) == 0) {
-            info[var->reg_spot].sig = var->sig;
-            info[var->reg_spot].name = var->name;
-            info[var->reg_spot].class_name = class_name;
-            info[var->reg_spot].line_num = var->line_num;
+    while (from_var != to_var) {
+        if ((from_var->flags & VAR_IS_READONLY) == 0) {
+            info[from_var->reg_spot].sig = from_var->sig;
+            info[from_var->reg_spot].name = from_var->name;
+            info[from_var->reg_spot].class_name = class_name;
+            info[from_var->reg_spot].line_num = from_var->line_num;
         }
 
-        var = var->next;
+        from_var = from_var->next;
     }
 }
 
@@ -752,7 +753,6 @@ static void finalize_function_val(lily_emit_state *emit,
         lily_block *function_block)
 {
     int register_count = emit->symtab->next_register_spot;
-    lily_var *var_iter;
     lily_storage *storage_iter = function_block->storage_start;
 
     lily_register_info *info;
@@ -767,22 +767,23 @@ static void finalize_function_val(lily_emit_state *emit,
         /* This is called directly from parser, so don't set an adjust. */
         lily_raise_nomem(emit->raiser);
 
-    var_iter = function_block->function_var;
+    lily_var *var_stop = function_block->function_var;
 
     /* Don't include functions inside of themselves... */
-    if (emit->function_depth > 1)
-        var_iter = var_iter->next;
+    if (emit->function_depth == 1)
+        var_stop = var_stop->next;
     /* else we're in __main__, which does include itself as an arg so it can be
        passed to show and other neat stuff. */
 
-    add_var_chain_to_info(emit, info, NULL, var_iter);
+    add_var_chain_to_info(emit, info, NULL, emit->symtab->var_chain, var_stop);
     add_storage_chain_to_info(info, function_block->storage_start);
 
     if (emit->function_depth > 1) {
         /* todo: Reuse the var shells instead of destroying. Seems petty, but
                  malloc isn't cheap if there are a lot of vars. */
+        lily_var *var_iter = emit->symtab->var_chain;
         lily_var *var_temp;
-        while (var_iter) {
+        while (var_iter != var_stop) {
             var_temp = var_iter->next;
             if ((var_iter->flags & VAR_IS_READONLY) == 0)
                 lily_free(var_iter);
@@ -835,8 +836,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     if (block->prev->storage_start == NULL)
         block->prev->storage_start = emit->unused_storage_start;
 
-    emit->symtab->var_top = block->function_var;
-    block->function_var->next = NULL;
+    emit->symtab->var_chain = block->function_var;
     emit->symtab->function_depth--;
     emit->symtab->next_register_spot = block->save_register_spot;
     emit->top_function = v->value.function;
@@ -2486,7 +2486,7 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
                     block_name);
 
         lily_var *v = emit->current_block->var_start;
-        if (v->next != NULL)
+        if (v != emit->symtab->var_chain)
             lily_hide_block_vars(emit->symtab, v);
     }
     else if (new_type == BLOCK_TRY_EXCEPT) {
@@ -2893,7 +2893,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         new_block = emit->current_block->next;
 
     new_block->block_type = block_type;
-    new_block->var_start = emit->symtab->var_top;
+    new_block->var_start = emit->symtab->var_chain;
 
     if (block_type != BLOCK_FUNCTION) {
         new_block->patch_start = emit->patch_pos;
@@ -2907,7 +2907,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
             new_block->loop_start = emit->current_block->loop_start;
     }
     else {
-        lily_var *v = emit->symtab->var_top;
+        lily_var *v = emit->symtab->var_chain;
         v->value.function = lily_try_new_native_function_val(v->name);
         if (v->value.function == NULL)
             lily_raise_nomem(emit->raiser);

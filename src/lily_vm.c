@@ -748,7 +748,7 @@ static void copy_functions(lily_vm_state *vm)
 
     int need = count - vm->function_count;
 
-    copy_vars_to_functions(functions, symtab->var_start, &need);
+    copy_vars_to_functions(functions, symtab->var_chain, &need);
     copy_vars_to_functions(functions, symtab->old_function_chain, &need);
     if (need != 0) {
         lily_class *class_iter = symtab->class_chain;
@@ -1847,7 +1847,6 @@ void lily_vm_foreign_load_by_val(lily_vm_state *vm, int index,
 
 static void seed_registers(lily_vm_state *vm, lily_function_val *f, int start)
 {
-    lily_value **vm_regs = vm->vm_regs;
     lily_register_info *info = f->reg_info;
     int max = start + f->reg_count;
     int i;
@@ -2025,7 +2024,7 @@ uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
     * Set stack entry 0 (__main__'s entry). */
 void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
 {
-    lily_var *main_var = symtab->var_start;
+    lily_var *main_var = symtab->main_var;
     lily_function_val *main_function = main_var->value.function;
     int i;
     lily_var *prep_var_start = vm->prep_var_start;
@@ -2084,7 +2083,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     load_vm_regs(vm_regs, prep_var_start);
 
     /* Load only the new globals next time. */
-    vm->prep_var_start = symtab->var_top;
+    vm->prep_var_start = symtab->var_chain;
     /* Zap only the slots that new globals need next time. */
     vm->prep_id_start = i;
 

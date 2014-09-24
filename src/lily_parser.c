@@ -76,13 +76,13 @@ lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
         parser->lex == NULL || parser->emit == NULL || parser->symtab == NULL ||
         parser->ast_pool == NULL || parser->vm == NULL ||
         lily_emit_try_enter_main(parser->emit,
-                                 parser->symtab->var_start) == 0) {
+                                 parser->symtab->main_var) == 0) {
         lily_free_parse_state(parser);
 
         return NULL;
     }
 
-    parser->vm->main = parser->symtab->var_start;
+    parser->vm->main = parser->symtab->main_var;
     parser->vm->symtab = parser->symtab;
     parser->symtab->lex_linenum = &parser->lex->line_num;
     parser->ast_pool->lex_linenum = &parser->lex->line_num;
