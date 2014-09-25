@@ -13,6 +13,7 @@ typedef struct lily_block_ {
     lily_var *function_var;
     int save_register_spot;
     lily_storage *storage_start;
+    lily_class *class_entry;
 
     struct lily_block_ *next;
     struct lily_block_ *prev;
@@ -31,6 +32,9 @@ typedef struct {
     lily_function_val *top_function;
     lily_sig *top_function_ret;
 
+    lily_class *current_class;
+    lily_storage *self_storage;
+
     uint16_t *lex_linenum;
 
     lily_storage *all_storage_start;
@@ -47,16 +51,17 @@ typedef struct {
     int expr_num;
 } lily_emit_state;
 
-# define BLOCK_IF         0
-# define BLOCK_IF_ELIF    1
-# define BLOCK_IF_ELSE    2
-# define BLOCK_ANDOR      3
-# define BLOCK_WHILE      4
-# define BLOCK_DO_WHILE   5
-# define BLOCK_FOR_IN     6
-# define BLOCK_TRY        7
-# define BLOCK_TRY_EXCEPT 8
-# define BLOCK_FUNCTION   9
+# define BLOCK_IF          0
+# define BLOCK_IF_ELIF     1
+# define BLOCK_IF_ELSE     2
+# define BLOCK_ANDOR       3
+# define BLOCK_WHILE       4
+# define BLOCK_DO_WHILE    5
+# define BLOCK_FOR_IN      6
+# define BLOCK_TRY         7
+# define BLOCK_TRY_EXCEPT  8
+# define BLOCK_CLASS       9
+# define BLOCK_FUNCTION   10
 
 void lily_emit_eval_condition(lily_emit_state *, lily_ast_pool *);
 void lily_emit_eval_expr_to_var(lily_emit_state *, lily_ast_pool *,
@@ -78,6 +83,8 @@ void lily_emit_except(lily_emit_state *, lily_class *, lily_var *, int);
 void lily_emit_raise(lily_emit_state *, lily_ast *);
 
 void lily_emit_show(lily_emit_state *, lily_ast *);
+
+void lily_emit_class_init(lily_emit_state *);
 
 void lily_emit_vm_return(lily_emit_state *);
 void lily_reset_main(lily_emit_state *);

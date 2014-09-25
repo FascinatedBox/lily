@@ -685,6 +685,7 @@ static int init_classes(lily_symtab *symtab)
         }
     }
 
+    symtab->next_class_id = i + 1;
     return ret;
 }
 
@@ -878,6 +879,10 @@ void lily_free_symtab(lily_symtab *symtab)
 
     lily_class *class_iter = symtab->class_chain;
     while (class_iter) {
+        /* todo: Probably a better way to do this... */
+        if (class_iter->id > SYM_CLASS_FORMATERROR)
+            lily_free(class_iter->name);
+
         lily_class *class_next = class_iter->next;
         lily_free(class_iter);
         class_iter = class_next;
@@ -1284,4 +1289,91 @@ int lily_check_right_inherits_or_is(lily_class *left, lily_class *right)
         ret = 1;
 
     return ret;
+}
+
+/*  lily_add_class_property
+    Add a new property to the property chain of a class.
+    On success: Returns the property, in case that's useful.
+    On failure: NULL is returned. */
+lily_prop_entry *lily_add_class_property(lily_class *cls, lily_sig *sig,
+        char *name)
+{
+    lily_prop_entry *entry = lily_malloc(sizeof(lily_prop_entry));
+    char *entry_name = lily_malloc(strlen(name) + 1);
+    if (entry == NULL || entry_name == NULL) {
+        lily_free(entry);
+        lily_free(entry_name);
+        return NULL;
+    }
+
+    if (cls->properties)
+        entry->id = cls->properties->id + 1;
+    else
+        entry->id = 0;
+
+    strcpy(entry_name, name);
+
+    entry->name = entry_name;
+    entry->sig = sig;
+    entry->name_shorthash = shorthash_for_name(entry_name);
+
+    entry->next = cls->properties;
+    cls->properties = entry;
+
+    return entry;
+}
+
+/*  lily_new_class
+    This function creates a new user class of the given name and adds it to
+    the current chain of classes. This creates a default signature for the
+    class that is empty, and gives basic info to the class.
+    Properties can be added later via lily_add_class_property.
+    On success: Returns the newly-created class.
+    On failure: lily_raise_nomem is called. */
+lily_class *lily_new_class(lily_symtab *symtab, char *name)
+{
+    lily_class *new_class = lily_malloc(sizeof(lily_class));
+    char *name_copy = lily_malloc(strlen(name) + 1);
+    lily_sig *default_sig = lily_malloc(sizeof(lily_sig));
+
+    if (new_class == NULL || name_copy == NULL || default_sig == NULL) {
+        lily_free(new_class);
+        lily_free(name_copy);
+        lily_free(default_sig);
+        lily_raise_nomem(symtab->raiser);
+    }
+
+    default_sig->cls = new_class;
+    default_sig->template_pos = 0;
+    default_sig->siglist = NULL;
+    default_sig->siglist_size = 0;
+    default_sig->flags = 0;
+    default_sig->next = symtab->root_sig;
+    symtab->root_sig = default_sig;
+
+    strcpy(name_copy, name);
+
+    new_class->flags = 0;
+    new_class->is_refcounted = 1;
+    new_class->sig = default_sig;
+    new_class->parent = NULL;
+    new_class->shorthash = shorthash_for_name(name);
+    new_class->name = name_copy;
+    new_class->template_count = 0;
+    new_class->properties = NULL;
+    new_class->prop_start = 0;
+    new_class->seed_table = NULL;
+    new_class->call_start = NULL;
+    new_class->call_top = NULL;
+    new_class->setup_func = NULL;
+    new_class->gc_marker = NULL;
+    new_class->eq_func = lily_instance_eq;
+
+    new_class->id = symtab->next_class_id;
+    symtab->next_class_id++;
+
+    new_class->next = symtab->class_chain;
+    symtab->class_chain = new_class;
+
+    return new_class;
 }

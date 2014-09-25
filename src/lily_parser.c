@@ -36,6 +36,9 @@
    for collecting a function that may have named arguments. */
 #define CV_TOPLEVEL   0x2
 
+/* This is for collecting the opening part of a class declaration. */
+#define CV_CLASS_INIT 0x4
+
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
 if (lex->token != expected) \
@@ -224,8 +227,14 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
         if ((parser->sig_stack_pos + 2) == parser->sig_stack_size)
             grow_sig_stack(parser);
 
-        /* No value returned by default. */
-        parser->sig_stack[parser->sig_stack_pos] = NULL;
+        if (flags & CV_CLASS_INIT)
+            /* This is a constructor, so return an instance of the most
+               recently declared class (this one!) */
+            parser->sig_stack[parser->sig_stack_pos] =
+                    parser->symtab->class_chain->sig;
+        else
+            parser->sig_stack[parser->sig_stack_pos] = NULL;
+
         parser->sig_stack_pos++;
 
         end_token = tk_right_parenth;
@@ -273,7 +282,8 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
         }
         else if (lex->token == tk_arrow) {
             if (state == TC_DEMAND_VALUE || have_arrow ||
-                end_token == tk_right_bracket)
+                end_token == tk_right_bracket ||
+                flags & CV_CLASS_INIT)
                 state = TC_BAD_TOKEN;
             else if (state == TC_WANT_VALUE || state == TC_WANT_OPERATOR)
                 state = TC_DEMAND_VALUE;
@@ -386,12 +396,23 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
 
         if (flags & CV_MAKE_VARS) {
             if (flags & CV_TOPLEVEL) {
-                call_var = get_named_var(parser, call_sig,
-                        VAR_IS_READONLY);
-                /* This creates a function value to hold new code, so it's
-                   essential that call_var have a function signature...or the
-                   symtab may not free the function value. */
-                lily_emit_enter_block(parser->emit, BLOCK_FUNCTION);
+                if (flags & CV_CLASS_INIT) {
+                    call_var = lily_try_new_var(parser->symtab, call_sig,
+                            "new", VAR_IS_READONLY);
+                    if (call_var == NULL)
+                        lily_raise_nomem(parser->raiser);
+
+                    lily_emit_enter_block(parser->emit, BLOCK_CLASS);
+                    lily_lexer(lex);
+                }
+                else {
+                    call_var = get_named_var(parser, call_sig,
+                            VAR_IS_READONLY);
+                    /* This creates a function value to hold new code, so it's
+                       essential that call_var have a function signature...or
+                       the symtab may not free the function value. */
+                    lily_emit_enter_block(parser->emit, BLOCK_FUNCTION);
+                }
             }
             else
                 call_var = get_named_var(parser, call_sig, 0);
@@ -968,6 +989,7 @@ static void isnil_handler(lily_parse_state *, int);
 static void try_handler(lily_parse_state *, int);
 static void except_handler(lily_parse_state *, int);
 static void raise_handler(lily_parse_state *, int);
+static void class_handler(lily_parse_state *, int);
 
 typedef void (keyword_handler)(lily_parse_state *, int);
 
@@ -989,7 +1011,8 @@ static keyword_handler *handlers[] = {
     isnil_handler,
     try_handler,
     except_handler,
-    raise_handler
+    raise_handler,
+    class_handler
 };
 
 /*  statement
@@ -1484,6 +1507,27 @@ static void raise_handler(lily_parse_state *parser, int multi)
     expression(parser);
     lily_emit_raise(parser->emit, parser->ast_pool->root);
     lily_ast_reset_pool(parser->ast_pool);
+}
+
+static void class_handler(lily_parse_state *parser, int multi)
+{
+    lily_lex_state *lex = parser->lex;
+    NEED_CURRENT_TOK(tk_word);
+
+    lily_class *lookup_class = lily_class_by_name(parser->symtab, lex->label);
+    if (lookup_class != NULL) {
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Class '%s' has already been declared.\n");
+    }
+
+    lily_new_class(parser->symtab, lex->label);
+
+    lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_FUNCTION);
+    collect_var_sig(parser, cls, CV_TOPLEVEL | CV_MAKE_VARS | CV_CLASS_INIT);
+    lily_emit_class_init(parser->emit);
+
+    NEED_CURRENT_TOK(tk_left_curly)
+    lily_lexer(lex);
 }
 
 /*  parser_loop

@@ -330,6 +330,8 @@ typedef enum {
        is done to see if the any contains a nil value. */
     o_isnil,
 
+    o_new_instance,
+
     /* Return from vm:
        This is a special opcode used to leave the vm. It does not take any
        values. This is written at the end of __main__. */
