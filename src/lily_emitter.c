@@ -73,6 +73,7 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
     s->patch_size = 4;
     s->function_depth = 0;
 
+    s->current_class = NULL;
     s->raiser = raiser;
     s->expr_num = 1;
 
@@ -816,15 +817,24 @@ static void finalize_function_val(lily_emit_state *emit,
 
 static void leave_function(lily_emit_state *emit, lily_block *block)
 {
-    if (emit->top_function_ret == NULL)
-        /* Write an implicit 'return' at the end of a function claiming to not
-           return a value. This saves the user from having to write an explicit
-           'return'. */
-        write_2(emit, o_return_noval, *emit->lex_linenum);
-    else
-        /* Ensure that if the function does not raise a value that an error is
-           raised at vm-time. */
-        write_2(emit, o_return_expected, *emit->lex_linenum);
+    if (emit->current_block->class_entry == NULL) {
+        if (emit->top_function_ret == NULL)
+            /* Write an implicit 'return' at the end of a function claiming to not
+               return a value. This saves the user from having to write an explicit
+               'return'. */
+            write_2(emit, o_return_noval, *emit->lex_linenum);
+        else
+            /* Ensure that if the function does not raise a value that an error is
+               raised at vm-time. */
+            write_2(emit, o_return_expected, *emit->lex_linenum);
+    }
+    else {
+        /* Constructors always return self. */
+        write_3(emit,
+                o_return_val,
+                *emit->lex_linenum,
+                emit->self_storage->reg_spot);
+    }
 
     finalize_function_val(emit, block);
 
@@ -836,7 +846,24 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     if (block->prev->storage_start == NULL)
         block->prev->storage_start = emit->unused_storage_start;
 
-    emit->symtab->var_chain = block->function_var;
+    /* If this function was the ::new for a class, move it over into that class. */
+    if (emit->current_block->class_entry) {
+        lily_class *cls = emit->current_class;
+        if (cls->call_start == NULL) {
+            cls->call_start = block->function_var;
+            cls->call_top = block->function_var;
+        }
+        else
+            cls->call_top->next = block->function_var;
+
+        emit->symtab->var_chain = block->function_var->next;
+        block->function_var->next = NULL;
+
+        emit->current_class = NULL;
+    }
+    else
+        emit->symtab->var_chain = block->function_var;
+
     emit->symtab->function_depth--;
     emit->symtab->next_register_spot = block->save_register_spot;
     emit->top_function = v->value.function;
@@ -2780,6 +2807,84 @@ void lily_emit_show(lily_emit_state *emit, lily_ast *ast)
     write_4(emit, o_show, ast->line_num, is_global, ast->result->reg_spot);
 }
 
+/*  lily_emit_class_init
+    This is called at the opening of a new class, before any user code. This
+    writes an initialization for the hidden self variable. */
+void lily_emit_class_init(lily_emit_state *emit)
+{
+    lily_class *cls = emit->current_class;
+
+    /* Since variables are added as the top of the symtab's var chain, the
+       parameters are in reverse order. Before doing anything else, reverse
+       this order.
+       Consider: 'class Point(integer x, integer y) { integer z }'
+       Without: x: 1, y: 0, z: 2
+       With:    x: 0, y: 1, z: 2 */
+    lily_var *var_iter = emit->symtab->var_chain;
+    lily_var *var_stop = emit->current_block->var_start;
+    lily_var *reverse_start = NULL;
+    lily_var *reverse_top = NULL;
+    while (var_iter != var_stop) {
+        lily_var *next = var_iter->next;
+        if (reverse_start == NULL) {
+            reverse_start = var_iter;
+            reverse_top = var_iter;
+            var_iter->next = NULL;
+        }
+        else {
+            var_iter->next = reverse_top;
+            reverse_top = var_iter;
+        }
+
+        var_iter = next;
+    }
+
+    /* Relink to the symtab, then add the properties in the right order. */
+    reverse_start->next = emit->current_block->var_start;
+    emit->symtab->var_chain = reverse_top;
+    var_iter = emit->symtab->var_chain;
+
+    while (var_iter != var_stop) {
+        lily_prop_entry *entry = lily_add_class_property(cls, var_iter->sig,
+                var_iter->name);
+        if (entry == NULL)
+            lily_raise_nomem(emit->raiser);
+
+        var_iter = var_iter->next;
+    }
+
+    int instance_size;
+    if (emit->current_class->properties)
+        instance_size = emit->current_class->properties->id + 1;
+    else
+        instance_size = 0;
+
+    /* Warning: This works for now because user-defined classes do not include
+                generics/other complicated stuff. */
+    lily_storage *self = get_storage(emit, emit->current_class->sig,
+            *emit->lex_linenum);
+
+    /* Create an instance with initial values for all properties that are
+       currently known. Any unknown properties are set to nil and will later
+       get filled in as the properties are available. */
+    lily_function_val *f = emit->top_function;
+    write_prep(emit, 4 + instance_size);
+
+    int i;
+    f->code[f->pos  ] = o_new_instance;
+    f->code[f->pos+1] = *emit->lex_linenum;
+    f->code[f->pos+2] = instance_size;
+    for (i = 0, var_iter = emit->symtab->var_chain;
+         i < instance_size;
+         i++, var_iter = var_iter->next) {
+        f->code[f->pos+3+i] = var_iter->reg_spot;
+    }
+    f->code[f->pos+3+i] = self->reg_spot;
+    f->pos += 4 + i;
+
+    emit->self_storage = self;
+}
+
 /*  lily_emit_try
     This should be called after adding a TRY block. This registers a try and
     mentions the line in which it starts (for debug).
@@ -2894,8 +2999,10 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
 
     new_block->block_type = block_type;
     new_block->var_start = emit->symtab->var_chain;
+    new_block->class_entry = NULL;
 
-    if (block_type != BLOCK_FUNCTION) {
+    if (block_type != BLOCK_FUNCTION &&
+        block_type != BLOCK_CLASS) {
         new_block->patch_start = emit->patch_pos;
         /* Non-functions will continue using the storages that the parent uses.
            Additionally, the same technique is used to allow loop starts to
@@ -2908,6 +3015,15 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
     }
     else {
         lily_var *v = emit->symtab->var_chain;
+        if (block_type == BLOCK_CLASS) {
+            emit->current_class = emit->symtab->class_chain;
+            new_block->class_entry = emit->symtab->class_chain;
+            /* Make it a function block, since functions do much of the same
+               stuff. The class_entry field on a block tracks the
+               difference. */
+            new_block->block_type = BLOCK_FUNCTION;
+        }
+
         v->value.function = lily_try_new_native_function_val(v->name);
         if (v->value.function == NULL)
             lily_raise_nomem(emit->raiser);
@@ -3002,6 +3118,7 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     main_block->storage_start = NULL;
     /* This is necessary for trapping break/continue inside of __main__. */
     main_block->loop_start = -1;
+    main_block->class_entry = NULL;
     emit->top_function = main_var->value.function;
     emit->top_var = main_var;
     emit->current_block = main_block;

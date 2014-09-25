@@ -1559,6 +1559,62 @@ static void do_o_raise(lily_vm_state *vm, lily_value *exception_val)
     lily_raise_value(vm->raiser, exception_val);
 }
 
+/*  do_o_new_instance
+    This implements creating a new instance of a given class. The arguments
+    given will initialize the properties mentioned in the constructor. */
+static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
+{
+    int i, total_entries;
+    lily_value **vm_regs = vm->vm_regs;
+    int value_count = code[2];
+    lily_value *result = vm_regs[code[3+value_count]];
+    lily_class *instance_class = result->sig->cls;
+
+    /* The most recent property has the highest id, which is also the number of
+       entries needed. */
+    if (instance_class->properties)
+        total_entries = instance_class->properties->id + 1;
+    else
+        total_entries = 0;
+
+    lily_instance_val *iv = lily_malloc(sizeof(lily_instance_val));
+    lily_value **iv_values = lily_malloc(total_entries * sizeof(lily_value *));
+
+    if (iv == NULL || iv_values == NULL) {
+        lily_free(iv);
+        lily_free(iv_values);
+        lily_raise_nomem(vm->raiser);
+    }
+
+    iv->num_values = -1;
+    iv->refcount = 1;
+    iv->values = iv_values;
+    iv->gc_entry = NULL;
+    iv->visited = 0;
+    iv->true_class = result->sig->cls;
+
+    if ((result->flags & VAL_IS_NIL) == 0)
+        lily_deref_unknown_val(result);
+
+    result->value.instance = iv;
+    result->flags = 0;
+
+    for (i = 0;i < value_count;i++) {
+        lily_value *rhs_reg = vm_regs[code[3+i]];
+        iv->values[i] = lily_malloc(sizeof(lily_value));
+        if (iv->values[i] == NULL) {
+            iv->num_values = i;
+            lily_raise_nomem(vm->raiser);
+        }
+        iv->values[i]->flags = VAL_IS_NIL;
+        iv->values[i]->sig = rhs_reg->sig;
+        iv->values[i]->value.integer = 0;
+        iv->num_values = i + 1;
+
+        lily_assign_value(vm, iv->values[i], rhs_reg);
+    }
+}
+
 /*****************************************************************************/
 /* Exception handling                                                        */
 /*****************************************************************************/
@@ -2648,6 +2704,12 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 lily_assign_value(vm, (lily_value *)lhs_reg, rhs_reg);
                 code_pos += 5;
+                break;
+            }
+            case o_new_instance:
+            {
+                do_o_new_instance(vm, code+code_pos);
+                code_pos += code[code_pos+2] + 4;
                 break;
             }
             case o_isnil:

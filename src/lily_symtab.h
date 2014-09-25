@@ -24,6 +24,7 @@ typedef struct {
 
     lily_literal *lit_start;
     lily_literal *lit_top;
+    int next_class_id;
     int next_register_spot;
     int next_lit_spot;
     int next_function_spot;
@@ -49,7 +50,8 @@ typedef struct {
 #define KEY_TRY         14
 #define KEY_EXCEPT      15
 #define KEY_RAISE       16
-#define KEY_LAST_ID     16
+#define KEY_CLASS       17
+#define KEY_LAST_ID     17
 
 lily_symtab *lily_new_symtab(lily_raiser *);
 void lily_free_symtab_lits_and_vars(lily_symtab *);
@@ -77,5 +79,8 @@ lily_sig *lily_build_ensure_sig(lily_symtab *, lily_class *, int, lily_sig **, i
 
 void lily_hide_block_vars(lily_symtab *, lily_var *);
 int lily_check_right_inherits_or_is(lily_class *, lily_class *);
+
+lily_class *lily_new_class(lily_symtab *, char *);
+lily_prop_entry *lily_add_class_property(lily_class *, lily_sig *, char *);
 
 #endif
