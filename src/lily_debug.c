@@ -483,6 +483,62 @@ static void show_code(lily_debug_state *debug)
 
 static void show_value(lily_debug_state *debug, lily_value *);
 
+/*  show_instance_helper
+    Recursively go through a given value, showing the properties that it
+    contains (as well as the class that each came from). */
+static void show_instance_helper(lily_debug_state *debug, lily_class *cls,
+        lily_instance_val *ival, int *i, int *depth)
+{
+    if (cls->parent != NULL) {
+        *depth = *depth + 1;
+        show_instance_helper(debug, cls->parent, ival, i, depth);
+        *depth = *depth - 1;
+    }
+
+    lily_prop_entry *prop_iter = cls->properties;
+    int indent = debug->indent;
+    lily_msgbuf *msgbuf = debug->msgbuf;
+
+    if (prop_iter && *depth != 0)
+        lily_msgbuf_add_fmt(msgbuf, "^I|____ From %s:\n",
+                indent - 1, cls->name);
+
+    while (prop_iter) {
+        lily_msgbuf_add_fmt(msgbuf, "^I|____[(%d) %s] = ", indent,
+                *i, prop_iter->name);
+        write_msgbuf(debug);
+        show_value(debug, ival->values[*i]);
+
+        *i = *i + 1;
+        prop_iter = prop_iter->next;
+    }
+}
+
+/* These next three all handle dumps of instance, list (and tuple), and hash
+   values. The concept is the same, but the contents are a different enough
+   each time to require different functions. */
+
+static void show_instance_value(lily_debug_state *debug, lily_sig *sig,
+        lily_instance_val *ival)
+{
+    lily_msgbuf *msgbuf = debug->msgbuf;
+
+    /* This intentionally dives into circular refs so that (circular) can be
+       written with proper indentation. */
+    if (ival->visited) {
+        lily_msgbuf_add_fmt(msgbuf, "^I(circular)\n");
+        write_msgbuf(debug);
+        return;
+    }
+
+    ival->visited = 1;
+    int i = 0;
+    int depth = 0;
+
+    show_instance_helper(debug, sig->cls, ival, &i, &depth);
+    ival->visited = 0;
+}
+
 static void show_list_value(lily_debug_state *debug, lily_sig *sig,
         lily_list_val *lv)
 {
@@ -591,8 +647,10 @@ static void show_value(lily_debug_state *debug, lily_value *value)
         debug->indent++;
         if (cls_id == SYM_CLASS_HASH)
             show_hash_value(debug, sig, raw_value.hash);
-        else
+        else if (cls_id < SYM_CLASS_EXCEPTION)
             show_list_value(debug, sig, raw_value.list);
+        else
+            show_instance_value(debug, sig, raw_value.instance);
 
         debug->indent--;
         /* The \n at the end comes from the last value's \n. */
