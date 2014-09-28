@@ -46,8 +46,7 @@
                       o_for_setup to determine if it should init the step value
                       or not. */
 #define D_INT_VAL         10
-/* D_LIT_INPUT:       The input is the address of a literal. The literal's
-                      value is shown. */
+/* D_LIT_INPUT:       The input is a position in the vm's table of literals. */
 #define D_LIT_INPUT       11
 /* D_GLOBAL_INPUT:    The INput is the address of a global register. */
 #define D_GLOBAL_INPUT    12
@@ -61,17 +60,18 @@
                       1, this register is a global. Otherwise, the register is
                       a local. */
 #define D_COND_INPUT      15
-/* D_CALL_INPUT_TYPE: This is used by calls to determine how the call is
-                      stored:
+/* D_CALL_TYPE:       This is used by calls to determine how the call is stored:
                       0: The input is a readonly var.
                       1: The input is a local register. */
-#define D_CALL_INPUT_TYPE 16
+#define D_CALL_TYPE 16
 /* D_CALL_INPUT:      Input to a function call. This is shown according to what
                       D_CALL_INPUT_TYPE picked up. */
 #define D_CALL_INPUT      17
 /* D_COUNT_DEPTH:     What follows is a series of indexes used in package
                       accesses. */
 #define D_COUNT_DEPTH     18
+/* D_FUNC_INPUT:      This is a position in the vm's table of functions. */
+#define D_FUNC_INPUT      19
 
 /** Flags for show_register_info: **/
 /* This means the number given is for a register in __main__. By default, the
@@ -156,166 +156,69 @@ char *opcode_names[56] = {
     "return from vm"
 };
 
-static const int for_setup_ci[] =
-    {6, D_LINENO, D_INPUT, D_INPUT, D_INPUT, D_INPUT, D_INT_VAL};
-static const int for_integer_ci[] =
-    {6, D_LINENO, D_INPUT, D_INPUT, D_INPUT, D_INPUT, D_JUMP};
-static const int call_ci[]        =
-    {6, D_LINENO, D_CALL_INPUT_TYPE, D_CALL_INPUT, D_COUNT, D_COUNT_LIST,
-        D_OUTPUT};
-static const int package_set_deep_ci[] =
-    {5, D_LINENO, D_GLOBAL_INPUT, D_COUNT, D_COUNT_DEPTH, D_INPUT};
-static const int package_get_deep_ci[] =
-    {5, D_LINENO, D_GLOBAL_INPUT, D_COUNT, D_COUNT_DEPTH, D_OUTPUT};
-static const int package_get_ci[] =
-    {4, D_LINENO, D_GLOBAL_INPUT, D_INT_VAL, D_OUTPUT};
-static const int package_set_ci[] =
-    {4, D_LINENO, D_GLOBAL_INPUT, D_INT_VAL, D_INPUT};
-static const int build_list_ci[]  =
-    {4, D_LINENO, D_COUNT, D_COUNT_LIST, D_OUTPUT};
-static const int isnil_ci[]      =
-    {4, D_LINENO, D_IS_GLOBAL, D_COND_INPUT, D_OUTPUT};
-static const int set_item_ci[]   = {4, D_LINENO, D_INPUT, D_INPUT, D_INPUT};
-static const int except_ci[]     = {4, D_LINENO, D_JUMP, D_INT_VAL, D_OUTPUT};
-static const int binary_ci[]     = {4, D_LINENO, D_INPUT, D_INPUT, D_OUTPUT};
-static const int get_const_ci[]  = {3, D_LINENO, D_LIT_INPUT, D_OUTPUT};
-static const int get_global_ci[] = {3, D_LINENO, D_GLOBAL_INPUT, D_OUTPUT};
-static const int set_global_ci[] = {3, D_LINENO, D_INPUT, D_GLOBAL_OUTPUT};
-static const int in_out_ci[]     = {3, D_LINENO, D_INPUT, D_OUTPUT};
-static const int jump_if_ci[]    = {3, D_JUMP_ON, D_INPUT, D_JUMP};
-static const int intdbl_ci[]     = {3, D_LINENO, D_INPUT, D_OUTPUT};
-static const int show_ci[]       = {3, D_LINENO, D_IS_GLOBAL, D_COND_INPUT};
-static const int raise_ci[]      = {2, D_LINENO, D_INPUT};
-static const int push_try_ci[]   = {2, D_LINENO, D_JUMP};
-static const int return_ci[]     = {2, D_LINENO, D_INPUT};
-static const int return_nv_ci[]  = {1, D_LINENO};
-static const int jump_ci[]       = {1, D_JUMP};
-static const int nop_ci[]        = {1, D_NOP};
+static const int optable[][8] = {
+    {o_assign,              3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
+    {o_any_assign,          3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
+    {o_ref_assign,          3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
+    {o_integer_add,         4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_integer_minus,       4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_modulo,              4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_integer_mul,         4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_integer_div,         4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_left_shift,          4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_right_shift,         4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_bitwise_and,         4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_bitwise_or,          4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_bitwise_xor,         4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_double_add,          4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_double_minus,        4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_double_mul,          4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_double_div,          4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_is_equal,            4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_not_eq,              4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_less,                4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_less_eq,             4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_greater,             4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_greater_eq,          4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_jump,                1, D_JUMP,    -1,             -1,              -1,            -1,           -1},
+    {o_jump_if,             3, D_JUMP_ON, D_INPUT,        D_JUMP,          -1,            -1,           -1},
+    {o_function_call,       6, D_LINENO,  D_CALL_TYPE,    D_CALL_INPUT,    D_COUNT,       D_COUNT_LIST, D_OUTPUT},
+    {o_return_val,          2, D_LINENO,  D_INPUT,        -1,              -1,            -1,           -1},
+    {o_return_noval,        1, D_LINENO,  -1,             -1,              -1,            -1,           -1},
+    {o_unary_not,           3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
+    {o_unary_minus,         3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
+    {o_build_list,          4, D_LINENO,  D_COUNT,        D_COUNT_LIST,    D_OUTPUT,      -1,           -1},
+    {o_build_hash,          4, D_LINENO,  D_COUNT,        D_COUNT_LIST,    D_OUTPUT,      -1,           -1},
+    {o_build_tuple,         4, D_LINENO,  D_COUNT,        D_COUNT_LIST,    D_OUTPUT,      -1,           -1},
+    {o_any_typecast,        3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
+    {o_intdbl_typecast,     3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
+    {o_show,                3, D_LINENO,  D_IS_GLOBAL,    D_COND_INPUT,    -1,            -1,           -1},
+    {o_return_expected,     1, D_LINENO,  -1,             -1,              -1,            -1,           -1},
+    {o_integer_for,         6, D_LINENO,  D_INPUT,        D_INPUT,         D_INPUT,       D_INPUT,      D_JUMP},
+    {o_for_setup,           6, D_LINENO,  D_INPUT,        D_INPUT,         D_INPUT,       D_INPUT,      D_INT_VAL},
+    {o_get_item,            4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
+    {o_set_item,            4, D_LINENO,  D_INPUT,        D_INPUT,         D_INPUT,       -1,           -1},
+    {o_get_global,          3, D_LINENO,  D_GLOBAL_INPUT, D_OUTPUT         -1,            -1,           -1},
+    {o_set_global,          3, D_LINENO,  D_INPUT,        D_GLOBAL_OUTPUT, -1,            -1,           -1},
+    {o_get_const,           3, D_LINENO,  D_LIT_INPUT,    D_OUTPUT,        -1,            -1,           -1},
+    {o_get_function,        3, D_LINENO,  D_FUNC_INPUT,   D_OUTPUT,        -1,            -1,           -1},
+    {o_package_set,         4, D_LINENO,  D_GLOBAL_INPUT, D_INT_VAL,       D_INPUT        -1,           -1},
+    {o_package_set_deep,    5, D_LINENO,  D_GLOBAL_INPUT, D_COUNT,         D_COUNT_DEPTH, D_INPUT       -1},
+    {o_package_get,         4, D_LINENO,  D_GLOBAL_INPUT, D_INT_VAL,       D_OUTPUT,      -1            -1},
+    {o_package_get_deep,    5, D_LINENO,  D_GLOBAL_INPUT, D_COUNT,         D_COUNT_DEPTH, D_OUTPUT      -1},
+    {o_push_try,            2, D_LINENO,  D_JUMP          -1,              -1,            -1,           -1},
+    {o_pop_try,             1, D_NOP,     -1,             -1,              -1,            -1,           -1},
+    {o_except,              4, D_LINENO,  D_JUMP,         D_INT_VAL,       D_OUTPUT,      -1,           -1},
+    {o_raise,               2, D_LINENO,  D_INPUT         -1,              -1,            -1,           -1},
+    {o_isnil,               4, D_LINENO,  D_IS_GLOBAL,    D_COND_INPUT,    D_OUTPUT,      -1,           -1},
+    {o_new_instance,        4, D_LINENO,  D_COUNT,        D_COUNT_LIST,    D_OUTPUT,      -1,           -1},
+    {o_return_from_vm,      1, D_NOP,     -1,             -1,              -1,            -1,           -1}
+};
 
 static void write_msgbuf(lily_debug_state *debug)
 {
     lily_impl_puts(debug->data, debug->msgbuf->message);
     lily_msgbuf_flush(debug->msgbuf);
-}
-
-static const int *code_info_for_opcode(lily_debug_state *debug, int opcode)
-{
-    const int *ret;
-
-    switch (opcode) {
-        case o_assign:
-        case o_ref_assign:
-        case o_any_assign:
-        case o_any_typecast:
-        case o_unary_not:
-        case o_unary_minus:
-            ret = in_out_ci;
-            break;
-        case o_integer_add:
-        case o_double_add:
-        case o_integer_minus:
-        case o_double_minus:
-        case o_is_equal:
-        case o_less:
-        case o_less_eq:
-        case o_greater:
-        case o_greater_eq:
-        case o_not_eq:
-        case o_modulo:
-        case o_integer_mul:
-        case o_double_mul:
-        case o_integer_div:
-        case o_double_div:
-        case o_get_item:
-        case o_left_shift:
-        case o_right_shift:
-        case o_bitwise_and:
-        case o_bitwise_or:
-        case o_bitwise_xor:
-            ret = binary_ci;
-            break;
-        case o_function_call:
-            ret = call_ci;
-            break;
-        case o_return_from_vm:
-        case o_pop_try:
-            ret = nop_ci;
-            break;
-        case o_return_expected:
-        case o_return_noval:
-            ret = return_nv_ci;
-            break;
-        case o_set_item:
-            ret = set_item_ci;
-            break;
-        case o_build_list:
-        case o_build_hash:
-        case o_build_tuple:
-            ret = build_list_ci;
-            break;
-        case o_jump:
-            ret = jump_ci;
-            break;
-        case o_return_val:
-            ret = return_ci;
-            break;
-        case o_show:
-            ret = show_ci;
-            break;
-        case o_jump_if:
-            ret = jump_if_ci;
-            break;
-        case o_intdbl_typecast:
-            ret = intdbl_ci;
-            break;
-        case o_integer_for:
-            ret = for_integer_ci;
-            break;
-        case o_for_setup:
-            ret = for_setup_ci;
-            break;
-        case o_get_const:
-            ret = get_const_ci;
-            break;
-        case o_set_global:
-            ret = set_global_ci;
-            break;
-        case o_get_global:
-            ret = get_global_ci;
-            break;
-        case o_package_set:
-            ret = package_set_ci;
-            break;
-        case o_package_get:
-            ret = package_get_ci;
-            break;
-        case o_package_get_deep:
-            ret = package_get_deep_ci;
-            break;
-        case o_package_set_deep:
-            ret = package_set_deep_ci;
-            break;
-        case o_isnil:
-            ret = isnil_ci;
-            break;
-        case o_push_try:
-            ret = push_try_ci;
-            break;
-        case o_except:
-            ret = except_ci;
-            break;
-        case o_raise:
-            ret = raise_ci;
-            break;
-        default:
-            lily_msgbuf_add_fmt(debug->msgbuf,
-                    "warning: Opcode %d has no ci.\n",opcode);
-            write_msgbuf(debug);
-            ret = NULL;
-            break;
-    }
-
-    return ret;
 }
 
 /* show_simple_value
@@ -453,9 +356,10 @@ static void show_code(lily_debug_state *debug)
 
     while (i < len) {
         int opcode = code[i];
-        const int *opcode_data = code_info_for_opcode(debug, opcode);
+
+        const int *opcode_data = optable[opcode];
         char *opcode_name = opcode_names[opcode];
-        int call_input_type, count, data_code, is_global, j;
+        int call_type, count, data_code, is_global, j;
 
         /* Group under a new line number if the current one isn't the last one
            seen. This makes it easy to see what operations that are caused by
@@ -483,8 +387,8 @@ static void show_code(lily_debug_state *debug)
         if (code[i] == o_jump)
             lily_impl_puts(data, "\n");
 
-        for (j = 1;j <= opcode_data[0];j++) {
-            data_code = opcode_data[j];
+        for (j = 1;j <= opcode_data[1];j++) {
+            data_code = opcode_data[j+1];
 
             if (data_code == D_LINENO)
                 lily_impl_puts(data, "\n");
@@ -554,10 +458,10 @@ static void show_code(lily_debug_state *debug)
 
                 show_register_info(debug, flags, code[i+j]);
             }
-            else if (data_code == D_CALL_INPUT_TYPE)
-                call_input_type = code[i+j];
+            else if (data_code == D_CALL_TYPE)
+                call_type = code[i+j];
             else if (data_code == D_CALL_INPUT) {
-                if (call_input_type == 1)
+                if (call_type == 1)
                     show_function(debug, code[i+j]);
                 else
                     show_register_info(debug, RI_INPUT, code[i+j]);
@@ -572,6 +476,8 @@ static void show_code(lily_debug_state *debug)
 
                 i--;
             }
+            else if (data_code == D_FUNC_INPUT)
+                show_function(debug, code[i+j]);
         }
         i += j;
     }
@@ -722,32 +628,30 @@ static void show_value(lily_debug_state *debug, lily_value *value)
             show_value(debug, any_value);
         }
     }
-    /* A show for package is not included because it's not currently possible
-       to see packages. Any time that a package value is seen, the parser
-       enforces a check for ::, so only elements of a package get seen. */
 }
 
 /** API for lily_debug.c **/
-/* lily_show_sym
-   This handles showing the information for a symbol at vm-time. */
-void lily_show_sym(lily_vm_state *vm, lily_function_val *lily_main,
-        lily_function_val *current_function, lily_value *value, int is_global,
-        int reg_id, lily_msgbuf *msgbuf)
+/*  lily_show_value
+    This function shows a given value (usually from a register). It's the entry
+    point for the 'show' command. */
+void lily_show_value(lily_vm_state *vm, lily_value *value, int is_global,
+        int reg_id)
 {
     lily_debug_state debug;
+
+    lily_vm_stack_entry **vm_stack = vm->function_stack;
+    int stack_top = vm->function_stack_pos - 1;
+
     debug.indent = 0;
-    debug.main_function = lily_main;
-    debug.current_function = current_function;
-    debug.msgbuf = msgbuf;
+    debug.main_function = vm_stack[0]->function;
+    debug.current_function = vm_stack[stack_top]->function;
+    debug.msgbuf = vm->raiser->msgbuf;
     debug.vm = vm;
     debug.data = vm->data;
 
     int flags = 0;
     if (is_global)
         flags |= RI_GLOBAL;
-
-    lily_impl_puts(debug.data, "Showing ");
-    show_register_info(&debug, flags, reg_id);
 
     lily_impl_puts(debug.data, "Value: ");
     show_value(&debug, value);

@@ -1521,18 +1521,13 @@ static void do_o_build_tuple(lily_vm_state *vm, uint16_t *code)
 static void do_o_show(lily_vm_state *vm, int is_global, int reg_id)
 {
     lily_value *reg;
-    lily_function_val *lily_main;
-    lily_function_val *current_function;
 
     if (is_global)
         reg = vm->regs_from_main[reg_id];
     else
         reg = vm->vm_regs[reg_id];
 
-    lily_main = vm->function_stack[0]->function;
-    current_function = vm->function_stack[vm->function_stack_pos - 1]->function;
-    lily_show_sym(vm, lily_main, current_function, reg, is_global, reg_id,
-            vm->raiser->msgbuf);
+    lily_show_value(vm, reg, is_global, reg_id);
 }
 
 /*  do_o_raise
