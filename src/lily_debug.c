@@ -133,7 +133,6 @@ char *opcode_names[56] = {
     "build tuple",
     "typecast",
     "integer <-> double",
-    "show",
     "return expected",
     "for (integer range)",
     "for setup",
@@ -192,7 +191,6 @@ static const int optable[][8] = {
     {o_build_tuple,         4, D_LINENO,  D_COUNT,        D_COUNT_LIST,    D_OUTPUT,      -1,           -1},
     {o_any_typecast,        3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
     {o_intdbl_typecast,     3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
-    {o_show,                3, D_LINENO,  D_IS_GLOBAL,    D_COND_INPUT,    -1,            -1,           -1},
     {o_return_expected,     1, D_LINENO,  -1,             -1,              -1,            -1,           -1},
     {o_integer_for,         6, D_LINENO,  D_INPUT,        D_INPUT,         D_INPUT,       D_INPUT,      D_JUMP},
     {o_for_setup,           6, D_LINENO,  D_INPUT,        D_INPUT,         D_INPUT,       D_INPUT,      D_INT_VAL},
@@ -221,10 +219,8 @@ static void write_msgbuf(lily_debug_state *debug)
     lily_msgbuf_flush(debug->msgbuf);
 }
 
-/* show_simple_value
-   This handles printing str, integer, and double values that are not nil. This
-   is used by show_code_sym for literals, and show_value for non-nil simple
-   values. */
+/*  show_simple_value
+    Show an integer, double, or string literal. */
 static void show_simple_value(lily_debug_state *debug, lily_sig *sig,
         lily_raw_value value)
 {
@@ -240,6 +236,8 @@ static void show_simple_value(lily_debug_state *debug, lily_sig *sig,
     write_msgbuf(debug);
 }
 
+/*  show_literal
+    Show a literal value for show_code. */
 static void show_literal(lily_debug_state *debug, int lit_pos)
 {
     lily_literal *lit = debug->vm->literal_table[lit_pos];
@@ -249,6 +247,8 @@ static void show_literal(lily_debug_state *debug, int lit_pos)
     lily_impl_puts(debug->data, "\n");
 }
 
+/*  show_function
+    Show the name of a function at the given position. */
 static void show_function(lily_debug_state *debug, int position)
 {
     lily_var *var = debug->vm->function_table[position];
@@ -264,6 +264,9 @@ static void show_function(lily_debug_state *debug, int position)
     write_msgbuf(debug);
 }
 
+/*  show_register_info
+    Show information about a given register which may or may not be a global.
+    This is called by show_code to print out what registers are being used. */
 static void show_register_info(lily_debug_state *debug, int flags, int reg_num)
 {
     lily_register_info reg_info;
@@ -306,14 +309,9 @@ static void show_register_info(lily_debug_state *debug, int flags, int reg_num)
     write_msgbuf(debug);
 }
 
-/* show_code
-   This shows all the code in a var that holds a function. This displays the
-   operations in a simple way so that users can get an idea of what the vm is
-   seeing.
-   This function uses call info (ci) to determine how to handle given opcodes.
-   This was done because many opcodes (all binary ones, for example), share the
-   same basic structure. This also eliminates the need for specialized
-   functions. */
+/*  show_code
+    Show the code inside of a function. This uses optable and opcode_names to
+    assist in showing code information. */
 static void show_code(lily_debug_state *debug)
 {
     char format[5];
@@ -561,12 +559,11 @@ static void show_hash_value(lily_debug_state *debug, lily_sig *sig,
     hash_val->visited = 0;
 }
 
-/* show_value
-   This shows a value given. Things like list and hash will call this
-   recursively for each of their elements.
-   Each command should end with an extra '\n' in some way. This consistency is
-   important for making sure that any value sent to show results in the same
-   amount of \n's written after it. */
+/*  show_value
+    Recursively show a value given.
+    Each command should end with an extra '\n' in some way. This consistency is
+    important for making sure that any value sent to show results in the same
+    amount of \n's written after it. */
 static void show_value(lily_debug_state *debug, lily_value *value)
 {
     lily_sig *sig = value->sig;
@@ -632,10 +629,8 @@ static void show_value(lily_debug_state *debug, lily_value *value)
 
 /** API for lily_debug.c **/
 /*  lily_show_value
-    This function shows a given value (usually from a register). It's the entry
-    point for the 'show' command. */
-void lily_show_value(lily_vm_state *vm, lily_value *value, int is_global,
-        int reg_id)
+    The vm calls this for values given to 'show'. */
+void lily_show_value(lily_vm_state *vm, lily_value *value)
 {
     lily_debug_state debug;
 
@@ -648,10 +643,6 @@ void lily_show_value(lily_vm_state *vm, lily_value *value, int is_global,
     debug.msgbuf = vm->raiser->msgbuf;
     debug.vm = vm;
     debug.data = vm->data;
-
-    int flags = 0;
-    if (is_global)
-        flags |= RI_GLOBAL;
 
     lily_impl_puts(debug.data, "Value: ");
     show_value(&debug, value);

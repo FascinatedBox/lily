@@ -257,7 +257,6 @@ keyword_seed keywords[] = {
     {"while",        435610544247},
     {"continue",     7310870969309884259},
     {"break",        461195539042},
-    {"show",         2003789939},
     {"__line__",     6872323081280184159},
     {"__file__",     6872323072689856351},
     {"__function__", 7598807797348065119},
@@ -271,15 +270,18 @@ keyword_seed keywords[] = {
 };
 
 void lily_builtin_print(lily_vm_state *, lily_function_val *, uint16_t *);
+void lily_builtin_show(lily_vm_state *, lily_function_val *, uint16_t *);
 void lily_builtin_printfmt(lily_vm_state *, lily_function_val *, uint16_t *);
 
+static const lily_func_seed show =
+    {"show", lily_builtin_show, NULL,
+        {SYM_CLASS_FUNCTION, 2, 0, -1, SYM_CLASS_TEMPLATE, 0}};
 static const lily_func_seed print =
-    {"print", lily_builtin_print, NULL,
+    {"print", lily_builtin_print, &show,
         {SYM_CLASS_FUNCTION, 2, 0, -1, SYM_CLASS_STRING}};
 static const lily_func_seed printfmt =
     {"printfmt", lily_builtin_printfmt, &print,
         {SYM_CLASS_FUNCTION, 3, SIG_IS_VARARGS, -1, SYM_CLASS_STRING, SYM_CLASS_LIST, SYM_CLASS_ANY}};
-
 /* This must always be set to the last func seed defined here. */
 #define GLOBAL_SEED_START printfmt
 

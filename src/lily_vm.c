@@ -969,6 +969,14 @@ static void boundary_error(lily_vm_state *vm, int bad_index)
 /*****************************************************************************/
 /* Built-in function implementations                                         */
 /*****************************************************************************/
+/*  lily_builtin_show
+    Implements: function show[A](A value) */
+void lily_builtin_show(lily_vm_state *vm, lily_function_val *self,
+        uint16_t *code)
+{
+    lily_value *reg = vm->vm_regs[code[0]];
+    lily_show_value(vm, reg);
+}
 
 /*  lily_builtin_print
     Implements: function print(string) */
@@ -1513,21 +1521,6 @@ static void do_o_build_tuple(lily_vm_state *vm, uint16_t *code)
     }
 
     tuple->num_values = num_elems;
-}
-
-/*  do_o_show
-    This implements 'show', which should really, really be a plain old function
-    instead of this mess of arguments. */
-static void do_o_show(lily_vm_state *vm, int is_global, int reg_id)
-{
-    lily_value *reg;
-
-    if (is_global)
-        reg = vm->regs_from_main[reg_id];
-    else
-        reg = vm->vm_regs[reg_id];
-
-    lily_show_value(vm, reg, is_global, reg_id);
 }
 
 /*  do_o_raise
@@ -2549,10 +2542,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs_reg = vm_regs[code[code_pos+2]];
 
                 lily_assign_value(vm, lhs_reg, rhs_reg);
-                code_pos += 4;
-                break;
-            case o_show:
-                do_o_show(vm, code[code_pos+2], code[code_pos+3]);
                 code_pos += 4;
                 break;
             case o_any_typecast:

@@ -760,7 +760,7 @@ static void expression_unary(lily_parse_state *parser, int *state)
             abc.concat("def")
         Or for getting properties of a class:
             ValueError v = ValueError::new("test")
-            show v.message
+            show (v.message)
     It also handles typecasts: `abc.@(type)`. */
 static void expression_dot(lily_parse_state *parser, int *state)
 {
@@ -979,7 +979,6 @@ static void return_handler(lily_parse_state *, int);
 static void while_handler(lily_parse_state *, int);
 static void continue_handler(lily_parse_state *, int);
 static void break_handler(lily_parse_state *, int);
-static void show_handler(lily_parse_state *, int);
 static void file_kw_handler(lily_parse_state *, int);
 static void line_kw_handler(lily_parse_state *, int);
 static void function_kw_handler(lily_parse_state *, int);
@@ -1002,7 +1001,6 @@ static keyword_handler *handlers[] = {
     while_handler,
     continue_handler,
     break_handler,
-    show_handler,
     line_kw_handler,
     file_kw_handler,
     function_kw_handler,
@@ -1248,17 +1246,6 @@ static void continue_handler(lily_parse_state *parser, int multi)
 static void break_handler(lily_parse_state *parser, int multi)
 {
     lily_emit_break(parser->emit);
-}
-
-/*  show_handler
-    This handles the show keyword. Show is a builtin command (not a function)
-    that will print detailed information about a particular value. This is able
-    to handle any kind of value: vars, literals, results of commands, etc. */
-static void show_handler(lily_parse_state *parser, int multi)
-{
-    expression(parser);
-    lily_emit_show(parser->emit, parser->ast_pool->root);
-    lily_ast_reset_pool(parser->ast_pool);
 }
 
 /*  do_keyword
