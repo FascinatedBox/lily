@@ -3,6 +3,6 @@
 
 # include "lily_symtab.h"
 
-void lily_show_value(lily_vm_state *vm, lily_value *, int, int);
+void lily_show_value(lily_vm_state *vm, lily_value *);
 
 #endif

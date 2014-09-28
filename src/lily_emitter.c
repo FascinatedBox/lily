@@ -2787,26 +2787,6 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
         write_2(emit, o_return_noval, *emit->lex_linenum);
 }
 
-/*  lily_emit_show
-    This evals the given ast, then writes o_show so the vm will show the result
-    of the ast. Type-checking is intentionally NOT performed. */
-void lily_emit_show(lily_emit_state *emit, lily_ast *ast)
-{
-    int is_global = (ast->tree_type == tree_var);
-
-    /* Don't eval if it's a global var and nothing more. This makes it so
-       globals show with their name and their proper register. Otherwise, the
-       global gets loaded into a local storage, making show a bit less helpful.
-       This also makes sure that global and local vars are treated consistently
-       by show. */
-    if (is_global == 0)
-        eval_enforce_value(emit, ast, "'show' expression has no value.\n");
-    else
-        emit->expr_num++;
-
-    write_4(emit, o_show, ast->line_num, is_global, ast->result->reg_spot);
-}
-
 /*  lily_emit_class_init
     This is called at the opening of a new class, before any user code. This
     writes an initialization for the hidden self variable. */

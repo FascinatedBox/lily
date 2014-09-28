@@ -194,17 +194,6 @@ typedef enum {
        the opposite type of right, and the appropriate conversion is made. */
     o_intdbl_typecast,
 
-    /* Show:
-       * int lineno
-       * int is_global
-       * reg value
-       This shows detailed information about the value within the given
-       register. If is_global is 1, then the register given is a global
-       register. Otherwise, the given register is a local. This is done so that
-       globals don't need to be loaded into a local register, since that would
-       make show much less helpful. */
-    o_show,
-
     /* Return expected:
        * int lineno
        This is written at the end of every native function that has a non-nil
