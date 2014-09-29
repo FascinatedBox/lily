@@ -877,6 +877,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     else
         emit->symtab->var_chain = block->function_var;
 
+    emit->self_storage = emit->current_block->prev->self;
     emit->symtab->function_depth--;
     emit->symtab->next_register_spot = block->save_register_spot;
     emit->top_function = v->value.function;
@@ -2856,6 +2857,7 @@ void lily_emit_class_init(lily_emit_state *emit)
                 generics/other complicated stuff. */
     lily_storage *self = get_storage(emit, emit->current_class->sig,
             *emit->lex_linenum);
+    emit->current_block->self = self;
 
     /* Create an instance with initial values for all properties that are
        currently known. Any unknown properties are set to nil and will later
@@ -2993,6 +2995,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
     new_block->block_type = block_type;
     new_block->var_start = emit->symtab->var_chain;
     new_block->class_entry = NULL;
+    new_block->self = NULL;
 
     if (block_type != BLOCK_FUNCTION &&
         block_type != BLOCK_CLASS) {
@@ -3017,7 +3020,15 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
             new_block->block_type = BLOCK_FUNCTION;
         }
 
-        v->value.function = lily_try_new_native_function_val(v->name);
+        char *class_name;
+        v->parent = emit->current_class;
+        if (v->parent)
+            class_name = v->parent->name;
+        else
+            class_name = NULL;
+
+        v->value.function = lily_try_new_native_function_val(class_name,
+                v->name);
         if (v->value.function == NULL)
             lily_raise_nomem(emit->raiser);
 
@@ -3094,7 +3105,8 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     if (main_block == NULL)
         return 0;
 
-    main_var->value.function = lily_try_new_native_function_val(main_var->name);
+    main_var->value.function = lily_try_new_native_function_val(NULL,
+            main_var->name);
     if (main_var->value.function == NULL) {
         lily_free(main_block);
         return 0;

@@ -19,6 +19,7 @@ typedef struct {
     int sig_stack_pos;
     int sig_stack_size;
 
+    int class_depth;
     lily_sig *default_call_sig;
 
     lily_ast_pool *ast_pool;
