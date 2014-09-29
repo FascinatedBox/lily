@@ -291,14 +291,13 @@ lily_function_val *lily_try_new_foreign_function_val(lily_foreign_func func,
 }
 
 /*  lily_try_new_native_function_val
-    Attempt to create a function that will hold native code. This doesn't take
-    a class_name as well, because there are currently no native functions
-    within classes.
+    Attempt to create a function that will hold native code.
 
-    name: The name of this function.
+    class_name: The name of the class that this function belongs to, or NULL.
+    name:       The name of this function.
 
     Note: 'try' means this call returns NULL on failure. */
-lily_function_val *lily_try_new_native_function_val(char *name)
+lily_function_val *lily_try_new_native_function_val(char *class_name, char *name)
 {
     lily_function_val *f = lily_malloc(sizeof(lily_function_val));
     uint16_t *code = lily_malloc(8 * sizeof(uint16_t));
@@ -310,7 +309,7 @@ lily_function_val *lily_try_new_native_function_val(char *name)
     }
 
     f->refcount = 1;
-    f->class_name = NULL;
+    f->class_name = class_name;
     f->trace_name = name;
     f->foreign_func = NULL;
     f->code = code;

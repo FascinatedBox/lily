@@ -67,6 +67,7 @@ lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
     parser->mode = pm_init;
     parser->sig_stack_pos = 0;
     parser->sig_stack_size = 4;
+    parser->class_depth = 0;
     parser->raiser = raiser;
     parser->sig_stack = lily_malloc(4 * sizeof(lily_sig *));
     parser->ast_pool = lily_new_ast_pool(raiser, 8);
@@ -236,9 +237,24 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
             parser->sig_stack[parser->sig_stack_pos] = NULL;
 
         parser->sig_stack_pos++;
-
         end_token = tk_right_parenth;
         i = 1;
+
+        if (flags & CV_TOPLEVEL && parser->class_depth) {
+            /* Functions of a class always take it as their first parameter. */
+            lily_var *v = lily_try_new_var(parser->symtab,
+                    parser->emit->self_storage->sig,
+                    "(self)", 0);
+            if (v == NULL)
+                lily_raise_nomem(parser->raiser);
+
+            parser->emit->current_block->self = (lily_storage *)v;
+            parser->emit->self_storage = (lily_storage *)v;
+
+            parser->sig_stack[parser->sig_stack_pos] = v->sig;
+            parser->sig_stack_pos++;
+            i++;
+        }
     }
     else {
         end_token = tk_right_bracket;
@@ -408,6 +424,8 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
                 else {
                     call_var = get_named_var(parser, call_sig,
                             VAR_IS_READONLY);
+                    call_var->parent = parser->emit->current_class;
+
                     /* This creates a function value to hold new code, so it's
                        essential that call_var have a function signature...or
                        the symtab may not free the function value. */
@@ -1514,7 +1532,12 @@ static void class_handler(lily_parse_state *parser, int multi)
     lily_emit_class_init(parser->emit);
 
     NEED_CURRENT_TOK(tk_left_curly)
-    lily_lexer(lex);
+
+    parser->class_depth++;
+    parse_multiline_block_body(parser, multi);
+    parser->class_depth--;
+
+    lily_emit_leave_block(parser->emit);
 }
 
 /*  parser_loop

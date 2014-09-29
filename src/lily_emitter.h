@@ -14,6 +14,7 @@ typedef struct lily_block_ {
     int save_register_spot;
     lily_storage *storage_start;
     lily_class *class_entry;
+    lily_storage *self;
 
     struct lily_block_ *next;
     struct lily_block_ *prev;
