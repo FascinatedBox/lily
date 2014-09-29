@@ -836,6 +836,8 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
                 emit->self_storage->reg_spot);
     }
 
+    lily_var *old_function_cache = emit->symtab->old_function_chain;
+
     finalize_function_val(emit, block);
 
     /* Warning: This assumes that only functions can contain other functions. */
@@ -849,16 +851,27 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     /* If this function was the ::new for a class, move it over into that class. */
     if (emit->current_block->class_entry) {
         lily_class *cls = emit->current_class;
-        if (cls->call_start == NULL) {
-            cls->call_start = block->function_var;
-            cls->call_top = block->function_var;
+        lily_var *save_next = block->function_var->next;
+
+        /* Function finalize stuck all of the old functions into
+           old_function_chain. Put them into the class, where they really go. */
+        block->function_var->next = emit->symtab->old_function_chain;
+        cls->call_start = block->function_var;
+        cls->call_top = block->function_var;
+
+        if (old_function_cache == NULL)
+            emit->symtab->old_function_chain = NULL;
+        else {
+            /* The last entry needs to be unlinked from old_function_chain. */
+            lily_var *old_iter = block->function_var;
+            while (old_iter->next != old_function_cache)
+                old_iter = old_iter->next;
+
+            old_iter->next = NULL;
+            emit->symtab->old_function_chain = old_function_cache;
         }
-        else
-            cls->call_top->next = block->function_var;
 
-        emit->symtab->var_chain = block->function_var->next;
-        block->function_var->next = NULL;
-
+        emit->symtab->var_chain = save_next;
         emit->current_class = NULL;
     }
     else
