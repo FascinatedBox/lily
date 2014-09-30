@@ -1139,6 +1139,8 @@ static keyword_handler *handlers[] = {
     class_handler
 };
 
+static void parse_multiline_block_body(lily_parse_state *, int);
+
 /*  statement
     This is a magic function that handles keywords outside of expression,
     as well as getting declarations started.
@@ -1179,7 +1181,11 @@ static void statement(lily_parse_state *parser, int multi)
                             collect_var_sig(parser, lclass,
                                     CV_TOPLEVEL | CV_MAKE_VARS);
                             NEED_CURRENT_TOK(tk_left_curly)
-                            lily_lexer(lex);
+                            /* This must recurse so that the ending } of the
+                               function is not yielded back up as the } of the
+                               caller. */
+                            parse_multiline_block_body(parser, multi);
+                            lily_emit_leave_block(parser->emit);
                         }
                         else {
                             lily_sig *cls_sig = collect_var_sig(parser, lclass, 0);
