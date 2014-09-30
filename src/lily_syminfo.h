@@ -91,7 +91,7 @@ typedef struct lily_class_t {
     struct lily_class_t *parent;
     struct lily_class_t *next;
     lily_prop_entry *properties;
-    int prop_start;
+    int prop_count;
 
     /* Instead of loading all class members during init, Lily stores the needed
        information in the seed_table of a class. If the symtab can't find the

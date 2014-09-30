@@ -649,7 +649,7 @@ static int init_classes(lily_symtab *symtab)
             new_class->setup_func = class_seeds[i].setup_func;
             new_class->eq_func = class_seeds[i].eq_func;
             new_class->properties = NULL;
-            new_class->prop_start = 0;
+            new_class->prop_count = 0;
             new_class->parent = NULL;
 
             new_class->next = symtab->class_chain;
@@ -1306,19 +1306,27 @@ lily_prop_entry *lily_add_class_property(lily_class *cls, lily_sig *sig,
         return NULL;
     }
 
-    if (cls->properties)
-        entry->id = cls->properties->id + 1;
-    else
-        entry->id = 0;
-
     strcpy(entry_name, name);
 
     entry->name = entry_name;
     entry->sig = sig;
     entry->name_shorthash = shorthash_for_name(entry_name);
+    entry->next = NULL;
+    entry->id = cls->prop_count;
+    cls->prop_count++;
 
-    entry->next = cls->properties;
-    cls->properties = entry;
+    if (cls->properties) {
+        lily_prop_entry *prop_iter = cls->properties;
+        while (prop_iter->next != NULL)
+            prop_iter = prop_iter->next;
+
+        entry->id = prop_iter->id + 1;
+        prop_iter->next = entry;
+    }
+    else {
+        entry->id = 0;
+        cls->properties = entry;
+    }
 
     return entry;
 }
@@ -1361,7 +1369,7 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     new_class->name = name_copy;
     new_class->template_count = 0;
     new_class->properties = NULL;
-    new_class->prop_start = 0;
+    new_class->prop_count = 0;
     new_class->seed_table = NULL;
     new_class->call_start = NULL;
     new_class->call_top = NULL;

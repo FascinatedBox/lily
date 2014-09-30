@@ -209,7 +209,7 @@ static const int optable[][8] = {
     {o_except,              4, D_LINENO,  D_JUMP,         D_INT_VAL,       D_OUTPUT,      -1,           -1},
     {o_raise,               2, D_LINENO,  D_INPUT         -1,              -1,            -1,           -1},
     {o_isnil,               4, D_LINENO,  D_IS_GLOBAL,    D_COND_INPUT,    D_OUTPUT,      -1,           -1},
-    {o_new_instance,        4, D_LINENO,  D_COUNT,        D_COUNT_LIST,    D_OUTPUT,      -1,           -1},
+    {o_new_instance,        2, D_LINENO,  D_OUTPUT,       -1,              -1,            -1,           -1},
     {o_return_from_vm,      1, D_NOP,     -1,             -1,              -1,            -1,           -1}
 };
 
