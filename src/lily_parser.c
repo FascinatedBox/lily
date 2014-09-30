@@ -184,6 +184,30 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig,
     return var;
 }
 
+/*  get_named_property
+    The same thing as get_named_var, but with a property instead. */
+static lily_prop_entry *get_named_property(lily_parse_state *parser,
+        lily_sig *prop_sig)
+{
+    char *name = parser->lex->label;
+    lily_class *current_class = parser->emit->self_storage->sig->cls;
+
+    lily_prop_entry *prop = lily_find_property(parser->symtab,
+            current_class, name);
+
+    if (prop != NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Property %s already exists in class %s.\n", name,
+                current_class->name);
+
+    prop = lily_add_class_property(current_class, prop_sig, name);
+    if (prop == NULL)
+        lily_raise_nomem(parser->raiser);
+
+    lily_lexer(parser->lex);
+    return prop;
+}
+
 /*  grow_sig_stack
     Make the stack holding type information bigger for more types. */
 static void grow_sig_stack(lily_parse_state *parser)
@@ -418,7 +442,8 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
                     if (call_var == NULL)
                         lily_raise_nomem(parser->raiser);
 
-                    lily_emit_enter_block(parser->emit, BLOCK_CLASS);
+                    lily_emit_enter_block(parser->emit,
+                            BLOCK_FUNCTION | BLOCK_CLASS);
                     lily_lexer(lex);
                 }
                 else {
@@ -626,6 +651,35 @@ static void expression_word(lily_parse_state *parser, int *state)
                        "%s has not been declared.\n", lex->label);
         }
     }
+}
+
+/*  expression_property
+    Within a class declaration, the properties of the class are referred to
+    by using a @ in front of the name.
+
+    Example:
+        class Point(integer inX, integer inY) { @x = inX    @y = inY }
+        Point p = Point::new(1, 2)
+        # @x now availble as 'p.x', @y as 'p.y'.
+
+    Similar to expression_word, minus the complexity. */
+static void expression_property(lily_parse_state *parser, int *state)
+{
+    if (parser->emit->current_class == NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Properties cannot be used outside of a class constructor.\n");
+
+    char *name = parser->lex->label;
+    lily_class *current_class = parser->emit->self_storage->sig->cls;
+
+    lily_prop_entry *prop = lily_find_property(parser->symtab, current_class,
+            name);
+    if (prop == NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Property %s is not in class %s.\n", name, current_class->name);
+
+    lily_ast_push_property(parser->ast_pool, prop);
+    *state = ST_WANT_OPERATOR;
 }
 
 /*  check_valid_close_tok
@@ -850,6 +904,12 @@ static void expression_raw(lily_parse_state *parser, int state)
                 state = ST_DEMAND_VALUE;
             }
         }
+        else if (lex->token == tk_prop_word) {
+            if (state == ST_WANT_OPERATOR)
+                state = ST_DONE;
+            else
+                expression_property(parser, &state);
+        }
         else if (lex->token == tk_tuple_open) {
             if (state == ST_WANT_OPERATOR)
                 state = ST_DONE;
@@ -908,6 +968,17 @@ static void expression(lily_parse_state *parser)
     expression_raw(parser, ST_DEMAND_VALUE);
 }
 
+static void bad_decl_token(lily_parse_state *parser)
+{
+    char *message;
+    if (parser->lex->token == tk_word)
+        message = "Class properties must start with @.\n";
+    else
+        message = "Cannot declare a class property outside class constructor.\n";
+
+    lily_raise(parser->raiser, lily_SyntaxError, message);
+}
+
 /* parse_decl
    This function takes a sig and handles a declaration wherein each var name
    is separated by a comma. Ex:
@@ -921,20 +992,42 @@ static void expression(lily_parse_state *parser)
 static void parse_decl(lily_parse_state *parser, lily_sig *sig)
 {
     lily_lex_state *lex = parser->lex;
-    lily_var *var;
+    lily_var *var = NULL;
+    lily_prop_entry *prop = NULL;
+
+    lily_token want_token;
+    if (parser->emit->current_block->block_type & BLOCK_CLASS)
+        want_token = tk_prop_word;
+    else
+        want_token = tk_word;
 
     while (1) {
-        /* This starts at the class name, or the comma. The label is next. */
-        var = get_named_var(parser, sig, 0);
+        /* This gives a more useful error than "wrong token". */
+        if (lex->token != want_token)
+            bad_decl_token(parser);
+
+        if (lex->token == tk_word)
+            /* This starts at the class name, or the comma. The label is next. */
+            var = get_named_var(parser, sig, 0);
+        else {
+            prop = get_named_property(parser, sig);
+            if (lex->token != tk_equal)
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Class properties must have an initializing assignment.\n");
+        }
 
         /* Handle an initializing assignment, if there is one. */
         if (lex->token == tk_equal) {
             /* This makes a difference: The emitter cannot do opcode optimizing
                for global reads/writes. */
-            if (parser->emit->function_depth == 1)
-                lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
+            if (var != NULL) {
+                if (parser->emit->function_depth == 1)
+                    lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
+                else if (want_token == tk_word)
+                    lily_ast_push_local_var(parser->ast_pool, var);
+            }
             else
-                lily_ast_push_local_var(parser->ast_pool, var);
+                lily_ast_push_property(parser->ast_pool, prop);
 
             lily_ast_push_binary_op(parser->ast_pool, expr_assign);
             lily_lexer(lex);
@@ -944,7 +1037,8 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
 
         /* This is the start of the next statement. */
         if (lex->token == tk_word || lex->token == tk_end_tag ||
-            lex->token == tk_eof || lex->token == tk_right_curly)
+            lex->token == tk_eof || lex->token == tk_right_curly ||
+            lex->token == tk_prop_word)
             break;
         else if (lex->token != tk_comma) {
             lily_raise(parser->raiser, lily_SyntaxError,
@@ -1087,7 +1181,8 @@ static void statement(lily_parse_state *parser, int multi)
         }
         else if (token == tk_integer || token == tk_double ||
                  token == tk_double_quote || token == tk_left_parenth ||
-                 token == tk_left_bracket || token == tk_tuple_open) {
+                 token == tk_left_bracket || token == tk_tuple_open ||
+                 token == tk_prop_word) {
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->ast_pool);
         }

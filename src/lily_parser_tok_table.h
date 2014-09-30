@@ -56,6 +56,7 @@ static const lily_tok_info parser_tok_table[] =
     {tk_right_bracket,    0          , -1},
     {tk_arrow,            0          , -1},
     {tk_word,             1          , -1},
+    {tk_prop_word,        1          , -1},
     {tk_double_quote,     1          , -1},
     /* These next two may or may not be a simple value: '1+1' is seen by the
        lexer as two tokens: '1 and +1'. In a binary context, '+1' should

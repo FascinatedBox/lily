@@ -1601,6 +1601,30 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
         lily_assign_value(vm, iv->values[i], rhs_reg);
     }
+
+    if (i != total_entries) {
+        /* If there are more properties than the constructor has values for,
+           then fill in the rest with empty entries. */
+        int j;
+        for (j = i;j < total_entries;j++) {
+            iv->values[j] = lily_malloc(sizeof(lily_value));
+            if (iv->values[j] == NULL) {
+                for (;i < j;i++)
+                    lily_free(iv->values[i]);
+
+                lily_raise_nomem(vm->raiser);
+            }
+        }
+
+        lily_prop_entry *prop = instance_class->properties;
+        iv->num_values = total_entries;
+
+        for (j = total_entries - 1;j >= i;j--, prop = prop->next) {
+            iv->values[j]->flags = VAL_IS_NIL;
+            iv->values[j]->sig = prop->sig;
+            iv->values[j]->value.integer = 0;
+        }
+    }
 }
 
 /*****************************************************************************/

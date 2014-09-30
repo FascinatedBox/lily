@@ -8,7 +8,8 @@
 typedef enum {
     tree_call, tree_subscript, tree_list, tree_hash, tree_parenth,
     tree_local_var, tree_readonly, tree_var, tree_package, tree_oo_access,
-    tree_unary, tree_sig, tree_typecast, tree_isnil, tree_tuple, tree_binary
+    tree_unary, tree_sig, tree_typecast, tree_isnil, tree_tuple, tree_property,
+    tree_binary
 } lily_tree_type;
 
 typedef struct {
@@ -21,6 +22,7 @@ typedef struct lily_ast_t {
     lily_tree_type tree_type;
     uint16_t line_num;
 
+    lily_prop_entry *property;
     lily_sig *sig;
     /* This is where the result of evaluating the tree goes. This is used
        because it's a subset of both lily_var and lily_storage, either of which
@@ -109,5 +111,6 @@ void lily_ast_push_sym(lily_ast_pool *, lily_sym *);
 void lily_ast_push_readonly(lily_ast_pool *, lily_sym *);
 void lily_ast_push_unary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_oo_access(lily_ast_pool *, char *);
+void lily_ast_push_property(lily_ast_pool *, lily_prop_entry *);
 void lily_ast_reset_pool(lily_ast_pool *);
 #endif

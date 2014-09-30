@@ -244,7 +244,7 @@ static int count_inner_try_blocks(lily_emit_state *emit)
     lily_block *block_iter = emit->current_block;
     int ret = 0;
     while (IS_LOOP_BLOCK(block_iter->block_type) == 0 &&
-           block_iter->block_type != BLOCK_FUNCTION) {
+           (block_iter->block_type & BLOCK_FUNCTION) == 0) {
         if (block_iter->block_type == BLOCK_TRY)
             ret++;
 
@@ -290,7 +290,7 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
             ret = block;
             break;
         }
-        else if (block->block_type == BLOCK_FUNCTION) {
+        else if (block->block_type & BLOCK_FUNCTION) {
             ret = NULL;
             break;
         }
@@ -518,7 +518,7 @@ static lily_storage *get_storage(lily_emit_state *emit,
             /* Non-function blocks inherit their storage start from the
                function block that they are in. */
             if (emit->current_block->storage_start == NULL) {
-                if (emit->current_block->block_type == BLOCK_FUNCTION)
+                if (emit->current_block->block_type & BLOCK_FUNCTION)
                     /* Easy mode: Just fill in for the function. */
                     emit->current_block->storage_start = ret;
                 else {
@@ -528,7 +528,7 @@ static lily_storage *get_storage(lily_emit_state *emit,
                        because not doing this causes the function block to miss
                        this storage when the function is being finalized. */
                     lily_block *block = emit->current_block;
-                    while (block->block_type != BLOCK_FUNCTION) {
+                    while ((block->block_type & BLOCK_FUNCTION) == 0) {
                         block->storage_start = ret;
                         block = block->prev;
                     }
@@ -1226,26 +1226,38 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     ast->result = right_sym;
 }
 
-/*  eval_oo_assign
+/*  eval_oo_and_prop_assign
     This is called to handle assignments when the left side is of type
     tree_oo_access. Example:
         ValueError v = ValueError::new("test")
-        v.message = "test\n" */
-static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
-{
-    eval_tree(emit, ast->left);
+        v.message = "test\n"
 
-    /* Make sure that it was a property access, and not a class member access.
-       The latter is not reassignable.*/
-    if (ast->left->result->flags & SYM_TYPE_VAR) {
-        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Left side of assignment is not assignable.\n", "");
+    This also handles property assignments, such as '@x = 10' and '@y = 11'.
+    For these, the left will have type 'tree_property'. */
+static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_sig *left_sig;
+
+    if (ast->tree_type != tree_property) {
+        eval_tree(emit, ast->left);
+
+        /* Make sure that it was a property access, and not a class member
+           access. The latter is not reassignable. */
+        if (ast->left->result->flags & SYM_TYPE_VAR)
+            lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+                    "Left side of assignment is not assignable.\n", "");
+
+        left_sig = ast->left->result->sig;
     }
+    else
+        /* Don't bother evaluating the left, because the property's id and sig
+           are already available. Evaluating it would just dump the contents
+           into a var, which isn't useful. */
+        left_sig = ast->property->sig;
 
     if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right);
 
-    lily_sig *left_sig = ast->left->result->sig;
     lily_sig *right_sig = ast->right->result->sig;
 
     if (left_sig != right_sig && left_sig->cls->id == SYM_CLASS_ANY) {
@@ -1254,13 +1266,17 @@ static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
                          right_sig);
     }
 
-    lily_literal *lit = lily_get_integer_literal(emit->symtab,
+    lily_literal *lit;
+
+    if (ast->left->tree_type == tree_oo_access)
+        lit = lily_get_integer_literal(emit->symtab,
             ast->left->oo_property_index);
+    else
+        lit = lily_get_integer_literal(emit->symtab,
+            ast->left->property->id);
+
     lily_storage *lit_result = get_storage(emit, lit->sig,
             ast->line_num);
-
-    /* Don't use lookup_class->sig, in case the class doesn't have a
-       default signature. */
 
     write_4(emit,
             o_get_const,
@@ -1268,12 +1284,20 @@ static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
             lit->reg_spot,
             lit_result->reg_spot);
 
-    write_5(emit,
-            o_set_item,
-            ast->line_num,
-            ast->left->arg_start->result->reg_spot,
-            lit_result->reg_spot,
-            ast->right->result->reg_spot);
+    if (ast->left->tree_type == tree_oo_access)
+        write_5(emit,
+                o_set_item,
+                ast->line_num,
+                ast->left->arg_start->result->reg_spot,
+                lit_result->reg_spot,
+                ast->right->result->reg_spot);
+    else
+        write_5(emit,
+                o_set_item,
+                ast->line_num,
+                emit->self_storage->reg_spot,
+                lit_result->reg_spot,
+                ast->right->result->reg_spot);
 
     ast->result = (lily_sym *)ast->right;
 }
@@ -2405,6 +2429,33 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
     }
 }
 
+/*  eval_property
+    This handles evaluating '@<x>' within a class constructor. */
+static void eval_property(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_storage *result = get_storage(emit, ast->property->sig,
+            ast->line_num);
+
+    lily_literal *lit = lily_get_integer_literal(emit->symtab,
+            ast->property->id);
+    lily_storage *index_storage = get_storage(emit, lit->sig, ast->line_num);
+
+    write_4(emit,
+            o_get_const,
+            ast->line_num,
+            lit->reg_spot,
+            index_storage->reg_spot);
+
+    write_5(emit,
+            o_get_item,
+            ast->line_num,
+            emit->self_storage->reg_spot,
+            index_storage->reg_spot,
+            result->reg_spot);
+
+    ast->result = (lily_sym *)result;
+}
+
 /*  eval_isnil
     Eval a special tree representing the 'isnil' keyword. This tree has one
     value: The inner tree swallowed. For speed, the code emitted will select
@@ -2445,14 +2496,15 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast)
         if (ast->op >= expr_assign) {
             if (ast->left->tree_type != tree_subscript &&
                 ast->left->tree_type != tree_package &&
-                ast->left->tree_type != tree_oo_access)
+                ast->left->tree_type != tree_oo_access &&
+                ast->left->tree_type != tree_property)
                 eval_assign(emit, ast);
             else if (ast->left->tree_type == tree_package)
                 eval_package_assign(emit, ast);
             else if (ast->left->tree_type == tree_subscript)
                 eval_sub_assign(emit, ast);
-            else if (ast->left->tree_type == tree_oo_access)
-                eval_oo_assign(emit, ast);
+            else
+                eval_oo_and_prop_assign(emit, ast);
         }
         else if (ast->op == expr_logical_or || ast->op == expr_logical_and)
             eval_logical_op(emit, ast);
@@ -2492,6 +2544,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast)
         eval_typecast(emit, ast);
     else if (ast->tree_type == tree_oo_access)
         eval_oo_access(emit, ast);
+    else if (ast->tree_type == tree_property)
+        eval_property(emit, ast);
     else if (ast->tree_type == tree_isnil)
         eval_isnil(emit, ast);
 }
@@ -2997,8 +3051,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
     new_block->class_entry = NULL;
     new_block->self = NULL;
 
-    if (block_type != BLOCK_FUNCTION &&
-        block_type != BLOCK_CLASS) {
+    if ((block_type & BLOCK_FUNCTION) == 0) {
         new_block->patch_start = emit->patch_pos;
         /* Non-functions will continue using the storages that the parent uses.
            Additionally, the same technique is used to allow loop starts to
@@ -3011,13 +3064,9 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
     }
     else {
         lily_var *v = emit->symtab->var_chain;
-        if (block_type == BLOCK_CLASS) {
+        if (block_type & BLOCK_CLASS) {
             emit->current_class = emit->symtab->class_chain;
             new_block->class_entry = emit->symtab->class_chain;
-            /* Make it a function block, since functions do much of the same
-               stuff. The class_entry field on a block tracks the
-               difference. */
-            new_block->block_type = BLOCK_FUNCTION;
         }
 
         char *class_name;
@@ -3076,7 +3125,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
 
     v = block->var_start;
 
-    if (block_type != BLOCK_FUNCTION) {
+    if ((block_type & BLOCK_FUNCTION) == 0) {
         int from, to, pos;
         from = emit->patch_pos-1;
         to = block->patch_start;
