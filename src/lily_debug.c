@@ -97,7 +97,7 @@ typedef struct lily_debug_state_t {
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[56] = {
+char *opcode_names[55] = {
     "assign",
     "any assign",
     "assign (ref/deref)",
@@ -128,9 +128,8 @@ char *opcode_names[56] = {
     "return (no value)",
     "unary not (!x)",
     "unary minus (-x)",
-    "build list",
+    "build list/tuple",
     "build hash",
-    "build tuple",
     "typecast",
     "integer <-> double",
     "return expected",
@@ -186,9 +185,8 @@ static const int optable[][8] = {
     {o_return_noval,        1, D_LINENO,  -1,             -1,              -1,            -1,           -1},
     {o_unary_not,           3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
     {o_unary_minus,         3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
-    {o_build_list,          4, D_LINENO,  D_COUNT,        D_COUNT_LIST,    D_OUTPUT,      -1,           -1},
+    {o_build_list_tuple,    4, D_LINENO,  D_COUNT,        D_COUNT_LIST,    D_OUTPUT,      -1,           -1},
     {o_build_hash,          4, D_LINENO,  D_COUNT,        D_COUNT_LIST,    D_OUTPUT,      -1,           -1},
-    {o_build_tuple,         4, D_LINENO,  D_COUNT,        D_COUNT_LIST,    D_OUTPUT,      -1,           -1},
     {o_any_typecast,        3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
     {o_intdbl_typecast,     3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
     {o_return_expected,     1, D_LINENO,  -1,             -1,              -1,            -1,           -1},

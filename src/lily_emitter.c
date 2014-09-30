@@ -548,21 +548,21 @@ static lily_storage *get_storage(lily_emit_state *emit,
 
 /*  write_build_op
 
-    This is responsible for writing the actual o_build_list or o_build_hash
-    code, depending on the opcode given. The list will be put into a register
-    at reg_spot, which is assumed to have the correct type to hold the given
-    list.
+    This is responsible for writing the actual o_build_list_tuple or
+    o_build_hash code, depending on the opcode given. The list will be put into
+    a register at reg_spot, which is assumed to have the correct type to hold
+    the given result.
 
     emit:       The emitter holding the function to write to.
-    opcode:     The opcode to write: o_build_list for a list, o_build_hash for a
-                hash, o_build_tuple for a tuple.
+    opcode:     The opcode to write: o_build_list_tuple for a list/tuple, or
+                o_build_hash for a hash.
     first_arg:  The first argument to start iterating over.
     line_num:   A line number for the o_build_* opcode.
     num_values: The number of values that will be written. This is typically
                 the parent's args_collected.
     reg_spot:   The id of a register where the opcode's result will go. The
                 caller is expected to ensure that the register has the proper
-                type to hold the resulting list.
+                type to hold the resulting thing.
 */
 static void write_build_op(lily_emit_state *emit, int opcode,
         lily_ast *first_arg, int line_num, int num_values, int reg_spot)
@@ -1752,7 +1752,7 @@ static void emit_hash_values_to_anys(lily_emit_state *emit,
     list_ast: An ast of type tree_list which has already been evaluated.
 
     Caveats:
-    * Caller must do this before writing the o_build_list instruction out.
+    * Caller must do this before writing the o_build_list_tuple instruction.
     * Caller must evaluate the list before calling this.
     * This will call lily_raise_nomem in the event of being unable to allocate
       an any value. */
@@ -1917,7 +1917,7 @@ static int type_matchup(lily_emit_state *emit, lily_sig *want_sig,
 
         int build_op;
         if (right->tree_type == tree_list) {
-            build_op = o_build_list;
+            build_op = o_build_list_tuple;
             emit_list_values_to_anys(emit, right);
         }
         else {
@@ -1964,8 +1964,8 @@ static int type_matchup(lily_emit_state *emit, lily_sig *want_sig,
         if (ret == 1) {
             lily_storage *s = get_storage(emit, want_sig, right->line_num);
 
-            write_build_op(emit, o_build_tuple, right->arg_start, right->line_num,
-                    right->args_collected, s->reg_spot);
+            write_build_op(emit, o_build_list_tuple, right->arg_start,
+                    right->line_num, right->args_collected, s->reg_spot);
             right->result = (lily_sym *)s;
         }
     }
@@ -2021,7 +2021,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
 
     lily_storage *s = get_storage(emit, new_sig, ast->line_num);
 
-    write_build_op(emit, o_build_list, ast->arg_start, ast->line_num,
+    write_build_op(emit, o_build_list_tuple, ast->arg_start, ast->line_num,
             ast->args_collected, s->reg_spot);
     ast->result = (lily_sym *)s;
 }
@@ -2060,7 +2060,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast)
                 emit->sig_stack, emit->sig_stack_pos, i);
     lily_storage *s = get_storage(emit, new_sig, ast->line_num);
 
-    write_build_op(emit, o_build_tuple, ast->arg_start, ast->line_num,
+    write_build_op(emit, o_build_list_tuple, ast->arg_start, ast->line_num,
             ast->args_collected, s->reg_spot);
     ast->result = (lily_sym *)s;
 }
@@ -2185,8 +2185,8 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         lily_storage *s;
         s = get_storage(emit, save_sig, ast->line_num);
 
-        write_build_op(emit, o_build_list, save_arg, save_arg->line_num, i,
-                s->reg_spot);
+        write_build_op(emit, o_build_list_tuple, save_arg, save_arg->line_num,
+                i, s->reg_spot);
 
         /* Fix the ast so that it thinks the vararg list is the last value. */
         save_arg->result = (lily_sym *)s;

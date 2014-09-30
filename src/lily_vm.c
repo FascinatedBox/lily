@@ -1396,21 +1396,22 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code, int code_pos)
     }
 }
 
-/*  do_o_build_list
-    This implements creating a new list. The code given has code_pos adjusted
-    into it, so values can be pulled as 'code[X]' instead of 'code[code_pos+X]'
+/*  do_o_build_list_tuple
+    This implements creating a new list or tuple. Internally, there's so little
+    difference between the two that this works for both. The code given has
+    code_pos adjusted into it, so values can be pulled as 'code[X]' instead of
+    'code[code_pos+X]'.
 
     Arguments are pulled from the given code as follows:
 
     +2: The number of values.
     +3..*: The values.
     final: The result to assign the new list to. */
-static void do_o_build_list(lily_vm_state *vm, uint16_t *code)
+static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     int num_elems = (intptr_t)(code[2]);
     lily_value *result = vm_regs[code[3+num_elems]];
-    lily_sig *elem_sig = result->sig->siglist[0];
 
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
     if (lv == NULL)
@@ -1424,103 +1425,46 @@ static void do_o_build_list(lily_vm_state *vm, uint16_t *code)
     lv->elems = lily_malloc(num_elems * sizeof(lily_value *));
     lv->gc_entry = NULL;
 
-    /* If attaching a gc entry fails, then list deref will collect everything
-       which is what's wanted anyway. */
     if (lv->elems == NULL ||
         ((result->sig->flags & SIG_MAYBE_CIRCULAR) &&
           try_add_gc_item(vm, result->sig,
                 (lily_generic_gc_val *)lv) == 0)) {
 
-        lily_deref_list_val(result->sig, lv);
+        lily_free(lv->elems);
+        lily_free(lv);
         lily_raise_nomem(vm->raiser);
     }
 
     /* The old value can be destroyed, now that the new value has been made. */
     if ((result->flags & VAL_IS_NIL) == 0)
-        lily_deref_list_val(result->sig, result->value.list);
+        lily_deref_unknown_val(result);
 
     /* Put the new list in the register so the gc doesn't try to collect it. */
     result->value.list = lv;
-    /* This is important for list[any], because it prevents the gc from
-       collecting all anys if it's triggered from within the list build. */
+    /* Make sure the gc can collect when there's an error. */
     result->flags = 0;
 
     int i;
     for (i = 0;i < num_elems;i++) {
+        lily_value *rhs_reg = vm_regs[code[3+i]];
+
         lv->elems[i] = lily_malloc(sizeof(lily_value));
         if (lv->elems[i] == NULL) {
             lv->num_values = i;
             lily_raise_nomem(vm->raiser);
         }
         lv->elems[i]->flags = VAL_IS_NIL;
-        lv->elems[i]->sig = elem_sig;
+        /* For lists, the emitter verifies that each input has the same type.
+           For tuples, there is no such restriction. This allows one opcode to
+           handle building two (very similar) things. */
+        lv->elems[i]->sig = rhs_reg->sig;
         lv->elems[i]->value.integer = 0;
         lv->num_values = i + 1;
-        lily_value *rhs_reg = vm_regs[code[3+i]];
 
         lily_assign_value(vm, lv->elems[i], rhs_reg);
     }
 
     lv->num_values = num_elems;
-}
-
-/*  do_o_build_tuple
-    This is the same thing as do_o_build_list, except the result is a tuple.
-    The difference between a tuple and a list is that a tuple allows a certain
-    number of statically-checked types, whereas list only allows one type. */
-static void do_o_build_tuple(lily_vm_state *vm, uint16_t *code)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    int num_elems = (intptr_t)(code[2]);
-    lily_value *result = vm_regs[code[3+num_elems]];
-    lily_list_val *tuple = lily_malloc(sizeof(lily_list_val));
-    if (tuple == NULL)
-        lily_raise_nomem(vm->raiser);
-
-    /* This is set in case the gc looks at this list. This prevents the gc and
-       deref calls from touching ->values and ->flags. */
-    tuple->num_values = -1;
-    tuple->visited = 0;
-    tuple->refcount = 1;
-    tuple->elems = lily_malloc(num_elems * sizeof(lily_value *));
-    tuple->gc_entry = NULL;
-
-    /* If attaching a gc entry fails, then list deref will collect everything
-       which is what's wanted anyway. */
-    if (tuple->elems == NULL ||
-        ((result->sig->flags & SIG_MAYBE_CIRCULAR) &&
-          try_add_gc_item(vm, result->sig,
-                (lily_generic_gc_val *)tuple) == 0)) {
-
-        lily_deref_tuple_val(result->sig, tuple);
-        lily_raise_nomem(vm->raiser);
-    }
-
-    /* Deref the old value and install the new one. */
-    if ((result->flags & VAL_IS_NIL) == 0)
-        lily_deref_tuple_val(result->sig, result->value.list);
-
-    result->value.list = tuple;
-    /* This must be done in case the old tuple was nil. */
-    result->flags = 0;
-
-    int i;
-    for (i = 0;i < num_elems;i++) {
-        tuple->elems[i] = lily_malloc(sizeof(lily_value));
-        if (tuple->elems[i] == NULL) {
-            tuple->num_values = i;
-            lily_raise_nomem(vm->raiser);
-        }
-        tuple->elems[i]->flags = VAL_IS_NIL;
-        tuple->elems[i]->sig = result->sig->siglist[i];
-        tuple->elems[i]->value.integer = 0;
-        tuple->num_values = i + 1;
-        lily_value *rhs_reg = vm_regs[code[3+i]];
-
-        lily_assign_value(vm, tuple->elems[i], rhs_reg);
-    }
-
-    tuple->num_values = num_elems;
 }
 
 /*  do_o_raise
@@ -2527,12 +2471,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 do_o_build_hash(vm, code, code_pos);
                 code_pos += code[code_pos+2] + 4;
                 break;
-            case o_build_list:
-                do_o_build_list(vm, code+code_pos);
-                code_pos += code[code_pos+2] + 4;
-                break;
-            case o_build_tuple:
-                do_o_build_tuple(vm, code+code_pos);
+            case o_build_list_tuple:
+                do_o_build_list_tuple(vm, code+code_pos);
                 code_pos += code[code_pos+2] + 4;
                 break;
             case o_ref_assign:
