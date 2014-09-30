@@ -969,6 +969,21 @@ static void boundary_error(lily_vm_state *vm, int bad_index)
 /*****************************************************************************/
 /* Built-in function implementations                                         */
 /*****************************************************************************/
+
+/*  lily_builtin_calltrace
+    Implements: function calltrace(=> tuple[string, integer]) */
+void lily_builtin_calltrace(lily_vm_state *vm, lily_function_val *self,
+        uint16_t *code)
+{
+    lily_value *result = vm->vm_regs[code[0]];
+
+    lily_value *traceback_val = build_traceback(vm, result->sig);
+    if (traceback_val == NULL)
+        lily_raise_nomem(vm->raiser);
+
+    lily_assign_value(vm, result, traceback_val);
+}
+
 /*  lily_builtin_show
     Implements: function show[A](A value) */
 void lily_builtin_show(lily_vm_state *vm, lily_function_val *self,

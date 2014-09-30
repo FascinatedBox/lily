@@ -272,9 +272,14 @@ keyword_seed keywords[] = {
 void lily_builtin_print(lily_vm_state *, lily_function_val *, uint16_t *);
 void lily_builtin_show(lily_vm_state *, lily_function_val *, uint16_t *);
 void lily_builtin_printfmt(lily_vm_state *, lily_function_val *, uint16_t *);
+void lily_builtin_calltrace(lily_vm_state *, lily_function_val *, uint16_t *);
 
+static const lily_func_seed calltrace = 
+    {"calltrace", lily_builtin_calltrace, NULL,
+        {SYM_CLASS_FUNCTION, 1, 0,
+            SYM_CLASS_LIST, SYM_CLASS_TUPLE, 2, SYM_CLASS_STRING, SYM_CLASS_INTEGER}};
 static const lily_func_seed show =
-    {"show", lily_builtin_show, NULL,
+    {"show", lily_builtin_show, &calltrace,
         {SYM_CLASS_FUNCTION, 2, 0, -1, SYM_CLASS_TEMPLATE, 0}};
 static const lily_func_seed print =
     {"print", lily_builtin_print, &show,
