@@ -2195,6 +2195,25 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     }
 }
 
+/*  maybe_self_insert
+    This is called when eval_call finds a readonly tre (a non-anonymous
+    function call) and there is a current class.
+    The ast given is the tree holding the function at result. Determine if this
+    function belongs to the current class. If so, replace the ast with 'self'.
+    Since this checks for tree_readonly, only explicit calls to functions
+    defined in the class get an implicit self. */
+static int maybe_self_insert(lily_emit_state *emit, lily_ast *ast)
+{
+    /* Global functions defined outside of this class do not automatically get
+       self as the first argument. */
+    if (emit->current_class != ((lily_var *)ast->result)->parent)
+        return 0;
+
+    ast->result = (lily_sym *)emit->self_storage;
+    ast->tree_type = tree_local_var;
+    return 1;
+}
+
 /*  eval_call
     This handles doing calls to what should be a function. It handles doing oo
     calls by farming out the oo lookup elsewhere. */
@@ -2226,9 +2245,16 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
                     ast->result->sig);
 
         if (ast->arg_start->tree_type != tree_oo_access) {
-            /* Then drop it from the arg list, since it's not an arg. */
-            ast->arg_start = ast->arg_start->next_arg;
-            ast->args_collected--;
+            /* If inside a class, then consider inserting replacing the
+               unnecessary readonly tree with 'self'.
+               If this isn't possible, drop the readonly tree from args since
+               it isn't truly an argument. */
+            if (emit->current_class == NULL ||
+                ast->arg_start->tree_type != tree_readonly ||
+                maybe_self_insert(emit, ast->arg_start) == 0) {
+                ast->arg_start = ast->arg_start->next_arg;
+                ast->args_collected--;
+            }
         }
         else {
             /* Fix the oo access to return the first arg it had, since that's
