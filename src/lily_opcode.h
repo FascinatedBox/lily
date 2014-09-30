@@ -141,39 +141,30 @@ typedef enum {
     o_unary_not,
     o_unary_minus,
 
-    /* Build list:
+    /* Build list/tuple:
        * int lineno
        * int num_args
        * reg args...
        * reg result
-       This creates a new list. Emitter has already set the sig of result, and
-       that is the type the elements are assumed to be. Emitter also guarantees
-       that all elements are of the same type. */
-    o_build_list,
+       This creates a new list/tuple. Which one gets made depends on the type
+       of the result. Emitter has already set the sig of result, and that is
+       the type the elements are assumed to be. Emitter also guarantees that
+       all elements are of the same type. */
+    o_build_list_tuple,
 
     /* Build hash:
        * int lineno
        * int num_values
        * reg values...
        * reg result
-       This creates a new hash, and is fairly similar to o_build_list in that
-       the sig of the result is already set. 'values' is a series of key and
-       value pairs. It should be noted that num_values is the number of values,
-       NOT the number of pairs. So there are (num_values / 2) pairs to create.
-       This was done intentionally to follow calls and o_build_list in that the
-       count always precedes the exact number of values. */
+       This creates a new hash, and is fairly similar to o_build_list_tuple in
+       that the sig of the result is already set. 'values' is a series of key
+       and value pairs. It should be noted that num_values is the number of
+       values, NOT the number of pairs. So there are (num_values / 2) pairs to
+       create. This was done intentionally to follow calls and
+       o_build_list_tuple in that the count always precedes the exact number of
+       values. */
     o_build_hash,
-
-    /* Build tuple:
-       * int lineno
-       * int num_values
-       * reg values...
-       * reg result
-       This creates a new tuple that holds the values given. The resulting type
-       depends on the values given. The values may have different types (that's
-       sort of encouraged), and the result is a tuple with the appropriate
-       type. */
-    o_build_tuple,
 
     /* Any typecast:
        * int lineno
