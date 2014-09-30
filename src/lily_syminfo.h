@@ -365,7 +365,6 @@ typedef struct lily_gc_entry_t {
    names for doing trace. */
 typedef struct lily_register_info_t {
     lily_sig *sig;
-    char *class_name;
     char *name;
     int line_num;
 } lily_register_info;

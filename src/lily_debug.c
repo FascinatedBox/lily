@@ -253,6 +253,9 @@ static void show_function(lily_debug_state *debug, int position)
     lily_msgbuf_add_fmt(debug->msgbuf, "^I|     <---- (^T) ", debug->indent,
             var->sig);
 
+    if (var->parent != NULL)
+        lily_msgbuf_add_fmt(debug->msgbuf, "%s::", var->parent->name);
+
     if (var->line_num != 0)
         lily_msgbuf_add_fmt(debug->msgbuf, "%s from line %d\n", var->name,
                 var->line_num);
@@ -291,15 +294,11 @@ static void show_register_info(lily_debug_state *debug, int flags, int reg_num)
             debug->indent, arrow_str, reg_info.sig, scope_str, reg_num);
 
     if (reg_info.name != NULL) {
-        lily_msgbuf_add(msgbuf, " (");
-        if (reg_info.class_name)
-            lily_msgbuf_add_fmt(msgbuf, "%s%s", reg_info.class_name, "::");
-
         if (reg_info.line_num != 0)
-            lily_msgbuf_add_fmt(msgbuf, "%s from line %d)\n", reg_info.name,
+            lily_msgbuf_add_fmt(msgbuf, " (%s from line %d)\n", reg_info.name,
                              reg_info.line_num);
         else
-            lily_msgbuf_add_fmt(msgbuf, "%s [builtin])\n", reg_info.name);
+            lily_msgbuf_add_fmt(msgbuf, " (%s [builtin])\n", reg_info.name);
     }
     else
         lily_msgbuf_add(msgbuf, "\n");
