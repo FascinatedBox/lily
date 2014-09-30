@@ -711,14 +711,12 @@ static lily_sig *build_untemplated_sig(lily_emit_state *emit, lily_sig *sig)
     Add info for a linked-list of vars to the given register info. Functions do
     not get a register (VAR_IS_READONLY), so don't add them. */
 static void add_var_chain_to_info(lily_emit_state *emit,
-        lily_register_info *info, char *class_name, lily_var *from_var,
-        lily_var *to_var)
+        lily_register_info *info, lily_var *from_var, lily_var *to_var)
 {
     while (from_var != to_var) {
         if ((from_var->flags & VAR_IS_READONLY) == 0) {
             info[from_var->reg_spot].sig = from_var->sig;
             info[from_var->reg_spot].name = from_var->name;
-            info[from_var->reg_spot].class_name = class_name;
             info[from_var->reg_spot].line_num = from_var->line_num;
         }
 
@@ -735,7 +733,6 @@ static void add_storage_chain_to_info(lily_register_info *info,
     while (storage && storage->sig) {
         info[storage->reg_spot].sig = storage->sig;
         info[storage->reg_spot].name = NULL;
-        info[storage->reg_spot].class_name = NULL;
         info[storage->reg_spot].line_num = -1;
         storage = storage->next;
     }
@@ -776,7 +773,7 @@ static void finalize_function_val(lily_emit_state *emit,
     /* else we're in __main__, which does include itself as an arg so it can be
        passed to show and other neat stuff. */
 
-    add_var_chain_to_info(emit, info, NULL, emit->symtab->var_chain, var_stop);
+    add_var_chain_to_info(emit, info, emit->symtab->var_chain, var_stop);
     add_storage_chain_to_info(info, function_block->storage_start);
 
     if (emit->function_depth > 1) {
