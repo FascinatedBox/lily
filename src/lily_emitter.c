@@ -2862,74 +2862,20 @@ void lily_emit_class_init(lily_emit_state *emit)
 {
     lily_class *cls = emit->current_class;
 
-    /* Since variables are added as the top of the symtab's var chain, the
-       parameters are in reverse order. Before doing anything else, reverse
-       this order.
-       Consider: 'class Point(integer x, integer y) { integer z }'
-       Without: x: 1, y: 0, z: 2
-       With:    x: 0, y: 1, z: 2 */
-    lily_var *var_iter = emit->symtab->var_chain;
-    lily_var *var_stop = emit->current_block->var_start;
-    lily_var *reverse_start = NULL;
-    lily_var *reverse_top = NULL;
-    while (var_iter != var_stop) {
-        lily_var *next = var_iter->next;
-        if (reverse_start == NULL) {
-            reverse_start = var_iter;
-            reverse_top = var_iter;
-            var_iter->next = NULL;
-        }
-        else {
-            var_iter->next = reverse_top;
-            reverse_top = var_iter;
-        }
-
-        var_iter = next;
-    }
-
-    /* Relink to the symtab, then add the properties in the right order. */
-    reverse_start->next = emit->current_block->var_start;
-    emit->symtab->var_chain = reverse_top;
-    var_iter = emit->symtab->var_chain;
-
-    while (var_iter != var_stop) {
-        lily_prop_entry *entry = lily_add_class_property(cls, var_iter->sig,
-                var_iter->name);
-        if (entry == NULL)
-            lily_raise_nomem(emit->raiser);
-
-        var_iter = var_iter->next;
-    }
-
-    int instance_size;
-    if (emit->current_class->properties)
-        instance_size = emit->current_class->properties->id + 1;
-    else
-        instance_size = 0;
-
-    /* Warning: This works for now because user-defined classes do not include
-                generics/other complicated stuff. */
+    /* Warning: emit->current_class->sig works ONLY because there are no
+                generic classes (yet).
+       This is where the hidden '(self)' variable is made and the fields
+       initialized. */
     lily_storage *self = get_storage(emit, emit->current_class->sig,
             *emit->lex_linenum);
     emit->current_block->self = self;
 
-    /* Create an instance with initial values for all properties that are
-       currently known. Any unknown properties are set to nil and will later
-       get filled in as the properties are available. */
     lily_function_val *f = emit->top_function;
-    write_prep(emit, 4 + instance_size);
 
-    int i;
-    f->code[f->pos  ] = o_new_instance;
-    f->code[f->pos+1] = *emit->lex_linenum;
-    f->code[f->pos+2] = instance_size;
-    for (i = 0, var_iter = emit->symtab->var_chain;
-         i < instance_size;
-         i++, var_iter = var_iter->next) {
-        f->code[f->pos+3+i] = var_iter->reg_spot;
-    }
-    f->code[f->pos+3+i] = self->reg_spot;
-    f->pos += 4 + i;
+    write_3(emit,
+            o_new_instance,
+            *emit->lex_linenum,
+            self->reg_spot);
 
     emit->self_storage = self;
 }
