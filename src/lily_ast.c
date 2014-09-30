@@ -671,3 +671,11 @@ void lily_ast_push_oo_access(lily_ast_pool *ap, char *oo_name)
 
     merge_value(ap, a);
 }
+
+void lily_ast_push_property(lily_ast_pool *ap, lily_prop_entry *prop)
+{
+    AST_COMMON_INIT(a, tree_property);
+    a->property = prop;
+
+    merge_value(ap, a);
+}

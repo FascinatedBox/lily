@@ -44,6 +44,7 @@ typedef enum {
     tk_right_bracket,
     tk_arrow,
     tk_word,
+    tk_prop_word,
     tk_double_quote,
     tk_integer,
     tk_double,

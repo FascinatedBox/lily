@@ -1360,6 +1360,19 @@ void lily_lexer(lily_lex_state *lexer)
                 input_pos++;
                 token = tk_typecast_parenth;
             }
+            else if (ch_class[(unsigned char)*ch] == CC_WORD) {
+                char *label = lexer->label;
+                int word_pos = 0;
+
+                do {
+                    label[word_pos] = *ch;
+                    word_pos++;
+                    ch++;
+                } while (ident_table[(unsigned char)*ch]);
+                input_pos += word_pos;
+                label[word_pos] = '\0';
+                token = tk_prop_word;
+            }
             else
                 token = tk_invalid;
         }
@@ -1455,9 +1468,9 @@ char *tokname(lily_token t)
     static char *toknames[] =
     {"(", ")", ",", "{", "}", "[", "^", "!", "!=", "%", "%=", "*", "*=",
      "/", "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>",
-     ">>=", "=", "==", "<[", "]>", "]", "=>", "a label", "a string",
-     "an integer", "a double", ".", ":", "::", "&", "&&", "|", "||", "@(",
-     "..", "...", "invalid token", "?>", "end of file"};
+     ">>=", "=", "==", "<[", "]>", "]", "=>", "a label", "a property name",
+     "a string", "an integer", "a double", ".", ":", "::", "&", "&&", "|",
+     "||", "@(", "..", "...", "invalid token", "?>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];
