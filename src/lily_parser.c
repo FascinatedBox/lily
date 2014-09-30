@@ -208,6 +208,25 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
     return prop;
 }
 
+/*  bad_decl_token
+    This is a function called when parse_decl is expecting a var name and gets
+    a property name, or vice versa. For either case, give the user a more
+    useful error message.
+    This is particularly important for classes: A new user may expect that
+    class properties don't have an @ starter. This gives a useful error message
+    in that case. */
+static void bad_decl_token(lily_parse_state *parser)
+{
+    char *message;
+
+    if (parser->lex->token == tk_word)
+        message = "Class properties must start with @.\n";
+    else
+        message = "Cannot use a class property outside of a constructor.\n";
+
+    lily_raise(parser->raiser, lily_SyntaxError, message);
+}
+
 /*  grow_sig_stack
     Make the stack holding type information bigger for more types. */
 static void grow_sig_stack(lily_parse_state *parser)
@@ -968,17 +987,6 @@ static void expression(lily_parse_state *parser)
     expression_raw(parser, ST_DEMAND_VALUE);
 }
 
-static void bad_decl_token(lily_parse_state *parser)
-{
-    char *message;
-    if (parser->lex->token == tk_word)
-        message = "Class properties must start with @.\n";
-    else
-        message = "Cannot declare a class property outside class constructor.\n";
-
-    lily_raise(parser->raiser, lily_SyntaxError, message);
-}
-
 /* parse_decl
    This function takes a sig and handles a declaration wherein each var name
    is separated by a comma. Ex:
@@ -995,16 +1003,22 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
     lily_var *var = NULL;
     lily_prop_entry *prop = NULL;
 
-    lily_token want_token;
-    if (parser->emit->current_block->block_type & BLOCK_CLASS)
+    lily_token token, want_token, other_token;
+    if (parser->emit->current_block->block_type & BLOCK_CLASS) {
         want_token = tk_prop_word;
-    else
+        other_token = tk_word;
+    }
+    else {
         want_token = tk_word;
+        other_token = tk_prop_word;
+    }
 
     while (1) {
-        /* This gives a more useful error than "wrong token". */
-        if (lex->token != want_token)
+        /* For this special case, give a useful error message. */
+        if (lex->token == other_token)
             bad_decl_token(parser);
+
+        NEED_CURRENT_TOK(want_token)
 
         if (lex->token == tk_word)
             /* This starts at the class name, or the comma. The label is next. */
@@ -1035,18 +1049,18 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
             lily_emit_eval_expr(parser->emit, parser->ast_pool);
         }
 
+        token = lex->token;
         /* This is the start of the next statement. */
-        if (lex->token == tk_word || lex->token == tk_end_tag ||
-            lex->token == tk_eof || lex->token == tk_right_curly ||
-            lex->token == tk_prop_word)
+        if (token == tk_word || token == tk_prop_word || token == tk_end_tag ||
+            token == tk_eof || token == tk_right_curly)
             break;
-        else if (lex->token != tk_comma) {
+        else if (token != tk_comma) {
             lily_raise(parser->raiser, lily_SyntaxError,
                        "Expected ',' or ')', not %s.\n", tokname(lex->token));
         }
         /* else it's a comma, so make sure a word is next. */
 
-        NEED_NEXT_TOK(tk_word)
+        lily_lexer(lex);
     }
 }
 
