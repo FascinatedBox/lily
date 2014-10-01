@@ -235,6 +235,32 @@ static char *opname(lily_expr_op op)
     return opnames[op];
 }
 
+/*  condition_optimize_check
+    This is called when lily_emit_eval_condition is called with a tree that has
+    type 'tree_readonly'. If the given tree is always true, then the emitter
+    can optimize the load out.
+    Without this, a 'while 1: { ... }' will load "1" and check it at the top of
+    every loop...which is rather silly. */
+static int condition_optimize_check(lily_ast *ast)
+{
+    int can_optimize = 1;
+
+    /* This may not be a literal. It could be a user-defined/built-in function
+       which would always automatically be true. */
+    if (ast->result->flags & SYM_TYPE_LITERAL) {
+        lily_literal *lit = (lily_literal *)ast->result;
+
+        /* Keep this synced with vm's o_jump_if calculation. */
+        int lit_cls_id = lit->sig->cls->id;
+        if (lit_cls_id == SYM_CLASS_INTEGER && lit->value.integer == 0)
+            can_optimize = 0;
+        else if (lit_cls_id == SYM_CLASS_DOUBLE && lit->value.doubleval == 0.0)
+            can_optimize = 0;
+    }
+
+    return can_optimize;
+}
+
 /*  count_inner_try_blocks
     Count the number of 'try' blocks entered where an 'except' has not yet been
     seen. This counts up to the deepest loop block, or the current function,
@@ -2628,9 +2654,11 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
 
     /* The last jump of the previous branch wants to know where the check for
        the next branch starts. It's right now. */
-    f->code[emit->patches[emit->patch_pos-1]] = f->pos;
-    emit->patches[emit->patch_pos-1] = save_jump;
+    if (emit->patches[emit->patch_pos - 1] != -1)
+        f->code[emit->patches[emit->patch_pos-1]] = f->pos;
+    /* else it's a fake branch from a condition that was optimized out. */
 
+    emit->patches[emit->patch_pos-1] = save_jump;
     emit->current_block->block_type = new_type;
 }
 
@@ -2689,23 +2717,40 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_ast_pool *ap,
 void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
 {
     lily_ast *ast = ap->root;
-
-    eval_enforce_value(emit, ast, "Conditional expression has no value.\n");
-
     int current_type = emit->current_block->block_type;
-    if (current_type != BLOCK_DO_WHILE)
-        /* If this doesn't work, add a jump which will get fixed to the next
-           branch start or the end of the block. */
-        emit_jump_if(emit, ast, 0);
+
+    if ((ast->tree_type == tree_readonly &&
+         condition_optimize_check(ast)) == 0) {
+        eval_enforce_value(emit, ast, "Conditional expression has no value.\n");
+
+        if (current_type != BLOCK_DO_WHILE)
+            /* If this doesn't work, add a jump which will get fixed to the next
+               branch start or the end of the block. */
+            emit_jump_if(emit, ast, 0);
+        else {
+            /* In a 'do...while' block, the condition is at the end, so the jump is
+               reversed: If successful, go back to the top, otherwise fall out of
+               the loop. */
+            write_4(emit,
+                    o_jump_if,
+                    1,
+                    ast->result->reg_spot,
+                    emit->current_block->loop_start);
+        }
+    }
     else {
-        /* In a 'do...while' block, the condition is at the end, so the jump is
-           reversed: If successful, go back to the top, otherwise fall out of
-           the loop. */
-        write_4(emit,
-                o_jump_if,
-                1,
-                ast->result->reg_spot,
-                emit->current_block->loop_start);
+        if (current_type != BLOCK_DO_WHILE) {
+            /* Code that handles if/elif/else transitions expects each branch to
+               write a jump. There's no easy way to tell it that none was made...
+               so give it a fake jump. */
+            if (emit->patch_pos == emit->patch_size)
+                grow_patches(emit);
+
+            emit->patches[emit->patch_pos] = -1;
+            emit->patch_pos++;
+        }
+        else
+            write_2(emit, o_jump, emit->current_block->loop_start);
     }
 
     lily_ast_reset_pool(ap);
@@ -3100,8 +3145,12 @@ void lily_emit_leave_block(lily_emit_state *emit)
         to = block->patch_start;
         pos = emit->top_function->pos;
 
-        for (;from >= to;from--)
-            emit->top_function->code[emit->patches[from]] = pos;
+        for (;from >= to;from--) {
+            /* Skip -1's, which are fake patches from conditions that were
+               optimized out. */
+            if (emit->patches[from] != -1)
+                emit->top_function->code[emit->patches[from]] = pos;
+        }
 
         /* Use the space for new patches now. */
         emit->patch_pos = to;

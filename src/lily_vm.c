@@ -2297,6 +2297,8 @@ void lily_vm_execute(lily_vm_state *vm)
                         (lhs_reg->flags & VAL_IS_NIL) == 0)
                         lhs_reg = lhs_reg->value.any->inner_value;
 
+                    /* This should be kept in sync with the literal
+                       optimization of emitter. */
                     if ((lhs_reg->flags & VAL_IS_NIL) == 0) {
                         cls_id = lhs_reg->sig->cls->id;
                         if (cls_id == SYM_CLASS_INTEGER)
