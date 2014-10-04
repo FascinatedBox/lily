@@ -2162,6 +2162,33 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)result;
 }
 
+/*  eval_call_arg
+    Evaluate an argument for a function call. This handles calling for an eval
+    of the arg and making sure the types do proper matching up. */
+static void eval_call_arg(lily_emit_state *emit, lily_ast *call_ast,
+        int template_adjust, lily_sig *want_sig, lily_ast *arg, int arg_num)
+{
+    if (arg->tree_type != tree_local_var) {
+        emit->sig_stack_pos += template_adjust;
+        eval_tree(emit, arg);
+        emit->sig_stack_pos -= template_adjust;
+    }
+
+    if (arg->result->sig == want_sig) {
+        if (arg->result->sig->template_pos != 0 ||
+            arg->result->sig->cls->id == SYM_CLASS_TEMPLATE) {
+            if (template_check(emit, want_sig, arg->result->sig) == 0)
+                bad_arg_error(emit, call_ast, arg->result->sig, want_sig,
+                        arg_num);
+        }
+    }
+    else {
+        if (type_matchup(emit, want_sig, arg) == 0)
+            bad_arg_error(emit, call_ast, arg->result->sig, want_sig,
+                          arg_num);
+    }
+}
+
 /*  check_call_args
     eval_call uses this to make sure the types of all the arguments are right.
 
@@ -2198,28 +2225,9 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         (is_varargs == 0 && (have_args != num_args)))
         bad_num_args(emit, ast, call_sig);
 
-    for (i = 0;i != num_args;arg = arg->next_arg, i++) {
-        if (arg->tree_type != tree_local_var) {
-            /* Walk the subexpressions so the result gets calculated. */
-            emit->sig_stack_pos += template_adjust;
-            eval_tree(emit, arg);
-            emit->sig_stack_pos -= template_adjust;
-        }
-        lily_sig *want_sig = call_sig->siglist[i + 1];
-
-        if (arg->result->sig == want_sig) {
-            if (arg->result->sig->template_pos != 0 ||
-                arg->result->sig->cls->id == SYM_CLASS_TEMPLATE) {
-                if (template_check(emit, want_sig, arg->result->sig) == 0)
-                    bad_arg_error(emit, ast, arg->result->sig, call_sig->siglist[i + 1], i);
-            }
-        }
-        else {
-            if (type_matchup(emit, call_sig->siglist[i+1], arg) == 0)
-                bad_arg_error(emit, ast, arg->result->sig, call_sig->siglist[i + 1],
-                              i);
-        }
-    }
+    for (i = 0;i != num_args;arg = arg->next_arg, i++)
+        eval_call_arg(emit, ast, template_adjust, call_sig->siglist[i + 1],
+                arg, i);
 
     if (is_varargs) {
         lily_sig *va_comp_sig = call_sig->siglist[i + 1];
@@ -2231,27 +2239,10 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         save_sig = va_comp_sig;
         va_comp_sig = va_comp_sig->siglist[0];
 
-        for (;arg != NULL;arg = arg->next_arg) {
-            if (arg->tree_type != tree_local_var) {
-                /* Walk the subexpressions so the result gets calculated. */
-                emit->sig_stack_pos += template_adjust;
-                eval_tree(emit, arg);
-                emit->sig_stack_pos -= template_adjust;
-            }
-
-            if (arg->result->sig == va_comp_sig) {
-                if (arg->result->sig->template_pos != 0 ||
-                    arg->result->sig->cls->id == SYM_CLASS_TEMPLATE) {
-                    if (template_check(emit, va_comp_sig, arg->result->sig) == 0)
-                        bad_arg_error(emit, ast, arg->result->sig, va_comp_sig, i);
-                }
-            }
-            else {
-                if (type_matchup(emit, va_comp_sig, arg) == 0)
-                    bad_arg_error(emit, ast, arg->result->sig, va_comp_sig,
-                                  i);
-            }
-        }
+        /* The difference is that this time the sig wanted is always
+           va_comp_sig. */
+        for (;arg != NULL;arg = arg->next_arg)
+            eval_call_arg(emit, ast, template_adjust, va_comp_sig, arg, i);
 
         i = (have_args - i);
         lily_storage *s;
