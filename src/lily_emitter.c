@@ -2361,16 +2361,8 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     lily_function_val *f = emit->top_function;
     f->code[f->pos] = o_function_call;
     f->code[f->pos+1] = ast->line_num;
-
-    if (call_sym->flags & VAR_IS_READONLY) {
-        f->code[f->pos+2] = 1;
-        f->code[f->pos+3] = call_sym->reg_spot;
-    }
-    else {
-        f->code[f->pos+2] = 0;
-        f->code[f->pos+3] = call_sym->reg_spot;
-    }
-
+    f->code[f->pos+2] = !!(call_sym->flags & VAR_IS_READONLY);
+    f->code[f->pos+3] = call_sym->reg_spot;
     f->code[f->pos+4] = ast->args_collected;
 
     for (i = 5, arg = ast->arg_start;
