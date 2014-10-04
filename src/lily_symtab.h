@@ -6,8 +6,10 @@
 
 typedef struct {
     lily_var *var_chain;
-
     lily_var *main_var;
+
+    lily_class *template_class;
+    lily_sig *template_sig_start;
 
     /* When a function has functions declared inside of it, those functions
        fall out of scope when the other function goes out of scope. The inner

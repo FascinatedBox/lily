@@ -612,7 +612,6 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
     /* A function's args always come first, so copy arguments over while clearing
        old values. */
     for (i = 0;i < code[4];i++, num_registers++) {
-        lily_register_info seed = register_seeds[i];
         lily_value *get_reg = vm_regs[code[5+i]];
         lily_value *set_reg = regs_from_main[num_registers];
 
@@ -628,10 +627,12 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
             ((set_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0))
             lily_deref_unknown_val(set_reg);
 
-        set_reg->sig = seed.sig;
+        /* Important! Registers seeds may reference generics, but incoming
+           values have known types. */
+        set_reg->sig = get_reg->sig;
+
         /* This will be null if this register doesn't belong to a
            var, or non-null if it's for a local. */
-
         if ((get_reg->flags & VAL_IS_NIL) == 0)
             set_reg->value = get_reg->value;
         else
@@ -642,7 +643,7 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
 
     /* For the rest of the registers, clear whatever value they have. */
     for (;num_registers < register_need;i++, num_registers++) {
-        lily_register_info seed = fval->reg_info[i];
+        lily_register_info seed = register_seeds[i];
 
         lily_value *reg = regs_from_main[num_registers];
         if (reg->sig->cls->is_refcounted &&
