@@ -45,6 +45,18 @@ typedef struct lily_vm_state_t {
     int function_stack_pos;
     int function_stack_size;
 
+    /* Sometimes there's a var in a generic function which has a signature
+       that isn't the same as any of the function's parameters. In that case,
+       the vm has to get the completed signature by building it. This is used
+       for that. */
+    lily_sig **resolver_sigs;
+    int resolver_sigs_size;
+
+    /* This helps to determine what the proper sigs are for the vars and the
+       storages of a generic function. */
+    lily_sig **generic_map;
+    int generic_map_size;
+
     /* A linked list of entries that are currently being used. */
     lily_gc_entry *gc_live_entries;
     /* A linked list of entries not currently used. Entries which have their

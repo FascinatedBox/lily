@@ -168,6 +168,10 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
     vm->function_table = NULL;
     vm->function_count = 0;
     vm->prep_literal_start = NULL;
+    vm->generic_map = NULL;
+    vm->generic_map_size = 0;
+    vm->resolver_sigs = NULL;
+    vm->resolver_sigs_size = 0;
 
     if (vm->function_stack) {
         int i;
@@ -263,6 +267,8 @@ void lily_free_vm_state(lily_vm_state *vm)
         lily_free(vm->string_buffer);
     }
 
+    lily_free(vm->resolver_sigs);
+    lily_free(vm->generic_map);
     lily_free(vm->function_table);
     lily_free(vm->literal_table);
     lily_free(vm->foreign_code);
@@ -594,6 +600,155 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
     vm->max_registers = register_need;
 }
 
+/*  resolve_sig_by_map
+
+    function f[A](A value => tuple[A, A]) {
+        return <[value, value]
+    }
+
+    So, in this case there's a var (or storage) with a signature unlike any
+    parameter. The parameters given to the function are known, so use them to
+    build the signature that's wanted.
+
+    map_sig_count: How many signatures are in vm->generic_map.
+                   The sig at vm->generic_map[i] has a resolved version at
+                   vm->generic_map[map_sig_count + i].
+    to_resolve:    The generic-holding signature to resolve.
+    resolve_start: Where to begin storing signatures in resolver_sigs. Callers
+                   should always use zero, but this calls itself with adjusted
+                   indexes. */
+static lily_sig *resolve_sig_by_map(lily_vm_state *vm, int map_sig_count,
+        lily_sig *to_resolve, int resolve_start)
+{
+    int i, j, sigs_needed = to_resolve->siglist_size;
+
+    if ((resolve_start + sigs_needed) > vm->resolver_sigs_size) {
+        lily_sig **new_sigs = lily_realloc(vm->resolver_sigs,
+                sizeof(lily_sig *) *
+                (resolve_start + sigs_needed));
+
+        if (new_sigs == NULL)
+            lily_raise_nomem(vm->raiser);
+
+        vm->resolver_sigs = new_sigs;
+        vm->resolver_sigs_size = (resolve_start + sigs_needed);
+    }
+
+    lily_sig **sig_map = vm->generic_map;
+
+    for (i = 0;i < to_resolve->siglist_size;i++) {
+        lily_sig *inner_sig = to_resolve->siglist[i];
+        lily_sig *result_sig = NULL;
+        for (j = 0;j < map_sig_count;j++) {
+            if (sig_map[j] == inner_sig) {
+                result_sig = sig_map[map_sig_count + j];
+                break;
+            }
+        }
+
+        if (result_sig == NULL)
+            result_sig = resolve_sig_by_map(vm, map_sig_count, inner_sig,
+                    resolve_start + i);
+
+        vm->resolver_sigs[resolve_start + i] = result_sig;
+    }
+
+    int flags = (to_resolve->flags & SIG_IS_VARARGS);
+    lily_sig *ret = lily_build_ensure_sig(vm->symtab, to_resolve->cls, flags,
+            vm->resolver_sigs, resolve_start, i);
+
+    return ret;
+}
+
+/*  resolve_generic_registers
+    This is called after a generic function's registers have been prepared. It
+    looks over the function's parameters to determine what the generics have
+    been made into.
+
+    fval:           The function to be called.
+    args_collected: How many arguments the function got.
+    reg_start:      Where the registers for the function start. This is used
+                    with args_collected to get type information from args,
+                    which is then used to resolve the locals/storages.
+
+    This is only called if there are locals/storages in a generic function. */
+static void resolve_generic_registers(lily_vm_state *vm, lily_function_val *fval,
+        int args_collected, int reg_start)
+{
+    lily_sig **sig_map = vm->generic_map;
+    if ((fval->generic_count * 2) > vm->generic_map_size) {
+        sig_map = lily_realloc(vm->generic_map,
+                sizeof(lily_sig *) * (fval->generic_count * 2));
+        if (sig_map == NULL)
+            lily_raise_nomem(vm->raiser);
+
+        vm->generic_map = sig_map;
+        vm->generic_map_size = fval->generic_count * 2;
+    }
+
+    lily_value **regs_from_main = vm->regs_from_main;
+    int out_index = fval->generic_count;
+    int reg_stop = reg_start + args_collected;
+    int i, reg_i, info_i, last_map_spot = 0;
+    lily_register_info *ri = fval->reg_info;
+
+    for (i = 0;i < (fval->generic_count * 2);i++)
+        sig_map[i] = NULL;
+
+    /* Go through the arguments given to the function to see what the generic
+       parameters were morphed into. This will help determine what to do for
+       the rest of the registers. */
+    for (info_i = 0, reg_i = reg_start;
+         reg_i < reg_stop;
+         reg_i++, info_i++) {
+        lily_value *reg = regs_from_main[reg_i];
+
+        for (i = 0;i <= out_index;i++) {
+            if (sig_map[i] == NULL) {
+                sig_map[i] = ri[info_i].sig;
+                sig_map[out_index + i] = reg->sig;
+                last_map_spot = i;
+                break;
+            }
+        }
+    }
+
+    reg_stop = reg_i + fval->reg_count - (reg_stop - reg_start);
+
+    for (;
+         reg_i < reg_stop;
+         reg_i++, info_i++) {
+        lily_value *reg = regs_from_main[reg_i];
+        lily_sig *generic_want_sig = ri[info_i].sig;
+        lily_sig *fixed_want_sig = NULL;
+        /* Start off by a basic run through the map built earlier. */
+        for (i = 0;i < out_index;i++) {
+            if (generic_want_sig == sig_map[i]) {
+                fixed_want_sig = sig_map[out_index + i];
+                break;
+            }
+        }
+
+        /* If a var is, say, list[A] and there is no list[A] as a parameter,
+           then the signature has to be built. This sucks. */
+        if (fixed_want_sig == NULL) {
+            fixed_want_sig = resolve_sig_by_map(vm, fval->generic_count,
+                    generic_want_sig, 0);
+
+            sig_map[last_map_spot + 1] = generic_want_sig;
+            sig_map[out_index + last_map_spot] = fixed_want_sig;
+            last_map_spot++;
+        }
+
+        if (reg->sig->cls->is_refcounted &&
+            (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+            lily_deref_unknown_val(reg);
+
+        reg->flags = VAL_IS_NIL;
+        reg->sig = fixed_want_sig;
+    }
+}
+
 /*  prep_registers
     This prepares the vm's registers for a 'native' function call. This blasts
     values in the registers for the native call while copying the callee's
@@ -641,20 +796,24 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
         set_reg->flags = get_reg->flags;
     }
 
-    /* For the rest of the registers, clear whatever value they have. */
-    for (;num_registers < register_need;i++, num_registers++) {
-        lily_register_info seed = register_seeds[i];
+    if (fval->generic_count == 0) {
+        /* For the rest of the registers, clear whatever value they have. */
+        for (;num_registers < register_need;i++, num_registers++) {
+            lily_register_info seed = register_seeds[i];
 
-        lily_value *reg = regs_from_main[num_registers];
-        if (reg->sig->cls->is_refcounted &&
-            (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-            lily_deref_unknown_val(reg);
+            lily_value *reg = regs_from_main[num_registers];
+            if (reg->sig->cls->is_refcounted &&
+                (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+                lily_deref_unknown_val(reg);
 
-        /* SET the flags to nil so that VAL_IS_PROTECTED gets blasted away if
-           it happens to be set. */
-        reg->flags = VAL_IS_NIL;
-        reg->sig = seed.sig;
+            /* SET the flags to nil so that VAL_IS_PROTECTED gets blasted away if
+               it happens to be set. */
+            reg->flags = VAL_IS_NIL;
+            reg->sig = seed.sig;
+        }
     }
+    else if (num_registers < register_need)
+        resolve_generic_registers(vm, fval, i, num_registers - i);
 
     vm->num_registers = num_registers;
 }
