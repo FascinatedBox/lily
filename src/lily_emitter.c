@@ -2208,7 +2208,8 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         lily_sig *want_sig = call_sig->siglist[i + 1];
 
         if (arg->result->sig == want_sig) {
-            if (arg->result->sig->template_pos != 0) {
+            if (arg->result->sig->template_pos != 0 ||
+                arg->result->sig->cls->id == SYM_CLASS_TEMPLATE) {
                 if (template_check(emit, want_sig, arg->result->sig) == 0)
                     bad_arg_error(emit, ast, arg->result->sig, call_sig->siglist[i + 1], i);
             }
@@ -2239,7 +2240,8 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             }
 
             if (arg->result->sig == va_comp_sig) {
-                if (arg->result->sig->template_pos != 0) {
+                if (arg->result->sig->template_pos != 0 ||
+                    arg->result->sig->cls->id == SYM_CLASS_TEMPLATE) {
                     if (template_check(emit, va_comp_sig, arg->result->sig) == 0)
                         bad_arg_error(emit, ast, arg->result->sig, va_comp_sig, i);
                 }
@@ -2380,16 +2382,12 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     if (call_sig->siglist[0] != NULL) {
         lily_sig *return_sig = call_sig->siglist[0];
 
-        /* If the return is a template, use self (the first arg) to determine
-           what the result should -really- be.
-           Note! This won't work for more complex templated types. There are
-           none of those now, so this works until then. */
-        if (return_sig->cls->id == SYM_CLASS_TEMPLATE) {
-            /* Grab self again, via the first argument. */
-            lily_sig *first_arg_result = ast->arg_start->result->sig;
-            /* Now grab out the wanted template position. */
-            return_sig = first_arg_result->siglist[return_sig->template_pos];
-        }
+        /* If it's just a template, grab the appropriate thing from the sig
+           stack (which is okay until the next eval_call). Otherwise, just
+           give up and build the right thing. */
+        if (return_sig->cls->id == SYM_CLASS_TEMPLATE)
+            return_sig = emit->sig_stack[emit->sig_stack_pos +
+                    return_sig->template_pos];
         else if (return_sig->template_pos != 0)
             return_sig = build_untemplated_sig(emit, return_sig);
 

@@ -812,8 +812,10 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
             reg->sig = seed.sig;
         }
     }
-    else if (num_registers < register_need)
+    else if (num_registers < register_need) {
         resolve_generic_registers(vm, fval, i, num_registers - i);
+        num_registers = register_need;
+    }
 
     vm->num_registers = num_registers;
 }
