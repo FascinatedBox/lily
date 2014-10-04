@@ -513,8 +513,11 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
         /* Collect generics and call type collection as usual. Don't bother
            updating template information: Part of building signatures will
            calculate the template count automatically. */
-        if (flags & CV_TOPLEVEL && lex->token == tk_left_bracket)
-            lily_reserve_generics(parser->symtab, template_collect(parser));
+        if (flags & CV_TOPLEVEL && lex->token == tk_left_bracket) {
+            int count = template_collect(parser);
+            lily_reserve_generics(parser->symtab, count);
+            parser->emit->current_block->generic_count = count;
+        }
 
         NEED_CURRENT_TOK(tk_left_parenth)
         lily_lexer(lex);
