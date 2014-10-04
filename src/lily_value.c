@@ -287,6 +287,7 @@ lily_function_val *lily_try_new_foreign_function_val(lily_foreign_func func,
     f->len = -1;
     f->reg_info = NULL;
     f->reg_count = -1;
+    f->generic_count = 0;
     return f;
 }
 
@@ -317,6 +318,7 @@ lily_function_val *lily_try_new_native_function_val(char *class_name, char *name
     f->len = 8;
     f->reg_info = NULL;
     f->reg_count = -1;
+    f->generic_count = 0;
     return f;
 }
 

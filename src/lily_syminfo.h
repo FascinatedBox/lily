@@ -315,6 +315,8 @@ typedef struct lily_function_val_t {
     int pos;
     /* This is how much space the code has allocated (again for the emitter). */
     int len;
+    /* How many different generics are within reg_info. */
+    int generic_count;
     /* This is used to initialize registers when entering this function.  */
     struct lily_register_info_t *reg_info;
     /* Finally, this is how many registers that this function uses. */
@@ -393,7 +395,6 @@ typedef struct lily_prop_seed_t {
    on primitive and immutable classes. */
 #define CLS_VALID_HASH_KEY 0x1
 
-
 /* SIG_* defines are for the flags of a lily_sig. */
 /* If set, the signature is either a vararg function. The last argument is the
    type for varargs. */
@@ -401,7 +402,10 @@ typedef struct lily_prop_seed_t {
 /* If this is set, a gc entry is allocated for the type. This means that the
    value is a superset of lily_generic_gc_val_t. */
 #define SIG_MAYBE_CIRCULAR 0x2
-
+/* The symtab puts this flag onto template signatures which aren't currently
+   available. So if there are 4 generic sigs available but only 2 used, it
+   simply hides the second two from being returned. */
+#define SIG_HIDDEN_GENERIC 0x4
 
 /* SYM_* defines are for identifying the type of symbol given. Emitter uses
    these sometimes. */

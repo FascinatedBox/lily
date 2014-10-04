@@ -409,6 +409,36 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
     return result;
 }
 
+static int template_collect(lily_parse_state *parser)
+{
+    char name[] = "A";
+    char ch = name[0];
+    lily_lex_state *lex = parser->lex;
+
+    while (1) {
+        NEED_NEXT_TOK(tk_word)
+        if (lex->label[0] != ch || lex->label[1] != '\0') {
+            name[0] = ch;
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Invalid generic name (wanted %s, got %s).\n",
+                    name, lex->label);
+        }
+
+        ch++;
+        lily_lexer(lex);
+        if (lex->token == tk_right_bracket) {
+            lily_lexer(lex);
+            break;
+        }
+        else if (lex->token != tk_comma)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Expected either ',' or ']', not '%s'.\n",
+                    tokname(lex->token));
+    }
+
+    return ch - 'A';
+}
+
 /*  collect_var_sig
     This is the outer part of type collection. This takes flags (CV_* defines)
     which tell it how to act. Additionally, if the parser has already scanned
@@ -479,6 +509,12 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
             else
                 call_var = get_named_var(parser, call_sig, 0);
         }
+
+        /* Collect generics and call type collection as usual. Don't bother
+           updating template information: Part of building signatures will
+           calculate the template count automatically. */
+        if (flags & CV_TOPLEVEL && lex->token == tk_left_bracket)
+            lily_reserve_generics(parser->symtab, template_collect(parser));
 
         NEED_CURRENT_TOK(tk_left_parenth)
         lily_lexer(lex);

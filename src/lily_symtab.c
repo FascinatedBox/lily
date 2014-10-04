@@ -268,6 +268,12 @@ static lily_sig *ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
                 if (match == 1)
                     break;
             }
+            /* Make sure scan_seed_sig doesn't create non-unique templates. */
+            else if (input_sig->cls->id == SYM_CLASS_TEMPLATE &&
+                     input_sig->template_pos == iter_sig->template_pos) {
+                match = 1;
+                break;
+            }
         }
 
         if (iter_sig->next == input_sig)
@@ -303,6 +309,28 @@ static lily_sig *ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
     return input_sig;
 }
 
+static lily_sig *lookup_generic(lily_symtab *symtab, const char *name)
+{
+    int id = name[0] - 'A';
+    lily_sig *sig_iter = symtab->template_sig_start;
+
+    while (id) {
+        if (sig_iter->next->cls != symtab->template_class)
+            break;
+
+        sig_iter = sig_iter->next;
+        if (sig_iter->flags & SIG_HIDDEN_GENERIC)
+            break;
+
+        id--;
+    }
+
+    if (sig_iter->flags & SIG_HIDDEN_GENERIC || id)
+        sig_iter = NULL;
+
+    return sig_iter;
+}
+
 /*****************************************************************************/
 /* 'Seed'-handling functions                                                 */
 /*****************************************************************************/
@@ -328,7 +356,7 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
         ret = NULL;
     else {
         lily_class *arg_class = lily_class_by_id(symtab, arg_id);
-        if (arg_class->sig)
+        if (arg_class->sig && arg_class->id != SYM_CLASS_TEMPLATE)
             ret = arg_class->sig;
         else {
             lily_sig *complex_sig = lily_try_sig_for_class(symtab, arg_class);
@@ -608,10 +636,8 @@ static int init_classes(lily_symtab *symtab)
                it can have a default sig that lily_try_sig_for_class can yield.
                This saves memory, and is necessary now that sig comparison is
                by pointer. */
-            if (class_seeds[i].template_count != 0 ||
-                i == SYM_CLASS_TEMPLATE) {
+            if (class_seeds[i].template_count != 0)
                 sig = NULL;
-            }
             else {
                 /* A basic class? Make a quick default sig for it. */
                 sig = lily_malloc(sizeof(lily_sig));
@@ -630,6 +656,12 @@ static int init_classes(lily_symtab *symtab)
 
                     sig->next = symtab->root_sig;
                     symtab->root_sig = sig;
+                    /* Only the template class has a blank name (to prevent it
+                       from being used directly). */
+                    if (strcmp(class_seeds[i].name, "") == 0) {
+                        symtab->template_class = new_class;
+                        symtab->template_sig_start = sig;
+                    }
                 }
                 else
                     ret = 0;
@@ -718,6 +750,8 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
        to initialize anyway. */
     symtab->lex_linenum = &v;
     symtab->root_sig = NULL;
+    symtab->template_class = NULL;
+    symtab->template_sig_start = NULL;
 
     if (!init_classes(symtab) || !init_literals(symtab) ||
         !init_lily_main(symtab) ||
@@ -1001,8 +1035,11 @@ lily_sig *lily_try_sig_for_class(lily_symtab *symtab, lily_class *cls)
     lily_sig *sig;
 
     /* init_classes doesn't make a default sig for classes that need complex
-       sigs. This works so long as init_classes works right. */
-    if (cls->sig == NULL) {
+       sigs. This works so long as init_classes works right.
+       The second part is so that seed scanning doesn't tamper with the sig of
+       the template class (which gets changed around so that parser can
+       understand generics). */
+    if (cls->sig == NULL || cls->id == SYM_CLASS_TEMPLATE) {
         sig = lily_malloc(sizeof(lily_sig));
         if (sig != NULL) {
             sig->cls = cls;
@@ -1047,6 +1084,17 @@ lily_class *lily_class_by_name(lily_symtab *symtab, const char *name)
             break;
 
         class_iter = class_iter->next;
+    }
+
+    /* The parser wants to be able to find classes by name...but it would be
+       a waste to have lots of classes that never actually get used. The parser
+       -really- just wants to get the signature, so... */
+    if (class_iter == NULL && name[1] == '\0') {
+        lily_sig *generic_sig = lookup_generic(symtab, name);
+        if (generic_sig) {
+            class_iter = symtab->template_class;
+            class_iter->sig = generic_sig;
+        }
     }
 
     return class_iter;
@@ -1384,4 +1432,45 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     symtab->class_chain = new_class;
 
     return new_class;
+}
+
+/*  lily_reserve_generics
+    Make sure a given number of generic signatures are available for the
+    current function. If there are more generics than what is requested, then
+    hide the extras. */
+void lily_reserve_generics(lily_symtab *symtab, int count)
+{
+    /* The symtab special cases all signatures holding template information so
+       that they're unique, together, and in numerical order. */
+    lily_sig *sig_iter = symtab->template_sig_start;
+    int i = 1;
+
+    while (count) {
+        sig_iter->flags &= ~SIG_HIDDEN_GENERIC;
+        count--;
+        if (sig_iter->next->cls != symtab->template_class && count) {
+            lily_sig *new_sig = lily_malloc(sizeof(lily_sig));
+            if (new_sig == NULL)
+                lily_raise_nomem(symtab->raiser);
+
+            new_sig->cls = symtab->template_class;
+            new_sig->siglist = NULL;
+            new_sig->siglist_size = 0;
+            new_sig->flags = 0;
+            new_sig->template_pos = i;
+
+            new_sig->next = sig_iter->next;
+            sig_iter->next = new_sig;
+        }
+        i++;
+        sig_iter = sig_iter->next;
+    }
+
+    if (sig_iter->next->cls == symtab->template_class) {
+        sig_iter = sig_iter->next;
+        while (sig_iter) {
+            sig_iter->flags |= SIG_HIDDEN_GENERIC;
+            sig_iter = sig_iter->next;
+        }
+    }
 }

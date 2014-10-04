@@ -643,7 +643,8 @@ static int template_check(lily_emit_state *emit, lily_sig *lhs, lily_sig *rhs)
 
     if (lhs == NULL || rhs == NULL)
         ret = (lhs == rhs);
-    else if (lhs->cls->id == rhs->cls->id) {
+    else if (lhs->cls->id == rhs->cls->id &&
+             lhs->cls->id != SYM_CLASS_TEMPLATE) {
         if (lhs->siglist_size == rhs->siglist_size) {
             ret = 1;
 
@@ -655,7 +656,8 @@ static int template_check(lily_emit_state *emit, lily_sig *lhs, lily_sig *rhs)
             for (i = 0;i < lhs->siglist_size;i++) {
                 lily_sig *left_entry = left_siglist[i];
                 lily_sig *right_entry = right_siglist[i];
-                if (left_entry == right_entry)
+                if (left_entry == right_entry &&
+                    left_entry->cls->id != SYM_CLASS_TEMPLATE)
                     continue;
 
                 if (template_check(emit, left_entry, right_entry) == 0) {
@@ -764,6 +766,28 @@ static void add_storage_chain_to_info(lily_register_info *info,
     }
 }
 
+/*  count_generics
+    Return a count of how many unique generic signatures are used in a
+    function. */
+static int count_generics(lily_register_info *info, int info_size)
+{
+    int count = 0, i, j;
+    for (i = 0;i < info_size;i++) {
+        int match = 0;
+        lily_sig *temp = info[i].sig;
+        for (j = 0;j < i;j++) {
+            if (info[j].sig == temp) {
+                match = 1;
+                break;
+            }
+        }
+
+        count += !match;
+    }
+
+    return count;
+}
+
 /*  finalize_function_val
     This is a helper called when a function block is being exited, OR __main__
     needs to run.
@@ -801,6 +825,9 @@ static void finalize_function_val(lily_emit_state *emit,
 
     add_var_chain_to_info(emit, info, emit->symtab->var_chain, var_stop);
     add_storage_chain_to_info(info, function_block->storage_start);
+
+    if (function_block->function_var->sig->template_pos)
+        f->generic_count = count_generics(info, register_count);
 
     if (emit->function_depth > 1) {
         /* todo: Reuse the var shells instead of destroying. Seems petty, but
@@ -1908,15 +1935,21 @@ static int type_matchup(lily_emit_state *emit, lily_sig *want_sig,
        inside of another type. */
     if (want_sig->cls->id == SYM_CLASS_TEMPLATE) {
         int index = emit->sig_stack_pos + want_sig->template_pos;
-        if (emit->sig_stack[index] != NULL)
+
+        if (emit->sig_stack[index] != NULL) {
             want_sig = emit->sig_stack[index];
+            if (want_sig == right->result->sig)
+                ret = 1;
+        }
     }
 
     if (want_sig->cls->id == SYM_CLASS_ANY) {
         emit_any_assign(emit, right);
         ret = 1;
     }
-    else if (template_check(emit, want_sig, right->result->sig))
+    /* ret == 0 protects from potentially unpacking a template, then evaluating
+       unpacked thing again. This makes generics fail. */
+    else if (ret == 0 && template_check(emit, want_sig, right->result->sig))
         ret = 1;
     else if ((right->tree_type == tree_list &&
          want_sig->cls->id == SYM_CLASS_LIST &&
@@ -2172,11 +2205,18 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             eval_tree(emit, arg);
             emit->sig_stack_pos -= template_adjust;
         }
+        lily_sig *want_sig = call_sig->siglist[i + 1];
 
-        if (arg->result->sig != call_sig->siglist[i + 1] &&
-            type_matchup(emit, call_sig->siglist[i+1], arg) == 0) {
-            bad_arg_error(emit, ast, arg->result->sig, call_sig->siglist[i + 1],
-                          i);
+        if (arg->result->sig == want_sig) {
+            if (arg->result->sig->template_pos != 0) {
+                if (template_check(emit, want_sig, arg->result->sig) == 0)
+                    bad_arg_error(emit, ast, arg->result->sig, call_sig->siglist[i + 1], i);
+            }
+        }
+        else {
+            if (type_matchup(emit, call_sig->siglist[i+1], arg) == 0)
+                bad_arg_error(emit, ast, arg->result->sig, call_sig->siglist[i + 1],
+                              i);
         }
     }
 
@@ -2198,9 +2238,16 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                 emit->sig_stack_pos -= template_adjust;
             }
 
-            if (arg->result->sig != va_comp_sig &&
-                type_matchup(emit, va_comp_sig, arg) == 0) {
-                bad_arg_error(emit, ast, arg->result->sig, va_comp_sig, i);
+            if (arg->result->sig == va_comp_sig) {
+                if (arg->result->sig->template_pos != 0) {
+                    if (template_check(emit, va_comp_sig, arg->result->sig) == 0)
+                        bad_arg_error(emit, ast, arg->result->sig, va_comp_sig, i);
+                }
+            }
+            else {
+                if (type_matchup(emit, va_comp_sig, arg) == 0)
+                    bad_arg_error(emit, ast, arg->result->sig, va_comp_sig,
+                                  i);
             }
         }
 
