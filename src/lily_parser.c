@@ -1038,6 +1038,7 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
     lily_lex_state *lex = parser->lex;
     lily_var *var = NULL;
     lily_prop_entry *prop = NULL;
+    int force_decl = 0;
 
     lily_token token, want_token, other_token;
     if (parser->emit->current_block->block_type & BLOCK_CLASS) {
@@ -1049,6 +1050,16 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
         other_token = tk_prop_word;
     }
 
+    /* Require that generic parameters have an initializing assignment. This is
+       partly because I want to have all vars to have an initial value in the
+       future.
+       However, it's also to prevent the vm from having a generic-typed var
+       with no signature of the same type. In such a case, the vm would be
+       unable to determine a type for the var, leaving a 'template class' var
+       register (not super bad, but probably not good either). */
+    if (sig->cls->id == SYM_CLASS_TEMPLATE || sig->template_pos != 0)
+        force_decl = 1;
+
     while (1) {
         /* For this special case, give a useful error message. */
         if (lex->token == other_token)
@@ -1056,9 +1067,13 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
 
         NEED_CURRENT_TOK(want_token)
 
-        if (lex->token == tk_word)
+        if (lex->token == tk_word) {
             /* This starts at the class name, or the comma. The label is next. */
             var = get_named_var(parser, sig, 0);
+            if (force_decl && lex->token != tk_equal)
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Generic variables must have an initializing expression.\n");
+        }
         else {
             prop = get_named_property(parser, sig);
             if (lex->token != tk_equal)
