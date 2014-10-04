@@ -927,6 +927,9 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     else
         emit->symtab->var_chain = block->function_var;
 
+    if (block->prev->generic_count != block->generic_count)
+        lily_reserve_generics(emit->symtab, block->prev->generic_count);
+
     emit->self_storage = emit->current_block->prev->self;
     emit->symtab->function_depth--;
     emit->symtab->next_register_spot = block->save_register_spot;
@@ -3092,6 +3095,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
     new_block->var_start = emit->symtab->var_chain;
     new_block->class_entry = NULL;
     new_block->self = NULL;
+    new_block->generic_count = 0;
 
     if ((block_type & BLOCK_FUNCTION) == 0) {
         new_block->patch_start = emit->patch_pos;
@@ -3137,6 +3141,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         new_block->function_var = v;
         /* -1 to indicate that there is no current loop. */
         new_block->loop_start = -1;
+
         emit->top_function = v->value.function;
         emit->top_var = v;
         emit->function_depth++;
@@ -3219,6 +3224,7 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     /* This is necessary for trapping break/continue inside of __main__. */
     main_block->loop_start = -1;
     main_block->class_entry = NULL;
+    main_block->generic_count = 0;
     emit->top_function = main_var->value.function;
     emit->top_var = main_var;
     emit->current_block = main_block;

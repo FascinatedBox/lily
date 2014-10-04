@@ -1466,9 +1466,8 @@ void lily_reserve_generics(lily_symtab *symtab, int count)
         sig_iter = sig_iter->next;
     }
 
-    if (sig_iter->next->cls == symtab->template_class) {
-        sig_iter = sig_iter->next;
-        while (sig_iter) {
+    if (sig_iter->cls == symtab->template_class) {
+        while (sig_iter->cls == symtab->template_class) {
             sig_iter->flags |= SIG_HIDDEN_GENERIC;
             sig_iter = sig_iter->next;
         }

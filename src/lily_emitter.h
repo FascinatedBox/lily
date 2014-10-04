@@ -15,6 +15,7 @@ typedef struct lily_block_ {
     lily_storage *storage_start;
     lily_class *class_entry;
     lily_storage *self;
+    int generic_count;
 
     struct lily_block_ *next;
     struct lily_block_ *prev;
