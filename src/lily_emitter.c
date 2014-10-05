@@ -1912,49 +1912,15 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)s;
 }
 
-/*  type_matchup
-    This function checks if the given ast's result can be coerced into the
-    wanted type. Self is passed to allow for template checking as well.
-    This also handles converting lists[!any] to list[any], and
-    hash[?, !any] to hash[?, any]
-
-    emit:     The emitter, in case code needs to be written.
-    want_sig: The signature to be matched.
-    right:    The ast which has a result to be converted to want_sig.
-
-    Returns 1 if successful, 0 otherwise.
-    Caveats:
-    * This may rewrite right's result if it succeeds. */
-static int type_matchup(lily_emit_state *emit, lily_sig *want_sig,
+/*  maybe_fixup_elements
+    This tries to fixup static lists, hashes, and tuples to match the given
+    wanted sig. */
+static int maybe_fixup_elements(lily_emit_state *emit, lily_sig *want_sig,
         lily_ast *right)
 {
     int ret = 0;
 
-    /* If it's just a template, see if the type that the template wants is
-       known. If it is, do a lookup using the replaced value. This makes it
-       so that defaulting to any works with templates.
-       Example: [1, 1.1].append(10)
-       This can't be done in template_check, because defaulting doesn't work
-       inside of another type. */
-    if (want_sig->cls->id == SYM_CLASS_TEMPLATE) {
-        int index = emit->sig_stack_pos + want_sig->template_pos;
-
-        if (emit->sig_stack[index] != NULL) {
-            want_sig = emit->sig_stack[index];
-            if (want_sig == right->result->sig)
-                ret = 1;
-        }
-    }
-
-    if (want_sig->cls->id == SYM_CLASS_ANY) {
-        emit_any_assign(emit, right);
-        ret = 1;
-    }
-    /* ret == 0 protects from potentially unpacking a template, then evaluating
-       unpacked thing again. This makes generics fail. */
-    else if (ret == 0 && template_check(emit, want_sig, right->result->sig))
-        ret = 1;
-    else if ((right->tree_type == tree_list &&
+    if ((right->tree_type == tree_list &&
          want_sig->cls->id == SYM_CLASS_LIST &&
          want_sig->siglist[0]->cls->id == SYM_CLASS_ANY)
         ||
@@ -2027,6 +1993,33 @@ static int type_matchup(lily_emit_state *emit, lily_sig *want_sig,
                     right->line_num, right->args_collected, s->reg_spot);
             right->result = (lily_sym *)s;
         }
+    }
+
+    return ret;
+}
+
+/*  type_matchup
+    Lily defines the type 'any' as something that can hold any type. If
+    something wants 'any' but gets a non-any, then this rewrites the right side
+    to return an 'any'.
+    Similarly, for static lists, tuples, and hashes, attempt to convert
+    elements to 'any' to satisfy the wanted sig.
+
+    Caveats:
+    * This may rewrite right's result if it succeeds. */
+static int type_matchup(lily_emit_state *emit, lily_sig *want_sig,
+        lily_ast *right)
+{
+    int ret = 0;
+
+    if (want_sig->cls->id == SYM_CLASS_ANY) {
+        emit_any_assign(emit, right);
+        ret = 1;
+    }
+    else if (right->tree_type == tree_list ||
+        right->tree_type == tree_hash ||
+        right->tree_type == tree_tuple) {
+        ret = maybe_fixup_elements(emit, want_sig, right);
     }
 
     return ret;
@@ -2165,6 +2158,50 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)result;
 }
 
+/*  generic_type_matchup
+    This is called to check if the argument given to a call is correct. This
+    function is different from type_matchup in that the signature it
+    wants may be a generic one that has to be matched up with emitter's
+    sig_stack.
+
+    After matching up to templates, this will then attempt normal type
+    conversion. Doing so allows things like 'list::append([1, 2.3], "4")' to
+    work ([1, 2.3] becomes a list[object], so A is an object. "4" expects A
+    so it can be turned into a value of type any).
+
+    Call evaluating should be the only caller to this. Return and assign should
+    not call this, because generic types they get are probably generics of the
+    current function. Said generics don't map to anything and should be left
+    alone.
+
+    emit:     The emitter, in case code needs to be written.
+    want_sig: The signature to be matched.
+    right:    The ast which has a result to be converted to want_sig. */
+static int generic_type_matchup(lily_emit_state *emit, lily_sig *want_sig,
+        lily_ast *right)
+{
+    int ret = 0;
+
+    if (want_sig->cls->id == SYM_CLASS_TEMPLATE) {
+        int index = emit->sig_stack_pos + want_sig->template_pos;
+
+        if (emit->sig_stack[index] != NULL) {
+            want_sig = emit->sig_stack[index];
+            if (want_sig == right->result->sig)
+                ret = 1;
+        }
+    }
+
+    /* ret == 0 protects from potentially unpacking a template, then evaluating
+       unpacked thing again. This makes generics fail. */
+    if (ret == 0 &&
+        (template_check(emit, want_sig, right->result->sig) ||
+         type_matchup(emit, want_sig, right)))
+        ret = 1;
+
+    return ret;
+}
+
 /*  eval_call_arg
     Evaluate an argument for a function call. This handles calling for an eval
     of the arg and making sure the types do proper matching up. */
@@ -2186,7 +2223,7 @@ static void eval_call_arg(lily_emit_state *emit, lily_ast *call_ast,
         }
     }
     else {
-        if (type_matchup(emit, want_sig, arg) == 0)
+        if (generic_type_matchup(emit, want_sig, arg) == 0)
             bad_arg_error(emit, call_ast, arg->result->sig, want_sig,
                           arg_num);
     }
