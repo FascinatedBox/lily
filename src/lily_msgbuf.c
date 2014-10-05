@@ -174,7 +174,21 @@ void lily_msgbuf_add_sig(lily_msgbuf *msgbuf, lily_sig *sig)
     lily_msgbuf_add(msgbuf, sig->cls->name);
 
     if (sig->cls->id == SYM_CLASS_FUNCTION) {
-        lily_msgbuf_add(msgbuf, " (");
+        if (sig->template_pos) {
+            int i;
+            char ch = 'A';
+            lily_msgbuf_add(msgbuf, "[");
+            for (i = 0;i < sig->template_pos - 1;i++, ch++) {
+                lily_msgbuf_add_char(msgbuf, ch);
+                lily_msgbuf_add(msgbuf, ", ");
+            }
+
+            lily_msgbuf_add_char(msgbuf, ch);
+            lily_msgbuf_add(msgbuf, "](");
+        }
+        else
+            lily_msgbuf_add(msgbuf, " (");
+
         if (sig->siglist_size > 1) {
             int i;
 
