@@ -350,6 +350,7 @@ int lily_generic_eq(lily_vm_state *vm, int *depth, lily_value *left,
 }
 
 /* instance */
+/* instance values use tuple's gc marker since they do the same thing. */
 
 int lily_instance_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)

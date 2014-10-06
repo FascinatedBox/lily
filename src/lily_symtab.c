@@ -1434,6 +1434,24 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     return new_class;
 }
 
+/*  lily_finish_class
+    The given class is done. Determine if instances of it will need to have
+    gc entries made for them. */
+void lily_finish_class(lily_class *cls)
+{
+    lily_prop_entry *prop_iter = cls->properties;
+    while (prop_iter) {
+        if (prop_iter->sig->flags & SIG_MAYBE_CIRCULAR) {
+            cls->sig->flags |= SIG_MAYBE_CIRCULAR;
+            break;
+        }
+        prop_iter = prop_iter->next;
+    }
+
+    if (cls->sig->flags & SIG_MAYBE_CIRCULAR)
+        cls->gc_marker = lily_gc_tuple_marker;
+}
+
 /*  lily_reserve_generics
     Make sure a given number of generic signatures are available for the
     current function. If there are more generics than what is requested, then
