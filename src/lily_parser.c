@@ -1688,6 +1688,10 @@ static void class_handler(lily_parse_state *parser, int multi)
     lily_lex_state *lex = parser->lex;
     NEED_CURRENT_TOK(tk_word);
 
+    if (lex->label[1] == '\0')
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'%s' is not a valid class name (too short).\n", lex->label);
+
     lily_class *lookup_class = lily_class_by_name(parser->symtab, lex->label);
     if (lookup_class != NULL) {
         lily_raise(parser->raiser, lily_SyntaxError,
