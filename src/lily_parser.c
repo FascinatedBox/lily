@@ -1694,7 +1694,7 @@ static void class_handler(lily_parse_state *parser, int multi)
                 "Class '%s' has already been declared.\n");
     }
 
-    lily_new_class(parser->symtab, lex->label);
+    lily_class *created_class = lily_new_class(parser->symtab, lex->label);
 
     lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_FUNCTION);
     collect_var_sig(parser, cls, CV_TOPLEVEL | CV_MAKE_VARS | CV_CLASS_INIT);
@@ -1705,6 +1705,8 @@ static void class_handler(lily_parse_state *parser, int multi)
     parser->class_depth++;
     parse_multiline_block_body(parser, multi);
     parser->class_depth--;
+
+    lily_finish_class(created_class);
 
     lily_emit_leave_block(parser->emit);
 }

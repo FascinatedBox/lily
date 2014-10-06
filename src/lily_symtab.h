@@ -83,5 +83,5 @@ int lily_check_right_inherits_or_is(lily_class *, lily_class *);
 
 lily_class *lily_new_class(lily_symtab *, char *);
 lily_prop_entry *lily_add_class_property(lily_class *, lily_sig *, char *);
-
+void lily_finish_class(lily_class *);
 #endif
