@@ -752,6 +752,7 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
     symtab->root_sig = NULL;
     symtab->template_class = NULL;
     symtab->template_sig_start = NULL;
+    symtab->old_class_chain = NULL;
 
     if (!init_classes(symtab) || !init_literals(symtab) ||
         !init_lily_main(symtab) ||
@@ -824,6 +825,32 @@ static void free_lily_main(lily_function_val *fv)
     lily_free(fv);
 }
 
+static void free_class_entries(lily_class *class_iter)
+{
+    while (class_iter) {
+        if (class_iter->properties != NULL)
+            free_properties(class_iter);
+
+        if (class_iter->call_start != NULL)
+            free_vars(class_iter->call_start);
+
+        class_iter = class_iter->next;
+    }
+}
+
+static void free_classes(lily_class *class_iter)
+{
+    while (class_iter) {
+        /* todo: Probably a better way to do this... */
+        if (class_iter->id > SYM_CLASS_FORMATERROR)
+            lily_free(class_iter->name);
+
+        lily_class *class_next = class_iter->next;
+        lily_free(class_iter);
+        class_iter = class_next;
+    }
+}
+
 /*  lily_free_symtab_lits_and_vars
 
     This frees all literals and vars within the symtab. This is the first step
@@ -857,18 +884,10 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
 
     /* This should be okay, because nothing will want to use the vars at this
        point. */
-    lily_class *class_iter = symtab->class_chain;
-    while (class_iter) {
-        if (class_iter->properties != NULL)
-            free_properties(class_iter);
-
-        if (class_iter->call_start != NULL)
-            free_vars(class_iter->call_start);
-
-        class_iter = class_iter->next;
-    }
-
     lily_function_val *main_vartion;
+
+    free_class_entries(symtab->class_chain);
+    free_class_entries(symtab->old_class_chain);
 
     if (symtab->main_var &&
         ((symtab->main_var->flags & VAL_IS_NIL) == 0))
@@ -911,16 +930,8 @@ void lily_free_symtab(lily_symtab *symtab)
         sig = sig_temp;
     }
 
-    lily_class *class_iter = symtab->class_chain;
-    while (class_iter) {
-        /* todo: Probably a better way to do this... */
-        if (class_iter->id > SYM_CLASS_FORMATERROR)
-            lily_free(class_iter->name);
-
-        lily_class *class_next = class_iter->next;
-        lily_free(class_iter);
-        class_iter = class_next;
-    }
+    free_classes(symtab->old_class_chain);
+    free_classes(symtab->class_chain);
 
     lily_free(symtab);
 }
@@ -1437,7 +1448,7 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
 /*  lily_finish_class
     The given class is done. Determine if instances of it will need to have
     gc entries made for them. */
-void lily_finish_class(lily_class *cls)
+void lily_finish_class(lily_symtab *symtab, lily_class *cls)
 {
     lily_prop_entry *prop_iter = cls->properties;
     while (prop_iter) {
@@ -1450,6 +1461,20 @@ void lily_finish_class(lily_class *cls)
 
     if (cls->sig->flags & SIG_MAYBE_CIRCULAR)
         cls->gc_marker = lily_gc_tuple_marker;
+
+    if (cls != symtab->old_class_chain) {
+        lily_class *class_iter = symtab->class_chain;
+        lily_class *class_next;
+
+        while (class_iter != cls) {
+            class_next = class_iter->next;
+            class_iter->next = symtab->old_class_chain;
+            symtab->old_class_chain = class_iter;
+            class_iter = class_next;
+        }
+
+        symtab->class_chain = cls;
+    }
 }
 
 /*  lily_reserve_generics
