@@ -18,6 +18,9 @@ typedef struct {
        Emitter adds to this as needed. Symtab is only responsible for ensuring
        that it's destroyed properly at exit. */
     lily_var *old_function_chain;
+    /* Similar to the above: A class declared in another class goes out of
+       scope when the outer class is done. */
+    lily_class *old_class_chain;
 
     lily_class *class_chain;
     lily_sig *root_sig;
@@ -83,5 +86,5 @@ int lily_check_right_inherits_or_is(lily_class *, lily_class *);
 
 lily_class *lily_new_class(lily_symtab *, char *);
 lily_prop_entry *lily_add_class_property(lily_class *, lily_sig *, char *);
-void lily_finish_class(lily_class *);
+void lily_finish_class(lily_symtab *, lily_class *);
 #endif

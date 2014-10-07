@@ -1692,7 +1692,7 @@ static void class_handler(lily_parse_state *parser, int multi)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' is not a valid class name (too short).\n", lex->label);
 
-    if ((parser->emit->current_block & BLOCK_CLASS) == 0 &&
+    if ((parser->emit->current_block->block_type & BLOCK_CLASS) == 0 &&
         parser->emit->current_block->prev != NULL) {
         /* This could probably be worded better... */
         lily_raise(parser->raiser, lily_SyntaxError,
@@ -1717,7 +1717,7 @@ static void class_handler(lily_parse_state *parser, int multi)
     parse_multiline_block_body(parser, multi);
     parser->class_depth--;
 
-    lily_finish_class(created_class);
+    lily_finish_class(parser->symtab, created_class);
 
     lily_emit_leave_block(parser->emit);
 }

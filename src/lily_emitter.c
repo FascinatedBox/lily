@@ -922,7 +922,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
         }
 
         emit->symtab->var_chain = save_next;
-        emit->current_class = NULL;
+        emit->current_class = block->prev->class_entry;
     }
     else
         emit->symtab->var_chain = block->function_var;
