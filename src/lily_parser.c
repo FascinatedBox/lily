@@ -1692,6 +1692,13 @@ static void class_handler(lily_parse_state *parser, int multi)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' is not a valid class name (too short).\n", lex->label);
 
+    if ((parser->emit->current_block & BLOCK_CLASS) == 0 &&
+        parser->emit->current_block->prev != NULL) {
+        /* This could probably be worded better... */
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Attempt to declare a class within something that isn't another class.\n");
+    }
+
     lily_class *lookup_class = lily_class_by_name(parser->symtab, lex->label);
     if (lookup_class != NULL) {
         lily_raise(parser->raiser, lily_SyntaxError,
