@@ -1363,7 +1363,7 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
 
     lily_sig *right_sig = ast->right->result->sig;
 
-    if (left_sig != right_sig && left_sig->cls->id == SYM_CLASS_ANY) {
+    if (left_sig != right_sig && left_sig->cls->id != SYM_CLASS_ANY) {
         emit->raiser->line_adjust = ast->line_num;
         bad_assign_error(emit, ast->line_num, left_sig,
                          right_sig);
