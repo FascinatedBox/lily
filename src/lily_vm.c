@@ -600,6 +600,58 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
     vm->max_registers = register_need;
 }
 
+/*  resolve_property_sig
+    This takes a signature that is or include generics and resolves it
+    according to the given instance. It's used by o_new_instance to figure out
+    generic properties.
+    This is like resolve_sig_by_map, except there's no map (the instance sig
+    is used instead). */
+static lily_sig *resolve_property_sig(lily_vm_state *vm,
+        lily_sig *instance_sig, lily_sig *prop_sig, int resolve_start)
+{
+    lily_sig *result_sig = NULL;
+
+    if (prop_sig->cls->id == SYM_CLASS_TEMPLATE)
+        result_sig = instance_sig->siglist[prop_sig->template_pos];
+    else if (prop_sig->cls->template_count == 0)
+        /* The original sig could be something like 'tuple[A, integer]'.
+           This keeps 'integer' from building a sig. */
+        result_sig = prop_sig;
+    else {
+        /* If it's marked as having templates and it's not the template
+           class, then it -has- to have a siglist to process. */
+        int sigs_needed = prop_sig->siglist_size;
+
+        if ((resolve_start + sigs_needed) > vm->resolver_sigs_size) {
+            lily_sig **new_sigs = lily_realloc(vm->resolver_sigs,
+                    sizeof(lily_sig *) *
+                    (resolve_start + sigs_needed));
+
+            if (new_sigs == NULL)
+                lily_raise_nomem(vm->raiser);
+
+            vm->resolver_sigs = new_sigs;
+            vm->resolver_sigs_size = (resolve_start + sigs_needed);
+        }
+
+        int i;
+        lily_sig *inner_sig;
+        for (i = 0;i < prop_sig->siglist_size;i++) {
+            inner_sig = prop_sig->siglist[i];
+            inner_sig = resolve_property_sig(vm, instance_sig, prop_sig,
+                    resolve_start + i);
+
+            vm->resolver_sigs[resolve_start + i] = inner_sig;
+        }
+
+        int flags = (prop_sig->flags & SIG_IS_VARARGS);
+        result_sig = lily_build_ensure_sig(vm->symtab, prop_sig->cls, flags,
+                vm->resolver_sigs, resolve_start, i);
+    }
+
+    return result_sig;
+}
+
 /*  resolve_sig_by_map
 
     function f[A](A value => tuple[A, A]) {
@@ -1706,6 +1758,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
     lily_prop_entry *prop = instance_class->properties;
     for (i = 0;i < total_entries;i++, prop = prop->next) {
+        lily_sig *value_sig = prop->sig;
         iv->values[i] = lily_malloc(sizeof(lily_value));
         if (iv->values[i] == NULL) {
             for (;i >= 0;i--)
@@ -1715,7 +1768,11 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         }
 
         iv->values[i]->flags = VAL_IS_NIL;
-        iv->values[i]->sig = prop->sig;
+        if (value_sig->template_pos ||
+            value_sig->cls->id == SYM_CLASS_TEMPLATE) {
+            value_sig = resolve_property_sig(vm, result->sig, value_sig, 0);
+        }
+        iv->values[i]->sig = value_sig;
         iv->values[i]->value.integer = 0;
     }
 
