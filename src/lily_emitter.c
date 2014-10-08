@@ -2998,12 +2998,12 @@ void lily_emit_class_init(lily_emit_state *emit)
 {
     lily_class *cls = emit->current_class;
 
-    /* Warning: emit->current_class->sig works ONLY because there are no
-                generic classes (yet).
-       This is where the hidden '(self)' variable is made and the fields
-       initialized. */
-    lily_storage *self = get_storage(emit, emit->current_class->sig,
-            *emit->lex_linenum);
+    /* The most recent function is the constructor for this class, which will
+       always return a class instance. Since it's also the function var (and
+       the return of a function is always [0], this works. */
+    lily_sig *self_sig = emit->current_block->function_var->sig->siglist[0];
+
+    lily_storage *self = get_storage(emit, self_sig, *emit->lex_linenum);
     emit->current_block->self = self;
 
     lily_function_val *f = emit->top_function;

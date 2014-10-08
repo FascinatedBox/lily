@@ -1401,28 +1401,18 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
 {
     lily_class *new_class = lily_malloc(sizeof(lily_class));
     char *name_copy = lily_malloc(strlen(name) + 1);
-    lily_sig *default_sig = lily_malloc(sizeof(lily_sig));
 
-    if (new_class == NULL || name_copy == NULL || default_sig == NULL) {
+    if (new_class == NULL || name_copy == NULL) {
         lily_free(new_class);
         lily_free(name_copy);
-        lily_free(default_sig);
         lily_raise_nomem(symtab->raiser);
     }
-
-    default_sig->cls = new_class;
-    default_sig->template_pos = 0;
-    default_sig->siglist = NULL;
-    default_sig->siglist_size = 0;
-    default_sig->flags = 0;
-    default_sig->next = symtab->root_sig;
-    symtab->root_sig = default_sig;
 
     strcpy(name_copy, name);
 
     new_class->flags = 0;
     new_class->is_refcounted = 1;
-    new_class->sig = default_sig;
+    new_class->sig = NULL;
     new_class->parent = NULL;
     new_class->shorthash = shorthash_for_name(name);
     new_class->name = name_copy;
@@ -1451,15 +1441,24 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
 void lily_finish_class(lily_symtab *symtab, lily_class *cls)
 {
     lily_prop_entry *prop_iter = cls->properties;
-    while (prop_iter) {
-        if (prop_iter->sig->flags & SIG_MAYBE_CIRCULAR) {
-            cls->sig->flags |= SIG_MAYBE_CIRCULAR;
-            break;
-        }
-        prop_iter = prop_iter->next;
-    }
 
-    if (cls->sig->flags & SIG_MAYBE_CIRCULAR)
+    /* If the class has no generics, determine if it's circular and write that
+       information onto the default sig. */
+    if (cls->template_count == 0) {
+        while (prop_iter) {
+            if (prop_iter->sig->flags & SIG_MAYBE_CIRCULAR) {
+                cls->sig->flags |= SIG_MAYBE_CIRCULAR;
+                break;
+            }
+            prop_iter = prop_iter->next;
+        }
+
+        if (cls->sig->flags & SIG_MAYBE_CIRCULAR)
+            cls->gc_marker = lily_gc_tuple_marker;
+    }
+    else
+        /* Each instance of a generic class may/may not be circular depending
+           on what it's given. */
         cls->gc_marker = lily_gc_tuple_marker;
 
     if (cls != symtab->old_class_chain) {
@@ -1515,4 +1514,64 @@ void lily_reserve_generics(lily_symtab *symtab, int count)
             sig_iter = sig_iter->next;
         }
     }
+}
+
+/*  lily_set_class_generics
+    Set how many generics this class uses. This can't be folded into
+    lily_reserve_generics because the symtab doesn't know if this is from a
+    constructor or not. */
+void lily_set_class_generics(lily_symtab *symtab, int count)
+{
+    lily_class *cls = symtab->class_chain;
+    cls->template_count = count;
+}
+
+/*  lily_make_constructor_return_sig
+    The parser is about to collect the arguments for a new class. This is used
+    to create a signature that the constructor will return.
+    If a class has no generics, then it returns a signature of just itself
+    (which also becomes the default sig. For the other case, the construct will
+    return a signature of the proper number of generics with the generics also
+    being ordered. So...
+    class Point[A]() # returns Point[A]
+    class Point[A, B, C]() # returns Point[A, B, C]
+    ...etc. */
+void lily_make_constructor_return_sig(lily_symtab *symtab)
+{
+    lily_sig *sig = lily_malloc(sizeof(lily_sig));
+    if (sig == NULL)
+        lily_raise_nomem(symtab->raiser);
+
+    lily_class *target_class = symtab->class_chain;
+    if (target_class->template_count != 0) {
+        int count = target_class->template_count;
+
+        sig->siglist = lily_malloc(count * sizeof(lily_sig *));
+        if (sig->siglist == NULL) {
+            lily_free(sig);
+            lily_raise_nomem(symtab->raiser);
+        }
+
+        lily_sig *sig_iter = symtab->template_sig_start;
+        int i;
+        for (i = 0;i < count;i++, sig_iter = sig_iter->next)
+            sig->siglist[i] = sig_iter;
+
+        sig->siglist_size = count;
+        sig->template_pos = i + 1;
+    }
+    else {
+        /* This makes this sig the default for this class, because this class
+           doesn't use generics. */
+        target_class->sig = sig;
+        sig->siglist = NULL;
+        sig->siglist_size = 0;
+        sig->template_pos = 0;
+    }
+
+    sig->cls = target_class;
+    sig->flags = 0;
+
+    sig->next = symtab->root_sig;
+    symtab->root_sig = sig;
 }
