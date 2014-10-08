@@ -209,9 +209,9 @@ void lily_msgbuf_add_sig(lily_msgbuf *msgbuf, lily_sig *sig)
             lily_msgbuf_add(msgbuf, ")");
         }
     }
-    else if (sig->cls->id == SYM_CLASS_LIST ||
-             sig->cls->id == SYM_CLASS_HASH ||
-             sig->cls->id == SYM_CLASS_TUPLE) {
+    else if (sig->cls->id == SYM_CLASS_TEMPLATE)
+        lily_msgbuf_add_char(msgbuf, 'A' + sig->template_pos);
+    else if (sig->cls->template_count != 0) {
         int i;
         lily_msgbuf_add(msgbuf, "[");
         for (i = 0;i < sig->siglist_size;i++) {
@@ -221,8 +221,6 @@ void lily_msgbuf_add_sig(lily_msgbuf *msgbuf, lily_sig *sig)
         }
         lily_msgbuf_add(msgbuf, "]");
     }
-    else if (sig->cls->id == SYM_CLASS_TEMPLATE)
-        lily_msgbuf_add_char(msgbuf, 'A' + sig->template_pos);
 }
 
 /*  msgbuf_add_indent

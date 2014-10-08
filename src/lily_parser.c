@@ -272,10 +272,11 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
             grow_sig_stack(parser);
 
         if (flags & CV_CLASS_INIT)
-            /* This is a constructor, so return an instance of the most
-               recently declared class (this one!) */
+            /* This is a constructor, so use the most recent signature declared
+               since it's the right one (lily_set_class_generics makes sure of
+               it). */
             parser->sig_stack[parser->sig_stack_pos] =
-                    parser->symtab->class_chain->sig;
+                    parser->symtab->root_sig;
         else
             parser->sig_stack[parser->sig_stack_pos] = NULL;
 
@@ -466,10 +467,8 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
         if (flags & CV_MAKE_VARS)
             get_named_var(parser, cls->sig, 0);
     }
-    else if (cls->id == SYM_CLASS_TUPLE ||
-             cls->id == SYM_CLASS_LIST ||
-             cls->id == SYM_CLASS_HASH) {
-
+    else if (cls->template_count != 0 &&
+             cls->id != SYM_CLASS_FUNCTION) {
         NEED_CURRENT_TOK(tk_left_bracket)
         lily_lexer(lex);
         result = inner_type_collector(parser, cls, flags);
@@ -517,7 +516,12 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
             int count = template_collect(parser);
             lily_reserve_generics(parser->symtab, count);
             parser->emit->current_block->generic_count = count;
+            if (flags & CV_CLASS_INIT)
+                lily_set_class_generics(parser->symtab, count);
         }
+
+        if (flags & CV_CLASS_INIT)
+            lily_make_constructor_return_sig(parser->symtab);
 
         NEED_CURRENT_TOK(tk_left_parenth)
         lily_lexer(lex);
