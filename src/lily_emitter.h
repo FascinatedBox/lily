@@ -34,6 +34,7 @@ typedef struct {
     lily_function_val *top_function;
     lily_sig *top_function_ret;
 
+    int generic_adjust;
     lily_class *current_class;
     lily_storage *self_storage;
 
