@@ -1397,6 +1397,10 @@ static void return_handler(lily_parse_state *parser, int multi)
     lily_emit_return(parser->emit, ast);
     if (ast)
         lily_ast_reset_pool(parser->ast_pool);
+
+    if (multi && parser->lex->token != tk_right_curly)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'return' not at the end of a multi-line block.\n");
 }
 
 /*  while_handler
@@ -1429,6 +1433,10 @@ static void while_handler(lily_parse_state *parser, int multi)
 static void continue_handler(lily_parse_state *parser, int multi)
 {
     lily_emit_continue(parser->emit);
+
+    if (multi && parser->lex->token != tk_right_curly)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'continue' not at the end of a multi-line block.\n");
 }
 
 /*  break_handler
@@ -1437,6 +1445,10 @@ static void continue_handler(lily_parse_state *parser, int multi)
 static void break_handler(lily_parse_state *parser, int multi)
 {
     lily_emit_break(parser->emit);
+
+    if (multi && parser->lex->token != tk_right_curly)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'break' not at the end of a multi-line block.\n");
 }
 
 /*  do_keyword
