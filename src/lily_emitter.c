@@ -1090,7 +1090,7 @@ static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
 static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
 {
     int opcode;
-     lily_class *lhs_class, *rhs_class, *storage_class;
+    lily_class *lhs_class, *rhs_class, *storage_class;
     lily_storage *s;
 
     lhs_class = ast->left->result->sig->cls;
@@ -1247,7 +1247,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 {
     int left_cls_id, opcode;
     lily_sym *left_sym, *right_sym;
-     opcode = -1;
+    opcode = -1;
 
     if (ast->left->tree_type != tree_var &&
         ast->left->tree_type != tree_local_var)
@@ -1348,7 +1348,7 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
 {
     lily_sig *left_sig;
 
-    if (ast->tree_type != tree_property) {
+    if (ast->tree_type == tree_oo_access) {
         eval_tree(emit, ast->left);
 
         /* Make sure that it was a property access, and not a class member
@@ -1796,7 +1796,7 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     uint16_t opcode;
     lily_class *lhs_class;
     lily_storage *storage;
-     lhs_class = ast->left->result->sig->cls;
+    lhs_class = ast->left->result->sig->cls;
 
     if (lhs_class->id != SYM_CLASS_INTEGER)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
@@ -2185,7 +2185,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast)
     subscripts of list, hash, and tuple. */
 static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
 {
-     lily_ast *var_ast = ast->arg_start;
+    lily_ast *var_ast = ast->arg_start;
     lily_ast *index_ast = var_ast->next_arg;
     if (var_ast->tree_type != tree_var)
         eval_tree(emit, var_ast);
@@ -2385,7 +2385,7 @@ static int maybe_self_insert(lily_emit_state *emit, lily_ast *ast)
     calls by farming out the oo lookup elsewhere. */
 static void eval_call(lily_emit_state *emit, lily_ast *ast)
 {
-     int expect_size, i;
+    int expect_size, i;
     lily_ast *arg;
     lily_sig *call_sig;
     lily_sym *call_sym;
@@ -2658,7 +2658,7 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
     * ast->arg_start is the one and only expression to evaluate. */
 static void eval_isnil(lily_emit_state *emit, lily_ast *ast)
 {
-     lily_ast *inner_tree = ast->arg_start;
+    lily_ast *inner_tree = ast->arg_start;
 
     if (ast->args_collected != 1)
         lily_raise(emit->raiser, lily_SyntaxError,
