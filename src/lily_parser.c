@@ -1384,6 +1384,10 @@ static void else_handler(lily_parse_state *parser, int multi)
     if an expression is needed, or if just 'return' alone is fine. */
 static void return_handler(lily_parse_state *parser, int multi)
 {
+    if (parser->emit->current_block->block_type & BLOCK_CLASS)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'return' not allowed in a class constructor.\n");
+
     lily_sig *ret_sig = parser->emit->top_function_ret;
     lily_ast *ast;
 
