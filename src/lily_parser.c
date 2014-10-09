@@ -187,7 +187,7 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig,
 /*  get_named_property
     The same thing as get_named_var, but with a property instead. */
 static lily_prop_entry *get_named_property(lily_parse_state *parser,
-        lily_sig *prop_sig)
+        lily_sig *prop_sig, int flags)
 {
     char *name = parser->lex->label;
     lily_class *current_class = parser->emit->self_storage->sig->cls;
@@ -200,7 +200,7 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
                 "Property %s already exists in class %s.\n", name,
                 current_class->name);
 
-    prop = lily_add_class_property(current_class, prop_sig, name);
+    prop = lily_add_class_property(current_class, prop_sig, name, 0);
     if (prop == NULL)
         lily_raise_nomem(parser->raiser);
 
@@ -669,6 +669,11 @@ static void expression_word(lily_parse_state *parser, int *state)
     lily_var *var = lily_var_by_name(symtab, lex->label);
 
     if (var) {
+        if (var->flags & SYM_NOT_INITIALIZED)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Attempt to use uninitialized value '%s'.\n",
+                    var->name);
+
         if (var->function_depth == 1) {
             /* It's in __main__ as a global. */
             if (var->sig->cls->id == SYM_CLASS_PACKAGE)
@@ -1048,6 +1053,7 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
     lily_var *var = NULL;
     lily_prop_entry *prop = NULL;
     int force_decl = 0;
+    int flags = 0;
 
     lily_token token, want_token, other_token;
     if (parser->emit->current_block->block_type & BLOCK_CLASS) {
@@ -1065,9 +1071,17 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
        However, it's also to prevent the vm from having a generic-typed var
        with no signature of the same type. In such a case, the vm would be
        unable to determine a type for the var, leaving a 'template class' var
-       register (not super bad, but probably not good either). */
-    if (sig->cls->id == SYM_CLASS_TEMPLATE || sig->template_pos != 0)
+       register (not super bad, but probably not good either).
+       Oh, and sig is NULL when this decl is through 'var', and that needs an
+       initializing expression. */
+    if (sig == NULL || sig->cls->id == SYM_CLASS_TEMPLATE ||
+        sig->template_pos != 0) {
         force_decl = 1;
+        if (sig == NULL)
+            /* This prevents 'var' from being used to initialize itself. The
+               emitter will unset this when the type is fixed. */
+            flags |= SYM_NOT_INITIALIZED;
+    }
 
     while (1) {
         /* For this special case, give a useful error message. */
@@ -1078,13 +1092,13 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
 
         if (lex->token == tk_word) {
             /* This starts at the class name, or the comma. The label is next. */
-            var = get_named_var(parser, sig, 0);
+            var = get_named_var(parser, sig, flags);
             if (force_decl && lex->token != tk_equal)
                 lily_raise(parser->raiser, lily_SyntaxError,
                         "Generic variables must have an initializing expression.\n");
         }
         else {
-            prop = get_named_property(parser, sig);
+            prop = get_named_property(parser, sig, flags);
             if (lex->token != tk_equal)
                 lily_raise(parser->raiser, lily_SyntaxError,
                         "Class properties must have an initializing assignment.\n");
@@ -1110,9 +1124,10 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
         }
 
         token = lex->token;
-        /* This is the start of the next statement. */
+        /* This is the start of the next statement (or, for 'var', only allow
+           one decl at a time to discourage excessive use of 'var'). */
         if (token == tk_word || token == tk_prop_word || token == tk_end_tag ||
-            token == tk_eof || token == tk_right_curly)
+            token == tk_eof || token == tk_right_curly || sig == NULL)
             break;
         else if (token != tk_comma) {
             lily_raise(parser->raiser, lily_SyntaxError,
@@ -1175,6 +1190,7 @@ static void try_handler(lily_parse_state *, int);
 static void except_handler(lily_parse_state *, int);
 static void raise_handler(lily_parse_state *, int);
 static void class_handler(lily_parse_state *, int);
+static void var_handler(lily_parse_state *, int);
 
 typedef void (keyword_handler)(lily_parse_state *, int);
 
@@ -1196,7 +1212,8 @@ static keyword_handler *handlers[] = {
     try_handler,
     except_handler,
     raise_handler,
-    class_handler
+    class_handler,
+    var_handler
 };
 
 static void parse_multiline_block_body(lily_parse_state *, int);
@@ -1742,6 +1759,11 @@ static void class_handler(lily_parse_state *parser, int multi)
     lily_finish_class(parser->symtab, created_class);
 
     lily_emit_leave_block(parser->emit);
+}
+
+static void var_handler(lily_parse_state *parser, int multi)
+{
+    parse_decl(parser, NULL);
 }
 
 /*  parser_loop

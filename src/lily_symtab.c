@@ -493,6 +493,7 @@ static int init_prop_seeds(lily_symtab *symtab, lily_class *cls,
             break;
         }
         strcpy(entry_name, seed_iter->name);
+        entry->flags = 0;
         entry->id = id;
         entry->name = entry_name;
         entry->sig = entry_sig;
@@ -1355,7 +1356,7 @@ int lily_check_right_inherits_or_is(lily_class *left, lily_class *right)
     On success: Returns the property, in case that's useful.
     On failure: NULL is returned. */
 lily_prop_entry *lily_add_class_property(lily_class *cls, lily_sig *sig,
-        char *name)
+        char *name, int flags)
 {
     lily_prop_entry *entry = lily_malloc(sizeof(lily_prop_entry));
     char *entry_name = lily_malloc(strlen(name) + 1);
@@ -1367,6 +1368,7 @@ lily_prop_entry *lily_add_class_property(lily_class *cls, lily_sig *sig,
 
     strcpy(entry_name, name);
 
+    entry->flags = flags;
     entry->name = entry_name;
     entry->sig = sig;
     entry->name_shorthash = shorthash_for_name(entry_name);

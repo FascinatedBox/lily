@@ -266,7 +266,8 @@ keyword_seed keywords[] = {
     {"try",          7959156},
     {"except",       128026086176869},
     {"raise",        435727982962},
-    {"class",        495857003619}
+    {"class",        495857003619},
+    {"var",          7496054}
 };
 
 void lily_builtin_print(lily_vm_state *, lily_function_val *, uint16_t *);
