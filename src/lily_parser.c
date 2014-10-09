@@ -570,10 +570,7 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "%s::%s does not exist.\n", cls->name, lex->label);
 
-    NEED_NEXT_TOK(tk_left_parenth)
-
     lily_ast_push_readonly(parser->ast_pool, (lily_sym *) v);
-    lily_ast_enter_tree(parser->ast_pool, tree_call);
 }
 
 /*  parse_special_keyword
@@ -693,7 +690,7 @@ static void expression_word(lily_parse_state *parser, int *state)
             if (cls != NULL) {
                 lily_lexer(lex);
                 expression_static_call(parser, cls);
-                *state = ST_WANT_VALUE;
+                *state = ST_WANT_OPERATOR;
             }
             else
                 lily_raise(parser->raiser, lily_SyntaxError,
@@ -1226,7 +1223,7 @@ static void statement(lily_parse_state *parser, int multi)
                     lily_lexer(lex);
                     if (lex->token == tk_colon_colon) {
                         expression_static_call(parser, lclass);
-                        expression(parser);
+                        expression_raw(parser, ST_WANT_OPERATOR);
                         lily_emit_eval_expr(parser->emit, parser->ast_pool);
                     }
                     else {
