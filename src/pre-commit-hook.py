@@ -251,6 +251,27 @@ Where: File "<str>" at line 1\n""",
      "stderr": """\
 SyntaxError: 'return' expression has no value.\n\
 Where: File "<str>" at line 1\n"""
+    },
+    {
+     "command": """  function f() { return integer a = 10 } """,
+     "message": "Failcheck: 'return' not at the end of a multi-line block.",
+     "stderr": """\
+SyntaxError: 'return' not at the end of a multi-line block.\n\
+Where: File "<str>" at line 1\n"""
+    },
+    {
+     "command": """  function f() { while 1: { continue integer a = 10 } } """,
+     "message": "Failcheck: 'continue' not at the end of a multi-line block.",
+     "stderr": """\
+SyntaxError: 'continue' not at the end of a multi-line block.\n\
+Where: File "<str>" at line 1\n"""
+    },
+    {
+     "command": """  function f() { while 1: { break integer a = 10 } } """,
+     "message": "Failcheck: 'break' not at the end of a multi-line block.",
+     "stderr": """\
+SyntaxError: 'break' not at the end of a multi-line block.\n\
+Where: File "<str>" at line 1\n"""
     }
 ]
 
