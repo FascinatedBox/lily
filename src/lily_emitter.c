@@ -1249,7 +1249,8 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     lily_sym *left_sym, *right_sym;
      opcode = -1;
 
-    if (ast->left->tree_type != tree_var)
+    if (ast->left->tree_type != tree_var &&
+        ast->left->tree_type != tree_local_var)
         eval_tree(emit, ast->left);
 
     if ((ast->left->result->flags & SYM_TYPE_VAR) == 0)
@@ -1258,6 +1259,12 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right);
+
+    /* For 'var <name> = ...', fix the type. */
+    if (ast->left->result->sig == NULL) {
+        ast->left->result->sig = ast->right->result->sig;
+        ast->left->result->flags &= ~SYM_NOT_INITIALIZED;
+    }
 
     left_sym = ast->left->result;
     right_sym = ast->right->result;
@@ -1362,6 +1369,12 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
         eval_tree(emit, ast->right);
 
     lily_sig *right_sig = ast->right->result->sig;
+    /* For 'var @<name> = ...', fix the type of the property. */
+    if (left_sig == NULL) {
+        ast->property->sig = right_sig;
+        ast->property->flags &= ~SYM_NOT_INITIALIZED;
+        left_sig = right_sig;
+    }
 
     if (left_sig != right_sig && left_sig->cls->id != SYM_CLASS_ANY) {
         emit->raiser->line_adjust = ast->line_num;
@@ -2609,6 +2622,11 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
     This handles evaluating '@<x>' within a class constructor. */
 static void eval_property(lily_emit_state *emit, lily_ast *ast)
 {
+    if (ast->property->sig == NULL)
+        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+                "Invalid use of uninitialized property '@%s'.\n",
+                ast->property->name);
+
     lily_storage *result = get_storage(emit, ast->property->sig,
             ast->line_num);
 

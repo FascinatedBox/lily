@@ -55,6 +55,7 @@ typedef union lily_raw_value_t {
 } lily_raw_value;
 
 typedef struct lily_prop_entry_t {
+    int flags;
     struct lily_sig_t *sig;
     int id;
     char *name;
@@ -415,7 +416,8 @@ typedef struct lily_prop_seed_t {
 /* This var is out of scope. This is set when a var in a non-function block
    goes out of scope. */
 #define SYM_OUT_OF_SCOPE       0x10
-
+/* This is used to prevent a var from being used in it's own declaration. */
+#define SYM_NOT_INITIALIZED    0x20
 
 /* VAR_* defines are meant mostly for the vm. However, emitter and symtab put
    VAR_IS_READONLY on vars that won't get a register. The vm will never see
