@@ -599,15 +599,14 @@ static lily_literal *parse_special_keyword(lily_parse_state *parser, int key_id)
 }
 
 /*  expression_package
-    This handles x::y kinds of expressions. This is called when a var is seen
-    that is a package. There are a few caveats to this:
+    This handles x::y kinds of expressions wherein 'x' is a package.
     * A check for :: is forced so that an inner var can be collected, instead
       of letting packages be assignable. This was done so that package accesses
       can be effectively computed at emit time (given that packages are
       initialized through parser and not assignable or able to be put in lists).
     * This does not check for packages in packages, because those don't
-      currently exist.
-    * For the same reason, a callable inner var is also not checked for.
+      currently exist. It doesn't check for a callable inner var for the same
+      reason.
     * This enters a package tree to stay consistent with all non-(binary/unary)
       trees.
     * This enters tree_package to be consistent with how other things
@@ -618,45 +617,26 @@ static void expression_package(lily_parse_state *parser, lily_var *package_var)
     lily_ast_pool *ap = parser->ast_pool;
     lily_lex_state *lex = parser->lex;
     lily_var *scope = package_var->value.package->vars[0];
-    int depth = 1;
 
-    while (1) {
-        lily_ast_enter_tree(ap, tree_package);
-        /* For the first pass, push the var given as the package. Subsequent
-           entries will swallow the last tree entered as their first argument,
-           so this next bit isn't necessary. */
-        if (depth == 1) {
-            lily_ast_push_sym(ap, (lily_sym *)package_var);
-            lily_ast_collect_arg(ap);
-        }
+    lily_ast_enter_tree(ap, tree_package);
 
-        NEED_CURRENT_TOK(tk_colon_colon)
-        NEED_NEXT_TOK(tk_word)
+    lily_ast_push_sym(ap, (lily_sym *)package_var);
+    lily_ast_collect_arg(ap);
 
-        lily_var *inner_var = lily_scoped_var_by_name(parser->symtab, scope,
-                lex->label);
-        if (inner_var == NULL) {
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "Package %s has no member %s.\n",
-                    package_var->name, lex->label);
-        }
+    NEED_NEXT_TOK(tk_colon_colon)
+    NEED_NEXT_TOK(tk_word)
 
-        lily_ast_push_sym(ap, (lily_sym *)inner_var);
-        lily_ast_collect_arg(ap);
-        lily_ast_leave_tree(ap);
-        lily_lexer(lex);
-        if (lex->token == tk_colon_colon) {
-            depth++;
-            scope = inner_var->value.package->vars[0];
-            if (inner_var->sig->cls->id != SYM_CLASS_PACKAGE) {
-                lily_raise(parser->raiser, lily_SyntaxError,
-                    "'%s' is not a package.\n", inner_var->name);
-            }
-            continue;
-        }
-
-        break;
+    lily_var *inner_var = lily_scoped_var_by_name(parser->symtab, scope,
+            lex->label);
+    if (inner_var == NULL) {
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Package %s has no member %s.\n",
+                package_var->name, lex->label);
     }
+
+    lily_ast_push_sym(ap, (lily_sym *)inner_var);
+    lily_ast_collect_arg(ap);
+    lily_ast_leave_tree(ap);
 }
 
 /*  expression_word

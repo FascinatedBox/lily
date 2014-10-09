@@ -81,6 +81,14 @@ Where: File "<str>" at line 1\n""",
      "message": "Test to_string on a bare integer."
     },
     {
+     "command": """  list[string] lst = sys::argv  """,
+     "message": "Check that sys::argv access works."
+    },
+    {
+     "command": """  string s = sys::argv[0]  """,
+     "message": "Check that sys::argv subscripting works."
+    },
+    {
      "command": """  10.@(integer)()  """,
      "message": "Failcheck: Bad anonymous call",
      "stderr": """\
