@@ -3055,8 +3055,6 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
     writes an initialization for the hidden self variable. */
 void lily_emit_class_init(lily_emit_state *emit)
 {
-    lily_class *cls = emit->current_class;
-
     /* The most recent function is the constructor for this class, which will
        always return a class instance. Since it's also the function var (and
        the return of a function is always [0], this works. */
@@ -3064,8 +3062,6 @@ void lily_emit_class_init(lily_emit_state *emit)
 
     lily_storage *self = get_storage(emit, self_sig, *emit->lex_linenum);
     emit->current_block->self = self;
-
-    lily_function_val *f = emit->top_function;
 
     write_3(emit,
             o_new_instance,

@@ -89,4 +89,5 @@ lily_prop_entry *lily_add_class_property(lily_class *, lily_sig *, char *);
 void lily_set_class_generics(lily_symtab *, int);
 void lily_finish_class(lily_symtab *, lily_class *);
 void lily_make_constructor_return_sig(lily_symtab *);
+void lily_reserve_generics(lily_symtab *, int);
 #endif

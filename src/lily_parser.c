@@ -508,6 +508,8 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
             else
                 call_var = get_named_var(parser, call_sig, 0);
         }
+        else
+            call_var = NULL;
 
         /* Collect generics and call type collection as usual. Don't bother
            updating template information: Part of building signatures will
