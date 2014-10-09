@@ -1415,7 +1415,7 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
                 lit_result->reg_spot,
                 ast->right->result->reg_spot);
 
-    ast->result = (lily_sym *)ast->right;
+    ast->result = (lily_sym *)ast->right->result;
 }
 
 static int get_package_index(lily_emit_state *emit, lily_ast *ast)
