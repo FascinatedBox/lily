@@ -2249,7 +2249,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     int i;
     lily_var *prep_var_start = vm->prep_var_start;
     if (prep_var_start == NULL)
-        prep_var_start = main_var;
+        prep_var_start = symtab->var_chain;
 
     lily_value **vm_regs;
     if (vm->num_registers > main_function->reg_count)
