@@ -354,7 +354,7 @@ static void show_code(lily_debug_state *debug)
 
         const int *opcode_data = optable[opcode];
         char *opcode_name = opcode_names[opcode];
-        int call_type, count, data_code, is_global, j;
+        int call_type = 0, count = 0, data_code, is_global = 0, j;
 
         /* Group under a new line number if the current one isn't the last one
            seen. This makes it easy to see what operations that are caused by

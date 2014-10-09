@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <string.h>
 #include <errno.h>
 
@@ -673,27 +674,31 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
     else
         integer_value = scan_decimal(lexer, &num_pos, &is_integer, new_ch);
 
-    if (is_negative == 0) {
-        if (integer_value <= INT64_MAX)
-            yield_val.integer = (int64_t)integer_value;
-        else
-            lily_raise(lexer->raiser, lily_SyntaxError,
-                       "Integer value is too large.\n");
+    if (is_integer) {
+        /* This won't be used uninitialized. I promise. */
+        yield_val.doubleval = 0.0;
+        if (is_negative == 0) {
+            if (integer_value <= INT64_MAX)
+                yield_val.integer = (int64_t)integer_value;
+            else
+                lily_raise(lexer->raiser, lily_SyntaxError,
+                           "Integer value is too large.\n");
+        }
+        else {
+            /* This is negative, and signed min is 1 higher than signed max. This is
+               written as a literal so that gcc doesn't complain about overflow. */
+            uint64_t max = 9223372036854775808ULL;
+            if (integer_value <= max)
+                yield_val.integer = -(int64_t)integer_value;
+            else
+                lily_raise(lexer->raiser, lily_SyntaxError,
+                           "Integer value is too large.\n");
+        }
+        *tok = tk_integer;
     }
-    else {
-        /* This is negative, and signed min is 1 higher than signed max. This is
-           written as a literal so that gcc doesn't complain about overflow. */
-        uint64_t max = 9223372036854775808ULL;
-        if (integer_value <= max)
-            yield_val.integer = -(int64_t)integer_value;
-        else
-            lily_raise(lexer->raiser, lily_SyntaxError,
-                       "Integer value is too large.\n");
-    }
-
     /* Not an integer, so use strtod to try converting it to a double so it can
        be stored as a double. */
-    if (is_integer == 0) {
+    else {
         double double_result;
         char *input_buffer = lexer->input_buffer;
         int str_size = num_pos - num_start;
@@ -710,8 +715,6 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
         yield_val.doubleval = double_result;
         *tok = tk_double;
     }
-    else
-        *tok = tk_integer;
 
     *pos = num_pos;
     lexer->value = yield_val;
