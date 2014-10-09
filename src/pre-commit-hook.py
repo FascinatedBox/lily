@@ -272,6 +272,34 @@ Where: File "<str>" at line 1\n"""
      "stderr": """\
 SyntaxError: 'break' not at the end of a multi-line block.\n\
 Where: File "<str>" at line 1\n"""
+    },
+    {
+     "command": """  class A() {} """,
+     "message": "Failcheck: A too-short class name.",
+     "stderr": """\
+SyntaxError: 'A' is not a valid class name (too short).\n\
+Where: File "<str>" at line 1\n"""
+    },
+    {
+     "command": """  class ABC() { integer a } """,
+     "message": "Failcheck: Class properties without @.",
+     "stderr": """\
+SyntaxError: Class properties must start with @.\n\
+Where: File "<str>" at line 1\n"""
+    },
+    {
+     "command": """  class ABC() { integer @a } """,
+     "message": "Failcheck: Not initializing a class property.",
+     "stderr": """\
+SyntaxError: Class properties must have an initializing assignment.\n\
+Where: File "<str>" at line 1\n"""
+    },
+    {
+     "command": """  class ABC() { integer @a = 1, @a = 1 } """,
+     "message": "Failcheck: Property redeclaration.",
+     "stderr": """\
+SyntaxError: Property a already exists in class ABC.\n\
+Where: File "<str>" at line 1\n"""
     }
 ]
 
