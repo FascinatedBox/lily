@@ -1348,7 +1348,7 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
 {
     lily_sig *left_sig;
 
-    if (ast->tree_type == tree_oo_access) {
+    if (ast->tree_type != tree_property) {
         eval_tree(emit, ast->left);
 
         /* Make sure that it was a property access, and not a class member

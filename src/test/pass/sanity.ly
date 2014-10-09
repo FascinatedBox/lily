@@ -1432,6 +1432,51 @@ function test_tuples()
     }
 }
 
+# Now for some class stuff...
+class Point(integer x, integer y) {
+    integer @x = x
+    integer @y = y
+}
+
+function test_simple_classes() {
+    printfmt("#%i: Testing class creation and use...(sub tests follow).\n", test_id)
+    test_id = test_id + 1
+    integer ok = 1
+
+    Point p = Point::new(1, 2)
+    Point p2 = Point::new(3, 4)
+
+    print("     Checking class creation...")
+
+    if p.x == 1 && p.y == 2 && p2.x == 3 && p2.y == 4: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    p.x = 10
+    p.y = 10
+
+    print("     Checking class property assignment...")
+    if p.x == 10 && p.y == 10: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    p2.x = p.x
+    p2.y = p.y
+    print("     Checking class instance comparison...")
+    if p == p2: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+}
+
 function test_misc()
 {
     printfmt("#%i: Miscellaneous features...(sub tests follow).\n", test_id)
@@ -1526,6 +1571,7 @@ list[function()] function_list =
     test_hashes,
     test_eq,
     test_tuples,
+    test_simple_classes,
     test_misc
 ]
 
