@@ -2538,6 +2538,10 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_function_call:
             {
+                if (vm->function_stack_pos > 100)
+                    lily_raise(vm->raiser, lily_RecursionError,
+                            "Function call recursion limit reached.\n");
+
                 if (vm->function_stack_pos+1 == vm->function_stack_size)
                     grow_function_stack(vm);
 
