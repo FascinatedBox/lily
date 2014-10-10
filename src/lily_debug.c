@@ -198,7 +198,7 @@ static const int optable[][8] = {
     {o_set_global,          3, D_LINENO,  D_INPUT,        D_GLOBAL_OUTPUT, -1,            -1,           -1},
     {o_get_const,           3, D_LINENO,  D_LIT_INPUT,    D_OUTPUT,        -1,            -1,           -1},
     {o_get_function,        3, D_LINENO,  D_FUNC_INPUT,   D_OUTPUT,        -1,            -1,           -1},
-    {o_package_set,         4, D_LINENO,  D_GLOBAL_INPUT, D_INT_VAL,       D_INPUT        -1,           -1},
+    {o_package_set,         4, D_LINENO,  D_GLOBAL_INPUT, D_INT_VAL,       D_INPUT,       -1,           -1},
     {o_package_set_deep,    5, D_LINENO,  D_GLOBAL_INPUT, D_COUNT,         D_COUNT_DEPTH, D_INPUT       -1},
     {o_package_get,         4, D_LINENO,  D_GLOBAL_INPUT, D_INT_VAL,       D_OUTPUT,      -1            -1},
     {o_package_get_deep,    5, D_LINENO,  D_GLOBAL_INPUT, D_COUNT,         D_COUNT_DEPTH, D_OUTPUT      -1},
