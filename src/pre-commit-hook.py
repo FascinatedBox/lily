@@ -89,6 +89,14 @@ Where: File "<str>" at line 1\n""",
      "message": "Check that sys::argv subscripting works."
     },
     {
+     "command": """  class AA(integer a) { var @a = a }  """,
+     "message": "Check that class properties can use 'var'."
+    },
+    {
+     "command": """  var v = [1, 2, 3]  """,
+     "message": "Check that regular variables can use 'var'."
+    },
+    {
      "command": """  10.@(integer)()  """,
      "message": "Failcheck: Bad anonymous call",
      "stderr": """\
