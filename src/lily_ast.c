@@ -396,7 +396,6 @@ static void push_sig(lily_ast_pool *ap, lily_sig *sig)
 {
     AST_COMMON_INIT(a, tree_sig)
     a->sig = sig;
-    a->result = NULL;
 
     merge_value(ap, a);
 }
@@ -629,7 +628,6 @@ void lily_ast_enter_typecast(lily_ast_pool *ap, lily_sig *sig)
 void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
 {
     AST_COMMON_INIT(a, tree_unary)
-    a->result = NULL;
     a->left = NULL;
     a->priority = priority_for_op(op);
     a->op = op;
