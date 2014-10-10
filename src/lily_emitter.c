@@ -1463,78 +1463,17 @@ static void eval_package_tree_for_op(lily_emit_state *emit, lily_ast *ast,
     lily_sym *s = set_value;
     int opcode;
 
-    /* If the argument is a package, then this contains at least two package
-       accesses (a::b::c at least, maybe more). So instead of doing multiple
-       single-level access, combine them into one. */
-    if (ast->arg_start->tree_type == tree_package) {
-        if (is_set_op)
-            opcode = o_package_set_deep;
-        else
-            opcode = o_package_get_deep;
-
-        int depth = 1;
-        lily_ast *dive_tree = ast->arg_start;
-        while (dive_tree->tree_type == tree_package) {
-            dive_tree = dive_tree->arg_start;
-            depth++;
-        }
-
-        dive_tree = dive_tree->parent;
-
-        write_prep(emit, 5 + depth);
-
-        lily_function_val *f = emit->top_function;
-        f->code[f->pos] = opcode;
-        f->code[f->pos+1] = ast->line_num;
-        f->code[f->pos+2] = dive_tree->arg_start->result->reg_spot;
-        f->code[f->pos+3] = depth;
-
-        lily_package_val *pval;
-        pval = dive_tree->arg_start->result->value.package;
-        int j = 0;
-
-        /* For each access, find out the index to use to get the package at
-           that level. Write it down, then go to the next level. */
-        while (1) {
-            lily_var *index_var;
-            index_var = (lily_var *)dive_tree->arg_start->next_arg->result;
-
-            int i;
-            for (i = 0;i < pval->var_count;i++) {
-                if (pval->vars[i] == index_var)
-                    break;
-            }
-
-            f->code[f->pos+4+j] = i;
-
-            dive_tree = dive_tree->parent;
-            if (dive_tree == NULL)
-                break;
-
-            pval = index_var->value.package;
-            j++;
-        }
-
-        if (is_set_op == 0)
-            s = (lily_sym *)get_storage(emit,
-                ast->arg_start->next_arg->result->sig, ast->line_num);
-
-        f->code[f->pos+5+j] = s->reg_spot;
-        f->pos += 5 + depth;
-    }
+    int index = get_package_index(emit, ast);
+    if (is_set_op)
+        opcode = o_package_set;
     else {
-        int index = get_package_index(emit, ast);
-        if (is_set_op)
-            opcode = o_package_set;
-        else {
-            s = (lily_sym *)get_storage(emit,
-                ast->arg_start->next_arg->result->sig, ast->line_num);
-            opcode = o_package_get;
-        }
-
-        write_5(emit, opcode, ast->line_num, ast->arg_start->result->reg_spot,
-                index, s->reg_spot);
+        s = (lily_sym *)get_storage(emit,
+            ast->arg_start->next_arg->result->sig, ast->line_num);
+        opcode = o_package_get;
     }
+
+    write_5(emit, opcode, ast->line_num, ast->arg_start->result->reg_spot,
+            index, s->reg_spot);
 
     ast->result = s;
 }
@@ -1551,10 +1490,12 @@ static void eval_package_assign(lily_emit_state *emit, lily_ast *ast)
     /* The left may contain packages in it. However, the resulting value will
        always be the var at the very top. */
     lily_ast *package_right = ast->left->arg_start->next_arg;
+    lily_sym *rhs;
 
     if (ast->right->tree_type != tree_var)
         eval_tree(emit, ast->right);
 
+    rhs = ast->right->result;
     /* Don't evaluate the package tree. Like subscript assign, this has to
        write directly to the var at the given part of the package. Since parser
        passes the var to be assigned, just grab that from result for checking
@@ -1568,12 +1509,15 @@ static void eval_package_assign(lily_emit_state *emit, lily_ast *ast)
                 rhs_tree->result->sig);
     }
 
+    if (ast->op > expr_assign) {
+        eval_tree(emit, ast->left);
+        emit_op_for_compound(emit, ast);
+        rhs = ast->result;
+    }
+
     /* Evaluate the tree grab on the left side. Use set opcodes instead of get
        opcodes. The result given is what will be assigned. */
-    eval_package_tree_for_op(emit, ast->left, 1, (lily_sym *)rhs_tree->result);
-
-    /* This is necessary for assignment chains. */
-    ast->result = rhs_tree->result;
+    eval_package_tree_for_op(emit, ast->left, 1, rhs);
 }
 
 /*  eval_logical_op
