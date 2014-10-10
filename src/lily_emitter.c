@@ -1348,7 +1348,7 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
 {
     lily_sig *left_sig;
 
-    if (ast->tree_type != tree_property) {
+    if (ast->left->tree_type != tree_property) {
         eval_tree(emit, ast->left);
 
         /* Make sure that it was a property access, and not a class member
@@ -1363,7 +1363,7 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
         /* Don't bother evaluating the left, because the property's id and sig
            are already available. Evaluating it would just dump the contents
            into a var, which isn't useful. */
-        left_sig = ast->property->sig;
+        left_sig = ast->left->property->sig;
 
     if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right);
@@ -1371,8 +1371,8 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
     lily_sig *right_sig = ast->right->result->sig;
     /* For 'var @<name> = ...', fix the type of the property. */
     if (left_sig == NULL) {
-        ast->property->sig = right_sig;
-        ast->property->flags &= ~SYM_NOT_INITIALIZED;
+        ast->left->property->sig = right_sig;
+        ast->left->property->flags &= ~SYM_NOT_INITIALIZED;
         left_sig = right_sig;
     }
 
