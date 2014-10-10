@@ -97,6 +97,16 @@ Where: File "<str>" at line 1\n""",
      "message": "Check that regular variables can use 'var'."
     },
     {
+     "command": """\
+class AA(integer x, integer y, integer z) { integer @x = x, @y = y, @z = z } \
+var v = AA::new(10, 20, 30) \
+v.x += v.y += v.z \
+if v.x != 60 || v.y != 50 || v.z != 30: \
+    print("Oh no!")\
+""",
+     "message": "Check compound assignment with dot accesses."
+    },
+    {
      "command": """  10.@(integer)()  """,
      "message": "Failcheck: Bad anonymous call",
      "stderr": """\

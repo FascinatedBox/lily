@@ -1347,6 +1347,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
 {
     lily_sig *left_sig;
+    lily_sym *rhs;
 
     if (ast->left->tree_type != tree_property) {
         eval_tree(emit, ast->left);
@@ -1368,6 +1369,7 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
     if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right);
 
+    rhs = ast->right->result;
     lily_sig *right_sig = ast->right->result->sig;
     /* For 'var @<name> = ...', fix the type of the property. */
     if (left_sig == NULL) {
@@ -1394,6 +1396,14 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
     lily_storage *lit_result = get_storage(emit, lit->sig,
             ast->line_num);
 
+    if (ast->op > expr_assign) {
+        if (ast->left->tree_type == tree_property)
+            eval_tree(emit,ast->left);
+
+        emit_op_for_compound(emit, ast);
+        rhs = ast->result;
+    }
+
     write_4(emit,
             o_get_const,
             ast->line_num,
@@ -1406,16 +1416,16 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
                 ast->line_num,
                 ast->left->arg_start->result->reg_spot,
                 lit_result->reg_spot,
-                ast->right->result->reg_spot);
+                rhs->reg_spot);
     else
         write_5(emit,
                 o_set_item,
                 ast->line_num,
                 emit->self_storage->reg_spot,
                 lit_result->reg_spot,
-                ast->right->result->reg_spot);
+                rhs->reg_spot);
 
-    ast->result = (lily_sym *)ast->right->result;
+    ast->result = rhs;
 }
 
 static int get_package_index(lily_emit_state *emit, lily_ast *ast)
