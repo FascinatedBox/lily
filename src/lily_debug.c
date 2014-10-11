@@ -97,7 +97,7 @@ typedef struct lily_debug_state_t {
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[55] = {
+char *opcode_names[53] = {
     "assign",
     "any assign",
     "assign (ref/deref)",
@@ -142,9 +142,7 @@ char *opcode_names[55] = {
     "get const",
     "get function",
     "package set",
-    "package set (deep)",
     "package get",
-    "package get (deep)",
     "push try",
     "pop try",
     "except",
@@ -199,9 +197,7 @@ static const int optable[][8] = {
     {o_get_const,           3, D_LINENO,  D_LIT_INPUT,    D_OUTPUT,        -1,            -1,           -1},
     {o_get_function,        3, D_LINENO,  D_FUNC_INPUT,   D_OUTPUT,        -1,            -1,           -1},
     {o_package_set,         4, D_LINENO,  D_GLOBAL_INPUT, D_INT_VAL,       D_INPUT,       -1,           -1},
-    {o_package_set_deep,    5, D_LINENO,  D_GLOBAL_INPUT, D_COUNT,         D_COUNT_DEPTH, D_INPUT       -1},
     {o_package_get,         4, D_LINENO,  D_GLOBAL_INPUT, D_INT_VAL,       D_OUTPUT,      -1            -1},
-    {o_package_get_deep,    5, D_LINENO,  D_GLOBAL_INPUT, D_COUNT,         D_COUNT_DEPTH, D_OUTPUT      -1},
     {o_push_try,            2, D_LINENO,  D_JUMP          -1,              -1,            -1,           -1},
     {o_pop_try,             1, D_NOP,     -1,             -1,              -1,            -1,           -1},
     {o_except,              4, D_LINENO,  D_JUMP,         D_INT_VAL,       D_OUTPUT,      -1,           -1},

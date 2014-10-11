@@ -291,9 +291,7 @@ typedef enum {
     o_get_function,
 
     o_package_set,
-    o_package_set_deep,
     o_package_get,
-    o_package_get_deep,
 
     o_push_try,
     o_pop_try,

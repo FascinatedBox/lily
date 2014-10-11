@@ -2827,47 +2827,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 do_o_raise(vm, lhs_reg);
                 code_pos += 3;
                 break;
-            case o_package_get_deep:
-            {
-                int loops;
-
-                lhs_reg = regs_from_main[code[code_pos + 2]];
-                /* This is a multi-level package access (ex: a::b::c). Each
-                   package that isn't the last one will contain another package
-                   to grab. So...keep doing that until the last one is hit. */
-                for (loops = code[code_pos + 3];
-                     loops > 0;
-                     loops--, code_pos++) {
-                    lhs_reg = (lily_value *)lhs_reg->value.package->vars
-                            [code[code_pos + 4]];
-                }
-
-                rhs_reg = vm_regs[code[code_pos + 4]];
-
-                lily_assign_value(vm, rhs_reg, (lily_value *)lhs_reg);
-                code_pos += 5;
-                break;
-            }
-            case o_package_set_deep:
-            {
-                /* This is exactly like o_package_set_deep except that the
-                   assignment at the bottom is reversed. */
-                int loops;
-
-                lhs_reg = regs_from_main[code[code_pos + 2]];
-                for (loops = code[code_pos + 3];
-                     loops > 0;
-                     loops--, code_pos++) {
-                    lhs_reg = (lily_value *)lhs_reg->value.package->vars
-                            [code[code_pos + 4]];
-                }
-
-                rhs_reg = vm_regs[code[code_pos + 4]];
-
-                lily_assign_value(vm, (lily_value *)lhs_reg, rhs_reg);
-                code_pos += 5;
-                break;
-            }
             case o_new_instance:
             {
                 do_o_new_instance(vm, code+code_pos);
