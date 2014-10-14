@@ -2846,17 +2846,32 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
             lily_raise_nomem(emit->raiser);
     }
 
-    write_prep(emit, 16);
+    lily_sym *target;
+    /* Global vars cannot be used directly, because o_for_setup and
+       o_integer_for expect local registers. */
+    if (user_loop_var->function_depth == 1)
+        target = (lily_sym *)get_storage(emit, user_loop_var->sig, line_num);
+    else
+        target = (lily_sym *)user_loop_var;
+
+    write_prep(emit, 16 + ((target != (lily_sym *)user_loop_var) * 4));
     lily_function_val *f = emit->top_function;
     f->code[f->pos  ] = o_for_setup;
     f->code[f->pos+1] = line_num;
-    f->code[f->pos+2] = user_loop_var->reg_spot;
+    f->code[f->pos+2] = target->reg_spot;
     f->code[f->pos+3] = for_start->reg_spot;
     f->code[f->pos+4] = for_end->reg_spot;
     f->code[f->pos+5] = for_step->reg_spot;
     /* This value is used to determine if the step needs to be calculated. */
     f->code[f->pos+6] = !have_step;
 
+    if (target != (lily_sym *)user_loop_var) {
+        f->code[f->pos+7] = o_set_global;
+        f->code[f->pos+8] = line_num;
+        f->code[f->pos+9] = target->reg_spot;
+        f->code[f->pos+10] = user_loop_var->reg_spot;
+        f->pos += 4;
+    }
     /* for..in is entered right after 'for' is seen. However, range values can
        be expressions. This needs to be fixed, or the loop will jump back up to
        re-eval those expressions. */
@@ -2869,18 +2884,29 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
 
     f->code[f->pos+9] = o_integer_for;
     f->code[f->pos+10] = line_num;
-    f->code[f->pos+11] = user_loop_var->reg_spot;
+    f->code[f->pos+11] = target->reg_spot;
     f->code[f->pos+12] = for_start->reg_spot;
     f->code[f->pos+13] = for_end->reg_spot;
     f->code[f->pos+14] = for_step->reg_spot;
     f->code[f->pos+15] = 0;
+    if (target != (lily_sym *)user_loop_var) {
+        f->code[f->pos+16] = o_set_global;
+        f->code[f->pos+17] = line_num;
+        f->code[f->pos+18] = target->reg_spot;
+        f->code[f->pos+19] = user_loop_var->reg_spot;
+        f->pos += 4;
+    }
 
     f->pos += 16;
 
     if (emit->patch_pos == emit->patch_size)
         grow_patches(emit);
 
-    emit->patches[emit->patch_pos] = f->pos-1;
+    if (target == (lily_sym *)user_loop_var)
+        emit->patches[emit->patch_pos] = f->pos - 1;
+    else
+        emit->patches[emit->patch_pos] = f->pos - 5;
+
     emit->patch_pos++;
 }
 
