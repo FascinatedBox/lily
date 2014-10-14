@@ -1303,7 +1303,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
         right_sym = ast->result;
     }
 
-    if (GLOBAL_LOAD_CHECK(left_sym))
+    if (ast->left->tree_type == tree_var)
         opcode = o_set_global;
 
     /* If assign can be optimized out, then rewrite the last result to point to
