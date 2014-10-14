@@ -66,19 +66,14 @@ static lily_literal *try_new_literal(lily_symtab *symtab, lily_class *cls,
     lit->sig = cls->sig;
 
     lit->flags = SYM_TYPE_LITERAL;
-    lit->next = NULL;
     lit->value = value;
     /* Literals aren't put in registers, but they ARE put in a special vm
        table. This is the literal's index into that table. */
     lit->reg_spot = symtab->next_lit_spot;
     symtab->next_lit_spot++;
 
-    if (symtab->lit_top == NULL)
-        symtab->lit_start = lit;
-    else
-        symtab->lit_top->next = lit;
-
-    symtab->lit_top = lit;
+    lit->next = symtab->lit_chain;
+    symtab->lit_chain = lit;
 
     return lit;
 }
@@ -721,8 +716,7 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
     symtab->main_var = NULL;
     symtab->old_function_chain = NULL;
     symtab->class_chain = NULL;
-    symtab->lit_start = NULL;
-    symtab->lit_top = NULL;
+    symtab->lit_chain = NULL;
     symtab->function_depth = 1;
     /* lily_try_new_var expects lex_linenum to be the lexer's line number.
        0 is used, because these are all builtins, and the lexer may have failed
@@ -846,7 +840,7 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
 {
     lily_literal *lit, *lit_temp;
 
-    lit = symtab->lit_start;
+    lit = symtab->lit_chain;
 
     while (lit != NULL) {
         lit_temp = lit->next;
@@ -928,7 +922,7 @@ lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
     lily_class *integer_cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
     lily_sig *want_sig = integer_cls->sig;
 
-    for (lit = symtab->lit_start;lit != NULL;lit = lit->next) {
+    for (lit = symtab->lit_chain;lit != NULL;lit = lit->next) {
         if (lit->sig == want_sig && lit->value.integer == int_val) {
             ret = lit;
             break;
@@ -954,7 +948,7 @@ lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
     lily_class *double_cls = lily_class_by_id(symtab, SYM_CLASS_DOUBLE);
     lily_sig *want_sig = double_cls->sig;
 
-    for (lit = symtab->lit_start;lit != NULL;lit = lit->next) {
+    for (lit = symtab->lit_chain;lit != NULL;lit = lit->next) {
         if (lit->sig == want_sig && lit->value.doubleval == dbl_val) {
             ret = lit;
             break;
@@ -979,7 +973,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab, char *want_string)
     ret = NULL;
     int want_string_len = strlen(want_string);
 
-    for (lit = symtab->lit_start;lit;lit = lit->next) {
+    for (lit = symtab->lit_chain;lit;lit = lit->next) {
         if (lit->sig->cls->id == SYM_CLASS_STRING) {
             if (lit->value.string->size == want_string_len &&
                 strcmp(lit->value.string->string, want_string) == 0) {
