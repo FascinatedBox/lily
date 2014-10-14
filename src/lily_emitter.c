@@ -1506,7 +1506,6 @@ static void eval_package_assign(lily_emit_state *emit, lily_ast *ast)
     This handles || (or) as well as && (and). */
 static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_symtab *symtab = emit->symtab;
     lily_storage *result;
     int is_top, jump_on;
     lily_function_val *f = emit->top_function;
@@ -1540,20 +1539,15 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
     if (is_top == 1) {
         int save_pos;
         lily_literal *success_lit, *failure_lit;
+        lily_symtab *symtab = emit->symtab;
         lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
 
-        /* The literals need to be pulled into storages before they can be used,
-           so grab two more for them. */
         result = get_storage(emit, cls->sig, ast->line_num);
 
-        /* The symtab adds literals 0 and 1 in that order during its init. */
-        success_lit = symtab->lit_start;
-        if (ast->op == expr_logical_or)
-            failure_lit = success_lit->next;
-        else {
-            failure_lit = success_lit;
-            success_lit = failure_lit->next;
-        }
+        success_lit = lily_get_integer_literal(symtab,
+                (ast->op == expr_logical_and));
+        failure_lit = lily_get_integer_literal(symtab,
+                (ast->op == expr_logical_or));
 
         write_4(emit,
                 o_get_const,
