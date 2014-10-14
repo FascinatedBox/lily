@@ -28,10 +28,6 @@
                            b == BLOCK_DO_WHILE || \
                            b == BLOCK_FOR_IN)
 
-# define GLOBAL_LOAD_CHECK(sym) \
-    ((sym->flags & SYM_TYPE_VAR) && \
-     ((lily_var *)sym)->function_depth == 1)
-
 # define lily_raise_adjusted(r, adjust, error_code, message, ...) \
 { \
     r->line_adjust = adjust; \
@@ -2377,18 +2373,6 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     expect_size = 6 + ast->args_collected;
 
     check_call_args(emit, ast, call_sig);
-
-    if (GLOBAL_LOAD_CHECK(call_sym)) {
-        lily_storage *storage = get_storage(emit, call_sym->sig, ast->line_num);
-
-        write_4(emit,
-                o_get_global,
-                ast->line_num,
-                call_sym->reg_spot,
-                storage->reg_spot);
-
-        call_sym = (lily_sym *)storage;
-    }
 
     write_prep(emit, expect_size);
 
