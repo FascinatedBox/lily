@@ -1296,25 +1296,11 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     }
 
     if (ast->op > expr_assign) {
-        lily_var *left_var = (lily_var *)left_sym;
-        if (left_var->function_depth == 1) {
-            lily_storage *temp = get_storage(emit, ast->left->result->sig,
-                    ast->line_num);
-
-            write_4(emit,
-                    o_get_global,
-                    ast->line_num,
-                    ast->left->result->reg_spot,
-                    temp->reg_spot);
-
-            ast->left->result = (lily_sym *)temp;
-        }
+        if (ast->left->tree_type == tree_var)
+            eval_tree(emit, ast->left);
 
         emit_op_for_compound(emit, ast);
         right_sym = ast->result;
-
-        if (left_var->function_depth == 1)
-            ast->left->result = left_sym;
     }
 
     if (GLOBAL_LOAD_CHECK(left_sym))
