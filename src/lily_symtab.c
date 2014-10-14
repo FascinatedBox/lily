@@ -518,7 +518,7 @@ static int init_prop_seeds(lily_symtab *symtab, lily_class *cls,
 /*****************************************************************************/
 
 /*  call_setups
-    Symtab init, stage 6
+    Symtab init, stage 5
     This calls the setup func of any class that has one. This is reponsible for
     setting up the seed_table of the class, and possibly more in the future. */
 static int call_class_setups(lily_symtab *symtab)
@@ -539,7 +539,7 @@ static int call_class_setups(lily_symtab *symtab)
 }
 
 /*  read_global_seeds
-    Symtab init, stage 5
+    Symtab init, stage 4
     This initializes Lily's builtin functions through init_func_seed which
     automatically adds the seeds to var_chain where they should be (since they're
     globals).
@@ -567,7 +567,7 @@ static int read_global_seeds(lily_symtab *symtab)
 }
 
 /*  init_lily_main
-    Symtab init, stage 4
+    Symtab init, stage 3
     This creates __main__, which holds all code that is not explicitly put
     inside of a Lily function. */
 static int init_lily_main(lily_symtab *symtab)
@@ -589,28 +589,6 @@ static int init_lily_main(lily_symtab *symtab)
     symtab->main_var = lily_try_new_var(symtab, new_sig, "__main__", 0);
 
     return (symtab->main_var != NULL);
-}
-
-/*  init_literals
-    Symtab init, stage 3
-    This creates literal values for 0 and 1. This is done for and/or handling
-    in emitter. */
-static int init_literals(lily_symtab *symtab)
-{
-    int i, ret;
-    lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
-    lily_literal *lit;
-    ret = 1;
-    lily_raw_value raw;
-
-    for (i = 0;i < 2;i++) {
-        raw.integer = i;
-        lit = try_new_literal(symtab, cls, raw);
-        if (lit == NULL)
-            ret = 0;
-    }
-
-    return ret;
 }
 
 /* init_classes
@@ -755,11 +733,9 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
     symtab->template_sig_start = NULL;
     symtab->old_class_chain = NULL;
 
-    if (!init_classes(symtab) || !init_literals(symtab) ||
-        !init_lily_main(symtab) ||
-        !read_global_seeds(symtab) ||
-        !call_class_setups(symtab)) {
-        /* First the literals and vars created, if any... */
+    if (!init_classes(symtab) || !init_lily_main(symtab) ||
+        !read_global_seeds(symtab) || !call_class_setups(symtab)) {
+        /* First vars created, if any... */
         lily_free_symtab_lits_and_vars(symtab);
         /* then delete the symtab. */
         lily_free_symtab(symtab);
