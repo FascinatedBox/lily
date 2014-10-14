@@ -27,8 +27,7 @@ typedef struct {
 
     int function_depth;
 
-    lily_literal *lit_start;
-    lily_literal *lit_top;
+    lily_literal *lit_chain;
     int next_class_id;
     int next_register_spot;
     int next_lit_spot;

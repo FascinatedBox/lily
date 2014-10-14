@@ -79,7 +79,7 @@ typedef struct lily_vm_state_t {
 
     int prep_id_start;
     lily_var *prep_var_start;
-    lily_literal *prep_literal_start;
+    lily_literal *prep_literal_stop;
 
     /* Most of the stack entries will be native functions, with the lowest
        being __main__. __main__ has o_return_from_vm at the end, so native

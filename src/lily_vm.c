@@ -167,7 +167,7 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
     vm->literal_count = 0;
     vm->function_table = NULL;
     vm->function_count = 0;
-    vm->prep_literal_start = NULL;
+    vm->prep_literal_stop = NULL;
     vm->generic_map = NULL;
     vm->generic_map_size = 0;
     vm->resolver_sigs = NULL;
@@ -895,13 +895,12 @@ static void copy_literals(lily_vm_state *vm)
     if (literals == NULL)
         lily_raise_nomem(vm->raiser);
 
-    lily_literal *lit_iter = vm->prep_literal_start;
-    if (lit_iter == NULL)
-        lit_iter = symtab->lit_start;
+    lily_literal *lit_stop = vm->prep_literal_stop;
+    lily_literal *lit_iter = symtab->lit_chain;
 
     while (1) {
         literals[lit_iter->reg_spot] = lit_iter;
-        if (lit_iter->next == NULL)
+        if (lit_iter->next == lit_stop)
             break;
 
         lit_iter = lit_iter->next;
@@ -909,7 +908,7 @@ static void copy_literals(lily_vm_state *vm)
 
     vm->literal_table = literals;
     vm->literal_count = count;
-    vm->prep_literal_start = lit_iter;
+    vm->prep_literal_stop = symtab->lit_chain;
 }
 
 /*  copy_vars_to_functions
