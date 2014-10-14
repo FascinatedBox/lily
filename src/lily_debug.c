@@ -63,15 +63,12 @@
 /* D_CALL_TYPE:       This is used by calls to determine how the call is stored:
                       0: The input is a readonly var.
                       1: The input is a local register. */
-#define D_CALL_TYPE 16
+#define D_CALL_TYPE       16
 /* D_CALL_INPUT:      Input to a function call. This is shown according to what
                       D_CALL_INPUT_TYPE picked up. */
 #define D_CALL_INPUT      17
-/* D_COUNT_DEPTH:     What follows is a series of indexes used in package
-                      accesses. */
-#define D_COUNT_DEPTH     18
 /* D_FUNC_INPUT:      This is a position in the vm's table of functions. */
-#define D_FUNC_INPUT      19
+#define D_FUNC_INPUT      18
 
 /** Flags for show_register_info: **/
 /* This means the number given is for a register in __main__. By default, the
@@ -456,16 +453,6 @@ static void show_code(lily_debug_state *debug)
                     show_function(debug, code[i+j]);
                 else
                     show_register_info(debug, RI_INPUT, code[i+j]);
-            }
-            else if (data_code == D_COUNT_DEPTH) {
-                int k;
-                for (k = 0;k < count;k++, i++) {
-                    lily_msgbuf_add_fmt(msgbuf, "^I|     <---- %d\n",
-                            indent, (int)code[i+j]);
-                }
-                write_msgbuf(debug);
-
-                i--;
             }
             else if (data_code == D_FUNC_INPUT)
                 show_function(debug, code[i+j]);
