@@ -2456,9 +2456,6 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_jump:
                 code_pos = code[code_pos+1];
                 break;
-            case o_modulo:
-                INTEGER_OP(%)
-                break;
             case o_integer_mul:
                 INTEGER_OP(*)
                 break;
@@ -2475,6 +2472,14 @@ void lily_vm_execute(lily_vm_state *vm)
                     lily_raise(vm->raiser, lily_DivisionByZeroError,
                             "Attempt to divide by zero.\n");
                 INTEGER_OP(/)
+                break;
+            case o_modulo:
+                /* x % 0 will do the same thing as x / 0... */
+                LOAD_CHECKED_REG(rhs_reg, code_pos, 3)
+                if (rhs_reg->value.integer == 0)
+                    lily_raise(vm->raiser, lily_DivisionByZeroError,
+                            "Attempt to divide by zero.\n");
+                INTEGER_OP(%)
                 break;
             case o_left_shift:
                 INTEGER_OP(<<)
