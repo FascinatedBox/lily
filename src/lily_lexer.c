@@ -154,6 +154,7 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser, void *data)
     lex->data = data;
     lex->input_buffer = lily_malloc(128 * sizeof(char));
     lex->label = lily_malloc(128 * sizeof(char));
+    lex->ch_class = NULL;
     ch_class = lily_malloc(256 * sizeof(char));
 
     if (ch_class == NULL || lex->label == NULL || lex->input_buffer == NULL) {

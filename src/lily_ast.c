@@ -110,6 +110,8 @@ lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
 
         ap->save_depth = 0;
     }
+    else
+        ap->save_chain = NULL;
 
     ap->available_start = last_tree;
     ap->available_current = last_tree;
