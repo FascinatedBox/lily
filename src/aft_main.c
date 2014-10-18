@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,6 +33,8 @@ aft_entry *start = NULL;
 aft_entry *current = NULL;
 aft_entry *end = NULL;
 
+int first_pass_count = 0;
+
 /* The number of mallocs should match the number of frees. */
 int free_count = 0;
 int malloc_count = 0;
@@ -42,14 +45,18 @@ int warning_count = 0;
 /* How many allocs to allow before rejecting them. */
 int allowed_allocs = 0;
 
+#define LOG(message, args...) \
+if (aft_options & OPT_SHOW_ALLOC_INFO) \
+    fprintf(stderr, message, args);
+
 void *aft_malloc(char *filename, int line, size_t size)
 {
     /* Always show rejections. Sometimes, there might be multiple ones from
        some function trying multiple allocs, then checking them all at once.
        But rejections are useful for determining where a problem starts. */
     if (malloc_count + count_reallocs >= allowed_allocs) {
-        fprintf(stderr, "[aft]: malloc via %s:%d for size %lu REJECTED.\n",
-                filename, line, size);
+        LOG("[aft]: malloc via %s:%d for size %lu REJECTED.\n", filename, line,
+            size);
         return NULL;
     }
 
@@ -90,7 +97,7 @@ void *aft_malloc(char *filename, int line, size_t size)
 void *aft_realloc(char *filename, int line, void *oldptr, size_t newsize)
 {
     if (malloc_count + count_reallocs >= allowed_allocs) {
-        fprintf(stderr, "[aft]: realloc via %s:%d for size %lu REJECTED.\n",
+        LOG("[aft]: realloc via %s:%d for size %lu REJECTED.\n",
                 filename, line, newsize);
         return NULL;
     }
@@ -117,6 +124,7 @@ void *aft_realloc(char *filename, int line, void *oldptr, size_t newsize)
     if (search == NULL) {
         fprintf(stderr, "[aft]: warning: realloc #%d via %s:%d has foreign oldptr!\n",
                 count_reallocs, filename, line);
+
         warning_count++;
         return NULL;
     }
@@ -124,6 +132,7 @@ void *aft_realloc(char *filename, int line, void *oldptr, size_t newsize)
     if (search->status == ST_DELETED) {
         fprintf(stderr, "[aft]: warning: realloc #%d via %s:%d targets deleted block.\n",
                 count_reallocs, filename, line);
+
         warning_count++;
         return NULL;
     }
@@ -135,21 +144,16 @@ void *aft_realloc(char *filename, int line, void *oldptr, size_t newsize)
         exit(EXIT_FAILURE);
     }
 
-    if (aft_options & OPT_SHOW_ALLOC_INFO)
-        fprintf(stderr, "[aft]: realloc #%d via %s:%d OK. Result is %p.\n",
-                count_reallocs+1, filename, line, search->block);
+    LOG("[aft]: realloc #%d via %s:%d OK. Result is %p.\n",
+        count_reallocs + 1, filename, line, search->block);
     count_reallocs++;
     return search->block;
 }
 
 void aft_free(char *filename, int line, void *ptr)
 {
-    if (ptr == NULL) {
-        /* This is a no-op, but report anyway for completeness. */
-        if (aft_options & OPT_SHOW_ALLOC_INFO)
-            fprintf(stderr, "[aft]: null free from %s:%d.\n", filename, line);
+    if (ptr == NULL)
         return;
-    }
 
     aft_entry *search = start;
     aft_entry *result = NULL;
@@ -172,30 +176,30 @@ void aft_free(char *filename, int line, void *ptr)
     search = result;
 
     if (search == NULL) {
-        fprintf(stderr, "[aft]: warning: invalid free (%p) from %s:%d!\n", ptr,
-                filename, line);
+        fprintf(stderr, "[aft]: warning: invalid free (%p) from %s:%d!\n", ptr, filename,
+                line);
         warning_count++;
         return;
     }
 
     if (search->status == ST_DELETED) {
-        fprintf(stderr, "[aft]: warning: double free (%p) from %s:%d!\n", ptr,
-                filename, line);
+        fprintf(stderr, "[aft]: warning: double free (%p) from %s:%d!\n", ptr, filename,
+                line);
         warning_count++;
         return;
     }
 
     search->status = ST_DELETED;
-    if (aft_options & OPT_SHOW_ALLOC_INFO)
-        fprintf(stderr, "[aft]: free block #%d (%p) from %s:%d.\n", i, ptr,
-                filename, line);
+    LOG("[aft]: free block #%d (%p) from %s:%d.\n", i, ptr, filename, line);
     free(ptr);
     free_count++;
 }
 
+/* This is a no-op so that each pass doesn't spam the console with info and make
+   the thing slower. */
 void lily_impl_puts(void *data, char *text)
 {
-    fputs(text, stdout);
+
 }
 
 void show_stats()
@@ -219,111 +223,127 @@ void show_stats()
             malloc_count, free_count, count_reallocs,
             malloc_count + count_reallocs);
 
-    /* It's only ever failure if malloc/free counts don't match. */
-    int exit_code;
-    if (malloc_count == free_count && warning_count == 0)
-        exit_code = EXIT_SUCCESS;
-    else
-        exit_code = EXIT_FAILURE;
+    /* This function is only called when there is an issue.  */
+    exit(EXIT_FAILURE);
+}
 
-    exit(exit_code);
+void aft_cleanup()
+{
+    malloc_count = 0;
+    free_count = 0;
+    count_reallocs = 0;
+    warning_count = 0;
+
+    aft_entry *entry_iter = start;
+    aft_entry *entry_next = NULL;
+    while (entry_iter) {
+        entry_next = entry_iter->next;
+        free(entry_iter);
+        entry_iter = entry_next;
+    }
+
+    start = NULL;
+    current = NULL;
+    end = NULL;
 }
 
 void usage()
 {
-    fputs("Usage : aft [options] <allocs> <filename>\n", stderr);
-    fputs("Where options are:\n", stderr);
+    fputs("Usage : aft [options] (-f filename | -s string)\n", stderr);
 
-    fputs("\t--no-alloc-limit: Disable allocation checking.\n", stderr);
-    fputs("\taft will still give stats at the end, so this can be used to\n", stderr);
-    fputs("\tdetermine how many allocs are needed for a program to work.\n", stderr);
-    fputs("\tIf this is used, an alloc count is not needed.\n\n", stderr);
-
-    fputs("\t--show-alloc-info: Show verbose alloc information from aft.\n", stderr);
+    fputs("\t-f filename         Run the given filename.\n", stderr);
+    fputs("\t-s string           Run the given string.\n", stderr);
+    fputs("\t(-f and -s are mutually exclusive).\n", stderr);
+    fputs("\n", stderr);
+    fputs("\t-m max              Do one pass with <max> (non-zero) allocations.\n", stderr);
+    fputs("\t--show-alloc-info:  Show verbose alloc information from aft.\n", stderr);
     fputs("\tAs a warning, this can get extremely verbose in some cases.\n", stderr);
 
     exit(EXIT_FAILURE);
 }
 
+void run_parser(int argc, char **argv, int count, int is_filename, char *text)
+{
+    allowed_allocs = count;
+
+    if (allowed_allocs == INT_MAX)
+        fputs("aft: Doing a first pass...", stderr);
+    else
+        fprintf(stderr, "aft: Running pass %d...", count);
+
+    lily_parse_state *parser = lily_new_parse_state(NULL, argc, argv);
+    if (parser != NULL) {
+        if (is_filename == 1)
+            lily_parse_file(parser, lm_tags, text);
+        else
+            lily_parse_string(parser, lm_no_tags, text);
+
+        lily_free_parse_state(parser);
+    }
+
+    if (malloc_count != free_count || warning_count != 0) {
+        fprintf(stderr, "failed.\n", warning_count);
+        show_stats();
+    }
+    else {
+        fprintf(stderr, "ok.\n");
+        if (count == INT_MAX)
+            first_pass_count = malloc_count;
+
+        aft_cleanup();
+    }
+}
+
 int main(int argc, char **argv)
 {
-    char *filename = NULL;
-    int i;
+    char *name = NULL;
+    int i, is_filename = 1, max = -1;
 
     for (i = 1;i < argc;i++) {
         char *arg = argv[i];
-        if (strcmp(arg, "--no-alloc-limit") == 0)
-            allowed_allocs = INT_MAX;
-        else if (strcmp(arg, "--show-alloc-info") == 0)
+        if (strcmp(arg, "--show-alloc-info") == 0)
             aft_options |= OPT_SHOW_ALLOC_INFO;
-        else {
-            if (allowed_allocs == 0) {
-                allowed_allocs = atoi(argv[i]);
-                if (allowed_allocs == 0)
-                    usage();
-            }
-            else if (filename == NULL)
-                filename = argv[i];
-            else
+        else if (strcmp(arg, "-s") == 0) {
+            i++;
+            if (i > argc || name)
+                usage();
+
+            is_filename = 0;
+            name = argv[i];
+        }
+        else if (strcmp(arg, "-f") == 0) {
+            i++;
+            if (i > argc || name)
+                usage();
+
+            name = argv[i];
+        }
+        else if (strcmp(arg, "-m") == 0) {
+            i++;
+            if (i > argc)
+                usage();
+
+            max = atoi(argv[i]);
+            if (max == 0)
                 usage();
         }
     }
 
-    if (allowed_allocs == 0 || filename == NULL)
+    if (name == NULL)
         usage();
 
-    lily_parse_state *parser = lily_new_parse_state(NULL, argc, argv);
-    /* The alloc count was probably low. Show stats and give up. */
-    if (parser == NULL)
-        show_stats();
-
-    if (lily_parse_file(parser, lm_tags, filename) == 0) {
-        lily_raiser *raiser = parser->raiser;
-        fprintf(stderr, "%s", lily_name_for_error(raiser->error_code));
-        if (raiser->msgbuf->message[0] != '\0')
-            fprintf(stderr, ": %s", raiser->msgbuf->message);
-        else
-            fputc('\n', stderr);
-
-        if (parser->mode == pm_parse) {
-            int line_num;
-            if (raiser->line_adjust == 0)
-                line_num = parser->lex->line_num;
-            else
-                line_num = raiser->line_adjust;
-
-            fprintf(stderr, "Where: File \"%s\" at line %d\n",
-                    parser->lex->filename, line_num);
-        }
-        else if (parser->mode == pm_execute) {
-            lily_vm_stack_entry **vm_stack;
-            lily_vm_stack_entry *entry;
-            int i;
-
-            vm_stack = parser->vm->function_stack;
-            fprintf(stderr, "Traceback:\n");
-
-            for (i = parser->vm->function_stack_pos-1;i >= 0;i--) {
-                entry = vm_stack[i];
-                char *class_name = entry->function->class_name;
-                char *separator;
-                if (class_name == NULL) {
-                    class_name = "";
-                    separator = "";
-                }
-                else
-                    separator = "::";
-
-                fprintf(stderr, "    Function \"%s%s%s\"\n",
-                        class_name, separator,
-                        entry->function->trace_name);
-            }
+    if (max == -1) {
+        /* Start with a silly limit that won't be reached to determine the maximum,
+           then go down from there. */
+        run_parser(argc, argv, INT_MAX, is_filename, name);
+        int count = first_pass_count - 1;
+        while (count) {
+            run_parser(argc, argv, count, is_filename, name);
+            count--;
         }
     }
+    else
+        run_parser(argc, argv, max, is_filename, name);
 
-    lily_free_parse_state(parser);
-    /* This will always exit. */
-    show_stats();
-    /* Never reached, but keeps gcc happy. */
     exit(EXIT_SUCCESS);
 }
