@@ -595,7 +595,7 @@ static void write_build_op(lily_emit_state *emit, int opcode,
 
     write_prep(emit, num_values + 4);
     f->code[f->pos] = opcode;
-    f->code[f->pos+1] = first_arg->line_num;
+    f->code[f->pos+1] = line_num;
     f->code[f->pos+2] = num_values;
 
     for (i = 3, arg = first_arg; arg != NULL; arg = arg->next_arg, i++)
