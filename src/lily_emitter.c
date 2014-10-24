@@ -35,7 +35,7 @@
 }
 
 static int type_matchup(lily_emit_state *, lily_sig *, lily_ast *);
-static void eval_tree(lily_emit_state *, lily_ast *);
+static void eval_tree(lily_emit_state *, lily_ast *, lily_sig *);
 
 /*****************************************************************************/
 /* Emitter setup and teardown                                                */
@@ -990,7 +990,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
 static void eval_enforce_value(lily_emit_state *emit, lily_ast *ast,
         char *message)
 {
-    eval_tree(emit, ast);
+    eval_tree(emit, ast, NULL);
     emit->expr_num++;
 
     if (ast->result == NULL)
@@ -1247,14 +1247,14 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     if (ast->left->tree_type != tree_var &&
         ast->left->tree_type != tree_local_var)
-        eval_tree(emit, ast->left);
+        eval_tree(emit, ast->left, NULL);
 
     if ((ast->left->result->flags & SYM_TYPE_VAR) == 0)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
                 "Left side of %s is not a var.\n", opname(ast->op));
 
     if (ast->right->tree_type != tree_local_var)
-        eval_tree(emit, ast->right);
+        eval_tree(emit, ast->right, ast->left->result->sig);
 
     /* For 'var <name> = ...', fix the type. */
     if (ast->left->result->sig == NULL) {
@@ -1293,7 +1293,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     if (ast->op > expr_assign) {
         if (ast->left->tree_type == tree_var)
-            eval_tree(emit, ast->left);
+            eval_tree(emit, ast->left, NULL);
 
         emit_op_for_compound(emit, ast);
         right_sym = ast->result;
@@ -1332,7 +1332,7 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
     lily_sym *rhs;
 
     if (ast->left->tree_type != tree_property) {
-        eval_tree(emit, ast->left);
+        eval_tree(emit, ast->left, NULL);
 
         /* Make sure that it was a property access, and not a class member
            access. The latter is not reassignable. */
@@ -1349,7 +1349,8 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
         left_sig = ast->left->property->sig;
 
     if (ast->right->tree_type != tree_local_var)
-        eval_tree(emit, ast->right);
+        /* Important! Expecting the lhs will auto-fix the rhs if needed. */
+        eval_tree(emit, ast->right, left_sig);
 
     rhs = ast->right->result;
     lily_sig *right_sig = ast->right->result->sig;
@@ -1380,7 +1381,7 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
 
     if (ast->op > expr_assign) {
         if (ast->left->tree_type == tree_property)
-            eval_tree(emit,ast->left);
+            eval_tree(emit, ast->left, NULL);
 
         emit_op_for_compound(emit, ast);
         rhs = ast->result;
@@ -1475,7 +1476,7 @@ static void eval_package_assign(lily_emit_state *emit, lily_ast *ast)
     lily_sym *rhs;
 
     if (ast->right->tree_type != tree_var)
-        eval_tree(emit, ast->right);
+        eval_tree(emit, ast->right, NULL);
 
     rhs = ast->right->result;
     /* Don't evaluate the package tree. Like subscript assign, this has to
@@ -1492,7 +1493,7 @@ static void eval_package_assign(lily_emit_state *emit, lily_ast *ast)
     }
 
     if (ast->op > expr_assign) {
-        eval_tree(emit, ast->left);
+        eval_tree(emit, ast->left, NULL);
         emit_op_for_compound(emit, ast);
         rhs = ast->result;
     }
@@ -1523,7 +1524,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         is_top = 0;
 
     if (ast->left->tree_type != tree_local_var)
-        eval_tree(emit, ast->left);
+        eval_tree(emit, ast->left, NULL);
 
     /* If the left is the same as this tree, then it's already checked itself
        and doesn't need a retest. However, and/or are opposites, so they have
@@ -1532,7 +1533,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         emit_jump_if(emit, ast->left, jump_on);
 
     if (ast->right->tree_type != tree_local_var)
-        eval_tree(emit, ast->right);
+        eval_tree(emit, ast->right, NULL);
 
     emit_jump_if(emit, ast->right, jump_on);
 
@@ -1593,12 +1594,12 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
     lily_sig *elem_sig;
 
     if (ast->right->tree_type != tree_local_var)
-        eval_tree(emit, ast->right);
+        eval_tree(emit, ast->right, NULL);
 
     rhs = ast->right->result;
 
     if (var_ast->tree_type != tree_local_var)
-        eval_tree(emit, var_ast);
+        eval_tree(emit, var_ast, NULL);
 
     lily_literal *tuple_literal = NULL;
 
@@ -1608,7 +1609,7 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
             /* Save the literal before evaluating the tree wipes it out. */
             tuple_literal = (lily_literal *)index_ast->result;
         }
-        eval_tree(emit, index_ast);
+        eval_tree(emit, index_ast, NULL);
     }
 
     check_valid_subscript(emit, var_ast, index_ast, tuple_literal);
@@ -1639,7 +1640,6 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
 
         /* Run the compound op now that ->left is set properly. */
         emit_op_for_compound(emit, ast);
-
         rhs = ast->result;
     }
 
@@ -1662,7 +1662,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     lily_sig *cast_sig = ast->arg_start->next_arg->sig;
     lily_ast *right_tree = ast->arg_start;
     if (right_tree->tree_type != tree_local_var)
-        eval_tree(emit, right_tree);
+        eval_tree(emit, right_tree, NULL);
 
     lily_sig *var_sig = right_tree->result->sig;
 
@@ -1829,7 +1829,8 @@ static void emit_list_values_to_anys(lily_emit_state *emit,
 
     emit: The emit state containing a function to write the resulting code to.
     ast:  An ast of type tree_hash. */
-static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
+static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
+        lily_sig *expect_sig)
 {
     lily_sig *key_sig, *value_sig;
     lily_ast *tree_iter;
@@ -1848,7 +1849,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
         value_tree = tree_iter->next_arg;
 
         if (key_tree->tree_type != tree_local_var)
-            eval_tree(emit, key_tree);
+            eval_tree(emit, key_tree, key_sig);
 
         /* Keys -must- all be the same type. They cannot be converted to any
            later on because any are not valid keys (not immutable). */
@@ -1872,7 +1873,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast)
         }
 
         if (value_tree->tree_type != tree_local_var)
-            eval_tree(emit, value_tree);
+            eval_tree(emit, value_tree, value_sig);
 
         /* Values being promoted to any is okay though. :) */
         if (value_tree->result->sig != value_sig) {
@@ -2025,17 +2026,16 @@ static int type_matchup(lily_emit_state *emit, lily_sig *want_sig,
     common type (Ex: [1, 2, 3] is a list[integer]).
 
     If they do not, the resulting type shall be list[any]. */
-static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
+static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
+        lily_sig *expect_sig)
 {
     lily_sig *elem_sig = NULL;
     lily_ast *arg;
-    int make_anys;
-
-    make_anys = 0;
+    int make_anys = 0;
 
     for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
         if (arg->tree_type != tree_local_var)
-            eval_tree(emit, arg);
+            eval_tree(emit, arg, NULL);
 
         if (elem_sig != NULL) {
             if (arg->result->sig != elem_sig)
@@ -2078,7 +2078,8 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast)
     <[1, "2", 3.3]> # tuple[integer, string, double]
 
     No defaulting to any is done here, ever. */
-static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast)
+static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
+        lily_sig *expect_sig)
 {
     if (ast->args_collected == 0) {
         lily_raise(emit->raiser, lily_SyntaxError,
@@ -2095,7 +2096,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast)
          arg != NULL;
          i++, arg = arg->next_arg) {
         if (arg->tree_type != tree_local_var)
-            eval_tree(emit, arg);
+            eval_tree(emit, arg, NULL);
 
         emit->sig_stack[emit->sig_stack_pos + i] = arg->result->sig;
     }
@@ -2113,12 +2114,13 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast)
 /*  eval_subscript
     Evaluate a subscript, returning the resulting value. This handles
     subscripts of list, hash, and tuple. */
-static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
+static void eval_subscript(lily_emit_state *emit, lily_ast *ast,
+        lily_sig *expect_sig)
 {
     lily_ast *var_ast = ast->arg_start;
     lily_ast *index_ast = var_ast->next_arg;
-    if (var_ast->tree_type != tree_var)
-        eval_tree(emit, var_ast);
+    if (var_ast->tree_type != tree_local_var)
+        eval_tree(emit, var_ast, NULL);
 
     lily_literal *tuple_literal = NULL;
 
@@ -2130,7 +2132,7 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
                should actually be. */
             tuple_literal = (lily_literal *)index_ast->result;
         }
-        eval_tree(emit, index_ast);
+        eval_tree(emit, index_ast, NULL);
     }
 
     check_valid_subscript(emit, var_ast, index_ast, tuple_literal);
@@ -2203,7 +2205,7 @@ static void eval_call_arg(lily_emit_state *emit, lily_ast *call_ast,
 {
     if (arg->tree_type != tree_local_var) {
         emit->sig_stack_pos += template_adjust;
-        eval_tree(emit, arg);
+        eval_tree(emit, arg, NULL);
         emit->sig_stack_pos -= template_adjust;
     }
 
@@ -2326,7 +2328,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
            var given to it with a storage result...which emitter cannot use
            for printing error information. */
         if (ast->arg_start->tree_type != tree_readonly)
-            eval_tree(emit, ast->arg_start);
+            eval_tree(emit, ast->arg_start, NULL);
 
         /* Set the result, because things like having a result to use.
            Ex: An empty list used as an arg may want to know what to
@@ -2471,7 +2473,7 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
         return;
 
     if (ast->arg_start->tree_type != tree_local_var)
-        eval_tree(emit, ast->arg_start);
+        eval_tree(emit, ast->arg_start, NULL);
 
     lily_class *lookup_class = ast->arg_start->result->sig->cls;
     char *oo_name = emit->oo_name_pool->str + ast->oo_pool_index;
@@ -2584,7 +2586,7 @@ static void eval_isnil(lily_emit_state *emit, lily_ast *ast)
 
     if (inner_tree->tree_type != tree_local_var &&
         inner_tree->tree_type != tree_var)
-        eval_tree(emit, inner_tree);
+        eval_tree(emit, inner_tree, NULL);
 
     int is_global = (inner_tree->tree_type == tree_var);
 
@@ -2598,7 +2600,8 @@ static void eval_isnil(lily_emit_state *emit, lily_ast *ast)
 
 /*  eval_tree
     Magically determine what function actually handles the given ast. */
-static void eval_tree(lily_emit_state *emit, lily_ast *ast)
+static void eval_tree(lily_emit_state *emit, lily_ast *ast,
+        lily_sig *expect_sig)
 {
     if (ast->tree_type == tree_var || ast->tree_type == tree_readonly)
         emit_nonlocal_var(emit, ast);
@@ -2622,34 +2625,34 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast)
             eval_logical_op(emit, ast);
         else {
             if (ast->left->tree_type != tree_local_var)
-                eval_tree(emit, ast->left);
+                eval_tree(emit, ast->left, expect_sig);
 
             if (ast->right->tree_type != tree_local_var)
-                eval_tree(emit, ast->right);
+                eval_tree(emit, ast->right, expect_sig);
 
             emit_binary_op(emit, ast);
         }
     }
     else if (ast->tree_type == tree_parenth) {
         if (ast->arg_start->tree_type != tree_local_var)
-            eval_tree(emit, ast->arg_start);
+            eval_tree(emit, ast->arg_start, expect_sig);
 
         ast->result = ast->arg_start->result;
     }
     else if (ast->tree_type == tree_unary) {
         if (ast->left->tree_type != tree_local_var)
-            eval_tree(emit, ast->left);
+            eval_tree(emit, ast->left, expect_sig);
 
         eval_unary_op(emit, ast);
     }
     else if (ast->tree_type == tree_list)
-        eval_build_list(emit, ast);
+        eval_build_list(emit, ast, expect_sig);
     else if (ast->tree_type == tree_hash)
-        eval_build_hash(emit, ast);
+        eval_build_hash(emit, ast, expect_sig);
     else if (ast->tree_type == tree_tuple)
-        eval_build_tuple(emit, ast);
+        eval_build_tuple(emit, ast, expect_sig);
     else if (ast->tree_type == tree_subscript)
-        eval_subscript(emit, ast);
+        eval_subscript(emit, ast, expect_sig);
     else if (ast->tree_type == tree_package)
         eval_package(emit, ast);
     else if (ast->tree_type == tree_typecast)
@@ -2730,7 +2733,7 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
     the pool for the next expression. */
 void lily_emit_eval_expr(lily_emit_state *emit, lily_ast_pool *ap)
 {
-    eval_tree(emit, ap->root);
+    eval_tree(emit, ap->root, NULL);
     emit->expr_num++;
 
     lily_ast_reset_pool(ap);
@@ -2749,7 +2752,7 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_ast_pool *ap,
 {
     lily_ast *ast = ap->root;
 
-    eval_tree(emit, ast);
+    eval_tree(emit, ast, NULL);
     emit->expr_num++;
 
     if (ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
