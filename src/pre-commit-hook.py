@@ -326,6 +326,13 @@ Where: File "<str>" at line 1\n"""
      "stderr": """\
 SyntaxError: Property a already exists in class ABC.\n\
 Where: File "<str>" at line 1\n"""
+    },
+    {
+     "command": """  list[integer] lsi = [10].append(10)  """,
+     "message": "Failcheck: Call not returning a value in expression.",
+     "stderr": """\
+SyntaxError: Function needed to return a value, but did not.\n\
+Where: File "<str>" at line 1\n"""
     }
 ]
 

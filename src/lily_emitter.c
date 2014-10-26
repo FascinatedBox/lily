@@ -2409,7 +2409,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
             ast->result = NULL;
         else {
             lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                    "Call returning nil not at end of expression.", "");
+                    "Function needed to return a value, but did not.\n", "");
         }
         f->code[f->pos+i] = -1;
     }
@@ -2511,7 +2511,7 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
                  resulting type and the property index. */
         if (ast->parent == NULL ||
             ast->parent->tree_type != tree_binary ||
-            ast->parent->op < expr_assign) {
+            ast->parent->op != expr_assign) {
             lily_literal *lit = lily_get_integer_literal(emit->symtab, prop->id);
             lily_storage *lit_result = get_storage(emit, lit->sig,
                     ast->line_num);

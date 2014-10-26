@@ -258,11 +258,10 @@ static void merge_value(lily_ast_pool *ap, lily_ast *new_tree)
                    fixed afterward. */
                 merge_unary(ap, active->right, new_tree);
             else {
-                /* new_tree swallows active->right, but doesn't update the
-                   parent. The parent has to be updated because this is a
-                   left to right merge. */
+                /* Swallow the right side of the tree, then become it. */
                 merge_absorb(ap, active->right, new_tree);
                 active->right = new_tree;
+                new_tree->parent = active;
             }
         }
         else if (active->tree_type == tree_unary)
