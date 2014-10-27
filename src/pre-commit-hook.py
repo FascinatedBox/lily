@@ -333,6 +333,20 @@ Where: File "<str>" at line 1\n"""
      "stderr": """\
 SyntaxError: Function needed to return a value, but did not.\n\
 Where: File "<str>" at line 1\n"""
+    },
+    {
+     "command": """  function f(=>list[integer]) { return [1] }  f()[0] = 1 """,
+     "message": "Failcheck: Attempt to subscript assign a call result.",
+     "stderr": """\
+SyntaxError: Left side of = is not assignable.\n\
+Where: File "<str>" at line 1\n"""
+    },
+    {
+     "command": """  integer a = 1 if 1: (a + a) = 1  """,
+     "message": "Failcheck: Attempt to assign to a binary result.",
+     "stderr": """\
+SyntaxError: Left side of = is not assignable.\n\
+Where: File "<str>" at line 1\n"""
     }
 ]
 

@@ -410,14 +410,17 @@ typedef struct lily_prop_seed_t {
 
 /* SYM_* defines are for identifying the type of symbol given. Emitter uses
    these sometimes. */
-#define SYM_TYPE_LITERAL       0x01
-#define SYM_TYPE_VAR           0x02
-#define SYM_TYPE_STORAGE       0x04
+#define SYM_TYPE_LITERAL        0x001
+#define SYM_TYPE_VAR            0x002
+#define SYM_TYPE_STORAGE        0x004
 /* This var is out of scope. This is set when a var in a non-function block
    goes out of scope. */
-#define SYM_OUT_OF_SCOPE       0x10
+#define SYM_OUT_OF_SCOPE        0x010
 /* This is used to prevent a var from being used in it's own declaration. */
-#define SYM_NOT_INITIALIZED    0x20
+#define SYM_NOT_INITIALIZED     0x020
+/* This is set on a storage when it's from a calculation that cannot be assigned
+   to. This prevents things like '[1,2,3][0] = 4'. */
+#define SYM_NOT_ASSIGNABLE      0x040
 
 /* VAR_* defines are meant mostly for the vm. However, emitter and symtab put
    VAR_IS_READONLY on vars that won't get a register. The vm will never see
@@ -425,19 +428,19 @@ typedef struct lily_prop_seed_t {
 
 /* Don't put this in a register. This is used for functions, which are loaded
    as if they were literals. */
-#define VAR_IS_READONLY        0x40
+#define VAR_IS_READONLY         0x100
 /* If this is set, the associated value should be treated as if it were unset,
    Don't ref/deref things which have this value associated with them.
    Anys: An any is nil if a value has not been allocated for it. If nil values
          are given to an any, then the any's inner_value should be set to
          nil. */
-#define VAL_IS_NIL              0x100
+#define VAL_IS_NIL              0x200
 /* If this is set, the associated value is valid, but should not get any refs
    or derefs. This is set on values that load literals to prevent literals from
    getting unnecessary refcount adjustments. */
-#define VAL_IS_PROTECTED        0x200
+#define VAL_IS_PROTECTED        0x400
 /* For convenience, check for nil or protected set. */
-#define VAL_IS_NIL_OR_PROTECTED 0x300
+#define VAL_IS_NIL_OR_PROTECTED 0x600
 
 
 /* SYM_CLASS_* defines are for checking ids of a signature's class. These are
