@@ -565,6 +565,7 @@ static lily_storage *get_storage(lily_emit_state *emit,
         }
     }
 
+    ret->flags &= ~SYM_NOT_ASSIGNABLE;
     return ret;
 }
 
@@ -1128,6 +1129,7 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
         storage_class = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
 
     s = get_storage(emit, storage_class->sig, ast->line_num);
+    s->flags |= SYM_NOT_ASSIGNABLE;
 
     write_5(emit,
             opcode,
@@ -1246,12 +1248,12 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     opcode = -1;
 
     if (ast->left->tree_type != tree_var &&
-        ast->left->tree_type != tree_local_var)
+        ast->left->tree_type != tree_local_var) {
         eval_tree(emit, ast->left, NULL);
-
-    if ((ast->left->result->flags & SYM_TYPE_VAR) == 0)
-        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Left side of %s is not a var.\n", opname(ast->op));
+        if (ast->left->result->flags & SYM_NOT_ASSIGNABLE)
+            lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+                    "Left side of %s is not assignable.\n", opname(ast->op));
+    }
 
     if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right, ast->left->result->sig);
@@ -1338,7 +1340,7 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
            access. The latter is not reassignable. */
         if (ast->left->result->flags & SYM_TYPE_VAR)
             lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                    "Left side of assignment is not assignable.\n", "");
+                    "Left side of %s is not assignable.\n", opname(ast->op));
 
         left_sig = ast->left->result->sig;
     }
@@ -1598,8 +1600,13 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
 
     rhs = ast->right->result;
 
-    if (var_ast->tree_type != tree_local_var)
+    if (var_ast->tree_type != tree_local_var) {
         eval_tree(emit, var_ast, NULL);
+        if (var_ast->result->flags & SYM_NOT_ASSIGNABLE) {
+            lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+                    "Left side of %s is not assignable.\n", opname(ast->op));
+        }
+    }
 
     lily_literal *tuple_literal = NULL;
 
@@ -1673,6 +1680,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     else if (cast_sig->cls->id == SYM_CLASS_ANY) {
         /* Throw it into an 'any'. */
         lily_storage *storage = get_storage(emit, cast_sig, ast->line_num);
+        storage->flags |= SYM_NOT_ASSIGNABLE;
 
         write_4(emit,
                 o_any_assign,
@@ -1699,6 +1707,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
         {
             cast_opcode = o_intdbl_typecast;
             result = get_storage(emit, cast_sig, ast->line_num);
+            result->flags |= SYM_NOT_ASSIGNABLE;
         }
         else {
             cast_opcode = -1;
@@ -1736,6 +1745,7 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     lily_class *integer_cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
 
     storage = get_storage(emit, integer_cls->sig, ast->line_num);
+    storage->flags |= SYM_NOT_ASSIGNABLE;
 
     if (ast->op == expr_unary_minus)
         opcode = o_unary_minus;
@@ -2398,6 +2408,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
             return_sig = build_untemplated_sig(emit, return_sig);
 
         lily_storage *storage = get_storage(emit, return_sig, ast->line_num);
+        storage->flags |= SYM_NOT_ASSIGNABLE;
 
         ast->result = (lily_sym *)storage;
         f->code[f->pos+i] = ast->result->reg_spot;
@@ -2438,6 +2449,8 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
         opcode = -1;
 
     ret = get_storage(emit, ast->result->sig, ast->line_num);
+    ret->flags |= SYM_NOT_ASSIGNABLE;
+
     write_4(emit,
             opcode,
             ast->line_num,
@@ -2592,6 +2605,7 @@ static void eval_isnil(lily_emit_state *emit, lily_ast *ast)
 
     lily_class *integer_cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
     lily_storage *s = get_storage(emit, integer_cls->sig, ast->line_num);
+    s->flags |= SYM_NOT_ASSIGNABLE;
 
     write_5(emit, o_isnil, ast->line_num, is_global, inner_tree->result->reg_spot,
             s->reg_spot);
