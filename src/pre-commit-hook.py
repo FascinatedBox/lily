@@ -107,6 +107,10 @@ if v.x != 60 || v.y != 50 || v.z != 30: \
      "message": "Check compound assignment with dot accesses."
     },
     {
+     "command": """ function k[A](A v1, A v2 => list[any]) { return [v1, v2, 10] } k(1,2) """,
+     "message": "Make sure that generics can handle building a list of any."
+    },
+    {
      "command": """  10.@(integer)()  """,
      "message": "Failcheck: Bad anonymous call",
      "stderr": """\

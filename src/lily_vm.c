@@ -754,14 +754,18 @@ static void resolve_generic_registers(lily_vm_state *vm, lily_function_val *fval
          reg_i < reg_stop;
          reg_i++, info_i++) {
         lily_value *reg = regs_from_main[reg_i];
+        lily_sig *parameter_sig = ri[info_i].sig;
 
         for (i = 0;i <= out_index;i++) {
             if (sig_map[i] == NULL) {
-                sig_map[i] = ri[info_i].sig;
+                sig_map[i] = parameter_sig;
                 sig_map[out_index + i] = reg->sig;
                 last_map_spot = i;
                 break;
             }
+            /* There's already an entry for this. Skip. */
+            else if (sig_map[i] == parameter_sig)
+                break;
         }
     }
 
