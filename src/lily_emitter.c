@@ -2291,7 +2291,24 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
 
         i = (have_args - i);
         lily_storage *s;
-        s = get_storage(emit, save_sig, ast->line_num);
+        if (save_sig->template_pos == 0)
+            s = get_storage(emit, save_sig, ast->line_num);
+        else {
+            /* The function to call wants a list of some generic type. Do not
+               use that sig, because the caller could either not patch it, or
+               patch it wrong.
+               Instead, build a list sig from the sig of the first arg.
+
+               The arguments may be generic. If that happens, the caller will
+               be generic and will fix them up right. */
+            lily_class *list_cls = lily_class_by_id(emit->symtab,
+                    SYM_CLASS_LIST);
+            emit->sig_stack[emit->sig_stack_pos] = save_arg->result->sig;
+            lily_sig *new_sig = lily_build_ensure_sig(emit->symtab, list_cls,
+                    0, emit->sig_stack, emit->sig_stack_pos, 1);
+
+            s = get_storage(emit, new_sig, ast->line_num);
+        }
 
         write_build_op(emit, o_build_list_tuple, save_arg, save_arg->line_num,
                 i, s->reg_spot);
