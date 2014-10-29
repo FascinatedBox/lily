@@ -112,10 +112,18 @@ if v.x != 60 || v.y != 50 || v.z != 30: \
     },
     {
      "command": """\
-class ListHolder[A](list[A] value) { list[A] @value = value }\n\
-ListHolder[integer] holder = ListHolder::new([1])\n\
+class ListHolder[A](list[A] value) { list[A] @value = value }\
+ListHolder[integer] holder = ListHolder::new([1])\
 """,
      "message": "Make sure generic classes can handle container types."
+    },
+    {
+     "command": """\
+function f[A, B, C, D, E, F](list[F] values...) {} \
+function k[A](A v1, A v2) { f(v1, v2) } \
+k(1, 2)
+""",
+     "message": "Make sure vararg passing and generics work right."
     },
     {
      "command": """  10.@(integer)()  """,
