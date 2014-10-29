@@ -638,7 +638,7 @@ static lily_sig *resolve_property_sig(lily_vm_state *vm,
         lily_sig *inner_sig;
         for (i = 0;i < prop_sig->siglist_size;i++) {
             inner_sig = prop_sig->siglist[i];
-            inner_sig = resolve_property_sig(vm, instance_sig, prop_sig,
+            inner_sig = resolve_property_sig(vm, instance_sig, inner_sig,
                     resolve_start + i);
 
             vm->resolver_sigs[resolve_start + i] = inner_sig;
@@ -650,6 +650,67 @@ static lily_sig *resolve_property_sig(lily_vm_state *vm,
     }
 
     return result_sig;
+}
+
+/*  recursive_sig_search
+    This is called by dive_for_signature to find out how to get, say, A from
+    the sig map when there's nothing that's JUST A. Instead, there might be
+    list[A], or tuple[A, A], or hash[integer, A].
+
+    This takes the unresolved sig (say, list[A]), the wanted sig (always just
+    a generic), and a resolved sig (say, list[integer]) and walks to determine
+    what A or B or whatever is. */
+static lily_sig *recursive_sig_search(lily_sig *generic_sig,
+        lily_sig *want_sig, lily_sig *resolved_sig)
+{
+    int i;
+    lily_sig *ret = NULL;
+    for (i = 0;i < generic_sig->siglist_size;i++) {
+        if (generic_sig->siglist[i] == want_sig) {
+            ret = resolved_sig->siglist[i];
+            break;
+        }
+        else if (generic_sig->siglist_size != 0) {
+            ret = recursive_sig_search(generic_sig->siglist[i], want_sig,
+                    resolved_sig->siglist[i]);
+            if (ret)
+                break;
+        }
+    }
+
+    return ret;
+}
+
+/*  dive_for_signature
+
+    So...resolve_sig_by_map starts off with a mapping of parameter types (in
+    terms of generics) to given types. Most of the time, the parameter types
+    should be simpler than the vars inside.
+
+    However, there are times when this isn't the case. Example:
+
+    function f[A](list[A] value) { A element = value[0] }
+
+    In this case, the map does not contain A directly, but it DOES have an
+    entry for list[A] to list[whatever]. This calls for a recursive search
+    on every map entry. Somewhere, somehow, A is known and this will find
+    it.
+
+    This should not fail, because generic variables in a function require an
+    initializing expression. */
+static lily_sig *dive_for_signature(lily_sig **sig_map, int map_sig_count,
+        lily_sig *to_resolve)
+{
+    int i;
+    lily_sig *ret_sig = NULL;
+    for (i = 0;i < map_sig_count;i++) {
+        ret_sig = recursive_sig_search(sig_map[i], to_resolve,
+                sig_map[map_sig_count + i]);
+        if (ret_sig)
+            break;
+    }
+
+    return ret_sig;
 }
 
 /*  resolve_sig_by_map
@@ -698,6 +759,13 @@ static lily_sig *resolve_sig_by_map(lily_vm_state *vm, int map_sig_count,
             }
         }
 
+        if (inner_sig->template_pos == 0 &&
+            inner_sig->cls->id != SYM_CLASS_TEMPLATE)
+            /* This can happen if generic and non-generic types are mixed in
+               a declaration in a generic function.
+               Example: function f[A](A val) { tuple[A, integer] t ... } */
+            result_sig = inner_sig;
+
         if (result_sig == NULL)
             result_sig = resolve_sig_by_map(vm, map_sig_count, inner_sig,
                     resolve_start + i);
@@ -705,9 +773,17 @@ static lily_sig *resolve_sig_by_map(lily_vm_state *vm, int map_sig_count,
         vm->resolver_sigs[resolve_start + i] = result_sig;
     }
 
-    int flags = (to_resolve->flags & SIG_IS_VARARGS);
-    lily_sig *ret = lily_build_ensure_sig(vm->symtab, to_resolve->cls, flags,
-            vm->resolver_sigs, resolve_start, i);
+    lily_sig *ret;
+    if (to_resolve->siglist_size != 0) {
+        int flags = (to_resolve->flags & SIG_IS_VARARGS);
+        ret = lily_build_ensure_sig(vm->symtab, to_resolve->cls, flags,
+                vm->resolver_sigs, resolve_start, i);
+    }
+    else
+        /* Hard mode: This must be a generic by itself, with no parameters
+           being just a generic. So...dive in to find out what it should
+           be. */
+        ret = dive_for_signature(sig_map, map_sig_count, to_resolve);
 
     return ret;
 }
@@ -775,33 +851,42 @@ static void resolve_generic_registers(lily_vm_state *vm, lily_function_val *fval
          reg_i < reg_stop;
          reg_i++, info_i++) {
         lily_value *reg = regs_from_main[reg_i];
-        lily_sig *generic_want_sig = ri[info_i].sig;
-        lily_sig *fixed_want_sig = NULL;
-        /* Start off by a basic run through the map built earlier. */
-        for (i = 0;i < out_index;i++) {
-            if (generic_want_sig == sig_map[i]) {
-                fixed_want_sig = sig_map[out_index + i];
-                break;
+        lily_sig *input_sig = ri[info_i].sig;
+        lily_sig *result_sig = NULL;
+        if (input_sig->template_pos ||
+            input_sig->cls->id == SYM_CLASS_TEMPLATE) {
+
+            /* Start off by a basic run through the map built earlier. */
+            for (i = 0;i < out_index;i++) {
+                if (input_sig == sig_map[i]) {
+                    result_sig = sig_map[out_index + i];
+                    break;
+                }
+            }
+
+            /* If a var is, say, list[A] and there is no list[A] as a
+               parameter, then the signature has to be built. This sucks. */
+            if (result_sig == NULL) {
+                result_sig = resolve_sig_by_map(vm, fval->generic_count,
+                        input_sig, 0);
+
+                sig_map[last_map_spot + 1] = input_sig;
+                sig_map[out_index + last_map_spot + 1] = result_sig;
+                last_map_spot++;
             }
         }
-
-        /* If a var is, say, list[A] and there is no list[A] as a parameter,
-           then the signature has to be built. This sucks. */
-        if (fixed_want_sig == NULL) {
-            fixed_want_sig = resolve_sig_by_map(vm, fval->generic_count,
-                    generic_want_sig, 0);
-
-            sig_map[last_map_spot + 1] = generic_want_sig;
-            sig_map[out_index + last_map_spot] = fixed_want_sig;
-            last_map_spot++;
-        }
+        else
+            /* It's not generic? Well, that makes things easier. This could be,
+               say, the integer of a for loop in a generic function, so it's
+               not completely unreasonable. */
+            result_sig = input_sig;
 
         if (reg->sig->cls->is_refcounted &&
             (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
             lily_deref_unknown_val(reg);
 
         reg->flags = VAL_IS_NIL;
-        reg->sig = fixed_want_sig;
+        reg->sig = result_sig;
     }
 }
 
