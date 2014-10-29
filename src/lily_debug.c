@@ -487,7 +487,9 @@ static void show_instance_helper(lily_debug_state *debug, lily_class *cls,
         lily_msgbuf_add_fmt(msgbuf, "^I|____[(%d) %s] = ", indent,
                 *i, prop_iter->name);
         write_msgbuf(debug);
+        debug->indent++;
         show_value(debug, ival->values[*i]);
+        debug->indent--;
 
         *i = *i + 1;
         prop_iter = prop_iter->next;
