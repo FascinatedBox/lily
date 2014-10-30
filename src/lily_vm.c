@@ -1003,8 +1003,8 @@ static void copy_literals(lily_vm_state *vm)
 /*  copy_vars_to_functions
     This takes a working copy of the function table and adds every function
     in a particular var iter to it. A 'need' is dropped every time. When it is
-    0, the caller, copy_functions, will stop loading functions. This is an
-    attempt at stopping early when possible. */
+    0, the caller will stop loading functions. This is an attempt at stopping
+    early when possible. */
 static void copy_vars_to_functions(lily_var **functions, lily_var *var_iter,
         int *need)
 {
@@ -1017,6 +1017,21 @@ static void copy_vars_to_functions(lily_var **functions, lily_var *var_iter,
         }
 
         var_iter = var_iter->next;
+    }
+}
+
+/*  copy_class_vars_to_functions
+    This takes the function table and adds the functions within each class in
+    the linked list of classes. */
+static void copy_class_vars_to_functions(lily_var **functions,
+        lily_class *class_iter, int *need)
+{
+    while (class_iter) {
+        copy_vars_to_functions(functions, class_iter->call_start, need);
+        if (*need == 0)
+            break;
+
+        class_iter = class_iter->next;
     }
 }
 
@@ -1052,15 +1067,9 @@ static void copy_functions(lily_vm_state *vm)
 
     copy_vars_to_functions(functions, symtab->var_chain, &need);
     copy_vars_to_functions(functions, symtab->old_function_chain, &need);
-    if (need != 0) {
-        lily_class *class_iter = symtab->class_chain;
-        while (class_iter) {
-            copy_vars_to_functions(functions, class_iter->call_start, &need);
-            if (need == 0)
-                break;
-
-            class_iter = class_iter->next;
-        }
+    if (need) {
+        copy_class_vars_to_functions(functions, symtab->class_chain, &need);
+        copy_class_vars_to_functions(functions, symtab->old_class_chain, &need);
     }
 
     vm->function_table = functions;

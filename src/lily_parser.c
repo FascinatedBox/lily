@@ -284,8 +284,10 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
         end_token = tk_right_parenth;
         i = 1;
 
-        if (flags & CV_TOPLEVEL && parser->class_depth) {
-            /* Functions of a class always take it as their first parameter. */
+        if (flags & CV_TOPLEVEL && parser->class_depth &&
+            (flags & CV_CLASS_INIT) == 0) {
+            /* Functions of a class always take it as their first parameter.
+               ...unless the function is the constructor of a nested class. */
             lily_var *v = lily_try_new_var(parser->symtab,
                     parser->emit->self_storage->sig,
                     "(self)", 0);
@@ -514,12 +516,14 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
         /* Collect generics and call type collection as usual. Don't bother
            updating template information: Part of building signatures will
            calculate the template count automatically. */
-        if (flags & CV_TOPLEVEL && lex->token == tk_left_bracket) {
-            int count = template_collect(parser);
-            lily_reserve_generics(parser->symtab, count);
-            parser->emit->current_block->generic_count = count;
-            if (flags & CV_CLASS_INIT)
-                lily_set_class_generics(parser->symtab, count);
+        if (flags & CV_TOPLEVEL) {
+            if (lex->token == tk_left_bracket) {
+                int count = template_collect(parser);
+                lily_reserve_generics(parser->symtab, count);
+                parser->emit->current_block->generic_count = count;
+                if (flags & CV_CLASS_INIT)
+                    lily_set_class_generics(parser->symtab, count);
+            }
         }
 
         if (flags & CV_CLASS_INIT)
