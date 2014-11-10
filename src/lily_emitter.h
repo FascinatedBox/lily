@@ -34,6 +34,7 @@ typedef struct {
     lily_function_val *top_function;
     lily_sig *top_function_ret;
 
+    int current_generic_adjust;
     lily_class *current_class;
     lily_storage *self_storage;
 
@@ -88,6 +89,8 @@ void lily_emit_update_function_block(lily_emit_state *, lily_class *, lily_sig *
 
 void lily_emit_vm_return(lily_emit_state *);
 void lily_reset_main(lily_emit_state *);
+
+void lily_update_call_generics(lily_emit_state *, int);
 
 void lily_free_emit_state(lily_emit_state *);
 int lily_emit_try_enter_main(lily_emit_state *, lily_var *);

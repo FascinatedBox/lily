@@ -69,6 +69,7 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
     s->patch_size = 4;
     s->function_depth = 0;
 
+    s->current_generic_adjust = 0;
     s->current_class = NULL;
     s->raiser = raiser;
     s->expr_num = 1;
@@ -974,15 +975,28 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     else
         emit->symtab->var_chain = block->function_var;
 
-    if (block->prev->generic_count != block->generic_count)
+    if (block->prev->generic_count != block->generic_count) {
         lily_update_symtab_generics(emit->symtab, NULL, block->prev->generic_count);
+        if (block->prev->generic_count == 0) {
+            emit->sig_stack_pos = 0;
+            emit->current_generic_adjust = 0;
+        }
+        else {
+            /* -1 to offset generic starting at 1. */
+            emit->sig_stack_pos = block->prev->generic_count - 1;
+            /* The adjust doesn't get a -1 because a call will use
+               sig_stack_pos + 0 for A. */
+            emit->current_generic_adjust = block->prev->generic_count;
+        }
+    }
 
     emit->self_storage = emit->current_block->prev->self;
-    emit->symtab->function_depth--;
     emit->symtab->next_register_spot = block->save_register_spot;
     emit->top_function = v->value.function;
     emit->top_var = v;
     emit->top_function_ret = v->sig->siglist[0];
+
+    emit->symtab->function_depth--;
     emit->function_depth--;
 }
 
@@ -1900,14 +1914,15 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         emit_hash_values_to_anys(emit, ast);
     }
 
-    if ((emit->sig_stack_pos + 2) > emit->sig_stack_size)
+    int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
+    if ((stack_start + 2) > emit->sig_stack_size)
         grow_sig_stack(emit);
 
     lily_class *hash_cls = lily_class_by_id(emit->symtab, SYM_CLASS_HASH);
-    emit->sig_stack[emit->sig_stack_pos] = key_sig;
-    emit->sig_stack[emit->sig_stack_pos+1] = value_sig;
+    emit->sig_stack[stack_start] = key_sig;
+    emit->sig_stack[stack_start+1] = value_sig;
     lily_sig *new_sig = lily_build_ensure_sig(emit->symtab, hash_cls, 0,
-                emit->sig_stack, emit->sig_stack_pos, 2);
+                emit->sig_stack, stack_start, 2);
 
     lily_storage *s = get_storage(emit, new_sig, ast->line_num);
 
@@ -1924,11 +1939,7 @@ static int maybe_fixup_elements(lily_emit_state *emit, lily_sig *want_sig,
 {
     int ret = 0;
 
-    if ((right->tree_type == tree_list &&
-         want_sig->cls->id == SYM_CLASS_LIST &&
-         want_sig->siglist[0]->cls->id == SYM_CLASS_ANY)
-        ||
-        (right->tree_type == tree_hash &&
+    if ((right->tree_type == tree_hash &&
          want_sig->cls->id == SYM_CLASS_HASH &&
          want_sig->siglist[0] == right->result->sig->siglist[0] &&
          want_sig->siglist[1]->cls->id == SYM_CLASS_ANY)) {
@@ -1944,17 +1955,8 @@ static int maybe_fixup_elements(lily_emit_state *emit, lily_sig *want_sig,
            nothing has happened since the o_build_* was written. */
         f->pos = f->pos - (4 + element_count);
 
-        int build_op;
-        if (right->tree_type == tree_list) {
-            build_op = o_build_list_tuple;
-            emit_list_values_to_anys(emit, right);
-        }
-        else {
-            build_op = o_build_hash;
-            emit_hash_values_to_anys(emit, right);
-        }
-
-        write_build_op(emit, build_op, right->arg_start, right->line_num,
+        emit_hash_values_to_anys(emit, right);
+        write_build_op(emit, o_build_hash, right->arg_start, right->line_num,
                 right->args_collected, s->reg_spot);
 
         right->result = (lily_sym *)s;
@@ -2043,22 +2045,49 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     lily_ast *arg;
     int make_anys = 0;
 
-    for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
-        if (arg->tree_type != tree_local_var)
-            eval_tree(emit, arg, NULL);
-
-        if (elem_sig != NULL) {
-            if (arg->result->sig != elem_sig)
-                make_anys = 1;
+    if (expect_sig) {
+        if (expect_sig->cls->id == SYM_CLASS_LIST) {
+            expect_sig = expect_sig->siglist[0];
+            if (expect_sig->cls->id == SYM_CLASS_TEMPLATE)
+                expect_sig = emit->sig_stack[emit->sig_stack_pos +
+                        expect_sig->template_pos];
         }
+        else if (expect_sig->cls->id == SYM_CLASS_TEMPLATE)
+            expect_sig = emit->sig_stack[emit->sig_stack_pos +
+                    expect_sig->template_pos];
         else
-            elem_sig = arg->result->sig;
+            expect_sig = NULL;
+
+        elem_sig = expect_sig;
     }
 
-    /* elem_sig is only null if the list is empty, and empty lists have a sig
-       specified at ast->sig. */
-    if (elem_sig == NULL)
-        elem_sig = ast->sig;
+    lily_sig *last_sig = NULL;
+
+    for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
+        if (arg->tree_type != tree_local_var)
+            eval_tree(emit, arg, elem_sig);
+
+        if (arg->result->sig != last_sig) {
+            if (last_sig == NULL)
+                last_sig = arg->result->sig;
+            else
+                make_anys = 1;
+        }
+    }
+
+    if (elem_sig == NULL && last_sig == NULL) {
+        /* This happens when there's an empty list and a list is probably not
+           expected. Default to list[any] and hope that's right. */
+        lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
+        elem_sig = cls->sig;
+    }
+    else if (last_sig != NULL) {
+        if (elem_sig && elem_sig->cls->id == SYM_CLASS_ANY)
+            /* This could be a list of any, so fix it to be that. */
+            make_anys = 1;
+        else
+            elem_sig = last_sig;
+    }
 
     if (make_anys) {
         lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
@@ -2066,13 +2095,15 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         emit_list_values_to_anys(emit, ast);
     }
 
-    if ((emit->sig_stack_pos + 1) > emit->sig_stack_size)
+    int start_pos = emit->sig_stack_pos + emit->current_generic_adjust + 1;
+
+    if (start_pos > emit->sig_stack_size)
         grow_sig_stack(emit);
 
     lily_class *list_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);
-    emit->sig_stack[emit->sig_stack_pos] = elem_sig;
+    emit->sig_stack[start_pos] = elem_sig;
     lily_sig *new_sig = lily_build_ensure_sig(emit->symtab, list_cls, 0,
-                emit->sig_stack, emit->sig_stack_pos, 1);
+                emit->sig_stack, start_pos, 1);
 
     lily_storage *s = get_storage(emit, new_sig, ast->line_num);
 
@@ -2099,7 +2130,8 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
     int i;
     lily_ast *arg;
 
-    if ((emit->sig_stack_pos + ast->args_collected) > emit->sig_stack_size)
+    int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
+    if ((stack_start + ast->args_collected) > emit->sig_stack_size)
         grow_sig_stack(emit);
 
     for (i = 0, arg = ast->arg_start;
@@ -2108,12 +2140,12 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
         if (arg->tree_type != tree_local_var)
             eval_tree(emit, arg, NULL);
 
-        emit->sig_stack[emit->sig_stack_pos + i] = arg->result->sig;
+        emit->sig_stack[stack_start + i] = arg->result->sig;
     }
 
     lily_class *tuple_cls = lily_class_by_id(emit->symtab, SYM_CLASS_TUPLE);
     lily_sig *new_sig = lily_build_ensure_sig(emit->symtab, tuple_cls, 0,
-                emit->sig_stack, emit->sig_stack_pos, i);
+                emit->sig_stack, stack_start, i);
     lily_storage *s = get_storage(emit, new_sig, ast->line_num);
 
     write_build_op(emit, o_build_list_tuple, ast->arg_start, ast->line_num,
@@ -2213,11 +2245,8 @@ static int generic_type_matchup(lily_emit_state *emit, lily_sig *want_sig,
 static void eval_call_arg(lily_emit_state *emit, lily_ast *call_ast,
         int template_adjust, lily_sig *want_sig, lily_ast *arg, int arg_num)
 {
-    if (arg->tree_type != tree_local_var) {
-        emit->sig_stack_pos += template_adjust;
-        eval_tree(emit, arg, NULL);
-        emit->sig_stack_pos -= template_adjust;
-    }
+    if (arg->tree_type != tree_local_var)
+        eval_tree(emit, arg, want_sig);
 
     if (arg->result->sig == want_sig) {
         if (arg->result->sig->template_pos != 0 ||
@@ -2266,6 +2295,8 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             emit->sig_stack[emit->sig_stack_pos + i] = NULL;
     }
 
+    emit->current_generic_adjust = template_adjust;
+
     if ((is_varargs && (have_args <= num_args)) ||
         (is_varargs == 0 && (have_args != num_args)))
         bad_num_args(emit, ast, call_sig);
@@ -2301,11 +2332,15 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
 
                The arguments may be generic. If that happens, the caller will
                be generic and will fix them up right. */
+            int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
+            if (stack_start + 1 > emit->sig_stack_size)
+                grow_sig_stack(emit);
+
             lily_class *list_cls = lily_class_by_id(emit->symtab,
                     SYM_CLASS_LIST);
-            emit->sig_stack[emit->sig_stack_pos] = save_arg->result->sig;
+            emit->sig_stack[stack_start] = save_arg->result->sig;
             lily_sig *new_sig = lily_build_ensure_sig(emit->symtab, list_cls,
-                    0, emit->sig_stack, emit->sig_stack_pos, 1);
+                    0, emit->sig_stack, stack_start, 1);
 
             s = get_storage(emit, new_sig, ast->line_num);
         }
@@ -2348,6 +2383,10 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     lily_ast *arg;
     lily_sig *call_sig;
     lily_sym *call_sym;
+
+    int save_adjust = emit->current_generic_adjust;
+    emit->sig_stack_pos += save_adjust;
+    emit->current_generic_adjust = 0;
 
     if (ast->result == NULL) {
         int cls_id;
@@ -2443,6 +2482,9 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     }
 
     f->pos += 6 + ast->args_collected;
+
+    emit->sig_stack_pos -= save_adjust;
+    emit->current_generic_adjust = save_adjust;
 }
 
 /* emit_nonlocal_var
@@ -3070,6 +3112,35 @@ void lily_emit_update_function_block(lily_emit_state *emit,
 
         emit->self_storage = self;
     }
+}
+
+/*  lily_update_call_generics
+    This is called to ensure that the bottom of emit->sig_stack contains at
+    least as many generics as the function itself needs. No special trickery
+    needed since functions can only contain other functions.
+
+    Additionally, this is called after the function has had a block added for
+    it, and after the symtab's generics have been fixed up. */
+void lily_update_call_generics(lily_emit_state *emit, int count)
+{
+    if (emit->sig_stack_pos < count) {
+        while (count > emit->sig_stack_size)
+            grow_sig_stack(emit);
+
+        lily_sig *sig_iter = emit->symtab->template_sig_start;
+        int i;
+        for (i = 0;
+             i < count;
+             i++, sig_iter = sig_iter->next) {
+            emit->sig_stack[i] = sig_iter;
+        }
+
+        /* -1 because the stack starts at 0 but the count starts at 1. */
+        emit->sig_stack_pos = count - 1;
+    }
+
+    emit->current_block->generic_count = count;
+    emit->current_generic_adjust = count;
 }
 
 /*  lily_emit_try
