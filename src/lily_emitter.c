@@ -975,7 +975,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
         emit->symtab->var_chain = block->function_var;
 
     if (block->prev->generic_count != block->generic_count)
-        lily_reserve_generics(emit->symtab, block->prev->generic_count);
+        lily_update_symtab_generics(emit->symtab, NULL, block->prev->generic_count);
 
     emit->self_storage = emit->current_block->prev->self;
     emit->symtab->function_depth--;
@@ -3046,25 +3046,30 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
         write_2(emit, o_return_noval, *emit->lex_linenum);
 }
 
-/*  lily_emit_class_init
+/*  lily_emit_update_function_block
     This is called at the opening of a new class, before any user code. This
     writes an initialization for the hidden self variable. */
-void lily_emit_class_init(lily_emit_state *emit)
+void lily_emit_update_function_block(lily_emit_state *emit,
+        lily_class *decl_class, lily_sig *ret_sig)
 {
-    /* The most recent function is the constructor for this class, which will
-       always return a class instance. Since it's also the function var (and
-       the return of a function is always [0], this works. */
-    lily_sig *self_sig = emit->current_block->function_var->sig->siglist[0];
+    emit->top_function_ret = ret_sig;
 
-    lily_storage *self = get_storage(emit, self_sig, *emit->lex_linenum);
-    emit->current_block->self = self;
+    if (decl_class) {
+        /* The most recent function is the constructor for this class, which will
+           always return a class instance. Since it's also the function var (and
+           the return of a function is always [0], this works. */
+        lily_sig *self_sig = emit->current_block->function_var->sig->siglist[0];
 
-    write_3(emit,
-            o_new_instance,
-            *emit->lex_linenum,
-            self->reg_spot);
+        lily_storage *self = get_storage(emit, self_sig, *emit->lex_linenum);
+        emit->current_block->self = self;
 
-    emit->self_storage = self;
+        write_3(emit,
+                o_new_instance,
+                *emit->lex_linenum,
+                self->reg_spot);
+
+        emit->self_storage = self;
+    }
 }
 
 /*  lily_emit_try

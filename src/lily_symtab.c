@@ -1448,16 +1448,13 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
     }
 }
 
-/*  lily_reserve_generics
-    Make sure a given number of generic signatures are available for the
-    current function. If there are more generics than what is requested, then
-    hide the extras. */
-void lily_reserve_generics(lily_symtab *symtab, int count)
+void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
+        int count)
 {
     /* The symtab special cases all signatures holding template information so
        that they're unique, together, and in numerical order. */
     lily_sig *sig_iter = symtab->template_sig_start;
-    int i = 1;
+    int i = 1, save_count = count;
 
     while (count) {
         sig_iter->flags &= ~SIG_HIDDEN_GENERIC;
@@ -1486,16 +1483,9 @@ void lily_reserve_generics(lily_symtab *symtab, int count)
             sig_iter = sig_iter->next;
         }
     }
-}
 
-/*  lily_set_class_generics
-    Set how many generics this class uses. This can't be folded into
-    lily_reserve_generics because the symtab doesn't know if this is from a
-    constructor or not. */
-void lily_set_class_generics(lily_symtab *symtab, int count)
-{
-    lily_class *cls = symtab->class_chain;
-    cls->template_count = count;
+    if (decl_class)
+        decl_class->template_count = save_count;
 }
 
 /*  lily_make_constructor_return_sig

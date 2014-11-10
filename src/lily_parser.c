@@ -266,6 +266,7 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
     int state = TC_WANT_VALUE, stack_start = parser->sig_stack_pos;
     int sig_flags = 0, have_arrow = 0, have_dots = 0;
     lily_token end_token;
+
     if (cls->id == SYM_CLASS_FUNCTION) {
         /* Functions have their return as the first type, so leave a hole. */
         if ((parser->sig_stack_pos + 2) == parser->sig_stack_size)
@@ -284,20 +285,12 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
         end_token = tk_right_parenth;
         i = 1;
 
+        /* Add an implicit 'self' for class functions (except for any nested
+           classes). */
         if (flags & CV_TOPLEVEL && parser->class_depth &&
             (flags & CV_CLASS_INIT) == 0) {
-            /* Functions of a class always take it as their first parameter.
-               ...unless the function is the constructor of a nested class. */
-            lily_var *v = lily_try_new_var(parser->symtab,
-                    parser->emit->self_storage->sig,
-                    "(self)", 0);
-            if (v == NULL)
-                lily_raise_nomem(parser->raiser);
-
-            parser->emit->current_block->self = (lily_storage *)v;
-            parser->emit->self_storage = (lily_storage *)v;
-
-            parser->sig_stack[parser->sig_stack_pos] = v->sig;
+            parser->sig_stack[parser->sig_stack_pos] =
+                parser->emit->self_storage->sig;
             parser->sig_stack_pos++;
             i++;
         }
@@ -412,7 +405,7 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
     return result;
 }
 
-static int template_collect(lily_parse_state *parser)
+static int collect_generics(lily_parse_state *parser)
 {
     char name[] = "A";
     char ch = name[0];
@@ -484,50 +477,10 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
         lily_sig *call_sig = parser->default_call_sig;
         lily_var *call_var;
 
-        if (flags & CV_MAKE_VARS) {
-            if (flags & CV_TOPLEVEL) {
-                if (flags & CV_CLASS_INIT) {
-                    call_var = lily_try_new_var(parser->symtab, call_sig,
-                            "new", VAR_IS_READONLY);
-                    if (call_var == NULL)
-                        lily_raise_nomem(parser->raiser);
-
-                    lily_emit_enter_block(parser->emit,
-                            BLOCK_FUNCTION | BLOCK_CLASS);
-                    lily_lexer(lex);
-                }
-                else {
-                    call_var = get_named_var(parser, call_sig,
-                            VAR_IS_READONLY);
-                    call_var->parent = parser->emit->current_class;
-
-                    /* This creates a function value to hold new code, so it's
-                       essential that call_var have a function signature...or
-                       the symtab may not free the function value. */
-                    lily_emit_enter_block(parser->emit, BLOCK_FUNCTION);
-                }
-            }
-            else
-                call_var = get_named_var(parser, call_sig, 0);
-        }
+        if (flags & CV_MAKE_VARS)
+            call_var = get_named_var(parser, call_sig, 0);
         else
             call_var = NULL;
-
-        /* Collect generics and call type collection as usual. Don't bother
-           updating template information: Part of building signatures will
-           calculate the template count automatically. */
-        if (flags & CV_TOPLEVEL) {
-            if (lex->token == tk_left_bracket) {
-                int count = template_collect(parser);
-                lily_reserve_generics(parser->symtab, count);
-                parser->emit->current_block->generic_count = count;
-                if (flags & CV_CLASS_INIT)
-                    lily_set_class_generics(parser->symtab, count);
-            }
-        }
-
-        if (flags & CV_CLASS_INIT)
-            lily_make_constructor_return_sig(parser->symtab);
 
         NEED_CURRENT_TOK(tk_left_parenth)
         lily_lexer(lex);
@@ -536,10 +489,6 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
         if (flags & CV_MAKE_VARS)
             call_var->sig = call_sig;
 
-        /* Let emitter know the true return type. */
-        if (flags & CV_TOPLEVEL)
-            parser->emit->top_function_ret = call_sig->siglist[0];
-
         result = call_sig;
         lily_lexer(lex);
     }
@@ -547,6 +496,69 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
         result = NULL;
 
     return result;
+}
+
+static void parse_function(lily_parse_state *parser, lily_class *decl_class,
+        int flags)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_sig *call_sig = parser->default_call_sig;
+    lily_var *call_var;
+    int block_type, generics_used;
+    int collect_flags = CV_MAKE_VARS | CV_TOPLEVEL;
+
+    lily_class *function_cls = lily_class_by_id(parser->symtab,
+            SYM_CLASS_FUNCTION);
+
+    if (flags & CV_CLASS_INIT) {
+        call_var = lily_try_new_var(parser->symtab, call_sig, "new",
+                VAR_IS_READONLY);
+        if (call_var == NULL)
+            lily_raise_nomem(parser->raiser);
+
+        block_type = BLOCK_FUNCTION | BLOCK_CLASS;
+        collect_flags |= CV_CLASS_INIT;
+        lily_lexer(lex);
+    }
+    else {
+        call_var = get_named_var(parser, call_sig, VAR_IS_READONLY);
+        call_var->parent = parser->emit->current_class;
+        block_type = BLOCK_FUNCTION;
+    }
+
+    lily_emit_enter_block(parser->emit, block_type);
+
+    if (lex->token == tk_left_bracket)
+        generics_used = collect_generics(parser);
+    else
+        generics_used = parser->emit->current_block->generic_count;
+
+    lily_update_symtab_generics(parser->symtab, decl_class, generics_used);
+
+    if (flags & CV_CLASS_INIT)
+        lily_make_constructor_return_sig(parser->symtab);
+    else if (flags & CV_TOPLEVEL && parser->class_depth &&
+             (flags & CV_CLASS_INIT) == 0) {
+
+        lily_var *v = lily_try_new_var(parser->symtab,
+                parser->emit->self_storage->sig, "(self)", 0);
+        if (v == NULL)
+            lily_raise_nomem(parser->raiser);
+
+        parser->emit->current_block->self = (lily_storage *)v;
+        parser->emit->self_storage = (lily_storage *)v;
+    }
+
+    NEED_CURRENT_TOK(tk_left_parenth)
+    lily_lexer(lex);
+
+    call_sig = inner_type_collector(parser, function_cls, collect_flags);
+    call_var->sig = call_sig;
+
+    lily_emit_update_function_block(parser->emit, decl_class,
+            call_sig->siglist[0]);
+
+    lily_lexer(lex);
 }
 
 /*****************************************************************************/
@@ -1236,8 +1248,7 @@ static void statement(lily_parse_state *parser, int multi)
                         if (cls_id == SYM_CLASS_FUNCTION) {
                             /* This will enter the function since the function is
                                toplevel. */
-                            collect_var_sig(parser, lclass,
-                                    CV_TOPLEVEL | CV_MAKE_VARS);
+                            parse_function(parser, NULL, 0);
                             NEED_CURRENT_TOK(tk_left_curly)
                             /* This must recurse so that the ending } of the
                                function is not yielded back up as the } of the
@@ -1728,8 +1739,8 @@ static void class_handler(lily_parse_state *parser, int multi)
     lily_class *created_class = lily_new_class(parser->symtab, lex->label);
 
     lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_FUNCTION);
-    collect_var_sig(parser, cls, CV_TOPLEVEL | CV_MAKE_VARS | CV_CLASS_INIT);
-    lily_emit_class_init(parser->emit);
+
+    parse_function(parser, created_class, CV_CLASS_INIT);
 
     NEED_CURRENT_TOK(tk_left_curly)
 
