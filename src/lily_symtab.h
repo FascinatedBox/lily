@@ -86,8 +86,7 @@ int lily_check_right_inherits_or_is(lily_class *, lily_class *);
 
 lily_class *lily_new_class(lily_symtab *, char *);
 lily_prop_entry *lily_add_class_property(lily_class *, lily_sig *, char *, int);
-void lily_set_class_generics(lily_symtab *, int);
+void lily_update_symtab_generics(lily_symtab *, lily_class *, int);
 void lily_finish_class(lily_symtab *, lily_class *);
 void lily_make_constructor_return_sig(lily_symtab *);
-void lily_reserve_generics(lily_symtab *, int);
 #endif
