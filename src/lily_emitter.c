@@ -1856,13 +1856,38 @@ static void emit_list_values_to_anys(lily_emit_state *emit,
 static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         lily_sig *expect_sig)
 {
-    lily_sig *key_sig, *value_sig;
     lily_ast *tree_iter;
-    int make_anys;
 
-    key_sig = NULL;
-    value_sig = NULL;
-    make_anys = 0;
+    lily_sig *last_key_sig = NULL, *last_value_sig = NULL,
+             *expect_key_sig = NULL, *expect_value_sig = NULL;
+    int make_anys = 0;
+
+    if (expect_sig) {
+        int did_unwrap = 0;
+        /* Generics can't be 'unwrapped' more than once. */
+        if (expect_sig->cls->id == SYM_CLASS_TEMPLATE) {
+            expect_sig = emit->sig_stack[emit->sig_stack_pos +
+                    expect_sig->template_pos];
+            did_unwrap = 1;
+        }
+
+        if (expect_sig && expect_sig->cls->id == SYM_CLASS_HASH) {
+            expect_key_sig = expect_sig->siglist[0];
+            expect_value_sig = expect_sig->siglist[1];
+            if (did_unwrap == 0) {
+                if (expect_key_sig && expect_key_sig->cls->id == SYM_CLASS_TEMPLATE)
+                    expect_key_sig = emit->sig_stack[emit->sig_stack_pos +
+                            expect_key_sig->template_pos];
+
+                if (expect_value_sig && expect_value_sig->cls->id == SYM_CLASS_TEMPLATE) {
+                    expect_value_sig = emit->sig_stack[emit->sig_stack_pos +
+                            expect_value_sig->template_pos];
+                }
+            }
+        }
+        else
+            expect_sig = NULL;
+    }
 
     for (tree_iter = ast->arg_start;
          tree_iter != NULL;
@@ -1873,12 +1898,12 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         value_tree = tree_iter->next_arg;
 
         if (key_tree->tree_type != tree_local_var)
-            eval_tree(emit, key_tree, key_sig);
+            eval_tree(emit, key_tree, expect_key_sig);
 
         /* Keys -must- all be the same type. They cannot be converted to any
            later on because any are not valid keys (not immutable). */
-        if (key_tree->result->sig != key_sig) {
-            if (key_sig == NULL) {
+        if (key_tree->result->sig != last_key_sig) {
+            if (last_key_sig == NULL) {
                 if ((key_tree->result->sig->cls->flags & CLS_VALID_HASH_KEY) == 0) {
                     lily_raise_adjusted(emit->raiser, key_tree->line_num,
                             lily_SyntaxError,
@@ -1886,31 +1911,36 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
                             key_tree->result->sig);
                 }
 
-                key_sig = key_tree->result->sig;
+                last_key_sig = key_tree->result->sig;
             }
             else {
                 lily_raise_adjusted(emit->raiser, key_tree->line_num,
                         lily_SyntaxError,
                         "Expected a key of type '%T', but key is of type '%T'.\n",
-                        key_sig, key_tree->result->sig);
+                        last_key_sig, key_tree->result->sig);
             }
         }
 
         if (value_tree->tree_type != tree_local_var)
-            eval_tree(emit, value_tree, value_sig);
+            eval_tree(emit, value_tree, expect_value_sig);
 
         /* Values being promoted to any is okay though. :) */
-        if (value_tree->result->sig != value_sig) {
-            if (value_sig == NULL)
-                value_sig = value_tree->result->sig;
+        if (value_tree->result->sig != last_value_sig) {
+            if (last_value_sig == NULL)
+                last_value_sig = value_tree->result->sig;
             else
                 make_anys = 1;
         }
     }
 
+    if (ast->args_collected == 0) {
+        last_key_sig = expect_key_sig;
+        last_value_sig = expect_value_sig;
+    }
+
     if (make_anys == 1) {
         lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
-        value_sig = cls->sig;
+        last_value_sig = cls->sig;
         emit_hash_values_to_anys(emit, ast);
     }
 
@@ -1919,8 +1949,8 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         grow_sig_stack(emit);
 
     lily_class *hash_cls = lily_class_by_id(emit->symtab, SYM_CLASS_HASH);
-    emit->sig_stack[stack_start] = key_sig;
-    emit->sig_stack[stack_start+1] = value_sig;
+    emit->sig_stack[stack_start] = last_key_sig;
+    emit->sig_stack[stack_start+1] = last_value_sig;
     lily_sig *new_sig = lily_build_ensure_sig(emit->symtab, hash_cls, 0,
                 emit->sig_stack, stack_start, 2);
 
@@ -1931,104 +1961,19 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     ast->result = (lily_sym *)s;
 }
 
-/*  maybe_fixup_elements
-    This tries to fixup static lists, hashes, and tuples to match the given
-    wanted sig. */
-static int maybe_fixup_elements(lily_emit_state *emit, lily_sig *want_sig,
-        lily_ast *right)
-{
-    int ret = 0;
-
-    if ((right->tree_type == tree_hash &&
-         want_sig->cls->id == SYM_CLASS_HASH &&
-         want_sig->siglist[0] == right->result->sig->siglist[0] &&
-         want_sig->siglist[1]->cls->id == SYM_CLASS_ANY)) {
-        /* tree_list: Want list[any], have list[!any]
-           tree_hash: Want hash[?, any], have hash[?, !any] */
-        /* In either case, convert each of the values to anys, then rewrite the
-           build to pump out the right resulting type. */
-        lily_function_val *f = emit->top_function;
-        int element_count = right->args_collected;
-        lily_storage *s = get_storage(emit, want_sig, right->line_num);
-
-        /* WARNING: This is only safe because the tree was just evaluated and
-           nothing has happened since the o_build_* was written. */
-        f->pos = f->pos - (4 + element_count);
-
-        emit_hash_values_to_anys(emit, right);
-        write_build_op(emit, o_build_hash, right->arg_start, right->line_num,
-                right->args_collected, s->reg_spot);
-
-        right->result = (lily_sym *)s;
-        ret = 1;
-    }
-    else if (right->tree_type == tree_tuple &&
-             want_sig->cls->id == SYM_CLASS_TUPLE &&
-             right->result->sig->siglist_size == want_sig->siglist_size) {
-        lily_function_val *f = emit->top_function;
-        int element_count = right->args_collected;
-        /* Tuple is a bit strange: Each entry can have a different type. So
-           only put the values into an 'any' if an 'any' is wanted. */
-        ret = 1;
-        int i;
-        lily_ast *arg;
-
-        /* WARNING: This is only safe because the tree was just evaluated and
-           nothing has happened since the o_build_* was written. */
-        f->pos = f->pos - (4 + element_count);
-
-        for (i = 0, arg = right->arg_start;
-             i < want_sig->siglist_size;
-             i++, arg = arg->next_arg) {
-            lily_sig *want = want_sig->siglist[i];
-            lily_sig *have = right->result->sig->siglist[i];
-            if (want != have) {
-                if (want->cls->id == SYM_CLASS_ANY)
-                    emit_any_assign(emit, arg);
-                else {
-                    ret = 0;
-                    break;
-                }
-            }
-        }
-
-        if (ret == 1) {
-            lily_storage *s = get_storage(emit, want_sig, right->line_num);
-
-            write_build_op(emit, o_build_list_tuple, right->arg_start,
-                    right->line_num, right->args_collected, s->reg_spot);
-            right->result = (lily_sym *)s;
-        }
-    }
-
-    return ret;
-}
-
 /*  type_matchup
-    Lily defines the type 'any' as something that can hold any type. If
-    something wants 'any' but gets a non-any, then this rewrites the right side
-    to return an 'any'.
-    Similarly, for static lists, tuples, and hashes, attempt to convert
-    elements to 'any' to satisfy the wanted sig.
+    This is called when 'right' doesn't have quite the right signature.
+    If the wanted signature is 'any', the value of 'right' is made into an any.
 
-    Caveats:
-    * This may rewrite right's result if it succeeds. */
+    On success: right is fixed, 1 is returned.
+    On failure: right isn't fixed, 0 is returned. */
 static int type_matchup(lily_emit_state *emit, lily_sig *want_sig,
         lily_ast *right)
 {
-    int ret = 0;
-
-    if (want_sig->cls->id == SYM_CLASS_ANY) {
+    if (want_sig->cls->id == SYM_CLASS_ANY)
         emit_any_assign(emit, right);
-        ret = 1;
-    }
-    else if (right->tree_type == tree_list ||
-        right->tree_type == tree_hash ||
-        right->tree_type == tree_tuple) {
-        ret = maybe_fixup_elements(emit, want_sig, right);
-    }
 
-    return ret;
+    return (want_sig->cls->id == SYM_CLASS_ANY);
 }
 
 /*  eval_build_list
@@ -2046,15 +1991,32 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     int make_anys = 0;
 
     if (expect_sig) {
-        if (expect_sig->cls->id == SYM_CLASS_LIST) {
-            expect_sig = expect_sig->siglist[0];
+        if (expect_sig->cls->id == SYM_CLASS_LIST ||
+            expect_sig->cls->id == SYM_CLASS_HASH ||
+            expect_sig->cls->id == SYM_CLASS_TEMPLATE) {
+            lily_sig *original_sig = expect_sig;
             if (expect_sig->cls->id == SYM_CLASS_TEMPLATE)
                 expect_sig = emit->sig_stack[emit->sig_stack_pos +
                         expect_sig->template_pos];
+
+            if (expect_sig && expect_sig->cls->id == SYM_CLASS_HASH) {
+                if (ast->args_collected != 0)
+                    expect_sig = NULL;
+                else {
+                    /* If a hash is wanted and [] is given, then make a hash
+                       instead.
+                       expect_sig cannot be passed: If it came from a generic,
+                       then this function may unwrap generics that it
+                       shouldn't. */
+                    eval_build_hash(emit, ast, original_sig);
+                    return;
+                }
+            }
+            else if (expect_sig && expect_sig->cls->id == SYM_CLASS_LIST)
+                expect_sig = expect_sig->siglist[0];
+            else
+                expect_sig = NULL;
         }
-        else if (expect_sig->cls->id == SYM_CLASS_TEMPLATE)
-            expect_sig = emit->sig_stack[emit->sig_stack_pos +
-                    expect_sig->template_pos];
         else
             expect_sig = NULL;
 
@@ -2116,9 +2078,12 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     This handles creation of a tuple from a series of values. The resulting
     tuple will have a signature that matches what it obtained.
 
-    <[1, "2", 3.3]> # tuple[integer, string, double]
+    <[1, "2", 3.3]> # tuple[integer, string, double] 
 
-    No defaulting to any is done here, ever. */
+    This attempts to do the same sort of defaulting that eval_build_list and
+    eval_build_hash do:
+
+    tuple[any] t = <[1]> # Becomes tuple[any]. */
 static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
         lily_sig *expect_sig)
 {
@@ -2126,6 +2091,27 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
         lily_raise(emit->raiser, lily_SyntaxError,
                 "Cannot create an empty tuple.\n");
     }
+
+    int did_unwrap = 0;
+    if (expect_sig) {
+        if (expect_sig->cls->id == SYM_CLASS_TUPLE ||
+            expect_sig->cls->id == SYM_CLASS_TEMPLATE) {
+            if (expect_sig->cls->id == SYM_CLASS_TEMPLATE) {
+                expect_sig = emit->sig_stack[emit->sig_stack_pos +
+                        expect_sig->template_pos];
+                did_unwrap = 0;
+            }
+
+            if (expect_sig == NULL ||
+                expect_sig->cls->id != SYM_CLASS_TUPLE ||
+                expect_sig->siglist_size != ast->args_collected)
+                expect_sig = NULL;
+        }
+        else
+            expect_sig = NULL;
+    }
+
+    lily_sig *expect_elem = NULL;
 
     int i;
     lily_ast *arg;
@@ -2137,8 +2123,24 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
     for (i = 0, arg = ast->arg_start;
          arg != NULL;
          i++, arg = arg->next_arg) {
+
+        if (expect_sig) {
+            expect_elem = expect_sig->siglist[i];
+            if (expect_elem && expect_elem->cls->id == SYM_CLASS_TEMPLATE &&
+                did_unwrap == 0) {
+                expect_elem = emit->sig_stack[emit->sig_stack_pos +
+                        expect_sig->template_pos];
+            }
+        }
+
         if (arg->tree_type != tree_local_var)
-            eval_tree(emit, arg, NULL);
+            eval_tree(emit, arg, expect_elem);
+
+        if (expect_sig &&
+            arg->result->sig != expect_elem &&
+            expect_elem->cls->id == SYM_CLASS_ANY) {
+            emit_any_assign(emit, arg);
+        }
 
         emit->sig_stack[stack_start + i] = arg->result->sig;
     }
