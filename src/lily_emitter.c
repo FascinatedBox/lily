@@ -1489,22 +1489,23 @@ static void eval_package_assign(lily_emit_state *emit, lily_ast *ast)
     /* The left may contain packages in it. However, the resulting value will
        always be the var at the very top. */
     lily_ast *package_right = ast->left->arg_start->next_arg;
+    lily_sig *wanted_sig = package_right->result->sig;
     lily_sym *rhs;
 
     if (ast->right->tree_type != tree_var)
-        eval_tree(emit, ast->right, NULL);
+        eval_tree(emit, ast->right, wanted_sig);
 
-    rhs = ast->right->result;
     /* Don't evaluate the package tree. Like subscript assign, this has to
        write directly to the var at the given part of the package. Since parser
        passes the var to be assigned, just grab that from result for checking
        the sig. No need to do a symtab lookup of a name. */
-    lily_sig *result_sig = package_right->result->sig;
+
+    rhs = ast->right->result;
 
     /* Before doing an eval, make sure that the two types actually match up. */
-    if (result_sig != rhs_tree->result->sig &&
-        type_matchup(emit, result_sig, rhs_tree) == 0) {
-        bad_assign_error(emit, ast->line_num, result_sig,
+    if (wanted_sig != rhs_tree->result->sig &&
+        type_matchup(emit, wanted_sig, rhs_tree) == 0) {
+        bad_assign_error(emit, ast->line_num, wanted_sig,
                 rhs_tree->result->sig);
     }
 
@@ -2700,10 +2701,10 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
             eval_logical_op(emit, ast);
         else {
             if (ast->left->tree_type != tree_local_var)
-                eval_tree(emit, ast->left, expect_sig);
+                eval_tree(emit, ast->left, NULL);
 
             if (ast->right->tree_type != tree_local_var)
-                eval_tree(emit, ast->right, expect_sig);
+                eval_tree(emit, ast->right, ast->left->result->sig);
 
             emit_binary_op(emit, ast);
         }
