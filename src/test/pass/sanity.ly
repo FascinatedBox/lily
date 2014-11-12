@@ -1527,7 +1527,21 @@ function test_defaulting()
     k_two(1, 1)
     k_three(1, 1)
 
-    print("ok.\n")
+    integer ok = 1
+    if list_one == [] && hash_one == []:
+        ok = 1
+    else:
+        ok = 0
+
+    if sys::argv == []:
+        ok = 0
+
+    if ok == 1: {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        fail_count += 1
+    }
 }
 
 function test_misc()
