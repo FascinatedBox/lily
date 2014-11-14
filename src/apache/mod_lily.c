@@ -35,13 +35,13 @@ static int apache_read_line_fn(lily_lex_entry *entry)
 
     while (1) {
         result = apr_file_getc(&ch, input_file);
+        if ((i + 1) == bufsize) {
+            lily_grow_lexer_buffers(lexer);
+
+            input_buffer = lexer->input_buffer;
+        }
+
         if (result != APR_SUCCESS) {
-            if ((i + 1) == bufsize) {
-                lily_grow_lexer_buffers(lexer);
-
-                input_buffer = lexer->input_buffer;
-            }
-
             lexer->input_buffer[i] = '\n';
             lexer->input_end = i + 1;
             /* If i is 0, then nothing is on this line except eof. Return 0 to
@@ -58,15 +58,6 @@ static int apache_read_line_fn(lily_lex_entry *entry)
             break;
         }
 
-        /* i + 2 is used so that when \r\n that the \n can be safely added
-           to the buffer. Otherwise, it would be i + 1. */
-        if ((i + 2) == bufsize) {
-            lily_grow_lexer_buffers(lexer);
-            /* Do this in case the realloc decides to use a different block
-               instead of growing what it had. */
-            input_buffer = lexer->input_buffer;
-        }
-
         input_buffer[i] = ch;
 
         if (ch == '\r' || ch == '\n') {
@@ -75,14 +66,10 @@ static int apache_read_line_fn(lily_lex_entry *entry)
             ok = 1;
 
             if (ch == '\r') {
+                input_buffer[i] = '\n';
                 apr_file_getc(&ch, input_file);
                 if (ch != '\n')
                     apr_file_ungetc(ch, input_file);
-                else {
-                    /* This is safe: See i + 2 == size comment above. */
-                    lexer->input_buffer[i+1] = ch;
-                    lexer->input_end++;
-                }
             }
             break;
         }
