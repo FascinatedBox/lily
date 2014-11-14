@@ -63,14 +63,12 @@
 #define CC_EQUAL         20
 #define CC_NEWLINE       21
 #define CC_SHARP         22
-#define CC_STR_NEWLINE   23
-#define CC_STR_END       24
-#define CC_DOT           25
-#define CC_AT            26
-#define CC_AMPERSAND     27
-#define CC_VBAR          28
-#define CC_QUESTION      29
-#define CC_INVALID       30
+#define CC_DOT           23
+#define CC_AT            24
+#define CC_AMPERSAND     25
+#define CC_VBAR          26
+#define CC_QUESTION      27
+#define CC_INVALID       28
 
 /*  This table indicates how many more bytes need to be successfully read after
     that particular byte for proper utf-8. -1 = invalid.
@@ -1185,23 +1183,6 @@ void lily_lexer(lily_lex_state *lexer)
                 else
                     token = tk_eof;
             }
-        }
-        else if (group == CC_STR_NEWLINE) {
-            /* This catches both \r and \n. Make sure that \r\n comes in as one
-               newline though. */
-            if (*ch       == '\r' &&
-                *(ch + 1) == '\n')
-                input_pos += 2;
-            else
-                input_pos++;
-
-            lexer->line_num++;
-            continue;
-        }
-        else if (group == CC_STR_END) {
-            /* todo: This should probably yield to the repl implementation and
-               possibly collect more data. */
-            token = tk_eof;
         }
         else if (group == CC_DOUBLE_QUOTE) {
             scan_string(lexer, &input_pos, ch);
