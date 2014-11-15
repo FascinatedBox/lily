@@ -231,7 +231,6 @@ void lily_msgbuf_add_sig(lily_msgbuf *msgbuf, lily_sig *sig)
 static void msgbuf_add_indent(lily_msgbuf *msgbuf, int indent)
 {
     int i;
-    /// todo: go down to 0 to avoid making an 'i'.
     for (i = 0;i < indent;i++)
         lily_msgbuf_add(msgbuf, "|    ");
 }
