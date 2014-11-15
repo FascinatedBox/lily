@@ -35,7 +35,7 @@ static int apache_read_line_fn(lily_lex_entry *entry)
 
     while (1) {
         result = apr_file_getc(&ch, input_file);
-        if ((i + 1) == bufsize) {
+        if ((i + 2) == bufsize) {
             lily_grow_lexer_buffers(lexer);
 
             input_buffer = lexer->input_buffer;
@@ -43,6 +43,7 @@ static int apache_read_line_fn(lily_lex_entry *entry)
 
         if (result != APR_SUCCESS) {
             lexer->input_buffer[i] = '\n';
+            lexer->input_buffer[i+1] = '\0';
             lexer->input_end = i + 1;
             /* If i is 0, then nothing is on this line except eof. Return 0 to
                let the caller know this is the end.
@@ -71,6 +72,8 @@ static int apache_read_line_fn(lily_lex_entry *entry)
                 if (ch != '\n')
                     apr_file_ungetc(ch, input_file);
             }
+
+            input_buffer[i + 1] = '\0';
             break;
         }
         else if (((unsigned char)ch) > 127)

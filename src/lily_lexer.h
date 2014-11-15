@@ -60,7 +60,8 @@ typedef enum {
     tk_three_dots,
     tk_invalid,
     tk_end_tag,
-    tk_eof
+    tk_inner_eof, /* The end of any 'file' except the first. */
+    tk_final_eof /* The end of the first 'file' entered. */
 } lily_token;
 
 typedef enum {
@@ -84,6 +85,16 @@ typedef struct lily_lex_entry_t {
 
     char *filename;
     struct lily_lex_state_t *lexer;
+
+    char *saved_input;
+    int saved_input_pos;
+    int saved_input_size;
+    int saved_input_end;
+
+    uint16_t saved_line_num;
+
+    struct lily_lex_entry_t *prev;
+    struct lily_lex_entry_t *next;
 } lily_lex_entry;
 
 typedef struct lily_lex_state_t {

@@ -1120,7 +1120,8 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
         /* This is the start of the next statement (or, for 'var', only allow
            one decl at a time to discourage excessive use of 'var'). */
         if (token == tk_word || token == tk_prop_word || token == tk_end_tag ||
-            token == tk_eof || token == tk_right_curly || sig == NULL)
+            token == tk_inner_eof || token == tk_right_curly ||
+            token == tk_final_eof || sig == NULL)
             break;
         else if (token != tk_comma) {
             lily_raise(parser->raiser, lily_SyntaxError,
@@ -1778,7 +1779,7 @@ static void parser_loop(lily_parse_state *parser)
             lily_lexer(lex);
         }
         else if (lex->token == tk_end_tag ||
-                 (lex->token == tk_eof && lex->mode == lm_no_tags)) {
+                 (lex->token == tk_final_eof && lex->mode == lm_no_tags)) {
             if (parser->emit->current_block->prev != NULL) {
                 lily_raise(parser->raiser, lily_SyntaxError,
                            "Unterminated block(s) at end of parsing.\n");
@@ -1795,7 +1796,7 @@ static void parser_loop(lily_parse_state *parser)
 
             if (lex->token == tk_end_tag) {
                 lily_lexer_handle_page_data(parser->lex);
-                if (lex->token == tk_eof)
+                if (lex->token == tk_final_eof)
                     break;
                 else
                     lily_lexer(lex);
@@ -1813,6 +1814,12 @@ static void parser_loop(lily_parse_state *parser)
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->ast_pool);
         }
+        else if (lex->token == tk_inner_eof)
+            /* TODO: Eventually, this case should be used to make sure that a
+                     file hasn't exited in the middle of a function and various
+                     other things.
+                     For now, don't bother because there's no importing. */
+            lily_lexer(lex);
         else
             lily_raise(parser->raiser, lily_SyntaxError, "Unexpected token %s.\n",
                        tokname(lex->token));
@@ -1838,7 +1845,7 @@ int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode, char *filename
     if (setjmp(parser->raiser->jumps[parser->raiser->jump_pos]) == 0) {
         parser->raiser->jump_pos++;
         lily_load_file(parser->lex, mode, filename);
-        if (parser->lex->token != tk_eof)
+        if (parser->lex->token != tk_final_eof)
             parser_loop(parser);
 
         return 1;
