@@ -213,8 +213,8 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser, void *data)
 
     /* This is set so that token is never invalid, which allows parser to check
        the token before the first lily_lexer call. This is important, because
-       lily_lexer_handle_page_data may return tk_eof if there is nothing to
-       parse. */
+       lily_lexer_handle_page_data may return tk_final_eof if there is nothing
+       to parse. */
     lex->token = tk_invalid;
     lex->ch_class = ch_class;
     return lex;
@@ -223,14 +223,130 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser, void *data)
 void lily_free_lex_state(lily_lex_state *lex)
 {
     if (lex->entry) {
-        lex->entry->close_fn(lex->entry);
-        lily_free(lex->entry);
+        lily_lex_entry *entry_iter = lex->entry;
+        while (entry_iter->prev)
+            entry_iter = entry_iter->prev;
+
+        lily_lex_entry *entry_next;
+        while (entry_iter) {
+            if (entry_iter->source != NULL)
+                lex->entry->close_fn(lex->entry);
+
+            entry_next = entry_iter->next;
+            lily_free(entry_iter->saved_input);
+            lily_free(entry_iter);
+            entry_iter = entry_next;
+        }
     }
 
     lily_free(lex->input_buffer);
     lily_free(lex->ch_class);
     lily_free(lex->label);
     lily_free(lex);
+}
+
+/*  get_entry
+    Obtain a lily_lex_entry to be used for entering a string, file, or some
+    other source. The lexer retains a linked list of these, and attempts to
+    reuse them when it can. */
+static lily_lex_entry *get_entry(lily_lex_state *lex)
+{
+    lily_lex_entry *ret_entry = NULL;
+
+    if (lex->entry == NULL ||
+        (lex->entry->source != NULL && lex->entry->next == NULL)) {
+        ret_entry = lily_malloc(sizeof(lily_lex_entry));
+        if (ret_entry == NULL)
+            lily_raise_nomem(lex->raiser);
+
+        if (lex->entry == NULL) {
+            lex->entry = ret_entry;
+            ret_entry->prev = NULL;
+        }
+        else {
+            lex->entry->next = ret_entry;
+            ret_entry->prev = lex->entry;
+        }
+
+        ret_entry->source = NULL;
+        ret_entry->saved_input = NULL;
+        ret_entry->saved_input_pos = 0;
+        ret_entry->saved_input_size = 0;
+        ret_entry->saved_input_end = 0;
+
+        ret_entry->next = NULL;
+        ret_entry->lexer = lex;
+    }
+    else {
+        if (lex->entry->source == NULL)
+            ret_entry = lex->entry;
+        else
+            ret_entry = lex->entry->next;
+    }
+
+    if (ret_entry->prev) {
+        lily_lex_entry *prev_entry = ret_entry->prev;
+        char *new_buffer;
+        /* size + 1 isn't needed here because the input buffer's size includes
+           space for the \0. */
+        if (prev_entry->saved_input == NULL)
+            new_buffer = lily_malloc(lex->input_size);
+        else if (prev_entry->saved_input_size < lex->input_size)
+            new_buffer = lily_realloc(prev_entry->saved_input, lex->input_size);
+        else
+            new_buffer = prev_entry->saved_input;
+
+        if (new_buffer == NULL)
+            lily_raise_nomem(lex->raiser);
+
+        strcpy(new_buffer, lex->input_buffer);
+        prev_entry->saved_input = new_buffer;
+        prev_entry->saved_line_num = lex->line_num;
+        prev_entry->saved_input_pos = lex->input_pos;
+        prev_entry->saved_input_size = lex->input_size;
+        prev_entry->saved_input_end = lex->input_end;
+
+        lex->line_num = 0;
+        lex->input_pos = 0;
+    }
+
+    lex->entry = ret_entry;
+
+    return ret_entry;
+}
+
+/*  leave_entry
+    This is called when the end of an entry is reached. The current entry is
+    left, and the previously-entered one is set up in place of it.
+
+    Note: Callers of this function should make sure that lex->input_pos is not
+    set to a bad value after this is called (ex: from a loop). */
+static lily_token leave_entry(lily_lex_state *lex)
+{
+    lily_lex_entry *entry = lex->entry;
+    if (entry->source != NULL) {
+        entry->close_fn(entry);
+        entry->source = NULL;
+    }
+
+    lily_token token;
+    if (entry->prev) {
+        entry = entry->prev;
+
+        strcpy(lex->input_buffer, entry->saved_input);
+        lex->line_num = entry->saved_line_num;
+        lex->input_pos = entry->saved_input_pos;
+        /* The lexer's input buffer may have been resized by the entered file.
+           Do NOT restore lex->input_size here. Ever. */
+        lex->input_end = entry->saved_input_end;
+
+        lex->entry = entry;
+        token = tk_inner_eof;
+    }
+    else
+        token = tk_final_eof;
+
+    return token;
 }
 
 /** file and str reading functions **/
@@ -252,7 +368,7 @@ static int file_read_line_fn(lily_lex_entry *entry)
     while (1) {
         ch = fgetc(input_file);
 
-        if ((i + 1) == bufsize) {
+        if ((i + 2) == bufsize) {
             lily_grow_lexer_buffers(lexer);
             /* Do this in case the realloc decides to use a different block
                instead of growing what it had. */
@@ -260,7 +376,8 @@ static int file_read_line_fn(lily_lex_entry *entry)
         }
 
         if (ch == EOF) {
-            input_buffer[i] = '\n';
+            lexer->input_buffer[i] = '\n';
+            lexer->input_buffer[i + 1] = '\0';
             lexer->input_end = i + 1;
             /* If i is 0, then nothing is on this line except eof. Return 0 to
                let the caller know this is the end.
@@ -290,6 +407,8 @@ static int file_read_line_fn(lily_lex_entry *entry)
                 if (ch != '\n')
                     ungetc(ch, input_file);
             }
+
+            input_buffer[i + 1] = '\0';
             break;
         }
         else if ((unsigned char)ch > 127)
@@ -321,14 +440,17 @@ static int str_read_line_fn(lily_lex_entry *entry)
     utf8_check = 0;
 
     while (1) {
-        if ((i + 1) == bufsize) {
+        if ((i + 2) == bufsize) {
             lily_grow_lexer_buffers(lexer);
-
+            /* Do this in case the realloc decides to use a different block
+               instead of growing what it had. */
             input_buffer = lexer->input_buffer;
         }
 
         if (*ch == '\0') {
             input_buffer[i] = '\n';
+            lexer->input_buffer[i] = '\n';
+            lexer->input_buffer[i + 1] = '\0';
             lexer->input_end = i + 1;
             /* If i is 0, then nothing is on this line except eof. Return 0 to
                let the caller know this is the end.
@@ -354,10 +476,15 @@ static int str_read_line_fn(lily_lex_entry *entry)
             if (*ch == '\r') {
                 input_buffer[i] = '\n';
                 ch++;
+                if (*ch == '\n') {
+                    lexer->input_end++;
+                    ch++;
+                }
             }
             else
                 ch++;
 
+            input_buffer[i + 1] = '\0';
             break;
         }
         else if (((unsigned char)*ch) > 127)
@@ -992,6 +1119,17 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
     lexer->input_size = new_size;
 }
 
+/*  The loaders take the mode of the first file given to determine what the
+    mode should be. The mode is intentionally ignored for subsequent includes.
+
+    There is no include system (yet!), but here is the rationale:
+    * An included file can't accidentally send headers if there's space in it
+      somewhere.
+    * Since included files will only contain code, they will be loadable
+      regardless of the mode of the starting file (so if I have functions in
+      a file for apache, I can clone them over for plain interpreter use with
+      no fuss). */
+
 /*  lily_load_file
     This function creates a new entry for the lexer based off a fopen-ing the
     given path. This will call up the first line and ensure the lexer starts
@@ -1001,10 +1139,11 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
           If unable to open the given path, ErrImport is raised. */
 void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
 {
-    lily_lex_entry *new_entry = lily_malloc(sizeof(lily_lex_entry));
-    if (new_entry == NULL)
-        lily_raise_nomem(lexer->raiser);
+    lily_lex_entry *new_entry = get_entry(lexer);
 
+    new_entry->read_line_fn = file_read_line_fn;
+    new_entry->close_fn = file_close_fn;
+    new_entry->filename = filename;
     new_entry->source = fopen(filename, "r");
     if (new_entry->source == NULL) {
         lily_free(new_entry);
@@ -1012,18 +1151,17 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
                    filename);
     }
 
-    new_entry->read_line_fn = file_read_line_fn;
-    new_entry->close_fn = file_close_fn;
-    new_entry->filename = filename;
-    new_entry->lexer = lexer;
-    lexer->mode = mode;
-    lexer->entry = new_entry;
     lexer->filename = filename;
 
-    file_read_line_fn(lexer->entry);
+    if (new_entry->prev == NULL) {
+        lexer->mode = mode;
+        file_read_line_fn(lexer->entry);
 
-    if (mode == lm_tags)
-        lily_lexer_handle_page_data(lexer);
+        if (mode == lm_tags)
+            lily_lexer_handle_page_data(lexer);
+    }
+    else
+        file_read_line_fn(lexer->entry);
 }
 
 /*  lily_load_str
@@ -1034,22 +1172,24 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
     Note: If unable to allocate a new entry, ErrNoMem is raised. */
 void lily_load_str(lily_lex_state *lexer, lily_lex_mode mode, char *str)
 {
-    lily_lex_entry *new_entry = lily_malloc(sizeof(lily_lex_entry));
-    if (new_entry == NULL)
-        lily_raise_nomem(lexer->raiser);
+    lily_lex_entry *new_entry = get_entry(lexer);
 
     new_entry->source = &str[0];
     new_entry->read_line_fn = str_read_line_fn;
     new_entry->close_fn = str_close_fn;
     new_entry->filename = "<str>";
-    new_entry->lexer = lexer;
-    lexer->mode = mode;
-    lexer->entry = new_entry;
+
     lexer->filename = "<str>";
 
-    str_read_line_fn(lexer->entry);
-    if (mode == lm_tags)
-        lily_lexer_handle_page_data(lexer);
+    if (new_entry->prev == NULL) {
+        lexer->mode = mode;
+
+        str_read_line_fn(lexer->entry);
+        if (mode == lm_tags)
+            lily_lexer_handle_page_data(lexer);
+    }
+    else
+        str_read_line_fn(lexer->entry);
 }
 
 /*  lily_load_special
@@ -1065,22 +1205,22 @@ void lily_load_str(lily_lex_state *lexer, lily_lex_mode mode, char *str)
 void lily_load_special(lily_lex_state *lexer, lily_lex_mode mode, void *source,
     char *filename, lily_reader_fn read_line_fn, lily_close_fn close_fn)
 {
-    lily_lex_entry *new_entry = lily_malloc(sizeof(lily_lex_entry));
-    if (new_entry == NULL)
-        lily_raise_nomem(lexer->raiser);
-
+    lily_lex_entry *new_entry = get_entry(lexer);
     new_entry->source = source;
     new_entry->read_line_fn = read_line_fn;
     new_entry->close_fn = close_fn;
     new_entry->filename = filename;
-    new_entry->lexer = lexer;
-    lexer->mode = mode;
-    lexer->entry = new_entry;
+
     lexer->filename = filename;
 
-    read_line_fn(lexer->entry);
-    if (mode == lm_tags)
-        lily_lexer_handle_page_data(lexer);
+    if (new_entry->prev == NULL) {
+        lexer->mode = mode;
+        read_line_fn(lexer->entry);
+        if (mode == lm_tags)
+            lily_lexer_handle_page_data(lexer);
+    }
+    else
+        read_line_fn(lexer->entry);
 }
 
 /* lily_lexer
@@ -1133,8 +1273,10 @@ void lily_lexer(lily_lex_state *lexer)
                 input_pos = 0;
                 continue;
             }
-            else
-                token = tk_eof;
+            else {
+                token = leave_entry(lexer);
+                input_pos = lexer->input_pos;
+            }
         }
         else if (group == CC_SHARP) {
             if (*ch       == '#' &&
@@ -1148,8 +1290,10 @@ void lily_lexer(lily_lex_state *lexer)
                     input_pos = 0;
                     continue;
                 }
-                else
-                    token = tk_eof;
+                else {
+                    token = leave_entry(lexer);
+                    input_pos = lexer->input_pos;
+                }
             }
         }
         else if (group == CC_DOUBLE_QUOTE) {
@@ -1336,6 +1480,9 @@ void lily_lexer(lily_lex_state *lexer)
                 if (lexer->mode == lm_no_tags)
                     lily_raise(lexer->raiser, lily_SyntaxError,
                             "Found ?> but not expecting tags.\n");
+                if (lexer->entry->prev != NULL)
+                    lily_raise(lexer->raiser, lily_SyntaxError,
+                            "Tags not allowed in included files.\n");
 
                 input_pos++;
                 token = tk_end_tag;
@@ -1402,7 +1549,9 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
                     lexer->label[htmlp] = '\0';
                     lily_impl_puts(data, lexer->label);
                 }
-                lexer->token = tk_eof;
+
+                lexer->token = leave_entry(lexer);
+                lbp = lexer->input_pos;
                 break;
             }
         }
@@ -1423,7 +1572,8 @@ char *tokname(lily_token t)
      "/", "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>",
      ">>=", "=", "==", "<[", "]>", "]", "=>", "a label", "a property name",
      "a string", "an integer", "a double", ".", ":", "::", "&", "&&", "|",
-     "||", "@(", "..", "...", "invalid token", "?>", "end of file"};
+     "||", "@(", "..", "...", "invalid token", "?>", "end of file",
+     "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];
