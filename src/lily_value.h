@@ -1,7 +1,7 @@
 #ifndef LILY_VALUE_H
 # define LILY_VALUE_H
 
-# include "lily_syminfo.h"
+# include "lily_core_types.h"
 
 lily_any_val *lily_try_new_any_val();
 lily_hash_val *lily_try_new_hash_val();

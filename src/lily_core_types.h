@@ -1,11 +1,11 @@
-#ifndef LILY_SYMINFO_H
-# define LILY_SYMINFO_H
+#ifndef LILY_CORE_TYPES_H
+# define LILY_CORE_TYPES_H
 
 # include <stdint.h>
 
-/* lily_syminfo.h defines all core types used by the language. Many of these
-   types reference each other. Some are left incomplete, because not every
-   part of the interpreter uses all of them. */
+/* This file defines all core types used by the language. Many of these types
+   reference each other. Some are left incomplete, because not every part of
+   the interpreter uses all of them. */
 
 struct lily_class_t;
 struct lily_vm_state_t;

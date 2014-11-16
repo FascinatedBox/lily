@@ -3,7 +3,7 @@
 
 #include "lily_impl.h"
 #include "lily_msgbuf.h"
-#include "lily_syminfo.h"
+#include "lily_core_types.h"
 
 lily_msgbuf *lily_new_msgbuf(void)
 {

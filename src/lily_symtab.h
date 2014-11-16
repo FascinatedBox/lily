@@ -1,7 +1,7 @@
 #ifndef LILY_SYMTAB_H
 # define LILY_SYMTAB_H
 
-# include "lily_syminfo.h"
+# include "lily_core_types.h"
 # include "lily_raiser.h"
 
 typedef struct {

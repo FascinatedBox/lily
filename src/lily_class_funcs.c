@@ -5,7 +5,7 @@
     These are also here so that only lily_seed_symtab will see them. */
 #include <string.h>
 
-#include "lily_syminfo.h"
+#include "lily_core_types.h"
 #include "lily_vm.h"
 
 /** integer **/
