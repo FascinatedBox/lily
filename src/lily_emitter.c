@@ -3095,9 +3095,10 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
     This is called at the opening of a new class, before any user code. This
     writes an initialization for the hidden self variable. */
 void lily_emit_update_function_block(lily_emit_state *emit,
-        lily_class *decl_class, lily_sig *ret_sig)
+        lily_class *decl_class, int generic_count, lily_sig *ret_sig)
 {
     emit->top_function_ret = ret_sig;
+    emit->current_block->generic_count = generic_count;
 
     if (decl_class) {
         /* The most recent function is the constructor for this class, which will

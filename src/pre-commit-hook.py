@@ -137,6 +137,14 @@ var v = c1::new(1)\
      "message": "Make sure nested classes actually work."
     },
     {
+     "command": """
+function f[A]() {\
+    function g(A v1) {\
+    }\
+} """,
+     "message": "Make sure functions inherit the generics available."
+    },
+    {
      "command": """  10.@(integer)()  """,
      "message": "Failcheck: Bad anonymous call",
      "stderr": """\
