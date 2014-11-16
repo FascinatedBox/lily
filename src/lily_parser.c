@@ -529,13 +529,12 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
         block_type = BLOCK_FUNCTION;
     }
 
-    lily_emit_enter_block(parser->emit, block_type);
-
     if (lex->token == tk_left_bracket)
         generics_used = collect_generics(parser);
     else
         generics_used = parser->emit->current_block->generic_count;
 
+    lily_emit_enter_block(parser->emit, block_type);
     lily_update_symtab_generics(parser->symtab, decl_class, generics_used);
 
     if (decl_class != NULL)
@@ -559,7 +558,7 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     call_var->sig = call_sig;
 
     lily_emit_update_function_block(parser->emit, decl_class,
-            call_sig->siglist[0]);
+            generics_used, call_sig->siglist[0]);
 
     lily_lexer(lex);
 }
