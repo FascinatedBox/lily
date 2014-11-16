@@ -1,7 +1,7 @@
 #ifndef LILY_CLASS_FUNCS_H
 # define LILY_CLASS_FUNCS_H
 
-# include "lily_syminfo.h"
+# include "lily_core_types.h"
 
 int lily_integer_eq(struct lily_vm_state_t *, int *, lily_value *, lily_value *);
 int lily_double_eq(struct lily_vm_state_t *, int *, lily_value *, lily_value *);

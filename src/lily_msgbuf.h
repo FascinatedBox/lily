@@ -1,7 +1,7 @@
 #ifndef LILY_MSGBUF_H
 # define LILY_MSGBUF_H
 
-/* Don't include lily_syminfo.h when this is all that's needed from it. */
+/* Don't include lily_core_types.h when this is all that's needed from it. */
 struct lily_sig_t;
 
 /* This is shared by different modules of the interpreter for different reasons.

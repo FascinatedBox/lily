@@ -3,7 +3,7 @@
 
 #include "lily_impl.h"
 #include "lily_msgbuf.h"
-#include "lily_syminfo.h"
+#include "lily_core_types.h"
 #include "lily_opcode.h"
 #include "lily_vm.h"
 

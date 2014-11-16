@@ -1,7 +1,7 @@
 #ifndef LILY_BIND_H
 # define LILY_BIND_H
 
-# include "lily_syminfo.h"
+# include "lily_core_types.h"
 # include "lily_symtab.h"
 
 lily_value *lily_bind_string(lily_symtab *, const char *);

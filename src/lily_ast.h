@@ -2,7 +2,7 @@
 # define LILY_AST_H
 
 # include "lily_raiser.h"
-# include "lily_syminfo.h"
+# include "lily_core_types.h"
 # include "lily_expr_op.h"
 
 typedef enum {
