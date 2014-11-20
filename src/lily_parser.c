@@ -88,11 +88,16 @@ lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
 
     parser->vm->main = parser->symtab->main_var;
     parser->vm->symtab = parser->symtab;
+
     parser->symtab->lex_linenum = &parser->lex->line_num;
+
     parser->ast_pool->lex_linenum = &parser->lex->line_num;
+
     parser->emit->lex_linenum = &parser->lex->line_num;
     parser->emit->symtab = parser->symtab;
     parser->emit->oo_name_pool = parser->ast_pool->oo_name_pool;
+
+    parser->lex->symtab = parser->symtab;
 
     /* When declaring a new function, initially give it the same signature as
        __main__. This ensures that, should building the proper sig fail, the
@@ -794,13 +799,7 @@ static void maybe_digit_fixup(lily_parse_state *parser, int *did_fixup)
            a proper new token. */
         lily_lexer_digit_rescan(lex);
 
-        lily_literal *lit;
-        if (lex->token == tk_integer)
-            lit = lily_get_integer_literal(symtab, lex->value.integer);
-        else
-            lit = lily_get_double_literal(symtab, lex->value.doubleval);
-
-        lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
+        lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lex->last_literal);
         *did_fixup = 1;
     }
     else
@@ -811,9 +810,7 @@ static void maybe_digit_fixup(lily_parse_state *parser, int *did_fixup)
     This handles all literals: integer, double, and string. */
 static void expression_literal(lily_parse_state *parser, int *state)
 {
-    lily_literal *lit;
     lily_lex_state *lex = parser->lex;
-    lily_symtab *symtab = parser->symtab;
     lily_token token = parser->lex->token;
 
     if (*state == ST_WANT_OPERATOR && token != tk_double_quote) {
@@ -823,16 +820,7 @@ static void expression_literal(lily_parse_state *parser, int *state)
             *state = ST_DONE;
     }
     else {
-        if (token == tk_double_quote)
-            lit = lily_get_string_literal(symtab, lex->label);
-        else if (token == tk_integer)
-            lit = lily_get_integer_literal(symtab, lex->value.integer);
-        else if (token == tk_double)
-            lit = lily_get_double_literal(symtab, lex->value.doubleval);
-        else
-            lit = NULL;
-
-        lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
+        lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lex->last_literal);
         *state = ST_WANT_OPERATOR;
     }
 }

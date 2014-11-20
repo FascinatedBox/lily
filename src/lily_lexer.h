@@ -4,7 +4,7 @@
 # include <stdio.h>
 
 # include "lily_raiser.h"
-# include "lily_core_types.h"
+# include "lily_symtab.h"
 
 typedef enum {
     tk_left_parenth,
@@ -115,7 +115,11 @@ typedef struct lily_lex_state_t {
     int last_digit_start;
     lily_token token;
     lily_lex_mode mode;
-    lily_raw_value value;
+
+    /* When the lexer sees a numeric or string literal, it calls the symtab to
+       make a literal value. Said value is stored here, for the parser to use. */
+    lily_literal *last_literal;
+    lily_symtab *symtab;
     lily_raiser *raiser;
     void *data;
 } lily_lex_state;

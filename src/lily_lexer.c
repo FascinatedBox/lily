@@ -795,6 +795,9 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
                 lily_raise(lexer->raiser, lily_SyntaxError,
                            "Integer value is too large.\n");
         }
+
+        lexer->last_literal = lily_get_integer_literal(lexer->symtab,
+                yield_val.integer);
         *tok = tk_integer;
     }
     /* Not an integer, so use strtod to try converting it to a double so it can
@@ -814,11 +817,12 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
         }
 
         yield_val.doubleval = double_result;
+        lexer->last_literal = lily_get_double_literal(lexer->symtab,
+                yield_val.doubleval);
         *tok = tk_double;
     }
 
     *pos = num_pos;
-    lexer->value = yield_val;
 }
 
 /* scan_multiline_comment
@@ -1029,8 +1033,8 @@ static void scan_string(lily_lex_state *lexer, int *pos, char *new_ch)
     else
         label[label_pos] = '\0';
 
-    word_pos++;
-    *pos = word_pos;
+    lexer->last_literal = lily_get_string_literal(lexer->symtab, label);
+    *pos = word_pos + 1;
 }
 
 /*  lily_lexer_digit_rescan
