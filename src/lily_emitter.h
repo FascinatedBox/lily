@@ -21,6 +21,9 @@ typedef struct lily_block_ {
     struct lily_block_ *prev;
 } lily_block;
 
+/* This is used by the emitter to do dynamic loads (ex: "abc".concat(...)). */
+struct lily_parse_state_t;
+
 typedef struct {
     int *patches;
     int patch_pos;
@@ -50,6 +53,7 @@ typedef struct {
     int function_depth;
     lily_raiser *raiser;
     lily_ast_str_pool *oo_name_pool;
+    struct lily_parse_state_t *parser;
     lily_symtab *symtab;
     int expr_num;
 } lily_emit_state;

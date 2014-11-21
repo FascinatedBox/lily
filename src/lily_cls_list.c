@@ -86,29 +86,13 @@ void lily_list_apply(lily_vm_state *vm, lily_function_val *self,
 }
 
 static lily_func_seed apply =
-    {"apply", lily_list_apply, NULL,
-        {SYM_CLASS_FUNCTION, 3, 0,
-            -1,
-            SYM_CLASS_LIST, SYM_CLASS_TEMPLATE, 0,
-            SYM_CLASS_FUNCTION, 2, 0,
-                SYM_CLASS_TEMPLATE, 0,
-                SYM_CLASS_TEMPLATE, 0
-        }
-    };
-
+    {"apply", "function apply[A](list[A], function(A => A))", lily_list_apply, NULL};
 
 static const lily_func_seed append =
-    {"append", lily_list_append, &apply,
-        {SYM_CLASS_FUNCTION, 3, 0,
-            -1,
-            SYM_CLASS_LIST, SYM_CLASS_TEMPLATE, 0,
-            SYM_CLASS_TEMPLATE, 0
-        }
-    };
+    {"append", "function append[A](list[A], A)", lily_list_append, &apply};
 
 static const lily_func_seed size =
-    {"size", lily_list_size, &append,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_LIST, SYM_CLASS_TEMPLATE, 0}};
+    {"size", "function size[A](list[A] => integer)", lily_list_size, &append};
 
 #define SEED_START size
 

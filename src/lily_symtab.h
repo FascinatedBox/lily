@@ -68,6 +68,9 @@ lily_literal *lily_get_string_literal(lily_symtab *, char *);
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, const char *);
 lily_var *lily_find_class_callable(lily_symtab *, lily_class *, char *);
+const lily_func_seed *lily_find_class_call_seed(lily_symtab *, lily_class *,
+        char *);
+const lily_func_seed *lily_get_global_seed_chain();
 lily_prop_entry *lily_find_property(lily_symtab *, lily_class *, char *);
 
 lily_var *lily_try_new_var(lily_symtab *, lily_sig *, char *, int);

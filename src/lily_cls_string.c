@@ -875,64 +875,49 @@ void lily_string_htmlencode(lily_vm_state *vm, lily_function_val *self,
 }
 
 static const lily_func_seed htmlencode =
-    {"htmlencode", lily_string_htmlencode, NULL,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STRING, SYM_CLASS_STRING}};
+    {"htmlencode", "function htmlencode(string => string)", lily_string_htmlencode, NULL};
 
 static const lily_func_seed trim =
-    {"trim", lily_string_trim, &htmlencode,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STRING, SYM_CLASS_STRING}};
+    {"trim", "function trim(string => string)", lily_string_trim, &htmlencode};
 
 static const lily_func_seed strip =
-    {"strip", lily_string_strip, &trim,
-        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STRING, SYM_CLASS_STRING, SYM_CLASS_STRING}};
+    {"strip", "function strip(string, string => string)", lily_string_strip, &trim};
 
 static const lily_func_seed find =
-    {"find", lily_string_find, &strip,
-        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_INTEGER, SYM_CLASS_STRING, SYM_CLASS_STRING}};
+    {"find", "function find(string, string => integer)", lily_string_find, &strip};
 
 static const lily_func_seed upper =
-    {"upper", lily_string_upper, &find,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STRING, SYM_CLASS_STRING}};
+    {"upper", "function upper(string => string)", lily_string_upper, &find};
 
 static const lily_func_seed lower =
-    {"lower", lily_string_lower, &upper,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STRING, SYM_CLASS_STRING}};
+    {"lower", "function lower(string => string)", lily_string_lower, &upper};
 
 static const lily_func_seed endswith =
-    {"endswith", lily_string_endswith, &lower,
-        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_INTEGER, SYM_CLASS_STRING, SYM_CLASS_STRING}};
+    {"endswith", "function endswith(string, string => integer)", lily_string_endswith, &lower};
 
 static const lily_func_seed rstrip =
-    {"rstrip", lily_string_rstrip, &endswith,
-        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STRING, SYM_CLASS_STRING, SYM_CLASS_STRING}};
+    {"rstrip", "function rstrip(string, string => string)", lily_string_rstrip, &endswith};
 
 static const lily_func_seed startswith =
-    {"startswith", lily_string_startswith, &rstrip,
-        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_INTEGER, SYM_CLASS_STRING, SYM_CLASS_STRING}};
+    {"startswith", "function startswith(string, string => integer)", lily_string_startswith, &rstrip};
 
 static const lily_func_seed lstrip =
-    {"lstrip", lily_string_lstrip, &startswith,
-        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STRING, SYM_CLASS_STRING, SYM_CLASS_STRING}};
+    {"lstrip", "function lstrip(string, string => string)", lily_string_lstrip, &startswith};
 
 static const lily_func_seed isalnum_fn =
-    {"isalnum", lily_string_isalnum, &lstrip,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_STRING}};
+    {"isalnum", "function isalnum(string => integer)", lily_string_isalnum, &lstrip};
 
 static const lily_func_seed isdigit_fn =
-    {"isdigit", lily_string_isdigit, &isalnum_fn,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_STRING}};
+    {"isdigit", "function isdigit(string => integer)", lily_string_isdigit, &isalnum_fn};
 
 static const lily_func_seed isalpha_fn =
-    {"isalpha", lily_string_isalpha, &isdigit_fn,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_STRING}};
+    {"isalpha", "function isalpha(string => integer)", lily_string_isalpha, &isdigit_fn};
 
 static const lily_func_seed isspace_fn =
-    {"isspace", lily_string_isspace, &isalpha_fn,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INTEGER, SYM_CLASS_STRING}};
+    {"isspace", "function isspace(string => integer)", lily_string_isspace, &isalpha_fn};
 
 static const lily_func_seed concat =
-    {"concat", lily_string_concat, &isspace_fn,
-        {SYM_CLASS_FUNCTION, 3, 0, SYM_CLASS_STRING, SYM_CLASS_STRING, SYM_CLASS_STRING}};
+    {"concat", "function concat(string, string => string)", lily_string_concat, &isspace_fn};
 
 #define SEED_START concat
 

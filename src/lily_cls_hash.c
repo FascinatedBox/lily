@@ -31,22 +31,8 @@ void lily_hash_get(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
     lily_assign_value(vm, result, new_value);
 }
 
-/* Hashes have two template paramaters:
-   * The key (K) is 0.
-   * The value (V) is 1. */
 static const lily_func_seed get =
-    {"get", lily_hash_get, NULL,
-        {SYM_CLASS_FUNCTION, 4, 0,
-            /* Returns 'V' */
-            SYM_CLASS_TEMPLATE, 1,
-            /* Input: Hash[K, V] (any hash). */
-            SYM_CLASS_HASH, SYM_CLASS_TEMPLATE, 0, SYM_CLASS_TEMPLATE, 1,
-            /* Locate: K */
-            SYM_CLASS_TEMPLATE, 0,
-            /* Default: V*/
-            SYM_CLASS_TEMPLATE, 1
-        }
-    };
+    {"get", "function get[A, B](hash[A, B], A, B => B)", lily_hash_get, NULL};
 
 #define SEED_START get
 

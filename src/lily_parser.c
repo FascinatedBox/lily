@@ -4,6 +4,7 @@
 #include "lily_parser.h"
 #include "lily_parser_tok_table.h"
 #include "lily_pkg_sys.h"
+#include "lily_value.h"
 
 /** Parser is responsible for:
     * Creating all other major structures (ast pool, emitter, lexer, etc.)
@@ -96,6 +97,7 @@ lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
     parser->emit->lex_linenum = &parser->lex->line_num;
     parser->emit->symtab = parser->symtab;
     parser->emit->oo_name_pool = parser->ast_pool->oo_name_pool;
+    parser->emit->parser = parser;
 
     parser->lex->symtab = parser->symtab;
 
@@ -503,6 +505,64 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
     return result;
 }
 
+static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
+        lily_foreign_func foreign_func)
+{
+    lily_var *save_var_top = parser->symtab->var_chain;
+    lily_lex_state *lex = parser->lex;
+    NEED_CURRENT_TOK(tk_word)
+    lily_lexer(lex);
+
+    lily_sig *call_sig = parser->default_call_sig;
+    int save_generics = parser->emit->current_block->generic_count;
+    int generics_used;
+
+    char *class_name = NULL;
+    if (cls)
+        class_name = cls->name;
+
+    lily_var *call_var = get_named_var(parser, call_sig, VAR_IS_READONLY);
+    call_var->parent = cls;
+    call_var->value.function = lily_try_new_foreign_function_val(foreign_func,
+            class_name, call_var->name);
+
+    if (call_var->value.function == NULL)
+        lily_raise_nomem(parser->raiser);
+
+    call_var->flags &= ~VAL_IS_NIL;
+
+    if (parser->lex->token == tk_left_bracket)
+        generics_used = collect_generics(parser);
+    else
+        generics_used = 0;
+
+    lily_class *function_cls = lily_class_by_id(parser->symtab, SYM_CLASS_FUNCTION);
+
+    NEED_CURRENT_TOK(tk_left_parenth)
+    lily_lexer(lex);
+
+    lily_update_symtab_generics(parser->symtab, NULL, generics_used);
+    call_sig = inner_type_collector(parser, function_cls, 0);
+    call_var->sig = call_sig;
+    lily_update_symtab_generics(parser->symtab, NULL, save_generics);
+    lily_lexer(lex);
+
+    if (cls) {
+        if (cls->call_start == NULL) {
+            cls->call_start = call_var;
+            cls->call_top = call_var;
+        }
+        else {
+            cls->call_top->next = call_var;
+            cls->call_top = cls->call_top->next;
+        }
+        call_var->next = NULL;
+        parser->symtab->var_chain = save_var_top;
+    }
+
+    return call_var;
+}
+
 /*  parse_function
     This is called to parse class declarations (which are just functions that
     become a class) and toplevel functions (functions not a parameter inside
@@ -589,9 +649,12 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
     NEED_NEXT_TOK(tk_word)
 
     lily_var *v = lily_find_class_callable(parser->symtab, cls, lex->label);
-    if (v == NULL)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "%s::%s does not exist.\n", cls->name, lex->label);
+    if (v == NULL) {
+        v = lily_parser_dynamic_load(parser, cls, lex->label);
+        if (v == NULL)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "%s::%s does not exist.\n", cls->name, lex->label);
+    }
 
     lily_ast_push_readonly(parser->ast_pool, (lily_sym *) v);
 }
@@ -787,7 +850,6 @@ static void maybe_digit_fixup(lily_parse_state *parser, int *did_fixup)
 
     if (ch == '-' || ch == '+') {
         int expr_op;
-        lily_symtab *symtab = parser->symtab;
 
         if (ch == '-')
             expr_op = parser_tok_table[tk_minus].expr_op;
@@ -1749,12 +1811,27 @@ static void var_handler(lily_parse_state *parser, int multi)
     parse_decl(parser, NULL);
 }
 
+static void do_bootstrap(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    const lily_func_seed *global_seed = lily_get_global_seed_chain();
+    while (global_seed) {
+        lily_load_str(lex, lm_no_tags, global_seed->func_definition);
+        lily_lexer(lex);
+        parse_prototype(parser, NULL, global_seed->func);
+        global_seed = global_seed->next;
+    }
+}
+
 /*  parser_loop
     This is the main parsing function. This is called by a lily_parse_*
     function which will set the raiser and give the lexer a file before calling
     this function. */
 static void parser_loop(lily_parse_state *parser)
 {
+    if (parser->mode == pm_init)
+        do_bootstrap(parser);
+
     /* Must do this first, in the rare case this next call fails. */
     parser->mode = pm_parse;
 
@@ -1819,6 +1896,26 @@ static void parser_loop(lily_parse_state *parser)
 /*****************************************************************************/
 /* Exported API                                                              */
 /*****************************************************************************/
+
+lily_var *lily_parser_dynamic_load(lily_parse_state *parser, lily_class *cls,
+        char *name)
+{
+    lily_lex_state *lex = parser->lex;
+    const lily_func_seed *seed = lily_find_class_call_seed(parser->symtab,
+            cls, name);
+
+    lily_var *ret;
+
+    if (seed != NULL) {
+        lily_load_str(lex, lm_no_tags, seed->func_definition);
+        lily_lexer(lex);
+        ret = parse_prototype(parser, cls, seed->func);
+    }
+    else
+        ret = NULL;
+
+    return ret;
+}
 
 /*  lily_parse_file
     This function starts parsing from a file indicated by the given filename.
