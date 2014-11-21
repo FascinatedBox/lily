@@ -146,7 +146,6 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser, void *data)
 
     lex->last_digit_start = 0;
     lex->entry = NULL;
-    lex->hit_eof = 0;
     lex->filename = NULL;
     lex->raiser = raiser;
     lex->data = data;
@@ -380,16 +379,14 @@ static int file_read_line_fn(lily_lex_entry *entry)
             lexer->input_buffer[i + 1] = '\0';
             lexer->input_end = i + 1;
             /* If i is 0, then nothing is on this line except eof. Return 0 to
-               let the caller know this is the end.
-             * If it isn't, then there's stuff with an unexpected eof at the
-               end. Return 1, then 0 the next time. */
+               let the caller know this is the end. Don't bump the line number
+               because it's already been counted.
+
+             * If it isn't 0, then the last line ended with an eof instead of a
+               newline. Return 1 to let the caller know that there's more. The
+               line number is also bumped (since a line has been scanned in). */
             ok = !!i;
-            /* Make sure the second eof found does not increment the line
-               number again. */
-            if (lexer->hit_eof == 0) {
-                lexer->line_num++;
-                lexer->hit_eof = 1;
-            }
+            lexer->line_num += ok;
             break;
         }
 
@@ -453,16 +450,14 @@ static int str_read_line_fn(lily_lex_entry *entry)
             lexer->input_buffer[i + 1] = '\0';
             lexer->input_end = i + 1;
             /* If i is 0, then nothing is on this line except eof. Return 0 to
-               let the caller know this is the end.
-             * If it isn't, then there's stuff with an unexpected eof at the
-               end. Return 1, then 0 the next time. */
+               let the caller know this is the end. Don't bump the line number
+               because it's already been counted.
+
+             * If it isn't 0, then the last line ended with an eof instead of a
+               newline. Return 1 to let the caller know that there's more. The
+               line number is also bumped (since a line has been scanned in). */
             ok = !!i;
-            /* Make sure the second eof found does not increment the line
-               number again. */
-            if (lexer->hit_eof == 0) {
-                lexer->line_num++;
-                lexer->hit_eof = 1;
-            }
+            lexer->line_num += ok;
             break;
         }
 
