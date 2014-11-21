@@ -14,7 +14,7 @@ typedef enum {
     pm_execute
 } lily_parse_mode;
 
-typedef struct {
+typedef struct lily_parse_state_t {
     lily_sig **sig_stack;
     int sig_stack_pos;
     int sig_stack_size;
@@ -32,6 +32,7 @@ typedef struct {
     lily_parse_mode mode;
 } lily_parse_state;
 
+lily_var *lily_parser_dynamic_load(lily_parse_state *, lily_class *, char *);
 void lily_free_parse_state(lily_parse_state *);
 lily_parse_state *lily_new_parse_state(void *, int, char **);
 int lily_parse_file(lily_parse_state *, lily_lex_mode, char *);

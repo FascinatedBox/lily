@@ -276,18 +276,14 @@ void lily_builtin_printfmt(lily_vm_state *, lily_function_val *, uint16_t *);
 void lily_builtin_calltrace(lily_vm_state *, lily_function_val *, uint16_t *);
 
 static const lily_func_seed calltrace = 
-    {"calltrace", lily_builtin_calltrace, NULL,
-        {SYM_CLASS_FUNCTION, 1, 0,
-            SYM_CLASS_LIST, SYM_CLASS_TUPLE, 2, SYM_CLASS_STRING, SYM_CLASS_INTEGER}};
+    {"calltrace", "function calltrace( => list[tuple[string, integer]])", lily_builtin_calltrace, NULL};
 static const lily_func_seed show =
-    {"show", lily_builtin_show, &calltrace,
-        {SYM_CLASS_FUNCTION, 2, 0, -1, SYM_CLASS_TEMPLATE, 0}};
+    {"show", "function show[A](A)", lily_builtin_show, &calltrace};
 static const lily_func_seed print =
-    {"print", lily_builtin_print, &show,
-        {SYM_CLASS_FUNCTION, 2, 0, -1, SYM_CLASS_STRING}};
+    {"print", "function print(string)", lily_builtin_print, &show};
 static const lily_func_seed printfmt =
-    {"printfmt", lily_builtin_printfmt, &print,
-        {SYM_CLASS_FUNCTION, 3, SIG_IS_VARARGS, -1, SYM_CLASS_STRING, SYM_CLASS_LIST, SYM_CLASS_ANY}};
+    {"printfmt", "function printfmt(string, list[any]...)", lily_builtin_printfmt, &print};
+
 /* This must always be set to the last func seed defined here. */
 #define GLOBAL_SEED_START printfmt
 

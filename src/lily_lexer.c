@@ -152,6 +152,7 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser, void *data)
     lex->input_buffer = lily_malloc(128 * sizeof(char));
     lex->label = lily_malloc(128 * sizeof(char));
     lex->ch_class = NULL;
+    lex->last_literal = NULL;
     ch_class = lily_malloc(256 * sizeof(char));
 
     if (ch_class == NULL || lex->label == NULL || lex->input_buffer == NULL) {
@@ -285,30 +286,33 @@ static lily_lex_entry *get_entry(lily_lex_state *lex)
 
     if (ret_entry->prev) {
         lily_lex_entry *prev_entry = ret_entry->prev;
-        char *new_buffer;
+        char *new_input;
         /* size + 1 isn't needed here because the input buffer's size includes
            space for the \0. */
         if (prev_entry->saved_input == NULL)
-            new_buffer = lily_malloc(lex->input_size);
+            new_input = lily_malloc(lex->input_size);
         else if (prev_entry->saved_input_size < lex->input_size)
-            new_buffer = lily_realloc(prev_entry->saved_input, lex->input_size);
+            new_input = lily_realloc(prev_entry->saved_input, lex->input_size);
         else
-            new_buffer = prev_entry->saved_input;
+            new_input = prev_entry->saved_input;
 
-        if (new_buffer == NULL)
+        if (new_input == NULL)
             lily_raise_nomem(lex->raiser);
 
-        strcpy(new_buffer, lex->input_buffer);
-        prev_entry->saved_input = new_buffer;
+        strcpy(new_input, lex->input_buffer);
+        prev_entry->saved_input = new_input;
         prev_entry->saved_line_num = lex->line_num;
         prev_entry->saved_input_pos = lex->input_pos;
         prev_entry->saved_input_size = lex->input_size;
         prev_entry->saved_input_end = lex->input_end;
+        prev_entry->filename = lex->filename;
+        prev_entry->saved_token = lex->token;
+        prev_entry->saved_last_literal = lex->last_literal;
 
         lex->line_num = 0;
-        lex->input_pos = 0;
     }
 
+    lex->input_pos = 0;
     lex->entry = ret_entry;
 
     return ret_entry;
@@ -333,14 +337,29 @@ static lily_token leave_entry(lily_lex_state *lex)
         entry = entry->prev;
 
         strcpy(lex->input_buffer, entry->saved_input);
+
         lex->line_num = entry->saved_line_num;
         lex->input_pos = entry->saved_input_pos;
         /* The lexer's input buffer may have been resized by the entered file.
            Do NOT restore lex->input_size here. Ever. */
         lex->input_end = entry->saved_input_end;
-
+        lex->filename = entry->filename;
         lex->entry = entry;
-        token = tk_inner_eof;
+        lex->last_literal = entry->saved_last_literal;
+
+        token = entry->saved_token;
+        /* lex->label has almost certainly been overwritten with something
+           else. Restore it by rolling back and calling for a rescan. */
+        if (token == tk_word) {
+            int pos = lex->input_pos - 1;
+            char ch = lex->input_buffer[pos];
+            while (ident_table[(unsigned int)ch] && pos != 0) {
+                pos--;
+                ch = lex->input_buffer[pos];
+            }
+            lex->input_pos = pos;
+            lily_lexer(lex);
+        }
     }
     else
         token = tk_final_eof;
@@ -1494,6 +1513,7 @@ void lily_lexer(lily_lex_state *lexer)
 
         lexer->input_pos = input_pos;
         lexer->token = token;
+
         return;
     }
 }

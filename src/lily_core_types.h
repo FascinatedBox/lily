@@ -375,9 +375,9 @@ typedef struct lily_register_info_t {
 /* This holds all the information necessary to make a new Lily function. */
 typedef struct lily_func_seed_t {
     char *name;
+    char *func_definition;
     lily_foreign_func func;
     const struct lily_func_seed_t *next;
-    int arg_ids[];
 } lily_func_seed;
 
 /* This is used for seeding new properties. */

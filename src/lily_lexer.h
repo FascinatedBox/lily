@@ -90,6 +90,9 @@ typedef struct lily_lex_entry_t {
     int saved_input_pos;
     int saved_input_size;
     int saved_input_end;
+    lily_token saved_token;
+    lily_literal *saved_last_literal;
+    int saved_hit_eof;
 
     uint16_t saved_line_num;
 

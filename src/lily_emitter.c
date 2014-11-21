@@ -6,6 +6,7 @@
 #include "lily_emitter.h"
 #include "lily_opcode.h"
 #include "lily_emit_table.h"
+#include "lily_parser.h"
 
 /** Emitter is responsible for:
     * Taking in an ast and generating code that the vm/debug can work with.
@@ -2554,6 +2555,10 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
     char *oo_name = emit->oo_name_pool->str + ast->oo_pool_index;
     lily_var *var = lily_find_class_callable(emit->symtab,
             lookup_class, oo_name);
+
+    /* Is this an attempt to access a property that hasn't been loaded yet? */
+    if (var == NULL)
+        var = lily_parser_dynamic_load(emit->parser, lookup_class, oo_name);
 
     if (var)
         ast->result = (lily_sym *)var;

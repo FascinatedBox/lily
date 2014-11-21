@@ -424,40 +424,6 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
     return ret;
 }
 
-/*  init_func_seed
-    This uses scan_seed_arg to create a new function value. This is used to
-    make space for new functions.
-
-    On success: Returns the newly created var.
-    On failure: Returns NULL. */
-static lily_var *init_func_seed(lily_symtab *symtab,
-        lily_class *cls, const lily_func_seed *seed)
-{
-    lily_var *ret = NULL;
-    char *cls_name;
-    if (cls)
-        cls_name = cls->name;
-    else
-        cls_name = NULL;
-
-    int ok = 1, pos = 0;
-    lily_sig *new_sig = scan_seed_arg(symtab, seed->arg_ids, &pos, &ok);
-    if (new_sig != NULL) {
-        ret = lily_try_new_var(symtab, new_sig, seed->name, VAR_IS_READONLY);
-
-        if (ret != NULL) {
-            ret->parent = cls;
-            ret->value.function = lily_try_new_foreign_function_val(seed->func,
-                    cls_name, seed->name);
-
-            if (ret->value.function != NULL)
-                ret->flags &= ~(VAL_IS_NIL);
-        }
-    }
-
-    return ret;
-}
-
 /*  init_prop_seeds
     This takes a series of "property seeds" for a given class and creates space
     in the class to hold those values. It also specifies where those values will
@@ -513,7 +479,7 @@ static int init_prop_seeds(lily_symtab *symtab, lily_class *cls,
 /*****************************************************************************/
 
 /*  call_setups
-    Symtab init, stage 5
+    Symtab init, stage 4
     This calls the setup func of any class that has one. This is reponsible for
     setting up the seed_table of the class, and possibly more in the future. */
 static int call_class_setups(lily_symtab *symtab)
@@ -528,34 +494,6 @@ static int call_class_setups(lily_symtab *symtab)
         }
 
         class_iter = class_iter->next;
-    }
-
-    return ret;
-}
-
-/*  read_global_seeds
-    Symtab init, stage 4
-    This initializes Lily's builtin functions through init_func_seed which
-    automatically adds the seeds to var_chain where they should be (since they're
-    globals).
-    All global functions are always loaded because the seeds don't have a
-    shorthash, and seeds can't be modified either. So lily_var_by_name would
-    end up doing a lot of unnecessary name comparisons for each new var. */
-static int read_global_seeds(lily_symtab *symtab)
-{
-    int ret;
-    const lily_func_seed *seed_iter;
-
-    ret = 1;
-
-    for (seed_iter = &GLOBAL_SEED_START;
-         seed_iter != NULL;
-         seed_iter = seed_iter->next) {
-
-        if (init_func_seed(symtab, NULL, seed_iter) == NULL) {
-            ret = 0;
-            break;
-        }
     }
 
     return ret;
@@ -728,7 +666,7 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
     symtab->old_class_chain = NULL;
 
     if (!init_classes(symtab) || !init_lily_main(symtab) ||
-        !read_global_seeds(symtab) || !call_class_setups(symtab)) {
+        !call_class_setups(symtab)) {
         /* First vars created, if any... */
         lily_free_symtab_lits_and_vars(symtab);
         /* then delete the symtab. */
@@ -1100,37 +1038,29 @@ lily_var *lily_find_class_callable(lily_symtab *symtab, lily_class *cls,
             break;
     }
 
-    /* Maybe it's something that hasn't been loaded in the symtab yet. */
-    if (iter == NULL && cls->seed_table != NULL) {
-        const lily_func_seed *seed = cls->seed_table;
-        while (seed) {
-            if (strcmp(seed->name, name) == 0) {
-                iter = init_func_seed(symtab, cls, seed);
-                if (iter == NULL)
-                    lily_raise_nomem(symtab->raiser);
-                else {
-                    /* It was added to symtab->var_chain, so pull it from
-                       there and add it to class callables. */
-                    if (cls->call_start == NULL)
-                        cls->call_start = iter;
+    return iter;
+}
 
-                    if (cls->call_top != NULL)
-                        cls->call_top->next = iter;
-
-                    cls->call_top = iter;
-
-                    /* This is a builtin, so fix the line number to 0. */
-                    iter->line_num = 0;
-                    symtab->var_chain = symtab->var_chain->next;
-                    iter->next = NULL;
-                }
+const lily_func_seed *lily_find_class_call_seed(lily_symtab *symtab,
+        lily_class *cls, char *name)
+{
+    const lily_func_seed *seed_iter = NULL;
+    if (cls->seed_table) {
+        seed_iter = cls->seed_table;
+        while (seed_iter != NULL) {
+            if (strcmp(seed_iter->name, name) == 0)
                 break;
-            }
-            seed = seed->next;
+
+            seed_iter = seed_iter->next;
         }
     }
 
-    return iter;
+    return seed_iter;
+}
+
+const lily_func_seed *lily_get_global_seed_chain()
+{
+    return &GLOBAL_SEED_START;
 }
 
 /*  lily_find_property

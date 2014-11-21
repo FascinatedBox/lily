@@ -59,40 +59,31 @@ void lily_error_new(lily_vm_state *vm, lily_function_val *self,
 }
 
 static const lily_func_seed nomemory_new =
-    {"new", lily_error_new, NULL,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_NOMEMORYERROR, SYM_CLASS_STRING}};
+    {"new", "function new(string => NoMemoryError)", lily_error_new, NULL};
 
 static const lily_func_seed dbz_new =
-    {"new", lily_error_new, NULL,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_DBZERROR, SYM_CLASS_STRING}};
+    {"new", "function new(string => DivisionByZeroError)", lily_error_new, NULL};
 
 static const lily_func_seed index_new =
-    {"new", lily_error_new, NULL,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_INDEXERROR, SYM_CLASS_STRING}};
+    {"new", "function new(string => IndexError)", lily_error_new, NULL};
 
 static const lily_func_seed badtc_new =
-    {"new", lily_error_new, NULL,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_BADTCERROR, SYM_CLASS_STRING}};
+    {"new", "function new(string => BadTypecastError)", lily_error_new, NULL};
 
 static const lily_func_seed noreturn_new =
-    {"new", lily_error_new, NULL,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_NORETURNERROR, SYM_CLASS_STRING}};
+    {"new", "function new(string => NoReturnError)", lily_error_new, NULL};
 
 static const lily_func_seed value_new =
-    {"new", lily_error_new, NULL,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_VALUEERROR, SYM_CLASS_STRING}};
+    {"new", "function new(string => ValueError)", lily_error_new, NULL};
 
 static const lily_func_seed recursion_new =
-    {"new", lily_error_new, NULL,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_RECURSIONERROR, SYM_CLASS_STRING}};
+    {"new", "function new(string => RecursionError)", lily_error_new, NULL};
 
 static const lily_func_seed key_new =
-    {"new", lily_error_new, NULL,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_KEYERROR, SYM_CLASS_STRING}};
+    {"new", "function new(string => KeyError)", lily_error_new, NULL};
 
 static const lily_func_seed format_new =
-    {"new", lily_error_new, NULL,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_FORMATERROR, SYM_CLASS_STRING}};
+    {"new", "function new(string => FormatError)", lily_error_new, NULL};
 
 int lily_error_setup(lily_class *cls)
 {

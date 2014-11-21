@@ -38,8 +38,7 @@ void lily_integer_to_string(lily_vm_state *vm, lily_function_val *self,
 }
 
 static const lily_func_seed to_string =
-    {"to_string", lily_integer_to_string, NULL,
-        {SYM_CLASS_FUNCTION, 2, 0, SYM_CLASS_STRING, SYM_CLASS_INTEGER}};
+    {"to_string", "function to_string(integer => string)", lily_integer_to_string, NULL};
 
 int lily_integer_setup(lily_class *cls)
 {
