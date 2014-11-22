@@ -49,6 +49,29 @@ int allowed_allocs = 0;
 if (aft_options & OPT_SHOW_ALLOC_INFO) \
     fprintf(stderr, message, args);
 
+static aft_entry *make_entry(char *filename, int line)
+{
+    aft_entry *entry = malloc(sizeof(aft_entry));
+    if (entry == NULL) {
+        fprintf(stderr, "[aft]: fatal: Out of memory for aft_entry.\n");
+        exit(EXIT_FAILURE);
+    }
+    entry->filename = filename;
+    entry->line = line;
+    entry->block = NULL;
+    entry->next = NULL;
+    entry->status = ST_ALLOCATED;
+
+    if (start == NULL)
+        start = entry;
+
+    if (end != NULL)
+        end->next = entry;
+
+    end = entry;
+    return entry;
+}
+
 void *aft_malloc(char *filename, int line, size_t size)
 {
     /* Always show rejections. Sometimes, there might be multiple ones from
@@ -67,24 +90,10 @@ void *aft_malloc(char *filename, int line, size_t size)
                 filename, line, size);
         exit(EXIT_FAILURE);
     }
-    aft_entry *entry = malloc(sizeof(aft_entry));
-    if (entry == NULL) {
-        fprintf(stderr, "[aft]: fatal: Out of memory for aft_entry.\n");
-        exit(EXIT_FAILURE);
-    }
-    entry->filename = filename;
-    entry->line = line;
+
+    aft_entry *entry = make_entry(filename, line);
     entry->block = block;
-    entry->next = NULL;
-    entry->status = ST_ALLOCATED;
 
-    if (start == NULL)
-        start = entry;
-
-    if (end != NULL)
-        end->next = entry;
-
-    end = entry;
     /* Make this optional, since it can get -very- verbose. */
     if (aft_options & OPT_SHOW_ALLOC_INFO)
         fprintf(stderr, "[aft]: malloc #%d (%p) via %s:%d for size %lu OK.\n",
@@ -122,11 +131,17 @@ void *aft_realloc(char *filename, int line, void *oldptr, size_t newsize)
     search = result;
 
     if (search == NULL) {
-        fprintf(stderr, "[aft]: warning: realloc #%d via %s:%d has foreign oldptr!\n",
-                count_reallocs, filename, line);
+        /* The C standard allows for a realloc of NULL. */
+        if (oldptr == NULL)
+            search = make_entry(filename, line);
+        else {
+            fprintf(stderr,
+                    "[aft]: warning: realloc #%d via %s:%d has foreign oldptr!\n",
+                    count_reallocs, filename, line);
 
-        warning_count++;
-        return NULL;
+            warning_count++;
+            return NULL;
+        }
     }
 
     if (search->status == ST_DELETED) {
@@ -146,6 +161,12 @@ void *aft_realloc(char *filename, int line, void *oldptr, size_t newsize)
 
     LOG("[aft]: realloc #%d via %s:%d OK. Result is %p.\n",
         count_reallocs + 1, filename, line, search->block);
+
+    /* In this case, the realloc is acting like malloc and adding a new block
+       that will need to be free'd. */
+    if (oldptr == NULL)
+        malloc_count++;
+
     count_reallocs++;
     return search->block;
 }
