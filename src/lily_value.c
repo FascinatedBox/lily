@@ -20,10 +20,6 @@ void lily_deref_hash_val(lily_sig *sig, lily_hash_val *hv)
             if ((elem_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
                 value_is_refcounted)
                 lily_deref_unknown_val(elem_value);
-            else if (value_cls_id == SYM_CLASS_ANY) {
-                lily_any_val *av = elem_value->value.any;
-                lily_free(av);
-            }
 
             save_next = elem->next;
             if (elem->elem_key->sig->cls->is_refcounted &&
