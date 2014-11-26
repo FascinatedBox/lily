@@ -55,7 +55,8 @@ typedef struct {
 #define KEY_RAISE       15
 #define KEY_CLASS       16
 #define KEY_VAR         17
-#define KEY_LAST_ID     17
+#define KEY_ENUM        18
+#define KEY_LAST_ID     18
 
 lily_symtab *lily_new_symtab(lily_raiser *);
 void lily_free_symtab_lits_and_vars(lily_symtab *);
@@ -83,6 +84,7 @@ int lily_keyword_by_name(char *);
 lily_sig *lily_try_sig_for_class(lily_symtab *, lily_class *);
 lily_sig *lily_try_sig_from_ids(lily_symtab *, const int *);
 lily_sig *lily_build_ensure_sig(lily_symtab *, lily_class *, int, lily_sig **, int, int);
+void lily_update_enum_class(lily_symtab *, lily_class *, lily_sig **, int);
 
 void lily_hide_block_vars(lily_symtab *, lily_var *);
 int lily_check_right_inherits_or_is(lily_class *, lily_class *);

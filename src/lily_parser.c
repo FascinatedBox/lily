@@ -1237,6 +1237,7 @@ static void except_handler(lily_parse_state *, int);
 static void raise_handler(lily_parse_state *, int);
 static void class_handler(lily_parse_state *, int);
 static void var_handler(lily_parse_state *, int);
+static void enum_handler(lily_parse_state *, int);
 
 typedef void (keyword_handler)(lily_parse_state *, int);
 
@@ -1259,7 +1260,8 @@ static keyword_handler *handlers[] = {
     except_handler,
     raise_handler,
     class_handler,
-    var_handler
+    var_handler,
+    enum_handler
 };
 
 static void parse_multiline_block_body(lily_parse_state *, int);
@@ -1767,14 +1769,11 @@ static void raise_handler(lily_parse_state *parser, int multi)
     lily_ast_reset_pool(parser->ast_pool);
 }
 
-static void class_handler(lily_parse_state *parser, int multi)
+static void ensure_valid_class(lily_parse_state *parser, char *name)
 {
-    lily_lex_state *lex = parser->lex;
-    NEED_CURRENT_TOK(tk_word);
-
-    if (lex->label[1] == '\0')
+    if (name[1] == '\0')
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'%s' is not a valid class name (too short).\n", lex->label);
+                "'%s' is not a valid class name (too short).\n", name);
 
     if ((parser->emit->current_block->block_type & BLOCK_CLASS) == 0 &&
         parser->emit->current_block->prev != NULL) {
@@ -1783,11 +1782,18 @@ static void class_handler(lily_parse_state *parser, int multi)
                 "Attempt to declare a class within something that isn't another class.\n");
     }
 
-    lily_class *lookup_class = lily_class_by_name(parser->symtab, lex->label);
+    lily_class *lookup_class = lily_class_by_name(parser->symtab, name);
     if (lookup_class != NULL) {
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Class '%s' has already been declared.\n");
+                "Class '%s' has already been declared.\n", name);
     }
+}
+
+static void class_handler(lily_parse_state *parser, int multi)
+{
+    lily_lex_state *lex = parser->lex;
+    NEED_CURRENT_TOK(tk_word);
+    ensure_valid_class(parser, lex->label);
 
     lily_class *created_class = lily_new_class(parser->symtab, lex->label);
 
@@ -1809,6 +1815,64 @@ static void class_handler(lily_parse_state *parser, int multi)
 static void var_handler(lily_parse_state *parser, int multi)
 {
     parse_decl(parser, NULL);
+}
+
+static void enum_handler(lily_parse_state *parser, int multi)
+{
+    lily_lex_state *lex = parser->lex;
+
+    NEED_CURRENT_TOK(tk_word)
+    if (strcmp(lex->label, "class") != 0) {
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Expected 'class', not '%s'.\n", lex->label);
+    }
+
+    NEED_NEXT_TOK(tk_word)
+    ensure_valid_class(parser, lex->label);
+
+    lily_class *created_class = lily_new_class(parser->symtab, lex->label);
+
+    lily_lexer(lex);
+    int save_generics = parser->emit->current_block->generic_count;
+    int generics_used;
+    if (lex->token == tk_left_bracket)
+        generics_used = collect_generics(parser);
+    else
+        generics_used = 0;
+
+    lily_update_symtab_generics(parser->symtab, created_class, generics_used);
+
+    NEED_CURRENT_TOK(tk_left_curly)
+    lily_lexer(lex);
+
+    int save_ssp = parser->sig_stack_pos;
+    int stack_pos = parser->sig_stack_pos;
+
+    while (1) {
+        lily_sig *new_sig = collect_var_sig(parser, NULL, 0);
+        if (stack_pos == parser->sig_stack_size)
+            grow_sig_stack(parser);
+
+        /* This results in the enum class sigs piling up at the bottom, with
+           the top part of the stack being used for collection. */
+        parser->sig_stack[stack_pos] = new_sig;
+        stack_pos++;
+        parser->sig_stack_pos = stack_pos;
+
+        if (lex->token == tk_comma)
+            lily_lexer(lex);
+        else if (lex->token == tk_right_curly)
+            break;
+    }
+
+    lily_lexer(lex);
+    lily_update_enum_class(parser->symtab, created_class,
+            parser->sig_stack+save_ssp, parser->sig_stack_pos);
+
+    parser->sig_stack_pos = save_ssp;
+
+    lily_finish_class(parser->symtab, created_class);
+    lily_update_symtab_generics(parser->symtab, NULL, save_generics);
 }
 
 static void do_bootstrap(lily_parse_state *parser)

@@ -190,10 +190,10 @@ void lily_deref_unknown_val(lily_value *value)
         lily_deref_string_val(raw.string);
     else if (cls_id == SYM_CLASS_FUNCTION)
         lily_deref_function_val(raw.function);
-    else if (cls_id == SYM_CLASS_ANY)
-        lily_deref_any_val(raw.any);
     else if (cls_id == SYM_CLASS_HASH)
         lily_deref_hash_val(value->sig, raw.hash);
+    else if (value->sig->cls->flags & CLS_ENUM_CLASS)
+        lily_deref_any_val(raw.any);
     else if (cls_id == SYM_CLASS_TUPLE || cls_id >= SYM_CLASS_EXCEPTION)
         lily_deref_tuple_val(value->sig, raw.list);
     else if (cls_id == SYM_CLASS_PACKAGE)
@@ -219,7 +219,7 @@ void lily_deref_unknown_raw_val(lily_sig *value_sig, lily_raw_value raw)
         lily_deref_string_val(raw.string);
     else if (cls_id == SYM_CLASS_FUNCTION)
         lily_deref_function_val(raw.function);
-    else if (cls_id == SYM_CLASS_ANY)
+    else if (value_sig->cls->flags & CLS_ENUM_CLASS)
         lily_deref_any_val(raw.any);
     else if (cls_id == SYM_CLASS_HASH)
         lily_deref_hash_val(value_sig, raw.hash);

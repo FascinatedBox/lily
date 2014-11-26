@@ -1963,6 +1963,52 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     ast->result = (lily_sym *)s;
 }
 
+/*  enum_membership_check
+    Given a signature which is for some enum class, determine if 'right'
+    is a member of the enum class.
+
+    Returns 1 if yes, 0 if no. */
+static int enum_membership_check(lily_emit_state *emit, lily_sig *enum_sig,
+        lily_sig *right)
+{
+    int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
+    int save_ssp = emit->sig_stack_pos;
+    lily_sig **enum_member_sigs = enum_sig->cls->enum_siglist;
+
+    if (stack_start + enum_sig->siglist_size + 1 > emit->sig_stack_size)
+        grow_sig_stack(emit);
+
+    int i, ret = 0;
+
+    for (i = 0;i < enum_sig->siglist_size;i++)
+        emit->sig_stack[stack_start + i] = enum_sig->siglist[i];
+
+    emit->sig_stack_pos = stack_start;
+
+    for (i = 0;i < enum_sig->cls->enum_siglist_size;i++) {
+        ret = template_check(emit, enum_member_sigs[i], right);
+        if (ret)
+            break;
+    }
+
+    emit->sig_stack_pos = save_ssp;
+    return ret;
+}
+
+/*  emit_rebox_value
+    Make a storage of type 'new_sig' and assign ast's result to it. The tree's
+    result is written over. */
+static void emit_rebox_value(lily_emit_state *emit, lily_sig *new_sig,
+        lily_ast *ast)
+{
+    lily_storage *storage = get_storage(emit, new_sig, ast->line_num);
+
+    write_4(emit, o_any_assign, ast->line_num, ast->result->reg_spot,
+            storage->reg_spot);
+
+    ast->result = (lily_sym *)storage;
+}
+
 /*  type_matchup
     This is called when 'right' doesn't have quite the right signature.
     If the wanted signature is 'any', the value of 'right' is made into an any.
@@ -1972,10 +2018,18 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
 static int type_matchup(lily_emit_state *emit, lily_sig *want_sig,
         lily_ast *right)
 {
+    int ret = 1;
     if (want_sig->cls->id == SYM_CLASS_ANY)
         emit_any_assign(emit, right);
+    else if (want_sig->cls->flags & CLS_ENUM_CLASS) {
+        ret = enum_membership_check(emit, want_sig, right->result->sig);
+        if (ret)
+            emit_rebox_value(emit, want_sig, right);
+    }
+    else
+        ret = 0;
 
-    return (want_sig->cls->id == SYM_CLASS_ANY);
+    return ret;
 }
 
 /*  eval_build_list

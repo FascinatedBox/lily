@@ -145,6 +145,21 @@ function f[A]() {\
      "message": "Make sure functions inherit the generics available."
     },
     {
+     "command": """\
+class SomeType[A](A value) { A @value = value }
+class NoneType() {  }
+enum class Option[A] {
+    SomeType[A],
+    NoneType
+}
+
+Option[integer] i = SomeType::new(10)
+i = NoneType::new()
+
+""",
+     "message": "Ensure basic working of enum class."
+    },
+    {
      "command": """  10.@(integer)()  """,
      "message": "Failcheck: Bad anonymous call",
      "stderr": """\
