@@ -2992,7 +2992,7 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     else
         target = (lily_sym *)user_loop_var;
 
-    write_prep(emit, 16 + ((target != (lily_sym *)user_loop_var) * 4));
+    write_prep(emit, 16 + ((target != (lily_sym *)user_loop_var) * 8));
     lily_function_val *f = emit->top_function;
     f->code[f->pos  ] = o_for_setup;
     f->code[f->pos+1] = line_num;
