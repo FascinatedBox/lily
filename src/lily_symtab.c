@@ -595,6 +595,8 @@ static int init_classes(lily_symtab *symtab)
             new_class->properties = NULL;
             new_class->prop_count = 0;
             new_class->parent = NULL;
+            new_class->enum_siglist = NULL;
+            new_class->enum_siglist_size = 0;
 
             new_class->next = symtab->class_chain;
             symtab->class_chain = new_class;
@@ -753,6 +755,8 @@ static void free_classes(lily_class *class_iter)
         /* todo: Probably a better way to do this... */
         if (class_iter->id > SYM_CLASS_FORMATERROR)
             lily_free(class_iter->name);
+
+        lily_free(class_iter->enum_siglist);
 
         lily_class *class_next = class_iter->next;
         lily_free(class_iter);
@@ -1327,6 +1331,8 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     new_class->setup_func = NULL;
     new_class->gc_marker = NULL;
     new_class->eq_func = lily_instance_eq;
+    new_class->enum_siglist = NULL;
+    new_class->enum_siglist_size = 0;
 
     new_class->id = symtab->next_class_id;
     symtab->next_class_id++;
@@ -1344,24 +1350,28 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
 {
     lily_prop_entry *prop_iter = cls->properties;
 
-    /* If the class has no generics, determine if it's circular and write that
-       information onto the default sig. */
-    if (cls->template_count == 0) {
-        while (prop_iter) {
-            if (prop_iter->sig->flags & SIG_MAYBE_CIRCULAR) {
-                cls->sig->flags |= SIG_MAYBE_CIRCULAR;
-                break;
+    if ((cls->flags & CLS_ENUM_CLASS) == 0) {
+        /* If the class has no generics, determine if it's circular and write
+           that information onto the default sig. */
+        if (cls->template_count == 0) {
+            while (prop_iter) {
+                if (prop_iter->sig->flags & SIG_MAYBE_CIRCULAR) {
+                    cls->sig->flags |= SIG_MAYBE_CIRCULAR;
+                    break;
+                }
+                prop_iter = prop_iter->next;
             }
-            prop_iter = prop_iter->next;
-        }
 
-        if (cls->sig->flags & SIG_MAYBE_CIRCULAR)
+            if (cls->sig->flags & SIG_MAYBE_CIRCULAR)
+                cls->gc_marker = lily_gc_tuple_marker;
+        }
+        else
+            /* Each instance of a generic class may/may not be circular depending
+               on what it's given. */
             cls->gc_marker = lily_gc_tuple_marker;
     }
     else
-        /* Each instance of a generic class may/may not be circular depending
-           on what it's given. */
-        cls->gc_marker = lily_gc_tuple_marker;
+        cls->gc_marker = lily_gc_any_marker;
 
     if (cls != symtab->old_class_chain) {
         lily_class *class_iter = symtab->class_chain;
@@ -1466,4 +1476,18 @@ void lily_make_constructor_return_sig(lily_symtab *symtab)
 
     sig->next = symtab->root_sig;
     symtab->root_sig = sig;
+}
+
+void lily_update_enum_class(lily_symtab *symtab, lily_class *enum_class,
+        lily_sig **enum_sigs, int siglist_size)
+{
+    lily_sig **sigs_copy = lily_malloc(sizeof(lily_sig *) * siglist_size);
+    if (sigs_copy == NULL)
+        lily_raise_nomem(symtab->raiser);
+
+    memcpy(sigs_copy, enum_sigs, sizeof(lily_sig *) * siglist_size);
+
+    enum_class->enum_siglist = sigs_copy;
+    enum_class->enum_siglist_size = siglist_size;
+    enum_class->flags |= CLS_ENUM_CLASS;
 }

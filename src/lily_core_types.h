@@ -94,6 +94,9 @@ typedef struct lily_class_t {
     lily_prop_entry *properties;
     int prop_count;
 
+    struct lily_sig_t **enum_siglist;
+    int enum_siglist_size;
+
     /* Instead of loading all class members during init, Lily stores the needed
        information in the seed_table of a class. If the symtab can't find the
        name for a given class, then it's loaded into the vars of that class. */
@@ -395,6 +398,14 @@ typedef struct lily_prop_seed_t {
 /* If this is set, the class can be used as a hash key. This should only be set
    on primitive and immutable classes. */
 #define CLS_VALID_HASH_KEY 0x1
+
+/* This class is an enum class, instead of a normal one. An enum class is a
+   (C-style) union of different subclasses, only able to carry one class value
+   at a time.
+
+   An enum class is created, ref'd, deref'd, and destroyed MUCH like an 'any'.
+   It's also laid out like an 'any'. */
+#define CLS_ENUM_CLASS     0x2
 
 /* SIG_* defines are for the flags of a lily_sig. */
 /* If set, the signature is either a vararg function. The last argument is the

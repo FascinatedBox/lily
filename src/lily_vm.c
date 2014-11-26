@@ -1531,7 +1531,7 @@ static void do_o_any_assign(lily_vm_state *vm, lily_value *lhs_reg,
     lily_raw_value new_value;
     int new_flags;
 
-    if (rhs_reg->sig->cls->id == SYM_CLASS_ANY) {
+    if (rhs_reg->sig == lhs_reg->sig) {
         if ((rhs_reg->flags & VAL_IS_NIL) ||
             (rhs_reg->value.any->inner_value->flags & VAL_IS_NIL)) {
 

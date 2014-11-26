@@ -83,7 +83,9 @@ class_seed class_seeds[] =
     {"any",                     /* name */
      1,                         /* is_refcounted */
      0,                         /* template_count */
-     0,                         /* flags */
+     /* 'any' is treated as an enum class that has all classes ever defined
+        within it. */
+     CLS_ENUM_CLASS,            /* flags */
      NULL,                      /* parent name */
      NULL,                      /* property seeds */
      NULL,                      /* setup_func */
@@ -267,7 +269,8 @@ keyword_seed keywords[] = {
     {"except",       128026086176869},
     {"raise",        435727982962},
     {"class",        495857003619},
-    {"var",          7496054}
+    {"var",          7496054},
+    {"enum",         1836412517}
 };
 
 void lily_builtin_print(lily_vm_state *, lily_function_val *, uint16_t *);
