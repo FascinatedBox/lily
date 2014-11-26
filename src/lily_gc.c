@@ -129,6 +129,7 @@ void lily_gc_collect_hash(lily_sig *hash_sig, lily_hash_val *hash_val)
         (hash_val->gc_entry->last_pass != -1 &&
          hash_val->gc_entry->value.generic != NULL)) {
 
+        lily_sig *hash_key_sig = hash_sig->siglist[0];
         lily_sig *hash_value_sig = hash_sig->siglist[1];
 
         if (hash_val->gc_entry) {
@@ -137,24 +138,33 @@ void lily_gc_collect_hash(lily_sig *hash_sig, lily_hash_val *hash_val)
             marked = 1;
         }
 
-        if (hash_value_sig->cls->is_refcounted) {
-            lily_hash_elem *elem_iter = hash_val->elem_chain;
-            lily_hash_elem *elem_temp;
-            while (elem_iter) {
-                lily_value *elem_value = elem_iter->elem_value;
-                elem_temp = elem_iter->next;
-                if ((elem_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
-                    lily_raw_value v = elem_value->value;
-                    if (v.generic->refcount == 1)
-                        lily_gc_collect_value(hash_value_sig, v);
-                    else
-                        v.generic->refcount--;
-                }
-                lily_free(elem_iter->elem_key);
-                lily_free(elem_iter->elem_value);
-                lily_free(elem_iter);
-                elem_iter = elem_temp;
+        lily_hash_elem *elem_iter = hash_val->elem_chain;
+        lily_hash_elem *elem_temp;
+        while (elem_iter) {
+            lily_value *elem_value = elem_iter->elem_value;
+            lily_value *elem_key = elem_iter->elem_key;
+
+            elem_temp = elem_iter->next;
+            if ((elem_key->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
+                lily_raw_value k = elem_key->value;
+                if (k.generic->refcount == 1)
+                    lily_gc_collect_value(hash_key_sig, k);
+                else
+                    k.generic->refcount--;
             }
+
+            if ((elem_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
+                lily_raw_value v = elem_value->value;
+                if (v.generic->refcount == 1)
+                    lily_gc_collect_value(hash_value_sig, v);
+                else
+                    v.generic->refcount--;
+            }
+
+            lily_free(elem_iter->elem_key);
+            lily_free(elem_iter->elem_value);
+            lily_free(elem_iter);
+            elem_iter = elem_temp;
         }
 
         if (marked == 0)
