@@ -37,19 +37,19 @@
    Additionally, 'right' is used in place of 'result' where there is no true
    result.*/
 typedef enum {
-    /* Assignments: int lineno, reg left, reg right. */
-    o_assign,
-    /* Any assignment:
+    /* o_fast_assign:
        * int lineno
-       * reg(any) left
-       * reg(*) right
-       This makes sure that anys can be assigned any value. Updates the
-       any's value sig and the value. Also does ref/deref. */
-    o_any_assign,
-
-    /* Ref assign handles assignments where left and right may need a ref/deref.
-       string, list, and hash are examples of this. */
-    o_ref_assign,
+       * reg left
+       * reg right
+       This handles assignments without a ref/deref. */
+    o_fast_assign,
+    /* o_assign:
+       * int lineno
+       * reg left
+       * reg right
+       This handles any assignment that needs a ref/deref, as well as
+       assignments that create an any/enum class. */
+    o_assign,
 
     /* Integer binary ops:
        * int lineno

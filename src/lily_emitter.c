@@ -608,16 +608,16 @@ static void write_build_op(lily_emit_state *emit, int opcode,
     f->pos += 4 + num_values;
 }
 
-/*  emit_any_assign
-    Write an 'o_any_assign' op and rewrite the given ast to yield that. This
+/*  emit_assign
+    Write an 'o_assign' op and rewrite the given ast to yield that. This
     is used frequently to implement 'defaulting to any'. */
-static void emit_any_assign(lily_emit_state *emit, lily_ast *ast)
+static void emit_assign(lily_emit_state *emit, lily_ast *ast)
 {
     lily_class *any_class = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
     lily_storage *storage = get_storage(emit, any_class->sig, ast->line_num);
 
     write_4(emit,
-            o_any_assign,
+            o_assign,
             ast->line_num,
             ast->result->reg_spot,
             storage->reg_spot);
@@ -1292,7 +1292,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     if (left_sym->sig != right_sym->sig) {
         if (left_sym->sig->cls->id == SYM_CLASS_ANY)
-            opcode = o_any_assign;
+            opcode = o_assign;
         else {
             if (type_matchup(emit, ast->left->result->sig, ast->right) == 0) {
                 bad_assign_error(emit, ast->line_num, left_sym->sig,
@@ -1308,11 +1308,9 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     if (opcode == -1) {
         if (left_cls_id == SYM_CLASS_INTEGER ||
             left_cls_id == SYM_CLASS_DOUBLE)
-            opcode = o_assign;
-        else if (left_cls_id == SYM_CLASS_ANY)
-            opcode = o_any_assign;
+            opcode = o_fast_assign;
         else
-            opcode = o_ref_assign;
+            opcode = o_assign;
     }
 
     if (ast->op > expr_assign) {
@@ -1706,7 +1704,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
         storage->flags |= SYM_NOT_ASSIGNABLE;
 
         write_4(emit,
-                o_any_assign,
+                o_assign,
                 ast->line_num,
                 right_tree->result->reg_spot,
                 storage->reg_spot);
@@ -1778,7 +1776,7 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
 /*  hash_values_to_anys
 
     This converts all of the values of the given ast into anys using
-    o_any_assign. The result of each value is rewritten to be the any,
+    o_assign. The result of each value is rewritten to be the any,
     instead of the old value.
 
     emit:     The emitter holding the function to write code to.
@@ -1806,15 +1804,15 @@ static void emit_hash_values_to_anys(lily_emit_state *emit,
          iter_ast != NULL;
          iter_ast = iter_ast->next_arg->next_arg) {
 
-        emit_any_assign(emit, iter_ast->next_arg);
+        emit_assign(emit, iter_ast->next_arg);
     }
 }
 
 /*  emit_list_values_to_anys
 
     This converts all of the values of the given ast into anys using
-    o_any_assign. The result of each value is rewritten to be the any,
-    instead of the old value.
+    o_assign. The result of each value is rewritten to be the any, instead of
+    the old value.
 
     emit:     The emitter holding the function to write code to.
     list_ast: An ast of type tree_list which has already been evaluated.
@@ -1835,7 +1833,7 @@ static void emit_list_values_to_anys(lily_emit_state *emit,
     for (iter_ast = list_ast->arg_start;
          iter_ast != NULL;
          iter_ast = iter_ast->next_arg) {
-        emit_any_assign(emit, iter_ast);
+        emit_assign(emit, iter_ast);
     }
 }
 
@@ -1999,7 +1997,7 @@ static void emit_rebox_value(lily_emit_state *emit, lily_sig *new_sig,
 {
     lily_storage *storage = get_storage(emit, new_sig, ast->line_num);
 
-    write_4(emit, o_any_assign, ast->line_num, ast->result->reg_spot,
+    write_4(emit, o_assign, ast->line_num, ast->result->reg_spot,
             storage->reg_spot);
 
     ast->result = (lily_sym *)storage;
@@ -2016,7 +2014,7 @@ static int type_matchup(lily_emit_state *emit, lily_sig *want_sig,
 {
     int ret = 1;
     if (want_sig->cls->id == SYM_CLASS_ANY)
-        emit_any_assign(emit, right);
+        emit_assign(emit, right);
     else if (want_sig->cls->flags & CLS_ENUM_CLASS) {
         ret = enum_membership_check(emit, want_sig, right->result->sig);
         if (ret)
@@ -2191,7 +2189,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
         if (expect_sig &&
             arg->result->sig != expect_elem &&
             expect_elem->cls->id == SYM_CLASS_ANY) {
-            emit_any_assign(emit, arg);
+            emit_assign(emit, arg);
         }
 
         emit->sig_stack[stack_start + i] = arg->result->sig;
@@ -2864,7 +2862,7 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_ast_pool *ap,
     /* Note: This works because the only time this is called is to handle
              for..in range expressions, which are always integers. */
     write_4(emit,
-            o_assign,
+            o_fast_assign,
             ast->line_num,
             ast->result->reg_spot,
             var->reg_spot);
@@ -3099,7 +3097,7 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
 
         if (ast->result->sig != ret_sig) {
             if (ret_sig->cls->id == SYM_CLASS_ANY)
-                emit_any_assign(emit, ast);
+                emit_assign(emit, ast);
             else
                 lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
                         "return expected type '%T' but got type '%T'.\n",
