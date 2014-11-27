@@ -2711,35 +2711,6 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)result;
 }
 
-/*  eval_isnil
-    Eval a special tree representing the 'isnil' keyword. This tree has one
-    value: The inner tree swallowed. For speed, the code emitted will select
-    either a global or local register at vm-time. This may or may not be
-    changed in the future.
-    * ast->arg_start is the one and only expression to evaluate. */
-static void eval_isnil(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_ast *inner_tree = ast->arg_start;
-
-    if (ast->args_collected != 1)
-        lily_raise(emit->raiser, lily_SyntaxError,
-                "isnil expects 1 arg, but got %d args.\n", ast->args_collected);
-
-    if (inner_tree->tree_type != tree_local_var &&
-        inner_tree->tree_type != tree_var)
-        eval_tree(emit, inner_tree, NULL);
-
-    int is_global = (inner_tree->tree_type == tree_var);
-
-    lily_class *integer_cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
-    lily_storage *s = get_storage(emit, integer_cls->sig, ast->line_num);
-    s->flags |= SYM_NOT_ASSIGNABLE;
-
-    write_5(emit, o_isnil, ast->line_num, is_global, inner_tree->result->reg_spot,
-            s->reg_spot);
-    ast->result = (lily_sym *)s;
-}
-
 /*  eval_tree
     Magically determine what function actually handles the given ast. */
 static void eval_tree(lily_emit_state *emit, lily_ast *ast,
@@ -2803,8 +2774,6 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
         eval_oo_access(emit, ast);
     else if (ast->tree_type == tree_property)
         eval_property(emit, ast);
-    else if (ast->tree_type == tree_isnil)
-        eval_isnil(emit, ast);
 }
 
 /*****************************************************************************/

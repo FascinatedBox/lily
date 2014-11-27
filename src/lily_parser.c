@@ -760,12 +760,7 @@ static void expression_word(lily_parse_state *parser, int *state)
     }
     else {
         int key_id = lily_keyword_by_name(lex->label);
-        if (key_id == KEY_ISNIL) {
-            lily_ast_enter_tree(parser->ast_pool, tree_isnil);
-            NEED_NEXT_TOK(tk_left_parenth)
-            *state = ST_WANT_VALUE;
-        }
-        else if (key_id != -1) {
+        if (key_id != -1) {
             lily_literal *lit = parse_special_keyword(parser, key_id);
             lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
             *state = ST_WANT_OPERATOR;
@@ -824,8 +819,7 @@ static void check_valid_close_tok(lily_parse_state *parser)
     lily_tree_type tt = ast->tree_type;
     lily_token expect;
 
-    if (tt == tree_call || tt == tree_parenth || tt == tree_typecast ||
-        tt == tree_isnil)
+    if (tt == tree_call || tt == tree_parenth || tt == tree_typecast)
         expect = tk_right_parenth;
     else if (tt == tree_tuple)
         expect = tk_tuple_close;
@@ -1231,7 +1225,6 @@ static void line_kw_handler(lily_parse_state *, int);
 static void function_kw_handler(lily_parse_state *, int);
 static void for_handler(lily_parse_state *, int);
 static void do_handler(lily_parse_state *, int);
-static void isnil_handler(lily_parse_state *, int);
 static void try_handler(lily_parse_state *, int);
 static void except_handler(lily_parse_state *, int);
 static void raise_handler(lily_parse_state *, int);
@@ -1255,7 +1248,6 @@ static keyword_handler *handlers[] = {
     function_kw_handler,
     for_handler,
     do_handler,
-    isnil_handler,
     try_handler,
     except_handler,
     raise_handler,
@@ -1669,16 +1661,6 @@ static void do_handler(lily_parse_state *parser, int multi)
     expression(parser);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
     lily_emit_leave_block(parser->emit);
-}
-
-static void isnil_handler(lily_parse_state *parser, int multi)
-{
-    lily_lex_state *lex = parser->lex;
-    lily_ast_enter_tree(parser->ast_pool, tree_isnil);
-    NEED_CURRENT_TOK(tk_left_parenth)
-    lily_lexer(lex);
-    expression(parser);
-    lily_emit_eval_expr(parser->emit, parser->ast_pool);
 }
 
 static void except_handler(lily_parse_state *parser, int multi)
