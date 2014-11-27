@@ -94,10 +94,9 @@ typedef struct lily_debug_state_t {
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[51] = {
+char *opcode_names[49] = {
+    "fast assign",
     "assign",
-    "any assign",
-    "assign (ref/deref)",
     "integer add (+)",
     "integer minus (-)",
     "modulo (%)",
@@ -148,9 +147,8 @@ char *opcode_names[51] = {
 };
 
 static const int optable[][8] = {
+    {o_fast_assign,         3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
     {o_assign,              3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
-    {o_any_assign,          3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
-    {o_ref_assign,          3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,            -1,           -1},
     {o_integer_add,         4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
     {o_integer_minus,       4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},
     {o_modulo,              4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,      -1,           -1},

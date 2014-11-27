@@ -488,6 +488,77 @@ static int compare_values(lily_vm_state *vm, lily_value *left, lily_value *right
     return result;
 }
 
+/*  do_box_assign
+    This does assignment for any/enum class values for lily_assign_value (since
+    it's pretty complex).
+
+    vm:      If lhs_reg is nil, an any will be made that needs a gc entry.
+             The entry will be added to the vm's gc entries.
+    lhs_reg: The register containing an any to be assigned to. Might be nil.
+    rhs_reg: The register providing a value for the any. Might be nil. */
+static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
+        lily_value *rhs_reg)
+{
+    lily_any_val *lhs_any;
+    if (lhs_reg->flags & VAL_IS_NIL) {
+        lhs_any = lily_try_new_any_val();
+        if (lhs_any == NULL ||
+            try_add_gc_item(vm, lhs_reg->sig,
+                    (lily_generic_gc_val *)lhs_any) == 0) {
+
+            if (lhs_any)
+                lily_free(lhs_any->inner_value);
+
+            lily_free(lhs_any);
+            lily_raise_nomem(vm->raiser);
+        }
+
+        lhs_reg->value.any = lhs_any;
+        lhs_reg->flags &= ~VAL_IS_NIL;
+    }
+    else
+        lhs_any = lhs_reg->value.any;
+
+    lily_sig *new_sig;
+    lily_raw_value new_value;
+    int new_flags;
+
+    if (rhs_reg->sig == lhs_reg->sig) {
+        if ((rhs_reg->flags & VAL_IS_NIL) ||
+            (rhs_reg->value.any->inner_value->flags & VAL_IS_NIL)) {
+
+            new_sig = NULL;
+            new_value.integer = 0;
+            new_flags = VAL_IS_NIL;
+        }
+        else {
+            lily_value *rhs_inner = rhs_reg->value.any->inner_value;
+
+            new_sig = rhs_inner->sig;
+            new_value = rhs_inner->value;
+            new_flags = rhs_inner->flags;
+        }
+    }
+    else {
+        new_sig = rhs_reg->sig;
+        new_value = rhs_reg->value;
+        new_flags = rhs_reg->flags;
+    }
+
+    if ((new_flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
+        new_sig->cls->is_refcounted)
+        new_value.generic->refcount++;
+
+    lily_value *lhs_inner = lhs_any->inner_value;
+    if ((lhs_inner->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
+        lhs_inner->sig->cls->is_refcounted)
+        lily_deref_unknown_val(lhs_inner);
+
+    lhs_inner->sig = new_sig;
+    lhs_inner->value = new_value;
+    lhs_inner->flags = new_flags;
+}
+
 /*  grow_function_stack
     The vm wants to hold more functions, so grow the stack. */
 static void grow_function_stack(lily_vm_state *vm)
@@ -1470,77 +1541,6 @@ static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
 /* Opcode implementations                                                    */
 /*****************************************************************************/
 
-/*  do_o_any_assign
-    This does o_any_assign for the vm. It's also called by lily_assign_value to
-    handle assignments to any (yay code reuse)!
-
-    vm:      If lhs_reg is nil, an any will be made that needs a gc entry.
-             The entry will be added to the vm's gc entries.
-    lhs_reg: The register containing an any to be assigned to. Might be nil.
-    rhs_reg: The register providing a value for the any. Might be nil. */
-static void do_o_any_assign(lily_vm_state *vm, lily_value *lhs_reg,
-        lily_value *rhs_reg)
-{
-    lily_any_val *lhs_any;
-    if (lhs_reg->flags & VAL_IS_NIL) {
-        lhs_any = lily_try_new_any_val();
-        if (lhs_any == NULL ||
-            try_add_gc_item(vm, lhs_reg->sig,
-                    (lily_generic_gc_val *)lhs_any) == 0) {
-
-            if (lhs_any)
-                lily_free(lhs_any->inner_value);
-
-            lily_free(lhs_any);
-            lily_raise_nomem(vm->raiser);
-        }
-
-        lhs_reg->value.any = lhs_any;
-        lhs_reg->flags &= ~VAL_IS_NIL;
-    }
-    else
-        lhs_any = lhs_reg->value.any;
-
-    lily_sig *new_sig;
-    lily_raw_value new_value;
-    int new_flags;
-
-    if (rhs_reg->sig == lhs_reg->sig) {
-        if ((rhs_reg->flags & VAL_IS_NIL) ||
-            (rhs_reg->value.any->inner_value->flags & VAL_IS_NIL)) {
-
-            new_sig = NULL;
-            new_value.integer = 0;
-            new_flags = VAL_IS_NIL;
-        }
-        else {
-            lily_value *rhs_inner = rhs_reg->value.any->inner_value;
-
-            new_sig = rhs_inner->sig;
-            new_value = rhs_inner->value;
-            new_flags = rhs_inner->flags;
-        }
-    }
-    else {
-        new_sig = rhs_reg->sig;
-        new_value = rhs_reg->value;
-        new_flags = rhs_reg->flags;
-    }
-
-    if ((new_flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
-        new_sig->cls->is_refcounted)
-        new_value.generic->refcount++;
-
-    lily_value *lhs_inner = lhs_any->inner_value;
-    if ((lhs_inner->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
-        lhs_inner->sig->cls->is_refcounted)
-        lily_deref_unknown_val(lhs_inner);
-
-    lhs_inner->sig = new_sig;
-    lhs_inner->value = new_value;
-    lhs_inner->flags = new_flags;
-}
-
 /*  do_o_set_item
     This handles A[B] = C, where A is some sort of list/hash/tuple/whatever.
     If a hash is nil, then it's created and the hash entry is put inside.
@@ -2258,8 +2258,9 @@ void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
     lily_class *cls = left->sig->cls;
 
     if (cls->flags & CLS_ENUM_CLASS)
-        /* Any assignment is...complicated. Have someone else do it. */
-        do_o_any_assign(vm, left, right);
+        /* any/enum class assignment is...complicated. Use a separate function
+           for it. */
+        do_box_assign(vm, left, right);
     else {
         if (cls->is_refcounted) {
             if ((right->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
@@ -2464,7 +2465,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
     while (1) {
         switch(code[code_pos]) {
-            case o_assign:
+            case o_fast_assign:
                 rhs_reg = vm_regs[code[code_pos+2]];
                 lhs_reg = vm_regs[code[code_pos+3]];
                 lhs_reg->flags = rhs_reg->flags;
@@ -2758,11 +2759,11 @@ void lily_vm_execute(lily_vm_state *vm)
                         top->function->trace_name);
             }
                 break;
-            case o_any_assign:
+            case o_assign:
                 rhs_reg = vm_regs[code[code_pos+2]];
                 lhs_reg = vm_regs[code[code_pos+3]];
 
-                do_o_any_assign(vm, lhs_reg, rhs_reg);
+                lily_assign_value(vm, lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
             case o_get_item:
@@ -2780,13 +2781,6 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_build_list_tuple:
                 do_o_build_list_tuple(vm, code+code_pos);
                 code_pos += code[code_pos+2] + 4;
-                break;
-            case o_ref_assign:
-                lhs_reg = vm_regs[code[code_pos+3]];
-                rhs_reg = vm_regs[code[code_pos+2]];
-
-                lily_assign_value(vm, lhs_reg, rhs_reg);
-                code_pos += 4;
                 break;
             case o_any_typecast:
                 lhs_reg = vm_regs[code[code_pos+3]];
