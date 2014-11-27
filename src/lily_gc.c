@@ -17,7 +17,7 @@ void lily_gc_collect_value(lily_sig *value_sig, lily_raw_value value)
         lily_gc_collect_list(value_sig, value.list);
     else if (entry_cls_id == SYM_CLASS_HASH)
         lily_gc_collect_hash(value_sig, value.hash);
-    else if (entry_cls_id == SYM_CLASS_ANY)
+    else if (value_sig->cls->flags & CLS_ENUM_CLASS)
         lily_gc_collect_any(value.any);
     else if (entry_cls_id == SYM_CLASS_TUPLE ||
              entry_cls_id >= SYM_CLASS_EXCEPTION)

@@ -1544,6 +1544,46 @@ function test_defaulting()
     }
 }
 
+class SomeType[A](A value) { A @value = value }
+class NoneType() {}
+
+enum class Option[A] {
+    SomeType[A],
+    NoneType
+}
+
+function test_enum_classes()
+{
+    printfmt("#%i: Testing enum class stuff (sub tests follow)...\n", test_id)
+    test_id += 1
+
+    Option[integer] opt = SomeType::new(10)
+    opt = NoneType::new()
+
+    print("     Making sure an enum class can compare to a sub type...")
+    integer ok = 1
+    if opt == NoneType::new(): {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    any integer_any = 10
+    any string_any = "10"
+
+    print("     Making sure an any can compare to non-any values...")
+    if integer_any == 10 && string_any == "10": {
+        print("ok.\n")
+    else:
+        print("failed.\n")
+        ok = 0
+    }
+
+    if ok == 0:
+        fail_count += 1
+}
+
 function test_misc()
 {
     printfmt("#%i: Miscellaneous features...(sub tests follow).\n", test_id)
@@ -1640,6 +1680,7 @@ list[function()] function_list =
     test_tuples,
     test_simple_classes,
     test_defaulting,
+    test_enum_classes,
     test_misc
 ]
 
