@@ -226,6 +226,10 @@ static void finalize_sig(lily_sig *input_sig)
             input_sig->template_pos = max;
         }
     }
+
+    /* fixme: Properly go over enum classes to determine circularity. */
+    if (input_sig->cls->flags & CLS_ENUM_CLASS)
+        input_sig->flags |= SIG_MAYBE_CIRCULAR;
 }
 
 /*  ensure_unique_sig
@@ -1370,8 +1374,12 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
                on what it's given. */
             cls->gc_marker = lily_gc_tuple_marker;
     }
-    else
+    else {
+        /* Enum classes have the same layout as 'any', and should thus use what
+           'any' uses for things. */
         cls->gc_marker = lily_gc_any_marker;
+        cls->eq_func = lily_any_eq;
+    }
 
     if (cls != symtab->old_class_chain) {
         lily_class *class_iter = symtab->class_chain;

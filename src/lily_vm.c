@@ -2283,7 +2283,7 @@ void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
 {
     lily_class *cls = left->sig->cls;
 
-    if (cls->id == SYM_CLASS_ANY)
+    if (cls->flags & CLS_ENUM_CLASS)
         /* Any assignment is...complicated. Have someone else do it. */
         do_o_any_assign(vm, left, right);
     else {
