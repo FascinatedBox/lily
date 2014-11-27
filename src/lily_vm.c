@@ -528,32 +528,6 @@ static void add_catch_entry(lily_vm_state *vm)
     new_entry->prev = vm->catch_chain;
 }
 
-/*  maybe_crossover_assign
-    This ugly function handles automatically converting integer to double in
-    some cases. Give this the axe when there's a proper integer::to_double and
-    double::to_integer. This is ugly and special-casey. */
-static int maybe_crossover_assign(lily_value *lhs_reg, lily_value *rhs_reg)
-{
-    int ret = 1;
-
-    if (rhs_reg->sig->cls->id == SYM_CLASS_ANY)
-        rhs_reg = rhs_reg->value.any->inner_value;
-
-    if (lhs_reg->sig->cls->id == SYM_CLASS_INTEGER &&
-        rhs_reg->sig->cls->id == SYM_CLASS_DOUBLE)
-        lhs_reg->value.integer = (int64_t)(rhs_reg->value.doubleval);
-    else if (lhs_reg->sig->cls->id == SYM_CLASS_DOUBLE &&
-             rhs_reg->sig->cls->id == SYM_CLASS_INTEGER)
-        lhs_reg->value.doubleval = (double)(rhs_reg->value.integer);
-    else
-        ret = 0;
-
-    if (ret)
-        lhs_reg->flags &= ~VAL_IS_NIL;
-
-    return ret;
-}
-
 /*  grow_vm_registers
     The vm is about to do a function call which requires more registers than it
     has. Make space for more registers, then create initial register values.
@@ -2791,16 +2765,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 do_o_any_assign(vm, lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
-            case o_intdbl_typecast:
-                lhs_reg = vm_regs[code[code_pos+3]];
-                LOAD_CHECKED_REG(rhs_reg, code_pos, 2)
-
-                /* Guaranteed to work, because rhs is non-nil and emitter has
-                   already verified the types. This will also make sure that the
-                   nil flag isn't set on lhs. */
-                maybe_crossover_assign(lhs_reg, rhs_reg);
-                code_pos += 4;
-                break;
             case o_get_item:
                 do_o_get_item(vm, code, code_pos);
                 code_pos += 5;
@@ -2839,9 +2803,7 @@ void lily_vm_execute(lily_vm_state *vm)
                    thing, so this is okay. */
                 if (cast_sig == rhs_reg->sig)
                     lily_assign_value(vm, lhs_reg, rhs_reg);
-                /* Since integer and number can be cast between each other,
-                   allow that with any casts as well. */
-                else if (maybe_crossover_assign(lhs_reg, rhs_reg) == 0) {
+                else {
                     lily_vm_stack_entry *top;
                     top = vm->function_stack[vm->function_stack_pos-1];
                     top->line_num = top->code[code_pos+1];

@@ -2,6 +2,7 @@
 # define LILY_SEED_SYMTAB_H
 
 # include "lily_cls_integer.h"
+# include "lily_cls_double.h"
 # include "lily_cls_string.h"
 # include "lily_cls_list.h"
 # include "lily_cls_hash.h"
@@ -55,7 +56,7 @@ class_seed class_seeds[] =
      CLS_VALID_HASH_KEY,        /* flags */
      NULL,                      /* parent name */
      NULL,                      /* property seeds */
-     NULL,                      /* setup_func */
+     lily_double_setup,         /* setup_func */
      NULL,                      /* gc_marker */
      &lily_double_eq            /* eq_func */
     },

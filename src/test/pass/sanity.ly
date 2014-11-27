@@ -1298,41 +1298,6 @@ function test_multiline_comment()
     test_id = test_id + 1
 }
 
-function test_intnum_cast()
-{
-    printfmt("#%i: Testing integer to double casting...", test_id)
-    test_id = test_id + 1
-
-    integer int1, int2
-    double num1, num2
-
-    ###
-    This works against anys as well so that a user doesn't have to cast the
-    cast away from any.
-
-    Without:
-        double n = int_any.@(integer).@(double)
-    With:
-        double n = int_any.@(double)
-    ###
-
-    any int_any = -5
-    any num_any = 10.5
-
-    int1 = 10.5 .@(integer)
-    num1 = -5 .@(double)
-
-    int2 = num_any.@(integer)
-    num2 = int_any.@(double)
-
-    if int1 == 10 && int2 == 10 && num1 == -5.0 && num2 == -5.0: {
-        print("ok.\n")
-    else:
-        print("failed.\n")
-        fail_count = fail_count + 1
-    }
-}
-
 function test_hashes()
 {
     printfmt("#%i: Testing hashes...(sub tests follow).\n", test_id)
@@ -1674,7 +1639,6 @@ list[function()] function_list =
     test_loops,
     test_assign_chain,
     test_multiline_comment,
-    test_intnum_cast,
     test_hashes,
     test_eq,
     test_tuples,

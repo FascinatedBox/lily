@@ -177,14 +177,6 @@ typedef enum {
        This can be thought of as the converse of o_any_assign. */
     o_any_typecast,
 
-    /* integer<->double typecast:
-       * int lineno
-       * reg(integer OR number) left
-       * reg(integer OR double) right
-       This handles conversion from integer to double, and vice versa. Left is
-       the opposite type of right, and the appropriate conversion is made. */
-    o_intdbl_typecast,
-
     /* Return expected:
        * int lineno
        This is written at the end of every native function that has a non-nil
