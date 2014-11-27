@@ -52,23 +52,15 @@
 #define D_GLOBAL_INPUT    12
 /* D_GLOBAL_OUTPUT:   The OUTput is the address of a global register. */
 #define D_GLOBAL_OUTPUT   13
-/* D_IS_GLOBAL:       This specifies if an upcoming value is a global or a
-                      local. This is used by show, where the value might be a
-                      global var, or a local one. */
-#define D_IS_GLOBAL       14
-/* D_COND_INPUT:      This follows D_IS_GLOBAL. If D_IS_GLOBAL's position was
-                      1, this register is a global. Otherwise, the register is
-                      a local. */
-#define D_COND_INPUT      15
 /* D_CALL_TYPE:       This is used by calls to determine how the call is stored:
                       0: The input is a readonly var.
                       1: The input is a local register. */
-#define D_CALL_TYPE       16
+#define D_CALL_TYPE       14
 /* D_CALL_INPUT:      Input to a function call. This is shown according to what
                       D_CALL_INPUT_TYPE picked up. */
-#define D_CALL_INPUT      17
+#define D_CALL_INPUT      15
 /* D_FUNC_INPUT:      This is a position in the vm's table of functions. */
-#define D_FUNC_INPUT      18
+#define D_FUNC_INPUT      16
 
 /** Flags for show_register_info: **/
 /* This means the number given is for a register in __main__. By default, the
@@ -341,7 +333,7 @@ static void show_code(lily_debug_state *debug)
 
         const int *opcode_data = optable[opcode];
         char *opcode_name = opcode_names[opcode];
-        int call_type = 0, count = 0, data_code, is_global = 0, j;
+        int call_type = 0, count = 0, data_code, j;
 
         /* Group under a new line number if the current one isn't the last one
            seen. This makes it easy to see what operations that are caused by
@@ -430,15 +422,6 @@ static void show_code(lily_debug_state *debug)
                 /* This doesn't have to be checked because D_GLOBAL_OUTPUT is
                    only for writes to a global, and always exists. */
                 show_register_info(debug, RI_GLOBAL | RI_OUTPUT, code[i+j]);
-            }
-            else if (data_code == D_IS_GLOBAL)
-                is_global = code[i+j];
-            else if (data_code == D_COND_INPUT) {
-                int flags = RI_INPUT;
-                if (is_global)
-                    flags |= RI_GLOBAL;
-
-                show_register_info(debug, flags, code[i+j]);
             }
             else if (data_code == D_CALL_TYPE)
                 call_type = code[i+j];
