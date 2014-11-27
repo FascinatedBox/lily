@@ -2935,32 +2935,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 3;
                 break;
             }
-            case o_isnil:
-            {
-                int is_global = code[code_pos + 2];
-                if (is_global)
-                    rhs_reg = regs_from_main[code[code_pos + 3]];
-                else
-                    rhs_reg = vm_regs[code[code_pos + 3]];
-
-                int is_nil;
-                /* Consider anys nil if they are nil OR they carry a nil
-                   value. Otherwise, a typecast to the last type given would
-                   be needed to get the inner value to check that for nil-ness
-                   too. */
-                if (rhs_reg->sig->cls->id == SYM_CLASS_ANY) {
-                    is_nil = (rhs_reg->flags & VAL_IS_NIL) ||
-                             (rhs_reg->value.any->inner_value->flags & VAL_IS_NIL);
-                }
-                else
-                    is_nil = (rhs_reg->flags & VAL_IS_NIL);
-
-                lhs_reg = vm_regs[code[code_pos + 4]];
-                lhs_reg->flags = 0;
-                lhs_reg->value.integer = is_nil;
-                code += 5;
-                break;
-            }
             case o_for_setup:
                 loop_reg = vm_regs[code[code_pos+2]];
                 /* lhs_reg is the start, rhs_reg is the stop. */
