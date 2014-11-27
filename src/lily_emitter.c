@@ -1723,23 +1723,12 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
         result = get_storage(emit, cast_sig, ast->line_num);
     }
     else {
-        if ((var_sig->cls->id == SYM_CLASS_INTEGER &&
-             cast_sig->cls->id == SYM_CLASS_DOUBLE) ||
-            (var_sig->cls->id == SYM_CLASS_DOUBLE &&
-             cast_sig->cls->id == SYM_CLASS_INTEGER))
-        {
-            cast_opcode = o_intdbl_typecast;
-            result = get_storage(emit, cast_sig, ast->line_num);
-            result->flags |= SYM_NOT_ASSIGNABLE;
-        }
-        else {
-            cast_opcode = -1;
-            result = NULL;
-            lily_raise_adjusted(emit->raiser, ast->line_num,
-                    lily_BadTypecastError,
-                    "Cannot cast type '%T' to type '%T'.\n",
-                    var_sig, cast_sig);
-        }
+        cast_opcode = -1;
+        result = NULL;
+        lily_raise_adjusted(emit->raiser, ast->line_num,
+                lily_BadTypecastError,
+                "Cannot cast type '%T' to type '%T'.\n",
+                var_sig, cast_sig);
     }
 
     write_4(emit,
