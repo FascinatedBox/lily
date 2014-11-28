@@ -1600,7 +1600,7 @@ static void for_handler(lily_parse_state *parser, int multi)
 
     for_start = parse_for_range_value(parser, "(for start)");
 
-    NEED_CURRENT_TOK(tk_two_dots)
+    NEED_CURRENT_TOK(tk_three_dots)
     lily_lexer(lex);
 
     for_end = parse_for_range_value(parser, "(for end)");

@@ -1159,7 +1159,7 @@ function test_loops()
 
     print("     While loops ok.\n")
 
-    for i in 1..10: { }
+    for i in 1...10: { }
     print("     Checking that 1 .. 10 ends at 10...")
     if i == 10: {
         print("ok.\n")
@@ -1168,7 +1168,7 @@ function test_loops()
         ok = 0
     }
 
-    for i in 10..1: { }
+    for i in 10...1: { }
     print("     Checking that 10 .. 1 ends at 1...")
     if i == 1: {
         print("ok.\n")
@@ -1179,7 +1179,7 @@ function test_loops()
 
     print("     Checking that 1 .. 5 by 2 == 1, 3, 5...")
     list[integer] intlist = [0, 0, 0, 0, 0, 0]
-    for i in 1..5 by 2: {
+    for i in 1...5 by 2: {
         intlist[i] = 1
     }
 
@@ -1648,7 +1648,7 @@ list[function()] function_list =
     test_misc
 ]
 
-for i in 0..function_list.size() - 1: {
+for i in 0...function_list.size() - 1: {
     function_list[i]()
 }
 
