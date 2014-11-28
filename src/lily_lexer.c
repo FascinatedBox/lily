@@ -1344,7 +1344,8 @@ void lily_lexer(lily_lex_state *lexer)
                         token = tk_three_dots;
                     }
                     else
-                        token = tk_two_dots;
+                        lily_raise(lexer->raiser, lily_SyntaxError,
+                                "'..' is not a valid token (expected 1 or 3 dots).\n");
                 }
                 else
                     token = tk_dot;
@@ -1591,8 +1592,7 @@ char *tokname(lily_token t)
      "/", "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>",
      ">>=", "=", "==", "<[", "]>", "]", "=>", "a label", "a property name",
      "a string", "an integer", "a double", ".", ":", "::", "&", "&&", "|",
-     "||", "@(", "..", "...", "invalid token", "?>", "end of file",
-     "end of file"};
+     "||", "@(", "...", "invalid token", "?>", "end of file", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];
