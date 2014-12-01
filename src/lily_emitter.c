@@ -255,6 +255,10 @@ static int condition_optimize_check(lily_ast *ast)
             can_optimize = 0;
         else if (lit_cls_id == SYM_CLASS_DOUBLE && lit->value.doubleval == 0.0)
             can_optimize = 0;
+        else if (lit_cls_id == SYM_CLASS_STRING && lit->value.string->size == 0)
+            can_optimize = 0;
+        else if (lit->sig->cls->flags & CLS_VARIANT_CLASS)
+            can_optimize = 0;
     }
 
     return can_optimize;
@@ -384,6 +388,22 @@ static lily_block *try_new_block(void)
         ret->next = NULL;
 
     return ret;
+}
+
+/*  ensure_valid_condition_type
+    This ensures that the resulting value for a condition is one that the vm
+    can determine is true or false.
+    If these are changed, then the vm's o_jump_if should be updated. */
+static void ensure_valid_condition_type(lily_emit_state *emit, lily_sig *sig)
+{
+    int cls_id = sig->cls->id;
+
+    if (cls_id != SYM_CLASS_INTEGER &&
+        cls_id != SYM_CLASS_DOUBLE &&
+        cls_id != SYM_CLASS_STRING &&
+        cls_id != SYM_CLASS_LIST)
+        lily_raise(emit->raiser, lily_SyntaxError,
+                "%T is not a valid condition type.\n", sig);
 }
 
 /*  check_valid_subscript
@@ -2974,6 +2994,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
     if ((ast->tree_type == tree_readonly &&
          condition_optimize_check(ast)) == 0) {
         eval_enforce_value(emit, ast, "Conditional expression has no value.\n");
+        ensure_valid_condition_type(emit, ast->result->sig);
 
         if (current_type != BLOCK_DO_WHILE)
             /* If this doesn't work, add a jump which will get fixed to the next
@@ -3004,6 +3025,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
         else
             write_2(emit, o_jump, emit->current_block->loop_start);
     }
+
 
     lily_ast_reset_pool(ap);
 }
