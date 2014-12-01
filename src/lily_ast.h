@@ -8,7 +8,8 @@
 typedef enum {
     tree_call, tree_subscript, tree_list, tree_hash, tree_parenth,
     tree_local_var, tree_readonly, tree_var, tree_package, tree_oo_access,
-    tree_unary, tree_sig, tree_typecast, tree_tuple, tree_property, tree_binary
+    tree_unary, tree_sig, tree_typecast, tree_tuple, tree_property,
+    tree_variant, tree_binary
 } lily_tree_type;
 
 typedef struct {
@@ -38,6 +39,8 @@ typedef struct lily_ast_t {
        same property. */
     int oo_property_index;
     int oo_pool_index;
+
+    lily_class *variant_class;
 
     /* These are for unary and binary ops mostly. Typecast stores a value in
        right so that operations will use that like with binary. */
@@ -111,5 +114,6 @@ void lily_ast_push_readonly(lily_ast_pool *, lily_sym *);
 void lily_ast_push_unary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_oo_access(lily_ast_pool *, char *);
 void lily_ast_push_property(lily_ast_pool *, lily_prop_entry *);
+void lily_ast_push_variant(lily_ast_pool *, lily_class *);
 void lily_ast_reset_pool(lily_ast_pool *);
 #endif

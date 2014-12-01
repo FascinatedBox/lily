@@ -146,15 +146,13 @@ function f[A]() {\
     },
     {
      "command": """\
-class SomeType[A](A value) { A @value = value }
-class NoneType() {  }
 enum class Option[A] {
-    SomeType[A],
-    NoneType
+    Some(A),
+    None
 }
 
-Option[integer] i = SomeType::new(10)
-i = NoneType::new()
+Option[integer] i = Some(10)
+i = None
 
 """,
      "message": "Ensure basic working of enum class."

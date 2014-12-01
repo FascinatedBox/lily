@@ -141,6 +141,7 @@ void lily_gc_list_marker(int pass, lily_value *v)
     }
 }
 
+
 int lily_list_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
 {

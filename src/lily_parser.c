@@ -722,6 +722,16 @@ static void expression_package(lily_parse_state *parser, lily_var *package_var)
     lily_ast_leave_tree(ap);
 }
 
+/*  expression_variant
+    This is called when expression_word hits a label that's a class that's
+    marked as a variant class. They're used like a function, sometimes. Not
+    actually a function though. */
+static void expression_variant(lily_parse_state *parser,
+        lily_class *variant_cls)
+{
+    lily_ast_push_variant(parser->ast_pool, variant_cls);
+}
+
 /*  expression_word
     This is a helper function that handles words in expressions. These are
     sort of complicated. :( */
@@ -769,9 +779,15 @@ static void expression_word(lily_parse_state *parser, int *state)
             lily_class *cls = lily_class_by_name(parser->symtab, lex->label);
 
             if (cls != NULL) {
-                lily_lexer(lex);
-                expression_static_call(parser, cls);
-                *state = ST_WANT_OPERATOR;
+                if (cls->flags & CLS_VARIANT_CLASS) {
+                    expression_variant(parser, cls);
+                    *state = ST_WANT_OPERATOR;
+                }
+                else {
+                    lily_lexer(lex);
+                    expression_static_call(parser, cls);
+                    *state = ST_WANT_OPERATOR;
+                }
             }
             else
                 lily_raise(parser->raiser, lily_SyntaxError,
@@ -1812,7 +1828,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
     NEED_NEXT_TOK(tk_word)
     ensure_valid_class(parser, lex->label);
 
-    lily_class *created_class = lily_new_class(parser->symtab, lex->label);
+    lily_class *enum_class = lily_new_class(parser->symtab, lex->label);
 
     lily_lexer(lex);
     int save_generics = parser->emit->current_block->generic_count;
@@ -1822,24 +1838,48 @@ static void enum_handler(lily_parse_state *parser, int multi)
     else
         generics_used = 0;
 
-    lily_update_symtab_generics(parser->symtab, created_class, generics_used);
+    lily_update_symtab_generics(parser->symtab, enum_class, generics_used);
+    lily_make_constructor_return_sig(parser->symtab);
+    lily_sig *result_sig = parser->symtab->root_sig;
 
     NEED_CURRENT_TOK(tk_left_curly)
     lily_lexer(lex);
 
-    int save_ssp = parser->sig_stack_pos;
-    int stack_pos = parser->sig_stack_pos;
+    lily_class *function_class = lily_class_by_id(parser->symtab,
+            SYM_CLASS_FUNCTION);
+    int inner_class_count = 0;
 
     while (1) {
-        lily_sig *new_sig = collect_var_sig(parser, NULL, 0);
-        if (stack_pos == parser->sig_stack_size)
-            grow_sig_stack(parser);
+        NEED_CURRENT_TOK(tk_word)
+        lily_class *variant_cls = lily_new_class(parser->symtab, lex->label);
 
-        /* This results in the enum class sigs piling up at the bottom, with
-           the top part of the stack being used for collection. */
-        parser->sig_stack[stack_pos] = new_sig;
-        stack_pos++;
-        parser->sig_stack_pos = stack_pos;
+        lily_lexer(lex);
+
+        lily_sig *variant_sig;
+        /* Each variant type is thought of as a function that takes any number
+           of types and yields the enum class. */
+        if (lex->token == tk_left_parenth) {
+            lily_lexer(lex);
+            /* This is silly: Variants without args are the same as with empty
+               parentheses since they're not true functions. */
+            if (lex->token == tk_right_parenth)
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Variant class cannot take empty ().\n");
+
+            /* It is safe to modify this sig because it must be unique (all
+               variants must be uniquely named, and are thus of a class not
+               seen before). */
+            variant_sig = inner_type_collector(parser, function_class, 0);
+            /* Skip the closing ')'. */
+            lily_lexer(lex);
+        }
+        else
+            variant_sig = NULL;
+
+        lily_change_to_variant_class(parser->symtab, variant_cls, variant_sig,
+                enum_class);
+
+        inner_class_count++;
 
         if (lex->token == tk_comma)
             lily_lexer(lex);
@@ -1847,14 +1887,9 @@ static void enum_handler(lily_parse_state *parser, int multi)
             break;
     }
 
-    lily_lexer(lex);
-    lily_update_enum_class(parser->symtab, created_class,
-            parser->sig_stack+save_ssp, parser->sig_stack_pos);
-
-    parser->sig_stack_pos = save_ssp;
-
-    lily_finish_class(parser->symtab, created_class);
+    lily_finish_enum_class(parser->symtab, enum_class, result_sig);
     lily_update_symtab_generics(parser->symtab, NULL, save_generics);
+    lily_lexer(lex);
 }
 
 static void do_bootstrap(lily_parse_state *parser)

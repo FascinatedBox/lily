@@ -209,6 +209,8 @@ static void show_simple_value(lily_debug_state *debug, lily_sig *sig,
         lily_msgbuf_add_int(debug->msgbuf, value.integer);
     else if (cls_id == SYM_CLASS_DOUBLE)
         lily_msgbuf_add_double(debug->msgbuf, value.doubleval);
+    /* else it's a variant literal. Those don't need to be shown because they
+       don't -really- have a value inside. */
 
     write_msgbuf(debug);
 }
