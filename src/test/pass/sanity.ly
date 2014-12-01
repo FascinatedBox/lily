@@ -1509,12 +1509,9 @@ function test_defaulting()
     }
 }
 
-class SomeType[A](A value) { A @value = value }
-class NoneType() {}
-
 enum class Option[A] {
-    SomeType[A],
-    NoneType
+    Some(A),
+    None
 }
 
 function test_enum_classes()
@@ -1522,12 +1519,12 @@ function test_enum_classes()
     printfmt("#%i: Testing enum class stuff (sub tests follow)...\n", test_id)
     test_id += 1
 
-    Option[integer] opt = SomeType::new(10)
-    opt = NoneType::new()
+    Option[integer] opt = Some(10)
+    opt = None
 
     print("     Making sure an enum class can compare to a sub type...")
     integer ok = 1
-    if opt == NoneType::new(): {
+    if opt == None: {
         print("ok.\n")
     else:
         print("failed.\n")

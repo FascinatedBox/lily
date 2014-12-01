@@ -62,7 +62,7 @@ static lily_literal *try_new_literal(lily_symtab *symtab, lily_class *cls,
         }
         return NULL;
     }
-    /* Literals are either a string, integer, or number, so this is safe. */
+    /* Literal values always have a default sig, so this is safe. */
     lit->sig = cls->sig;
 
     lit->flags = SYM_TYPE_LITERAL;
@@ -596,11 +596,10 @@ static int init_classes(lily_symtab *symtab)
             new_class->seed_table = NULL;
             new_class->setup_func = class_seeds[i].setup_func;
             new_class->eq_func = class_seeds[i].eq_func;
+            new_class->variant_members = NULL;
             new_class->properties = NULL;
             new_class->prop_count = 0;
             new_class->parent = NULL;
-            new_class->enum_siglist = NULL;
-            new_class->enum_siglist_size = 0;
 
             new_class->next = symtab->class_chain;
             symtab->class_chain = new_class;
@@ -760,7 +759,7 @@ static void free_classes(lily_class *class_iter)
         if (class_iter->id > SYM_CLASS_FORMATERROR)
             lily_free(class_iter->name);
 
-        lily_free(class_iter->enum_siglist);
+        lily_free(class_iter->variant_members);
 
         lily_class *class_next = class_iter->next;
         lily_free(class_iter);
@@ -791,7 +790,7 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
     while (lit != NULL) {
         lit_temp = lit->next;
 
-        if (lit->sig->cls->is_refcounted)
+        if (lit->sig->cls->id == SYM_CLASS_STRING)
             lily_deref_string_val(lit->value.string);
 
         lily_free(lit);
@@ -854,7 +853,7 @@ void lily_free_symtab(lily_symtab *symtab)
 }
 
 /*****************************************************************************/
-/* Exported function                                                         */
+/* Exported functions                                                        */
 /*****************************************************************************/
 
 /* These next three are used to get an integer, double, or string literal.
@@ -954,6 +953,38 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab, char *want_string)
     return ret;
 }
 
+/*  lily_get_variant_literal
+    This function is like the other literal getters, except that it's called
+    for empty variant classes. An empty variant class will always be the same,
+    so an empty literal is passed around for the value.
+    Otherwise the interpreter would have to create a bunch of nothings with the
+    same value, and that would be rather silly. :) */
+lily_literal *lily_get_variant_literal(lily_symtab *symtab,
+        lily_sig *variant_sig)
+{
+    lily_literal *lit_iter, *ret;
+    ret = NULL;
+
+    for (lit_iter = symtab->lit_chain;
+         lit_iter != NULL;
+         lit_iter = lit_iter->next) {
+        if (lit_iter->sig == variant_sig) {
+            ret = lit_iter;
+            break;
+        }
+    }
+
+    if (ret == NULL) {
+        lily_raw_value v;
+        v.integer = 0;
+        ret = try_new_literal(symtab, variant_sig->cls, v);
+        if (ret == NULL)
+            lily_raise_nomem(symtab->raiser);
+    }
+
+    return ret;
+}
+
 /*  lily_try_sig_for_class
     Attempt to get the default signature of the given class. If the given class
     doesn't have a default signature (because it takes templates), then create
@@ -974,6 +1005,7 @@ lily_sig *lily_try_sig_for_class(lily_symtab *symtab, lily_class *cls)
             sig->siglist = NULL;
             sig->siglist_size = 0;
             sig->flags = 0;
+            sig->template_pos = 0;
 
             sig->next = symtab->root_sig;
             symtab->root_sig = sig;
@@ -1333,10 +1365,9 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     new_class->call_start = NULL;
     new_class->call_top = NULL;
     new_class->setup_func = NULL;
+    new_class->variant_members = NULL;
     new_class->gc_marker = NULL;
     new_class->eq_func = lily_instance_eq;
-    new_class->enum_siglist = NULL;
-    new_class->enum_siglist_size = 0;
 
     new_class->id = symtab->next_class_id;
     symtab->next_class_id++;
@@ -1486,16 +1517,145 @@ void lily_make_constructor_return_sig(lily_symtab *symtab)
     symtab->root_sig = sig;
 }
 
-void lily_update_enum_class(lily_symtab *symtab, lily_class *enum_class,
-        lily_sig **enum_sigs, int siglist_size)
+static void mark_generics(lily_sig *sig)
 {
-    lily_sig **sigs_copy = lily_malloc(sizeof(lily_sig *) * siglist_size);
-    if (sigs_copy == NULL)
+    int i;
+    if (sig) {
+        if (sig->siglist) {
+            for (i = 0;i < sig->siglist_size;i++) {
+                lily_sig *inner_sig = sig->siglist[i];
+                mark_generics(inner_sig);
+            }
+        }
+        else if (sig->cls->id == SYM_CLASS_TEMPLATE)
+            sig->flags |= SIG_GENERIC_SEEN;
+    }
+}
+
+/*  calculate_variant_return
+    Each variant within an enum class that takes some number of arguments can
+    be thought of as a function that returns an instance of that class.
+    Take this for instance:
+        enum class Option[A] { Some(A), None }
+    This starts with, say 'Some' as 'function (A)' and needs to make it into
+    'function (A => Some[A])'.
+    Bear in mind that some variants may use non-generic types, and those are
+    not included in the result. */
+static lily_sig *calculate_variant_return(lily_symtab *symtab,
+        lily_class *variant_cls, lily_sig *variant_sig)
+{
+    mark_generics(variant_sig);
+
+    int generic_count = 0;
+
+    lily_sig *sig_iter = symtab->template_sig_start;
+    while (sig_iter->cls->id == SYM_CLASS_TEMPLATE) {
+        if (sig_iter->flags & SIG_GENERIC_SEEN)
+            generic_count++;
+
+        sig_iter = sig_iter->next;
+    }
+
+    lily_sig *result_sig = lily_try_sig_for_class(symtab, variant_cls);
+    if (result_sig == NULL)
         lily_raise_nomem(symtab->raiser);
 
-    memcpy(sigs_copy, enum_sigs, sizeof(lily_sig *) * siglist_size);
+    result_sig->cls = variant_cls;
 
-    enum_class->enum_siglist = sigs_copy;
-    enum_class->enum_siglist_size = siglist_size;
+    if (generic_count) {
+        lily_sig **contained_sigs = lily_malloc(generic_count *
+                sizeof(lily_sig *));
+
+        if (contained_sigs == NULL)
+            lily_raise_nomem(symtab->raiser);
+
+        result_sig->siglist = contained_sigs;
+        result_sig->siglist_size = generic_count;
+        sig_iter = symtab->template_sig_start;
+        int i;
+        for (sig_iter = symtab->template_sig_start, i = 0;
+             sig_iter->cls->id == SYM_CLASS_TEMPLATE;
+             sig_iter = sig_iter->next) {
+            if (sig_iter->flags & SIG_GENERIC_SEEN) {
+                contained_sigs[i] = sig_iter;
+                sig_iter->flags &= ~SIG_GENERIC_SEEN;
+
+                /* A signature's template_pos is always the highest template id
+                   it carries, +1. This allows the emitter to easily check if a
+                   sig contains generics. */
+                result_sig->template_pos = i + 1;
+            }
+        }
+
+        variant_cls->template_count = generic_count;
+    }
+
+    return result_sig;
+}
+
+void lily_change_to_variant_class(lily_symtab *symtab, lily_class *cls,
+        lily_sig *variant_sig, lily_class *enum_class)
+{
+    cls->flags |= CLS_VARIANT_CLASS;
+    cls->variant_sig = variant_sig;
+    cls->parent = enum_class;
+
+    if (variant_sig == NULL) {
+        /* This variant doesn't take parameters, so give it a plain sig. */
+        lily_sig *sig = lily_try_sig_for_class(symtab, cls);
+        if (sig == NULL)
+            lily_raise_nomem(symtab->raiser);
+
+        sig->cls = cls;
+        /* Anything that doesn't take parameters gets a default sig. */
+        cls->sig = sig;
+
+        cls->variant_sig = sig;
+        /* Empty variants are represented as integers, and won't need to be
+           marked through. */
+        cls->eq_func = lily_integer_eq;
+    }
+    else {
+        /* It's safe to modify this sig only because it contains a class that
+           has just been seen for the first time. Because of that, the sig is
+           guaranteed to be unique both before and after this modification.
+           This is a bad idea in almost any other case. */
+        lily_sig *variant_result = calculate_variant_return(symtab,
+                cls, variant_sig);
+
+        variant_result->flags |= SIG_MAYBE_CIRCULAR;
+        variant_sig->siglist[0] = variant_result;
+
+        /* The only difference between a tuple and a variant with args is that
+           the variant has a variant sig instead of a tuple one. */
+        cls->gc_marker = lily_gc_tuple_marker;
+        cls->eq_func = lily_tuple_eq;
+    }
+}
+
+void lily_finish_enum_class(lily_symtab *symtab, lily_class *enum_class,
+        lily_sig *enum_sig)
+{
+    int i, variant_count = 0;
+    lily_class *class_iter = symtab->class_chain;
+    while (class_iter != enum_class) {
+        variant_count++;
+        class_iter = class_iter->next;
+    }
+
+    lily_class **members = lily_malloc(variant_count * sizeof(lily_class *));
+    if (members == NULL)
+        lily_raise_nomem(symtab->raiser);
+
+    for (i = 0, class_iter = symtab->class_chain;
+         i < variant_count;
+         i++, class_iter = class_iter->next)
+        members[i] = class_iter;
+
+    enum_class->variant_members = members;
+    enum_class->variant_size = variant_count;
     enum_class->flags |= CLS_ENUM_CLASS;
+    enum_class->gc_marker = lily_gc_any_marker;
+    enum_class->eq_func = lily_any_eq;
+
 }

@@ -94,8 +94,15 @@ typedef struct lily_class_t {
     lily_prop_entry *properties;
     int prop_count;
 
-    struct lily_sig_t **enum_siglist;
-    int enum_siglist_size;
+    /* If it's an enum class, then the variants are here. NULL otherwise. */
+    struct lily_class_t **variant_members;
+    int variant_size;
+
+    /* If the variant class takes arguments, then this is the signature of a
+       function that maps from input to the result.
+       If the variant doesn't take arguments, then this is a simple signature
+       that just defines the class (like a default sig). */
+    struct lily_sig_t *variant_sig;
 
     /* Instead of loading all class members during init, Lily stores the needed
        information in the seed_table of a class. If the symtab can't find the
@@ -407,6 +414,10 @@ typedef struct lily_prop_seed_t {
    It's also laid out like an 'any'. */
 #define CLS_ENUM_CLASS     0x2
 
+/* This class is a variant class (it was created within an 'enum class'
+   declaration). */
+#define CLS_VARIANT_CLASS  0x4
+
 /* SIG_* defines are for the flags of a lily_sig. */
 /* If set, the signature is either a vararg function. The last argument is the
    type for varargs. */
@@ -418,6 +429,9 @@ typedef struct lily_prop_seed_t {
    available. So if there are 4 generic sigs available but only 2 used, it
    simply hides the second two from being returned. */
 #define SIG_HIDDEN_GENERIC 0x4
+/* This is temporarily set on a generic signature when the symtab is trying
+   to figure out what the result of a variant 'call' should be. */
+#define SIG_GENERIC_SEEN   0x10
 
 /* SYM_* defines are for identifying the type of symbol given. Emitter uses
    these sometimes. */

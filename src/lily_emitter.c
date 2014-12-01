@@ -37,6 +37,7 @@
 
 static int type_matchup(lily_emit_state *, lily_sig *, lily_ast *);
 static void eval_tree(lily_emit_state *, lily_ast *, lily_sig *);
+static void eval_variant(lily_emit_state *, lily_ast *);
 
 /*****************************************************************************/
 /* Emitter setup and teardown                                                */
@@ -1957,38 +1958,6 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     ast->result = (lily_sym *)s;
 }
 
-/*  enum_membership_check
-    Given a signature which is for some enum class, determine if 'right'
-    is a member of the enum class.
-
-    Returns 1 if yes, 0 if no. */
-static int enum_membership_check(lily_emit_state *emit, lily_sig *enum_sig,
-        lily_sig *right)
-{
-    int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
-    int save_ssp = emit->sig_stack_pos;
-    lily_sig **enum_member_sigs = enum_sig->cls->enum_siglist;
-
-    if (stack_start + enum_sig->siglist_size + 1 > emit->sig_stack_size)
-        grow_sig_stack(emit);
-
-    int i, ret = 0;
-
-    for (i = 0;i < enum_sig->siglist_size;i++)
-        emit->sig_stack[stack_start + i] = enum_sig->siglist[i];
-
-    emit->sig_stack_pos = stack_start;
-
-    for (i = 0;i < enum_sig->cls->enum_siglist_size;i++) {
-        ret = template_check(emit, enum_member_sigs[i], right);
-        if (ret)
-            break;
-    }
-
-    emit->sig_stack_pos = save_ssp;
-    return ret;
-}
-
 /*  emit_rebox_value
     Make a storage of type 'new_sig' and assign ast's result to it. The tree's
     result is written over. */
@@ -2001,6 +1970,53 @@ static void emit_rebox_value(lily_emit_state *emit, lily_sig *new_sig,
             storage->reg_spot);
 
     ast->result = (lily_sym *)storage;
+}
+
+
+/*  check_proper_variant
+    Make sure that the variant has the proper inner type to satisfy the
+    signature wanted by the enum.  */
+static int check_proper_variant(lily_emit_state *emit, lily_sig *enum_sig,
+        lily_sig *given_sig, lily_class *variant_cls)
+{
+    lily_sig *variant_sig = variant_cls->variant_sig;
+    int result = 0;
+
+    /* XXX: This is a very, very bad hack that allows Option[A] and Some(A)
+       to work. Almost anything else will crash. */
+    result = template_check(emit, variant_sig->siglist[0], given_sig);
+
+    return result;
+}
+
+/*  enum_membership_check
+    Given a signature which is for some enum class, determine if 'right'
+    is a member of the enum class.
+
+    Returns 1 if yes, 0 if no. */
+static int enum_membership_check(lily_emit_state *emit, lily_sig *enum_sig,
+        lily_sig *right)
+{
+    /* First, make sure that right is a member... */
+    lily_class *variant_class = right->cls;
+    lily_class *enum_class = enum_sig->cls;
+    int i, ok = 0;
+    for (i = 0;i < enum_class->variant_size;i++) {
+        if (enum_class->variant_members[i] == variant_class) {
+            ok = 1;
+            break;
+        }
+    }
+
+    if (ok == 1) {
+        /* If the variant does not take arguments, then there's nothing that
+           could have been called wrong. Therefore, the use of the variant MUST
+           be correct. */
+        if (right->siglist_size != 0)
+            ok = check_proper_variant(emit, enum_sig, right, variant_class);
+    }
+
+    return ok;
 }
 
 /*  type_matchup
@@ -2441,6 +2457,13 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     emit->current_generic_adjust = 0;
 
     if (ast->result == NULL) {
+        if (ast->arg_start->tree_type == tree_variant) {
+            emit->sig_stack_pos -= save_adjust;
+            emit->current_generic_adjust = save_adjust;
+            eval_variant(emit, ast);
+            return;
+        }
+
         int cls_id;
         /* Special case: Don't walk tree_readonly. Doing so will rewrite the
            var given to it with a storage result...which emitter cannot use
@@ -2698,6 +2721,69 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)result;
 }
 
+static void eval_variant(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_storage *result = NULL;
+
+    if (ast->tree_type == tree_call) {
+        /* Make space for generics, in case this variant uses them. */
+        int save_adjust = emit->current_generic_adjust;
+        emit->sig_stack_pos += save_adjust;
+        emit->current_generic_adjust = 0;
+
+        /* The first arg is actually the variant. */
+        lily_ast *variant_tree = ast->arg_start;
+        lily_class *variant_class = variant_tree->variant_class;
+
+        /* Make argument collection skip this value. */
+        ast->arg_start = ast->arg_start->next_arg;
+        ast->args_collected--;
+
+        if (variant_class->variant_sig->siglist_size == 1)
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "Variant class %s should not get args.\n",
+                    variant_class->name);
+
+        check_call_args(emit, ast, variant_class->variant_sig);
+
+        lily_sig *result_sig = variant_class->variant_sig->siglist[0];
+        if (result_sig->template_pos != 0)
+            result_sig = build_untemplated_sig(emit, result_sig);
+
+        result = get_storage(emit, result_sig, ast->line_num);
+
+        /* It's pretty darn close to a tuple, so...let's use that. :) */
+        write_build_op(emit, o_build_list_tuple, ast->arg_start,
+                ast->line_num, ast->args_collected, result->reg_spot);
+
+        emit->sig_stack_pos -= save_adjust;
+        emit->current_generic_adjust = save_adjust;
+    }
+    else {
+        /* Did this need arguments? It was used incorrectly if so. */
+        lily_sig *variant_init_sig = ast->variant_class->variant_sig;
+        if (variant_init_sig->siglist_size != 0)
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "Variant class %s needs %d arg(s).\n",
+                    ast->variant_class->name,
+                    variant_init_sig->siglist_size - 1);
+
+        /* If a variant type takes no arguments, then it's essentially an empty
+           container. It would be rather silly to have a bunch of UNIQUE empty
+           containers (which will always be empty).
+           So the interpreter creates a literal and hands that off. */
+        lily_sig *variant_sig = ast->variant_class->variant_sig;
+        lily_literal *variant_lit = lily_get_variant_literal(emit->symtab,
+                variant_sig);
+
+        result = get_storage(emit, variant_sig, ast->line_num);
+        write_4(emit, o_get_const, ast->line_num, variant_lit->reg_spot,
+                result->reg_spot);
+    }
+
+    ast->result = (lily_sym *)result;
+}
+
 /*  eval_tree
     Magically determine what function actually handles the given ast. */
 static void eval_tree(lily_emit_state *emit, lily_ast *ast,
@@ -2761,6 +2847,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
         eval_oo_access(emit, ast);
     else if (ast->tree_type == tree_property)
         eval_property(emit, ast);
+    else if (ast->tree_type == tree_variant)
+        eval_variant(emit, ast);
 }
 
 /*****************************************************************************/

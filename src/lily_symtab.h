@@ -65,6 +65,7 @@ void lily_free_symtab(lily_symtab *);
 lily_literal *lily_get_integer_literal(lily_symtab *, int64_t);
 lily_literal *lily_get_double_literal(lily_symtab *, double);
 lily_literal *lily_get_string_literal(lily_symtab *, char *);
+lily_literal *lily_get_variant_literal(lily_symtab *, lily_sig *);
 
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, const char *);
@@ -84,7 +85,6 @@ int lily_keyword_by_name(char *);
 lily_sig *lily_try_sig_for_class(lily_symtab *, lily_class *);
 lily_sig *lily_try_sig_from_ids(lily_symtab *, const int *);
 lily_sig *lily_build_ensure_sig(lily_symtab *, lily_class *, int, lily_sig **, int, int);
-void lily_update_enum_class(lily_symtab *, lily_class *, lily_sig **, int);
 
 void lily_hide_block_vars(lily_symtab *, lily_var *);
 int lily_check_right_inherits_or_is(lily_class *, lily_class *);
@@ -94,4 +94,6 @@ lily_prop_entry *lily_add_class_property(lily_class *, lily_sig *, char *, int);
 void lily_update_symtab_generics(lily_symtab *, lily_class *, int);
 void lily_finish_class(lily_symtab *, lily_class *);
 void lily_make_constructor_return_sig(lily_symtab *);
+void lily_change_to_variant_class(lily_symtab *, lily_class *, lily_sig *, lily_class *);
+void lily_finish_enum_class(lily_symtab *, lily_class *, lily_sig *);
 #endif
