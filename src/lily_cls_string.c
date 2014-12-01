@@ -39,12 +39,6 @@ void lily_string_concat(lily_vm_state *vm, lily_function_val *self,
     lily_value *self_arg = vm_regs[code[0]];
     lily_value *other_arg = vm_regs[code[1]];
 
-    if (self_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Input string is nil.\n");
-
-    if (other_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "String to append is nil.\n");
-
     lily_string_val *self_sv = self_arg->value.string;
     lily_string_val *other_sv = other_arg->value.string;
 
@@ -259,12 +253,6 @@ void lily_string_lstrip(lily_vm_state *vm, lily_function_val *self,
     int copy_from, i, has_multibyte_char, strip_str_len;
     lily_string_val *strip_sv;
 
-    if (input_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Input string is nil.\n");
-
-    if (strip_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Cannot strip nil value.\n");
-
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
     if (input_arg->value.string->size == 0 ||
         strip_arg->value.string->size == 0) {
@@ -310,12 +298,6 @@ void lily_string_startswith(lily_vm_state *vm, lily_function_val *self,
     lily_value *input_arg = vm_regs[code[0]];
     lily_value *prefix_arg = vm_regs[code[1]];
     lily_value *result_arg = vm_regs[code[2]];
-
-    if (input_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Input is nil.\n");
-
-    if (prefix_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Prefix is nil.\n");
 
     char *input_raw_str = input_arg->value.string->string;
     char *prefix_raw_str = prefix_arg->value.string->string;
@@ -449,12 +431,6 @@ void lily_string_rstrip(lily_vm_state *vm, lily_function_val *self,
     int copy_to, i, has_multibyte_char, strip_str_len;
     lily_string_val *strip_sv;
 
-    if (input_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Input string is nil.\n");
-
-    if (strip_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Cannot strip nil value.\n");
-
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
     if (input_arg->value.string->size == 0 ||
         strip_arg->value.string->size == 0) {
@@ -504,12 +480,6 @@ void lily_string_endswith(lily_vm_state *vm, lily_function_val *self,
     lily_value *suffix_arg = vm_regs[code[1]];
     lily_value *result_arg = vm_regs[code[2]];
 
-    if (input_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Input is nil.\n");
-
-    if (suffix_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Suffix is nil.\n");
-
     char *input_raw_str = input_arg->value.string->string;
     char *suffix_raw_str = suffix_arg->value.string->string;
     int input_size = input_arg->value.string->size;
@@ -541,9 +511,6 @@ void lily_string_lower(lily_vm_state *vm, lily_function_val *self,
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
     lily_value *result_arg = vm_regs[code[1]];
-
-    if (input_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Input is nil.\n");
 
     int new_size = input_arg->value.string->size + 1;
     lily_string_val *new_sv = try_make_sv(new_size);
@@ -578,9 +545,6 @@ void lily_string_upper(lily_vm_state *vm, lily_function_val *self,
     lily_value *input_arg = vm_regs[code[0]];
     lily_value *result_arg = vm_regs[code[1]];
 
-    if (input_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Input is nil.\n");
-
     int new_size = input_arg->value.string->size + 1;
     lily_string_val *new_sv = try_make_sv(new_size);
     if (new_sv == NULL)
@@ -614,12 +578,6 @@ void lily_string_find(lily_vm_state *vm, lily_function_val *self,
     lily_value *input_arg = vm_regs[code[0]];
     lily_value *find_arg = vm_regs[code[1]];
     lily_value *result_arg = vm_regs[code[2]];
-
-    if (input_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Input is nil.\n");
-
-    if (find_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Find str is nil.\n");
 
     char *input_str = input_arg->value.string->string;
     int input_length = input_arg->value.string->size;
@@ -680,12 +638,6 @@ void lily_string_strip(lily_vm_state *vm, lily_function_val *self,
     lily_value *strip_arg = vm_regs[code[1]];
     lily_value *result_arg = vm_regs[code[2]];
 
-    if (input_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Input string is nil.\n");
-
-    if (strip_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Cannot strip nil value.\n");
-
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
     if (input_arg->value.string->size == 0 ||
         strip_arg->value.string->size == 0) {
@@ -744,7 +696,7 @@ void lily_string_strip(lily_vm_state *vm, lily_function_val *self,
     Implements str::trim
 
     Arguments:
-    * input: The string to be stripped. If this is nil, ErrBadValue is raised.
+    * input: The string to be stripped.
 
     This removes all whitespace from the front and the back of 'input'.
     Whitespace is any of: ' \t\r\n'.
@@ -756,9 +708,6 @@ void lily_string_trim(lily_vm_state *vm, lily_function_val *self,
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
     lily_value *result_arg = vm_regs[code[1]];
-
-    if (input_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Input is nil.\n");
 
     char fake_buffer[5] = " \t\r\n";
     lily_string_val fake_sv;
@@ -790,7 +739,7 @@ void lily_string_trim(lily_vm_state *vm, lily_function_val *self,
     Implements str::htmlencode
 
     Arguments:
-    * input: The string to be encoded. If this is nil, ErrBadValue is raised.
+    * input: The string to be encoded.
 
     This transforms any html entities to their encoded versions:
     < becomes &lt;
@@ -802,9 +751,6 @@ void lily_string_htmlencode(lily_vm_state *vm, lily_function_val *self,
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
     lily_value *result_arg = vm_regs[code[1]];
-
-    if (input_arg->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError, "Input is nil.\n");
 
     lily_vm_stringbuf *string_buffer = vm->string_buffer;
     char *str = string_buffer->data;
