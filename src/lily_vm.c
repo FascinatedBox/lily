@@ -12,35 +12,17 @@
 
 extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
 
-/* LOAD_CHECKED_REG is used to load a register and check it for not having a
-   value. Using this macro ensures that novalue_error will be called with the
-   correct index (since it's given the same index as the code position).
-   Arguments are:
-   * load_reg:      The register to load the value into.
-   * load_code_pos: The current code position. In the vm, this is always
-                    code_pos.
-   * load_pos:      How far after load_code_pos to look for the register value.
-                    This is also used by novalue_error to locate the register in
-                    case there is an error.
-
-   This macro is the preferred way of checking for something being nil because
-   it ensures that novalue_error gets the correct index. */
-#define LOAD_CHECKED_REG(load_reg, load_code_pos, load_pos) \
-load_reg = vm_regs[code[load_code_pos + load_pos]]; \
-if (load_reg->flags & VAL_IS_NIL) \
-    novalue_error(vm, load_code_pos, load_pos); \
-
 #define INTEGER_OP(OP) \
-LOAD_CHECKED_REG(lhs_reg, code_pos, 2) \
-LOAD_CHECKED_REG(rhs_reg, code_pos, 3) \
+lhs_reg = vm_regs[code[code_pos + 2]]; \
+rhs_reg = vm_regs[code[code_pos + 3]]; \
 vm_regs[code[code_pos+4]]->value.integer = \
 lhs_reg->value.integer OP rhs_reg->value.integer; \
 vm_regs[code[code_pos+4]]->flags &= ~VAL_IS_NIL; \
 code_pos += 5;
 
 #define INTDBL_OP(OP) \
-LOAD_CHECKED_REG(lhs_reg, code_pos, 2) \
-LOAD_CHECKED_REG(rhs_reg, code_pos, 3) \
+lhs_reg = vm_regs[code[code_pos + 2]]; \
+rhs_reg = vm_regs[code[code_pos + 3]]; \
 if (lhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) { \
     if (rhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) \
         vm_regs[code[code_pos+4]]->value.doubleval = \
@@ -67,8 +49,8 @@ code_pos += 5;
    * stringop: The operation to perform relative to the result of strcmp. ==
                does == 0, as an example. */
 #define EQUALITY_COMPARE_OP(OP, STRINGOP) \
-LOAD_CHECKED_REG(lhs_reg, code_pos, 2) \
-LOAD_CHECKED_REG(rhs_reg, code_pos, 3) \
+lhs_reg = vm_regs[code[code_pos + 2]]; \
+rhs_reg = vm_regs[code[code_pos + 3]]; \
 if (lhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) { \
     if (rhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) \
         vm_regs[code[code_pos+4]]->value.integer = \
@@ -98,8 +80,8 @@ vm_regs[code[code_pos+4]]->flags &= ~VAL_IS_NIL; \
 code_pos += 5;
 
 #define COMPARE_OP(OP, STRINGOP) \
-LOAD_CHECKED_REG(lhs_reg, code_pos, 2) \
-LOAD_CHECKED_REG(rhs_reg, code_pos, 3) \
+lhs_reg = vm_regs[code[code_pos + 2]]; \
+rhs_reg = vm_regs[code[code_pos + 3]]; \
 if (lhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) { \
     if (rhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) \
         vm_regs[code[code_pos+4]]->value.integer = \
@@ -1244,41 +1226,6 @@ static lily_value *build_traceback(lily_vm_state *vm, lily_sig *traceback_sig)
     return v;
 }
 
-/*  novalue_error
-    Oh no. This is called when some value is nil and there's an attempt to
-    access it. This would be fine...except it TRIES to print the name of the
-    thing used if it's a var.
-    This function will be DESTROYED when optional values arrive. For now,
-    pretend it doesn't exist. Lalalalala. */
-static void novalue_error(lily_vm_state *vm, int code_pos, int reg_pos)
-{
-    /* ...So fill in the current function's info before dying. */
-    lily_vm_stack_entry *top = vm->function_stack[vm->function_stack_pos-1];
-    /* Functions do not have a linetable that maps opcodes to line numbers.
-       Instead, the emitter writes the line number right after the opcode for
-       any opcode that might call novalue_error. */
-    top->line_num = top->code[code_pos+1];
-
-    /* Instead of using the register, grab the register info for the current
-       function. This will have the name, if this particular register is used
-       to hold a named var. */
-    lily_register_info *reg_info;
-    reg_info = vm->function_stack[vm->function_stack_pos - 1]->function->reg_info;
-
-    /* A functions's register info and the registers are the same size. The
-       info at position one is for the first register, the second for the
-       second register, etc. */
-    lily_register_info err_reg_info;
-    err_reg_info = reg_info[top->code[code_pos+reg_pos]];
-
-    /* If this register corresponds to a named value, show that. */
-    if (err_reg_info.name != NULL)
-        lily_raise(vm->raiser, lily_ValueError, "%s is nil.\n",
-                   err_reg_info.name);
-    else
-        lily_raise(vm->raiser, lily_ValueError, "Attempt to use nil value.\n");
-}
-
 /*  key_error
     This is a helper routine that raises KeyError when there is an attempt
     to read a hash that does not have the given key.
@@ -1394,9 +1341,6 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
             i++;
 
             arg_av = vararg_lv->elems[arg_pos]->value.any;
-            if (arg_av->inner_value->flags & VAL_IS_NIL)
-                lily_raise(vm->raiser, lily_FormatError,
-                        "Argument #%d to printfmt is nil.\n", arg_pos + 2);
 
             arg = arg_av->inner_value;
             cls_id = arg->sig->cls->id;
@@ -1498,9 +1442,8 @@ lily_hash_elem *lily_try_lookup_hash_elem(lily_hash_val *hash,
     hash:        A valid hash, which may or may not have elements.
     key_siphash: The calculated siphash of the given key. Use
                  lily_calculate_siphash to get this.
-    hash_key:    The key value, used for lookup. This should not be nil.
-    hash_value:  The new value to associate with the given key. This may or may
-                 not be nil.
+    hash_key:    The key value, used for lookup.
+    hash_value:  The new value to associate with the given key.
 
     This raises NoMemoryError on failure. */
 static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
@@ -1543,11 +1486,10 @@ static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
 
 /*  do_o_set_item
     This handles A[B] = C, where A is some sort of list/hash/tuple/whatever.
-    If a hash is nil, then it's created and the hash entry is put inside.
     Arguments are pulled from the given code at code_pos.
 
     +2: The list-like thing to assign to.
-    +3: The index, which can't be nil.
+    +3: The index.
     +4: The new value. */
 static void do_o_set_item(lily_vm_state *vm, uint16_t *code, int code_pos)
 {
@@ -1555,14 +1497,12 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code, int code_pos)
     lily_value *lhs_reg, *index_reg, *rhs_reg;
 
     lhs_reg = vm_regs[code[code_pos + 2]];
-    LOAD_CHECKED_REG(index_reg, code_pos, 3)
+    index_reg = vm_regs[code[code_pos + 3]];
     rhs_reg = vm_regs[code[code_pos + 4]];
 
     if (lhs_reg->sig->cls->id != SYM_CLASS_HASH) {
         lily_list_val *list_val = lhs_reg->value.list;
         int index_int = index_reg->value.integer;
-
-        LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
 
         if (index_int >= list_val->num_values)
             boundary_error(vm, index_int);
@@ -1574,14 +1514,6 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code, int code_pos)
         lily_assign_value(vm, list_val->elems[index_int], rhs_reg);
     }
     else {
-        if (lhs_reg->flags & VAL_IS_NIL) {
-            lily_hash_val *hv = lily_try_new_hash_val();
-            if (hv == NULL)
-                lily_raise_nomem(vm->raiser);
-
-            lhs_reg->value.hash = hv;
-            lhs_reg->flags &= ~VAL_IS_NIL;
-        }
         uint64_t siphash;
         siphash = lily_calculate_siphash(vm->sipkey, index_reg);
 
@@ -1593,24 +1525,19 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code, int code_pos)
 /*  do_o_get_item
     This handles A = B[C], where B is some list-like thing, C is an index,
     and A is what will receive the value.
-    If B is a hash and nil, or does not have the given key, then KeyError is
-    raised.
+    If B does not have the given key, then KeyError is raised.
     Arguments are pulled from the given code at code_pos.
 
     +2: The list-like thing to assign to.
-    +3: The index, which can't be nil.
+    +3: The index.
     +4: The new value. */
 static void do_o_get_item(lily_vm_state *vm, uint16_t *code, int code_pos)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *lhs_reg, *index_reg, *result_reg;
 
-    /* The lhs is checked, unlike with o_set_item. The reason for this is not
-       finding a key results in ErrNoSuchKey. So creating a hash where none
-       exists would be useless, because the key that this wants is not going to
-       be in an empty hash. */
-    LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
-    LOAD_CHECKED_REG(index_reg, code_pos, 3)
+    lhs_reg = vm_regs[code[code_pos + 2]];
+    index_reg = vm_regs[code[code_pos + 3]];
     result_reg = vm_regs[code[code_pos + 4]];
 
     /* list and tuple have the same representation internally. Since list
@@ -1774,9 +1701,6 @@ static void do_o_raise(lily_vm_state *vm, lily_value *exception_val)
 {
     /* The Exception class has values[0] as the message, values[1] as the
        container for traceback. */
-    if (exception_val->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_ValueError,
-                "Cannot raise nil exception.\n");
 
     lily_instance_val *ival = exception_val->value.instance;
     lily_sig *traceback_sig = ival->values[1]->sig;
@@ -2165,13 +2089,10 @@ static void seed_registers(lily_vm_state *vm, lily_function_val *f, int start)
     caller: The function that is doing the call. This function is added to the
             fake entry so that the stack trace prints out the function's
             information.
-    tocall: A value holding a non-nil function to call. */
+    tocall: A value holding a function to call. */
 void lily_vm_foreign_prep(lily_vm_state *vm, lily_function_val *caller,
         lily_value *to_call)
 {
-    /* Warning: This assumes that the function isn't nil. This may not be true in
-                the future. */
-
     /* Step 1: Determine the total register need of this function. */
     int register_need = to_call->value.function->reg_count;
     lily_sig *function_val_return_sig = to_call->sig->siglist[0];
@@ -2279,12 +2200,10 @@ void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
     Return a siphash based using the given siphash for the given key.
 
     sipkey:  The vm's sipkey for creating the hash.
-    key:     A non-nil value to make a hash for.
+    key:     A value to make a hash for.
 
-    Notes:
-    * The caller must not pass a non-hashable type (such as any). Parser is
-      responsible for ensuring that hashes only use valid key types.
-    * The caller must not pass a key that is a nil value. */
+    The caller must not pass a non-hashable type (such as any). Parser is
+    responsible for ensuring that hashes only use valid key types. */
 uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
 {
     int key_cls_id = key->sig->cls->id;
@@ -2540,7 +2459,7 @@ void lily_vm_execute(lily_vm_state *vm)
                    will involve some redundant checking of the rhs, but better
                    than dumping INTEGER_OP's contents here or rewriting
                    INTEGER_OP for the special case of division. */
-                LOAD_CHECKED_REG(rhs_reg, code_pos, 3)
+                rhs_reg = vm_regs[code[code_pos+3]];
                 if (rhs_reg->value.integer == 0)
                     lily_raise(vm->raiser, lily_DivisionByZeroError,
                             "Attempt to divide by zero.\n");
@@ -2548,7 +2467,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_modulo:
                 /* x % 0 will do the same thing as x / 0... */
-                LOAD_CHECKED_REG(rhs_reg, code_pos, 3)
+                rhs_reg = vm_regs[code[code_pos+3]];
                 if (rhs_reg->value.integer == 0)
                     lily_raise(vm->raiser, lily_DivisionByZeroError,
                             "Attempt to divide by zero.\n");
@@ -2572,7 +2491,7 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_double_div:
                 /* This is a little more tricky, because the rhs could be a
                    number or an integer... */
-                LOAD_CHECKED_REG(rhs_reg, code_pos, 3)
+                rhs_reg = vm_regs[code[code_pos+3]];
                 if (rhs_reg->sig->cls->id == SYM_CLASS_INTEGER &&
                     rhs_reg->value.integer == 0)
                     lily_raise(vm->raiser, lily_DivisionByZeroError,
@@ -2683,7 +2602,7 @@ void lily_vm_execute(lily_vm_state *vm)
             }
                 break;
             case o_unary_not:
-                LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
+                lhs_reg = vm_regs[code[code_pos+2]];
 
                 rhs_reg = vm_regs[code[code_pos+3]];
                 rhs_reg->flags &= ~VAL_IS_NIL;
@@ -2691,7 +2610,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 4;
                 break;
             case o_unary_minus:
-                LOAD_CHECKED_REG(lhs_reg, code_pos, 2)
+                lhs_reg = vm_regs[code[code_pos+2]];
 
                 rhs_reg = vm_regs[code[code_pos+3]];
                 rhs_reg->flags &= ~VAL_IS_NIL;
@@ -2780,11 +2699,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg = vm_regs[code[code_pos+3]];
                 cast_sig = lhs_reg->sig;
 
-                LOAD_CHECKED_REG(rhs_reg, code_pos, 2)
-                if ((rhs_reg->flags & VAL_IS_NIL) ||
-                    (rhs_reg->value.any->inner_value->flags & VAL_IS_NIL))
-                    novalue_error(vm, code_pos, 2);
-
+                rhs_reg = vm_regs[code[code_pos+2]];
                 rhs_reg = rhs_reg->value.any->inner_value;
 
                 /* Symtab ensures that two signatures don't define the same
@@ -2825,9 +2740,6 @@ void lily_vm_execute(lily_vm_state *vm)
                        external values.*/
                     lhs_reg->value.integer = for_temp;
                     loop_reg->value.integer = for_temp;
-                    /* The loop var may have been altered and set nil. Make sure
-                       it is not nil. */
-                    loop_reg->flags &= ~VAL_IS_NIL;
                     code_pos += 7;
                 }
                 else
@@ -2889,8 +2801,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 loop_reg = vm_regs[code[code_pos+2]];
                 /* lhs_reg is the start, rhs_reg is the stop. */
                 step_reg = vm_regs[code[code_pos+5]];
-                LOAD_CHECKED_REG(lhs_reg, code_pos, 3)
-                LOAD_CHECKED_REG(rhs_reg, code_pos, 4)
+                lhs_reg = vm_regs[code[code_pos+3]];
+                rhs_reg = vm_regs[code[code_pos+4]];
 
                 /* +6 is used to indicate if the step needs to be generated, or
                    if it's already calculated. */
@@ -2903,8 +2815,6 @@ void lily_vm_execute(lily_vm_state *vm)
                     step_reg->flags &= ~VAL_IS_NIL;
                 }
                 else if (step_reg->value.integer == 0) {
-                    LOAD_CHECKED_REG(step_reg, code_pos, 5)
-
                     lily_raise(vm->raiser, lily_ValueError,
                                "for loop step cannot be 0.\n");
                 }

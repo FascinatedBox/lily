@@ -9,15 +9,6 @@ void lily_hash_get(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
     lily_value *default_value = vm_regs[code[2]];
     lily_value *result = vm_regs[code[3]];
 
-    if (input->flags & VAL_IS_NIL)
-        lily_raise(vm->raiser, lily_SyntaxError, "Input is nil.\n");
-
-    if (find_key->flags & VAL_IS_NIL) {
-        /* Hashes don't have nil keys, so this key won't be found. */
-        lily_assign_value(vm, result, default_value);
-        return;
-    }
-
     uint64_t siphash = lily_calculate_siphash(vm->sipkey, find_key);
     lily_hash_elem *hash_elem = lily_try_lookup_hash_elem(input->value.hash,
             siphash, find_key);

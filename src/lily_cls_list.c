@@ -50,7 +50,7 @@ void lily_list_append(lily_vm_state *vm, lily_function_val *self,
     Implements list::apply
 
     Arguments:
-    * Input: A list to iterate over. If this is nil, ErrBadValue is raised.
+    * Input: A list to iterate over.
     * Call:  A function to call for each element of the list.
              This function takes the type of the list as an argument, and returns
              a value of the type of the list.
