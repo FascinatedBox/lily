@@ -1657,5 +1657,4 @@ void lily_finish_enum_class(lily_symtab *symtab, lily_class *enum_class,
     enum_class->flags |= CLS_ENUM_CLASS;
     enum_class->gc_marker = lily_gc_any_marker;
     enum_class->eq_func = lily_any_eq;
-
 }

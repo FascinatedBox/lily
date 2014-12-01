@@ -2587,23 +2587,17 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_jump_if:
                 lhs_reg = vm_regs[code[code_pos+2]];
                 {
-                    int cls_id, result;
+                    int cls_id = lhs_reg->sig->cls->id;
+                    int result;
 
-                    if (lhs_reg->sig->cls->id == SYM_CLASS_ANY &&
-                        (lhs_reg->flags & VAL_IS_NIL) == 0)
-                        lhs_reg = lhs_reg->value.any->inner_value;
-
-                    /* This should be kept in sync with the literal
-                       optimization of emitter. */
-                    if ((lhs_reg->flags & VAL_IS_NIL) == 0) {
-                        cls_id = lhs_reg->sig->cls->id;
-                        if (cls_id == SYM_CLASS_INTEGER)
-                            result = (lhs_reg->value.integer == 0);
-                        else if (cls_id == SYM_CLASS_DOUBLE)
-                            result = (lhs_reg->value.doubleval == 0);
-                        else
-                            result = 0;
-                    }
+                    if (cls_id == SYM_CLASS_INTEGER)
+                        result = (lhs_reg->value.integer == 0);
+                    else if (cls_id == SYM_CLASS_DOUBLE)
+                        result = (lhs_reg->value.doubleval == 0);
+                    else if (cls_id == SYM_CLASS_STRING)
+                        result = (lhs_reg->value.string->size == 0);
+                    else if (cls_id == SYM_CLASS_LIST)
+                        result = (lhs_reg->value.list->num_values == 0);
                     else
                         result = 1;
 
