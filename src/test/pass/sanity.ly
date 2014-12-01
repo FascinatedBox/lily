@@ -166,8 +166,7 @@ function test_any_defaulting()
 
     any other_any = 10
     # Any can accept any value
-    any a
-    a = 1
+    any a = 1
     a = 1.1
     a = "10"
     a = [1]
@@ -223,8 +222,8 @@ function test_any_defaulting()
 
 function test_oo()
 {
-    string abc = "abc", rlt
-    integer i, ok
+    string abc = "abc", rlt = ""
+    integer ok = 1
     any abc_any = "abc"
     list[string] abc_list = ["abc"]
 
@@ -280,7 +279,7 @@ function test_oo()
     }
 
     # Make sure this works with binary ops.
-    i = abc.concat("def") == "abcdef"
+    integer i = abc.concat("def") == "abcdef"
     print("    abc.concat(\"def\")               == \"abcdef\"...")
     if i: {
         print("ok.\n")
@@ -365,7 +364,7 @@ function test_unary()
     printfmt("#%i: Testing unary ops...", test_id)
     test_id = test_id + 1
 
-    integer a, b, c
+    integer a = 0, b = 0, c = 0
 
     a = unary_call_checker(!!0 + !!0)
     b = -10 + --10 + -a + --a + unary_helper() + -unary_helper()
@@ -640,13 +639,9 @@ function test_sub_assign()
     }
 
     # Test declaration list
-    list[list[integer]] dlist1, dlist2, dlist3
+    list[list[integer]] dlist1 = [], dlist2 = [], dlist3 = []
     # Test a deep list
-    list[list[list[list[list[list[double]]]]]] deep_list
-    # Check that list[string] doesn't crash if the string is nil.
-    string nil_s
-    list[string] test_nil_s = [nil_s]
-    test_nil_s[0] = "test"
+    list[list[list[list[list[list[double]]]]]] deep_list = []
 
     if ok == 0:
         fail_count = fail_count + 1
@@ -671,13 +666,13 @@ function test_complex_sigs()
     lv2_function(lv1_function)
     lv3_function(lv2_function)
 
-    list[function(integer)] list_function_n1
+    list[function(integer)] list_function_n1 = []
 
     list[
         function(
             function(integer)
         )
-    ] list_function_n2
+    ] list_function_n2 = []
 
     list[
         function( 
@@ -686,7 +681,7 @@ function test_complex_sigs()
             ]
             => list[integer]
         )
-    ] list_function_n3
+    ] list_function_n3 = []
 
     function mval_1( => integer) { return 10 }
     function mval_2( => integer) { return 20 }
@@ -706,24 +701,24 @@ function test_typecasts()
     printfmt("#%i: Testing typecasts from any...", test_id)
     test_id = test_id + 1
 
-    any a
-    integer intval
+    any a = 10
+    integer intval = 0
     a = 10
     intval = a.@(integer)
 
-    double dblval
+    double dblval = 0.0
     a = 10.0
     dblval = a.@(double)
 
-    string strval
+    string strval = ""
     a = "10"
     strval = a.@(string)
 
-    list[integer] list_intval
+    list[integer] list_intval = []
     a = [1]
     list_intval = a.@(list[integer])
 
-    list[any] list_anyval
+    list[any] list_anyval = []
     any aval_1 = 10
     any aval_2 = 1.1
     list_anyval = [aval_1, aval_2]
@@ -822,14 +817,9 @@ function test_circular_ref_checks()
     u = [1, 1.1]
     v = [[1, 1.1]]
 
-    any w
+    any w = 0
     list[any] x = [w, w, w]
     x[0] = x
-
-    # Test circular refs with nil.
-    any y
-    list[any] listany = [y]
-    y = listany[0]
 
     print("ok.\n")
 }
@@ -849,14 +839,12 @@ function test_function_varargs()
     # needed. The list part of that isn't tested yet, because there is no list
     # comparison utility.
     function va_2(string format, list[any] args... => integer) {
-        integer ok
+        integer ok = 0
         # This next statement helped to uncover about 3 bugs. Leave it be.
         if args[0].@(integer) == 1 &&
            args[1].@(double) == 1.1 &&
            args[2].@(string) == "1":
             ok = 1
-        else:
-            ok = 0
 
         return 1
     }
@@ -975,9 +963,8 @@ function test_digit_collection()
     integer ok = 1
 
     # Integers are 64-bit signed integers. Maximum values are:
-    integer binary_max, binary_min
-    binary_max = +0b111111111111111111111111111111111111111111111111111111111111111
-    binary_min = -0b1000000000000000000000000000000000000000000000000000000000000000
+    integer binary_max = +0b111111111111111111111111111111111111111111111111111111111111111
+    integer binary_min = -0b1000000000000000000000000000000000000000000000000000000000000000
     integer octal_max   = +0c777777777777777777777
     integer octal_min   = -0c1000000000000000000000
     integer decimal_max = +9223372036854775807
@@ -1126,9 +1113,7 @@ function test_loops()
     printfmt("#%i: Testing loops (while, for in, break, continue)...\n", test_id)
     test_id = test_id + 1
 
-    integer i, ok
-    i = 10
-    ok = 1
+    integer i = 10, ok = 1
 
     while i != 0: {
         i = i - 1
@@ -1200,7 +1185,7 @@ function test_assign_chain()
     test_id = test_id + 1
     integer ok = 1
     integer a = 10, b = 20, c = 30
-    string result
+    string result = ""
 
     a = b = c
 
@@ -1305,18 +1290,18 @@ function test_hashes()
     integer ok = 1
 
     # First, that hashes create values on-demand.
-    hash[string, string] config_dict
+    hash[string, string] config_dict = []
     config_dict["aaa"] = "bbb"
     config_dict["bbb"] = "ccc"
 
     # Second, that hashes can use different keys.
-    hash[integer, string] int_str_map
+    hash[integer, string] int_str_map = []
     int_str_map[10] = "10"
     int_str_map[5000] = "11"
     int_str_map[0x10] = "12"
 
     # Doubles as keys, with some exponential stuff too.
-    hash[double, string] num_str_map
+    hash[double, string] num_str_map = []
     num_str_map[5.5] = "10"
     num_str_map[1e1] = "12"
 
@@ -1330,10 +1315,6 @@ function test_hashes()
     # Test for any defaulting with duplicate keys.
     hash[string, any] str_any_map = ["a" => "1", "b" => 2, "c" => 2,
         "a" => 1]
-
-    any nil_any
-    hash[string, any] str_any_map_2 = ["a" => nil_any, "b" => 11,
-        "b" => nil_any]
 }
 
 function test_eq()

@@ -1107,8 +1107,8 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
     lily_lex_state *lex = parser->lex;
     lily_var *var = NULL;
     lily_prop_entry *prop = NULL;
-    int force_decl = 0;
-    int flags = 0;
+    /* This prevents variables from being used to initialize themselves. */
+    int flags = SYM_NOT_INITIALIZED;
 
     lily_token token, want_token, other_token;
     if (parser->emit->current_block->block_type & BLOCK_CLASS) {
@@ -1118,24 +1118,6 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
     else {
         want_token = tk_word;
         other_token = tk_prop_word;
-    }
-
-    /* Require that generic parameters have an initializing assignment. This is
-       partly because I want to have all vars to have an initial value in the
-       future.
-       However, it's also to prevent the vm from having a generic-typed var
-       with no signature of the same type. In such a case, the vm would be
-       unable to determine a type for the var, leaving a 'template class' var
-       register (not super bad, but probably not good either).
-       Oh, and sig is NULL when this decl is through 'var', and that needs an
-       initializing expression. */
-    if (sig == NULL || sig->cls->id == SYM_CLASS_TEMPLATE ||
-        sig->template_pos != 0) {
-        force_decl = 1;
-        if (sig == NULL)
-            /* This prevents 'var' from being used to initialize itself. The
-               emitter will unset this when the type is fixed. */
-            flags |= SYM_NOT_INITIALIZED;
     }
 
     while (1) {
@@ -1148,9 +1130,9 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
         if (lex->token == tk_word) {
             /* This starts at the class name, or the comma. The label is next. */
             var = get_named_var(parser, sig, flags);
-            if (force_decl && lex->token != tk_equal)
+            if (lex->token != tk_equal)
                 lily_raise(parser->raiser, lily_SyntaxError,
-                        "Generic variables must have an initializing expression.\n");
+                        "An initialization expression is required here.\n");
         }
         else {
             prop = get_named_property(parser, sig, flags);

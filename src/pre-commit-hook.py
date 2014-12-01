@@ -172,7 +172,7 @@ SyntaxError: Expected closing token ')', not ']'.\n\
 Where: File "<str>" at line 1\n"""
     },
     {
-     "command": """  integer a    a = 10,  """,
+     "command": """  integer a = 10    a = 10,  """,
      "message": "Failcheck: Bad comma",
      "stderr": """\
 SyntaxError: Unexpected token ,.\n\
@@ -188,7 +188,7 @@ Traceback:\n\
     Function __main__ at line 1\n"""
     },
     {
-     "command": """  list[integer] a    a = [10]]  """,
+     "command": """  list[integer] a = []   a = [10]]  """,
      "message": "Failcheck: Bad right brace",
      "stderr": """\
 SyntaxError: Unexpected token ']'.\n\
@@ -209,7 +209,7 @@ SyntaxError: Expected closing token ']', not ')'.\n\
 Where: File "<str>" at line 1\n"""
     },
     {
-     "command": """  integer a    a = ((a)  """,
+     "command": """  integer a = 0   a = ((a)  """,
      "message": "Failcheck: Missing matching '('.",
      "stderr": """\
 SyntaxError: Unexpected token 'end of file'.\n\

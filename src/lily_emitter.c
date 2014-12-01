@@ -1282,10 +1282,10 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
         eval_tree(emit, ast->right, ast->left->result->sig);
 
     /* For 'var <name> = ...', fix the type. */
-    if (ast->left->result->sig == NULL) {
+    if (ast->left->result->sig == NULL)
         ast->left->result->sig = ast->right->result->sig;
-        ast->left->result->flags &= ~SYM_NOT_INITIALIZED;
-    }
+
+    ast->left->result->flags &= ~SYM_NOT_INITIALIZED;
 
     left_sym = ast->left->result;
     right_sym = ast->right->result;
