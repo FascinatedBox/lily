@@ -601,7 +601,8 @@ static void show_value(lily_debug_state *debug, lily_value *value)
     else if (cls_id == SYM_CLASS_LIST ||
              cls_id == SYM_CLASS_HASH ||
              cls_id == SYM_CLASS_TUPLE ||
-             cls_id >= SYM_CLASS_EXCEPTION) {
+             (cls_id >= SYM_CLASS_EXCEPTION &&
+              (sig->cls->flags & CLS_ENUM_CLASS) == 0)) {
         lily_msgbuf_add_fmt(debug->msgbuf, "^T\n", sig);
         write_msgbuf(debug);
 
@@ -610,6 +611,12 @@ static void show_value(lily_debug_state *debug, lily_value *value)
             show_hash_value(debug, sig, raw_value.hash);
         else if (cls_id < SYM_CLASS_EXCEPTION)
             show_list_value(debug, sig, raw_value.list);
+        else if (sig->cls->flags & CLS_VARIANT_CLASS) {
+            if (sig->cls->variant_sig->siglist_size != 0)
+                show_list_value(debug, sig, raw_value.list);
+            /* else it's a variant that does not take any arguments, so do
+               nothing because nothing to show. */
+        }
         else
             show_instance_value(debug, sig, raw_value.instance);
 
@@ -632,17 +639,13 @@ static void show_value(lily_debug_state *debug, lily_value *value)
             /* The \n at the end comes from show_code always finishing that way. */
         }
     }
-    else if (cls_id == SYM_CLASS_ANY) {
+    else if (cls_id == SYM_CLASS_ANY ||
+             sig->cls->flags & CLS_ENUM_CLASS) {
         lily_value *any_value = raw_value.any->inner_value;
 
-        /* Don't condense, or it'll be (any) (nil), which seems a bit
-           strange. */
-        if (any_value->flags & VAL_IS_NIL)
-            lily_impl_puts(debug->data, "(nil)\n");
-        else {
-            lily_impl_puts(debug->data, "(any) ");
-            show_value(debug, any_value);
-        }
+        lily_msgbuf_add_fmt(debug->msgbuf, "(^T) ", sig);
+        write_msgbuf(debug);
+        show_value(debug, any_value);
     }
 }
 
