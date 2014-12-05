@@ -50,19 +50,5 @@ lily_aft_CFLAGS = -DAFT_ALLOC
 lily_aft_SOURCES = aft_main.c \
 	$(lily_SRCS)
 
-# Here are some targets to make things easier.
-
-# This runs the basic sanity test which is at the given location. This runs
-# quite a few tests to make sure the interpreter is still sane (hence the
-# name). 
-sanity: lily
-	./lily test/pass/sanity.ly
-
-# Run the sanity test again, this time through valgrind. This can be thought
-# of as a precursor to doing blastmaster.py: If this fails, then blastmaster's
-# tests are sure to do so.
-vg-sanity: lily
-	valgrind ./lily test/pass/sanity.ly
-
 blastmaster: lily lily_aft
 	python blastmaster.py
