@@ -1,9 +1,3 @@
-<html>
-<head>
-<title>Lily Sanity Test</title>
-</head>
-<body>
-<?lily
 # This is Lily's main sanity test. This ensures that the interpreter is working
 # correctly. New features should add to the tests here, to help prevent
 # accidental regressions.
@@ -1633,6 +1627,3 @@ for i in 0...function_list.size() - 1: {
 test_id = test_id - 1
 
 printfmt("Tests passed: %i / %i.", test_id , test_id + fail_count)
-?>
-</body>
-</html>

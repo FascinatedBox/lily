@@ -1,1 +1,1 @@
-<?lily integer i = 10 ?>
+integer i = 10
