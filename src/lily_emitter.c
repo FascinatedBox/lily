@@ -785,9 +785,16 @@ static lily_sig *recursively_build_sig(lily_emit_state *emit, int template_index
 
         emit->sig_stack_pos -= i;
     }
-    else if (sig->cls->id == SYM_CLASS_TEMPLATE)
+    else if (sig->cls->id == SYM_CLASS_TEMPLATE) {
         ret = emit->sig_stack[template_index + sig->template_pos];
-
+        /* Sometimes, a generic is wanted that was never filled in. In such a
+           case, use 'any' because it is the most accepting of values. */
+        if (ret == NULL) {
+            lily_class *any_class = lily_class_by_id(emit->symtab,
+                    SYM_CLASS_ANY);
+            ret = any_class->sig;
+        }
+    }
     return ret;
 }
 
