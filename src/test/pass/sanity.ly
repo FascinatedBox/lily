@@ -5,81 +5,6 @@
 integer test_id = 1
 integer fail_count = 0
 
-function test_basic_assignments()
-{
-    # Begin by testing that basic assignments for common types work.
-
-    # integers are 64-bit signed values.
-    integer a = 10
-
-    # Doubles are C doubles, a more precise type than integer.
-    double b = 1.1
-
-    # string is Lily's string class.
-    string c = "11"
-
-    # Lists are collections of values, and need a type specified.
-    # Additionally, static lists, such as [1, 2, 3] automatically guess their
-    # resulting type based on what they contain.
-    list[integer] d = [1, 2, 3]
-    # Lists can also include other lists.
-    # This is a static list containing only lists of integers, so it the
-    # interpreter sees that it's valid.
-    list[list[integer]] e = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
-    e[0] = [4, 5, 6]
-
-    # hash is the associative array type. Hashes require two inner type: the
-    # key, and the value.
-    hash[string, integer] f = ["a" => 1, "b" => 2, "c" => 3]
-    # Items can be added through subscript assignment. Lists can't do that
-    # though.
-    f["d"] = 4
-
-    # Function is a callable block of Lily code. These are different than
-    # functions, which are builtin callable blocks.
-
-    # Function can be declared in other functions, but upvalues aren't supported
-    # quite yet. The part after the : defines the return value of the function.
-    # nil is a special word that is accepted that means the function does not
-    # return a value.
-    function g() {
-        integer g_1 = 10
-    }
-
-    # Finally, anys. Anys are containers that can hold any value.
-    any h = 10
-    h = "1"
-    h = 1.1
-    h = [1, 2, 3]
-    h = g
-    h = ["a" => 1, "b" => 2]
-
-    # Now, for something more interesting...
-
-    function ret_10( => integer) { return 10 }
-    function ret_20( => integer) { return 20 }
-    function ret_30( => integer) { return 30 }
-
-    list[function( => integer)] function_list = [ret_10, ret_20, ret_30]
-
-    # Subscript out the function, then call it. Returns 10.
-    integer function_list_ret = function_list[0]()
-
-    # Shuffle the function list around a bit.
-    function_list[2] = function_list[0]
-    function_list[0] = function_list[1]
-
-    hash[integer, list[function( => integer)]] super_hash = [1 => function_list]
-
-    # printfmt is a function that works like C's printf. It takes in a
-    # variable amount of anys as values.
-    # Since anything can be an any, this converts test_id to any before
-    # doing the call.
-    # %1 is for integers.
-    printfmt("#%i: Testing basic assignments...ok.\n", test_id)
-    test_id = test_id + 1
-}
-
 function test_conditions()
 {
     printfmt("#%i: Testing conditions...", test_id)
@@ -1589,7 +1514,6 @@ function test_misc()
 
 list[function()] function_list =
 [
-    test_basic_assignments,
     test_conditions,
     test_printfmt,
     test_any_defaulting,

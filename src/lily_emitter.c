@@ -1707,11 +1707,14 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
 
     rhs = ast->right->result;
 
-    if (var_ast->tree_type != tree_local_var) {
+    if (var_ast->tree_type != tree_local_var &&
+        var_ast->tree_type != tree_var) {
         eval_tree(emit, var_ast, NULL);
-        if (var_ast->result->flags & SYM_NOT_ASSIGNABLE) {
-            lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                    "Left side of %s is not assignable.\n", opname(ast->op));
+        if (var_ast->tree_type != tree_var) {
+            if (var_ast->result->flags & SYM_NOT_ASSIGNABLE)
+                lily_raise_adjusted(emit->raiser, ast->line_num,
+                        lily_SyntaxError,
+                        "Left side of %s is not assignable.\n", opname(ast->op));
         }
     }
 
