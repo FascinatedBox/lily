@@ -1652,6 +1652,7 @@ void lily_finish_enum_class(lily_symtab *symtab, lily_class *enum_class,
          i++, class_iter = class_iter->next)
         members[i] = class_iter;
 
+    enum_class->variant_sig = enum_sig;
     enum_class->variant_members = members;
     enum_class->variant_size = variant_count;
     enum_class->flags |= CLS_ENUM_CLASS;

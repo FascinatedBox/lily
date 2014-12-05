@@ -1281,6 +1281,70 @@ static int assign_optimize_check(lily_ast *ast)
     return can_optimize;
 }
 
+/*  build_enum_sig_by_variant
+    Given a complete signature of a variant class, determine what the parent
+    class is and build a complete signature of that enum class.
+    In the event that the variant class does not contain generics that are
+    within the enum class, the class 'any' is used instead. */
+static lily_sig *build_enum_sig_by_variant(lily_emit_state *emit,
+        lily_sig *input_sig)
+{
+    /* The parent of a variant class is always the enum class it belongs to.
+       The 'variant_sig' of an enum class is the signature captured when
+       parsing it, and so it contains all the generics needed. */
+    lily_sig *parent_variant_sig = input_sig->cls->parent->variant_sig;
+
+    int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
+    if ((stack_start + parent_variant_sig->siglist_size) > emit->sig_stack_size)
+        grow_sig_stack(emit);
+
+    int saved_adjust = emit->current_generic_adjust;
+    emit->sig_stack_pos += emit->current_generic_adjust;
+
+    /* However, the 'variant_sig' of a variant class defines how to turn the
+       input into a resulting class. [0] is used because it is the return, and
+       gives the full resulting signature with types. */
+    lily_sig *child_result = input_sig->cls->variant_sig->siglist[0];
+    lily_class *any_cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
+    lily_sig *any_sig = any_cls->sig;
+
+    /* Sometimes, a variant class does not use all of the generics provided by
+       the parent enum class. In that case, the class 'any' will be used. */
+    int i, j;
+    for (i = 0, j = 0;i < parent_variant_sig->siglist_size;i++) {
+        if (child_result->siglist_size > j &&
+            child_result->siglist[j]->template_pos == i) {
+            emit->sig_stack[stack_start + i] = input_sig->siglist[j];
+            j++;
+        }
+        else
+            emit->sig_stack[stack_start + i] = any_sig;
+    }
+
+    lily_sig *new_sig = lily_build_ensure_sig(emit->symtab,
+            input_sig->cls->parent, 0, emit->sig_stack, stack_start, i);
+
+    emit->sig_stack_pos -= saved_adjust;
+    emit->current_generic_adjust = saved_adjust;
+
+    return new_sig;
+}
+
+/*  calculate_var_sig
+    This is called when the left side of an assignment doesn't have a signature
+    because it was declared using 'var ...'. This will return the proper
+    signature for the left side of the expression. */
+static lily_sig *calculate_var_sig(lily_emit_state *emit, lily_sig *input_sig)
+{
+    lily_sig *result;
+    if (input_sig->cls->flags & CLS_VARIANT_CLASS)
+        result = build_enum_sig_by_variant(emit, input_sig);
+    else
+        result = input_sig;
+
+    return result;
+}
+
 /*  eval_assign
     This handles assignments where the left is not a subscript or package
     access. */
@@ -1303,7 +1367,8 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     /* For 'var <name> = ...', fix the type. */
     if (ast->left->result->sig == NULL)
-        ast->left->result->sig = ast->right->result->sig;
+        ast->left->result->sig = calculate_var_sig(emit,
+                ast->right->result->sig);
 
     ast->left->result->flags &= ~SYM_NOT_INITIALIZED;
 
