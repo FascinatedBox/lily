@@ -1,299 +1,100 @@
 # pre-commit-hook.py
-# An interpreter is a strange and complex beast. It's very easy to accidentally
-# break something without realizing that it's been broken. This pre-commit
-# script runs a bunch of small tests to ensure some basic sanity, then runs
-# the actual sanity test.
-# This should only be used to hold simple tests no more than a line or two.
-# More complex tests should really get their own file.
+# This runs all tests. Tests are dividing into those that should succeed
+# (test/pass/*) and tests that check for errors (test/fail/*)
 
-import subprocess, sys
+# A successful test should not print anything.
 
-tests = [
-    {
-     "command": """  integer a = 10\na = "10" """,
-     "message": "Make sure that stack trace numbers are sane",
-     "stderr": """\
-SyntaxError: Cannot assign type 'string' to type 'integer'.\n\
-Where: File "<str>" at line 2\n""",
-    },
-    {
-     "command": """  ?>  """,
-     "message": "Make sure ?> is a parse error if not parsing tags",
-     "stderr": """\
-SyntaxError: Found ?> but not expecting tags.\n\
-Where: File "<str>" at line 1\n""",
-    },
-    {
-     "command": """  10.@(integer)()  """,
-     "message": "Failcheck: Bad anonymous call",
-     "stderr": """\
-SyntaxError: Cannot anonymously call resulting type 'integer'.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  print("test.\\n"]  """,
-     "message": "Failcheck: Bad close token",
-     "stderr": """\
-SyntaxError: Expected closing token ')', not ']'.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  integer a = 10    a = 10,  """,
-     "message": "Failcheck: Bad comma",
-     "stderr": """\
-SyntaxError: Unexpected token ,.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  printfmt("%s%s%s%s%s", "")  """,
-     "message": "Failcheck: Bad printfmt",
-     "stderr": """\
-FormatError: Not enough args for printfmt.\n\
-Traceback:\n\
-    Function printfmt [builtin]\n\
-    Function __main__ at line 1\n"""
-    },
-    {
-     "command": """  list[integer] a = []   a = [10]]  """,
-     "message": "Failcheck: Bad right brace",
-     "stderr": """\
-SyntaxError: Unexpected token ']'.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  +  """,
-     "message": "Failcheck: Bad start token",
-     "stderr": """\
-SyntaxError: Unexpected token +.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  list[integer] lsi = [10, 20, 30)  """,
-     "message": "Failcheck: Bad list close token",
-     "stderr": """\
-SyntaxError: Expected closing token ']', not ')'.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  integer a = 0   a = ((a)  """,
-     "message": "Failcheck: Missing matching '('.",
-     "stderr": """\
-SyntaxError: Unexpected token 'end of file'.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  }  """,
-     "message": "Failcheck: '}' outside of a block",
-     "stderr": """\
-SyntaxError: '}' outside of a block.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  break  """,
-     "message": "Failcheck: break outside loop",
-     "stderr": """\
-SyntaxError: 'break' used outside of a loop.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  continue  """,
-     "message": "Failcheck: continue outside loop",
-     "stderr": """\
-SyntaxError: 'continue' used outside of a loop.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  elif  """,
-     "message": "Failcheck: elif without if.",
-     "stderr": """\
-SyntaxError: 'elif' without 'if'.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  else  """,
-     "message": "Failcheck: else without if.",
-     "stderr": """\
-SyntaxError: 'else' without 'if'.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  return  """,
-     "message": "Failcheck: return outside a function.",
-     "stderr": """\
-SyntaxError: 'return' used outside of a function.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  function f(integer a) {} f("a")  """,
-     "message": "Failcheck: Function with wrong argument type",
-     "stderr": """\
-SyntaxError: f arg #0 expects type 'integer' but got type 'string'.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  function f(integer a, integer a) {}  """,
-     "message": "Failcheck: Function argument redeclaration",
-     "stderr": """\
-SyntaxError: a has already been declared.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  function f() {} function f() {}  """,
-     "message": "Failcheck: Function redeclaration",
-     "stderr": """\
-SyntaxError: f has already been declared.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  function f() {} if f():f()  """,
-     "message": "Failcheck: if with no value",
-     "stderr": """\
-SyntaxError: Conditional expression has no value.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  [1] == ["1"]  """,
-     "message": "Failcheck: Comparing list[integer] to list[string]",
-     "stderr": """\
-SyntaxError: Invalid operation: list[integer] == list[string].\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  function f( => integer) { }  f()  """,
-     "message": "Failcheck: Check that return expected triggers",
-     "stderr": """\
-NoReturnError: Function f completed without returning a value.\n\
-Traceback:\n\
-    Function f at line 1\n\
-    Function __main__ at line 1\n"""
-    },
-    {
-     "command": """  if 1: {  """,
-     "message": "Failcheck: Unterminated multi-line if",
-     "stderr": """\
-SyntaxError: Expected '}', not end of file.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  if 1:  """,
-     "message": "Failcheck: Unterminated single-line if",
-     "stderr": """\
-SyntaxError: Expected a value, not 'end of file'.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  string s = <[1, "2"]> [3]""",
-     "message": "Failcheck: tuple subscript with a too-high index",
-     "stderr": """\
-SyntaxError: Index 3 is out of range for tuple[integer, string].\n\
-Where: File "<str>" at line 1\n""",
-    },
-    {
-     "command": """  function f() {  } function g( => integer) { return f() } """,
-     "message": "Failcheck: 'return' with a no-value expression.",
-     "stderr": """\
-SyntaxError: 'return' expression has no value.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  function f() { return integer a = 10 } """,
-     "message": "Failcheck: 'return' not at the end of a multi-line block.",
-     "stderr": """\
-SyntaxError: 'return' not at the end of a multi-line block.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  function f() { while 1: { continue integer a = 10 } } """,
-     "message": "Failcheck: 'continue' not at the end of a multi-line block.",
-     "stderr": """\
-SyntaxError: 'continue' not at the end of a multi-line block.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  function f() { while 1: { break integer a = 10 } } """,
-     "message": "Failcheck: 'break' not at the end of a multi-line block.",
-     "stderr": """\
-SyntaxError: 'break' not at the end of a multi-line block.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  class A() {} """,
-     "message": "Failcheck: A too-short class name.",
-     "stderr": """\
-SyntaxError: 'A' is not a valid class name (too short).\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  class ABC() { integer a } """,
-     "message": "Failcheck: Class properties without @.",
-     "stderr": """\
-SyntaxError: Class properties must start with @.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  class ABC() { integer @a } """,
-     "message": "Failcheck: Not initializing a class property.",
-     "stderr": """\
-SyntaxError: Class properties must have an initializing assignment.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  class ABC() { integer @a = 1, @a = 1 } """,
-     "message": "Failcheck: Property redeclaration.",
-     "stderr": """\
-SyntaxError: Property a already exists in class ABC.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  list[integer] lsi = [10].append(10)  """,
-     "message": "Failcheck: Call not returning a value in expression.",
-     "stderr": """\
-SyntaxError: Function needed to return a value, but did not.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  function f(=>list[integer]) { return [1] }  f()[0] = 1 """,
-     "message": "Failcheck: Attempt to subscript assign a call result.",
-     "stderr": """\
-SyntaxError: Left side of = is not assignable.\n\
-Where: File "<str>" at line 1\n"""
-    },
-    {
-     "command": """  integer a = 1 if 1: (a + a) = 1  """,
-     "message": "Failcheck: Attempt to assign to a binary result.",
-     "stderr": """\
-SyntaxError: Left side of = is not assignable.\n\
-Where: File "<str>" at line 1\n"""
-    }
-]
+# Tests that expect a specific error message should put that message at the
+# top, in a triple-quote comment block. This allows the tester to check that
+# a given error message is correct.
 
-test_number = 1
-test_total = len(tests)
-exit_code = 0
+import os, subprocess, sys, signal
 
-for t in tests:
-    try:
-        t["stderr"]
-    except:
-        t["stderr"] = ""
+pass_files = []
+fail_files = []
+MODE_PASS = 1
+MODE_FAIL = 0
 
-    try:
-        t["stdout"]
-    except:
-        t["stdout"] = ""
+pass_count = 0
+error_count = 0
+crash_count = 0
 
-    sys.stdout.write("[%2d of %2d] Test: %s..." % (test_number, \
-        test_total, t["message"]))
+def load_filenames(path):
+    ret = []
+    for (dirpath, dirnames, filenames) in os.walk(path):
+        for filename in filenames:
+            ret.append(os.path.join(dirpath, filename))
+    return ret
 
-    subp = subprocess.Popen(["./lily_cliexec '%s'" % (t["command"])], \
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+def get_expected_str(filename):
+    f = open(filename, "r")
+    output = ''
+    collecting = 0
+    for line in f:
+        if line.startswith('###') and line.rstrip("\r\n") == "###":
+            collecting = not collecting
+        elif collecting:
+            output += line.rstrip("\r\n") + "\n"
+    return output
 
+def basic_run(filename, mode, run_range):
+    global pass_count, error_count, crash_count
+    should_pass = (mode == MODE_PASS)
+    mode_str = ""
+    if mode == MODE_PASS:
+        mode_str = "pass"
+    else:
+        mode_str = "fail"
+
+    sys.stdout.write("[%2d/%2d] Running test %s..." % (run_range[0], \
+            run_range[1], os.path.basename(filename)))
+
+    command = "./lily %s" % (filename)
+    subp = subprocess.Popen([command], stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, shell=True)
     (subp_stdout, subp_stderr) = subp.communicate()
     subp.wait()
-    if (subp_stderr != t["stderr"]) or (subp_stdout != t["stdout"]):
-        print("failed.\n(Unexpected output). Stopping.\n")
-        sys.exit(1)
-    else:
-        print("passed.")
 
-    test_number += 1
+    did_pass = True
+    expected_stderr = get_expected_str(filename)
+
+    try:
+        if subp_stderr[-1] == '\n':
+            subp_stderr[:-1]
+    except IndexError:
+        pass
+
+    if  len(subp_stdout) or subp_stderr != expected_stderr:
+        print "FAILED."
+        error_count += 1
+    elif subp.returncode == -signal.SIGSEGV:
+        print "!!!CRASHED!!!"
+        crash_count += 1
+    else:
+        print "passed."
+        pass_count += 1
+
+pass_files = sorted(load_filenames('test/pass'))
+fail_files = sorted(load_filenames('test/fail'))
+run_range = [0, len(pass_files) + len(fail_files)]
+
+print "\nBlastmaster: Running %d pass tests, %d fail tests, %d total." \
+        % (len(pass_files), len(fail_files), run_range[1])
+
+print "Blastmaster: Running passing tests."
+for i in range(len(pass_files)):
+    run_range[0] += 1
+    basic_run(pass_files[i], MODE_PASS, run_range)
+
+print "Blastmaster: Running failing tests."
+for i in range(len(fail_files)):
+    run_range[0] += 1
+    basic_run(fail_files[i], MODE_FAIL, run_range)
+
+print ("Final stats: %d tests passed, %d errors, %d crashed." \
+        % (pass_count, error_count, crash_count))
+
+if error_count == 0 and crash_count == 0:
+    sys.exit(0)
+else:
+    sys.exit(1)
