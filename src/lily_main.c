@@ -49,7 +49,6 @@ static void process_args(int argc, char **argv)
         }
         else {
             to_process = argv[i];
-            fprintf(stderr, "i is %d, argc is %d.\n", i, argc);
             if ((i + 1) != argc)
                 usage();
 
@@ -71,7 +70,7 @@ int main(int argc, char **argv)
 
     int result;
     if (is_file == 1)
-        result = lily_parse_file(parser, lm_tags, to_process);
+        result = lily_parse_file(parser, lm_no_tags, to_process);
     else
         result = lily_parse_string(parser, lm_no_tags, to_process);
 
