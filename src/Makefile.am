@@ -27,7 +27,7 @@ lily_SRCS=csiphash.c \
 	lily_pkg_sys.c \
 	lily_class_funcs.c
 
-bin_PROGRAMS = lily_fs lily_aft lily_cliexec
+bin_PROGRAMS = lily lily_aft
 
 # Lily's core is designed to be modular. It has various ways of running it.
 # I call anything that invokes Lily a 'runner'. Different runners have
@@ -35,11 +35,9 @@ bin_PROGRAMS = lily_fs lily_aft lily_cliexec
 
 ### The runners ###
 
-# lily_fs (fs = fake server) was designed to simulate how lily would work on a
-# server, which is why the <?lily and ?> are needed.
-# This runner expects a file from the command-line, and I consider it to be the
-# standard-bearer of the language.
-lily_fs_SOURCES = fs_main.c \
+# lily is the main runner for the language. It's able to handle strings passed
+# from the command-line, as well as files.
+lily_SOURCES = lily_main.c \
 	$(lily_SRCS)
 
 # lily_aft (allocation fail tester) was designed to run the interpreter but
@@ -52,26 +50,19 @@ lily_aft_CFLAGS = -DAFT_ALLOC
 lily_aft_SOURCES = aft_main.c \
 	$(lily_SRCS)
 
-# lily_cliexec (command line exec) was designed to run the interpreter from a
-# string provided by the command line. This was done as a quick test to see if
-# it could be done.
-lily_cliexec_SOURCES = cliexec_main.c \
-	$(lily_SRCS)
-
-
 # Here are some targets to make things easier.
 
 # This runs the basic sanity test which is at the given location. This runs
 # quite a few tests to make sure the interpreter is still sane (hence the
 # name). 
-sanity: lily_fs
-	./lily_fs test/pass/sanity.ly
+sanity: lily
+	./lily test/pass/sanity.ly
 
 # Run the sanity test again, this time through valgrind. This can be thought
 # of as a precursor to doing blastmaster.py: If this fails, then blastmaster's
 # tests are sure to do so.
-vg-sanity: lily_fs
-	valgrind ./lily_fs test/pass/sanity.ly
+vg-sanity: lily
+	valgrind ./lily test/pass/sanity.ly
 
-blastmaster: lily_fs lily_aft
+blastmaster: lily lily_aft
 	python blastmaster.py
