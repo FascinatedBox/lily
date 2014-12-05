@@ -2341,7 +2341,9 @@ void lily_vm_execute(lily_vm_state *vm)
     lily_sig *cast_sig;
     lily_var *temp_var;
     register int64_t for_temp;
-    register int code_pos;
+    /* This unfortunately has to be volatile because otherwise calltrace() and
+       traceback tend to be 'off'. */
+    register volatile int code_pos;
     register lily_value *lhs_reg, *rhs_reg, *loop_reg, *step_reg;
     register lily_literal *literal_val;
     lily_function_val *fval;
