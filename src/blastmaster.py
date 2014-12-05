@@ -62,10 +62,7 @@ def basic_run(filename, mode, run_range):
 
 pass_files = sorted(load_filenames('test/pass'))
 fail_files = [] # sorted(load_filenames('test/fail'))
-run_range = [0, len(pass_files) - 1]
-
-# Temporarily remove this because it fails.
-pass_files.remove("test/pass/sanity.ly")
+run_range = [0, len(pass_files)]
 
 print "\nBlastmaster: Running %d pass tests, %d fail tests, %d total." \
         % (len(pass_files), len(fail_files), run_range[1])
