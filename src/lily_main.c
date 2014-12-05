@@ -5,9 +5,8 @@
 
 #include "lily_parser.h"
 
-/* fs_main.c :
-   fs stands for 'fake server'. This is designed to simulate Lily being run from
-   a server. This is considered the 'default' or 'normal' Lily runner. */
+/*  lily_main.c
+    This is THE main runner for Lily. */
 
 void lily_impl_puts(void *data, char *text)
 {
@@ -16,16 +15,53 @@ void lily_impl_puts(void *data, char *text)
 
 static void usage()
 {
-    fputs("usage: lily_fs <filename>\n", stderr);
+    fputs("Usage: lily [option] ...\n"
+          "Options:\n"
+          "-h        : Print this help and exit.\n"
+          "-s string : The program is a string (end of options).\n"
+          "            By default, does not process tags.\n"
+          "file      : The program is the given filename.\n"
+          "            Processes tags by default.\n", stderr);
     exit(EXIT_FAILURE);
+}
+
+int is_file;
+char *to_process = NULL;
+
+static void process_args(int argc, char **argv)
+{
+    int i;
+    for (i = 1;i < argc;i++) {
+        char *arg = argv[i];
+        if (strcmp("-h", arg) == 0)
+            usage();
+        else if (strcmp("-s", arg) == 0) {
+            i++;
+            if (i == argc)
+                usage();
+
+            to_process = argv[i];
+            if ((i + 1) != argc)
+                usage();
+
+            is_file = 0;
+            break;
+        }
+        else {
+            to_process = argv[i];
+            fprintf(stderr, "i is %d, argc is %d.\n", i, argc);
+            if ((i + 1) != argc)
+                usage();
+
+            is_file = 1;
+            break;
+        }
+    }
 }
 
 int main(int argc, char **argv)
 {
-    if (argc != 2)
-        usage();
-
-    char *fs_filename = argv[1];
+    process_args(argc, argv);
 
     lily_parse_state *parser = lily_new_parse_state(NULL, argc, argv);
     if (parser == NULL) {
@@ -33,7 +69,13 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    if (lily_parse_file(parser, lm_tags, fs_filename) == 0) {
+    int result;
+    if (is_file == 1)
+        result = lily_parse_file(parser, lm_tags, to_process);
+    else
+        result = lily_parse_string(parser, lm_no_tags, to_process);
+
+    if (result == 0) {
         lily_raiser *raiser = parser->raiser;
         fprintf(stderr, "%s", lily_name_for_error(raiser->error_code));
         if (raiser->msgbuf->message[0] != '\0')
