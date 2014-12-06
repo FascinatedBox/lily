@@ -1,7 +1,6 @@
 *.o
 *.lo
-lily_fs
-lily_cliexec
+lily
 lily_aft
 
 .libs/
