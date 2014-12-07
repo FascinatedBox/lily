@@ -1352,6 +1352,33 @@ static lily_sig *calculate_var_sig(lily_emit_state *emit, lily_sig *input_sig)
     return result;
 }
 
+/*  emit_rebox_value
+    Make a storage of type 'new_sig' and assign ast's result to it. The tree's
+    result is written over. */
+static void emit_rebox_value(lily_emit_state *emit, lily_sig *new_sig,
+        lily_ast *ast)
+{
+    lily_storage *storage = get_storage(emit, new_sig, ast->line_num);
+
+    write_4(emit, o_assign, ast->line_num, ast->result->reg_spot,
+            storage->reg_spot);
+
+    ast->result = (lily_sym *)storage;
+}
+
+/*  rebox_variant_to_enum
+    This is a convenience function that will convert the variant value within
+    the given ast to an enum value.
+    Note: If the variant does not supply full type information, then missing
+          types are given the type of 'any'. */
+static void rebox_variant_to_enum(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_sig *rebox_sig = build_enum_sig_by_variant(emit,
+            ast->result->sig);
+
+    emit_rebox_value(emit, rebox_sig, ast);
+}
+
 /*  eval_assign
     This handles assignments where the left is not a subscript or package
     access. */
@@ -1384,8 +1411,20 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     left_cls_id = left_sym->sig->cls->id;
 
     if (left_sym->sig != right_sym->sig) {
-        if (left_sym->sig->cls->id == SYM_CLASS_ANY)
+        if (left_sym->sig->cls->id == SYM_CLASS_ANY) {
+            /* Bare variants are not allowed, and type_matchup is a bad idea
+               here. Rebox the variant into an enum, then let assign do the
+               rest of the magic.
+               The reason that type_matchup is a bad idea is that it will box
+               the variant into an enum, then an any, which will be the target
+               of the assign. This results in a junk storage. */
+            if (right_sym->sig->cls->flags & CLS_VARIANT_CLASS) {
+                rebox_variant_to_enum(emit, ast->right);
+                right_sym = ast->right->result;
+            }
+
             opcode = o_assign;
+        }
         else {
             if (type_matchup(emit, ast->left->result->sig, ast->right) == 0) {
                 bad_assign_error(emit, ast->line_num, left_sym->sig,
@@ -2053,21 +2092,6 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     ast->result = (lily_sym *)s;
 }
 
-/*  emit_rebox_value
-    Make a storage of type 'new_sig' and assign ast's result to it. The tree's
-    result is written over. */
-static void emit_rebox_value(lily_emit_state *emit, lily_sig *new_sig,
-        lily_ast *ast)
-{
-    lily_storage *storage = get_storage(emit, new_sig, ast->line_num);
-
-    write_4(emit, o_assign, ast->line_num, ast->result->reg_spot,
-            storage->reg_spot);
-
-    ast->result = (lily_sym *)storage;
-}
-
-
 /*  check_proper_variant
     Make sure that the variant has the proper inner type to satisfy the
     signature wanted by the enum.  */
@@ -2124,8 +2148,12 @@ static int type_matchup(lily_emit_state *emit, lily_sig *want_sig,
         lily_ast *right)
 {
     int ret = 1;
-    if (want_sig->cls->id == SYM_CLASS_ANY)
+    if (want_sig->cls->id == SYM_CLASS_ANY) {
+        if (right->result->sig->cls->flags & CLS_VARIANT_CLASS)
+            rebox_variant_to_enum(emit, right);
+
         emit_assign(emit, right);
+    }
     else if (want_sig->cls->flags & CLS_ENUM_CLASS) {
         ret = enum_membership_check(emit, want_sig, right->result->sig);
         if (ret)
