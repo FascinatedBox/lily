@@ -2487,6 +2487,45 @@ static void eval_call_arg(lily_emit_state *emit, lily_ast *call_ast,
     }
 }
 
+/*  box_call_variants
+    This function is called when check_call_args is done processing arguments
+    AND the call has been tagged by the symtab as having enum values.
+
+    This function exists because it's possible for a Lily function to not know
+    what the resulting enum class should be. In such a case, call argument
+    processing calls this to make sure any variants are put into a proper enum
+    class value. */
+static void box_call_variants(lily_emit_state *emit, lily_sig *call_sig,
+        int num_args, lily_ast *arg)
+{
+    int i;
+    for (i = 0;
+         i != num_args;
+         i++, arg = arg->next_arg) {
+        if (arg->result->sig->cls->flags & CLS_VARIANT_CLASS) {
+            lily_sig *arg_sig = call_sig->siglist[i + 1];
+            lily_sig *enum_sig = build_untemplated_sig(emit, arg_sig);
+            emit_rebox_value(emit, enum_sig, arg);
+        }
+    }
+
+    if (call_sig->flags & SIG_IS_VARARGS) {
+        /* This is called before the varargs are shoved into a list, so looping
+           over the args is fine.
+           Varargs is represented as a list of some type, so this next line grabs
+           the list, then what the list holds. */
+        lily_sig *va_comp_sig = call_sig->siglist[i + 1]->siglist[0];
+        if (va_comp_sig->cls->flags & CLS_ENUM_CLASS) {
+            lily_sig *enum_sig = build_untemplated_sig(emit, va_comp_sig);
+            for (;arg != NULL;
+                  i++, arg = arg->next_arg) {
+                if (arg->result->sig->cls->flags & CLS_VARIANT_CLASS)
+                    emit_rebox_value(emit, enum_sig, arg);
+            }
+        }
+    }
+}
+
 /*  check_call_args
     eval_call uses this to make sure the types of all the arguments are right.
 
@@ -2529,7 +2568,9 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         eval_call_arg(emit, ast, template_adjust, call_sig->siglist[i + 1],
                 arg, i);
 
-    if (is_varargs) {
+    if (is_varargs == 0 && call_sig->flags & SIG_CALL_HAS_ENUM_ARG)
+        box_call_variants(emit, call_sig, num_args, ast->arg_start);
+    else if (is_varargs) {
         lily_sig *va_comp_sig = call_sig->siglist[i + 1];
         lily_ast *save_arg = arg;
         lily_sig *save_sig;
@@ -2543,6 +2584,9 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
            va_comp_sig. */
         for (;arg != NULL;arg = arg->next_arg)
             eval_call_arg(emit, ast, template_adjust, va_comp_sig, arg, i);
+
+        if (call_sig->flags & SIG_CALL_HAS_ENUM_ARG)
+            box_call_variants(emit, call_sig, num_args, ast->arg_start);
 
         i = (have_args - i);
         lily_storage *s;
