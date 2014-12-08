@@ -1610,7 +1610,8 @@ static lily_sig *calculate_variant_return(lily_symtab *symtab,
                 /* A signature's template_pos is always the highest template id
                    it carries, +1. This allows the emitter to easily check if a
                    sig contains generics. */
-                result_sig->template_pos = i + 1;
+                result_sig->template_pos = sig_iter->template_pos + 1;
+                i++;
             }
         }
 

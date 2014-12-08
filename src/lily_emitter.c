@@ -1341,10 +1341,17 @@ static lily_sig *build_enum_sig_by_variant(lily_emit_state *emit,
     int saved_adjust = emit->current_generic_adjust;
     emit->sig_stack_pos += emit->current_generic_adjust;
 
-    /* However, the 'variant_sig' of a variant class defines how to turn the
-       input into a resulting class. [0] is used because it is the return, and
-       gives the full resulting signature with types. */
-    lily_sig *child_result = input_sig->cls->variant_sig->siglist[0];
+    /* If the variant takes no values, then the variant sig is simply the
+       default signature for the class.
+       If it does, then it's a function with the return (at [0]) being the
+       variant result. */
+    lily_sig *child_result;
+
+    if (input_sig->cls->variant_sig->siglist_size != 0)
+        child_result = input_sig->cls->variant_sig->siglist[0];
+    else
+        child_result = NULL;
+
     lily_class *any_cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
     lily_sig *any_sig = any_cls->sig;
 
@@ -1352,7 +1359,8 @@ static lily_sig *build_enum_sig_by_variant(lily_emit_state *emit,
        the parent enum class. In that case, the class 'any' will be used. */
     int i, j;
     for (i = 0, j = 0;i < parent_variant_sig->siglist_size;i++) {
-        if (child_result->siglist_size > j &&
+        if (child_result &&
+            child_result->siglist_size > j &&
             child_result->siglist[j]->template_pos == i) {
             emit->sig_stack[stack_start + i] = input_sig->siglist[j];
             j++;
@@ -2127,16 +2135,29 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
 
 /*  check_proper_variant
     Make sure that the variant has the proper inner type to satisfy the
-    signature wanted by the enum.  */
+    signature wanted by the enum. */
 static int check_proper_variant(lily_emit_state *emit, lily_sig *enum_sig,
         lily_sig *given_sig, lily_class *variant_cls)
 {
     lily_sig *variant_sig = variant_cls->variant_sig;
-    int result = 0;
+    int i, result = 1;
 
-    /* XXX: This is a very, very bad hack that allows Option[A] and Some(A)
-       to work. Almost anything else will crash. */
-    result = template_check(emit, variant_sig->siglist[0], given_sig);
+    if (variant_sig->siglist_size != 0) {
+        lily_sig *variant_result = variant_sig->siglist[0];
+        for (i = 0;i < variant_result->siglist_size;i++) {
+            /* The variant may not have all the generics that the parent does.
+               Consider the variant to be proper if the generics that it has
+               match up to the enum sig.
+               Ex: For SomeVariant[B] and SomeEnum[A, B], consider it right if
+                   the B's match. */
+            int pos = variant_result->siglist[i]->template_pos;
+            if (given_sig->siglist[i] != enum_sig->siglist[pos]) {
+                result = 0;
+                break;
+            }
+        }
+    }
+    /* else the variant takes no generics, and nothing can be wrong. */
 
     return result;
 }
