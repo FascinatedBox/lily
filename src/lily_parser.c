@@ -1284,6 +1284,7 @@ static void statement(lily_parse_state *parser, int multi)
                     lily_lexer(lex);
                     if (lex->token == tk_colon_colon) {
                         expression_static_call(parser, lclass);
+                        lily_lexer(lex);
                         expression_raw(parser, ST_WANT_OPERATOR);
                         lily_emit_eval_expr(parser->emit, parser->ast_pool);
                     }

@@ -357,6 +357,12 @@ static lily_token leave_entry(lily_lex_state *lex)
                 pos--;
                 ch = lex->input_buffer[pos];
             }
+            /* The rewinding stops on a non-identifier position if it isn't
+               zero. Move it forward one, or the lexer will yield the wrong
+               token. */
+            if (pos != 0)
+                pos++;
+
             lex->input_pos = pos;
             lily_lexer(lex);
         }
