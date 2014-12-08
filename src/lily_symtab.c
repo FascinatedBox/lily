@@ -173,7 +173,8 @@ static lily_sig *lookup_sig(lily_symtab *symtab, lily_sig *input_sig)
             if (iter_sig->siglist      != NULL &&
                 iter_sig->siglist_size == input_sig->siglist_size &&
                 iter_sig               != input_sig &&
-                (iter_sig->flags & ~SIG_MAYBE_CIRCULAR) == input_sig->flags) {
+                (iter_sig->flags & ~(SIG_MAYBE_CIRCULAR | SIG_CALL_HAS_ENUM_ARG))
+                   == input_sig->flags) {
                 int i, match = 1;
                 for (i = 0;i < iter_sig->siglist_size;i++) {
                     if (iter_sig->siglist[i] != input_sig->siglist[i]) {
@@ -198,6 +199,10 @@ static lily_sig *lookup_sig(lily_symtab *symtab, lily_sig *input_sig)
 /*  finalize_sig
     Determine if the given signature is circular. Also, if its class is not the
     template class, determine how many templates the signature uses.
+
+    For function signatures, this also checks if any arguments are an enum
+    class. If they are, then the sig is marked to help out emitter's call
+    argument processing.
 
     The symtab doesn't use this information at all. These are convenience
     things for the emitter and the vm. */
@@ -224,6 +229,28 @@ static void finalize_sig(lily_sig *input_sig)
             int max = 0;
             get_template_max(input_sig, &max);
             input_sig->template_pos = max;
+        }
+    }
+
+    /* It helps the emitter to know if a call has an argument that is an enum
+       class, since it has to do a second reboxing pass in that case. Mark
+       function sigs here, because all function sigs will have to pass through
+       here. */
+    if (input_sig->cls->id == SYM_CLASS_FUNCTION) {
+        int i;
+        /* Start at 1 because [0] is the return, and doesn't matter. */
+        for (i = 1;i < input_sig->siglist_size;i++) {
+            if (input_sig->siglist[i]->cls->flags & CLS_ENUM_CLASS) {
+                input_sig->flags |= SIG_CALL_HAS_ENUM_ARG;
+                break;
+            }
+        }
+
+        /* Oh, and check if the vararg part has a list of some variant type. */
+        if (input_sig->flags & SIG_IS_VARARGS) {
+            lily_sig *vararg_list = input_sig->siglist[i - 1];
+            if (vararg_list->siglist[0]->cls->flags & CLS_ENUM_CLASS)
+                input_sig->flags |= SIG_CALL_HAS_ENUM_ARG;
         }
     }
 
