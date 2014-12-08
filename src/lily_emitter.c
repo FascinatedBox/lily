@@ -695,6 +695,39 @@ static int template_check(lily_emit_state *emit, lily_sig *lhs, lily_sig *rhs)
         else if (emit->sig_stack[template_pos] != rhs)
             ret = 0;
     }
+    else {
+        if (lhs->cls->flags & CLS_ENUM_CLASS &&
+            rhs->cls->flags & CLS_VARIANT_CLASS &&
+            rhs->cls->parent == lhs->cls) {
+            /* The right is an enum class that is a member of the left.
+               Consider it valid if the right's types (if any) match to all the
+               types collected -so far- for the left. */
+
+            ret = 1;
+
+            if (rhs->cls->variant_sig->siglist_size != 0) {
+                /* I think this is best explained as an example:
+                   'enum class Option[A, B] { Some(A), None }'
+                   In this case, the variant sig of Some is defined as:
+                   'function (A => Some[A])'
+                   This pulls the 'Some[A]'. */
+                lily_sig *variant_output = rhs->cls->variant_sig->siglist[0];
+                int i;
+                /* The result is an Option[A, B], but Some only has A. Match up
+                   generics that are available, to proper positions in the
+                   parent. If any fail, then stop. */
+                for (i = 0;i < variant_output->siglist_size;i++) {
+                    int pos = variant_output->siglist[i]->template_pos;
+                    ret = template_check(emit, lhs->siglist[pos],
+                            rhs->siglist[i]);
+                    if (ret == 0)
+                        break;
+                }
+            }
+            /* else it takes no arguments and is automatically correct because
+               is nothing that could go wrong. */
+        }
+    }
 
     return ret;
 }
