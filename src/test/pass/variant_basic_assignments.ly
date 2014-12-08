@@ -5,3 +5,5 @@ enum class Option[A] {
 
 Option[integer] i = Some(10)
 i = None
+
+var v = None
