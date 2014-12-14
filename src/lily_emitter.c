@@ -2275,11 +2275,10 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     else {
         if (found_variant_or_enum)
             rebox_enum_variant_values(emit, ast, 1);
-        else if (make_anys) {
-            lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
-            last_value_sig = cls->sig;
+        else if (make_anys ||
+                 (expect_value_sig &&
+                  expect_value_sig->cls->id == SYM_CLASS_ANY))
             emit_hash_values_to_anys(emit, ast);
-        }
 
         last_value_sig = ast->arg_start->next_arg->result->sig;
     }
@@ -2463,10 +2462,9 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     else if (last_sig != NULL) {
         if (found_variant_or_enum)
             rebox_enum_variant_values(emit, ast, 0);
-        else if ((elem_sig && elem_sig->cls->id == SYM_CLASS_ANY) ||
-                 make_anys) {
+        else if (make_anys ||
+                 (elem_sig && elem_sig->cls->id == SYM_CLASS_ANY))
             emit_list_values_to_anys(emit, ast);
-        }
         /* else all types already match, so nothing to do. */
 
         /* At this point, all list values are guaranteed to have the same
