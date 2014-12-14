@@ -1393,19 +1393,7 @@ static lily_sig *calculate_var_sig(lily_emit_state *emit, lily_sig *input_sig)
     return result;
 }
 
-/*  emit_rebox_value
-    Make a storage of type 'new_sig' and assign ast's result to it. The tree's
-    result is written over. */
-static void emit_rebox_value(lily_emit_state *emit, lily_sig *new_sig,
-        lily_ast *ast)
-{
-    lily_storage *storage = get_storage(emit, new_sig, ast->line_num);
-
-    write_4(emit, o_assign, ast->line_num, ast->result->reg_spot,
-            storage->reg_spot);
-
-    ast->result = (lily_sym *)storage;
-}
+static void emit_rebox_value(lily_emit_state *, lily_sig *, lily_ast *);
 
 /*  rebox_variant_to_enum
     This is a convenience function that will convert the variant value within
@@ -1418,6 +1406,27 @@ static void rebox_variant_to_enum(lily_emit_state *emit, lily_ast *ast)
             ast->result->sig);
 
     emit_rebox_value(emit, rebox_sig, ast);
+}
+
+/*  emit_rebox_value
+    Make a storage of type 'new_sig' and assign ast's result to it. The tree's
+    result is written over. */
+static void emit_rebox_value(lily_emit_state *emit, lily_sig *new_sig,
+        lily_ast *ast)
+{
+    lily_storage *storage = get_storage(emit, new_sig, ast->line_num);
+
+    /* Don't allow a bare variant to be thrown into an any until it's thrown
+       into an enum box first. */
+    if (new_sig->cls->id == SYM_CLASS_ANY &&
+        ast->result->sig->cls->flags & CLS_VARIANT_CLASS) {
+        rebox_variant_to_enum(emit, ast);
+    }
+
+    write_4(emit, o_assign, ast->line_num, ast->result->reg_spot,
+            storage->reg_spot);
+
+    ast->result = (lily_sym *)storage;
 }
 
 /*  eval_assign
@@ -1949,6 +1958,153 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)storage;
 }
 
+/*  rebox_enum_variant_values
+    This function is called when building a list or a hash and the values
+    contain at least one variant or enum value.
+    In the event that there is not a common signature, the function attempts
+    to find one by looking at the common parts between each value.
+
+    If all values are of a given enum class or variants of that class, then
+    the function ensures that the variants are put into an enum class value of
+    the common type.
+
+    If the common type is incomplete (some of the generics of the enum class
+    are not specified), then missing parts are given the class 'any', and the
+    values are put into an enum class value of some type.
+
+    If there is no common type, then each variant is put into an enum class
+    value based upon information known to only it, and all values are put into
+    an 'any' value (except those that are already 'any'). This is unlikely. */
+static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
+    int is_hash)
+{
+    lily_ast *tree_iter = ast->arg_start;
+    int enum_count = 0, variant_count = 0;
+    lily_sig *rebox_sig = NULL;
+    lily_class *any_class = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
+
+    /* If ast is tree_hash (is_hash == 1), then the values are key, value, key
+       value, and so on. This is about the values, not the keys. */
+    if (is_hash)
+        tree_iter = tree_iter->next_arg;
+
+    while (tree_iter != NULL) {
+        if (tree_iter->result->sig->cls->flags & CLS_ENUM_CLASS)
+            enum_count++;
+        else if (tree_iter->result->sig->cls->flags & CLS_VARIANT_CLASS)
+            variant_count++;
+        else {
+            rebox_sig = any_class->sig;
+            break;
+        }
+
+        tree_iter = tree_iter->next_arg;
+        if (is_hash && tree_iter)
+            tree_iter = tree_iter->next_arg;
+    }
+
+    lily_class *variant_parent = NULL;
+    tree_iter = ast->arg_start;
+    if (is_hash)
+        tree_iter = tree_iter->next_arg;
+
+    if (rebox_sig == NULL) {
+        variant_parent = tree_iter->result->sig->cls;
+        if (variant_parent->flags & CLS_VARIANT_CLASS)
+            variant_parent = variant_parent->parent;
+
+        int generic_count = variant_parent->variant_sig->template_pos;
+
+        if (emit->sig_stack_pos + emit->current_generic_adjust + generic_count >=
+            emit->sig_stack_size)
+            grow_sig_stack(emit);
+
+        int stack_start = emit->sig_stack_pos +
+                emit->current_generic_adjust + 1;
+
+        int i;
+        for (i = 0;i < generic_count;i++)
+            emit->sig_stack[stack_start + i] = NULL;
+
+        while (tree_iter != NULL) {
+            lily_sig *tree_result_sig = tree_iter->result->sig;
+            lily_sig *matcher_sig;
+
+            if (tree_result_sig->cls->flags & CLS_ENUM_CLASS) {
+                if (tree_result_sig->cls != variant_parent)
+                    rebox_sig = any_class->sig;
+            }
+            else if (tree_result_sig->cls->flags & CLS_VARIANT_CLASS) {
+                if (tree_result_sig->cls->parent != variant_parent)
+                    rebox_sig = any_class->sig;
+            }
+            else
+                rebox_sig = any_class->sig;
+
+            if (rebox_sig != NULL)
+                break;
+
+            matcher_sig = tree_result_sig->cls->variant_sig;
+            /* If the variant takes arguments, then the variant_sig it has is a
+               function returning a sig of the class at [0]. Otherwise, it's
+               just a sig of the class. */
+            if (matcher_sig->siglist_size != 0)
+                matcher_sig = matcher_sig->siglist[0];
+
+            /* Make sure that there are no disagreements about what type(s) the
+               generics (if any) are for the resulting enum class value. */
+            for (i = 0;i < matcher_sig->siglist_size;i++) {
+                int pos = stack_start + matcher_sig->siglist[i]->template_pos;
+                if (emit->sig_stack[pos] == NULL)
+                    emit->sig_stack[pos] = tree_result_sig->siglist[i];
+                else if (emit->sig_stack[pos] != tree_result_sig->siglist[i]) {
+                    rebox_sig = any_class->sig;
+                    break;
+                }
+            }
+
+            if (rebox_sig != NULL)
+                break;
+
+            tree_iter = tree_iter->next_arg;
+            if (is_hash && tree_iter)
+                tree_iter = tree_iter->next_arg;
+        }
+
+        if (rebox_sig == NULL) {
+            /* It may be that the enum class specifies generics that were not
+               satisfied by any variant member. In such a case, default to
+               class 'any'.
+               Example: enum class Option[A] { Some(A), None }
+
+               [None, None, None].
+
+               The A of Option is not specified, so the result of the list is
+               Option[any]. */
+            for (i = 0;i < generic_count;i++) {
+                if (emit->sig_stack[stack_start + i] == NULL)
+                    emit->sig_stack[stack_start + i] = any_class->sig;
+            }
+
+            rebox_sig = lily_build_ensure_sig(emit->symtab, variant_parent, 0,
+                    emit->sig_stack, stack_start, generic_count);
+        }
+    }
+
+    tree_iter = ast->arg_start;
+    if (is_hash)
+        tree_iter = tree_iter->next_arg;
+
+    while (tree_iter) {
+        if (tree_iter->result->sig != rebox_sig)
+            emit_rebox_value(emit, rebox_sig, tree_iter);
+
+        tree_iter = tree_iter->next_arg;
+        if (is_hash && tree_iter)
+            tree_iter = tree_iter->next_arg;
+    }
+}
+
 /*  hash_values_to_anys
 
     This converts all of the values of the given ast into anys using
@@ -2032,7 +2188,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
 
     lily_sig *last_key_sig = NULL, *last_value_sig = NULL,
              *expect_key_sig = NULL, *expect_value_sig = NULL;
-    int make_anys = 0;
+    int make_anys = 0, found_variant_or_enum = 0;
 
     if (expect_sig) {
         int did_unwrap = 0;
@@ -2096,6 +2252,13 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         if (value_tree->tree_type != tree_local_var)
             eval_tree(emit, value_tree, expect_value_sig);
 
+        /* Only mark user-defined enum classes/variants, because those are the
+           ones that can default. */
+        if (value_tree->result->sig->cls->flags &
+            (CLS_VARIANT_CLASS | CLS_ENUM_CLASS) &&
+            value_tree->result->sig->cls->id != SYM_CLASS_ANY)
+            found_variant_or_enum = 1;
+
         /* Values being promoted to any is okay though. :) */
         if (value_tree->result->sig != last_value_sig) {
             if (last_value_sig == NULL)
@@ -2109,11 +2272,16 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         last_key_sig = expect_key_sig;
         last_value_sig = expect_value_sig;
     }
+    else {
+        if (found_variant_or_enum)
+            rebox_enum_variant_values(emit, ast, 1);
+        else if (make_anys) {
+            lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
+            last_value_sig = cls->sig;
+            emit_hash_values_to_anys(emit, ast);
+        }
 
-    if (make_anys == 1) {
-        lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
-        last_value_sig = cls->sig;
-        emit_hash_values_to_anys(emit, ast);
+        last_value_sig = ast->arg_start->next_arg->result->sig;
     }
 
     int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
@@ -2231,7 +2399,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
 {
     lily_sig *elem_sig = NULL;
     lily_ast *arg;
-    int make_anys = 0;
+    int found_variant_or_enum = 0, make_anys = 0;
 
     if (expect_sig) {
         if (expect_sig->cls->id == SYM_CLASS_LIST ||
@@ -2272,6 +2440,12 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         if (arg->tree_type != tree_local_var)
             eval_tree(emit, arg, elem_sig);
 
+        /* 'any' is marked as an enum class, but this is only interested in
+           user-defined enum classes (which have special defaulting). */
+        if ((arg->result->sig->cls->flags & (CLS_ENUM_CLASS | CLS_VARIANT_CLASS)) &&
+            arg->result->sig->cls->id != SYM_CLASS_ANY)
+            found_variant_or_enum = 1;
+
         if (arg->result->sig != last_sig) {
             if (last_sig == NULL)
                 last_sig = arg->result->sig;
@@ -2287,17 +2461,17 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         elem_sig = cls->sig;
     }
     else if (last_sig != NULL) {
-        if (elem_sig && elem_sig->cls->id == SYM_CLASS_ANY)
-            /* This could be a list of any, so fix it to be that. */
-            make_anys = 1;
-        else
-            elem_sig = last_sig;
-    }
+        if (found_variant_or_enum)
+            rebox_enum_variant_values(emit, ast, 0);
+        else if ((elem_sig && elem_sig->cls->id == SYM_CLASS_ANY) ||
+                 make_anys) {
+            emit_list_values_to_anys(emit, ast);
+        }
+        /* else all types already match, so nothing to do. */
 
-    if (make_anys) {
-        lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
-        elem_sig = cls->sig;
-        emit_list_values_to_anys(emit, ast);
+        /* At this point, all list values are guaranteed to have the same
+           type, so this works. */
+        elem_sig = ast->arg_start->result->sig;
     }
 
     int start_pos = emit->sig_stack_pos + emit->current_generic_adjust + 1;
@@ -2466,7 +2640,6 @@ static int generic_type_matchup(lily_emit_state *emit, lily_sig *want_sig,
 
     if (want_sig->cls->id == SYM_CLASS_TEMPLATE) {
         int index = emit->sig_stack_pos + want_sig->template_pos;
-
         if (emit->sig_stack[index] != NULL) {
             want_sig = emit->sig_stack[index];
             if (want_sig == right->result->sig)
