@@ -1526,7 +1526,7 @@ void lily_make_constructor_return_sig(lily_symtab *symtab)
             sig->siglist[i] = sig_iter;
 
         sig->siglist_size = count;
-        sig->template_pos = i + 1;
+        sig->template_pos = i;
     }
     else {
         /* This makes this sig the default for this class, because this class
