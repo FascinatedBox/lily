@@ -3601,13 +3601,11 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
 
         lily_sig *ret_sig = emit->top_function_ret;
 
-        if (ast->result->sig != ret_sig) {
-            if (ret_sig->cls->id == SYM_CLASS_ANY)
-                emit_assign(emit, ast);
-            else
-                lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                        "return expected type '%T' but got type '%T'.\n",
-                        ret_sig, ast->result->sig);
+        if (ast->result->sig != ret_sig &&
+            type_matchup(emit, ret_sig, ast) == 0) {
+            lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+                    "return expected type '%T' but got type '%T'.\n", ret_sig,
+                    ast->result->sig);
         }
     }
 
