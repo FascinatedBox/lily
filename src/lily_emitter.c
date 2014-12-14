@@ -2551,10 +2551,34 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
         if (arg->tree_type != tree_local_var)
             eval_tree(emit, arg, expect_elem);
 
-        if (expect_sig &&
-            arg->result->sig != expect_elem &&
-            expect_elem->cls->id == SYM_CLASS_ANY) {
-            emit_assign(emit, arg);
+        if ((expect_sig && expect_elem != arg->result->sig) ||
+            (arg->result->sig->cls->flags & CLS_VARIANT_CLASS)) {
+            /* Tuple building is a unique case because it puts N signatures
+               into the sig stack, has to access generics from the caller, AND
+               calls a function that may want to use the sig stack itself.
+
+               Adjust the sig stack before doing either of these later two
+               things, so they won't damage the information that the tuple is
+               using. */
+
+            int save_pos = emit->sig_stack_pos;
+            emit->sig_stack_pos = stack_start + ast->args_collected;
+
+            if (expect_sig && expect_elem != arg->result->sig)
+                /* Attempt to fix the type to what's wanted. If it fails, the
+                   caller will likely note a type mismatch. Can't do anything
+                   else though. */
+                type_matchup(emit, expect_elem, arg);
+            else {
+                /* Not sure what the caller wants, so make an enum sig based
+                   of what's known and use that. */
+                lily_sig *enum_sig = build_enum_sig_by_variant(emit,
+                        arg->result->sig);
+
+                emit_rebox_value(emit, enum_sig, arg);
+            }
+
+            emit->sig_stack_pos = save_pos;
         }
 
         emit->sig_stack[stack_start + i] = arg->result->sig;
