@@ -1229,6 +1229,8 @@ static void raise_handler(lily_parse_state *, int);
 static void class_handler(lily_parse_state *, int);
 static void var_handler(lily_parse_state *, int);
 static void enum_handler(lily_parse_state *, int);
+static void match_handler(lily_parse_state *, int);
+static void case_handler(lily_parse_state *, int);
 
 typedef void (keyword_handler)(lily_parse_state *, int);
 
@@ -1251,7 +1253,9 @@ static keyword_handler *handlers[] = {
     raise_handler,
     class_handler,
     var_handler,
-    enum_handler
+    enum_handler,
+    match_handler,
+    case_handler
 };
 
 static void parse_multiline_block_body(lily_parse_state *, int);
@@ -1872,6 +1876,167 @@ static void enum_handler(lily_parse_state *parser, int multi)
 
     lily_finish_enum_class(parser->symtab, enum_class, result_sig);
     lily_update_symtab_generics(parser->symtab, NULL, save_generics);
+    lily_lexer(lex);
+}
+
+/*  match_handler
+    Syntax:
+        'match <expr>: { ... }'
+
+    The match block is an outlier compared to other blocks because it must
+    always have the { and } after it. This is so that the inner case entries
+    can automagically be multi-line. */
+static void match_handler(lily_parse_state *parser, int multi)
+{
+    if (multi == 0)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Match block cannot be in a single-line block.\n");
+
+    lily_lex_state *lex = parser->lex;
+
+    lily_emit_enter_block(parser->emit, BLOCK_MATCH);
+
+    expression(parser);
+    lily_emit_eval_match_expr(parser->emit, parser->ast_pool);
+
+    NEED_CURRENT_TOK(tk_colon)
+    NEED_NEXT_TOK(tk_left_curly)
+
+    parse_multiline_block_body(parser, multi);
+
+    lily_emit_leave_block(parser->emit);
+}
+
+/*  calculate_decompose_sig
+    This is used to determine what signature that variables declared as part of
+    a enum class decomposition will get. I'm very, very unhappy to say that I
+    copied this directly from the vm (resolve_property_sig). */
+static lily_sig *calculate_decompose_sig(lily_parse_state *parser,
+        lily_sig *match_sig, lily_sig *input_sig, int stack_offset)
+{
+    lily_sig *result_sig;
+
+    if (input_sig->cls->id == SYM_CLASS_TEMPLATE)
+        result_sig = match_sig->siglist[input_sig->template_pos];
+    else if (input_sig->cls->template_count == 0)
+        result_sig = input_sig;
+    else {
+        int sigs_needed = input_sig->siglist_size;
+
+        if ((stack_offset + sigs_needed) > parser->sig_stack_size) {
+            lily_sig **new_sigs = lily_realloc(parser->sig_stack,
+                    sizeof(lily_sig *) *
+                    (stack_offset + sigs_needed));
+
+            if (new_sigs == NULL)
+                lily_raise_nomem(parser->raiser);
+
+            parser->sig_stack = new_sigs;
+            parser->sig_stack_size = (stack_offset + sigs_needed);
+        }
+
+        int i;
+        lily_sig *inner_sig;
+        for (i = 0;i < input_sig->siglist_size;i++) {
+            inner_sig = input_sig->siglist[i];
+            inner_sig = calculate_decompose_sig(parser, input_sig,
+                    inner_sig, stack_offset + i);
+
+            parser->sig_stack[stack_offset + i] = inner_sig;
+        }
+
+        int flags = (input_sig->flags & SIG_IS_VARARGS);
+        result_sig = lily_build_ensure_sig(parser->symtab, input_sig->cls,
+                flags, parser->sig_stack, stack_offset, i);
+    }
+
+    return result_sig;
+}
+
+/*  case_handler
+    Syntax:
+        For variants that do not take values:
+            'case <variant class>: ...'
+
+        For those that do:
+            'case <variant class>(<var name>, <var name>...):'
+
+    Each case in a match block is multi-line, so that users don't have to put
+    { and } around a lot of cases (because that would probably be annoying).
+
+    The emitter will check that, within a match block, each variant is seen
+    exactly once (lily_emit_check_match_case).
+
+    Some variants may have inner values. For those, parser will collect the
+    appropriate number of identifiers and determine what the signature of those
+    identifiers should be! The variant's values are then decomposed to those
+    identifiers.
+
+    Checking for incomplete match blocks is done within emitter when the match
+    block closes.
+
+    The section for a case is done when the next case is seen. */
+static void case_handler(lily_parse_state *parser, int multi)
+{
+    lily_block *current_block = parser->emit->current_block;
+    if (current_block->block_type != BLOCK_MATCH)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'case' not allowed outside of 'match'.\n");
+
+    lily_sig *match_input_sig = current_block->match_input_sig;
+    lily_class *match_class = match_input_sig->cls;
+    lily_lex_state *lex = parser->lex;
+    lily_class *case_class = NULL;
+
+    NEED_CURRENT_TOK(tk_word)
+
+    int i;
+    for (i = 0;i < match_class->variant_size;i++) {
+        if (strcmp(lex->label, match_class->variant_members[i]->name) == 0) {
+            case_class = match_class->variant_members[i];
+            break;
+        }
+    }
+
+    if (i == match_class->variant_size)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "%s is not a member of enum class %s.\n", lex->label,
+                match_class->name);
+
+    if (lily_emit_add_match_case(parser->emit, i) == 0)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Already have a case for variant %s.\n", lex->label);
+
+    lily_sig *variant_sig = case_class->variant_sig;
+    if (variant_sig->siglist_size != 0) {
+        NEED_NEXT_TOK(tk_left_parenth)
+        /* There should be as many identifiers as there are arguments to this
+           variant's creation signature.
+           Also, start at 1 so that the return at [0] is skipped. */
+        NEED_NEXT_TOK(tk_word)
+
+        for (i = 1;i < variant_sig->siglist_size;i++) {
+            lily_sig *var_sig = calculate_decompose_sig(parser,
+                    match_input_sig, variant_sig->siglist[i],
+                    parser->sig_stack_pos);
+
+            /* It doesn't matter what the var is, only that it's unique. The
+               emitter will grab the vars it needs from the symtab when writing
+               the decompose.
+               This function also calls up the next token. */
+            get_named_var(parser, var_sig, 0);
+            if (i != variant_sig->siglist_size - 1) {
+                NEED_CURRENT_TOK(tk_comma)
+            }
+        }
+        NEED_CURRENT_TOK(tk_right_parenth)
+
+        lily_emit_variant_decompose(parser->emit, variant_sig);
+    }
+    /* else the variant does not take arguments, and cannot decompose because
+       there is nothing inside to decompose. */
+
+    NEED_NEXT_TOK(tk_colon)
     lily_lexer(lex);
 }
 

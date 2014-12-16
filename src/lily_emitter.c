@@ -52,12 +52,19 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
 
     s->patches = lily_malloc(sizeof(int) * 4);
     s->sig_stack = lily_malloc(sizeof(lily_sig *) * 4);
-    if (s->patches == NULL || s->sig_stack == NULL) {
+    s->match_cases = lily_malloc(sizeof(int) * 4);
+
+    if (s->patches == NULL || s->sig_stack == NULL ||
+        s->match_cases == NULL) {
+        lily_free(s->match_cases);
         lily_free(s->patches);
         lily_free(s->sig_stack);
         lily_free(s);
         return NULL;
     }
+
+    s->match_case_pos = 0;
+    s->match_case_size = 4;
 
     s->current_block = NULL;
     s->unused_storage_start = NULL;
@@ -100,6 +107,7 @@ void lily_free_emit_state(lily_emit_state *emit)
         current_store = temp_store;
     }
 
+    lily_free(emit->match_cases);
     lily_free(emit->sig_stack);
     lily_free(emit->patches);
     lily_free(emit);
@@ -356,6 +364,19 @@ static void grow_sig_stack(lily_emit_state *emit)
         lily_raise_nomem(emit->raiser);
 
     emit->sig_stack = new_sig_stack;
+}
+
+static void grow_match_cases(lily_emit_state *emit)
+{
+    emit->match_case_size *= 2;
+
+    int *new_cases = lily_realloc(emit->match_cases,
+        sizeof(int) * emit->match_case_size);
+
+    if (new_cases == NULL)
+        lily_raise_nomem(emit->raiser);
+
+    emit->match_cases = new_cases;
 }
 
 /*  emit_jump_if
@@ -1072,6 +1093,38 @@ static void eval_enforce_value(lily_emit_state *emit, lily_ast *ast,
 
     if (ast->result == NULL)
         lily_raise(emit->raiser, lily_SyntaxError, message);
+}
+
+/*  ensure_proper_match_block
+    This function checks if the current block (verified to be a match block by
+    the caller) has all cases satisfied. Raise SyntaxError if there are missing
+    cases. */
+static void ensure_proper_match_block(lily_emit_state *emit)
+{
+    lily_block *block = emit->current_block;
+    int error = 0;
+    lily_msgbuf *msgbuf = emit->raiser->msgbuf;
+    int i;
+    lily_class *match_class = block->match_input_sig->cls;
+
+    for (i = block->match_case_start;i < emit->match_case_pos;i++) {
+        if (emit->match_cases[i] == 0) {
+            /* Assume that the message buffer has at least enough space to dump
+               an error message to. If may not, if there are a lot of cases and
+               aft is being used. In such a case, well, sorry. */
+            if (error == 0) {
+                lily_msgbuf_add(msgbuf,
+                        "Match pattern not exhaustive. The following case(s) are missing:\n");
+                error = 1;
+            }
+
+            lily_msgbuf_add_fmt(msgbuf, "* %s\n",
+                    match_class->variant_members[i]->name);
+        }
+    }
+
+    if (error)
+        lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
 }
 
 /*****************************************************************************/
@@ -3422,6 +3475,154 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
             write_2(emit, o_jump, emit->current_block->loop_start);
     }
 
+    lily_ast_reset_pool(ap);
+}
+
+/*  lily_emit_variant_decompose
+    This function writes out an o_variant_decompose instruction based upon the
+    signature given. The target(s) of the decompose are however many vars that
+    the variant calls for, and pulled from the top of the symtab's vars.
+
+    Assumptions:
+    * The most recent vars that have been added to the symtab are the ones that
+      are to get the values.
+    * The given variant signature actually has inner values (empty variants
+      should never be sent here). */
+void lily_emit_variant_decompose(lily_emit_state *emit, lily_sig *variant_sig)
+{
+    lily_function_val *f = emit->top_function;
+    int value_count = variant_sig->siglist_size - 1;
+    int i;
+
+    write_prep(emit, 4 + value_count);
+
+    f->code[f->pos  ] = o_variant_decompose;
+    f->code[f->pos+1] = *(emit->lex_linenum);
+    f->code[f->pos+2] = emit->current_block->match_value_spot;
+    f->code[f->pos+3] = value_count;
+
+    /* Since this function is called immediately after declaring the last var
+       that will receive the decompose, it's safe to pull the vars directly
+       from symtab's var chain. */
+    lily_var *var_iter = emit->symtab->var_chain;
+
+    /* Go down because the vars are linked from newest -> oldest. If this isn't
+       done, then the first var will get the last value in the variant, the
+       second will get the next-to-last value, etc. */
+    for (i = value_count - 1;i >= 0;i--) {
+        f->code[f->pos+4+i] = var_iter->reg_spot;
+        var_iter = var_iter->next;
+    }
+
+    f->pos += 4 + value_count;
+}
+
+/*  lily_emit_add_match_case
+    This function is called by parser with a valid index of some variant class
+    within the current match enum class. This is responsible for ensuring that
+    a class does not have two cases for it.
+
+    Additionally, this function also writes a jump at the end of every case
+    that will be patched to the match block's end.
+
+    Any vars from previous match cases are also wiped out here, as they're no
+    longer valid now. */
+int lily_emit_add_match_case(lily_emit_state *emit, int pos)
+{
+    lily_function_val *f = emit->top_function;
+    int block_offset = emit->current_block->match_case_start;
+    int is_first_case = 1, ret = 1;
+    int i;
+
+    for (i = emit->current_block->match_case_start;
+         i < emit->match_case_pos;
+         i++) {
+        if (emit->match_cases[i] == 1) {
+            is_first_case = 0;
+            break;
+        }
+    }
+
+    if (emit->match_cases[block_offset + pos] == 0) {
+        emit->match_cases[block_offset + pos] = 1;
+
+        /* Every case added after the first needs to write an exit jump before
+           any code. This makes it so the previous branch jumps outside the
+           match instead of falling through (very bad, in this case). */
+        if (is_first_case == 0) {
+            write_2(emit, o_jump, 0);
+
+            if (emit->patch_pos == emit->patch_size)
+                grow_patches(emit);
+
+            emit->patches[emit->patch_pos] = f->pos-1;
+            emit->patch_pos++;
+        }
+
+        /* Patch the o_match_dispatch spot the corresponds with this class
+           so that it will jump to the current location.
+           Oh, and make sure to do it AFTER writing the jump, or the dispatch
+           will go to the exit jump. */
+        f->code[emit->current_block->match_code_start + pos] = f->pos;
+
+        /* This is necessary to keep vars created from the decomposition of one
+           class from showing up in subsequent cases. */
+        lily_var *v = emit->current_block->var_start;
+        if (v != emit->symtab->var_chain)
+            lily_hide_block_vars(emit->symtab, v);
+    }
+    else
+        ret = 0;
+
+    return ret;
+}
+
+/*  lily_emit_eval_match_expr
+    This function is called by parser with an expression to switch on for
+    'match'. This evaluates the given expression, checks it, and then sets
+    up the current block with the appropriate information for the match. */
+void lily_emit_eval_match_expr(lily_emit_state *emit, lily_ast_pool *ap)
+{
+    lily_ast *ast = ap->root;
+    lily_block *current_block = emit->current_block;
+    eval_enforce_value(emit, ast, "Match expression has no value.\n");
+
+    if ((ast->result->sig->cls->flags & CLS_ENUM_CLASS) == 0 ||
+        ast->result->sig->cls->id == SYM_CLASS_ANY) {
+        lily_raise(emit->raiser, lily_SyntaxError,
+                "Match expression is not an enum class value.\n");
+    }
+
+    current_block->match_input_sig = ast->result->sig;
+
+    int match_cases_needed = ast->result->sig->cls->variant_size;
+    if (emit->match_case_pos + match_cases_needed > emit->match_case_size)
+        grow_match_cases(emit);
+
+    current_block->match_case_start = emit->match_case_pos;
+
+    /* This is how the emitter knows that no cases have been given yet. */
+    int i;
+    for (i = 0;i < match_cases_needed;i++)
+        emit->match_cases[emit->match_case_pos + i] = 0;
+
+    emit->match_case_pos += match_cases_needed;
+
+    current_block->match_code_start = emit->top_function->pos + 4;
+    current_block->match_value_spot = ast->result->reg_spot;
+
+    write_prep(emit, 4 + match_cases_needed);
+
+    lily_function_val *f = emit->top_function;
+
+    f->code[f->pos  ] = o_match_dispatch;
+    f->code[f->pos+1] = *(emit->lex_linenum);
+    f->code[f->pos+2] = ast->result->reg_spot;
+    f->code[f->pos+3] = match_cases_needed;
+    for (i = 0;i < match_cases_needed;i++)
+        f->code[f->pos + 4 + i] = 0;
+
+    f->pos += 4 + i;
 
     lily_ast_reset_pool(ap);
 }
@@ -3863,6 +4064,10 @@ void lily_emit_leave_block(lily_emit_state *emit)
     /* These blocks need to jump back up when the bottom is hit. */
     if (block_type == BLOCK_WHILE || block_type == BLOCK_FOR_IN)
         write_2(emit, o_jump, emit->current_block->loop_start);
+    else if (block_type == BLOCK_MATCH) {
+        ensure_proper_match_block(emit);
+        emit->match_case_pos = emit->current_block->match_case_start;
+    }
 
     v = block->var_start;
 

@@ -56,7 +56,9 @@ typedef struct {
 #define KEY_CLASS       16
 #define KEY_VAR         17
 #define KEY_ENUM        18
-#define KEY_LAST_ID     18
+#define KEY_MATCH       19
+#define KEY_CASE        20
+#define KEY_LAST_ID     20
 
 lily_symtab *lily_new_symtab(lily_raiser *);
 void lily_free_symtab_lits_and_vars(lily_symtab *);

@@ -292,6 +292,10 @@ typedef enum {
 
     o_new_instance,
 
+    o_match_dispatch,
+
+    o_variant_decompose,
+
     /* Return from vm:
        This is a special opcode used to leave the vm. It does not take any
        values. This is written at the end of __main__. */
