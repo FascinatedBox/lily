@@ -8,6 +8,7 @@ typedef struct lily_block_ {
     int loop_start;
     int patch_start;
     int block_type;
+    int match_case_start;
 
     lily_var *var_start;
     lily_var *function_var;
@@ -16,6 +17,10 @@ typedef struct lily_block_ {
     lily_class *class_entry;
     lily_storage *self;
     int generic_count;
+
+    int match_code_start;
+    int match_value_spot;
+    lily_sig *match_input_sig;
 
     struct lily_block_ *next;
     struct lily_block_ *prev;
@@ -28,6 +33,10 @@ typedef struct {
     int *patches;
     int patch_pos;
     int patch_size;
+
+    int *match_cases;
+    int match_case_pos;
+    int match_case_size;
 
     lily_sig **sig_stack;
     int sig_stack_pos;
@@ -68,7 +77,8 @@ typedef struct {
 # define BLOCK_TRY        0x0200
 # define BLOCK_TRY_EXCEPT 0x0400
 # define BLOCK_CLASS      0x1000
-# define BLOCK_FUNCTION   0x2000
+# define BLOCK_MATCH      0x2000
+# define BLOCK_FUNCTION   0x4000
 
 void lily_emit_eval_condition(lily_emit_state *, lily_ast_pool *);
 void lily_emit_eval_expr_to_var(lily_emit_state *, lily_ast_pool *,
@@ -76,6 +86,10 @@ void lily_emit_eval_expr_to_var(lily_emit_state *, lily_ast_pool *,
 void lily_emit_eval_expr(lily_emit_state *, lily_ast_pool *);
 void lily_emit_finalize_for_in(lily_emit_state *, lily_var *, lily_var *,
         lily_var *, lily_var *, int);
+
+void lily_emit_eval_match_expr(lily_emit_state *, lily_ast_pool *);
+int lily_emit_add_match_case(lily_emit_state *, int);
+void lily_emit_variant_decompose(lily_emit_state *, lily_sig *);
 
 void lily_emit_break(lily_emit_state *);
 void lily_emit_continue(lily_emit_state *);

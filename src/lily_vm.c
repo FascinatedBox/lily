@@ -2799,6 +2799,43 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 3;
                 break;
             }
+            case o_match_dispatch:
+            {
+                lhs_reg = vm_regs[code[code_pos+2]];
+                lily_class *enum_cls, *variant_cls;
+
+                enum_cls = lhs_reg->sig->cls;
+                variant_cls = lhs_reg->value.any->inner_value->sig->cls;
+                for (i = 0;i < code[code_pos+3];i++) {
+                    if (enum_cls->variant_members[i] == variant_cls)
+                        break;
+                }
+
+                /* The emitter ensures that the match pattern is exhaustive, so
+                   something must have been found. */
+                code_pos = code[code_pos + 4 + i];
+                break;
+            }
+            case o_variant_decompose:
+            {
+                rhs_reg = vm_regs[code[code_pos + 2]];
+                /* Variants are actually tuples stored within an 'any' value
+                   (which is the enum clas). Tuples are just lists which the
+                   emitter allows different values for.
+                   This takes the enum class value and pulls the real variant
+                   from it. */
+                lily_list_val *variant_val = rhs_reg->value.any->inner_value->value.list;
+
+                /* Each variant value gets mapped away to a register. The
+                   emitter ensures that the decomposition won't go too far. */
+                for (i = 0;i < code[code_pos+3];i++) {
+                    lhs_reg = vm_regs[code[code_pos + 4 + i]];
+                    lily_assign_value(vm, lhs_reg, variant_val->elems[i]);
+                }
+
+                code_pos += 4 + i;
+                break;
+            }
             case o_for_setup:
                 loop_reg = vm_regs[code[code_pos+2]];
                 /* lhs_reg is the start, rhs_reg is the stop. */
