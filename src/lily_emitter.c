@@ -2925,52 +2925,52 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     emit->sig_stack_pos += save_adjust;
     emit->current_generic_adjust = 0;
 
-    if (ast->result == NULL) {
-        if (ast->arg_start->tree_type == tree_variant) {
-            emit->sig_stack_pos -= save_adjust;
-            emit->current_generic_adjust = save_adjust;
-            eval_variant(emit, ast);
-            return;
+    /* Variants are created by calling them in a function-like manner, so the
+       parser adds them as if they were functions. They're not. */
+    if (ast->arg_start->tree_type == tree_variant) {
+        emit->sig_stack_pos -= save_adjust;
+        emit->current_generic_adjust = save_adjust;
+        eval_variant(emit, ast);
+        return;
+    }
+
+    int cls_id;
+    /* Special case: Don't walk tree_readonly. Doing so will rewrite the
+       var given to it with a storage result...which emitter cannot use
+       for printing error information. */
+    if (ast->arg_start->tree_type != tree_readonly)
+        eval_tree(emit, ast->arg_start, NULL);
+
+    /* Set the result, because things like having a result to use.
+       Ex: An empty list used as an arg may want to know what to
+       default to. */
+    ast->result = ast->arg_start->result;
+
+    /* Make sure the result is callable (ex: NOT @(integer: 10) ()). */
+    cls_id = ast->result->sig->cls->id;
+    if (cls_id != SYM_CLASS_FUNCTION)
+        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+                "Cannot anonymously call resulting type '%T'.\n",
+                ast->result->sig);
+
+    if (ast->arg_start->tree_type != tree_oo_access) {
+        /* If inside a class, then consider inserting replacing the
+           unnecessary readonly tree with 'self'.
+           If this isn't possible, drop the readonly tree from args since
+           it isn't truly an argument. */
+        if (emit->current_class == NULL ||
+            ast->arg_start->tree_type != tree_readonly ||
+            maybe_self_insert(emit, ast->arg_start) == 0) {
+            ast->arg_start = ast->arg_start->next_arg;
+            ast->args_collected--;
         }
-
-        int cls_id;
-        /* Special case: Don't walk tree_readonly. Doing so will rewrite the
-           var given to it with a storage result...which emitter cannot use
-           for printing error information. */
-        if (ast->arg_start->tree_type != tree_readonly)
-            eval_tree(emit, ast->arg_start, NULL);
-
-        /* Set the result, because things like having a result to use.
-           Ex: An empty list used as an arg may want to know what to
-           default to. */
-        ast->result = ast->arg_start->result;
-
-        /* Make sure the result is callable (ex: NOT @(integer: 10) ()). */
-        cls_id = ast->result->sig->cls->id;
-        if (cls_id != SYM_CLASS_FUNCTION)
-            lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                    "Cannot anonymously call resulting type '%T'.\n",
-                    ast->result->sig);
-
-        if (ast->arg_start->tree_type != tree_oo_access) {
-            /* If inside a class, then consider inserting replacing the
-               unnecessary readonly tree with 'self'.
-               If this isn't possible, drop the readonly tree from args since
-               it isn't truly an argument. */
-            if (emit->current_class == NULL ||
-                ast->arg_start->tree_type != tree_readonly ||
-                maybe_self_insert(emit, ast->arg_start) == 0) {
-                ast->arg_start = ast->arg_start->next_arg;
-                ast->args_collected--;
-            }
-        }
-        else {
-            /* Fix the oo access to return the first arg it had, since that's
-               the call's first value. It's really important that
-               check_call_args get all the args, because the first is the most
-               likely to have a template parameter. */
-            ast->arg_start->result = ast->arg_start->arg_start->result;
-        }
+    }
+    else {
+        /* Fix the oo access to return the first arg it had, since that's
+           the call's first value. It's really important that
+           check_call_args get all the args, because the first is the most
+           likely to have a template parameter. */
+        ast->arg_start->result = ast->arg_start->arg_start->result;
     }
 
     call_sym = ast->result;
