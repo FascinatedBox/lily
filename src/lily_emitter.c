@@ -1956,48 +1956,24 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 
     lily_sig *var_sig = right_tree->result->sig;
 
-    if (cast_sig == var_sig) {
+    if (cast_sig == var_sig)
         ast->result = (lily_sym *)right_tree->result;
-        return;
-    }
     else if (cast_sig->cls->id == SYM_CLASS_ANY) {
-        /* Throw it into an 'any'. */
-        lily_storage *storage = get_storage(emit, cast_sig, ast->line_num);
-        storage->flags |= SYM_NOT_ASSIGNABLE;
-
-        write_4(emit,
-                o_assign,
-                ast->line_num,
-                right_tree->result->reg_spot,
-                storage->reg_spot);
-
-        ast->result = (lily_sym *)storage;
-        return;
+        /* This function automatically fixes ast->result to the resulting any
+           value. */
+        emit_rebox_to_any(emit, ast);
     }
+    else if (var_sig->cls->id == SYM_CLASS_ANY) {
+        lily_storage *result = get_storage(emit, cast_sig, ast->line_num);
 
-    lily_storage *result;
-    int cast_opcode;
-
-    if (var_sig->cls->id == SYM_CLASS_ANY) {
-        cast_opcode = o_any_typecast;
-        result = get_storage(emit, cast_sig, ast->line_num);
+        write_4(emit, o_any_typecast, ast->line_num,
+                right_tree->result->reg_spot, result->reg_spot);
+        ast->result = (lily_sym *)result;
     }
     else {
-        cast_opcode = -1;
-        result = NULL;
-        lily_raise_adjusted(emit->raiser, ast->line_num,
-                lily_BadTypecastError,
-                "Cannot cast type '%T' to type '%T'.\n",
-                var_sig, cast_sig);
+        lily_raise_adjusted(emit->raiser, ast->line_num, lily_BadTypecastError,
+                "Cannot cast type '%T' to type '%T'.\n", var_sig, cast_sig);
     }
-
-    write_4(emit,
-            cast_opcode,
-            ast->line_num,
-            right_tree->result->reg_spot,
-            result->reg_spot);
-
-    ast->result = (lily_sym *)result;
 }
 
 /*  eval_unary_op
