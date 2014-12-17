@@ -697,11 +697,8 @@ static int template_check(lily_emit_state *emit, lily_sig *lhs, lily_sig *rhs)
             for (i = 0;i < lhs->siglist_size;i++) {
                 lily_sig *left_entry = left_siglist[i];
                 lily_sig *right_entry = right_siglist[i];
-                if (left_entry == right_entry &&
-                    left_entry->cls->id != SYM_CLASS_TEMPLATE)
-                    continue;
-
-                if (template_check(emit, left_entry, right_entry) == 0) {
+                if (left_entry != right_entry &&
+                    template_check(emit, left_entry, right_entry) == 0) {
                     ret = 0;
                     break;
                 }
