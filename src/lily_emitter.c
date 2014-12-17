@@ -1163,6 +1163,27 @@ static void push_info_to_error(lily_emit_state *emit, lily_ast *ast)
             call_name);
 }
 
+/*  assign_post_check
+    This function is called after any assignment is evaluated. This allows
+    assignment chains (because those are nice), but disables assignments from
+    being nested within other expressions.
+
+    Without this function, things like 'integer a = (b = 10)' are possible.
+
+    The tree passed is the assignment tree itself. */
+static void assign_post_check(lily_emit_state *emit, lily_ast *ast)
+{
+    if (ast->parent &&
+         (ast->parent->tree_type != tree_binary ||
+          ast->parent->op < expr_assign)) {
+        lily_raise(emit->raiser, lily_SyntaxError,
+                "Cannot nest an assignment within an expression.\n");
+    }
+    else if (ast->parent == NULL)
+        /* This prevents conditions from using the result of an assignment. */
+        ast->result = NULL;
+}
+
 /*****************************************************************************/
 /* Error raising functions                                                   */
 /*****************************************************************************/
@@ -3269,6 +3290,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
                 eval_sub_assign(emit, ast);
             else
                 eval_oo_and_prop_assign(emit, ast);
+
+            assign_post_check(emit, ast);
         }
         else if (ast->op == expr_logical_or || ast->op == expr_logical_and)
             eval_logical_op(emit, ast);
