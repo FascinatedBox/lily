@@ -650,21 +650,107 @@ static void write_build_op(lily_emit_state *emit, int opcode,
     f->pos += 4 + num_values;
 }
 
-/*  emit_assign
-    Write an 'o_assign' op and rewrite the given ast to yield that. This
-    is used frequently to implement 'defaulting to any'. */
-static void emit_assign(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_class *any_class = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
-    lily_storage *storage = get_storage(emit, any_class->sig, ast->line_num);
+static void emit_rebox_value(lily_emit_state *, lily_sig *, lily_ast *);
 
-    write_4(emit,
-            o_assign,
-            ast->line_num,
-            ast->result->reg_spot,
+/*  build_enum_sig_by_variant
+    Given a complete signature of a variant class, determine what the parent
+    class is and build a complete signature of that enum class.
+    In the event that the variant class does not contain generics that are
+    within the enum class, the class 'any' is used instead. */
+static lily_sig *build_enum_sig_by_variant(lily_emit_state *emit,
+        lily_sig *input_sig)
+{
+    /* The parent of a variant class is always the enum class it belongs to.
+       The 'variant_sig' of an enum class is the signature captured when
+       parsing it, and so it contains all the generics needed. */
+    lily_sig *parent_variant_sig = input_sig->cls->parent->variant_sig;
+
+    int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
+    if ((stack_start + parent_variant_sig->siglist_size) > emit->sig_stack_size)
+        grow_sig_stack(emit);
+
+    int saved_adjust = emit->current_generic_adjust;
+    emit->sig_stack_pos += emit->current_generic_adjust;
+
+    /* If the variant takes no values, then the variant sig is simply the
+       default signature for the class.
+       If it does, then it's a function with the return (at [0]) being the
+       variant result. */
+    lily_sig *child_result;
+
+    if (input_sig->cls->variant_sig->siglist_size != 0)
+        child_result = input_sig->cls->variant_sig->siglist[0];
+    else
+        child_result = NULL;
+
+    lily_class *any_cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
+    lily_sig *any_sig = any_cls->sig;
+
+    /* Sometimes, a variant class does not use all of the generics provided by
+       the parent enum class. In that case, the class 'any' will be used. */
+    int i, j;
+    for (i = 0, j = 0;i < parent_variant_sig->siglist_size;i++) {
+        if (child_result &&
+            child_result->siglist_size > j &&
+            child_result->siglist[j]->template_pos == i) {
+            emit->sig_stack[stack_start + i] = input_sig->siglist[j];
+            j++;
+        }
+        else
+            emit->sig_stack[stack_start + i] = any_sig;
+    }
+
+    lily_sig *new_sig = lily_build_ensure_sig(emit->symtab,
+            input_sig->cls->parent, 0, emit->sig_stack, stack_start, i);
+
+    emit->sig_stack_pos -= saved_adjust;
+    emit->current_generic_adjust = saved_adjust;
+
+    return new_sig;
+}
+
+/*  rebox_variant_to_enum
+    This is a convenience function that will convert the variant value within
+    the given ast to an enum value.
+    Note: If the variant does not supply full type information, then missing
+          types are given the type of 'any'. */
+static void rebox_variant_to_enum(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_sig *rebox_sig = build_enum_sig_by_variant(emit,
+            ast->result->sig);
+
+    emit_rebox_value(emit, rebox_sig, ast);
+}
+
+/*  emit_rebox_value
+    Make a storage of type 'new_sig' and assign ast's result to it. The tree's
+    result is written over. */
+static void emit_rebox_value(lily_emit_state *emit, lily_sig *new_sig,
+        lily_ast *ast)
+{
+    lily_storage *storage = get_storage(emit, new_sig, ast->line_num);
+
+    /* Don't allow a bare variant to be thrown into an any until it's thrown
+       into an enum box first. */
+    if (new_sig->cls->id == SYM_CLASS_ANY &&
+        ast->result->sig->cls->flags & CLS_VARIANT_CLASS) {
+        rebox_variant_to_enum(emit, ast);
+    }
+
+    write_4(emit, o_assign, ast->line_num, ast->result->reg_spot,
             storage->reg_spot);
 
     ast->result = (lily_sym *)storage;
+}
+
+/*  emit_rebox_to_any
+    This is a helper function that calls emit_rebox_value on the given tree
+    with a signature of class any. */
+static void emit_rebox_to_any(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_class *any_cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
+
+    emit_rebox_value(emit, any_cls->sig, ast);
 }
 
 /*  template_check
@@ -1405,63 +1491,6 @@ static int assign_optimize_check(lily_ast *ast)
     return can_optimize;
 }
 
-/*  build_enum_sig_by_variant
-    Given a complete signature of a variant class, determine what the parent
-    class is and build a complete signature of that enum class.
-    In the event that the variant class does not contain generics that are
-    within the enum class, the class 'any' is used instead. */
-static lily_sig *build_enum_sig_by_variant(lily_emit_state *emit,
-        lily_sig *input_sig)
-{
-    /* The parent of a variant class is always the enum class it belongs to.
-       The 'variant_sig' of an enum class is the signature captured when
-       parsing it, and so it contains all the generics needed. */
-    lily_sig *parent_variant_sig = input_sig->cls->parent->variant_sig;
-
-    int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
-    if ((stack_start + parent_variant_sig->siglist_size) > emit->sig_stack_size)
-        grow_sig_stack(emit);
-
-    int saved_adjust = emit->current_generic_adjust;
-    emit->sig_stack_pos += emit->current_generic_adjust;
-
-    /* If the variant takes no values, then the variant sig is simply the
-       default signature for the class.
-       If it does, then it's a function with the return (at [0]) being the
-       variant result. */
-    lily_sig *child_result;
-
-    if (input_sig->cls->variant_sig->siglist_size != 0)
-        child_result = input_sig->cls->variant_sig->siglist[0];
-    else
-        child_result = NULL;
-
-    lily_class *any_cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
-    lily_sig *any_sig = any_cls->sig;
-
-    /* Sometimes, a variant class does not use all of the generics provided by
-       the parent enum class. In that case, the class 'any' will be used. */
-    int i, j;
-    for (i = 0, j = 0;i < parent_variant_sig->siglist_size;i++) {
-        if (child_result &&
-            child_result->siglist_size > j &&
-            child_result->siglist[j]->template_pos == i) {
-            emit->sig_stack[stack_start + i] = input_sig->siglist[j];
-            j++;
-        }
-        else
-            emit->sig_stack[stack_start + i] = any_sig;
-    }
-
-    lily_sig *new_sig = lily_build_ensure_sig(emit->symtab,
-            input_sig->cls->parent, 0, emit->sig_stack, stack_start, i);
-
-    emit->sig_stack_pos -= saved_adjust;
-    emit->current_generic_adjust = saved_adjust;
-
-    return new_sig;
-}
-
 /*  calculate_var_sig
     This is called when the left side of an assignment doesn't have a signature
     because it was declared using 'var ...'. This will return the proper
@@ -1475,42 +1504,6 @@ static lily_sig *calculate_var_sig(lily_emit_state *emit, lily_sig *input_sig)
         result = input_sig;
 
     return result;
-}
-
-static void emit_rebox_value(lily_emit_state *, lily_sig *, lily_ast *);
-
-/*  rebox_variant_to_enum
-    This is a convenience function that will convert the variant value within
-    the given ast to an enum value.
-    Note: If the variant does not supply full type information, then missing
-          types are given the type of 'any'. */
-static void rebox_variant_to_enum(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_sig *rebox_sig = build_enum_sig_by_variant(emit,
-            ast->result->sig);
-
-    emit_rebox_value(emit, rebox_sig, ast);
-}
-
-/*  emit_rebox_value
-    Make a storage of type 'new_sig' and assign ast's result to it. The tree's
-    result is written over. */
-static void emit_rebox_value(lily_emit_state *emit, lily_sig *new_sig,
-        lily_ast *ast)
-{
-    lily_storage *storage = get_storage(emit, new_sig, ast->line_num);
-
-    /* Don't allow a bare variant to be thrown into an any until it's thrown
-       into an enum box first. */
-    if (new_sig->cls->id == SYM_CLASS_ANY &&
-        ast->result->sig->cls->flags & CLS_VARIANT_CLASS) {
-        rebox_variant_to_enum(emit, ast);
-    }
-
-    write_4(emit, o_assign, ast->line_num, ast->result->reg_spot,
-            storage->reg_spot);
-
-    ast->result = (lily_sym *)storage;
 }
 
 /*  eval_assign
@@ -2220,7 +2213,7 @@ static void emit_hash_values_to_anys(lily_emit_state *emit,
          iter_ast != NULL;
          iter_ast = iter_ast->next_arg->next_arg) {
 
-        emit_assign(emit, iter_ast->next_arg);
+        emit_rebox_to_any(emit, iter_ast->next_arg);
     }
 }
 
@@ -2249,7 +2242,7 @@ static void emit_list_values_to_anys(lily_emit_state *emit,
     for (iter_ast = list_ast->arg_start;
          iter_ast != NULL;
          iter_ast = iter_ast->next_arg) {
-        emit_assign(emit, iter_ast);
+        emit_rebox_to_any(emit, iter_ast);
     }
 }
 
@@ -2453,12 +2446,8 @@ static int type_matchup(lily_emit_state *emit, lily_sig *want_sig,
         lily_ast *right)
 {
     int ret = 1;
-    if (want_sig->cls->id == SYM_CLASS_ANY) {
-        if (right->result->sig->cls->flags & CLS_VARIANT_CLASS)
-            rebox_variant_to_enum(emit, right);
-
-        emit_assign(emit, right);
-    }
+    if (want_sig->cls->id == SYM_CLASS_ANY)
+        emit_rebox_to_any(emit, right);
     else if (want_sig->cls->flags & CLS_ENUM_CLASS) {
         ret = enum_membership_check(emit, want_sig, right->result->sig);
         if (ret)
