@@ -46,9 +46,6 @@ def basic_run(filename, mode, run_range):
     else:
         mode_str = "fail"
 
-    sys.stdout.write("[%2d/%2d] Running test %s..." % (run_range[0], \
-            run_range[1], os.path.basename(filename)))
-
     command = "./lily %s" % (filename)
     subp = subprocess.Popen([command], stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, shell=True)
@@ -64,29 +61,33 @@ def basic_run(filename, mode, run_range):
     except IndexError:
         pass
 
-    if  len(subp_stdout) or subp_stderr != expected_stderr:
-        print "FAILED."
-        error_count += 1
-    elif subp.returncode == -signal.SIGSEGV:
-        print "!!!CRASHED!!!"
-        crash_count += 1
+    if  len(subp_stdout) or \
+        subp_stderr != expected_stderr or \
+        subp.returncode == -signal.SIGSEGV:
+
+        message = ""
+        if subp.returncode == -signal.SIGSEGV:
+            message = "!!!CRASHED!!!"
+            crash_count += 1
+        else:
+            message = "!!!FAILED!!!"
+            error_count += 1
+
+        sys.stdout.write("[%2d/%2d] test %s %s" % (run_range[0], \
+                run_range[1], os.path.basename(filename), message))
     else:
-        print "passed."
         pass_count += 1
 
 pass_files = sorted(load_filenames('test/pass'))
 fail_files = sorted(load_filenames('test/fail'))
 run_range = [0, len(pass_files) + len(fail_files)]
 
-print "\nBlastmaster: Running %d pass tests, %d fail tests, %d total." \
-        % (len(pass_files), len(fail_files), run_range[1])
-
-print "Blastmaster: Running passing tests."
+print "Blastmaster: Running %d assing tests..." % len(pass_files)
 for i in range(len(pass_files)):
     run_range[0] += 1
     basic_run(pass_files[i], MODE_PASS, run_range)
 
-print "Blastmaster: Running failing tests."
+print "Blastmaster: Running %d failing tests..." % len(fail_files)
 for i in range(len(fail_files)):
     run_range[0] += 1
     basic_run(fail_files[i], MODE_FAIL, run_range)
