@@ -1127,31 +1127,48 @@ static void ensure_proper_match_block(lily_emit_state *emit)
         lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
 }
 
+static void push_info_to_error(lily_emit_state *emit, lily_ast *ast)
+{
+    char *class_name = "", *separator = "", *kind = "Function";
+    char *call_name;
+    lily_msgbuf *msgbuf = emit->raiser->msgbuf;
+
+    if (ast->result) {
+        lily_var *var = (lily_var *)ast->result;
+        if (var->parent) {
+            class_name = var->parent->name;
+            separator = "::";
+        }
+
+        call_name = var->name;
+    }
+    else if (ast->arg_start->tree_type == tree_variant) {
+        call_name = ast->arg_start->variant_class->name;
+        kind = "Variant";
+    }
+    else if (ast->arg_start->tree_type == tree_oo_access) {
+        class_name = ast->arg_start->result->sig->cls->name;
+        call_name = emit->oo_name_pool->str + ast->arg_start->oo_pool_index;
+        if (ast->arg_start->oo_property_index == -1)
+            separator = "::";
+        else {
+            separator = ".";
+            kind = "Property";
+        }
+    }
+    else {
+        /* This occurs when there's a call of a call, a call of a subscript
+           result, or something else weird. */
+        call_name = "(anonymous)";
+    }
+
+    lily_msgbuf_add_fmt(msgbuf, "%s %s%s%s ", kind, class_name, separator,
+            call_name);
+}
+
 /*****************************************************************************/
 /* Error raising functions                                                   */
 /*****************************************************************************/
-
-static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
-    lily_sig *got, lily_sig *expected, int arg_num)
-{
-    lily_var *v = (lily_var *)ast->result;
-    char *class_name;
-    char *separator;
-
-    if (v->parent) {
-        class_name = v->parent->name;
-        separator = "::";
-    }
-    else {
-        class_name = "";
-        separator = "";
-    }
-
-    /* Just in case this arg was on a different line than the call. */
-    lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-            "%s%s%s arg #%d expects type '%T' but got type '%T'.\n",
-            class_name, separator, v->name, arg_num, expected, got);
-}
 
 static void bad_assign_error(lily_emit_state *emit, int line_num,
                           lily_sig *left_sig, lily_sig *right_sig)
@@ -1163,46 +1180,42 @@ static void bad_assign_error(lily_emit_state *emit, int line_num,
             right_sig, left_sig);
 }
 
+static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
+    lily_sig *got, lily_sig *expected, int arg_num)
+{
+    push_info_to_error(emit, ast);
+    lily_msgbuf *msgbuf = emit->raiser->msgbuf;
+
+    emit->raiser->line_adjust = ast->line_num;
+
+    lily_msgbuf_add_fmt(msgbuf,
+            "arg #%d expects type '^T' but got type '^T'.\n", arg_num,
+            expected, got);
+    lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
+}
+
 /* bad_num_args
    Reports that the ast didn't get as many args as it should have. Takes
    anonymous calls and var args into account. */
 static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
         lily_sig *call_sig)
 {
-    char *call_name, *class_name, *separator, *va_text;
-    lily_var *var;
+    push_info_to_error(emit, ast);
+    lily_msgbuf *msgbuf = emit->raiser->msgbuf;
 
-    if (ast->result != NULL) {
-        var = (lily_var *)ast->result;
-        call_name = var->name;
-    }
-    else {
-        /* This occurs when the call is based off of a subscript, such as
-           function_list[0]()
-           This is generic, but it's assumed that this will be enough when
-           paired with the line number. */
-        call_name = "(anonymous call)";
-        var = NULL;
-    }
+    char *va_text;
 
     if (call_sig->flags & SIG_IS_VARARGS)
         va_text = "at least ";
     else
         va_text = "";
 
-    if (var->parent) {
-        class_name = var->parent->name;
-        separator = "::";
-    }
-    else {
-        class_name = "";
-        separator = "";
-    }
+    emit->raiser->line_adjust = ast->line_num;
 
-    lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-               "%s%s%s expects %s%d args, but got %d.\n",
-               class_name, separator, call_name, va_text,
-               call_sig->siglist_size - 1, ast->args_collected);
+    lily_msgbuf_add_fmt(msgbuf, "expects %s%d args, but got %d.\n",
+            va_text, call_sig->siglist_size - 1, ast->args_collected);
+
+    lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
 }
 
 /*****************************************************************************/
@@ -2804,7 +2817,18 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         lily_sig *call_sig)
 {
     lily_ast *arg = ast->arg_start;
+    lily_ast *true_start = arg;
     int have_args, i, is_varargs, num_args;
+
+    /* For everything but these two, the first argument is not a value to the
+       function, but a means to get something to call. So skip this fake
+       argument. */
+    if (arg->tree_type != tree_oo_access &&
+        arg->tree_type != tree_local_var) {
+        arg = arg->next_arg;
+        true_start = arg;
+        ast->args_collected--;
+    }
 
     /* Ast doesn't check the call args. It can't check types, so why do only
        half of the validation? */
@@ -2838,7 +2862,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                 arg, i);
 
     if (is_varargs == 0 && call_sig->flags & SIG_CALL_HAS_ENUM_ARG)
-        box_call_variants(emit, call_sig, num_args, ast->arg_start);
+        box_call_variants(emit, call_sig, num_args, true_start);
     else if (is_varargs) {
         lily_sig *va_comp_sig = call_sig->siglist[i + 1];
         lily_ast *save_arg = arg;
@@ -2855,7 +2879,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             eval_call_arg(emit, ast, template_adjust, va_comp_sig, arg, i);
 
         if (call_sig->flags & SIG_CALL_HAS_ENUM_ARG)
-            box_call_variants(emit, call_sig, num_args, ast->arg_start);
+            box_call_variants(emit, call_sig, num_args, true_start);
 
         i = (have_args - i);
         lily_storage *s;
@@ -2890,6 +2914,10 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         save_arg->next_arg = NULL;
         ast->args_collected = num_args + 1;
     }
+
+    /* Now that there can be no errors in calling, fix up the arg start to the
+       real thing for the caller. */
+    ast->arg_start = true_start;
 }
 
 /*  maybe_self_insert
@@ -2906,8 +2934,8 @@ static int maybe_self_insert(lily_emit_state *emit, lily_ast *ast)
     if (emit->current_class != ((lily_var *)ast->result)->parent)
         return 0;
 
-    ast->result = (lily_sym *)emit->self_storage;
-    ast->tree_type = tree_local_var;
+    ast->arg_start->result = (lily_sym *)emit->self_storage;
+    ast->arg_start->tree_type = tree_local_var;
     return 1;
 }
 
@@ -2941,10 +2969,10 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     if (ast->arg_start->tree_type != tree_readonly)
         eval_tree(emit, ast->arg_start, NULL);
 
-    /* Set the result, because things like having a result to use.
-       Ex: An empty list used as an arg may want to know what to
-       default to. */
+    /* This is important because wrong type/wrong number of args looks to
+       either ast->result or the first tree to get the function name. */
     ast->result = ast->arg_start->result;
+    call_sym = ast->result;
 
     /* Make sure the result is callable (ex: NOT @(integer: 10) ()). */
     cls_id = ast->result->sig->cls->id;
@@ -2953,27 +2981,27 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
                 "Cannot anonymously call resulting type '%T'.\n",
                 ast->result->sig);
 
-    if (ast->arg_start->tree_type != tree_oo_access) {
-        /* If inside a class, then consider inserting replacing the
-           unnecessary readonly tree with 'self'.
-           If this isn't possible, drop the readonly tree from args since
-           it isn't truly an argument. */
-        if (emit->current_class == NULL ||
-            ast->arg_start->tree_type != tree_readonly ||
-            maybe_self_insert(emit, ast->arg_start) == 0) {
-            ast->arg_start = ast->arg_start->next_arg;
-            ast->args_collected--;
-        }
-    }
-    else {
+    if (ast->arg_start->tree_type == tree_oo_access) {
         /* Fix the oo access to return the first arg it had, since that's
            the call's first value. It's really important that
            check_call_args get all the args, because the first is the most
            likely to have a template parameter. */
         ast->arg_start->result = ast->arg_start->arg_start->result;
     }
+    else if (ast->arg_start->tree_type == tree_readonly) {
+        /* If inside a class, then consider inserting replacing the
+           unnecessary readonly tree with 'self'.
+           If this isn't possible, drop the readonly tree from args since
+           it isn't truly an argument. */
+        if (emit->current_class != NULL)
+            maybe_self_insert(emit, ast);
+    }
+    else {
+        /* For anonymously called functions, unset ast->result so that arg
+           error functions will report that it's anonymously called. */
+        ast->result = NULL;
+    }
 
-    call_sym = ast->result;
     call_sig = call_sym->sig;
     arg = ast->arg_start;
     expect_size = 6 + ast->args_collected;
@@ -3200,13 +3228,11 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast)
         emit->sig_stack_pos += save_adjust;
         emit->current_generic_adjust = 0;
 
+        ast->result = NULL;
+
         /* The first arg is actually the variant. */
         lily_ast *variant_tree = ast->arg_start;
         lily_class *variant_class = variant_tree->variant_class;
-
-        /* Make argument collection skip this value. */
-        ast->arg_start = ast->arg_start->next_arg;
-        ast->args_collected--;
 
         if (variant_class->variant_sig->siglist_size == 1)
             lily_raise(emit->raiser, lily_SyntaxError,
