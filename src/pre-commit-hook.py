@@ -73,7 +73,7 @@ def basic_run(filename, mode, run_range):
             message = "!!!FAILED!!!"
             error_count += 1
 
-        sys.stdout.write("[%2d/%2d] test %s %s" % (run_range[0], \
+        sys.stdout.write("[%3d/%3d] test %s %s\n" % (run_range[0], \
                 run_range[1], os.path.basename(filename), message))
     else:
         pass_count += 1
