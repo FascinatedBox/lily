@@ -2699,71 +2699,42 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast,
     ast->result = (lily_sym *)result;
 }
 
-/*  generic_type_matchup
-    This is called to check if the argument given to a call is correct. This
-    function is different from type_matchup in that the signature it
-    wants may be a generic one that has to be matched up with emitter's
-    sig_stack.
-
-    After matching up to templates, this will then attempt normal type
-    conversion. Doing so allows things like 'list::append([1, 2.3], "4")' to
-    work ([1, 2.3] becomes a list[object], so A is an object. "4" expects A
-    so it can be turned into a value of type any).
-
-    Call evaluating should be the only caller to this. Return and assign should
-    not call this, because generic types they get are probably generics of the
-    current function. Said generics don't map to anything and should be left
-    alone.
-
-    emit:     The emitter, in case code needs to be written.
-    want_sig: The signature to be matched.
-    right:    The ast which has a result to be converted to want_sig. */
-static int generic_type_matchup(lily_emit_state *emit, lily_sig *want_sig,
-        lily_ast *right)
-{
-    int ret = 0;
-
-    if (want_sig->cls->id == SYM_CLASS_TEMPLATE) {
-        int index = emit->sig_stack_pos + want_sig->template_pos;
-        if (emit->sig_stack[index] != NULL) {
-            want_sig = emit->sig_stack[index];
-            if (want_sig == right->result->sig)
-                ret = 1;
-        }
-    }
-
-    /* ret == 0 protects from potentially unpacking a template, then evaluating
-       unpacked thing again. This makes generics fail. */
-    if (ret == 0 &&
-        (template_check(emit, want_sig, right->result->sig) ||
-         type_matchup(emit, want_sig, right)))
-        ret = 1;
-
-    return ret;
-}
-
 /*  eval_call_arg
-    Evaluate an argument for a function call. This handles calling for an eval
-    of the arg and making sure the types do proper matching up. */
+    Evaluate the argument of a function call and do some type matching up on
+    the result. This is different than type_matchup, because it's a fair chance
+    that the arguments may hold information about generics. */
 static void eval_call_arg(lily_emit_state *emit, lily_ast *call_ast,
         int template_adjust, lily_sig *want_sig, lily_ast *arg, int arg_num)
 {
     if (arg->tree_type != tree_local_var)
         eval_tree(emit, arg, want_sig);
 
-    if (arg->result->sig == want_sig) {
-        if (arg->result->sig->template_pos != 0 ||
-            arg->result->sig->cls->id == SYM_CLASS_TEMPLATE) {
-            if (template_check(emit, want_sig, arg->result->sig) == 0)
-                bad_arg_error(emit, call_ast, arg->result->sig, want_sig,
-                        arg_num);
+    /* It may seem tempting to do sig == sig in here. Don't.
+       If one generic function calls another, then the caller needs to know
+       that the generic types of the callee match to the generic types of the
+       caller. */
+    int ok = 0;
+
+    /* A simple generic is easy to resolve. */
+    if (want_sig->cls->id == SYM_CLASS_TEMPLATE) {
+        int index = emit->sig_stack_pos + want_sig->template_pos;
+        if (emit->sig_stack[index] != NULL) {
+            want_sig = emit->sig_stack[index];
+            if (want_sig == arg->result->sig)
+                ok = 1;
         }
     }
-    else {
-        if (generic_type_matchup(emit, want_sig, arg) == 0)
-            bad_arg_error(emit, call_ast, arg->result->sig, want_sig,
-                          arg_num);
-    }
+
+    /* ok == 0 protects from potentially attempting to resolve the same generic
+       twice, which breaks things. */
+    if (ok == 0 &&
+        (template_check(emit, want_sig, arg->result->sig) ||
+         type_matchup(emit, want_sig, arg)))
+        ok = 1;
+
+    if (ok == 0)
+        bad_arg_error(emit, call_ast, arg->result->sig, want_sig,
+                      arg_num);
 }
 
 /*  box_call_variants
