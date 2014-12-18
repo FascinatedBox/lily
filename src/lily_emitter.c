@@ -836,56 +836,6 @@ static int template_check(lily_emit_state *emit, lily_sig *lhs, lily_sig *rhs)
     return ret;
 }
 
-/*  resolve_property_sig
-    This is called when tree_oo_access encounters a property that is generic
-    or includes generics. This returns the signature with generics from the
-    instance factored in. */
-static lily_sig *resolve_property_sig(lily_emit_state *emit, lily_sig *instance_sig,
-        lily_sig *prop_sig, int resolve_start)
-{
-    lily_sig *result_sig = NULL;
-
-    if (prop_sig->cls->id == SYM_CLASS_TEMPLATE)
-        result_sig = instance_sig->siglist[prop_sig->template_pos];
-    else if (prop_sig->cls->template_count == 0)
-        /* The original sig could be something like 'tuple[A, integer]'.
-           This keeps 'integer' from building a sig. */
-        result_sig = prop_sig;
-    else {
-        /* If it's marked as having templates and it's not the template
-           class, then it -has- to have a siglist to process. */
-        int sigs_needed = prop_sig->siglist_size;
-
-        if (resolve_start + sigs_needed > emit->sig_stack_size) {
-            lily_sig **new_sigs = lily_realloc(emit->sig_stack,
-                    sizeof(lily_sig *) *
-                    (resolve_start + sigs_needed));
-
-            if (new_sigs == NULL)
-                lily_raise_nomem(emit->raiser);
-
-            emit->sig_stack = new_sigs;
-            emit->sig_stack_size = (resolve_start + sigs_needed);
-        }
-
-        int i;
-        lily_sig *inner_sig;
-        for (i = 0;i < prop_sig->siglist_size;i++) {
-            inner_sig = prop_sig->siglist[i];
-            inner_sig = resolve_property_sig(emit, instance_sig, prop_sig,
-                    resolve_start + i);
-
-            emit->sig_stack[resolve_start + i] = inner_sig;
-        }
-
-        int flags = (prop_sig->flags & SIG_IS_VARARGS);
-        result_sig = lily_build_ensure_sig(emit->symtab, prop_sig->cls, flags,
-                emit->sig_stack, resolve_start, i);
-    }
-
-    return result_sig;
-}
-
 /*  recursively_build_sig
     This is a helper function for build_untemplated_sig. This function takes a
     signature which has template information in it, and builds a signature with
@@ -947,6 +897,33 @@ static lily_sig *build_untemplated_sig(lily_emit_state *emit, lily_sig *sig)
     emit->sig_stack_pos -= sig->template_pos;
 
     return ret;
+}
+
+/*  resolve_second_sig_by_first
+    This is called when one signature contains unresolved type information that
+    can be resolved by another signature. However, the signature with the
+    information is NOT laid out in emitter's sig stack.
+
+    This first lays out the generics into emitter's sig stack before calling
+    build_untemplated_sig and yielding the result. */
+static lily_sig *resolve_second_sig_by_first(lily_emit_state *emit,
+        lily_sig *first, lily_sig *second)
+{
+    int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
+    int save_ssp = emit->sig_stack_pos;
+
+    if (stack_start + first->siglist_size > emit->sig_stack_size)
+        grow_sig_stack(emit);
+
+    int i;
+    for (i = 0;i < first->siglist_size;i++)
+        emit->sig_stack[stack_start + i] = first->siglist[i];
+
+    emit->sig_stack_pos = stack_start;
+    lily_sig *result_sig = build_untemplated_sig(emit, second);
+    emit->sig_stack_pos = save_ssp;
+
+    return result_sig;
 }
 
 /*  add_var_chain_to_info
@@ -3110,9 +3087,9 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
         lily_sig *property_sig = prop->sig;
         if (property_sig->cls->id == SYM_CLASS_TEMPLATE ||
             property_sig->template_pos) {
-            property_sig = resolve_property_sig(emit,
-                    ast->arg_start->result->sig, property_sig,
-                    emit->sig_stack_pos);
+            property_sig = resolve_second_sig_by_first(emit,
+                    ast->arg_start->result->sig,
+                    property_sig);
         }
 
         lily_storage *result = get_storage(emit, property_sig,
