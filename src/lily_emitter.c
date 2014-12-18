@@ -2777,10 +2777,13 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     lily_ast *arg = ast->arg_start;
     lily_ast *true_start = arg;
     int have_args, i, is_varargs, num_args;
+    int auto_resolve = 0;
 
     /* oo_access is the only tree where the first argument is actually supposed
        to be passed in as a value. */
     if (arg->tree_type != tree_oo_access) {
+        if (arg->tree_type == tree_local_var)
+            auto_resolve = 1;
         arg = arg->next_arg;
         true_start = arg;
         ast->args_collected--;
@@ -2803,8 +2806,21 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         if (emit->sig_stack_pos + template_adjust >= emit->sig_stack_size)
             grow_sig_stack(emit);
 
-        for (i = 0;i < template_adjust;i++)
-            emit->sig_stack[emit->sig_stack_pos + i] = NULL;
+        if (auto_resolve == 0) {
+            for (i = 0;i < template_adjust;i++)
+                emit->sig_stack[emit->sig_stack_pos + i] = NULL;
+        }
+        else {
+            /* If the callee is within a generic function, then consider the
+               callee's generics to be resolved as themselves.
+               This is to prevent this:
+                   function f[A, B](function g(A), B value) { g(value) }
+               Such a thing is bad, because f may be called wherein A and B are
+               not compatible. */
+            lily_sig *sig_iter = emit->symtab->template_sig_start;
+            for (i = 0;i < template_adjust;i++, sig_iter = sig_iter->next)
+                emit->sig_stack[emit->sig_stack_pos + i] = sig_iter;
+        }
     }
 
     emit->current_generic_adjust = template_adjust;
