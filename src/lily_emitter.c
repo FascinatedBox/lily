@@ -926,6 +926,60 @@ static lily_sig *resolve_second_sig_by_first(lily_emit_state *emit,
     return result_sig;
 }
 
+/*  setup_sigs_for_build
+    This is called before building a static list, hash, or tuple.
+
+    expect_sig is checked for being a generic that unwraps to a signature with
+    a class id of 'wanted_id', or having that actual id.
+
+    If expect_sig's class is correct, then the signatures inside of it are laid
+    down into emitter's sig stack starting at
+    'emit->sig_stack_pos + emit->current_generic_adjust + 1' to prevent damaging
+    any caller's generics. The signatures within are unwrapped if expect_sig
+    wasn't initially unwrapped. (so that generics are not processed twice).
+
+    This processing is done because it's necessary for type inference.
+
+    On success: A count of signatures laid down is returned.
+    On failure: 0 is returned.
+
+    Notes: This does not adjust the emitter's sig_stack_pos or the generic
+           adjust. The caller is expected to either pull the signatures it
+           needs or save them somehow (since a count IS provided). */
+static int setup_sigs_for_build(lily_emit_state *emit,
+        lily_sig *expect_sig, int wanted_id)
+{
+    int did_unwrap = 0;
+    int unroll_count = 0;
+
+    if (expect_sig && expect_sig->cls->id == SYM_CLASS_TEMPLATE) {
+        expect_sig = emit->sig_stack[emit->sig_stack_pos +
+                expect_sig->template_pos];
+        did_unwrap = 1;
+    }
+
+    if (expect_sig && expect_sig->cls->id == wanted_id) {
+        int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
+        if (stack_start + expect_sig->siglist_size > emit->sig_stack_size)
+            grow_sig_stack(emit);
+
+        int i;
+        for (i = 0;i < expect_sig->siglist_size;i++) {
+            lily_sig *inner_sig = expect_sig->siglist[i];
+            if (did_unwrap == 0 &&
+                inner_sig->cls->id == SYM_CLASS_TEMPLATE) {
+                inner_sig = emit->sig_stack[emit->sig_stack_pos +
+                        inner_sig->template_pos];
+            }
+            emit->sig_stack[stack_start + i] = inner_sig;
+        }
+
+        unroll_count = i;
+    }
+
+    return unroll_count;
+}
+
 /*  add_var_chain_to_info
     Add info for a linked-list of vars to the given register info. Functions do
     not get a register (VAR_IS_READONLY), so don't add them. */
@@ -2231,30 +2285,13 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     int make_anys = 0, found_variant_or_enum = 0;
 
     if (expect_sig) {
-        int did_unwrap = 0;
-        /* Generics can't be 'unwrapped' more than once. */
-        if (expect_sig->cls->id == SYM_CLASS_TEMPLATE) {
-            expect_sig = emit->sig_stack[emit->sig_stack_pos +
-                    expect_sig->template_pos];
-            did_unwrap = 1;
-        }
+        int count = setup_sigs_for_build(emit, expect_sig, SYM_CLASS_HASH);
+        int setup_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
 
-        if (expect_sig && expect_sig->cls->id == SYM_CLASS_HASH) {
-            expect_key_sig = expect_sig->siglist[0];
-            expect_value_sig = expect_sig->siglist[1];
-            if (did_unwrap == 0) {
-                if (expect_key_sig && expect_key_sig->cls->id == SYM_CLASS_TEMPLATE)
-                    expect_key_sig = emit->sig_stack[emit->sig_stack_pos +
-                            expect_key_sig->template_pos];
-
-                if (expect_value_sig && expect_value_sig->cls->id == SYM_CLASS_TEMPLATE) {
-                    expect_value_sig = emit->sig_stack[emit->sig_stack_pos +
-                            expect_value_sig->template_pos];
-                }
-            }
+        if (count) {
+            expect_key_sig = emit->sig_stack[setup_start];
+            expect_value_sig = emit->sig_stack[setup_start + 1];
         }
-        else
-            expect_sig = NULL;
     }
 
     for (tree_iter = ast->arg_start;
@@ -2437,36 +2474,27 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     int found_variant_or_enum = 0, make_anys = 0;
 
     if (expect_sig) {
-        if (expect_sig->cls->id == SYM_CLASS_LIST ||
-            expect_sig->cls->id == SYM_CLASS_HASH ||
-            expect_sig->cls->id == SYM_CLASS_TEMPLATE) {
-            lily_sig *original_sig = expect_sig;
+        if (ast->args_collected == 0) {
+            lily_sig *check_sig;
+
             if (expect_sig->cls->id == SYM_CLASS_TEMPLATE)
-                expect_sig = emit->sig_stack[emit->sig_stack_pos +
+                check_sig = emit->sig_stack[emit->sig_stack_pos +
                         expect_sig->template_pos];
-
-            if (expect_sig && expect_sig->cls->id == SYM_CLASS_HASH) {
-                if (ast->args_collected != 0)
-                    expect_sig = NULL;
-                else {
-                    /* If a hash is wanted and [] is given, then make a hash
-                       instead.
-                       expect_sig cannot be passed: If it came from a generic,
-                       then this function may unwrap generics that it
-                       shouldn't. */
-                    eval_build_hash(emit, ast, original_sig);
-                    return;
-                }
-            }
-            else if (expect_sig && expect_sig->cls->id == SYM_CLASS_LIST)
-                expect_sig = expect_sig->siglist[0];
             else
-                expect_sig = NULL;
-        }
-        else
-            expect_sig = NULL;
+                check_sig = expect_sig;
 
-        elem_sig = expect_sig;
+            if (check_sig && check_sig->cls->id == SYM_CLASS_HASH) {
+                eval_build_hash(emit, ast, expect_sig);
+                return;
+            }
+        }
+
+        int count = setup_sigs_for_build(emit, expect_sig, SYM_CLASS_LIST);
+        if (count) {
+            elem_sig = emit->sig_stack[
+                    emit->sig_stack_pos + emit->current_generic_adjust + 1];
+            expect_sig = elem_sig;
+        }
     }
 
     lily_sig *last_sig = NULL;
@@ -2543,26 +2571,19 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
                 "Cannot create an empty tuple.\n");
     }
 
-    int did_unwrap = 0;
+    int expect_sig_count = 0;
+
+    /* A clever trick is employed here: If setup_sigs_for_build is called, it
+       will prepare N sigs past the stack_start down there.
+       However, functions that tuple calls will need to use the sig stack.
+       Solution: Rewrite what setup_sigs_for_build put in with each argument. */
+
     if (expect_sig) {
-        if (expect_sig->cls->id == SYM_CLASS_TUPLE ||
-            expect_sig->cls->id == SYM_CLASS_TEMPLATE) {
-            if (expect_sig->cls->id == SYM_CLASS_TEMPLATE) {
-                expect_sig = emit->sig_stack[emit->sig_stack_pos +
-                        expect_sig->template_pos];
-                did_unwrap = 0;
-            }
+        expect_sig_count = setup_sigs_for_build(emit, expect_sig, SYM_CLASS_TUPLE);
 
-            if (expect_sig == NULL ||
-                expect_sig->cls->id != SYM_CLASS_TUPLE ||
-                expect_sig->siglist_size != ast->args_collected)
-                expect_sig = NULL;
-        }
-        else
-            expect_sig = NULL;
+        if (expect_sig_count != ast->args_collected)
+            expect_sig_count = 0;
     }
-
-    lily_sig *expect_elem = NULL;
 
     int i;
     lily_ast *arg;
@@ -2574,37 +2595,31 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
     for (i = 0, arg = ast->arg_start;
          arg != NULL;
          i++, arg = arg->next_arg) {
+        lily_sig *elem_sig = NULL;
 
-        if (expect_sig) {
-            expect_elem = expect_sig->siglist[i];
-            if (expect_elem && expect_elem->cls->id == SYM_CLASS_TEMPLATE &&
-                did_unwrap == 0) {
-                expect_elem = emit->sig_stack[emit->sig_stack_pos +
-                        expect_sig->template_pos];
-            }
-        }
+        if (expect_sig_count != 0)
+            elem_sig = emit->sig_stack[stack_start + i];
 
         if (arg->tree_type != tree_local_var)
-            eval_tree(emit, arg, expect_elem);
+            eval_tree(emit, arg, elem_sig);
 
-        if ((expect_sig && expect_elem != arg->result->sig) ||
+        if ((elem_sig && elem_sig != arg->result->sig) ||
             (arg->result->sig->cls->flags & CLS_VARIANT_CLASS)) {
             /* Tuple building is a unique case because it puts N signatures
-               into the sig stack, has to access generics from the caller, AND
-               calls a function that may want to use the sig stack itself.
+               into the sig stack and these next two functions may want to use
+               the sig stack to dump stuff too.
 
-               Adjust the sig stack before doing either of these later two
-               things, so they won't damage the information that the tuple is
-               using. */
+               So...adjust the sig stack so that these functions can't damage
+               the information that tuple is putting together. */
 
             int save_pos = emit->sig_stack_pos;
             emit->sig_stack_pos = stack_start + ast->args_collected;
 
-            if (expect_sig && expect_elem != arg->result->sig)
+            if (elem_sig && elem_sig != arg->result->sig)
                 /* Attempt to fix the type to what's wanted. If it fails, the
                    caller will likely note a type mismatch. Can't do anything
                    else though. */
-                type_matchup(emit, expect_elem, arg);
+                type_matchup(emit, elem_sig, arg);
             else {
                 /* Not sure what the caller wants, so make an enum sig based
                    of what's known and use that. */
