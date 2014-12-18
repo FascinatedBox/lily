@@ -1270,6 +1270,8 @@ static void push_info_to_error(lily_emit_state *emit, lily_ast *ast)
             kind = "Property";
         }
     }
+    else if (ast->arg_start->tree_type == tree_local_var)
+        call_name = ((lily_var *)ast->arg_start->result)->name;
     else {
         /* This occurs when there's a call of a call, a call of a subscript
            result, or something else weird. */
@@ -2776,11 +2778,9 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     lily_ast *true_start = arg;
     int have_args, i, is_varargs, num_args;
 
-    /* For everything but these two, the first argument is not a value to the
-       function, but a means to get something to call. So skip this fake
-       argument. */
-    if (arg->tree_type != tree_oo_access &&
-        arg->tree_type != tree_local_var) {
+    /* oo_access is the only tree where the first argument is actually supposed
+       to be passed in as a value. */
+    if (arg->tree_type != tree_oo_access) {
         arg = arg->next_arg;
         true_start = arg;
         ast->args_collected--;
