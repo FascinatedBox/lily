@@ -2029,7 +2029,7 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     value based upon information known to only it, and all values are put into
     an 'any' value (except those that are already 'any'). This is unlikely. */
 static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
-    int is_hash)
+        lily_sig *expect_sig, int is_hash)
 {
     lily_ast *tree_iter = ast->arg_start;
     int enum_count = 0, variant_count = 0;
@@ -2074,8 +2074,8 @@ static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
 
         int stack_start = emit->sig_stack_pos +
                 emit->current_generic_adjust + 1;
-
         int i;
+
         for (i = 0;i < generic_count;i++)
             emit->sig_stack[stack_start + i] = NULL;
 
@@ -2132,11 +2132,21 @@ static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
 
                [None, None, None].
 
-               The A of Option is not specified, so the result of the list is
-               Option[any]. */
-            for (i = 0;i < generic_count;i++) {
-                if (emit->sig_stack[stack_start + i] == NULL)
-                    emit->sig_stack[stack_start + i] = any_class->sig;
+               FIRST try to see if the signature wanted can give whatever info
+               may be missing. If it can't, then default to any.
+
+               Otherwise, 'list[Option[integer]] k = [None, None]' fails. */
+            if (expect_sig && expect_sig->cls == variant_parent) {
+                for (i = 0;i < generic_count;i++) {
+                    if (emit->sig_stack[stack_start + i] == NULL)
+                        emit->sig_stack[stack_start + i] = expect_sig->siglist[i];
+                }
+            }
+            else {
+                for (i = 0;i < generic_count;i++) {
+                    if (emit->sig_stack[stack_start + i] == NULL)
+                        emit->sig_stack[stack_start + i] = any_class->sig;
+                }
             }
 
             rebox_sig = lily_build_ensure_sig(emit->symtab, variant_parent, 0,
@@ -2327,7 +2337,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     }
     else {
         if (found_variant_or_enum)
-            rebox_enum_variant_values(emit, ast, 1);
+            rebox_enum_variant_values(emit, ast, expect_value_sig, 1);
         else if (make_anys ||
                  (expect_value_sig &&
                   expect_value_sig->cls->id == SYM_CLASS_ANY))
@@ -2510,7 +2520,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     }
     else if (last_sig != NULL) {
         if (found_variant_or_enum)
-            rebox_enum_variant_values(emit, ast, 0);
+            rebox_enum_variant_values(emit, ast, expect_sig, 0);
         else if (make_anys ||
                  (elem_sig && elem_sig->cls->id == SYM_CLASS_ANY))
             emit_list_values_to_anys(emit, ast);
