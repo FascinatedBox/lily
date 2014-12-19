@@ -3827,6 +3827,30 @@ void lily_emit_update_function_block(lily_emit_state *emit,
     emit->top_function_ret = ret_sig;
     emit->current_block->generic_count = generic_count;
 
+    /* Since functions can only be declared within other functions, it can be
+       safely assumed that declared functions will always start from position 0
+       of the sig stack. Each function, no matter how deep, shares generic info
+       from 0. */
+    if (generic_count > emit->sig_stack_pos) {
+        if (generic_count > emit->sig_stack_size)
+            grow_sig_stack(emit);
+
+        /* If this isn't done, then generics within a generic function will be
+           able to be assigned completely-known types because they won't be
+           resolved. */
+        lily_sig *sig_iter = emit->symtab->template_sig_start;
+        int i;
+        for (i = 0;
+             i < generic_count;
+             i++, sig_iter = sig_iter->next) {
+            emit->sig_stack[i] = sig_iter;
+        }
+
+        /* This is so calls know how far to move the sig stack so that they
+           won't damage this information. */
+        emit->current_generic_adjust = i;
+    }
+
     if (decl_class) {
         /* The most recent function is the constructor for this class, which will
            always return a class instance. Since it's also the function var (and
@@ -3843,35 +3867,6 @@ void lily_emit_update_function_block(lily_emit_state *emit,
 
         emit->self_storage = self;
     }
-}
-
-/*  lily_update_call_generics
-    This is called to ensure that the bottom of emit->sig_stack contains at
-    least as many generics as the function itself needs. No special trickery
-    needed since functions can only contain other functions.
-
-    Additionally, this is called after the function has had a block added for
-    it, and after the symtab's generics have been fixed up. */
-void lily_update_call_generics(lily_emit_state *emit, int count)
-{
-    if (emit->sig_stack_pos < count) {
-        while (count > emit->sig_stack_size)
-            grow_sig_stack(emit);
-
-        lily_sig *sig_iter = emit->symtab->template_sig_start;
-        int i;
-        for (i = 0;
-             i < count;
-             i++, sig_iter = sig_iter->next) {
-            emit->sig_stack[i] = sig_iter;
-        }
-
-        /* -1 because the stack starts at 0 but the count starts at 1. */
-        emit->sig_stack_pos = count - 1;
-    }
-
-    emit->current_block->generic_count = count;
-    emit->current_generic_adjust = count;
 }
 
 /*  lily_emit_try
