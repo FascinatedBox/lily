@@ -1174,17 +1174,10 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
 
     if (block->prev->generic_count != block->generic_count) {
         lily_update_symtab_generics(emit->symtab, NULL, block->prev->generic_count);
-        if (block->prev->generic_count == 0) {
-            emit->sig_stack_pos = 0;
+        if (block->prev->generic_count == 0)
             emit->current_generic_adjust = 0;
-        }
-        else {
-            /* -1 to offset generic starting at 1. */
-            emit->sig_stack_pos = block->prev->generic_count - 1;
-            /* The adjust doesn't get a -1 because a call will use
-               sig_stack_pos + 0 for A. */
+        else
             emit->current_generic_adjust = block->prev->generic_count;
-        }
     }
 
     emit->self_storage = emit->current_block->prev->self;
