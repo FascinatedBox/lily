@@ -2722,6 +2722,13 @@ static void eval_call_arg(lily_emit_state *emit, lily_ast *call_ast,
             if (want_sig == arg->result->sig)
                 ok = 1;
         }
+        else if (arg->result->sig->cls->flags & CLS_VARIANT_CLASS) {
+            /* If a bare variant wants to resolve a generic, it first has to go
+               into the proper enum type. */
+            lily_sig *enum_sig = build_enum_sig_by_variant(emit,
+                    arg->result->sig);
+            emit_rebox_value(emit, enum_sig, arg);
+        }
     }
 
     /* ok == 0 protects from potentially attempting to resolve the same generic
