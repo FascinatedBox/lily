@@ -327,13 +327,14 @@ static lily_lex_entry *get_entry(lily_lex_state *lex)
 static lily_token leave_entry(lily_lex_state *lex)
 {
     lily_lex_entry *entry = lex->entry;
-    if (entry->source != NULL) {
+    lily_token token;
+
+    if (entry->prev) {
+        /* Teardown the old entry and make it NULL so that the lexer knows it's
+           not in use when it goes for another entry. */
         entry->close_fn(entry);
         entry->source = NULL;
-    }
 
-    lily_token token;
-    if (entry->prev) {
         entry = entry->prev;
 
         strcpy(lex->input_buffer, entry->saved_input);
@@ -367,8 +368,11 @@ static lily_token leave_entry(lily_lex_state *lex)
             lily_lexer(lex);
         }
     }
-    else
+    else {
+        /* Don't pop the first entry: Just contiually yield eof for as long as
+           the parser needs it. */
         token = tk_final_eof;
+    }
 
     return token;
 }

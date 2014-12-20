@@ -6,5 +6,3 @@ Where: File "test/fail/wrong_arg_count_class_method.ly" at line 8
 string s = ""
 
 s.concat(1, 2, 3)
-
-print("Unreachable!\n")
