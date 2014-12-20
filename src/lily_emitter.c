@@ -927,7 +927,7 @@ static lily_sig *resolve_second_sig_by_first(lily_emit_state *emit,
 }
 
 /*  setup_sigs_for_build
-    This is called before building a static list, hash, or tuple.
+    This is called before building a static list or hash.
 
     expect_sig is checked for being a generic that unwraps to a signature with
     a class id of 'wanted_id', or having that actual id.
@@ -940,17 +940,15 @@ static lily_sig *resolve_second_sig_by_first(lily_emit_state *emit,
 
     This processing is done because it's necessary for type inference.
 
-    On success: A count of signatures laid down is returned.
-    On failure: 0 is returned.
+    Returns 1 on success, 0 on failure.
 
     Notes: This does not adjust the emitter's sig_stack_pos or the generic
            adjust. The caller is expected to either pull the signatures it
-           needs or save them somehow (since a count IS provided). */
+           needs. */
 static int setup_sigs_for_build(lily_emit_state *emit,
         lily_sig *expect_sig, int wanted_id)
 {
-    int did_unwrap = 0;
-    int unroll_count = 0;
+    int did_unwrap = 0, ret = 1;
 
     if (expect_sig && expect_sig->cls->id == SYM_CLASS_TEMPLATE) {
         expect_sig = emit->sig_stack[emit->sig_stack_pos +
@@ -973,11 +971,11 @@ static int setup_sigs_for_build(lily_emit_state *emit,
             }
             emit->sig_stack[stack_start + i] = inner_sig;
         }
-
-        unroll_count = i;
     }
+    else
+        ret = 0;
 
-    return unroll_count;
+    return ret;
 }
 
 /*  add_var_chain_to_info
@@ -2296,10 +2294,10 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     int make_anys = 0, found_variant_or_enum = 0;
 
     if (expect_sig) {
-        int count = setup_sigs_for_build(emit, expect_sig, SYM_CLASS_HASH);
+        int ok = setup_sigs_for_build(emit, expect_sig, SYM_CLASS_HASH);
         int setup_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
 
-        if (count) {
+        if (ok) {
             expect_key_sig = emit->sig_stack[setup_start];
             expect_value_sig = emit->sig_stack[setup_start + 1];
         }
@@ -2500,8 +2498,8 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
             }
         }
 
-        int count = setup_sigs_for_build(emit, expect_sig, SYM_CLASS_LIST);
-        if (count) {
+        int ok = setup_sigs_for_build(emit, expect_sig, SYM_CLASS_LIST);
+        if (ok) {
             elem_sig = emit->sig_stack[
                     emit->sig_stack_pos + emit->current_generic_adjust + 1];
             expect_sig = elem_sig;
@@ -2582,50 +2580,48 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
                 "Cannot create an empty tuple.\n");
     }
 
-    int expect_sig_count = 0;
+    /* It is not possible to use setup_sigs_for_build here, because tuple takes
+       N signatures and subtrees may damage those signatures. Those signatures
+       also cannot be hidden, because the expected signature may contain
+       generics that the callee may attempt to check the resolution of.
+       Just...don't unwrap things more than once here. */
 
-    /* A clever trick is employed here: If setup_sigs_for_build is called, it
-       will prepare N sigs past the stack_start down there.
-       However, functions that tuple calls will need to use the sig stack.
-       Solution: Rewrite what setup_sigs_for_build put in with each argument. */
-
-    if (expect_sig) {
-        expect_sig_count = setup_sigs_for_build(emit, expect_sig, SYM_CLASS_TUPLE);
-
-        if (expect_sig_count != ast->args_collected)
-            expect_sig_count = 0;
+    int did_unwrap = 0;
+    if (expect_sig && expect_sig->cls->id == SYM_CLASS_TEMPLATE) {
+        expect_sig = emit->sig_stack[emit->sig_stack_pos +
+                expect_sig->template_pos];
+        did_unwrap = 1;
     }
+
+    if (expect_sig &&
+         (expect_sig->cls->id != SYM_CLASS_TUPLE ||
+          expect_sig->siglist_size != ast->args_collected))
+        expect_sig = NULL;
 
     int i;
     lily_ast *arg;
-
-    int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
-    if ((stack_start + ast->args_collected) > emit->sig_stack_size)
-        grow_sig_stack(emit);
 
     for (i = 0, arg = ast->arg_start;
          arg != NULL;
          i++, arg = arg->next_arg) {
         lily_sig *elem_sig = NULL;
 
-        if (expect_sig_count != 0)
-            elem_sig = emit->sig_stack[stack_start + i];
+        /* It's important to do this for each pass because it allows the inner
+           trees to infer types that this tree's parent may want. */
+        if (expect_sig) {
+            elem_sig = expect_sig->siglist[i];
+            if (did_unwrap == 0 && elem_sig &&
+                elem_sig->cls->id == SYM_CLASS_TEMPLATE) {
+                elem_sig = emit->sig_stack[emit->sig_stack_pos +
+                        elem_sig->template_pos];
+            }
+        }
 
         if (arg->tree_type != tree_local_var)
             eval_tree(emit, arg, elem_sig);
 
         if ((elem_sig && elem_sig != arg->result->sig) ||
             (arg->result->sig->cls->flags & CLS_VARIANT_CLASS)) {
-            /* Tuple building is a unique case because it puts N signatures
-               into the sig stack and these next two functions may want to use
-               the sig stack to dump stuff too.
-
-               So...adjust the sig stack so that these functions can't damage
-               the information that tuple is putting together. */
-
-            int save_pos = emit->sig_stack_pos;
-            emit->sig_stack_pos = stack_start + ast->args_collected;
-
             if (elem_sig && elem_sig != arg->result->sig)
                 /* Attempt to fix the type to what's wanted. If it fails, the
                    caller will likely note a type mismatch. Can't do anything
@@ -2639,10 +2635,16 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
 
                 emit_rebox_value(emit, enum_sig, arg);
             }
-
-            emit->sig_stack_pos = save_pos;
         }
+    }
 
+    int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
+    if ((stack_start + ast->args_collected) > emit->sig_stack_size)
+        grow_sig_stack(emit);
+
+    for (i = 0, arg = ast->arg_start;
+         i < ast->args_collected;
+         i++, arg = arg->next_arg) {
         emit->sig_stack[stack_start + i] = arg->result->sig;
     }
 
