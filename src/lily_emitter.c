@@ -37,7 +37,7 @@
 
 static int type_matchup(lily_emit_state *, lily_sig *, lily_ast *);
 static void eval_tree(lily_emit_state *, lily_ast *, lily_sig *);
-static void eval_variant(lily_emit_state *, lily_ast *);
+static void eval_variant(lily_emit_state *, lily_ast *, lily_sig *);
 
 /*****************************************************************************/
 /* Emitter setup and teardown                                                */
@@ -1014,7 +1014,8 @@ static void add_storage_chain_to_info(lily_register_info *info,
 /*  count_generics
     Return a count of how many unique generic signatures are used in a
     function. */
-static int count_generics(lily_register_info *info, int info_size)
+static int count_generics(lily_sig *function_sig, lily_register_info *info,
+        int info_size)
 {
     int count = 0, i, j;
     for (i = 0;i < info_size;i++) {
@@ -1028,6 +1029,20 @@ static int count_generics(lily_register_info *info, int info_size)
         }
 
         count += !match;
+    }
+
+    /* The return is always used when figuring out what result a generic
+       function should have. It needs to be counted too. */
+    if (function_sig->siglist[0] &&
+        function_sig->siglist[0]->template_pos) {
+        count++;
+        lily_sig *return_sig = function_sig->siglist[0];
+        for (i = 0;i < info_size;i++) {
+            if (info[i].sig == return_sig) {
+                count--;
+                break;
+            }
+        }
     }
 
     return count;
@@ -1061,6 +1076,7 @@ static void finalize_function_val(lily_emit_state *emit,
         lily_raise_nomem(emit->raiser);
 
     lily_var *var_stop = function_block->function_var;
+    lily_sig *function_sig = var_stop->sig;
 
     /* Don't include functions inside of themselves... */
     if (emit->function_depth == 1)
@@ -1071,8 +1087,8 @@ static void finalize_function_val(lily_emit_state *emit,
     add_var_chain_to_info(emit, info, emit->symtab->var_chain, var_stop);
     add_storage_chain_to_info(info, function_block->storage_start);
 
-    if (function_block->function_var->sig->template_pos)
-        f->generic_count = count_generics(info, register_count);
+    if (function_sig->template_pos)
+        f->generic_count = count_generics(function_sig, info, register_count);
 
     if (emit->function_depth > 1) {
         /* todo: Reuse the var shells instead of destroying. Seems petty, but
@@ -2765,7 +2781,7 @@ static void box_call_variants(lily_emit_state *emit, lily_sig *call_sig,
     If the function takes varargs, the extra arguments are packed into a list
     of the vararg type. */
 static void check_call_args(lily_emit_state *emit, lily_ast *ast,
-        lily_sig *call_sig)
+        lily_sig *call_sig, lily_sig *expect_sig)
 {
     lily_ast *arg = ast->arg_start;
     lily_ast *true_start = arg;
@@ -2795,6 +2811,9 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
        the type seen is the same one (so multiple uses of A have the same
        type). */
     int template_adjust = call_sig->template_pos;
+
+    emit->current_generic_adjust = template_adjust;
+
     if (template_adjust) {
         if (emit->sig_stack_pos + template_adjust >= emit->sig_stack_size)
             grow_sig_stack(emit);
@@ -2802,6 +2821,18 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         if (auto_resolve == 0) {
             for (i = 0;i < template_adjust;i++)
                 emit->sig_stack[emit->sig_stack_pos + i] = NULL;
+
+            /* If the parent of this tree wants the same type that this one
+               returns, then attempt to fill in generics based off of what
+               the parent wants. This is to dodge defaulting to any where
+               it is possible. */
+            if (expect_sig != NULL && call_sig->siglist[0] != NULL &&
+                expect_sig->cls->id == call_sig->siglist[0]->cls->id) {
+
+                /* The return isn't checked because there will be a more
+                   accurate problem that is likely to manifest later. */
+                template_check(emit, call_sig->siglist[0], expect_sig);
+            }
         }
         else {
             /* If the callee is within a generic function, then consider the
@@ -2907,7 +2938,8 @@ static int maybe_self_insert(lily_emit_state *emit, lily_ast *ast)
 /*  eval_call
     This handles doing calls to what should be a function. It handles doing oo
     calls by farming out the oo lookup elsewhere. */
-static void eval_call(lily_emit_state *emit, lily_ast *ast)
+static void eval_call(lily_emit_state *emit, lily_ast *ast,
+        lily_sig *expect_sig)
 {
     int expect_size, i;
     lily_ast *arg;
@@ -2923,7 +2955,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     if (ast->arg_start->tree_type == tree_variant) {
         emit->sig_stack_pos -= save_adjust;
         emit->current_generic_adjust = save_adjust;
-        eval_variant(emit, ast);
+        eval_variant(emit, ast, expect_sig);
         return;
     }
 
@@ -2971,7 +3003,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast)
     arg = ast->arg_start;
     expect_size = 6 + ast->args_collected;
 
-    check_call_args(emit, ast, call_sig);
+    check_call_args(emit, ast, call_sig, expect_sig);
 
     write_prep(emit, expect_size);
 
@@ -3183,7 +3215,8 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)result;
 }
 
-static void eval_variant(lily_emit_state *emit, lily_ast *ast)
+static void eval_variant(lily_emit_state *emit, lily_ast *ast,
+        lily_sig *expect_sig)
 {
     lily_storage *result = NULL;
 
@@ -3204,7 +3237,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast)
                     "Variant class %s should not get args.\n",
                     variant_class->name);
 
-        check_call_args(emit, ast, variant_class->variant_sig);
+        check_call_args(emit, ast, variant_class->variant_sig, expect_sig);
 
         lily_sig *result_sig = variant_class->variant_sig->siglist[0];
         if (result_sig->template_pos != 0)
@@ -3252,7 +3285,7 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
     if (ast->tree_type == tree_var || ast->tree_type == tree_readonly)
         emit_nonlocal_var(emit, ast);
     else if (ast->tree_type == tree_call)
-        eval_call(emit, ast);
+        eval_call(emit, ast, expect_sig);
     else if (ast->tree_type == tree_binary) {
         if (ast->op >= expr_assign) {
             if (ast->left->tree_type != tree_subscript &&
@@ -3310,7 +3343,7 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
     else if (ast->tree_type == tree_property)
         eval_property(emit, ast);
     else if (ast->tree_type == tree_variant)
-        eval_variant(emit, ast);
+        eval_variant(emit, ast, expect_sig);
 }
 
 /*****************************************************************************/
