@@ -820,16 +820,21 @@ static lily_sig *resolve_sig_by_map(lily_vm_state *vm, int map_sig_count,
     looks over the function's parameters to determine what the generics have
     been made into.
 
-    fval:           The function to be called.
+    func:           A value holding a function to be called.
+    result_sig:     The signature that the result of this function call will
+                    produce. This is necessary when the emitter's type
+                    inference is used to deduce an output type when an input
+                    of that type is not given as an argument.
     args_collected: How many arguments the function got.
     reg_start:      Where the registers for the function start. This is used
                     with args_collected to get type information from args,
                     which is then used to resolve the locals/storages.
 
     This is only called if there are locals/storages in a generic function. */
-static void resolve_generic_registers(lily_vm_state *vm, lily_function_val *fval,
-        int args_collected, int reg_start)
+static void resolve_generic_registers(lily_vm_state *vm, lily_value *func,
+        lily_sig *result_sig, int args_collected, int reg_start)
 {
+    lily_function_val *fval = func->value.function;
     lily_sig **sig_map = vm->generic_map;
     if ((fval->generic_count * 2) > vm->generic_map_size) {
         sig_map = lily_realloc(vm->generic_map,
@@ -849,6 +854,12 @@ static void resolve_generic_registers(lily_vm_state *vm, lily_function_val *fval
 
     for (i = 0;i < (fval->generic_count * 2);i++)
         sig_map[i] = NULL;
+
+    if (result_sig != NULL) {
+        sig_map[0] = func->sig->siglist[0];
+        sig_map[out_index] = result_sig;
+        last_map_spot++;
+    }
 
     /* Go through the arguments given to the function to see what the generic
        parameters were morphed into. This will help determine what to do for
@@ -922,11 +933,12 @@ static void resolve_generic_registers(lily_vm_state *vm, lily_function_val *fval
     values in the registers for the native call while copying the callee's
     values over. For the rest of the registers that the callee needs, the
     registers are just blasted. */
-static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
+static void prep_registers(lily_vm_state *vm, lily_value *func,
         uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value **regs_from_main = vm->regs_from_main;
+    lily_function_val *fval = func->value.function;
     lily_register_info *register_seeds = fval->reg_info;
     int num_registers = vm->num_registers;
     int register_need = vm->num_registers + fval->reg_count;
@@ -981,7 +993,17 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
         }
     }
     else if (num_registers < register_need) {
-        resolve_generic_registers(vm, fval, i, num_registers - i);
+        lily_sig *result_sig = NULL;
+
+        /* If the function's result is -1, then it doesn't have one. If it
+           does, use that to help do type inference.
+           This is necessary when the result has generics that aren't specified
+           in one of the arguments. */
+        if ((int16_t)(code[5 + code[4]]) != -1)
+            result_sig = vm_regs[code[5 + code[4]]]->sig;
+
+        resolve_generic_registers(vm, func, result_sig, i,
+                num_registers - i);
         num_registers = register_need;
     }
 
@@ -2563,7 +2585,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     /* Prepare the registers for what the function wants.
                        Afterward, update num_registers since prep_registers
                        changes it. */
-                    prep_registers(vm, fval, code+code_pos);
+                    prep_registers(vm, lhs_reg, code+code_pos);
                     num_registers = vm->num_registers;
 
                     vm_regs = vm_regs + stack_entry->regs_used;
