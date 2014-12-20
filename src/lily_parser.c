@@ -1127,38 +1127,30 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
 
         NEED_CURRENT_TOK(want_token)
 
-        if (lex->token == tk_word) {
-            /* This starts at the class name, or the comma. The label is next. */
+        if (lex->token == tk_word)
             var = get_named_var(parser, sig, flags);
-            if (lex->token != tk_equal)
-                lily_raise(parser->raiser, lily_SyntaxError,
-                        "An initialization expression is required here.\n");
-        }
-        else {
+        else
             prop = get_named_property(parser, sig, flags);
-            if (lex->token != tk_equal)
-                lily_raise(parser->raiser, lily_SyntaxError,
-                        "Class properties must have an initializing assignment.\n");
-        }
 
-        /* Handle an initializing assignment, if there is one. */
-        if (lex->token == tk_equal) {
-            /* This makes a difference: The emitter cannot do opcode optimizing
-               for global reads/writes. */
-            if (var != NULL) {
-                if (parser->emit->function_depth == 1)
-                    lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
-                else if (want_token == tk_word)
-                    lily_ast_push_local_var(parser->ast_pool, var);
-            }
+        if (lex->token != tk_equal)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "An initialization expression is required here.\n");
+
+        if (var != NULL) {
+            /* It's important to add locals and globals differently, because
+               the emitter can't optimize stuff with globals. */
+            if (parser->emit->function_depth == 1)
+                lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
             else
-                lily_ast_push_property(parser->ast_pool, prop);
-
-            lily_ast_push_binary_op(parser->ast_pool, expr_assign);
-            lily_lexer(lex);
-            expression(parser);
-            lily_emit_eval_expr(parser->emit, parser->ast_pool);
+                lily_ast_push_local_var(parser->ast_pool, var);
         }
+        else
+            lily_ast_push_property(parser->ast_pool, prop);
+
+        lily_ast_push_binary_op(parser->ast_pool, expr_assign);
+        lily_lexer(lex);
+        expression(parser);
+        lily_emit_eval_expr(parser->emit, parser->ast_pool);
 
         token = lex->token;
         /* This is the start of the next statement (or, for 'var', only allow
