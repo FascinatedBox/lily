@@ -183,6 +183,19 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig,
         lily_raise(parser->raiser, lily_SyntaxError,
                    "%s has already been declared.\n", lex->label);
 
+    /* Since class methods and class properties are both accessed the same way,
+       prevent them from having the same name. */
+    if ((flags & VAR_IS_READONLY) && parser->class_depth) {
+        lily_class *current_class = parser->emit->self_storage->sig->cls;
+        lily_prop_entry *entry = lily_find_property(parser->symtab,
+                current_class, lex->label);
+
+        if (entry)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                "A property in class '%s' already has the name '%s'.\n",
+                current_class->name, lex->label);
+    }
+
     var = lily_try_new_var(parser->symtab, var_sig, lex->label, flags);
     if (var == NULL)
         lily_raise_nomem(parser->raiser);
@@ -206,6 +219,20 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Property %s already exists in class %s.\n", name,
                 current_class->name);
+
+    /* Like with get_named_var, prevent properties from having the same name as
+       what will become a class method. This is because they are both accessed
+       in the same manner outside the class. */
+    lily_var *function_var = parser->emit->current_block->function_var;
+    lily_var *lookup_var = lily_var_by_name(parser->symtab, name);
+
+    /* The second check works because register spots for declared functions are
+       given out in a linear order. So the lookup var's spot is only going to
+       be higher if it was declared after the class block. */
+    if (lookup_var && lookup_var->reg_spot > function_var->reg_spot)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "A method in class '%s' already has the name '%s'.\n",
+                current_class->name, name);
 
     prop = lily_add_class_property(current_class, prop_sig, name, 0);
     if (prop == NULL)
