@@ -1874,6 +1874,11 @@ static void enum_handler(lily_parse_state *parser, int multi)
             break;
     }
 
+    if (inner_class_count < 2) {
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "An enum class must have at least two variants.\n");
+    }
+
     lily_finish_enum_class(parser->symtab, enum_class, result_sig);
     lily_update_symtab_generics(parser->symtab, NULL, save_generics);
     lily_lexer(lex);
