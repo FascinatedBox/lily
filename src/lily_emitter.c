@@ -2716,12 +2716,16 @@ static void eval_call_arg(lily_emit_state *emit, lily_ast *call_ast,
        caller. */
     int ok = 0;
 
+    /* This is used so that type_matchup gets the resolved signature (if there
+       is one) because the resolved signature might be 'any'. */
+    lily_sig *matchup_sig = want_sig;
+
     /* A simple generic is easy to resolve. */
     if (want_sig->cls->id == SYM_CLASS_TEMPLATE) {
         int index = emit->sig_stack_pos + want_sig->template_pos;
         if (emit->sig_stack[index] != NULL) {
-            want_sig = emit->sig_stack[index];
-            if (want_sig == arg->result->sig)
+            matchup_sig = emit->sig_stack[index];
+            if (matchup_sig == arg->result->sig)
                 ok = 1;
         }
         else if (arg->result->sig->cls->flags & CLS_VARIANT_CLASS) {
@@ -2737,7 +2741,7 @@ static void eval_call_arg(lily_emit_state *emit, lily_ast *call_ast,
        twice, which breaks things. */
     if (ok == 0 &&
         (template_check(emit, want_sig, arg->result->sig) ||
-         type_matchup(emit, want_sig, arg)))
+         type_matchup(emit, matchup_sig, arg)))
         ok = 1;
 
     if (ok == 0)
