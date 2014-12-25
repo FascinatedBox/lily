@@ -35,6 +35,10 @@
     lily_raise(r, error_code, message, __VA_ARGS__); \
 }
 
+# define ENSURE_SIG_STACK(new_size) \
+if (new_size >= emit->sig_stack_size) \
+    grow_sig_stack(emit);
+
 static int type_matchup(lily_emit_state *, lily_sig *, lily_ast *);
 static void eval_tree(lily_emit_state *, lily_ast *, lily_sig *);
 static void eval_variant(lily_emit_state *, lily_ast *, lily_sig *);
@@ -666,8 +670,7 @@ static lily_sig *build_enum_sig_by_variant(lily_emit_state *emit,
     lily_sig *parent_variant_sig = input_sig->cls->parent->variant_sig;
 
     int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
-    if ((stack_start + parent_variant_sig->siglist_size) > emit->sig_stack_size)
-        grow_sig_stack(emit);
+    ENSURE_SIG_STACK(stack_start + parent_variant_sig->siglist_size)
 
     int saved_adjust = emit->current_generic_adjust;
     emit->sig_stack_pos += emit->current_generic_adjust;
@@ -855,8 +858,7 @@ static lily_sig *recursively_build_sig(lily_emit_state *emit, int template_index
     if (sig->siglist != NULL) {
         int i, save_start;
         lily_sig **siglist = sig->siglist;
-        if (emit->sig_stack_pos + sig->siglist_size > emit->sig_stack_size)
-            grow_sig_stack(emit);
+        ENSURE_SIG_STACK(emit->sig_stack_pos + sig->siglist_size)
 
         save_start = emit->sig_stack_pos;
 
@@ -912,8 +914,7 @@ static lily_sig *resolve_second_sig_by_first(lily_emit_state *emit,
     int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
     int save_ssp = emit->sig_stack_pos;
 
-    if (stack_start + first->siglist_size > emit->sig_stack_size)
-        grow_sig_stack(emit);
+    ENSURE_SIG_STACK(stack_start + first->siglist_size)
 
     int i;
     for (i = 0;i < first->siglist_size;i++)
@@ -958,8 +959,7 @@ static int setup_sigs_for_build(lily_emit_state *emit,
 
     if (expect_sig && expect_sig->cls->id == wanted_id) {
         int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
-        if (stack_start + expect_sig->siglist_size > emit->sig_stack_size)
-            grow_sig_stack(emit);
+        ENSURE_SIG_STACK(stack_start + expect_sig->siglist_size)
 
         int i;
         for (i = 0;i < expect_sig->siglist_size;i++) {
@@ -2109,9 +2109,8 @@ static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
 
         int generic_count = variant_parent->variant_sig->template_pos;
 
-        if (emit->sig_stack_pos + emit->current_generic_adjust + generic_count >=
-            emit->sig_stack_size)
-            grow_sig_stack(emit);
+        ENSURE_SIG_STACK(emit->sig_stack_pos + emit->current_generic_adjust +
+                generic_count)
 
         int stack_start = emit->sig_stack_pos +
                 emit->current_generic_adjust + 1;
@@ -2371,8 +2370,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     }
 
     int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
-    if ((stack_start + 2) > emit->sig_stack_size)
-        grow_sig_stack(emit);
+    ENSURE_SIG_STACK(stack_start + 2)
 
     lily_class *hash_cls = lily_class_by_id(emit->symtab, SYM_CLASS_HASH);
     emit->sig_stack[stack_start] = last_key_sig;
@@ -2548,8 +2546,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
 
     int start_pos = emit->sig_stack_pos + emit->current_generic_adjust + 1;
 
-    if (start_pos > emit->sig_stack_size)
-        grow_sig_stack(emit);
+    ENSURE_SIG_STACK(start_pos)
 
     lily_class *list_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);
     emit->sig_stack[start_pos] = elem_sig;
@@ -2640,8 +2637,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
     }
 
     int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
-    if ((stack_start + ast->args_collected) > emit->sig_stack_size)
-        grow_sig_stack(emit);
+    ENSURE_SIG_STACK(stack_start + ast->args_collected)
 
     for (i = 0, arg = ast->arg_start;
          i < ast->args_collected;
@@ -2829,8 +2825,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     emit->current_generic_adjust = template_adjust;
 
     if (template_adjust) {
-        if (emit->sig_stack_pos + template_adjust >= emit->sig_stack_size)
-            grow_sig_stack(emit);
+        ENSURE_SIG_STACK(emit->sig_stack_pos + template_adjust)
 
         if (auto_resolve == 0) {
             for (i = 0;i < template_adjust;i++)
@@ -2904,8 +2899,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                The arguments may be generic. If that happens, the caller will
                be generic and will fix them up right. */
             int stack_start = emit->sig_stack_pos + emit->current_generic_adjust + 1;
-            if (stack_start + 1 > emit->sig_stack_size)
-                grow_sig_stack(emit);
+            ENSURE_SIG_STACK(stack_start + 1)
 
             lily_class *list_cls = lily_class_by_id(emit->symtab,
                     SYM_CLASS_LIST);
@@ -3872,8 +3866,7 @@ void lily_emit_update_function_block(lily_emit_state *emit,
        of the sig stack. Each function, no matter how deep, shares generic info
        from 0. */
     if (generic_count > emit->sig_stack_pos) {
-        if (generic_count > emit->sig_stack_size)
-            grow_sig_stack(emit);
+        ENSURE_SIG_STACK(generic_count)
 
         /* If this isn't done, then generics within a generic function will be
            able to be assigned completely-known types because they won't be
