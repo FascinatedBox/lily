@@ -1999,9 +1999,10 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     if (cast_sig == var_sig)
         ast->result = (lily_sym *)right_tree->result;
     else if (cast_sig->cls->id == SYM_CLASS_ANY) {
-        /* This function automatically fixes ast->result to the resulting any
-           value. */
-        emit_rebox_to_any(emit, ast);
+        /* This function automatically fixes right_tree's result to the
+           new any value. */
+        emit_rebox_to_any(emit, right_tree);
+        ast->result = right_tree->result;
     }
     else if (var_sig->cls->id == SYM_CLASS_ANY) {
         lily_storage *result = get_storage(emit, cast_sig, ast->line_num);
