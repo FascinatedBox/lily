@@ -82,12 +82,12 @@ pass_files = sorted(load_filenames('test/pass'))
 fail_files = sorted(load_filenames('test/fail'))
 run_range = [0, len(pass_files) + len(fail_files)]
 
-print "Blastmaster: Running %d assing tests..." % len(pass_files)
+print "pre-commit-hook.py: Running %d passing tests..." % len(pass_files)
 for i in range(len(pass_files)):
     run_range[0] += 1
     basic_run(pass_files[i], MODE_PASS, run_range)
 
-print "Blastmaster: Running %d failing tests..." % len(fail_files)
+print "pre-commit-hook.py: Running %d failing tests..." % len(fail_files)
 for i in range(len(fail_files)):
     run_range[0] += 1
     basic_run(fail_files[i], MODE_FAIL, run_range)
