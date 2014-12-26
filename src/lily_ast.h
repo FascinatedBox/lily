@@ -9,7 +9,7 @@ typedef enum {
     tree_call, tree_subscript, tree_list, tree_hash, tree_parenth,
     tree_local_var, tree_readonly, tree_var, tree_package, tree_oo_access,
     tree_unary, tree_sig, tree_typecast, tree_tuple, tree_property,
-    tree_variant, tree_binary
+    tree_variant, tree_lambda, tree_binary
 } lily_tree_type;
 
 typedef struct {
@@ -55,6 +55,20 @@ typedef struct lily_ast_t {
     struct lily_ast_t *next_tree;
 } lily_ast;
 
+typedef struct lily_ast_freeze_entry_t {
+    struct lily_ast_freeze_entry_t *next;
+    struct lily_ast_freeze_entry_t *prev;
+
+    struct lily_ast_save_entry_t *save_chain;
+    lily_ast *active;
+    lily_ast *root;
+    int oo_start;
+    int save_depth;
+    lily_ast *available_restore;
+
+    int in_use;
+} lily_ast_freeze_entry;
+
 /* The ast handles subexpressions by merging the new tree, then storing the
    current and root of the ast pool. The save chain keeps track of what trees
    have been entered. */
@@ -74,6 +88,7 @@ typedef struct lily_ast_save_entry_t {
 
 typedef struct {
     lily_ast *available_start;
+    lily_ast *available_restore;
     lily_ast *available_current;
     lily_ast *root;
     lily_ast *active;
@@ -89,11 +104,16 @@ typedef struct {
        This scheme is done so that the parser does not have to guess the type
        to do the  */
     lily_ast_str_pool *oo_name_pool;
+    int oo_start;
 
     /* This goes from oldest (prev), to newest (next). The save_chain is always
        updated to the most recent entry when a tree is entered. */
     lily_ast_save_entry *save_chain;
     int save_depth;
+
+    /* When the parser enters a lambda, it 'freezes' the current tree setup in
+       one of these entries until the lambda has exited. */
+    lily_ast_freeze_entry *freeze_chain;
 
     lily_raiser *raiser;
     uint16_t *lex_linenum;
@@ -115,5 +135,10 @@ void lily_ast_push_unary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_oo_access(lily_ast_pool *, char *);
 void lily_ast_push_property(lily_ast_pool *, lily_prop_entry *);
 void lily_ast_push_variant(lily_ast_pool *, lily_class *);
+void lily_ast_push_lambda(lily_ast_pool *, int, char *);
 void lily_ast_reset_pool(lily_ast_pool *);
+
+void lily_ast_freeze_state(lily_ast_pool *);
+void lily_ast_thaw_state(lily_ast_pool *);
+
 #endif

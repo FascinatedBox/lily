@@ -67,18 +67,19 @@ typedef struct {
     int expr_num;
 } lily_emit_state;
 
-# define BLOCK_IF         0x0001
-# define BLOCK_IF_ELIF    0x0002
-# define BLOCK_IF_ELSE    0x0004
-# define BLOCK_ANDOR      0x0010
-# define BLOCK_WHILE      0x0020
-# define BLOCK_DO_WHILE   0x0040
-# define BLOCK_FOR_IN     0x0100
-# define BLOCK_TRY        0x0200
-# define BLOCK_TRY_EXCEPT 0x0400
-# define BLOCK_CLASS      0x1000
-# define BLOCK_MATCH      0x2000
-# define BLOCK_FUNCTION   0x4000
+# define BLOCK_IF         0x00001
+# define BLOCK_IF_ELIF    0x00002
+# define BLOCK_IF_ELSE    0x00004
+# define BLOCK_ANDOR      0x00010
+# define BLOCK_WHILE      0x00020
+# define BLOCK_DO_WHILE   0x00040
+# define BLOCK_FOR_IN     0x00100
+# define BLOCK_TRY        0x00200
+# define BLOCK_TRY_EXCEPT 0x00400
+# define BLOCK_CLASS      0x01000
+# define BLOCK_MATCH      0x02000
+# define BLOCK_LAMBDA     0x04000
+# define BLOCK_FUNCTION   0x10000
 
 void lily_emit_eval_condition(lily_emit_state *, lily_ast_pool *);
 void lily_emit_eval_expr_to_var(lily_emit_state *, lily_ast_pool *,
@@ -86,6 +87,8 @@ void lily_emit_eval_expr_to_var(lily_emit_state *, lily_ast_pool *,
 void lily_emit_eval_expr(lily_emit_state *, lily_ast_pool *);
 void lily_emit_finalize_for_in(lily_emit_state *, lily_var *, lily_var *,
         lily_var *, lily_var *, int);
+void lily_emit_eval_lambda_body(lily_emit_state *, lily_ast_pool *, lily_sig *);
+void lily_emit_lambda_dispatch(lily_emit_state *, lily_ast_pool *);
 
 void lily_emit_eval_match_expr(lily_emit_state *, lily_ast_pool *);
 int lily_emit_add_match_case(lily_emit_state *, int);

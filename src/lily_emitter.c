@@ -1126,6 +1126,11 @@ static void finalize_function_val(lily_emit_state *emit,
 
 static void leave_function(lily_emit_state *emit, lily_block *block)
 {
+    /* A lambda block never has to update the return type because the return is
+       whatever the expression in the body returns. */
+    if (block->block_type & BLOCK_LAMBDA)
+        emit->top_function_ret = emit->top_var->sig->siglist[0];
+
     if (emit->current_block->class_entry == NULL) {
         if (emit->top_function_ret == NULL)
             /* Write an implicit 'return' at the end of a function claiming to not
@@ -1149,13 +1154,18 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
 
     finalize_function_val(emit, block);
 
-    /* Warning: This assumes that only functions can contain other functions. */
-    lily_var *v = block->prev->function_var;
+    /* Information must be pulled from and saved to the last function-like
+       block. This loop is because of lambdas. */
+    lily_block *last_func_block = block->prev;
+    while ((last_func_block->block_type & BLOCK_FUNCTION) == 0)
+        last_func_block = last_func_block->prev;
+
+    lily_var *v = last_func_block->function_var;
 
     /* If this function has no storages, then it can use the ones from the function
        that just exited. This reuse cuts down on a lot of memory. */
-    if (block->prev->storage_start == NULL)
-        block->prev->storage_start = emit->unused_storage_start;
+    if (last_func_block->storage_start == NULL)
+        last_func_block->storage_start = emit->unused_storage_start;
 
     /* If this function was the ::new for a class, move it over into that class. */
     if (emit->current_block->class_entry) {
@@ -1186,12 +1196,15 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     else
         emit->symtab->var_chain = block->function_var;
 
-    if (block->prev->generic_count != block->generic_count) {
-        lily_update_symtab_generics(emit->symtab, NULL, block->prev->generic_count);
+    if (block->prev->generic_count != block->generic_count &&
+        (block->block_type & BLOCK_LAMBDA) == 0) {
+        lily_update_symtab_generics(emit->symtab, NULL,
+                last_func_block->generic_count);
+
         if (block->prev->generic_count == 0)
             emit->current_generic_adjust = 0;
         else
-            emit->current_generic_adjust = block->prev->generic_count;
+            emit->current_generic_adjust = last_func_block->generic_count;
     }
 
     emit->self_storage = emit->current_block->prev->self;
@@ -3285,6 +3298,23 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
     ast->result = (lily_sym *)result;
 }
 
+static void eval_lambda(lily_emit_state *emit, lily_ast *ast, lily_sig *expect_sig)
+{
+    char *lambda_body = emit->oo_name_pool->str + ast->oo_pool_index;
+
+    lily_var *lambda_result = lily_parser_lambda_eval(emit->parser,
+            ast->line_num, lambda_body, expect_sig);
+
+    lily_storage *s = get_storage(emit, lambda_result->sig, ast->line_num);
+    write_4(emit,
+            o_get_function,
+            ast->line_num,
+            lambda_result->reg_spot,
+            s->reg_spot);
+
+    ast->result = (lily_sym *)s;
+}
+
 /*  eval_tree
     Magically determine what function actually handles the given ast. */
 static void eval_tree(lily_emit_state *emit, lily_ast *ast,
@@ -3352,6 +3382,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
         eval_property(emit, ast);
     else if (ast->tree_type == tree_variant)
         eval_variant(emit, ast, expect_sig);
+    else if (ast->tree_type == tree_lambda)
+        eval_lambda(emit, ast, expect_sig);
 }
 
 /*****************************************************************************/
@@ -3750,6 +3782,21 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
         emit->patches[emit->patch_pos] = f->pos - 5;
 
     emit->patch_pos++;
+}
+
+void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
+        lily_sig *wanted_sig)
+{
+    eval_tree(emit, ap->root, wanted_sig);
+
+    if (ap->root->result != NULL)
+        write_3(emit, o_return_val, ap->root->line_num,
+                ap->root->result->reg_spot);
+
+    /* It's important to NOT increase the count of expressions here. If it were
+       to be increased, then the expression holding the lambda would think it
+       isn't using any storages (and start writing over the ones that it is
+       actually using). */
 }
 
 /* lily_emit_break

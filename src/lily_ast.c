@@ -82,7 +82,10 @@ lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
     ap->active = NULL;
     ap->root = NULL;
     ap->available_start = NULL;
+    ap->available_restore = NULL;
     ap->available_current = NULL;
+    ap->freeze_chain = NULL;
+    ap->oo_start = 0;
     ap->oo_name_pool = NULL;
 
     last_tree = NULL;
@@ -114,6 +117,7 @@ lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
         ap->save_chain = NULL;
 
     ap->available_start = last_tree;
+    ap->available_restore = last_tree;
     ap->available_current = last_tree;
 
     lily_ast_str_pool *oo_name_pool = lily_malloc(sizeof(lily_ast_str_pool));
@@ -174,6 +178,22 @@ void lily_free_ast_pool(lily_ast_pool *ap)
         }
     }
 
+    /* Same idea as save entries: Could be at the beginning, middle, or end. */
+    lily_ast_freeze_entry *freeze_iter = ap->freeze_chain;
+    if (freeze_iter) {
+        while (freeze_iter->prev)
+            freeze_iter = freeze_iter->prev;
+
+        lily_ast_freeze_entry *freeze_temp;
+        while (freeze_iter) {
+            freeze_temp = freeze_iter->next;
+
+            lily_free(freeze_iter);
+
+            freeze_iter = freeze_temp;
+        }
+    }
+
     if (ap->oo_name_pool) {
         lily_free(ap->oo_name_pool->str);
         lily_free(ap->oo_name_pool);
@@ -188,8 +208,8 @@ void lily_ast_reset_pool(lily_ast_pool *ap)
 {
     ap->root = NULL;
     ap->active = NULL;
-    ap->oo_name_pool->pos = 0;
-    ap->available_current = ap->available_start;
+    ap->oo_name_pool->pos = ap->oo_start;
+    ap->available_current = ap->available_restore;
 }
 
 /******************************************************************************/
@@ -685,4 +705,71 @@ void lily_ast_push_variant(lily_ast_pool *ap, lily_class *variant)
     a->variant_class = variant;
 
     merge_value(ap, a);
+}
+
+void lily_ast_push_lambda(lily_ast_pool *ap, int start_line, char *lambda_text)
+{
+    int oo_index = ap->oo_name_pool->pos;
+    add_name_to_pool(ap, lambda_text);
+
+    AST_COMMON_INIT(a, tree_lambda)
+    a->oo_pool_index = oo_index;
+    /* Without this next line, a multi-line lambda would start counting lines
+       from where it stopped (resulting in invalid line numbers). */
+    a->line_num = start_line;
+
+    merge_value(ap, a);
+}
+
+void lily_ast_freeze_state(lily_ast_pool *ap)
+{
+    lily_ast_freeze_entry *new_entry;
+
+    if (ap->freeze_chain == NULL ||
+        (ap->freeze_chain->next == NULL &&
+         ap->freeze_chain->in_use)) {
+        new_entry = lily_malloc(sizeof(lily_ast_freeze_entry));
+        if (new_entry == NULL)
+            lily_raise_nomem(ap->raiser);
+
+        new_entry->prev = ap->freeze_chain;
+        new_entry->next = NULL;
+    }
+    else if (ap->freeze_chain->in_use == 0)
+        new_entry = ap->freeze_chain;
+    else
+        new_entry = ap->freeze_chain->next;
+
+    new_entry->save_chain = ap->save_chain;
+    new_entry->active = ap->active;
+    new_entry->root = ap->root;
+    new_entry->oo_start = ap->oo_start;
+    new_entry->save_depth = ap->save_depth;
+    new_entry->available_restore = ap->available_restore;
+    new_entry->in_use = 1;
+
+    ap->save_chain = NULL;
+    ap->active = NULL;
+    ap->root = NULL;
+    ap->oo_start = ap->oo_name_pool->pos;
+    ap->save_depth = 0;
+    ap->available_restore = ap->available_current;
+
+    ap->freeze_chain = new_entry;
+}
+
+void lily_ast_thaw_state(lily_ast_pool *ap)
+{
+    lily_ast_freeze_entry *entry = ap->freeze_chain;
+
+    ap->save_chain = entry->save_chain;
+    ap->active = entry->active;
+    ap->root = entry->root;
+    ap->oo_start = entry->oo_start;
+    ap->save_depth = entry->save_depth;
+    ap->available_restore = entry->available_restore;
+
+    entry->in_use = 0;
+    if (entry->prev)
+        entry = entry->prev;
 }

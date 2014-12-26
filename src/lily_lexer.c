@@ -33,31 +33,32 @@
 #define CC_LEFT_PARENTH  0
 #define CC_RIGHT_PARENTH 1
 #define CC_COMMA         2
-#define CC_LEFT_CURLY    3
-#define CC_RIGHT_CURLY   4
-#define CC_LEFT_BRACKET  5
-#define CC_CARET         6
-#define CC_G_ONE_LAST    6
+/* CC_LEFT_CURLY isn't here because {| opens a lambda. */
+#define CC_RIGHT_CURLY   3
+#define CC_LEFT_BRACKET  4
+#define CC_CARET         5
+#define CC_G_ONE_LAST    5
 
 /* Group 2: Return self, or self= */
-#define CC_G_TWO_OFFSET  7
-#define CC_NOT           7
-#define CC_PERCENT       8
-#define CC_MULTIPLY      9
-#define CC_DIVIDE       10
-#define CC_G_TWO_LAST   10
+#define CC_G_TWO_OFFSET  6
+#define CC_NOT           6
+#define CC_PERCENT       7
+#define CC_MULTIPLY      8
+#define CC_DIVIDE        9
+#define CC_G_TWO_LAST    9
 
 /* Greater and Less are able to do shifts, self=, and self. < can become <[,
    but the reverse of that is ]>, so these two aren't exactly the same. So
    there's no group for them. */
-#define CC_GREATER       11
-#define CC_LESS          12
-#define CC_PLUS          13
-#define CC_MINUS         14
-#define CC_WORD          15
-#define CC_DOUBLE_QUOTE  16
-#define CC_NUMBER        17
-#define CC_COLON         18
+#define CC_GREATER       10
+#define CC_LESS          11
+#define CC_PLUS          12
+#define CC_MINUS         13
+#define CC_WORD          14
+#define CC_DOUBLE_QUOTE  15
+#define CC_NUMBER        16
+#define CC_COLON         17
+#define CC_LEFT_CURLY    18
 #define CC_RIGHT_BRACKET 19
 
 #define CC_EQUAL         20
@@ -153,6 +154,9 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser, void *data)
     lex->label = lily_malloc(128 * sizeof(char));
     lex->ch_class = NULL;
     lex->last_literal = NULL;
+    /* Allocate space for making lambdas only if absolutely needed. */
+    lex->lambda_data = NULL;
+    lex->lambda_data_size = 0;
     ch_class = lily_malloc(256 * sizeof(char));
 
     if (ch_class == NULL || lex->label == NULL || lex->input_buffer == NULL) {
@@ -239,6 +243,7 @@ void lily_free_lex_state(lily_lex_state *lex)
         }
     }
 
+    lily_free(lex->lambda_data);
     lily_free(lex->input_buffer);
     lily_free(lex->ch_class);
     lily_free(lex->label);
@@ -894,6 +899,111 @@ static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
     *pos = comment_pos;
 }
 
+static void ensure_lambda_data_size(lily_lex_state *lexer, int at_least)
+{
+    int new_size = lexer->lambda_data_size;
+    while (new_size < at_least)
+        new_size *= 2;
+
+    char *new_data = lily_realloc(lexer->lambda_data, new_size);
+    if (new_data == NULL)
+        lily_raise_nomem(lexer->raiser);
+
+    lexer->lambda_data = new_data;
+    lexer->lambda_data_size = new_size;
+}
+
+/*  scan_lambda
+    This is called when {| is found. The lexer is responsible for scooping up
+    text until the end of the lambda. This function should also ensure that a
+    proper number of braces are found. */
+static void scan_lambda(lily_lex_state *lexer, int *pos)
+{
+    char *input = lexer->input_buffer;
+    lexer->lambda_start_line = lexer->line_num;
+
+    if (lexer->lambda_data == NULL) {
+        lexer->lambda_data = lily_malloc(64);
+        if (lexer->lambda_data == NULL)
+            lily_raise_nomem(lexer->raiser);
+
+        lexer->lambda_data_size = 64;
+    }
+
+    char *lambda_data = lexer->lambda_data;
+    char *ch = &input[*pos];
+    int i = 0, max = lexer->lambda_data_size - 2;
+    int brace_depth = 1, input_pos = *pos;
+    lily_lex_entry *entry = lexer->entry;
+
+    /* todo: Proper lambda scanning. */
+    while (1) {
+        if (i == max) {
+            ensure_lambda_data_size(lexer, lexer->lambda_data_size * 2);
+
+            lambda_data = lexer->lambda_data;
+            max = lexer->lambda_data_size - 2;
+        }
+
+        if (*ch == '\n' ||
+            (*ch == '#' &&
+             *(ch + 1) != '#' &&
+             *(ch + 2) != '#')) {
+            if (entry->read_line_fn(entry) == 0)
+                lily_raise(lexer->raiser, lily_SyntaxError,
+                        "Unterminated lambda (started at line %d).\n",
+                        lexer->lambda_start_line);
+
+            input_pos = 0;
+            lambda_data[i] = '\n';
+            i++;
+            ch = &lexer->input_buffer[0];
+            continue;
+        }
+        else if (*ch == '#' &&
+                 *(ch + 1) == '#' &&
+                 *(ch + 2) == '#') {
+            int saved_line_num = lexer->line_num;
+            scan_multiline_comment(lexer, &input_pos);
+            /* For each line that the multi-line comment hit, add a newline to
+               the lambda so that error lines are right. */
+            if (saved_line_num != lexer->line_num) {
+                int increase = lexer->line_num - saved_line_num;
+                ensure_lambda_data_size(lexer, i + increase);
+
+                lambda_data = lexer->lambda_data;
+                memset(lambda_data + i, '\n', increase);
+                i += increase;
+            }
+            input_pos++;
+            ch = &lexer->input_buffer[input_pos];
+            continue;
+        }
+        /* todo: Handle strings too. */
+        else if (*ch == '{')
+            brace_depth++;
+        else if (*ch == '}') {
+            if (brace_depth == 1)
+                break;
+
+            brace_depth--;
+        }
+
+        lambda_data[i] = *ch;
+        ch++;
+        i++;
+        input_pos++;
+    }
+
+    /* Add in the closing '}' at the end so the parser will know for sure when
+       the lambda is done. */
+    lambda_data[i] = '}';
+    lambda_data[i+1] = '\0';
+
+    /* The caller will start after the closing } of this lambda. */
+    *pos = input_pos + 1;
+}
+
 /* scan_string
    This handles strings for lily_lexer. This updates the position in lexer's
    input_buffer for lily_lexer. */
@@ -1389,6 +1499,16 @@ void lily_lexer(lily_lex_state *lexer)
                 token = tk_minus;
             }
         }
+        else if (group == CC_LEFT_CURLY) {
+            input_pos++;
+            ch++;
+            if (*ch == '|') {
+                scan_lambda(lexer, &input_pos);
+                token = tk_lambda;
+            }
+            else
+                token = tk_left_curly;
+        }
         else if (group == CC_COLON) {
             input_pos++;
             ch++;
@@ -1598,9 +1718,9 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
 char *tokname(lily_token t)
 {
     static char *toknames[] =
-    {"(", ")", ",", "{", "}", "[", "^", "!", "!=", "%", "%=", "*", "*=",
-     "/", "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>",
-     ">>=", "=", "==", "<[", "]>", "]", "=>", "a label", "a property name",
+    {"(", ")", ",", "}", "[", "^", "!", "!=", "%", "%=", "*", "*=", "/", "/=",
+     "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>", ">>=", "=",
+     "==", "{", "a lambda", "<[", "]>", "]", "=>", "a label", "a property name",
      "a string", "an integer", "a double", ".", ":", "::", "&", "&&", "|",
      "||", "@(", "...", "invalid token", "?>", "end of file", "end of file"};
 
