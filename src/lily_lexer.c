@@ -274,6 +274,7 @@ static lily_lex_entry *get_entry(lily_lex_state *lex)
         }
 
         ret_entry->source = NULL;
+        ret_entry->extra = NULL;
         ret_entry->saved_input = NULL;
         ret_entry->saved_input_pos = 0;
         ret_entry->saved_input_size = 0;
@@ -539,6 +540,13 @@ static void str_close_fn(lily_lex_entry *entry)
 {
     /* The string is assumed to be non-malloced (coming from argv), so there's
        nothing to do here. */
+}
+
+static void string_copy_close_fn(lily_lex_entry *entry)
+{
+    /* The original string is kept in entry->extra since line reading moves
+       entry->source. */
+    lily_free(entry->extra);
 }
 
 /** Scanning functions and helpers **/
@@ -1315,6 +1323,39 @@ void lily_load_str(lily_lex_state *lexer, lily_lex_mode mode, char *str)
     new_entry->source = &str[0];
     new_entry->read_line_fn = str_read_line_fn;
     new_entry->close_fn = str_close_fn;
+    new_entry->filename = "<str>";
+
+    lexer->filename = "<str>";
+
+    if (new_entry->prev == NULL) {
+        lexer->mode = mode;
+
+        str_read_line_fn(lexer->entry);
+        if (mode == lm_tags)
+            lily_lexer_handle_page_data(lexer);
+    }
+    else
+        str_read_line_fn(lexer->entry);
+}
+
+/*  lily_load_copy_string
+    This is the same thing as lily_load_str, except that a copy of 'str' is
+    made. The lexer's teardown ensures that the copy of the string is deleted.
+    This should be used in cases where the given string may be mutated. */
+void lily_load_copy_string(lily_lex_state *lexer, lily_lex_mode mode, char *str)
+{
+    lily_lex_entry *new_entry = get_entry(lexer);
+
+    char *copy = lily_malloc(strlen(str) + 1);
+    if (copy == NULL)
+        lily_raise_nomem(lexer->raiser);
+
+    strcpy(copy, str);
+
+    new_entry->source = &copy[0];
+    new_entry->extra = copy;
+    new_entry->read_line_fn = str_read_line_fn;
+    new_entry->close_fn = string_copy_close_fn;
     new_entry->filename = "<str>";
 
     lexer->filename = "<str>";

@@ -2186,8 +2186,11 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
 
     /* Process the lambda as if it were a file with a slightly adjusted
        starting line number. The line number is patched so that multi-line
-       lambdas show the right line number for errors. */
-    lily_load_str(lex, lm_no_tags, lambda_body);
+       lambdas show the right line number for errors.
+       Additionally, lambda_body is a shallow copy of data within the ast's
+       string pool. A deep copy MUST be made because expressions within this
+       lambda may cause the ast's string pool to be resized. */
+    lily_load_copy_string(lex, lm_no_tags, lambda_body);
     lex->line_num = lambda_start_line;
 
     char lambda_name[32];

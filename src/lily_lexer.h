@@ -80,6 +80,7 @@ typedef void (*lily_close_fn)(struct lily_lex_entry_t *);
 
 typedef struct lily_lex_entry_t {
     void *source;
+    void *extra;
 
     lily_reader_fn read_line_fn;
     lily_close_fn  close_fn;
@@ -139,6 +140,7 @@ void lily_lexer_handle_page_data(lily_lex_state *);
 void lily_lexer_digit_rescan(lily_lex_state *);
 void lily_load_file(lily_lex_state *, lily_lex_mode, char *);
 void lily_load_str(lily_lex_state *, lily_lex_mode, char *);
+void lily_load_copy_string(lily_lex_state *, lily_lex_mode, char *);
 void lily_load_special(lily_lex_state *, lily_lex_mode, void *, char *,
     lily_reader_fn, lily_close_fn);
 lily_lex_state *lily_new_lex_state(lily_raiser *, void *);
