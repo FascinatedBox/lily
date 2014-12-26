@@ -840,7 +840,7 @@ static int template_check(lily_emit_state *emit, lily_sig *lhs, lily_sig *rhs)
 }
 
 /*  recursively_build_sig
-    This is a helper function for build_untemplated_sig. This function takes a
+    This is a helper function for lily_resolve_sig. This function takes a
     signature which has template information in it, and builds a signature with
     the template information replaced out.
 
@@ -887,10 +887,10 @@ static lily_sig *recursively_build_sig(lily_emit_state *emit, int template_index
     return ret;
 }
 
-/*  build_untemplated_sig
+/*  lily_resolve_sig
     This takes a given sig that has templates inside and returns a sig that has
     those templates replaced. */
-static lily_sig *build_untemplated_sig(lily_emit_state *emit, lily_sig *sig)
+lily_sig *lily_resolve_sig(lily_emit_state *emit, lily_sig *sig)
 {
     int save_template_index = emit->sig_stack_pos;
 
@@ -907,7 +907,7 @@ static lily_sig *build_untemplated_sig(lily_emit_state *emit, lily_sig *sig)
     information is NOT laid out in emitter's sig stack.
 
     This first lays out the generics into emitter's sig stack before calling
-    build_untemplated_sig and yielding the result. */
+    lily_resolve_sig and yielding the result. */
 static lily_sig *resolve_second_sig_by_first(lily_emit_state *emit,
         lily_sig *first, lily_sig *second)
 {
@@ -921,7 +921,7 @@ static lily_sig *resolve_second_sig_by_first(lily_emit_state *emit,
         emit->sig_stack[stack_start + i] = first->siglist[i];
 
     emit->sig_stack_pos = stack_start;
-    lily_sig *result_sig = build_untemplated_sig(emit, second);
+    lily_sig *result_sig = lily_resolve_sig(emit, second);
     emit->sig_stack_pos = save_ssp;
 
     return result_sig;
@@ -2782,7 +2782,7 @@ static void box_call_variants(lily_emit_state *emit, lily_sig *call_sig,
          i++, arg = arg->next_arg) {
         if (arg->result->sig->cls->flags & CLS_VARIANT_CLASS) {
             lily_sig *arg_sig = call_sig->siglist[i + 1];
-            lily_sig *enum_sig = build_untemplated_sig(emit, arg_sig);
+            lily_sig *enum_sig = lily_resolve_sig(emit, arg_sig);
             emit_rebox_value(emit, enum_sig, arg);
         }
     }
@@ -2794,7 +2794,7 @@ static void box_call_variants(lily_emit_state *emit, lily_sig *call_sig,
            the list, then what the list holds. */
         lily_sig *va_comp_sig = call_sig->siglist[i + 1]->siglist[0];
         if (va_comp_sig->cls->flags & CLS_ENUM_CLASS) {
-            lily_sig *enum_sig = build_untemplated_sig(emit, va_comp_sig);
+            lily_sig *enum_sig = lily_resolve_sig(emit, va_comp_sig);
             for (;arg != NULL;
                   i++, arg = arg->next_arg) {
                 if (arg->result->sig->cls->flags & CLS_VARIANT_CLASS)
@@ -3057,7 +3057,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
             return_sig = emit->sig_stack[emit->sig_stack_pos +
                     return_sig->template_pos];
         else if (return_sig->template_pos != 0)
-            return_sig = build_untemplated_sig(emit, return_sig);
+            return_sig = lily_resolve_sig(emit, return_sig);
 
         lily_storage *storage = get_storage(emit, return_sig, ast->line_num);
         storage->flags |= SYM_NOT_ASSIGNABLE;
@@ -3268,7 +3268,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
 
         lily_sig *result_sig = variant_class->variant_sig->siglist[0];
         if (result_sig->template_pos != 0)
-            result_sig = build_untemplated_sig(emit, result_sig);
+            result_sig = lily_resolve_sig(emit, result_sig);
 
         result = get_storage(emit, result_sig, ast->line_num);
 
@@ -3304,12 +3304,23 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
     ast->result = (lily_sym *)result;
 }
 
-static void eval_lambda(lily_emit_state *emit, lily_ast *ast, lily_sig *expect_sig)
+static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
+        lily_sig *expect_sig, int did_resolve)
 {
     char *lambda_body = emit->oo_name_pool->str + ast->oo_pool_index;
 
+    if (expect_sig && expect_sig->cls->id == SYM_CLASS_TEMPLATE &&
+        did_resolve == 0) {
+        expect_sig = emit->sig_stack[emit->sig_stack_pos +
+                 expect_sig->template_pos];
+        did_resolve = 1;
+    }
+
+    if (expect_sig && expect_sig->cls->id != SYM_CLASS_FUNCTION)
+        expect_sig = NULL;
+
     lily_var *lambda_result = lily_parser_lambda_eval(emit->parser,
-            ast->line_num, lambda_body, expect_sig);
+            ast->line_num, lambda_body, expect_sig, did_resolve);
 
     lily_storage *s = get_storage(emit, lambda_result->sig, ast->line_num);
     write_4(emit,
@@ -3389,7 +3400,7 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
     else if (ast->tree_type == tree_variant)
         eval_variant(emit, ast, expect_sig, did_resolve);
     else if (ast->tree_type == tree_lambda)
-        eval_lambda(emit, ast, expect_sig);
+        eval_lambda(emit, ast, expect_sig, did_resolve);
 }
 
 /*****************************************************************************/
@@ -3791,14 +3802,28 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
 }
 
 void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
-        lily_sig *wanted_sig)
+        lily_sig *wanted_sig, int did_resolve)
 {
-    eval_tree(emit, ap->root, wanted_sig, 1);
+    if (wanted_sig && wanted_sig->cls->id == SYM_CLASS_TEMPLATE &&
+        did_resolve == 0) {
+        wanted_sig = emit->sig_stack[emit->sig_stack_pos +
+                wanted_sig->template_pos];
+        did_resolve = 1;
+    }
 
-    if (ap->root->result != NULL)
+    eval_tree(emit, ap->root, wanted_sig, did_resolve);
+
+    if (ap->root->result != NULL) {
+        /* Type inference has to be done here, because the callers won't know
+           to do it. This is similar to how return has to do this too.
+           But don't error for the wrong type: Instead, let the info bubble
+           upward to something that will know the full types in play. */
+        if (wanted_sig != NULL && ap->root->result->sig != wanted_sig)
+            type_matchup(emit, wanted_sig, ap->root);
+
         write_3(emit, o_return_val, ap->root->line_num,
                 ap->root->result->reg_spot);
-
+    }
     /* It's important to NOT increase the count of expressions here. If it were
        to be increased, then the expression holding the lambda would think it
        isn't using any storages (and start writing over the ones that it is

@@ -170,6 +170,22 @@ void lily_free_parse_state(lily_parse_state *parser)
 /* Shared code                                                               */
 /*****************************************************************************/
 
+/*  count_unresolved_generics
+    This is a helper function for lambda resolution. The purpose of this
+    function is to help determine if one of the arguments passed to a lambda
+    has an incomplete type. */
+static int count_unresolved_generics(lily_emit_state *emit)
+{
+    int count = 0, top = emit->sig_stack_pos + emit->current_generic_adjust;
+    int i;
+    for (i = emit->sig_stack_pos;i < top;i++) {
+        if (emit->sig_stack[i] == NULL)
+            count++;
+    }
+
+    return count;
+}
+
 /*  get_named_var
     Attempt to create a var with the given signature. This will call lexer to
     get the name, as well as ensuring that the given var is unique. */
@@ -2161,9 +2177,12 @@ static void parser_loop(lily_parse_state *parser)
     signature that the emitter expects is given so that the types of the
     lambda's arguments can be inferred. */
 lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
-        int lambda_start_line, char *lambda_body, lily_sig *expect_sig)
+        int lambda_start_line, char *lambda_body, lily_sig *expect_sig,
+        int did_resolve)
 {
     lily_lex_state *lex = parser->lex;
+    int args_collected = 0, resolved_any_args = 0;
+    lily_sig *root_result;
 
     /* Process the lambda as if it were a file with a slightly adjusted
        starting line number. The line number is patched so that multi-line
@@ -2181,26 +2200,70 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        be NULL if the emitter doesn't know what it wants. */
     lily_var *lambda_var = lily_try_new_var(parser->symtab,
             parser->default_call_sig, lambda_name, VAR_IS_READONLY);
+    lily_emit_state *emit = parser->emit;
 
     /* From here on, vars created will be in the scope of the lambda. Also,
        this binds a function value to lambda_var. */
     lily_emit_enter_block(parser->emit, BLOCK_LAMBDA | BLOCK_FUNCTION);
 
-    /* Arguments for a lambda are within | and |. */
-    NEED_NEXT_TOK(tk_bitwise_or)
-    NEED_NEXT_TOK(tk_word)
+    lily_lexer(lex);
+    /* Emitter ensures that the given signature is either NULL or a function
+       signature.
+       Collect arguments if expecting a function and the function takes at
+       least one argument. */
+    if (expect_sig && expect_sig->siglist_size > 1) {
+        if (lex->token == tk_logical_or)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Lambda expected %d args, but got 0.\n",
+                    expect_sig->siglist_size - 1);
 
-    /* fixme: Properly process arguments. */
-    lily_sig *var_sig = expect_sig->siglist[0];
-    lily_var *v = get_named_var(parser, var_sig, 0);
+        /* -1 because the return isn't an arg. */
+        int num_args = expect_sig->siglist_size - 1;
+        int originally_unresolved = -1;
+        lily_token wanted_token = tk_comma;
+        if (did_resolve == 0)
+            originally_unresolved = count_unresolved_generics(parser->emit);
 
-    NEED_CURRENT_TOK(tk_bitwise_or)
+        while (1) {
+            NEED_NEXT_TOK(tk_word)
+            lily_sig *arg_sig = expect_sig->siglist[args_collected + 1];
+            if (did_resolve == 0) {
+                arg_sig = lily_resolve_sig(parser->emit, arg_sig);
+                int num_unresolved = count_unresolved_generics(parser->emit);
+                /* lily_resolve_sig likes to fill in unresolved generics with
+                   type 'any' if it doesn't have type information. However, a
+                   lambda should have full type info for each arg. */
+                if (num_unresolved != originally_unresolved) {
+                    lily_raise(parser->raiser, lily_SyntaxError,
+                            "Cannot infer type of '%s'.\n", lex->label);
+                }
+
+                resolved_any_args = 1;
+            }
+
+            get_named_var(parser, arg_sig, 0);
+            args_collected++;
+            if (args_collected == num_args)
+                wanted_token = tk_bitwise_or;
+
+            NEED_CURRENT_TOK(wanted_token)
+            if (wanted_token == tk_bitwise_or)
+                break;
+        }
+    }
+    else if (lex->token == tk_bitwise_or) {
+        NEED_NEXT_TOK(tk_bitwise_or)
+    }
+    else if (lex->token != tk_logical_or)
+        lily_raise(parser->raiser, lily_SyntaxError, "Unexpected token '%s'.\n",
+                lex->token);
+
     lily_lexer(lex);
 
     /* If the emitter knows what the lambda's result should be, then use that
        to do some type inference on the result of the expression. */
     lily_sig *result_wanted = NULL;
-    if (expect_sig && expect_sig->cls->id == SYM_CLASS_FUNCTION)
+    if (expect_sig)
         result_wanted = expect_sig->siglist[0];
 
     /* It's time to process the body of the lambda. Before this is done, freeze
@@ -2208,14 +2271,46 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        the expression function to ensure that the body of the lambda is valid. */
     lily_ast_freeze_state(parser->ast_pool);
     expression(parser);
-    lily_emit_eval_lambda_body(parser->emit, parser->ast_pool, result_wanted);
+    lily_emit_eval_lambda_body(parser->emit, parser->ast_pool, result_wanted,
+            did_resolve);
+    /* Save this before state thaw wipes it out. It can't be gotten (easily)
+       later. */
+    root_result = parser->ast_pool->root->result->sig;
     lily_ast_thaw_state(parser->ast_pool);
 
     NEED_CURRENT_TOK(tk_right_curly)
     lily_lexer(lex);
 
-    /* fixme: This should properly calculate a resulting signature. */
-    lambda_var->sig = expect_sig;
+    if (resolved_any_args || root_result != result_wanted) {
+        /* The signature passed does not accurately describe the lambda. Build
+           one that does, because the emitter may use this returned type in
+           further type inference. */
+        int sigs_needed = args_collected + 1;
+        int flags = 0, end = parser->sig_stack_pos + sigs_needed;
+        int i;
+        lily_class *function_cls = lily_class_by_id(parser->symtab,
+                SYM_CLASS_FUNCTION);
+        lily_var *var_iter = parser->symtab->var_chain;
+        if (parser->sig_stack_pos + sigs_needed > parser->sig_stack_size)
+            grow_sig_stack(parser);
+
+        if (expect_sig && expect_sig->cls->id == SYM_CLASS_FUNCTION &&
+            expect_sig->flags & SIG_IS_VARARGS)
+            flags = SIG_IS_VARARGS;
+
+        parser->sig_stack[parser->sig_stack_pos] = root_result;
+        /* Symtab puts the most recent var on top, and goes to the oldest.
+           That's the reverse order of the arguments so apply backward. */
+        for (i = 1;i < sigs_needed;i++, var_iter = var_iter->next)
+            parser->sig_stack[end - i] = var_iter->sig;
+
+        lily_sig *new_sig = lily_build_ensure_sig(parser->symtab, function_cls,
+                flags, parser->sig_stack, parser->sig_stack_pos, sigs_needed);
+        lambda_var->sig = new_sig;
+    }
+    else
+        lambda_var->sig = expect_sig;
+
     lily_emit_leave_block(parser->emit);
 
     return lambda_var;
