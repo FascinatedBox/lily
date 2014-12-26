@@ -34,7 +34,8 @@ typedef struct lily_parse_state_t {
 } lily_parse_state;
 
 void lily_parser_finish_expr(lily_parse_state *);
-lily_var *lily_parser_lambda_eval(lily_parse_state *, int, char *, lily_sig *);
+lily_var *lily_parser_lambda_eval(lily_parse_state *, int, char *, lily_sig *,
+        int);
 lily_var *lily_parser_dynamic_load(lily_parse_state *, lily_class *, char *);
 void lily_free_parse_state(lily_parse_state *);
 lily_parse_state *lily_new_parse_state(void *, int, char **);

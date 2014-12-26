@@ -748,7 +748,8 @@ void lily_ast_freeze_state(lily_ast_pool *ap)
     new_entry->available_restore = ap->available_restore;
     new_entry->in_use = 1;
 
-    ap->save_chain = NULL;
+    /* Don't zap save_chain, just reset the depth so that parser's expression
+       handler knows when the expression is done. */
     ap->active = NULL;
     ap->root = NULL;
     ap->oo_start = ap->oo_name_pool->pos;

@@ -87,8 +87,10 @@ void lily_emit_eval_expr_to_var(lily_emit_state *, lily_ast_pool *,
 void lily_emit_eval_expr(lily_emit_state *, lily_ast_pool *);
 void lily_emit_finalize_for_in(lily_emit_state *, lily_var *, lily_var *,
         lily_var *, lily_var *, int);
-void lily_emit_eval_lambda_body(lily_emit_state *, lily_ast_pool *, lily_sig *);
+void lily_emit_eval_lambda_body(lily_emit_state *, lily_ast_pool *, lily_sig *,
+        int);
 void lily_emit_lambda_dispatch(lily_emit_state *, lily_ast_pool *);
+lily_sig *lily_resolve_sig(lily_emit_state *emit, lily_sig *);
 
 void lily_emit_eval_match_expr(lily_emit_state *, lily_ast_pool *);
 int lily_emit_add_match_case(lily_emit_state *, int);
