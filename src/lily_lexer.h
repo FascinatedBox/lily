@@ -10,7 +10,6 @@ typedef enum {
     tk_left_parenth,
     tk_right_parenth,
     tk_comma,
-    tk_left_curly,
     tk_right_curly,
     tk_left_bracket,
     tk_caret,
@@ -39,8 +38,11 @@ typedef enum {
     tk_right_shift_eq,
     tk_equal,
     tk_eq_eq,
+    tk_left_curly,
+    tk_lambda,       /* {| */
     tk_tuple_open,   /* <[ */
     tk_tuple_close,  /* ]> */
+    /* } closes a lambda, so there's no special close token. */
     tk_right_bracket,
     tk_arrow,
     tk_word,
@@ -110,6 +112,10 @@ typedef struct lily_lex_state_t {
     char *label;
     int label_size;
     uint16_t line_num;
+
+    char *lambda_data;
+    int lambda_data_size;
+    int lambda_start_line;
 
     /* Where the last digit scan started at. This is used by parser to fixup
        the '1+1' case. */

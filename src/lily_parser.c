@@ -69,6 +69,7 @@ lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
     parser->sig_stack_pos = 0;
     parser->sig_stack_size = 4;
     parser->class_depth = 0;
+    parser->next_lambda_id = 0;
     parser->raiser = raiser;
     parser->sig_stack = lily_malloc(4 * sizeof(lily_sig *));
     parser->ast_pool = lily_new_ast_pool(raiser, 8);
@@ -1095,6 +1096,11 @@ static void expression_raw(lily_parse_state *parser, int state)
             state = ST_DONE;
         else if (lex->token == tk_comma || lex->token == tk_arrow)
             expression_comma_arrow(parser, &state);
+        else if (lex->token == tk_lambda) {
+            lily_ast_push_lambda(parser->ast_pool, parser->lex->lambda_start_line,
+                     parser->lex->lambda_data);
+            state = ST_WANT_OPERATOR;
+        }
         else
             state = ST_BAD_TOKEN;
 
@@ -2149,6 +2155,71 @@ static void parser_loop(lily_parse_state *parser)
 /*****************************************************************************/
 /* Exported API                                                              */
 /*****************************************************************************/
+
+/*  lily_parser_lambda_eval
+    This function is called by the emitter to process the body of a lambda. The
+    signature that the emitter expects is given so that the types of the
+    lambda's arguments can be inferred. */
+lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
+        int lambda_start_line, char *lambda_body, lily_sig *expect_sig)
+{
+    lily_lex_state *lex = parser->lex;
+
+    /* Process the lambda as if it were a file with a slightly adjusted
+       starting line number. The line number is patched so that multi-line
+       lambdas show the right line number for errors. */
+    lily_load_str(lex, lm_no_tags, lambda_body);
+    lex->line_num = lambda_start_line;
+
+    char lambda_name[32];
+    snprintf(lambda_name, 32, "*lambda_%d", parser->next_lambda_id);
+    parser->next_lambda_id++;
+
+    /* Block entry assumes that the most recent var added is the var to bind
+       the function to. For the signature of the lambda, use the default call
+       signature (a function with no args and no output) because expect_sig may
+       be NULL if the emitter doesn't know what it wants. */
+    lily_var *lambda_var = lily_try_new_var(parser->symtab,
+            parser->default_call_sig, lambda_name, VAR_IS_READONLY);
+
+    /* From here on, vars created will be in the scope of the lambda. Also,
+       this binds a function value to lambda_var. */
+    lily_emit_enter_block(parser->emit, BLOCK_LAMBDA | BLOCK_FUNCTION);
+
+    /* Arguments for a lambda are within | and |. */
+    NEED_NEXT_TOK(tk_bitwise_or)
+    NEED_NEXT_TOK(tk_word)
+
+    /* fixme: Properly process arguments. */
+    lily_sig *var_sig = expect_sig->siglist[0];
+    lily_var *v = get_named_var(parser, var_sig, 0);
+
+    NEED_CURRENT_TOK(tk_bitwise_or)
+    lily_lexer(lex);
+
+    /* If the emitter knows what the lambda's result should be, then use that
+       to do some type inference on the result of the expression. */
+    lily_sig *result_wanted = NULL;
+    if (expect_sig && expect_sig->cls->id == SYM_CLASS_FUNCTION)
+        result_wanted = expect_sig->siglist[0];
+
+    /* It's time to process the body of the lambda. Before this is done, freeze
+       the ast pool's state so that the save depth is 0 and such. This allows
+       the expression function to ensure that the body of the lambda is valid. */
+    lily_ast_freeze_state(parser->ast_pool);
+    expression(parser);
+    lily_emit_eval_lambda_body(parser->emit, parser->ast_pool, result_wanted);
+    lily_ast_thaw_state(parser->ast_pool);
+
+    NEED_CURRENT_TOK(tk_right_curly)
+    lily_lexer(lex);
+
+    /* fixme: This should properly calculate a resulting signature. */
+    lambda_var->sig = expect_sig;
+    lily_emit_leave_block(parser->emit);
+
+    return lambda_var;
+}
 
 lily_var *lily_parser_dynamic_load(lily_parse_state *parser, lily_class *cls,
         char *name)
