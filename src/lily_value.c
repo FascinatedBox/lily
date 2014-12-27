@@ -11,7 +11,6 @@ void lily_deref_hash_val(lily_sig *sig, lily_hash_val *hv)
             hv->gc_entry->value.generic = NULL;
 
         lily_sig *value_sig = sig->siglist[1];
-        int value_cls_id = value_sig->cls->id;
         int value_is_refcounted = value_sig->cls->is_refcounted;
         lily_hash_elem *elem, *save_next;
         elem = hv->elem_chain;
