@@ -554,6 +554,8 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
 {
     lily_var *save_var_top = parser->symtab->var_chain;
     lily_lex_state *lex = parser->lex;
+    /* Skip the 'function' part, going straight for the name. Since this is
+       from a builtin source, assume that the identifier is unique. */
     NEED_CURRENT_TOK(tk_word)
     lily_lexer(lex);
 
@@ -565,7 +567,13 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
     if (cls)
         class_name = cls->name;
 
-    lily_var *call_var = get_named_var(parser, call_sig, VAR_IS_READONLY);
+    /* Assume that builtin things are smart enough to not redeclare things and
+       just declare the var. */
+    lily_var *call_var = lily_try_new_var(parser->symtab, call_sig, lex->label,
+            VAR_IS_READONLY);
+    if (call_var == NULL)
+        lily_raise_nomem(parser->raiser);
+
     call_var->parent = cls;
     call_var->value.function = lily_try_new_foreign_function_val(foreign_func,
             class_name, call_var->name);
@@ -574,6 +582,8 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
         lily_raise_nomem(parser->raiser);
 
     call_var->flags &= ~VAL_IS_NIL;
+
+    lily_lexer(lex);
 
     if (parser->lex->token == tk_left_bracket)
         generics_used = collect_generics(parser);
