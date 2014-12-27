@@ -1018,54 +1018,41 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
 static void scan_string(lily_lex_state *lexer, int *pos, char *new_ch)
 {
     char esc_ch;
-    char *label, *input_buffer;
-    int i, is_multiline, label_pos, escape_this_line, multiline_start, str_size,
-        word_start, word_pos;
+    char *label, *input;
+    int is_multiline, label_pos, multiline_start;
 
-    input_buffer = lexer->input_buffer;
+    input = lexer->input_buffer;
     label = lexer->label;
-    escape_this_line = 0;
-    /* Where to start cutting from. */
-    word_start = *pos + 1;
-    /* Where to finish cutting from. */
-    word_pos = word_start;
 
     /* ch is actually the first char after the opening ". */
     if (*(new_ch + 1) == '"' &&
         *(new_ch + 2) == '"') {
         is_multiline = 1;
-        /* This will be used to print out the line number the str starts on, in
-           case the str reaches EOF. */
         multiline_start = lexer->line_num;
-        word_start += 2;
-        word_pos += 2;
         new_ch += 2;
     }
     else
         is_multiline = 0;
 
-    /* Skip over the last " of a multi-line string, or the " of a single-line
-       string. */
+    /* Skip the last " of either kind of string. */
     new_ch++;
     label_pos = 0;
-    label[0] = '\0';
 
     while (1) {
+        if (label_pos >= lexer->label_size) {
+            int new_label_size = lexer->label_size * 2;
+            char *new_label;
+            new_label = lily_realloc(lexer->label,
+                    (new_label_size * sizeof(char)));
+
+            if (new_label == NULL)
+                lily_raise_nomem(lexer->raiser);
+
+            lexer->label = new_label;
+            lexer->label_size = new_label_size;
+        }
+
         if (*new_ch == '\\') {
-            /* For escapes, the non-escape part of the data is copied to the
-               label, then the escape value is written in. */
-            i = word_pos - word_start;
-            memcpy(&label[label_pos], &input_buffer[word_start],
-                    i * sizeof(char));
-            label_pos += i;
-            word_start += i;
-            word_pos++;
-
-            /* If there was an escape in the line, then the final part of the
-               str after the escape needs to be cut (unless there is nothing
-               after the escape). */
-            escape_this_line = 1;
-
             esc_ch = simple_escape(new_ch);
             if (esc_ch == 0)
                 lily_raise(lexer->raiser, lily_SyntaxError,
@@ -1073,110 +1060,46 @@ static void scan_string(lily_lex_state *lexer, int *pos, char *new_ch)
 
             label[label_pos] = esc_ch;
             label_pos++;
-
-            /* Add two so it starts off after the escape char the next time. */
-            word_start += 2;
-            new_ch = &(input_buffer[word_start - 1]);
+            new_ch += 2;
+            continue;
         }
         else if (*new_ch == '\n') {
-            if (is_multiline) {
-                word_pos++;
-                i = word_pos - word_start;
-                memcpy(&label[label_pos], &input_buffer[word_start],
-                       (i * sizeof(char)));
-                label_pos += i;
-
-                if (lexer->entry->read_line_fn(lexer->entry) == 0) {
-                    lily_raise(lexer->raiser, lily_SyntaxError,
-                               "Unterminated multi-line string (started at line %d).\n",
-                               multiline_start);
-                }
-                /* The read line function may reallocate lexer's input_buffer,
-                   so set it again here. */
-                input_buffer = lexer->input_buffer;
-                if ((label_pos + lexer->input_end) >= lexer->label_size) {
-                    /* input_end is at most == label_pos, so a *2 grow will
-                       always solve this. */
-                    int new_label_size = lexer->label_size * 2;
-                    char *new_label;
-                    new_label = lily_realloc(lexer->label,
-                            (new_label_size * sizeof(char)));
-
-                    if (new_label == NULL)
-                        lily_raise_nomem(lexer->raiser);
-
-                    lexer->label = new_label;
-                    lexer->label_size = new_label_size;
-                }
-
-                /* It can also realloc lexer's label... */
-                label = lexer->label;
-
-                /* This next line doesn't have an escape, so fix that. */
-                escape_this_line = 0;
-                /* Must manually set this + continue, or else the 0th letter
-                   will get skipped. */
-                word_start = 0;
-                word_pos = 0;
-                new_ch = &(input_buffer[word_pos]);
-                continue;
-            }
-            else
-                lily_raise(lexer->raiser, lily_SyntaxError,
-                           "Unterminated string at line %d.\n",
-                           lexer->line_num);
-        }
-        else if (*new_ch == '"') {
             if (is_multiline == 0)
-                break;
-            else if (*(new_ch + 1) == '"' &&
-                     *(new_ch + 2) == '"')
-                break;
-        }
-
-        word_pos++;
-        new_ch++;
-    }
-
-    if (!escape_this_line) {
-        /* No escape chars seen, so copy the full string over. */
-        if (is_multiline) {
-            if (word_pos != word_start) {
-                i = word_pos - word_start;
-                memcpy(&label[label_pos], &input_buffer[word_start],
-                        i * sizeof(char));
-                label_pos += i;
+                lily_raise(lexer->raiser, lily_SyntaxError,
+                        "Newline in single-line string.\n");
+            else if (lexer->entry->read_line_fn(lexer->entry) == 0) {
+                lily_raise(lexer->raiser, lily_SyntaxError,
+                           "Unterminated multi-line string (started at line %d).\n",
+                           multiline_start);
             }
-            /* +1 for terminator. */
-            str_size = label_pos + 1;
 
-            word_pos += 2;
+            /* read_line_fn may realloc either of these. */
+            label = lexer->label;
+            input = lexer->input_buffer;
+
+            new_ch = &input[0];
+            label[label_pos] = *new_ch;
+            label_pos++;
         }
-        else
-            str_size = word_pos + 1 - word_start;
-    }
-    else {
-        /* Had escapes, so copy over the last section */
-        if (word_pos != word_start) {
-            i = word_pos - word_start;
-            for (;i > 0;i--,  word_start++, label_pos++)
-                label[label_pos] = input_buffer[word_start];
+        else if (*new_ch == '"' &&
+                 ((is_multiline == 0) ||
+                  (*(new_ch + 1) == '"' && *(new_ch + 2) == '"'))) {
+            new_ch++;
+            break;
         }
-        /* +1 for the terminator. */
-        str_size = label_pos + 1;
-        if (is_multiline)
-            word_pos += 2;
+        else {
+            label[label_pos] = *new_ch;
+            label_pos++;
+            new_ch++;
+        }
     }
 
-    if (!escape_this_line && is_multiline == 0) {
-        strncpy(label, input_buffer+word_start, str_size-1);
-        label[str_size-1] = '\0';
-    }
-    else
-        label[label_pos] = '\0';
+    if (is_multiline)
+        new_ch += 2;
 
+    label[label_pos] = '\0';
+    *pos = (new_ch - &input[0]);
     lexer->last_literal = lily_get_string_literal(lexer->symtab, label);
-    *pos = word_pos + 1;
 }
 
 /*  lily_lexer_digit_rescan
