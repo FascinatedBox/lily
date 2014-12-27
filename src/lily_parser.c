@@ -1879,7 +1879,13 @@ static void enum_handler(lily_parse_state *parser, int multi)
 
     while (1) {
         NEED_CURRENT_TOK(tk_word)
-        lily_class *variant_cls = lily_new_class(parser->symtab, lex->label);
+        lily_class *variant_cls = lily_class_by_name(parser->symtab, lex->label);
+        if (variant_cls != NULL)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "A class with the name '%s' already exists.\n",
+                    variant_cls->name);
+
+        variant_cls = lily_new_class(parser->symtab, lex->label);
 
         lily_lexer(lex);
 
