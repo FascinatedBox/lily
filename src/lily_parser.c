@@ -1833,8 +1833,6 @@ static void class_handler(lily_parse_state *parser, int multi)
 
     lily_class *created_class = lily_new_class(parser->symtab, lex->label);
 
-    lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_FUNCTION);
-
     parse_function(parser, created_class);
 
     NEED_CURRENT_TOK(tk_left_curly)
@@ -2219,7 +2217,6 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        be NULL if the emitter doesn't know what it wants. */
     lily_var *lambda_var = lily_try_new_var(parser->symtab,
             parser->default_call_sig, lambda_name, VAR_IS_READONLY);
-    lily_emit_state *emit = parser->emit;
 
     /* From here on, vars created will be in the scope of the lambda. Also,
        this binds a function value to lambda_var. */
