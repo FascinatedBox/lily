@@ -1201,11 +1201,6 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
         (block->block_type & BLOCK_LAMBDA) == 0) {
         lily_update_symtab_generics(emit->symtab, NULL,
                 last_func_block->generic_count);
-
-        if (block->prev->generic_count == 0)
-            emit->current_generic_adjust = 0;
-        else
-            emit->current_generic_adjust = last_func_block->generic_count;
     }
 
     emit->self_storage = emit->current_block->prev->self;
@@ -3938,29 +3933,6 @@ void lily_emit_update_function_block(lily_emit_state *emit,
 {
     emit->top_function_ret = ret_sig;
     emit->current_block->generic_count = generic_count;
-
-    /* Since functions can only be declared within other functions, it can be
-       safely assumed that declared functions will always start from position 0
-       of the sig stack. Each function, no matter how deep, shares generic info
-       from 0. */
-    if (generic_count > emit->sig_stack_pos) {
-        ENSURE_SIG_STACK(generic_count)
-
-        /* If this isn't done, then generics within a generic function will be
-           able to be assigned completely-known types because they won't be
-           resolved. */
-        lily_sig *sig_iter = emit->symtab->template_sig_start;
-        int i;
-        for (i = 0;
-             i < generic_count;
-             i++, sig_iter = sig_iter->next) {
-            emit->sig_stack[i] = sig_iter;
-        }
-
-        /* This is so calls know how far to move the sig stack so that they
-           won't damage this information. */
-        emit->current_generic_adjust = i;
-    }
 
     if (decl_class) {
         /* The most recent function is the constructor for this class, which will
