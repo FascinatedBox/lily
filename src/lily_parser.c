@@ -707,14 +707,23 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
     NEED_NEXT_TOK(tk_word)
 
     lily_var *v = lily_find_class_callable(parser->symtab, cls, lex->label);
-    if (v == NULL) {
+    if (v == NULL)
         v = lily_parser_dynamic_load(parser, cls, lex->label);
-        if (v == NULL)
+
+    if (v)
+        lily_ast_push_readonly(parser->ast_pool, (lily_sym *) v);
+    else {
+        lily_class *variant_cls = NULL;
+        if (cls->flags & CLS_ENUM_CLASS)
+            variant_cls = lily_find_scoped_variant(cls, lex->label);
+
+        if (variant_cls == NULL) {
             lily_raise(parser->raiser, lily_SyntaxError,
                     "%s::%s does not exist.\n", cls->name, lex->label);
+        }
+        else
+            lily_ast_push_variant(parser->ast_pool, variant_cls);
     }
-
-    lily_ast_push_readonly(parser->ast_pool, (lily_sym *) v);
 }
 
 /*  parse_special_keyword
@@ -1888,8 +1897,14 @@ static void enum_handler(lily_parse_state *parser, int multi)
     lily_class *function_class = lily_class_by_id(parser->symtab,
             SYM_CLASS_FUNCTION);
     int inner_class_count = 0;
+    int is_scoped = (lex->token == tk_colon_colon);
 
     while (1) {
+        if (is_scoped) {
+            NEED_CURRENT_TOK(tk_colon_colon)
+            lily_lexer(lex);
+        }
+
         NEED_CURRENT_TOK(tk_word)
         lily_class *variant_cls = lily_class_by_name(parser->symtab, lex->label);
         if (variant_cls != NULL)
@@ -1938,7 +1953,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
                 "An enum class must have at least two variants.\n");
     }
 
-    lily_finish_enum_class(parser->symtab, enum_class, result_sig);
+    lily_finish_enum_class(parser->symtab, enum_class, is_scoped, result_sig);
     lily_update_symtab_generics(parser->symtab, NULL, save_generics);
     lily_lexer(lex);
 }

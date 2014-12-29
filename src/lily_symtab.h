@@ -76,6 +76,7 @@ const lily_func_seed *lily_find_class_call_seed(lily_symtab *, lily_class *,
         char *);
 const lily_func_seed *lily_get_global_seed_chain();
 lily_prop_entry *lily_find_property(lily_symtab *, lily_class *, char *);
+lily_class *lily_find_scoped_variant(lily_class *, char *);
 
 lily_var *lily_try_new_var(lily_symtab *, lily_sig *, char *, int);
 
@@ -97,5 +98,5 @@ void lily_update_symtab_generics(lily_symtab *, lily_class *, int);
 void lily_finish_class(lily_symtab *, lily_class *);
 void lily_make_constructor_return_sig(lily_symtab *);
 void lily_change_to_variant_class(lily_symtab *, lily_class *, lily_sig *, lily_class *);
-void lily_finish_enum_class(lily_symtab *, lily_class *, lily_sig *);
+void lily_finish_enum_class(lily_symtab *, lily_class *, int, lily_sig *);
 #endif
