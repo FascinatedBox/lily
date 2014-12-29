@@ -1,6 +1,8 @@
 ###
-SyntaxError: Function f arg #1 expects type 'A' but got type 'integer'.
-Where: File "test/fail/attempt_generic_bypass.ly" at line 15
+SyntaxError: Function f, argument #2 is invalid:
+Expected Type: A
+Received Type: integer
+Where: File "test/fail/attempt_generic_bypass.ly" at line 17
 ###
 
 function f[A](A v1, A v2) {  }
