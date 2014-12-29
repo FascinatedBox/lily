@@ -40,7 +40,7 @@ lily_var *lily_parser_dynamic_load(lily_parse_state *, lily_class *, char *);
 void lily_free_parse_state(lily_parse_state *);
 lily_parse_state *lily_new_parse_state(void *, int, char **);
 int lily_parse_file(lily_parse_state *, lily_lex_mode, char *);
-int lily_parse_string(lily_parse_state *, lily_lex_mode, char *);
+int lily_parse_string(lily_parse_state *, char *, lily_lex_mode, char *);
 int lily_parse_special(lily_parse_state *, lily_lex_mode, void *, char *,
     lily_reader_fn, lily_close_fn);
 #endif

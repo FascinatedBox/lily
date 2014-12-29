@@ -2105,7 +2105,8 @@ static void do_bootstrap(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
     const lily_func_seed *global_seed = lily_get_global_seed_chain();
     while (global_seed) {
-        lily_load_str(lex, lm_no_tags, global_seed->func_definition);
+        lily_load_str(lex, "[builtin]", lm_no_tags,
+                global_seed->func_definition);
         lily_lexer(lex);
         parse_prototype(parser, NULL, global_seed->func);
         global_seed = global_seed->next;
@@ -2204,7 +2205,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        Additionally, lambda_body is a shallow copy of data within the ast's
        string pool. A deep copy MUST be made because expressions within this
        lambda may cause the ast's string pool to be resized. */
-    lily_load_copy_string(lex, lm_no_tags, lambda_body);
+    lily_load_copy_string(lex, "[lambda]", lm_no_tags, lambda_body);
     lex->line_num = lambda_start_line;
 
     char lambda_name[32];
@@ -2342,7 +2343,7 @@ lily_var *lily_parser_dynamic_load(lily_parse_state *parser, lily_class *cls,
     lily_var *ret;
 
     if (seed != NULL) {
-        lily_load_str(lex, lm_no_tags, seed->func_definition);
+        lily_load_str(lex, "[builtin]", lm_no_tags, seed->func_definition);
         lily_lexer(lex);
         ret = parse_prototype(parser, cls, seed->func);
     }
@@ -2381,15 +2382,17 @@ int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode, char *filename
     is responsible for destroying the string if it needs to be destroyed.
 
     parser:  The parser that will be used to parse and run the data.
+    name:    The name for this file, for when trace is printed.
     mode:    This determines if <?lily ?> tags are parsed or not.
     str:     The string to parse.
 
     Returns 1 if successful, or 0 if some error occured. */
-int lily_parse_string(lily_parse_state *parser, lily_lex_mode mode, char *str)
+int lily_parse_string(lily_parse_state *parser, char *name, lily_lex_mode mode,
+        char *str)
 {
     if (setjmp(parser->raiser->jumps[parser->raiser->jump_pos]) == 0) {
         parser->raiser->jump_pos++;
-        lily_load_str(parser->lex, mode, str);
+        lily_load_str(parser->lex, name, mode, str);
         parser_loop(parser);
         return 1;
     }

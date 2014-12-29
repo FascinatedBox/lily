@@ -297,7 +297,7 @@ void run_parser(int argc, char **argv, int count, int is_filename, char *text)
         if (is_filename == 1)
             lily_parse_file(parser, lm_tags, text);
         else
-            lily_parse_string(parser, lm_no_tags, text);
+            lily_parse_string(parser, "[str]", lm_no_tags, text);
 
         lily_free_parse_state(parser);
     }

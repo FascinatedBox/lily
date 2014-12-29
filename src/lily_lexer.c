@@ -1257,16 +1257,16 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
     because that seems silly.
 
     Note: If unable to allocate a new entry, ErrNoMem is raised. */
-void lily_load_str(lily_lex_state *lexer, lily_lex_mode mode, char *str)
+void lily_load_str(lily_lex_state *lexer, char *name, lily_lex_mode mode, char *str)
 {
     lily_lex_entry *new_entry = get_entry(lexer);
 
     new_entry->source = &str[0];
     new_entry->read_line_fn = str_read_line_fn;
     new_entry->close_fn = str_close_fn;
-    new_entry->filename = "<str>";
+    new_entry->filename = name;
 
-    lexer->filename = "<str>";
+    lexer->filename = name;
 
     if (new_entry->prev == NULL) {
         lexer->mode = mode;
@@ -1283,7 +1283,8 @@ void lily_load_str(lily_lex_state *lexer, lily_lex_mode mode, char *str)
     This is the same thing as lily_load_str, except that a copy of 'str' is
     made. The lexer's teardown ensures that the copy of the string is deleted.
     This should be used in cases where the given string may be mutated. */
-void lily_load_copy_string(lily_lex_state *lexer, lily_lex_mode mode, char *str)
+void lily_load_copy_string(lily_lex_state *lexer, char *name,
+        lily_lex_mode mode, char *str)
 {
     lily_lex_entry *new_entry = get_entry(lexer);
 
@@ -1297,9 +1298,9 @@ void lily_load_copy_string(lily_lex_state *lexer, lily_lex_mode mode, char *str)
     new_entry->extra = copy;
     new_entry->read_line_fn = str_read_line_fn;
     new_entry->close_fn = string_copy_close_fn;
-    new_entry->filename = "<str>";
+    new_entry->filename = name;
 
-    lexer->filename = "<str>";
+    lexer->filename = name;
 
     if (new_entry->prev == NULL) {
         lexer->mode = mode;
