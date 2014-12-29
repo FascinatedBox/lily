@@ -786,6 +786,16 @@ static void free_classes(lily_class *class_iter)
         if (class_iter->id > SYM_CLASS_FORMATERROR)
             lily_free(class_iter->name);
 
+        if (class_iter->flags & CLS_ENUM_IS_SCOPED) {
+            /* Scoped enums pull the classes from the symtab's class chain so
+               that parser won't find them. */
+            int i;
+            for (i = 0;i < class_iter->variant_size;i++) {
+                lily_free(class_iter->variant_members[i]->name);
+                lily_free(class_iter->variant_members[i]);
+            }
+        }
+
         lily_free(class_iter->variant_members);
 
         lily_class *class_next = class_iter->next;
@@ -1156,6 +1166,23 @@ lily_prop_entry *lily_find_property(lily_symtab *symtab, lily_class *cls, char *
 
     if (ret == NULL && cls->parent != NULL)
         ret = lily_find_property(symtab, cls->parent, name);
+
+    return ret;
+}
+
+lily_class *lily_find_scoped_variant(lily_class *enum_class, char *name)
+{
+    int i;
+    uint64_t shorthash = shorthash_for_name(name);
+    lily_class *ret = NULL;
+
+    for (i = 0;i < enum_class->variant_size;i++) {
+        lily_class *variant_class = enum_class->variant_members[i];
+        if (variant_class->shorthash == shorthash &&
+            strcmp(variant_class->name, name) == 0) {
+            ret = variant_class;
+        }
+    }
 
     return ret;
 }
@@ -1662,7 +1689,7 @@ void lily_change_to_variant_class(lily_symtab *symtab, lily_class *cls,
 }
 
 void lily_finish_enum_class(lily_symtab *symtab, lily_class *enum_class,
-        lily_sig *enum_sig)
+        int is_scoped, lily_sig *enum_sig)
 {
     int i, variant_count = 0;
     lily_class *class_iter = symtab->class_chain;
@@ -1686,4 +1713,11 @@ void lily_finish_enum_class(lily_symtab *symtab, lily_class *enum_class,
     enum_class->flags |= CLS_ENUM_CLASS;
     enum_class->gc_marker = lily_gc_any_marker;
     enum_class->eq_func = lily_any_eq;
+
+    if (is_scoped) {
+        enum_class->flags |= CLS_ENUM_IS_SCOPED;
+        /* This removes the variants from symtab's classes, so that parser has
+           to get them from the enum class. */
+        symtab->class_chain = enum_class;
+    }
 }

@@ -404,7 +404,7 @@ typedef struct lily_prop_seed_t {
 /* CLS_* defines are for the flags of a lily_class. */
 /* If this is set, the class can be used as a hash key. This should only be set
    on primitive and immutable classes. */
-#define CLS_VALID_HASH_KEY 0x1
+#define CLS_VALID_HASH_KEY 0x01
 
 /* This class is an enum class, instead of a normal one. An enum class is a
    (C-style) union of different subclasses, only able to carry one class value
@@ -412,11 +412,15 @@ typedef struct lily_prop_seed_t {
 
    An enum class is created, ref'd, deref'd, and destroyed MUCH like an 'any'.
    It's also laid out like an 'any'. */
-#define CLS_ENUM_CLASS     0x2
+#define CLS_ENUM_CLASS     0x02
 
 /* This class is a variant class (it was created within an 'enum class'
    declaration). */
-#define CLS_VARIANT_CLASS  0x4
+#define CLS_VARIANT_CLASS  0x04
+
+/* This class is an enum class, and the variant entries inside are scoped.
+   This means entries must be accessed using 'enum::variant'. */
+#define CLS_ENUM_IS_SCOPED 0x10
 
 /* SIG_* defines are for the flags of a lily_sig. */
 /* If set, the signature is either a vararg function. The last argument is the

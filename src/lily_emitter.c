@@ -1273,7 +1273,14 @@ static void push_info_to_error(lily_emit_state *emit, lily_ast *ast)
         call_name = var->name;
     }
     else if (ast->arg_start->tree_type == tree_variant) {
-        call_name = ast->arg_start->variant_class->name;
+        lily_class *variant_cls = ast->arg_start->variant_class;
+        call_name = variant_cls->name;
+
+        if (variant_cls->parent->flags & CLS_ENUM_IS_SCOPED) {
+            class_name = variant_cls->parent->name;
+            separator = "::";
+        }
+
         kind = "Variant";
     }
     else if (ast->arg_start->tree_type == tree_oo_access) {
