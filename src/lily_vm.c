@@ -1265,7 +1265,6 @@ static void key_error(lily_vm_state *vm, int code_pos, lily_value *key)
     lily_msgbuf *msgbuf = vm->raiser->msgbuf;
     int key_cls_id = key->sig->cls->id;
 
-    lily_msgbuf_add(msgbuf, "KeyError: ");
     if (key_cls_id == SYM_CLASS_INTEGER)
         lily_msgbuf_add_int(msgbuf, key->value.integer);
     else if (key_cls_id == SYM_CLASS_DOUBLE)
@@ -1279,6 +1278,7 @@ static void key_error(lily_vm_state *vm, int code_pos, lily_value *key)
     else
         lily_msgbuf_add(msgbuf, "? (unable to print key).");
 
+    lily_msgbuf_add_char(msgbuf, '\n');
     lily_raise_prebuilt(vm->raiser, lily_KeyError);
 }
 
