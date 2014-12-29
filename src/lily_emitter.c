@@ -2021,7 +2021,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
         ast->result = (lily_sym *)result;
     }
     else {
-        lily_raise_adjusted(emit->raiser, ast->line_num, lily_BadTypecastError,
+        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
                 "Cannot cast type '%T' to type '%T'.\n", var_sig, cast_sig);
     }
 }
