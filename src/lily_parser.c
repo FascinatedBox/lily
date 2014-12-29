@@ -508,6 +508,10 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
 
     lily_sig *result;
 
+    if (cls->flags & CLS_VARIANT_CLASS)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Variant types not allowed in a declaration.\n");
+
     if (cls->template_count == 0) {
         result = cls->sig;
         if (flags & CV_MAKE_VARS)
