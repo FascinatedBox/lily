@@ -58,6 +58,56 @@ static void process_args(int argc, char **argv)
     }
 }
 
+void traceback_to_file(lily_parse_state *parser, FILE *outfile)
+{
+    lily_raiser *raiser = parser->raiser;
+    fprintf(outfile, "%s", lily_name_for_error(raiser->error_code));
+    if (raiser->msgbuf->message[0] != '\0')
+        fprintf(outfile, ": %s", raiser->msgbuf->message);
+    else
+        fputc('\n', outfile);
+
+    if (parser->mode == pm_parse) {
+        int line_num;
+        if (raiser->line_adjust == 0)
+            line_num = parser->lex->line_num;
+        else
+            line_num = raiser->line_adjust;
+
+        fprintf(outfile, "Where: File \"%s\" at line %d\n",
+                parser->lex->filename, line_num);
+    }
+    else if (parser->mode == pm_execute) {
+        lily_vm_stack_entry **vm_stack;
+        lily_vm_stack_entry *entry;
+        int i;
+
+        vm_stack = parser->vm->function_stack;
+        fprintf(outfile, "Traceback:\n");
+
+        for (i = parser->vm->function_stack_pos-1;i >= 0;i--) {
+            entry = vm_stack[i];
+            char *class_name = entry->function->class_name;
+            char *separator;
+            if (class_name == NULL) {
+                class_name = "";
+                separator = "";
+            }
+            else
+                separator = "::";
+
+            if (entry->function->code == NULL)
+                fprintf(outfile, "    Function %s%s%s [builtin]\n",
+                        class_name, separator,
+                        entry->function->trace_name);
+            else
+                fprintf(outfile, "    Function %s%s%s at line %d\n",
+                        class_name, separator,
+                        entry->function->trace_name, entry->line_num);
+        }
+    }
+}
+
 int main(int argc, char **argv)
 {
     process_args(argc, argv);
@@ -75,52 +125,7 @@ int main(int argc, char **argv)
         result = lily_parse_string(parser, lm_no_tags, to_process);
 
     if (result == 0) {
-        lily_raiser *raiser = parser->raiser;
-        fprintf(stderr, "%s", lily_name_for_error(raiser->error_code));
-        if (raiser->msgbuf->message[0] != '\0')
-            fprintf(stderr, ": %s", raiser->msgbuf->message);
-        else
-            fputc('\n', stderr);
-
-        if (parser->mode == pm_parse) {
-            int line_num;
-            if (raiser->line_adjust == 0)
-                line_num = parser->lex->line_num;
-            else
-                line_num = raiser->line_adjust;
-
-            fprintf(stderr, "Where: File \"%s\" at line %d\n",
-                    parser->lex->filename, line_num);
-        }
-        else if (parser->mode == pm_execute) {
-            lily_vm_stack_entry **vm_stack;
-            lily_vm_stack_entry *entry;
-            int i;
-
-            vm_stack = parser->vm->function_stack;
-            fprintf(stderr, "Traceback:\n");
-
-            for (i = parser->vm->function_stack_pos-1;i >= 0;i--) {
-                entry = vm_stack[i];
-                char *class_name = entry->function->class_name;
-                char *separator;
-                if (class_name == NULL) {
-                    class_name = "";
-                    separator = "";
-                }
-                else
-                    separator = "::";
-
-                if (entry->function->code == NULL)
-                    fprintf(stderr, "    Function %s%s%s [builtin]\n",
-                            class_name, separator,
-                            entry->function->trace_name);
-                else
-                    fprintf(stderr, "    Function %s%s%s at line %d\n",
-                            class_name, separator,
-                            entry->function->trace_name, entry->line_num);
-            }
-        }
+        traceback_to_file(parser, stderr);
         exit(EXIT_FAILURE);
     }
 
