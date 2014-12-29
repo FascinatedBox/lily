@@ -2290,9 +2290,15 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     expression(parser);
     lily_emit_eval_lambda_body(parser->emit, parser->ast_pool, result_wanted,
             did_resolve);
-    /* Save this before state thaw wipes it out. It can't be gotten (easily)
-       later. */
-    root_result = parser->ast_pool->root->result->sig;
+    if (parser->ast_pool->root->result)
+        /* Save this before state thaw wipes it out. It can't be gotten (easily)
+           later. */
+        root_result = parser->ast_pool->root->result->sig;
+    else
+        /* It's possible that the body of the lambda is a function that doesn't
+           return a value. */
+        root_result = NULL;
+
     lily_ast_thaw_state(parser->ast_pool);
 
     NEED_CURRENT_TOK(tk_right_curly)
@@ -2325,8 +2331,10 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
                 flags, parser->sig_stack, parser->sig_stack_pos, sigs_needed);
         lambda_var->sig = new_sig;
     }
-    else
+    else if (expect_sig)
         lambda_var->sig = expect_sig;
+    else
+        lambda_var->sig = parser->default_call_sig;
 
     lily_emit_leave_block(parser->emit);
 
