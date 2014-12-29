@@ -68,14 +68,21 @@ void traceback_to_file(lily_parse_state *parser, FILE *outfile)
         fputc('\n', outfile);
 
     if (parser->mode == pm_parse) {
-        int line_num;
-        if (raiser->line_adjust == 0)
-            line_num = parser->lex->line_num;
-        else
-            line_num = raiser->line_adjust;
+        lily_lex_entry *iter = parser->lex->entry;
 
-        fprintf(outfile, "Where: File \"%s\" at line %d\n",
-                parser->lex->filename, line_num);
+        int fixed_line_num = (raiser->line_adjust == 0 ?
+                parser->lex->line_num : raiser->line_adjust);
+
+        /* The parser handles lambda processing by putting entries with the
+           name [lambda]. Don't show these. */
+        while (strcmp(iter->filename, "[lambda]") == 0)
+            iter = iter->prev;
+
+        /* Since importing is not yet possible, simply show the top entry. This
+           should be the actual file loaded. */
+        iter->saved_line_num = fixed_line_num;
+        fprintf(outfile, "Where: File \"%s\" at line %d\n", iter->filename,
+                iter->saved_line_num);
     }
     else if (parser->mode == pm_execute) {
         lily_vm_stack_entry **vm_stack;
@@ -122,7 +129,7 @@ int main(int argc, char **argv)
     if (is_file == 1)
         result = lily_parse_file(parser, lm_no_tags, to_process);
     else
-        result = lily_parse_string(parser, lm_no_tags, to_process);
+        result = lily_parse_string(parser, "[cli]", lm_no_tags, to_process);
 
     if (result == 0) {
         traceback_to_file(parser, stderr);
