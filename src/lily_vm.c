@@ -1459,8 +1459,8 @@ lily_hash_elem *lily_try_lookup_hash_elem(lily_hash_val *hash,
     for an existing key to set. If none is found, then it attempts to create a
     new entry in the given hash with the given key and value.
 
-    vm:          The vm that the hash is in. This is passed in case ErrNoMem
-                 needs to be raised.
+    vm:          The vm that the hash is in. This is passed in case
+                 NoMemoryError needs to be raised.
     hash:        A valid hash, which may or may not have elements.
     key_siphash: The calculated siphash of the given key. Use
                  lily_calculate_siphash to get this.

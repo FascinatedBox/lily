@@ -173,14 +173,14 @@ typedef enum {
        This checks that the value contained by left is the same type as result.
        If it is, left's held value is set to 'right'. This is not checked by
        emitter (because what anys actually contain cannot be known at
-       emit-time), and may raise ErrBadCast if the types do not match.
+       emit-time), and may raise BadTypecastError if the types do not match.
        This can be thought of as the converse of o_any_assign. */
     o_any_typecast,
 
     /* Return expected:
        * int lineno
        This is written at the end of every native function that has a non-nil
-       return value. This raises ErrReturnExpected within the vm. This has
+       return value. This raises ReturnExpectedError within the vm. This has
        lineno included because the vm expects that any opcode that raises has
        a line double after it. */
     o_return_expected,

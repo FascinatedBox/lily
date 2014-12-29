@@ -34,7 +34,7 @@ static const lily_prop_seed_t message =
         {SYM_CLASS_STRING}};
 
 /* Note: If CLS_VALID_HASH_KEY is added to other classes, the vm will need to be
-         updated to hash those classes right. It will also need ErrNoSuchKey
+         updated to hash those classes right. It will also need KeyError
          printing to be touched up for that. Other things may also need updating
          too. */
 class_seed class_seeds[] =
