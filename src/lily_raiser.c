@@ -44,7 +44,7 @@ void lily_free_raiser(lily_raiser *raiser)
 /* lily_raise
    This stops the interpreter. error_code is one of the error codes defined in
    lily_raiser.h, which are matched to lily_error_names. Every error passes
-   through here except ErrNoMemory.
+   through here except NoMemoryError.
    Instead of printing the message, this function saves the message so that
    whatever runs the interpreter can choose what to do with it (ignoring it,
    printing it to a special file, printing it to an application window, etc.) */

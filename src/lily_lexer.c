@@ -1222,8 +1222,8 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
     given path. This will call up the first line and ensure the lexer starts
     after the <?lily block.
 
-    Note: If unable to create a new entry, ErrNoMem is raised.
-          If unable to open the given path, ErrImport is raised. */
+    Note: If unable to create a new entry, NoMemoryError is raised.
+          If unable to open the given path, ImportError is raised. */
 void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
 {
     lily_lex_entry *new_entry = get_entry(lexer);
@@ -1256,7 +1256,7 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
     the source. This calls up the first line, but doesn't do <?lily or ?>
     because that seems silly.
 
-    Note: If unable to allocate a new entry, ErrNoMem is raised. */
+    Note: If unable to allocate a new entry, NoMemoryError is raised. */
 void lily_load_str(lily_lex_state *lexer, char *name, lily_lex_mode mode, char *str)
 {
     lily_lex_entry *new_entry = get_entry(lexer);
@@ -1321,8 +1321,8 @@ void lily_load_copy_string(lily_lex_state *lexer, char *name,
     The mode determines if the given entry will parse tags or not.
 
     This function should only be called by lily_parse_special, since it raises
-    ErrNoMem if unable to allocate a new entry (and that's very bad if there's
-    no jump installed in the raiser). */
+    NoMemoryError if unable to allocate a new entry (and that's very bad if
+    there's no jump installed in the raiser). */
 void lily_load_special(lily_lex_state *lexer, lily_lex_mode mode, void *source,
     char *filename, lily_reader_fn read_line_fn, lily_close_fn close_fn)
 {
