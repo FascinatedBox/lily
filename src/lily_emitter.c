@@ -1294,7 +1294,7 @@ static void push_info_to_error(lily_emit_state *emit, lily_ast *ast)
         call_name = "(anonymous)";
     }
 
-    lily_msgbuf_add_fmt(msgbuf, "%s %s%s%s ", kind, class_name, separator,
+    lily_msgbuf_add_fmt(msgbuf, "%s %s%s%s", kind, class_name, separator,
             call_name);
 }
 
@@ -1341,9 +1341,29 @@ static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
 
     emit->raiser->line_adjust = ast->line_num;
 
+    /* If this call has unresolved generics, resolve those generics as
+       themselves so the error message prints out correctly. */
+    if (emit->current_generic_adjust) {
+        int i = emit->sig_stack_pos;
+        int end = emit->sig_stack_pos + emit->current_generic_adjust;
+        lily_sig *generic_iter = emit->symtab->template_sig_start;
+
+        while (i != end) {
+            if (emit->sig_stack[i] == NULL)
+                emit->sig_stack[i] = generic_iter;
+
+            i++;
+            generic_iter = generic_iter->next;
+        }
+    }
+
+    /* These names are intentionally the same length and on separate lines so
+       that slight naming issues become more apparent. */
     lily_msgbuf_add_fmt(msgbuf,
-            "arg #%d expects type '^T' but got type '^T'.\n", arg_num,
-            expected, got);
+            ", argument #%d is invalid:\n"
+            "Expected Type: ^T\n"
+            "Received Type: ^T\n",
+            arg_num + 1, lily_resolve_sig(emit, expected), got);
     lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
 }
 
@@ -1365,7 +1385,7 @@ static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
 
     emit->raiser->line_adjust = ast->line_num;
 
-    lily_msgbuf_add_fmt(msgbuf, "expects %s%d args, but got %d.\n",
+    lily_msgbuf_add_fmt(msgbuf, " expects %s%d args, but got %d.\n",
             va_text, call_sig->siglist_size - 1, ast->args_collected);
 
     lily_raise_prebuilt(emit->raiser, lily_SyntaxError);

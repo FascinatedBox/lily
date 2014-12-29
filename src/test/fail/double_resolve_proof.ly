@@ -1,6 +1,8 @@
 ###
-SyntaxError: Function f arg #2 expects type 'B' but got type 'list[list[integer]]'.
-Where: File "test/fail/double_resolve_proof.ly" at line 26
+SyntaxError: Function f, argument #3 is invalid:
+Expected Type: list[A]
+Received Type: list[list[integer]]
+Where: File "test/fail/double_resolve_proof.ly" at line 28
 ###
 
 function f[A, B](A one, B two, B three) {  }
