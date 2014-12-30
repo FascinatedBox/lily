@@ -1,9 +1,11 @@
 The Lily Programming Language
 =====
 
+```
 <html>
 <?lily print("Hello, world!") ?>
 </html>
+```
 
 Lily is a language that can be used to make dynamically-generated content in a way similar to PHP. It can also be run by itself.
 
