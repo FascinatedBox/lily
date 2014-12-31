@@ -18,14 +18,16 @@ static void usage()
     fputs("Usage: lily [option] ...\n"
           "Options:\n"
           "-h        : Print this help and exit.\n"
+          "-t        : Code is between <?lily ... ?> tags.\n"
+          "            Everything else is printed to stdout.\n"
+          "            By default, everything is treated as code.\n"
           "-s string : The program is a string (end of options).\n"
-          "            By default, does not process tags.\n"
-          "file      : The program is the given filename.\n"
-          "            Processes tags by default.\n", stderr);
+          "file      : The program is the given filename.\n", stderr);
     exit(EXIT_FAILURE);
 }
 
 int is_file;
+int do_tags = 0;
 char *to_process = NULL;
 
 static void process_args(int argc, char **argv)
@@ -35,6 +37,8 @@ static void process_args(int argc, char **argv)
         char *arg = argv[i];
         if (strcmp("-h", arg) == 0)
             usage();
+        else if (strcmp("-t", arg) == 0)
+            do_tags = 1;
         else if (strcmp("-s", arg) == 0) {
             i++;
             if (i == argc)
@@ -125,11 +129,13 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
+    lily_lex_mode mode = (do_tags ? lm_tags : lm_no_tags);
+
     int result;
     if (is_file == 1)
-        result = lily_parse_file(parser, lm_no_tags, to_process);
+        result = lily_parse_file(parser, mode, to_process);
     else
-        result = lily_parse_string(parser, "[cli]", lm_no_tags, to_process);
+        result = lily_parse_string(parser, "[cli]", mode, to_process);
 
     if (result == 0) {
         traceback_to_file(parser, stderr);
