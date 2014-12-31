@@ -1368,7 +1368,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
             cls_id = arg->sig->cls->id;
             val = arg->value;
 
-            if (fmt[i] == 'i') {
+            if (fmt[i] == 'd') {
                 if (cls_id != SYM_CLASS_INTEGER)
                     return;
                 snprintf(fmtbuf, 63, "%" PRId64, val.integer);
@@ -1380,7 +1380,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
                 else
                     lily_impl_puts(data, val.string->string);
             }
-            else if (fmt[i] == 'd') {
+            else if (fmt[i] == 'f') {
                 if (cls_id != SYM_CLASS_DOUBLE)
                     return;
 
