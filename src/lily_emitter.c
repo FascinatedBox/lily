@@ -1593,10 +1593,10 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     if (ast->left->tree_type != tree_var &&
         ast->left->tree_type != tree_local_var) {
-        eval_tree(emit, ast->left, NULL, 1);
-        if (ast->left->result->flags & SYM_NOT_ASSIGNABLE)
-            lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                    "Left side of %s is not assignable.\n", opname(ast->op));
+        /* If the left is complex and valid, it would have been sent off to a
+           different assign. Ergo, it must be invalid. */
+        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+                "Left side of %s is not assignable.\n", opname(ast->op));
     }
 
     if (ast->right->tree_type != tree_local_var)
