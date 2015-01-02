@@ -1231,11 +1231,13 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
     new_entry->read_line_fn = file_read_line_fn;
     new_entry->close_fn = file_close_fn;
     new_entry->filename = filename;
+
+    errno = 0;
     new_entry->source = fopen(filename, "r");
     if (new_entry->source == NULL) {
         lily_free(new_entry);
-        lily_raise(lexer->raiser, lily_ImportError, "Failed to open %s.\n",
-                   filename);
+        lily_raise(lexer->raiser, lily_ImportError,
+                   "Failed to open %s: (^R).\n", filename, errno);
     }
 
     lexer->filename = filename;
