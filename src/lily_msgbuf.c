@@ -235,6 +235,15 @@ static void msgbuf_add_indent(lily_msgbuf *msgbuf, int indent)
         lily_msgbuf_add(msgbuf, "|    ");
 }
 
+static void msgbuf_add_errno_string(lily_msgbuf *msgbuf, int errno_val)
+{
+    /* Assume that the message is of a reasonable sort of size. */
+    char buffer[128];
+    strerror_r(errno_val, buffer, sizeof(buffer));
+
+    lily_msgbuf_add(msgbuf, buffer);
+}
+
 void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, char *fmt, va_list var_args)
 {
     char modifier_buf[5];
@@ -310,6 +319,10 @@ void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, char *fmt, va_list var_args)
             else if (c == 'E') {
                 char *str = va_arg(var_args, char *);
                 lily_msgbuf_escape_add_str(msgbuf, str);
+            }
+            else if (c == 'R') {
+                int errno_val = va_arg(var_args, int);
+                msgbuf_add_errno_string(msgbuf, errno_val);
             }
 
             text_start = i+1;
