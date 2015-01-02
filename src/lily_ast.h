@@ -22,6 +22,7 @@ typedef struct lily_ast_t {
     lily_tree_type tree_type;
     uint16_t line_num;
 
+    lily_sym *original_sym;
     lily_prop_entry *property;
     lily_sig *sig;
     /* This is where the result of evaluating the tree goes. This is used
