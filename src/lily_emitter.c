@@ -436,7 +436,7 @@ static void ensure_valid_condition_type(lily_emit_state *emit, lily_sig *sig)
     Additionally, an 'index literal' is given as a special-case for tuples.
     This raises an error for unsubscriptable types. */
 static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
-        lily_ast *index_ast, lily_literal *index_literal)
+        lily_ast *index_ast)
 {
     int var_cls_id = var_ast->result->sig->cls->id;
     if (var_cls_id == SYM_CLASS_LIST) {
@@ -460,13 +460,13 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
             lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
                     "tuple subscripts must be integer literals.\n", "");
         }
-        lily_sig *var_sig = var_ast->result->sig;
-        if (index_literal->value.integer < 0 ||
-            index_literal->value.integer >= var_sig->siglist_size) {
 
+        int index_value = index_ast->original_sym->value.integer;
+        lily_sig *var_sig = var_ast->result->sig;
+        if (index_value < 0 || index_value >= var_sig->siglist_size) {
             lily_raise_adjusted(emit->raiser, var_ast->line_num,
                     lily_SyntaxError, "Index %d is out of range for %T.\n",
-                    index_literal->value.integer, var_sig);
+                    index_value, var_sig);
         }
     }
     else {
@@ -479,18 +479,18 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
 /*  get_subscript_result
     Get the type that would result from doing a subscript. tuple_index_lit is
     a special case for tuples. */
-static lily_sig *get_subscript_result(lily_sig *sig, lily_ast *index_ast,
-        lily_literal *tuple_index_lit)
+static lily_sig *get_subscript_result(lily_sig *sig, lily_ast *index_ast)
 {
     lily_sig *result;
     if (sig->cls->id == SYM_CLASS_LIST)
         result = sig->siglist[0];
     else if (sig->cls->id == SYM_CLASS_HASH)
         result = sig->siglist[1];
-    else if (sig->cls->id == SYM_CLASS_TUPLE)
-        /* check_valid_subscript verifies that the literal is an integer with
-           a sane index. */
-        result = sig->siglist[tuple_index_lit->value.integer];
+    else if (sig->cls->id == SYM_CLASS_TUPLE) {
+        /* check_valid_subscript ensures that this is safe. */
+        int literal_index = index_ast->original_sym->value.integer;
+        result = sig->siglist[literal_index];
+    }
     else
         /* Won't happen, but keeps the compiler from complaining. */
         result = NULL;
@@ -1968,21 +1968,12 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
     if (var_ast->tree_type != tree_local_var)
         eval_tree(emit, var_ast, NULL, 1);
 
-    lily_literal *tuple_literal = NULL;
-
-    if (index_ast->tree_type != tree_local_var) {
-        if (index_ast->tree_type == tree_readonly &&
-            var_ast->result->sig->cls->id == SYM_CLASS_TUPLE) {
-            /* Save the literal before evaluating the tree wipes it out. */
-            tuple_literal = (lily_literal *)index_ast->result;
-        }
+    if (index_ast->tree_type != tree_local_var)
         eval_tree(emit, index_ast, NULL, 1);
-    }
 
-    check_valid_subscript(emit, var_ast, index_ast, tuple_literal);
+    check_valid_subscript(emit, var_ast, index_ast);
 
-    elem_sig = get_subscript_result(var_ast->result->sig, index_ast,
-            tuple_literal);
+    elem_sig = get_subscript_result(var_ast->result->sig, index_ast);
 
     if (elem_sig != rhs->sig && elem_sig->cls->id != SYM_CLASS_ANY) {
         emit->raiser->line_adjust = ast->line_num;
@@ -2706,24 +2697,13 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast,
     if (var_ast->tree_type != tree_local_var)
         eval_tree(emit, var_ast, NULL, 1);
 
-    lily_literal *tuple_literal = NULL;
-
-    if (index_ast->tree_type != tree_local_var) {
-        if (index_ast->tree_type == tree_readonly &&
-            var_ast->result->sig->cls->id == SYM_CLASS_TUPLE) {
-            /* Save the literal before evaluating the tree wipes it out. This
-               will be used later to determine what the result of the subscript
-               should actually be. */
-            tuple_literal = (lily_literal *)index_ast->result;
-        }
+    if (index_ast->tree_type != tree_local_var)
         eval_tree(emit, index_ast, NULL, 1);
-    }
 
-    check_valid_subscript(emit, var_ast, index_ast, tuple_literal);
+    check_valid_subscript(emit, var_ast, index_ast);
 
     lily_sig *sig_for_result;
-    sig_for_result = get_subscript_result(var_ast->result->sig, index_ast,
-            tuple_literal);
+    sig_for_result = get_subscript_result(var_ast->result->sig, index_ast);
 
     lily_storage *result = get_storage(emit, sig_for_result, ast->line_num);
 
