@@ -668,6 +668,7 @@ void lily_ast_push_sym(lily_ast_pool *ap, lily_sym *s)
 {
     AST_COMMON_INIT(a, tree_var);
     a->result = s;
+    a->original_sym = s;
 
     merge_value(ap, a);
 }
@@ -676,6 +677,7 @@ void lily_ast_push_readonly(lily_ast_pool *ap, lily_sym *ro_sym)
 {
     AST_COMMON_INIT(a, tree_readonly);
     a->result = ro_sym;
+    a->original_sym = ro_sym;
 
     merge_value(ap, a);
 }

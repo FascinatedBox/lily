@@ -1358,6 +1358,44 @@ static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
     lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
 }
 
+/*  peekahead_eval
+    Complex assignments pose a problem for Lily: The right side needs to infer
+    type based on the left. However, assignments must also run from right to
+    left.
+    This function solves that problem by evaluating the tree and then throwing
+    away the result. This is fine, because anything assignable won't damage
+    itself (so double-eval works). */
+static lily_sig *peekahead_eval(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_sig *result_sig;
+    int save_next_spot = emit->symtab->next_register_spot;
+    int save_pos = emit->top_function->pos;
+    lily_storage *save_storage_start = emit->current_block->storage_start;
+    lily_storage *save_unused_start = emit->unused_storage_start;
+    lily_storage *storage_iter;
+
+    /* Make it so new storages will get thrown where the unused ones start so
+       that they're easier to free up after the eval. */
+    emit->current_block->storage_start = save_unused_start;
+
+    eval_tree(emit, ast, NULL, 1);
+    result_sig = ast->result->sig;
+
+    /* The storages and the code written are going to be erased, as if it never
+       happened. This is so that  */
+    storage_iter = save_unused_start;
+    while (storage_iter != NULL) {
+        storage_iter->sig = NULL;
+        storage_iter = storage_iter->next;
+    }
+
+    emit->current_block->storage_start = save_storage_start;
+    emit->top_function->pos = save_pos;
+    emit->symtab->next_register_spot = save_next_spot;
+
+    return result_sig;
+}
+
 /*****************************************************************************/
 /* Tree evaluation functions (and tree-related helpers).                     */
 /*****************************************************************************/
@@ -1911,18 +1949,24 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
     lily_sym *rhs;
     lily_sig *elem_sig;
 
+    /* Assignments evaluate from right-to-left, but type inference uses the
+       type of the left to figure out the right side.
+       It's necessary to check for assignability now because functions modify
+       themselves but are also not assignable. */
+    lily_sig *left_sig = peekahead_eval(emit, ast->left);
+    if (ast->left->result->flags & SYM_NOT_ASSIGNABLE) {
+        lily_raise_adjusted(emit->raiser, ast->line_num,
+                lily_SyntaxError,
+                "Left side of %s is not assignable.\n", opname(ast->op));
+    }
+
     if (ast->right->tree_type != tree_local_var)
-        eval_tree(emit, ast->right, NULL, 1);
+        eval_tree(emit, ast->right, left_sig, 1);
 
     rhs = ast->right->result;
 
-    if (var_ast->tree_type != tree_local_var) {
+    if (var_ast->tree_type != tree_local_var)
         eval_tree(emit, var_ast, NULL, 1);
-        if (var_ast->result->flags & SYM_NOT_ASSIGNABLE)
-            lily_raise_adjusted(emit->raiser, ast->line_num,
-                    lily_SyntaxError,
-                    "Left side of %s is not assignable.\n", opname(ast->op));
-    }
 
     lily_literal *tuple_literal = NULL;
 
@@ -2690,6 +2734,9 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast,
             index_ast->result->reg_spot,
             result->reg_spot);
 
+    if (var_ast->result->flags & SYM_NOT_ASSIGNABLE)
+        result->flags |= SYM_NOT_ASSIGNABLE;
+
     ast->result = (lily_sym *)result;
 }
 
@@ -3072,17 +3119,17 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     int opcode;
 
     if (ast->tree_type == tree_readonly) {
-        if (ast->result->flags & SYM_TYPE_LITERAL)
+        if (ast->original_sym->flags & SYM_TYPE_LITERAL)
             opcode = o_get_const;
         else
             opcode = o_get_function;
     }
-    else if (ast->result->flags & SYM_TYPE_VAR)
+    else if (ast->original_sym->flags & SYM_TYPE_VAR)
         opcode = o_get_global;
     else
         opcode = -1;
 
-    ret = get_storage(emit, ast->result->sig, ast->line_num);
+    ret = get_storage(emit, ast->original_sym->sig, ast->line_num);
 
     if (opcode != o_get_global)
         ret->flags |= SYM_NOT_ASSIGNABLE;
@@ -3090,7 +3137,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     write_4(emit,
             opcode,
             ast->line_num,
-            ast->result->reg_spot,
+            ast->original_sym->reg_spot,
             ret->reg_spot);
 
     ast->result = (lily_sym *)ret;
