@@ -499,122 +499,82 @@ static lily_sig *get_subscript_result(lily_sig *sig, lily_ast *index_ast,
 }
 
 /*  try_add_storage
-    This is a helper for get_storage which attempts to add a new storage to
-    emitter's chain of storages with the given signature.
-
-    Success: A new storage is returned.
-    Failure: NULL is returned. */
-static lily_storage *try_add_storage(lily_emit_state *emit, lily_sig *sig)
+    Attempt to add a new storage at the top of emitter's linked list of
+    storages. This should be called as a means of ensuring that there is always
+    one valid unused storage. Doing so makes storage handling simpler all
+    around. */
+static int try_add_storage(lily_emit_state *emit)
 {
-    lily_storage *ret = lily_malloc(sizeof(lily_storage));
-    if (ret == NULL)
-        return ret;
+    lily_storage *storage = lily_malloc(sizeof(lily_storage));
+    if (storage == NULL)
+        return 0;
 
-    ret->sig = sig;
-    ret->next = NULL;
-    ret->expr_num = emit->expr_num;
-    ret->flags = 0;
-
-    ret->reg_spot = emit->symtab->next_register_spot;
-    emit->symtab->next_register_spot++;
+    storage->sig = NULL;
+    storage->next = NULL;
+    storage->expr_num = 0;
+    storage->flags = 0;
 
     if (emit->all_storage_start == NULL)
-        emit->all_storage_start = ret;
+        emit->all_storage_start = storage;
     else
-        emit->all_storage_top->next = ret;
+        emit->all_storage_top->next = storage;
 
-    emit->all_storage_top = ret;
-    return ret;
+    emit->all_storage_top = storage;
+    emit->unused_storage_start = storage;
+    return 1;
 }
 
 /*  get_storage
-    Attempt to get an available storage register for the given signature. This
-    will first attempt to get an available storage in the current function,
-    then try to create a new one. This has the side-effect of fixing
-    storage_start in the event that storage_start is NULL. This fixup is done
-    up to the current function block.
+    Attempt to get an unused storage of the signature given. Additionally, a
+    line number is required to fix up the line number in case there is an
+    out-of-memory situation.
+    Additionally, this function ensures that emit->unused_storage_start is both
+    updated appropriately and will never become NULL.
 
-    emit:     The emitter to search for a storage in.
-    sig:      The signature to search for.
-    line_num: If a storage cannot be obtained, lily_raise_nomem is called after
-              fixing the raiser's line number to line_num. This cuts down on
-              boilerplate code from checking that obtaining a storage succeded.
-
-    This call shall either return a valid storage of the given signature, or
-    raise NoMemoryError with the given line_num. */
+    This will either return a valid storage, or call lily_raise_nomem. */
 static lily_storage *get_storage(lily_emit_state *emit,
         lily_sig *sig, int line_num)
 {
-    lily_storage *ret = NULL;
-    lily_storage *start = emit->current_block->storage_start;
+    lily_storage *storage_iter = emit->current_block->storage_start;
     int expr_num = emit->expr_num;
 
-    if (start) {
-        while (start) {
-            /* The signature is only null if it belonged to a function that is
-               now done. It can be taken, but don't forget to set a proper
-               register place for it. */
-            if (start->sig == NULL) {
-                start->sig = sig;
-                start->expr_num = expr_num;
-                start->reg_spot = emit->symtab->next_register_spot;
-                emit->symtab->next_register_spot++;
-                /* Since this stops on the first unused storage it finds, this
-                   must be unused_storage_start, which is also the first unused
-                   storage. Make sure to bump the unused start ahead to the next
-                   one (or NULL, if no next one). */
-                emit->unused_storage_start = emit->unused_storage_start->next;
-                ret = start;
-                break;
-            }
+    /* Emitter's linked list of storages is done such that there is always one
+       unused storage at the end. Therefore, this loop will never end with
+       storage_iter == NULL. */
+    while (storage_iter) {
+        /* If the signature is NULL, then nothing is using this storage and it
+           can be repurposed for the current function. */
+        if (storage_iter->sig == NULL) {
+            storage_iter->sig = sig;
 
-            /* The symtab ensures that each signature represents something
-               different, so this works. */
-            if (start->sig == sig && start->expr_num != expr_num) {
-                start->expr_num = expr_num;
-                ret = start;
-                break;
-            }
+            storage_iter->reg_spot = emit->symtab->next_register_spot;
+            emit->symtab->next_register_spot++;
 
-            start = start->next;
+            /* This ensures that lambdas don't clobber on current storages. */
+            if (storage_iter->next)
+                emit->unused_storage_start = storage_iter->next;
+
+            break;
         }
+        else if (storage_iter->sig == sig &&
+                 storage_iter->expr_num != expr_num) {
+            storage_iter->expr_num = expr_num;
+            break;
+        }
+
+        storage_iter = storage_iter->next;
     }
 
-    if (ret == NULL) {
-        ret = try_add_storage(emit, sig);
-
-        if (ret != NULL) {
-            ret->expr_num = expr_num;
-            /* Non-function blocks inherit their storage start from the
-               function block that they are in. */
-            if (emit->current_block->storage_start == NULL) {
-                if (emit->current_block->block_type & BLOCK_FUNCTION)
-                    /* Easy mode: Just fill in for the function. */
-                    emit->current_block->storage_start = ret;
-                else {
-                    /* Non-function block, so keep setting storage_start until
-                       the function block is reached. This will allow other
-                       blocks to use this storage. This is also important
-                       because not doing this causes the function block to miss
-                       this storage when the function is being finalized. */
-                    lily_block *block = emit->current_block;
-                    while ((block->block_type & BLOCK_FUNCTION) == 0) {
-                        block->storage_start = ret;
-                        block = block->prev;
-                    }
-
-                    block->storage_start = ret;
-                }
-            }
-        }
-        else {
-            emit->raiser->line_adjust = line_num;
-            lily_raise_nomem(emit->raiser);
-        }
+    storage_iter->expr_num = expr_num;
+    /* This ensures that emit->unused_storage_start is always valid and always
+       something unused. */
+    if (storage_iter->next == NULL && try_add_storage(emit) == 0) {
+        emit->raiser->line_adjust = line_num;
+        lily_raise_nomem(emit->raiser);
     }
 
-    ret->flags &= ~SYM_NOT_ASSIGNABLE;
-    return ret;
+    storage_iter->flags &= ~SYM_NOT_ASSIGNABLE;
+    return storage_iter;
 }
 
 /*  write_build_op
@@ -4204,6 +4164,11 @@ void lily_emit_leave_block(lily_emit_state *emit)
     success, 0 on failure. This should only be called once. */
 int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
 {
+    /* This adds the first storage and makes sure that the emitter can always
+       know that emit->unused_storage_start is never NULL. */
+    if (try_add_storage(emit) == 0)
+        return 0;
+
     lily_block *main_block = try_new_block();
     if (main_block == NULL)
         return 0;
@@ -4223,7 +4188,7 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     main_block->prev = NULL;
     main_block->block_type = BLOCK_FUNCTION;
     main_block->function_var = main_var;
-    main_block->storage_start = NULL;
+    main_block->storage_start = emit->all_storage_start;
     /* This is necessary for trapping break/continue inside of __main__. */
     main_block->loop_start = -1;
     main_block->class_entry = NULL;
