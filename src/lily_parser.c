@@ -445,7 +445,7 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
         lily_sig *check_sig = parser->sig_stack[stack_start];
         if ((check_sig->cls->flags & CLS_VALID_HASH_KEY) == 0) {
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "'%T' is not a valid hash key.\n", check_sig);
+                    "'^T' is not a valid hash key.\n", check_sig);
         }
     }
 
@@ -1652,7 +1652,7 @@ static void for_handler(lily_parse_state *parser, int multi)
     }
     else if (loop_var->sig->cls->id != SYM_CLASS_INTEGER) {
         lily_raise(parser->raiser, lily_SyntaxError,
-                   "Loop var must be type integer, not type '%T'.\n",
+                   "Loop var must be type integer, not type '^T'.\n",
                    loop_var->sig);
     }
 

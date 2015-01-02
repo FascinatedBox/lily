@@ -1,6 +1,8 @@
 #ifndef LILY_MSGBUF_H
 # define LILY_MSGBUF_H
 
+# include <stdarg.h>
+
 /* Don't include lily_core_types.h when this is all that's needed from it. */
 struct lily_sig_t;
 
@@ -29,6 +31,7 @@ void lily_msgbuf_add_int(lily_msgbuf *, int);
 void lily_msgbuf_add_double(lily_msgbuf *, double);
 void lily_msgbuf_add_sig(lily_msgbuf *, struct lily_sig_t *);
 void lily_msgbuf_add_fmt(lily_msgbuf *, char *, ...);
+void lily_msgbuf_add_fmt_va(lily_msgbuf *, char *, va_list);
 void lily_msgbuf_escaped_add_str(lily_msgbuf *, char *);
 void lily_msgbuf_flush(lily_msgbuf *);
 void lily_msgbuf_reset(lily_msgbuf *);

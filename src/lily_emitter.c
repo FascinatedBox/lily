@@ -428,7 +428,7 @@ static void ensure_valid_condition_type(lily_emit_state *emit, lily_sig *sig)
         cls_id != SYM_CLASS_STRING &&
         cls_id != SYM_CLASS_LIST)
         lily_raise(emit->raiser, lily_SyntaxError,
-                "%T is not a valid condition type.\n", sig);
+                "^T is not a valid condition type.\n", sig);
 }
 
 /*  check_valid_subscript
@@ -450,7 +450,7 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
 
         if (want_key != have_key) {
             lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
-                    "hash index should be type '%T', not type '%T'.\n",
+                    "hash index should be type '^T', not type '^T'.\n",
                     want_key, have_key);
         }
     }
@@ -465,13 +465,13 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
         lily_sig *var_sig = var_ast->result->sig;
         if (index_value < 0 || index_value >= var_sig->siglist_size) {
             lily_raise_adjusted(emit->raiser, var_ast->line_num,
-                    lily_SyntaxError, "Index %d is out of range for %T.\n",
+                    lily_SyntaxError, "Index %d is out of range for ^T.\n",
                     index_value, var_sig);
         }
     }
     else {
         lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
-                "Cannot subscript type '%T'.\n",
+                "Cannot subscript type '^T'.\n",
                 var_ast->result->sig);
     }
 }
@@ -1296,7 +1296,7 @@ static void bad_assign_error(lily_emit_state *emit, int line_num,
     /* Remember that right is being assigned to left, so right should
        get printed first. */
     lily_raise_adjusted(emit->raiser, line_num, lily_SyntaxError,
-            "Cannot assign type '%T' to type '%T'.\n",
+            "Cannot assign type '^T' to type '^T'.\n",
             right_sig, left_sig);
 }
 
@@ -1440,7 +1440,7 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
 
     if (opcode == -1)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                   "Invalid operation: %T %s %T.\n", ast->left->result->sig,
+                   "Invalid operation: ^T %s ^T.\n", ast->left->result->sig,
                    opname(ast->op), ast->right->result->sig);
 
     if (ast->op == expr_plus || ast->op == expr_minus ||
@@ -2041,7 +2041,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     }
     else {
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Cannot cast type '%T' to type '%T'.\n", var_sig, cast_sig);
+                "Cannot cast type '^T' to type '^T'.\n", var_sig, cast_sig);
     }
 }
 
@@ -2350,7 +2350,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
                 if ((key_tree->result->sig->cls->flags & CLS_VALID_HASH_KEY) == 0) {
                     lily_raise_adjusted(emit->raiser, key_tree->line_num,
                             lily_SyntaxError,
-                            "Resulting type '%T' is not a valid hash key.\n",
+                            "Resulting type '^T' is not a valid hash key.\n",
                             key_tree->result->sig);
                 }
 
@@ -2359,7 +2359,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
             else {
                 lily_raise_adjusted(emit->raiser, key_tree->line_num,
                         lily_SyntaxError,
-                        "Expected a key of type '%T', but key is of type '%T'.\n",
+                        "Expected a key of type '^T', but key is of type '^T'.\n",
                         last_key_sig, key_tree->result->sig);
             }
         }
@@ -3008,7 +3008,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
     cls_id = ast->result->sig->cls->id;
     if (cls_id != SYM_CLASS_FUNCTION)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Cannot anonymously call resulting type '%T'.\n",
+                "Cannot anonymously call resulting type '^T'.\n",
                 ast->result->sig);
 
     if (ast->arg_start->tree_type == tree_oo_access) {
@@ -3503,7 +3503,7 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_ast_pool *ap,
 
     if (ast->result->sig->cls->id != SYM_CLASS_INTEGER) {
         lily_raise(emit->raiser, lily_SyntaxError,
-                   "Expected type 'integer', but got type '%T'.\n",
+                   "Expected type 'integer', but got type '^T'.\n",
                    ast->result->sig);
     }
 
@@ -3925,7 +3925,7 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
         if (ast->result->sig != ret_sig &&
             type_matchup(emit, ret_sig, ast) == 0) {
             lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                    "return expected type '%T' but got type '%T'.\n", ret_sig,
+                    "return expected type '^T' but got type '^T'.\n", ret_sig,
                     ast->result->sig);
         }
     }

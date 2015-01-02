@@ -235,13 +235,10 @@ static void msgbuf_add_indent(lily_msgbuf *msgbuf, int indent)
         lily_msgbuf_add(msgbuf, "|    ");
 }
 
-void lily_msgbuf_add_fmt(lily_msgbuf *msgbuf, char *fmt, ...)
+void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, char *fmt, va_list var_args)
 {
     char modifier_buf[5];
     int i, len, text_start;
-    va_list var_args;
-
-    va_start(var_args, fmt);
 
     modifier_buf[0] = '%';
     modifier_buf[1] = '\0';
@@ -321,6 +318,12 @@ void lily_msgbuf_add_fmt(lily_msgbuf *msgbuf, char *fmt, ...)
 
     if (i != text_start)
         lily_msgbuf_add_text_range(msgbuf, fmt, text_start, i);
+}
 
+void lily_msgbuf_add_fmt(lily_msgbuf *msgbuf, char *fmt, ...)
+{
+    va_list var_args;
+    va_start(var_args, fmt);
+    lily_msgbuf_add_fmt_va(msgbuf, fmt, var_args);
     va_end(var_args);
 }

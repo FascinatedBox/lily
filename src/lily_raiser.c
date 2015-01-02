@@ -50,48 +50,14 @@ void lily_free_raiser(lily_raiser *raiser)
    printing it to a special file, printing it to an application window, etc.) */
 void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
 {
-    int i, len, text_start;
-    va_list var_args;
-
-    /* Make this ready to use again, in case 'show' caused the truncated flag
-       to be set. */
+    /* This error message is more important than whatever's in here. So blast
+       the buffer (and maybe any truncation flag). */
     lily_msgbuf_reset(raiser->msgbuf);
 
+    va_list var_args;
     va_start(var_args, fmt);
-
-    text_start = 0;
-    len = strlen(fmt);
-
-    for (i = 0;i < len;i++) {
-        char c = fmt[i];
-        if (c == '%') {
-            if (i + 1 == len)
-                break;
-
-            if (i != text_start)
-                lily_msgbuf_add_text_range(raiser->msgbuf, fmt, text_start, i);
-
-            i++;
-            c = fmt[i];
-            if (c == 's') {
-                char *str = va_arg(var_args, char *);
-                lily_msgbuf_add(raiser->msgbuf, str);
-            }
-            else if (c == 'd') {
-                int d = va_arg(var_args, int);
-                lily_msgbuf_add_int(raiser->msgbuf, d);
-            }
-            else if (c == 'T') {
-                lily_sig *sig = va_arg(var_args, lily_sig *);
-                lily_msgbuf_add_sig(raiser->msgbuf, sig);
-            }
-
-            text_start = i+1;
-        }
-    }
-
-    if (i != text_start)
-        lily_msgbuf_add_text_range(raiser->msgbuf, fmt, text_start, i);
+    lily_msgbuf_add_fmt_va(raiser->msgbuf, fmt, var_args);
+    va_end(var_args);
 
     raiser->error_code = error_code;
     longjmp(raiser->jumps[raiser->jump_pos-1], 1);
