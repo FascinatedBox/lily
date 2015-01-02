@@ -2736,7 +2736,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     top->line_num = top->code[code_pos+1];
 
                     lily_raise(vm->raiser, lily_BadTypecastError,
-                            "Cannot cast any containing type '%T' to type '%T'.\n",
+                            "Cannot cast any containing type '^T' to type '^T'.\n",
                             rhs_reg->sig, lhs_reg->sig);
                 }
 
