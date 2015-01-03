@@ -324,6 +324,23 @@ static lily_lex_entry *get_entry(lily_lex_state *lex)
     return ret_entry;
 }
 
+/*  setup_entry
+    This function is called after adding a new entry to the lexer. It handles
+    pulling up the first line into the lexer's buffer. */
+static void setup_entry(lily_lex_state *lexer, lily_lex_entry *new_entry,
+        lily_lex_mode mode)
+{
+    if (new_entry->prev == NULL) {
+        lexer->mode = mode;
+        new_entry->read_line_fn(new_entry);
+
+        if (mode == lm_tags)
+            lily_lexer_handle_page_data(lexer);
+    }
+    else
+        new_entry->read_line_fn(new_entry);
+}
+
 /*  leave_entry
     This is called when the end of an entry is reached. The current entry is
     left, and the previously-entered one is set up in place of it.
@@ -1241,16 +1258,7 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
     }
 
     lexer->filename = filename;
-
-    if (new_entry->prev == NULL) {
-        lexer->mode = mode;
-        file_read_line_fn(lexer->entry);
-
-        if (mode == lm_tags)
-            lily_lexer_handle_page_data(lexer);
-    }
-    else
-        file_read_line_fn(lexer->entry);
+    setup_entry(lexer, new_entry, mode);
 }
 
 /*  lily_load_str
@@ -1269,16 +1277,7 @@ void lily_load_str(lily_lex_state *lexer, char *name, lily_lex_mode mode, char *
     new_entry->filename = name;
 
     lexer->filename = name;
-
-    if (new_entry->prev == NULL) {
-        lexer->mode = mode;
-
-        str_read_line_fn(lexer->entry);
-        if (mode == lm_tags)
-            lily_lexer_handle_page_data(lexer);
-    }
-    else
-        str_read_line_fn(lexer->entry);
+    setup_entry(lexer, new_entry, mode);
 }
 
 /*  lily_load_copy_string
@@ -1303,16 +1302,7 @@ void lily_load_copy_string(lily_lex_state *lexer, char *name,
     new_entry->filename = name;
 
     lexer->filename = name;
-
-    if (new_entry->prev == NULL) {
-        lexer->mode = mode;
-
-        str_read_line_fn(lexer->entry);
-        if (mode == lm_tags)
-            lily_lexer_handle_page_data(lexer);
-    }
-    else
-        str_read_line_fn(lexer->entry);
+    setup_entry(lexer, new_entry, mode);
 }
 
 /*  lily_load_special
@@ -1335,15 +1325,7 @@ void lily_load_special(lily_lex_state *lexer, lily_lex_mode mode, void *source,
     new_entry->filename = filename;
 
     lexer->filename = filename;
-
-    if (new_entry->prev == NULL) {
-        lexer->mode = mode;
-        read_line_fn(lexer->entry);
-        if (mode == lm_tags)
-            lily_lexer_handle_page_data(lexer);
-    }
-    else
-        read_line_fn(lexer->entry);
+    setup_entry(lexer, new_entry, mode);
 }
 
 /* lily_lexer
