@@ -1176,9 +1176,9 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
 /*  eval_enforce_value
     Evaluate a given ast and make sure it returns a value. */
 static void eval_enforce_value(lily_emit_state *emit, lily_ast *ast,
-        char *message)
+        lily_sig *expect_sig, char *message)
 {
-    eval_tree(emit, ast, NULL, 1);
+    eval_tree(emit, ast, expect_sig, 1);
     emit->expr_num++;
 
     if (ast->result == NULL)
@@ -3533,7 +3533,8 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
 
     if ((ast->tree_type == tree_readonly &&
          condition_optimize_check(ast)) == 0) {
-        eval_enforce_value(emit, ast, "Conditional expression has no value.\n");
+        eval_enforce_value(emit, ast, NULL,
+                "Conditional expression has no value.\n");
         ensure_valid_condition_type(emit, ast->result->sig);
 
         if (current_type != BLOCK_DO_WHILE)
@@ -3676,7 +3677,7 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_ast_pool *ap)
 {
     lily_ast *ast = ap->root;
     lily_block *current_block = emit->current_block;
-    eval_enforce_value(emit, ast, "Match expression has no value.\n");
+    eval_enforce_value(emit, ast, NULL, "Match expression has no value.\n");
 
     if ((ast->result->sig->cls->flags & CLS_ENUM_CLASS) == 0 ||
         ast->result->sig->cls->id == SYM_CLASS_ANY) {
@@ -3918,9 +3919,10 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
                 "'return' used outside of a function.\n");
 
     if (ast) {
-        eval_enforce_value(emit, ast, "'return' expression has no value.\n");
-
         lily_sig *ret_sig = emit->top_function_ret;
+
+        eval_enforce_value(emit, ast, ret_sig,
+                "'return' expression has no value.\n");
 
         if (ast->result->sig != ret_sig &&
             type_matchup(emit, ret_sig, ast) == 0) {
@@ -3993,7 +3995,7 @@ void lily_emit_try(lily_emit_state *emit, int line_num)
     the resulting value. The ast is checked to ensure it can be raised. */
 void lily_emit_raise(lily_emit_state *emit, lily_ast *ast)
 {
-    eval_enforce_value(emit, ast, "'raise' expression has no value.\n");
+    eval_enforce_value(emit, ast, NULL, "'raise' expression has no value.\n");
 
     lily_class *result_cls = ast->result->sig->cls;
     lily_class *except_cls = lily_class_by_name(emit->symtab, "Exception");
