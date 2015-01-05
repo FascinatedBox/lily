@@ -1358,40 +1358,64 @@ static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
     lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
 }
 
-/*  peekahead_eval
-    Complex assignments pose a problem for Lily: The right side needs to infer
-    type based on the left. However, assignments must also run from right to
-    left.
-    This function solves that problem by evaluating the tree and then throwing
-    away the result. This is fine, because anything assignable won't damage
-    itself (so double-eval works). */
-static lily_sig *peekahead_eval(lily_emit_state *emit, lily_ast *ast)
+/*  determine_left_type
+    This function is called on the left side of an assignment to determine
+    what the result of that assignment will be. However, this function does
+    NOT do any evaluation.
+
+    This function exists because assignments run from right to left, but at
+    the same time the right side should infer the resulting type based off of
+    the left side. */
+static lily_sig *determine_left_type(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_sig *result_sig;
-    int save_next_spot = emit->symtab->next_register_spot;
-    int save_pos = emit->top_function->pos;
-    lily_storage *save_storage_start = emit->current_block->storage_start;
-    lily_storage *save_unused_start = emit->unused_storage_start;
-    lily_storage *storage_iter;
+    lily_sig *result_sig = NULL;
 
-    /* Make it so new storages will get thrown where the unused ones start so
-       that they're easier to free up after the eval. */
-    emit->current_block->storage_start = save_unused_start;
+    if (ast->tree_type == tree_var || ast->tree_type == tree_local_var)
+        result_sig = ast->original_sym->sig;
+    else if (ast->tree_type == tree_subscript) {
+        lily_ast *var_tree = ast->arg_start;
+        lily_ast *index_tree = var_tree->next_arg;
 
-    eval_tree(emit, ast, NULL, 1);
-    result_sig = ast->result->sig;
+        result_sig = determine_left_type(emit, var_tree);
 
-    /* The storages and the code written are going to be erased, as if it never
-       happened. This is so that  */
-    storage_iter = save_unused_start;
-    while (storage_iter != NULL) {
-        storage_iter->sig = NULL;
-        storage_iter = storage_iter->next;
+        if (result_sig != NULL) {
+            if (result_sig->cls->id == SYM_CLASS_HASH)
+                result_sig = result_sig->siglist[1];
+            else if (result_sig->cls->id == SYM_CLASS_TUPLE) {
+                if (index_tree->tree_type != tree_readonly ||
+                    index_tree->original_sym->sig->cls->id != SYM_CLASS_INTEGER)
+                    result_sig = NULL;
+                else {
+                    int literal_index = index_tree->original_sym->value.integer;
+                    if (literal_index < 0 ||
+                        literal_index > result_sig->siglist_size)
+                        result_sig = NULL;
+                    else
+                        result_sig = result_sig->siglist[literal_index];
+                }
+            }
+            else if (result_sig->cls->id == SYM_CLASS_LIST)
+                result_sig = result_sig->siglist[0];
+        }
     }
+    else if (ast->tree_type == tree_oo_access) {
+        result_sig = determine_left_type(emit, ast->arg_start);
+        if (result_sig != NULL) {
+            char *oo_name = emit->oo_name_pool->str + ast->oo_pool_index;
+            lily_class *lookup_class = result_sig->cls;
 
-    emit->current_block->storage_start = save_storage_start;
-    emit->top_function->pos = save_pos;
-    emit->symtab->next_register_spot = save_next_spot;
+            lily_prop_entry *prop = lily_find_property(emit->symtab,
+                    lookup_class, oo_name);
+            if (prop)
+                result_sig = prop->sig;
+            else
+                result_sig = NULL;
+        }
+    }
+    /* All other trees are either invalid for the left side of an assignment,
+       or tree_package which I don't care about. */
+    else
+        result_sig = NULL;
 
     return result_sig;
 }
@@ -1949,24 +1973,24 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
     lily_sym *rhs;
     lily_sig *elem_sig;
 
-    /* Assignments evaluate from right-to-left, but type inference uses the
-       type of the left to figure out the right side.
-       It's necessary to check for assignability now because functions modify
-       themselves but are also not assignable. */
-    lily_sig *left_sig = peekahead_eval(emit, ast->left);
-    if (ast->left->result->flags & SYM_NOT_ASSIGNABLE) {
-        lily_raise_adjusted(emit->raiser, ast->line_num,
-                lily_SyntaxError,
-                "Left side of %s is not assignable.\n", opname(ast->op));
-    }
+    /* This gets the type that the left will be without actually evaluating it.
+       It is important to not run the left before the right, because assigns
+       should be right to left. */
+    lily_sig *left_sig = determine_left_type(emit, ast->left);
 
     if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right, left_sig, 1);
 
     rhs = ast->right->result;
 
-    if (var_ast->tree_type != tree_local_var)
+    if (var_ast->tree_type != tree_local_var) {
         eval_tree(emit, var_ast, NULL, 1);
+        if (var_ast->result->flags & SYM_NOT_ASSIGNABLE) {
+            lily_raise_adjusted(emit->raiser, ast->line_num,
+                    lily_SyntaxError,
+                    "Left side of %s is not assignable.\n", opname(ast->op));
+        }
+    }
 
     if (index_ast->tree_type != tree_local_var)
         eval_tree(emit, index_ast, NULL, 1);
