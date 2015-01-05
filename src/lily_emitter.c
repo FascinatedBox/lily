@@ -2774,7 +2774,8 @@ static void eval_call_arg(lily_emit_state *emit, lily_ast *call_ast,
             if (matchup_sig == arg->result->sig)
                 ok = 1;
         }
-        else if (arg->result->sig->cls->flags & CLS_VARIANT_CLASS) {
+        else if (arg->result->sig->cls->flags & CLS_VARIANT_CLASS &&
+                emit->sig_stack[index] == NULL) {
             /* If a bare variant wants to resolve a generic, it first has to go
                into the proper enum type. */
             lily_sig *enum_sig = build_enum_sig_by_variant(emit,
@@ -2880,17 +2881,33 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             for (i = 0;i < template_adjust;i++)
                 emit->sig_stack[emit->sig_stack_pos + i] = NULL;
 
-            /* If the parent of this tree wants the same type that this one
-               returns, then attempt to fill in generics based off of what
-               the parent wants. This is to dodge defaulting to any where
-               it is possible. */
-            if (expect_sig != NULL && call_sig->siglist[0] != NULL &&
-                expect_sig->cls->id == call_sig->siglist[0]->cls->id &&
-                did_resolve == 1) {
+            lily_sig *call_result = call_sig->siglist[0];
+            if (call_result && expect_sig && did_resolve) {
+                /* If the caller wants something and the result is that same
+                   sort of thing, then fill in info based on what the caller
+                   wants. */
+                if (expect_sig->cls->id == call_result->cls->id) {
+                    /* The return isn't checked because there will be a more
+                       accurate problem that is likely to manifest later. */
+                    template_check(emit, call_result, expect_sig);
+                }
+                else if (expect_sig->cls->flags & CLS_ENUM_CLASS &&
+                         call_result->cls->parent == expect_sig->cls) {
+                    /* The output is a variant (only happens for the variant's
+                       creation function), and the caller wants an enum class.
+                       Information is pulled in through the variant's template
+                       positions, since the enum could be [A, B, C] while the
+                       variant is [A, C]. */
+                    lily_sig *variant_sig =
+                            call_result->cls->variant_sig->siglist[0];
 
-                /* The return isn't checked because there will be a more
-                   accurate problem that is likely to manifest later. */
-                template_check(emit, call_sig->siglist[0], expect_sig);
+                    for (i = 0;i < template_adjust;i++) {
+                        int pos = variant_sig->siglist[0]->template_pos;
+
+                        emit->sig_stack[emit->sig_stack_pos + pos] =
+                            expect_sig->siglist[pos];
+                    }
+                }
             }
         }
         else {
