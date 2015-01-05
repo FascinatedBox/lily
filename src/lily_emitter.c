@@ -2840,7 +2840,7 @@ static void box_call_variants(lily_emit_state *emit, lily_sig *call_sig,
     If the function takes varargs, the extra arguments are packed into a list
     of the vararg type. */
 static void check_call_args(lily_emit_state *emit, lily_ast *ast,
-        lily_sig *call_sig, lily_sig *expect_sig)
+        lily_sig *call_sig, lily_sig *expect_sig, int did_resolve)
 {
     lily_ast *arg = ast->arg_start;
     lily_ast *true_start = arg;
@@ -2885,7 +2885,8 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                the parent wants. This is to dodge defaulting to any where
                it is possible. */
             if (expect_sig != NULL && call_sig->siglist[0] != NULL &&
-                expect_sig->cls->id == call_sig->siglist[0]->cls->id) {
+                expect_sig->cls->id == call_sig->siglist[0]->cls->id &&
+                did_resolve == 1) {
 
                 /* The return isn't checked because there will be a more
                    accurate problem that is likely to manifest later. */
@@ -3060,7 +3061,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
     arg = ast->arg_start;
     expect_size = 6 + ast->args_collected;
 
-    check_call_args(emit, ast, call_sig, expect_sig);
+    check_call_args(emit, ast, call_sig, expect_sig, did_resolve);
 
     write_prep(emit, expect_size);
 
@@ -3296,7 +3297,8 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
                     "Variant class %s should not get args.\n",
                     variant_class->name);
 
-        check_call_args(emit, ast, variant_class->variant_sig, expect_sig);
+        check_call_args(emit, ast, variant_class->variant_sig, expect_sig,
+                did_resolve);
 
         lily_sig *result_sig = variant_class->variant_sig->siglist[0];
         if (result_sig->template_pos != 0)
