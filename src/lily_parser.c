@@ -13,7 +13,7 @@
     * All parsing.
 
     Notes:
-    * Parser uses a signature stack to hold signatures while processing complex
+    * Parser uses a type stack to hold types while processing complex
       var information. This is used to keep parser from leaking memory, since
       parser functions often call lily_raise.
     * Parser checks for proper form, but does not verify call argument counts,
@@ -27,7 +27,7 @@
       do so.
 **/
 
-/* These flags are for collect_var_sig. */
+/* These flags are for collect_var_type. */
 
 /* Expect a name with every class given. Create a var for each class+name pair.
    This is suitable for collecting the args of a function. */
@@ -66,19 +66,19 @@ lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
     /* This ensures that runners always have a valid parser mode when trying to
        figure out how to show an error. */
     parser->mode = pm_init;
-    parser->sig_stack_pos = 0;
-    parser->sig_stack_size = 4;
+    parser->type_stack_pos = 0;
+    parser->type_stack_size = 4;
     parser->class_depth = 0;
     parser->next_lambda_id = 0;
     parser->raiser = raiser;
-    parser->sig_stack = lily_malloc(4 * sizeof(lily_sig *));
+    parser->type_stack = lily_malloc(4 * sizeof(lily_type *));
     parser->ast_pool = lily_new_ast_pool(raiser, 8);
     parser->symtab = lily_new_symtab(raiser);
     parser->emit = lily_new_emit_state(raiser);
     parser->lex = lily_new_lex_state(raiser, data);
     parser->vm = lily_new_vm_state(raiser, data);
 
-    if (parser->raiser == NULL || parser->sig_stack == NULL ||
+    if (parser->raiser == NULL || parser->type_stack == NULL ||
         parser->lex == NULL || parser->emit == NULL || parser->symtab == NULL ||
         parser->ast_pool == NULL || parser->vm == NULL ||
         lily_emit_try_enter_main(parser->emit,
@@ -102,11 +102,11 @@ lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
 
     parser->lex->symtab = parser->symtab;
 
-    /* When declaring a new function, initially give it the same signature as
-       __main__. This ensures that, should building the proper sig fail, the
+    /* When declaring a new function, initially give it the same type as
+       __main__. This ensures that, should building the proper type fail, the
        symtab will still see the function as a function and destroy the
        contents. */
-    parser->default_call_sig = parser->vm->main->sig;
+    parser->default_call_type = parser->vm->main->type;
 
     /* This creates a new var, so it has to be done after symtab's lex_linenum
        is set. */
@@ -148,8 +148,8 @@ void lily_free_parse_state(lily_parse_state *parser)
     if (parser->vm)
         lily_free_vm_state(parser->vm);
 
-    /* Finally, tear down the symtab. This clears out classes and signatures, so
-       it's VERY important that this go later on, because classes and signature
+    /* Finally, tear down the symtab. This clears out classes and types, so
+       it's VERY important that this go later on, because classes and type
        info is so crucial. */
     if (parser->symtab)
         lily_free_symtab(parser->symtab);
@@ -162,7 +162,7 @@ void lily_free_parse_state(lily_parse_state *parser)
     if (parser->emit)
         lily_free_emit_state(parser->emit);
 
-    lily_free(parser->sig_stack);
+    lily_free(parser->type_stack);
     lily_free(parser);
 }
 
@@ -176,10 +176,10 @@ void lily_free_parse_state(lily_parse_state *parser)
     has an incomplete type. */
 static int count_unresolved_generics(lily_emit_state *emit)
 {
-    int count = 0, top = emit->sig_stack_pos + emit->current_generic_adjust;
+    int count = 0, top = emit->type_stack_pos + emit->current_generic_adjust;
     int i;
-    for (i = emit->sig_stack_pos;i < top;i++) {
-        if (emit->sig_stack[i] == NULL)
+    for (i = emit->type_stack_pos;i < top;i++) {
+        if (emit->type_stack[i] == NULL)
             count++;
     }
 
@@ -187,9 +187,9 @@ static int count_unresolved_generics(lily_emit_state *emit)
 }
 
 /*  get_named_var
-    Attempt to create a var with the given signature. This will call lexer to
+    Attempt to create a var with the given type. This will call lexer to
     get the name, as well as ensuring that the given var is unique. */
-static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig,
+static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type,
         int flags)
 {
     lily_lex_state *lex = parser->lex;
@@ -203,7 +203,7 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig,
     /* Since class methods and class properties are both accessed the same way,
        prevent them from having the same name. */
     if ((flags & VAR_IS_READONLY) && parser->class_depth) {
-        lily_class *current_class = parser->emit->self_storage->sig->cls;
+        lily_class *current_class = parser->emit->self_storage->type->cls;
         lily_prop_entry *entry = lily_find_property(parser->symtab,
                 current_class, lex->label);
 
@@ -213,7 +213,7 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig,
                 current_class->name, lex->label);
     }
 
-    var = lily_try_new_var(parser->symtab, var_sig, lex->label, flags);
+    var = lily_try_new_var(parser->symtab, var_type, lex->label, flags);
     if (var == NULL)
         lily_raise_nomem(parser->raiser);
 
@@ -224,10 +224,10 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_sig *var_sig,
 /*  get_named_property
     The same thing as get_named_var, but with a property instead. */
 static lily_prop_entry *get_named_property(lily_parse_state *parser,
-        lily_sig *prop_sig, int flags)
+        lily_type *prop_type, int flags)
 {
     char *name = parser->lex->label;
-    lily_class *current_class = parser->emit->self_storage->sig->cls;
+    lily_class *current_class = parser->emit->self_storage->type->cls;
 
     lily_prop_entry *prop = lily_find_property(parser->symtab,
             current_class, name);
@@ -251,7 +251,7 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
                 "A method in class '%s' already has the name '%s'.\n",
                 current_class->name, name);
 
-    prop = lily_add_class_property(current_class, prop_sig, name, 0);
+    prop = lily_add_class_property(current_class, prop_type, name, 0);
     if (prop == NULL)
         lily_raise_nomem(parser->raiser);
 
@@ -278,26 +278,26 @@ static void bad_decl_token(lily_parse_state *parser)
     lily_raise(parser->raiser, lily_SyntaxError, message);
 }
 
-/*  grow_sig_stack
+/*  grow_type_stack
     Make the stack holding type information bigger for more types. */
-static void grow_sig_stack(lily_parse_state *parser)
+static void grow_type_stack(lily_parse_state *parser)
 {
-    parser->sig_stack_size *= 2;
+    parser->type_stack_size *= 2;
 
-    lily_sig **new_sig_stack = lily_realloc(parser->sig_stack,
-        sizeof(lily_sig *) * parser->sig_stack_size);
+    lily_type **new_type_stack = lily_realloc(parser->type_stack,
+        sizeof(lily_type *) * parser->type_stack_size);
 
-    if (new_sig_stack == NULL)
+    if (new_type_stack == NULL)
         lily_raise_nomem(parser->raiser);
 
-    parser->sig_stack = new_sig_stack;
+    parser->type_stack = new_type_stack;
 }
 
 /*****************************************************************************/
 /* Type collection                                                           */
 /*****************************************************************************/
 
-static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
+static lily_type *collect_var_type(lily_parse_state *parser, lily_class *cls,
         int flags);
 
 #define TC_DEMAND_VALUE  1
@@ -309,30 +309,30 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
 
 /*  inner_type_collector
     Given a class that takes inner types (like list, hash, function, etc.),
-    collect those inner types. A valid, unique signature is returned. */
-static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
+    collect those inner types. A valid, unique type is returned. */
+static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls,
         int flags)
 {
     int i;
-    int state = TC_WANT_VALUE, stack_start = parser->sig_stack_pos;
-    int sig_flags = 0, have_arrow = 0, have_dots = 0;
+    int state = TC_WANT_VALUE, stack_start = parser->type_stack_pos;
+    int type_flags = 0, have_arrow = 0, have_dots = 0;
     lily_token end_token;
 
     if (cls->id == SYM_CLASS_FUNCTION) {
         /* Functions have their return as the first type, so leave a hole. */
-        if ((parser->sig_stack_pos + 2) == parser->sig_stack_size)
-            grow_sig_stack(parser);
+        if ((parser->type_stack_pos + 2) == parser->type_stack_size)
+            grow_type_stack(parser);
 
         if (flags & CV_CLASS_INIT)
-            /* This is a constructor, so use the most recent signature declared
+            /* This is a constructor, so use the most recent type declared
                since it's the right one (lily_set_class_generics makes sure of
                it). */
-            parser->sig_stack[parser->sig_stack_pos] =
-                    parser->symtab->root_sig;
+            parser->type_stack[parser->type_stack_pos] =
+                    parser->symtab->root_type;
         else
-            parser->sig_stack[parser->sig_stack_pos] = NULL;
+            parser->type_stack[parser->type_stack_pos] = NULL;
 
-        parser->sig_stack_pos++;
+        parser->type_stack_pos++;
         end_token = tk_right_parenth;
         i = 1;
 
@@ -340,9 +340,9 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
            classes). */
         if (flags & CV_TOPLEVEL && parser->class_depth &&
             (flags & CV_CLASS_INIT) == 0) {
-            parser->sig_stack[parser->sig_stack_pos] =
-                parser->emit->self_storage->sig;
-            parser->sig_stack_pos++;
+            parser->type_stack[parser->type_stack_pos] =
+                parser->emit->self_storage->type;
+            parser->type_stack_pos++;
             i++;
         }
     }
@@ -361,20 +361,20 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
     lily_lex_state *lex = parser->lex;
     while (1) {
         if (lex->token == tk_word) {
-            if (parser->sig_stack_pos == parser->sig_stack_size)
-                grow_sig_stack(parser);
+            if (parser->type_stack_pos == parser->type_stack_size)
+                grow_type_stack(parser);
 
             if (have_arrow)
                 flags &= ~(CV_MAKE_VARS);
 
-            lily_sig *sig = collect_var_sig(parser, NULL, flags);
+            lily_type *type = collect_var_type(parser, NULL, flags);
             if (have_arrow == 0) {
-                parser->sig_stack[parser->sig_stack_pos] = sig;
-                parser->sig_stack_pos++;
+                parser->type_stack[parser->type_stack_pos] = type;
+                parser->type_stack_pos++;
                 i++;
             }
             else
-                parser->sig_stack[stack_start] = sig;
+                parser->type_stack[stack_start] = type;
 
             state = TC_WANT_OPERATOR;
             continue;
@@ -397,7 +397,7 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
             have_arrow = 1;
         }
         else if (lex->token == end_token) {
-            /* If there are no args, bump i anyway so that the sig will have
+            /* If there are no args, bump i anyway so that the type will have
                NULL at [1] to indicate no args. */
             if (state == TC_DEMAND_VALUE)
                 state = TC_BAD_TOKEN;
@@ -409,14 +409,14 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
                 state != TC_WANT_OPERATOR)
                 state = TC_BAD_TOKEN;
             else {
-                lily_sig *last_sig;
-                last_sig = parser->sig_stack[parser->sig_stack_pos - 1];
-                if (last_sig->cls->id != SYM_CLASS_LIST)
+                lily_type *last_type;
+                last_type = parser->type_stack[parser->type_stack_pos - 1];
+                if (last_type->cls->id != SYM_CLASS_LIST)
                     lily_raise(parser->raiser, lily_SyntaxError,
                         "A list is required for variable arguments (...).\n");
 
                 have_dots = 1;
-                sig_flags |= SIG_IS_VARARGS;
+                type_flags |= TYPE_IS_VARARGS;
                 state = TC_WANT_OPERATOR;
             }
         }
@@ -432,26 +432,26 @@ static lily_sig *inner_type_collector(lily_parse_state *parser, lily_class *cls,
             lily_lexer(lex);
     }
 
-    if (parser->sig_stack_pos - stack_start != cls->template_count &&
+    if (parser->type_stack_pos - stack_start != cls->template_count &&
         cls->template_count != -1) {
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Class %s expects %d type(s), but got %d type(s).\n",
                 cls->name, cls->template_count,
-                parser->sig_stack_pos - stack_start);
+                parser->type_stack_pos - stack_start);
     }
 
     if (cls->id == SYM_CLASS_HASH) {
         /* For hash, make sure that the key (the first type) is valid. */
-        lily_sig *check_sig = parser->sig_stack[stack_start];
-        if ((check_sig->cls->flags & CLS_VALID_HASH_KEY) == 0) {
+        lily_type *check_type = parser->type_stack[stack_start];
+        if ((check_type->cls->flags & CLS_VALID_HASH_KEY) == 0) {
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "'^T' is not a valid hash key.\n", check_sig);
+                    "'^T' is not a valid hash key.\n", check_type);
         }
     }
 
-    lily_sig *result = lily_build_ensure_sig(parser->symtab, cls, sig_flags,
-            parser->sig_stack, stack_start, i);
-    parser->sig_stack_pos = stack_start;
+    lily_type *result = lily_build_ensure_type(parser->symtab, cls, type_flags,
+            parser->type_stack, stack_start, i);
+    parser->type_stack_pos = stack_start;
 
     return result;
 }
@@ -486,13 +486,13 @@ static int collect_generics(lily_parse_state *parser)
     return ch - 'A';
 }
 
-/*  collect_var_sig
+/*  collect_var_type
     This is the outer part of type collection. This takes flags (CV_* defines)
     which tell it how to act. Additionally, if the parser has already scanned
     the class info, then 'cls' should be the scanned class. Otherwise, 'cls' 
     will be NULL. This is so parser can check if it's 'sometype T' or
     'sometype::member' without rewinding. */
-static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
+static lily_type *collect_var_type(lily_parse_state *parser, lily_class *cls,
         int flags)
 {
     lily_lex_state *lex = parser->lex;
@@ -506,16 +506,16 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
         lily_lexer(lex);
     }
 
-    lily_sig *result;
+    lily_type *result;
 
     if (cls->flags & CLS_VARIANT_CLASS)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Variant types not allowed in a declaration.\n");
 
     if (cls->template_count == 0) {
-        result = cls->sig;
+        result = cls->type;
         if (flags & CV_MAKE_VARS)
-            get_named_var(parser, cls->sig, 0);
+            get_named_var(parser, cls->type, 0);
     }
     else if (cls->template_count != 0 &&
              cls->id != SYM_CLASS_FUNCTION) {
@@ -528,23 +528,23 @@ static lily_sig *collect_var_sig(lily_parse_state *parser, lily_class *cls,
             get_named_var(parser, result, 0);
     }
     else if (cls->id == SYM_CLASS_FUNCTION) {
-        /* This is a dummy until the real signature is known. */
-        lily_sig *call_sig = parser->default_call_sig;
+        /* This is a dummy until the real type is known. */
+        lily_type *call_type = parser->default_call_type;
         lily_var *call_var;
 
         if (flags & CV_MAKE_VARS)
-            call_var = get_named_var(parser, call_sig, 0);
+            call_var = get_named_var(parser, call_type, 0);
         else
             call_var = NULL;
 
         NEED_CURRENT_TOK(tk_left_parenth)
         lily_lexer(lex);
-        call_sig = inner_type_collector(parser, cls, flags);
+        call_type = inner_type_collector(parser, cls, flags);
 
         if (flags & CV_MAKE_VARS)
-            call_var->sig = call_sig;
+            call_var->type = call_type;
 
-        result = call_sig;
+        result = call_type;
         lily_lexer(lex);
     }
     else
@@ -563,7 +563,7 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
     NEED_CURRENT_TOK(tk_word)
     lily_lexer(lex);
 
-    lily_sig *call_sig = parser->default_call_sig;
+    lily_type *call_type = parser->default_call_type;
     int save_generics = parser->emit->current_block->generic_count;
     int generics_used;
 
@@ -573,7 +573,7 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
 
     /* Assume that builtin things are smart enough to not redeclare things and
        just declare the var. */
-    lily_var *call_var = lily_try_new_var(parser->symtab, call_sig, lex->label,
+    lily_var *call_var = lily_try_new_var(parser->symtab, call_type, lex->label,
             VAR_IS_READONLY);
     if (call_var == NULL)
         lily_raise_nomem(parser->raiser);
@@ -600,8 +600,8 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
     lily_lexer(lex);
 
     lily_update_symtab_generics(parser->symtab, NULL, generics_used);
-    call_sig = inner_type_collector(parser, function_cls, 0);
-    call_var->sig = call_sig;
+    call_type = inner_type_collector(parser, function_cls, 0);
+    call_var->type = call_type;
     lily_update_symtab_generics(parser->symtab, NULL, save_generics);
     lily_lexer(lex);
 
@@ -628,7 +628,7 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
 static void parse_function(lily_parse_state *parser, lily_class *decl_class)
 {
     lily_lex_state *lex = parser->lex;
-    lily_sig *call_sig = parser->default_call_sig;
+    lily_type *call_type = parser->default_call_type;
     lily_var *call_var;
     int block_type, generics_used;
     int flags = CV_MAKE_VARS | CV_TOPLEVEL;
@@ -637,7 +637,7 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
             SYM_CLASS_FUNCTION);
 
     if (decl_class != NULL) {
-        call_var = lily_try_new_var(parser->symtab, call_sig, "new",
+        call_var = lily_try_new_var(parser->symtab, call_type, "new",
                 VAR_IS_READONLY);
         if (call_var == NULL)
             lily_raise_nomem(parser->raiser);
@@ -647,7 +647,7 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
         lily_lexer(lex);
     }
     else {
-        call_var = get_named_var(parser, call_sig, VAR_IS_READONLY);
+        call_var = get_named_var(parser, call_type, VAR_IS_READONLY);
         call_var->parent = parser->emit->current_class;
         block_type = BLOCK_FUNCTION;
     }
@@ -661,12 +661,12 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     lily_update_symtab_generics(parser->symtab, decl_class, generics_used);
 
     if (decl_class != NULL)
-        lily_make_constructor_return_sig(parser->symtab);
+        lily_make_constructor_return_type(parser->symtab);
     else if (parser->class_depth && decl_class == NULL) {
         /* Functions of a class get a (self) of that class for the first
            parameter. */
         lily_var *v = lily_try_new_var(parser->symtab,
-                parser->emit->self_storage->sig, "(self)", 0);
+                parser->emit->self_storage->type, "(self)", 0);
         if (v == NULL)
             lily_raise_nomem(parser->raiser);
 
@@ -677,11 +677,11 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     NEED_CURRENT_TOK(tk_left_parenth)
     lily_lexer(lex);
 
-    call_sig = inner_type_collector(parser, function_cls, flags);
-    call_var->sig = call_sig;
+    call_type = inner_type_collector(parser, function_cls, flags);
+    call_var->type = call_type;
 
     lily_emit_update_function_block(parser->emit, decl_class,
-            generics_used, call_sig->siglist[0]);
+            generics_used, call_type->subtypes[0]);
 
     lily_lexer(lex);
 }
@@ -816,7 +816,7 @@ static void expression_word(lily_parse_state *parser, int *state)
 
         if (var->function_depth == 1) {
             /* It's in __main__ as a global. */
-            if (var->sig->cls->id == SYM_CLASS_PACKAGE)
+            if (var->type->cls->id == SYM_CLASS_PACKAGE)
                 expression_package(parser, var);
             else
                 lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
@@ -880,7 +880,7 @@ static void expression_property(lily_parse_state *parser, int *state)
                 "Properties cannot be used outside of a class constructor.\n");
 
     char *name = parser->lex->label;
-    lily_class *current_class = parser->emit->self_storage->sig->cls;
+    lily_class *current_class = parser->emit->self_storage->type->cls;
 
     lily_prop_entry *prop = lily_find_property(parser->symtab, current_class,
             name);
@@ -1039,8 +1039,8 @@ static void expression_dot(lily_parse_state *parser, int *state)
     }
     else if (lex->token == tk_typecast_parenth) {
         lily_lexer(lex);
-        lily_sig *new_sig = collect_var_sig(parser, NULL, 0);
-        lily_ast_enter_typecast(parser->ast_pool, new_sig);
+        lily_type *new_type = collect_var_type(parser, NULL, 0);
+        lily_ast_enter_typecast(parser->ast_pool, new_type);
         lily_ast_leave_tree(parser->ast_pool);
         *state = ST_WANT_OPERATOR;
     }
@@ -1165,7 +1165,7 @@ static void expression(lily_parse_state *parser)
 }
 
 /* parse_decl
-   This function takes a sig and handles a declaration wherein each var name
+   This function takes a type and handles a declaration wherein each var name
    is separated by a comma. Ex:
 
    integer a, b, c
@@ -1174,7 +1174,7 @@ static void expression(lily_parse_state *parser)
 
    This handles anything but function declarations.
    Expected token: A label (the first variable name). */
-static void parse_decl(lily_parse_state *parser, lily_sig *sig)
+static void parse_decl(lily_parse_state *parser, lily_type *type)
 {
     lily_lex_state *lex = parser->lex;
     lily_var *var = NULL;
@@ -1200,9 +1200,9 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
         NEED_CURRENT_TOK(want_token)
 
         if (lex->token == tk_word)
-            var = get_named_var(parser, sig, flags);
+            var = get_named_var(parser, type, flags);
         else
-            prop = get_named_property(parser, sig, flags);
+            prop = get_named_property(parser, type, flags);
 
         if (lex->token != tk_equal)
             lily_raise(parser->raiser, lily_SyntaxError,
@@ -1229,7 +1229,7 @@ static void parse_decl(lily_parse_state *parser, lily_sig *sig)
            one decl at a time to discourage excessive use of 'var'). */
         if (token == tk_word || token == tk_prop_word || token == tk_end_tag ||
             token == tk_inner_eof || token == tk_right_curly ||
-            token == tk_final_eof || sig == NULL)
+            token == tk_final_eof || type == NULL)
             break;
         else if (token != tk_comma) {
             lily_raise(parser->raiser, lily_SyntaxError,
@@ -1260,7 +1260,7 @@ static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
     /* For loop values are created as vars so there's a name in case of a
        problem. This name doesn't have to be unique, since it will never be
        found by the user. */
-    lily_var *var = lily_try_new_var(parser->symtab, cls->sig, name, 0);
+    lily_var *var = lily_try_new_var(parser->symtab, cls->type, name, 0);
     if (var == NULL)
         lily_raise_nomem(parser->raiser);
 
@@ -1359,8 +1359,8 @@ static void statement(lily_parse_state *parser, int multi)
                         lily_emit_eval_expr(parser->emit, parser->ast_pool);
                     }
                     else {
-                        lily_sig *cls_sig = collect_var_sig(parser, lclass, 0);
-                        parse_decl(parser, cls_sig);
+                        lily_type *cls_type = collect_var_type(parser, lclass, 0);
+                        parse_decl(parser, cls_type);
                     }
                 }
                 else {
@@ -1500,10 +1500,10 @@ static void return_handler(lily_parse_state *parser, int multi)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'return' not allowed in a class constructor.\n");
 
-    lily_sig *ret_sig = parser->emit->top_function_ret;
+    lily_type *ret_type = parser->emit->top_function_ret;
     lily_ast *ast;
 
-    if (ret_sig != NULL) {
+    if (ret_type != NULL) {
         expression(parser);
         ast = parser->ast_pool->root;
     }
@@ -1633,14 +1633,14 @@ static void for_handler(lily_parse_state *parser, int multi)
     loop_var = lily_var_by_name(parser->symtab, lex->label);
     if (loop_var == NULL) {
         lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_INTEGER);
-        loop_var = lily_try_new_var(parser->symtab, cls->sig, lex->label, 0);
+        loop_var = lily_try_new_var(parser->symtab, cls->type, lex->label, 0);
         if (loop_var == NULL)
             lily_raise_nomem(parser->raiser);
     }
-    else if (loop_var->sig->cls->id != SYM_CLASS_INTEGER) {
+    else if (loop_var->type->cls->id != SYM_CLASS_INTEGER) {
         lily_raise(parser->raiser, lily_SyntaxError,
                    "Loop var must be type integer, not type '^T'.\n",
-                   loop_var->sig);
+                   loop_var->type);
     }
 
     NEED_NEXT_TOK(tk_word)
@@ -1751,7 +1751,7 @@ static void except_handler(lily_parse_state *parser, int multi)
             lily_raise(parser->raiser, lily_SyntaxError,
                 "%s has already been declared.\n", exception_var->name);
 
-        exception_var = lily_try_new_var(parser->symtab, exception_class->sig,
+        exception_var = lily_try_new_var(parser->symtab, exception_class->type,
                 lex->label, 0);
 
         lily_lexer(lex);
@@ -1875,8 +1875,8 @@ static void enum_handler(lily_parse_state *parser, int multi)
         generics_used = 0;
 
     lily_update_symtab_generics(parser->symtab, enum_class, generics_used);
-    lily_make_constructor_return_sig(parser->symtab);
-    lily_sig *result_sig = parser->symtab->root_sig;
+    lily_make_constructor_return_type(parser->symtab);
+    lily_type *result_type = parser->symtab->root_type;
 
     NEED_CURRENT_TOK(tk_left_curly)
     lily_lexer(lex);
@@ -1903,7 +1903,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
 
         lily_lexer(lex);
 
-        lily_sig *variant_sig;
+        lily_type *variant_type;
         /* Each variant type is thought of as a function that takes any number
            of types and yields the enum class. */
         if (lex->token == tk_left_parenth) {
@@ -1914,17 +1914,17 @@ static void enum_handler(lily_parse_state *parser, int multi)
                 lily_raise(parser->raiser, lily_SyntaxError,
                         "Variant class cannot take empty ().\n");
 
-            /* It is safe to modify this sig because it must be unique (all
+            /* It is safe to modify this type because it must be unique (all
                variants must be uniquely named, and are thus of a class not
                seen before). */
-            variant_sig = inner_type_collector(parser, function_class, 0);
+            variant_type = inner_type_collector(parser, function_class, 0);
             /* Skip the closing ')'. */
             lily_lexer(lex);
         }
         else
-            variant_sig = NULL;
+            variant_type = NULL;
 
-        lily_change_to_variant_class(parser->symtab, variant_cls, variant_sig,
+        lily_change_to_variant_class(parser->symtab, variant_cls, variant_type,
                 enum_class);
 
         inner_class_count++;
@@ -1940,7 +1940,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
                 "An enum class must have at least two variants.\n");
     }
 
-    lily_finish_enum_class(parser->symtab, enum_class, is_scoped, result_sig);
+    lily_finish_enum_class(parser->symtab, enum_class, is_scoped, result_type);
     lily_update_symtab_generics(parser->symtab, NULL, save_generics);
     lily_lexer(lex);
 }
@@ -1973,50 +1973,50 @@ static void match_handler(lily_parse_state *parser, int multi)
     lily_emit_leave_block(parser->emit);
 }
 
-/*  calculate_decompose_sig
-    This is used to determine what signature that variables declared as part of
+/*  calculate_decompose_type
+    This is used to determine what type that variables declared as part of
     a enum class decomposition will get. I'm very, very unhappy to say that I
-    copied this directly from the vm (resolve_property_sig). */
-static lily_sig *calculate_decompose_sig(lily_parse_state *parser,
-        lily_sig *match_sig, lily_sig *input_sig, int stack_offset)
+    copied this directly from the vm (resolve_property_type). */
+static lily_type *calculate_decompose_type(lily_parse_state *parser,
+        lily_type *match_type, lily_type *input_type, int stack_offset)
 {
-    lily_sig *result_sig;
+    lily_type *result_type;
 
-    if (input_sig->cls->id == SYM_CLASS_TEMPLATE)
-        result_sig = match_sig->siglist[input_sig->template_pos];
-    else if (input_sig->cls->template_count == 0)
-        result_sig = input_sig;
+    if (input_type->cls->id == SYM_CLASS_TEMPLATE)
+        result_type = match_type->subtypes[input_type->template_pos];
+    else if (input_type->cls->template_count == 0)
+        result_type = input_type;
     else {
-        int sigs_needed = input_sig->siglist_size;
+        int types_needed = input_type->subtype_count;
 
-        if ((stack_offset + sigs_needed) > parser->sig_stack_size) {
-            lily_sig **new_sigs = lily_realloc(parser->sig_stack,
-                    sizeof(lily_sig *) *
-                    (stack_offset + sigs_needed));
+        if ((stack_offset + types_needed) > parser->type_stack_size) {
+            lily_type **new_types = lily_realloc(parser->type_stack,
+                    sizeof(lily_type *) *
+                    (stack_offset + types_needed));
 
-            if (new_sigs == NULL)
+            if (new_types == NULL)
                 lily_raise_nomem(parser->raiser);
 
-            parser->sig_stack = new_sigs;
-            parser->sig_stack_size = (stack_offset + sigs_needed);
+            parser->type_stack = new_types;
+            parser->type_stack_size = (stack_offset + types_needed);
         }
 
         int i;
-        lily_sig *inner_sig;
-        for (i = 0;i < input_sig->siglist_size;i++) {
-            inner_sig = input_sig->siglist[i];
-            inner_sig = calculate_decompose_sig(parser, input_sig,
-                    inner_sig, stack_offset + i);
+        lily_type *inner_type;
+        for (i = 0;i < input_type->subtype_count;i++) {
+            inner_type = input_type->subtypes[i];
+            inner_type = calculate_decompose_type(parser, input_type,
+                    inner_type, stack_offset + i);
 
-            parser->sig_stack[stack_offset + i] = inner_sig;
+            parser->type_stack[stack_offset + i] = inner_type;
         }
 
-        int flags = (input_sig->flags & SIG_IS_VARARGS);
-        result_sig = lily_build_ensure_sig(parser->symtab, input_sig->cls,
-                flags, parser->sig_stack, stack_offset, i);
+        int flags = (input_type->flags & TYPE_IS_VARARGS);
+        result_type = lily_build_ensure_type(parser->symtab, input_type->cls,
+                flags, parser->type_stack, stack_offset, i);
     }
 
-    return result_sig;
+    return result_type;
 }
 
 /*  case_handler
@@ -2034,7 +2034,7 @@ static lily_sig *calculate_decompose_sig(lily_parse_state *parser,
     exactly once (lily_emit_check_match_case).
 
     Some variants may have inner values. For those, parser will collect the
-    appropriate number of identifiers and determine what the signature of those
+    appropriate number of identifiers and determine what the type of those
     identifiers should be! The variant's values are then decomposed to those
     identifiers.
 
@@ -2049,8 +2049,8 @@ static void case_handler(lily_parse_state *parser, int multi)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'case' not allowed outside of 'match'.\n");
 
-    lily_sig *match_input_sig = current_block->match_input_sig;
-    lily_class *match_class = match_input_sig->cls;
+    lily_type *match_input_type = current_block->match_input_type;
+    lily_class *match_class = match_input_type->cls;
     lily_lex_state *lex = parser->lex;
     lily_class *case_class = NULL;
 
@@ -2073,31 +2073,31 @@ static void case_handler(lily_parse_state *parser, int multi)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Already have a case for variant %s.\n", lex->label);
 
-    lily_sig *variant_sig = case_class->variant_sig;
-    if (variant_sig->siglist_size != 0) {
+    lily_type *variant_type = case_class->variant_type;
+    if (variant_type->subtype_count != 0) {
         NEED_NEXT_TOK(tk_left_parenth)
         /* There should be as many identifiers as there are arguments to this
-           variant's creation signature.
+           variant's creation type.
            Also, start at 1 so that the return at [0] is skipped. */
         NEED_NEXT_TOK(tk_word)
 
-        for (i = 1;i < variant_sig->siglist_size;i++) {
-            lily_sig *var_sig = calculate_decompose_sig(parser,
-                    match_input_sig, variant_sig->siglist[i],
-                    parser->sig_stack_pos);
+        for (i = 1;i < variant_type->subtype_count;i++) {
+            lily_type *var_type = calculate_decompose_type(parser,
+                    match_input_type, variant_type->subtypes[i],
+                    parser->type_stack_pos);
 
             /* It doesn't matter what the var is, only that it's unique. The
                emitter will grab the vars it needs from the symtab when writing
                the decompose.
                This function also calls up the next token. */
-            get_named_var(parser, var_sig, 0);
-            if (i != variant_sig->siglist_size - 1) {
+            get_named_var(parser, var_type, 0);
+            if (i != variant_type->subtype_count - 1) {
                 NEED_CURRENT_TOK(tk_comma)
             }
         }
         NEED_CURRENT_TOK(tk_right_parenth)
 
-        lily_emit_variant_decompose(parser->emit, variant_sig);
+        lily_emit_variant_decompose(parser->emit, variant_type);
     }
     /* else the variant does not take arguments, and cannot decompose because
        there is nothing inside to decompose. */
@@ -2204,15 +2204,15 @@ static void parser_loop(lily_parse_state *parser)
 
 /*  lily_parser_lambda_eval
     This function is called by the emitter to process the body of a lambda. The
-    signature that the emitter expects is given so that the types of the
+    type that the emitter expects is given so that the types of the
     lambda's arguments can be inferred. */
 lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
-        int lambda_start_line, char *lambda_body, lily_sig *expect_sig,
+        int lambda_start_line, char *lambda_body, lily_type *expect_type,
         int did_resolve)
 {
     lily_lex_state *lex = parser->lex;
     int args_collected = 0, resolved_any_args = 0;
-    lily_sig *root_result;
+    lily_type *root_result;
 
     /* Process the lambda as if it were a file with a slightly adjusted
        starting line number. The line number is patched so that multi-line
@@ -2228,29 +2228,29 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     parser->next_lambda_id++;
 
     /* Block entry assumes that the most recent var added is the var to bind
-       the function to. For the signature of the lambda, use the default call
-       signature (a function with no args and no output) because expect_sig may
+       the function to. For the type of the lambda, use the default call
+       type (a function with no args and no output) because expect_type may
        be NULL if the emitter doesn't know what it wants. */
     lily_var *lambda_var = lily_try_new_var(parser->symtab,
-            parser->default_call_sig, lambda_name, VAR_IS_READONLY);
+            parser->default_call_type, lambda_name, VAR_IS_READONLY);
 
     /* From here on, vars created will be in the scope of the lambda. Also,
        this binds a function value to lambda_var. */
     lily_emit_enter_block(parser->emit, BLOCK_LAMBDA | BLOCK_FUNCTION);
 
     lily_lexer(lex);
-    /* Emitter ensures that the given signature is either NULL or a function
-       signature.
+    /* Emitter ensures that the given type is either NULL or a function
+       type.
        Collect arguments if expecting a function and the function takes at
        least one argument. */
-    if (expect_sig && expect_sig->siglist_size > 1) {
+    if (expect_type && expect_type->subtype_count > 1) {
         if (lex->token == tk_logical_or)
             lily_raise(parser->raiser, lily_SyntaxError,
                     "Lambda expected %d args, but got 0.\n",
-                    expect_sig->siglist_size - 1);
+                    expect_type->subtype_count - 1);
 
         /* -1 because the return isn't an arg. */
-        int num_args = expect_sig->siglist_size - 1;
+        int num_args = expect_type->subtype_count - 1;
         int originally_unresolved = -1;
         lily_token wanted_token = tk_comma;
         if (did_resolve == 0)
@@ -2258,11 +2258,11 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
 
         while (1) {
             NEED_NEXT_TOK(tk_word)
-            lily_sig *arg_sig = expect_sig->siglist[args_collected + 1];
+            lily_type *arg_type = expect_type->subtypes[args_collected + 1];
             if (did_resolve == 0) {
-                arg_sig = lily_resolve_sig(parser->emit, arg_sig);
+                arg_type = lily_resolve_type(parser->emit, arg_type);
                 int num_unresolved = count_unresolved_generics(parser->emit);
-                /* lily_resolve_sig likes to fill in unresolved generics with
+                /* lily_resolve_type likes to fill in unresolved generics with
                    type 'any' if it doesn't have type information. However, a
                    lambda should have full type info for each arg. */
                 if (num_unresolved != originally_unresolved) {
@@ -2273,7 +2273,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
                 resolved_any_args = 1;
             }
 
-            get_named_var(parser, arg_sig, 0);
+            get_named_var(parser, arg_type, 0);
             args_collected++;
             if (args_collected == num_args)
                 wanted_token = tk_bitwise_or;
@@ -2294,9 +2294,9 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
 
     /* If the emitter knows what the lambda's result should be, then use that
        to do some type inference on the result of the expression. */
-    lily_sig *result_wanted = NULL;
-    if (expect_sig)
-        result_wanted = expect_sig->siglist[0];
+    lily_type *result_wanted = NULL;
+    if (expect_type)
+        result_wanted = expect_type->subtypes[0];
 
     /* It's time to process the body of the lambda. Before this is done, freeze
        the ast pool's state so that the save depth is 0 and such. This allows
@@ -2308,7 +2308,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     if (parser->ast_pool->root->result)
         /* Save this before state thaw wipes it out. It can't be gotten (easily)
            later. */
-        root_result = parser->ast_pool->root->result->sig;
+        root_result = parser->ast_pool->root->result->type;
     else
         /* It's possible that the body of the lambda is a function that doesn't
            return a value. */
@@ -2320,36 +2320,36 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     lily_lexer(lex);
 
     if (resolved_any_args || root_result != result_wanted) {
-        /* The signature passed does not accurately describe the lambda. Build
+        /* The type passed does not accurately describe the lambda. Build
            one that does, because the emitter may use this returned type in
            further type inference. */
-        int sigs_needed = args_collected + 1;
-        int flags = 0, end = parser->sig_stack_pos + sigs_needed;
+        int types_needed = args_collected + 1;
+        int flags = 0, end = parser->type_stack_pos + types_needed;
         int i;
         lily_class *function_cls = lily_class_by_id(parser->symtab,
                 SYM_CLASS_FUNCTION);
         lily_var *var_iter = parser->symtab->var_chain;
-        if (parser->sig_stack_pos + sigs_needed > parser->sig_stack_size)
-            grow_sig_stack(parser);
+        if (parser->type_stack_pos + types_needed > parser->type_stack_size)
+            grow_type_stack(parser);
 
-        if (expect_sig && expect_sig->cls->id == SYM_CLASS_FUNCTION &&
-            expect_sig->flags & SIG_IS_VARARGS)
-            flags = SIG_IS_VARARGS;
+        if (expect_type && expect_type->cls->id == SYM_CLASS_FUNCTION &&
+            expect_type->flags & TYPE_IS_VARARGS)
+            flags = TYPE_IS_VARARGS;
 
-        parser->sig_stack[parser->sig_stack_pos] = root_result;
+        parser->type_stack[parser->type_stack_pos] = root_result;
         /* Symtab puts the most recent var on top, and goes to the oldest.
            That's the reverse order of the arguments so apply backward. */
-        for (i = 1;i < sigs_needed;i++, var_iter = var_iter->next)
-            parser->sig_stack[end - i] = var_iter->sig;
+        for (i = 1;i < types_needed;i++, var_iter = var_iter->next)
+            parser->type_stack[end - i] = var_iter->type;
 
-        lily_sig *new_sig = lily_build_ensure_sig(parser->symtab, function_cls,
-                flags, parser->sig_stack, parser->sig_stack_pos, sigs_needed);
-        lambda_var->sig = new_sig;
+        lily_type *new_type = lily_build_ensure_type(parser->symtab, function_cls,
+                flags, parser->type_stack, parser->type_stack_pos, types_needed);
+        lambda_var->type = new_type;
     }
-    else if (expect_sig)
-        lambda_var->sig = expect_sig;
+    else if (expect_type)
+        lambda_var->type = expect_type;
     else
-        lambda_var->sig = parser->default_call_sig;
+        lambda_var->type = parser->default_call_type;
 
     lily_emit_leave_block(parser->emit);
 

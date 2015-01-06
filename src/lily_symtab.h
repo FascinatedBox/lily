@@ -9,7 +9,7 @@ typedef struct {
     lily_var *main_var;
 
     lily_class *template_class;
-    lily_sig *template_sig_start;
+    lily_type *template_type_start;
 
     /* When a function has functions declared inside of it, those functions
        fall out of scope when the other function goes out of scope. The inner
@@ -23,7 +23,7 @@ typedef struct {
     lily_class *old_class_chain;
 
     lily_class *class_chain;
-    lily_sig *root_sig;
+    lily_type *root_type;
 
     int function_depth;
 
@@ -68,7 +68,7 @@ void lily_free_symtab(lily_symtab *);
 lily_literal *lily_get_integer_literal(lily_symtab *, int64_t);
 lily_literal *lily_get_double_literal(lily_symtab *, double);
 lily_literal *lily_get_string_literal(lily_symtab *, char *);
-lily_literal *lily_get_variant_literal(lily_symtab *, lily_sig *);
+lily_literal *lily_get_variant_literal(lily_symtab *, lily_type *);
 
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, const char *);
@@ -79,25 +79,25 @@ const lily_func_seed *lily_get_global_seed_chain();
 lily_prop_entry *lily_find_property(lily_symtab *, lily_class *, char *);
 lily_class *lily_find_scoped_variant(lily_class *, char *);
 
-lily_var *lily_try_new_var(lily_symtab *, lily_sig *, char *, int);
+lily_var *lily_try_new_var(lily_symtab *, lily_type *, char *, int);
 
 lily_var *lily_scoped_var_by_name(lily_symtab *, lily_var *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
 
 int lily_keyword_by_name(char *);
 
-lily_sig *lily_try_sig_for_class(lily_symtab *, lily_class *);
-lily_sig *lily_try_sig_from_ids(lily_symtab *, const int *);
-lily_sig *lily_build_ensure_sig(lily_symtab *, lily_class *, int, lily_sig **, int, int);
+lily_type *lily_try_type_for_class(lily_symtab *, lily_class *);
+lily_type *lily_try_type_from_ids(lily_symtab *, const int *);
+lily_type *lily_build_ensure_type(lily_symtab *, lily_class *, int, lily_type **, int, int);
 
 void lily_hide_block_vars(lily_symtab *, lily_var *);
 int lily_check_right_inherits_or_is(lily_class *, lily_class *);
 
 lily_class *lily_new_class(lily_symtab *, char *);
-lily_prop_entry *lily_add_class_property(lily_class *, lily_sig *, char *, int);
+lily_prop_entry *lily_add_class_property(lily_class *, lily_type *, char *, int);
 void lily_update_symtab_generics(lily_symtab *, lily_class *, int);
 void lily_finish_class(lily_symtab *, lily_class *);
-void lily_make_constructor_return_sig(lily_symtab *);
-void lily_change_to_variant_class(lily_symtab *, lily_class *, lily_sig *, lily_class *);
-void lily_finish_enum_class(lily_symtab *, lily_class *, int, lily_sig *);
+void lily_make_constructor_return_type(lily_symtab *);
+void lily_change_to_variant_class(lily_symtab *, lily_class *, lily_type *, lily_class *);
+void lily_finish_enum_class(lily_symtab *, lily_class *, int, lily_type *);
 #endif

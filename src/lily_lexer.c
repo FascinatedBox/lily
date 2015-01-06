@@ -840,7 +840,7 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
                            "Integer value is too large.\n");
         }
         else {
-            /* This is negative, and signed min is 1 higher than signed max. This is
+            /* This is negative, and typened min is 1 higher than typened max. This is
                written as a literal so that gcc doesn't complain about overflow. */
             uint64_t max = 9223372036854775808ULL;
             if (integer_value <= max)

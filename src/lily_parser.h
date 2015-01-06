@@ -15,12 +15,12 @@ typedef enum {
 } lily_parse_mode;
 
 typedef struct lily_parse_state_t {
-    lily_sig **sig_stack;
-    int sig_stack_pos;
-    int sig_stack_size;
+    lily_type **type_stack;
+    int type_stack_pos;
+    int type_stack_size;
 
     int class_depth;
-    lily_sig *default_call_sig;
+    lily_type *default_call_type;
     int next_lambda_id;
 
     lily_ast_pool *ast_pool;
@@ -34,7 +34,7 @@ typedef struct lily_parse_state_t {
 } lily_parse_state;
 
 void lily_parser_finish_expr(lily_parse_state *);
-lily_var *lily_parser_lambda_eval(lily_parse_state *, int, char *, lily_sig *,
+lily_var *lily_parser_lambda_eval(lily_parse_state *, int, char *, lily_type *,
         int);
 lily_var *lily_parser_dynamic_load(lily_parse_state *, lily_class *, char *);
 void lily_free_parse_state(lily_parse_state *);

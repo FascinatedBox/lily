@@ -212,10 +212,10 @@ static void write_msgbuf(lily_debug_state *debug)
 
 /*  show_simple_value
     Show an integer, double, or string literal. */
-static void show_simple_value(lily_debug_state *debug, lily_sig *sig,
+static void show_simple_value(lily_debug_state *debug, lily_type *type,
         lily_raw_value value)
 {
-    int cls_id = sig->cls->id;
+    int cls_id = type->cls->id;
 
     if (cls_id == SYM_CLASS_STRING)
         lily_msgbuf_add_fmt(debug->msgbuf, "\"^E\"", value.string->string);
@@ -234,9 +234,9 @@ static void show_simple_value(lily_debug_state *debug, lily_sig *sig,
 static void show_literal(lily_debug_state *debug, int lit_pos)
 {
     lily_literal *lit = debug->vm->literal_table[lit_pos];
-    lily_msgbuf_add_fmt(debug->msgbuf, "(^T) ", lit->sig);
+    lily_msgbuf_add_fmt(debug->msgbuf, "(^T) ", lit->type);
     write_msgbuf(debug);
-    show_simple_value(debug, lit->sig, lit->value);
+    show_simple_value(debug, lit->type, lit->value);
     lily_impl_puts(debug->data, "\n");
 }
 
@@ -246,7 +246,7 @@ static void show_function(lily_debug_state *debug, int position)
 {
     lily_var *var = debug->vm->function_table[position];
     lily_msgbuf_add_fmt(debug->msgbuf, "^I|     <---- (^T) ", debug->indent,
-            var->sig);
+            var->type);
 
     if (var->parent != NULL)
         lily_msgbuf_add_fmt(debug->msgbuf, "%s::", var->parent->name);
@@ -286,7 +286,7 @@ static void show_register_info(lily_debug_state *debug, int flags, int reg_num)
         arrow_str = "";
 
     lily_msgbuf_add_fmt(debug->msgbuf, "^I%s(^T) %s register #%d",
-            debug->indent, arrow_str, reg_info.sig, scope_str, reg_num);
+            debug->indent, arrow_str, reg_info.type, scope_str, reg_num);
 
     if (reg_info.name != NULL) {
         if (reg_info.line_num != 0)
@@ -452,7 +452,7 @@ static void show_code(lily_debug_state *debug)
                 show_function(debug, code[i+j]);
             else if (data_code == D_MATCH_INPUT) {
                 show_register_info(debug, RI_INPUT, code[i+j]);
-                match_cls = debug->current_function->reg_info[code[i+j]].sig->cls;
+                match_cls = debug->current_function->reg_info[code[i+j]].type->cls;
             }
             /* This is for o_match_dispatch, and each of these cases
                corresponds to a variant classes. To help with debugging, show
@@ -522,7 +522,7 @@ static void show_instance_helper(lily_debug_state *debug, lily_class *cls,
    values. The concept is the same, but the contents are a different enough
    each time to require different functions. */
 
-static void show_instance_value(lily_debug_state *debug, lily_sig *sig,
+static void show_instance_value(lily_debug_state *debug, lily_type *type,
         lily_instance_val *ival)
 {
     lily_msgbuf *msgbuf = debug->msgbuf;
@@ -539,11 +539,11 @@ static void show_instance_value(lily_debug_state *debug, lily_sig *sig,
     int i = 0;
     int depth = 0;
 
-    show_instance_helper(debug, sig->cls, ival, &i, &depth);
+    show_instance_helper(debug, type->cls, ival, &i, &depth);
     ival->visited = 0;
 }
 
-static void show_list_value(lily_debug_state *debug, lily_sig *sig,
+static void show_list_value(lily_debug_state *debug, lily_type *type,
         lily_list_val *lv)
 {
     int i, indent;
@@ -576,11 +576,11 @@ static void show_list_value(lily_debug_state *debug, lily_sig *sig,
     lv->visited = 0;
 }
 
-static void show_hash_value(lily_debug_state *debug, lily_sig *sig,
+static void show_hash_value(lily_debug_state *debug, lily_type *type,
         lily_hash_val *hash_val)
 {
     int indent;
-    lily_sig *key_sig;
+    lily_type *key_type;
     lily_hash_elem *elem_iter;
     lily_msgbuf *msgbuf = debug->msgbuf;
 
@@ -595,7 +595,7 @@ static void show_hash_value(lily_debug_state *debug, lily_sig *sig,
     }
 
     hash_val->visited = 1;
-    key_sig = sig->siglist[0];
+    key_type = type->subtypes[0];
     elem_iter = hash_val->elem_chain;
     while (elem_iter) {
         /* Write out one blank line, so each value has a space between the next.
@@ -608,7 +608,7 @@ static void show_hash_value(lily_debug_state *debug, lily_sig *sig,
         write_msgbuf(debug);
         /* vm does not allow creating hashes with nil keys, so this should be
            safe. */
-        show_simple_value(debug, key_sig, elem_iter->elem_key->value);
+        show_simple_value(debug, key_type, elem_iter->elem_key->value);
         lily_impl_puts(debug->data, "] = ");
 
         show_value(debug, elem_iter->elem_value);
@@ -626,8 +626,8 @@ static void show_hash_value(lily_debug_state *debug, lily_sig *sig,
     amount of \n's written after it. */
 static void show_value(lily_debug_state *debug, lily_value *value)
 {
-    lily_sig *sig = value->sig;
-    int cls_id = sig->cls->id;
+    lily_type *type = value->type;
+    int cls_id = type->cls->id;
     lily_raw_value raw_value = value->value;
 
     if (value->flags & VAL_IS_NIL) {
@@ -638,30 +638,30 @@ static void show_value(lily_debug_state *debug, lily_value *value)
     if (cls_id == SYM_CLASS_STRING ||
         cls_id == SYM_CLASS_INTEGER ||
         cls_id == SYM_CLASS_DOUBLE) {
-        show_simple_value(debug, sig, raw_value);
+        show_simple_value(debug, type, raw_value);
         lily_impl_puts(debug->data, "\n");
     }
     else if (cls_id == SYM_CLASS_LIST ||
              cls_id == SYM_CLASS_HASH ||
              cls_id == SYM_CLASS_TUPLE ||
              (cls_id >= SYM_CLASS_EXCEPTION &&
-              (sig->cls->flags & CLS_ENUM_CLASS) == 0)) {
-        lily_msgbuf_add_fmt(debug->msgbuf, "^T\n", sig);
+              (type->cls->flags & CLS_ENUM_CLASS) == 0)) {
+        lily_msgbuf_add_fmt(debug->msgbuf, "^T\n", type);
         write_msgbuf(debug);
 
         debug->indent++;
         if (cls_id == SYM_CLASS_HASH)
-            show_hash_value(debug, sig, raw_value.hash);
+            show_hash_value(debug, type, raw_value.hash);
         else if (cls_id < SYM_CLASS_EXCEPTION)
-            show_list_value(debug, sig, raw_value.list);
-        else if (sig->cls->flags & CLS_VARIANT_CLASS) {
-            if (sig->cls->variant_sig->siglist_size != 0)
-                show_list_value(debug, sig, raw_value.list);
+            show_list_value(debug, type, raw_value.list);
+        else if (type->cls->flags & CLS_VARIANT_CLASS) {
+            if (type->cls->variant_type->subtype_count != 0)
+                show_list_value(debug, type, raw_value.list);
             /* else it's a variant that does not take any arguments, so do
                nothing because nothing to show. */
         }
         else
-            show_instance_value(debug, sig, raw_value.instance);
+            show_instance_value(debug, type, raw_value.instance);
 
         debug->indent--;
         /* The \n at the end comes from the last value's \n. */
@@ -669,7 +669,7 @@ static void show_value(lily_debug_state *debug, lily_value *value)
     else if (cls_id == SYM_CLASS_FUNCTION) {
         lily_function_val *fv = raw_value.function;
 
-        lily_msgbuf_add_fmt(debug->msgbuf, "^T %s\n", sig, fv->trace_name);
+        lily_msgbuf_add_fmt(debug->msgbuf, "^T %s\n", type, fv->trace_name);
         write_msgbuf(debug);
 
         if (fv->foreign_func == NULL) {
@@ -683,10 +683,10 @@ static void show_value(lily_debug_state *debug, lily_value *value)
         }
     }
     else if (cls_id == SYM_CLASS_ANY ||
-             sig->cls->flags & CLS_ENUM_CLASS) {
+             type->cls->flags & CLS_ENUM_CLASS) {
         lily_value *any_value = raw_value.any->inner_value;
 
-        lily_msgbuf_add_fmt(debug->msgbuf, "(^T) ", sig);
+        lily_msgbuf_add_fmt(debug->msgbuf, "(^T) ", type);
         write_msgbuf(debug);
         show_value(debug, any_value);
     }

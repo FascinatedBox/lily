@@ -9,7 +9,7 @@
     a basic C value (ex: a string from a char *, or integer from int). This is
     used by mod_lily to bind server values, and the vm to bind internal vm
     data to valid lily values.
-    These functions take the symtab so there's no need to do multiple signature
+    These functions take the symtab so there's no need to do multiple type
     lookups (that's annoying). */
 
 /*  lily_bind_string_take_buffer
@@ -39,7 +39,7 @@ lily_value *lily_bind_string_take_buffer(lily_symtab *symtab,
 
     new_value->value.string = sv;
     new_value->flags = 0;
-    new_value->sig = string_cls->sig;
+    new_value->type = string_cls->type;
 
     return new_value;
 }
@@ -70,7 +70,7 @@ lily_value *lily_bind_integer(lily_symtab *symtab, int64_t intval)
         lily_class *integer_cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
 
         new_value->value.integer = intval;
-        new_value->sig = integer_cls->sig;
+        new_value->type = integer_cls->type;
         new_value->flags = 0;
     }
 

@@ -62,8 +62,8 @@ static lily_literal *try_new_literal(lily_symtab *symtab, lily_class *cls,
         }
         return NULL;
     }
-    /* Literal values always have a default sig, so this is safe. */
-    lit->sig = cls->sig;
+    /* Literal values always have a default type, so this is safe. */
+    lit->type = cls->type;
 
     lit->flags = SYM_TYPE_LITERAL;
     lit->value = value;
@@ -80,13 +80,13 @@ static lily_literal *try_new_literal(lily_symtab *symtab, lily_class *cls,
 
 /*  lily_try_new_var
     Attempt to create a new var in the symtab that will have the given
-    signature and name. The flags given are used to determine if the var is
+    type and name. The flags given are used to determine if the var is
     'readonly'. If it's readonly, it doesn't go into the vm's registers.
 
     On success: Returns a newly-created var that is automatically added to the
                 symtab.
     On failure: NULL is returned. */
-lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
+lily_var *lily_try_new_var(lily_symtab *symtab, lily_type *type, char *name,
         int flags)
 {
     lily_var *var = lily_malloc(sizeof(lily_var));
@@ -104,7 +104,7 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
     var->line_num = *symtab->lex_linenum;
 
     var->shorthash = shorthash_for_name(name);
-    var->sig = sig;
+    var->type = type;
     var->next = NULL;
     var->parent = NULL;
 
@@ -128,164 +128,164 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_sig *sig, char *name,
 }
 
 /*  get_template_max
-    Recurse into a signature and determine the number of templates used. This
-    is important for emitter, which needs to know how many sigs to blank before
+    Recurse into a type and determine the number of templates used. This
+    is important for emitter, which needs to know how many types to blank before
     evaluating a call.
 
-    sig:          The signature to check.
+    type:          The type to check.
     template_max: This is a pointer set to the number of templates that the
-                  given sig takes (template index + 1). This is 0 if the given
-                  signature does not use templates. */
-static void get_template_max(lily_sig *sig, int *template_max)
+                  given type takes (template index + 1). This is 0 if the given
+                  type does not use templates. */
+static void get_template_max(lily_type *type, int *template_max)
 {
     /* function uses NULL at [1] to mean it takes no args, and NULL at [0] to
        mean that nothing is returned. */
-    if (sig == NULL)
+    if (type == NULL)
         return;
 
-    if (sig->cls->id == SYM_CLASS_TEMPLATE) {
-        if ((sig->template_pos + 1) > *template_max)
-            *template_max = sig->template_pos + 1;
+    if (type->cls->id == SYM_CLASS_TEMPLATE) {
+        if ((type->template_pos + 1) > *template_max)
+            *template_max = type->template_pos + 1;
     }
-    else if (sig->siglist) {
+    else if (type->subtypes) {
         int i;
-        for (i = 0;i < sig->siglist_size;i++)
-            get_template_max(sig->siglist[i], template_max);
+        for (i = 0;i < type->subtype_count;i++)
+            get_template_max(type->subtypes[i], template_max);
     }
 }
 
-/*  lookup_sig
-    Determine if the current signature exists in the symtab.
+/*  lookup_type
+    Determine if the current type exists in the symtab.
 
-    Success: The signature from the symtab is returned.
+    Success: The type from the symtab is returned.
     Failure: NULL is returned. */
-static lily_sig *lookup_sig(lily_symtab *symtab, lily_sig *input_sig)
+static lily_type *lookup_type(lily_symtab *symtab, lily_type *input_type)
 {
-    lily_sig *iter_sig = symtab->root_sig;
-    lily_sig *ret = NULL;
+    lily_type *iter_type = symtab->root_type;
+    lily_type *ret = NULL;
 
-    /* This just means that input_sig was the last signature created. */
-    if (iter_sig == input_sig)
-        iter_sig = iter_sig->next;
+    /* This just means that input_type was the last type created. */
+    if (iter_type == input_type)
+        iter_type = iter_type->next;
 
-    while (iter_sig) {
-        if (iter_sig->cls == input_sig->cls) {
-            if (iter_sig->siglist      != NULL &&
-                iter_sig->siglist_size == input_sig->siglist_size &&
-                iter_sig               != input_sig &&
-                (iter_sig->flags & ~(SIG_MAYBE_CIRCULAR | SIG_CALL_HAS_ENUM_ARG))
-                   == input_sig->flags) {
+    while (iter_type) {
+        if (iter_type->cls == input_type->cls) {
+            if (iter_type->subtypes      != NULL &&
+                iter_type->subtype_count == input_type->subtype_count &&
+                iter_type               != input_type &&
+                (iter_type->flags & ~(TYPE_MAYBE_CIRCULAR | TYPE_CALL_HAS_ENUM_ARG))
+                   == input_type->flags) {
                 int i, match = 1;
-                for (i = 0;i < iter_sig->siglist_size;i++) {
-                    if (iter_sig->siglist[i] != input_sig->siglist[i]) {
+                for (i = 0;i < iter_type->subtype_count;i++) {
+                    if (iter_type->subtypes[i] != input_type->subtypes[i]) {
                         match = 0;
                         break;
                     }
                 }
 
                 if (match == 1) {
-                    ret = iter_sig;
+                    ret = iter_type;
                     break;
                 }
             }
         }
 
-        iter_sig = iter_sig->next;
+        iter_type = iter_type->next;
     }
 
     return ret;
 }
 
-/*  finalize_sig
-    Determine if the given signature is circular. Also, if its class is not the
-    template class, determine how many templates the signature uses.
+/*  finalize_type
+    Determine if the given type is circular. Also, if its class is not the
+    template class, determine how many templates the type uses.
 
-    For function signatures, this also checks if any arguments are an enum
-    class. If they are, then the sig is marked to help out emitter's call
+    For function types, this also checks if any arguments are an enum
+    class. If they are, then the type is marked to help out emitter's call
     argument processing.
 
     The symtab doesn't use this information at all. These are convenience
     things for the emitter and the vm. */
-static void finalize_sig(lily_sig *input_sig)
+static void finalize_type(lily_type *input_type)
 {
-    if (input_sig->siglist) {
+    if (input_type->subtypes) {
         /* functions are not containers, so circularity doesn't apply to them. */
-        if (input_sig->cls->id != SYM_CLASS_FUNCTION) {
+        if (input_type->cls->id != SYM_CLASS_FUNCTION) {
             int i;
-            for (i = 0;i < input_sig->siglist_size;i++) {
-                if (input_sig->siglist[i]->flags & SIG_MAYBE_CIRCULAR) {
-                    input_sig->flags |= SIG_MAYBE_CIRCULAR;
+            for (i = 0;i < input_type->subtype_count;i++) {
+                if (input_type->subtypes[i]->flags & TYPE_MAYBE_CIRCULAR) {
+                    input_type->flags |= TYPE_MAYBE_CIRCULAR;
                     break;
                 }
             }
         }
 
         /* Find out the highest template index that this type has inside of it.
-           For functions, this allows the emitter to reserve blank sigs for
-           holding template matches. For other sigs, it allows the emitter to
+           For functions, this allows the emitter to reserve blank types for
+           holding template matches. For other types, it allows the emitter to
            determine if a call result uses templates (since it has to be broken
            down if it does. */
-        if (input_sig->cls->id != SYM_CLASS_TEMPLATE) {
+        if (input_type->cls->id != SYM_CLASS_TEMPLATE) {
             int max = 0;
-            get_template_max(input_sig, &max);
-            input_sig->template_pos = max;
+            get_template_max(input_type, &max);
+            input_type->template_pos = max;
         }
     }
 
     /* It helps the emitter to know if a call has an argument that is an enum
        class, since it has to do a second reboxing pass in that case. Mark
-       function sigs here, because all function sigs will have to pass through
+       function types here, because all function types will have to pass through
        here. */
-    if (input_sig->cls->id == SYM_CLASS_FUNCTION) {
+    if (input_type->cls->id == SYM_CLASS_FUNCTION) {
         int i;
         /* Start at 1 because [0] is the return, and doesn't matter. */
-        for (i = 1;i < input_sig->siglist_size;i++) {
-            if (input_sig->siglist[i]->cls->flags & CLS_ENUM_CLASS) {
-                input_sig->flags |= SIG_CALL_HAS_ENUM_ARG;
+        for (i = 1;i < input_type->subtype_count;i++) {
+            if (input_type->subtypes[i]->cls->flags & CLS_ENUM_CLASS) {
+                input_type->flags |= TYPE_CALL_HAS_ENUM_ARG;
                 break;
             }
         }
 
         /* Oh, and check if the vararg part has a list of some variant type. */
-        if (input_sig->flags & SIG_IS_VARARGS) {
-            lily_sig *vararg_list = input_sig->siglist[i - 1];
-            if (vararg_list->siglist[0]->cls->flags & CLS_ENUM_CLASS)
-                input_sig->flags |= SIG_CALL_HAS_ENUM_ARG;
+        if (input_type->flags & TYPE_IS_VARARGS) {
+            lily_type *vararg_list = input_type->subtypes[i - 1];
+            if (vararg_list->subtypes[0]->cls->flags & CLS_ENUM_CLASS)
+                input_type->flags |= TYPE_CALL_HAS_ENUM_ARG;
         }
     }
 
     /* fixme: Properly go over enum classes to determine circularity. */
-    if (input_sig->cls->flags & CLS_ENUM_CLASS)
-        input_sig->flags |= SIG_MAYBE_CIRCULAR;
+    if (input_type->cls->flags & CLS_ENUM_CLASS)
+        input_type->flags |= TYPE_MAYBE_CIRCULAR;
 }
 
-/*  ensure_unique_sig
+/*  ensure_unique_type
     This function is used by seed scanning to make sure that something with the
-    same meaning as the given signature doesn't exist. This is a good thing,
-    because it allows sig == sig comparisons (emitter and vm do this often).
+    same meaning as the given type doesn't exist. This is a good thing,
+    because it allows type == type comparisons (emitter and vm do this often).
 
-    However, this function relies upon building a signature to check it. The
-    problem with this is that it...trashes signatures if they're duplicates. So
+    However, this function relies upon building a type to check it. The
+    problem with this is that it...trashes types if they're duplicates. So
     it's rather wasteful. This will go away when seed scanning goes away. */
-static lily_sig *ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
+static lily_type *ensure_unique_type(lily_symtab *symtab, lily_type *input_type)
 {
-    lily_sig *iter_sig = symtab->root_sig;
-    lily_sig *previous_sig = NULL;
+    lily_type *iter_type = symtab->root_type;
+    lily_type *previous_type = NULL;
     int match = 0;
 
-    /* This just means that input_sig was the last signature created. */
-    if (iter_sig == input_sig)
-        iter_sig = iter_sig->next;
+    /* This just means that input_type was the last type created. */
+    if (iter_type == input_type)
+        iter_type = iter_type->next;
 
-    while (iter_sig) {
-        if (iter_sig->cls == input_sig->cls) {
-            if (iter_sig->siglist      != NULL &&
-                iter_sig->siglist_size == input_sig->siglist_size &&
-                iter_sig               != input_sig) {
+    while (iter_type) {
+        if (iter_type->cls == input_type->cls) {
+            if (iter_type->subtypes      != NULL &&
+                iter_type->subtype_count == input_type->subtype_count &&
+                iter_type               != input_type) {
                 int i;
                 match = 1;
-                for (i = 0;i < iter_sig->siglist_size;i++) {
-                    if (iter_sig->siglist[i] != input_sig->siglist[i]) {
+                for (i = 0;i < iter_type->subtype_count;i++) {
+                    if (iter_type->subtypes[i] != input_type->subtypes[i]) {
                         match = 0;
                         break;
                     }
@@ -294,67 +294,67 @@ static lily_sig *ensure_unique_sig(lily_symtab *symtab, lily_sig *input_sig)
                 if (match == 1)
                     break;
             }
-            /* Make sure scan_seed_sig doesn't create non-unique templates. */
-            else if (input_sig->cls->id == SYM_CLASS_TEMPLATE &&
-                     input_sig->template_pos == iter_sig->template_pos) {
+            /* Make sure scan_seed_type doesn't create non-unique templates. */
+            else if (input_type->cls->id == SYM_CLASS_TEMPLATE &&
+                     input_type->template_pos == iter_type->template_pos) {
                 match = 1;
                 break;
             }
         }
 
-        if (iter_sig->next == input_sig)
-            previous_sig = iter_sig;
+        if (iter_type->next == input_type)
+            previous_type = iter_type;
 
-        iter_sig = iter_sig->next;
+        iter_type = iter_type->next;
     }
 
-    finalize_sig(input_sig);
+    finalize_type(input_type);
 
     if (match) {
-        /* Remove input_sig from the symtab's sig chain. */
-        if (symtab->root_sig == input_sig)
+        /* Remove input_type from the symtab's type chain. */
+        if (symtab->root_type == input_type)
             /* It is the root, so just advance the root. */
-            symtab->root_sig = symtab->root_sig->next;
+            symtab->root_type = symtab->root_type->next;
         else {
-            /* Make the sig before it link to the node after it. This is
+            /* Make the type before it link to the node after it. This is
                theoretically safe because the chain goes from recent to least
-               recent. So this should find the input signature before it finds
-               one that equals it (and set previous_sig to something valid). */
-            previous_sig->next = input_sig->next;
+               recent. So this should find the input type before it finds
+               one that equals it (and set previous_type to something valid). */
+            previous_type->next = input_type->next;
         }
 
-        /* This is either NULL or something that only this sig uses. Don't free
-           what's inside of the siglist though, since that's other signatures
+        /* This is either NULL or something that only this type uses. Don't free
+           what's inside of the subtypes though, since that's other types
            still in the chain. */
-        lily_free(input_sig->siglist);
-        lily_free(input_sig);
+        lily_free(input_type->subtypes);
+        lily_free(input_type);
 
-        input_sig = iter_sig;
+        input_type = iter_type;
     }
 
-    return input_sig;
+    return input_type;
 }
 
-static lily_sig *lookup_generic(lily_symtab *symtab, const char *name)
+static lily_type *lookup_generic(lily_symtab *symtab, const char *name)
 {
     int id = name[0] - 'A';
-    lily_sig *sig_iter = symtab->template_sig_start;
+    lily_type *type_iter = symtab->template_type_start;
 
     while (id) {
-        if (sig_iter->next->cls != symtab->template_class)
+        if (type_iter->next->cls != symtab->template_class)
             break;
 
-        sig_iter = sig_iter->next;
-        if (sig_iter->flags & SIG_HIDDEN_GENERIC)
+        type_iter = type_iter->next;
+        if (type_iter->flags & TYPE_HIDDEN_GENERIC)
             break;
 
         id--;
     }
 
-    if (sig_iter->flags & SIG_HIDDEN_GENERIC || id)
-        sig_iter = NULL;
+    if (type_iter->flags & TYPE_HIDDEN_GENERIC || id)
+        type_iter = NULL;
 
-    return sig_iter;
+    return type_iter;
 }
 
 /*****************************************************************************/
@@ -362,18 +362,18 @@ static lily_sig *lookup_generic(lily_symtab *symtab, const char *name)
 /*****************************************************************************/
 
 /*  scan_seed_arg
-    This takes a series of int's and uses them to define a new signature. This
+    This takes a series of int's and uses them to define a new type. This
     is currently only used by lily_cls_* files and builtin functions for
-    defining function information. This also gets used to help create the sig
+    defining function information. This also gets used to help create the type
     for properties.
 
     This function will be destroyed soon. Passing a series of integers makes it
     impossible to have various modules imported by the interpreter (class 50
     could be a regexp or a database class). */
-static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
+static lily_type *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
         int *pos, int *ok)
 {
-    lily_sig *ret;
+    lily_type *ret;
     int arg_id = arg_ids[*pos];
     int seed_pos = *pos + 1;
     *ok = 1;
@@ -382,28 +382,28 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
         ret = NULL;
     else {
         lily_class *arg_class = lily_class_by_id(symtab, arg_id);
-        if (arg_class->sig && arg_class->id != SYM_CLASS_TEMPLATE)
-            ret = arg_class->sig;
+        if (arg_class->type && arg_class->id != SYM_CLASS_TEMPLATE)
+            ret = arg_class->type;
         else {
-            lily_sig *complex_sig = lily_try_sig_for_class(symtab, arg_class);
-            lily_sig **siglist;
-            int siglist_size;
+            lily_type *complex_type = lily_try_type_for_class(symtab, arg_class);
+            lily_type **subtypes;
+            int subtype_count;
             int flags = 0;
 
             if (arg_id == SYM_CLASS_TEMPLATE) {
-                if (complex_sig)
-                    complex_sig->template_pos = arg_ids[seed_pos];
+                if (complex_type)
+                    complex_type->template_pos = arg_ids[seed_pos];
                 else
                     *ok = 0;
 
                 seed_pos++;
-                siglist = NULL;
-                siglist_size = 0;
+                subtypes = NULL;
+                subtype_count = 0;
             }
             else {
                 if (arg_class->template_count == -1) {
                     /* -1 means it takes a specified number of values. */
-                    siglist_size = arg_ids[seed_pos];
+                    subtype_count = arg_ids[seed_pos];
                     seed_pos++;
                     /* Function needs flags in case the thing is varargs. */
                     if (arg_id == SYM_CLASS_FUNCTION) {
@@ -412,15 +412,15 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
                     }
                 }
                 else {
-                    siglist_size = arg_class->template_count;
+                    subtype_count = arg_class->template_count;
                     flags = 0;
                 }
 
-                siglist = lily_malloc(siglist_size * sizeof(lily_sig *));
-                if (siglist) {
+                subtypes = lily_malloc(subtype_count * sizeof(lily_type *));
+                if (subtypes) {
                     int i;
-                    for (i = 0;i < siglist_size;i++) {
-                        siglist[i] = scan_seed_arg(symtab, arg_ids, &seed_pos,
+                    for (i = 0;i < subtype_count;i++) {
+                        subtypes[i] = scan_seed_arg(symtab, arg_ids, &seed_pos,
                                 ok);
 
                         if (*ok == 0)
@@ -430,8 +430,8 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
                     if (*ok == 0) {
                         /* This isn't tied to anything, so free it. Inner args
                            have already been ensured, so don't touch them. */
-                        lily_free(siglist);
-                        siglist = NULL;
+                        lily_free(subtypes);
+                        subtypes = NULL;
                         *ok = 0;
                     }
                 }
@@ -439,12 +439,12 @@ static lily_sig *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
                     *ok = 0;
             }
 
-            if (*ok == 1 && complex_sig != NULL) {
-                complex_sig->siglist = siglist;
-                complex_sig->siglist_size = siglist_size;
-                complex_sig->flags = flags;
-                complex_sig = ensure_unique_sig(symtab, complex_sig);
-                ret = complex_sig;
+            if (*ok == 1 && complex_type != NULL) {
+                complex_type->subtypes = subtypes;
+                complex_type->subtype_count = subtype_count;
+                complex_type->flags = flags;
+                complex_type = ensure_unique_type(symtab, complex_type);
+                ret = complex_type;
             }
             else
                 ret = NULL;
@@ -472,13 +472,13 @@ static int init_prop_seeds(lily_symtab *symtab, lily_class *cls,
 
     do {
         int pos = 0, ok = 1;
-        lily_sig *entry_sig = scan_seed_arg(symtab, seed_iter->prop_ids, &pos,
+        lily_type *entry_type = scan_seed_arg(symtab, seed_iter->prop_ids, &pos,
                 &ok);
         lily_prop_entry *entry = lily_malloc(sizeof(lily_prop_entry));
         char *entry_name = lily_malloc(strlen(seed_iter->name) + 1);
-        if (entry_sig == NULL || entry == NULL || entry_name == NULL) {
-            /* Signatures are attached to symtab's root_sig when they get made,
-               so there's no teardown for the sig necessary. */
+        if (entry_type == NULL || entry == NULL || entry_name == NULL) {
+            /* types are attached to symtab's root_type when they get made,
+               so there's no teardown for the type necessary. */
             lily_free(entry);
             lily_free(entry_name);
             ret = 0;
@@ -488,7 +488,7 @@ static int init_prop_seeds(lily_symtab *symtab, lily_class *cls,
         entry->flags = 0;
         entry->id = id;
         entry->name = entry_name;
-        entry->sig = entry_sig;
+        entry->type = entry_type;
         entry->name_shorthash = shorthash_for_name(entry_name);
         entry->next = NULL;
         if (top == NULL) {
@@ -537,20 +537,20 @@ static int call_class_setups(lily_symtab *symtab)
 static int init_lily_main(lily_symtab *symtab)
 {
     lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_FUNCTION);
-    lily_sig *new_sig = lily_try_sig_for_class(symtab, cls);
-    if (new_sig == NULL)
+    lily_type *new_type = lily_try_type_for_class(symtab, cls);
+    if (new_type == NULL)
         return 0;
 
-    new_sig->siglist = lily_malloc(2 * sizeof(lily_sig));
-    if (new_sig->siglist == NULL)
+    new_type->subtypes = lily_malloc(2 * sizeof(lily_type));
+    if (new_type->subtypes == NULL)
         return 0;
 
-    new_sig->siglist[0] = NULL;
-    new_sig->siglist_size = 1;
-    new_sig->template_pos = 0;
-    new_sig->flags = 0;
+    new_type->subtypes[0] = NULL;
+    new_type->subtype_count = 1;
+    new_type->template_pos = 0;
+    new_type->flags = 0;
 
-    symtab->main_var = lily_try_new_var(symtab, new_sig, "__main__", 0);
+    symtab->main_var = lily_try_new_var(symtab, new_type, "__main__", 0);
 
     return (symtab->main_var != NULL);
 }
@@ -558,10 +558,10 @@ static int init_lily_main(lily_symtab *symtab)
 /* init_classes
    Symtab init, stage 2
    This function initializes the classes of a symtab, as well as their
-   signatures. All classes are given a signature so that signatures which don't
+   types. All classes are given a type so that types which don't
    require extra call/internal element info (integer and number, for example),
-   can be shared. All a symbol needs to do is sym->sig to get the common
-   signature. */
+   can be shared. All a symbol needs to do is sym->type to get the common
+   type. */
 static int init_classes(lily_symtab *symtab)
 {
     int i, class_count, ret;
@@ -573,37 +573,37 @@ static int init_classes(lily_symtab *symtab)
         lily_class *new_class = lily_malloc(sizeof(lily_class));
 
         if (new_class != NULL) {
-            lily_sig *sig;
+            lily_type *type;
 
             /* If a class doesn't take templates (or isn't template), then
-               it can have a default sig that lily_try_sig_for_class can yield.
-               This saves memory, and is necessary now that sig comparison is
+               it can have a default type that lily_try_type_for_class can yield.
+               This saves memory, and is necessary now that type comparison is
                by pointer. */
             if (class_seeds[i].template_count != 0)
-                sig = NULL;
+                type = NULL;
             else {
-                /* A basic class? Make a quick default sig for it. */
-                sig = lily_malloc(sizeof(lily_sig));
-                if (sig != NULL) {
-                    sig->cls = new_class;
+                /* A basic class? Make a quick default type for it. */
+                type = lily_malloc(sizeof(lily_type));
+                if (type != NULL) {
+                    type->cls = new_class;
                     /* Make sure this is null so any attempt to free it won't
                        cause a problem. */
-                    sig->siglist = NULL;
-                    sig->siglist_size = 0;
-                    sig->flags = 0;
-                    /* Non-template signatures use this to mean that this sig
+                    type->subtypes = NULL;
+                    type->subtype_count = 0;
+                    type->flags = 0;
+                    /* Non-template types use this to mean that this type
                        does not have templates inside. */
-                    sig->template_pos = 0;
+                    type->template_pos = 0;
                     if (i == SYM_CLASS_ANY)
-                        sig->flags |= SIG_MAYBE_CIRCULAR;
+                        type->flags |= TYPE_MAYBE_CIRCULAR;
 
-                    sig->next = symtab->root_sig;
-                    symtab->root_sig = sig;
+                    type->next = symtab->root_type;
+                    symtab->root_type = type;
                     /* Only the template class has a blank name (to prevent it
                        from being used directly). */
                     if (strcmp(class_seeds[i].name, "") == 0) {
                         symtab->template_class = new_class;
-                        symtab->template_sig_start = sig;
+                        symtab->template_type_start = type;
                     }
                 }
                 else
@@ -613,7 +613,7 @@ static int init_classes(lily_symtab *symtab)
             new_class->name = class_seeds[i].name;
             new_class->call_start = NULL;
             new_class->call_top = NULL;
-            new_class->sig = sig;
+            new_class->type = type;
             new_class->id = i;
             new_class->template_count = class_seeds[i].template_count;
             new_class->shorthash = shorthash_for_name(new_class->name);
@@ -692,9 +692,9 @@ lily_symtab *lily_new_symtab(lily_raiser *raiser)
        0 is used, because these are all builtins, and the lexer may have failed
        to initialize anyway. */
     symtab->lex_linenum = &v;
-    symtab->root_sig = NULL;
+    symtab->root_type = NULL;
     symtab->template_class = NULL;
-    symtab->template_sig_start = NULL;
+    symtab->template_type_start = NULL;
     symtab->old_class_chain = NULL;
 
     if (!init_classes(symtab) || !init_lily_main(symtab) ||
@@ -727,11 +727,11 @@ void free_vars(lily_var *var)
     while (var != NULL) {
         var_temp = var->next;
         if ((var->flags & VAL_IS_NIL) == 0) {
-            int cls_id = var->sig->cls->id;
+            int cls_id = var->type->cls->id;
             if (cls_id == SYM_CLASS_FUNCTION)
                 lily_deref_function_val(var->value.function);
             else
-                lily_deref_unknown_raw_val(var->sig, var->value);
+                lily_deref_unknown_raw_val(var->type, var->value);
         }
         lily_free(var->name);
         lily_free(var);
@@ -811,7 +811,7 @@ static void free_classes(lily_class *class_iter)
 
     Symtab's teardown is in two steps so that the gc can have one final pass
     after the vars get a deref. This allows the gc to attempt cleanly destroying
-    all values. It needs signature and class info, which is why that IS NOT
+    all values. It needs type and class info, which is why that IS NOT
     touched here.
 
     Additionally, parts of symtab init may have failed, so NULL checks are
@@ -827,7 +827,7 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
     while (lit != NULL) {
         lit_temp = lit->next;
 
-        if (lit->sig->cls->id == SYM_CLASS_STRING)
+        if (lit->type->cls->id == SYM_CLASS_STRING)
             lily_deref_string_val(lit->value.string);
 
         lily_free(lit);
@@ -859,28 +859,28 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
 
 /*  lily_free_symtab
 
-    This destroys the classes and signatures stored in the symtab, as well as
+    This destroys the classes and types stored in the symtab, as well as
     the symtab itself. This is called after the vm has had a chance to tell the
     gc to do a final sweep (where type info is necessary).
 
     symtab: The symtab to destroy the vars of. */
 void lily_free_symtab(lily_symtab *symtab)
 {
-    lily_sig *sig, *sig_temp;
+    lily_type *type, *type_temp;
 
-    /* Destroy the signatures before the classes, since the sigs need to check
-       the class id to make sure there isn't a call sig to destroy. */
-    sig = symtab->root_sig;
+    /* Destroy the types before the classes, since the types need to check
+       the class id to make sure there isn't a call type to destroy. */
+    type = symtab->root_type;
     int j = 0;
-    while (sig != NULL) {
+    while (type != NULL) {
         j++;
-        sig_temp = sig->next;
+        type_temp = type->next;
 
-        /* The siglist is either NULL or set to something that needs to be
+        /* The subtypes is either NULL or set to something that needs to be
            deleted. */
-        lily_free(sig->siglist);
-        lily_free(sig);
-        sig = sig_temp;
+        lily_free(type->subtypes);
+        lily_free(type);
+        type = type_temp;
     }
 
     free_classes(symtab->old_class_chain);
@@ -902,10 +902,10 @@ lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
     lily_literal *lit, *ret;
     ret = NULL;
     lily_class *integer_cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
-    lily_sig *want_sig = integer_cls->sig;
+    lily_type *want_type = integer_cls->type;
 
     for (lit = symtab->lit_chain;lit != NULL;lit = lit->next) {
-        if (lit->sig == want_sig && lit->value.integer == int_val) {
+        if (lit->type == want_type && lit->value.integer == int_val) {
             ret = lit;
             break;
         }
@@ -928,10 +928,10 @@ lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
     lily_literal *lit, *ret;
     ret = NULL;
     lily_class *double_cls = lily_class_by_id(symtab, SYM_CLASS_DOUBLE);
-    lily_sig *want_sig = double_cls->sig;
+    lily_type *want_type = double_cls->type;
 
     for (lit = symtab->lit_chain;lit != NULL;lit = lit->next) {
-        if (lit->sig == want_sig && lit->value.doubleval == dbl_val) {
+        if (lit->type == want_type && lit->value.doubleval == dbl_val) {
             ret = lit;
             break;
         }
@@ -956,7 +956,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab, char *want_string)
     int want_string_len = strlen(want_string);
 
     for (lit = symtab->lit_chain;lit;lit = lit->next) {
-        if (lit->sig->cls->id == SYM_CLASS_STRING) {
+        if (lit->type->cls->id == SYM_CLASS_STRING) {
             if (lit->value.string->size == want_string_len &&
                 strcmp(lit->value.string->string, want_string) == 0) {
                 ret = lit;
@@ -997,7 +997,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab, char *want_string)
     Otherwise the interpreter would have to create a bunch of nothings with the
     same value, and that would be rather silly. :) */
 lily_literal *lily_get_variant_literal(lily_symtab *symtab,
-        lily_sig *variant_sig)
+        lily_type *variant_type)
 {
     lily_literal *lit_iter, *ret;
     ret = NULL;
@@ -1005,7 +1005,7 @@ lily_literal *lily_get_variant_literal(lily_symtab *symtab,
     for (lit_iter = symtab->lit_chain;
          lit_iter != NULL;
          lit_iter = lit_iter->next) {
-        if (lit_iter->sig == variant_sig) {
+        if (lit_iter->type == variant_type) {
             ret = lit_iter;
             break;
         }
@@ -1014,7 +1014,7 @@ lily_literal *lily_get_variant_literal(lily_symtab *symtab,
     if (ret == NULL) {
         lily_raw_value v;
         v.integer = 0;
-        ret = try_new_literal(symtab, variant_sig->cls, v);
+        ret = try_new_literal(symtab, variant_type->cls, v);
         if (ret == NULL)
             lily_raise_nomem(symtab->raiser);
     }
@@ -1022,36 +1022,36 @@ lily_literal *lily_get_variant_literal(lily_symtab *symtab,
     return ret;
 }
 
-/*  lily_try_sig_for_class
-    Attempt to get the default signature of the given class. If the given class
-    doesn't have a default signature (because it takes templates), then create
-    a new signature without a siglist and return that. */
-lily_sig *lily_try_sig_for_class(lily_symtab *symtab, lily_class *cls)
+/*  lily_try_type_for_class
+    Attempt to get the default type of the given class. If the given class
+    doesn't have a default type (because it takes templates), then create
+    a new type without a subtypes and return that. */
+lily_type *lily_try_type_for_class(lily_symtab *symtab, lily_class *cls)
 {
-    lily_sig *sig;
+    lily_type *type;
 
-    /* init_classes doesn't make a default sig for classes that need complex
-       sigs. This works so long as init_classes works right.
-       The second part is so that seed scanning doesn't tamper with the sig of
+    /* init_classes doesn't make a default type for classes that need complex
+       types. This works so long as init_classes works right.
+       The second part is so that seed scanning doesn't tamper with the type of
        the template class (which gets changed around so that parser can
        understand generics). */
-    if (cls->sig == NULL || cls->id == SYM_CLASS_TEMPLATE) {
-        sig = lily_malloc(sizeof(lily_sig));
-        if (sig != NULL) {
-            sig->cls = cls;
-            sig->siglist = NULL;
-            sig->siglist_size = 0;
-            sig->flags = 0;
-            sig->template_pos = 0;
+    if (cls->type == NULL || cls->id == SYM_CLASS_TEMPLATE) {
+        type = lily_malloc(sizeof(lily_type));
+        if (type != NULL) {
+            type->cls = cls;
+            type->subtypes = NULL;
+            type->subtype_count = 0;
+            type->flags = 0;
+            type->template_pos = 0;
 
-            sig->next = symtab->root_sig;
-            symtab->root_sig = sig;
+            type->next = symtab->root_type;
+            symtab->root_type = type;
         }
     }
     else
-        sig = cls->sig;
+        type = cls->type;
 
-    return sig;
+    return type;
 }
 
 lily_class *lily_class_by_id(lily_symtab *symtab, int class_id)
@@ -1085,12 +1085,12 @@ lily_class *lily_class_by_name(lily_symtab *symtab, const char *name)
 
     /* The parser wants to be able to find classes by name...but it would be
        a waste to have lots of classes that never actually get used. The parser
-       -really- just wants to get the signature, so... */
+       -really- just wants to get the type, so... */
     if (class_iter == NULL && name[1] == '\0') {
-        lily_sig *generic_sig = lookup_generic(symtab, name);
-        if (generic_sig) {
+        lily_type *generic_type = lookup_generic(symtab, name);
+        if (generic_type) {
             class_iter = symtab->template_class;
-            class_iter->sig = generic_sig;
+            class_iter->type = generic_type;
         }
     }
 
@@ -1103,7 +1103,7 @@ lily_class *lily_class_by_name(lily_symtab *symtab, const char *name)
     seed table, attempt to do a dynamic load of the given function.
 
     This is a bit complicated, but it saves a LOT of memory from not having to
-    make signature+var information for every builtin thing. */
+    make type+var information for every builtin thing. */
 lily_var *lily_find_class_callable(lily_symtab *symtab, lily_class *cls,
         char *name)
 {
@@ -1251,76 +1251,76 @@ void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
     }
 }
 
-/*  lily_try_sig_from_ids
-    This is used by the apache module to create a signature in a less-awful
+/*  lily_try_type_from_ids
+    This is used by the apache module to create a type in a less-awful
     way than doing it manually. This unfortunately uses the really awful seed
     scanning functions.
-    In the future, there will be something to get a signature from a string. */
-lily_sig *lily_try_sig_from_ids(lily_symtab *symtab, const int *ids)
+    In the future, there will be something to get a type from a string. */
+lily_type *lily_try_type_from_ids(lily_symtab *symtab, const int *ids)
 {
     int pos = 0, ok = 1;
     return scan_seed_arg(symtab, ids, &pos, &ok);
 }
 
-/*  lily_build_ensure_sig
-    This function is used to ensure that creating a signature for 'cls' with
-    the given information will not result in a duplicate signature entry.
-    Unique signatures are a good thing, because that allows sig == sig
+/*  lily_build_ensure_type
+    This function is used to ensure that creating a type for 'cls' with
+    the given information will not result in a duplicate type entry.
+    Unique types are a good thing, because that allows type == type
     comparisons by emitter and the vm.
-    This creates a new signature if, and only if, it would be unique.
+    This creates a new type if, and only if, it would be unique.
 
     cls:            The base class to look for.
-    flags:          Flags for the signature. Important for functions, which
-                    may/may not be SIG_IS_VARARGS.
-    siglist:        The siglist that proper signatures will be pulled from.
-    offset:         In siglist, where to start taking signatures.
-    entries_to_use: How many signatures to take after 'offset'.
+    flags:          Flags for the type. Important for functions, which
+                    may/may not be TYPE_IS_VARARGS.
+    subtypes:        The subtypes that proper types will be pulled from.
+    offset:         In subtypes, where to start taking types.
+    entries_to_use: How many types to take after 'offset'.
 
     This is used by parser and emitter to make sure they don't create
-    signatures they'll have to throw away.
+    types they'll have to throw away.
 
-    This raises NoMemoryError if it needs to make a sig and can't. Otherwise,
-    a unique, valid signature is always returned. */
-lily_sig *lily_build_ensure_sig(lily_symtab *symtab, lily_class *cls,
-        int flags, lily_sig **siglist, int offset, int entries_to_use)
+    This raises NoMemoryError if it needs to make a type and can't. Otherwise,
+    a unique, valid type is always returned. */
+lily_type *lily_build_ensure_type(lily_symtab *symtab, lily_class *cls,
+        int flags, lily_type **subtypes, int offset, int entries_to_use)
 {
-    lily_sig fake_sig;
+    lily_type fake_type;
 
-    fake_sig.cls = cls;
-    fake_sig.template_pos = 0;
-    fake_sig.siglist = siglist + offset;
-    fake_sig.siglist_size = entries_to_use;
-    fake_sig.flags = flags;
-    fake_sig.next = NULL;
+    fake_type.cls = cls;
+    fake_type.template_pos = 0;
+    fake_type.subtypes = subtypes + offset;
+    fake_type.subtype_count = entries_to_use;
+    fake_type.flags = flags;
+    fake_type.next = NULL;
 
     /* The reason it's done like this is purely to save memory. There's no
-       point in creating a new signature if it already exists (since that just
+       point in creating a new type if it already exists (since that just
        means the new one has to be destroyed). */
-    lily_sig *result_sig = lookup_sig(symtab, &fake_sig);
-    if (result_sig == NULL) {
-        lily_sig *new_sig = lily_malloc(sizeof(lily_sig));
-        lily_sig **new_siglist = lily_malloc(entries_to_use *
-                sizeof(lily_sig *));
+    lily_type *result_type = lookup_type(symtab, &fake_type);
+    if (result_type == NULL) {
+        lily_type *new_type = lily_malloc(sizeof(lily_type));
+        lily_type **new_subtypes = lily_malloc(entries_to_use *
+                sizeof(lily_type *));
 
-        if (new_sig == NULL || new_siglist == NULL) {
-            lily_free(new_sig);
-            lily_free(new_siglist);
+        if (new_type == NULL || new_subtypes == NULL) {
+            lily_free(new_type);
+            lily_free(new_subtypes);
             lily_raise_nomem(symtab->raiser);
         }
 
-        memcpy(new_sig, &fake_sig, sizeof(lily_sig));
-        memcpy(new_siglist, siglist + offset, sizeof(lily_sig *) * entries_to_use);
-        new_sig->siglist = new_siglist;
-        new_sig->siglist_size = entries_to_use;
+        memcpy(new_type, &fake_type, sizeof(lily_type));
+        memcpy(new_subtypes, subtypes + offset, sizeof(lily_type *) * entries_to_use);
+        new_type->subtypes = new_subtypes;
+        new_type->subtype_count = entries_to_use;
 
-        new_sig->next = symtab->root_sig;
-        symtab->root_sig = new_sig;
+        new_type->next = symtab->root_type;
+        symtab->root_type = new_type;
 
-        finalize_sig(new_sig);
-        result_sig = new_sig;
+        finalize_type(new_type);
+        result_type = new_type;
     }
 
-    return result_sig;
+    return result_type;
 }
 
 /*  lily_check_right_inherits_or_is
@@ -1349,7 +1349,7 @@ int lily_check_right_inherits_or_is(lily_class *left, lily_class *right)
     Add a new property to the property chain of a class.
     On success: Returns the property, in case that's useful.
     On failure: NULL is returned. */
-lily_prop_entry *lily_add_class_property(lily_class *cls, lily_sig *sig,
+lily_prop_entry *lily_add_class_property(lily_class *cls, lily_type *type,
         char *name, int flags)
 {
     lily_prop_entry *entry = lily_malloc(sizeof(lily_prop_entry));
@@ -1364,7 +1364,7 @@ lily_prop_entry *lily_add_class_property(lily_class *cls, lily_sig *sig,
 
     entry->flags = flags;
     entry->name = entry_name;
-    entry->sig = sig;
+    entry->type = type;
     entry->name_shorthash = shorthash_for_name(entry_name);
     entry->next = NULL;
     entry->id = cls->prop_count;
@@ -1388,7 +1388,7 @@ lily_prop_entry *lily_add_class_property(lily_class *cls, lily_sig *sig,
 
 /*  lily_new_class
     This function creates a new user class of the given name and adds it to
-    the current chain of classes. This creates a default signature for the
+    the current chain of classes. This creates a default type for the
     class that is empty, and gives basic info to the class.
     Properties can be added later via lily_add_class_property.
     On success: Returns the newly-created class.
@@ -1408,7 +1408,7 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
 
     new_class->flags = 0;
     new_class->is_refcounted = 1;
-    new_class->sig = NULL;
+    new_class->type = NULL;
     new_class->parent = NULL;
     new_class->shorthash = shorthash_for_name(name);
     new_class->name = name_copy;
@@ -1441,17 +1441,17 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
 
     if ((cls->flags & CLS_ENUM_CLASS) == 0) {
         /* If the class has no generics, determine if it's circular and write
-           that information onto the default sig. */
+           that information onto the default type. */
         if (cls->template_count == 0) {
             while (prop_iter) {
-                if (prop_iter->sig->flags & SIG_MAYBE_CIRCULAR) {
-                    cls->sig->flags |= SIG_MAYBE_CIRCULAR;
+                if (prop_iter->type->flags & TYPE_MAYBE_CIRCULAR) {
+                    cls->type->flags |= TYPE_MAYBE_CIRCULAR;
                     break;
                 }
                 prop_iter = prop_iter->next;
             }
 
-            if (cls->sig->flags & SIG_MAYBE_CIRCULAR)
+            if (cls->type->flags & TYPE_MAYBE_CIRCULAR)
                 cls->gc_marker = lily_gc_tuple_marker;
         }
         else
@@ -1484,36 +1484,36 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
 void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
         int count)
 {
-    /* The symtab special cases all signatures holding template information so
+    /* The symtab special cases all types holding template information so
        that they're unique, together, and in numerical order. */
-    lily_sig *sig_iter = symtab->template_sig_start;
+    lily_type *type_iter = symtab->template_type_start;
     int i = 1, save_count = count;
 
     while (count) {
-        sig_iter->flags &= ~SIG_HIDDEN_GENERIC;
+        type_iter->flags &= ~TYPE_HIDDEN_GENERIC;
         count--;
-        if (sig_iter->next->cls != symtab->template_class && count) {
-            lily_sig *new_sig = lily_malloc(sizeof(lily_sig));
-            if (new_sig == NULL)
+        if (type_iter->next->cls != symtab->template_class && count) {
+            lily_type *new_type = lily_malloc(sizeof(lily_type));
+            if (new_type == NULL)
                 lily_raise_nomem(symtab->raiser);
 
-            new_sig->cls = symtab->template_class;
-            new_sig->siglist = NULL;
-            new_sig->siglist_size = 0;
-            new_sig->flags = 0;
-            new_sig->template_pos = i;
+            new_type->cls = symtab->template_class;
+            new_type->subtypes = NULL;
+            new_type->subtype_count = 0;
+            new_type->flags = 0;
+            new_type->template_pos = i;
 
-            new_sig->next = sig_iter->next;
-            sig_iter->next = new_sig;
+            new_type->next = type_iter->next;
+            type_iter->next = new_type;
         }
         i++;
-        sig_iter = sig_iter->next;
+        type_iter = type_iter->next;
     }
 
-    if (sig_iter->cls == symtab->template_class) {
-        while (sig_iter->cls == symtab->template_class) {
-            sig_iter->flags |= SIG_HIDDEN_GENERIC;
-            sig_iter = sig_iter->next;
+    if (type_iter->cls == symtab->template_class) {
+        while (type_iter->cls == symtab->template_class) {
+            type_iter->flags |= TYPE_HIDDEN_GENERIC;
+            type_iter = type_iter->next;
         }
     }
 
@@ -1521,68 +1521,68 @@ void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
         decl_class->template_count = save_count;
 }
 
-/*  lily_make_constructor_return_sig
+/*  lily_make_constructor_return_type
     The parser is about to collect the arguments for a new class. This is used
-    to create a signature that the constructor will return.
-    If a class has no generics, then it returns a signature of just itself
-    (which also becomes the default sig. For the other case, the construct will
-    return a signature of the proper number of generics with the generics also
+    to create a type that the constructor will return.
+    If a class has no generics, then it returns a type of just itself
+    (which also becomes the default type. For the other case, the construct will
+    return a type of the proper number of generics with the generics also
     being ordered. So...
     class Point[A]() # returns Point[A]
     class Point[A, B, C]() # returns Point[A, B, C]
     ...etc. */
-void lily_make_constructor_return_sig(lily_symtab *symtab)
+void lily_make_constructor_return_type(lily_symtab *symtab)
 {
-    lily_sig *sig = lily_malloc(sizeof(lily_sig));
-    if (sig == NULL)
+    lily_type *type = lily_malloc(sizeof(lily_type));
+    if (type == NULL)
         lily_raise_nomem(symtab->raiser);
 
     lily_class *target_class = symtab->class_chain;
     if (target_class->template_count != 0) {
         int count = target_class->template_count;
 
-        sig->siglist = lily_malloc(count * sizeof(lily_sig *));
-        if (sig->siglist == NULL) {
-            lily_free(sig);
+        type->subtypes = lily_malloc(count * sizeof(lily_type *));
+        if (type->subtypes == NULL) {
+            lily_free(type);
             lily_raise_nomem(symtab->raiser);
         }
 
-        lily_sig *sig_iter = symtab->template_sig_start;
+        lily_type *type_iter = symtab->template_type_start;
         int i;
-        for (i = 0;i < count;i++, sig_iter = sig_iter->next)
-            sig->siglist[i] = sig_iter;
+        for (i = 0;i < count;i++, type_iter = type_iter->next)
+            type->subtypes[i] = type_iter;
 
-        sig->siglist_size = count;
-        sig->template_pos = i;
+        type->subtype_count = count;
+        type->template_pos = i;
     }
     else {
-        /* This makes this sig the default for this class, because this class
+        /* This makes this type the default for this class, because this class
            doesn't use generics. */
-        target_class->sig = sig;
-        sig->siglist = NULL;
-        sig->siglist_size = 0;
-        sig->template_pos = 0;
+        target_class->type = type;
+        type->subtypes = NULL;
+        type->subtype_count = 0;
+        type->template_pos = 0;
     }
 
-    sig->cls = target_class;
-    sig->flags = 0;
+    type->cls = target_class;
+    type->flags = 0;
 
-    sig->next = symtab->root_sig;
-    symtab->root_sig = sig;
+    type->next = symtab->root_type;
+    symtab->root_type = type;
 }
 
-static void mark_generics(lily_sig *sig)
+static void mark_generics(lily_type *type)
 {
     int i;
-    if (sig) {
-        if (sig->siglist) {
-            for (i = 0;i < sig->siglist_size;i++) {
-                lily_sig *inner_sig = sig->siglist[i];
-                mark_generics(inner_sig);
+    if (type) {
+        if (type->subtypes) {
+            for (i = 0;i < type->subtype_count;i++) {
+                lily_type *inner_type = type->subtypes[i];
+                mark_generics(inner_type);
             }
         }
-        else if (sig->cls->id == SYM_CLASS_TEMPLATE)
-            sig->flags |= SIG_GENERIC_SEEN;
+        else if (type->cls->id == SYM_CLASS_TEMPLATE)
+            type->flags |= TYPE_GENERIC_SEEN;
     }
 }
 
@@ -1595,49 +1595,49 @@ static void mark_generics(lily_sig *sig)
     'function (A => Some[A])'.
     Bear in mind that some variants may use non-generic types, and those are
     not included in the result. */
-static lily_sig *calculate_variant_return(lily_symtab *symtab,
-        lily_class *variant_cls, lily_sig *variant_sig)
+static lily_type *calculate_variant_return(lily_symtab *symtab,
+        lily_class *variant_cls, lily_type *variant_type)
 {
-    mark_generics(variant_sig);
+    mark_generics(variant_type);
 
     int generic_count = 0;
 
-    lily_sig *sig_iter = symtab->template_sig_start;
-    while (sig_iter->cls->id == SYM_CLASS_TEMPLATE) {
-        if (sig_iter->flags & SIG_GENERIC_SEEN)
+    lily_type *type_iter = symtab->template_type_start;
+    while (type_iter->cls->id == SYM_CLASS_TEMPLATE) {
+        if (type_iter->flags & TYPE_GENERIC_SEEN)
             generic_count++;
 
-        sig_iter = sig_iter->next;
+        type_iter = type_iter->next;
     }
 
-    lily_sig *result_sig = lily_try_sig_for_class(symtab, variant_cls);
-    if (result_sig == NULL)
+    lily_type *result_type = lily_try_type_for_class(symtab, variant_cls);
+    if (result_type == NULL)
         lily_raise_nomem(symtab->raiser);
 
-    result_sig->cls = variant_cls;
+    result_type->cls = variant_cls;
 
     if (generic_count) {
-        lily_sig **contained_sigs = lily_malloc(generic_count *
-                sizeof(lily_sig *));
+        lily_type **contained_types = lily_malloc(generic_count *
+                sizeof(lily_type *));
 
-        if (contained_sigs == NULL)
+        if (contained_types == NULL)
             lily_raise_nomem(symtab->raiser);
 
-        result_sig->siglist = contained_sigs;
-        result_sig->siglist_size = generic_count;
-        sig_iter = symtab->template_sig_start;
+        result_type->subtypes = contained_types;
+        result_type->subtype_count = generic_count;
+        type_iter = symtab->template_type_start;
         int i;
-        for (sig_iter = symtab->template_sig_start, i = 0;
-             sig_iter->cls->id == SYM_CLASS_TEMPLATE;
-             sig_iter = sig_iter->next) {
-            if (sig_iter->flags & SIG_GENERIC_SEEN) {
-                contained_sigs[i] = sig_iter;
-                sig_iter->flags &= ~SIG_GENERIC_SEEN;
+        for (type_iter = symtab->template_type_start, i = 0;
+             type_iter->cls->id == SYM_CLASS_TEMPLATE;
+             type_iter = type_iter->next) {
+            if (type_iter->flags & TYPE_GENERIC_SEEN) {
+                contained_types[i] = type_iter;
+                type_iter->flags &= ~TYPE_GENERIC_SEEN;
 
-                /* A signature's template_pos is always the highest template id
+                /* A type's template_pos is always the highest template id
                    it carries, +1. This allows the emitter to easily check if a
-                   sig contains generics. */
-                result_sig->template_pos = sig_iter->template_pos + 1;
+                   type contains generics. */
+                result_type->template_pos = type_iter->template_pos + 1;
                 i++;
             }
         }
@@ -1645,51 +1645,51 @@ static lily_sig *calculate_variant_return(lily_symtab *symtab,
         variant_cls->template_count = generic_count;
     }
 
-    return result_sig;
+    return result_type;
 }
 
 void lily_change_to_variant_class(lily_symtab *symtab, lily_class *cls,
-        lily_sig *variant_sig, lily_class *enum_class)
+        lily_type *variant_type, lily_class *enum_class)
 {
     cls->flags |= CLS_VARIANT_CLASS;
-    cls->variant_sig = variant_sig;
+    cls->variant_type = variant_type;
     cls->parent = enum_class;
 
-    if (variant_sig == NULL) {
-        /* This variant doesn't take parameters, so give it a plain sig. */
-        lily_sig *sig = lily_try_sig_for_class(symtab, cls);
-        if (sig == NULL)
+    if (variant_type == NULL) {
+        /* This variant doesn't take parameters, so give it a plain type. */
+        lily_type *type = lily_try_type_for_class(symtab, cls);
+        if (type == NULL)
             lily_raise_nomem(symtab->raiser);
 
-        sig->cls = cls;
-        /* Anything that doesn't take parameters gets a default sig. */
-        cls->sig = sig;
+        type->cls = cls;
+        /* Anything that doesn't take parameters gets a default type. */
+        cls->type = type;
 
-        cls->variant_sig = sig;
+        cls->variant_type = type;
         /* Empty variants are represented as integers, and won't need to be
            marked through. */
         cls->eq_func = lily_integer_eq;
     }
     else {
-        /* It's safe to modify this sig only because it contains a class that
-           has just been seen for the first time. Because of that, the sig is
+        /* It's safe to modify this type only because it contains a class that
+           has just been seen for the first time. Because of that, the type is
            guaranteed to be unique both before and after this modification.
            This is a bad idea in almost any other case. */
-        lily_sig *variant_result = calculate_variant_return(symtab,
-                cls, variant_sig);
+        lily_type *variant_result = calculate_variant_return(symtab,
+                cls, variant_type);
 
-        variant_result->flags |= SIG_MAYBE_CIRCULAR;
-        variant_sig->siglist[0] = variant_result;
+        variant_result->flags |= TYPE_MAYBE_CIRCULAR;
+        variant_type->subtypes[0] = variant_result;
 
         /* The only difference between a tuple and a variant with args is that
-           the variant has a variant sig instead of a tuple one. */
+           the variant has a variant type instead of a tuple one. */
         cls->gc_marker = lily_gc_tuple_marker;
         cls->eq_func = lily_tuple_eq;
     }
 }
 
 void lily_finish_enum_class(lily_symtab *symtab, lily_class *enum_class,
-        int is_scoped, lily_sig *enum_sig)
+        int is_scoped, lily_type *enum_type)
 {
     int i, variant_count = 0;
     lily_class *class_iter = symtab->class_chain;
@@ -1707,7 +1707,7 @@ void lily_finish_enum_class(lily_symtab *symtab, lily_class *enum_class,
          i++, class_iter = class_iter->next)
         members[i] = class_iter;
 
-    enum_class->variant_sig = enum_sig;
+    enum_class->variant_type = enum_type;
     enum_class->variant_members = members;
     enum_class->variant_size = variant_count;
     enum_class->flags |= CLS_ENUM_CLASS;

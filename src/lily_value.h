@@ -15,11 +15,11 @@ lily_function_val *lily_try_new_foreign_function_val(lily_foreign_func, char *,
 void lily_deref_function_val(lily_function_val *);
 void lily_deref_string_val(lily_string_val *);
 void lily_deref_any_val(lily_any_val *);
-void lily_deref_list_val(lily_sig *, lily_list_val *);
-void lily_deref_hash_val(lily_sig *, lily_hash_val *);
-void lily_deref_tuple_val(lily_sig *, lily_list_val *);
-void lily_deref_instance_val(lily_sig *, lily_instance_val *);
+void lily_deref_list_val(lily_type *, lily_list_val *);
+void lily_deref_hash_val(lily_type *, lily_hash_val *);
+void lily_deref_tuple_val(lily_type *, lily_list_val *);
+void lily_deref_instance_val(lily_type *, lily_instance_val *);
 void lily_deref_unknown_val(lily_value *);
-void lily_deref_unknown_raw_val(lily_sig *, lily_raw_value);
+void lily_deref_unknown_raw_val(lily_type *, lily_raw_value);
 
 #endif
