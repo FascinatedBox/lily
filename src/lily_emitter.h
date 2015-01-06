@@ -5,21 +5,21 @@
 # include "lily_symtab.h"
 
 typedef struct lily_block_ {
-    int loop_start;
-    int patch_start;
-    int block_type;
-    int match_case_start;
+    int16_t loop_start;
+    uint16_t patch_start;
+    uint16_t match_case_start;
+    uint16_t generic_count;
+    uint32_t match_code_start;
+    uint32_t match_value_spot;
+    uint32_t block_type;
+    uint32_t save_register_spot;
 
     lily_var *var_start;
     lily_var *function_var;
-    int save_register_spot;
     lily_storage *storage_start;
     lily_class *class_entry;
     lily_storage *self;
-    int generic_count;
 
-    int match_code_start;
-    int match_value_spot;
     lily_type *match_input_type;
 
     struct lily_block_ *next;
@@ -31,26 +31,26 @@ struct lily_parse_state_t;
 
 typedef struct {
     int *patches;
-    int patch_pos;
-    int patch_size;
-
     int *match_cases;
-    int match_case_pos;
-    int match_case_size;
-
     lily_type **type_stack;
-    int type_stack_pos;
-    int type_stack_size;
+
+    uint16_t patch_pos;
+    uint16_t patch_size;
+
+    uint16_t match_case_pos;
+    uint16_t match_case_size;
+
+    uint16_t type_stack_pos;
+    uint16_t type_stack_size;
+
+    uint32_t current_generic_adjust;
 
     lily_var *top_var;
     lily_function_val *top_function;
     lily_type *top_function_ret;
 
-    int current_generic_adjust;
     lily_class *current_class;
     lily_storage *self_storage;
-
-    uint16_t *lex_linenum;
 
     lily_storage *all_storage_start;
     lily_storage *unused_storage_start;
@@ -59,12 +59,15 @@ typedef struct {
     lily_block *first_block;
     lily_block *current_block;
 
-    int function_depth;
+    uint32_t function_depth;
+    uint32_t expr_num;
+
+    uint16_t *lex_linenum;
+
     lily_raiser *raiser;
     lily_ast_str_pool *oo_name_pool;
     struct lily_parse_state_t *parser;
     lily_symtab *symtab;
-    int expr_num;
 } lily_emit_state;
 
 # define BLOCK_IF         0x00001

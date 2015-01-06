@@ -14,9 +14,9 @@
 /* Sync name order with SYM_CLASS_* #defines in lily_symtab.h */
 typedef const struct {
     char *name;
-    int is_refcounted;
-    int template_count;
-    int flags;
+    uint16_t is_refcounted;
+    uint16_t template_count;
+    uint32_t flags;
     char *parent_name;
     const lily_prop_seed_t *prop_seeds;
     class_setup_func setup_func;

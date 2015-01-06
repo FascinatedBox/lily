@@ -1,6 +1,8 @@
 #ifndef LILY_AST_H
 # define LILY_AST_H
 
+# include <stdint.h>
+
 # include "lily_raiser.h"
 # include "lily_core_types.h"
 # include "lily_expr_op.h"
@@ -19,40 +21,43 @@ typedef struct {
 } lily_ast_str_pool;
 
 typedef struct lily_ast_t {
-    lily_tree_type tree_type;
-    uint16_t line_num;
-
-    lily_sym *original_sym;
-    lily_prop_entry *property;
-    lily_type *type;
-    /* This is where the result of evaluating the tree goes. This is used
-       because it's a subset of both lily_var and lily_storage, either of which
-       it may be set to. */
     lily_sym *result;
 
-    /* These three are used by anything that has subtrees...which is a lot. */
-    int args_collected;
-    struct lily_ast_t *arg_start;
-    struct lily_ast_t *next_arg;
+    lily_tree_type tree_type : 8;
+    lily_expr_op op : 8;
+    uint16_t line_num;
+    uint16_t args_collected;
+    uint16_t oo_pool_index;
 
-    /* If tree_oo_access looks up a property, then it stores the index of that
-       property here. This is used by oo assign to prevent two lookups of the
-       same property. */
-    int oo_property_index;
-    int oo_pool_index;
+    /* Literals and readonly functions store their initial value here. */
+    lily_sym *original_sym;
+    lily_prop_entry *property;
 
-    lily_class *variant_class;
+    /* Nothing uses both of these at the same time. */
+    union {
+        struct lily_ast_t *arg_start;
+        struct lily_ast_t *left;
+    };
+
+    union {
+        lily_type *type;
+        /* If tree_oo_access looks up a property, then it stores the index of that
+           property here. This is used by oo assign to prevent two lookups of the
+           same property. */
+        int oo_property_index;
+        lily_class *variant_class;
+        int priority;
+    };
 
     /* These are for unary and binary ops mostly. Typecast stores a value in
        right so that operations will use that like with binary. */
-    int priority;
-    lily_expr_op op;
-    struct lily_ast_t *left;
     struct lily_ast_t *right;
     struct lily_ast_t *parent;
 
-    /* All trees are linked together so that the ast pool can quickly grab the
-       next unused one. */
+    /* If this tree is an argument, the next one. NULL otherwise. */
+    struct lily_ast_t *next_arg;
+
+    /* This links all trees together so the ast can blast them all at the end. */
     struct lily_ast_t *next_tree;
 } lily_ast;
 
@@ -61,13 +66,13 @@ typedef struct lily_ast_freeze_entry_t {
     struct lily_ast_freeze_entry_t *prev;
 
     struct lily_ast_save_entry_t *save_chain;
+    lily_ast *available_restore;
     lily_ast *active;
     lily_ast *root;
-    int oo_start;
-    int save_depth;
-    lily_ast *available_restore;
+    uint16_t oo_start;
+    uint16_t save_depth;
 
-    int in_use;
+    uint32_t in_use;
 } lily_ast_freeze_entry;
 
 /* The ast handles subexpressions by merging the new tree, then storing the
@@ -105,12 +110,13 @@ typedef struct {
        This scheme is done so that the parser does not have to guess the type
        to do the  */
     lily_ast_str_pool *oo_name_pool;
-    int oo_start;
 
     /* This goes from oldest (prev), to newest (next). The save_chain is always
        updated to the most recent entry when a tree is entered. */
     lily_ast_save_entry *save_chain;
-    int save_depth;
+
+    uint32_t oo_start;
+    uint32_t save_depth;
 
     /* When the parser enters a lambda, it 'freezes' the current tree setup in
        one of these entries until the lambda has exited. */

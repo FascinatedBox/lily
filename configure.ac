@@ -9,7 +9,7 @@ AM_PROG_AR
 LT_INIT
 AC_PROG_LIBTOOL(libtool)
 
-CFLAGS="-Wall -O2 -g3"
+CFLAGS="-Wall -Wpadded -O2 -g3"
 
 AC_ARG_WITH([apache_mod],
     AS_HELP_STRING([--with-apache-mod], [Build mod_lily for apache.]))
