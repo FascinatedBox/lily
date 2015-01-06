@@ -2048,7 +2048,7 @@ static void case_handler(lily_parse_state *parser, int multi)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'case' not allowed outside of 'match'.\n");
 
-    lily_type *match_input_type = block->match_input_type;
+    lily_type *match_input_type = block->match_sym->type;
     lily_class *match_class = match_input_type->cls;
     lily_lex_state *lex = parser->lex;
     lily_class *case_class = NULL;

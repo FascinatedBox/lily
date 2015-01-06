@@ -7,20 +7,21 @@
 typedef struct lily_block_ {
     int16_t loop_start;
     uint16_t patch_start;
-    uint16_t match_case_start;
-    uint16_t generic_count;
-    uint32_t match_code_start;
-    uint32_t match_value_spot;
-    uint32_t block_type;
-    uint32_t save_register_spot;
 
+    uint16_t generic_count;
+    uint16_t match_case_start;
+
+    uint32_t block_type;
+    uint32_t match_code_start;
+    uint32_t save_register_spot;
+    uint32_t pad;
+
+    lily_sym *match_sym;
     lily_var *var_start;
     lily_var *function_var;
     lily_storage *storage_start;
     lily_class *class_entry;
     lily_storage *self;
-
-    lily_type *match_input_type;
 
     struct lily_block_ *next;
     struct lily_block_ *prev;
