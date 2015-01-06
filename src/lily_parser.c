@@ -240,7 +240,7 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
     /* Like with get_named_var, prevent properties from having the same name as
        what will become a class method. This is because they are both accessed
        in the same manner outside the class. */
-    lily_var *function_var = parser->emit->current_block->function_var;
+    lily_var *function_var = parser->emit->block->function_var;
     lily_var *lookup_var = lily_var_by_name(parser->symtab, name);
 
     /* The second check works because register spots for declared functions are
@@ -564,7 +564,7 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
     lily_lexer(lex);
 
     lily_type *call_type = parser->default_call_type;
-    int save_generics = parser->emit->current_block->generic_count;
+    int save_generics = parser->emit->block->generic_count;
     int generics_used;
 
     char *class_name = NULL;
@@ -655,7 +655,7 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     if (lex->token == tk_left_bracket)
         generics_used = collect_generics(parser);
     else
-        generics_used = parser->emit->current_block->generic_count;
+        generics_used = parser->emit->block->generic_count;
 
     lily_emit_enter_block(parser->emit, block_type);
     lily_update_symtab_generics(parser->symtab, decl_class, generics_used);
@@ -670,7 +670,7 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
         if (v == NULL)
             lily_raise_nomem(parser->raiser);
 
-        parser->emit->current_block->self = (lily_storage *)v;
+        parser->emit->block->self = (lily_storage *)v;
         parser->emit->self_storage = (lily_storage *)v;
     }
 
@@ -1183,7 +1183,7 @@ static void parse_decl(lily_parse_state *parser, lily_type *type)
     int flags = SYM_NOT_INITIALIZED;
 
     lily_token token, want_token, other_token;
-    if (parser->emit->current_block->block_type & BLOCK_CLASS) {
+    if (parser->emit->block->block_type & BLOCK_CLASS) {
         want_token = tk_prop_word;
         other_token = tk_word;
     }
@@ -1496,7 +1496,7 @@ static void else_handler(lily_parse_state *parser, int multi)
     if an expression is needed, or if just 'return' alone is fine. */
 static void return_handler(lily_parse_state *parser, int multi)
 {
-    if (parser->emit->current_block->block_type & BLOCK_CLASS)
+    if (parser->emit->block->block_type & BLOCK_CLASS)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'return' not allowed in a class constructor.\n");
 
@@ -1811,8 +1811,8 @@ static void ensure_valid_class(lily_parse_state *parser, char *name)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' is not a valid class name (too short).\n", name);
 
-    if ((parser->emit->current_block->block_type & BLOCK_CLASS) == 0 &&
-        parser->emit->current_block->prev != NULL) {
+    if ((parser->emit->block->block_type & BLOCK_CLASS) == 0 &&
+        parser->emit->block->prev != NULL) {
         /* This could probably be worded better... */
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Attempt to declare a class within something that isn't another class.\n");
@@ -1867,7 +1867,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
     lily_class *enum_class = lily_new_class(parser->symtab, lex->label);
 
     lily_lexer(lex);
-    int save_generics = parser->emit->current_block->generic_count;
+    int save_generics = parser->emit->block->generic_count;
     int generics_used;
     if (lex->token == tk_left_bracket)
         generics_used = collect_generics(parser);
@@ -2044,12 +2044,12 @@ static lily_type *calculate_decompose_type(lily_parse_state *parser,
     The section for a case is done when the next case is seen. */
 static void case_handler(lily_parse_state *parser, int multi)
 {
-    lily_block *current_block = parser->emit->current_block;
-    if (current_block->block_type != BLOCK_MATCH)
+    lily_block *block = parser->emit->block;
+    if (block->block_type != BLOCK_MATCH)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'case' not allowed outside of 'match'.\n");
 
-    lily_type *match_input_type = current_block->match_input_type;
+    lily_type *match_input_type = block->match_input_type;
     lily_class *match_class = match_input_type->cls;
     lily_lex_state *lex = parser->lex;
     lily_class *case_class = NULL;
@@ -2152,7 +2152,7 @@ static void parser_loop(lily_parse_state *parser)
         }
         else if (lex->token == tk_end_tag ||
                  (lex->token == tk_final_eof && lex->mode == lm_no_tags)) {
-            if (parser->emit->current_block->prev != NULL) {
+            if (parser->emit->block->prev != NULL) {
                 lily_raise(parser->raiser, lily_SyntaxError,
                            "Unterminated block(s) at end of parsing.\n");
             }

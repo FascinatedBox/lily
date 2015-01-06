@@ -70,7 +70,7 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
     s->match_case_pos = 0;
     s->match_case_size = 4;
 
-    s->current_block = NULL;
+    s->block = NULL;
     s->unused_storage_start = NULL;
     s->all_storage_start = NULL;
     s->all_storage_top = NULL;
@@ -94,7 +94,7 @@ void lily_free_emit_state(lily_emit_state *emit)
 {
     lily_block *current, *temp;
     lily_storage *current_store, *temp_store;
-    current = emit->current_block;
+    current = emit->block;
     while (current && current->prev)
         current = current->prev;
 
@@ -282,7 +282,7 @@ static int condition_optimize_check(lily_ast *ast)
     whichever comes first. */
 static int count_inner_try_blocks(lily_emit_state *emit)
 {
-    lily_block *block_iter = emit->current_block;
+    lily_block *block_iter = emit->block;
     int ret = 0;
     while (IS_LOOP_BLOCK(block_iter->block_type) == 0 &&
            (block_iter->block_type & BLOCK_FUNCTION) == 0) {
@@ -324,7 +324,7 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
     lily_block *block, *ret;
     ret = NULL;
 
-    for (block = emit->current_block;
+    for (block = emit->block;
          block;
          block = block->prev) {
         if (IS_LOOP_BLOCK(block->block_type)) {
@@ -535,7 +535,7 @@ static int try_add_storage(lily_emit_state *emit)
 static lily_storage *get_storage(lily_emit_state *emit,
         lily_type *type, int line_num)
 {
-    lily_storage *storage_iter = emit->current_block->storage_start;
+    lily_storage *storage_iter = emit->block->storage_start;
     int expr_num = emit->expr_num;
 
     /* Emitter's linked list of storages is done such that there is always one
@@ -1092,7 +1092,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     if (block->block_type & BLOCK_LAMBDA)
         emit->top_function_ret = emit->top_var->type->subtypes[0];
 
-    if (emit->current_block->class_entry == NULL) {
+    if (emit->block->class_entry == NULL) {
         if (emit->top_function_ret == NULL)
             /* Write an implicit 'return' at the end of a function claiming to not
                return a value. This saves the user from having to write an explicit
@@ -1129,7 +1129,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
         last_func_block->storage_start = emit->unused_storage_start;
 
     /* If this function was the ::new for a class, move it over into that class. */
-    if (emit->current_block->class_entry) {
+    if (emit->block->class_entry) {
         lily_class *cls = emit->current_class;
         lily_var *save_next = block->function_var->next;
 
@@ -1163,7 +1163,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
                 last_func_block->generic_count);
     }
 
-    emit->self_storage = emit->current_block->prev->self;
+    emit->self_storage = emit->block->prev->self;
     emit->symtab->next_register_spot = block->save_register_spot;
     emit->top_function = v->value.function;
     emit->top_var = v;
@@ -1191,7 +1191,7 @@ static void eval_enforce_value(lily_emit_state *emit, lily_ast *ast,
     cases. */
 static void ensure_proper_match_block(lily_emit_state *emit)
 {
-    lily_block *block = emit->current_block;
+    lily_block *block = emit->block;
     int error = 0;
     lily_msgbuf *msgbuf = emit->raiser->msgbuf;
     int i;
@@ -3466,7 +3466,7 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
     change the current block into 'BLOCK_IF_ELIF'. */
 void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
 {
-    int current_type = emit->current_block->block_type;
+    int current_type = emit->block->block_type;
     int save_jump;
 
     if (new_type == BLOCK_IF_ELIF || new_type == BLOCK_IF_ELSE) {
@@ -3484,7 +3484,7 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
             lily_raise(emit->raiser, lily_SyntaxError, "'%s' after 'else'.\n",
                     block_name);
 
-        lily_var *v = emit->current_block->var_start;
+        lily_var *v = emit->block->var_start;
         if (v != emit->symtab->var_chain)
             lily_hide_block_vars(emit->symtab, v);
     }
@@ -3514,7 +3514,7 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
     /* else it's a fake branch from a condition that was optimized out. */
 
     emit->patches[emit->patch_pos-1] = save_jump;
-    emit->current_block->block_type = new_type;
+    emit->block->block_type = new_type;
 }
 
 /*  lily_emit_expr
@@ -3572,7 +3572,7 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_ast_pool *ap,
 void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
 {
     lily_ast *ast = ap->root;
-    int current_type = emit->current_block->block_type;
+    int current_type = emit->block->block_type;
 
     if ((ast->tree_type == tree_readonly &&
          condition_optimize_check(ast)) == 0) {
@@ -3592,7 +3592,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
                     o_jump_if,
                     1,
                     ast->result->reg_spot,
-                    emit->current_block->loop_start);
+                    emit->block->loop_start);
         }
     }
     else {
@@ -3607,7 +3607,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
             emit->patch_pos++;
         }
         else
-            write_2(emit, o_jump, emit->current_block->loop_start);
+            write_2(emit, o_jump, emit->block->loop_start);
     }
 
     lily_ast_reset_pool(ap);
@@ -3633,7 +3633,7 @@ void lily_emit_variant_decompose(lily_emit_state *emit, lily_type *variant_type)
 
     f->code[f->pos  ] = o_variant_decompose;
     f->code[f->pos+1] = *(emit->lex_linenum);
-    f->code[f->pos+2] = emit->current_block->match_value_spot;
+    f->code[f->pos+2] = emit->block->match_value_spot;
     f->code[f->pos+3] = value_count;
 
     /* Since this function is called immediately after declaring the last var
@@ -3665,11 +3665,11 @@ void lily_emit_variant_decompose(lily_emit_state *emit, lily_type *variant_type)
 int lily_emit_add_match_case(lily_emit_state *emit, int pos)
 {
     lily_function_val *f = emit->top_function;
-    int block_offset = emit->current_block->match_case_start;
+    int block_offset = emit->block->match_case_start;
     int is_first_case = 1, ret = 1;
     int i;
 
-    for (i = emit->current_block->match_case_start;
+    for (i = emit->block->match_case_start;
          i < emit->match_case_pos;
          i++) {
         if (emit->match_cases[i] == 1) {
@@ -3698,11 +3698,11 @@ int lily_emit_add_match_case(lily_emit_state *emit, int pos)
            so that it will jump to the current location.
            Oh, and make sure to do it AFTER writing the jump, or the dispatch
            will go to the exit jump. */
-        f->code[emit->current_block->match_code_start + pos] = f->pos;
+        f->code[emit->block->match_code_start + pos] = f->pos;
 
         /* This is necessary to keep vars created from the decomposition of one
            class from showing up in subsequent cases. */
-        lily_var *v = emit->current_block->var_start;
+        lily_var *v = emit->block->var_start;
         if (v != emit->symtab->var_chain)
             lily_hide_block_vars(emit->symtab, v);
     }
@@ -3719,7 +3719,7 @@ int lily_emit_add_match_case(lily_emit_state *emit, int pos)
 void lily_emit_eval_match_expr(lily_emit_state *emit, lily_ast_pool *ap)
 {
     lily_ast *ast = ap->root;
-    lily_block *current_block = emit->current_block;
+    lily_block *block = emit->block;
     eval_enforce_value(emit, ast, NULL, "Match expression has no value.\n");
 
     if ((ast->result->type->cls->flags & CLS_ENUM_CLASS) == 0 ||
@@ -3728,13 +3728,13 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_ast_pool *ap)
                 "Match expression is not an enum class value.\n");
     }
 
-    current_block->match_input_type = ast->result->type;
+    block->match_input_type = ast->result->type;
 
     int match_cases_needed = ast->result->type->cls->variant_size;
     if (emit->match_case_pos + match_cases_needed > emit->match_case_size)
         grow_match_cases(emit);
 
-    current_block->match_case_start = emit->match_case_pos;
+    block->match_case_start = emit->match_case_pos;
 
     /* This is how the emitter knows that no cases have been given yet. */
     int i;
@@ -3743,8 +3743,8 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_ast_pool *ap)
 
     emit->match_case_pos += match_cases_needed;
 
-    current_block->match_code_start = emit->top_function->pos + 4;
-    current_block->match_value_spot = ast->result->reg_spot;
+    block->match_code_start = emit->top_function->pos + 4;
+    block->match_value_spot = ast->result->reg_spot;
 
     write_prep(emit, 4 + match_cases_needed);
 
@@ -3778,7 +3778,7 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
         lily_var *for_start, lily_var *for_end, lily_var *for_step,
         int line_num)
 {
-    lily_block *loop_block = emit->current_block;
+    lily_block *loop_block = emit->block;
     lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
 
     int have_step = (for_step != NULL);
@@ -3888,7 +3888,7 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
    loop. */
 void lily_emit_break(lily_emit_state *emit)
 {
-    if (emit->current_block->loop_start == -1) {
+    if (emit->block->loop_start == -1) {
         /* This is called by parser on the source line, so do not adjust the
            raiser. */
         lily_raise(emit->raiser, lily_SyntaxError,
@@ -3905,7 +3905,7 @@ void lily_emit_break(lily_emit_state *emit)
     lily_function_val *f = emit->top_function;
 
     /* If the while is the most current, then add it to the end. */
-    if (emit->current_block->block_type == BLOCK_WHILE) {
+    if (emit->block->block_type == BLOCK_WHILE) {
         emit->patches[emit->patch_pos] = f->pos-1;
         emit->patch_pos++;
     }
@@ -3938,14 +3938,14 @@ void lily_emit_continue(lily_emit_state *emit)
 {
     /* This is called by parser on the source line, so do not adjust the
        raiser. */
-    if (emit->current_block->loop_start == -1) {
+    if (emit->block->loop_start == -1) {
         lily_raise(emit->raiser, lily_SyntaxError,
                 "'continue' used outside of a loop.\n");
     }
 
     write_pop_inner_try_blocks(emit);
 
-    write_2(emit, o_jump, emit->current_block->loop_start);
+    write_2(emit, o_jump, emit->block->loop_start);
 }
 
 /*  lily_emit_return
@@ -3990,16 +3990,16 @@ void lily_emit_update_function_block(lily_emit_state *emit,
         lily_class *decl_class, int generic_count, lily_type *ret_type)
 {
     emit->top_function_ret = ret_type;
-    emit->current_block->generic_count = generic_count;
+    emit->block->generic_count = generic_count;
 
     if (decl_class) {
         /* The most recent function is the constructor for this class, which will
            always return a class instance. Since it's also the function var (and
            the return of a function is always [0], this works. */
-        lily_type *self_type = emit->current_block->function_var->type->subtypes[0];
+        lily_type *self_type = emit->block->function_var->type->subtypes[0];
 
         lily_storage *self = get_storage(emit, self_type, *emit->lex_linenum);
-        emit->current_block->self = self;
+        emit->block->self = self;
 
         write_3(emit,
                 o_new_instance,
@@ -4092,7 +4092,7 @@ void lily_emit_except(lily_emit_state *emit, lily_class *cls,
     and writes the o_return_from_vm instruction that will leave the vm. */
 void lily_emit_vm_return(lily_emit_state *emit)
 {
-    finalize_function_val(emit, emit->current_block);
+    finalize_function_val(emit, emit->block);
     write_1(emit, o_return_from_vm);
 }
 
@@ -4111,16 +4111,16 @@ void lily_reset_main(lily_emit_state *emit)
 void lily_emit_enter_block(lily_emit_state *emit, int block_type)
 {
     lily_block *new_block;
-    if (emit->current_block->next == NULL) {
+    if (emit->block->next == NULL) {
         new_block = try_new_block();
         if (new_block == NULL)
             lily_raise_nomem(emit->raiser);
 
-        emit->current_block->next = new_block;
-        new_block->prev = emit->current_block;
+        emit->block->next = new_block;
+        new_block->prev = emit->block;
     }
     else
-        new_block = emit->current_block->next;
+        new_block = emit->block->next;
 
     new_block->block_type = block_type;
     new_block->var_start = emit->symtab->var_chain;
@@ -4133,11 +4133,11 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         /* Non-functions will continue using the storages that the parent uses.
            Additionally, the same technique is used to allow loop starts to
            bubble upward until a function gets in the way. */
-        new_block->storage_start = emit->current_block->storage_start;
+        new_block->storage_start = emit->block->storage_start;
         if (IS_LOOP_BLOCK(block_type))
             new_block->loop_start = emit->top_function->pos;
         else
-            new_block->loop_start = emit->current_block->loop_start;
+            new_block->loop_start = emit->block->loop_start;
     }
     else {
         lily_var *v = emit->symtab->var_chain;
@@ -4178,7 +4178,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         emit->function_depth++;
     }
 
-    emit->current_block = new_block;
+    emit->block = new_block;
 }
 
 /*  lily_emit_leave_block
@@ -4191,18 +4191,18 @@ void lily_emit_leave_block(lily_emit_state *emit)
     lily_block *block;
     int block_type;
 
-    if (emit->current_block->prev == NULL)
+    if (emit->block->prev == NULL)
         lily_raise(emit->raiser, lily_SyntaxError, "'}' outside of a block.\n");
 
-    block = emit->current_block;
+    block = emit->block;
     block_type = block->block_type;
 
     /* These blocks need to jump back up when the bottom is hit. */
     if (block_type == BLOCK_WHILE || block_type == BLOCK_FOR_IN)
-        write_2(emit, o_jump, emit->current_block->loop_start);
+        write_2(emit, o_jump, emit->block->loop_start);
     else if (block_type == BLOCK_MATCH) {
         ensure_proper_match_block(emit);
-        emit->match_case_pos = emit->current_block->match_case_start;
+        emit->match_case_pos = emit->block->match_case_start;
     }
 
     v = block->var_start;
@@ -4228,7 +4228,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
     else
         leave_function(emit, block);
 
-    emit->current_block = emit->current_block->prev;
+    emit->block = emit->block->prev;
 }
 
 /*  lily_emit_try_enter_main
@@ -4267,7 +4267,7 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     main_block->generic_count = 0;
     emit->top_function = main_var->value.function;
     emit->top_var = main_var;
-    emit->current_block = main_block;
+    emit->block = main_block;
     emit->function_depth++;
     return 1;
 }

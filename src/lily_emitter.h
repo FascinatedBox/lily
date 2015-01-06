@@ -56,7 +56,7 @@ typedef struct {
     lily_storage *unused_storage_start;
     lily_storage *all_storage_top;
 
-    lily_block *current_block;
+    lily_block *block;
 
     uint32_t function_depth;
     uint32_t expr_num;
