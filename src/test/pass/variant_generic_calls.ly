@@ -3,7 +3,7 @@ enum class Option[A] {
     None
 }
 
-function f[A](Option[A] first, Option[A] second) {
+define f[A](Option[A] first, Option[A] second) {
 
 }
 

@@ -1,3 +1,3 @@
-function f( => list[integer]) {
+define f( => list[integer]) {
 	return []
 }

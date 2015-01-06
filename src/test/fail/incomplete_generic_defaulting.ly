@@ -5,6 +5,6 @@ Traceback:
     Function __main__ at line 10
 ###
 
-function f[A]( => list[A]) {  }
+define f[A]( => list[A]) {  }
 
 var v = f()

@@ -5,11 +5,11 @@ Received Type: list[any]
 Where: File "test/fail/ensure_call_generics_resolve_once.ly" at line 19
 ###
 
-function f[A, B](A value, B value2, B value3) {
+define f[A, B](A value, B value2, B value3) {
     
 }
 
-function g[A, B](A value, B value2) {
+define g[A, B](A value, B value2) {
     any a = 10
 
     # f's A is first resolved as 'any'.

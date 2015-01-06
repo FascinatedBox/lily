@@ -1,6 +1,6 @@
 any a = 10
 
-function f[A](A first, A second) {
+define f[A](A first, A second) {
     
 }
 

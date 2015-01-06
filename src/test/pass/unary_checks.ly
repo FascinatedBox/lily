@@ -1,9 +1,9 @@
-function unary_helper( => integer)
+define unary_helper( => integer)
 {
     return 10
 }
 
-function unary_call_checker(integer a => integer)
+define unary_call_checker(integer a => integer)
 {
     return 10
 }

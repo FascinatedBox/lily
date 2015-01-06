@@ -9,7 +9,7 @@
     hash[string, integer] f = ["a" => 1, "b" => 2, "c" => 3]
     f["d"] = 4
 
-    function g() {
+    define g() {
         integer g_1 = 10
     }
 
@@ -20,9 +20,9 @@
     h = g
     h = ["a" => 1, "b" => 2]
 
-    function ret_10( => integer) { return 10 }
-    function ret_20( => integer) { return 20 }
-    function ret_30( => integer) { return 30 }
+    define ret_10( => integer) { return 10 }
+    define ret_20( => integer) { return 20 }
+    define ret_30( => integer) { return 30 }
 
     list[function( => integer)] function_list = [ret_10, ret_20, ret_30]
 

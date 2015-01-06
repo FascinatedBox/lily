@@ -1,6 +1,6 @@
 integer a = 10
 
-function f() {
+define f() {
 	a += 10
 }
 

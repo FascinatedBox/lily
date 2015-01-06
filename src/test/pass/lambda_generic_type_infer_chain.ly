@@ -1,7 +1,7 @@
 
 # This is a function that takes a given value and performs two transformations
 # upon it. The result of the transformations is then yielded.
-function f[A, B, C](A value,
+define f[A, B, C](A value,
                     function g(A => B),
                     function h(B => C) => C) {
     return h(g(value))

@@ -5,5 +5,5 @@ Traceback:
     Function __main__ at line 9
 ###
 
-function f( => integer) { }
+define f( => integer) { }
 f()

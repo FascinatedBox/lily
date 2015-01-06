@@ -1,5 +1,5 @@
-function f[A]() {
-    function g(A v1) {
+define f[A]() {
+    define g(A v1) {
 
     }
 }

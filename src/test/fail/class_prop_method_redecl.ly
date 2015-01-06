@@ -4,7 +4,7 @@ Where: File "test/fail/class_prop_method_redecl.ly" at line 10
 ###
 
 class Test() {
-    function abc() {
+    define abc() {
 
     }
     var @abc = 10

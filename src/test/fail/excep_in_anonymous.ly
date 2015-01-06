@@ -5,7 +5,7 @@ Traceback:
     Function __main__ at line 14
 ###
 
-function f() {
+define f() {
     any a = 10
     string s = a.@(string)
 }

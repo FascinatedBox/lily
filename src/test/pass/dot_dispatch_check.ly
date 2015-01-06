@@ -1,4 +1,4 @@
-function return_abc( => string) { return "abc" }
+define return_abc( => string) { return "abc" }
 
 list[string] results = []
 string abc = "abc"

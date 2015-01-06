@@ -272,7 +272,8 @@ keyword_seed keywords[] = {
     {"var",          7496054},
     {"enum",         1836412517},
     {"match",        448345170285},
-    {"case",         1702060387}
+    {"case",         1702060387},
+    {"define",       111524889126244}
 };
 
 void lily_builtin_print(lily_vm_state *, lily_function_val *, uint16_t *);

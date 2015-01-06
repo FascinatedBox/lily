@@ -1,4 +1,4 @@
-function fib(integer n => integer)
+define fib(integer n => integer)
 {
     if n == 0:
         return 0
