@@ -1108,7 +1108,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
         write_3(emit,
                 o_return_val,
                 *emit->lex_linenum,
-                emit->self_storage->reg_spot);
+                emit->block->self->reg_spot);
     }
 
     lily_var *old_function_cache = emit->symtab->old_function_chain;
@@ -1163,7 +1163,6 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
                 last_func_block->generic_count);
     }
 
-    emit->self_storage = emit->block->prev->self;
     emit->symtab->next_register_spot = block->save_register_spot;
     emit->top_function = v->value.function;
     emit->top_var = v;
@@ -1783,7 +1782,7 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
         write_5(emit,
                 o_set_item,
                 ast->line_num,
-                emit->self_storage->reg_spot,
+                emit->block->self->reg_spot,
                 lit_result->reg_spot,
                 rhs->reg_spot);
 
@@ -3005,7 +3004,7 @@ static int maybe_self_insert(lily_emit_state *emit, lily_ast *ast)
     if (emit->current_class != ((lily_var *)ast->result)->parent)
         return 0;
 
-    ast->arg_start->result = (lily_sym *)emit->self_storage;
+    ast->arg_start->result = (lily_sym *)emit->block->self;
     ast->arg_start->tree_type = tree_local_var;
     return 1;
 }
@@ -3285,7 +3284,7 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
     write_5(emit,
             o_get_item,
             ast->line_num,
-            emit->self_storage->reg_spot,
+            emit->block->self->reg_spot,
             index_storage->reg_spot,
             result->reg_spot);
 
@@ -4005,8 +4004,6 @@ void lily_emit_update_function_block(lily_emit_state *emit,
                 o_new_instance,
                 *emit->lex_linenum,
                 self->reg_spot);
-
-        emit->self_storage = self;
     }
 }
 
@@ -4125,7 +4122,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
     new_block->block_type = block_type;
     new_block->var_start = emit->symtab->var_chain;
     new_block->class_entry = NULL;
-    new_block->self = NULL;
+    new_block->self = emit->block->self;
     new_block->generic_count = 0;
 
     if ((block_type & BLOCK_FUNCTION) == 0) {
@@ -4265,6 +4262,7 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     main_block->loop_start = -1;
     main_block->class_entry = NULL;
     main_block->generic_count = 0;
+    main_block->self = NULL;
     emit->top_function = main_var->value.function;
     emit->top_var = main_var;
     emit->block = main_block;
