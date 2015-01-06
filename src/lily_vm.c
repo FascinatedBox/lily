@@ -23,8 +23,8 @@ code_pos += 5;
 #define INTDBL_OP(OP) \
 lhs_reg = vm_regs[code[code_pos + 2]]; \
 rhs_reg = vm_regs[code[code_pos + 3]]; \
-if (lhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) { \
-    if (rhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) \
+if (lhs_reg->type->cls->id == SYM_CLASS_DOUBLE) { \
+    if (rhs_reg->type->cls->id == SYM_CLASS_DOUBLE) \
         vm_regs[code[code_pos+4]]->value.doubleval = \
         lhs_reg->value.doubleval OP rhs_reg->value.doubleval; \
     else \
@@ -51,28 +51,28 @@ code_pos += 5;
 #define EQUALITY_COMPARE_OP(OP, STRINGOP) \
 lhs_reg = vm_regs[code[code_pos + 2]]; \
 rhs_reg = vm_regs[code[code_pos + 3]]; \
-if (lhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) { \
-    if (rhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) \
+if (lhs_reg->type->cls->id == SYM_CLASS_DOUBLE) { \
+    if (rhs_reg->type->cls->id == SYM_CLASS_DOUBLE) \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
     else \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.doubleval OP rhs_reg->value.integer); \
 } \
-else if (lhs_reg->sig->cls->id == SYM_CLASS_INTEGER) { \
-    if (rhs_reg->sig->cls->id == SYM_CLASS_INTEGER) \
+else if (lhs_reg->type->cls->id == SYM_CLASS_INTEGER) { \
+    if (rhs_reg->type->cls->id == SYM_CLASS_INTEGER) \
         vm_regs[code[code_pos+4]]->value.integer =  \
         (lhs_reg->value.integer OP rhs_reg->value.integer); \
     else \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.integer OP rhs_reg->value.doubleval); \
 } \
-else if (lhs_reg->sig->cls->id == SYM_CLASS_STRING) { \
+else if (lhs_reg->type->cls->id == SYM_CLASS_STRING) { \
     vm_regs[code[code_pos+4]]->value.integer = \
     strcmp(lhs_reg->value.string->string, \
            rhs_reg->value.string->string) STRINGOP; \
 } \
-else if (lhs_reg->sig == rhs_reg->sig) { \
+else if (lhs_reg->type == rhs_reg->type) { \
     vm_regs[code[code_pos+4]]->value.integer = \
     compare_values(vm, lhs_reg, rhs_reg) OP 1; \
 } \
@@ -82,23 +82,23 @@ code_pos += 5;
 #define COMPARE_OP(OP, STRINGOP) \
 lhs_reg = vm_regs[code[code_pos + 2]]; \
 rhs_reg = vm_regs[code[code_pos + 3]]; \
-if (lhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) { \
-    if (rhs_reg->sig->cls->id == SYM_CLASS_DOUBLE) \
+if (lhs_reg->type->cls->id == SYM_CLASS_DOUBLE) { \
+    if (rhs_reg->type->cls->id == SYM_CLASS_DOUBLE) \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
     else \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.doubleval OP rhs_reg->value.integer); \
 } \
-else if (lhs_reg->sig->cls->id == SYM_CLASS_INTEGER) { \
-    if (rhs_reg->sig->cls->id == SYM_CLASS_INTEGER) \
+else if (lhs_reg->type->cls->id == SYM_CLASS_INTEGER) { \
+    if (rhs_reg->type->cls->id == SYM_CLASS_INTEGER) \
         vm_regs[code[code_pos+4]]->value.integer =  \
         (lhs_reg->value.integer OP rhs_reg->value.integer); \
     else \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.integer OP rhs_reg->value.doubleval); \
 } \
-else if (lhs_reg->sig->cls->id == SYM_CLASS_STRING) { \
+else if (lhs_reg->type->cls->id == SYM_CLASS_STRING) { \
     vm_regs[code[code_pos+4]]->value.integer = \
     strcmp(lhs_reg->value.string->string, \
            rhs_reg->value.string->string) STRINGOP; \
@@ -152,8 +152,8 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
     vm->prep_literal_stop = NULL;
     vm->generic_map = NULL;
     vm->generic_map_size = 0;
-    vm->resolver_sigs = NULL;
-    vm->resolver_sigs_size = 0;
+    vm->resolver_types = NULL;
+    vm->resolver_types_size = 0;
 
     if (vm->function_stack) {
         int i;
@@ -216,7 +216,7 @@ void lily_vm_free_registers(lily_vm_state *vm)
     for (i = vm->max_registers-1;i >= 0;i--) {
         reg = regs_from_main[i];
 
-        if (reg->sig->cls->is_refcounted &&
+        if (reg->type->cls->is_refcounted &&
             (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
             lily_deref_unknown_val(reg);
 
@@ -249,7 +249,7 @@ void lily_free_vm_state(lily_vm_state *vm)
         lily_free(vm->string_buffer);
     }
 
-    lily_free(vm->resolver_sigs);
+    lily_free(vm->resolver_types);
     lily_free(vm->generic_map);
     lily_free(vm->function_table);
     lily_free(vm->literal_table);
@@ -308,10 +308,10 @@ static void invoke_gc(lily_vm_state *vm)
                 that will mark every inner value that's visible. */
     for (i = 0;i < vm->num_registers;i++) {
         lily_value *reg = regs_from_main[i];
-        if ((reg->sig->flags & SIG_MAYBE_CIRCULAR) &&
+        if ((reg->type->flags & TYPE_MAYBE_CIRCULAR) &&
             (reg->flags & VAL_IS_NIL) == 0 &&
              reg->value.gc_generic->gc_entry != NULL) {
-            (*reg->sig->cls->gc_marker)(pass, reg);
+            (*reg->type->cls->gc_marker)(pass, reg);
         }
     }
 
@@ -323,7 +323,7 @@ static void invoke_gc(lily_vm_state *vm)
          gc_iter = gc_iter->next) {
         if (gc_iter->last_pass != pass &&
             gc_iter->value.generic != NULL) {
-            lily_gc_collect_value(gc_iter->value_sig, gc_iter->value);
+            lily_gc_collect_value(gc_iter->value_type, gc_iter->value);
         }
     }
 
@@ -336,7 +336,7 @@ static void invoke_gc(lily_vm_state *vm)
                     register as nil so that */
         for (i = vm->num_registers;i < vm->max_registers;i++) {
             lily_value *reg = regs_from_main[i];
-            if ((reg->sig->flags & SIG_MAYBE_CIRCULAR) &&
+            if ((reg->type->flags & TYPE_MAYBE_CIRCULAR) &&
                 (reg->flags & VAL_IS_NIL) == 0 &&
                 /* Not sure if this next line is necessary though... */
                 reg->value.gc_generic->gc_entry != NULL &&
@@ -416,15 +416,15 @@ static void destroy_gc_entries(lily_vm_state *vm)
 
     Take note, the gc may be invoked regardless of what this call returns.
 
-    vm:        This is sent in case the gc needs to be collected. The new
-               gc entry is also added to the vm's ->gc_live_entries.
-    value_sig: The sig describing the value given.
-    value:     The value to attach a gc_entry to. This can be any lily_value
-               that is a superset of lily_generic_gc_val.
+    vm:         This is sent in case the gc needs to be collected. The new
+                gc entry is also added to the vm's ->gc_live_entries.
+    value_type: The type describing the value given.
+    value:      The value to attach a gc_entry to. This can be any lily_value
+                that is a superset of lily_generic_gc_val.
 
     Returns 1 if successful, 0 otherwise. Additionally, the value's ->gc_entry
     is set to the new gc_entry on success. */
-static int try_add_gc_item(lily_vm_state *vm, lily_sig *value_sig,
+static int try_add_gc_item(lily_vm_state *vm, lily_type *value_type,
         lily_generic_gc_val *value)
 {
     /* The given value is likely not in a register, so run the gc before adding
@@ -444,7 +444,7 @@ static int try_add_gc_item(lily_vm_state *vm, lily_sig *value_sig,
             return 0;
     }
 
-    new_entry->value_sig = value_sig;
+    new_entry->value_type = value_type;
     new_entry->value.gc_generic = value;
     new_entry->last_pass = 0;
 
@@ -463,7 +463,7 @@ static int try_add_gc_item(lily_vm_state *vm, lily_sig *value_sig,
     The vm is passed in case an error needs to be raised. */
 static int compare_values(lily_vm_state *vm, lily_value *left, lily_value *right)
 {
-    class_eq_func eq_func = left->sig->cls->eq_func;
+    class_eq_func eq_func = left->type->cls->eq_func;
     int depth = 0;
 
     int result = eq_func(vm, &depth, left, right);
@@ -485,7 +485,7 @@ static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
     if (lhs_reg->flags & VAL_IS_NIL) {
         lhs_any = lily_try_new_any_val();
         if (lhs_any == NULL ||
-            try_add_gc_item(vm, lhs_reg->sig,
+            try_add_gc_item(vm, lhs_reg->type,
                     (lily_generic_gc_val *)lhs_any) == 0) {
 
             if (lhs_any)
@@ -501,42 +501,42 @@ static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
     else
         lhs_any = lhs_reg->value.any;
 
-    lily_sig *new_sig;
+    lily_type *new_type;
     lily_raw_value new_value;
     int new_flags;
 
-    if (rhs_reg->sig == lhs_reg->sig) {
+    if (rhs_reg->type == lhs_reg->type) {
         if ((rhs_reg->flags & VAL_IS_NIL) ||
             (rhs_reg->value.any->inner_value->flags & VAL_IS_NIL)) {
 
-            new_sig = NULL;
+            new_type = NULL;
             new_value.integer = 0;
             new_flags = VAL_IS_NIL;
         }
         else {
             lily_value *rhs_inner = rhs_reg->value.any->inner_value;
 
-            new_sig = rhs_inner->sig;
+            new_type = rhs_inner->type;
             new_value = rhs_inner->value;
             new_flags = rhs_inner->flags;
         }
     }
     else {
-        new_sig = rhs_reg->sig;
+        new_type = rhs_reg->type;
         new_value = rhs_reg->value;
         new_flags = rhs_reg->flags;
     }
 
     if ((new_flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
-        new_sig->cls->is_refcounted)
+        new_type->cls->is_refcounted)
         new_value.generic->refcount++;
 
     lily_value *lhs_inner = lhs_any->inner_value;
     if ((lhs_inner->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
-        lhs_inner->sig->cls->is_refcounted)
+        lhs_inner->type->cls->is_refcounted)
         lily_deref_unknown_val(lhs_inner);
 
-    lhs_inner->sig = new_sig;
+    lhs_inner->type = new_type;
     lhs_inner->value = new_value;
     lhs_inner->flags = new_flags;
 }
@@ -588,12 +588,12 @@ static void add_catch_entry(lily_vm_state *vm)
     This reallocs vm->regs_from_main. If vm->regs_from_main moves, then
     vm->vm_regs and vm->regs_from_main are updated appropriately.
 
-    Registers created are given the signature of integer, marked nil, and given
+    Registers created are given the type of integer, marked nil, and given
     a value of zero (to prevent complaints about invalid reads). */
 static void grow_vm_registers(lily_vm_state *vm, int register_need)
 {
     lily_value **new_regs;
-    lily_sig *integer_sig = vm->integer_sig;
+    lily_type *integer_type = vm->integer_type;
     int i = vm->max_registers;
 
     ptrdiff_t reg_offset = vm->vm_regs - vm->regs_from_main;
@@ -610,8 +610,8 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
     vm->regs_from_main = new_regs;
     vm->vm_regs = new_regs + reg_offset;
 
-    /* Start creating new registers. Have them default to an integer sig so that
-       nothing has to check for a NULL sig. Integer is used as the default
+    /* Start creating new registers. Have them default to an integer type so that
+       nothing has to check for a NULL type. Integer is used as the default
        because it is not ref'd. */
     for (;i < register_need;i++) {
         new_regs[i] = lily_malloc(sizeof(lily_value));
@@ -620,86 +620,86 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
             lily_raise_nomem(vm->raiser);
         }
 
-        new_regs[i]->sig = integer_sig;
+        new_regs[i]->type = integer_type;
         new_regs[i]->flags = VAL_IS_NIL;
     }
 
     vm->max_registers = register_need;
 }
 
-/*  resolve_property_sig
-    This takes a signature that is or include generics and resolves it
+/*  resolve_property_type
+    This takes a type that is or include generics and resolves it
     according to the given instance. It's used by o_new_instance to figure out
     generic properties.
-    This is like resolve_sig_by_map, except there's no map (the instance sig
+    This is like resolve_type_by_map, except there's no map (the instance type
     is used instead). */
-static lily_sig *resolve_property_sig(lily_vm_state *vm,
-        lily_sig *instance_sig, lily_sig *prop_sig, int resolve_start)
+static lily_type *resolve_property_type(lily_vm_state *vm,
+        lily_type *instance_type, lily_type *prop_type, int resolve_start)
 {
-    lily_sig *result_sig = NULL;
+    lily_type *result_type = NULL;
 
-    if (prop_sig->cls->id == SYM_CLASS_TEMPLATE)
-        result_sig = instance_sig->siglist[prop_sig->template_pos];
-    else if (prop_sig->cls->template_count == 0)
-        /* The original sig could be something like 'tuple[A, integer]'.
-           This keeps 'integer' from building a sig. */
-        result_sig = prop_sig;
+    if (prop_type->cls->id == SYM_CLASS_TEMPLATE)
+        result_type = instance_type->subtypes[prop_type->template_pos];
+    else if (prop_type->cls->template_count == 0)
+        /* The original type could be something like 'tuple[A, integer]'.
+           This keeps 'integer' from building a type. */
+        result_type = prop_type;
     else {
         /* If it's marked as having templates and it's not the template
-           class, then it -has- to have a siglist to process. */
-        int sigs_needed = prop_sig->siglist_size;
+           class, then it -has- to have subtypes to process. */
+        int types_needed = prop_type->subtype_count;
 
-        if ((resolve_start + sigs_needed) > vm->resolver_sigs_size) {
-            lily_sig **new_sigs = lily_realloc(vm->resolver_sigs,
-                    sizeof(lily_sig *) *
-                    (resolve_start + sigs_needed));
+        if ((resolve_start + types_needed) > vm->resolver_types_size) {
+            lily_type **new_types = lily_realloc(vm->resolver_types,
+                    sizeof(lily_type *) *
+                    (resolve_start + types_needed));
 
-            if (new_sigs == NULL)
+            if (new_types == NULL)
                 lily_raise_nomem(vm->raiser);
 
-            vm->resolver_sigs = new_sigs;
-            vm->resolver_sigs_size = (resolve_start + sigs_needed);
+            vm->resolver_types = new_types;
+            vm->resolver_types_size = (resolve_start + types_needed);
         }
 
         int i;
-        lily_sig *inner_sig;
-        for (i = 0;i < prop_sig->siglist_size;i++) {
-            inner_sig = prop_sig->siglist[i];
-            inner_sig = resolve_property_sig(vm, instance_sig, inner_sig,
+        lily_type *inner_type;
+        for (i = 0;i < prop_type->subtype_count;i++) {
+            inner_type = prop_type->subtypes[i];
+            inner_type = resolve_property_type(vm, instance_type, inner_type,
                     resolve_start + i);
 
-            vm->resolver_sigs[resolve_start + i] = inner_sig;
+            vm->resolver_types[resolve_start + i] = inner_type;
         }
 
-        int flags = (prop_sig->flags & SIG_IS_VARARGS);
-        result_sig = lily_build_ensure_sig(vm->symtab, prop_sig->cls, flags,
-                vm->resolver_sigs, resolve_start, i);
+        int flags = (prop_type->flags & TYPE_IS_VARARGS);
+        result_type = lily_build_ensure_type(vm->symtab, prop_type->cls, flags,
+                vm->resolver_types, resolve_start, i);
     }
 
-    return result_sig;
+    return result_type;
 }
 
-/*  recursive_sig_search
-    This is called by dive_for_signature to find out how to get, say, A from
-    the sig map when there's nothing that's JUST A. Instead, there might be
+/*  recursive_type_search
+    This is called by dive_for_type to find out how to get, say, A from
+    the type map when there's nothing that's JUST A. Instead, there might be
     list[A], or tuple[A, A], or hash[integer, A].
 
-    This takes the unresolved sig (say, list[A]), the wanted sig (always just
-    a generic), and a resolved sig (say, list[integer]) and walks to determine
+    This takes the unresolved type (say, list[A]), the wanted type (always just
+    a generic), and a resolved type (say, list[integer]) and walks to determine
     what A or B or whatever is. */
-static lily_sig *recursive_sig_search(lily_sig *generic_sig,
-        lily_sig *want_sig, lily_sig *resolved_sig)
+static lily_type *recursive_type_search(lily_type *generic_type,
+        lily_type *want_type, lily_type *resolved_type)
 {
     int i;
-    lily_sig *ret = NULL;
-    for (i = 0;i < generic_sig->siglist_size;i++) {
-        if (generic_sig->siglist[i] == want_sig) {
-            ret = resolved_sig->siglist[i];
+    lily_type *ret = NULL;
+    for (i = 0;i < generic_type->subtype_count;i++) {
+        if (generic_type->subtypes[i] == want_type) {
+            ret = resolved_type->subtypes[i];
             break;
         }
-        else if (generic_sig->siglist_size != 0) {
-            ret = recursive_sig_search(generic_sig->siglist[i], want_sig,
-                    resolved_sig->siglist[i]);
+        else if (generic_type->subtype_count != 0) {
+            ret = recursive_type_search(generic_type->subtypes[i], want_type,
+                    resolved_type->subtypes[i]);
             if (ret)
                 break;
         }
@@ -708,9 +708,9 @@ static lily_sig *recursive_sig_search(lily_sig *generic_sig,
     return ret;
 }
 
-/*  dive_for_signature
+/*  dive_for_type
 
-    So...resolve_sig_by_map starts off with a mapping of parameter types (in
+    So...resolve_type_by_map starts off with a mapping of parameter types (in
     terms of generics) to given types. Most of the time, the parameter types
     should be simpler than the vars inside.
 
@@ -725,92 +725,92 @@ static lily_sig *recursive_sig_search(lily_sig *generic_sig,
 
     This should not fail, because generic variables in a function require an
     initializing expression. */
-static lily_sig *dive_for_signature(lily_sig **sig_map, int map_sig_count,
-        lily_sig *to_resolve)
+static lily_type *dive_for_type(lily_type **type_map, int map_type_count,
+        lily_type *to_resolve)
 {
     int i;
-    lily_sig *ret_sig = NULL;
-    for (i = 0;i < map_sig_count;i++) {
-        ret_sig = recursive_sig_search(sig_map[i], to_resolve,
-                sig_map[map_sig_count + i]);
-        if (ret_sig)
+    lily_type *ret_type = NULL;
+    for (i = 0;i < map_type_count;i++) {
+        ret_type = recursive_type_search(type_map[i], to_resolve,
+                type_map[map_type_count + i]);
+        if (ret_type)
             break;
     }
 
-    return ret_sig;
+    return ret_type;
 }
 
-/*  resolve_sig_by_map
+/*  resolve_type_by_map
 
     function f[A](A value => tuple[A, A]) {
         return <[value, value]
     }
 
-    So, in this case there's a var (or storage) with a signature unlike any
+    So, in this case there's a var (or storage) with a type unlike any
     parameter. The parameters given to the function are known, so use them to
-    build the signature that's wanted.
+    build the type that's wanted.
 
-    map_sig_count: How many signatures are in vm->generic_map.
-                   The sig at vm->generic_map[i] has a resolved version at
-                   vm->generic_map[map_sig_count + i].
-    to_resolve:    The generic-holding signature to resolve.
-    resolve_start: Where to begin storing signatures in resolver_sigs. Callers
+    map_type_count: How many types are in vm->generic_map.
+                   The type at vm->generic_map[i] has a resolved version at
+                   vm->generic_map[map_type_count + i].
+    to_resolve:    The generic-holding type to resolve.
+    resolve_start: Where to begin storing types in resolver_types. Callers
                    should always use zero, but this calls itself with adjusted
                    indexes. */
-static lily_sig *resolve_sig_by_map(lily_vm_state *vm, int map_sig_count,
-        lily_sig *to_resolve, int resolve_start)
+static lily_type *resolve_type_by_map(lily_vm_state *vm, int map_type_count,
+        lily_type *to_resolve, int resolve_start)
 {
-    int i, j, sigs_needed = to_resolve->siglist_size;
+    int i, j, types_needed = to_resolve->subtype_count;
 
-    if ((resolve_start + sigs_needed) > vm->resolver_sigs_size) {
-        lily_sig **new_sigs = lily_realloc(vm->resolver_sigs,
-                sizeof(lily_sig *) *
-                (resolve_start + sigs_needed));
+    if ((resolve_start + types_needed) > vm->resolver_types_size) {
+        lily_type **new_types = lily_realloc(vm->resolver_types,
+                sizeof(lily_type *) *
+                (resolve_start + types_needed));
 
-        if (new_sigs == NULL)
+        if (new_types == NULL)
             lily_raise_nomem(vm->raiser);
 
-        vm->resolver_sigs = new_sigs;
-        vm->resolver_sigs_size = (resolve_start + sigs_needed);
+        vm->resolver_types = new_types;
+        vm->resolver_types_size = (resolve_start + types_needed);
     }
 
-    lily_sig **sig_map = vm->generic_map;
+    lily_type **type_map = vm->generic_map;
 
-    for (i = 0;i < to_resolve->siglist_size;i++) {
-        lily_sig *inner_sig = to_resolve->siglist[i];
-        lily_sig *result_sig = NULL;
-        for (j = 0;j < map_sig_count;j++) {
-            if (sig_map[j] == inner_sig) {
-                result_sig = sig_map[map_sig_count + j];
+    for (i = 0;i < to_resolve->subtype_count;i++) {
+        lily_type *inner_type = to_resolve->subtypes[i];
+        lily_type *result_type = NULL;
+        for (j = 0;j < map_type_count;j++) {
+            if (type_map[j] == inner_type) {
+                result_type = type_map[map_type_count + j];
                 break;
             }
         }
 
-        if (inner_sig->template_pos == 0 &&
-            inner_sig->cls->id != SYM_CLASS_TEMPLATE)
+        if (inner_type->template_pos == 0 &&
+            inner_type->cls->id != SYM_CLASS_TEMPLATE)
             /* This can happen if generic and non-generic types are mixed in
                a declaration in a generic function.
                Example: function f[A](A val) { tuple[A, integer] t ... } */
-            result_sig = inner_sig;
+            result_type = inner_type;
 
-        if (result_sig == NULL)
-            result_sig = resolve_sig_by_map(vm, map_sig_count, inner_sig,
+        if (result_type == NULL)
+            result_type = resolve_type_by_map(vm, map_type_count, inner_type,
                     resolve_start + i);
 
-        vm->resolver_sigs[resolve_start + i] = result_sig;
+        vm->resolver_types[resolve_start + i] = result_type;
     }
 
-    lily_sig *ret;
-    if (to_resolve->siglist_size != 0) {
-        int flags = (to_resolve->flags & SIG_IS_VARARGS);
-        ret = lily_build_ensure_sig(vm->symtab, to_resolve->cls, flags,
-                vm->resolver_sigs, resolve_start, i);
+    lily_type *ret;
+    if (to_resolve->subtype_count != 0) {
+        int flags = (to_resolve->flags & TYPE_IS_VARARGS);
+        ret = lily_build_ensure_type(vm->symtab, to_resolve->cls, flags,
+                vm->resolver_types, resolve_start, i);
     }
     else
         /* Hard mode: This must be a generic by itself, with no parameters
            being just a generic. So...dive in to find out what it should
            be. */
-        ret = dive_for_signature(sig_map, map_sig_count, to_resolve);
+        ret = dive_for_type(type_map, map_type_count, to_resolve);
 
     return ret;
 }
@@ -821,7 +821,7 @@ static lily_sig *resolve_sig_by_map(lily_vm_state *vm, int map_sig_count,
     been made into.
 
     func:           A value holding a function to be called.
-    result_sig:     The signature that the result of this function call will
+    result_type:     The type that the result of this function call will
                     produce. This is necessary when the emitter's type
                     inference is used to deduce an output type when an input
                     of that type is not given as an argument.
@@ -832,17 +832,17 @@ static lily_sig *resolve_sig_by_map(lily_vm_state *vm, int map_sig_count,
 
     This is only called if there are locals/storages in a generic function. */
 static void resolve_generic_registers(lily_vm_state *vm, lily_value *func,
-        lily_sig *result_sig, int args_collected, int reg_start)
+        lily_type *result_type, int args_collected, int reg_start)
 {
     lily_function_val *fval = func->value.function;
-    lily_sig **sig_map = vm->generic_map;
+    lily_type **type_map = vm->generic_map;
     if ((fval->generic_count * 2) > vm->generic_map_size) {
-        sig_map = lily_realloc(vm->generic_map,
-                sizeof(lily_sig *) * (fval->generic_count * 2));
-        if (sig_map == NULL)
+        type_map = lily_realloc(vm->generic_map,
+                sizeof(lily_type *) * (fval->generic_count * 2));
+        if (type_map == NULL)
             lily_raise_nomem(vm->raiser);
 
-        vm->generic_map = sig_map;
+        vm->generic_map = type_map;
         vm->generic_map_size = fval->generic_count * 2;
     }
 
@@ -853,11 +853,11 @@ static void resolve_generic_registers(lily_vm_state *vm, lily_value *func,
     lily_register_info *ri = fval->reg_info;
 
     for (i = 0;i < (fval->generic_count * 2);i++)
-        sig_map[i] = NULL;
+        type_map[i] = NULL;
 
-    if (result_sig != NULL) {
-        sig_map[0] = func->sig->siglist[0];
-        sig_map[out_index] = result_sig;
+    if (result_type != NULL) {
+        type_map[0] = func->type->subtypes[0];
+        type_map[out_index] = result_type;
         last_map_spot++;
     }
 
@@ -868,17 +868,17 @@ static void resolve_generic_registers(lily_vm_state *vm, lily_value *func,
          reg_i < reg_stop;
          reg_i++, info_i++) {
         lily_value *reg = regs_from_main[reg_i];
-        lily_sig *parameter_sig = ri[info_i].sig;
+        lily_type *parameter_type = ri[info_i].type;
 
         for (i = 0;i <= out_index;i++) {
-            if (sig_map[i] == NULL) {
-                sig_map[i] = parameter_sig;
-                sig_map[out_index + i] = reg->sig;
+            if (type_map[i] == NULL) {
+                type_map[i] = parameter_type;
+                type_map[out_index + i] = reg->type;
                 last_map_spot = i;
                 break;
             }
             /* There's already an entry for this. Skip. */
-            else if (sig_map[i] == parameter_sig)
+            else if (type_map[i] == parameter_type)
                 break;
         }
     }
@@ -889,27 +889,27 @@ static void resolve_generic_registers(lily_vm_state *vm, lily_value *func,
          reg_i < reg_stop;
          reg_i++, info_i++) {
         lily_value *reg = regs_from_main[reg_i];
-        lily_sig *input_sig = ri[info_i].sig;
-        lily_sig *result_sig = NULL;
-        if (input_sig->template_pos ||
-            input_sig->cls->id == SYM_CLASS_TEMPLATE) {
+        lily_type *input_type = ri[info_i].type;
+        lily_type *result_type = NULL;
+        if (input_type->template_pos ||
+            input_type->cls->id == SYM_CLASS_TEMPLATE) {
 
             /* Start off by a basic run through the map built earlier. */
             for (i = 0;i < out_index;i++) {
-                if (input_sig == sig_map[i]) {
-                    result_sig = sig_map[out_index + i];
+                if (input_type == type_map[i]) {
+                    result_type = type_map[out_index + i];
                     break;
                 }
             }
 
             /* If a var is, say, list[A] and there is no list[A] as a
-               parameter, then the signature has to be built. This sucks. */
-            if (result_sig == NULL) {
-                result_sig = resolve_sig_by_map(vm, fval->generic_count,
-                        input_sig, 0);
+               parameter, then the type has to be built. This sucks. */
+            if (result_type == NULL) {
+                result_type = resolve_type_by_map(vm, fval->generic_count,
+                        input_type, 0);
 
-                sig_map[last_map_spot + 1] = input_sig;
-                sig_map[out_index + last_map_spot + 1] = result_sig;
+                type_map[last_map_spot + 1] = input_type;
+                type_map[out_index + last_map_spot + 1] = result_type;
                 last_map_spot++;
             }
         }
@@ -917,14 +917,14 @@ static void resolve_generic_registers(lily_vm_state *vm, lily_value *func,
             /* It's not generic? Well, that makes things easier. This could be,
                say, the integer of a for loop in a generic function, so it's
                not completely unreasonable. */
-            result_sig = input_sig;
+            result_type = input_type;
 
-        if (reg->sig->cls->is_refcounted &&
+        if (reg->type->cls->is_refcounted &&
             (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
             lily_deref_unknown_val(reg);
 
         reg->flags = VAL_IS_NIL;
-        reg->sig = result_sig;
+        reg->type = result_type;
     }
 }
 
@@ -954,17 +954,17 @@ static void prep_registers(lily_vm_state *vm, lily_value *func,
            something has 1 ref and assigns to itself, it will be
            destroyed from a deref, then an invalid value ref'd.
            This may not be possible here, but it is elsewhere. */
-        if (get_reg->sig->cls->is_refcounted &&
+        if (get_reg->type->cls->is_refcounted &&
             ((get_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0))
             get_reg->value.generic->refcount++;
 
-        if (set_reg->sig->cls->is_refcounted &&
+        if (set_reg->type->cls->is_refcounted &&
             ((set_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0))
             lily_deref_unknown_val(set_reg);
 
         /* Important! Registers seeds may reference generics, but incoming
            values have known types. */
-        set_reg->sig = get_reg->sig;
+        set_reg->type = get_reg->type;
 
         /* This will be null if this register doesn't belong to a
            var, or non-null if it's for a local. */
@@ -982,27 +982,27 @@ static void prep_registers(lily_vm_state *vm, lily_value *func,
             lily_register_info seed = register_seeds[i];
 
             lily_value *reg = regs_from_main[num_registers];
-            if (reg->sig->cls->is_refcounted &&
+            if (reg->type->cls->is_refcounted &&
                 (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
                 lily_deref_unknown_val(reg);
 
             /* SET the flags to nil so that VAL_IS_PROTECTED gets blasted away if
                it happens to be set. */
             reg->flags = VAL_IS_NIL;
-            reg->sig = seed.sig;
+            reg->type = seed.type;
         }
     }
     else if (num_registers < register_need) {
-        lily_sig *result_sig = NULL;
+        lily_type *result_type = NULL;
 
         /* If the function's result is -1, then it doesn't have one. If it
            does, use that to help do type inference.
            This is necessary when the result has generics that aren't specified
            in one of the arguments. */
         if ((int16_t)(code[5 + code[4]]) != -1)
-            result_sig = vm_regs[code[5 + code[4]]]->sig;
+            result_type = vm_regs[code[5 + code[4]]]->type;
 
-        resolve_generic_registers(vm, func, result_sig, i,
+        resolve_generic_registers(vm, func, result_type, i,
                 num_registers - i);
         num_registers = register_need;
     }
@@ -1135,7 +1135,7 @@ static void load_vm_regs(lily_value **vm_regs, lily_var *iter_var)
 {
     while (iter_var) {
         if ((iter_var->flags & (VAL_IS_NIL | VAR_IS_READONLY)) == 0) {
-            if (iter_var->sig->cls->is_refcounted)
+            if (iter_var->type->cls->is_refcounted)
                 iter_var->value.generic->refcount++;
 
             vm_regs[iter_var->reg_spot]->flags &= ~VAL_IS_NIL;
@@ -1178,7 +1178,7 @@ static lily_value *bind_function_name(lily_symtab *symtab,
 /*  build_traceback
     Create the list[tuple[string, integer]] stack used to represent traceback
     for an exception. Returns the built traceback, or NULL on fallure. */
-static lily_value *build_traceback(lily_vm_state *vm, lily_sig *traceback_sig)
+static lily_value *build_traceback(lily_vm_state *vm, lily_type *traceback_type)
 {
     lily_symtab *symtab = vm->symtab;
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
@@ -1192,7 +1192,7 @@ static lily_value *build_traceback(lily_vm_state *vm, lily_sig *traceback_sig)
     lv->gc_entry = NULL;
 
     if (lv->elems == NULL) {
-        lily_deref_list_val(traceback_sig, lv);
+        lily_deref_list_val(traceback_type, lv);
         return NULL;
     }
 
@@ -1217,7 +1217,7 @@ static lily_value *build_traceback(lily_vm_state *vm, lily_sig *traceback_sig)
             lily_free(tuple_values);
             lily_free(tuple_holder);
             lv->num_values = i;
-            lily_deref_list_val(traceback_sig, lv);
+            lily_deref_list_val(traceback_type, lv);
             return NULL;
         }
 
@@ -1228,7 +1228,7 @@ static lily_value *build_traceback(lily_vm_state *vm, lily_sig *traceback_sig)
         stack_tuple->elems = tuple_values;
         tuple_values[0] = func_string;
         tuple_values[1] = linenum_integer;
-        tuple_holder->sig = traceback_sig->siglist[0];
+        tuple_holder->type = traceback_type->subtypes[0];
         tuple_holder->value.list = stack_tuple;
         tuple_holder->flags = 0;
         lv->elems[i] = tuple_holder;
@@ -1237,12 +1237,12 @@ static lily_value *build_traceback(lily_vm_state *vm, lily_sig *traceback_sig)
 
     lily_value *v = lily_malloc(sizeof(lily_value));
     if (v == NULL) {
-        lily_deref_list_val(traceback_sig, lv);
+        lily_deref_list_val(traceback_type, lv);
         return NULL;
     }
 
     v->value.list = lv;
-    v->sig = traceback_sig;
+    v->type = traceback_type;
     v->flags = 0;
 
     return v;
@@ -1263,7 +1263,7 @@ static void key_error(lily_vm_state *vm, int code_pos, lily_value *key)
     top->line_num = top->code[code_pos + 1];
 
     lily_msgbuf *msgbuf = vm->raiser->msgbuf;
-    int key_cls_id = key->sig->cls->id;
+    int key_cls_id = key->type->cls->id;
 
     if (key_cls_id == SYM_CLASS_INTEGER)
         lily_msgbuf_add_int(msgbuf, key->value.integer);
@@ -1302,7 +1302,7 @@ void lily_builtin_calltrace(lily_vm_state *vm, lily_function_val *self,
 {
     lily_value *result = vm->vm_regs[code[0]];
 
-    lily_value *traceback_val = build_traceback(vm, result->sig);
+    lily_value *traceback_val = build_traceback(vm, result->type);
     if (traceback_val == NULL)
         lily_raise_nomem(vm->raiser);
 
@@ -1365,7 +1365,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
             arg_av = vararg_lv->elems[arg_pos]->value.any;
 
             arg = arg_av->inner_value;
-            cls_id = arg->sig->cls->id;
+            cls_id = arg->type->cls->id;
             val = arg->value;
 
             if (fmt[i] == 'd') {
@@ -1416,7 +1416,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
 lily_hash_elem *lily_try_lookup_hash_elem(lily_hash_val *hash,
         uint64_t key_siphash, lily_value *key)
 {
-    int key_cls_id = key->sig->cls->id;
+    int key_cls_id = key->type->cls->id;
 
     lily_hash_elem *elem_iter = hash->elem_chain;
     lily_raw_value key_value = key->value;
@@ -1483,11 +1483,11 @@ static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
                from trying to deref the key. */
             elem->elem_key->flags = hash_key->flags;
             elem->elem_key->value = hash_key->value;
-            elem->elem_key->sig = hash_key->sig;
+            elem->elem_key->type = hash_key->type;
             elem->key_siphash = key_siphash;
 
-            /* lily_assign_value needs a sig for the left side. */
-            elem->elem_value->sig = hash_value->sig;
+            /* lily_assign_value needs a type for the left side. */
+            elem->elem_value->type = hash_value->type;
 
             elem->next = hash->elem_chain;
             hash->elem_chain = elem;
@@ -1522,7 +1522,7 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code, int code_pos)
     index_reg = vm_regs[code[code_pos + 3]];
     rhs_reg = vm_regs[code[code_pos + 4]];
 
-    if (lhs_reg->sig->cls->id != SYM_CLASS_HASH) {
+    if (lhs_reg->type->cls->id != SYM_CLASS_HASH) {
         lily_list_val *list_val = lhs_reg->value.list;
         int index_int = index_reg->value.integer;
 
@@ -1565,7 +1565,7 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code, int code_pos)
     /* list and tuple have the same representation internally. Since list
        stores proper values, lily_assign_value automagically set the type to
        the right thing. */
-    if (lhs_reg->sig->cls->id != SYM_CLASS_HASH) {
+    if (lhs_reg->type->cls->id != SYM_CLASS_HASH) {
         lily_list_val *list_val = lhs_reg->value.list;
         int index_int = index_reg->value.integer;
 
@@ -1616,15 +1616,15 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code, int code_pos)
     if (hash_val == NULL)
         lily_raise_nomem(vm->raiser);
 
-    if ((result->sig->flags & SIG_MAYBE_CIRCULAR) &&
-        try_add_gc_item(vm, result->sig,
+    if ((result->type->flags & TYPE_MAYBE_CIRCULAR) &&
+        try_add_gc_item(vm, result->type,
             (lily_generic_gc_val *)hash_val) == 0) {
         lily_free(hash_val);
         lily_raise_nomem(vm->raiser);
     }
 
     if ((result->flags & VAL_IS_NIL) == 0)
-        lily_deref_hash_val(result->sig, result->value.hash);
+        lily_deref_hash_val(result->type, result->value.hash);
 
     result->value.hash = hash_val;
     result->flags = 0;
@@ -1675,8 +1675,8 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     lv->gc_entry = NULL;
 
     if (lv->elems == NULL ||
-        ((result->sig->flags & SIG_MAYBE_CIRCULAR) &&
-          try_add_gc_item(vm, result->sig,
+        ((result->type->flags & TYPE_MAYBE_CIRCULAR) &&
+          try_add_gc_item(vm, result->type,
                 (lily_generic_gc_val *)lv) == 0)) {
 
         lily_free(lv->elems);
@@ -1706,7 +1706,7 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
         /* For lists, the emitter verifies that each input has the same type.
            For tuples, there is no such restriction. This allows one opcode to
            handle building two (very similar) things. */
-        lv->elems[i]->sig = rhs_reg->sig;
+        lv->elems[i]->type = rhs_reg->type;
         lv->elems[i]->value.integer = 0;
         lv->num_values = i + 1;
 
@@ -1725,8 +1725,8 @@ static void do_o_raise(lily_vm_state *vm, lily_value *exception_val)
        container for traceback. */
 
     lily_instance_val *ival = exception_val->value.instance;
-    lily_sig *traceback_sig = ival->values[1]->sig;
-    lily_value *traceback = build_traceback(vm, traceback_sig);
+    lily_type *traceback_type = ival->values[1]->type;
+    lily_value *traceback = build_traceback(vm, traceback_type);
     if (traceback == NULL)
         lily_raise_nomem(vm->raiser);
 
@@ -1745,7 +1745,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     int i, total_entries;
     lily_value **vm_regs = vm->vm_regs;
     lily_value *result = vm_regs[code[2]];
-    lily_class *instance_class = result->sig->cls;
+    lily_class *instance_class = result->type->cls;
 
     total_entries = instance_class->prop_count;
 
@@ -1763,7 +1763,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     iv->values = iv_values;
     iv->gc_entry = NULL;
     iv->visited = 0;
-    iv->true_class = result->sig->cls;
+    iv->true_class = result->type->cls;
 
     if ((result->flags & VAL_IS_NIL) == 0)
         lily_deref_unknown_val(result);
@@ -1775,7 +1775,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
     lily_prop_entry *prop = instance_class->properties;
     for (i = 0;i < total_entries;i++, prop = prop->next) {
-        lily_sig *value_sig = prop->sig;
+        lily_type *value_type = prop->type;
         iv->values[i] = lily_malloc(sizeof(lily_value));
         if (iv->values[i] == NULL) {
             for (;i >= 0;i--)
@@ -1785,11 +1785,11 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         }
 
         iv->values[i]->flags = VAL_IS_NIL;
-        if (value_sig->template_pos ||
-            value_sig->cls->id == SYM_CLASS_TEMPLATE) {
-            value_sig = resolve_property_sig(vm, result->sig, value_sig, 0);
+        if (value_type->template_pos ||
+            value_type->cls->id == SYM_CLASS_TEMPLATE) {
+            value_type = resolve_property_type(vm, result->type, value_type, 0);
         }
-        iv->values[i]->sig = value_sig;
+        iv->values[i]->type = value_type;
         iv->values[i]->value.integer = 0;
     }
 
@@ -1825,7 +1825,7 @@ static void make_proper_exception_val(lily_vm_state *vm,
     ival->gc_entry = NULL;
     ival->true_class = raised_class;
     if (ival->values == NULL) {
-        lily_deref_instance_val(result->sig, ival);
+        lily_deref_instance_val(result->type, ival);
         lily_raise_nomem(vm->raiser);
     }
 
@@ -1833,7 +1833,7 @@ static void make_proper_exception_val(lily_vm_state *vm,
             vm->raiser->msgbuf->message);
 
     if (message_val == NULL) {
-        lily_deref_instance_val(result->sig, ival);
+        lily_deref_instance_val(result->type, ival);
         lily_raise_nomem(vm->raiser);
     }
     lily_msgbuf_reset(vm->raiser->msgbuf);
@@ -1844,11 +1844,11 @@ static void make_proper_exception_val(lily_vm_state *vm,
        which are always direct subclasses of Exception. */
     lily_class *exception_class = raised_class->parent;
     /* Traceback is always the second property of Exception. */
-    lily_sig *traceback_sig = exception_class->properties->next->sig;
+    lily_type *traceback_type = exception_class->properties->next->type;
 
-    lily_value *traceback_val = build_traceback(vm, traceback_sig);
+    lily_value *traceback_val = build_traceback(vm, traceback_type);
     if (traceback_val == NULL) {
-        lily_deref_instance_val(result->sig, ival);
+        lily_deref_instance_val(result->type, ival);
         lily_raise_nomem(vm->raiser);
     }
 
@@ -1856,7 +1856,7 @@ static void make_proper_exception_val(lily_vm_state *vm,
     ival->num_values = 2;
 
     if ((result->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_instance_val(result->sig, result->value.instance);
+        lily_deref_instance_val(result->type, result->value.instance);
 
     result->value.instance = ival;
     result->flags = 0;
@@ -1893,7 +1893,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
     }
     else {
         lily_value *raise_val = vm->raiser->exception;
-        raised_class = raise_val->sig->cls;
+        raised_class = raise_val->type->cls;
         except_name = raised_class->name;
     }
     /* Until user-declared exception classes arrive, raised_class should not
@@ -1952,7 +1952,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
                particular exception. */
             int next_location = stack_code[jump_location + 2];
             catch_reg = stack_regs[stack_code[jump_location + 4]];
-            lily_class *catch_class = catch_reg->sig->cls;
+            lily_class *catch_class = catch_reg->type->cls;
             if (catch_class == raised_class ||
                 lily_check_right_inherits_or_is(catch_class, raised_class)) {
                 /* ...So that execution resumes from within the except block. */
@@ -2091,11 +2091,11 @@ static void seed_registers(lily_vm_state *vm, lily_function_val *f, int start)
     for (i = 0;start < max;start++,i++) {
         lily_value *reg = vm->regs_from_main[start];
 
-        if (reg->sig->cls->is_refcounted &&
+        if (reg->type->cls->is_refcounted &&
             (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
             lily_deref_unknown_val(reg);
 
-        reg->sig = info[i].sig;
+        reg->type = info[i].type;
         reg->value.integer = 0;
         reg->flags = VAL_IS_NIL;
     }
@@ -2117,17 +2117,17 @@ void lily_vm_foreign_prep(lily_vm_state *vm, lily_function_val *caller,
 {
     /* Step 1: Determine the total register need of this function. */
     int register_need = to_call->value.function->reg_count;
-    lily_sig *function_val_return_sig = to_call->sig->siglist[0];
+    lily_type *function_val_return_type = to_call->type->subtypes[0];
     lily_function_val *function_val = to_call->value.function;
     int callee_start;
     /* In normal function calls, the caller is a function that reserves a
        register to get a value back from the callee. Since that is not the
        case here, add one more register to get a value in case one is
        needed. */
-    if (function_val_return_sig != NULL)
+    if (function_val_return_type != NULL)
         register_need++;
 
-    callee_start = vm->num_registers + (function_val_return_sig != NULL);
+    callee_start = vm->num_registers + (function_val_return_type != NULL);
     register_need += vm->num_registers;
 
     /* Step 2: If there aren't enough registers, make them. This may fail. */
@@ -2139,16 +2139,16 @@ void lily_vm_foreign_prep(lily_vm_state *vm, lily_function_val *caller,
         vm->num_registers = register_need;
     }
 
-    /* Step 3: If there's a return register, set it to the proper signature.
+    /* Step 3: If there's a return register, set it to the proper type.
                -2 may seem deep, but it's correct: 0 is the new native callee,
                -1 is foreign callee, and -2 is the native caller. The result
                register will be in the native caller's registers (so that the) */
     int function_vals_used = vm->function_stack[vm->function_stack_pos-2]->regs_used;
 
-    if (function_val_return_sig != NULL) {
+    if (function_val_return_type != NULL) {
         lily_value *foreign_reg = vm->vm_regs[function_vals_used];
-        /* Set it to the right sig, in case something looks at it later. */
-        foreign_reg->sig = function_val_return_sig;
+        /* Set it to the right type, in case something looks at it later. */
+        foreign_reg->type = function_val_return_type;
     }
 
     seed_registers(vm, function_val, callee_start);
@@ -2164,7 +2164,7 @@ void lily_vm_foreign_prep(lily_vm_state *vm, lily_function_val *caller,
     lily_vm_stack_entry *foreign_entry = vm->function_stack[vm->function_stack_pos-1];
     foreign_entry->code = vm->foreign_code;
     foreign_entry->code_pos = 0;
-    foreign_entry->regs_used = (function_val_return_sig != NULL);
+    foreign_entry->regs_used = (function_val_return_type != NULL);
     foreign_entry->return_reg = -1;
 
     /* Step 6: Set the second stack entry (the native function). */
@@ -2198,7 +2198,7 @@ void lily_vm_foreign_prep(lily_vm_state *vm, lily_function_val *caller,
     * 'left' must have a type set. */
 void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
 {
-    lily_class *cls = left->sig->cls;
+    lily_class *cls = left->type->cls;
 
     if (cls->flags & CLS_ENUM_CLASS)
         /* any/enum class assignment is...complicated. Use a separate function
@@ -2228,7 +2228,7 @@ void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
     responsible for ensuring that hashes only use valid key types. */
 uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
 {
-    int key_cls_id = key->sig->cls->id;
+    int key_cls_id = key->type->cls->id;
     uint64_t key_hash;
 
     if (key_cls_id == SYM_CLASS_STRING)
@@ -2252,7 +2252,7 @@ uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
     lily_vm_execute.
 
     * Ensure that there are enough registers to run __main__. If new registers
-      are allocated, they're set to a proper signature.
+      are allocated, they're set to a proper type.
     * Load __main__ and the sys package from symtab into registers.
     * Set stack entry 0 (__main__'s entry). */
 void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
@@ -2310,7 +2310,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
            be used if VAL_IS_NIL is set (optimization!) */
         reg->value.integer = 0;
         reg->flags = VAL_IS_NIL;
-        reg->sig = seed.sig;
+        reg->type = seed.type;
     }
 
     load_vm_regs(vm_regs, prep_var_start);
@@ -2323,7 +2323,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     if (main_function->reg_count > vm->num_registers) {
         if (vm->num_registers == 0) {
             lily_class *integer_cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
-            vm->integer_sig = integer_cls->sig;
+            vm->integer_type = integer_cls->type;
             vm->main = main_var;
         }
 
@@ -2360,7 +2360,7 @@ void lily_vm_execute(lily_vm_state *vm)
     lily_value **regs_from_main;
     lily_value **vm_regs;
     int i, num_registers, max_registers;
-    lily_sig *cast_sig;
+    lily_type *cast_type;
     lily_var *temp_var;
     register int64_t for_temp;
     /* This unfortunately has to be volatile because otherwise calltrace() and
@@ -2419,7 +2419,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 literal_val = vm->literal_table[code[code_pos+2]];
                 lhs_reg = vm_regs[code[code_pos+3]];
 
-                if (lhs_reg->sig->cls->is_refcounted &&
+                if (lhs_reg->type->cls->is_refcounted &&
                     (lhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
                     lily_deref_unknown_val(lhs_reg);
 
@@ -2431,7 +2431,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs_reg = (lily_value *)(vm->function_table[code[code_pos+2]]);
                 lhs_reg = vm_regs[code[code_pos+3]];
 
-                if (lhs_reg->sig->cls->is_refcounted &&
+                if (lhs_reg->type->cls->is_refcounted &&
                     (lhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
                     lily_deref_unknown_val(lhs_reg);
 
@@ -2516,11 +2516,11 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* This is a little more tricky, because the rhs could be a
                    number or an integer... */
                 rhs_reg = vm_regs[code[code_pos+3]];
-                if (rhs_reg->sig->cls->id == SYM_CLASS_INTEGER &&
+                if (rhs_reg->type->cls->id == SYM_CLASS_INTEGER &&
                     rhs_reg->value.integer == 0)
                     lily_raise(vm->raiser, lily_DivisionByZeroError,
                             "Attempt to divide by zero.\n");
-                else if (rhs_reg->sig->cls->id == SYM_CLASS_DOUBLE &&
+                else if (rhs_reg->type->cls->id == SYM_CLASS_DOUBLE &&
                          rhs_reg->value.doubleval == 0)
                     lily_raise(vm->raiser, lily_DivisionByZeroError,
                             "Attempt to divide by zero.\n");
@@ -2530,7 +2530,7 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_jump_if:
                 lhs_reg = vm_regs[code[code_pos+2]];
                 {
-                    int cls_id = lhs_reg->sig->cls->id;
+                    int cls_id = lhs_reg->type->cls->id;
                     int result;
 
                     if (cls_id == SYM_CLASS_INTEGER)
@@ -2721,14 +2721,14 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_any_typecast:
                 lhs_reg = vm_regs[code[code_pos+3]];
-                cast_sig = lhs_reg->sig;
+                cast_type = lhs_reg->type;
 
                 rhs_reg = vm_regs[code[code_pos+2]];
                 rhs_reg = rhs_reg->value.any->inner_value;
 
-                /* Symtab ensures that two signatures don't define the same
+                /* Symtab ensures that two types don't define the same
                    thing, so this is okay. */
-                if (cast_sig == rhs_reg->sig)
+                if (cast_type == rhs_reg->type)
                     lily_assign_value(vm, lhs_reg, rhs_reg);
                 else {
                     lily_vm_stack_entry *top;
@@ -2737,7 +2737,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
                     lily_raise(vm->raiser, lily_BadTypecastError,
                             "Cannot cast any containing type '^T' to type '^T'.\n",
-                            rhs_reg->sig, lhs_reg->sig);
+                            rhs_reg->type, lhs_reg->type);
                 }
 
                 code_pos += 4;
@@ -2826,8 +2826,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg = vm_regs[code[code_pos+2]];
                 lily_class *enum_cls, *variant_cls;
 
-                enum_cls = lhs_reg->sig->cls;
-                variant_cls = lhs_reg->value.any->inner_value->sig->cls;
+                enum_cls = lhs_reg->type->cls;
+                variant_cls = lhs_reg->value.any->inner_value->type->cls;
                 for (i = 0;i < code[code_pos+3];i++) {
                     if (enum_cls->variant_members[i] == variant_cls)
                         break;

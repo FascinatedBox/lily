@@ -78,8 +78,8 @@ void lily_gc_any_marker(int pass, lily_value *v)
         lily_value *inner_value = any_val->inner_value;
 
         if ((inner_value->flags & VAL_IS_NIL) == 0 &&
-            inner_value->sig->cls->gc_marker != NULL) {
-            (*inner_value->sig->cls->gc_marker)(pass, inner_value);
+            inner_value->type->cls->gc_marker != NULL) {
+            (*inner_value->type->cls->gc_marker)(pass, inner_value);
         }
     }
 }
@@ -96,8 +96,8 @@ int lily_any_eq(lily_vm_state *vm, int *depth, lily_value *left,
         ((right->flags & VAL_IS_NIL) == 0)) {
         lily_value *left_inner = left->value.any->inner_value;
         lily_value *right_inner = right->value.any->inner_value;
-        if (left_inner->sig == right_inner->sig) {
-            class_eq_func eq_func = left_inner->sig->cls->eq_func;
+        if (left_inner->type == right_inner->type) {
+            class_eq_func eq_func = left_inner->type->cls->eq_func;
 
             (*depth)++;
             ret = eq_func(vm, depth, left_inner, right_inner);
@@ -125,10 +125,10 @@ void lily_gc_list_marker(int pass, lily_value *v)
         list_val->gc_entry->last_pass != pass) {
         list_val->gc_entry->last_pass = pass;
 
-        lily_sig *elem_sig = v->sig->siglist[0];
+        lily_type *elem_type = v->type->subtypes[0];
         void (*gc_marker)(int, lily_value *);
 
-        gc_marker = elem_sig->cls->gc_marker;
+        gc_marker = elem_type->cls->gc_marker;
 
         if (gc_marker) {
             for (i = 0;i < list_val->num_values;i++) {
@@ -153,7 +153,7 @@ int lily_list_eq(lily_vm_state *vm, int *depth, lily_value *left,
     if (((left->flags & VAL_IS_NIL) == 0) &&
         ((right->flags & VAL_IS_NIL) == 0) &&
         left->value.list->num_values == right->value.list->num_values) {
-        class_eq_func eq_func = left->sig->siglist[0]->cls->eq_func;
+        class_eq_func eq_func = left->type->subtypes[0]->cls->eq_func;
         lily_value **left_elems = left->value.list->elems;
         lily_value **right_elems = right->value.list->elems;
 
@@ -187,10 +187,10 @@ void lily_gc_hash_marker(int pass, lily_value *v)
         hash_val->gc_entry->last_pass != pass) {
         hash_val->gc_entry->last_pass = pass;
 
-        lily_sig *hash_value_sig = v->sig->siglist[1];
+        lily_type *hash_value_type = v->type->subtypes[1];
         void (*gc_marker)(int, lily_value *);
 
-        gc_marker = hash_value_sig->cls->gc_marker;
+        gc_marker = hash_value_type->cls->gc_marker;
 
         lily_hash_elem *elem_iter = hash_val->elem_chain;
         while (elem_iter) {
@@ -217,8 +217,8 @@ int lily_hash_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_hash_val *left_hash = left->value.hash;
         lily_hash_val *right_hash = right->value.hash;
 
-        class_eq_func key_eq_func = left->sig->siglist[0]->cls->eq_func;
-        class_eq_func value_eq_func = left->sig->siglist[1]->cls->eq_func;
+        class_eq_func key_eq_func = left->type->subtypes[0]->cls->eq_func;
+        class_eq_func value_eq_func = left->type->subtypes[1]->cls->eq_func;
 
         lily_hash_elem *left_iter = left_hash->elem_chain;
         lily_hash_elem *right_iter;
@@ -285,7 +285,7 @@ void lily_gc_tuple_marker(int pass, lily_value *v)
         for (i = 0;i < tuple_val->num_values;i++) {
             lily_value *elem = tuple_val->elems[i];
 
-            void (*gc_marker)(int, lily_value *) = elem->sig->cls->gc_marker;
+            void (*gc_marker)(int, lily_value *) = elem->type->cls->gc_marker;
 
             if (gc_marker && (elem->flags & VAL_IS_NIL) == 0)
                 gc_marker(pass, elem);
@@ -311,7 +311,7 @@ int lily_tuple_eq(lily_vm_state *vm, int *depth, lily_value *left,
         ret = 1;
 
         for (i = 0;i < left->value.list->num_values;i++) {
-            class_eq_func eq_func = left->sig->siglist[i]->cls->eq_func;
+            class_eq_func eq_func = left->type->subtypes[i]->cls->eq_func;
             (*depth)++;
             if (eq_func(vm, depth, left_elems[i], right_elems[i]) == 0) {
                 ret = 0;
@@ -370,7 +370,7 @@ int lily_instance_eq(lily_vm_state *vm, int *depth, lily_value *left,
                 lily_value **left_values = left->value.instance->values;
                 lily_value **right_values = right->value.instance->values;
 
-                class_eq_func eq_func = left_values[i]->sig->cls->eq_func;
+                class_eq_func eq_func = left_values[i]->type->cls->eq_func;
                 (*depth)++;
                 if (eq_func(vm, depth, left_values[i], right_values[i]) == 0) {
                     ret = 0;

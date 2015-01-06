@@ -9,21 +9,21 @@
     These should all set the gc_entry's last_pass to -1 so that the gc will
     delete the actual value when it is safe to do so. **/
 
-void lily_gc_collect_value(lily_sig *value_sig, lily_raw_value value)
+void lily_gc_collect_value(lily_type *value_type, lily_raw_value value)
 {
-    int entry_cls_id = value_sig->cls->id;
+    int entry_cls_id = value_type->cls->id;
 
     if (entry_cls_id == SYM_CLASS_LIST)
-        lily_gc_collect_list(value_sig, value.list);
+        lily_gc_collect_list(value_type, value.list);
     else if (entry_cls_id == SYM_CLASS_HASH)
-        lily_gc_collect_hash(value_sig, value.hash);
-    else if (value_sig->cls->flags & CLS_ENUM_CLASS)
+        lily_gc_collect_hash(value_type, value.hash);
+    else if (value_type->cls->flags & CLS_ENUM_CLASS)
         lily_gc_collect_any(value.any);
     else if (entry_cls_id == SYM_CLASS_TUPLE ||
              entry_cls_id >= SYM_CLASS_EXCEPTION)
-        lily_gc_collect_tuple(value_sig, value.list);
+        lily_gc_collect_tuple(value_type, value.list);
     else
-        lily_deref_unknown_raw_val(value_sig, value);
+        lily_deref_unknown_raw_val(value_type, value);
 }
 
 void lily_gc_collect_any(lily_any_val *any_val)
@@ -36,10 +36,10 @@ void lily_gc_collect_any(lily_any_val *any_val)
         any_val->gc_entry->last_pass = -1;
         lily_value *inner_value = any_val->inner_value;
         if ((inner_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
-            inner_value->sig->cls->is_refcounted) {
+            inner_value->type->cls->is_refcounted) {
             lily_generic_val *generic_val = inner_value->value.generic;
             if (generic_val->refcount == 1)
-                lily_gc_collect_value(inner_value->sig, inner_value->value);
+                lily_gc_collect_value(inner_value->type, inner_value->value);
             else
                 generic_val->refcount--;
         }
@@ -49,7 +49,7 @@ void lily_gc_collect_any(lily_any_val *any_val)
     }
 }
 
-void lily_gc_collect_list(lily_sig *list_sig, lily_list_val *list_val)
+void lily_gc_collect_list(lily_type *list_type, lily_list_val *list_val)
 {
     /* The first check is done because this list might be inside of an any
        that is being collected. So it may not be in the gc, but it needs to be
@@ -61,7 +61,7 @@ void lily_gc_collect_list(lily_sig *list_sig, lily_list_val *list_val)
         (list_val->gc_entry->last_pass != -1 &&
          list_val->gc_entry->value.generic != NULL)) {
 
-        lily_sig *value_sig = list_sig->siglist[0];
+        lily_type *value_type = list_type->subtypes[0];
 
         if (list_val->gc_entry) {
             list_val->gc_entry->last_pass = -1;
@@ -76,7 +76,7 @@ void lily_gc_collect_list(lily_sig *list_sig, lily_list_val *list_val)
 
         /* This is important because this could be a list[str], and the strings
            will need to be free'd. */
-        if (value_sig->cls->is_refcounted) {
+        if (value_type->cls->is_refcounted) {
             for (i = 0;i < list_val->num_values;i++) {
                 /* Pass stuff off to the gc to collect. This will use a typical
                    deref for stuff like string. */
@@ -84,7 +84,7 @@ void lily_gc_collect_list(lily_sig *list_sig, lily_list_val *list_val)
                 if ((elem->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
                     lily_raw_value v = elem->value;
                     if (v.generic->refcount == 1)
-                        lily_gc_collect_value(value_sig, v);
+                        lily_gc_collect_value(value_type, v);
                     else
                         v.generic->refcount--;
                 }
@@ -119,18 +119,18 @@ void lily_gc_collect_list(lily_sig *list_sig, lily_list_val *list_val)
     entries may circularly link to it. In such a case, the gc will do a final
     sweep of the hash value.
 
-    * hash_sig: The signature of the hash given.
+    * hash_type: The type of the hash given.
     * hash_val: The hash value to destroy the inner values of. If this hash
                 value does not have a gc entry, it will be deleted as well. */
-void lily_gc_collect_hash(lily_sig *hash_sig, lily_hash_val *hash_val)
+void lily_gc_collect_hash(lily_type *hash_type, lily_hash_val *hash_val)
 {
     int marked = 0;
     if (hash_val->gc_entry == NULL ||
         (hash_val->gc_entry->last_pass != -1 &&
          hash_val->gc_entry->value.generic != NULL)) {
 
-        lily_sig *hash_key_sig = hash_sig->siglist[0];
-        lily_sig *hash_value_sig = hash_sig->siglist[1];
+        lily_type *hash_key_type = hash_type->subtypes[0];
+        lily_type *hash_value_type = hash_type->subtypes[1];
 
         if (hash_val->gc_entry) {
             hash_val->gc_entry->last_pass = -1;
@@ -148,7 +148,7 @@ void lily_gc_collect_hash(lily_sig *hash_sig, lily_hash_val *hash_val)
             if ((elem_key->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
                 lily_raw_value k = elem_key->value;
                 if (k.generic->refcount == 1)
-                    lily_gc_collect_value(hash_key_sig, k);
+                    lily_gc_collect_value(hash_key_type, k);
                 else
                     k.generic->refcount--;
             }
@@ -156,7 +156,7 @@ void lily_gc_collect_hash(lily_sig *hash_sig, lily_hash_val *hash_val)
             if ((elem_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
                 lily_raw_value v = elem_value->value;
                 if (v.generic->refcount == 1)
-                    lily_gc_collect_value(hash_value_sig, v);
+                    lily_gc_collect_value(hash_value_type, v);
                 else
                     v.generic->refcount--;
             }
@@ -172,7 +172,7 @@ void lily_gc_collect_hash(lily_sig *hash_sig, lily_hash_val *hash_val)
     }
 }
 
-void lily_gc_collect_tuple(lily_sig *tuple_sig, lily_list_val *tuple_val)
+void lily_gc_collect_tuple(lily_type *tuple_type, lily_list_val *tuple_val)
 {
     int marked = 0;
     if (tuple_val->gc_entry == NULL ||
@@ -190,11 +190,11 @@ void lily_gc_collect_tuple(lily_sig *tuple_sig, lily_list_val *tuple_val)
             lily_value *elem = tuple_val->elems[i];
             /* Each value the tuple holds may or may not be refcounted, so they
                must be checked individually. */
-            if (elem->sig->cls->is_refcounted &&
+            if (elem->type->cls->is_refcounted &&
                 (elem->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
                 lily_raw_value v = elem->value;
                 if (v.generic->refcount == 1)
-                    lily_gc_collect_value(elem->sig, v);
+                    lily_gc_collect_value(elem->type, v);
                 else
                     v.generic->refcount--;
             }

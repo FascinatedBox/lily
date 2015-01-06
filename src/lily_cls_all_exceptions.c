@@ -28,12 +28,12 @@ static void make_error(lily_vm_state *vm, char *exception_name,
 
     message_value->value.string = message_reg->value.string;
     message_value->flags = message_reg->flags;
-    message_value->sig = message_reg->sig;
+    message_value->type = message_reg->type;
 
-    lily_sig *traceback_sig = base_except_class->properties->next->sig;
+    lily_type *traceback_type = base_except_class->properties->next->type;
     trace_value->value.list = trace_list;
     trace_value->flags = 0;
-    trace_value->sig = traceback_sig;
+    trace_value->type = traceback_type;
 
     ival->values[0] = message_value;
     if ((message_reg->flags & VAL_IS_PROTECTED) == 0)
@@ -43,7 +43,7 @@ static void make_error(lily_vm_state *vm, char *exception_name,
     ival->num_values = 2;
 
     if ((result_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_instance_val(result_reg->sig, result_reg->value.instance);
+        lily_deref_instance_val(result_reg->type, result_reg->value.instance);
 
     result_reg->value.instance = ival;
     result_reg->flags = 0;
@@ -55,7 +55,7 @@ void lily_error_new(lily_vm_state *vm, lily_function_val *self,
     lily_value *message_reg = vm->vm_regs[code[0]];
     lily_value *result_reg = vm->vm_regs[code[1]];
 
-    make_error(vm, result_reg->sig->cls->name, result_reg, message_reg);
+    make_error(vm, result_reg->type->cls->name, result_reg, message_reg);
 }
 
 static const lily_func_seed nomemory_new =

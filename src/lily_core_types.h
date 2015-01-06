@@ -11,7 +11,7 @@ struct lily_class_t;
 struct lily_vm_state_t;
 struct lily_value_t;
 struct lily_var_t;
-struct lily_sig_t;
+struct lily_type_t;
 struct lily_register_info_t;
 struct lily_func_seed_t;
 struct lily_function_val_t;
@@ -35,7 +35,7 @@ typedef int (*class_eq_func)(struct lily_vm_state_t *, int *,
         struct lily_value_t *, struct lily_value_t *);
 
 /* lily_raw_value is a union of all possible values, plus a bit more. This is
-   not common, because lily_value (which has flags and a sig) is typically
+   not common, because lily_value (which has flags and a type) is typically
    used for parameters and such instead. However, this does have some uses. */
 typedef union lily_raw_value_t {
     int64_t integer;
@@ -56,7 +56,7 @@ typedef union lily_raw_value_t {
 
 typedef struct lily_prop_entry_t {
     int flags;
-    struct lily_sig_t *sig;
+    struct lily_type_t *type;
     int id;
     char *name;
     uint64_t name_shorthash;
@@ -78,14 +78,9 @@ typedef struct lily_class_t {
     /* During declaration, how many subclasses are allowed. List, for example,
        allows one class that will define what class the elements are. */
     int template_count;
-    /* Signatures are used to represent the type of a var. Signatures are used
-       to represent list[integer], hash[string, integer], and more. Classes are
-       just classes.
-       The sig of a class is the default signature. The integer class does not
-       need a unique signature, as an example. Therefore, sig is set to a
-       default that all can share.
-       Sig is set only if the class is a simple one. */
-    struct lily_sig_t *sig;
+
+    /* The type of the var stores the complete type knowledge of the var. */
+    struct lily_type_t *type;
     struct lily_var_t *call_start;
     struct lily_var_t *call_top;
 
@@ -98,11 +93,11 @@ typedef struct lily_class_t {
     struct lily_class_t **variant_members;
     int variant_size;
 
-    /* If the variant class takes arguments, then this is the signature of a
+    /* If the variant class takes arguments, then this is the type of a
        function that maps from input to the result.
-       If the variant doesn't take arguments, then this is a simple signature
-       that just defines the class (like a default sig). */
-    struct lily_sig_t *variant_sig;
+       If the variant doesn't take arguments, then this is a simple type
+       that just defines the class (like a default type). */
+    struct lily_type_t *variant_type;
 
     /* Instead of loading all class members during init, Lily stores the needed
        information in the seed_table of a class. If the symtab can't find the
@@ -115,27 +110,26 @@ typedef struct lily_class_t {
     class_eq_func eq_func;
 } lily_class;
 
-/* Signatures are a bit more complicated. They're also very common. A signature
-   stores a class and possibly other signatures.
-   The symtab makes sure that when new signatures are created that they are all
-   unique, allowing pointer compares of signatures. */
-typedef struct lily_sig_t {
+typedef struct lily_type_t {
     lily_class *cls;
-    /* If cls is the template class, this is the position within the parent.
-       Hashes have two parts: a key and a value. 0 is the key, 1 is the value.
-       Lists have one part, which is the element type. */
+    /* If this type is for a template, then this is the id of that template.
+       A = 0, B = 1, C = 2, etc.
+       If this is a container type, then this is the maximum ID of all
+       templates seen. */
     int template_pos;
 
-    /* Call arguments and call return type go here. Note that a call's return
-       type is always at siglist[0]. */
-    struct lily_sig_t **siglist;
-    int siglist_size;
+    /* If this type has subtypes (ex: A list has a subtype that explains what
+       type is allowed inside), then this is where those subtypes are.
+       Functions are a special case, where subtypes[0] is either their return
+       type, or NULL. */
+    struct lily_type_t **subtypes;
+    int subtype_count;
     int flags;
 
-    /* The symtab stores all signatures in a linked list (symtab's root_sig)
-       so they can be destroyed at exit. */
-    struct lily_sig_t *next;
-} lily_sig;
+    /* All types are stored in a linked list in the symtab so they can be
+       easily destroyed. */
+    struct lily_type_t *next;
+} lily_type;
 
 
 
@@ -147,7 +141,7 @@ typedef struct lily_sig_t {
    values of this type. This is just for casting arguments. */
 typedef struct lily_sym_t {
     int flags;
-    lily_sig *sig;
+    lily_type *type;
     union lily_raw_value_t value;
     /* Every function has a set of registers that it puts the values it has into.
        Intermediate values (such as the result of addition or a function call),
@@ -160,7 +154,7 @@ typedef struct lily_sym_t {
 /* lily_literal holds string, number, and integer literals. */
 typedef struct lily_literal_t {
     int flags;
-    lily_sig *sig;
+    lily_type *type;
     lily_raw_value value;
     /* Literals are loaded in a special table in the vm. A literal's reg_spot
        is the position of it in the vm's literal_table. */
@@ -175,7 +169,7 @@ typedef struct lily_literal_t {
    happen on the same line. */
 typedef struct lily_storage_t {
     int flags;
-    lily_sig *sig;
+    lily_type *type;
     /* This is provided to keep it a superset of lily_sym. */
     union lily_raw_value_t unused;
     int reg_spot;
@@ -189,7 +183,7 @@ typedef struct lily_storage_t {
 /* lily_var is used to represent a declared variable. */
 typedef struct lily_var_t {
     int flags;
-    lily_sig *sig;
+    lily_type *type;
     /* If this var is declared function, then the native function info is
        stored here. */
     union lily_raw_value_t value;
@@ -261,7 +255,7 @@ typedef struct lily_hash_elem_t {
 } lily_hash_elem;
 
 /* Here's the hash value. Hashes are similar to lists in that there is only a
-   gc entry if the associated signature is determined to be possibly circualar.
+   gc entry if the associated typenature is determined to be possibly circualar.
    Also, visited is there to protect lily_debug against a circular reference
    causing an infinite loop. */
 typedef struct lily_hash_val_t {
@@ -352,18 +346,18 @@ typedef struct lily_generic_gc_val_t {
 
 
 /* Here's a proper value in Lily. It has flags (for nil and other stuff), a
-   sig, and the actual value. */
+   type, and the actual value. */
 typedef struct lily_value_t {
     int flags;
-    struct lily_sig_t *sig;
+    struct lily_type_t *type;
     lily_raw_value value;
 } lily_value;
 
 /* This is a gc entry. When these are created, the gc entry copies the value's
-   raw value and the value's signature. It's important to NOT copy the value,
-   because the value may be a register, and the sig will change. */
+   raw value and the value's type. It's important to NOT copy the value,
+   because the value may be a register, and the type will change. */
 typedef struct lily_gc_entry_t {
-    struct lily_sig_t *value_sig;
+    struct lily_type_t *value_type;
     /* If this is destroyed outside of the gc, then value.generic should be set
        to NULL to keep the gc from looking at an invalid data. */
     lily_raw_value value;
@@ -377,7 +371,7 @@ typedef struct lily_gc_entry_t {
 /* This is used to initialize the registers that a function uses. It also holds
    names for doing trace. */
 typedef struct lily_register_info_t {
-    lily_sig *sig;
+    lily_type *type;
     char *name;
     int line_num;
 } lily_register_info;
@@ -422,25 +416,24 @@ typedef struct lily_prop_seed_t {
    This means entries must be accessed using 'enum::variant'. */
 #define CLS_ENUM_IS_SCOPED 0x10
 
-/* SIG_* defines are for the flags of a lily_sig. */
-/* If set, the signature is either a vararg function. The last argument is the
-   type for varargs. */
-#define SIG_IS_VARARGS        0x01
+/* TYPE_* defines are for the flags of a lily_type. */
+/* If set, the type is a function that takes a variable number of values. */
+#define TYPE_IS_VARARGS        0x01
 /* If this is set, a gc entry is allocated for the type. This means that the
    value is a superset of lily_generic_gc_val_t. */
-#define SIG_MAYBE_CIRCULAR    0x02
-/* The symtab puts this flag onto template signatures which aren't currently
-   available. So if there are 4 generic sigs available but only 2 used, it
+#define TYPE_MAYBE_CIRCULAR    0x02
+/* The symtab puts this flag onto template types which aren't currently
+   available. So if there are 4 generic types available but only 2 used, it
    simply hides the second two from being returned. */
-#define SIG_HIDDEN_GENERIC    0x04
-/* This is temporarily set on a generic signature when the symtab is trying
+#define TYPE_HIDDEN_GENERIC    0x04
+/* This is temporarily set on a generic type when the symtab is trying
    to figure out what the result of a variant 'call' should be. */
-#define SIG_GENERIC_SEEN      0x10
-/* This is set on function signatures that contain an enum class in one of
+#define TYPE_GENERIC_SEEN      0x10
+/* This is set on function type that contain an enum class in one of
    their parameters (or the varargs part is a list of an enum class). This is
    done so that emitter's call eval can have a good idea of if it should make
    a second pass to make sure variants are put into enums. */
-#define SIG_CALL_HAS_ENUM_ARG 0x20
+#define TYPE_CALL_HAS_ENUM_ARG 0x20
 
 /* SYM_* defines are for identifying the type of symbol given. Emitter uses
    these sometimes. */
@@ -477,7 +470,7 @@ typedef struct lily_prop_seed_t {
 #define VAL_IS_NIL_OR_PROTECTED 0x600
 
 
-/* SYM_CLASS_* defines are for checking ids of a signature's class. These are
+/* SYM_CLASS_* defines are for checking ids of a type's class. These are
    used very frequently. These must be kept in sync with the class loading
    order given by lily_seed_symtab.h */
 #define SYM_CLASS_INTEGER         0

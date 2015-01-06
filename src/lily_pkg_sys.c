@@ -10,12 +10,12 @@ static void bind_stringlist(lily_symtab *symtab, int stringlist_size,
 
     const int ids[] = {SYM_CLASS_LIST, SYM_CLASS_STRING};
 
-    lily_sig *list_string_sig = lily_try_sig_from_ids(symtab, ids);
-    if (list_string_sig == NULL)
+    lily_type *list_string_type = lily_try_type_from_ids(symtab, ids);
+    if (list_string_type == NULL)
         return;
 
-    lily_sig *string_sig = list_string_sig->siglist[0];
-    lily_var *bound_var = lily_try_new_var(symtab, list_string_sig, "argv", 0);
+    lily_type *string_type = list_string_type->subtypes[0];
+    lily_var *bound_var = lily_try_new_var(symtab, list_string_type, "argv", 0);
     if (bound_var == NULL)
         return;
 
@@ -45,7 +45,7 @@ static void bind_stringlist(lily_symtab *symtab, int stringlist_size,
             err = 1;
             break;
         }
-        values[i]->sig = string_sig;
+        values[i]->type = string_type;
         values[i]->flags = VAL_IS_NIL;
     }
 
@@ -79,8 +79,8 @@ int lily_pkg_sys_init(lily_symtab *symtab, int argc, char **argv)
 
     int ok = 0;
     lily_class *package_cls = lily_class_by_id(symtab, SYM_CLASS_PACKAGE);
-    lily_sig *package_sig = lily_try_sig_for_class(symtab, package_cls);
-    lily_var *bound_var = lily_try_new_var(symtab, package_sig, "sys", 0);
+    lily_type *package_type = lily_try_type_for_class(symtab, package_cls);
+    lily_var *bound_var = lily_try_new_var(symtab, package_type, "sys", 0);
 
     if (bound_var) {
         lily_var *save_chain = symtab->var_chain;

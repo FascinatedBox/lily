@@ -3,15 +3,15 @@
 
 /** Deref-ing calls **/
 
-void lily_deref_hash_val(lily_sig *sig, lily_hash_val *hv)
+void lily_deref_hash_val(lily_type *type, lily_hash_val *hv)
 {
     hv->refcount--;
     if (hv->refcount == 0) {
         if (hv->gc_entry != NULL)
             hv->gc_entry->value.generic = NULL;
 
-        lily_sig *value_sig = sig->siglist[1];
-        int value_is_refcounted = value_sig->cls->is_refcounted;
+        lily_type *value_type = type->subtypes[1];
+        int value_is_refcounted = value_type->cls->is_refcounted;
         lily_hash_elem *elem, *save_next;
         elem = hv->elem_chain;
         while (elem) {
@@ -21,7 +21,7 @@ void lily_deref_hash_val(lily_sig *sig, lily_hash_val *hv)
                 lily_deref_unknown_val(elem_value);
 
             save_next = elem->next;
-            if (elem->elem_key->sig->cls->is_refcounted &&
+            if (elem->elem_key->type->cls->is_refcounted &&
                 (elem->elem_key->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
                 lily_deref_unknown_val(elem->elem_key);
 
@@ -35,7 +35,7 @@ void lily_deref_hash_val(lily_sig *sig, lily_hash_val *hv)
     }
 }
 
-void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
+void lily_deref_list_val(lily_type *type, lily_list_val *lv)
 {
     lv->refcount--;
     if (lv->refcount == 0) {
@@ -46,7 +46,7 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
             lv->gc_entry->value.generic = NULL;
 
         int i;
-        if (sig->siglist[0]->cls->is_refcounted) {
+        if (type->subtypes[0]->cls->is_refcounted) {
             for (i = 0;i < lv->num_values;i++) {
                 if ((lv->elems[i]->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
                     lily_deref_unknown_val(lv->elems[i]);
@@ -64,7 +64,7 @@ void lily_deref_list_val(lily_sig *sig, lily_list_val *lv)
     }
 }
 
-void lily_deref_tuple_val(lily_sig *sig, lily_list_val *tv)
+void lily_deref_tuple_val(lily_type *type, lily_list_val *tv)
 {
     tv->refcount--;
     if (tv->refcount == 0) {
@@ -78,7 +78,7 @@ void lily_deref_tuple_val(lily_sig *sig, lily_list_val *tv)
         for (i = 0;i < tv->num_values;i++) {
             lily_value *elem_val = tv->elems[i];
 
-            if (elem_val->sig->cls->is_refcounted &&
+            if (elem_val->type->cls->is_refcounted &&
                 (elem_val->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
                 lily_deref_unknown_val(elem_val);
 
@@ -90,11 +90,11 @@ void lily_deref_tuple_val(lily_sig *sig, lily_list_val *tv)
     }
 }
 
-void lily_deref_instance_val(lily_sig *sig, lily_instance_val *iv)
+void lily_deref_instance_val(lily_type *type, lily_instance_val *iv)
 {
     /* Instance values are essentially a tuple but with a class attribute
        tacked on at the end. So use that. */
-    lily_deref_tuple_val(sig, (lily_list_val *)iv);
+    lily_deref_tuple_val(type, (lily_list_val *)iv);
 }
 
 void lily_deref_function_val(lily_function_val *fv)
@@ -133,7 +133,7 @@ void lily_deref_any_val(lily_any_val *av)
         av->gc_entry->value.generic = NULL;
 
         if ((av->inner_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
-            av->inner_value->sig->cls->is_refcounted)
+            av->inner_value->type->cls->is_refcounted)
             lily_deref_unknown_val(av->inner_value);
 
         lily_free(av->inner_value);
@@ -154,7 +154,7 @@ void lily_deref_package_val(lily_package_val *pv)
         for (i = 0;i < pv->var_count;i++) {
             lily_var *var_iter = pv->vars[i];
             if ((var_iter->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                lily_deref_unknown_raw_val(var_iter->sig, var_iter->value);
+                lily_deref_unknown_raw_val(var_iter->type, var_iter->value);
 
             lily_free(var_iter->name);
             lily_free(var_iter);
@@ -177,49 +177,49 @@ void lily_deref_package_val(lily_package_val *pv)
 void lily_deref_unknown_val(lily_value *value)
 {
     lily_raw_value raw = value->value;
-    int cls_id = value->sig->cls->id;
+    int cls_id = value->type->cls->id;
 
     if (cls_id == SYM_CLASS_LIST)
-        lily_deref_list_val(value->sig, raw.list);
+        lily_deref_list_val(value->type, raw.list);
     else if (cls_id == SYM_CLASS_STRING)
         lily_deref_string_val(raw.string);
     else if (cls_id == SYM_CLASS_FUNCTION)
         lily_deref_function_val(raw.function);
     else if (cls_id == SYM_CLASS_HASH)
-        lily_deref_hash_val(value->sig, raw.hash);
-    else if (value->sig->cls->flags & CLS_ENUM_CLASS)
+        lily_deref_hash_val(value->type, raw.hash);
+    else if (value->type->cls->flags & CLS_ENUM_CLASS)
         lily_deref_any_val(raw.any);
     else if (cls_id == SYM_CLASS_TUPLE || cls_id >= SYM_CLASS_EXCEPTION)
-        lily_deref_tuple_val(value->sig, raw.list);
+        lily_deref_tuple_val(value->type, raw.list);
     else if (cls_id == SYM_CLASS_PACKAGE)
         lily_deref_package_val(raw.package);
 }
 
 /*  lily_deref_unknown_raw_value
-    This takes a sig and a raw value and determines the proper call to deref
+    This takes a type and a raw value and determines the proper call to deref
     the raw value. This should be thought of as a failsafe in the event that
     a raw_value needs to be destroyed.
 
     This should (ideally) not be called if the given value is not refcounted.
     This must never be called with a value that has the nil flag set.
 
-    value_sig: The signature describing the raw value to be deref'd.
+    value_type: The type describing the raw value to be deref'd.
     raw:       The raw value to be deref'd. */
-void lily_deref_unknown_raw_val(lily_sig *value_sig, lily_raw_value raw)
+void lily_deref_unknown_raw_val(lily_type *value_type, lily_raw_value raw)
 {
-    int cls_id = value_sig->cls->id;
+    int cls_id = value_type->cls->id;
     if (cls_id == SYM_CLASS_LIST)
-        lily_deref_list_val(value_sig, raw.list);
+        lily_deref_list_val(value_type, raw.list);
     else if (cls_id == SYM_CLASS_STRING)
         lily_deref_string_val(raw.string);
     else if (cls_id == SYM_CLASS_FUNCTION)
         lily_deref_function_val(raw.function);
-    else if (value_sig->cls->flags & CLS_ENUM_CLASS)
+    else if (value_type->cls->flags & CLS_ENUM_CLASS)
         lily_deref_any_val(raw.any);
     else if (cls_id == SYM_CLASS_HASH)
-        lily_deref_hash_val(value_sig, raw.hash);
+        lily_deref_hash_val(value_type, raw.hash);
     else if (cls_id == SYM_CLASS_TUPLE || cls_id >= SYM_CLASS_EXCEPTION)
-        lily_deref_tuple_val(value_sig, raw.list);
+        lily_deref_tuple_val(value_type, raw.list);
     else if (cls_id == SYM_CLASS_PACKAGE)
         lily_deref_package_val(raw.package);
 }
@@ -384,7 +384,7 @@ lily_any_val *lily_try_new_any_val()
     }
 
     a->inner_value->flags = VAL_IS_NIL;
-    a->inner_value->sig = NULL;
+    a->inner_value->type = NULL;
     a->inner_value->value.integer = 0;
     a->gc_entry = NULL;
     a->refcount = 1;

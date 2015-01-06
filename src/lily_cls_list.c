@@ -36,7 +36,7 @@ void lily_list_append(lily_vm_state *vm, lily_function_val *self,
         lily_raise_nomem(vm->raiser);
     }
 
-    value_holder->sig = insert_value->sig;
+    value_holder->type = insert_value->type;
     value_holder->flags = VAL_IS_NIL;
     value_holder->value.integer = 0;
     list_val->elems = new_list_values;

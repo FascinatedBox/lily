@@ -4,7 +4,7 @@
 # include <stdarg.h>
 
 /* Don't include lily_core_types.h when this is all that's needed from it. */
-struct lily_sig_t;
+struct lily_type_t;
 
 /* This is shared by different modules of the interpreter for different reasons.
    Raiser uses it for formatting error messages, and debug uses it for holding
@@ -29,7 +29,7 @@ void lily_msgbuf_add_char(lily_msgbuf *, char);
 void lily_msgbuf_add_text_range(lily_msgbuf *, char *, int, int);
 void lily_msgbuf_add_int(lily_msgbuf *, int);
 void lily_msgbuf_add_double(lily_msgbuf *, double);
-void lily_msgbuf_add_sig(lily_msgbuf *, struct lily_sig_t *);
+void lily_msgbuf_add_type(lily_msgbuf *, struct lily_type_t *);
 void lily_msgbuf_add_fmt(lily_msgbuf *, char *, ...);
 void lily_msgbuf_add_fmt_va(lily_msgbuf *, char *, va_list);
 void lily_msgbuf_escaped_add_str(lily_msgbuf *, char *);

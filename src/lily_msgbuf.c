@@ -169,16 +169,16 @@ void lily_msgbuf_flush(lily_msgbuf *msgbuf)
     msgbuf->message[0] = '\0';
 }
 
-void lily_msgbuf_add_sig(lily_msgbuf *msgbuf, lily_sig *sig)
+void lily_msgbuf_add_type(lily_msgbuf *msgbuf, lily_type *type)
 {
-    lily_msgbuf_add(msgbuf, sig->cls->name);
+    lily_msgbuf_add(msgbuf, type->cls->name);
 
-    if (sig->cls->id == SYM_CLASS_FUNCTION) {
-        if (sig->template_pos) {
+    if (type->cls->id == SYM_CLASS_FUNCTION) {
+        if (type->template_pos) {
             int i;
             char ch = 'A';
             lily_msgbuf_add(msgbuf, "[");
-            for (i = 0;i < sig->template_pos - 1;i++, ch++) {
+            for (i = 0;i < type->template_pos - 1;i++, ch++) {
                 lily_msgbuf_add_char(msgbuf, ch);
                 lily_msgbuf_add(msgbuf, ", ");
             }
@@ -189,34 +189,34 @@ void lily_msgbuf_add_sig(lily_msgbuf *msgbuf, lily_sig *sig)
         else
             lily_msgbuf_add(msgbuf, " (");
 
-        if (sig->siglist_size > 1) {
+        if (type->subtype_count > 1) {
             int i;
 
-            for (i = 1;i < sig->siglist_size - 1;i++) {
-                lily_msgbuf_add_sig(msgbuf, sig->siglist[i]);
+            for (i = 1;i < type->subtype_count - 1;i++) {
+                lily_msgbuf_add_type(msgbuf, type->subtypes[i]);
                 lily_msgbuf_add(msgbuf, ", ");
             }
 
-            lily_msgbuf_add_sig(msgbuf, sig->siglist[i]);
-            if (sig->flags & SIG_IS_VARARGS)
+            lily_msgbuf_add_type(msgbuf, type->subtypes[i]);
+            if (type->flags & TYPE_IS_VARARGS)
                 lily_msgbuf_add(msgbuf, "...");
         }
-        if (sig->siglist[0] == NULL)
+        if (type->subtypes[0] == NULL)
             lily_msgbuf_add(msgbuf, ")");
         else {
             lily_msgbuf_add(msgbuf, " => ");
-            lily_msgbuf_add_sig(msgbuf, sig->siglist[0]);
+            lily_msgbuf_add_type(msgbuf, type->subtypes[0]);
             lily_msgbuf_add(msgbuf, ")");
         }
     }
-    else if (sig->cls->id == SYM_CLASS_TEMPLATE)
-        lily_msgbuf_add_char(msgbuf, 'A' + sig->template_pos);
-    else if (sig->cls->template_count != 0) {
+    else if (type->cls->id == SYM_CLASS_TEMPLATE)
+        lily_msgbuf_add_char(msgbuf, 'A' + type->template_pos);
+    else if (type->cls->template_count != 0) {
         int i;
         lily_msgbuf_add(msgbuf, "[");
-        for (i = 0;i < sig->siglist_size;i++) {
-            lily_msgbuf_add_sig(msgbuf, sig->siglist[i]);
-            if (i != (sig->siglist_size - 1))
+        for (i = 0;i < type->subtype_count;i++) {
+            lily_msgbuf_add_type(msgbuf, type->subtypes[i]);
+            if (i != (type->subtype_count - 1))
                 lily_msgbuf_add(msgbuf, ", ");
         }
         lily_msgbuf_add(msgbuf, "]");
@@ -309,8 +309,8 @@ void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, char *fmt, va_list var_args)
             i++;
             c = fmt[i];
             if (c == 'T') {
-                lily_sig *sig = va_arg(var_args, lily_sig *);
-                lily_msgbuf_add_sig(msgbuf, sig);
+                lily_type *type = va_arg(var_args, lily_type *);
+                lily_msgbuf_add_type(msgbuf, type);
             }
             else if (c == 'I') {
                 int indent = va_arg(var_args, int);

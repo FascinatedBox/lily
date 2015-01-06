@@ -20,7 +20,7 @@ typedef struct lily_block_ {
 
     int match_code_start;
     int match_value_spot;
-    lily_sig *match_input_sig;
+    lily_type *match_input_type;
 
     struct lily_block_ *next;
     struct lily_block_ *prev;
@@ -38,13 +38,13 @@ typedef struct {
     int match_case_pos;
     int match_case_size;
 
-    lily_sig **sig_stack;
-    int sig_stack_pos;
-    int sig_stack_size;
+    lily_type **type_stack;
+    int type_stack_pos;
+    int type_stack_size;
 
     lily_var *top_var;
     lily_function_val *top_function;
-    lily_sig *top_function_ret;
+    lily_type *top_function_ret;
 
     int current_generic_adjust;
     lily_class *current_class;
@@ -87,14 +87,14 @@ void lily_emit_eval_expr_to_var(lily_emit_state *, lily_ast_pool *,
 void lily_emit_eval_expr(lily_emit_state *, lily_ast_pool *);
 void lily_emit_finalize_for_in(lily_emit_state *, lily_var *, lily_var *,
         lily_var *, lily_var *, int);
-void lily_emit_eval_lambda_body(lily_emit_state *, lily_ast_pool *, lily_sig *,
+void lily_emit_eval_lambda_body(lily_emit_state *, lily_ast_pool *, lily_type *,
         int);
 void lily_emit_lambda_dispatch(lily_emit_state *, lily_ast_pool *);
-lily_sig *lily_resolve_sig(lily_emit_state *emit, lily_sig *);
+lily_type *lily_resolve_type(lily_emit_state *emit, lily_type *);
 
 void lily_emit_eval_match_expr(lily_emit_state *, lily_ast_pool *);
 int lily_emit_add_match_case(lily_emit_state *, int);
-void lily_emit_variant_decompose(lily_emit_state *, lily_sig *);
+void lily_emit_variant_decompose(lily_emit_state *, lily_type *);
 
 void lily_emit_break(lily_emit_state *);
 void lily_emit_continue(lily_emit_state *);
@@ -109,7 +109,7 @@ void lily_emit_except(lily_emit_state *, lily_class *, lily_var *, int);
 void lily_emit_raise(lily_emit_state *, lily_ast *);
 
 void lily_emit_update_function_block(lily_emit_state *, lily_class *, int,
-        lily_sig *);
+        lily_type *);
 
 void lily_emit_vm_return(lily_emit_state *);
 void lily_reset_main(lily_emit_state *);
