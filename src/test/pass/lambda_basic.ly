@@ -1,4 +1,4 @@
-function f(integer value, function g(integer => integer) => integer) {
+define f(integer value, function g(integer => integer) => integer) {
     return g(value)
 }
 

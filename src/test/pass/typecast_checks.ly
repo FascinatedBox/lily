@@ -20,10 +20,10 @@ any aval_1 = 10
 any aval_2 = 1.1
 list_anyval = [aval_1, aval_2]
 
-function mval_10( => integer) { return 10 }
-function mval_20( => integer) { return 20 }
-function mval_30( => integer) { return 30 }
-function ret_any( => any) { any a2 = 10 return a2 }
+define mval_10( => integer) { return 10 }
+define mval_20( => integer) { return 20 }
+define mval_30( => integer) { return 30 }
+define ret_any( => any) { any a2 = 10 return a2 }
 
 list[function( => integer)] list_mval = [mval_10]
 a = mval_20

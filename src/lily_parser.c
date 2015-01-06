@@ -1295,6 +1295,7 @@ static void var_handler(lily_parse_state *, int);
 static void enum_handler(lily_parse_state *, int);
 static void match_handler(lily_parse_state *, int);
 static void case_handler(lily_parse_state *, int);
+static void define_handler(lily_parse_state *, int);
 
 typedef void (keyword_handler)(lily_parse_state *, int);
 
@@ -1319,7 +1320,8 @@ static keyword_handler *handlers[] = {
     var_handler,
     enum_handler,
     match_handler,
-    case_handler
+    case_handler,
+    define_handler
 };
 
 static void parse_multiline_block_body(lily_parse_state *, int);
@@ -1357,23 +1359,8 @@ static void statement(lily_parse_state *parser, int multi)
                         lily_emit_eval_expr(parser->emit, parser->ast_pool);
                     }
                     else {
-                        int cls_id = lclass->id;
-
-                        if (cls_id == SYM_CLASS_FUNCTION) {
-                            /* This will enter the function since the function is
-                               toplevel. */
-                            parse_function(parser, NULL);
-                            NEED_CURRENT_TOK(tk_left_curly)
-                            /* This must recurse so that the ending } of the
-                               function is not yielded back up as the } of the
-                               caller. */
-                            parse_multiline_block_body(parser, multi);
-                            lily_emit_leave_block(parser->emit);
-                        }
-                        else {
-                            lily_sig *cls_sig = collect_var_sig(parser, lclass, 0);
-                            parse_decl(parser, cls_sig);
-                        }
+                        lily_sig *cls_sig = collect_var_sig(parser, lclass, 0);
+                        parse_decl(parser, cls_sig);
                     }
                 }
                 else {
@@ -2117,6 +2104,15 @@ static void case_handler(lily_parse_state *parser, int multi)
 
     NEED_NEXT_TOK(tk_colon)
     lily_lexer(lex);
+}
+
+static void define_handler(lily_parse_state *parser, int multi)
+{
+    lily_lex_state *lex = parser->lex;
+    parse_function(parser, NULL);
+    NEED_CURRENT_TOK(tk_left_curly)
+    parse_multiline_block_body(parser, multi);
+    lily_emit_leave_block(parser->emit);
 }
 
 static void do_bootstrap(lily_parse_state *parser)

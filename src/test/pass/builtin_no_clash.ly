@@ -1,3 +1,3 @@
-function concat(string a, string b) {  }
+define concat(string a, string b) {  }
 
 string s = "".concat("")

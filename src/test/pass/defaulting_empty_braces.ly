@@ -25,19 +25,19 @@ any a = []
     a = [[]]
     a = [[[]]]
 
-function f[A](A first, A second) {}
+define f[A](A first, A second) {}
 
 # Defaulting here is a bit harder since f wants type A.
 # In this first case, A becomes list[any]
-function k_one[A](A third, A fourth) { f([], []) }
+define k_one[A](A third, A fourth) { f([], []) }
 
 # In the second case, A becomes list[A]
 # the [] becomes a list[A]
-function k_two[A](A third, A fourth) { f([third], []) }
+define k_two[A](A third, A fourth) { f([third], []) }
 
 # In this third case, A becomes list[any]
 # third becomes an any, resulting in [third] being list[any].
-function k_three[A](A third, A fourth) { f([], [third]) }
+define k_three[A](A third, A fourth) { f([], [third]) }
 
 k_one(1, 1)
 k_two(1, 1)

@@ -1,4 +1,4 @@
-function f() {}
+define f() {}
 
 any other_any = 10
 any a = 1
@@ -41,7 +41,7 @@ any_hash["test"] = ["1" => 10]
 any_hash["test"] = printfmt
 any_hash["test"] = other_any
 
-function test(any x) {}
+define test(any x) {}
 
 test(1)
 test(1.1)

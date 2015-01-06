@@ -3,10 +3,10 @@ enum class Option[A] {
 	None
 }
 
-function f( => Option[integer]) {
+define f( => Option[integer]) {
 	return Some(10)
 }
 
-function g( => Option[integer]) {
+define g( => Option[integer]) {
 	return None
 }

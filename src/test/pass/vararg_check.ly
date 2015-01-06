@@ -2,12 +2,12 @@
 # list for functions (instead of flattened like for functions).
 # The type that must be passed is the type of the list. So this first function
 # will take any extra integers and pack them into a list.
-function va_1(list[integer] abc...) {    }
+define va_1(list[integer] abc...) {    }
 
 # Since this one takes anys, any extra args also get converted to anys as
 # needed. The list part of that isn't tested yet, because there is no list
 # comparison utility.
-function va_2(string format, list[any] args... => integer) {
+define va_2(string format, list[any] args... => integer) {
     integer ok = 0
     # This next statement helped to uncover about 3 bugs. Leave it be.
     if args[0].@(integer) == 1 &&
@@ -17,7 +17,7 @@ function va_2(string format, list[any] args... => integer) {
 
     return 1
 }
-function va_3(integer abc, list[list[integer]] args...) {    }
+define va_3(integer abc, list[list[integer]] args...) {    }
 
 any a = va_2
 # Check it with a typecast too.

@@ -5,9 +5,9 @@ Received Type: integer
 Where: File "test/fail/attempt_generic_bypass.ly" at line 17
 ###
 
-function f[A](A v1, A v2) {  }
+define f[A](A v1, A v2) {  }
 
-function g[A](A v1) {
+define g[A](A v1) {
 	# It's tempting to use signature == signature comparison to dodge generic
 	# matching. However, this demonstrates a case where that is a bad idea.
 	# In this case, the first argument is A and A is wanted. However, because
