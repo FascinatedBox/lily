@@ -1194,7 +1194,7 @@ static void ensure_proper_match_block(lily_emit_state *emit)
     int error = 0;
     lily_msgbuf *msgbuf = emit->raiser->msgbuf;
     int i;
-    lily_class *match_class = block->match_input_type->cls;
+    lily_class *match_class = block->match_sym->type->cls;
 
     for (i = block->match_case_start;i < emit->match_case_pos;i++) {
         if (emit->match_cases[i] == 0) {
@@ -3632,7 +3632,7 @@ void lily_emit_variant_decompose(lily_emit_state *emit, lily_type *variant_type)
 
     f->code[f->pos  ] = o_variant_decompose;
     f->code[f->pos+1] = *(emit->lex_linenum);
-    f->code[f->pos+2] = emit->block->match_value_spot;
+    f->code[f->pos+2] = emit->block->match_sym->reg_spot;
     f->code[f->pos+3] = value_count;
 
     /* Since this function is called immediately after declaring the last var
@@ -3727,8 +3727,6 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_ast_pool *ap)
                 "Match expression is not an enum class value.\n");
     }
 
-    block->match_input_type = ast->result->type;
-
     int match_cases_needed = ast->result->type->cls->variant_size;
     if (emit->match_case_pos + match_cases_needed > emit->match_case_size)
         grow_match_cases(emit);
@@ -3743,7 +3741,7 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_ast_pool *ap)
     emit->match_case_pos += match_cases_needed;
 
     block->match_code_start = emit->top_function->pos + 4;
-    block->match_value_spot = ast->result->reg_spot;
+    block->match_sym = (lily_sym *)ast->result;
 
     write_prep(emit, 4 + match_cases_needed);
 
