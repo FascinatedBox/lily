@@ -25,13 +25,13 @@ typedef struct {
     lily_class *class_chain;
     lily_type *root_type;
 
-    int function_depth;
-
     lily_literal *lit_chain;
-    int next_class_id;
-    int next_register_spot;
-    int next_lit_spot;
-    int next_function_spot;
+
+    uint32_t next_class_id;
+    uint32_t next_register_spot;
+    uint32_t next_lit_spot;
+    uint32_t next_function_spot;
+    uint64_t function_depth;
     uint16_t *lex_linenum;
     lily_raiser *raiser;
 } lily_symtab;

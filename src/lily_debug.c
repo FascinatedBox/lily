@@ -87,9 +87,10 @@ typedef struct lily_debug_state_t {
     lily_function_val *main_function;
     lily_function_val *current_function;
     lily_msgbuf *msgbuf;
-    int indent;
     lily_vm_state *vm;
     void *data;
+    uint32_t indent;
+    uint32_t pad;
 } lily_debug_state;
 
 /* Opcodes that have line numbers also have extra space so they print the line

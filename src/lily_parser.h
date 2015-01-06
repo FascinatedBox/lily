@@ -16,13 +16,12 @@ typedef enum {
 
 typedef struct lily_parse_state_t {
     lily_type **type_stack;
-    int type_stack_pos;
-    int type_stack_size;
+    uint16_t type_stack_pos;
+    uint16_t type_stack_size;
+    uint16_t class_depth;
+    uint16_t next_lambda_id;
 
-    int class_depth;
     lily_type *default_call_type;
-    int next_lambda_id;
-
     lily_ast_pool *ast_pool;
     lily_lex_state *lex;
     lily_emit_state *emit;
@@ -31,6 +30,7 @@ typedef struct lily_parse_state_t {
     lily_raiser *raiser;
     void *data;
     lily_parse_mode mode;
+    uint32_t pad;
 } lily_parse_state;
 
 void lily_parser_finish_expr(lily_parse_state *);

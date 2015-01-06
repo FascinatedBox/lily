@@ -55,9 +55,9 @@ typedef union lily_raw_value_t {
 } lily_raw_value;
 
 typedef struct lily_prop_entry_t {
-    int flags;
+    uint64_t flags;
     struct lily_type_t *type;
-    int id;
+    uint64_t id;
     char *name;
     uint64_t name_shorthash;
     struct lily_prop_entry_t *next;
@@ -70,14 +70,6 @@ typedef struct lily_class_t {
     /* This holds (up to) the first 8 bytes of the name. This is checked before
        doing a strcmp against the name. */
     uint64_t shorthash;
-    int id;
-    int flags;
-    /* If true, then values of this class have a reference count. More on that
-       in a bit. */
-    int is_refcounted;
-    /* During declaration, how many subclasses are allowed. List, for example,
-       allows one class that will define what class the elements are. */
-    int template_count;
 
     /* The type of the var stores the complete type knowledge of the var. */
     struct lily_type_t *type;
@@ -86,12 +78,20 @@ typedef struct lily_class_t {
 
     struct lily_class_t *parent;
     struct lily_class_t *next;
+
     lily_prop_entry *properties;
-    int prop_count;
 
     /* If it's an enum class, then the variants are here. NULL otherwise. */
     struct lily_class_t **variant_members;
-    int variant_size;
+
+    uint16_t id;
+    uint16_t flags;
+    uint16_t is_refcounted;
+    /* If positive, how many subtypes are allowed in this type. This can also
+       be -1 if an infinite number of types are allowed (ex: functions). */
+    int16_t template_count;
+    uint32_t prop_count;
+    uint32_t variant_size;
 
     /* If the variant class takes arguments, then this is the type of a
        function that maps from input to the result.
@@ -112,19 +112,20 @@ typedef struct lily_class_t {
 
 typedef struct lily_type_t {
     lily_class *cls;
-    /* If this type is for a template, then this is the id of that template.
-       A = 0, B = 1, C = 2, etc.
-       If this is a container type, then this is the maximum ID of all
-       templates seen. */
-    int template_pos;
 
     /* If this type has subtypes (ex: A list has a subtype that explains what
        type is allowed inside), then this is where those subtypes are.
        Functions are a special case, where subtypes[0] is either their return
        type, or NULL. */
     struct lily_type_t **subtypes;
-    int subtype_count;
-    int flags;
+
+    uint32_t subtype_count;
+    /* If this type is for a template, then this is the id of that template.
+       A = 0, B = 1, C = 2, etc.
+       If this is a container type, then this is the maximum ID of all
+       templates seen. */
+    uint16_t template_pos;
+    uint16_t flags;
 
     /* All types are stored in a linked list in the symtab so they can be
        easily destroyed. */
@@ -140,7 +141,7 @@ typedef struct lily_type_t {
 /* lily_sym is a subset of all symbol-related structs. Nothing should create
    values of this type. This is just for casting arguments. */
 typedef struct lily_sym_t {
-    int flags;
+    uint64_t flags;
     lily_type *type;
     union lily_raw_value_t value;
     /* Every function has a set of registers that it puts the values it has into.
@@ -148,17 +149,18 @@ typedef struct lily_sym_t {
        parameters, and variables.
        Note that functions do not go into registers, and are instead loaded
        like literals. */
-    int reg_spot;
+    uint32_t reg_spot;
+    uint32_t unused_pad;
 } lily_sym;
 
 /* lily_literal holds string, number, and integer literals. */
 typedef struct lily_literal_t {
-    int flags;
+    uint64_t flags;
     lily_type *type;
     lily_raw_value value;
     /* Literals are loaded in a special table in the vm. A literal's reg_spot
        is the position of it in the vm's literal_table. */
-    int reg_spot;
+    uint64_t reg_spot;
     struct lily_literal_t *next;
 } lily_literal;
 
@@ -168,38 +170,39 @@ typedef struct lily_literal_t {
    integer, then the same storage will be picked. However, reuse does not
    happen on the same line. */
 typedef struct lily_storage_t {
-    int flags;
+    uint64_t flags;
     lily_type *type;
     /* This is provided to keep it a superset of lily_sym. */
     union lily_raw_value_t unused;
-    int reg_spot;
+    uint32_t reg_spot;
     /* Each expression has a different expr_num. This prevents the same
        expression from using the same storage twice (which could lead to
        incorrect data). */
-    int expr_num;
+    uint32_t expr_num;
     struct lily_storage_t *next;
 } lily_storage;
 
 /* lily_var is used to represent a declared variable. */
 typedef struct lily_var_t {
-    int flags;
+    uint64_t flags;
     lily_type *type;
     /* If this var is declared function, then the native function info is
        stored here. */
     union lily_raw_value_t value;
-    int reg_spot;
+    uint32_t reg_spot;
+    uint32_t pad;
     char *name;
     /* (Up to) the first 8 bytes of the name. This is compared before comparing
        the name. */
     uint64_t shorthash;
     /* The line on which this var was declared. If this is a builtin var, then
        line_num will be 0. */
-    int line_num;
+    uint32_t line_num;
     /* How deep that functions were when this var was declared. If this is 1,
        then the var is in __main__ and a global. Otherwise, it is a local.
        This is an important difference, because the vm has to do different
        loads for globals versus locals. */
-    int function_depth;
+    uint32_t function_depth;
     struct lily_class_t *parent;
     struct lily_var_t *next;
 } lily_var;
@@ -212,9 +215,9 @@ typedef struct lily_var_t {
 
 /* This is a string. It's pretty simple. These are refcounted. */
 typedef struct lily_string_val_t {
-    int refcount;
+    uint32_t refcount;
+    uint32_t size;
     char *string;
-    int size;
 } lily_string_val;
 
 /* Next are anys. These are marked as refcounted, but that's just to keep
@@ -223,7 +226,8 @@ typedef struct lily_string_val_t {
    Because an any can hold any value, it has a gc entry to allow Lily's gc
    to check for circularity. */
 typedef struct lily_any_val_t {
-    int refcount;
+    uint32_t refcount;
+    uint32_t pad;
     struct lily_gc_entry_t *gc_entry;
     struct lily_value_t *inner_value;
 } lily_any_val;
@@ -234,13 +238,14 @@ typedef struct lily_any_val_t {
    The gc_entry field is only set if the symtab determines that this particular
    list/tuple can become circular. */
 typedef struct lily_list_val_t {
-    int refcount;
+    uint32_t refcount;
+    uint32_t pad;
     struct lily_gc_entry_t *gc_entry;
     struct lily_value_t **elems;
-    int num_values;
+    uint32_t num_values;
     /* visited is used by lily_debug to make sure that it doesn't enter an
        infinite loop when trying to print info. */
-    int visited;
+    uint32_t visited;
 } lily_list_val;
 
 /* Lily's hashes are in two parts: The hash value, and the hash element. The
@@ -259,25 +264,28 @@ typedef struct lily_hash_elem_t {
    Also, visited is there to protect lily_debug against a circular reference
    causing an infinite loop. */
 typedef struct lily_hash_val_t {
-    int refcount;
+    uint32_t refcount;
+    uint32_t pad;
     struct lily_gc_entry_t *gc_entry;
-    int visited;
-    int num_elems;
+    uint32_t visited;
+    uint32_t num_elems;
     lily_hash_elem *elem_chain;
 } lily_hash_val;
 
 /* Packages hold vars of different types, and are created internally. */
 typedef struct lily_package_val_t {
-    int refcount;
+    uint32_t refcount;
+    uint32_t pad;
     struct lily_gc_entry_t *gc_entry;
     lily_var **vars;
-    int var_count;
+    uint64_t var_count;
     char *name;
 } lily_package_val;
 
 /* This represents an instance of a class. */
 typedef struct lily_instance_val_t {
-    int refcount;
+    uint32_t refcount;
+    uint32_t pad;
     struct lily_gc_entry_t *gc_entry;
     struct lily_value_t **values;
     int num_values;
@@ -300,7 +308,8 @@ typedef struct lily_instance_val_t {
    (it's the vm's job to do the right call), so they're both passable as
    arguments to a function themselves. */
 typedef struct lily_function_val_t {
-    int refcount;
+    uint32_t refcount;
+    uint32_t pad;
 
     /* The name of the class that this function belongs to OR "". */
     char *class_name;
@@ -315,27 +324,29 @@ typedef struct lily_function_val_t {
 
     /* Here's where the function's code is stored. */
     uint16_t *code;
+
     /* This is where new instructions will get written to. It's for the
        emitter. */
-    int pos;
+    uint32_t pos;
     /* This is how much space the code has allocated (again for the emitter). */
-    int len;
+    uint32_t len;
     /* How many different generics are within reg_info. */
-    int generic_count;
+    uint32_t generic_count;
+    /* This is how many registers that this function uses. */
+    uint32_t reg_count;
     /* This is used to initialize registers when entering this function.  */
     struct lily_register_info_t *reg_info;
-    /* Finally, this is how many registers that this function uses. */
-    int reg_count;
 } lily_function_val;
 
 /* Every value that is refcounted is a superset of this. */
 typedef struct lily_generic_val_t {
-    int refcount;
+    uint32_t refcount;
 } lily_generic_val;
 
 /* Every value that has a gc entry is a superset of this. */
 typedef struct lily_generic_gc_val_t {
-    int refcount;
+    uint32_t refcount;
+    uint32_t pad;
     struct lily_gc_entry_t *gc_entry;
 } lily_generic_gc_val;
 
@@ -348,7 +359,7 @@ typedef struct lily_generic_gc_val_t {
 /* Here's a proper value in Lily. It has flags (for nil and other stuff), a
    type, and the actual value. */
 typedef struct lily_value_t {
-    int flags;
+    uint64_t flags;
     struct lily_type_t *type;
     lily_raw_value value;
 } lily_value;
@@ -364,7 +375,8 @@ typedef struct lily_gc_entry_t {
     /* Each gc pass has a different number that always goes up. If an entry's
        last_pass is not the current number, then the contained value is
        destroyed. */
-    int last_pass;
+    uint32_t last_pass;
+    uint32_t pad;
     struct lily_gc_entry_t *next;
 } lily_gc_entry;
 
@@ -373,7 +385,9 @@ typedef struct lily_gc_entry_t {
 typedef struct lily_register_info_t {
     lily_type *type;
     char *name;
-    int line_num;
+    uint16_t line_num;
+    uint16_t pad1;
+    uint32_t pad2;
 } lily_register_info;
 
 /* This holds all the information necessary to make a new Lily function. */

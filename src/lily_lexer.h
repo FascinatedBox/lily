@@ -79,23 +79,23 @@ typedef int (*lily_reader_fn)(struct lily_lex_entry_t *);
 typedef void (*lily_close_fn)(struct lily_lex_entry_t *);
 
 typedef struct lily_lex_entry_t {
-    void *source;
-    void *extra;
+    char *filename;
+    struct lily_lex_state_t *lexer;
 
     lily_reader_fn read_line_fn;
     lily_close_fn  close_fn;
 
-    char *filename;
-    struct lily_lex_state_t *lexer;
-
-    char *saved_input;
-    int saved_input_pos;
-    int saved_input_size;
-    int saved_input_end;
-    lily_token saved_token;
     lily_literal *saved_last_literal;
-
+    char *saved_input;
+    uint16_t saved_input_pos;
+    uint16_t saved_input_size;
+    uint16_t saved_input_end;
     uint16_t saved_line_num;
+    lily_token saved_token : 32;
+    uint32_t pad2;
+
+    void *source;
+    void *extra;
 
     struct lily_lex_entry_t *prev;
     struct lily_lex_entry_t *next;
@@ -106,20 +106,23 @@ typedef struct lily_lex_state_t {
     char *filename;
     char *ch_class;
     char *input_buffer;
-    int input_end;
-    int input_size;
-    int input_pos;
     char *label;
-    int label_size;
+
     uint16_t line_num;
-
-    char *lambda_data;
-    int lambda_data_size;
-    int lambda_start_line;
-
     /* Where the last digit scan started at. This is used by parser to fixup
        the '1+1' case. */
-    int last_digit_start;
+    uint16_t last_digit_start;
+    uint32_t pad;
+
+    uint16_t input_end;
+    uint16_t input_size;
+    uint16_t input_pos;
+    uint16_t label_size;
+
+    char *lambda_data;
+    uint32_t lambda_data_size;
+    uint32_t lambda_start_line;
+
     lily_token token;
     lily_lex_mode mode;
 

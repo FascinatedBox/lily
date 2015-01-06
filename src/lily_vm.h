@@ -17,7 +17,7 @@ typedef struct {
 
 typedef struct {
     char *data;
-    int data_size;
+    uint64_t data_size;
 } lily_vm_stringbuf;
 
 typedef struct lily_vm_catch_entry_t {
@@ -32,52 +32,57 @@ typedef struct lily_vm_catch_entry_t {
 typedef struct lily_vm_state_t {
     lily_value **vm_regs;
     lily_value **regs_from_main;
-    int num_registers;
-    int max_registers;
+    lily_vm_stack_entry **function_stack;
 
     lily_literal **literal_table;
-    int literal_count;
-
     lily_var **function_table;
-    int function_count;
-
-    lily_vm_stack_entry **function_stack;
-    int function_stack_pos;
-    int function_stack_size;
 
     /* Sometimes there's a var in a generic function which has a type
        that isn't the same as any of the function's parameters. In that case,
        the vm has to get the completed type by building it. This is used
        for that. */
     lily_type **resolver_types;
-    int resolver_types_size;
 
     /* This helps to determine what the proper types are for the vars and the
        storages of a generic function. */
     lily_type **generic_map;
-    int generic_map_size;
 
     /* A linked list of entries that are currently being used. */
     lily_gc_entry *gc_live_entries;
     /* A linked list of entries not currently used. Entries which have their
        values swept are put here. This is checked before making a new node. */
+
     lily_gc_entry *gc_spare_entries;
+
+    uint32_t num_registers;
+    uint32_t max_registers;
+
+    uint16_t literal_count;
+    uint16_t function_count;
+
+    uint16_t function_stack_pos;
+    uint16_t function_stack_size;
+
+    uint16_t resolver_types_size;
+    uint16_t generic_map_size;
+
     /* How many entries are in ->gc_live_entries. If this is >= ->gc_threshold,
        then the gc is triggered when there is an attempt to attach a gc_entry
        to a value. */
-    int gc_live_entry_count;
+    uint16_t gc_live_entry_count;
     /* How many entries to allow in ->gc_live_entries before doing a sweep. */
-    int gc_threshold;
+    uint16_t gc_threshold;
     /* An always-increasing value indicating the current pass, used to determine
        if an entry has been seen. An entry is visible if
        'entry->last_pass == gc_pass' */
-    int gc_pass;
+    uint32_t gc_pass;
+    uint32_t building_error;
 
     /* This is the default type used when created new registers. This is
        used because it isn't refcounted. */
     lily_type *integer_type;
 
-    int prep_id_start;
+    uint64_t prep_id_start;
     lily_var *prep_var_start;
     lily_literal *prep_literal_stop;
 
@@ -90,14 +95,10 @@ typedef struct lily_vm_state_t {
     uint16_t *foreign_code;
 
     char *sipkey;
-    /* This lets the vm know that it was in a function when an error is raised
-       so it can set err_function properly. Runners should only check
-       err_function. */
     lily_vm_stringbuf *string_buffer;
 
     lily_vm_catch_entry *catch_top;
     lily_vm_catch_entry *catch_chain;
-    int building_error;
 
     lily_symtab *symtab;
     lily_raiser *raiser;

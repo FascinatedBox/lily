@@ -2,6 +2,7 @@
 # define LILY_MSGBUF_H
 
 # include <stdarg.h>
+# include <stdint.h>
 
 /* Don't include lily_core_types.h when this is all that's needed from it. */
 struct lily_type_t;
@@ -13,13 +14,13 @@ typedef struct {
     /* The message being stored. */
     char *message;
     /* The size that the message currently takes. */
-    int pos;
+    uint16_t pos;
     /* The buffer space allocated for the message. */
-    int size;
+    uint16_t size;
     /* 0 by default, 1 if a function could not expand the buffer. If 1, then
        future functions will safely do nothing. Thus it is not necessary for a
        caller to check a msgbuf before adding to it. */
-    int truncated;
+    uint32_t truncated;
 } lily_msgbuf;
 
 void lily_free_msgbuf(lily_msgbuf *);
