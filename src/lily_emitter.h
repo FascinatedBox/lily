@@ -50,7 +50,6 @@ typedef struct {
     lily_type *top_function_ret;
 
     lily_class *current_class;
-    lily_storage *self_storage;
 
     lily_storage *all_storage_start;
     lily_storage *unused_storage_start;

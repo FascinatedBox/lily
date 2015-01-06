@@ -203,7 +203,7 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type,
     /* Since class methods and class properties are both accessed the same way,
        prevent them from having the same name. */
     if ((flags & VAR_IS_READONLY) && parser->class_depth) {
-        lily_class *current_class = parser->emit->self_storage->type->cls;
+        lily_class *current_class = parser->emit->block->self->type->cls;
         lily_prop_entry *entry = lily_find_property(parser->symtab,
                 current_class, lex->label);
 
@@ -227,7 +227,7 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
         lily_type *prop_type, int flags)
 {
     char *name = parser->lex->label;
-    lily_class *current_class = parser->emit->self_storage->type->cls;
+    lily_class *current_class = parser->emit->block->self->type->cls;
 
     lily_prop_entry *prop = lily_find_property(parser->symtab,
             current_class, name);
@@ -341,7 +341,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
         if (flags & CV_TOPLEVEL && parser->class_depth &&
             (flags & CV_CLASS_INIT) == 0) {
             parser->type_stack[parser->type_stack_pos] =
-                parser->emit->self_storage->type;
+                parser->emit->block->self->type;
             parser->type_stack_pos++;
             i++;
         }
@@ -666,12 +666,11 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
         /* Functions of a class get a (self) of that class for the first
            parameter. */
         lily_var *v = lily_try_new_var(parser->symtab,
-                parser->emit->self_storage->type, "(self)", 0);
+                parser->emit->block->self->type, "(self)", 0);
         if (v == NULL)
             lily_raise_nomem(parser->raiser);
 
         parser->emit->block->self = (lily_storage *)v;
-        parser->emit->self_storage = (lily_storage *)v;
     }
 
     NEED_CURRENT_TOK(tk_left_parenth)
@@ -880,7 +879,7 @@ static void expression_property(lily_parse_state *parser, int *state)
                 "Properties cannot be used outside of a class constructor.\n");
 
     char *name = parser->lex->label;
-    lily_class *current_class = parser->emit->self_storage->type->cls;
+    lily_class *current_class = parser->emit->block->self->type->cls;
 
     lily_prop_entry *prop = lily_find_property(parser->symtab, current_class,
             name);
