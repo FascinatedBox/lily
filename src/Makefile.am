@@ -25,7 +25,8 @@ lily_SRCS=csiphash.c \
 	lily_cls_hash.c \
 	lily_cls_all_exceptions.c \
 	lily_pkg_sys.c \
-	lily_class_funcs.c
+	lily_class_funcs.c \
+	lily_membuf.c
 
 bin_PROGRAMS = lily lily_aft
 

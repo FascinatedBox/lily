@@ -85,8 +85,8 @@ lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
     ap->available_restore = NULL;
     ap->available_current = NULL;
     ap->freeze_chain = NULL;
-    ap->oo_start = 0;
-    ap->oo_name_pool = NULL;
+    ap->membuf_start = 0;
+    ap->ast_membuf = NULL;
 
     last_tree = NULL;
     for (i = 0;i < pool_size;i++) {
@@ -120,21 +120,9 @@ lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
     ap->available_restore = last_tree;
     ap->available_current = last_tree;
 
-    lily_ast_str_pool *oo_name_pool = lily_malloc(sizeof(lily_ast_str_pool));
-    char *pool_str = lily_malloc(8 * sizeof(char));
-    if (oo_name_pool == NULL || pool_str == NULL) {
-        lily_free(oo_name_pool);
-        lily_free(pool_str);
-        ok = 0;
-    }
-    else {
-        ap->oo_name_pool = oo_name_pool;
-        oo_name_pool->str = pool_str;
-        oo_name_pool->pos = 0;
-        oo_name_pool->size = 8;
-    }
+    ap->ast_membuf = lily_membuf_new(raiser);
 
-    if (ok == 0) {
+    if (ap->ast_membuf == 0 || ok == 0) {
         lily_free_ast_pool(ap);
         return NULL;
     }
@@ -194,10 +182,8 @@ void lily_free_ast_pool(lily_ast_pool *ap)
         }
     }
 
-    if (ap->oo_name_pool) {
-        lily_free(ap->oo_name_pool->str);
-        lily_free(ap->oo_name_pool);
-    }
+    if (ap->ast_membuf)
+        lily_membuf_free(ap->ast_membuf);
 
     lily_free(ap);
 }
@@ -208,7 +194,7 @@ void lily_ast_reset_pool(lily_ast_pool *ap)
 {
     ap->root = NULL;
     ap->active = NULL;
-    ap->oo_name_pool->pos = ap->oo_start;
+    lily_membuf_restore_to(ap->ast_membuf, ap->membuf_start);
     ap->available_current = ap->available_restore;
 }
 
@@ -419,40 +405,6 @@ static void push_type(lily_ast_pool *ap, lily_type *type)
     a->type = type;
 
     merge_value(ap, a);
-}
-
-/*  add_name_to_pool
-    This is called when adding an oo_access tree. It adds the name that will be
-    looked up to the oo_name_pool that will be used later. */
-static void add_name_to_pool(lily_ast_pool *ap, char *name)
-{
-    int oo_name_length = strlen(name);
-    lily_ast_str_pool *str_pool = ap->oo_name_pool;
-    int size_wanted = str_pool->pos + oo_name_length + 1;
-    if (size_wanted > str_pool->size) {
-        int new_size = str_pool->size;
-
-        do {
-            new_size *= 2;
-        } while (size_wanted > new_size);
-
-        char *new_str = lily_realloc(str_pool->str, new_size * sizeof(char));
-
-        if (new_str == NULL)
-            lily_raise_nomem(ap->raiser);
-
-        str_pool->str = new_str;
-        str_pool->size = new_size;
-    }
-
-    if (str_pool->pos == 0)
-        strcpy(str_pool->str, name);
-    else {
-        str_pool->str[str_pool->pos] = '\0';
-        strcat(str_pool->str + str_pool->pos, name);
-    }
-
-    str_pool->pos = size_wanted;
 }
 
 /*  push_tree_arg
@@ -684,11 +636,8 @@ void lily_ast_push_readonly(lily_ast_pool *ap, lily_sym *ro_sym)
 
 void lily_ast_push_oo_access(lily_ast_pool *ap, char *oo_name)
 {
-    int oo_index = ap->oo_name_pool->pos;
-    add_name_to_pool(ap, oo_name);
-
     AST_ENTERABLE_INIT(a, tree_oo_access)
-    a->oo_pool_index = oo_index;
+    a->membuf_pos = lily_membuf_add(ap->ast_membuf, oo_name);
 
     merge_value(ap, a);
 }
@@ -711,11 +660,9 @@ void lily_ast_push_variant(lily_ast_pool *ap, lily_class *variant)
 
 void lily_ast_push_lambda(lily_ast_pool *ap, int start_line, char *lambda_text)
 {
-    int oo_index = ap->oo_name_pool->pos;
-    add_name_to_pool(ap, lambda_text);
-
     AST_COMMON_INIT(a, tree_lambda)
-    a->oo_pool_index = oo_index;
+
+    a->membuf_pos = lily_membuf_add(ap->ast_membuf, lambda_text);
     /* Without this next line, a multi-line lambda would start counting lines
        from where it stopped (resulting in invalid line numbers). */
     a->line_num = start_line;
@@ -745,7 +692,7 @@ void lily_ast_freeze_state(lily_ast_pool *ap)
     new_entry->save_chain = ap->save_chain;
     new_entry->active = ap->active;
     new_entry->root = ap->root;
-    new_entry->oo_start = ap->oo_start;
+    new_entry->membuf_start = ap->membuf_start;
     new_entry->save_depth = ap->save_depth;
     new_entry->available_restore = ap->available_restore;
     new_entry->in_use = 1;
@@ -754,7 +701,7 @@ void lily_ast_freeze_state(lily_ast_pool *ap)
        handler knows when the expression is done. */
     ap->active = NULL;
     ap->root = NULL;
-    ap->oo_start = ap->oo_name_pool->pos;
+    ap->membuf_start = ap->ast_membuf->pos;
     ap->save_depth = 0;
     ap->available_restore = ap->available_current;
 
@@ -768,7 +715,7 @@ void lily_ast_thaw_state(lily_ast_pool *ap)
     ap->save_chain = entry->save_chain;
     ap->active = entry->active;
     ap->root = entry->root;
-    ap->oo_start = entry->oo_start;
+    ap->membuf_start = entry->membuf_start;
     ap->save_depth = entry->save_depth;
     ap->available_restore = entry->available_restore;
 

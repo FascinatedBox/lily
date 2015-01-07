@@ -6,6 +6,7 @@
 # include "lily_raiser.h"
 # include "lily_core_types.h"
 # include "lily_expr_op.h"
+# include "lily_membuf.h"
 
 typedef enum {
     tree_call, tree_subscript, tree_list, tree_hash, tree_parenth,
@@ -14,12 +15,6 @@ typedef enum {
     tree_variant, tree_lambda, tree_binary
 } lily_tree_type;
 
-typedef struct {
-    char *str;
-    int pos;
-    int size;
-} lily_ast_str_pool;
-
 typedef struct lily_ast_t {
     lily_sym *result;
 
@@ -27,7 +22,10 @@ typedef struct lily_ast_t {
     lily_expr_op op : 8;
     uint16_t line_num;
     uint16_t args_collected;
-    uint16_t oo_pool_index;
+
+    /* If this tree has some text data associated with it, then that data can
+       be gotten from the ast pool's membuf at this position. */
+    uint16_t membuf_pos;
 
     /* Literals and readonly functions store their initial value here. */
     lily_sym *original_sym;
@@ -69,7 +67,7 @@ typedef struct lily_ast_freeze_entry_t {
     lily_ast *available_restore;
     lily_ast *active;
     lily_ast *root;
-    uint16_t oo_start;
+    uint16_t membuf_start;
     uint16_t save_depth;
 
     uint32_t in_use;
@@ -99,23 +97,16 @@ typedef struct {
     lily_ast *root;
     lily_ast *active;
 
-    /* This holds the names of calls invoked through dots. Ex: 'abc.def()'.
-       Each tree_oo that uses this will have a starting index saying the string
-       it's interested in starts at. An index is used so that the ast pool can
-       realloc the one large string and not worry about invalidating anything.
-       Each string copied in is \0 terminated.
-       Ex: abc.concat("def").concat("ghi")
-           Pool:   "def\0ghi\0"
-           Starts:  ^    ^
-       This scheme is done so that the parser does not have to guess the type
-       to do the  */
-    lily_ast_str_pool *oo_name_pool;
+    /* This membuf holds two kinds of things:
+       * The name to lookup when doing a dot access (ex: The 'y' of x.y).
+       * The body of a lambda. */
+    lily_membuf *ast_membuf;
 
     /* This goes from oldest (prev), to newest (next). The save_chain is always
        updated to the most recent entry when a tree is entered. */
     lily_ast_save_entry *save_chain;
 
-    uint32_t oo_start;
+    uint32_t membuf_start;
     uint32_t save_depth;
 
     /* When the parser enters a lambda, it 'freezes' the current tree setup in

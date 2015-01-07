@@ -128,10 +128,9 @@ typedef struct {
 
     lily_raiser *raiser;
 
-    /* The ast pool stores names inside of here so that there's not allocations
-       to keep track of. This is typically used with x.y type evaluations which
-       are deferred to emit-time when type information is known. */
-    lily_ast_str_pool *oo_name_pool;
+    /* The ast pool stores dot access names (ex: The y of x.y), and bodies of
+       lambdas here. */
+    lily_membuf *ast_membuf;
 
     /* The parser is stored within the emitter so that the emitter can do
        dynamic loading of functions. */

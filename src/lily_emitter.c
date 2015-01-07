@@ -1243,8 +1243,10 @@ static void push_info_to_error(lily_emit_state *emit, lily_ast *ast)
         kind = "Variant";
     }
     else if (ast->arg_start->tree_type == tree_oo_access) {
-        class_name = ast->arg_start->result->type->cls->name;
-        call_name = emit->oo_name_pool->str + ast->arg_start->oo_pool_index;
+        lily_ast *start = ast->arg_start;
+        class_name = start->result->type->cls->name;
+        call_name = lily_membuf_get(emit->ast_membuf, start->membuf_pos);
+
         if (ast->arg_start->oo_property_index == -1)
             separator = "::";
         else {
@@ -1400,7 +1402,7 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
     else if (ast->tree_type == tree_oo_access) {
         result_type = determine_left_type(emit, ast->arg_start);
         if (result_type != NULL) {
-            char *oo_name = emit->oo_name_pool->str + ast->oo_pool_index;
+            char *oo_name = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
             lily_class *lookup_class = result_type->cls;
 
             lily_prop_entry *prop = lily_find_property(emit->symtab,
@@ -3193,7 +3195,7 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
         eval_tree(emit, ast->arg_start, NULL, 1);
 
     lily_class *lookup_class = ast->arg_start->result->type->cls;
-    char *oo_name = emit->oo_name_pool->str + ast->oo_pool_index;
+    char *oo_name = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
     lily_var *var = lily_find_class_callable(emit->symtab,
             lookup_class, oo_name);
 
@@ -3357,7 +3359,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
 static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect_type, int did_resolve)
 {
-    char *lambda_body = emit->oo_name_pool->str + ast->oo_pool_index;
+    char *lambda_body = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
 
     if (expect_type && expect_type->cls->id == SYM_CLASS_TEMPLATE &&
         did_resolve == 0) {
