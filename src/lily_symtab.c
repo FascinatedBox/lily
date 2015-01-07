@@ -1648,9 +1648,11 @@ static lily_type *calculate_variant_return(lily_symtab *symtab,
     return result_type;
 }
 
-void lily_change_to_variant_class(lily_symtab *symtab, lily_class *cls,
-        lily_type *variant_type, lily_class *enum_class)
+void lily_add_variant_class(lily_symtab *symtab, lily_class *enum_class,
+        char *name, lily_type *variant_type)
 {
+    lily_class *cls = lily_new_class(symtab, name);
+
     cls->flags |= CLS_VARIANT_CLASS;
     cls->variant_type = variant_type;
     cls->parent = enum_class;

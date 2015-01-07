@@ -78,10 +78,12 @@ lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
     parser->emit = lily_new_emit_state(raiser);
     parser->lex = lily_new_lex_state(raiser, data);
     parser->vm = lily_new_vm_state(raiser, data);
+    parser->membuf = lily_membuf_new(raiser);
 
     if (parser->raiser == NULL || parser->type_stack == NULL ||
         parser->lex == NULL || parser->emit == NULL || parser->symtab == NULL ||
         parser->ast_pool == NULL || parser->vm == NULL ||
+        parser->membuf == NULL ||
         lily_emit_try_enter_main(parser->emit,
                                  parser->symtab->main_var) == 0) {
         lily_free_parse_state(parser);
@@ -163,6 +165,7 @@ void lily_free_parse_state(lily_parse_state *parser)
     if (parser->emit)
         lily_free_emit_state(parser->emit);
 
+    lily_membuf_free(parser->membuf);
     lily_free(parser->type_stack);
     lily_free(parser);
 }
@@ -1899,7 +1902,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
                     "A class with the name '%s' already exists.\n",
                     variant_cls->name);
 
-        variant_cls = lily_new_class(parser->symtab, lex->label);
+        int membuf_pos = lily_membuf_add(parser->membuf, lex->label);
 
         lily_lexer(lex);
 
@@ -1924,8 +1927,8 @@ static void enum_handler(lily_parse_state *parser, int multi)
         else
             variant_type = NULL;
 
-        lily_change_to_variant_class(parser->symtab, variant_cls, variant_type,
-                enum_class);
+        char *name = lily_membuf_fetch_restore(parser->membuf, membuf_pos);
+        lily_add_variant_class(parser->symtab, enum_class, name, variant_type);
 
         inner_class_count++;
 

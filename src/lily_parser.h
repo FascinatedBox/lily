@@ -7,6 +7,7 @@
 # include "lily_emitter.h"
 # include "lily_symtab.h"
 # include "lily_vm.h"
+# include "lily_membuf.h"
 
 typedef enum {
     pm_init,
@@ -21,6 +22,7 @@ typedef struct lily_parse_state_t {
     uint16_t class_depth;
     uint16_t next_lambda_id;
 
+    lily_membuf *membuf;
     lily_type *default_call_type;
     lily_ast_pool *ast_pool;
     lily_lex_state *lex;

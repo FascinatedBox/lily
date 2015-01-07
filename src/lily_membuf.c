@@ -10,7 +10,7 @@ lily_membuf *lily_membuf_new(lily_raiser *raiser)
     if (membuf == NULL || buffer == NULL) {
         lily_free(membuf);
         lily_free(buffer);
-        lily_raise_nomem(raiser);
+        return NULL;
     }
 
     membuf->buffer = buffer;
