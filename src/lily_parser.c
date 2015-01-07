@@ -5,6 +5,7 @@
 #include "lily_parser_tok_table.h"
 #include "lily_pkg_sys.h"
 #include "lily_value.h"
+#include "lily_membuf.h"
 
 /** Parser is responsible for:
     * Creating all other major structures (ast pool, emitter, lexer, etc.)
@@ -97,7 +98,7 @@ lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
 
     parser->emit->lex_linenum = &parser->lex->line_num;
     parser->emit->symtab = parser->symtab;
-    parser->emit->oo_name_pool = parser->ast_pool->oo_name_pool;
+    parser->emit->ast_membuf = parser->ast_pool->ast_membuf;
     parser->emit->parser = parser;
 
     parser->lex->symtab = parser->symtab;

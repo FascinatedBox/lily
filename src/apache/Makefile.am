@@ -21,7 +21,8 @@ lily_SRCS=../csiphash.c \
 	../lily_cls_hash.c \
 	../lily_cls_all_exceptions.c \
 	../lily_pkg_sys.c \
-	../lily_class_funcs.c
+	../lily_class_funcs.c \
+	../lily_membuf.c
 
 lib_LTLIBRARIES = mod_lily.la
 mod_lily_la_SOURCES = mod_lily.c \
