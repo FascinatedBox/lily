@@ -94,10 +94,10 @@ void lily_hide_block_vars(lily_symtab *, lily_var *);
 int lily_check_right_inherits_or_is(lily_class *, lily_class *);
 
 lily_class *lily_new_class(lily_symtab *, char *);
+void lily_add_variant_class(lily_symtab *, lily_class *, char *, lily_type *);
 lily_prop_entry *lily_add_class_property(lily_class *, lily_type *, char *, int);
 void lily_update_symtab_generics(lily_symtab *, lily_class *, int);
 void lily_finish_class(lily_symtab *, lily_class *);
 void lily_make_constructor_return_type(lily_symtab *);
-void lily_change_to_variant_class(lily_symtab *, lily_class *, lily_type *, lily_class *);
 void lily_finish_enum_class(lily_symtab *, lily_class *, int, lily_type *);
 #endif
