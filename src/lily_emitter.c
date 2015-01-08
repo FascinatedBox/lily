@@ -1405,11 +1405,19 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
         if (result_type != NULL) {
             char *oo_name = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
             lily_class *lookup_class = result_type->cls;
+            lily_type *lookup_type = result_type;
 
             lily_prop_entry *prop = lily_find_property(emit->symtab,
                     lookup_class, oo_name);
-            if (prop)
+
+            if (prop) {
                 result_type = prop->type;
+                if (result_type->template_pos ||
+                    result_type->cls->id == SYM_CLASS_TEMPLATE) {
+                    result_type = resolve_second_type_by_first(emit, lookup_type,
+                            result_type);
+                }
+            }
             else
                 result_type = NULL;
         }
