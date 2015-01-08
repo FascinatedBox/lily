@@ -43,17 +43,15 @@
     result to NULL, because value trees set a result. */
 #define AST_COMMON_INIT(a, tt) \
 lily_ast *a; \
-if (ap->available_current) { \
-    a = ap->available_current; \
-    ap->available_current = a->next_tree; \
-} \
-else \
-    a = make_new_tree(ap); \
+a = ap->available_current; \
+if (a->next_tree == NULL) \
+    add_new_tree(ap); \
+\
+ap->available_current = a->next_tree; \
 a->tree_type = tt; \
 a->next_arg = NULL; \
 a->line_num = *ap->lex_linenum; \
 a->parent = NULL;
-
 
 /*  AST_ENTERABLE_INIT
     This macro does common initialization for trees that are meant to be
@@ -95,10 +93,10 @@ lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
     for (i = 0;i < pool_size;i++) {
         lily_ast *new_tree = lily_malloc(sizeof(lily_ast));
         if (new_tree == NULL) {
-            ok = 0;
-            break;
+             ok = 0;
+             break;
         }
-
+ 
         new_tree->next_tree = last_tree;
         last_tree = new_tree;
     }
@@ -299,22 +297,18 @@ static int try_add_save_entry(lily_ast_pool *ap)
     return 1;
 }
 
-/*  make_new_tree
-    Add a new tree to the set of available trees, and return it. If unable to
-    make a new tree, NoMemoryError is raised. */
-static lily_ast *make_new_tree(lily_ast_pool *ap)
+/*  add_new_tree
+    Add a new tree to the linked list of currently available trees. This calls
+    lily_raise_nomem if it is not successful. */
+static void add_new_tree(lily_ast_pool *ap)
 {
-    lily_ast *new_ast = lily_malloc(sizeof(lily_ast));
-    if (new_ast == NULL)
+    lily_ast *new_tree = lily_malloc(sizeof(lily_ast));
+    if (new_tree == NULL)
         lily_raise_nomem(ap->raiser);
 
-    new_ast->next_tree = ap->available_start;
-    ap->available_start = new_ast;
-    /* The pool will never re-use any trees that have already been used until
-       the ast has been walked. Therefore, there is no need to update
-       ->available_current. */
+    new_tree->next_tree = NULL;
 
-    return new_ast;
+    ap->available_current->next_tree = new_tree;
 }
 
 /*  priority_for_op
