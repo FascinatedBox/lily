@@ -38,7 +38,9 @@ typedef struct lily_ast_t {
     };
 
     union {
-        lily_type *type;
+        /* This is no longer called 'type', because of numerous prior issues
+           with doing ast->type instead of ast->result->type. */
+        lily_type *typecast_type;
         /* If tree_oo_access looks up a property, then it stores the index of that
            property here. This is used by oo assign to prevent two lookups of the
            same property. */
