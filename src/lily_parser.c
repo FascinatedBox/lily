@@ -714,7 +714,7 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
         v = lily_parser_dynamic_load(parser, cls, lex->label);
 
     if (v)
-        lily_ast_push_readonly(parser->ast_pool, (lily_sym *) v);
+        lily_ast_push_defined_func(parser->ast_pool, v);
     else {
         lily_class *variant_cls = NULL;
         if (cls->flags & CLS_ENUM_CLASS)
@@ -828,8 +828,8 @@ static void expression_word(lily_parse_state *parser, int *state)
             /* In this current scope? Load as a local var. */
             lily_ast_push_local_var(parser->ast_pool, var);
         else if (var->function_depth == -1)
-            /* This is a declared function. For now, add as "readonly". */
-            lily_ast_push_readonly(parser->ast_pool, (lily_sym *)var);
+            /* This is a function created through 'define'. */
+            lily_ast_push_defined_func(parser->ast_pool, var);
         else
             /* todo: Handle upvalues later, maybe. */
             lily_raise(parser->raiser, lily_SyntaxError,
@@ -842,7 +842,7 @@ static void expression_word(lily_parse_state *parser, int *state)
         int key_id = lily_keyword_by_name(lex->label);
         if (key_id != -1) {
             lily_literal *lit = parse_special_keyword(parser, key_id);
-            lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
+            lily_ast_push_literal(parser->ast_pool, lit);
             *state = ST_WANT_OPERATOR;
         }
         else {
@@ -941,7 +941,7 @@ static void maybe_digit_fixup(lily_parse_state *parser, int *did_fixup)
            a proper new token. */
         lily_lexer_digit_rescan(lex);
 
-        lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lex->last_literal);
+        lily_ast_push_literal(parser->ast_pool, lex->last_literal);
         *did_fixup = 1;
     }
     else
@@ -962,7 +962,7 @@ static void expression_literal(lily_parse_state *parser, int *state)
             *state = ST_DONE;
     }
     else {
-        lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lex->last_literal);
+        lily_ast_push_literal(parser->ast_pool, lex->last_literal);
         *state = ST_WANT_OPERATOR;
     }
 }
@@ -1579,7 +1579,7 @@ static void do_keyword(lily_parse_state *parser, int key_id)
 {
     lily_literal *lit;
     lit = parse_special_keyword(parser, key_id);
-    lily_ast_push_readonly(parser->ast_pool, (lily_sym *)lit);
+    lily_ast_push_literal(parser->ast_pool, lit);
 
     expression_raw(parser, ST_WANT_OPERATOR);
     lily_emit_eval_expr(parser->emit, parser->ast_pool);
