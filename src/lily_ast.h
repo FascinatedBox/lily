@@ -156,7 +156,6 @@ void lily_ast_enter_tree(lily_ast_pool *, lily_tree_type);
 void lily_free_ast_pool(lily_ast_pool *);
 lily_ast_pool *lily_new_ast_pool(lily_raiser *, int);
 void lily_ast_leave_tree(lily_ast_pool *);
-lily_tree_type lily_ast_caller_tree_type(lily_ast_pool *);
 lily_ast *lily_ast_get_saved_tree(lily_ast_pool *);
 void lily_ast_enter_typecast(lily_ast_pool *ap, lily_type *type);
 void lily_ast_push_local_var(lily_ast_pool *, lily_var *);
