@@ -815,7 +815,10 @@ static lily_type *recursively_build_type(lily_emit_state *emit, int template_ind
 {
     lily_type *ret = type;
 
-    if (type->subtypes != NULL) {
+    if (type == NULL)
+        /* functions use NULL to indicate they don't return a value. */
+        ret = NULL;
+    else if (type->subtypes != NULL) {
         int i, save_start;
         lily_type **subtypes = type->subtypes;
         ENSURE_TYPE_STACK(emit->type_stack_pos + type->subtype_count)
