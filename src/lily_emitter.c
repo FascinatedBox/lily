@@ -248,7 +248,7 @@ static char *opname(lily_expr_op op)
 
 /*  condition_optimize_check
     This is called when lily_emit_eval_condition is called with a tree that has
-    type 'tree_readonly'. If the given tree is always true, then the emitter
+    type 'tree_literal'. If the given tree is always true, then the emitter
     can optimize the load out.
     Without this, a 'while 1: { ... }' will load "1" and check it at the top of
     every loop...which is rather silly. */
@@ -456,7 +456,7 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
     }
     else if (var_cls_id == SYM_CLASS_TUPLE) {
         if (index_ast->result->type->cls->id != SYM_CLASS_INTEGER ||
-            index_ast->tree_type != tree_readonly) {
+            index_ast->tree_type != tree_literal) {
             lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
                     "tuple subscripts must be integer literals.\n", "");
         }
@@ -1387,7 +1387,7 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
             if (result_type->cls->id == SYM_CLASS_HASH)
                 result_type = result_type->subtypes[1];
             else if (result_type->cls->id == SYM_CLASS_TUPLE) {
-                if (index_tree->tree_type != tree_readonly ||
+                if (index_tree->tree_type != tree_literal ||
                     index_tree->original_sym->type->cls->id != SYM_CLASS_INTEGER)
                     result_type = NULL;
                 else {
@@ -3006,7 +3006,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     function call) and there is a current class.
     The ast given is the tree holding the function at result. Determine if this
     function belongs to the current class. If so, replace the ast with 'self'.
-    Since this checks for tree_readonly, only explicit calls to functions
+    Since this checks for tree_defined_func, only explicit calls to functions
     defined in the class get an implicit self. */
 static int maybe_self_insert(lily_emit_state *emit, lily_ast *ast)
 {
@@ -3043,13 +3043,12 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
         eval_variant(emit, ast, expect_type, did_resolve);
         return;
     }
+    /* DON'T walk a defined function because all the information necessary to
+       do the call is already there. */
+    else if (ast->arg_start->tree_type != tree_defined_func)
+        eval_tree(emit, ast->arg_start, NULL, 1);
 
     int cls_id;
-    /* Special case: Don't walk tree_readonly. Doing so will rewrite the
-       var given to it with a storage result...which emitter cannot use
-       for printing error information. */
-    if (ast->arg_start->tree_type != tree_readonly)
-        eval_tree(emit, ast->arg_start, NULL, 1);
 
     /* This is important because wrong type/wrong number of args looks to
        either ast->result or the first tree to get the function name. */
@@ -3070,7 +3069,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
            likely to have a template parameter. */
         ast->arg_start->result = ast->arg_start->arg_start->result;
     }
-    else if (ast->arg_start->tree_type == tree_readonly) {
+    else if (ast->arg_start->tree_type == tree_defined_func) {
         /* If inside a class, then consider inserting replacing the
            unnecessary readonly tree with 'self'.
            If this isn't possible, drop the readonly tree from args since
@@ -3150,12 +3149,10 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     lily_storage *ret;
     int opcode;
 
-    if (ast->tree_type == tree_readonly) {
-        if (ast->original_sym->flags & SYM_TYPE_LITERAL)
-            opcode = o_get_const;
-        else
-            opcode = o_get_function;
-    }
+    if (ast->tree_type == tree_literal)
+        opcode = o_get_const;
+    else if (ast->tree_type == tree_defined_func)
+        opcode = o_get_function;
     else if (ast->tree_type == tree_global_var)
         opcode = o_get_global;
     else
@@ -3398,7 +3395,9 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
 static void eval_tree(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect_type, int did_resolve)
 {
-    if (ast->tree_type == tree_global_var || ast->tree_type == tree_readonly)
+    if (ast->tree_type == tree_global_var ||
+        ast->tree_type == tree_literal ||
+        ast->tree_type == tree_defined_func)
         emit_nonlocal_var(emit, ast);
     else if (ast->tree_type == tree_call)
         eval_call(emit, ast, expect_type, did_resolve);
@@ -3584,7 +3583,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
     lily_ast *ast = ap->root;
     int current_type = emit->block->block_type;
 
-    if ((ast->tree_type == tree_readonly &&
+    if ((ast->tree_type == tree_literal &&
          condition_optimize_check(ast)) == 0) {
         eval_enforce_value(emit, ast, NULL,
                 "Conditional expression has no value.\n");

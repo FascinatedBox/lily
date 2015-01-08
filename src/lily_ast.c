@@ -607,11 +607,20 @@ void lily_ast_push_global_var(lily_ast_pool *ap, lily_var *var)
     merge_value(ap, a);
 }
 
-void lily_ast_push_readonly(lily_ast_pool *ap, lily_sym *ro_sym)
+void lily_ast_push_defined_func(lily_ast_pool *ap, lily_var *func)
 {
-    AST_COMMON_INIT(a, tree_readonly);
-    a->result = ro_sym;
-    a->original_sym = ro_sym;
+    AST_COMMON_INIT(a, tree_defined_func);
+    a->result = (lily_sym *)func;
+    a->original_sym = (lily_sym *)func;
+
+    merge_value(ap, a);
+}
+
+void lily_ast_push_literal(lily_ast_pool *ap, lily_literal *lit)
+{
+    AST_COMMON_INIT(a, tree_literal);
+    a->result = (lily_sym *)lit;
+    a->original_sym = (lily_sym *)lit;
 
     merge_value(ap, a);
 }
