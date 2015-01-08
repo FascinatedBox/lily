@@ -1660,16 +1660,13 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
             opcode = o_assign;
         }
-        else {
-            if (type_matchup(emit, ast->left->result->type, ast->right) == 0) {
-                bad_assign_error(emit, ast->line_num, left_sym->type,
-                                 right_sym->type);
-            }
-            else {
-                /* type_matchup may update the result, so update the cache. */
-                right_sym = ast->right->result;
-            }
+        else if (type_matchup(emit, ast->left->result->type, ast->right)) {
+            /* type_matchup may update the result, so update the cache. */
+            right_sym = ast->right->result;
         }
+        else
+            bad_assign_error(emit, ast->line_num, left_sym->type,
+                    right_sym->type);
     }
 
     if (opcode == -1) {
