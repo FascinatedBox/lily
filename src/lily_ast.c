@@ -64,6 +64,7 @@ a->args_collected = 0; \
 a->arg_start = NULL; \
 a->result = NULL;
 
+static int try_add_save_entry(lily_ast_pool *);
 
 /******************************************************************************/
 /* Ast pool creation and teardown.                                            */
@@ -81,11 +82,13 @@ lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
     ap->raiser = raiser;
     ap->active = NULL;
     ap->root = NULL;
+    ap->save_chain = NULL;
     ap->available_start = NULL;
     ap->available_restore = NULL;
     ap->available_current = NULL;
     ap->freeze_chain = NULL;
     ap->membuf_start = 0;
+    ap->save_depth = 0;
     ap->ast_membuf = NULL;
 
     last_tree = NULL;
@@ -100,29 +103,13 @@ lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
         last_tree = new_tree;
     }
 
-    if (ok == 1) {
-        ap->save_chain = lily_malloc(sizeof(lily_ast_save_entry));
-        if (ap->save_chain != NULL) {
-            ap->save_chain->next = NULL;
-            ap->save_chain->prev = NULL;
-            ap->save_chain->root_tree = NULL;
-            ap->save_chain->active_tree = NULL;
-        }
-        else
-            ok = 0;
-
-        ap->save_depth = 0;
-    }
-    else
-        ap->save_chain = NULL;
-
     ap->available_start = last_tree;
     ap->available_restore = last_tree;
     ap->available_current = last_tree;
 
     ap->ast_membuf = lily_membuf_new(raiser);
 
-    if (ap->ast_membuf == 0 || ok == 0) {
+    if (try_add_save_entry(ap) == 0 || ap->ast_membuf == 0 || ok == 0) {
         lily_free_ast_pool(ap);
         return NULL;
     }
@@ -286,6 +273,32 @@ static void merge_value(lily_ast_pool *ap, lily_ast *new_tree)
 /* Helper functions                                                           */
 /******************************************************************************/
 
+/*  try_add_save_entry
+    Attempt to add a new entry to the end of the pool's save entries. This
+    returns 1 if successful, 0 if not. */
+static int try_add_save_entry(lily_ast_pool *ap)
+{
+    lily_ast_save_entry *new_entry = lily_malloc(sizeof(lily_ast_save_entry));
+    if (new_entry == NULL)
+        return 0;
+
+    if (ap->save_chain == NULL) {
+        ap->save_chain = new_entry;
+        new_entry->prev = NULL;
+    }
+    else {
+        ap->save_chain->next = new_entry;
+        new_entry->prev = ap->save_chain;
+    }
+
+    new_entry->root_tree = NULL;
+    new_entry->active_tree = NULL;
+    new_entry->entered_tree = NULL;
+    new_entry->next = NULL;
+
+    return 1;
+}
+
 /*  make_new_tree
     Add a new tree to the set of available trees, and return it. If unable to
     make a new tree, NoMemoryError is raised. */
@@ -302,28 +315,6 @@ static lily_ast *make_new_tree(lily_ast_pool *ap)
        ->available_current. */
 
     return new_ast;
-}
-
-/*  make_new_save_entry
-    This attempts to create a new entry to save ast info into, and return it.
-    If it fails to make a new entry, NoMemoryError is raised. */
-static lily_ast_save_entry *make_new_save_entry(lily_ast_pool *ap)
-{
-    lily_ast_save_entry *new_entry = lily_malloc(sizeof(lily_ast_save_entry));
-    if (new_entry == NULL)
-        lily_raise_nomem(ap->raiser);
-
-    /* Must link both ways, or the pool won't be able to find this entry the
-       next time it looks for it. */
-    new_entry->prev      = ap->save_chain;
-    ap->save_chain->next = new_entry;
-
-    new_entry->root_tree = NULL;
-    new_entry->active_tree = NULL;
-    new_entry->entered_tree = NULL;
-    new_entry->next = NULL;
-
-    return new_entry;
 }
 
 /*  priority_for_op
@@ -462,12 +453,11 @@ void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type)
     if (ap->save_depth == 0)
         save_entry = ap->save_chain;
     else {
-        if (ap->save_chain->next != NULL)
-            save_entry = ap->save_chain->next;
-        else
-            save_entry = make_new_save_entry(ap);
+        if (ap->save_chain->next == NULL && try_add_save_entry(ap) == 0)
+            lily_raise_nomem(ap->raiser);
 
-        ap->save_chain = save_entry;
+        save_entry = ap->save_chain->next;
+        ap->save_chain = ap->save_chain->next;
     }
 
     save_entry->root_tree = ap->root;
@@ -710,7 +700,6 @@ void lily_ast_thaw_state(lily_ast_pool *ap)
 {
     lily_ast_freeze_entry *entry = ap->freeze_chain;
 
-    ap->save_chain = entry->save_chain;
     ap->active = entry->active;
     ap->root = entry->root;
     ap->membuf_start = entry->membuf_start;
