@@ -663,6 +663,9 @@ void lily_ast_freeze_state(lily_ast_pool *ap)
         if (new_entry == NULL)
             lily_raise_nomem(ap->raiser);
 
+        if (ap->freeze_chain)
+            ap->freeze_chain->next = new_entry;
+
         new_entry->prev = ap->freeze_chain;
         new_entry->next = NULL;
     }
@@ -671,16 +674,10 @@ void lily_ast_freeze_state(lily_ast_pool *ap)
     else
         new_entry = ap->freeze_chain->next;
 
-    new_entry->save_chain = ap->save_chain;
-    new_entry->active = ap->active;
-    new_entry->root = ap->root;
     new_entry->membuf_start = ap->membuf_start;
-    new_entry->save_depth = ap->save_depth;
     new_entry->available_restore = ap->available_restore;
     new_entry->in_use = 1;
 
-    /* Don't zap save_chain, just reset the depth so that parser's expression
-       handler knows when the expression is done. */
     ap->active = NULL;
     ap->root = NULL;
     ap->membuf_start = ap->ast_membuf->pos;
@@ -694,10 +691,10 @@ void lily_ast_thaw_state(lily_ast_pool *ap)
 {
     lily_ast_freeze_entry *entry = ap->freeze_chain;
 
-    ap->active = entry->active;
-    ap->root = entry->root;
+    /* Do NOT set root+active back to NULL here, because the caller may be a
+       lambda. If it is, then it will need to grab the inner lambda through
+       ap->root. */
     ap->membuf_start = entry->membuf_start;
-    ap->save_depth = entry->save_depth;
     ap->available_restore = entry->available_restore;
 
     entry->in_use = 0;

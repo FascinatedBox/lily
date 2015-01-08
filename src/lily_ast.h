@@ -81,32 +81,26 @@ typedef struct lily_ast_save_entry_t {
     struct lily_ast_save_entry_t *prev;
 } lily_ast_save_entry;
 
-/* The pool handles lambdas by making a special entry that's slightly more
-   complex than a save entry.
-   This is necessary because lambdas are evaluated from within emitter, and
-   need to make sure they don't trample on any current data. */
+/* The pool handles lambdas by saving stuff so that the pool being reset will
+   not cause the lambda's body to touch things currently in use.
+   A lambda does not have to worry about save/restoring root+active, because
+   the emitter calls for an eval of the body only from within the emitter. So
+   there will never be a currently saved expression for the lambda to clash
+   with. */
 typedef struct lily_ast_freeze_entry_t {
-    /* This is where ap->available_restore was before entry. */
+    /* Assume all of the trees that were previously used are still in use and
+       do not touch them at all ever. */
     lily_ast *available_restore;
 
-    /* This was the active tree. */
-    lily_ast *active;
-
-    /* This was the root tree. */
-    lily_ast *root;
-
-    /* This is where the ap's save chain is stored. */
-    lily_ast_save_entry *save_chain;
-
-    /* This is where the membuf's position was to be restored to. */
+    /* Similarly, text might be associated with trees in the emitter, so make
+       sure that the reset doesn't allow that to be blown away. */
     uint16_t membuf_start;
 
-    /* This is how deep in the save chain that things were. */
-    uint16_t save_depth;
+    /* Freeze entries are less common than save entries, so new entries are
+       only made on-demand. 1 if in use, 0 if not. */
+    uint16_t in_use;
 
-    /* 1 or 0. This is here because freeze entries are only created on demand
-       (whereas save entries always have an extra on top). */
-    uint32_t in_use;
+    uint32_t pad;
 
     struct lily_ast_freeze_entry_t *next;
     struct lily_ast_freeze_entry_t *prev;
