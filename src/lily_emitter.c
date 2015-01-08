@@ -1371,7 +1371,8 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
 {
     lily_type *result_type = NULL;
 
-    if (ast->tree_type == tree_var || ast->tree_type == tree_local_var)
+    if (ast->tree_type == tree_global_var ||
+        ast->tree_type == tree_local_var)
         result_type = ast->original_sym->type;
     else if (ast->tree_type == tree_subscript) {
         lily_ast *var_tree = ast->arg_start;
@@ -1546,7 +1547,7 @@ static int assign_optimize_check(lily_ast *ast)
     do {
         /* assigning to a global is done differently than with a local, so it
            can't be optimized. */
-        if (ast->left->tree_type == tree_var) {
+        if (ast->left->tree_type == tree_global_var) {
             can_optimize = 0;
             break;
         }
@@ -1614,7 +1615,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     lily_sym *left_sym, *right_sym;
     opcode = -1;
 
-    if (ast->left->tree_type != tree_var &&
+    if (ast->left->tree_type != tree_global_var &&
         ast->left->tree_type != tree_local_var) {
         /* If the left is complex and valid, it would have been sent off to a
            different assign. Ergo, it must be invalid. */
@@ -1672,14 +1673,14 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     }
 
     if (ast->op > expr_assign) {
-        if (ast->left->tree_type == tree_var)
+        if (ast->left->tree_type == tree_global_var)
             eval_tree(emit, ast->left, NULL, 1);
 
         emit_op_for_compound(emit, ast);
         right_sym = ast->result;
     }
 
-    if (ast->left->tree_type == tree_var)
+    if (ast->left->tree_type == tree_global_var)
         opcode = o_set_global;
 
     /* If assign can be optimized out, then rewrite the last result to point to
@@ -1856,7 +1857,7 @@ static void eval_package_assign(lily_emit_state *emit, lily_ast *ast)
     lily_type *wanted_type = package_right->result->type;
     lily_sym *rhs;
 
-    if (ast->right->tree_type != tree_var)
+    if (ast->right->tree_type != tree_global_var)
         eval_tree(emit, ast->right, wanted_type, 1);
 
     /* Don't evaluate the package tree. Like subscript assign, this has to
@@ -3147,7 +3148,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
         else
             opcode = o_get_function;
     }
-    else if (ast->original_sym->flags & SYM_TYPE_VAR)
+    else if (ast->tree_type == tree_global_var)
         opcode = o_get_global;
     else
         opcode = -1;
@@ -3389,7 +3390,7 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
 static void eval_tree(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect_type, int did_resolve)
 {
-    if (ast->tree_type == tree_var || ast->tree_type == tree_readonly)
+    if (ast->tree_type == tree_global_var || ast->tree_type == tree_readonly)
         emit_nonlocal_var(emit, ast);
     else if (ast->tree_type == tree_call)
         eval_call(emit, ast, expect_type, did_resolve);

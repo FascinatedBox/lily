@@ -773,7 +773,7 @@ static void expression_package(lily_parse_state *parser, lily_var *package_var)
 
     lily_ast_enter_tree(ap, tree_package);
 
-    lily_ast_push_sym(ap, (lily_sym *)package_var);
+    lily_ast_push_global_var(ap, package_var);
     lily_ast_collect_arg(ap);
 
     NEED_NEXT_TOK(tk_colon_colon)
@@ -787,7 +787,7 @@ static void expression_package(lily_parse_state *parser, lily_var *package_var)
                 package_var->name, lex->label);
     }
 
-    lily_ast_push_sym(ap, (lily_sym *)inner_var);
+    lily_ast_push_global_var(ap, inner_var);
     lily_ast_collect_arg(ap);
     lily_ast_leave_tree(ap);
 }
@@ -822,7 +822,7 @@ static void expression_word(lily_parse_state *parser, int *state)
             if (var->type->cls->id == SYM_CLASS_PACKAGE)
                 expression_package(parser, var);
             else
-                lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
+                lily_ast_push_global_var(parser->ast_pool, var);
         }
         else if (var->function_depth == parser->emit->function_depth)
             /* In this current scope? Load as a local var. */
@@ -1215,7 +1215,7 @@ static void parse_decl(lily_parse_state *parser, lily_type *type)
             /* It's important to add locals and globals differently, because
                the emitter can't optimize stuff with globals. */
             if (parser->emit->function_depth == 1)
-                lily_ast_push_sym(parser->ast_pool, (lily_sym *)var);
+                lily_ast_push_global_var(parser->ast_pool, var);
             else
                 lily_ast_push_local_var(parser->ast_pool, var);
         }
