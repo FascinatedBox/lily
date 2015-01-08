@@ -408,30 +408,28 @@ static void push_type(lily_ast_pool *ap, lily_type *type)
 }
 
 /*  push_tree_arg
-    Take 'tree' and add it to 'call' as an argument. */
-static void push_tree_arg(lily_ast_pool *ap, lily_ast *call, lily_ast *tree)
+    This adds an 'arg' as the newest argument to the given entered tree. */
+static void push_tree_arg(lily_ast_pool *ap, lily_ast *entered_tree, lily_ast *arg)
 {
-    /* The args of a callable are linked to themselves, with the last one
-       set to NULL. This will work for multiple functions, because the
-       functions would be using different ASTs. */
-    if (call->arg_start == NULL)
-        call->arg_start = tree;
+    /* This happens when the parser sees () and calls to collect an argument
+       just to be sure that anything in between is collected. It's fine, but
+       there's also nothing to do here. */
+    if (arg == NULL)
+        return;
+
+    if (entered_tree->arg_start == NULL)
+        entered_tree->arg_start = arg;
     else {
-        lily_ast *call_iter = call->arg_start;
-        while (call_iter->next_arg != NULL)
-            call_iter = call_iter->next_arg;
+        lily_ast *tree_iter = entered_tree->arg_start;
+        while (tree_iter->next_arg != NULL)
+            tree_iter = tree_iter->next_arg;
 
-        call_iter->next_arg = tree;
+        tree_iter->next_arg = arg;
     }
 
-    /* Calls with 0 args have no value, so tree is null. */
-    if (tree) {
-        /* This ensures that subtrees know what they're contained in. This is
-           essential for autocasts. */
-        tree->parent = call;
-        tree->next_arg = NULL;
-        call->args_collected++;
-    }
+    arg->parent = entered_tree;
+    arg->next_arg = NULL;
+    entered_tree->args_collected++;
 }
 
 /******************************************************************************/
