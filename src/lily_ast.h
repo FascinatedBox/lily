@@ -10,9 +10,9 @@
 
 typedef enum {
     tree_call, tree_subscript, tree_list, tree_hash, tree_parenth,
-    tree_local_var, tree_readonly, tree_var, tree_package, tree_oo_access,
-    tree_unary, tree_type, tree_typecast, tree_tuple, tree_property,
-    tree_variant, tree_lambda, tree_binary
+    tree_local_var, tree_readonly, tree_global_var, tree_package,
+    tree_oo_access, tree_unary, tree_type, tree_typecast, tree_tuple,
+    tree_property, tree_variant, tree_lambda, tree_binary
 } lily_tree_type;
 
 typedef struct lily_ast_t {
@@ -127,7 +127,7 @@ lily_ast *lily_ast_get_saved_tree(lily_ast_pool *);
 void lily_ast_enter_typecast(lily_ast_pool *ap, lily_type *type);
 void lily_ast_push_local_var(lily_ast_pool *, lily_var *);
 void lily_ast_push_binary_op(lily_ast_pool *, lily_expr_op);
-void lily_ast_push_sym(lily_ast_pool *, lily_sym *);
+void lily_ast_push_global_var(lily_ast_pool *, lily_var *);
 void lily_ast_push_readonly(lily_ast_pool *, lily_sym *);
 void lily_ast_push_unary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_oo_access(lily_ast_pool *, char *);

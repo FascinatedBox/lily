@@ -614,11 +614,11 @@ void lily_ast_push_local_var(lily_ast_pool *ap, lily_var *var)
     merge_value(ap, a);
 }
 
-void lily_ast_push_sym(lily_ast_pool *ap, lily_sym *s)
+void lily_ast_push_global_var(lily_ast_pool *ap, lily_var *var)
 {
-    AST_COMMON_INIT(a, tree_var);
-    a->result = s;
-    a->original_sym = s;
+    AST_COMMON_INIT(a, tree_global_var);
+    a->result = (lily_sym *)var;
+    a->original_sym = (lily_sym *)var;
 
     merge_value(ap, a);
 }
