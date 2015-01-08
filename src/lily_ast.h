@@ -49,9 +49,11 @@ typedef struct lily_ast_t {
         int priority;
     };
 
-    /* These are for unary and binary ops mostly. Typecast stores a value in
-       right so that operations will use that like with binary. */
+    /* right is the right side of a binary operation. Unused otherwise. */
     struct lily_ast_t *right;
+
+    /* If this tree is a subexpression, then this will be set to the calling
+       tree. NULL otherwise. */
     struct lily_ast_t *parent;
 
     /* If this tree is an argument, the next one. NULL otherwise. */
@@ -61,42 +63,72 @@ typedef struct lily_ast_t {
     struct lily_ast_t *next_tree;
 } lily_ast;
 
-typedef struct lily_ast_freeze_entry_t {
-    struct lily_ast_freeze_entry_t *next;
-    struct lily_ast_freeze_entry_t *prev;
-
-    struct lily_ast_save_entry_t *save_chain;
-    lily_ast *available_restore;
-    lily_ast *active;
-    lily_ast *root;
-    uint16_t membuf_start;
-    uint16_t save_depth;
-
-    uint32_t in_use;
-} lily_ast_freeze_entry;
-
-/* The ast handles subexpressions by merging the new tree, then storing the
-   current and root of the ast pool. The save chain keeps track of what trees
-   have been entered. */
+/* Subexpressions are handled by saving the important bits of the ast pool and
+   adding +1 to the pool's save depth on entry. A -1 is applied when the entry
+   leaves. */
 typedef struct lily_ast_save_entry_t {
-    /* This is a link to a newer entry, or NULL if this entry is the most
-       recent. */
-    struct lily_ast_save_entry_t *next;
-    /* This is a link to an older entry, or NULL if this entry is the first. */
-    struct lily_ast_save_entry_t *prev;
-    /* This is the tree that was active before ->entered_tree was entered. */
+    /* This was the active tree before entry. */
     lily_ast *active_tree;
-    /* This is the tree that was the root before ->entered_tree was entered. */
+
+    /* This was the root tree before entry. */
     lily_ast *root_tree;
-    /* This is the tree that is taking arguments. */
+
+    /* This is the tree that will take the subexpressions. It may or may not
+       be the active tree. */
     lily_ast *entered_tree;
+
+    struct lily_ast_save_entry_t *next;
+    struct lily_ast_save_entry_t *prev;
 } lily_ast_save_entry;
 
-typedef struct {
-    lily_ast *available_start;
+/* The pool handles lambdas by making a special entry that's slightly more
+   complex than a save entry.
+   This is necessary because lambdas are evaluated from within emitter, and
+   need to make sure they don't trample on any current data. */
+typedef struct lily_ast_freeze_entry_t {
+    /* This is where ap->available_restore was before entry. */
     lily_ast *available_restore;
-    lily_ast *available_current;
+
+    /* This was the active tree. */
+    lily_ast *active;
+
+    /* This was the root tree. */
     lily_ast *root;
+
+    /* This is where the ap's save chain is stored. */
+    lily_ast_save_entry *save_chain;
+
+    /* This is where the membuf's position was to be restored to. */
+    uint16_t membuf_start;
+
+    /* This is how deep in the save chain that things were. */
+    uint16_t save_depth;
+
+    /* 1 or 0. This is here because freeze entries are only created on demand
+       (whereas save entries always have an extra on top). */
+    uint32_t in_use;
+
+    struct lily_ast_freeze_entry_t *next;
+    struct lily_ast_freeze_entry_t *prev;
+} lily_ast_freeze_entry;
+
+typedef struct {
+    /* This is the head of the linked list of trees. */
+    lily_ast *available_start;
+
+    /* When this expression is done, where to set available_current to. This is
+       set to available_start UNLESS within a lambda. */
+    lily_ast *available_restore;
+
+    /* The next available tree for the pool to use. Never NULL. */
+    lily_ast *available_current;
+
+    /* The tree with the lowest precedence. This is where evaluation will start
+       from. */
+    lily_ast *root;
+
+    /* This is the tree that will be acted upon (the binary merged against, the
+       value to merge as an arg, etc). */
     lily_ast *active;
 
     /* This membuf holds two kinds of things:
@@ -104,15 +136,21 @@ typedef struct {
        * The body of a lambda. */
     lily_membuf *ast_membuf;
 
-    /* This goes from oldest (prev), to newest (next). The save_chain is always
-       updated to the most recent entry when a tree is entered. */
+    /* This holds bits of the pool's state when handling non-lambda tree
+       entry. */
     lily_ast_save_entry *save_chain;
 
+    /* Where the ast should restore the membuf's pos to when the expression is
+       done. This is non-zero when within a lambda. */
     uint32_t membuf_start;
+
+    /* How deep within ( or [ that this expression is. This should always be 0
+       at the start and end of an expression. */
     uint32_t save_depth;
 
-    /* When the parser enters a lambda, it 'freezes' the current tree setup in
-       one of these entries until the lambda has exited. */
+    /* This holds the ast pool's state when processing a lambda. Lambdas are
+       unique in that they're dispatched from emitter while it's in an
+       expression. Therefore, they can't re-use trees and such. */
     lily_ast_freeze_entry *freeze_chain;
 
     lily_raiser *raiser;
