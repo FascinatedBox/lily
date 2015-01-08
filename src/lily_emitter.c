@@ -2043,7 +2043,7 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
     type: ast->arg_start->next_arg->type */
 static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_type *cast_type = ast->arg_start->next_arg->type;
+    lily_type *cast_type = ast->arg_start->next_arg->typecast_type;
     lily_ast *right_tree = ast->arg_start;
     if (right_tree->tree_type != tree_local_var)
         eval_tree(emit, right_tree, NULL, 1);
