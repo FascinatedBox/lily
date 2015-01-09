@@ -629,6 +629,9 @@ void lily_ast_push_oo_access(lily_ast_pool *ap, char *oo_name)
 {
     AST_ENTERABLE_INIT(a, tree_oo_access)
     a->membuf_pos = lily_membuf_add(ap->ast_membuf, oo_name);
+    /* This MUST be set to NULL to clear out any prior value, as emitter checks
+       it to make sure the tree is not double evaluated. */
+    a->result = NULL;
 
     merge_value(ap, a);
 }
