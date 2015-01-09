@@ -247,35 +247,6 @@ class_seed class_seeds[] =
      lily_instance_eq},         /* eq_func */
 };
 
-typedef const struct {
-    char *name;
-    uint64_t shorthash;
-} keyword_seed;
-
-keyword_seed keywords[] = {
-    {"if",           26217},
-    {"elif",         1718185061},
-    {"else",         1702063205},
-    {"return",       121437875889522},
-    {"while",        435610544247},
-    {"continue",     7310870969309884259},
-    {"break",        461195539042},
-    {"__line__",     6872323081280184159},
-    {"__file__",     6872323072689856351},
-    {"__function__", 7598807797348065119},
-    {"for",          7499622},
-    {"do",           28516},
-    {"try",          7959156},
-    {"except",       128026086176869},
-    {"raise",        435727982962},
-    {"class",        495857003619},
-    {"var",          7496054},
-    {"enum",         1836412517},
-    {"match",        448345170285},
-    {"case",         1702060387},
-    {"define",       111524889126244}
-};
-
 void lily_builtin_print(lily_vm_state *, lily_function_val *, uint16_t *);
 void lily_builtin_show(lily_vm_state *, lily_function_val *, uint16_t *);
 void lily_builtin_printfmt(lily_vm_state *, lily_function_val *, uint16_t *);

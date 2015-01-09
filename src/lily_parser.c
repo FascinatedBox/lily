@@ -3,6 +3,7 @@
 #include "lily_impl.h"
 #include "lily_parser.h"
 #include "lily_parser_tok_table.h"
+#include "lily_keyword_table.h"
 #include "lily_pkg_sys.h"
 #include "lily_value.h"
 #include "lily_membuf.h"
@@ -173,6 +174,42 @@ void lily_free_parse_state(lily_parse_state *parser)
 /*****************************************************************************/
 /* Shared code                                                               */
 /*****************************************************************************/
+
+/*  shorthash_for_name
+    Copied from symtab for keyword_by_name. This gives (up to) the first 8
+    bytes of the name as an int for doing fast comparisons. */
+static uint64_t shorthash_for_name(const char *name)
+{
+    const char *ch = &name[0];
+    int i, shift;
+    uint64_t ret;
+    for (i = 0, shift = 0, ret = 0;
+         *ch != '\0' && i != 8;
+         ch++, i++, shift += 8) {
+        ret |= ((uint64_t)*ch) << shift;
+    }
+    return ret;
+}
+
+/*  keyword_by_name
+    Do a fast lookup through the keyword table to see if the name given is a
+    keyword. Returns -1 if not found, or something higher than that if the name
+    is a keyword. */
+static int keyword_by_name(char *name)
+{
+    int i;
+    uint64_t shorthash = shorthash_for_name(name);
+
+    for (i = 0;i <= KEY_LAST_ID;i++) {
+        if (keywords[i].shorthash == shorthash &&
+            strcmp(keywords[i].name, name) == 0)
+            return i;
+        else if (keywords[i].shorthash > shorthash)
+            break;
+    }
+
+    return -1;
+}
 
 /*  count_unresolved_generics
     This is a helper function for lambda resolution. The purpose of this
@@ -839,7 +876,7 @@ static void expression_word(lily_parse_state *parser, int *state)
         *state = ST_WANT_OPERATOR;
     }
     else {
-        int key_id = lily_keyword_by_name(lex->label);
+        int key_id = keyword_by_name(lex->label);
         if (key_id != -1) {
             lily_literal *lit = parse_special_keyword(parser, key_id);
             lily_ast_push_literal(parser->ast_pool, lit);
@@ -1279,52 +1316,52 @@ static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
 /* Every keyword has an associated handler, even if it's something rather
    simple. */
 static void if_handler(lily_parse_state *, int);
-static void elif_handler(lily_parse_state *, int);
+static void do_handler(lily_parse_state *, int);
+static void var_handler(lily_parse_state *, int);
+static void for_handler(lily_parse_state *, int);
+static void try_handler(lily_parse_state *, int);
+static void case_handler(lily_parse_state *, int);
 static void else_handler(lily_parse_state *, int);
-static void return_handler(lily_parse_state *, int);
+static void elif_handler(lily_parse_state *, int);
+static void enum_handler(lily_parse_state *, int);
 static void while_handler(lily_parse_state *, int);
-static void continue_handler(lily_parse_state *, int);
+static void raise_handler(lily_parse_state *, int);
+static void match_handler(lily_parse_state *, int);
 static void break_handler(lily_parse_state *, int);
+static void class_handler(lily_parse_state *, int);
+static void define_handler(lily_parse_state *, int);
+static void return_handler(lily_parse_state *, int);
+static void except_handler(lily_parse_state *, int);
 static void file_kw_handler(lily_parse_state *, int);
 static void line_kw_handler(lily_parse_state *, int);
+static void continue_handler(lily_parse_state *, int);
 static void function_kw_handler(lily_parse_state *, int);
-static void for_handler(lily_parse_state *, int);
-static void do_handler(lily_parse_state *, int);
-static void try_handler(lily_parse_state *, int);
-static void except_handler(lily_parse_state *, int);
-static void raise_handler(lily_parse_state *, int);
-static void class_handler(lily_parse_state *, int);
-static void var_handler(lily_parse_state *, int);
-static void enum_handler(lily_parse_state *, int);
-static void match_handler(lily_parse_state *, int);
-static void case_handler(lily_parse_state *, int);
-static void define_handler(lily_parse_state *, int);
 
 typedef void (keyword_handler)(lily_parse_state *, int);
 
 /* This is setup so that handlers[key_id] is the handler for that keyword. */
 static keyword_handler *handlers[] = {
     if_handler,
-    elif_handler,
-    else_handler,
-    return_handler,
-    while_handler,
-    continue_handler,
-    break_handler,
-    line_kw_handler,
-    file_kw_handler,
-    function_kw_handler,
-    for_handler,
     do_handler,
-    try_handler,
-    except_handler,
-    raise_handler,
-    class_handler,
     var_handler,
-    enum_handler,
-    match_handler,
+    for_handler,
+    try_handler,
     case_handler,
-    define_handler
+    else_handler,
+    elif_handler,
+    enum_handler,
+    while_handler,
+    raise_handler,
+    match_handler,
+    break_handler,
+    class_handler,
+    define_handler,
+    return_handler,
+    except_handler,
+    file_kw_handler,
+    line_kw_handler,
+    continue_handler,
+    function_kw_handler
 };
 
 static void parse_multiline_block_body(lily_parse_state *, int);
@@ -1344,7 +1381,7 @@ static void statement(lily_parse_state *parser, int multi)
         lily_token token = lex->token;
 
         if (token == tk_word) {
-            key_id = lily_keyword_by_name(lex->label);
+            key_id = keyword_by_name(lex->label);
             if (key_id != -1) {
                 /* Ask the handler for this keyword what to do. */
                 lily_lexer(lex);
@@ -1447,7 +1484,7 @@ static void if_handler(lily_parse_state *parser, int multi)
     else {
         statement(parser, 0);
         while (lex->token == tk_word) {
-            int key_id = lily_keyword_by_name(lex->label);
+            int key_id = keyword_by_name(lex->label);
 
             /* Jump directly into elif/else. Doing it this way (instead of
                through statement) means that the 'if' block can be popped in a

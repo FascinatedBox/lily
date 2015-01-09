@@ -1187,20 +1187,6 @@ lily_class *lily_find_scoped_variant(lily_class *enum_class, char *name)
     return ret;
 }
 
-int lily_keyword_by_name(char *name)
-{
-    int i;
-    uint64_t shorthash = shorthash_for_name(name);
-
-    for (i = 0;i <= KEY_LAST_ID;i++) {
-        if (keywords[i].shorthash == shorthash &&
-            strcmp(keywords[i].name, name) == 0)
-            return i;
-    }
-
-    return -1;
-}
-
 /*  lily_scoped_var_by_name
     Do a var lookup but start from the given var. This is used for looking up
     values within a package. Returns the var wanted or NULL. */

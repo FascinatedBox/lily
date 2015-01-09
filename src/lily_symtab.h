@@ -59,30 +59,6 @@ typedef struct {
     lily_raiser *raiser;
 } lily_symtab;
 
-/* Sync with keywords in lily_seed_symtab.h. */
-#define KEY_IF          0
-#define KEY_ELIF        1
-#define KEY_ELSE        2
-#define KEY_RETURN      3
-#define KEY_WHILE       4
-#define KEY_CONTINUE    5
-#define KEY_BREAK       6
-#define KEY__LINE__     7
-#define KEY__FILE__     8
-#define KEY__FUNCTION__ 9
-#define KEY_FOR         10
-#define KEY_DO          11
-#define KEY_TRY         12
-#define KEY_EXCEPT      13
-#define KEY_RAISE       14
-#define KEY_CLASS       15
-#define KEY_VAR         16
-#define KEY_ENUM        17
-#define KEY_MATCH       18
-#define KEY_CASE        19
-#define KEY_DEFINE      20
-#define KEY_LAST_ID     20
-
 lily_symtab *lily_new_symtab(lily_raiser *);
 void lily_free_symtab_lits_and_vars(lily_symtab *);
 void lily_free_symtab(lily_symtab *);
@@ -97,7 +73,6 @@ lily_class *lily_class_by_name(lily_symtab *, const char *);
 lily_var *lily_find_class_callable(lily_symtab *, lily_class *, char *);
 const lily_func_seed *lily_find_class_call_seed(lily_symtab *, lily_class *,
         char *);
-const lily_func_seed *lily_get_global_seed_chain();
 lily_prop_entry *lily_find_property(lily_symtab *, lily_class *, char *);
 lily_class *lily_find_scoped_variant(lily_class *, char *);
 
@@ -105,8 +80,6 @@ lily_var *lily_try_new_var(lily_symtab *, lily_type *, char *, int);
 
 lily_var *lily_scoped_var_by_name(lily_symtab *, lily_var *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
-
-int lily_keyword_by_name(char *);
 
 lily_type *lily_try_type_for_class(lily_symtab *, lily_class *);
 lily_type *lily_try_type_from_ids(lily_symtab *, const int *);
@@ -122,4 +95,6 @@ void lily_update_symtab_generics(lily_symtab *, lily_class *, int);
 void lily_finish_class(lily_symtab *, lily_class *);
 void lily_make_constructor_return_type(lily_symtab *);
 void lily_finish_enum_class(lily_symtab *, lily_class *, int, lily_type *);
+
+const lily_func_seed *lily_get_global_seed_chain();
 #endif
