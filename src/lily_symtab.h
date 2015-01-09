@@ -72,17 +72,16 @@ typedef struct {
 #define KEY__FUNCTION__ 9
 #define KEY_FOR         10
 #define KEY_DO          11
-#define KEY_ISNIL       12
-#define KEY_TRY         13
-#define KEY_EXCEPT      14
-#define KEY_RAISE       15
-#define KEY_CLASS       16
-#define KEY_VAR         17
-#define KEY_ENUM        18
-#define KEY_MATCH       19
-#define KEY_CASE        20
-#define KEY_DEFINE      21
-#define KEY_LAST_ID     21
+#define KEY_TRY         12
+#define KEY_EXCEPT      13
+#define KEY_RAISE       14
+#define KEY_CLASS       15
+#define KEY_VAR         16
+#define KEY_ENUM        17
+#define KEY_MATCH       18
+#define KEY_CASE        19
+#define KEY_DEFINE      20
+#define KEY_LAST_ID     20
 
 lily_symtab *lily_new_symtab(lily_raiser *);
 void lily_free_symtab_lits_and_vars(lily_symtab *);
