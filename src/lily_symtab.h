@@ -5,33 +5,56 @@
 # include "lily_raiser.h"
 
 typedef struct {
+	/* This is a linked list of all vars that are currently in scope. The most
+	   recently-declared one is at the top. */
     lily_var *var_chain;
+
+    /* This is where __main__ is. __main__ is a special function which holds
+       all of the code outside of a defined function. This is executed by the
+       vm later to kick things off. */
     lily_var *main_var;
 
-    lily_class *template_class;
-    lily_type *template_type_start;
-
-    /* When a function has functions declared inside of it, those functions
-       fall out of scope when the other function goes out of scope. The inner
-       functions end up going in here. This makes the inner functions no longer
-       reachable, but keeps them alive (for obvious reasons)!
-       Emitter adds to this as needed. Symtab is only responsible for ensuring
-       that it's destroyed properly at exit. */
-    lily_var *old_function_chain;
-    /* Similar to the above: A class declared in another class goes out of
-       scope when the outer class is done. */
-    lily_class *old_class_chain;
-
+    /* The classes that are currently in scope. */
     lily_class *class_chain;
-    lily_type *root_type;
 
+    /* To make generic class searches faster, the symtab holds the spot where
+       the template class. */
+    lily_class *template_class;
+
+    /* A linked list of all literals that have been found so far. */
     lily_literal *lit_chain;
 
+    /* Additionally, the signatures that are used to hold generic info are
+       specifically linked together to make the search easier. */
+    lily_type *template_type_start;
+
+    /* Defined functions that go out of scope are stuffed in here, unless
+       they're class methods. */
+    lily_var *old_function_chain;
+
+    /* Ditto, for classes. */
+    lily_class *old_class_chain;
+
+    /* Every type created is linked in here some way. This makes tearing down
+       types easy: Just iter through this and blast things along the way. */
+    lily_type *root_type;
+
+    /* Each class gets a unique id. This is mostly for the builtin classes
+       which have some special behavior sometimes. */
     uint32_t next_class_id;
+
+    /* Lily works on the concept of 'registers'. Each var in a function has a
+       specific id where it goes for loading/storing.
+       The first one is adjusted by emitter when entering or leaving a
+       function. */
     uint32_t next_register_spot;
     uint32_t next_lit_spot;
     uint32_t next_function_spot;
+
+    /* This is copied to vars when they're made. Parser uses this to figure out
+       if a var is a local or a global. */
     uint64_t function_depth;
+
     uint16_t *lex_linenum;
     lily_raiser *raiser;
 } lily_symtab;
