@@ -95,6 +95,7 @@ void lily_update_symtab_generics(lily_symtab *, lily_class *, int);
 void lily_finish_class(lily_symtab *, lily_class *);
 void lily_make_constructor_return_type(lily_symtab *);
 void lily_finish_enum_class(lily_symtab *, lily_class *, int, lily_type *);
+void lily_change_parent_class(lily_class *, lily_class *);
 
 const lily_func_seed *lily_get_global_seed_chain();
 #endif

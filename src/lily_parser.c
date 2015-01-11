@@ -53,6 +53,20 @@ if (lex->token != expected) \
     lily_raise(parser->raiser, lily_SyntaxError, "Expected '%s', not %s.\n", \
                tokname(expected), tokname(lex->token));
 
+static char *exception_bootstrap =
+"class Exception(string message) {\n"
+"    string @message = message\n"
+"    list[tuple[string, integer]] @traceback = []\n"
+"}\n"
+"class DivisionByZeroError (string message) < Exception(message) {}\n"
+"class IndexError          (string message) < Exception(message) {}\n"
+"class BadTypecastError    (string message) < Exception(message) {}\n"
+"class NoReturnError       (string message) < Exception(message) {}\n"
+"class ValueError          (string message) < Exception(message) {}\n"
+"class RecursionError      (string message) < Exception(message) {}\n"
+"class KeyError            (string message) < Exception(message) {}\n"
+"class FormatError         (string message) < Exception(message) {}\n";
+
 /*****************************************************************************/
 /* Parser creation and teardown                                              */
 /*****************************************************************************/
@@ -731,13 +745,22 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
 /*****************************************************************************/
 
 /* I need a value to work with. */
-#define ST_DEMAND_VALUE  1
+#define ST_DEMAND_VALUE         1
 /* A binary op or an operation (dot call, call, subscript), or a close. */
-#define ST_WANT_OPERATOR 2
+#define ST_WANT_OPERATOR        2
 /* A value is nice, but not required (ex: call arguments). */
-#define ST_WANT_VALUE    3
-#define ST_DONE          4
-#define ST_BAD_TOKEN     5
+#define ST_WANT_VALUE           3
+/* This is a special value that's passed to expression, but never set by
+   expression internally. If this is initially passed to expression, then ')'
+   can finish the expression.
+   This is needed because otherwise...
+   class Bird(...) > Animal(...)[0]
+                                ^^^
+                                This is allowed. */
+#define ST_MAYBE_END_ON_PARENTH 4
+
+#define ST_DONE                 5
+#define ST_BAD_TOKEN            6
 
 /*  expression_static_call
     This handles expressions like `<type>::member`. */
@@ -1097,6 +1120,12 @@ static void expression_dot(lily_parse_state *parser, int *state)
 static void expression_raw(lily_parse_state *parser, int state)
 {
     lily_lex_state *lex = parser->lex;
+    int maybe_end_on_parenth = 0;
+    if (state == ST_MAYBE_END_ON_PARENTH) {
+        maybe_end_on_parenth = 1;
+        state = ST_WANT_VALUE;
+    }
+
     while (1) {
         int expr_op = parser_tok_table[lex->token].expr_op;
         if (lex->token == tk_word) {
@@ -1159,7 +1188,13 @@ static void expression_raw(lily_parse_state *parser, int state)
             else {
                 check_valid_close_tok(parser);
                 lily_ast_leave_tree(parser->ast_pool);
-                state = ST_WANT_OPERATOR;
+                if (maybe_end_on_parenth == 0 ||
+                    lex->token != tk_right_parenth ||
+                    parser->ast_pool->save_depth != 0)
+                    state = ST_WANT_OPERATOR;
+                else {
+                    state = ST_DONE;
+                }
             }
         }
         else if (lex->token == tk_integer || lex->token == tk_double ||
@@ -1865,6 +1900,70 @@ static void ensure_valid_class(lily_parse_state *parser, char *name)
     }
 }
 
+/*  parse_inheritance
+    Syntax: class Bird(args...) > Animal(args...) {
+                       ^                 ^
+                       Start             End
+
+    This function is responsible making sure that the class to be inherited
+    from is valid and inheritable. This also collects the arguments to call
+    the ::new of the inherited class and executes the call. */
+static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
+{
+    lily_lex_state *lex = parser->lex;
+    NEED_NEXT_TOK(tk_word)
+
+    lily_class *super_class = lily_class_by_name(parser->symtab,
+            lex->label);
+
+    if (super_class == NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Class '%s' does not exist.\n", lex->label);
+    else if (super_class == cls)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "A class cannot inherit from itself!\n");
+    else if (super_class->id <= SYM_CLASS_TEMPLATE)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Cannot inherit from builtin classes. Sorry.\n");
+    else if (super_class->call_start == NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "A class cannot inherit from an incomplete class.\n");
+
+    lily_var *class_new = lily_find_class_callable(parser->symtab,
+            super_class, "new");
+
+    /* I don't think this is possible, but I'm not entirely sure. */
+    if (class_new == NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Inherited class does not have a constructor?\n");
+
+    NEED_NEXT_TOK(tk_left_parenth)
+
+    /* There's a small problem here. The idea of being able to pass expressions
+       as well as values is great. However, expression cannot be trusted to
+       collect what's inside of the parentheses because it may allow a subscript
+       afterward.
+       Ex: class Point(integer value) > Parent(value)[0].
+       This is avoided by passing a special flag to expression and calling it
+       directly. */
+
+    lily_ast_pool *ap = parser->ast_pool;
+    lily_ast_enter_tree(ap, tree_call);
+    lily_ast_push_inherited_new(ap, class_new);
+    lily_ast_collect_arg(ap);
+
+    /* Since the call was already entered, skip the first '(' or the parser
+       will attempt to enter it again. */
+    lily_lexer(lex);
+
+    expression_raw(parser, ST_MAYBE_END_ON_PARENTH);
+    lily_emit_eval_expr(parser->emit, ap);
+    lily_change_parent_class(super_class, cls);
+
+    /* The caller will sure that this is '{'. */
+    lily_lexer(lex);
+}
+
 static void class_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
@@ -1874,6 +1973,9 @@ static void class_handler(lily_parse_state *parser, int multi)
     lily_class *created_class = lily_new_class(parser->symtab, lex->label);
 
     parse_function(parser, created_class);
+
+    if (lex->token == tk_lt)
+        parse_inheritance(parser, created_class);
 
     NEED_CURRENT_TOK(tk_left_curly)
 
@@ -2166,6 +2268,13 @@ static void do_bootstrap(lily_parse_state *parser)
         parse_prototype(parser, NULL, global_seed->func);
         global_seed = global_seed->next;
     }
+
+    lily_lex_entry *first_entry = parser->lex->entry;
+    lily_load_str(lex, "[builtin]", lm_no_tags, exception_bootstrap);
+    lily_lexer(lex);
+    do {
+        statement(parser, 1);
+    } while (parser->lex->entry != first_entry);
 }
 
 /*  parser_loop

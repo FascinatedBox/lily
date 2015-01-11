@@ -455,56 +455,6 @@ static lily_type *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
     return ret;
 }
 
-/*  init_prop_seeds
-    This takes a series of "property seeds" for a given class and creates space
-    in the class to hold those values. It also specifies where those values will
-    be relative to the class.
-    For example: Exception has two fields: a message, and traceback. The message
-    will be at 0, and the traceback at 1. Complex classes are -really- just
-    tuple's internally. */
-static int init_prop_seeds(lily_symtab *symtab, lily_class *cls,
-        const lily_prop_seed_t *seeds)
-{
-    const lily_prop_seed_t *seed_iter = seeds;
-    lily_prop_entry *top = NULL;
-    int ret = 1;
-    int id = 0;
-
-    do {
-        int pos = 0, ok = 1;
-        lily_type *entry_type = scan_seed_arg(symtab, seed_iter->prop_ids, &pos,
-                &ok);
-        lily_prop_entry *entry = lily_malloc(sizeof(lily_prop_entry));
-        char *entry_name = lily_malloc(strlen(seed_iter->name) + 1);
-        if (entry_type == NULL || entry == NULL || entry_name == NULL) {
-            /* types are attached to symtab's root_type when they get made,
-               so there's no teardown for the type necessary. */
-            lily_free(entry);
-            lily_free(entry_name);
-            ret = 0;
-            break;
-        }
-        strcpy(entry_name, seed_iter->name);
-        entry->flags = 0;
-        entry->id = id;
-        entry->name = entry_name;
-        entry->type = entry_type;
-        entry->name_shorthash = shorthash_for_name(entry_name);
-        entry->next = NULL;
-        if (top == NULL) {
-            cls->properties = entry;
-            top = entry;
-        }
-        else
-            top->next = entry;
-
-        id++;
-        seed_iter = seed_iter->next;
-    } while (seed_iter);
-
-    return ret;
-}
-
 /*****************************************************************************/
 /* Symtab initialization */
 /*****************************************************************************/
@@ -630,10 +580,6 @@ static int init_classes(lily_symtab *symtab)
 
             new_class->next = symtab->class_chain;
             symtab->class_chain = new_class;
-
-            if (ret && class_seeds[i].prop_seeds != NULL)
-                ret = init_prop_seeds(symtab, new_class,
-                        class_seeds[i].prop_seeds);
         }
         else
             ret = 0;
@@ -646,19 +592,6 @@ static int init_classes(lily_symtab *symtab)
         /* No direct declaration of packages (for now?) */
         lily_class *package_cls = lily_class_by_id(symtab, SYM_CLASS_PACKAGE);
         package_cls->shorthash = 0;
-
-        /* Now that all classes are established, fix class parents to their
-           real values. */
-        lily_class *class_iter;
-        for (class_iter = symtab->class_chain, i = 0;
-             class_iter;
-             class_iter = class_iter->next, i++) {
-            /* Must use class_iter->id because classes from finish to start. */
-            if (class_seeds[class_iter->id].parent_name != NULL) {
-                class_iter->parent = lily_class_by_name(symtab,
-                        class_seeds[class_iter->id].parent_name);
-            }
-        }
     }
 
     symtab->next_class_id = i + 1;
@@ -783,7 +716,7 @@ static void free_classes(lily_class *class_iter)
 {
     while (class_iter) {
         /* todo: Probably a better way to do this... */
-        if (class_iter->id > SYM_CLASS_FORMATERROR)
+        if (class_iter->id > SYM_CLASS_PACKAGE)
             lily_free(class_iter->name);
 
         if (class_iter->flags & CLS_ENUM_IS_SCOPED) {
@@ -1356,18 +1289,15 @@ lily_prop_entry *lily_add_class_property(lily_class *cls, lily_type *type,
     entry->id = cls->prop_count;
     cls->prop_count++;
 
-    if (cls->properties) {
-        lily_prop_entry *prop_iter = cls->properties;
-        while (prop_iter->next != NULL)
-            prop_iter = prop_iter->next;
+    /* It's REALLY important that properties be linked this way, because it
+       allows the vm to walk from a derived class up through the superclasses
+       when setting property types in instance creation.
+       It goes like this:
 
-        entry->id = prop_iter->id + 1;
-        prop_iter->next = entry;
-    }
-    else {
-        entry->id = 0;
-        cls->properties = entry;
-    }
+        Animal        >  Bird          >  Falcon
+       [3 => 2 => 1] => [6 => 5 => 4] => [9 => 8 => 7] */
+    entry->next = cls->properties;
+    cls->properties = entry;
 
     return entry;
 }
@@ -1708,4 +1638,16 @@ void lily_finish_enum_class(lily_symtab *symtab, lily_class *enum_class,
            to get them from the enum class. */
         symtab->class_chain = enum_class;
     }
+}
+
+/*  lily_change_parent_class
+    This marks the first class as being inherited by the second class. */
+void lily_change_parent_class(lily_class *super_class, lily_class *sub_class)
+{
+    sub_class->parent = super_class;
+    /* This must be copied over because the vm uses this number to determine
+       how many slots to allocate for the class.
+       Subclass properties can safely start after superclass properties because
+       of single inheritance. */
+    sub_class->prop_count = super_class->prop_count;
 }
