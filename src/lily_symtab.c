@@ -154,6 +154,9 @@ static void get_template_max(lily_type *type, int *template_max)
     }
 }
 
+#define SKIP_FLAGS \
+    ~(TYPE_MAYBE_CIRCULAR | TYPE_CALL_HAS_ENUM_ARG | TYPE_IS_UNRESOLVED)
+
 /*  lookup_type
     Determine if the current type exists in the symtab.
 
@@ -173,8 +176,8 @@ static lily_type *lookup_type(lily_symtab *symtab, lily_type *input_type)
             if (iter_type->subtypes      != NULL &&
                 iter_type->subtype_count == input_type->subtype_count &&
                 iter_type               != input_type &&
-                (iter_type->flags & ~(TYPE_MAYBE_CIRCULAR | TYPE_CALL_HAS_ENUM_ARG))
-                   == input_type->flags) {
+                (iter_type->flags & SKIP_FLAGS) ==
+                 (input_type->flags & SKIP_FLAGS)) {
                 int i, match = 1;
                 for (i = 0;i < iter_type->subtype_count;i++) {
                     if (iter_type->subtypes[i] != input_type->subtypes[i]) {
@@ -195,6 +198,8 @@ static lily_type *lookup_type(lily_symtab *symtab, lily_type *input_type)
 
     return ret;
 }
+
+#undef SKIP_FLAGS
 
 /*  finalize_type
     Determine if the given type is circular. Also, if its class is not the
@@ -230,6 +235,13 @@ static void finalize_type(lily_type *input_type)
             get_template_max(input_type, &max);
             input_type->template_pos = max;
         }
+    }
+
+    /* This gives emitter and vm an easy way to check if a type needs to be
+       resolved or if it can used as-is. */
+    if (input_type->cls->id == SYM_CLASS_TEMPLATE ||
+        input_type->template_pos != 0) {
+        input_type->flags |= TYPE_IS_UNRESOLVED;
     }
 
     /* It helps the emitter to know if a call has an argument that is an enum
@@ -1416,7 +1428,7 @@ void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
             new_type->cls = symtab->template_class;
             new_type->subtypes = NULL;
             new_type->subtype_count = 0;
-            new_type->flags = 0;
+            new_type->flags = TYPE_IS_UNRESOLVED;
             new_type->template_pos = i;
 
             new_type->next = type_iter->next;
@@ -1468,6 +1480,7 @@ void lily_make_constructor_return_type(lily_symtab *symtab)
         for (i = 0;i < count;i++, type_iter = type_iter->next)
             type->subtypes[i] = type_iter;
 
+        type->flags = TYPE_IS_UNRESOLVED;
         type->subtype_count = count;
         type->template_pos = i;
     }
@@ -1478,10 +1491,10 @@ void lily_make_constructor_return_type(lily_symtab *symtab)
         type->subtypes = NULL;
         type->subtype_count = 0;
         type->template_pos = 0;
+        type->flags = 0;
     }
 
     type->cls = target_class;
-    type->flags = 0;
 
     type->next = symtab->root_type;
     symtab->root_type = type;
