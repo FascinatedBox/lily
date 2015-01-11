@@ -448,6 +448,10 @@ typedef struct lily_prop_seed_t {
    done so that emitter's call eval can have a good idea of if it should make
    a second pass to make sure variants are put into enums. */
 #define TYPE_CALL_HAS_ENUM_ARG 0x20
+/* This is set on a type when it is a generic (ex: A, B, ...), or when it
+   contains generics at some point. Emitter and vm use this as a fast way of
+   checking if a type needs to be resolved or not. */
+#define TYPE_IS_UNRESOLVED     0x40
 
 /* SYM_* defines are for identifying the type of symbol given. Emitter uses
    these sometimes. */

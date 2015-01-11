@@ -789,7 +789,7 @@ static lily_type *resolve_type_by_map(lily_vm_state *vm, int map_type_count,
             }
         }
 
-        if (inner_type->template_pos == 0 &&
+        if (inner_type->flags & TYPE_IS_UNRESOLVED &&
             inner_type->cls->id != SYM_CLASS_TEMPLATE)
             /* This can happen if generic and non-generic types are mixed in
                a declaration in a generic function.
@@ -894,9 +894,7 @@ static void resolve_generic_registers(lily_vm_state *vm, lily_value *func,
         lily_value *reg = regs_from_main[reg_i];
         lily_type *input_type = ri[info_i].type;
         lily_type *result_type = NULL;
-        if (input_type->template_pos ||
-            input_type->cls->id == SYM_CLASS_TEMPLATE) {
-
+        if (input_type->flags & TYPE_IS_UNRESOLVED) {
             /* Start off by a basic run through the map built earlier. */
             for (i = 0;i < out_index;i++) {
                 if (input_type == type_map[i]) {
@@ -1815,10 +1813,9 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         }
 
         iv->values[i]->flags = VAL_IS_NIL;
-        if (value_type->template_pos ||
-            value_type->cls->id == SYM_CLASS_TEMPLATE) {
+        if (value_type->flags & TYPE_IS_UNRESOLVED)
             value_type = resolve_property_type(vm, result->type, value_type, 0);
-        }
+
         iv->values[i]->type = value_type;
         iv->values[i]->value.integer = 0;
     }

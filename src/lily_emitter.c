@@ -1415,8 +1415,7 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
 
             if (prop) {
                 result_type = prop->type;
-                if (result_type->template_pos ||
-                    result_type->cls->id == SYM_CLASS_TEMPLATE) {
+                if (result_type->flags & TYPE_IS_UNRESOLVED) {
                     result_type = resolve_second_type_by_first(emit, lookup_type,
                             result_type);
                 }
@@ -2970,7 +2969,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
 
         i = (have_args - i);
         lily_storage *s;
-        if (save_type->template_pos == 0)
+        if ((save_type->flags & TYPE_IS_UNRESOLVED) == 0)
             s = get_storage(emit, save_type, ast->line_num);
         else {
             /* The function to call wants a list of some generic type. Do not
@@ -3120,7 +3119,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
         if (return_type->cls->id == SYM_CLASS_TEMPLATE)
             return_type = emit->type_stack[emit->type_stack_pos +
                     return_type->template_pos];
-        else if (return_type->template_pos != 0)
+        else if (return_type->flags & TYPE_IS_UNRESOLVED)
             return_type = lily_resolve_type(emit, return_type);
 
         lily_storage *storage = get_storage(emit, return_type, ast->line_num);
