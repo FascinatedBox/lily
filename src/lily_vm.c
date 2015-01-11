@@ -161,6 +161,8 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
             vm->function_stack[i] = lily_malloc(sizeof(lily_vm_stack_entry));
             if (vm->function_stack[i] == NULL)
                 break;
+
+            vm->function_stack[i]->build_value = NULL;
         }
         vm->function_stack_size = i;
     }
@@ -565,6 +567,7 @@ static void grow_function_stack(lily_vm_state *vm)
             vm->function_stack_size = i;
             lily_raise_nomem(vm->raiser);
         }
+        vm->function_stack[i]->build_value = NULL;
     }
 }
 
@@ -1749,6 +1752,24 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
     total_entries = instance_class->prop_count;
 
+    lily_vm_stack_entry *caller_entry =
+            vm->function_stack[vm->function_stack_pos - 1];
+
+    /* Check to see if the caller is in the process of building a subclass
+       of this value. If that is the case, then use that instance instead of
+       building one that will simply be tossed. */
+    if (caller_entry->build_value &&
+        caller_entry->build_value->true_class->id > instance_class->id) {
+
+        result->value.instance = caller_entry->build_value;
+
+        /* Important! This allows this memory-saving trick to bubble up through
+           multiple ::new calls! */
+        vm->function_stack[vm->function_stack_pos]->build_value =
+                caller_entry->build_value;
+        return;
+    }
+
     lily_instance_val *iv = lily_malloc(sizeof(lily_instance_val));
     lily_value **iv_values = lily_malloc(total_entries * sizeof(lily_value *));
 
@@ -1773,12 +1794,21 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
     i = 0;
 
+    lily_class *prop_class = instance_class;
     lily_prop_entry *prop = instance_class->properties;
-    for (i = 0;i < total_entries;i++, prop = prop->next) {
+    for (i = total_entries - 1;i >= 0;i--, prop = prop->next) {
+        /* If the properties of this class run out, then grab more from the
+           superclass. This is single-inheritance, so the properties ARE there
+           somewhere. */
+        while (prop == NULL) {
+            prop_class = prop_class->parent;
+            prop = prop_class->properties;
+        }
+
         lily_type *value_type = prop->type;
         iv->values[i] = lily_malloc(sizeof(lily_value));
         if (iv->values[i] == NULL) {
-            for (;i >= 0;i--)
+            for (;i >= total_entries;i++)
                 lily_free(iv->values[i]);
 
             lily_raise_nomem(vm->raiser);
@@ -1794,6 +1824,10 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     }
 
     iv->num_values = total_entries;
+
+    /* This is set so that a superclass ::new can simply pull this instance,
+       since this instance will have >= the # of types. */
+    vm->function_stack[vm->function_stack_pos]->build_value = iv;
 }
 
 /*****************************************************************************/
@@ -1843,8 +1877,8 @@ static void make_proper_exception_val(lily_vm_state *vm,
     /* This is safe because this function is only called for builtin errors
        which are always direct subclasses of Exception. */
     lily_class *exception_class = raised_class->parent;
-    /* Traceback is always the second property of Exception. */
-    lily_type *traceback_type = exception_class->properties->next->type;
+    /* Traceback is always the first property of Exception. */
+    lily_type *traceback_type = exception_class->properties->type;
 
     lily_value *traceback_val = build_traceback(vm, traceback_type);
     if (traceback_val == NULL) {
@@ -2166,6 +2200,7 @@ void lily_vm_foreign_prep(lily_vm_state *vm, lily_function_val *caller,
     foreign_entry->code_pos = 0;
     foreign_entry->regs_used = (function_val_return_type != NULL);
     foreign_entry->return_reg = -1;
+    foreign_entry->build_value = NULL;
 
     /* Step 6: Set the second stack entry (the native function). */
     lily_vm_stack_entry *native_entry = vm->function_stack[vm->function_stack_pos];
@@ -2175,6 +2210,7 @@ void lily_vm_foreign_prep(lily_vm_state *vm, lily_function_val *caller,
     native_entry->return_reg = 0;
     native_entry->function = function_val;
     native_entry->line_num = 0;
+    native_entry->build_value = NULL;
 }
 
 /******************************************************************************/
@@ -2342,6 +2378,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     stack_entry->regs_used = main_function->reg_count;
     stack_entry->return_reg = 0;
     stack_entry->code_pos = 0;
+    stack_entry->build_value = NULL;
     vm->function_stack_pos = 1;
 }
 
@@ -2609,6 +2646,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     stack_entry->function = fval;
                     stack_entry->line_num = -1;
                     stack_entry->code = NULL;
+                    stack_entry->build_value = NULL;
                     vm->function_stack_pos++;
 
                     func(vm, fval, code+code_pos+5);
@@ -2660,6 +2698,8 @@ void lily_vm_execute(lily_vm_state *vm)
                    These two do the same thing from here on, so fall through to
                    share code. */
             case o_return_noval:
+                vm->function_stack[vm->function_stack_pos]->build_value = NULL;
+
                 vm->function_stack_pos--;
                 stack_entry = vm->function_stack[vm->function_stack_pos-1];
 

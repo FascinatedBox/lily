@@ -2861,7 +2861,8 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     /* oo_access is the only tree where the first argument is actually supposed
        to be passed in as a value. */
     if (arg->tree_type != tree_oo_access) {
-        if (arg->tree_type == tree_local_var)
+        if (arg->tree_type == tree_local_var ||
+            arg->tree_type == tree_inherited_new)
             auto_resolve = 1;
         arg = arg->next_arg;
         true_start = arg;
@@ -2921,12 +2922,16 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             }
         }
         else {
-            /* If the callee is within a generic function, then consider the
-               callee's generics to be resolved as themselves.
-               This is to prevent this:
-                   function f[A, B](function g(A), B value) { g(value) }
-               Such a thing is bad, because f may be called wherein A and B are
-               not compatible. */
+            /* This block of code makes it so that each generic is resolved as
+               itself, thereby preventing generics from being resolved as
+               something else.
+               There are two cases for this:
+               * This function is a parameter to a generic function. It's bad
+                 to attempt to solve types IN a generic function.
+               * This function is being executed to process one function
+                 inheriting another one. This one is a choice: By making sure
+                 that A does not change between classes, determining the type
+                 of a property is MUCH easier. */
             lily_type *type_iter = emit->symtab->template_type_start;
             for (i = 0;i < template_adjust;i++, type_iter = type_iter->next)
                 emit->type_stack[emit->type_stack_pos + i] = type_iter;
@@ -3035,17 +3040,19 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
     emit->type_stack_pos += save_adjust;
     emit->current_generic_adjust = 0;
 
+    lily_tree_type first_tt = ast->arg_start->tree_type;
     /* Variants are created by calling them in a function-like manner, so the
        parser adds them as if they were functions. They're not. */
-    if (ast->arg_start->tree_type == tree_variant) {
+    if (first_tt == tree_variant) {
         emit->type_stack_pos -= save_adjust;
         emit->current_generic_adjust = save_adjust;
         eval_variant(emit, ast, expect_type, did_resolve);
         return;
     }
-    /* DON'T walk a defined function because all the information necessary to
-       do the call is already there. */
-    else if (ast->arg_start->tree_type != tree_defined_func)
+    /* DON'T walk either of these, because doing so puts them in a storage and
+       the vm can call them by their spot without doing so. */
+    else if (first_tt != tree_defined_func &&
+             first_tt != tree_inherited_new)
         eval_tree(emit, ast->arg_start, NULL, 1);
 
     int cls_id;
@@ -3062,14 +3069,14 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
                 "Cannot anonymously call resulting type '^T'.\n",
                 ast->result->type);
 
-    if (ast->arg_start->tree_type == tree_oo_access) {
+    if (first_tt == tree_oo_access) {
         /* Fix the oo access to return the first arg it had, since that's
            the call's first value. It's really important that
            check_call_args get all the args, because the first is the most
            likely to have a template parameter. */
         ast->arg_start->result = ast->arg_start->arg_start->result;
     }
-    else if (ast->arg_start->tree_type == tree_defined_func) {
+    else if (first_tt == tree_defined_func) {
         /* If inside a class, then consider inserting replacing the
            unnecessary readonly tree with 'self'.
            If this isn't possible, drop the readonly tree from args since
@@ -3077,7 +3084,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
         if (emit->current_class != NULL)
             maybe_self_insert(emit, ast);
     }
-    else {
+    else if (first_tt != tree_inherited_new) {
         /* For anonymously called functions, unset ast->result so that arg
            error functions will report that it's anonymously called. */
         ast->result = NULL;
@@ -3151,7 +3158,8 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
 
     if (ast->tree_type == tree_literal)
         opcode = o_get_const;
-    else if (ast->tree_type == tree_defined_func)
+    else if (ast->tree_type == tree_defined_func ||
+             ast->tree_type == tree_inherited_new)
         opcode = o_get_function;
     else if (ast->tree_type == tree_global_var)
         opcode = o_get_global;
@@ -3397,7 +3405,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
 {
     if (ast->tree_type == tree_global_var ||
         ast->tree_type == tree_literal ||
-        ast->tree_type == tree_defined_func)
+        ast->tree_type == tree_defined_func ||
+        ast->tree_type == tree_inherited_new)
         emit_nonlocal_var(emit, ast);
     else if (ast->tree_type == tree_call)
         eval_call(emit, ast, expect_type, did_resolve);

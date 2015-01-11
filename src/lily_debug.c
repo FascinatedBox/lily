@@ -486,36 +486,37 @@ static void show_code(lily_debug_state *debug)
 
 static void show_value(lily_debug_state *debug, lily_value *);
 
+static void show_property(lily_debug_state *debug, lily_prop_entry *prop,
+        lily_instance_val *ival)
+{
+    if (prop->next)
+        show_property(debug, prop->next, ival);
+
+    lily_msgbuf_add_fmt(debug->msgbuf, "^I|____[(%d) %s] = ", debug->indent,
+            prop->id, prop->name);
+    write_msgbuf(debug);
+    debug->indent++;
+    show_value(debug, ival->values[prop->id]);
+    debug->indent--;
+}
+
 /*  show_instance_helper
     Recursively go through a given value, showing the properties that it
     contains (as well as the class that each came from). */
 static void show_instance_helper(lily_debug_state *debug, lily_class *cls,
-        lily_instance_val *ival, int *i, int *depth)
+        lily_instance_val *ival, int depth)
 {
-    if (cls->parent != NULL) {
-        *depth = *depth + 1;
-        show_instance_helper(debug, cls->parent, ival, i, depth);
-        *depth = *depth - 1;
-    }
+    if (cls->parent)
+        show_instance_helper(debug, cls->parent, ival, depth + 1);
 
-    lily_prop_entry *prop_iter = cls->properties;
-    int indent = debug->indent;
-    lily_msgbuf *msgbuf = debug->msgbuf;
+    lily_prop_entry *prop = cls->properties;
 
-    if (prop_iter && *depth != 0)
-        lily_msgbuf_add_fmt(msgbuf, "^I|____ From %s:\n",
-                indent - 1, cls->name);
+    if (prop) {
+        if (depth || cls->parent)
+            lily_msgbuf_add_fmt(debug->msgbuf, "^I|____ From %s:\n",
+                    debug->indent - 1, cls->name);
 
-    while (prop_iter) {
-        lily_msgbuf_add_fmt(msgbuf, "^I|____[(%d) %s] = ", indent,
-                *i, prop_iter->name);
-        write_msgbuf(debug);
-        debug->indent++;
-        show_value(debug, ival->values[*i]);
-        debug->indent--;
-
-        *i = *i + 1;
-        prop_iter = prop_iter->next;
+        show_property(debug, prop, ival);
     }
 }
 
@@ -537,10 +538,9 @@ static void show_instance_value(lily_debug_state *debug, lily_type *type,
     }
 
     ival->visited = 1;
-    int i = 0;
     int depth = 0;
 
-    show_instance_helper(debug, type->cls, ival, &i, &depth);
+    show_instance_helper(debug, type->cls, ival, depth);
     ival->visited = 0;
 }
 
