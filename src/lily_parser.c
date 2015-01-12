@@ -33,14 +33,19 @@
 
 /* Expect a name with every class given. Create a var for each class+name pair.
    This is suitable for collecting the args of a function. */
-#define CV_MAKE_VARS  0x1
+#define CV_MAKE_VARS    0x1
 
 /* This is set if the variable is not inside another variable. This is suitable
    for collecting a function that may have named arguments. */
-#define CV_TOPLEVEL   0x2
+#define CV_TOPLEVEL     0x2
 
 /* This is for collecting the opening part of a class declaration. */
-#define CV_CLASS_INIT 0x4
+#define CV_CLASS_INIT   0x4
+
+/* This is for collecting the type of a variant. This is because a variant
+   needs to have a result that includes only the generics that were seen within
+   the parentheses. */
+#define CV_VARIANT_FUNC 0x10
 
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
@@ -348,6 +353,81 @@ static void grow_type_stack(lily_parse_state *parser)
     parser->type_stack = new_type_stack;
 }
 
+/*  calculate_generics_used
+    This recurses through a given type, marking down what positions are seen
+    in the "map" of generics. Additionally, generic_max is set to the highest
+    generic position seen + 1. If A is the highest, it's 1, B = 2, C = 3, etc.
+    Since Lily's generics are from A to Z (literally), generic_map only needs
+    that many slots available. */
+static void calculate_generics_used(lily_type *type, int *generic_map,
+        int *generic_max)
+{
+    if (type == NULL)
+        return;
+    else if (type->cls->id == SYM_CLASS_TEMPLATE) {
+        int generic_pos = type->template_pos;
+        generic_map[generic_pos] = 1;
+        if ((generic_pos + 1) > *generic_max)
+            *generic_max = generic_pos + 1;
+    }
+    else if (type->subtypes) {
+        int i;
+        for (i = 0;i < type->subtype_count;i++)
+            calculate_generics_used(type->subtypes[i], generic_map,
+                    generic_max);
+    }
+}
+
+/*  calculate_variant_return
+    This function is called by inner_type_collector to determine what the
+    resulting type of a variant 'function' is.
+    Ex: For 'enum class Option[A] { Some(A), ...}', a function is created with
+        the type 'function [A](A => Some[A])'.
+
+    This is important because the variant may not use all the generics of the
+    enum class. In such a situation, the emitter can use the lack of explicit
+    information to better calculate type information. */
+static lily_type *calculate_variant_return(lily_parse_state *parser,
+        lily_class *variant_class, int stack_start, int stack_top)
+{
+    int generic_map[32];
+    int i, j, k, generic_max = 0;
+
+    memset(generic_map, 0, sizeof(generic_map));
+
+    for (i = stack_start;i < stack_top;i++) {
+        lily_type *t = parser->type_stack[i];
+        calculate_generics_used(t, generic_map, &generic_max);
+    }
+
+    if (stack_top + generic_max > parser->type_stack_size)
+        grow_type_stack(parser);
+
+    /* The symtab puts each of the generic signatures together, from A onward.
+       What this does is to add the generics that are seen. */
+    lily_type *generic_iter = parser->symtab->template_type_start;
+    for (i = 0, j = stack_top + 1, k = 0;
+         i < generic_max;
+         i++, generic_iter = generic_iter->next) {
+        if (generic_map[i]) {
+            parser->type_stack[j] = generic_iter;
+            j++;
+            k++;
+        }
+    }
+
+    lily_type *variant_return = lily_build_ensure_type(parser->symtab,
+            variant_class, 0, parser->type_stack,
+            stack_top + 1, k);
+
+    /* Since the true number of generics that the class takes is known, set
+       that directly on the class from here. Note that, for variants, the
+       number of generics is not necessarily the highest generic's ID, since
+       the variant could, for example, use only A and C. */
+    variant_class->template_count = k;
+    return variant_return;
+}
+
 /*****************************************************************************/
 /* Type collection                                                           */
 /*****************************************************************************/
@@ -372,6 +452,12 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
     int state = TC_WANT_VALUE, stack_start = parser->type_stack_pos;
     int type_flags = 0, have_arrow = 0, have_dots = 0;
     lily_token end_token;
+    lily_class *variant_class = NULL;
+
+    if (flags & CV_VARIANT_FUNC) {
+        variant_class = cls;
+        cls = lily_class_by_id(parser->symtab, SYM_CLASS_FUNCTION);
+    }
 
     if (cls->id == SYM_CLASS_FUNCTION) {
         /* Functions have their return as the first type, so leave a hole. */
@@ -504,10 +590,15 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
         }
     }
 
-    lily_type *result = lily_build_ensure_type(parser->symtab, cls, type_flags,
-            parser->type_stack, stack_start, i);
-    parser->type_stack_pos = stack_start;
+    if (flags & CV_VARIANT_FUNC) {
+        lily_type *variant_return = calculate_variant_return(parser,
+                variant_class, stack_start, i);
+        parser->type_stack[stack_start] = variant_return;
+    }
 
+    lily_type *result = lily_build_ensure_type(parser->symtab, cls,
+            type_flags, parser->type_stack, stack_start, i);
+    parser->type_stack_pos = stack_start;
     return result;
 }
 
@@ -2023,8 +2114,6 @@ static void enum_handler(lily_parse_state *parser, int multi)
     NEED_CURRENT_TOK(tk_left_curly)
     lily_lexer(lex);
 
-    lily_class *function_class = lily_class_by_id(parser->symtab,
-            SYM_CLASS_FUNCTION);
     int inner_class_count = 0;
     int is_scoped = (lex->token == tk_colon_colon);
 
@@ -2035,39 +2124,33 @@ static void enum_handler(lily_parse_state *parser, int multi)
         }
 
         NEED_CURRENT_TOK(tk_word)
-        lily_class *variant_cls = lily_class_by_name(parser->symtab, lex->label);
-        if (variant_cls != NULL)
+        lily_class *variant_class = lily_class_by_name(parser->symtab, lex->label);
+        if (variant_class != NULL)
             lily_raise(parser->raiser, lily_SyntaxError,
                     "A class with the name '%s' already exists.\n",
-                    variant_cls->name);
+                    variant_class->name);
 
-        int membuf_pos = lily_membuf_add(parser->membuf, lex->label);
+        variant_class = lily_new_variant_class(parser->symtab, enum_class,
+                lex->label);
+        lily_type *variant_type;
 
         lily_lexer(lex);
-
-        lily_type *variant_type;
-        /* Each variant type is thought of as a function that takes any number
-           of types and yields the enum class. */
         if (lex->token == tk_left_parenth) {
             lily_lexer(lex);
-            /* This is silly: Variants without args are the same as with empty
-               parentheses since they're not true functions. */
             if (lex->token == tk_right_parenth)
                 lily_raise(parser->raiser, lily_SyntaxError,
                         "Variant class cannot take empty ().\n");
 
-            /* It is safe to modify this type because it must be unique (all
-               variants must be uniquely named, and are thus of a class not
-               seen before). */
-            variant_type = inner_type_collector(parser, function_class, 0);
+            variant_type = inner_type_collector(parser, variant_class,
+                    CV_VARIANT_FUNC);
+
             /* Skip the closing ')'. */
             lily_lexer(lex);
         }
         else
             variant_type = NULL;
 
-        char *name = lily_membuf_fetch_restore(parser->membuf, membuf_pos);
-        lily_add_variant_class(parser->symtab, enum_class, name, variant_type);
+        lily_finish_variant_class(parser->symtab, variant_class, variant_type);
 
         inner_class_count++;
 

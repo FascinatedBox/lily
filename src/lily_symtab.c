@@ -1500,122 +1500,59 @@ void lily_make_constructor_return_type(lily_symtab *symtab)
     symtab->root_type = type;
 }
 
-static void mark_generics(lily_type *type)
-{
-    int i;
-    if (type) {
-        if (type->subtypes) {
-            for (i = 0;i < type->subtype_count;i++) {
-                lily_type *inner_type = type->subtypes[i];
-                mark_generics(inner_type);
-            }
-        }
-        else if (type->cls->id == SYM_CLASS_TEMPLATE)
-            type->flags |= TYPE_GENERIC_SEEN;
-    }
-}
+/*  lily_add_variant_class
+    This adds a class to the symtab, marks it as a variant class, and makes it
+    a child of the given enum class.
 
-/*  calculate_variant_return
-    Each variant within an enum class that takes some number of arguments can
-    be thought of as a function that returns an instance of that class.
-    Take this for instance:
-        enum class Option[A] { Some(A), None }
-    This starts with, say 'Some' as 'function (A)' and needs to make it into
-    'function (A => Some[A])'.
-    Bear in mind that some variants may use non-generic types, and those are
-    not included in the result. */
-static lily_type *calculate_variant_return(lily_symtab *symtab,
-        lily_class *variant_cls, lily_type *variant_type)
-{
-    mark_generics(variant_type);
+    The variant type of the class will be set when the parser has that info and
+    calls lily_finish_variant_class.
 
-    int generic_count = 0;
-
-    lily_type *type_iter = symtab->template_type_start;
-    while (type_iter->cls->id == SYM_CLASS_TEMPLATE) {
-        if (type_iter->flags & TYPE_GENERIC_SEEN)
-            generic_count++;
-
-        type_iter = type_iter->next;
-    }
-
-    lily_type *result_type = lily_try_type_for_class(symtab, variant_cls);
-    if (result_type == NULL)
-        lily_raise_nomem(symtab->raiser);
-
-    result_type->cls = variant_cls;
-
-    if (generic_count) {
-        lily_type **contained_types = lily_malloc(generic_count *
-                sizeof(lily_type *));
-
-        if (contained_types == NULL)
-            lily_raise_nomem(symtab->raiser);
-
-        result_type->subtypes = contained_types;
-        result_type->subtype_count = generic_count;
-        type_iter = symtab->template_type_start;
-        int i;
-        for (type_iter = symtab->template_type_start, i = 0;
-             type_iter->cls->id == SYM_CLASS_TEMPLATE;
-             type_iter = type_iter->next) {
-            if (type_iter->flags & TYPE_GENERIC_SEEN) {
-                contained_types[i] = type_iter;
-                type_iter->flags &= ~TYPE_GENERIC_SEEN;
-
-                /* A type's template_pos is always the highest template id
-                   it carries, +1. This allows the emitter to easily check if a
-                   type contains generics. */
-                result_type->template_pos = type_iter->template_pos + 1;
-                i++;
-            }
-        }
-
-        variant_cls->template_count = generic_count;
-    }
-
-    return result_type;
-}
-
-void lily_add_variant_class(lily_symtab *symtab, lily_class *enum_class,
-        char *name, lily_type *variant_type)
+    Success: The newly-made variant class is returned.
+    Failure: lily_raise_nomem is called. */
+lily_class *lily_new_variant_class(lily_symtab *symtab, lily_class *enum_class,
+        char *name)
 {
     lily_class *cls = lily_new_class(symtab, name);
 
     cls->flags |= CLS_VARIANT_CLASS;
-    cls->variant_type = variant_type;
     cls->parent = enum_class;
 
+    return cls;
+}
+
+/*  lily_finish_variant_class
+    This function is called when the parser has completed gathering information
+    about a given variant.
+
+    If the variant takes arguments, then variant_type is non-NULL.
+    If the variant does not take arguments, a default type is made for it.
+
+    Note: A variant's template_count is set within parser, when the return of a
+          variant is calculated (assuming it takes arguments). */
+void lily_finish_variant_class(lily_symtab *symtab, lily_class *variant_class,
+        lily_type *variant_type)
+{
     if (variant_type == NULL) {
         /* This variant doesn't take parameters, so give it a plain type. */
-        lily_type *type = lily_try_type_for_class(symtab, cls);
+        lily_type *type = lily_try_type_for_class(symtab, variant_class);
         if (type == NULL)
             lily_raise_nomem(symtab->raiser);
 
-        type->cls = cls;
+        type->cls = variant_class;
         /* Anything that doesn't take parameters gets a default type. */
-        cls->type = type;
+        variant_class->type = type;
 
-        cls->variant_type = type;
+        variant_class->variant_type = type;
         /* Empty variants are represented as integers, and won't need to be
            marked through. */
-        cls->eq_func = lily_integer_eq;
+        variant_class->eq_func = lily_integer_eq;
     }
     else {
-        /* It's safe to modify this type only because it contains a class that
-           has just been seen for the first time. Because of that, the type is
-           guaranteed to be unique both before and after this modification.
-           This is a bad idea in almost any other case. */
-        lily_type *variant_result = calculate_variant_return(symtab,
-                cls, variant_type);
-
-        variant_result->flags |= TYPE_MAYBE_CIRCULAR;
-        variant_type->subtypes[0] = variant_result;
-
+        variant_class->variant_type = variant_type;
         /* The only difference between a tuple and a variant with args is that
            the variant has a variant type instead of a tuple one. */
-        cls->gc_marker = lily_gc_tuple_marker;
-        cls->eq_func = lily_tuple_eq;
+        variant_class->gc_marker = lily_gc_tuple_marker;
+        variant_class->eq_func = lily_tuple_eq;
     }
 }
 

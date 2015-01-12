@@ -440,18 +440,15 @@ typedef struct lily_prop_seed_t {
    available. So if there are 4 generic types available but only 2 used, it
    simply hides the second two from being returned. */
 #define TYPE_HIDDEN_GENERIC    0x04
-/* This is temporarily set on a generic type when the symtab is trying
-   to figure out what the result of a variant 'call' should be. */
-#define TYPE_GENERIC_SEEN      0x10
 /* This is set on function type that contain an enum class in one of
    their parameters (or the varargs part is a list of an enum class). This is
    done so that emitter's call eval can have a good idea of if it should make
    a second pass to make sure variants are put into enums. */
-#define TYPE_CALL_HAS_ENUM_ARG 0x20
+#define TYPE_CALL_HAS_ENUM_ARG 0x10
 /* This is set on a type when it is a generic (ex: A, B, ...), or when it
    contains generics at some point. Emitter and vm use this as a fast way of
    checking if a type needs to be resolved or not. */
-#define TYPE_IS_UNRESOLVED     0x40
+#define TYPE_IS_UNRESOLVED     0x20
 
 /* SYM_* defines are for identifying the type of symbol given. Emitter uses
    these sometimes. */
