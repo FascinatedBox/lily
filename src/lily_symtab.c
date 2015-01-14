@@ -573,8 +573,7 @@ static int init_classes(lily_symtab *symtab)
             }
 
             new_class->name = class_seeds[i].name;
-            new_class->call_start = NULL;
-            new_class->call_top = NULL;
+            new_class->call_chain = NULL;
             new_class->type = type;
             new_class->id = i;
             new_class->template_count = class_seeds[i].template_count;
@@ -717,8 +716,8 @@ static void free_class_entries(lily_class *class_iter)
         if (class_iter->properties != NULL)
             free_properties(class_iter);
 
-        if (class_iter->call_start != NULL)
-            free_vars(class_iter->call_start);
+        if (class_iter->call_chain != NULL)
+            free_vars(class_iter->call_chain);
 
         class_iter = class_iter->next;
     }
@@ -1055,12 +1054,28 @@ lily_var *lily_find_class_callable(lily_symtab *symtab, lily_class *cls,
     lily_var *iter;
     uint64_t shorthash = shorthash_for_name(name);
 
-    for (iter = cls->call_start;iter != NULL;iter = iter->next) {
+    for (iter = cls->call_chain;iter != NULL;iter = iter->next) {
         if (iter->shorthash == shorthash && strcmp(iter->name, name) == 0)
             break;
     }
 
     return iter;
+}
+
+/*  lily_add_class_method
+    Add the given var to the methods of the given class. If the variable given
+    is the current global var, the symtab's linked list of vars moves to the
+    next var. */
+void lily_add_class_method(lily_symtab *symtab, lily_class *cls,
+        lily_var *method_var)
+{
+    /* Prevent class methods from being accessed globally, because they're now
+       longer globals. */
+    if (method_var == symtab->var_chain)
+        symtab->var_chain = method_var->next;
+
+    method_var->next = cls->call_chain;
+    cls->call_chain = method_var;
 }
 
 const lily_func_seed *lily_find_class_call_seed(lily_symtab *symtab,
@@ -1344,8 +1359,7 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     new_class->properties = NULL;
     new_class->prop_count = 0;
     new_class->seed_table = NULL;
-    new_class->call_start = NULL;
-    new_class->call_top = NULL;
+    new_class->call_chain = NULL;
     new_class->setup_func = NULL;
     new_class->variant_members = NULL;
     new_class->gc_marker = NULL;

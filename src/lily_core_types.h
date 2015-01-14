@@ -63,8 +63,7 @@ typedef struct lily_prop_entry_t {
     struct lily_prop_entry_t *next;
 } lily_prop_entry;
 
-/* lily_class represents a class in the language. Each class can have private
-   members (call_start to call_top). */
+/* lily_class represents a class in the language. */
 typedef struct lily_class_t {
     char *name;
     /* This holds (up to) the first 8 bytes of the name. This is checked before
@@ -73,8 +72,10 @@ typedef struct lily_class_t {
 
     /* The type of the var stores the complete type knowledge of the var. */
     struct lily_type_t *type;
-    struct lily_var_t *call_start;
-    struct lily_var_t *call_top;
+
+    /* This is a linked list of all methods that are within this function. This
+       is NULL if there are no methods. */
+    struct lily_var_t *call_chain;
 
     struct lily_class_t *parent;
     struct lily_class_t *next;
