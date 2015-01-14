@@ -12,7 +12,6 @@
     * Creating all other major structures (ast pool, emitter, lexer, etc.)
     * Ensuring that all other major structures are deleted.
     * Holding the startup functions (lily_parse_file and others).
-    * All parsing.
 
     Notes:
     * Parser uses a type stack to hold types while processing complex
