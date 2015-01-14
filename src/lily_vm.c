@@ -1077,7 +1077,7 @@ static void copy_class_vars_to_functions(lily_var **functions,
         lily_class *class_iter, int *need)
 {
     while (class_iter) {
-        copy_vars_to_functions(functions, class_iter->call_start, need);
+        copy_vars_to_functions(functions, class_iter->call_chain, need);
         if (*need == 0)
             break;
 

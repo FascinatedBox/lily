@@ -299,13 +299,10 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
     /* Like with get_named_var, prevent properties from having the same name as
        what will become a class method. This is because they are both accessed
        in the same manner outside the class. */
-    lily_var *function_var = parser->emit->block->function_var;
-    lily_var *lookup_var = lily_var_by_name(parser->symtab, name);
+    lily_var *lookup_var = lily_find_class_callable(parser->symtab,
+            current_class, name);
 
-    /* The second check works because register spots for declared functions are
-       given out in a linear order. So the lookup var's spot is only going to
-       be higher if it was declared after the class block. */
-    if (lookup_var && lookup_var->reg_spot > function_var->reg_spot)
+    if (lookup_var)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "A method in class '%s' already has the name '%s'.\n",
                 current_class->name, name);
@@ -701,8 +698,9 @@ static lily_type *collect_var_type(lily_parse_state *parser, lily_class *cls,
 static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
         lily_foreign_func foreign_func)
 {
-    lily_var *save_var_top = parser->symtab->var_chain;
     lily_lex_state *lex = parser->lex;
+    lily_symtab *symtab = parser->symtab;
+
     /* Skip the 'function' part, going straight for the name. Since this is
        from a builtin source, assume that the identifier is unique. */
     NEED_CURRENT_TOK(tk_word)
@@ -718,7 +716,7 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
 
     /* Assume that builtin things are smart enough to not redeclare things and
        just declare the var. */
-    lily_var *call_var = lily_try_new_var(parser->symtab, call_type, lex->label,
+    lily_var *call_var = lily_try_new_var(symtab, call_type, lex->label,
             VAR_IS_READONLY);
     if (call_var == NULL)
         lily_raise_nomem(parser->raiser);
@@ -739,29 +737,23 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
     else
         generics_used = 0;
 
-    lily_class *function_cls = lily_class_by_id(parser->symtab, SYM_CLASS_FUNCTION);
+    lily_class *function_cls = lily_class_by_id(symtab, SYM_CLASS_FUNCTION);
 
     NEED_CURRENT_TOK(tk_left_parenth)
     lily_lexer(lex);
 
-    lily_update_symtab_generics(parser->symtab, NULL, generics_used);
+    lily_update_symtab_generics(symtab, NULL, generics_used);
     call_type = inner_type_collector(parser, function_cls, 0);
     call_var->type = call_type;
-    lily_update_symtab_generics(parser->symtab, NULL, save_generics);
+    lily_update_symtab_generics(symtab, NULL, save_generics);
     lily_lexer(lex);
 
-    if (cls) {
-        if (cls->call_start == NULL) {
-            cls->call_start = call_var;
-            cls->call_top = call_var;
-        }
-        else {
-            cls->call_top->next = call_var;
-            cls->call_top = cls->call_top->next;
-        }
-        call_var->next = NULL;
-        parser->symtab->var_chain = save_var_top;
-    }
+    /* Symtab's var_chain is now whatever function was just defined. If it was
+       a class function, then throw it into the proper class. This has the
+       side-effect of updating symtab->var_chain so that the class method is
+       not globally visible. */
+    if (cls)
+        lily_add_class_method(symtab, cls, symtab->var_chain);
 
     return call_var;
 }
@@ -2015,9 +2007,15 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
     else if (super_class->id <= SYM_CLASS_TEMPLATE)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Cannot inherit from builtin classes. Sorry.\n");
-    else if (super_class->call_start == NULL)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "A class cannot inherit from an incomplete class.\n");
+
+    lily_block *block_iter = parser->emit->block;
+    while (block_iter) {
+        if (block_iter->class_entry == super_class)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "A class cannot inherit from an incomplete class.\n");
+
+        block_iter = block_iter->prev;
+    }
 
     lily_var *class_new = lily_find_class_callable(parser->symtab,
             super_class, "new");
@@ -2337,6 +2335,16 @@ static void define_handler(lily_parse_state *parser, int multi)
     NEED_CURRENT_TOK(tk_left_curly)
     parse_multiline_block_body(parser, multi);
     lily_emit_leave_block(parser->emit);
+
+    /* If the function defined is at the top level of a class, then immediately
+       make that function a member of the class.
+       This is safe because 'define' always exits with the top-most variable
+       being what was just defined. */
+    if (parser->emit->block->block_type & BLOCK_CLASS) {
+        lily_add_class_method(parser->symtab,
+                parser->emit->current_class,
+                parser->emit->symtab->var_chain);
+    }
 }
 
 static void do_bootstrap(lily_parse_state *parser)

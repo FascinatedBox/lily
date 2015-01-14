@@ -91,6 +91,7 @@ int lily_check_right_inherits_or_is(lily_class *, lily_class *);
 lily_class *lily_new_class(lily_symtab *, char *);
 lily_class *lily_new_variant_class(lily_symtab *, lily_class *, char *);
 void lily_finish_variant_class(lily_symtab *, lily_class *, lily_type *);
+void lily_add_class_method(lily_symtab *, lily_class *, lily_var *);
 
 lily_prop_entry *lily_add_class_property(lily_class *, lily_type *, char *, int);
 void lily_update_symtab_generics(lily_symtab *, lily_class *, int);
