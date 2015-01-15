@@ -2953,28 +2953,14 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
 
         i = (have_args - i);
         lily_storage *s;
-        if ((save_type->flags & TYPE_IS_UNRESOLVED) == 0)
-            s = get_storage(emit, save_type, ast->line_num);
-        else {
-            /* The function to call wants a list of some generic type. Do not
-               use that type, because the caller could either not patch it, or
-               patch it wrong.
-               Instead, build a list type from the type of the first arg.
 
-               The arguments may be generic. If that happens, the caller will
-               be generic and will fix them up right. */
-            int stack_start = emit->type_stack_pos + emit->current_generic_adjust + 1;
-            ENSURE_TYPE_STACK(stack_start + 1)
+        /* Make sure the generic type is resolved. This is important if, for
+           example, the varargs sig is list[F]... and the caller has F as some
+           lower generic type. */
+        if (save_type->flags & TYPE_IS_UNRESOLVED)
+            save_type = lily_resolve_type(emit, save_type);
 
-            lily_class *list_cls = lily_class_by_id(emit->symtab,
-                    SYM_CLASS_LIST);
-            emit->type_stack[stack_start] = save_arg->result->type;
-            lily_type *new_type = lily_build_ensure_type(emit->symtab, list_cls,
-                    0, emit->type_stack, stack_start, 1);
-
-            s = get_storage(emit, new_type, ast->line_num);
-        }
-
+        s = get_storage(emit, save_type, ast->line_num);
         write_build_op(emit, o_build_list_tuple, save_arg, save_arg->line_num,
                 i, s->reg_spot);
 
