@@ -1,6 +1,8 @@
 The Lily Programming Language
 =====
 
+[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/jesserayadkins/lily?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 ```
 <html>
 <?lily print("Hello, world!") ?>
