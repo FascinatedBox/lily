@@ -3,6 +3,7 @@
 
 # include "lily_raiser.h"
 # include "lily_symtab.h"
+# include "lily_type_stack.h"
 
 typedef struct {
     lily_function_val *function;
@@ -106,6 +107,7 @@ typedef struct lily_vm_state_t {
     lily_vm_catch_entry *catch_top;
     lily_vm_catch_entry *catch_chain;
 
+    lily_type_stack *ts;
     lily_symtab *symtab;
     lily_raiser *raiser;
     void *data;

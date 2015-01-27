@@ -630,58 +630,6 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
     vm->max_registers = register_need;
 }
 
-/*  resolve_property_type
-    This takes a type that is or include generics and resolves it
-    according to the given instance. It's used by o_new_instance to figure out
-    generic properties.
-    This is like resolve_type_by_map, except there's no map (the instance type
-    is used instead). */
-static lily_type *resolve_property_type(lily_vm_state *vm,
-        lily_type *instance_type, lily_type *prop_type, int resolve_start)
-{
-    lily_type *result_type = NULL;
-
-    if (prop_type->cls->id == SYM_CLASS_TEMPLATE)
-        result_type = instance_type->subtypes[prop_type->template_pos];
-    else if (prop_type->cls->template_count == 0)
-        /* The original type could be something like 'tuple[A, integer]'.
-           This keeps 'integer' from building a type. */
-        result_type = prop_type;
-    else {
-        /* If it's marked as having templates and it's not the template
-           class, then it -has- to have subtypes to process. */
-        int types_needed = prop_type->subtype_count;
-
-        if ((resolve_start + types_needed) > vm->resolver_types_size) {
-            lily_type **new_types = lily_realloc(vm->resolver_types,
-                    sizeof(lily_type *) *
-                    (resolve_start + types_needed));
-
-            if (new_types == NULL)
-                lily_raise_nomem(vm->raiser);
-
-            vm->resolver_types = new_types;
-            vm->resolver_types_size = (resolve_start + types_needed);
-        }
-
-        int i;
-        lily_type *inner_type;
-        for (i = 0;i < prop_type->subtype_count;i++) {
-            inner_type = prop_type->subtypes[i];
-            inner_type = resolve_property_type(vm, instance_type, inner_type,
-                    resolve_start + i);
-
-            vm->resolver_types[resolve_start + i] = inner_type;
-        }
-
-        int flags = (prop_type->flags & TYPE_IS_VARARGS);
-        result_type = lily_build_ensure_type(vm->symtab, prop_type->cls, flags,
-                vm->resolver_types, resolve_start, i);
-    }
-
-    return result_type;
-}
-
 /*  recursive_type_search
     This is called by dive_for_type to find out how to get, say, A from
     the type map when there's nothing that's JUST A. Instead, there might be
@@ -1814,7 +1762,8 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
         iv->values[i]->flags = VAL_IS_NIL;
         if (value_type->flags & TYPE_IS_UNRESOLVED)
-            value_type = resolve_property_type(vm, result->type, value_type, 0);
+            value_type = lily_ts_resolve_by_second(vm->ts, result->type,
+                    value_type);
 
         iv->values[i]->type = value_type;
         iv->values[i]->value.integer = 0;
