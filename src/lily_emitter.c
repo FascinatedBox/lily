@@ -35,10 +35,6 @@
     lily_raise(r, error_code, message, __VA_ARGS__); \
 }
 
-# define ENSURE_TYPE_STACK(new_size) \
-if (new_size >= emit->type_stack_size) \
-    grow_type_stack(emit);
-
 static int type_matchup(lily_emit_state *, lily_type *, lily_ast *);
 static void eval_tree(lily_emit_state *, lily_ast *, lily_type *, int);
 static void eval_variant(lily_emit_state *, lily_ast *, lily_type *, int);
@@ -47,7 +43,7 @@ static void eval_variant(lily_emit_state *, lily_ast *, lily_type *, int);
 /* Emitter setup and teardown                                                */
 /*****************************************************************************/
 
-lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
+lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
 {
     lily_emit_state *s = lily_malloc(sizeof(lily_emit_state));
 
@@ -55,14 +51,13 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
         return NULL;
 
     s->patches = lily_malloc(sizeof(int) * 4);
-    s->type_stack = lily_malloc(sizeof(lily_type *) * 4);
     s->match_cases = lily_malloc(sizeof(int) * 4);
+    s->ts = lily_new_type_stack(symtab, raiser);
 
-    if (s->patches == NULL || s->type_stack == NULL ||
-        s->match_cases == NULL) {
+    if (s->patches == NULL || s->ts == NULL || s->match_cases == NULL) {
         lily_free(s->match_cases);
         lily_free(s->patches);
-        lily_free(s->type_stack);
+        lily_free_type_stack(s->ts);
         lily_free(s);
         return NULL;
     }
@@ -74,9 +69,6 @@ lily_emit_state *lily_new_emit_state(lily_raiser *raiser)
     s->unused_storage_start = NULL;
     s->all_storage_start = NULL;
     s->all_storage_top = NULL;
-
-    s->type_stack_pos = 0;
-    s->type_stack_size = 4;
 
     s->patch_pos = 0;
     s->patch_size = 4;
@@ -111,8 +103,8 @@ void lily_free_emit_state(lily_emit_state *emit)
         current_store = temp_store;
     }
 
+    lily_free_type_stack(emit->ts);
     lily_free(emit->match_cases);
-    lily_free(emit->type_stack);
     lily_free(emit->patches);
     lily_free(emit);
 }
@@ -353,21 +345,6 @@ static void grow_patches(lily_emit_state *emit)
         lily_raise_nomem(emit->raiser);
 
     emit->patches = new_patches;
-}
-
-/*  grow_type_stack
-    Make emitter's type_stack bigger. */
-static void grow_type_stack(lily_emit_state *emit)
-{
-    emit->type_stack_size *= 2;
-
-    lily_type **new_type_stack = lily_realloc(emit->type_stack,
-        sizeof(lily_type *) * emit->type_stack_size);
-
-    if (new_type_stack == NULL)
-        lily_raise_nomem(emit->raiser);
-
-    emit->type_stack = new_type_stack;
 }
 
 static void grow_match_cases(lily_emit_state *emit)
@@ -616,62 +593,6 @@ static void write_build_op(lily_emit_state *emit, int opcode,
 
 static void emit_rebox_value(lily_emit_state *, lily_type *, lily_ast *);
 
-/*  build_enum_type_by_variant
-    Given a complete type of a variant class, determine what the parent
-    class is and build a complete type of that enum class.
-    In the event that the variant class does not contain generics that are
-    within the enum class, the class 'any' is used instead. */
-static lily_type *build_enum_type_by_variant(lily_emit_state *emit,
-        lily_type *input_type)
-{
-    /* The parent of a variant class is always the enum class it belongs to.
-       The 'variant_type' of an enum class is the type captured when
-       parsing it, and so it contains all the generics needed. */
-    lily_type *parent_variant_type = input_type->cls->parent->variant_type;
-
-    int stack_start = emit->type_stack_pos + emit->current_generic_adjust + 1;
-    ENSURE_TYPE_STACK(stack_start + parent_variant_type->subtype_count)
-
-    int saved_adjust = emit->current_generic_adjust;
-    emit->type_stack_pos += emit->current_generic_adjust;
-
-    /* If the variant takes no values, then the variant type is simply the
-       default type for the class.
-       If it does, then it's a function with the return (at [0]) being the
-       variant result. */
-    lily_type *child_result;
-
-    if (input_type->cls->variant_type->subtype_count != 0)
-        child_result = input_type->cls->variant_type->subtypes[0];
-    else
-        child_result = NULL;
-
-    lily_class *any_cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
-    lily_type *any_type = any_cls->type;
-
-    /* Sometimes, a variant class does not use all of the generics provided by
-       the parent enum class. In that case, the class 'any' will be used. */
-    int i, j;
-    for (i = 0, j = 0;i < parent_variant_type->subtype_count;i++) {
-        if (child_result &&
-            child_result->subtype_count > j &&
-            child_result->subtypes[j]->template_pos == i) {
-            emit->type_stack[stack_start + i] = input_type->subtypes[j];
-            j++;
-        }
-        else
-            emit->type_stack[stack_start + i] = any_type;
-    }
-
-    lily_type *new_type = lily_build_ensure_type(emit->symtab,
-            input_type->cls->parent, 0, emit->type_stack, stack_start, i);
-
-    emit->type_stack_pos -= saved_adjust;
-    emit->current_generic_adjust = saved_adjust;
-
-    return new_type;
-}
-
 /*  rebox_variant_to_enum
     This is a convenience function that will convert the variant value within
     the given ast to an enum value.
@@ -679,7 +600,7 @@ static lily_type *build_enum_type_by_variant(lily_emit_state *emit,
           types are given the type of 'any'. */
 static void rebox_variant_to_enum(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_type *rebox_type = build_enum_type_by_variant(emit,
+    lily_type *rebox_type = lily_ts_build_enum_by_variant(emit->ts,
             ast->result->type);
 
     emit_rebox_value(emit, rebox_type, ast);
@@ -716,179 +637,6 @@ static void emit_rebox_to_any(lily_emit_state *emit, lily_ast *ast)
     emit_rebox_value(emit, any_cls->type, ast);
 }
 
-/*  template_check
-    This is called to check if the wanted value (lhs) is the same as the given
-    value (rhs) once templates are applied.
-    Templates are pretty simple: The first time they're seen, the corresponding
-    lhs becomes the type. Subsequent passes need to have the same type.
-
-    Consider: list::append(list[A] self, A newvalue)
-              [1].append(10)
-
-              lhs: function(list[integer], integer)
-              (correct: both A's are integer). */
-static int template_check(lily_emit_state *emit, lily_type *lhs, lily_type *rhs)
-{
-    int ret = 0;
-
-    if (lhs == NULL || rhs == NULL)
-        ret = (lhs == rhs);
-    else if (lhs->cls->id == rhs->cls->id &&
-             lhs->cls->id != SYM_CLASS_TEMPLATE) {
-        if (lhs->subtype_count == rhs->subtype_count) {
-            ret = 1;
-
-            lily_type **left_subtypes = lhs->subtypes;
-            lily_type **right_subtypes = rhs->subtypes;
-            int i;
-            /* Simple types have subtype_count as 0, so they'll skip this and
-               yield 1. */
-            for (i = 0;i < lhs->subtype_count;i++) {
-                lily_type *left_entry = left_subtypes[i];
-                lily_type *right_entry = right_subtypes[i];
-                if (left_entry != right_entry &&
-                    template_check(emit, left_entry, right_entry) == 0) {
-                    ret = 0;
-                    break;
-                }
-            }
-        }
-    }
-    else if (lhs->cls->id == SYM_CLASS_TEMPLATE) {
-        int template_pos = emit->type_stack_pos + lhs->template_pos;
-        ret = 1;
-        if (emit->type_stack[template_pos] == NULL)
-            emit->type_stack[template_pos] = rhs;
-        else if (emit->type_stack[template_pos] != rhs)
-            ret = 0;
-    }
-    else {
-        if (lhs->cls->flags & CLS_ENUM_CLASS &&
-            rhs->cls->flags & CLS_VARIANT_CLASS &&
-            rhs->cls->parent == lhs->cls) {
-            /* The right is an enum class that is a member of the left.
-               Consider it valid if the right's types (if any) match to all the
-               types collected -so far- for the left. */
-
-            ret = 1;
-
-            if (rhs->cls->variant_type->subtype_count != 0) {
-                /* I think this is best explained as an example:
-                   'enum class Option[A, B] { Some(A), None }'
-                   In this case, the variant type of Some is defined as:
-                   'function (A => Some[A])'
-                   This pulls the 'Some[A]'. */
-                lily_type *variant_output = rhs->cls->variant_type->subtypes[0];
-                int i;
-                /* The result is an Option[A, B], but Some only has A. Match up
-                   generics that are available, to proper positions in the
-                   parent. If any fail, then stop. */
-                for (i = 0;i < variant_output->subtype_count;i++) {
-                    int pos = variant_output->subtypes[i]->template_pos;
-                    ret = template_check(emit, lhs->subtypes[pos],
-                            rhs->subtypes[i]);
-                    if (ret == 0)
-                        break;
-                }
-            }
-            /* else it takes no arguments and is automatically correct because
-               is nothing that could go wrong. */
-        }
-    }
-
-    return ret;
-}
-
-/*  recursively_build_type
-    This is a helper function for lily_resolve_type. This function takes a
-    type which has template information in it, and builds a type with
-    the template information replaced out.
-
-    Example:
-        Input:  list[A]        (where A is known to be 'integer')
-        Output: list[integer]
-
-    template_index is the offset where the current function started storing the
-    template information that it obtained. */
-static lily_type *recursively_build_type(lily_emit_state *emit, int template_index,
-        lily_type *type)
-{
-    lily_type *ret = type;
-
-    if (type == NULL)
-        /* functions use NULL to indicate they don't return a value. */
-        ret = NULL;
-    else if (type->subtypes != NULL) {
-        int i, save_start;
-        lily_type **subtypes = type->subtypes;
-        ENSURE_TYPE_STACK(emit->type_stack_pos + type->subtype_count)
-
-        save_start = emit->type_stack_pos;
-
-        for (i = 0;i < type->subtype_count;i++) {
-            lily_type *inner_type = recursively_build_type(emit, template_index,
-                    subtypes[i]);
-            emit->type_stack[emit->type_stack_pos] = inner_type;
-            emit->type_stack_pos++;
-        }
-
-        ret = lily_build_ensure_type(emit->symtab, type->cls, type->flags,
-                emit->type_stack, save_start, i);
-
-        emit->type_stack_pos -= i;
-    }
-    else if (type->cls->id == SYM_CLASS_TEMPLATE) {
-        ret = emit->type_stack[template_index + type->template_pos];
-        /* Sometimes, a generic is wanted that was never filled in. In such a
-           case, use 'any' because it is the most accepting of values. */
-        if (ret == NULL) {
-            lily_class *any_class = lily_class_by_id(emit->symtab,
-                    SYM_CLASS_ANY);
-            ret = any_class->type;
-        }
-    }
-    return ret;
-}
-
-/*  lily_resolve_type
-    This takes a given type that has templates inside and returns a type that has
-    those templates replaced. */
-lily_type *lily_resolve_type(lily_emit_state *emit, lily_type *type)
-{
-    int save_template_index = emit->type_stack_pos;
-
-    emit->type_stack_pos += type->template_pos;
-    lily_type *ret = recursively_build_type(emit, save_template_index, type);
-    emit->type_stack_pos -= type->template_pos;
-
-    return ret;
-}
-
-/*  resolve_second_type_by_first
-    This is called when one type contains unresolved type information that
-    can be resolved by another type. However, the type with the
-    information is NOT laid out in emitter's type stack.
-
-    This first lays out the generics into emitter's type stack before calling
-    lily_resolve_type and yielding the result. */
-static lily_type *resolve_second_type_by_first(lily_emit_state *emit,
-        lily_type *first, lily_type *second)
-{
-    int stack_start = emit->type_stack_pos + emit->current_generic_adjust + 1;
-    int save_ssp = emit->type_stack_pos;
-
-    ENSURE_TYPE_STACK(stack_start + first->subtype_count)
-
-    int i;
-    for (i = 0;i < first->subtype_count;i++)
-        emit->type_stack[stack_start + i] = first->subtypes[i];
-
-    emit->type_stack_pos = stack_start;
-    lily_type *result_type = lily_resolve_type(emit, second);
-    emit->type_stack_pos = save_ssp;
-
-    return result_type;
-}
 
 /*  setup_types_for_build
     This is called before building a static list or hash.
@@ -897,18 +645,11 @@ static lily_type *resolve_second_type_by_first(lily_emit_state *emit,
     a class id of 'wanted_id', or having that actual id.
 
     If expect_type's class is correct, then the types inside of it are laid
-    down into emitter's type stack starting at
-    'emit->type_stack_pos + emit->current_generic_adjust + 1' to prevent damaging
-    any caller's generics. The types within are unwrapped if expect_type
-    wasn't initially unwrapped. (so that generics are not processed twice).
+    down into emitter's ts. They can be retrieved using lily_ts_get_ceiling_type.
 
     This processing is done because it's necessary for type inference.
 
-    Returns 1 on success, 0 on failure.
-
-    Notes: This does not adjust the emitter's type_stack_pos or the generic
-           adjust. The caller is expected to either pull the types it
-           needs. */
+    Returns 1 on success, 0 on failure. */
 static int setup_types_for_build(lily_emit_state *emit,
         lily_type *expect_type, int wanted_id, int did_resolve)
 {
@@ -916,24 +657,19 @@ static int setup_types_for_build(lily_emit_state *emit,
 
     if (expect_type && did_resolve == 0 &&
         expect_type->cls->id == SYM_CLASS_TEMPLATE) {
-        expect_type = emit->type_stack[emit->type_stack_pos +
-                expect_type->template_pos];
+        expect_type = lily_ts_easy_resolve(emit->ts, expect_type);
         did_resolve = 1;
     }
 
     if (expect_type && expect_type->cls->id == wanted_id) {
-        int stack_start = emit->type_stack_pos + emit->current_generic_adjust + 1;
-        ENSURE_TYPE_STACK(stack_start + expect_type->subtype_count)
-
         int i;
         for (i = 0;i < expect_type->subtype_count;i++) {
             lily_type *inner_type = expect_type->subtypes[i];
             if (did_resolve == 0 &&
                 inner_type->cls->id == SYM_CLASS_TEMPLATE) {
-                inner_type = emit->type_stack[emit->type_stack_pos +
-                        inner_type->template_pos];
+                inner_type = lily_ts_easy_resolve(emit->ts, inner_type);
             }
-            emit->type_stack[stack_start + i] = inner_type;
+            lily_ts_set_ceiling_type(emit->ts, inner_type, i);
         }
     }
     else
@@ -1298,19 +1034,7 @@ static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
 
     /* If this call has unresolved generics, resolve those generics as
        themselves so the error message prints out correctly. */
-    if (emit->current_generic_adjust) {
-        int i = emit->type_stack_pos;
-        int end = emit->type_stack_pos + emit->current_generic_adjust;
-        lily_type *generic_iter = emit->symtab->template_type_start;
-
-        while (i != end) {
-            if (emit->type_stack[i] == NULL)
-                emit->type_stack[i] = generic_iter;
-
-            i++;
-            generic_iter = generic_iter->next;
-        }
-    }
+    lily_ts_resolve_as_self(emit->ts);
 
     /* These names are intentionally the same length and on separate lines so
        that slight naming issues become more apparent. */
@@ -1318,7 +1042,7 @@ static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
             ", argument #%d is invalid:\n"
             "Expected Type: ^T\n"
             "Received Type: ^T\n",
-            arg_num + 1, lily_resolve_type(emit, expected), got);
+            arg_num + 1, lily_ts_resolve(emit->ts, expected), got);
     lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
 }
 
@@ -1400,8 +1124,8 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
             if (prop) {
                 result_type = prop->type;
                 if (result_type->flags & TYPE_IS_UNRESOLVED) {
-                    result_type = resolve_second_type_by_first(emit, lookup_type,
-                            result_type);
+                    result_type = lily_ts_resolve_by_second(emit->ts,
+                            lookup_type, result_type);
                 }
             }
             else
@@ -1593,7 +1317,7 @@ static lily_type *calculate_var_type(lily_emit_state *emit, lily_type *input_typ
 {
     lily_type *result;
     if (input_type->cls->flags & CLS_VARIANT_CLASS)
-        result = build_enum_type_by_variant(emit, input_type);
+        result = lily_ts_build_enum_by_variant(emit->ts, input_type);
     else
         result = input_type;
 
@@ -2153,16 +1877,10 @@ static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
             variant_parent = variant_parent->parent;
 
         int generic_count = variant_parent->variant_type->template_pos;
-
-        ENSURE_TYPE_STACK(emit->type_stack_pos + emit->current_generic_adjust +
-                generic_count)
-
-        int stack_start = emit->type_stack_pos +
-                emit->current_generic_adjust + 1;
         int i;
-
-        for (i = 0;i < generic_count;i++)
-            emit->type_stack[stack_start + i] = NULL;
+        /* If this isn't done, then old type info from...who knows where will
+           improperly alter any defaulting. */
+        lily_ts_zap_ceiling_types(emit->ts, generic_count);
 
         while (tree_iter != NULL) {
             lily_type *tree_result_type = tree_iter->result->type;
@@ -2192,10 +1910,12 @@ static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
             /* Make sure that there are no disagreements about what type(s) the
                generics (if any) are for the resulting enum class value. */
             for (i = 0;i < matcher_type->subtype_count;i++) {
-                int pos = stack_start + matcher_type->subtypes[i]->template_pos;
-                if (emit->type_stack[pos] == NULL)
-                    emit->type_stack[pos] = tree_result_type->subtypes[i];
-                else if (emit->type_stack[pos] != tree_result_type->subtypes[i]) {
+                int pos = matcher_type->subtypes[i]->template_pos;
+                lily_type *ceil_type = lily_ts_get_ceiling_type(emit->ts, pos);
+                if (ceil_type == NULL)
+                    lily_ts_set_ceiling_type(emit->ts,
+                            tree_result_type->subtypes[i], pos);
+                else if (ceil_type != tree_result_type->subtypes[i]) {
                     rebox_type = any_class->type;
                     break;
                 }
@@ -2221,21 +1941,25 @@ static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
                may be missing. If it can't, then default to any.
 
                Otherwise, 'list[Option[integer]] k = [None, None]' fails. */
+            lily_type *ceil_type;
             if (expect_type && expect_type->cls == variant_parent) {
                 for (i = 0;i < generic_count;i++) {
-                    if (emit->type_stack[stack_start + i] == NULL)
-                        emit->type_stack[stack_start + i] = expect_type->subtypes[i];
+                    ceil_type = lily_ts_get_ceiling_type(emit->ts, i);
+                    if (ceil_type == NULL)
+                        lily_ts_set_ceiling_type(emit->ts,
+                                expect_type->subtypes[i], i);
                 }
             }
             else {
                 for (i = 0;i < generic_count;i++) {
-                    if (emit->type_stack[stack_start + i] == NULL)
-                        emit->type_stack[stack_start + i] = any_class->type;
+                    ceil_type = lily_ts_get_ceiling_type(emit->ts, i);
+                    if (ceil_type == NULL)
+                        lily_ts_set_ceiling_type(emit->ts, any_class->type, i);
                 }
             }
 
-            rebox_type = lily_build_ensure_type(emit->symtab, variant_parent, 0,
-                    emit->type_stack, stack_start, generic_count);
+            rebox_type = lily_ts_build_by_ceiling(emit->ts, variant_parent,
+                    generic_count, 0);
         }
     }
 
@@ -2341,11 +2065,10 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     if (expect_type) {
         int ok = setup_types_for_build(emit, expect_type, SYM_CLASS_HASH,
                 did_resolve);
-        int setup_start = emit->type_stack_pos + emit->current_generic_adjust + 1;
 
         if (ok) {
-            expect_key_type = emit->type_stack[setup_start];
-            expect_value_type = emit->type_stack[setup_start + 1];
+            expect_key_type = lily_ts_get_ceiling_type(emit->ts, 0);
+            expect_value_type = lily_ts_get_ceiling_type(emit->ts, 1);
         }
     }
 
@@ -2415,14 +2138,10 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         last_value_type = ast->arg_start->next_arg->result->type;
     }
 
-    int stack_start = emit->type_stack_pos + emit->current_generic_adjust + 1;
-    ENSURE_TYPE_STACK(stack_start + 2)
-
     lily_class *hash_cls = lily_class_by_id(emit->symtab, SYM_CLASS_HASH);
-    emit->type_stack[stack_start] = last_key_type;
-    emit->type_stack[stack_start+1] = last_value_type;
-    lily_type *new_type = lily_build_ensure_type(emit->symtab, hash_cls, 0,
-                emit->type_stack, stack_start, 2);
+    lily_ts_set_ceiling_type(emit->ts, last_key_type, 0);
+    lily_ts_set_ceiling_type(emit->ts, last_value_type, 1);
+    lily_type *new_type = lily_ts_build_by_ceiling(emit->ts, hash_cls, 2, 0);
 
     lily_storage *s = get_storage(emit, new_type, ast->line_num);
 
@@ -2532,8 +2251,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
             lily_type *check_type;
             if (expect_type->cls->id == SYM_CLASS_TEMPLATE &&
                 did_resolve == 0) {
-                check_type = emit->type_stack[emit->type_stack_pos +
-                        expect_type->template_pos];
+                check_type = lily_ts_easy_resolve(emit->ts, expect_type);
             }
             else
                 check_type = expect_type;
@@ -2547,8 +2265,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         int ok = setup_types_for_build(emit, expect_type, SYM_CLASS_LIST,
                 did_resolve);
         if (ok) {
-            elem_type = emit->type_stack[
-                    emit->type_stack_pos + emit->current_generic_adjust + 1];
+            elem_type = lily_ts_get_ceiling_type(emit->ts, 0);
             expect_type = elem_type;
         }
     }
@@ -2592,14 +2309,9 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         elem_type = ast->arg_start->result->type;
     }
 
-    int start_pos = emit->type_stack_pos + emit->current_generic_adjust + 1;
-
-    ENSURE_TYPE_STACK(start_pos)
-
     lily_class *list_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);
-    emit->type_stack[start_pos] = elem_type;
-    lily_type *new_type = lily_build_ensure_type(emit->symtab, list_cls, 0,
-                emit->type_stack, start_pos, 1);
+    lily_ts_set_ceiling_type(emit->ts, elem_type, 0);
+    lily_type *new_type = lily_ts_build_by_ceiling(emit->ts, list_cls, 1, 0);
 
     lily_storage *s = get_storage(emit, new_type, ast->line_num);
 
@@ -2634,8 +2346,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
 
     if (expect_type && expect_type->cls->id == SYM_CLASS_TEMPLATE &&
         did_unwrap == 0) {
-        expect_type = emit->type_stack[emit->type_stack_pos +
-                expect_type->template_pos];
+        expect_type = lily_ts_easy_resolve(emit->ts, expect_type);
         did_unwrap = 1;
     }
 
@@ -2658,8 +2369,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
             elem_type = expect_type->subtypes[i];
             if (did_unwrap == 0 && elem_type &&
                 elem_type->cls->id == SYM_CLASS_TEMPLATE) {
-                elem_type = emit->type_stack[emit->type_stack_pos +
-                        elem_type->template_pos];
+                elem_type = lily_ts_easy_resolve(emit->ts, elem_type);
             }
         }
 
@@ -2676,7 +2386,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
             else {
                 /* Not sure what the caller wants, so make an enum type based
                    of what's known and use that. */
-                lily_type *enum_type = build_enum_type_by_variant(emit,
+                lily_type *enum_type = lily_ts_build_enum_by_variant(emit->ts,
                         arg->result->type);
 
                 emit_rebox_value(emit, enum_type, arg);
@@ -2684,18 +2394,14 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
         }
     }
 
-    int stack_start = emit->type_stack_pos + emit->current_generic_adjust + 1;
-    ENSURE_TYPE_STACK(stack_start + ast->args_collected)
-
     for (i = 0, arg = ast->arg_start;
          i < ast->args_collected;
          i++, arg = arg->next_arg) {
-        emit->type_stack[stack_start + i] = arg->result->type;
+        lily_ts_set_ceiling_type(emit->ts, arg->result->type, i);
     }
 
     lily_class *tuple_cls = lily_class_by_id(emit->symtab, SYM_CLASS_TUPLE);
-    lily_type *new_type = lily_build_ensure_type(emit->symtab, tuple_cls, 0,
-                emit->type_stack, stack_start, i);
+    lily_type *new_type = lily_ts_build_by_ceiling(emit->ts, tuple_cls, i, 0);
     lily_storage *s = get_storage(emit, new_type, ast->line_num);
 
     write_build_op(emit, o_build_list_tuple, ast->arg_start, ast->line_num,
@@ -2761,17 +2467,16 @@ static void eval_call_arg(lily_emit_state *emit, lily_ast *call_ast,
 
     /* A simple generic is easy to resolve. */
     if (want_type->cls->id == SYM_CLASS_TEMPLATE) {
-        int index = emit->type_stack_pos + want_type->template_pos;
-        if (emit->type_stack[index] != NULL) {
-            matchup_type = emit->type_stack[index];
+        matchup_type = lily_ts_easy_resolve(emit->ts, want_type);
+        if (matchup_type != NULL) {
             if (matchup_type == arg->result->type)
                 ok = 1;
         }
         else if (arg->result->type->cls->flags & CLS_VARIANT_CLASS &&
-                emit->type_stack[index] == NULL) {
+                matchup_type == NULL) {
             /* If a bare variant wants to resolve a generic, it first has to go
                into the proper enum type. */
-            lily_type *enum_type = build_enum_type_by_variant(emit,
+            lily_type *enum_type = lily_ts_build_enum_by_variant(emit->ts,
                     arg->result->type);
             emit_rebox_value(emit, enum_type, arg);
         }
@@ -2780,7 +2485,7 @@ static void eval_call_arg(lily_emit_state *emit, lily_ast *call_ast,
     /* ok == 0 protects from potentially attempting to resolve the same generic
        twice, which breaks things. */
     if (ok == 0 &&
-        (template_check(emit, want_type, arg->result->type) ||
+        (lily_ts_check(emit->ts, want_type, arg->result->type) ||
          type_matchup(emit, matchup_type, arg)))
         ok = 1;
 
@@ -2806,7 +2511,7 @@ static void box_call_variants(lily_emit_state *emit, lily_type *call_type,
          i++, arg = arg->next_arg) {
         if (arg->result->type->cls->flags & CLS_VARIANT_CLASS) {
             lily_type *arg_type = call_type->subtypes[i + 1];
-            lily_type *enum_type = lily_resolve_type(emit, arg_type);
+            lily_type *enum_type = lily_ts_resolve(emit->ts, arg_type);
             emit_rebox_value(emit, enum_type, arg);
         }
     }
@@ -2818,7 +2523,7 @@ static void box_call_variants(lily_emit_state *emit, lily_type *call_type,
            the list, then what the list holds. */
         lily_type *va_comp_type = call_type->subtypes[i + 1]->subtypes[0];
         if (va_comp_type->cls->flags & CLS_ENUM_CLASS) {
-            lily_type *enum_type = lily_resolve_type(emit, va_comp_type);
+            lily_type *enum_type = lily_ts_resolve(emit->ts, va_comp_type);
             for (;arg != NULL;
                   i++, arg = arg->next_arg) {
                 if (arg->result->type->cls->flags & CLS_VARIANT_CLASS)
@@ -2869,12 +2574,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     emit->current_generic_adjust = template_adjust;
 
     if (template_adjust) {
-        ENSURE_TYPE_STACK(emit->type_stack_pos + template_adjust)
-
         if (auto_resolve == 0) {
-            for (i = 0;i < template_adjust;i++)
-                emit->type_stack[emit->type_stack_pos + i] = NULL;
-
             lily_type *call_result = call_type->subtypes[0];
             if (call_result && expect_type && did_resolve) {
                 /* If the caller wants something and the result is that same
@@ -2883,24 +2583,12 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                 if (expect_type->cls->id == call_result->cls->id) {
                     /* The return isn't checked because there will be a more
                        accurate problem that is likely to manifest later. */
-                    template_check(emit, call_result, expect_type);
+                    lily_ts_check(emit->ts, call_result, expect_type);
                 }
                 else if (expect_type->cls->flags & CLS_ENUM_CLASS &&
                          call_result->cls->parent == expect_type->cls) {
-                    /* The output is a variant (only happens for the variant's
-                       creation function), and the caller wants an enum class.
-                       Information is pulled in through the variant's template
-                       positions, since the enum could be [A, B, C] while the
-                       variant is [A, C]. */
-                    lily_type *variant_type =
-                            call_result->cls->variant_type->subtypes[0];
-
-                    for (i = 0;i < template_adjust;i++) {
-                        int pos = variant_type->subtypes[0]->template_pos;
-
-                        emit->type_stack[emit->type_stack_pos + pos] =
-                            expect_type->subtypes[pos];
-                    }
+                    lily_ts_resolve_as_variant_by_enum(emit->ts,
+                            call_result, expect_type);
                 }
             }
         }
@@ -2915,9 +2603,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                  inheriting another one. This one is a choice: By making sure
                  that A does not change between classes, determining the type
                  of a property is MUCH easier. */
-            lily_type *type_iter = emit->symtab->template_type_start;
-            for (i = 0;i < template_adjust;i++, type_iter = type_iter->next)
-                emit->type_stack[emit->type_stack_pos + i] = type_iter;
+            lily_ts_resolve_as_self(emit->ts);
         }
     }
 
@@ -2958,7 +2644,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
            example, the varargs sig is list[F]... and the caller has F as some
            lower generic type. */
         if (save_type->flags & TYPE_IS_UNRESOLVED)
-            save_type = lily_resolve_type(emit, save_type);
+            save_type = lily_ts_resolve(emit->ts, save_type);
 
         s = get_storage(emit, save_type, ast->line_num);
         write_build_op(emit, o_build_list_tuple, save_arg, save_arg->line_num,
@@ -3005,16 +2691,10 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
     lily_type *call_type;
     lily_sym *call_sym;
 
-    int save_adjust = emit->current_generic_adjust;
-    emit->type_stack_pos += save_adjust;
-    emit->current_generic_adjust = 0;
-
     lily_tree_type first_tt = ast->arg_start->tree_type;
     /* Variants are created by calling them in a function-like manner, so the
        parser adds them as if they were functions. They're not. */
     if (first_tt == tree_variant) {
-        emit->type_stack_pos -= save_adjust;
-        emit->current_generic_adjust = save_adjust;
         eval_variant(emit, ast, expect_type, did_resolve);
         return;
     }
@@ -3063,6 +2743,8 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
     arg = ast->arg_start;
     expect_size = 6 + ast->args_collected;
 
+    int saved_ts_adjust = lily_ts_raise_ceiling(emit->ts,
+            call_type->template_pos);
     check_call_args(emit, ast, call_type, expect_type, did_resolve);
 
     write_prep(emit, expect_size);
@@ -3087,10 +2769,9 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
            stack (which is okay until the next eval_call). Otherwise, just
            give up and build the right thing. */
         if (return_type->cls->id == SYM_CLASS_TEMPLATE)
-            return_type = emit->type_stack[emit->type_stack_pos +
-                    return_type->template_pos];
+            return_type = lily_ts_easy_resolve(emit->ts, return_type);
         else if (return_type->flags & TYPE_IS_UNRESOLVED)
-            return_type = lily_resolve_type(emit, return_type);
+            return_type = lily_ts_resolve(emit->ts, return_type);
 
         lily_storage *storage = get_storage(emit, return_type, ast->line_num);
         storage->flags |= SYM_NOT_ASSIGNABLE;
@@ -3112,8 +2793,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
 
     f->pos += 6 + ast->args_collected;
 
-    emit->type_stack_pos -= save_adjust;
-    emit->current_generic_adjust = save_adjust;
+    lily_ts_lower_ceiling(emit->ts, saved_ts_adjust);
 }
 
 /* emit_nonlocal_var
@@ -3204,7 +2884,7 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
         lily_type *property_type = prop->type;
         if (property_type->cls->id == SYM_CLASS_TEMPLATE ||
             property_type->template_pos) {
-            property_type = resolve_second_type_by_first(emit,
+            property_type = lily_ts_resolve_by_second(emit->ts,
                     ast->arg_start->result->type,
                     property_type);
         }
@@ -3282,28 +2962,26 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
     lily_storage *result = NULL;
 
     if (ast->tree_type == tree_call) {
-        /* Make space for generics, in case this variant uses them. */
-        int save_adjust = emit->current_generic_adjust;
-        emit->type_stack_pos += save_adjust;
-        emit->current_generic_adjust = 0;
-
         ast->result = NULL;
 
         /* The first arg is actually the variant. */
         lily_ast *variant_tree = ast->arg_start;
         lily_class *variant_class = variant_tree->variant_class;
+        lily_type *variant_type = variant_class->variant_type;
 
-        if (variant_class->variant_type->subtype_count == 1)
+        if (variant_type->subtype_count == 1)
             lily_raise(emit->raiser, lily_SyntaxError,
                     "Variant class %s should not get args.\n",
                     variant_class->name);
 
-        check_call_args(emit, ast, variant_class->variant_type, expect_type,
+        int save_ceiling = lily_ts_raise_ceiling(emit->ts,
+                variant_type->template_pos);
+        check_call_args(emit, ast, variant_type, expect_type,
                 did_resolve);
 
         lily_type *result_type = variant_class->variant_type->subtypes[0];
         if (result_type->template_pos != 0)
-            result_type = lily_resolve_type(emit, result_type);
+            result_type = lily_ts_resolve(emit->ts, result_type);
 
         result = get_storage(emit, result_type, ast->line_num);
 
@@ -3311,8 +2989,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         write_build_op(emit, o_build_list_tuple, ast->arg_start,
                 ast->line_num, ast->args_collected, result->reg_spot);
 
-        emit->type_stack_pos -= save_adjust;
-        emit->current_generic_adjust = save_adjust;
+        lily_ts_lower_ceiling(emit->ts, save_ceiling);
     }
     else {
         /* Did this need arguments? It was used incorrectly if so. */
@@ -3346,8 +3023,7 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
 
     if (expect_type && expect_type->cls->id == SYM_CLASS_TEMPLATE &&
         did_resolve == 0) {
-        expect_type = emit->type_stack[emit->type_stack_pos +
-                 expect_type->template_pos];
+        expect_type = lily_ts_easy_resolve(emit->ts, expect_type);
         did_resolve = 1;
     }
 
@@ -3843,8 +3519,7 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
 {
     if (wanted_type && wanted_type->cls->id == SYM_CLASS_TEMPLATE &&
         did_resolve == 0) {
-        wanted_type = emit->type_stack[emit->type_stack_pos +
-                wanted_type->template_pos];
+        wanted_type = lily_ts_easy_resolve(emit->ts, wanted_type);
         did_resolve = 1;
     }
 

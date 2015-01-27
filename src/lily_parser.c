@@ -94,7 +94,7 @@ lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
     parser->type_stack = lily_malloc(4 * sizeof(lily_type *));
     parser->ast_pool = lily_new_ast_pool(raiser, 8);
     parser->symtab = lily_new_symtab(raiser);
-    parser->emit = lily_new_emit_state(raiser);
+    parser->emit = lily_new_emit_state(parser->symtab, raiser);
     parser->lex = lily_new_lex_state(raiser, data);
     parser->vm = lily_new_vm_state(raiser, data);
     parser->membuf = lily_membuf_new(raiser);
@@ -227,22 +227,6 @@ static int keyword_by_name(char *name)
     }
 
     return -1;
-}
-
-/*  count_unresolved_generics
-    This is a helper function for lambda resolution. The purpose of this
-    function is to help determine if one of the arguments passed to a lambda
-    has an incomplete type. */
-static int count_unresolved_generics(lily_emit_state *emit)
-{
-    int count = 0, top = emit->type_stack_pos + emit->current_generic_adjust;
-    int i;
-    for (i = emit->type_stack_pos;i < top;i++) {
-        if (emit->type_stack[i] == NULL)
-            count++;
-    }
-
-    return count;
 }
 
 /*  get_named_var
@@ -2482,6 +2466,8 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        type.
        Collect arguments if expecting a function and the function takes at
        least one argument. */
+    lily_type_stack *emit_ts = parser->emit->ts;
+
     if (expect_type && expect_type->subtype_count > 1) {
         if (lex->token == tk_logical_or)
             lily_raise(parser->raiser, lily_SyntaxError,
@@ -2493,14 +2479,14 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
         int originally_unresolved = -1;
         lily_token wanted_token = tk_comma;
         if (did_resolve == 0)
-            originally_unresolved = count_unresolved_generics(parser->emit);
+            originally_unresolved = lily_ts_count_unresolved(emit_ts);
 
         while (1) {
             NEED_NEXT_TOK(tk_word)
             lily_type *arg_type = expect_type->subtypes[args_collected + 1];
             if (did_resolve == 0) {
-                arg_type = lily_resolve_type(parser->emit, arg_type);
-                int num_unresolved = count_unresolved_generics(parser->emit);
+                arg_type = lily_ts_resolve(emit_ts, arg_type);
+                int num_unresolved = lily_ts_count_unresolved(emit_ts);
                 /* lily_resolve_type likes to fill in unresolved generics with
                    type 'any' if it doesn't have type information. However, a
                    lambda should have full type info for each arg. */

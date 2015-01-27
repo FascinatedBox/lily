@@ -3,6 +3,7 @@
 
 # include "lily_raiser.h"
 # include "lily_symtab.h"
+# include "lily_type_stack.h"
 
 typedef struct lily_block_ {
     /* This block can use storages starting from here. */
@@ -69,11 +70,6 @@ typedef struct {
        twice or not seen at all. */
     int *match_cases;
 
-    /* This stack is used primarily for holding unresolved types. Unresolved
-       types are in here from type_stack_pos + current_generic_adjust. All
-       positions above that are safe to use for any position. */
-    lily_type **type_stack;
-
     uint16_t patch_pos;
 
     uint16_t patch_size;
@@ -82,9 +78,7 @@ typedef struct {
 
     uint16_t match_case_size;
 
-    uint16_t type_stack_pos;
-
-    uint16_t type_stack_size;
+    uint32_t pad;
 
     /* Calls complete information about generics as they go along. Their
        working information is stored in type_stack_pos + 0 to type_stack_pos +
@@ -132,6 +126,8 @@ typedef struct {
        lambdas here. */
     lily_membuf *ast_membuf;
 
+    lily_type_stack *ts;
+
     /* The parser is stored within the emitter so that the emitter can do
        dynamic loading of functions. */
     struct lily_parse_state_t *parser;
@@ -164,7 +160,6 @@ void lily_emit_finalize_for_in(lily_emit_state *, lily_var *, lily_var *,
 void lily_emit_eval_lambda_body(lily_emit_state *, lily_ast_pool *, lily_type *,
         int);
 void lily_emit_lambda_dispatch(lily_emit_state *, lily_ast_pool *);
-lily_type *lily_resolve_type(lily_emit_state *emit, lily_type *);
 
 void lily_emit_eval_match_expr(lily_emit_state *, lily_ast_pool *);
 int lily_emit_add_match_case(lily_emit_state *, int);
@@ -192,6 +187,6 @@ void lily_update_call_generics(lily_emit_state *, int);
 
 void lily_free_emit_state(lily_emit_state *);
 int lily_emit_try_enter_main(lily_emit_state *, lily_var *);
-lily_emit_state *lily_new_emit_state(lily_raiser *);
+lily_emit_state *lily_new_emit_state(lily_symtab *, lily_raiser *);
 
 #endif
