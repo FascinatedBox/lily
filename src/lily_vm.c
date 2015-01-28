@@ -150,10 +150,6 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser, void *data)
     vm->function_table = NULL;
     vm->function_count = 0;
     vm->prep_literal_stop = NULL;
-    vm->generic_map = NULL;
-    vm->generic_map_size = 0;
-    vm->resolver_types = NULL;
-    vm->resolver_types_size = 0;
 
     if (vm->function_stack) {
         int i;
@@ -251,8 +247,6 @@ void lily_free_vm_state(lily_vm_state *vm)
         lily_free(vm->string_buffer);
     }
 
-    lily_free(vm->resolver_types);
-    lily_free(vm->generic_map);
     lily_free(vm->function_table);
     lily_free(vm->literal_table);
     lily_free(vm->foreign_code);
@@ -630,142 +624,6 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
     vm->max_registers = register_need;
 }
 
-/*  recursive_type_search
-    This is called by dive_for_type to find out how to get, say, A from
-    the type map when there's nothing that's JUST A. Instead, there might be
-    list[A], or tuple[A, A], or hash[integer, A].
-
-    This takes the unresolved type (say, list[A]), the wanted type (always just
-    a generic), and a resolved type (say, list[integer]) and walks to determine
-    what A or B or whatever is. */
-static lily_type *recursive_type_search(lily_type *generic_type,
-        lily_type *want_type, lily_type *resolved_type)
-{
-    int i;
-    lily_type *ret = NULL;
-    for (i = 0;i < generic_type->subtype_count;i++) {
-        if (generic_type->subtypes[i] == want_type) {
-            ret = resolved_type->subtypes[i];
-            break;
-        }
-        else if (generic_type->subtype_count != 0) {
-            ret = recursive_type_search(generic_type->subtypes[i], want_type,
-                    resolved_type->subtypes[i]);
-            if (ret)
-                break;
-        }
-    }
-
-    return ret;
-}
-
-/*  dive_for_type
-
-    So...resolve_type_by_map starts off with a mapping of parameter types (in
-    terms of generics) to given types. Most of the time, the parameter types
-    should be simpler than the vars inside.
-
-    However, there are times when this isn't the case. Example:
-
-    function f[A](list[A] value) { A element = value[0] }
-
-    In this case, the map does not contain A directly, but it DOES have an
-    entry for list[A] to list[whatever]. This calls for a recursive search
-    on every map entry. Somewhere, somehow, A is known and this will find
-    it.
-
-    This should not fail, because generic variables in a function require an
-    initializing expression. */
-static lily_type *dive_for_type(lily_type **type_map, int map_type_count,
-        lily_type *to_resolve)
-{
-    int i;
-    lily_type *ret_type = NULL;
-    for (i = 0;i < map_type_count;i++) {
-        ret_type = recursive_type_search(type_map[i], to_resolve,
-                type_map[map_type_count + i]);
-        if (ret_type)
-            break;
-    }
-
-    return ret_type;
-}
-
-/*  resolve_type_by_map
-
-    function f[A](A value => tuple[A, A]) {
-        return <[value, value]
-    }
-
-    So, in this case there's a var (or storage) with a type unlike any
-    parameter. The parameters given to the function are known, so use them to
-    build the type that's wanted.
-
-    map_type_count: How many types are in vm->generic_map.
-                   The type at vm->generic_map[i] has a resolved version at
-                   vm->generic_map[map_type_count + i].
-    to_resolve:    The generic-holding type to resolve.
-    resolve_start: Where to begin storing types in resolver_types. Callers
-                   should always use zero, but this calls itself with adjusted
-                   indexes. */
-static lily_type *resolve_type_by_map(lily_vm_state *vm, int map_type_count,
-        lily_type *to_resolve, int resolve_start)
-{
-    int i, j, types_needed = to_resolve->subtype_count;
-
-    if ((resolve_start + types_needed) > vm->resolver_types_size) {
-        lily_type **new_types = lily_realloc(vm->resolver_types,
-                sizeof(lily_type *) *
-                (resolve_start + types_needed));
-
-        if (new_types == NULL)
-            lily_raise_nomem(vm->raiser);
-
-        vm->resolver_types = new_types;
-        vm->resolver_types_size = (resolve_start + types_needed);
-    }
-
-    lily_type **type_map = vm->generic_map;
-
-    for (i = 0;i < to_resolve->subtype_count;i++) {
-        lily_type *inner_type = to_resolve->subtypes[i];
-        lily_type *result_type = NULL;
-        for (j = 0;j < map_type_count;j++) {
-            if (type_map[j] == inner_type) {
-                result_type = type_map[map_type_count + j];
-                break;
-            }
-        }
-
-        if (inner_type->flags & TYPE_IS_UNRESOLVED &&
-            inner_type->cls->id != SYM_CLASS_TEMPLATE)
-            /* This can happen if generic and non-generic types are mixed in
-               a declaration in a generic function.
-               Example: function f[A](A val) { tuple[A, integer] t ... } */
-            result_type = inner_type;
-
-        if (result_type == NULL)
-            result_type = resolve_type_by_map(vm, map_type_count, inner_type,
-                    resolve_start + i);
-
-        vm->resolver_types[resolve_start + i] = result_type;
-    }
-
-    lily_type *ret;
-    if (to_resolve->subtype_count != 0) {
-        int flags = (to_resolve->flags & TYPE_IS_VARARGS);
-        ret = lily_build_ensure_type(vm->symtab, to_resolve->cls, flags,
-                vm->resolver_types, resolve_start, i);
-    }
-    else
-        /* Hard mode: This must be a generic by itself, with no parameters
-           being just a generic. So...dive in to find out what it should
-           be. */
-        ret = dive_for_type(type_map, map_type_count, to_resolve);
-
-    return ret;
-}
-
 /*  resolve_generic_registers
     This is called after a generic function's registers have been prepared. It
     looks over the function's parameters to determine what the generics have
@@ -785,96 +643,50 @@ static lily_type *resolve_type_by_map(lily_vm_state *vm, int map_type_count,
 static void resolve_generic_registers(lily_vm_state *vm, lily_value *func,
         lily_type *result_type, int args_collected, int reg_start)
 {
-    lily_function_val *fval = func->value.function;
-    lily_type **type_map = vm->generic_map;
-    if ((fval->generic_count * 2) > vm->generic_map_size) {
-        type_map = lily_realloc(vm->generic_map,
-                sizeof(lily_type *) * (fval->generic_count * 2));
-        if (type_map == NULL)
-            lily_raise_nomem(vm->raiser);
-
-        vm->generic_map = type_map;
-        vm->generic_map_size = fval->generic_count * 2;
-    }
-
     lily_value **regs_from_main = vm->regs_from_main;
-    int out_index = fval->generic_count;
-    int reg_stop = reg_start + args_collected;
-    int i, reg_i, info_i, last_map_spot = 0;
+    int generics_needed = func->type->template_pos;
+    int save_ceiling = lily_ts_raise_ceiling(vm->ts, generics_needed);
+    int i;
+    lily_function_val *fval = func->value.function;
+
+    /* lily_type_stack has a function called lily_ts_check which both checks
+       that types are equal AND initializes generics by the first type seen.
+       The return type is ignored through here (it's already been verified by
+       emitter so it cannot be wrong). */
+
     lily_register_info *ri = fval->reg_info;
+    if (result_type != NULL)
+        lily_ts_check(vm->ts, func->type->subtypes[0], result_type);
 
-    for (i = 0;i < (fval->generic_count * 2);i++)
-        type_map[i] = NULL;
+    /* Since Lily requires that all variables have a starting value, it is
+       therefore impossible to have generics WITHIN a function that are not
+       somewhere within the parameters. */
+    for (i = 0;i < args_collected;i++) {
+        lily_type *left_type = ri[i].type;
+        lily_type *right_type = regs_from_main[reg_start + i]->type;
 
-    if (result_type != NULL) {
-        type_map[0] = func->type->subtypes[0];
-        type_map[out_index] = result_type;
-        last_map_spot++;
+        lily_ts_check(vm->ts, left_type, right_type);
     }
 
-    /* Go through the arguments given to the function to see what the generic
-       parameters were morphed into. This will help determine what to do for
-       the rest of the registers. */
-    for (info_i = 0, reg_i = reg_start;
-         reg_i < reg_stop;
-         reg_i++, info_i++) {
-        lily_value *reg = regs_from_main[reg_i];
-        lily_type *parameter_type = ri[info_i].type;
+    /* All generics now have types. The types of the rest of the registers
+       can be calculated as the resolution of whatever the function says it
+       really is. */
+    int reg_stop = fval->reg_count;
+    for (;i < reg_stop;i++) {
+        lily_type *new_type = ri[i].type;
+        if (new_type->flags & TYPE_IS_UNRESOLVED)
+            new_type = lily_ts_resolve(vm->ts, new_type);
 
-        for (i = 0;i <= out_index;i++) {
-            if (type_map[i] == NULL) {
-                type_map[i] = parameter_type;
-                type_map[out_index + i] = reg->type;
-                last_map_spot = i;
-                break;
-            }
-            /* There's already an entry for this. Skip. */
-            else if (type_map[i] == parameter_type)
-                break;
-        }
-    }
-
-    reg_stop = reg_i + fval->reg_count - (reg_stop - reg_start);
-
-    for (;
-         reg_i < reg_stop;
-         reg_i++, info_i++) {
-        lily_value *reg = regs_from_main[reg_i];
-        lily_type *input_type = ri[info_i].type;
-        lily_type *result_type = NULL;
-        if (input_type->flags & TYPE_IS_UNRESOLVED) {
-            /* Start off by a basic run through the map built earlier. */
-            for (i = 0;i < out_index;i++) {
-                if (input_type == type_map[i]) {
-                    result_type = type_map[out_index + i];
-                    break;
-                }
-            }
-
-            /* If a var is, say, list[A] and there is no list[A] as a
-               parameter, then the type has to be built. This sucks. */
-            if (result_type == NULL) {
-                result_type = resolve_type_by_map(vm, fval->generic_count,
-                        input_type, 0);
-
-                type_map[last_map_spot + 1] = input_type;
-                type_map[out_index + last_map_spot + 1] = result_type;
-                last_map_spot++;
-            }
-        }
-        else
-            /* It's not generic? Well, that makes things easier. This could be,
-               say, the integer of a for loop in a generic function, so it's
-               not completely unreasonable. */
-            result_type = input_type;
-
+        lily_value *reg = regs_from_main[reg_start + i];
         if (reg->type->cls->is_refcounted &&
             (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
             lily_deref_unknown_val(reg);
 
         reg->flags = VAL_IS_NIL;
-        reg->type = result_type;
+        reg->type = new_type;
     }
+
+    lily_ts_lower_ceiling(vm->ts, save_ceiling);
 }
 
 /*  prep_registers

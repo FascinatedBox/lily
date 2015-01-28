@@ -44,16 +44,6 @@ typedef struct lily_vm_state_t {
     lily_literal **literal_table;
     lily_var **function_table;
 
-    /* Sometimes there's a var in a generic function which has a type
-       that isn't the same as any of the function's parameters. In that case,
-       the vm has to get the completed type by building it. This is used
-       for that. */
-    lily_type **resolver_types;
-
-    /* This helps to determine what the proper types are for the vars and the
-       storages of a generic function. */
-    lily_type **generic_map;
-
     /* A linked list of entries that are currently being used. */
     lily_gc_entry *gc_live_entries;
     /* A linked list of entries not currently used. Entries which have their
@@ -70,9 +60,6 @@ typedef struct lily_vm_state_t {
     uint16_t function_stack_pos;
     uint16_t function_stack_size;
 
-    uint16_t resolver_types_size;
-    uint16_t generic_map_size;
-
     /* How many entries are in ->gc_live_entries. If this is >= ->gc_threshold,
        then the gc is triggered when there is an attempt to attach a gc_entry
        to a value. */
@@ -83,7 +70,7 @@ typedef struct lily_vm_state_t {
        if an entry has been seen. An entry is visible if
        'entry->last_pass == gc_pass' */
     uint32_t gc_pass;
-    uint32_t building_error;
+    uint64_t building_error;
 
     /* This is the default type used when created new registers. This is
        used because it isn't refcounted. */
