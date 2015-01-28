@@ -2180,52 +2180,6 @@ static void match_handler(lily_parse_state *parser, int multi)
     lily_emit_leave_block(parser->emit);
 }
 
-/*  calculate_decompose_type
-    This is used to determine what type that variables declared as part of
-    a enum class decomposition will get. I'm very, very unhappy to say that I
-    copied this directly from the vm (resolve_property_type). */
-static lily_type *calculate_decompose_type(lily_parse_state *parser,
-        lily_type *match_type, lily_type *input_type, int stack_offset)
-{
-    lily_type *result_type;
-
-    if (input_type->cls->id == SYM_CLASS_TEMPLATE)
-        result_type = match_type->subtypes[input_type->template_pos];
-    else if (input_type->cls->template_count == 0)
-        result_type = input_type;
-    else {
-        int types_needed = input_type->subtype_count;
-
-        if ((stack_offset + types_needed) > parser->type_stack_size) {
-            lily_type **new_types = lily_realloc(parser->type_stack,
-                    sizeof(lily_type *) *
-                    (stack_offset + types_needed));
-
-            if (new_types == NULL)
-                lily_raise_nomem(parser->raiser);
-
-            parser->type_stack = new_types;
-            parser->type_stack_size = (stack_offset + types_needed);
-        }
-
-        int i;
-        lily_type *inner_type;
-        for (i = 0;i < input_type->subtype_count;i++) {
-            inner_type = input_type->subtypes[i];
-            inner_type = calculate_decompose_type(parser, input_type,
-                    inner_type, stack_offset + i);
-
-            parser->type_stack[stack_offset + i] = inner_type;
-        }
-
-        int flags = (input_type->flags & TYPE_IS_VARARGS);
-        result_type = lily_build_ensure_type(parser->symtab, input_type->cls,
-                flags, parser->type_stack, stack_offset, i);
-    }
-
-    return result_type;
-}
-
 /*  case_handler
     Syntax:
         For variants that do not take values:
@@ -2281,6 +2235,7 @@ static void case_handler(lily_parse_state *parser, int multi)
                 "Already have a case for variant %s.\n", lex->label);
 
     lily_type *variant_type = case_class->variant_type;
+    lily_type_stack *ts = parser->emit->ts;
     if (variant_type->subtype_count != 0) {
         NEED_NEXT_TOK(tk_left_parenth)
         /* There should be as many identifiers as there are arguments to this
@@ -2289,9 +2244,8 @@ static void case_handler(lily_parse_state *parser, int multi)
         NEED_NEXT_TOK(tk_word)
 
         for (i = 1;i < variant_type->subtype_count;i++) {
-            lily_type *var_type = calculate_decompose_type(parser,
-                    match_input_type, variant_type->subtypes[i],
-                    parser->type_stack_pos);
+            lily_type *var_type = lily_ts_resolve_by_second(ts,
+                    match_input_type, variant_type->subtypes[i]);
 
             /* It doesn't matter what the var is, only that it's unique. The
                emitter will grab the vars it needs from the symtab when writing
