@@ -31,8 +31,10 @@ def get_expected_str(filename):
     output = ''
     collecting = 0
     for line in f:
-        if line.startswith('###') and line.rstrip("\r\n") == "###":
-            collecting = not collecting
+        if line.startswith('#[') and line.rstrip('\r\n') == '#[':
+            collecting = True
+        elif line.startswith(']#') and line.rstrip('\r\n') == "]#":
+            collecting = False
         elif collecting:
             output += line.rstrip("\r\n") + "\n"
     return output

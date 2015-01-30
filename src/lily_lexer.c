@@ -879,35 +879,33 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
     *pos = num_pos;
 }
 
-/* scan_multiline_comment
-   This handles a comment that begins with ### and ends with ###. This is called
-   after the opening ### has already been received. Position is updated to after
-   the # of the ending ###. */
+/*  scan_multiline_comment
+    Syntax: #[ ... ]#
+
+    This is called after the opening #[ has already been scanned in, and reads
+    to the closing ]#. This comment does not nest. */
 static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
 {
     int comment_pos, start_line;
 
-    /* +3 to skip the ### intro. */
-    char *new_ch = &(lexer->input_buffer[*pos + 3]);
+    /* +2 to skip the #[ intro. */
+    char *new_ch = &(lexer->input_buffer[*pos + 2]);
 
-    comment_pos = *pos + 3;
+    comment_pos = *pos + 2;
     comment_pos++;
     start_line = lexer->line_num;
 
     while (1) {
-        if (*new_ch == '#') {
-            if (comment_pos + 2 <= lexer->input_end &&
-                *(new_ch + 1) == '#' &&
-                *(new_ch + 2) == '#') {
-                comment_pos += 2;
-                break;
-            }
+        if (*new_ch == ']' &&
+            *(new_ch + 1) == '#') {
+            comment_pos++;
+            break;
         }
         else if (*new_ch == '\n') {
             if (lexer->entry->read_line_fn(lexer->entry) == 1) {
                 new_ch = &(lexer->input_buffer[0]);
                 comment_pos = 0;
-                /* Must continue, in case the first char is the # of ###.\n */
+                /* Must continue, in case the first char is the # of ]#.\n */
                 continue;
             }
             else {
@@ -1076,8 +1074,7 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
             continue;
         }
         else if (*ch == '#' &&
-                 *(ch + 1) == '#' &&
-                 *(ch + 2) == '#') {
+                 *(ch + 1) == '[') {
             int saved_line_num = lexer->line_num;
             scan_multiline_comment(lexer, &input_pos);
             /* For each line that the multi-line comment hit, add a newline to
@@ -1385,8 +1382,7 @@ void lily_lexer(lily_lex_state *lexer)
         }
         else if (group == CC_SHARP) {
             if (*ch       == '#' &&
-                *(ch + 1) == '#' &&
-                *(ch + 2) == '#') {
+                *(ch + 1) == '[') {
                 scan_multiline_comment(lexer, &input_pos);
                 continue;
             }

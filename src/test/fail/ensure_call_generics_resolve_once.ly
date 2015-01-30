@@ -1,9 +1,9 @@
-###
+#[
 SyntaxError: Function f, argument #3 is invalid:
 Expected Type: list[A]
 Received Type: list[any]
 Where: File "test/fail/ensure_call_generics_resolve_once.ly" at line 19
-###
+]#
 
 define f[A, B](value: A, value2: B, value3: B) {
     

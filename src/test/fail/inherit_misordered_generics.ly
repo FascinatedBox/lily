@@ -1,9 +1,9 @@
-###
+#[
 SyntaxError: Function First::new, argument #1 is invalid:
 Expected Type: A
 Received Type: B
 Where: File "test/fail/inherit_misordered_generics.ly" at line 10
-###
+]#
 
 class First[A](value: A) {  }
 

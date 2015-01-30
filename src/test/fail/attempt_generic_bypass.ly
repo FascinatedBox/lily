@@ -1,9 +1,9 @@
-###
+#[
 SyntaxError: Function f, argument #2 is invalid:
 Expected Type: A
 Received Type: integer
 Where: File "test/fail/attempt_generic_bypass.ly" at line 17
-###
+]#
 
 define f[A](v1: A, v2: A) {  }
 
