@@ -1,4 +1,4 @@
-integer ok = 1
+var ok = 1
 
 if [1 => "a", 2 => "b"] != [2 => "b", 1 => "a"]:
     ok = 0

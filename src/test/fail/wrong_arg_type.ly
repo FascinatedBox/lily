@@ -5,4 +5,4 @@ Received Type: string
 Where: File "test/fail/wrong_arg_type.ly" at line 8
 ###
 
-define f(integer a) {} f("a")
+define f(a: integer) {} f("a")

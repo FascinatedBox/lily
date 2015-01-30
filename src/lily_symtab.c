@@ -127,6 +127,17 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_type *type, char *name,
     return var;
 }
 
+lily_var *lily_declare_var(lily_symtab *symtab, lily_type *type,
+        char *name, uint16_t line_num)
+{
+    lily_var *v = lily_try_new_var(symtab, type, name, 0);
+    if (v == NULL)
+        lily_raise_nomem(symtab->raiser);
+
+    v->line_num = line_num;
+    return v;
+}
+
 /*  get_template_max
     Recurse into a type and determine the number of templates used. This
     is important for emitter, which needs to know how many types to blank before

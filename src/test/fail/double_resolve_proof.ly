@@ -5,9 +5,9 @@ Received Type: list[list[integer]]
 Where: File "test/fail/double_resolve_proof.ly" at line 28
 ###
 
-define f[A, B](A one, B two, B three) {  }
+define f[A, B](one: A, two: B, three: B) {  }
 
-define g[A](A one) {
+define g[A](one: A) {
     # Here's what's supposed to happen:
     # The first argument to f is processed as list[any].
     # f: A = list[any]

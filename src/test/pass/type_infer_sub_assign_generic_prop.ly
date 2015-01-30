@@ -1,8 +1,8 @@
-class AA[A](A value) {
+class AA[A](value: A) {
 	var @container = [[value]]
 }
 
-list[AA[any]] test = [AA::new(AA::new(10))]
+var test: list[AA[any]] = [AA::new(AA::new(10))]
 
 # This should be allowed to proceed since 'container' will be list[list[any]]
 # The subscript means that the left type expects list[any]

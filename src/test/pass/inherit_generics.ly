@@ -1,2 +1,2 @@
-class First[A](A v1) {  }
-class Second[A, B](A v1, B v2) < First(v1) {  }
+class First[A](v1: A) {  }
+class Second[A, B](v1: A, v2: B) < First(v1) {  }

@@ -1,4 +1,4 @@
-class MyException(string message) < Exception(message) {
+class MyException(message: string) < Exception(message) {
 	
 }
 

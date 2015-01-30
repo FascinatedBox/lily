@@ -1,1 +1,1 @@
-hash[integer, any] h = [1 => 1]
+var h: hash[integer, any] = [1 => 1]

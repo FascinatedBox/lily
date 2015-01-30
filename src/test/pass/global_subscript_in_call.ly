@@ -1,4 +1,4 @@
-list[integer] integer_list = [1, 2, 3]
+var integer_list = [1, 2, 3]
 
 define f() {
 	integer_list[0] = 10

@@ -1,3 +1,3 @@
-class AA(integer a) {
+class AA(a: integer) {
 	var @a = a
 }

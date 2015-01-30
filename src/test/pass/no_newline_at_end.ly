@@ -1,1 +1,1 @@
-integer i = 10
+var i = 10

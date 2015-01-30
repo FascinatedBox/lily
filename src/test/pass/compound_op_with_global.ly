@@ -1,4 +1,4 @@
-integer a = 10
+var a = 10
 
 define f() {
 	a += 10

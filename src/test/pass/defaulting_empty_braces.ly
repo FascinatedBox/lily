@@ -4,46 +4,46 @@
 # In the event of defaulting not working, one or more of these will trigger
 # SyntaxError, so no checks are needed.
 
-list[integer]             list_one   = []
-list[list[integer]]       list_two   = []
-                          list_two   = [[]]
-list[list[list[integer]]] list_three = []
-                          list_three = [[]]
-                          list_three = [[[]]]
+var list_one: list[integer]       = []
+var list_two: list[list[integer]] = []
+    list_two   = [[]]
+var list_three: list[list[list[integer]]] = []
+    list_three = [[]]
+    list_three = [[[]]]
 
 # The interpreter creates a hash if it can determine that a hash for [] if
 # it determines that a hash is wanted.
-hash[integer, string]        hash_one = []
-hash[integer, list[integer]] hash_two = [1 => [1]]
-list[hash[integer, string]]  hash_three = []
+var hash_one:   hash[integer, string]        = []
+var hash_two:   hash[integer, list[integer]] = [1 => [1]]
+var hash_three: list[hash[integer, string]] = []
 
-tuple[list[integer], any]    tuple_one = <[[], 0]>
+var tuple_one: tuple[list[integer], any] = <[[], 0]>
 
 # If [] has nothing to go on, it attempts to create a list[any].
 # Since type list[any] can hold anything, this works.
-any a = []
+var a: any = []
     a = [[]]
     a = [[[]]]
 
-define f[A](A first, A second) {}
+define f[A](first: A, second: A) {}
 
 # Defaulting here is a bit harder since f wants type A.
 # In this first case, A becomes list[any]
-define k_one[A](A third, A fourth) { f([], []) }
+define k_one[A](third: A, fourth: A) { f([], []) }
 
 # In the second case, A becomes list[A]
 # the [] becomes a list[A]
-define k_two[A](A third, A fourth) { f([third], []) }
+define k_two[A](third: A, fourth: A) { f([third], []) }
 
 # In this third case, A becomes list[any]
 # third becomes an any, resulting in [third] being list[any].
-define k_three[A](A third, A fourth) { f([], [third]) }
+define k_three[A](third: A, fourth: A) { f([], [third]) }
 
 k_one(1, 1)
 k_two(1, 1)
 k_three(1, 1)
 
-integer ok = 1
+var ok = 1
 if list_one == [] && hash_one == []:
     ok = 1
 else:

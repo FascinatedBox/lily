@@ -5,4 +5,4 @@ class Container[A]() {  }
 # an integer in this case.
 # Second, the vm must use the resulting value's signature to help assist in
 # deducing generic types. This is because there is no value given for A.
-Container[integer] c = Container::new()
+var c: Container[integer] = Container::new()

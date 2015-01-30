@@ -1,5 +1,5 @@
 define f[A]() {
-    define g(A v1) {
+    define g(v1: A) {
 
     }
 }

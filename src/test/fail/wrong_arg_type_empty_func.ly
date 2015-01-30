@@ -5,6 +5,6 @@ Received Type: integer
 Where: File "test/fail/wrong_arg_type_empty_func.ly" at line 10
 ###
 
-define f(function g()) {  }
+define f(g: function()) {  }
 
 f(10)

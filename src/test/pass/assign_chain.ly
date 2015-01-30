@@ -1,6 +1,8 @@
-integer ok = 1
-integer a = 10, b = 20, c = 30
-string result = ""
+var ok = 1
+var a = 10
+var b = 20
+var c = 30
+var result = ""
 
 a = b = c
 if a != 30 || b != 30 || c != 30:
@@ -22,7 +24,7 @@ if a != 100 || b != 10 || c != 10:
     ok = 0
 
 a = 10
-list[integer] d = [20]
+var d = [20]
 a += d[0] += a
 if a != 40 || d[0] != 30:
     ok = 0

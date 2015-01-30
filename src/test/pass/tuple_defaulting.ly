@@ -3,8 +3,8 @@ enum class Option[A] {
 	None
 }
 
-tuple[Option[integer]] t = <[Some(10)]>
-tuple[any] t2 = <[None]>
-tuple[any] t3 = <[5]>
+var t: tuple[Option[integer]] = <[Some(10)]>
+var t2: tuple[any] = <[None]>
+var t3: tuple[any] = <[5]>
 
-tuple[any] t4 = <[ [t, t2, t3] ]>
+var t4: tuple[any] = <[ [t, t2, t3] ]>

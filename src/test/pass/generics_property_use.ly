@@ -1,6 +1,6 @@
-class ContainerClass[A](A value) {
-    list[A] @container = [value]
+class ContainerClass[A](value: A) {
+    var @container: list[A] = [value]
 }
 
-ContainerClass[integer] t = ContainerClass::new(10)
+var t: ContainerClass[integer] = ContainerClass::new(10)
 t.container.append(10)

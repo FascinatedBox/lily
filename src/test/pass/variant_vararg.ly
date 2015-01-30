@@ -3,7 +3,7 @@ enum class Option[A] {
     None
 }
 
-define f[A](list[Option[A]] values...) {
+define f[A](values: list[Option[A]]...) {
 	
 }
 

@@ -1,7 +1,7 @@
-class AA(integer x, integer y, integer z) {
-    integer @x = x,
-            @y = y,
-            @z = z
+class AA(x: integer, y: integer, z: integer) {
+    var @x = x
+    var @y = y
+    var @z = z
 }
 
 var v = AA::new(10, 20, 30)

@@ -1,4 +1,4 @@
-define fib(integer n => integer)
+define fib(n: integer => integer)
 {
     if n == 0:
         return 0
@@ -8,7 +8,7 @@ define fib(integer n => integer)
         return fib(n - 1) + fib(n - 2)
 }
 
-list[integer] values = []
+var values: list[integer] = []
 
 for i in 0...9: {
     values.append(fib(i))

@@ -1,6 +1,6 @@
-any a = 10
+var a: any = 10
 
-define f[A](A first, A second) {
+define f[A](first: A, second: A) {
     
 }
 

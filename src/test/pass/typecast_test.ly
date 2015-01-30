@@ -1,31 +1,31 @@
-any a = 10
-integer intval = 0
+var a: any = 10
+var intval = 0
 a = 10
 intval = a.@(integer)
 
-double dblval = 0.0
+var dblval = 0.0
 a = 10.0
 dblval = a.@(double)
 
-string strval = ""
+var strval = ""
 a = "10"
 strval = a.@(string)
 
-list[integer] list_intval = []
+var list_intval: list[integer] = []
 a = [1]
 list_intval = a.@(list[integer])
 
-list[any] list_anyval = []
-any aval_1 = 10
-any aval_2 = 1.1
+var list_anyval: list[any] = []
+var aval_1: any = 10
+var aval_2: any = 1.1
 list_anyval = [aval_1, aval_2]
 
 define mval_10( => integer) { return 10 }
 define mval_20( => integer) { return 20 }
 define mval_30( => integer) { return 30 }
-define ret_any( => any) { any a2 = 10 return a2 }
+define ret_any( => any) { var a2: any = 10 return a2 }
 
-list[function( => integer)] list_mval = [mval_10]
+var list_mval = [mval_10]
 a = mval_20
 list_mval[0] = a.@(function( => integer))
 

@@ -58,18 +58,18 @@ if (lex->token != expected) \
                tokname(expected), tokname(lex->token));
 
 static char *exception_bootstrap =
-"class Exception(string message) {\n"
-"    string @message = message\n"
-"    list[tuple[string, integer]] @traceback = []\n"
+"class Exception(message: string) {\n"
+"    var @message = message\n"
+"    var @traceback: list[tuple[string, integer]] = []\n"
 "}\n"
-"class DivisionByZeroError (string message) < Exception(message) {}\n"
-"class IndexError          (string message) < Exception(message) {}\n"
-"class BadTypecastError    (string message) < Exception(message) {}\n"
-"class NoReturnError       (string message) < Exception(message) {}\n"
-"class ValueError          (string message) < Exception(message) {}\n"
-"class RecursionError      (string message) < Exception(message) {}\n"
-"class KeyError            (string message) < Exception(message) {}\n"
-"class FormatError         (string message) < Exception(message) {}\n";
+"class DivisionByZeroError (message: string) < Exception(message) {}\n"
+"class IndexError          (message: string) < Exception(message) {}\n"
+"class BadTypecastError    (message: string) < Exception(message) {}\n"
+"class NoReturnError       (message: string) < Exception(message) {}\n"
+"class ValueError          (message: string) < Exception(message) {}\n"
+"class RecursionError      (message: string) < Exception(message) {}\n"
+"class KeyError            (message: string) < Exception(message) {}\n"
+"class FormatError         (message: string) < Exception(message) {}\n";
 
 /*****************************************************************************/
 /* Parser creation and teardown                                              */
@@ -301,7 +301,7 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
 }
 
 /*  bad_decl_token
-    This is a function called when parse_decl is expecting a var name and gets
+    This is a function called when var_handler is expecting a var name and gets
     a property name, or vice versa. For either case, give the user a more
     useful error message.
     This is particularly important for classes: A new user may expect that
@@ -413,8 +413,7 @@ static lily_type *calculate_variant_return(lily_parse_state *parser,
 /* Type collection                                                           */
 /*****************************************************************************/
 
-static lily_type *collect_var_type(lily_parse_state *parser, lily_class *cls,
-        int flags);
+static lily_type *collect_var_type(lily_parse_state *parser, int flags);
 
 #define TC_DEMAND_VALUE  1
 #define TC_WANT_VALUE    2
@@ -489,7 +488,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
             if (have_arrow)
                 flags &= ~(CV_MAKE_VARS);
 
-            lily_type *type = collect_var_type(parser, NULL, flags);
+            lily_type *type = collect_var_type(parser, flags);
             if (have_arrow == 0) {
                 parser->type_stack[parser->type_stack_pos] = type;
                 parser->type_stack_pos++;
@@ -615,68 +614,51 @@ static int collect_generics(lily_parse_state *parser)
 
 /*  collect_var_type
     This is the outer part of type collection. This takes flags (CV_* defines)
-    which tell it how to act. Additionally, if the parser has already scanned
-    the class info, then 'cls' should be the scanned class. Otherwise, 'cls' 
-    will be NULL. This is so parser can check if it's 'sometype T' or
-    'sometype::member' without rewinding. */
-static lily_type *collect_var_type(lily_parse_state *parser, lily_class *cls,
-        int flags)
+    which tell it how to act. */
+static lily_type *collect_var_type(lily_parse_state *parser, int flags)
 {
     lily_lex_state *lex = parser->lex;
-    if (cls == NULL) {
-        NEED_CURRENT_TOK(tk_word)
-        cls = lily_class_by_name(parser->symtab, lex->label);
-        if (cls == NULL)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                       "unknown class name %s.\n", lex->label);
+    lily_type *result;
+    lily_var *var = NULL;
 
-        lily_lexer(lex);
+    NEED_CURRENT_TOK(tk_word)
+    if (flags & CV_MAKE_VARS) {
+        var = get_named_var(parser, NULL, 0);
+        NEED_CURRENT_TOK(tk_colon)
+        NEED_NEXT_TOK(tk_word)
     }
 
-    lily_type *result;
+    lily_class *cls = lily_class_by_name(parser->symtab, lex->label);
+    if (cls == NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                   "'%s' is not a valid class name.\n", lex->label);
 
     if (cls->flags & CLS_VARIANT_CLASS)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Variant types not allowed in a declaration.\n");
 
-    if (cls->template_count == 0) {
+    if (cls->template_count == 0)
         result = cls->type;
-        if (flags & CV_MAKE_VARS)
-            get_named_var(parser, cls->type, 0);
-    }
     else if (cls->template_count != 0 &&
              cls->id != SYM_CLASS_FUNCTION) {
+        lily_lexer(lex);
         NEED_CURRENT_TOK(tk_left_bracket)
         lily_lexer(lex);
         result = inner_type_collector(parser, cls, flags);
-
-        lily_lexer(lex);
-        if (flags & CV_MAKE_VARS)
-            get_named_var(parser, result, 0);
     }
     else if (cls->id == SYM_CLASS_FUNCTION) {
-        /* This is a dummy until the real type is known. */
-        lily_type *call_type = parser->default_call_type;
-        lily_var *call_var;
-
-        if (flags & CV_MAKE_VARS)
-            call_var = get_named_var(parser, call_type, 0);
-        else
-            call_var = NULL;
-
+        lily_lexer(lex);
         NEED_CURRENT_TOK(tk_left_parenth)
         lily_lexer(lex);
-        call_type = inner_type_collector(parser, cls, flags);
-
-        if (flags & CV_MAKE_VARS)
-            call_var->type = call_type;
-
-        result = call_type;
-        lily_lexer(lex);
+        result = inner_type_collector(parser, cls, flags);
     }
     else
         result = NULL;
 
+    if (flags & CV_MAKE_VARS)
+        var->type = result;
+
+    lily_lexer(lex);
     return result;
 }
 
@@ -1169,7 +1151,7 @@ static void expression_dot(lily_parse_state *parser, int *state)
     }
     else if (lex->token == tk_typecast_parenth) {
         lily_lexer(lex);
-        lily_type *new_type = collect_var_type(parser, NULL, 0);
+        lily_type *new_type = collect_var_type(parser, 0);
         lily_ast_enter_typecast(parser->ast_pool, new_type);
         lily_ast_leave_tree(parser->ast_pool);
         *state = ST_WANT_OPERATOR;
@@ -1306,17 +1288,28 @@ static void expression(lily_parse_state *parser)
     expression_raw(parser, ST_DEMAND_VALUE);
 }
 
-/* parse_decl
-   This function takes a type and handles a declaration wherein each var name
-   is separated by a comma. Ex:
+/*  var_handler
+    Syntax: var <name> <: type> = <value>
 
-   integer a, b, c
-   double d
-   list[integer] e
+    If <:type> is not provided, then the type is initially set to NULL and the
+    emitter will set the var's type based upon the result of the expression.
 
-   This handles anything but function declarations.
-   Expected token: A label (the first variable name). */
-static void parse_decl(lily_parse_state *parser, lily_type *type)
+    In many cases, the type is not necessary.
+        var a = 10        # inferred as integer
+        var b = 10.0      # inferred as double
+        var c = [1, 2, 3] # inferred as list[integer]
+
+    However, there are cases where it is useful:
+        var d: list[integer] = []
+
+    Within a class constructor, the name of the var must start with @ (because
+    accesses of class variables is done with @ too). Otherwise, @ must -not-
+    appear.
+
+    Additionally, all values MUST have an initializing assignment. This is
+    mandatory so that the interpreter does not have to worry about uninitialized
+    values. */
+static void var_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
     lily_var *var = NULL;
@@ -1342,13 +1335,9 @@ static void parse_decl(lily_parse_state *parser, lily_type *type)
         NEED_CURRENT_TOK(want_token)
 
         if (lex->token == tk_word)
-            var = get_named_var(parser, type, flags);
+            var = get_named_var(parser, NULL, flags);
         else
-            prop = get_named_property(parser, type, flags);
-
-        if (lex->token != tk_equal)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "An initialization expression is required here.\n");
+            prop = get_named_property(parser, NULL, flags);
 
         if (var != NULL) {
             /* It's important to add locals and globals differently, because
@@ -1361,6 +1350,21 @@ static void parse_decl(lily_parse_state *parser, lily_type *type)
         else
             lily_ast_push_property(parser->ast_pool, prop);
 
+        if (lex->token == tk_colon) {
+            lily_lexer(lex);
+            lily_type *t = collect_var_type(parser, 0);
+
+            if (var)
+                var->type = t;
+            else
+                prop->type = t;
+        }
+
+        if (lex->token != tk_equal) {
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "An initialization expression is required here.\n");
+        }
+
         lily_ast_push_binary_op(parser->ast_pool, expr_assign);
         lily_lexer(lex);
         expression(parser);
@@ -1371,7 +1375,7 @@ static void parse_decl(lily_parse_state *parser, lily_type *type)
            one decl at a time to discourage excessive use of 'var'). */
         if (token == tk_word || token == tk_prop_word || token == tk_end_tag ||
             token == tk_inner_eof || token == tk_right_curly ||
-            token == tk_final_eof || type == NULL)
+            token == tk_final_eof)
             break;
         else if (token != tk_comma) {
             lily_raise(parser->raiser, lily_SyntaxError,
@@ -1493,17 +1497,11 @@ static void statement(lily_parse_state *parser, int multi)
                 lclass = lily_class_by_name(parser->symtab, lex->label);
 
                 if (lclass != NULL) {
+                    NEED_NEXT_TOK(tk_colon_colon)
+                    expression_static_call(parser, lclass);
                     lily_lexer(lex);
-                    if (lex->token == tk_colon_colon) {
-                        expression_static_call(parser, lclass);
-                        lily_lexer(lex);
-                        expression_raw(parser, ST_WANT_OPERATOR);
-                        lily_emit_eval_expr(parser->emit, parser->ast_pool);
-                    }
-                    else {
-                        lily_type *cls_type = collect_var_type(parser, lclass, 0);
-                        parse_decl(parser, cls_type);
-                    }
+                    expression_raw(parser, ST_WANT_OPERATOR);
+                    lily_emit_eval_expr(parser->emit, parser->ast_pool);
                 }
                 else {
                     expression(parser);
@@ -2059,11 +2057,6 @@ static void class_handler(lily_parse_state *parser, int multi)
     lily_finish_class(parser->symtab, created_class);
 
     lily_emit_leave_block(parser->emit);
-}
-
-static void var_handler(lily_parse_state *parser, int multi)
-{
-    parse_decl(parser, NULL);
 }
 
 static void enum_handler(lily_parse_state *parser, int multi)

@@ -3,7 +3,7 @@ enum class Option[A] {
 	::None
 }
 
-Option[integer] opt = Option::Some(10)
+var opt: Option[integer] = Option::Some(10)
 
 # Since the interpreter knows that 'opt' MUST be of type Option, it does not
 # require Option::<x> for each case.

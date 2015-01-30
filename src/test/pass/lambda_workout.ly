@@ -1,4 +1,4 @@
-define f(list[integer] lsi) {
+define f(lsi: list[integer]) {
 
 }
 
