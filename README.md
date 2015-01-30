@@ -21,5 +21,3 @@ Key features include:
 * User-declarable classes
 
 Lily is inspired by C++, Python, Ruby, Scala, and Rust.
-
-Information on how to get started can be found [here](README-getting-started.md)
