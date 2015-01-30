@@ -1,8 +1,8 @@
 define return_abc( => string) { return "abc" }
 
-list[string] results = []
-string abc = "abc"
-any abc_any = "abc"
+var results: list[string] = []
+var abc = "abc"
+var abc_any: any = "abc"
 
 results.append(abc.concat("def"))
 results.append((((abc))).concat("def"))

@@ -3,7 +3,7 @@ enum class Option[A] {
 	None
 }
 
-any a = Some(10)
+var a: any = Some(10)
 
 if a != Some(10):
 	print("Failed!\n")

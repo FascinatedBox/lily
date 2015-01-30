@@ -1,9 +1,9 @@
 
 # This is a function that takes a given value and performs two transformations
 # upon it. The result of the transformations is then yielded.
-define f[A, B, C](A value,
-                    function g(A => B),
-                    function h(B => C) => C) {
+define f[A, B, C](value: A,
+                  g: function(A => B),
+                  h: function(B => C) => C) {
     return h(g(value))
 }
 

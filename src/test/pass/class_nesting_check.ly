@@ -1,5 +1,5 @@
-class c1(integer a) {
-    class c2(integer b) {
+class c1(a: integer) {
+    class c2(b: integer) {
 
     }
     var @v = c2::new(1)

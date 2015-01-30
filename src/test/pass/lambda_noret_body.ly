@@ -3,7 +3,7 @@
 
 define noret() {}
 
-define f[A](A value) {
+define f[A](value: A) {
 }
 
 f({|| noret()})

@@ -8,4 +8,4 @@ enum class Option[A] {
 	None
 }
 
-Some[integer] = Some(10)
+var v: Some[integer] = Some(10)

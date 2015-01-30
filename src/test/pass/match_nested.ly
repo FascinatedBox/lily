@@ -3,7 +3,7 @@ enum class Option[A] {
     None
 }
 
-Option[Option[integer]] opt = Some(Some(10))
+var opt: Option[Option[integer]] = Some(Some(10))
 
 match opt: {
     case Some(s):

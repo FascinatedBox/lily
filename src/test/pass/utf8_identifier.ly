@@ -1,2 +1,2 @@
-string h3llö = "hello"
-string ustr = "á"
+var h3llö = "hello"
+var ustr = "á"

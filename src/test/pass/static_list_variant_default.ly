@@ -3,6 +3,6 @@ enum class Option[A] {
 	None
 }
 
-list[Option[any]] a = [None, None, None]
-list[Option[integer]] b = [Some(10), None, None]
-hash[integer, Option[integer]] c = [1=>None, 2=>Some(10), 3=>Some(11)]
+var a: list[Option[any]] = [None, None, None]
+var b: list[Option[integer]] = [Some(10), None, None]
+var c: hash[integer, Option[integer]] = [1=>None, 2=>Some(10), 3=>Some(11)]

@@ -3,4 +3,4 @@ enum class Option[A] {
 	::None
 }
 
-list[Option[integer]] opt = [Option::Some(10), Option::Some(12), Option::None]
+var opt: list[Option[integer]] = [Option::Some(10), Option::Some(12), Option::None]

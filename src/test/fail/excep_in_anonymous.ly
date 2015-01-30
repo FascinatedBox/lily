@@ -6,9 +6,9 @@ Traceback:
 ###
 
 define f() {
-    any a = 10
-    string s = a.@(string)
+    var a: any = 10
+    var s = a.@(string)
 }
 
-list[function()] function_list = [f, f, f]
+var function_list: list[function()] = [f, f, f]
 function_list[0]()

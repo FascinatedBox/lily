@@ -1,14 +1,14 @@
-integer ok = 1
+var ok = 1
 
 # First a test of tuple literals.
-tuple[integer, string, list[integer]] t = <[1, "1", [1]]>
+var t: tuple[integer, string, list[integer]] = <[1, "1", [1]]>
 
 # The last should default to any.
-tuple[integer, integer, any] t2 = <[11, 21, 31]>
+var t2: tuple[integer, integer, any] = <[11, 21, 31]>
 
 # Make sure that t[1] yields the proper sig at emit time by forcing a call
 # to string::concat after it.
-string s = t[1].concat("1")
+var s: string = t[1].concat("1")
 
 # Check tuple assignment too...
 t2[0] = 12

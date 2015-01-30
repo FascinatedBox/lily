@@ -31,9 +31,9 @@ if "abc\adef\a" != """abc\adef\a""":
     print("Error: Escape at mid and end failed.\n")
 
 # Finish off with some multiline strings with escapes in interesting areas:
-string s1 = """abc\n
+var s1 = """abc\n
 """
-string s2 = """abc\n
+var s2 = """abc\n
 \n"""
-string s3 = """\aabc\a
+var s3 = """\aabc\a
 \aabc\a"""

@@ -1,10 +1,10 @@
-integer i = 10
+var i = 10
 
 while i != 0: {
     i = i - 1
 }
 
-list[integer] lsi = [0, 1, 2, 3]
+var lsi = [0, 1, 2, 3]
 i = 0
 
 while i < 3: {
@@ -34,7 +34,7 @@ for i in 10...1: { }
 if i != 1:
     print("for i in 10...1 did not end with i at 1.\n")
 
-list[integer] intlist = [0, 0, 0, 0, 0, 0]
+var intlist = [0, 0, 0, 0, 0, 0]
 for i in 1...5 by 2:
     intlist[i] = 1
 

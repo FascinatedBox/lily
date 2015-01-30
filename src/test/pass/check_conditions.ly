@@ -1,5 +1,5 @@
-integer ok = 0
-integer a = 10
+var ok = 0
+var a = 10
 
 # Lily has two kind of if statements: single-line, and multi-line.
 # A single-line statement only allows one line before needing either a

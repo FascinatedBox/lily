@@ -1,3 +1,3 @@
-define f[A](list[A] value) {
+define f[A](value: list[A]) {
 	value = []
 }

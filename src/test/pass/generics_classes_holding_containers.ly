@@ -1,5 +1,5 @@
-class ListHolder[A](list[A] value) {
-    list[A] @value = value
+class ListHolder[A](value: list[A]) {
+    var @value = value
 }
 
-ListHolder[integer] holder = ListHolder::new([1])
+var holder: ListHolder[integer] = ListHolder::new([1])
