@@ -472,11 +472,11 @@ typedef struct lily_prop_seed_t {
 /* Don't put this in a register. This is used for functions, which are loaded
    as if they were literals. */
 #define VAR_IS_READONLY         0x100
-/* If this is set, the associated value should be treated as if it were unset,
-   Don't ref/deref things which have this value associated with them.
-   Anys: An any is nil if a value has not been allocated for it. If nil values
-         are given to an any, then the any's inner_value should be set to
-         nil. */
+/* This is put on intermediate values (storages) which don't have a value on
+   them just yet. Variables always have a value.
+   An 'any' value will have this set on the inner value, before that value has
+   been set to anything.
+   Things with this set should not get refs or derefs. */
 #define VAL_IS_NIL              0x200
 /* If this is set, the associated value is valid, but should not get any refs
    or derefs. This is set on values that load literals to prevent literals from

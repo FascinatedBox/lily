@@ -607,8 +607,7 @@ static void show_hash_value(lily_debug_state *debug, lily_type *type,
 
         lily_msgbuf_add_fmt(msgbuf, "^I|____[", indent - 1);
         write_msgbuf(debug);
-        /* vm does not allow creating hashes with nil keys, so this should be
-           safe. */
+
         show_simple_value(debug, key_type, elem_iter->elem_key->value);
         lily_impl_puts(debug->data, "] = ");
 
