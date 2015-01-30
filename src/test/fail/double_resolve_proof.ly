@@ -1,9 +1,9 @@
-###
+#[
 SyntaxError: Function f, argument #3 is invalid:
 Expected Type: list[A]
 Received Type: list[list[integer]]
 Where: File "test/fail/double_resolve_proof.ly" at line 28
-###
+]#
 
 define f[A, B](one: A, two: B, three: B) {  }
 

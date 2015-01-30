@@ -1,9 +1,9 @@
-###
+#[
 SyntaxError: Function f, argument #2 is invalid:
 Expected Type: integer
 Received Type: string
 Where: File "test/fail/generics_default_only_resolved.ly" at line 14
-###
+]#
 
 define f[A](value1: A, value2: A) {  }
 define g[A](value1: A => A) {  }
