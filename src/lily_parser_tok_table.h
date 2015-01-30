@@ -19,7 +19,7 @@ typedef struct {
     lily_expr_op expr_op;
 } lily_tok_info;
 
-static const lily_tok_info parser_tok_table[] = 
+static const lily_tok_info parser_tok_table[] =
 {
 	/* token name       | val_or_end | expr_op */
 	{tk_left_parenth,     0          , -1},

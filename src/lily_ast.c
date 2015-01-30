@@ -96,7 +96,7 @@ lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
              ok = 0;
              break;
         }
- 
+
         new_tree->next_tree = last_tree;
         last_tree = new_tree;
     }

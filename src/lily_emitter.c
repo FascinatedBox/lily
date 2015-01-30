@@ -2324,7 +2324,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     This handles creation of a tuple from a series of values. The resulting
     tuple will have a type that matches what it obtained.
 
-    <[1, "2", 3.3]> # tuple[integer, string, double] 
+    <[1, "2", 3.3]> # tuple[integer, string, double]
 
     This attempts to do the same sort of defaulting that eval_build_list and
     eval_build_hash do:
