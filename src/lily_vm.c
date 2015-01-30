@@ -329,7 +329,7 @@ static void invoke_gc(lily_vm_state *vm)
         int i;
         /* Stage 3: Check registers not currently in use to see if they hold a
                     value that's going to be collected. If so, then mark the
-                    register as nil so that */
+                    register as nil so that the value will be cleared later. */
         for (i = vm->num_registers;i < vm->max_registers;i++) {
             lily_value *reg = regs_from_main[i];
             if ((reg->type->flags & TYPE_MAYBE_CIRCULAR) &&

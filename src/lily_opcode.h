@@ -179,10 +179,10 @@ typedef enum {
 
     /* Return expected:
        * int lineno
-       This is written at the end of every native function that has a non-nil
-       return value. This raises ReturnExpectedError within the vm. This has
-       lineno included because the vm expects that any opcode that raises has
-       a line double after it. */
+       This is written at the end of every native function that has a return
+       value. This raises ReturnExpectedError within the vm. This has lineno
+       included because the vm expects that any opcode that raises an error
+       have a line number after it. */
     o_return_expected,
 
     /* for (integer range):
@@ -207,10 +207,9 @@ typedef enum {
        * reg(integer) step
        * int setup step
        This is run before entering a for loop, and acts as a quick sanity check
-       before entering the loop. Both start and end are checked for being nil
-       here. If setup setp is 1, then the step will be calculated as -1 or +1.
-       This sets user loop var to start, so that it has a proper initial value
-       before entering the loop. */
+       before entering the loop. If setup setp is 1, then the step will be
+       calculated as -1 or +1. This sets user loop var to start, so that it has
+       a proper initial value before entering the loop. */
     o_for_setup,
 
     /* Get Item:
