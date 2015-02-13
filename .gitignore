@@ -3,6 +3,7 @@
 lily
 lily_aft
 
+# Autotools-related stuff.
 .libs/
 .deps/
 Makefile
@@ -29,3 +30,8 @@ src/Makefile
 src/Makefile.am
 src/Makefile.in
 stamp-h1
+
+# Stuff from the Codelite IDE to ignore.
+.codelite/
+LilyProject.project
+LilyProject.workspace
