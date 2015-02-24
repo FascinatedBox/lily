@@ -1070,6 +1070,9 @@ static void expression_literal(lily_parse_state *parser, int *state)
         if (did_fixup == 0)
             *state = ST_DONE;
     }
+    else if (*state == ST_WANT_OPERATOR)
+        /* Disable multiple strings without dividing commas. */
+        *state = ST_BAD_TOKEN;
     else {
         lily_ast_push_literal(parser->ast_pool, lex->last_literal);
         *state = ST_WANT_OPERATOR;
