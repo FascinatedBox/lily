@@ -1,0 +1,17 @@
+var expected = 
+["1_1",
+ "2_2",
+ "3_3",
+ "4_4",
+ "5_5",
+ "6_6",
+ "7_7",
+ "8_8",
+ "9_9",
+ "10_10"]
+
+for i in 1...10: {
+    var result = string::format("%d_%d", i, i)
+    if result != expected[i - 1]:
+        print("Failed.\n")
+}
