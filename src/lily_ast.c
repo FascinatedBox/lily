@@ -38,6 +38,19 @@
       expression ending early (save_index is 0 if there are no subtrees).
 **/
 
+/*  ACQUIRE_SPARE_TREE
+    This macro creates and initializes an extra tree with the name given. */
+#define ACQUIRE_SPARE_TREE(spare) \
+lily_ast *spare; \
+spare = ap->available_current; \
+if (spare->next_tree == NULL) \
+    add_new_tree(ap); \
+\
+ap->available_current = spare->next_tree; \
+spare->next_arg = NULL; \
+spare->line_num = *ap->lex_linenum; \
+spare->parent = a;
+
 /*  AST_COMMON_INIT
     This macro does common initialization for all new asts. This doesn't set
     result to NULL, because value trees set a result. */
@@ -442,6 +455,11 @@ void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type)
     AST_ENTERABLE_INIT(a, tree_type)
 
     merge_value(ap, a);
+
+    if (tree_type == tree_call) {
+        ACQUIRE_SPARE_TREE(spare)
+        a->stashed_tree = spare;
+    }
 
     lily_ast_save_entry *save_entry;
     if (ap->save_depth == 0)

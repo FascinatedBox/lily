@@ -2565,6 +2565,11 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
        var arg type. */
     num_args = (call_type->subtype_count - 1) - is_varargs;
 
+    if ((is_varargs && (have_args < num_args)) ||
+        (is_varargs == 0 && (have_args != num_args))) {
+        bad_num_args(emit, ast, call_type);
+    }
+
     /* Templates are rather simple: The first time they're seen, the type they
        see is written into emitter's type stack. Subsequent passes check that
        the type seen is the same one (so multiple uses of A have the same
@@ -2609,10 +2614,6 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
 
     emit->current_generic_adjust = template_adjust;
 
-    if ((is_varargs && (have_args <= num_args)) ||
-        (is_varargs == 0 && (have_args != num_args)))
-        bad_num_args(emit, ast, call_type);
-
     for (i = 0;i != num_args;arg = arg->next_arg, i++)
         eval_call_arg(emit, ast, template_adjust, call_type->subtypes[i + 1],
                 arg, i);
@@ -2647,8 +2648,30 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             save_type = lily_ts_resolve(emit->ts, save_type);
 
         s = get_storage(emit, save_type, ast->line_num);
-        write_build_op(emit, o_build_list_tuple, save_arg, save_arg->line_num,
-                i, s->reg_spot);
+
+        if (have_args > num_args)
+            write_build_op(emit, o_build_list_tuple, save_arg,
+                save_arg->line_num, i, s->reg_spot);
+        else {
+            /* This happens when the user doesn't pass anything for the vararg
+               part. Solve this by creating a blank value (with the right type)
+               and adding a tree to hold said value. */
+            write_4(emit, o_build_list_tuple, ast->line_num, 0, s->reg_spot);
+            save_arg = ast->stashed_tree;
+            ast->stashed_tree->tree_type = tree_list;
+
+            lily_ast *tree_iter = true_start;
+            /* If there are other arguments, put this new tree at the end. */
+            if (true_start) {
+                while (tree_iter->next_arg != NULL)
+                    tree_iter = tree_iter->next_arg;
+
+                tree_iter->next_arg = save_arg;
+            }
+            else
+                /* Otherwise, the new tree becomes the argument chain. */
+                true_start = save_arg;
+        }
 
         /* Fix the ast so that it thinks the vararg list is the last value. */
         save_arg->result = (lily_sym *)s;
