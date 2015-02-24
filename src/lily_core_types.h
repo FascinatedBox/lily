@@ -510,8 +510,4 @@ typedef struct lily_prop_seed_t {
 #define SYM_CLASS_KEYERROR       18
 #define SYM_CLASS_FORMATERROR    19
 
-/* TODO: Make classes into a linked list so this can go away. */
-#define SYM_LAST_CLASS      19
-#define INITIAL_CLASS_SIZE  20
-
 #endif
