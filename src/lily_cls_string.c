@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "lily_impl.h"
 #include "lily_value.h"
@@ -820,8 +821,153 @@ void lily_string_htmlencode(lily_vm_state *vm, lily_function_val *self,
     result_arg->value.string = new_sv;
 }
 
+/*  lily_string_format
+    Implements string::format
+
+    Arguments:
+    * input: The format string, describing how to use the args given.
+    * args: The values to format.
+
+    This takes 'input' as a format string, and 'args' as the values to format.
+    The result is a string formatted appropriately. This is the same as the
+    builtin function 'printfmt' (except the result goes to a string). */
+void lily_string_format(lily_vm_state *vm, lily_function_val *self,
+        uint16_t *code)
+{
+    char *buffer_str, *fmt;
+    int arg_pos, buffer_index, buffer_max, fmt_index;
+    lily_list_val *vararg_lv;
+    lily_value *result_arg;
+    lily_value **vm_regs = vm->vm_regs;
+    lily_vm_stringbuf *string_buffer;
+
+    /* This grabs the values passed, as well as grabbing the vm's string buffer
+       which will get used for building the string. */
+    string_buffer = vm->string_buffer;
+    buffer_str = string_buffer->data;
+    fmt = vm_regs[code[0]]->value.string->string;
+    vararg_lv = vm_regs[code[1]]->value.list;
+    result_arg = vm_regs[code[2]];
+    buffer_index = 0;
+    buffer_max = vm->string_buffer->data_size;
+    arg_pos = 0;
+    fmt_index = 0;
+
+    while (1) {
+        char ch = fmt[fmt_index];
+        if (buffer_index == buffer_max) {
+            buffer_max *= 2;
+            char *new_str = lily_realloc(buffer_str, buffer_max * 2);
+            if (new_str == NULL)
+                lily_raise_nomem(vm->raiser);
+
+            string_buffer->data = new_str;
+            buffer_str = new_str;
+
+            string_buffer->data_size = buffer_max;
+        }
+
+        if (fmt[fmt_index] != '%') {
+            buffer_str[buffer_index] = ch;
+            buffer_index++;
+            if (ch == '\0')
+                break;
+        }
+        else if (fmt[fmt_index] == '%') {
+            if (arg_pos == vararg_lv->num_values)
+                lily_raise(vm->raiser, lily_FormatError,
+                        "Not enough args for string::format.\n");
+
+            char fmtbuf[64];
+            char *add_str = NULL;
+            int add_len = 0, cls_id;
+            lily_any_val *arg_av;
+            lily_value *arg;
+            lily_raw_value val;
+
+            arg_av = vararg_lv->elems[arg_pos]->value.any;
+            arg = arg_av->inner_value;
+            cls_id = arg->type->cls->id;
+            val = arg->value;
+
+            /* Unlike with printfmt, the result of each of these gets added to
+               the string. So have each case say what it wants to add, then add
+               it. */
+            fmt_index++;
+            if (fmt[fmt_index] == 'd') {
+                if (cls_id != SYM_CLASS_INTEGER)
+                    lily_raise(vm->raiser, lily_FormatError,
+                            "%%d is not valid for type ^T.\n",
+                            arg->type);
+
+                snprintf(fmtbuf, 63, "%" PRId64, val.integer);
+                add_str = fmtbuf;
+                add_len = strlen(fmtbuf);
+            }
+            else if (fmt[fmt_index] == 's') {
+                if (cls_id != SYM_CLASS_STRING)
+                    lily_raise(vm->raiser, lily_FormatError,
+                            "%%s is not valid for type ^T.\n",
+                            arg->type);
+
+                add_str = val.string->string;
+                add_len = val.string->size;
+            }
+            else if (fmt[fmt_index] == 'f') {
+                if (cls_id != SYM_CLASS_DOUBLE)
+                    lily_raise(vm->raiser, lily_FormatError,
+                            "%%f is not valid for type ^T.\n",
+                            arg->type);
+
+                snprintf(fmtbuf, 63, "%f", val.doubleval);
+                add_str = fmtbuf;
+                add_len = strlen(fmtbuf);
+            }
+
+            /* The string buffer might need to grow. Make sure it grows as big
+               as needed. */
+            if (buffer_index + add_len > buffer_max) {
+                do {
+                    buffer_max *= 2;
+                } while (buffer_index + add_len > buffer_max);
+
+                char *new_str = lily_realloc(buffer_str, buffer_max);
+                if (new_str == NULL)
+                    lily_raise_nomem(vm->raiser);
+
+                string_buffer->data = new_str;
+                buffer_str = new_str;
+
+                string_buffer->data_size = buffer_max;
+            }
+
+            /* Use strcpy with an adjusted index because there is no \0 yet.
+               This is safe because strings should never have embedded \0's. */
+            strcpy(buffer_str + buffer_index, add_str);
+            buffer_index += add_len;
+            arg_pos++;
+        }
+        fmt_index++;
+    }
+
+    lily_string_val *new_sv = try_make_sv(buffer_index + 1);
+    if (new_sv == NULL)
+        lily_raise_nomem(vm->raiser);
+
+    strcpy(new_sv->string, buffer_str);
+
+    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+        lily_deref_string_val(result_arg->value.string);
+
+    result_arg->flags = 0;
+    result_arg->value.string = new_sv;
+}
+
+static const lily_func_seed format =
+    {"format", "function format(string, list[any]... => string)", lily_string_format, NULL};
+
 static const lily_func_seed htmlencode =
-    {"htmlencode", "function htmlencode(string => string)", lily_string_htmlencode, NULL};
+    {"htmlencode", "function htmlencode(string => string)", lily_string_htmlencode, &format};
 
 static const lily_func_seed trim =
     {"trim", "function trim(string => string)", lily_string_trim, &htmlencode};

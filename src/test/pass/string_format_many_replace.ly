@@ -1,0 +1,6 @@
+# Make sure string::format can handle multiple formats by each other.
+
+var s: string = "    "
+var result = string::format("%s%s%s%s%s%s%s%s%s%s", s,s,s,s,s,s,s,s,s,s)
+if result != "                                        ":
+    print("Failed.\n")
