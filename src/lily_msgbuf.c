@@ -5,19 +5,16 @@
 #include "lily_msgbuf.h"
 #include "lily_core_types.h"
 
-lily_msgbuf *lily_new_msgbuf(void)
+#define malloc_mem(size)             msgbuf->mem_func(NULL, size)
+#define realloc_mem(ptr, size)       msgbuf->mem_func(ptr, size)
+#define free_mem(ptr)          (void)msgbuf->mem_func(ptr, 0)
+
+lily_msgbuf *lily_new_msgbuf(lily_mem_func mem_func)
 {
-    lily_msgbuf *msgbuf = lily_malloc(sizeof(lily_msgbuf));
-    if (msgbuf == NULL)
-        return NULL;
+    lily_msgbuf *msgbuf = mem_func(NULL, sizeof(lily_msgbuf));
+    msgbuf->mem_func = mem_func;
 
-    msgbuf->message = lily_malloc(64 * sizeof(char));
-
-    if (msgbuf->message == NULL) {
-        lily_free_msgbuf(msgbuf);
-        return NULL;
-    }
-
+    msgbuf->message = malloc_mem(64 * sizeof(char));
     msgbuf->message[0] = '\0';
     msgbuf->pos = 0;
     msgbuf->size = 64;
@@ -31,7 +28,7 @@ static int try_resize_msgbuf(lily_msgbuf *msgbuf, int new_size)
     char *new_message;
     int ret;
 
-    new_message = lily_realloc(msgbuf->message, new_size);
+    new_message = realloc_mem(msgbuf->message, new_size);
 
     if (new_message == NULL) {
         msgbuf->truncated = 1;
@@ -48,8 +45,8 @@ static int try_resize_msgbuf(lily_msgbuf *msgbuf, int new_size)
 
 void lily_free_msgbuf(lily_msgbuf *msgbuf)
 {
-    lily_free(msgbuf->message);
-    lily_free(msgbuf);
+    free_mem(msgbuf->message);
+    free_mem(msgbuf);
 }
 
 void lily_msgbuf_add(lily_msgbuf *msgbuf, char *str)

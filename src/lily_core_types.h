@@ -16,6 +16,12 @@ struct lily_register_info_t;
 struct lily_func_seed_t;
 struct lily_function_val_t;
 
+/* This is the signature of the function that the interpreter will call to
+   get, resize, and free memory. A custom allocator function can be passed
+   when creating a new parser instance.
+   The interpreter assumes that this function will call abort() for a no
+   memory situation, and acts accordingly. */
+typedef void *(*lily_mem_func)(void *, size_t);
 /* gc_marker_func is a function called to mark all values within a given value.
    The is used by the gc to mark values as being visited. Values not visited
    will be collected. */

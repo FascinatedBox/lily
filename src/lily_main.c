@@ -123,12 +123,7 @@ int main(int argc, char **argv)
 {
     process_args(argc, argv);
 
-    lily_parse_state *parser = lily_new_parse_state(NULL, argc, argv);
-    if (parser == NULL) {
-        fputs("NoMemoryError: No memory to alloc interpreter.\n", stderr);
-        exit(EXIT_FAILURE);
-    }
-
+    lily_parse_state *parser = lily_new_parse_state(NULL, NULL, argc, argv);
     lily_lex_mode mode = (do_tags ? lm_tags : lm_no_tags);
 
     int result;

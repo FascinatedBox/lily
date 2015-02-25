@@ -3,6 +3,10 @@
 #include "lily_impl.h"
 #include "lily_symtab.h"
 
+#define malloc_mem(size)             symtab->mem_func(NULL, size)
+#define realloc_mem(ptr, size)       symtab->mem_func(ptr, size)
+#define free_mem(ptr)          (void)symtab->mem_func(ptr, 0)
+
 static void bind_stringlist(lily_symtab *symtab, int stringlist_size,
         char **stringlist, int *ok)
 {
@@ -19,11 +23,11 @@ static void bind_stringlist(lily_symtab *symtab, int stringlist_size,
     if (bound_var == NULL)
         return;
 
-    lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
-    lily_value **values = lily_malloc(stringlist_size * sizeof(lily_value));
+    lily_list_val *lv = malloc_mem(sizeof(lily_list_val));
+    lily_value **values = malloc_mem(stringlist_size * sizeof(lily_value));
     if (lv == NULL || values == NULL) {
-        lily_free(lv);
-        lily_free(values);
+        free_mem(lv);
+        free_mem(values);
         return;
     }
 
@@ -39,7 +43,7 @@ static void bind_stringlist(lily_symtab *symtab, int stringlist_size,
     int i, err;
     err = 0;
     for (i = 0;i < stringlist_size;i++) {
-        values[i] = lily_malloc(sizeof(lily_value));
+        values[i] = malloc_mem(sizeof(lily_value));
         if (values[i] == NULL) {
             lv->num_values = i;
             err = 1;
@@ -51,12 +55,12 @@ static void bind_stringlist(lily_symtab *symtab, int stringlist_size,
 
     if (err == 0) {
         for (i = 0;i < stringlist_size;i++) {
-            lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
-            char *raw_string = lily_malloc(strlen(stringlist[i]) + 1);
+            lily_string_val *sv = malloc_mem(sizeof(lily_string_val));
+            char *raw_string = malloc_mem(strlen(stringlist[i]) + 1);
 
             if (sv == NULL || raw_string == NULL) {
-                lily_free(sv);
-                lily_free(raw_string);
+                free_mem(sv);
+                free_mem(raw_string);
                 err = 1;
                 break;
             }
@@ -89,32 +93,25 @@ int lily_pkg_sys_init(lily_symtab *symtab, int argc, char **argv)
         bind_stringlist(symtab, argc, argv, &ok);
 
         if (ok) {
-            lily_package_val *pval = lily_malloc(sizeof(lily_package_val));
-            lily_var **package_vars = lily_malloc(1 * sizeof(lily_var *));
-            if (pval == NULL || package_vars == NULL) {
-                lily_free(pval);
-                lily_free(package_vars);
-                ok = 0;
+            lily_package_val *pval = malloc_mem(sizeof(lily_package_val));
+            lily_var **package_vars = malloc_mem(1 * sizeof(lily_var *));
+            int i = 0;
+            lily_var *var_iter = symtab->var_chain;
+            while (var_iter != save_chain) {
+                package_vars[i] = var_iter;
+                i++;
+                var_iter = var_iter->next;
             }
-            else {
-                int i = 0;
-                lily_var *var_iter = symtab->var_chain;
-                while (var_iter != save_chain) {
-                    package_vars[i] = var_iter;
-                    i++;
-                    var_iter = var_iter->next;
-                }
-                symtab->var_chain = save_chain;
-                symtab->next_register_spot = save_spot;
+            symtab->var_chain = save_chain;
+            symtab->next_register_spot = save_spot;
 
-                pval->refcount = 1;
-                pval->name = bound_var->name;
-                pval->gc_entry = NULL;
-                pval->var_count = i;
-                pval->vars = package_vars;
-                bound_var->flags &= ~VAL_IS_NIL;
-                bound_var->value.package = pval;
-            }
+            pval->refcount = 1;
+            pval->name = bound_var->name;
+            pval->gc_entry = NULL;
+            pval->var_count = i;
+            pval->vars = package_vars;
+            bound_var->flags &= ~VAL_IS_NIL;
+            bound_var->value.package = pval;
         }
     }
 

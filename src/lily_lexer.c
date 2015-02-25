@@ -136,39 +136,38 @@ static const lily_token grp_two_eq_table[] =
     tk_not_eq, tk_modulo_eq, tk_multiply_eq, tk_divide_eq,
 };
 
+#define malloc_mem(size)             lexer->mem_func(NULL, size)
+#define realloc_mem(ptr, size)       lexer->mem_func(ptr, size)
+#define free_mem(ptr)          (void)lexer->mem_func(ptr, 0)
+
 /** Lexer init and deletion **/
-lily_lex_state *lily_new_lex_state(lily_raiser *raiser, void *data)
+lily_lex_state *lily_new_lex_state(lily_mem_func mem_func, lily_raiser *raiser,
+        void *data)
 {
-    lily_lex_state *lex = lily_malloc(sizeof(lily_lex_state));
+    lily_lex_state *lexer = mem_func(NULL, sizeof(lily_lex_state));
+    lexer->mem_func = mem_func;
+
     char *ch_class;
 
-    if (lex == NULL)
-        return NULL;
-
-    lex->last_digit_start = 0;
-    lex->entry = NULL;
-    lex->filename = NULL;
-    lex->raiser = raiser;
-    lex->data = data;
-    lex->input_buffer = lily_malloc(128 * sizeof(char));
-    lex->label = lily_malloc(128 * sizeof(char));
-    lex->ch_class = NULL;
-    lex->last_literal = NULL;
+    lexer->last_digit_start = 0;
+    lexer->entry = NULL;
+    lexer->filename = NULL;
+    lexer->raiser = raiser;
+    lexer->data = data;
+    lexer->input_buffer = malloc_mem(128 * sizeof(char));
+    lexer->label = malloc_mem(128 * sizeof(char));
+    lexer->ch_class = NULL;
+    lexer->last_literal = NULL;
     /* Allocate space for making lambdas only if absolutely needed. */
-    lex->lambda_data = NULL;
-    lex->lambda_data_size = 0;
-    ch_class = lily_malloc(256 * sizeof(char));
+    lexer->lambda_data = NULL;
+    lexer->lambda_data_size = 0;
+    ch_class = malloc_mem(256 * sizeof(char));
 
-    if (ch_class == NULL || lex->label == NULL || lex->input_buffer == NULL) {
-        lily_free_lex_state(lex);
-        return NULL;
-    }
-
-    lex->input_pos = 0;
-    lex->input_size = 128;
-    lex->label_size = 128;
+    lexer->input_pos = 0;
+    lexer->input_size = 128;
+    lexer->label_size = 128;
     /* This must start at 0 since the line reader will bump it by one. */
-    lex->line_num = 0;
+    lexer->line_num = 0;
 
     /* Initialize ch_class, which is used to determine what 'class' a letter
        is in. */
@@ -219,58 +218,56 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser, void *data)
        the token before the first lily_lexer call. This is important, because
        lily_lexer_handle_page_data may return tk_final_eof if there is nothing
        to parse. */
-    lex->token = tk_invalid;
-    lex->ch_class = ch_class;
-    return lex;
+    lexer->token = tk_invalid;
+    lexer->ch_class = ch_class;
+    return lexer;
 }
 
-void lily_free_lex_state(lily_lex_state *lex)
+void lily_free_lex_state(lily_lex_state *lexer)
 {
-    if (lex->entry) {
-        lily_lex_entry *entry_iter = lex->entry;
+    if (lexer->entry) {
+        lily_lex_entry *entry_iter = lexer->entry;
         while (entry_iter->prev)
             entry_iter = entry_iter->prev;
 
         lily_lex_entry *entry_next;
         while (entry_iter) {
             if (entry_iter->source != NULL)
-                lex->entry->close_fn(lex->entry);
+                lexer->entry->close_fn(lexer->entry);
 
             entry_next = entry_iter->next;
-            lily_free(entry_iter->saved_input);
-            lily_free(entry_iter);
+            free_mem(entry_iter->saved_input);
+            free_mem(entry_iter);
             entry_iter = entry_next;
         }
     }
 
-    lily_free(lex->lambda_data);
-    lily_free(lex->input_buffer);
-    lily_free(lex->ch_class);
-    lily_free(lex->label);
-    lily_free(lex);
+    free_mem(lexer->lambda_data);
+    free_mem(lexer->input_buffer);
+    free_mem(lexer->ch_class);
+    free_mem(lexer->label);
+    free_mem(lexer);
 }
 
 /*  get_entry
     Obtain a lily_lex_entry to be used for entering a string, file, or some
     other source. The lexer retains a linked list of these, and attempts to
     reuse them when it can. */
-static lily_lex_entry *get_entry(lily_lex_state *lex)
+static lily_lex_entry *get_entry(lily_lex_state *lexer)
 {
     lily_lex_entry *ret_entry = NULL;
 
-    if (lex->entry == NULL ||
-        (lex->entry->source != NULL && lex->entry->next == NULL)) {
-        ret_entry = lily_malloc(sizeof(lily_lex_entry));
-        if (ret_entry == NULL)
-            lily_raise_nomem(lex->raiser);
+    if (lexer->entry == NULL ||
+        (lexer->entry->source != NULL && lexer->entry->next == NULL)) {
+        ret_entry = malloc_mem(sizeof(lily_lex_entry));
 
-        if (lex->entry == NULL) {
-            lex->entry = ret_entry;
+        if (lexer->entry == NULL) {
+            lexer->entry = ret_entry;
             ret_entry->prev = NULL;
         }
         else {
-            lex->entry->next = ret_entry;
-            ret_entry->prev = lex->entry;
+            lexer->entry->next = ret_entry;
+            ret_entry->prev = lexer->entry;
         }
 
         ret_entry->source = NULL;
@@ -281,13 +278,13 @@ static lily_lex_entry *get_entry(lily_lex_state *lex)
         ret_entry->saved_input_end = 0;
 
         ret_entry->next = NULL;
-        ret_entry->lexer = lex;
+        ret_entry->lexer = lexer;
     }
     else {
-        if (lex->entry->source == NULL)
-            ret_entry = lex->entry;
+        if (lexer->entry->source == NULL)
+            ret_entry = lexer->entry;
         else
-            ret_entry = lex->entry->next;
+            ret_entry = lexer->entry->next;
     }
 
     if (ret_entry->prev) {
@@ -296,30 +293,27 @@ static lily_lex_entry *get_entry(lily_lex_state *lex)
         /* size + 1 isn't needed here because the input buffer's size includes
            space for the \0. */
         if (prev_entry->saved_input == NULL)
-            new_input = lily_malloc(lex->input_size);
-        else if (prev_entry->saved_input_size < lex->input_size)
-            new_input = lily_realloc(prev_entry->saved_input, lex->input_size);
+            new_input = malloc_mem(lexer->input_size);
+        else if (prev_entry->saved_input_size < lexer->input_size)
+            new_input = realloc_mem(prev_entry->saved_input, lexer->input_size);
         else
             new_input = prev_entry->saved_input;
 
-        if (new_input == NULL)
-            lily_raise_nomem(lex->raiser);
-
-        strcpy(new_input, lex->input_buffer);
+        strcpy(new_input, lexer->input_buffer);
         prev_entry->saved_input = new_input;
-        prev_entry->saved_line_num = lex->line_num;
-        prev_entry->saved_input_pos = lex->input_pos;
-        prev_entry->saved_input_size = lex->input_size;
-        prev_entry->saved_input_end = lex->input_end;
-        prev_entry->filename = lex->filename;
-        prev_entry->saved_token = lex->token;
-        prev_entry->saved_last_literal = lex->last_literal;
+        prev_entry->saved_line_num = lexer->line_num;
+        prev_entry->saved_input_pos = lexer->input_pos;
+        prev_entry->saved_input_size = lexer->input_size;
+        prev_entry->saved_input_end = lexer->input_end;
+        prev_entry->filename = lexer->filename;
+        prev_entry->saved_token = lexer->token;
+        prev_entry->saved_last_literal = lexer->last_literal;
 
-        lex->line_num = 0;
+        lexer->line_num = 0;
     }
 
-    lex->input_pos = 0;
-    lex->entry = ret_entry;
+    lexer->input_pos = 0;
+    lexer->entry = ret_entry;
 
     return ret_entry;
 }
@@ -345,11 +339,11 @@ static void setup_entry(lily_lex_state *lexer, lily_lex_entry *new_entry,
     This is called when the end of an entry is reached. The current entry is
     left, and the previously-entered one is set up in place of it.
 
-    Note: Callers of this function should make sure that lex->input_pos is not
+    Note: Callers of this function should make sure that lexer->input_pos is not
     set to a bad value after this is called (ex: from a loop). */
-static lily_token leave_entry(lily_lex_state *lex)
+static lily_token leave_entry(lily_lex_state *lexer)
 {
-    lily_lex_entry *entry = lex->entry;
+    lily_lex_entry *entry = lexer->entry;
     lily_token token;
 
     if (entry->prev) {
@@ -360,26 +354,26 @@ static lily_token leave_entry(lily_lex_state *lex)
 
         entry = entry->prev;
 
-        strcpy(lex->input_buffer, entry->saved_input);
+        strcpy(lexer->input_buffer, entry->saved_input);
 
-        lex->line_num = entry->saved_line_num;
-        lex->input_pos = entry->saved_input_pos;
+        lexer->line_num = entry->saved_line_num;
+        lexer->input_pos = entry->saved_input_pos;
         /* The lexer's input buffer may have been resized by the entered file.
-           Do NOT restore lex->input_size here. Ever. */
-        lex->input_end = entry->saved_input_end;
-        lex->filename = entry->filename;
-        lex->entry = entry;
-        lex->last_literal = entry->saved_last_literal;
+           Do NOT restore lexer->input_size here. Ever. */
+        lexer->input_end = entry->saved_input_end;
+        lexer->filename = entry->filename;
+        lexer->entry = entry;
+        lexer->last_literal = entry->saved_last_literal;
 
         token = entry->saved_token;
-        /* lex->label has almost certainly been overwritten with something
+        /* lexer->label has almost certainly been overwritten with something
            else. Restore it by rolling back and calling for a rescan. */
         if (token == tk_word) {
-            int pos = lex->input_pos - 1;
-            char ch = lex->input_buffer[pos];
+            int pos = lexer->input_pos - 1;
+            char ch = lexer->input_buffer[pos];
             while (ident_table[(unsigned int)ch] && pos != 0) {
                 pos--;
-                ch = lex->input_buffer[pos];
+                ch = lexer->input_buffer[pos];
             }
             /* The rewinding stops on a non-identifier position if it isn't
                zero. Move it forward one, or the lexer will yield the wrong
@@ -387,8 +381,8 @@ static lily_token leave_entry(lily_lex_state *lex)
             if (pos != 0)
                 pos++;
 
-            lex->input_pos = pos;
-            lily_lexer(lex);
+            lexer->input_pos = pos;
+            lily_lexer(lexer);
         }
     }
     else {
@@ -563,7 +557,9 @@ static void string_copy_close_fn(lily_lex_entry *entry)
 {
     /* The original string is kept in entry->extra since line reading moves
        entry->source. */
-    lily_free(entry->extra);
+    lily_lex_state *lexer = entry->lexer;
+
+    free_mem(entry->extra);
 }
 
 /** Scanning functions and helpers **/
@@ -928,9 +924,7 @@ static void ensure_lambda_data_size(lily_lex_state *lexer, int at_least)
     while (new_size < at_least)
         new_size *= 2;
 
-    char *new_data = lily_realloc(lexer->lambda_data, new_size);
-    if (new_data == NULL)
-        lily_raise_nomem(lexer->raiser);
+    char *new_data = realloc_mem(lexer->lambda_data, new_size);
 
     lexer->lambda_data = new_data;
     lexer->lambda_data_size = new_size;
@@ -967,11 +961,8 @@ static void scan_string(lily_lex_state *lexer, int *pos, char *new_ch,
         if (label_pos >= lexer->label_size) {
             int new_label_size = lexer->label_size * 2;
             char *new_label;
-            new_label = lily_realloc(lexer->label,
+            new_label = realloc_mem(lexer->label,
                     (new_label_size * sizeof(char)));
-
-            if (new_label == NULL)
-                lily_raise_nomem(lexer->raiser);
 
             lexer->label = new_label;
             lexer->label_size = new_label_size;
@@ -1037,9 +1028,7 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
     lexer->lambda_start_line = lexer->line_num;
 
     if (lexer->lambda_data == NULL) {
-        lexer->lambda_data = lily_malloc(64);
-        if (lexer->lambda_data == NULL)
-            lily_raise_nomem(lexer->raiser);
+        lexer->lambda_data = malloc_mem(64);
 
         lexer->lambda_data_size = 64;
     }
@@ -1201,20 +1190,14 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
        have to check for potential overflows. */
     if (lexer->label_size == lexer->input_size) {
         char *new_label;
-        new_label = lily_realloc(lexer->label, new_size * sizeof(char));
-
-        if (new_label == NULL)
-            lily_raise_nomem(lexer->raiser);
+        new_label = realloc_mem(lexer->label, new_size * sizeof(char));
 
         lexer->label = new_label;
         lexer->label_size = new_size;
     }
 
     char *new_lb;
-    new_lb = lily_realloc(lexer->input_buffer, new_size * sizeof(char));
-
-    if (new_lb == NULL)
-        lily_raise_nomem(lexer->raiser);
+    new_lb = realloc_mem(lexer->input_buffer, new_size * sizeof(char));
 
     lexer->input_buffer = new_lb;
     lexer->input_size = new_size;
@@ -1236,8 +1219,7 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
     given path. This will call up the first line and ensure the lexer starts
     after the <?lily block.
 
-    Note: If unable to create a new entry, NoMemoryError is raised.
-          If unable to open the given path, ImportError is raised. */
+    Note: If unable to open the given path, ImportError is raised. */
 void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
 {
     lily_lex_entry *new_entry = get_entry(lexer);
@@ -1249,7 +1231,7 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
     errno = 0;
     new_entry->source = fopen(filename, "r");
     if (new_entry->source == NULL) {
-        lily_free(new_entry);
+        free_mem(new_entry);
         lily_raise(lexer->raiser, lily_ImportError,
                    "Failed to open %s: (^R).\n", filename, errno);
     }
@@ -1261,9 +1243,7 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
 /*  lily_load_str
     This creates a new entry for the lexer that will use the given string as
     the source. This calls up the first line, but doesn't do <?lily or ?>
-    because that seems silly.
-
-    Note: If unable to allocate a new entry, NoMemoryError is raised. */
+    because that seems silly. */
 void lily_load_str(lily_lex_state *lexer, char *name, lily_lex_mode mode, char *str)
 {
     lily_lex_entry *new_entry = get_entry(lexer);
@@ -1286,9 +1266,7 @@ void lily_load_copy_string(lily_lex_state *lexer, char *name,
 {
     lily_lex_entry *new_entry = get_entry(lexer);
 
-    char *copy = lily_malloc(strlen(str) + 1);
-    if (copy == NULL)
-        lily_raise_nomem(lexer->raiser);
+    char *copy = malloc_mem(strlen(str) + 1);
 
     strcpy(copy, str);
 
@@ -1307,11 +1285,7 @@ void lily_load_copy_string(lily_lex_state *lexer, char *name,
     runner. The runner is responsible for providing a data source, a filename,
     a read function, and a close function.
 
-    The mode determines if the given entry will parse tags or not.
-
-    This function should only be called by lily_parse_special, since it raises
-    NoMemoryError if unable to allocate a new entry (and that's very bad if
-    there's no jump installed in the raiser). */
+    The mode determines if the given entry will parse tags or not. */
 void lily_load_special(lily_lex_state *lexer, lily_lex_mode mode, void *source,
     char *filename, lily_reader_fn read_line_fn, lily_close_fn close_fn)
 {

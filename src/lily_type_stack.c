@@ -8,16 +8,17 @@
 if (new_size >= ts->max) \
     grow_types(ts);
 
+#define malloc_mem(size)             ts->mem_func(NULL, size)
+#define realloc_mem(ptr, size)       ts->mem_func(ptr, size)
+#define free_mem(ptr)          (void)ts->mem_func(ptr, 0)
 
-lily_type_stack *lily_new_type_stack(lily_symtab *symtab, lily_raiser *raiser)
+lily_type_stack *lily_new_type_stack(lily_mem_func mem_func, lily_symtab *symtab,
+        lily_raiser *raiser)
 {
-    lily_type_stack *ts = lily_malloc(sizeof(lily_type_stack));
-    lily_type **types = lily_malloc(4 * sizeof(lily_type *));
-    if (ts == NULL || types == NULL) {
-        lily_free(ts);
-        lily_free(types);
-        lily_raise_nomem(raiser);
-    }
+    lily_type_stack *ts = mem_func(NULL, sizeof(lily_type_stack));
+    ts->mem_func = mem_func;
+
+    lily_type **types = malloc_mem(4 * sizeof(lily_type *));
 
     ts->raiser = raiser;
     ts->symtab = symtab;
@@ -32,20 +33,17 @@ lily_type_stack *lily_new_type_stack(lily_symtab *symtab, lily_raiser *raiser)
 void lily_free_type_stack(lily_type_stack *ts)
 {
     if (ts)
-        lily_free(ts->types);
+        free_mem(ts->types);
 
-    lily_free(ts);
+    free_mem(ts);
 }
 
 static void grow_types(lily_type_stack *ts)
 {
     ts->max *= 2;
 
-    lily_type **new_types = lily_realloc(ts->types,
+    lily_type **new_types = realloc_mem(ts->types,
         sizeof(lily_type *) * ts->max);
-
-    if (new_types == NULL)
-        lily_raise_nomem(ts->raiser);
 
     ts->types = new_types;
 }

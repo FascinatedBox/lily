@@ -15,6 +15,9 @@
 #include "lily_value.h"
 #include "lily_impl.h"
 
+#define malloc_mem(size) mem_func(NULL, size)
+#define free_mem(ptr)    mem_func(ptr, 0)
+
 void lily_impl_puts(void *data, char *text)
 {
     ap_rputs(text, (request_rec *)data);
@@ -95,20 +98,16 @@ static void apache_close_fn(lily_lex_entry *entry)
 /** Shared common functions **/
 
 
-static lily_hash_elem *bind_hash_elem_with_values(char *sipkey,
-    lily_value *key, lily_value *value)
+static lily_hash_elem *bind_hash_elem_with_values(lily_mem_func mem_func,
+        char *sipkey, lily_value *key, lily_value *value)
 {
-    lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
-
-    if (elem == NULL || key == NULL) {
-        lily_free(elem);
-        return NULL;
-    }
+    lily_hash_elem *elem = malloc_mem(sizeof(lily_hash_elem));
 
     elem->next = NULL;
     elem->key_siphash = lily_calculate_siphash(sipkey, key);
     elem->elem_key = key;
     elem->elem_value = value;
+
     return elem;
 }
 
@@ -118,53 +117,40 @@ static lily_var *bind_hash_str_str_var(lily_symtab *symtab, char *name)
     const int ids[] = {SYM_CLASS_HASH, SYM_CLASS_STRING, SYM_CLASS_STRING};
 
     lily_type *hash_type = lily_try_type_from_ids(symtab, ids);
-    if (hash_type == NULL)
-        return NULL;
-
     lily_var *bind_var = lily_try_new_var(symtab, hash_type, name, 0);
-    if (bind_var == NULL)
-        return NULL;
-
-    lily_hash_val *var_hash = lily_try_new_hash_val();
-    if (var_hash == NULL)
-        return NULL;
+    lily_hash_val *var_hash = lily_try_new_hash_val(symtab->mem_func);
 
     bind_var->value.hash = var_hash;
     bind_var->flags &= ~VAL_IS_NIL;
     return bind_var;
 }
 
-static void make_package(int *ok, lily_parse_state *parser,
-        lily_var *package_var, int var_count, int register_save,
-        lily_var *save_chain)
+static void make_package(lily_parse_state *parser, lily_var *package_var,
+        int var_count, int register_save, lily_var *save_chain)
 {
+    lily_mem_func mem_func = parser->mem_func;
     lily_symtab *symtab = parser->symtab;
-    lily_package_val *pval = lily_malloc(sizeof(lily_package_val));
-    lily_var **package_vars = lily_malloc(var_count * sizeof(lily_var *));
-    if (pval == NULL || package_vars == NULL) {
-        lily_free(pval);
-        lily_free(package_vars);
-        *ok = 0;
-    }
-    else {
-        int i = 0;
-        lily_var *var_iter = parser->symtab->var_chain;
-        while (var_iter != save_chain) {
-            package_vars[i] = var_iter;
-            i++;
-            var_iter = var_iter->next;
-        }
-        symtab->var_chain = save_chain;
-        symtab->next_register_spot = register_save;
 
-        pval->refcount = 1;
-        pval->name = package_var->name;
-        pval->gc_entry = NULL;
-        pval->var_count = i;
-        pval->vars = package_vars;
-        package_var->flags &= ~VAL_IS_NIL;
-        package_var->value.package = pval;
+    lily_package_val *pval = malloc_mem(sizeof(lily_package_val));
+    lily_var **package_vars = malloc_mem(var_count * sizeof(lily_var *));
+
+    int i = 0;
+    lily_var *var_iter = parser->symtab->var_chain;
+    while (var_iter != save_chain) {
+        package_vars[i] = var_iter;
+        i++;
+        var_iter = var_iter->next;
     }
+    symtab->var_chain = save_chain;
+    symtab->next_register_spot = register_save;
+
+    pval->refcount = 1;
+    pval->name = package_var->name;
+    pval->gc_entry = NULL;
+    pval->var_count = i;
+    pval->vars = package_vars;
+    package_var->flags &= ~VAL_IS_NIL;
+    package_var->value.package = pval;
 }
 
 
@@ -183,31 +169,21 @@ struct table_bind_data {
 static int bind_table_entry(void *data, const char *key, const char *value)
 {
     struct table_bind_data *d = data;
+    lily_mem_func mem_func = d->parser->mem_func;
 
     lily_value *elem_key = lily_bind_string(d->symtab, key);
     lily_value *elem_value = lily_bind_string(d->symtab, value);
-    lily_hash_elem *new_elem = bind_hash_elem_with_values(d->sipkey,
+    lily_hash_elem *new_elem = bind_hash_elem_with_values(mem_func, d->sipkey,
             elem_key, elem_value);
-
-    if (elem_key == NULL || elem_value == NULL || new_elem == NULL) {
-        lily_free(new_elem);
-        lily_bind_destroy(elem_key);
-        lily_bind_destroy(elem_value);
-        d->ok = 0;
-        return FALSE;
-    }
 
     new_elem->next = d->hash_val->elem_chain;
     d->hash_val->elem_chain = new_elem;
     return TRUE;
 }
 
-static void bind_table_as(int *count, lily_parse_state *parser, request_rec *r,
+static void bind_table_as(lily_parse_state *parser, request_rec *r,
         apr_table_t *table, char *name)
 {
-    if (*count == -1)
-        return;
-
     lily_symtab *symtab = parser->symtab;
 
     lily_var *hash_var = bind_hash_str_str_var(symtab, name);
@@ -220,11 +196,6 @@ static void bind_table_as(int *count, lily_parse_state *parser, request_rec *r,
     data.hash_val = hash_var->value.hash;
     data.sipkey = parser->vm->sipkey;
     apr_table_do(bind_table_entry, &data, table, NULL);
-
-    if (data.ok == 0)
-        *count = -1;
-    else
-        (*count)++;
 }
 
 
@@ -232,11 +203,9 @@ static void bind_table_as(int *count, lily_parse_state *parser, request_rec *r,
     server::env["REQUEST_METHOD"], so this is simply for convenience. **/
 
 
-static void bind_httpmethod(int *count, lily_parse_state *parser, request_rec *r)
+static void bind_httpmethod(lily_parse_state *parser, request_rec *r)
 {
-    if (*count == -1)
-        return;
-
+    lily_mem_func mem_func = parser->mem_func;
     lily_class *string_cls = lily_class_by_id(parser->symtab,
             SYM_CLASS_STRING);
 
@@ -244,14 +213,8 @@ static void bind_httpmethod(int *count, lily_parse_state *parser, request_rec *r
     lily_var *var = lily_try_new_var(parser->symtab, string_type, "httpmethod",
             0);
 
-    lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
-    char *sv_buffer = lily_malloc(strlen(r->method) + 1);
-    if (var == NULL || sv == NULL || sv_buffer == NULL) {
-        lily_free(sv);
-        lily_free(sv_buffer);
-        *count = -1;
-        return;
-    }
+    lily_string_val *sv = malloc_mem(sizeof(lily_string_val));
+    char *sv_buffer = malloc_mem(strlen(r->method) + 1);
 
     strcpy(sv_buffer, r->method);
 
@@ -261,18 +224,14 @@ static void bind_httpmethod(int *count, lily_parse_state *parser, request_rec *r
 
     var->value.string = sv;
     var->flags &= ~VAL_IS_NIL;
-    (*count)++;
 }
 
 
 /** Binding server::post **/
 
 
-static void bind_post(int *count, lily_parse_state *parser, request_rec *r)
+static void bind_post(lily_parse_state *parser, request_rec *r)
 {
-    if (*count == -1)
-        return;
-
     lily_var *post_var = bind_hash_str_str_var(parser->symtab, "post");
     lily_hash_val *hash_val = post_var->value.hash;
 
@@ -282,6 +241,7 @@ static void bind_post(int *count, lily_parse_state *parser, request_rec *r)
     char *buffer;
     char *sipkey = parser->vm->sipkey;
     lily_symtab *symtab = parser->symtab;
+    lily_mem_func mem_func = parser->mem_func;
 
     /* Credit: I found out how to use this by reading httpd 2.4's mod_lua
        (specifically req_parsebody of lua_request.c). */
@@ -291,11 +251,7 @@ static void bind_post(int *count, lily_parse_state *parser, request_rec *r)
             ap_form_pair_t *pair = (ap_form_pair_t *) apr_array_pop(pairs);
             apr_brigade_length(pair->value, 1, &len);
             size = (apr_size_t) len;
-            buffer = lily_malloc(size + 1);
-            if (buffer == NULL) {
-                *count = -1;
-                return;
-            }
+            buffer = malloc_mem(size + 1);
 
             apr_brigade_flatten(pair->value, buffer, &size);
             buffer[len] = 0;
@@ -304,66 +260,43 @@ static void bind_post(int *count, lily_parse_state *parser, request_rec *r)
             /* Give the buffer to the value to save memory. */
             lily_value *elem_value = lily_bind_string_take_buffer(symtab,
                     buffer);
-            lily_hash_elem *new_elem = bind_hash_elem_with_values(sipkey,
-                    elem_key, elem_value);
-
-            if (elem_key == NULL || elem_value == NULL || new_elem == NULL) {
-                lily_free(new_elem);
-                lily_bind_destroy(elem_key);
-                lily_bind_destroy(elem_value);
-                *count = -1;
-                return;
-            }
+            lily_hash_elem *new_elem = bind_hash_elem_with_values(mem_func,
+                    sipkey, elem_key, elem_value);
 
             new_elem->next = hash_val->elem_chain;
             hash_val->elem_chain = new_elem;
         }
     }
-
-    (*count)++;
 }
 
 
 /** Binding the server package itself **/
 
 
-static int apache_bind_server(lily_parse_state *parser, request_rec *r)
+static void apache_bind_server(lily_parse_state *parser, request_rec *r)
 {
-    int ret = 1;
     lily_symtab *symtab = parser->symtab;
     lily_class *package_cls = lily_class_by_id(symtab, SYM_CLASS_PACKAGE);
     lily_type *package_type = lily_try_type_for_class(symtab, package_cls);
     lily_var *bound_var = lily_try_new_var(symtab, package_type, "server", 0);
-    if (bound_var) {
-        lily_var *save_chain = symtab->var_chain;
-        int save_spot = symtab->next_register_spot;
-        int count = 0;
 
-        ap_add_cgi_vars(r);
-        ap_add_common_vars(r);
-        bind_table_as(&count, parser, r, r->subprocess_env, "env");
+    lily_var *save_chain = symtab->var_chain;
+    int save_spot = symtab->next_register_spot;
 
-        apr_table_t *http_get_args;
-        ap_args_to_table(r, &http_get_args);
-        bind_table_as(&count, parser, r, http_get_args, "get");
+    ap_add_cgi_vars(r);
+    ap_add_common_vars(r);
+    bind_table_as(parser, r, r->subprocess_env, "env");
 
-        bind_post(&count, parser, r);
+    apr_table_t *http_get_args;
+    ap_args_to_table(r, &http_get_args);
 
-        bind_httpmethod(&count, parser, r);
+    bind_table_as(parser, r, http_get_args, "get");
+    bind_post(parser, r);
+    bind_httpmethod(parser, r);
 
-        if (count != -1) {
-            int ok = 1;
-            make_package(&ok, parser, bound_var, count, save_spot, save_chain);
-            if (ok == 0)
-                ret = 0;
-        }
-        else
-            ret = 0;
-    }
-    else
-        ret = 0;
-
-    return ret;
+    /* env, get, and post need to be pulled into the server namespace. That's
+       what the 3 is for. */
+    make_package(parser, bound_var, 3, save_spot, save_chain);
 }
 
 static int lily_handler(request_rec *r)
@@ -382,12 +315,9 @@ static int lily_handler(request_rec *r)
     if (result != APR_SUCCESS)
         return DECLINED;
 
-    lily_parse_state *parser = lily_new_parse_state(r, 0, NULL);
-    if (parser == NULL)
-        return DECLINED;
+    lily_parse_state *parser = lily_new_parse_state(NULL, r, 0, NULL);
 
-    if (apache_bind_server(parser, r) == 0)
-        return DECLINED;
+    apache_bind_server(parser, r);
 
     lily_parse_special(parser, lm_tags, lily_file, r->filename,
         apache_read_line_fn, apache_close_fn);

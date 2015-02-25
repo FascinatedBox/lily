@@ -292,7 +292,7 @@ void run_parser(int argc, char **argv, int count, int is_filename, char *text)
     else
         fprintf(stderr, "aft: Running pass %d...", count);
 
-    lily_parse_state *parser = lily_new_parse_state(NULL, argc, argv);
+    lily_parse_state *parser = lily_new_parse_state(NULL, NULL, argc, argv);
     if (parser != NULL) {
         if (is_filename == 1)
             lily_parse_file(parser, lm_tags, text);

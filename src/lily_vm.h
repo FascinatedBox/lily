@@ -95,13 +95,14 @@ typedef struct lily_vm_state_t {
     lily_vm_catch_entry *catch_chain;
 
     lily_type_stack *ts;
+    lily_mem_func mem_func;
     lily_symtab *symtab;
     lily_raiser *raiser;
     void *data;
     lily_var *main;
 } lily_vm_state;
 
-lily_vm_state *lily_new_vm_state(lily_raiser *, void *);
+lily_vm_state *lily_new_vm_state(lily_mem_func, lily_raiser *, void *);
 void lily_free_vm_state(lily_vm_state *);
 void lily_vm_prep(lily_vm_state *, lily_symtab *);
 void lily_vm_execute(lily_vm_state *);

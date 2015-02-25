@@ -12,24 +12,18 @@
     These functions take the symtab so there's no need to do multiple type
     lookups (that's annoying). */
 
+#define malloc_mem(size) mem_func(NULL, size)
+#define free_mem(ptr)    mem_func(ptr, 0)
+
 /*  lily_bind_string_take_buffer
     The same thing as lily_bind_string, but use the buffer given as the
     string's buffer. */
-lily_value *lily_bind_string_take_buffer(lily_symtab *symtab,
-        char *buffer)
+lily_value *lily_bind_string_take_buffer(lily_symtab *symtab, char *buffer)
 {
-    lily_value *new_value = lily_malloc(sizeof(lily_value));
-    lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
+    lily_mem_func mem_func = symtab->mem_func;
+    lily_value *new_value = malloc_mem(sizeof(lily_value));
+    lily_string_val *sv = malloc_mem(sizeof(lily_string_val));
     int string_size = strlen(buffer);
-
-    if (sv == NULL || new_value == NULL) {
-        lily_free(sv);
-        /* This function takes over the buffer on success, so make sure if
-           there is an error that it destroys the buffer. */
-        lily_free(buffer);
-        lily_free(new_value);
-        return NULL;
-    }
 
     sv->refcount = 1;
     sv->string = buffer;
@@ -52,7 +46,8 @@ lily_value *lily_bind_string_take_buffer(lily_symtab *symtab,
     On failure: NULL is returned. */
 lily_value *lily_bind_string(lily_symtab *symtab, const char *string)
 {
-    char *buffer = lily_malloc(strlen(string) + 1);
+    lily_mem_func mem_func = symtab->mem_func;
+    char *buffer = malloc_mem(strlen(string) + 1);
     if (buffer == NULL)
         return NULL;
 
@@ -63,9 +58,11 @@ lily_value *lily_bind_string(lily_symtab *symtab, const char *string)
 /*  lily_bind_integer
     Create a new lily_value of type 'integer' with the given value. Returns the
     new value, or NULL. */
-lily_value *lily_bind_integer(lily_symtab *symtab, int64_t intval)
+lily_value *lily_bind_integer(lily_symtab *symtab,
+        int64_t intval)
 {
-    lily_value *new_value = lily_malloc(sizeof(lily_value));
+    lily_mem_func mem_func = symtab->mem_func;
+    lily_value *new_value = malloc_mem(sizeof(lily_value));
     if (new_value) {
         lily_class *integer_cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
 
@@ -83,10 +80,10 @@ lily_value *lily_bind_integer(lily_symtab *symtab, int64_t intval)
 
     This can be called on values created by lily_bind_* functions to safely
     ensure they are destroyed if there is an error. */
-void lily_bind_destroy(lily_value *value)
+void lily_bind_destroy(lily_mem_func mem_func, lily_value *value)
 {
     if (value != NULL) {
-        lily_deref_unknown_val(value);
-        lily_free(value);
+        lily_deref_unknown_val(mem_func, value);
+        free_mem(value);
     }
 }

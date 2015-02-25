@@ -77,18 +77,22 @@ a->result = NULL;
 
 static int try_add_save_entry(lily_ast_pool *);
 
+#define malloc_mem(size)             ap->mem_func(NULL, size)
+#define realloc_mem(ptr, size)       ap->mem_func(ptr, size)
+#define free_mem(ptr)          (void)ap->mem_func(ptr, 0)
+
 /******************************************************************************/
 /* Ast pool creation and teardown.                                            */
 /******************************************************************************/
 
-lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
+lily_ast_pool *lily_new_ast_pool(lily_mem_func mem_func, lily_raiser *raiser,
+        int pool_size)
 {
-    lily_ast_pool *ap = lily_malloc(sizeof(lily_ast_pool));
-    int i, ok = 1;
-    lily_ast *last_tree;
+    lily_ast_pool *ap = mem_func(NULL, sizeof(lily_ast_pool));
+    ap->mem_func = mem_func;
 
-    if (ap == NULL)
-        return NULL;
+    int i;
+    lily_ast *last_tree;
 
     ap->raiser = raiser;
     ap->active = NULL;
@@ -104,11 +108,7 @@ lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
 
     last_tree = NULL;
     for (i = 0;i < pool_size;i++) {
-        lily_ast *new_tree = lily_malloc(sizeof(lily_ast));
-        if (new_tree == NULL) {
-             ok = 0;
-             break;
-        }
+        lily_ast *new_tree = malloc_mem(sizeof(lily_ast));
 
         new_tree->next_tree = last_tree;
         last_tree = new_tree;
@@ -118,12 +118,8 @@ lily_ast_pool *lily_new_ast_pool(lily_raiser *raiser, int pool_size)
     ap->available_restore = last_tree;
     ap->available_current = last_tree;
 
-    ap->ast_membuf = lily_membuf_new(raiser);
-
-    if (try_add_save_entry(ap) == 0 || ap->ast_membuf == 0 || ok == 0) {
-        lily_free_ast_pool(ap);
-        return NULL;
-    }
+    ap->ast_membuf = lily_membuf_new(mem_func, raiser);
+    try_add_save_entry(ap);
 
     return ap;
 }
@@ -136,7 +132,7 @@ void lily_free_ast_pool(lily_ast_pool *ap)
     while (ast_iter) {
         ast_temp = ast_iter->next_tree;
 
-        lily_free(ast_iter);
+        free_mem(ast_iter);
 
         ast_iter = ast_temp;
     }
@@ -158,7 +154,7 @@ void lily_free_ast_pool(lily_ast_pool *ap)
         while (save_iter) {
             save_temp = save_iter->next;
 
-            lily_free(save_iter);
+            free_mem(save_iter);
 
             save_iter = save_temp;
         }
@@ -174,7 +170,7 @@ void lily_free_ast_pool(lily_ast_pool *ap)
         while (freeze_iter) {
             freeze_temp = freeze_iter->next;
 
-            lily_free(freeze_iter);
+            free_mem(freeze_iter);
 
             freeze_iter = freeze_temp;
         }
@@ -183,7 +179,7 @@ void lily_free_ast_pool(lily_ast_pool *ap)
     if (ap->ast_membuf)
         lily_membuf_free(ap->ast_membuf);
 
-    lily_free(ap);
+    free_mem(ap);
 }
 
 /*  lily_ast_reset_pool
@@ -289,7 +285,7 @@ static void merge_value(lily_ast_pool *ap, lily_ast *new_tree)
     returns 1 if successful, 0 if not. */
 static int try_add_save_entry(lily_ast_pool *ap)
 {
-    lily_ast_save_entry *new_entry = lily_malloc(sizeof(lily_ast_save_entry));
+    lily_ast_save_entry *new_entry = malloc_mem(sizeof(lily_ast_save_entry));
     if (new_entry == NULL)
         return 0;
 
@@ -311,13 +307,10 @@ static int try_add_save_entry(lily_ast_pool *ap)
 }
 
 /*  add_new_tree
-    Add a new tree to the linked list of currently available trees. This calls
-    lily_raise_nomem if it is not successful. */
+    Add a new tree to the linked list of currently available trees. */
 static void add_new_tree(lily_ast_pool *ap)
 {
-    lily_ast *new_tree = lily_malloc(sizeof(lily_ast));
-    if (new_tree == NULL)
-        lily_raise_nomem(ap->raiser);
+    lily_ast *new_tree = malloc_mem(sizeof(lily_ast));
 
     new_tree->next_tree = NULL;
 
@@ -465,8 +458,8 @@ void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type)
     if (ap->save_depth == 0)
         save_entry = ap->save_chain;
     else {
-        if (ap->save_chain->next == NULL && try_add_save_entry(ap) == 0)
-            lily_raise_nomem(ap->raiser);
+        if (ap->save_chain->next == NULL)
+            try_add_save_entry(ap);
 
         save_entry = ap->save_chain->next;
         ap->save_chain = ap->save_chain->next;
@@ -698,9 +691,7 @@ void lily_ast_freeze_state(lily_ast_pool *ap)
     if (ap->freeze_chain == NULL ||
         (ap->freeze_chain->next == NULL &&
          ap->freeze_chain->in_use)) {
-        new_entry = lily_malloc(sizeof(lily_ast_freeze_entry));
-        if (new_entry == NULL)
-            lily_raise_nomem(ap->raiser);
+        new_entry = malloc_mem(sizeof(lily_ast_freeze_entry));
 
         if (ap->freeze_chain)
             ap->freeze_chain->next = new_entry;

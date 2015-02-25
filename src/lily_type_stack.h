@@ -23,9 +23,10 @@ typedef struct {
     uint32_t ceiling;
     lily_symtab *symtab;
     lily_raiser *raiser;
+    lily_mem_func mem_func;
 } lily_type_stack;
 
-lily_type_stack *lily_new_type_stack(lily_symtab *, lily_raiser *);
+lily_type_stack *lily_new_type_stack(lily_mem_func, lily_symtab *, lily_raiser *);
 
 void lily_free_type_stack(lily_type_stack *);
 

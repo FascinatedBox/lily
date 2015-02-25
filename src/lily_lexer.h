@@ -130,6 +130,7 @@ typedef struct lily_lex_state_t {
        make a literal value. Said value is stored here, for the parser to use. */
     lily_literal *last_literal;
     lily_symtab *symtab;
+    lily_mem_func mem_func;
     lily_raiser *raiser;
     void *data;
 } lily_lex_state;
@@ -145,7 +146,7 @@ void lily_load_str(lily_lex_state *, char *, lily_lex_mode, char *);
 void lily_load_copy_string(lily_lex_state *, char *, lily_lex_mode, char *);
 void lily_load_special(lily_lex_state *, lily_lex_mode, void *, char *,
     lily_reader_fn, lily_close_fn);
-lily_lex_state *lily_new_lex_state(lily_raiser *, void *);
+lily_lex_state *lily_new_lex_state(lily_mem_func, lily_raiser *, void *);
 char *tokname(lily_token);
 
 #endif
