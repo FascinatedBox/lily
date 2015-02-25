@@ -235,7 +235,7 @@ void lily_deref_unknown_raw_val(lily_mem_func mem_func, lily_type *value_type,
 
 /** Value creation calls **/
 
-lily_list_val *lily_try_new_list_val(lily_mem_func mem_func)
+lily_list_val *lily_new_list_val(lily_mem_func mem_func)
 {
     lily_list_val *lv = mem_func(NULL, sizeof(lily_list_val));
     lv->refcount = 1;
@@ -247,7 +247,7 @@ lily_list_val *lily_try_new_list_val(lily_mem_func mem_func)
     return lv;
 }
 
-lily_instance_val *lily_try_new_instance_val(lily_mem_func mem_func)
+lily_instance_val *lily_new_instance_val(lily_mem_func mem_func)
 {
     lily_instance_val *ival = mem_func(NULL, sizeof(lily_instance_val));
     ival->refcount = 1;
@@ -260,7 +260,7 @@ lily_instance_val *lily_try_new_instance_val(lily_mem_func mem_func)
     return ival;
 }
 
-/*  lily_try_new_foreign_function_val
+/*  lily_new_foreign_function_val
     Attempt to create a function that will hold a foreign value.
 
     func:       The call to be invoked when this function gets called.
@@ -268,7 +268,7 @@ lily_instance_val *lily_try_new_instance_val(lily_mem_func mem_func)
     name:       The name of the function itself.
 
     Note: 'try' means this call returns NULL on failure. */
-lily_function_val *lily_try_new_foreign_function_val(lily_mem_func mem_func,
+lily_function_val *lily_new_foreign_function_val(lily_mem_func mem_func,
         lily_foreign_func func, char *class_name, char *name)
 {
     lily_function_val *f = mem_func(NULL, sizeof(lily_function_val));
@@ -286,14 +286,14 @@ lily_function_val *lily_try_new_foreign_function_val(lily_mem_func mem_func,
     return f;
 }
 
-/*  lily_try_new_native_function_val
+/*  lily_new_native_function_val
     Attempt to create a function that will hold native code.
 
     class_name: The name of the class that this function belongs to, or NULL.
     name:       The name of this function.
 
     Note: 'try' means this call returns NULL on failure. */
-lily_function_val *lily_try_new_native_function_val(lily_mem_func mem_func,
+lily_function_val *lily_new_native_function_val(lily_mem_func mem_func,
         char *class_name, char *name)
 {
     lily_function_val *f = malloc_mem(sizeof(lily_function_val));
@@ -312,10 +312,10 @@ lily_function_val *lily_try_new_native_function_val(lily_mem_func mem_func,
     return f;
 }
 
-/* lily_try_new_hash_val
+/* lily_new_hash_val
    This attempts to create a new hash value, for storing hash elements.
    Note: 'try' means this call returns NULL on failure. */
-lily_hash_val *lily_try_new_hash_val(lily_mem_func mem_func)
+lily_hash_val *lily_new_hash_val(lily_mem_func mem_func)
 {
     lily_hash_val *h = malloc_mem(sizeof(lily_hash_val));
 
@@ -327,16 +327,13 @@ lily_hash_val *lily_try_new_hash_val(lily_mem_func mem_func)
     return h;
 }
 
-/* lily_try_new_hash_elem
+/* lily_new_hash_elem
    This attempts to create a new hash element for storing a key and a value.
    The caller is responsible for adding this element to a hash value.
    Note: 'try' means this call returns NULL on failure. */
-lily_hash_elem *lily_try_new_hash_elem(lily_mem_func mem_func)
+lily_hash_elem *lily_new_hash_elem(lily_mem_func mem_func)
 {
     lily_hash_elem *elem = mem_func(NULL, sizeof(lily_hash_elem));
-
-    if (elem == NULL)
-        return NULL;
 
     elem->elem_key = malloc_mem(sizeof(lily_value));
     elem->elem_value = malloc_mem(sizeof(lily_value));
@@ -353,10 +350,10 @@ lily_hash_elem *lily_try_new_hash_elem(lily_mem_func mem_func)
     return elem;
 }
 
-/* lily_try_new_any_val
+/* lily_new_any_val
    This tries to create a new "any" value.
    Note: 'try' means this call returns NULL on failure. */
-lily_any_val *lily_try_new_any_val(lily_mem_func mem_func)
+lily_any_val *lily_new_any_val(lily_mem_func mem_func)
 {
     lily_any_val *a = malloc_mem(sizeof(lily_any_val));
 

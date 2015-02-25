@@ -41,11 +41,8 @@ void lily_free_type_stack(lily_type_stack *ts)
 static void grow_types(lily_type_stack *ts)
 {
     ts->max *= 2;
-
-    lily_type **new_types = realloc_mem(ts->types,
-        sizeof(lily_type *) * ts->max);
-
-    ts->types = new_types;
+    ts->types = realloc_mem(ts->types,
+            sizeof(lily_type *) * ts->max);;
 }
 
 static lily_type *deep_type_build(lily_type_stack *ts, int template_index,

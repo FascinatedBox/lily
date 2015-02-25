@@ -16,14 +16,11 @@
     * Hiding variables when they go out of scope (see lily_drop_block_vars)
 
     Notes:
-    * Functions with 'try' in their name will return NULL or 0 on failure. They
-      will never call lily_raise.
     * During symtab initialization, lily_raise cannot be called because the
       parser is not completely allocated and set.
 **/
 
 #define malloc_mem(size)             symtab->mem_func(NULL, size)
-#define realloc_mem(ptr, size)       symtab->mem_func(ptr, size)
 #define free_mem(ptr)          (void)symtab->mem_func(ptr, 0)
 
 /*****************************************************************************/
@@ -72,7 +69,7 @@ static lily_literal *make_new_literal(lily_symtab *symtab, lily_class *cls,
     return lit;
 }
 
-/*  lily_try_new_var
+/*  lily_new_var
     Attempt to create a new var in the symtab that will have the given
     type and name. The flags given are used to determine if the var is
     'readonly'. If it's readonly, it doesn't go into the vm's registers.
@@ -80,7 +77,7 @@ static lily_literal *make_new_literal(lily_symtab *symtab, lily_class *cls,
     On success: Returns a newly-created var that is automatically added to the
                 symtab.
     On failure: NULL is returned. */
-lily_var *lily_try_new_var(lily_symtab *symtab, lily_type *type, char *name,
+lily_var *lily_new_var(lily_symtab *symtab, lily_type *type, char *name,
         int flags)
 {
     lily_var *var = malloc_mem(sizeof(lily_var));
@@ -117,7 +114,7 @@ lily_var *lily_try_new_var(lily_symtab *symtab, lily_type *type, char *name,
 lily_var *lily_declare_var(lily_symtab *symtab, lily_type *type,
         char *name, uint16_t line_num)
 {
-    lily_var *v = lily_try_new_var(symtab, type, name, 0);
+    lily_var *v = lily_new_var(symtab, type, name, 0);
 
     v->line_num = line_num;
     return v;
@@ -393,7 +390,7 @@ static lily_type *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
         if (arg_class->type && arg_class->id != SYM_CLASS_TEMPLATE)
             ret = arg_class->type;
         else {
-            lily_type *complex_type = lily_try_type_for_class(symtab, arg_class);
+            lily_type *complex_type = lily_type_for_class(symtab, arg_class);
             lily_type **subtypes;
             int subtype_count;
             int flags = 0;
@@ -471,46 +468,33 @@ static lily_type *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
     Symtab init, stage 4
     This calls the setup func of any class that has one. This is reponsible for
     setting up the seed_table of the class, and possibly more in the future. */
-static int call_class_setups(lily_symtab *symtab)
+static void call_class_setups(lily_symtab *symtab)
 {
-    int ret = 1;
     lily_class *class_iter = symtab->class_chain;
     while (class_iter) {
-        if (class_iter->setup_func &&
-            class_iter->setup_func(class_iter) == 0) {
-            ret = 0;
-            break;
-        }
+        if (class_iter->setup_func)
+            class_iter->setup_func(class_iter);
 
         class_iter = class_iter->next;
     }
-
-    return ret;
 }
 
 /*  init_lily_main
     Symtab init, stage 3
     This creates __main__, which holds all code that is not explicitly put
     inside of a Lily function. */
-static int init_lily_main(lily_symtab *symtab)
+static void init_lily_main(lily_symtab *symtab)
 {
     lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_FUNCTION);
-    lily_type *new_type = lily_try_type_for_class(symtab, cls);
-    if (new_type == NULL)
-        return 0;
+    lily_type *new_type = lily_type_for_class(symtab, cls);
 
     new_type->subtypes = malloc_mem(2 * sizeof(lily_type));
-    if (new_type->subtypes == NULL)
-        return 0;
-
     new_type->subtypes[0] = NULL;
     new_type->subtype_count = 1;
     new_type->template_pos = 0;
     new_type->flags = 0;
 
-    symtab->main_var = lily_try_new_var(symtab, new_type, "__main__", 0);
-
-    return (symtab->main_var != NULL);
+    symtab->main_var = lily_new_var(symtab, new_type, "__main__", 0);
 }
 
 /* init_classes
@@ -520,89 +504,73 @@ static int init_lily_main(lily_symtab *symtab)
    require extra call/internal element info (integer and number, for example),
    can be shared. All a symbol needs to do is sym->type to get the common
    type. */
-static int init_classes(lily_symtab *symtab)
+static void init_classes(lily_symtab *symtab)
 {
-    int i, class_count, ret;
+    int i, class_count;
 
     class_count = sizeof(class_seeds) / sizeof(class_seeds[0]);
-    ret = 1;
 
     for (i = 0;i < class_count;i++) {
         lily_class *new_class = malloc_mem(sizeof(lily_class));
 
-        if (new_class != NULL) {
-            lily_type *type;
+        lily_type *type;
 
-            /* If a class doesn't take templates (or isn't template), then
-               it can have a default type that lily_try_type_for_class can yield.
-               This saves memory, and is necessary now that type comparison is
-               by pointer. */
-            if (class_seeds[i].template_count != 0)
-                type = NULL;
-            else {
-                /* A basic class? Make a quick default type for it. */
-                type = malloc_mem(sizeof(lily_type));
-                if (type != NULL) {
-                    type->cls = new_class;
-                    /* Make sure this is null so any attempt to free it won't
-                       cause a problem. */
-                    type->subtypes = NULL;
-                    type->subtype_count = 0;
-                    type->flags = 0;
-                    /* Non-template types use this to mean that this type
-                       does not have templates inside. */
-                    type->template_pos = 0;
-                    if (i == SYM_CLASS_ANY)
-                        type->flags |= TYPE_MAYBE_CIRCULAR;
+        /* If a class doesn't take templates (or isn't template), then
+           it can have a default type that lily_type_for_class can yield.
+           This saves memory, and is necessary now that type comparison is
+           by pointer. */
+        if (class_seeds[i].template_count != 0)
+            type = NULL;
+        else {
+            /* A basic class? Make a quick default type for it. */
+            type = malloc_mem(sizeof(lily_type));
+            type->cls = new_class;
+            /* Make sure this is null so any attempt to free it won't
+               cause a problem. */
+            type->subtypes = NULL;
+            type->subtype_count = 0;
+            type->flags = 0;
+            /* Non-template types use this to mean that this type
+               does not have templates inside. */
+            type->template_pos = 0;
+            if (i == SYM_CLASS_ANY)
+                type->flags |= TYPE_MAYBE_CIRCULAR;
 
-                    type->next = symtab->root_type;
-                    symtab->root_type = type;
-                    /* Only the template class has a blank name (to prevent it
-                       from being used directly). */
-                    if (strcmp(class_seeds[i].name, "") == 0) {
-                        symtab->template_class = new_class;
-                        symtab->template_type_start = type;
-                    }
-                }
-                else
-                    ret = 0;
+            type->next = symtab->root_type;
+            symtab->root_type = type;
+            /* Only the template class has a blank name (to prevent it
+               from being used directly). */
+            if (strcmp(class_seeds[i].name, "") == 0) {
+                symtab->template_class = new_class;
+                symtab->template_type_start = type;
             }
-
-            new_class->name = class_seeds[i].name;
-            new_class->call_chain = NULL;
-            new_class->type = type;
-            new_class->id = i;
-            new_class->template_count = class_seeds[i].template_count;
-            new_class->shorthash = shorthash_for_name(new_class->name);
-            new_class->gc_marker = class_seeds[i].gc_marker;
-            new_class->flags = class_seeds[i].flags;
-            new_class->is_refcounted = class_seeds[i].is_refcounted;
-            new_class->seed_table = NULL;
-            new_class->setup_func = class_seeds[i].setup_func;
-            new_class->eq_func = class_seeds[i].eq_func;
-            new_class->variant_members = NULL;
-            new_class->properties = NULL;
-            new_class->prop_count = 0;
-            new_class->parent = NULL;
-
-            new_class->next = symtab->class_chain;
-            symtab->class_chain = new_class;
         }
-        else
-            ret = 0;
+        new_class->name = class_seeds[i].name;
+        new_class->call_chain = NULL;
+        new_class->type = type;
+        new_class->id = i;
+        new_class->template_count = class_seeds[i].template_count;
+        new_class->shorthash = shorthash_for_name(new_class->name);
+        new_class->gc_marker = class_seeds[i].gc_marker;
+        new_class->flags = class_seeds[i].flags;
+        new_class->is_refcounted = class_seeds[i].is_refcounted;
+        new_class->seed_table = NULL;
+        new_class->setup_func = class_seeds[i].setup_func;
+        new_class->eq_func = class_seeds[i].eq_func;
+        new_class->variant_members = NULL;
+        new_class->properties = NULL;
+        new_class->prop_count = 0;
+        new_class->parent = NULL;
 
-        if (ret == 0)
-            break;
+        new_class->next = symtab->class_chain;
+        symtab->class_chain = new_class;
     }
 
-    if (ret == 1) {
-        /* No direct declaration of packages (for now?) */
-        lily_class *package_cls = lily_class_by_id(symtab, SYM_CLASS_PACKAGE);
-        package_cls->shorthash = 0;
-    }
+    /* No direct declaration of packages (for now?) */
+    lily_class *package_cls = lily_class_by_id(symtab, SYM_CLASS_PACKAGE);
+    package_cls->shorthash = 0;
 
     symtab->next_class_id = i + 1;
-    return ret;
 }
 
 /*  lily_new_symtab:
@@ -615,6 +583,7 @@ lily_symtab *lily_new_symtab(lily_mem_func mem_func, lily_raiser *raiser)
 {
     lily_symtab *symtab = mem_func(NULL, sizeof(lily_symtab));
     symtab->mem_func = mem_func;
+    symtab->raiser = raiser;
 
     uint16_t v = 0;
 
@@ -627,7 +596,7 @@ lily_symtab *lily_new_symtab(lily_mem_func mem_func, lily_raiser *raiser)
     symtab->class_chain = NULL;
     symtab->lit_chain = NULL;
     symtab->function_depth = 1;
-    /* lily_try_new_var expects lex_linenum to be the lexer's line number.
+    /* lily_new_var expects lex_linenum to be the lexer's line number.
        0 is used, because these are all builtins, and the lexer may have failed
        to initialize anyway. */
     symtab->lex_linenum = &v;
@@ -636,16 +605,9 @@ lily_symtab *lily_new_symtab(lily_mem_func mem_func, lily_raiser *raiser)
     symtab->template_type_start = NULL;
     symtab->old_class_chain = NULL;
 
-    if (!init_classes(symtab) || !init_lily_main(symtab) ||
-        !call_class_setups(symtab)) {
-        /* First vars created, if any... */
-        lily_free_symtab_lits_and_vars(symtab);
-        /* then delete the symtab. */
-        lily_free_symtab(symtab);
-        return NULL;
-    }
-
-    symtab->raiser = raiser;
+    init_classes(symtab);
+    init_lily_main(symtab);
+    call_class_setups(symtab);
 
     return symtab;
 }
@@ -947,11 +909,11 @@ lily_literal *lily_get_variant_literal(lily_symtab *symtab,
     return ret;
 }
 
-/*  lily_try_type_for_class
+/*  lily_type_for_class
     Attempt to get the default type of the given class. If the given class
     doesn't have a default type (because it takes templates), then create
     a new type without a subtypes and return that. */
-lily_type *lily_try_type_for_class(lily_symtab *symtab, lily_class *cls)
+lily_type *lily_type_for_class(lily_symtab *symtab, lily_class *cls)
 {
     lily_type *type;
 
@@ -1178,12 +1140,12 @@ void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
     }
 }
 
-/*  lily_try_type_from_ids
+/*  lily_type_from_ids
     This is used by the apache module to create a type in a less-awful
     way than doing it manually. This unfortunately uses the really awful seed
     scanning functions.
     In the future, there will be something to get a type from a string. */
-lily_type *lily_try_type_from_ids(lily_symtab *symtab, const int *ids)
+lily_type *lily_type_from_ids(lily_symtab *symtab, const int *ids)
 {
     int pos = 0, ok = 1;
     return scan_seed_arg(symtab, ids, &pos, &ok);
@@ -1274,11 +1236,6 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
 {
     lily_prop_entry *entry = malloc_mem(sizeof(lily_prop_entry));
     char *entry_name = malloc_mem(strlen(name) + 1);
-    if (entry == NULL || entry_name == NULL) {
-        free_mem(entry);
-        free_mem(entry_name);
-        return NULL;
-    }
 
     strcpy(entry_name, name);
 
@@ -1506,7 +1463,7 @@ void lily_finish_variant_class(lily_symtab *symtab, lily_class *variant_class,
 {
     if (variant_type == NULL) {
         /* This variant doesn't take parameters, so give it a plain type. */
-        lily_type *type = lily_try_type_for_class(symtab, variant_class);
+        lily_type *type = lily_type_for_class(symtab, variant_class);
 
         type->cls = variant_class;
         /* Anything that doesn't take parameters gets a default type. */

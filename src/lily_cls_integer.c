@@ -6,7 +6,6 @@
 #include "string.h"
 
 #define malloc_mem(size)             vm->mem_func(NULL, size)
-#define realloc_mem(ptr, size)       vm->mem_func(ptr, size)
 #define free_mem(ptr)          (void)vm->mem_func(ptr, 0)
 
 /*  lily_integer_to_string

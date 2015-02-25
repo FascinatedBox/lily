@@ -116,9 +116,9 @@ static lily_var *bind_hash_str_str_var(lily_symtab *symtab, char *name)
     /* hash[str, str] */
     const int ids[] = {SYM_CLASS_HASH, SYM_CLASS_STRING, SYM_CLASS_STRING};
 
-    lily_type *hash_type = lily_try_type_from_ids(symtab, ids);
-    lily_var *bind_var = lily_try_new_var(symtab, hash_type, name, 0);
-    lily_hash_val *var_hash = lily_try_new_hash_val(symtab->mem_func);
+    lily_type *hash_type = lily_type_from_ids(symtab, ids);
+    lily_var *bind_var = lily_new_var(symtab, hash_type, name, 0);
+    lily_hash_val *var_hash = lily_new_hash_val(symtab->mem_func);
 
     bind_var->value.hash = var_hash;
     bind_var->flags &= ~VAL_IS_NIL;
@@ -210,8 +210,7 @@ static void bind_httpmethod(lily_parse_state *parser, request_rec *r)
             SYM_CLASS_STRING);
 
     lily_type *string_type = string_cls->type;
-    lily_var *var = lily_try_new_var(parser->symtab, string_type, "httpmethod",
-            0);
+    lily_var *var = lily_new_var(parser->symtab, string_type, "httpmethod", 0);
 
     lily_string_val *sv = malloc_mem(sizeof(lily_string_val));
     char *sv_buffer = malloc_mem(strlen(r->method) + 1);
@@ -277,8 +276,8 @@ static void apache_bind_server(lily_parse_state *parser, request_rec *r)
 {
     lily_symtab *symtab = parser->symtab;
     lily_class *package_cls = lily_class_by_id(symtab, SYM_CLASS_PACKAGE);
-    lily_type *package_type = lily_try_type_for_class(symtab, package_cls);
-    lily_var *bound_var = lily_try_new_var(symtab, package_type, "server", 0);
+    lily_type *package_type = lily_type_for_class(symtab, package_cls);
+    lily_var *bound_var = lily_new_var(symtab, package_type, "server", 0);
 
     lily_var *save_chain = symtab->var_chain;
     int save_spot = symtab->next_register_spot;

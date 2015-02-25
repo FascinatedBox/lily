@@ -78,7 +78,6 @@ a->result = NULL;
 static int try_add_save_entry(lily_ast_pool *);
 
 #define malloc_mem(size)             ap->mem_func(NULL, size)
-#define realloc_mem(ptr, size)       ap->mem_func(ptr, size)
 #define free_mem(ptr)          (void)ap->mem_func(ptr, 0)
 
 /******************************************************************************/

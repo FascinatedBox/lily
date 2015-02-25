@@ -118,10 +118,8 @@ static void small_grow(lily_emit_state *emit)
 {
     lily_function_val *f = emit->top_function;
 
-    uint16_t *save_code;
     f->len *= 2;
-    save_code = realloc_mem(f->code, sizeof(uint16_t) * f->len);
-    f->code = save_code;
+    f->code = realloc_mem(f->code, sizeof(uint16_t) * f->len);
 }
 
 /*  write_prep
@@ -131,11 +129,10 @@ static void write_prep(lily_emit_state *emit, int size)
 {
     lily_function_val *f = emit->top_function;
     if ((f->pos + size) > f->len) {
-        uint16_t *save_code;
         while ((f->pos + size) > f->len)
             f->len *= 2;
-        save_code = realloc_mem(f->code, sizeof(uint16_t) * f->len);
-        f->code = save_code;
+
+        f->code = realloc_mem(f->code, sizeof(uint16_t) * f->len);
     }
 }
 
@@ -328,21 +325,15 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
 static void grow_patches(lily_emit_state *emit)
 {
     emit->patch_size *= 2;
-
-    int *new_patches = realloc_mem(emit->patches,
+    emit->patches = realloc_mem(emit->patches,
         sizeof(int) * emit->patch_size);
-
-    emit->patches = new_patches;
 }
 
 static void grow_match_cases(lily_emit_state *emit)
 {
     emit->match_case_size *= 2;
-
-    int *new_cases = realloc_mem(emit->match_cases,
+    emit->match_cases = realloc_mem(emit->match_cases,
         sizeof(int) * emit->match_case_size);
-
-    emit->match_cases = new_cases;
 }
 
 /*  emit_jump_if
@@ -728,15 +719,9 @@ static void finalize_function_val(lily_emit_state *emit,
 {
     int register_count = emit->symtab->next_register_spot;
     lily_storage *storage_iter = function_block->storage_start;
-
-    lily_register_info *info;
     lily_function_val *f = emit->top_function;
-    if (f->reg_info == NULL)
-        info = malloc_mem(register_count * sizeof(lily_register_info));
-    else
-        info = realloc_mem(f->reg_info,
-                register_count * sizeof(lily_register_info));
-
+    lily_register_info *info = realloc_mem(f->reg_info,
+            register_count * sizeof(lily_register_info));
     lily_var *var_stop = function_block->function_var;
     lily_type *function_type = var_stop->type;
 
@@ -3428,7 +3413,7 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     int have_step = (for_step != NULL);
     if (have_step == 0) {
         /* This var isn't visible, so don't bother with a valid shorthash. */
-        for_step = lily_try_new_var(emit->symtab, cls->type, "(for step)", 0);
+        for_step = lily_new_var(emit->symtab, cls->type, "(for step)", 0);
     }
 
     lily_sym *target;
@@ -3790,7 +3775,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         else
             class_name = NULL;
 
-        v->value.function = lily_try_new_native_function_val(emit->mem_func,
+        v->value.function = lily_new_native_function_val(emit->mem_func,
                 class_name, v->name);
 
         v->flags &= ~(VAL_IS_NIL);
@@ -3876,7 +3861,7 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     try_add_storage(emit);
 
     lily_block *main_block = malloc_mem(sizeof(lily_block));
-    main_var->value.function = lily_try_new_native_function_val(
+    main_var->value.function = lily_new_native_function_val(
             emit->mem_func, NULL, main_var->name);
 
     /* __main__ is given two refs so that it must go through a custom deref to
