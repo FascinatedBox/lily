@@ -71,17 +71,40 @@ static char *exception_bootstrap =
 "class KeyError            (message: string) < Exception(message) {}\n"
 "class FormatError         (message: string) < Exception(message) {}\n";
 
+#define malloc_mem(size)             (*parser->mem_func)(NULL, size)
+#define realloc_mem(ptr, size)       (*parser->mem_func)(ptr, size)
+#define free_mem(ptr)          (void)(*parser->mem_func)(ptr, 0)
+
 /*****************************************************************************/
 /* Parser creation and teardown                                              */
 /*****************************************************************************/
 
-lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
+void *default_mem_func(void *ptr, size_t size)
 {
-    lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
-    lily_raiser *raiser = lily_new_raiser();
+    void *ret;
+    if (size == 0) {
+        free(ptr);
+        ret = NULL;
+    }
+    else {
+        ret = realloc(ptr, size);
+        if (ret == NULL)
+            abort();
+    }
 
-    if (parser == NULL)
-        return NULL;
+    return ret;
+}
+
+lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
+        int argc, char **argv)
+{
+    if (mem_func == NULL)
+        mem_func = default_mem_func;
+
+    lily_parse_state *parser = mem_func(NULL, sizeof(lily_parse_state));
+    parser->mem_func = mem_func;
+
+    lily_raiser *raiser = lily_new_raiser(mem_func);
 
     /* This ensures that runners always have a valid parser mode when trying to
        figure out how to show an error. */
@@ -91,24 +114,15 @@ lily_parse_state *lily_new_parse_state(void *data, int argc, char **argv)
     parser->class_depth = 0;
     parser->next_lambda_id = 0;
     parser->raiser = raiser;
-    parser->type_stack = lily_malloc(4 * sizeof(lily_type *));
-    parser->ast_pool = lily_new_ast_pool(raiser, 8);
-    parser->symtab = lily_new_symtab(raiser);
-    parser->emit = lily_new_emit_state(parser->symtab, raiser);
-    parser->lex = lily_new_lex_state(raiser, data);
-    parser->vm = lily_new_vm_state(raiser, data);
-    parser->membuf = lily_membuf_new(raiser);
+    parser->type_stack = malloc_mem(4 * sizeof(lily_type *));
+    parser->ast_pool = lily_new_ast_pool(mem_func, raiser, 8);
+    parser->symtab = lily_new_symtab(mem_func, raiser);
+    parser->emit = lily_new_emit_state(mem_func, parser->symtab, raiser);
+    parser->lex = lily_new_lex_state(mem_func, raiser, data);
+    parser->vm = lily_new_vm_state(mem_func, raiser, data);
+    parser->membuf = lily_membuf_new(mem_func, raiser);
 
-    if (parser->raiser == NULL || parser->type_stack == NULL ||
-        parser->lex == NULL || parser->emit == NULL || parser->symtab == NULL ||
-        parser->ast_pool == NULL || parser->vm == NULL ||
-        parser->membuf == NULL ||
-        lily_emit_try_enter_main(parser->emit,
-                                 parser->symtab->main_var) == 0) {
-        lily_free_parse_state(parser);
-
-        return NULL;
-    }
+    lily_emit_try_enter_main(parser->emit, parser->symtab->main_var);
 
     parser->vm->main = parser->symtab->main_var;
     parser->vm->symtab = parser->symtab;
@@ -186,8 +200,8 @@ void lily_free_parse_state(lily_parse_state *parser)
         lily_free_emit_state(parser->emit);
 
     lily_membuf_free(parser->membuf);
-    lily_free(parser->type_stack);
-    lily_free(parser);
+    free_mem(parser->type_stack);
+    free_mem(parser);
 }
 
 /*****************************************************************************/
@@ -258,8 +272,6 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type,
     }
 
     var = lily_try_new_var(parser->symtab, var_type, lex->label, flags);
-    if (var == NULL)
-        lily_raise_nomem(parser->raiser);
 
     lily_lexer(lex);
     return var;
@@ -292,9 +304,8 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
                 "A method in class '%s' already has the name '%s'.\n",
                 current_class->name, name);
 
-    prop = lily_add_class_property(current_class, prop_type, name, 0);
-    if (prop == NULL)
-        lily_raise_nomem(parser->raiser);
+    prop = lily_add_class_property(parser->symtab, current_class, prop_type,
+            name, 0);
 
     lily_lexer(parser->lex);
     return prop;
@@ -325,11 +336,8 @@ static void grow_type_stack(lily_parse_state *parser)
 {
     parser->type_stack_size *= 2;
 
-    lily_type **new_type_stack = lily_realloc(parser->type_stack,
+    lily_type **new_type_stack = realloc_mem(parser->type_stack,
         sizeof(lily_type *) * parser->type_stack_size);
-
-    if (new_type_stack == NULL)
-        lily_raise_nomem(parser->raiser);
 
     parser->type_stack = new_type_stack;
 }
@@ -685,15 +693,10 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
        just declare the var. */
     lily_var *call_var = lily_try_new_var(symtab, call_type, lex->label,
             VAR_IS_READONLY);
-    if (call_var == NULL)
-        lily_raise_nomem(parser->raiser);
 
     call_var->parent = cls;
-    call_var->value.function = lily_try_new_foreign_function_val(foreign_func,
-            class_name, call_var->name);
-
-    if (call_var->value.function == NULL)
-        lily_raise_nomem(parser->raiser);
+    call_var->value.function = lily_try_new_foreign_function_val(
+            parser->mem_func, foreign_func, class_name, call_var->name);
 
     call_var->flags &= ~VAL_IS_NIL;
 
@@ -743,8 +746,6 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     if (decl_class != NULL) {
         call_var = lily_try_new_var(parser->symtab, call_type, "new",
                 VAR_IS_READONLY);
-        if (call_var == NULL)
-            lily_raise_nomem(parser->raiser);
 
         block_type = BLOCK_FUNCTION | BLOCK_CLASS;
         flags |= CV_CLASS_INIT;
@@ -771,8 +772,6 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
            parameter. */
         lily_var *v = lily_try_new_var(parser->symtab,
                 parser->emit->block->self->type, "(self)", 0);
-        if (v == NULL)
-            lily_raise_nomem(parser->raiser);
 
         parser->emit->block->self = (lily_storage *)v;
     }
@@ -846,8 +845,8 @@ static lily_literal *parse_special_keyword(lily_parse_state *parser, int key_id)
     lily_literal *ret;
 
     /* So far, these are the only keywords that map to literals.
-       Additionally, these literal fetching routines are guaranteed to either
-       return a literal with the given value, or raise nomem. */
+       Additionally, these literal fetching routines are guaranteed to return
+       a literal with the given value. */
     if (key_id == KEY__LINE__)
         ret = lily_get_integer_literal(symtab, parser->lex->line_num);
     else if (key_id == KEY__FILE__)
@@ -1410,8 +1409,6 @@ static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
        problem. This name doesn't have to be unique, since it will never be
        found by the user. */
     lily_var *var = lily_try_new_var(parser->symtab, cls->type, name, 0);
-    if (var == NULL)
-        lily_raise_nomem(parser->raiser);
 
     lily_emit_eval_expr_to_var(parser->emit, ap, var);
 
@@ -1777,8 +1774,6 @@ static void for_handler(lily_parse_state *parser, int multi)
     if (loop_var == NULL) {
         lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_INTEGER);
         loop_var = lily_try_new_var(parser->symtab, cls->type, lex->label, 0);
-        if (loop_var == NULL)
-            lily_raise_nomem(parser->raiser);
     }
     else if (loop_var->type->cls->id != SYM_CLASS_INTEGER) {
         lily_raise(parser->raiser, lily_SyntaxError,

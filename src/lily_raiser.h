@@ -19,7 +19,7 @@
 # define lily_KeyError            10
 # define lily_FormatError         11
 
-typedef struct {
+typedef struct lily_raiser_t {
     /* The raiser will typically have two jumps: One for the vm to catch runtime
        errors, and a second for the runner to catch parser errors. The raiser
        will use the highest jump it has (the vm, typically). */
@@ -37,12 +37,13 @@ typedef struct {
     uint16_t error_code;
     uint16_t jump_pos;
     uint16_t jump_size;
+
+    lily_mem_func mem_func;
 } lily_raiser;
 
-lily_raiser *lily_new_raiser(void);
+lily_raiser *lily_new_raiser(lily_mem_func);
 void lily_free_raiser(lily_raiser *);
 void lily_raise(lily_raiser *, int, char *, ...);
-void lily_raise_nomem(lily_raiser *);
 void lily_raise_prebuilt(lily_raiser *, int);
 void lily_raise_value(lily_raiser *, lily_value *);
 

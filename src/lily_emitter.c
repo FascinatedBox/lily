@@ -39,47 +39,42 @@ static int type_matchup(lily_emit_state *, lily_type *, lily_ast *);
 static void eval_tree(lily_emit_state *, lily_ast *, lily_type *, int);
 static void eval_variant(lily_emit_state *, lily_ast *, lily_type *, int);
 
+#define malloc_mem(size)             emit->mem_func(NULL, size)
+#define realloc_mem(ptr, size)       emit->mem_func(ptr, size)
+#define free_mem(ptr)          (void)emit->mem_func(ptr, 0)
+
 /*****************************************************************************/
 /* Emitter setup and teardown                                                */
 /*****************************************************************************/
 
-lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
+lily_emit_state *lily_new_emit_state(lily_mem_func mem_func, lily_symtab *symtab,
+        lily_raiser *raiser)
 {
-    lily_emit_state *s = lily_malloc(sizeof(lily_emit_state));
+    lily_emit_state *emit = mem_func(NULL, sizeof(lily_emit_state));
+    emit->mem_func = mem_func;
 
-    if (s == NULL)
-        return NULL;
+    emit->patches = malloc_mem(sizeof(int) * 4);
+    emit->match_cases = malloc_mem(sizeof(int) * 4);
+    emit->ts = lily_new_type_stack(mem_func, symtab, raiser);
 
-    s->patches = lily_malloc(sizeof(int) * 4);
-    s->match_cases = lily_malloc(sizeof(int) * 4);
-    s->ts = lily_new_type_stack(symtab, raiser);
+    emit->match_case_pos = 0;
+    emit->match_case_size = 4;
 
-    if (s->patches == NULL || s->ts == NULL || s->match_cases == NULL) {
-        lily_free(s->match_cases);
-        lily_free(s->patches);
-        lily_free_type_stack(s->ts);
-        lily_free(s);
-        return NULL;
-    }
+    emit->block = NULL;
+    emit->unused_storage_start = NULL;
+    emit->all_storage_start = NULL;
+    emit->all_storage_top = NULL;
 
-    s->match_case_pos = 0;
-    s->match_case_size = 4;
+    emit->patch_pos = 0;
+    emit->patch_size = 4;
+    emit->function_depth = 0;
 
-    s->block = NULL;
-    s->unused_storage_start = NULL;
-    s->all_storage_start = NULL;
-    s->all_storage_top = NULL;
+    emit->current_generic_adjust = 0;
+    emit->current_class = NULL;
+    emit->raiser = raiser;
+    emit->expr_num = 1;
 
-    s->patch_pos = 0;
-    s->patch_size = 4;
-    s->function_depth = 0;
-
-    s->current_generic_adjust = 0;
-    s->current_class = NULL;
-    s->raiser = raiser;
-    s->expr_num = 1;
-
-    return s;
+    return emit;
 }
 
 void lily_free_emit_state(lily_emit_state *emit)
@@ -92,21 +87,21 @@ void lily_free_emit_state(lily_emit_state *emit)
 
     while (current) {
         temp = current->next;
-        lily_free(current);
+        free_mem(current);
         current = temp;
     }
 
     current_store = emit->all_storage_start;
     while (current_store) {
         temp_store = current_store->next;
-        lily_free(current_store);
+        free_mem(current_store);
         current_store = temp_store;
     }
 
     lily_free_type_stack(emit->ts);
-    lily_free(emit->match_cases);
-    lily_free(emit->patches);
-    lily_free(emit);
+    free_mem(emit->match_cases);
+    free_mem(emit->patches);
+    free_mem(emit);
 }
 
 /*****************************************************************************/
@@ -125,9 +120,7 @@ static void small_grow(lily_emit_state *emit)
 
     uint16_t *save_code;
     f->len *= 2;
-    save_code = lily_realloc(f->code, sizeof(uint16_t) * f->len);
-    if (save_code == NULL)
-        lily_raise_nomem(emit->raiser);
+    save_code = realloc_mem(f->code, sizeof(uint16_t) * f->len);
     f->code = save_code;
 }
 
@@ -141,9 +134,7 @@ static void write_prep(lily_emit_state *emit, int size)
         uint16_t *save_code;
         while ((f->pos + size) > f->len)
             f->len *= 2;
-        save_code = lily_realloc(f->code, sizeof(uint16_t) * f->len);
-        if (save_code == NULL)
-            lily_raise_nomem(emit->raiser);
+        save_code = realloc_mem(f->code, sizeof(uint16_t) * f->len);
         f->code = save_code;
     }
 }
@@ -338,11 +329,8 @@ static void grow_patches(lily_emit_state *emit)
 {
     emit->patch_size *= 2;
 
-    int *new_patches = lily_realloc(emit->patches,
+    int *new_patches = realloc_mem(emit->patches,
         sizeof(int) * emit->patch_size);
-
-    if (new_patches == NULL)
-        lily_raise_nomem(emit->raiser);
 
     emit->patches = new_patches;
 }
@@ -351,11 +339,8 @@ static void grow_match_cases(lily_emit_state *emit)
 {
     emit->match_case_size *= 2;
 
-    int *new_cases = lily_realloc(emit->match_cases,
+    int *new_cases = realloc_mem(emit->match_cases,
         sizeof(int) * emit->match_case_size);
-
-    if (new_cases == NULL)
-        lily_raise_nomem(emit->raiser);
 
     emit->match_cases = new_cases;
 }
@@ -375,21 +360,6 @@ static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
     lily_function_val *f = emit->top_function;
     emit->patches[emit->patch_pos] = f->pos-1;
     emit->patch_pos++;
-}
-
-/*  try_new_block
-    Attempt to create a new block.
-
-    Success: A new block is returned with ->next set to NULL.
-    Failure: NULL is returned. */
-static lily_block *try_new_block(void)
-{
-    lily_block *ret = lily_malloc(sizeof(lily_block));
-
-    if (ret)
-        ret->next = NULL;
-
-    return ret;
 }
 
 /*  ensure_valid_condition_type
@@ -482,7 +452,7 @@ static lily_type *get_subscript_result(lily_type *type, lily_ast *index_ast)
     around. */
 static int try_add_storage(lily_emit_state *emit)
 {
-    lily_storage *storage = lily_malloc(sizeof(lily_storage));
+    lily_storage *storage = malloc_mem(sizeof(lily_storage));
     if (storage == NULL)
         return 0;
 
@@ -508,7 +478,7 @@ static int try_add_storage(lily_emit_state *emit)
     Additionally, this function ensures that emit->unused_storage_start is both
     updated appropriately and will never become NULL.
 
-    This will either return a valid storage, or call lily_raise_nomem. */
+    This returns a valid storage. */
 static lily_storage *get_storage(lily_emit_state *emit,
         lily_type *type, int line_num)
 {
@@ -545,10 +515,8 @@ static lily_storage *get_storage(lily_emit_state *emit,
     storage_iter->expr_num = expr_num;
     /* This ensures that emit->unused_storage_start is always valid and always
        something unused. */
-    if (storage_iter->next == NULL && try_add_storage(emit) == 0) {
-        emit->raiser->line_adjust = line_num;
-        lily_raise_nomem(emit->raiser);
-    }
+    if (storage_iter->next == NULL)
+        try_add_storage(emit);
 
     storage_iter->flags &= ~SYM_NOT_ASSIGNABLE;
     return storage_iter;
@@ -764,14 +732,10 @@ static void finalize_function_val(lily_emit_state *emit,
     lily_register_info *info;
     lily_function_val *f = emit->top_function;
     if (f->reg_info == NULL)
-        info = lily_malloc(register_count * sizeof(lily_register_info));
+        info = malloc_mem(register_count * sizeof(lily_register_info));
     else
-        info = lily_realloc(f->reg_info,
+        info = realloc_mem(f->reg_info,
                 register_count * sizeof(lily_register_info));
-
-    if (info == NULL)
-        /* This is called directly from parser, so don't set an adjust. */
-        lily_raise_nomem(emit->raiser);
 
     lily_var *var_stop = function_block->function_var;
     lily_type *function_type = var_stop->type;
@@ -796,7 +760,7 @@ static void finalize_function_val(lily_emit_state *emit,
         while (var_iter != var_stop) {
             var_temp = var_iter->next;
             if ((var_iter->flags & VAR_IS_READONLY) == 0)
-                lily_free(var_iter);
+                free_mem(var_iter);
             else {
                 /* This is a function declared within the current function. Hide it
                    in symtab's old functions since it's going out of scope. */
@@ -1988,9 +1952,7 @@ static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
 
     Caveats:
     * Caller must do this before writing the o_build_hash instruction out.
-    * Caller must evaluate the hash before calling this.
-    * This will call lily_raise_nomem in the event of being unable to allocate
-      an any value. */
+    * Caller must evaluate the hash before calling this. */
 static void emit_hash_values_to_anys(lily_emit_state *emit,
         lily_ast *hash_ast)
 {
@@ -2023,9 +1985,7 @@ static void emit_hash_values_to_anys(lily_emit_state *emit,
 
     Caveats:
     * Caller must do this before writing the o_build_list_tuple instruction.
-    * Caller must evaluate the list before calling this.
-    * This will call lily_raise_nomem in the event of being unable to allocate
-      an any value. */
+    * Caller must evaluate the list before calling this. */
 static void emit_list_values_to_anys(lily_emit_state *emit,
         lily_ast *list_ast)
 {
@@ -3469,8 +3429,6 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     if (have_step == 0) {
         /* This var isn't visible, so don't bother with a valid shorthash. */
         for_step = lily_try_new_var(emit->symtab, cls->type, "(for step)", 0);
-        if (for_step == NULL)
-            lily_raise_nomem(emit->raiser);
     }
 
     lily_sym *target;
@@ -3786,19 +3744,17 @@ void lily_reset_main(lily_emit_state *emit)
 }
 
 /*  lily_emit_enter_block
-    Enter a block of a given type. If unable to get a block, this will call
-    lily_raise_nomem. This only handles block states, not multi/single line
-    information. */
+    Enter a block of a given type. This only handles block states, not
+    multi/single line information. */
 void lily_emit_enter_block(lily_emit_state *emit, int block_type)
 {
     lily_block *new_block;
     if (emit->block->next == NULL) {
-        new_block = try_new_block();
-        if (new_block == NULL)
-            lily_raise_nomem(emit->raiser);
+        new_block = malloc_mem(sizeof(lily_block));
 
         emit->block->next = new_block;
         new_block->prev = emit->block;
+        new_block->next = NULL;
     }
     else
         new_block = emit->block->next;
@@ -3834,10 +3790,8 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         else
             class_name = NULL;
 
-        v->value.function = lily_try_new_native_function_val(class_name,
-                v->name);
-        if (v->value.function == NULL)
-            lily_raise_nomem(emit->raiser);
+        v->value.function = lily_try_new_native_function_val(emit->mem_func,
+                class_name, v->name);
 
         v->flags &= ~(VAL_IS_NIL);
 
@@ -3919,19 +3873,12 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
 {
     /* This adds the first storage and makes sure that the emitter can always
        know that emit->unused_storage_start is never NULL. */
-    if (try_add_storage(emit) == 0)
-        return 0;
+    try_add_storage(emit);
 
-    lily_block *main_block = try_new_block();
-    if (main_block == NULL)
-        return 0;
+    lily_block *main_block = malloc_mem(sizeof(lily_block));
+    main_var->value.function = lily_try_new_native_function_val(
+            emit->mem_func, NULL, main_var->name);
 
-    main_var->value.function = lily_try_new_native_function_val(NULL,
-            main_var->name);
-    if (main_var->value.function == NULL) {
-        lily_free(main_block);
-        return 0;
-    }
     /* __main__ is given two refs so that it must go through a custom deref to
        be destroyed. This is because the names in the function info it has are
        shared with vars that are still around. */
@@ -3939,6 +3886,7 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     main_var->flags &= ~VAL_IS_NIL;
 
     main_block->prev = NULL;
+    main_block->next = NULL;
     main_block->block_type = BLOCK_FUNCTION;
     main_block->function_var = main_var;
     main_block->storage_start = emit->all_storage_start;

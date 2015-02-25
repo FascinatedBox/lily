@@ -56,10 +56,11 @@ typedef struct {
     uint64_t function_depth;
 
     uint16_t *lex_linenum;
+    lily_mem_func mem_func;
     lily_raiser *raiser;
 } lily_symtab;
 
-lily_symtab *lily_new_symtab(lily_raiser *);
+lily_symtab *lily_new_symtab(lily_mem_func, lily_raiser *);
 void lily_free_symtab_lits_and_vars(lily_symtab *);
 void lily_free_symtab(lily_symtab *);
 
@@ -94,7 +95,8 @@ lily_class *lily_new_variant_class(lily_symtab *, lily_class *, char *);
 void lily_finish_variant_class(lily_symtab *, lily_class *, lily_type *);
 void lily_add_class_method(lily_symtab *, lily_class *, lily_var *);
 
-lily_prop_entry *lily_add_class_property(lily_class *, lily_type *, char *, int);
+lily_prop_entry *lily_add_class_property(lily_symtab *, lily_class *,
+        lily_type *, char *, int);
 void lily_update_symtab_generics(lily_symtab *, lily_class *, int);
 void lily_finish_class(lily_symtab *, lily_class *);
 void lily_make_constructor_return_type(lily_symtab *);

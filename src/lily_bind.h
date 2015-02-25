@@ -7,6 +7,6 @@
 lily_value *lily_bind_string(lily_symtab *, const char *);
 lily_value *lily_bind_integer(lily_symtab *, int64_t);
 lily_value *lily_bind_string_take_buffer(lily_symtab *, char *);
-void lily_bind_destroy(lily_value *);
+void lily_bind_destroy(lily_mem_func, lily_value *);
 
 #endif

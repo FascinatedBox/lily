@@ -1,6 +1,10 @@
 #include "lily_impl.h"
 #include "lily_vm.h"
 
+#define malloc_mem(size)             vm->mem_func(NULL, size)
+#define realloc_mem(ptr, size)       vm->mem_func(ptr, size)
+#define free_mem(ptr)          (void)vm->mem_func(ptr, 0)
+
 void lily_list_size(lily_vm_state *vm, lily_function_val *self,
         uint16_t *code)
 {
@@ -21,20 +25,9 @@ void lily_list_append(lily_vm_state *vm, lily_function_val *self,
 
     int value_count = list_val->num_values;
 
-    lily_value **new_list_values = lily_realloc(list_val->elems,
+    lily_value **new_list_values = realloc_mem(list_val->elems,
         (value_count + 1) * sizeof(lily_value *));
-    lily_value *value_holder = lily_malloc(sizeof(lily_value));
-
-    if (new_list_values == NULL || value_holder == NULL) {
-        /* realloc may free the pointer, so update the list so it has valid
-           values. The gc will then take care of properly free-ing the list
-           later. */
-        if (new_list_values != NULL)
-            list_val->elems = new_list_values;
-
-        lily_free(value_holder);
-        lily_raise_nomem(vm->raiser);
-    }
+    lily_value *value_holder = malloc_mem(sizeof(lily_value));
 
     value_holder->type = insert_value->type;
     value_holder->flags = VAL_IS_NIL;

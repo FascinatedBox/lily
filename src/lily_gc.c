@@ -9,24 +9,27 @@
     These should all set the gc_entry's last_pass to -1 so that the gc will
     delete the actual value when it is safe to do so. **/
 
-void lily_gc_collect_value(lily_type *value_type, lily_raw_value value)
+#define free_mem(ptr) (void)mem_func(ptr, 0)
+
+void lily_gc_collect_value(lily_mem_func mem_func, lily_type *value_type,
+        lily_raw_value value)
 {
     int entry_cls_id = value_type->cls->id;
 
     if (entry_cls_id == SYM_CLASS_LIST)
-        lily_gc_collect_list(value_type, value.list);
+        lily_gc_collect_list(mem_func, value_type, value.list);
     else if (entry_cls_id == SYM_CLASS_HASH)
-        lily_gc_collect_hash(value_type, value.hash);
+        lily_gc_collect_hash(mem_func, value_type, value.hash);
     else if (value_type->cls->flags & CLS_ENUM_CLASS)
-        lily_gc_collect_any(value.any);
+        lily_gc_collect_any(mem_func, value.any);
     else if (entry_cls_id == SYM_CLASS_TUPLE ||
              entry_cls_id >= SYM_CLASS_EXCEPTION)
-        lily_gc_collect_tuple(value_type, value.list);
+        lily_gc_collect_tuple(mem_func, value_type, value.list);
     else
-        lily_deref_unknown_raw_val(value_type, value);
+        lily_deref_unknown_raw_val(mem_func, value_type, value);
 }
 
-void lily_gc_collect_any(lily_any_val *any_val)
+void lily_gc_collect_any(lily_mem_func mem_func, lily_any_val *any_val)
 {
     if (any_val->gc_entry->value.generic != NULL &&
         any_val->gc_entry->last_pass != -1) {
@@ -39,17 +42,19 @@ void lily_gc_collect_any(lily_any_val *any_val)
             inner_value->type->cls->is_refcounted) {
             lily_generic_val *generic_val = inner_value->value.generic;
             if (generic_val->refcount == 1)
-                lily_gc_collect_value(inner_value->type, inner_value->value);
+                lily_gc_collect_value(mem_func, inner_value->type,
+                        inner_value->value);
             else
                 generic_val->refcount--;
         }
 
-        lily_free(any_val->inner_value);
+        free_mem(any_val->inner_value);
         /* Do not free any_val here: Let the gc do that later. */
     }
 }
 
-void lily_gc_collect_list(lily_type *list_type, lily_list_val *list_val)
+void lily_gc_collect_list(lily_mem_func mem_func, lily_type *list_type,
+        lily_list_val *list_val)
 {
     /* The first check is done because this list might be inside of an any
        that is being collected. So it may not be in the gc, but it needs to be
@@ -84,24 +89,24 @@ void lily_gc_collect_list(lily_type *list_type, lily_list_val *list_val)
                 if ((elem->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
                     lily_raw_value v = elem->value;
                     if (v.generic->refcount == 1)
-                        lily_gc_collect_value(value_type, v);
+                        lily_gc_collect_value(mem_func, value_type, v);
                     else
                         v.generic->refcount--;
                 }
-                lily_free(elem);
+                free_mem(elem);
             }
         }
         else {
             /* Still need to free all the list elements, even if not
                refcounted. */
             for (i = 0;i < list_val->num_values;i++)
-                lily_free(list_val->elems[i]);
+                free_mem(list_val->elems[i]);
         }
         /* else the values aren't refcounted (ex: list[integer]). No-op. */
 
-        lily_free(list_val->elems);
+        free_mem(list_val->elems);
         if (marked == 0)
-            lily_free(list_val);
+            free_mem(list_val);
     }
 }
 
@@ -122,7 +127,8 @@ void lily_gc_collect_list(lily_type *list_type, lily_list_val *list_val)
     * hash_type: The type of the hash given.
     * hash_val: The hash value to destroy the inner values of. If this hash
                 value does not have a gc entry, it will be deleted as well. */
-void lily_gc_collect_hash(lily_type *hash_type, lily_hash_val *hash_val)
+void lily_gc_collect_hash(lily_mem_func mem_func, lily_type *hash_type,
+        lily_hash_val *hash_val)
 {
     int marked = 0;
     if (hash_val->gc_entry == NULL ||
@@ -148,7 +154,7 @@ void lily_gc_collect_hash(lily_type *hash_type, lily_hash_val *hash_val)
             if ((elem_key->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
                 lily_raw_value k = elem_key->value;
                 if (k.generic->refcount == 1)
-                    lily_gc_collect_value(hash_key_type, k);
+                    lily_gc_collect_value(mem_func, hash_key_type, k);
                 else
                     k.generic->refcount--;
             }
@@ -156,23 +162,24 @@ void lily_gc_collect_hash(lily_type *hash_type, lily_hash_val *hash_val)
             if ((elem_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
                 lily_raw_value v = elem_value->value;
                 if (v.generic->refcount == 1)
-                    lily_gc_collect_value(hash_value_type, v);
+                    lily_gc_collect_value(mem_func, hash_value_type, v);
                 else
                     v.generic->refcount--;
             }
 
-            lily_free(elem_iter->elem_key);
-            lily_free(elem_iter->elem_value);
-            lily_free(elem_iter);
+            free_mem(elem_iter->elem_key);
+            free_mem(elem_iter->elem_value);
+            free_mem(elem_iter);
             elem_iter = elem_temp;
         }
 
         if (marked == 0)
-            lily_free(hash_val);
+            free_mem(hash_val);
     }
 }
 
-void lily_gc_collect_tuple(lily_type *tuple_type, lily_list_val *tuple_val)
+void lily_gc_collect_tuple(lily_mem_func mem_func, lily_type *tuple_type,
+        lily_list_val *tuple_val)
 {
     int marked = 0;
     if (tuple_val->gc_entry == NULL ||
@@ -194,15 +201,15 @@ void lily_gc_collect_tuple(lily_type *tuple_type, lily_list_val *tuple_val)
                 (elem->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
                 lily_raw_value v = elem->value;
                 if (v.generic->refcount == 1)
-                    lily_gc_collect_value(elem->type, v);
+                    lily_gc_collect_value(mem_func, elem->type, v);
                 else
                     v.generic->refcount--;
             }
-            lily_free(elem);
+            free_mem(elem);
         }
 
-        lily_free(tuple_val->elems);
+        free_mem(tuple_val->elems);
         if (marked == 0)
-            lily_free(tuple_val);
+            free_mem(tuple_val);
     }
 }

@@ -6,16 +6,14 @@
 #include "lily_value.h"
 #include "lily_vm.h"
 
-static lily_string_val *try_make_sv(int size)
-{
-    lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
-    char *new_string = lily_malloc(sizeof(char) * size);
+#define malloc_mem(size)             vm->mem_func(NULL, size)
+#define realloc_mem(ptr, size)       vm->mem_func(ptr, size)
+#define free_mem(ptr)          (void)vm->mem_func(ptr, 0)
 
-    if (new_sv == NULL || new_string == NULL) {
-        lily_free(new_sv);
-        lily_free(new_string);
-        return NULL;
-    }
+static lily_string_val *try_make_sv(lily_vm_state *vm, int size)
+{
+    lily_string_val *new_sv = malloc_mem(sizeof(lily_string_val));
+    char *new_string = malloc_mem(sizeof(char) * size);
 
     new_sv->string = new_string;
     new_sv->size = size - 1;
@@ -44,16 +42,14 @@ void lily_string_concat(lily_vm_state *vm, lily_function_val *self,
     lily_string_val *other_sv = other_arg->value.string;
 
     int new_size = self_sv->size + other_sv->size + 1;
-    lily_string_val *new_sv = try_make_sv(new_size);
-    if (new_sv == NULL)
-        lily_raise_nomem(vm->raiser);
+    lily_string_val *new_sv = try_make_sv(vm, new_size);
 
     char *new_str = new_sv->string;
     strcpy(new_str, self_sv->string);
     strcat(new_str, other_sv->string);
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(result_arg->value.string);
+        lily_deref_string_val(vm->mem_func, result_arg->value.string);
 
     result_arg->flags = 0;
     result_arg->value.string = new_sv;
@@ -280,13 +276,11 @@ void lily_string_lstrip(lily_vm_state *vm, lily_function_val *self,
         copy_from = lstrip_utf8_start(input_arg, strip_sv);
 
     int new_size = (input_arg->value.string->size - copy_from) + 1;
-    lily_string_val *new_sv = try_make_sv(new_size);
-    if (new_sv == NULL)
-        lily_raise_nomem(vm->raiser);
+    lily_string_val *new_sv = try_make_sv(vm, new_size);
 
     strcpy(new_sv->string, input_arg->value.string->string + copy_from);
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(result_arg->value.string);
+        lily_deref_string_val(vm->mem_func, result_arg->value.string);
 
     result_arg->flags = 0;
     result_arg->value.string = new_sv;
@@ -458,16 +452,14 @@ void lily_string_rstrip(lily_vm_state *vm, lily_function_val *self,
         copy_to = rstrip_utf8_stop(input_arg, strip_sv);
 
     int new_size = copy_to + 1;
-    lily_string_val *new_sv = try_make_sv(new_size);
-    if (new_sv == NULL)
-        lily_raise_nomem(vm->raiser);
+    lily_string_val *new_sv = try_make_sv(vm, new_size);
 
     strncpy(new_sv->string, input_arg->value.string->string, copy_to);
     /* This will always copy a partial string, so make sure to add a terminator. */
     new_sv->string[copy_to] = '\0';
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(result_arg->value.string);
+        lily_deref_string_val(vm->mem_func, result_arg->value.string);
 
     result_arg->flags = 0;
     result_arg->value.string = new_sv;
@@ -514,9 +506,7 @@ void lily_string_lower(lily_vm_state *vm, lily_function_val *self,
     lily_value *result_arg = vm_regs[code[1]];
 
     int new_size = input_arg->value.string->size + 1;
-    lily_string_val *new_sv = try_make_sv(new_size);
-    if (new_sv == NULL)
-        lily_raise_nomem(vm->raiser);
+    lily_string_val *new_sv = try_make_sv(vm, new_size);
 
     char *new_str = new_sv->string;
     char *input_str = input_arg->value.string->string;
@@ -533,7 +523,7 @@ void lily_string_lower(lily_vm_state *vm, lily_function_val *self,
     new_str[input_length] = '\0';
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(result_arg->value.string);
+        lily_deref_string_val(vm->mem_func, result_arg->value.string);
 
     result_arg->flags = 0;
     result_arg->value.string = new_sv;
@@ -547,9 +537,7 @@ void lily_string_upper(lily_vm_state *vm, lily_function_val *self,
     lily_value *result_arg = vm_regs[code[1]];
 
     int new_size = input_arg->value.string->size + 1;
-    lily_string_val *new_sv = try_make_sv(new_size);
-    if (new_sv == NULL)
-        lily_raise_nomem(vm->raiser);
+    lily_string_val *new_sv = try_make_sv(vm, new_size);
 
     char *new_str = new_sv->string;
     char *input_str = input_arg->value.string->string;
@@ -566,7 +554,7 @@ void lily_string_upper(lily_vm_state *vm, lily_function_val *self,
     new_str[input_length] = '\0';
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(result_arg->value.string);
+        lily_deref_string_val(vm->mem_func, result_arg->value.string);
 
     result_arg->flags = 0;
     result_arg->value.string = new_sv;
@@ -678,16 +666,14 @@ void lily_string_strip(lily_vm_state *vm, lily_function_val *self,
         copy_to = copy_from;
 
     int new_size = (copy_to - copy_from) + 1;
-    lily_string_val *new_sv = try_make_sv(new_size);
-    if (new_sv == NULL)
-        lily_raise_nomem(vm->raiser);
+    lily_string_val *new_sv = try_make_sv(vm, new_size);
 
     char *new_str = new_sv->string;
     strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
     new_str[new_size - 1] = '\0';
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(result_arg->value.string);
+        lily_deref_string_val(vm->mem_func, result_arg->value.string);
 
     result_arg->flags = 0;
     result_arg->value.string = new_sv;
@@ -720,9 +706,7 @@ void lily_string_trim(lily_vm_state *vm, lily_function_val *self,
     copy_to = rstrip_ascii_stop(input_arg, &fake_sv);
 
     int new_size = (copy_to - copy_from) + 1;
-    lily_string_val *new_sv = try_make_sv(new_size);
-    if (new_sv == NULL)
-        lily_raise_nomem(vm->raiser);
+    lily_string_val *new_sv = try_make_sv(vm, new_size);
 
     char *new_str = new_sv->string;
 
@@ -730,7 +714,7 @@ void lily_string_trim(lily_vm_state *vm, lily_function_val *self,
     new_str[new_size - 1] = '\0';
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(result_arg->value.string);
+        lily_deref_string_val(vm->mem_func, result_arg->value.string);
 
     result_arg->flags = 0;
     result_arg->value.string = new_sv;
@@ -764,9 +748,7 @@ void lily_string_htmlencode(lily_vm_state *vm, lily_function_val *self,
 
     while (1) {
         if (i == string_fakemax) {
-            char *new_str = lily_realloc(str, str_size * 2);
-            if (new_str == NULL)
-                lily_raise_nomem(vm->raiser);
+            char *new_str = realloc_mem(str, str_size * 2);
 
             string_buffer->data = new_str;
             str = new_str;
@@ -808,14 +790,12 @@ void lily_string_htmlencode(lily_vm_state *vm, lily_function_val *self,
         ch++;
     }
 
-    lily_string_val *new_sv = try_make_sv(i + 1);
-    if (new_sv == NULL)
-        lily_raise_nomem(vm->raiser);
+    lily_string_val *new_sv = try_make_sv(vm, i + 1);
 
     strcpy(new_sv->string, str);
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(result_arg->value.string);
+        lily_deref_string_val(vm->mem_func, result_arg->value.string);
 
     result_arg->flags = 0;
     result_arg->value.string = new_sv;
@@ -857,9 +837,7 @@ void lily_string_format(lily_vm_state *vm, lily_function_val *self,
         char ch = fmt[fmt_index];
         if (buffer_index == buffer_max) {
             buffer_max *= 2;
-            char *new_str = lily_realloc(buffer_str, buffer_max * 2);
-            if (new_str == NULL)
-                lily_raise_nomem(vm->raiser);
+            char *new_str = realloc_mem(buffer_str, buffer_max * 2);
 
             string_buffer->data = new_str;
             buffer_str = new_str;
@@ -931,9 +909,7 @@ void lily_string_format(lily_vm_state *vm, lily_function_val *self,
                     buffer_max *= 2;
                 } while (buffer_index + add_len > buffer_max);
 
-                char *new_str = lily_realloc(buffer_str, buffer_max);
-                if (new_str == NULL)
-                    lily_raise_nomem(vm->raiser);
+                char *new_str = realloc_mem(buffer_str, buffer_max);
 
                 string_buffer->data = new_str;
                 buffer_str = new_str;
@@ -950,14 +926,12 @@ void lily_string_format(lily_vm_state *vm, lily_function_val *self,
         fmt_index++;
     }
 
-    lily_string_val *new_sv = try_make_sv(buffer_index + 1);
-    if (new_sv == NULL)
-        lily_raise_nomem(vm->raiser);
+    lily_string_val *new_sv = try_make_sv(vm, buffer_index + 1);
 
     strcpy(new_sv->string, buffer_str);
 
     if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(result_arg->value.string);
+        lily_deref_string_val(vm->mem_func, result_arg->value.string);
 
     result_arg->flags = 0;
     result_arg->value.string = new_sv;

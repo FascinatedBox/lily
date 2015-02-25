@@ -3,28 +3,28 @@
 #include "lily_impl.h"
 #include "lily_membuf.h"
 
-lily_membuf *lily_membuf_new(lily_raiser *raiser)
-{
-    lily_membuf *membuf = lily_malloc(sizeof(lily_membuf));
-    char *buffer = lily_malloc(64);
-    if (membuf == NULL || buffer == NULL) {
-        lily_free(membuf);
-        lily_free(buffer);
-        return NULL;
-    }
+#define malloc_mem(size)             membuf->mem_func(NULL, size)
+#define realloc_mem(ptr, size)       membuf->mem_func(ptr, size)
+#define free_mem(ptr)          (void)membuf->mem_func(ptr, 0)
 
-    membuf->buffer = buffer;
+lily_membuf *lily_membuf_new(lily_mem_func mem_func, lily_raiser *raiser)
+{
+    lily_membuf *membuf = mem_func(NULL, sizeof(lily_membuf));
+
+    membuf->mem_func = mem_func;
+    membuf->buffer = malloc_mem(64);
     membuf->pos = 0;
     membuf->size = 63;
+
     return membuf;
 }
 
 void lily_membuf_free(lily_membuf *membuf)
 {
     if (membuf)
-        lily_free(membuf->buffer);
+        free_mem(membuf->buffer);
 
-    lily_free(membuf);
+    free_mem(membuf);
 }
 
 int lily_membuf_add(lily_membuf *membuf, char *new_str)
@@ -35,10 +35,7 @@ int lily_membuf_add(lily_membuf *membuf, char *new_str)
         while (membuf->size < want_size)
             membuf->size *= 2;
 
-        char *new_buffer = lily_realloc(membuf->buffer, membuf->size);
-        if (new_buffer == NULL)
-            lily_raise_nomem(membuf->raiser);
-
+        char *new_buffer = realloc_mem(membuf->buffer, membuf->size);
         membuf->buffer = new_buffer;
     }
 

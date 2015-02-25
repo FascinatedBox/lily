@@ -5,6 +5,10 @@
 #include "inttypes.h"
 #include "string.h"
 
+#define malloc_mem(size)             vm->mem_func(NULL, size)
+#define realloc_mem(ptr, size)       vm->mem_func(ptr, size)
+#define free_mem(ptr)          (void)vm->mem_func(ptr, 0)
+
 /*  lily_integer_to_string
     Implements integer::to_string() */
 void lily_integer_to_string(lily_vm_state *vm, lily_function_val *self,
@@ -17,13 +21,8 @@ void lily_integer_to_string(lily_vm_state *vm, lily_function_val *self,
     char buffer[32];
     snprintf(buffer, 32, "%"PRId64, integer_val);
 
-    lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
-    char *text = lily_malloc(strlen(buffer) + 1);
-    if (new_sv == NULL || text == NULL) {
-        lily_free(new_sv);
-        lily_free(text);
-        lily_raise_nomem(vm->raiser);
-    }
+    lily_string_val *new_sv = malloc_mem(sizeof(lily_string_val));
+    char *text = malloc_mem(strlen(buffer) + 1);
 
     strcpy(text, buffer);
     new_sv->string = text;
@@ -31,7 +30,7 @@ void lily_integer_to_string(lily_vm_state *vm, lily_function_val *self,
     new_sv->refcount = 1;
 
     if ((result_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(result_reg->value.string);
+        lily_deref_string_val(vm->mem_func, result_reg->value.string);
 
     result_reg->flags = 0;
     result_reg->value.string = new_sv;

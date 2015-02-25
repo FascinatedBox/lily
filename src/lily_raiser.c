@@ -11,23 +11,21 @@ static const char *lily_error_names[] =
      "DivisionByZeroError", "IndexError", "BadTypecastError", "NoReturnError",
      "ValueError", "RecursionError", "KeyError", "FormatError"};
 
-lily_raiser *lily_new_raiser()
-{
-    lily_raiser *raiser = lily_malloc(sizeof(lily_raiser));
-    if (raiser == NULL)
-        return NULL;
+#define malloc_mem(size)             raiser->mem_func(NULL, size)
+#define realloc_mem(ptr, size)       raiser->mem_func(ptr, size)
+#define free_mem(ptr)          (void)raiser->mem_func(ptr, 0)
 
-    raiser->msgbuf = lily_new_msgbuf();
-    raiser->jumps = lily_malloc(2 * sizeof(jmp_buf));
+lily_raiser *lily_new_raiser(lily_mem_func mem_func)
+{
+    lily_raiser *raiser = mem_func(NULL, sizeof(lily_raiser));
+
+    raiser->mem_func = mem_func;
+    raiser->msgbuf = lily_new_msgbuf(mem_func);
+    raiser->jumps = malloc_mem(2 * sizeof(jmp_buf));
     raiser->jump_pos = 0;
     raiser->jump_size = 2;
     raiser->line_adjust = 0;
     raiser->exception = NULL;
-
-    if (raiser->msgbuf == NULL || raiser->jumps == NULL) {
-        lily_free_raiser(raiser);
-        return NULL;
-    }
 
     return raiser;
 }
@@ -37,14 +35,14 @@ void lily_free_raiser(lily_raiser *raiser)
     if (raiser->msgbuf)
         lily_free_msgbuf(raiser->msgbuf);
 
-    lily_free(raiser->jumps);
-    lily_free(raiser);
+    free_mem(raiser->jumps);
+    free_mem(raiser);
 }
 
 /* lily_raise
    This stops the interpreter. error_code is one of the error codes defined in
    lily_raiser.h, which are matched to lily_error_names. Every error passes
-   through here except NoMemoryError.
+   through here.
    Instead of printing the message, this function saves the message so that
    whatever runs the interpreter can choose what to do with it (ignoring it,
    printing it to a special file, printing it to an application window, etc.) */
@@ -60,12 +58,6 @@ void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
     va_end(var_args);
 
     raiser->error_code = error_code;
-    longjmp(raiser->jumps[raiser->jump_pos-1], 1);
-}
-
-void lily_raise_nomem(lily_raiser *raiser)
-{
-    raiser->error_code = lily_NoMemoryError;
     longjmp(raiser->jumps[raiser->jump_pos-1], 1);
 }
 

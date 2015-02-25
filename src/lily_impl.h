@@ -13,7 +13,7 @@ void lily_impl_puts(void *, char *);
 #ifndef AFT_ALLOC
 # define lily_malloc(size) malloc(size)
 # define lily_realloc(ptr, size) realloc(ptr, size)
-# define lily_free(ptr) free(ptr)
+# define lily_free(ptr) realloc(ptr, 0)
 #else
 # define lily_malloc(size) aft_malloc(__FILE__, __LINE__, size)
 # define lily_realloc(ptr, size) aft_realloc(__FILE__, __LINE__, ptr, size)
