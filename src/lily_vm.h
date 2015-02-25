@@ -107,8 +107,7 @@ void lily_free_vm_state(lily_vm_state *);
 void lily_vm_prep(lily_vm_state *, lily_symtab *);
 void lily_vm_execute(lily_vm_state *);
 void lily_vm_free_registers(lily_vm_state *);
-lily_hash_elem *lily_try_lookup_hash_elem(lily_hash_val *, uint64_t,
-        lily_value *);
+lily_hash_elem *lily_lookup_hash_elem(lily_hash_val *, uint64_t, lily_value *);
 void lily_assign_value(lily_vm_state *, lily_value *, lily_value *);
 uint64_t lily_calculate_siphash(char *, lily_value *);
 

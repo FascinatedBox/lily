@@ -16,10 +16,9 @@ typedef struct {
     /* The message being stored. */
     char *message;
     /* The size that the message currently takes. */
-    uint16_t pos;
+    uint32_t pos;
     /* The buffer space allocated for the message. */
-    uint16_t size;
-    uint32_t truncated;
+    uint32_t size;
     lily_mem_func mem_func;
 } lily_msgbuf;
 
@@ -35,6 +34,5 @@ void lily_msgbuf_add_fmt(lily_msgbuf *, char *, ...);
 void lily_msgbuf_add_fmt_va(lily_msgbuf *, char *, va_list);
 void lily_msgbuf_escaped_add_str(lily_msgbuf *, char *);
 void lily_msgbuf_flush(lily_msgbuf *);
-void lily_msgbuf_reset(lily_msgbuf *);
 
 #endif

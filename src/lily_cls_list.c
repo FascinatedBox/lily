@@ -25,14 +25,13 @@ void lily_list_append(lily_vm_state *vm, lily_function_val *self,
 
     int value_count = list_val->num_values;
 
-    lily_value **new_list_values = realloc_mem(list_val->elems,
-        (value_count + 1) * sizeof(lily_value *));
     lily_value *value_holder = malloc_mem(sizeof(lily_value));
 
     value_holder->type = insert_value->type;
     value_holder->flags = VAL_IS_NIL;
     value_holder->value.integer = 0;
-    list_val->elems = new_list_values;
+    list_val->elems = realloc_mem(list_val->elems,
+        (value_count + 1) * sizeof(lily_value *));;
     list_val->elems[value_count] = value_holder;
     list_val->num_values++;
 

@@ -48,8 +48,6 @@ lily_value *lily_bind_string(lily_symtab *symtab, const char *string)
 {
     lily_mem_func mem_func = symtab->mem_func;
     char *buffer = malloc_mem(strlen(string) + 1);
-    if (buffer == NULL)
-        return NULL;
 
     strcpy(buffer, string);
     return lily_bind_string_take_buffer(symtab, buffer);

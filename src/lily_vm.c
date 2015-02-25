@@ -469,7 +469,7 @@ static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
 {
     lily_any_val *lhs_any;
     if (lhs_reg->flags & VAL_IS_NIL) {
-        lhs_any = lily_try_new_any_val(vm->mem_func);
+        lhs_any = lily_new_any_val(vm->mem_func);
         try_add_gc_item(vm, lhs_reg->type, (lily_generic_gc_val *)lhs_any);
 
         lhs_reg->value.any = lhs_any;
@@ -523,14 +523,9 @@ static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
 static void grow_function_stack(lily_vm_state *vm)
 {
     int i;
-    lily_vm_stack_entry **new_stack;
 
-    /* Functions are free'd from 0 to stack_size, so don't increase stack_size
-       just yet. */
-    new_stack = realloc_mem(vm->function_stack,
+    vm->function_stack = realloc_mem(vm->function_stack,
             sizeof(lily_vm_stack_entry *) * 2 * vm->function_stack_size);
-
-    vm->function_stack = new_stack;
     vm->function_stack_size *= 2;
 
     for (i = vm->function_stack_pos+1;i < vm->function_stack_size;i++) {
@@ -747,13 +742,8 @@ static void copy_literals(lily_vm_state *vm)
         return;
 
     int count = symtab->next_lit_spot;
-    lily_literal **literals;
-
-    if (vm->literal_table == NULL)
-        literals = malloc_mem(count * sizeof(lily_literal *));
-    else
-        literals = realloc_mem(vm->literal_table, count *
-                sizeof(lily_literal *));
+    lily_literal **literals = realloc_mem(vm->literal_table,
+            count * sizeof(lily_literal *));
 
     lily_literal *lit_stop = vm->prep_literal_stop;
     lily_literal *lit_iter = symtab->lit_chain;
@@ -823,13 +813,8 @@ static void copy_functions(lily_vm_state *vm)
         return;
 
     int count = symtab->next_function_spot;
-    lily_var **functions;
-
-    if (vm->function_table == NULL)
-        functions = malloc_mem(count * sizeof(lily_var *));
-    else
-        functions = realloc_mem(vm->function_table, count *
-                sizeof(lily_var *));
+    lily_var **functions = realloc_mem(vm->function_table,
+            count * sizeof(lily_var *));
 
     int need = count - vm->function_count;
 
@@ -884,8 +869,6 @@ static lily_value *bind_function_name(lily_vm_state *vm, lily_symtab *symtab,
             strlen(fval->trace_name);
 
     char *buffer = malloc_mem(buffer_size + 1);
-    if (buffer == NULL)
-        return NULL;
 
     strcpy(buffer, class_name);
     strcat(buffer, separator);
@@ -901,8 +884,6 @@ static lily_value *build_traceback(lily_vm_state *vm, lily_type *traceback_type)
 {
     lily_symtab *symtab = vm->symtab;
     lily_list_val *lv = malloc_mem(sizeof(lily_list_val));
-    if (lv == NULL)
-        return NULL;
 
     lv->elems = malloc_mem(vm->function_stack_pos * sizeof(lily_value *));
     lv->num_values = -1;
@@ -1096,7 +1077,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
 /* Hash related functions                                                    */
 /*****************************************************************************/
 
-/*  lily_try_lookup_hash_elem
+/*  lily_lookup_hash_elem
     This attempts to find a hash element by key in the given hash. This will not
     create a new element if it fails.
 
@@ -1108,7 +1089,7 @@ void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
     On success: The hash element that was inserted into the hash value is
                 returned.
     On failure: NULL is returned. */
-lily_hash_elem *lily_try_lookup_hash_elem(lily_hash_val *hash,
+lily_hash_elem *lily_lookup_hash_elem(lily_hash_val *hash,
         uint64_t key_siphash, lily_value *key)
 {
     int key_cls_id = key->type->cls->id;
@@ -1165,10 +1146,10 @@ static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
         lily_value *hash_value)
 {
     lily_hash_elem *elem;
-    elem = lily_try_lookup_hash_elem(hash, key_siphash, hash_key);
+    elem = lily_lookup_hash_elem(hash, key_siphash, hash_key);
 
     if (elem == NULL) {
-        elem = lily_try_new_hash_elem(vm->mem_func);
+        elem = lily_new_hash_elem(vm->mem_func);
         if (elem != NULL) {
             /* It's important to copy over the flags, in case the key is a
                literal and marked VAL_IS_PROTECTED. Doing so keeps hash deref
@@ -1273,7 +1254,7 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code, int code_pos)
         lily_hash_elem *hash_elem;
 
         siphash = lily_calculate_siphash(vm->sipkey, index_reg);
-        hash_elem = lily_try_lookup_hash_elem(lhs_reg->value.hash, siphash,
+        hash_elem = lily_lookup_hash_elem(lhs_reg->value.hash, siphash,
                 index_reg);
 
         /* Give up if the key doesn't exist. */
@@ -1301,7 +1282,7 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code, int code_pos)
     num_values = (intptr_t)(code[code_pos + 2]);
     result = vm_regs[code[code_pos + 3 + num_values]];
 
-    lily_hash_val *hash_val = lily_try_new_hash_val(vm->mem_func);
+    lily_hash_val *hash_val = lily_new_hash_val(vm->mem_func);
 
     if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
         try_add_gc_item(vm, result->type,
@@ -1506,7 +1487,7 @@ static void make_proper_exception_val(lily_vm_state *vm,
     lily_value *message_val = lily_bind_string(vm->symtab,
             vm->raiser->msgbuf->message);
 
-    lily_msgbuf_reset(vm->raiser->msgbuf);
+    lily_msgbuf_flush(vm->raiser->msgbuf);
     ival->values[0] = message_val;
     ival->num_values = 1;
 
@@ -1934,13 +1915,8 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
         /* Note: num_registers can never be zero for a second pass, because the
            first pass will have at least __main__ and the sys package even if
            there's no code to run. */
-        if (vm->num_registers == 0)
-            vm_regs = malloc_mem(main_function->reg_count *
-                    sizeof(lily_value *));
-        else
-            vm_regs = realloc_mem(vm->regs_from_main,
-                    main_function->reg_count * sizeof(lily_value *));
-
+        vm_regs = realloc_mem(vm->regs_from_main,
+                main_function->reg_count * sizeof(lily_value *));
         vm->vm_regs = vm_regs;
     }
 

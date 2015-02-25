@@ -10,7 +10,7 @@ void lily_hash_get(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
     lily_value *result = vm_regs[code[3]];
 
     uint64_t siphash = lily_calculate_siphash(vm->sipkey, find_key);
-    lily_hash_elem *hash_elem = lily_try_lookup_hash_elem(input->value.hash,
+    lily_hash_elem *hash_elem = lily_lookup_hash_elem(input->value.hash,
             siphash, find_key);
 
     lily_value *new_value;

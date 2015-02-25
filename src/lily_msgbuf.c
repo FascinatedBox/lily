@@ -18,29 +18,14 @@ lily_msgbuf *lily_new_msgbuf(lily_mem_func mem_func)
     msgbuf->message[0] = '\0';
     msgbuf->pos = 0;
     msgbuf->size = 64;
-    msgbuf->truncated = 0;
 
     return msgbuf;
 }
 
-static int try_resize_msgbuf(lily_msgbuf *msgbuf, int new_size)
+static void resize_msgbuf(lily_msgbuf *msgbuf, int new_size)
 {
-    char *new_message;
-    int ret;
-
-    new_message = realloc_mem(msgbuf->message, new_size);
-
-    if (new_message == NULL) {
-        msgbuf->truncated = 1;
-        ret = 0;
-    }
-    else {
-        msgbuf->message = new_message;
-        msgbuf->size = new_size;
-        ret = 1;
-    }
-
-    return ret;
+    msgbuf->message = realloc_mem(msgbuf->message, new_size);
+    msgbuf->size = new_size;
 }
 
 void lily_free_msgbuf(lily_msgbuf *msgbuf)
@@ -53,13 +38,8 @@ void lily_msgbuf_add(lily_msgbuf *msgbuf, char *str)
 {
     int len = strlen(str);
 
-    if (msgbuf->truncated)
-        return;
-
-    if ((msgbuf->pos + len + 1) > msgbuf->size) {
-        if (try_resize_msgbuf(msgbuf, msgbuf->pos + len + 1) == 0)
-            return;
-    }
+    if ((msgbuf->pos + len + 1) > msgbuf->size)
+        resize_msgbuf(msgbuf, msgbuf->pos + len + 1);
 
     strcat(msgbuf->message, str);
     msgbuf->pos += len;
@@ -114,12 +94,8 @@ void lily_msgbuf_add_text_range(lily_msgbuf *msgbuf, char *text, int start,
 {
     int range = (stop - start);
 
-    if (msgbuf->truncated)
-        return;
-
     if ((msgbuf->pos + range + 1) > msgbuf->size)
-        if (try_resize_msgbuf(msgbuf, msgbuf->pos + range + 1) == 0)
-            return;
+        resize_msgbuf(msgbuf, msgbuf->pos + range + 1);
 
     memcpy(msgbuf->message + msgbuf->pos, text + start, range);
     msgbuf->pos += range;
@@ -149,17 +125,8 @@ void lily_msgbuf_add_double(lily_msgbuf *msgbuf, double d)
     lily_msgbuf_add(msgbuf, buf);
 }
 
-void lily_msgbuf_reset(lily_msgbuf *msgbuf)
-{
-    msgbuf->pos = 0;
-    msgbuf->message[0] = '\0';
-    msgbuf->truncated = 0;
-}
-
 /*  lily_msgbuf_flush
-    This is called by lily_debug to clear the contents of the given msgbuf. The
-    truncated indicator is intentionally not reset so that 'show' will stop
-    writing output instead writing (likely confusing) bits here and there. */
+    This is called by to clear the contents of the given msgbuf. */
 void lily_msgbuf_flush(lily_msgbuf *msgbuf)
 {
     msgbuf->pos = 0;

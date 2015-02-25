@@ -748,12 +748,11 @@ void lily_string_htmlencode(lily_vm_state *vm, lily_function_val *self,
 
     while (1) {
         if (i == string_fakemax) {
-            char *new_str = realloc_mem(str, str_size * 2);
-
-            string_buffer->data = new_str;
-            str = new_str;
-
             str_size *= 2;
+
+            str = realloc_mem(str, str_size);
+            string_buffer->data = str;
+
             string_buffer->data_size = str_size;
             string_fakemax = str_size - 5;
         }
@@ -837,10 +836,9 @@ void lily_string_format(lily_vm_state *vm, lily_function_val *self,
         char ch = fmt[fmt_index];
         if (buffer_index == buffer_max) {
             buffer_max *= 2;
-            char *new_str = realloc_mem(buffer_str, buffer_max * 2);
+            buffer_str = realloc_mem(buffer_str, buffer_max);
 
-            string_buffer->data = new_str;
-            buffer_str = new_str;
+            string_buffer->data = buffer_str;
 
             string_buffer->data_size = buffer_max;
         }
@@ -909,10 +907,8 @@ void lily_string_format(lily_vm_state *vm, lily_function_val *self,
                     buffer_max *= 2;
                 } while (buffer_index + add_len > buffer_max);
 
-                char *new_str = realloc_mem(buffer_str, buffer_max);
-
-                string_buffer->data = new_str;
-                buffer_str = new_str;
+                buffer_str = realloc_mem(buffer_str, buffer_max);
+                string_buffer->data = buffer_str;
 
                 string_buffer->data_size = buffer_max;
             }

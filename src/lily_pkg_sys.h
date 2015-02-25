@@ -3,6 +3,6 @@
 
 # include "lily_symtab.h"
 
-int lily_pkg_sys_init(lily_symtab *, int, char **);
+void lily_pkg_sys_init(lily_symtab *, int, char **);
 
 #endif

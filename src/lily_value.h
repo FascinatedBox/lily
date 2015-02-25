@@ -3,14 +3,14 @@
 
 # include "lily_core_types.h"
 
-lily_any_val *lily_try_new_any_val(lily_mem_func);
-lily_hash_val *lily_try_new_hash_val(lily_mem_func);
-lily_hash_elem *lily_try_new_hash_elem(lily_mem_func);
-lily_list_val *lily_try_new_list_val(lily_mem_func);
-lily_instance_val *lily_try_new_instance_val(lily_mem_func);
-lily_function_val *lily_try_new_native_function_val(lily_mem_func,
+lily_any_val *lily_new_any_val(lily_mem_func);
+lily_hash_val *lily_new_hash_val(lily_mem_func);
+lily_hash_elem *lily_new_hash_elem(lily_mem_func);
+lily_list_val *lily_new_list_val(lily_mem_func);
+lily_instance_val *lily_new_instance_val(lily_mem_func);
+lily_function_val *lily_new_native_function_val(lily_mem_func,
         char *, char *);
-lily_function_val *lily_try_new_foreign_function_val(lily_mem_func,
+lily_function_val *lily_new_foreign_function_val(lily_mem_func,
         lily_foreign_func, char *, char *);
 
 void lily_deref_function_val(lily_mem_func, lily_function_val *);

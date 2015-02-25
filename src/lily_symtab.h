@@ -77,14 +77,14 @@ const lily_func_seed *lily_find_class_call_seed(lily_symtab *, lily_class *,
 lily_prop_entry *lily_find_property(lily_symtab *, lily_class *, char *);
 lily_class *lily_find_scoped_variant(lily_class *, char *);
 
-lily_var *lily_try_new_var(lily_symtab *, lily_type *, char *, int);
+lily_var *lily_new_var(lily_symtab *, lily_type *, char *, int);
 lily_var *lily_declare_var(lily_symtab *, lily_type *, char *, uint16_t);
 
 lily_var *lily_scoped_var_by_name(lily_symtab *, lily_var *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
 
-lily_type *lily_try_type_for_class(lily_symtab *, lily_class *);
-lily_type *lily_try_type_from_ids(lily_symtab *, const int *);
+lily_type *lily_type_for_class(lily_symtab *, lily_class *);
+lily_type *lily_type_from_ids(lily_symtab *, const int *);
 lily_type *lily_build_ensure_type(lily_symtab *, lily_class *, int, lily_type **, int, int);
 
 void lily_hide_block_vars(lily_symtab *, lily_var *);

@@ -147,10 +147,7 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
 
     /* This creates a new var, so it has to be done after symtab's lex_linenum
        is set. */
-    if (lily_pkg_sys_init(parser->symtab, argc, argv) == 0) {
-        lily_free_parse_state(parser);
-        return NULL;
-    }
+    lily_pkg_sys_init(parser->symtab, argc, argv);
 
     return parser;
 }
@@ -271,7 +268,7 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type,
                 current_class->name, lex->label);
     }
 
-    var = lily_try_new_var(parser->symtab, var_type, lex->label, flags);
+    var = lily_new_var(parser->symtab, var_type, lex->label, flags);
 
     lily_lexer(lex);
     return var;
@@ -335,11 +332,8 @@ static void bad_decl_token(lily_parse_state *parser)
 static void grow_type_stack(lily_parse_state *parser)
 {
     parser->type_stack_size *= 2;
-
-    lily_type **new_type_stack = realloc_mem(parser->type_stack,
-        sizeof(lily_type *) * parser->type_stack_size);
-
-    parser->type_stack = new_type_stack;
+    parser->type_stack = realloc_mem(parser->type_stack,
+            sizeof(lily_type *) * parser->type_stack_size);
 }
 
 /*  calculate_generics_used
@@ -691,11 +685,11 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
 
     /* Assume that builtin things are smart enough to not redeclare things and
        just declare the var. */
-    lily_var *call_var = lily_try_new_var(symtab, call_type, lex->label,
+    lily_var *call_var = lily_new_var(symtab, call_type, lex->label,
             VAR_IS_READONLY);
 
     call_var->parent = cls;
-    call_var->value.function = lily_try_new_foreign_function_val(
+    call_var->value.function = lily_new_foreign_function_val(
             parser->mem_func, foreign_func, class_name, call_var->name);
 
     call_var->flags &= ~VAL_IS_NIL;
@@ -744,7 +738,7 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
             SYM_CLASS_FUNCTION);
 
     if (decl_class != NULL) {
-        call_var = lily_try_new_var(parser->symtab, call_type, "new",
+        call_var = lily_new_var(parser->symtab, call_type, "new",
                 VAR_IS_READONLY);
 
         block_type = BLOCK_FUNCTION | BLOCK_CLASS;
@@ -770,7 +764,7 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     else if (parser->class_depth && decl_class == NULL) {
         /* Functions of a class get a (self) of that class for the first
            parameter. */
-        lily_var *v = lily_try_new_var(parser->symtab,
+        lily_var *v = lily_new_var(parser->symtab,
                 parser->emit->block->self->type, "(self)", 0);
 
         parser->emit->block->self = (lily_storage *)v;
@@ -1408,7 +1402,7 @@ static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
     /* For loop values are created as vars so there's a name in case of a
        problem. This name doesn't have to be unique, since it will never be
        found by the user. */
-    lily_var *var = lily_try_new_var(parser->symtab, cls->type, name, 0);
+    lily_var *var = lily_new_var(parser->symtab, cls->type, name, 0);
 
     lily_emit_eval_expr_to_var(parser->emit, ap, var);
 
@@ -1773,7 +1767,7 @@ static void for_handler(lily_parse_state *parser, int multi)
     loop_var = lily_var_by_name(parser->symtab, lex->label);
     if (loop_var == NULL) {
         lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_INTEGER);
-        loop_var = lily_try_new_var(parser->symtab, cls->type, lex->label, 0);
+        loop_var = lily_new_var(parser->symtab, cls->type, lex->label, 0);
     }
     else if (loop_var->type->cls->id != SYM_CLASS_INTEGER) {
         lily_raise(parser->raiser, lily_SyntaxError,
@@ -1889,7 +1883,7 @@ static void except_handler(lily_parse_state *parser, int multi)
             lily_raise(parser->raiser, lily_SyntaxError,
                 "%s has already been declared.\n", exception_var->name);
 
-        exception_var = lily_try_new_var(parser->symtab, exception_class->type,
+        exception_var = lily_new_var(parser->symtab, exception_class->type,
                 lex->label, 0);
 
         lily_lexer(lex);
@@ -2400,7 +2394,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        the function to. For the type of the lambda, use the default call
        type (a function with no args and no output) because expect_type may
        be NULL if the emitter doesn't know what it wants. */
-    lily_var *lambda_var = lily_try_new_var(parser->symtab,
+    lily_var *lambda_var = lily_new_var(parser->symtab,
             parser->default_call_type, lambda_name, VAR_IS_READONLY);
 
     /* From here on, vars created will be in the scope of the lambda. Also,

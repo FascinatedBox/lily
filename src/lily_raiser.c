@@ -12,7 +12,6 @@ static const char *lily_error_names[] =
      "ValueError", "RecursionError", "KeyError", "FormatError"};
 
 #define malloc_mem(size)             raiser->mem_func(NULL, size)
-#define realloc_mem(ptr, size)       raiser->mem_func(ptr, size)
 #define free_mem(ptr)          (void)raiser->mem_func(ptr, 0)
 
 lily_raiser *lily_new_raiser(lily_mem_func mem_func)
@@ -48,9 +47,9 @@ void lily_free_raiser(lily_raiser *raiser)
    printing it to a special file, printing it to an application window, etc.) */
 void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
 {
-    /* This error message is more important than whatever's in here. So blast
-       the buffer (and maybe any truncation flag). */
-    lily_msgbuf_reset(raiser->msgbuf);
+    /* This is more important than whatever the msgbuf currently has. Blast the
+       current contents away. */
+    lily_msgbuf_flush(raiser->msgbuf);
 
     va_list var_args;
     va_start(var_args, fmt);
