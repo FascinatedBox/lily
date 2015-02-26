@@ -39,6 +39,11 @@ typedef struct {
        types easy: Just iter through this and blast things along the way. */
     lily_type *root_type;
 
+    /* This is a linked list of symbols that were initially created through the
+       vm or outside sources (via lily_symbol_by_name). These symbols can be
+       garbage collected (hence the 'weak' in the type name). */
+    lily_weak_symbol_entry *foreign_symbols;
+
     /* Each class gets a unique id. This is mostly for the builtin classes
        which have some special behavior sometimes. */
     uint32_t next_class_id;
@@ -67,8 +72,10 @@ void lily_free_symtab(lily_symtab *);
 lily_literal *lily_get_integer_literal(lily_symtab *, int64_t);
 lily_literal *lily_get_double_literal(lily_symtab *, double);
 lily_literal *lily_get_string_literal(lily_symtab *, char *);
+lily_literal *lily_get_symbol_literal(lily_symtab *, char *);
 lily_literal *lily_get_variant_literal(lily_symtab *, lily_type *);
 
+lily_symbol_val *lily_symbol_by_name(lily_symtab *, char *);
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, const char *);
 lily_var *lily_find_class_callable(lily_symtab *, lily_class *, char *);

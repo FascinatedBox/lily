@@ -953,6 +953,13 @@ static void key_error(lily_vm_state *vm, int code_pos, lily_value *key)
         lily_msgbuf_add(msgbuf, key->value.string->string);
         lily_msgbuf_add_char(msgbuf, '\"');
     }
+    else if (key_cls_id == SYM_CLASS_SYMBOL) {
+        lily_symbol_val *symv = key->value.symbol;
+        if (symv->is_simple)
+            lily_msgbuf_add_fmt(msgbuf, ":%s", symv->string);
+        else
+            lily_msgbuf_add_fmt(msgbuf, ":\"^E\"", symv->string);
+    }
     else
         lily_msgbuf_add(msgbuf, "? (unable to print key).");
 

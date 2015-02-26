@@ -224,6 +224,12 @@ static void show_simple_value(lily_debug_state *debug, lily_type *type,
         lily_msgbuf_add_int(debug->msgbuf, value.integer);
     else if (cls_id == SYM_CLASS_DOUBLE)
         lily_msgbuf_add_double(debug->msgbuf, value.doubleval);
+    else if (cls_id == SYM_CLASS_SYMBOL) {
+        if (value.symbol->is_simple)
+            lily_msgbuf_add_fmt(debug->msgbuf, ":%s", value.symbol->string);
+        else
+            lily_msgbuf_add_fmt(debug->msgbuf, ":\"^E\"", value.symbol->string);
+    }
     /* else it's a variant literal. Those don't need to be shown because they
        don't -really- have a value inside. */
 
@@ -637,7 +643,8 @@ static void show_value(lily_debug_state *debug, lily_value *value)
 
     if (cls_id == SYM_CLASS_STRING ||
         cls_id == SYM_CLASS_INTEGER ||
-        cls_id == SYM_CLASS_DOUBLE) {
+        cls_id == SYM_CLASS_DOUBLE ||
+        cls_id == SYM_CLASS_SYMBOL) {
         show_simple_value(debug, type, raw_value);
         lily_impl_puts(debug->data, "\n");
     }

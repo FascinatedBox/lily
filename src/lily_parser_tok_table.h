@@ -63,6 +63,7 @@ static const lily_tok_info parser_tok_table[] =
        lexer as two tokens: '1 and +1'. In a binary context, '+1' should
        actually be '+ and 1'. Otherwise 'x = 1+1' fails, which is rather
        silly. */
+    {tk_symbol,           1          , -1},
     {tk_integer,          0          , -1},
     {tk_double,           0          , -1},
     {tk_dot,              0          , -1},

@@ -930,18 +930,26 @@ static void ensure_lambda_data_size(lily_lex_state *lexer, int at_least)
     lexer->lambda_data_size = new_size;
 }
 
-/* scan_string
-   This handles strings for lily_lexer. This updates the position in lexer's
-   input_buffer for lily_lexer. */
-static void scan_string(lily_lex_state *lexer, int *pos, char *new_ch,
+/*  scan_quoted
+    This handles scanning of data in between double quotes.
+    " ... " are single-line only.
+    """ ... """ can be multi-line.
+    This will always result in a new literal being made and stored to lexer's
+    last_literal. However, if this function determines that ':' comes before the
+    first double quote, then the literal made will be a symbol. However, the
+    above rules apply both to plain strings and symbols. */
+static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
         int *is_multiline)
 {
     char esc_ch;
     char *label, *input;
-    int label_pos, multiline_start = 0;
+    int label_pos, make_symbol = 0, multiline_start = 0;
 
     input = lexer->input_buffer;
     label = lexer->label;
+
+    if (*pos != 0 && *(new_ch - 1) == ':')
+        make_symbol = 1;
 
     /* ch is actually the first char after the opening ". */
     if (*(new_ch + 1) == '"' &&
@@ -1015,7 +1023,45 @@ static void scan_string(lily_lex_state *lexer, int *pos, char *new_ch,
 
     label[label_pos] = '\0';
     *pos = (new_ch - &input[0]);
-    lexer->last_literal = lily_get_string_literal(lexer->symtab, label);
+    if (make_symbol == 0)
+        lexer->last_literal = lily_get_string_literal(lexer->symtab, label);
+    else
+        lexer->last_literal = lily_get_symbol_literal(lexer->symtab, label);
+}
+
+/*  scan_symbol
+    This function is called when an identifier is found directly after a colon.
+    In such a case, the symbol is done when a non-identifier character is found.
+    Note that more complex symbols (:" ..." and :""" ... """) are handled
+    through the caller of this dispatching to scan_quoted instead. This just
+    handles the simple cases. */
+static void scan_symbol(lily_lex_state *lexer, int *pos, char *new_ch)
+{
+    char *label, *input;
+    int label_pos;
+
+    input = lexer->input_buffer;
+    label = lexer->label;
+
+    /* This starts on the identifier. Do not *new_ch++! */
+    label_pos = 0;
+
+    while (1) {
+        /* A symbol can only span the rest of the line, at most. It is therefore
+           unnecessary to check for overflow because the label buffer is always
+           at least the size of the line buffer. */
+        if (ident_table[(unsigned char)*new_ch]) {
+            label[label_pos] = *new_ch;
+            label_pos++;
+            new_ch++;
+        }
+        else
+            break;
+    }
+
+    label[label_pos] = '\0';
+    *pos = (new_ch - &input[0]);
+    lexer->last_literal = lily_get_symbol_literal(lexer->symtab, label);
 }
 
 /*  scan_lambda
@@ -1082,7 +1128,7 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
         else if (*ch == '"') {
             char *head_tail;
             int is_multiline, len;
-            scan_string(lexer, &input_pos, ch, &is_multiline);
+            scan_quoted(lexer, &input_pos, ch, &is_multiline);
 
             input = lexer->input_buffer;
             ch = &input[input_pos];
@@ -1373,7 +1419,7 @@ void lily_lexer(lily_lex_state *lexer)
         }
         else if (group == CC_DOUBLE_QUOTE) {
             int dummy;
-            scan_string(lexer, &input_pos, ch, &dummy);
+            scan_quoted(lexer, &input_pos, ch, &dummy);
             token = tk_double_quote;
         }
         else if (group <= CC_G_TWO_LAST) {
@@ -1454,6 +1500,15 @@ void lily_lexer(lily_lex_state *lexer)
                 input_pos++;
                 ch++;
                 token = tk_colon_colon;
+            }
+            else if (ident_table[(unsigned char)*ch]) {
+                scan_symbol(lexer, &input_pos, ch);
+                token = tk_symbol;
+            }
+            else if (*ch == '"') {
+                int dummy;
+                scan_quoted(lexer, &input_pos, ch, &dummy);
+                token = tk_symbol;
             }
             else
                 token = tk_colon;
@@ -1659,8 +1714,9 @@ char *tokname(lily_token t)
     {"(", ")", ",", "}", "[", "^", "!", "!=", "%", "%=", "*", "*=", "/", "/=",
      "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>", ">>=", "=",
      "==", "{", "a lambda", "<[", "]>", "]", "=>", "a label", "a property name",
-     "a string", "an integer", "a double", ".", ":", "::", "&", "&&", "|",
-     "||", "@(", "...", "invalid token", "?>", "end of file", "end of file"};
+     "a string", "a symbol", "an integer", "a double", ".", ":", "::", "&",
+     "&&", "|", "||", "@(", "...", "invalid token", "?>", "end of file",
+     "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

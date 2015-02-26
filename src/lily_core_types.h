@@ -47,6 +47,7 @@ typedef union lily_raw_value_t {
     int64_t integer;
     double doubleval;
     struct lily_string_val_t *string;
+    struct lily_symbol_val_t *symbol;
     struct lily_any_val_t *any;
     struct lily_list_val_t *list;
     /* generic is a subset of any type that is refcounted. */
@@ -215,6 +216,16 @@ typedef struct lily_var_t {
 } lily_var;
 
 
+/* This type is used to store symbols that are created by a foreign source. Each
+   symbol has either a literal (if created internally), or one of these entries
+   if created by a foreign source.
+   Beware: 'symbol' may be NULL if ref/deref OR the garbage collector has
+   claimed the source symbol. */
+typedef struct lily_weak_symbol_entry_t {
+    struct lily_symbol_val_t *symbol;
+    struct lily_weak_symbol_entry_t *next;
+} lily_weak_symbol_entry;
+
 
 /* Now, values.  */
 
@@ -226,6 +237,27 @@ typedef struct lily_string_val_t {
     uint32_t size;
     char *string;
 } lily_string_val;
+
+typedef struct lily_symbol_val_t {
+    uint32_t refcount;
+
+    /* This is set to 1 if the symbol has an associated literal (which will
+       prevent it from being collected). If 0, it has an entry attached. */
+    uint8_t has_literal;
+
+    /* This is set to 1 if the symbol's string has only valid identifier
+       characters within it. */
+    uint8_t is_simple;
+    uint16_t size;
+
+    /* If a symbol has a literal associated with it, ref/deref code knows to
+       leave it alone instead of attempting to destroy it. */
+    union {
+        lily_weak_symbol_entry *entry;
+        lily_literal *assoc_lit;
+    };
+    char *string;
+} lily_symbol_val;
 
 /* Next are anys. These are marked as refcounted, but that's just to keep
    them from being treated like simple values (such as integer or number).
@@ -498,22 +530,23 @@ typedef struct lily_prop_seed_t {
 #define SYM_CLASS_INTEGER         0
 #define SYM_CLASS_DOUBLE          1
 #define SYM_CLASS_STRING          2
-#define SYM_CLASS_FUNCTION        3
-#define SYM_CLASS_ANY             4
-#define SYM_CLASS_LIST            5
-#define SYM_CLASS_HASH            6
-#define SYM_CLASS_TUPLE           7
-#define SYM_CLASS_TEMPLATE        8
-#define SYM_CLASS_PACKAGE         9
-#define SYM_CLASS_EXCEPTION      10
-#define SYM_CLASS_NOMEMORYERROR  11
-#define SYM_CLASS_DBZERROR       12 /* > 9000 */
-#define SYM_CLASS_INDEXERROR     13
-#define SYM_CLASS_BADTCERROR     14
-#define SYM_CLASS_NORETURNERROR  15
-#define SYM_CLASS_VALUEERROR     16
-#define SYM_CLASS_RECURSIONERROR 17
-#define SYM_CLASS_KEYERROR       18
-#define SYM_CLASS_FORMATERROR    19
+#define SYM_CLASS_SYMBOL          3
+#define SYM_CLASS_FUNCTION        4
+#define SYM_CLASS_ANY             5
+#define SYM_CLASS_LIST            6
+#define SYM_CLASS_HASH            7
+#define SYM_CLASS_TUPLE           8
+#define SYM_CLASS_TEMPLATE        9
+#define SYM_CLASS_PACKAGE        10
+#define SYM_CLASS_EXCEPTION      11
+#define SYM_CLASS_NOMEMORYERROR  12
+#define SYM_CLASS_DBZERROR       13 /* > 9000 */
+#define SYM_CLASS_INDEXERROR     14
+#define SYM_CLASS_BADTCERROR     15
+#define SYM_CLASS_NORETURNERROR  16
+#define SYM_CLASS_VALUEERROR     17
+#define SYM_CLASS_RECURSIONERROR 18
+#define SYM_CLASS_KEYERROR       19
+#define SYM_CLASS_FORMATERROR    20
 
 #endif
