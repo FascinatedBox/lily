@@ -564,9 +564,13 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
     }
 
     if (cls->id == SYM_CLASS_HASH) {
-        /* For hash, make sure that the key (the first type) is valid. */
+        /* For hash, make sure that the key (the first type) is valid.
+           Generics are allowed to be hash keys because the generic might
+           resolve to a valid hash key.
+           Also...the hash builtins don't work otherwise. */
         lily_type *check_type = parser->type_stack[stack_start];
-        if ((check_type->cls->flags & CLS_VALID_HASH_KEY) == 0) {
+        if ((check_type->cls->flags & CLS_VALID_HASH_KEY) == 0 &&
+            check_type->cls->id != SYM_CLASS_TEMPLATE) {
             lily_raise(parser->raiser, lily_SyntaxError,
                     "'^T' is not a valid hash key.\n", check_type);
         }
