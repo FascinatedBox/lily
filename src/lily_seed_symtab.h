@@ -53,6 +53,14 @@ class_seed class_seeds[] =
      NULL,                      /* gc_marker */
      &lily_string_eq},          /* eq_func */
 
+    {"symbol",                  /* name */
+     1,                         /* is_refcounted */
+     0,                         /* template_count */
+     CLS_VALID_HASH_KEY,        /* flags */
+     NULL,                      /* setup_func */
+     NULL,                      /* gc_marker */
+     &lily_generic_eq},         /* eq_func */
+
     {"function",                /* name */
      0,                         /* is_refcounted */
      -1,                        /* template_count */

@@ -1057,14 +1057,15 @@ static void expression_literal(lily_parse_state *parser, int *state)
     lily_lex_state *lex = parser->lex;
     lily_token token = parser->lex->token;
 
-    if (*state == ST_WANT_OPERATOR && token != tk_double_quote) {
+    if (*state == ST_WANT_OPERATOR &&
+         (token == tk_integer || token == tk_double)) {
         int did_fixup;
         maybe_digit_fixup(parser, &did_fixup);
         if (did_fixup == 0)
             *state = ST_DONE;
     }
     else if (*state == ST_WANT_OPERATOR)
-        /* Disable multiple strings without dividing commas. */
+        /* Disable multiple strings/symbols without dividing commas. */
         *state = ST_BAD_TOKEN;
     else {
         lily_ast_push_literal(parser->ast_pool, lex->last_literal);
@@ -1243,7 +1244,7 @@ static void expression_raw(lily_parse_state *parser, int state)
             }
         }
         else if (lex->token == tk_integer || lex->token == tk_double ||
-                 lex->token == tk_double_quote)
+                 lex->token == tk_double_quote || lex->token == tk_symbol)
             expression_literal(parser, &state);
         else if (lex->token == tk_dot)
             expression_dot(parser, &state);
@@ -1506,7 +1507,7 @@ static void statement(lily_parse_state *parser, int multi)
         else if (token == tk_integer || token == tk_double ||
                  token == tk_double_quote || token == tk_left_parenth ||
                  token == tk_left_bracket || token == tk_tuple_open ||
-                 token == tk_prop_word) {
+                 token == tk_symbol || token == tk_prop_word) {
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->ast_pool);
         }
@@ -2345,6 +2346,7 @@ static void parser_loop(lily_parse_state *parser)
                  lex->token == tk_double_quote ||
                  lex->token == tk_left_parenth ||
                  lex->token == tk_left_bracket ||
+                 lex->token == tk_symbol ||
                  lex->token == tk_tuple_open) {
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->ast_pool);

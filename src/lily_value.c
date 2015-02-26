@@ -130,6 +130,27 @@ void lily_deref_string_val(lily_mem_func mem_func, lily_string_val *sv)
     }
 }
 
+void lily_deref_symbol_val(lily_mem_func mem_func, lily_symbol_val *symv)
+{
+    symv->refcount--;
+    if (symv->refcount == 0) {
+        if (symv->has_literal)
+            /* Keep the refcount at one so that the symtab can use this function
+               to free symbols at exit (by stripping away the literal). */
+            symv->refcount++;
+        else {
+            /* Since this symbol has no literal associated with it, it exists
+               only in vm space and it can die.
+               But first, make sure the symtab's entry has that spot blanked
+               out to prevent an invalid read when looking over symbols
+               associated with entries. */
+            symv->entry->symbol = NULL;
+            free_mem(symv->string);
+            free_mem(symv);
+        }
+    }
+}
+
 void lily_deref_any_val(lily_mem_func mem_func, lily_any_val *av)
 {
     av->refcount--;
@@ -191,6 +212,8 @@ void lily_deref_unknown_val(lily_mem_func mem_func, lily_value *value)
         lily_deref_list_val(mem_func, value->type, raw.list);
     else if (cls_id == SYM_CLASS_STRING)
         lily_deref_string_val(mem_func, raw.string);
+    else if (cls_id == SYM_CLASS_SYMBOL)
+        lily_deref_symbol_val(mem_func, raw.symbol);
     else if (cls_id == SYM_CLASS_FUNCTION)
         lily_deref_function_val(mem_func, raw.function);
     else if (cls_id == SYM_CLASS_HASH)
@@ -221,6 +244,8 @@ void lily_deref_unknown_raw_val(lily_mem_func mem_func, lily_type *value_type,
         lily_deref_list_val(mem_func, value_type, raw.list);
     else if (cls_id == SYM_CLASS_STRING)
         lily_deref_string_val(mem_func, raw.string);
+    else if (cls_id == SYM_CLASS_SYMBOL)
+        lily_deref_symbol_val(mem_func, raw.symbol);
     else if (cls_id == SYM_CLASS_FUNCTION)
         lily_deref_function_val(mem_func, raw.function);
     else if (value_type->cls->flags & CLS_ENUM_CLASS)

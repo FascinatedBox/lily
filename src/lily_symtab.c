@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <string.h>
 
 #include "lily_impl.h"
@@ -43,13 +44,48 @@ static uint64_t shorthash_for_name(const char *name)
     return ret;
 }
 
+static lily_symbol_val *make_new_symbol(lily_symtab *symtab, char *data)
+{
+    int data_len = strlen(data);
+    lily_symbol_val *ret = malloc_mem(sizeof(lily_symbol_val));
+    int is_simple = 1;
+
+    ret->string = malloc_mem(data_len + 1);
+    ret->refcount = 1;
+    ret->size = data_len;
+    strcpy(ret->string, data);
+
+    /* The data portion of a symbol was either a plain identifier of a valid
+       string. Anything over 128 is allowed because */
+    int i;
+    for (i = 0;i < data_len;i++) {
+        char ch = data[i];
+        /* Valid utf-8/identifiers can be printed as-is. It's expected that this
+           will be the most common case. */
+        if (isalnum(ch) || ch > 0x7f || ch == '_')
+            continue;
+
+        is_simple = 0;
+        break;
+    }
+
+    /* The special case of an empty symbol (created by a string) should be
+       marked as not being simple. This will cause it to be printed as :""
+       instead of just : . The former seems less confusing (and what Ruby does,
+       as well). */
+    if (data_len == 0)
+        is_simple = 0;
+
+    ret->is_simple = is_simple;
+    return ret;
+}
+
 /*  make_new_literal
     Attempt to add a new literal of the given class to the symtab. The literal
     will be created with the given value (copying it if it's a string).
 
     The newly-created literal is returned. */
-static lily_literal *make_new_literal(lily_symtab *symtab, lily_class *cls,
-        lily_raw_value value)
+static lily_literal *make_new_literal(lily_symtab *symtab, lily_class *cls)
 {
     lily_literal *lit = malloc_mem(sizeof(lily_literal));
 
@@ -57,7 +93,6 @@ static lily_literal *make_new_literal(lily_symtab *symtab, lily_class *cls,
     lit->type = cls->type;
 
     lit->flags = SYM_TYPE_LITERAL;
-    lit->value = value;
     /* Literals aren't put in registers, but they ARE put in a special vm
        table. This is the literal's index into that table. */
     lit->reg_spot = symtab->next_lit_spot;
@@ -604,6 +639,7 @@ lily_symtab *lily_new_symtab(lily_mem_func mem_func, lily_raiser *raiser)
     symtab->template_class = NULL;
     symtab->template_type_start = NULL;
     symtab->old_class_chain = NULL;
+    symtab->foreign_symbols = NULL;
 
     init_classes(symtab);
     init_lily_main(symtab);
@@ -706,6 +742,23 @@ static void free_classes(lily_symtab *symtab, lily_class *class_iter)
     }
 }
 
+static void free_foreign_symbols(lily_symtab *symtab)
+{
+    lily_weak_symbol_entry *foreign_iter = symtab->foreign_symbols;
+    lily_weak_symbol_entry *foreign_next;
+
+    while (foreign_iter) {
+        foreign_next = foreign_iter->next;
+
+        lily_symbol_val *symv = foreign_iter->symbol;
+        if (symv)
+            lily_deref_symbol_val(symtab->mem_func, symv);
+
+        free_mem(foreign_iter);
+
+        foreign_iter = foreign_next;
+    }
+}
 /*  lily_free_symtab_lits_and_vars
 
     This frees all literals and vars within the symtab. This is the first step
@@ -731,7 +784,16 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
 
         if (lit->type->cls->id == SYM_CLASS_STRING)
             lily_deref_string_val(symtab->mem_func, lit->value.string);
-
+        else if (lit->type->cls->id == SYM_CLASS_SYMBOL) {
+            lily_symbol_val *symv = lit->value.symbol;
+            /* Important! If not fixed, deref will ignore this value. */
+            symv->has_literal = 0;
+            /* Since this symbol was created internally, string::to_sym should
+               have marked the symbol protected so that it would not receive
+               refs. Because of that, the refcount -should- be at 0 and one
+               deref will suffice. */
+            lily_deref_symbol_val(symtab->mem_func, symv);
+        }
         free_mem(lit);
 
         lit = lit_temp;
@@ -749,6 +811,8 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
         main_vartion = symtab->main_var->value.function;
     else
         main_vartion = NULL;
+
+    free_foreign_symbols(symtab);
 
     if (symtab->var_chain != NULL)
         free_vars(symtab, symtab->var_chain);
@@ -814,9 +878,8 @@ lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
     }
 
     if (ret == NULL) {
-        lily_raw_value v = {.integer = int_val};
-        ret = make_new_literal(symtab, integer_cls, v);
-        ret->value = v;
+        ret = make_new_literal(symtab, integer_cls);
+        ret->value.integer = int_val;
     }
 
     return ret;
@@ -837,9 +900,8 @@ lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
     }
 
     if (ret == NULL) {
-        lily_raw_value v = {.doubleval = dbl_val};
-        ret = make_new_literal(symtab, double_cls, v);
-        ret->value = v;
+        ret = make_new_literal(symtab, double_cls);
+        ret->value.doubleval = dbl_val;
     }
 
     return ret;
@@ -871,12 +933,65 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab, char *want_string)
         sv->size = want_string_len;
         sv->refcount = 1;
 
-        lily_raw_value v;
-        v.string = sv;
-        ret = make_new_literal(symtab, cls, v);
+        ret = make_new_literal(symtab, cls);
+        ret->value.string = sv;
     }
 
     return ret;
+}
+
+lily_literal *lily_get_symbol_literal(lily_symtab *symtab, char *want_string)
+{
+    lily_literal *lit, *ret;
+    ret = NULL;
+    int want_string_len = strlen(want_string);
+
+    for (lit = symtab->lit_chain;lit;lit = lit->next) {
+        if (lit->type->cls->id == SYM_CLASS_SYMBOL) {
+            if (lit->value.symbol->size == want_string_len &&
+                strcmp(lit->value.symbol->string, want_string) == 0) {
+                ret = lit;
+                break;
+            }
+        }
+    }
+
+    if (ret)
+        return ret;
+
+    /* There's no literal with this symbol just yet, so make a new literal to
+       hold it. From here, determine if the symbol has been created by a foreign
+       source from a previous run. */
+
+    lily_class *symbol_cls = lily_class_by_id(symtab, SYM_CLASS_SYMBOL);
+    lily_literal *new_lit = make_new_literal(symtab, symbol_cls);
+    lily_weak_symbol_entry *foreign_iter = symtab->foreign_symbols;
+    lily_symbol_val *symv = NULL;
+
+    while (foreign_iter) {
+        if (foreign_iter->symbol &&
+            foreign_iter->symbol->size == want_string_len &&
+            strcmp(foreign_iter->symbol->string, want_string) == 0) {
+            symv = foreign_iter->symbol;
+            /* This symbol is going to be tied to a literal instead of this
+               weak entry, so clear up the weak entry for a future symbol value
+               to come in. */
+            foreign_iter->symbol = NULL;
+            break;
+        }
+        foreign_iter = foreign_iter->next;
+    }
+
+    if (symv == NULL) {
+        symv = make_new_symbol(symtab, want_string);
+    }
+
+    symv->has_literal = 1;
+    symv->assoc_lit = new_lit;
+
+    new_lit->value.symbol = symv;
+
+    return new_lit;
 }
 
 /*  lily_get_variant_literal
@@ -901,9 +1016,8 @@ lily_literal *lily_get_variant_literal(lily_symtab *symtab,
     }
 
     if (ret == NULL) {
-        lily_raw_value v;
-        v.integer = 0;
-        ret = make_new_literal(symtab, variant_type->cls, v);
+        ret = make_new_literal(symtab, variant_type->cls);
+        ret->value.integer = 0;
     }
 
     return ret;
@@ -952,6 +1066,41 @@ lily_class *lily_class_by_id(lily_symtab *symtab, int class_id)
     }
 
     return class_iter;
+}
+
+lily_symbol_val *lily_symbol_by_name(lily_symtab *symtab, char *text)
+{
+    int text_len = strlen(text);
+    lily_symbol_val *ret = NULL;
+    lily_literal *lit;
+
+    for (lit = symtab->lit_chain;lit;lit = lit->next) {
+        if (lit->type->cls->id == SYM_CLASS_SYMBOL) {
+            if (lit->value.symbol->size == text_len &&
+                strcmp(lit->value.symbol->string, text) == 0) {
+                ret = lit->value.symbol;
+                break;
+            }
+        }
+    }
+
+    if (ret == NULL) {
+        lily_weak_symbol_entry *weak_entry =
+                malloc_mem(sizeof(lily_weak_symbol_entry));
+        lily_symbol_val *symbol = make_new_symbol(symtab, text);
+
+        symbol->has_literal = 0;
+        symbol->entry = weak_entry;
+
+        weak_entry->next = symtab->foreign_symbols;
+        weak_entry->symbol = symbol;
+
+        symtab->foreign_symbols = weak_entry;
+
+        ret = symbol;
+    }
+
+    return ret;
 }
 
 /*  lily_class_by_name
