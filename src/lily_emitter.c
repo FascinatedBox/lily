@@ -1221,6 +1221,10 @@ static int assign_optimize_check(lily_ast *ast)
 
         lily_ast *right_tree = ast->right;
 
+        /* Parenths don't write anything, so dive to the bottom of them. */
+        while (right_tree->tree_type == tree_parenth)
+            right_tree = right_tree->arg_start;
+
         /* Gotta do basic assignments. */
         if (right_tree->tree_type == tree_local_var) {
             can_optimize = 0;
@@ -1240,10 +1244,6 @@ static int assign_optimize_check(lily_ast *ast)
             can_optimize = 0;
             break;
         }
-
-        /* Parenths don't write anything, so dive to the bottom of them. */
-        while (right_tree->tree_type == tree_parenth)
-            right_tree = right_tree->arg_start;
 
         /* If the left is an any and the right is not, then don't reduce.
            Any assignment is written so that it puts the right side into a
