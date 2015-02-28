@@ -347,8 +347,8 @@ static void calculate_generics_used(lily_type *type, int *generic_map,
 {
     if (type == NULL)
         return;
-    else if (type->cls->id == SYM_CLASS_TEMPLATE) {
-        int generic_pos = type->template_pos;
+    else if (type->cls->id == SYM_CLASS_GENERIC) {
+        int generic_pos = type->generic_pos;
         generic_map[generic_pos] = 1;
         if ((generic_pos + 1) > *generic_max)
             *generic_max = generic_pos + 1;
@@ -388,7 +388,7 @@ static lily_type *calculate_variant_return(lily_parse_state *parser,
 
     /* The symtab puts each of the generic signatures together, from A onward.
        What this does is to add the generics that are seen. */
-    lily_type *generic_iter = parser->symtab->template_type_start;
+    lily_type *generic_iter = parser->symtab->generic_type_start;
     for (i = 0, j = stack_top + 1, k = 0;
          i < generic_max;
          i++, generic_iter = generic_iter->next) {
@@ -407,7 +407,7 @@ static lily_type *calculate_variant_return(lily_parse_state *parser,
        that directly on the class from here. Note that, for variants, the
        number of generics is not necessarily the highest generic's ID, since
        the variant could, for example, use only A and C. */
-    variant_class->template_count = k;
+    variant_class->generic_count = k;
     return variant_return;
 }
 
@@ -555,11 +555,11 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
             lily_lexer(lex);
     }
 
-    if (parser->type_stack_pos - stack_start != cls->template_count &&
-        cls->template_count != -1) {
+    if (parser->type_stack_pos - stack_start != cls->generic_count &&
+        cls->generic_count != -1) {
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Class %s expects %d type(s), but got %d type(s).\n",
-                cls->name, cls->template_count,
+                cls->name, cls->generic_count,
                 parser->type_stack_pos - stack_start);
     }
 
@@ -570,7 +570,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
            Also...the hash builtins don't work otherwise. */
         lily_type *check_type = parser->type_stack[stack_start];
         if ((check_type->cls->flags & CLS_VALID_HASH_KEY) == 0 &&
-            check_type->cls->id != SYM_CLASS_TEMPLATE) {
+            check_type->cls->id != SYM_CLASS_GENERIC) {
             lily_raise(parser->raiser, lily_SyntaxError,
                     "'^T' is not a valid hash key.\n", check_type);
         }
@@ -643,9 +643,9 @@ static lily_type *collect_var_type(lily_parse_state *parser, int flags)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Variant types not allowed in a declaration.\n");
 
-    if (cls->template_count == 0)
+    if (cls->generic_count == 0)
         result = cls->type;
-    else if (cls->template_count != 0 &&
+    else if (cls->generic_count != 0 &&
              cls->id != SYM_CLASS_FUNCTION) {
         lily_lexer(lex);
         NEED_CURRENT_TOK(tk_left_bracket)
@@ -1984,7 +1984,7 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
     else if (super_class == cls)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "A class cannot inherit from itself!\n");
-    else if (super_class->id <= SYM_CLASS_TEMPLATE)
+    else if (super_class->id <= SYM_CLASS_GENERIC)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Cannot inherit from builtin classes. Sorry.\n");
 

@@ -97,7 +97,7 @@ typedef struct lily_class_t {
     uint16_t is_refcounted;
     /* If positive, how many subtypes are allowed in this type. This can also
        be -1 if an infinite number of types are allowed (ex: functions). */
-    int16_t template_count;
+    int16_t generic_count;
     uint32_t prop_count;
     uint32_t variant_size;
 
@@ -128,11 +128,11 @@ typedef struct lily_type_t {
     struct lily_type_t **subtypes;
 
     uint32_t subtype_count;
-    /* If this type is for a template, then this is the id of that template.
+    /* If this type is for a generic, then this is the id of that generic.
        A = 0, B = 1, C = 2, etc.
        If this is a container type, then this is the maximum ID of all
-       templates seen. */
-    uint16_t template_pos;
+       generics seen. */
+    uint16_t generic_pos;
     uint16_t flags;
 
     /* All types are stored in a linked list in the symtab so they can be
@@ -475,7 +475,7 @@ typedef struct lily_prop_seed_t {
 /* If this is set, a gc entry is allocated for the type. This means that the
    value is a superset of lily_generic_gc_val_t. */
 #define TYPE_MAYBE_CIRCULAR    0x02
-/* The symtab puts this flag onto template types which aren't currently
+/* The symtab puts this flag onto generic types which aren't currently
    available. So if there are 4 generic types available but only 2 used, it
    simply hides the second two from being returned. */
 #define TYPE_HIDDEN_GENERIC    0x04
@@ -536,7 +536,7 @@ typedef struct lily_prop_seed_t {
 #define SYM_CLASS_LIST            6
 #define SYM_CLASS_HASH            7
 #define SYM_CLASS_TUPLE           8
-#define SYM_CLASS_TEMPLATE        9
+#define SYM_CLASS_GENERIC         9
 #define SYM_CLASS_PACKAGE        10
 #define SYM_CLASS_EXCEPTION      11
 #define SYM_CLASS_NOMEMORYERROR  12
