@@ -80,6 +80,9 @@ static lily_type *deep_type_build(lily_type_stack *ts, int generic_index,
             lily_class *any_class = lily_class_by_id(ts->symtab,
                     SYM_CLASS_ANY);
             ret = any_class->type;
+            /* This allows lambdas to determine that a given generic was not
+               resolved (and prevent it). */
+            ts->types[generic_index + type->generic_pos] = ret;
         }
     }
     return ret;
