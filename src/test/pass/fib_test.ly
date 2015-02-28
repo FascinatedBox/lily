@@ -6,6 +6,9 @@ define fib(n: integer => integer)
         return 1
     else:
         return fib(n - 1) + fib(n - 2)
+
+    # A return is required at the end, but it won't be reached.
+    return 0
 }
 
 var values: list[integer] = []

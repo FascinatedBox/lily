@@ -2326,16 +2326,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 lily_assign_value(vm, lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
-            case o_return_expected:
-            {
-                lily_vm_stack_entry *top;
-                top = vm->function_stack[vm->function_stack_pos-1];
-                top->line_num = top->code[code_pos+1];
-                lily_raise(vm->raiser, lily_ReturnExpectedError,
-                        "Function %s completed without returning a value.\n",
-                        top->function->trace_name);
-            }
-                break;
             case o_assign:
                 rhs_reg = vm_regs[code[code_pos+2]];
                 lhs_reg = vm_regs[code[code_pos+3]];

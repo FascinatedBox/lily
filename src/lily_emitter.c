@@ -786,10 +786,15 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
                return a value. This saves the user from having to write an explicit
                'return'. */
             write_2(emit, o_return_noval, *emit->lex_linenum);
-        else
-            /* Ensure that if the function does not raise a value that an error is
-               raised at vm-time. */
-            write_2(emit, o_return_expected, *emit->lex_linenum);
+        else if (block->block_type == BLOCK_FUNCTION &&
+                 block->last_return != emit->top_function->pos) {
+            /* If this is a function created with 'define', then determine if
+               the last return was the last instruction written. This is the
+               simple way of ensuring that a function always returns a value
+               that stops potential issues at emit-time. */
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "Missing return statement at end of function.\n");
+        }
     }
     else {
         /* Constructors always return self. */
@@ -3603,8 +3608,10 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
 
     write_pop_inner_try_blocks(emit);
 
-    if (ast)
+    if (ast) {
         write_3(emit, o_return_val, ast->line_num, ast->result->reg_spot);
+        emit->block->last_return = emit->top_function->pos;
+    }
     else
         write_2(emit, o_return_noval, *emit->lex_linenum);
 }
@@ -3792,6 +3799,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         new_block->function_var = v;
         /* -1 to indicate that there is no current loop. */
         new_block->loop_start = -1;
+        new_block->last_return = -1;
 
         emit->top_function = v->value.function;
         emit->top_var = v;

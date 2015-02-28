@@ -38,7 +38,10 @@ typedef struct lily_block_ {
        entry. */
     uint32_t save_register_spot;
 
-    uint32_t pad;
+    /* Define blocks: If the block returns a value, then this is the last
+       return instruction finished at. If no return instruction has been seen,
+       this is -1. */
+    int32_t last_return;
 
     /* Match blocks: This sym holds a register spot and the type for helping
        with match case checking. */

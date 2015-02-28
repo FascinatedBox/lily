@@ -177,14 +177,6 @@ typedef enum {
        This can be thought of as the converse of o_any_assign. */
     o_any_typecast,
 
-    /* Return expected:
-       * int lineno
-       This is written at the end of every native function that has a return
-       value. This raises ReturnExpectedError within the vm. This has lineno
-       included because the vm expects that any opcode that raises an error
-       have a line number after it. */
-    o_return_expected,
-
     /* for (integer range):
        * int lineno
        * reg(integer) user loop var

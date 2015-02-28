@@ -8,8 +8,8 @@
    code. This is used by lily_fs to show what kind of error occured. */
 static const char *lily_error_names[] =
     {"NoMemoryError", "SyntaxError", "ImportError", "EncodingError",
-     "DivisionByZeroError", "IndexError", "BadTypecastError", "NoReturnError",
-     "ValueError", "RecursionError", "KeyError", "FormatError"};
+     "DivisionByZeroError", "IndexError", "BadTypecastError", "ValueError",
+     "RecursionError", "KeyError", "FormatError"};
 
 #define malloc_mem(size)             raiser->mem_func(NULL, size)
 #define free_mem(ptr)          (void)raiser->mem_func(ptr, 0)
