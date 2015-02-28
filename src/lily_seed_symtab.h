@@ -14,7 +14,7 @@
 typedef const struct {
     char *name;
     uint16_t is_refcounted;
-    uint16_t template_count;
+    uint16_t generic_count;
     uint32_t flags;
     class_setup_func setup_func;
     gc_marker_func gc_marker;
@@ -29,7 +29,7 @@ class_seed class_seeds[] =
 {
     {"integer",                 /* name */
      0,                         /* is_refcounted */
-     0,                         /* template_count */
+     0,                         /* generic_count */
      CLS_VALID_HASH_KEY,        /* flags */
      lily_integer_setup,        /* setup_func */
      NULL,                      /* gc_marker */
@@ -38,7 +38,7 @@ class_seed class_seeds[] =
 
     {"double",                  /* name */
      0,                         /* is_refcounted */
-     0,                         /* template_count */
+     0,                         /* generic_count */
      CLS_VALID_HASH_KEY,        /* flags */
      lily_double_setup,         /* setup_func */
      NULL,                      /* gc_marker */
@@ -47,7 +47,7 @@ class_seed class_seeds[] =
 
     {"string",                  /* name */
      1,                         /* is_refcounted */
-     0,                         /* template_count */
+     0,                         /* generic_count */
      CLS_VALID_HASH_KEY,        /* flags */
      lily_string_setup,         /* setup_func */
      NULL,                      /* gc_marker */
@@ -55,7 +55,7 @@ class_seed class_seeds[] =
 
     {"symbol",                  /* name */
      1,                         /* is_refcounted */
-     0,                         /* template_count */
+     0,                         /* generic_count */
      CLS_VALID_HASH_KEY,        /* flags */
      NULL,                      /* setup_func */
      NULL,                      /* gc_marker */
@@ -63,7 +63,7 @@ class_seed class_seeds[] =
 
     {"function",                /* name */
      0,                         /* is_refcounted */
-     -1,                        /* template_count */
+     -1,                        /* generic_count */
      0,                         /* flags */
      NULL,                      /* setup_func */
      NULL,                      /* gc_marker */
@@ -71,7 +71,7 @@ class_seed class_seeds[] =
 
     {"any",                     /* name */
      1,                         /* is_refcounted */
-     0,                         /* template_count */
+     0,                         /* generic_count */
      /* 'any' is treated as an enum class that has all classes ever defined
         within it. */
      CLS_ENUM_CLASS,            /* flags */
@@ -81,7 +81,7 @@ class_seed class_seeds[] =
 
     {"list",                    /* name */
      1,                         /* is_refcounted */
-     1,                         /* template_count */
+     1,                         /* generic_count */
      0,                         /* flags */
      lily_list_setup,           /* setup_func */
      &lily_gc_list_marker,      /* gc_marker */
@@ -89,7 +89,7 @@ class_seed class_seeds[] =
 
     {"hash",                    /* name */
      1,                         /* is_refcounted */
-     2,                         /* template_count */
+     2,                         /* generic_count */
      0,                         /* flags */
      lily_hash_setup,           /* setup_func */
      &lily_gc_hash_marker,      /* gc_marker */
@@ -97,7 +97,7 @@ class_seed class_seeds[] =
 
     {"tuple",                   /* name */
      1,                         /* is_refcounted */
-     -1,                        /* template_count */
+     -1,                        /* generic_count */
      0,                         /* flags */
      NULL,                      /* setup_func */
      &lily_gc_tuple_marker,     /* gc_marker */
@@ -105,7 +105,7 @@ class_seed class_seeds[] =
 
     {"",                        /* name */
      0,                         /* is_refcounted */
-     0,                         /* template_count */
+     0,                         /* generic_count */
      0,                         /* flags */
      NULL,                      /* setup_func */
      NULL,                      /* gc_marker */
@@ -113,7 +113,7 @@ class_seed class_seeds[] =
 
     {"package",                 /* name */
      0,                         /* is_refcounted */
-     0,                         /* template_count */
+     0,                         /* generic_count */
      0,                         /* flags */
      NULL,                      /* setup_func */
      NULL,                      /* gc_marker */

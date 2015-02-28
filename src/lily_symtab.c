@@ -155,30 +155,30 @@ lily_var *lily_declare_var(lily_symtab *symtab, lily_type *type,
     return v;
 }
 
-/*  get_template_max
-    Recurse into a type and determine the number of templates used. This
+/*  get_generic_max
+    Recurse into a type and determine the number of generics used. This
     is important for emitter, which needs to know how many types to blank before
     evaluating a call.
 
-    type:          The type to check.
-    template_max: This is a pointer set to the number of templates that the
-                  given type takes (template index + 1). This is 0 if the given
-                  type does not use templates. */
-static void get_template_max(lily_type *type, int *template_max)
+    type:        The type to check.
+    generic_max: This is a pointer set to the number of generics that the
+                 given type takes (generic index + 1). This is 0 if the given
+                 type does not use generics. */
+static void get_generic_max(lily_type *type, int *generic_max)
 {
     /* function uses NULL at [1] to mean it takes no args, and NULL at [0] to
        mean that nothing is returned. */
     if (type == NULL)
         return;
 
-    if (type->cls->id == SYM_CLASS_TEMPLATE) {
-        if ((type->template_pos + 1) > *template_max)
-            *template_max = type->template_pos + 1;
+    if (type->cls->id == SYM_CLASS_GENERIC) {
+        if ((type->generic_pos + 1) > *generic_max)
+            *generic_max = type->generic_pos + 1;
     }
     else if (type->subtypes) {
         int i;
         for (i = 0;i < type->subtype_count;i++)
-            get_template_max(type->subtypes[i], template_max);
+            get_generic_max(type->subtypes[i], generic_max);
     }
 }
 
@@ -231,7 +231,7 @@ static lily_type *lookup_type(lily_symtab *symtab, lily_type *input_type)
 
 /*  finalize_type
     Determine if the given type is circular. Also, if its class is not the
-    template class, determine how many templates the type uses.
+    generic class, determine how many generics the type uses.
 
     For function types, this also checks if any arguments are an enum
     class. If they are, then the type is marked to help out emitter's call
@@ -253,22 +253,22 @@ static void finalize_type(lily_type *input_type)
             }
         }
 
-        /* Find out the highest template index that this type has inside of it.
+        /* Find out the highest generic index that this type has inside of it.
            For functions, this allows the emitter to reserve blank types for
-           holding template matches. For other types, it allows the emitter to
-           determine if a call result uses templates (since it has to be broken
+           holding generic matches. For other types, it allows the emitter to
+           determine if a call result uses generics (since it has to be broken
            down if it does. */
-        if (input_type->cls->id != SYM_CLASS_TEMPLATE) {
+        if (input_type->cls->id != SYM_CLASS_GENERIC) {
             int max = 0;
-            get_template_max(input_type, &max);
-            input_type->template_pos = max;
+            get_generic_max(input_type, &max);
+            input_type->generic_pos = max;
         }
     }
 
     /* This gives emitter and vm an easy way to check if a type needs to be
        resolved or if it can used as-is. */
-    if (input_type->cls->id == SYM_CLASS_TEMPLATE ||
-        input_type->template_pos != 0) {
+    if (input_type->cls->id == SYM_CLASS_GENERIC ||
+        input_type->generic_pos != 0) {
         input_type->flags |= TYPE_IS_UNRESOLVED;
     }
 
@@ -334,9 +334,9 @@ static lily_type *ensure_unique_type(lily_symtab *symtab, lily_type *input_type)
                 if (match == 1)
                     break;
             }
-            /* Make sure scan_seed_type doesn't create non-unique templates. */
-            else if (input_type->cls->id == SYM_CLASS_TEMPLATE &&
-                     input_type->template_pos == iter_type->template_pos) {
+            /* Make sure scan_seed_type doesn't create non-unique generics. */
+            else if (input_type->cls->id == SYM_CLASS_GENERIC &&
+                     input_type->generic_pos == iter_type->generic_pos) {
                 match = 1;
                 break;
             }
@@ -378,10 +378,10 @@ static lily_type *ensure_unique_type(lily_symtab *symtab, lily_type *input_type)
 static lily_type *lookup_generic(lily_symtab *symtab, const char *name)
 {
     int id = name[0] - 'A';
-    lily_type *type_iter = symtab->template_type_start;
+    lily_type *type_iter = symtab->generic_type_start;
 
     while (id) {
-        if (type_iter->next->cls != symtab->template_class)
+        if (type_iter->next->cls != symtab->generic_class)
             break;
 
         type_iter = type_iter->next;
@@ -422,7 +422,7 @@ static lily_type *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
         ret = NULL;
     else {
         lily_class *arg_class = lily_class_by_id(symtab, arg_id);
-        if (arg_class->type && arg_class->id != SYM_CLASS_TEMPLATE)
+        if (arg_class->type && arg_class->id != SYM_CLASS_GENERIC)
             ret = arg_class->type;
         else {
             lily_type *complex_type = lily_type_for_class(symtab, arg_class);
@@ -430,9 +430,9 @@ static lily_type *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
             int subtype_count;
             int flags = 0;
 
-            if (arg_id == SYM_CLASS_TEMPLATE) {
+            if (arg_id == SYM_CLASS_GENERIC) {
                 if (complex_type)
-                    complex_type->template_pos = arg_ids[seed_pos];
+                    complex_type->generic_pos = arg_ids[seed_pos];
                 else
                     *ok = 0;
 
@@ -441,7 +441,7 @@ static lily_type *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
                 subtype_count = 0;
             }
             else {
-                if (arg_class->template_count == -1) {
+                if (arg_class->generic_count == -1) {
                     /* -1 means it takes a specified number of values. */
                     subtype_count = arg_ids[seed_pos];
                     seed_pos++;
@@ -452,7 +452,7 @@ static lily_type *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
                     }
                 }
                 else {
-                    subtype_count = arg_class->template_count;
+                    subtype_count = arg_class->generic_count;
                     flags = 0;
                 }
 
@@ -526,7 +526,7 @@ static void init_lily_main(lily_symtab *symtab)
     new_type->subtypes = malloc_mem(2 * sizeof(lily_type));
     new_type->subtypes[0] = NULL;
     new_type->subtype_count = 1;
-    new_type->template_pos = 0;
+    new_type->generic_pos = 0;
     new_type->flags = 0;
 
     symtab->main_var = lily_new_var(symtab, new_type, "__main__", 0);
@@ -550,11 +550,11 @@ static void init_classes(lily_symtab *symtab)
 
         lily_type *type;
 
-        /* If a class doesn't take templates (or isn't template), then
+        /* If a class doesn't take generics (or isn't the generic class), then
            it can have a default type that lily_type_for_class can yield.
            This saves memory, and is necessary now that type comparison is
            by pointer. */
-        if (class_seeds[i].template_count != 0)
+        if (class_seeds[i].generic_count != 0)
             type = NULL;
         else {
             /* A basic class? Make a quick default type for it. */
@@ -565,26 +565,25 @@ static void init_classes(lily_symtab *symtab)
             type->subtypes = NULL;
             type->subtype_count = 0;
             type->flags = 0;
-            /* Non-template types use this to mean that this type
-               does not have templates inside. */
-            type->template_pos = 0;
+            /* This means that the type does not accept subtypes within []. */
+            type->generic_pos = 0;
             if (i == SYM_CLASS_ANY)
                 type->flags |= TYPE_MAYBE_CIRCULAR;
 
             type->next = symtab->root_type;
             symtab->root_type = type;
-            /* Only the template class has a blank name (to prevent it
+            /* Only the generic class has a blank name (to prevent it
                from being used directly). */
             if (strcmp(class_seeds[i].name, "") == 0) {
-                symtab->template_class = new_class;
-                symtab->template_type_start = type;
+                symtab->generic_class = new_class;
+                symtab->generic_type_start = type;
             }
         }
         new_class->name = class_seeds[i].name;
         new_class->call_chain = NULL;
         new_class->type = type;
         new_class->id = i;
-        new_class->template_count = class_seeds[i].template_count;
+        new_class->generic_count = class_seeds[i].generic_count;
         new_class->shorthash = shorthash_for_name(new_class->name);
         new_class->gc_marker = class_seeds[i].gc_marker;
         new_class->flags = class_seeds[i].flags;
@@ -636,8 +635,8 @@ lily_symtab *lily_new_symtab(lily_mem_func mem_func, lily_raiser *raiser)
        to initialize anyway. */
     symtab->lex_linenum = &v;
     symtab->root_type = NULL;
-    symtab->template_class = NULL;
-    symtab->template_type_start = NULL;
+    symtab->generic_class = NULL;
+    symtab->generic_type_start = NULL;
     symtab->old_class_chain = NULL;
     symtab->foreign_symbols = NULL;
 
@@ -1025,8 +1024,8 @@ lily_literal *lily_get_variant_literal(lily_symtab *symtab,
 
 /*  lily_type_for_class
     Attempt to get the default type of the given class. If the given class
-    doesn't have a default type (because it takes templates), then create
-    a new type without a subtypes and return that. */
+    doesn't have a default type (because it takes subtypes), then create
+    a new type without the subtypes and return that. */
 lily_type *lily_type_for_class(lily_symtab *symtab, lily_class *cls)
 {
     lily_type *type;
@@ -1034,16 +1033,16 @@ lily_type *lily_type_for_class(lily_symtab *symtab, lily_class *cls)
     /* init_classes doesn't make a default type for classes that need complex
        types. This works so long as init_classes works right.
        The second part is so that seed scanning doesn't tamper with the type of
-       the template class (which gets changed around so that parser can
+       the generic class (which gets changed around so that parser can
        understand generics). */
-    if (cls->type == NULL || cls->id == SYM_CLASS_TEMPLATE) {
+    if (cls->type == NULL || cls->id == SYM_CLASS_GENERIC) {
         type = malloc_mem(sizeof(lily_type));
         if (type != NULL) {
             type->cls = cls;
             type->subtypes = NULL;
             type->subtype_count = 0;
             type->flags = 0;
-            type->template_pos = 0;
+            type->generic_pos = 0;
 
             type->next = symtab->root_type;
             symtab->root_type = type;
@@ -1125,7 +1124,7 @@ lily_class *lily_class_by_name(lily_symtab *symtab, const char *name)
     if (class_iter == NULL && name[1] == '\0') {
         lily_type *generic_type = lookup_generic(symtab, name);
         if (generic_type) {
-            class_iter = symtab->template_class;
+            class_iter = symtab->generic_class;
             class_iter->type = generic_type;
         }
     }
@@ -1324,7 +1323,7 @@ lily_type *lily_build_ensure_type(lily_symtab *symtab, lily_class *cls,
     lily_type fake_type;
 
     fake_type.cls = cls;
-    fake_type.template_pos = 0;
+    fake_type.generic_pos = 0;
     fake_type.subtypes = subtypes + offset;
     fake_type.subtype_count = entries_to_use;
     fake_type.flags = flags;
@@ -1428,7 +1427,7 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     new_class->parent = NULL;
     new_class->shorthash = shorthash_for_name(name);
     new_class->name = name_copy;
-    new_class->template_count = 0;
+    new_class->generic_count = 0;
     new_class->properties = NULL;
     new_class->prop_count = 0;
     new_class->seed_table = NULL;
@@ -1457,7 +1456,7 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
     if ((cls->flags & CLS_ENUM_CLASS) == 0) {
         /* If the class has no generics, determine if it's circular and write
            that information onto the default type. */
-        if (cls->template_count == 0) {
+        if (cls->generic_count == 0) {
             while (prop_iter) {
                 if (prop_iter->type->flags & TYPE_MAYBE_CIRCULAR) {
                     cls->type->flags |= TYPE_MAYBE_CIRCULAR;
@@ -1499,22 +1498,22 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
 void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
         int count)
 {
-    /* The symtab special cases all types holding template information so
+    /* The symtab special cases all types holding generic information so
        that they're unique, together, and in numerical order. */
-    lily_type *type_iter = symtab->template_type_start;
+    lily_type *type_iter = symtab->generic_type_start;
     int i = 1, save_count = count;
 
     while (count) {
         type_iter->flags &= ~TYPE_HIDDEN_GENERIC;
         count--;
-        if (type_iter->next->cls != symtab->template_class && count) {
+        if (type_iter->next->cls != symtab->generic_class && count) {
             lily_type *new_type = malloc_mem(sizeof(lily_type));
 
-            new_type->cls = symtab->template_class;
+            new_type->cls = symtab->generic_class;
             new_type->subtypes = NULL;
             new_type->subtype_count = 0;
             new_type->flags = TYPE_IS_UNRESOLVED;
-            new_type->template_pos = i;
+            new_type->generic_pos = i;
 
             new_type->next = type_iter->next;
             type_iter->next = new_type;
@@ -1523,15 +1522,15 @@ void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
         type_iter = type_iter->next;
     }
 
-    if (type_iter->cls == symtab->template_class) {
-        while (type_iter->cls == symtab->template_class) {
+    if (type_iter->cls == symtab->generic_class) {
+        while (type_iter->cls == symtab->generic_class) {
             type_iter->flags |= TYPE_HIDDEN_GENERIC;
             type_iter = type_iter->next;
         }
     }
 
     if (decl_class)
-        decl_class->template_count = save_count;
+        decl_class->generic_count = save_count;
 }
 
 /*  lily_make_constructor_return_type
@@ -1549,19 +1548,19 @@ void lily_make_constructor_return_type(lily_symtab *symtab)
     lily_type *type = malloc_mem(sizeof(lily_type));
 
     lily_class *target_class = symtab->class_chain;
-    if (target_class->template_count != 0) {
-        int count = target_class->template_count;
+    if (target_class->generic_count != 0) {
+        int count = target_class->generic_count;
 
         type->subtypes = malloc_mem(count * sizeof(lily_type *));
 
-        lily_type *type_iter = symtab->template_type_start;
+        lily_type *type_iter = symtab->generic_type_start;
         int i;
         for (i = 0;i < count;i++, type_iter = type_iter->next)
             type->subtypes[i] = type_iter;
 
         type->flags = TYPE_IS_UNRESOLVED;
         type->subtype_count = count;
-        type->template_pos = i;
+        type->generic_pos = i;
     }
     else {
         /* This makes this type the default for this class, because this class
@@ -1569,7 +1568,7 @@ void lily_make_constructor_return_type(lily_symtab *symtab)
         target_class->type = type;
         type->subtypes = NULL;
         type->subtype_count = 0;
-        type->template_pos = 0;
+        type->generic_pos = 0;
         type->flags = 0;
     }
 
@@ -1605,7 +1604,7 @@ lily_class *lily_new_variant_class(lily_symtab *symtab, lily_class *enum_class,
     If the variant takes arguments, then variant_type is non-NULL.
     If the variant does not take arguments, a default type is made for it.
 
-    Note: A variant's template_count is set within parser, when the return of a
+    Note: A variant's generic_count is set within parser, when the return of a
           variant is calculated (assuming it takes arguments). */
 void lily_finish_variant_class(lily_symtab *symtab, lily_class *variant_class,
         lily_type *variant_type)

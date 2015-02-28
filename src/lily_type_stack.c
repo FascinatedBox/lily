@@ -45,7 +45,7 @@ static void grow_types(lily_type_stack *ts)
             sizeof(lily_type *) * ts->max);;
 }
 
-static lily_type *deep_type_build(lily_type_stack *ts, int template_index,
+static lily_type *deep_type_build(lily_type_stack *ts, int generic_index,
         lily_type *type)
 {
     lily_type *ret = type;
@@ -61,7 +61,7 @@ static lily_type *deep_type_build(lily_type_stack *ts, int template_index,
         save_start = ts->pos;
 
         for (i = 0;i < type->subtype_count;i++) {
-            lily_type *inner_type = deep_type_build(ts, template_index,
+            lily_type *inner_type = deep_type_build(ts, generic_index,
                     subtypes[i]);
             ts->types[ts->pos] = inner_type;
             ts->pos++;
@@ -72,8 +72,8 @@ static lily_type *deep_type_build(lily_type_stack *ts, int template_index,
 
         ts->pos -= i;
     }
-    else if (type->cls->id == SYM_CLASS_TEMPLATE) {
-        ret = ts->types[template_index + type->template_pos];
+    else if (type->cls->id == SYM_CLASS_GENERIC) {
+        ret = ts->types[generic_index + type->generic_pos];
         /* Sometimes, a generic is wanted that was never filled in. In such a
            case, use 'any' because it is the most accepting of values. */
         if (ret == NULL) {
@@ -92,7 +92,7 @@ int lily_ts_check(lily_type_stack *ts, lily_type *left, lily_type *right)
     if (left == NULL || right == NULL)
         ret = (left == right);
     else if (left->cls->id == right->cls->id &&
-             left->cls->id != SYM_CLASS_TEMPLATE) {
+             left->cls->id != SYM_CLASS_GENERIC) {
         if (left->subtype_count == right->subtype_count) {
             ret = 1;
 
@@ -112,12 +112,12 @@ int lily_ts_check(lily_type_stack *ts, lily_type *left, lily_type *right)
             }
         }
     }
-    else if (left->cls->id == SYM_CLASS_TEMPLATE) {
-        int template_pos = ts->pos + left->template_pos;
+    else if (left->cls->id == SYM_CLASS_GENERIC) {
+        int generic_pos = ts->pos + left->generic_pos;
         ret = 1;
-        if (ts->types[template_pos] == NULL)
-            ts->types[template_pos] = right;
-        else if (ts->types[template_pos] != right)
+        if (ts->types[generic_pos] == NULL)
+            ts->types[generic_pos] = right;
+        else if (ts->types[generic_pos] != right)
             ret = 0;
     }
     else {
@@ -142,7 +142,7 @@ int lily_ts_check(lily_type_stack *ts, lily_type *left, lily_type *right)
                    generics that are available, to proper positions in the
                    parent. If any fail, then stop. */
                 for (i = 0;i < variant_output->subtype_count;i++) {
-                    int pos = variant_output->subtypes[i]->template_pos;
+                    int pos = variant_output->subtypes[i]->generic_pos;
                     ret = lily_ts_check(ts, left->subtypes[pos],
                             right->subtypes[i]);
                     if (ret == 0)
@@ -159,15 +159,15 @@ int lily_ts_check(lily_type_stack *ts, lily_type *left, lily_type *right)
 
 inline lily_type *lily_ts_easy_resolve(lily_type_stack *ts, lily_type *t)
 {
-    return ts->types[ts->pos + t->template_pos];
+    return ts->types[ts->pos + t->generic_pos];
 }
 
 lily_type *lily_ts_resolve(lily_type_stack *ts, lily_type *type)
 {
-    int save_template_index = ts->pos;
+    int save_generic_index = ts->pos;
 
     ts->pos += ts->ceiling;
-    lily_type *ret = deep_type_build(ts, save_template_index, type);
+    lily_type *ret = deep_type_build(ts, save_generic_index, type);
     ts->pos -= ts->ceiling;
 
     return ret;
@@ -196,11 +196,11 @@ void lily_ts_resolve_as_variant_by_enum(lily_type_stack *ts,
         lily_type *call_result, lily_type *enum_type)
 {
     lily_type *variant_type = call_result->cls->variant_type->subtypes[0];
-    int max = call_result->cls->variant_type->template_pos;
+    int max = call_result->cls->variant_type->generic_pos;
     int i;
 
     for (i = 0;i < max;i++) {
-        int pos = variant_type->subtypes[0]->template_pos;
+        int pos = variant_type->subtypes[0]->generic_pos;
         ts->types[ts->pos + pos] = enum_type->subtypes[pos];
     }
 }
@@ -208,7 +208,7 @@ void lily_ts_resolve_as_variant_by_enum(lily_type_stack *ts,
 void lily_ts_resolve_as_self(lily_type_stack *ts)
 {
     int i, stop;
-    lily_type *type_iter = ts->symtab->template_type_start;
+    lily_type *type_iter = ts->symtab->generic_type_start;
 
     stop = ts->pos + ts->ceiling;
     for (i = ts->pos;i < stop;i++, type_iter = type_iter->next) {
@@ -299,7 +299,7 @@ lily_type *lily_ts_build_enum_by_variant(lily_type_stack *ts,
     for (i = 0, j = 0;i < parent_variant_type->subtype_count;i++) {
         if (child_result &&
             child_result->subtype_count > j &&
-            child_result->subtypes[j]->template_pos == i) {
+            child_result->subtypes[j]->generic_pos == i) {
             lily_ts_set_ceiling_type(ts, variant_type->subtypes[j], i);
             j++;
         }

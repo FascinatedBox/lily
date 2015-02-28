@@ -138,11 +138,11 @@ void lily_msgbuf_add_type(lily_msgbuf *msgbuf, lily_type *type)
     lily_msgbuf_add(msgbuf, type->cls->name);
 
     if (type->cls->id == SYM_CLASS_FUNCTION) {
-        if (type->template_pos) {
+        if (type->generic_pos) {
             int i;
             char ch = 'A';
             lily_msgbuf_add(msgbuf, "[");
-            for (i = 0;i < type->template_pos - 1;i++, ch++) {
+            for (i = 0;i < type->generic_pos - 1;i++, ch++) {
                 lily_msgbuf_add_char(msgbuf, ch);
                 lily_msgbuf_add(msgbuf, ", ");
             }
@@ -173,9 +173,9 @@ void lily_msgbuf_add_type(lily_msgbuf *msgbuf, lily_type *type)
             lily_msgbuf_add(msgbuf, ")");
         }
     }
-    else if (type->cls->id == SYM_CLASS_TEMPLATE)
-        lily_msgbuf_add_char(msgbuf, 'A' + type->template_pos);
-    else if (type->cls->template_count != 0) {
+    else if (type->cls->id == SYM_CLASS_GENERIC)
+        lily_msgbuf_add_char(msgbuf, 'A' + type->generic_pos);
+    else if (type->cls->generic_count != 0) {
         int i;
         lily_msgbuf_add(msgbuf, "[");
         for (i = 0;i < type->subtype_count;i++) {

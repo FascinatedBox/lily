@@ -18,15 +18,15 @@ typedef struct {
     lily_class *class_chain;
 
     /* To make generic class searches faster, the symtab holds the spot where
-       the template class. */
-    lily_class *template_class;
+       the generic class. */
+    lily_class *generic_class;
 
     /* A linked list of all literals that have been found so far. */
     lily_literal *lit_chain;
 
     /* Additionally, the signatures that are used to hold generic info are
        specifically linked together to make the search easier. */
-    lily_type *template_type_start;
+    lily_type *generic_type_start;
 
     /* Defined functions that go out of scope are stuffed in here, unless
        they're class methods. */

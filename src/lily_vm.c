@@ -603,7 +603,7 @@ static void resolve_generic_registers(lily_vm_state *vm, lily_value *func,
         lily_type *result_type, int args_collected, int reg_start)
 {
     lily_value **regs_from_main = vm->regs_from_main;
-    int generics_needed = func->type->template_pos;
+    int generics_needed = func->type->generic_pos;
     int save_ceiling = lily_ts_raise_ceiling(vm->ts, generics_needed);
     int i;
     lily_function_val *fval = func->value.function;
