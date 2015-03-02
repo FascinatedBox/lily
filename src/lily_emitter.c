@@ -2857,6 +2857,13 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
                     lookup_class->name, oo_name);
         }
 
+        /* self.<name> works just as well. However, preventing it from being
+           used for property access ensures that all future Lily code will use
+           @<name> all the time. */
+        if (ast->arg_start->tree_type == tree_self)
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "Use @<name> to get/set properties, not self.<name>.\n");
+
         /* oo_assign also needs this. Might as well set it for all. */
         ast->oo_property_index = prop->id;
 
@@ -3022,6 +3029,11 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
     ast->result = (lily_sym *)s;
 }
 
+void eval_self(lily_emit_state *emit, lily_ast *ast)
+{
+    ast->result = (lily_sym *)emit->block->self;
+}
+
 /*  eval_tree
     Magically determine what function actually handles the given ast. */
 static void eval_tree(lily_emit_state *emit, lily_ast *ast,
@@ -3094,6 +3106,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
         eval_variant(emit, ast, expect_type, did_resolve);
     else if (ast->tree_type == tree_lambda)
         eval_lambda(emit, ast, expect_type, did_resolve);
+    else if (ast->tree_type == tree_self)
+        eval_self(emit, ast);
 }
 
 /*****************************************************************************/

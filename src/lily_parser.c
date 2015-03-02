@@ -841,20 +841,26 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
 
 /*  parse_special_keyword
     This handles all the simple keywords that map to a string/integer value. */
-static lily_literal *parse_special_keyword(lily_parse_state *parser, int key_id)
+static lily_sym *parse_special_keyword(lily_parse_state *parser, int key_id)
 {
     lily_symtab *symtab = parser->symtab;
-    lily_literal *ret;
+    lily_sym *ret;
 
-    /* So far, these are the only keywords that map to literals.
-       Additionally, these literal fetching routines are guaranteed to return
-       a literal with the given value. */
+    /* These literal fetching routines are guaranteed to return a literal with
+       the given value. */
     if (key_id == KEY__LINE__)
-        ret = lily_get_integer_literal(symtab, parser->lex->line_num);
+        ret = (lily_sym *) lily_get_integer_literal(symtab, parser->lex->line_num);
     else if (key_id == KEY__FILE__)
-        ret = lily_get_string_literal(symtab, parser->lex->filename);
+        ret = (lily_sym *) lily_get_string_literal(symtab, parser->lex->filename);
     else if (key_id == KEY__FUNCTION__)
-        ret = lily_get_string_literal(symtab, parser->emit->top_var->name);
+        ret = (lily_sym *) lily_get_string_literal(symtab, parser->emit->top_var->name);
+    else if (key_id == KEY_SELF) {
+        if (parser->emit->block->self == NULL) {
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "'self' must be used within a class.\n");
+        }
+        ret = (lily_sym *) parser->emit->block->self;
+    }
     else
         ret = NULL;
 
@@ -951,8 +957,12 @@ static void expression_word(lily_parse_state *parser, int *state)
     else {
         int key_id = keyword_by_name(lex->label);
         if (key_id != -1) {
-            lily_literal *lit = parse_special_keyword(parser, key_id);
-            lily_ast_push_literal(parser->ast_pool, lit);
+            lily_sym *sym = parse_special_keyword(parser, key_id);
+            if (sym->flags & SYM_TYPE_LITERAL)
+                lily_ast_push_literal(parser->ast_pool, (lily_literal *)sym);
+            else
+                lily_ast_push_self(parser->ast_pool);
+
             *state = ST_WANT_OPERATOR;
         }
         else {
@@ -1440,6 +1450,7 @@ static void try_handler(lily_parse_state *, int);
 static void case_handler(lily_parse_state *, int);
 static void else_handler(lily_parse_state *, int);
 static void elif_handler(lily_parse_state *, int);
+static void self_handler(lily_parse_state *, int);
 static void enum_handler(lily_parse_state *, int);
 static void while_handler(lily_parse_state *, int);
 static void raise_handler(lily_parse_state *, int);
@@ -1466,6 +1477,7 @@ static keyword_handler *handlers[] = {
     case_handler,
     else_handler,
     elif_handler,
+    self_handler,
     enum_handler,
     while_handler,
     raise_handler,
@@ -1725,9 +1737,12 @@ static void break_handler(lily_parse_state *parser, int multi)
     key_id: The id of the keyword to handle. */
 static void do_keyword(lily_parse_state *parser, int key_id)
 {
-    lily_literal *lit;
-    lit = parse_special_keyword(parser, key_id);
-    lily_ast_push_literal(parser->ast_pool, lit);
+    lily_sym *sym;
+    sym = parse_special_keyword(parser, key_id);
+    if (sym->flags & SYM_TYPE_LITERAL)
+        lily_ast_push_literal(parser->ast_pool, (lily_literal *)sym);
+    else
+        lily_ast_push_self(parser->ast_pool);
 
     expression_raw(parser, ST_WANT_OPERATOR);
     lily_emit_eval_expr(parser->emit, parser->ast_pool);
@@ -2286,6 +2301,11 @@ static void define_handler(lily_parse_state *parser, int multi)
                 parser->emit->current_class,
                 parser->emit->symtab->var_chain);
     }
+}
+
+static void self_handler(lily_parse_state *parser, int multi)
+{
+    do_keyword(parser, KEY_SELF);
 }
 
 static void do_bootstrap(lily_parse_state *parser)

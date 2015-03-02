@@ -671,6 +671,13 @@ void lily_ast_push_variant(lily_ast_pool *ap, lily_class *variant)
     merge_value(ap, a);
 }
 
+void lily_ast_push_self(lily_ast_pool *ap)
+{
+    AST_COMMON_INIT(a, tree_self);
+
+    merge_value(ap, a);
+}
+
 void lily_ast_push_lambda(lily_ast_pool *ap, int start_line, char *lambda_text)
 {
     AST_COMMON_INIT(a, tree_lambda)

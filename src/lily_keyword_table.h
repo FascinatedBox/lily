@@ -15,6 +15,7 @@ keyword_entry keywords[] = {
     {"case",         1702060387},
     {"else",         1702063205},
     {"elif",         1718185061},
+    {"self",         1718379891},
     {"enum",         1836412517},
     {"while",        435610544247},
     {"raise",        435727982962},
@@ -38,19 +39,20 @@ keyword_entry keywords[] = {
 # define KEY_CASE          5
 # define KEY_ELSE          6
 # define KEY_ELIF          7
-# define KEY_ENUM          8
-# define KEY_WHILE         9
-# define KEY_RAISE        10
-# define KEY_MATCH        11
-# define KEY_BREAK        12
-# define KEY_CLASS        13
-# define KEY_DEFINE       14
-# define KEY_RETURN       15
-# define KEY_EXCEPT       16
-# define KEY__FILE__      17
-# define KEY__LINE__      18
-# define KEY_CONTINUE     19
-# define KEY__FUNCTION__  20
-# define KEY_LAST_ID      20
+# define KEY_SELF          8
+# define KEY_ENUM          9
+# define KEY_WHILE        10
+# define KEY_RAISE        11
+# define KEY_MATCH        12
+# define KEY_BREAK        13
+# define KEY_CLASS        14
+# define KEY_DEFINE       15
+# define KEY_RETURN       16
+# define KEY_EXCEPT       17
+# define KEY__FILE__      18
+# define KEY__LINE__      19
+# define KEY_CONTINUE     20
+# define KEY__FUNCTION__  21
+# define KEY_LAST_ID      21
 
 #endif

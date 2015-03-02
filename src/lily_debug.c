@@ -500,7 +500,17 @@ static void show_property(lily_debug_state *debug, lily_prop_entry *prop,
             prop->id, prop->name);
     write_msgbuf(debug);
     debug->indent++;
-    show_value(debug, ival->values[prop->id]);
+
+    /* 'show(self)' can be done before all of the properties are all declared.
+       Trying to restrict that is...far too difficult to be considered. Instead,
+       simply prepare for unset instance properties (they aren't accessible
+       before being declared, so it's fine)... */
+    if ((ival->values[prop->id]->flags & VAL_IS_NIL) == 0)
+        show_value(debug, ival->values[prop->id]);
+    else {
+        lily_msgbuf_add(debug->msgbuf, "?\n");
+        write_msgbuf(debug);
+    }
     debug->indent--;
 }
 
