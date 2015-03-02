@@ -481,6 +481,10 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
     else
         flags &= ~CV_MAKE_VARS;
 
+    /* If this isn't done, then functions passed as arguments to the constructor
+       will have a return type of the class attached to them. */
+    flags &= ~CV_CLASS_INIT;
+
     lily_lex_state *lex = parser->lex;
     while (1) {
         if (lex->token == tk_word) {
@@ -965,9 +969,17 @@ static void expression_word(lily_parse_state *parser, int *state)
                     *state = ST_WANT_OPERATOR;
                 }
             }
-            else
-                lily_raise(parser->raiser, lily_SyntaxError,
-                       "%s has not been declared.\n", lex->label);
+            else {
+                var = lily_find_class_callable(parser->symtab,
+                        parser->symtab->class_chain, lex->label);
+
+                if (var == NULL)
+                    lily_raise(parser->raiser, lily_SyntaxError,
+                            "%s has not been declared.\n", lex->label);
+
+                lily_ast_push_defined_func(parser->ast_pool, var);
+                *state = ST_WANT_OPERATOR;
+            }
         }
     }
 }

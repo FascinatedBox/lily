@@ -2496,15 +2496,21 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
     int have_args, i, is_varargs, num_args;
     int auto_resolve = 0;
 
-    /* oo_access is the only tree where the first argument is actually supposed
-       to be passed in as a value. */
+    /* There are two cases where the first tree is supposed to be a value:
+       The first, is for the oo_access tree (x.y kind of calling).
+       The second, is when a class method is called from within a class (self is
+       implicitly added). */
     if (arg->tree_type != tree_oo_access) {
         if (arg->tree_type == tree_local_var ||
             arg->tree_type == tree_inherited_new)
             auto_resolve = 1;
-        arg = arg->next_arg;
-        true_start = arg;
-        ast->args_collected--;
+
+        if (arg->result != (lily_sym *)emit->block->self ||
+            emit->block->self == NULL) {
+            arg = arg->next_arg;
+            true_start = arg;
+            ast->args_collected--;
+        }
     }
 
     /* Ast doesn't check the call args. It can't check types, so why do only
