@@ -1,9 +1,10 @@
+#include <inttypes.h>
+#include <string.h>
+#include <stdio.h>
+
 #include "lily_impl.h"
 #include "lily_vm.h"
 #include "lily_value.h"
-
-#include "inttypes.h"
-#include "string.h"
 
 #define malloc_mem(size)             vm->mem_func(NULL, size)
 #define free_mem(ptr)          (void)vm->mem_func(ptr, 0)

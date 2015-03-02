@@ -1,6 +1,7 @@
 #ifndef LILY_CORE_TYPES_H
 # define LILY_CORE_TYPES_H
 
+# include <stdlib.h>
 # include <stdint.h>
 
 /* This file defines all core types used by the language. Many of these types

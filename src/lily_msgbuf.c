@@ -1,5 +1,6 @@
 #include <stdarg.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "lily_impl.h"
 #include "lily_msgbuf.h"
