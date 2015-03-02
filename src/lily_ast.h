@@ -13,7 +13,7 @@ typedef enum {
     tree_local_var, tree_defined_func, tree_global_var, tree_package,
     tree_oo_access, tree_unary, tree_type, tree_typecast, tree_tuple,
     tree_property, tree_variant, tree_lambda, tree_literal,
-    tree_inherited_new, tree_binary
+    tree_inherited_new, tree_self, tree_binary
 } lily_tree_type;
 
 typedef struct lily_ast_t {
@@ -177,6 +177,7 @@ void lily_ast_push_property(lily_ast_pool *, lily_prop_entry *);
 void lily_ast_push_variant(lily_ast_pool *, lily_class *);
 void lily_ast_push_lambda(lily_ast_pool *, int, char *);
 void lily_ast_push_inherited_new(lily_ast_pool *, lily_var *);
+void lily_ast_push_self(lily_ast_pool *);
 void lily_ast_reset_pool(lily_ast_pool *);
 
 void lily_ast_freeze_state(lily_ast_pool *);
