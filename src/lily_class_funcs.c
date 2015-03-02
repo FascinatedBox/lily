@@ -13,18 +13,7 @@
 int lily_integer_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
 {
-    int ret;
-
-    if (((left->flags & VAL_IS_NIL) == 0) &&
-        ((right->flags & VAL_IS_NIL) == 0) &&
-        left->value.integer == right->value.integer)
-        ret = 1;
-    else if ((left->flags & VAL_IS_NIL) && (right->flags & VAL_IS_NIL))
-        ret = 1;
-    else
-        ret = 0;
-
-    return ret;
+    return (left->value.integer == right->value.integer);
 }
 
 /** double **/
@@ -32,34 +21,19 @@ int lily_integer_eq(lily_vm_state *vm, int *depth, lily_value *left,
 int lily_double_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
 {
-    int ret;
-
-    if (((left->flags & VAL_IS_NIL) == 0) &&
-        ((right->flags & VAL_IS_NIL) == 0) &&
-        left->value.doubleval == right->value.doubleval)
-        ret = 1;
-    else if ((left->flags & VAL_IS_NIL) && (right->flags & VAL_IS_NIL))
-        ret = 1;
-    else
-        ret = 0;
-
-    return ret;
+    return (left->value.doubleval == right->value.doubleval);
 }
 
-/** str **/
+/** string **/
 
 int lily_string_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
 {
     int ret;
 
-    if (((left->flags & VAL_IS_NIL) == 0) &&
-        ((right->flags & VAL_IS_NIL) == 0) &&
-        left->value.string->size == right->value.string->size &&
+    if (left->value.string->size == right->value.string->size &&
         (left->value.string == right->value.string ||
          strcmp(left->value.string->string, right->value.string->string) == 0))
-        ret = 1;
-    else if ((left->flags & VAL_IS_NIL) && (right->flags & VAL_IS_NIL))
         ret = 1;
     else
         ret = 0;
@@ -77,10 +51,8 @@ void lily_gc_any_marker(int pass, lily_value *v)
         any_val->gc_entry->last_pass = pass;
         lily_value *inner_value = any_val->inner_value;
 
-        if ((inner_value->flags & VAL_IS_NIL) == 0 &&
-            inner_value->type->cls->gc_marker != NULL) {
+        if (inner_value->type->cls->gc_marker != NULL)
             (*inner_value->type->cls->gc_marker)(pass, inner_value);
-        }
     }
 }
 
@@ -92,22 +64,15 @@ int lily_any_eq(lily_vm_state *vm, int *depth, lily_value *left,
     if (*depth == 100)
         lily_raise(vm->raiser, lily_RecursionError, "Infinite loop in comparison.\n");
 
-    if (((left->flags & VAL_IS_NIL) == 0) &&
-        ((right->flags & VAL_IS_NIL) == 0)) {
-        lily_value *left_inner = left->value.any->inner_value;
-        lily_value *right_inner = right->value.any->inner_value;
-        if (left_inner->type == right_inner->type) {
-            class_eq_func eq_func = left_inner->type->cls->eq_func;
+    lily_value *left_inner = left->value.any->inner_value;
+    lily_value *right_inner = right->value.any->inner_value;
+    if (left_inner->type == right_inner->type) {
+        class_eq_func eq_func = left_inner->type->cls->eq_func;
 
-            (*depth)++;
-            ret = eq_func(vm, depth, left_inner, right_inner);
-            (*depth)--;
-        }
-        else
-            ret = 0;
+        (*depth)++;
+        ret = eq_func(vm, depth, left_inner, right_inner);
+        (*depth)--;
     }
-    else if ((left->flags & VAL_IS_NIL) && (right->flags & VAL_IS_NIL))
-        ret = 1;
     else
         ret = 0;
 
@@ -150,9 +115,7 @@ int lily_list_eq(lily_vm_state *vm, int *depth, lily_value *left,
 
     int ret;
 
-    if (((left->flags & VAL_IS_NIL) == 0) &&
-        ((right->flags & VAL_IS_NIL) == 0) &&
-        left->value.list->num_values == right->value.list->num_values) {
+    if (left->value.list->num_values == right->value.list->num_values) {
         class_eq_func eq_func = left->type->subtypes[0]->cls->eq_func;
         lily_value **left_elems = left->value.list->elems;
         lily_value **right_elems = right->value.list->elems;
@@ -170,8 +133,6 @@ int lily_list_eq(lily_vm_state *vm, int *depth, lily_value *left,
             (*depth)--;
         }
     }
-    else if ((left->flags & VAL_IS_NIL) && (right->flags & VAL_IS_NIL))
-        ret = 1;
     else
         ret = 0;
 
@@ -211,9 +172,7 @@ int lily_hash_eq(lily_vm_state *vm, int *depth, lily_value *left,
 
     int ret;
 
-    if (((left->flags & VAL_IS_NIL) == 0) &&
-        ((right->flags & VAL_IS_NIL) == 0) &&
-        left->value.hash->num_elems == right->value.hash->num_elems) {
+    if (left->value.hash->num_elems == right->value.hash->num_elems) {
         lily_hash_val *left_hash = left->value.hash;
         lily_hash_val *right_hash = right->value.hash;
 
@@ -263,8 +222,6 @@ int lily_hash_eq(lily_vm_state *vm, int *depth, lily_value *left,
                 break;
         }
     }
-    else if ((left->flags & VAL_IS_NIL) && (right->flags & VAL_IS_NIL))
-        ret = 1;
     else
         ret = 0;
 
@@ -301,9 +258,7 @@ int lily_tuple_eq(lily_vm_state *vm, int *depth, lily_value *left,
 
     int ret;
 
-    if (((left->flags & VAL_IS_NIL) == 0) &&
-        ((right->flags & VAL_IS_NIL) == 0) &&
-        left->value.list->num_values == right->value.list->num_values) {
+    if (left->value.list->num_values == right->value.list->num_values) {
         lily_value **left_elems = left->value.list->elems;
         lily_value **right_elems = right->value.list->elems;
 
@@ -321,8 +276,6 @@ int lily_tuple_eq(lily_vm_state *vm, int *depth, lily_value *left,
             (*depth)--;
         }
     }
-    else if ((left->flags & VAL_IS_NIL) && (right->flags & VAL_IS_NIL))
-        ret = 1;
     else
         ret = 0;
 
@@ -335,19 +288,7 @@ int lily_tuple_eq(lily_vm_state *vm, int *depth, lily_value *left,
 int lily_generic_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
 {
-    int ret;
-
-    if ((left->flags & VAL_IS_NIL) == 0 &&
-        (right->flags & VAL_IS_NIL) == 0 &&
-        left->value.generic == right->value.generic) {
-        ret = 1;
-    }
-    else if ((left->flags & VAL_IS_NIL) && (right->flags & VAL_IS_NIL))
-        ret = 1;
-    else
-        ret = 0;
-
-    return ret;
+    return (left->value.generic == right->value.generic);
 }
 
 /* instance */
@@ -358,33 +299,26 @@ int lily_instance_eq(lily_vm_state *vm, int *depth, lily_value *left,
 {
     int ret;
 
-    if ((left->flags & VAL_IS_NIL) == 0 &&
-        (right->flags & VAL_IS_NIL) == 0) {
-        if (left->value.instance->true_class ==
-            right->value.instance->true_class) {
+    if (left->value.instance->true_class ==
+        right->value.instance->true_class) {
 
-            int i;
-            ret = 1;
-
-            for (i = 0;i < left->value.instance->num_values;i++) {
-                lily_value **left_values = left->value.instance->values;
-                lily_value **right_values = right->value.instance->values;
-
-                class_eq_func eq_func = left_values[i]->type->cls->eq_func;
-                (*depth)++;
-                if (eq_func(vm, depth, left_values[i], right_values[i]) == 0) {
-                    ret = 0;
-                    (*depth)--;
-                    break;
-                }
-                (*depth)--;
-            }
-        }
-        else
-            ret = 0;
-    }
-    else if ((left->flags & VAL_IS_NIL) && (right->flags & VAL_IS_NIL))
+        int i;
         ret = 1;
+
+        for (i = 0;i < left->value.instance->num_values;i++) {
+            lily_value **left_values = left->value.instance->values;
+            lily_value **right_values = right->value.instance->values;
+
+            class_eq_func eq_func = left_values[i]->type->cls->eq_func;
+            (*depth)++;
+            if (eq_func(vm, depth, left_values[i], right_values[i]) == 0) {
+                ret = 0;
+                (*depth)--;
+                break;
+            }
+            (*depth)--;
+        }
+    }
     else
         ret = 0;
 
