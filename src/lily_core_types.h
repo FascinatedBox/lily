@@ -542,10 +542,9 @@ typedef struct lily_prop_seed_t {
 #define SYM_CLASS_DBZERROR       12 /* > 9000 */
 #define SYM_CLASS_INDEXERROR     13
 #define SYM_CLASS_BADTCERROR     14
-#define SYM_CLASS_NORETURNERROR  15
-#define SYM_CLASS_VALUEERROR     16
-#define SYM_CLASS_RECURSIONERROR 17
-#define SYM_CLASS_KEYERROR       18
-#define SYM_CLASS_FORMATERROR    19
+#define SYM_CLASS_VALUEERROR     15
+#define SYM_CLASS_RECURSIONERROR 16
+#define SYM_CLASS_KEYERROR       17
+#define SYM_CLASS_FORMATERROR    18
 
 #endif
