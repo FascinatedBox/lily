@@ -67,7 +67,6 @@ static char *exception_bootstrap =
 "class DivisionByZeroError (message: string) < Exception(message) {}\n"
 "class IndexError          (message: string) < Exception(message) {}\n"
 "class BadTypecastError    (message: string) < Exception(message) {}\n"
-"class NoReturnError       (message: string) < Exception(message) {}\n"
 "class ValueError          (message: string) < Exception(message) {}\n"
 "class RecursionError      (message: string) < Exception(message) {}\n"
 "class KeyError            (message: string) < Exception(message) {}\n"
