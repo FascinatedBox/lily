@@ -125,6 +125,32 @@ void lily_msgbuf_add_double(lily_msgbuf *msgbuf, double d)
     lily_msgbuf_add(msgbuf, buf);
 }
 
+/*  lily_msgbuf_add_simple_value
+    This function adds a value of a simple type to the msgbuf. A simple type is
+    one of these: integer, double, string, symbol. */
+void lily_msgbuf_add_simple_value(lily_msgbuf *msgbuf, lily_value *v)
+{
+    int cls_id = v->type->cls->id;
+
+    if (cls_id == SYM_CLASS_INTEGER)
+        lily_msgbuf_add_int(msgbuf, v->value.integer);
+    else if (cls_id == SYM_CLASS_DOUBLE)
+        lily_msgbuf_add_double(msgbuf, v->value.doubleval);
+    else if (cls_id == SYM_CLASS_STRING) {
+        lily_msgbuf_add_char(msgbuf, '\"');
+        /* Note: This is fine for now because strings can't contain \0. */
+        lily_msgbuf_add(msgbuf, v->value.string->string);
+        lily_msgbuf_add_char(msgbuf, '\"');
+    }
+    else if (cls_id == SYM_CLASS_SYMBOL) {
+        lily_symbol_val *symv = v->value.symbol;
+        if (symv->is_simple)
+            lily_msgbuf_add_fmt(msgbuf, ":%s", symv->string);
+        else
+            lily_msgbuf_add_fmt(msgbuf, ":\"^E\"", symv->string);
+    }
+}
+
 /*  lily_msgbuf_flush
     This is called by to clear the contents of the given msgbuf. */
 void lily_msgbuf_flush(lily_msgbuf *msgbuf)
@@ -287,6 +313,10 @@ void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, char *fmt, va_list var_args)
             else if (c == 'R') {
                 int errno_val = va_arg(var_args, int);
                 msgbuf_add_errno_string(msgbuf, errno_val);
+            }
+            else if (c == 'V') {
+                lily_value *v = va_arg(var_args, lily_value *);
+                lily_msgbuf_add_simple_value(msgbuf, v);
             }
 
             text_start = i+1;

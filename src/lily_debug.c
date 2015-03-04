@@ -214,23 +214,9 @@ static void write_msgbuf(lily_debug_state *debug)
 static void show_simple_value(lily_debug_state *debug, lily_type *type,
         lily_raw_value value)
 {
-    int cls_id = type->cls->id;
+    lily_value v = {0, type, value};
 
-    if (cls_id == SYM_CLASS_STRING)
-        lily_msgbuf_add_fmt(debug->msgbuf, "\"^E\"", value.string->string);
-    else if (cls_id == SYM_CLASS_INTEGER)
-        lily_msgbuf_add_int(debug->msgbuf, value.integer);
-    else if (cls_id == SYM_CLASS_DOUBLE)
-        lily_msgbuf_add_double(debug->msgbuf, value.doubleval);
-    else if (cls_id == SYM_CLASS_SYMBOL) {
-        if (value.symbol->is_simple)
-            lily_msgbuf_add_fmt(debug->msgbuf, ":%s", value.symbol->string);
-        else
-            lily_msgbuf_add_fmt(debug->msgbuf, ":\"^E\"", value.symbol->string);
-    }
-    /* else it's a variant literal. Those don't need to be shown because they
-       don't -really- have a value inside. */
-
+    lily_msgbuf_add_simple_value(debug->msgbuf, &v);
     write_msgbuf(debug);
 }
 
@@ -239,10 +225,9 @@ static void show_simple_value(lily_debug_state *debug, lily_type *type,
 static void show_literal(lily_debug_state *debug, int lit_pos)
 {
     lily_literal *lit = debug->vm->literal_table[lit_pos];
-    lily_msgbuf_add_fmt(debug->msgbuf, "(^T) ", lit->type);
+    lily_value v = {0, lit->type, lit->value};
+    lily_msgbuf_add_fmt(debug->msgbuf, "(^T) ^V\n", lit->type, &v);
     write_msgbuf(debug);
-    show_simple_value(debug, lit->type, lit->value);
-    lily_impl_puts(debug->data, "\n");
 }
 
 /*  show_function
@@ -595,7 +580,6 @@ static void show_hash_value(lily_debug_state *debug, lily_type *type,
         lily_hash_val *hash_val)
 {
     int indent;
-    lily_type *key_type;
     lily_hash_elem *elem_iter;
     lily_msgbuf *msgbuf = debug->msgbuf;
 
@@ -610,7 +594,6 @@ static void show_hash_value(lily_debug_state *debug, lily_type *type,
     }
 
     hash_val->visited = 1;
-    key_type = type->subtypes[0];
     elem_iter = hash_val->elem_chain;
     while (elem_iter) {
         /* Write out one blank line, so each value has a space between the next.
@@ -619,12 +602,9 @@ static void show_hash_value(lily_debug_state *debug, lily_type *type,
         if (elem_iter != hash_val->elem_chain)
             lily_msgbuf_add_fmt(msgbuf, "^I|\n", indent - 1);
 
-        lily_msgbuf_add_fmt(msgbuf, "^I|____[", indent - 1);
+        lily_msgbuf_add_fmt(msgbuf, "^I|____[^V] = ", indent - 1,
+                elem_iter->elem_key);
         write_msgbuf(debug);
-
-        show_simple_value(debug, key_type, elem_iter->elem_key->value);
-        lily_impl_puts(debug->data, "] = ");
-
         show_value(debug, elem_iter->elem_value);
 
         elem_iter = elem_iter->next;

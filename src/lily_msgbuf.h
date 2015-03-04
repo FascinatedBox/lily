@@ -30,6 +30,7 @@ void lily_msgbuf_add_text_range(lily_msgbuf *, char *, int, int);
 void lily_msgbuf_add_int(lily_msgbuf *, int);
 void lily_msgbuf_add_double(lily_msgbuf *, double);
 void lily_msgbuf_add_type(lily_msgbuf *, struct lily_type_t *);
+void lily_msgbuf_add_simple_value(lily_msgbuf *, lily_value *);
 void lily_msgbuf_add_fmt(lily_msgbuf *, char *, ...);
 void lily_msgbuf_add_fmt_va(lily_msgbuf *, char *, va_list);
 void lily_msgbuf_escaped_add_str(lily_msgbuf *, char *);
