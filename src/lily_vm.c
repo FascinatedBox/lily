@@ -144,7 +144,6 @@ lily_vm_state *lily_new_vm_state(lily_mem_func mem_func, lily_raiser *raiser,
     vm->gc_threshold = 100;
     vm->gc_pass = 0;
     vm->prep_id_start = 0;
-    vm->building_error = 0;
     vm->prep_var_start = NULL;
     vm->catch_chain = NULL;
     vm->catch_top = NULL;
@@ -1455,9 +1454,6 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 static void make_proper_exception_val(lily_vm_state *vm,
         lily_class *raised_class, lily_value *result)
 {
-    /* This is how the vm knows to not catch this. */
-    vm->building_error = 1;
-
     lily_instance_val *ival = malloc_mem(sizeof(lily_instance_val));
 
     ival->values = malloc_mem(2 * sizeof(lily_value *));
@@ -1491,8 +1487,6 @@ static void make_proper_exception_val(lily_vm_state *vm,
 
     result->value.instance = ival;
     result->flags = 0;
-
-    vm->building_error = 0;
 }
 
 /*  maybe_catch_exception
@@ -2006,7 +2000,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
             /* If the vm raises an exception trying to build an exception value
                instance, just...stop and give up. */
-            if (vm->building_error || maybe_catch_exception(vm) == 0)
+            if (maybe_catch_exception(vm) == 0)
                 longjmp(vm->raiser->jumps[vm->raiser->jump_pos-2], 1);
             else {
                 code = vm->function_stack[vm->function_stack_pos - 1]->code;

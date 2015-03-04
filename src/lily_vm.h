@@ -70,7 +70,6 @@ typedef struct lily_vm_state_t {
        if an entry has been seen. An entry is visible if
        'entry->last_pass == gc_pass' */
     uint32_t gc_pass;
-    uint64_t building_error;
 
     /* This is the default type used when created new registers. This is
        used because it isn't refcounted. */
