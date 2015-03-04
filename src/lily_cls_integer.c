@@ -8,9 +8,9 @@
 #define malloc_mem(size)             vm->mem_func(NULL, size)
 #define free_mem(ptr)          (void)vm->mem_func(ptr, 0)
 
-/*  lily_integer_to_string
-    Implements integer::to_string() */
-void lily_integer_to_string(lily_vm_state *vm, lily_function_val *self,
+/*  lily_integer_to_s
+    Implements integer::to_s() */
+void lily_integer_to_s(lily_vm_state *vm, lily_function_val *self,
         uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -35,7 +35,7 @@ void lily_integer_to_string(lily_vm_state *vm, lily_function_val *self,
     result_reg->value.string = new_sv;
 }
 
-void lily_integer_to_double(lily_vm_state *vm, lily_function_val *self,
+void lily_integer_to_d(lily_vm_state *vm, lily_function_val *self,
         uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -46,15 +46,15 @@ void lily_integer_to_double(lily_vm_state *vm, lily_function_val *self,
     result_reg->value.doubleval = (double)integer_val;
 }
 
-static const lily_func_seed to_double =
-    {"to_double", "function to_double(integer => double)", lily_integer_to_double, NULL};
+static const lily_func_seed to_d =
+    {"to_d", "function to_d(integer => double)", lily_integer_to_d, NULL};
 
-static const lily_func_seed to_string =
-    {"to_string", "function to_string(integer => string)", lily_integer_to_string, &to_double};
+static const lily_func_seed to_s =
+    {"to_s", "function to_s(integer => string)", lily_integer_to_s, &to_d};
 
 int lily_integer_setup(lily_class *cls)
 {
-    cls->seed_table = &to_string;
+    cls->seed_table = &to_s;
     return 1;
 }
 
