@@ -16,6 +16,7 @@
 # define lily_RecursionError       7
 # define lily_KeyError             8
 # define lily_FormatError          9
+# define lily_LASTERROR            9
 
 typedef struct lily_raiser_t {
     /* The raiser will typically have two jumps: One for the vm to catch runtime
@@ -45,6 +46,6 @@ void lily_raise(lily_raiser *, int, char *, ...);
 void lily_raise_prebuilt(lily_raiser *, int);
 void lily_raise_value(lily_raiser *, lily_value *);
 
-const char *lily_name_for_error(int);
+const char *lily_name_for_error(lily_raiser *);
 
 #endif

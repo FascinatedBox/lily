@@ -1514,7 +1514,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
     lily_class *raised_class;
 
     if (vm->raiser->exception == NULL) {
-        except_name = lily_name_for_error(vm->raiser->error_code);
+        except_name = lily_name_for_error(vm->raiser);
         raised_class = lily_class_by_name(vm->symtab, except_name);
     }
     else {
