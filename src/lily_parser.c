@@ -1876,6 +1876,15 @@ static void do_handler(lily_parse_state *parser, int multi)
     /* Now prep the token for expression. Save the resulting tree so that
        it can be eval'd specially. */
     lily_lexer(lex);
+
+    /* This is important, because it prevents the condition of this block from
+       using variables declared within it. This is necessary because, like with
+       try+except, it cannot be determined that all the variables declared
+       within this block have been initialized.
+       Ex: 'do: { continue var v = 10 } while v == 10'. */
+    if (parser->emit->block->var_start)
+        lily_hide_block_vars(parser->symtab, parser->emit->block->var_start);
+
     expression(parser);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
     lily_emit_leave_block(parser->emit);
