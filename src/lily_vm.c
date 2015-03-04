@@ -940,31 +940,7 @@ static void key_error(lily_vm_state *vm, int code_pos, lily_value *key)
     lily_vm_stack_entry *top = vm->function_stack[vm->function_stack_pos - 1];
     top->line_num = top->code[code_pos + 1];
 
-    lily_msgbuf *msgbuf = vm->raiser->msgbuf;
-    int key_cls_id = key->type->cls->id;
-
-    if (key_cls_id == SYM_CLASS_INTEGER)
-        lily_msgbuf_add_int(msgbuf, key->value.integer);
-    else if (key_cls_id == SYM_CLASS_DOUBLE)
-        lily_msgbuf_add_double(msgbuf, key->value.doubleval);
-    else if (key_cls_id == SYM_CLASS_STRING) {
-        lily_msgbuf_add_char(msgbuf, '\"');
-        /* Note: This is fine for now because strings can't contain \0. */
-        lily_msgbuf_add(msgbuf, key->value.string->string);
-        lily_msgbuf_add_char(msgbuf, '\"');
-    }
-    else if (key_cls_id == SYM_CLASS_SYMBOL) {
-        lily_symbol_val *symv = key->value.symbol;
-        if (symv->is_simple)
-            lily_msgbuf_add_fmt(msgbuf, ":%s", symv->string);
-        else
-            lily_msgbuf_add_fmt(msgbuf, ":\"^E\"", symv->string);
-    }
-    else
-        lily_msgbuf_add(msgbuf, "? (unable to print key).");
-
-    lily_msgbuf_add_char(msgbuf, '\n');
-    lily_raise_prebuilt(vm->raiser, lily_KeyError);
+    lily_raise(vm->raiser, lily_KeyError, "^V\n", key);
 }
 
 /*  boundary_error
