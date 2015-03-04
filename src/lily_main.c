@@ -65,7 +65,7 @@ static void process_args(int argc, char **argv)
 void traceback_to_file(lily_parse_state *parser, FILE *outfile)
 {
     lily_raiser *raiser = parser->raiser;
-    fprintf(outfile, "%s", lily_name_for_error(raiser->error_code));
+    fprintf(outfile, "%s", lily_name_for_error(raiser));
     if (raiser->msgbuf->message[0] != '\0')
         fprintf(outfile, ": %s", raiser->msgbuf->message);
     else

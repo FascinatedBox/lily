@@ -72,10 +72,24 @@ void lily_raise_prebuilt(lily_raiser *raiser, int error_code)
 void lily_raise_value(lily_raiser *raiser, lily_value *value)
 {
     raiser->exception = value;
+    /* This next part relies upon the Exception class being ordered as
+       traceback, then message. */
+    lily_instance_val *iv = value->value.instance;
+    char *message = iv->values[0]->value.string->string;
+    lily_msgbuf_flush(raiser->msgbuf);
+    lily_msgbuf_add(raiser->msgbuf, message);
+
     longjmp(raiser->jumps[raiser->jump_pos-1], 1);
 }
 
-const char *lily_name_for_error(int error_code)
+const char *lily_name_for_error(lily_raiser *raiser)
 {
-    return lily_error_names[error_code];
+    const char *result;
+
+    if (raiser->exception)
+        result = raiser->exception->type->cls->name;
+    else
+        result = lily_error_names[raiser->error_code];
+
+    return result;
 }
