@@ -14,10 +14,10 @@ f(
   # A = double, so 'a' is an double. The result is unknown, so the result is
   # left alone.
   # B = integer.
-  {|a| a.to_integer()},
+  {|a| a.to_i()},
 
   # B = integer, so 'b' is an integer. Again, unable to determine the result,
   # so no type inference is done on the result.
   # C = string
-  {|b| b.to_string()}
+  {|b| b.to_s()}
   )

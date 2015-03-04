@@ -4,7 +4,7 @@
 #include "lily_value.h"
 #include "inttypes.h"
 
-void lily_double_to_integer(lily_vm_state *vm, lily_function_val *self,
+void lily_double_to_i(lily_vm_state *vm, lily_function_val *self,
         uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -15,12 +15,12 @@ void lily_double_to_integer(lily_vm_state *vm, lily_function_val *self,
     result_reg->value.integer = (int64_t)double_val;
 }
 
-static const lily_func_seed to_integer =
-    {"to_integer", "function to_integer(double => integer)", lily_double_to_integer, NULL};
+static const lily_func_seed to_i =
+    {"to_i", "function to_i(double => integer)", lily_double_to_i, NULL};
 
 int lily_double_setup(lily_class *cls)
 {
-    cls->seed_table = &to_integer;
+    cls->seed_table = &to_i;
     return 1;
 }
 
