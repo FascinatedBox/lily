@@ -1,6 +1,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include "lily_impl.h"
 #include "lily_msgbuf.h"
@@ -29,32 +30,36 @@ static void resize_msgbuf(lily_msgbuf *msgbuf, int new_size)
     msgbuf->size = new_size;
 }
 
-void lily_free_msgbuf(lily_msgbuf *msgbuf)
+/*  add_escaped_char
+    This adds the given */
+static void add_escaped_char(lily_msgbuf *msgbuf, char ch)
 {
-    free_mem(msgbuf->message);
-    free_mem(msgbuf);
+    char buffer[16];
+    sprintf(buffer, "%03d", (unsigned char)ch);
+
+    lily_msgbuf_add(msgbuf, buffer);
 }
 
-void lily_msgbuf_add(lily_msgbuf *msgbuf, char *str)
+/*  add_escaped_sized
+    This adds the string given into the msgbuf. The len is provided in case
+    'str' is part of a bytestring which has embedded \0 values.
+    This prints out a more readable version of the string given.
+
+    If is_bytestring is 1, then chars > 127 are replaced with numeric escapes
+    (\nnn) in case they are not valid utf-8.
+    If it is not 1, then chars > 127 are added directly, assuming they are valid
+    utf-8.
+
+    Non-printable characters are always replaced with numeric escapes. */
+static void add_escaped_sized(lily_msgbuf *msgbuf, int is_bytestring, char *str,
+        int len)
 {
-    int len = strlen(str);
-
-    if ((msgbuf->pos + len + 1) > msgbuf->size)
-        resize_msgbuf(msgbuf, msgbuf->pos + len + 1);
-
-    strcat(msgbuf->message, str);
-    msgbuf->pos += len;
-}
-
-void lily_msgbuf_escape_add_str(lily_msgbuf *msgbuf, char *str)
-{
-    char escape_char;
-    int i, len, start;
-
-    len = strlen(str);
+    char escape_char = 0;
+    int i, start;
 
     for (i = 0, start = 0;i < len;i++) {
         char ch = str[i];
+        int need_escape = 1;
 
         if (ch == '\n')
             escape_char = 'n';
@@ -72,15 +77,21 @@ void lily_msgbuf_escape_add_str(lily_msgbuf *msgbuf, char *str)
             escape_char = 'b';
         else if (ch == '\a')
             escape_char = 'a';
-        else
+        else if (isprint(ch) == 1 ||
+            ((unsigned char)ch > 127 && is_bytestring == 0)) {
+            need_escape = 0;
             escape_char = 0;
+        }
 
-        if (escape_char) {
+        if (need_escape) {
             if (i != start)
                 lily_msgbuf_add_text_range(msgbuf, str, start, i);
 
             lily_msgbuf_add_char(msgbuf, '\\');
-            lily_msgbuf_add_char(msgbuf, escape_char);
+            if (escape_char)
+                lily_msgbuf_add_char(msgbuf, escape_char);
+            else
+                add_escaped_char(msgbuf, ch);
 
             start = i + 1;
         }
@@ -88,6 +99,35 @@ void lily_msgbuf_escape_add_str(lily_msgbuf *msgbuf, char *str)
 
     if (i != start)
         lily_msgbuf_add_text_range(msgbuf, str, start, i);
+
+    /* Add a terminating \0 so that the msgbuf is always \0 terminated. */
+    if (is_bytestring)
+        lily_msgbuf_add_char(msgbuf, '\0');
+}
+
+void lily_free_msgbuf(lily_msgbuf *msgbuf)
+{
+    free_mem(msgbuf->message);
+    free_mem(msgbuf);
+}
+
+void lily_msgbuf_add(lily_msgbuf *msgbuf, char *str)
+{
+    int len = strlen(str);
+
+    if ((msgbuf->pos + len + 1) > msgbuf->size)
+        resize_msgbuf(msgbuf, msgbuf->pos + len + 1);
+
+    strcat(msgbuf->message, str);
+    msgbuf->pos += len;
+}
+
+/*  lily_msgbuf_escape_add_str
+    This is a convenience function for adding a safe, escaped version of the
+    given string to the msgbuf. */
+void lily_msgbuf_escape_add_str(lily_msgbuf *msgbuf, char *str)
+{
+    add_escaped_sized(msgbuf, 0, str, strlen(str));
 }
 
 void lily_msgbuf_add_text_range(lily_msgbuf *msgbuf, char *text, int start,
@@ -139,7 +179,7 @@ void lily_msgbuf_add_simple_value(lily_msgbuf *msgbuf, lily_value *v)
         lily_msgbuf_add_double(msgbuf, v->value.doubleval);
     else if (cls_id == SYM_CLASS_STRING) {
         lily_msgbuf_add_char(msgbuf, '\"');
-        /* Note: This is fine for now because strings can't contain \0. */
+        /* Note: This is fine because strings can't contain \0. */
         lily_msgbuf_add(msgbuf, v->value.string->string);
         lily_msgbuf_add_char(msgbuf, '\"');
     }
@@ -149,6 +189,10 @@ void lily_msgbuf_add_simple_value(lily_msgbuf *msgbuf, lily_value *v)
             lily_msgbuf_add_fmt(msgbuf, ":%s", symv->string);
         else
             lily_msgbuf_add_fmt(msgbuf, ":\"^E\"", symv->string);
+    }
+    else if (cls_id == SYM_CLASS_BYTESTRING) {
+        lily_string_val *bytev = v->value.string;
+        add_escaped_sized(msgbuf, 1, bytev->string, bytev->size);
     }
 }
 

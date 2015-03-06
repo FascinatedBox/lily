@@ -531,21 +531,22 @@ typedef struct lily_prop_seed_t {
 #define SYM_CLASS_INTEGER         0
 #define SYM_CLASS_DOUBLE          1
 #define SYM_CLASS_STRING          2
-#define SYM_CLASS_SYMBOL          3
-#define SYM_CLASS_FUNCTION        4
-#define SYM_CLASS_ANY             5
-#define SYM_CLASS_LIST            6
-#define SYM_CLASS_HASH            7
-#define SYM_CLASS_TUPLE           8
-#define SYM_CLASS_GENERIC         9
-#define SYM_CLASS_PACKAGE        10
-#define SYM_CLASS_EXCEPTION      11
-#define SYM_CLASS_DBZERROR       12 /* > 9000 */
-#define SYM_CLASS_INDEXERROR     13
-#define SYM_CLASS_BADTCERROR     14
-#define SYM_CLASS_VALUEERROR     15
-#define SYM_CLASS_RECURSIONERROR 16
-#define SYM_CLASS_KEYERROR       17
-#define SYM_CLASS_FORMATERROR    18
+#define SYM_CLASS_BYTESTRING      3
+#define SYM_CLASS_SYMBOL          4
+#define SYM_CLASS_FUNCTION        5
+#define SYM_CLASS_ANY             6
+#define SYM_CLASS_LIST            7
+#define SYM_CLASS_HASH            8
+#define SYM_CLASS_TUPLE           9
+#define SYM_CLASS_GENERIC        10
+#define SYM_CLASS_PACKAGE        11
+#define SYM_CLASS_EXCEPTION      12
+#define SYM_CLASS_DBZERROR       13 /* > 9000 */
+#define SYM_CLASS_INDEXERROR     14
+#define SYM_CLASS_BADTCERROR     15
+#define SYM_CLASS_VALUEERROR     16
+#define SYM_CLASS_RECURSIONERROR 17
+#define SYM_CLASS_KEYERROR       18
+#define SYM_CLASS_FORMATERROR    19
 
 #endif

@@ -70,7 +70,8 @@
 #define CC_AMPERSAND     25
 #define CC_VBAR          26
 #define CC_QUESTION      27
-#define CC_INVALID       28
+#define CC_B             28
+#define CC_INVALID       29
 
 /*  This table indicates how many more bytes need to be successfully read after
     that particular byte for proper utf-8. -1 = invalid.
@@ -188,6 +189,7 @@ lily_lex_state *lily_new_lex_state(lily_mem_func mem_func, lily_raiser *raiser,
     for (i = 194;i <= 244;i++)
         ch_class[i] = CC_WORD;
 
+    ch_class[(unsigned char)'B'] = CC_B;
     ch_class[(unsigned char)'_'] = CC_WORD;
     ch_class[(unsigned char)'('] = CC_LEFT_PARENTH;
     ch_class[(unsigned char)')'] = CC_RIGHT_PARENTH;
@@ -565,10 +567,12 @@ static void string_copy_close_fn(lily_lex_entry *entry)
 
 /** Scanning functions and helpers **/
 
-/* simple_escape
-   This takes in the character after an escape, and returns what the escape
-   character translates into. Returns 0 for invalid escapes. */
-static char simple_escape(char *ch)
+/*  scan_escape
+    This processes escape codes for scan_quoted. 'ch' starts at the '\' of the
+    escape.
+    'adjust' should only be set in the event that a non-simple escape is found
+    (an escape that takes more than on character). */
+static char scan_escape(lily_lex_state *lexer, char *ch, int *adjust)
 {
     char ret;
     ch++;
@@ -589,8 +593,31 @@ static char simple_escape(char *ch)
         ret = '\b';
     else if (*ch == 'a')
         ret = '\a';
-    else
+    else if (*ch >= '0' && *ch <= '9') {
+        /* It's a numeric escape. Keep swallowing up numeric values until either
+           3 are caught in total OR there is a possible 'overflow'.
+           This...seems like the right thing to do, I guess. */
+        int i, value = 0, total = 0;
+        for (i = 0;i < 3;i++, ch++) {
+            if (*ch < '0' || *ch > '9')
+                break;
+
+            value = *ch - '0';
+            if ((total * 10) + value > 255)
+                break;
+
+            total = (total * 10) + value;
+        }
+
+        *adjust = *adjust + i - 1;
+        ret = (char)total;
+    }
+    else {
+        lily_raise(lexer->raiser, lily_SyntaxError,
+                "Invalid escape sequence.\n");
+        /* Keeps the compiler happy (ret always given a value). */
         ret = 0;
+    }
 
     return ret;
 }
@@ -931,6 +958,10 @@ static void ensure_lambda_data_size(lily_lex_state *lexer, int at_least)
     lexer->lambda_data_size = new_size;
 }
 
+#define KIND_STRING     0
+#define KIND_BYTESTRING 1
+#define KIND_SYMBOL     2
+
 /*  scan_quoted
     This handles scanning of data in between double quotes.
     " ... " are single-line only.
@@ -944,13 +975,18 @@ static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
 {
     char esc_ch;
     char *label, *input;
-    int label_pos, make_symbol = 0, multiline_start = 0;
+    int label_pos, multiline_start = 0, result_kind;
 
     input = lexer->input_buffer;
     label = lexer->label;
+    result_kind = KIND_STRING;
 
-    if (*pos != 0 && *(new_ch - 1) == ':')
-        make_symbol = 1;
+    if (*pos != 0) {
+        if (*(new_ch - 1) == ':')
+            result_kind = KIND_SYMBOL;
+        else if (*(new_ch - 1) == 'B')
+            result_kind = KIND_BYTESTRING;
+    }
 
     /* ch is actually the first char after the opening ". */
     if (*(new_ch + 1) == '"' &&
@@ -978,14 +1014,20 @@ static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
         }
 
         if (*new_ch == '\\') {
-            esc_ch = simple_escape(new_ch);
-            if (esc_ch == 0)
+            /* Most escape codes are only one letter long. */
+            int adjust_ch = 2;
+            esc_ch = scan_escape(lexer, new_ch, &adjust_ch);
+            /* Forbid \0 from non-bytestrings so that string and symbol can
+               remain valid C strings. Additionally, the second case prevents
+               possibly creating invalid utf-8. */
+            if (result_kind != KIND_BYTESTRING &&
+                (esc_ch == 0 || (unsigned char)esc_ch > 127))
                 lily_raise(lexer->raiser, lily_SyntaxError,
-                           "Invalid escape \\%c\n", *(new_ch + 1));
+                           "Invalid escape sequence.\n");
 
             label[label_pos] = esc_ch;
             label_pos++;
-            new_ch += 2;
+            new_ch += adjust_ch;
             continue;
         }
         else if (*new_ch == '\n') {
@@ -1022,13 +1064,23 @@ static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
     if (*is_multiline)
         new_ch += 2;
 
-    label[label_pos] = '\0';
+    if (result_kind != KIND_BYTESTRING)
+        label[label_pos] = '\0';
+
     *pos = (new_ch - &input[0]);
-    if (make_symbol == 0)
+
+    if (result_kind == KIND_STRING)
         lexer->last_literal = lily_get_string_literal(lexer->symtab, label);
+    else if (result_kind == KIND_BYTESTRING)
+        lexer->last_literal = lily_get_bytestring_literal(lexer->symtab, label,
+                label_pos);
     else
         lexer->last_literal = lily_get_symbol_literal(lexer->symtab, label);
 }
+
+#undef KIND_STRING
+#undef KIND_BYTESTRING
+#undef KIND_SYMBOL
 
 /*  scan_symbol
     This function is called when an identifier is found directly after a colon.
@@ -1370,6 +1422,8 @@ void lily_lexer(lily_lex_state *lexer)
         input_pos += ch - start_ch;
         group = ch_class[(unsigned char)*ch];
         if (group == CC_WORD) {
+            label_handling: ;
+
             /* The word and line buffers have the same size, plus \n is not a
                valid word character. So, there's no point in checking for
                overflow. */
@@ -1422,6 +1476,16 @@ void lily_lexer(lily_lex_state *lexer)
             int dummy;
             scan_quoted(lexer, &input_pos, ch, &dummy);
             token = tk_double_quote;
+        }
+        else if (group == CC_B) {
+            if (*(ch + 1) == '"') {
+                ch++;
+                int dummy;
+                scan_quoted(lexer, &input_pos, ch, &dummy);
+                token = tk_bytestring;
+            }
+            else
+                goto label_handling;
         }
         else if (group <= CC_G_TWO_LAST) {
             input_pos++;
@@ -1715,9 +1779,9 @@ char *tokname(lily_token t)
     {"(", ")", ",", "}", "[", "^", "!", "!=", "%", "%=", "*", "*=", "/", "/=",
      "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>", ">>=", "=",
      "==", "{", "a lambda", "<[", "]>", "]", "=>", "a label", "a property name",
-     "a string", "a symbol", "an integer", "a double", ".", ":", "::", "&",
-     "&&", "|", "||", "@(", "...", "invalid token", "?>", "end of file",
-     "end of file"};
+     "a string", "a bytestring", "a symbol", "an integer", "a double", ".", ":",
+     "::", "&", "&&", "|", "||", "@(", "...", "invalid token", "?>",
+     "end of file", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

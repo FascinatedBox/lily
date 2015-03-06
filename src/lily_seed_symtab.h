@@ -53,6 +53,14 @@ class_seed class_seeds[] =
      NULL,                      /* gc_marker */
      &lily_string_eq},          /* eq_func */
 
+    {"bytestring",              /* name */
+     1,                         /* is_refcounted */
+     0,                         /* generic_count */
+     0,                         /* flags */
+     NULL,                      /* setup_func */
+     NULL,                      /* gc_marker */
+     &lily_bytestring_eq},      /* eq_func */
+
     {"symbol",                  /* name */
      1,                         /* is_refcounted */
      0,                         /* generic_count */
