@@ -41,6 +41,24 @@ int lily_string_eq(lily_vm_state *vm, int *depth, lily_value *left,
     return ret;
 }
 
+/** bytestring **/
+
+int lily_bytestring_eq(lily_vm_state *vm, int *depth, lily_value *left,
+        lily_value *right)
+{
+    int ret;
+
+    if (left->value.string->size == right->value.string->size &&
+        (left->value.string == right->value.string ||
+         memcmp(left->value.string->string, right->value.string->string,
+                left->value.string->size) == 0))
+        ret = 1;
+    else
+        ret = 0;
+
+    return ret;
+}
+
 /* any */
 
 void lily_gc_any_marker(int pass, lily_value *v)

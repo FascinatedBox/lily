@@ -71,6 +71,7 @@ void lily_free_symtab(lily_symtab *);
 
 lily_literal *lily_get_integer_literal(lily_symtab *, int64_t);
 lily_literal *lily_get_double_literal(lily_symtab *, double);
+lily_literal *lily_get_bytestring_literal(lily_symtab *, char *, int);
 lily_literal *lily_get_string_literal(lily_symtab *, char *);
 lily_literal *lily_get_symbol_literal(lily_symtab *, char *);
 lily_literal *lily_get_variant_literal(lily_symtab *, lily_type *);

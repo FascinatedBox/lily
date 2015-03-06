@@ -781,7 +781,8 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
     while (lit != NULL) {
         lit_temp = lit->next;
 
-        if (lit->type->cls->id == SYM_CLASS_STRING)
+        if (lit->type->cls->id == SYM_CLASS_STRING ||
+            lit->type->cls->id == SYM_CLASS_BYTESTRING)
             lily_deref_string_val(symtab->mem_func, lit->value.string);
         else if (lit->type->cls->id == SYM_CLASS_SYMBOL) {
             lily_symbol_val *symv = lit->value.symbol;
@@ -934,6 +935,40 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab, char *want_string)
 
         ret = make_new_literal(symtab, cls);
         ret->value.string = sv;
+    }
+
+    return ret;
+}
+
+lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
+        char *want_string, int want_string_len)
+{
+    lily_literal *lit, *ret;
+    ret = NULL;
+
+    for (lit = symtab->lit_chain;lit;lit = lit->next) {
+        if (lit->type->cls->id == SYM_CLASS_BYTESTRING) {
+            if (lit->value.string->size == want_string_len &&
+                memcmp(lit->value.string->string, want_string,
+                        want_string_len) == 0) {
+                ret = lit;
+                break;
+            }
+        }
+    }
+
+    if (ret == NULL) {
+        lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_BYTESTRING);
+        char *buffer = malloc_mem(want_string_len * sizeof(char));
+        lily_string_val *bv = malloc_mem(sizeof(lily_string_val));
+
+        memcpy(buffer, want_string, want_string_len);
+        bv->string = buffer;
+        bv->size = want_string_len;
+        bv->refcount = 1;
+
+        ret = make_new_literal(symtab, cls);
+        ret->value.string = bv;
     }
 
     return ret;

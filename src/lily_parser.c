@@ -1271,7 +1271,8 @@ static void expression_raw(lily_parse_state *parser, int state)
             }
         }
         else if (lex->token == tk_integer || lex->token == tk_double ||
-                 lex->token == tk_double_quote || lex->token == tk_symbol)
+                 lex->token == tk_double_quote || lex->token == tk_symbol ||
+                 lex->token == tk_bytestring)
             expression_literal(parser, &state);
         else if (lex->token == tk_dot)
             expression_dot(parser, &state);
@@ -1536,7 +1537,8 @@ static void statement(lily_parse_state *parser, int multi)
         else if (token == tk_integer || token == tk_double ||
                  token == tk_double_quote || token == tk_left_parenth ||
                  token == tk_left_bracket || token == tk_tuple_open ||
-                 token == tk_symbol || token == tk_prop_word) {
+                 token == tk_symbol || token == tk_prop_word ||
+                 token == tk_bytestring) {
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->ast_pool);
         }
@@ -2393,6 +2395,7 @@ static void parser_loop(lily_parse_state *parser)
                  lex->token == tk_left_parenth ||
                  lex->token == tk_left_bracket ||
                  lex->token == tk_symbol ||
+                 lex->token == tk_bytestring ||
                  lex->token == tk_tuple_open) {
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->ast_pool);
