@@ -293,9 +293,9 @@ static void apache_bind_server(lily_parse_state *parser, request_rec *r)
     bind_post(parser, r);
     bind_httpmethod(parser, r);
 
-    /* env, get, and post need to be pulled into the server namespace. That's
-       what the 3 is for. */
-    make_package(parser, bound_var, 3, save_spot, save_chain);
+    /* env, get, post AND httpmethod need to be pulled into the server
+       namespace. That's what the 4 is for. */
+    make_package(parser, bound_var, 4, save_spot, save_chain);
 }
 
 static int lily_handler(request_rec *r)
