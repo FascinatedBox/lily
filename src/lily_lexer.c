@@ -236,7 +236,7 @@ void lily_free_lex_state(lily_lex_state *lexer)
         lily_lex_entry *entry_next;
         while (entry_iter) {
             if (entry_iter->source != NULL)
-                lexer->entry->close_fn(lexer->entry);
+                entry_iter->close_fn(entry_iter);
 
             entry_next = entry_iter->next;
             free_mem(entry_iter->saved_input);
