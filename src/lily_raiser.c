@@ -50,6 +50,9 @@ void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
     /* This is more important than whatever the msgbuf currently has. Blast the
        current contents away. */
     lily_msgbuf_flush(raiser->msgbuf);
+    /* Clear out any value raised previously, since otherwise
+       lily_name_for_error will grab the name using that. */
+    raiser->exception = NULL;
 
     va_list var_args;
     va_start(var_args, fmt);
