@@ -10,7 +10,6 @@
 # include "lily_membuf.h"
 
 typedef enum {
-    pm_init,
     pm_parse,
     pm_execute
 } lily_parse_mode;

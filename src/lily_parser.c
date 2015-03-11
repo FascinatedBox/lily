@@ -76,9 +76,35 @@ static char *exception_bootstrap =
 #define realloc_mem(ptr, size)       (*parser->mem_func)(ptr, size)
 #define free_mem(ptr)          (void)(*parser->mem_func)(ptr, 0)
 
+static lily_var *parse_prototype(lily_parse_state *, lily_class *,
+        lily_foreign_func);
+static void statement(lily_parse_state *, int);
+
 /*****************************************************************************/
 /* Parser creation and teardown                                              */
 /*****************************************************************************/
+
+static void do_bootstrap(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    const lily_func_seed *global_seed = lily_get_global_seed_chain();
+    while (global_seed) {
+        lily_load_str(lex, "[builtin]", lm_no_tags,
+                global_seed->func_definition);
+        lily_lexer(lex);
+        parse_prototype(parser, NULL, global_seed->func);
+        global_seed = global_seed->next;
+        lily_pop_lex_entry(lex);
+    }
+
+    lily_lex_entry *first_entry = parser->lex->entry;
+    lily_load_str(lex, "[builtin]", lm_no_tags, exception_bootstrap);
+    lily_lexer(lex);
+    do {
+        statement(parser, 1);
+        lily_pop_lex_entry(lex);
+    } while (parser->lex->entry != first_entry);
+}
 
 void *default_mem_func(void *ptr, size_t size)
 {
@@ -107,9 +133,6 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
 
     lily_raiser *raiser = lily_new_raiser(mem_func);
 
-    /* This ensures that runners always have a valid parser mode when trying to
-       figure out how to show an error. */
-    parser->mode = pm_init;
     parser->type_stack_pos = 0;
     parser->type_stack_size = 4;
     parser->class_depth = 0;
@@ -149,6 +172,10 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
     /* This creates a new var, so it has to be done after symtab's lex_linenum
        is set. */
     lily_pkg_sys_init(parser->symtab, argc, argv);
+
+    do_bootstrap(parser);
+
+    parser->mode = pm_parse;
 
     return parser;
 }
@@ -2319,40 +2346,12 @@ static void self_handler(lily_parse_state *parser, int multi)
     do_keyword(parser, KEY_SELF);
 }
 
-static void do_bootstrap(lily_parse_state *parser)
-{
-    lily_lex_state *lex = parser->lex;
-    const lily_func_seed *global_seed = lily_get_global_seed_chain();
-    while (global_seed) {
-        lily_load_str(lex, "[builtin]", lm_no_tags,
-                global_seed->func_definition);
-        lily_lexer(lex);
-        parse_prototype(parser, NULL, global_seed->func);
-        global_seed = global_seed->next;
-        lily_pop_lex_entry(lex);
-    }
-
-    lily_lex_entry *first_entry = parser->lex->entry;
-    lily_load_str(lex, "[builtin]", lm_no_tags, exception_bootstrap);
-    lily_lexer(lex);
-    do {
-        statement(parser, 1);
-        lily_pop_lex_entry(lex);
-    } while (parser->lex->entry != first_entry);
-}
-
 /*  parser_loop
     This is the main parsing function. This is called by a lily_parse_*
     function which will set the raiser and give the lexer a file before calling
     this function. */
 static void parser_loop(lily_parse_state *parser)
 {
-    if (parser->mode == pm_init)
-        do_bootstrap(parser);
-
-    /* Must do this first, in the rare case this next call fails. */
-    parser->mode = pm_parse;
-
     lily_lex_state *lex = parser->lex;
     lily_lexer(lex);
 
