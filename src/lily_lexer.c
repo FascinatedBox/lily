@@ -384,6 +384,10 @@ void lily_pop_lex_entry(lily_lex_state *lexer)
             lily_lexer(lexer);
         }
     }
+    else
+        /* Nothing to return...but set this to 0 or the next entry will start
+           from where the closed one left off at. */
+        lexer->line_num = 0;
 }
 
 /** file and str reading functions **/
