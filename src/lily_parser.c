@@ -1399,8 +1399,7 @@ static void var_handler(lily_parse_state *parser, int multi)
         /* This is the start of the next statement (or, for 'var', only allow
            one decl at a time to discourage excessive use of 'var'). */
         if (token == tk_word || token == tk_prop_word || token == tk_end_tag ||
-            token == tk_inner_eof || token == tk_right_curly ||
-            token == tk_final_eof)
+            token == tk_eof || token == tk_right_curly)
             break;
         else if (token != tk_comma) {
             lily_raise(parser->raiser, lily_SyntaxError,
@@ -2330,6 +2329,7 @@ static void do_bootstrap(lily_parse_state *parser)
         lily_lexer(lex);
         parse_prototype(parser, NULL, global_seed->func);
         global_seed = global_seed->next;
+        lily_pop_lex_entry(lex);
     }
 
     lily_lex_entry *first_entry = parser->lex->entry;
@@ -2337,6 +2337,7 @@ static void do_bootstrap(lily_parse_state *parser)
     lily_lexer(lex);
     do {
         statement(parser, 1);
+        lily_pop_lex_entry(lex);
     } while (parser->lex->entry != first_entry);
 }
 
@@ -2363,7 +2364,7 @@ static void parser_loop(lily_parse_state *parser)
             lily_lexer(lex);
         }
         else if (lex->token == tk_end_tag ||
-                 (lex->token == tk_final_eof && lex->mode == lm_no_tags)) {
+                 (lex->token == tk_eof && lex->mode == lm_no_tags)) {
             if (parser->emit->block->prev != NULL) {
                 lily_raise(parser->raiser, lily_SyntaxError,
                            "Unterminated block(s) at end of parsing.\n");
@@ -2380,7 +2381,7 @@ static void parser_loop(lily_parse_state *parser)
 
             if (lex->token == tk_end_tag) {
                 lily_lexer_handle_page_data(parser->lex);
-                if (lex->token == tk_final_eof)
+                if (lex->token == tk_eof)
                     break;
                 else
                     lily_lexer(lex);
@@ -2400,12 +2401,6 @@ static void parser_loop(lily_parse_state *parser)
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->ast_pool);
         }
-        else if (lex->token == tk_inner_eof)
-            /* TODO: Eventually, this case should be used to make sure that a
-                     file hasn't exited in the middle of a function and various
-                     other things.
-                     For now, don't bother because there's no importing. */
-            lily_lexer(lex);
         else
             lily_raise(parser->raiser, lily_SyntaxError, "Unexpected token %s.\n",
                        tokname(lex->token));
@@ -2568,6 +2563,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
         lambda_var->type = parser->default_call_type;
 
     lily_emit_leave_block(parser->emit);
+    lily_pop_lex_entry(lex);
 
     return lambda_var;
 }
@@ -2585,6 +2581,7 @@ lily_var *lily_parser_dynamic_load(lily_parse_state *parser, lily_class *cls,
         lily_load_str(lex, "[builtin]", lm_no_tags, seed->func_definition);
         lily_lexer(lex);
         ret = parse_prototype(parser, cls, seed->func);
+        lily_pop_lex_entry(lex);
     }
     else
         ret = NULL;
@@ -2607,8 +2604,8 @@ int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode, char *filename
     if (setjmp(parser->raiser->jumps[parser->raiser->jump_pos]) == 0) {
         parser->raiser->jump_pos++;
         lily_load_file(parser->lex, mode, filename);
-        if (parser->lex->token != tk_final_eof)
-            parser_loop(parser);
+        parser_loop(parser);
+        lily_pop_lex_entry(parser->lex);
 
         return 1;
     }
@@ -2633,6 +2630,7 @@ int lily_parse_string(lily_parse_state *parser, char *name, lily_lex_mode mode,
         parser->raiser->jump_pos++;
         lily_load_str(parser->lex, name, mode, str);
         parser_loop(parser);
+        lily_pop_lex_entry(parser->lex);
         return 1;
     }
 
@@ -2661,6 +2659,7 @@ int lily_parse_special(lily_parse_state *parser, lily_lex_mode mode,
         lily_load_special(parser->lex, mode, source, filename, read_line_fn,
                 close_fn);
         parser_loop(parser);
+        lily_pop_lex_entry(parser->lex);
         return 1;
     }
 

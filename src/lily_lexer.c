@@ -217,9 +217,9 @@ lily_lex_state *lily_new_lex_state(lily_mem_func mem_func, lily_raiser *raiser,
     ch_class[(unsigned char)']'] = CC_RIGHT_BRACKET;
     ch_class[(unsigned char)'\n'] = CC_NEWLINE;
 
-    /* This is set so that token is never invalid, which allows parser to check
+    /* This is set so that token is never unset, which allows parser to check
        the token before the first lily_lexer call. This is important, because
-       lily_lexer_handle_page_data may return tk_final_eof if there is nothing
+       lily_lexer_handle_page_data may return tk_eof if there is nothing
        to parse. */
     lexer->token = tk_invalid;
     lexer->ch_class = ch_class;
@@ -338,23 +338,18 @@ static void setup_entry(lily_lex_state *lexer, lily_lex_entry *new_entry,
         new_entry->read_line_fn(new_entry);
 }
 
-/*  leave_entry
-    This is called when the end of an entry is reached. The current entry is
-    left, and the previously-entered one is set up in place of it.
-
-    Note: Callers of this function should make sure that lexer->input_pos is not
-    set to a bad value after this is called (ex: from a loop). */
-static lily_token leave_entry(lily_lex_state *lexer)
+/*  lily_pop_lex_entry
+    This is called by parser when an entry is to be removed from the current
+    listing of entries. If there is a previously available entry, then the state
+    of that entry is restored. */
+void lily_pop_lex_entry(lily_lex_state *lexer)
 {
     lily_lex_entry *entry = lexer->entry;
-    lily_token token;
+
+    entry->close_fn(entry);
+    entry->source = NULL;
 
     if (entry->prev) {
-        /* Teardown the old entry and make it NULL so that the lexer knows it's
-           not in use when it goes for another entry. */
-        entry->close_fn(entry);
-        entry->source = NULL;
-
         entry = entry->prev;
 
         strcpy(lexer->input_buffer, entry->saved_input);
@@ -368,10 +363,11 @@ static lily_token leave_entry(lily_lex_state *lexer)
         lexer->entry = entry;
         lexer->last_literal = entry->saved_last_literal;
 
-        token = entry->saved_token;
+        lexer->token = entry->saved_token;
+
         /* lexer->label has almost certainly been overwritten with something
            else. Restore it by rolling back and calling for a rescan. */
-        if (token == tk_word) {
+        if (lexer->token == tk_word) {
             int pos = lexer->input_pos - 1;
             char ch = lexer->input_buffer[pos];
             while (ident_table[(unsigned int)ch] && pos != 0) {
@@ -388,13 +384,6 @@ static lily_token leave_entry(lily_lex_state *lexer)
             lily_lexer(lexer);
         }
     }
-    else {
-        /* Don't pop the first entry: Just contiually yield eof for as long as
-           the parser needs it. */
-        token = tk_final_eof;
-    }
-
-    return token;
 }
 
 /** file and str reading functions **/
@@ -1398,6 +1387,7 @@ void lily_load_special(lily_lex_state *lexer, lily_lex_mode mode, void *source,
     setup_entry(lexer, new_entry, mode);
 }
 
+
 /* lily_lexer
    This is the main scanning function. It sometimes farms work out to other
    functions in the case of strings and numeric values. */
@@ -1451,8 +1441,8 @@ void lily_lexer(lily_lex_state *lexer)
                 continue;
             }
             else {
-                token = leave_entry(lexer);
-                input_pos = lexer->input_pos;
+                token = tk_eof;
+                input_pos = 0;
             }
         }
         else if (group == CC_SHARP) {
@@ -1467,8 +1457,8 @@ void lily_lexer(lily_lex_state *lexer)
                     continue;
                 }
                 else {
-                    token = leave_entry(lexer);
-                    input_pos = lexer->input_pos;
+                    token = tk_eof;
+                    input_pos = 0;
                 }
             }
         }
@@ -1758,8 +1748,8 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
                     lily_impl_puts(data, lexer->label);
                 }
 
-                lexer->token = leave_entry(lexer);
-                lbp = lexer->input_pos;
+                lexer->token = tk_eof;
+                lbp = 0;
                 break;
             }
         }
@@ -1781,7 +1771,7 @@ char *tokname(lily_token t)
      "==", "{", "a lambda", "<[", "]>", "]", "=>", "a label", "a property name",
      "a string", "a bytestring", "a symbol", "an integer", "a double", ".", ":",
      "::", "&", "&&", "|", "||", "@(", "...", "invalid token", "?>",
-     "end of file", "end of file"};
+     "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];
