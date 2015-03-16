@@ -1417,17 +1417,16 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
                          right_type);
     }
 
-    lily_literal *lit;
+    int input_spot, target_index;
 
-    if (ast->left->tree_type == tree_oo_access)
-        lit = lily_get_integer_literal(emit->symtab,
-            ast->left->oo_property_index);
-    else
-        lit = lily_get_integer_literal(emit->symtab,
-            ast->left->property->id);
-
-    lily_storage *lit_result = get_storage(emit, lit->type,
-            ast->line_num);
+    if (ast->left->tree_type == tree_oo_access) {
+        target_index = ast->left->oo_property_index;
+        input_spot = ast->left->arg_start->result->reg_spot;
+    }
+    else {
+        target_index = ast->left->property->id;
+        input_spot = emit->block->self->reg_spot;
+    }
 
     if (ast->op > expr_assign) {
         if (ast->left->tree_type == tree_property)
@@ -1437,26 +1436,12 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
         rhs = ast->result;
     }
 
-    write_4(emit,
-            o_get_const,
+    write_5(emit,
+            o_set_property,
             ast->line_num,
-            lit->reg_spot,
-            lit_result->reg_spot);
-
-    if (ast->left->tree_type == tree_oo_access)
-        write_5(emit,
-                o_set_item,
-                ast->line_num,
-                ast->left->arg_start->result->reg_spot,
-                lit_result->reg_spot,
-                rhs->reg_spot);
-    else
-        write_5(emit,
-                o_set_item,
-                ast->line_num,
-                emit->block->self->reg_spot,
-                lit_result->reg_spot,
-                rhs->reg_spot);
+            input_spot,
+            target_index,
+            rhs->reg_spot);
 
     ast->result = rhs;
 }
@@ -2884,25 +2869,11 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
         if (ast->parent == NULL ||
             ast->parent->tree_type != tree_binary ||
             ast->parent->op != expr_assign) {
-            lily_literal *lit = lily_get_integer_literal(emit->symtab, prop->id);
-            lily_storage *lit_result = get_storage(emit, lit->type,
-                    ast->line_num);
-            /* Don't use lookup_class->type, in case the class doesn't have a
-               default type. */
-
-            ast->result = (lily_sym *)result;
-
-            write_4(emit,
-                    o_get_const,
-                    ast->line_num,
-                    lit->reg_spot,
-                    lit_result->reg_spot);
-
             write_5(emit,
-                    o_get_item,
+                    o_get_property,
                     ast->line_num,
                     ast->arg_start->result->reg_spot,
-                    lit_result->reg_spot,
+                    prop->id,
                     result->reg_spot);
         }
 
@@ -2922,21 +2893,11 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
     lily_storage *result = get_storage(emit, ast->property->type,
             ast->line_num);
 
-    lily_literal *lit = lily_get_integer_literal(emit->symtab,
-            ast->property->id);
-    lily_storage *index_storage = get_storage(emit, lit->type, ast->line_num);
-
-    write_4(emit,
-            o_get_const,
-            ast->line_num,
-            lit->reg_spot,
-            index_storage->reg_spot);
-
     write_5(emit,
-            o_get_item,
+            o_get_property,
             ast->line_num,
             emit->block->self->reg_spot,
-            index_storage->reg_spot,
+            ast->property->id,
             result->reg_spot);
 
     ast->result = (lily_sym *)result;
