@@ -445,6 +445,35 @@ typedef struct lily_prop_seed_t {
     int prop_ids[];
 } lily_prop_seed_t;
 
+typedef struct lily_import_link_t {
+    struct lily_import_entry_t *entry;
+    struct lily_import_link_t *next_import;
+} lily_import_link;
+
+/* This is used to manage information about imports. */
+typedef struct lily_import_entry_t {
+    /* The name given to import this thing. */
+    char *loadname;
+
+    /* The path used to load this file. */
+    char *path;
+
+    lily_import_link *import_chain;
+
+    /* The classes that were declared within the imported file. */
+    lily_class *class_chain;
+
+    /* The vars within the imported file. */
+    lily_var *var_chain;
+
+    /* The last thing entered. Used for restoring information in symtab. */
+    struct lily_import_entry_t *prev_entered;
+
+    /* Every import entry that is created is linked to each other starting from
+       this one. */
+    struct lily_import_entry_t *root_next;
+} lily_import_entry;
+
 /* Finally, various definitions. */
 
 

@@ -397,6 +397,36 @@ static lily_type *lookup_generic(lily_symtab *symtab, const char *name)
     return type_iter;
 }
 
+static lily_class *find_class(lily_class *class_iter, const char *name,
+        uint64_t shorthash)
+{
+    while (class_iter) {
+        if (class_iter->shorthash == shorthash &&
+            strcmp(class_iter->name, name) == 0)
+            break;
+
+        class_iter = class_iter->next;
+    }
+
+    return class_iter;
+}
+
+static lily_var *find_var(lily_var *var_iter, char *name, uint64_t shorthash)
+{
+    while (var_iter != NULL) {
+        if (var_iter->shorthash == shorthash &&
+            ((var_iter->flags & SYM_OUT_OF_SCOPE) == 0) &&
+            strcmp(var_iter->name, name) == 0) {
+
+            break;
+            
+        }
+        var_iter = var_iter->next;
+    }
+
+    return var_iter;
+}
+
 /*****************************************************************************/
 /* 'Seed'-handling functions                                                 */
 /*****************************************************************************/
@@ -600,6 +630,8 @@ static void init_classes(lily_symtab *symtab)
         symtab->class_chain = new_class;
     }
 
+    symtab->builtin_import->class_chain = symtab->class_chain;
+
     /* No direct declaration of packages (for now?) */
     lily_class *package_cls = lily_class_by_id(symtab, SYM_CLASS_PACKAGE);
     package_cls->shorthash = 0;
@@ -613,7 +645,8 @@ static void init_classes(lily_symtab *symtab)
 
     On success: The newly-created symtab is returned.
     On failure: NULL is returned. */
-lily_symtab *lily_new_symtab(lily_mem_func mem_func, lily_raiser *raiser)
+lily_symtab *lily_new_symtab(lily_mem_func mem_func,
+        lily_import_entry *builtin_import, lily_raiser *raiser)
 {
     lily_symtab *symtab = mem_func(NULL, sizeof(lily_symtab));
     symtab->mem_func = mem_func;
@@ -629,6 +662,8 @@ lily_symtab *lily_new_symtab(lily_mem_func mem_func, lily_raiser *raiser)
     symtab->old_function_chain = NULL;
     symtab->class_chain = NULL;
     symtab->lit_chain = NULL;
+    symtab->builtin_import = builtin_import;
+    symtab->active_import = builtin_import;
     symtab->function_depth = 1;
     /* lily_new_var expects lex_linenum to be the lexer's line number.
        0 is used, because these are all builtins, and the lexer may have failed
@@ -801,26 +836,34 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
 
     /* This should be okay, because nothing will want to use the vars at this
        point. */
-    lily_function_val *main_vartion;
+    lily_function_val *main_var;
 
     free_class_entries(symtab, symtab->class_chain);
     free_class_entries(symtab, symtab->old_class_chain);
 
     if (symtab->main_var &&
         ((symtab->main_var->flags & VAL_IS_NIL) == 0))
-        main_vartion = symtab->main_var->value.function;
+        main_var = symtab->main_var->value.function;
     else
-        main_vartion = NULL;
+        main_var = NULL;
 
     free_foreign_symbols(symtab);
+
+    lily_import_entry *import_iter = symtab->builtin_import;
+    while (import_iter) {
+        free_class_entries(symtab, import_iter->class_chain);
+        free_vars(symtab, import_iter->var_chain);
+
+        import_iter = import_iter->root_next;
+    }
 
     if (symtab->var_chain != NULL)
         free_vars(symtab, symtab->var_chain);
     if (symtab->old_function_chain != NULL)
         free_vars(symtab, symtab->old_function_chain);
 
-    if (main_vartion != NULL)
-        free_lily_main(symtab, main_vartion);
+    if (main_var != NULL)
+        free_lily_main(symtab, main_var);
 }
 
 /*  lily_free_symtab
@@ -847,6 +890,13 @@ void lily_free_symtab(lily_symtab *symtab)
         free_mem(type->subtypes);
         free_mem(type);
         type = type_temp;
+    }
+
+    lily_import_entry *import_iter = symtab->builtin_import;
+    while (import_iter) {
+        free_classes(symtab, import_iter->class_chain);
+
+        import_iter = import_iter->root_next;
     }
 
     free_classes(symtab, symtab->old_class_chain);
@@ -1089,9 +1139,8 @@ lily_type *lily_type_for_class(lily_symtab *symtab, lily_class *cls)
     return type;
 }
 
-lily_class *lily_class_by_id(lily_symtab *symtab, int class_id)
+lily_class *find_class_by_id(lily_class *class_iter, int class_id)
 {
-    lily_class *class_iter = symtab->class_chain;
     while (class_iter) {
         if (class_iter->id == class_id)
             break;
@@ -1100,6 +1149,16 @@ lily_class *lily_class_by_id(lily_symtab *symtab, int class_id)
     }
 
     return class_iter;
+}
+
+lily_class *lily_class_by_id(lily_symtab *symtab, int class_id)
+{
+    lily_class *result = find_class_by_id(symtab->builtin_import->class_chain,
+            class_id);
+    if (result == NULL)
+        result = find_class_by_id(symtab->class_chain, class_id);
+
+    return result;
 }
 
 lily_symbol_val *lily_symbol_by_name(lily_symtab *symtab, char *text)
@@ -1144,14 +1203,14 @@ lily_symbol_val *lily_symbol_by_name(lily_symtab *symtab, char *text)
 lily_class *lily_class_by_name(lily_symtab *symtab, const char *name)
 {
     uint64_t shorthash = shorthash_for_name(name);
-    lily_class *class_iter = symtab->class_chain;
-    while (class_iter) {
-        if (class_iter->shorthash == shorthash &&
-            strcmp(class_iter->name, name) == 0)
-            break;
+    lily_class *class_iter = find_class(symtab->builtin_import->class_chain,
+            name, shorthash);
+    if (class_iter)
+        return class_iter;
 
-        class_iter = class_iter->next;
-    }
+    class_iter = find_class(symtab->class_chain, name, shorthash);
+    if (class_iter)
+        return class_iter;
 
     /* The parser wants to be able to find classes by name...but it would be
        a waste to have lots of classes that never actually get used. The parser
@@ -1165,6 +1224,12 @@ lily_class *lily_class_by_name(lily_symtab *symtab, const char *name)
     }
 
     return class_iter;
+}
+
+lily_class *lily_class_by_name_within(lily_import_entry *import, char *name)
+{
+    uint64_t shorthash = shorthash_for_name(name);
+    return find_class(import->class_chain, name, shorthash);
 }
 
 /*  lily_find_class_callable
@@ -1282,31 +1347,34 @@ lily_var *lily_scoped_var_by_name(lily_symtab *symtab, lily_var *scope_chain,
     lily_var *var = scope_chain;
     uint64_t shorthash = shorthash_for_name(name);
 
-    while (var != NULL) {
+    while (var) {
         if (var->shorthash == shorthash &&
             ((var->flags & SYM_OUT_OF_SCOPE) == 0) &&
-            strcmp(var->name, name) == 0)
-            return var;
+            strcmp(var->name, name) == 0) {
+            break;
+        }
         var = var->next;
     }
 
-    return NULL;
+    return var;
 }
 
 lily_var *lily_var_by_name(lily_symtab *symtab, char *name)
 {
-    lily_var *var = symtab->var_chain;
+    uint64_t shorthash = shorthash_for_name(name);
+    lily_var *result = find_var(symtab->builtin_import->var_chain, name,
+            shorthash);
+    if (result)
+        return result;
+
+    return find_var(symtab->var_chain, name, shorthash);
+}
+
+lily_var *lily_var_by_name_within(lily_import_entry *import, char *name)
+{
     uint64_t shorthash = shorthash_for_name(name);
 
-    while (var != NULL) {
-        if (var->shorthash == shorthash &&
-            ((var->flags & SYM_OUT_OF_SCOPE) == 0) &&
-            strcmp(var->name, name) == 0)
-            return var;
-        var = var->next;
-    }
-
-    return NULL;
+    return find_var(import->var_chain, name, shorthash);
 }
 
 /*  lily_hide_block_vars
@@ -1316,7 +1384,6 @@ lily_var *lily_var_by_name(lily_symtab *symtab, char *name)
 void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
 {
     lily_var *var_iter = symtab->var_chain;
-
     while (var_iter != var_stop) {
         var_iter->flags |= SYM_OUT_OF_SCOPE;
         var_iter = var_iter->next;
@@ -1708,4 +1775,56 @@ void lily_change_parent_class(lily_class *super_class, lily_class *sub_class)
        Subclass properties can safely start after superclass properties because
        of single inheritance. */
     sub_class->prop_count = super_class->prop_count;
+}
+
+void lily_enter_import(lily_symtab *symtab, lily_import_entry *entry)
+{
+    entry->prev_entered = symtab->active_import;
+    symtab->active_import->class_chain = symtab->class_chain;
+    symtab->active_import->var_chain = symtab->var_chain;
+    symtab->class_chain = entry->class_chain;
+    symtab->var_chain = entry->var_chain;
+    symtab->active_import = entry;
+}
+
+void lily_leave_import(lily_symtab *symtab)
+{
+    lily_import_link *new_link = malloc_mem(sizeof(lily_import_link));
+    new_link->entry = symtab->active_import;
+
+    symtab->active_import->var_chain = symtab->var_chain;
+    symtab->active_import->class_chain = symtab->class_chain;
+    symtab->active_import = symtab->active_import->prev_entered;
+
+    symtab->var_chain = symtab->active_import->var_chain;
+    symtab->class_chain = symtab->active_import->class_chain;
+
+    /* Without this, there is no (easy) way to touch each var + class in the
+       symtab exactly once. That's because the active import may point to some
+       non-current var/class within symtab's direct class/var lists.
+       It's really important that the above IS possible, because it would be
+       really bad to deref something twice. */
+    symtab->active_import->var_chain = NULL;
+    symtab->active_import->class_chain = NULL;
+
+    new_link->next_import = symtab->active_import->import_chain;
+    symtab->active_import->import_chain = new_link;
+}
+
+lily_import_entry *lily_find_import_within(lily_import_entry *import,
+        char *name)
+{
+    lily_import_link *link_iter = import->import_chain;
+    lily_import_entry *result = NULL;
+    while (link_iter) {
+        if (link_iter->entry->loadname &&
+            strcmp(link_iter->entry->loadname, name) == 0) {
+            result = link_iter->entry;
+            break;
+        }
+
+        link_iter = link_iter->next_import;
+    }
+
+    return result;
 }

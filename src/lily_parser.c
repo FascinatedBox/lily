@@ -79,6 +79,8 @@ static char *exception_bootstrap =
 static lily_var *parse_prototype(lily_parse_state *, lily_class *,
         lily_foreign_func);
 static void statement(lily_parse_state *, int);
+static lily_import_entry *make_new_import_entry(lily_parse_state *, char *,
+        char *);
 
 /*****************************************************************************/
 /* Parser creation and teardown                                              */
@@ -130,7 +132,11 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
 
     lily_parse_state *parser = mem_func(NULL, sizeof(lily_parse_state));
     parser->mem_func = mem_func;
+    parser->import_top = NULL;
+    parser->import_start = NULL;
 
+    lily_import_entry *builtin_import = make_new_import_entry(parser, "", "");
+    lily_import_entry *main_import = make_new_import_entry(parser, "", "");
     lily_raiser *raiser = lily_new_raiser(mem_func);
 
     parser->type_stack_pos = 0;
@@ -140,7 +146,7 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
     parser->raiser = raiser;
     parser->type_stack = malloc_mem(4 * sizeof(lily_type *));
     parser->ast_pool = lily_new_ast_pool(mem_func, raiser, 8);
-    parser->symtab = lily_new_symtab(mem_func, raiser);
+    parser->symtab = lily_new_symtab(mem_func, builtin_import, raiser);
     parser->emit = lily_new_emit_state(mem_func, parser->symtab, raiser);
     parser->lex = lily_new_lex_state(mem_func, raiser, data);
     parser->vm = lily_new_vm_state(mem_func, raiser, data);
@@ -151,6 +157,7 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
     parser->vm->main = parser->symtab->main_var;
     parser->vm->symtab = parser->symtab;
     parser->vm->ts = parser->emit->ts;
+    parser->vm->prep_import_start = parser->import_start;
 
     parser->symtab->lex_linenum = &parser->lex->line_num;
 
@@ -162,6 +169,7 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
     parser->emit->parser = parser;
 
     parser->lex->symtab = parser->symtab;
+    parser->lex->membuf = parser->ast_pool->ast_membuf;
 
     /* When declaring a new function, initially give it the same type as
        __main__. This ensures that, should building the proper type fail, the
@@ -174,6 +182,10 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
     lily_pkg_sys_init(parser->symtab, argc, argv);
 
     do_bootstrap(parser);
+    /* This causes everything currently into the symtab to be swallowed into the
+       builtin namespace. This is good, because the symtab knows to always
+       search through the builtin namespace in addition to the current one. */
+    lily_enter_import(parser->symtab, main_import);
 
     parser->mode = pm_parse;
 
@@ -224,6 +236,23 @@ void lily_free_parse_state(lily_parse_state *parser)
     if (parser->emit)
         lily_free_emit_state(parser->emit);
 
+    lily_import_entry *import_iter = parser->import_start;
+    lily_import_entry *import_next = NULL;
+    while (import_iter) {
+        import_next = import_iter->root_next;
+        lily_import_link *link_iter = import_iter->import_chain;
+        lily_import_link *link_next = NULL;
+        while (link_iter) {
+            link_next = link_iter->next_import;
+            free_mem(link_iter);
+            link_iter = link_next;
+        }
+        free_mem(import_iter->loadname);
+        free_mem(import_iter);
+
+        import_iter = import_next;
+    }
+
     lily_membuf_free(parser->membuf);
     free_mem(parser->type_stack);
     free_mem(parser);
@@ -232,6 +261,36 @@ void lily_free_parse_state(lily_parse_state *parser)
 /*****************************************************************************/
 /* Shared code                                                               */
 /*****************************************************************************/
+
+static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
+        char *loadname, char *path)
+{
+    lily_import_entry *new_entry = malloc_mem(sizeof(lily_import_entry));
+    if (parser->import_top) {
+        parser->import_top->root_next = new_entry;
+        parser->import_top = new_entry;
+    }
+    else {
+        parser->import_start = new_entry;
+        parser->import_top = new_entry;
+    }
+
+    if (path[0] != '\0') {
+        new_entry->loadname = malloc_mem(strlen(path) + 1);
+        strcpy(new_entry->loadname, loadname);
+    }
+    else
+        new_entry->loadname = NULL;
+
+    new_entry->root_next = NULL;
+    new_entry->import_chain = NULL;
+    new_entry->prev_entered = NULL;
+    new_entry->class_chain = NULL;
+    new_entry->var_chain = NULL;
+    new_entry->path = path;
+
+    return new_entry;
+}
 
 /*  shorthash_for_name
     Copied from symtab for keyword_by_name. This gives (up to) the first 8
@@ -946,6 +1005,83 @@ static void expression_variant(lily_parse_state *parser,
     lily_ast_push_variant(parser->ast_pool, variant_cls);
 }
 
+static void dispatch_word_as_class(lily_parse_state *parser, lily_class *cls,
+        int *state)
+{
+    if (cls->flags & CLS_VARIANT_CLASS) {
+        expression_variant(parser, cls);
+        *state = ST_WANT_OPERATOR;
+    }
+    else {
+        lily_lex_state *lex = parser->lex;
+        lily_lexer(lex);
+        expression_static_call(parser, cls);
+        *state = ST_WANT_OPERATOR;
+    }
+}
+
+static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
+        int *state)
+{
+    if (var->flags & SYM_NOT_INITIALIZED)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Attempt to use uninitialized value '%s'.\n",
+                var->name);
+
+    if (var->function_depth == 1) {
+        /* It's in __main__ as a global. */
+        if (var->type->cls->id == SYM_CLASS_PACKAGE)
+            expression_package(parser, var);
+        else
+            lily_ast_push_global_var(parser->ast_pool, var);
+    }
+    else if (var->function_depth == parser->emit->function_depth)
+        /* In this current scope? Load as a local var. */
+        lily_ast_push_local_var(parser->ast_pool, var);
+    else if (var->function_depth == -1) {
+        /* This is a function created through 'define'. */
+        lily_ast_push_defined_func(parser->ast_pool, var);
+    }
+    else {
+        /* todo: Handle upvalues later, maybe. */
+        lily_raise(parser->raiser, lily_SyntaxError,
+                    "Attempt to use %s, which is not in the current scope.\n",
+                    var->name);
+    }
+    *state = ST_WANT_OPERATOR;
+}
+
+static void dispatch_word_as_import(lily_parse_state *parser,
+        lily_import_entry *import, int *state)
+{
+    lily_lex_state *lex = parser->lex;
+    char *name = lex->label;
+    while (1) {
+        NEED_NEXT_TOK(tk_colon_colon)
+        NEED_NEXT_TOK(tk_word)
+        lily_var *search_var = lily_var_by_name_within(import, name);
+        if (search_var) {
+            dispatch_word_as_var(parser, search_var, state);
+            break;
+        }
+
+        lily_class *search_cls = lily_class_by_name_within(import, name);
+        if (search_cls) {
+            dispatch_word_as_class(parser, search_cls, state);
+            break;
+        }
+
+        lily_import_entry *search_import = lily_find_import_within(import,
+                name);
+        if (search_import)
+            break;
+
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Cannot locate '%s' within package '%s'.\n",
+                name, import->loadname);
+    }
+}
+
 /*  expression_word
     This is a helper function that handles words in expressions. These are
     sort of complicated. :( */
@@ -956,70 +1092,48 @@ static void expression_word(lily_parse_state *parser, int *state)
     lily_var *var = lily_var_by_name(symtab, lex->label);
 
     if (var) {
-        if (var->flags & SYM_NOT_INITIALIZED)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "Attempt to use uninitialized value '%s'.\n",
-                    var->name);
+        dispatch_word_as_var(parser, var, state);
+        return;
+    }
 
-        if (var->function_depth == 1) {
-            /* It's in __main__ as a global. */
-            if (var->type->cls->id == SYM_CLASS_PACKAGE)
-                expression_package(parser, var);
-            else
-                lily_ast_push_global_var(parser->ast_pool, var);
-        }
-        else if (var->function_depth == parser->emit->function_depth)
-            /* In this current scope? Load as a local var. */
-            lily_ast_push_local_var(parser->ast_pool, var);
-        else if (var->function_depth == -1)
-            /* This is a function created through 'define'. */
-            lily_ast_push_defined_func(parser->ast_pool, var);
+    int key_id = keyword_by_name(lex->label);
+    if (key_id != -1) {
+        lily_sym *sym = parse_special_keyword(parser, key_id);
+        if (sym->flags & SYM_TYPE_LITERAL)
+            lily_ast_push_literal(parser->ast_pool, (lily_literal *)sym);
         else
-            /* todo: Handle upvalues later, maybe. */
-            lily_raise(parser->raiser, lily_SyntaxError,
-                       "Attempt to use %s, which is not in the current scope.\n",
-                       var->name);
+            lily_ast_push_self(parser->ast_pool);
 
         *state = ST_WANT_OPERATOR;
+        return;
     }
-    else {
-        int key_id = keyword_by_name(lex->label);
-        if (key_id != -1) {
-            lily_sym *sym = parse_special_keyword(parser, key_id);
-            if (sym->flags & SYM_TYPE_LITERAL)
-                lily_ast_push_literal(parser->ast_pool, (lily_literal *)sym);
-            else
-                lily_ast_push_self(parser->ast_pool);
 
-            *state = ST_WANT_OPERATOR;
-        }
-        else {
-            lily_class *cls = lily_class_by_name(parser->symtab, lex->label);
+    lily_class *cls = lily_class_by_name(parser->symtab, lex->label);
 
-            if (cls != NULL) {
-                if (cls->flags & CLS_VARIANT_CLASS) {
-                    expression_variant(parser, cls);
-                    *state = ST_WANT_OPERATOR;
-                }
-                else {
-                    lily_lexer(lex);
-                    expression_static_call(parser, cls);
-                    *state = ST_WANT_OPERATOR;
-                }
-            }
-            else {
-                var = lily_find_class_callable(parser->symtab,
-                        parser->symtab->class_chain, lex->label);
-
-                if (var == NULL)
-                    lily_raise(parser->raiser, lily_SyntaxError,
-                            "%s has not been declared.\n", lex->label);
-
-                lily_ast_push_defined_func(parser->ast_pool, var);
-                *state = ST_WANT_OPERATOR;
-            }
-        }
+    if (cls) {
+        dispatch_word_as_class(parser, cls, state);
+        return;
     }
+
+    if (parser->emit->block->self) {
+        var = lily_find_class_callable(parser->symtab,
+                parser->symtab->class_chain, lex->label);
+
+        lily_ast_push_defined_func(parser->ast_pool, var);
+        *state = ST_WANT_OPERATOR;
+        return;
+    }
+
+    lily_import_entry *entry = lily_find_import_within(symtab->active_import,
+            parser->lex->label);
+
+    if (entry) {
+        dispatch_word_as_import(parser, entry, state);
+        return;
+    }
+
+    lily_raise(parser->raiser, lily_SyntaxError, "%s has not been declared.\n",
+            lex->label);
 }
 
 /*  expression_property
@@ -1488,6 +1602,7 @@ static void class_handler(lily_parse_state *, int);
 static void define_handler(lily_parse_state *, int);
 static void return_handler(lily_parse_state *, int);
 static void except_handler(lily_parse_state *, int);
+static void import_handler(lily_parse_state *, int);
 static void file_kw_handler(lily_parse_state *, int);
 static void line_kw_handler(lily_parse_state *, int);
 static void continue_handler(lily_parse_state *, int);
@@ -1515,6 +1630,7 @@ static keyword_handler *handlers[] = {
     define_handler,
     return_handler,
     except_handler,
+    import_handler,
     file_kw_handler,
     line_kw_handler,
     continue_handler,
@@ -1911,8 +2027,7 @@ static void do_handler(lily_parse_state *parser, int multi)
        try+except, it cannot be determined that all the variables declared
        within this block have been initialized.
        Ex: 'do: { continue var v = 10 } while v == 10'. */
-    if (parser->emit->block->var_start)
-        lily_hide_block_vars(parser->symtab, parser->emit->block->var_start);
+    lily_hide_block_vars(parser->symtab, parser->emit->block->var_start);
 
     expression(parser);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
@@ -1967,6 +2082,43 @@ static void except_handler(lily_parse_state *parser, int multi)
     lily_lexer(lex);
     if (lex->token != tk_right_curly)
         statement(parser, 1);
+}
+
+static void import_handler(lily_parse_state *parser, int multi)
+{
+    lily_lex_state *lex = parser->lex;
+    NEED_CURRENT_TOK(tk_word)
+
+    lily_lex_entry *entry = lily_import_name(parser->lex,
+            parser->lex->label);
+
+    lily_import_entry *import_entry = make_new_import_entry(parser,
+            parser->lex->label, entry->filename);
+    lily_enter_import(parser->symtab, import_entry);
+
+    /* lily_emit_enter_block will write new code to this special var. */
+    lily_var *import_var = lily_new_var(parser->symtab,
+            parser->default_call_type, "__import__", VAR_IS_READONLY);
+
+    /* This prevents the emitter from scoping out the (toplevel) functions that
+       it finds within the imported file. */
+    import_var->function_depth = 1;
+
+    lily_emit_enter_block(parser->emit, BLOCK_FILE);
+
+    lily_lexer(lex);
+}
+
+static void leave_import(lily_parse_state *parser)
+{
+    lily_emit_leave_block(parser->emit);
+    lily_pop_lex_entry(parser->lex);
+    lily_leave_import(parser->symtab);
+
+    /* The parser doesn't call up the next token before processing the import
+       because that would cause file trace to be off. The token restored is the
+       name of the import, so get what's next. */
+    lily_lexer(parser->lex);
 }
 
 static void try_handler(lily_parse_state *parser, int multi)
@@ -2362,8 +2514,17 @@ static void parser_loop(lily_parse_state *parser)
             lily_emit_leave_block(parser->emit);
             lily_lexer(lex);
         }
-        else if (lex->token == tk_end_tag ||
-                 (lex->token == tk_eof && lex->mode == lm_no_tags)) {
+        else if (lex->token == tk_end_tag || lex->token == tk_eof) {
+            if (lex->token == tk_eof &&
+                parser->emit->block->prev != NULL) {
+                if (parser->emit->block->block_type != BLOCK_FILE)
+                    lily_raise(parser->raiser, lily_SyntaxError,
+                            "Imported file has unterminated block(s).\n");
+
+                leave_import(parser);
+                continue;
+            }
+
             if (parser->emit->block->prev != NULL) {
                 lily_raise(parser->raiser, lily_SyntaxError,
                            "Unterminated block(s) at end of parsing.\n");

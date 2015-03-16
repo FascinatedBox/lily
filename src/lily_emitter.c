@@ -731,7 +731,16 @@ static void finalize_function_val(lily_emit_state *emit,
     /* else we're in __main__, which does include itself as an arg so it can be
        passed to show and other neat stuff. */
 
-    add_var_chain_to_info(emit, info, emit->symtab->var_chain, var_stop);
+    if (function_block->function_var != emit->symtab->main_var)
+        add_var_chain_to_info(emit, info, emit->symtab->var_chain, var_stop);
+    else {
+        /* __main__ is a little weird. Part of it is going to be within the
+           builtin package (__main__ itself and sys are in there), but some of
+           it is also going to be within the current package. */
+        add_var_chain_to_info(emit, info, emit->symtab->var_chain, NULL);
+        add_var_chain_to_info(emit, info,
+                emit->symtab->builtin_import->var_chain, NULL);
+    }
     add_storage_chain_to_info(info, function_block->storage_start);
 
     if (function_type->generic_pos)
@@ -779,7 +788,6 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
        whatever the expression in the body returns. */
     if (block->block_type & BLOCK_LAMBDA)
         emit->top_function_ret = emit->top_var->type->subtypes[0];
-
     if (emit->block->class_entry == NULL) {
         if (emit->top_function_ret == NULL)
             /* Write an implicit 'return' at the end of a function claiming to not
@@ -831,8 +839,10 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
         emit->symtab->var_chain = block->function_var;
         lily_add_class_method(emit->symtab, cls, block->function_var);
     }
-    else
+    else if (emit->block->block_type != BLOCK_FILE)
         emit->symtab->var_chain = block->function_var;
+    /* For file 'blocks', don't fix the var_chain or all of the toplevel
+       functions in that block will vanish! */
 
     if (block->prev->generic_count != block->generic_count &&
         (block->block_type & BLOCK_LAMBDA) == 0) {
@@ -845,8 +855,12 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     emit->top_var = v;
     emit->top_function_ret = v->type->subtypes[0];
 
-    emit->symtab->function_depth--;
-    emit->function_depth--;
+    /* File 'blocks' do not bump up the depth because that's used to determine
+       if something is a global or not. */
+    if (block->block_type != BLOCK_FILE) {
+        emit->symtab->function_depth--;
+        emit->function_depth--;
+    }
 }
 
 /*  eval_enforce_value
@@ -3770,7 +3784,14 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
 
         new_block->save_register_spot = emit->symtab->next_register_spot;
 
-        emit->symtab->function_depth++;
+        /* This causes vars within this imported file to be seen as global
+           vars, instead of locals. Without this, the interpreter gets confused
+           and thinks the imported file's globals are really upvalues. */
+        if (block_type != BLOCK_FILE) {
+            emit->symtab->function_depth++;
+            emit->function_depth++;
+        }
+
         /* Make sure registers start at 0 again. This will be restored when this
            function leaves. */
         emit->symtab->next_register_spot = 0;
@@ -3784,7 +3805,6 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
 
         emit->top_function = v->value.function;
         emit->top_var = v;
-        emit->function_depth++;
     }
 
     emit->block = new_block;

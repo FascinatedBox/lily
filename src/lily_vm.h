@@ -75,8 +75,8 @@ typedef struct lily_vm_state_t {
        used because it isn't refcounted. */
     lily_type *integer_type;
 
+    lily_import_entry *prep_import_start;
     uint64_t prep_id_start;
-    lily_var *prep_var_start;
     lily_literal *prep_literal_stop;
 
     /* Most of the stack entries will be native functions, with the lowest
