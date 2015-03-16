@@ -276,6 +276,27 @@ typedef enum {
     o_package_set,
     o_package_get,
 
+    /* get property:
+       * int lineno
+       * reg local_reg
+       * int index
+       * reg result
+       This is the same thing as o_get_item, except that the index is an int
+       instead of a register. This seems like a trivial thing, but it saves
+       loading a literal that will only be used as an index.
+       Additionally, since this is only written for classes, there is no need
+       to check the index for validity, another speed win. */
+    o_get_property,
+
+    /* set property:
+       * int lineno
+       * reg local_reg
+       * int index
+       * reg right
+       This is a complement to o_get_property, again for removing the need to
+       load a literal to use as an index. */
+    o_set_property,
+
     o_push_try,
     o_pop_try,
     o_except,
