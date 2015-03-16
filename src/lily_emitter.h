@@ -155,6 +155,10 @@ typedef struct {
 # define BLOCK_MATCH      0x02000
 # define BLOCK_LAMBDA     0x04000
 # define BLOCK_FUNCTION   0x10000
+/* This includes 0x20000 to set it apart from others, as well as 0x10000 so that
+   it's treated like a function. It's done this way because __main__ calls a
+   special __import__ function for each imported file. */
+# define BLOCK_FILE       0x30000
 
 void lily_emit_eval_condition(lily_emit_state *, lily_ast_pool *);
 void lily_emit_eval_expr_to_var(lily_emit_state *, lily_ast_pool *,

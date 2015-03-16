@@ -28,6 +28,9 @@ typedef struct {
        specifically linked together to make the search easier. */
     lily_type *generic_type_start;
 
+    lily_import_entry *builtin_import;
+    lily_import_entry *active_import;
+
     /* Defined functions that go out of scope are stuffed in here, unless
        they're class methods. */
     lily_var *old_function_chain;
@@ -65,7 +68,7 @@ typedef struct {
     lily_raiser *raiser;
 } lily_symtab;
 
-lily_symtab *lily_new_symtab(lily_mem_func, lily_raiser *);
+lily_symtab *lily_new_symtab(lily_mem_func, lily_import_entry *, lily_raiser *);
 void lily_free_symtab_lits_and_vars(lily_symtab *);
 void lily_free_symtab(lily_symtab *);
 
@@ -79,6 +82,7 @@ lily_literal *lily_get_variant_literal(lily_symtab *, lily_type *);
 lily_symbol_val *lily_symbol_by_name(lily_symtab *, char *);
 lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, const char *);
+lily_class *lily_class_by_name_within(lily_import_entry *, char *);
 lily_var *lily_find_class_callable(lily_symtab *, lily_class *, char *);
 const lily_func_seed *lily_find_class_call_seed(lily_symtab *, lily_class *,
         char *);
@@ -90,6 +94,7 @@ lily_var *lily_declare_var(lily_symtab *, lily_type *, char *, uint16_t);
 
 lily_var *lily_scoped_var_by_name(lily_symtab *, lily_var *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
+lily_var *lily_var_by_name_within(lily_import_entry *, char *);
 
 lily_type *lily_type_for_class(lily_symtab *, lily_class *);
 lily_type *lily_type_from_ids(lily_symtab *, const int *);
@@ -110,6 +115,10 @@ void lily_finish_class(lily_symtab *, lily_class *);
 void lily_make_constructor_return_type(lily_symtab *);
 void lily_finish_enum_class(lily_symtab *, lily_class *, int, lily_type *);
 void lily_change_parent_class(lily_class *, lily_class *);
+
+void lily_enter_import(lily_symtab *, lily_import_entry *);
+void lily_leave_import(lily_symtab *);
+lily_import_entry *lily_find_import_within(lily_import_entry *, char *);
 
 const lily_func_seed *lily_get_global_seed_chain();
 #endif

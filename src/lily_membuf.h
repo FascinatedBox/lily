@@ -41,4 +41,10 @@ char *lily_membuf_get(lily_membuf *, int);
    beginning of an expression. */
 void lily_membuf_restore_to(lily_membuf *, int);
 
+/* This is a convenience function for the lexer that puts three strings into the
+   membuf all together. This is used by the lexer to add the dirpath, the file
+   path, and the suffix into the membuf all at once. The result is an index that
+   yields the three strings all together. */
+int lily_membuf_add_three(lily_membuf *, char *, char *, char *);
+
 #endif

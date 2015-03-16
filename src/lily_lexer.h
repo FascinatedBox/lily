@@ -3,6 +3,7 @@
 
 # include <stdio.h>
 
+# include "lily_membuf.h"
 # include "lily_raiser.h"
 # include "lily_symtab.h"
 
@@ -120,6 +121,8 @@ typedef struct lily_lex_state_t {
     uint16_t input_pos;
     uint16_t label_size;
 
+    char **include_paths;
+
     char *lambda_data;
     uint32_t lambda_data_size;
     uint32_t lambda_start_line;
@@ -131,6 +134,7 @@ typedef struct lily_lex_state_t {
        make a literal value. Said value is stored here, for the parser to use. */
     lily_literal *last_literal;
     lily_symtab *symtab;
+    lily_membuf *membuf;
     lily_mem_func mem_func;
     lily_raiser *raiser;
     void *data;
@@ -150,5 +154,7 @@ void lily_load_special(lily_lex_state *, lily_lex_mode, void *, char *,
 void lily_pop_lex_entry(lily_lex_state *);
 lily_lex_state *lily_new_lex_state(lily_mem_func, lily_raiser *, void *);
 char *tokname(lily_token);
+
+lily_lex_entry *lily_import_name(lily_lex_state *, char *);
 
 #endif

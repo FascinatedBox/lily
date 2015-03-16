@@ -145,7 +145,6 @@ lily_vm_state *lily_new_vm_state(lily_mem_func mem_func, lily_raiser *raiser,
     vm->gc_threshold = 100;
     vm->gc_pass = 0;
     vm->prep_id_start = 0;
-    vm->prep_var_start = NULL;
     vm->catch_chain = NULL;
     vm->catch_top = NULL;
     vm->symtab = NULL;
@@ -154,6 +153,7 @@ lily_vm_state *lily_new_vm_state(lily_mem_func mem_func, lily_raiser *raiser,
     vm->function_table = NULL;
     vm->function_count = 0;
     vm->prep_literal_stop = NULL;
+    vm->prep_import_start = NULL;
 
     if (vm->function_stack) {
         int i;
@@ -766,16 +766,11 @@ static void copy_literals(lily_vm_state *vm)
     in a particular var iter to it. A 'need' is dropped every time. When it is
     0, the caller will stop loading functions. This is an attempt at stopping
     early when possible. */
-static void copy_vars_to_functions(lily_var **functions, lily_var *var_iter,
-        int *need)
+static void copy_vars_to_functions(lily_var **functions, lily_var *var_iter)
 {
     while (var_iter) {
-        if (var_iter->flags & VAR_IS_READONLY) {
+        if (var_iter->flags & VAR_IS_READONLY)
             functions[var_iter->reg_spot] = var_iter;
-            (*need)--;
-            if (*need == 0)
-                break;
-        }
 
         var_iter = var_iter->next;
     }
@@ -785,13 +780,10 @@ static void copy_vars_to_functions(lily_var **functions, lily_var *var_iter,
     This takes the function table and adds the functions within each class in
     the linked list of classes. */
 static void copy_class_vars_to_functions(lily_var **functions,
-        lily_class *class_iter, int *need)
+        lily_class *class_iter)
 {
     while (class_iter) {
-        copy_vars_to_functions(functions, class_iter->call_chain, need);
-        if (*need == 0)
-            break;
-
+        copy_vars_to_functions(functions, class_iter->call_chain);
         class_iter = class_iter->next;
     }
 }
@@ -808,7 +800,6 @@ static void copy_class_vars_to_functions(lily_var **functions,
 static void copy_functions(lily_vm_state *vm)
 {
     lily_symtab *symtab = vm->symtab;
-
     if (vm->function_count == symtab->next_function_spot)
         return;
 
@@ -816,27 +807,36 @@ static void copy_functions(lily_vm_state *vm)
     lily_var **functions = realloc_mem(vm->function_table,
             count * sizeof(lily_var *));
 
-    int need = count - vm->function_count;
+    lily_import_entry *import_iter = vm->prep_import_start;
+    lily_import_entry *last_import = NULL;
 
-    copy_vars_to_functions(functions, symtab->var_chain, &need);
-    copy_vars_to_functions(functions, symtab->old_function_chain, &need);
-    if (need) {
-        copy_class_vars_to_functions(functions, symtab->class_chain, &need);
-        copy_class_vars_to_functions(functions, symtab->old_class_chain, &need);
+    copy_vars_to_functions(functions, symtab->var_chain);
+    copy_vars_to_functions(functions, symtab->old_function_chain);
+    copy_class_vars_to_functions(functions, symtab->class_chain);
+    copy_class_vars_to_functions(functions, symtab->old_class_chain);
+
+    if (import_iter->root_next) {
+        while (import_iter) {
+            last_import = import_iter;
+
+            copy_vars_to_functions(functions, import_iter->var_chain);
+            copy_class_vars_to_functions(functions, import_iter->class_chain);
+            import_iter = import_iter->root_next;
+        }
     }
+    /* else no packages have been loaded since last time, so whatever is inside
+       of them is already loaded. */
 
+    vm->prep_import_start = last_import;
     vm->function_table = functions;
-    vm->function_count = count;
 }
 
-/*  load_vm_regs
-    This is a helper for lily_vm_prep that loads a series of vars into the
-    registers given.
-    This is currently used to load the sys package and __main__, which have
-    values while still in the symtab. It may be used for more stuff in the
-    future. */
-static void load_vm_regs(lily_value **vm_regs, lily_var *iter_var)
+/*  load_builtins_into_regs
+    This is a helper for lily_vm_prep that loads up any values that might be in
+    the builtin namespace (ex: __main__ or sys) into the vm's registers. */
+static void load_builtins_into_regs(lily_vm_state *vm, lily_value **vm_regs)
 {
+    lily_var *iter_var = vm->symtab->builtin_import->var_chain;
     while (iter_var) {
         if ((iter_var->flags & (VAL_IS_NIL | VAR_IS_READONLY)) == 0) {
             if (iter_var->type->cls->is_refcounted)
@@ -1910,9 +1910,6 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     lily_var *main_var = symtab->main_var;
     lily_function_val *main_function = main_var->value.function;
     int i;
-    lily_var *prep_var_start = vm->prep_var_start;
-    if (prep_var_start == NULL)
-        prep_var_start = symtab->var_chain;
 
     lily_value **vm_regs;
     if (vm->num_registers > main_function->reg_count)
@@ -1949,12 +1946,13 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
         reg->type = seed.type;
     }
 
-    load_vm_regs(vm_regs, prep_var_start);
-
-    /* Load only the new globals next time. */
-    vm->prep_var_start = symtab->var_chain;
     /* Zap only the slots that new globals need next time. */
     vm->prep_id_start = i;
+
+    /* For the very first run of the vm, go through the builtin package and load
+       any vars in it that were given actual values. (Ex: sys or __main__). */
+    if (vm->num_registers == 0)
+        load_builtins_into_regs(vm, vm_regs);
 
     if (main_function->reg_count > vm->num_registers) {
         if (vm->num_registers == 0) {
