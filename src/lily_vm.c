@@ -1159,6 +1159,20 @@ static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
 /* Opcode implementations                                                    */
 /*****************************************************************************/
 
+static void do_o_set_property(lily_vm_state *vm, uint16_t *code, int code_pos)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *rhs_reg;
+    int index;
+    lily_instance_val *ival;
+
+    ival = vm_regs[code[code_pos + 2]]->value.instance;
+    index = code[code_pos + 3];
+    rhs_reg = vm_regs[code[code_pos + 4]];
+
+    lily_assign_value(vm, ival->values[index], rhs_reg);
+}
+
 /*  do_o_set_item
     This handles A[B] = C, where A is some sort of list/hash/tuple/whatever.
     Arguments are pulled from the given code at code_pos.
@@ -1195,6 +1209,20 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code, int code_pos)
         update_hash_key_value(vm, lhs_reg->value.hash, siphash, index_reg,
                 rhs_reg);
     }
+}
+
+static void do_o_get_property(lily_vm_state *vm, uint16_t *code, int code_pos)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *result_reg;
+    int index;
+    lily_instance_val *ival;
+
+    ival = vm_regs[code[code_pos + 2]]->value.instance;
+    index = code[code_pos + 3];
+    result_reg = vm_regs[code[code_pos + 4]];
+
+    lily_assign_value(vm, result_reg, ival->values[index]);
 }
 
 /*  do_o_get_item
@@ -2308,8 +2336,16 @@ void lily_vm_execute(lily_vm_state *vm)
                 do_o_get_item(vm, code, code_pos);
                 code_pos += 5;
                 break;
+            case o_get_property:
+                do_o_get_property(vm, code, code_pos);
+                code_pos += 5;
+                break;
             case o_set_item:
                 do_o_set_item(vm, code, code_pos);
+                code_pos += 5;
+                break;
+            case o_set_property:
+                do_o_set_property(vm, code, code_pos);
                 code_pos += 5;
                 break;
             case o_build_hash:
