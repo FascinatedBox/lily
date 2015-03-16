@@ -97,7 +97,7 @@ typedef struct lily_debug_state_t {
    number at an even spot. This saves debug from having to calculate how much
    (and possibly getting it wrong) at the cost of a little bit of memory.
    No extra space means it doesn't have a line number. */
-char *opcode_names[51] = {
+char *opcode_names[] = {
     "fast assign",
     "assign",
     "integer add (+)",
@@ -140,6 +140,8 @@ char *opcode_names[51] = {
     "get function",
     "package set",
     "package get",
+    "get property",
+    "set property",
     "push try",
     "pop try",
     "except",
@@ -192,11 +194,13 @@ static const int optable[][8] = {
     {o_get_const,           3, D_LINENO,  D_LIT_INPUT,    D_OUTPUT,        -1,              -1,           -1},
     {o_get_function,        3, D_LINENO,  D_FUNC_INPUT,   D_OUTPUT,        -1,              -1,           -1},
     {o_package_set,         4, D_LINENO,  D_GLOBAL_INPUT, D_INT_VAL,       D_INPUT,         -1,           -1},
-    {o_package_get,         4, D_LINENO,  D_GLOBAL_INPUT, D_INT_VAL,       D_OUTPUT,        -1            -1},
+    {o_package_get,         4, D_LINENO,  D_GLOBAL_INPUT, D_INT_VAL,       D_OUTPUT,        -1,           -1},
+    {o_get_property,        4, D_LINENO,  D_INPUT,        D_INT_VAL,       D_OUTPUT,        -1,           -1},
+    {o_set_property,        4, D_LINENO,  D_INPUT,        D_INT_VAL,       D_INPUT,         -1,           -1},
     {o_push_try,            2, D_LINENO,  D_JUMP          -1,              -1,              -1,           -1},
     {o_pop_try,             1, D_NOP,     -1,             -1,              -1,              -1,           -1},
     {o_except,              4, D_LINENO,  D_JUMP,         D_INT_VAL,       D_OUTPUT,        -1,           -1},
-    {o_raise,               2, D_LINENO,  D_INPUT         -1,              -1,              -1,           -1},
+    {o_raise,               2, D_LINENO,  D_INPUT,        -1,              -1,              -1,           -1},
     {o_new_instance,        2, D_LINENO,  D_OUTPUT,       -1,              -1,              -1,           -1},
     {o_match_dispatch,      4, D_LINENO,  D_MATCH_INPUT,  D_COUNT,         D_COUNT_JUMPS,   -1,           -1},
     {o_variant_decompose,   4, D_LINENO,  D_INPUT,        D_COUNT,         D_COUNT_OUTPUTS, -1,           -1},
