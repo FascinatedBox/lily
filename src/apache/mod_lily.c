@@ -118,41 +118,22 @@ static lily_var *bind_hash_str_str_var(lily_symtab *symtab, char *name)
 
     lily_type *hash_type = lily_type_from_ids(symtab, ids);
     lily_var *bind_var = lily_new_var(symtab, hash_type, name, 0);
-    lily_hash_val *var_hash = lily_new_hash_val(symtab->mem_func);
 
-    bind_var->value.hash = var_hash;
-    bind_var->flags &= ~VAL_IS_NIL;
     return bind_var;
 }
 
-static void make_package(lily_parse_state *parser, lily_var *package_var,
-        int var_count, int register_save, lily_var *save_chain)
+static lily_hash_val *get_new_tied_hash(lily_symtab *symtab, lily_var *tie_var)
 {
-    lily_mem_func mem_func = parser->mem_func;
-    lily_symtab *symtab = parser->symtab;
+    lily_hash_val *hash_val = lily_new_hash_val(symtab->mem_func);
+    lily_value v;
+    v.type = tie_var->type;
+    v.flags = 0;
+    v.value.hash = hash_val;
 
-    lily_package_val *pval = malloc_mem(sizeof(lily_package_val));
-    lily_var **package_vars = malloc_mem(var_count * sizeof(lily_var *));
+    lily_tie_value(symtab, tie_var, &v);
 
-    int i = 0;
-    lily_var *var_iter = parser->symtab->var_chain;
-    while (var_iter != save_chain) {
-        package_vars[i] = var_iter;
-        i++;
-        var_iter = var_iter->next;
-    }
-    symtab->var_chain = save_chain;
-    symtab->next_register_spot = register_save;
-
-    pval->refcount = 1;
-    pval->name = package_var->name;
-    pval->gc_entry = NULL;
-    pval->var_count = i;
-    pval->vars = package_vars;
-    package_var->flags &= ~VAL_IS_NIL;
-    package_var->value.package = pval;
+    return hash_val;
 }
-
 
 /** Binding server::env and server::get **/
 
@@ -187,13 +168,14 @@ static void bind_table_as(lily_parse_state *parser, request_rec *r,
     lily_symtab *symtab = parser->symtab;
 
     lily_var *hash_var = bind_hash_str_str_var(symtab, name);
+    lily_hash_val *hash_val = get_new_tied_hash(symtab, hash_var);
 
     struct table_bind_data data;
     data.parser = parser;
     data.symtab = parser->symtab;
     data.r = r;
     data.ok = 1;
-    data.hash_val = hash_var->value.hash;
+    data.hash_val = hash_val;
     data.sipkey = parser->vm->sipkey;
     apr_table_do(bind_table_entry, &data, table, NULL);
 }
@@ -221,8 +203,12 @@ static void bind_httpmethod(lily_parse_state *parser, request_rec *r)
     sv->refcount = 1;
     sv->size = strlen(r->method);
 
-    var->value.string = sv;
-    var->flags &= ~VAL_IS_NIL;
+    lily_value v;
+    v.type = var->type;
+    v.flags = 0;
+    v.value.string = sv;
+
+    lily_tie_value(parser->symtab, var, &v);
 }
 
 
@@ -232,7 +218,7 @@ static void bind_httpmethod(lily_parse_state *parser, request_rec *r)
 static void bind_post(lily_parse_state *parser, request_rec *r)
 {
     lily_var *post_var = bind_hash_str_str_var(parser->symtab, "post");
-    lily_hash_val *hash_val = post_var->value.hash;
+    lily_hash_val *hash_val = get_new_tied_hash(parser->symtab, post_var);
 
     apr_array_header_t *pairs;
     apr_off_t len;
@@ -274,13 +260,9 @@ static void bind_post(lily_parse_state *parser, request_rec *r)
 
 static void apache_bind_server(lily_parse_state *parser, request_rec *r)
 {
-    lily_symtab *symtab = parser->symtab;
-    lily_class *package_cls = lily_class_by_id(symtab, SYM_CLASS_PACKAGE);
-    lily_type *package_type = lily_type_for_class(symtab, package_cls);
-    lily_var *bound_var = lily_new_var(symtab, package_type, "server", 0);
+    lily_begin_package(parser, "server");
 
-    lily_var *save_chain = symtab->var_chain;
-    int save_spot = symtab->next_register_spot;
+    lily_symtab *symtab = parser->symtab;
 
     ap_add_cgi_vars(r);
     ap_add_common_vars(r);
@@ -293,9 +275,7 @@ static void apache_bind_server(lily_parse_state *parser, request_rec *r)
     bind_post(parser, r);
     bind_httpmethod(parser, r);
 
-    /* env, get, post AND httpmethod need to be pulled into the server
-       namespace. That's what the 4 is for. */
-    make_package(parser, bound_var, 4, save_spot, save_chain);
+    lily_end_package(parser);
 }
 
 static int lily_handler(request_rec *r)

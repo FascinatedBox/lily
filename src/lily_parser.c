@@ -136,13 +136,13 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
     parser->import_start = NULL;
 
     lily_import_entry *builtin_import = make_new_import_entry(parser, "", "");
-    lily_import_entry *main_import = make_new_import_entry(parser, "", "");
     lily_raiser *raiser = lily_new_raiser(mem_func);
 
     parser->type_stack_pos = 0;
     parser->type_stack_size = 4;
     parser->class_depth = 0;
     parser->next_lambda_id = 0;
+    parser->first_pass = 1;
     parser->raiser = raiser;
     parser->type_stack = malloc_mem(4 * sizeof(lily_type *));
     parser->ast_pool = lily_new_ast_pool(mem_func, raiser, 8);
@@ -179,13 +179,9 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
 
     /* This creates a new var, so it has to be done after symtab's lex_linenum
        is set. */
-    lily_pkg_sys_init(parser->symtab, argc, argv);
+    lily_pkg_sys_init(parser, argc, argv);
 
     do_bootstrap(parser);
-    /* This causes everything currently into the symtab to be swallowed into the
-       builtin namespace. This is good, because the symtab knows to always
-       search through the builtin namespace in addition to the current one. */
-    lily_enter_import(parser->symtab, main_import);
 
     parser->mode = pm_parse;
 
@@ -208,6 +204,7 @@ void lily_free_parse_state(lily_parse_state *parser)
        The downside is that the vm and symtab need to be torn down in a rather
        specific order. Start off by blasting the registers, because those came
        after the symtab's literals and vars. */
+
     if (parser->vm)
         lily_vm_free_registers(parser->vm);
 
@@ -1071,8 +1068,8 @@ static void dispatch_word_as_import(lily_parse_state *parser,
             break;
         }
 
-        lily_import_entry *search_import = lily_find_import_within(import,
-                name);
+        lily_import_entry *search_import = lily_find_import(parser->symtab,
+                import, name);
         if (search_import)
             break;
 
@@ -1124,7 +1121,7 @@ static void expression_word(lily_parse_state *parser, int *state)
         return;
     }
 
-    lily_import_entry *entry = lily_find_import_within(symtab->active_import,
+    lily_import_entry *entry = lily_find_import(symtab, symtab->active_import,
             parser->lex->label);
 
     if (entry) {
@@ -2504,6 +2501,14 @@ static void self_handler(lily_parse_state *parser, int multi)
     this function. */
 static void parser_loop(lily_parse_state *parser)
 {
+    /* The first pass of the interpreter starts with the current namespace being
+       the builtin namespace. */
+    if (parser->first_pass) {
+        lily_import_entry *main_import = make_new_import_entry(parser, "", "");
+        lily_enter_import(parser->symtab, main_import);
+        parser->first_pass = 0;
+    }
+
     lily_lex_state *lex = parser->lex;
     lily_lexer(lex);
 
@@ -2824,4 +2829,17 @@ int lily_parse_special(lily_parse_state *parser, lily_lex_mode mode,
     }
 
     return 0;
+}
+
+void lily_begin_package(lily_parse_state *parser, char *name)
+{
+    lily_import_entry *new_package = make_new_import_entry(parser,
+            name, "[builtin]");
+
+    lily_enter_import(parser->symtab, new_package);
+}
+
+void lily_end_package(lily_parse_state *parser)
+{
+    lily_leave_import(parser->symtab);
 }

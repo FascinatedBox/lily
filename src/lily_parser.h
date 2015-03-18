@@ -35,7 +35,7 @@ typedef struct lily_parse_state_t {
     lily_mem_func mem_func;
     void *data;
     lily_parse_mode mode;
-    uint32_t pad;
+    uint32_t first_pass;
 } lily_parse_state;
 
 void lily_parser_finish_expr(lily_parse_state *);
@@ -48,4 +48,8 @@ int lily_parse_file(lily_parse_state *, lily_lex_mode, char *);
 int lily_parse_string(lily_parse_state *, char *, lily_lex_mode, char *);
 int lily_parse_special(lily_parse_state *, lily_lex_mode, void *, char *,
     lily_reader_fn, lily_close_fn);
+
+void lily_begin_package(lily_parse_state *, char *);
+void lily_end_package(lily_parse_state *);
+
 #endif

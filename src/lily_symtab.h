@@ -42,6 +42,8 @@ typedef struct {
        types easy: Just iter through this and blast things along the way. */
     lily_type *root_type;
 
+    lily_value_tie *ties;
+
     /* This is a linked list of symbols that were initially created through the
        vm or outside sources (via lily_symbol_by_name). These symbols can be
        garbage collected (hence the 'weak' in the type name). */
@@ -118,7 +120,8 @@ void lily_change_parent_class(lily_class *, lily_class *);
 
 void lily_enter_import(lily_symtab *, lily_import_entry *);
 void lily_leave_import(lily_symtab *);
-lily_import_entry *lily_find_import_within(lily_import_entry *, char *);
+lily_import_entry *lily_find_import(lily_symtab *, lily_import_entry *, char *);
 
+void lily_tie_value(lily_symtab *, lily_var *, lily_value *);
 const lily_func_seed *lily_get_global_seed_chain();
 #endif

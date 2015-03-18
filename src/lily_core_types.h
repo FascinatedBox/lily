@@ -216,6 +216,16 @@ typedef struct lily_var_t {
     struct lily_var_t *next;
 } lily_var;
 
+/* This associates a value of a given type with a global at the given spot.
+   These are loaded by the vm on each pass. */
+typedef struct lily_value_tie_t {
+    lily_type *type;
+    struct lily_value_t *value;
+    uint32_t reg_spot;
+    uint32_t in_use;
+    struct lily_value_tie_t *prev;
+    struct lily_value_tie_t *next;
+} lily_value_tie;
 
 /* This type is used to store symbols that are created by a foreign source. Each
    symbol has either a literal (if created internally), or one of these entries
