@@ -1431,7 +1431,7 @@ lily_lex_entry *lily_import_name(lily_lex_state *lexer, char *name)
     int restore_pos = 0;
     FILE *f = NULL;
     while (dirpath) {
-        restore_pos = lily_membuf_add_three(membuf, dirpath, name, ".ly");
+        restore_pos = lily_membuf_add_three(membuf, dirpath, name, ".lly");
         char *fullpath = lily_membuf_get(membuf, restore_pos);
         f = fopen(fullpath, "r");
         if (f)
