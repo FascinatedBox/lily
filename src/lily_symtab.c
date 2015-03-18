@@ -669,6 +669,7 @@ lily_symtab *lily_new_symtab(lily_mem_func mem_func,
        0 is used, because these are all builtins, and the lexer may have failed
        to initialize anyway. */
     symtab->lex_linenum = &v;
+    symtab->ties = NULL;
     symtab->root_type = NULL;
     symtab->generic_class = NULL;
     symtab->generic_type_start = NULL;
@@ -685,7 +686,7 @@ lily_symtab *lily_new_symtab(lily_mem_func mem_func,
 /*****************************************************************************/
 /* Symtab teardown                                                           */
 /*****************************************************************************/
-
+#include <stdio.h>
 /** Symtab free-ing **/
 /*  free_vars
     Given a chain of vars, free the ones that are not marked nil. Most symtab
@@ -701,9 +702,6 @@ void free_vars(lily_symtab *symtab, lily_var *var)
             int cls_id = var->type->cls->id;
             if (cls_id == SYM_CLASS_FUNCTION)
                 lily_deref_function_val(symtab->mem_func, var->value.function);
-            else
-                lily_deref_unknown_raw_val(symtab->mem_func,
-                        var->type, var->value);
         }
         free_mem(var->name);
         free_mem(var);
@@ -897,6 +895,20 @@ void lily_free_symtab(lily_symtab *symtab)
         free_classes(symtab, import_iter->class_chain);
 
         import_iter = import_iter->root_next;
+    }
+
+    lily_value_tie *tie_iter = symtab->ties;
+    while (tie_iter->prev)
+        tie_iter = tie_iter->prev;
+
+    lily_value_tie *tie_next;
+    while (tie_iter) {
+        tie_next = tie_iter->next;
+
+        free_mem(tie_iter->value);
+        free_mem(tie_iter);
+
+        tie_iter = tie_next;
     }
 
     free_classes(symtab, symtab->old_class_chain);
@@ -1811,8 +1823,7 @@ void lily_leave_import(lily_symtab *symtab)
     symtab->active_import->import_chain = new_link;
 }
 
-lily_import_entry *lily_find_import_within(lily_import_entry *import,
-        char *name)
+static lily_import_entry *locate_import(lily_import_entry *import, char *name)
 {
     lily_import_link *link_iter = import->import_chain;
     lily_import_entry *result = NULL;
@@ -1827,4 +1838,40 @@ lily_import_entry *lily_find_import_within(lily_import_entry *import,
     }
 
     return result;
+}
+
+lily_import_entry *lily_find_import(lily_symtab *symtab,
+        lily_import_entry *import, char *name)
+{
+    lily_import_entry *result = locate_import(import, name);
+    if (result)
+        return result;
+
+    return locate_import(symtab->builtin_import, name);
+}
+
+void lily_tie_value(lily_symtab *symtab, lily_var *var, lily_value *value)
+{
+    lily_value_tie *tie;
+    if (symtab->ties == NULL || symtab->ties->in_use) {
+        tie = malloc_mem(sizeof(lily_value_tie));
+        tie->value = malloc_mem(sizeof(lily_value));
+
+        tie->prev = symtab->ties;
+        if (symtab->ties)
+            symtab->ties->next = tie;
+
+        tie->next = NULL;
+        symtab->ties = tie;
+    }
+    else {
+        tie = symtab->ties;
+        if (tie->next)
+            symtab->ties = tie->next;
+    }
+
+    tie->in_use = 1;
+    tie->type = var->type;
+    memcpy(tie->value, value, sizeof(lily_value));
+    tie->reg_spot = var->reg_spot;
 }

@@ -831,23 +831,28 @@ static void copy_functions(lily_vm_state *vm)
     vm->function_table = functions;
 }
 
-/*  load_builtins_into_regs
-    This is a helper for lily_vm_prep that loads up any values that might be in
-    the builtin namespace (ex: __main__ or sys) into the vm's registers. */
-static void load_builtins_into_regs(lily_vm_state *vm, lily_value **vm_regs)
+static void load_tied_values(lily_vm_state *vm)
 {
-    lily_var *iter_var = vm->symtab->builtin_import->var_chain;
-    while (iter_var) {
-        if ((iter_var->flags & (VAL_IS_NIL | VAR_IS_READONLY)) == 0) {
-            if (iter_var->type->cls->is_refcounted)
-                iter_var->value.generic->refcount++;
+    lily_value_tie *tie_iter = vm->symtab->ties;
+    lily_value **regs_from_main = vm->regs_from_main;
 
-            vm_regs[iter_var->reg_spot]->flags &= ~VAL_IS_NIL;
-            vm_regs[iter_var->reg_spot]->value = iter_var->value;
-        }
+    while (1) {
+        /* Don't use lily_assign_value, because that wants to give the tied
+           value a ref. That's bad because then it will have two refs (and the
+           tie is just for shifting a value over). */
 
-        iter_var = iter_var->next;
+        memcpy(regs_from_main[tie_iter->reg_spot],
+               tie_iter->value,
+               sizeof(lily_value));
+
+        tie_iter->in_use = 0;
+        if (tie_iter->prev == NULL)
+            break;
+
+        tie_iter = tie_iter->prev;
     }
+
+    vm->symtab->ties = tie_iter;
 }
 
 /*  bind_function_name
@@ -1949,10 +1954,10 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     /* Zap only the slots that new globals need next time. */
     vm->prep_id_start = i;
 
-    /* For the very first run of the vm, go through the builtin package and load
-       any vars in it that were given actual values. (Ex: sys or __main__). */
-    if (vm->num_registers == 0)
-        load_builtins_into_regs(vm, vm_regs);
+    /* Symtab is guaranteed to always have a non-NULL tie because the sys
+       package creates a tie. */
+    if (vm->symtab->ties->in_use)
+        load_tied_values(vm);
 
     if (main_function->reg_count > vm->num_registers) {
         if (vm->num_registers == 0) {
