@@ -146,15 +146,6 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_type *type, char *name,
     return var;
 }
 
-lily_var *lily_declare_var(lily_symtab *symtab, lily_type *type,
-        char *name, uint16_t line_num)
-{
-    lily_var *v = lily_new_var(symtab, type, name, 0);
-
-    v->line_num = line_num;
-    return v;
-}
-
 /*  get_generic_max
     Recurse into a type and determine the number of generics used. This
     is important for emitter, which needs to know how many types to blank before
