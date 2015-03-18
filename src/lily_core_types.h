@@ -438,13 +438,6 @@ typedef struct lily_func_seed_t {
     const struct lily_func_seed_t *next;
 } lily_func_seed;
 
-/* This is used for seeding new properties. */
-typedef struct lily_prop_seed_t {
-    char *name;
-    const struct lily_prop_seed_t *next;
-    int prop_ids[];
-} lily_prop_seed_t;
-
 typedef struct lily_import_link_t {
     struct lily_import_entry_t *entry;
     struct lily_import_link_t *next_import;
