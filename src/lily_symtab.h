@@ -94,7 +94,6 @@ lily_class *lily_find_scoped_variant(lily_class *, char *);
 lily_var *lily_new_var(lily_symtab *, lily_type *, char *, int);
 lily_var *lily_declare_var(lily_symtab *, lily_type *, char *, uint16_t);
 
-lily_var *lily_scoped_var_by_name(lily_symtab *, lily_var *, char *);
 lily_var *lily_var_by_name(lily_symtab *, char *);
 lily_var *lily_var_by_name_within(lily_import_entry *, char *);
 

@@ -273,9 +273,6 @@ typedef enum {
       The above, but from the table of functions this time. */
     o_get_function,
 
-    o_package_set,
-    o_package_get,
-
     /* get property:
        * int lineno
        * reg local_reg

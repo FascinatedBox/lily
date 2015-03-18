@@ -58,7 +58,6 @@ typedef union lily_raw_value_t {
     struct lily_generic_gc_val_t *gc_generic;
     struct lily_function_val_t *function;
     struct lily_hash_val_t *hash;
-    struct lily_package_val_t *package;
     struct lily_instance_val_t *instance;
 } lily_raw_value;
 
@@ -322,16 +321,6 @@ typedef struct lily_hash_val_t {
     lily_hash_elem *elem_chain;
 } lily_hash_val;
 
-/* Packages hold vars of different types, and are created internally. */
-typedef struct lily_package_val_t {
-    uint32_t refcount;
-    uint32_t pad;
-    struct lily_gc_entry_t *gc_entry;
-    lily_var **vars;
-    uint64_t var_count;
-    char *name;
-} lily_package_val;
-
 /* This represents an instance of a class. */
 typedef struct lily_instance_val_t {
     uint32_t refcount;
@@ -571,14 +560,13 @@ typedef struct lily_import_entry_t {
 #define SYM_CLASS_HASH            8
 #define SYM_CLASS_TUPLE           9
 #define SYM_CLASS_GENERIC        10
-#define SYM_CLASS_PACKAGE        11
-#define SYM_CLASS_EXCEPTION      12
-#define SYM_CLASS_DBZERROR       13 /* > 9000 */
-#define SYM_CLASS_INDEXERROR     14
-#define SYM_CLASS_BADTCERROR     15
-#define SYM_CLASS_VALUEERROR     16
-#define SYM_CLASS_RECURSIONERROR 17
-#define SYM_CLASS_KEYERROR       18
-#define SYM_CLASS_FORMATERROR    19
+#define SYM_CLASS_EXCEPTION      11
+#define SYM_CLASS_DBZERROR       12 /* > 9000 */
+#define SYM_CLASS_INDEXERROR     13
+#define SYM_CLASS_BADTCERROR     14
+#define SYM_CLASS_VALUEERROR     15
+#define SYM_CLASS_RECURSIONERROR 16
+#define SYM_CLASS_KEYERROR       17
+#define SYM_CLASS_FORMATERROR    18
 
 #endif

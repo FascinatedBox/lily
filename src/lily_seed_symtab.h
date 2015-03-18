@@ -117,14 +117,6 @@ class_seed class_seeds[] =
      0,                         /* flags */
      NULL,                      /* setup_func */
      NULL,                      /* gc_marker */
-     NULL},                     /* eq_func */
-
-    {"package",                 /* name */
-     0,                         /* is_refcounted */
-     0,                         /* generic_count */
-     0,                         /* flags */
-     NULL,                      /* setup_func */
-     NULL,                      /* gc_marker */
      NULL}                      /* eq_func */
 };
 

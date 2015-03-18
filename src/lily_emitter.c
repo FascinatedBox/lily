@@ -734,9 +734,9 @@ static void finalize_function_val(lily_emit_state *emit,
     if (function_block->function_var != emit->symtab->main_var)
         add_var_chain_to_info(emit, info, emit->symtab->var_chain, var_stop);
     else {
-        /* __main__ is a little weird. Part of it is going to be within the
-           builtin package (__main__ itself and sys are in there), but some of
-           it is also going to be within the current package. */
+        /* __main__ is a little weird. Part of it is going to be in the builtin
+           package. However, the vars of the currently loaded file are also
+           globals, so load those too. */
         add_var_chain_to_info(emit, info, emit->symtab->var_chain, NULL);
         add_var_chain_to_info(emit, info,
                 emit->symtab->builtin_import->var_chain, NULL);
@@ -1100,8 +1100,7 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
                 result_type = NULL;
         }
     }
-    /* All other trees are either invalid for the left side of an assignment,
-       or tree_package which I don't care about. */
+    /* All other are either invalid for the left side of an assignment. */
     else
         result_type = NULL;
 
@@ -1293,8 +1292,7 @@ static lily_type *calculate_var_type(lily_emit_state *emit, lily_type *input_typ
 }
 
 /*  eval_assign
-    This handles assignments where the left is not a subscript or package
-    access. */
+    This handles assignments where the left is not a subscript or dot access. */
 static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 {
     int left_cls_id, opcode;
@@ -1458,99 +1456,6 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
             rhs->reg_spot);
 
     ast->result = rhs;
-}
-
-static int get_package_index(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_package_val *pval = ast->arg_start->result->value.package;
-    lily_var *want_var = (lily_var *)(ast->arg_start->next_arg->result);
-
-    int i;
-    for (i = 0;i < pval->var_count;i++) {
-        if (pval->vars[i] == want_var)
-            break;
-    }
-
-    return i;
-}
-
-/*  eval_package_tree_for_op
-    This function will scan the given package tree (a::b sort of access).
-    * ast->arg_start
-      This is either a global var, or another package tree. If it's a global
-      var, then it's something like 'a::b'. If it's a package, it's 'a::b::c'
-      or deeper.
-    * ast->arg_start->next_arg
-      This is a var within the current package. The name of this var will be
-      looked up to get its index in the package.
-
-    emit:      The emit state to write to.
-    ast:       A tree of type tree_package.
-    is_set_op: If 1: Use get operations to yield a value.
-               If 0: Use set operations to set a value.
-    set_value: If is_set_op is 1, this is the value to assign. */
-static void eval_package_tree_for_op(lily_emit_state *emit, lily_ast *ast,
-        int is_set_op, lily_sym *set_value)
-{
-    lily_sym *s = set_value;
-    int opcode;
-
-    int index = get_package_index(emit, ast);
-    if (is_set_op)
-        opcode = o_package_set;
-    else {
-        s = (lily_sym *)get_storage(emit,
-            ast->arg_start->next_arg->result->type, ast->line_num);
-        opcode = o_package_get;
-    }
-
-    write_5(emit, opcode, ast->line_num, ast->arg_start->result->reg_spot,
-            index, s->reg_spot);
-
-    ast->result = s;
-}
-
-/*  eval_package_assign
-    This is like eval_package, except the var is going to be assigned to
-    instead of read from.
-    * ast->left is the package tree.
-    * ast->right is the value to assign. */
-static void eval_package_assign(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_ast *rhs_tree = ast->right;
-
-    /* The left may contain packages in it. However, the resulting value will
-       always be the var at the very top. */
-    lily_ast *package_right = ast->left->arg_start->next_arg;
-    lily_type *wanted_type = package_right->result->type;
-    lily_sym *rhs;
-
-    if (ast->right->tree_type != tree_global_var)
-        eval_tree(emit, ast->right, wanted_type, 1);
-
-    /* Don't evaluate the package tree. Like subscript assign, this has to
-       write directly to the var at the given part of the package. Since parser
-       passes the var to be assigned, just grab that from result for checking
-       the type. No need to do a symtab lookup of a name. */
-
-    rhs = ast->right->result;
-
-    /* Before doing an eval, make sure that the two types actually match up. */
-    if (wanted_type != rhs_tree->result->type &&
-        type_matchup(emit, wanted_type, rhs_tree) == 0) {
-        bad_assign_error(emit, ast->line_num, wanted_type,
-                rhs_tree->result->type);
-    }
-
-    if (ast->op > expr_assign) {
-        eval_tree(emit, ast->left, NULL, 1);
-        emit_op_for_compound(emit, ast);
-        rhs = ast->result;
-    }
-
-    /* Evaluate the tree grab on the left side. Use set opcodes instead of get
-       opcodes. The result given is what will be assigned. */
-    eval_package_tree_for_op(emit, ast->left, 1, rhs);
 }
 
 /*  eval_logical_op
@@ -2807,16 +2712,6 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)ret;
 }
 
-/*  eval_package
-    This is a wrapper for eval_package_tree_for_op. */
-static void eval_package(lily_emit_state *emit, lily_ast *ast)
-{
-    /* Evaluate this tree using a generic function that can write get/set ops
-       as needed. 0 = use get opcodes, NULL, because a value is only needed if
-       using a set opcode. */
-    eval_package_tree_for_op(emit, ast, 0, NULL);
-}
-
 /*  eval_oo_access
     This is an access like 'abc.xyz'. There are two fairly different cases for
     this:
@@ -3024,12 +2919,9 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
     else if (ast->tree_type == tree_binary) {
         if (ast->op >= expr_assign) {
             if (ast->left->tree_type != tree_subscript &&
-                ast->left->tree_type != tree_package &&
                 ast->left->tree_type != tree_oo_access &&
                 ast->left->tree_type != tree_property)
                 eval_assign(emit, ast);
-            else if (ast->left->tree_type == tree_package)
-                eval_package_assign(emit, ast);
             else if (ast->left->tree_type == tree_subscript)
                 eval_sub_assign(emit, ast);
             else
@@ -3069,8 +2961,6 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
         eval_build_tuple(emit, ast, expect_type, did_resolve);
     else if (ast->tree_type == tree_subscript)
         eval_subscript(emit, ast, expect_type);
-    else if (ast->tree_type == tree_package)
-        eval_package(emit, ast);
     else if (ast->tree_type == tree_typecast)
         eval_typecast(emit, ast);
     else if (ast->tree_type == tree_oo_access)

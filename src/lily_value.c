@@ -169,31 +169,6 @@ void lily_deref_any_val(lily_mem_func mem_func, lily_any_val *av)
     }
 }
 
-void lily_deref_package_val(lily_mem_func mem_func, lily_package_val *pv)
-{
-    pv->refcount--;
-    if (pv->refcount == 0) {
-        if (pv->gc_entry)
-            pv->gc_entry->value.generic = NULL;
-
-        int i;
-        /* Packages take ownership of the vars they hold from the symtab.
-           Therefore, they are responsible for destroying the vars held. */
-        for (i = 0;i < pv->var_count;i++) {
-            lily_var *var_iter = pv->vars[i];
-            if ((var_iter->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                lily_deref_unknown_raw_val(mem_func, var_iter->type,
-                        var_iter->value);
-
-            free_mem(var_iter->name);
-            free_mem(var_iter);
-        }
-
-        free_mem(pv->vars);
-        free_mem(pv);
-    }
-}
-
 /*  lily_deref_unknown_val
     This takes a proper value and determines the proper call to deref the given
     value. This is useful if you want to deref something but don't know exactly
@@ -222,8 +197,6 @@ void lily_deref_unknown_val(lily_mem_func mem_func, lily_value *value)
         lily_deref_any_val(mem_func, raw.any);
     else if (cls_id == SYM_CLASS_TUPLE || cls_id >= SYM_CLASS_EXCEPTION)
         lily_deref_tuple_val(mem_func, value->type, raw.list);
-    else if (cls_id == SYM_CLASS_PACKAGE)
-        lily_deref_package_val(mem_func, raw.package);
 }
 
 /*  lily_deref_unknown_raw_value
@@ -254,8 +227,6 @@ void lily_deref_unknown_raw_val(lily_mem_func mem_func, lily_type *value_type,
         lily_deref_hash_val(mem_func, value_type, raw.hash);
     else if (cls_id == SYM_CLASS_TUPLE || cls_id >= SYM_CLASS_EXCEPTION)
         lily_deref_tuple_val(mem_func, value_type, raw.list);
-    else if (cls_id == SYM_CLASS_PACKAGE)
-        lily_deref_package_val(mem_func, raw.package);
 }
 
 /** Value creation calls **/

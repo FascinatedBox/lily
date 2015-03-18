@@ -632,10 +632,6 @@ static void init_classes(lily_symtab *symtab)
 
     symtab->builtin_import->class_chain = symtab->class_chain;
 
-    /* No direct declaration of packages (for now?) */
-    lily_class *package_cls = lily_class_by_id(symtab, SYM_CLASS_PACKAGE);
-    package_cls->shorthash = 0;
-
     symtab->next_class_id = i + 1;
 }
 
@@ -686,12 +682,12 @@ lily_symtab *lily_new_symtab(lily_mem_func mem_func,
 /*****************************************************************************/
 /* Symtab teardown                                                           */
 /*****************************************************************************/
-#include <stdio.h>
+
 /** Symtab free-ing **/
 /*  free_vars
-    Given a chain of vars, free the ones that are not marked nil. Most symtab
-    vars don't get values, but a few special ones (like the sys package and
-    __main__) have values. */
+    Free the vars given. If the var has a function associated with it, then drop
+    that function (unless it's __main__, then the function's only ref is from
+    being in the var. __main__ is freed in a special way later). */
 void free_vars(lily_symtab *symtab, lily_var *var)
 {
     lily_var *var_temp;
@@ -753,7 +749,7 @@ static void free_classes(lily_symtab *symtab, lily_class *class_iter)
 {
     while (class_iter) {
         /* todo: Probably a better way to do this... */
-        if (class_iter->id > SYM_CLASS_PACKAGE)
+        if (class_iter->id > SYM_CLASS_GENERIC)
             free_mem(class_iter->name);
 
         if (class_iter->flags & CLS_ENUM_IS_SCOPED) {
@@ -1348,27 +1344,6 @@ lily_class *lily_find_scoped_variant(lily_class *enum_class, char *name)
     }
 
     return ret;
-}
-
-/*  lily_scoped_var_by_name
-    Do a var lookup but start from the given var. This is used for looking up
-    values within a package. Returns the var wanted or NULL. */
-lily_var *lily_scoped_var_by_name(lily_symtab *symtab, lily_var *scope_chain,
-        char *name)
-{
-    lily_var *var = scope_chain;
-    uint64_t shorthash = shorthash_for_name(name);
-
-    while (var) {
-        if (var->shorthash == shorthash &&
-            ((var->flags & SYM_OUT_OF_SCOPE) == 0) &&
-            strcmp(var->name, name) == 0) {
-            break;
-        }
-        var = var->next;
-    }
-
-    return var;
 }
 
 lily_var *lily_var_by_name(lily_symtab *symtab, char *name)
