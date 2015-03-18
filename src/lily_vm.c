@@ -1908,7 +1908,7 @@ uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
 
     * Ensure that there are enough registers to run __main__. If new registers
       are allocated, they're set to a proper type.
-    * Load __main__ and the sys package from symtab into registers.
+    * Load any tied values into global registers.
     * Set stack entry 0 (__main__'s entry). */
 void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
 {
@@ -2000,7 +2000,6 @@ void lily_vm_execute(lily_vm_state *vm)
     lily_value **vm_regs;
     int i, num_registers, max_registers;
     lily_type *cast_type;
-    lily_var *temp_var;
     register int64_t for_temp;
     /* This unfortunately has to be volatile because otherwise calltrace() and
        traceback tend to be 'off'. */
@@ -2409,26 +2408,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 else
                     code_pos = code[code_pos+6];
 
-                break;
-            case o_package_set:
-                lhs_reg = regs_from_main[code[code_pos + 2]];
-                i = code[code_pos + 3];
-                temp_var = lhs_reg->value.package->vars[i];
-                rhs_reg = vm_regs[code[code_pos + 4]];
-                /* Here, the temp receives the value. */
-                lily_assign_value(vm, (lily_value *)temp_var, rhs_reg);
-
-                code_pos += 5;
-                break;
-            case o_package_get:
-                lhs_reg = regs_from_main[code[code_pos + 2]];
-                i = code[code_pos + 3];
-                temp_var = lhs_reg->value.package->vars[i];
-                rhs_reg = vm_regs[code[code_pos + 4]];
-                /* This time, the rhs takes the value. */
-                lily_assign_value(vm, rhs_reg, (lily_value *)temp_var);
-
-                code_pos += 5;
                 break;
             case o_push_try:
             {

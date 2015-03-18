@@ -951,47 +951,6 @@ static lily_sym *parse_special_keyword(lily_parse_state *parser, int key_id)
     return ret;
 }
 
-/*  expression_package
-    This handles x::y kinds of expressions wherein 'x' is a package.
-    * A check for :: is forced so that an inner var can be collected, instead
-      of letting packages be assignable. This was done so that package accesses
-      can be effectively computed at emit time (given that packages are
-      initialized through parser and not assignable or able to be put in lists).
-    * This does not check for packages in packages, because those don't
-      currently exist. It doesn't check for a callable inner var for the same
-      reason.
-    * This enters a package tree to stay consistent with all non-(binary/unary)
-      trees.
-    * This enters tree_package to be consistent with how other things
-      (subscripts, list building, typecasts, etc.) all create enterable trees
-      to handle things. */
-static void expression_package(lily_parse_state *parser, lily_var *package_var)
-{
-    lily_ast_pool *ap = parser->ast_pool;
-    lily_lex_state *lex = parser->lex;
-    lily_var *scope = package_var->value.package->vars[0];
-
-    lily_ast_enter_tree(ap, tree_package);
-
-    lily_ast_push_global_var(ap, package_var);
-    lily_ast_collect_arg(ap);
-
-    NEED_NEXT_TOK(tk_colon_colon)
-    NEED_NEXT_TOK(tk_word)
-
-    lily_var *inner_var = lily_scoped_var_by_name(parser->symtab, scope,
-            lex->label);
-    if (inner_var == NULL) {
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "Package %s has no member %s.\n",
-                package_var->name, lex->label);
-    }
-
-    lily_ast_push_global_var(ap, inner_var);
-    lily_ast_collect_arg(ap);
-    lily_ast_leave_tree(ap);
-}
-
 /*  expression_variant
     This is called when expression_word hits a label that's a class that's
     marked as a variant class. They're used like a function, sometimes. Not
@@ -1026,11 +985,8 @@ static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
                 var->name);
 
     if (var->function_depth == 1) {
-        /* It's in __main__ as a global. */
-        if (var->type->cls->id == SYM_CLASS_PACKAGE)
-            expression_package(parser, var);
-        else
-            lily_ast_push_global_var(parser->ast_pool, var);
+        /* It's a global. */
+        lily_ast_push_global_var(parser->ast_pool, var);
     }
     else if (var->function_depth == parser->emit->function_depth)
         /* In this current scope? Load as a local var. */
