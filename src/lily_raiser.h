@@ -32,10 +32,11 @@ typedef struct lily_raiser_t {
        * Merging ASTs. number a = 1 +
          1 should report an error on line 1 (the assignment), not line 2.
        * Any vm error. */
-    uint16_t line_adjust;
-    uint16_t error_code;
+    uint32_t line_adjust;
+    uint32_t error_code;
     uint16_t jump_pos;
     uint16_t jump_size;
+    uint32_t pad;
 
     lily_mem_func mem_func;
 } lily_raiser;

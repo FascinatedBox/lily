@@ -639,7 +639,7 @@ lily_symtab *lily_new_symtab(lily_mem_func mem_func,
     symtab->mem_func = mem_func;
     symtab->raiser = raiser;
 
-    uint16_t v = 0;
+    uint32_t v = 0;
 
     symtab->next_register_spot = 0;
     symtab->next_lit_spot = 0;

@@ -19,14 +19,14 @@ typedef enum {
 typedef struct lily_ast_t {
     lily_sym *result;
 
-    lily_tree_type tree_type : 8;
-    lily_expr_op op : 8;
-    uint16_t line_num;
-    uint16_t args_collected;
+    lily_tree_type tree_type : 16;
+    lily_expr_op op : 16;
+    uint32_t line_num;
+    uint32_t args_collected;
 
     /* If this tree has some text data associated with it, then that data can
        be gotten from the ast pool's membuf at this position. */
-    uint16_t membuf_pos;
+    uint32_t membuf_pos;
 
     /* Literals and readonly functions store their initial value here. */
     lily_sym *original_sym;
@@ -156,7 +156,7 @@ typedef struct {
 
     lily_mem_func mem_func;
     lily_raiser *raiser;
-    uint16_t *lex_linenum;
+    uint32_t *lex_linenum;
 } lily_ast_pool;
 
 void lily_ast_collect_arg(lily_ast_pool *);

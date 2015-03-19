@@ -65,7 +65,7 @@ typedef struct {
        if a var is a local or a global. */
     uint64_t function_depth;
 
-    uint16_t *lex_linenum;
+    uint32_t *lex_linenum;
     lily_mem_func mem_func;
     lily_raiser *raiser;
 } lily_symtab;
