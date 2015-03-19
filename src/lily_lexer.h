@@ -92,8 +92,8 @@ typedef struct lily_lex_entry_t {
     uint16_t saved_input_pos;
     uint16_t saved_input_size;
     uint16_t saved_input_end;
-    uint16_t saved_line_num;
-    lily_token saved_token : 32;
+    lily_token saved_token : 16;
+    uint32_t saved_line_num;
     uint32_t pad2;
 
     void *source;
@@ -110,11 +110,11 @@ typedef struct lily_lex_state_t {
     char *input_buffer;
     char *label;
 
-    uint16_t line_num;
+    uint32_t line_num;
     /* Where the last digit scan started at. This is used by parser to fixup
        the '1+1' case. */
     uint16_t last_digit_start;
-    uint32_t pad;
+    uint16_t pad;
 
     uint16_t input_end;
     uint16_t input_size;

@@ -424,9 +424,8 @@ typedef struct lily_gc_entry_t {
 typedef struct lily_register_info_t {
     lily_type *type;
     char *name;
-    uint16_t line_num;
-    uint16_t pad1;
-    uint32_t pad2;
+    uint32_t line_num;
+    uint32_t pad;
 } lily_register_info;
 
 /* This holds all the information necessary to make a new Lily function. */

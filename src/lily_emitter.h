@@ -121,7 +121,7 @@ typedef struct {
     uint32_t expr_num;
 
     /* This is the current line number, at any given time. */
-    uint16_t *lex_linenum;
+    uint32_t *lex_linenum;
 
     lily_raiser *raiser;
 
