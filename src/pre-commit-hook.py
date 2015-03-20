@@ -5,13 +5,13 @@
 # A successful test should not print anything.
 
 # Tests that expect a specific error message should put that message at the
-# top, in a triple-quote comment block. This allows the tester to check that
-# a given error message is correct.
+# top, in a comment block. This allows the tester to check that a given error
+# message is correct.
 
 import os, subprocess, sys, signal
 
-pass_files = []
-fail_files = []
+pass_entries = []
+fail_entries = []
 MODE_PASS = 1
 MODE_FAIL = 0
 
@@ -19,11 +19,18 @@ pass_count = 0
 error_count = 0
 crash_count = 0
 
+current_dir = os.getcwd() + "/"
+original_dir = current_dir
+
 def load_filenames(path):
-    ret = []
+    ret = {}
     for (dirpath, dirnames, filenames) in os.walk(path):
-        for filename in filenames:
-            ret.append(os.path.join(dirpath, filename))
+        for name in filenames:
+            try:
+                ret[dirpath].append(name)
+            except:
+                ret[dirpath] = [name]
+
     return ret
 
 def get_expected_str(filename):
@@ -48,7 +55,7 @@ def basic_run(filename, mode, run_range):
     else:
         mode_str = "fail"
 
-    command = "./lily %s" % (filename)
+    command = "lily %s" % (filename)
     subp = subprocess.Popen([command], stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, shell=True)
     (subp_stdout, subp_stderr) = subp.communicate()
@@ -80,24 +87,43 @@ def basic_run(filename, mode, run_range):
     else:
         pass_count += 1
 
-pass_files = sorted(load_filenames('test/pass'))
-fail_files = sorted(load_filenames('test/fail'))
-run_range = [0, len(pass_files) + len(fail_files)]
+def count_values(entries):
+    result = 0
 
-print "pre-commit-hook.py: Running %d passing tests..." % len(pass_files)
-for i in range(len(pass_files)):
-    run_range[0] += 1
-    basic_run(pass_files[i], MODE_PASS, run_range)
+    for k in entries.iterkeys():
+        result += len(entries[k])
 
-print "pre-commit-hook.py: Running %d failing tests..." % len(fail_files)
-for i in range(len(fail_files)):
-    run_range[0] += 1
-    basic_run(fail_files[i], MODE_FAIL, run_range)
+    return result
+
+pass_entries = load_filenames('test/pass')
+pass_entry_count = count_values(pass_entries)
+fail_entries = load_filenames('test/fail')
+fail_entry_count = count_values(fail_entries)
+run_range = [0, pass_entry_count + fail_entry_count]
+
+print "pre-commit-hook.py: Running %d passing tests..." % pass_entry_count
+
+for dirpath in pass_entries:
+    os.chdir(original_dir + dirpath + "/")
+    for filename in pass_entries[dirpath]:
+        run_range[0] += 1
+        basic_run(filename, MODE_PASS, run_range)
+
+print "pre-commit-hook.py: Running %d failing tests..." % fail_entry_count
+for dirpath in fail_entries:
+    os.chdir(original_dir + dirpath + "/")
+    for filename in fail_entries[dirpath]:
+        run_range[0] += 1
+        basic_run(filename, MODE_FAIL, run_range)
 
 print ("Final stats: %d tests passed, %d errors, %d crashed." \
         % (pass_count, error_count, crash_count))
+
+os.chdir(original_dir)
 
 if error_count == 0 and crash_count == 0:
     sys.exit(0)
 else:
     sys.exit(1)
+
+

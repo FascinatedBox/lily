@@ -1,0 +1,11 @@
+#[
+SyntaxError: A property in class 'Test' already has the name 'abc'.
+Where: File "class_method_prop_redecl.lly" at line 8
+]#
+
+class Test() {
+    var @abc = 10
+    define abc() {
+
+    }
+}

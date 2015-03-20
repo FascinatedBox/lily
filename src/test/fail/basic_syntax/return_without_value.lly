@@ -1,0 +1,6 @@
+#[
+SyntaxError: 'return' expression has no value.
+Where: File "return_without_value.lly" at line 6
+]#
+
+define f() {  } define g( => integer) { return f() }

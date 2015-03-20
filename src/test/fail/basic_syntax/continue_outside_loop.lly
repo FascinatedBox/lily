@@ -1,0 +1,6 @@
+#[
+SyntaxError: 'continue' used outside of a loop.
+Where: File "continue_outside_loop.lly" at line 6
+]#
+
+continue

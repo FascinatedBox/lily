@@ -1,0 +1,6 @@
+#[
+SyntaxError: Cannot cast type 'integer' to type 'string'.
+Where: File "bad_typecast.lly" at line 6
+]#
+
+10.@(string)

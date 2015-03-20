@@ -1,0 +1,6 @@
+#[
+SyntaxError: Cannot inherit from builtin classes. Sorry.
+Where: File "inherit_builtin.lly" at line 6
+]#
+
+class abc() < integer {  }

@@ -1,0 +1,6 @@
+#[
+SyntaxError: Missing return statement at end of function.
+Where: File "missing_return.lly" at line 6
+]#
+
+define f( => integer) {  }

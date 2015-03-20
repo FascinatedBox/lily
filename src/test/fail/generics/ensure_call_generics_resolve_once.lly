@@ -1,0 +1,20 @@
+#[
+SyntaxError: Function f, argument #3 is invalid:
+Expected Type: list[A]
+Received Type: list[any]
+Where: File "ensure_call_generics_resolve_once.lly" at line 19
+]#
+
+define f[A, B](value: A, value2: B, value3: B) {
+    
+}
+
+define g[A, B](value: A, value2: B) {
+    var a: any = 10
+
+    # f's A is first resolved as 'any'.
+    # B is then resolved as list[A] but it's g's A.
+    # The last part fails: B is a list of g's A (which is quasi-known) but is
+    # given a list of any.
+    f(a, [value], [a])
+}

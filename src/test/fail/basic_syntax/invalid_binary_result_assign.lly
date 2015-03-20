@@ -1,0 +1,8 @@
+#[
+SyntaxError: Left side of = is not assignable.
+Where: File "invalid_binary_result_assign.lly" at line 8
+]#
+
+var a = 1
+if 1:
+    (a + a) = 1

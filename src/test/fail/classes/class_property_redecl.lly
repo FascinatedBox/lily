@@ -1,0 +1,6 @@
+#[
+SyntaxError: Property a already exists in class ABC.
+Where: File "class_property_redecl.lly" at line 6
+]#
+
+class ABC() { var @a = 1 var @a = 1 }

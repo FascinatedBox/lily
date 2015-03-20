@@ -1,0 +1,6 @@
+#[
+SyntaxError: Unexpected token '}'.
+Where: File "lambda_bad_token.lly" at line 6
+]#
+
+var v = {|| }

@@ -1,0 +1,6 @@
+#[
+SyntaxError: 'elif' without 'if'.
+Where: File "elif_without_if.lly" at line 6
+]#
+
+elif
