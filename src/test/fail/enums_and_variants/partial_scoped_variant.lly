@@ -1,0 +1,9 @@
+#[
+SyntaxError: Expected '::', not a label.
+Where: File "partial_scoped_variant.lly" at line 8
+]#
+
+enum class Option[A] {
+	::Some(A),
+	None
+}

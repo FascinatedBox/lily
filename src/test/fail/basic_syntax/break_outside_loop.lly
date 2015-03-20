@@ -1,0 +1,6 @@
+#[
+SyntaxError: 'break' used outside of a loop.
+Where: File "break_outside_loop.lly" at line 6
+]#
+
+break

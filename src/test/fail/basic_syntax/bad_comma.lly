@@ -1,0 +1,6 @@
+#[
+SyntaxError: Unexpected token ,.
+Where: File "bad_comma.lly" at line 6
+]#
+
+var a = 10    a = 10,

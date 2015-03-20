@@ -1,6 +1,0 @@
-#[
-SyntaxError: Unexpected token '}'.
-Where: File "test/fail/lambda_bad_token.lly" at line 6
-]#
-
-var v = {|| }

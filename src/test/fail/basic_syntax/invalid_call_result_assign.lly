@@ -1,0 +1,10 @@
+#[
+SyntaxError: Left side of = is not assignable.
+Where: File "invalid_call_result_assign.lly" at line 10
+]#
+
+define f( => list[integer]) {
+    return [1]
+}
+
+f()[0] = 1

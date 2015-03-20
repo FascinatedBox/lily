@@ -1,0 +1,6 @@
+#[
+SyntaxError: Unexpected token +.
+Where: File "bad_start_token.lly" at line 6
+]#
+
++

@@ -1,0 +1,6 @@
+#[
+SyntaxError: f has already been declared.
+Where: File "function_redeclaration.lly" at line 6
+]#
+
+define f() {} define f() {}

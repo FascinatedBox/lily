@@ -1,0 +1,6 @@
+#[
+SyntaxError: Unexpected token ']'.
+Where: File "bad_right_brace.lly" at line 6
+]#
+
+var a: list[integer] = []   a = [10]]

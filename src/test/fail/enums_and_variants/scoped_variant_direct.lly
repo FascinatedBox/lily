@@ -1,0 +1,11 @@
+#[
+SyntaxError: Some has not been declared.
+Where: File "scoped_variant_direct.lly" at line 11
+]#
+
+enum class Option[A] {
+	::Some(A),
+	::None
+}
+
+var opt: Option[integer] = Some(10)

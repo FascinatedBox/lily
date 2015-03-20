@@ -1,0 +1,6 @@
+#[
+SyntaxError: Expected a value, not 'end of file'.
+Where: File "unterminated_single_line_if.lly" at line 6
+]#
+
+if 1:

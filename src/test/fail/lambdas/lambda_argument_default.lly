@@ -1,0 +1,10 @@
+#[
+SyntaxError: Cannot infer type of 'a'.
+Where: File "lambda_argument_default.lly" at line 10
+]#
+
+define f[A](g: function(A => A)) {
+
+}
+
+f({|a| a})

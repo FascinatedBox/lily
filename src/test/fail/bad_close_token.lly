@@ -1,6 +1,0 @@
-#[
-SyntaxError: Expected closing token ')', not ']'.
-Where: File "test/fail/bad_close_token.lly" at line 6
-]#
-
-print("test.\\n"]

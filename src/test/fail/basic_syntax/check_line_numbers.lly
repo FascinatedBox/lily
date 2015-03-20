@@ -1,0 +1,7 @@
+#[
+SyntaxError: Cannot assign type 'string' to type 'integer'.
+Where: File "check_line_numbers.lly" at line 7
+]#
+
+var a = 10
+a = "10"

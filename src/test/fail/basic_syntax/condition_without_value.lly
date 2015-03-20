@@ -1,0 +1,8 @@
+#[
+SyntaxError: Conditional expression has no value.
+Where: File "condition_without_value.lly" at line 7
+]#
+
+define f() {}
+if f():
+    f()

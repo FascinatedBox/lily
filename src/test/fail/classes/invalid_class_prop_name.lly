@@ -1,0 +1,6 @@
+#[
+SyntaxError: Class properties must start with @.
+Where: File "invalid_class_prop_name.lly" at line 6
+]#
+
+class ABC() { var a: integer }

@@ -1,0 +1,6 @@
+#[
+SyntaxError: Unexpected token 'end of file'.
+Where: File "missing_parenth.lly" at line 6
+]#
+
+var a: integer = 0   a = ((a)

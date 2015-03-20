@@ -1,0 +1,9 @@
+#[
+SyntaxError: v has not been declared.
+Where: File "do_while_hide_vars.lly" at line 9
+]#
+
+do: {
+    var v = 10
+    continue
+} while v == 10

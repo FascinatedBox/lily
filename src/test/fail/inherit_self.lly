@@ -1,6 +1,0 @@
-#[
-SyntaxError: A class cannot inherit from itself!
-Where: File "test/fail/inherit_self.lly" at line 6
-]#
-
-class abc() < abc {  }

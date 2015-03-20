@@ -1,0 +1,6 @@
+#[
+SyntaxError: 'else' without 'if'.
+Where: File "else_without_if.lly" at line 6
+]#
+
+else

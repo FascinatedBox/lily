@@ -1,0 +1,6 @@
+#[
+SyntaxError: '}' outside of a block.
+Where: File "brace_outside_block.lly" at line 6
+]#
+
+}

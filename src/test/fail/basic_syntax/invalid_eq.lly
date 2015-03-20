@@ -1,0 +1,6 @@
+#[
+SyntaxError: Invalid operation: list[integer] == list[string].
+Where: File "invalid_eq.lly" at line 6
+]#
+
+[1] == ["1"]

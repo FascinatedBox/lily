@@ -1,0 +1,6 @@
+#[
+SyntaxError: A class cannot inherit from itself!
+Where: File "inherit_self.lly" at line 6
+]#
+
+class abc() < abc {  }

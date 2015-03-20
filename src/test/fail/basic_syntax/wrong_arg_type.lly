@@ -1,0 +1,8 @@
+#[
+SyntaxError: Function f, argument #1 is invalid:
+Expected Type: integer
+Received Type: string
+Where: File "wrong_arg_type.lly" at line 8
+]#
+
+define f(a: integer) {} f("a")

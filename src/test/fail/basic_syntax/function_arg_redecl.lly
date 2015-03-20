@@ -1,0 +1,6 @@
+#[
+SyntaxError: a has already been declared.
+Where: File "function_arg_redecl.lly" at line 6
+]#
+
+define f(a: integer, a: integer) {}
