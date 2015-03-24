@@ -2098,8 +2098,10 @@ static void ensure_valid_class(lily_parse_state *parser, char *name)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' is not a valid class name (too short).\n", name);
 
-    if ((parser->emit->block->block_type & BLOCK_CLASS) == 0 &&
-        parser->emit->block->prev != NULL) {
+    lily_block *block = parser->emit->block;
+
+    if ((block->block_type & (BLOCK_CLASS | BLOCK_FILE)) == 0 &&
+        block->prev != NULL) {
         /* This could probably be worded better... */
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Attempt to declare a class within something that isn't another class.\n");
