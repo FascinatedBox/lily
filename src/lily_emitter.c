@@ -3769,6 +3769,13 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     main_var->value.function->refcount++;
     main_var->flags &= ~VAL_IS_NIL;
 
+    lily_value v;
+    v.type = main_var->type;
+    v.flags = 0;
+    v.value.function = main_var->value.function;
+
+    lily_tie_value(emit->symtab, main_var, &v);
+
     main_block->prev = NULL;
     main_block->next = NULL;
     main_block->block_type = BLOCK_FUNCTION;
