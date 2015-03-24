@@ -2005,7 +2005,7 @@ static void except_handler(lily_parse_state *parser, int multi)
 
     lily_lexer(lex);
     if (lex->token != tk_right_curly)
-        statement(parser, 1);
+        statement(parser, multi);
 }
 
 static void import_handler(lily_parse_state *parser, int multi)
@@ -2061,7 +2061,9 @@ static void try_handler(lily_parse_state *parser, int multi)
         while (lex->token == tk_word) {
             if (strcmp("except", lex->label) == 0) {
                 lily_lexer(parser->lex);
-                except_handler(parser, multi);
+                /* Don't send multi, in case this is a single-line try+except
+                   within a multi-line block. */
+                except_handler(parser, 0);
             }
             else
                 break;
