@@ -181,10 +181,14 @@ lily_vm_state *lily_new_vm_state(lily_mem_func mem_func, lily_raiser *raiser,
     return vm;
 }
 
-/*  lily_vm_free_registers
-    This is called during parser's teardown to destroy all of the registers.
-    The last invoke of the vm is saved until symtab can destroy some stuff. */
-void lily_vm_free_registers(lily_vm_state *vm)
+static void invoke_gc(lily_vm_state *);
+static void destroy_gc_entries(lily_vm_state *);
+
+/*  lily_free_vm
+    We're done. Clear out all the values inside of the vm. This runs the garbage
+    collector while claiming to have no values so that EVERYTHING that was
+    inside a register is cleared out. */
+void lily_free_vm(lily_vm_state *vm)
 {
     lily_value **regs_from_main = vm->regs_from_main;
     lily_value *reg;
@@ -218,14 +222,7 @@ void lily_vm_free_registers(lily_vm_state *vm)
     vm->max_registers = 0;
 
     free_mem(regs_from_main);
-}
 
-static void invoke_gc(lily_vm_state *);
-static void destroy_gc_entries(lily_vm_state *);
-
-void lily_free_vm_state(lily_vm_state *vm)
-{
-    int i;
     for (i = 0;i < vm->function_stack_size;i++)
         free_mem(vm->function_stack[i]);
 
