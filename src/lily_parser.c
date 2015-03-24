@@ -995,10 +995,17 @@ static void dispatch_word_as_import(lily_parse_state *parser,
             break;
         }
 
-        lily_import_entry *search_import = lily_find_import(parser->symtab,
-                import, name);
-        if (search_import)
-            break;
+        /* Don't use the usual lily_find_import, because that function will
+           look up the given import AND the default one.
+           It would allow things like somepackage::sys, which seems wacky. */
+        lily_import_entry *search_import = lily_find_import_within(import,
+                name);
+
+        if (search_import) {
+            /* Try again, relative to this package now. */
+            import = search_import;
+            continue;
+        }
 
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Cannot locate '%s' within package '%s'.\n",

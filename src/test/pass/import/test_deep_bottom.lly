@@ -1,0 +1,1 @@
+define bottomFunc(i: integer => integer) { return i }
