@@ -190,48 +190,19 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
 
 void lily_free_parse_state(lily_parse_state *parser)
 {
-    if (parser->raiser)
-        lily_free_raiser(parser->raiser);
+    lily_free_raiser(parser->raiser);
 
-    if (parser->ast_pool)
-        lily_free_ast_pool(parser->ast_pool);
+    lily_free_ast_pool(parser->ast_pool);
 
-    /* Lily saves some global info in vars, and also in literals as well as the
-       registers. Vars and literals are linked lists, while the registers are
-       one really large block. Splitting things up like this is weird, but it
-       allows Lily to create exactly the amount of register info all at once and
-       without guessing at it with malloc + reallocs.
-       The downside is that the vm and symtab need to be torn down in a rather
-       specific order. Start off by blasting the registers, because those came
-       after the symtab's literals and vars. */
+    lily_free_vm(parser->vm);
 
-    if (parser->vm)
-        lily_vm_free_registers(parser->vm);
-
-    /* The symtab's literals and vars go next. This includes __main__, builtins,
-       and the like. Past this point, nothing is callable. */
-    if (parser->symtab)
-        lily_free_symtab_lits_and_vars(parser->symtab);
-
-    /* The vm gets freed next. This will invoke the gc and clear out any
-       circular references as well as gc entries on stuff. Past this point, no
-       values should be alive. */
-    if (parser->vm)
-        lily_free_vm_state(parser->vm);
-
-    /* Finally, tear down the symtab. This clears out classes and types, so
-       it's VERY important that this go later on, because classes and type
-       info is so crucial. */
-    if (parser->symtab)
-        lily_free_symtab(parser->symtab);
+    lily_free_symtab(parser->symtab);
 
     /* Order doesn't matter for the rest of this. */
 
-    if (parser->lex)
-        lily_free_lex_state(parser->lex);
+    lily_free_lex_state(parser->lex);
 
-    if (parser->emit)
-        lily_free_emit_state(parser->emit);
+    lily_free_emit_state(parser->emit);
 
     lily_import_entry *import_iter = parser->import_start;
     lily_import_entry *import_next = NULL;

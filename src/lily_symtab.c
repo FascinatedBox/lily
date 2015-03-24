@@ -778,21 +778,12 @@ static void free_foreign_symbols(lily_symtab *symtab)
         foreign_iter = foreign_next;
     }
 }
-/*  lily_free_symtab_lits_and_vars
 
-    This frees all literals and vars within the symtab. This is the first step
-    to tearing down the symtab, with the second being to call lily_free_symtab.
+/*  lily_free_symtab
 
-    Symtab's teardown is in two steps so that the gc can have one final pass
-    after the vars get a deref. This allows the gc to attempt cleanly destroying
-    all values. It needs type and class info, which is why that IS NOT
-    touched here.
-
-    Additionally, parts of symtab init may have failed, so NULL checks are
-    important.
-
-    symtab: The symtab to delete the vars and literals of. */
-void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
+    We're done. Nothing needs anything in the symtab anymore so tear it all
+    down. */
+void lily_free_symtab(lily_symtab *symtab)
 {
     lily_literal *lit, *lit_temp;
 
@@ -847,19 +838,11 @@ void lily_free_symtab_lits_and_vars(lily_symtab *symtab)
     if (symtab->old_function_chain != NULL)
         free_vars(symtab, symtab->old_function_chain);
 
+    /* __main__ must not be destroyed through normal deref, because it does not
+       allocate names for 'show()' within the function val. */
     if (main_var != NULL)
         free_lily_main(symtab, main_var);
-}
 
-/*  lily_free_symtab
-
-    This destroys the classes and types stored in the symtab, as well as
-    the symtab itself. This is called after the vm has had a chance to tell the
-    gc to do a final sweep (where type info is necessary).
-
-    symtab: The symtab to destroy the vars of. */
-void lily_free_symtab(lily_symtab *symtab)
-{
     lily_type *type, *type_temp;
 
     /* Destroy the types before the classes, since the types need to check
@@ -870,14 +853,12 @@ void lily_free_symtab(lily_symtab *symtab)
         j++;
         type_temp = type->next;
 
-        /* The subtypes is either NULL or set to something that needs to be
-           deleted. */
         free_mem(type->subtypes);
         free_mem(type);
         type = type_temp;
     }
 
-    lily_import_entry *import_iter = symtab->builtin_import;
+    import_iter = symtab->builtin_import;
     while (import_iter) {
         free_classes(symtab, import_iter->class_chain);
 
