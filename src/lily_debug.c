@@ -705,6 +705,10 @@ void lily_show_value(lily_vm_state *vm, lily_value *value)
     debug.vm = vm;
     debug.data = vm->data;
 
+    /* Make sure this is clear so output from it doesn't show at the front of
+       everything. */
+    lily_msgbuf_flush(debug.msgbuf);
+
     lily_impl_puts(debug.data, "Value: ");
     show_value(&debug, value);
 }
