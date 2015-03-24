@@ -152,8 +152,6 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
     parser->vm = lily_new_vm_state(mem_func, raiser, data);
     parser->membuf = lily_membuf_new(mem_func, raiser);
 
-    lily_emit_try_enter_main(parser->emit, parser->symtab->main_var);
-
     parser->vm->main = parser->symtab->main_var;
     parser->vm->symtab = parser->symtab;
     parser->vm->ts = parser->emit->ts;
@@ -170,6 +168,8 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
 
     parser->lex->symtab = parser->symtab;
     parser->lex->membuf = parser->ast_pool->ast_membuf;
+
+    lily_emit_try_enter_main(parser->emit, parser->symtab->main_var);
 
     /* When declaring a new function, initially give it the same type as
        __main__. This ensures that, should building the proper type fail, the
