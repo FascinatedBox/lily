@@ -1770,7 +1770,8 @@ void lily_leave_import(lily_symtab *symtab)
     symtab->active_import->import_chain = new_link;
 }
 
-static lily_import_entry *locate_import(lily_import_entry *import, char *name)
+lily_import_entry *lily_find_import_within(lily_import_entry *import,
+        char *name)
 {
     lily_import_link *link_iter = import->import_chain;
     lily_import_entry *result = NULL;
@@ -1790,11 +1791,11 @@ static lily_import_entry *locate_import(lily_import_entry *import, char *name)
 lily_import_entry *lily_find_import(lily_symtab *symtab,
         lily_import_entry *import, char *name)
 {
-    lily_import_entry *result = locate_import(import, name);
+    lily_import_entry *result = lily_find_import_within(import, name);
     if (result)
         return result;
 
-    return locate_import(symtab->builtin_import, name);
+    return lily_find_import_within(symtab->builtin_import, name);
 }
 
 void lily_tie_value(lily_symtab *symtab, lily_var *var, lily_value *value)

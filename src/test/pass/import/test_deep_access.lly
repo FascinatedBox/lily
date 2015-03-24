@@ -1,0 +1,5 @@
+import test_deep_middle
+
+if test_deep_middle::test_deep_bottom::bottomFunc(10) != 10:
+    print("Failed!\n")
+
