@@ -1392,25 +1392,6 @@ void lily_load_copy_string(lily_lex_state *lexer, char *name,
     setup_entry(lexer, new_entry, mode);
 }
 
-/*  lily_load_special
-    This creates a new entry for the lexer that will use data provided by the
-    runner. The runner is responsible for providing a data source, a filename,
-    a read function, and a close function.
-
-    The mode determines if the given entry will parse tags or not. */
-void lily_load_special(lily_lex_state *lexer, lily_lex_mode mode, void *source,
-    char *filename, lily_reader_fn read_line_fn, lily_close_fn close_fn)
-{
-    lily_lex_entry *new_entry = get_entry(lexer);
-    new_entry->source = source;
-    new_entry->read_line_fn = read_line_fn;
-    new_entry->close_fn = close_fn;
-    new_entry->filename = filename;
-
-    lexer->filename = filename;
-    setup_entry(lexer, new_entry, mode);
-}
-
 void load_import(lily_lex_state *lexer, char *filename, FILE *f)
 {
     lily_lex_entry *new_entry = get_entry(lexer);

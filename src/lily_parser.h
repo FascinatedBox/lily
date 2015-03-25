@@ -46,8 +46,6 @@ void lily_free_parse_state(lily_parse_state *);
 lily_parse_state *lily_new_parse_state(lily_mem_func, void *, int, char **);
 int lily_parse_file(lily_parse_state *, lily_lex_mode, char *);
 int lily_parse_string(lily_parse_state *, char *, lily_lex_mode, char *);
-int lily_parse_special(lily_parse_state *, lily_lex_mode, void *, char *,
-    lily_reader_fn, lily_close_fn);
 
 void lily_begin_package(lily_parse_state *, char *);
 void lily_end_package(lily_parse_state *);
