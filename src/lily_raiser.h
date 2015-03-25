@@ -6,16 +6,15 @@
 # include "lily_core_types.h"
 # include "lily_msgbuf.h"
 
-# define lily_SyntaxError          0
-# define lily_ImportError          1
-# define lily_EncodingError        2
-# define lily_DivisionByZeroError  3
-# define lily_IndexError           4
-# define lily_BadTypecastError     5
-# define lily_ValueError           6
-# define lily_RecursionError       7
-# define lily_KeyError             8
-# define lily_FormatError          9
+# define lily_Error               0
+# define lily_SyntaxError         1
+# define lily_DivisionByZeroError 2
+# define lily_IndexError          3
+# define lily_BadTypecastError    4
+# define lily_ValueError          5
+# define lily_RecursionError      6
+# define lily_KeyError            7
+# define lily_FormatError         8
 
 typedef struct lily_raiser_t {
     /* The raiser will typically have two jumps: One for the vm to catch runtime
