@@ -143,18 +143,6 @@ static const lily_token grp_two_eq_table[] =
 #define realloc_mem(ptr, size)       lexer->mem_func(ptr, size)
 #define free_mem(ptr)          (void)lexer->mem_func(ptr, 0)
 
-static void set_includes(lily_lex_state *lexer)
-{
-    char **includes = malloc_mem(2 * sizeof(char *));
-
-    includes[0] = malloc_mem(2 * sizeof(char));
-    strcpy(includes[0], "");
-
-    includes[1] = NULL;
-
-    lexer->include_paths = includes;
-}
-
 /** Lexer init and deletion **/
 lily_lex_state *lily_new_lex_state(lily_mem_func mem_func, lily_raiser *raiser,
         void *data)
@@ -183,8 +171,6 @@ lily_lex_state *lily_new_lex_state(lily_mem_func mem_func, lily_raiser *raiser,
     lexer->label_size = 128;
     /* This must start at 0 since the line reader will bump it by one. */
     lexer->line_num = 0;
-
-    set_includes(lexer);
 
     /* Initialize ch_class, which is used to determine what 'class' a letter
        is in. */
@@ -260,11 +246,6 @@ void lily_free_lex_state(lily_lex_state *lexer)
         }
     }
 
-    int i = 0;
-    for (i = 0;lexer->include_paths[i];i++)
-        free_mem(lexer->include_paths[i]);
-
-    free_mem(lexer->include_paths);
     free_mem(lexer->lambda_data);
     free_mem(lexer->input_buffer);
     free_mem(lexer->ch_class);
@@ -1326,6 +1307,30 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
       a file for apache, I can clone them over for plain interpreter use with
       no fuss). */
 
+static void setup_opened_file(lily_lex_state *lexer, lily_lex_mode mode,
+        FILE *f, char *filename)
+{
+    lily_lex_entry *new_entry = get_entry(lexer);
+
+    new_entry->read_line_fn = file_read_line_fn;
+    new_entry->close_fn = file_close_fn;
+    new_entry->filename = filename;
+    new_entry->source = f;
+
+    lexer->filename = filename;
+    setup_entry(lexer, new_entry, mode);
+}
+
+int lily_try_load_file(lily_lex_state *lexer, char *filename)
+{
+    FILE *load_file = fopen(filename, "r");
+    if (load_file == NULL)
+        return 0;
+
+    setup_opened_file(lexer, lm_no_tags, load_file, filename);
+    return 1;
+}
+
 /*  lily_load_file
     This function creates a new entry for the lexer based off a fopen-ing the
     given path. This will call up the first line and ensure the lexer starts
@@ -1334,22 +1339,12 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
     Note: If unable to open the given path, an error is raised. */
 void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
 {
-    lily_lex_entry *new_entry = get_entry(lexer);
-
-    new_entry->read_line_fn = file_read_line_fn;
-    new_entry->close_fn = file_close_fn;
-    new_entry->filename = filename;
-
-    errno = 0;
-    new_entry->source = fopen(filename, "r");
-    if (new_entry->source == NULL) {
-        free_mem(new_entry);
+    FILE *load_file = fopen(filename, "r");
+    if (load_file == NULL)
         lily_raise(lexer->raiser, lily_Error, "Failed to open %s: (^R).\n",
                 filename, errno);
-    }
 
-    lexer->filename = filename;
-    setup_entry(lexer, new_entry, mode);
+    setup_opened_file(lexer, mode, load_file, filename);
 }
 
 /*  lily_load_str
@@ -1390,44 +1385,6 @@ void lily_load_copy_string(lily_lex_state *lexer, char *name,
 
     lexer->filename = name;
     setup_entry(lexer, new_entry, mode);
-}
-
-void load_import(lily_lex_state *lexer, char *filename, FILE *f)
-{
-    lily_lex_entry *new_entry = get_entry(lexer);
-    new_entry->read_line_fn = file_read_line_fn;
-    new_entry->close_fn = file_close_fn;
-    new_entry->filename = filename;
-    new_entry->source = f;
-
-    lexer->filename = filename;
-    setup_entry(lexer, new_entry, lm_no_tags);
-}
-
-lily_lex_entry *lily_import_name(lily_lex_state *lexer, char *name)
-{
-    int i = 0;
-    char *dirpath = lexer->include_paths[i];
-    lily_membuf *membuf = lexer->membuf;
-    int restore_pos = 0;
-    FILE *f = NULL;
-    while (dirpath) {
-        restore_pos = lily_membuf_add_three(membuf, dirpath, name, ".lly");
-        char *fullpath = lily_membuf_get(membuf, restore_pos);
-        f = fopen(fullpath, "r");
-        if (f)
-            break;
-
-        dirpath = lexer->include_paths[i];
-        i++;
-    }
-
-    if (f == NULL)
-        lily_raise(lexer->raiser, lily_SyntaxError,
-                "Cannot import name '%s'.\n", name);
-
-    load_import(lexer, lily_membuf_get(membuf, restore_pos), f);
-    return lexer->entry;
 }
 
 /* lily_lexer

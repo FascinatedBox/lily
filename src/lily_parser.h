@@ -21,6 +21,7 @@ typedef struct lily_parse_state_t {
     uint16_t class_depth;
     uint16_t next_lambda_id;
 
+    char **import_paths;
     lily_import_entry *import_top;
     lily_import_entry *import_start;
 
