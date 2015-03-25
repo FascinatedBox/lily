@@ -86,6 +86,18 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *, char *,
 /* Parser creation and teardown                                              */
 /*****************************************************************************/
 
+static void set_import_paths(lily_parse_state *parser)
+{
+    char **paths = malloc_mem(2 * sizeof(char *));
+
+    paths[0] = malloc_mem(2 * sizeof(char));
+    strcpy(paths[0], "");
+
+    paths[1] = NULL;
+
+    parser->import_paths = paths;
+}
+
 static void do_bootstrap(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -169,6 +181,8 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
     parser->lex->symtab = parser->symtab;
     parser->lex->membuf = parser->ast_pool->ast_membuf;
 
+    set_import_paths(parser);
+
     lily_emit_try_enter_main(parser->emit, parser->symtab->main_var);
 
     /* When declaring a new function, initially give it the same type as
@@ -203,6 +217,13 @@ void lily_free_parse_state(lily_parse_state *parser)
     lily_free_lex_state(parser->lex);
 
     lily_free_emit_state(parser->emit);
+
+    int i = 0;
+    for (i = 0;parser->import_paths[i];i++)
+        free_mem(parser->import_paths[i]);
+
+    free_mem(parser->import_paths);
+
 
     lily_import_entry *import_iter = parser->import_start;
     lily_import_entry *import_next = NULL;
@@ -2015,16 +2036,40 @@ static void except_handler(lily_parse_state *parser, int multi)
         statement(parser, multi);
 }
 
+static void load_import(lily_parse_state *parser, char *name)
+{
+    int i = 0, ok = 0;
+    char *dirpath = parser->import_paths[i];
+    lily_membuf *membuf = parser->membuf;
+    lily_lex_state *lex = parser->lex;
+
+    while (dirpath) {
+        int restore_pos = lily_membuf_add_three(membuf, dirpath, name, ".lly");
+        char *fullpath = lily_membuf_get(membuf, restore_pos);
+        if (lily_try_load_file(lex, fullpath)) {
+            ok = 1;
+            break;
+        }
+
+        dirpath = parser->import_paths[i];
+        i++;
+    }
+
+    if (ok == 0)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Cannot import name '%s'.\n", name);
+}
+
 static void import_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
     NEED_CURRENT_TOK(tk_word)
 
-    lily_lex_entry *entry = lily_import_name(parser->lex,
-            parser->lex->label);
+    load_import(parser, parser->lex->label);
 
     lily_import_entry *import_entry = make_new_import_entry(parser,
-            parser->lex->label, entry->filename);
+            parser->lex->label, parser->lex->entry->filename);
+
     lily_enter_import(parser->symtab, import_entry);
 
     /* lily_emit_enter_block will write new code to this special var. */

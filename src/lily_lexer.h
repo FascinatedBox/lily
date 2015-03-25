@@ -121,8 +121,6 @@ typedef struct lily_lex_state_t {
     uint16_t input_pos;
     uint16_t label_size;
 
-    char **include_paths;
-
     char *lambda_data;
     uint32_t lambda_data_size;
     uint32_t lambda_start_line;
@@ -149,10 +147,10 @@ void lily_lexer_digit_rescan(lily_lex_state *);
 void lily_load_file(lily_lex_state *, lily_lex_mode, char *);
 void lily_load_str(lily_lex_state *, char *, lily_lex_mode, char *);
 void lily_load_copy_string(lily_lex_state *, char *, lily_lex_mode, char *);
+int lily_try_load_file(lily_lex_state *, char *);
+
 void lily_pop_lex_entry(lily_lex_state *);
 lily_lex_state *lily_new_lex_state(lily_mem_func, lily_raiser *, void *);
 char *tokname(lily_token);
-
-lily_lex_entry *lily_import_name(lily_lex_state *, char *);
 
 #endif
