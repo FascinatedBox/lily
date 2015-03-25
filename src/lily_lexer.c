@@ -1266,14 +1266,14 @@ void lily_lexer_utf8_check(lily_lex_state *lexer)
                 int j;
                 for (j = 1;j < followers;j++,ch++) {
                     if (((unsigned char)*ch) < 128) {
-                        lily_raise(lexer->raiser, lily_EncodingError,
+                        lily_raise(lexer->raiser, lily_Error,
                                    "Invalid utf-8 sequence on line %d.\n",
                                    lexer->line_num);
                     }
                 }
             }
             else if (followers == -1) {
-                lily_raise(lexer->raiser, lily_EncodingError,
+                lily_raise(lexer->raiser, lily_Error,
                            "Invalid utf-8 sequence on line %d.\n",
                            lexer->line_num);
             }
@@ -1331,7 +1331,7 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
     given path. This will call up the first line and ensure the lexer starts
     after the <?lily block.
 
-    Note: If unable to open the given path, ImportError is raised. */
+    Note: If unable to open the given path, an error is raised. */
 void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
 {
     lily_lex_entry *new_entry = get_entry(lexer);
@@ -1344,8 +1344,8 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
     new_entry->source = fopen(filename, "r");
     if (new_entry->source == NULL) {
         free_mem(new_entry);
-        lily_raise(lexer->raiser, lily_ImportError,
-                   "Failed to open %s: (^R).\n", filename, errno);
+        lily_raise(lexer->raiser, lily_Error, "Failed to open %s: (^R).\n",
+                filename, errno);
     }
 
     lexer->filename = filename;
