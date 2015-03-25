@@ -23,77 +23,6 @@ void lily_impl_puts(void *data, char *text)
     ap_rputs(text, (request_rec *)data);
 }
 
-static int apache_read_line_fn(lily_lex_entry *entry)
-{
-    char ch;
-    int bufsize, i, ok, utf8_check;
-    lily_lex_state *lexer = entry->lexer;
-    char *input_buffer = lexer->input_buffer;
-    apr_file_t *input_file = (apr_file_t *)entry->source;
-    apr_status_t result;
-    bufsize = lexer->input_size;
-
-    i = 0;
-    utf8_check = 0;
-
-    while (1) {
-        result = apr_file_getc(&ch, input_file);
-        if ((i + 2) == bufsize) {
-            lily_grow_lexer_buffers(lexer);
-
-            input_buffer = lexer->input_buffer;
-        }
-
-        if (result != APR_SUCCESS) {
-            lexer->input_buffer[i] = '\n';
-            lexer->input_buffer[i+1] = '\0';
-            lexer->input_end = i + 1;
-            /* If i is 0, then nothing is on this line except eof. Return 0 to
-               let the caller know this is the end. Don't bump the line number
-               because it's already been counted.
-
-             * If it isn't 0, then the last line ended with an eof instead of a
-               newline. Return 1 to let the caller know that there's more. The
-               line number is also bumped (since a line has been scanned in). */
-            ok = !!i;
-            lexer->line_num += ok;
-            break;
-        }
-
-        input_buffer[i] = ch;
-
-        if (ch == '\r' || ch == '\n') {
-            lexer->input_end = i;
-            lexer->line_num++;
-            ok = 1;
-
-            if (ch == '\r') {
-                input_buffer[i] = '\n';
-                apr_file_getc(&ch, input_file);
-                if (ch != '\n')
-                    apr_file_ungetc(ch, input_file);
-            }
-
-            input_buffer[i + 1] = '\0';
-            break;
-        }
-        else if (((unsigned char)ch) > 127)
-            utf8_check = 1;
-
-        i++;
-    }
-
-    if (utf8_check)
-        lily_lexer_utf8_check(lexer);
-
-    return ok;
-}
-
-static void apache_close_fn(lily_lex_entry *entry)
-{
-    apr_file_close(entry->source);
-}
-
 
 /** Shared common functions **/
 
@@ -285,21 +214,11 @@ static int lily_handler(request_rec *r)
 
     r->content_type = "text/html";
 
-    apr_file_t *lily_file;
-    apr_status_t result;
-    result = apr_file_open(&lily_file, r->filename, APR_READ, APR_OS_DEFAULT,
-            r->pool);
-
-    /* File not found? Give up now. */
-    if (result != APR_SUCCESS)
-        return DECLINED;
-
     lily_parse_state *parser = lily_new_parse_state(NULL, r, 0, NULL);
 
     apache_bind_server(parser, r);
 
-    lily_parse_special(parser, lm_tags, lily_file, r->filename,
-        apache_read_line_fn, apache_close_fn);
+    lily_parse_file(parser, lm_tags, r->filename);
 
     lily_free_parse_state(parser);
 
