@@ -11,9 +11,8 @@ void lily_pkg_sys_init(lily_parse_state *parser, int argc, char **argv)
     lily_begin_package(parser, "sys");
 
 
-    const int ids[] = {SYM_CLASS_LIST, SYM_CLASS_STRING};
     lily_symtab *symtab = parser->symtab;
-    lily_type *list_string_type = lily_type_from_ids(symtab, ids);
+    lily_type *list_string_type = lily_type_by_name(parser, "list[string]");
     lily_type *string_type = list_string_type->subtypes[0];
     lily_var *bound_var = lily_new_var(symtab, list_string_type, "argv", 0);
 

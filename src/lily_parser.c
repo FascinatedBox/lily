@@ -2797,3 +2797,18 @@ void lily_end_package(lily_parse_state *parser)
 {
     lily_leave_import(parser->symtab);
 }
+
+/*  lily_type_by_name
+    This parses the name given and returns a type that represents it. This is
+    useful for foreign sources that want to easily create a complex type.
+    Since this is called by a module, it is assumed that 'name' is a properly
+    formed type. */
+lily_type *lily_type_by_name(lily_parse_state *parser, char *name)
+{
+    lily_load_copy_string(parser->lex, "[api]", lm_no_tags, name);
+    lily_lexer(parser->lex);
+    lily_type *result = collect_var_type(parser, 0);
+    lily_pop_lex_entry(parser->lex);
+
+    return result;
+}
