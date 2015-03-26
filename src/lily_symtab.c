@@ -290,82 +290,6 @@ static void finalize_type(lily_type *input_type)
         input_type->flags |= TYPE_MAYBE_CIRCULAR;
 }
 
-/*  ensure_unique_type
-    This function is used by seed scanning to make sure that something with the
-    same meaning as the given type doesn't exist. This is a good thing,
-    because it allows type == type comparisons (emitter and vm do this often).
-
-    However, this function relies upon building a type to check it. The
-    problem with this is that it...trashes types if they're duplicates. So
-    it's rather wasteful. This will go away when seed scanning goes away. */
-static lily_type *ensure_unique_type(lily_symtab *symtab, lily_type *input_type)
-{
-    lily_type *iter_type = symtab->root_type;
-    lily_type *previous_type = NULL;
-    int match = 0;
-
-    /* This just means that input_type was the last type created. */
-    if (iter_type == input_type)
-        iter_type = iter_type->next;
-
-    while (iter_type) {
-        if (iter_type->cls == input_type->cls) {
-            if (iter_type->subtypes      != NULL &&
-                iter_type->subtype_count == input_type->subtype_count &&
-                iter_type               != input_type) {
-                int i;
-                match = 1;
-                for (i = 0;i < iter_type->subtype_count;i++) {
-                    if (iter_type->subtypes[i] != input_type->subtypes[i]) {
-                        match = 0;
-                        break;
-                    }
-                }
-
-                if (match == 1)
-                    break;
-            }
-            /* Make sure scan_seed_type doesn't create non-unique generics. */
-            else if (input_type->cls->id == SYM_CLASS_GENERIC &&
-                     input_type->generic_pos == iter_type->generic_pos) {
-                match = 1;
-                break;
-            }
-        }
-
-        if (iter_type->next == input_type)
-            previous_type = iter_type;
-
-        iter_type = iter_type->next;
-    }
-
-    finalize_type(input_type);
-
-    if (match) {
-        /* Remove input_type from the symtab's type chain. */
-        if (symtab->root_type == input_type)
-            /* It is the root, so just advance the root. */
-            symtab->root_type = symtab->root_type->next;
-        else {
-            /* Make the type before it link to the node after it. This is
-               theoretically safe because the chain goes from recent to least
-               recent. So this should find the input type before it finds
-               one that equals it (and set previous_type to something valid). */
-            previous_type->next = input_type->next;
-        }
-
-        /* This is either NULL or something that only this type uses. Don't free
-           what's inside of the subtypes though, since that's other types
-           still in the chain. */
-        free_mem(input_type->subtypes);
-        free_mem(input_type);
-
-        input_type = iter_type;
-    }
-
-    return input_type;
-}
-
 static lily_type *lookup_generic(lily_symtab *symtab, const char *name)
 {
     int id = name[0] - 'A';
@@ -416,104 +340,6 @@ static lily_var *find_var(lily_var *var_iter, char *name, uint64_t shorthash)
     }
 
     return var_iter;
-}
-
-/*****************************************************************************/
-/* 'Seed'-handling functions                                                 */
-/*****************************************************************************/
-
-/*  scan_seed_arg
-    This takes a series of int's and uses them to define a new type. This
-    is currently only used by lily_cls_* files and builtin functions for
-    defining function information. This also gets used to help create the type
-    for properties.
-
-    This function will be destroyed soon. Passing a series of integers makes it
-    impossible to have various modules imported by the interpreter (class 50
-    could be a regexp or a database class). */
-static lily_type *scan_seed_arg(lily_symtab *symtab, const int *arg_ids,
-        int *pos, int *ok)
-{
-    lily_type *ret;
-    int arg_id = arg_ids[*pos];
-    int seed_pos = *pos + 1;
-    *ok = 1;
-
-    if (arg_id == -1)
-        ret = NULL;
-    else {
-        lily_class *arg_class = lily_class_by_id(symtab, arg_id);
-        if (arg_class->type && arg_class->id != SYM_CLASS_GENERIC)
-            ret = arg_class->type;
-        else {
-            lily_type *complex_type = lily_type_for_class(symtab, arg_class);
-            lily_type **subtypes;
-            int subtype_count;
-            int flags = 0;
-
-            if (arg_id == SYM_CLASS_GENERIC) {
-                if (complex_type)
-                    complex_type->generic_pos = arg_ids[seed_pos];
-                else
-                    *ok = 0;
-
-                seed_pos++;
-                subtypes = NULL;
-                subtype_count = 0;
-            }
-            else {
-                if (arg_class->generic_count == -1) {
-                    /* -1 means it takes a specified number of values. */
-                    subtype_count = arg_ids[seed_pos];
-                    seed_pos++;
-                    /* Function needs flags in case the thing is varargs. */
-                    if (arg_id == SYM_CLASS_FUNCTION) {
-                        flags = arg_ids[seed_pos];
-                        seed_pos++;
-                    }
-                }
-                else {
-                    subtype_count = arg_class->generic_count;
-                    flags = 0;
-                }
-
-                subtypes = malloc_mem(subtype_count * sizeof(lily_type *));
-                if (subtypes) {
-                    int i;
-                    for (i = 0;i < subtype_count;i++) {
-                        subtypes[i] = scan_seed_arg(symtab, arg_ids, &seed_pos,
-                                ok);
-
-                        if (*ok == 0)
-                            break;
-                    }
-
-                    if (*ok == 0) {
-                        /* This isn't tied to anything, so free it. Inner args
-                           have already been ensured, so don't touch them. */
-                        free_mem(subtypes);
-                        subtypes = NULL;
-                        *ok = 0;
-                    }
-                }
-                else
-                    *ok = 0;
-            }
-
-            if (*ok == 1 && complex_type != NULL) {
-                complex_type->subtypes = subtypes;
-                complex_type->subtype_count = subtype_count;
-                complex_type->flags = flags;
-                complex_type = ensure_unique_type(symtab, complex_type);
-                ret = complex_type;
-            }
-            else
-                ret = NULL;
-        }
-    }
-
-    *pos = seed_pos;
-    return ret;
 }
 
 /*****************************************************************************/
@@ -1096,10 +922,7 @@ lily_type *lily_type_for_class(lily_symtab *symtab, lily_class *cls)
     lily_type *type;
 
     /* init_classes doesn't make a default type for classes that need complex
-       types. This works so long as init_classes works right.
-       The second part is so that seed scanning doesn't tamper with the type of
-       the generic class (which gets changed around so that parser can
-       understand generics). */
+       types. This works so long as init_classes works right. */
     if (cls->type == NULL || cls->id == SYM_CLASS_GENERIC) {
         type = malloc_mem(sizeof(lily_type));
         if (type != NULL) {
@@ -1347,17 +1170,6 @@ void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
         var_iter->flags |= SYM_OUT_OF_SCOPE;
         var_iter = var_iter->next;
     }
-}
-
-/*  lily_type_from_ids
-    This is used by the apache module to create a type in a less-awful
-    way than doing it manually. This unfortunately uses the really awful seed
-    scanning functions.
-    In the future, there will be something to get a type from a string. */
-lily_type *lily_type_from_ids(lily_symtab *symtab, const int *ids)
-{
-    int pos = 0, ok = 1;
-    return scan_seed_arg(symtab, ids, &pos, &ok);
 }
 
 /*  lily_build_ensure_type

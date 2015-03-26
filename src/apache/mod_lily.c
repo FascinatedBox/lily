@@ -40,12 +40,10 @@ static lily_hash_elem *bind_hash_elem_with_values(lily_mem_func mem_func,
     return elem;
 }
 
-static lily_var *bind_hash_str_str_var(lily_symtab *symtab, char *name)
+static lily_var *bind_hash_str_str_var(lily_parse_state *parser, char *name)
 {
-    /* hash[str, str] */
-    const int ids[] = {SYM_CLASS_HASH, SYM_CLASS_STRING, SYM_CLASS_STRING};
-
-    lily_type *hash_type = lily_type_from_ids(symtab, ids);
+    lily_symtab *symtab = parser->symtab;
+    lily_type *hash_type = lily_type_by_name(parser, "hash[string, string]");
     lily_var *bind_var = lily_new_var(symtab, hash_type, name, 0);
 
     return bind_var;
@@ -96,7 +94,7 @@ static void bind_table_as(lily_parse_state *parser, request_rec *r,
 {
     lily_symtab *symtab = parser->symtab;
 
-    lily_var *hash_var = bind_hash_str_str_var(symtab, name);
+    lily_var *hash_var = bind_hash_str_str_var(parser, name);
     lily_hash_val *hash_val = get_new_tied_hash(symtab, hash_var);
 
     struct table_bind_data data;
@@ -146,7 +144,7 @@ static void bind_httpmethod(lily_parse_state *parser, request_rec *r)
 
 static void bind_post(lily_parse_state *parser, request_rec *r)
 {
-    lily_var *post_var = bind_hash_str_str_var(parser->symtab, "post");
+    lily_var *post_var = bind_hash_str_str_var(parser, "post");
     lily_hash_val *hash_val = get_new_tied_hash(parser->symtab, post_var);
 
     apr_array_header_t *pairs;
