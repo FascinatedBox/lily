@@ -367,8 +367,7 @@ static void call_class_setups(lily_symtab *symtab)
     inside of a Lily function. */
 static void init_lily_main(lily_symtab *symtab)
 {
-    lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_FUNCTION);
-    lily_type *new_type = lily_type_for_class(symtab, cls);
+    lily_type *new_type = lily_type_for_class(symtab, symtab->function_class);
 
     new_type->subtypes = malloc_mem(2 * sizeof(lily_type));
     new_type->subtypes[0] = NULL;
@@ -446,6 +445,23 @@ static void init_classes(lily_symtab *symtab)
         new_class->next = symtab->class_chain;
         symtab->class_chain = new_class;
     }
+
+    /* Classes are linked with the most recent being the first. Each of the
+       built-in classes created here has a *_class entry in symtab, except for
+       the generic class. */
+
+    /* This skips the generic class, starting at the tuple class. */
+    lily_class *class_iter = symtab->class_chain->next;
+    symtab->tuple_class      = class_iter; class_iter = class_iter->next;
+    symtab->hash_class       = class_iter; class_iter = class_iter->next;
+    symtab->list_class       = class_iter; class_iter = class_iter->next;
+    symtab->any_class        = class_iter; class_iter = class_iter->next;
+    symtab->function_class   = class_iter; class_iter = class_iter->next;
+    symtab->symbol_class     = class_iter; class_iter = class_iter->next;
+    symtab->bytestring_class = class_iter; class_iter = class_iter->next;
+    symtab->string_class     = class_iter; class_iter = class_iter->next;
+    symtab->double_class     = class_iter; class_iter = class_iter->next;
+    symtab->integer_class    = class_iter;
 
     symtab->builtin_import->class_chain = symtab->class_chain;
 
@@ -723,7 +739,7 @@ lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
 {
     lily_literal *lit, *ret;
     ret = NULL;
-    lily_class *integer_cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
+    lily_class *integer_cls = symtab->integer_class;
     lily_type *want_type = integer_cls->type;
 
     for (lit = symtab->lit_chain;lit != NULL;lit = lit->next) {
@@ -745,7 +761,7 @@ lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
 {
     lily_literal *lit, *ret;
     ret = NULL;
-    lily_class *double_cls = lily_class_by_id(symtab, SYM_CLASS_DOUBLE);
+    lily_class *double_cls = symtab->double_class;
     lily_type *want_type = double_cls->type;
 
     for (lit = symtab->lit_chain;lit != NULL;lit = lit->next) {
@@ -780,7 +796,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab, char *want_string)
     }
 
     if (ret == NULL) {
-        lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_STRING);
+        lily_class *cls = symtab->string_class;
         char *string_buffer = malloc_mem((want_string_len + 1) * sizeof(char));
         lily_string_val *sv = malloc_mem(sizeof(lily_string_val));
 
@@ -814,7 +830,7 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
     }
 
     if (ret == NULL) {
-        lily_class *cls = lily_class_by_id(symtab, SYM_CLASS_BYTESTRING);
+        lily_class *cls = symtab->bytestring_class;
         char *buffer = malloc_mem(want_string_len * sizeof(char));
         lily_string_val *bv = malloc_mem(sizeof(lily_string_val));
 
@@ -853,7 +869,7 @@ lily_literal *lily_get_symbol_literal(lily_symtab *symtab, char *want_string)
        hold it. From here, determine if the symbol has been created by a foreign
        source from a previous run. */
 
-    lily_class *symbol_cls = lily_class_by_id(symtab, SYM_CLASS_SYMBOL);
+    lily_class *symbol_cls = symtab->symbol_class;
     lily_literal *new_lit = make_new_literal(symtab, symbol_cls);
     lily_weak_symbol_entry *foreign_iter = symtab->foreign_symbols;
     lily_symbol_val *symv = NULL;
@@ -940,28 +956,6 @@ lily_type *lily_type_for_class(lily_symtab *symtab, lily_class *cls)
         type = cls->type;
 
     return type;
-}
-
-lily_class *find_class_by_id(lily_class *class_iter, int class_id)
-{
-    while (class_iter) {
-        if (class_iter->id == class_id)
-            break;
-
-        class_iter = class_iter->next;
-    }
-
-    return class_iter;
-}
-
-lily_class *lily_class_by_id(lily_symtab *symtab, int class_id)
-{
-    lily_class *result = find_class_by_id(symtab->builtin_import->class_chain,
-            class_id);
-    if (result == NULL)
-        result = find_class_by_id(symtab->class_chain, class_id);
-
-    return result;
 }
 
 lily_symbol_val *lily_symbol_by_name(lily_symtab *symtab, char *text)

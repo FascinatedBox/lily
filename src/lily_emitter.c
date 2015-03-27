@@ -591,9 +591,7 @@ static void emit_rebox_value(lily_emit_state *emit, lily_type *new_type,
     with a type of class any. */
 static void emit_rebox_to_any(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_class *any_cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
-
-    emit_rebox_value(emit, any_cls->type, ast);
+    emit_rebox_value(emit, emit->symtab->any_class->type, ast);
 }
 
 
@@ -1164,7 +1162,7 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
         /* assign is handled elsewhere, so these are just comparison ops. These
            always return 0 or 1, regardless of the classes put in. There's no
            bool class (yet), so an integer class is used instead. */
-        storage_class = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
+        storage_class = emit->symtab->integer_class;
 
     s = get_storage(emit, storage_class->type, ast->line_num);
     s->flags |= SYM_NOT_ASSIGNABLE;
@@ -1496,9 +1494,8 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         int save_pos;
         lily_literal *success_lit, *failure_lit;
         lily_symtab *symtab = emit->symtab;
-        lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
 
-        result = get_storage(emit, cls->type, ast->line_num);
+        result = get_storage(emit, symtab->integer_class->type, ast->line_num);
 
         success_lit = lily_get_integer_literal(symtab,
                 (ast->op == expr_logical_and));
@@ -1652,15 +1649,15 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     lily_class *lhs_class;
     lily_storage *storage;
     lhs_class = ast->left->result->type->cls;
+    lily_class *integer_class = emit->symtab->integer_class;
 
-    if (lhs_class->id != SYM_CLASS_INTEGER)
+    if (lhs_class != integer_class)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
                 "Invalid operation: %s%s.\n",
                 opname(ast->op), lhs_class->name);
 
-    lily_class *integer_cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
-
-    storage = get_storage(emit, integer_cls->type, ast->line_num);
+    storage = get_storage(emit, integer_class->type,
+            ast->line_num);
     storage->flags |= SYM_NOT_ASSIGNABLE;
 
     if (ast->op == expr_unary_minus)
@@ -1702,7 +1699,7 @@ static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
     lily_ast *tree_iter = ast->arg_start;
     int enum_count = 0, variant_count = 0;
     lily_type *rebox_type = NULL;
-    lily_class *any_class = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
+    lily_class *any_class = emit->symtab->any_class;
 
     /* If ast is tree_hash (is_hash == 1), then the values are key, value, key
        value, and so on. This is about the values, not the keys. */
@@ -1992,7 +1989,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         last_value_type = ast->arg_start->next_arg->result->type;
     }
 
-    lily_class *hash_cls = lily_class_by_id(emit->symtab, SYM_CLASS_HASH);
+    lily_class *hash_cls = emit->symtab->hash_class;
     lily_ts_set_ceiling_type(emit->ts, last_key_type, 0);
     lily_ts_set_ceiling_type(emit->ts, last_value_type, 1);
     lily_type *new_type = lily_ts_build_by_ceiling(emit->ts, hash_cls, 2, 0);
@@ -2147,7 +2144,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     if (elem_type == NULL && last_type == NULL) {
         /* This happens when there's an empty list and a list is probably not
            expected. Default to list[any] and hope that's right. */
-        lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_ANY);
+        lily_class *cls = emit->symtab->any_class;
         elem_type = cls->type;
     }
     else if (last_type != NULL) {
@@ -2163,9 +2160,9 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         elem_type = ast->arg_start->result->type;
     }
 
-    lily_class *list_cls = lily_class_by_id(emit->symtab, SYM_CLASS_LIST);
     lily_ts_set_ceiling_type(emit->ts, elem_type, 0);
-    lily_type *new_type = lily_ts_build_by_ceiling(emit->ts, list_cls, 1, 0);
+    lily_type *new_type = lily_ts_build_by_ceiling(emit->ts,
+            emit->symtab->list_class, 1, 0);
 
     lily_storage *s = get_storage(emit, new_type, ast->line_num);
 
@@ -2254,8 +2251,8 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
         lily_ts_set_ceiling_type(emit->ts, arg->result->type, i);
     }
 
-    lily_class *tuple_cls = lily_class_by_id(emit->symtab, SYM_CLASS_TUPLE);
-    lily_type *new_type = lily_ts_build_by_ceiling(emit->ts, tuple_cls, i, 0);
+    lily_type *new_type = lily_ts_build_by_ceiling(emit->ts,
+            emit->symtab->tuple_class, i, 0);
     lily_storage *s = get_storage(emit, new_type, ast->line_num);
 
     write_build_op(emit, o_build_list_tuple, ast->arg_start, ast->line_num,
@@ -3298,7 +3295,7 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
         int line_num)
 {
     lily_block *loop_block = emit->block;
-    lily_class *cls = lily_class_by_id(emit->symtab, SYM_CLASS_INTEGER);
+    lily_class *cls = emit->symtab->integer_class;
 
     int have_step = (for_step != NULL);
     if (have_step == 0) {

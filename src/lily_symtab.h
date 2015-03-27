@@ -65,6 +65,19 @@ typedef struct {
        if a var is a local or a global. */
     uint64_t function_depth;
 
+    /* These classes are used frequently throughout the interpreter, so they're
+       kept here for easy, fast access. */
+    lily_class *integer_class;
+    lily_class *double_class;
+    lily_class *string_class;
+    lily_class *bytestring_class;
+    lily_class *symbol_class;
+    lily_class *any_class;
+    lily_class *function_class;
+    lily_class *list_class;
+    lily_class *hash_class;
+    lily_class *tuple_class;
+
     uint32_t *lex_linenum;
     lily_mem_func mem_func;
     lily_raiser *raiser;
@@ -82,7 +95,6 @@ lily_literal *lily_get_symbol_literal(lily_symtab *, char *);
 lily_literal *lily_get_variant_literal(lily_symtab *, lily_type *);
 
 lily_symbol_val *lily_symbol_by_name(lily_symtab *, char *);
-lily_class *lily_class_by_id(lily_symtab *, int);
 lily_class *lily_class_by_name(lily_symtab *, const char *);
 lily_class *lily_class_by_name_within(lily_import_entry *, char *);
 lily_var *lily_find_class_callable(lily_symtab *, lily_class *, char *);
