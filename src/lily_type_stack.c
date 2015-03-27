@@ -77,9 +77,7 @@ static lily_type *deep_type_build(lily_type_stack *ts, int generic_index,
         /* Sometimes, a generic is wanted that was never filled in. In such a
            case, use 'any' because it is the most accepting of values. */
         if (ret == NULL) {
-            lily_class *any_class = lily_class_by_id(ts->symtab,
-                    SYM_CLASS_ANY);
-            ret = any_class->type;
+            ret = ts->symtab->any_class->type;
             /* This allows lambdas to determine that a given generic was not
                resolved (and prevent it). */
             ts->types[generic_index + type->generic_pos] = ret;
@@ -293,8 +291,7 @@ lily_type *lily_ts_build_enum_by_variant(lily_type_stack *ts,
     else
         child_result = NULL;
 
-    lily_class *any_cls = lily_class_by_id(ts->symtab, SYM_CLASS_ANY);
-    lily_type *any_type = any_cls->type;
+    lily_type *any_type = ts->symtab->any_class->type;
 
     /* Sometimes, a variant class does not use all of the generics provided by
        the parent enum class. In that case, the class 'any' will be used. */

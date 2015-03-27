@@ -29,11 +29,9 @@ lily_value *lily_bind_string_take_buffer(lily_symtab *symtab, char *buffer)
     sv->string = buffer;
     sv->size = string_size;
 
-    lily_class *string_cls = lily_class_by_id(symtab, SYM_CLASS_STRING);
-
     new_value->value.string = sv;
     new_value->flags = 0;
-    new_value->type = string_cls->type;
+    new_value->type = symtab->string_class->type;
 
     return new_value;
 }
@@ -62,10 +60,8 @@ lily_value *lily_bind_integer(lily_symtab *symtab,
     lily_mem_func mem_func = symtab->mem_func;
     lily_value *new_value = malloc_mem(sizeof(lily_value));
     if (new_value) {
-        lily_class *integer_cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
-
         new_value->value.integer = intval;
-        new_value->type = integer_cls->type;
+        new_value->type = symtab->integer_class->type;
         new_value->flags = 0;
     }
 

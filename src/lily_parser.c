@@ -514,7 +514,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
 
     if (flags & CV_VARIANT_FUNC) {
         variant_class = cls;
-        cls = lily_class_by_id(parser->symtab, SYM_CLASS_FUNCTION);
+        cls = parser->symtab->function_class;
     }
 
     if (cls->id == SYM_CLASS_FUNCTION) {
@@ -785,13 +785,11 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
     else
         generics_used = 0;
 
-    lily_class *function_cls = lily_class_by_id(symtab, SYM_CLASS_FUNCTION);
-
     NEED_CURRENT_TOK(tk_left_parenth)
     lily_lexer(lex);
 
     lily_update_symtab_generics(symtab, NULL, generics_used);
-    call_type = inner_type_collector(parser, function_cls, 0);
+    call_type = inner_type_collector(parser, parser->symtab->function_class, 0);
     call_var->type = call_type;
     lily_update_symtab_generics(symtab, NULL, save_generics);
     lily_lexer(lex);
@@ -815,14 +813,12 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     lily_lex_state *lex = parser->lex;
     lily_type *call_type = parser->default_call_type;
     lily_var *call_var;
+    lily_symtab *symtab = parser->symtab;
     int block_type, generics_used;
     int flags = CV_MAKE_VARS | CV_TOPLEVEL;
 
-    lily_class *function_cls = lily_class_by_id(parser->symtab,
-            SYM_CLASS_FUNCTION);
-
     if (decl_class != NULL) {
-        call_var = lily_new_var(parser->symtab, call_type, "new",
+        call_var = lily_new_var(symtab, call_type, "new",
                 VAR_IS_READONLY);
 
         block_type = BLOCK_FUNCTION | BLOCK_CLASS;
@@ -841,14 +837,14 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
         generics_used = parser->emit->block->generic_count;
 
     lily_emit_enter_block(parser->emit, block_type);
-    lily_update_symtab_generics(parser->symtab, decl_class, generics_used);
+    lily_update_symtab_generics(symtab, decl_class, generics_used);
 
     if (decl_class != NULL)
-        lily_make_constructor_return_type(parser->symtab);
+        lily_make_constructor_return_type(symtab);
     else if (parser->class_depth && decl_class == NULL) {
         /* Functions of a class get a (self) of that class for the first
            parameter. */
-        lily_var *v = lily_new_var(parser->symtab,
+        lily_var *v = lily_new_var(symtab,
                 parser->emit->block->self->type, "(self)", 0);
 
         parser->emit->block->self = (lily_storage *)v;
@@ -857,7 +853,7 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     NEED_CURRENT_TOK(tk_left_parenth)
     lily_lexer(lex);
 
-    call_type = inner_type_collector(parser, function_cls, flags);
+    call_type = inner_type_collector(parser, symtab->function_class, flags);
     call_var->type = call_type;
 
     lily_emit_update_function_block(parser->emit, decl_class,
@@ -1518,7 +1514,7 @@ static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
                    "For range value expression contains an assignment.");
     }
 
-    lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_INTEGER);
+    lily_class *cls = parser->symtab->integer_class;
 
     /* For loop values are created as vars so there's a name in case of a
        problem. This name doesn't have to be unique, since it will never be
@@ -1895,7 +1891,7 @@ static void for_handler(lily_parse_state *parser, int multi)
 
     loop_var = lily_var_by_name(parser->symtab, lex->label);
     if (loop_var == NULL) {
-        lily_class *cls = lily_class_by_id(parser->symtab, SYM_CLASS_INTEGER);
+        lily_class *cls = parser->symtab->integer_class;
         loop_var = lily_new_var(parser->symtab, cls->type, lex->label, 0);
     }
     else if (loop_var->type->cls->id != SYM_CLASS_INTEGER) {
@@ -2685,8 +2681,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
         int types_needed = args_collected + 1;
         int flags = 0, end = parser->type_stack_pos + types_needed;
         int i;
-        lily_class *function_cls = lily_class_by_id(parser->symtab,
-                SYM_CLASS_FUNCTION);
+        lily_class *function_cls = parser->symtab->function_class;
         lily_var *var_iter = parser->symtab->var_chain;
         if (parser->type_stack_pos + types_needed > parser->type_stack_size)
             grow_type_stack(parser);

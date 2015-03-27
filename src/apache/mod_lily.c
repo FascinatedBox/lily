@@ -115,8 +115,7 @@ static void bind_table_as(lily_parse_state *parser, request_rec *r,
 static void bind_httpmethod(lily_parse_state *parser, request_rec *r)
 {
     lily_mem_func mem_func = parser->mem_func;
-    lily_class *string_cls = lily_class_by_id(parser->symtab,
-            SYM_CLASS_STRING);
+    lily_class *string_cls = parser->symtab->string_class;
 
     lily_type *string_type = string_cls->type;
     lily_var *var = lily_new_var(parser->symtab, string_type, "httpmethod", 0);

@@ -24,8 +24,8 @@ code_pos += 5;
 #define INTDBL_OP(OP) \
 lhs_reg = vm_regs[code[code_pos + 2]]; \
 rhs_reg = vm_regs[code[code_pos + 3]]; \
-if (lhs_reg->type->cls->id == SYM_CLASS_DOUBLE) { \
-    if (rhs_reg->type->cls->id == SYM_CLASS_DOUBLE) \
+if (lhs_reg->type == double_type) { \
+    if (rhs_reg->type == double_type) \
         vm_regs[code[code_pos+4]]->value.doubleval = \
         lhs_reg->value.doubleval OP rhs_reg->value.doubleval; \
     else \
@@ -52,16 +52,16 @@ code_pos += 5;
 #define EQUALITY_COMPARE_OP(OP, STRINGOP) \
 lhs_reg = vm_regs[code[code_pos + 2]]; \
 rhs_reg = vm_regs[code[code_pos + 3]]; \
-if (lhs_reg->type->cls->id == SYM_CLASS_DOUBLE) { \
-    if (rhs_reg->type->cls->id == SYM_CLASS_DOUBLE) \
+if (lhs_reg->type == double_type) { \
+    if (rhs_reg->type == double_type) \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
     else \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.doubleval OP rhs_reg->value.integer); \
 } \
-else if (lhs_reg->type->cls->id == SYM_CLASS_INTEGER) { \
-    if (rhs_reg->type->cls->id == SYM_CLASS_INTEGER) \
+else if (lhs_reg->type == integer_type) { \
+    if (rhs_reg->type == integer_type) \
         vm_regs[code[code_pos+4]]->value.integer =  \
         (lhs_reg->value.integer OP rhs_reg->value.integer); \
     else \
@@ -83,16 +83,16 @@ code_pos += 5;
 #define COMPARE_OP(OP, STRINGOP) \
 lhs_reg = vm_regs[code[code_pos + 2]]; \
 rhs_reg = vm_regs[code[code_pos + 3]]; \
-if (lhs_reg->type->cls->id == SYM_CLASS_DOUBLE) { \
-    if (rhs_reg->type->cls->id == SYM_CLASS_DOUBLE) \
+if (lhs_reg->type == double_type) { \
+    if (rhs_reg->type == double_type) \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
     else \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.doubleval OP rhs_reg->value.integer); \
 } \
-else if (lhs_reg->type->cls->id == SYM_CLASS_INTEGER) { \
-    if (rhs_reg->type->cls->id == SYM_CLASS_INTEGER) \
+else if (lhs_reg->type == integer_type) { \
+    if (rhs_reg->type == integer_type) \
         vm_regs[code[code_pos+4]]->value.integer =  \
         (lhs_reg->value.integer OP rhs_reg->value.integer); \
     else \
@@ -1958,7 +1958,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
 
     if (main_function->reg_count > vm->num_registers) {
         if (vm->num_registers == 0) {
-            lily_class *integer_cls = lily_class_by_id(symtab, SYM_CLASS_INTEGER);
+            lily_class *integer_cls = vm->symtab->integer_class;
             vm->integer_type = integer_cls->type;
             vm->main = main_var;
         }
@@ -2003,6 +2003,10 @@ void lily_vm_execute(lily_vm_state *vm)
     register volatile int code_pos;
     register lily_value *lhs_reg, *rhs_reg, *loop_reg, *step_reg;
     register lily_literal *literal_val;
+    /* These next two are used so that INTDBL operations have a fast way to
+       check the type of a register. */
+    lily_type *integer_type = vm->symtab->integer_class->type;
+    lily_type *double_type = vm->symtab->double_class->type;
     lily_function_val *fval;
 
     f = vm->function_stack[vm->function_stack_pos-1]->function;
