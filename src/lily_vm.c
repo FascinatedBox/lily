@@ -591,7 +591,7 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
 
     This is only called if there are locals/storages in a generic function. */
 static void resolve_generic_registers(lily_vm_state *vm, lily_value *func,
-        lily_type *result_type, int args_collected, int reg_start)
+        int args_collected, int reg_start)
 {
     lily_value **regs_from_main = vm->regs_from_main;
     int generics_needed = func->type->generic_pos;
@@ -605,8 +605,6 @@ static void resolve_generic_registers(lily_vm_state *vm, lily_value *func,
        emitter so it cannot be wrong). */
 
     lily_register_info *ri = fval->reg_info;
-    if (result_type != NULL)
-        lily_ts_check(vm->ts, func->type->subtypes[0], result_type);
 
     /* Since Lily requires that all variables have a starting value, it is
        therefore impossible to have generics WITHIN a function that are not
@@ -704,17 +702,7 @@ static void prep_registers(lily_vm_state *vm, lily_value *func,
         }
     }
     else if (num_registers < register_need) {
-        lily_type *result_type = NULL;
-
-        /* If the function's result is -1, then it doesn't have one. If it
-           does, use that to help do type inference.
-           This is necessary when the result has generics that aren't specified
-           in one of the arguments. */
-        if ((int16_t)(code[5 + code[4]]) != -1)
-            result_type = vm_regs[code[5 + code[4]]]->type;
-
-        resolve_generic_registers(vm, func, result_type, i,
-                num_registers - i);
+        resolve_generic_registers(vm, func, i, num_registers - i);
         num_registers = register_need;
     }
 
