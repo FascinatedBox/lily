@@ -666,43 +666,6 @@ static void add_storage_chain_to_info(lily_register_info *info,
     }
 }
 
-/*  count_generics
-    Return a count of how many unique generic types are used in a
-    function. */
-static int count_generics(lily_type *function_type, lily_register_info *info,
-        int info_size)
-{
-    int count = 0, i, j;
-    for (i = 0;i < info_size;i++) {
-        int match = 0;
-        lily_type *temp = info[i].type;
-        for (j = 0;j < i;j++) {
-            if (info[j].type == temp) {
-                match = 1;
-                break;
-            }
-        }
-
-        count += !match;
-    }
-
-    /* The return is always used when figuring out what result a generic
-       function should have. It needs to be counted too. */
-    if (function_type->subtypes[0] &&
-        function_type->subtypes[0]->generic_pos) {
-        count++;
-        lily_type *return_type = function_type->subtypes[0];
-        for (i = 0;i < info_size;i++) {
-            if (info[i].type == return_type) {
-                count--;
-                break;
-            }
-        }
-    }
-
-    return count;
-}
-
 /*  finalize_function_val
     This is a helper called when a function block is being exited, OR __main__
     needs to run.
@@ -741,8 +704,7 @@ static void finalize_function_val(lily_emit_state *emit,
     }
     add_storage_chain_to_info(info, function_block->storage_start);
 
-    if (function_type->generic_pos)
-        f->generic_count = count_generics(function_type, info, register_count);
+    f->generic_pos = function_type->generic_pos;
 
     if (emit->function_depth > 1) {
         /* todo: Reuse the var shells instead of destroying. Seems petty, but
