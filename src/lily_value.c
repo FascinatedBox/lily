@@ -278,7 +278,7 @@ lily_function_val *lily_new_foreign_function_val(lily_mem_func mem_func,
     f->len = -1;
     f->reg_info = NULL;
     f->reg_count = -1;
-    f->generic_count = 0;
+    f->generic_pos = 0;
     return f;
 }
 
@@ -304,7 +304,7 @@ lily_function_val *lily_new_native_function_val(lily_mem_func mem_func,
     f->len = 8;
     f->reg_info = NULL;
     f->reg_count = -1;
-    f->generic_count = 0;
+    f->generic_pos = 0;
     return f;
 }
 

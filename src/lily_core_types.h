@@ -151,7 +151,6 @@ typedef struct lily_type_t {
 typedef struct lily_sym_t {
     uint64_t flags;
     lily_type *type;
-    union lily_raw_value_t value;
     /* Every function has a set of registers that it puts the values it has into.
        Intermediate values (such as the result of addition or a function call),
        parameters, and variables.
@@ -166,9 +165,9 @@ typedef struct lily_sym_t {
 typedef struct lily_tie_t {
     uint64_t flags;
     lily_type *type;
+    uint32_t reg_spot;
+    uint32_t pad;
     lily_raw_value value;
-    /* This is where this value belongs. */
-    uint64_t reg_spot;
     struct lily_tie_t *next;
 } lily_tie;
 
@@ -180,8 +179,6 @@ typedef struct lily_tie_t {
 typedef struct lily_storage_t {
     uint64_t flags;
     lily_type *type;
-    /* This is provided to keep it a superset of lily_sym. */
-    union lily_raw_value_t unused;
     uint32_t reg_spot;
     /* Each expression has a different expr_num. This prevents the same
        expression from using the same storage twice (which could lead to
@@ -194,37 +191,23 @@ typedef struct lily_storage_t {
 typedef struct lily_var_t {
     uint64_t flags;
     lily_type *type;
-    /* If this var is declared function, then the native function info is
-       stored here. */
-    union lily_raw_value_t pad1;
     uint32_t reg_spot;
-    uint32_t pad2;
+    /* The line on which this var was declared. If this is a builtin var, then
+       line_num will be 0. */
+    uint32_t line_num;
     char *name;
     /* (Up to) the first 8 bytes of the name. This is compared before comparing
        the name. */
     uint64_t shorthash;
-    /* The line on which this var was declared. If this is a builtin var, then
-       line_num will be 0. */
-    uint32_t line_num;
     /* How deep that functions were when this var was declared. If this is 1,
        then the var is in __main__ and a global. Otherwise, it is a local.
        This is an important difference, because the vm has to do different
        loads for globals versus locals. */
     uint32_t function_depth;
+    uint32_t pad;
     struct lily_class_t *parent;
     struct lily_var_t *next;
 } lily_var;
-
-/* This associates a value of a given type with a global at the given spot.
-   These are loaded by the vm on each pass. */
-typedef struct lily_value_tie_t {
-    lily_type *type;
-    struct lily_value_t *value;
-    uint32_t reg_spot;
-    uint32_t in_use;
-    struct lily_value_tie_t *prev;
-    struct lily_value_tie_t *next;
-} lily_value_tie;
 
 /* This type is used to store symbols that are created by a foreign source. Each
    symbol has either a literal (if created internally), or one of these entries
@@ -369,8 +352,9 @@ typedef struct lily_function_val_t {
     uint32_t pos;
     /* This is how much space the code has allocated (again for the emitter). */
     uint32_t len;
-    /* How many different generics are within reg_info. */
-    uint32_t generic_count;
+    /* How many generics that vm should allocate in ts when resolving generic
+       registers. If 0, there are no generics in this function. */
+    uint32_t generic_pos;
     /* This is how many registers that this function uses. */
     uint32_t reg_count;
     /* This is used to initialize registers when entering this function.  */

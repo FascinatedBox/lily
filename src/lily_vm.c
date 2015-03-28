@@ -590,14 +590,13 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
                     which is then used to resolve the locals/storages.
 
     This is only called if there are locals/storages in a generic function. */
-static void resolve_generic_registers(lily_vm_state *vm, lily_value *func,
-        int args_collected, int reg_start)
+static void resolve_generic_registers(lily_vm_state *vm,
+        lily_function_val *fval, int args_collected, int reg_start)
 {
     lily_value **regs_from_main = vm->regs_from_main;
-    int generics_needed = func->type->generic_pos;
+    int generics_needed = fval->generic_pos;
     int save_ceiling = lily_ts_raise_ceiling(vm->ts, generics_needed);
     int i;
-    lily_function_val *fval = func->value.function;
 
     /* lily_type_stack has a function called lily_ts_check which both checks
        that types are equal AND initializes generics by the first type seen.
@@ -642,12 +641,11 @@ static void resolve_generic_registers(lily_vm_state *vm, lily_value *func,
     values in the registers for the native call while copying the callee's
     values over. For the rest of the registers that the callee needs, the
     registers are just blasted. */
-static void prep_registers(lily_vm_state *vm, lily_value *func,
+static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
         uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value **regs_from_main = vm->regs_from_main;
-    lily_function_val *fval = func->value.function;
     lily_register_info *register_seeds = fval->reg_info;
     int num_registers = vm->num_registers;
     int register_need = vm->num_registers + fval->reg_count;
@@ -685,7 +683,7 @@ static void prep_registers(lily_vm_state *vm, lily_value *func,
         set_reg->flags = get_reg->flags;
     }
 
-    if (fval->generic_count == 0) {
+    if (fval->generic_pos == 0) {
         /* For the rest of the registers, clear whatever value they have. */
         for (;num_registers < register_need;i++, num_registers++) {
             lily_register_info seed = register_seeds[i];
@@ -702,7 +700,7 @@ static void prep_registers(lily_vm_state *vm, lily_value *func,
         }
     }
     else if (num_registers < register_need) {
-        resolve_generic_registers(vm, func, i, num_registers - i);
+        resolve_generic_registers(vm, fval, i, num_registers - i);
         num_registers = register_need;
     }
 
@@ -2112,11 +2110,9 @@ void lily_vm_execute(lily_vm_state *vm)
                     grow_function_stack(vm);
 
                 if (code[code_pos+2] == 1)
-                    lhs_reg = (lily_value *)vm->readonly_table[code[code_pos+3]];
+                    fval = vm->readonly_table[code[code_pos+3]]->value.function;
                 else
-                    lhs_reg = vm_regs[code[code_pos+3]];
-
-                fval = lhs_reg->value.function;
+                    fval = vm_regs[code[code_pos+3]]->value.function;
 
                 int j = code[code_pos+4];
                 stack_entry = vm->function_stack[vm->function_stack_pos-1];
@@ -2137,7 +2133,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     /* Prepare the registers for what the function wants.
                        Afterward, update num_registers since prep_registers
                        changes it. */
-                    prep_registers(vm, lhs_reg, code+code_pos);
+                    prep_registers(vm, fval, code+code_pos);
                     num_registers = vm->num_registers;
 
                     vm_regs = vm_regs + stack_entry->regs_used;
