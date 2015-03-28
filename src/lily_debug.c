@@ -47,7 +47,7 @@
                       or not. */
 #define D_INT_VAL         10
 /* D_LIT_INPUT:       The input is a position in the vm's table of literals. */
-#define D_LIT_INPUT       11
+#define D_READONLY_INPUT  11
 /* D_GLOBAL_INPUT:    The INput is the address of a global register. */
 #define D_GLOBAL_INPUT    12
 /* D_GLOBAL_OUTPUT:   The OUTput is the address of a global register. */
@@ -59,18 +59,16 @@
 /* D_CALL_INPUT:      Input to a function call. This is shown according to what
                       D_CALL_INPUT_TYPE picked up. */
 #define D_CALL_INPUT      15
-/* D_FUNC_INPUT:      This is a position in the vm's table of functions. */
-#define D_FUNC_INPUT      16
 /* D_COUNT_JUMPS:     This specifies the start of a series of jumps, using the
                       value recorded by D_COUNT. */
-#define D_COUNT_JUMPS     17
+#define D_COUNT_JUMPS     16
 /* D_MATCH_INPUT:     This is a special case for the input value to a match
                       expression. It allows D_COUNT_JUMPS to specify what
                       classes map to which locations. */
-#define D_MATCH_INPUT     18
+#define D_MATCH_INPUT     17
 /* D_COUNT_OUTPUTS:   This specifies the start of a series of outputs, using
                       the value recorded by D_COUNT. */
-#define D_COUNT_OUTPUTS   19
+#define D_COUNT_OUTPUTS   18
 
 /** Flags for show_register_info: **/
 /* This means the number given is for a register in __main__. By default, the
@@ -136,8 +134,7 @@ char *opcode_names[] = {
     "set item",
     "get global",
     "set global",
-    "get const",
-    "get function",
+    "get readonly",
     "get property",
     "set property",
     "push try",
@@ -151,56 +148,55 @@ char *opcode_names[] = {
 };
 
 static const int optable[][8] = {
-    {o_fast_assign,         3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,              -1,           -1},
-    {o_assign,              3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,              -1,           -1},
-    {o_integer_add,         4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_integer_minus,       4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_modulo,              4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_integer_mul,         4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_integer_div,         4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_left_shift,          4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_right_shift,         4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_bitwise_and,         4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_bitwise_or,          4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_bitwise_xor,         4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_double_add,          4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_double_minus,        4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_double_mul,          4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_double_div,          4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_is_equal,            4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_not_eq,              4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_less,                4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_less_eq,             4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_greater,             4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_greater_eq,          4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_jump,                1, D_JUMP,    -1,             -1,              -1,              -1,           -1},
-    {o_jump_if,             3, D_JUMP_ON, D_INPUT,        D_JUMP,          -1,              -1,           -1},
-    {o_function_call,       6, D_LINENO,  D_CALL_TYPE,    D_CALL_INPUT,    D_COUNT,         D_COUNT_LIST, D_OUTPUT},
-    {o_return_val,          2, D_LINENO,  D_INPUT,        -1,              -1,              -1,           -1},
-    {o_return_noval,        1, D_LINENO,  -1,             -1,              -1,              -1,           -1},
-    {o_unary_not,           3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,              -1,           -1},
-    {o_unary_minus,         3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,              -1,           -1},
-    {o_build_list_tuple,    4, D_LINENO,  D_COUNT,        D_COUNT_LIST,    D_OUTPUT,        -1,           -1},
-    {o_build_hash,          4, D_LINENO,  D_COUNT,        D_COUNT_LIST,    D_OUTPUT,        -1,           -1},
-    {o_any_typecast,        3, D_LINENO,  D_INPUT,        D_OUTPUT,        -1,              -1,           -1},
-    {o_integer_for,         6, D_LINENO,  D_INPUT,        D_INPUT,         D_INPUT,         D_INPUT,      D_JUMP},
-    {o_for_setup,           6, D_LINENO,  D_INPUT,        D_INPUT,         D_INPUT,         D_INPUT,      D_INT_VAL},
-    {o_get_item,            4, D_LINENO,  D_INPUT,        D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_set_item,            4, D_LINENO,  D_INPUT,        D_INPUT,         D_INPUT,         -1,           -1},
-    {o_get_global,          3, D_LINENO,  D_GLOBAL_INPUT, D_OUTPUT         -1,              -1,           -1},
-    {o_set_global,          3, D_LINENO,  D_INPUT,        D_GLOBAL_OUTPUT, -1,              -1,           -1},
-    {o_get_const,           3, D_LINENO,  D_LIT_INPUT,    D_OUTPUT,        -1,              -1,           -1},
-    {o_get_function,        3, D_LINENO,  D_FUNC_INPUT,   D_OUTPUT,        -1,              -1,           -1},
-    {o_get_property,        4, D_LINENO,  D_INPUT,        D_INT_VAL,       D_OUTPUT,        -1,           -1},
-    {o_set_property,        4, D_LINENO,  D_INPUT,        D_INT_VAL,       D_INPUT,         -1,           -1},
-    {o_push_try,            2, D_LINENO,  D_JUMP          -1,              -1,              -1,           -1},
-    {o_pop_try,             1, D_NOP,     -1,             -1,              -1,              -1,           -1},
-    {o_except,              4, D_LINENO,  D_JUMP,         D_INT_VAL,       D_OUTPUT,        -1,           -1},
-    {o_raise,               2, D_LINENO,  D_INPUT,        -1,              -1,              -1,           -1},
-    {o_new_instance,        2, D_LINENO,  D_OUTPUT,       -1,              -1,              -1,           -1},
-    {o_match_dispatch,      4, D_LINENO,  D_MATCH_INPUT,  D_COUNT,         D_COUNT_JUMPS,   -1,           -1},
-    {o_variant_decompose,   4, D_LINENO,  D_INPUT,        D_COUNT,         D_COUNT_OUTPUTS, -1,           -1},
-    {o_return_from_vm,      1, D_NOP,     -1,             -1,              -1,              -1,           -1}
+    {o_fast_assign,         3, D_LINENO,  D_INPUT,          D_OUTPUT,        -1,              -1,           -1},
+    {o_assign,              3, D_LINENO,  D_INPUT,          D_OUTPUT,        -1,              -1,           -1},
+    {o_integer_add,         4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_integer_minus,       4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_modulo,              4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_integer_mul,         4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_integer_div,         4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_left_shift,          4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_right_shift,         4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_bitwise_and,         4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_bitwise_or,          4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_bitwise_xor,         4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_double_add,          4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_double_minus,        4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_double_mul,          4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_double_div,          4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_is_equal,            4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_not_eq,              4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_less,                4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_less_eq,             4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_greater,             4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_greater_eq,          4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_jump,                1, D_JUMP,    -1,               -1,              -1,              -1,           -1},
+    {o_jump_if,             3, D_JUMP_ON, D_INPUT,          D_JUMP,          -1,              -1,           -1},
+    {o_function_call,       6, D_LINENO,  D_CALL_TYPE,      D_CALL_INPUT,    D_COUNT,         D_COUNT_LIST, D_OUTPUT},
+    {o_return_val,          2, D_LINENO,  D_INPUT,          -1,              -1,              -1,           -1},
+    {o_return_noval,        1, D_LINENO,  -1,               -1,              -1,              -1,           -1},
+    {o_unary_not,           3, D_LINENO,  D_INPUT,          D_OUTPUT,        -1,              -1,           -1},
+    {o_unary_minus,         3, D_LINENO,  D_INPUT,          D_OUTPUT,        -1,              -1,           -1},
+    {o_build_list_tuple,    4, D_LINENO,  D_COUNT,          D_COUNT_LIST,    D_OUTPUT,        -1,           -1},
+    {o_build_hash,          4, D_LINENO,  D_COUNT,          D_COUNT_LIST,    D_OUTPUT,        -1,           -1},
+    {o_any_typecast,        3, D_LINENO,  D_INPUT,          D_OUTPUT,        -1,              -1,           -1},
+    {o_integer_for,         6, D_LINENO,  D_INPUT,          D_INPUT,         D_INPUT,         D_INPUT,      D_JUMP},
+    {o_for_setup,           6, D_LINENO,  D_INPUT,          D_INPUT,         D_INPUT,         D_INPUT,      D_INT_VAL},
+    {o_get_item,            4, D_LINENO,  D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
+    {o_set_item,            4, D_LINENO,  D_INPUT,          D_INPUT,         D_INPUT,         -1,           -1},
+    {o_get_global,          3, D_LINENO,  D_GLOBAL_INPUT,   D_OUTPUT         -1,              -1,           -1},
+    {o_set_global,          3, D_LINENO,  D_INPUT,          D_GLOBAL_OUTPUT, -1,              -1,           -1},
+    {o_get_readonly,        3, D_LINENO,  D_READONLY_INPUT, D_OUTPUT,        -1,              -1,           -1},
+    {o_get_property,        4, D_LINENO,  D_INPUT,          D_INT_VAL,       D_OUTPUT,        -1,           -1},
+    {o_set_property,        4, D_LINENO,  D_INPUT,          D_INT_VAL,       D_INPUT,         -1,           -1},
+    {o_push_try,            2, D_LINENO,  D_JUMP            -1,              -1,              -1,           -1},
+    {o_pop_try,             1, D_NOP,     -1,               -1,              -1,              -1,           -1},
+    {o_except,              4, D_LINENO,  D_JUMP,           D_INT_VAL,       D_OUTPUT,        -1,           -1},
+    {o_raise,               2, D_LINENO,  D_INPUT,          -1,              -1,              -1,           -1},
+    {o_new_instance,        2, D_LINENO,  D_OUTPUT,         -1,              -1,              -1,           -1},
+    {o_match_dispatch,      4, D_LINENO,  D_MATCH_INPUT,    D_COUNT,         D_COUNT_JUMPS,   -1,           -1},
+    {o_variant_decompose,   4, D_LINENO,  D_INPUT,          D_COUNT,         D_COUNT_OUTPUTS, -1,           -1},
+    {o_return_from_vm,      1, D_NOP,     -1,               -1,              -1,              -1,           -1}
 };
 
 static void write_msgbuf(lily_debug_state *debug)
@@ -220,34 +216,36 @@ static void show_simple_value(lily_debug_state *debug, lily_type *type,
     write_msgbuf(debug);
 }
 
-/*  show_literal
-    Show a literal value for show_code. */
-static void show_literal(lily_debug_state *debug, int lit_pos)
-{
-    lily_literal *lit = debug->vm->literal_table[lit_pos];
-    lily_value v = {0, lit->type, lit->value};
-    lily_msgbuf_add_fmt(debug->msgbuf, "(^T) ^V\n", lit->type, &v);
-    write_msgbuf(debug);
-}
-
 /*  show_function
-    Show the name of a function at the given position. */
-static void show_function(lily_debug_state *debug, int position)
+    Show the name of a literal|function at the given position. */
+static void show_readonly(lily_debug_state *debug, int position)
 {
-    lily_var *var = debug->vm->function_table[position];
-    lily_msgbuf_add_fmt(debug->msgbuf, "^I|     <---- (^T) ", debug->indent,
-            var->type);
+    lily_tie *tie = debug->vm->readonly_table[position];
+    if (tie->type->cls->id == SYM_CLASS_FUNCTION) {
+        lily_function_val *func_val = tie->value.function;
 
-    if (var->parent != NULL)
-        lily_msgbuf_add_fmt(debug->msgbuf, "%s::", var->parent->name);
+        lily_msgbuf_add_fmt(debug->msgbuf, "^I|     <---- (^T) ", debug->indent,
+                tie->type);
 
-    if (var->line_num != 0)
-        lily_msgbuf_add_fmt(debug->msgbuf, "%s from line %d\n", var->name,
-                var->line_num);
-    else
-        lily_msgbuf_add_fmt(debug->msgbuf, "%s [builtin]\n", var->name);
+        if (func_val->class_name != NULL)
+            lily_msgbuf_add_fmt(debug->msgbuf, "%s::", func_val->class_name);
 
-    write_msgbuf(debug);
+        if (func_val->line_num != 0)
+            lily_msgbuf_add_fmt(debug->msgbuf, "%s from line %d\n",
+                    func_val->trace_name, func_val->line_num);
+        else
+            lily_msgbuf_add_fmt(debug->msgbuf, "%s [builtin]\n",
+                    func_val->trace_name);
+
+        write_msgbuf(debug);
+    }
+    else {
+        lily_tie *lit = debug->vm->readonly_table[position];
+        lily_value v = {0, lit->type, lit->value};
+        lily_msgbuf_add_fmt(debug->msgbuf, "^I|     <---- (^T) ^V\n",
+                debug->indent, lit->type, &v);
+        write_msgbuf(debug);
+    }
 }
 
 /*  show_register_info
@@ -406,12 +404,6 @@ static void show_code(lily_debug_state *debug)
                     i--;
                 }
             }
-            else if (data_code == D_LIT_INPUT) {
-                lily_msgbuf_add_fmt(msgbuf, "^I|     <---- ", indent);
-                write_msgbuf(debug);
-
-                show_literal(debug, code[i+j]);
-            }
             else if (data_code == D_COUNT)
                 count = (int)code[i+j];
             else if (data_code == D_INT_VAL) {
@@ -434,12 +426,12 @@ static void show_code(lily_debug_state *debug)
                 call_type = code[i+j];
             else if (data_code == D_CALL_INPUT) {
                 if (call_type == 1)
-                    show_function(debug, code[i+j]);
+                    show_readonly(debug, code[i+j]);
                 else
                     show_register_info(debug, RI_INPUT, code[i+j]);
             }
-            else if (data_code == D_FUNC_INPUT)
-                show_function(debug, code[i+j]);
+            else if (data_code == D_READONLY_INPUT)
+                show_readonly(debug, code[i+j]);
             else if (data_code == D_MATCH_INPUT) {
                 show_register_info(debug, RI_INPUT, code[i+j]);
                 match_cls = debug->current_function->reg_info[code[i+j]].type->cls;

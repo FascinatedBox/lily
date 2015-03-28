@@ -87,7 +87,7 @@ typedef struct lily_lex_entry_t {
     lily_reader_fn read_line_fn;
     lily_close_fn  close_fn;
 
-    lily_literal *saved_last_literal;
+    lily_tie *saved_last_literal;
     char *saved_input;
     uint16_t saved_input_pos;
     uint16_t saved_input_size;
@@ -130,7 +130,7 @@ typedef struct lily_lex_state_t {
 
     /* When the lexer sees a numeric or string literal, it calls the symtab to
        make a literal value. Said value is stored here, for the parser to use. */
-    lily_literal *last_literal;
+    lily_tie *last_literal;
     lily_symtab *symtab;
     lily_membuf *membuf;
     lily_mem_func mem_func;

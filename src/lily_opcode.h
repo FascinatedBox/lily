@@ -258,20 +258,14 @@ typedef enum {
        this will do ref/deref if necessary. */
     o_set_global,
 
-    /* get const:
+    /* get readonly:
        * int lineno
        * int index
        * reg result
-       This loads a literal value from the vm's table of literals at the given
-       index. The value is put into 'result'. */
-    o_get_const,
-
-    /* get function:
-      * int lineno
-      * int index
-      * reg result
-      The above, but from the table of functions this time. */
-    o_get_function,
+       This loads a value from the vm's table of readonly values at the given
+       index. The value is put into 'result'. This handles both literals and
+       loads of functions. */
+    o_get_readonly,
 
     /* get property:
        * int lineno

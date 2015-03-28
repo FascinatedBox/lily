@@ -134,7 +134,6 @@ lily_vm_state *lily_new_vm_state(lily_mem_func mem_func, lily_raiser *raiser,
     vm->function_stack_pos = 0;
     vm->raiser = raiser;
     vm->data = data;
-    vm->main = NULL;
     vm->vm_regs = NULL;
     vm->regs_from_main = NULL;
     vm->num_registers = 0;
@@ -148,12 +147,8 @@ lily_vm_state *lily_new_vm_state(lily_mem_func mem_func, lily_raiser *raiser,
     vm->catch_chain = NULL;
     vm->catch_top = NULL;
     vm->symtab = NULL;
-    vm->literal_table = NULL;
-    vm->literal_count = 0;
-    vm->function_table = NULL;
-    vm->function_count = 0;
-    vm->prep_literal_stop = NULL;
-    vm->prep_import_start = NULL;
+    vm->readonly_table = NULL;
+    vm->readonly_count = 0;
 
     if (vm->function_stack) {
         int i;
@@ -235,8 +230,7 @@ void lily_free_vm(lily_vm_state *vm)
         free_mem(vm->string_buffer);
     }
 
-    free_mem(vm->function_table);
-    free_mem(vm->literal_table);
+    free_mem(vm->readonly_table);
     free_mem(vm->foreign_code);
     free_mem(vm->sipkey);
     free_mem(vm->function_stack);
@@ -727,129 +721,75 @@ static void prep_registers(lily_vm_state *vm, lily_value *func,
     vm->num_registers = num_registers;
 }
 
-/*  copy_literals
-    This copies the symtab's literals into the vm's literal_table. This table
-    is used so that o_get_const can use a spot for the literal, instead of the
-    literal's address. */
-static void copy_literals(lily_vm_state *vm)
+static void load_ties_into_readonly(lily_tie **readonly, lily_tie *tie,
+        int stop)
+{
+    /* vm has to prep every time there's a closing ?> tag. It's important that
+       only new literals are loaded, to keep from wastefully loading stuff that
+       is already loaded. */
+    while (tie && tie->reg_spot >= stop) {
+        readonly[tie->reg_spot] = tie;
+        tie = tie->next;
+    }
+}
+
+/*  setup_readonly_table
+    This makes sure that vm's readonly_table is appropriately sized for any
+    new readonly values that the symtab may have. It then walks over them to
+    load up only the new ones.
+    This table is used by o_get_readonly. */
+static void setup_readonly_table(lily_vm_state *vm)
 {
     lily_symtab *symtab = vm->symtab;
 
-    if (vm->literal_count == symtab->next_lit_spot)
+    if (vm->readonly_count == symtab->next_readonly_spot)
         return;
 
-    int count = symtab->next_lit_spot;
-    lily_literal **literals = realloc_mem(vm->literal_table,
-            count * sizeof(lily_literal *));
+    int count = symtab->next_readonly_spot;
+    lily_tie **new_table = realloc_mem(vm->readonly_table,
+            count * sizeof(lily_tie *));
 
-    lily_literal *lit_stop = vm->prep_literal_stop;
-    lily_literal *lit_iter = symtab->lit_chain;
+    int load_stop = vm->readonly_count;
 
-    while (1) {
-        literals[lit_iter->reg_spot] = lit_iter;
-        if (lit_iter->next == lit_stop)
-            break;
+    load_ties_into_readonly(new_table, symtab->literals, load_stop);
+    load_ties_into_readonly(new_table, symtab->function_ties, load_stop);
 
-        lit_iter = lit_iter->next;
-    }
-
-    vm->literal_table = literals;
-    vm->literal_count = count;
-    vm->prep_literal_stop = symtab->lit_chain;
+    vm->readonly_count = symtab->next_readonly_spot;
+    vm->readonly_table = new_table;
 }
 
-/*  copy_vars_to_functions
-    This takes a working copy of the function table and adds every function
-    in a particular var iter to it. A 'need' is dropped every time. When it is
-    0, the caller will stop loading functions. This is an attempt at stopping
-    early when possible. */
-static void copy_vars_to_functions(lily_var **functions, lily_var *var_iter)
+/*  load_foreign_ties
+    This function is called by vm prep to load foreign values into global
+    registers. These foreign ties are used by packages to associate values to
+    vars before the vm has loaded (ex: the argv of sys, or values in the apache
+    server package).
+
+    Since non-built-in packages cannot create these ties, and there are going to
+    be VERY few of them, free them as they are loaded. It's not worth it to try
+    to reclaim them for use by literals/readonly vars. */
+static void load_foreign_ties(lily_vm_state *vm)
 {
-    while (var_iter) {
-        if (var_iter->flags & VAR_IS_READONLY)
-            functions[var_iter->reg_spot] = var_iter;
-
-        var_iter = var_iter->next;
-    }
-}
-
-/*  copy_class_vars_to_functions
-    This takes the function table and adds the functions within each class in
-    the linked list of classes. */
-static void copy_class_vars_to_functions(lily_var **functions,
-        lily_class *class_iter)
-{
-    while (class_iter) {
-        copy_vars_to_functions(functions, class_iter->call_chain);
-        class_iter = class_iter->next;
-    }
-}
-
-/*  copy_functions
-    Copy built-in and user-declared functions into the table of functions.
-    This is tricker than literals, because functions can come from three
-    different places:
-    1: In scope functions will be somewhere in symtab->var_start. This includes
-       print and printfmt.
-    2: Out of scope functions will be in symtab->old_function_chain.
-    3: Lastly, any functions needing to be copied will be in a the callable
-       section of a class. */
-static void copy_functions(lily_vm_state *vm)
-{
-    lily_symtab *symtab = vm->symtab;
-    if (vm->function_count == symtab->next_function_spot)
-        return;
-
-    int count = symtab->next_function_spot;
-    lily_var **functions = realloc_mem(vm->function_table,
-            count * sizeof(lily_var *));
-
-    lily_import_entry *import_iter = vm->prep_import_start;
-    lily_import_entry *last_import = NULL;
-
-    copy_vars_to_functions(functions, symtab->var_chain);
-    copy_vars_to_functions(functions, symtab->old_function_chain);
-    copy_class_vars_to_functions(functions, symtab->class_chain);
-    copy_class_vars_to_functions(functions, symtab->old_class_chain);
-
-    if (import_iter->root_next) {
-        while (import_iter) {
-            last_import = import_iter;
-
-            copy_vars_to_functions(functions, import_iter->var_chain);
-            copy_class_vars_to_functions(functions, import_iter->class_chain);
-            import_iter = import_iter->root_next;
-        }
-    }
-    /* else no packages have been loaded since last time, so whatever is inside
-       of them is already loaded. */
-
-    vm->prep_import_start = last_import;
-    vm->function_table = functions;
-}
-
-static void load_tied_values(lily_vm_state *vm)
-{
-    lily_value_tie *tie_iter = vm->symtab->ties;
+    lily_tie *tie_iter = vm->symtab->foreign_ties;
+    lily_tie *tie_next;
     lily_value **regs_from_main = vm->regs_from_main;
 
-    while (1) {
+    while (tie_iter) {
         /* Don't use lily_assign_value, because that wants to give the tied
            value a ref. That's bad because then it will have two refs (and the
            tie is just for shifting a value over). */
+        lily_value *reg_value = regs_from_main[tie_iter->reg_spot];
 
-        memcpy(regs_from_main[tie_iter->reg_spot],
-               tie_iter->value,
-               sizeof(lily_value));
+        reg_value->type = tie_iter->type;
+        /* The flags and type have already been set by vm prep. */
+        reg_value->value = tie_iter->value;
+        reg_value->flags = 0;
 
-        tie_iter->in_use = 0;
-        if (tie_iter->prev == NULL)
-            break;
-
-        tie_iter = tie_iter->prev;
+        tie_next = tie_iter->next;
+        free_mem(tie_iter);
+        tie_iter = tie_next;
     }
 
-    vm->symtab->ties = tie_iter;
+    vm->symtab->foreign_ties = NULL;
 }
 
 /*  bind_function_name
@@ -1909,8 +1849,7 @@ uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
     * Set stack entry 0 (__main__'s entry). */
 void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
 {
-    lily_var *main_var = symtab->main_var;
-    lily_function_val *main_function = main_var->value.function;
+    lily_function_val *main_function = symtab->main_function;
     int i;
 
     lily_value **vm_regs;
@@ -1953,23 +1892,21 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
 
     /* Symtab is guaranteed to always have a non-NULL tie because the sys
        package creates a tie. */
-    if (vm->symtab->ties->in_use)
-        load_tied_values(vm);
+    if (vm->symtab->foreign_ties)
+        load_foreign_ties(vm);
 
     if (main_function->reg_count > vm->num_registers) {
         if (vm->num_registers == 0) {
             lily_class *integer_cls = vm->symtab->integer_class;
             vm->integer_type = integer_cls->type;
-            vm->main = main_var;
         }
 
         vm->num_registers = main_function->reg_count;
         vm->max_registers = main_function->reg_count;
     }
 
-    /* Copy literals and functions into their respective tables. */
-    copy_literals(vm);
-    copy_functions(vm);
+    if (vm->readonly_count != symtab->next_readonly_spot)
+        setup_readonly_table(vm);
 
     lily_vm_stack_entry *stack_entry = vm->function_stack[0];
     stack_entry->function = main_function;
@@ -2002,7 +1939,7 @@ void lily_vm_execute(lily_vm_state *vm)
        traceback tend to be 'off'. */
     register volatile int code_pos;
     register lily_value *lhs_reg, *rhs_reg, *loop_reg, *step_reg;
-    register lily_literal *literal_val;
+    register lily_tie *readonly_val;
     /* These next two are used so that INTDBL operations have a fast way to
        check the type of a register. */
     lily_type *integer_type = vm->symtab->integer_class->type;
@@ -2054,27 +1991,15 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg->value = rhs_reg->value;
                 code_pos += 4;
                 break;
-            case o_get_const:
-                literal_val = vm->literal_table[code[code_pos+2]];
+            case o_get_readonly:
+                readonly_val = vm->readonly_table[code[code_pos+2]];
                 lhs_reg = vm_regs[code[code_pos+3]];
 
                 if (lhs_reg->type->cls->is_refcounted &&
                     (lhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
                     lily_deref_unknown_val(vm->mem_func, lhs_reg);
 
-                lhs_reg->value = literal_val->value;
-                lhs_reg->flags = VAL_IS_PROTECTED;
-                code_pos += 4;
-                break;
-            case o_get_function:
-                rhs_reg = (lily_value *)(vm->function_table[code[code_pos+2]]);
-                lhs_reg = vm_regs[code[code_pos+3]];
-
-                if (lhs_reg->type->cls->is_refcounted &&
-                    (lhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                    lily_deref_unknown_val(vm->mem_func, lhs_reg);
-
-                lhs_reg->value = rhs_reg->value;
+                lhs_reg->value = readonly_val->value;
                 lhs_reg->flags = VAL_IS_PROTECTED;
                 code_pos += 4;
                 break;
@@ -2199,11 +2124,11 @@ void lily_vm_execute(lily_vm_state *vm)
                     grow_function_stack(vm);
 
                 if (code[code_pos+2] == 1)
-                    lhs_reg = (lily_value *)vm->function_table[code[code_pos+3]];
+                    lhs_reg = (lily_value *)vm->readonly_table[code[code_pos+3]];
                 else
                     lhs_reg = vm_regs[code[code_pos+3]];
 
-                fval = (lily_function_val *)(lhs_reg->value.function);
+                fval = lhs_reg->value.function;
 
                 int j = code[code_pos+4];
                 stack_entry = vm->function_stack[vm->function_stack_pos-1];
