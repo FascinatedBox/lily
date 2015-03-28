@@ -161,16 +161,16 @@ typedef struct lily_sym_t {
     uint32_t unused_pad;
 } lily_sym;
 
-/* lily_literal holds string, number, and integer literals. */
-typedef struct lily_literal_t {
+/* A tie represents an association between some particular spot, and a value
+   given. This struct represents literals, readonly vars, and foreign values. */
+typedef struct lily_tie_t {
     uint64_t flags;
     lily_type *type;
     lily_raw_value value;
-    /* Literals are loaded in a special table in the vm. A literal's reg_spot
-       is the position of it in the vm's literal_table. */
+    /* This is where this value belongs. */
     uint64_t reg_spot;
-    struct lily_literal_t *next;
-} lily_literal;
+    struct lily_tie_t *next;
+} lily_tie;
 
 /* lily_storage is a struct used by emitter to hold info for intermediate
    values (such as the result of an addition). The emitter will reuse these
@@ -196,9 +196,9 @@ typedef struct lily_var_t {
     lily_type *type;
     /* If this var is declared function, then the native function info is
        stored here. */
-    union lily_raw_value_t value;
+    union lily_raw_value_t pad1;
     uint32_t reg_spot;
-    uint32_t pad;
+    uint32_t pad2;
     char *name;
     /* (Up to) the first 8 bytes of the name. This is compared before comparing
        the name. */
@@ -264,7 +264,7 @@ typedef struct lily_symbol_val_t {
        leave it alone instead of attempting to destroy it. */
     union {
         lily_weak_symbol_entry *entry;
-        lily_literal *assoc_lit;
+        lily_tie *assoc_lit;
     };
     char *string;
 } lily_symbol_val;
@@ -348,7 +348,7 @@ typedef struct lily_instance_val_t {
    arguments to a function themselves. */
 typedef struct lily_function_val_t {
     uint32_t refcount;
-    uint32_t pad;
+    uint32_t line_num;
 
     /* The name of the class that this function belongs to OR "". */
     char *class_name;
@@ -512,7 +512,7 @@ typedef struct lily_import_entry_t {
 
 /* SYM_* defines are for identifying the type of symbol given. Emitter uses
    these sometimes. */
-#define SYM_TYPE_LITERAL        0x001
+#define SYM_TYPE_TIE            0x001
 #define SYM_TYPE_VAR            0x002
 #define SYM_TYPE_STORAGE        0x004
 /* This var is out of scope. This is set when a var in a non-function block

@@ -167,7 +167,6 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
     parser->vm->main = parser->symtab->main_var;
     parser->vm->symtab = parser->symtab;
     parser->vm->ts = parser->emit->ts;
-    parser->vm->prep_import_start = parser->import_start;
 
     parser->symtab->lex_linenum = &parser->lex->line_num;
 
@@ -771,12 +770,11 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
        just declare the var. */
     lily_var *call_var = lily_new_var(symtab, call_type, lex->label,
             VAR_IS_READONLY);
-
-    call_var->parent = cls;
-    call_var->value.function = lily_new_foreign_function_val(
+    lily_function_val *fval = lily_new_foreign_function_val(
             parser->mem_func, foreign_func, class_name, call_var->name);
 
-    call_var->flags &= ~VAL_IS_NIL;
+    call_var->parent = cls;
+    lily_tie_function(symtab, call_var, fval);
 
     lily_lexer(lex);
 
@@ -1047,8 +1045,8 @@ static void expression_word(lily_parse_state *parser, int *state)
     int key_id = keyword_by_name(lex->label);
     if (key_id != -1) {
         lily_sym *sym = parse_special_keyword(parser, key_id);
-        if (sym->flags & SYM_TYPE_LITERAL)
-            lily_ast_push_literal(parser->ast_pool, (lily_literal *)sym);
+        if (sym->flags & SYM_TYPE_TIE)
+            lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
         else
             lily_ast_push_self(parser->ast_pool);
 
@@ -1832,8 +1830,8 @@ static void do_keyword(lily_parse_state *parser, int key_id)
 {
     lily_sym *sym;
     sym = parse_special_keyword(parser, key_id);
-    if (sym->flags & SYM_TYPE_LITERAL)
-        lily_ast_push_literal(parser->ast_pool, (lily_literal *)sym);
+    if (sym->flags & SYM_TYPE_TIE)
+        lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
     else
         lily_ast_push_self(parser->ast_pool);
 

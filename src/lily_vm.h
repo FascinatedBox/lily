@@ -41,8 +41,7 @@ typedef struct lily_vm_state_t {
     lily_value **regs_from_main;
     lily_vm_stack_entry **function_stack;
 
-    lily_literal **literal_table;
-    lily_var **function_table;
+    lily_tie **readonly_table;
 
     /* A linked list of entries that are currently being used. */
     lily_gc_entry *gc_live_entries;
@@ -54,8 +53,7 @@ typedef struct lily_vm_state_t {
     uint32_t num_registers;
     uint32_t max_registers;
 
-    uint16_t literal_count;
-    uint16_t function_count;
+    uint32_t readonly_count;
 
     uint16_t function_stack_pos;
     uint16_t function_stack_size;
@@ -75,9 +73,7 @@ typedef struct lily_vm_state_t {
        used because it isn't refcounted. */
     lily_type *integer_type;
 
-    lily_import_entry *prep_import_start;
     uint64_t prep_id_start;
-    lily_literal *prep_literal_stop;
 
     /* Most of the stack entries will be native functions, with the lowest
        being __main__. __main__ has o_return_from_vm at the end, so native

@@ -28,7 +28,7 @@ typedef struct lily_ast_t {
        be gotten from the ast pool's membuf at this position. */
     uint32_t membuf_pos;
 
-    /* Literals and readonly functions store their initial value here. */
+    lily_tie *literal;
     lily_sym *original_sym;
     lily_prop_entry *property;
 
@@ -170,7 +170,7 @@ void lily_ast_push_local_var(lily_ast_pool *, lily_var *);
 void lily_ast_push_binary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_global_var(lily_ast_pool *, lily_var *);
 void lily_ast_push_defined_func(lily_ast_pool *, lily_var *);
-void lily_ast_push_literal(lily_ast_pool *, lily_literal *);
+void lily_ast_push_literal(lily_ast_pool *, lily_tie *);
 void lily_ast_push_unary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_oo_access(lily_ast_pool *, char *);
 void lily_ast_push_property(lily_ast_pool *, lily_prop_entry *);

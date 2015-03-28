@@ -85,21 +85,21 @@ static lily_symbol_val *make_new_symbol(lily_symtab *symtab, char *data)
     will be created with the given value (copying it if it's a string).
 
     The newly-created literal is returned. */
-static lily_literal *make_new_literal(lily_symtab *symtab, lily_class *cls)
+static lily_tie *make_new_literal(lily_symtab *symtab, lily_class *cls)
 {
-    lily_literal *lit = malloc_mem(sizeof(lily_literal));
+    lily_tie *lit = malloc_mem(sizeof(lily_tie));
 
     /* Literal values always have a default type, so this is safe. */
     lit->type = cls->type;
 
-    lit->flags = SYM_TYPE_LITERAL;
+    lit->flags = SYM_TYPE_TIE;
     /* Literals aren't put in registers, but they ARE put in a special vm
        table. This is the literal's index into that table. */
-    lit->reg_spot = symtab->next_lit_spot;
-    symtab->next_lit_spot++;
+    lit->reg_spot = symtab->next_readonly_spot;
+    symtab->next_readonly_spot++;
 
-    lit->next = symtab->lit_chain;
-    symtab->lit_chain = lit;
+    lit->next = symtab->literals;
+    symtab->literals = lit;
 
     return lit;
 }
@@ -135,8 +135,8 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_type *type, char *name,
     else {
         /* Built-in and user-declared functions are both put into a table of
            functions. */
-        var->reg_spot = symtab->next_function_spot;
-        symtab->next_function_spot++;
+        var->reg_spot = symtab->next_readonly_spot;
+        symtab->next_readonly_spot++;
         var->function_depth = -1;
     }
 
@@ -375,7 +375,8 @@ static void init_lily_main(lily_symtab *symtab)
     new_type->generic_pos = 0;
     new_type->flags = 0;
 
-    symtab->main_var = lily_new_var(symtab, new_type, "__main__", 0);
+    symtab->main_var = lily_new_var(symtab, new_type, "__main__",
+            VAR_IS_READONLY);
 }
 
 /* init_classes
@@ -483,14 +484,16 @@ lily_symtab *lily_new_symtab(lily_mem_func mem_func,
 
     uint32_t v = 0;
 
+    symtab->main_function = NULL;
     symtab->next_register_spot = 0;
-    symtab->next_lit_spot = 0;
-    symtab->next_function_spot = 0;
+    symtab->next_readonly_spot = 0;
     symtab->var_chain = NULL;
     symtab->main_var = NULL;
     symtab->old_function_chain = NULL;
     symtab->class_chain = NULL;
-    symtab->lit_chain = NULL;
+    symtab->literals = NULL;
+    symtab->function_ties = NULL;
+    symtab->foreign_ties = NULL;
     symtab->builtin_import = builtin_import;
     symtab->active_import = builtin_import;
     symtab->function_depth = 1;
@@ -498,7 +501,6 @@ lily_symtab *lily_new_symtab(lily_mem_func mem_func,
        0 is used, because these are all builtins, and the lexer may have failed
        to initialize anyway. */
     symtab->lex_linenum = &v;
-    symtab->ties = NULL;
     symtab->root_type = NULL;
     symtab->generic_class = NULL;
     symtab->generic_type_start = NULL;
@@ -517,25 +519,20 @@ lily_symtab *lily_new_symtab(lily_mem_func mem_func,
 /*****************************************************************************/
 
 /** Symtab free-ing **/
+
 /*  free_vars
-    Free the vars given. If the var has a function associated with it, then drop
-    that function (unless it's __main__, then the function's only ref is from
-    being in the var. __main__ is freed in a special way later). */
+    Free a given linked list of vars. */
 void free_vars(lily_symtab *symtab, lily_var *var)
 {
-    lily_var *var_temp;
+    lily_var *var_next;
 
-    while (var != NULL) {
-        var_temp = var->next;
-        if ((var->flags & VAL_IS_NIL) == 0) {
-            int cls_id = var->type->cls->id;
-            if (cls_id == SYM_CLASS_FUNCTION)
-                lily_deref_function_val(symtab->mem_func, var->value.function);
-        }
+    while (var) {
+        var_next = var->next;
+
         free_mem(var->name);
         free_mem(var);
 
-        var = var_temp;
+        var = var_next;
     }
 }
 
@@ -555,14 +552,15 @@ static void free_properties(lily_symtab *symtab, lily_class *cls)
     }
 }
 
-/*  free_lily_main
+/*  free_main_function
     Regular function teardown can't be done on __main__ because __main__ does
     not keep a copy of function names. So it uses this. */
-static void free_lily_main(lily_symtab *symtab, lily_function_val *fv)
+static void free_main_function(lily_symtab *symtab)
 {
-    free_mem(fv->reg_info);
-    free_mem(fv->code);
-    free_mem(fv);
+    lily_function_val *main_function = symtab->main_function;
+    free_mem(main_function->reg_info);
+    free_mem(main_function->code);
+    free_mem(main_function);
 }
 
 static void free_class_entries(lily_symtab *symtab, lily_class *class_iter)
@@ -621,24 +619,15 @@ static void free_foreign_symbols(lily_symtab *symtab)
     }
 }
 
-/*  lily_free_symtab
-
-    We're done. Nothing needs anything in the symtab anymore so tear it all
-    down. */
-void lily_free_symtab(lily_symtab *symtab)
+static void free_ties(lily_symtab *symtab, lily_tie *tie_iter)
 {
-    lily_literal *lit, *lit_temp;
+    lily_tie *tie_next;
 
-    lit = symtab->lit_chain;
-
-    while (lit != NULL) {
-        lit_temp = lit->next;
-
-        if (lit->type->cls->id == SYM_CLASS_STRING ||
-            lit->type->cls->id == SYM_CLASS_BYTESTRING)
-            lily_deref_string_val(symtab->mem_func, lit->value.string);
-        else if (lit->type->cls->id == SYM_CLASS_SYMBOL) {
-            lily_symbol_val *symv = lit->value.symbol;
+    while (tie_iter) {
+        tie_next = tie_iter->next;
+        lily_class *tie_cls = tie_iter->type->cls;
+        if (tie_cls == symtab->symbol_class) {
+            lily_symbol_val *symv = tie_iter->value.symbol;
             /* Important! If not fixed, deref will ignore this value. */
             symv->has_literal = 0;
             /* Since this symbol was created internally, string::to_sym should
@@ -647,23 +636,30 @@ void lily_free_symtab(lily_symtab *symtab)
                deref will suffice. */
             lily_deref_symbol_val(symtab->mem_func, symv);
         }
-        free_mem(lit);
+        /* Variant classes must be skipped, because their deref-er is a tuple
+           deref-er. This is bad, because variants that are created as literals
+           do not take inner values (and are represented as an integer).
+           Everything else? Yeah, blow it away. */
+        else if ((tie_cls->flags & CLS_VARIANT_CLASS) == 0)
+            lily_deref_unknown_raw_val(symtab->mem_func, tie_iter->type,
+                    tie_iter->value);
 
-        lit = lit_temp;
+        free_mem(tie_iter);
+        tie_iter = tie_next;
     }
+}
 
-    /* This should be okay, because nothing will want to use the vars at this
-       point. */
-    lily_function_val *main_var;
+/*  lily_free_symtab
+
+    We're done. Nothing needs anything in the symtab anymore so tear it all
+    down. */
+void lily_free_symtab(lily_symtab *symtab)
+{
+    free_ties(symtab, symtab->literals);
+    free_ties(symtab, symtab->function_ties);
 
     free_class_entries(symtab, symtab->class_chain);
     free_class_entries(symtab, symtab->old_class_chain);
-
-    if (symtab->main_var &&
-        ((symtab->main_var->flags & VAL_IS_NIL) == 0))
-        main_var = symtab->main_var->value.function;
-    else
-        main_var = NULL;
 
     free_foreign_symbols(symtab);
 
@@ -682,8 +678,7 @@ void lily_free_symtab(lily_symtab *symtab)
 
     /* __main__ must not be destroyed through normal deref, because it does not
        allocate names for 'show()' within the function val. */
-    if (main_var != NULL)
-        free_lily_main(symtab, main_var);
+    free_main_function(symtab);
 
     lily_type *type, *type_temp;
 
@@ -707,19 +702,9 @@ void lily_free_symtab(lily_symtab *symtab)
         import_iter = import_iter->root_next;
     }
 
-    lily_value_tie *tie_iter = symtab->ties;
-    while (tie_iter->prev)
-        tie_iter = tie_iter->prev;
-
-    lily_value_tie *tie_next;
-    while (tie_iter) {
-        tie_next = tie_iter->next;
-
-        free_mem(tie_iter->value);
-        free_mem(tie_iter);
-
-        tie_iter = tie_next;
-    }
+    /* Symtab does not attempt to free 'foreign_ties'. This is because the vm
+       frees the foreign ties as it loads them (since there are so few).
+       Therefore, foreign_ties should always be NULL at this point. */
 
     free_classes(symtab, symtab->old_class_chain);
     free_classes(symtab, symtab->class_chain);
@@ -735,14 +720,14 @@ void lily_free_symtab(lily_symtab *symtab)
    They first look to see of the symtab has a literal with that value, then
    attempt to create it if there isn't one. */
 
-lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
+lily_tie *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
 {
-    lily_literal *lit, *ret;
+    lily_tie *lit, *ret;
     ret = NULL;
     lily_class *integer_cls = symtab->integer_class;
     lily_type *want_type = integer_cls->type;
 
-    for (lit = symtab->lit_chain;lit != NULL;lit = lit->next) {
+    for (lit = symtab->literals;lit != NULL;lit = lit->next) {
         if (lit->type == want_type && lit->value.integer == int_val) {
             ret = lit;
             break;
@@ -757,14 +742,14 @@ lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
     return ret;
 }
 
-lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
+lily_tie *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
 {
-    lily_literal *lit, *ret;
+    lily_tie *lit, *ret;
     ret = NULL;
     lily_class *double_cls = symtab->double_class;
     lily_type *want_type = double_cls->type;
 
-    for (lit = symtab->lit_chain;lit != NULL;lit = lit->next) {
+    for (lit = symtab->literals;lit != NULL;lit = lit->next) {
         if (lit->type == want_type && lit->value.doubleval == dbl_val) {
             ret = lit;
             break;
@@ -779,13 +764,13 @@ lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
     return ret;
 }
 
-lily_literal *lily_get_string_literal(lily_symtab *symtab, char *want_string)
+lily_tie *lily_get_string_literal(lily_symtab *symtab, char *want_string)
 {
-    lily_literal *lit, *ret;
+    lily_tie *lit, *ret;
     ret = NULL;
     int want_string_len = strlen(want_string);
 
-    for (lit = symtab->lit_chain;lit;lit = lit->next) {
+    for (lit = symtab->literals;lit;lit = lit->next) {
         if (lit->type->cls->id == SYM_CLASS_STRING) {
             if (lit->value.string->size == want_string_len &&
                 strcmp(lit->value.string->string, want_string) == 0) {
@@ -812,13 +797,13 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab, char *want_string)
     return ret;
 }
 
-lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
+lily_tie *lily_get_bytestring_literal(lily_symtab *symtab,
         char *want_string, int want_string_len)
 {
-    lily_literal *lit, *ret;
+    lily_tie *lit, *ret;
     ret = NULL;
 
-    for (lit = symtab->lit_chain;lit;lit = lit->next) {
+    for (lit = symtab->literals;lit;lit = lit->next) {
         if (lit->type->cls->id == SYM_CLASS_BYTESTRING) {
             if (lit->value.string->size == want_string_len &&
                 memcmp(lit->value.string->string, want_string,
@@ -846,13 +831,13 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
     return ret;
 }
 
-lily_literal *lily_get_symbol_literal(lily_symtab *symtab, char *want_string)
+lily_tie *lily_get_symbol_literal(lily_symtab *symtab, char *want_string)
 {
-    lily_literal *lit, *ret;
+    lily_tie *lit, *ret;
     ret = NULL;
     int want_string_len = strlen(want_string);
 
-    for (lit = symtab->lit_chain;lit;lit = lit->next) {
+    for (lit = symtab->literals;lit;lit = lit->next) {
         if (lit->type->cls->id == SYM_CLASS_SYMBOL) {
             if (lit->value.symbol->size == want_string_len &&
                 strcmp(lit->value.symbol->string, want_string) == 0) {
@@ -870,7 +855,7 @@ lily_literal *lily_get_symbol_literal(lily_symtab *symtab, char *want_string)
        source from a previous run. */
 
     lily_class *symbol_cls = symtab->symbol_class;
-    lily_literal *new_lit = make_new_literal(symtab, symbol_cls);
+    lily_tie *new_lit = make_new_literal(symtab, symbol_cls);
     lily_weak_symbol_entry *foreign_iter = symtab->foreign_symbols;
     lily_symbol_val *symv = NULL;
 
@@ -906,13 +891,13 @@ lily_literal *lily_get_symbol_literal(lily_symtab *symtab, char *want_string)
     so an empty literal is passed around for the value.
     Otherwise the interpreter would have to create a bunch of nothings with the
     same value, and that would be rather silly. :) */
-lily_literal *lily_get_variant_literal(lily_symtab *symtab,
+lily_tie *lily_get_variant_literal(lily_symtab *symtab,
         lily_type *variant_type)
 {
-    lily_literal *lit_iter, *ret;
+    lily_tie *lit_iter, *ret;
     ret = NULL;
 
-    for (lit_iter = symtab->lit_chain;
+    for (lit_iter = symtab->literals;
          lit_iter != NULL;
          lit_iter = lit_iter->next) {
         if (lit_iter->type == variant_type) {
@@ -927,6 +912,37 @@ lily_literal *lily_get_variant_literal(lily_symtab *symtab,
     }
 
     return ret;
+}
+
+void lily_tie_function(lily_symtab *symtab, lily_var *func_var,
+        lily_function_val *func_val)
+{
+    lily_tie *tie = malloc_mem(sizeof(lily_tie));
+
+    /* This is done so that lily_debug can print line numbers. */
+    func_val->line_num = func_var->line_num;
+
+    tie->type = func_var->type;
+    tie->value.function = func_val;
+    tie->reg_spot = func_var->reg_spot;
+
+    /* VAL_IS_PROTECTED means "don't deref me". */
+    tie->flags = SYM_TYPE_TIE | VAL_IS_PROTECTED;
+
+    tie->next = symtab->function_ties;
+    symtab->function_ties = tie;
+}
+
+void lily_tie_value(lily_symtab *symtab, lily_var *var, lily_value *value)
+{
+    lily_tie *tie = malloc_mem(sizeof(lily_tie));
+
+    tie->type = var->type;
+    tie->value = value->value;
+    tie->reg_spot = var->reg_spot;
+    tie->flags = SYM_TYPE_TIE;
+    tie->next = symtab->foreign_ties;
+    symtab->foreign_ties = tie;
 }
 
 /*  lily_type_for_class
@@ -962,9 +978,9 @@ lily_symbol_val *lily_symbol_by_name(lily_symtab *symtab, char *text)
 {
     int text_len = strlen(text);
     lily_symbol_val *ret = NULL;
-    lily_literal *lit;
+    lily_tie *lit;
 
-    for (lit = symtab->lit_chain;lit;lit = lit->next) {
+    for (lit = symtab->literals;lit;lit = lit->next) {
         if (lit->type->cls->id == SYM_CLASS_SYMBOL) {
             if (lit->value.symbol->size == text_len &&
                 strcmp(lit->value.symbol->string, text) == 0) {
@@ -1602,30 +1618,4 @@ lily_import_entry *lily_find_import(lily_symtab *symtab,
         return result;
 
     return lily_find_import_within(symtab->builtin_import, name);
-}
-
-void lily_tie_value(lily_symtab *symtab, lily_var *var, lily_value *value)
-{
-    lily_value_tie *tie;
-    if (symtab->ties == NULL || symtab->ties->in_use) {
-        tie = malloc_mem(sizeof(lily_value_tie));
-        tie->value = malloc_mem(sizeof(lily_value));
-
-        tie->prev = symtab->ties;
-        if (symtab->ties)
-            symtab->ties->next = tie;
-
-        tie->next = NULL;
-        symtab->ties = tie;
-    }
-    else {
-        tie = symtab->ties;
-        if (tie->next)
-            symtab->ties = tie->next;
-    }
-
-    tie->in_use = 1;
-    tie->type = var->type;
-    memcpy(tie->value, value, sizeof(lily_value));
-    tie->reg_spot = var->reg_spot;
 }

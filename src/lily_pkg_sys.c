@@ -26,9 +26,6 @@ void lily_pkg_sys_init(lily_parse_state *parser, int argc, char **argv)
     lv->elems = values;
     lv->visited = 0;
 
-    bound_var->value.list = lv;
-    bound_var->flags &= ~VAL_IS_NIL;
-
     int i;
     for (i = 0;i < argc;i++) {
         values[i] = malloc_mem(sizeof(lily_value));

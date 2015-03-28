@@ -238,8 +238,8 @@ static int condition_optimize_check(lily_ast *ast)
 
     /* This may not be a literal. It could be a user-defined/built-in function
        which would always automatically be true. */
-    if (ast->result->flags & SYM_TYPE_LITERAL) {
-        lily_literal *lit = (lily_literal *)ast->result;
+    if (ast->result->flags & SYM_TYPE_TIE) {
+        lily_tie *lit = (lily_tie *)ast->result;
 
         /* Keep this synced with vm's o_jump_if calculation. */
         int lit_cls_id = lit->type->cls->id;
@@ -399,7 +399,7 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
                     "tuple subscripts must be integer literals.\n", "");
         }
 
-        int index_value = index_ast->original_sym->value.integer;
+        int index_value = index_ast->literal->value.integer;
         lily_type *var_type = var_ast->result->type;
         if (index_value < 0 || index_value >= var_type->subtype_count) {
             lily_raise_adjusted(emit->raiser, var_ast->line_num,
@@ -426,7 +426,7 @@ static lily_type *get_subscript_result(lily_type *type, lily_ast *index_ast)
         result = type->subtypes[1];
     else if (type->cls->id == SYM_CLASS_TUPLE) {
         /* check_valid_subscript ensures that this is safe. */
-        int literal_index = index_ast->original_sym->value.integer;
+        int literal_index = index_ast->literal->value.integer;
         result = type->subtypes[literal_index];
     }
     else
@@ -849,7 +849,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     }
 
     emit->symtab->next_register_spot = block->save_register_spot;
-    emit->top_function = v->value.function;
+    emit->top_function = last_func_block->function_value;
     emit->top_var = v;
     emit->top_function_ret = v->type->subtypes[0];
 
@@ -1065,7 +1065,7 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
                     index_tree->original_sym->type->cls->id != SYM_CLASS_INTEGER)
                     result_type = NULL;
                 else {
-                    int literal_index = index_tree->original_sym->value.integer;
+                    int literal_index = index_tree->literal->value.integer;
                     if (literal_index < 0 ||
                         literal_index > result_type->subtype_count)
                         result_type = NULL;
@@ -1492,7 +1492,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 
     if (is_top == 1) {
         int save_pos;
-        lily_literal *success_lit, *failure_lit;
+        lily_tie *success_lit, *failure_lit;
         lily_symtab *symtab = emit->symtab;
 
         result = get_storage(emit, symtab->integer_class->type, ast->line_num);
@@ -1503,7 +1503,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
                 (ast->op == expr_logical_or));
 
         write_4(emit,
-                o_get_const,
+                o_get_readonly,
                 ast->line_num,
                 success_lit->reg_spot,
                 result->reg_spot);
@@ -1513,7 +1513,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 
         lily_emit_leave_block(emit);
         write_4(emit,
-                o_get_const,
+                o_get_readonly,
                 ast->line_num,
                 failure_lit->reg_spot,
                 result->reg_spot);
@@ -2685,15 +2685,10 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     lily_storage *ret;
     int opcode;
 
-    if (ast->tree_type == tree_literal)
-        opcode = o_get_const;
-    else if (ast->tree_type == tree_defined_func ||
-             ast->tree_type == tree_inherited_new)
-        opcode = o_get_function;
-    else if (ast->tree_type == tree_global_var)
+    if (ast->tree_type == tree_global_var)
         opcode = o_get_global;
     else
-        opcode = -1;
+        opcode = o_get_readonly;
 
     ret = get_storage(emit, ast->original_sym->type, ast->line_num);
 
@@ -2858,11 +2853,11 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
            containers (which will always be empty).
            So the interpreter creates a literal and hands that off. */
         lily_type *variant_type = ast->variant_class->variant_type;
-        lily_literal *variant_lit = lily_get_variant_literal(emit->symtab,
+        lily_tie *variant_lit = lily_get_variant_literal(emit->symtab,
                 variant_type);
 
         result = get_storage(emit, variant_type, ast->line_num);
-        write_4(emit, o_get_const, ast->line_num, variant_lit->reg_spot,
+        write_4(emit, o_get_readonly, ast->line_num, variant_lit->reg_spot,
                 result->reg_spot);
     }
 
@@ -2888,7 +2883,7 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
 
     lily_storage *s = get_storage(emit, lambda_result->type, ast->line_num);
     write_4(emit,
-            o_get_function,
+            o_get_readonly,
             ast->line_num,
             lambda_result->reg_spot,
             s->reg_spot);
@@ -3664,10 +3659,9 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         else
             class_name = NULL;
 
-        v->value.function = lily_new_native_function_val(emit->mem_func,
+        lily_function_val *fval = lily_new_native_function_val(emit->mem_func,
                 class_name, v->name);
-
-        v->flags &= ~(VAL_IS_NIL);
+        lily_tie_function(emit->symtab, v, fval);
 
         new_block->save_register_spot = emit->symtab->next_register_spot;
 
@@ -3686,11 +3680,12 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
            all are currently taken. */
         new_block->storage_start = emit->unused_storage_start;
         new_block->function_var = v;
+        new_block->function_value = fval;
         /* -1 to indicate that there is no current loop. */
         new_block->loop_start = -1;
         new_block->last_return = -1;
 
-        emit->top_function = v->value.function;
+        emit->top_function = fval;
         emit->top_var = v;
     }
 
@@ -3757,21 +3752,15 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     try_add_storage(emit);
 
     lily_block *main_block = malloc_mem(sizeof(lily_block));
-    main_var->value.function = lily_new_native_function_val(
+    lily_function_val *main_function = lily_new_native_function_val(
             emit->mem_func, NULL, main_var->name);
 
+    emit->symtab->main_function = main_function;
     /* __main__ is given two refs so that it must go through a custom deref to
        be destroyed. This is because the names in the function info it has are
        shared with vars that are still around. */
-    main_var->value.function->refcount++;
-    main_var->flags &= ~VAL_IS_NIL;
-
-    lily_value v;
-    v.type = main_var->type;
-    v.flags = 0;
-    v.value.function = main_var->value.function;
-
-    lily_tie_value(emit->symtab, main_var, &v);
+    main_function->refcount++;
+    lily_tie_function(emit->symtab, main_var, main_function);
 
     main_block->prev = NULL;
     main_block->next = NULL;
@@ -3782,8 +3771,9 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     main_block->loop_start = -1;
     main_block->class_entry = NULL;
     main_block->generic_count = 0;
+    main_block->function_value = main_function;
     main_block->self = NULL;
-    emit->top_function = main_var->value.function;
+    emit->top_function = main_function;
     emit->top_var = main_var;
     emit->block = main_block;
     emit->function_depth++;
