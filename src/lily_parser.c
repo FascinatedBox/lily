@@ -88,12 +88,15 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *, char *,
 
 static void set_import_paths(lily_parse_state *parser)
 {
-    char **paths = malloc_mem(2 * sizeof(char *));
+    char **paths = malloc_mem(3 * sizeof(char *));
 
     paths[0] = malloc_mem(2 * sizeof(char));
     strcpy(paths[0], "");
 
-    paths[1] = NULL;
+    paths[1] = malloc_mem(2 * sizeof(char));
+    strcpy(paths[1], "");
+
+    paths[2] = NULL;
 
     parser->import_paths = paths;
 }
@@ -278,6 +281,29 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
     new_entry->path = path;
 
     return new_entry;
+}
+
+/*  fixup_import_basedir
+    This function is called to set the first import path to the path used by the
+    first file parsed (assuming a file parse mode. String parsing does not go
+    through this). This makes it so that imports will look first at the path of
+    the file imported, THEN relative to where the interpreter is.
+
+    Ex: ./lily test/pass/import/test_deep_access.lly
+
+    In such a case, test/pass/import/ is searched before '.' is searched. */
+static void fixup_import_basedir(lily_parse_state *parser, char *path)
+{
+    char *search_str = strrchr(path, '/');
+    if (search_str == NULL)
+        return;
+
+    int search_index = (search_str - path) + 1;
+
+    parser->import_paths[0] = realloc_mem(parser->import_paths[0],
+            search_index + 1);
+    strncpy(parser->import_paths[0], path, search_index);
+    parser->import_paths[0][search_index] = '\0';
 }
 
 /*  shorthash_for_name
@@ -2745,6 +2771,7 @@ int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode, char *filename
     if (setjmp(parser->raiser->jumps[parser->raiser->jump_pos]) == 0) {
         parser->raiser->jump_pos++;
         lily_load_file(parser->lex, mode, filename);
+        fixup_import_basedir(parser, filename);
         parser_loop(parser);
         lily_pop_lex_entry(parser->lex);
 

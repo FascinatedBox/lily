@@ -19,17 +19,15 @@ pass_count = 0
 error_count = 0
 crash_count = 0
 
-current_dir = os.getcwd() + "/"
-original_dir = current_dir
-
 def load_filenames(path):
     ret = {}
     for (dirpath, dirnames, filenames) in os.walk(path):
         for name in filenames:
+            path = dirpath + '/'
             try:
-                ret[dirpath].append(name)
+                ret[path].append(name)
             except:
-                ret[dirpath] = [name]
+                ret[path] = [name]
 
     return ret
 
@@ -46,7 +44,7 @@ def get_expected_str(filename):
             output += line.rstrip("\r\n") + "\n"
     return output
 
-def basic_run(filename, mode, run_range):
+def basic_run(filename, basedir, mode, run_range):
     global pass_count, error_count, crash_count
     should_pass = (mode == MODE_PASS)
     mode_str = ""
@@ -55,20 +53,25 @@ def basic_run(filename, mode, run_range):
     else:
         mode_str = "fail"
 
-    command = "lily %s" % (filename)
+    path = basedir + filename
+    command = "./lily %s" % (path)
     subp = subprocess.Popen([command], stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, shell=True)
     (subp_stdout, subp_stderr) = subp.communicate()
     subp.wait()
 
     did_pass = True
-    expected_stderr = get_expected_str(filename)
+    expected_stderr = get_expected_str(path)
 
     try:
         if subp_stderr[-1] == '\n':
             subp_stderr[:-1]
     except IndexError:
         pass
+
+    # This makes it so that different tests don't have to reference the
+    # directory path in the error (which is tedious and annoying).
+    subp_stderr = subp_stderr.replace(basedir, "");
 
     if  len(subp_stdout) or \
         subp_stderr != expected_stderr or \
@@ -102,24 +105,19 @@ fail_entry_count = count_values(fail_entries)
 run_range = [0, pass_entry_count + fail_entry_count]
 
 print "pre-commit-hook.py: Running %d passing tests..." % pass_entry_count
-
 for dirpath in pass_entries:
-    os.chdir(original_dir + dirpath + "/")
     for filename in pass_entries[dirpath]:
         run_range[0] += 1
-        basic_run(filename, MODE_PASS, run_range)
+        basic_run(filename, dirpath, MODE_PASS, run_range)
 
 print "pre-commit-hook.py: Running %d failing tests..." % fail_entry_count
 for dirpath in fail_entries:
-    os.chdir(original_dir + dirpath + "/")
     for filename in fail_entries[dirpath]:
         run_range[0] += 1
-        basic_run(filename, MODE_FAIL, run_range)
+        basic_run(filename, dirpath, MODE_FAIL, run_range)
 
 print ("Final stats: %d tests passed, %d errors, %d crashed." \
         % (pass_count, error_count, crash_count))
-
-os.chdir(original_dir)
 
 if error_count == 0 and crash_count == 0:
     sys.exit(0)
