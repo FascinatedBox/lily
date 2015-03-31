@@ -108,12 +108,12 @@ void traceback_to_file(lily_parse_state *parser, FILE *outfile)
                 separator = "::";
 
             if (entry->function->code == NULL)
-                fprintf(outfile, "    Function %s%s%s [builtin]\n",
-                        class_name, separator,
+                fprintf(outfile, "    File \"%s\", from %s%s%s\n",
+                        entry->function->path, class_name, separator,
                         entry->function->trace_name);
             else
-                fprintf(outfile, "    Function %s%s%s at line %d\n",
-                        class_name, separator,
+                fprintf(outfile, "    File \"%s\", from %s%s%s at line %d\n",
+                        entry->function->path, class_name, separator,
                         entry->function->trace_name, entry->line_num);
         }
     }

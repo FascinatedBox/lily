@@ -1,8 +1,8 @@
 #[
 BadTypecastError: Cannot cast any containing type 'integer' to type 'string'.
 Traceback:
-    Function f at line 10
-    Function __main__ at line 14
+    File "excep_in_anonymous.lly", from f at line 10
+    File "excep_in_anonymous.lly", from __main__ at line 14
 ]#
 
 define f() {

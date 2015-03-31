@@ -337,6 +337,8 @@ typedef struct lily_function_val_t {
     char *class_name;
     /* The name of this function, for use by debug and stack trace. */
     char *trace_name;
+    /* The path of the file this function was created in. */
+    char *path;
 
     /* Foreign functions only. To determine if a function is foreign, simply
        check 'foreign_func == NULL'. */
