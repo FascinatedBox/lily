@@ -1,7 +1,7 @@
 #[
 DivisionByZeroError: Attempt to divide by zero.
 Traceback:
-    Function __main__ at line 10
+    File "dual_raise.lly", from __main__ at line 10
 ]#
 
 try:

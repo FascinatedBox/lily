@@ -930,6 +930,7 @@ void lily_tie_function(lily_symtab *symtab, lily_var *func_var,
 
     /* This is done so that lily_debug can print line numbers. */
     func_val->line_num = func_var->line_num;
+    func_val->path = symtab->active_import->path;
 
     tie->type = func_var->type;
     tie->value.function = func_val;

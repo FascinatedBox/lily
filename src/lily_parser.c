@@ -150,7 +150,8 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
     parser->import_top = NULL;
     parser->import_start = NULL;
 
-    lily_import_entry *builtin_import = make_new_import_entry(parser, "", "");
+    lily_import_entry *builtin_import = make_new_import_entry(parser, "",
+            "[builtin]");
     lily_raiser *raiser = lily_new_raiser(mem_func);
 
     parser->type_stack_pos = 0;
@@ -2508,7 +2509,15 @@ static void parser_loop(lily_parse_state *parser)
     /* The first pass of the interpreter starts with the current namespace being
        the builtin namespace. */
     if (parser->first_pass) {
-        lily_import_entry *main_import = make_new_import_entry(parser, "", "");
+        lily_import_entry *main_import = make_new_import_entry(parser, "",
+                parser->lex->entry->filename);
+
+        /* This is necessary because __main__ is created within the builtin
+           package (so that exceptions can be bootstrapped). However, since
+           __main__ holds all the global code for the first file, fix the path
+           of it to target the first file. */
+        parser->emit->top_function->path = parser->lex->entry->filename;
+
         lily_enter_import(parser->symtab, main_import);
         parser->first_pass = 0;
     }
