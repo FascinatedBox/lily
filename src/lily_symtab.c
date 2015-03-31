@@ -137,7 +137,7 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_type *type, char *name,
            functions. */
         var->reg_spot = symtab->next_readonly_spot;
         symtab->next_readonly_spot++;
-        var->function_depth = -1;
+        var->function_depth = 1;
     }
 
     var->next = symtab->var_chain;
