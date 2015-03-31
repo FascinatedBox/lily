@@ -1,0 +1,4 @@
+import var_exporter
+
+if var_exporter::v != 10:
+    print("Failed!\n")

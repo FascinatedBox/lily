@@ -128,8 +128,15 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_type *type, char *name,
     var->parent = NULL;
 
     if ((flags & VAR_IS_READONLY) == 0) {
-        var->reg_spot = symtab->next_register_spot;
-        symtab->next_register_spot++;
+        if (symtab->function_depth == 1 && symtab->import_depth != 0) {
+            var->reg_spot = symtab->next_main_spot;
+            symtab->next_main_spot++;
+        }
+        else {
+            var->reg_spot = symtab->next_register_spot;
+            symtab->next_register_spot++;
+        }
+
         var->function_depth = symtab->function_depth;
     }
     else {
@@ -497,6 +504,8 @@ lily_symtab *lily_new_symtab(lily_mem_func mem_func,
     symtab->builtin_import = builtin_import;
     symtab->active_import = builtin_import;
     symtab->function_depth = 1;
+    symtab->import_depth = 0;
+    symtab->next_main_spot = 0;
     /* lily_new_var expects lex_linenum to be the lexer's line number.
        0 is used, because these are all builtins, and the lexer may have failed
        to initialize anyway. */
