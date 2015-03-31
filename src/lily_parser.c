@@ -996,17 +996,13 @@ static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
                 "Attempt to use uninitialized value '%s'.\n",
                 var->name);
 
-    if (var->function_depth == 1) {
-        /* It's a global. */
+    if (var->flags & VAR_IS_READONLY)
+        lily_ast_push_defined_func(parser->ast_pool, var);
+    else if (var->function_depth == 1)
         lily_ast_push_global_var(parser->ast_pool, var);
-    }
     else if (var->function_depth == parser->emit->function_depth)
         /* In this current scope? Load as a local var. */
         lily_ast_push_local_var(parser->ast_pool, var);
-    else if (var->function_depth == -1) {
-        /* This is a function created through 'define'. */
-        lily_ast_push_defined_func(parser->ast_pool, var);
-    }
     else {
         /* todo: Handle upvalues later, maybe. */
         lily_raise(parser->raiser, lily_SyntaxError,
