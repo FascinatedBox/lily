@@ -82,6 +82,16 @@ typedef struct {
        if a var is a local or a global. */
     uint32_t function_depth;
 
+    /* When the symtab is in a package at the toplevel, then new vars use this
+       for their register spot. This is so that all vars at the top of any
+       package are created as globals. */
+    uint32_t next_main_spot;
+
+    /* This is adjusted whenever the emitter enters/leaves an import. This is
+       used with function_depth figure out if new vars should use
+       next_register_spot or next_main_spot for their register spot. */
+    uint32_t import_depth;
+
     /* These classes are used frequently throughout the interpreter, so they're
        kept here for easy, fast access. */
     lily_class *integer_class;

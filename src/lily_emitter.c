@@ -485,6 +485,9 @@ static lily_storage *get_storage(lily_emit_state *emit,
         if (storage_iter->type == NULL) {
             storage_iter->type = type;
 
+            /* This always uses next_register_spot (and never ever
+               next_main_spot), because storages are always local to whatever
+               function is being called. */
             storage_iter->reg_spot = emit->symtab->next_register_spot;
             emit->symtab->next_register_spot++;
 
@@ -681,7 +684,7 @@ static void finalize_function_val(lily_emit_state *emit,
     int register_count = emit->symtab->next_register_spot;
     lily_storage *storage_iter = function_block->storage_start;
     lily_function_val *f = emit->top_function;
-    lily_register_info *info = realloc_mem(f->reg_info,
+    lily_register_info *info = malloc_mem(
             register_count * sizeof(lily_register_info));
     lily_var *var_stop = function_block->function_var;
     lily_type *function_type = var_stop->type;
@@ -689,19 +692,10 @@ static void finalize_function_val(lily_emit_state *emit,
     /* Don't include functions inside of themselves... */
     if (emit->function_depth == 1)
         var_stop = var_stop->next;
-    /* else we're in __main__, which does include itself as an arg so it can be
-       passed to show and other neat stuff. */
 
-    if (function_block->function_var != emit->symtab->main_var)
+    if (emit->function_depth != 1)
         add_var_chain_to_info(emit, info, emit->symtab->var_chain, var_stop);
-    else {
-        /* __main__ is a little weird. Part of it is going to be in the builtin
-           package. However, the vars of the currently loaded file are also
-           globals, so load those too. */
-        add_var_chain_to_info(emit, info, emit->symtab->var_chain, NULL);
-        add_var_chain_to_info(emit, info,
-                emit->symtab->builtin_import->var_chain, NULL);
-    }
+
     add_storage_chain_to_info(info, function_block->storage_start);
 
     f->generic_pos = function_type->generic_pos;
@@ -725,18 +719,18 @@ static void finalize_function_val(lily_emit_state *emit,
             /* The function value now owns the var names, so don't free them. */
             var_iter = var_temp;
         }
-
-        /* Blank the types of the storages that were used. This lets other
-           functions know that the types are not in use. */
-        storage_iter = function_block->storage_start;
-        while (storage_iter) {
-            storage_iter->type = NULL;
-            storage_iter = storage_iter->next;
-        }
-
-        /* Unused storages now begin where the function starting zapping them. */
-        emit->unused_storage_start = function_block->storage_start;
     }
+
+    /* Blank the types of the storages that were used. This lets other functions
+       know that the types are not in use. */
+    storage_iter = function_block->storage_start;
+    while (storage_iter) {
+        storage_iter->type = NULL;
+        storage_iter = storage_iter->next;
+    }
+
+    /* Unused storages now begin where the function starting zapping them. */
+    emit->unused_storage_start = function_block->storage_start;
 
     f->reg_info = info;
     f->reg_count = register_count;
@@ -820,6 +814,13 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     if (block->block_type != BLOCK_FILE) {
         emit->symtab->function_depth--;
         emit->function_depth--;
+    }
+    else if (block->prev->prev == NULL) {
+        /* If re-entering __main__, then restore the register spot from symtab's
+           next_main_spot. This is so that __main__'s register count will
+           reflect the globals inserted by imported files. */
+        emit->symtab->import_depth--;
+        emit->symtab->next_register_spot = emit->symtab->next_main_spot;
     }
 }
 
@@ -3556,13 +3557,37 @@ void lily_emit_except(lily_emit_state *emit, lily_class *cls,
     emit->patch_pos++;
 }
 
-/*  lily_emit_vm_return
-    This is called just before __main__ is to be executed. It 'finalizes'
-    __main__ so the vm knows what types to use for different registers,
-    and writes the o_return_from_vm instruction that will leave the vm. */
-void lily_emit_vm_return(lily_emit_state *emit)
+/*  lily_prepare_main
+    This is called before __main__ is about to be executed (which happens at eof
+    for normal files, or for each ?> when doing tags. This will prepare type
+    information for __main__'s global registers, and write o_return_from_vm at
+    the end of __main__'s code. */
+void lily_prepare_main(lily_emit_state *emit, lily_import_entry *import_iter)
 {
-    finalize_function_val(emit, emit->block);
+    /* Whenever any packages are loaded, the vars are created as globals,
+       instead of trying to create some 'backing' value. Because of that, this
+       must work through every import loaded to discover all the globals.
+       Additionally, the current var list must also be loaded. */
+    lily_function_val *f = emit->top_function;
+    /* Don't use next_main_spot here. That exists so that globals outside of
+       __main__ will add to __main__'s registers. However, that information is
+       folded back into __main__'s register count when those imports pop.
+       next_register_spot is correct. */
+    int register_count = emit->symtab->next_register_spot;
+    lily_register_info *info = realloc_mem(emit->top_function->reg_info,
+            register_count * sizeof(lily_register_info));
+
+    while (import_iter) {
+        add_var_chain_to_info(emit, info, import_iter->var_chain, NULL);
+        import_iter = import_iter->root_next;
+    }
+
+    add_var_chain_to_info(emit, info, emit->symtab->var_chain, NULL);
+    add_storage_chain_to_info(info, emit->block->storage_start);
+
+    f->reg_info = info;
+    f->reg_count = register_count;
+
     write_1(emit, o_return_from_vm);
 }
 
@@ -3634,6 +3659,11 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
             emit->symtab->function_depth++;
             emit->function_depth++;
         }
+        else {
+            emit->symtab->import_depth++;
+            if (emit->block->prev == NULL)
+                emit->symtab->next_main_spot = emit->symtab->next_register_spot;
+        }
 
         /* Make sure registers start at 0 again. This will be restored when this
            function leaves. */
@@ -3702,6 +3732,28 @@ void lily_emit_leave_block(lily_emit_state *emit)
         leave_function(emit, block);
 
     emit->block = emit->block->prev;
+}
+
+/*  lily_emit_write_import_call
+    This is called by the parser after an imported file has left. The var is
+    always the special __import__ function holding the contents of the imported
+    file (which takes 0 args and returns nothing). */
+void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
+{
+    lily_function_val *f = emit->top_function;
+
+    write_prep(emit, 6);
+    f->code[f->pos] = o_function_call;
+    f->code[f->pos+1] = *emit->lex_linenum;
+    /* 1 means that +3 is a readonly var's spot. */
+    f->code[f->pos+2] = 1;
+    f->code[f->pos+3] = var->reg_spot;
+    /* 0 arguments collected. */
+    f->code[f->pos+4] = 0;
+    /* This does not return a value. */
+    f->code[f->pos+5] = -1;
+
+    f->pos += 6;
 }
 
 /*  lily_emit_try_enter_main

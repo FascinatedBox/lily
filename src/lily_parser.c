@@ -2098,14 +2098,19 @@ static void import_handler(lily_parse_state *parser, int multi)
 
     lily_emit_enter_block(parser->emit, BLOCK_FILE);
 
+    /* The whole of the file can be thought of as one large statement. */
     lily_lexer(lex);
-}
+    statement(parser, 1);
 
-static void leave_import(lily_parse_state *parser)
-{
+    if (parser->emit->block->block_type != BLOCK_FILE)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Unterminated block(s) at end of file.\n");
+
     lily_emit_leave_block(parser->emit);
     lily_pop_lex_entry(parser->lex);
     lily_leave_import(parser->symtab);
+
+    lily_emit_write_import_call(parser->emit, import_var);
 
     /* The parser doesn't call up the next token before processing the import
        because that would cause file trace to be off. The token restored is the
@@ -2519,23 +2524,14 @@ static void parser_loop(lily_parse_state *parser)
             lily_lexer(lex);
         }
         else if (lex->token == tk_end_tag || lex->token == tk_eof) {
-            if (lex->token == tk_eof &&
-                parser->emit->block->prev != NULL) {
-                if (parser->emit->block->block_type != BLOCK_FILE)
-                    lily_raise(parser->raiser, lily_SyntaxError,
-                            "Imported file has unterminated block(s).\n");
-
-                leave_import(parser);
-                continue;
-            }
-
             if (parser->emit->block->prev != NULL) {
                 lily_raise(parser->raiser, lily_SyntaxError,
                            "Unterminated block(s) at end of parsing.\n");
             }
-            lily_emit_vm_return(parser->emit);
 
+            lily_prepare_main(parser->emit, parser->import_start);
             lily_vm_prep(parser->vm, parser->symtab);
+
             parser->mode = pm_execute;
             lily_vm_execute(parser->vm);
             parser->mode = pm_parse;
