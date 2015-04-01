@@ -49,11 +49,8 @@ void lily_string_concat(lily_vm_state *vm, lily_function_val *self,
     strcpy(new_str, self_sv->string);
     strcat(new_str, other_sv->string);
 
-    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(vm->mem_func, result_arg->value.string);
-
-    result_arg->flags = 0;
-    result_arg->value.string = new_sv;
+    lily_raw_value v = {.string = new_sv};
+    lily_move_raw_value(vm, result_arg, 0, v);
 }
 
 #define CTYPE_WRAP(WRAP_NAME, WRAPPED_CALL) \
@@ -280,11 +277,9 @@ void lily_string_lstrip(lily_vm_state *vm, lily_function_val *self,
     lily_string_val *new_sv = try_make_sv(vm, new_size);
 
     strcpy(new_sv->string, input_arg->value.string->string + copy_from);
-    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(vm->mem_func, result_arg->value.string);
 
-    result_arg->flags = 0;
-    result_arg->value.string = new_sv;
+    lily_raw_value v = {.string = new_sv};
+    lily_move_raw_value(vm, result_arg, 0, v);
 }
 
 void lily_string_startswith(lily_vm_state *vm, lily_function_val *self,
@@ -459,11 +454,8 @@ void lily_string_rstrip(lily_vm_state *vm, lily_function_val *self,
     /* This will always copy a partial string, so make sure to add a terminator. */
     new_sv->string[copy_to] = '\0';
 
-    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(vm->mem_func, result_arg->value.string);
-
-    result_arg->flags = 0;
-    result_arg->value.string = new_sv;
+    lily_raw_value v = {.string = new_sv};
+    lily_move_raw_value(vm, result_arg, 0, v);
 }
 
 void lily_string_endswith(lily_vm_state *vm, lily_function_val *self,
@@ -523,11 +515,8 @@ void lily_string_lower(lily_vm_state *vm, lily_function_val *self,
     }
     new_str[input_length] = '\0';
 
-    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(vm->mem_func, result_arg->value.string);
-
-    result_arg->flags = 0;
-    result_arg->value.string = new_sv;
+    lily_raw_value v = {.string = new_sv};
+    lily_move_raw_value(vm, result_arg, 0, v);
 }
 
 void lily_string_upper(lily_vm_state *vm, lily_function_val *self,
@@ -554,11 +543,8 @@ void lily_string_upper(lily_vm_state *vm, lily_function_val *self,
     }
     new_str[input_length] = '\0';
 
-    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(vm->mem_func, result_arg->value.string);
-
-    result_arg->flags = 0;
-    result_arg->value.string = new_sv;
+    lily_raw_value v = {.string = new_sv};
+    lily_move_raw_value(vm, result_arg, 0, v);
 }
 
 void lily_string_find(lily_vm_state *vm, lily_function_val *self,
@@ -673,11 +659,8 @@ void lily_string_strip(lily_vm_state *vm, lily_function_val *self,
     strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
     new_str[new_size - 1] = '\0';
 
-    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(vm->mem_func, result_arg->value.string);
-
-    result_arg->flags = 0;
-    result_arg->value.string = new_sv;
+    lily_raw_value v = {.string = new_sv};
+    lily_move_raw_value(vm, result_arg, 0, v);
 }
 
 /*  lily_string_trim
@@ -714,11 +697,8 @@ void lily_string_trim(lily_vm_state *vm, lily_function_val *self,
     strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
     new_str[new_size - 1] = '\0';
 
-    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(vm->mem_func, result_arg->value.string);
-
-    result_arg->flags = 0;
-    result_arg->value.string = new_sv;
+    lily_raw_value v = {.string = new_sv};
+    lily_move_raw_value(vm, result_arg, 0, v);
 }
 
 /*  lily_string_htmlencode
@@ -794,11 +774,8 @@ void lily_string_htmlencode(lily_vm_state *vm, lily_function_val *self,
 
     strcpy(new_sv->string, str);
 
-    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(vm->mem_func, result_arg->value.string);
-
-    result_arg->flags = 0;
-    result_arg->value.string = new_sv;
+    lily_raw_value v = {.string = new_sv};
+    lily_move_raw_value(vm, result_arg, 0, v);
 }
 
 /*  lily_string_format
@@ -927,11 +904,8 @@ void lily_string_format(lily_vm_state *vm, lily_function_val *self,
 
     strcpy(new_sv->string, buffer_str);
 
-    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(vm->mem_func, result_arg->value.string);
-
-    result_arg->flags = 0;
-    result_arg->value.string = new_sv;
+    lily_raw_value v = {.string = new_sv};
+    lily_move_raw_value(vm, result_arg, 0, v);
 }
 
 /*  lily_string_to_sym
@@ -953,17 +927,13 @@ void lily_string_to_sym(lily_vm_state *vm, lily_function_val *self,
     char *symbol_str = input_arg->value.string->string;
     lily_symbol_val *symbol = lily_symbol_by_name(vm->symtab, symbol_str);
 
-    if ((result_arg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_symbol_val(vm->mem_func, result_arg->value.symbol);
-
+    lily_raw_value v = {.symbol = symbol};
     /* If the symbol has a literal associated with it, then the symbol will
        refuse to be garbage collected until the symtab is closing down.
        Putting this protected flag on does not change that. Rather, the flag is
        so the vm does not do unnecessary ref/derefs on this symbol. */
     int result_flags = (symbol->has_literal ? VAL_IS_PROTECTED : 0);
-
-    result_arg->flags = result_flags;
-    result_arg->value.symbol = symbol;
+    lily_move_raw_value(vm, result_arg, result_flags, v);
 }
 
 static const lily_func_seed to_sym =

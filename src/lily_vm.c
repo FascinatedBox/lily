@@ -1438,12 +1438,8 @@ static void make_proper_exception_val(lily_vm_state *vm,
     ival->values[1] = traceback_val;
     ival->num_values = 2;
 
-    if ((result->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_instance_val(vm->mem_func, result->type,
-                result->value.instance);
-
-    result->value.instance = ival;
-    result->flags = 0;
+    lily_raw_value v = {.instance = ival};
+    lily_move_raw_value(vm, result, 0, v);
 }
 
 /*  maybe_catch_exception
@@ -1794,6 +1790,35 @@ void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
         left->value = right->value;
         left->flags = right->flags;
     }
+}
+
+/*  lily_move_raw_value
+    This is nearly as handy as lily_assign_value. The purpose of this function
+    is to put a raw value (likely one that was just made) into another value.
+
+    left:      This is a proper value which will receive the new value. If it
+               is marked as refcounted (but not nil or protected), it will
+               receive a deref.
+    flags:     The new flags to set onto left.
+    raw_right: A raw value that is of the same type as left. This value will not
+               receive a ref bump.
+
+    Do not pass values of type 'any' to this function, or enum/variant values.
+    It cannot handle those (I'll add that functionality when it's needed so I
+    have something to test it with!).
+
+    This function is useful in cases where a newly-created raw value needs to be
+    put into a register. Bumping the new value would cause it to have two refs,
+    which is wrong. */
+void lily_move_raw_value(lily_vm_state *vm, lily_value *left,
+        int flags, lily_raw_value raw_right)
+{
+    lily_class *cls = left->type->cls;
+    if (cls->is_refcounted && (left->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
+        lily_deref_unknown_val(vm->mem_func, left);
+
+    left->value = raw_right;
+    left->flags = flags;
 }
 
 /*  lily_calculate_siphash
