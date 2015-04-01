@@ -29,11 +29,8 @@ void lily_integer_to_s(lily_vm_state *vm, lily_function_val *self,
     new_sv->size = strlen(buffer);
     new_sv->refcount = 1;
 
-    if ((result_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_string_val(vm->mem_func, result_reg->value.string);
-
-    result_reg->flags = 0;
-    result_reg->value.string = new_sv;
+    lily_raw_value v = {.string = new_sv};
+    lily_move_raw_value(vm, result_reg, 0, v);
 }
 
 void lily_integer_to_d(lily_vm_state *vm, lily_function_val *self,
