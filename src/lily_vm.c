@@ -805,10 +805,18 @@ static lily_value *bind_function_name(lily_vm_state *vm, lily_symtab *symtab,
     return lily_bind_string_take_buffer(symtab, buffer);
 }
 
-/*  build_traceback
-    Create the list[tuple[string, integer]] stack used to represent traceback
-    for an exception. Returns the built traceback, or NULL on fallure. */
-static lily_value *build_traceback(lily_vm_state *vm, lily_type *traceback_type)
+/*  build_traceback_raw
+    This creates a raw list value containing the current traceback. The
+    traceback is represented as list[tuple[string, string, integer]].
+
+    traceback_type: The type of 'list[tuple[string, string, integer]]'. This is
+                    passed to avoid having to look up that type in here.
+
+    This should be used in situations where there is an already-made value to
+    hold the result of this call. For situations where a proper value is needed,
+    use build_traceback instead. */
+static lily_list_val *build_traceback_raw(lily_vm_state *vm,
+        lily_type *traceback_type)
 {
     lily_symtab *symtab = vm->symtab;
     lily_list_val *lv = malloc_mem(sizeof(lily_list_val));
@@ -824,20 +832,23 @@ static lily_value *build_traceback(lily_vm_state *vm, lily_type *traceback_type)
         lily_vm_stack_entry *stack_entry = vm->function_stack[i];
         lily_value *tuple_holder = malloc_mem(sizeof(lily_value));
         lily_list_val *stack_tuple = malloc_mem(sizeof(lily_list_val));
-        lily_value **tuple_values = malloc_mem(2 * sizeof(lily_value *));
+        lily_value **tuple_values = malloc_mem(3 * sizeof(lily_value *));
 
+        lily_value *path = lily_bind_string(symtab,
+                stack_entry->function->path);
         lily_value *func_string = bind_function_name(vm, symtab,
                 stack_entry->function);
         lily_value *linenum_integer = lily_bind_integer(symtab,
                 stack_entry->line_num);
 
-        stack_tuple->num_values = 2;
+        stack_tuple->num_values = 3;
         stack_tuple->visited = 0;
         stack_tuple->refcount = 1;
         stack_tuple->gc_entry = NULL;
         stack_tuple->elems = tuple_values;
-        tuple_values[0] = func_string;
-        tuple_values[1] = linenum_integer;
+        tuple_values[0] = path;
+        tuple_values[1] = func_string;
+        tuple_values[2] = linenum_integer;
         tuple_holder->type = traceback_type->subtypes[0];
         tuple_holder->value.list = stack_tuple;
         tuple_holder->flags = 0;
@@ -845,6 +856,18 @@ static lily_value *build_traceback(lily_vm_state *vm, lily_type *traceback_type)
         lv->num_values = i + 1;
     }
 
+    return lv;
+}
+
+/*  build_traceback
+    This function acts as a wrapper over build_traceback_raw. It returns the
+    traceback put into a proper lily_value struct.
+
+    traceback_type: The type of 'list[tuple[string, string, integer]]'. This is
+                    passed to avoid having to look up that type in here. */
+static lily_value *build_traceback(lily_vm_state *vm, lily_type *traceback_type)
+{
+    lily_list_val *lv = build_traceback_raw(vm, traceback_type);
     lily_value *v = malloc_mem(sizeof(lily_value));
 
     v->value.list = lv;
@@ -885,15 +908,16 @@ static void boundary_error(lily_vm_state *vm, int bad_index)
 /*****************************************************************************/
 
 /*  lily_builtin_calltrace
-    Implements: function calltrace(=> tuple[string, integer]) */
+    Implements: function calltrace(=> list[tuple[string, integer]]) */
 void lily_builtin_calltrace(lily_vm_state *vm, lily_function_val *self,
         uint16_t *code)
 {
     lily_value *result = vm->vm_regs[code[0]];
 
-    lily_value *traceback_val = build_traceback(vm, result->type);
+    lily_list_val *traceback_val = build_traceback_raw(vm, result->type);
 
-    lily_assign_value(vm, result, traceback_val);
+    lily_raw_value v = {.list = traceback_val};
+    lily_move_raw_value(vm, result, 0, v);
 }
 
 /*  lily_builtin_show
@@ -1314,11 +1338,10 @@ static void do_o_raise(lily_vm_state *vm, lily_value *exception_val)
 
     lily_instance_val *ival = exception_val->value.instance;
     lily_type *traceback_type = ival->values[1]->type;
-    lily_value *traceback = build_traceback(vm, traceback_type);
+    lily_list_val *raw_traceback = build_traceback_raw(vm, traceback_type);
 
-    lily_assign_value(vm, ival->values[1], traceback);
-    ival->values[1]->value.list->refcount--;
-    free_mem(traceback);
+    lily_raw_value v = {.list = raw_traceback};
+    lily_move_raw_value(vm, ival->values[1], 0, v);
 
     lily_raise_value(vm->raiser, exception_val);
 }
