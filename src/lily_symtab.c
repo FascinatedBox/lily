@@ -1567,6 +1567,15 @@ void lily_change_parent_class(lily_class *super_class, lily_class *sub_class)
        of single inheritance. */
     sub_class->prop_count = super_class->prop_count;
 }
+#include <stdio.h>
+void lily_link_import_to_active(lily_symtab *symtab, lily_import_entry *import)
+{
+    lily_import_link *new_link = malloc_mem(sizeof(lily_import_link));
+
+    new_link->entry = import;
+    new_link->next_import = symtab->active_import->import_chain;
+    symtab->active_import->import_chain = new_link;
+}
 
 void lily_enter_import(lily_symtab *symtab, lily_import_entry *entry)
 {
@@ -1580,11 +1589,11 @@ void lily_enter_import(lily_symtab *symtab, lily_import_entry *entry)
 
 void lily_leave_import(lily_symtab *symtab)
 {
-    lily_import_link *new_link = malloc_mem(sizeof(lily_import_link));
-    new_link->entry = symtab->active_import;
+    lily_import_entry *link_target = symtab->active_import;
 
     symtab->active_import->var_chain = symtab->var_chain;
     symtab->active_import->class_chain = symtab->class_chain;
+
     symtab->active_import = symtab->active_import->prev_entered;
 
     symtab->var_chain = symtab->active_import->var_chain;
@@ -1598,8 +1607,23 @@ void lily_leave_import(lily_symtab *symtab)
     symtab->active_import->var_chain = NULL;
     symtab->active_import->class_chain = NULL;
 
-    new_link->next_import = symtab->active_import->import_chain;
-    symtab->active_import->import_chain = new_link;
+    lily_link_import_to_active(symtab, link_target);
+}
+
+lily_import_entry *lily_find_import_anywhere(lily_symtab *symtab,
+        char *name)
+{
+    lily_import_entry *entry_iter = symtab->builtin_import;
+
+    while (entry_iter) {
+        if (entry_iter->loadname &&
+            strcmp(entry_iter->loadname, name) == 0)
+            break;
+
+        entry_iter = entry_iter->root_next;
+    }
+
+    return entry_iter;
 }
 
 lily_import_entry *lily_find_import_within(lily_import_entry *import,
