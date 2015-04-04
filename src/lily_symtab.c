@@ -1620,10 +1620,10 @@ lily_import_entry *lily_find_import_within(lily_import_entry *import,
     return result;
 }
 
-lily_import_entry *lily_find_import(lily_symtab *symtab,
-        lily_import_entry *import, char *name)
+lily_import_entry *lily_find_import(lily_symtab *symtab, char *name)
 {
-    lily_import_entry *result = lily_find_import_within(import, name);
+    lily_import_entry *result = lily_find_import_within(symtab->active_import,
+            name);
     if (result)
         return result;
 

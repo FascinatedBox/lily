@@ -1093,8 +1093,7 @@ static void expression_word(lily_parse_state *parser, int *state)
         return;
     }
 
-    lily_import_entry *entry = lily_find_import(symtab, symtab->active_import,
-            parser->lex->label);
+    lily_import_entry *entry = lily_find_import(symtab, parser->lex->label);
 
     if (entry) {
         dispatch_word_as_import(parser, entry, state);
