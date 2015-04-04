@@ -2079,12 +2079,38 @@ static void load_import(lily_parse_state *parser, char *name)
 static void import_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
+    lily_symtab *symtab = parser->symtab;
+
     NEED_CURRENT_TOK(tk_word)
 
-    load_import(parser, parser->lex->label);
+    char *import_name = parser->lex->label;
+
+    /* Before doing any actual loading, determine if an import with this name
+       has been loaded already. This is currently ok because there are no
+       directories that get imported.
+       It's possible that someone will load */
+    lily_import_entry *search_entry = lily_find_import_anywhere(symtab,
+            import_name);
+    if (search_entry) {
+        /* Multiple imports of one thing from the same package are forbidden.
+           This prevents junk imports which don't do anything. */
+        lily_import_entry *extra_search = lily_find_import_within(
+                symtab->active_import, import_name);
+        if (extra_search)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Package '%s' has already been imported in this file.\n",
+                    import_name);
+
+        lily_link_import_to_active(symtab, search_entry);
+        lily_lexer(lex);
+        return;
+    }
+
+    /* At this point, it's a valid new import, so load it up and run it. */
+    load_import(parser, import_name);
 
     lily_import_entry *import_entry = make_new_import_entry(parser,
-            parser->lex->label, parser->lex->entry->filename);
+            import_name, parser->lex->entry->filename);
 
     lily_enter_import(parser->symtab, import_entry);
 
