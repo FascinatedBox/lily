@@ -158,7 +158,7 @@ void lily_change_parent_class(lily_class *, lily_class *);
 
 void lily_enter_import(lily_symtab *, lily_import_entry *);
 void lily_leave_import(lily_symtab *);
-lily_import_entry *lily_find_import(lily_symtab *, lily_import_entry *, char *);
+lily_import_entry *lily_find_import(lily_symtab *, char *);
 lily_import_entry *lily_find_import_within(lily_import_entry *, char *);
 
 const lily_func_seed *lily_get_global_seed_chain();
