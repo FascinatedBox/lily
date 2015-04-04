@@ -1298,14 +1298,9 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
 
 /*  The loaders take the mode of the first file given to determine what the
     mode should be. The mode is intentionally ignored for subsequent includes.
-
-    There is no include system (yet!), but here is the rationale:
-    * An included file can't accidentally send headers if there's space in it
-      somewhere.
-    * Since included files will only contain code, they will be loadable
-      regardless of the mode of the starting file (so if I have functions in
-      a file for apache, I can clone them over for plain interpreter use with
-      no fuss). */
+    This is so that both tagged and untagged modes can import the same stuff.
+    This has the additional benefit of making it so that included files do not
+    have whitespace which sends the headers early. */
 
 static void setup_opened_file(lily_lex_state *lexer, lily_lex_mode mode,
         FILE *f, char *filename)
