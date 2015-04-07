@@ -26,7 +26,7 @@ void lily_gc_collect_value(lily_mem_func mem_func, lily_type *value_type,
              entry_cls_id >= SYM_CLASS_EXCEPTION)
         lily_gc_collect_tuple(mem_func, value_type, value.list);
     else
-        lily_deref_unknown_raw_val(mem_func, value_type, value);
+        lily_deref_raw(mem_func, value_type, value);
 }
 
 void lily_gc_collect_any(lily_mem_func mem_func, lily_any_val *any_val)

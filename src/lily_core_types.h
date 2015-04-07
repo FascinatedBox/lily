@@ -40,6 +40,11 @@ typedef int (*class_setup_func)(struct lily_class_t *);
    an infinite loop. */
 typedef int (*class_eq_func)(struct lily_vm_state_t *, int *,
         struct lily_value_t *, struct lily_value_t *);
+/* This function is called when a value tagged as refcounted drops to 0 refs.
+   This handles a value of a given class (regardless of type) and frees what is
+   inside. */
+typedef void (*class_destroy_func)(lily_mem_func,
+        struct lily_value_t *);
 
 /* lily_raw_value is a union of all possible values, plus a bit more. This is
    not common, because lily_value (which has flags and a type) is typically
@@ -79,6 +84,11 @@ typedef struct lily_class_t {
 
     /* The type of the var stores the complete type knowledge of the var. */
     struct lily_type_t *type;
+
+    /* This function is used to destroy values of this class, regardless of
+       their type. Since the vm calls this semi-often, put this somewhere higher
+       up. */
+    class_destroy_func destroy_func;
 
     /* This is a linked list of all methods that are within this function. This
        is NULL if there are no methods. */
