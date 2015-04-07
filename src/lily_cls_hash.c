@@ -61,11 +61,7 @@ void lily_hash_keys(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
         elem_iter = elem_iter->next;
     }
 
-    /* This just has to check for nility, because lists are never marked as
-       protected. */
-    if ((result_reg->flags & VAL_IS_NIL) == 0)
-        lily_deref_list_val(vm->mem_func, result_reg->type,
-                result_reg->value.list);
+    lily_deref(vm->mem_func, result_reg);
 
     result_reg->value.list = result_lv;
     result_reg->flags = 0;

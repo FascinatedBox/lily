@@ -19,6 +19,7 @@ typedef const struct {
     class_setup_func setup_func;
     gc_marker_func gc_marker;
     class_eq_func eq_func;
+    class_destroy_func destroy_func;
 } class_seed;
 
 /* Note: If CLS_VALID_HASH_KEY is added to other classes, the vm will need to be
@@ -33,7 +34,8 @@ class_seed class_seeds[] =
      CLS_VALID_HASH_KEY,        /* flags */
      lily_integer_setup,        /* setup_func */
      NULL,                      /* gc_marker */
-     &lily_integer_eq           /* eq_func */
+     &lily_integer_eq,          /* eq_func */
+     NULL,                      /* destroy_func */
     },
 
     {"double",                  /* name */
@@ -42,7 +44,8 @@ class_seed class_seeds[] =
      CLS_VALID_HASH_KEY,        /* flags */
      lily_double_setup,         /* setup_func */
      NULL,                      /* gc_marker */
-     &lily_double_eq            /* eq_func */
+     &lily_double_eq,           /* eq_func */
+     NULL,                      /* destroy_func */
     },
 
     {"string",                  /* name */
@@ -51,7 +54,9 @@ class_seed class_seeds[] =
      CLS_VALID_HASH_KEY,        /* flags */
      lily_string_setup,         /* setup_func */
      NULL,                      /* gc_marker */
-     &lily_string_eq},          /* eq_func */
+     &lily_string_eq,           /* eq_func */
+     lily_destroy_string        /* destroy_func */
+    },
 
     {"bytestring",              /* name */
      1,                         /* is_refcounted */
@@ -59,7 +64,9 @@ class_seed class_seeds[] =
      0,                         /* flags */
      NULL,                      /* setup_func */
      NULL,                      /* gc_marker */
-     &lily_bytestring_eq},      /* eq_func */
+     &lily_bytestring_eq,       /* eq_func */
+     lily_destroy_string        /* destroy_func */
+    },
 
     {"symbol",                  /* name */
      1,                         /* is_refcounted */
@@ -67,15 +74,19 @@ class_seed class_seeds[] =
      CLS_VALID_HASH_KEY,        /* flags */
      NULL,                      /* setup_func */
      NULL,                      /* gc_marker */
-     &lily_generic_eq},         /* eq_func */
+     &lily_generic_eq,          /* eq_func */
+     lily_destroy_symbol,       /* destroy_func */
+    },
 
     {"function",                /* name */
-     0,                         /* is_refcounted */
+     1,                         /* is_refcounted */
      -1,                        /* generic_count */
      0,                         /* flags */
      NULL,                      /* setup_func */
      NULL,                      /* gc_marker */
-     &lily_generic_eq},         /* eq_func */
+     &lily_generic_eq,          /* eq_func */
+     lily_destroy_function      /* destroy_func */
+    },
 
     {"any",                     /* name */
      1,                         /* is_refcounted */
@@ -85,7 +96,9 @@ class_seed class_seeds[] =
      CLS_ENUM_CLASS,            /* flags */
      NULL,                      /* setup_func */
      &lily_gc_any_marker,       /* gc_marker */
-     &lily_any_eq},             /* eq_func */
+     &lily_any_eq,              /* eq_func */
+     lily_destroy_any           /* destroy_func */
+    },
 
     {"list",                    /* name */
      1,                         /* is_refcounted */
@@ -93,7 +106,9 @@ class_seed class_seeds[] =
      0,                         /* flags */
      lily_list_setup,           /* setup_func */
      &lily_gc_list_marker,      /* gc_marker */
-     &lily_list_eq},            /* eq_func */
+     &lily_list_eq,             /* eq_func */
+     lily_destroy_list,         /* destroy_func */
+    },
 
     {"hash",                    /* name */
      1,                         /* is_refcounted */
@@ -101,7 +116,9 @@ class_seed class_seeds[] =
      0,                         /* flags */
      lily_hash_setup,           /* setup_func */
      &lily_gc_hash_marker,      /* gc_marker */
-     &lily_hash_eq},            /* eq_func */
+     &lily_hash_eq,             /* eq_func */
+     lily_destroy_hash,         /* destroy_func */
+    },
 
     {"tuple",                   /* name */
      1,                         /* is_refcounted */
@@ -109,7 +126,9 @@ class_seed class_seeds[] =
      0,                         /* flags */
      NULL,                      /* setup_func */
      &lily_gc_tuple_marker,     /* gc_marker */
-     &lily_tuple_eq},           /* eq_func */
+     &lily_tuple_eq,            /* eq_func */
+     lily_destroy_tuple         /* destroy_func */
+    },
 
     {"",                        /* name */
      0,                         /* is_refcounted */
@@ -117,7 +136,9 @@ class_seed class_seeds[] =
      0,                         /* flags */
      NULL,                      /* setup_func */
      NULL,                      /* gc_marker */
-     NULL}                      /* eq_func */
+     NULL,                      /* eq_func */
+     NULL,                      /* destroy_func */
+    }
 };
 
 void lily_builtin_print(lily_vm_state *, lily_function_val *, uint16_t *);

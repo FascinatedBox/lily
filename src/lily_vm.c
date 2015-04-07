@@ -204,9 +204,7 @@ void lily_free_vm(lily_vm_state *vm)
     for (i = vm->max_registers-1;i >= 0;i--) {
         reg = regs_from_main[i];
 
-        if (reg->type->cls->is_refcounted &&
-            (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-            lily_deref_unknown_val(vm->mem_func, reg);
+        lily_deref(vm->mem_func, reg);
 
         free_mem(reg);
     }
@@ -458,17 +456,6 @@ static int compare_values(lily_vm_state *vm, lily_value *left, lily_value *right
 static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
         lily_value *rhs_reg)
 {
-    lily_any_val *lhs_any;
-    if (lhs_reg->flags & VAL_IS_NIL) {
-        lhs_any = lily_new_any_val(vm->mem_func);
-        try_add_gc_item(vm, lhs_reg->type, (lily_generic_gc_val *)lhs_any);
-
-        lhs_reg->value.any = lhs_any;
-        lhs_reg->flags &= ~VAL_IS_NIL;
-    }
-    else
-        lhs_any = lhs_reg->value.any;
-
     lily_type *new_type;
     lily_raw_value new_value;
     int new_flags;
@@ -476,7 +463,6 @@ static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
     if (rhs_reg->type == lhs_reg->type) {
         if ((rhs_reg->flags & VAL_IS_NIL) ||
             (rhs_reg->value.any->inner_value->flags & VAL_IS_NIL)) {
-
             new_type = NULL;
             new_value.integer = 0;
             new_flags = VAL_IS_NIL;
@@ -499,10 +485,22 @@ static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
         new_type->cls->is_refcounted)
         new_value.generic->refcount++;
 
-    lily_value *lhs_inner = lhs_any->inner_value;
-    if ((lhs_inner->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
-        lhs_inner->type->cls->is_refcounted)
-        lily_deref_unknown_val(vm->mem_func, lhs_inner);
+    lily_any_val *lhs_any;
+    lily_value *lhs_inner;
+
+    if (lhs_reg->flags & VAL_IS_NIL) {
+        lhs_any = lily_new_any_val(vm->mem_func);
+        try_add_gc_item(vm, lhs_reg->type, (lily_generic_gc_val *)lhs_any);
+
+        lhs_reg->value.any = lhs_any;
+        lhs_reg->flags &= ~VAL_IS_NIL;
+    }
+    else {
+        lhs_any = lhs_reg->value.any;
+        lily_deref(vm->mem_func, lhs_any->inner_value);
+    }
+
+    lhs_inner = lhs_any->inner_value;
 
     lhs_inner->type = new_type;
     lhs_inner->value = new_value;
@@ -625,9 +623,8 @@ static void resolve_generic_registers(lily_vm_state *vm,
             new_type = lily_ts_resolve(vm->ts, new_type);
 
         lily_value *reg = regs_from_main[reg_start + i];
-        if (reg->type->cls->is_refcounted &&
-            (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-            lily_deref_unknown_val(vm->mem_func, reg);
+
+        lily_deref(vm->mem_func, reg);
 
         reg->flags = VAL_IS_NIL;
         reg->type = new_type;
@@ -665,9 +662,7 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
             ((get_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0))
             get_reg->value.generic->refcount++;
 
-        if (set_reg->type->cls->is_refcounted &&
-            ((set_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0))
-            lily_deref_unknown_val(vm->mem_func, set_reg);
+        lily_deref(vm->mem_func, set_reg);
 
         /* Important! Registers seeds may reference generics, but incoming
            values have known types. */
@@ -689,9 +684,7 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
             lily_register_info seed = register_seeds[i];
 
             lily_value *reg = regs_from_main[num_registers];
-            if (reg->type->cls->is_refcounted &&
-                (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                lily_deref_unknown_val(vm->mem_func, reg);
+            lily_deref(vm->mem_func, reg);
 
             /* SET the flags to nil so that VAL_IS_PROTECTED gets blasted away if
                it happens to be set. */
@@ -1251,8 +1244,7 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code, int code_pos)
         try_add_gc_item(vm, result->type,
             (lily_generic_gc_val *)hash_val);
 
-    if ((result->flags & VAL_IS_NIL) == 0)
-        lily_deref_hash_val(vm->mem_func, result->type, result->value.hash);
+    lily_deref(vm->mem_func, result);
 
     result->value.hash = hash_val;
     result->flags = 0;
@@ -1301,8 +1293,7 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
         try_add_gc_item(vm, result->type, (lily_generic_gc_val *)lv);
 
     /* The old value can be destroyed, now that the new value has been made. */
-    if ((result->flags & VAL_IS_NIL) == 0)
-        lily_deref_unknown_val(vm->mem_func, result);
+    lily_deref(vm->mem_func, result);
 
     /* Put the new list in the register so the gc doesn't try to collect it. */
     result->value.list = lv;
@@ -1386,8 +1377,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     iv->visited = 0;
     iv->true_class = result->type->cls;
 
-    if ((result->flags & VAL_IS_NIL) == 0)
-        lily_deref_unknown_val(vm->mem_func, result);
+    lily_deref(vm->mem_func, result);
 
     result->value.instance = iv;
     result->flags = 0;
@@ -1687,9 +1677,7 @@ static void seed_registers(lily_vm_state *vm, lily_function_val *f, int start)
     for (i = 0;start < max;start++,i++) {
         lily_value *reg = vm->regs_from_main[start];
 
-        if (reg->type->cls->is_refcounted &&
-            (reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-            lily_deref_unknown_val(vm->mem_func, reg);
+        lily_deref(vm->mem_func, reg);
 
         reg->type = info[i].type;
         reg->value.integer = 0;
@@ -1806,8 +1794,7 @@ void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
             if ((right->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
                 right->value.generic->refcount++;
 
-            if ((left->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                lily_deref_unknown_val(vm->mem_func, left);
+            lily_deref(vm->mem_func, left);
         }
 
         left->value = right->value;
@@ -1837,8 +1824,7 @@ void lily_move_raw_value(lily_vm_state *vm, lily_value *left,
         int flags, lily_raw_value raw_right)
 {
     lily_class *cls = left->type->cls;
-    if (cls->is_refcounted && (left->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-        lily_deref_unknown_val(vm->mem_func, left);
+    lily_deref(vm->mem_func, left);
 
     left->value = raw_right;
     left->flags = flags;
@@ -2029,9 +2015,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 readonly_val = vm->readonly_table[code[code_pos+2]];
                 lhs_reg = vm_regs[code[code_pos+3]];
 
-                if (lhs_reg->type->cls->is_refcounted &&
-                    (lhs_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                    lily_deref_unknown_val(vm->mem_func, lhs_reg);
+                lily_deref(vm->mem_func, lhs_reg);
 
                 lhs_reg->value = readonly_val->value;
                 lhs_reg->flags = VAL_IS_PROTECTED;

@@ -449,6 +449,7 @@ static void init_classes(lily_symtab *symtab)
         new_class->properties = NULL;
         new_class->prop_count = 0;
         new_class->parent = NULL;
+        new_class->destroy_func = class_seeds[i].destroy_func;
 
         new_class->next = symtab->class_chain;
         symtab->class_chain = new_class;
@@ -614,13 +615,15 @@ static void free_foreign_symbols(lily_symtab *symtab)
 {
     lily_weak_symbol_entry *foreign_iter = symtab->foreign_symbols;
     lily_weak_symbol_entry *foreign_next;
+    lily_type *symbol_type = symtab->symbol_class->type;
+    lily_raw_value raw;
 
     while (foreign_iter) {
         foreign_next = foreign_iter->next;
 
-        lily_symbol_val *symv = foreign_iter->symbol;
-        if (symv)
-            lily_deref_symbol_val(symtab->mem_func, symv);
+        raw.symbol = foreign_iter->symbol;
+        if (raw.symbol)
+            lily_deref_raw(symtab->mem_func, symbol_type, raw);
 
         free_mem(foreign_iter);
 
@@ -636,21 +639,23 @@ static void free_ties(lily_symtab *symtab, lily_tie *tie_iter)
         tie_next = tie_iter->next;
         lily_class *tie_cls = tie_iter->type->cls;
         if (tie_cls == symtab->symbol_class) {
-            lily_symbol_val *symv = tie_iter->value.symbol;
-            /* Important! If not fixed, deref will ignore this value. */
-            symv->has_literal = 0;
+            lily_type *symbol_type = symtab->symbol_class->type;
+            lily_raw_value raw;
+            raw.symbol = tie_iter->value.symbol;
+            /* Important! If not fixed, destroy will ignore this value. */
+            raw.symbol->has_literal = 0;
             /* Since this symbol was created internally, string::to_sym should
                have marked the symbol protected so that it would not receive
                refs. Because of that, the refcount -should- be at 0 and one
                deref will suffice. */
-            lily_deref_symbol_val(symtab->mem_func, symv);
+            lily_deref_raw(symtab->mem_func, symbol_type, raw);
         }
         /* Variant classes must be skipped, because their deref-er is a tuple
            deref-er. This is bad, because variants that are created as literals
            do not take inner values (and are represented as an integer).
            Everything else? Yeah, blow it away. */
         else if ((tie_cls->flags & CLS_VARIANT_CLASS) == 0)
-            lily_deref_unknown_raw_val(symtab->mem_func, tie_iter->type,
+            lily_deref_raw(symtab->mem_func, tie_iter->type,
                     tie_iter->value);
 
         free_mem(tie_iter);
@@ -1329,6 +1334,7 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     new_class->variant_members = NULL;
     new_class->gc_marker = NULL;
     new_class->eq_func = lily_instance_eq;
+    new_class->destroy_func = NULL;
 
     new_class->id = symtab->next_class_id;
     symtab->next_class_id++;
@@ -1365,12 +1371,15 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
             /* Each instance of a generic class may/may not be circular depending
                on what it's given. */
             cls->gc_marker = lily_gc_tuple_marker;
+
+        cls->destroy_func = lily_destroy_tuple;
     }
     else {
         /* Enum classes have the same layout as 'any', and should thus use what
            'any' uses for things. */
         cls->gc_marker = lily_gc_any_marker;
         cls->eq_func = lily_any_eq;
+        cls->destroy_func = lily_destroy_any;
     }
 
     if (cls != symtab->old_class_chain) {
@@ -1514,6 +1523,7 @@ void lily_finish_variant_class(lily_symtab *symtab, lily_class *variant_class,
         /* Empty variants are represented as integers, and won't need to be
            marked through. */
         variant_class->eq_func = lily_integer_eq;
+        variant_class->is_refcounted = 0;
     }
     else {
         variant_class->variant_type = variant_type;
@@ -1521,6 +1531,7 @@ void lily_finish_variant_class(lily_symtab *symtab, lily_class *variant_class,
            the variant has a variant type instead of a tuple one. */
         variant_class->gc_marker = lily_gc_tuple_marker;
         variant_class->eq_func = lily_tuple_eq;
+        variant_class->destroy_func = lily_destroy_tuple;
     }
 }
 
@@ -1547,6 +1558,7 @@ void lily_finish_enum_class(lily_symtab *symtab, lily_class *enum_class,
     enum_class->flags |= CLS_ENUM_CLASS;
     enum_class->gc_marker = lily_gc_any_marker;
     enum_class->eq_func = lily_any_eq;
+    enum_class->destroy_func = lily_destroy_any;
 
     if (is_scoped) {
         enum_class->flags |= CLS_ENUM_IS_SCOPED;

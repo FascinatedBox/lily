@@ -4,229 +4,185 @@
 #define malloc_mem(size) mem_func(NULL, size)
 #define free_mem(ptr)    mem_func(ptr, 0)
 
+/*  lily_deref
+    This function will check that the value is refcounted and that it is not
+    nil/protected before giving it a deref. It is therefore safe to pass
+    anything to this function as long as it's not a NULL value.
+    If the value given falls to 0 refs, it is immediately destroyed, as well as
+    whatever is inside of it.
+
+    Note: This destroys the contents inside the value, NOT the value itself. */
+void lily_deref(lily_mem_func mem_func, lily_value *value)
+{
+    lily_class *cls = value->type->cls;
+
+    if (cls->is_refcounted &&
+        (value->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
+
+        value->value.generic->refcount--;
+        if (value->value.generic->refcount == 0)
+            value->type->cls->destroy_func(mem_func, value);
+    }
+}
+
+/*  lily_deref_raw
+    This is a helper function for lily_deref. This function calls lily_deref
+    with a proper value that has the given type and raw value inside. */
+void lily_deref_raw(lily_mem_func mem_func, lily_type *type, lily_raw_value raw)
+{
+    lily_value v;
+    v.type = type;
+    v.flags = 0;
+    v.value = raw;
+
+    lily_deref(mem_func, &v);
+}
+
 /** Deref-ing calls **/
 
-void lily_deref_hash_val(lily_mem_func mem_func, lily_type *type,
-        lily_hash_val *hv)
+void lily_destroy_hash(lily_mem_func mem_func, lily_value *v)
 {
-    hv->refcount--;
-    if (hv->refcount == 0) {
-        if (hv->gc_entry != NULL)
-            hv->gc_entry->value.generic = NULL;
+    lily_hash_val *hv = v->value.hash;
 
-        lily_type *value_type = type->subtypes[1];
-        int value_is_refcounted = value_type->cls->is_refcounted;
-        lily_hash_elem *elem, *save_next;
-        elem = hv->elem_chain;
-        while (elem) {
-            lily_value *elem_value = elem->elem_value;
-            if ((elem_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
-                value_is_refcounted)
-                lily_deref_unknown_val(mem_func, elem_value);
+    if (hv->gc_entry != NULL)
+        hv->gc_entry->value.generic = NULL;
 
-            save_next = elem->next;
-            if (elem->elem_key->type->cls->is_refcounted &&
-                (elem->elem_key->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                lily_deref_unknown_val(mem_func, elem->elem_key);
+    lily_hash_elem *elem, *save_next;
+    elem = hv->elem_chain;
+    while (elem) {
+        lily_value *elem_value = elem->elem_value;
 
-            free_mem(elem->elem_key);
-            free_mem(elem->elem_value);
-            free_mem(elem);
-            elem = save_next;
-        }
+        lily_deref(mem_func, elem_value);
 
-        free_mem(hv);
+        save_next = elem->next;
+
+        lily_deref(mem_func, elem->elem_key);
+
+        free_mem(elem->elem_key);
+        free_mem(elem->elem_value);
+        free_mem(elem);
+        elem = save_next;
     }
+
+    free_mem(hv);
 }
 
-void lily_deref_list_val(lily_mem_func mem_func, lily_type *type,
-        lily_list_val *lv)
+void lily_destroy_list(lily_mem_func mem_func, lily_value *v)
 {
-    lv->refcount--;
-    if (lv->refcount == 0) {
-        /* If this list has a gc entry, then make the value of it NULL. This
-           prevents the gc from trying to access the list once it has been
-           destroyed. */
-        if (lv->gc_entry != NULL)
-            lv->gc_entry->value.generic = NULL;
+    lily_type *type = v->type;
+    lily_list_val *lv = v->value.list;
 
-        int i;
-        if (type->subtypes[0]->cls->is_refcounted) {
-            for (i = 0;i < lv->num_values;i++) {
-                if ((lv->elems[i]->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                    lily_deref_unknown_val(mem_func, lv->elems[i]);
+    /* If this list has a gc entry, then make the value of it NULL. This
+        prevents the gc from trying to access the list once it has been
+        destroyed. */
+    if (lv->gc_entry != NULL)
+        lv->gc_entry->value.generic = NULL;
 
-                free_mem(lv->elems[i]);
-            }
+    int i;
+    if (type->subtypes[0]->cls->is_refcounted) {
+        for (i = 0;i < lv->num_values;i++) {
+            lily_deref(mem_func, lv->elems[i]);
+
+            free_mem(lv->elems[i]);
         }
-        else {
-            for (i = 0;i < lv->num_values;i++)
-                free_mem(lv->elems[i]);
-        }
-
-        free_mem(lv->elems);
-        free_mem(lv);
     }
+    else {
+        for (i = 0;i < lv->num_values;i++)
+            free_mem(lv->elems[i]);
+    }
+
+    free_mem(lv->elems);
+    free_mem(lv);
 }
 
-void lily_deref_tuple_val(lily_mem_func mem_func, lily_type *type,
-        lily_list_val *tv)
+void lily_destroy_tuple(lily_mem_func mem_func, lily_value *v)
 {
-    tv->refcount--;
-    if (tv->refcount == 0) {
-        /* If this tuple has a gc entry, then make the value of it NULL. This
-           prevents the gc from trying to access the tuple once it has been
-           destroyed. */
-        if (tv->gc_entry != NULL)
-            tv->gc_entry->value.generic = NULL;
+    lily_list_val *tv = v->value.list;
 
-        int i;
-        for (i = 0;i < tv->num_values;i++) {
-            lily_value *elem_val = tv->elems[i];
+    /* If this tuple has a gc entry, then make the value of it NULL. This
+       prevents the gc from trying to access the tuple once it has been
+       destroyed. */
+    if (tv->gc_entry != NULL)
+        tv->gc_entry->value.generic = NULL;
 
-            if (elem_val->type->cls->is_refcounted &&
-                (elem_val->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
-                lily_deref_unknown_val(mem_func, elem_val);
+    int i;
+    for (i = 0;i < tv->num_values;i++) {
+        lily_value *elem_val = tv->elems[i];
 
-            free_mem(elem_val);
-        }
+        lily_deref(mem_func, elem_val);
 
-        free_mem(tv->elems);
-        free_mem(tv);
+        free_mem(elem_val);
     }
+
+    free_mem(tv->elems);
+    free_mem(tv);
 }
 
-void lily_deref_instance_val(lily_mem_func mem_func, lily_type *type,
-        lily_instance_val *iv)
+void lily_destroy_instance(lily_mem_func mem_func, lily_value *v)
 {
     /* Instance values are essentially a tuple but with a class attribute
        tacked on at the end. So use that. */
-    lily_deref_tuple_val(mem_func, type, (lily_list_val *)iv);
+    lily_destroy_tuple(mem_func, v);
 }
 
-void lily_deref_function_val(lily_mem_func mem_func, lily_function_val *fv)
+void lily_destroy_function(lily_mem_func mem_func, lily_value *v)
 {
-    fv->refcount--;
-    if (fv->refcount == 0) {
-        if (fv->reg_info != NULL) {
-            int i;
-            for (i = 0;i < fv->reg_count;i++)
-                free_mem(fv->reg_info[i].name);
-        }
+    lily_function_val *fv = v->value.function;
 
-        free_mem(fv->reg_info);
-        free_mem(fv->code);
-        free_mem(fv);
+    if (fv->reg_info != NULL) {
+        int i;
+        for (i = 0;i < fv->reg_count;i++)
+            free_mem(fv->reg_info[i].name);
+    }
+
+    free_mem(fv->reg_info);
+    free_mem(fv->code);
+    free_mem(fv);
+}
+
+void lily_destroy_string(lily_mem_func mem_func, lily_value *v)
+{
+    lily_string_val *sv = v->value.string;
+
+    if (sv->string)
+        free_mem(sv->string);
+
+    free_mem(sv);
+}
+
+void lily_destroy_symbol(lily_mem_func mem_func, lily_value *v)
+{
+    lily_symbol_val *symv = v->value.symbol;
+
+    if (symv->has_literal)
+        /* Keep the refcount at one so that the symtab can use this function
+            to free symbols at exit (by stripping away the literal). */
+        symv->refcount++;
+    else {
+        /* Since this symbol has no literal associated with it, it exists only
+           in vm space and it can die.
+           But first, make sure the symtab's entry has that spot blanked out to
+           prevent an invalid read when looking over symbols associated with
+           entries. */
+        symv->entry->symbol = NULL;
+        free_mem(symv->string);
+        free_mem(symv);
     }
 }
 
-void lily_deref_string_val(lily_mem_func mem_func, lily_string_val *sv)
+void lily_destroy_any(lily_mem_func mem_func, lily_value *v)
 {
-    sv->refcount--;
-    if (sv->refcount == 0) {
-        if (sv->string)
-            free_mem(sv->string);
-        free_mem(sv);
-    }
-}
+    lily_any_val *av = v->value.any;
 
-void lily_deref_symbol_val(lily_mem_func mem_func, lily_symbol_val *symv)
-{
-    symv->refcount--;
-    if (symv->refcount == 0) {
-        if (symv->has_literal)
-            /* Keep the refcount at one so that the symtab can use this function
-               to free symbols at exit (by stripping away the literal). */
-            symv->refcount++;
-        else {
-            /* Since this symbol has no literal associated with it, it exists
-               only in vm space and it can die.
-               But first, make sure the symtab's entry has that spot blanked
-               out to prevent an invalid read when looking over symbols
-               associated with entries. */
-            symv->entry->symbol = NULL;
-            free_mem(symv->string);
-            free_mem(symv);
-        }
-    }
-}
+    /* Values of type 'any' always have a gc entry, so make sure the value of it
+       is set to NULL. This prevents the gc from trying to access this 'any'
+       that is about to be destroyed. */
+    av->gc_entry->value.generic = NULL;
 
-void lily_deref_any_val(lily_mem_func mem_func, lily_any_val *av)
-{
-    av->refcount--;
-    if (av->refcount == 0) {
-        /* Values of type Any always have a gc entry, so make sure the value of
-           it is set to NULL. This prevents the gc from trying to access this
-           Any that is about to be destroyed. */
-        av->gc_entry->value.generic = NULL;
+    lily_deref(mem_func, av->inner_value);
 
-        if ((av->inner_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
-            av->inner_value->type->cls->is_refcounted)
-            lily_deref_unknown_val(mem_func, av->inner_value);
-
-        free_mem(av->inner_value);
-        free_mem(av);
-    }
-}
-
-/*  lily_deref_unknown_val
-    This takes a proper value and determines the proper call to deref the given
-    value. This is useful if you want to deref something but don't know exactly
-    what type it is.
-
-    This should (ideally) not be called if the given value is not refcounted.
-    This must never be called with a value that has the nil flag set.
-
-    value: The value to deref. */
-void lily_deref_unknown_val(lily_mem_func mem_func, lily_value *value)
-{
-    lily_raw_value raw = value->value;
-    int cls_id = value->type->cls->id;
-
-    if (cls_id == SYM_CLASS_LIST)
-        lily_deref_list_val(mem_func, value->type, raw.list);
-    else if (cls_id == SYM_CLASS_STRING)
-        lily_deref_string_val(mem_func, raw.string);
-    else if (cls_id == SYM_CLASS_SYMBOL)
-        lily_deref_symbol_val(mem_func, raw.symbol);
-    else if (cls_id == SYM_CLASS_FUNCTION)
-        lily_deref_function_val(mem_func, raw.function);
-    else if (cls_id == SYM_CLASS_HASH)
-        lily_deref_hash_val(mem_func, value->type, raw.hash);
-    else if (value->type->cls->flags & CLS_ENUM_CLASS)
-        lily_deref_any_val(mem_func, raw.any);
-    else if (cls_id == SYM_CLASS_TUPLE || cls_id >= SYM_CLASS_EXCEPTION)
-        lily_deref_tuple_val(mem_func, value->type, raw.list);
-}
-
-/*  lily_deref_unknown_raw_value
-    This takes a type and a raw value and determines the proper call to deref
-    the raw value. This should be thought of as a failsafe in the event that
-    a raw_value needs to be destroyed.
-
-    This should (ideally) not be called if the given value is not refcounted.
-    This must never be called with a value that has the nil flag set.
-
-    value_type: The type describing the raw value to be deref'd.
-    raw:       The raw value to be deref'd. */
-void lily_deref_unknown_raw_val(lily_mem_func mem_func, lily_type *value_type,
-        lily_raw_value raw)
-{
-    int cls_id = value_type->cls->id;
-    if (cls_id == SYM_CLASS_LIST)
-        lily_deref_list_val(mem_func, value_type, raw.list);
-    else if (cls_id == SYM_CLASS_STRING)
-        lily_deref_string_val(mem_func, raw.string);
-    else if (cls_id == SYM_CLASS_SYMBOL)
-        lily_deref_symbol_val(mem_func, raw.symbol);
-    else if (cls_id == SYM_CLASS_FUNCTION)
-        lily_deref_function_val(mem_func, raw.function);
-    else if (value_type->cls->flags & CLS_ENUM_CLASS)
-        lily_deref_any_val(mem_func, raw.any);
-    else if (cls_id == SYM_CLASS_HASH)
-        lily_deref_hash_val(mem_func, value_type, raw.hash);
-    else if (cls_id == SYM_CLASS_TUPLE || cls_id >= SYM_CLASS_EXCEPTION)
-        lily_deref_tuple_val(mem_func, value_type, raw.list);
+    free_mem(av->inner_value);
+    free_mem(av);
 }
 
 /** Value creation calls **/
