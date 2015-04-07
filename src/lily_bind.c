@@ -67,17 +67,3 @@ lily_value *lily_bind_integer(lily_symtab *symtab,
 
     return new_value;
 }
-
-/*  lily_bind_destroy
-    This will deref the given value (free-ing the contents), then free the
-    value itself unless the value is NULL.
-
-    This can be called on values created by lily_bind_* functions to safely
-    ensure they are destroyed if there is an error. */
-void lily_bind_destroy(lily_mem_func mem_func, lily_value *value)
-{
-    if (value != NULL) {
-        lily_deref_unknown_val(mem_func, value);
-        free_mem(value);
-    }
-}
