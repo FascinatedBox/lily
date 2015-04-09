@@ -1,7 +1,7 @@
 #[
 IOError: Mode must start with one of 'arw', but got 'z'.
 Traceback:
-    File "invalid_open_mode.lly", from file::open
+    File "[builtin]", from file::open
     File "invalid_open_mode.lly", from __main__ at line 8
 ]#
 

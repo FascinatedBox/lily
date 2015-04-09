@@ -802,7 +802,7 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
             parser->mem_func, foreign_func, class_name, call_var->name);
 
     call_var->parent = cls;
-    lily_tie_function(symtab, call_var, fval);
+    lily_tie_builtin(symtab, call_var, fval);
 
     lily_lexer(lex);
 
