@@ -3,9 +3,11 @@
 
 # include "lily_cls_integer.h"
 # include "lily_cls_double.h"
+# include "lily_cls_bytestring.h"
 # include "lily_cls_string.h"
 # include "lily_cls_list.h"
 # include "lily_cls_hash.h"
+# include "lily_cls_file.h"
 # include "lily_vm.h"
 # include "lily_gc.h"
 # include "lily_class_funcs.h"
@@ -62,7 +64,7 @@ class_seed class_seeds[] =
      1,                         /* is_refcounted */
      0,                         /* generic_count */
      0,                         /* flags */
-     NULL,                      /* setup_func */
+     lily_bytestring_setup,     /* setup_func */
      NULL,                      /* gc_marker */
      &lily_bytestring_eq,       /* eq_func */
      lily_destroy_string        /* destroy_func */
@@ -128,6 +130,16 @@ class_seed class_seeds[] =
      &lily_gc_tuple_marker,     /* gc_marker */
      &lily_tuple_eq,            /* eq_func */
      lily_destroy_tuple         /* destroy_func */
+    },
+
+    {"file",                    /* name */
+     1,                         /* is_refcounted */
+     0,                         /* generic_count */
+     0,                         /* flags */
+     lily_file_setup,           /* setup_func */
+     NULL,                      /* gc_marker */
+     &lily_generic_eq,          /* eq_func */
+     lily_destroy_file          /* destroy_func */
     },
 
     {"",                        /* name */

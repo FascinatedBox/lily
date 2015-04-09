@@ -457,8 +457,10 @@ static int file_read_line_fn(lily_lex_entry *entry)
         i++;
     }
 
-    if (utf8_check)
-        lily_lexer_utf8_check(lexer);
+    if (utf8_check && lily_is_valid_utf8(input_buffer, i) == 0) {
+        lily_raise(lexer->raiser, lily_Error,
+                "Invalid utf-8 sequence on line %d.\n", lexer->line_num);
+    }
 
     return ok;
 }
@@ -532,8 +534,10 @@ static int str_read_line_fn(lily_lex_entry *entry)
         ch++;
     }
 
-    if (utf8_check)
-        lily_lexer_utf8_check(lexer);
+    if (utf8_check && lily_is_valid_utf8(input_buffer, i) == 0) {
+        lily_raise(lexer->raiser, lily_Error,
+                "Invalid utf-8 sequence on line %d.\n", lexer->line_num);
+    }
 
     entry->source = ch;
     return ok;
@@ -1234,36 +1238,45 @@ void lily_lexer_digit_rescan(lily_lex_state *lexer)
 
 /** Lexer API **/
 
-void lily_lexer_utf8_check(lily_lex_state *lexer)
+int lily_is_valid_utf8(char *buffer, int buffer_size)
 {
-    char *input_buffer = lexer->input_buffer;
-    char *ch = &input_buffer[0];
+    char *ch = &buffer[0];
+    int pos = 0;
     int followers;
+    int is_valid = 1;
 
     while (1) {
+        if (pos == buffer_size)
+            break;
+
         if (((unsigned char)*ch) > 127) {
             followers = follower_table[(unsigned char)*ch];
             if (followers >= 2) {
                 int j;
-                for (j = 1;j < followers;j++,ch++) {
+                for (j = 1;j < followers;j++,ch++,pos++) {
                     if (((unsigned char)*ch) < 128) {
-                        lily_raise(lexer->raiser, lily_Error,
-                                   "Invalid utf-8 sequence on line %d.\n",
-                                   lexer->line_num);
+                        is_valid = 0;
+                        break;
                     }
                 }
             }
             else if (followers == -1) {
-                lily_raise(lexer->raiser, lily_Error,
-                           "Invalid utf-8 sequence on line %d.\n",
-                           lexer->line_num);
+                is_valid = 0;
+                break;
             }
+        }
+        else if (*ch == '\0') {
+            is_valid = 0;
+            break;
         }
         else if (*ch == '\n')
             break;
 
         ch++;
+        pos++;
     }
+
+    return is_valid;
 }
 
 /*  lily_grow_lexer_buffers

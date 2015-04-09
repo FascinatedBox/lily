@@ -9,7 +9,7 @@
 static const char *lily_error_names[] =
     {"Error", "SyntaxError", "DivisionByZeroError", "IndexError",
      "BadTypecastError", "ValueError", "RecursionError", "KeyError",
-     "FormatError"};
+     "FormatError", "IOError"};
 
 #define malloc_mem(size)             raiser->mem_func(NULL, size)
 #define free_mem(ptr)          (void)raiser->mem_func(ptr, 0)

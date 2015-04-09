@@ -4,7 +4,7 @@
 # include "lily_core_types.h"
 # include "lily_raiser.h"
 
-typedef struct {
+typedef struct lily_symtab_t {
 	/* This is a linked list of all vars that are currently in scope. The most
 	   recently-declared one is at the top. */
     lily_var *var_chain;

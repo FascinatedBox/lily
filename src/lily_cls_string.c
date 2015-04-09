@@ -989,7 +989,7 @@ static const lily_func_seed concat =
 
 #define SEED_START concat
 
-int lily_string_setup(lily_class *cls)
+int lily_string_setup(lily_symtab *symtab, lily_class *cls)
 {
     cls->seed_table = &SEED_START;
     return 1;
