@@ -120,6 +120,7 @@ lily_tie *lily_get_string_literal(lily_symtab *, char *);
 lily_tie *lily_get_symbol_literal(lily_symtab *, char *);
 lily_tie *lily_get_variant_literal(lily_symtab *, lily_type *);
 
+void lily_tie_builtin(lily_symtab *, lily_var *, lily_function_val *);
 void lily_tie_function(lily_symtab *, lily_var *, lily_function_val *);
 void lily_tie_value(lily_symtab *, lily_var *, lily_value *);
 

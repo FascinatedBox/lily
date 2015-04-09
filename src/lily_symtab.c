@@ -928,14 +928,14 @@ lily_tie *lily_get_variant_literal(lily_symtab *symtab,
     return ret;
 }
 
-void lily_tie_function(lily_symtab *symtab, lily_var *func_var,
-        lily_function_val *func_val)
+static void tie_function(lily_symtab *symtab, lily_var *func_var,
+        lily_function_val *func_val, lily_import_entry *import)
 {
     lily_tie *tie = malloc_mem(sizeof(lily_tie));
 
     /* This is done so that lily_debug can print line numbers. */
     func_val->line_num = func_var->line_num;
-    func_val->path = symtab->active_import->path;
+    func_val->path = import->path;
 
     tie->type = func_var->type;
     tie->value.function = func_val;
@@ -946,6 +946,18 @@ void lily_tie_function(lily_symtab *symtab, lily_var *func_var,
 
     tie->next = symtab->function_ties;
     symtab->function_ties = tie;
+}
+
+void lily_tie_builtin(lily_symtab *symtab, lily_var *func_var,
+        lily_function_val *func_val)
+{
+    tie_function(symtab, func_var, func_val, symtab->builtin_import);
+}
+
+void lily_tie_function(lily_symtab *symtab, lily_var *func_var,
+        lily_function_val *func_val)
+{
+    tie_function(symtab, func_var, func_val, symtab->active_import);
 }
 
 void lily_tie_value(lily_symtab *symtab, lily_var *var, lily_value *value)

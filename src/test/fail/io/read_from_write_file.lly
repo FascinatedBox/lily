@@ -1,7 +1,7 @@
 #[
 IOError: File not open for reading.
 Traceback:
-    File "read_from_write_file.lly", from file::readline
+    File "[builtin]", from file::readline
     File "read_from_write_file.lly", from __main__ at line 9
 ]#
 
