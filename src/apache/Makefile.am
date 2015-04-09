@@ -16,9 +16,11 @@ lily_SRCS=../csiphash.c \
 	../lily_bind.c \
 	../lily_cls_integer.c \
 	../lily_cls_double.c \
+	../lily_cls_bytestring.c \
 	../lily_cls_list.c \
 	../lily_cls_string.c \
 	../lily_cls_hash.c \
+	../lily_cls_file.c \
 	../lily_pkg_sys.c \
 	../lily_class_funcs.c \
 	../lily_membuf.c \

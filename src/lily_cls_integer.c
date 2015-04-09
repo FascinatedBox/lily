@@ -50,7 +50,7 @@ static const lily_func_seed to_d =
 static const lily_func_seed to_s =
     {"to_s", "function to_s(integer => string)", lily_integer_to_s, &to_d};
 
-int lily_integer_setup(lily_class *cls)
+int lily_integer_setup(lily_symtab *symtab, lily_class *cls)
 {
     cls->seed_table = &to_s;
     return 1;

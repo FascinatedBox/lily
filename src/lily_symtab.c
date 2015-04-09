@@ -362,7 +362,7 @@ static void call_class_setups(lily_symtab *symtab)
     lily_class *class_iter = symtab->class_chain;
     while (class_iter) {
         if (class_iter->setup_func)
-            class_iter->setup_func(class_iter);
+            class_iter->setup_func(symtab, class_iter);
 
         class_iter = class_iter->next;
     }
@@ -459,8 +459,8 @@ static void init_classes(lily_symtab *symtab)
        built-in classes created here has a *_class entry in symtab, except for
        the generic class. */
 
-    /* This skips the generic class, starting at the tuple class. */
-    lily_class *class_iter = symtab->class_chain->next;
+    /* This skips the generic and file classes, starting at the tuple class. */
+    lily_class *class_iter = symtab->class_chain->next->next;
     symtab->tuple_class      = class_iter; class_iter = class_iter->next;
     symtab->hash_class       = class_iter; class_iter = class_iter->next;
     symtab->list_class       = class_iter; class_iter = class_iter->next;

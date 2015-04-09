@@ -18,7 +18,7 @@ void lily_double_to_i(lily_vm_state *vm, lily_function_val *self,
 static const lily_func_seed to_i =
     {"to_i", "function to_i(double => integer)", lily_double_to_i, NULL};
 
-int lily_double_setup(lily_class *cls)
+int lily_double_setup(lily_symtab *symtab, lily_class *cls)
 {
     cls->seed_table = &to_i;
     return 1;

@@ -1,0 +1,8 @@
+var f = file::open("io_test_file.txt", "w")
+# Make sure utf-8 checking works if the only thing is a utf-8 section.
+f.write("♡")
+f.close()
+
+f = file::open("io_test_file.txt", "r")
+if f.readline().encode("error") != "♡":
+    print("Failed\n")

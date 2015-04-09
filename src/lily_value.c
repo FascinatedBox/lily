@@ -185,6 +185,16 @@ void lily_destroy_any(lily_mem_func mem_func, lily_value *v)
     free_mem(av);
 }
 
+void lily_destroy_file(lily_mem_func mem_func, lily_value *v)
+{
+    lily_file_val *filev = v->value.file;
+
+    if (filev->is_open)
+        fclose(filev->inner_file);
+
+    free_mem(filev);
+}
+
 /** Value creation calls **/
 
 lily_list_val *lily_new_list_val(lily_mem_func mem_func)
@@ -317,4 +327,27 @@ lily_any_val *lily_new_any_val(lily_mem_func mem_func)
     a->refcount = 1;
 
     return a;
+}
+
+lily_file_val *lily_new_file_val(lily_mem_func mem_func, FILE *inner_file,
+        char mode_ch)
+{
+    lily_file_val *filev = malloc_mem(sizeof(lily_file_val));
+
+    filev->refcount = 1;
+    filev->inner_file = inner_file;
+    filev->is_open = (inner_file != NULL);
+
+    int read_ok = 1;
+    int write_ok = 1;
+
+    if (mode_ch == 'w')
+        read_ok = 0;
+    else if (mode_ch == 'r')
+        write_ok = 0;
+
+    filev->read_ok = read_ok;
+    filev->write_ok = write_ok;
+
+    return filev;
 }

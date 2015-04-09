@@ -75,7 +75,7 @@ static const lily_func_seed get =
 
 #define SEED_START get
 
-int lily_hash_setup(lily_class *cls)
+int lily_hash_setup(lily_symtab *symtab, lily_class *cls)
 {
     cls->seed_table = &SEED_START;
     return 1;

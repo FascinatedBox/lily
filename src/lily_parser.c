@@ -70,7 +70,8 @@ static char *exception_bootstrap =
 "class ValueError          (message: string) < Exception(message) {}\n"
 "class RecursionError      (message: string) < Exception(message) {}\n"
 "class KeyError            (message: string) < Exception(message) {}\n"
-"class FormatError         (message: string) < Exception(message) {}\n";
+"class FormatError         (message: string) < Exception(message) {}\n"
+"class IOError             (message: string) < Exception(message) {}\n";
 
 #define malloc_mem(size)             (*parser->mem_func)(NULL, size)
 #define realloc_mem(ptr, size)       (*parser->mem_func)(ptr, size)

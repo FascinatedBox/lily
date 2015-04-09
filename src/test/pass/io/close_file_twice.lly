@@ -1,0 +1,4 @@
+var f = file::open("io_test_file.txt", "w")
+
+f.close()
+f.close()

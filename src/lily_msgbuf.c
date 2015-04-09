@@ -332,6 +332,10 @@ void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, char *fmt, va_list var_args)
                     modifier_buf[1] = '\0';
                 }
             }
+            else if (c == 'c') {
+                char ch = va_arg(var_args, int);
+                lily_msgbuf_add_char(msgbuf, ch);
+            }
 
             text_start = i+1;
         }

@@ -3,6 +3,7 @@
 
 # include <stdlib.h>
 # include <stdint.h>
+# include <stdio.h>
 
 /* This file defines all core types used by the language. Many of these types
    reference each other. Some are left incomplete, because not every part of
@@ -16,6 +17,7 @@ struct lily_type_t;
 struct lily_register_info_t;
 struct lily_func_seed_t;
 struct lily_function_val_t;
+struct lily_symtab_t;
 
 /* This is the signature of the function that the interpreter will call to
    get, resize, and free memory. A custom allocator function can be passed
@@ -34,7 +36,7 @@ typedef void (*lily_foreign_func)(struct lily_vm_state_t *, struct lily_function
    can also do other setup if the class wants to. This is called after all
    classes have been created.
    Returns 1 if successful, 0 otherwise. */
-typedef int (*class_setup_func)(struct lily_class_t *);
+typedef int (*class_setup_func)(struct lily_symtab_t *, struct lily_class_t *);
 /* This is called to do == and != when the vm has complex values, and also for
    comparing values held in an any. The vm is passed as a guard against
    an infinite loop. */
@@ -63,6 +65,7 @@ typedef union lily_raw_value_t {
     struct lily_generic_gc_val_t *gc_generic;
     struct lily_function_val_t *function;
     struct lily_hash_val_t *hash;
+    struct lily_file_val_t *file;
     struct lily_instance_val_t *instance;
 } lily_raw_value;
 
@@ -121,8 +124,9 @@ typedef struct lily_class_t {
        information in the seed_table of a class. If the symtab can't find the
        name for a given class, then it's loaded into the vars of that class. */
     const struct lily_func_seed_t *seed_table;
-    /* If not NULL, then setup_func will set seed_table since seed_table is
-       typically a static const somewhere. */
+    /* If this isn't NULL, then it's called to setup the class within the
+       symtab. This usually involves setting seed_table to something not-NULL,
+       but can also do other stuff. */
     class_setup_func setup_func;
     gc_marker_func gc_marker;
     class_eq_func eq_func;
@@ -327,6 +331,14 @@ typedef struct lily_instance_val_t {
        class Exception. */
     lily_class *true_class;
 } lily_instance_val;
+
+typedef struct lily_file_val_t {
+    uint32_t refcount;
+    uint32_t is_open;
+    uint32_t read_ok;
+    uint32_t write_ok;
+    FILE *inner_file;
+} lily_file_val;
 
 /* Finally, functions. Functions come in two flavors: Native and foreign.
    * Native:  This function is declared and defined by a user. It has a code
@@ -554,14 +566,15 @@ typedef struct lily_import_entry_t {
 #define SYM_CLASS_LIST            7
 #define SYM_CLASS_HASH            8
 #define SYM_CLASS_TUPLE           9
-#define SYM_CLASS_GENERIC        10
-#define SYM_CLASS_EXCEPTION      11
-#define SYM_CLASS_DBZERROR       12 /* > 9000 */
-#define SYM_CLASS_INDEXERROR     13
-#define SYM_CLASS_BADTCERROR     14
-#define SYM_CLASS_VALUEERROR     15
-#define SYM_CLASS_RECURSIONERROR 16
-#define SYM_CLASS_KEYERROR       17
-#define SYM_CLASS_FORMATERROR    18
+#define SYM_CLASS_FILE           10
+#define SYM_CLASS_GENERIC        11
+#define SYM_CLASS_EXCEPTION      12
+#define SYM_CLASS_DBZERROR       13 /* > 9000 */
+#define SYM_CLASS_INDEXERROR     14
+#define SYM_CLASS_BADTCERROR     15
+#define SYM_CLASS_VALUEERROR     16
+#define SYM_CLASS_RECURSIONERROR 17
+#define SYM_CLASS_KEYERROR       18
+#define SYM_CLASS_FORMATERROR    19
 
 #endif
