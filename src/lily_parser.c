@@ -30,23 +30,23 @@
       do so.
 **/
 
-/* These flags are for collect_var_type. */
+/* These flags are for inner_type_collector. */
 
 /* Expect a name with every class given. Create a var for each class+name pair.
    This is suitable for collecting the args of a function. */
-#define CV_MAKE_VARS    0x1
+#define TC_MAKE_VARS    0x1
 
 /* This is set if the variable is not inside another variable. This is suitable
    for collecting a function that may have named arguments. */
-#define CV_TOPLEVEL     0x2
+#define TC_TOPLEVEL     0x2
 
 /* This is for collecting the opening part of a class declaration. */
-#define CV_CLASS_INIT   0x4
+#define TC_CLASS_INIT   0x4
 
 /* This is for collecting the type of a variant. This is because a variant
    needs to have a result that includes only the generics that were seen within
    the parentheses. */
-#define CV_VARIANT_FUNC 0x10
+#define TC_VARIANT_FUNC 0x10
 
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
@@ -518,7 +518,7 @@ static lily_type *calculate_variant_return(lily_parse_state *parser,
 /* Type collection                                                           */
 /*****************************************************************************/
 
-static lily_type *collect_var_type(lily_parse_state *parser, int flags);
+static lily_type *collect_var_type(lily_parse_state *parser);
 
 #define TC_DEMAND_VALUE  1
 #define TC_WANT_VALUE    2
@@ -539,7 +539,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
     lily_token end_token;
     lily_class *variant_class = NULL;
 
-    if (flags & CV_VARIANT_FUNC) {
+    if (flags & TC_VARIANT_FUNC) {
         variant_class = cls;
         cls = parser->symtab->function_class;
     }
@@ -549,7 +549,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
         if ((parser->type_stack_pos + 2) == parser->type_stack_size)
             grow_type_stack(parser);
 
-        if (flags & CV_CLASS_INIT)
+        if (flags & TC_CLASS_INIT)
             /* This is a constructor, so use the most recent type declared
                since it's the right one (lily_set_class_generics makes sure of
                it). */
@@ -564,8 +564,8 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
 
         /* Add an implicit 'self' for class functions (except for any nested
            classes). */
-        if (flags & CV_TOPLEVEL && parser->class_depth &&
-            (flags & CV_CLASS_INIT) == 0) {
+        if (flags & TC_TOPLEVEL && parser->class_depth &&
+            (flags & TC_CLASS_INIT) == 0) {
             parser->type_stack[parser->type_stack_pos] =
                 parser->emit->block->self->type;
             parser->type_stack_pos++;
@@ -577,16 +577,8 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
         i = 0;
     }
 
-    if (flags & CV_TOPLEVEL) {
-        flags |= CV_MAKE_VARS;
-        flags &= ~CV_TOPLEVEL;
-    }
-    else
-        flags &= ~CV_MAKE_VARS;
-
-    /* If this isn't done, then functions passed as arguments to the constructor
-       will have a return type of the class attached to them. */
-    flags &= ~CV_CLASS_INIT;
+    if (flags & TC_TOPLEVEL)
+        flags |= TC_MAKE_VARS;
 
     lily_lex_state *lex = parser->lex;
     while (1) {
@@ -595,9 +587,17 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
                 grow_type_stack(parser);
 
             if (have_arrow)
-                flags &= ~(CV_MAKE_VARS);
+                flags &= ~(TC_MAKE_VARS);
 
-            lily_type *type = collect_var_type(parser, flags);
+            lily_var *var = NULL;
+
+            if (flags & TC_MAKE_VARS) {
+                var = get_named_var(parser, NULL, 0);
+                NEED_CURRENT_TOK(tk_colon)
+                NEED_NEXT_TOK(tk_word)
+            }
+
+            lily_type *type = collect_var_type(parser);
             if (have_arrow == 0) {
                 parser->type_stack[parser->type_stack_pos] = type;
                 parser->type_stack_pos++;
@@ -605,6 +605,9 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
             }
             else
                 parser->type_stack[stack_start] = type;
+
+            if (var)
+                var->type = type;
 
             state = TC_WANT_OPERATOR;
             continue;
@@ -619,7 +622,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
         else if (lex->token == tk_arrow) {
             if (state == TC_DEMAND_VALUE || have_arrow ||
                 end_token == tk_right_bracket ||
-                flags & CV_CLASS_INIT)
+                flags & TC_CLASS_INIT)
                 state = TC_BAD_TOKEN;
             else if (state == TC_WANT_VALUE || state == TC_WANT_OPERATOR)
                 state = TC_DEMAND_VALUE;
@@ -683,7 +686,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
         }
     }
 
-    if (flags & CV_VARIANT_FUNC) {
+    if (flags & TC_VARIANT_FUNC) {
         lily_type *variant_return = calculate_variant_return(parser,
                 variant_class, stack_start, i);
         parser->type_stack[stack_start] = variant_return;
@@ -726,20 +729,14 @@ static int collect_generics(lily_parse_state *parser)
 }
 
 /*  collect_var_type
-    This is the outer part of type collection. This takes flags (CV_* defines)
+    This is the outer part of type collection. This takes flags (TC_* defines)
     which tell it how to act. */
-static lily_type *collect_var_type(lily_parse_state *parser, int flags)
+static lily_type *collect_var_type(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_type *result;
-    lily_var *var = NULL;
 
     NEED_CURRENT_TOK(tk_word)
-    if (flags & CV_MAKE_VARS) {
-        var = get_named_var(parser, NULL, 0);
-        NEED_CURRENT_TOK(tk_colon)
-        NEED_NEXT_TOK(tk_word)
-    }
 
     lily_class *cls = lily_class_by_name(parser->symtab, lex->label);
     if (cls == NULL)
@@ -757,19 +754,16 @@ static lily_type *collect_var_type(lily_parse_state *parser, int flags)
         lily_lexer(lex);
         NEED_CURRENT_TOK(tk_left_bracket)
         lily_lexer(lex);
-        result = inner_type_collector(parser, cls, flags);
+        result = inner_type_collector(parser, cls, 0);
     }
     else if (cls->id == SYM_CLASS_FUNCTION) {
         lily_lexer(lex);
         NEED_CURRENT_TOK(tk_left_parenth)
         lily_lexer(lex);
-        result = inner_type_collector(parser, cls, flags);
+        result = inner_type_collector(parser, cls, 0);
     }
     else
         result = NULL;
-
-    if (flags & CV_MAKE_VARS)
-        var->type = result;
 
     lily_lexer(lex);
     return result;
@@ -841,14 +835,14 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     lily_var *call_var;
     lily_symtab *symtab = parser->symtab;
     int block_type, generics_used;
-    int flags = CV_MAKE_VARS | CV_TOPLEVEL;
+    int flags = TC_MAKE_VARS | TC_TOPLEVEL;
 
     if (decl_class != NULL) {
         call_var = lily_new_var(symtab, call_type, "new",
                 VAR_IS_READONLY);
 
         block_type = BLOCK_FUNCTION | BLOCK_CLASS;
-        flags |= CV_CLASS_INIT;
+        flags |= TC_CLASS_INIT;
         lily_lexer(lex);
     }
     else {
@@ -1285,7 +1279,7 @@ static void expression_dot(lily_parse_state *parser, int *state)
     }
     else if (lex->token == tk_typecast_parenth) {
         lily_lexer(lex);
-        lily_type *new_type = collect_var_type(parser, 0);
+        lily_type *new_type = collect_var_type(parser);
         lily_ast_enter_typecast(parser->ast_pool, new_type);
         lily_ast_leave_tree(parser->ast_pool);
         *state = ST_WANT_OPERATOR;
@@ -1487,7 +1481,7 @@ static void var_handler(lily_parse_state *parser, int multi)
 
         if (lex->token == tk_colon) {
             lily_lexer(lex);
-            lily_type *t = collect_var_type(parser, 0);
+            lily_type *t = collect_var_type(parser);
 
             if (var)
                 var->type = t;
@@ -2359,7 +2353,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
                         "Variant class cannot take empty ().\n");
 
             variant_type = inner_type_collector(parser, variant_class,
-                    CV_VARIANT_FUNC);
+                    TC_VARIANT_FUNC);
 
             /* Skip the closing ')'. */
             lily_lexer(lex);
@@ -2854,7 +2848,7 @@ lily_type *lily_type_by_name(lily_parse_state *parser, char *name)
 {
     lily_load_copy_string(parser->lex, "[api]", lm_no_tags, name);
     lily_lexer(parser->lex);
-    lily_type *result = collect_var_type(parser, 0);
+    lily_type *result = collect_var_type(parser);
     lily_pop_lex_entry(parser->lex);
 
     return result;
