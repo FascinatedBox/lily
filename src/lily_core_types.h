@@ -517,6 +517,10 @@ typedef struct lily_import_entry_t {
    contains generics at some point. Emitter and vm use this as a fast way of
    checking if a type needs to be resolved or not. */
 #define TYPE_IS_UNRESOLVED     0x20
+/* This is set on function types that have at least one optional argument. This
+   is set so that emitter and ts can easily figure out if the function doesn't
+   have to take some arguments. */
+#define TYPE_HAS_OPTARGS       0x40
 
 /* SYM_* defines are for identifying the type of symbol given. Emitter uses
    these sometimes. */
@@ -566,15 +570,16 @@ typedef struct lily_import_entry_t {
 #define SYM_CLASS_LIST            7
 #define SYM_CLASS_HASH            8
 #define SYM_CLASS_TUPLE           9
-#define SYM_CLASS_FILE           10
-#define SYM_CLASS_GENERIC        11
-#define SYM_CLASS_EXCEPTION      12
-#define SYM_CLASS_DBZERROR       13 /* > 9000 */
-#define SYM_CLASS_INDEXERROR     14
-#define SYM_CLASS_BADTCERROR     15
-#define SYM_CLASS_VALUEERROR     16
-#define SYM_CLASS_RECURSIONERROR 17
-#define SYM_CLASS_KEYERROR       18
-#define SYM_CLASS_FORMATERROR    19
+#define SYM_CLASS_OPTARG         10
+#define SYM_CLASS_FILE           11
+#define SYM_CLASS_GENERIC        12
+#define SYM_CLASS_EXCEPTION      13
+#define SYM_CLASS_DBZERROR       14 /* > 9000 */
+#define SYM_CLASS_INDEXERROR     15
+#define SYM_CLASS_BADTCERROR     16
+#define SYM_CLASS_VALUEERROR     17
+#define SYM_CLASS_RECURSIONERROR 18
+#define SYM_CLASS_KEYERROR       19
+#define SYM_CLASS_FORMATERROR    20
 
 #endif

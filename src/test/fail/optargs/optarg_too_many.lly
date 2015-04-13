@@ -1,0 +1,10 @@
+#[
+SyntaxError: Function f expects 1 to 2 args, but got 3.
+Where: File "optarg_too_many.lly" at line 10
+]#
+
+define f(a: integer, b: *integer = 10) {
+
+}
+
+f(1, 2, 3)

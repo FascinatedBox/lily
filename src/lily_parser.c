@@ -155,12 +155,15 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
             "[builtin]");
     lily_raiser *raiser = lily_new_raiser(mem_func);
 
+    parser->optarg_stack_pos = 0;
+    parser->optarg_stack_size = 4;
     parser->type_stack_pos = 0;
     parser->type_stack_size = 4;
     parser->class_depth = 0;
     parser->next_lambda_id = 0;
     parser->first_pass = 1;
     parser->raiser = raiser;
+    parser->optarg_stack = malloc_mem(4 * sizeof(uint16_t));
     parser->type_stack = malloc_mem(4 * sizeof(lily_type *));
     parser->ast_pool = lily_new_ast_pool(mem_func, raiser, 8);
     parser->symtab = lily_new_symtab(mem_func, builtin_import, raiser);
@@ -227,7 +230,7 @@ void lily_free_parse_state(lily_parse_state *parser)
         free_mem(parser->import_paths[i]);
 
     free_mem(parser->import_paths);
-
+    free_mem(parser->optarg_stack);
 
     lily_import_entry *import_iter = parser->import_start;
     lily_import_entry *import_next = NULL;
@@ -439,6 +442,15 @@ static void grow_type_stack(lily_parse_state *parser)
             sizeof(lily_type *) * parser->type_stack_size);
 }
 
+/*  grow_optarg_stack
+    Make the optstack holding type information bigger for more values. */
+static void grow_optarg_stack(lily_parse_state *parser)
+{
+    parser->optarg_stack_size *= 2;
+    parser->optarg_stack = realloc_mem(parser->optarg_stack,
+            sizeof(uint16_t) * parser->optarg_stack_size);
+}
+
 /*  calculate_generics_used
     This recurses through a given type, marking down what positions are seen
     in the "map" of generics. Additionally, generic_max is set to the highest
@@ -527,6 +539,82 @@ static lily_type *collect_var_type(lily_parse_state *parser);
 #define TC_BAD_TOKEN     4
 #define TC_DONE          5
 
+/*  make_optarg_type_of
+    This creates a new type that is composed of the one given, but put inside
+    of an optarg type. */
+static lily_type *make_optarg_type_of(lily_parse_state *parser, lily_type *type)
+{
+    lily_class *optarg_class = parser->symtab->optarg_class;
+    parser->type_stack[parser->type_stack_pos] = type;
+
+    lily_type *result = lily_build_ensure_type(parser->symtab, optarg_class,
+            0, parser->type_stack, parser->type_stack_pos, 1);
+
+    return result;
+}
+
+/*  get_optarg_expect_token
+    Optional arguments must have a literal value as a default value. Since the
+    literal needed is only going to be one token, this returns that token (based
+    on what token is given).
+    If the type passed can't have a default argument, then tk_invalid is
+    returned. */
+static lily_token get_optarg_expect_token(lily_parse_state *parser,
+        lily_type *type)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_class *cls = type->cls;
+    lily_token ret;
+
+    if (cls == symtab->integer_class)
+        ret = tk_integer;
+    else if (cls == symtab->double_class)
+        ret = tk_double;
+    else if (cls == symtab->string_class)
+        ret = tk_double_quote;
+    else if (cls == symtab->bytestring_class)
+        ret = tk_bytestring;
+    else if (cls == symtab->symbol_class)
+        ret = tk_symbol;
+    else
+        ret = tk_invalid;
+
+    return ret;
+}
+
+static void ensure_valid_optarg(lily_parse_state *parser, lily_type *type)
+{
+    if (get_optarg_expect_token(parser, type) == tk_invalid)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Type '^T' cannot have a default value.\n", type);
+}
+
+/*  collect_optarg_for
+    This collects a default value for 'var', which has been tagged as needing
+    one. This first makes sure that the var is a type that actually can do that.
+    If so, it will grab the '=<value>' and register the value into the optarg
+    stack. */
+static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
+{
+    lily_lex_state *lex = parser->lex;
+    NEED_CURRENT_TOK(tk_equal)
+    lily_lexer(lex);
+
+    if (parser->optarg_stack_pos + 1 >= parser->optarg_stack_size)
+        grow_optarg_stack(parser);
+
+    ensure_valid_optarg(parser, var->type);
+    lily_token expect_token = get_optarg_expect_token(parser, var->type);
+    NEED_CURRENT_TOK(expect_token)
+
+    parser->optarg_stack[parser->optarg_stack_pos] = var->reg_spot;
+    parser->optarg_stack[parser->optarg_stack_pos + 1] =
+            lex->last_literal->reg_spot;
+    parser->optarg_stack_pos += 2;
+
+    lily_lexer(lex);
+}
+
 /*  inner_type_collector
     Given a class that takes inner types (like list, hash, function, etc.),
     collect those inner types. A valid, unique type is returned. */
@@ -581,33 +669,69 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
         flags |= TC_MAKE_VARS;
 
     lily_lex_state *lex = parser->lex;
+    int have_optargs = 0;
+
     while (1) {
-        if (lex->token == tk_word) {
+        if (lex->token == tk_word || lex->token == tk_multiply) {
             if (parser->type_stack_pos == parser->type_stack_size)
                 grow_type_stack(parser);
 
+            lily_var *var = NULL;
             if (have_arrow)
                 flags &= ~(TC_MAKE_VARS);
 
-            lily_var *var = NULL;
-
             if (flags & TC_MAKE_VARS) {
+                NEED_CURRENT_TOK(tk_word);
                 var = get_named_var(parser, NULL, 0);
                 NEED_CURRENT_TOK(tk_colon)
-                NEED_NEXT_TOK(tk_word)
+                lily_lexer(lex);
+            }
+
+            int is_optarg = 0;
+
+            if (end_token == tk_right_parenth) {
+                if (lex->token != tk_multiply && have_optargs == 1)
+                    state = TC_BAD_TOKEN;
+                else if (lex->token == tk_multiply) {
+                    if (have_arrow)
+                        state = TC_BAD_TOKEN;
+
+                    /* Unexpected token seems wrong here, because one may expect
+                       variant types to support optargs and think they're
+                       doing the wrong syntax.
+                       Make it clear: variants do not support optargs. */
+                    if (flags & TC_VARIANT_FUNC)
+                        lily_raise(parser->raiser, lily_SyntaxError,
+                                "Variant types cannot have default values.\n");
+
+                    is_optarg = 1;
+                    have_optargs = 1;
+                    lily_lexer(lex);
+                }
             }
 
             lily_type *type = collect_var_type(parser);
+
             if (have_arrow == 0) {
-                parser->type_stack[parser->type_stack_pos] = type;
+                lily_type *stack_type = type;
+                if (is_optarg) {
+                    stack_type = make_optarg_type_of(parser, type);
+                    type_flags |= TYPE_HAS_OPTARGS;
+                }
+                parser->type_stack[parser->type_stack_pos] = stack_type;
                 parser->type_stack_pos++;
                 i++;
             }
             else
                 parser->type_stack[stack_start] = type;
 
-            if (var)
+            if (var) {
                 var->type = type;
+                if (is_optarg)
+                    collect_optarg_for(parser, var);
+            }
+            else if (is_optarg)
+                ensure_valid_optarg(parser, type);
 
             state = TC_WANT_OPERATOR;
             continue;
@@ -878,6 +1002,13 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
 
     lily_emit_update_function_block(parser->emit, decl_class,
             generics_used, call_type->subtypes[0]);
+
+    if (parser->optarg_stack_pos != 0) {
+        lily_emit_write_optargs(parser->emit, parser->optarg_stack,
+                parser->optarg_stack_pos);
+
+        parser->optarg_stack_pos = 0;
+    }
 
     lily_lexer(lex);
 }

@@ -25,6 +25,10 @@ typedef struct lily_parse_state_t {
     lily_import_entry *import_top;
     lily_import_entry *import_start;
 
+    uint16_t *optarg_stack;
+    uint32_t optarg_stack_pos;
+    uint32_t optarg_stack_size;
+
     lily_membuf *membuf;
     lily_type *default_call_type;
     lily_ast_pool *ast_pool;

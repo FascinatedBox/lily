@@ -1337,6 +1337,38 @@ static void do_o_raise(lily_vm_state *vm, lily_value *exception_val)
     lily_raise_value(vm->raiser, exception_val);
 }
 
+/*  do_o_setup_optargs
+    This is called when a function takes at least one optional argument. This
+    walks backward from the right. Any value that doesn't have something set
+    (marked VAL_IS_NIL) is given the corresponding literal value. */
+static void do_o_setup_optargs(lily_vm_state *vm, uint16_t *code, int code_pos)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_tie **ro_table = vm->readonly_table;
+
+    /* This goes in reverse because arguments fill from the bottom up. Doing it
+       this way means that the loop can stop when it finds the first filled
+       argument. It's a slight optimization, but such an easy one. */
+    int end = code_pos + 1;
+    int i = code[code_pos + 1] + code_pos + 1;
+
+    for (;i > end;i -= 2) {
+        lily_value *left = vm_regs[code[i - 1]];
+        if ((left->flags & VAL_IS_NIL) == 0)
+            break;
+
+        /* Note! The right side is ALWAYS a literal. Do not use vm_regs! */
+        lily_tie *right = ro_table[code[i]];
+
+        /* The left side has been verified to be nil, so there is no reason for
+           a deref check.
+           The right side is a literal, so it is definitely marked protected,
+           and there is no need to check to ref it. */
+        left->flags = right->flags;
+        left->value = right->value;
+    }
+}
+
 /*  do_o_new_instance
     This is the first opcode of any class constructor. This initalizes the
     hidden '(self)' variable for further accesses. */
@@ -2322,6 +2354,10 @@ void lily_vm_execute(lily_vm_state *vm)
                 }
 
                 code_pos += 4;
+                break;
+            case o_setup_optargs:
+                do_o_setup_optargs(vm, code, code_pos);
+                code_pos += 2 + code[code_pos + 1];
                 break;
             case o_integer_for:
                 loop_reg = vm_regs[code[code_pos+2]];

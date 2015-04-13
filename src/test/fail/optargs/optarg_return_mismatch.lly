@@ -1,0 +1,12 @@
+#[
+SyntaxError: Cannot assign type 'function (integer, *integer => integer)' to type 'function (integer => string)'.
+Where: File "optarg_return_mismatch.lly" at line 12
+]#
+
+define f(a: integer => string) { return "10" }
+
+define g(a: integer, b: *integer=10 => integer) { return 10 }
+
+var h = f
+
+h = g

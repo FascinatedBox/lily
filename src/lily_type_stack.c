@@ -94,7 +94,46 @@ int lily_ts_check(lily_type_stack *ts, lily_type *left, lily_type *right)
         ret = (left == right);
     else if (left->cls->id == right->cls->id &&
              left->cls->id != SYM_CLASS_GENERIC) {
-        if (left->subtype_count == right->subtype_count) {
+        if (right->flags & TYPE_HAS_OPTARGS) {
+            /* The right side must be a function with optional arguments, with
+               the left being a function (with/without optargs).
+
+               Allow this assignment if, typewise, the --RIGHT-- has the same
+               types as the left, then has optional arguments past that. (ex:
+               left takes 1+ arguments, right takes 2+). We're just narrowing
+               the type of the right in this case.
+
+               This DOES NOT work in reverse (left takes 1+ arguments, but right
+               takes just 1). */
+
+            ret = 1;
+
+            /* Remember that [0] is the return type, and always exists. */
+            if (lily_ts_check(ts, left->subtypes[0], right->subtypes[0]) == 0)
+                ret = 0;
+
+            if (left->subtype_count > right->subtype_count)
+                ret = 0;
+
+            if (ret) {
+                int i;
+                for (i = 1;i <  left ->subtype_count;i++) {
+                    lily_type *left_type = left->subtypes[i];
+                    lily_type *right_type = right->subtypes[i];
+
+                    if (right_type->cls->id == SYM_CLASS_OPTARG &&
+                        left_type->cls->id != SYM_CLASS_OPTARG) {
+                        right_type = right_type->subtypes[0];
+                    }
+
+                    if (lily_ts_check(ts, left_type, right_type) == 0) {
+                        ret = 0;
+                        break;
+                    }
+                }
+            }
+        }
+        else if (left->subtype_count == right->subtype_count) {
             ret = 1;
 
             lily_type **left_subtypes = left->subtypes;

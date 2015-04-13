@@ -975,6 +975,20 @@ static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
     lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
 }
 
+/*  get_optarg_min_args
+    Determine the minimum amount of arguments necessary to call a type tagged as
+    having optional arguments. */
+static int get_optarg_min_args(lily_type *call_type)
+{
+    int i;
+    for (i = 1;i < call_type->subtype_count;i++) {
+        if (call_type->subtypes[i]->cls->id == SYM_CLASS_OPTARG)
+            break;
+    }
+
+    return i - 1;
+}
+
 /* bad_num_args
    Reports that the ast didn't get as many args as it should have. Takes
    anonymous calls and var args into account. */
@@ -984,17 +998,23 @@ static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
     push_info_to_error(emit, ast);
     lily_msgbuf *msgbuf = emit->raiser->msgbuf;
 
-    char *va_text;
-
-    if (call_type->flags & TYPE_IS_VARARGS)
-        va_text = "at least ";
-    else
-        va_text = "";
-
     emit->raiser->line_adjust = ast->line_num;
 
-    lily_msgbuf_add_fmt(msgbuf, " expects %s%d args, but got %d.\n",
-            va_text, call_type->subtype_count - 1, ast->args_collected);
+    lily_msgbuf_add(msgbuf, " expects ");
+
+    if (call_type->flags & TYPE_IS_VARARGS) {
+        lily_msgbuf_add_fmt(msgbuf, "at least %d args",
+                call_type->subtype_count - 1);
+    }
+    else if (call_type->flags & TYPE_HAS_OPTARGS) {
+        lily_msgbuf_add_fmt(msgbuf, "%d to %d args",
+                get_optarg_min_args(call_type),
+                call_type->subtype_count - 1);
+    }
+    else
+        lily_msgbuf_add_fmt(msgbuf, "%d args", call_type->subtype_count - 1);
+
+    lily_msgbuf_add_fmt(msgbuf, ", but got %d.\n", ast->args_collected);
 
     lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
 }
@@ -2264,6 +2284,9 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast,
 static void eval_call_arg(lily_emit_state *emit, lily_ast *call_ast,
         int generic_adjust, lily_type *want_type, lily_ast *arg, int arg_num)
 {
+    if (want_type->cls->id == SYM_CLASS_OPTARG)
+        want_type = want_type->subtypes[0];
+
     if (arg->tree_type != tree_local_var)
         /* Calls fill in their type info as they go along, courteousy of their
            arguments. So the types are NEVER resolved. */
@@ -2347,6 +2370,32 @@ static void box_call_variants(lily_emit_state *emit, lily_type *call_type,
     }
 }
 
+/*  verify_argument_count
+    This makes sure that the function being called (specified by 'ast') is being
+    called with the right number of arguments. This is slightly tricky, because
+    of optional arguments and variable arguments. */
+static void verify_argument_count(lily_emit_state *emit,
+        lily_ast *ast, lily_type *call_type, int num_args)
+{
+    /* The -1 is because the return type of a function is the first type. */
+    int args_needed = call_type->subtype_count - 1;
+    unsigned int low_arg_num = args_needed;
+    unsigned int high_arg_num = args_needed;
+
+    /* A function can be either varargs or optargs. They cannot coexist because
+       parser does not allow a default value for varargs, and varargs must
+       always be last. */
+    if (call_type->flags & TYPE_HAS_OPTARGS)
+        low_arg_num = get_optarg_min_args(call_type);
+    else if (call_type->flags & TYPE_IS_VARARGS) {
+        high_arg_num = (unsigned int)-1;
+        low_arg_num = args_needed - 1;
+    }
+
+    if (num_args < low_arg_num || num_args > high_arg_num)
+        bad_num_args(emit, ast, call_type);
+}
+
 /*  check_call_args
     eval_call uses this to make sure the types of all the arguments are right.
 
@@ -2377,18 +2426,11 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         }
     }
 
-    /* Ast doesn't check the call args. It can't check types, so why do only
-       half of the validation? */
     have_args = ast->args_collected;
     is_varargs = call_type->flags & TYPE_IS_VARARGS;
-    /* Take the last arg off of the arg count. This will be verified using the
-       var arg type. */
     num_args = (call_type->subtype_count - 1) - is_varargs;
 
-    if ((is_varargs && (have_args < num_args)) ||
-        (is_varargs == 0 && (have_args != num_args))) {
-        bad_num_args(emit, ast, call_type);
-    }
+    verify_argument_count(emit, ast, call_type, ast->args_collected);
 
     /* Generics are rather simple: The first time they're seen, the type they
        see is written into emitter's type stack. Subsequent passes check that
@@ -2434,7 +2476,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
 
     emit->current_generic_adjust = generic_adjust;
 
-    for (i = 0;i != num_args;arg = arg->next_arg, i++)
+    for (i = 0;arg != NULL && i != num_args;arg = arg->next_arg, i++)
         eval_call_arg(emit, ast, generic_adjust, call_type->subtypes[i + 1],
                 arg, i);
 
@@ -3754,6 +3796,26 @@ void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
     f->code[f->pos+5] = -1;
 
     f->pos += 6;
+}
+
+/*  lily_emit_write_optargs
+    This function writes o_setup_optargs for the parser. It's currently called
+    near the beginning of any function that uses optional arguments.
+
+    reg_spots: A series of pairs to write out. Each pair is a var's register
+               spot, then a literal's register spot.
+    count:     The total number of spots to write (not the number of pairs). */
+void lily_emit_write_optargs(lily_emit_state *emit, uint16_t *reg_spots,
+        uint16_t count)
+{
+    write_prep(emit, count + 2);
+
+    lily_function_val *f = emit->top_function;
+    f->code[f->pos] = o_setup_optargs;
+    f->code[f->pos+1] = count;
+
+    memcpy(f->code + f->pos + 2, reg_spots, sizeof(uint16_t) * count);
+    f->pos += count + 2;
 }
 
 /*  lily_emit_try_enter_main

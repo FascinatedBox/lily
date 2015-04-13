@@ -293,6 +293,8 @@ typedef enum {
     o_except,
     o_raise,
 
+    o_setup_optargs,
+
     o_new_instance,
 
     o_match_dispatch,

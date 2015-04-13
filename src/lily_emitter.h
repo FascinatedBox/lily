@@ -174,6 +174,7 @@ void lily_emit_eval_lambda_body(lily_emit_state *, lily_ast_pool *, lily_type *,
         int);
 void lily_emit_lambda_dispatch(lily_emit_state *, lily_ast_pool *);
 void lily_emit_write_import_call(lily_emit_state *, lily_var *);
+void lily_emit_write_optargs(lily_emit_state *, uint16_t *, uint16_t);
 
 void lily_emit_eval_match_expr(lily_emit_state *, lily_ast_pool *);
 int lily_emit_add_match_case(lily_emit_state *, int);

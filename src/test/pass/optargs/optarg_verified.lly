@@ -1,0 +1,21 @@
+define z(
+        a: *integer=10,
+        b: *integer=10,
+        c: *integer=10,
+        d: *integer=10,
+        e: *integer=10,
+        f: *integer=10,
+        g: *integer=10 => integer)
+{
+    return a + b + c + d + e + f + g
+}
+
+if z()                    != 70 ||
+   z(0)                   != 60 ||
+   z(0, 0)                != 50 ||
+   z(0, 0, 0)             != 40 ||
+   z(0, 0, 0, 0)          != 30 ||
+   z(0, 0, 0, 0, 0)       != 20 ||
+   z(0, 0, 0, 0, 0, 0)    != 10 ||
+   z(0, 0, 0, 0, 0, 0, 0) != 0:
+   print("Failed")

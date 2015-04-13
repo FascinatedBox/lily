@@ -1,0 +1,9 @@
+class Point(x: *integer=0, y: *integer=0)
+{
+    var @x = x
+    var @y = y
+}
+
+Point::new()
+Point::new(1)
+Point::new(1, 1)
