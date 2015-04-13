@@ -1,0 +1,18 @@
+#[
+SyntaxError: Cannot assign type 'function (integer)' to type 'function (integer, *integer)'.
+Where: File "optarg_type_narrow.lly" at line 18
+]#
+
+define f(a: integer) {  }
+
+define g(a: integer, b: *integer=10) {  }
+
+# This causes h to have f's type.
+var h = g
+
+# This doesn't work. Math can be used to explain:
+# g wants 1-2 types. It can handle optional arguments.
+# f wants 1 type.
+# Internally, this doesn't work because pushing too many args onto a
+# function not preprared for it does bad things to the stack.
+h = f

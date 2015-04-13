@@ -1,0 +1,6 @@
+define f(a: *integer=10 => integer) {
+    return a
+}
+
+if f() != 10:
+    print("Failed.\n")

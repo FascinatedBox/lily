@@ -1,0 +1,6 @@
+class abc() {
+    define ghi(a: *integer=10) {
+    }
+}
+
+abc::new().ghi()

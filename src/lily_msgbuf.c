@@ -248,13 +248,19 @@ void lily_msgbuf_add_type(lily_msgbuf *msgbuf, lily_type *type)
         lily_msgbuf_add_char(msgbuf, 'A' + type->generic_pos);
     else if (type->cls->generic_count != 0) {
         int i;
-        lily_msgbuf_add(msgbuf, "[");
+        int is_optarg = type->cls->id == SYM_CLASS_OPTARG;
+
+        if (is_optarg == 0)
+            lily_msgbuf_add(msgbuf, "[");
+
         for (i = 0;i < type->subtype_count;i++) {
             lily_msgbuf_add_type(msgbuf, type->subtypes[i]);
             if (i != (type->subtype_count - 1))
                 lily_msgbuf_add(msgbuf, ", ");
         }
-        lily_msgbuf_add(msgbuf, "]");
+
+        if (is_optarg == 0)
+            lily_msgbuf_add(msgbuf, "]");
     }
 }
 

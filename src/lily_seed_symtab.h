@@ -132,6 +132,18 @@ class_seed class_seeds[] =
      lily_destroy_tuple         /* destroy_func */
     },
 
+    /* This is the optarg class. The type inside of it is what may/may not be
+       sent. */
+    {"*",                       /* name */
+     0,                         /* is_refcounted */
+     1,                         /* generic_count */
+     0,                         /* flags */
+     NULL,                      /* setup_func */
+     NULL,                      /* gc_marker */
+     NULL,                      /* eq_func */
+     NULL                       /* destroy_func */
+    },
+
     {"file",                    /* name */
      1,                         /* is_refcounted */
      0,                         /* generic_count */
@@ -142,6 +154,8 @@ class_seed class_seeds[] =
      lily_destroy_file          /* destroy_func */
     },
 
+    /* This is the generic class. Types of this class are created and have a
+       generic_pos set to indicate what letter they are (A = 0, B = 1, etc.) */
     {"",                        /* name */
      0,                         /* is_refcounted */
      0,                         /* generic_count */
@@ -149,8 +163,8 @@ class_seed class_seeds[] =
      NULL,                      /* setup_func */
      NULL,                      /* gc_marker */
      NULL,                      /* eq_func */
-     NULL,                      /* destroy_func */
-    }
+     NULL                       /* destroy_func */
+    },
 };
 
 void lily_builtin_print(lily_vm_state *, lily_function_val *, uint16_t *);

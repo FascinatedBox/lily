@@ -1,0 +1,10 @@
+define f(a: integer) {  }
+
+define g(a: integer, b: *integer=10) {  }
+
+# This causes h to have f's type.
+var h = f
+
+# g is compatible with f because they both return the same thing,
+# and the non-optarg parts are the same.
+h = f

@@ -1,0 +1,6 @@
+#[
+SyntaxError: Type 'A' cannot have a default value.
+Where: File "optarg_with_generic.lly" at line 6
+]#
+
+define f[A](a: function(*A => A)) {  }

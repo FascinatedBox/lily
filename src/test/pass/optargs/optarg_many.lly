@@ -1,0 +1,19 @@
+define z(
+        a: *integer=10,
+        b: *integer=10,
+        c: *integer=10,
+        d: *integer=10,
+        e: *integer=10,
+        f: *integer=10,
+        g: *integer=10)
+{
+
+}
+
+z(1)
+z(1, 2)
+z(1, 2, 3)
+z(1, 2, 3, 4)
+z(1, 2, 3, 4, 5)
+z(1, 2, 3, 4, 5, 6)
+z(1, 2, 3, 4, 5, 6, 7)

@@ -1,0 +1,5 @@
+define f(a: integer, b: *integer=10) {  }
+
+define g(a: function(integer)) {  }
+
+g(f)

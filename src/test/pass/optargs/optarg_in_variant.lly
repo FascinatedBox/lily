@@ -1,0 +1,5 @@
+
+enum class abc {
+    ghi(function(*integer))
+    xyz
+}
