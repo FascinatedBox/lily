@@ -54,7 +54,11 @@ def basic_run(filename, basedir, mode, run_range):
         mode_str = "fail"
 
     path = basedir + filename
-    command = "./lily %s" % (path)
+    # The -g 2 is so that Lily's garbage collector will only allow 2
+    # objects at the same time before doing a gc sweep.
+    # This ensures that tests aren't passing only because the gc is not
+    # being triggered.
+    command = "./lily -g 2 %s" % (path)
     subp = subprocess.Popen([command], stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, shell=True)
     (subp_stdout, subp_stderr) = subp.communicate()
