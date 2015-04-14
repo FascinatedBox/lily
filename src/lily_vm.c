@@ -1409,6 +1409,9 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     iv->visited = 0;
     iv->true_class = result->type->cls;
 
+    if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
+        try_add_gc_item(vm, result->type, (lily_generic_gc_val *)iv);
+
     lily_deref(vm->mem_func, result);
 
     result->value.instance = iv;
