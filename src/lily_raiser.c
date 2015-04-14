@@ -1,7 +1,6 @@
 #include <stdarg.h>
 #include <string.h>
 
-#include "lily_impl.h"
 #include "lily_raiser.h"
 
 /* This is used by lily_name_for_error to get a printable name for an error

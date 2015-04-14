@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#include "lily_impl.h"
 #include "lily_msgbuf.h"
 #include "lily_core_types.h"
 

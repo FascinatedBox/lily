@@ -1,6 +1,5 @@
 #include <stdio.h>
 
-#include "lily_impl.h"
 #include "lily_type_stack.h"
 
 
