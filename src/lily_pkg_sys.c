@@ -1,6 +1,5 @@
 #include <string.h>
 
-#include "lily_impl.h"
 #include "lily_parser.h"
 
 #define malloc_mem(size)             parser->mem_func(NULL, size)

@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "lily_impl.h"
 #include "lily_symtab.h"
 #include "lily_value.h"
 

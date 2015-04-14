@@ -1,6 +1,5 @@
 #include <string.h>
 
-#include "lily_impl.h"
 #include "lily_ast.h"
 
 /** How ast works

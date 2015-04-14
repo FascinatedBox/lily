@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lily_impl.h"
 #include "lily_parser.h"
 #include "lily_parser_tok_table.h"
 #include "lily_keyword_table.h"

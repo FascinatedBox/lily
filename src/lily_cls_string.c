@@ -3,7 +3,6 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-#include "lily_impl.h"
 #include "lily_value.h"
 #include "lily_vm.h"
 

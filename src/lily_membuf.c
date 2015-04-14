@@ -1,6 +1,5 @@
 #include <string.h>
 
-#include "lily_impl.h"
 #include "lily_membuf.h"
 
 #define malloc_mem(size)             membuf->mem_func(NULL, size)

@@ -1,4 +1,3 @@
-#include "lily_impl.h"
 #include "lily_value.h"
 
 #define malloc_mem(size) mem_func(NULL, size)
