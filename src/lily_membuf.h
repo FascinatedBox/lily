@@ -17,7 +17,7 @@ typedef struct  {
 } lily_membuf;
 
 
-lily_membuf *lily_membuf_new(lily_mem_func, lily_raiser *);
+lily_membuf *lily_membuf_new(lily_options *, lily_raiser *);
 
 void lily_membuf_free(lily_membuf *);
 

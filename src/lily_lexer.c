@@ -144,11 +144,13 @@ static const lily_token grp_two_eq_table[] =
 #define free_mem(ptr)          (void)lexer->mem_func(ptr, 0)
 
 /** Lexer init and deletion **/
-lily_lex_state *lily_new_lex_state(lily_mem_func mem_func, lily_raiser *raiser,
-        void *data)
+lily_lex_state *lily_new_lex_state(lily_options *options,
+        lily_raiser *raiser)
 {
-    lily_lex_state *lexer = mem_func(NULL, sizeof(lily_lex_state));
-    lexer->mem_func = mem_func;
+    lily_lex_state *lexer = options->mem_func(NULL,
+            sizeof(lily_lex_state));
+    lexer->mem_func = options->mem_func;
+    lexer->data = options->data;
 
     char *ch_class;
 
@@ -156,7 +158,6 @@ lily_lex_state *lily_new_lex_state(lily_mem_func mem_func, lily_raiser *raiser,
     lexer->entry = NULL;
     lexer->filename = NULL;
     lexer->raiser = raiser;
-    lexer->data = data;
     lexer->input_buffer = malloc_mem(128 * sizeof(char));
     lexer->label = malloc_mem(128 * sizeof(char));
     lexer->ch_class = NULL;

@@ -97,7 +97,7 @@ typedef struct lily_vm_state_ {
     lily_var *main;
 } lily_vm_state;
 
-lily_vm_state *lily_new_vm_state(lily_mem_func, lily_raiser *, void *);
+lily_vm_state *lily_new_vm_state(lily_options *, lily_raiser *);
 void lily_free_vm(lily_vm_state *);
 void lily_vm_prep(lily_vm_state *, lily_symtab *);
 void lily_vm_execute(lily_vm_state *);

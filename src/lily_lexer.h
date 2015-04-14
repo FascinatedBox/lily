@@ -150,7 +150,7 @@ void lily_load_copy_string(lily_lex_state *, char *, lily_lex_mode, char *);
 int lily_try_load_file(lily_lex_state *, char *);
 
 void lily_pop_lex_entry(lily_lex_state *);
-lily_lex_state *lily_new_lex_state(lily_mem_func, lily_raiser *, void *);
+lily_lex_state *lily_new_lex_state(lily_options *, lily_raiser *);
 char *tokname(lily_token);
 
 #endif

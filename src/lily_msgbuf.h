@@ -23,7 +23,7 @@ typedef struct {
 } lily_msgbuf;
 
 void lily_free_msgbuf(lily_msgbuf *);
-lily_msgbuf *lily_new_msgbuf(lily_mem_func);
+lily_msgbuf *lily_new_msgbuf(lily_options *);
 void lily_msgbuf_add(lily_msgbuf *, char *);
 void lily_msgbuf_add_char(lily_msgbuf *, char);
 void lily_msgbuf_add_text_range(lily_msgbuf *, char *, int, int);

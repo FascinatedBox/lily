@@ -114,11 +114,13 @@ code_pos += 5;
 /*****************************************************************************/
 /* VM setup and teardown                                                     */
 /*****************************************************************************/
-lily_vm_state *lily_new_vm_state(lily_mem_func mem_func, lily_raiser *raiser,
-        void *data)
+lily_vm_state *lily_new_vm_state(lily_options *options,
+        lily_raiser *raiser)
 {
-    lily_vm_state *vm = mem_func(NULL, sizeof(lily_vm_state));
-    vm->mem_func = mem_func;
+    lily_vm_state *vm = options->mem_func(NULL, sizeof(lily_vm_state));
+    vm->mem_func = options->mem_func;
+    vm->data = options->data;
+    vm->gc_threshold = options->gc_threshold;
 
     /* todo: This is a terrible, horrible key to use. Make a better one using
              some randomness or...something. Just not this. */
@@ -133,7 +135,6 @@ lily_vm_state *lily_new_vm_state(lily_mem_func mem_func, lily_raiser *raiser,
     vm->string_buffer = NULL;
     vm->function_stack_pos = 0;
     vm->raiser = raiser;
-    vm->data = data;
     vm->vm_regs = NULL;
     vm->regs_from_main = NULL;
     vm->num_registers = 0;
@@ -141,7 +142,6 @@ lily_vm_state *lily_new_vm_state(lily_mem_func mem_func, lily_raiser *raiser,
     vm->gc_live_entries = NULL;
     vm->gc_spare_entries = NULL;
     vm->gc_live_entry_count = 0;
-    vm->gc_threshold = 100;
     vm->gc_pass = 0;
     vm->prep_id_start = 0;
     vm->catch_chain = NULL;

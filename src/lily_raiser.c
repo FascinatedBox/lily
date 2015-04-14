@@ -13,12 +13,12 @@ static const char *lily_error_names[] =
 #define malloc_mem(size)             raiser->mem_func(NULL, size)
 #define free_mem(ptr)          (void)raiser->mem_func(ptr, 0)
 
-lily_raiser *lily_new_raiser(lily_mem_func mem_func)
+lily_raiser *lily_new_raiser(lily_options *options)
 {
-    lily_raiser *raiser = mem_func(NULL, sizeof(lily_raiser));
+    lily_raiser *raiser = options->mem_func(NULL, sizeof(lily_raiser));
 
-    raiser->mem_func = mem_func;
-    raiser->msgbuf = lily_new_msgbuf(mem_func);
+    raiser->mem_func = options->mem_func;
+    raiser->msgbuf = lily_new_msgbuf(options);
     raiser->jumps = malloc_mem(2 * sizeof(jmp_buf));
     raiser->jump_pos = 0;
     raiser->jump_size = 2;

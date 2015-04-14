@@ -483,11 +483,11 @@ static void init_classes(lily_symtab *symtab)
 
     On success: The newly-created symtab is returned.
     On failure: NULL is returned. */
-lily_symtab *lily_new_symtab(lily_mem_func mem_func,
+lily_symtab *lily_new_symtab(lily_options *options,
         lily_import_entry *builtin_import, lily_raiser *raiser)
 {
-    lily_symtab *symtab = mem_func(NULL, sizeof(lily_symtab));
-    symtab->mem_func = mem_func;
+    lily_symtab *symtab = options->mem_func(NULL, sizeof(lily_symtab));
+    symtab->mem_func = options->mem_func;
     symtab->raiser = raiser;
 
     uint32_t v = 0;
