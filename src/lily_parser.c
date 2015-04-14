@@ -514,7 +514,7 @@ static lily_type *calculate_variant_return(lily_parse_state *parser,
         }
     }
 
-    lily_type *variant_return = lily_build_ensure_type(parser->symtab,
+    lily_type *variant_return = lily_build_type(parser->symtab,
             variant_class, 0, parser->type_stack,
             stack_top + 1, k);
 
@@ -547,7 +547,7 @@ static lily_type *make_optarg_type_of(lily_parse_state *parser, lily_type *type)
     lily_class *optarg_class = parser->symtab->optarg_class;
     parser->type_stack[parser->type_stack_pos] = type;
 
-    lily_type *result = lily_build_ensure_type(parser->symtab, optarg_class,
+    lily_type *result = lily_build_type(parser->symtab, optarg_class,
             0, parser->type_stack, parser->type_stack_pos, 1);
 
     return result;
@@ -816,7 +816,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
         parser->type_stack[stack_start] = variant_return;
     }
 
-    lily_type *result = lily_build_ensure_type(parser->symtab, cls,
+    lily_type *result = lily_build_type(parser->symtab, cls,
             type_flags, parser->type_stack, stack_start, i);
     parser->type_stack_pos = stack_start;
     return result;
@@ -2872,7 +2872,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
         for (i = 1;i < types_needed;i++, var_iter = var_iter->next)
             parser->type_stack[end - i] = var_iter->type;
 
-        lily_type *new_type = lily_build_ensure_type(parser->symtab, function_cls,
+        lily_type *new_type = lily_build_type(parser->symtab, function_cls,
                 flags, parser->type_stack, parser->type_stack_pos, types_needed);
         lambda_var->type = new_type;
     }
