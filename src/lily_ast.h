@@ -16,7 +16,7 @@ typedef enum {
     tree_binary
 } lily_tree_type;
 
-typedef struct lily_ast_t {
+typedef struct lily_ast_ {
     lily_sym *result;
 
     lily_tree_type tree_type : 16;
@@ -34,8 +34,8 @@ typedef struct lily_ast_t {
 
     /* Nothing uses both of these at the same time. */
     union {
-        struct lily_ast_t *arg_start;
-        struct lily_ast_t *left;
+        struct lily_ast_ *arg_start;
+        struct lily_ast_ *left;
     };
 
     union {
@@ -52,28 +52,28 @@ typedef struct lily_ast_t {
 
     union {
         /* right is the right side of a binary operation. Unused otherwise. */
-        struct lily_ast_t *right;
+        struct lily_ast_ *right;
 
         /* This is used to hold a vararg value when it needs to be made because
            the user didn't supply one. */
-        struct lily_ast_t *stashed_tree;
+        struct lily_ast_ *stashed_tree;
     };
 
     /* If this tree is a subexpression, then this will be set to the calling
        tree. NULL otherwise. */
-    struct lily_ast_t *parent;
+    struct lily_ast_ *parent;
 
     /* If this tree is an argument, the next one. NULL otherwise. */
-    struct lily_ast_t *next_arg;
+    struct lily_ast_ *next_arg;
 
     /* This links all trees together so the ast can blast them all at the end. */
-    struct lily_ast_t *next_tree;
+    struct lily_ast_ *next_tree;
 } lily_ast;
 
 /* Subexpressions are handled by saving the important bits of the ast pool and
    adding +1 to the pool's save depth on entry. A -1 is applied when the entry
    leaves. */
-typedef struct lily_ast_save_entry_t {
+typedef struct lily_ast_save_entry_ {
     /* This was the active tree before entry. */
     lily_ast *active_tree;
 
@@ -84,8 +84,8 @@ typedef struct lily_ast_save_entry_t {
        be the active tree. */
     lily_ast *entered_tree;
 
-    struct lily_ast_save_entry_t *next;
-    struct lily_ast_save_entry_t *prev;
+    struct lily_ast_save_entry_ *next;
+    struct lily_ast_save_entry_ *prev;
 } lily_ast_save_entry;
 
 /* The pool handles lambdas by saving stuff so that the pool being reset will
@@ -94,7 +94,7 @@ typedef struct lily_ast_save_entry_t {
    the emitter calls for an eval of the body only from within the emitter. So
    there will never be a currently saved expression for the lambda to clash
    with. */
-typedef struct lily_ast_freeze_entry_t {
+typedef struct lily_ast_freeze_entry_ {
     /* Assume all of the trees that were previously used are still in use and
        do not touch them at all ever. */
     lily_ast *available_restore;
@@ -109,8 +109,8 @@ typedef struct lily_ast_freeze_entry_t {
 
     uint32_t pad;
 
-    struct lily_ast_freeze_entry_t *next;
-    struct lily_ast_freeze_entry_t *prev;
+    struct lily_ast_freeze_entry_ *next;
+    struct lily_ast_freeze_entry_ *prev;
 } lily_ast_freeze_entry;
 
 typedef struct {

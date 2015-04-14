@@ -2575,17 +2575,17 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
     lily_type *call_type;
     lily_sym *call_sym;
 
-    lily_tree_type first_tt = ast->arg_start->tree_type;
+    lily_tree_type first_t = ast->arg_start->tree_type;
     /* Variants are created by calling them in a function-like manner, so the
        parser adds them as if they were functions. They're not. */
-    if (first_tt == tree_variant) {
+    if (first_t == tree_variant) {
         eval_variant(emit, ast, expect_type, did_resolve);
         return;
     }
     /* DON'T walk either of these, because doing so puts them in a storage and
        the vm can call them by their spot without doing so. */
-    else if (first_tt != tree_defined_func &&
-             first_tt != tree_inherited_new)
+    else if (first_t != tree_defined_func &&
+             first_t != tree_inherited_new)
         eval_tree(emit, ast->arg_start, NULL, 1);
 
     int cls_id;
@@ -2602,14 +2602,14 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
                 "Cannot anonymously call resulting type '^T'.\n",
                 ast->result->type);
 
-    if (first_tt == tree_oo_access) {
+    if (first_t == tree_oo_access) {
         /* Fix the oo access to return the first arg it had, since that's
            the call's first value. It's really important that
            check_call_args get all the args, because the first is the most
            likely to have a generic parameter. */
         ast->arg_start->result = ast->arg_start->arg_start->result;
     }
-    else if (first_tt == tree_defined_func) {
+    else if (first_t == tree_defined_func) {
         /* If inside a class, then consider inserting replacing the
            unnecessary readonly tree with 'self'.
            If this isn't possible, drop the readonly tree from args since
@@ -2617,7 +2617,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
         if (emit->current_class != NULL)
             maybe_self_insert(emit, ast);
     }
-    else if (first_tt != tree_inherited_new) {
+    else if (first_t != tree_inherited_new) {
         /* For anonymously called functions, unset ast->result so that arg
            error functions will report that it's anonymously called. */
         ast->result = NULL;

@@ -76,13 +76,13 @@ typedef enum {
     lm_no_tags
 } lily_lex_mode;
 
-struct lily_lex_entry_t;
-typedef int (*lily_reader_fn)(struct lily_lex_entry_t *);
-typedef void (*lily_close_fn)(struct lily_lex_entry_t *);
+struct lily_lex_entry_;
+typedef int (*lily_reader_fn)(struct lily_lex_entry_ *);
+typedef void (*lily_close_fn)(struct lily_lex_entry_ *);
 
-typedef struct lily_lex_entry_t {
+typedef struct lily_lex_entry_ {
     char *filename;
-    struct lily_lex_state_t *lexer;
+    struct lily_lex_state_ *lexer;
 
     lily_reader_fn read_line_fn;
     lily_close_fn  close_fn;
@@ -99,11 +99,11 @@ typedef struct lily_lex_entry_t {
     void *source;
     void *extra;
 
-    struct lily_lex_entry_t *prev;
-    struct lily_lex_entry_t *next;
+    struct lily_lex_entry_ *prev;
+    struct lily_lex_entry_ *next;
 } lily_lex_entry;
 
-typedef struct lily_lex_state_t {
+typedef struct lily_lex_state_ {
     lily_lex_entry *entry;
     char *filename;
     char *ch_class;

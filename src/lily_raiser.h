@@ -17,7 +17,7 @@
 # define lily_FormatError         8
 # define lily_IOError             9
 
-typedef struct lily_raiser_t {
+typedef struct lily_raiser_ {
     /* The raiser will typically have two jumps: One for the vm to catch runtime
        errors, and a second for the runner to catch parser errors. The raiser
        will use the highest jump it has (the vm, typically). */

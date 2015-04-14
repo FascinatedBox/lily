@@ -137,7 +137,7 @@ typedef struct {
 
     /* The parser is stored within the emitter so that the emitter can do
        dynamic loading of functions. */
-    struct lily_parse_state_t *parser;
+    struct lily_parse_state_ *parser;
 
     lily_mem_func mem_func;
 

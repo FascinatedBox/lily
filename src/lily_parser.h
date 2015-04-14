@@ -14,7 +14,7 @@ typedef enum {
     pm_execute
 } lily_parse_mode;
 
-typedef struct lily_parse_state_t {
+typedef struct lily_parse_state_ {
     lily_type **type_stack;
     uint16_t type_stack_pos;
     uint16_t type_stack_size;
