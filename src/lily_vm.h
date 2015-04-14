@@ -27,16 +27,16 @@ typedef struct {
     uint64_t data_size;
 } lily_vm_stringbuf;
 
-typedef struct lily_vm_catch_entry_t {
+typedef struct lily_vm_catch_entry_ {
     lily_vm_stack_entry *stack_entry;
     int entry_depth;
     int code_pos;
 
-    struct lily_vm_catch_entry_t *next;
-    struct lily_vm_catch_entry_t *prev;
+    struct lily_vm_catch_entry_ *next;
+    struct lily_vm_catch_entry_ *prev;
 } lily_vm_catch_entry;
 
-typedef struct lily_vm_state_t {
+typedef struct lily_vm_state_ {
     lily_value **vm_regs;
     lily_value **regs_from_main;
     lily_vm_stack_entry **function_stack;

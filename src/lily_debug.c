@@ -85,7 +85,7 @@
    or output to a particular place. */
 #define RI_OUTPUT 0x4
 
-typedef struct lily_debug_state_t {
+typedef struct lily_debug_state_ {
     lily_function_val *main_function;
     lily_function_val *current_function;
     lily_msgbuf *msgbuf;
