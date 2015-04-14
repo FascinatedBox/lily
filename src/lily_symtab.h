@@ -140,7 +140,7 @@ lily_var *lily_var_by_name(lily_symtab *, char *);
 lily_var *lily_var_by_name_within(lily_import_entry *, char *);
 
 lily_type *lily_type_for_class(lily_symtab *, lily_class *);
-lily_type *lily_build_ensure_type(lily_symtab *, lily_class *, int, lily_type **, int, int);
+lily_type *lily_build_type(lily_symtab *, lily_class *, int, lily_type **, int, int);
 
 void lily_hide_block_vars(lily_symtab *, lily_var *);
 int lily_check_right_inherits_or_is(lily_class *, lily_class *);

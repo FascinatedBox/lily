@@ -1210,7 +1210,7 @@ void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
     }
 }
 
-/*  lily_build_ensure_type
+/*  lily_build_type
     This function is used to ensure that creating a type for 'cls' with
     the given information will not result in a duplicate type entry.
     Unique types are a good thing, because that allows type == type
@@ -1228,7 +1228,7 @@ void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
     types they'll have to throw away.
 
     A unique, valid type is always returned. */
-lily_type *lily_build_ensure_type(lily_symtab *symtab, lily_class *cls,
+lily_type *lily_build_type(lily_symtab *symtab, lily_class *cls,
         int flags, lily_type **subtypes, int offset, int entries_to_use)
 {
     lily_type fake_type;

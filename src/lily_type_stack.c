@@ -67,7 +67,7 @@ static lily_type *deep_type_build(lily_type_stack *ts, int generic_index,
             ts->pos++;
         }
 
-        ret = lily_build_ensure_type(ts->symtab, type->cls, type->flags,
+        ret = lily_build_type(ts->symtab, type->cls, type->flags,
                 ts->types, save_start, i);
 
         ts->pos -= i;
@@ -303,7 +303,7 @@ inline lily_type *lily_ts_get_ceiling_type(lily_type_stack *ts, int pos)
 inline lily_type *lily_ts_build_by_ceiling(lily_type_stack *ts,
         lily_class *cls, int num_types, int flags)
 {
-    return lily_build_ensure_type(ts->symtab, cls, flags, ts->types,
+    return lily_build_type(ts->symtab, cls, flags, ts->types,
             ts->pos + ts->ceiling + 1, num_types);
 }
 
