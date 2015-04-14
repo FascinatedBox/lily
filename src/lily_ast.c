@@ -531,6 +531,8 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
         if (ap->root == active)
             ap->root = new_ast;
 
+        active->parent = new_ast;
+
         new_ast->left = active;
         ap->active = new_ast;
     }

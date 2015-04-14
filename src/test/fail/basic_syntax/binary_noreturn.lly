@@ -1,0 +1,10 @@
+#[
+SyntaxError: Function needed to return a value, but did not.
+Where: File "binary_noreturn.lly" at line 8
+]#
+
+define f() { }
+
+if f() || f():
+    print("Failed.\n")
+    
