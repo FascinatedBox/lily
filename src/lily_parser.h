@@ -43,12 +43,15 @@ typedef struct lily_parse_state_ {
     uint32_t first_pass;
 } lily_parse_state;
 
+lily_options *lily_new_default_options(void);
+void lily_free_options(lily_options *);
+
 void lily_parser_finish_expr(lily_parse_state *);
 lily_var *lily_parser_lambda_eval(lily_parse_state *, int, char *, lily_type *,
         int);
 lily_var *lily_parser_dynamic_load(lily_parse_state *, lily_class *, char *);
 void lily_free_parse_state(lily_parse_state *);
-lily_parse_state *lily_new_parse_state(lily_mem_func, void *, int, char **);
+lily_parse_state *lily_new_parse_state(lily_options *, int, char **);
 int lily_parse_file(lily_parse_state *, lily_lex_mode, char *);
 int lily_parse_string(lily_parse_state *, char *, lily_lex_mode, char *);
 lily_type *lily_type_by_name(lily_parse_state *, char *);

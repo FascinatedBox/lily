@@ -22,12 +22,14 @@ static void usage()
           "            Everything else is printed to stdout.\n"
           "            By default, everything is treated as code.\n"
           "-s string : The program is a string (end of options).\n"
+          "-g number : The number of objects allowed before a gc pass.\n"
           "file      : The program is the given filename.\n", stderr);
     exit(EXIT_FAILURE);
 }
 
 int is_file;
 int do_tags = 0;
+int gc_threshold = 0;
 char *to_process = NULL;
 
 static void process_args(int argc, char **argv)
@@ -39,6 +41,13 @@ static void process_args(int argc, char **argv)
             usage();
         else if (strcmp("-t", arg) == 0)
             do_tags = 1;
+        else if (strcmp("-g", arg) == 0) {
+            i++;
+            if (i + 1 == argc)
+                usage();
+
+            gc_threshold = atoi(argv[i]);
+        }
         else if (strcmp("-s", arg) == 0) {
             i++;
             if (i == argc)
@@ -123,7 +132,11 @@ int main(int argc, char **argv)
 {
     process_args(argc, argv);
 
-    lily_parse_state *parser = lily_new_parse_state(NULL, NULL, argc, argv);
+    lily_options *options = lily_new_default_options();
+    if (gc_threshold != 0)
+        options->gc_threshold = gc_threshold;
+
+    lily_parse_state *parser = lily_new_parse_state(options, argc, argv);
     lily_lex_mode mode = (do_tags ? lm_tags : lm_no_tags);
 
     int result;
@@ -138,5 +151,6 @@ int main(int argc, char **argv)
     }
 
     lily_free_parse_state(parser);
+    lily_free_options(options);
     exit(EXIT_SUCCESS);
 }

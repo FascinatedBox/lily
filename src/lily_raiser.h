@@ -40,7 +40,7 @@ typedef struct lily_raiser_ {
     lily_mem_func mem_func;
 } lily_raiser;
 
-lily_raiser *lily_new_raiser(lily_mem_func);
+lily_raiser *lily_new_raiser(lily_options *);
 void lily_free_raiser(lily_raiser *);
 void lily_raise(lily_raiser *, int, char *, ...);
 void lily_raise_prebuilt(lily_raiser *, int);

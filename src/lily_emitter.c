@@ -46,15 +46,16 @@ static void eval_variant(lily_emit_state *, lily_ast *, lily_type *, int);
 /* Emitter setup and teardown                                                */
 /*****************************************************************************/
 
-lily_emit_state *lily_new_emit_state(lily_mem_func mem_func, lily_symtab *symtab,
-        lily_raiser *raiser)
+lily_emit_state *lily_new_emit_state(lily_options *options,
+        lily_symtab *symtab, lily_raiser *raiser)
 {
-    lily_emit_state *emit = mem_func(NULL, sizeof(lily_emit_state));
-    emit->mem_func = mem_func;
+    lily_emit_state *emit = options->mem_func(NULL,
+            sizeof(lily_emit_state));
+    emit->mem_func = options->mem_func;
 
     emit->patches = malloc_mem(sizeof(int) * 4);
     emit->match_cases = malloc_mem(sizeof(int) * 4);
-    emit->ts = lily_new_type_stack(mem_func, symtab, raiser);
+    emit->ts = lily_new_type_stack(options, symtab, raiser);
 
     emit->match_case_pos = 0;
     emit->match_case_size = 4;

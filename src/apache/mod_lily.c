@@ -211,13 +211,17 @@ static int lily_handler(request_rec *r)
 
     r->content_type = "text/html";
 
-    lily_parse_state *parser = lily_new_parse_state(NULL, r, 0, NULL);
+    lily_options *options = lily_new_default_options();
+    options->data = r;
+
+    lily_parse_state *parser = lily_new_parse_state(options, 0, NULL);
 
     apache_bind_server(parser, r);
 
     lily_parse_file(parser, lm_tags, r->filename);
 
     lily_free_parse_state(parser);
+    lily_free_options(options);
 
     return OK;
 }

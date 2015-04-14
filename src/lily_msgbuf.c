@@ -10,10 +10,10 @@
 #define realloc_mem(ptr, size)       msgbuf->mem_func(ptr, size)
 #define free_mem(ptr)          (void)msgbuf->mem_func(ptr, 0)
 
-lily_msgbuf *lily_new_msgbuf(lily_mem_func mem_func)
+lily_msgbuf *lily_new_msgbuf(lily_options *options)
 {
-    lily_msgbuf *msgbuf = mem_func(NULL, sizeof(lily_msgbuf));
-    msgbuf->mem_func = mem_func;
+    lily_msgbuf *msgbuf = options->mem_func(NULL, sizeof(lily_msgbuf));
+    msgbuf->mem_func = options->mem_func;
 
     msgbuf->message = malloc_mem(64 * sizeof(char));
     msgbuf->message[0] = '\0';

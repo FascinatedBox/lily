@@ -6,11 +6,11 @@
 #define realloc_mem(ptr, size)       membuf->mem_func(ptr, size)
 #define free_mem(ptr)          (void)membuf->mem_func(ptr, 0)
 
-lily_membuf *lily_membuf_new(lily_mem_func mem_func, lily_raiser *raiser)
+lily_membuf *lily_membuf_new(lily_options *options, lily_raiser *raiser)
 {
-    lily_membuf *membuf = mem_func(NULL, sizeof(lily_membuf));
+    lily_membuf *membuf = options->mem_func(NULL, sizeof(lily_membuf));
 
-    membuf->mem_func = mem_func;
+    membuf->mem_func = options->mem_func;
     membuf->buffer = malloc_mem(64);
     membuf->pos = 0;
     membuf->size = 63;

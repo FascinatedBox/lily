@@ -473,6 +473,22 @@ typedef struct lily_import_entry_ {
     struct lily_import_entry_ *root_next;
 } lily_import_entry;
 
+/* This structure defines a series of options */
+typedef struct lily_options_ {
+    /* For now, this should be '1'. */
+    uint32_t version;
+    /* The maximum number of values the gc should have marked before
+       attempting a sweep. This should be at least 2. */
+    uint32_t gc_threshold;
+    /* The function to use for allocating memory in Lily. If this is
+       NULL, then Lily will use a realloc that aborts on failure. */
+    lily_mem_func mem_func;
+    /* Lily will call lily_impl_puts with this as the data part. This
+       can be NULL if it's not needed.
+       This is used by mod_lily to hold Apache's request_rec. */
+    void *data;
+} lily_options;
+
 /* Finally, various definitions. */
 
 

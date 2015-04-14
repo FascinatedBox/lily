@@ -111,7 +111,7 @@ typedef struct lily_symtab_ {
     lily_raiser *raiser;
 } lily_symtab;
 
-lily_symtab *lily_new_symtab(lily_mem_func, lily_import_entry *, lily_raiser *);
+lily_symtab *lily_new_symtab(lily_options *, lily_import_entry *, lily_raiser *);
 void lily_free_symtab(lily_symtab *);
 
 lily_tie *lily_get_integer_literal(lily_symtab *, int64_t);

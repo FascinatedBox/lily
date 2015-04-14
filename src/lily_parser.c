@@ -139,20 +139,39 @@ void *default_mem_func(void *ptr, size_t size)
     return ret;
 }
 
-lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
-        int argc, char **argv)
+void lily_free_options(lily_options *options)
 {
-    if (mem_func == NULL)
-        mem_func = default_mem_func;
+    if (options)
+        options->mem_func(options, 0);
+}
 
-    lily_parse_state *parser = mem_func(NULL, sizeof(lily_parse_state));
-    parser->mem_func = mem_func;
+/* This function creates a new options type with the interpreter's
+   default values set.
+   This should be destroyed using lily_free_options. */
+lily_options *lily_new_default_options(void)
+{
+    lily_options *options = default_mem_func(NULL, sizeof(lily_options));
+    options->version = 1;
+    options->gc_threshold = 100; /* Totally arbitrary. */
+    options->mem_func = default_mem_func;
+    options->data = NULL;
+
+    return options;
+}
+
+lily_parse_state *lily_new_parse_state(lily_options *options, int argc,
+        char **argv)
+{
+    lily_parse_state *parser = options->mem_func(NULL,
+            sizeof(lily_parse_state));
+    parser->data = options->data;
+    parser->mem_func = options->mem_func;
     parser->import_top = NULL;
     parser->import_start = NULL;
 
     lily_import_entry *builtin_import = make_new_import_entry(parser, "",
             "[builtin]");
-    lily_raiser *raiser = lily_new_raiser(mem_func);
+    lily_raiser *raiser = lily_new_raiser(options);
 
     parser->optarg_stack_pos = 0;
     parser->optarg_stack_size = 4;
@@ -164,12 +183,12 @@ lily_parse_state *lily_new_parse_state(lily_mem_func mem_func, void *data,
     parser->raiser = raiser;
     parser->optarg_stack = malloc_mem(4 * sizeof(uint16_t));
     parser->type_stack = malloc_mem(4 * sizeof(lily_type *));
-    parser->ast_pool = lily_new_ast_pool(mem_func, raiser, 8);
-    parser->symtab = lily_new_symtab(mem_func, builtin_import, raiser);
-    parser->emit = lily_new_emit_state(mem_func, parser->symtab, raiser);
-    parser->lex = lily_new_lex_state(mem_func, raiser, data);
-    parser->vm = lily_new_vm_state(mem_func, raiser, data);
-    parser->membuf = lily_membuf_new(mem_func, raiser);
+    parser->ast_pool = lily_new_ast_pool(options, raiser, 8);
+    parser->symtab = lily_new_symtab(options, builtin_import, raiser);
+    parser->emit = lily_new_emit_state(options, parser->symtab, raiser);
+    parser->lex = lily_new_lex_state(options, raiser);
+    parser->vm = lily_new_vm_state(options, raiser);
+    parser->membuf = lily_membuf_new(options, raiser);
 
     parser->vm->main = parser->symtab->main_var;
     parser->vm->symtab = parser->symtab;

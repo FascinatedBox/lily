@@ -11,11 +11,12 @@ if (new_size >= ts->max) \
 #define realloc_mem(ptr, size)       ts->mem_func(ptr, size)
 #define free_mem(ptr)          (void)ts->mem_func(ptr, 0)
 
-lily_type_stack *lily_new_type_stack(lily_mem_func mem_func, lily_symtab *symtab,
-        lily_raiser *raiser)
+lily_type_stack *lily_new_type_stack(lily_options *options,
+        lily_symtab *symtab, lily_raiser *raiser)
 {
-    lily_type_stack *ts = mem_func(NULL, sizeof(lily_type_stack));
-    ts->mem_func = mem_func;
+    lily_type_stack *ts = options->mem_func(NULL,
+            sizeof(lily_type_stack));
+    ts->mem_func = options->mem_func;
 
     lily_type **types = malloc_mem(4 * sizeof(lily_type *));
 

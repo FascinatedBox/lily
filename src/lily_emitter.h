@@ -202,6 +202,6 @@ void lily_update_call_generics(lily_emit_state *, int);
 
 void lily_free_emit_state(lily_emit_state *);
 int lily_emit_try_enter_main(lily_emit_state *, lily_var *);
-lily_emit_state *lily_new_emit_state(lily_mem_func, lily_symtab *, lily_raiser *);
+lily_emit_state *lily_new_emit_state(lily_options *, lily_symtab *, lily_raiser *);
 
 #endif
