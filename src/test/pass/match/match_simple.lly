@@ -8,5 +8,5 @@ var v = Some(10)
 match v: {
     case Some(s):
     case None:
-        print("Failed!\n")
+        stderr.write("Failed!\n")
 }

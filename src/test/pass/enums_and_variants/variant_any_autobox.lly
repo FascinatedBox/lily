@@ -6,4 +6,4 @@ enum class Option[A] {
 var a: any = Some(10)
 
 if a != Some(10):
-	print("Failed!\n")
+	stderr.write("Failed!\n")

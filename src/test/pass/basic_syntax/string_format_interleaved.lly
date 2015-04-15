@@ -13,5 +13,5 @@ var expected =
 for i in 1...10: {
     var result = string::format("%d_%d", i, i)
     if result != expected[i - 1]:
-        print("Failed.\n")
+        stderr.write("Failed.\n")
 }

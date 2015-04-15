@@ -10,8 +10,8 @@ match opt: {
         match s: {
             case Some(s2):
             case None:
-                print("Failed.\n")
+                stderr.write("Failed.\n")
         }
     case None:
-        print("Failed.\n")
+        stderr.write("Failed.\n")
 }

@@ -3,4 +3,4 @@ define f(a: *integer=10 => integer) {
 }
 
 if f() != 10:
-    print("Failed.\n")
+    stderr.write("Failed.\n")
