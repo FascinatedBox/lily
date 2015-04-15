@@ -12,7 +12,7 @@ results.append(return_abc().concat("def"))
 
 for i in 0...results.size() - 1: {
     if results[i] != "abcdef": {
-        print("Failed.\n")
+        stderr.write("Failed.\n")
         break
     }
 }

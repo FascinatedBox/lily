@@ -3,4 +3,4 @@
 var s: string = "    "
 var result = string::format("%s%s%s%s%s%s%s%s%s%s", s,s,s,s,s,s,s,s,s,s)
 if result != "                                        ":
-    print("Failed.\n")
+    stderr.write("Failed.\n")

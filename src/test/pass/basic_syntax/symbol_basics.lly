@@ -5,7 +5,7 @@ var d = string::to_sym
 var e: symbol = d("10")
 
 if :1 != "1".to_sym():
-    print("Failed.\n")
+    stderr.write("Failed.\n")
 
 define symbol_vararg(x: list[symbol]...) {
 
@@ -22,7 +22,7 @@ var f: symbol = return_input("1".to_sym())
 a = "( ͡° ͜ʖ ͡°)".to_sym()
 
 if :"ä ę ĩ ō ų" != :"ä ę ĩ ō ų":
-    print("Failed.\n")
+    stderr.write("Failed.\n")
 
 a = :"""
 

@@ -1,0 +1,3 @@
+<?lily var v = 10 ?>
+<?lily v += 1 ?>
+<?lily if v != 11: raise ValueError::new("") ?>

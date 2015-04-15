@@ -5,4 +5,4 @@ f.close()
 
 f = file::open("io_test_file.txt", "r")
 if f.readline().encode("error") != "♡":
-    print("Failed\n")
+    stderr.write("Failed\n")

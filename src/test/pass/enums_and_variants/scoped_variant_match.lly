@@ -13,5 +13,5 @@ var opt: Option[integer] = Option::Some(10)
 match opt: {
 	case Some(s):
 	case None:
-		print("Failed.\n")
+		stderr.write("Failed.\n")
 }

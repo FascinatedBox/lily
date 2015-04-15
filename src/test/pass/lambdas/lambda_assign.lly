@@ -5,4 +5,4 @@
 var v = {|| 10}
 
 if v() != 10:
-    print("Failed.\n")
+    stderr.write("Failed.\n")
