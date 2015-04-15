@@ -61,7 +61,7 @@ if (lex->token != expected) \
 static char *exception_bootstrap =
 "class Exception(message: string) {\n"
 "    var @message = message\n"
-"    var @traceback: list[tuple[string, integer]] = []\n"
+"    var @traceback: list[tuple[string, string, integer]] = []\n"
 "}\n"
 "class DivisionByZeroError (message: string) < Exception(message) {}\n"
 "class IndexError          (message: string) < Exception(message) {}\n"
