@@ -14,6 +14,11 @@ typedef enum {
     pm_execute
 } lily_parse_mode;
 
+typedef struct lily_path_link_ {
+    char *path;
+    struct lily_path_link_ *next;
+} lily_path_link;
+
 typedef struct lily_parse_state_ {
     lily_type **type_stack;
     uint16_t type_stack_pos;
@@ -21,7 +26,8 @@ typedef struct lily_parse_state_ {
     uint16_t class_depth;
     uint16_t next_lambda_id;
 
-    char **import_paths;
+    lily_path_link *import_paths;
+
     lily_import_entry *import_top;
     lily_import_entry *import_start;
 
