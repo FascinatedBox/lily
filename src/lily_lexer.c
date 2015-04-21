@@ -156,7 +156,6 @@ lily_lex_state *lily_new_lex_state(lily_options *options,
 
     lexer->last_digit_start = 0;
     lexer->entry = NULL;
-    lexer->filename = NULL;
     lexer->raiser = raiser;
     lexer->input_buffer = malloc_mem(128 * sizeof(char));
     lexer->label = malloc_mem(128 * sizeof(char));
@@ -310,7 +309,6 @@ static lily_lex_entry *get_entry(lily_lex_state *lexer)
         prev_entry->saved_input_pos = lexer->input_pos;
         prev_entry->saved_input_size = lexer->input_size;
         prev_entry->saved_input_end = lexer->input_end;
-        prev_entry->filename = lexer->filename;
         prev_entry->saved_token = lexer->token;
         prev_entry->saved_last_literal = lexer->last_literal;
 
@@ -361,7 +359,6 @@ void lily_pop_lex_entry(lily_lex_state *lexer)
         /* The lexer's input buffer may have been resized by the entered file.
            Do NOT restore lexer->input_size here. Ever. */
         lexer->input_end = entry->saved_input_end;
-        lexer->filename = entry->filename;
         lexer->entry = entry;
         lexer->last_literal = entry->saved_last_literal;
 
@@ -1326,7 +1323,6 @@ static void setup_opened_file(lily_lex_state *lexer, lily_lex_mode mode,
     new_entry->filename = filename;
     new_entry->source = f;
 
-    lexer->filename = filename;
     setup_entry(lexer, new_entry, mode);
 }
 
@@ -1369,7 +1365,6 @@ void lily_load_str(lily_lex_state *lexer, char *name, lily_lex_mode mode, char *
     new_entry->close_fn = str_close_fn;
     new_entry->filename = name;
 
-    lexer->filename = name;
     setup_entry(lexer, new_entry, mode);
 }
 
@@ -1392,7 +1387,6 @@ void lily_load_copy_string(lily_lex_state *lexer, char *name,
     new_entry->close_fn = string_copy_close_fn;
     new_entry->filename = name;
 
-    lexer->filename = name;
     setup_entry(lexer, new_entry, mode);
 }
 
