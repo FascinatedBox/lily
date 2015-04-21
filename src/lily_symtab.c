@@ -449,6 +449,7 @@ static void init_classes(lily_symtab *symtab)
         new_class->prop_count = 0;
         new_class->parent = NULL;
         new_class->destroy_func = class_seeds[i].destroy_func;
+        new_class->import = symtab->active_import;
 
         new_class->next = symtab->class_chain;
         symtab->class_chain = new_class;
@@ -1347,6 +1348,7 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     new_class->gc_marker = NULL;
     new_class->eq_func = lily_instance_eq;
     new_class->destroy_func = NULL;
+    new_class->import = symtab->active_import;
 
     new_class->id = symtab->next_class_id;
     symtab->next_class_id++;
