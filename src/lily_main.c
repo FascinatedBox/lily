@@ -74,6 +74,15 @@ static void process_args(int argc, char **argv)
 void traceback_to_file(lily_parse_state *parser, FILE *outfile)
 {
     lily_raiser *raiser = parser->raiser;
+    if (raiser->exception) {
+        /* If this error is not one of the builtin ones, then show the package
+           from where it came. The reason for this is that different packages
+           may wish to export a general error class (ex: pg::Error,
+           mysql::Error, etc). So making it clear -which- one can be useful. */
+        char *loadname = raiser->exception->type->cls->import->loadname;
+        if (strcmp(loadname, "") != 0)
+            fprintf(outfile, "%s::", loadname);
+    }
     fprintf(outfile, "%s", lily_name_for_error(raiser));
     if (raiser->msgbuf->message[0] != '\0')
         fprintf(outfile, ": %s", raiser->msgbuf->message);

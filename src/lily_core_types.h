@@ -120,6 +120,10 @@ typedef struct lily_class_ {
        that just defines the class (like a default type). */
     struct lily_type_ *variant_type;
 
+    /* This is the package that this class was defined within. This is used to
+       print a proper package name for classes.  */
+    struct lily_import_entry_ *import;
+
     /* Instead of loading all class members during init, Lily stores the needed
        information in the seed_table of a class. If the symtab can't find the
        name for a given class, then it's loaded into the vars of that class. */

@@ -1,0 +1,9 @@
+#[
+ex::error: Imported raise!
+Traceback:
+    File "raise_imported.lly", from __main__ at line 9
+]#
+
+import ex
+
+raise ex::error::new("Imported raise!\n")
