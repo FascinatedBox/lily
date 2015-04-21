@@ -2248,67 +2248,71 @@ static void import_handler(lily_parse_state *parser, int multi)
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
 
-    NEED_CURRENT_TOK(tk_word)
+    while (1) {
+        NEED_CURRENT_TOK(tk_word)
 
-    char *import_name = parser->lex->label;
+        char *import_name = parser->lex->label;
 
-    /* Before doing any actual loading, determine if an import with this name
-       has been loaded already. This is currently ok because there are no
-       directories that get imported.
-       It's possible that someone will load */
-    lily_import_entry *search_entry = lily_find_import_anywhere(symtab,
-            import_name);
-    if (search_entry) {
-        /* Multiple imports of one thing from the same package are forbidden.
-           This prevents junk imports which don't do anything. */
-        lily_import_entry *extra_search = lily_find_import_within(
-                symtab->active_import, import_name);
-        if (extra_search)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "Package '%s' has already been imported in this file.\n",
-                    import_name);
+        /* Before doing any actual loading, determine if an import with this
+           name has been loaded already. This is currently ok because there are
+           no directories that get imported. */
+        lily_import_entry *search_entry = lily_find_import_anywhere(symtab,
+                import_name);
+        if (search_entry) {
+            /* Multiple imports of one thing from the same package are
+               forbidden. This prevents junk imports which don't do anything. */
+            lily_import_entry *extra_search = lily_find_import_within(
+                    symtab->active_import, import_name);
+            if (extra_search)
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Package '%s' has already been imported in this file.\n",
+                        import_name);
 
-        lily_link_import_to_active(symtab, search_entry);
-        lily_lexer(lex);
-        return;
+            lily_link_import_to_active(symtab, search_entry);
+        }
+        else {
+            /* At this point, it's a valid new import, so load it up and run
+               it. */
+            load_import(parser, import_name);
+
+            lily_import_entry *import_entry = make_new_import_entry(parser,
+                    import_name, parser->lex->entry->filename);
+
+            lily_enter_import(parser->symtab, import_entry);
+
+            /* lily_emit_enter_block will write new code to this special var. */
+            lily_var *import_var = lily_new_var(parser->symtab,
+                    parser->default_call_type, "__import__", VAR_IS_READONLY);
+
+            /* This prevents the emitter from scoping out the (toplevel)
+               functions that it finds within the imported file. */
+            import_var->function_depth = 1;
+
+            lily_emit_enter_block(parser->emit, BLOCK_FILE);
+
+            /* The whole of the file can be thought of as one large statement. */
+            lily_lexer(lex);
+            statement(parser, 1);
+
+            if (parser->emit->block->block_type != BLOCK_FILE)
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Unterminated block(s) at end of file.\n");
+
+            lily_emit_leave_block(parser->emit);
+            lily_pop_lex_entry(parser->lex);
+            lily_leave_import(parser->symtab);
+
+            lily_emit_write_import_call(parser->emit, import_var);
+        }
+
+        lily_lexer(parser->lex);
+        if (lex->token == tk_comma) {
+            lily_lexer(parser->lex);
+            continue;
+        }
+        else
+            break;
     }
-
-    /* At this point, it's a valid new import, so load it up and run it. */
-    load_import(parser, import_name);
-
-    lily_import_entry *import_entry = make_new_import_entry(parser,
-            import_name, parser->lex->entry->filename);
-
-    lily_enter_import(parser->symtab, import_entry);
-
-    /* lily_emit_enter_block will write new code to this special var. */
-    lily_var *import_var = lily_new_var(parser->symtab,
-            parser->default_call_type, "__import__", VAR_IS_READONLY);
-
-    /* This prevents the emitter from scoping out the (toplevel) functions that
-       it finds within the imported file. */
-    import_var->function_depth = 1;
-
-    lily_emit_enter_block(parser->emit, BLOCK_FILE);
-
-    /* The whole of the file can be thought of as one large statement. */
-    lily_lexer(lex);
-    statement(parser, 1);
-
-    if (parser->emit->block->block_type != BLOCK_FILE)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "Unterminated block(s) at end of file.\n");
-
-    lily_emit_leave_block(parser->emit);
-    lily_pop_lex_entry(parser->lex);
-    lily_leave_import(parser->symtab);
-
-    lily_emit_write_import_call(parser->emit, import_var);
-
-    /* The parser doesn't call up the next token before processing the import
-       because that would cause file trace to be off. The token restored is the
-       name of the import, so get what's next. */
-    lily_lexer(parser->lex);
 }
 
 static void try_handler(lily_parse_state *parser, int multi)
