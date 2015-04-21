@@ -1114,7 +1114,7 @@ static lily_sym *parse_special_keyword(lily_parse_state *parser, int key_id)
     if (key_id == KEY__LINE__)
         ret = (lily_sym *) lily_get_integer_literal(symtab, parser->lex->line_num);
     else if (key_id == KEY__FILE__)
-        ret = (lily_sym *) lily_get_string_literal(symtab, parser->lex->filename);
+        ret = (lily_sym *) lily_get_string_literal(symtab, parser->lex->entry->filename);
     else if (key_id == KEY__FUNCTION__)
         ret = (lily_sym *) lily_get_string_literal(symtab, parser->emit->top_var->name);
     else if (key_id == KEY_SELF) {

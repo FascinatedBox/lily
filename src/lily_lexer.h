@@ -105,7 +105,6 @@ typedef struct lily_lex_entry_ {
 
 typedef struct lily_lex_state_ {
     lily_lex_entry *entry;
-    char *filename;
     char *ch_class;
     char *input_buffer;
     char *label;
