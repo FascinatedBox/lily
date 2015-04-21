@@ -241,6 +241,7 @@ void lily_free_lex_state(lily_lex_state *lexer)
 
             entry_next = entry_iter->next;
             free_mem(entry_iter->saved_input);
+            free_mem(entry_iter->filename);
             free_mem(entry_iter);
             entry_iter = entry_next;
         }
@@ -257,7 +258,7 @@ void lily_free_lex_state(lily_lex_state *lexer)
     Obtain a lily_lex_entry to be used for entering a string, file, or some
     other source. The lexer retains a linked list of these, and attempts to
     reuse them when it can. */
-static lily_lex_entry *get_entry(lily_lex_state *lexer)
+static lily_lex_entry *get_entry(lily_lex_state *lexer, char *filename)
 {
     lily_lex_entry *ret_entry = NULL;
 
@@ -280,6 +281,7 @@ static lily_lex_entry *get_entry(lily_lex_state *lexer)
         ret_entry->saved_input_pos = 0;
         ret_entry->saved_input_size = 0;
         ret_entry->saved_input_end = 0;
+        ret_entry->filename = NULL;
 
         ret_entry->next = NULL;
         ret_entry->lexer = lexer;
@@ -289,6 +291,16 @@ static lily_lex_entry *get_entry(lily_lex_state *lexer)
             ret_entry = lexer->entry;
         else
             ret_entry = lexer->entry->next;
+    }
+
+    /* The parser will add [builtin] as the filename for builtins, and it likes
+       to save+load that often. Make sure to only make space for a filename if
+       it's really necessary. */
+    if (ret_entry->filename == NULL ||
+        strcmp(ret_entry->filename, filename) != 0) {
+        ret_entry->filename = realloc_mem(ret_entry->filename,
+                strlen(filename) + 1);
+        strcpy(ret_entry->filename, filename);
     }
 
     if (ret_entry->prev) {
@@ -1316,11 +1328,10 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
 static void setup_opened_file(lily_lex_state *lexer, lily_lex_mode mode,
         FILE *f, char *filename)
 {
-    lily_lex_entry *new_entry = get_entry(lexer);
+    lily_lex_entry *new_entry = get_entry(lexer, filename);
 
     new_entry->read_line_fn = file_read_line_fn;
     new_entry->close_fn = file_close_fn;
-    new_entry->filename = filename;
     new_entry->source = f;
 
     setup_entry(lexer, new_entry, mode);
@@ -1358,12 +1369,11 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
     because that seems silly. */
 void lily_load_str(lily_lex_state *lexer, char *name, lily_lex_mode mode, char *str)
 {
-    lily_lex_entry *new_entry = get_entry(lexer);
+    lily_lex_entry *new_entry = get_entry(lexer, name);
 
     new_entry->source = &str[0];
     new_entry->read_line_fn = str_read_line_fn;
     new_entry->close_fn = str_close_fn;
-    new_entry->filename = name;
 
     setup_entry(lexer, new_entry, mode);
 }
@@ -1375,7 +1385,7 @@ void lily_load_str(lily_lex_state *lexer, char *name, lily_lex_mode mode, char *
 void lily_load_copy_string(lily_lex_state *lexer, char *name,
         lily_lex_mode mode, char *str)
 {
-    lily_lex_entry *new_entry = get_entry(lexer);
+    lily_lex_entry *new_entry = get_entry(lexer, name);
 
     char *copy = malloc_mem(strlen(str) + 1);
 
@@ -1385,7 +1395,6 @@ void lily_load_copy_string(lily_lex_state *lexer, char *name,
     new_entry->extra = copy;
     new_entry->read_line_fn = str_read_line_fn;
     new_entry->close_fn = string_copy_close_fn;
-    new_entry->filename = name;
 
     setup_entry(lexer, new_entry, mode);
 }

@@ -96,6 +96,7 @@ static lily_path_link *add_path_slice_to(lily_parse_state *parser,
     lily_path_link *new_link = malloc_mem(sizeof(lily_path_link));
     char *buffer = malloc_mem(length + 1);
     strncpy(buffer, path_str, length);
+    buffer[length] = '\0';
 
     new_link->path = buffer;
     new_link->next = initial;
