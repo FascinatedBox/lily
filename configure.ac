@@ -9,7 +9,7 @@ AM_PROG_AR
 LT_INIT
 AC_PROG_LIBTOOL(libtool)
 
-CFLAGS="-Wall -Wpadded -O2 -g3"
+CFLAGS="-Wall -O2 -g3"
 
 AC_ARG_WITH([apache_mod],
     AS_HELP_STRING([--with-apache-mod], [Build mod_lily for apache.]))
@@ -17,10 +17,12 @@ AC_ARG_WITH([apache_mod],
 AC_CONFIG_FILES([
  Makefile
  src/Makefile
+ run/Makefile
 ])
 
 AS_IF([test "x$with_apache_mod" = "xyes"],
-      AC_CONFIG_FILES([src/apache/Makefile]))
+      AC_CONFIG_FILES([apache/Makefile]))
 AM_CONDITIONAL([APACHE_MOD], [test "x$with_apache_mod" = "xyes"])
+
 
 AC_OUTPUT
