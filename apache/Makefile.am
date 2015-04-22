@@ -1,8 +1,8 @@
-AM_CFLAGS = -I/usr/include/httpd/ -I/usr/include/apr-1/ -I../src/
 APACHECTL = apachectl
 
 lib_LTLIBRARIES = mod_lily.la
 mod_lily_la_SOURCES = mod_lily.c
+mod_lily_la_CFLAGS = -I/usr/include/httpd/ -I/usr/include/apr-1/ -I../src/
 mod_lily_la_LIBADD = ../src/liblily.la
 mod_lily_la_LDFLAGS = -version-info 0:11:0 -module
 
