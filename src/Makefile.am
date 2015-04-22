@@ -1,9 +1,3 @@
-if APACHE_MOD
-SUBDIRS = apache
-else
-SUBDIRS =
-endif
-
 lily_SRCS=csiphash.c \
 	lily_parser.c \
 	lily_lexer.c \
@@ -29,7 +23,6 @@ lily_SRCS=csiphash.c \
 	lily_membuf.c \
 	lily_type_stack.c
 
-bin_PROGRAMS = lily
-
-lily_SOURCES = lily_main.c \
-	$(lily_SRCS)
+noinst_LTLIBRARIES = liblily.la
+liblily_la_SOURCES = $(lily_SRCS)
+liblily_la_CFLAGS = $(AM_CFLAGS) -Wpadded
