@@ -1,7 +1,8 @@
 *.o
 *.lo
+*.a
+*.la
 lily
-lily_aft
 
 # Autotools-related stuff.
 .libs/
