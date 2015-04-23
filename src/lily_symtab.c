@@ -152,6 +152,23 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_type *type, char *name,
     return var;
 }
 
+/* This creates a new type with the class set to the class given. The
+   newly-created type is added to symtab's root type. */
+lily_type *lily_new_type(lily_symtab *symtab, lily_class *cls)
+{
+    lily_type *new_type = malloc_mem(sizeof(lily_type));
+    new_type->cls = cls;
+    new_type->flags = 0;
+    new_type->generic_pos = 0;
+    new_type->subtype_count = 0;
+    new_type->subtypes = NULL;
+
+    new_type->next = symtab->root_type;
+    symtab->root_type = new_type;
+
+    return new_type;
+}
+
 /*  get_generic_max
     Recurse into a type and determine the number of generics used. This
     is important for emitter, which needs to know how many types to blank before
@@ -373,7 +390,10 @@ static void call_class_setups(lily_symtab *symtab)
     inside of a Lily function. */
 static void init_lily_main(lily_symtab *symtab)
 {
-    lily_type *new_type = lily_type_for_class(symtab, symtab->function_class);
+    /* It's safe to create and adjust a new function type, because this is part
+       of symtab's boot and nothing could have made a function type before now.
+       Normally, parser and ts should make types through lily_build_type. */
+    lily_type *new_type = lily_new_type(symtab, symtab->function_class);
 
     new_type->subtypes = malloc_mem(2 * sizeof(lily_type));
     new_type->subtypes[0] = NULL;
@@ -404,27 +424,17 @@ static void init_classes(lily_symtab *symtab)
         lily_type *type;
 
         /* If a class doesn't take generics (or isn't the generic class), then
-           it can have a default type that lily_type_for_class can yield.
-           This saves memory, and is necessary now that type comparison is
-           by pointer. */
+           give it a default type.  */
         if (class_seeds[i].generic_count != 0)
             type = NULL;
         else {
             /* A basic class? Make a quick default type for it. */
-            type = malloc_mem(sizeof(lily_type));
-            type->cls = new_class;
-            /* Make sure this is null so any attempt to free it won't
-               cause a problem. */
-            type->subtypes = NULL;
-            type->subtype_count = 0;
-            type->flags = 0;
-            /* This means that the type does not accept subtypes within []. */
-            type->generic_pos = 0;
+            type = lily_new_type(symtab, new_class);
+            new_class->type = type;
+
             if (i == SYM_CLASS_ANY)
                 type->flags |= TYPE_MAYBE_CIRCULAR;
 
-            type->next = symtab->root_type;
-            symtab->root_type = type;
             /* Only the generic class has a blank name (to prevent it
                from being used directly). */
             if (strcmp(class_seeds[i].name, "") == 0) {
@@ -496,6 +506,7 @@ lily_symtab *lily_new_symtab(lily_options *options,
     symtab->main_function = NULL;
     symtab->next_register_spot = 0;
     symtab->next_readonly_spot = 0;
+    symtab->next_class_id = 0;
     symtab->var_chain = NULL;
     symtab->main_var = NULL;
     symtab->old_function_chain = NULL;
@@ -973,35 +984,6 @@ void lily_tie_value(lily_symtab *symtab, lily_var *var, lily_value *value)
     symtab->foreign_ties = tie;
 }
 
-/*  lily_type_for_class
-    Attempt to get the default type of the given class. If the given class
-    doesn't have a default type (because it takes subtypes), then create
-    a new type without the subtypes and return that. */
-lily_type *lily_type_for_class(lily_symtab *symtab, lily_class *cls)
-{
-    lily_type *type;
-
-    /* init_classes doesn't make a default type for classes that need complex
-       types. This works so long as init_classes works right. */
-    if (cls->type == NULL || cls->id == SYM_CLASS_GENERIC) {
-        type = malloc_mem(sizeof(lily_type));
-        if (type != NULL) {
-            type->cls = cls;
-            type->subtypes = NULL;
-            type->subtype_count = 0;
-            type->flags = 0;
-            type->generic_pos = 0;
-
-            type->next = symtab->root_type;
-            symtab->root_type = type;
-        }
-    }
-    else
-        type = cls->type;
-
-    return type;
-}
-
 lily_symbol_val *lily_symbol_by_name(lily_symtab *symtab, char *text)
 {
     int text_len = strlen(text);
@@ -1245,7 +1227,8 @@ lily_type *lily_build_type(lily_symtab *symtab, lily_class *cls,
        means the new one has to be destroyed). */
     lily_type *result_type = lookup_type(symtab, &fake_type);
     if (result_type == NULL) {
-        lily_type *new_type = malloc_mem(sizeof(lily_type));
+        lily_type *save_root = symtab->root_type;
+        lily_type *new_type = lily_new_type(symtab, fake_type.cls);
         lily_type **new_subtypes = malloc_mem(entries_to_use *
                 sizeof(lily_type *));
 
@@ -1254,7 +1237,9 @@ lily_type *lily_build_type(lily_symtab *symtab, lily_class *cls,
         new_type->subtypes = new_subtypes;
         new_type->subtype_count = entries_to_use;
 
-        new_type->next = symtab->root_type;
+        /* This is necessary because the first memcpy wipes out the 'next'
+           field, which was the root before the new type was added. */
+        new_type->next = save_root;
         symtab->root_type = new_type;
 
         finalize_type(new_type);
@@ -1423,13 +1408,14 @@ void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
         type_iter->flags &= ~TYPE_HIDDEN_GENERIC;
         count--;
         if (type_iter->next->cls != symtab->generic_class && count) {
-            lily_type *new_type = malloc_mem(sizeof(lily_type));
-
-            new_type->cls = symtab->generic_class;
-            new_type->subtypes = NULL;
-            new_type->subtype_count = 0;
+            lily_type *new_type = lily_new_type(symtab, symtab->generic_class);
             new_type->flags = TYPE_IS_UNRESOLVED;
             new_type->generic_pos = i;
+
+            /* lily_new_type makes the newly-created type the most recent one.
+               However, it's simpler if the generic types (A, B, C, etc.) are
+               all grouped together. */
+            symtab->root_type = symtab->root_type->next;
 
             new_type->next = type_iter->next;
             type_iter->next = new_type;
@@ -1461,9 +1447,9 @@ void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
     ...etc. */
 void lily_make_constructor_return_type(lily_symtab *symtab)
 {
-    lily_type *type = malloc_mem(sizeof(lily_type));
-
     lily_class *target_class = symtab->class_chain;
+    lily_type *type = lily_new_type(symtab, target_class);
+
     if (target_class->generic_count != 0) {
         int count = target_class->generic_count;
 
@@ -1482,16 +1468,7 @@ void lily_make_constructor_return_type(lily_symtab *symtab)
         /* This makes this type the default for this class, because this class
            doesn't use generics. */
         target_class->type = type;
-        type->subtypes = NULL;
-        type->subtype_count = 0;
-        type->generic_pos = 0;
-        type->flags = 0;
     }
-
-    type->cls = target_class;
-
-    type->next = symtab->root_type;
-    symtab->root_type = type;
 }
 
 /*  lily_add_variant_class
@@ -1527,7 +1504,7 @@ void lily_finish_variant_class(lily_symtab *symtab, lily_class *variant_class,
 {
     if (variant_type == NULL) {
         /* This variant doesn't take parameters, so give it a plain type. */
-        lily_type *type = lily_type_for_class(symtab, variant_class);
+        lily_type *type = lily_new_type(symtab, variant_class);
 
         type->cls = variant_class;
         /* Anything that doesn't take parameters gets a default type. */
