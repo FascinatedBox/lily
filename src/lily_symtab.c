@@ -169,6 +169,42 @@ lily_type *lily_new_type(lily_symtab *symtab, lily_class *cls)
     return new_type;
 }
 
+/* Create a new class with the given name and add it to the classes currently
+   available. */
+lily_class *lily_new_class(lily_symtab *symtab, char *name)
+{
+    lily_class *new_class = malloc_mem(sizeof(lily_class));
+    char *name_copy = malloc_mem(strlen(name) + 1);
+
+    strcpy(name_copy, name);
+
+    new_class->flags = 0;
+    new_class->is_refcounted = 1;
+    new_class->type = NULL;
+    new_class->parent = NULL;
+    new_class->shorthash = shorthash_for_name(name);
+    new_class->name = name_copy;
+    new_class->generic_count = 0;
+    new_class->properties = NULL;
+    new_class->prop_count = 0;
+    new_class->seed_table = NULL;
+    new_class->call_chain = NULL;
+    new_class->setup_func = NULL;
+    new_class->variant_members = NULL;
+    new_class->gc_marker = NULL;
+    new_class->eq_func = NULL;
+    new_class->destroy_func = NULL;
+    new_class->import = symtab->active_import;
+
+    new_class->id = symtab->next_class_id;
+    symtab->next_class_id++;
+
+    new_class->next = symtab->class_chain;
+    symtab->class_chain = new_class;
+
+    return new_class;
+}
+
 /*  get_generic_max
     Recurse into a type and determine the number of generics used. This
     is important for emitter, which needs to know how many types to blank before
@@ -419,8 +455,7 @@ static void init_classes(lily_symtab *symtab)
     class_count = sizeof(class_seeds) / sizeof(class_seeds[0]);
 
     for (i = 0;i < class_count;i++) {
-        lily_class *new_class = malloc_mem(sizeof(lily_class));
-
+        lily_class *new_class = lily_new_class(symtab, class_seeds[i].name);
         lily_type *type;
 
         /* If a class doesn't take generics (or isn't the generic class), then
@@ -442,27 +477,16 @@ static void init_classes(lily_symtab *symtab)
                 symtab->generic_type_start = type;
             }
         }
-        new_class->name = class_seeds[i].name;
-        new_class->call_chain = NULL;
+
         new_class->type = type;
-        new_class->id = i;
         new_class->generic_count = class_seeds[i].generic_count;
-        new_class->shorthash = shorthash_for_name(new_class->name);
         new_class->gc_marker = class_seeds[i].gc_marker;
         new_class->flags = class_seeds[i].flags;
         new_class->is_refcounted = class_seeds[i].is_refcounted;
-        new_class->seed_table = NULL;
         new_class->setup_func = class_seeds[i].setup_func;
         new_class->eq_func = class_seeds[i].eq_func;
-        new_class->variant_members = NULL;
-        new_class->properties = NULL;
-        new_class->prop_count = 0;
-        new_class->parent = NULL;
         new_class->destroy_func = class_seeds[i].destroy_func;
         new_class->import = symtab->active_import;
-
-        new_class->next = symtab->class_chain;
-        symtab->class_chain = new_class;
     }
 
     /* Classes are linked with the most recent being the first. Each of the
@@ -601,9 +625,7 @@ static void free_class_entries(lily_symtab *symtab, lily_class *class_iter)
 static void free_classes(lily_symtab *symtab, lily_class *class_iter)
 {
     while (class_iter) {
-        /* todo: Probably a better way to do this... */
-        if (class_iter->id > SYM_CLASS_GENERIC)
-            free_mem(class_iter->name);
+        free_mem(class_iter->name);
 
         if (class_iter->flags & CLS_ENUM_IS_SCOPED) {
             /* Scoped enums pull the classes from the symtab's class chain so
@@ -1304,46 +1326,6 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
     return entry;
 }
 
-/*  lily_new_class
-    This function creates a new user class of the given name and adds it to
-    the current chain of classes. This creates a default type for the
-    class that is empty, and gives basic info to the class.
-    Properties can be added later via lily_add_class_property.
-    The newly-created class is returned. */
-lily_class *lily_new_class(lily_symtab *symtab, char *name)
-{
-    lily_class *new_class = malloc_mem(sizeof(lily_class));
-    char *name_copy = malloc_mem(strlen(name) + 1);
-
-    strcpy(name_copy, name);
-
-    new_class->flags = 0;
-    new_class->is_refcounted = 1;
-    new_class->type = NULL;
-    new_class->parent = NULL;
-    new_class->shorthash = shorthash_for_name(name);
-    new_class->name = name_copy;
-    new_class->generic_count = 0;
-    new_class->properties = NULL;
-    new_class->prop_count = 0;
-    new_class->seed_table = NULL;
-    new_class->call_chain = NULL;
-    new_class->setup_func = NULL;
-    new_class->variant_members = NULL;
-    new_class->gc_marker = NULL;
-    new_class->eq_func = lily_instance_eq;
-    new_class->destroy_func = NULL;
-    new_class->import = symtab->active_import;
-
-    new_class->id = symtab->next_class_id;
-    symtab->next_class_id++;
-
-    new_class->next = symtab->class_chain;
-    symtab->class_chain = new_class;
-
-    return new_class;
-}
-
 /*  lily_finish_class
     The given class is done. Determine if instances of it will need to have
     gc entries made for them. */
@@ -1372,6 +1354,7 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
             cls->gc_marker = lily_gc_tuple_marker;
 
         cls->destroy_func = lily_destroy_tuple;
+        cls->eq_func = lily_instance_eq;
     }
     else {
         /* Enum classes have the same layout as 'any', and should thus use what
