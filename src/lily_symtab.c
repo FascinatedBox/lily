@@ -205,6 +205,37 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     return new_class;
 }
 
+/* This creates a new class based off of a given seed. The name is copied over
+   from the seed given.
+   If the given class does not take generics, this will also set the default
+   type of the newly-made class. */
+lily_class *lily_new_class_by_seed(lily_symtab *symtab, lily_class_seed seed)
+{
+    lily_class *new_class = lily_new_class(symtab, seed.name);
+    lily_type *type;
+
+    /* If a class doesn't take generics (or isn't the generic class), then
+        give it a default type.  */
+    if (seed.generic_count != 0)
+        type = NULL;
+    else {
+        /* A basic class? Make a quick default type for it. */
+        type = lily_new_type(symtab, new_class);
+        new_class->type = type;
+    }
+
+    new_class->type = type;
+    new_class->generic_count = seed.generic_count;
+    new_class->gc_marker = seed.gc_marker;
+    new_class->flags = seed.flags;
+    new_class->is_refcounted = seed.is_refcounted;
+    new_class->setup_func = seed.setup_func;
+    new_class->eq_func = seed.eq_func;
+    new_class->destroy_func = seed.destroy_func;
+    new_class->import = symtab->active_import;
+    return new_class;
+}
+
 /*  get_generic_max
     Recurse into a type and determine the number of generics used. This
     is important for emitter, which needs to know how many types to blank before
@@ -454,40 +485,8 @@ static void init_classes(lily_symtab *symtab)
 
     class_count = sizeof(class_seeds) / sizeof(class_seeds[0]);
 
-    for (i = 0;i < class_count;i++) {
-        lily_class *new_class = lily_new_class(symtab, class_seeds[i].name);
-        lily_type *type;
-
-        /* If a class doesn't take generics (or isn't the generic class), then
-           give it a default type.  */
-        if (class_seeds[i].generic_count != 0)
-            type = NULL;
-        else {
-            /* A basic class? Make a quick default type for it. */
-            type = lily_new_type(symtab, new_class);
-            new_class->type = type;
-
-            if (i == SYM_CLASS_ANY)
-                type->flags |= TYPE_MAYBE_CIRCULAR;
-
-            /* Only the generic class has a blank name (to prevent it
-               from being used directly). */
-            if (strcmp(class_seeds[i].name, "") == 0) {
-                symtab->generic_class = new_class;
-                symtab->generic_type_start = type;
-            }
-        }
-
-        new_class->type = type;
-        new_class->generic_count = class_seeds[i].generic_count;
-        new_class->gc_marker = class_seeds[i].gc_marker;
-        new_class->flags = class_seeds[i].flags;
-        new_class->is_refcounted = class_seeds[i].is_refcounted;
-        new_class->setup_func = class_seeds[i].setup_func;
-        new_class->eq_func = class_seeds[i].eq_func;
-        new_class->destroy_func = class_seeds[i].destroy_func;
-        new_class->import = symtab->active_import;
-    }
+    for (i = 0;i < class_count;i++)
+        lily_new_class_by_seed(symtab, class_seeds[i]);
 
     /* Classes are linked with the most recent being the first. Each of the
        built-in classes created here has a *_class entry in symtab, except for
@@ -506,6 +505,10 @@ static void init_classes(lily_symtab *symtab)
     symtab->string_class     = class_iter; class_iter = class_iter->next;
     symtab->double_class     = class_iter; class_iter = class_iter->next;
     symtab->integer_class    = class_iter;
+
+    symtab->any_class->type->flags |= TYPE_MAYBE_CIRCULAR;
+    symtab->generic_class = symtab->class_chain;
+    symtab->generic_type_start = symtab->generic_class->type;
 
     symtab->builtin_import->class_chain = symtab->class_chain;
 
