@@ -440,6 +440,17 @@ typedef struct lily_register_info_ {
     uint32_t pad;
 } lily_register_info;
 
+typedef const struct {
+    char *name;
+    uint16_t is_refcounted;
+    uint16_t generic_count;
+    uint32_t flags;
+    class_setup_func setup_func;
+    gc_marker_func gc_marker;
+    class_eq_func eq_func;
+    class_destroy_func destroy_func;
+} lily_class_seed;
+
 /* This holds all the information necessary to make a new Lily function. */
 typedef struct lily_func_seed_ {
     char *name;

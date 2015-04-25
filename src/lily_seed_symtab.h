@@ -12,23 +12,11 @@
 # include "lily_gc.h"
 # include "lily_class_funcs.h"
 
-/* Sync name order with SYM_CLASS_* #defines in lily_symtab.h */
-typedef const struct {
-    char *name;
-    uint16_t is_refcounted;
-    uint16_t generic_count;
-    uint32_t flags;
-    class_setup_func setup_func;
-    gc_marker_func gc_marker;
-    class_eq_func eq_func;
-    class_destroy_func destroy_func;
-} class_seed;
-
 /* Note: If CLS_VALID_HASH_KEY is added to other classes, the vm will need to be
          updated to hash those classes right. It will also need KeyError
          printing to be touched up for that. Other things may also need updating
          too. */
-class_seed class_seeds[] =
+lily_class_seed class_seeds[] =
 {
     {"integer",                 /* name */
      0,                         /* is_refcounted */
