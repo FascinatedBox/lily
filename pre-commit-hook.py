@@ -37,7 +37,7 @@ def run_test(options, dirpath, filepath):
     fullpath = dirpath + filepath
     expected_stderr = get_expected_str(fullpath)
 
-    command = "./run/lily %s %s" % (options['invoke'], fullpath)
+    command = "./lily %s %s" % (options['invoke'], fullpath)
     subp = subprocess.Popen([command], stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, shell=True)
     (subp_stdout, subp_stderr) = subp.communicate()
