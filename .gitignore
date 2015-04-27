@@ -1,38 +1,15 @@
-*.o
-*.lo
-*.a
-*.la
+# Binary junk to ignore.
+
+lib/*
 lily
 
-# Autotools-related stuff.
-.libs/
-.deps/
+# CMake-related stuff.
+CMakeFiles
+CMakeCache.txt
+cmake_install.cmake
 Makefile
-Makefile.in
-aclocal.m4
-ar-lib
-autom4te.cache/
-compile
-config.h
-config.h.in
-config.h.in~
-config.guess
-config.log
-config.status
-config.sub
-configure
-depcomp
-install-sh
-libtool
-ltmain.sh
-missing
-src/apache/mod_lily.la
-src/Makefile
-src/Makefile.am
-src/Makefile.in
-stamp-h1
 
 # Stuff from the Codelite IDE to ignore.
 .codelite/
-LilyProject.project
-LilyProject.workspace
+*.project
+*.workspace
