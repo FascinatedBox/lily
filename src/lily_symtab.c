@@ -189,7 +189,6 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     new_class->prop_count = 0;
     new_class->seed_table = NULL;
     new_class->call_chain = NULL;
-    new_class->setup_func = NULL;
     new_class->variant_members = NULL;
     new_class->gc_marker = NULL;
     new_class->eq_func = NULL;
@@ -229,10 +228,12 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, lily_class_seed seed)
     new_class->gc_marker = seed.gc_marker;
     new_class->flags = seed.flags;
     new_class->is_refcounted = seed.is_refcounted;
-    new_class->setup_func = seed.setup_func;
     new_class->eq_func = seed.eq_func;
     new_class->destroy_func = seed.destroy_func;
     new_class->import = symtab->active_import;
+    if (seed.setup_func)
+        seed.setup_func(symtab, new_class);
+
     return new_class;
 }
 
@@ -436,21 +437,6 @@ static lily_var *find_var(lily_var *var_iter, char *name, uint64_t shorthash)
 /* Symtab initialization */
 /*****************************************************************************/
 
-/*  call_setups
-    Symtab init, stage 4
-    This calls the setup func of any class that has one. This is reponsible for
-    setting up the seed_table of the class, and possibly more in the future. */
-static void call_class_setups(lily_symtab *symtab)
-{
-    lily_class *class_iter = symtab->class_chain;
-    while (class_iter) {
-        if (class_iter->setup_func)
-            class_iter->setup_func(symtab, class_iter);
-
-        class_iter = class_iter->next;
-    }
-}
-
 /*  init_lily_main
     Symtab init, stage 3
     This creates __main__, which holds all code that is not explicitly put
@@ -558,7 +544,6 @@ lily_symtab *lily_new_symtab(lily_options *options,
 
     init_classes(symtab);
     init_lily_main(symtab);
-    call_class_setups(symtab);
 
     return symtab;
 }

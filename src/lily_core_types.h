@@ -128,10 +128,6 @@ typedef struct lily_class_ {
        information in the seed_table of a class. If the symtab can't find the
        name for a given class, then it's loaded into the vars of that class. */
     const struct lily_func_seed_ *seed_table;
-    /* If this isn't NULL, then it's called to setup the class within the
-       symtab. This usually involves setting seed_table to something not-NULL,
-       but can also do other stuff. */
-    class_setup_func setup_func;
     gc_marker_func gc_marker;
     class_eq_func eq_func;
 } lily_class;
