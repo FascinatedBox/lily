@@ -4,3 +4,6 @@ if test_deep_middle::test_deep_bottom::bottomFunc(10) != 10:
     stderr.write("Failed!\n")
 
 var v = test_deep_middle::test_deep_bottom::BottomClass::new()
+
+define f(g: test_deep_middle::test_deep_bottom::BottomClass) {
+}
