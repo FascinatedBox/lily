@@ -1,0 +1,7 @@
+#[
+SyntaxError: 'asdf' is not a package or a class.
+Where: File "invalid_parameter.type.lly" at line 6
+]#
+
+define f(g: asdf) {
+}

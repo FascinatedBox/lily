@@ -893,6 +893,48 @@ static int collect_generics(lily_parse_state *parser)
     return ch - 'A';
 }
 
+/* This is used by collect_var_type to collect a class when there may be one or
+   more package entries before the type. This allows using package access within
+   class declaration (ex: 'a::class'/'a::b::class'), as well as typical class
+   declaration. */
+static lily_class *resolve_class_name(lily_parse_state *parser)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_lex_state *lex = parser->lex;
+
+    NEED_CURRENT_TOK(tk_word)
+
+    char *name = parser->lex->label;
+    /* This intentionally searches the symtab so both the current AND builtin
+       packages are searched through for types. In most cases, it's probably
+       going to be a builtin type. */
+    lily_class *result = lily_class_by_name(symtab, name);
+    lily_import_entry *search_import = symtab->active_import;
+
+    if (result == NULL) {
+        while (1) {
+            lily_import_entry *search_cache = lily_find_import_within(
+                    search_import, parser->lex->label);
+            if (search_cache) {
+                search_import = search_cache;
+                NEED_NEXT_TOK(tk_colon_colon)
+                NEED_NEXT_TOK(tk_word)
+                continue;
+            }
+            result = lily_class_by_name_within(search_import,
+                    parser->lex->label);
+            if (result == NULL)
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "'%s' is not a package or a class.\n",
+                        parser->lex->label);
+
+            break;
+        }
+    }
+
+    return result;
+}
+
 /*  collect_var_type
     This is the outer part of type collection. This takes flags (TC_* defines)
     which tell it how to act. */
@@ -901,12 +943,7 @@ static lily_type *collect_var_type(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
     lily_type *result;
 
-    NEED_CURRENT_TOK(tk_word)
-
-    lily_class *cls = lily_class_by_name(parser->symtab, lex->label);
-    if (cls == NULL)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                   "'%s' is not a valid class name.\n", lex->label);
+    lily_class *cls = resolve_class_name(parser);
 
     if (cls->flags & CLS_VARIANT_CLASS)
         lily_raise(parser->raiser, lily_SyntaxError,
