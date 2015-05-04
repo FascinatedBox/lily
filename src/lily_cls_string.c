@@ -717,61 +717,42 @@ void lily_string_htmlencode(lily_vm_state *vm, lily_function_val *self,
     lily_value *input_arg = vm_regs[code[0]];
     lily_value *result_arg = vm_regs[code[1]];
 
-    lily_vm_stringbuf *string_buffer = vm->string_buffer;
-    char *str = string_buffer->data;
-    int str_size = string_buffer->data_size;
-    int string_fakemax = string_buffer->data_size - 5;
-
-    int i = 0;
+    lily_msgbuf *vm_buffer = vm->vm_buffer;
+    lily_msgbuf_flush(vm_buffer);
+    int start = 0, stop = 0;
     char *input_str = input_arg->value.string->string;
     char *ch = &input_str[0];
 
     while (1) {
-        if (i == string_fakemax) {
-            str_size *= 2;
-
-            str = realloc_mem(str, str_size);
-            string_buffer->data = str;
-
-            string_buffer->data_size = str_size;
-            string_fakemax = str_size - 5;
-        }
-
         if (*ch == '&') {
-            str[i    ] = '&';
-            str[i + 1] = 'a';
-            str[i + 2] = 'm';
-            str[i + 3] = 'p';
-            str[i + 4] = ';';
-            i += 5;
+            lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
+            lily_msgbuf_add(vm_buffer, "&amp;");
+            start++;
+            stop = start;
         }
         else if (*ch == '<') {
-            str[i    ] = '&';
-            str[i + 1] = 'l';
-            str[i + 2] = 't';
-            str[i + 3] = ';';
-            i += 4;
+            lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
+            lily_msgbuf_add(vm_buffer, "&lt;");
+            start++;
+            stop = start;
         }
         else if (*ch == '>') {
-            str[i    ] = '&';
-            str[i + 1] = 'g';
-            str[i + 2] = 't';
-            str[i + 3] = ';';
-            i += 4;
+            lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
+            lily_msgbuf_add(vm_buffer, "&gt;");
+            start++;
+            stop = start;
         }
-        else {
-            str[i] = *ch;
-            i++;
-            if (*ch == '\0')
-                break;
-        }
+        else if (*ch == '\0')
+            break;
 
         ch++;
+        stop++;
     }
 
-    lily_string_val *new_sv = try_make_sv(vm, i + 1);
+    lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
+    lily_string_val *new_sv = try_make_sv(vm, strlen(vm_buffer->message) + 1);
 
-    strcpy(new_sv->string, str);
+    strcpy(new_sv->string, vm_buffer->message);
 
     lily_raw_value v = {.string = new_sv};
     lily_move_raw_value(vm, result_arg, 0, v);
@@ -790,118 +771,12 @@ void lily_string_htmlencode(lily_vm_state *vm, lily_function_val *self,
 void lily_string_format(lily_vm_state *vm, lily_function_val *self,
         uint16_t *code)
 {
-    char *buffer_str, *fmt;
-    int arg_pos, buffer_index, buffer_max, fmt_index;
-    lily_list_val *vararg_lv;
-    lily_value *result_arg;
-    lily_value **vm_regs = vm->vm_regs;
-    lily_vm_stringbuf *string_buffer;
+    lily_process_format_string(vm, code);
+    char *buffer = vm->vm_buffer->message;
+    lily_value *result_arg = vm->vm_regs[code[2]];
+    lily_string_val *new_sv = try_make_sv(vm, strlen(buffer) + 1);
 
-    /* This grabs the values passed, as well as grabbing the vm's string buffer
-       which will get used for building the string. */
-    string_buffer = vm->string_buffer;
-    buffer_str = string_buffer->data;
-    fmt = vm_regs[code[0]]->value.string->string;
-    vararg_lv = vm_regs[code[1]]->value.list;
-    result_arg = vm_regs[code[2]];
-    buffer_index = 0;
-    buffer_max = vm->string_buffer->data_size;
-    arg_pos = 0;
-    fmt_index = 0;
-
-    while (1) {
-        char ch = fmt[fmt_index];
-        if (buffer_index == buffer_max) {
-            buffer_max *= 2;
-            buffer_str = realloc_mem(buffer_str, buffer_max);
-
-            string_buffer->data = buffer_str;
-
-            string_buffer->data_size = buffer_max;
-        }
-
-        if (fmt[fmt_index] != '%') {
-            buffer_str[buffer_index] = ch;
-            buffer_index++;
-            if (ch == '\0')
-                break;
-        }
-        else if (fmt[fmt_index] == '%') {
-            if (arg_pos == vararg_lv->num_values)
-                lily_raise(vm->raiser, lily_FormatError,
-                        "Not enough args for string::format.\n");
-
-            char fmtbuf[64];
-            char *add_str = NULL;
-            int add_len = 0, cls_id;
-            lily_any_val *arg_av;
-            lily_value *arg;
-            lily_raw_value val;
-
-            arg_av = vararg_lv->elems[arg_pos]->value.any;
-            arg = arg_av->inner_value;
-            cls_id = arg->type->cls->id;
-            val = arg->value;
-
-            /* Unlike with printfmt, the result of each of these gets added to
-               the string. So have each case say what it wants to add, then add
-               it. */
-            fmt_index++;
-            if (fmt[fmt_index] == 'd') {
-                if (cls_id != SYM_CLASS_INTEGER)
-                    lily_raise(vm->raiser, lily_FormatError,
-                            "%%d is not valid for type ^T.\n",
-                            arg->type);
-
-                snprintf(fmtbuf, 63, "%" PRId64, val.integer);
-                add_str = fmtbuf;
-                add_len = strlen(fmtbuf);
-            }
-            else if (fmt[fmt_index] == 's') {
-                if (cls_id != SYM_CLASS_STRING)
-                    lily_raise(vm->raiser, lily_FormatError,
-                            "%%s is not valid for type ^T.\n",
-                            arg->type);
-
-                add_str = val.string->string;
-                add_len = val.string->size;
-            }
-            else if (fmt[fmt_index] == 'f') {
-                if (cls_id != SYM_CLASS_DOUBLE)
-                    lily_raise(vm->raiser, lily_FormatError,
-                            "%%f is not valid for type ^T.\n",
-                            arg->type);
-
-                snprintf(fmtbuf, 63, "%f", val.doubleval);
-                add_str = fmtbuf;
-                add_len = strlen(fmtbuf);
-            }
-
-            /* The string buffer might need to grow. Make sure it grows as big
-               as needed. */
-            if (buffer_index + add_len > buffer_max) {
-                do {
-                    buffer_max *= 2;
-                } while (buffer_index + add_len > buffer_max);
-
-                buffer_str = realloc_mem(buffer_str, buffer_max);
-                string_buffer->data = buffer_str;
-
-                string_buffer->data_size = buffer_max;
-            }
-
-            /* Use strcpy with an adjusted index because there is no \0 yet.
-               This is safe because strings should never have embedded \0's. */
-            strcpy(buffer_str + buffer_index, add_str);
-            buffer_index += add_len;
-            arg_pos++;
-        }
-        fmt_index++;
-    }
-
-    lily_string_val *new_sv = try_make_sv(vm, buffer_index + 1);
-
-    strcpy(new_sv->string, buffer_str);
+    strcpy(new_sv->string, buffer);
 
     lily_raw_value v = {.string = new_sv};
     lily_move_raw_value(vm, result_arg, 0, v);

@@ -22,11 +22,6 @@ typedef struct {
     lily_instance_val *build_value;
 } lily_vm_stack_entry;
 
-typedef struct {
-    char *data;
-    uint64_t data_size;
-} lily_vm_stringbuf;
-
 typedef struct lily_vm_catch_entry_ {
     lily_vm_stack_entry *stack_entry;
     int entry_depth;
@@ -84,11 +79,11 @@ typedef struct lily_vm_state_ {
     uint16_t *foreign_code;
 
     char *sipkey;
-    lily_vm_stringbuf *string_buffer;
 
     lily_vm_catch_entry *catch_top;
     lily_vm_catch_entry *catch_chain;
 
+    lily_msgbuf *vm_buffer;
     lily_type_stack *ts;
     lily_mem_func mem_func;
     lily_symtab *symtab;
@@ -105,6 +100,7 @@ lily_hash_elem *lily_lookup_hash_elem(lily_hash_val *, uint64_t, lily_value *);
 void lily_assign_value(lily_vm_state *, lily_value *, lily_value *);
 void lily_move_raw_value(lily_vm_state *, lily_value *, int, lily_raw_value);
 uint64_t lily_calculate_siphash(char *, lily_value *);
+void lily_process_format_string(lily_vm_state *, uint16_t *);
 
 void lily_vm_foreign_call(lily_vm_state *vm);
 void lily_vm_foreign_prep(lily_vm_state *, lily_function_val *, lily_value *);

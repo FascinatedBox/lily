@@ -125,14 +125,12 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     /* todo: This is a terrible, horrible key to use. Make a better one using
              some randomness or...something. Just not this. */
     char sipkey[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf};
-    lily_vm_stringbuf *stringbuf = malloc_mem(sizeof(lily_vm_stringbuf));
     char *string_data = malloc_mem(64);
     lily_vm_catch_entry *catch_entry = malloc_mem(sizeof(lily_vm_catch_entry));
 
     vm->function_stack = malloc_mem(sizeof(lily_vm_stack_entry *) * 4);
     vm->sipkey = malloc_mem(16);
     vm->foreign_code = malloc_mem(sizeof(uint16_t));
-    vm->string_buffer = NULL;
     vm->function_stack_pos = 0;
     vm->raiser = raiser;
     vm->vm_regs = NULL;
@@ -168,9 +166,6 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     catch_entry->prev = NULL;
     catch_entry->next = NULL;
 
-    stringbuf->data = string_data;
-    stringbuf->data_size = 64;
-    vm->string_buffer = stringbuf;
     vm->foreign_code[0] = o_return_from_vm;
 
     return vm;
@@ -222,11 +217,6 @@ void lily_free_vm(lily_vm_state *vm)
     /* vm->num_registers is now 0, so this will sweep everything. */
     invoke_gc(vm);
     destroy_gc_entries(vm);
-
-    if (vm->string_buffer) {
-        free_mem(vm->string_buffer->data);
-        free_mem(vm->string_buffer);
-    }
 
     free_mem(vm->readonly_table);
     free_mem(vm->foreign_code);
@@ -931,74 +921,87 @@ void lily_builtin_print(lily_vm_state *vm, lily_function_val *self,
     lily_impl_puts(vm->data, reg->value.string->string);
 }
 
+void lily_process_format_string(lily_vm_state *vm, uint16_t *code)
+{
+    char *fmt;
+    int arg_pos, fmt_index;
+    lily_list_val *vararg_lv;
+    lily_value *result_arg;
+    lily_value **vm_regs = vm->vm_regs;
+    lily_msgbuf *vm_buffer = vm->vm_buffer;
+    lily_msgbuf_flush(vm_buffer);
+
+    fmt = vm_regs[code[0]]->value.string->string;
+    vararg_lv = vm_regs[code[1]]->value.list;
+    arg_pos = 0;
+    fmt_index = 0;
+    int text_start = 0;
+    int text_stop = 0;
+
+    while (1) {
+        char ch = fmt[fmt_index];
+
+        if (ch != '%') {
+            if (ch == '\0')
+                break;
+
+            text_stop++;
+        }
+        else if (ch == '%') {
+            if (arg_pos == vararg_lv->num_values)
+                lily_raise(vm->raiser, lily_FormatError,
+                        "Not enough args for printfmt.\n");
+
+            lily_msgbuf_add_text_range(vm_buffer, fmt, text_start, text_stop);
+            text_start = fmt_index + 2;
+            text_stop = text_start;
+
+            fmt_index++;
+
+            lily_value *arg = vararg_lv->elems[arg_pos]->value.any->inner_value;
+            int cls_id = arg->type->cls->id;
+            lily_raw_value val = arg->value;
+
+            if (fmt[fmt_index] == 'd') {
+                if (cls_id != SYM_CLASS_INTEGER)
+                    lily_raise(vm->raiser, lily_FormatError,
+                            "%%d is not valid for type ^T.\n",
+                            arg->type);
+
+                lily_msgbuf_add_int(vm_buffer, val.integer);
+            }
+            else if (fmt[fmt_index] == 's') {
+                if (cls_id != SYM_CLASS_STRING)
+                    lily_raise(vm->raiser, lily_FormatError,
+                            "%%s is not valid for type ^T.\n",
+                            arg->type);
+
+                lily_msgbuf_add(vm_buffer, val.string->string);
+            }
+            else if (fmt[fmt_index] == 'f') {
+                if (cls_id != SYM_CLASS_DOUBLE)
+                    lily_raise(vm->raiser, lily_FormatError,
+                            "%%f is not valid for type ^T.\n",
+                            arg->type);
+
+                lily_msgbuf_add_double(vm_buffer, val.doubleval);
+            }
+            arg_pos++;
+        }
+        fmt_index++;
+    }
+
+    lily_msgbuf_add_text_range(vm_buffer, fmt, text_start, text_stop);
+}
+
 /*  lily_builtin_printfmt
     Implements: function printfmt(string, any...) */
 void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
         uint16_t *code)
 {
-    char fmtbuf[64];
-    char save_ch;
-    char *fmt, *str_start;
-    int cls_id;
-    int arg_pos = 0, i = 0;
-    lily_value **vm_regs = vm->vm_regs;
-    lily_value *arg;
-    lily_raw_value val;
-    lily_list_val *vararg_lv;
-    lily_any_val *arg_av;
-    void *data = vm->data;
-
-    fmt = vm_regs[code[0]]->value.string->string;
-    vararg_lv = vm_regs[code[1]]->value.list;
-
-    str_start = fmt;
-    while (1) {
-        if (fmt[i] == '\0')
-            break;
-        else if (fmt[i] == '%') {
-            if (arg_pos == vararg_lv->num_values)
-                lily_raise(vm->raiser, lily_FormatError,
-                        "Not enough args for printfmt.\n");
-
-            save_ch = fmt[i];
-            fmt[i] = '\0';
-            lily_impl_puts(data, str_start);
-            fmt[i] = save_ch;
-            i++;
-
-            arg_av = vararg_lv->elems[arg_pos]->value.any;
-
-            arg = arg_av->inner_value;
-            cls_id = arg->type->cls->id;
-            val = arg->value;
-
-            if (fmt[i] == 'd') {
-                if (cls_id != SYM_CLASS_INTEGER)
-                    return;
-                snprintf(fmtbuf, 63, "%" PRId64, val.integer);
-                lily_impl_puts(data, fmtbuf);
-            }
-            else if (fmt[i] == 's') {
-                if (cls_id != SYM_CLASS_STRING)
-                    return;
-                else
-                    lily_impl_puts(data, val.string->string);
-            }
-            else if (fmt[i] == 'f') {
-                if (cls_id != SYM_CLASS_DOUBLE)
-                    return;
-
-                snprintf(fmtbuf, 63, "%f", val.doubleval);
-                lily_impl_puts(data, fmtbuf);
-            }
-
-            str_start = fmt + i + 1;
-            arg_pos++;
-        }
-        i++;
-    }
-
-    lily_impl_puts(data, str_start);
+    lily_process_format_string(vm, code);
+    lily_impl_puts(vm->data, vm->vm_buffer->message);
+    lily_msgbuf_flush(vm->vm_buffer);
 }
 
 /*****************************************************************************/

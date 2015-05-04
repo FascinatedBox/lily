@@ -215,6 +215,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options, int argc,
     parser->vm->main = parser->symtab->main_var;
     parser->vm->symtab = parser->symtab;
     parser->vm->ts = parser->emit->ts;
+    parser->vm->vm_buffer = parser->raiser->msgbuf;
 
     parser->symtab->lex_linenum = &parser->lex->line_num;
 
