@@ -84,13 +84,14 @@ void lily_file_readline(lily_vm_state *vm, lily_function_val *self,
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_file_val *filev = vm_regs[code[0]]->value.file;
-    lily_vm_stringbuf *stringbuf = vm->string_buffer;
     lily_value *result_reg = vm_regs[code[1]];
+    lily_msgbuf *vm_buffer = vm->vm_buffer;
+    lily_msgbuf_flush(vm_buffer);
 
     /* This ensures that the buffer will always have space for the \0 at the
        very end. */
-    int buffer_size = stringbuf->data_size - 1;
-    char *buffer = stringbuf->data;
+    int buffer_size = vm_buffer->size - 1;
+    char *buffer = vm_buffer->message;
 
     int ch = 0;
     int pos = 0;
@@ -119,13 +120,9 @@ void lily_file_readline(lily_vm_state *vm, lily_function_val *self,
         }
 
         if (pos == buffer_size) {
-            int new_size = (buffer_size + 1) * 2;
-            buffer = realloc_mem(buffer, new_size);
-
-            stringbuf->data = buffer;
-            stringbuf->data_size = new_size;
-
-            buffer_size = new_size - 1;
+            lily_msgbuf_grow(vm_buffer);
+            buffer = vm_buffer->message;
+            buffer_size = vm_buffer->size - 1;
         }
 
         pos++;

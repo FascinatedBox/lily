@@ -23,7 +23,7 @@ lily_msgbuf *lily_new_msgbuf(lily_options *options)
     return msgbuf;
 }
 
-static void resize_tmsgbuf(lily_msgbuf *msgbuf, int new_size)
+static void resize_msgbuf(lily_msgbuf *msgbuf, int new_size)
 {
     msgbuf->message = realloc_mem(msgbuf->message, new_size);
     msgbuf->size = new_size;
@@ -115,7 +115,7 @@ void lily_msgbuf_add(lily_msgbuf *msgbuf, char *str)
     int len = strlen(str);
 
     if ((msgbuf->pos + len + 1) > msgbuf->size)
-        resize_tmsgbuf(msgbuf, msgbuf->pos + len + 1);
+        resize_msgbuf(msgbuf, msgbuf->pos + len + 1);
 
     strcat(msgbuf->message, str);
     msgbuf->pos += len;
@@ -135,7 +135,7 @@ void lily_msgbuf_add_text_range(lily_msgbuf *msgbuf, char *text, int start,
     int range = (stop - start);
 
     if ((msgbuf->pos + range + 1) > msgbuf->size)
-        resize_tmsgbuf(msgbuf, msgbuf->pos + range + 1);
+        resize_msgbuf(msgbuf, msgbuf->pos + range + 1);
 
     memcpy(msgbuf->message + msgbuf->pos, text + start, range);
     msgbuf->pos += range;
@@ -387,4 +387,9 @@ void lily_msgbuf_add_fmt(lily_msgbuf *msgbuf, char *fmt, ...)
     va_start(var_args, fmt);
     lily_msgbuf_add_fmt_va(msgbuf, fmt, var_args);
     va_end(var_args);
+}
+
+void lily_msgbuf_grow(lily_msgbuf *msgbuf)
+{
+    resize_msgbuf(msgbuf, msgbuf->size * 2);
 }

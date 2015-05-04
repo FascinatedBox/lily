@@ -34,6 +34,7 @@ void lily_msgbuf_add_simple_value(lily_msgbuf *, lily_value *);
 void lily_msgbuf_add_fmt(lily_msgbuf *, char *, ...);
 void lily_msgbuf_add_fmt_va(lily_msgbuf *, char *, va_list);
 void lily_msgbuf_escaped_add_str(lily_msgbuf *, char *);
+void lily_msgbuf_grow(lily_msgbuf *);
 void lily_msgbuf_flush(lily_msgbuf *);
 
 #endif
