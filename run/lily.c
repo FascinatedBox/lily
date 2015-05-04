@@ -140,6 +140,8 @@ void traceback_to_file(lily_parse_state *parser, FILE *outfile)
 int main(int argc, char **argv)
 {
     process_args(argc, argv);
+    if (to_process == NULL)
+        usage();
 
     lily_options *options = lily_new_default_options();
     if (gc_threshold != 0)
