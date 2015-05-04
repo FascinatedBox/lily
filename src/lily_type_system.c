@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "lily_type_stack.h"
+#include "lily_type_system.h"
 
 
 # define ENSURE_TYPE_STACK(new_size) \
@@ -11,11 +11,11 @@ if (new_size >= ts->max) \
 #define realloc_mem(ptr, size)       ts->mem_func(ptr, size)
 #define free_mem(ptr)          (void)ts->mem_func(ptr, 0)
 
-lily_type_stack *lily_new_type_stack(lily_options *options,
+lily_type_system *lily_new_type_system(lily_options *options,
         lily_symtab *symtab, lily_raiser *raiser)
 {
-    lily_type_stack *ts = options->mem_func(NULL,
-            sizeof(lily_type_stack));
+    lily_type_system *ts = options->mem_func(NULL,
+            sizeof(lily_type_system));
     ts->mem_func = options->mem_func;
 
     lily_type **types = malloc_mem(4 * sizeof(lily_type *));
@@ -30,7 +30,7 @@ lily_type_stack *lily_new_type_stack(lily_options *options,
     return ts;
 }
 
-void lily_free_type_stack(lily_type_stack *ts)
+void lily_free_type_stack(lily_type_system *ts)
 {
     if (ts)
         free_mem(ts->types);
@@ -38,14 +38,14 @@ void lily_free_type_stack(lily_type_stack *ts)
     free_mem(ts);
 }
 
-static void grow_types(lily_type_stack *ts)
+static void grow_types(lily_type_system *ts)
 {
     ts->max *= 2;
     ts->types = realloc_mem(ts->types,
             sizeof(lily_type *) * ts->max);;
 }
 
-static lily_type *deep_type_build(lily_type_stack *ts, int generic_index,
+static lily_type *deep_type_build(lily_type_system *ts, int generic_index,
         lily_type *type)
 {
     lily_type *ret = type;
@@ -86,7 +86,7 @@ static lily_type *deep_type_build(lily_type_stack *ts, int generic_index,
     return ret;
 }
 
-int lily_ts_check(lily_type_stack *ts, lily_type *left, lily_type *right)
+int lily_ts_check(lily_type_system *ts, lily_type *left, lily_type *right)
 {
     int ret = 0;
 
@@ -197,12 +197,12 @@ int lily_ts_check(lily_type_stack *ts, lily_type *left, lily_type *right)
     return ret;
 }
 
-inline lily_type *lily_ts_easy_resolve(lily_type_stack *ts, lily_type *t)
+inline lily_type *lily_ts_easy_resolve(lily_type_system *ts, lily_type *t)
 {
     return ts->types[ts->pos + t->generic_pos];
 }
 
-lily_type *lily_ts_resolve(lily_type_stack *ts, lily_type *type)
+lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
 {
     int save_generic_index = ts->pos;
 
@@ -213,7 +213,7 @@ lily_type *lily_ts_resolve(lily_type_stack *ts, lily_type *type)
     return ret;
 }
 
-lily_type *lily_ts_resolve_by_second(lily_type_stack *ts, lily_type *first,
+lily_type *lily_ts_resolve_by_second(lily_type_system *ts, lily_type *first,
         lily_type *second)
 {
     int stack_start = ts->pos + ts->ceiling + 1;
@@ -232,7 +232,7 @@ lily_type *lily_ts_resolve_by_second(lily_type_stack *ts, lily_type *first,
     return result_type;
 }
 
-void lily_ts_resolve_as_variant_by_enum(lily_type_stack *ts,
+void lily_ts_resolve_as_variant_by_enum(lily_type_system *ts,
         lily_type *call_result, lily_type *enum_type)
 {
     lily_type *variant_type = call_result->cls->variant_type->subtypes[0];
@@ -245,7 +245,7 @@ void lily_ts_resolve_as_variant_by_enum(lily_type_stack *ts,
     }
 }
 
-void lily_ts_resolve_as_self(lily_type_stack *ts)
+void lily_ts_resolve_as_self(lily_type_system *ts)
 {
     int i, stop;
     lily_type *type_iter = ts->symtab->generic_type_start;
@@ -257,7 +257,7 @@ void lily_ts_resolve_as_self(lily_type_stack *ts)
     }
 }
 
-int lily_ts_raise_ceiling(lily_type_stack *ts, int new_ceiling)
+int lily_ts_raise_ceiling(lily_type_system *ts, int new_ceiling)
 {
     int old_ceiling = ts->ceiling;
     int i;
@@ -271,13 +271,13 @@ int lily_ts_raise_ceiling(lily_type_stack *ts, int new_ceiling)
     return old_ceiling;
 }
 
-inline void lily_ts_lower_ceiling(lily_type_stack *ts, int old_ceiling)
+inline void lily_ts_lower_ceiling(lily_type_system *ts, int old_ceiling)
 {
     ts->pos -= old_ceiling;
     ts->ceiling = old_ceiling;
 }
 
-void lily_ts_zap_ceiling_types(lily_type_stack *ts, int num_types)
+void lily_ts_zap_ceiling_types(lily_type_system *ts, int num_types)
 {
     ENSURE_TYPE_STACK(ts->pos + ts->ceiling + 1 + num_types)
 
@@ -289,25 +289,25 @@ void lily_ts_zap_ceiling_types(lily_type_stack *ts, int num_types)
     }
 }
 
-inline void lily_ts_set_ceiling_type(lily_type_stack *ts, lily_type *type,
+inline void lily_ts_set_ceiling_type(lily_type_system *ts, lily_type *type,
         int pos)
 {
     ts->types[ts->pos + ts->ceiling + 1 + pos] = type;
 }
 
-inline lily_type *lily_ts_get_ceiling_type(lily_type_stack *ts, int pos)
+inline lily_type *lily_ts_get_ceiling_type(lily_type_system *ts, int pos)
 {
     return ts->types[ts->pos + ts->ceiling + 1 + pos];
 }
 
-inline lily_type *lily_ts_build_by_ceiling(lily_type_stack *ts,
+inline lily_type *lily_ts_build_by_ceiling(lily_type_system *ts,
         lily_class *cls, int num_types, int flags)
 {
     return lily_build_type(ts->symtab, cls, flags, ts->types,
             ts->pos + ts->ceiling + 1, num_types);
 }
 
-lily_type *lily_ts_build_enum_by_variant(lily_type_stack *ts,
+lily_type *lily_ts_build_enum_by_variant(lily_type_system *ts,
         lily_type *variant_type)
 {
    /* The parent of a variant class is always the enum class it belongs to.
@@ -349,7 +349,7 @@ lily_type *lily_ts_build_enum_by_variant(lily_type_stack *ts,
     return lily_ts_build_by_ceiling(ts, variant_type->cls->parent, i, 0);
 }
 
-int lily_ts_count_unresolved(lily_type_stack *ts)
+int lily_ts_count_unresolved(lily_type_system *ts)
 {
     int count = 0, top = ts->pos + ts->ceiling;
     int i;

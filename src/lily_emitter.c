@@ -55,7 +55,7 @@ lily_emit_state *lily_new_emit_state(lily_options *options,
 
     emit->patches = malloc_mem(sizeof(int) * 4);
     emit->match_cases = malloc_mem(sizeof(int) * 4);
-    emit->ts = lily_new_type_stack(options, symtab, raiser);
+    emit->ts = lily_new_type_system(options, symtab, raiser);
 
     emit->match_case_pos = 0;
     emit->match_case_size = 4;

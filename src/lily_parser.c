@@ -2678,7 +2678,7 @@ static void case_handler(lily_parse_state *parser, int multi)
                 "Already have a case for variant %s.\n", lex->label);
 
     lily_type *variant_type = case_class->variant_type;
-    lily_type_stack *ts = parser->emit->ts;
+    lily_type_system *ts = parser->emit->ts;
     if (variant_type->subtype_count != 0) {
         NEED_NEXT_TOK(tk_left_parenth)
         /* There should be as many identifiers as there are arguments to this
@@ -2855,7 +2855,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        type.
        Collect arguments if expecting a function and the function takes at
        least one argument. */
-    lily_type_stack *emit_ts = parser->emit->ts;
+    lily_type_system *emit_ts = parser->emit->ts;
 
     if (expect_type && expect_type->subtype_count > 1) {
         if (lex->token == tk_logical_or)
