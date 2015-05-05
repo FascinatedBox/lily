@@ -2,9 +2,8 @@
 #include <string.h>
 
 #include "lily_symtab.h"
-#include "lily_value.h"
-
-/* This creates the *_seed values. */
+#include "lily_pkg_builtin.h"
+#include "lily_class_funcs.h"
 #include "lily_seed_symtab.h"
 
 /** Symtab is responsible for:
@@ -458,49 +457,6 @@ static void init_lily_main(lily_symtab *symtab)
             VAR_IS_READONLY);
 }
 
-/* init_classes
-   Symtab init, stage 2
-   This function initializes the classes of a symtab, as well as their
-   types. All classes are given a type so that types which don't
-   require extra call/internal element info (integer and number, for example),
-   can be shared. All a symbol needs to do is sym->type to get the common
-   type. */
-static void init_classes(lily_symtab *symtab)
-{
-    int i, class_count;
-
-    class_count = sizeof(class_seeds) / sizeof(class_seeds[0]);
-
-    for (i = 0;i < class_count;i++)
-        lily_new_class_by_seed(symtab, class_seeds[i]);
-
-    /* Classes are linked with the most recent being the first. Each of the
-       built-in classes created here has a *_class entry in symtab, except for
-       the generic class. */
-
-    /* This skips the generic and file classes, starting at the optarg class. */
-    lily_class *class_iter = symtab->class_chain->next->next;
-    symtab->optarg_class     = class_iter; class_iter = class_iter->next;
-    symtab->tuple_class      = class_iter; class_iter = class_iter->next;
-    symtab->hash_class       = class_iter; class_iter = class_iter->next;
-    symtab->list_class       = class_iter; class_iter = class_iter->next;
-    symtab->any_class        = class_iter; class_iter = class_iter->next;
-    symtab->function_class   = class_iter; class_iter = class_iter->next;
-    symtab->symbol_class     = class_iter; class_iter = class_iter->next;
-    symtab->bytestring_class = class_iter; class_iter = class_iter->next;
-    symtab->string_class     = class_iter; class_iter = class_iter->next;
-    symtab->double_class     = class_iter; class_iter = class_iter->next;
-    symtab->integer_class    = class_iter;
-
-    symtab->any_class->type->flags |= TYPE_MAYBE_CIRCULAR;
-    symtab->generic_class = symtab->class_chain;
-    symtab->generic_type_start = symtab->generic_class->type;
-
-    symtab->builtin_import->class_chain = symtab->class_chain;
-
-    symtab->next_class_id = i + 1;
-}
-
 /*  lily_new_symtab:
     Symtab init, stage 1
     This creates a new symtab, then calls the init stages in order.
@@ -542,7 +498,7 @@ lily_symtab *lily_new_symtab(lily_options *options,
     symtab->old_class_chain = NULL;
     symtab->foreign_symbols = NULL;
 
-    init_classes(symtab);
+    lily_init_builtin_package(symtab, builtin_import);
     init_lily_main(symtab);
 
     return symtab;
@@ -1334,22 +1290,22 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
             }
 
             if (cls->type->flags & TYPE_MAYBE_CIRCULAR)
-                cls->gc_marker = lily_gc_tuple_marker;
+                cls->gc_marker = symtab->tuple_class->gc_marker;
         }
         else
             /* Each instance of a generic class may/may not be circular depending
                on what it's given. */
-            cls->gc_marker = lily_gc_tuple_marker;
+            cls->gc_marker = symtab->tuple_class->gc_marker;
 
-        cls->destroy_func = lily_destroy_tuple;
+        cls->destroy_func = symtab->tuple_class->destroy_func;
         cls->eq_func = lily_instance_eq;
     }
     else {
         /* Enum classes have the same layout as 'any', and should thus use what
            'any' uses for things. */
-        cls->gc_marker = lily_gc_any_marker;
-        cls->eq_func = lily_any_eq;
-        cls->destroy_func = lily_destroy_any;
+        cls->gc_marker = symtab->any_class->gc_marker;
+        cls->eq_func = symtab->any_class->eq_func;
+        cls->destroy_func = symtab->any_class->destroy_func;
     }
 
     if (cls != symtab->old_class_chain) {
@@ -1484,16 +1440,16 @@ void lily_finish_variant_class(lily_symtab *symtab, lily_class *variant_class,
         variant_class->variant_type = type;
         /* Empty variants are represented as integers, and won't need to be
            marked through. */
-        variant_class->eq_func = lily_integer_eq;
+        variant_class->eq_func = symtab->integer_class->eq_func;
         variant_class->is_refcounted = 0;
     }
     else {
         variant_class->variant_type = variant_type;
         /* The only difference between a tuple and a variant with args is that
            the variant has a variant type instead of a tuple one. */
-        variant_class->gc_marker = lily_gc_tuple_marker;
-        variant_class->eq_func = lily_tuple_eq;
-        variant_class->destroy_func = lily_destroy_tuple;
+        variant_class->gc_marker = symtab->tuple_class->gc_marker;
+        variant_class->eq_func = symtab->tuple_class->eq_func;
+        variant_class->destroy_func = symtab->tuple_class->destroy_func;
     }
 }
 
@@ -1518,9 +1474,9 @@ void lily_finish_enum_class(lily_symtab *symtab, lily_class *enum_class,
     enum_class->variant_members = members;
     enum_class->variant_size = variant_count;
     enum_class->flags |= CLS_ENUM_CLASS;
-    enum_class->gc_marker = lily_gc_any_marker;
-    enum_class->eq_func = lily_any_eq;
-    enum_class->destroy_func = lily_destroy_any;
+    enum_class->gc_marker = symtab->any_class->gc_marker;
+    enum_class->eq_func = symtab->any_class->eq_func;
+    enum_class->destroy_func = symtab->any_class->destroy_func;
 
     if (is_scoped) {
         enum_class->flags |= CLS_ENUM_IS_SCOPED;
