@@ -1,7 +1,5 @@
 #include "lily_value.h"
-
-#define malloc_mem(size) mem_func(NULL, size)
-#define free_mem(ptr)    mem_func(ptr, 0)
+#include "lily_alloc.h"
 
 /*  lily_deref
     This function will check that the value is refcounted and that it is not
@@ -11,7 +9,7 @@
     whatever is inside of it.
 
     Note: This destroys the contents inside the value, NOT the value itself. */
-void lily_deref(lily_mem_func mem_func, lily_value *value)
+void lily_deref(lily_value *value)
 {
     lily_class *cls = value->type->cls;
 
@@ -20,26 +18,26 @@ void lily_deref(lily_mem_func mem_func, lily_value *value)
 
         value->value.generic->refcount--;
         if (value->value.generic->refcount == 0)
-            value->type->cls->destroy_func(mem_func, value);
+            value->type->cls->destroy_func(value);
     }
 }
 
 /*  lily_deref_raw
     This is a helper function for lily_deref. This function calls lily_deref
     with a proper value that has the given type and raw value inside. */
-void lily_deref_raw(lily_mem_func mem_func, lily_type *type, lily_raw_value raw)
+void lily_deref_raw(lily_type *type, lily_raw_value raw)
 {
     lily_value v;
     v.type = type;
     v.flags = 0;
     v.value = raw;
 
-    lily_deref(mem_func, &v);
+    lily_deref(&v);
 }
 
 /** Deref-ing calls **/
 
-void lily_destroy_hash(lily_mem_func mem_func, lily_value *v)
+void lily_destroy_hash(lily_value *v)
 {
     lily_hash_val *hv = v->value.hash;
 
@@ -51,22 +49,22 @@ void lily_destroy_hash(lily_mem_func mem_func, lily_value *v)
     while (elem) {
         lily_value *elem_value = elem->elem_value;
 
-        lily_deref(mem_func, elem_value);
+        lily_deref(elem_value);
 
         save_next = elem->next;
 
-        lily_deref(mem_func, elem->elem_key);
+        lily_deref(elem->elem_key);
 
-        free_mem(elem->elem_key);
-        free_mem(elem->elem_value);
-        free_mem(elem);
+        lily_free(elem->elem_key);
+        lily_free(elem->elem_value);
+        lily_free(elem);
         elem = save_next;
     }
 
-    free_mem(hv);
+    lily_free(hv);
 }
 
-void lily_destroy_list(lily_mem_func mem_func, lily_value *v)
+void lily_destroy_list(lily_value *v)
 {
     lily_type *type = v->type;
     lily_list_val *lv = v->value.list;
@@ -80,21 +78,21 @@ void lily_destroy_list(lily_mem_func mem_func, lily_value *v)
     int i;
     if (type->subtypes[0]->cls->is_refcounted) {
         for (i = 0;i < lv->num_values;i++) {
-            lily_deref(mem_func, lv->elems[i]);
+            lily_deref(lv->elems[i]);
 
-            free_mem(lv->elems[i]);
+            lily_free(lv->elems[i]);
         }
     }
     else {
         for (i = 0;i < lv->num_values;i++)
-            free_mem(lv->elems[i]);
+            lily_free(lv->elems[i]);
     }
 
-    free_mem(lv->elems);
-    free_mem(lv);
+    lily_free(lv->elems);
+    lily_free(lv);
 }
 
-void lily_destroy_tuple(lily_mem_func mem_func, lily_value *v)
+void lily_destroy_tuple(lily_value *v)
 {
     lily_list_val *tv = v->value.list;
 
@@ -108,48 +106,48 @@ void lily_destroy_tuple(lily_mem_func mem_func, lily_value *v)
     for (i = 0;i < tv->num_values;i++) {
         lily_value *elem_val = tv->elems[i];
 
-        lily_deref(mem_func, elem_val);
+        lily_deref(elem_val);
 
-        free_mem(elem_val);
+        lily_free(elem_val);
     }
 
-    free_mem(tv->elems);
-    free_mem(tv);
+    lily_free(tv->elems);
+    lily_free(tv);
 }
 
-void lily_destroy_instance(lily_mem_func mem_func, lily_value *v)
+void lily_destroy_instance(lily_value *v)
 {
     /* Instance values are essentially a tuple but with a class attribute
        tacked on at the end. So use that. */
-    lily_destroy_tuple(mem_func, v);
+    lily_destroy_tuple(v);
 }
 
-void lily_destroy_function(lily_mem_func mem_func, lily_value *v)
+void lily_destroy_function(lily_value *v)
 {
     lily_function_val *fv = v->value.function;
 
     if (fv->reg_info != NULL) {
         int i;
         for (i = 0;i < fv->reg_count;i++)
-            free_mem(fv->reg_info[i].name);
+            lily_free(fv->reg_info[i].name);
     }
 
-    free_mem(fv->reg_info);
-    free_mem(fv->code);
-    free_mem(fv);
+    lily_free(fv->reg_info);
+    lily_free(fv->code);
+    lily_free(fv);
 }
 
-void lily_destroy_string(lily_mem_func mem_func, lily_value *v)
+void lily_destroy_string(lily_value *v)
 {
     lily_string_val *sv = v->value.string;
 
     if (sv->string)
-        free_mem(sv->string);
+        lily_free(sv->string);
 
-    free_mem(sv);
+    lily_free(sv);
 }
 
-void lily_destroy_symbol(lily_mem_func mem_func, lily_value *v)
+void lily_destroy_symbol(lily_value *v)
 {
     lily_symbol_val *symv = v->value.symbol;
 
@@ -164,12 +162,12 @@ void lily_destroy_symbol(lily_mem_func mem_func, lily_value *v)
            prevent an invalid read when looking over symbols associated with
            entries. */
         symv->entry->symbol = NULL;
-        free_mem(symv->string);
-        free_mem(symv);
+        lily_free(symv->string);
+        lily_free(symv);
     }
 }
 
-void lily_destroy_any(lily_mem_func mem_func, lily_value *v)
+void lily_destroy_any(lily_value *v)
 {
     lily_any_val *av = v->value.any;
 
@@ -178,27 +176,27 @@ void lily_destroy_any(lily_mem_func mem_func, lily_value *v)
        that is about to be destroyed. */
     av->gc_entry->value.generic = NULL;
 
-    lily_deref(mem_func, av->inner_value);
+    lily_deref(av->inner_value);
 
-    free_mem(av->inner_value);
-    free_mem(av);
+    lily_free(av->inner_value);
+    lily_free(av);
 }
 
-void lily_destroy_file(lily_mem_func mem_func, lily_value *v)
+void lily_destroy_file(lily_value *v)
 {
     lily_file_val *filev = v->value.file;
 
     if (filev->is_open)
         fclose(filev->inner_file);
 
-    free_mem(filev);
+    lily_free(filev);
 }
 
 /** Value creation calls **/
 
-lily_list_val *lily_new_list_val(lily_mem_func mem_func)
+lily_list_val *lily_new_list_val()
 {
-    lily_list_val *lv = mem_func(NULL, sizeof(lily_list_val));
+    lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
     lv->refcount = 1;
     lv->gc_entry = NULL;
     lv->elems = NULL;
@@ -208,9 +206,9 @@ lily_list_val *lily_new_list_val(lily_mem_func mem_func)
     return lv;
 }
 
-lily_instance_val *lily_new_instance_val(lily_mem_func mem_func)
+lily_instance_val *lily_new_instance_val()
 {
-    lily_instance_val *ival = mem_func(NULL, sizeof(lily_instance_val));
+    lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
     ival->refcount = 1;
     ival->gc_entry = NULL;
     ival->values = NULL;
@@ -229,10 +227,10 @@ lily_instance_val *lily_new_instance_val(lily_mem_func mem_func)
     name:       The name of the function itself.
 
     Note: 'try' means this call returns NULL on failure. */
-lily_function_val *lily_new_foreign_function_val(lily_mem_func mem_func,
+lily_function_val *lily_new_foreign_function_val(
         lily_foreign_func func, char *class_name, char *name)
 {
-    lily_function_val *f = mem_func(NULL, sizeof(lily_function_val));
+    lily_function_val *f = lily_malloc(sizeof(lily_function_val));
 
     f->refcount = 1;
     f->class_name = class_name;
@@ -254,11 +252,11 @@ lily_function_val *lily_new_foreign_function_val(lily_mem_func mem_func,
     name:       The name of this function.
 
     Note: 'try' means this call returns NULL on failure. */
-lily_function_val *lily_new_native_function_val(lily_mem_func mem_func,
+lily_function_val *lily_new_native_function_val(
         char *class_name, char *name)
 {
-    lily_function_val *f = malloc_mem(sizeof(lily_function_val));
-    uint16_t *code = malloc_mem(8 * sizeof(uint16_t));
+    lily_function_val *f = lily_malloc(sizeof(lily_function_val));
+    uint16_t *code = lily_malloc(8 * sizeof(uint16_t));
 
     f->refcount = 1;
     f->class_name = class_name;
@@ -276,9 +274,9 @@ lily_function_val *lily_new_native_function_val(lily_mem_func mem_func,
 /* lily_new_hash_val
    This attempts to create a new hash value, for storing hash elements.
    Note: 'try' means this call returns NULL on failure. */
-lily_hash_val *lily_new_hash_val(lily_mem_func mem_func)
+lily_hash_val *lily_new_hash_val()
 {
-    lily_hash_val *h = malloc_mem(sizeof(lily_hash_val));
+    lily_hash_val *h = lily_malloc(sizeof(lily_hash_val));
 
     h->gc_entry = NULL;
     h->refcount = 1;
@@ -292,12 +290,12 @@ lily_hash_val *lily_new_hash_val(lily_mem_func mem_func)
    This attempts to create a new hash element for storing a key and a value.
    The caller is responsible for adding this element to a hash value.
    Note: 'try' means this call returns NULL on failure. */
-lily_hash_elem *lily_new_hash_elem(lily_mem_func mem_func)
+lily_hash_elem *lily_new_hash_elem()
 {
-    lily_hash_elem *elem = mem_func(NULL, sizeof(lily_hash_elem));
+    lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
 
-    elem->elem_key = malloc_mem(sizeof(lily_value));
-    elem->elem_value = malloc_mem(sizeof(lily_value));
+    elem->elem_key = lily_malloc(sizeof(lily_value));
+    elem->elem_value = lily_malloc(sizeof(lily_value));
 
     /* Hash lookup does not take into account or allow nil keys. So this should
        be set to a non-nil value as soon as possible. */
@@ -314,11 +312,11 @@ lily_hash_elem *lily_new_hash_elem(lily_mem_func mem_func)
 /* lily_new_any_val
    This tries to create a new "any" value.
    Note: 'try' means this call returns NULL on failure. */
-lily_any_val *lily_new_any_val(lily_mem_func mem_func)
+lily_any_val *lily_new_any_val()
 {
-    lily_any_val *a = malloc_mem(sizeof(lily_any_val));
+    lily_any_val *a = lily_malloc(sizeof(lily_any_val));
 
-    a->inner_value = malloc_mem(sizeof(lily_value));
+    a->inner_value = lily_malloc(sizeof(lily_value));
     a->inner_value->flags = VAL_IS_NIL;
     a->inner_value->type = NULL;
     a->inner_value->value.integer = 0;
@@ -328,10 +326,10 @@ lily_any_val *lily_new_any_val(lily_mem_func mem_func)
     return a;
 }
 
-lily_file_val *lily_new_file_val(lily_mem_func mem_func, FILE *inner_file,
+lily_file_val *lily_new_file_val(FILE *inner_file,
         char mode_ch)
 {
-    lily_file_val *filev = malloc_mem(sizeof(lily_file_val));
+    lily_file_val *filev = lily_malloc(sizeof(lily_file_val));
 
     filev->refcount = 1;
     filev->inner_file = inner_file;

@@ -184,7 +184,6 @@ typedef struct {
        expression. Therefore, they can't re-use trees and such. */
     lily_ast_freeze_entry *freeze_chain;
 
-    lily_mem_func mem_func;
     lily_raiser *raiser;
     uint32_t *lex_linenum;
 } lily_ast_pool;

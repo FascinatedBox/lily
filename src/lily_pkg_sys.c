@@ -1,9 +1,7 @@
 #include <string.h>
 
+#include "lily_alloc.h"
 #include "lily_parser.h"
-
-#define malloc_mem(size)             parser->mem_func(NULL, size)
-#define free_mem(ptr)          (void)parser->mem_func(ptr, 0)
 
 void lily_pkg_sys_init(lily_parse_state *parser, int argc, char **argv)
 {
@@ -15,8 +13,8 @@ void lily_pkg_sys_init(lily_parse_state *parser, int argc, char **argv)
     lily_type *string_type = list_string_type->subtypes[0];
     lily_var *bound_var = lily_new_var(symtab, list_string_type, "argv", 0);
 
-    lily_list_val *lv = malloc_mem(sizeof(lily_list_val));
-    lily_value **values = malloc_mem(argc * sizeof(lily_value));
+    lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
+    lily_value **values = lily_malloc(argc * sizeof(lily_value));
 
     lv->gc_entry = NULL;
     lv->elems = values;
@@ -27,14 +25,14 @@ void lily_pkg_sys_init(lily_parse_state *parser, int argc, char **argv)
 
     int i;
     for (i = 0;i < argc;i++) {
-        values[i] = malloc_mem(sizeof(lily_value));
+        values[i] = lily_malloc(sizeof(lily_value));
         values[i]->type = string_type;
         values[i]->flags = VAL_IS_NIL;
     }
 
     for (i = 0;i < argc;i++) {
-        lily_string_val *sv = malloc_mem(sizeof(lily_string_val));
-        char *raw_string = malloc_mem(strlen(argv[i]) + 1);
+        lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
+        char *raw_string = lily_malloc(strlen(argv[i]) + 1);
 
         strcpy(raw_string, argv[i]);
         sv->size = strlen(argv[i]);

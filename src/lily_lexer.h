@@ -132,7 +132,6 @@ typedef struct lily_lex_state_ {
     lily_tie *last_literal;
     lily_symtab *symtab;
     lily_membuf *membuf;
-    lily_mem_func mem_func;
     lily_raiser *raiser;
     void *data;
 } lily_lex_state;

@@ -2,11 +2,9 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "lily_alloc.h"
 #include "lily_vm.h"
 #include "lily_value.h"
-
-#define malloc_mem(size)             vm->mem_func(NULL, size)
-#define free_mem(ptr)          (void)vm->mem_func(ptr, 0)
 
 /*  lily_integer_to_s
     Implements integer::to_s() */
@@ -20,8 +18,8 @@ void lily_integer_to_s(lily_vm_state *vm, lily_function_val *self,
     char buffer[32];
     snprintf(buffer, 32, "%"PRId64, integer_val);
 
-    lily_string_val *new_sv = malloc_mem(sizeof(lily_string_val));
-    char *text = malloc_mem(strlen(buffer) + 1);
+    lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
+    char *text = lily_malloc(strlen(buffer) + 1);
 
     strcpy(text, buffer);
     new_sv->string = text;

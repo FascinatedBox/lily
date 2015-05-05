@@ -1,5 +1,6 @@
 #include <stdio.h>
 
+#include "lily_alloc.h"
 #include "lily_type_system.h"
 
 
@@ -7,18 +8,12 @@
 if (new_size >= ts->max) \
     grow_types(ts);
 
-#define malloc_mem(size)             ts->mem_func(NULL, size)
-#define realloc_mem(ptr, size)       ts->mem_func(ptr, size)
-#define free_mem(ptr)          (void)ts->mem_func(ptr, 0)
 
 lily_type_system *lily_new_type_system(lily_options *options,
         lily_symtab *symtab, lily_raiser *raiser)
 {
-    lily_type_system *ts = options->mem_func(NULL,
-            sizeof(lily_type_system));
-    ts->mem_func = options->mem_func;
-
-    lily_type **types = malloc_mem(4 * sizeof(lily_type *));
+    lily_type_system *ts = lily_malloc(sizeof(lily_type_system));
+    lily_type **types = lily_malloc(4 * sizeof(lily_type *));
 
     ts->raiser = raiser;
     ts->symtab = symtab;
@@ -33,15 +28,15 @@ lily_type_system *lily_new_type_system(lily_options *options,
 void lily_free_type_stack(lily_type_system *ts)
 {
     if (ts)
-        free_mem(ts->types);
+        lily_free(ts->types);
 
-    free_mem(ts);
+    lily_free(ts);
 }
 
 static void grow_types(lily_type_system *ts)
 {
     ts->max *= 2;
-    ts->types = realloc_mem(ts->types,
+    ts->types = lily_realloc(ts->types,
             sizeof(lily_type *) * ts->max);;
 }
 

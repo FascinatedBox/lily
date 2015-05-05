@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "lily_alloc.h"
 #include "lily_parser.h"
 
 /*  lily_main.c
@@ -162,6 +163,6 @@ int main(int argc, char **argv)
     }
 
     lily_free_parse_state(parser);
-    lily_free_options(options);
+    lily_free(options);
     exit(EXIT_SUCCESS);
 }
