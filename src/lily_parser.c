@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "lily_alloc.h"
 #include "lily_config.h"
 #include "lily_parser.h"
 #include "lily_parser_tok_table.h"
@@ -73,9 +74,6 @@ static char *exception_bootstrap =
 "class FormatError         (message: string) < Exception(message) {}\n"
 "class IOError             (message: string) < Exception(message) {}\n";
 
-#define malloc_mem(size)             (*parser->mem_func)(NULL, size)
-#define realloc_mem(ptr, size)       (*parser->mem_func)(ptr, size)
-#define free_mem(ptr)          (void)(*parser->mem_func)(ptr, 0)
 
 static lily_var *parse_prototype(lily_parse_state *, lily_class *,
         lily_foreign_func);
@@ -93,8 +91,8 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *, char *,
 static lily_path_link *add_path_slice_to(lily_parse_state *parser,
         lily_path_link *initial, const char *path_str, unsigned int length)
 {
-    lily_path_link *new_link = malloc_mem(sizeof(lily_path_link));
-    char *buffer = malloc_mem(length + 1);
+    lily_path_link *new_link = lily_malloc(sizeof(lily_path_link));
+    char *buffer = lily_malloc(length + 1);
     strncpy(buffer, path_str, length);
     buffer[length] = '\0';
 
@@ -145,37 +143,13 @@ static void do_bootstrap(lily_parse_state *parser)
     } while (parser->lex->entry != first_entry);
 }
 
-void *default_mem_func(void *ptr, size_t size)
-{
-    void *ret;
-    if (size == 0) {
-        free(ptr);
-        ret = NULL;
-    }
-    else {
-        ret = realloc(ptr, size);
-        if (ret == NULL)
-            abort();
-    }
-
-    return ret;
-}
-
-void lily_free_options(lily_options *options)
-{
-    if (options)
-        options->mem_func(options, 0);
-}
-
 /* This function creates a new options type with the interpreter's
-   default values set.
-   This should be destroyed using lily_free_options. */
+   default values set. */
 lily_options *lily_new_default_options(void)
 {
-    lily_options *options = default_mem_func(NULL, sizeof(lily_options));
+    lily_options *options = lily_malloc(sizeof(lily_options));
     options->version = 1;
     options->gc_threshold = 100; /* Totally arbitrary. */
-    options->mem_func = default_mem_func;
     options->data = NULL;
 
     return options;
@@ -184,10 +158,8 @@ lily_options *lily_new_default_options(void)
 lily_parse_state *lily_new_parse_state(lily_options *options, int argc,
         char **argv)
 {
-    lily_parse_state *parser = options->mem_func(NULL,
-            sizeof(lily_parse_state));
+    lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
     parser->data = options->data;
-    parser->mem_func = options->mem_func;
     parser->import_top = NULL;
     parser->import_start = NULL;
 
@@ -203,8 +175,8 @@ lily_parse_state *lily_new_parse_state(lily_options *options, int argc,
     parser->next_lambda_id = 0;
     parser->first_pass = 1;
     parser->raiser = raiser;
-    parser->optarg_stack = malloc_mem(4 * sizeof(uint16_t));
-    parser->type_stack = malloc_mem(4 * sizeof(lily_type *));
+    parser->optarg_stack = lily_malloc(4 * sizeof(uint16_t));
+    parser->type_stack = lily_malloc(4 * sizeof(lily_type *));
     parser->ast_pool = lily_new_ast_pool(options, raiser, 8);
     parser->symtab = lily_new_symtab(options, builtin_import, raiser);
     parser->emit = lily_new_emit_state(options, parser->symtab, raiser);
@@ -270,12 +242,12 @@ void lily_free_parse_state(lily_parse_state *parser)
     lily_path_link *path_next;
     while (path_iter) {
         path_next = path_iter->next;
-        free_mem(path_iter->path);
-        free_mem(path_iter);
+        lily_free(path_iter->path);
+        lily_free(path_iter);
         path_iter = path_next;
     }
 
-    free_mem(parser->optarg_stack);
+    lily_free(parser->optarg_stack);
 
     lily_import_entry *import_iter = parser->import_start;
     lily_import_entry *import_next = NULL;
@@ -285,18 +257,18 @@ void lily_free_parse_state(lily_parse_state *parser)
         lily_import_link *link_next = NULL;
         while (link_iter) {
             link_next = link_iter->next_import;
-            free_mem(link_iter);
+            lily_free(link_iter);
             link_iter = link_next;
         }
-        free_mem(import_iter->loadname);
-        free_mem(import_iter);
+        lily_free(import_iter->loadname);
+        lily_free(import_iter);
 
         import_iter = import_next;
     }
 
     lily_membuf_free(parser->membuf);
-    free_mem(parser->type_stack);
-    free_mem(parser);
+    lily_free(parser->type_stack);
+    lily_free(parser);
 }
 
 /*****************************************************************************/
@@ -306,7 +278,7 @@ void lily_free_parse_state(lily_parse_state *parser)
 static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
         char *loadname, char *path)
 {
-    lily_import_entry *new_entry = malloc_mem(sizeof(lily_import_entry));
+    lily_import_entry *new_entry = lily_malloc(sizeof(lily_import_entry));
     if (parser->import_top) {
         parser->import_top->root_next = new_entry;
         parser->import_top = new_entry;
@@ -317,7 +289,7 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
     }
 
     if (path[0] != '\0') {
-        new_entry->loadname = malloc_mem(strlen(path) + 1);
+        new_entry->loadname = lily_malloc(strlen(path) + 1);
         strcpy(new_entry->loadname, loadname);
     }
     else
@@ -480,7 +452,7 @@ static void bad_decl_token(lily_parse_state *parser)
 static void grow_type_stack(lily_parse_state *parser)
 {
     parser->type_stack_size *= 2;
-    parser->type_stack = realloc_mem(parser->type_stack,
+    parser->type_stack = lily_realloc(parser->type_stack,
             sizeof(lily_type *) * parser->type_stack_size);
 }
 
@@ -489,7 +461,7 @@ static void grow_type_stack(lily_parse_state *parser)
 static void grow_optarg_stack(lily_parse_state *parser)
 {
     parser->optarg_stack_size *= 2;
-    parser->optarg_stack = realloc_mem(parser->optarg_stack,
+    parser->optarg_stack = lily_realloc(parser->optarg_stack,
             sizeof(uint16_t) * parser->optarg_stack_size);
 }
 
@@ -996,7 +968,7 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
     lily_var *call_var = lily_new_var(symtab, call_type, lex->label,
             VAR_IS_READONLY);
     lily_function_val *fval = lily_new_foreign_function_val(
-            parser->mem_func, foreign_func, class_name, call_var->name);
+            foreign_func, class_name, call_var->name);
 
     call_var->parent = cls;
     lily_tie_builtin(symtab, call_var, fval);

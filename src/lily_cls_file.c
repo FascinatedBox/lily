@@ -2,11 +2,9 @@
 #include <string.h>
 #include <errno.h>
 
+#include "lily_alloc.h"
 #include "lily_vm.h"
 #include "lily_value.h"
-
-#define malloc_mem(size)       vm->mem_func(NULL, size)
-#define realloc_mem(ptr, size) vm->mem_func(ptr, size)
 
 static void write_check(lily_vm_state *vm, lily_file_val *filev)
 {
@@ -47,7 +45,7 @@ void lily_file_open(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
                 errno, errno, path);
     }
 
-    lily_file_val *filev = lily_new_file_val(vm->mem_func, f, mode_ch);
+    lily_file_val *filev = lily_new_file_val(f, mode_ch);
     lily_raw_value v = {.file = filev};
 
     filev->inner_file = f;
@@ -128,8 +126,8 @@ void lily_file_readline(lily_vm_state *vm, lily_function_val *self,
         pos++;
     }
 
-    lily_string_val *new_sv = malloc_mem(sizeof(lily_string_val));
-    char *sv_buffer = malloc_mem(pos + 1);
+    lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
+    char *sv_buffer = lily_malloc(pos + 1);
 
     /* Use memcpy, in case there are embedded \0 values somewhere. */
     memcpy(sv_buffer, buffer, pos + 1);
@@ -158,7 +156,7 @@ int lily_file_setup(lily_symtab *symtab, lily_class *file_cls)
 {
     {
         lily_var *stdout_var = lily_new_var(symtab, file_cls->type, "stdout", 0);
-        lily_file_val *filev = lily_new_file_val(symtab->mem_func, stdout, 'w');
+        lily_file_val *filev = lily_new_file_val(stdout, 'w');
         lily_value v;
         v.type = file_cls->type;
         v.flags = 0;
@@ -168,7 +166,7 @@ int lily_file_setup(lily_symtab *symtab, lily_class *file_cls)
 
     {
         lily_var *stderr_var = lily_new_var(symtab, file_cls->type, "stderr", 0);
-        lily_file_val *filev = lily_new_file_val(symtab->mem_func, stderr, 'w');
+        lily_file_val *filev = lily_new_file_val(stderr, 'w');
         lily_value v;
         v.type = file_cls->type;
         v.flags = 0;

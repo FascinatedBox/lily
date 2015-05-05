@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
+#include "lily_alloc.h"
 #include "lily_impl.h"
 #include "lily_value.h"
 #include "lily_opcode.h"
@@ -107,9 +108,6 @@ else if (lhs_reg->type->cls->id == SYM_CLASS_STRING) { \
 vm_regs[code[code_pos+4]]->flags &= ~VAL_IS_NIL; \
 code_pos += 5;
 
-#define malloc_mem(size)             vm->mem_func(NULL, size)
-#define realloc_mem(ptr, size)       vm->mem_func(ptr, size)
-#define free_mem(ptr)          (void)vm->mem_func(ptr, 0)
 
 /*****************************************************************************/
 /* VM setup and teardown                                                     */
@@ -117,20 +115,19 @@ code_pos += 5;
 lily_vm_state *lily_new_vm_state(lily_options *options,
         lily_raiser *raiser)
 {
-    lily_vm_state *vm = options->mem_func(NULL, sizeof(lily_vm_state));
-    vm->mem_func = options->mem_func;
+    lily_vm_state *vm = lily_malloc(sizeof(lily_vm_state));
     vm->data = options->data;
     vm->gc_threshold = options->gc_threshold;
 
     /* todo: This is a terrible, horrible key to use. Make a better one using
              some randomness or...something. Just not this. */
     char sipkey[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf};
-    char *string_data = malloc_mem(64);
-    lily_vm_catch_entry *catch_entry = malloc_mem(sizeof(lily_vm_catch_entry));
+    char *string_data = lily_malloc(64);
+    lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(lily_vm_catch_entry));
 
-    vm->function_stack = malloc_mem(sizeof(lily_vm_stack_entry *) * 4);
-    vm->sipkey = malloc_mem(16);
-    vm->foreign_code = malloc_mem(sizeof(uint16_t));
+    vm->function_stack = lily_malloc(sizeof(lily_vm_stack_entry *) * 4);
+    vm->sipkey = lily_malloc(16);
+    vm->foreign_code = lily_malloc(sizeof(uint16_t));
     vm->function_stack_pos = 0;
     vm->raiser = raiser;
     vm->vm_regs = NULL;
@@ -151,7 +148,7 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     if (vm->function_stack) {
         int i;
         for (i = 0;i < 4;i++) {
-            vm->function_stack[i] = malloc_mem(sizeof(lily_vm_stack_entry));
+            vm->function_stack[i] = lily_malloc(sizeof(lily_vm_stack_entry));
             vm->function_stack[i]->build_value = NULL;
         }
         vm->function_stack_size = i;
@@ -191,7 +188,7 @@ void lily_free_vm(lily_vm_state *vm)
         lily_vm_catch_entry *catch_next;
         while (catch_iter) {
             catch_next = catch_iter->next;
-            free_mem(catch_iter);
+            lily_free(catch_iter);
             catch_iter = catch_next;
         }
     }
@@ -199,9 +196,9 @@ void lily_free_vm(lily_vm_state *vm)
     for (i = vm->max_registers-1;i >= 0;i--) {
         reg = regs_from_main[i];
 
-        lily_deref(vm->mem_func, reg);
+        lily_deref(reg);
 
-        free_mem(reg);
+        lily_free(reg);
     }
 
     /* This keeps the final gc invoke from touching the now-deleted registers.
@@ -209,20 +206,20 @@ void lily_free_vm(lily_vm_state *vm)
     vm->num_registers = 0;
     vm->max_registers = 0;
 
-    free_mem(regs_from_main);
+    lily_free(regs_from_main);
 
     for (i = 0;i < vm->function_stack_size;i++)
-        free_mem(vm->function_stack[i]);
+        lily_free(vm->function_stack[i]);
 
     /* vm->num_registers is now 0, so this will sweep everything. */
     invoke_gc(vm);
     destroy_gc_entries(vm);
 
-    free_mem(vm->readonly_table);
-    free_mem(vm->foreign_code);
-    free_mem(vm->sipkey);
-    free_mem(vm->function_stack);
-    free_mem(vm);
+    lily_free(vm->readonly_table);
+    lily_free(vm->foreign_code);
+    lily_free(vm->sipkey);
+    lily_free(vm->function_stack);
+    lily_free(vm);
 }
 
 /******************************************************************************/
@@ -289,7 +286,7 @@ static void invoke_gc(lily_vm_state *vm)
          gc_iter = gc_iter->next) {
         if (gc_iter->last_pass != pass &&
             gc_iter->value.generic != NULL) {
-            lily_gc_collect_value(vm->mem_func, gc_iter->value_type,
+            lily_gc_collect_value(gc_iter->value_type,
                     gc_iter->value);
         }
     }
@@ -327,7 +324,7 @@ static void invoke_gc(lily_vm_state *vm)
         i++;
 
         if (gc_iter->last_pass == -1) {
-            free_mem(gc_iter->value.generic);
+            lily_free(gc_iter->value.generic);
 
             gc_iter->next = new_spare_entries;
             new_spare_entries = gc_iter;
@@ -356,7 +353,7 @@ static void destroy_gc_entries(lily_vm_state *vm)
     while (gc_iter != NULL) {
         gc_temp = gc_iter->next;
 
-        free_mem(gc_iter);
+        lily_free(gc_iter);
 
         gc_iter = gc_temp;
     }
@@ -365,7 +362,7 @@ static void destroy_gc_entries(lily_vm_state *vm)
     while (gc_iter != NULL) {
         gc_temp = gc_iter->next;
 
-        free_mem(gc_iter);
+        lily_free(gc_iter);
 
         gc_iter = gc_temp;
     }
@@ -406,7 +403,7 @@ static int try_add_gc_item(lily_vm_state *vm, lily_type *value_type,
         vm->gc_spare_entries = vm->gc_spare_entries->next;
     }
     else {
-        new_entry = malloc_mem(sizeof(lily_gc_entry));
+        new_entry = lily_malloc(sizeof(lily_gc_entry));
     }
 
     new_entry->value_type = value_type;
@@ -479,7 +476,7 @@ static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
     lily_value *lhs_inner;
 
     if (lhs_reg->flags & VAL_IS_NIL) {
-        lhs_any = lily_new_any_val(vm->mem_func);
+        lhs_any = lily_new_any_val();
         try_add_gc_item(vm, lhs_reg->type, (lily_generic_gc_val *)lhs_any);
 
         lhs_reg->value.any = lhs_any;
@@ -487,7 +484,7 @@ static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
     }
     else {
         lhs_any = lhs_reg->value.any;
-        lily_deref(vm->mem_func, lhs_any->inner_value);
+        lily_deref(lhs_any->inner_value);
     }
 
     lhs_inner = lhs_any->inner_value;
@@ -503,12 +500,12 @@ static void grow_function_stack(lily_vm_state *vm)
 {
     int i;
 
-    vm->function_stack = realloc_mem(vm->function_stack,
+    vm->function_stack = lily_realloc(vm->function_stack,
             sizeof(lily_vm_stack_entry *) * 2 * vm->function_stack_size);
     vm->function_stack_size *= 2;
 
     for (i = vm->function_stack_pos+1;i < vm->function_stack_size;i++) {
-        vm->function_stack[i] = malloc_mem(sizeof(lily_vm_stack_entry));
+        vm->function_stack[i] = lily_malloc(sizeof(lily_vm_stack_entry));
         vm->function_stack[i]->build_value = NULL;
     }
 }
@@ -517,7 +514,7 @@ static void grow_function_stack(lily_vm_state *vm)
     The vm wants to register a new 'try' block. Give it the space needed. */
 static void add_catch_entry(lily_vm_state *vm)
 {
-    lily_vm_catch_entry *new_entry = malloc_mem(sizeof(lily_vm_catch_entry));
+    lily_vm_catch_entry *new_entry = lily_malloc(sizeof(lily_vm_catch_entry));
 
     vm->catch_chain->next = new_entry;
     new_entry->next = NULL;
@@ -542,7 +539,7 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
     ptrdiff_t reg_offset = vm->vm_regs - vm->regs_from_main;
 
     /* Remember, use regs_from_main, NOT vm_regs, which is likely adjusted. */
-    new_regs = realloc_mem(vm->regs_from_main, register_need *
+    new_regs = lily_realloc(vm->regs_from_main, register_need *
             sizeof(lily_value));
 
     /* Realloc can move the pointer, so always recalculate vm_regs again using
@@ -554,7 +551,7 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
        nothing has to check for a NULL type. Integer is used as the default
        because it is not ref'd. */
     for (;i < register_need;i++) {
-        new_regs[i] = malloc_mem(sizeof(lily_value));
+        new_regs[i] = lily_malloc(sizeof(lily_value));
         new_regs[i]->type = integer_type;
         new_regs[i]->flags = VAL_IS_NIL;
     }
@@ -614,7 +611,7 @@ static void resolve_generic_registers(lily_vm_state *vm,
 
         lily_value *reg = regs_from_main[reg_start + i];
 
-        lily_deref(vm->mem_func, reg);
+        lily_deref(reg);
 
         reg->flags = VAL_IS_NIL;
         reg->type = new_type;
@@ -652,7 +649,7 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
             ((get_reg->flags & VAL_IS_NIL_OR_PROTECTED) == 0))
             get_reg->value.generic->refcount++;
 
-        lily_deref(vm->mem_func, set_reg);
+        lily_deref(set_reg);
 
         /* Important! Registers seeds may reference generics, but incoming
            values have known types. */
@@ -674,7 +671,7 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
             lily_register_info seed = register_seeds[i];
 
             lily_value *reg = regs_from_main[num_registers];
-            lily_deref(vm->mem_func, reg);
+            lily_deref(reg);
 
             /* SET the flags to nil so that VAL_IS_PROTECTED gets blasted away if
                it happens to be set. */
@@ -715,7 +712,7 @@ static void setup_readonly_table(lily_vm_state *vm)
         return;
 
     int count = symtab->next_readonly_spot;
-    lily_tie **new_table = realloc_mem(vm->readonly_table,
+    lily_tie **new_table = lily_realloc(vm->readonly_table,
             count * sizeof(lily_tie *));
 
     int load_stop = vm->readonly_count;
@@ -754,7 +751,7 @@ static void load_foreign_ties(lily_vm_state *vm)
         reg_value->flags = 0;
 
         tie_next = tie_iter->next;
-        free_mem(tie_iter);
+        lily_free(tie_iter);
         tie_iter = tie_next;
     }
 
@@ -779,7 +776,7 @@ static lily_value *bind_function_name(lily_vm_state *vm, lily_symtab *symtab,
     int buffer_size = strlen(class_name) + strlen(separator) +
             strlen(fval->trace_name);
 
-    char *buffer = malloc_mem(buffer_size + 1);
+    char *buffer = lily_malloc(buffer_size + 1);
 
     strcpy(buffer, class_name);
     strcat(buffer, separator);
@@ -802,9 +799,9 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm,
         lily_type *traceback_type)
 {
     lily_symtab *symtab = vm->symtab;
-    lily_list_val *lv = malloc_mem(sizeof(lily_list_val));
+    lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
 
-    lv->elems = malloc_mem(vm->function_stack_pos * sizeof(lily_value *));
+    lv->elems = lily_malloc(vm->function_stack_pos * sizeof(lily_value *));
     lv->num_values = -1;
     lv->visited = 0;
     lv->refcount = 1;
@@ -813,9 +810,9 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm,
     int i;
     for (i = 0;i < vm->function_stack_pos;i++) {
         lily_vm_stack_entry *stack_entry = vm->function_stack[i];
-        lily_value *tuple_holder = malloc_mem(sizeof(lily_value));
-        lily_list_val *stack_tuple = malloc_mem(sizeof(lily_list_val));
-        lily_value **tuple_values = malloc_mem(3 * sizeof(lily_value *));
+        lily_value *tuple_holder = lily_malloc(sizeof(lily_value));
+        lily_list_val *stack_tuple = lily_malloc(sizeof(lily_list_val));
+        lily_value **tuple_values = lily_malloc(3 * sizeof(lily_value *));
 
         lily_value *path = lily_bind_string(symtab,
                 stack_entry->function->path);
@@ -851,7 +848,7 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm,
 static lily_value *build_traceback(lily_vm_state *vm, lily_type *traceback_type)
 {
     lily_list_val *lv = build_traceback_raw(vm, traceback_type);
-    lily_value *v = malloc_mem(sizeof(lily_value));
+    lily_value *v = lily_malloc(sizeof(lily_value));
 
     v->value.list = lv;
     v->type = traceback_type;
@@ -1080,7 +1077,7 @@ static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
     elem = lily_lookup_hash_elem(hash, key_siphash, hash_key);
 
     if (elem == NULL) {
-        elem = lily_new_hash_elem(vm->mem_func);
+        elem = lily_new_hash_elem();
         if (elem != NULL) {
             /* It's important to copy over the flags, in case the key is a
                literal and marked VAL_IS_PROTECTED. Doing so keeps hash deref
@@ -1241,13 +1238,13 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code, int code_pos)
     num_values = (intptr_t)(code[code_pos + 2]);
     result = vm_regs[code[code_pos + 3 + num_values]];
 
-    lily_hash_val *hash_val = lily_new_hash_val(vm->mem_func);
+    lily_hash_val *hash_val = lily_new_hash_val();
 
     if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
         try_add_gc_item(vm, result->type,
             (lily_generic_gc_val *)hash_val);
 
-    lily_deref(vm->mem_func, result);
+    lily_deref(result);
 
     result->value.hash = hash_val;
     result->flags = 0;
@@ -1282,21 +1279,21 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     int num_elems = (intptr_t)(code[2]);
     lily_value *result = vm_regs[code[3+num_elems]];
 
-    lily_list_val *lv = malloc_mem(sizeof(lily_list_val));
+    lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
 
     /* This is set in case the gc looks at this list. This prevents the gc and
        deref calls from touching ->values and ->flags. */
     lv->num_values = -1;
     lv->visited = 0;
     lv->refcount = 1;
-    lv->elems = malloc_mem(num_elems * sizeof(lily_value *));
+    lv->elems = lily_malloc(num_elems * sizeof(lily_value *));
     lv->gc_entry = NULL;
 
     if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
         try_add_gc_item(vm, result->type, (lily_generic_gc_val *)lv);
 
     /* The old value can be destroyed, now that the new value has been made. */
-    lily_deref(vm->mem_func, result);
+    lily_deref(result);
 
     /* Put the new list in the register so the gc doesn't try to collect it. */
     result->value.list = lv;
@@ -1307,7 +1304,7 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     for (i = 0;i < num_elems;i++) {
         lily_value *rhs_reg = vm_regs[code[3+i]];
 
-        lv->elems[i] = malloc_mem(sizeof(lily_value));
+        lv->elems[i] = lily_malloc(sizeof(lily_value));
         lv->elems[i]->flags = VAL_IS_NIL;
         /* For lists, the emitter verifies that each input has the same type.
            For tuples, there is no such restriction. This allows one opcode to
@@ -1402,8 +1399,8 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         return;
     }
 
-    lily_instance_val *iv = malloc_mem(sizeof(lily_instance_val));
-    lily_value **iv_values = malloc_mem(total_entries * sizeof(lily_value *));
+    lily_instance_val *iv = lily_malloc(sizeof(lily_instance_val));
+    lily_value **iv_values = lily_malloc(total_entries * sizeof(lily_value *));
 
     iv->num_values = -1;
     iv->refcount = 1;
@@ -1415,7 +1412,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
         try_add_gc_item(vm, result->type, (lily_generic_gc_val *)iv);
 
-    lily_deref(vm->mem_func, result);
+    lily_deref(result);
 
     result->value.instance = iv;
     result->flags = 0;
@@ -1434,7 +1431,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         }
 
         lily_type *value_type = prop->type;
-        iv->values[i] = malloc_mem(sizeof(lily_value));
+        iv->values[i] = lily_malloc(sizeof(lily_value));
         iv->values[i]->flags = VAL_IS_NIL;
         if (value_type->flags & TYPE_IS_UNRESOLVED)
             value_type = lily_ts_resolve_by_second(vm->ts, result->type,
@@ -1462,9 +1459,9 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 static void make_proper_exception_val(lily_vm_state *vm,
         lily_class *raised_class, lily_value *result)
 {
-    lily_instance_val *ival = malloc_mem(sizeof(lily_instance_val));
+    lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
 
-    ival->values = malloc_mem(2 * sizeof(lily_value *));
+    ival->values = lily_malloc(2 * sizeof(lily_value *));
     ival->num_values = -1;
     ival->visited = 0;
     ival->refcount = 1;
@@ -1715,7 +1712,7 @@ static void seed_registers(lily_vm_state *vm, lily_function_val *f, int start)
     for (i = 0;start < max;start++,i++) {
         lily_value *reg = vm->regs_from_main[start];
 
-        lily_deref(vm->mem_func, reg);
+        lily_deref(reg);
 
         reg->type = info[i].type;
         reg->value.integer = 0;
@@ -1832,7 +1829,7 @@ void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
             if ((right->flags & VAL_IS_NIL_OR_PROTECTED) == 0)
                 right->value.generic->refcount++;
 
-            lily_deref(vm->mem_func, left);
+            lily_deref(left);
         }
 
         left->value = right->value;
@@ -1862,7 +1859,7 @@ void lily_move_raw_value(lily_vm_state *vm, lily_value *left,
         int flags, lily_raw_value raw_right)
 {
     lily_class *cls = left->type->cls;
-    lily_deref(vm->mem_func, left);
+    lily_deref(left);
 
     left->value = raw_right;
     left->flags = flags;
@@ -1917,7 +1914,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
         /* Note: num_registers can never be zero for a second pass, because the
            first pass will have at least __main__ and the sys package even if
            there's no code to run. */
-        vm_regs = realloc_mem(vm->regs_from_main,
+        vm_regs = lily_realloc(vm->regs_from_main,
                 main_function->reg_count * sizeof(lily_value *));
         vm->vm_regs = vm_regs;
     }
@@ -1928,7 +1925,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
        loop to just worry about initializing the registers. */
     if (main_function->reg_count > vm->num_registers) {
         for (i = vm->max_registers;i < main_function->reg_count;i++) {
-            lily_value *reg = malloc_mem(sizeof(lily_value));
+            lily_value *reg = lily_malloc(sizeof(lily_value));
             vm_regs[i] = reg;
         }
     }
@@ -2053,7 +2050,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 readonly_val = vm->readonly_table[code[code_pos+2]];
                 lhs_reg = vm_regs[code[code_pos+3]];
 
-                lily_deref(vm->mem_func, lhs_reg);
+                lily_deref(lhs_reg);
 
                 lhs_reg->value = readonly_val->value;
                 lhs_reg->flags = VAL_IS_PROTECTED;

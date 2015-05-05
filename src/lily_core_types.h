@@ -19,12 +19,6 @@ struct lily_func_seed_;
 struct lily_function_val_;
 struct lily_symtab_;
 
-/* This is the signature of the function that the interpreter will call to
-   get, resize, and free memory. A custom allocator function can be passed
-   when creating a new parser instance.
-   The interpreter assumes that this function will call abort() for a no
-   memory situation, and acts accordingly. */
-typedef void *(*lily_mem_func)(void *, size_t);
 /* gc_marker_func is a function called to mark all values within a given value.
    The is used by the gc to mark values as being visited. Values not visited
    will be collected. */
@@ -45,8 +39,7 @@ typedef int (*class_eq_func)(struct lily_vm_state_ *, int *,
 /* This function is called when a value tagged as refcounted drops to 0 refs.
    This handles a value of a given class (regardless of type) and frees what is
    inside. */
-typedef void (*class_destroy_func)(lily_mem_func,
-        struct lily_value_ *);
+typedef void (*class_destroy_func)(struct lily_value_ *);
 
 /* lily_raw_value is a union of all possible values, plus a bit more. This is
    not common, because lily_value (which has flags and a type) is typically
@@ -493,7 +486,6 @@ typedef struct lily_options_ {
     uint32_t gc_threshold;
     /* The function to use for allocating memory in Lily. If this is
        NULL, then Lily will use a realloc that aborts on failure. */
-    lily_mem_func mem_func;
     /* Lily will call lily_impl_puts with this as the data part. This
        can be NULL if it's not needed.
        This is used by mod_lily to hold Apache's request_rec. */

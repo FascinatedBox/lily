@@ -1,7 +1,6 @@
+#include "lily_alloc.h"
 #include "lily_vm.h"
 #include "lily_value.h"
-
-#define malloc_mem(size) vm->mem_func(NULL, size)
 
 void lily_hash_get(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
 {
@@ -36,11 +35,11 @@ void lily_hash_keys(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
 
     int num_elems = hash_val->num_elems;
 
-    lily_list_val *result_lv = malloc_mem(sizeof(lily_list_val));
+    lily_list_val *result_lv = lily_malloc(sizeof(lily_list_val));
     result_lv->num_values = num_elems;
     result_lv->visited = 0;
     result_lv->refcount = 1;
-    result_lv->elems = malloc_mem(num_elems * sizeof(lily_value *));
+    result_lv->elems = lily_malloc(num_elems * sizeof(lily_value *));
     result_lv->gc_entry = NULL;
 
     lily_type *key_type = result_reg->type->subtypes[0];
@@ -48,7 +47,7 @@ void lily_hash_keys(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
 
     lily_hash_elem *elem_iter = hash_val->elem_chain;
     while (elem_iter) {
-        lily_value *new_value = malloc_mem(sizeof(lily_value));
+        lily_value *new_value = lily_malloc(sizeof(lily_value));
         new_value->type = key_type;
         new_value->value.integer = 0;
         new_value->flags = VAL_IS_NIL;
@@ -60,7 +59,7 @@ void lily_hash_keys(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
         elem_iter = elem_iter->next;
     }
 
-    lily_deref(vm->mem_func, result_reg);
+    lily_deref(result_reg);
 
     result_reg->value.list = result_lv;
     result_reg->flags = 0;

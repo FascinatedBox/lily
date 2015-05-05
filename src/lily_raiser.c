@@ -1,6 +1,7 @@
 #include <stdarg.h>
 #include <string.h>
 
+#include "lily_alloc.h"
 #include "lily_raiser.h"
 
 /* This is used by lily_name_for_error to get a printable name for an error
@@ -10,16 +11,13 @@ static const char *lily_error_names[] =
      "BadTypecastError", "ValueError", "RecursionError", "KeyError",
      "FormatError", "IOError"};
 
-#define malloc_mem(size)             raiser->mem_func(NULL, size)
-#define free_mem(ptr)          (void)raiser->mem_func(ptr, 0)
 
 lily_raiser *lily_new_raiser(lily_options *options)
 {
-    lily_raiser *raiser = options->mem_func(NULL, sizeof(lily_raiser));
+    lily_raiser *raiser = lily_malloc(sizeof(lily_raiser));
 
-    raiser->mem_func = options->mem_func;
     raiser->msgbuf = lily_new_msgbuf(options);
-    raiser->jumps = malloc_mem(2 * sizeof(jmp_buf));
+    raiser->jumps = lily_malloc(2 * sizeof(jmp_buf));
     raiser->jump_pos = 0;
     raiser->jump_size = 2;
     raiser->line_adjust = 0;
@@ -33,8 +31,8 @@ void lily_free_raiser(lily_raiser *raiser)
     if (raiser->msgbuf)
         lily_free_msgbuf(raiser->msgbuf);
 
-    free_mem(raiser->jumps);
-    free_mem(raiser);
+    lily_free(raiser->jumps);
+    lily_free(raiser);
 }
 
 /* lily_raise

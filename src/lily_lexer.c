@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include "lily_alloc.h"
 #include "lily_impl.h"
 #include "lily_lexer.h"
 
@@ -139,17 +140,12 @@ static const lily_token grp_two_eq_table[] =
     tk_not_eq, tk_modulo_eq, tk_multiply_eq, tk_divide_eq,
 };
 
-#define malloc_mem(size)             lexer->mem_func(NULL, size)
-#define realloc_mem(ptr, size)       lexer->mem_func(ptr, size)
-#define free_mem(ptr)          (void)lexer->mem_func(ptr, 0)
 
 /** Lexer init and deletion **/
 lily_lex_state *lily_new_lex_state(lily_options *options,
         lily_raiser *raiser)
 {
-    lily_lex_state *lexer = options->mem_func(NULL,
-            sizeof(lily_lex_state));
-    lexer->mem_func = options->mem_func;
+    lily_lex_state *lexer = lily_malloc(sizeof(lily_lex_state));
     lexer->data = options->data;
 
     char *ch_class;
@@ -157,14 +153,14 @@ lily_lex_state *lily_new_lex_state(lily_options *options,
     lexer->last_digit_start = 0;
     lexer->entry = NULL;
     lexer->raiser = raiser;
-    lexer->input_buffer = malloc_mem(128 * sizeof(char));
-    lexer->label = malloc_mem(128 * sizeof(char));
+    lexer->input_buffer = lily_malloc(128 * sizeof(char));
+    lexer->label = lily_malloc(128 * sizeof(char));
     lexer->ch_class = NULL;
     lexer->last_literal = NULL;
     /* Allocate space for making lambdas only if absolutely needed. */
     lexer->lambda_data = NULL;
     lexer->lambda_data_size = 0;
-    ch_class = malloc_mem(256 * sizeof(char));
+    ch_class = lily_malloc(256 * sizeof(char));
 
     lexer->input_pos = 0;
     lexer->input_size = 128;
@@ -240,18 +236,18 @@ void lily_free_lex_state(lily_lex_state *lexer)
                 entry_iter->close_fn(entry_iter);
 
             entry_next = entry_iter->next;
-            free_mem(entry_iter->saved_input);
-            free_mem(entry_iter->filename);
-            free_mem(entry_iter);
+            lily_free(entry_iter->saved_input);
+            lily_free(entry_iter->filename);
+            lily_free(entry_iter);
             entry_iter = entry_next;
         }
     }
 
-    free_mem(lexer->lambda_data);
-    free_mem(lexer->input_buffer);
-    free_mem(lexer->ch_class);
-    free_mem(lexer->label);
-    free_mem(lexer);
+    lily_free(lexer->lambda_data);
+    lily_free(lexer->input_buffer);
+    lily_free(lexer->ch_class);
+    lily_free(lexer->label);
+    lily_free(lexer);
 }
 
 /*  get_entry
@@ -264,7 +260,7 @@ static lily_lex_entry *get_entry(lily_lex_state *lexer, char *filename)
 
     if (lexer->entry == NULL ||
         (lexer->entry->source != NULL && lexer->entry->next == NULL)) {
-        ret_entry = malloc_mem(sizeof(lily_lex_entry));
+        ret_entry = lily_malloc(sizeof(lily_lex_entry));
 
         if (lexer->entry == NULL) {
             lexer->entry = ret_entry;
@@ -298,7 +294,7 @@ static lily_lex_entry *get_entry(lily_lex_state *lexer, char *filename)
        it's really necessary. */
     if (ret_entry->filename == NULL ||
         strcmp(ret_entry->filename, filename) != 0) {
-        ret_entry->filename = realloc_mem(ret_entry->filename,
+        ret_entry->filename = lily_realloc(ret_entry->filename,
                 strlen(filename) + 1);
         strcpy(ret_entry->filename, filename);
     }
@@ -309,9 +305,9 @@ static lily_lex_entry *get_entry(lily_lex_state *lexer, char *filename)
         /* size + 1 isn't needed here because the input buffer's size includes
            space for the \0. */
         if (prev_entry->saved_input == NULL)
-            new_input = malloc_mem(lexer->input_size);
+            new_input = lily_malloc(lexer->input_size);
         else if (prev_entry->saved_input_size < lexer->input_size)
-            new_input = realloc_mem(prev_entry->saved_input, lexer->input_size);
+            new_input = lily_realloc(prev_entry->saved_input, lexer->input_size);
         else
             new_input = prev_entry->saved_input;
 
@@ -570,7 +566,7 @@ static void string_copy_close_fn(lily_lex_entry *entry)
        entry->source. */
     lily_lex_state *lexer = entry->lexer;
 
-    free_mem(entry->extra);
+    lily_free(entry->extra);
 }
 
 /** Scanning functions and helpers **/
@@ -960,7 +956,7 @@ static void ensure_lambda_data_size(lily_lex_state *lexer, int at_least)
     while (new_size < at_least)
         new_size *= 2;
 
-    char *new_data = realloc_mem(lexer->lambda_data, new_size);
+    char *new_data = lily_realloc(lexer->lambda_data, new_size);
 
     lexer->lambda_data = new_data;
     lexer->lambda_data_size = new_size;
@@ -1014,7 +1010,7 @@ static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
         if (label_pos >= lexer->label_size) {
             int new_label_size = lexer->label_size * 2;
             char *new_label;
-            new_label = realloc_mem(lexer->label,
+            new_label = lily_realloc(lexer->label,
                     (new_label_size * sizeof(char)));
 
             lexer->label = new_label;
@@ -1135,7 +1131,7 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
     lexer->lambda_start_line = lexer->line_num;
 
     if (lexer->lambda_data == NULL) {
-        lexer->lambda_data = malloc_mem(64);
+        lexer->lambda_data = lily_malloc(64);
 
         lexer->lambda_data_size = 64;
     }
@@ -1306,14 +1302,14 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
        have to check for potential overflows. */
     if (lexer->label_size == lexer->input_size) {
         char *new_label;
-        new_label = realloc_mem(lexer->label, new_size * sizeof(char));
+        new_label = lily_realloc(lexer->label, new_size * sizeof(char));
 
         lexer->label = new_label;
         lexer->label_size = new_size;
     }
 
     char *new_lb;
-    new_lb = realloc_mem(lexer->input_buffer, new_size * sizeof(char));
+    new_lb = lily_realloc(lexer->input_buffer, new_size * sizeof(char));
 
     lexer->input_buffer = new_lb;
     lexer->input_size = new_size;
@@ -1387,7 +1383,7 @@ void lily_load_copy_string(lily_lex_state *lexer, char *name,
 {
     lily_lex_entry *new_entry = get_entry(lexer, name);
 
-    char *copy = malloc_mem(strlen(str) + 1);
+    char *copy = lily_malloc(strlen(str) + 1);
 
     strcpy(copy, str);
 

@@ -8,14 +8,12 @@
 #include "ap_config.h"
 #include "util_script.h"
 
+#include "lily_alloc.h"
 #include "lily_parser.h"
 #include "lily_bind.h"
 #include "lily_lexer.h"
 #include "lily_value.h"
 #include "lily_impl.h"
-
-#define malloc_mem(size) mem_func(NULL, size)
-#define free_mem(ptr)    mem_func(ptr, 0)
 
 void lily_impl_puts(void *data, char *text)
 {
@@ -26,10 +24,10 @@ void lily_impl_puts(void *data, char *text)
 /** Shared common functions **/
 
 
-static lily_hash_elem *bind_hash_elem_with_values(lily_mem_func mem_func,
-        char *sipkey, lily_value *key, lily_value *value)
+static lily_hash_elem *bind_hash_elem_with_values(char *sipkey,
+        lily_value *key, lily_value *value)
 {
-    lily_hash_elem *elem = malloc_mem(sizeof(lily_hash_elem));
+    lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
 
     elem->next = NULL;
     elem->key_siphash = lily_calculate_siphash(sipkey, key);
@@ -50,7 +48,7 @@ static lily_var *bind_hash_str_str_var(lily_parse_state *parser, char *name)
 
 static lily_hash_val *get_new_tied_hash(lily_symtab *symtab, lily_var *tie_var)
 {
-    lily_hash_val *hash_val = lily_new_hash_val(symtab->mem_func);
+    lily_hash_val *hash_val = lily_new_hash_val();
     lily_value v;
     v.type = tie_var->type;
     v.flags = 0;
@@ -76,12 +74,11 @@ struct table_bind_data {
 static int bind_table_entry(void *data, const char *key, const char *value)
 {
     struct table_bind_data *d = data;
-    lily_mem_func mem_func = d->parser->mem_func;
 
     lily_value *elem_key = lily_bind_string(d->symtab, key);
     lily_value *elem_value = lily_bind_string(d->symtab, value);
-    lily_hash_elem *new_elem = bind_hash_elem_with_values(mem_func, d->sipkey,
-            elem_key, elem_value);
+    lily_hash_elem *new_elem = bind_hash_elem_with_values(d->sipkey, elem_key,
+            elem_value);
 
     new_elem->next = d->hash_val->elem_chain;
     d->hash_val->elem_chain = new_elem;
@@ -113,14 +110,13 @@ static void bind_table_as(lily_parse_state *parser, request_rec *r,
 
 static void bind_httpmethod(lily_parse_state *parser, request_rec *r)
 {
-    lily_mem_func mem_func = parser->mem_func;
     lily_class *string_cls = parser->symtab->string_class;
 
     lily_type *string_type = string_cls->type;
     lily_var *var = lily_new_var(parser->symtab, string_type, "httpmethod", 0);
 
-    lily_string_val *sv = malloc_mem(sizeof(lily_string_val));
-    char *sv_buffer = malloc_mem(strlen(r->method) + 1);
+    lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
+    char *sv_buffer = lily_malloc(strlen(r->method) + 1);
 
     strcpy(sv_buffer, r->method);
 
@@ -151,7 +147,6 @@ static void bind_post(lily_parse_state *parser, request_rec *r)
     char *buffer;
     char *sipkey = parser->vm->sipkey;
     lily_symtab *symtab = parser->symtab;
-    lily_mem_func mem_func = parser->mem_func;
 
     /* Credit: I found out how to use this by reading httpd 2.4's mod_lua
        (specifically req_parsebody of lua_request.c). */
@@ -161,7 +156,7 @@ static void bind_post(lily_parse_state *parser, request_rec *r)
             ap_form_pair_t *pair = (ap_form_pair_t *) apr_array_pop(pairs);
             apr_brigade_length(pair->value, 1, &len);
             size = (apr_size_t) len;
-            buffer = malloc_mem(size + 1);
+            buffer = lily_malloc(size + 1);
 
             apr_brigade_flatten(pair->value, buffer, &size);
             buffer[len] = 0;
@@ -170,8 +165,8 @@ static void bind_post(lily_parse_state *parser, request_rec *r)
             /* Give the buffer to the value to save memory. */
             lily_value *elem_value = lily_bind_string_take_buffer(symtab,
                     buffer);
-            lily_hash_elem *new_elem = bind_hash_elem_with_values(mem_func,
-                    sipkey, elem_key, elem_value);
+            lily_hash_elem *new_elem = bind_hash_elem_with_values(sipkey,
+                    elem_key, elem_value);
 
             new_elem->next = hash_val->elem_chain;
             hash_val->elem_chain = new_elem;

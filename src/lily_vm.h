@@ -85,7 +85,6 @@ typedef struct lily_vm_state_ {
 
     lily_msgbuf *vm_buffer;
     lily_type_system *ts;
-    lily_mem_func mem_func;
     lily_symtab *symtab;
     lily_raiser *raiser;
     void *data;

@@ -23,7 +23,6 @@ typedef struct {
     uint32_t ceiling;
     lily_symtab *symtab;
     lily_raiser *raiser;
-    lily_mem_func mem_func;
 } lily_type_system;
 
 lily_type_system *lily_new_type_system(lily_options *, lily_symtab *, lily_raiser *);

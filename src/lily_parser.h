@@ -43,7 +43,6 @@ typedef struct lily_parse_state_ {
     lily_symtab *symtab;
     lily_vm_state *vm;
     lily_raiser *raiser;
-    lily_mem_func mem_func;
     void *data;
     lily_parse_mode mode;
     uint32_t first_pass;

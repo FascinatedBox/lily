@@ -1,10 +1,9 @@
 #include <string.h>
 
+#include "lily_alloc.h"
 #include "lily_core_types.h"
 #include "lily_lexer.h"
 #include "lily_vm.h"
-
-#define malloc_mem(size) vm->mem_func(NULL, size)
 
 void lily_bytestring_encode(lily_vm_state *vm, lily_function_val *self,
         uint16_t *code)
@@ -27,8 +26,8 @@ void lily_bytestring_encode(lily_vm_state *vm, lily_function_val *self,
                 "Invalid utf-8 sequence found in buffer.\n");
     }
 
-    lily_string_val *new_sv = malloc_mem(sizeof(lily_string_val));
-    char *sv_buffer = malloc_mem(byte_buffer_size + 1);
+    lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
+    char *sv_buffer = lily_malloc(byte_buffer_size + 1);
 
     /* The utf-8 validator function also ensures that there are no embedded
        \0's, so it's safe to use strcpy. */

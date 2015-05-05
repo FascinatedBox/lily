@@ -1,6 +1,7 @@
 #include <ctype.h>
 #include <string.h>
 
+#include "lily_alloc.h"
 #include "lily_symtab.h"
 #include "lily_pkg_builtin.h"
 #include "lily_class_funcs.h"
@@ -19,8 +20,6 @@
       parser is not completely allocated and set.
 **/
 
-#define malloc_mem(size)             symtab->mem_func(NULL, size)
-#define free_mem(ptr)          (void)symtab->mem_func(ptr, 0)
 
 /*****************************************************************************/
 /* Shared code                                                               */
@@ -45,10 +44,10 @@ static uint64_t shorthash_for_name(const char *name)
 static lily_symbol_val *make_new_symbol(lily_symtab *symtab, char *data)
 {
     int data_len = strlen(data);
-    lily_symbol_val *ret = malloc_mem(sizeof(lily_symbol_val));
+    lily_symbol_val *ret = lily_malloc(sizeof(lily_symbol_val));
     int is_simple = 1;
 
-    ret->string = malloc_mem(data_len + 1);
+    ret->string = lily_malloc(data_len + 1);
     ret->refcount = 1;
     ret->size = data_len;
     strcpy(ret->string, data);
@@ -85,7 +84,7 @@ static lily_symbol_val *make_new_symbol(lily_symtab *symtab, char *data)
     The newly-created literal is returned. */
 static lily_tie *make_new_literal(lily_symtab *symtab, lily_class *cls)
 {
-    lily_tie *lit = malloc_mem(sizeof(lily_tie));
+    lily_tie *lit = lily_malloc(sizeof(lily_tie));
 
     /* Literal values always have a default type, so this is safe. */
     lit->type = cls->type;
@@ -113,9 +112,9 @@ static lily_tie *make_new_literal(lily_symtab *symtab, lily_class *cls)
 lily_var *lily_new_var(lily_symtab *symtab, lily_type *type, char *name,
         int flags)
 {
-    lily_var *var = malloc_mem(sizeof(lily_var));
+    lily_var *var = lily_malloc(sizeof(lily_var));
 
-    var->name = malloc_mem(strlen(name) + 1);
+    var->name = lily_malloc(strlen(name) + 1);
     var->flags = VAL_IS_NIL | SYM_TYPE_VAR | flags;
     strcpy(var->name, name);
     var->line_num = *symtab->lex_linenum;
@@ -155,7 +154,7 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_type *type, char *name,
    newly-created type is added to symtab's root type. */
 lily_type *lily_new_type(lily_symtab *symtab, lily_class *cls)
 {
-    lily_type *new_type = malloc_mem(sizeof(lily_type));
+    lily_type *new_type = lily_malloc(sizeof(lily_type));
     new_type->cls = cls;
     new_type->flags = 0;
     new_type->generic_pos = 0;
@@ -172,8 +171,8 @@ lily_type *lily_new_type(lily_symtab *symtab, lily_class *cls)
    available. */
 lily_class *lily_new_class(lily_symtab *symtab, char *name)
 {
-    lily_class *new_class = malloc_mem(sizeof(lily_class));
-    char *name_copy = malloc_mem(strlen(name) + 1);
+    lily_class *new_class = lily_malloc(sizeof(lily_class));
+    char *name_copy = lily_malloc(strlen(name) + 1);
 
     strcpy(name_copy, name);
 
@@ -447,7 +446,7 @@ static void init_lily_main(lily_symtab *symtab)
        Normally, parser and ts should make types through lily_build_type. */
     lily_type *new_type = lily_new_type(symtab, symtab->function_class);
 
-    new_type->subtypes = malloc_mem(2 * sizeof(lily_type));
+    new_type->subtypes = lily_malloc(2 * sizeof(lily_type));
     new_type->subtypes[0] = NULL;
     new_type->subtype_count = 1;
     new_type->generic_pos = 0;
@@ -466,8 +465,7 @@ static void init_lily_main(lily_symtab *symtab)
 lily_symtab *lily_new_symtab(lily_options *options,
         lily_import_entry *builtin_import, lily_raiser *raiser)
 {
-    lily_symtab *symtab = options->mem_func(NULL, sizeof(lily_symtab));
-    symtab->mem_func = options->mem_func;
+    lily_symtab *symtab = lily_malloc(sizeof(lily_symtab));
     symtab->raiser = raiser;
 
     uint32_t v = 0;
@@ -519,8 +517,8 @@ void free_vars(lily_symtab *symtab, lily_var *var)
     while (var) {
         var_next = var->next;
 
-        free_mem(var->name);
-        free_mem(var);
+        lily_free(var->name);
+        lily_free(var);
 
         var = var_next;
     }
@@ -535,8 +533,8 @@ static void free_properties(lily_symtab *symtab, lily_class *cls)
     while (prop_iter) {
         next_prop = prop_iter->next;
 
-        free_mem(prop_iter->name);
-        free_mem(prop_iter);
+        lily_free(prop_iter->name);
+        lily_free(prop_iter);
 
         prop_iter = next_prop;
     }
@@ -548,9 +546,9 @@ static void free_properties(lily_symtab *symtab, lily_class *cls)
 static void free_main_function(lily_symtab *symtab)
 {
     lily_function_val *main_function = symtab->main_function;
-    free_mem(main_function->reg_info);
-    free_mem(main_function->code);
-    free_mem(main_function);
+    lily_free(main_function->reg_info);
+    lily_free(main_function->code);
+    lily_free(main_function);
 }
 
 static void free_class_entries(lily_symtab *symtab, lily_class *class_iter)
@@ -569,22 +567,22 @@ static void free_class_entries(lily_symtab *symtab, lily_class *class_iter)
 static void free_classes(lily_symtab *symtab, lily_class *class_iter)
 {
     while (class_iter) {
-        free_mem(class_iter->name);
+        lily_free(class_iter->name);
 
         if (class_iter->flags & CLS_ENUM_IS_SCOPED) {
             /* Scoped enums pull the classes from the symtab's class chain so
                that parser won't find them. */
             int i;
             for (i = 0;i < class_iter->variant_size;i++) {
-                free_mem(class_iter->variant_members[i]->name);
-                free_mem(class_iter->variant_members[i]);
+                lily_free(class_iter->variant_members[i]->name);
+                lily_free(class_iter->variant_members[i]);
             }
         }
 
-        free_mem(class_iter->variant_members);
+        lily_free(class_iter->variant_members);
 
         lily_class *class_next = class_iter->next;
-        free_mem(class_iter);
+        lily_free(class_iter);
         class_iter = class_next;
     }
 }
@@ -601,9 +599,9 @@ static void free_foreign_symbols(lily_symtab *symtab)
 
         raw.symbol = foreign_iter->symbol;
         if (raw.symbol)
-            lily_deref_raw(symtab->mem_func, symbol_type, raw);
+            lily_deref_raw(symbol_type, raw);
 
-        free_mem(foreign_iter);
+        lily_free(foreign_iter);
 
         foreign_iter = foreign_next;
     }
@@ -626,17 +624,17 @@ static void free_ties(lily_symtab *symtab, lily_tie *tie_iter)
                have marked the symbol protected so that it would not receive
                refs. Because of that, the refcount -should- be at 0 and one
                deref will suffice. */
-            lily_deref_raw(symtab->mem_func, symbol_type, raw);
+            lily_deref_raw(symbol_type, raw);
         }
         /* Variant classes must be skipped, because their deref-er is a tuple
            deref-er. This is bad, because variants that are created as literals
            do not take inner values (and are represented as an integer).
            Everything else? Yeah, blow it away. */
         else if ((tie_cls->flags & CLS_VARIANT_CLASS) == 0)
-            lily_deref_raw(symtab->mem_func, tie_iter->type,
+            lily_deref_raw(tie_iter->type,
                     tie_iter->value);
 
-        free_mem(tie_iter);
+        lily_free(tie_iter);
         tie_iter = tie_next;
     }
 }
@@ -682,8 +680,8 @@ void lily_free_symtab(lily_symtab *symtab)
         j++;
         type_temp = type->next;
 
-        free_mem(type->subtypes);
-        free_mem(type);
+        lily_free(type->subtypes);
+        lily_free(type);
         type = type_temp;
     }
 
@@ -701,7 +699,7 @@ void lily_free_symtab(lily_symtab *symtab)
     free_classes(symtab, symtab->old_class_chain);
     free_classes(symtab, symtab->class_chain);
 
-    free_mem(symtab);
+    lily_free(symtab);
 }
 
 /*****************************************************************************/
@@ -774,8 +772,8 @@ lily_tie *lily_get_string_literal(lily_symtab *symtab, char *want_string)
 
     if (ret == NULL) {
         lily_class *cls = symtab->string_class;
-        char *string_buffer = malloc_mem((want_string_len + 1) * sizeof(char));
-        lily_string_val *sv = malloc_mem(sizeof(lily_string_val));
+        char *string_buffer = lily_malloc((want_string_len + 1) * sizeof(char));
+        lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
 
         strcpy(string_buffer, want_string);
         sv->string = string_buffer;
@@ -808,8 +806,8 @@ lily_tie *lily_get_bytestring_literal(lily_symtab *symtab,
 
     if (ret == NULL) {
         lily_class *cls = symtab->bytestring_class;
-        char *buffer = malloc_mem(want_string_len * sizeof(char));
-        lily_string_val *bv = malloc_mem(sizeof(lily_string_val));
+        char *buffer = lily_malloc(want_string_len * sizeof(char));
+        lily_string_val *bv = lily_malloc(sizeof(lily_string_val));
 
         memcpy(buffer, want_string, want_string_len);
         bv->string = buffer;
@@ -909,7 +907,7 @@ lily_tie *lily_get_variant_literal(lily_symtab *symtab,
 static void tie_function(lily_symtab *symtab, lily_var *func_var,
         lily_function_val *func_val, lily_import_entry *import)
 {
-    lily_tie *tie = malloc_mem(sizeof(lily_tie));
+    lily_tie *tie = lily_malloc(sizeof(lily_tie));
 
     /* This is done so that lily_debug can print line numbers. */
     func_val->line_num = func_var->line_num;
@@ -940,7 +938,7 @@ void lily_tie_function(lily_symtab *symtab, lily_var *func_var,
 
 void lily_tie_value(lily_symtab *symtab, lily_var *var, lily_value *value)
 {
-    lily_tie *tie = malloc_mem(sizeof(lily_tie));
+    lily_tie *tie = lily_malloc(sizeof(lily_tie));
 
     tie->type = var->type;
     tie->value = value->value;
@@ -968,7 +966,7 @@ lily_symbol_val *lily_symbol_by_name(lily_symtab *symtab, char *text)
 
     if (ret == NULL) {
         lily_weak_symbol_entry *weak_entry =
-                malloc_mem(sizeof(lily_weak_symbol_entry));
+                lily_malloc(sizeof(lily_weak_symbol_entry));
         lily_symbol_val *symbol = make_new_symbol(symtab, text);
 
         symbol->has_literal = 0;
@@ -1195,7 +1193,7 @@ lily_type *lily_build_type(lily_symtab *symtab, lily_class *cls,
     if (result_type == NULL) {
         lily_type *save_root = symtab->root_type;
         lily_type *new_type = lily_new_type(symtab, fake_type.cls);
-        lily_type **new_subtypes = malloc_mem(entries_to_use *
+        lily_type **new_subtypes = lily_malloc(entries_to_use *
                 sizeof(lily_type *));
 
         memcpy(new_type, &fake_type, sizeof(lily_type));
@@ -1244,8 +1242,8 @@ int lily_check_right_inherits_or_is(lily_class *left, lily_class *right)
 lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
         lily_type *type, char *name, int flags)
 {
-    lily_prop_entry *entry = malloc_mem(sizeof(lily_prop_entry));
-    char *entry_name = malloc_mem(strlen(name) + 1);
+    lily_prop_entry *entry = lily_malloc(sizeof(lily_prop_entry));
+    char *entry_name = lily_malloc(strlen(name) + 1);
 
     strcpy(entry_name, name);
 
@@ -1380,7 +1378,7 @@ void lily_make_constructor_return_type(lily_symtab *symtab)
     if (target_class->generic_count != 0) {
         int count = target_class->generic_count;
 
-        type->subtypes = malloc_mem(count * sizeof(lily_type *));
+        type->subtypes = lily_malloc(count * sizeof(lily_type *));
 
         lily_type *type_iter = symtab->generic_type_start;
         int i;
@@ -1463,7 +1461,7 @@ void lily_finish_enum_class(lily_symtab *symtab, lily_class *enum_class,
         class_iter = class_iter->next;
     }
 
-    lily_class **members = malloc_mem(variant_count * sizeof(lily_class *));
+    lily_class **members = lily_malloc(variant_count * sizeof(lily_class *));
 
     for (i = 0, class_iter = symtab->class_chain;
          i < variant_count;
@@ -1500,7 +1498,7 @@ void lily_change_parent_class(lily_class *super_class, lily_class *sub_class)
 #include <stdio.h>
 void lily_link_import_to_active(lily_symtab *symtab, lily_import_entry *import)
 {
-    lily_import_link *new_link = malloc_mem(sizeof(lily_import_link));
+    lily_import_link *new_link = lily_malloc(sizeof(lily_import_link));
 
     new_link->entry = import;
     new_link->next_import = symtab->active_import->import_chain;

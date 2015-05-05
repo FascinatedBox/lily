@@ -3,17 +3,14 @@
 #include <inttypes.h>
 #include <stdio.h>
 
+#include "lily_alloc.h"
 #include "lily_value.h"
 #include "lily_vm.h"
 
-#define malloc_mem(size)             vm->mem_func(NULL, size)
-#define realloc_mem(ptr, size)       vm->mem_func(ptr, size)
-#define free_mem(ptr)          (void)vm->mem_func(ptr, 0)
-
 static lily_string_val *try_make_sv(lily_vm_state *vm, int size)
 {
-    lily_string_val *new_sv = malloc_mem(sizeof(lily_string_val));
-    char *new_string = malloc_mem(sizeof(char) * size);
+    lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
+    char *new_string = lily_malloc(sizeof(char) * size);
 
     new_sv->string = new_string;
     new_sv->size = size - 1;

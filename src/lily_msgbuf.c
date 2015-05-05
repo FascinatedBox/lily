@@ -3,19 +3,15 @@
 #include <stdio.h>
 #include <ctype.h>
 
+#include "lily_alloc.h"
 #include "lily_msgbuf.h"
 #include "lily_core_types.h"
 
-#define malloc_mem(size)             msgbuf->mem_func(NULL, size)
-#define realloc_mem(ptr, size)       msgbuf->mem_func(ptr, size)
-#define free_mem(ptr)          (void)msgbuf->mem_func(ptr, 0)
-
 lily_msgbuf *lily_new_msgbuf(lily_options *options)
 {
-    lily_msgbuf *msgbuf = options->mem_func(NULL, sizeof(lily_msgbuf));
-    msgbuf->mem_func = options->mem_func;
+    lily_msgbuf *msgbuf = lily_malloc(sizeof(lily_msgbuf));
 
-    msgbuf->message = malloc_mem(64 * sizeof(char));
+    msgbuf->message = lily_malloc(64 * sizeof(char));
     msgbuf->message[0] = '\0';
     msgbuf->pos = 0;
     msgbuf->size = 64;
@@ -25,7 +21,7 @@ lily_msgbuf *lily_new_msgbuf(lily_options *options)
 
 static void resize_msgbuf(lily_msgbuf *msgbuf, int new_size)
 {
-    msgbuf->message = realloc_mem(msgbuf->message, new_size);
+    msgbuf->message = lily_realloc(msgbuf->message, new_size);
     msgbuf->size = new_size;
 }
 
@@ -106,8 +102,8 @@ static void add_escaped_sized(lily_msgbuf *msgbuf, int is_bytestring, char *str,
 
 void lily_free_msgbuf(lily_msgbuf *msgbuf)
 {
-    free_mem(msgbuf->message);
-    free_mem(msgbuf);
+    lily_free(msgbuf->message);
+    lily_free(msgbuf);
 }
 
 void lily_msgbuf_add(lily_msgbuf *msgbuf, char *str)

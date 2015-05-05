@@ -13,7 +13,6 @@ typedef struct  {
     uint32_t pos;
     uint32_t size;
     lily_raiser *raiser;
-    lily_mem_func mem_func;
 } lily_membuf;
 
 

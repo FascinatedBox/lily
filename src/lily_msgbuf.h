@@ -19,7 +19,6 @@ typedef struct {
     uint32_t pos;
     /* The buffer space allocated for the message. */
     uint32_t size;
-    lily_mem_func mem_func;
 } lily_msgbuf;
 
 void lily_free_msgbuf(lily_msgbuf *);

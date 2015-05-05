@@ -1,5 +1,6 @@
 #include <string.h>
 
+#include "lily_alloc.h"
 #include "lily_ast.h"
 #include "lily_value.h"
 #include "lily_emitter.h"
@@ -38,9 +39,6 @@ static int type_matchup(lily_emit_state *, lily_type *, lily_ast *);
 static void eval_tree(lily_emit_state *, lily_ast *, lily_type *, int);
 static void eval_variant(lily_emit_state *, lily_ast *, lily_type *, int);
 
-#define malloc_mem(size)             emit->mem_func(NULL, size)
-#define realloc_mem(ptr, size)       emit->mem_func(ptr, size)
-#define free_mem(ptr)          (void)emit->mem_func(ptr, 0)
 
 /*****************************************************************************/
 /* Emitter setup and teardown                                                */
@@ -49,12 +47,10 @@ static void eval_variant(lily_emit_state *, lily_ast *, lily_type *, int);
 lily_emit_state *lily_new_emit_state(lily_options *options,
         lily_symtab *symtab, lily_raiser *raiser)
 {
-    lily_emit_state *emit = options->mem_func(NULL,
-            sizeof(lily_emit_state));
-    emit->mem_func = options->mem_func;
+    lily_emit_state *emit = lily_malloc(sizeof(lily_emit_state));
 
-    emit->patches = malloc_mem(sizeof(int) * 4);
-    emit->match_cases = malloc_mem(sizeof(int) * 4);
+    emit->patches = lily_malloc(sizeof(int) * 4);
+    emit->match_cases = lily_malloc(sizeof(int) * 4);
     emit->ts = lily_new_type_system(options, symtab, raiser);
 
     emit->match_case_pos = 0;
@@ -87,21 +83,21 @@ void lily_free_emit_state(lily_emit_state *emit)
 
     while (current) {
         temp = current->next;
-        free_mem(current);
+        lily_free(current);
         current = temp;
     }
 
     current_store = emit->all_storage_start;
     while (current_store) {
         temp_store = current_store->next;
-        free_mem(current_store);
+        lily_free(current_store);
         current_store = temp_store;
     }
 
     lily_free_type_stack(emit->ts);
-    free_mem(emit->match_cases);
-    free_mem(emit->patches);
-    free_mem(emit);
+    lily_free(emit->match_cases);
+    lily_free(emit->patches);
+    lily_free(emit);
 }
 
 /*****************************************************************************/
@@ -119,7 +115,7 @@ static void small_grow(lily_emit_state *emit)
     lily_function_val *f = emit->top_function;
 
     f->len *= 2;
-    f->code = realloc_mem(f->code, sizeof(uint16_t) * f->len);
+    f->code = lily_realloc(f->code, sizeof(uint16_t) * f->len);
 }
 
 /*  write_prep
@@ -132,7 +128,7 @@ static void write_prep(lily_emit_state *emit, int size)
         while ((f->pos + size) > f->len)
             f->len *= 2;
 
-        f->code = realloc_mem(f->code, sizeof(uint16_t) * f->len);
+        f->code = lily_realloc(f->code, sizeof(uint16_t) * f->len);
     }
 }
 
@@ -325,14 +321,14 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
 static void grow_patches(lily_emit_state *emit)
 {
     emit->patch_size *= 2;
-    emit->patches = realloc_mem(emit->patches,
+    emit->patches = lily_realloc(emit->patches,
         sizeof(int) * emit->patch_size);
 }
 
 static void grow_match_cases(lily_emit_state *emit)
 {
     emit->match_case_size *= 2;
-    emit->match_cases = realloc_mem(emit->match_cases,
+    emit->match_cases = lily_realloc(emit->match_cases,
         sizeof(int) * emit->match_case_size);
 }
 
@@ -443,7 +439,7 @@ static lily_type *get_subscript_result(lily_type *type, lily_ast *index_ast)
     around. */
 static int try_add_storage(lily_emit_state *emit)
 {
-    lily_storage *storage = malloc_mem(sizeof(lily_storage));
+    lily_storage *storage = lily_malloc(sizeof(lily_storage));
     if (storage == NULL)
         return 0;
 
@@ -684,7 +680,7 @@ static void finalize_function_val(lily_emit_state *emit,
     int register_count = emit->symtab->next_register_spot;
     lily_storage *storage_iter = function_block->storage_start;
     lily_function_val *f = emit->top_function;
-    lily_register_info *info = malloc_mem(
+    lily_register_info *info = lily_malloc(
             register_count * sizeof(lily_register_info));
     lily_var *var_stop = function_block->function_var;
     lily_type *function_type = var_stop->type;
@@ -708,7 +704,7 @@ static void finalize_function_val(lily_emit_state *emit,
         while (var_iter != var_stop) {
             var_temp = var_iter->next;
             if ((var_iter->flags & VAR_IS_READONLY) == 0)
-                free_mem(var_iter);
+                lily_free(var_iter);
             else {
                 /* This is a function declared within the current function. Hide it
                    in symtab's old functions since it's going out of scope. */
@@ -3616,7 +3612,7 @@ void lily_prepare_main(lily_emit_state *emit, lily_import_entry *import_iter)
        folded back into __main__'s register count when those imports pop.
        next_register_spot is correct. */
     int register_count = emit->symtab->next_register_spot;
-    lily_register_info *info = realloc_mem(emit->top_function->reg_info,
+    lily_register_info *info = lily_realloc(emit->top_function->reg_info,
             register_count * sizeof(lily_register_info));
 
     while (import_iter) {
@@ -3648,7 +3644,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
 {
     lily_block *new_block;
     if (emit->block->next == NULL) {
-        new_block = malloc_mem(sizeof(lily_block));
+        new_block = lily_malloc(sizeof(lily_block));
 
         emit->block->next = new_block;
         new_block->prev = emit->block;
@@ -3688,7 +3684,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         else
             class_name = NULL;
 
-        lily_function_val *fval = lily_new_native_function_val(emit->mem_func,
+        lily_function_val *fval = lily_new_native_function_val(
                 class_name, v->name);
         lily_tie_function(emit->symtab, v, fval);
 
@@ -3827,9 +3823,9 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
        know that emit->unused_storage_start is never NULL. */
     try_add_storage(emit);
 
-    lily_block *main_block = malloc_mem(sizeof(lily_block));
+    lily_block *main_block = lily_malloc(sizeof(lily_block));
     lily_function_val *main_function = lily_new_native_function_val(
-            emit->mem_func, NULL, main_var->name);
+            NULL, main_var->name);
 
     emit->symtab->main_function = main_function;
     /* __main__ is given two refs so that it must go through a custom deref to

@@ -36,8 +36,6 @@ typedef struct lily_raiser_ {
     uint16_t jump_pos;
     uint16_t jump_size;
     uint32_t pad;
-
-    lily_mem_func mem_func;
 } lily_raiser;
 
 lily_raiser *lily_new_raiser(lily_options *);
