@@ -1,8 +1,6 @@
 #ifndef LILY_PARSER_TOK_TABLE_H
 # define LILY_PARSER_TOK_TABLE_H
 
-# include "lily_expr_op.h"
-
 /* This file creates a table of token information for the parser that's easy to
    understand and add to. */
 typedef struct {

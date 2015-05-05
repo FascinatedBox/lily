@@ -5,8 +5,38 @@
 
 # include "lily_raiser.h"
 # include "lily_core_types.h"
-# include "lily_expr_op.h"
 # include "lily_membuf.h"
+
+typedef enum {
+    expr_plus,
+    expr_minus,
+    expr_eq_eq,
+    expr_lt,
+    expr_lt_eq,
+    expr_gr,
+    expr_gr_eq,
+    expr_not_eq,
+    expr_modulo,
+    expr_multiply,
+    expr_divide,
+    expr_left_shift,
+    expr_right_shift,
+    expr_bitwise_and,
+    expr_bitwise_or,
+    expr_bitwise_xor,
+    expr_unary_not,
+    expr_unary_minus,
+    expr_logical_and,
+    expr_logical_or,
+    expr_assign,
+    expr_plus_assign,
+    expr_minus_assign,
+    expr_modulo_assign,
+    expr_mul_assign,
+    expr_div_assign,
+    expr_left_shift_assign,
+    expr_right_shift_assign
+} lily_expr_op;
 
 typedef enum {
     tree_call, tree_subscript, tree_list, tree_hash, tree_parenth,
