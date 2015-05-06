@@ -11,6 +11,8 @@
 #include "lily_value.h"
 #include "lily_membuf.h"
 
+#include "lily_cls_function.h"
+
 /** Parser is responsible for:
     * Creating all other major structures (ast pool, emitter, lexer, etc.)
     * Ensuring that all other major structures are deleted.

@@ -4,7 +4,6 @@
 #include "lily_alloc.h"
 #include "lily_symtab.h"
 #include "lily_pkg_builtin.h"
-#include "lily_class_funcs.h"
 #include "lily_seed_symtab.h"
 
 /** Symtab is responsible for:
@@ -1296,7 +1295,7 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
             cls->gc_marker = symtab->tuple_class->gc_marker;
 
         cls->destroy_func = symtab->tuple_class->destroy_func;
-        cls->eq_func = lily_instance_eq;
+        cls->eq_func = symtab->tuple_class->eq_func;
     }
     else {
         /* Enum classes have the same layout as 'any', and should thus use what

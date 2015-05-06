@@ -1,6 +1,159 @@
 #include "lily_alloc.h"
 #include "lily_vm.h"
 
+lily_list_val *lily_new_list_val()
+{
+    lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
+    lv->refcount = 1;
+    lv->gc_entry = NULL;
+    lv->elems = NULL;
+    lv->num_values = -1;
+    lv->visited = 0;
+
+    return lv;
+}
+
+int lily_list_eq(lily_vm_state *vm, int *depth, lily_value *left,
+        lily_value *right)
+{
+    if (*depth == 100)
+        lily_raise(vm->raiser, lily_RecursionError, "Infinite loop in comparison.\n");
+
+    int ret;
+
+    if (left->value.list->num_values == right->value.list->num_values) {
+        class_eq_func eq_func = left->type->subtypes[0]->cls->eq_func;
+        lily_value **left_elems = left->value.list->elems;
+        lily_value **right_elems = right->value.list->elems;
+
+        int i;
+        ret = 1;
+
+        for (i = 0;i < left->value.list->num_values;i++) {
+            (*depth)++;
+            if (eq_func(vm, depth, left_elems[i], right_elems[i]) == 0) {
+                ret = 0;
+                (*depth)--;
+                break;
+            }
+            (*depth)--;
+        }
+    }
+    else
+        ret = 0;
+
+    return ret;
+}
+
+void lily_gc_list_marker(int pass, lily_value *v)
+{
+    lily_list_val *list_val = v->value.list;
+    int i;
+
+    if (list_val->gc_entry &&
+        list_val->gc_entry->last_pass != pass) {
+        list_val->gc_entry->last_pass = pass;
+
+        lily_type *elem_type = v->type->subtypes[0];
+        void (*gc_marker)(int, lily_value *);
+
+        gc_marker = elem_type->cls->gc_marker;
+
+        if (gc_marker) {
+            for (i = 0;i < list_val->num_values;i++) {
+                lily_value *elem = list_val->elems[i];
+
+                if ((elem->flags & VAL_IS_NIL) == 0)
+                    gc_marker(pass, elem);
+            }
+        }
+    }
+}
+
+void lily_destroy_list(lily_value *v)
+{
+    lily_type *type = v->type;
+    lily_list_val *lv = v->value.list;
+
+    /* If this list has a gc entry, then make the value of it NULL. This
+        prevents the gc from trying to access the list once it has been
+        destroyed. */
+    if (lv->gc_entry != NULL)
+        lv->gc_entry->value.generic = NULL;
+
+    int i;
+    if (type->subtypes[0]->cls->is_refcounted) {
+        for (i = 0;i < lv->num_values;i++) {
+            lily_deref(lv->elems[i]);
+
+            lily_free(lv->elems[i]);
+        }
+    }
+    else {
+        for (i = 0;i < lv->num_values;i++)
+            lily_free(lv->elems[i]);
+    }
+
+    lily_free(lv->elems);
+    lily_free(lv);
+}
+
+void lily_gc_collect_list(lily_type *list_type, lily_list_val *list_val)
+{
+    /* The first check is done because this list might be inside of an any
+       that is being collected. So it may not be in the gc, but it needs to be
+       destroyed because it was trapped in a circular ref.
+       The second check acts as a 'lock' to make sure that this cannot be done
+       twice for the same list, thus preventing recursion. */
+    int marked = 0;
+    if (list_val->gc_entry == NULL ||
+        (list_val->gc_entry->last_pass != -1 &&
+         list_val->gc_entry->value.generic != NULL)) {
+
+        lily_type *value_type = list_type->subtypes[0];
+
+        if (list_val->gc_entry) {
+            list_val->gc_entry->last_pass = -1;
+            /* If this list has a gc entry, then it can contains elements which
+               refer to itself. Set last_pass to -1 to indicate that everything
+               inside this list has already been deleted. The gc will delete the
+               list later. */
+            marked = 1;
+        }
+
+        int i;
+
+        /* This is important because this could be a list[str], and the strings
+           will need to be free'd. */
+        if (value_type->cls->is_refcounted) {
+            for (i = 0;i < list_val->num_values;i++) {
+                /* Pass stuff off to the gc to collect. This will use a typical
+                   deref for stuff like string. */
+                lily_value *elem = list_val->elems[i];
+                if ((elem->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
+                    lily_raw_value v = elem->value;
+                    if (v.generic->refcount == 1)
+                        lily_gc_collect_value(value_type, v);
+                    else
+                        v.generic->refcount--;
+                }
+                lily_free(elem);
+            }
+        }
+        else {
+            /* Still need to free all the list elements, even if not
+               refcounted. */
+            for (i = 0;i < list_val->num_values;i++)
+                lily_free(list_val->elems[i]);
+        }
+        /* else the values aren't refcounted (ex: list[integer]). No-op. */
+
+        lily_free(list_val->elems);
+        if (marked == 0)
+            lily_free(list_val);
+    }
+}
+
 void lily_list_size(lily_vm_state *vm, lily_function_val *self,
         uint16_t *code)
 {
