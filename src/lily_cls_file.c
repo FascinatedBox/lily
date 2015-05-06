@@ -6,6 +6,39 @@
 #include "lily_vm.h"
 #include "lily_value.h"
 
+lily_file_val *lily_new_file_val(FILE *inner_file,
+        char mode_ch)
+{
+    lily_file_val *filev = lily_malloc(sizeof(lily_file_val));
+
+    filev->refcount = 1;
+    filev->inner_file = inner_file;
+    filev->is_open = (inner_file != NULL);
+
+    int read_ok = 1;
+    int write_ok = 1;
+
+    if (mode_ch == 'w')
+        read_ok = 0;
+    else if (mode_ch == 'r')
+        write_ok = 0;
+
+    filev->read_ok = read_ok;
+    filev->write_ok = write_ok;
+
+    return filev;
+}
+
+void lily_destroy_file(lily_value *v)
+{
+    lily_file_val *filev = v->value.file;
+
+    if (filev->is_open)
+        fclose(filev->inner_file);
+
+    lily_free(filev);
+}
+
 static void write_check(lily_vm_state *vm, lily_file_val *filev)
 {
     if (filev->inner_file == NULL)

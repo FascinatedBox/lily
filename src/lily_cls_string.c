@@ -7,6 +7,31 @@
 #include "lily_value.h"
 #include "lily_vm.h"
 
+int lily_string_eq(lily_vm_state *vm, int *depth, lily_value *left,
+        lily_value *right)
+{
+    int ret;
+
+    if (left->value.string->size == right->value.string->size &&
+        (left->value.string == right->value.string ||
+         strcmp(left->value.string->string, right->value.string->string) == 0))
+        ret = 1;
+    else
+        ret = 0;
+
+    return ret;
+}
+
+void lily_destroy_string(lily_value *v)
+{
+    lily_string_val *sv = v->value.string;
+
+    if (sv->string)
+        lily_free(sv->string);
+
+    lily_free(sv);
+}
+
 static lily_string_val *try_make_sv(lily_vm_state *vm, int size)
 {
     lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));

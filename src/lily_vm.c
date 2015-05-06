@@ -9,8 +9,10 @@
 #include "lily_opcode.h"
 #include "lily_vm.h"
 #include "lily_debug.h"
-#include "lily_gc.h"
 #include "lily_bind.h"
+
+#include "lily_cls_any.h"
+#include "lily_cls_hash.h"
 
 extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
 

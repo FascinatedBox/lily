@@ -1,14 +1,16 @@
 #include "lily_symtab.h"
+#include "lily_value.h"
 #include "lily_cls_integer.h"
 #include "lily_cls_double.h"
-#include "lily_cls_bytestring.h"
 #include "lily_cls_string.h"
+#include "lily_cls_bytestring.h"
+#include "lily_cls_symbol.h"
+#include "lily_cls_function.h"
+#include "lily_cls_any.h"
 #include "lily_cls_list.h"
 #include "lily_cls_hash.h"
+#include "lily_cls_tuple.h"
 #include "lily_cls_file.h"
-#include "lily_class_funcs.h"
-#include "lily_gc.h"
-#include "lily_value.h"
 
 lily_class_seed class_seeds[] =
 {

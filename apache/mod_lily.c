@@ -15,6 +15,8 @@
 #include "lily_value.h"
 #include "lily_impl.h"
 
+#include "lily_cls_hash.h"
+
 void lily_impl_puts(void *data, char *text)
 {
     ap_rputs(text, (request_rec *)data);

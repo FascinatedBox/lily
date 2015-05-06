@@ -5,6 +5,22 @@
 #include "lily_lexer.h"
 #include "lily_vm.h"
 
+int lily_bytestring_eq(lily_vm_state *vm, int *depth, lily_value *left,
+        lily_value *right)
+{
+    int ret;
+
+    if (left->value.string->size == right->value.string->size &&
+        (left->value.string == right->value.string ||
+         memcmp(left->value.string->string, right->value.string->string,
+                left->value.string->size) == 0))
+        ret = 1;
+    else
+        ret = 0;
+
+    return ret;
+}
+
 void lily_bytestring_encode(lily_vm_state *vm, lily_function_val *self,
         uint16_t *code)
 {

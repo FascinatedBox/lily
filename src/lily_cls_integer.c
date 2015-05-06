@@ -6,6 +6,12 @@
 #include "lily_vm.h"
 #include "lily_value.h"
 
+int lily_integer_eq(lily_vm_state *vm, int *depth, lily_value *left,
+        lily_value *right)
+{
+    return (left->value.integer == right->value.integer);
+}
+
 /*  lily_integer_to_s
     Implements integer::to_s() */
 void lily_integer_to_s(lily_vm_state *vm, lily_function_val *self,

@@ -2,6 +2,202 @@
 #include "lily_vm.h"
 #include "lily_value.h"
 
+lily_hash_val *lily_new_hash_val()
+{
+    lily_hash_val *h = lily_malloc(sizeof(lily_hash_val));
+
+    h->gc_entry = NULL;
+    h->refcount = 1;
+    h->visited = 0;
+    h->num_elems = 0;
+    h->elem_chain = NULL;
+    return h;
+}
+
+lily_hash_elem *lily_new_hash_elem()
+{
+    lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
+
+    elem->elem_key = lily_malloc(sizeof(lily_value));
+    elem->elem_value = lily_malloc(sizeof(lily_value));
+
+    /* Hash lookup does not take into account or allow nil keys. So this should
+       be set to a non-nil value as soon as possible. */
+    elem->elem_key->flags = VAL_IS_NIL;
+    elem->elem_key->value.integer = 0;
+
+    elem->elem_value->flags = VAL_IS_NIL;
+    elem->elem_value->value.integer = 0;
+
+    elem->next = NULL;
+    return elem;
+}
+
+int lily_hash_eq(lily_vm_state *vm, int *depth, lily_value *left,
+        lily_value *right)
+{
+    if (*depth == 100)
+        lily_raise(vm->raiser, lily_RecursionError, "Infinite loop in comparison.\n");
+
+    int ret;
+
+    if (left->value.hash->num_elems == right->value.hash->num_elems) {
+        lily_hash_val *left_hash = left->value.hash;
+        lily_hash_val *right_hash = right->value.hash;
+
+        class_eq_func key_eq_func = left->type->subtypes[0]->cls->eq_func;
+        class_eq_func value_eq_func = left->type->subtypes[1]->cls->eq_func;
+
+        lily_hash_elem *left_iter = left_hash->elem_chain;
+        lily_hash_elem *right_iter;
+        lily_hash_elem *right_start = right_hash->elem_chain;
+        /* Assume success, in case the hash is empty. */
+        ret = 1;
+        for (left_iter = left_hash->elem_chain;
+             left_iter != NULL;
+             left_iter = left_iter->next) {
+            (*depth)++;
+            /* If there's a match, this will get set to 1 again. */
+            ret = 0;
+            for (right_iter = right_start;
+                 right_iter != NULL;
+                 right_iter = right_iter->next) {
+                /* First check that the siphashes are near before doing
+                   anything fancy. */
+                if (left_iter->key_siphash == right_iter->key_siphash) {
+                    /* Keys are proper Lily values, so check that the keys
+                       totally match before checking the value. */
+                    if (key_eq_func(vm, depth, left_iter->elem_key,
+                        right_iter->elem_key)) {
+                        /* If the key is a match, then the result depends on if
+                           the values match. Otherwise, skip to the next key. */
+                        ret = (value_eq_func(vm, depth, left_iter->elem_value,
+                                right_iter->elem_value));
+
+                        /* If the first entry was a match, begin all subsequent
+                           searches at the one after it. This whittles down the
+                           search size over time if both hashes have the keys
+                           in the same order. Unlikely, maybe, but a simple
+                           check compared to a good gain. */
+                        if (right_iter == right_start)
+                            right_start = right_start->next;
+                        break;
+                    }
+                }
+            }
+            (*depth)--;
+
+            if (ret == 0)
+                break;
+        }
+    }
+    else
+        ret = 0;
+
+    return ret;
+}
+
+void lily_gc_hash_marker(int pass, lily_value *v)
+{
+    lily_hash_val *hash_val = v->value.hash;
+    if (hash_val->gc_entry &&
+        hash_val->gc_entry->last_pass != pass) {
+        hash_val->gc_entry->last_pass = pass;
+
+        lily_type *hash_value_type = v->type->subtypes[1];
+        void (*gc_marker)(int, lily_value *);
+
+        gc_marker = hash_value_type->cls->gc_marker;
+
+        lily_hash_elem *elem_iter = hash_val->elem_chain;
+        while (elem_iter) {
+            lily_value *elem_value = elem_iter->elem_value;
+            if ((elem_value->flags & VAL_IS_NIL) == 0)
+                gc_marker(pass, elem_value);
+
+            elem_iter = elem_iter->next;
+        }
+    }
+}
+
+void lily_destroy_hash(lily_value *v)
+{
+    lily_hash_val *hv = v->value.hash;
+
+    if (hv->gc_entry != NULL)
+        hv->gc_entry->value.generic = NULL;
+
+    lily_hash_elem *elem, *save_next;
+    elem = hv->elem_chain;
+    while (elem) {
+        lily_value *elem_value = elem->elem_value;
+
+        lily_deref(elem_value);
+
+        save_next = elem->next;
+
+        lily_deref(elem->elem_key);
+
+        lily_free(elem->elem_key);
+        lily_free(elem->elem_value);
+        lily_free(elem);
+        elem = save_next;
+    }
+
+    lily_free(hv);
+}
+
+void lily_gc_collect_hash(lily_type *hash_type,
+        lily_hash_val *hash_val)
+{
+    int marked = 0;
+    if (hash_val->gc_entry == NULL ||
+        (hash_val->gc_entry->last_pass != -1 &&
+         hash_val->gc_entry->value.generic != NULL)) {
+
+        lily_type *hash_key_type = hash_type->subtypes[0];
+        lily_type *hash_value_type = hash_type->subtypes[1];
+
+        if (hash_val->gc_entry) {
+            hash_val->gc_entry->last_pass = -1;
+
+            marked = 1;
+        }
+
+        lily_hash_elem *elem_iter = hash_val->elem_chain;
+        lily_hash_elem *elem_temp;
+        while (elem_iter) {
+            lily_value *elem_value = elem_iter->elem_value;
+            lily_value *elem_key = elem_iter->elem_key;
+
+            elem_temp = elem_iter->next;
+            if ((elem_key->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
+                lily_raw_value k = elem_key->value;
+                if (k.generic->refcount == 1)
+                    lily_gc_collect_value(hash_key_type, k);
+                else
+                    k.generic->refcount--;
+            }
+
+            if ((elem_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
+                lily_raw_value v = elem_value->value;
+                if (v.generic->refcount == 1)
+                    lily_gc_collect_value(hash_value_type, v);
+                else
+                    v.generic->refcount--;
+            }
+
+            lily_free(elem_iter->elem_key);
+            lily_free(elem_iter->elem_value);
+            lily_free(elem_iter);
+            elem_iter = elem_temp;
+        }
+
+        if (marked == 0)
+            lily_free(hash_val);
+    }
+}
+
 void lily_hash_get(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;

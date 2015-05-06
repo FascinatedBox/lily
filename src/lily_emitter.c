@@ -8,6 +8,8 @@
 #include "lily_emit_table.h"
 #include "lily_parser.h"
 
+#include "lily_cls_function.h"
+
 /** Emitter is responsible for:
     * Taking in an ast and generating code that the vm/debug can work with.
     * Writing the code that allows if/elif/else, for, while, try, etc. to work.

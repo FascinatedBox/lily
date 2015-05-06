@@ -4,6 +4,12 @@
 #include "lily_value.h"
 #include "inttypes.h"
 
+int lily_double_eq(lily_vm_state *vm, int *depth, lily_value *left,
+        lily_value *right)
+{
+    return (left->value.doubleval == right->value.doubleval);
+}
+
 void lily_double_to_i(lily_vm_state *vm, lily_function_val *self,
         uint16_t *code)
 {
