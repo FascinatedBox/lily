@@ -431,6 +431,24 @@ static lily_var *find_var(lily_var *var_iter, char *name, uint64_t shorthash)
     return var_iter;
 }
 
+static lily_import_entry *find_import(lily_import_entry *import,
+        char *name)
+{
+    lily_import_link *link_iter = import->import_chain;
+    lily_import_entry *result = NULL;
+    while (link_iter) {
+        if (link_iter->entry->loadname &&
+            strcmp(link_iter->entry->loadname, name) == 0) {
+            result = link_iter->entry;
+            break;
+        }
+
+        link_iter = link_iter->next_import;
+    }
+
+    return result;
+}
+
 /*****************************************************************************/
 /* Symtab initialization */
 /*****************************************************************************/
@@ -983,40 +1001,44 @@ lily_symbol_val *lily_symbol_by_name(lily_symtab *symtab, char *text)
     return ret;
 }
 
-/*  lily_class_by_name
-    Try to find a class from a given non-NULL name.
-    On success: The class is returned.
-    On failure: NULL is returned. */
-lily_class *lily_class_by_name(lily_symtab *symtab, const char *name)
+/*  Attempt to locate a class. The semantics differ depending on if 'import' is
+    NULL or not.
+
+    import == NULL:
+        Search through the current import and the builtin import. If both of
+        those fail, then check for the name being a generic ('A', for example.
+    import != NULL:
+        Search only through the import given. */
+lily_class *lily_find_class(lily_symtab *symtab, lily_import_entry *import,
+        const char *name)
 {
     uint64_t shorthash = shorthash_for_name(name);
-    lily_class *class_iter = find_class(symtab->builtin_import->class_chain,
-            name, shorthash);
-    if (class_iter)
-        return class_iter;
+    lily_class *result;
 
-    class_iter = find_class(symtab->class_chain, name, shorthash);
-    if (class_iter)
-        return class_iter;
-
-    /* The parser wants to be able to find classes by name...but it would be
-       a waste to have lots of classes that never actually get used. The parser
-       -really- just wants to get the type, so... */
-    if (class_iter == NULL && name[1] == '\0') {
-        lily_type *generic_type = lookup_generic(symtab, name);
-        if (generic_type) {
-            class_iter = symtab->generic_class;
-            class_iter->type = generic_type;
+    if (import == NULL) {
+        result = find_class(symtab->builtin_import->class_chain, name,
+                shorthash);
+        if (result == NULL) {
+            result = find_class(symtab->class_chain, name, shorthash);
+            if (result == NULL) {
+                /* The parser wants to be able to find classes by name...but it
+                   would be a waste to have lots of classes that never actually
+                   get used. The parser -really- just wants to get the type,
+                   so... */
+                if (name[1] == '\0') {
+                    lily_type *generic_type = lookup_generic(symtab, name);
+                    if (generic_type) {
+                        result = symtab->generic_class;
+                        result->type = generic_type;
+                    }
+                }
+            }
         }
     }
+    else
+        result = find_class(import->class_chain, name, shorthash);
 
-    return class_iter;
-}
-
-lily_class *lily_class_by_name_within(lily_import_entry *import, char *name)
-{
-    uint64_t shorthash = shorthash_for_name(name);
-    return find_class(import->class_chain, name, shorthash);
+    return result;
 }
 
 /*  lily_find_class_callable
@@ -1103,22 +1125,29 @@ lily_class *lily_find_scoped_variant(lily_class *enum_class, char *name)
     return ret;
 }
 
-lily_var *lily_var_by_name(lily_symtab *symtab, char *name)
+/*  Attempt to locate a var. The semantics differ depending on if 'import' is
+    NULL or not.
+
+    import == NULL:
+        Search through the current import and the builtin import.
+    import != NULL:
+        Search only through the import given. */
+lily_var *lily_find_var(lily_symtab *symtab, lily_import_entry *import,
+        char *name)
 {
     uint64_t shorthash = shorthash_for_name(name);
-    lily_var *result = find_var(symtab->builtin_import->var_chain, name,
-            shorthash);
-    if (result)
-        return result;
+    lily_var *result;
 
-    return find_var(symtab->var_chain, name, shorthash);
-}
+    if (import == NULL) {
+        result = find_var(symtab->builtin_import->var_chain, name,
+                    shorthash);
+        if (result == NULL)
+            result = find_var(symtab->var_chain, name, shorthash);
+    }
+    else
+        result = find_var(import->var_chain, name, shorthash);
 
-lily_var *lily_var_by_name_within(lily_import_entry *import, char *name)
-{
-    uint64_t shorthash = shorthash_for_name(name);
-
-    return find_var(import->var_chain, name, shorthash);
+    return result;
 }
 
 /*  lily_hide_block_vars
@@ -1532,30 +1561,25 @@ lily_import_entry *lily_find_import_anywhere(lily_symtab *symtab,
     return entry_iter;
 }
 
-lily_import_entry *lily_find_import_within(lily_import_entry *import,
-        char *name)
-{
-    lily_import_link *link_iter = import->import_chain;
-    lily_import_entry *result = NULL;
-    while (link_iter) {
-        if (link_iter->entry->loadname &&
-            strcmp(link_iter->entry->loadname, name) == 0) {
-            result = link_iter->entry;
-            break;
-        }
+/*  Attempt to locate an import. The semantics differ depending on if 'import'
+    is NULL or not.
 
-        link_iter = link_iter->next_import;
+    import == NULL:
+        Search through the current import and the builtin import.
+    import != NULL:
+        Search only through the import given. */
+lily_import_entry *lily_find_import(lily_symtab *symtab,
+        lily_import_entry *import, char *name)
+{
+    lily_import_entry *result;
+    if (import == NULL) {
+        result = find_import(symtab->active_import,
+                name);
+        if (result == NULL)
+            result = find_import(symtab->builtin_import, name);
     }
+    else
+        result = find_import(import, name);
 
     return result;
-}
-
-lily_import_entry *lily_find_import(lily_symtab *symtab, char *name)
-{
-    lily_import_entry *result = lily_find_import_within(symtab->active_import,
-            name);
-    if (result)
-        return result;
-
-    return lily_find_import_within(symtab->builtin_import, name);
 }
