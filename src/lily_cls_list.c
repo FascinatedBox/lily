@@ -1,5 +1,6 @@
 #include "lily_alloc.h"
 #include "lily_vm.h"
+#include "lily_seed.h"
 
 lily_list_val *lily_new_list_val()
 {
@@ -227,18 +228,18 @@ void lily_list_apply(lily_vm_state *vm, lily_function_val *self,
 }
 
 static lily_func_seed apply =
-    {"apply", "function apply[A](list[A], function(A => A))", lily_list_apply, NULL};
+    {NULL, "apply", dyna_function, "function apply[A](list[A], function(A => A))", lily_list_apply};
 
 static const lily_func_seed append =
-    {"append", "function append[A](list[A], A)", lily_list_append, &apply};
+    {&apply, "append", dyna_function, "function append[A](list[A], A)", lily_list_append};
 
 static const lily_func_seed size =
-    {"size", "function size[A](list[A] => integer)", lily_list_size, &append};
+    {&append, "size", dyna_function, "function size[A](list[A] => integer)", lily_list_size};
 
 #define SEED_START size
 
 int lily_list_setup(lily_symtab *symtab, lily_class *cls)
 {
-    cls->seed_table = &SEED_START;
+    cls->dynaload_table = &SEED_START;
     return 1;
 }

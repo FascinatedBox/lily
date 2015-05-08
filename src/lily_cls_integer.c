@@ -5,6 +5,7 @@
 #include "lily_alloc.h"
 #include "lily_vm.h"
 #include "lily_value.h"
+#include "lily_seed.h"
 
 int lily_integer_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
@@ -48,14 +49,14 @@ void lily_integer_to_d(lily_vm_state *vm, lily_function_val *self,
 }
 
 static const lily_func_seed to_d =
-    {"to_d", "function to_d(integer => double)", lily_integer_to_d, NULL};
+    {NULL, "to_d", dyna_function, "function to_d(integer => double)", &lily_integer_to_d};
 
 static const lily_func_seed to_s =
-    {"to_s", "function to_s(integer => string)", lily_integer_to_s, &to_d};
+    {&to_d, "to_s", dyna_function, "function to_s(integer => string)", &lily_integer_to_s};
 
 int lily_integer_setup(lily_symtab *symtab, lily_class *cls)
 {
-    cls->seed_table = &to_s;
+    cls->dynaload_table = &to_s;
     return 1;
 }
 

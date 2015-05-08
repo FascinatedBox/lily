@@ -7,9 +7,11 @@
 #include "lily_parser.h"
 #include "lily_parser_tok_table.h"
 #include "lily_keyword_table.h"
+#include "lily_seed_parser.h"
 #include "lily_pkg_sys.h"
 #include "lily_value.h"
 #include "lily_membuf.h"
+#include "lily_seed.h"
 
 #include "lily_cls_function.h"
 
@@ -126,7 +128,7 @@ static lily_path_link *prepare_path_by_seed(lily_parse_state *parser,
 static void do_bootstrap(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-    const lily_func_seed *global_seed = lily_get_global_seed_chain();
+    const lily_func_seed *global_seed = PARSER_SEED_START;
     while (global_seed) {
         lily_load_str(lex, "[builtin]", lm_no_tags,
                 global_seed->func_definition);
@@ -325,6 +327,32 @@ static void fixup_import_basedir(lily_parse_state *parser, char *path)
     int length = (search_str - path) + 1;
     parser->import_paths = add_path_slice_to(parser, parser->import_paths, path,
         length);
+}
+
+static lily_base_seed *find_dynaload_entry(const void *table, char *name)
+{
+    const void *raw_iter = table;
+    while (raw_iter) {
+        lily_base_seed *base_seed = (lily_base_seed *)raw_iter;
+        if (strcmp(base_seed->name, name) == 0)
+            break;
+
+        raw_iter = base_seed->next;
+    }
+
+    return raw_iter;
+}
+
+static lily_var *dynaload_function(lily_parse_state *parser, lily_class *cls,
+        lily_base_seed *seed)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_func_seed *func_seed = (lily_func_seed *)seed;
+    lily_load_str(lex, "[builtin]", lm_no_tags, func_seed->func_definition);
+    lily_lexer(lex);
+    lily_var *ret = parse_prototype(parser, cls, func_seed->func);
+    lily_pop_lex_entry(lex);
+    return ret;
 }
 
 /*  shorthash_for_name
@@ -2948,17 +2976,12 @@ lily_var *lily_parser_dynamic_load(lily_parse_state *parser, lily_class *cls,
         char *name)
 {
     lily_lex_state *lex = parser->lex;
-    const lily_func_seed *seed = lily_find_class_call_seed(parser->symtab,
-            cls, name);
-
+    lily_base_seed *base_seed = find_dynaload_entry(cls->dynaload_table,
+            name);
     lily_var *ret;
 
-    if (seed != NULL) {
-        lily_load_str(lex, "[builtin]", lm_no_tags, seed->func_definition);
-        lily_lexer(lex);
-        ret = parse_prototype(parser, cls, seed->func);
-        lily_pop_lex_entry(lex);
-    }
+    if (base_seed != NULL)
+        ret = dynaload_function(parser, cls, base_seed);
     else
         ret = NULL;
 

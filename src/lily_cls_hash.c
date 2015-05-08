@@ -1,6 +1,7 @@
 #include "lily_alloc.h"
 #include "lily_vm.h"
 #include "lily_value.h"
+#include "lily_seed.h"
 
 lily_hash_val *lily_new_hash_val()
 {
@@ -262,15 +263,15 @@ void lily_hash_keys(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
 }
 
 static const lily_func_seed keys =
-    {"keys", "function keys[A, B](hash[A, B] => list[A])", lily_hash_keys, NULL};
+    {NULL, "keys", dyna_function, "function keys[A, B](hash[A, B] => list[A])", lily_hash_keys};
 
 static const lily_func_seed get =
-    {"get", "function get[A, B](hash[A, B], A, B => B)", lily_hash_get, &keys};
+    {&keys, "get", dyna_function, "function get[A, B](hash[A, B], A, B => B)", lily_hash_get};
 
 #define SEED_START get
 
 int lily_hash_setup(lily_symtab *symtab, lily_class *cls)
 {
-    cls->seed_table = &SEED_START;
+    cls->dynaload_table = &SEED_START;
     return 1;
 }

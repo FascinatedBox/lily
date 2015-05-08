@@ -128,8 +128,6 @@ lily_symbol_val *lily_symbol_by_name(lily_symtab *, char *);
 lily_class *lily_class_by_name(lily_symtab *, const char *);
 lily_class *lily_class_by_name_within(lily_import_entry *, char *);
 lily_var *lily_find_class_callable(lily_symtab *, lily_class *, char *);
-const lily_func_seed *lily_find_class_call_seed(lily_symtab *, lily_class *,
-        char *);
 lily_prop_entry *lily_find_property(lily_symtab *, lily_class *, char *);
 lily_class *lily_find_scoped_variant(lily_class *, char *);
 
@@ -144,7 +142,7 @@ void lily_hide_block_vars(lily_symtab *, lily_var *);
 int lily_check_right_inherits_or_is(lily_class *, lily_class *);
 
 lily_class *lily_new_class(lily_symtab *, char *);
-lily_class *lily_new_class_by_seed(lily_symtab *, lily_class_seed);
+lily_class *lily_new_class_by_seed(lily_symtab *, const void *);
 lily_class *lily_new_variant_class(lily_symtab *, lily_class *, char *);
 void lily_finish_variant_class(lily_symtab *, lily_class *, lily_type *);
 void lily_add_class_method(lily_symtab *, lily_class *, lily_var *);
@@ -163,6 +161,4 @@ lily_import_entry *lily_find_import(lily_symtab *, char *);
 lily_import_entry *lily_find_import_within(lily_import_entry *, char *);
 lily_import_entry *lily_find_import_anywhere(lily_symtab *, char *);
 void lily_link_import_to_active(lily_symtab *, lily_import_entry *);
-
-const lily_func_seed *lily_get_global_seed_chain();
 #endif

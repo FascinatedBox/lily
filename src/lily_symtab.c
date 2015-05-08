@@ -4,7 +4,7 @@
 #include "lily_alloc.h"
 #include "lily_symtab.h"
 #include "lily_pkg_builtin.h"
-#include "lily_seed_symtab.h"
+#include "lily_seed.h"
 
 /** Symtab is responsible for:
     * Holding all classes, literals, vars, you name it.
@@ -184,7 +184,7 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     new_class->generic_count = 0;
     new_class->properties = NULL;
     new_class->prop_count = 0;
-    new_class->seed_table = NULL;
+    new_class->dynaload_table = NULL;
     new_class->call_chain = NULL;
     new_class->variant_members = NULL;
     new_class->gc_marker = NULL;
@@ -205,14 +205,15 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
    from the seed given.
    If the given class does not take generics, this will also set the default
    type of the newly-made class. */
-lily_class *lily_new_class_by_seed(lily_symtab *symtab, lily_class_seed seed)
+lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
 {
-    lily_class *new_class = lily_new_class(symtab, seed.name);
+    lily_class_seed *class_seed = (lily_class_seed *)seed;
+    lily_class *new_class = lily_new_class(symtab, class_seed->name);
     lily_type *type;
 
     /* If a class doesn't take generics (or isn't the generic class), then
         give it a default type.  */
-    if (seed.generic_count != 0)
+    if (class_seed->generic_count != 0)
         type = NULL;
     else {
         /* A basic class? Make a quick default type for it. */
@@ -221,15 +222,15 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, lily_class_seed seed)
     }
 
     new_class->type = type;
-    new_class->generic_count = seed.generic_count;
-    new_class->gc_marker = seed.gc_marker;
-    new_class->flags = seed.flags;
-    new_class->is_refcounted = seed.is_refcounted;
-    new_class->eq_func = seed.eq_func;
-    new_class->destroy_func = seed.destroy_func;
+    new_class->generic_count = class_seed->generic_count;
+    new_class->gc_marker = class_seed->gc_marker;
+    new_class->flags = class_seed->flags;
+    new_class->is_refcounted = class_seed->is_refcounted;
+    new_class->eq_func = class_seed->eq_func;
+    new_class->destroy_func = class_seed->destroy_func;
     new_class->import = symtab->active_import;
-    if (seed.setup_func)
-        seed.setup_func(symtab, new_class);
+    if (class_seed->setup_func)
+        class_seed->setup_func(symtab, new_class);
 
     return new_class;
 }
@@ -1020,7 +1021,7 @@ lily_class *lily_class_by_name_within(lily_import_entry *import, char *name)
 
 /*  lily_find_class_callable
     Check if a class has a given function within it. If it doesn't, see if the
-    class comes with a 'seed_table' that defines more functions. If it has a
+    class comes with a 'dynaload_table' that defines more functions. If it has a
     seed table, attempt to do a dynamic load of the given function.
 
     This is a bit complicated, but it saves a LOT of memory from not having to
@@ -1053,28 +1054,6 @@ void lily_add_class_method(lily_symtab *symtab, lily_class *cls,
 
     method_var->next = cls->call_chain;
     cls->call_chain = method_var;
-}
-
-const lily_func_seed *lily_find_class_call_seed(lily_symtab *symtab,
-        lily_class *cls, char *name)
-{
-    const lily_func_seed *seed_iter = NULL;
-    if (cls->seed_table) {
-        seed_iter = cls->seed_table;
-        while (seed_iter != NULL) {
-            if (strcmp(seed_iter->name, name) == 0)
-                break;
-
-            seed_iter = seed_iter->next;
-        }
-    }
-
-    return seed_iter;
-}
-
-const lily_func_seed *lily_get_global_seed_chain()
-{
-    return &GLOBAL_SEED_START;
 }
 
 /*  lily_find_property

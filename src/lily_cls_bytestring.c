@@ -4,6 +4,7 @@
 #include "lily_core_types.h"
 #include "lily_lexer.h"
 #include "lily_vm.h"
+#include "lily_seed.h"
 
 int lily_bytestring_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
@@ -59,10 +60,10 @@ void lily_bytestring_encode(lily_vm_state *vm, lily_function_val *self,
 }
 
 static const lily_func_seed encode =
-    {"encode", "function encode(bytestring, string => string)", lily_bytestring_encode, NULL};
+    {NULL, "encode", dyna_function, "function encode(bytestring, string => string)", lily_bytestring_encode};
 
 int lily_bytestring_setup(lily_symtab *symtab, lily_class *cls)
 {
-    cls->seed_table = &encode;
+    cls->dynaload_table = &encode;
     return 1;
 }

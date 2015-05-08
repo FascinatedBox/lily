@@ -5,6 +5,7 @@
 #include "lily_alloc.h"
 #include "lily_vm.h"
 #include "lily_value.h"
+#include "lily_seed.h"
 
 lily_file_val *lily_new_file_val(FILE *inner_file,
         char mode_ch)
@@ -174,16 +175,16 @@ void lily_file_readline(lily_vm_state *vm, lily_function_val *self,
 }
 
 static const lily_func_seed file_readline =
-    {"readline", "function readline(file => bytestring)", lily_file_readline, NULL};
+    {NULL, "readline", dyna_function, "function readline(file => bytestring)", lily_file_readline};
 
 static const lily_func_seed file_write =
-    {"write", "function write(file, string)", lily_file_write, &file_readline};
+    {&file_readline, "write", dyna_function, "function write(file, string)", lily_file_write};
 
 static const lily_func_seed file_close =
-    {"close", "function close(file)", lily_file_close, &file_write};
+    {&file_write, "close", dyna_function, "function close(file)", lily_file_close};
 
 static const lily_func_seed file_open =
-    {"open", "function open(string, string => file)", lily_file_open, &file_close};
+    {&file_close, "open", dyna_function, "function open(string, string => file)", lily_file_open};
 
 int lily_file_setup(lily_symtab *symtab, lily_class *file_cls)
 {
@@ -207,6 +208,6 @@ int lily_file_setup(lily_symtab *symtab, lily_class *file_cls)
         lily_tie_value(symtab, stderr_var, &v);
     }
 
-    file_cls->seed_table = &file_open;
+    file_cls->dynaload_table = &file_open;
     return 1;
 }
