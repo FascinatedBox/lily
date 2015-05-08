@@ -3,6 +3,7 @@
 #include "lily_vm.h"
 #include "lily_value.h"
 #include "inttypes.h"
+#include "lily_seed.h"
 
 int lily_double_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
@@ -22,11 +23,10 @@ void lily_double_to_i(lily_vm_state *vm, lily_function_val *self,
 }
 
 static const lily_func_seed to_i =
-    {"to_i", "function to_i(double => integer)", lily_double_to_i, NULL};
+    {NULL, "to_i", dyna_function, "function to_i(double => integer)", lily_double_to_i};
 
 int lily_double_setup(lily_symtab *symtab, lily_class *cls)
 {
-    cls->seed_table = &to_i;
+    cls->dynaload_table = &to_i;
     return 1;
 }
-

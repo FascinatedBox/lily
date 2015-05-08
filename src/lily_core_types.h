@@ -117,10 +117,9 @@ typedef struct lily_class_ {
        print a proper package name for classes.  */
     struct lily_import_entry_ *import;
 
-    /* Instead of loading all class members during init, Lily stores the needed
-       information in the seed_table of a class. If the symtab can't find the
-       name for a given class, then it's loaded into the vars of that class. */
-    const struct lily_func_seed_ *seed_table;
+    /* This holds class methods that may or may not have been loaded (non-native
+       classes only). */
+    const void *dynaload_table;
     gc_marker_func gc_marker;
     class_eq_func eq_func;
 } lily_class;
@@ -428,25 +427,6 @@ typedef struct lily_register_info_ {
     uint32_t line_num;
     uint32_t pad;
 } lily_register_info;
-
-typedef const struct {
-    char *name;
-    uint16_t is_refcounted;
-    uint16_t generic_count;
-    uint32_t flags;
-    class_setup_func setup_func;
-    gc_marker_func gc_marker;
-    class_eq_func eq_func;
-    class_destroy_func destroy_func;
-} lily_class_seed;
-
-/* This holds all the information necessary to make a new Lily function. */
-typedef struct lily_func_seed_ {
-    char *name;
-    char *func_definition;
-    lily_foreign_func func;
-    const struct lily_func_seed_ *next;
-} lily_func_seed;
 
 typedef struct lily_import_link_ {
     struct lily_import_entry_ *entry;
