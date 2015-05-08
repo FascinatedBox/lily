@@ -400,7 +400,7 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type,
     lily_lex_state *lex = parser->lex;
     lily_var *var;
 
-    var = lily_var_by_name(parser->symtab, lex->label);
+    var = lily_find_var(parser->symtab, NULL, lex->label);
     if (var != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
                    "%s has already been declared.\n", lex->label);
@@ -911,12 +911,15 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
     /* This intentionally searches the symtab so both the current AND builtin
        packages are searched through for types. In most cases, it's probably
        going to be a builtin type. */
-    lily_class *result = lily_class_by_name(symtab, name);
-    lily_import_entry *search_import = symtab->active_import;
+    lily_class *result = lily_find_class(symtab, NULL, name);
+
+    /* This is intentional: NULL means search the current and builtin
+       packages. */
+    lily_import_entry *search_import = NULL;
 
     if (result == NULL) {
         while (1) {
-            lily_import_entry *search_cache = lily_find_import_within(
+            lily_import_entry *search_cache = lily_find_import(symtab,
                     search_import, parser->lex->label);
             if (search_cache) {
                 search_import = search_cache;
@@ -924,7 +927,7 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
                 NEED_NEXT_TOK(tk_word)
                 continue;
             }
-            result = lily_class_by_name_within(search_import,
+            result = lily_find_class(symtab, search_import,
                     parser->lex->label);
             if (result == NULL)
                 lily_raise(parser->raiser, lily_SyntaxError,
@@ -1225,16 +1228,18 @@ static void dispatch_word_as_import(lily_parse_state *parser,
 {
     lily_lex_state *lex = parser->lex;
     char *name = lex->label;
+    lily_symtab *symtab = parser->symtab;
+
     while (1) {
         NEED_NEXT_TOK(tk_colon_colon)
         NEED_NEXT_TOK(tk_word)
-        lily_var *search_var = lily_var_by_name_within(import, name);
+        lily_var *search_var = lily_find_var(symtab, import, name);
         if (search_var) {
             dispatch_word_as_var(parser, search_var, state);
             break;
         }
 
-        lily_class *search_cls = lily_class_by_name_within(import, name);
+        lily_class *search_cls = lily_find_class(symtab, import, name);
         if (search_cls) {
             dispatch_word_as_class(parser, search_cls, state);
             break;
@@ -1243,7 +1248,7 @@ static void dispatch_word_as_import(lily_parse_state *parser,
         /* Don't use the usual lily_find_import, because that function will
            look up the given import AND the default one.
            It would allow things like somepackage::sys, which seems wacky. */
-        lily_import_entry *search_import = lily_find_import_within(import,
+        lily_import_entry *search_import = lily_find_import(symtab, import,
                 name);
 
         if (search_import) {
@@ -1265,7 +1270,7 @@ static void expression_word(lily_parse_state *parser, int *state)
 {
     lily_symtab *symtab = parser->symtab;
     lily_lex_state *lex = parser->lex;
-    lily_var *var = lily_var_by_name(symtab, lex->label);
+    lily_var *var = lily_find_var(symtab, NULL, lex->label);
 
     if (var) {
         dispatch_word_as_var(parser, var, state);
@@ -1284,7 +1289,7 @@ static void expression_word(lily_parse_state *parser, int *state)
         return;
     }
 
-    lily_class *cls = lily_class_by_name(parser->symtab, lex->label);
+    lily_class *cls = lily_find_class(parser->symtab, NULL, lex->label);
 
     if (cls) {
         dispatch_word_as_class(parser, cls, state);
@@ -1300,7 +1305,8 @@ static void expression_word(lily_parse_state *parser, int *state)
         return;
     }
 
-    lily_import_entry *entry = lily_find_import(symtab, parser->lex->label);
+    lily_import_entry *entry = lily_find_import(symtab, NULL,
+            parser->lex->label);
 
     if (entry) {
         dispatch_word_as_import(parser, entry, state);
@@ -1836,7 +1842,7 @@ static void statement(lily_parse_state *parser, int multi)
                 handlers[key_id](parser, multi);
             }
             else {
-                lclass = lily_class_by_name(parser->symtab, lex->label);
+                lclass = lily_find_class(parser->symtab, NULL, lex->label);
 
                 if (lclass != NULL) {
                     NEED_NEXT_TOK(tk_colon_colon)
@@ -2116,7 +2122,7 @@ static void for_handler(lily_parse_state *parser, int multi)
 
     lily_emit_enter_block(parser->emit, BLOCK_FOR_IN);
 
-    loop_var = lily_var_by_name(parser->symtab, lex->label);
+    loop_var = lily_find_var(parser->symtab, NULL, lex->label);
     if (loop_var == NULL) {
         lily_class *cls = parser->symtab->integer_class;
         loop_var = lily_new_var(parser->symtab, cls->type, lex->label, 0);
@@ -2214,13 +2220,13 @@ static void except_handler(lily_parse_state *parser, int multi)
     lily_lex_state *lex = parser->lex;
 
     NEED_CURRENT_TOK(tk_word)
-    lily_class *exception_class = lily_class_by_name(parser->symtab, lex->label);
+    lily_class *exception_class = lily_find_class(parser->symtab, NULL, lex->label);
     if (exception_class == NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' is not a class.\n", lex->label);
 
     /* Exception is likely to always be the base exception class. */
-    lily_class *exception_base = lily_class_by_name(parser->symtab,
+    lily_class *exception_base = lily_find_class(parser->symtab, NULL,
             "Exception");
 
     int is_valid = lily_check_right_inherits_or_is(exception_base,
@@ -2238,7 +2244,7 @@ static void except_handler(lily_parse_state *parser, int multi)
                 "Expected 'as', not '%s'.\n", lex->label);
 
         NEED_NEXT_TOK(tk_word)
-        exception_var = lily_var_by_name(parser->symtab, lex->label);
+        exception_var = lily_find_var(parser->symtab, NULL, lex->label);
         if (exception_var != NULL)
             lily_raise(parser->raiser, lily_SyntaxError,
                 "%s has already been declared.\n", exception_var->name);
@@ -2301,8 +2307,8 @@ static void import_handler(lily_parse_state *parser, int multi)
         if (search_entry) {
             /* Multiple imports of one thing from the same package are
                forbidden. This prevents junk imports which don't do anything. */
-            lily_import_entry *extra_search = lily_find_import_within(
-                    symtab->active_import, import_name);
+            lily_import_entry *extra_search = lily_find_import(
+                    symtab, symtab->active_import, import_name);
             if (extra_search)
                 lily_raise(parser->raiser, lily_SyntaxError,
                         "Package '%s' has already been imported in this file.\n",
@@ -2410,7 +2416,7 @@ static void ensure_valid_class(lily_parse_state *parser, char *name)
                 "Attempt to declare a class within something that isn't another class.\n");
     }
 
-    lily_class *lookup_class = lily_class_by_name(parser->symtab, name);
+    lily_class *lookup_class = lily_find_class(parser->symtab, NULL, name);
     if (lookup_class != NULL) {
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Class '%s' has already been declared.\n", name);
@@ -2430,7 +2436,7 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
     lily_lex_state *lex = parser->lex;
     NEED_NEXT_TOK(tk_word)
 
-    lily_class *super_class = lily_class_by_name(parser->symtab,
+    lily_class *super_class = lily_find_class(parser->symtab, NULL,
             lex->label);
 
     if (super_class == NULL)
@@ -2551,7 +2557,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
         }
 
         NEED_CURRENT_TOK(tk_word)
-        lily_class *variant_class = lily_class_by_name(parser->symtab, lex->label);
+        lily_class *variant_class = lily_find_class(parser->symtab, NULL, lex->label);
         if (variant_class != NULL)
             lily_raise(parser->raiser, lily_SyntaxError,
                     "A class with the name '%s' already exists.\n",
