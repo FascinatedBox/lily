@@ -481,10 +481,9 @@ static void init_lily_main(lily_symtab *symtab)
     On success: The newly-created symtab is returned.
     On failure: NULL is returned. */
 lily_symtab *lily_new_symtab(lily_options *options,
-        lily_import_entry *builtin_import, lily_raiser *raiser)
+        lily_import_entry *builtin_import)
 {
     lily_symtab *symtab = lily_malloc(sizeof(lily_symtab));
-    symtab->raiser = raiser;
 
     uint32_t v = 0;
 

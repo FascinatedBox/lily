@@ -2,7 +2,6 @@
 # define LILY_MEMBUF_H
 
 # include <stdint.h>
-# include "lily_raiser.h"
 
 /* lily_membuf holds a series of \0 terminated strings in a single char *
    buffer. The caller receives indexes to the strings inside, so that the buffer
@@ -12,11 +11,9 @@ typedef struct  {
     char *buffer;
     uint32_t pos;
     uint32_t size;
-    lily_raiser *raiser;
 } lily_membuf;
 
-
-lily_membuf *lily_membuf_new(lily_options *, lily_raiser *);
+lily_membuf *lily_membuf_new(void);
 
 void lily_membuf_free(lily_membuf *);
 

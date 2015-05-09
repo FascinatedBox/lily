@@ -82,15 +82,13 @@ static int try_add_save_entry(lily_ast_pool *);
 /* Ast pool creation and teardown.                                            */
 /******************************************************************************/
 
-lily_ast_pool *lily_new_ast_pool(lily_options *options,
-        lily_raiser *raiser, int pool_size)
+lily_ast_pool *lily_new_ast_pool(lily_options *options, int pool_size)
 {
     lily_ast_pool *ap = lily_malloc(sizeof(lily_ast_pool));
 
     int i;
     lily_ast *last_tree;
 
-    ap->raiser = raiser;
     ap->active = NULL;
     ap->root = NULL;
     ap->save_chain = NULL;
@@ -114,7 +112,7 @@ lily_ast_pool *lily_new_ast_pool(lily_options *options,
     ap->available_restore = last_tree;
     ap->available_current = last_tree;
 
-    ap->ast_membuf = lily_membuf_new(options, raiser);
+    ap->ast_membuf = lily_membuf_new();
     try_add_save_entry(ap);
 
     return ap;

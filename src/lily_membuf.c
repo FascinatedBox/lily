@@ -3,7 +3,7 @@
 #include "lily_alloc.h"
 #include "lily_membuf.h"
 
-lily_membuf *lily_membuf_new(lily_options *options, lily_raiser *raiser)
+lily_membuf *lily_membuf_new(void)
 {
     lily_membuf *membuf = lily_malloc(sizeof(lily_membuf));
 

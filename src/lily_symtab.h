@@ -2,7 +2,6 @@
 # define LILY_SYMTAB_H
 
 # include "lily_core_types.h"
-# include "lily_raiser.h"
 
 typedef struct lily_symtab_ {
 	/* This is a linked list of all vars that are currently in scope. The most
@@ -107,10 +106,9 @@ typedef struct lily_symtab_ {
     lily_class *optarg_class;
 
     uint32_t *lex_linenum;
-    lily_raiser *raiser;
 } lily_symtab;
 
-lily_symtab *lily_new_symtab(lily_options *, lily_import_entry *, lily_raiser *);
+lily_symtab *lily_new_symtab(lily_options *, lily_import_entry *);
 void lily_free_symtab(lily_symtab *);
 
 lily_tie *lily_get_integer_literal(lily_symtab *, int64_t);

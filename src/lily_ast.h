@@ -3,7 +3,6 @@
 
 # include <stdint.h>
 
-# include "lily_raiser.h"
 # include "lily_core_types.h"
 # include "lily_membuf.h"
 
@@ -184,14 +183,13 @@ typedef struct {
        expression. Therefore, they can't re-use trees and such. */
     lily_ast_freeze_entry *freeze_chain;
 
-    lily_raiser *raiser;
     uint32_t *lex_linenum;
 } lily_ast_pool;
 
 void lily_ast_collect_arg(lily_ast_pool *);
 void lily_ast_enter_tree(lily_ast_pool *, lily_tree_type);
 void lily_free_ast_pool(lily_ast_pool *);
-lily_ast_pool *lily_new_ast_pool(lily_options *, lily_raiser *, int);
+lily_ast_pool *lily_new_ast_pool(lily_options *, int);
 void lily_ast_leave_tree(lily_ast_pool *);
 lily_ast *lily_ast_get_saved_tree(lily_ast_pool *);
 void lily_ast_enter_typecast(lily_ast_pool *ap, lily_type *type);
