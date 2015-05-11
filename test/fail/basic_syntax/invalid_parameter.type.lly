@@ -1,5 +1,5 @@
 #[
-SyntaxError: 'asdf' is not a package or a class.
+SyntaxError: Class 'asdf' does not exist.
 Where: File "invalid_parameter.type.lly" at line 6
 ]#
 
