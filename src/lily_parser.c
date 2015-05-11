@@ -349,6 +349,23 @@ static lily_var *dynaload_function(lily_parse_state *parser, lily_class *cls,
     return ret;
 }
 
+static lily_import_entry *resolve_import(lily_parse_state *parser)
+{
+    lily_import_entry *result = NULL, *search_entry = NULL;
+    lily_symtab *symtab = parser->symtab;
+    lily_lex_state *lex = parser->lex;
+
+    search_entry = lily_find_import(symtab, result, lex->label);
+    while (search_entry) {
+        result = search_entry;
+        NEED_NEXT_TOK(tk_colon_colon)
+        NEED_NEXT_TOK(tk_word)
+        search_entry = lily_find_import(symtab, result, lex->label);
+    }
+
+    return result;
+}
+
 /*  shorthash_for_name
     Copied from symtab for keyword_by_name. This gives (up to) the first 8
     bytes of the name as an int for doing fast comparisons. */
@@ -901,35 +918,11 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
 
     NEED_CURRENT_TOK(tk_word)
 
-    char *name = parser->lex->label;
-    /* This intentionally searches the symtab so both the current AND builtin
-       packages are searched through for types. In most cases, it's probably
-       going to be a builtin type. */
-    lily_class *result = lily_find_class(symtab, NULL, name);
-
-    /* This is intentional: NULL means search the current and builtin
-       packages. */
-    lily_import_entry *search_import = NULL;
-
+    lily_import_entry *search_import = resolve_import(parser);
+    lily_class *result = lily_find_class(symtab, search_import, lex->label);
     if (result == NULL) {
-        while (1) {
-            lily_import_entry *search_cache = lily_find_import(symtab,
-                    search_import, parser->lex->label);
-            if (search_cache) {
-                search_import = search_cache;
-                NEED_NEXT_TOK(tk_colon_colon)
-                NEED_NEXT_TOK(tk_word)
-                continue;
-            }
-            result = lily_find_class(symtab, search_import,
-                    parser->lex->label);
-            if (result == NULL)
-                lily_raise(parser->raiser, lily_SyntaxError,
-                        "'%s' is not a package or a class.\n",
-                        parser->lex->label);
-
-            break;
-        }
+        lily_raise(parser->raiser, lily_SyntaxError,
+                    "Class '%s' does not exist.\n", lex->label);
     }
 
     return result;
