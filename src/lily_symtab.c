@@ -110,7 +110,7 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_type *type, char *name,
     lily_var *var = lily_malloc(sizeof(lily_var));
 
     var->name = lily_malloc(strlen(name) + 1);
-    var->flags = VAL_IS_NIL | SYM_TYPE_VAR | flags;
+    var->flags = SYM_TYPE_VAR | flags;
     strcpy(var->name, name);
     var->line_num = *symtab->lex_linenum;
 
