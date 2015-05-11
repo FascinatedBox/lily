@@ -19,20 +19,14 @@
     * Creating all other major structures (ast pool, emitter, lexer, etc.)
     * Ensuring that all other major structures are deleted.
     * Holding the startup functions (lily_parse_file and others).
+    * Processing expressions and ensuring they have the proper form. Actual
+      type-checking is done within the emitter.
+    * Handling importing (what links to what, making new ones, etc.)
+    * Dynamic load of class methods.
 
-    Notes:
-    * Parser uses a type stack to hold types while processing complex
-      var information. This is used to keep parser from leaking memory, since
-      parser functions often call lily_raise.
-    * Parser checks for proper form, but does not verify call argument counts,
-      proper types for assignment, etc. AST handles argument counts, and
-      emitter checks types.
-    * 'Forward token' is extremely important to parser. This means that
-      caller functions will call lily_lexer to get the token ready before
-      calling other parser functions. This allows parser to do token lookaheads
-      without a penalty: Since a calling function has to get the token ready,
-      it can check for a certain value and call lily_lexer again if it needs to
-      do so.
+    Most functions here will expect to have the current token when they start,
+    and call up the next token at exit. This allows the parser to do some
+    lookahead without having to save tokens.
 **/
 
 /* These flags are for inner_type_collector. */

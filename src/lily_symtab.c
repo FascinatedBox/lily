@@ -7,16 +7,12 @@
 #include "lily_seed.h"
 
 /** Symtab is responsible for:
-    * Holding all classes, literals, vars, you name it.
-    * Using the 'seeds' provided by lily_seed_symtab to initialize the starting
-      symbols (__main__, literals 0 and 1, etc.).
-    * On destruction, destroying all symbols.
-    * Symtab currently handles all value derefs.
-    * Hiding variables when they go out of scope (see lily_drop_block_vars)
-
-    Notes:
-    * During symtab initialization, lily_raise cannot be called because the
-      parser is not completely allocated and set.
+    * Providing functions for finding and creating classes and vars.
+    * Holding 'ties' that associate vars with values (so that a vars do not
+      actually hold values.
+    * Creating and finding new literals.
+    * Creation of new types (and ensuring that each type created is unique so
+      that == can compare them.
 **/
 
 
