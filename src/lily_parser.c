@@ -1210,46 +1210,6 @@ static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
     *state = ST_WANT_OPERATOR;
 }
 
-static void dispatch_word_as_import(lily_parse_state *parser,
-        lily_import_entry *import, int *state)
-{
-    lily_lex_state *lex = parser->lex;
-    char *name = lex->label;
-    lily_symtab *symtab = parser->symtab;
-
-    while (1) {
-        NEED_NEXT_TOK(tk_colon_colon)
-        NEED_NEXT_TOK(tk_word)
-        lily_var *search_var = lily_find_var(symtab, import, name);
-        if (search_var) {
-            dispatch_word_as_var(parser, search_var, state);
-            break;
-        }
-
-        lily_class *search_cls = lily_find_class(symtab, import, name);
-        if (search_cls) {
-            dispatch_word_as_class(parser, search_cls, state);
-            break;
-        }
-
-        /* Don't use the usual lily_find_import, because that function will
-           look up the given import AND the default one.
-           It would allow things like somepackage::sys, which seems wacky. */
-        lily_import_entry *search_import = lily_find_import(symtab, import,
-                name);
-
-        if (search_import) {
-            /* Try again, relative to this package now. */
-            import = search_import;
-            continue;
-        }
-
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "Cannot locate '%s' within package '%s'.\n",
-                name, import->loadname);
-    }
-}
-
 /*  expression_word
     This is a helper function that handles words in expressions. These are
     sort of complicated. :( */
@@ -1257,46 +1217,41 @@ static void expression_word(lily_parse_state *parser, int *state)
 {
     lily_symtab *symtab = parser->symtab;
     lily_lex_state *lex = parser->lex;
-    lily_var *var = lily_find_var(symtab, NULL, lex->label);
+    lily_import_entry *search_entry = resolve_import(parser);
 
+    lily_var *var = lily_find_var(symtab, search_entry, lex->label);
     if (var) {
         dispatch_word_as_var(parser, var, state);
         return;
     }
 
-    int key_id = keyword_by_name(lex->label);
-    if (key_id != -1) {
-        lily_sym *sym = parse_special_keyword(parser, key_id);
-        if (sym->flags & SYM_TYPE_TIE)
-            lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
-        else
-            lily_ast_push_self(parser->ast_pool);
+    if (search_entry == NULL) {
+        int key_id = keyword_by_name(lex->label);
+        if (key_id != -1) {
+            lily_sym *sym = parse_special_keyword(parser, key_id);
+            if (sym->flags & SYM_TYPE_TIE)
+                lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
+            else
+                lily_ast_push_self(parser->ast_pool);
 
-        *state = ST_WANT_OPERATOR;
-        return;
+            *state = ST_WANT_OPERATOR;
+            return;
+        }
     }
 
-    lily_class *cls = lily_find_class(parser->symtab, NULL, lex->label);
+    lily_class *cls = lily_find_class(parser->symtab, search_entry, lex->label);
 
     if (cls) {
         dispatch_word_as_class(parser, cls, state);
         return;
     }
 
-    if (parser->emit->block->self) {
+    if (search_entry == NULL && parser->emit->block->self) {
         var = lily_find_class_callable(parser->symtab,
                 parser->symtab->class_chain, lex->label);
 
         lily_ast_push_defined_func(parser->ast_pool, var);
         *state = ST_WANT_OPERATOR;
-        return;
-    }
-
-    lily_import_entry *entry = lily_find_import(symtab, NULL,
-            parser->lex->label);
-
-    if (entry) {
-        dispatch_word_as_import(parser, entry, state);
         return;
     }
 
