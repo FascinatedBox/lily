@@ -11,21 +11,12 @@
 #include "lily_cls_function.h"
 
 /** Emitter is responsible for:
-    * Taking in an ast and generating code that the vm/debug can work with.
-    * Writing the code that allows if/elif/else, for, while, try, etc. to work.
-    * Determining if a given block is correct (ex: 'elif' without 'if' is
-      wrong).
-    * Clearing vars from a block when it is done.
-    * When a function exits, creating function info (register types, names,
-      etc.) that the vm will use later when entering the function.
-    * Keeping track of intermediate values that are available (storages).
-      An intermediate value cannot be used twice in the same expression, and
-      the vm also needs to know this information in function information too.
-
-    eval vs. emit:
-    * eval: This evaluates a tree. In most cases, it's bad to eval a tree
-      twice.
-    * emit: This writes some code, but doesn't evaluate any tree. **/
+    * Taking in a given tree and writing out code that represents it. In the
+      case of lambdas, it will dispatch into parser to process the lambdas
+      block.
+    * Verifying that call argument counts are correct, and that types are valid.
+    * Doing block handling + validation (if/elif/else, for.., etc.)
+    * Preparing functions to be called by the vm when functions exit. **/
 
 # define IS_LOOP_BLOCK(b) (b == BLOCK_WHILE || \
                            b == BLOCK_DO_WHILE || \

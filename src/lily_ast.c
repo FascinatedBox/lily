@@ -36,6 +36,8 @@
     * Keeping track of the depth of the current expression (how many calls/
       parent ops/lists there are). This is used by parser to guard against an
       expression ending early (save_index is 0 if there are no subtrees).
+    * Providing an api for freeze/thaw-ing state to allow for lambda processing.
+      Again, the pool assumes that parser will use this correctly.
 **/
 
 /*  ACQUIRE_SPARE_TREE
