@@ -2173,12 +2173,7 @@ static void except_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
 
-    NEED_CURRENT_TOK(tk_word)
-    lily_class *exception_class = lily_find_class(parser->symtab, NULL, lex->label);
-    if (exception_class == NULL)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "'%s' is not a class.\n", lex->label);
-
+    lily_class *exception_class = resolve_class_name(parser);
     /* Exception is likely to always be the base exception class. */
     lily_class *exception_base = lily_find_class(parser->symtab, NULL,
             "Exception");
