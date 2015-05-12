@@ -1497,7 +1497,7 @@ void lily_change_parent_class(lily_class *super_class, lily_class *sub_class)
        of single inheritance. */
     sub_class->prop_count = super_class->prop_count;
 }
-#include <stdio.h>
+
 void lily_link_import_to_active(lily_symtab *symtab, lily_import_entry *import)
 {
     lily_import_link *new_link = lily_malloc(sizeof(lily_import_link));
