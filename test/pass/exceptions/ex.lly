@@ -1,0 +1,1 @@
+class MyError(msg: string) < Exception(msg) { }

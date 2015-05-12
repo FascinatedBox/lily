@@ -1,0 +1,11 @@
+import ex
+
+var ok = 0
+
+try:
+    raise ex::MyError::new("Test.\n")
+except ex::MyError:
+    ok = 1
+
+if ok == 0:
+    print("Failed.\n")
