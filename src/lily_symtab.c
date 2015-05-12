@@ -1498,15 +1498,6 @@ void lily_change_parent_class(lily_class *super_class, lily_class *sub_class)
     sub_class->prop_count = super_class->prop_count;
 }
 
-void lily_link_import_to_active(lily_symtab *symtab, lily_import_entry *import)
-{
-    lily_import_link *new_link = lily_malloc(sizeof(lily_import_link));
-
-    new_link->entry = import;
-    new_link->next_import = symtab->active_import->import_chain;
-    symtab->active_import->import_chain = new_link;
-}
-
 void lily_enter_import(lily_symtab *symtab, lily_import_entry *entry)
 {
     entry->prev_entered = symtab->active_import;
@@ -1536,8 +1527,6 @@ void lily_leave_import(lily_symtab *symtab)
        really bad to deref something twice. */
     symtab->active_import->var_chain = NULL;
     symtab->active_import->class_chain = NULL;
-
-    lily_link_import_to_active(symtab, link_target);
 }
 
 lily_import_entry *lily_find_import_anywhere(lily_symtab *symtab,

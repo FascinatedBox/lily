@@ -78,6 +78,7 @@ static lily_var *parse_prototype(lily_parse_state *, lily_class *,
 static void statement(lily_parse_state *, int);
 static lily_import_entry *make_new_import_entry(lily_parse_state *, char *,
         char *);
+static void link_import_to(lily_import_entry *, lily_import_entry *);
 
 /*****************************************************************************/
 /* Parser creation and teardown                                              */
@@ -301,6 +302,17 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
     new_entry->path = path;
 
     return new_entry;
+}
+
+static void link_import_to(lily_import_entry *target,
+        lily_import_entry *to_link)
+{
+    lily_import_link *new_link = lily_malloc(sizeof(lily_import_link));
+
+    new_link->entry = to_link;
+    new_link->next_import = target->import_chain;
+
+    target->import_chain = new_link;
 }
 
 /*  fixup_import_basedir
@@ -2235,6 +2247,7 @@ static void import_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
+    lily_import_entry *link_target = symtab->active_import;
 
     while (1) {
         NEED_CURRENT_TOK(tk_word)
@@ -2244,9 +2257,9 @@ static void import_handler(lily_parse_state *parser, int multi)
         /* Before doing any actual loading, determine if an import with this
            name has been loaded already. This is currently ok because there are
            no directories that get imported. */
-        lily_import_entry *search_entry = lily_find_import_anywhere(symtab,
+        lily_import_entry *new_import = lily_find_import_anywhere(symtab,
                 import_name);
-        if (search_entry) {
+        if (new_import) {
             /* Multiple imports of one thing from the same package are
                forbidden. This prevents junk imports which don't do anything. */
             lily_import_entry *extra_search = lily_find_import(
@@ -2255,18 +2268,16 @@ static void import_handler(lily_parse_state *parser, int multi)
                 lily_raise(parser->raiser, lily_SyntaxError,
                         "Package '%s' has already been imported in this file.\n",
                         import_name);
-
-            lily_link_import_to_active(symtab, search_entry);
         }
         else {
             /* At this point, it's a valid new import, so load it up and run
                it. */
             load_import(parser, import_name);
 
-            lily_import_entry *import_entry = make_new_import_entry(parser,
-                    import_name, parser->lex->entry->filename);
+            new_import = make_new_import_entry(parser, import_name,
+                    lex->entry->filename);
 
-            lily_enter_import(parser->symtab, import_entry);
+            lily_enter_import(parser->symtab, new_import);
 
             /* lily_emit_enter_block will write new code to this special var. */
             lily_var *import_var = lily_new_var(parser->symtab,
@@ -2293,6 +2304,7 @@ static void import_handler(lily_parse_state *parser, int multi)
             lily_emit_write_import_call(parser->emit, import_var);
         }
 
+        link_import_to(link_target, new_import);
         lily_lexer(parser->lex);
         if (lex->token == tk_comma) {
             lily_lexer(parser->lex);
@@ -2990,6 +3002,7 @@ void lily_begin_package(lily_parse_state *parser, char *name)
     lily_import_entry *new_package = make_new_import_entry(parser,
             name, "[builtin]");
 
+    link_import_to(parser->symtab->active_import, new_package);
     lily_enter_import(parser->symtab, new_package);
 }
 
