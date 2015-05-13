@@ -181,7 +181,20 @@ static const lily_class_seed class_seeds[] =
     },
 };
 
-static const lily_base_seed seed_stderr = {NULL, "stderr", dyna_var};
+void lily_builtin_print(lily_vm_state *, lily_function_val *, uint16_t *);
+void lily_builtin_show(lily_vm_state *, lily_function_val *, uint16_t *);
+void lily_builtin_printfmt(lily_vm_state *, lily_function_val *, uint16_t *);
+void lily_builtin_calltrace(lily_vm_state *, lily_function_val *, uint16_t *);
+
+static const lily_func_seed calltrace =
+    {NULL, "calltrace", dyna_function, "function calltrace( => list[tuple[string, string, integer]])", lily_builtin_calltrace};
+static const lily_func_seed show =
+    {&calltrace, "show", dyna_function, "function show[A](A)", lily_builtin_show};
+static const lily_func_seed print =
+    {&show, "print", dyna_function, "function print(string)", lily_builtin_print};
+static const lily_func_seed printfmt =
+    {&print, "printfmt", dyna_function, "function printfmt(string, list[any]...)", lily_builtin_printfmt};
+static const lily_base_seed seed_stderr = {&printfmt, "stderr", dyna_var};
 static const lily_base_seed seed_stdout = {&seed_stderr, "stdout", dyna_var};
 static const lily_base_seed seed_stdin = {&seed_stdout, "stdin", dyna_var};
 
