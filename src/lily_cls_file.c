@@ -188,26 +188,6 @@ static const lily_func_seed file_open =
 
 int lily_file_setup(lily_symtab *symtab, lily_class *file_cls)
 {
-    {
-        lily_var *stdout_var = lily_new_var(symtab, file_cls->type, "stdout", 0);
-        lily_file_val *filev = lily_new_file_val(stdout, 'w');
-        lily_value v;
-        v.type = file_cls->type;
-        v.flags = 0;
-        v.value.file = filev;
-        lily_tie_value(symtab, stdout_var, &v);
-    }
-
-    {
-        lily_var *stderr_var = lily_new_var(symtab, file_cls->type, "stderr", 0);
-        lily_file_val *filev = lily_new_file_val(stderr, 'w');
-        lily_value v;
-        v.type = file_cls->type;
-        v.flags = 0;
-        v.value.file = filev;
-        lily_tie_value(symtab, stderr_var, &v);
-    }
-
     file_cls->dynaload_table = &file_open;
     return 1;
 }
