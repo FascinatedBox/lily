@@ -81,9 +81,9 @@ typedef struct lily_symtab_ {
        if a var is a local or a global. */
     uint32_t function_depth;
 
-    /* When the symtab is in a package at the toplevel, then new vars use this
-       for their register spot. This is so that all vars at the top of any
-       package are created as globals. */
+    /* When the emitter is not in the __main__ block, this keeps track of what
+       the next id will be within __main__. This allows packages to load vars
+       as globals into __main__, as well as dynaloading globals. */
     uint32_t next_main_spot;
 
     /* This is adjusted whenever the emitter enters/leaves an import. This is
@@ -128,7 +128,8 @@ lily_var *lily_find_class_callable(lily_symtab *, lily_class *, char *);
 lily_prop_entry *lily_find_property(lily_symtab *, lily_class *, char *);
 lily_class *lily_find_scoped_variant(lily_class *, char *);
 
-lily_var *lily_new_var(lily_symtab *, lily_type *, char *, int);
+lily_var *lily_new_var(lily_symtab *, lily_type *, const char *, int);
+lily_var *lily_new_dynaload_var(lily_symtab *, lily_type *, const char *, lily_raw_value);
 lily_var *lily_find_var(lily_symtab *, lily_import_entry *, char *);
 
 lily_type *lily_build_type(lily_symtab *, lily_class *, int, lily_type **, int, int);

@@ -3609,7 +3609,13 @@ void lily_prepare_main(lily_emit_state *emit, lily_import_entry *import_iter)
             register_count * sizeof(lily_register_info));
 
     while (import_iter) {
-        add_var_chain_to_info(emit, info, import_iter->var_chain, NULL);
+        /* Since this is preparing __main__, the current import is always the
+           first import. The active import's information is usually out-of-date,
+           so skip it (it may have junk inside anyway). The symtab's var_chain
+           has the up-to-date available vars. */
+        if (import_iter != emit->symtab->active_import)
+            add_var_chain_to_info(emit, info, import_iter->var_chain, NULL);
+
         import_iter = import_iter->root_next;
     }
 
@@ -3681,6 +3687,12 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
                 class_name, v->name);
         lily_tie_function(emit->symtab, v, fval);
 
+        /* This is saved/restored when entering/leaving the main block so that
+           symtab can easily dynaload vars (which need to be made into globals)
+           regardless of current scope. */
+        if (emit->block->prev == NULL)
+            emit->symtab->next_main_spot = emit->symtab->next_register_spot;
+
         new_block->save_register_spot = emit->symtab->next_register_spot;
 
         /* This causes vars within this imported file to be seen as global
@@ -3690,11 +3702,8 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
             emit->symtab->function_depth++;
             emit->function_depth++;
         }
-        else {
+        else
             emit->symtab->import_depth++;
-            if (emit->block->prev == NULL)
-                emit->symtab->next_main_spot = emit->symtab->next_register_spot;
-        }
 
         /* Make sure registers start at 0 again. This will be restored when this
            function leaves. */
@@ -3763,6 +3772,11 @@ void lily_emit_leave_block(lily_emit_state *emit)
         leave_function(emit, block);
 
     emit->block = emit->block->prev;
+
+    /* This must be checked each time there's a block pop, because vars can be
+       dynaloaded in any block (and are always made into globals). */
+    if (emit->block->prev == NULL)
+        emit->symtab->next_main_spot = emit->symtab->next_register_spot;
 }
 
 /*  lily_emit_write_import_call

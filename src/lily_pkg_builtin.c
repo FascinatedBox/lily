@@ -1,3 +1,6 @@
+#include <stdio.h>
+
+#include "lily_parser.h"
 #include "lily_symtab.h"
 #include "lily_value.h"
 #include "lily_cls_integer.h"
@@ -178,6 +181,32 @@ static const lily_class_seed class_seeds[] =
     },
 };
 
+static const lily_base_seed seed_stderr = {NULL, "stderr", dyna_var};
+static const lily_base_seed seed_stdout = {&seed_stderr, "stdout", dyna_var};
+static const lily_base_seed seed_stdin = {&seed_stdout, "stdin", dyna_var};
+
+static lily_var *builtin_var_loader(lily_parse_state *parser, const char *name)
+{
+    FILE *source;
+    char mode;
+    if (strcmp(name, "stdin") == 0) {
+        source = stdin;
+        mode = 'w';
+    }
+    else if (strcmp(name, "stdout") == 0) {
+        source = stdout;
+        mode = 'r';
+    }
+    else {
+        source = stderr;
+        mode = 'w';
+    }
+
+    lily_type *file_type = lily_type_by_name(parser, "file");
+    lily_raw_value raw = {.file = lily_new_file_val(source, mode)};
+    return lily_new_dynaload_var(parser->symtab, file_type, name, raw);
+}
+
 void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
 {
     symtab->integer_class    = lily_new_class_by_seed(symtab, &class_seeds[0]);
@@ -198,8 +227,7 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
     symtab->generic_type_start = symtab->generic_class->type;
     symtab->next_class_id = 13;
 
+    builtin->dynaload_table = &seed_stdin;
+    builtin->var_load_fn = builtin_var_loader;
     builtin->class_chain = symtab->class_chain;
 }
-
-
-

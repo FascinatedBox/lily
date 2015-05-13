@@ -15,9 +15,9 @@ struct lily_value_;
 struct lily_var_;
 struct lily_type_;
 struct lily_register_info_;
-struct lily_func_seed_;
 struct lily_function_val_;
 struct lily_symtab_;
+struct lily_parse_state_;
 
 /* gc_marker_func is a function called to mark all values within a given value.
    The is used by the gc to mark values as being visited. Values not visited
@@ -40,6 +40,8 @@ typedef int (*class_eq_func)(struct lily_vm_state_ *, int *,
    This handles a value of a given class (regardless of type) and frees what is
    inside. */
 typedef void (*class_destroy_func)(struct lily_value_ *);
+/* This function is called to initialize seeds of type dyna_var. */
+typedef struct lily_var_ *(*var_loader)(struct lily_parse_state_ *, const char *);
 
 /* lily_raw_value is a union of all possible values, plus a bit more. This is
    not common, because lily_value (which has flags and a type) is typically
@@ -451,6 +453,14 @@ typedef struct lily_import_entry_ {
 
     /* The last thing entered. Used for restoring information in symtab. */
     struct lily_import_entry_ *prev_entered;
+
+    /* For builtin imports, this can contain classes, vars, or functions to
+       dynaload. */
+    const void *dynaload_table;
+
+    /* If the import provides seeds of type dyna_var, this is called with the
+       name when the given name is referenced. */
+    var_loader var_load_fn;
 
     /* Every import entry that is created is linked to each other starting from
        this one. */

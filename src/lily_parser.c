@@ -300,6 +300,8 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
     new_entry->class_chain = NULL;
     new_entry->var_chain = NULL;
     new_entry->path = path;
+    new_entry->dynaload_table = NULL;
+    new_entry->var_load_fn = NULL;
 
     return new_entry;
 }
@@ -1222,6 +1224,23 @@ static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
     *state = ST_WANT_OPERATOR;
 }
 
+static void dispatch_word_as_dynaloaded(lily_parse_state *parser,
+        lily_import_entry *import, lily_base_seed *seed, int *state)
+{
+    lily_import_entry *saved_active = parser->symtab->active_import;
+    lily_symtab *symtab = parser->symtab;
+
+    lily_set_import(symtab, import);
+
+    if (seed->seed_type == dyna_var) {
+        lily_var *new_var = import->var_load_fn(parser, seed->name);
+        lily_ast_push_global_var(parser->ast_pool, new_var);
+        *state = ST_WANT_OPERATOR;
+    }
+
+    lily_set_import(symtab, saved_active);
+}
+
 /*  expression_word
     This is a helper function that handles words in expressions. These are
     sort of complicated. :( */
@@ -1264,6 +1283,17 @@ static void expression_word(lily_parse_state *parser, int *state)
 
         lily_ast_push_defined_func(parser->ast_pool, var);
         *state = ST_WANT_OPERATOR;
+        return;
+    }
+
+    if (search_entry == NULL)
+        search_entry = symtab->builtin_import;
+
+    lily_base_seed *base_seed = find_dynaload_entry(
+            search_entry->dynaload_table, lex->label);
+
+    if (base_seed) {
+        dispatch_word_as_dynaloaded(parser, search_entry, base_seed, state);
         return;
     }
 

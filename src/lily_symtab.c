@@ -96,15 +96,7 @@ static lily_tie *make_new_literal(lily_symtab *symtab, lily_class *cls)
     return lit;
 }
 
-/*  lily_new_var
-    Attempt to create a new var in the symtab that will have the given
-    type and name. The flags given are used to determine if the var is
-    'readonly'. If it's readonly, it doesn't go into the vm's registers.
-
-    On success: Returns a newly-created var that is automatically added to the
-                symtab.
-    On failure: NULL is returned. */
-lily_var *lily_new_var(lily_symtab *symtab, lily_type *type, char *name,
+static lily_var *new_var(lily_symtab *symtab, lily_type *type, const char *name,
         int flags)
 {
     lily_var *var = lily_malloc(sizeof(lily_var));
@@ -119,8 +111,26 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_type *type, char *name,
     var->next = NULL;
     var->parent = NULL;
 
+    var->next = symtab->var_chain;
+    symtab->var_chain = var;
+    return var;
+}
+
+/*  lily_new_var
+    Attempt to create a new var in the symtab that will have the given
+    type and name. The flags given are used to determine if the var is
+    'readonly'. If it's readonly, it doesn't go into the vm's registers.
+
+    On success: Returns a newly-created var that is automatically added to the
+                symtab.
+    On failure: NULL is returned. */
+lily_var *lily_new_var(lily_symtab *symtab, lily_type *type, const char *name,
+        int flags)
+{
+    lily_var *var = new_var(symtab, type, name, flags);
+
     if ((flags & VAR_IS_READONLY) == 0) {
-        if (symtab->function_depth == 1 && symtab->import_depth != 0) {
+        if (symtab->function_depth == 1 && symtab->import_depth != 0)  {
             var->reg_spot = symtab->next_main_spot;
             symtab->next_main_spot++;
         }
@@ -139,8 +149,30 @@ lily_var *lily_new_var(lily_symtab *symtab, lily_type *type, char *name,
         var->function_depth = 1;
     }
 
-    var->next = symtab->var_chain;
-    symtab->var_chain = var;
+    return var;
+}
+
+lily_var *lily_new_dynaload_var(lily_symtab *symtab, lily_type *type,
+        const char *name, lily_raw_value raw)
+{
+    lily_var *var = new_var(symtab, type, name, 0);
+    if (symtab->function_depth == 1) {
+        var->reg_spot = symtab->next_register_spot;
+        symtab->next_register_spot++;
+    }
+    else {
+        var->reg_spot = symtab->next_main_spot;
+        symtab->next_main_spot++;
+    }
+
+    var->function_depth = 1;
+
+    lily_value v;
+    v.type = type;
+    v.flags = 0;
+    v.value = raw;
+
+    lily_tie_value(symtab, var, &v);
 
     return var;
 }
@@ -661,7 +693,14 @@ void lily_free_symtab(lily_symtab *symtab)
     free_ties(symtab, symtab->literals);
     free_ties(symtab, symtab->function_ties);
 
-    free_class_entries(symtab, symtab->class_chain);
+    /* These two lines are really important. Symtab has var/class chains as a
+       cache to avoid doing symtab->active_import->*_chain. So it's possible
+       that the current import's chains are out of date.
+       Do this, then leave the cache'd chains alone. This will ensure that all
+       vars and classes are seen exactly once. */
+    symtab->active_import->class_chain = symtab->class_chain;
+    symtab->active_import->var_chain = symtab->var_chain;
+
     free_class_entries(symtab, symtab->old_class_chain);
 
     free_foreign_symbols(symtab);
@@ -674,8 +713,6 @@ void lily_free_symtab(lily_symtab *symtab)
         import_iter = import_iter->root_next;
     }
 
-    if (symtab->var_chain != NULL)
-        free_vars(symtab, symtab->var_chain);
     if (symtab->old_function_chain != NULL)
         free_vars(symtab, symtab->old_function_chain);
 
@@ -710,7 +747,6 @@ void lily_free_symtab(lily_symtab *symtab)
        Therefore, foreign_ties should always be NULL at this point. */
 
     free_classes(symtab, symtab->old_class_chain);
-    free_classes(symtab, symtab->class_chain);
 
     lily_free(symtab);
 }
@@ -1498,14 +1534,19 @@ void lily_change_parent_class(lily_class *super_class, lily_class *sub_class)
     sub_class->prop_count = super_class->prop_count;
 }
 
-void lily_enter_import(lily_symtab *symtab, lily_import_entry *entry)
+void lily_set_import(lily_symtab *symtab, lily_import_entry *entry)
 {
-    entry->prev_entered = symtab->active_import;
     symtab->active_import->class_chain = symtab->class_chain;
     symtab->active_import->var_chain = symtab->var_chain;
     symtab->class_chain = entry->class_chain;
     symtab->var_chain = entry->var_chain;
     symtab->active_import = entry;
+}
+
+void lily_enter_import(lily_symtab *symtab, lily_import_entry *entry)
+{
+    entry->prev_entered = symtab->active_import;
+    lily_set_import(symtab, entry);
 }
 
 void lily_leave_import(lily_symtab *symtab)
