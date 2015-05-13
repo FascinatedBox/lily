@@ -7,7 +7,6 @@
 #include "lily_parser.h"
 #include "lily_parser_tok_table.h"
 #include "lily_keyword_table.h"
-#include "lily_seed_parser.h"
 #include "lily_pkg_sys.h"
 #include "lily_value.h"
 #include "lily_membuf.h"
@@ -123,16 +122,6 @@ static lily_path_link *prepare_path_by_seed(lily_parse_state *parser,
 static void do_bootstrap(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-    const lily_func_seed *global_seed = PARSER_SEED_START;
-    while (global_seed) {
-        lily_load_str(lex, "[builtin]", lm_no_tags,
-                global_seed->func_definition);
-        lily_lexer(lex);
-        parse_prototype(parser, NULL, global_seed->func);
-        global_seed = global_seed->next;
-        lily_pop_lex_entry(lex);
-    }
-
     lily_lex_entry *first_entry = parser->lex->entry;
     lily_load_str(lex, "[builtin]", lm_no_tags, exception_bootstrap);
     lily_lexer(lex);
@@ -1235,6 +1224,11 @@ static void dispatch_word_as_dynaloaded(lily_parse_state *parser,
     if (seed->seed_type == dyna_var) {
         lily_var *new_var = import->var_load_fn(parser, seed->name);
         lily_ast_push_global_var(parser->ast_pool, new_var);
+        *state = ST_WANT_OPERATOR;
+    }
+    else if (seed->seed_type == dyna_function) {
+        lily_var *new_var = dynaload_function(parser, NULL, seed);
+        lily_ast_push_defined_func(parser->ast_pool, new_var);
         *state = ST_WANT_OPERATOR;
     }
 
