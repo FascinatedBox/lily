@@ -7,7 +7,7 @@
 # include "lily_emitter.h"
 # include "lily_symtab.h"
 # include "lily_vm.h"
-# include "lily_membuf.h"
+# include "lily_msgbuf.h"
 
 typedef enum {
     pm_parse,
@@ -35,7 +35,7 @@ typedef struct lily_parse_state_ {
     uint32_t optarg_stack_pos;
     uint32_t optarg_stack_size;
 
-    lily_membuf *membuf;
+    lily_msgbuf *msgbuf;
     lily_type *default_call_type;
     lily_ast_pool *ast_pool;
     lily_lex_state *lex;

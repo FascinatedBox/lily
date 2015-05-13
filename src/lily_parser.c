@@ -170,7 +170,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options, int argc,
     parser->emit = lily_new_emit_state(options, parser->symtab, raiser);
     parser->lex = lily_new_lex_state(options, raiser);
     parser->vm = lily_new_vm_state(options, raiser);
-    parser->membuf = lily_membuf_new();
+    parser->msgbuf = lily_new_msgbuf(options);
 
     parser->vm->main = parser->symtab->main_var;
     parser->vm->symtab = parser->symtab;
@@ -254,7 +254,7 @@ void lily_free_parse_state(lily_parse_state *parser)
         import_iter = import_next;
     }
 
-    lily_membuf_free(parser->membuf);
+    lily_free_msgbuf(parser->msgbuf);
     lily_free(parser->type_stack);
     lily_free(parser);
 }
@@ -2241,15 +2241,14 @@ static void except_handler(lily_parse_state *parser, int multi)
 static void load_import(lily_parse_state *parser, char *name)
 {
     int ok = 0;
-    lily_membuf *membuf = parser->membuf;
+    lily_msgbuf *msgbuf = parser->msgbuf;
     lily_lex_state *lex = parser->lex;
     lily_path_link *path_iter = parser->import_paths;
 
     while (path_iter) {
-        int restore_pos = lily_membuf_add_three(membuf, path_iter->path,
-                name, ".lly");
-        char *fullpath = lily_membuf_get(membuf, restore_pos);
-        if (lily_try_load_file(lex, fullpath)) {
+        lily_msgbuf_flush(msgbuf);
+        lily_msgbuf_add_fmt(msgbuf, "%s%s.lly", path_iter->path, name, ".lly");
+        if (lily_try_load_file(lex, msgbuf->message)) {
             ok = 1;
             break;
         }
