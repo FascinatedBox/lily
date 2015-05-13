@@ -58,16 +58,3 @@ inline void lily_membuf_restore_to(lily_membuf *membuf, int pos)
 {
     membuf->pos = pos;
 }
-
-int lily_membuf_add_three(lily_membuf *membuf, char *first, char *second,
-        char *third)
-{
-    int result_pos = lily_membuf_add(membuf, first);
-    /* The pos-- is so that the beginning of the string overwrites the \0 of
-       the last one, resulting in the strings being pulled out as one. */
-    membuf->pos--;
-    lily_membuf_add(membuf, second);
-    membuf->pos--;
-    lily_membuf_add(membuf, third);
-    return result_pos;
-}
