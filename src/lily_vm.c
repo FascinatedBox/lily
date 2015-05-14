@@ -1519,8 +1519,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
         raised_class = raise_val->type->cls;
         except_name = raised_class->name;
     }
-    /* Until user-declared exception classes arrive, raised_class should not
-       be NULL since all errors raiseable -should- be covered... */
+
     lily_vm_catch_entry *catch_iter = vm->catch_top;
     lily_value *catch_reg = NULL;
 
