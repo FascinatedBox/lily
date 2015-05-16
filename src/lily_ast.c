@@ -77,7 +77,7 @@ a->args_collected = 0; \
 a->arg_start = NULL; \
 a->result = NULL;
 
-static int try_add_save_entry(lily_ast_pool *);
+static void add_save_entry(lily_ast_pool *);
 
 
 /******************************************************************************/
@@ -115,7 +115,7 @@ lily_ast_pool *lily_new_ast_pool(lily_options *options, int pool_size)
     ap->available_current = last_tree;
 
     ap->ast_membuf = lily_membuf_new();
-    try_add_save_entry(ap);
+    add_save_entry(ap);
 
     return ap;
 }
@@ -276,14 +276,11 @@ static void merge_value(lily_ast_pool *ap, lily_ast *new_tree)
 /* Helper functions                                                           */
 /******************************************************************************/
 
-/*  try_add_save_entry
-    Attempt to add a new entry to the end of the pool's save entries. This
-    returns 1 if successful, 0 if not. */
-static int try_add_save_entry(lily_ast_pool *ap)
+/*  add_save_entry
+    Adds a new entry to the end of the pool's save entries. */
+static void add_save_entry(lily_ast_pool *ap)
 {
     lily_ast_save_entry *new_entry = lily_malloc(sizeof(lily_ast_save_entry));
-    if (new_entry == NULL)
-        return 0;
 
     if (ap->save_chain == NULL) {
         ap->save_chain = new_entry;
@@ -298,8 +295,6 @@ static int try_add_save_entry(lily_ast_pool *ap)
     new_entry->active_tree = NULL;
     new_entry->entered_tree = NULL;
     new_entry->next = NULL;
-
-    return 1;
 }
 
 /*  add_new_tree
@@ -455,7 +450,7 @@ void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type)
         save_entry = ap->save_chain;
     else {
         if (ap->save_chain->next == NULL)
-            try_add_save_entry(ap);
+            add_save_entry(ap);
 
         save_entry = ap->save_chain->next;
         ap->save_chain = ap->save_chain->next;
