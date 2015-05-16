@@ -87,7 +87,7 @@ void lily_free_emit_state(lily_emit_state *emit)
         current_store = temp_store;
     }
 
-    lily_free_type_stack(emit->ts);
+    lily_free_type_system(emit->ts);
     lily_free(emit->match_cases);
     lily_free(emit->patches);
     lily_free(emit);
