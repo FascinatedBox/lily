@@ -51,7 +51,6 @@ typedef struct lily_parse_state_ {
 lily_options *lily_new_default_options(void);
 void lily_free_options(lily_options *);
 
-void lily_parser_finish_expr(lily_parse_state *);
 lily_var *lily_parser_lambda_eval(lily_parse_state *, int, char *, lily_type *,
         int);
 lily_var *lily_parser_dynamic_load(lily_parse_state *, lily_class *, char *);
