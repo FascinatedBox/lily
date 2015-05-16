@@ -1,0 +1,9 @@
+#[
+SyntaxError: 'integer' is not a valid exception class.
+Where: File "invalid_class.lly" at line 8
+]#
+
+try:
+    var v = 10
+except integer:
+    var x = 11
