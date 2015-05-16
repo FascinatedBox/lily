@@ -423,7 +423,7 @@ static void push_tree_arg(lily_ast_pool *ap, lily_ast *entered_tree, lily_ast *a
     reset for another tree. */
 void lily_ast_collect_arg(lily_ast_pool *ap)
 {
-    lily_ast_save_entry *entry = ap->save_chain;
+    lily_ast_save_entry *entry = ap->save_chain->prev;
 
     push_tree_arg(ap, entry->entered_tree, ap->root);
 
@@ -445,17 +445,13 @@ void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type)
         a->stashed_tree = spare;
     }
 
-    lily_ast_save_entry *save_entry;
-    if (ap->save_depth == 0)
-        save_entry = ap->save_chain;
-    else {
-        if (ap->save_chain->next == NULL)
-            add_save_entry(ap);
+    /* Make it so ap->save_chain always points to a non-NULL entry, and that it
+       is always an unused one. This allows fast, simple access. */
+    lily_ast_save_entry *save_entry = ap->save_chain;
+    if (save_entry->next == NULL)
+        add_save_entry(ap);
 
-        save_entry = ap->save_chain->next;
-        ap->save_chain = ap->save_chain->next;
-    }
-
+    ap->save_chain = save_entry->next;
     save_entry->root_tree = ap->root;
     save_entry->active_tree = ap->active;
     save_entry->entered_tree = a;
@@ -471,18 +467,14 @@ void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type)
     argument, but no type-checking is done (emitter does that). */
 void lily_ast_leave_tree(lily_ast_pool *ap)
 {
-    lily_ast_save_entry *entry = ap->save_chain;
+    lily_ast_save_entry *entry = ap->save_chain->prev;
 
     push_tree_arg(ap, entry->entered_tree, ap->root);
 
     ap->root = entry->root_tree;
     ap->active = entry->active_tree;
 
-    /* The first tree takes ap->save_chain's bottom and doesn't move
-       ->save_chain. Further entries move it, so undo that move. */
-    if (ap->save_depth > 1)
-        ap->save_chain = ap->save_chain->prev;
-
+    ap->save_chain = entry;
     ap->save_depth--;
 }
 
@@ -496,7 +488,7 @@ void lily_ast_leave_tree(lily_ast_pool *ap)
     has entered a tree (ap->save_index != 0) before calling this. */
 lily_ast *lily_ast_get_saved_tree(lily_ast_pool *ap)
 {
-    return ap->save_chain->entered_tree;
+    return ap->save_chain->prev->entered_tree;
 }
 
 /*****************************************************************************/
