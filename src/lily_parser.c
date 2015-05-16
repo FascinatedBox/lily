@@ -61,16 +61,7 @@ static char *exception_bootstrap =
 "class Exception(message: string) {\n"
 "    var @message = message\n"
 "    var @traceback: list[tuple[string, string, integer]] = []\n"
-"}\n"
-"class DivisionByZeroError (message: string) < Exception(message) {}\n"
-"class IndexError          (message: string) < Exception(message) {}\n"
-"class BadTypecastError    (message: string) < Exception(message) {}\n"
-"class ValueError          (message: string) < Exception(message) {}\n"
-"class RecursionError      (message: string) < Exception(message) {}\n"
-"class KeyError            (message: string) < Exception(message) {}\n"
-"class FormatError         (message: string) < Exception(message) {}\n"
-"class IOError             (message: string) < Exception(message) {}\n";
-
+"}\n";
 
 static lily_var *parse_prototype(lily_parse_state *, lily_class *,
         lily_foreign_func);
@@ -78,6 +69,7 @@ static void statement(lily_parse_state *, int);
 static lily_import_entry *make_new_import_entry(lily_parse_state *, char *,
         char *);
 static void link_import_to(lily_import_entry *, lily_import_entry *);
+static void create_new_class(lily_parse_state *);
 
 /*****************************************************************************/
 /* Parser creation and teardown                                              */
@@ -125,10 +117,8 @@ static void do_bootstrap(lily_parse_state *parser)
     lily_lex_entry *first_entry = parser->lex->entry;
     lily_load_str(lex, "[builtin]", lm_no_tags, exception_bootstrap);
     lily_lexer(lex);
-    do {
-        statement(parser, 1);
-        lily_pop_lex_entry(lex);
-    } while (parser->lex->entry != first_entry);
+    statement(parser, 1);
+    lily_pop_lex_entry(lex);
 }
 
 /* This function creates a new options type with the interpreter's
@@ -176,6 +166,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options, int argc,
     parser->vm->symtab = parser->symtab;
     parser->vm->ts = parser->emit->ts;
     parser->vm->vm_buffer = parser->raiser->msgbuf;
+    parser->vm->parser = parser;
 
     parser->symtab->lex_linenum = &parser->lex->line_num;
 
@@ -350,6 +341,39 @@ static lily_var *dynaload_function(lily_parse_state *parser, lily_class *cls,
     lily_var *ret = parse_prototype(parser, cls, func_seed->func);
     lily_pop_lex_entry(lex);
     return ret;
+}
+
+lily_class *dynaload_exception(lily_parse_state *parser,
+        lily_import_entry *import, const char *name)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_emit_state *emit = parser->emit;
+    lily_import_entry *saved_active = symtab->active_import;
+    lily_class *result;
+    lily_lex_state *lex = parser->lex;
+
+    lily_set_import(symtab, import);
+    lily_msgbuf_flush(parser->msgbuf);
+    lily_msgbuf_add_fmt(parser->msgbuf, "class %s(msg: string) < Exception(msg) { }\n", name);
+    lily_load_str(parser->lex, "[dynaload]", lm_no_tags, parser->msgbuf->message);
+    /* This calls up the first token, which will be 'class'. */
+    lily_lexer(parser->lex);
+    /* This fixes it to be the class name. */
+    lily_lexer(parser->lex);
+
+    lily_ast_pool *ap = parser->ast_pool;
+    /* create_new_class will turn control over to statement. Before that
+       happens, freeze the ast's state in case this is in the middle of an
+       expression. */
+    lily_ast_freeze_state(parser->ast_pool);
+    create_new_class(parser);
+    result = symtab->class_chain;
+    lily_ast_thaw_state(parser->ast_pool);
+
+    lily_pop_lex_entry(parser->lex);
+    lily_set_import(symtab, saved_active);
+
+    return result;
 }
 
 static lily_import_entry *resolve_import(lily_parse_state *parser)
@@ -924,7 +948,20 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
     lily_import_entry *search_import = resolve_import(parser);
     lily_class *result = lily_find_class(symtab, search_import, lex->label);
     if (result == NULL) {
-        lily_raise(parser->raiser, lily_SyntaxError,
+        /* NULL is used by lily_find_class to indicate that searching should
+           be done within builtins and the first import. */
+        if (search_import == NULL)
+            search_import = symtab->builtin_import;
+
+        /* Maybe it's an exception that just isn't loaded yet? This isn't
+           unreasonable, because 'except' calls this function to get the class
+           to catch for. */
+        lily_base_seed *call_seed =
+                find_dynaload_entry(search_import->dynaload_table, lex->label);
+        if (call_seed && call_seed->seed_type == dyna_exception)
+            result = dynaload_exception(parser, search_import, lex->label);
+        else
+            lily_raise(parser->raiser, lily_SyntaxError,
                     "Class '%s' does not exist.\n", lex->label);
     }
 
@@ -1230,6 +1267,11 @@ static void dispatch_word_as_dynaloaded(lily_parse_state *parser,
         lily_var *new_var = dynaload_function(parser, NULL, seed);
         lily_ast_push_defined_func(parser->ast_pool, new_var);
         *state = ST_WANT_OPERATOR;
+    }
+    else if (seed->seed_type == dyna_exception) {
+        lily_class *new_cls = dynaload_exception(parser, import,
+                seed->name);
+        dispatch_word_as_class(parser, new_cls, state);
     }
 
     lily_set_import(symtab, saved_active);
@@ -2466,12 +2508,9 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
     lily_lexer(lex);
 }
 
-static void class_handler(lily_parse_state *parser, int multi)
+static void create_new_class(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-    NEED_CURRENT_TOK(tk_word);
-    ensure_valid_class(parser, lex->label);
-
     lily_class *created_class = lily_new_class(parser->symtab, lex->label);
 
     parse_function(parser, created_class);
@@ -2482,12 +2521,21 @@ static void class_handler(lily_parse_state *parser, int multi)
     NEED_CURRENT_TOK(tk_left_curly)
 
     parser->class_depth++;
-    parse_multiline_block_body(parser, multi);
+    parse_multiline_block_body(parser, 1);
     parser->class_depth--;
 
     lily_finish_class(parser->symtab, created_class);
 
     lily_emit_leave_block(parser->emit);
+}
+
+static void class_handler(lily_parse_state *parser, int multi)
+{
+    lily_lex_state *lex = parser->lex;
+    NEED_CURRENT_TOK(tk_word);
+    ensure_valid_class(parser, lex->label);
+
+    create_new_class(parser);
 }
 
 static void enum_handler(lily_parse_state *parser, int multi)
@@ -3043,4 +3091,17 @@ lily_type *lily_type_by_name(lily_parse_state *parser, char *name)
     lily_pop_lex_entry(parser->lex);
 
     return result;
+}
+
+lily_class *lily_maybe_dynaload_class(lily_parse_state *parser,
+        const char *name)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_class *cls = lily_find_class(parser->symtab,
+            symtab->builtin_import, name);
+
+    if (cls == NULL)
+        cls = dynaload_exception(parser, symtab->builtin_import, name);
+
+    return cls;
 }

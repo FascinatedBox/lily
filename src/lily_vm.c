@@ -10,6 +10,7 @@
 #include "lily_vm.h"
 #include "lily_debug.h"
 #include "lily_bind.h"
+#include "lily_parser.h"
 
 #include "lily_cls_any.h"
 #include "lily_cls_hash.h"
@@ -1512,7 +1513,11 @@ static int maybe_catch_exception(lily_vm_state *vm)
 
     if (vm->raiser->exception == NULL) {
         except_name = lily_name_for_error(vm->raiser);
-        raised_class = lily_find_class(vm->symtab, NULL, except_name);
+        /* This is called instead of lily_find_class so that the exception will
+           be dynaloaded if it needs to be. Also, keep in mind that needing to
+           dynaload an exception at this stage does not mean that the catch will
+           fail (the user may have put up a 'except Exception' somewhere). */
+        raised_class = lily_maybe_dynaload_class(vm->parser, except_name);
     }
     else {
         lily_value *raise_val = vm->raiser->exception;

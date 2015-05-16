@@ -720,6 +720,7 @@ void lily_ast_thaw_state(lily_ast_pool *ap)
     ap->root = entry->root;
     ap->active = entry->active;
     ap->membuf_start = entry->membuf_start;
+    ap->save_depth = entry->save_depth;
     ap->available_restore = entry->available_restore;
 
     entry->in_use = 0;

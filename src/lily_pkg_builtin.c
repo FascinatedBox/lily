@@ -186,8 +186,24 @@ void lily_builtin_show(lily_vm_state *, lily_function_val *, uint16_t *);
 void lily_builtin_printfmt(lily_vm_state *, lily_function_val *, uint16_t *);
 void lily_builtin_calltrace(lily_vm_state *, lily_function_val *, uint16_t *);
 
+static const lily_base_seed io_error =
+    {NULL, "IOError", dyna_exception};
+static const lily_base_seed format_error =
+    {&io_error, "FormatError", dyna_exception};
+static const lily_base_seed key_error =
+    {&format_error, "KeyError", dyna_exception};
+static const lily_base_seed recursion_error =
+    {&key_error, "RecursionError", dyna_exception};
+static const lily_base_seed value_error =
+    {&recursion_error, "ValueError", dyna_exception};
+static const lily_base_seed bad_tc_error =
+    {&value_error, "BadTypecastError", dyna_exception};
+static const lily_base_seed index_error =
+    {&bad_tc_error, "IndexError", dyna_exception};
+static const lily_base_seed dbz_error =
+    {&index_error, "DivisionByZeroError", dyna_exception};
 static const lily_func_seed calltrace =
-    {NULL, "calltrace", dyna_function, "function calltrace( => list[tuple[string, string, integer]])", lily_builtin_calltrace};
+    {&dbz_error, "calltrace", dyna_function, "function calltrace( => list[tuple[string, string, integer]])", lily_builtin_calltrace};
 static const lily_func_seed show =
     {&calltrace, "show", dyna_function, "function show[A](A)", lily_builtin_show};
 static const lily_func_seed print =
