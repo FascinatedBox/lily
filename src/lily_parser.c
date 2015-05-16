@@ -2206,7 +2206,8 @@ static void except_handler(lily_parse_state *parser, int multi)
             exception_class);
     if (is_valid == 0)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'%s' is not a valid exception class.\n");
+                "'%s' is not a valid exception class.\n",
+                exception_class->name);
 
     lily_var *exception_var = NULL;
 
