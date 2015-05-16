@@ -710,6 +710,9 @@ void lily_ast_freeze_state(lily_ast_pool *ap)
     else
         new_entry = ap->freeze_chain->next;
 
+    new_entry->root = ap->root;
+    new_entry->active = ap->active;
+    new_entry->save_depth = ap->save_depth;
     new_entry->membuf_start = ap->membuf_start;
     new_entry->available_restore = ap->available_restore;
     new_entry->in_use = 1;
@@ -727,9 +730,8 @@ void lily_ast_thaw_state(lily_ast_pool *ap)
 {
     lily_ast_freeze_entry *entry = ap->freeze_chain;
 
-    /* Do NOT set root+active back to NULL here, because the caller may be a
-       lambda. If it is, then it will need to grab the inner lambda through
-       ap->root. */
+    ap->root = entry->root;
+    ap->active = entry->active;
     ap->membuf_start = entry->membuf_start;
     ap->available_restore = entry->available_restore;
 
