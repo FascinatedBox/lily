@@ -3772,11 +3772,6 @@ void lily_emit_leave_block(lily_emit_state *emit)
         leave_function(emit, block);
 
     emit->block = emit->block->prev;
-
-    /* This must be checked each time there's a block pop, because vars can be
-       dynaloaded in any block (and are always made into globals). */
-    if (emit->block->prev == NULL)
-        emit->symtab->next_main_spot = emit->symtab->next_register_spot;
 }
 
 /*  lily_emit_write_import_call

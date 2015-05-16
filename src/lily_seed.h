@@ -4,7 +4,8 @@
 typedef enum {
     dyna_class,
     dyna_function,
-    dyna_var
+    dyna_var,
+    dyna_exception
 } dyna_type;
 
 typedef const struct {

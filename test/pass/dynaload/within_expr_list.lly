@@ -1,0 +1,1 @@
+var v = [ValueError::new, IOError::new("10"), KeyError::new]

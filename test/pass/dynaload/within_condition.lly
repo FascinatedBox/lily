@@ -1,0 +1,8 @@
+var a = 1, b = 2, c = 3
+
+if 1:
+    var d = stdout
+
+if 1:
+    var e = [stderr, stdin]
+

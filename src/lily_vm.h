@@ -83,6 +83,7 @@ typedef struct lily_vm_state_ {
     lily_vm_catch_entry *catch_top;
     lily_vm_catch_entry *catch_chain;
 
+    struct lily_parse_state_ *parser;
     lily_msgbuf *vm_buffer;
     lily_type_system *ts;
     lily_symtab *symtab;
