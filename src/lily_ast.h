@@ -117,12 +117,12 @@ typedef struct lily_ast_save_entry_ {
     struct lily_ast_save_entry_ *prev;
 } lily_ast_save_entry;
 
-/* The pool handles lambdas by saving stuff so that the pool being reset will
-   not cause the lambda's body to touch things currently in use.
-   A lambda does not have to worry about save/restoring root+active, because
-   the emitter calls for an eval of the body only from within the emitter. So
-   there will never be a currently saved expression for the lambda to clash
-   with. */
+/* Save entries only handle expressions, and the parser tracks them to make
+   sure that an expression does not exit before it should.
+   A freeze entry is used to handle saving the entire state of the pool
+   (subexpressions and all). This allows the parser to build another expression
+   and run it without allowing it to wipe what currently exists.
+   Lambdas are one example of where this is useful. */
 typedef struct lily_ast_freeze_entry_ {
     /* Assume all of the trees that were previously used are still in use and
        do not touch them at all ever. */
@@ -136,7 +136,14 @@ typedef struct lily_ast_freeze_entry_ {
        only made on-demand. 1 if in use, 0 if not. */
     uint16_t in_use;
 
-    uint32_t pad;
+    /* The number of saves registered before this freeze. */
+    uint32_t save_depth;
+
+    /* The root tree before the freeze. */
+    lily_ast *root;
+
+    /* The active tree before the freeze. */
+    lily_ast *active;
 
     struct lily_ast_freeze_entry_ *next;
     struct lily_ast_freeze_entry_ *prev;
