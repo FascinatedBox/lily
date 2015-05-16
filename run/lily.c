@@ -148,7 +148,10 @@ int main(int argc, char **argv)
     if (gc_threshold != 0)
         options->gc_threshold = gc_threshold;
 
-    lily_parse_state *parser = lily_new_parse_state(options, argc, argv);
+    options->argc = argc;
+    options->argv = argv;
+
+    lily_parse_state *parser = lily_new_parse_state(options);
     lily_lex_mode mode = (do_tags ? lm_tags : lm_no_tags);
 
     int result;

@@ -128,13 +128,14 @@ lily_options *lily_new_default_options(void)
     lily_options *options = lily_malloc(sizeof(lily_options));
     options->version = 1;
     options->gc_threshold = 100; /* Totally arbitrary. */
+    options->argc = 0;
+    options->argv = NULL;
     options->data = NULL;
 
     return options;
 }
 
-lily_parse_state *lily_new_parse_state(lily_options *options, int argc,
-        char **argv)
+lily_parse_state *lily_new_parse_state(lily_options *options)
 {
     lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
     parser->data = options->data;
@@ -192,7 +193,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options, int argc,
 
     /* This creates a new var, so it has to be done after symtab's lex_linenum
        is set. */
-    lily_pkg_sys_init(parser, argc, argv);
+    lily_pkg_sys_init(parser, options);
 
     do_bootstrap(parser);
 
