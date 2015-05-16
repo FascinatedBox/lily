@@ -25,7 +25,7 @@ lily_type_system *lily_new_type_system(lily_options *options,
     return ts;
 }
 
-void lily_free_type_stack(lily_type_system *ts)
+void lily_free_type_system(lily_type_system *ts)
 {
     if (ts)
         lily_free(ts->types);
