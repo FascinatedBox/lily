@@ -210,7 +210,7 @@ static int lily_handler(request_rec *r)
     lily_options *options = lily_new_default_options();
     options->data = r;
 
-    lily_parse_state *parser = lily_new_parse_state(options, 0, NULL);
+    lily_parse_state *parser = lily_new_parse_state(options);
 
     apache_bind_server(parser, r);
 

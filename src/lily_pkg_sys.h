@@ -3,6 +3,6 @@
 
 # include "lily_parser.h"
 
-void lily_pkg_sys_init(lily_parse_state *, int, char **);
+void lily_pkg_sys_init(lily_parse_state *, lily_options *);
 
 #endif

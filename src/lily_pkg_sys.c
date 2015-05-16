@@ -3,7 +3,7 @@
 #include "lily_alloc.h"
 #include "lily_parser.h"
 
-void lily_pkg_sys_init(lily_parse_state *parser, int argc, char **argv)
+void lily_pkg_sys_init(lily_parse_state *parser, lily_options *options)
 {
     lily_begin_package(parser, "sys");
 
@@ -14,28 +14,28 @@ void lily_pkg_sys_init(lily_parse_state *parser, int argc, char **argv)
     lily_var *bound_var = lily_new_var(symtab, list_string_type, "argv", 0);
 
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
-    lily_value **values = lily_malloc(argc * sizeof(lily_value));
+    lily_value **values = lily_malloc(options->argc * sizeof(lily_value));
 
     lv->gc_entry = NULL;
     lv->elems = values;
-    lv->num_values = argc;
+    lv->num_values = options->argc;
     lv->refcount = 1;
     lv->elems = values;
     lv->visited = 0;
 
     int i;
-    for (i = 0;i < argc;i++) {
+    for (i = 0;i < options->argc;i++) {
         values[i] = lily_malloc(sizeof(lily_value));
         values[i]->type = string_type;
         values[i]->flags = VAL_IS_NIL;
     }
 
-    for (i = 0;i < argc;i++) {
+    for (i = 0;i < options->argc;i++) {
         lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
-        char *raw_string = lily_malloc(strlen(argv[i]) + 1);
+        char *raw_string = lily_malloc(strlen(options->argv[i]) + 1);
 
-        strcpy(raw_string, argv[i]);
-        sv->size = strlen(argv[i]);
+        strcpy(raw_string, options->argv[i]);
+        sv->size = strlen(options->argv[i]);
         sv->refcount = 1;
         sv->string = raw_string;
         values[i]->flags = 0;

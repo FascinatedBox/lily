@@ -474,8 +474,11 @@ typedef struct lily_options_ {
     /* The maximum number of values the gc should have marked before
        attempting a sweep. This should be at least 2. */
     uint32_t gc_threshold;
-    /* The function to use for allocating memory in Lily. If this is
-       NULL, then Lily will use a realloc that aborts on failure. */
+    /* # of entries in the argv. */
+    uint64_t argc;
+    /* This is made available as sys::argv when sys is imported. By default,
+       this is NULL and sys::argv is empty. */
+    char **argv;
     /* Lily will call lily_impl_puts with this as the data part. This
        can be NULL if it's not needed.
        This is used by mod_lily to hold Apache's request_rec. */
