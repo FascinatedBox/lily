@@ -571,7 +571,7 @@ typedef struct lily_options_ {
 
 /* SYM_CLASS_* defines are for checking ids of a type's class. These are
    used very frequently. These must be kept in sync with the class loading
-   order given by lily_seed_symtab.h */
+   order given by lily_pkg_builtin.c */
 #define SYM_CLASS_INTEGER         0
 #define SYM_CLASS_DOUBLE          1
 #define SYM_CLASS_STRING          2
@@ -586,12 +586,5 @@ typedef struct lily_options_ {
 #define SYM_CLASS_FILE           11
 #define SYM_CLASS_GENERIC        12
 #define SYM_CLASS_EXCEPTION      13
-#define SYM_CLASS_DBZERROR       14 /* > 9000 */
-#define SYM_CLASS_INDEXERROR     15
-#define SYM_CLASS_BADTCERROR     16
-#define SYM_CLASS_VALUEERROR     17
-#define SYM_CLASS_RECURSIONERROR 18
-#define SYM_CLASS_KEYERROR       19
-#define SYM_CLASS_FORMATERROR    20
 
 #endif
