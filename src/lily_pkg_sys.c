@@ -2,12 +2,11 @@
 
 #include "lily_alloc.h"
 #include "lily_parser.h"
+#include "lily_seed.h"
 
-void lily_pkg_sys_init(lily_parse_state *parser, lily_options *options)
+lily_var *lily_sys_var_loader(lily_parse_state *parser, const char *name)
 {
-    lily_begin_package(parser, "sys");
-
-
+    lily_options *options = parser->options;
     lily_symtab *symtab = parser->symtab;
     lily_type *list_string_type = lily_type_by_name(parser, "list[string]");
     lily_type *string_type = list_string_type->subtypes[0];
@@ -48,7 +47,12 @@ void lily_pkg_sys_init(lily_parse_state *parser, lily_options *options)
     v.value.list = lv;
 
     lily_tie_value(symtab, bound_var, &v);
+    return bound_var;
+}
 
+static const lily_base_seed argv_seed = {NULL, "argv", dyna_var};
 
-    lily_end_package(parser);
+void lily_pkg_sys_init(lily_parse_state *parser, lily_options *options)
+{
+    lily_register_import(parser, "sys", &argv_seed, lily_sys_var_loader);
 }
