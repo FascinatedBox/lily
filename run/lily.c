@@ -90,7 +90,7 @@ void traceback_to_file(lily_parse_state *parser, FILE *outfile)
     else
         fputc('\n', outfile);
 
-    if (parser->mode == pm_parse) {
+    if (parser->executing == 0) {
         lily_lex_entry *iter = parser->lex->entry;
 
         int fixed_line_num = (raiser->line_adjust == 0 ?
@@ -107,7 +107,7 @@ void traceback_to_file(lily_parse_state *parser, FILE *outfile)
         fprintf(outfile, "Where: File \"%s\" at line %d\n", iter->filename,
                 iter->saved_line_num);
     }
-    else if (parser->mode == pm_execute) {
+    else {
         lily_vm_stack_entry **vm_stack;
         lily_vm_stack_entry *entry;
         int i;

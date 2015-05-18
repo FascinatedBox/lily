@@ -198,7 +198,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
 
     do_bootstrap(parser);
 
-    parser->mode = pm_parse;
+    parser->executing = 0;
 
     return parser;
 }
@@ -2806,9 +2806,9 @@ static void parser_loop(lily_parse_state *parser)
             lily_prepare_main(parser->emit, parser->import_start);
             lily_vm_prep(parser->vm, parser->symtab);
 
-            parser->mode = pm_execute;
+            parser->executing = 1;
             lily_vm_execute(parser->vm);
-            parser->mode = pm_parse;
+            parser->executing = 0;
 
             /* Clear __main__ for the next pass. */
             lily_reset_main(parser->emit);
