@@ -3115,3 +3115,77 @@ void lily_register_import(lily_parse_state *parser, const char *name,
     entry->dynaload_table = dynaload_table;
     entry->var_load_fn = var_load_fn;
 }
+
+char *lily_build_error_message(lily_parse_state *parser)
+{
+    lily_raiser *raiser = parser->raiser;
+    lily_msgbuf *msgbuf = parser->msgbuf;
+
+    lily_msgbuf_flush(parser->msgbuf);
+
+    if (raiser->exception) {
+        /* If this error is not one of the builtin ones, then show the package
+           from where it came. The reason for this is that different packages
+           may wish to export a general error class (ex: pg::Error,
+           mysql::Error, etc). So making it clear -which- one can be useful. */
+        char *loadname = raiser->exception->type->cls->import->loadname;
+        if (strcmp(loadname, "") != 0)
+            lily_msgbuf_add_fmt(msgbuf, "%s::", loadname);
+    }
+
+    lily_msgbuf_add(msgbuf, lily_name_for_error(raiser));
+    if (raiser->msgbuf->message[0] != '\0')
+        lily_msgbuf_add_fmt(msgbuf, ": %s", raiser->msgbuf->message);
+    else
+        lily_msgbuf_add_char(msgbuf, '\n');
+
+    if (parser->executing == 0) {
+        lily_lex_entry *iter = parser->lex->entry;
+
+        int fixed_line_num = (raiser->line_adjust == 0 ?
+                parser->lex->line_num : raiser->line_adjust);
+
+        /* The parser handles lambda processing by putting entries with the
+           name [lambda]. Don't show these. */
+        while (strcmp(iter->filename, "[lambda]") == 0)
+            iter = iter->prev;
+
+        /* Since importing is not yet possible, simply show the top entry. This
+           should be the actual file loaded. */
+        iter->saved_line_num = fixed_line_num;
+        lily_msgbuf_add_fmt(msgbuf, "Where: File \"%s\" at line %d\n",
+                iter->filename, iter->saved_line_num);
+    }
+    else {
+        lily_vm_stack_entry **vm_stack;
+        lily_vm_stack_entry *entry;
+        int i;
+
+        vm_stack = parser->vm->function_stack;
+        lily_msgbuf_add(msgbuf, "Traceback:\n");
+
+        for (i = parser->vm->function_stack_pos-1;i >= 0;i--) {
+            entry = vm_stack[i];
+            char *class_name = entry->function->class_name;
+            char *separator;
+            if (class_name == NULL) {
+                class_name = "";
+                separator = "";
+            }
+            else
+                separator = "::";
+
+            if (entry->function->code == NULL)
+                lily_msgbuf_add_fmt(msgbuf, "    File \"%s\", from %s%s%s\n",
+                        entry->function->path, class_name, separator,
+                        entry->function->trace_name);
+            else
+                lily_msgbuf_add_fmt(msgbuf,
+                        "    File \"%s\", from %s%s%s at line %d\n",
+                        entry->function->path, class_name, separator,
+                        entry->function->trace_name, entry->line_num);
+        }
+    }
+
+    return msgbuf->message;
+}

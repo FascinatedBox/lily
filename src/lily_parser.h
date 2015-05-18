@@ -58,6 +58,7 @@ lily_type *lily_type_by_name(lily_parse_state *, char *);
 lily_class *lily_maybe_dynaload_class(lily_parse_state *, const char *);
 void lily_register_import(lily_parse_state *, const char *, const void *,
         var_loader);
+char *lily_build_error_message(lily_parse_state *);
 
 void lily_begin_package(lily_parse_state *, char *);
 void lily_end_package(lily_parse_state *);

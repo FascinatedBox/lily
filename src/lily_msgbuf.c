@@ -106,7 +106,7 @@ void lily_free_msgbuf(lily_msgbuf *msgbuf)
     lily_free(msgbuf);
 }
 
-void lily_msgbuf_add(lily_msgbuf *msgbuf, char *str)
+void lily_msgbuf_add(lily_msgbuf *msgbuf, const char *str)
 {
     int len = strlen(str);
 
