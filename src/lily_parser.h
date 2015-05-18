@@ -43,6 +43,7 @@ typedef struct lily_parse_state_ {
     lily_symtab *symtab;
     lily_vm_state *vm;
     lily_raiser *raiser;
+    lily_options *options;
     void *data;
     lily_parse_mode mode;
     uint32_t first_pass;
@@ -60,6 +61,8 @@ int lily_parse_file(lily_parse_state *, lily_lex_mode, char *);
 int lily_parse_string(lily_parse_state *, char *, lily_lex_mode, char *);
 lily_type *lily_type_by_name(lily_parse_state *, char *);
 lily_class *lily_maybe_dynaload_class(lily_parse_state *, const char *);
+void lily_register_import(lily_parse_state *, const char *, const void *,
+        var_loader);
 
 void lily_begin_package(lily_parse_state *, char *);
 void lily_end_package(lily_parse_state *);

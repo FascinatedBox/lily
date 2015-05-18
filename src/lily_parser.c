@@ -66,8 +66,8 @@ static char *exception_bootstrap =
 static lily_var *parse_prototype(lily_parse_state *, lily_class *,
         lily_foreign_func);
 static void statement(lily_parse_state *, int);
-static lily_import_entry *make_new_import_entry(lily_parse_state *, char *,
-        char *);
+static lily_import_entry *make_new_import_entry(lily_parse_state *,
+        const char *, char *);
 static void link_import_to(lily_import_entry *, lily_import_entry *);
 static void create_new_class(lily_parse_state *);
 
@@ -162,6 +162,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->lex = lily_new_lex_state(options, raiser);
     parser->vm = lily_new_vm_state(options, raiser);
     parser->msgbuf = lily_new_msgbuf(options);
+    parser->options = options;
 
     parser->vm->main = parser->symtab->main_var;
     parser->vm->symtab = parser->symtab;
@@ -256,7 +257,7 @@ void lily_free_parse_state(lily_parse_state *parser)
 /*****************************************************************************/
 
 static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
-        char *loadname, char *path)
+        const char *loadname, char *path)
 {
     lily_import_entry *new_entry = lily_malloc(sizeof(lily_import_entry));
     if (parser->import_top) {
@@ -3105,4 +3106,12 @@ lily_class *lily_maybe_dynaload_class(lily_parse_state *parser,
         cls = dynaload_exception(parser, symtab->builtin_import, name);
 
     return cls;
+}
+
+void lily_register_import(lily_parse_state *parser, const char *name,
+        const void *dynaload_table, var_loader var_load_fn)
+{
+    lily_import_entry *entry = make_new_import_entry(parser, name, "[builtin]");
+    entry->dynaload_table = dynaload_table;
+    entry->var_load_fn = var_load_fn;
 }
