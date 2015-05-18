@@ -9,11 +9,6 @@
 # include "lily_vm.h"
 # include "lily_msgbuf.h"
 
-typedef enum {
-    pm_parse,
-    pm_execute
-} lily_parse_mode;
-
 typedef struct lily_path_link_ {
     char *path;
     struct lily_path_link_ *next;
@@ -45,7 +40,7 @@ typedef struct lily_parse_state_ {
     lily_raiser *raiser;
     lily_options *options;
     void *data;
-    lily_parse_mode mode;
+    uint32_t executing;
     uint32_t first_pass;
 } lily_parse_state;
 
