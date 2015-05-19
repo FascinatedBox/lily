@@ -220,7 +220,7 @@ static int lily_handler(request_rec *r)
     lily_parse_file(parser, lm_tags, r->filename);
 
     lily_free_parse_state(parser);
-    lily_free_options(options);
+    lily_free(options);
 
     return OK;
 }
