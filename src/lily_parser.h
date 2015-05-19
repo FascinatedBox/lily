@@ -60,7 +60,4 @@ void lily_register_import(lily_parse_state *, const char *, const void *,
         var_loader);
 char *lily_build_error_message(lily_parse_state *);
 
-void lily_begin_package(lily_parse_state *, char *);
-void lily_end_package(lily_parse_state *);
-
 #endif

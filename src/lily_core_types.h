@@ -451,9 +451,6 @@ typedef struct lily_import_entry_ {
     /* The vars within the imported file. */
     lily_var *var_chain;
 
-    /* The last thing entered. Used for restoring information in symtab. */
-    struct lily_import_entry_ *prev_entered;
-
     /* For builtin imports, this can contain classes, vars, or functions to
        dynaload. */
     const void *dynaload_table;
