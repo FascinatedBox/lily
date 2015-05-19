@@ -278,7 +278,6 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
 
     new_entry->root_next = NULL;
     new_entry->import_chain = NULL;
-    new_entry->prev_entered = NULL;
     new_entry->class_chain = NULL;
     new_entry->var_chain = NULL;
     new_entry->path = path;
@@ -2340,7 +2339,7 @@ static void import_handler(lily_parse_state *parser, int multi)
             new_import = make_new_import_entry(parser, import_name,
                     lex->entry->filename);
 
-            lily_enter_import(parser->symtab, new_import);
+            lily_set_import(parser->symtab, new_import);
 
             /* lily_emit_enter_block will write new code to this special var. */
             lily_var *import_var = lily_new_var(parser->symtab,
@@ -2362,7 +2361,7 @@ static void import_handler(lily_parse_state *parser, int multi)
 
             lily_emit_leave_block(parser->emit);
             lily_pop_lex_entry(parser->lex);
-            lily_leave_import(parser->symtab);
+            lily_set_import(parser->symtab, link_target);
 
             lily_emit_write_import_call(parser->emit, import_var);
         }
@@ -2783,7 +2782,7 @@ static void parser_loop(lily_parse_state *parser)
            of it to target the first file. */
         parser->emit->top_function->path = parser->lex->entry->filename;
 
-        lily_enter_import(parser->symtab, main_import);
+        lily_set_import(parser->symtab, main_import);
         parser->first_pass = 0;
     }
 
@@ -3064,20 +3063,6 @@ int lily_parse_string(lily_parse_state *parser, char *name, lily_lex_mode mode,
     }
 
     return 0;
-}
-
-void lily_begin_package(lily_parse_state *parser, char *name)
-{
-    lily_import_entry *new_package = make_new_import_entry(parser,
-            name, "[builtin]");
-
-    link_import_to(parser->symtab->active_import, new_package);
-    lily_enter_import(parser->symtab, new_package);
-}
-
-void lily_end_package(lily_parse_state *parser)
-{
-    lily_leave_import(parser->symtab);
 }
 
 /*  lily_type_by_name

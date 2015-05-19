@@ -151,8 +151,6 @@ void lily_make_constructor_return_type(lily_symtab *);
 void lily_finish_enum_class(lily_symtab *, lily_class *, int, lily_type *);
 void lily_change_parent_class(lily_class *, lily_class *);
 
-void lily_enter_import(lily_symtab *, lily_import_entry *);
-void lily_leave_import(lily_symtab *);
 lily_import_entry *lily_find_import(lily_symtab *, lily_import_entry *, char *);
 lily_import_entry *lily_find_import_anywhere(lily_symtab *, char *);
 void lily_link_import_to_active(lily_symtab *, lily_import_entry *);

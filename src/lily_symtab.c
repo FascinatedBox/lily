@@ -1543,33 +1543,6 @@ void lily_set_import(lily_symtab *symtab, lily_import_entry *entry)
     symtab->active_import = entry;
 }
 
-void lily_enter_import(lily_symtab *symtab, lily_import_entry *entry)
-{
-    entry->prev_entered = symtab->active_import;
-    lily_set_import(symtab, entry);
-}
-
-void lily_leave_import(lily_symtab *symtab)
-{
-    lily_import_entry *link_target = symtab->active_import;
-
-    symtab->active_import->var_chain = symtab->var_chain;
-    symtab->active_import->class_chain = symtab->class_chain;
-
-    symtab->active_import = symtab->active_import->prev_entered;
-
-    symtab->var_chain = symtab->active_import->var_chain;
-    symtab->class_chain = symtab->active_import->class_chain;
-
-    /* Without this, there is no (easy) way to touch each var + class in the
-       symtab exactly once. That's because the active import may point to some
-       non-current var/class within symtab's direct class/var lists.
-       It's really important that the above IS possible, because it would be
-       really bad to deref something twice. */
-    symtab->active_import->var_chain = NULL;
-    symtab->active_import->class_chain = NULL;
-}
-
 lily_import_entry *lily_find_import_anywhere(lily_symtab *symtab,
         char *name)
 {
