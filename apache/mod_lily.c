@@ -14,6 +14,7 @@
 #include "lily_lexer.h"
 #include "lily_value.h"
 #include "lily_impl.h"
+#include "lily_seed.h"
 
 #include "lily_cls_hash.h"
 
@@ -21,10 +22,6 @@ void lily_impl_puts(void *data, char *text)
 {
     ap_rputs(text, (request_rec *)data);
 }
-
-
-/** Shared common functions **/
-
 
 static lily_hash_elem *bind_hash_elem_with_values(char *sipkey,
         lily_value *key, lily_value *value)
@@ -61,9 +58,6 @@ static lily_hash_val *get_new_tied_hash(lily_symtab *symtab, lily_var *tie_var)
     return hash_val;
 }
 
-/** Binding server::env and server::get **/
-
-
 struct table_bind_data {
     lily_parse_state *parser;
     lily_symtab *symtab;
@@ -87,13 +81,13 @@ static int bind_table_entry(void *data, const char *key, const char *value)
     return TRUE;
 }
 
-static void bind_table_as(lily_parse_state *parser, request_rec *r,
+static lily_var *bind_table_as(lily_parse_state *parser, request_rec *r,
         apr_table_t *table, char *name)
 {
     lily_symtab *symtab = parser->symtab;
 
-    lily_var *hash_var = bind_hash_str_str_var(parser, name);
-    lily_hash_val *hash_val = get_new_tied_hash(symtab, hash_var);
+    lily_var *result = bind_hash_str_str_var(parser, name);
+    lily_hash_val *hash_val = get_new_tied_hash(symtab, result);
 
     struct table_bind_data data;
     data.parser = parser;
@@ -103,45 +97,13 @@ static void bind_table_as(lily_parse_state *parser, request_rec *r,
     data.hash_val = hash_val;
     data.sipkey = parser->vm->sipkey;
     apr_table_do(bind_table_entry, &data, table, NULL);
+    return result;
 }
 
-
-/** Bind server::httpmethod. This data is already available through
-    server::env["REQUEST_METHOD"], so this is simply for convenience. **/
-
-
-static void bind_httpmethod(lily_parse_state *parser, request_rec *r)
+static lily_var *bind_post(lily_parse_state *parser, request_rec *r)
 {
-    lily_class *string_cls = parser->symtab->string_class;
-
-    lily_type *string_type = string_cls->type;
-    lily_var *var = lily_new_var(parser->symtab, string_type, "httpmethod", 0);
-
-    lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
-    char *sv_buffer = lily_malloc(strlen(r->method) + 1);
-
-    strcpy(sv_buffer, r->method);
-
-    sv->string = sv_buffer;
-    sv->refcount = 1;
-    sv->size = strlen(r->method);
-
-    lily_value v;
-    v.type = var->type;
-    v.flags = 0;
-    v.value.string = sv;
-
-    lily_tie_value(parser->symtab, var, &v);
-}
-
-
-/** Binding server::post **/
-
-
-static void bind_post(lily_parse_state *parser, request_rec *r)
-{
-    lily_var *post_var = bind_hash_str_str_var(parser, "post");
-    lily_hash_val *hash_val = get_new_tied_hash(parser->symtab, post_var);
+    lily_var *result = bind_hash_str_str_var(parser, "post");
+    lily_hash_val *hash_val = get_new_tied_hash(parser->symtab, result);
 
     apr_array_header_t *pairs;
     apr_off_t len;
@@ -174,31 +136,73 @@ static void bind_post(lily_parse_state *parser, request_rec *r)
             hash_val->elem_chain = new_elem;
         }
     }
+
+    return result;
 }
 
-
-/** Binding the server package itself **/
-
-
-static void apache_bind_server(lily_parse_state *parser, request_rec *r)
+static lily_var *bind_get(lily_parse_state *parser, request_rec *r)
 {
-    lily_begin_package(parser, "server");
-
-    lily_symtab *symtab = parser->symtab;
-
-    ap_add_cgi_vars(r);
-    ap_add_common_vars(r);
-    bind_table_as(parser, r, r->subprocess_env, "env");
-
     apr_table_t *http_get_args;
     ap_args_to_table(r, &http_get_args);
 
-    bind_table_as(parser, r, http_get_args, "get");
-    bind_post(parser, r);
-    bind_httpmethod(parser, r);
-
-    lily_end_package(parser);
+    return bind_table_as(parser, r, http_get_args, "get");
 }
+
+static lily_var *bind_env(lily_parse_state *parser, request_rec *r)
+{
+    ap_add_cgi_vars(r);
+    ap_add_common_vars(r);
+
+    return bind_table_as(parser, r, r->subprocess_env, "env");
+}
+
+static lily_var *bind_httpmethod(lily_parse_state *parser, request_rec *r)
+{
+    lily_class *string_cls = parser->symtab->string_class;
+
+    lily_type *string_type = string_cls->type;
+    lily_var *result = lily_new_var(parser->symtab, string_type, "httpmethod", 0);
+
+    lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
+    char *sv_buffer = lily_malloc(strlen(r->method) + 1);
+
+    strcpy(sv_buffer, r->method);
+
+    sv->string = sv_buffer;
+    sv->refcount = 1;
+    sv->size = strlen(r->method);
+
+    lily_value v;
+    v.type = result->type;
+    v.flags = 0;
+    v.value.string = sv;
+
+    lily_tie_value(parser->symtab, result, &v);
+
+    return result;
+}
+
+lily_var *apache_var_dynaloader(lily_parse_state *parser, const char *name)
+{
+    request_rec *r = (request_rec *)parser->data;
+    lily_var *result = NULL;
+
+    if (strcmp("httpmethod", name) == 0)
+        result = bind_httpmethod(parser, r);
+    else if (strcmp("post", name) == 0)
+        result = bind_post(parser, r);
+    else if (strcmp("get", name) == 0)
+        result = bind_get(parser, r);
+    else if (strcmp("env", name) == 0)
+        result = bind_env(parser, r);
+
+    return result;
+}
+
+const lily_base_seed httpmethod_seed = {NULL, "httpmethod", dyna_var};
+const lily_base_seed post_seed = {&httpmethod_seed, "post", dyna_var};
+const lily_base_seed get_seed = {&post_seed, "get", dyna_var};
+const lily_base_seed env_seed = {&get_seed, "env", dyna_var};
 
 static int lily_handler(request_rec *r)
 {
@@ -211,8 +215,7 @@ static int lily_handler(request_rec *r)
     options->data = r;
 
     lily_parse_state *parser = lily_new_parse_state(options);
-
-    apache_bind_server(parser, r);
+    lily_register_import(parser, "server", &env_seed, apache_var_dynaloader);
 
     lily_parse_file(parser, lm_tags, r->filename);
 
