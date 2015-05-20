@@ -4,7 +4,7 @@
 # include "lily_core_types.h"
 
 int lily_string_eq(struct lily_vm_state_ *, int *, lily_value *, lily_value *);
-int lily_string_setup(lily_symtab *, lily_class *);
+lily_class *lily_string_init(lily_symtab *);
 void lily_destroy_string(lily_value *);
 
 #endif

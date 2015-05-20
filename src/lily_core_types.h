@@ -26,11 +26,6 @@ typedef void (*gc_marker_func)(int, struct lily_value_ *);
 /* Lily's foreign functions look like this. */
 typedef void (*lily_foreign_func)(struct lily_vm_state_ *, uint16_t,
         uint16_t *);
-/* This is called to set the seed_table of a class to a something non-NULL. It
-   can also do other setup if the class wants to. This is called after all
-   classes have been created.
-   Returns 1 if successful, 0 otherwise. */
-typedef int (*class_setup_func)(struct lily_symtab_ *, struct lily_class_ *);
 /* This is called to do == and != when the vm has complex values, and also for
    comparing values held in an any. The vm is passed as a guard against
    an infinite loop. */

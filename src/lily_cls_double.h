@@ -4,6 +4,6 @@
 # include "lily_core_types.h"
 
 int lily_double_eq(struct lily_vm_state_ *, int *, lily_value *, lily_value *);
-int lily_double_setup(lily_symtab *, lily_class *);
+lily_class *lily_double_init(lily_symtab *);
 
 #endif
