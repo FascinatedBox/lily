@@ -1733,12 +1733,8 @@ static void seed_registers(lily_vm_state *vm, lily_function_val *f, int start)
     updated (so that raises show the proper value).
 
     vm:     The vm to prepare to enter.
-    caller: The function that is doing the call. This function is added to the
-            fake entry so that the stack trace prints out the function's
-            information.
     tocall: A value holding a function to call. */
-void lily_vm_foreign_prep(lily_vm_state *vm, lily_function_val *caller,
-        lily_value *to_call)
+void lily_vm_foreign_prep(lily_vm_state *vm, lily_value *to_call)
 {
     /* Step 1: Determine the total register need of this function. */
     int register_need = to_call->value.function->reg_count;

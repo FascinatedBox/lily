@@ -103,7 +103,7 @@ uint64_t lily_calculate_siphash(char *, lily_value *);
 void lily_process_format_string(lily_vm_state *, uint16_t *);
 
 void lily_vm_foreign_call(lily_vm_state *vm);
-void lily_vm_foreign_prep(lily_vm_state *, lily_function_val *, lily_value *);
+void lily_vm_foreign_prep(lily_vm_state *, lily_value *);
 void lily_vm_foreign_load_by_val(lily_vm_state *, int, lily_value *);
 lily_value *lily_vm_get_foreign_reg(lily_vm_state *, int);
 #endif
