@@ -435,6 +435,15 @@ typedef struct lily_import_link_ {
     struct lily_import_link_ *next_import;
 } lily_import_link;
 
+/* This struct holds information for when an import references a
+   library. */
+typedef struct {
+    /* This is the handle to the library. */
+    void *source;
+    /* This is the first link in the module's dynaloads. */
+    const void *dynaload_table;
+} lily_library;
+
 /* This is used to manage information about imports. */
 typedef struct lily_import_entry_ {
     /* The name given to import this thing. */
@@ -450,6 +459,10 @@ typedef struct lily_import_entry_ {
 
     /* The vars within the imported file. */
     lily_var *var_chain;
+
+    /* This is non-NULL if 'import' found a dynamic library to open in place of
+       a normal module. */
+    lily_library *library;
 
     /* For builtin imports, this can contain classes, vars, or functions to
        dynaload. */

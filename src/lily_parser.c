@@ -4,6 +4,7 @@
 
 #include "lily_alloc.h"
 #include "lily_config.h"
+#include "lily_library.h"
 #include "lily_parser.h"
 #include "lily_parser_tok_table.h"
 #include "lily_keyword_table.h"
@@ -183,6 +184,8 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->lex->membuf = parser->ast_pool->ast_membuf;
 
     parser->import_paths = prepare_path_by_seed(parser, LILY_PATH_SEED);
+    parser->library_import_paths = prepare_path_by_seed(parser,
+            LILY_LIBRARY_PATH_SEED);
 
     lily_emit_try_enter_main(parser->emit, parser->symtab->main_var);
 
@@ -203,6 +206,17 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     return parser;
 }
 
+static void free_paths(lily_parse_state *parser, lily_path_link *path_iter)
+{
+    lily_path_link *path_next;
+    while (path_iter) {
+        path_next = path_iter->next;
+        lily_free(path_iter->path);
+        lily_free(path_iter);
+        path_iter = path_next;
+    }
+}
+
 void lily_free_parse_state(lily_parse_state *parser)
 {
     lily_free_raiser(parser->raiser);
@@ -219,14 +233,8 @@ void lily_free_parse_state(lily_parse_state *parser)
 
     lily_free_emit_state(parser->emit);
 
-    lily_path_link *path_iter = parser->import_paths;
-    lily_path_link *path_next;
-    while (path_iter) {
-        path_next = path_iter->next;
-        lily_free(path_iter->path);
-        lily_free(path_iter);
-        path_iter = path_next;
-    }
+    free_paths(parser, parser->import_paths);
+    free_paths(parser, parser->library_import_paths);
 
     lily_free(parser->optarg_stack);
 
@@ -241,6 +249,9 @@ void lily_free_parse_state(lily_parse_state *parser)
             lily_free(link_iter);
             link_iter = link_next;
         }
+        if (import_iter->library)
+            lily_library_free(import_iter->library);
+
         lily_free(import_iter->loadname);
         lily_free(import_iter);
 
@@ -276,6 +287,7 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
     else
         new_entry->loadname = NULL;
 
+    new_entry->library = NULL;
     new_entry->root_next = NULL;
     new_entry->import_chain = NULL;
     new_entry->class_chain = NULL;
@@ -2282,27 +2294,85 @@ static void except_handler(lily_parse_state *parser, int multi)
         statement(parser, multi);
 }
 
-static void load_import(lily_parse_state *parser, char *name)
+static lily_import_entry *load_native(lily_parse_state *parser,
+        const char *name, char *path)
 {
-    int ok = 0;
+    lily_import_entry *result = NULL;
+    if (lily_try_load_file(parser->lex, parser->msgbuf->message))
+        result = make_new_import_entry(parser, name, path);
+
+    return result;
+}
+
+static lily_import_entry *load_foreign(lily_parse_state *parser,
+        const char *name, char *path)
+{
+    lily_import_entry *result = NULL;
+    void *library = lily_library_load(path);
+    if (library) {
+        result = make_new_import_entry(parser, name, path);
+        result->library = library;
+    }
+
+    return result;
+}
+
+static lily_import_entry *attempt_import(lily_parse_state *parser,
+        lily_path_link *path_iter, const char *name, const char *suffix,
+        lily_import_entry *(*callback)(lily_parse_state *, const char *, char *))
+{
+    lily_import_entry *result = NULL;
     lily_msgbuf *msgbuf = parser->msgbuf;
-    lily_lex_state *lex = parser->lex;
-    lily_path_link *path_iter = parser->import_paths;
 
     while (path_iter) {
         lily_msgbuf_flush(msgbuf);
-        lily_msgbuf_add_fmt(msgbuf, "%s%s.lly", path_iter->path, name, ".lly");
-        if (lily_try_load_file(lex, msgbuf->message)) {
-            ok = 1;
+        lily_msgbuf_add_fmt(msgbuf, "%s%s%s", path_iter->path, name,
+                suffix);
+        result = (*callback)(parser, name, msgbuf->message);
+        if (result)
             break;
-        }
 
         path_iter = path_iter->next;
     }
 
-    if (ok == 0)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "Cannot import name '%s'.\n", name);
+    return result;
+}
+
+static void write_import_paths(lily_msgbuf *msgbuf,
+        lily_path_link *path_iter, const char *name, const char *suffix)
+{
+    while (path_iter) {
+        lily_msgbuf_add_fmt(msgbuf, "    no file '%s%s%s'\n",
+                path_iter->path, name, suffix);
+        path_iter = path_iter->next;
+    }
+}
+
+static lily_import_entry *load_import(lily_parse_state *parser, char *name)
+{
+    lily_import_entry *result = NULL;
+    result = attempt_import(parser, parser->import_paths, name, ".lly",
+            load_native);
+    if (result == NULL) {
+        result = attempt_import(parser, parser->import_paths, name,
+                LILY_LIB_SUFFIX, load_foreign);
+        if (result == NULL) {
+            /* The parser's msgbuf is used for doing class dynaloading, so it
+               should not be in use here. Also, as credit, this idea comes from
+               seeing lua do the same. */
+            lily_msgbuf *msgbuf = parser->msgbuf;
+            lily_msgbuf_flush(msgbuf);
+            lily_msgbuf_add_fmt(msgbuf, "Cannot import '%s':\n", name);
+            lily_msgbuf_add_fmt(msgbuf, "no builtin module '%s'\n", name);
+            write_import_paths(msgbuf, parser->import_paths, name, ".lly");
+            write_import_paths(msgbuf, parser->library_import_paths, name,
+                    LILY_LIB_SUFFIX);
+            lily_raise(parser->raiser, lily_SyntaxError, parser->msgbuf->message);
+        }
+    }
+
+    lily_set_import(parser->symtab, result);
+    return result;
 }
 
 static void import_handler(lily_parse_state *parser, int multi)
@@ -2332,38 +2402,38 @@ static void import_handler(lily_parse_state *parser, int multi)
                         import_name);
         }
         else {
-            /* At this point, it's a valid new import, so load it up and run
-               it. */
-            load_import(parser, import_name);
+            new_import = load_import(parser, import_name);
+            if (new_import->library == NULL) {
+                /* lily_emit_enter_block will write new code to this special
+                   var. */
+                lily_var *import_var = lily_new_var(parser->symtab,
+                        parser->default_call_type, "__import__",
+                        VAR_IS_READONLY);
 
-            new_import = make_new_import_entry(parser, import_name,
-                    lex->entry->filename);
+                /* This prevents the emitter from scoping out the (toplevel)
+                   functions that it finds within the imported file. */
+                import_var->function_depth = 1;
 
-            lily_set_import(parser->symtab, new_import);
+                lily_emit_enter_block(parser->emit, BLOCK_FILE);
 
-            /* lily_emit_enter_block will write new code to this special var. */
-            lily_var *import_var = lily_new_var(parser->symtab,
-                    parser->default_call_type, "__import__", VAR_IS_READONLY);
+                /* The whole of the file can be thought of as one large
+                   statement. */
+                lily_lexer(lex);
+                statement(parser, 1);
 
-            /* This prevents the emitter from scoping out the (toplevel)
-               functions that it finds within the imported file. */
-            import_var->function_depth = 1;
+                if (parser->emit->block->block_type != BLOCK_FILE)
+                    lily_raise(parser->raiser, lily_SyntaxError,
+                            "Unterminated block(s) at end of file.\n");
 
-            lily_emit_enter_block(parser->emit, BLOCK_FILE);
+                lily_emit_leave_block(parser->emit);
+                lily_pop_lex_entry(parser->lex);
 
-            /* The whole of the file can be thought of as one large statement. */
-            lily_lexer(lex);
-            statement(parser, 1);
+                lily_emit_write_import_call(parser->emit, import_var);
+            }
+            else
+                new_import->dynaload_table = new_import->library->dynaload_table;
 
-            if (parser->emit->block->block_type != BLOCK_FILE)
-                lily_raise(parser->raiser, lily_SyntaxError,
-                        "Unterminated block(s) at end of file.\n");
-
-            lily_emit_leave_block(parser->emit);
-            lily_pop_lex_entry(parser->lex);
             lily_set_import(parser->symtab, link_target);
-
-            lily_emit_write_import_call(parser->emit, import_var);
         }
 
         link_import_to(link_target, new_import);
