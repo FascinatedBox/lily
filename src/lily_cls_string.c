@@ -53,8 +53,7 @@ static lily_string_val *try_make_sv(lily_vm_state *vm, int size)
     * other: The string to add.
 
     This creates a new string comprised of 'self' and 'other'. */
-void lily_string_concat(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_string_concat(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *result_arg = vm_regs[code[2]];
@@ -76,7 +75,7 @@ void lily_string_concat(lily_vm_state *vm, lily_function_val *self,
 }
 
 #define CTYPE_WRAP(WRAP_NAME, WRAPPED_CALL) \
-void WRAP_NAME(lily_vm_state *vm, lily_function_val *self, uint16_t *code) \
+void WRAP_NAME(lily_vm_state *vm, uint16_t argc, uint16_t *code) \
 { \
     lily_value **vm_regs = vm->vm_regs; \
     lily_value *ret_arg = vm_regs[code[1]]; \
@@ -257,8 +256,7 @@ static int lstrip_ascii_start(lily_value *input_arg, lily_string_val *strip_sv)
     return i;
 }
 
-void lily_string_lstrip(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_string_lstrip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -304,8 +302,7 @@ void lily_string_lstrip(lily_vm_state *vm, lily_function_val *self,
     lily_move_raw_value(vm, result_arg, 0, v);
 }
 
-void lily_string_startswith(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_string_startswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -431,8 +428,7 @@ static int rstrip_utf8_stop(lily_value *input_arg, lily_string_val *strip_sv)
     return i + 1;
 }
 
-void lily_string_rstrip(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_string_rstrip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -480,8 +476,7 @@ void lily_string_rstrip(lily_vm_state *vm, lily_function_val *self,
     lily_move_raw_value(vm, result_arg, 0, v);
 }
 
-void lily_string_endswith(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_string_endswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -513,8 +508,7 @@ void lily_string_endswith(lily_vm_state *vm, lily_function_val *self,
     result_arg->value.integer = ok;
 }
 
-void lily_string_lower(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_string_lower(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -541,8 +535,7 @@ void lily_string_lower(lily_vm_state *vm, lily_function_val *self,
     lily_move_raw_value(vm, result_arg, 0, v);
 }
 
-void lily_string_upper(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_string_upper(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -569,8 +562,7 @@ void lily_string_upper(lily_vm_state *vm, lily_function_val *self,
     lily_move_raw_value(vm, result_arg, 0, v);
 }
 
-void lily_string_find(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -628,8 +620,7 @@ void lily_string_find(lily_vm_state *vm, lily_function_val *self,
     result_arg->value.integer = i;
 }
 
-void lily_string_strip(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_string_strip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -695,8 +686,7 @@ void lily_string_strip(lily_vm_state *vm, lily_function_val *self,
     Whitespace is any of: ' \t\r\n'.
 
     Returns the newly made string. */
-void lily_string_trim(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_string_trim(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -733,8 +723,7 @@ void lily_string_trim(lily_vm_state *vm, lily_function_val *self,
     < becomes &lt;
     > becomes &gt;
     & becomes &amp; */
-void lily_string_htmlencode(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];
@@ -791,8 +780,7 @@ void lily_string_htmlencode(lily_vm_state *vm, lily_function_val *self,
     This takes 'input' as a format string, and 'args' as the values to format.
     The result is a string formatted appropriately. This is the same as the
     builtin function 'printfmt' (except the result goes to a string). */
-void lily_string_format(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_string_format(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_process_format_string(vm, code);
     char *buffer = vm->vm_buffer->message;
@@ -814,8 +802,7 @@ void lily_string_format(lily_vm_state *vm, lily_function_val *self,
     The result of this function is a symbol value. The interpreter will attempt
     to fetch an existing value, but fallback to making a new one if it cannot
     do so. */
-void lily_string_to_sym(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_string_to_sym(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[0]];

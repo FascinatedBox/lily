@@ -2229,7 +2229,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     stack_entry->build_value = NULL;
                     vm->function_stack_pos++;
 
-                    func(vm, fval, code+code_pos+5);
+                    func(vm, j, code+code_pos+5);
                     /* This function may have called the vm, thus growing the
                        number of registers. Copy over important data if that's
                        happened. */

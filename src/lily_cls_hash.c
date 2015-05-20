@@ -199,7 +199,7 @@ void lily_gc_collect_hash(lily_type *hash_type,
     }
 }
 
-void lily_hash_get(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
+void lily_hash_get(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input = vm_regs[code[0]];
@@ -224,7 +224,7 @@ void lily_hash_get(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
     Implements hash::keys
 
     This function returns a list containing each key within the hash. */
-void lily_hash_keys(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
+void lily_hash_keys(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_hash_val *hash_val = vm_regs[code[0]]->value.hash;
