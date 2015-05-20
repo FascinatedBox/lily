@@ -210,7 +210,7 @@ void lily_list_apply(lily_vm_state *vm, lily_function_val *self,
     /* This must be called exactly once at the beginning of a foreign call to
        the vm. This ensures the vm has enough registers + stack for a foreign
        call (among other things). */
-    lily_vm_foreign_prep(vm, self, function_reg);
+    lily_vm_foreign_prep(vm, function_reg);
     int i;
     for (i = 0;i < list_val->num_values;i++) {
         /* Arguments to the native call begin at index 1. The native call needs
