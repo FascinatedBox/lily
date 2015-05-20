@@ -4,6 +4,8 @@ file(GLOB lily_SOURCES *.c)
 # use liblily to build the lily executable.
 # -fPIC is vital: Apache's mod_lily will not build properly without it.
 add_library(liblily STATIC ${lily_SOURCES})
+target_link_libraries(liblily dl)
+
 set_target_properties(
     liblily
     PROPERTIES
