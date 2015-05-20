@@ -868,13 +868,24 @@ static const lily_func_seed isalpha_fn =
 static const lily_func_seed isspace_fn =
     {&isalpha_fn, "isspace", dyna_function,  "function isspace(string => integer)", lily_string_isspace};
 
-static const lily_func_seed concat =
+static const lily_func_seed dynaload_start =
     {&isspace_fn, "concat", dyna_function, "function concat(string, string => string)", lily_string_concat};
 
-#define SEED_START concat
-
-int lily_string_setup(lily_symtab *symtab, lily_class *cls)
+static const lily_class_seed string_seed =
 {
-    cls->dynaload_table = &SEED_START;
-    return 1;
+    NULL,               /* next */
+    "string",           /* name */
+    dyna_class,         /* load_type */
+    1,                  /* is_refcounted */
+    0,                  /* generic_count */
+    CLS_VALID_HASH_KEY, /* flags */
+    &dynaload_start,    /* dynaload_table */
+    NULL,               /* gc_marker */
+    &lily_string_eq,    /* eq_func */
+    lily_destroy_string /* destroy_func */
+};
+
+lily_class *lily_string_init(lily_symtab *symtab)
+{
+    return lily_new_class_by_seed(symtab, &string_seed);
 }

@@ -182,11 +182,24 @@ static const lily_func_seed file_write =
 static const lily_func_seed file_close =
     {&file_write, "close", dyna_function, "function close(file)", lily_file_close};
 
-static const lily_func_seed file_open =
+static const lily_func_seed dynaload_start =
     {&file_close, "open", dyna_function, "function open(string, string => file)", lily_file_open};
 
-int lily_file_setup(lily_symtab *symtab, lily_class *file_cls)
+static const lily_class_seed file_seed =
 {
-    file_cls->dynaload_table = &file_open;
-    return 1;
+    NULL,             /* next */
+    "file",           /* name */
+    dyna_class,       /* load_type */
+    1,                /* is_refcounted */
+    0,                /* generic_count */
+    0,                /* flags */
+    &dynaload_start,  /* dynaload_table */
+    NULL,             /* gc_marker */
+    &lily_generic_eq, /* eq_func */
+    lily_destroy_file /* destroy_func */
+};
+
+lily_class *lily_file_init(lily_symtab *symtab)
+{
+    return lily_new_class_by_seed(symtab, &file_seed);
 }

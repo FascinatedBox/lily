@@ -265,13 +265,24 @@ void lily_hash_keys(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 static const lily_func_seed keys =
     {NULL, "keys", dyna_function, "function keys[A, B](hash[A, B] => list[A])", lily_hash_keys};
 
-static const lily_func_seed get =
+static const lily_func_seed dynaload_start =
     {&keys, "get", dyna_function, "function get[A, B](hash[A, B], A, B => B)", lily_hash_get};
 
-#define SEED_START get
-
-int lily_hash_setup(lily_symtab *symtab, lily_class *cls)
+static const lily_class_seed hash_seed =
 {
-    cls->dynaload_table = &SEED_START;
-    return 1;
+    NULL,                 /* next */
+    "hash",               /* name */
+    dyna_class,           /* load_type */
+    1,                    /* is_refcounted */
+    2,                    /* generic_count */
+    0,                    /* flags */
+    &dynaload_start,      /* dynaload_table */
+    &lily_gc_hash_marker, /* gc_marker */
+    &lily_hash_eq,        /* eq_func */
+    lily_destroy_hash,    /* destroy_func */
+};
+
+lily_class *lily_hash_init(lily_symtab *symtab)
+{
+    return lily_new_class_by_seed(symtab, &hash_seed);
 }

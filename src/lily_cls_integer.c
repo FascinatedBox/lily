@@ -49,12 +49,24 @@ void lily_integer_to_d(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 static const lily_func_seed to_d =
     {NULL, "to_d", dyna_function, "function to_d(integer => double)", &lily_integer_to_d};
 
-static const lily_func_seed to_s =
+static const lily_func_seed dynaload_start =
     {&to_d, "to_s", dyna_function, "function to_s(integer => string)", &lily_integer_to_s};
 
-int lily_integer_setup(lily_symtab *symtab, lily_class *cls)
+static lily_class_seed integer_seed =
 {
-    cls->dynaload_table = &to_s;
-    return 1;
-}
+    NULL,               /* next */
+    "integer",          /* name */
+    dyna_class,         /* load_type */
+    0,                  /* is_refcounted */
+    0,                  /* generic_count */
+    CLS_VALID_HASH_KEY, /* flags */
+    &dynaload_start,    /* dynaload_table */
+    NULL,               /* gc_marker */
+    &lily_integer_eq,   /* eq_func */
+    NULL,               /* destroy_func */
+};
 
+lily_class *lily_integer_init(lily_symtab *symtab)
+{
+    return lily_new_class_by_seed(symtab, &integer_seed);
+}

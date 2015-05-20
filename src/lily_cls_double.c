@@ -21,11 +21,24 @@ void lily_double_to_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     result_reg->value.integer = (int64_t)double_val;
 }
 
-static const lily_func_seed to_i =
+static const lily_func_seed dynaload_start =
     {NULL, "to_i", dyna_function, "function to_i(double => integer)", lily_double_to_i};
 
-int lily_double_setup(lily_symtab *symtab, lily_class *cls)
+static lily_class_seed double_seed =
 {
-    cls->dynaload_table = &to_i;
-    return 1;
+    NULL,               /* next */
+    "double",           /* name */
+    dyna_class,         /* load_type */
+    0,                  /* is_refcounted */
+    0,                  /* generic_count */
+    CLS_VALID_HASH_KEY, /* flags */
+    &dynaload_start,    /* dynaload_table */
+    NULL,               /* gc_marker */
+    &lily_double_eq,    /* eq_func */
+    NULL,               /* destroy_func */
+};
+
+lily_class *lily_double_init(lily_symtab *symtab)
+{
+    return lily_new_class_by_seed(symtab, &double_seed);
 }

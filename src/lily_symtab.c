@@ -257,8 +257,7 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
     new_class->eq_func = class_seed->eq_func;
     new_class->destroy_func = class_seed->destroy_func;
     new_class->import = symtab->active_import;
-    if (class_seed->setup_func)
-        class_seed->setup_func(symtab, new_class);
+    new_class->dynaload_table = class_seed->dynaload_table;
 
     return new_class;
 }

@@ -230,13 +230,24 @@ static lily_func_seed apply =
 static const lily_func_seed append =
     {&apply, "append", dyna_function, "function append[A](list[A], A)", lily_list_append};
 
-static const lily_func_seed size =
+static const lily_func_seed dynaload_start =
     {&append, "size", dyna_function, "function size[A](list[A] => integer)", lily_list_size};
 
-#define SEED_START size
-
-int lily_list_setup(lily_symtab *symtab, lily_class *cls)
+static const lily_class_seed list_seed =
 {
-    cls->dynaload_table = &SEED_START;
-    return 1;
+    NULL,                 /* next */
+    "list",               /* name */
+    dyna_class,           /* load_type */
+    1,                    /* is_refcounted */
+    1,                    /* generic_count */
+    0,                    /* flags */
+    &dynaload_start,      /* dynaload_start */
+    &lily_gc_list_marker, /* gc_marker */
+    &lily_list_eq,        /* eq_func */
+    lily_destroy_list,    /* destroy_func */
+};
+
+lily_class *lily_list_init(lily_symtab *symtab)
+{
+    return lily_new_class_by_seed(symtab, &list_seed);
 }

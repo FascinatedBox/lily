@@ -16,169 +16,94 @@
 #include "lily_cls_file.h"
 #include "lily_seed.h"
 
-static const lily_class_seed class_seeds[] =
+static const lily_class_seed symbol_seed =
 {
-    {NULL,                      /* next */
-     "integer",                 /* name */
-     dyna_class,                /* load_type */
-     0,                         /* is_refcounted */
-     0,                         /* generic_count */
-     CLS_VALID_HASH_KEY,        /* flags */
-     lily_integer_setup,        /* setup_func */
-     NULL,                      /* gc_marker */
-     &lily_integer_eq,          /* eq_func */
-     NULL,                      /* destroy_func */
-    },
+     NULL,                 /* next */
+     "symbol",             /* name */
+     dyna_class,           /* load_type */
+     1,                    /* is_refcounted */
+     0,                    /* generic_count */
+     CLS_VALID_HASH_KEY,   /* flags */
+     NULL,                 /* dynaload_table */
+     NULL,                 /* gc_marker */
+     &lily_generic_eq,     /* eq_func */
+     lily_destroy_symbol,  /* destroy_func */
+};
 
-    {NULL,                      /* next */
-     "double",                  /* name */
-     dyna_class,                /* load_type */
-     0,                         /* is_refcounted */
-     0,                         /* generic_count */
-     CLS_VALID_HASH_KEY,        /* flags */
-     lily_double_setup,         /* setup_func */
-     NULL,                      /* gc_marker */
-     &lily_double_eq,           /* eq_func */
-     NULL,                      /* destroy_func */
-    },
+static const lily_class_seed function_seed =
+{
+    NULL,                  /* next */
+    "function",            /* name */
+    dyna_class,            /* load_type */
+    1,                     /* is_refcounted */
+    -1,                    /* generic_count */
+    0,                     /* flags */
+    NULL,                  /* dynaload_table */
+    NULL,                  /* gc_marker */
+    &lily_generic_eq,      /* eq_func */
+    lily_destroy_function  /* destroy_func */
+};
 
-    {NULL,                      /* next */
-     "string",                  /* name */
-     dyna_class,                /* load_type */
-     1,                         /* is_refcounted */
-     0,                         /* generic_count */
-     CLS_VALID_HASH_KEY,        /* flags */
-     lily_string_setup,         /* setup_func */
-     NULL,                      /* gc_marker */
-     &lily_string_eq,           /* eq_func */
-     lily_destroy_string        /* destroy_func */
-    },
+static const lily_class_seed any_seed =
+{
+    NULL,                  /* next */
+    "any",                 /* name */
+    dyna_class,            /* load_type */
+    1,                     /* is_refcounted */
+    0,                     /* generic_count */
+    /* 'any' is treated as an enum class that has all classes ever defined
+       within it. */
+    CLS_ENUM_CLASS,        /* flags */
+    NULL,                  /* dynaload_table */
+    &lily_gc_any_marker,   /* gc_marker */
+    &lily_any_eq,          /* eq_func */
+    lily_destroy_any       /* destroy_func */
+};
 
-    {NULL,                      /* next */
-     "bytestring",              /* name */
-     dyna_class,                /* load_type */
-     1,                         /* is_refcounted */
-     0,                         /* generic_count */
-     0,                         /* flags */
-     lily_bytestring_setup,     /* setup_func */
-     NULL,                      /* gc_marker */
-     &lily_bytestring_eq,       /* eq_func */
-     lily_destroy_string        /* destroy_func */
-    },
+static const lily_class_seed tuple_seed =
+{
+    NULL,                  /* next */
+    "tuple",               /* name */
+    dyna_class,            /* load_type */
+    1,                     /* is_refcounted */
+    -1,                    /* generic_count */
+    0,                     /* flags */
+    NULL,                  /* dynaload_table */
+    &lily_gc_tuple_marker, /* gc_marker */
+    &lily_tuple_eq,        /* eq_func */
+    lily_destroy_tuple     /* destroy_func */
+};
 
-    {NULL,                      /* next */
-     "symbol",                  /* name */
-     dyna_class,                /* load_type */
-     1,                         /* is_refcounted */
-     0,                         /* generic_count */
-     CLS_VALID_HASH_KEY,        /* flags */
-     NULL,                      /* setup_func */
-     NULL,                      /* gc_marker */
-     &lily_generic_eq,          /* eq_func */
-     lily_destroy_symbol,       /* destroy_func */
-    },
-
-    {NULL,                      /* next */
-     "function",                /* name */
-     dyna_class,                /* load_type */
-     1,                         /* is_refcounted */
-     -1,                        /* generic_count */
-     0,                         /* flags */
-     NULL,                      /* setup_func */
-     NULL,                      /* gc_marker */
-     &lily_generic_eq,          /* eq_func */
-     lily_destroy_function      /* destroy_func */
-    },
-
-    {NULL,                      /* next */
-     "any",                     /* name */
-     dyna_class,                /* load_type */
-     1,                         /* is_refcounted */
-     0,                         /* generic_count */
-     /* 'any' is treated as an enum class that has all classes ever defined
-        within it. */
-     CLS_ENUM_CLASS,            /* flags */
-     NULL,                      /* setup_func */
-     &lily_gc_any_marker,       /* gc_marker */
-     &lily_any_eq,              /* eq_func */
-     lily_destroy_any           /* destroy_func */
-    },
-
-    {NULL,                      /* next */
-     "list",                    /* name */
-     dyna_class,                /* load_type */
-     1,                         /* is_refcounted */
-     1,                         /* generic_count */
-     0,                         /* flags */
-     lily_list_setup,           /* setup_func */
-     &lily_gc_list_marker,      /* gc_marker */
-     &lily_list_eq,             /* eq_func */
-     lily_destroy_list,         /* destroy_func */
-    },
-
-    {NULL,                      /* next */
-     "hash",                    /* name */
-     dyna_class,                /* load_type */
-     1,                         /* is_refcounted */
-     2,                         /* generic_count */
-     0,                         /* flags */
-     lily_hash_setup,           /* setup_func */
-     &lily_gc_hash_marker,      /* gc_marker */
-     &lily_hash_eq,             /* eq_func */
-     lily_destroy_hash,         /* destroy_func */
-    },
-
-    {NULL,                      /* next */
-     "tuple",                   /* name */
-     dyna_class,                /* load_type */
-     1,                         /* is_refcounted */
-     -1,                        /* generic_count */
-     0,                         /* flags */
-     NULL,                      /* setup_func */
-     &lily_gc_tuple_marker,     /* gc_marker */
-     &lily_tuple_eq,            /* eq_func */
-     lily_destroy_tuple         /* destroy_func */
-    },
-
+static const lily_class_seed optarg_seed =
     /* This is the optarg class. The type inside of it is what may/may not be
        sent. */
-    {NULL,                      /* next */
-     "*",                       /* name */
-     dyna_class,                /* load_type */
-     0,                         /* is_refcounted */
-     1,                         /* generic_count */
-     0,                         /* flags */
-     NULL,                      /* setup_func */
-     NULL,                      /* gc_marker */
-     NULL,                      /* eq_func */
-     NULL                       /* destroy_func */
-    },
+{
+    NULL,                  /* next */
+    "*",                   /* name */
+    dyna_class,            /* load_type */
+    0,                     /* is_refcounted */
+    1,                     /* generic_count */
+    0,                     /* flags */
+    NULL,                  /* dynaload_table */
+    NULL,                  /* gc_marker */
+    NULL,                  /* eq_func */
+    NULL                   /* destroy_func */
+};
 
-    {NULL,                      /* next */
-     "file",                    /* name */
-     dyna_class,                /* load_type */
-     1,                         /* is_refcounted */
-     0,                         /* generic_count */
-     0,                         /* flags */
-     lily_file_setup,           /* setup_func */
-     NULL,                      /* gc_marker */
-     &lily_generic_eq,          /* eq_func */
-     lily_destroy_file          /* destroy_func */
-    },
-
+static const lily_class_seed generic_seed =
     /* This is the generic class. Types of this class are created and have a
        generic_pos set to indicate what letter they are (A = 0, B = 1, etc.) */
-    {NULL,                      /* next */
-     "",                        /* name */
-     dyna_class,                /* load_type */
-     0,                         /* is_refcounted */
-     0,                         /* generic_count */
-     0,                         /* flags */
-     NULL,                      /* setup_func */
-     NULL,                      /* gc_marker */
-     NULL,                      /* eq_func */
-     NULL                       /* destroy_func */
-    },
+{
+    NULL,                  /* next */
+    "",                    /* name */
+    dyna_class,            /* load_type */
+    0,                     /* is_refcounted */
+    0,                     /* generic_count */
+    0,                     /* flags */
+    NULL,                  /* dynaload_table */
+    NULL,                  /* gc_marker */
+    NULL,                  /* eq_func */
+    NULL                   /* destroy_func */
 };
 
 void lily_builtin_print(lily_vm_state *, uint16_t, uint16_t *);
@@ -238,19 +163,19 @@ static lily_var *builtin_var_loader(lily_parse_state *parser, const char *name)
 
 void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
 {
-    symtab->integer_class    = lily_new_class_by_seed(symtab, &class_seeds[0]);
-    symtab->double_class     = lily_new_class_by_seed(symtab, &class_seeds[1]);
-    symtab->string_class     = lily_new_class_by_seed(symtab, &class_seeds[2]);
-    symtab->bytestring_class = lily_new_class_by_seed(symtab, &class_seeds[3]);
-    symtab->symbol_class     = lily_new_class_by_seed(symtab, &class_seeds[4]);
-    symtab->function_class   = lily_new_class_by_seed(symtab, &class_seeds[5]);
-    symtab->any_class        = lily_new_class_by_seed(symtab, &class_seeds[6]);
-    symtab->list_class       = lily_new_class_by_seed(symtab, &class_seeds[7]);
-    symtab->hash_class       = lily_new_class_by_seed(symtab, &class_seeds[8]);
-    symtab->tuple_class      = lily_new_class_by_seed(symtab, &class_seeds[9]);
-    symtab->optarg_class     = lily_new_class_by_seed(symtab, &class_seeds[10]);
-    lily_new_class_by_seed(symtab, &class_seeds[11]);
-    symtab->generic_class    = lily_new_class_by_seed(symtab, &class_seeds[12]);
+    symtab->integer_class    = lily_integer_init(symtab);
+    symtab->double_class     = lily_double_init(symtab);
+    symtab->string_class     = lily_string_init(symtab);
+    symtab->bytestring_class = lily_bytestring_init(symtab);
+    symtab->symbol_class     = lily_new_class_by_seed(symtab, &symbol_seed);
+    symtab->function_class   = lily_new_class_by_seed(symtab, &function_seed);
+    symtab->any_class        = lily_new_class_by_seed(symtab, &any_seed);
+    symtab->list_class       = lily_list_init(symtab);
+    symtab->hash_class       = lily_hash_init(symtab);
+    symtab->tuple_class      = lily_new_class_by_seed(symtab, &tuple_seed);
+    symtab->optarg_class     = lily_new_class_by_seed(symtab, &optarg_seed);
+    lily_file_init(symtab);
+    symtab->generic_class    = lily_new_class_by_seed(symtab, &generic_seed);
 
     symtab->any_class->type->flags |= TYPE_MAYBE_CIRCULAR;
     symtab->generic_type_start = symtab->generic_class->type;

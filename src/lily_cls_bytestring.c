@@ -6,6 +6,8 @@
 #include "lily_vm.h"
 #include "lily_seed.h"
 
+#include "lily_cls_string.h"
+
 int lily_bytestring_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
 {
@@ -59,11 +61,24 @@ void lily_bytestring_encode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(vm, result, 0, v);
 }
 
-static const lily_func_seed encode =
+static const lily_func_seed dynaload_start =
     {NULL, "encode", dyna_function, "function encode(bytestring, *string => string)", lily_bytestring_encode};
 
-int lily_bytestring_setup(lily_symtab *symtab, lily_class *cls)
+static const lily_class_seed bytestring_seed =
 {
-    cls->dynaload_table = &encode;
-    return 1;
+    NULL,                /* next */
+    "bytestring",        /* name */
+    dyna_class,          /* load_type */
+    1,                   /* is_refcounted */
+    0,                   /* generic_count */
+    0,                   /* flags */
+    &dynaload_start,     /* dynaload_table */
+    NULL,                /* gc_marker */
+    &lily_bytestring_eq, /* eq_func */
+    lily_destroy_string  /* destroy_func */
+};
+
+lily_class *lily_bytestring_init(lily_symtab *symtab)
+{
+    return lily_new_class_by_seed(symtab, &bytestring_seed);
 }
