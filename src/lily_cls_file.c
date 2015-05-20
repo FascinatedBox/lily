@@ -58,7 +58,7 @@ static void read_check(lily_vm_state *vm, lily_file_val *filev)
         lily_raise(vm->raiser, lily_IOError, "File not open for reading.\n");
 }
 
-void lily_file_open(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
+void lily_file_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     char *path = vm_regs[code[0]]->value.string->string;
@@ -88,7 +88,7 @@ void lily_file_open(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
     lily_move_raw_value(vm, result_reg, 0, v);
 }
 
-void lily_file_close(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
+void lily_file_close(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_file_val *filev = vm_regs[code[0]]->value.file;
@@ -100,7 +100,7 @@ void lily_file_close(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
     }
 }
 
-void lily_file_write(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
+void lily_file_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_file_val *filev = vm_regs[code[0]]->value.file;
@@ -111,8 +111,7 @@ void lily_file_write(lily_vm_state *vm, lily_function_val *self, uint16_t *code)
     fputs(to_write, filev->inner_file);
 }
 
-void lily_file_readline(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_file_readline(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_file_val *filev = vm_regs[code[0]]->value.file;

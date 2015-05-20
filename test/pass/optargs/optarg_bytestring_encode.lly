@@ -1,0 +1,5 @@
+var b = B"\001"
+
+# bytestring::encode is 'function (bytestring, *string => string)'
+# This tests that the *string works right.
+b.encode()

@@ -155,8 +155,7 @@ void lily_gc_collect_list(lily_type *list_type, lily_list_val *list_val)
     }
 }
 
-void lily_list_size(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_list_size(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_list_val *list_val = vm_regs[code[0]]->value.list;
@@ -166,8 +165,7 @@ void lily_list_size(lily_vm_state *vm, lily_function_val *self,
     ret_reg->flags &= ~VAL_IS_NIL;
 }
 
-void lily_list_append(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_list_append(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_list_val *list_val = vm_regs[code[0]]->value.list;
@@ -199,8 +197,7 @@ void lily_list_append(lily_vm_state *vm, lily_function_val *self,
 
              If the list is type 'T'
              then the call is 'function (T):T' */
-void lily_list_apply(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_list_apply(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_list_val *list_val = vm_regs[code[0]]->value.list;

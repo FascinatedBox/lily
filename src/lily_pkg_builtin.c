@@ -181,10 +181,10 @@ static const lily_class_seed class_seeds[] =
     },
 };
 
-void lily_builtin_print(lily_vm_state *, lily_function_val *, uint16_t *);
-void lily_builtin_show(lily_vm_state *, lily_function_val *, uint16_t *);
-void lily_builtin_printfmt(lily_vm_state *, lily_function_val *, uint16_t *);
-void lily_builtin_calltrace(lily_vm_state *, lily_function_val *, uint16_t *);
+void lily_builtin_print(lily_vm_state *, uint16_t, uint16_t *);
+void lily_builtin_show(lily_vm_state *, uint16_t, uint16_t *);
+void lily_builtin_printfmt(lily_vm_state *, uint16_t, uint16_t *);
+void lily_builtin_calltrace(lily_vm_state *, uint16_t, uint16_t *);
 
 static const lily_base_seed io_error =
     {NULL, "IOError", dyna_exception};

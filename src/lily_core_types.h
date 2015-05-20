@@ -24,7 +24,7 @@ struct lily_parse_state_;
    will be collected. */
 typedef void (*gc_marker_func)(int, struct lily_value_ *);
 /* Lily's foreign functions look like this. */
-typedef void (*lily_foreign_func)(struct lily_vm_state_ *, struct lily_function_val_ *,
+typedef void (*lily_foreign_func)(struct lily_vm_state_ *, uint16_t,
         uint16_t *);
 /* This is called to set the seed_table of a class to a something non-NULL. It
    can also do other setup if the class wants to. This is called after all

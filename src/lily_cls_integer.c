@@ -15,8 +15,7 @@ int lily_integer_eq(lily_vm_state *vm, int *depth, lily_value *left,
 
 /*  lily_integer_to_s
     Implements integer::to_s() */
-void lily_integer_to_s(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_integer_to_s(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     int64_t integer_val = vm_regs[code[0]]->value.integer;
@@ -37,8 +36,7 @@ void lily_integer_to_s(lily_vm_state *vm, lily_function_val *self,
     lily_move_raw_value(vm, result_reg, 0, v);
 }
 
-void lily_integer_to_d(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_integer_to_d(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     int64_t integer_val = vm_regs[code[0]]->value.integer;
