@@ -262,33 +262,6 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
     return new_class;
 }
 
-/*  get_generic_max
-    Recurse into a type and determine the number of generics used. This
-    is important for emitter, which needs to know how many types to blank before
-    evaluating a call.
-
-    type:        The type to check.
-    generic_max: This is a pointer set to the number of generics that the
-                 given type takes (generic index + 1). This is 0 if the given
-                 type does not use generics. */
-static void get_generic_max(lily_type *type, int *generic_max)
-{
-    /* function uses NULL at [1] to mean it takes no args, and NULL at [0] to
-       mean that nothing is returned. */
-    if (type == NULL)
-        return;
-
-    if (type->cls->id == SYM_CLASS_GENERIC) {
-        if ((type->generic_pos + 1) > *generic_max)
-            *generic_max = type->generic_pos + 1;
-    }
-    else if (type->subtypes) {
-        int i;
-        for (i = 0;i < type->subtype_count;i++)
-            get_generic_max(type->subtypes[i], generic_max);
-    }
-}
-
 #define SKIP_FLAGS \
     ~(TYPE_MAYBE_CIRCULAR | TYPE_CALL_HAS_ENUM_ARG | TYPE_IS_UNRESOLVED)
 
@@ -349,26 +322,16 @@ static lily_type *lookup_type(lily_symtab *symtab, lily_type *input_type)
 static void finalize_type(lily_type *input_type)
 {
     if (input_type->subtypes) {
-        /* functions are not containers, so circularity doesn't apply to them. */
-        if (input_type->cls->id != SYM_CLASS_FUNCTION) {
-            int i;
-            for (i = 0;i < input_type->subtype_count;i++) {
-                if (input_type->subtypes[i]->flags & TYPE_MAYBE_CIRCULAR) {
+        int i;
+        for (i = 0;i < input_type->subtype_count;i++) {
+            lily_type *subtype = input_type->subtypes[i];
+            if (subtype) {
+                int flags = subtype->flags;
+                if (flags & TYPE_MAYBE_CIRCULAR)
                     input_type->flags |= TYPE_MAYBE_CIRCULAR;
-                    break;
-                }
+                if (flags & TYPE_IS_UNRESOLVED)
+                    input_type->flags |= TYPE_IS_UNRESOLVED;
             }
-        }
-
-        /* Find out the highest generic index that this type has inside of it.
-           For functions, this allows the emitter to reserve blank types for
-           holding generic matches. For other types, it allows the emitter to
-           determine if a call result uses generics (since it has to be broken
-           down if it does. */
-        if (input_type->cls->id != SYM_CLASS_GENERIC) {
-            int max = 0;
-            get_generic_max(input_type, &max);
-            input_type->generic_pos = max;
         }
     }
 
@@ -399,6 +362,9 @@ static void finalize_type(lily_type *input_type)
             if (vararg_list->subtypes[0]->cls->flags & CLS_ENUM_CLASS)
                 input_type->flags |= TYPE_CALL_HAS_ENUM_ARG;
         }
+
+        /* functions are not containers, so circularity doesn't apply to them. */
+        input_type->flags &= ~TYPE_MAYBE_CIRCULAR;
     }
 
     /* fixme: Properly go over enum classes to determine circularity. */

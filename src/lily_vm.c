@@ -582,7 +582,6 @@ static void resolve_generic_registers(lily_vm_state *vm,
         lily_function_val *fval, int args_collected, int reg_start)
 {
     lily_value **regs_from_main = vm->regs_from_main;
-    int generics_needed = fval->generic_pos;
     int save_ceiling = lily_ts_raise_ceiling(vm->ts);
     int i;
 
@@ -668,7 +667,7 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
         set_reg->flags = get_reg->flags;
     }
 
-    if (fval->generic_pos == 0) {
+    if (fval->has_generics == 0) {
         /* For the rest of the registers, clear whatever value they have. */
         for (;num_registers < register_need;i++, num_registers++) {
             lily_register_info seed = register_seeds[i];

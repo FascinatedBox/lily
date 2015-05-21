@@ -684,9 +684,10 @@ static void finalize_function_val(lily_emit_state *emit,
     if (emit->function_depth != 1)
         add_var_chain_to_info(emit, info, emit->symtab->var_chain, var_stop);
 
-    add_storage_chain_to_info(info, function_block->storage_start);
+    if (function_type->flags & TYPE_IS_UNRESOLVED)
+        f->has_generics = 1;
 
-    f->generic_pos = function_type->generic_pos;
+    add_storage_chain_to_info(info, function_block->storage_start);
 
     if (emit->function_depth > 1) {
         /* todo: Reuse the var shells instead of destroying. Seems petty, but
@@ -2426,7 +2427,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
        type). */
     int generic_adjust = call_type->generic_pos;
 
-    if (generic_adjust) {
+    if (call_type->flags & TYPE_IS_UNRESOLVED) {
         if (auto_resolve == 0) {
             lily_type *call_result = call_type->subtypes[0];
             if (call_result && expect_type && did_resolve) {
@@ -2742,8 +2743,7 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
         ast->oo_property_index = prop->id;
 
         lily_type *property_type = prop->type;
-        if (property_type->cls->id == SYM_CLASS_GENERIC ||
-            property_type->generic_pos) {
+        if (property_type->flags & TYPE_IS_UNRESOLVED) {
             property_type = lily_ts_resolve_by_second(emit->ts,
                     ast->arg_start->result->type,
                     property_type);
@@ -2815,7 +2815,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
                 did_resolve);
 
         lily_type *result_type = variant_class->variant_type->subtypes[0];
-        if (result_type->generic_pos != 0)
+        if (result_type->flags & TYPE_IS_UNRESOLVED)
             result_type = lily_ts_resolve(emit->ts, result_type);
 
         result = get_storage(emit, result_type, ast->line_num);
