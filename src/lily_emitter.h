@@ -85,14 +85,6 @@ typedef struct {
 
     uint16_t match_case_size;
 
-    uint32_t pad;
-
-    /* Calls complete information about generics as they go along. Their
-       working information is stored in type_stack_pos + 0 to type_stack_pos +
-       this adjustment. This allows subtrees to grab generic information if
-       they want to. */
-    uint32_t current_generic_adjust;
-
     /* The var that will receive the function value when the function block is
        done. */
     lily_var *top_var;
