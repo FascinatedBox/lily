@@ -178,6 +178,9 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
     symtab->generic_class    = lily_new_class_by_seed(symtab, &generic_seed);
 
     symtab->any_class->type->flags |= TYPE_MAYBE_CIRCULAR;
+    /* This needs to be set because symtab's type finalize bubbles this
+       unresolved flag upward. */
+    symtab->generic_class->type->flags |= TYPE_IS_UNRESOLVED;
     symtab->generic_type_start = symtab->generic_class->type;
     symtab->next_class_id = 13;
 

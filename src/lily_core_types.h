@@ -132,9 +132,7 @@ typedef struct lily_type_ {
 
     uint32_t subtype_count;
     /* If this type is for a generic, then this is the id of that generic.
-       A = 0, B = 1, C = 2, etc.
-       If this is a container type, then this is the maximum ID of all
-       generics seen. */
+       A = 0, B = 1, C = 2, etc. */
     uint16_t generic_pos;
     uint16_t flags;
 
@@ -365,9 +363,9 @@ typedef struct lily_function_val_ {
     uint32_t pos;
     /* This is how much space the code has allocated (again for the emitter). */
     uint32_t len;
-    /* How many generics that vm should allocate in ts when resolving generic
-       registers. If 0, there are no generics in this function. */
-    uint32_t generic_pos;
+    /* Does this function contain generics? If so, they may need to be solved
+       at vm-time when it's called. */
+    uint32_t has_generics;
     /* This is how many registers that this function uses. */
     uint32_t reg_count;
     /* This is used to initialize registers when entering this function.  */

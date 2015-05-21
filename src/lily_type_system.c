@@ -232,7 +232,7 @@ void lily_ts_resolve_as_variant_by_enum(lily_type_system *ts,
         lily_type *call_result, lily_type *enum_type)
 {
     lily_type *variant_type = call_result->cls->variant_type->subtypes[0];
-    int max = call_result->cls->variant_type->generic_pos;
+    int max = call_result->subtype_count;
     int i;
 
     for (i = 0;i < max;i++) {
@@ -275,6 +275,7 @@ inline void lily_ts_lower_ceiling(lily_type_system *ts, int old_ceiling)
 
 void lily_ts_zap_ceiling_types(lily_type_system *ts, int num_types)
 {
+    num_types = ts->max_seen;
     ENSURE_TYPE_STACK(ts->pos + ts->ceiling + 1 + num_types)
 
     int i, max;
