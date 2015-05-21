@@ -58,7 +58,6 @@ lily_emit_state *lily_new_emit_state(lily_options *options,
     emit->patch_size = 4;
     emit->function_depth = 0;
 
-    emit->current_generic_adjust = 0;
     emit->current_class = NULL;
     emit->raiser = raiser;
     emit->expr_num = 1;
@@ -2427,8 +2426,6 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
        type). */
     int generic_adjust = call_type->generic_pos;
 
-    emit->current_generic_adjust = generic_adjust;
-
     if (generic_adjust) {
         if (auto_resolve == 0) {
             lily_type *call_result = call_type->subtypes[0];
@@ -2462,8 +2459,6 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
             lily_ts_resolve_as_self(emit->ts);
         }
     }
-
-    emit->current_generic_adjust = generic_adjust;
 
     for (i = 0;arg != NULL && i != num_args;arg = arg->next_arg, i++)
         eval_call_arg(emit, ast, generic_adjust, call_type->subtypes[i + 1],
