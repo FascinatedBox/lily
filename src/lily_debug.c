@@ -194,7 +194,7 @@ static const int optable[][8] = {
     {o_get_readonly,        3, D_LINENO,        D_READONLY_INPUT, D_OUTPUT,        -1,              -1,           -1},
     {o_get_property,        4, D_LINENO,        D_INPUT,          D_INT_VAL,       D_OUTPUT,        -1,           -1},
     {o_set_property,        4, D_LINENO,        D_INPUT,          D_INT_VAL,       D_INPUT,         -1,           -1},
-    {o_push_try,            2, D_LINENO,        D_JUMP            -1,              -1,              -1,           -1},
+    {o_push_try,            2, D_LINENO,        D_JUMP,           D_INT_VAL,       -1,              -1,           -1},
     {o_pop_try,             1, D_NOP,           -1,               -1,              -1,              -1,           -1},
     {o_except,              4, D_LINENO,        D_JUMP,           D_INT_VAL,       D_OUTPUT,        -1,           -1},
     {o_raise,               2, D_LINENO,        D_INPUT,          -1,              -1,              -1,           -1},
