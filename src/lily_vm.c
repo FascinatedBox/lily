@@ -583,7 +583,7 @@ static void resolve_generic_registers(lily_vm_state *vm,
 {
     lily_value **regs_from_main = vm->regs_from_main;
     int generics_needed = fval->generic_pos;
-    int save_ceiling = lily_ts_raise_ceiling(vm->ts, generics_needed);
+    int save_ceiling = lily_ts_raise_ceiling(vm->ts);
     int i;
 
     /* lily_type_stack has a function called lily_ts_check which both checks
