@@ -20,7 +20,13 @@ typedef struct {
     lily_type **types;
     uint16_t pos;
     uint16_t max;
-    uint32_t ceiling;
+    uint16_t ceiling;
+
+    /* This is set to the maximum # of generics that have ever been visible at
+       one time. To simplify things, the ceiling is raised by this much each
+       time. */
+    uint16_t max_seen;
+
     lily_symtab *symtab;
     lily_raiser *raiser;
 } lily_type_system;
@@ -98,9 +104,9 @@ lily_type *lily_ts_build_by_ceiling(lily_type_system *, lily_class *, int, int);
 lily_type *lily_ts_build_enum_by_variant(lily_type_system *, lily_type *);
 
 /* This function is called by emitter when it is about to enter a call. The
-   current ceiling is added to the stack's pos, and the given ceiling is now
-   the new ceiling. */
-int lily_ts_raise_ceiling(lily_type_system *, int);
+   current ceiling is added to the stack's pos. The new ceiling is set to
+   whatever ts->max_seen is. */
+int lily_ts_raise_ceiling(lily_type_system *);
 
 /* This function is called when a function has been called. The stack's pos is
    adjusted downward to where it was, and the ceiling is restored to the given
@@ -112,5 +118,9 @@ void lily_ts_lower_ceiling(lily_type_system *, int);
    arguments have all of their type information (and that resolution isn't
    defaulting to any in some places). */
 int lily_ts_count_unresolved(lily_type_system *);
+
+/* The parser calls this each time that generics are collected. This reports
+   how many were collected. max_seen may or may not be updated. */
+void lily_ts_generics_seen(lily_type_system *, int);
 
 #endif

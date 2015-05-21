@@ -20,6 +20,7 @@ lily_type_system *lily_new_type_system(lily_options *options,
     ts->types = types;
     ts->pos = 0;
     ts->max = 4;
+    ts->max_seen = 0;
     ts->ceiling = 0;
 
     return ts;
@@ -252,15 +253,15 @@ void lily_ts_resolve_as_self(lily_type_system *ts)
     }
 }
 
-int lily_ts_raise_ceiling(lily_type_system *ts, int new_ceiling)
+int lily_ts_raise_ceiling(lily_type_system *ts)
 {
     int old_ceiling = ts->ceiling;
     int i;
 
-    ENSURE_TYPE_STACK(ts->pos + ts->ceiling + new_ceiling);
+    ENSURE_TYPE_STACK(ts->pos + ts->ceiling + ts->max_seen);
     ts->pos += ts->ceiling;
-    ts->ceiling = new_ceiling;
-    for (i = 0;i < new_ceiling;i++)
+    ts->ceiling = ts->max_seen;
+    for (i = 0;i < ts->max_seen;i++)
         ts->types[ts->pos + i] = NULL;
 
     return old_ceiling;
@@ -354,4 +355,10 @@ int lily_ts_count_unresolved(lily_type_system *ts)
     }
 
     return count;
+}
+
+void lily_ts_generics_seen(lily_type_system *ts, int amount)
+{
+    if (amount > ts->max_seen)
+        ts->max_seen = amount;
 }

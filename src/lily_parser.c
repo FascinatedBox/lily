@@ -944,7 +944,10 @@ static int collect_generics(lily_parse_state *parser)
                     tokname(lex->token));
     }
 
-    return ch - 'A';
+    int seen = ch - 'A';
+
+    lily_ts_generics_seen(parser->emit->ts, seen);
+    return seen;
 }
 
 /* This is used by collect_var_type to collect a class when there may be one or

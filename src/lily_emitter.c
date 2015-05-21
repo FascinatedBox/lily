@@ -2617,8 +2617,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
     arg = ast->arg_start;
     expect_size = 6 + ast->args_collected;
 
-    int saved_ts_adjust = lily_ts_raise_ceiling(emit->ts,
-            call_type->generic_pos);
+    int saved_ts_adjust = lily_ts_raise_ceiling(emit->ts);
     check_call_args(emit, ast, call_type, expect_type, did_resolve);
 
     write_prep(emit, expect_size);
@@ -2816,8 +2815,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
                     "Variant class %s should not get args.\n",
                     variant_class->name);
 
-        int save_ceiling = lily_ts_raise_ceiling(emit->ts,
-                variant_type->generic_pos);
+        int save_ceiling = lily_ts_raise_ceiling(emit->ts);
         check_call_args(emit, ast, variant_type, expect_type,
                 did_resolve);
 
