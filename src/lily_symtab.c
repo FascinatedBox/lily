@@ -551,13 +551,13 @@ static void free_properties(lily_symtab *symtab, lily_class *cls)
 }
 
 /*  free_main_function
-    Regular function teardown can't be done on __main__ because __main__ does
-    not keep a copy of function names. So it uses this. */
+    Regular function teardown can't be done on __main__ for a couple reasons:
+    * The names it carries are shallow copies from global vars.
+    * The code it carries is a shallow copy of emit->code. */
 static void free_main_function(lily_symtab *symtab)
 {
     lily_function_val *main_function = symtab->main_function;
     lily_free(main_function->reg_info);
-    lily_free(main_function->code);
     lily_free(main_function);
 }
 
