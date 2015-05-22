@@ -1,0 +1,3 @@
+import diamond_a as a
+
+a::diamond_b::diamond_d::value = 10

@@ -69,7 +69,7 @@ static lily_var *parse_prototype(lily_parse_state *, lily_class *,
 static void statement(lily_parse_state *, int);
 static lily_import_entry *make_new_import_entry(lily_parse_state *,
         const char *, char *);
-static void link_import_to(lily_import_entry *, lily_import_entry *);
+static void link_import_to(lily_import_entry *, lily_import_entry *, const char *);
 static void create_new_class(lily_parse_state *);
 
 /*****************************************************************************/
@@ -246,6 +246,7 @@ void lily_free_parse_state(lily_parse_state *parser)
         lily_import_link *link_next = NULL;
         while (link_iter) {
             link_next = link_iter->next_import;
+            lily_free(link_iter->as_name);
             lily_free(link_iter);
             link_iter = link_next;
         }
@@ -300,12 +301,20 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
 }
 
 static void link_import_to(lily_import_entry *target,
-        lily_import_entry *to_link)
+        lily_import_entry *to_link, const char *as_name)
 {
     lily_import_link *new_link = lily_malloc(sizeof(lily_import_link));
+    char *link_name;
+    if (as_name == NULL)
+        link_name = NULL;
+    else {
+        link_name = lily_malloc(strlen(as_name) + 1);
+        strcpy(link_name, as_name);
+    }
 
     new_link->entry = to_link;
     new_link->next_import = target->import_chain;
+    new_link->as_name = link_name;
 
     target->import_chain = new_link;
 }
@@ -2388,23 +2397,27 @@ static void import_handler(lily_parse_state *parser, int multi)
         NEED_CURRENT_TOK(tk_word)
 
         char *import_name = parser->lex->label;
+        char *as_name = NULL;
 
-        /* Before doing any actual loading, determine if an import with this
-           name has been loaded already. This is currently ok because there are
-           no directories that get imported. */
+        /* Start off by determining if a module with this name has been imported
+           in this file. This search is done by checking the name the module was
+           imported as, not the true name.
+           This is so that 'import x as y    import y' fails, even if 'y' is not
+           actually loaded (because there would be a clash). */
+        lily_import_entry *load_search = lily_find_import(symtab,
+                symtab->active_import, import_name);
+        if (load_search)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Package '%s' has already been imported in this file.\n",
+                    import_name);
+
+        /* Has anything imported this module anywhere? If it has, then just make
+           a new link to it.
+           Note: lily_find_import_anywhere is unique in that it searches by the
+           REAL names of the modules, not the 'as' names. */
         lily_import_entry *new_import = lily_find_import_anywhere(symtab,
                 import_name);
-        if (new_import) {
-            /* Multiple imports of one thing from the same package are
-               forbidden. This prevents junk imports which don't do anything. */
-            lily_import_entry *extra_search = lily_find_import(
-                    symtab, symtab->active_import, import_name);
-            if (extra_search)
-                lily_raise(parser->raiser, lily_SyntaxError,
-                        "Package '%s' has already been imported in this file.\n",
-                        import_name);
-        }
-        else {
+        if (new_import == NULL) {
             new_import = load_import(parser, import_name);
             if (new_import->library == NULL) {
                 /* lily_emit_enter_block will write new code to this special
@@ -2439,8 +2452,18 @@ static void import_handler(lily_parse_state *parser, int multi)
             lily_set_import(parser->symtab, link_target);
         }
 
-        link_import_to(link_target, new_import);
         lily_lexer(parser->lex);
+        if (lex->token == tk_word && strcmp(lex->label, "as") == 0) {
+            NEED_NEXT_TOK(tk_word)
+            as_name = lex->label;
+            /* This link must be done now, because the next token may be a word
+               and lex->label would be modified. */
+            link_import_to(link_target, new_import, lex->label);
+            lily_lexer(lex);
+        }
+        else
+            link_import_to(link_target, new_import, NULL);
+
         if (lex->token == tk_comma) {
             lily_lexer(parser->lex);
             continue;

@@ -1,0 +1,7 @@
+#[
+SyntaxError: Package 'empty' has already been imported in this file.
+Where: File "repeat_import_as.lly" at line 7
+]#
+
+import repeat_a as empty
+import empty
