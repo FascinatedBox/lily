@@ -309,14 +309,14 @@ static void show_code(lily_debug_state *debug)
     digits = 0;
     i = 0;
     code = debug->current_function->code;
-    len = debug->current_function->pos;
+    len = debug->current_function->len;
 
     while (len) {
         len /= 10;
         digits++;
     }
 
-    len = debug->current_function->pos;
+    len = debug->current_function->len;
     format[0] = '%';
     if (digits >= 10) {
         format[1] = (digits / 10) + '0';

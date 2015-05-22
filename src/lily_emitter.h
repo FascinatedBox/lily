@@ -34,6 +34,17 @@ typedef struct lily_block_ {
 
     uint32_t block_type;
 
+    /* Functions/lambdas: The start of this thing's code within emitter's
+       code block. */
+    uint32_t code_start;
+
+    /* Since emit->code holds multiple code blocks, code->pos is not usable
+       for jumps as-is. Use emit->code_pos - code_jump_offset to get a jump
+       position appropriate for the current function.
+       This bubbles upward, and is thus always available on the current block,
+       regardless of the block type. */
+    uint32_t jump_offset;
+
     /* Match blocks: This is where the code for the match starts. Cases will
        use this to write dispatching information. */
     uint32_t match_code_start;
@@ -76,6 +87,23 @@ typedef struct {
        is seen, it's set to 1. This is used to make sure a case isn't seen
        twice or not seen at all. */
     int *match_cases;
+
+    /* All code is written initially to here. When a function is done, a block
+       of the appropriate size is copied from here into the function value. */
+    uint16_t *code;
+
+    /* Where the next bit of code will be written to. It is a bug to write this
+       value into code. Use 'code_real_spot' instead. */
+    uint32_t code_pos;
+
+    /* How much space is allocated for code. */
+    uint32_t code_size;
+
+    /* If a block needs to reference a code position (for, say, a jump), then it
+       should use 'code_pos - offset_code_pos'. */
+    uint32_t offset_code_pos;
+
+    uint32_t pad;
 
     uint16_t patch_pos;
 

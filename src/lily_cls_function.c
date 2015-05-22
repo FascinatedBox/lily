@@ -11,8 +11,6 @@ lily_function_val *lily_new_foreign_function_val(lily_foreign_func func,
     f->trace_name = name;
     f->foreign_func = func;
     f->code = NULL;
-    f->pos = -1;
-    f->len = -1;
     f->reg_info = NULL;
     f->reg_count = -1;
     f->has_generics = 0;
@@ -23,15 +21,12 @@ lily_function_val *lily_new_native_function_val(char *class_name,
         char *name)
 {
     lily_function_val *f = lily_malloc(sizeof(lily_function_val));
-    uint16_t *code = lily_malloc(8 * sizeof(uint16_t));
 
     f->refcount = 1;
     f->class_name = class_name;
     f->trace_name = name;
     f->foreign_func = NULL;
-    f->code = code;
-    f->pos = 0;
-    f->len = 8;
+    f->code = NULL;
     f->reg_info = NULL;
     f->reg_count = -1;
     f->has_generics = 0;

@@ -45,6 +45,9 @@ lily_emit_state *lily_new_emit_state(lily_options *options,
     emit->patches = lily_malloc(sizeof(int) * 4);
     emit->match_cases = lily_malloc(sizeof(int) * 4);
     emit->ts = lily_new_type_system(options, symtab, raiser);
+    emit->code = lily_malloc(sizeof(uint16_t) * 32);
+    emit->code_pos = 0;
+    emit->code_size = 32;
 
     emit->match_case_pos = 0;
     emit->match_case_size = 4;
@@ -89,6 +92,7 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free_type_system(emit->ts);
     lily_free(emit->match_cases);
     lily_free(emit->patches);
+    lily_free(emit->code);
     lily_free(emit);
 }
 
@@ -104,10 +108,8 @@ void lily_free_emit_state(lily_emit_state *emit)
     only need one grow at the most. */
 static void small_grow(lily_emit_state *emit)
 {
-    lily_function_val *f = emit->top_function;
-
-    f->len *= 2;
-    f->code = lily_realloc(f->code, sizeof(uint16_t) * f->len);
+    emit->code_size *= 2;
+    emit->code = lily_realloc(emit->code, sizeof(uint16_t) * emit->code_size);
 }
 
 /*  write_prep
@@ -115,12 +117,12 @@ static void small_grow(lily_emit_state *emit)
     This will grow emitter's code until it's the right size, if necessary. */
 static void write_prep(lily_emit_state *emit, int size)
 {
-    lily_function_val *f = emit->top_function;
-    if ((f->pos + size) > f->len) {
-        while ((f->pos + size) > f->len)
-            f->len *= 2;
+    if ((emit->code_pos + size) > emit->code_size) {
+        while ((emit->code_pos + size) > emit->code_size)
+            emit->code_size *= 2;
 
-        f->code = lily_realloc(f->code, sizeof(uint16_t) * f->len);
+        emit->code = lily_realloc(emit->code,
+                sizeof(uint16_t) * emit->code_size);
     }
 }
 
@@ -132,70 +134,60 @@ static void write_prep(lily_emit_state *emit, int size)
    * If implementing new instructions, 'show' is helpful when debugging. */
 static void write_1(lily_emit_state *emit, uint16_t one)
 {
-    lily_function_val *f = emit->top_function;
-
-    if ((f->pos + 1) > f->len)
+    if ((emit->code_pos + 1) > emit->code_size)
         small_grow(emit);
 
-    f->code[f->pos] = one;
-    f->pos += 1;
+    emit->code[emit->code_pos] = one;
+    emit->code_pos += 1;
 }
 
 static void write_2(lily_emit_state *emit, uint16_t one, uint16_t two)
 {
-    lily_function_val *f = emit->top_function;
-
-    if ((f->pos + 2) > f->len)
+    if ((emit->code_pos + 2) > emit->code_size)
         small_grow(emit);
 
-    f->code[f->pos] = one;
-    f->code[f->pos + 1] = two;
-    f->pos += 2;
+    emit->code[emit->code_pos] = one;
+    emit->code[emit->code_pos + 1] = two;
+    emit->code_pos += 2;
 }
 
 static void write_3(lily_emit_state *emit, uint16_t one, uint16_t two,
         uint16_t three)
 {
-    lily_function_val *f = emit->top_function;
-
-    if ((f->pos + 3) > f->len)
+    if ((emit->code_pos + 3) > emit->code_size)
         small_grow(emit);
 
-    f->code[f->pos] = one;
-    f->code[f->pos + 1] = two;
-    f->code[f->pos + 2] = three;
-    f->pos += 3;
+    emit->code[emit->code_pos] = one;
+    emit->code[emit->code_pos + 1] = two;
+    emit->code[emit->code_pos + 2] = three;
+    emit->code_pos += 3;
 }
 
 static void write_4(lily_emit_state *emit, uint16_t one, uint16_t two,
         uint16_t three, uint16_t four)
 {
-    lily_function_val *f = emit->top_function;
-
-    if ((f->pos + 4) > f->len)
+    if ((emit->code_pos + 4) > emit->code_size)
         small_grow(emit);
 
-    f->code[f->pos] = one;
-    f->code[f->pos + 1] = two;
-    f->code[f->pos + 2] = three;
-    f->code[f->pos + 3] = four;
-    f->pos += 4;
+    emit->code[emit->code_pos] = one;
+    emit->code[emit->code_pos + 1] = two;
+    emit->code[emit->code_pos + 2] = three;
+    emit->code[emit->code_pos + 3] = four;
+    emit->code_pos += 4;
 }
 
 static void write_5(lily_emit_state *emit, uint16_t one, uint16_t two,
         uint16_t three, uint16_t four, uint16_t five)
 {
-    lily_function_val *f = emit->top_function;
-
-    if ((f->pos + 5) > f->len)
+    if ((emit->code_pos + 5) > emit->code_size)
         small_grow(emit);
 
-    f->code[f->pos] = one;
-    f->code[f->pos + 1] = two;
-    f->code[f->pos + 2] = three;
-    f->code[f->pos + 3] = four;
-    f->code[f->pos + 4] = five;
-    f->pos += 5;
+    emit->code[emit->code_pos] = one;
+    emit->code[emit->code_pos + 1] = two;
+    emit->code[emit->code_pos + 2] = three;
+    emit->code[emit->code_pos + 3] = four;
+    emit->code[emit->code_pos + 4] = five;
+    emit->code_pos += 5;
 }
 
 /*****************************************************************************/
@@ -272,11 +264,10 @@ static void write_pop_inner_try_blocks(lily_emit_state *emit)
     if (try_count) {
         write_prep(emit, try_count);
         int i;
-        lily_function_val *f = emit->top_function;
         for (i = 0;i <= try_count;i++)
-            f->code[f->pos+i] = o_pop_try;
+            emit->code[emit->code_pos+i] = o_pop_try;
 
-        f->pos += try_count;
+        emit->code_pos += try_count;
     }
 }
 
@@ -336,8 +327,8 @@ static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
     if (emit->patch_pos == emit->patch_size)
         grow_patches(emit);
 
-    lily_function_val *f = emit->top_function;
-    emit->patches[emit->patch_pos] = f->pos-1;
+    emit->patches[emit->patch_pos] =
+            (emit->code_pos - emit->block->jump_offset) - 1;
     emit->patch_pos++;
 }
 
@@ -527,18 +518,17 @@ static void write_build_op(lily_emit_state *emit, int opcode,
 {
     int i;
     lily_ast *arg;
-    lily_function_val *f = emit->top_function;
 
     write_prep(emit, num_values + 4);
-    f->code[f->pos] = opcode;
-    f->code[f->pos+1] = line_num;
-    f->code[f->pos+2] = num_values;
+    emit->code[emit->code_pos] = opcode;
+    emit->code[emit->code_pos+1] = line_num;
+    emit->code[emit->code_pos+2] = num_values;
 
     for (i = 3, arg = first_arg; arg != NULL; arg = arg->next_arg, i++)
-        f->code[f->pos + i] = arg->result->reg_spot;
+        emit->code[emit->code_pos + i] = arg->result->reg_spot;
 
-    f->code[f->pos+i] = reg_spot;
-    f->pos += 4 + num_values;
+    emit->code[emit->code_pos+i] = reg_spot;
+    emit->code_pos += 4 + num_values;
 }
 
 static void emit_rebox_value(lily_emit_state *, lily_type *, lily_ast *);
@@ -657,6 +647,18 @@ static void add_storage_chain_to_info(lily_register_info *info,
     }
 }
 
+static void create_code_block_for(lily_emit_state *emit,
+        lily_function_val *f)
+{
+    int code_size = emit->code_pos - emit->block->code_start;
+    uint16_t *code = lily_malloc((code_size + 1) * sizeof(uint16_t));
+    memcpy(code, emit->code + emit->block->code_start,
+            sizeof(uint16_t) * code_size);
+
+    f->code = code;
+    f->len = code_size - 1;
+}
+
 /*  finalize_function_val
     This is a helper called when a function block is being exited, OR __main__
     needs to run.
@@ -676,6 +678,8 @@ static void finalize_function_val(lily_emit_state *emit,
             register_count * sizeof(lily_register_info));
     lily_var *var_stop = function_block->function_var;
     lily_type *function_type = var_stop->type;
+
+    create_code_block_for(emit, f);
 
     /* Don't include functions inside of themselves... */
     if (emit->function_depth == 1)
@@ -738,7 +742,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
                'return'. */
             write_2(emit, o_return_noval, *emit->lex_linenum);
         else if (block->block_type == BLOCK_FUNCTION &&
-                 block->last_return != emit->top_function->pos) {
+                 block->last_return != emit->code_pos) {
             /* If this is a function created with 'define', then determine if
                the last return was the last instruction written. This is the
                simple way of ensuring that a function always returns a value
@@ -797,6 +801,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     emit->top_function = last_func_block->function_value;
     emit->top_var = v;
     emit->top_function_ret = v->type->subtypes[0];
+    emit->code_pos = block->code_start;
 
     /* File 'blocks' do not bump up the depth because that's used to determine
        if something is a global or not. */
@@ -1336,10 +1341,8 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     /* If assign can be optimized out, then rewrite the last result to point to
        the left side. */
-    if (assign_optimize_check(ast)) {
-        lily_function_val *f = emit->top_function;
-        f->code[f->pos-1] = left_sym->reg_spot;
-    }
+    if (assign_optimize_check(ast))
+        emit->code[emit->code_pos-1] = left_sym->reg_spot;
     else {
         write_4(emit,
                 opcode,
@@ -1434,7 +1437,6 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 {
     lily_storage *result;
     int is_top, jump_on;
-    lily_function_val *f = emit->top_function;
 
     jump_on = (ast->op == expr_logical_or);
 
@@ -1481,7 +1483,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
                 result->reg_spot);
 
         write_2(emit, o_jump, 0);
-        save_pos = f->pos - 1;
+        save_pos = emit->code_pos - 1;
 
         lily_emit_leave_block(emit);
         write_4(emit,
@@ -1489,7 +1491,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
                 ast->line_num,
                 failure_lit->reg_spot,
                 result->reg_spot);
-        f->code[save_pos] = f->pos;
+        emit->code[save_pos] = emit->code_pos - emit->block->jump_offset;
         ast->result = (lily_sym *)result;
     }
     else
@@ -2618,17 +2620,16 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
 
     write_prep(emit, expect_size);
 
-    lily_function_val *f = emit->top_function;
-    f->code[f->pos] = o_function_call;
-    f->code[f->pos+1] = ast->line_num;
-    f->code[f->pos+2] = !!(call_sym->flags & VAR_IS_READONLY);
-    f->code[f->pos+3] = call_sym->reg_spot;
-    f->code[f->pos+4] = ast->args_collected;
+    emit->code[emit->code_pos] = o_function_call;
+    emit->code[emit->code_pos+1] = ast->line_num;
+    emit->code[emit->code_pos+2] = !!(call_sym->flags & VAR_IS_READONLY);
+    emit->code[emit->code_pos+3] = call_sym->reg_spot;
+    emit->code[emit->code_pos+4] = ast->args_collected;
 
     for (i = 5, arg = ast->arg_start;
         arg != NULL;
         arg = arg->next_arg, i++) {
-        f->code[f->pos + i] = arg->result->reg_spot;
+        emit->code[emit->code_pos + i] = arg->result->reg_spot;
     }
 
     if (call_type->subtypes[0] != NULL) {
@@ -2646,7 +2647,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
         storage->flags |= SYM_NOT_ASSIGNABLE;
 
         ast->result = (lily_sym *)storage;
-        f->code[f->pos+i] = ast->result->reg_spot;
+        emit->code[emit->code_pos+i] = ast->result->reg_spot;
     }
     else {
         /* It's okay to not push a return value, unless something needs it.
@@ -2657,10 +2658,10 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
             lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
                     "Function needed to return a value, but did not.\n", "");
         }
-        f->code[f->pos+i] = -1;
+        emit->code[emit->code_pos+i] = -1;
     }
 
-    f->pos += 6 + ast->args_collected;
+    emit->code_pos += 6 + ast->args_collected;
 
     lily_ts_lower_ceiling(emit->ts, saved_ts_adjust);
 }
@@ -3000,17 +3001,16 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
             write_1(emit, o_pop_try);
     }
 
-    lily_function_val *f = emit->top_function;
-
     /* Transitioning between blocks is simple: First write a jump at the end of
        the current branch. This will get patched to the if/try's exit. */
     write_2(emit, o_jump, 0);
-    save_jump = f->pos - 1;
+    save_jump = emit->code_pos - 1;
 
     /* The last jump of the previous branch wants to know where the check for
        the next branch starts. It's right now. */
     if (emit->patches[emit->patch_pos - 1] != -1)
-        f->code[emit->patches[emit->patch_pos-1]] = f->pos;
+        emit->code[emit->patches[emit->patch_pos-1]] =
+                emit->code_pos - emit->block->jump_offset;
     /* else it's a fake branch from a condition that was optimized out. */
 
     emit->patches[emit->patch_pos-1] = save_jump;
@@ -3125,16 +3125,15 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
       should never be sent here). */
 void lily_emit_variant_decompose(lily_emit_state *emit, lily_type *variant_type)
 {
-    lily_function_val *f = emit->top_function;
     int value_count = variant_type->subtype_count - 1;
     int i;
 
     write_prep(emit, 4 + value_count);
 
-    f->code[f->pos  ] = o_variant_decompose;
-    f->code[f->pos+1] = *(emit->lex_linenum);
-    f->code[f->pos+2] = emit->block->match_sym->reg_spot;
-    f->code[f->pos+3] = value_count;
+    emit->code[emit->code_pos  ] = o_variant_decompose;
+    emit->code[emit->code_pos+1] = *(emit->lex_linenum);
+    emit->code[emit->code_pos+2] = emit->block->match_sym->reg_spot;
+    emit->code[emit->code_pos+3] = value_count;
 
     /* Since this function is called immediately after declaring the last var
        that will receive the decompose, it's safe to pull the vars directly
@@ -3145,11 +3144,11 @@ void lily_emit_variant_decompose(lily_emit_state *emit, lily_type *variant_type)
        done, then the first var will get the last value in the variant, the
        second will get the next-to-last value, etc. */
     for (i = value_count - 1;i >= 0;i--) {
-        f->code[f->pos+4+i] = var_iter->reg_spot;
+        emit->code[emit->code_pos+4+i] = var_iter->reg_spot;
         var_iter = var_iter->next;
     }
 
-    f->pos += 4 + value_count;
+    emit->code_pos += 4 + value_count;
 }
 
 /*  lily_emit_add_match_case
@@ -3164,7 +3163,6 @@ void lily_emit_variant_decompose(lily_emit_state *emit, lily_type *variant_type)
     longer valid now. */
 int lily_emit_add_match_case(lily_emit_state *emit, int pos)
 {
-    lily_function_val *f = emit->top_function;
     int block_offset = emit->block->match_case_start;
     int is_first_case = 1, ret = 1;
     int i;
@@ -3190,7 +3188,8 @@ int lily_emit_add_match_case(lily_emit_state *emit, int pos)
             if (emit->patch_pos == emit->patch_size)
                 grow_patches(emit);
 
-            emit->patches[emit->patch_pos] = f->pos-1;
+            emit->patches[emit->patch_pos] =
+                    (emit->code_pos - emit->block->jump_offset) - 1;
             emit->patch_pos++;
         }
 
@@ -3198,7 +3197,8 @@ int lily_emit_add_match_case(lily_emit_state *emit, int pos)
            so that it will jump to the current location.
            Oh, and make sure to do it AFTER writing the jump, or the dispatch
            will go to the exit jump. */
-        f->code[emit->block->match_code_start + pos] = f->pos;
+        emit->code[emit->block->match_code_start + pos] =
+                emit->code_pos - emit->block->jump_offset;
 
         /* This is necessary to keep vars created from the decomposition of one
            class from showing up in subsequent cases. */
@@ -3241,21 +3241,19 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_ast_pool *ap)
 
     emit->match_case_pos += match_cases_needed;
 
-    block->match_code_start = emit->top_function->pos + 4;
+    block->match_code_start = emit->code_pos + 4;
     block->match_sym = (lily_sym *)ast->result;
 
     write_prep(emit, 4 + match_cases_needed);
 
-    lily_function_val *f = emit->top_function;
-
-    f->code[f->pos  ] = o_match_dispatch;
-    f->code[f->pos+1] = *(emit->lex_linenum);
-    f->code[f->pos+2] = ast->result->reg_spot;
-    f->code[f->pos+3] = match_cases_needed;
+    emit->code[emit->code_pos  ] = o_match_dispatch;
+    emit->code[emit->code_pos+1] = *(emit->lex_linenum);
+    emit->code[emit->code_pos+2] = ast->result->reg_spot;
+    emit->code[emit->code_pos+3] = match_cases_needed;
     for (i = 0;i < match_cases_needed;i++)
-        f->code[f->pos + 4 + i] = 0;
+        emit->code[emit->code_pos + 4 + i] = 0;
 
-    f->pos += 4 + i;
+    emit->code_pos += 4 + i;
 
     lily_ast_reset_pool(ap);
 }
@@ -3294,57 +3292,61 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
         target = (lily_sym *)user_loop_var;
 
     write_prep(emit, 16 + ((target != (lily_sym *)user_loop_var) * 8));
-    lily_function_val *f = emit->top_function;
-    f->code[f->pos  ] = o_for_setup;
-    f->code[f->pos+1] = line_num;
-    f->code[f->pos+2] = target->reg_spot;
-    f->code[f->pos+3] = for_start->reg_spot;
-    f->code[f->pos+4] = for_end->reg_spot;
-    f->code[f->pos+5] = for_step->reg_spot;
+    emit->code[emit->code_pos  ] = o_for_setup;
+    emit->code[emit->code_pos+1] = line_num;
+    emit->code[emit->code_pos+2] = target->reg_spot;
+    emit->code[emit->code_pos+3] = for_start->reg_spot;
+    emit->code[emit->code_pos+4] = for_end->reg_spot;
+    emit->code[emit->code_pos+5] = for_step->reg_spot;
     /* This value is used to determine if the step needs to be calculated. */
-    f->code[f->pos+6] = !have_step;
+    emit->code[emit->code_pos+6] = !have_step;
 
     if (target != (lily_sym *)user_loop_var) {
-        f->code[f->pos+7] = o_set_global;
-        f->code[f->pos+8] = line_num;
-        f->code[f->pos+9] = target->reg_spot;
-        f->code[f->pos+10] = user_loop_var->reg_spot;
-        f->pos += 4;
+        emit->code[emit->code_pos+7] = o_set_global;
+        emit->code[emit->code_pos+8] = line_num;
+        emit->code[emit->code_pos+9] = target->reg_spot;
+        emit->code[emit->code_pos+10] = user_loop_var->reg_spot;
+        emit->code_pos += 4;
     }
     /* for..in is entered right after 'for' is seen. However, range values can
        be expressions. This needs to be fixed, or the loop will jump back up to
        re-eval those expressions. */
-    loop_block->loop_start = f->pos+9;
+    loop_block->loop_start = emit->code_pos+9;
 
     /* Write a jump to the inside of the loop. This prevents the value from
        being incremented before being seen by the inside of the loop. */
-    f->code[f->pos+7] = o_jump;
-    f->code[f->pos+8] = f->pos + 16;
+    emit->code[emit->code_pos+7] = o_jump;
+    emit->code[emit->code_pos+8] =
+            (emit->code_pos - emit->block->jump_offset) + 16;
 
-    f->code[f->pos+9] = o_integer_for;
-    f->code[f->pos+10] = line_num;
-    f->code[f->pos+11] = target->reg_spot;
-    f->code[f->pos+12] = for_start->reg_spot;
-    f->code[f->pos+13] = for_end->reg_spot;
-    f->code[f->pos+14] = for_step->reg_spot;
-    f->code[f->pos+15] = 0;
+    emit->code[emit->code_pos+9] = o_integer_for;
+    emit->code[emit->code_pos+10] = line_num;
+    emit->code[emit->code_pos+11] = target->reg_spot;
+    emit->code[emit->code_pos+12] = for_start->reg_spot;
+    emit->code[emit->code_pos+13] = for_end->reg_spot;
+    emit->code[emit->code_pos+14] = for_step->reg_spot;
+    emit->code[emit->code_pos+15] = 0;
     if (target != (lily_sym *)user_loop_var) {
-        f->code[f->pos+16] = o_set_global;
-        f->code[f->pos+17] = line_num;
-        f->code[f->pos+18] = target->reg_spot;
-        f->code[f->pos+19] = user_loop_var->reg_spot;
-        f->pos += 4;
+        emit->code[emit->code_pos+16] = o_set_global;
+        emit->code[emit->code_pos+17] = line_num;
+        emit->code[emit->code_pos+18] = target->reg_spot;
+        emit->code[emit->code_pos+19] = user_loop_var->reg_spot;
+        emit->code_pos += 4;
     }
 
-    f->pos += 16;
+    emit->code_pos += 16;
 
     if (emit->patch_pos == emit->patch_size)
         grow_patches(emit);
 
+    int offset;
     if (target == (lily_sym *)user_loop_var)
-        emit->patches[emit->patch_pos] = f->pos - 1;
+        offset = 1;
     else
-        emit->patches[emit->patch_pos] = f->pos - 5;
+        offset = 5;
+
+    emit->patches[emit->patch_pos] =
+            (emit->code_pos - emit->block->jump_offset) - offset;
 
     emit->patch_pos++;
 }
@@ -3397,11 +3399,10 @@ void lily_emit_break(lily_emit_state *emit)
 
     /* Write the jump, then figure out where to put it. */
     write_2(emit, o_jump, 0);
-    lily_function_val *f = emit->top_function;
-
     /* If the while is the most current, then add it to the end. */
     if (emit->block->block_type == BLOCK_WHILE) {
-        emit->patches[emit->patch_pos] = f->pos-1;
+        emit->patches[emit->patch_pos] =
+                (emit->code_pos - emit->block->jump_offset) -1;
         emit->patch_pos++;
     }
     else {
@@ -3417,7 +3418,8 @@ void lily_emit_break(lily_emit_state *emit)
         memmove(emit->patches+move_start+1, emit->patches+move_start,
                 move_by * sizeof(int));
         emit->patch_pos++;
-        emit->patches[move_start] = f->pos-1;
+        emit->patches[move_start] =
+                (emit->code_pos - emit->block->jump_offset) - 1;
 
         for (block = block->next;
              block;
@@ -3474,7 +3476,7 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
 
     if (ast) {
         write_3(emit, o_return_val, ast->line_num, ast->result->reg_spot);
-        emit->block->last_return = emit->top_function->pos;
+        emit->block->last_return = emit->code_pos;
     }
     else
         write_2(emit, o_return_noval, *emit->lex_linenum);
@@ -3523,8 +3525,8 @@ void lily_emit_try(lily_emit_state *emit, int line_num)
     if (emit->patch_pos == emit->patch_size)
         grow_patches(emit);
 
-    lily_function_val *f = emit->top_function;
-    emit->patches[emit->patch_pos] = f->pos - 1;
+    emit->patches[emit->patch_pos] =
+            (emit->code_pos - emit->block->jump_offset) - 1;
     emit->patch_pos++;
 }
 
@@ -3572,12 +3574,11 @@ void lily_emit_except(lily_emit_state *emit, lily_class *cls,
             (except_var != NULL),
             except_sym->reg_spot);
 
-    lily_function_val *f = emit->top_function;
-
     if (emit->patch_pos == emit->patch_size)
         grow_patches(emit);
 
-    emit->patches[emit->patch_pos] = f->pos - 3;
+    emit->patches[emit->patch_pos] =
+            (emit->code_pos - emit->block->jump_offset) - 3;
     emit->patch_pos++;
 }
 
@@ -3615,6 +3616,11 @@ void lily_prepare_main(lily_emit_state *emit, lily_import_entry *import_iter)
     add_var_chain_to_info(emit, info, emit->symtab->var_chain, NULL);
     add_storage_chain_to_info(info, emit->block->storage_start);
 
+    /* To simplify things, __main__'s code IS emitter->code. There's no reason
+       to give it a private block of code, since __main__'s code is wiped on the
+       next pass anyway. */
+    f->code = emit->code;
+    f->len = emit->code_pos;
     f->reg_info = info;
     f->reg_count = register_count;
 
@@ -3626,7 +3632,7 @@ void lily_prepare_main(lily_emit_state *emit, lily_import_entry *import_iter)
     for new code. */
 void lily_reset_main(lily_emit_state *emit)
 {
-    ((lily_function_val *)emit->top_function)->pos = 0;
+    emit->code_pos = 0;
 }
 
 /*  lily_emit_enter_block
@@ -3657,8 +3663,10 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
            Additionally, the same technique is used to allow loop starts to
            bubble upward until a function gets in the way. */
         new_block->storage_start = emit->block->storage_start;
+        new_block->jump_offset = emit->block->jump_offset;
+
         if (IS_LOOP_BLOCK(block_type))
-            new_block->loop_start = emit->top_function->pos;
+            new_block->loop_start = emit->code_pos;
         else
             new_block->loop_start = emit->block->loop_start;
     }
@@ -3709,6 +3717,8 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         /* -1 to indicate that there is no current loop. */
         new_block->loop_start = -1;
         new_block->last_return = -1;
+        new_block->code_start = emit->code_pos;
+        new_block->jump_offset = emit->code_pos;
 
         emit->top_function = fval;
         emit->top_var = v;
@@ -3747,13 +3757,13 @@ void lily_emit_leave_block(lily_emit_state *emit)
         int from, to, pos;
         from = emit->patch_pos-1;
         to = block->patch_start;
-        pos = emit->top_function->pos;
+        pos = (emit->code_pos - block->jump_offset);
 
         for (;from >= to;from--) {
             /* Skip -1's, which are fake patches from conditions that were
                optimized out. */
             if (emit->patches[from] != -1)
-                emit->top_function->code[emit->patches[from]] = pos;
+                emit->code[emit->patches[from]] = pos;
         }
 
         /* Use the space for new patches now. */
@@ -3773,20 +3783,18 @@ void lily_emit_leave_block(lily_emit_state *emit)
     file (which takes 0 args and returns nothing). */
 void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
 {
-    lily_function_val *f = emit->top_function;
-
     write_prep(emit, 6);
-    f->code[f->pos] = o_function_call;
-    f->code[f->pos+1] = *emit->lex_linenum;
+    emit->code[emit->code_pos] = o_function_call;
+    emit->code[emit->code_pos+1] = *emit->lex_linenum;
     /* 1 means that +3 is a readonly var's spot. */
-    f->code[f->pos+2] = 1;
-    f->code[f->pos+3] = var->reg_spot;
+    emit->code[emit->code_pos+2] = 1;
+    emit->code[emit->code_pos+3] = var->reg_spot;
     /* 0 arguments collected. */
-    f->code[f->pos+4] = 0;
+    emit->code[emit->code_pos+4] = 0;
     /* This does not return a value. */
-    f->code[f->pos+5] = -1;
+    emit->code[emit->code_pos+5] = -1;
 
-    f->pos += 6;
+    emit->code_pos += 6;
 }
 
 /*  lily_emit_write_optargs
@@ -3801,12 +3809,11 @@ void lily_emit_write_optargs(lily_emit_state *emit, uint16_t *reg_spots,
 {
     write_prep(emit, count + 2);
 
-    lily_function_val *f = emit->top_function;
-    f->code[f->pos] = o_setup_optargs;
-    f->code[f->pos+1] = count;
+    emit->code[emit->code_pos] = o_setup_optargs;
+    emit->code[emit->code_pos+1] = count;
 
-    memcpy(f->code + f->pos + 2, reg_spots, sizeof(uint16_t) * count);
-    f->pos += count + 2;
+    memcpy(emit->code + emit->code_pos + 2, reg_spots, sizeof(uint16_t) * count);
+    emit->code_pos += count + 2;
 }
 
 /*  lily_emit_try_enter_main
@@ -3840,6 +3847,8 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     main_block->generic_count = 0;
     main_block->function_value = main_function;
     main_block->self = NULL;
+    main_block->code_start = 0;
+    main_block->jump_offset = 0;
     emit->top_function = main_function;
     emit->top_var = main_var;
     emit->block = main_block;

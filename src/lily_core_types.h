@@ -358,11 +358,10 @@ typedef struct lily_function_val_ {
     /* Here's where the function's code is stored. */
     uint16_t *code;
 
-    /* This is where new instructions will get written to. It's for the
-       emitter. */
-    uint32_t pos;
-    /* This is how much space the code has allocated (again for the emitter). */
+    /* This is how much code is in this particular function. */
     uint32_t len;
+
+    uint32_t pad;
     /* Does this function contain generics? If so, they may need to be solved
        at vm-time when it's called. */
     uint32_t has_generics;
