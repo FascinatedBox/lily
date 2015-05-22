@@ -430,8 +430,14 @@ static lily_import_entry *find_import(lily_import_entry *import,
     lily_import_link *link_iter = import->import_chain;
     lily_import_entry *result = NULL;
     while (link_iter) {
-        if (link_iter->entry->loadname &&
-            strcmp(link_iter->entry->loadname, name) == 0) {
+        char *as_name = link_iter->as_name;
+        char *loadname = link_iter->entry->loadname;
+
+        /* If it was imported like 'import x as y', then as_name will be
+           non-null. In such a case, don't allow fallback access as 'x', just
+           in case something else is imported with the name 'x'. */
+        if ((as_name && strcmp(as_name, name) == 0) ||
+            (as_name == NULL && loadname && strcmp(loadname, name) == 0)) {
             result = link_iter->entry;
             break;
         }

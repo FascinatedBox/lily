@@ -1,0 +1,2 @@
+import diamond_a as a, diamond_b as b
+import diamond_c as c, diamond_d as d

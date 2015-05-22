@@ -424,6 +424,7 @@ typedef struct lily_register_info_ {
 
 typedef struct lily_import_link_ {
     struct lily_import_entry_ *entry;
+    char *as_name;
     struct lily_import_link_ *next_import;
 } lily_import_link;
 
