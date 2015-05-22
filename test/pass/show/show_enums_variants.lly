@@ -1,0 +1,14 @@
+enum class Option[A] { Some(A), None }
+
+var a = Some(Some(10))
+
+match a: {
+    case Some(s):
+        match s: {
+            case Some(s2):
+            case None:
+        }
+    case None:
+}
+
+show(__main__)

@@ -1,0 +1,11 @@
+try: {
+    try: {
+        var v = 1 / 0
+    except IndexError:
+        var b = 11
+    }
+except DivisionByZeroError:
+    var c = 11
+}
+
+show(__main__)

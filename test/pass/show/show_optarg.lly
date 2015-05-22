@@ -1,0 +1,4 @@
+define f(a: integer, b: *integer=11) {
+}
+
+show(f)
