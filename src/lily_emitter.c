@@ -1680,122 +1680,67 @@ static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
     if (is_hash)
         tree_iter = tree_iter->next_arg;
 
-    while (tree_iter != NULL) {
-        if (tree_iter->result->type->cls->flags & CLS_ENUM_CLASS)
-            enum_count++;
-        else if (tree_iter->result->type->cls->flags & CLS_VARIANT_CLASS)
-            variant_count++;
-        else {
-            rebox_type = any_class->type;
-            break;
-        }
+    /* Raise the ceiling so that lily_ts_match doesn't damage the current
+       generic information. */
+    int adjust = lily_ts_raise_ceiling(emit->ts);
+    lily_class *first_cls = tree_iter->result->type->cls;
+    lily_type *matching_type = NULL;
+    int ok = 1;
 
-        tree_iter = tree_iter->next_arg;
-        if (is_hash && tree_iter)
-            tree_iter = tree_iter->next_arg;
+    /* The first order of business is to find the type that parser created which
+       has a class of the enum class, and all generics.
+       ex: enum class Option[A] { Some(A), None }
+       For the above, there's a Option[A] made by parser. Get that. If that
+       isn't possible, then everything gets to be smacked to any. */
+    if (first_cls->flags & CLS_VARIANT_CLASS)
+        first_cls = first_cls->parent;
+    if (first_cls->flags & CLS_ENUM_CLASS &&
+        first_cls != any_class) {
+        matching_type = first_cls->variant_type;
     }
+    else
+        ok = 0;
 
-    lily_class *variant_parent = NULL;
-    tree_iter = ast->arg_start;
-    if (is_hash)
-        tree_iter = tree_iter->next_arg;
-
-    if (rebox_type == NULL) {
-        variant_parent = tree_iter->result->type->cls;
-        if (variant_parent->flags & CLS_VARIANT_CLASS)
-            variant_parent = variant_parent->parent;
-
-        int generic_count = variant_parent->variant_type->generic_pos;
-        int i;
-        /* If this isn't done, then old type info from...who knows where will
-           improperly alter any defaulting. */
-        lily_ts_zap_ceiling_types(emit->ts, generic_count);
+    if (matching_type != NULL) {
+        /* lily_ts_check is awesome. It makes sure that stuff matches while also
+           solving stuff. Begin by throwing in what the caller wants (if the
+           caller knows what they want). This is important, because the caller
+           may want Option[integer] but have [None, None, None]. The three None
+           values should upgrade to Option[integer], not Option[any] as they
+           would do otherwise. */
+        if (expect_type)
+            lily_ts_check(emit->ts, matching_type, expect_type);
 
         while (tree_iter != NULL) {
-            lily_type *tree_result_type = tree_iter->result->type;
-            lily_type *matcher_type;
-
-            if (tree_result_type->cls->flags & CLS_ENUM_CLASS) {
-                if (tree_result_type->cls != variant_parent)
-                    rebox_type = any_class->type;
-            }
-            else if (tree_result_type->cls->flags & CLS_VARIANT_CLASS) {
-                if (tree_result_type->cls->parent != variant_parent)
-                    rebox_type = any_class->type;
-            }
-            else
-                rebox_type = any_class->type;
-
-            if (rebox_type != NULL)
+            lily_type *type = tree_iter->result->type;
+            /* If there's some disagreement, give up and let everything default
+               to any. */
+            if (lily_ts_check(emit->ts, matching_type, type) == 0) {
+                ok = 0;
                 break;
-
-            matcher_type = tree_result_type->cls->variant_type;
-            /* If the variant takes arguments, then the variant_type it has is a
-               function returning a type of the class at [0]. Otherwise, it's
-               just a type of the class. */
-            if (matcher_type->subtype_count != 0)
-                matcher_type = matcher_type->subtypes[0];
-
-            /* Make sure that there are no disagreements about what type(s) the
-               generics (if any) are for the resulting enum class value. */
-            for (i = 0;i < matcher_type->subtype_count;i++) {
-                int pos = matcher_type->subtypes[i]->generic_pos;
-                lily_type *ceil_type = lily_ts_get_ceiling_type(emit->ts, pos);
-                if (ceil_type == NULL)
-                    lily_ts_set_ceiling_type(emit->ts,
-                            tree_result_type->subtypes[i], pos);
-                else if (ceil_type != tree_result_type->subtypes[i]) {
-                    rebox_type = any_class->type;
-                    break;
-                }
             }
-
-            if (rebox_type != NULL)
-                break;
 
             tree_iter = tree_iter->next_arg;
             if (is_hash && tree_iter)
                 tree_iter = tree_iter->next_arg;
         }
-
-        if (rebox_type == NULL) {
-            /* It may be that the enum class specifies generics that were not
-               satisfied by any variant member. In such a case, default to
-               class 'any'.
-               Example: enum class Option[A] { Some(A), None }
-
-               [None, None, None].
-
-               FIRST try to see if the type wanted can give whatever info
-               may be missing. If it can't, then default to any.
-
-               Otherwise, 'list[Option[integer]] k = [None, None]' fails. */
-            lily_type *ceil_type;
-            if (expect_type && expect_type->cls == variant_parent) {
-                for (i = 0;i < generic_count;i++) {
-                    ceil_type = lily_ts_get_ceiling_type(emit->ts, i);
-                    if (ceil_type == NULL)
-                        lily_ts_set_ceiling_type(emit->ts,
-                                expect_type->subtypes[i], i);
-                }
-            }
-            else {
-                for (i = 0;i < generic_count;i++) {
-                    ceil_type = lily_ts_get_ceiling_type(emit->ts, i);
-                    if (ceil_type == NULL)
-                        lily_ts_set_ceiling_type(emit->ts, any_class->type, i);
-                }
-            }
-
-            rebox_type = lily_ts_build_by_ceiling(emit->ts, variant_parent,
-                    generic_count, 0);
-        }
     }
+
+    /* If there are some generics unresolved (ex: [None, None, None] where
+       there ISN'T a caller value to infer from), then lily_ts_resolve helps out
+       by defaulting the unsolved generics to type any. */
+    if (ok)
+        rebox_type = lily_ts_resolve(emit->ts, matching_type);
+    else
+        rebox_type = any_class->type;
 
     tree_iter = ast->arg_start;
     if (is_hash)
         tree_iter = tree_iter->next_arg;
 
+    /* Bash everything into the appropriate type. emit_rebox_value will have the
+       variant types first boxed into an enum based off of their individual info
+       before shoving them into an any. */
     while (tree_iter) {
         if (tree_iter->result->type != rebox_type)
             emit_rebox_value(emit, rebox_type, tree_iter);
@@ -1804,6 +1749,8 @@ static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
         if (is_hash && tree_iter)
             tree_iter = tree_iter->next_arg;
     }
+
+    lily_ts_lower_ceiling(emit->ts, adjust);
 }
 
 /*  hash_values_to_anys
