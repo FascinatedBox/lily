@@ -449,8 +449,7 @@ static int try_add_storage(lily_emit_state *emit)
     updated appropriately and will never become NULL.
 
     This returns a valid storage. */
-static lily_storage *get_storage(lily_emit_state *emit,
-        lily_type *type, int line_num)
+static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
 {
     lily_storage *storage_iter = emit->block->storage_start;
     int expr_num = emit->expr_num;
@@ -552,7 +551,7 @@ static void rebox_variant_to_enum(lily_emit_state *emit, lily_ast *ast)
 static void emit_rebox_value(lily_emit_state *emit, lily_type *new_type,
         lily_ast *ast)
 {
-    lily_storage *storage = get_storage(emit, new_type, ast->line_num);
+    lily_storage *storage = get_storage(emit, new_type);
 
     /* Don't allow a bare variant to be thrown into an any until it's thrown
        into an enum box first. */
@@ -1141,7 +1140,7 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
            bool class (yet), so an integer class is used instead. */
         storage_class = emit->symtab->integer_class;
 
-    s = get_storage(emit, storage_class->type, ast->line_num);
+    s = get_storage(emit, storage_class->type);
     s->flags |= SYM_NOT_ASSIGNABLE;
 
     write_5(emit,
@@ -1469,7 +1468,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         lily_tie *success_lit, *failure_lit;
         lily_symtab *symtab = emit->symtab;
 
-        result = get_storage(emit, symtab->integer_class->type, ast->line_num);
+        result = get_storage(emit, symtab->integer_class->type);
 
         success_lit = lily_get_integer_literal(symtab,
                 (ast->op == expr_logical_and));
@@ -1555,7 +1554,7 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
         /* For a compound assignment to work, the left side must be subscripted
            to get the value held. */
 
-        lily_storage *subs_storage = get_storage(emit, elem_type, ast->line_num);
+        lily_storage *subs_storage = get_storage(emit, elem_type);
 
         write_5(emit,
                 o_get_item,
@@ -1603,7 +1602,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
         ast->result = right_tree->result;
     }
     else if (var_type->cls->id == SYM_CLASS_ANY) {
-        lily_storage *result = get_storage(emit, cast_type, ast->line_num);
+        lily_storage *result = get_storage(emit, cast_type);
 
         write_4(emit, o_any_typecast, ast->line_num,
                 right_tree->result->reg_spot, result->reg_spot);
@@ -1630,8 +1629,7 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
                 "Invalid operation: %s%s.\n",
                 opname(ast->op), lhs_class->name);
 
-    storage = get_storage(emit, integer_class->type,
-            ast->line_num);
+    storage = get_storage(emit, integer_class->type);
     storage->flags |= SYM_NOT_ASSIGNABLE;
 
     if (ast->op == expr_unary_minus)
@@ -1915,7 +1913,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     lily_ts_set_ceiling_type(emit->ts, last_value_type, 1);
     lily_type *new_type = lily_ts_build_by_ceiling(emit->ts, hash_cls, 2, 0);
 
-    lily_storage *s = get_storage(emit, new_type, ast->line_num);
+    lily_storage *s = get_storage(emit, new_type);
 
     write_build_op(emit, o_build_hash, ast->arg_start, ast->line_num,
             ast->args_collected, s->reg_spot);
@@ -2085,7 +2083,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     lily_type *new_type = lily_ts_build_by_ceiling(emit->ts,
             emit->symtab->list_class, 1, 0);
 
-    lily_storage *s = get_storage(emit, new_type, ast->line_num);
+    lily_storage *s = get_storage(emit, new_type);
 
     write_build_op(emit, o_build_list_tuple, ast->arg_start, ast->line_num,
             ast->args_collected, s->reg_spot);
@@ -2163,7 +2161,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
 
     lily_type *new_type = lily_ts_build_by_ceiling(emit->ts,
             emit->symtab->tuple_class, i, 0);
-    lily_storage *s = get_storage(emit, new_type, ast->line_num);
+    lily_storage *s = get_storage(emit, new_type);
 
     write_build_op(emit, o_build_list_tuple, ast->arg_start, ast->line_num,
             ast->args_collected, s->reg_spot);
@@ -2189,7 +2187,7 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast,
     lily_type *type_for_result;
     type_for_result = get_subscript_result(var_ast->result->type, index_ast);
 
-    lily_storage *result = get_storage(emit, type_for_result, ast->line_num);
+    lily_storage *result = get_storage(emit, type_for_result);
 
     write_5(emit,
             o_get_item,
@@ -2432,7 +2430,7 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
         if (save_type->flags & TYPE_IS_UNRESOLVED)
             save_type = lily_ts_resolve(emit->ts, save_type);
 
-        s = get_storage(emit, save_type, ast->line_num);
+        s = get_storage(emit, save_type);
 
         if (have_args > num_args)
             write_build_op(emit, o_build_list_tuple, save_arg,
@@ -2579,7 +2577,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
         else if (return_type->flags & TYPE_IS_UNRESOLVED)
             return_type = lily_ts_resolve(emit->ts, return_type);
 
-        lily_storage *storage = get_storage(emit, return_type, ast->line_num);
+        lily_storage *storage = get_storage(emit, return_type);
         storage->flags |= SYM_NOT_ASSIGNABLE;
 
         ast->result = (lily_sym *)storage;
@@ -2616,7 +2614,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     else
         opcode = o_get_readonly;
 
-    ret = get_storage(emit, ast->original_sym->type, ast->line_num);
+    ret = get_storage(emit, ast->original_sym->type);
 
     if (opcode != o_get_global)
         ret->flags |= SYM_NOT_ASSIGNABLE;
@@ -2686,8 +2684,7 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
                     property_type);
         }
 
-        lily_storage *result = get_storage(emit, property_type,
-                ast->line_num);
+        lily_storage *result = get_storage(emit, property_type);
 
         /* Hack: If the parent is really oo_assign, then don't load the result
                  into a register. The parent tree just wants to know the
@@ -2716,8 +2713,7 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
                 "Invalid use of uninitialized property '@%s'.\n",
                 ast->property->name);
 
-    lily_storage *result = get_storage(emit, ast->property->type,
-            ast->line_num);
+    lily_storage *result = get_storage(emit, ast->property->type);
 
     write_5(emit,
             o_get_property,
@@ -2755,7 +2751,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         if (result_type->flags & TYPE_IS_UNRESOLVED)
             result_type = lily_ts_resolve(emit->ts, result_type);
 
-        result = get_storage(emit, result_type, ast->line_num);
+        result = get_storage(emit, result_type);
 
         /* It's pretty darn close to a tuple, so...let's use that. :) */
         write_build_op(emit, o_build_list_tuple, ast->arg_start,
@@ -2780,7 +2776,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         lily_tie *variant_lit = lily_get_variant_literal(emit->symtab,
                 variant_type);
 
-        result = get_storage(emit, variant_type, ast->line_num);
+        result = get_storage(emit, variant_type);
         write_4(emit, o_get_readonly, ast->line_num, variant_lit->reg_spot,
                 result->reg_spot);
     }
@@ -2805,7 +2801,7 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
     lily_var *lambda_result = lily_parser_lambda_eval(emit->parser,
             ast->line_num, lambda_body, expect_type, did_resolve);
 
-    lily_storage *s = get_storage(emit, lambda_result->type, ast->line_num);
+    lily_storage *s = get_storage(emit, lambda_result->type);
     write_4(emit,
             o_get_readonly,
             ast->line_num,
@@ -3223,7 +3219,7 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     /* Global vars cannot be used directly, because o_for_setup and
        o_integer_for expect local registers. */
     if (user_loop_var->function_depth == 1)
-        target = (lily_sym *)get_storage(emit, user_loop_var->type, line_num);
+        target = (lily_sym *)get_storage(emit, user_loop_var->type);
     else
         target = (lily_sym *)user_loop_var;
 
@@ -3433,7 +3429,7 @@ void lily_emit_update_function_block(lily_emit_state *emit,
            the return of a function is always [0], this works. */
         lily_type *self_type = emit->block->function_var->type->subtypes[0];
 
-        lily_storage *self = get_storage(emit, self_type, *emit->lex_linenum);
+        lily_storage *self = get_storage(emit, self_type);
         emit->block->self = self;
 
         write_3(emit,
@@ -3501,7 +3497,7 @@ void lily_emit_except(lily_emit_state *emit, lily_class *cls,
     lily_type *except_type = cls->type;
     lily_sym *except_sym = (lily_sym *)except_var;
     if (except_sym == NULL)
-        except_sym = (lily_sym *)get_storage(emit, except_type, line_num);
+        except_sym = (lily_sym *)get_storage(emit, except_type);
 
     write_5(emit,
             o_except,
