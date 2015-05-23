@@ -2201,22 +2201,11 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
         if (arg->tree_type != tree_local_var)
             eval_tree(emit, arg, elem_type, 1);
 
-        if ((elem_type && elem_type != arg->result->type) ||
-            (arg->result->type->cls->flags & CLS_VARIANT_CLASS)) {
-            if (elem_type && elem_type != arg->result->type)
-                /* Attempt to fix the type to what's wanted. If it fails, the
-                   caller will likely note a type mismatch. Can't do anything
-                   else though. */
-                type_matchup(emit, elem_type, arg);
-            else {
-                /* Not sure what the caller wants, so make an enum type based
-                   of what's known and use that. */
-                lily_type *enum_type = lily_ts_build_enum_by_variant(emit->ts,
-                        arg->result->type);
-
-                emit_rebox_value(emit, enum_type, arg);
-            }
-        }
+        if (elem_type && elem_type != arg->result->type)
+            /* Attempt to fix the type to what's wanted. If it fails, the parent
+               tree will note a type mismatch. Can't do anything else here
+               though. */
+            type_matchup(emit, elem_type, arg);
     }
 
     for (i = 0, arg = ast->arg_start;
