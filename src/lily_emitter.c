@@ -1957,24 +1957,21 @@ static int check_proper_variant(lily_emit_state *emit, lily_type *enum_type,
 static int enum_membership_check(lily_emit_state *emit, lily_type *enum_type,
         lily_type *right)
 {
-    /* First, make sure that right is a member... */
     lily_class *variant_class = right->cls;
     lily_class *enum_class = enum_type->cls;
-    int i, ok = 0;
-    for (i = 0;i < enum_class->variant_size;i++) {
-        if (enum_class->variant_members[i] == variant_class) {
-            ok = 1;
-            break;
-        }
-    }
 
-    if (ok == 1) {
+    int ok = 1;
+
+    /* A variant's parent is always the enum class that it belongs to. */
+    if (variant_class->parent == enum_class) {
         /* If the variant does not take arguments, then there's nothing that
            could have been called wrong. Therefore, the use of the variant MUST
            be correct. */
         if (right->subtype_count != 0)
             ok = check_proper_variant(emit, enum_type, right, variant_class);
     }
+    else
+        ok = 0;
 
     return ok;
 }
