@@ -476,12 +476,6 @@ static void show_code(lily_debug_state *debug)
                     show_readonly(debug, code[i+j+2]);
                     show_register_info(debug, RI_OUTPUT, code[i+j+1]);
                 }
-
-                /* Bump by 1 because of the i += j at the end (j is at 1). The
-                   two bumps are because the opcode and count fields aren't
-                   added to i otherwise. */
-                i++;
-                break;
             }
         }
         i += j;
