@@ -1045,8 +1045,14 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
     int generics_used;
 
     char *class_name = NULL;
-    if (cls)
+    lily_import_entry *save_import = symtab->active_import;
+
+    if (cls) {
         class_name = cls->name;
+        /* This makes it so that the lookups are done relative to where this
+           class was imported from. This is necessary for foreign imports. */
+        lily_set_import(symtab, cls->import);
+    }
 
     /* Assume that builtin things are smart enough to not redeclare things and
        just declare the var. */
@@ -1078,8 +1084,10 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
        a class function, then throw it into the proper class. This has the
        side-effect of updating symtab->var_chain so that the class method is
        not globally visible. */
-    if (cls)
+    if (cls) {
         lily_add_class_method(symtab, cls, symtab->var_chain);
+        lily_set_import(symtab, save_import);
+    }
 
     return call_var;
 }
