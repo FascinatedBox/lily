@@ -163,7 +163,7 @@ void lily_msgbuf_add_double(lily_msgbuf *msgbuf, double d)
 
 /*  lily_msgbuf_add_simple_value
     This function adds a value of a simple type to the msgbuf. A simple type is
-    one of these: integer, double, string, symbol. */
+    one of these: integer, double, string. */
 void lily_msgbuf_add_simple_value(lily_msgbuf *msgbuf, lily_value *v)
 {
     int cls_id = v->type->cls->id;
@@ -177,13 +177,6 @@ void lily_msgbuf_add_simple_value(lily_msgbuf *msgbuf, lily_value *v)
         /* Note: This is fine because strings can't contain \0. */
         lily_msgbuf_add(msgbuf, v->value.string->string);
         lily_msgbuf_add_char(msgbuf, '\"');
-    }
-    else if (cls_id == SYM_CLASS_SYMBOL) {
-        lily_symbol_val *symv = v->value.symbol;
-        if (symv->is_simple)
-            lily_msgbuf_add_fmt(msgbuf, ":%s", symv->string);
-        else
-            lily_msgbuf_add_fmt(msgbuf, ":\"^E\"", symv->string);
     }
     else if (cls_id == SYM_CLASS_BYTESTRING) {
         lily_string_val *bytev = v->value.string;

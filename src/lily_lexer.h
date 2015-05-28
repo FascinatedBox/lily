@@ -50,7 +50,6 @@ typedef enum {
     tk_prop_word,
     tk_double_quote,
     tk_bytestring,
-    tk_symbol,
     tk_integer,
     tk_double,
     tk_dot,

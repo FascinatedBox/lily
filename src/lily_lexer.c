@@ -962,35 +962,24 @@ static void ensure_lambda_data_size(lily_lex_state *lexer, int at_least)
     lexer->lambda_data_size = new_size;
 }
 
-#define KIND_STRING     0
-#define KIND_BYTESTRING 1
-#define KIND_SYMBOL     2
-
 /*  scan_quoted
     This handles scanning of data in between double quotes.
     " ... " are single-line only.
     """ ... """ can be multi-line.
     This will always result in a new literal being made and stored to lexer's
-    last_literal. However, if this function determines that ':' comes before the
-    first double quote, then the literal made will be a symbol. However, the
-    above rules apply both to plain strings and symbols. */
+    last_literal. This handles scooping up both bytestrings and strings. */
 static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
         int *is_multiline)
 {
     char esc_ch;
     char *label, *input;
-    int label_pos, multiline_start = 0, result_kind;
+    int label_pos, multiline_start = 0, is_bytestring = 0;
 
     input = lexer->input_buffer;
     label = lexer->label;
-    result_kind = KIND_STRING;
 
-    if (*pos != 0) {
-        if (*(new_ch - 1) == ':')
-            result_kind = KIND_SYMBOL;
-        else if (*(new_ch - 1) == 'B')
-            result_kind = KIND_BYTESTRING;
-    }
+    if (*pos != 0 && *(new_ch - 1) == 'B')
+        is_bytestring = 1;
 
     /* ch is actually the first char after the opening ". */
     if (*(new_ch + 1) == '"' &&
@@ -1021,10 +1010,10 @@ static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
             /* Most escape codes are only one letter long. */
             int adjust_ch = 2;
             esc_ch = scan_escape(lexer, new_ch, &adjust_ch);
-            /* Forbid \0 from non-bytestrings so that string and symbol can
-               remain valid C strings. Additionally, the second case prevents
-               possibly creating invalid utf-8. */
-            if (result_kind != KIND_BYTESTRING &&
+            /* Forbid \0 from non-bytestrings so that string is guaranteed to be
+               a valid C string. Additionally, the second case prevents possibly
+               creating invalid utf-8. */
+            if (is_bytestring == 0 &&
                 (esc_ch == 0 || (unsigned char)esc_ch > 127))
                 lily_raise(lexer->raiser, lily_SyntaxError,
                            "Invalid escape sequence.\n");
@@ -1068,57 +1057,16 @@ static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
     if (*is_multiline)
         new_ch += 2;
 
-    if (result_kind != KIND_BYTESTRING)
+    if (is_bytestring == 0)
         label[label_pos] = '\0';
 
     *pos = (new_ch - &input[0]);
 
-    if (result_kind == KIND_STRING)
+    if (is_bytestring == 0)
         lexer->last_literal = lily_get_string_literal(lexer->symtab, label);
-    else if (result_kind == KIND_BYTESTRING)
+    else
         lexer->last_literal = lily_get_bytestring_literal(lexer->symtab, label,
                 label_pos);
-    else
-        lexer->last_literal = lily_get_symbol_literal(lexer->symtab, label);
-}
-
-#undef KIND_STRING
-#undef KIND_BYTESTRING
-#undef KIND_SYMBOL
-
-/*  scan_symbol
-    This function is called when an identifier is found directly after a colon.
-    In such a case, the symbol is done when a non-identifier character is found.
-    Note that more complex symbols (:" ..." and :""" ... """) are handled
-    through the caller of this dispatching to scan_quoted instead. This just
-    handles the simple cases. */
-static void scan_symbol(lily_lex_state *lexer, int *pos, char *new_ch)
-{
-    char *label, *input;
-    int label_pos;
-
-    input = lexer->input_buffer;
-    label = lexer->label;
-
-    /* This starts on the identifier. Do not *new_ch++! */
-    label_pos = 0;
-
-    while (1) {
-        /* A symbol can only span the rest of the line, at most. It is therefore
-           unnecessary to check for overflow because the label buffer is always
-           at least the size of the line buffer. */
-        if (ident_table[(unsigned char)*new_ch]) {
-            label[label_pos] = *new_ch;
-            label_pos++;
-            new_ch++;
-        }
-        else
-            break;
-    }
-
-    label[label_pos] = '\0';
-    *pos = (new_ch - &input[0]);
-    lexer->last_literal = lily_get_symbol_literal(lexer->symtab, label);
 }
 
 /*  scan_lambda
@@ -1563,15 +1511,6 @@ void lily_lexer(lily_lex_state *lexer)
                 ch++;
                 token = tk_colon_colon;
             }
-            else if (ident_table[(unsigned char)*ch]) {
-                scan_symbol(lexer, &input_pos, ch);
-                token = tk_symbol;
-            }
-            else if (*ch == '"') {
-                int dummy;
-                scan_quoted(lexer, &input_pos, ch, &dummy);
-                token = tk_symbol;
-            }
             else
                 token = tk_colon;
         }
@@ -1776,9 +1715,8 @@ char *tokname(lily_token t)
     {"(", ")", ",", "}", "[", "^", "!", "!=", "%", "%=", "*", "*=", "/", "/=",
      "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>", ">>=", "=",
      "==", "{", "a lambda", "<[", "]>", "]", "=>", "a label", "a property name",
-     "a string", "a bytestring", "a symbol", "an integer", "a double", ".", ":",
-     "::", "&", "&&", "|", "||", "@(", "...", "invalid token", "?>",
-     "end of file"};
+     "a string", "a bytestring", "an integer", "a double", ".", ":", "::", "&",
+     "&&", "|", "||", "@(", "...", "invalid token", "?>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

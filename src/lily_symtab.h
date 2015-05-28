@@ -59,11 +59,6 @@ typedef struct lily_symtab_ {
     /* The symtab keeps this because __main__ requires a special teardown. */
     lily_function_val *main_function;
 
-    /* This is a linked list of symbols that were initially created through the
-       vm or outside sources (via lily_symbol_by_name). These symbols can be
-       garbage collected (hence the 'weak' in the type name). */
-    lily_weak_symbol_entry *foreign_symbols;
-
     /* Each class gets a unique id. This is mostly for the builtin classes
        which have some special behavior sometimes. */
     uint32_t next_class_id;
@@ -97,7 +92,6 @@ typedef struct lily_symtab_ {
     lily_class *double_class;
     lily_class *string_class;
     lily_class *bytestring_class;
-    lily_class *symbol_class;
     lily_class *any_class;
     lily_class *function_class;
     lily_class *list_class;
@@ -115,14 +109,12 @@ lily_tie *lily_get_integer_literal(lily_symtab *, int64_t);
 lily_tie *lily_get_double_literal(lily_symtab *, double);
 lily_tie *lily_get_bytestring_literal(lily_symtab *, char *, int);
 lily_tie *lily_get_string_literal(lily_symtab *, char *);
-lily_tie *lily_get_symbol_literal(lily_symtab *, char *);
 lily_tie *lily_get_variant_literal(lily_symtab *, lily_type *);
 
 void lily_tie_builtin(lily_symtab *, lily_var *, lily_function_val *);
 void lily_tie_function(lily_symtab *, lily_var *, lily_function_val *);
 void lily_tie_value(lily_symtab *, lily_var *, lily_value *);
 
-lily_symbol_val *lily_symbol_by_name(lily_symtab *, char *);
 lily_class *lily_find_class(lily_symtab *, lily_import_entry *, const char *);
 lily_var *lily_find_class_callable(lily_symtab *, lily_class *, char *);
 lily_prop_entry *lily_find_property(lily_symtab *, lily_class *, char *);

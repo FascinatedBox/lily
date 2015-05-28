@@ -641,7 +641,6 @@ static void show_value(lily_debug_state *debug, lily_value *value)
     if (cls_id == SYM_CLASS_STRING ||
         cls_id == SYM_CLASS_INTEGER ||
         cls_id == SYM_CLASS_DOUBLE ||
-        cls_id == SYM_CLASS_SYMBOL ||
         cls_id == SYM_CLASS_BYTESTRING) {
         show_simple_value(debug, type, raw_value);
         lily_impl_puts(debug->data, "\n");

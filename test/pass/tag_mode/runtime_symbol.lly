@@ -1,2 +1,0 @@
-<?lily var a = :asdf ?>
-<?lily a = "asdf".to_sym() ?>

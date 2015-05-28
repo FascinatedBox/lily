@@ -36,42 +36,6 @@ static uint64_t shorthash_for_name(const char *name)
     return ret;
 }
 
-static lily_symbol_val *make_new_symbol(lily_symtab *symtab, char *data)
-{
-    int data_len = strlen(data);
-    lily_symbol_val *ret = lily_malloc(sizeof(lily_symbol_val));
-    int is_simple = 1;
-
-    ret->string = lily_malloc(data_len + 1);
-    ret->refcount = 1;
-    ret->size = data_len;
-    strcpy(ret->string, data);
-
-    /* The data portion of a symbol was either a plain identifier of a valid
-       string. Anything over 128 is allowed because */
-    int i;
-    for (i = 0;i < data_len;i++) {
-        char ch = data[i];
-        /* Valid utf-8/identifiers can be printed as-is. It's expected that this
-           will be the most common case. */
-        if (isalnum(ch) || ch > 0x7f || ch == '_')
-            continue;
-
-        is_simple = 0;
-        break;
-    }
-
-    /* The special case of an empty symbol (created by a string) should be
-       marked as not being simple. This will cause it to be printed as :""
-       instead of just : . The former seems less confusing (and what Ruby does,
-       as well). */
-    if (data_len == 0)
-        is_simple = 0;
-
-    ret->is_simple = is_simple;
-    return ret;
-}
-
 /*  make_new_literal
     Attempt to add a new literal of the given class to the symtab. The literal
     will be created with the given value (copying it if it's a string).
@@ -510,7 +474,6 @@ lily_symtab *lily_new_symtab(lily_options *options,
     symtab->generic_class = NULL;
     symtab->generic_type_start = NULL;
     symtab->old_class_chain = NULL;
-    symtab->foreign_symbols = NULL;
 
     lily_init_builtin_package(symtab, builtin_import);
     init_lily_main(symtab);
@@ -603,26 +566,6 @@ static void free_classes(lily_symtab *symtab, lily_class *class_iter)
     }
 }
 
-static void free_foreign_symbols(lily_symtab *symtab)
-{
-    lily_weak_symbol_entry *foreign_iter = symtab->foreign_symbols;
-    lily_weak_symbol_entry *foreign_next;
-    lily_type *symbol_type = symtab->symbol_class->type;
-    lily_raw_value raw;
-
-    while (foreign_iter) {
-        foreign_next = foreign_iter->next;
-
-        raw.symbol = foreign_iter->symbol;
-        if (raw.symbol)
-            lily_deref_raw(symbol_type, raw);
-
-        lily_free(foreign_iter);
-
-        foreign_iter = foreign_next;
-    }
-}
-
 static void free_ties(lily_symtab *symtab, lily_tie *tie_iter)
 {
     lily_tie *tie_next;
@@ -630,23 +573,11 @@ static void free_ties(lily_symtab *symtab, lily_tie *tie_iter)
     while (tie_iter) {
         tie_next = tie_iter->next;
         lily_class *tie_cls = tie_iter->type->cls;
-        if (tie_cls == symtab->symbol_class) {
-            lily_type *symbol_type = symtab->symbol_class->type;
-            lily_raw_value raw;
-            raw.symbol = tie_iter->value.symbol;
-            /* Important! If not fixed, destroy will ignore this value. */
-            raw.symbol->has_literal = 0;
-            /* Since this symbol was created internally, string::to_sym should
-               have marked the symbol protected so that it would not receive
-               refs. Because of that, the refcount -should- be at 0 and one
-               deref will suffice. */
-            lily_deref_raw(symbol_type, raw);
-        }
         /* Variant classes must be skipped, because their deref-er is a tuple
            deref-er. This is bad, because variants that are created as literals
            do not take inner values (and are represented as an integer).
            Everything else? Yeah, blow it away. */
-        else if ((tie_cls->flags & CLS_VARIANT_CLASS) == 0)
+        if ((tie_cls->flags & CLS_VARIANT_CLASS) == 0)
             lily_deref_raw(tie_iter->type,
                     tie_iter->value);
 
@@ -673,8 +604,6 @@ void lily_free_symtab(lily_symtab *symtab)
     symtab->active_import->var_chain = symtab->var_chain;
 
     free_class_entries(symtab, symtab->old_class_chain);
-
-    free_foreign_symbols(symtab);
 
     lily_import_entry *import_iter = symtab->builtin_import;
     while (import_iter) {
@@ -841,60 +770,6 @@ lily_tie *lily_get_bytestring_literal(lily_symtab *symtab,
     return ret;
 }
 
-lily_tie *lily_get_symbol_literal(lily_symtab *symtab, char *want_string)
-{
-    lily_tie *lit, *ret;
-    ret = NULL;
-    int want_string_len = strlen(want_string);
-
-    for (lit = symtab->literals;lit;lit = lit->next) {
-        if (lit->type->cls->id == SYM_CLASS_SYMBOL) {
-            if (lit->value.symbol->size == want_string_len &&
-                strcmp(lit->value.symbol->string, want_string) == 0) {
-                ret = lit;
-                break;
-            }
-        }
-    }
-
-    if (ret)
-        return ret;
-
-    /* There's no literal with this symbol just yet, so make a new literal to
-       hold it. From here, determine if the symbol has been created by a foreign
-       source from a previous run. */
-
-    lily_class *symbol_cls = symtab->symbol_class;
-    lily_tie *new_lit = make_new_literal(symtab, symbol_cls);
-    lily_weak_symbol_entry *foreign_iter = symtab->foreign_symbols;
-    lily_symbol_val *symv = NULL;
-
-    while (foreign_iter) {
-        if (foreign_iter->symbol &&
-            foreign_iter->symbol->size == want_string_len &&
-            strcmp(foreign_iter->symbol->string, want_string) == 0) {
-            symv = foreign_iter->symbol;
-            /* This symbol is going to be tied to a literal instead of this
-               weak entry, so clear up the weak entry for a future symbol value
-               to come in. */
-            foreign_iter->symbol = NULL;
-            break;
-        }
-        foreign_iter = foreign_iter->next;
-    }
-
-    if (symv == NULL) {
-        symv = make_new_symbol(symtab, want_string);
-    }
-
-    symv->has_literal = 1;
-    symv->assoc_lit = new_lit;
-
-    new_lit->value.symbol = symv;
-
-    return new_lit;
-}
-
 /*  lily_get_variant_literal
     This function is like the other literal getters, except that it's called
     for empty variant classes. An empty variant class will always be the same,
@@ -966,41 +841,6 @@ void lily_tie_value(lily_symtab *symtab, lily_var *var, lily_value *value)
     tie->flags = SYM_TYPE_TIE;
     tie->next = symtab->foreign_ties;
     symtab->foreign_ties = tie;
-}
-
-lily_symbol_val *lily_symbol_by_name(lily_symtab *symtab, char *text)
-{
-    int text_len = strlen(text);
-    lily_symbol_val *ret = NULL;
-    lily_tie *lit;
-
-    for (lit = symtab->literals;lit;lit = lit->next) {
-        if (lit->type->cls->id == SYM_CLASS_SYMBOL) {
-            if (lit->value.symbol->size == text_len &&
-                strcmp(lit->value.symbol->string, text) == 0) {
-                ret = lit->value.symbol;
-                break;
-            }
-        }
-    }
-
-    if (ret == NULL) {
-        lily_weak_symbol_entry *weak_entry =
-                lily_malloc(sizeof(lily_weak_symbol_entry));
-        lily_symbol_val *symbol = make_new_symbol(symtab, text);
-
-        symbol->has_literal = 0;
-        symbol->entry = weak_entry;
-
-        weak_entry->next = symtab->foreign_symbols;
-        weak_entry->symbol = symbol;
-
-        symtab->foreign_symbols = weak_entry;
-
-        ret = symbol;
-    }
-
-    return ret;
 }
 
 /*  Attempt to locate a class. The semantics differ depending on if 'import' is
