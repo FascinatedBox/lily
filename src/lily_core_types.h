@@ -58,17 +58,10 @@ typedef union lily_raw_value_ {
     struct lily_instance_val_ *instance;
 } lily_raw_value;
 
-typedef struct lily_prop_entry_ {
-    uint64_t flags;
-    struct lily_type_ *type;
-    uint64_t id;
-    char *name;
-    uint64_t name_shorthash;
-    struct lily_prop_entry_ *next;
-} lily_prop_entry;
-
 /* lily_class represents a class in the language. */
 typedef struct lily_class_ {
+    uint64_t flags;
+
     char *name;
     /* This holds (up to) the first 8 bytes of the name. This is checked before
        doing a strcmp against the name. */
@@ -89,13 +82,13 @@ typedef struct lily_class_ {
     struct lily_class_ *parent;
     struct lily_class_ *next;
 
-    lily_prop_entry *properties;
+    struct lily_prop_entry_ *properties;
 
     /* If it's an enum class, then the variants are here. NULL otherwise. */
     struct lily_class_ **variant_members;
 
     uint16_t id;
-    uint16_t flags;
+    uint16_t pad;
     uint16_t is_refcounted;
     /* If positive, how many subtypes are allowed in this type. This can also
        be -1 if an infinite number of types are allowed (ex: functions). */
@@ -146,6 +139,12 @@ typedef struct lily_type_ {
 
 
 
+/* This is a superset of lily_class, as well as everything that lily_sym is a
+   superset of. */
+typedef struct {
+    uint64_t flags;
+} lily_item;
+
 /* lily_sym is a subset of all symbol-related structs. Nothing should create
    values of this type. This is just for casting arguments. */
 typedef struct lily_sym_ {
@@ -159,6 +158,19 @@ typedef struct lily_sym_ {
     uint32_t reg_spot;
     uint32_t unused_pad;
 } lily_sym;
+
+/* This represents a property within a class that isn't "primitive" to the
+   interpreter (lists, tuples, integer, string, etc.).
+   User-defined classes and Exception both support these. */
+typedef struct lily_prop_entry_ {
+    uint64_t flags;
+    struct lily_type_ *type;
+    uint32_t id;
+    uint32_t pad;
+    char *name;
+    uint64_t name_shorthash;
+    struct lily_prop_entry_ *next;
+} lily_prop_entry;
 
 /* A tie represents an association between some particular spot, and a value
    given. This struct represents literals, readonly vars, and foreign values. */
@@ -459,29 +471,34 @@ typedef struct lily_options_ {
 /* Finally, various definitions. */
 
 
+/* ITEM_* defines are used to determine what lily_sym and lily_item can
+   be cast to.
+   To prevent potential clashes, the definitions afterward (except for
+   type) start off where these end. */
+#define ITEM_TYPE_TIE           0x01
+#define ITEM_TYPE_VAR           0x02
+#define ITEM_TYPE_STORAGE       0x04
+#define ITEM_TYPE_VARIANT_CLASS 0x10
+#define ITEM_TYPE_PROPERTY      0x20
 
-/* CLS_* defines are for the flags of a lily_class. */
-/* If this is set, the class can be used as a hash key. This should only be set
-   on primitive and immutable classes. */
-#define CLS_VALID_HASH_KEY 0x01
 
-/* This class is an enum class, instead of a normal one. An enum class is a
-   (C-style) union of different subclasses, only able to carry one class value
-   at a time.
+/* CLS_* defines are for lily_class. */
 
-   An enum class is created, ref'd, deref'd, and destroyed MUCH like an 'any'.
-   It's also laid out like an 'any'. */
-#define CLS_ENUM_CLASS     0x02
 
-/* This class is a variant class (it was created within an 'enum class'
-   declaration). */
-#define CLS_VARIANT_CLASS  0x04
+#define CLS_VALID_HASH_KEY 0x0100
+#define CLS_ENUM_CLASS     0x0200
+#define CLS_VARIANT_CLASS  0x0400
+/* This class is an enum class AND the variants within are scoped. The
+   difference is that scoped variants are accessed using 'enum::variant',
+   while normal variants can use just 'variant'. */
+#define CLS_ENUM_IS_SCOPED 0x1000
 
-/* This class is an enum class, and the variant entries inside are scoped.
-   This means entries must be accessed using 'enum::variant'. */
-#define CLS_ENUM_IS_SCOPED 0x10
 
-/* TYPE_* defines are for the flags of a lily_type. */
+/* TYPE_* defines are for lily_type.
+   Since types are not usable as values, they do not need to start where
+   the ITEM_* defines leave off. */
+
+
 /* If set, the type is a function that takes a variable number of values. */
 #define TYPE_IS_VARARGS        0x01
 /* If this is set, a gc entry is allocated for the type. This means that the
@@ -505,39 +522,48 @@ typedef struct lily_options_ {
    have to take some arguments. */
 #define TYPE_HAS_OPTARGS       0x40
 
-/* SYM_* defines are for identifying the type of symbol given. Emitter uses
-   these sometimes. */
-#define SYM_TYPE_TIE            0x001
-#define SYM_TYPE_VAR            0x002
-#define SYM_TYPE_STORAGE        0x004
-/* This var is out of scope. This is set when a var in a non-function block
-   goes out of scope. */
-#define SYM_OUT_OF_SCOPE        0x010
-/* This is used to prevent a var from being used in it's own declaration. */
-#define SYM_NOT_INITIALIZED     0x020
-/* This is set on a storage when it's from a calculation that cannot be assigned
-   to. This prevents things like '[1,2,3][0] = 4'. */
-#define SYM_NOT_ASSIGNABLE      0x040
 
-/* VAR_* defines are meant mostly for the vm. However, emitter and symtab put
-   VAR_IS_READONLY on vars that won't get a register. The vm will never see
-   that flag. */
+/* SYM_* flags are for things based off of lily_sym. */
 
-/* Don't put this in a register. This is used for functions, which are loaded
-   as if they were literals. */
-#define VAR_IS_READONLY         0x100
-/* This is put on intermediate values (storages) which don't have a value on
-   them just yet. Variables always have a value.
-   An 'any' value will have this set on the inner value, before that value has
-   been set to anything.
-   Things with this set should not get refs or derefs. */
-#define VAL_IS_NIL              0x200
-/* If this is set, the associated value is valid, but should not get any refs
-   or derefs. This is set on values that load literals to prevent literals from
-   getting unnecessary refcount adjustments. */
-#define VAL_IS_PROTECTED        0x400
+
+/* properties, vars: This is used to prevent a value from being used to
+   initialize itself. */
+#define SYM_NOT_INITIALIZED     0x100
+/* storages: This is set when the result of some expression cannot be assigned
+   to. This is to prevent things like '[1,2,3][0] = 4'. */
+#define SYM_NOT_ASSIGNABLE      0x200
+
+
+/* VAR_* flags are for vars. Since these have lily_sym as a superset, they begin
+   where lily_sym's flags leave off. */
+
+
+/* This is a var that is no longer in scope. It is kept around until the
+   function it is within is done so type information can be loaded up into the
+   registers later. */
+#define VAR_OUT_OF_SCOPE        0x0400
+
+/* This is set on vars which will be used to hold the value of a defined
+   function, a lambda, or a class constructor. Vars with this flag cannot be
+   assigned to. Additionally, the reg_spot they contain is actually a spot in
+   the vm's 'readonly_table'. */
+#define VAR_IS_READONLY         0x1000
+
+
+/* VAL_* flags are for lily_value. */
+
+
+/* This is set on when there is no -appropriate- data in the inner part of the
+   value. This flag exists to prevent unnecessary or invalid attempts to deref
+   the contents of a value. The vm sets values to (integer) 0 beforehand to
+   prevent an accidental invalid read, however.
+   If this flag is set, do not ref or deref the contents. */
+#define VAL_IS_NIL              0x10000
+/* This particular value has been assigned a value that is either a literal or
+   a defined function. Do not ref or deref this value. */
+#define VAL_IS_PROTECTED        0x20000
 /* For convenience, check for nil or protected set. */
-#define VAL_IS_NIL_OR_PROTECTED 0x600
+#define VAL_IS_NIL_OR_PROTECTED 0x30000
 
 
 /* SYM_CLASS_* defines are for checking ids of a type's class. These are

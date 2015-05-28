@@ -218,7 +218,7 @@ static int condition_optimize_check(lily_ast *ast)
 
     /* This may not be a literal. It could be a user-defined/built-in function
        which would always automatically be true. */
-    if (ast->result->flags & SYM_TYPE_TIE) {
+    if (ast->result->flags & ITEM_TYPE_TIE) {
         lily_tie *lit = (lily_tie *)ast->result;
 
         /* Keep this synced with vm's o_jump_if calculation. */
@@ -1370,7 +1370,7 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
 
         /* Make sure that it was a property access, and not a class member
            access. The latter is not reassignable. */
-        if (ast->left->result->flags & SYM_TYPE_VAR)
+        if (ast->left->result->flags & ITEM_TYPE_VAR)
             lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
                     "Left side of %s is not assignable.\n", opname(ast->op));
 
