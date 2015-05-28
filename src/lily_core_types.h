@@ -45,7 +45,6 @@ typedef union lily_raw_value_ {
     int64_t integer;
     double doubleval;
     struct lily_string_val_ *string;
-    struct lily_symbol_val_ *symbol;
     struct lily_any_val_ *any;
     struct lily_list_val_ *list;
     /* generic is a subset of any type that is refcounted. */
@@ -210,16 +209,6 @@ typedef struct lily_var_ {
     struct lily_var_ *next;
 } lily_var;
 
-/* This type is used to store symbols that are created by a foreign source. Each
-   symbol has either a literal (if created internally), or one of these entries
-   if created by a foreign source.
-   Beware: 'symbol' may be NULL if ref/deref OR the garbage collector has
-   claimed the source symbol. */
-typedef struct lily_weak_symbol_entry_ {
-    struct lily_symbol_val_ *symbol;
-    struct lily_weak_symbol_entry_ *next;
-} lily_weak_symbol_entry;
-
 
 /* Now, values.  */
 
@@ -231,27 +220,6 @@ typedef struct lily_string_val_ {
     uint32_t size;
     char *string;
 } lily_string_val;
-
-typedef struct lily_symbol_val_ {
-    uint32_t refcount;
-
-    /* This is set to 1 if the symbol has an associated literal (which will
-       prevent it from being collected). If 0, it has an entry attached. */
-    uint8_t has_literal;
-
-    /* This is set to 1 if the symbol's string has only valid identifier
-       characters within it. */
-    uint8_t is_simple;
-    uint16_t size;
-
-    /* If a symbol has a literal associated with it, ref/deref code knows to
-       leave it alone instead of attempting to destroy it. */
-    union {
-        lily_weak_symbol_entry *entry;
-        lily_tie *assoc_lit;
-    };
-    char *string;
-} lily_symbol_val;
 
 /* Next are anys. These are marked as refcounted, but that's just to keep
    them from being treated like simple values (such as integer or number).
@@ -579,15 +547,14 @@ typedef struct lily_options_ {
 #define SYM_CLASS_DOUBLE          1
 #define SYM_CLASS_STRING          2
 #define SYM_CLASS_BYTESTRING      3
-#define SYM_CLASS_SYMBOL          4
-#define SYM_CLASS_FUNCTION        5
-#define SYM_CLASS_ANY             6
-#define SYM_CLASS_LIST            7
-#define SYM_CLASS_HASH            8
-#define SYM_CLASS_TUPLE           9
-#define SYM_CLASS_OPTARG         10
-#define SYM_CLASS_FILE           11
-#define SYM_CLASS_GENERIC        12
-#define SYM_CLASS_EXCEPTION      13
+#define SYM_CLASS_FUNCTION        4
+#define SYM_CLASS_ANY             5
+#define SYM_CLASS_LIST            6
+#define SYM_CLASS_HASH            7
+#define SYM_CLASS_TUPLE           8
+#define SYM_CLASS_OPTARG          9
+#define SYM_CLASS_FILE           10
+#define SYM_CLASS_GENERIC        11
+#define SYM_CLASS_EXCEPTION      12
 
 #endif

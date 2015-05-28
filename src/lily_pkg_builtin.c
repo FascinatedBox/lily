@@ -7,7 +7,6 @@
 #include "lily_cls_double.h"
 #include "lily_cls_string.h"
 #include "lily_cls_bytestring.h"
-#include "lily_cls_symbol.h"
 #include "lily_cls_function.h"
 #include "lily_cls_any.h"
 #include "lily_cls_list.h"
@@ -15,20 +14,6 @@
 #include "lily_cls_tuple.h"
 #include "lily_cls_file.h"
 #include "lily_seed.h"
-
-static const lily_class_seed symbol_seed =
-{
-     NULL,                 /* next */
-     "symbol",             /* name */
-     dyna_class,           /* load_type */
-     1,                    /* is_refcounted */
-     0,                    /* generic_count */
-     CLS_VALID_HASH_KEY,   /* flags */
-     NULL,                 /* dynaload_table */
-     NULL,                 /* gc_marker */
-     &lily_generic_eq,     /* eq_func */
-     lily_destroy_symbol,  /* destroy_func */
-};
 
 static const lily_class_seed function_seed =
 {
@@ -167,7 +152,6 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
     symtab->double_class     = lily_double_init(symtab);
     symtab->string_class     = lily_string_init(symtab);
     symtab->bytestring_class = lily_bytestring_init(symtab);
-    symtab->symbol_class     = lily_new_class_by_seed(symtab, &symbol_seed);
     symtab->function_class   = lily_new_class_by_seed(symtab, &function_seed);
     symtab->any_class        = lily_new_class_by_seed(symtab, &any_seed);
     symtab->list_class       = lily_list_init(symtab);
@@ -182,7 +166,7 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
        unresolved flag upward. */
     symtab->generic_class->type->flags |= TYPE_IS_UNRESOLVED;
     symtab->generic_type_start = symtab->generic_class->type;
-    symtab->next_class_id = 13;
+    symtab->next_class_id = 12;
 
     builtin->dynaload_table = &seed_stdin;
     builtin->var_load_fn = builtin_var_loader;

@@ -793,38 +793,8 @@ void lily_string_format(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(vm, result_arg, 0, v);
 }
 
-/*  lily_string_to_sym
-    Implements string::to_sym
-
-    Arguments:
-    * input: A string for which a symbol will be created.
-
-    The result of this function is a symbol value. The interpreter will attempt
-    to fetch an existing value, but fallback to making a new one if it cannot
-    do so. */
-void lily_string_to_sym(lily_vm_state *vm, uint16_t argc, uint16_t *code)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[0]];
-    lily_value *result_arg = vm_regs[code[1]];
-
-    char *symbol_str = input_arg->value.string->string;
-    lily_symbol_val *symbol = lily_symbol_by_name(vm->symtab, symbol_str);
-
-    lily_raw_value v = {.symbol = symbol};
-    /* If the symbol has a literal associated with it, then the symbol will
-       refuse to be garbage collected until the symtab is closing down.
-       Putting this protected flag on does not change that. Rather, the flag is
-       so the vm does not do unnecessary ref/derefs on this symbol. */
-    int result_flags = (symbol->has_literal ? VAL_IS_PROTECTED : 0);
-    lily_move_raw_value(vm, result_arg, result_flags, v);
-}
-
-static const lily_func_seed to_sym =
-    {NULL, "to_sym", dyna_function, "function to_sym(string => symbol)", lily_string_to_sym};
-
 static const lily_func_seed format =
-    {&to_sym, "format", dyna_function, "function format(string, list[any]... => string)", lily_string_format};
+    {NULL, "format", dyna_function, "function format(string, list[any]... => string)", lily_string_format};
 
 static const lily_func_seed htmlencode =
     {&format, "htmlencode", dyna_function, "function htmlencode(string => string)", lily_string_htmlencode};
