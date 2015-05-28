@@ -48,7 +48,7 @@ static lily_tie *make_new_literal(lily_symtab *symtab, lily_class *cls)
     /* Literal values always have a default type, so this is safe. */
     lit->type = cls->type;
 
-    lit->flags = SYM_TYPE_TIE;
+    lit->flags = ITEM_TYPE_TIE;
     /* Literals aren't put in registers, but they ARE put in a special vm
        table. This is the literal's index into that table. */
     lit->reg_spot = symtab->next_readonly_spot;
@@ -66,7 +66,7 @@ static lily_var *new_var(lily_symtab *symtab, lily_type *type, const char *name,
     lily_var *var = lily_malloc(sizeof(lily_var));
 
     var->name = lily_malloc(strlen(name) + 1);
-    var->flags = SYM_TYPE_VAR | flags;
+    var->flags = ITEM_TYPE_VAR | flags;
     strcpy(var->name, name);
     var->line_num = *symtab->lex_linenum;
 
@@ -376,7 +376,7 @@ static lily_var *find_var(lily_var *var_iter, char *name, uint64_t shorthash)
 {
     while (var_iter != NULL) {
         if (var_iter->shorthash == shorthash &&
-            ((var_iter->flags & SYM_OUT_OF_SCOPE) == 0) &&
+            ((var_iter->flags & VAR_OUT_OF_SCOPE) == 0) &&
             strcmp(var_iter->name, name) == 0) {
 
             break;
@@ -811,7 +811,7 @@ static void tie_function(lily_symtab *symtab, lily_var *func_var,
     tie->type = func_var->type;
     tie->value.function = func_val;
     tie->reg_spot = func_var->reg_spot;
-    tie->flags = SYM_TYPE_TIE;
+    tie->flags = ITEM_TYPE_TIE;
 
     tie->next = symtab->function_ties;
     symtab->function_ties = tie;
@@ -836,7 +836,7 @@ void lily_tie_value(lily_symtab *symtab, lily_var *var, lily_value *value)
     tie->type = var->type;
     tie->value = value->value;
     tie->reg_spot = var->reg_spot;
-    tie->flags = SYM_TYPE_TIE;
+    tie->flags = ITEM_TYPE_TIE;
     tie->next = symtab->foreign_ties;
     symtab->foreign_ties = tie;
 }
@@ -998,7 +998,7 @@ void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
 {
     lily_var *var_iter = symtab->var_chain;
     while (var_iter != var_stop) {
-        var_iter->flags |= SYM_OUT_OF_SCOPE;
+        var_iter->flags |= VAR_OUT_OF_SCOPE;
         var_iter = var_iter->next;
     }
 }

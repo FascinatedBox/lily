@@ -1327,7 +1327,7 @@ static void expression_word(lily_parse_state *parser, int *state)
         int key_id = keyword_by_name(lex->label);
         if (key_id != -1) {
             lily_sym *sym = parse_special_keyword(parser, key_id);
-            if (sym->flags & SYM_TYPE_TIE)
+            if (sym->flags & ITEM_TYPE_TIE)
                 lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
             else
                 lily_ast_push_self(parser->ast_pool);
@@ -2114,7 +2114,7 @@ static void do_keyword(lily_parse_state *parser, int key_id)
 {
     lily_sym *sym;
     sym = parse_special_keyword(parser, key_id);
-    if (sym->flags & SYM_TYPE_TIE)
+    if (sym->flags & ITEM_TYPE_TIE)
         lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
     else
         lily_ast_push_self(parser->ast_pool);
