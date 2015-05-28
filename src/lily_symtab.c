@@ -811,9 +811,7 @@ static void tie_function(lily_symtab *symtab, lily_var *func_var,
     tie->type = func_var->type;
     tie->value.function = func_val;
     tie->reg_spot = func_var->reg_spot;
-
-    /* VAL_IS_PROTECTED means "don't deref me". */
-    tie->flags = SYM_TYPE_TIE | VAL_IS_PROTECTED;
+    tie->flags = SYM_TYPE_TIE;
 
     tie->next = symtab->function_ties;
     symtab->function_ties = tie;
