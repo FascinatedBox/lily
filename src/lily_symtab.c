@@ -1094,12 +1094,13 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
 
     strcpy(entry_name, name);
 
-    entry->flags = flags;
+    entry->flags = flags | ITEM_TYPE_PROPERTY;
     entry->name = entry_name;
     entry->type = type;
     entry->name_shorthash = shorthash_for_name(entry_name);
     entry->next = NULL;
     entry->id = cls->prop_count;
+    entry->cls = cls;
     cls->prop_count++;
 
     /* It's REALLY important that properties be linked this way, because it
@@ -1256,7 +1257,7 @@ lily_class *lily_new_variant_class(lily_symtab *symtab, lily_class *enum_class,
 {
     lily_class *cls = lily_new_class(symtab, name);
 
-    cls->flags |= CLS_VARIANT_CLASS;
+    cls->flags |= CLS_VARIANT_CLASS | ITEM_TYPE_VARIANT_CLASS;
     cls->parent = enum_class;
 
     return cls;

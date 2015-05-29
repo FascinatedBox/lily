@@ -867,8 +867,10 @@ static void push_info_to_error(lily_emit_state *emit, lily_ast *ast)
     char *call_name;
     lily_msgbuf *msgbuf = emit->raiser->msgbuf;
 
-    if (ast->result) {
-        lily_var *var = (lily_var *)ast->result;
+    int item_flags = ast->item->flags;
+
+    if (item_flags & ITEM_TYPE_VAR) {
+        lily_var *var = (lily_var *)ast->item;
         if (var->parent) {
             class_name = var->parent->name;
             separator = "::";
@@ -876,8 +878,8 @@ static void push_info_to_error(lily_emit_state *emit, lily_ast *ast)
 
         call_name = var->name;
     }
-    else if (ast->arg_start->tree_type == tree_variant) {
-        lily_class *variant_cls = ast->arg_start->variant_class;
+    else if (item_flags & ITEM_TYPE_VARIANT_CLASS) {
+        lily_class *variant_cls = ast->variant_class;
         call_name = variant_cls->name;
 
         if (variant_cls->parent->flags & CLS_ENUM_IS_SCOPED) {
@@ -887,20 +889,14 @@ static void push_info_to_error(lily_emit_state *emit, lily_ast *ast)
 
         kind = "Variant";
     }
-    else if (ast->arg_start->tree_type == tree_oo_access) {
-        lily_ast *start = ast->arg_start;
-        class_name = start->result->type->cls->name;
-        call_name = lily_membuf_get(emit->ast_membuf, start->membuf_pos);
+    else if (item_flags & ITEM_TYPE_PROPERTY) {
+        lily_prop_entry *prop = ast->property;
 
-        if (ast->arg_start->oo_property_index == -1)
-            separator = "::";
-        else {
-            separator = ".";
-            kind = "Property";
-        }
+        class_name = prop->cls->name;
+        call_name = prop->name;
+        separator = ".";
+        kind = "Property";
     }
-    else if (ast->arg_start->tree_type == tree_local_var)
-        call_name = ((lily_var *)ast->arg_start->result)->name;
     else {
         /* This occurs when there's a call of a call, a call of a subscript
            result, or something else weird. */
@@ -2511,8 +2507,15 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
 
     /* This is important because wrong type/wrong number of args looks to
        either ast->result or the first tree to get the function name. */
+    if (first_t == tree_global_var ||
+        first_t == tree_local_var ||
+        first_t == tree_oo_access)
+        ast->item = (lily_item *)ast->arg_start->item;
+    else
+        ast->item = (lily_item *)ast->arg_start->result;
+
     ast->result = ast->arg_start->result;
-    call_sym = ast->result;
+    call_sym = (lily_sym *)ast->result;
 
     /* Make sure the result is callable (ex: NOT @(integer: 10) ()). */
     cls_id = ast->result->type->cls->id;
@@ -2652,8 +2655,10 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
     if (var == NULL)
         var = lily_parser_dynamic_load(emit->parser, lookup_class, oo_name);
 
-    if (var)
+    if (var) {
         ast->result = (lily_sym *)var;
+        ast->item = (lily_item *)var;
+    }
     else {
         lily_prop_entry *prop = lily_find_property(emit->symtab,
                 lookup_class, oo_name);
@@ -2663,6 +2668,8 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
                     "Class %s has no callable or property named %s.\n",
                     lookup_class->name, oo_name);
         }
+
+        ast->property = prop;
 
         /* self.<name> works just as well. However, preventing it from being
            used for property access ensures that all future Lily code will use
@@ -2734,6 +2741,10 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         lily_ast *variant_tree = ast->arg_start;
         lily_class *variant_class = variant_tree->variant_class;
         lily_type *variant_type = variant_class->variant_type;
+
+        /* This is necessary because ast->item is used for retrieving info if
+           there is an error. */
+        ast->item = (lily_item *)variant_class;
 
         if (variant_type->subtype_count == 1)
             lily_raise(emit->raiser, lily_SyntaxError,

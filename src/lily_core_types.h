@@ -169,6 +169,7 @@ typedef struct lily_prop_entry_ {
     uint32_t pad;
     char *name;
     uint64_t name_shorthash;
+    lily_class *cls;
     struct lily_prop_entry_ *next;
 } lily_prop_entry;
 
