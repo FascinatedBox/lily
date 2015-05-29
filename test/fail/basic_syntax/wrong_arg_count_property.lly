@@ -1,0 +1,11 @@
+#[
+SyntaxError: Property abc.a expects 0 args, but got 2.
+Where: File "wrong_arg_count_property.lly" at line 11
+]#
+
+class abc() {
+    var @a = {|| 10}
+}
+
+var d = abc::new()
+d.a(1)

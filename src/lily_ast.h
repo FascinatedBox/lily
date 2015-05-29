@@ -57,9 +57,20 @@ typedef struct lily_ast_ {
        be gotten from the ast pool's membuf at this position. */
     uint32_t membuf_pos;
 
-    lily_tie *literal;
-    lily_sym *original_sym;
-    lily_prop_entry *property;
+    /* Since lily_item is a superset of all of the types that follow, it would
+       be possible to just use lily_item alone here. However, that results in
+       parts of the emitter having to cast the item to a sym or something higher
+       up as a means of acquiring either a type or a name. That sucks.
+       Why include lily_item then? Well, call makes use of it (since a call can
+       be against a variant, a var, or a storage) by putting the thing it's
+       trying to call there. Doing so allows debug information to be grabbed. */
+    union {
+        lily_item *item;
+        lily_tie *literal;
+        lily_prop_entry *property;
+        lily_class *variant_class;
+        lily_sym *original_sym;
+    };
 
     /* Nothing uses both of these at the same time. */
     union {
@@ -75,7 +86,6 @@ typedef struct lily_ast_ {
            property here. This is used by oo assign to prevent two lookups of the
            same property. */
         int oo_property_index;
-        lily_class *variant_class;
         int priority;
     };
 

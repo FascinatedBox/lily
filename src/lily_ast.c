@@ -590,6 +590,7 @@ void lily_ast_push_local_var(lily_ast_pool *ap, lily_var *var)
 {
     AST_COMMON_INIT(a, tree_local_var);
     a->result = (lily_sym *)var;
+    a->original_sym = (lily_sym *)var;
 
     merge_value(ap, a);
 }
