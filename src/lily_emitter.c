@@ -31,7 +31,7 @@
 static int type_matchup(lily_emit_state *, lily_type *, lily_ast *);
 static void eval_tree(lily_emit_state *, lily_ast *, lily_type *, int);
 static void eval_variant(lily_emit_state *, lily_ast *, lily_type *, int);
-
+static void add_call_state(lily_emit_state *);
 
 /*****************************************************************************/
 /* Emitter setup and teardown                                                */
@@ -46,8 +46,13 @@ lily_emit_state *lily_new_emit_state(lily_options *options,
     emit->match_cases = lily_malloc(sizeof(int) * 4);
     emit->ts = lily_new_type_system(options, symtab, raiser);
     emit->code = lily_malloc(sizeof(uint16_t) * 32);
+    emit->call_values = lily_malloc(sizeof(lily_sym *) * 8);
+    emit->call_state = NULL;
     emit->code_pos = 0;
     emit->code_size = 32;
+
+    emit->call_values_pos = 0;
+    emit->call_values_size = 8;
 
     emit->match_case_pos = 0;
     emit->match_case_size = 4;
@@ -64,6 +69,8 @@ lily_emit_state *lily_new_emit_state(lily_options *options,
     emit->current_class = NULL;
     emit->raiser = raiser;
     emit->expr_num = 1;
+
+    add_call_state(emit);
 
     return emit;
 }
@@ -89,6 +96,20 @@ void lily_free_emit_state(lily_emit_state *emit)
         current_store = temp_store;
     }
 
+    lily_emit_call_state *call_iter = emit->call_state;
+    if (call_iter) {
+        while (call_iter->prev != NULL)
+            call_iter = call_iter->prev;
+
+        lily_emit_call_state *call_next;
+        while (call_iter) {
+            call_next = call_iter->next;
+            lily_free(call_iter);
+            call_iter = call_next;
+        }
+    }
+
+    lily_free(emit->call_values);
     lily_free_type_system(emit->ts);
     lily_free(emit->match_cases);
     lily_free(emit->patches);
@@ -545,6 +566,27 @@ static void rebox_variant_to_enum(lily_emit_state *emit, lily_ast *ast)
     emit_rebox_value(emit, rebox_type, ast);
 }
 
+static lily_storage *emit_rebox_sym(lily_emit_state *emit,
+        lily_type *new_type, lily_sym *sym, uint32_t line_num)
+{
+    lily_storage *storage = get_storage(emit, new_type);
+
+    /* Don't allow a bare variant to be thrown into an any until it's thrown
+       into an enum box first. */
+    if (new_type->cls->id == SYM_CLASS_ANY &&
+        sym->type->cls->flags & CLS_VARIANT_CLASS) {
+        lily_type *rebox_type = lily_ts_build_enum_by_variant(emit->ts,
+                sym->type);
+
+        sym = (lily_sym *)emit_rebox_sym(emit, rebox_type, sym, line_num);
+    }
+
+    write_4(emit, o_assign, line_num, sym->reg_spot,
+            storage->reg_spot);
+
+    return storage;
+}
+
 /*  emit_rebox_value
     Make a storage of type 'new_type' and assign ast's result to it. The tree's
     result is written over. */
@@ -573,7 +615,6 @@ static void emit_rebox_to_any(lily_emit_state *emit, lily_ast *ast)
 {
     emit_rebox_value(emit, emit->symtab->any_class->type, ast);
 }
-
 
 /*  setup_types_for_build
     This is called before building a static list or hash.
@@ -861,16 +902,17 @@ static void ensure_proper_match_block(lily_emit_state *emit)
         lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
 }
 
-static void push_info_to_error(lily_emit_state *emit, lily_ast *ast)
+static void push_info_to_error(lily_emit_state *emit,
+        lily_emit_call_state *cs)
 {
     char *class_name = "", *separator = "", *kind = "Function";
     char *call_name;
     lily_msgbuf *msgbuf = emit->raiser->msgbuf;
 
-    int item_flags = ast->item->flags;
+    int item_flags = cs->item->flags;
 
     if (item_flags & ITEM_TYPE_VAR) {
-        lily_var *var = (lily_var *)ast->item;
+        lily_var *var = cs->var;
         if (var->parent) {
             class_name = var->parent->name;
             separator = "::";
@@ -879,7 +921,7 @@ static void push_info_to_error(lily_emit_state *emit, lily_ast *ast)
         call_name = var->name;
     }
     else if (item_flags & ITEM_TYPE_VARIANT_CLASS) {
-        lily_class *variant_cls = ast->variant_class;
+        lily_class *variant_cls = cs->variant;
         call_name = variant_cls->name;
 
         if (variant_cls->parent->flags & CLS_ENUM_IS_SCOPED) {
@@ -890,7 +932,7 @@ static void push_info_to_error(lily_emit_state *emit, lily_ast *ast)
         kind = "Variant";
     }
     else if (item_flags & ITEM_TYPE_PROPERTY) {
-        lily_prop_entry *prop = ast->property;
+        lily_prop_entry *prop = cs->property;
 
         class_name = prop->cls->name;
         call_name = prop->name;
@@ -942,13 +984,13 @@ static void bad_assign_error(lily_emit_state *emit, int line_num,
             right_type, left_type);
 }
 
-static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
-    lily_type *got, lily_type *expected, int arg_num)
+static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
+        lily_type *got, lily_type *expected)
 {
-    push_info_to_error(emit, ast);
+    push_info_to_error(emit, cs);
     lily_msgbuf *msgbuf = emit->raiser->msgbuf;
 
-    emit->raiser->line_adjust = ast->line_num;
+    emit->raiser->line_adjust = cs->ast->line_num;
 
     /* If this call has unresolved generics, resolve those generics as
        themselves so the error message prints out correctly. */
@@ -960,52 +1002,16 @@ static void bad_arg_error(lily_emit_state *emit, lily_ast *ast,
             ", argument #%d is invalid:\n"
             "Expected Type: ^T\n"
             "Received Type: ^T\n",
-            arg_num + 1, lily_ts_resolve(emit->ts, expected), got);
+            cs->arg_count + 1, lily_ts_resolve(emit->ts, expected), got);
     lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
-}
-
-/*  get_optarg_min_args
-    Determine the minimum amount of arguments necessary to call a type tagged as
-    having optional arguments. */
-static int get_optarg_min_args(lily_type *call_type)
-{
-    int i;
-    for (i = 1;i < call_type->subtype_count;i++) {
-        if (call_type->subtypes[i]->cls->id == SYM_CLASS_OPTARG)
-            break;
-    }
-
-    return i - 1;
 }
 
 /* bad_num_args
    Reports that the ast didn't get as many args as it should have. Takes
    anonymous calls and var args into account. */
 static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
-        lily_type *call_type)
+        int arg_count, int min, int max)
 {
-    push_info_to_error(emit, ast);
-    lily_msgbuf *msgbuf = emit->raiser->msgbuf;
-
-    emit->raiser->line_adjust = ast->line_num;
-
-    lily_msgbuf_add(msgbuf, " expects ");
-
-    if (call_type->flags & TYPE_IS_VARARGS) {
-        lily_msgbuf_add_fmt(msgbuf, "at least %d args",
-                call_type->subtype_count - 1);
-    }
-    else if (call_type->flags & TYPE_HAS_OPTARGS) {
-        lily_msgbuf_add_fmt(msgbuf, "%d to %d args",
-                get_optarg_min_args(call_type),
-                call_type->subtype_count - 1);
-    }
-    else
-        lily_msgbuf_add_fmt(msgbuf, "%d args", call_type->subtype_count - 1);
-
-    lily_msgbuf_add_fmt(msgbuf, ", but got %d.\n", ast->args_collected);
-
-    lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
 }
 
 /*  determine_left_type
@@ -2195,13 +2201,125 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast,
     ast->result = (lily_sym *)result;
 }
 
+/******************************************************************************/
+/* Call handling                                                              */
+/******************************************************************************/
+
+/* Function calls are rather complex things, and so they have everything under
+   this area.
+   To begin with, Lily supports the following kinds of calls:
+   * x()          # This is a simple call.
+   * x.y()        # x is an instance of some class. y is either a property of the
+                  # class, or a class method. 'x' is added as the first argument
+                  # of the call.
+   * {|| 10} ()   # A call of a lambda. Weird, but okay.
+   * x[0]()       # A call of a subscript result.
+   * x()()        # A call of a call result.
+   enum class Option[A] { Some(A), None }
+   * x = Some(10) # A 'call' of a variant type. eval_variant handles writing out
+                  # the code, but the arguments given pass through the same type
+                  # checking that a regular call's arguments pass through.
+
+   Calls are also the backbone of type inference. The arguments they expect are
+   passed down to evaluated trees. List, hash, and tuple eval all use the types
+   that are given to infer what they can. However, calls also need to infer a
+   a little bit. One example is that if a call wants type any, but a non-any is
+   supplied, it will 'rebox' the non-any into an any.
+
+   Finally, calls must keep track of their arguments. This is kept track of
+   using a min and a max. Most functions take a set number of arguments, and min
+   will be the same as max. However, min is less than max for functions that
+   have optional arguments. Max is set to -1 for functions that take varargs. It
+   is currently not possible for a function to be both optargs and varargs. */
+static void add_call_state(lily_emit_state *emit)
+{
+    lily_emit_call_state *new_state = lily_malloc(sizeof(lily_emit_call_state));
+
+    if (emit->call_state != NULL)
+        emit->call_state->next = new_state;
+
+    new_state->prev = emit->call_state;
+    new_state->next = NULL;
+    new_state->item = NULL;
+    new_state->call_type = NULL;
+
+    emit->call_state = new_state;
+}
+
+static void grow_call_values(lily_emit_state *emit)
+{
+    emit->call_values_size *= 2;
+    emit->call_values = lily_realloc(emit->call_values,
+            sizeof(lily_sym *) * emit->call_values_size);
+}
+
+static void add_value(lily_emit_state *emit, lily_emit_call_state *cs,
+        lily_sym *sym)
+{
+    if (emit->call_values_pos == emit->call_values_size)
+        grow_call_values(emit);
+
+    emit->call_values[emit->call_values_pos] = sym;
+    emit->call_values_pos++;
+    cs->arg_count++;
+}
+
+static lily_type *get_expected_type(lily_emit_call_state *cs, int pos)
+{
+    lily_type *result;
+    if (cs->vararg_start > (pos + 1)) {
+        /* The + 1 is because the return type of a function is the first subtype
+           inside of it. */
+        result = cs->call_type->subtypes[pos + 1];
+        if (result->cls->id == SYM_CLASS_OPTARG)
+            result = result->subtypes[0];
+    }
+    else {
+        /* There's no check for optarg here because there's no such thing as
+           varargs with optional values. */
+        result = cs->vararg_elem_type;
+    }
+
+    return result;
+}
+
+static void condense_args(lily_emit_state *emit, lily_emit_call_state *cs,
+        lily_type *type, uint16_t from, uint16_t to)
+{
+    int i;
+    int offset = (emit->call_values_pos - cs->arg_count) + from;
+    int count = to - from;
+    lily_storage *s = get_storage(emit, type);
+
+    write_prep(emit, 4 + count);
+
+    emit->code[emit->code_pos] = o_build_list_tuple;
+    emit->code[emit->code_pos + 1] = cs->ast->line_num;
+    emit->code[emit->code_pos + 2] = count;
+    for (i = 0;i < count;i++)
+        emit->code[emit->code_pos + 3 + i] =
+                emit->call_values[offset + i]->reg_spot;
+
+    /* The individual extra values are gone now... */
+    emit->call_values_pos -= count;
+    cs->arg_count -= count;
+
+    /* With the list of them added in place of it. */
+    add_value(emit, cs, (lily_sym *)s);
+
+    emit->code[emit->code_pos + 3 + i] = s->reg_spot;
+    emit->code_pos += 4 + i;
+}
+
 /*  eval_call_arg
     Evaluate the argument of a function call and do some type matching up on
     the result. This is different than type_matchup, because it's a fair chance
     that the arguments may hold information about generics. */
-static void eval_call_arg(lily_emit_state *emit, lily_ast *call_ast,
-        int generic_adjust, lily_type *want_type, lily_ast *arg, int arg_num)
+static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
+        lily_ast *arg)
 {
+    lily_type *want_type = get_expected_type(cs, cs->arg_count);
+
     if (want_type->cls->id == SYM_CLASS_OPTARG)
         want_type = want_type->subtypes[0];
 
@@ -2210,43 +2328,31 @@ static void eval_call_arg(lily_emit_state *emit, lily_ast *call_ast,
            arguments. So the types are NEVER resolved. */
         eval_tree(emit, arg, want_type, 0);
 
-    /* It may seem tempting to do type == type in here. Don't.
-       If one generic function calls another, then the caller needs to know
-       that the generic types of the callee match to the generic types of the
-       caller. */
-    int ok = 0;
-
     /* This is used so that type_matchup gets the resolved type (if there
        is one) because the resolved type might be 'any'. */
     lily_type *matchup_type = want_type;
 
-    /* A simple generic is easy to resolve. */
-    if (want_type->cls->id == SYM_CLASS_GENERIC) {
+    /* Don't allow bare variants to solve for a type. Always force them to be in
+       something to prevent bare variant values. */
+    if (want_type->cls->id == SYM_CLASS_GENERIC &&
+        arg->result->type->cls->flags & CLS_VARIANT_CLASS) {
         matchup_type = lily_ts_easy_resolve(emit->ts, want_type);
-        if (matchup_type != NULL) {
-            if (matchup_type == arg->result->type)
-                ok = 1;
-        }
-        else if (arg->result->type->cls->flags & CLS_VARIANT_CLASS &&
-                matchup_type == NULL) {
-            /* If a bare variant wants to resolve a generic, it first has to go
-               into the proper enum type. */
-            lily_type *enum_type = lily_ts_build_enum_by_variant(emit->ts,
-                    arg->result->type);
-            emit_rebox_value(emit, enum_type, arg);
-        }
+        if (matchup_type == NULL)
+            rebox_variant_to_enum(emit, arg);
     }
+
+    lily_type *match_type = want_type;
+    if (want_type->cls->id == SYM_CLASS_GENERIC)
+        match_type = lily_ts_easy_resolve(emit->ts, want_type);
 
     /* ok == 0 protects from potentially attempting to resolve the same generic
        twice, which breaks things. */
-    if (ok == 0 &&
-        (lily_ts_check(emit->ts, want_type, arg->result->type) ||
-         type_matchup(emit, matchup_type, arg)))
-        ok = 1;
-
-    if (ok == 0)
-        bad_arg_error(emit, call_ast, arg->result->type, want_type,
-                      arg_num);
+    if (lily_ts_check(emit->ts, want_type, arg->result->type) ||
+        type_matchup(emit, match_type, arg)) {
+        add_value(emit, cs, arg->result);
+    }
+    else
+        bad_arg_error(emit, cs, arg->result->type, want_type);
 }
 
 /*  box_call_variants
@@ -2257,32 +2363,42 @@ static void eval_call_arg(lily_emit_state *emit, lily_ast *call_ast,
     what the resulting enum class should be. In such a case, call argument
     processing calls this to make sure any variants are put into a proper enum
     class value. */
-static void box_call_variants(lily_emit_state *emit, lily_type *call_type,
-        int num_args, lily_ast *arg)
+static void box_call_variants(lily_emit_state *emit, lily_emit_call_state *cs)
 {
+    int num_args = cs->call_type->subtype_count - 1;
     int i;
-    for (i = 0;
-         i != num_args;
-         i++, arg = arg->next_arg) {
-        if (arg->result->type->cls->flags & CLS_VARIANT_CLASS) {
-            lily_type *arg_type = call_type->subtypes[i + 1];
-            lily_type *enum_type = lily_ts_resolve(emit->ts, arg_type);
-            emit_rebox_value(emit, enum_type, arg);
+    lily_sym *sym;
+    int offset = emit->call_values_pos - cs->arg_count;
+    uint32_t line_num = cs->ast->line_num;
+
+    if (cs->vararg_start != (uint16_t)-1)
+        num_args--;
+
+    for (i = 0;i != num_args;i++) {
+        sym = emit->call_values[offset + i];
+        if (sym->type->cls->flags & CLS_VARIANT_CLASS) {
+            lily_type *enum_type = lily_ts_resolve(emit->ts,
+                    get_expected_type(cs, i));
+            sym = (lily_sym *)emit_rebox_sym(emit, enum_type, sym, line_num);
+            emit->call_values[offset + i] = sym;
         }
     }
 
-    if (call_type->flags & TYPE_IS_VARARGS) {
-        /* This is called before the varargs are shoved into a list, so looping
-           over the args is fine.
-           Varargs is represented as a list of some type, so this next line grabs
-           the list, then what the list holds. */
-        lily_type *va_comp_type = call_type->subtypes[i + 1]->subtypes[0];
-        if (va_comp_type->cls->flags & CLS_ENUM_CLASS) {
-            lily_type *enum_type = lily_ts_resolve(emit->ts, va_comp_type);
-            for (;arg != NULL;
-                  i++, arg = arg->next_arg) {
-                if (arg->result->type->cls->flags & CLS_VARIANT_CLASS)
-                    emit_rebox_value(emit, enum_type, arg);
+    if (i != cs->arg_count &&
+        cs->vararg_elem_type->cls->flags & CLS_ENUM_CLASS &&
+        cs->vararg_elem_type->cls != emit->symtab->any_class) {
+        lily_type *solved_elem_type = lily_ts_resolve(emit->ts,
+                get_expected_type(cs, i));
+        for (;i != cs->arg_count;i++) {
+            sym = emit->call_values[offset + i];
+            /* This is called before the varargs are shoved into a list, so
+               looping over the args is fine.
+               Varargs is represented as a list of some type, so this next line
+               grabs the list, then what the list holds. */
+            if (sym->type->cls->flags & CLS_VARIANT_CLASS) {
+                sym = (lily_sym *)emit_rebox_sym(emit, solved_elem_type, sym,
+                        line_num);
+                emit->call_values[offset + i] = sym;
             }
         }
     }
@@ -2293,25 +2409,48 @@ static void box_call_variants(lily_emit_state *emit, lily_type *call_type,
     called with the right number of arguments. This is slightly tricky, because
     of optional arguments and variable arguments. */
 static void verify_argument_count(lily_emit_state *emit,
-        lily_ast *ast, lily_type *call_type, int num_args)
+        lily_emit_call_state *cs, int num_args)
 {
+    lily_type *call_type = cs->call_type;
     /* The -1 is because the return type of a function is the first type. */
-    int args_needed = call_type->subtype_count - 1;
-    unsigned int low_arg_num = args_needed;
-    unsigned int high_arg_num = args_needed;
+    int args_needed = cs->call_type->subtype_count - 1;
+    unsigned int min = args_needed;
+    unsigned int max = args_needed;
 
     /* A function can be either varargs or optargs. They cannot coexist because
        parser does not allow a default value for varargs, and varargs must
        always be last. */
-    if (call_type->flags & TYPE_HAS_OPTARGS)
-        low_arg_num = get_optarg_min_args(call_type);
+    if (call_type->flags & TYPE_HAS_OPTARGS) {
+        int i;
+        for (i = 1;i < call_type->subtype_count;i++) {
+            if (call_type->subtypes[i]->cls->id == SYM_CLASS_OPTARG)
+                break;
+        }
+        min = i - 1;
+    }
     else if (call_type->flags & TYPE_IS_VARARGS) {
-        high_arg_num = (unsigned int)-1;
-        low_arg_num = args_needed - 1;
+        max = (unsigned int)-1;
+        min = args_needed - 1;
     }
 
-    if (num_args < low_arg_num || num_args > high_arg_num)
-        bad_num_args(emit, ast, call_type);
+    if (num_args < min || num_args > max) {
+        push_info_to_error(emit, cs);
+        lily_msgbuf *msgbuf = emit->raiser->msgbuf;
+
+        lily_msgbuf_add(msgbuf, " expects ");
+
+        if (max == (unsigned int)-1)
+            lily_msgbuf_add_fmt(msgbuf, "at least %d args", min);
+        else if (max > min)
+            lily_msgbuf_add_fmt(msgbuf, "%d to %d args", min, max);
+        else
+            lily_msgbuf_add_fmt(msgbuf, "%d args", min);
+
+        lily_msgbuf_add_fmt(msgbuf, ", but got %d.\n", num_args);
+
+        emit->raiser->line_adjust = cs->ast->line_num;
+        lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
+    }
 }
 
 /*  check_call_args
@@ -2319,46 +2458,62 @@ static void verify_argument_count(lily_emit_state *emit,
 
     If the function takes varargs, the extra arguments are packed into a list
     of the vararg type. */
-static void check_call_args(lily_emit_state *emit, lily_ast *ast,
-        lily_type *call_type, lily_type *expect_type, int did_resolve)
+static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *cs,
+        lily_type *expect_type, int did_resolve)
 {
-    lily_ast *arg = ast->arg_start;
-    lily_ast *true_start = arg;
-    int have_args, i, is_varargs, num_args;
-    int auto_resolve = 0;
+    lily_ast *ast = cs->ast;
+    int num_args = ast->args_collected;
+    lily_tree_type call_tt = ast->arg_start->tree_type;
 
-    /* There are two cases where the first tree is supposed to be a value:
-       The first, is for the oo_access tree (x.y kind of calling).
-       The second, is when a class method is called from within a class (self is
-       implicitly added). */
-    if (arg->tree_type != tree_oo_access) {
-        if (arg->tree_type == tree_local_var ||
-            arg->tree_type == tree_inherited_new)
-            auto_resolve = 1;
-
-        if (arg->result != (lily_sym *)emit->block->self ||
-            emit->block->self == NULL) {
-            arg = arg->next_arg;
-            true_start = arg;
-            ast->args_collected--;
+    if (call_tt == tree_defined_func) {
+        /* Do a self insert if the thing being called belongs to this class. */
+        lily_var *first_result = ((lily_var *)ast->arg_start->original_sym);
+        if (emit->current_class != NULL &&
+            emit->current_class == first_result->parent) {
+            add_value(emit, cs, (lily_sym *)emit->block->self);
         }
+        else
+            num_args--;
+    }
+    else if (call_tt != tree_oo_access)
+        num_args--;
+
+    /* ast->args_collected includes the first tree in that count. If the first
+       tree doesn't provide that value, then the argument count must be
+       adjusted. */
+
+    verify_argument_count(emit, cs, num_args);
+
+    /* Since this assumes there is at least one argument needed, it has to come
+       after verifying the argument count. */
+    if (call_tt == tree_oo_access) {
+        lily_ts_check(emit->ts, get_expected_type(cs, 0),
+                ast->arg_start->arg_start->result->type);
+        /* For x.y kinds of accesses, add the (evaluated) 'x' as the first
+           value. */
+        add_value(emit, cs, ast->arg_start->arg_start->result);
     }
 
-    have_args = ast->args_collected;
-    is_varargs = call_type->flags & TYPE_IS_VARARGS;
-    num_args = (call_type->subtype_count - 1) - is_varargs;
+    if (cs->call_type->flags & TYPE_IS_UNRESOLVED) {
+        if (call_tt == tree_local_var || call_tt == tree_inherited_new) {
+            /* This forces each generic to be resolved as itself. (A = A, B = B,
+                etc.). This is really important.
+                tree_local_var:
+                    define f[A](a: function (A => A), b: A)
+                If g is called, it can't resolve what A is. It gets that
+                information from f. I call this being 'quasi-solved'.
 
-    verify_argument_count(emit, ast, call_type, ast->args_collected);
+                tree_inherited_new:
+                    class one[A, B](a: A, b: B) { ... }
+                    class two[A, B, C](a: A, b: B, c: C) < one(b, a) # INVALID
 
-    /* Generics are rather simple: The first time they're seen, the type they
-       see is written into emitter's type stack. Subsequent passes check that
-       the type seen is the same one (so multiple uses of A have the same
-       type). */
-    int generic_adjust = call_type->generic_pos;
-
-    if (call_type->flags & TYPE_IS_UNRESOLVED) {
-        if (auto_resolve == 0) {
-            lily_type *call_result = call_type->subtypes[0];
+                By forcing 'two' to have the same generic ordering as 'one', Lily
+                greatly simplifies generics handling. The A of one is the A of
+                two. */
+            lily_ts_resolve_as_self(emit->ts);
+        }
+        else {
+            lily_type *call_result = cs->call_type->subtypes[0];
             if (call_result && expect_type && did_resolve) {
                 /* If the caller wants something and the result is that same
                    sort of thing, then fill in info based on what the caller
@@ -2369,205 +2524,80 @@ static void check_call_args(lily_emit_state *emit, lily_ast *ast,
                     lily_ts_check(emit->ts, call_result, expect_type);
                 }
                 else if (expect_type->cls->flags & CLS_ENUM_CLASS &&
-                         call_result->cls->parent == expect_type->cls) {
+                            call_result->cls->parent == expect_type->cls) {
                     lily_ts_resolve_as_variant_by_enum(emit->ts,
                             call_result, expect_type);
                 }
             }
         }
-        else {
-            /* This block of code makes it so that each generic is resolved as
-               itself, thereby preventing generics from being resolved as
-               something else.
-               There are two cases for this:
-               * This function is a parameter to a generic function. It's bad
-                 to attempt to solve types IN a generic function.
-               * This function is being executed to process one function
-                 inheriting another one. This one is a choice: By making sure
-                 that A does not change between classes, determining the type
-                 of a property is MUCH easier. */
-            lily_ts_resolve_as_self(emit->ts);
-        }
     }
 
-    for (i = 0;arg != NULL && i != num_args;arg = arg->next_arg, i++)
-        eval_call_arg(emit, ast, generic_adjust, call_type->subtypes[i + 1],
-                arg, i);
-
-    if (is_varargs == 0 && call_type->flags & TYPE_CALL_HAS_ENUM_ARG)
-        box_call_variants(emit, call_type, num_args, true_start);
-    else if (is_varargs) {
-        lily_type *va_comp_type = call_type->subtypes[i + 1];
-        lily_ast *save_arg = arg;
-        lily_type *save_type;
-
-        /* varargs is handled by shoving the excess into a list. The elements
-           need to be the type of what the list holds. */
-        save_type = va_comp_type;
-        va_comp_type = va_comp_type->subtypes[0];
-
-        /* The difference is that this time the type wanted is always
-           va_comp_type. */
-        for (;arg != NULL;arg = arg->next_arg)
-            eval_call_arg(emit, ast, generic_adjust, va_comp_type, arg, i);
-
-        if (call_type->flags & TYPE_CALL_HAS_ENUM_ARG)
-            box_call_variants(emit, call_type, num_args, true_start);
-
-        i = (have_args - i);
-        lily_storage *s;
-
-        /* Make sure the generic type is resolved. This is important if, for
-           example, the varargs sig is list[F]... and the caller has F as some
-           lower generic type. */
-        if (save_type->flags & TYPE_IS_UNRESOLVED)
-            save_type = lily_ts_resolve(emit->ts, save_type);
-
-        s = get_storage(emit, save_type);
-
-        if (have_args > num_args)
-            write_build_op(emit, o_build_list_tuple, save_arg,
-                save_arg->line_num, i, s->reg_spot);
-        else {
-            /* This happens when the user doesn't pass anything for the vararg
-               part. Solve this by creating a blank value (with the right type)
-               and adding a tree to hold said value. */
-            write_4(emit, o_build_list_tuple, ast->line_num, 0, s->reg_spot);
-            save_arg = ast->stashed_tree;
-            ast->stashed_tree->tree_type = tree_list;
-
-            lily_ast *tree_iter = true_start;
-            /* If there are other arguments, put this new tree at the end. */
-            if (true_start) {
-                while (tree_iter->next_arg != NULL)
-                    tree_iter = tree_iter->next_arg;
-
-                tree_iter->next_arg = save_arg;
-            }
-            else
-                /* Otherwise, the new tree becomes the argument chain. */
-                true_start = save_arg;
-        }
-
-        /* Fix the ast so that it thinks the vararg list is the last value. */
-        save_arg->result = (lily_sym *)s;
-        save_arg->next_arg = NULL;
-        ast->args_collected = num_args + 1;
-    }
-
-    /* Now that there can be no errors in calling, fix up the arg start to the
-       real thing for the caller. */
-    ast->arg_start = true_start;
-}
-
-/*  maybe_self_insert
-    This is called when eval_call finds a readonly tre (a non-anonymous
-    function call) and there is a current class.
-    The ast given is the tree holding the function at result. Determine if this
-    function belongs to the current class. If so, replace the ast with 'self'.
-    Since this checks for tree_defined_func, only explicit calls to functions
-    defined in the class get an implicit self. */
-static int maybe_self_insert(lily_emit_state *emit, lily_ast *ast)
-{
-    /* Global functions defined outside of this class do not automatically get
-       self as the first argument. */
-    if (emit->current_class != ((lily_var *)ast->result)->parent)
-        return 0;
-
-    ast->arg_start->result = (lily_sym *)emit->block->self;
-    ast->arg_start->tree_type = tree_local_var;
-    return 1;
-}
-
-/*  eval_call
-    This handles doing calls to what should be a function. It handles doing oo
-    calls by farming out the oo lookup elsewhere. */
-static void eval_call(lily_emit_state *emit, lily_ast *ast,
-        lily_type *expect_type, int did_resolve)
-{
-    int expect_size, i;
     lily_ast *arg;
-    lily_type *call_type;
-    lily_sym *call_sym;
+    for (arg = ast->arg_start->next_arg;arg != NULL;arg = arg->next_arg)
+        eval_call_arg(emit, cs, arg);
 
-    lily_tree_type first_t = ast->arg_start->tree_type;
-    /* Variants are created by calling them in a function-like manner, so the
-       parser adds them as if they were functions. They're not. */
-    if (first_t == tree_variant) {
-        eval_variant(emit, ast, expect_type, did_resolve);
-        return;
+    if (cs->call_type->flags & TYPE_CALL_HAS_ENUM_ARG)
+        box_call_variants(emit, cs);
+
+    if (cs->call_type->flags & TYPE_IS_VARARGS) {
+        int va_pos = cs->call_type->subtype_count - 1;
+        lily_type *vararg_type = cs->call_type->subtypes[va_pos];
+        if (vararg_type->flags & TYPE_IS_UNRESOLVED)
+            vararg_type = lily_ts_resolve(emit->ts, vararg_type);
+
+        condense_args(emit, cs, vararg_type,
+                cs->call_type->subtype_count - 2, cs->arg_count);
     }
-    /* DON'T walk either of these, because doing so puts them in a storage and
-       the vm can call them by their spot without doing so. */
-    else if (first_t != tree_defined_func &&
-             first_t != tree_inherited_new)
-        eval_tree(emit, ast->arg_start, NULL, 1);
+}
 
-    int cls_id;
+static lily_emit_call_state *begin_call(lily_emit_state *emit,
+        lily_ast *ast, lily_item *item, lily_type *type)
+{
+    lily_emit_call_state *result = emit->call_state;
+    if (result->next == NULL)
+        add_call_state(emit);
 
-    /* This is important because wrong type/wrong number of args looks to
-       either ast->result or the first tree to get the function name. */
-    if (first_t == tree_global_var ||
-        first_t == tree_local_var ||
-        first_t == tree_oo_access)
-        ast->item = (lily_item *)ast->arg_start->item;
-    else
-        ast->item = (lily_item *)ast->arg_start->result;
-
-    ast->result = ast->arg_start->result;
-    call_sym = (lily_sym *)ast->result;
-
-    /* Make sure the result is callable (ex: NOT @(integer: 10) ()). */
-    cls_id = ast->result->type->cls->id;
-    if (cls_id != SYM_CLASS_FUNCTION)
-        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Cannot anonymously call resulting type '^T'.\n",
-                ast->result->type);
-
-    if (first_t == tree_oo_access) {
-        /* Fix the oo access to return the first arg it had, since that's
-           the call's first value. It's really important that
-           check_call_args get all the args, because the first is the most
-           likely to have a generic parameter. */
-        ast->arg_start->result = ast->arg_start->arg_start->result;
+    emit->call_state = result->next;
+    result->ast = ast;
+    result->arg_count = 0;
+    result->item = item;
+    result->call_type = type;
+    if (type->flags & TYPE_IS_VARARGS) {
+        /* The vararg type is always the last type in the function. It is
+           represented as a list. The first type of that list is the type that
+           each vararg entry will need to be. */
+        int va_pos = type->subtype_count - 1;
+        result->vararg_elem_type =
+                type->subtypes[va_pos]->subtypes[0];
+        result->vararg_start = va_pos;
     }
-    else if (first_t == tree_defined_func) {
-        /* If inside a class, then consider inserting replacing the
-           unnecessary readonly tree with 'self'.
-           If this isn't possible, drop the readonly tree from args since
-           it isn't truly an argument. */
-        if (emit->current_class != NULL)
-            maybe_self_insert(emit, ast);
+    else {
+        result->vararg_elem_type = NULL;
+        result->vararg_start = (uint16_t)-1;
     }
-    else if (first_t != tree_inherited_new) {
-        /* For anonymously called functions, unset ast->result so that arg
-           error functions will report that it's anonymously called. */
-        ast->result = NULL;
-    }
+}
 
-    call_type = call_sym->type;
-    arg = ast->arg_start;
-    expect_size = 6 + ast->args_collected;
+static lily_storage *write_call(lily_emit_state *emit, lily_emit_call_state *cs)
+{
+    int offset = emit->call_values_pos - cs->arg_count;
+    lily_sym *call_sym = cs->sym;
+    lily_ast *ast = cs->ast;
 
-    int saved_ts_adjust = lily_ts_raise_ceiling(emit->ts);
-    check_call_args(emit, ast, call_type, expect_type, did_resolve);
-
-    write_prep(emit, expect_size);
+    write_prep(emit, 6 + cs->arg_count);
 
     emit->code[emit->code_pos] = o_function_call;
     emit->code[emit->code_pos+1] = ast->line_num;
     emit->code[emit->code_pos+2] = !!(call_sym->flags & VAR_IS_READONLY);
     emit->code[emit->code_pos+3] = call_sym->reg_spot;
-    emit->code[emit->code_pos+4] = ast->args_collected;
-
-    for (i = 5, arg = ast->arg_start;
-        arg != NULL;
-        arg = arg->next_arg, i++) {
-        emit->code[emit->code_pos + i] = arg->result->reg_spot;
+    emit->code[emit->code_pos+4] = cs->arg_count;
+    int i, j;
+    for (i = 5, j = 0;j < cs->arg_count;i++, j++) {
+        emit->code[emit->code_pos + i] =
+                emit->call_values[offset + j]->reg_spot;
     }
 
-    if (call_type->subtypes[0] != NULL) {
-        lily_type *return_type = call_type->subtypes[0];
+    if (cs->call_type->subtypes[0] != NULL) {
+        lily_type *return_type = cs->call_type->subtypes[0];
 
         /* If it's just a generic, grab the appropriate thing from the type
            stack (which is okay until the next eval_call). Otherwise, just
@@ -2595,7 +2625,59 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
         emit->code[emit->code_pos+i] = -1;
     }
 
-    emit->code_pos += 6 + ast->args_collected;
+    emit->code_pos += 6 + cs->arg_count;
+}
+
+static void end_call(lily_emit_state *emit, lily_emit_call_state *cs)
+{
+    emit->call_values_pos -= cs->arg_count;
+    emit->call_state = cs;
+}
+
+/*  eval_call
+    This handles doing calls to what should be a function. */
+static void eval_call(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect_type, int did_resolve)
+{
+    int expect_size, i;
+    lily_ast *arg;
+    lily_type *call_type;
+    lily_sym *call_sym;
+
+    lily_tree_type first_t = ast->arg_start->tree_type;
+    /* Variants are created by calling them in a function-like manner, so the
+       parser adds them as if they were functions. They're not. */
+    if (first_t == tree_variant) {
+        eval_variant(emit, ast, expect_type, did_resolve);
+        return;
+    }
+
+    lily_tree_type tt = ast->arg_start->tree_type;
+
+    /* Don't evaluate either of these trees, because they both have a var inside
+       which has the index of a defined function. The emitter will write code to
+       reference that function directly (saving the access of a storage). */
+    if (tt != tree_defined_func && tt != tree_inherited_new)
+        eval_tree(emit, ast->arg_start, NULL, 1);
+
+    if (tt == tree_global_var || tt == tree_local_var || tt == tree_oo_access)
+        call_sym = ast->arg_start->original_sym;
+    else
+        call_sym = ast->arg_start->result;
+
+    /* Make sure the result is callable (ex: NOT @(integer: 10) ()). */
+    if (call_sym->type->cls->id != SYM_CLASS_FUNCTION)
+        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+                "Cannot anonymously call resulting type '^T'.\n",
+                call_sym->type);
+
+    int saved_ts_adjust = lily_ts_raise_ceiling(emit->ts);
+
+    lily_emit_call_state *cs = begin_call(emit, ast, (lily_item *)call_sym,
+            call_sym->type);
+    eval_verify_call_args(emit, cs, expect_type, did_resolve);
+    write_call(emit, cs);
+    end_call(emit, cs);
 
     lily_ts_lower_ceiling(emit->ts, saved_ts_adjust);
 }
@@ -2752,18 +2834,21 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
                     variant_class->name);
 
         int save_ceiling = lily_ts_raise_ceiling(emit->ts);
-        check_call_args(emit, ast, variant_type, expect_type,
-                did_resolve);
+        lily_emit_call_state *cs = begin_call(emit, ast,
+                (lily_item *)variant_class, variant_type);
+        eval_verify_call_args(emit, cs, expect_type, did_resolve);
 
         lily_type *result_type = variant_class->variant_type->subtypes[0];
         if (result_type->flags & TYPE_IS_UNRESOLVED)
             result_type = lily_ts_resolve(emit->ts, result_type);
 
-        result = get_storage(emit, result_type);
+        /* This will cause all of the args to be put together in a tuple. The
+           tuple will be put into emit->call_values as the most recent value. */
+        condense_args(emit, cs, result_type, 0, cs->arg_count);
 
-        /* It's pretty darn close to a tuple, so...let's use that. :) */
-        write_build_op(emit, o_build_list_tuple, ast->arg_start,
-                ast->line_num, ast->args_collected, result->reg_spot);
+        result = (lily_storage *)emit->call_values[emit->call_values_pos - 1];
+
+        end_call(emit, cs);
 
         lily_ts_lower_ceiling(emit->ts, save_ceiling);
     }
@@ -3556,6 +3641,12 @@ void lily_prepare_main(lily_emit_state *emit, lily_import_entry *import_iter)
     add_var_chain_to_info(emit, info, emit->symtab->var_chain, NULL);
     add_storage_chain_to_info(info, emit->block->storage_start);
 
+    /* It is EXTREMELY important that this write is done before giving __main__
+       a copy of code. There is a chance that emit->code_pos is just about to
+       grow, and this will push it over the edge...and realloc will move the
+       block somewhere else. */
+    write_1(emit, o_return_from_vm);
+
     /* To simplify things, __main__'s code IS emitter->code. There's no reason
        to give it a private block of code, since __main__'s code is wiped on the
        next pass anyway. */
@@ -3563,8 +3654,6 @@ void lily_prepare_main(lily_emit_state *emit, lily_import_entry *import_iter)
     f->len = emit->code_pos;
     f->reg_info = info;
     f->reg_count = register_count;
-
-    write_1(emit, o_return_from_vm);
 }
 
 /*  lily_reset_main
