@@ -89,14 +89,8 @@ typedef struct lily_ast_ {
         int priority;
     };
 
-    union {
-        /* right is the right side of a binary operation. Unused otherwise. */
-        struct lily_ast_ *right;
-
-        /* This is used to hold a vararg value when it needs to be made because
-           the user didn't supply one. */
-        struct lily_ast_ *stashed_tree;
-    };
+    /* right is the right side of a binary operation. Unused otherwise. */
+    struct lily_ast_ *right;
 
     /* If this tree is a subexpression, then this will be set to the calling
        tree. NULL otherwise. */

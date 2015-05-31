@@ -440,11 +440,6 @@ void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type)
 
     merge_value(ap, a);
 
-    if (tree_type == tree_call) {
-        ACQUIRE_SPARE_TREE(spare)
-        a->stashed_tree = spare;
-    }
-
     /* Make it so ap->save_chain always points to a non-NULL entry, and that it
        is always an unused one. This allows fast, simple access. */
     lily_ast_save_entry *save_entry = ap->save_chain;
