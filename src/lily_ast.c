@@ -585,7 +585,7 @@ void lily_ast_push_local_var(lily_ast_pool *ap, lily_var *var)
 {
     AST_COMMON_INIT(a, tree_local_var);
     a->result = (lily_sym *)var;
-    a->original_sym = (lily_sym *)var;
+    a->sym = (lily_sym *)var;
 
     merge_value(ap, a);
 }
@@ -594,7 +594,7 @@ void lily_ast_push_global_var(lily_ast_pool *ap, lily_var *var)
 {
     AST_COMMON_INIT(a, tree_global_var);
     a->result = (lily_sym *)var;
-    a->original_sym = (lily_sym *)var;
+    a->sym = (lily_sym *)var;
 
     merge_value(ap, a);
 }
@@ -603,7 +603,7 @@ void lily_ast_push_defined_func(lily_ast_pool *ap, lily_var *func)
 {
     AST_COMMON_INIT(a, tree_defined_func);
     a->result = (lily_sym *)func;
-    a->original_sym = (lily_sym *)func;
+    a->sym = (lily_sym *)func;
 
     merge_value(ap, a);
 }
@@ -612,7 +612,7 @@ void lily_ast_push_inherited_new(lily_ast_pool *ap, lily_var *func)
 {
     AST_COMMON_INIT(a, tree_inherited_new);
     a->result = (lily_sym *)func;
-    a->original_sym = (lily_sym *)func;
+    a->sym = (lily_sym *)func;
 
     merge_value(ap, a);
 }
@@ -622,7 +622,6 @@ void lily_ast_push_literal(lily_ast_pool *ap, lily_tie *lit)
     AST_COMMON_INIT(a, tree_literal);
     a->result = (lily_sym *)lit;
     a->literal = lit;
-    a->original_sym = (lily_sym *)lit;
 
     merge_value(ap, a);
 }

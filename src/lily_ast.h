@@ -66,10 +66,10 @@ typedef struct lily_ast_ {
        trying to call there. Doing so allows debug information to be grabbed. */
     union {
         lily_item *item;
+        lily_sym *sym;
         lily_tie *literal;
         lily_prop_entry *property;
         lily_class *variant_class;
-        lily_sym *original_sym;
     };
 
     /* Nothing uses both of these at the same time. */
