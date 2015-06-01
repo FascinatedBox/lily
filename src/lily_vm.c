@@ -375,11 +375,9 @@ static void destroy_gc_entries(lily_vm_state *vm)
 /* Shared code                                                               */
 /*****************************************************************************/
 
-/*  try_add_gc_item
-
-    This attempts to get a lily_gc_entry for the given value. This may call the
-    gc into action if there are vm->gc_threshold entries in vm->gc_live_entries
-    before the attempt to get a new value.
+/*  Add a lily_gc_entry for the given value. This may call the gc into action if
+    there are vm->gc_threshold entries in vm->gc_live_entries before the attempt
+    to get a new value.
 
     Take note, the gc may be invoked regardless of what this call returns.
 
@@ -389,9 +387,8 @@ static void destroy_gc_entries(lily_vm_state *vm)
     value:      The value to attach a gc_entry to. This can be any lily_value
                 that is a superset of lily_generic_gc_val.
 
-    Returns 1 if successful, 0 otherwise. Additionally, the value's ->gc_entry
-    is set to the new gc_entry on success. */
-static int try_add_gc_item(lily_vm_state *vm, lily_type *value_type,
+    The value's ->gc_entry is set to the new gc_entry on success. */
+static void add_gc_item(lily_vm_state *vm, lily_type *value_type,
         lily_generic_gc_val *value)
 {
     /* The given value is likely not in a register, so run the gc before adding
@@ -419,8 +416,6 @@ static int try_add_gc_item(lily_vm_state *vm, lily_type *value_type,
     /* Attach the gc_entry to the value so the caller doesn't have to. */
     value->gc_entry = new_entry;
     vm->gc_live_entry_count++;
-
-    return 1;
 }
 
 /*  compare_values
@@ -480,7 +475,7 @@ static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
 
     if (lhs_reg->flags & VAL_IS_NIL) {
         lhs_any = lily_new_any_val();
-        try_add_gc_item(vm, lhs_reg->type, (lily_generic_gc_val *)lhs_any);
+        add_gc_item(vm, lhs_reg->type, (lily_generic_gc_val *)lhs_any);
 
         lhs_reg->value.any = lhs_any;
         lhs_reg->flags &= ~VAL_IS_NIL;
@@ -1243,8 +1238,7 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code, int code_pos)
     lily_hash_val *hash_val = lily_new_hash_val();
 
     if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
-        try_add_gc_item(vm, result->type,
-            (lily_generic_gc_val *)hash_val);
+        add_gc_item(vm, result->type, (lily_generic_gc_val *)hash_val);
 
     lily_deref(result);
 
@@ -1292,7 +1286,7 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     lv->gc_entry = NULL;
 
     if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
-        try_add_gc_item(vm, result->type, (lily_generic_gc_val *)lv);
+        add_gc_item(vm, result->type, (lily_generic_gc_val *)lv);
 
     /* The old value can be destroyed, now that the new value has been made. */
     lily_deref(result);
@@ -1412,7 +1406,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     iv->true_class = result->type->cls;
 
     if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
-        try_add_gc_item(vm, result->type, (lily_generic_gc_val *)iv);
+        add_gc_item(vm, result->type, (lily_generic_gc_val *)iv);
 
     lily_deref(result);
 

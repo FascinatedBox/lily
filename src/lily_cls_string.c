@@ -33,7 +33,7 @@ void lily_destroy_string(lily_value *v)
     lily_free(sv);
 }
 
-static lily_string_val *try_make_sv(lily_vm_state *vm, int size)
+static lily_string_val *make_sv(lily_vm_state *vm, int size)
 {
     lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
     char *new_string = lily_malloc(sizeof(char) * size);
@@ -64,7 +64,7 @@ void lily_string_concat(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_string_val *other_sv = other_arg->value.string;
 
     int new_size = self_sv->size + other_sv->size + 1;
-    lily_string_val *new_sv = try_make_sv(vm, new_size);
+    lily_string_val *new_sv = make_sv(vm, new_size);
 
     char *new_str = new_sv->string;
     strcpy(new_str, self_sv->string);
@@ -294,7 +294,7 @@ void lily_string_lstrip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         copy_from = lstrip_utf8_start(input_arg, strip_sv);
 
     int new_size = (input_arg->value.string->size - copy_from) + 1;
-    lily_string_val *new_sv = try_make_sv(vm, new_size);
+    lily_string_val *new_sv = make_sv(vm, new_size);
 
     strcpy(new_sv->string, input_arg->value.string->string + copy_from);
 
@@ -466,7 +466,7 @@ void lily_string_rstrip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         copy_to = rstrip_utf8_stop(input_arg, strip_sv);
 
     int new_size = copy_to + 1;
-    lily_string_val *new_sv = try_make_sv(vm, new_size);
+    lily_string_val *new_sv = make_sv(vm, new_size);
 
     strncpy(new_sv->string, input_arg->value.string->string, copy_to);
     /* This will always copy a partial string, so make sure to add a terminator. */
@@ -515,7 +515,7 @@ void lily_string_lower(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value *result_arg = vm_regs[code[1]];
 
     int new_size = input_arg->value.string->size + 1;
-    lily_string_val *new_sv = try_make_sv(vm, new_size);
+    lily_string_val *new_sv = make_sv(vm, new_size);
 
     char *new_str = new_sv->string;
     char *input_str = input_arg->value.string->string;
@@ -542,7 +542,7 @@ void lily_string_upper(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value *result_arg = vm_regs[code[1]];
 
     int new_size = input_arg->value.string->size + 1;
-    lily_string_val *new_sv = try_make_sv(vm, new_size);
+    lily_string_val *new_sv = make_sv(vm, new_size);
 
     char *new_str = new_sv->string;
     char *input_str = input_arg->value.string->string;
@@ -666,7 +666,7 @@ void lily_string_strip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         copy_to = copy_from;
 
     int new_size = (copy_to - copy_from) + 1;
-    lily_string_val *new_sv = try_make_sv(vm, new_size);
+    lily_string_val *new_sv = make_sv(vm, new_size);
 
     char *new_str = new_sv->string;
     strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
@@ -702,7 +702,7 @@ void lily_string_trim(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     copy_to = rstrip_ascii_stop(input_arg, &fake_sv);
 
     int new_size = (copy_to - copy_from) + 1;
-    lily_string_val *new_sv = try_make_sv(vm, new_size);
+    lily_string_val *new_sv = make_sv(vm, new_size);
 
     char *new_str = new_sv->string;
 
@@ -762,7 +762,7 @@ void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 
     lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
-    lily_string_val *new_sv = try_make_sv(vm, strlen(vm_buffer->message) + 1);
+    lily_string_val *new_sv = make_sv(vm, strlen(vm_buffer->message) + 1);
 
     strcpy(new_sv->string, vm_buffer->message);
 
@@ -785,7 +785,7 @@ void lily_string_format(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_process_format_string(vm, code);
     char *buffer = vm->vm_buffer->message;
     lily_value *result_arg = vm->vm_regs[code[2]];
-    lily_string_val *new_sv = try_make_sv(vm, strlen(buffer) + 1);
+    lily_string_val *new_sv = make_sv(vm, strlen(buffer) + 1);
 
     strcpy(new_sv->string, buffer);
 
