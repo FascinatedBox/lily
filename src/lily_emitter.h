@@ -94,6 +94,11 @@ typedef struct lily_emit_call_state_ {
         lily_class *variant;
     };
 
+    /* If there is an error, then this is where information for the stack trace
+       is dumped out. In most cases, this is equivalent to one of the above
+       items. */
+    lily_item *error_item;
+
     /* This is the tree that the arguments are located in. */
     lily_ast *ast;
 

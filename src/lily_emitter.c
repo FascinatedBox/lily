@@ -895,17 +895,16 @@ static void ensure_proper_match_block(lily_emit_state *emit)
         lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
 }
 
-static void push_info_to_error(lily_emit_state *emit,
-        lily_emit_call_state *cs)
+static void push_info_to_error(lily_emit_state *emit, lily_emit_call_state *cs)
 {
     char *class_name = "", *separator = "", *kind = "Function";
     char *call_name;
     lily_msgbuf *msgbuf = emit->raiser->msgbuf;
 
-    int item_flags = cs->item->flags;
+    int item_flags = cs->error_item->flags;
 
     if (item_flags & ITEM_TYPE_VAR) {
-        lily_var *var = cs->var;
+        lily_var *var = (lily_var *)cs->error_item;
         if (var->parent) {
             class_name = var->parent->name;
             separator = "::";
@@ -914,7 +913,7 @@ static void push_info_to_error(lily_emit_state *emit,
         call_name = var->name;
     }
     else if (item_flags & ITEM_TYPE_VARIANT_CLASS) {
-        lily_class *variant_cls = cs->variant;
+        lily_class *variant_cls = (lily_class *)cs->error_item;
         call_name = variant_cls->name;
 
         if (variant_cls->parent->flags & CLS_ENUM_IS_SCOPED) {
@@ -925,7 +924,7 @@ static void push_info_to_error(lily_emit_state *emit,
         kind = "Variant";
     }
     else if (item_flags & ITEM_TYPE_PROPERTY) {
-        lily_prop_entry *prop = cs->property;
+        lily_prop_entry *prop = (lily_prop_entry *)cs->error_item;
 
         class_name = prop->cls->name;
         call_name = prop->name;
@@ -1347,35 +1346,174 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     ast->result = right_sym;
 }
 
-/*  eval_oo_and_prop_assign
-    This is called to handle assignments when the left side is of type
-    tree_oo_access. Example:
-        ValueError v = ValueError::new("test")
-        v.message = "test\n"
+/*  This is an access like 'abc.xyz'. There are two fairly different cases for
+    this:
+    1: The given class has a method named xyz. This is checked first.
+       Examples: 'string.concat' and 'integer.to_string'.
+    2: The given class has a property named xyz. In this case, the value is a
+       class which is subscripted for the right property.
 
-    This also handles property assignments, such as '@x = 10' and '@y = 11'.
-    For these, the left will have type 'tree_property'. */
-static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
+    This stores either the method var or the property within the ast's item. */
+static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_type *left_type;
-    lily_sym *rhs;
+    if (ast->arg_start->tree_type != tree_local_var)
+        eval_tree(emit, ast->arg_start, NULL, 1);
 
-    if (ast->left->tree_type != tree_property) {
-        eval_tree(emit, ast->left, NULL, 1);
+    lily_class *lookup_class = ast->arg_start->result->type->cls;
+    char *oo_name = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
+    lily_var *var = lily_find_class_callable(emit->symtab,
+            lookup_class, oo_name);
 
-        /* Make sure that it was a property access, and not a class member
-           access. The latter is not reassignable. */
-        if (ast->left->result->flags & ITEM_TYPE_VAR)
-            lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                    "Left side of %s is not assignable.\n", opname(ast->op));
+    /* Is this an attempt to access a method that hasn't been loaded yet? */
+    if (var == NULL)
+        var = lily_parser_dynamic_load(emit->parser, lookup_class, oo_name);
 
-        left_type = ast->left->result->type;
+    if (var == NULL) {
+        lily_prop_entry *prop = lily_find_property(emit->symtab,
+                lookup_class, oo_name);
+
+        if (prop == NULL) {
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "Class %s has no method or property named %s.\n",
+                    lookup_class->name, oo_name);
+        }
+
+        if (ast->arg_start->tree_type == tree_self)
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "Use @<name> to get/set properties, not self.<name>.\n");
+
+        ast->item = (lily_item *)prop;
     }
     else
-        /* Don't bother evaluating the left, because the property's id and type
-           are already available. Evaluating it would just dump the contents
-           into a var, which isn't useful. */
-        left_type = ast->left->property->type;
+        ast->item = (lily_item *)var;
+}
+
+/* This is called on trees of type tree_oo_access which have their ast->item
+   as a property. This will solve the property with the type that lead up to
+   it.
+
+   class example[A](value: A) { var contents = value }
+
+   var v = example::new(10).contents
+
+   'contents' has type 'A' relative to whatever type that 'example' contains.
+   Since example has type 'integer', then 'v' is solved to be of type integer.
+
+   This is a convenience function to avoid creating a storage for the property
+   when that may not be wanted. */
+static lily_type *get_solved_property_type(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_type *property_type = ast->property->type;
+    if (property_type->flags & TYPE_IS_UNRESOLVED) {
+        property_type = lily_ts_resolve_by_second(emit->ts,
+                ast->arg_start->result->type, property_type);
+    }
+
+    return property_type;
+}
+
+/* This is called after the caller has run eval_oo_access_for_item and has
+   determined that they want the property in a storage. This does that. */
+static void oo_property_read(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_prop_entry *prop = ast->property;
+    lily_type *type = get_solved_property_type(emit, ast);
+    lily_storage *result = get_storage(emit, type);
+
+    /* This function is only called on trees of type tree_oo_access which have
+       a property into the ast's item. */
+    write_5(emit, o_get_property, ast->line_num,
+            ast->arg_start->result->reg_spot, prop->id, result->reg_spot);
+
+    ast->result = (lily_sym *)result;
+}
+
+/* This handles tree_oo_access for eval_tree. The contents are always dumped
+   into a storage, unlike with some users of tree_oo_access. */
+static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
+{
+    eval_oo_access_for_item(emit, ast);
+    /* An 'x.y' access will either yield a property or a class method. */
+    if (ast->item->flags & ITEM_TYPE_PROPERTY)
+        oo_property_read(emit, ast);
+    else {
+        lily_storage *result = get_storage(emit, ast->sym->type);
+        write_4(emit, o_get_readonly, ast->line_num, ast->sym->reg_spot,
+                result->reg_spot);
+        ast->result = (lily_sym *)result;
+    }
+}
+
+/*  eval_property
+    This handles evaluating '@<x>' within a either a class constructor or a
+    function/method defined within a class. */
+static void eval_property(lily_emit_state *emit, lily_ast *ast)
+{
+    if (ast->property->type == NULL)
+        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+                "Invalid use of uninitialized property '@%s'.\n",
+                ast->property->name);
+
+    lily_storage *result = get_storage(emit, ast->property->type);
+
+    write_5(emit,
+            o_get_property,
+            ast->line_num,
+            emit->block->self->reg_spot,
+            ast->property->id,
+            result->reg_spot);
+
+    ast->result = (lily_sym *)result;
+}
+
+/*  This is called to handle assignments when the left side is of type
+    tree_oo_access (ex: x[0].y = z, a.b.c = d). */
+static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_type *left_type;
+
+    eval_oo_access_for_item(emit, ast->left);
+    left_type = ast->left->property->type;
+    if ((ast->left->item->flags & ITEM_TYPE_PROPERTY) == 0)
+        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+                "Left side of %s is not assignable.\n", opname(ast->op));
+
+    if (ast->right->tree_type != tree_local_var)
+        eval_tree(emit, ast->right, left_type, 1);
+
+    left_type = get_solved_property_type(emit, ast->left);
+    lily_sym *rhs = ast->right->result;
+    lily_type *right_type = rhs->type;
+
+    if (left_type != right_type && left_type->cls->id != SYM_CLASS_ANY) {
+        emit->raiser->line_adjust = ast->line_num;
+        bad_assign_error(emit, ast->line_num, left_type,
+                         right_type);
+    }
+
+    if (ast->op > expr_assign) {
+        oo_property_read(emit, ast->left);
+        emit_op_for_compound(emit, ast);
+        rhs = ast->result;
+    }
+
+    write_5(emit,
+            o_set_property,
+            ast->line_num,
+            ast->left->arg_start->result->reg_spot,
+            ast->left->property->id,
+            rhs->reg_spot);
+
+    ast->result = rhs;
+}
+
+/* This handles assignments like '@x = y'. These are always simple, because if
+   it was something like '@x[y] = z', then subscript assign would get it.
+   The left side is always just a property. */
+static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_type *left_type = ast->left->property->type;
+    lily_sym *rhs;
 
     if (ast->right->tree_type != tree_local_var)
         /* Important! Expecting the lhs will auto-fix the rhs if needed. */
@@ -1396,21 +1534,8 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
                          right_type);
     }
 
-    int input_spot, target_index;
-
-    if (ast->left->tree_type == tree_oo_access) {
-        target_index = ast->left->oo_property_index;
-        input_spot = ast->left->arg_start->result->reg_spot;
-    }
-    else {
-        target_index = ast->left->property->id;
-        input_spot = emit->block->self->reg_spot;
-    }
-
     if (ast->op > expr_assign) {
-        if (ast->left->tree_type == tree_property)
-            eval_tree(emit, ast->left, NULL, 1);
-
+        eval_tree(emit, ast->left, NULL, 1);
         emit_op_for_compound(emit, ast);
         rhs = ast->result;
     }
@@ -1418,8 +1543,8 @@ static void eval_oo_and_prop_assign(lily_emit_state *emit, lily_ast *ast)
     write_5(emit,
             o_set_property,
             ast->line_num,
-            input_spot,
-            target_index,
+            emit->block->self->reg_spot,
+            ast->left->property->id,
             rhs->reg_spot);
 
     ast->result = rhs;
@@ -2544,7 +2669,7 @@ static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *c
 }
 
 static lily_emit_call_state *begin_call(lily_emit_state *emit,
-        lily_ast *ast, lily_item *item, lily_type *type)
+        lily_ast *ast)
 {
     lily_emit_call_state *result = emit->call_state;
     if (result->next == NULL)
@@ -2553,15 +2678,57 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     emit->call_state = result->next;
     result->ast = ast;
     result->arg_count = 0;
-    result->item = item;
-    result->call_type = type;
-    if (type->flags & TYPE_IS_VARARGS) {
+
+    lily_ast *first_tree = ast->arg_start;
+    lily_tree_type first_tt = first_tree->tree_type;
+    lily_item *call_item = NULL;
+    lily_item *debug_item = NULL;
+    lily_type *call_type = NULL;
+
+    if (first_tt == tree_defined_func || first_tt == tree_inherited_new)
+        call_item = ast->arg_start->item;
+    else if (first_tt == tree_oo_access) {
+        eval_oo_access_for_item(emit, ast->arg_start);
+        if (first_tree->item->flags & ITEM_TYPE_PROPERTY) {
+            debug_item = (lily_item *)first_tree->property;
+            oo_property_read(emit, first_tree);
+            call_item = (lily_item *)first_tree->result;
+        }
+        else
+            call_item = first_tree->item;
+    }
+    else if (first_tt != tree_variant) {
+        eval_tree(emit, ast->arg_start, NULL, 1);
+        call_item = (lily_item *)ast->arg_start->result;
+    }
+    else {
+        call_item = (lily_item *)ast->arg_start->variant_class;
+        call_type = ast->arg_start->variant_class->variant_type;
+    }
+
+    if (debug_item == NULL)
+        debug_item = call_item;
+
+    if (call_type == NULL)
+        call_type = ((lily_sym *)call_item)->type;
+
+    if (call_type->cls->id != SYM_CLASS_FUNCTION &&
+        first_tt != tree_variant)
+        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+                "Cannot anonymously call resulting type '^T'.\n",
+                call_type);
+
+    result->item = call_item;
+    result->call_type = call_type;
+    result->error_item = debug_item;
+
+    if (call_type->flags & TYPE_IS_VARARGS) {
         /* The vararg type is always the last type in the function. It is
            represented as a list. The first type of that list is the type that
            each vararg entry will need to be. */
-        int va_pos = type->subtype_count - 1;
+        int va_pos = call_type->subtype_count - 1;
         result->vararg_elem_type =
-                type->subtypes[va_pos]->subtypes[0];
+                call_type->subtypes[va_pos]->subtypes[0];
         result->vararg_start = va_pos;
     }
     else {
@@ -2645,29 +2812,10 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
         return;
     }
 
-    lily_tree_type tt = ast->arg_start->tree_type;
-
-    /* Don't evaluate either of these trees, because they both have a var inside
-       which has the index of a defined function. The emitter will write code to
-       reference that function directly (saving the access of a storage). */
-    if (tt != tree_defined_func && tt != tree_inherited_new)
-        eval_tree(emit, ast->arg_start, NULL, 1);
-
-    if (tt == tree_global_var || tt == tree_local_var || tt == tree_oo_access)
-        call_sym = ast->arg_start->sym;
-    else
-        call_sym = ast->arg_start->result;
-
-    /* Make sure the result is callable (ex: NOT @(integer: 10) ()). */
-    if (call_sym->type->cls->id != SYM_CLASS_FUNCTION)
-        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Cannot anonymously call resulting type '^T'.\n",
-                call_sym->type);
-
     int saved_ts_adjust = lily_ts_raise_ceiling(emit->ts);
 
-    lily_emit_call_state *cs = begin_call(emit, ast, (lily_item *)call_sym,
-            call_sym->type);
+    lily_emit_call_state *cs;
+    cs = begin_call(emit, ast);
     eval_verify_call_args(emit, cs, expect_type, did_resolve);
     write_call(emit, cs);
     end_call(emit, cs);
@@ -2703,107 +2851,6 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)ret;
 }
 
-/*  eval_oo_access
-    This is an access like 'abc.xyz'. There are two fairly different cases for
-    this:
-    1: The given class has a method named xyz. This is checked first.
-       Examples: 'string.concat' and 'integer.to_string'.
-    2: The given class has a property named xyz. In this case, the value is a
-       class which is subscripted for the right property. */
-static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
-{
-    /* If this tree is to be called, it will be evaluated twice: First by
-       eval_call to figure out what to call, and then by check_call_args since
-       the result is the first argument. */
-    if (ast->result)
-        return;
-
-    if (ast->arg_start->tree_type != tree_local_var)
-        eval_tree(emit, ast->arg_start, NULL, 1);
-
-    lily_class *lookup_class = ast->arg_start->result->type->cls;
-    char *oo_name = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
-    lily_var *var = lily_find_class_callable(emit->symtab,
-            lookup_class, oo_name);
-
-    /* Is this an attempt to access a property that hasn't been loaded yet? */
-    if (var == NULL)
-        var = lily_parser_dynamic_load(emit->parser, lookup_class, oo_name);
-
-    if (var) {
-        ast->result = (lily_sym *)var;
-        ast->item = (lily_item *)var;
-    }
-    else {
-        lily_prop_entry *prop = lily_find_property(emit->symtab,
-                lookup_class, oo_name);
-
-        if (prop == NULL) {
-            lily_raise(emit->raiser, lily_SyntaxError,
-                    "Class %s has no callable or property named %s.\n",
-                    lookup_class->name, oo_name);
-        }
-
-        ast->property = prop;
-
-        /* self.<name> works just as well. However, preventing it from being
-           used for property access ensures that all future Lily code will use
-           @<name> all the time. */
-        if (ast->arg_start->tree_type == tree_self)
-            lily_raise(emit->raiser, lily_SyntaxError,
-                    "Use @<name> to get/set properties, not self.<name>.\n");
-
-        /* oo_assign also needs this. Might as well set it for all. */
-        ast->oo_property_index = prop->id;
-
-        lily_type *property_type = prop->type;
-        if (property_type->flags & TYPE_IS_UNRESOLVED) {
-            property_type = lily_ts_resolve_by_second(emit->ts,
-                    ast->arg_start->result->type,
-                    property_type);
-        }
-
-        lily_storage *result = get_storage(emit, property_type);
-
-        /* Hack: If the parent is really oo_assign, then don't load the result
-                 into a register. The parent tree just wants to know the
-                 resulting type and the property index. */
-        if (ast->parent == NULL ||
-            ast->parent->tree_type != tree_binary ||
-            ast->parent->op != expr_assign) {
-            write_5(emit,
-                    o_get_property,
-                    ast->line_num,
-                    ast->arg_start->result->reg_spot,
-                    prop->id,
-                    result->reg_spot);
-        }
-
-        ast->result = (lily_sym *)result;
-    }
-}
-
-/*  eval_property
-    This handles evaluating '@<x>' within a class constructor. */
-static void eval_property(lily_emit_state *emit, lily_ast *ast)
-{
-    if (ast->property->type == NULL)
-        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Invalid use of uninitialized property '@%s'.\n",
-                ast->property->name);
-
-    lily_storage *result = get_storage(emit, ast->property->type);
-
-    write_5(emit,
-            o_get_property,
-            ast->line_num,
-            emit->block->self->reg_spot,
-            ast->property->id,
-            result->reg_spot);
-
-    ast->result = (lily_sym *)result;
-}
-
 static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect_type, int did_resolve)
 {
@@ -2827,8 +2874,8 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
                     variant_class->name);
 
         int save_ceiling = lily_ts_raise_ceiling(emit->ts);
-        lily_emit_call_state *cs = begin_call(emit, ast,
-                (lily_item *)variant_class, variant_type);
+        lily_emit_call_state *cs;
+        cs = begin_call(emit, ast);
         eval_verify_call_args(emit, cs, expect_type, did_resolve);
 
         lily_type *result_type = variant_class->variant_type->subtypes[0];
@@ -2922,8 +2969,10 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
                 eval_assign(emit, ast);
             else if (ast->left->tree_type == tree_subscript)
                 eval_sub_assign(emit, ast);
-            else
-                eval_oo_and_prop_assign(emit, ast);
+            else if (ast->left->tree_type == tree_oo_access)
+                eval_oo_assign(emit, ast);
+            else if (ast->left->tree_type == tree_property)
+                eval_property_assign(emit, ast);
 
             assign_post_check(emit, ast);
         }
