@@ -436,16 +436,10 @@ static lily_type *get_subscript_result(lily_type *type, lily_ast *index_ast)
     return result;
 }
 
-/*  try_add_storage
-    Attempt to add a new storage at the top of emitter's linked list of
-    storages. This should be called as a means of ensuring that there is always
-    one valid unused storage. Doing so makes storage handling simpler all
-    around. */
-static int try_add_storage(lily_emit_state *emit)
+/*  Add a new storage to emitter's list of storages. */
+static void add_storage(lily_emit_state *emit)
 {
     lily_storage *storage = lily_malloc(sizeof(lily_storage));
-    if (storage == NULL)
-        return 0;
 
     storage->type = NULL;
     storage->next = NULL;
@@ -459,7 +453,6 @@ static int try_add_storage(lily_emit_state *emit)
 
     emit->all_storage_top = storage;
     emit->unused_storage_start = storage;
-    return 1;
 }
 
 /*  get_storage
@@ -509,7 +502,7 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
     /* This ensures that emit->unused_storage_start is always valid and always
        something unused. */
     if (storage_iter->next == NULL)
-        try_add_storage(emit);
+        add_storage(emit);
 
     storage_iter->flags &= ~SYM_NOT_ASSIGNABLE;
     return storage_iter;
@@ -3852,7 +3845,7 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
 {
     /* This adds the first storage and makes sure that the emitter can always
        know that emit->unused_storage_start is never NULL. */
-    try_add_storage(emit);
+    add_storage(emit);
 
     lily_block *main_block = lily_malloc(sizeof(lily_block));
     lily_function_val *main_function = lily_new_native_function_val(
