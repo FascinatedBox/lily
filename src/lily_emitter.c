@@ -1028,7 +1028,7 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
 
     if (ast->tree_type == tree_global_var ||
         ast->tree_type == tree_local_var)
-        result_type = ast->original_sym->type;
+        result_type = ast->sym->type;
     else if (ast->tree_type == tree_subscript) {
         lily_ast *var_tree = ast->arg_start;
         lily_ast *index_tree = var_tree->next_arg;
@@ -1040,7 +1040,7 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
                 result_type = result_type->subtypes[1];
             else if (result_type->cls->id == SYM_CLASS_TUPLE) {
                 if (index_tree->tree_type != tree_literal ||
-                    index_tree->original_sym->type->cls->id != SYM_CLASS_INTEGER)
+                    index_tree->sym->type->cls->id != SYM_CLASS_INTEGER)
                     result_type = NULL;
                 else {
                     int literal_index = index_tree->literal->value.integer;
@@ -2467,7 +2467,7 @@ static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *c
 
     if (call_tt == tree_defined_func) {
         /* Do a self insert if the thing being called belongs to this class. */
-        lily_var *first_result = ((lily_var *)ast->arg_start->original_sym);
+        lily_var *first_result = ((lily_var *)ast->arg_start->sym);
         if (emit->current_class != NULL &&
             emit->current_class == first_result->parent) {
             add_value(emit, cs, (lily_sym *)emit->block->self);
@@ -2661,7 +2661,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
         eval_tree(emit, ast->arg_start, NULL, 1);
 
     if (tt == tree_global_var || tt == tree_local_var || tt == tree_oo_access)
-        call_sym = ast->arg_start->original_sym;
+        call_sym = ast->arg_start->sym;
     else
         call_sym = ast->arg_start->result;
 
@@ -2696,7 +2696,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     else
         opcode = o_get_readonly;
 
-    ret = get_storage(emit, ast->original_sym->type);
+    ret = get_storage(emit, ast->sym->type);
 
     if (opcode != o_get_global)
         ret->flags |= SYM_NOT_ASSIGNABLE;
@@ -2704,7 +2704,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     write_4(emit,
             opcode,
             ast->line_num,
-            ast->original_sym->reg_spot,
+            ast->sym->reg_spot,
             ret->reg_spot);
 
     ast->result = (lily_sym *)ret;
