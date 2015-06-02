@@ -69,6 +69,7 @@ lily_emit_state *lily_new_emit_state(lily_options *options,
     emit->current_class = NULL;
     emit->raiser = raiser;
     emit->expr_num = 1;
+    emit->loop_start = -1;
 
     add_call_state(emit);
 
@@ -3154,7 +3155,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
                     o_jump_if,
                     1,
                     ast->result->reg_spot,
-                    emit->block->loop_start);
+                    emit->loop_start);
         }
     }
     else {
@@ -3169,7 +3170,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
             emit->patch_pos++;
         }
         else
-            write_2(emit, o_jump, emit->block->loop_start);
+            write_2(emit, o_jump, emit->loop_start);
     }
 
     lily_ast_reset_pool(ap);
@@ -3373,7 +3374,7 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     /* for..in is entered right after 'for' is seen. However, range values can
        be expressions. This needs to be fixed, or the loop will jump back up to
        re-eval those expressions. */
-    loop_block->loop_start = emit->code_pos+9;
+    emit->loop_start = emit->code_pos+9;
 
     /* Write a jump to the inside of the loop. This prevents the value from
        being incremented before being seen by the inside of the loop. */
@@ -3447,7 +3448,7 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
    loop. */
 void lily_emit_break(lily_emit_state *emit)
 {
-    if (emit->block->loop_start == -1) {
+    if (emit->loop_start == -1) {
         /* This is called by parser on the source line, so do not adjust the
            raiser. */
         lily_raise(emit->raiser, lily_SyntaxError,
@@ -3497,14 +3498,14 @@ void lily_emit_continue(lily_emit_state *emit)
 {
     /* This is called by parser on the source line, so do not adjust the
        raiser. */
-    if (emit->block->loop_start == -1) {
+    if (emit->loop_start == -1) {
         lily_raise(emit->raiser, lily_SyntaxError,
                 "'continue' used outside of a loop.\n");
     }
 
     write_pop_inner_try_blocks(emit);
 
-    write_2(emit, o_jump, emit->block->loop_start);
+    write_2(emit, o_jump, emit->loop_start);
 }
 
 /*  lily_emit_return
@@ -3732,9 +3733,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         new_block->jump_offset = emit->block->jump_offset;
 
         if (IS_LOOP_BLOCK(block_type))
-            new_block->loop_start = emit->code_pos;
-        else
-            new_block->loop_start = emit->block->loop_start;
+            emit->loop_start = emit->code_pos;
     }
     else {
         lily_var *v = emit->symtab->var_chain;
@@ -3780,8 +3779,6 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         new_block->storage_start = emit->unused_storage_start;
         new_block->function_var = v;
         new_block->function_value = fval;
-        /* -1 to indicate that there is no current loop. */
-        new_block->loop_start = -1;
         new_block->last_return = -1;
         new_block->code_start = emit->code_pos;
         new_block->jump_offset = emit->code_pos;
@@ -3791,6 +3788,19 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
     }
 
     emit->block = new_block;
+}
+
+lily_block *find_block_of_type(lily_emit_state *emit, int type)
+{
+    lily_block *block_iter = emit->block->prev;
+    while (block_iter) {
+        if (block_iter->block_type & type)
+            break;
+
+        block_iter = block_iter->prev;
+    }
+
+    return block_iter;
 }
 
 /*  lily_emit_leave_block
@@ -3811,7 +3821,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
 
     /* These blocks need to jump back up when the bottom is hit. */
     if (block_type == BLOCK_WHILE || block_type == BLOCK_FOR_IN)
-        write_2(emit, o_jump, emit->block->loop_start);
+        write_2(emit, o_jump, emit->loop_start);
     else if (block_type == BLOCK_MATCH) {
         ensure_proper_match_block(emit);
         emit->match_case_pos = emit->block->match_case_start;
@@ -3841,6 +3851,11 @@ void lily_emit_leave_block(lily_emit_state *emit)
         leave_function(emit, block);
 
     emit->block = emit->block->prev;
+
+    if (IS_LOOP_BLOCK(block_type)) {
+        lily_block *prev_loop_block = find_deepest_loop(emit);
+        emit->loop_start = (prev_loop_block) ? prev_loop_block->code_start : -1;
+    }
 }
 
 /*  lily_emit_write_import_call
@@ -3907,8 +3922,6 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     main_block->block_type = BLOCK_FUNCTION;
     main_block->function_var = main_var;
     main_block->storage_start = emit->all_storage_start;
-    /* This is necessary for trapping break/continue inside of __main__. */
-    main_block->loop_start = -1;
     main_block->class_entry = NULL;
     main_block->generic_count = 0;
     main_block->function_value = main_function;

@@ -19,10 +19,6 @@ typedef struct lily_block_ {
        current function. */
     lily_var *function_var;
 
-    /* Loop blocks: The position in bytecode where the loop starts.
-       For non-loop blocks, this is -1. */
-    int16_t loop_start;
-
     /* An index where the patches for this block start off. */
     uint16_t patch_start;
 
@@ -31,6 +27,8 @@ typedef struct lily_block_ {
 
     /* Match blocks: The starting position in emitter's match_cases. */
     uint16_t match_case_start;
+
+    uint16_t pad;
 
     uint32_t block_type;
 
@@ -166,6 +164,12 @@ typedef struct {
     uint16_t match_case_pos;
 
     uint16_t match_case_size;
+
+    /* If there is a loop block currently entered, this is the code_start of
+       that block. If there is no loop block, then this is -1. */
+    int32_t loop_start;
+
+    uint32_t pad;
 
     /* The var that will receive the function value when the function block is
        done. */
