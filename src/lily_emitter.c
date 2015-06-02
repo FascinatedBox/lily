@@ -802,11 +802,6 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
 
     lily_var *v = last_func_block->function_var;
 
-    /* If this function has no storages, then it can use the ones from the function
-       that just exited. This reuse cuts down on a lot of memory. */
-    if (last_func_block->storage_start == NULL)
-        last_func_block->storage_start = emit->unused_storage_start;
-
     emit->current_class = block->prev->class_entry;
 
     /* If this function was the ::new for a class, move it over into that class
