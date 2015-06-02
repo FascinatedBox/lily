@@ -873,9 +873,6 @@ static void ensure_proper_match_block(lily_emit_state *emit)
 
     for (i = block->match_case_start;i < emit->match_case_pos;i++) {
         if (emit->match_cases[i] == 0) {
-            /* Assume that the message buffer has at least enough space to dump
-               an error message to. If may not, if there are a lot of cases and
-               aft is being used. In such a case, well, sorry. */
             if (error == 0) {
                 lily_msgbuf_add(msgbuf,
                         "Match pattern not exhaustive. The following case(s) are missing:\n");
