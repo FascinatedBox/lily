@@ -1,0 +1,10 @@
+#[
+SyntaxError: Nested class declarations are not allowed.
+Where: File "class_nesting.lly" at line 7
+]#
+
+class c1(a: integer) {
+    class c2(b: integer) {
+
+    }
+}

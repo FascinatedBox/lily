@@ -2634,6 +2634,11 @@ static void class_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
     NEED_CURRENT_TOK(tk_word);
+    if (parser->emit->block->self) {
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Nested class declarations are not allowed.\n");
+    }
+
     ensure_valid_class(parser, lex->label);
 
     create_new_class(parser);
