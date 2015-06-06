@@ -2728,6 +2728,8 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
         result->vararg_elem_type = NULL;
         result->vararg_start = (uint16_t)-1;
     }
+
+    return result;
 }
 
 static lily_storage *write_call(lily_emit_state *emit, lily_emit_call_state *cs)
