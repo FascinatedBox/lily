@@ -1348,9 +1348,11 @@ static void expression_word(lily_parse_state *parser, int *state)
         var = lily_find_class_callable(parser->symtab,
                 parser->symtab->class_chain, lex->label);
 
-        lily_ast_push_defined_func(parser->ast_pool, var);
-        *state = ST_WANT_OPERATOR;
-        return;
+        if (var) {
+            lily_ast_push_defined_func(parser->ast_pool, var);
+            *state = ST_WANT_OPERATOR;
+            return;
+        }
     }
 
     if (search_entry == NULL)
