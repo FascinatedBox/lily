@@ -3250,8 +3250,7 @@ int lily_emit_add_match_case(lily_emit_state *emit, int pos)
             if (emit->patch_pos == emit->patch_size)
                 grow_patches(emit);
 
-            emit->patches[emit->patch_pos] =
-                    (emit->code_pos - emit->block->jump_offset) - 1;
+            emit->patches[emit->patch_pos] = emit->code_pos - 1;
             emit->patch_pos++;
         }
 
@@ -3407,8 +3406,7 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     else
         offset = 5;
 
-    emit->patches[emit->patch_pos] =
-            (emit->code_pos - emit->block->jump_offset) - offset;
+    emit->patches[emit->patch_pos] = emit->code_pos - offset;
 
     emit->patch_pos++;
 }
@@ -3463,8 +3461,7 @@ void lily_emit_break(lily_emit_state *emit)
     write_2(emit, o_jump, 0);
     /* If the while is the most current, then add it to the end. */
     if (emit->block->block_type == BLOCK_WHILE) {
-        emit->patches[emit->patch_pos] =
-                (emit->code_pos - emit->block->jump_offset) -1;
+        emit->patches[emit->patch_pos] = emit->code_pos -1;
         emit->patch_pos++;
     }
     else {
@@ -3480,8 +3477,7 @@ void lily_emit_break(lily_emit_state *emit)
         memmove(emit->patches+move_start+1, emit->patches+move_start,
                 move_by * sizeof(int));
         emit->patch_pos++;
-        emit->patches[move_start] =
-                (emit->code_pos - emit->block->jump_offset) - 1;
+        emit->patches[move_start] = emit->code_pos - 1;
 
         for (block = block->next;
              block;
@@ -3587,8 +3583,7 @@ void lily_emit_try(lily_emit_state *emit, int line_num)
     if (emit->patch_pos == emit->patch_size)
         grow_patches(emit);
 
-    emit->patches[emit->patch_pos] =
-            (emit->code_pos - emit->block->jump_offset) - 1;
+    emit->patches[emit->patch_pos] = emit->code_pos - 1;
     emit->patch_pos++;
 }
 
@@ -3639,8 +3634,7 @@ void lily_emit_except(lily_emit_state *emit, lily_class *cls,
     if (emit->patch_pos == emit->patch_size)
         grow_patches(emit);
 
-    emit->patches[emit->patch_pos] =
-            (emit->code_pos - emit->block->jump_offset) - 3;
+    emit->patches[emit->patch_pos] = emit->code_pos - 3;
     emit->patch_pos++;
 }
 
