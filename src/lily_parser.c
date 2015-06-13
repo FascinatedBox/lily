@@ -709,9 +709,9 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
     lily_token expect_token = get_optarg_expect_token(parser, var->type);
     NEED_CURRENT_TOK(expect_token)
 
-    parser->optarg_stack[parser->optarg_stack_pos] = var->reg_spot;
-    parser->optarg_stack[parser->optarg_stack_pos + 1] =
+    parser->optarg_stack[parser->optarg_stack_pos] =
             lex->last_literal->reg_spot;
+    parser->optarg_stack[parser->optarg_stack_pos + 1] = var->reg_spot;
     parser->optarg_stack_pos += 2;
 
     lily_lexer(lex);

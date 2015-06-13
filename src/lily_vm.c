@@ -1345,16 +1345,18 @@ static void do_o_setup_optargs(lily_vm_state *vm, uint16_t *code, int code_pos)
     /* This goes in reverse because arguments fill from the bottom up. Doing it
        this way means that the loop can stop when it finds the first filled
        argument. It's a slight optimization, but such an easy one. */
-    int end = code_pos + 1;
-    int i = code[code_pos + 1] + code_pos + 1;
+    int count = code[code_pos + 1];
+    int i = count + code_pos + 1;
+    int half = count / 2;
+    int end = i - half;
 
-    for (;i > end;i -= 2) {
-        lily_value *left = vm_regs[code[i - 1]];
+    for (;i > end;i--) {
+        lily_value *left = vm_regs[code[i]];
         if ((left->flags & VAL_IS_NIL) == 0)
             break;
 
         /* Note! The right side is ALWAYS a literal. Do not use vm_regs! */
-        lily_tie *right = ro_table[code[i]];
+        lily_tie *right = ro_table[code[i - half]];
 
         /* The left side has been verified to be nil, so there is no reason for
            a deref check.

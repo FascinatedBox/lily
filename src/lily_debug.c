@@ -471,11 +471,15 @@ static void show_code(lily_debug_state *debug)
                 lily_msgbuf_add_char(msgbuf, '\n');
 
                 count = code[i + j];
-                int k;
-                for (k = 0;k < count;k += 2, i += 2) {
-                    show_readonly(debug, code[i+j+2]);
-                    show_register_info(debug, RI_OUTPUT, code[i+j+1]);
+                i++;
+                int k, half = count / 2;
+                /* Writing them in pairs makes it more obvious where each value
+                   is going to end up. */
+                for (k = 0;k < half;k++) {
+                    show_readonly(debug, code[i+j+k]);
+                    show_register_info(debug, RI_OUTPUT, code[i+j+k+half]);
                 }
+                i += count - 1;
             }
         }
         i += j;

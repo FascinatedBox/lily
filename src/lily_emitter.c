@@ -3875,9 +3875,14 @@ void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
     This function writes o_setup_optargs for the parser. It's currently called
     near the beginning of any function that uses optional arguments.
 
-    reg_spots: A series of pairs to write out. Each pair is a var's register
-               spot, then a literal's register spot.
-    count:     The total number of spots to write (not the number of pairs). */
+    reg_spots: A series of pairs to write out. Each pair is a literal's register
+               spot, then a var's register spot.
+    count:     The total number of spots to write (not the number of pairs).
+
+    Parser writes optargs in pairs so the it doesn't have to potentially resize
+    and shift things over for large optarg blocks. However, debug and vm would
+    like optargs to be written with the literals first in a block, then the vars
+    next in a block. */
 void lily_emit_write_optargs(lily_emit_state *emit, uint16_t *reg_spots,
         uint16_t count)
 {
@@ -3886,8 +3891,15 @@ void lily_emit_write_optargs(lily_emit_state *emit, uint16_t *reg_spots,
     emit->code[emit->code_pos] = o_setup_optargs;
     emit->code[emit->code_pos+1] = count;
 
-    memcpy(emit->code + emit->code_pos + 2, reg_spots, sizeof(uint16_t) * count);
-    emit->code_pos += count + 2;
+    emit->code_pos += 2;
+
+    int i, j;
+    for (j = 0;j < 2;j++) {
+        for (i = j;i < count;i += 2) {
+            emit->code[emit->code_pos] = reg_spots[i];
+            emit->code_pos++;
+        }
+    }
 }
 
 /*  lily_emit_try_enter_main
