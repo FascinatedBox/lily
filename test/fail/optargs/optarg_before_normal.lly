@@ -1,0 +1,6 @@
+#[
+SyntaxError: Cannot have normal arguments after optional arguments.
+Where: File "optarg_before_normal.lly" at line 6
+]#
+
+define f(a: *integer=10, b: integer) {  }

@@ -792,8 +792,11 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
             int is_optarg = 0;
 
             if (end_token == tk_right_parenth) {
-                if (lex->token != tk_multiply && have_optargs == 1)
-                    state = TC_BAD_TOKEN;
+                if (lex->token != tk_multiply && have_optargs == 1 &&
+                    have_arrow == 0) {
+                    lily_raise(parser->raiser, lily_SyntaxError,
+                            "Cannot have normal arguments after optional arguments.\n");
+                }
                 else if (lex->token == tk_multiply) {
                     if (have_arrow)
                         state = TC_BAD_TOKEN;
