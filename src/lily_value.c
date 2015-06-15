@@ -100,6 +100,8 @@ void lily_gc_collect_value(lily_type *value_type,
     else if (entry_cls_id == SYM_CLASS_TUPLE ||
              entry_cls_id >= SYM_CLASS_EXCEPTION)
         lily_gc_collect_tuple(value_type, value.list);
+    else if (entry_cls_id == SYM_CLASS_FUNCTION)
+        lily_gc_collect_function(value_type, value.function);
     else
         lily_deref_raw(value_type, value);
 }

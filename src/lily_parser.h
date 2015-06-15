@@ -31,6 +31,7 @@ typedef struct lily_parse_state_ {
     uint32_t optarg_stack_pos;
     uint32_t optarg_stack_size;
 
+    lily_type *class_self_type;
     lily_msgbuf *msgbuf;
     lily_type *default_call_type;
     lily_ast_pool *ast_pool;

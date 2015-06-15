@@ -15,6 +15,8 @@ typedef struct {
     int code_pos;
     int line_num;
 
+    lily_value **upvalues;
+
     /* This is set to the value of 'self' within the ::new of a class. The
        instruction o_new_instance uses this to determine if a constructor is
        being executed from a higher-up class. If that is the case, then the

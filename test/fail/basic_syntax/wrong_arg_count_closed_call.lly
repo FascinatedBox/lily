@@ -1,0 +1,9 @@
+#[
+SyntaxError: Function g expects 0 args, but got 1.
+Where: File "wrong_arg_count_closed_call.lly" at line 8
+]#
+
+define f(a: integer) {
+    define g() { a += 1 }
+    g(1)
+}

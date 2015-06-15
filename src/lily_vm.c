@@ -14,6 +14,7 @@
 
 #include "lily_cls_any.h"
 #include "lily_cls_hash.h"
+#include "lily_cls_function.h"
 
 extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
 
@@ -1447,6 +1448,120 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 }
 
 /*****************************************************************************/
+/* Closures                                                                  */
+/*****************************************************************************/
+
+/*  This function attempts to create the original closure. Other opcodes, such
+    as o_create_function will make a shallow copy of the closure data within
+    here.
+    The upvalues of the closure are not initially provided types. This is
+    because the closure cannot have access to all type information when it is
+    first invoked (an inner function may define extra generics that a further
+    inward function may then use). */
+lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
+{
+    int count = code[2];
+    lily_value *result = vm->vm_regs[code[3]];
+
+    lily_vm_stack_entry *stack_entry = vm->function_stack[vm->function_stack_pos-1];
+    lily_function_val *last_call = stack_entry->function;
+
+    lily_function_val *closure_func = lily_new_function_copy(last_call);
+    /* There's probably a way of determining at emit time if a closure -really-
+       needs to have a marker at this stage. However, it's easier and safer to
+       just assume it needs a marker. */
+    add_gc_item(vm, result->type, (lily_generic_gc_val *)closure_func);
+
+    lily_closure_data *d = lily_malloc(sizeof(lily_closure_data));
+    lily_value **upvalues = lily_malloc(sizeof(lily_value *) * count);
+    lily_type *integer_type = vm->integer_type;
+
+    int i;
+    for (i = 0;i < count;i++) {
+        lily_value *v = lily_malloc(sizeof(lily_value));
+        v->type = integer_type;
+        v->flags = VAL_IS_NIL;
+        v->value.integer = 0;
+        upvalues[i] = v;
+    }
+
+    closure_func->closure_data = d;
+    closure_func->refcount = 1;
+    d->upvalues = upvalues;
+    d->refcount = 1;
+    d->num_upvalues = count;
+
+    lily_raw_value v = {.function = closure_func};
+    lily_move_raw_value(vm, result, 0, v);
+    return upvalues;
+}
+
+/*  This opcode is written when either a function or lambda is created within
+    a defined function. It creates a copy of a given function, but stores
+    closure information within the copy. The copy created is used in place of
+    the given function, as it has upvalue information that the original does
+    not.
+    By doing this, calls to the function copy will load the function with
+    closures onto the stack. */
+lily_value **do_o_create_function(lily_vm_state *vm, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_tie *function_literal = vm->readonly_table[code[1]];
+    lily_function_val *raw_func = function_literal->value.function;
+    lily_function_val *closure_copy = lily_new_function_copy(raw_func);
+
+    add_gc_item(vm, function_literal->type,
+            (lily_generic_gc_val *)closure_copy);
+
+    lily_function_val *active_closure = vm_regs[code[2]]->value.function;
+    closure_copy->closure_data = active_closure->closure_data;
+    closure_copy->closure_data->refcount++;
+
+    lily_raw_value v = {.function = closure_copy};
+
+    lily_value **upvalues = closure_copy->closure_data->upvalues;
+    lily_move_raw_value(vm, upvalues[code[3]], 0, v);
+    upvalues[code[3]]->type = vm_regs[code[2]]->type;
+}
+
+/*  This is written at the top of a function that uses closures but is not a
+    class method. Because of how o_create_function works, the most recent call
+    (this function) has closure data in the function part of the stack. This is
+    as simple as drawing that data out. */
+lily_value **do_o_load_closure(lily_vm_state *vm, uint16_t *code)
+{
+    int pos = vm->function_stack_pos - 1;
+    lily_function_val *f = vm->function_stack[pos]->function;
+    lily_raw_value v = {.function = f};
+    lily_value *result = vm->vm_regs[code[2]];
+
+    /* This isn't using assign because there is no proper lily value that is
+       holding closure. Instead, do a move and manually bump the ref. */
+    lily_move_raw_value(vm, result, 0, v);
+    f->refcount++;
+
+    return f->closure_data->upvalues;
+}
+
+/*  This is written at the top of a class method when the class has methods that
+    use upvalues. Unlike with typical functions, class methods can be referenced
+    statically outside of the class. Because class methods always take self as
+    their first parameter, the class will hold a closure that this will pull out
+    and put into a local register. */
+lily_value **do_o_load_class_closure(lily_vm_state *vm, uint16_t *code,
+        int code_pos)
+{
+    do_o_get_property(vm, code, code_pos);
+    lily_value *closure_reg = vm->vm_regs[code[code_pos + 4]];
+    lily_function_val *f = closure_reg->value.function;
+
+    /* Don't adjust any refcounts here, because do_o_get_property will use
+       lily_assign_value which will do that for us. */
+
+    return f->closure_data->upvalues;
+}
+
+/*****************************************************************************/
 /* Exception handling                                                        */
 /*****************************************************************************/
 
@@ -1782,6 +1897,7 @@ void lily_vm_foreign_prep(lily_vm_state *vm, lily_value *to_call)
     foreign_entry->code_pos = 0;
     foreign_entry->regs_used = (function_val_return_type != NULL);
     foreign_entry->return_reg = -1;
+    foreign_entry->upvalues = NULL;
     foreign_entry->build_value = NULL;
 
     /* Step 6: Set the second stack entry (the native function). */
@@ -1792,6 +1908,7 @@ void lily_vm_foreign_prep(lily_vm_state *vm, lily_value *to_call)
     native_entry->return_reg = 0;
     native_entry->function = function_val;
     native_entry->line_num = 0;
+    native_entry->upvalues = NULL;
     native_entry->build_value = NULL;
 }
 
@@ -1997,6 +2114,7 @@ void lily_vm_execute(lily_vm_state *vm)
     lily_type *integer_type = vm->symtab->integer_class->type;
     lily_type *double_type = vm->symtab->double_class->type;
     lily_function_val *fval;
+    lily_value **upvalues = NULL;
 
     f = vm->function_stack[vm->function_stack_pos-1]->function;
     code = f->code;
@@ -2182,6 +2300,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 stack_entry = vm->function_stack[vm->function_stack_pos-1];
                 stack_entry->line_num = code[code_pos+1];
                 stack_entry->code_pos = code_pos + j + 6;
+                stack_entry->upvalues = upvalues;
 
                 if (fval->code != NULL) {
                     int register_need = fval->reg_count + num_registers;
@@ -2210,10 +2329,12 @@ void lily_vm_execute(lily_vm_state *vm)
                     stack_entry->function = fval;
                     stack_entry->regs_used = fval->reg_count;
                     stack_entry->code = fval->code;
+                    stack_entry->upvalues = NULL;
                     vm->function_stack_pos++;
 
                     code = fval->code;
                     code_pos = 0;
+                    upvalues = NULL;
                 }
                 else {
                     lily_foreign_func func = fval->foreign_func;
@@ -2222,6 +2343,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     stack_entry->line_num = -1;
                     stack_entry->code = NULL;
                     stack_entry->build_value = NULL;
+                    stack_entry->upvalues = NULL;
                     vm->function_stack_pos++;
 
                     func(vm, j, code+code_pos+5);
@@ -2284,6 +2406,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 vm->num_registers = num_registers;
                 vm_regs = vm_regs - stack_entry->regs_used;
                 vm->vm_regs = vm_regs;
+                upvalues = stack_entry->upvalues;
                 code = stack_entry->code;
                 code_pos = stack_entry->code_pos;
                 break;
@@ -2353,6 +2476,24 @@ void lily_vm_execute(lily_vm_state *vm)
                             rhs_reg->type, lhs_reg->type);
                 }
 
+                code_pos += 4;
+                break;
+            case o_create_function:
+                do_o_create_function(vm, code + code_pos);
+                code_pos += 4;
+                break;
+            case o_set_upvalue:
+                lhs_reg = upvalues[code[code_pos + 2]];
+                rhs_reg = vm_regs[code[code_pos + 3]];
+                if (lhs_reg->flags & VAL_IS_NIL)
+                    lhs_reg->type = rhs_reg->type;
+                lily_assign_value(vm, lhs_reg, rhs_reg);
+                code_pos += 4;
+                break;
+            case o_get_upvalue:
+                lhs_reg = vm_regs[code[code_pos + 3]];
+                rhs_reg = upvalues[code[code_pos + 2]];
+                lily_assign_value(vm, lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
             case o_setup_optargs:
@@ -2455,6 +2596,18 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 4 + i;
                 break;
             }
+            case o_create_closure:
+                upvalues = do_o_create_closure(vm, code+code_pos);
+                code_pos += 4;
+                break;
+            case o_load_class_closure:
+                upvalues = do_o_load_class_closure(vm, code, code_pos);
+                code_pos += 5;
+                break;
+            case o_load_closure:
+                upvalues = do_o_load_closure(vm, code+code_pos);
+                code_pos += 3;
+                break;
             case o_for_setup:
                 loop_reg = vm_regs[code[code_pos+2]];
                 /* lhs_reg is the start, rhs_reg is the stop. */

@@ -308,6 +308,12 @@ typedef struct lily_file_val_ {
     FILE *inner_file;
 } lily_file_val;
 
+typedef struct {
+    uint32_t refcount;
+    uint32_t num_upvalues;
+    struct lily_value_ **upvalues;
+} lily_closure_data;
+
 /* Finally, functions. Functions come in two flavors: Native and foreign.
    * Native:  This function is declared and defined by a user. It has a code
               section (which the vm will execute), and has to initialize
@@ -322,6 +328,8 @@ typedef struct lily_file_val_ {
 typedef struct lily_function_val_ {
     uint32_t refcount;
     uint32_t line_num;
+
+    struct lily_gc_entry_ *gc_entry;
 
     /* The name of the class that this function belongs to OR "". */
     char *class_name;
@@ -343,6 +351,8 @@ typedef struct lily_function_val_ {
     uint32_t len;
 
     uint32_t pad;
+
+    lily_closure_data *closure_data;
     /* Does this function contain generics? If so, they may need to be solved
        at vm-time when it's called. */
     uint32_t has_generics;
@@ -534,6 +544,7 @@ typedef struct lily_options_ {
    to. This is to prevent things like '[1,2,3][0] = 4'. */
 #define SYM_NOT_ASSIGNABLE      0x200
 
+#define SYM_CLOSED_OVER         0x400
 
 /* VAR_* flags are for vars. Since these have lily_sym as a superset, they begin
    where lily_sym's flags leave off. */
@@ -542,13 +553,13 @@ typedef struct lily_options_ {
 /* This is a var that is no longer in scope. It is kept around until the
    function it is within is done so type information can be loaded up into the
    registers later. */
-#define VAR_OUT_OF_SCOPE        0x0400
+#define VAR_OUT_OF_SCOPE        0x1000
 
 /* This is set on vars which will be used to hold the value of a defined
    function, a lambda, or a class constructor. Vars with this flag cannot be
    assigned to. Additionally, the reg_spot they contain is actually a spot in
    the vm's 'readonly_table'. */
-#define VAR_IS_READONLY         0x1000
+#define VAR_IS_READONLY         0x2000
 
 
 /* VAL_* flags are for lily_value. */

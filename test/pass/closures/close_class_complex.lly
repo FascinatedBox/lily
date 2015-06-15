@@ -1,0 +1,15 @@
+class Point(x: integer, y: integer) {
+    define f( => integer) {
+        return x + y
+    }
+}
+
+class ThreeDeePoint(x: integer, y: integer, z: integer) < Point(x, y) {
+    define g( => integer) {
+        return x + y + z
+    }
+}
+
+var p = ThreeDeePoint::new(100, 200, 300)
+if p.g() != 600:
+    stderr.write("Failed.\n")
