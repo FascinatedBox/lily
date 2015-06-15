@@ -301,6 +301,18 @@ typedef enum {
 
     o_variant_decompose,
 
+    o_get_upvalue,
+
+    o_set_upvalue,
+
+    o_create_closure,
+
+    o_create_function,
+
+    o_load_class_closure,
+
+    o_load_closure,
+
     /* Return from vm:
        This is a special opcode used to leave the vm. It does not take any
        values. This is written at the end of __main__. */

@@ -5,6 +5,7 @@
 #include "lily_msgbuf.h"
 #include "lily_core_types.h"
 #include "lily_opcode.h"
+#include "lily_opcode_table.h"
 #include "lily_vm.h"
 
 /** Debug is responsible for pretty printing whatever value it's given. This
@@ -12,69 +13,8 @@
     code inside of the function gets dumped. This is used to determine if an
     error is within the emitter's code generation or the vm. **/
 
-/* Opcode printing is handled by getting a 'call info' array for the given
-   opcode. This specifies values that start with D_ that indicate how to handle
-   printing the particular opcode. New values can be added, but must be
-   documented.
-   These codes specify what is at a particular position after an opcode.
-   If an op has a line number, an input, and a result, then the code would be
-   D_LINENO, D_INPUT, D_OUTPUT. (This is for unary ops). */
-
-/* D_LINENO:        This position contains the line number upon which the opcode
-                    is executed. If this exists, it is always right after the
-                    opcode. */
-#define D_LINENO           0
-/* D_INPUT:           This specifies a symbol that is being read. */
-#define D_INPUT            1
-/* D_OUTPUT:          The opcode's result will be written to this place. */
-#define D_OUTPUT           2
-/* D_NOP:             This position does not do anything. */
-#define D_NOP              3
-/* D_JUMP:            This position contains a jump to a future location. The
-                      position is an int, not a sym. */
-#define D_JUMP             4
-/* D_JUMP_ON:         This contains 1 or 0. This is used to determine if
-                      o_jump_if should jump on truth or false value. */
-#define D_JUMP_ON          5
-/* D_COUNT:           This specifies a number of arguments or values to come.
-                      This value is stored but not shown. */
-#define D_COUNT            8
-/* D_COUNT_LIST:      This specifies the start of an argument list, using the
-                      value recorded by D_COUNT. */
-#define D_COUNT_LIST       9
-/* D_INT_VAL:         Show a value that's just an integer. This is used by
-                      o_for_setup to determine if it should init the step value
-                      or not. */
-#define D_INT_VAL         10
-/* D_LIT_INPUT:       The input is a position in the vm's table of literals. */
-#define D_READONLY_INPUT  11
-/* D_GLOBAL_INPUT:    The INput is the address of a global register. */
-#define D_GLOBAL_INPUT    12
-/* D_GLOBAL_OUTPUT:   The OUTput is the address of a global register. */
-#define D_GLOBAL_OUTPUT   13
-/* D_CALL_TYPE:       This is used by calls to determine how the call is stored:
-                      0: The input is a readonly var.
-                      1: The input is a local register. */
-#define D_CALL_TYPE       14
-/* D_CALL_INPUT:      Input to a function call. This is shown according to what
-                      D_CALL_INPUT_TYPE picked up. */
-#define D_CALL_INPUT      15
-/* D_COUNT_JUMPS:     This specifies the start of a series of jumps, using the
-                      value recorded by D_COUNT. */
-#define D_COUNT_JUMPS     16
-/* D_MATCH_INPUT:     This is a special case for the input value to a match
-                      expression. It allows D_COUNT_JUMPS to specify what
-                      classes map to which locations. */
-#define D_MATCH_INPUT     17
-/* D_COUNT_OUTPUTS:   This specifies the start of a series of outputs, using
-                      the value recorded by D_COUNT. */
-#define D_COUNT_OUTPUTS   18
-/* D_COUNT_OPTARGS:   This specifies a series of var spot + literal spot pairs,
-                      It's the number of values, not the number of pairs though,
-                      so that it's consistent with everything else. */
-#define D_COUNT_OPTARGS   19
-
 /** Flags for show_register_info: **/
+
 /* This means the number given is for a register in __main__. By default, the
    current function's info is used. */
 #define RI_GLOBAL 0x1
@@ -149,60 +89,13 @@ char *opcode_names[] = {
     "new instance",
     "match dispatch",
     "variant decompose",
+    "get upvalue",
+    "set upvalue",
+    "create closure",
+    "create function",
+    "load class closure",
+    "load closure",
     "return from vm"
-};
-
-static const int optable[][8] = {
-    {o_fast_assign,         3, D_LINENO,        D_INPUT,          D_OUTPUT,        -1,              -1,           -1},
-    {o_assign,              3, D_LINENO,        D_INPUT,          D_OUTPUT,        -1,              -1,           -1},
-    {o_integer_add,         4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_integer_minus,       4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_modulo,              4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_integer_mul,         4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_integer_div,         4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_left_shift,          4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_right_shift,         4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_bitwise_and,         4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_bitwise_or,          4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_bitwise_xor,         4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_double_add,          4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_double_minus,        4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_double_mul,          4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_double_div,          4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_is_equal,            4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_not_eq,              4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_less,                4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_less_eq,             4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_greater,             4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_greater_eq,          4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_jump,                1, D_JUMP,          -1,               -1,              -1,              -1,           -1},
-    {o_jump_if,             3, D_JUMP_ON,       D_INPUT,          D_JUMP,          -1,              -1,           -1},
-    {o_function_call,       6, D_LINENO,        D_CALL_TYPE,      D_CALL_INPUT,    D_COUNT,         D_COUNT_LIST, D_OUTPUT},
-    {o_return_val,          2, D_LINENO,        D_INPUT,          -1,              -1,              -1,           -1},
-    {o_return_noval,        1, D_LINENO,        -1,               -1,              -1,              -1,           -1},
-    {o_unary_not,           3, D_LINENO,        D_INPUT,          D_OUTPUT,        -1,              -1,           -1},
-    {o_unary_minus,         3, D_LINENO,        D_INPUT,          D_OUTPUT,        -1,              -1,           -1},
-    {o_build_list_tuple,    4, D_LINENO,        D_COUNT,          D_COUNT_LIST,    D_OUTPUT,        -1,           -1},
-    {o_build_hash,          4, D_LINENO,        D_COUNT,          D_COUNT_LIST,    D_OUTPUT,        -1,           -1},
-    {o_any_typecast,        3, D_LINENO,        D_INPUT,          D_OUTPUT,        -1,              -1,           -1},
-    {o_integer_for,         6, D_LINENO,        D_INPUT,          D_INPUT,         D_INPUT,         D_INPUT,      D_JUMP},
-    {o_for_setup,           6, D_LINENO,        D_INPUT,          D_INPUT,         D_INPUT,         D_INPUT,      D_INT_VAL},
-    {o_get_item,            4, D_LINENO,        D_INPUT,          D_INPUT,         D_OUTPUT,        -1,           -1},
-    {o_set_item,            4, D_LINENO,        D_INPUT,          D_INPUT,         D_INPUT,         -1,           -1},
-    {o_get_global,          3, D_LINENO,        D_GLOBAL_INPUT,   D_OUTPUT         -1,              -1,           -1},
-    {o_set_global,          3, D_LINENO,        D_INPUT,          D_GLOBAL_OUTPUT, -1,              -1,           -1},
-    {o_get_readonly,        3, D_LINENO,        D_READONLY_INPUT, D_OUTPUT,        -1,              -1,           -1},
-    {o_get_property,        4, D_LINENO,        D_INPUT,          D_INT_VAL,       D_OUTPUT,        -1,           -1},
-    {o_set_property,        4, D_LINENO,        D_INPUT,          D_INT_VAL,       D_INPUT,         -1,           -1},
-    {o_push_try,            2, D_LINENO,        D_JUMP,           D_INT_VAL,       -1,              -1,           -1},
-    {o_pop_try,             1, D_NOP,           -1,               -1,              -1,              -1,           -1},
-    {o_except,              4, D_LINENO,        D_JUMP,           D_INT_VAL,       D_OUTPUT,        -1,           -1},
-    {o_raise,               2, D_LINENO,        D_INPUT,          -1,              -1,              -1,           -1},
-    {o_setup_optargs,       1, D_COUNT_OPTARGS, -1,               -1,              -1,              -1,           -1},
-    {o_new_instance,        2, D_LINENO,        D_OUTPUT,         -1,              -1,              -1,           -1},
-    {o_match_dispatch,      4, D_LINENO,        D_MATCH_INPUT,    D_COUNT,         D_COUNT_JUMPS,   -1,           -1},
-    {o_variant_decompose,   4, D_LINENO,        D_INPUT,          D_COUNT,         D_COUNT_OUTPUTS, -1,           -1},
-    {o_return_from_vm,      1, D_NOP,           -1,               -1,              -1,              -1,           -1}
 };
 
 static void write_msgbuf(lily_debug_state *debug)
@@ -296,8 +189,8 @@ static void show_register_info(lily_debug_state *debug, int flags, int reg_num)
 }
 
 /*  show_code
-    Show the code inside of a function. This uses optable and opcode_names to
-    assist in showing code information. */
+    Show the code inside of a function. This uses opcode_table and opcode_names
+    to assist in showing code information. */
 static void show_code(lily_debug_state *debug)
 {
     char format[5];
@@ -341,7 +234,7 @@ static void show_code(lily_debug_state *debug)
     while (i < len) {
         int opcode = code[i];
 
-        const int *opcode_data = optable[opcode];
+        const int *opcode_data = opcode_table[opcode];
         char *opcode_name = opcode_names[opcode];
         int call_type = 0, count = 0, data_code, j;
         lily_class *match_cls = NULL;
@@ -350,7 +243,7 @@ static void show_code(lily_debug_state *debug)
            seen. This makes it easy to see what operations that are caused by
            a particular line number. After that, the [] indicates the position
            of i for extra debugging. */
-        if (opcode_data[1] == D_LINENO && code[i+1] != last_line_num) {
+        if (opcode_data[1] == C_LINENO && code[i+1] != last_line_num) {
             /* Line numbers are the heading, so don't indent those. */
             lily_msgbuf_add_fmt(msgbuf, "^I|____ (line %d)\n", indent - 1,
                     code[i+1]);
@@ -368,38 +261,38 @@ static void show_code(lily_debug_state *debug)
            except for a few where that does not apply.
            Most that do not have a special starting opcode specific to them that
            will write in the newline.
-           o_jump doesn't, so write this in for it. */
-        if (code[i] == o_jump)
+           These two, however, do not, so insert one in. */
+        if (opcode == o_jump || opcode == o_create_function)
             lily_impl_puts(data, "\n");
 
         for (j = 1;j <= opcode_data[1];j++) {
             data_code = opcode_data[j+1];
 
-            if (data_code == D_LINENO)
+            if (data_code == C_LINENO)
                 lily_impl_puts(data, "\n");
-            else if (data_code == D_INPUT)
+            else if (data_code == C_INPUT)
                 show_register_info(debug, RI_INPUT, code[i+j]);
-            else if (data_code == D_OUTPUT) {
+            else if (data_code == C_OUTPUT) {
                 /* output is NULL if it's a function that does not return a
                    value. Omit this for brevity (the lack of a stated output
                    meaning it doesn't have one). */
                 if ((int16_t)code[i+j] != -1)
                     show_register_info(debug, RI_OUTPUT, code[i+j]);
             }
-            else if (data_code == D_JUMP_ON) {
+            else if (data_code == C_JUMP_ON) {
                 if (code[i+j] == 0)
                     lily_impl_puts(data, " false\n");
                 else
                     lily_impl_puts(data, " true\n");
             }
-            else if (data_code == D_JUMP) {
+            else if (data_code == C_JUMP) {
                 lily_msgbuf_add_fmt(msgbuf, "^I|     -> | [%d]\n",
                         indent, (int)code[i+j]);
                 write_msgbuf(debug);
             }
-            else if (data_code == D_COUNT)
+            else if (data_code == C_COUNT)
                 count = (int)code[i+j];
-            else if (data_code == D_COUNT_LIST) {
+            else if (data_code == C_COUNT_LIST) {
                 if (count == 0)
                     i--;
                 else {
@@ -410,42 +303,42 @@ static void show_code(lily_debug_state *debug)
                     i--;
                 }
             }
-            else if (data_code == D_COUNT)
+            else if (data_code == C_COUNT)
                 count = (int)code[i+j];
-            else if (data_code == D_INT_VAL) {
+            else if (data_code == C_INT_VAL) {
                 lily_msgbuf_add_fmt(msgbuf, "^I|     <---- %d\n",
                         indent, (int)code[i+j]);
                 write_msgbuf(debug);
             }
-            else if (data_code == D_NOP) {
+            else if (data_code == C_NOP) {
                 lily_impl_puts(data, "\n");
                 break;
             }
-            else if (data_code == D_GLOBAL_INPUT)
+            else if (data_code == C_GLOBAL_INPUT)
                 show_register_info(debug, RI_GLOBAL | RI_INPUT, code[i+j]);
-            else if (data_code == D_GLOBAL_OUTPUT) {
-                /* This doesn't have to be checked because D_GLOBAL_OUTPUT is
+            else if (data_code == C_GLOBAL_OUTPUT) {
+                /* This doesn't have to be checked because C_GLOBAL_OUTPUT is
                    only for writes to a global, and always exists. */
                 show_register_info(debug, RI_GLOBAL | RI_OUTPUT, code[i+j]);
             }
-            else if (data_code == D_CALL_TYPE)
+            else if (data_code == C_CALL_TYPE)
                 call_type = code[i+j];
-            else if (data_code == D_CALL_INPUT) {
+            else if (data_code == C_CALL_INPUT) {
                 if (call_type == 1)
                     show_readonly(debug, code[i+j]);
                 else
                     show_register_info(debug, RI_INPUT, code[i+j]);
             }
-            else if (data_code == D_READONLY_INPUT)
+            else if (data_code == C_READONLY_INPUT)
                 show_readonly(debug, code[i+j]);
-            else if (data_code == D_MATCH_INPUT) {
+            else if (data_code == C_MATCH_INPUT) {
                 show_register_info(debug, RI_INPUT, code[i+j]);
                 match_cls = debug->current_function->reg_info[code[i+j]].type->cls;
             }
             /* This is for o_match_dispatch, and each of these cases
                corresponds to a variant classes. To help with debugging, show
                where the different classes will jump to. */
-            else if (data_code == D_COUNT_JUMPS) {
+            else if (data_code == C_COUNT_JUMPS) {
                 int k;
                 for (k = 0;k < count;k++, i++) {
                     lily_msgbuf_add_fmt(msgbuf, "^I|     -> | [%d] (case: %s)\n",
@@ -459,14 +352,14 @@ static void show_code(lily_debug_state *debug)
             /* This is currently only used by o_variant_decompose, so there's
                no need to check for -1 like in the normal output handler since
                that isn't possible. */
-            else if (data_code == D_COUNT_OUTPUTS) {
+            else if (data_code == C_COUNT_OUTPUTS) {
                 int k;
                 for (k = 0;k < count;k++, i++)
                     show_register_info(debug, RI_OUTPUT, code[i+j]);
 
                 i--;
             }
-            else if (data_code == D_COUNT_OPTARGS) {
+            else if (data_code == C_COUNT_OPTARGS) {
                 /* Must be done, because there was no linenum for this. */
                 lily_msgbuf_add_char(msgbuf, '\n');
 

@@ -1,0 +1,16 @@
+define f(a: integer =>
+    tuple[function(), function( => integer)]) {
+
+    define g() { a += 1 }
+    define h( => integer) { return a }
+    return <[g, h]>
+}
+
+var v = f(10)
+var increment = v[0]
+var ret = v[1]
+
+increment()
+increment()
+if ret() != 12:
+    stderr.write("Failed.\n")

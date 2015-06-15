@@ -1,0 +1,11 @@
+class test(a: integer) {
+    define increment() { a += 1 }
+    define ret( => integer) { return a }
+}
+
+var v = test::new(10)
+v.increment()
+v.increment()
+
+if v.ret() != 12:
+    stderr.write("Failed.\n")

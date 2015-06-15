@@ -327,8 +327,9 @@ static void finalize_type(lily_type *input_type)
                 input_type->flags |= TYPE_CALL_HAS_ENUM_ARG;
         }
 
-        /* functions are not containers, so circularity doesn't apply to them. */
-        input_type->flags &= ~TYPE_MAYBE_CIRCULAR;
+        /* Any function is able to be a closure, so they are marked as circular
+           as a precaution. */
+        input_type->flags |= TYPE_MAYBE_CIRCULAR;
     }
 
     /* fixme: Properly go over enum classes to determine circularity. */

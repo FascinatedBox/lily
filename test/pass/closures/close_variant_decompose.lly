@@ -1,0 +1,17 @@
+enum class Option[A] { Some(A), None }
+
+define f(a: Option[integer] => function( => integer)) {
+    var v = {|| 1}
+
+    match a: {
+        case Some(s):
+            v = {|| s}
+        case None:
+    }
+
+    return v
+}
+
+
+if f(Some(10))() != 10:
+    stderr.write("Failed.\n")

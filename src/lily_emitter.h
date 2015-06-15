@@ -28,7 +28,7 @@ typedef struct lily_block_ {
     /* Match blocks: The starting position in emitter's match_cases. */
     uint16_t match_case_start;
 
-    uint16_t pad;
+    uint16_t closed_start;
 
     uint32_t block_type;
 
@@ -142,6 +142,12 @@ typedef struct {
        of the appropriate size is copied from here into the function value. */
     uint16_t *code;
 
+    lily_sym **closed_syms;
+
+    uint16_t *transform_table;
+
+    uint64_t transform_size;
+
     /* Where the next bit of code will be written to. It is a bug to write this
        value into code. Use 'code_real_spot' instead. */
     uint32_t code_pos;
@@ -149,13 +155,13 @@ typedef struct {
     /* How much space is allocated for code. */
     uint32_t code_size;
 
-    /* If a block needs to reference a code position (for, say, a jump), then it
-       should use 'code_pos - offset_code_pos'. */
-    uint32_t offset_code_pos;
-
     uint16_t call_values_pos;
 
     uint16_t call_values_size;
+
+    uint16_t closed_pos;
+
+    uint16_t closed_size;
 
     uint16_t patch_pos;
 
@@ -195,8 +201,10 @@ typedef struct {
        implicitly entered before any user code. */
     lily_block *block;
 
+    uint16_t lambda_depth;
+
     /* How deep the current functions are. */
-    uint32_t function_depth;
+    uint16_t function_depth;
 
     /* Each expression has a unique id so that the emitter knows not to reuse
        a given storage within an expression. */

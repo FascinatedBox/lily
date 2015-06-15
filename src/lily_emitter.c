@@ -1,4 +1,5 @@
 #include <string.h>
+#include <inttypes.h>
 
 #include "lily_alloc.h"
 #include "lily_ast.h"
@@ -7,6 +8,7 @@
 #include "lily_opcode.h"
 #include "lily_emit_table.h"
 #include "lily_parser.h"
+#include "lily_opcode_table.h"
 
 #include "lily_cls_function.h"
 
@@ -46,6 +48,10 @@ lily_emit_state *lily_new_emit_state(lily_options *options,
     emit->match_cases = lily_malloc(sizeof(int) * 4);
     emit->ts = lily_new_type_system(options, symtab, raiser);
     emit->code = lily_malloc(sizeof(uint16_t) * 32);
+    emit->closed_syms = lily_malloc(sizeof(lily_sym *) * 4);
+    emit->transform_table = NULL;
+    emit->transform_size = 0;
+
     emit->call_values = lily_malloc(sizeof(lily_sym *) * 8);
     emit->call_state = NULL;
     emit->code_pos = 0;
@@ -53,6 +59,9 @@ lily_emit_state *lily_new_emit_state(lily_options *options,
 
     emit->call_values_pos = 0;
     emit->call_values_size = 8;
+
+    emit->closed_pos = 0;
+    emit->closed_size = 4;
 
     emit->match_case_pos = 0;
     emit->match_case_size = 4;
@@ -64,6 +73,7 @@ lily_emit_state *lily_new_emit_state(lily_options *options,
 
     emit->patch_pos = 0;
     emit->patch_size = 4;
+    emit->lambda_depth = 0;
     emit->function_depth = 0;
 
     emit->current_class = NULL;
@@ -110,6 +120,8 @@ void lily_free_emit_state(lily_emit_state *emit)
         }
     }
 
+    lily_free(emit->transform_table);
+    lily_free(emit->closed_syms);
     lily_free(emit->call_values);
     lily_free_type_system(emit->ts);
     lily_free(emit->match_cases);
@@ -305,9 +317,7 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
     lily_block *block, *ret;
     ret = NULL;
 
-    for (block = emit->block;
-         block;
-         block = block->prev) {
+    for (block = emit->block; block; block = block->prev) {
         if (IS_LOOP_BLOCK(block->block_type)) {
             ret = block;
             break;
@@ -321,6 +331,23 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
     return ret;
 }
 
+static lily_block *find_deepest_func(lily_emit_state *emit)
+{
+    lily_block *block;
+    lily_block *result = NULL;
+
+    for (block = emit->block; block; block = block->prev) {
+        if ((block->block_type & BLOCK_FUNCTION) &&
+             block->block_type != BLOCK_FILE) {
+            result = block;
+            break;
+        }
+    }
+
+    return result;
+}
+
+
 /*  grow_patches
     Make emitter's patches bigger. */
 static void grow_patches(lily_emit_state *emit)
@@ -328,6 +355,61 @@ static void grow_patches(lily_emit_state *emit)
     emit->patch_size *= 2;
     emit->patches = lily_realloc(emit->patches,
         sizeof(int) * emit->patch_size);
+}
+
+void inject_patch_into_block(lily_emit_state *emit, lily_block *block,
+        int target)
+{
+    if (emit->patch_pos == emit->patch_size)
+        grow_patches(emit);
+
+    /* This is the most recent block, so add the patch to the top. */
+    if (emit->block == block) {
+        emit->patches[emit->patch_pos] = target;
+        emit->patch_pos++;
+    }
+    else {
+        /* The block is not on top, so this will be fairly annoying... */
+        int move_by, move_start;
+
+        move_start = block->next->patch_start;
+        move_by = emit->patch_pos - move_start;
+
+        /* Move everything after this patch start over one, so that there's a
+           hole after the last while patch to write in a new one. */
+        memmove(emit->patches+move_start+1, emit->patches+move_start,
+                move_by * sizeof(int));
+        emit->patch_pos++;
+        emit->patches[move_start] = target;
+
+        for (block = block->next;
+             block;
+             block = block->next)
+            block->patch_start++;
+    }
+}
+
+void write_block_patches(lily_emit_state *emit, int pos)
+{
+    int from = emit->patch_pos-1;
+    int to = emit->block->patch_start;
+
+    for (;from >= to;from--) {
+        /* Skip -1's, which are fake patches from conditions that were
+            optimized out. */
+        if (emit->patches[from] != -1)
+            emit->code[emit->patches[from]] = pos;
+    }
+
+    /* Use the space for new patches now. */
+    emit->patch_pos = to;
+}
+
+static void grow_closed_syms(lily_emit_state *emit)
+{
+    emit->closed_size *= 2;
+    emit->closed_syms = lily_realloc(emit->closed_syms,
+        sizeof(lily_sym *) * emit->closed_size);
 }
 
 static void grow_match_cases(lily_emit_state *emit)
@@ -509,6 +591,75 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
     return storage_iter;
 }
 
+/*  This attempts to locate a storage, but makes sure that it has never been
+    used before. This is necessary for closures, which dump the source of
+    upvalue into a register (this prevents it from being destroyed early). */
+lily_storage *get_unique_storage(lily_emit_state *emit, lily_type *type)
+{
+    int next_spot = emit->symtab->next_register_spot;
+    lily_storage *s = NULL;
+
+    /* As long as the next register spot doesn't change, the resulting storage
+       may be one that is used somewhere else. There's probably a faster, more
+       direct approach, but this is really likely to succeed the first time. */
+    do {
+        s = get_storage(emit, type);
+    } while (emit->symtab->next_register_spot == next_spot);
+
+    return s;
+}
+
+static void close_over_sym(lily_emit_state *emit, lily_sym *sym)
+{
+    if (emit->closed_pos == emit->closed_size)
+        grow_closed_syms(emit);
+
+    emit->closed_syms[emit->closed_pos] = sym;
+    emit->closed_pos++;
+    sym->flags |= SYM_CLOSED_OVER;
+}
+
+static int find_closed_sym_spot(lily_emit_state *emit, lily_sym *sym)
+{
+    int result = -1, i;
+    for (i = 0;i < emit->closed_pos;i++) {
+        if (emit->closed_syms[i] == sym) {
+            result = i;
+            break;
+        }
+    }
+
+    return result;
+}
+
+static int find_closed_self_spot(lily_emit_state *emit)
+{
+    int i, result = -1;
+    for (i = 0;i < emit->closed_pos;i++) {
+        lily_sym *s = emit->closed_syms[i];
+        if ((s->flags & ITEM_TYPE_VAR) == 0) {
+            result = i;
+            break;
+        }
+    }
+
+    return result;
+}
+
+static void maybe_close_over_class_self(lily_emit_state *emit)
+{
+    lily_block *block = emit->block;
+    while ((block->block_type & BLOCK_CLASS) == 0)
+        block = block->prev;
+
+    lily_sym *self = (lily_sym *)block->self;
+    if (find_closed_sym_spot(emit, self) == -1)
+        close_over_sym(emit, self);
+
+    if (emit->block->self == NULL)
+        emit->block->self = get_storage(emit, self->type);
+}
+
 /*  write_build_op
 
     This is responsible for writing the actual o_build_list_tuple or
@@ -681,13 +832,356 @@ static void add_storage_chain_to_info(lily_register_info *info,
     }
 }
 
+/* This traverses within emit->code from the initially given start and end
+   positions.
+   This function is concerned with values that are local to this function which
+   have been closed over.
+   * Any read of a local that has been closed over will have a o_get_upvalue
+     written before the opcode.
+   * Any write of a local will have o_set_upvalue written after the opcode.
+   * Jumps encounted are adjusted to account for any get/set_upvalue's written.
+   In most cases, this isn't necessary. However, consider this:
+    define f() {
+        var i = 10
+        var g = {|| i += 1 }
+        g()
+        i += 1
+        show(i)
+    }
+   In this case, 'i' should have o_get/set_upvalue written appropriately so that
+   'i' will come out as 12 (the lambda update being factored in) instead of 11
+   (using local assigns only). */
+static void transform_code(lily_emit_state *emit, lily_function_val *f,
+        int pos, int end, int starting_adjust)
+{
+    uint16_t *transform_table = emit->transform_table;
+    int jump_adjust = starting_adjust;
+    int new_start = emit->code_pos;
+    int jump_pos = -1, jump_end;
+    int output_pos = -1, output_end;
+    /* Do not create a local copy of emit->code here, because the write_4's
+       may cause it to be realloc'd. */
+
+    while (pos < end) {
+        int j = 0, op = emit->code[pos];
+        int c, count, call_type, i, line_num;
+        int k = 0;
+        const int *opcode_data = opcode_table[op];
+
+        for (i = 1;i <= opcode_data[1];i++) {
+            c = opcode_data[i + 1];
+            if (c == C_LINENO)
+                line_num = emit->code[pos + i + j];
+            else if ((c == C_INPUT || c == C_MATCH_INPUT ||
+                      (c == C_CALL_INPUT && call_type == 0)) &&
+                     op != o_create_function) {
+                int spot = emit->code[pos + i + j];
+                if (transform_table[spot] != (uint16_t)-1) {
+                    write_4(emit, o_get_upvalue, line_num,
+                            transform_table[spot], spot);
+                    jump_adjust += 4;
+                }
+            }
+            else if (c == C_OUTPUT) {
+                int spot = emit->code[pos + i + j];
+                if (spot != (uint16_t)-1 && transform_table[spot] != -1) {
+                    output_pos = i + j;
+                    output_end = output_pos + 1;
+                }
+            }
+            else if (c == C_COUNT)
+                count = emit->code[pos + i + j];
+            else if (c == C_NOP)
+                break;
+            else if (c == C_CALL_TYPE)
+                call_type = emit->code[pos + i + j];
+            else if (c == C_COUNT_OUTPUTS) {
+                output_pos = i + j;
+                output_end = output_pos + count;
+                j += count - 1;
+            }
+            else if (c == C_JUMP) {
+                /* All of the o_except cases of a single try block are linked
+                   together. The last one has a jump position of 0 to mean that
+                   it's at the end. Make sure that is preserved. */
+                if (op != o_except && emit->code[pos + i + j] != 0) {
+                    jump_pos = i + j;
+                    jump_end = jump_pos + 1;
+                }
+            }
+            else if (c == C_COUNT_JUMPS) {
+                jump_pos = i + j;
+                jump_end = jump_pos + count;
+                j += count - 1;
+            }
+            else if (c == C_COUNT_LIST) {
+                for (j = 0;j < count;j++) {
+                    int spot = emit->code[pos + i + j];
+                    if (transform_table[spot] != (uint16_t)-1) {
+                        write_4(emit, o_get_upvalue, line_num,
+                                transform_table[spot], spot);
+                        jump_adjust += 4;
+                    }
+                }
+                j--;
+            }
+            else if (c == C_COUNT_OUTPUTS) {
+                output_pos = i + j;
+                output_end = output_pos + count;
+                j += count - 1;
+            }
+            else if (c == C_COUNT_OPTARGS) {
+                count = emit->code[pos + i + j];
+                /* Optargs is unique in that it contains two kinds of things.
+                   The first half are literals, and the second half are register
+                   outputs. */
+                output_pos = i + j + 1 + (count / 2);
+                output_end = i + j + 1 + count;
+                /* Do not do count - 1 because this one includes the size with
+                   it since there's no standalone non-counted optargs. */
+                j += count;
+            }
+        }
+
+        int move = i + j;
+
+        write_prep(emit, move);
+        memcpy(emit->code + emit->code_pos, emit->code + pos,
+               move * sizeof(uint16_t));
+
+        if (jump_pos != -1) {
+            for (;jump_pos < jump_end;jump_pos++)
+                emit->code[emit->code_pos + jump_pos] += jump_adjust;
+
+            jump_pos = -1;
+        }
+
+        emit->code_pos += move;
+
+        if (output_pos != -1) {
+            for (;output_pos < output_end;output_pos++) {
+                int spot = emit->code[pos + output_pos];
+                if (spot != (uint16_t)-1 &&
+                    transform_table[spot] != (uint16_t)-1) {
+                    write_4(emit, o_set_upvalue, line_num,
+                            transform_table[spot], spot);
+                    jump_adjust += 4;
+                }
+            }
+            output_pos = -1;
+        }
+
+        pos += move;
+    }
+}
+
+/*  Consider this:
+    define f(a: integer => function( => integer)) {
+        return {|| a}
+    }
+
+    The parameter 'a' is used as an upvalue, is never used within the function
+    it is declared in. As a result, there are no writes to transform as a means
+    of putting 'a' into the closure.
+
+    This solves that by writing an explicit o_set_upvalue where it is needed,
+    before the transform. However, if o_setup_optargs is present, then nothing
+    is written for the parameter (o_setup_optargs will come later, and it will
+    not have a value). */
+static void ensure_params_in_closure(lily_emit_state *emit)
+{
+    lily_var *function_var = emit->block->function_var;
+    int i, local_count = function_var->type->subtype_count - 1;
+    if (local_count == 0)
+        return;
+
+    lily_class *optarg_class = emit->symtab->optarg_class;
+    /* The vars themselves aren't marked optargs, because that would be silly.
+       To know if something has optargs, prod the function's types. */
+    lily_type **real_param_types = function_var->type->subtypes;
+
+    lily_var *var_iter = emit->symtab->var_chain;
+    while (var_iter != function_var) {
+        if (var_iter->flags & SYM_CLOSED_OVER &&
+            var_iter->reg_spot < local_count) {
+            lily_type *real_type = real_param_types[var_iter->reg_spot + 1];
+            if (real_type->cls != optarg_class)
+                write_4(emit, o_set_upvalue, function_var->line_num,
+                        find_closed_sym_spot(emit, (lily_sym *)var_iter),
+                        var_iter->reg_spot);
+        }
+
+        var_iter = var_iter->next;
+    }
+}
+
+static void setup_transform_table(lily_emit_state *emit)
+{
+    if (emit->transform_size < emit->symtab->next_register_spot) {
+        emit->transform_table = lily_realloc(emit->transform_table,
+                emit->symtab->next_register_spot * sizeof(uint16_t));
+        emit->transform_size = emit->symtab->next_register_spot;
+    }
+
+    memset(emit->transform_table, (uint16_t)-1,
+           sizeof(uint16_t) * emit->symtab->next_register_spot);
+
+    int i;
+
+    for (i = 0;i < emit->closed_pos;i++) {
+        lily_sym *s = (lily_sym *)emit->closed_syms[i];
+        if (s && s->flags & ITEM_TYPE_VAR) {
+            lily_var *v = (lily_var *)s;
+            if (v->function_depth == emit->function_depth) {
+                emit->transform_table[v->reg_spot] = i;
+                /* Each var can only be transformed once, and within the scope
+                   it was declared. This prevents two nested functions from
+                   trying to transform the same (now-dead) vars. */
+                emit->closed_syms[i] = NULL;
+            }
+        }
+    }
+}
+/* This function is called to transform the currently available segment of code
+   (emit->block->code_start up to emit->code_pos) into code that will work for
+   closures.
+   there are a couple things to do before the transform:
+   * The first part is to setup the emitter's "transform table". This table will
+     map from a var's position in the current function's locals to the position
+     it has in the current closure. This will be used by transform_code.
+   * Depending on where this function is (is it a class method, a nested
+     function, or the top-most function), a different opcode will get written
+     that will become the top of the transformed code. */
+static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
+        int *new_start, int *new_size)
+{
+    int transform_start = emit->block->code_start;
+    int start = transform_start;
+    int end = emit->code_pos;
+    *new_start = emit->code_pos;
+    int save_code_pos = emit->code_pos;
+
+    /* To make sure that the closure information is not unexpectedly destroyed,
+       it is stored into a register. get_unique_storage is custom made for this,
+       and will grab a storage that nothing else is using. */
+    lily_storage *s = get_unique_storage(emit, emit->block->function_var->type);
+
+    int closed_self_spot = find_closed_self_spot(emit);
+    /* Take note that the new code start will be the current code end + 1.
+       Anything written from here until the code transform will appear at the
+       top of the transformed code. */
+    if (emit->function_depth == 2) {
+        /* A depth of 2 means that this is the very top function. It will need
+           to create the closure that gets passed down. This is really easy. */
+        write_4(emit, o_create_closure, f->line_num, emit->closed_pos,
+                s->reg_spot);
+
+        if (emit->block->block_type & BLOCK_CLASS) {
+            /* Classes are slightly tricky. There are (up to) three different
+               things that really want to be at the top of the code:
+               o_new_instance, o_setup_optargs, and o_function_call (in the
+               event that there is an inherited new).
+               Inject o_new_instance, then patch that out of the header so that
+               transform doesn't write it in again. */
+
+            uint16_t linenum = emit->code[start + 1];
+            uint16_t self_reg_spot = emit->code[start + 2];
+            write_3(emit, o_new_instance, linenum, self_reg_spot);
+
+            transform_start += 3;
+
+            /* The closure only needs to hold self if there was a lambda that
+               used self (because the lambda doesn't automatically get self). */
+            if (closed_self_spot != -1) {
+                write_4(emit, o_set_upvalue, linenum, closed_self_spot,
+                        self_reg_spot);
+                /* This class is going out of scope, so the 'self' it contians
+                   is going away as well. */
+                emit->closed_syms[closed_self_spot] = NULL;
+            }
+
+            lily_class *cls = emit->block->class_entry;
+            /* This is only set if a class method needed to access some part of
+               the closure through the class. This is likely to be the case, but
+               may not always be (ex: the class only contains lambdas). */
+            lily_prop_entry *closure_prop;
+            closure_prop = lily_find_property(emit->symtab, cls, "*closure");
+
+            if (closure_prop) {
+                write_5(emit, o_set_property, linenum, self_reg_spot,
+                        closure_prop->id, s->reg_spot);
+            }
+        }
+    }
+    else if (emit->block->prev &&
+             emit->block->prev->block_type & BLOCK_CLASS) {
+        if ((emit->block->block_type & BLOCK_LAMBDA) == 0) {
+            lily_class *cls = emit->block->prev->class_entry;
+            lily_prop_entry *closure_prop = lily_find_property(emit->symtab,
+                    cls, "*closure");
+            lily_class *parent = cls->parent;
+            if (closure_prop == NULL ||
+                /* This should yield a closure stored in THIS class, not one
+                   that may be in a parent class. */
+                (parent && closure_prop->id <= parent->prop_count))
+                closure_prop = lily_add_class_property(emit->symtab, cls,
+                    s->type, "*closure", 0);
+
+            write_5(emit, o_load_class_closure, f->line_num,
+                    emit->block->self->reg_spot, closure_prop->id, s->reg_spot);
+        }
+        else {
+            /* Lambdas inside of a class are weird because they don't
+               necessarily have self as their first argument. They will,
+               however, have a closure to draw from. */
+            write_3(emit, o_load_closure, f->line_num, s->reg_spot);
+
+            lily_storage *lambda_self = emit->block->self;
+            if (lambda_self) {
+                write_4(emit, o_get_upvalue, *emit->lex_linenum,
+                        closed_self_spot, lambda_self->reg_spot);
+            }
+        }
+    }
+    else
+        write_3(emit, o_load_closure, (uint16_t)f->line_num, s->reg_spot);
+
+    ensure_params_in_closure(emit);
+    setup_transform_table(emit);
+
+    if (emit->function_depth == 2)
+        emit->closed_pos = 0;
+
+    /* Closures create patches when they write o_create_function. Fix those
+       patches with the spot of the closure (since they need to draw closure
+       info but won't have it just yet). */
+    if (emit->block->patch_start != emit->patch_pos)
+        write_block_patches(emit, s->reg_spot);
+
+    /* Since jumps reference absolute locations, they need to be adjusted
+       for however much bytecode is written as a header. The
+       transform - code_start is so that class closures are accounted for as
+       well (since the o_new_instance is rewritten). */
+    int starting_adjust = (emit->code_pos - save_code_pos) +
+            (transform_start - emit->block->code_start);
+    transform_code(emit, f, transform_start, end, starting_adjust);
+    *new_size = emit->code_pos - *new_start;
+}
+
 static void create_code_block_for(lily_emit_state *emit,
         lily_function_val *f)
 {
-    int code_size = emit->code_pos - emit->block->code_start;
+    int code_start, code_size;
+
+    if (emit->closed_pos == 0) {
+        code_start = emit->block->code_start;
+        code_size = emit->code_pos - emit->block->code_start;
+    }
+    else
+        closure_code_transform(emit, f, &code_start, &code_size);
+
     uint16_t *code = lily_malloc((code_size + 1) * sizeof(uint16_t));
-    memcpy(code, emit->code + emit->block->code_start,
-            sizeof(uint16_t) * code_size);
+    memcpy(code, emit->code + code_start, sizeof(uint16_t) * code_size);
 
     f->code = code;
     f->len = code_size - 1;
@@ -705,15 +1199,17 @@ static void create_code_block_for(lily_emit_state *emit,
 static void finalize_function_val(lily_emit_state *emit,
         lily_block *function_block)
 {
+    lily_function_val *f = emit->top_function;
+    /* This must run before the rest, because if 'f' needs to be a
+       closure, it will require a unique storage. */
+    create_code_block_for(emit, f);
+
     int register_count = emit->symtab->next_register_spot;
     lily_storage *storage_iter = function_block->storage_start;
-    lily_function_val *f = emit->top_function;
     lily_register_info *info = lily_malloc(
             register_count * sizeof(lily_register_info));
     lily_var *var_stop = function_block->function_var;
     lily_type *function_type = var_stop->type;
-
-    create_code_block_for(emit, f);
 
     /* Don't include functions inside of themselves... */
     if (emit->function_depth == 1)
@@ -835,6 +1331,9 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     /* File 'blocks' do not bump up the depth because that's used to determine
        if something is a global or not. */
     if (block->block_type != BLOCK_FILE) {
+        if (block->block_type & BLOCK_LAMBDA)
+            emit->lambda_depth--;
+
         emit->symtab->function_depth--;
         emit->function_depth--;
     }
@@ -1349,6 +1848,9 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     This stores either the method var or the property within the ast's item. */
 static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
 {
+    if (emit->lambda_depth && ast->arg_start->tree_type == tree_self)
+        maybe_close_over_class_self(emit);
+
     if (ast->arg_start->tree_type != tree_local_var)
         eval_tree(emit, ast->arg_start, NULL, 1);
 
@@ -1442,6 +1944,9 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
     function/method defined within a class. */
 static void eval_property(lily_emit_state *emit, lily_ast *ast)
 {
+    if (emit->lambda_depth && ast->left->tree_type == tree_self);
+        maybe_close_over_class_self(emit);
+
     if (ast->property->type == NULL)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
                 "Invalid use of uninitialized property '@%s'.\n",
@@ -1505,6 +2010,9 @@ static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
    The left side is always just a property. */
 static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
 {
+    if (emit->lambda_depth)
+        maybe_close_over_class_self(emit);
+
     lily_type *left_type = ast->left->property->type;
     lily_sym *rhs;
 
@@ -1541,6 +2049,37 @@ static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
             rhs->reg_spot);
 
     ast->result = rhs;
+}
+
+static void eval_upvalue_assign(lily_emit_state *emit, lily_ast *ast)
+{
+    eval_tree(emit, ast->right, NULL, 1);
+
+    int spot;
+    lily_sym *left_sym = ast->left->sym;
+    if (ast->left->tree_type == tree_open_upvalue) {
+        close_over_sym(emit, left_sym);
+        spot = emit->closed_pos - 1;
+    }
+    else
+        spot = find_closed_sym_spot(emit, ast->left->sym);
+
+    lily_sym *rhs = ast->right->result;
+
+    if (ast->op > expr_assign) {
+        /* Don't call eval_tree again, because if the left is tree_open_upvalue,
+           the left will be closed over again. That will result in the compound
+           op using the wrong upvalue spot, which is bad. */
+        lily_storage *s = get_storage(emit, ast->left->sym->type);
+        write_4(emit, o_get_upvalue, ast->line_num, spot, s->reg_spot);
+        ast->left->result = (lily_sym *)s;
+        emit_op_for_compound(emit, ast);
+        rhs = ast->result;
+    }
+
+    write_4(emit, o_set_upvalue, ast->line_num, spot, rhs->reg_spot);
+
+    ast->result = ast->right->result;
 }
 
 /*  eval_logical_op
@@ -2693,6 +3232,8 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     else if (first_tt != tree_variant) {
         eval_tree(emit, ast->arg_start, NULL, 1);
         call_item = (lily_item *)ast->arg_start->result;
+        if (first_tt == tree_upvalue || first_tt == tree_open_upvalue)
+            debug_item = ast->arg_start->item;
     }
     else {
         call_item = (lily_item *)ast->arg_start->variant_class;
@@ -2926,15 +3467,34 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
     if (expect_type && expect_type->cls->id != SYM_CLASS_FUNCTION)
         expect_type = NULL;
 
-    lily_var *lambda_result = lily_parser_lambda_eval(emit->parser,
+    lily_sym *lambda_result = (lily_sym *)lily_parser_lambda_eval(emit->parser,
             ast->line_num, lambda_body, expect_type, did_resolve);
-
     lily_storage *s = get_storage(emit, lambda_result->type);
-    write_4(emit,
-            o_get_readonly,
-            ast->line_num,
-            lambda_result->reg_spot,
-            s->reg_spot);
+
+    if (emit->closed_pos) {
+        /* Assume that the lambda uses either upvalues or is inside of a class
+           and uses self. */
+        close_over_sym(emit, lambda_result);
+
+        /* This will create a copy of the function (the copy will get a shallow
+           copy of upvalues to use). The code transformer will later rewrite the
+           upcoming lambda access to use the upvalue copy. */
+        write_4(emit, o_create_function, lambda_result->reg_spot, 0,
+                emit->closed_pos - 1);
+
+        inject_patch_into_block(emit, find_deepest_func(emit),
+                emit->code_pos - 2);
+
+        write_4(emit, o_get_upvalue, ast->line_num, emit->closed_pos - 1,
+                s->reg_spot);
+    }
+    else {
+        write_4(emit,
+                o_get_readonly,
+                ast->line_num,
+                lambda_result->reg_spot,
+                s->reg_spot);
+    }
 
     ast->result = (lily_sym *)s;
 }
@@ -2942,6 +3502,32 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
 void eval_self(lily_emit_state *emit, lily_ast *ast)
 {
     ast->result = (lily_sym *)emit->block->self;
+}
+
+void eval_upvalue(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_sym *sym = ast->sym;
+
+    int i;
+    for (i = 0;i < emit->closed_pos;i++)
+        if (emit->closed_syms[i] == sym)
+            break;
+
+    lily_storage *s = get_storage(emit, sym->type);
+    write_4(emit, o_get_upvalue, ast->line_num, i, s->reg_spot);
+    ast->result = (lily_sym *)s;
+}
+
+void eval_open_upvalue(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_sym *sym = ast->sym;
+
+    close_over_sym(emit, ast->sym);
+    lily_storage *result = get_storage(emit, sym->type);
+    write_4(emit, o_get_upvalue, ast->line_num, emit->closed_pos - 1,
+            result->reg_spot);
+
+    ast->result = (lily_sym *)result;
 }
 
 /*  eval_tree
@@ -2958,16 +3544,22 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
         eval_call(emit, ast, expect_type, did_resolve);
     else if (ast->tree_type == tree_binary) {
         if (ast->op >= expr_assign) {
-            if (ast->left->tree_type != tree_subscript &&
-                ast->left->tree_type != tree_oo_access &&
-                ast->left->tree_type != tree_property)
+            lily_tree_type left_tt = ast->left->tree_type;
+            if (left_tt == tree_local_var ||
+                left_tt == tree_global_var)
                 eval_assign(emit, ast);
-            else if (ast->left->tree_type == tree_subscript)
+            else if (left_tt == tree_subscript)
                 eval_sub_assign(emit, ast);
-            else if (ast->left->tree_type == tree_oo_access)
+            else if (left_tt == tree_oo_access)
                 eval_oo_assign(emit, ast);
-            else if (ast->left->tree_type == tree_property)
+            else if (left_tt == tree_property)
                 eval_property_assign(emit, ast);
+            else if (left_tt == tree_upvalue ||
+                     left_tt == tree_open_upvalue)
+                eval_upvalue_assign(emit, ast);
+            else
+                /* Let eval_assign say that it's wrong. */
+                eval_assign(emit, ast);
 
             assign_post_check(emit, ast);
         }
@@ -3015,6 +3607,10 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
         eval_lambda(emit, ast, expect_type, did_resolve);
     else if (ast->tree_type == tree_self)
         eval_self(emit, ast);
+    else if (ast->tree_type == tree_upvalue)
+        eval_upvalue(emit, ast);
+    else if (ast->tree_type == tree_open_upvalue)
+        eval_open_upvalue(emit, ast);
 }
 
 /*****************************************************************************/
@@ -3459,31 +4055,8 @@ void lily_emit_break(lily_emit_state *emit)
 
     /* Write the jump, then figure out where to put it. */
     write_2(emit, o_jump, 0);
-    /* If the while is the most current, then add it to the end. */
-    if (emit->block->block_type == BLOCK_WHILE) {
-        emit->patches[emit->patch_pos] = emit->code_pos -1;
-        emit->patch_pos++;
-    }
-    else {
-        lily_block *block = find_deepest_loop(emit);
-        /* The while is not on top, so this will be fairly annoying... */
-        int move_by, move_start;
 
-        move_start = block->next->patch_start;
-        move_by = emit->patch_pos - move_start;
-
-        /* Move everything after this patch start over one, so that there's a
-           hole after the last while patch to write in a new one. */
-        memmove(emit->patches+move_start+1, emit->patches+move_start,
-                move_by * sizeof(int));
-        emit->patch_pos++;
-        emit->patches[move_start] = emit->code_pos - 1;
-
-        for (block = block->next;
-             block;
-             block = block->next)
-            block->patch_start++;
-    }
+    inject_patch_into_block(emit, find_deepest_loop(emit), emit->code_pos - 1);
 }
 
 /*  lily_emit_continue
@@ -3714,11 +4287,11 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
     new_block->block_type = block_type;
     new_block->var_start = emit->symtab->var_chain;
     new_block->class_entry = NULL;
-    new_block->self = emit->block->self;
+    new_block->self = NULL;
     new_block->generic_count = 0;
+    new_block->patch_start = emit->patch_pos;
 
     if ((block_type & BLOCK_FUNCTION) == 0) {
-        new_block->patch_start = emit->patch_pos;
         /* Non-functions will continue using the storages that the parent uses.
            Additionally, the same technique is used to allow loop starts to
            bubble upward until a function gets in the way. */
@@ -3746,6 +4319,25 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
                 class_name, v->name);
         lily_tie_function(emit->symtab, v, fval);
 
+        if (emit->function_depth >= 2 &&
+            (emit->block->block_type & BLOCK_CLASS) == 0 &&
+            (block_type == BLOCK_FUNCTION)) {
+            /* This isn't a class method and it isn't a lambda. Close over the
+               function now, on the assumption that it may use upvalues. */
+            close_over_sym(emit, (lily_sym *)v);
+            write_4(emit, o_create_function, v->reg_spot, 0, emit->closed_pos - 1);
+            if (emit->patch_pos == emit->patch_size)
+                grow_patches(emit);
+
+            emit->patches[emit->patch_pos] = emit->code_pos - 2;
+            emit->patch_pos++;
+
+            /* THIS IS EXTREMELY IMPORTANT. This patch belongs to the current
+               block, not the block that was just entered. If this is not done,
+               then the block entered will write down the patch. That's bad. */
+            new_block->patch_start = emit->patch_pos;
+        }
+
         /* This is saved/restored when entering/leaving the main block so that
            symtab can easily dynaload vars (which need to be made into globals)
            regardless of current scope. */
@@ -3758,6 +4350,9 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
            vars, instead of locals. Without this, the interpreter gets confused
            and thinks the imported file's globals are really upvalues. */
         if (block_type != BLOCK_FILE) {
+            if (block_type & BLOCK_LAMBDA)
+                emit->lambda_depth++;
+
             emit->symtab->function_depth++;
             emit->function_depth++;
         }
@@ -3779,6 +4374,8 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         emit->top_function = fval;
         emit->top_var = v;
     }
+
+    new_block->closed_start = emit->closed_pos;
 
     emit->block = new_block;
 }
@@ -3823,20 +4420,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
     v = block->var_start;
 
     if ((block_type & BLOCK_FUNCTION) == 0) {
-        int from, to, pos;
-        from = emit->patch_pos-1;
-        to = block->patch_start;
-        pos = (emit->code_pos - block->jump_offset);
-
-        for (;from >= to;from--) {
-            /* Skip -1's, which are fake patches from conditions that were
-               optimized out. */
-            if (emit->patches[from] != -1)
-                emit->code[emit->patches[from]] = pos;
-        }
-
-        /* Use the space for new patches now. */
-        emit->patch_pos = to;
+        write_block_patches(emit, emit->code_pos - block->jump_offset);
 
         lily_hide_block_vars(emit->symtab, v);
     }

@@ -154,6 +154,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->class_depth = 0;
     parser->next_lambda_id = 0;
     parser->first_pass = 1;
+    parser->class_self_type = NULL;
     parser->raiser = raiser;
     parser->optarg_stack = lily_malloc(4 * sizeof(uint16_t));
     parser->type_stack = lily_malloc(4 * sizeof(lily_type *));
@@ -468,7 +469,7 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type,
     /* Since class methods and class properties are both accessed the same way,
        prevent them from having the same name. */
     if ((flags & VAR_IS_READONLY) && parser->class_depth) {
-        lily_class *current_class = parser->emit->block->self->type->cls;
+        lily_class *current_class = parser->class_self_type->cls;
         lily_prop_entry *entry = lily_find_property(parser->symtab,
                 current_class, lex->label);
 
@@ -490,7 +491,7 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
         lily_type *prop_type, int flags)
 {
     char *name = parser->lex->label;
-    lily_class *current_class = parser->emit->block->self->type->cls;
+    lily_class *current_class = parser->class_self_type->cls;
 
     lily_prop_entry *prop = lily_find_property(parser->symtab,
             current_class, name);
@@ -757,7 +758,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
         if (flags & TC_TOPLEVEL && parser->class_depth &&
             (flags & TC_CLASS_INIT) == 0) {
             parser->type_stack[parser->type_stack_pos] =
-                parser->emit->block->self->type;
+                    parser->class_self_type;
             parser->type_stack_pos++;
             i++;
         }
@@ -1128,13 +1129,15 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     lily_emit_enter_block(parser->emit, block_type);
     lily_update_symtab_generics(symtab, decl_class, generics_used);
 
-    if (decl_class != NULL)
+    if (decl_class != NULL) {
         lily_make_constructor_return_type(symtab);
+        parser->class_self_type = symtab->root_type;
+    }
     else if (parser->class_depth && decl_class == NULL) {
         /* Functions of a class get a (self) of that class for the first
            parameter. */
         lily_var *v = lily_new_var(symtab,
-                parser->emit->block->self->type, "(self)", 0);
+                parser->class_self_type, "(self)", 0);
 
         parser->emit->block->self = (lily_storage *)v;
     }
@@ -1223,7 +1226,7 @@ static lily_sym *parse_special_keyword(lily_parse_state *parser, int key_id)
     else if (key_id == KEY__FUNCTION__)
         ret = (lily_sym *) lily_get_string_literal(symtab, parser->emit->top_var->name);
     else if (key_id == KEY_SELF) {
-        if (parser->emit->block->self == NULL) {
+        if (parser->class_self_type == NULL) {
             lily_raise(parser->raiser, lily_SyntaxError,
                     "'self' must be used within a class.\n");
         }
@@ -1268,19 +1271,22 @@ static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
                 "Attempt to use uninitialized value '%s'.\n",
                 var->name);
 
-    if (var->flags & VAR_IS_READONLY)
+    /* These are vars that are known to be upvalues. It is important to check
+       this first, because a defined function can be closed over. */
+    if (var->flags & SYM_CLOSED_OVER)
+        lily_ast_push_upvalue(parser->ast_pool, var);
+    /* Defined functions have a depth of one, so this has to come next. */
+    else if (var->flags & VAR_IS_READONLY)
         lily_ast_push_defined_func(parser->ast_pool, var);
     else if (var->function_depth == 1)
         lily_ast_push_global_var(parser->ast_pool, var);
     else if (var->function_depth == parser->emit->function_depth)
-        /* In this current scope? Load as a local var. */
         lily_ast_push_local_var(parser->ast_pool, var);
-    else {
-        /* todo: Handle upvalues later, maybe. */
-        lily_raise(parser->raiser, lily_SyntaxError,
-                    "Attempt to use %s, which is not in the current scope.\n",
-                    var->name);
-    }
+    /* Anything else has to be an upvalue which hasn't been marked by emitter
+       as being closed over. */
+    else
+        lily_ast_push_open_upvalue(parser->ast_pool, var);
+
     *state = ST_WANT_OPERATOR;
 }
 
@@ -1347,7 +1353,7 @@ static void expression_word(lily_parse_state *parser, int *state)
         return;
     }
 
-    if (search_entry == NULL && parser->emit->block->self) {
+    if (search_entry == NULL && parser->class_self_type) {
         var = lily_find_class_callable(parser->symtab,
                 parser->symtab->class_chain, lex->label);
 
@@ -1390,7 +1396,7 @@ static void expression_property(lily_parse_state *parser, int *state)
                 "Properties cannot be used outside of a class constructor.\n");
 
     char *name = parser->lex->label;
-    lily_class *current_class = parser->emit->block->self->type->cls;
+    lily_class *current_class = parser->class_self_type->cls;
 
     lily_prop_entry *prop = lily_find_property(parser->symtab, current_class,
             name);
@@ -2618,6 +2624,7 @@ static void create_new_class(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_class *created_class = lily_new_class(parser->symtab, lex->label);
+    lily_type *save_class_self_type = parser->class_self_type;
 
     parse_function(parser, created_class);
 
@@ -2632,6 +2639,7 @@ static void create_new_class(lily_parse_state *parser)
 
     lily_finish_class(parser->symtab, created_class);
 
+    parser->class_self_type = save_class_self_type;
     lily_emit_leave_block(parser->emit);
 }
 
@@ -2639,7 +2647,7 @@ static void class_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
     NEED_CURRENT_TOK(tk_word);
-    if (parser->emit->block->self) {
+    if (parser->class_self_type) {
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Nested class declarations are not allowed.\n");
     }
@@ -2855,6 +2863,7 @@ static void define_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
     parse_function(parser, NULL);
+
     NEED_CURRENT_TOK(tk_left_curly)
     parse_multiline_block_body(parser, multi);
     lily_emit_leave_block(parser->emit);

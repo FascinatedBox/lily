@@ -17,78 +17,78 @@
 
 static const lily_class_seed function_seed =
 {
-    NULL,                  /* next */
-    "function",            /* name */
-    dyna_class,            /* load_type */
-    1,                     /* is_refcounted */
-    -1,                    /* generic_count */
-    0,                     /* flags */
-    NULL,                  /* dynaload_table */
-    NULL,                  /* gc_marker */
-    &lily_generic_eq,      /* eq_func */
-    lily_destroy_function  /* destroy_func */
+    NULL,                     /* next */
+    "function",               /* name */
+    dyna_class,               /* load_type */
+    1,                        /* is_refcounted */
+    -1,                       /* generic_count */
+    0,                        /* flags */
+    NULL,                     /* dynaload_table */
+    &lily_gc_function_marker, /* gc_marker */
+    &lily_generic_eq,         /* eq_func */
+    lily_destroy_function     /* destroy_func */
 };
 
 static const lily_class_seed any_seed =
 {
-    NULL,                  /* next */
-    "any",                 /* name */
-    dyna_class,            /* load_type */
-    1,                     /* is_refcounted */
-    0,                     /* generic_count */
+    NULL,                     /* next */
+    "any",                    /* name */
+    dyna_class,               /* load_type */
+    1,                        /* is_refcounted */
+    0,                        /* generic_count */
     /* 'any' is treated as an enum class that has all classes ever defined
        within it. */
-    CLS_ENUM_CLASS,        /* flags */
-    NULL,                  /* dynaload_table */
-    &lily_gc_any_marker,   /* gc_marker */
-    &lily_any_eq,          /* eq_func */
-    lily_destroy_any       /* destroy_func */
+    CLS_ENUM_CLASS,           /* flags */
+    NULL,                     /* dynaload_table */
+    &lily_gc_any_marker,      /* gc_marker */
+    &lily_any_eq,             /* eq_func */
+    lily_destroy_any          /* destroy_func */
 };
 
 static const lily_class_seed tuple_seed =
 {
-    NULL,                  /* next */
-    "tuple",               /* name */
-    dyna_class,            /* load_type */
-    1,                     /* is_refcounted */
-    -1,                    /* generic_count */
-    0,                     /* flags */
-    NULL,                  /* dynaload_table */
-    &lily_gc_tuple_marker, /* gc_marker */
-    &lily_tuple_eq,        /* eq_func */
-    lily_destroy_tuple     /* destroy_func */
+    NULL,                     /* next */
+    "tuple",                  /* name */
+    dyna_class,               /* load_type */
+    1,                        /* is_refcounted */
+    -1,                       /* generic_count */
+    0,                        /* flags */
+    NULL,                     /* dynaload_table */
+    &lily_gc_tuple_marker,    /* gc_marker */
+    &lily_tuple_eq,           /* eq_func */
+    lily_destroy_tuple        /* destroy_func */
 };
 
 static const lily_class_seed optarg_seed =
     /* This is the optarg class. The type inside of it is what may/may not be
        sent. */
 {
-    NULL,                  /* next */
-    "*",                   /* name */
-    dyna_class,            /* load_type */
-    0,                     /* is_refcounted */
-    1,                     /* generic_count */
-    0,                     /* flags */
-    NULL,                  /* dynaload_table */
-    NULL,                  /* gc_marker */
-    NULL,                  /* eq_func */
-    NULL                   /* destroy_func */
+    NULL,                     /* next */
+    "*",                      /* name */
+    dyna_class,               /* load_type */
+    0,                        /* is_refcounted */
+    1,                        /* generic_count */
+    0,                        /* flags */
+    NULL,                     /* dynaload_table */
+    NULL,                     /* gc_marker */
+    NULL,                     /* eq_func */
+    NULL                      /* destroy_func */
 };
 
 static const lily_class_seed generic_seed =
     /* This is the generic class. Types of this class are created and have a
        generic_pos set to indicate what letter they are (A = 0, B = 1, etc.) */
 {
-    NULL,                  /* next */
-    "",                    /* name */
-    dyna_class,            /* load_type */
-    0,                     /* is_refcounted */
-    0,                     /* generic_count */
-    0,                     /* flags */
-    NULL,                  /* dynaload_table */
-    NULL,                  /* gc_marker */
-    NULL,                  /* eq_func */
-    NULL                   /* destroy_func */
+    NULL,                     /* next */
+    "",                       /* name */
+    dyna_class,               /* load_type */
+    0,                        /* is_refcounted */
+    0,                        /* generic_count */
+    0,                        /* flags */
+    NULL,                     /* dynaload_table */
+    NULL,                     /* gc_marker */
+    NULL,                     /* eq_func */
+    NULL                      /* destroy_func */
 };
 
 void lily_builtin_print(lily_vm_state *, uint16_t, uint16_t *);

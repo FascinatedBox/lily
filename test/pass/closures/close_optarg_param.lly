@@ -1,0 +1,10 @@
+define f(a: *integer=10 => function( => integer)) {
+    define g( => integer) { return a }
+    return g
+}
+
+if f()() != 10:
+    stderr.write("Failed.\n")
+
+if f(11)() != 11:
+    stderr.write("Failed.\n")
