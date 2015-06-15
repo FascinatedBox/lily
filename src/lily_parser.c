@@ -2834,6 +2834,7 @@ static void case_handler(lily_parse_state *parser, int multi)
             get_named_var(parser, var_type, 0);
             if (i != variant_type->subtype_count - 1) {
                 NEED_CURRENT_TOK(tk_comma)
+                NEED_NEXT_TOK(tk_word)
             }
         }
         NEED_CURRENT_TOK(tk_right_parenth)
