@@ -42,7 +42,7 @@ void lily_integer_to_d(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     int64_t integer_val = vm_regs[code[0]]->value.integer;
     lily_value *result_reg = vm_regs[code[1]];
 
-    result_reg->flags = 0;
+    result_reg->flags = VAL_IS_PRIMITIVE;
     result_reg->value.doubleval = (double)integer_val;
 }
 

@@ -75,8 +75,7 @@ void lily_gc_collect_any(lily_any_val *any_val)
            all inner values have been deref'd/deleted. */
         any_val->gc_entry->last_pass = -1;
         lily_value *inner_value = any_val->inner_value;
-        if ((inner_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0 &&
-            inner_value->type->cls->is_refcounted) {
+        if ((inner_value->flags & VAL_IS_NOT_DEREFABLE) == 0) {
             lily_generic_val *generic_val = inner_value->value.generic;
             if (generic_val->refcount == 1)
                 lily_gc_collect_value(inner_value->type,

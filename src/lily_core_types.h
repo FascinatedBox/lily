@@ -574,8 +574,13 @@ typedef struct lily_options_ {
 /* This particular value has been assigned a value that is either a literal or
    a defined function. Do not ref or deref this value. */
 #define VAL_IS_PROTECTED        0x20000
-/* For convenience, check for nil or protected set. */
-#define VAL_IS_NIL_OR_PROTECTED 0x30000
+/* Values of this type are not refcounted. */
+#define VAL_IS_PRIMITIVE        0x40000
+/* Check if a value is nil, protected, or not refcounted. If any of those is
+   true, then the given value should not get a deref.
+   There are some cases in the vm where only one of the above flags is set. This
+   is intentional, as it only takes one flag to be unable to deref. */
+#define VAL_IS_NOT_DEREFABLE    0x70000
 
 
 /* SYM_CLASS_* defines are for checking ids of a type's class. These are

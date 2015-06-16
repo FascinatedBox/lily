@@ -57,7 +57,7 @@ lily_value *lily_bind_integer(lily_symtab *symtab,
     if (new_value) {
         new_value->value.integer = intval;
         new_value->type = symtab->integer_class->type;
-        new_value->flags = 0;
+        new_value->flags = VAL_IS_PRIMITIVE;
     }
 
     return new_value;
