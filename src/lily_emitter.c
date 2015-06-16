@@ -431,8 +431,7 @@ static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
     if (emit->patch_pos == emit->patch_size)
         grow_patches(emit);
 
-    emit->patches[emit->patch_pos] =
-            (emit->code_pos - emit->block->jump_offset) - 1;
+    emit->patches[emit->patch_pos] = emit->code_pos - 1;
     emit->patch_pos++;
 }
 
@@ -4411,7 +4410,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
 
     /* These blocks need to jump back up when the bottom is hit. */
     if (block_type == BLOCK_WHILE || block_type == BLOCK_FOR_IN)
-        write_2(emit, o_jump, emit->loop_start);
+        write_2(emit, o_jump, emit->loop_start - block->jump_offset);
     else if (block_type == BLOCK_MATCH) {
         ensure_proper_match_block(emit);
         emit->match_case_pos = emit->block->match_case_start;

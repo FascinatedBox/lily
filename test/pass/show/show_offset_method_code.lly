@@ -1,0 +1,21 @@
+# Lily allocates bytecode for functions from a buffer that uses offsets. This
+# helps to reduce memory usage by reducing unnecessary buffer growing.
+# This verifies that jumps patch to the right places. If they do not, then this
+# will crash.
+
+# This part is important: Something has to be in the buffer before 'f' is used
+# so that there's an offset to work with.
+var k = 0
+
+define f() {
+    var i = 0
+    var val = 1
+
+    while i < 0: {
+        val = 10 + 10
+        i += 1
+    }
+}
+
+show(f)
+f()
