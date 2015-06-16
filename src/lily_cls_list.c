@@ -131,7 +131,7 @@ void lily_gc_collect_list(lily_type *list_type, lily_list_val *list_val)
                 /* Pass stuff off to the gc to collect. This will use a typical
                    deref for stuff like string. */
                 lily_value *elem = list_val->elems[i];
-                if ((elem->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
+                if ((elem->flags & VAL_IS_NOT_DEREFABLE) == 0) {
                     lily_raw_value v = elem->value;
                     if (v.generic->refcount == 1)
                         lily_gc_collect_value(value_type, v);

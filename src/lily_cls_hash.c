@@ -172,7 +172,7 @@ void lily_gc_collect_hash(lily_type *hash_type,
             lily_value *elem_key = elem_iter->elem_key;
 
             elem_temp = elem_iter->next;
-            if ((elem_key->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
+            if ((elem_key->flags & VAL_IS_NOT_DEREFABLE) == 0) {
                 lily_raw_value k = elem_key->value;
                 if (k.generic->refcount == 1)
                     lily_gc_collect_value(hash_key_type, k);
@@ -180,7 +180,7 @@ void lily_gc_collect_hash(lily_type *hash_type,
                     k.generic->refcount--;
             }
 
-            if ((elem_value->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
+            if ((elem_value->flags & VAL_IS_NOT_DEREFABLE) == 0) {
                 lily_raw_value v = elem_value->value;
                 if (v.generic->refcount == 1)
                     lily_gc_collect_value(hash_value_type, v);

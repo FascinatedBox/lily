@@ -96,8 +96,7 @@ void lily_gc_collect_tuple(lily_type *tuple_type,
             lily_value *elem = tuple_val->elems[i];
             /* Each value the tuple holds may or may not be refcounted, so they
                must be checked individually. */
-            if (elem->type->cls->is_refcounted &&
-                (elem->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
+            if ((elem->flags & VAL_IS_NOT_DEREFABLE) == 0) {
                 lily_raw_value v = elem->value;
                 if (v.generic->refcount == 1)
                     lily_gc_collect_value(elem->type, v);

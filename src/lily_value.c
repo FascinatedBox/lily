@@ -14,9 +14,7 @@ void lily_deref(lily_value *value)
 {
     lily_class *cls = value->type->cls;
 
-    if (cls->is_refcounted &&
-        (value->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
-
+    if ((value->flags & VAL_IS_NOT_DEREFABLE) == 0) {
         value->value.generic->refcount--;
         if (value->value.generic->refcount == 0)
             value->type->cls->destroy_func(value);
@@ -30,7 +28,7 @@ void lily_deref_raw(lily_type *type, lily_raw_value raw)
 {
     lily_value v;
     v.type = type;
-    v.flags = 0;
+    v.flags = (type->cls->flags & VAL_IS_PRIMITIVE);
     v.value = raw;
 
     lily_deref(&v);

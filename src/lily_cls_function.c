@@ -56,12 +56,13 @@ void lily_gc_function_marker(int pass, lily_value *v)
         int i;
         for (i = 0;i < d->num_upvalues;i++) {
             lily_value *v = d->upvalues[i];
-            if (v->flags & VAL_IS_NIL_OR_PROTECTED)
-                continue;
-
-            gc_marker_func marker_func = v->type->cls->gc_marker;
-            if (marker_func)
-                marker_func(pass, v);
+            /* If whatever this thing is can't be deref'd, then it either
+               doesn't exist or doesn't have a marker function. */
+            if ((v->flags & VAL_IS_NOT_DEREFABLE) == 0) {
+                gc_marker_func marker_func = v->type->cls->gc_marker;
+                if (marker_func)
+                    marker_func(pass, v);
+            }
         }
     }
 }
@@ -126,8 +127,7 @@ void lily_gc_collect_function(lily_type *function_type,
         if (d->refcount == 0) {
             for (i = 0;i < d->num_upvalues;i++) {
                 lily_value *up = d->upvalues[i];
-                if (up->type->cls->is_refcounted &&
-                    (up->flags & VAL_IS_NIL_OR_PROTECTED) == 0) {
+                if ((up->flags & VAL_IS_NOT_DEREFABLE) == 0) {
                     lily_raw_value v = up->value;
                     if (v.generic->refcount == 1)
                         lily_gc_collect_value(up->type, v);

@@ -223,6 +223,11 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
     new_class->import = symtab->active_import;
     new_class->dynaload_table = class_seed->dynaload_table;
 
+    /* This is done so that the vm can & the flags of the class as a fast means
+       of determining if something is refcounted. */
+    if (new_class->is_refcounted == 0)
+        new_class->flags |= VAL_IS_PRIMITIVE;
+
     return new_class;
 }
 
@@ -677,6 +682,7 @@ lily_tie *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
     if (ret == NULL) {
         ret = make_new_literal(symtab, integer_cls);
         ret->value.integer = int_val;
+        ret->flags |= VAL_IS_PRIMITIVE;
     }
 
     return ret;
@@ -699,6 +705,7 @@ lily_tie *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
     if (ret == NULL) {
         ret = make_new_literal(symtab, double_cls);
         ret->value.doubleval = dbl_val;
+        ret->flags |= VAL_IS_PRIMITIVE;
     }
 
     return ret;
@@ -795,6 +802,7 @@ lily_tie *lily_get_variant_literal(lily_symtab *symtab,
     if (ret == NULL) {
         ret = make_new_literal(symtab, variant_type->cls);
         ret->value.integer = 0;
+        ret->flags |= VAL_IS_PRIMITIVE;
     }
 
     return ret;
