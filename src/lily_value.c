@@ -12,8 +12,6 @@
     Note: This destroys the contents inside the value, NOT the value itself. */
 void lily_deref(lily_value *value)
 {
-    lily_class *cls = value->type->cls;
-
     if ((value->flags & VAL_IS_NOT_DEREFABLE) == 0) {
         value->value.generic->refcount--;
         if (value->value.generic->refcount == 0)
