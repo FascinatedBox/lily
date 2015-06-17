@@ -1380,7 +1380,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     total_entries = instance_class->prop_count;
 
     lily_vm_stack_entry *caller_entry =
-            vm->function_stack[vm->function_stack_pos - 1];
+            vm->function_stack[vm->function_stack_pos - 2];
 
     /* Check to see if the caller is in the process of building a subclass
        of this value. If that is the case, then use that instance instead of
@@ -1392,7 +1392,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
         /* Important! This allows this memory-saving trick to bubble up through
            multiple ::new calls! */
-        vm->function_stack[vm->function_stack_pos]->build_value =
+        vm->function_stack[vm->function_stack_pos-1]->build_value =
                 caller_entry->build_value;
         return;
     }
@@ -1445,7 +1445,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
     /* This is set so that a superclass ::new can simply pull this instance,
        since this instance will have >= the # of types. */
-    vm->function_stack[vm->function_stack_pos]->build_value = iv;
+    vm->function_stack[vm->function_stack_pos-1]->build_value = iv;
 }
 
 /*****************************************************************************/
@@ -2398,7 +2398,7 @@ void lily_vm_execute(lily_vm_state *vm)
                    These two do the same thing from here on, so fall through to
                    share code. */
             case o_return_noval:
-                vm->function_stack[vm->function_stack_pos]->build_value = NULL;
+                vm->function_stack[vm->function_stack_pos-1]->build_value = NULL;
 
                 vm->function_stack_pos--;
                 stack_entry = vm->function_stack[vm->function_stack_pos-1];
