@@ -112,6 +112,7 @@ else if (lhs_reg->type->cls->id == SYM_CLASS_STRING) { \
 vm_regs[code[code_pos+4]]->flags = VAL_IS_PRIMITIVE; \
 code_pos += 5;
 
+static void add_call_frame(lily_vm_state *);
 
 /*****************************************************************************/
 /* VM setup and teardown                                                     */
@@ -129,10 +130,9 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     char *string_data = lily_malloc(64);
     lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(lily_vm_catch_entry));
 
-    vm->function_stack = lily_malloc(sizeof(lily_vm_stack_entry *) * 4);
     vm->sipkey = lily_malloc(16);
     vm->foreign_code = lily_malloc(sizeof(uint16_t));
-    vm->function_stack_pos = 0;
+    vm->call_depth = 0;
     vm->raiser = raiser;
     vm->vm_regs = NULL;
     vm->regs_from_main = NULL;
@@ -148,17 +148,9 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->symtab = NULL;
     vm->readonly_table = NULL;
     vm->readonly_count = 0;
+    vm->call_chain = NULL;
 
-    if (vm->function_stack) {
-        int i;
-        for (i = 0;i < 4;i++) {
-            vm->function_stack[i] = lily_malloc(sizeof(lily_vm_stack_entry));
-            vm->function_stack[i]->build_value = NULL;
-        }
-        vm->function_stack_size = i;
-    }
-    else
-        vm->function_stack_size = 0;
+    add_call_frame(vm);
 
     if (vm->sipkey)
         memcpy(vm->sipkey, sipkey, 16);
@@ -212,8 +204,17 @@ void lily_free_vm(lily_vm_state *vm)
 
     lily_free(regs_from_main);
 
-    for (i = 0;i < vm->function_stack_size;i++)
-        lily_free(vm->function_stack[i]);
+    lily_call_frame *frame_iter = vm->call_chain;
+    lily_call_frame *frame_next;
+
+    while (frame_iter)
+        frame_iter = frame_iter->prev;
+
+    while (frame_iter) {
+        frame_next = frame_iter->next;
+        lily_free(frame_iter);
+        frame_iter = frame_next;
+    }
 
     /* vm->num_registers is now 0, so this will sweep everything. */
     invoke_gc(vm);
@@ -222,7 +223,6 @@ void lily_free_vm(lily_vm_state *vm)
     lily_free(vm->readonly_table);
     lily_free(vm->foreign_code);
     lily_free(vm->sipkey);
-    lily_free(vm->function_stack);
     lily_free(vm);
 }
 
@@ -492,20 +492,21 @@ static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
     lhs_inner->flags = new_flags;
 }
 
-/*  grow_function_stack
-    The vm wants to hold more functions, so grow the stack. */
-static void grow_function_stack(lily_vm_state *vm)
+/*  Add a new call frame to vm's call_chain. The new frame becomes the current
+    one. This should be called such that vm->call_chain->next is never NULL. */
+static void add_call_frame(lily_vm_state *vm)
 {
-    int i;
+    lily_call_frame *new_frame = lily_malloc(sizeof(lily_call_frame));
 
-    vm->function_stack = lily_realloc(vm->function_stack,
-            sizeof(lily_vm_stack_entry *) * 2 * vm->function_stack_size);
-    vm->function_stack_size *= 2;
+    /* This intentionally doesn't set anything but prev and next because the
+       caller will have proper values for those. */
+    new_frame->prev = vm->call_chain;
+    new_frame->next = NULL;
 
-    for (i = vm->function_stack_pos+1;i < vm->function_stack_size;i++) {
-        vm->function_stack[i] = lily_malloc(sizeof(lily_vm_stack_entry));
-        vm->function_stack[i]->build_value = NULL;
-    }
+    if (vm->call_chain != NULL)
+        vm->call_chain->next = new_frame;
+
+    vm->call_chain = new_frame;
 }
 
 /*  add_catch_entry
@@ -797,25 +798,31 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm,
     lily_symtab *symtab = vm->symtab;
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
 
-    lv->elems = lily_malloc(vm->function_stack_pos * sizeof(lily_value *));
+    lv->elems = lily_malloc(vm->call_depth * sizeof(lily_value *));
     lv->num_values = -1;
     lv->visited = 0;
     lv->refcount = 1;
     lv->gc_entry = NULL;
+    lily_call_frame *frame_iter;
 
     int i;
-    for (i = 0;i < vm->function_stack_pos;i++) {
-        lily_vm_stack_entry *stack_entry = vm->function_stack[i];
+
+    /* The call chain goes from the most recent to least. Work around that by
+       allocating elements in reverse order. It's safe to do this because
+       nothing in this loop can trigger the gc. */
+    for (i = vm->call_depth, frame_iter = vm->call_chain;
+         i >= 1;
+         i--, frame_iter = frame_iter->prev) {
         lily_value *tuple_holder = lily_malloc(sizeof(lily_value));
         lily_list_val *stack_tuple = lily_malloc(sizeof(lily_list_val));
         lily_value **tuple_values = lily_malloc(3 * sizeof(lily_value *));
 
         lily_value *path = lily_bind_string(symtab,
-                stack_entry->function->path);
+                frame_iter->function->path);
         lily_value *func_string = bind_function_name(vm, symtab,
-                stack_entry->function);
+                frame_iter->function);
         lily_value *linenum_integer = lily_bind_integer(symtab,
-                stack_entry->line_num);
+                frame_iter->line_num);
 
         stack_tuple->num_values = 3;
         stack_tuple->visited = 0;
@@ -828,10 +835,10 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm,
         tuple_holder->type = traceback_type->subtypes[0];
         tuple_holder->value.list = stack_tuple;
         tuple_holder->flags = 0;
-        lv->elems[i] = tuple_holder;
-        lv->num_values = i + 1;
+        lv->elems[i - 1] = tuple_holder;
     }
 
+    lv->num_values = vm->call_depth - 1;
     return lv;
 }
 
@@ -864,8 +871,7 @@ static lily_value *build_traceback(lily_vm_state *vm, lily_type *traceback_type)
     key:      The invalid key passed. */
 static void key_error(lily_vm_state *vm, int code_pos, lily_value *key)
 {
-    lily_vm_stack_entry *top = vm->function_stack[vm->function_stack_pos - 1];
-    top->line_num = top->code[code_pos + 1];
+    vm->call_chain->line_num = vm->call_chain->code[code_pos + 1];
 
     lily_raise(vm->raiser, lily_KeyError, "^V\n", key);
 }
@@ -1379,21 +1385,19 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
     total_entries = instance_class->prop_count;
 
-    lily_vm_stack_entry *caller_entry =
-            vm->function_stack[vm->function_stack_pos - 2];
+    lily_call_frame *caller_frame = vm->call_chain->prev;
 
     /* Check to see if the caller is in the process of building a subclass
        of this value. If that is the case, then use that instance instead of
        building one that will simply be tossed. */
-    if (caller_entry->build_value &&
-        caller_entry->build_value->true_class->id > instance_class->id) {
+    if (caller_frame->build_value &&
+        caller_frame->build_value->true_class->id > instance_class->id) {
 
-        result->value.instance = caller_entry->build_value;
+        result->value.instance = caller_frame->build_value;
 
         /* Important! This allows this memory-saving trick to bubble up through
            multiple ::new calls! */
-        vm->function_stack[vm->function_stack_pos-1]->build_value =
-                caller_entry->build_value;
+        vm->call_chain->build_value = caller_frame->build_value;
         return;
     }
 
@@ -1445,7 +1449,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
     /* This is set so that a superclass ::new can simply pull this instance,
        since this instance will have >= the # of types. */
-    vm->function_stack[vm->function_stack_pos-1]->build_value = iv;
+    vm->call_chain->build_value = iv;
 }
 
 /*****************************************************************************/
@@ -1464,8 +1468,7 @@ lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
     int count = code[2];
     lily_value *result = vm->vm_regs[code[3]];
 
-    lily_vm_stack_entry *stack_entry = vm->function_stack[vm->function_stack_pos-1];
-    lily_function_val *last_call = stack_entry->function;
+    lily_function_val *last_call = vm->call_chain->function;
 
     lily_function_val *closure_func = lily_new_function_copy(last_call);
     /* There's probably a way of determining at emit time if a closure -really-
@@ -1532,8 +1535,7 @@ lily_value **do_o_create_function(lily_vm_state *vm, uint16_t *code)
     as simple as drawing that data out. */
 lily_value **do_o_load_closure(lily_vm_state *vm, uint16_t *code)
 {
-    int pos = vm->function_stack_pos - 1;
-    lily_function_val *f = vm->function_stack[pos]->function;
+    lily_function_val *f = vm->call_chain->function;
     lily_raw_value v = {.function = f};
     lily_value *result = vm->vm_regs[code[2]];
 
@@ -1639,48 +1641,19 @@ static int maybe_catch_exception(lily_vm_state *vm)
 
     lily_vm_catch_entry *catch_iter = vm->catch_top;
     lily_value *catch_reg = NULL;
-
-    lily_value **stack_regs = vm->vm_regs;
-    int adjusted_stack, do_unbox, jump_location, match, stack_pos;
-
-    /* If the last call was to a foreign function, then that function did not
-       do a proper stack adjustment (or it wouldn't be able to access the
-       caller's registers). So don't include that in stack unwinding
-       calculations. */
-    if (vm->function_stack[vm->function_stack_pos-1]->function->code == NULL) {
-        vm->function_stack_pos--;
-        adjusted_stack = 1;
-    }
-    else
-        adjusted_stack = 0;
+    lily_value **stack_regs;
+    int do_unbox, jump_location, match, stack_pos;
+    lily_call_frame *call_frame = vm->call_chain;
 
     match = 0;
-    stack_pos = vm->function_stack_pos;
 
     while (catch_iter != NULL) {
-        lily_vm_stack_entry *catch_stack = catch_iter->stack_entry;
-        uint16_t *stack_code = catch_stack->code;
+        lily_call_frame *call_frame = catch_iter->call_frame;
+        uint16_t *code = call_frame->code;
         /* A try block is done when the next jump is at 0 (because 0 would
            always be going back, which is illogical otherwise). */
-        jump_location = catch_stack->code[catch_iter->code_pos];
-
-        if (stack_pos != (catch_iter->entry_depth + 1)) {
-            int i;
-
-            /* If the exception is being caught in another scope, then vm_regs
-               needs be adjusted backwards so that the matching registers
-               accesses will target the right thing.
-               -1: Because vm->function_stack_pos is ahead.
-               -1: Because the last vm->function_stack_pos entry is not
-                   entered, only prepared if/when it gets entered. */
-            for (i = stack_pos - 2;
-                 i >= catch_iter->entry_depth;
-                 i--) {
-                stack_regs = stack_regs - vm->function_stack[i]->regs_used;
-            }
-
-            stack_pos = catch_iter->entry_depth + 1;
-        }
+        jump_location = code[catch_iter->code_pos];
+        stack_regs = vm->regs_from_main + catch_iter->offset_from_main;
 
         while (jump_location != 0) {
             /* Instead of the vm hopping around to different o_except blocks,
@@ -1689,13 +1662,13 @@ static int maybe_catch_exception(lily_vm_state *vm)
                +1 is the line number (for debug), +2 is the spot for the next
                jump, and +3 is a register that holds a value to store this
                particular exception. */
-            int next_location = stack_code[jump_location + 2];
-            catch_reg = stack_regs[stack_code[jump_location + 4]];
+            int next_location = code[jump_location + 2];
+            catch_reg = stack_regs[code[jump_location + 4]];
             lily_class *catch_class = catch_reg->type->cls;
             if (catch_class == raised_class ||
                 lily_check_right_inherits_or_is(catch_class, raised_class)) {
                 /* ...So that execution resumes from within the except block. */
-                do_unbox = stack_code[jump_location + 3];
+                do_unbox = code[jump_location + 3];
                 jump_location += 5;
                 match = 1;
                 break;
@@ -1718,9 +1691,10 @@ static int maybe_catch_exception(lily_vm_state *vm)
                 lily_assign_value(vm, catch_reg, vm->raiser->exception);
         }
 
-        vm->function_stack_pos = stack_pos;
+        vm->call_chain = catch_iter->call_frame;
+        vm->call_depth = catch_iter->call_frame_depth;
         vm->vm_regs = stack_regs;
-        vm->function_stack[catch_iter->entry_depth]->code_pos = jump_location;
+        vm->call_chain->code_pos = jump_location;
         /* Each try block can only successfully handle one exception, so use
            ->prev to prevent using the same block again. */
         vm->catch_top = catch_iter->prev;
@@ -1729,8 +1703,6 @@ static int maybe_catch_exception(lily_vm_state *vm)
         else
             vm->catch_chain = catch_iter;
     }
-    else if (adjusted_stack)
-        vm->function_stack_pos++;
 
     return match;
 }
@@ -1740,15 +1712,9 @@ static int maybe_catch_exception(lily_vm_state *vm)
 /******************************************************************************/
 
 /* This handles calling a foreign function which will call a native one.
-   There are always three interesting functions:
-   * (-2) The native caller
-   * (-1) The foreign callee
-   * (0)  The called native
    When a foreign function is entered, the vm does not adjust vm_regs. This is
    intentional, because builtin functions wouldn't be able to get their values
-   if the registers were adjusted.
-   Consequently, much of the foreign call stuff adjusts for registers used in
-   -2 and -1 to put vm regs where the called native starts. */
+   if the registers were adjusted. */
 
 /*  lily_vm_foreign_call
     This calls the vm from a foreign source. The stack is adjusted before and
@@ -1767,23 +1733,23 @@ void lily_vm_foreign_call(lily_vm_state *vm)
 {
     /* Adjust for the native caller, and the foreign callee. This puts vm_regs
        where the called native func needs them. */
-    int regs_adjust = vm->function_stack[vm->function_stack_pos-2]->regs_used +
-                      vm->function_stack[vm->function_stack_pos-1]->regs_used;
+    int regs_adjust = vm->call_chain->prev->regs_used +
+            vm->call_chain->regs_used;
 
     /* Make it so the callee's register indexes target the right things. */
     vm->vm_regs += regs_adjust;
 
+    vm->call_chain = vm->call_chain->next;
     /* The foreign entry added itself to the stack properly, so just add one
        for the native entry. */
-    vm->function_stack_pos++;
+    vm->call_depth++;
 
 
     lily_vm_execute(vm);
 
-
     /* The return done adjusts for the foreign callee, but not for the native
        caller. Do this or the foreign caller will have busted registers. */
-    vm->vm_regs -= vm->function_stack[vm->function_stack_pos-2]->regs_used;
+    vm->vm_regs -= vm->call_chain->prev->regs_used;
 }
 
 /*  lily_vm_get_foreign_reg
@@ -1792,8 +1758,8 @@ void lily_vm_foreign_call(lily_vm_state *vm)
 lily_value *lily_vm_get_foreign_reg(lily_vm_state *vm, int reg_pos)
 {
     lily_value **vm_regs = vm->vm_regs;
-    int load_start = vm->function_stack[vm->function_stack_pos-2]->regs_used +
-                     vm->function_stack[vm->function_stack_pos-1]->regs_used;
+    int load_start = vm->call_chain->prev->regs_used +
+            vm->call_chain->regs_used;
 
     /* Intentionally adjust by -1 so the return register will be at 0. */
     return vm_regs[load_start + reg_pos - 1];
@@ -1813,8 +1779,8 @@ void lily_vm_foreign_load_by_val(lily_vm_state *vm, int index,
         lily_value *new_value)
 {
     lily_value **vm_regs = vm->vm_regs;
-    int load_start = vm->function_stack[vm->function_stack_pos-2]->regs_used +
-                     vm->function_stack[vm->function_stack_pos-1]->regs_used;
+    int load_start = vm->call_chain->prev->regs_used +
+                     vm->call_chain->regs_used;
 
     /* Intentionally adjust by -1 so the first arg starts at index 1. */
     lily_value *reg = vm_regs[load_start + index - 1];
@@ -1872,11 +1838,8 @@ void lily_vm_foreign_prep(lily_vm_state *vm, lily_value *to_call)
         vm->num_registers = register_need;
     }
 
-    /* Step 3: If there's a return register, set it to the proper type.
-               -2 may seem deep, but it's correct: 0 is the new native callee,
-               -1 is foreign callee, and -2 is the native caller. The result
-               register will be in the native caller's registers (so that the) */
-    int function_vals_used = vm->function_stack[vm->function_stack_pos-2]->regs_used;
+    /* Step 3: If there's a return register, set it to the proper type. */
+    int function_vals_used = vm->call_chain->prev->regs_used;
 
     if (function_val_return_type != NULL) {
         lily_value *foreign_reg = vm->vm_regs[function_vals_used];
@@ -1886,32 +1849,38 @@ void lily_vm_foreign_prep(lily_vm_state *vm, lily_value *to_call)
 
     seed_registers(vm, function_val, callee_start);
 
-    /* Step 4: Make sure there is enough room for the new native entry. The
-               foreign function already had an entry added which just needs to
-               be updated. */
-    if (vm->function_stack_pos + 1 == vm->function_stack_size)
-        grow_function_stack(vm);
+    lily_call_frame *foreign_frame = vm->call_chain;
+
+    /* Step 4: Make sure there is a spot for the native entry that will be
+       added. The order and later usage of foreign_frame is vital, because
+       this function will update vm->call_chain. */
+    if (vm->call_chain->next == NULL)
+        add_call_frame(vm);
 
     /* Step 5: Update the foreign function that was entered so that its code
        returns to 'o_return_from_vm' to get back into that function. */
-    lily_vm_stack_entry *foreign_entry = vm->function_stack[vm->function_stack_pos-1];
-    foreign_entry->code = vm->foreign_code;
-    foreign_entry->code_pos = 0;
-    foreign_entry->regs_used = (function_val_return_type != NULL);
-    foreign_entry->return_reg = -1;
-    foreign_entry->upvalues = NULL;
-    foreign_entry->build_value = NULL;
+    foreign_frame->code = vm->foreign_code;
+    foreign_frame->code_pos = 0;
+    foreign_frame->regs_used = (function_val_return_type != NULL);
+    foreign_frame->return_reg = -1;
+    foreign_frame->upvalues = NULL;
+    foreign_frame->build_value = NULL;
 
     /* Step 6: Set the second stack entry (the native function). */
-    lily_vm_stack_entry *native_entry = vm->function_stack[vm->function_stack_pos];
-    native_entry->code = function_val->code;
-    native_entry->code_pos = 0;
-    native_entry->regs_used = function_val->reg_count;
-    native_entry->return_reg = 0;
-    native_entry->function = function_val;
-    native_entry->line_num = 0;
-    native_entry->upvalues = NULL;
-    native_entry->build_value = NULL;
+    lily_call_frame *native_frame = foreign_frame->next;
+    native_frame->code = function_val->code;
+    native_frame->code_pos = 0;
+    native_frame->regs_used = function_val->reg_count;
+    native_frame->return_reg = 0;
+    native_frame->function = function_val;
+    native_frame->line_num = 0;
+    native_frame->upvalues = NULL;
+    native_frame->build_value = NULL;
+
+    /* lily_vm_foreign_call will bump this up before each call. The goal
+       is for control to seamlessly return to lily_vm_execute which will
+       drop the stack back to the right place. */
+    vm->call_chain = foreign_frame;
 }
 
 /******************************************************************************/
@@ -2079,14 +2048,14 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     if (vm->readonly_count != symtab->next_readonly_spot)
         setup_readonly_table(vm);
 
-    lily_vm_stack_entry *stack_entry = vm->function_stack[0];
-    stack_entry->function = main_function;
-    stack_entry->code = main_function->code;
-    stack_entry->regs_used = main_function->reg_count;
-    stack_entry->return_reg = 0;
-    stack_entry->code_pos = 0;
-    stack_entry->build_value = NULL;
-    vm->function_stack_pos = 1;
+    lily_call_frame *first_frame = vm->call_chain;
+    first_frame->function = main_function;
+    first_frame->code = main_function->code;
+    first_frame->regs_used = main_function->reg_count;
+    first_frame->return_reg = 0;
+    first_frame->code_pos = 0;
+    first_frame->build_value = NULL;
+    vm->call_depth = 1;
 }
 
 /** The mighty VM **/
@@ -2101,7 +2070,6 @@ void lily_vm_execute(lily_vm_state *vm)
 {
     lily_function_val *f;
     uint16_t *code;
-    lily_vm_stack_entry *stack_entry;
     lily_value **regs_from_main;
     lily_value **vm_regs;
     int i, num_registers, max_registers;
@@ -2119,7 +2087,9 @@ void lily_vm_execute(lily_vm_state *vm)
     lily_function_val *fval;
     lily_value **upvalues = NULL;
 
-    f = vm->function_stack[vm->function_stack_pos-1]->function;
+    lily_call_frame *current_frame = vm->call_chain;
+
+    f = current_frame->function;
     code = f->code;
 
     /* Initialize local vars from the vm state's vars. */
@@ -2130,26 +2100,24 @@ void lily_vm_execute(lily_vm_state *vm)
     code_pos = 0;
 
     /* Only install a raiser jump on the first vm entry. */
-    if (vm->function_stack_pos == 1) {
+    if (current_frame->prev == NULL) {
         if (setjmp(vm->raiser->jumps[vm->raiser->jump_pos]) == 0)
             vm->raiser->jump_pos++;
         else {
-            lily_vm_stack_entry *top = vm->function_stack[vm->function_stack_pos-1];
             /* If the current function is a native one, then fix the line
                number of it. Otherwise, leave the line number alone. */
-            if (top->function->code != NULL)
-                top->line_num = top->code[code_pos+1];
+            if (current_frame->function->code != NULL)
+                current_frame->line_num = current_frame->code[code_pos+1];
 
-            /* If the vm raises an exception trying to build an exception value
-               instance, just...stop and give up. */
             if (maybe_catch_exception(vm) == 0)
+                /* Couldn't catch it. Jump back into parser, which will jump
+                   back to the caller to give them the bad news. */
                 longjmp(vm->raiser->jumps[vm->raiser->jump_pos-2], 1);
             else {
-                code = vm->function_stack[vm->function_stack_pos - 1]->code;
-                code_pos = vm->function_stack[vm->function_stack_pos - 1]->code_pos;
-                /* If an exception is caught outside the function it's raised
-                   in, then vm->vm_regs will get adjusted, so make sure to
-                   update the local version. */
+                /* The exception was caught, so resync local data. */
+                current_frame = vm->call_chain;
+                code = current_frame->code;
+                code_pos = current_frame->code_pos;
                 vm_regs = vm->vm_regs;
             }
         }
@@ -2287,12 +2255,12 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_function_call:
             {
-                if (vm->function_stack_pos > 100)
+                if (vm->call_depth > 100)
                     lily_raise(vm->raiser, lily_RecursionError,
                             "Function call recursion limit reached.\n");
 
-                if (vm->function_stack_pos+1 == vm->function_stack_size)
-                    grow_function_stack(vm);
+                if (current_frame->next == NULL)
+                    add_call_frame(vm);
 
                 if (code[code_pos+2] == 1)
                     fval = vm->readonly_table[code[code_pos+3]]->value.function;
@@ -2300,10 +2268,9 @@ void lily_vm_execute(lily_vm_state *vm)
                     fval = vm_regs[code[code_pos+3]]->value.function;
 
                 int j = code[code_pos+4];
-                stack_entry = vm->function_stack[vm->function_stack_pos-1];
-                stack_entry->line_num = code[code_pos+1];
-                stack_entry->code_pos = code_pos + j + 6;
-                stack_entry->upvalues = upvalues;
+                current_frame->line_num = code[code_pos+1];
+                current_frame->code_pos = code_pos + j + 6;
+                current_frame->upvalues = upvalues;
 
                 if (fval->code != NULL) {
                     int register_need = fval->reg_count + num_registers;
@@ -2322,32 +2289,41 @@ void lily_vm_execute(lily_vm_state *vm)
                     prep_registers(vm, fval, code+code_pos);
                     num_registers = vm->num_registers;
 
-                    vm_regs = vm_regs + stack_entry->regs_used;
+                    vm_regs = vm_regs + current_frame->regs_used;
                     vm->vm_regs = vm_regs;
 
-                    stack_entry->return_reg =
-                        -(stack_entry->function->reg_count - code[code_pos+5+j]);
+                    current_frame->return_reg =
+                        -(current_frame->function->reg_count - code[code_pos+5+j]);
 
-                    stack_entry = vm->function_stack[vm->function_stack_pos];
-                    stack_entry->function = fval;
-                    stack_entry->regs_used = fval->reg_count;
-                    stack_entry->code = fval->code;
-                    stack_entry->upvalues = NULL;
-                    vm->function_stack_pos++;
+                    /* !PAST HERE TARGETS THE NEW FRAME! */
 
+                    current_frame = current_frame->next;
+                    vm->call_chain = current_frame;
+
+                    current_frame->function = fval;
+                    current_frame->regs_used = fval->reg_count;
+                    current_frame->code = fval->code;
+                    current_frame->upvalues = NULL;
+                    vm->call_depth++;
                     code = fval->code;
                     code_pos = 0;
                     upvalues = NULL;
                 }
                 else {
                     lily_foreign_func func = fval->foreign_func;
-                    stack_entry = vm->function_stack[vm->function_stack_pos];
-                    stack_entry->function = fval;
-                    stack_entry->line_num = -1;
-                    stack_entry->code = NULL;
-                    stack_entry->build_value = NULL;
-                    stack_entry->upvalues = NULL;
-                    vm->function_stack_pos++;
+
+                    current_frame = current_frame->next;
+                    vm->call_chain = current_frame;
+
+                    current_frame->function = fval;
+                    current_frame->line_num = -1;
+                    current_frame->code = NULL;
+                    current_frame->build_value = NULL;
+                    current_frame->upvalues = NULL;
+                    /* An offset from main does not have to be included, because
+                       foreign functions don't have code which can catch an
+                       exception. */
+                    vm->call_depth++;
 
                     func(vm, j, code+code_pos+5);
                     /* This function may have called the vm, thus growing the
@@ -2358,8 +2334,12 @@ void lily_vm_execute(lily_vm_state *vm)
                         vm_regs        = vm->vm_regs;
                         max_registers  = vm->max_registers;
                     }
+
+                    current_frame = current_frame->prev;
+                    vm->call_chain = current_frame;
+
                     code_pos += 6 + j;
-                    vm->function_stack_pos--;
+                    vm->call_depth--;
                 }
             }
                 break;
@@ -2380,17 +2360,12 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 4;
                 break;
             case o_return_val:
-                /* The current function is at -1.
-                   This grabs for -2 because we need the register that the
-                   caller reserved for the return. */
-
-                stack_entry = vm->function_stack[vm->function_stack_pos-2];
                 /* Note: Upon function entry, vm_regs is moved so that 0 is the
                    start of the new function's registers.
                    Because of this, the register return is a -negative- index
                    that goes back into the caller's stack. */
 
-                lhs_reg = vm_regs[stack_entry->return_reg];
+                lhs_reg = vm_regs[current_frame->prev->return_reg];
                 rhs_reg = vm_regs[code[code_pos+2]];
                 lily_assign_value(vm, lhs_reg, rhs_reg);
 
@@ -2398,20 +2373,23 @@ void lily_vm_execute(lily_vm_state *vm)
                    These two do the same thing from here on, so fall through to
                    share code. */
             case o_return_noval:
-                vm->function_stack[vm->function_stack_pos-1]->build_value = NULL;
+                current_frame->build_value = NULL;
 
-                vm->function_stack_pos--;
-                stack_entry = vm->function_stack[vm->function_stack_pos-1];
+                current_frame = current_frame->prev;
+                vm->call_chain = current_frame;
+                vm->call_depth--;
 
-                /* This is the function that was just left. These registers are no
-                   longer used, so remove them from the total. */
-                num_registers -= vm->function_stack[vm->function_stack_pos]->regs_used;
+                /* The registers that the function last entered are not in use
+                   anymore, so they don't count now. */
+                num_registers -= current_frame->next->regs_used;
                 vm->num_registers = num_registers;
-                vm_regs = vm_regs - stack_entry->regs_used;
+                /* vm_regs adjusts by the count of the now-current function so
+                   that vm_regs[0] is the 0 of the caller. */
+                vm_regs = vm_regs - current_frame->regs_used;
                 vm->vm_regs = vm_regs;
-                upvalues = stack_entry->upvalues;
-                code = stack_entry->code;
-                code_pos = stack_entry->code_pos;
+                upvalues = current_frame->upvalues;
+                code = current_frame->code;
+                code_pos = current_frame->code_pos;
                 break;
             case o_get_global:
                 rhs_reg = regs_from_main[code[code_pos+2]];
@@ -2470,9 +2448,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 if (cast_type == rhs_reg->type)
                     lily_assign_value(vm, lhs_reg, rhs_reg);
                 else {
-                    lily_vm_stack_entry *top;
-                    top = vm->function_stack[vm->function_stack_pos-1];
-                    top->line_num = top->code[code_pos+1];
+                    current_frame->line_num = current_frame->code[code_pos+1];
 
                     lily_raise(vm->raiser, lily_BadTypecastError,
                             "Cannot cast any containing type '^T' to type '^T'.\n",
@@ -2538,9 +2514,11 @@ void lily_vm_execute(lily_vm_state *vm)
                     add_catch_entry(vm);
 
                 lily_vm_catch_entry *catch_entry = vm->catch_chain;
-                catch_entry->stack_entry = vm->function_stack[vm->function_stack_pos - 1];
-                catch_entry->entry_depth = vm->function_stack_pos - 1;
+                catch_entry->call_frame = current_frame;
+                catch_entry->call_frame_depth = vm->call_depth;
                 catch_entry->code_pos = code_pos + 2;
+                catch_entry->offset_from_main = (int64_t)(regs_from_main - vm_regs);
+
                 vm->catch_top = vm->catch_chain;
                 vm->catch_chain = vm->catch_chain->next;
                 code_pos += 3;
@@ -2641,7 +2619,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_return_from_vm:
                 /* Only the first entry to the vm adds a stack entry... */
-                if (vm->function_stack_pos == 1)
+                if (current_frame->prev == NULL)
                     vm->raiser->jump_pos--;
                 return;
         }
