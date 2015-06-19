@@ -600,12 +600,9 @@ void lily_show_value(lily_vm_state *vm, lily_value *value)
 {
     lily_debug_state debug;
 
-    lily_vm_stack_entry **vm_stack = vm->function_stack;
-    int stack_top = vm->function_stack_pos - 1;
-
     debug.indent = 0;
-    debug.main_function = vm_stack[0]->function;
-    debug.current_function = vm_stack[stack_top]->function;
+    debug.main_function = vm->symtab->main_function;
+    debug.current_function = vm->call_chain->function;
     debug.msgbuf = vm->raiser->msgbuf;
     debug.vm = vm;
     debug.data = vm->data;

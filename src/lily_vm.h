@@ -5,7 +5,7 @@
 # include "lily_symtab.h"
 # include "lily_type_system.h"
 
-typedef struct {
+typedef struct lily_call_frame_ {
     lily_function_val *function;
     signed int return_reg;
     /* How many registers this call uses. This is used to fix the vm's register
@@ -22,11 +22,20 @@ typedef struct {
        being executed from a higher-up class. If that is the case, then the
        subclass uses the value of the higher-up class. */
     lily_instance_val *build_value;
-} lily_vm_stack_entry;
+
+    struct lily_call_frame_ *prev;
+    struct lily_call_frame_ *next;
+} lily_call_frame;
 
 typedef struct lily_vm_catch_entry_ {
-    lily_vm_stack_entry *stack_entry;
-    int entry_depth;
+    lily_call_frame *call_frame;
+    /* How far away vm->vm_regs (where the locals start) is from
+       vm->regs_from_main in the current frame. When catching exceptions, it's
+       simpler, safer, and faster to fix vm->vm_regs with this instead of
+       attempting to walk the call chain backward to figure out where
+       vm->vm_regs will end up. */
+    int offset_from_main;
+    int call_frame_depth;
     int code_pos;
 
     struct lily_vm_catch_entry_ *next;
@@ -36,7 +45,7 @@ typedef struct lily_vm_catch_entry_ {
 typedef struct lily_vm_state_ {
     lily_value **vm_regs;
     lily_value **regs_from_main;
-    lily_vm_stack_entry **function_stack;
+    lily_call_frame *call_chain;
 
     lily_tie **readonly_table;
 
@@ -52,8 +61,7 @@ typedef struct lily_vm_state_ {
 
     uint32_t readonly_count;
 
-    uint16_t function_stack_pos;
-    uint16_t function_stack_size;
+    uint32_t call_depth;
 
     /* How many entries are in ->gc_live_entries. If this is >= ->gc_threshold,
        then the gc is triggered when there is an attempt to attach a gc_entry

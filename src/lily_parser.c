@@ -3261,16 +3261,14 @@ char *lily_build_error_message(lily_parse_state *parser)
                 iter->filename, iter->saved_line_num);
     }
     else {
-        lily_vm_stack_entry **vm_stack;
-        lily_vm_stack_entry *entry;
+        lily_call_frame *frame = parser->vm->call_chain;
         int i;
 
-        vm_stack = parser->vm->function_stack;
         lily_msgbuf_add(msgbuf, "Traceback:\n");
 
-        for (i = parser->vm->function_stack_pos-1;i >= 0;i--) {
-            entry = vm_stack[i];
-            char *class_name = entry->function->class_name;
+        while (frame) {
+            lily_function_val *func = frame->function;
+            char *class_name = func->class_name;
             char *separator;
             if (class_name == NULL) {
                 class_name = "";
@@ -3279,15 +3277,16 @@ char *lily_build_error_message(lily_parse_state *parser)
             else
                 separator = "::";
 
-            if (entry->function->code == NULL)
+            if (frame->function->code == NULL)
                 lily_msgbuf_add_fmt(msgbuf, "    File \"%s\", from %s%s%s\n",
-                        entry->function->path, class_name, separator,
-                        entry->function->trace_name);
+                        func->path, class_name, separator, func->trace_name);
             else
                 lily_msgbuf_add_fmt(msgbuf,
                         "    File \"%s\", from %s%s%s at line %d\n",
-                        entry->function->path, class_name, separator,
-                        entry->function->trace_name, entry->line_num);
+                        func->path, class_name, separator, func->trace_name,
+                        frame->line_num);
+
+            frame = frame->prev;
         }
     }
 
