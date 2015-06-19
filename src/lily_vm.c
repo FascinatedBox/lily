@@ -438,40 +438,17 @@ static int compare_values(lily_vm_state *vm, lily_value *left, lily_value *right
     vm:      If lhs_reg is nil, an any will be made that needs a gc entry.
              The entry will be added to the vm's gc entries.
     lhs_reg: The register containing an any to be assigned to. Might be nil.
-    rhs_reg: The register providing a value for the any. Might be nil. */
+    rhs_reg: The register providing a value for the any. */
 static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
         lily_value *rhs_reg)
 {
-    lily_type *new_type;
-    lily_raw_value new_value;
-    int new_flags;
+    if (rhs_reg->type == lhs_reg->type)
+        rhs_reg = rhs_reg->value.any->inner_value;
 
-    if (rhs_reg->type == lhs_reg->type) {
-        if ((rhs_reg->flags & VAL_IS_NIL) ||
-            (rhs_reg->value.any->inner_value->flags & VAL_IS_NIL)) {
-            new_type = NULL;
-            new_value.integer = 0;
-            new_flags = VAL_IS_NIL;
-        }
-        else {
-            lily_value *rhs_inner = rhs_reg->value.any->inner_value;
-
-            new_type = rhs_inner->type;
-            new_value = rhs_inner->value;
-            new_flags = rhs_inner->flags;
-        }
-    }
-    else {
-        new_type = rhs_reg->type;
-        new_value = rhs_reg->value;
-        new_flags = rhs_reg->flags;
-    }
-
-    if ((new_flags & VAL_IS_NOT_DEREFABLE) == 0)
-        new_value.generic->refcount++;
+    if ((rhs_reg->flags & VAL_IS_NOT_DEREFABLE) == 0)
+        rhs_reg->value.generic->refcount++;
 
     lily_any_val *lhs_any;
-    lily_value *lhs_inner;
 
     if (lhs_reg->flags & VAL_IS_NIL) {
         lhs_any = lily_new_any_val();
@@ -485,11 +462,7 @@ static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
         lily_deref(lhs_any->inner_value);
     }
 
-    lhs_inner = lhs_any->inner_value;
-
-    lhs_inner->type = new_type;
-    lhs_inner->value = new_value;
-    lhs_inner->flags = new_flags;
+    *(lhs_any->inner_value) = *rhs_reg;
 }
 
 /*  Add a new call frame to vm's call_chain. The new frame becomes the current
