@@ -455,7 +455,7 @@ static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
         add_gc_item(vm, lhs_reg->type, (lily_generic_gc_val *)lhs_any);
 
         lhs_reg->value.any = lhs_any;
-        lhs_reg->flags &= ~VAL_IS_NIL;
+        lhs_reg->flags = 0;
     }
     else {
         lhs_any = lhs_reg->value.any;
@@ -619,20 +619,10 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
         if ((get_reg->flags & VAL_IS_NOT_DEREFABLE) == 0)
             get_reg->value.generic->refcount++;
 
-        lily_deref(set_reg);
+        if ((set_reg->flags & VAL_IS_NOT_DEREFABLE) == 0)
+            lily_deref(set_reg);
 
-        /* Important! Registers seeds may reference generics, but incoming
-           values have known types. */
-        set_reg->type = get_reg->type;
-
-        /* This will be null if this register doesn't belong to a
-           var, or non-null if it's for a local. */
-        if ((get_reg->flags & VAL_IS_NIL) == 0)
-            set_reg->value = get_reg->value;
-        else
-            set_reg->value.integer = 0;
-
-        set_reg->flags = get_reg->flags;
+        *set_reg = *get_reg;
     }
 
     if (fval->has_generics == 0) {
@@ -645,7 +635,7 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
 
             /* SET the flags to nil so that VAL_IS_PROTECTED gets blasted away if
                it happens to be set. */
-            reg->flags = VAL_IS_NIL | (seed.type->cls->flags & VAL_IS_PRIMITIVE);
+            reg->flags = VAL_IS_NIL;
             reg->type = seed.type;
         }
     }
@@ -1283,9 +1273,7 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
            For tuples, there is no such restriction. This allows one opcode to
            handle building two (very similar) things. */
         lv->elems[i]->type = rhs_reg->type;
-        lv->elems[i]->flags = VAL_IS_NIL |
-                (rhs_reg->type->cls->flags & VAL_IS_PRIMITIVE);
-        lv->elems[i]->value.integer = 0;
+        lv->elems[i]->flags = VAL_IS_NIL;
         lv->num_values = i + 1;
 
         lily_assign_value(vm, lv->elems[i], rhs_reg);
@@ -1407,15 +1395,13 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
         lily_type *value_type = prop->type;
         iv->values[i] = lily_malloc(sizeof(lily_value));
-        iv->values[i]->flags = VAL_IS_NIL |
-                (value_type->cls->flags & VAL_IS_PRIMITIVE);
+        iv->values[i]->flags = VAL_IS_NIL;
 
         if (value_type->flags & TYPE_IS_UNRESOLVED)
             value_type = lily_ts_resolve_by_second(vm->ts, result->type,
                     value_type);
 
         iv->values[i]->type = value_type;
-        iv->values[i]->value.integer = 0;
     }
 
     iv->num_values = total_entries;
@@ -1457,8 +1443,7 @@ lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
     for (i = 0;i < count;i++) {
         lily_value *v = lily_malloc(sizeof(lily_value));
         v->type = integer_type;
-        v->flags = VAL_IS_NIL | VAL_IS_PRIMITIVE;
-        v->value.integer = 0;
+        v->flags = VAL_IS_NIL;
         upvalues[i] = v;
     }
 
@@ -1772,8 +1757,7 @@ static void seed_registers(lily_vm_state *vm, lily_function_val *f, int start)
         lily_deref(reg);
 
         reg->type = info[i].type;
-        reg->value.integer = 0;
-        reg->flags = VAL_IS_NIL | VAL_IS_PRIMITIVE;
+        reg->flags = VAL_IS_NIL;
     }
 }
 
@@ -1995,8 +1979,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
         /* This allows opcodes to copy over a register value without checking
            if VAL_IS_NIL is set. This is fine, because the value won't actually
            be used if VAL_IS_NIL is set (optimization!) */
-        reg->value.integer = 0;
-        reg->flags = VAL_IS_NIL | (seed.type->cls->flags & VAL_IS_PRIMITIVE);
+        reg->flags = VAL_IS_NIL;
         reg->type = seed.type;
     }
 
