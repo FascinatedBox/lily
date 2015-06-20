@@ -127,7 +127,6 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     /* todo: This is a terrible, horrible key to use. Make a better one using
              some randomness or...something. Just not this. */
     char sipkey[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf};
-    char *string_data = lily_malloc(64);
     lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(lily_vm_catch_entry));
 
     vm->sipkey = lily_malloc(16);
