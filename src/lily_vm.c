@@ -509,8 +509,18 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
 
     ptrdiff_t reg_offset = vm->vm_regs - vm->regs_from_main;
 
+    /* Size is zero only when this is called the first time and no registers
+       have been made available. */
+    int size = i;
+    if (size == 0)
+        size = 1;
+
+    do
+        size *= 2;
+    while (size < register_need);
+
     /* Remember, use regs_from_main, NOT vm_regs, which is likely adjusted. */
-    new_regs = lily_realloc(vm->regs_from_main, register_need *
+    new_regs = lily_realloc(vm->regs_from_main, size *
             sizeof(lily_value));
 
     /* Realloc can move the pointer, so always recalculate vm_regs again using
@@ -521,13 +531,13 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
     /* Start creating new registers. Have them default to an integer type so that
        nothing has to check for a NULL type. Integer is used as the default
        because it is not ref'd. */
-    for (;i < register_need;i++) {
+    for (;i < size;i++) {
         new_regs[i] = lily_malloc(sizeof(lily_value));
         new_regs[i]->type = integer_type;
         new_regs[i]->flags = VAL_IS_NIL | VAL_IS_PRIMITIVE;
     }
 
-    vm->max_registers = register_need;
+    vm->max_registers = size;
 }
 
 /*  resolve_generic_registers
@@ -1948,31 +1958,21 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     lily_function_val *main_function = symtab->main_function;
     int i;
 
-    lily_value **vm_regs;
-    if (vm->num_registers > main_function->reg_count)
-        vm_regs = vm->vm_regs;
-    else {
-        /* Note: num_registers can never be zero for a second pass, because the
-           first pass will have at least __main__ and the sys package even if
-           there's no code to run. */
-        vm_regs = lily_realloc(vm->regs_from_main,
-                main_function->reg_count * sizeof(lily_value *));
-        vm->vm_regs = vm_regs;
-    }
+    /* This has to be set before grow_vm_registers because that initializes the
+       registers to integer's type. */
+    vm->integer_type = symtab->integer_class->type;
 
-    vm->regs_from_main = vm_regs;
-
-    /* Do a special pass to make sure there are values. This allows the second
-       loop to just worry about initializing the registers. */
-    if (main_function->reg_count > vm->num_registers) {
-        for (i = vm->max_registers;i < main_function->reg_count;i++) {
-            lily_value *reg = lily_malloc(sizeof(lily_value));
-            vm_regs[i] = reg;
-        }
+    if (main_function->reg_count > vm->max_registers) {
+        grow_vm_registers(vm, main_function->reg_count);
+        /* grow_vm_registers will move vm->vm_regs (which is supposed to be
+           local). That works everywhere...but here. Fix vm_regs back to the
+           start because we're still in __main__. */
+        vm->vm_regs = vm->regs_from_main;
     }
+    lily_value **regs_from_main = vm->regs_from_main;
 
     for (i = vm->prep_id_start;i < main_function->reg_count;i++) {
-        lily_value *reg = vm_regs[i];
+        lily_value *reg = regs_from_main[i];
         lily_register_info seed = main_function->reg_info[i];
 
         /* This allows opcodes to copy over a register value without checking
@@ -1990,18 +1990,10 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     if (vm->symtab->foreign_ties)
         load_foreign_ties(vm);
 
-    if (main_function->reg_count > vm->num_registers) {
-        if (vm->num_registers == 0) {
-            lily_class *integer_cls = vm->symtab->integer_class;
-            vm->integer_type = integer_cls->type;
-        }
-
-        vm->num_registers = main_function->reg_count;
-        vm->max_registers = main_function->reg_count;
-    }
-
     if (vm->readonly_count != symtab->next_readonly_spot)
         setup_readonly_table(vm);
+
+    vm->num_registers = main_function->reg_count;
 
     lily_call_frame *first_frame = vm->call_chain;
     first_frame->function = main_function;
@@ -2235,7 +2227,7 @@ void lily_vm_execute(lily_vm_state *vm)
                         /* Don't forget to update local info... */
                         regs_from_main = vm->regs_from_main;
                         vm_regs        = vm->vm_regs;
-                        max_registers  = register_need;
+                        max_registers  = vm->max_registers;
                     }
 
                     /* Prepare the registers for what the function wants.
