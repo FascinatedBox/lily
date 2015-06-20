@@ -207,7 +207,7 @@ void lily_free_vm(lily_vm_state *vm)
     lily_call_frame *frame_iter = vm->call_chain;
     lily_call_frame *frame_next;
 
-    while (frame_iter)
+    while (frame_iter->prev)
         frame_iter = frame_iter->prev;
 
     while (frame_iter) {
