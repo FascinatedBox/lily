@@ -1,5 +1,6 @@
 #include "lily_alloc.h"
 #include "lily_core_types.h"
+#include "lily_value.h"
 
 lily_function_val *lily_new_foreign_function_val(lily_foreign_func func,
         char *class_name, char *name)

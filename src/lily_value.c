@@ -2,6 +2,14 @@
 #include "lily_value.h"
 #include "lily_vm.h"
 
+/* This is to get their gc collection functions... :( */
+
+#include "lily_cls_list.h"
+#include "lily_cls_tuple.h"
+#include "lily_cls_hash.h"
+#include "lily_cls_any.h"
+#include "lily_cls_function.h"
+
 /*  lily_deref
     This function will check that the value is refcounted and that it is not
     nil/protected before giving it a deref. It is therefore safe to pass

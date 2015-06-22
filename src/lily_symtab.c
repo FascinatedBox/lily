@@ -6,6 +6,8 @@
 #include "lily_pkg_builtin.h"
 #include "lily_seed.h"
 
+#include "lily_value.h"
+
 /** Symtab is responsible for:
     * Providing functions for finding and creating classes and vars.
     * Holding 'ties' that associate vars with values (so that a vars do not

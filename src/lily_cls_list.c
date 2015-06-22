@@ -1,6 +1,7 @@
 #include "lily_alloc.h"
 #include "lily_vm.h"
 #include "lily_seed.h"
+#include "lily_value.h"
 
 lily_list_val *lily_new_list_val()
 {
