@@ -1305,6 +1305,10 @@ static void dispatch_word_as_dynaloaded(lily_parse_state *parser,
         lily_ast_push_defined_func(parser->ast_pool, new_var);
         *state = ST_WANT_OPERATOR;
     }
+    else if (seed->seed_type == dyna_class) {
+        lily_class *new_cls = lily_new_class_by_seed(symtab, seed);
+        dispatch_word_as_class(parser, new_cls, state);
+    }
     else if (seed->seed_type == dyna_exception) {
         lily_class *new_cls = dynaload_exception(parser, import,
                 seed->name);
