@@ -95,7 +95,6 @@ typedef struct lily_class_ {
     int16_t generic_count;
     uint32_t prop_count;
     uint32_t variant_size;
-
     /* If the variant class takes arguments, then this is the type of a
        function that maps from input to the result.
        If the variant doesn't take arguments, then this is a simple type

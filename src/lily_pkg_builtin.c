@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "lily_parser.h"
 #include "lily_symtab.h"

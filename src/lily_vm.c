@@ -897,7 +897,6 @@ void lily_process_format_string(lily_vm_state *vm, uint16_t *code)
     char *fmt;
     int arg_pos, fmt_index;
     lily_list_val *vararg_lv;
-    lily_value *result_arg;
     lily_value **vm_regs = vm->vm_regs;
     lily_msgbuf *vm_buffer = vm->vm_buffer;
     lily_msgbuf_flush(vm_buffer);
@@ -1431,7 +1430,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     because the closure cannot have access to all type information when it is
     first invoked (an inner function may define extra generics that a further
     inward function may then use). */
-lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
+static lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
 {
     int count = code[2];
     lily_value *result = vm->vm_regs[code[3]];
@@ -1474,7 +1473,7 @@ lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
     not.
     By doing this, calls to the function copy will load the function with
     closures onto the stack. */
-lily_value **do_o_create_function(lily_vm_state *vm, uint16_t *code)
+static void do_o_create_function(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_tie *function_literal = vm->readonly_table[code[1]];
@@ -1500,7 +1499,7 @@ lily_value **do_o_create_function(lily_vm_state *vm, uint16_t *code)
     class method. Because of how o_create_function works, the most recent call
     (this function) has closure data in the function part of the stack. This is
     as simple as drawing that data out. */
-lily_value **do_o_load_closure(lily_vm_state *vm, uint16_t *code)
+static lily_value **do_o_load_closure(lily_vm_state *vm, uint16_t *code)
 {
     lily_function_val *f = vm->call_chain->function;
     lily_raw_value v = {.function = f};
@@ -1519,7 +1518,7 @@ lily_value **do_o_load_closure(lily_vm_state *vm, uint16_t *code)
     statically outside of the class. Because class methods always take self as
     their first parameter, the class will hold a closure that this will pull out
     and put into a local register. */
-lily_value **do_o_load_class_closure(lily_vm_state *vm, uint16_t *code,
+static lily_value **do_o_load_class_closure(lily_vm_state *vm, uint16_t *code,
         int code_pos)
 {
     do_o_get_property(vm, code, code_pos);
@@ -1609,8 +1608,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
     lily_vm_catch_entry *catch_iter = vm->catch_top;
     lily_value *catch_reg = NULL;
     lily_value **stack_regs;
-    int do_unbox, jump_location, match, stack_pos;
-    lily_call_frame *call_frame = vm->call_chain;
+    int do_unbox, jump_location, match;
 
     match = 0;
 

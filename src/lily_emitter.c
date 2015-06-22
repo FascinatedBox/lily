@@ -855,7 +855,6 @@ static void transform_code(lily_emit_state *emit, lily_function_val *f,
 {
     uint16_t *transform_table = emit->transform_table;
     int jump_adjust = starting_adjust;
-    int new_start = emit->code_pos;
     int jump_pos = -1, jump_end;
     int output_pos = -1, output_end;
     /* Do not create a local copy of emit->code here, because the write_4's
@@ -864,7 +863,6 @@ static void transform_code(lily_emit_state *emit, lily_function_val *f,
     while (pos < end) {
         int j = 0, op = emit->code[pos];
         int c, count, call_type, i, line_num;
-        int k = 0;
         const int *opcode_data = opcode_table[op];
 
         for (i = 1;i <= opcode_data[1];i++) {
@@ -990,7 +988,7 @@ static void transform_code(lily_emit_state *emit, lily_function_val *f,
 static void ensure_params_in_closure(lily_emit_state *emit)
 {
     lily_var *function_var = emit->block->function_var;
-    int i, local_count = function_var->type->subtype_count - 1;
+    int local_count = function_var->type->subtype_count - 1;
     if (local_count == 0)
         return;
 
@@ -1487,14 +1485,6 @@ static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
             "Received Type: ^T\n",
             cs->arg_count + 1, lily_ts_resolve(emit->ts, expected), got);
     lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
-}
-
-/* bad_num_args
-   Reports that the ast didn't get as many args as it should have. Takes
-   anonymous calls and var args into account. */
-static void bad_num_args(lily_emit_state *emit, lily_ast *ast,
-        int arg_count, int min, int max)
-{
 }
 
 /*  determine_left_type
@@ -2320,7 +2310,6 @@ static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect_type, int is_hash)
 {
     lily_ast *tree_iter = ast->arg_start;
-    int enum_count = 0, variant_count = 0;
     lily_type *rebox_type = NULL;
     lily_class *any_class = emit->symtab->any_class;
 
@@ -3272,7 +3261,7 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     return result;
 }
 
-static lily_storage *write_call(lily_emit_state *emit, lily_emit_call_state *cs)
+static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
 {
     int offset = emit->call_values_pos - cs->arg_count;
     lily_sym *call_sym = cs->sym;
@@ -3334,11 +3323,6 @@ static void end_call(lily_emit_state *emit, lily_emit_call_state *cs)
 static void eval_call(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect_type, int did_resolve)
 {
-    int expect_size, i;
-    lily_ast *arg;
-    lily_type *call_type;
-    lily_sym *call_sym;
-
     lily_tree_type first_t = ast->arg_start->tree_type;
     /* Variants are created by calling them in a function-like manner, so the
        parser adds them as if they were functions. They're not. */
@@ -3930,7 +3914,6 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
         lily_var *for_start, lily_var *for_end, lily_var *for_step,
         int line_num)
 {
-    lily_block *loop_block = emit->block;
     lily_class *cls = emit->symtab->integer_class;
 
     int have_step = (for_step != NULL);

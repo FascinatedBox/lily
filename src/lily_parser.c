@@ -115,7 +115,6 @@ static lily_path_link *prepare_path_by_seed(lily_parse_state *parser,
 static void do_bootstrap(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-    lily_lex_entry *first_entry = parser->lex->entry;
     lily_load_str(lex, "[builtin]", lm_no_tags, exception_bootstrap);
     lily_lexer(lex);
     statement(parser, 1);
@@ -370,10 +369,8 @@ lily_class *dynaload_exception(lily_parse_state *parser,
         lily_import_entry *import, const char *name)
 {
     lily_symtab *symtab = parser->symtab;
-    lily_emit_state *emit = parser->emit;
     lily_import_entry *saved_active = symtab->active_import;
     lily_class *result;
-    lily_lex_state *lex = parser->lex;
 
     lily_set_import(symtab, import);
     lily_msgbuf_flush(parser->msgbuf);
@@ -388,10 +385,10 @@ lily_class *dynaload_exception(lily_parse_state *parser,
     /* create_new_class will turn control over to statement. Before that
        happens, freeze the ast's state in case this is in the middle of an
        expression. */
-    lily_ast_freeze_state(parser->ast_pool);
+    lily_ast_freeze_state(ap);
     create_new_class(parser);
     result = symtab->class_chain;
-    lily_ast_thaw_state(parser->ast_pool);
+    lily_ast_thaw_state(ap);
 
     lily_pop_lex_entry(parser->lex);
     lily_set_import(symtab, saved_active);
@@ -2412,7 +2409,6 @@ static void import_handler(lily_parse_state *parser, int multi)
         NEED_CURRENT_TOK(tk_word)
 
         char *import_name = parser->lex->label;
-        char *as_name = NULL;
 
         /* Start off by determining if a module with this name has been imported
            in this file. This search is done by checking the name the module was
@@ -2470,7 +2466,6 @@ static void import_handler(lily_parse_state *parser, int multi)
         lily_lexer(parser->lex);
         if (lex->token == tk_word && strcmp(lex->label, "as") == 0) {
             NEED_NEXT_TOK(tk_word)
-            as_name = lex->label;
             /* This link must be done now, because the next token may be a word
                and lex->label would be modified. */
             link_import_to(link_target, new_import, lex->label);
@@ -3122,7 +3117,6 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
 lily_var *lily_parser_dynamic_load(lily_parse_state *parser, lily_class *cls,
         char *name)
 {
-    lily_lex_state *lex = parser->lex;
     lily_base_seed *base_seed = find_dynaload_entry(cls->dynaload_table,
             name);
     lily_var *ret;
@@ -3262,7 +3256,6 @@ char *lily_build_error_message(lily_parse_state *parser)
     }
     else {
         lily_call_frame *frame = parser->vm->call_chain;
-        int i;
 
         lily_msgbuf_add(msgbuf, "Traceback:\n");
 

@@ -1,6 +1,7 @@
 #include "lily_alloc.h"
 #include "lily_core_types.h"
 #include "lily_vm.h"
+#include "lily_value.h"
 
 int lily_tuple_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)

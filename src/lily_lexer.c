@@ -564,8 +564,6 @@ static void string_copy_close_fn(lily_lex_entry *entry)
 {
     /* The original string is kept in entry->extra since line reading moves
        entry->source. */
-    lily_lex_state *lexer = entry->lexer;
-
     lily_free(entry->extra);
 }
 
