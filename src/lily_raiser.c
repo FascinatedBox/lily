@@ -21,7 +21,7 @@ lily_raiser *lily_new_raiser(lily_options *options)
     raiser->jump_pos = 0;
     raiser->jump_size = 2;
     raiser->line_adjust = 0;
-    raiser->exception = NULL;
+    raiser->exception_type = NULL;
 
     return raiser;
 }
@@ -49,13 +49,14 @@ void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
     lily_msgbuf_flush(raiser->msgbuf);
     /* Clear out any value raised previously, since otherwise
        lily_name_for_error will grab the name using that. */
-    raiser->exception = NULL;
+    raiser->exception_type = NULL;
 
     va_list var_args;
     va_start(var_args, fmt);
     lily_msgbuf_add_fmt_va(raiser->msgbuf, fmt, var_args);
     va_end(var_args);
 
+    raiser->exception_type = NULL;
     raiser->error_code = error_code;
     longjmp(raiser->jumps[raiser->jump_pos-1], 1);
 }
@@ -69,15 +70,13 @@ void lily_raise_prebuilt(lily_raiser *raiser, int error_code)
     longjmp(raiser->jumps[raiser->jump_pos-1], 1);
 }
 
-void lily_raise_value(lily_raiser *raiser, lily_value *value)
+void lily_raise_type_and_msg(lily_raiser *raiser, lily_type *type, char *fmt,
+        ...)
 {
-    raiser->exception = value;
-    /* This next part relies upon the Exception class being ordered as
-       traceback, then message. */
-    lily_instance_val *iv = value->value.instance;
-    char *message = iv->values[0]->value.string->string;
+    raiser->exception_type = type;
+
     lily_msgbuf_flush(raiser->msgbuf);
-    lily_msgbuf_add(raiser->msgbuf, message);
+    lily_msgbuf_add(raiser->msgbuf, fmt);
 
     longjmp(raiser->jumps[raiser->jump_pos-1], 1);
 }
@@ -86,8 +85,8 @@ const char *lily_name_for_error(lily_raiser *raiser)
 {
     const char *result;
 
-    if (raiser->exception)
-        result = raiser->exception->type->cls->name;
+    if (raiser->exception_type)
+        result = raiser->exception_type->cls->name;
     else
         result = lily_error_names[raiser->error_code];
 

@@ -22,8 +22,8 @@ typedef struct lily_raiser_ {
        errors, and a second for the runner to catch parser errors. The raiser
        will use the highest jump it has (the vm, typically). */
     jmp_buf *jumps;
-    lily_value *exception;
     lily_msgbuf *msgbuf;
+    lily_type *exception_type;
 
     /* This is 0 if the error line is the lexer's current line number.
        Otherwise, this is the line number to report. It is not an offset.
@@ -42,7 +42,7 @@ lily_raiser *lily_new_raiser(lily_options *);
 void lily_free_raiser(lily_raiser *);
 void lily_raise(lily_raiser *, int, char *, ...);
 void lily_raise_prebuilt(lily_raiser *, int);
-void lily_raise_value(lily_raiser *, lily_value *);
+void lily_raise_type_and_msg(lily_raiser *, lily_type *, char *, ...);
 
 const char *lily_name_for_error(lily_raiser *);
 
