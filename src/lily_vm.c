@@ -11,6 +11,7 @@
 #include "lily_debug.h"
 #include "lily_bind.h"
 #include "lily_parser.h"
+#include "lily_seed.h"
 
 #include "lily_cls_any.h"
 #include "lily_cls_hash.h"
@@ -790,7 +791,7 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm,
         lily_value **tuple_values = lily_malloc(3 * sizeof(lily_value *));
 
         lily_value *path = lily_bind_string(symtab,
-                frame_iter->function->path);
+                frame_iter->function->import->path);
         lily_value *func_string = bind_function_name(vm, symtab,
                 frame_iter->function);
         lily_value *linenum_integer = lily_bind_integer(symtab,
@@ -1593,7 +1594,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
            be dynaloaded if it needs to be. Also, keep in mind that needing to
            dynaload an exception at this stage does not mean that the catch will
            fail (the user may have put up a 'except Exception' somewhere). */
-        raised_class = lily_maybe_dynaload_class(vm->parser, except_name);
+        raised_class = lily_maybe_dynaload_class(vm->parser, NULL, except_name);
     }
     else {
         lily_type *raise_type = vm->raiser->exception_type;
@@ -1904,6 +1905,40 @@ void lily_move_raw_value(lily_vm_state *vm, lily_value *left,
 
     left->value = raw_right;
     left->flags = flags | (cls->flags & VAL_IS_PRIMITIVE);
+}
+
+/*  This is used by modules to raise exceptions which are marked as dynaloaded
+    by that same module. Because this should only be called from a module
+    function, it is assumed that the last call is a function of that module.
+
+    This function will takeover the vm's msgbuf, erasing whatever contents are
+    inside to build the error message that will be given to the raiser. If the
+    exception described by the error_seed has not been dynaloaded, it will be
+    dynaloaded before raising the exception. */
+void lily_vm_raise_seed(lily_vm_state *vm, lily_base_seed *error_seed,
+        const char *fmt, ...)
+{
+    lily_import_entry *seed_import = vm->call_chain->function->import;
+
+    lily_class *raise_class = lily_maybe_dynaload_class(vm->parser, seed_import,
+            error_seed->name);
+
+    lily_msgbuf *vm_msgbuf = vm->vm_buffer;
+
+    lily_msgbuf_flush(vm_msgbuf);
+
+    /* Build the message in vm's msgbuf. There's no raiser function for doing
+       this kind of raise because control would never return to this function to
+       call va_end. */
+    va_list fmt_args;
+    va_start(fmt_args, fmt);
+    lily_msgbuf_add_fmt_va(vm_msgbuf, fmt, fmt_args);
+    va_end(fmt_args);
+
+    /* An exception that has been dynaloaded will never have generics, and thus
+       will always have a default type. It is thus safe to grab the type of the
+       newly-made class. */
+    lily_raise_type_and_msg(vm->raiser, raise_class->type, vm_msgbuf->message);
 }
 
 /*  lily_calculate_siphash

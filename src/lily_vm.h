@@ -5,6 +5,8 @@
 # include "lily_symtab.h"
 # include "lily_type_system.h"
 
+struct lily_base_seed_;
+
 typedef struct lily_call_frame_ {
     lily_function_val *function;
     signed int return_reg;
@@ -111,6 +113,9 @@ void lily_assign_value(lily_vm_state *, lily_value *, lily_value *);
 void lily_move_raw_value(lily_vm_state *, lily_value *, int, lily_raw_value);
 uint64_t lily_calculate_siphash(char *, lily_value *);
 void lily_process_format_string(lily_vm_state *, uint16_t *);
+
+void lily_vm_raise_seed(lily_vm_state *, const struct lily_base_seed_ *,
+        const char *, ...);
 
 void lily_vm_foreign_call(lily_vm_state *vm);
 void lily_vm_foreign_prep(lily_vm_state *, lily_value *);

@@ -2899,7 +2899,7 @@ static void parser_loop(lily_parse_state *parser)
            package (so that exceptions can be bootstrapped). However, since
            __main__ holds all the global code for the first file, fix the path
            of it to target the first file. */
-        parser->emit->top_function->path = parser->lex->entry->filename;
+        parser->emit->top_function->import = main_import;
 
         lily_set_import(parser->symtab, main_import);
         parser->first_pass = 0;
@@ -3198,14 +3198,16 @@ lily_type *lily_type_by_name(lily_parse_state *parser, char *name)
 }
 
 lily_class *lily_maybe_dynaload_class(lily_parse_state *parser,
-        const char *name)
+        lily_import_entry *import, const char *name)
 {
     lily_symtab *symtab = parser->symtab;
-    lily_class *cls = lily_find_class(parser->symtab,
-            symtab->builtin_import, name);
+    if (import == NULL)
+        import = symtab->builtin_import;
+
+    lily_class *cls = lily_find_class(parser->symtab, import, name);
 
     if (cls == NULL)
-        cls = dynaload_exception(parser, symtab->builtin_import, name);
+        cls = dynaload_exception(parser, import, name);
 
     return cls;
 }
@@ -3276,12 +3278,13 @@ char *lily_build_error_message(lily_parse_state *parser)
 
             if (frame->function->code == NULL)
                 lily_msgbuf_add_fmt(msgbuf, "    File \"%s\", from %s%s%s\n",
-                        func->path, class_name, separator, func->trace_name);
+                        func->import->path, class_name, separator,
+                        func->trace_name);
             else
                 lily_msgbuf_add_fmt(msgbuf,
                         "    File \"%s\", from %s%s%s at line %d\n",
-                        func->path, class_name, separator, func->trace_name,
-                        frame->line_num);
+                        func->import->path, class_name, separator,
+                        func->trace_name, frame->line_num);
 
             frame = frame->prev;
         }
