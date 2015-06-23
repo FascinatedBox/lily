@@ -3225,12 +3225,12 @@ char *lily_build_error_message(lily_parse_state *parser)
 
     lily_msgbuf_flush(parser->msgbuf);
 
-    if (raiser->exception) {
+    if (raiser->exception_type) {
         /* If this error is not one of the builtin ones, then show the package
            from where it came. The reason for this is that different packages
            may wish to export a general error class (ex: pg::Error,
            mysql::Error, etc). So making it clear -which- one can be useful. */
-        char *loadname = raiser->exception->type->cls->import->loadname;
+        char *loadname = raiser->exception_type->cls->import->loadname;
         if (strcmp(loadname, "") != 0)
             lily_msgbuf_add_fmt(msgbuf, "%s::", loadname);
     }

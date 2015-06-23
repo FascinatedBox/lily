@@ -1299,13 +1299,9 @@ static void do_o_raise(lily_vm_state *vm, lily_value *exception_val)
        container for traceback. */
 
     lily_instance_val *ival = exception_val->value.instance;
-    lily_type *traceback_type = ival->values[1]->type;
-    lily_list_val *raw_traceback = build_traceback_raw(vm, traceback_type);
+    char *message = ival->values[0]->value.string->string;
 
-    lily_raw_value v = {.list = raw_traceback};
-    lily_move_raw_value(vm, ival->values[1], 0, v);
-
-    lily_raise_value(vm->raiser, exception_val);
+    lily_raise_type_and_msg(vm->raiser, exception_val->type, message);
 }
 
 /*  do_o_setup_optargs
@@ -1585,13 +1581,13 @@ static void make_proper_exception_val(lily_vm_state *vm,
     On failure: 0 is returned, which will result in the vm exiting. */
 static int maybe_catch_exception(lily_vm_state *vm)
 {
-    if (vm->catch_top == NULL)
-        return 0;
-
     const char *except_name;
     lily_class *raised_class;
 
-    if (vm->raiser->exception == NULL) {
+    if (vm->catch_top == NULL)
+        return 0;
+
+    if (vm->raiser->exception_type == NULL) {
         except_name = lily_name_for_error(vm->raiser);
         /* This is called instead of lily_find_class so that the exception will
            be dynaloaded if it needs to be. Also, keep in mind that needing to
@@ -1600,8 +1596,8 @@ static int maybe_catch_exception(lily_vm_state *vm)
         raised_class = lily_maybe_dynaload_class(vm->parser, except_name);
     }
     else {
-        lily_value *raise_val = vm->raiser->exception;
-        raised_class = raise_val->type->cls;
+        lily_type *raise_type = vm->raiser->exception_type;
+        raised_class = raise_type->cls;
         except_name = raised_class->name;
     }
 
@@ -1649,12 +1645,8 @@ static int maybe_catch_exception(lily_vm_state *vm)
     }
 
     if (match) {
-        if (do_unbox) {
-            if (vm->raiser->exception == NULL)
-                make_proper_exception_val(vm, raised_class, catch_reg);
-            else
-                lily_assign_value(vm, catch_reg, vm->raiser->exception);
-        }
+        if (do_unbox)
+            make_proper_exception_val(vm, raised_class, catch_reg);
 
         vm->call_chain = catch_iter->call_frame;
         vm->call_depth = catch_iter->call_frame_depth;
