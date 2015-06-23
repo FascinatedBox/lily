@@ -46,8 +46,8 @@ static void add_escaped_char(lily_msgbuf *msgbuf, char ch)
     utf-8.
 
     Non-printable characters are always replaced with numeric escapes. */
-static void add_escaped_sized(lily_msgbuf *msgbuf, int is_bytestring, char *str,
-        int len)
+static void add_escaped_sized(lily_msgbuf *msgbuf, int is_bytestring,
+        const char *str, int len)
 {
     char escape_char = 0;
     int i, start;
@@ -120,13 +120,13 @@ void lily_msgbuf_add(lily_msgbuf *msgbuf, const char *str)
 /*  lily_msgbuf_escape_add_str
     This is a convenience function for adding a safe, escaped version of the
     given string to the msgbuf. */
-void lily_msgbuf_escape_add_str(lily_msgbuf *msgbuf, char *str)
+void lily_msgbuf_escape_add_str(lily_msgbuf *msgbuf, const char *str)
 {
     add_escaped_sized(msgbuf, 0, str, strlen(str));
 }
 
-void lily_msgbuf_add_text_range(lily_msgbuf *msgbuf, char *text, int start,
-        int stop)
+void lily_msgbuf_add_text_range(lily_msgbuf *msgbuf, const char *text,
+        int start, int stop)
 {
     int range = (stop - start);
 
@@ -273,7 +273,8 @@ static void msgbuf_add_errno_string(lily_msgbuf *msgbuf, int errno_val)
     lily_msgbuf_add(msgbuf, buffer);
 }
 
-void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, char *fmt, va_list var_args)
+void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
+        va_list var_args)
 {
     char modifier_buf[5];
     int i, len, text_start;
@@ -370,7 +371,7 @@ void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, char *fmt, va_list var_args)
         lily_msgbuf_add_text_range(msgbuf, fmt, text_start, i);
 }
 
-void lily_msgbuf_add_fmt(lily_msgbuf *msgbuf, char *fmt, ...)
+void lily_msgbuf_add_fmt(lily_msgbuf *msgbuf, const char *fmt, ...)
 {
     va_list var_args;
     va_start(var_args, fmt);

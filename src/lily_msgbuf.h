@@ -25,14 +25,14 @@ void lily_free_msgbuf(lily_msgbuf *);
 lily_msgbuf *lily_new_msgbuf(lily_options *);
 void lily_msgbuf_add(lily_msgbuf *, const char *);
 void lily_msgbuf_add_char(lily_msgbuf *, char);
-void lily_msgbuf_add_text_range(lily_msgbuf *, char *, int, int);
+void lily_msgbuf_add_text_range(lily_msgbuf *, const char *, int, int);
 void lily_msgbuf_add_int(lily_msgbuf *, int);
 void lily_msgbuf_add_double(lily_msgbuf *, double);
 void lily_msgbuf_add_type(lily_msgbuf *, struct lily_type_ *);
 void lily_msgbuf_add_simple_value(lily_msgbuf *, lily_value *);
-void lily_msgbuf_add_fmt(lily_msgbuf *, char *, ...);
-void lily_msgbuf_add_fmt_va(lily_msgbuf *, char *, va_list);
-void lily_msgbuf_escaped_add_str(lily_msgbuf *, char *);
+void lily_msgbuf_add_fmt(lily_msgbuf *, const char *, ...);
+void lily_msgbuf_add_fmt_va(lily_msgbuf *, const char *, va_list);
+void lily_msgbuf_escaped_add_str(lily_msgbuf *, const char *);
 void lily_msgbuf_grow(lily_msgbuf *);
 void lily_msgbuf_flush(lily_msgbuf *);
 
