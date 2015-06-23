@@ -43,6 +43,7 @@ void lily_free_raiser(lily_raiser *);
 void lily_raise(lily_raiser *, int, char *, ...);
 void lily_raise_prebuilt(lily_raiser *, int);
 void lily_raise_type_and_msg(lily_raiser *, lily_type *, char *, ...);
+void lily_raise_type_va(lily_raiser *, lily_type *, char *, va_list);
 
 const char *lily_name_for_error(lily_raiser *);
 

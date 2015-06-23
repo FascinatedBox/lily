@@ -8,7 +8,7 @@ typedef enum {
     dyna_exception
 } dyna_type;
 
-typedef const struct {
+typedef const struct lily_base_seed_ {
     const void *next;
     char *name;
     uint64_t seed_type;
