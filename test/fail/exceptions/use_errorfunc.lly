@@ -1,0 +1,10 @@
+#[
+ValueError
+Traceback:
+    File "errorfunc.lly", from f at line 1
+    File "use_errorfunc.lly", from __main__ at line 10
+]#
+
+import errorfunc
+
+errorfunc::f()

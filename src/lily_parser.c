@@ -255,6 +255,7 @@ void lily_free_parse_state(lily_parse_state *parser)
         if (import_iter->library)
             lily_library_free(import_iter->library);
 
+        lily_free(import_iter->path);
         lily_free(import_iter->loadname);
         lily_free(import_iter);
 
@@ -290,12 +291,14 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
     else
         new_entry->loadname = NULL;
 
+    new_entry->path = lily_malloc(strlen(path) + 1);
+    strcpy(new_entry->path, path);
+
     new_entry->library = NULL;
     new_entry->root_next = NULL;
     new_entry->import_chain = NULL;
     new_entry->class_chain = NULL;
     new_entry->var_chain = NULL;
-    new_entry->path = path;
     new_entry->dynaload_table = NULL;
     new_entry->var_load_fn = NULL;
 
