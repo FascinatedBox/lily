@@ -64,13 +64,14 @@ static char *exception_bootstrap =
 "    var @traceback: list[tuple[string, string, integer]] = []\n"
 "}\n";
 
-static lily_var *parse_prototype(lily_parse_state *, lily_class *,
-        lily_foreign_func);
+static lily_var *parse_prototype(lily_parse_state *, lily_import_entry *,
+        lily_class *, lily_foreign_func);
 static void statement(lily_parse_state *, int);
 static lily_import_entry *make_new_import_entry(lily_parse_state *,
         const char *, char *);
 static void link_import_to(lily_import_entry *, lily_import_entry *, const char *);
 static void create_new_class(lily_parse_state *);
+static lily_type *type_by_name(lily_parse_state *, char *);
 
 /*****************************************************************************/
 /* Parser creation and teardown                                              */
@@ -165,7 +166,6 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->msgbuf = lily_new_msgbuf(options);
     parser->options = options;
 
-    parser->vm->main = parser->symtab->main_var;
     parser->vm->symtab = parser->symtab;
     parser->vm->ts = parser->emit->ts;
     parser->vm->vm_buffer = parser->raiser->msgbuf;
@@ -187,7 +187,9 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->library_import_paths = prepare_path_by_seed(parser,
             LILY_LIBRARY_PATH_SEED);
 
-    lily_emit_try_enter_main(parser->emit, parser->symtab->main_var);
+    lily_emit_enter_main(parser->emit);
+
+    parser->vm->main = parser->symtab->main_var;
 
     /* When declaring a new function, initially give it the same type as
        __main__. This ensures that, should building the proper type fail, the
@@ -353,14 +355,14 @@ static lily_base_seed *find_dynaload_entry(const void *table, char *name)
     return raw_iter;
 }
 
-static lily_var *dynaload_function(lily_parse_state *parser, lily_class *cls,
-        lily_base_seed *seed)
+static lily_var *dynaload_function(lily_parse_state *parser,
+        lily_import_entry *import, lily_class *cls, lily_base_seed *seed)
 {
     lily_lex_state *lex = parser->lex;
     lily_func_seed *func_seed = (lily_func_seed *)seed;
     lily_load_str(lex, "[builtin]", lm_no_tags, func_seed->func_definition);
     lily_lexer(lex);
-    lily_var *ret = parse_prototype(parser, cls, func_seed->func);
+    lily_var *ret = parse_prototype(parser, import, cls, func_seed->func);
     lily_pop_lex_entry(lex);
     return ret;
 }
@@ -372,7 +374,10 @@ lily_class *dynaload_exception(lily_parse_state *parser,
     lily_import_entry *saved_active = symtab->active_import;
     lily_class *result;
 
-    lily_set_import(symtab, import);
+    /* This causes lookups and the class insertion to be done into the scope of
+       whatever import that wanted this dynaload. This will make it so the
+       dynaload lasts, instead of scoping out. */
+    symtab->active_import = import;
     lily_msgbuf_flush(parser->msgbuf);
     lily_msgbuf_add_fmt(parser->msgbuf, "class %s(msg: string) < Exception(msg) { }\n", name);
     lily_load_str(parser->lex, "[dynaload]", lm_no_tags, parser->msgbuf->message);
@@ -387,11 +392,11 @@ lily_class *dynaload_exception(lily_parse_state *parser,
        expression. */
     lily_ast_freeze_state(ap);
     create_new_class(parser);
-    result = symtab->class_chain;
+    result = symtab->active_import->class_chain;
     lily_ast_thaw_state(ap);
 
     lily_pop_lex_entry(parser->lex);
-    lily_set_import(symtab, saved_active);
+    symtab->active_import = saved_active;
 
     return result;
 }
@@ -449,11 +454,29 @@ static int keyword_by_name(char *name)
     return -1;
 }
 
+static void ensure_unique_method_name(lily_parse_state *parser, char *name)
+{
+    if (lily_find_var(parser->symtab, NULL, name) != NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                   "%s has already been declared.\n", name);
+
+    if (parser->class_depth) {
+        lily_class *current_class = parser->class_self_type->cls;
+        lily_prop_entry *entry = lily_find_property(parser->symtab,
+                current_class, name);
+
+        if (entry) {
+            lily_raise(parser->raiser, lily_SyntaxError,
+                "A property in class '%s' already has the name '%s'.\n",
+                current_class->name, name);
+        }
+    }
+}
+
 /*  get_named_var
     Attempt to create a var with the given type. This will call lexer to
     get the name, as well as ensuring that the given var is unique. */
-static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type,
-        int flags)
+static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type)
 {
     lily_lex_state *lex = parser->lex;
     lily_var *var;
@@ -463,20 +486,7 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type,
         lily_raise(parser->raiser, lily_SyntaxError,
                    "%s has already been declared.\n", lex->label);
 
-    /* Since class methods and class properties are both accessed the same way,
-       prevent them from having the same name. */
-    if ((flags & VAR_IS_READONLY) && parser->class_depth) {
-        lily_class *current_class = parser->class_self_type->cls;
-        lily_prop_entry *entry = lily_find_property(parser->symtab,
-                current_class, lex->label);
-
-        if (entry)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                "A property in class '%s' already has the name '%s'.\n",
-                current_class->name, lex->label);
-    }
-
-    var = lily_new_var(parser->symtab, var_type, lex->label, flags);
+    var = lily_emit_new_scoped_var(parser->emit, var_type, lex->label);
 
     lily_lexer(lex);
     return var;
@@ -782,7 +792,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
 
             if (flags & TC_MAKE_VARS) {
                 NEED_CURRENT_TOK(tk_word);
-                var = get_named_var(parser, NULL, 0);
+                var = get_named_var(parser, NULL);
                 NEED_CURRENT_TOK(tk_colon)
                 lily_lexer(lex);
             }
@@ -1028,40 +1038,29 @@ static lily_type *collect_var_type(lily_parse_state *parser)
     return result;
 }
 
-static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
-        lily_foreign_func foreign_func)
+static lily_var *parse_prototype(lily_parse_state *parser,
+        lily_import_entry *import, lily_class *cls, lily_foreign_func func)
 {
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
+    lily_emit_state *emit = parser->emit;
 
     /* Skip the 'function' part, going straight for the name. Since this is
        from a builtin source, assume that the identifier is unique. */
     NEED_CURRENT_TOK(tk_word)
     lily_lexer(lex);
 
-    lily_type *call_type = parser->default_call_type;
     int save_generics = parser->emit->block->generic_count;
     int generics_used;
+    lily_var *call_var;
+    lily_type *call_type = parser->default_call_type;
 
-    char *class_name = NULL;
-    lily_import_entry *save_import = symtab->active_import;
-
-    if (cls) {
-        class_name = cls->name;
-        /* This makes it so that the lookups are done relative to where this
-           class was imported from. This is necessary for foreign imports. */
-        lily_set_import(symtab, cls->import);
-    }
-
-    /* Assume that builtin things are smart enough to not redeclare things and
-       just declare the var. */
-    lily_var *call_var = lily_new_var(symtab, call_type, lex->label,
-            VAR_IS_READONLY);
-    lily_function_val *fval = lily_new_foreign_function_val(
-            foreign_func, class_name, call_var->name);
-
-    call_var->parent = cls;
-    lily_tie_builtin(symtab, call_var, fval);
+    if (cls)
+        call_var = lily_emit_new_dyna_method_var(emit, func, cls, call_type,
+                lex->label);
+    else
+        call_var = lily_emit_new_dyna_define_var(parser->emit, func, import,
+                call_type, lex->label);
 
     lily_lexer(lex);
 
@@ -1074,19 +1073,10 @@ static lily_var *parse_prototype(lily_parse_state *parser, lily_class *cls,
     lily_lexer(lex);
 
     lily_update_symtab_generics(symtab, NULL, generics_used);
-    call_type = inner_type_collector(parser, parser->symtab->function_class, 0);
-    call_var->type = call_type;
+    call_var->type = inner_type_collector(parser,
+            parser->symtab->function_class, 0);
     lily_update_symtab_generics(symtab, NULL, save_generics);
     lily_lexer(lex);
-
-    /* Symtab's var_chain is now whatever function was just defined. If it was
-       a class function, then throw it into the proper class. This has the
-       side-effect of updating symtab->var_chain so that the class method is
-       not globally visible. */
-    if (cls) {
-        lily_add_class_method(symtab, cls, symtab->var_chain);
-        lily_set_import(symtab, save_import);
-    }
 
     return call_var;
 }
@@ -1101,22 +1091,23 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     lily_type *call_type = parser->default_call_type;
     lily_var *call_var;
     lily_symtab *symtab = parser->symtab;
+    lily_emit_state *emit = parser->emit;
     int block_type, generics_used;
     int flags = TC_MAKE_VARS | TC_TOPLEVEL;
 
     if (decl_class != NULL) {
-        call_var = lily_new_var(symtab, call_type, "new",
-                VAR_IS_READONLY);
+        call_var = lily_emit_new_define_var(emit, call_type, "new");
 
         block_type = BLOCK_FUNCTION | BLOCK_CLASS;
         flags |= TC_CLASS_INIT;
-        lily_lexer(lex);
     }
     else {
-        call_var = get_named_var(parser, call_type, VAR_IS_READONLY);
-        call_var->parent = parser->emit->current_class;
+        ensure_unique_method_name(parser, lex->label);
+        call_var = lily_emit_new_define_var(emit, call_type, lex->label);
         block_type = BLOCK_FUNCTION;
     }
+
+    lily_lexer(lex);
 
     if (lex->token == tk_left_bracket)
         generics_used = collect_generics(parser);
@@ -1133,8 +1124,8 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     else if (parser->class_depth && decl_class == NULL) {
         /* Functions of a class get a (self) of that class for the first
            parameter. */
-        lily_var *v = lily_new_var(symtab,
-                parser->class_self_type, "(self)", 0);
+        lily_var *v = lily_emit_new_scoped_var(emit, parser->class_self_type,
+                "(self)");
 
         parser->emit->block->self = (lily_storage *)v;
     }
@@ -1293,15 +1284,25 @@ static void dispatch_word_as_dynaloaded(lily_parse_state *parser,
     lily_import_entry *saved_active = parser->symtab->active_import;
     lily_symtab *symtab = parser->symtab;
 
-    lily_set_import(symtab, import);
+    symtab->active_import = import;
 
     if (seed->seed_type == dyna_var) {
-        lily_var *new_var = import->var_load_fn(parser, seed->name);
+        lily_var_seed *var_seed = (lily_var_seed *)seed;
+        /* Note: This is currently fine because there are no modules which
+           create vars of a type not found in the interpreter's core. However,
+           if that changes, this must change as well. */
+        lily_type *var_type = type_by_name(parser, var_seed->type);
+        lily_var *new_var = lily_emit_new_dyna_var(parser->emit, import,
+                var_type, seed->name);
+
+        /* This will tie some sort of value to the newly-made var. It doesn't
+           matter what though: The vm will figure that out later. */
+        import->var_load_fn(parser, new_var);
         lily_ast_push_global_var(parser->ast_pool, new_var);
         *state = ST_WANT_OPERATOR;
     }
     else if (seed->seed_type == dyna_function) {
-        lily_var *new_var = dynaload_function(parser, NULL, seed);
+        lily_var *new_var = dynaload_function(parser, import, NULL, seed);
         lily_ast_push_defined_func(parser->ast_pool, new_var);
         *state = ST_WANT_OPERATOR;
     }
@@ -1315,7 +1316,7 @@ static void dispatch_word_as_dynaloaded(lily_parse_state *parser,
         dispatch_word_as_class(parser, new_cls, state);
     }
 
-    lily_set_import(symtab, saved_active);
+    symtab->active_import = saved_active;
 }
 
 /*  expression_word
@@ -1356,7 +1357,7 @@ static void expression_word(lily_parse_state *parser, int *state)
 
     if (search_entry == NULL && parser->class_self_type) {
         var = lily_find_class_callable(parser->symtab,
-                parser->symtab->class_chain, lex->label);
+                parser->symtab->active_import->class_chain, lex->label);
 
         if (var) {
             lily_ast_push_defined_func(parser->ast_pool, var);
@@ -1744,7 +1745,7 @@ static void var_handler(lily_parse_state *parser, int multi)
         NEED_CURRENT_TOK(want_token)
 
         if (lex->token == tk_word)
-            var = get_named_var(parser, NULL, flags);
+            var = get_named_var(parser, NULL);
         else
             prop = get_named_property(parser, NULL, flags);
 
@@ -1795,6 +1796,18 @@ static void var_handler(lily_parse_state *parser, int multi)
     }
 }
 
+/*  Given a name, return the type that represents it. This is used for dynaload
+    of vars (the module provides a string that describes the var). */
+static lily_type *type_by_name(lily_parse_state *parser, char *name)
+{
+    lily_load_copy_string(parser->lex, "[api]", lm_no_tags, name);
+    lily_lexer(parser->lex);
+    lily_type *result = collect_var_type(parser);
+    lily_pop_lex_entry(parser->lex);
+
+    return result;
+}
+
 static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
 {
     lily_ast_pool *ap = parser->ast_pool;
@@ -1814,7 +1827,7 @@ static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
     /* For loop values are created as vars so there's a name in case of a
        problem. This name doesn't have to be unique, since it will never be
        found by the user. */
-    lily_var *var = lily_new_var(parser->symtab, cls->type, name, 0);
+    lily_var *var = lily_emit_new_scoped_var(parser->emit, cls->type, name);
 
     lily_emit_eval_expr_to_var(parser->emit, ap, var);
 
@@ -2186,7 +2199,8 @@ static void for_handler(lily_parse_state *parser, int multi)
     loop_var = lily_find_var(parser->symtab, NULL, lex->label);
     if (loop_var == NULL) {
         lily_class *cls = parser->symtab->integer_class;
-        loop_var = lily_new_var(parser->symtab, cls->type, lex->label, 0);
+        loop_var = lily_emit_new_scoped_var(parser->emit, cls->type,
+                lex->label);
     }
     else if (loop_var->type->cls->id != SYM_CLASS_INTEGER) {
         lily_raise(parser->raiser, lily_SyntaxError,
@@ -2306,8 +2320,8 @@ static void except_handler(lily_parse_state *parser, int multi)
             lily_raise(parser->raiser, lily_SyntaxError,
                 "%s has already been declared.\n", exception_var->name);
 
-        exception_var = lily_new_var(parser->symtab, exception_class->type,
-                lex->label, 0);
+        exception_var = lily_emit_new_scoped_var(parser->emit,
+                exception_class->type, lex->label);
 
         lily_lexer(lex);
     }
@@ -2399,7 +2413,7 @@ static lily_import_entry *load_import(lily_parse_state *parser, char *name)
         }
     }
 
-    lily_set_import(parser->symtab, result);
+    parser->symtab->active_import = result;
     return result;
 }
 
@@ -2437,13 +2451,8 @@ static void import_handler(lily_parse_state *parser, int multi)
             if (new_import->library == NULL) {
                 /* lily_emit_enter_block will write new code to this special
                    var. */
-                lily_var *import_var = lily_new_var(parser->symtab,
-                        parser->default_call_type, "__import__",
-                        VAR_IS_READONLY);
-
-                /* This prevents the emitter from scoping out the (toplevel)
-                   functions that it finds within the imported file. */
-                import_var->function_depth = 1;
+                lily_var *import_var = lily_emit_new_define_var(parser->emit,
+                        parser->default_call_type, "__import__");
 
                 lily_emit_enter_block(parser->emit, BLOCK_FILE);
 
@@ -2464,7 +2473,7 @@ static void import_handler(lily_parse_state *parser, int multi)
             else
                 new_import->dynaload_table = new_import->library->dynaload_table;
 
-            lily_set_import(parser->symtab, link_target);
+            parser->symtab->active_import = link_target;
         }
 
         lily_lexer(parser->lex);
@@ -2841,7 +2850,7 @@ static void case_handler(lily_parse_state *parser, int multi)
                emitter will grab the vars it needs from the symtab when writing
                the decompose.
                This function also calls up the next token. */
-            get_named_var(parser, var_type, 0);
+            get_named_var(parser, var_type);
             if (i != variant_type->subtype_count - 1) {
                 NEED_CURRENT_TOK(tk_comma)
                 NEED_NEXT_TOK(tk_word)
@@ -2874,7 +2883,7 @@ static void define_handler(lily_parse_state *parser, int multi)
     if (parser->emit->block->block_type & BLOCK_CLASS) {
         lily_add_class_method(parser->symtab,
                 parser->emit->current_class,
-                parser->emit->symtab->var_chain);
+                parser->symtab->active_import->var_chain);
     }
 }
 
@@ -2901,7 +2910,7 @@ static void parser_loop(lily_parse_state *parser)
            of it to target the first file. */
         parser->emit->top_function->import = main_import;
 
-        lily_set_import(parser->symtab, main_import);
+        parser->symtab->active_import = main_import;
         parser->first_pass = 0;
     }
 
@@ -2991,8 +3000,8 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        the function to. For the type of the lambda, use the default call
        type (a function with no args and no output) because expect_type may
        be NULL if the emitter doesn't know what it wants. */
-    lily_var *lambda_var = lily_new_var(parser->symtab,
-            parser->default_call_type, lambda_name, VAR_IS_READONLY);
+    lily_var *lambda_var = lily_emit_new_define_var(parser->emit,
+            parser->default_call_type, lambda_name);
 
     /* From here on, vars created will be in the scope of the lambda. Also,
        this binds a function value to lambda_var. */
@@ -3035,7 +3044,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
                 resolved_any_args = 1;
             }
 
-            get_named_var(parser, arg_type, 0);
+            get_named_var(parser, arg_type);
             args_collected++;
             if (args_collected == num_args)
                 wanted_token = tk_bitwise_or;
@@ -3089,7 +3098,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
         int flags = 0, end = parser->type_stack_pos + types_needed;
         int i;
         lily_class *function_cls = parser->symtab->function_class;
-        lily_var *var_iter = parser->symtab->var_chain;
+        lily_var *var_iter = parser->symtab->active_import->var_chain;
         if (parser->type_stack_pos + types_needed > parser->type_stack_size)
             grow_type_stack(parser);
 
@@ -3126,7 +3135,7 @@ lily_var *lily_parser_dynamic_load(lily_parse_state *parser, lily_class *cls,
     lily_var *ret;
 
     if (base_seed != NULL)
-        ret = dynaload_function(parser, cls, base_seed);
+        ret = dynaload_function(parser, NULL, cls, base_seed);
     else
         ret = NULL;
 
@@ -3180,21 +3189,6 @@ int lily_parse_string(lily_parse_state *parser, char *name, lily_lex_mode mode,
     }
 
     return 0;
-}
-
-/*  lily_type_by_name
-    This parses the name given and returns a type that represents it. This is
-    useful for foreign sources that want to easily create a complex type.
-    Since this is called by a module, it is assumed that 'name' is a properly
-    formed type. */
-lily_type *lily_type_by_name(lily_parse_state *parser, char *name)
-{
-    lily_load_copy_string(parser->lex, "[api]", lm_no_tags, name);
-    lily_lexer(parser->lex);
-    lily_type *result = collect_var_type(parser);
-    lily_pop_lex_entry(parser->lex);
-
-    return result;
 }
 
 lily_class *lily_maybe_dynaload_class(lily_parse_state *parser,

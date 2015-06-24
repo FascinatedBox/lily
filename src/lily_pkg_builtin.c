@@ -121,14 +121,19 @@ static const lily_func_seed print =
     {&show, "print", dyna_function, "function print(string)", lily_builtin_print};
 static const lily_func_seed printfmt =
     {&print, "printfmt", dyna_function, "function printfmt(string, list[any]...)", lily_builtin_printfmt};
-static const lily_base_seed seed_stderr = {&printfmt, "stderr", dyna_var};
-static const lily_base_seed seed_stdout = {&seed_stderr, "stdout", dyna_var};
-static const lily_base_seed seed_stdin = {&seed_stdout, "stdin", dyna_var};
+static const lily_var_seed seed_stderr =
+        {&printfmt, "stderr", dyna_var, "file"};
+static const lily_var_seed seed_stdout =
+        {&seed_stderr, "stdout", dyna_var, "file"};
+static const lily_var_seed seed_stdin =
+        {&seed_stdout, "stdin", dyna_var, "file"};
 
-static lily_var *builtin_var_loader(lily_parse_state *parser, const char *name)
+static void builtin_var_loader(lily_parse_state *parser, lily_var *var)
 {
+    char *name = var->name;
     FILE *source;
     char mode;
+
     if (strcmp(name, "stdin") == 0) {
         source = stdin;
         mode = 'w';
@@ -142,9 +147,13 @@ static lily_var *builtin_var_loader(lily_parse_state *parser, const char *name)
         mode = 'w';
     }
 
-    lily_type *file_type = lily_type_by_name(parser, "file");
     lily_raw_value raw = {.file = lily_new_file_val(source, mode)};
-    return lily_new_dynaload_var(parser->symtab, file_type, name, raw);
+    lily_value v;
+    v.flags = 0;
+    v.type = var->type;
+    v.value = raw;
+
+    lily_tie_value(parser->symtab, var, &v);
 }
 
 void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
@@ -171,5 +180,4 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
 
     builtin->dynaload_table = &seed_stdin;
     builtin->var_load_fn = builtin_var_loader;
-    builtin->class_chain = symtab->class_chain;
 }

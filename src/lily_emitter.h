@@ -49,7 +49,7 @@ typedef struct lily_block_ {
 
     /* Define/class blocks: Where the symtab's register allocation was before
        entry. */
-    uint32_t save_register_spot;
+    uint32_t next_reg_spot;
 
     /* Define blocks: If the block returns a value, then this is the last
        return instruction finished at. If no return instruction has been seen,
@@ -197,6 +197,15 @@ typedef struct {
     lily_storage *unused_storage_start;
     lily_storage *all_storage_top;
 
+    /* The block that __main__ is within. This is always the first block (the
+       only one where prev is NULL). New global vars will use this to figure
+       out their id. */
+    lily_block *main_block;
+
+    /* The deepest block that will end up yielding a function. This block is the
+       one that new locals and storages get their ids from. */
+    lily_block *function_block;
+
     /* The currently entered block. This is never NULL, because __main__ is
        implicitly entered before any user code. */
     lily_block *block;
@@ -270,6 +279,8 @@ void lily_emit_continue(lily_emit_state *);
 void lily_emit_return(lily_emit_state *, lily_ast *);
 
 void lily_emit_change_block_to(lily_emit_state *emit, int);
+void lily_emit_enter_simple_block(lily_emit_state *, int);
+
 void lily_emit_enter_block(lily_emit_state *, int);
 void lily_emit_leave_block(lily_emit_state *);
 
@@ -285,8 +296,17 @@ void lily_reset_main(lily_emit_state *);
 
 void lily_update_call_generics(lily_emit_state *, int);
 
+lily_var *lily_emit_new_scoped_var(lily_emit_state *, lily_type *, char *);
+lily_var *lily_emit_new_define_var(lily_emit_state *, lily_type *, char *);
+lily_var *lily_emit_new_dyna_method_var(lily_emit_state *, lily_foreign_func,
+        lily_class *, lily_type *, char *);
+lily_var *lily_emit_new_dyna_var(lily_emit_state *, lily_import_entry *,
+        lily_type *, char *);
+lily_var *lily_emit_new_dyna_define_var(lily_emit_state *, lily_foreign_func,
+        lily_import_entry *, lily_type *, char *);
+
 void lily_free_emit_state(lily_emit_state *);
-int lily_emit_try_enter_main(lily_emit_state *, lily_var *);
+void lily_emit_enter_main(lily_emit_state *);
 lily_emit_state *lily_new_emit_state(lily_options *, lily_symtab *, lily_raiser *);
 
 #endif

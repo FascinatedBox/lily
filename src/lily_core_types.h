@@ -36,7 +36,7 @@ typedef int (*class_eq_func)(struct lily_vm_state_ *, int *,
    inside. */
 typedef void (*class_destroy_func)(struct lily_value_ *);
 /* This function is called to initialize seeds of type dyna_var. */
-typedef struct lily_var_ *(*var_loader)(struct lily_parse_state_ *, const char *);
+typedef void (*var_loader)(struct lily_parse_state_ *, struct lily_var_ *);
 
 /* lily_raw_value is a union of all possible values, plus a bit more. This is
    not common, because lily_value (which has flags and a type) is typically

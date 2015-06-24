@@ -559,11 +559,8 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
         if (storage_iter->type == NULL) {
             storage_iter->type = type;
 
-            /* This always uses next_register_spot (and never ever
-               next_main_spot), because storages are always local to whatever
-               function is being called. */
-            storage_iter->reg_spot = emit->symtab->next_register_spot;
-            emit->symtab->next_register_spot++;
+            storage_iter->reg_spot = emit->function_block->next_reg_spot;
+            emit->function_block->next_reg_spot++;
 
             /* This ensures that lambdas don't clobber on current storages. */
             if (storage_iter->next)
@@ -595,7 +592,7 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
     upvalue into a register (this prevents it from being destroyed early). */
 lily_storage *get_unique_storage(lily_emit_state *emit, lily_type *type)
 {
-    int next_spot = emit->symtab->next_register_spot;
+    int next_spot = emit->function_block->next_reg_spot;
     lily_storage *s = NULL;
 
     /* As long as the next register spot doesn't change, the resulting storage
@@ -603,7 +600,7 @@ lily_storage *get_unique_storage(lily_emit_state *emit, lily_type *type)
        direct approach, but this is really likely to succeed the first time. */
     do {
         s = get_storage(emit, type);
-    } while (emit->symtab->next_register_spot == next_spot);
+    } while (emit->function_block->next_reg_spot == next_spot);
 
     return s;
 }
@@ -997,7 +994,7 @@ static void ensure_params_in_closure(lily_emit_state *emit)
        To know if something has optargs, prod the function's types. */
     lily_type **real_param_types = function_var->type->subtypes;
 
-    lily_var *var_iter = emit->symtab->var_chain;
+    lily_var *var_iter = emit->symtab->active_import->var_chain;
     while (var_iter != function_var) {
         if (var_iter->flags & SYM_CLOSED_OVER &&
             var_iter->reg_spot < local_count) {
@@ -1014,14 +1011,14 @@ static void ensure_params_in_closure(lily_emit_state *emit)
 
 static void setup_transform_table(lily_emit_state *emit)
 {
-    if (emit->transform_size < emit->symtab->next_register_spot) {
+    if (emit->transform_size < emit->function_block->next_reg_spot) {
         emit->transform_table = lily_realloc(emit->transform_table,
-                emit->symtab->next_register_spot * sizeof(uint16_t));
-        emit->transform_size = emit->symtab->next_register_spot;
+                emit->function_block->next_reg_spot * sizeof(uint16_t));
+        emit->transform_size = emit->function_block->next_reg_spot;
     }
 
     memset(emit->transform_table, (uint16_t)-1,
-           sizeof(uint16_t) * emit->symtab->next_register_spot);
+           sizeof(uint16_t) * emit->function_block->next_reg_spot);
 
     int i;
 
@@ -1201,7 +1198,7 @@ static void finalize_function_val(lily_emit_state *emit,
        closure, it will require a unique storage. */
     create_code_block_for(emit, f);
 
-    int register_count = emit->symtab->next_register_spot;
+    int register_count = emit->function_block->next_reg_spot;
     lily_storage *storage_iter = function_block->storage_start;
     lily_register_info *info = lily_malloc(
             register_count * sizeof(lily_register_info));
@@ -1213,7 +1210,8 @@ static void finalize_function_val(lily_emit_state *emit,
         var_stop = var_stop->next;
 
     if (emit->function_depth != 1)
-        add_var_chain_to_info(emit, info, emit->symtab->var_chain, var_stop);
+        add_var_chain_to_info(emit, info,
+                emit->symtab->active_import->var_chain, var_stop);
 
     if (function_type->flags & TYPE_IS_UNRESOLVED)
         f->has_generics = 1;
@@ -1223,7 +1221,7 @@ static void finalize_function_val(lily_emit_state *emit,
     if (emit->function_depth > 1) {
         /* todo: Reuse the var shells instead of destroying. Seems petty, but
                  malloc isn't cheap if there are a lot of vars. */
-        lily_var *var_iter = emit->symtab->var_chain;
+        lily_var *var_iter = emit->symtab->active_import->var_chain;
         lily_var *var_temp;
         while (var_iter != var_stop) {
             var_temp = var_iter->next;
@@ -1303,13 +1301,11 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     if (emit->block->class_entry) {
         lily_class *cls = emit->block->class_entry;
 
-        /* The symtab will see that the method to add is also symtab->var_chain
-           and advance the chain to the next spot (which is right). */
-        emit->symtab->var_chain = block->function_var;
+        emit->symtab->active_import->var_chain = block->function_var;
         lily_add_class_method(emit->symtab, cls, block->function_var);
     }
     else if (emit->block->block_type != BLOCK_FILE)
-        emit->symtab->var_chain = block->function_var;
+        emit->symtab->active_import->var_chain = block->function_var;
     /* For file 'blocks', don't fix the var_chain or all of the toplevel
        functions in that block will vanish! */
 
@@ -1319,11 +1315,11 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
                 last_func_block->generic_count);
     }
 
-    emit->symtab->next_register_spot = block->save_register_spot;
     emit->top_function = last_func_block->function_value;
     emit->top_var = v;
     emit->top_function_ret = v->type->subtypes[0];
     emit->code_pos = block->code_start;
+    emit->function_block = last_func_block;
 
     /* File 'blocks' do not bump up the depth because that's used to determine
        if something is a global or not. */
@@ -1331,15 +1327,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
         if (block->block_type & BLOCK_LAMBDA)
             emit->lambda_depth--;
 
-        emit->symtab->function_depth--;
         emit->function_depth--;
-    }
-    else if (block->prev->prev == NULL) {
-        /* If re-entering __main__, then restore the register spot from symtab's
-           next_main_spot. This is so that __main__'s register count will
-           reflect the globals inserted by imported files. */
-        emit->symtab->import_depth--;
-        emit->symtab->next_register_spot = emit->symtab->next_main_spot;
     }
 }
 
@@ -3627,7 +3615,7 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
                     block_name);
 
         lily_var *v = emit->block->var_start;
-        if (v != emit->symtab->var_chain)
+        if (v != emit->symtab->active_import->var_chain)
             lily_hide_block_vars(emit->symtab, v);
     }
     else if (new_type == BLOCK_TRY_EXCEPT) {
@@ -3779,7 +3767,7 @@ void lily_emit_variant_decompose(lily_emit_state *emit, lily_type *variant_type)
     /* Since this function is called immediately after declaring the last var
        that will receive the decompose, it's safe to pull the vars directly
        from symtab's var chain. */
-    lily_var *var_iter = emit->symtab->var_chain;
+    lily_var *var_iter = emit->symtab->active_import->var_chain;
 
     /* Go down because the vars are linked from newest -> oldest. If this isn't
        done, then the first var will get the last value in the variant, the
@@ -3843,7 +3831,7 @@ int lily_emit_add_match_case(lily_emit_state *emit, int pos)
         /* This is necessary to keep vars created from the decomposition of one
            class from showing up in subsequent cases. */
         lily_var *v = emit->block->var_start;
-        if (v != emit->symtab->var_chain)
+        if (v != emit->symtab->active_import->var_chain)
             lily_hide_block_vars(emit->symtab, v);
     }
     else
@@ -3917,10 +3905,8 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     lily_class *cls = emit->symtab->integer_class;
 
     int have_step = (for_step != NULL);
-    if (have_step == 0) {
-        /* This var isn't visible, so don't bother with a valid shorthash. */
-        for_step = lily_new_var(emit->symtab, cls->type, "(for step)", 0);
-    }
+    if (have_step == 0)
+        for_step = lily_emit_new_scoped_var(emit, cls->type, "(for step)");
 
     lily_sym *target;
     /* Global vars cannot be used directly, because o_for_setup and
@@ -4205,26 +4191,17 @@ void lily_prepare_main(lily_emit_state *emit, lily_import_entry *import_iter)
        must work through every import loaded to discover all the globals.
        Additionally, the current var list must also be loaded. */
     lily_function_val *f = emit->top_function;
-    /* Don't use next_main_spot here. That exists so that globals outside of
-       __main__ will add to __main__'s registers. However, that information is
-       folded back into __main__'s register count when those imports pop.
-       next_register_spot is correct. */
-    int register_count = emit->symtab->next_register_spot;
+    int register_count = emit->main_block->next_reg_spot;
     lily_register_info *info = lily_realloc(emit->top_function->reg_info,
             register_count * sizeof(lily_register_info));
 
     while (import_iter) {
-        /* Since this is preparing __main__, the current import is always the
-           first import. The active import's information is usually out-of-date,
-           so skip it (it may have junk inside anyway). The symtab's var_chain
-           has the up-to-date available vars. */
-        if (import_iter != emit->symtab->active_import)
-            add_var_chain_to_info(emit, info, import_iter->var_chain, NULL);
-
+        add_var_chain_to_info(emit, info, import_iter->var_chain, NULL);
         import_iter = import_iter->root_next;
     }
 
-    add_var_chain_to_info(emit, info, emit->symtab->var_chain, NULL);
+    add_var_chain_to_info(emit, info, emit->symtab->active_import->var_chain,
+            NULL);
     add_storage_chain_to_info(info, emit->block->storage_start);
 
     /* It is EXTREMELY important that this write is done before giving __main__
@@ -4267,7 +4244,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         new_block = emit->block->next;
 
     new_block->block_type = block_type;
-    new_block->var_start = emit->symtab->var_chain;
+    new_block->var_start = emit->symtab->active_import->var_chain;
     new_block->class_entry = NULL;
     new_block->self = NULL;
     new_block->generic_count = 0;
@@ -4284,10 +4261,10 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
             emit->loop_start = emit->code_pos;
     }
     else {
-        lily_var *v = emit->symtab->var_chain;
+        lily_var *v = emit->symtab->active_import->var_chain;
         if (block_type & BLOCK_CLASS) {
-            emit->current_class = emit->symtab->class_chain;
-            new_block->class_entry = emit->symtab->class_chain;
+            emit->current_class = emit->symtab->active_import->class_chain;
+            new_block->class_entry = emit->symtab->active_import->class_chain;
         }
 
         char *class_name;
@@ -4320,30 +4297,19 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
             new_block->patch_start = emit->patch_pos;
         }
 
-        /* This is saved/restored when entering/leaving the main block so that
-           symtab can easily dynaload vars (which need to be made into globals)
-           regardless of current scope. */
-        if (emit->block->prev == NULL)
-            emit->symtab->next_main_spot = emit->symtab->next_register_spot;
-
-        new_block->save_register_spot = emit->symtab->next_register_spot;
+        new_block->next_reg_spot = 0;
 
         /* This causes vars within this imported file to be seen as global
            vars, instead of locals. Without this, the interpreter gets confused
            and thinks the imported file's globals are really upvalues. */
-        if (block_type != BLOCK_FILE) {
-            if (block_type & BLOCK_LAMBDA)
-                emit->lambda_depth++;
-
-            emit->symtab->function_depth++;
+        if (block_type != BLOCK_FILE)
             emit->function_depth++;
-        }
-        else
-            emit->symtab->import_depth++;
 
-        /* Make sure registers start at 0 again. This will be restored when this
-           function leaves. */
-        emit->symtab->next_register_spot = 0;
+        emit->function_block = new_block;
+
+        if (block_type & BLOCK_LAMBDA)
+            emit->lambda_depth++;
+
         /* This function's storages start where the unused ones start, or NULL if
            all are currently taken. */
         new_block->storage_start = emit->unused_storage_start;
@@ -4468,19 +4434,124 @@ void lily_emit_write_optargs(lily_emit_state *emit, uint16_t *reg_spots,
     }
 }
 
-/*  lily_emit_try_enter_main
-    Make a block representing __main__ and go inside of it. Returns 1 on
-    success, 0 on failure. This should only be called once. */
-int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
+lily_var *lily_emit_new_scoped_var(lily_emit_state *emit, lily_type *type,
+        char *name)
+{
+    lily_var *new_var = lily_new_raw_var(emit->symtab, type, name);
+
+    if (emit->function_depth == 1) {
+        new_var->reg_spot = emit->main_block->next_reg_spot;
+        emit->main_block->next_reg_spot++;
+    }
+    else {
+        new_var->reg_spot = emit->function_block->next_reg_spot;
+        emit->function_block->next_reg_spot++;
+    }
+
+    new_var->function_depth = emit->function_depth;
+
+    return new_var;
+}
+
+lily_var *lily_emit_new_define_var(lily_emit_state *emit, lily_type *type,
+        char *name)
+{
+    lily_var *new_var = lily_new_raw_var(emit->symtab, type, name);
+
+    new_var->reg_spot = emit->symtab->next_readonly_spot;
+    emit->symtab->next_readonly_spot++;
+    new_var->function_depth = 1;
+    new_var->flags |= VAR_IS_READONLY;
+
+    return new_var;
+}
+
+lily_var *lily_emit_new_dyna_define_var(lily_emit_state *emit,
+        lily_foreign_func func, lily_import_entry *import, lily_type *type,
+        char *name)
+{
+    lily_var *new_var = lily_new_raw_unlinked_var(emit->symtab, type, name);
+
+    new_var->next = import->var_chain;
+    import->var_chain = new_var;
+
+    new_var->reg_spot = emit->symtab->next_readonly_spot;
+    emit->symtab->next_readonly_spot++;
+    new_var->function_depth = 1;
+    new_var->flags |= VAR_IS_READONLY;
+
+    /* Make sure to use new_var->name, because the name parameter is a shallow
+       copy of lex->label (and will be mutated). */
+    lily_function_val *func_val = lily_new_foreign_function_val(func, NULL,
+            new_var->name);
+    lily_tie_builtin(emit->symtab, new_var, func_val);
+    return new_var;
+}
+
+lily_var *lily_emit_new_dyna_method_var(lily_emit_state *emit,
+        lily_foreign_func func, lily_class *cls, lily_type *type, char *name)
+{
+    lily_var *new_var = lily_new_raw_unlinked_var(emit->symtab, type, name);
+    new_var->parent = cls;
+    new_var->function_depth = 1;
+    new_var->flags |= VAR_IS_READONLY;
+
+    new_var->reg_spot = emit->symtab->next_readonly_spot;
+    emit->symtab->next_readonly_spot++;
+
+    new_var->next = cls->call_chain;
+    cls->call_chain = new_var;
+
+    lily_function_val *func_val = lily_new_foreign_function_val(func, cls->name,
+            new_var->name);
+    lily_tie_builtin(emit->symtab, new_var, func_val);
+    return new_var;
+}
+
+lily_var *lily_emit_new_dyna_var(lily_emit_state *emit,
+        lily_import_entry *import, lily_type *type, char *name)
+{
+    lily_var *new_var = lily_new_raw_unlinked_var(emit->symtab, type, name);
+
+    new_var->reg_spot = emit->main_block->next_reg_spot;
+    emit->main_block->next_reg_spot++;
+    new_var->function_depth = 1;
+
+    new_var->next = import->var_chain;
+    import->var_chain = new_var;
+
+    return new_var;
+}
+
+/*  Create the first block that will represent __main__, as well as __main__
+    itself. This first block will never be exited from. */
+void lily_emit_enter_main(lily_emit_state *emit)
 {
     /* This adds the first storage and makes sure that the emitter can always
        know that emit->unused_storage_start is never NULL. */
     add_storage(emit);
 
+    lily_type *main_type = lily_new_type(emit->symtab,
+            emit->symtab->function_class);
+    /* This next part is only ok because __main__ is the first function and it
+       is not possible for this type to be a duplicate of anything else. */
+    main_type->subtypes = lily_malloc(2 * sizeof(lily_type));
+    main_type->subtypes[0] = NULL;
+    main_type->subtype_count = 1;
+    main_type->generic_pos = 0;
+    main_type->flags = 0;
+
+    lily_var *main_var = lily_new_raw_var(emit->symtab, main_type, "__main__");
+    main_var->reg_spot = 0;
+    main_var->function_depth = 1;
+    main_var->flags |= VAR_IS_READONLY;
+    emit->symtab->next_readonly_spot++;
+
     lily_block *main_block = lily_malloc(sizeof(lily_block));
     lily_function_val *main_function = lily_new_native_function_val(
             NULL, main_var->name);
 
+    emit->symtab->main_var = main_var;
     emit->symtab->main_function = main_function;
     /* __main__ is given two refs so that it must go through a custom deref to
        be destroyed. This is because the names in the function info it has are
@@ -4499,9 +4570,11 @@ int lily_emit_try_enter_main(lily_emit_state *emit, lily_var *main_var)
     main_block->self = NULL;
     main_block->code_start = 0;
     main_block->jump_offset = 0;
+    main_block->next_reg_spot = 0;
     emit->top_function = main_function;
     emit->top_var = main_var;
     emit->block = main_block;
     emit->function_depth++;
-    return 1;
+    emit->main_block = main_block;
+    emit->function_block = main_block;
 }

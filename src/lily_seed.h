@@ -18,6 +18,13 @@ typedef const struct {
     const void *next;
     char *name;
     uint64_t seed_type;
+    char *type;
+} lily_var_seed;
+
+typedef const struct {
+    const void *next;
+    char *name;
+    uint64_t seed_type;
     char *func_definition;
     lily_foreign_func func;
 } lily_func_seed;
