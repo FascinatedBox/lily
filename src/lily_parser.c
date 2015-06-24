@@ -284,7 +284,7 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
     }
 
     if (path[0] != '\0') {
-        new_entry->loadname = lily_malloc(strlen(path) + 1);
+        new_entry->loadname = lily_malloc(strlen(loadname) + 1);
         strcpy(new_entry->loadname, loadname);
     }
     else
