@@ -4,13 +4,11 @@
 #include "lily_parser.h"
 #include "lily_seed.h"
 
-lily_var *lily_sys_var_loader(lily_parse_state *parser, const char *name)
+void lily_sys_var_loader(lily_parse_state *parser, lily_var *var)
 {
     lily_options *options = parser->options;
     lily_symtab *symtab = parser->symtab;
-    lily_type *list_string_type = lily_type_by_name(parser, "list[string]");
-    lily_type *string_type = list_string_type->subtypes[0];
-    lily_var *bound_var = lily_new_var(symtab, list_string_type, "argv", 0);
+    lily_type *string_type = var->type->subtypes[0];
 
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
     lily_value **values = lily_malloc(options->argc * sizeof(lily_value));
@@ -42,15 +40,14 @@ lily_var *lily_sys_var_loader(lily_parse_state *parser, const char *name)
     }
 
     lily_value v;
-    v.type = bound_var->type;
+    v.type = var->type;
     v.flags = 0;
     v.value.list = lv;
 
-    lily_tie_value(symtab, bound_var, &v);
-    return bound_var;
+    lily_tie_value(symtab, var, &v);
 }
 
-static const lily_base_seed argv_seed = {NULL, "argv", dyna_var};
+static const lily_var_seed argv_seed = {NULL, "argv", dyna_var, "list[string]"};
 
 void lily_pkg_sys_init(lily_parse_state *parser, lily_options *options)
 {

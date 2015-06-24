@@ -4,17 +4,10 @@
 # include "lily_core_types.h"
 
 typedef struct lily_symtab_ {
-	/* This is a linked list of all vars that are currently in scope. The most
-	   recently-declared one is at the top. */
-    lily_var *var_chain;
-
     /* This is where __main__ is. __main__ is a special function which holds
        all of the code outside of a defined function. This is executed by the
        vm later to kick things off. */
     lily_var *main_var;
-
-    /* The classes that are currently in scope. */
-    lily_class *class_chain;
 
     /* To make generic class searches faster, the symtab holds the spot where
        the generic class. */
@@ -63,28 +56,10 @@ typedef struct lily_symtab_ {
        which have some special behavior sometimes. */
     uint32_t next_class_id;
 
-    /* This is the spot where the next normal (non-define'd) var or storage will
-       go. This is adjusted by emitter on function entry/exit. */
-    uint32_t next_register_spot;
-
     /* This is the spot in the vm's readonly_table where the next 'readonly' var
        or literal will go. A 'readonly' var is a var that represents a lambda,
        built-in function, or native (define'd) function. */
     uint32_t next_readonly_spot;
-
-    /* This is copied to vars when they're made. Parser uses this to figure out
-       if a var is a local or a global. */
-    uint32_t function_depth;
-
-    /* When the emitter is not in the __main__ block, this keeps track of what
-       the next id will be within __main__. This allows packages to load vars
-       as globals into __main__, as well as dynaloading globals. */
-    uint32_t next_main_spot;
-
-    /* This is adjusted whenever the emitter enters/leaves an import. This is
-       used with function_depth figure out if new vars should use
-       next_register_spot or next_main_spot for their register spot. */
-    uint32_t import_depth;
 
     /* These classes are used frequently throughout the interpreter, so they're
        kept here for easy, fast access. */
@@ -120,10 +95,11 @@ lily_var *lily_find_class_callable(lily_symtab *, lily_class *, char *);
 lily_prop_entry *lily_find_property(lily_symtab *, lily_class *, char *);
 lily_class *lily_find_scoped_variant(lily_class *, char *);
 
-lily_var *lily_new_var(lily_symtab *, lily_type *, const char *, int);
-lily_var *lily_new_dynaload_var(lily_symtab *, lily_type *, const char *, lily_raw_value);
+lily_var *lily_new_raw_var(lily_symtab *, lily_type *, const char *);
+lily_var *lily_new_raw_unlinked_var(lily_symtab *, lily_type *, const char *);
 lily_var *lily_find_var(lily_symtab *, lily_import_entry *, char *);
 
+lily_type *lily_new_type(lily_symtab *, lily_class *);
 lily_type *lily_build_type(lily_symtab *, lily_class *, int, lily_type **, int, int);
 
 void lily_hide_block_vars(lily_symtab *, lily_var *);

@@ -56,7 +56,6 @@ void lily_free_parse_state(lily_parse_state *);
 lily_parse_state *lily_new_parse_state(lily_options *);
 int lily_parse_file(lily_parse_state *, lily_lex_mode, char *);
 int lily_parse_string(lily_parse_state *, char *, lily_lex_mode, char *);
-lily_type *lily_type_by_name(lily_parse_state *, char *);
 lily_class *lily_maybe_dynaload_class(lily_parse_state *, lily_import_entry *,
         const char *);
 void lily_register_import(lily_parse_state *, const char *, const void *,

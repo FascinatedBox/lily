@@ -62,13 +62,16 @@ static lily_tie *make_new_literal(lily_symtab *symtab, lily_class *cls)
     return lit;
 }
 
-static lily_var *new_var(lily_symtab *symtab, lily_type *type, const char *name,
-        int flags)
+/*  This creates a new var with the given type and name. This var does not have
+    a reg_spot set just yet. It's also NOT linked in the symtab, and thus must
+    be injected into a var_chain somewhere. */
+lily_var *lily_new_raw_unlinked_var(lily_symtab *symtab, lily_type *type,
+        const char *name)
 {
     lily_var *var = lily_malloc(sizeof(lily_var));
 
     var->name = lily_malloc(strlen(name) + 1);
-    var->flags = ITEM_TYPE_VAR | flags;
+    var->flags = ITEM_TYPE_VAR;
     strcpy(var->name, name);
     var->line_num = *symtab->lex_linenum;
 
@@ -77,68 +80,19 @@ static lily_var *new_var(lily_symtab *symtab, lily_type *type, const char *name,
     var->next = NULL;
     var->parent = NULL;
 
-    var->next = symtab->var_chain;
-    symtab->var_chain = var;
     return var;
 }
 
-/*  lily_new_var
-    Attempt to create a new var in the symtab that will have the given
-    type and name. The flags given are used to determine if the var is
-    'readonly'. If it's readonly, it doesn't go into the vm's registers.
-
-    On success: Returns a newly-created var that is automatically added to the
-                symtab.
-    On failure: NULL is returned. */
-lily_var *lily_new_var(lily_symtab *symtab, lily_type *type, const char *name,
-        int flags)
+/*  Create a new var that isn't quite setup just yet. The newly-made var is
+    added to the symtab, but the reg_spot of the var is not yet set. This is
+    meant to be called by a lily_emit_new_*_var function. */
+lily_var *lily_new_raw_var(lily_symtab *symtab, lily_type *type,
+        const char *name)
 {
-    lily_var *var = new_var(symtab, type, name, flags);
+    lily_var *var = lily_new_raw_unlinked_var(symtab, type, name);
 
-    if ((flags & VAR_IS_READONLY) == 0) {
-        if (symtab->function_depth == 1 && symtab->import_depth != 0)  {
-            var->reg_spot = symtab->next_main_spot;
-            symtab->next_main_spot++;
-        }
-        else {
-            var->reg_spot = symtab->next_register_spot;
-            symtab->next_register_spot++;
-        }
-
-        var->function_depth = symtab->function_depth;
-    }
-    else {
-        /* Built-in and user-declared functions are both put into a table of
-           functions. */
-        var->reg_spot = symtab->next_readonly_spot;
-        symtab->next_readonly_spot++;
-        var->function_depth = 1;
-    }
-
-    return var;
-}
-
-lily_var *lily_new_dynaload_var(lily_symtab *symtab, lily_type *type,
-        const char *name, lily_raw_value raw)
-{
-    lily_var *var = new_var(symtab, type, name, 0);
-    if (symtab->function_depth == 1) {
-        var->reg_spot = symtab->next_register_spot;
-        symtab->next_register_spot++;
-    }
-    else {
-        var->reg_spot = symtab->next_main_spot;
-        symtab->next_main_spot++;
-    }
-
-    var->function_depth = 1;
-
-    lily_value v;
-    v.type = type;
-    v.flags = 0;
-    v.value = raw;
-
-    lily_tie_value(symtab, var, &v);
+    var->next = symtab->active_import->var_chain;
+    symtab->active_import->var_chain = var;
 
     return var;
 }
@@ -189,8 +143,8 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     new_class->id = symtab->next_class_id;
     symtab->next_class_id++;
 
-    new_class->next = symtab->class_chain;
-    symtab->class_chain = new_class;
+    new_class->next = symtab->active_import->class_chain;
+    symtab->active_import->class_chain = new_class;
 
     return new_class;
 }
@@ -424,67 +378,27 @@ static lily_import_entry *find_import(lily_import_entry *import,
 /* Symtab initialization */
 /*****************************************************************************/
 
-/*  init_lily_main
-    Symtab init, stage 3
-    This creates __main__, which holds all code that is not explicitly put
-    inside of a Lily function. */
-static void init_lily_main(lily_symtab *symtab)
-{
-    /* It's safe to create and adjust a new function type, because this is part
-       of symtab's boot and nothing could have made a function type before now.
-       Normally, parser and ts should make types through lily_build_type. */
-    lily_type *new_type = lily_new_type(symtab, symtab->function_class);
-
-    new_type->subtypes = lily_malloc(2 * sizeof(lily_type));
-    new_type->subtypes[0] = NULL;
-    new_type->subtype_count = 1;
-    new_type->generic_pos = 0;
-    new_type->flags = 0;
-
-    symtab->main_var = lily_new_var(symtab, new_type, "__main__",
-            VAR_IS_READONLY);
-}
-
-/*  lily_new_symtab:
-    Symtab init, stage 1
-    This creates a new symtab, then calls the init stages in order.
-
-    On success: The newly-created symtab is returned.
-    On failure: NULL is returned. */
 lily_symtab *lily_new_symtab(lily_options *options,
         lily_import_entry *builtin_import)
 {
     lily_symtab *symtab = lily_malloc(sizeof(lily_symtab));
 
-    uint32_t v = 0;
-
     symtab->main_function = NULL;
-    symtab->next_register_spot = 0;
     symtab->next_readonly_spot = 0;
     symtab->next_class_id = 0;
-    symtab->var_chain = NULL;
     symtab->main_var = NULL;
     symtab->old_function_chain = NULL;
-    symtab->class_chain = NULL;
     symtab->literals = NULL;
     symtab->function_ties = NULL;
     symtab->foreign_ties = NULL;
     symtab->builtin_import = builtin_import;
     symtab->active_import = builtin_import;
-    symtab->function_depth = 1;
-    symtab->import_depth = 0;
-    symtab->next_main_spot = 0;
-    /* lily_new_var expects lex_linenum to be the lexer's line number.
-       0 is used, because these are all builtins, and the lexer may have failed
-       to initialize anyway. */
-    symtab->lex_linenum = &v;
     symtab->root_type = NULL;
     symtab->generic_class = NULL;
     symtab->generic_type_start = NULL;
     symtab->old_class_chain = NULL;
 
     lily_init_builtin_package(symtab, builtin_import);
-    init_lily_main(symtab);
 
     return symtab;
 }
@@ -602,14 +516,6 @@ void lily_free_symtab(lily_symtab *symtab)
 {
     free_ties(symtab, symtab->literals);
     free_ties(symtab, symtab->function_ties);
-
-    /* These two lines are really important. Symtab has var/class chains as a
-       cache to avoid doing symtab->active_import->*_chain. So it's possible
-       that the current import's chains are out of date.
-       Do this, then leave the cache'd chains alone. This will ensure that all
-       vars and classes are seen exactly once. */
-    symtab->active_import->class_chain = symtab->class_chain;
-    symtab->active_import->var_chain = symtab->var_chain;
 
     free_class_entries(symtab, symtab->old_class_chain);
 
@@ -870,7 +776,8 @@ lily_class *lily_find_class(lily_symtab *symtab, lily_import_entry *import,
         result = find_class(symtab->builtin_import->class_chain, name,
                 shorthash);
         if (result == NULL) {
-            result = find_class(symtab->class_chain, name, shorthash);
+            result = find_class(symtab->active_import->class_chain, name,
+                    shorthash);
             if (result == NULL) {
                 /* The parser wants to be able to find classes by name...but it
                    would be a waste to have lots of classes that never actually
@@ -922,8 +829,8 @@ void lily_add_class_method(lily_symtab *symtab, lily_class *cls,
 {
     /* Prevent class methods from being accessed globally, because they're now
        longer globals. */
-    if (method_var == symtab->var_chain)
-        symtab->var_chain = method_var->next;
+    if (method_var == symtab->active_import->var_chain)
+        symtab->active_import->var_chain = method_var->next;
 
     method_var->next = cls->call_chain;
     cls->call_chain = method_var;
@@ -993,7 +900,7 @@ lily_var *lily_find_var(lily_symtab *symtab, lily_import_entry *import,
         result = find_var(symtab->builtin_import->var_chain, name,
                     shorthash);
         if (result == NULL)
-            result = find_var(symtab->var_chain, name, shorthash);
+            result = find_var(symtab->active_import->var_chain, name, shorthash);
     }
     else
         result = find_var(import->var_chain, name, shorthash);
@@ -1007,7 +914,7 @@ lily_var *lily_find_var(lily_symtab *symtab, lily_import_entry *import,
     emitter will need to know their type info later. */
 void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
 {
-    lily_var *var_iter = symtab->var_chain;
+    lily_var *var_iter = symtab->active_import->var_chain;
     while (var_iter != var_stop) {
         var_iter->flags |= VAR_OUT_OF_SCOPE;
         var_iter = var_iter->next;
@@ -1166,7 +1073,7 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
     }
 
     if (cls != symtab->old_class_chain) {
-        lily_class *class_iter = symtab->class_chain;
+        lily_class *class_iter = symtab->active_import->class_chain;
         lily_class *class_next;
 
         while (class_iter != cls) {
@@ -1176,7 +1083,7 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
             class_iter = class_next;
         }
 
-        symtab->class_chain = cls;
+        symtab->active_import->class_chain = cls;
     }
 }
 
@@ -1231,7 +1138,7 @@ void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
     ...etc. */
 void lily_make_constructor_return_type(lily_symtab *symtab)
 {
-    lily_class *target_class = symtab->class_chain;
+    lily_class *target_class = symtab->active_import->class_chain;
     lily_type *type = lily_new_type(symtab, target_class);
 
     if (target_class->generic_count != 0) {
@@ -1314,7 +1221,7 @@ void lily_finish_enum_class(lily_symtab *symtab, lily_class *enum_class,
         int is_scoped, lily_type *enum_type)
 {
     int i, variant_count = 0;
-    lily_class *class_iter = symtab->class_chain;
+    lily_class *class_iter = symtab->active_import->class_chain;
     while (class_iter != enum_class) {
         variant_count++;
         class_iter = class_iter->next;
@@ -1322,7 +1229,7 @@ void lily_finish_enum_class(lily_symtab *symtab, lily_class *enum_class,
 
     lily_class **members = lily_malloc(variant_count * sizeof(lily_class *));
 
-    for (i = 0, class_iter = symtab->class_chain;
+    for (i = 0, class_iter = symtab->active_import->class_chain;
          i < variant_count;
          i++, class_iter = class_iter->next)
         members[i] = class_iter;
@@ -1339,7 +1246,7 @@ void lily_finish_enum_class(lily_symtab *symtab, lily_class *enum_class,
         enum_class->flags |= CLS_ENUM_IS_SCOPED;
         /* This removes the variants from symtab's classes, so that parser has
            to get them from the enum class. */
-        symtab->class_chain = enum_class;
+        symtab->active_import->class_chain = enum_class;
     }
 }
 
@@ -1353,15 +1260,6 @@ void lily_change_parent_class(lily_class *super_class, lily_class *sub_class)
        Subclass properties can safely start after superclass properties because
        of single inheritance. */
     sub_class->prop_count = super_class->prop_count;
-}
-
-void lily_set_import(lily_symtab *symtab, lily_import_entry *entry)
-{
-    symtab->active_import->class_chain = symtab->class_chain;
-    symtab->active_import->var_chain = symtab->var_chain;
-    symtab->class_chain = entry->class_chain;
-    symtab->var_chain = entry->var_chain;
-    symtab->active_import = entry;
 }
 
 lily_import_entry *lily_find_import_anywhere(lily_symtab *symtab,
