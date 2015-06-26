@@ -985,18 +985,26 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
     lily_import_entry *search_import = resolve_import(parser);
     lily_class *result = lily_find_class(symtab, search_import, lex->label);
     if (result == NULL) {
-        /* NULL is used by lily_find_class to indicate that searching should
-           be done within builtins and the first import. */
         if (search_import == NULL)
             search_import = symtab->builtin_import;
 
-        /* Maybe it's an exception that just isn't loaded yet? This isn't
-           unreasonable, because 'except' calls this function to get the class
-           to catch for. */
+        /* Is this a class that hasn't been loaded just yet? First try the
+           builtins to figure that out... */
         lily_base_seed *call_seed =
                 find_dynaload_entry(search_import->dynaload_table, lex->label);
+
+        /* If that doesn't work, then this could be a situation of being in a
+           method dynaload that references types that have yet to be dynaloaded.
+           In such a case, what's marked as the active import will have a
+           dynaload table that isn't NULL. */
+        if (call_seed == NULL)
+            call_seed = find_dynaload_entry(
+                    symtab->active_import->dynaload_table, lex->label);
+
         if (call_seed && call_seed->seed_type == dyna_exception)
             result = dynaload_exception(parser, search_import, lex->label);
+        else if (call_seed && call_seed->seed_type == dyna_class)
+            result = lily_new_class_by_seed(parser->symtab, call_seed);
         else
             lily_raise(parser->raiser, lily_SyntaxError,
                     "Class '%s' does not exist.\n", lex->label);
@@ -1057,13 +1065,22 @@ static lily_var *parse_prototype(lily_parse_state *parser,
     int generics_used;
     lily_var *call_var;
     lily_type *call_type = parser->default_call_type;
+    lily_import_entry *save_active = parser->symtab->active_import;
 
-    if (cls)
+    if (cls) {
+        /* This makes it so lookups (dynaloading) are done in the scope of where
+           the class is defined. It's intentionally done before the var is made
+           so that the var's function value is marked as coming from that import
+           instead of whatever might be current. */
+        parser->symtab->active_import = cls->import;
         call_var = lily_emit_new_dyna_method_var(emit, func, cls, call_type,
                 lex->label);
-    else
+    }
+    else {
+        parser->symtab->active_import = import;
         call_var = lily_emit_new_dyna_define_var(parser->emit, func, import,
                 call_type, lex->label);
+    }
 
     lily_lexer(lex);
 
@@ -1080,6 +1097,8 @@ static lily_var *parse_prototype(lily_parse_state *parser,
             parser->symtab->function_class, 0);
     lily_update_symtab_generics(symtab, NULL, save_generics);
     lily_lexer(lex);
+
+    parser->symtab->active_import = save_active;
 
     return call_var;
 }
