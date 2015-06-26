@@ -3,6 +3,7 @@
 
 #include "lily_alloc.h"
 #include "lily_raiser.h"
+#include "lily_seed.h"
 
 /* This is used by lily_name_for_error to get a printable name for an error
    code. This is used by lily_fs to show what kind of error occured. */
@@ -70,13 +71,28 @@ void lily_raise_prebuilt(lily_raiser *raiser, int error_code)
     longjmp(raiser->jumps[raiser->jump_pos-1], 1);
 }
 
-void lily_raise_type_and_msg(lily_raiser *raiser, lily_type *type, char *fmt,
-        ...)
+/*  This is called by the vm to set a type and a message on the raiser, on
+    behalf of a loaded module. This function intentionally does not do the
+    longjmp, in case the module needs to do some cleanup. */
+void lily_raiser_set_error(lily_raiser *raiser, lily_type *type,
+        const char *msg)
 {
     raiser->exception_type = type;
-
     lily_msgbuf_flush(raiser->msgbuf);
-    lily_msgbuf_add(raiser->msgbuf, fmt);
+    lily_msgbuf_add(raiser->msgbuf, msg);
+}
+
+void lily_raise_prepared(lily_raiser *raiser)
+{
+    longjmp(raiser->jumps[raiser->jump_pos-1], 1);
+}
+
+void lily_raise_type_and_msg(lily_raiser *raiser, lily_type *type,
+        const char *msg)
+{
+    raiser->exception_type = type;
+    lily_msgbuf_flush(raiser->msgbuf);
+    lily_msgbuf_add(raiser->msgbuf, msg);
 
     longjmp(raiser->jumps[raiser->jump_pos-1], 1);
 }

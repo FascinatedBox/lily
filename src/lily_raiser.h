@@ -17,6 +17,11 @@
 # define lily_FormatError         8
 # define lily_IOError             9
 
+/* The raiser is included by a majority of Lily's core modules, but seed raise
+   is only used by foreign modules. Since foreign modules will need to include
+   seeds to have them, just forward declare this. */
+struct lily_base_seed_;
+
 typedef struct lily_raiser_ {
     /* The raiser will typically have two jumps: One for the vm to catch runtime
        errors, and a second for the runner to catch parser errors. The raiser
@@ -32,7 +37,7 @@ typedef struct lily_raiser_ {
          1 should report an error on line 1 (the assignment), not line 2.
        * Any vm error. */
     uint32_t line_adjust;
-    uint32_t error_code;
+    int32_t error_code;
     uint16_t jump_pos;
     uint16_t jump_size;
     uint32_t pad;
@@ -42,8 +47,9 @@ lily_raiser *lily_new_raiser(lily_options *);
 void lily_free_raiser(lily_raiser *);
 void lily_raise(lily_raiser *, int, char *, ...);
 void lily_raise_prebuilt(lily_raiser *, int);
-void lily_raise_type_and_msg(lily_raiser *, lily_type *, char *, ...);
-void lily_raise_type_va(lily_raiser *, lily_type *, char *, va_list);
+void lily_raise_type_and_msg(lily_raiser *, lily_type *, const char *);
+void lily_raiser_set_error(lily_raiser *, lily_type *, const char *);
+void lily_raise_prepared(lily_raiser *);
 
 const char *lily_name_for_error(lily_raiser *);
 

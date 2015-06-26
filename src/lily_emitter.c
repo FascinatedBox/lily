@@ -4504,7 +4504,7 @@ lily_var *lily_emit_new_dyna_method_var(lily_emit_state *emit,
 
     lily_function_val *func_val = lily_new_foreign_function_val(func, cls->name,
             new_var->name);
-    lily_tie_builtin(emit->symtab, new_var, func_val);
+    lily_tie_function(emit->symtab, new_var, func_val);
     return new_var;
 }
 

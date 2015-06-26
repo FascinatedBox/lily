@@ -114,8 +114,11 @@ void lily_move_raw_value(lily_vm_state *, lily_value *, int, lily_raw_value);
 uint64_t lily_calculate_siphash(char *, lily_value *);
 void lily_process_format_string(lily_vm_state *, uint16_t *);
 
-void lily_vm_raise_seed(lily_vm_state *, const struct lily_base_seed_ *,
-        const char *, ...);
+void lily_vm_set_error(lily_vm_state *, const struct lily_base_seed_ *,
+        const char *);
+void lily_vm_raise_prepared(lily_vm_state *);
+void lily_vm_module_raise(lily_vm_state *, const struct lily_base_seed_ *,
+        const char *);
 
 void lily_vm_foreign_call(lily_vm_state *vm);
 void lily_vm_foreign_prep(lily_vm_state *, lily_value *);
