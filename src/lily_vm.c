@@ -1112,11 +1112,14 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code, int code_pos)
         lily_list_val *list_val = lhs_reg->value.list;
         int index_int = index_reg->value.integer;
 
-        if (index_int >= list_val->num_values)
-            boundary_error(vm, index_int);
+        if (index_int < 0) {
+            int new_index = list_val->num_values + index_int;
+            if (new_index < 0)
+                boundary_error(vm, index_int);
 
-        /* todo: Wraparound would be nice. */
-        if (index_int < 0)
+            index_int = new_index;
+        }
+        else if (index_int >= list_val->num_values)
             boundary_error(vm, index_int);
 
         lily_assign_value(vm, list_val->elems[index_int], rhs_reg);
@@ -1169,12 +1172,14 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code, int code_pos)
         lily_list_val *list_val = lhs_reg->value.list;
         int index_int = index_reg->value.integer;
 
-        /* Too big! */
-        if (index_int >= lhs_reg->value.list->num_values)
-            boundary_error(vm, index_int);
+        if (index_int < 0) {
+            int new_index = list_val->num_values + index_int;
+            if (new_index < 0)
+                boundary_error(vm, index_int);
 
-        /* todo: Wraparound would be nice. */
-        if (index_int < 0)
+            index_int = new_index;
+        }
+        else if (index_int >= list_val->num_values)
             boundary_error(vm, index_int);
 
         lily_assign_value(vm, result_reg, list_val->elems[index_int]);
