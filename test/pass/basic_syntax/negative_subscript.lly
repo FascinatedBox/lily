@@ -1,0 +1,6 @@
+var v = [1, 2, 3]
+
+v[-1] = 4
+
+if v[2] != 4:
+    stderr.write("Failed.\n")
