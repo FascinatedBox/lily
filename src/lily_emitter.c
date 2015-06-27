@@ -4204,10 +4204,15 @@ void lily_prepare_main(lily_emit_state *emit, lily_import_entry *import_iter)
             NULL);
     add_storage_chain_to_info(info, emit->block->storage_start);
 
-    /* It is EXTREMELY important that this write is done before giving __main__
-       a copy of code. There is a chance that emit->code_pos is just about to
-       grow, and this will push it over the edge...and realloc will move the
-       block somewhere else. */
+    /* Ensure that there are at least 16 code slots after __main__'s code. It is
+       possible for an exception to dynaload at vm time, and that will want to
+       write initializing code into __main__ past where __main__'s code is. This
+       may, in turn, cause code to be resized. Since __main__'s code is a
+       shallow reference to emitter->code, that's really, really bad.
+       This prevents that, by setting up enough space that any dynaloaded code
+       will not be large enough to resize emitter->code. */
+    write_prep(emit, 16);
+
     write_1(emit, o_return_from_vm);
 
     /* To simplify things, __main__'s code IS emitter->code. There's no reason
