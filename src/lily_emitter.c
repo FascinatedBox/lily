@@ -2960,11 +2960,13 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
 
     /* Don't allow bare variants to solve for a type. Always force them to be in
        something to prevent bare variant values. */
-    if (want_type->cls->id == SYM_CLASS_GENERIC &&
-        arg->result->type->cls->flags & CLS_VARIANT_CLASS) {
-        matchup_type = lily_ts_easy_resolve(emit->ts, want_type);
-        if (matchup_type == NULL)
-            rebox_variant_to_enum(emit, arg);
+    if (arg->result->type->cls->flags & CLS_VARIANT_CLASS) {
+        cs->have_bare_variants = 1;
+        if (want_type->cls->id == SYM_CLASS_GENERIC) {
+            matchup_type = lily_ts_easy_resolve(emit->ts, want_type);
+            if (matchup_type == NULL)
+                rebox_variant_to_enum(emit, arg);
+        }
     }
 
     lily_type *match_type = want_type;
@@ -3162,7 +3164,7 @@ static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *c
     for (arg = ast->arg_start->next_arg;arg != NULL;arg = arg->next_arg)
         eval_call_arg(emit, cs, arg);
 
-    if (cs->call_type->flags & TYPE_CALL_HAS_ENUM_ARG)
+    if (cs->have_bare_variants)
         box_call_variants(emit, cs);
 
     if (cs->call_type->flags & TYPE_IS_VARARGS) {

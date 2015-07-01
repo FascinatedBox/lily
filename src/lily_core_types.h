@@ -518,19 +518,14 @@ typedef struct lily_options_ {
    available. So if there are 4 generic types available but only 2 used, it
    simply hides the second two from being returned. */
 #define TYPE_HIDDEN_GENERIC    0x04
-/* This is set on function type that contain an enum class in one of
-   their parameters (or the varargs part is a list of an enum class). This is
-   done so that emitter's call eval can have a good idea of if it should make
-   a second pass to make sure variants are put into enums. */
-#define TYPE_CALL_HAS_ENUM_ARG 0x10
 /* This is set on a type when it is a generic (ex: A, B, ...), or when it
    contains generics at some point. Emitter and vm use this as a fast way of
    checking if a type needs to be resolved or not. */
-#define TYPE_IS_UNRESOLVED     0x20
+#define TYPE_IS_UNRESOLVED     0x10
 /* This is set on function types that have at least one optional argument. This
    is set so that emitter and ts can easily figure out if the function doesn't
    have to take some arguments. */
-#define TYPE_HAS_OPTARGS       0x40
+#define TYPE_HAS_OPTARGS       0x20
 
 
 /* SYM_* flags are for things based off of lily_sym. */
