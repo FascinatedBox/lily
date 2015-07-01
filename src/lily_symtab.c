@@ -254,10 +254,8 @@ static void finalize_type(lily_type *input_type)
 
     /* This gives emitter and vm an easy way to check if a type needs to be
        resolved or if it can used as-is. */
-    if (input_type->cls->id == SYM_CLASS_GENERIC ||
-        input_type->generic_pos != 0) {
+    if (input_type->cls->id == SYM_CLASS_GENERIC)
         input_type->flags |= TYPE_IS_UNRESOLVED;
-    }
 
     /* Any function can be a closure, and potentially close over something that
        is circular. Mark it as being possibly circular to be safe. */
