@@ -410,18 +410,7 @@ static void free_properties(lily_symtab *symtab, lily_class *cls)
     }
 }
 
-/*  free_main_function
-    Regular function teardown can't be done on __main__ for a couple reasons:
-    * The names it carries are shallow copies from global vars.
-    * The code it carries is a shallow copy of emit->code. */
-static void free_main_function(lily_symtab *symtab)
-{
-    lily_function_val *main_function = symtab->main_function;
-    lily_free(main_function->reg_info);
-    lily_free(main_function);
-}
-
-static void free_class_entries(lily_symtab *symtab, lily_class *class_iter)
+static void free_classes(lily_symtab *symtab, lily_class *class_iter)
 {
     while (class_iter) {
         if (class_iter->properties != NULL)
@@ -430,13 +419,6 @@ static void free_class_entries(lily_symtab *symtab, lily_class *class_iter)
         if (class_iter->call_chain != NULL)
             free_vars(symtab, class_iter->call_chain);
 
-        class_iter = class_iter->next;
-    }
-}
-
-static void free_classes(lily_symtab *symtab, lily_class *class_iter)
-{
-    while (class_iter) {
         lily_free(class_iter->name);
 
         if (class_iter->flags & CLS_ENUM_IS_SCOPED) {
@@ -477,40 +459,36 @@ static void free_ties(lily_symtab *symtab, lily_tie *tie_iter)
     }
 }
 
-/*  lily_free_symtab
-
-    We're done. Nothing needs anything in the symtab anymore so tear it all
-    down. */
+/*  Destroy everything inside of the symtab. This happens after the vm is done
+    being torn down, so it is safe to blast literals, defined functions, types,
+    etc. */
 void lily_free_symtab(lily_symtab *symtab)
 {
+    /* Ties have to come first because deref functions rely on type and class
+       information. */
     free_ties(symtab, symtab->literals);
     free_ties(symtab, symtab->function_ties);
 
-    free_class_entries(symtab, symtab->old_class_chain);
+    free_classes(symtab, symtab->old_class_chain);
+    free_vars(symtab, symtab->old_function_chain);
 
     lily_import_entry *import_iter = symtab->builtin_import;
     while (import_iter) {
-        free_class_entries(symtab, import_iter->class_chain);
+        free_classes(symtab, import_iter->class_chain);
         free_vars(symtab, import_iter->var_chain);
 
         import_iter = import_iter->root_next;
     }
 
-    if (symtab->old_function_chain != NULL)
-        free_vars(symtab, symtab->old_function_chain);
-
-    /* __main__ must not be destroyed through normal deref, because it does not
-       allocate names for 'show()' within the function val. */
-    free_main_function(symtab);
+    /* __main__ requires a special teardown because it doesn't allocate names
+       for debug, and its code is a shallow copy of emitter's code block. */
+    lily_function_val *main_function = symtab->main_function;
+    lily_free(main_function->reg_info);
+    lily_free(main_function);
 
     lily_type *type, *type_temp;
-
-    /* Destroy the types before the classes, since the types need to check
-       the class id to make sure there isn't a call type to destroy. */
     type = symtab->root_type;
-    int j = 0;
     while (type != NULL) {
-        j++;
         type_temp = type->next;
 
         lily_free(type->subtypes);
@@ -518,18 +496,9 @@ void lily_free_symtab(lily_symtab *symtab)
         type = type_temp;
     }
 
-    import_iter = symtab->builtin_import;
-    while (import_iter) {
-        free_classes(symtab, import_iter->class_chain);
-
-        import_iter = import_iter->root_next;
-    }
-
     /* Symtab does not attempt to free 'foreign_ties'. This is because the vm
        frees the foreign ties as it loads them (since there are so few).
        Therefore, foreign_ties should always be NULL at this point. */
-
-    free_classes(symtab, symtab->old_class_chain);
 
     lily_free(symtab);
 }
