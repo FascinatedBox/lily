@@ -3188,6 +3188,7 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     emit->call_state = result->next;
     result->ast = ast;
     result->arg_count = 0;
+    result->have_bare_variants = 0;
 
     lily_ast *first_tree = ast->arg_start;
     lily_tree_type first_tt = first_tree->tree_type;
