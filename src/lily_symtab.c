@@ -200,10 +200,6 @@ static lily_type *lookup_type(lily_symtab *symtab, lily_type *input_type)
     lily_type *iter_type = symtab->root_type;
     lily_type *ret = NULL;
 
-    /* This just means that input_type was the last type created. */
-    if (iter_type == input_type)
-        iter_type = iter_type->next;
-
     while (iter_type) {
         if (iter_type->cls == input_type->cls) {
             if (iter_type->subtypes      != NULL &&
