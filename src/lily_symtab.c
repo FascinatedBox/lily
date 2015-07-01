@@ -188,7 +188,7 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
 }
 
 #define SKIP_FLAGS \
-    ~(TYPE_MAYBE_CIRCULAR | TYPE_CALL_HAS_ENUM_ARG | TYPE_IS_UNRESOLVED)
+    ~(TYPE_MAYBE_CIRCULAR | TYPE_IS_UNRESOLVED)
 
 /*  lookup_type
     Determine if the current type exists in the symtab.
@@ -238,10 +238,6 @@ static lily_type *lookup_type(lily_symtab *symtab, lily_type *input_type)
     Determine if the given type is circular. Also, if its class is not the
     generic class, determine how many generics the type uses.
 
-    For function types, this also checks if any arguments are an enum
-    class. If they are, then the type is marked to help out emitter's call
-    argument processing.
-
     The symtab doesn't use this information at all. These are convenience
     things for the emitter and the vm. */
 static void finalize_type(lily_type *input_type)
@@ -267,31 +263,10 @@ static void finalize_type(lily_type *input_type)
         input_type->flags |= TYPE_IS_UNRESOLVED;
     }
 
-    /* It helps the emitter to know if a call has an argument that is an enum
-       class, since it has to do a second reboxing pass in that case. Mark
-       function types here, because all function types will have to pass through
-       here. */
-    if (input_type->cls->id == SYM_CLASS_FUNCTION) {
-        int i;
-        /* Start at 1 because [0] is the return, and doesn't matter. */
-        for (i = 1;i < input_type->subtype_count;i++) {
-            if (input_type->subtypes[i]->cls->flags & CLS_ENUM_CLASS) {
-                input_type->flags |= TYPE_CALL_HAS_ENUM_ARG;
-                break;
-            }
-        }
-
-        /* Oh, and check if the vararg part has a list of some variant type. */
-        if (input_type->flags & TYPE_IS_VARARGS) {
-            lily_type *vararg_list = input_type->subtypes[i - 1];
-            if (vararg_list->subtypes[0]->cls->flags & CLS_ENUM_CLASS)
-                input_type->flags |= TYPE_CALL_HAS_ENUM_ARG;
-        }
-
-        /* Any function is able to be a closure, so they are marked as circular
-           as a precaution. */
+    /* Any function can be a closure, and potentially close over something that
+       is circular. Mark it as being possibly circular to be safe. */
+    if (input_type->cls->id == SYM_CLASS_FUNCTION)
         input_type->flags |= TYPE_MAYBE_CIRCULAR;
-    }
 
     /* fixme: Properly go over enum classes to determine circularity. */
     if (input_type->cls->flags & CLS_ENUM_CLASS)
