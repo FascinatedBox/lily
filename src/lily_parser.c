@@ -2483,6 +2483,13 @@ static void import_handler(lily_parse_state *parser, int multi)
                 lily_lexer(lex);
                 statement(parser, 1);
 
+                /* Since this is processing an import, the lexer will raise an
+                   error if ?> is found. Because of that, multi-line statement
+                   can only end with either } or eof. Only one is right. */
+                if (lex->token == tk_right_curly)
+                    lily_raise(parser->raiser, lily_SyntaxError,
+                            "'}' outside of a block.\n");
+
                 if (parser->emit->block->block_type != BLOCK_FILE)
                     lily_raise(parser->raiser, lily_SyntaxError,
                             "Unterminated block(s) at end of file.\n");
