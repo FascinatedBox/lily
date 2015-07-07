@@ -627,7 +627,7 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
     /* A function's args always come first, so copy arguments over while clearing
        old values. */
     for (i = 0;i < code[4];i++, num_registers++) {
-        lily_value *get_reg = vm_regs[code[5+i]];
+        lily_value *get_reg = vm_regs[code[6+i]];
         lily_value *set_reg = regs_from_main[num_registers];
 
         /* The get must be run before the set. Otherwise, if
@@ -886,7 +886,7 @@ void lily_builtin_calltrace(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     Implements: function show[A](A value) */
 void lily_builtin_show(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
-    lily_value *reg = vm->vm_regs[code[0]];
+    lily_value *reg = vm->vm_regs[code[1]];
     lily_show_value(vm, reg);
 }
 
@@ -894,7 +894,7 @@ void lily_builtin_show(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     Implements: function print(string) */
 void lily_builtin_print(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
-    lily_value *reg = vm->vm_regs[code[0]];
+    lily_value *reg = vm->vm_regs[code[1]];
     lily_impl_puts(vm->data, reg->value.string->string);
 }
 
@@ -907,8 +907,8 @@ void lily_process_format_string(lily_vm_state *vm, uint16_t *code)
     lily_msgbuf *vm_buffer = vm->vm_buffer;
     lily_msgbuf_flush(vm_buffer);
 
-    fmt = vm_regs[code[0]]->value.string->string;
-    vararg_lv = vm_regs[code[1]]->value.list;
+    fmt = vm_regs[code[1]]->value.string->string;
+    vararg_lv = vm_regs[code[2]]->value.list;
     arg_pos = 0;
     fmt_index = 0;
     int text_start = 0;
@@ -2223,7 +2223,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     vm->vm_regs = vm_regs;
 
                     current_frame->return_reg =
-                        -(current_frame->function->reg_count - code[code_pos+5+j]);
+                        -(current_frame->function->reg_count - code[code_pos+5]);
 
                     /* !PAST HERE TARGETS THE NEW FRAME! */
 

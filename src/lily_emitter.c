@@ -1803,8 +1803,10 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     /* If assign can be optimized out, then rewrite the last result to point to
        the left side. */
-    if (assign_optimize_check(ast))
-        emit->code[emit->code_pos-1] = left_sym->reg_spot;
+    if (assign_optimize_check(ast)) {
+        emit->code[emit->code_pos - ast->right->result_code_offset] =
+                left_sym->reg_spot;
+    }
     else {
         write_4(emit,
                 opcode,
@@ -3265,8 +3267,13 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
     emit->code[emit->code_pos+2] = !!(call_sym->flags & VAR_IS_READONLY);
     emit->code[emit->code_pos+3] = call_sym->reg_spot;
     emit->code[emit->code_pos+4] = cs->arg_count;
+
+    /* Calls are unique, because the return is NOT the very last instruction
+       written. This is necessary for the vm to be able to easily call foreign
+       functions. */
+
     int i, j;
-    for (i = 5, j = 0;j < cs->arg_count;i++, j++) {
+    for (i = 6, j = 0;j < cs->arg_count;i++, j++) {
         emit->code[emit->code_pos + i] =
                 emit->call_values[offset + j]->reg_spot;
     }
@@ -3286,7 +3293,7 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
         storage->flags |= SYM_NOT_ASSIGNABLE;
 
         ast->result = (lily_sym *)storage;
-        emit->code[emit->code_pos+i] = ast->result->reg_spot;
+        emit->code[emit->code_pos+5] = ast->result->reg_spot;
     }
     else {
         /* It's okay to not push a return value, unless something needs it.
@@ -3297,9 +3304,10 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
             lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
                     "Function needed to return a value, but did not.\n", "");
         }
-        emit->code[emit->code_pos+i] = -1;
+        emit->code[emit->code_pos+5] = -1;
     }
 
+    ast->result_code_offset = cs->arg_count + 1;
     emit->code_pos += 6 + cs->arg_count;
 }
 
@@ -3554,7 +3562,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
             eval_tree(emit, ast->arg_start, expect_type, 1);
 
         ast->result = ast->arg_start->result;
-    }
+        ast->result_code_offset = ast->arg_start->result_code_offset;
+   }
     else if (ast->tree_type == tree_unary) {
         if (ast->left->tree_type != tree_local_var)
             eval_tree(emit, ast->left, expect_type, 1);

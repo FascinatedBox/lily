@@ -18,8 +18,8 @@ int lily_integer_eq(lily_vm_state *vm, int *depth, lily_value *left,
 void lily_integer_to_s(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    int64_t integer_val = vm_regs[code[0]]->value.integer;
-    lily_value *result_reg = vm_regs[code[1]];
+    int64_t integer_val = vm_regs[code[1]]->value.integer;
+    lily_value *result_reg = vm_regs[code[0]];
 
     char buffer[32];
     snprintf(buffer, 32, "%"PRId64, integer_val);
@@ -39,8 +39,8 @@ void lily_integer_to_s(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void lily_integer_to_d(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    int64_t integer_val = vm_regs[code[0]]->value.integer;
-    lily_value *result_reg = vm_regs[code[1]];
+    int64_t integer_val = vm_regs[code[1]]->value.integer;
+    lily_value *result_reg = vm_regs[code[0]];
 
     result_reg->flags = VAL_IS_PRIMITIVE;
     result_reg->value.doubleval = (double)integer_val;

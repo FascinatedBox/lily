@@ -27,10 +27,10 @@ int lily_bytestring_eq(lily_vm_state *vm, int *depth, lily_value *left,
 void lily_bytestring_encode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_string_val *input_bytestring = vm_regs[code[0]]->value.string;
+    lily_string_val *input_bytestring = vm_regs[code[1]]->value.string;
     const char *encode_method =
-            (argc == 2) ? vm_regs[code[1]]->value.string->string : "error";
-    lily_value *result = vm_regs[code[argc]];
+            (argc == 2) ? vm_regs[code[2]]->value.string->string : "error";
+    lily_value *result = vm_regs[code[0]];
 
     if (strcmp(encode_method, "error") != 0) {
         lily_raise(vm->raiser, lily_ValueError,
