@@ -203,25 +203,14 @@ void lily_list_apply(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value **vm_regs = vm->vm_regs;
     lily_list_val *list_val = vm_regs[code[0]]->value.list;
     lily_value *function_reg = vm_regs[code[1]];
-    lily_value *vm_result;
+    int cached = 0;
 
-    /* This must be called exactly once at the beginning of a foreign call to
-       the vm. This ensures the vm has enough registers + stack for a foreign
-       call (among other things). */
-    lily_vm_foreign_prep(vm, function_reg);
     int i;
     for (i = 0;i < list_val->num_values;i++) {
-        /* Arguments to the native call begin at index 1. The native call needs
-           one arg, so give that to it. */
-        lily_vm_foreign_load_by_val(vm, 1, list_val->elems[i]);
+        lily_value *result = lily_foreign_call(vm, &cached, function_reg, 1,
+                list_val->elems[i]);
 
-        /* Do the actual call. This bumps the stack so that it records that
-           apply has been entered. */
-        lily_vm_foreign_call(vm);
-
-        /* The result is always at index 0 if it exists. */
-        vm_result = lily_vm_get_foreign_reg(vm, 0);
-        lily_assign_value(vm, list_val->elems[i], vm_result);
+        lily_assign_value(vm, list_val->elems[i], result);
     }
 }
 
