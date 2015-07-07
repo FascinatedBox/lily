@@ -51,7 +51,10 @@ typedef struct lily_ast_ {
     lily_tree_type tree_type : 16;
     lily_expr_op op : 16;
     uint32_t line_num;
-    uint32_t args_collected;
+    /* This is an offset in emitter's code where the result was stored. In most
+       cases, this is 1, which is why the ast sets that to begin with. */
+    uint16_t result_code_offset;
+    uint16_t args_collected;
 
     /* If this tree has some text data associated with it, then that data can
        be gotten from the ast pool's membuf at this position. */

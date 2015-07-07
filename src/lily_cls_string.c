@@ -56,9 +56,9 @@ static lily_string_val *make_sv(lily_vm_state *vm, int size)
 void lily_string_concat(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_value *result_arg = vm_regs[code[2]];
-    lily_value *self_arg = vm_regs[code[0]];
-    lily_value *other_arg = vm_regs[code[1]];
+    lily_value *result_arg = vm_regs[code[0]];
+    lily_value *self_arg = vm_regs[code[1]];
+    lily_value *other_arg = vm_regs[code[2]];
 
     lily_string_val *self_sv = self_arg->value.string;
     lily_string_val *other_sv = other_arg->value.string;
@@ -78,8 +78,8 @@ void lily_string_concat(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void WRAP_NAME(lily_vm_state *vm, uint16_t argc, uint16_t *code) \
 { \
     lily_value **vm_regs = vm->vm_regs; \
-    lily_value *ret_arg = vm_regs[code[1]]; \
-    lily_value *input_arg = vm_regs[code[0]]; \
+    lily_value *ret_arg = vm_regs[code[0]]; \
+    lily_value *input_arg = vm_regs[code[1]]; \
 \
     if (input_arg->flags & VAL_IS_NIL || \
         input_arg->value.string->size == 0) { \
@@ -259,9 +259,9 @@ static int lstrip_ascii_start(lily_value *input_arg, lily_string_val *strip_sv)
 void lily_string_lstrip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[0]];
-    lily_value *strip_arg = vm_regs[code[1]];
-    lily_value *result_arg = vm_regs[code[2]];
+    lily_value *input_arg = vm_regs[code[1]];
+    lily_value *strip_arg = vm_regs[code[2]];
+    lily_value *result_arg = vm_regs[code[0]];
 
     char *strip_str;
     unsigned char ch;
@@ -305,9 +305,9 @@ void lily_string_lstrip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void lily_string_startswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[0]];
-    lily_value *prefix_arg = vm_regs[code[1]];
-    lily_value *result_arg = vm_regs[code[2]];
+    lily_value *input_arg = vm_regs[code[1]];
+    lily_value *prefix_arg = vm_regs[code[2]];
+    lily_value *result_arg = vm_regs[code[0]];
 
     char *input_raw_str = input_arg->value.string->string;
     char *prefix_raw_str = prefix_arg->value.string->string;
@@ -431,9 +431,9 @@ static int rstrip_utf8_stop(lily_value *input_arg, lily_string_val *strip_sv)
 void lily_string_rstrip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[0]];
-    lily_value *strip_arg = vm_regs[code[1]];
-    lily_value *result_arg = vm_regs[code[2]];
+    lily_value *input_arg = vm_regs[code[1]];
+    lily_value *strip_arg = vm_regs[code[2]];
+    lily_value *result_arg = vm_regs[code[0]];
 
     char *strip_str;
     unsigned char ch;
@@ -479,9 +479,9 @@ void lily_string_rstrip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void lily_string_endswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[0]];
-    lily_value *suffix_arg = vm_regs[code[1]];
-    lily_value *result_arg = vm_regs[code[2]];
+    lily_value *input_arg = vm_regs[code[1]];
+    lily_value *suffix_arg = vm_regs[code[2]];
+    lily_value *result_arg = vm_regs[code[0]];
 
     char *input_raw_str = input_arg->value.string->string;
     char *suffix_raw_str = suffix_arg->value.string->string;
@@ -511,8 +511,8 @@ void lily_string_endswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void lily_string_lower(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[0]];
-    lily_value *result_arg = vm_regs[code[1]];
+    lily_value *input_arg = vm_regs[code[1]];
+    lily_value *result_arg = vm_regs[code[0]];
 
     int new_size = input_arg->value.string->size + 1;
     lily_string_val *new_sv = make_sv(vm, new_size);
@@ -538,8 +538,8 @@ void lily_string_lower(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void lily_string_upper(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[0]];
-    lily_value *result_arg = vm_regs[code[1]];
+    lily_value *input_arg = vm_regs[code[1]];
+    lily_value *result_arg = vm_regs[code[0]];
 
     int new_size = input_arg->value.string->size + 1;
     lily_string_val *new_sv = make_sv(vm, new_size);
@@ -565,9 +565,9 @@ void lily_string_upper(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[0]];
-    lily_value *find_arg = vm_regs[code[1]];
-    lily_value *result_arg = vm_regs[code[2]];
+    lily_value *input_arg = vm_regs[code[1]];
+    lily_value *find_arg = vm_regs[code[2]];
+    lily_value *result_arg = vm_regs[code[0]];
 
     char *input_str = input_arg->value.string->string;
     int input_length = input_arg->value.string->size;
@@ -623,9 +623,9 @@ void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void lily_string_strip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[0]];
-    lily_value *strip_arg = vm_regs[code[1]];
-    lily_value *result_arg = vm_regs[code[2]];
+    lily_value *input_arg = vm_regs[code[1]];
+    lily_value *strip_arg = vm_regs[code[2]];
+    lily_value *result_arg = vm_regs[code[0]];
 
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
     if (input_arg->value.string->size == 0 ||
@@ -689,8 +689,8 @@ void lily_string_strip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void lily_string_trim(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[0]];
-    lily_value *result_arg = vm_regs[code[1]];
+    lily_value *input_arg = vm_regs[code[1]];
+    lily_value *result_arg = vm_regs[code[0]];
 
     char fake_buffer[5] = " \t\r\n";
     lily_string_val fake_sv;
@@ -726,8 +726,8 @@ void lily_string_trim(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[0]];
-    lily_value *result_arg = vm_regs[code[1]];
+    lily_value *input_arg = vm_regs[code[1]];
+    lily_value *result_arg = vm_regs[code[0]];
 
     lily_msgbuf *vm_buffer = vm->vm_buffer;
     lily_msgbuf_flush(vm_buffer);
@@ -784,7 +784,7 @@ void lily_string_format(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_process_format_string(vm, code);
     char *buffer = vm->vm_buffer->message;
-    lily_value *result_arg = vm->vm_regs[code[2]];
+    lily_value *result_arg = vm->vm_regs[code[0]];
     lily_string_val *new_sv = make_sv(vm, strlen(buffer) + 1);
 
     strcpy(new_sv->string, buffer);

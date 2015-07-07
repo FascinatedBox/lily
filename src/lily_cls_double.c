@@ -14,8 +14,8 @@ int lily_double_eq(lily_vm_state *vm, int *depth, lily_value *left,
 void lily_double_to_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    double double_val = vm_regs[code[0]]->value.doubleval;
-    lily_value *result_reg = vm_regs[code[1]];
+    double double_val = vm_regs[code[1]]->value.doubleval;
+    lily_value *result_reg = vm_regs[code[0]];
 
     result_reg->flags = VAL_IS_PRIMITIVE;
     result_reg->value.integer = (int64_t)double_val;

@@ -61,9 +61,9 @@ static void read_check(lily_vm_state *vm, lily_file_val *filev)
 void lily_file_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    char *path = vm_regs[code[0]]->value.string->string;
-    char *mode = vm_regs[code[1]]->value.string->string;
-    lily_value *result_reg = vm_regs[code[2]];
+    char *path = vm_regs[code[1]]->value.string->string;
+    char *mode = vm_regs[code[2]]->value.string->string;
+    lily_value *result_reg = vm_regs[code[0]];
 
     errno = 0;
     char mode_ch = mode[0];
@@ -91,7 +91,7 @@ void lily_file_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void lily_file_close(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_file_val *filev = vm_regs[code[0]]->value.file;
+    lily_file_val *filev = vm_regs[code[1]]->value.file;
 
     if (filev->inner_file != NULL) {
         fclose(filev->inner_file);
@@ -103,8 +103,8 @@ void lily_file_close(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void lily_file_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_file_val *filev = vm_regs[code[0]]->value.file;
-    char *to_write = vm_regs[code[1]]->value.string->string;
+    lily_file_val *filev = vm_regs[code[1]]->value.file;
+    char *to_write = vm_regs[code[2]]->value.string->string;
 
     write_check(vm, filev);
 
@@ -114,8 +114,8 @@ void lily_file_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void lily_file_readline(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_file_val *filev = vm_regs[code[0]]->value.file;
-    lily_value *result_reg = vm_regs[code[1]];
+    lily_file_val *filev = vm_regs[code[1]]->value.file;
+    lily_value *result_reg = vm_regs[code[0]];
     lily_msgbuf *vm_buffer = vm->vm_buffer;
     lily_msgbuf_flush(vm_buffer);
 

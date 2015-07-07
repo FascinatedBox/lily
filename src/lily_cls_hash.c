@@ -202,10 +202,10 @@ void lily_gc_collect_hash(lily_type *hash_type,
 void lily_hash_get(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_value *input = vm_regs[code[0]];
-    lily_value *find_key = vm_regs[code[1]];
-    lily_value *default_value = vm_regs[code[2]];
-    lily_value *result = vm_regs[code[3]];
+    lily_value *input = vm_regs[code[1]];
+    lily_value *find_key = vm_regs[code[2]];
+    lily_value *default_value = vm_regs[code[3]];
+    lily_value *result = vm_regs[code[0]];
 
     uint64_t siphash = lily_calculate_siphash(vm->sipkey, find_key);
     lily_hash_elem *hash_elem = lily_lookup_hash_elem(input->value.hash,
@@ -227,8 +227,8 @@ void lily_hash_get(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void lily_hash_keys(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_hash_val *hash_val = vm_regs[code[0]]->value.hash;
-    lily_value *result_reg = vm_regs[code[1]];
+    lily_hash_val *hash_val = vm_regs[code[1]]->value.hash;
+    lily_value *result_reg = vm_regs[code[0]];
 
     int num_elems = hash_val->num_elems;
 

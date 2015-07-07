@@ -159,8 +159,8 @@ void lily_gc_collect_list(lily_type *list_type, lily_list_val *list_val)
 void lily_list_size(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_list_val *list_val = vm_regs[code[0]]->value.list;
-    lily_value *ret_reg = vm_regs[code[1]];
+    lily_list_val *list_val = vm_regs[code[1]]->value.list;
+    lily_value *ret_reg = vm_regs[code[0]];
 
     lily_raw_value v = {.integer = list_val->num_values};
     lily_move_raw_value(vm, ret_reg, 0, v);
@@ -169,8 +169,8 @@ void lily_list_size(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void lily_list_append(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_list_val *list_val = vm_regs[code[0]]->value.list;
-    lily_value *insert_value = vm_regs[code[1]];
+    lily_list_val *list_val = vm_regs[code[1]]->value.list;
+    lily_value *insert_value = vm_regs[code[2]];
 
     int value_count = list_val->num_values;
 
@@ -201,8 +201,8 @@ void lily_list_append(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void lily_list_apply(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_list_val *list_val = vm_regs[code[0]]->value.list;
-    lily_value *function_reg = vm_regs[code[1]];
+    lily_list_val *list_val = vm_regs[code[1]]->value.list;
+    lily_value *function_reg = vm_regs[code[2]];
     int cached = 0;
 
     int i;
