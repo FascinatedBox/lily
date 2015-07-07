@@ -872,8 +872,7 @@ static void boundary_error(lily_vm_state *vm, int bad_index)
 
 /*  lily_builtin_calltrace
     Implements: function calltrace(=> list[tuple[string, integer]]) */
-void lily_builtin_calltrace(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_builtin_calltrace(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value *result = vm->vm_regs[code[0]];
 
@@ -885,8 +884,7 @@ void lily_builtin_calltrace(lily_vm_state *vm, lily_function_val *self,
 
 /*  lily_builtin_show
     Implements: function show[A](A value) */
-void lily_builtin_show(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_builtin_show(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value *reg = vm->vm_regs[code[0]];
     lily_show_value(vm, reg);
@@ -894,8 +892,7 @@ void lily_builtin_show(lily_vm_state *vm, lily_function_val *self,
 
 /*  lily_builtin_print
     Implements: function print(string) */
-void lily_builtin_print(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_builtin_print(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value *reg = vm->vm_regs[code[0]];
     lily_impl_puts(vm->data, reg->value.string->string);
@@ -975,8 +972,7 @@ void lily_process_format_string(lily_vm_state *vm, uint16_t *code)
 
 /*  lily_builtin_printfmt
     Implements: function printfmt(string, any...) */
-void lily_builtin_printfmt(lily_vm_state *vm, lily_function_val *self,
-        uint16_t *code)
+void lily_builtin_printfmt(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_process_format_string(vm, code);
     lily_impl_puts(vm->data, vm->vm_buffer->message);
