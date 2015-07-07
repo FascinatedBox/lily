@@ -137,7 +137,8 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->vm_regs = NULL;
     vm->regs_from_main = NULL;
     vm->num_registers = 0;
-    vm->max_registers = 0;
+    vm->offset_max_registers = 0;
+    vm->true_max_registers = 0;
     vm->gc_live_entries = NULL;
     vm->gc_spare_entries = NULL;
     vm->gc_live_entry_count = 0;
@@ -189,7 +190,7 @@ void lily_free_vm(lily_vm_state *vm)
         }
     }
 
-    for (i = vm->max_registers-1;i >= 0;i--) {
+    for (i = vm->true_max_registers-1;i >= 0;i--) {
         reg = regs_from_main[i];
 
         lily_deref(reg);
@@ -200,7 +201,8 @@ void lily_free_vm(lily_vm_state *vm)
     /* This keeps the final gc invoke from touching the now-deleted registers.
        It also ensures the last invoke will get everything. */
     vm->num_registers = 0;
-    vm->max_registers = 0;
+    vm->offset_max_registers = 0;
+    vm->true_max_registers = 0;
 
     lily_free(regs_from_main);
 
@@ -302,7 +304,7 @@ static void invoke_gc(lily_vm_state *vm)
         /* Stage 3: Check registers not currently in use to see if they hold a
                     value that's going to be collected. If so, then mark the
                     register as nil so that the value will be cleared later. */
-        for (i = vm->num_registers;i < vm->max_registers;i++) {
+        for (i = vm->num_registers;i < vm->true_max_registers;i++) {
             lily_value *reg = regs_from_main[i];
             if ((reg->type->flags & TYPE_MAYBE_CIRCULAR) &&
                 (reg->flags & VAL_IS_NIL) == 0 &&
@@ -504,9 +506,14 @@ static void add_catch_entry(lily_vm_state *vm)
     a value of zero (to prevent complaints about invalid reads). */
 static void grow_vm_registers(lily_vm_state *vm, int register_need)
 {
+    /* This is so that there will be a couple of registers after
+       vm->offset_max_registers. The vm uses this when doing foreign function
+       calls. */
+    register_need += 2;
+
     lily_value **new_regs;
     lily_type *integer_type = vm->integer_type;
-    int i = vm->max_registers;
+    int i = vm->true_max_registers;
 
     ptrdiff_t reg_offset = vm->vm_regs - vm->regs_from_main;
 
@@ -538,7 +545,8 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
         new_regs[i]->flags = VAL_IS_NIL | VAL_IS_PRIMITIVE;
     }
 
-    vm->max_registers = size;
+    vm->true_max_registers = size;
+    vm->offset_max_registers = size - 2;
 }
 
 /*  resolve_generic_registers
@@ -1671,181 +1679,6 @@ static int maybe_catch_exception(lily_vm_state *vm)
 }
 
 /******************************************************************************/
-/* Foreign call API                                                           */
-/******************************************************************************/
-
-/* This handles calling a foreign function which will call a native one.
-   When a foreign function is entered, the vm does not adjust vm_regs. This is
-   intentional, because builtin functions wouldn't be able to get their values
-   if the registers were adjusted. */
-
-/*  lily_vm_foreign_call
-    This calls the vm from a foreign source. The stack is adjusted before and
-    after this call, so it can be done as many times as needed.
-
-    Caveats:
-    * lily_vm_foreign_prep MUST be called before this. It sets up the stack
-      and the registers for the callee function. The function passed to
-      lily_vm_foreign_prep is the one that is called. If it isn't called, the
-      vm will crash.
-
-    * lily_vm_foreign_load_by_val needs to be called to give values to the
-      registers that the callee uses. If it isn't called, the registers will
-      simply be nil. */
-void lily_vm_foreign_call(lily_vm_state *vm)
-{
-    /* Adjust for the native caller, and the foreign callee. This puts vm_regs
-       where the called native func needs them. */
-    int regs_adjust = vm->call_chain->prev->regs_used +
-            vm->call_chain->regs_used;
-
-    /* Make it so the callee's register indexes target the right things. */
-    vm->vm_regs += regs_adjust;
-
-    vm->call_chain = vm->call_chain->next;
-    /* The foreign entry added itself to the stack properly, so just add one
-       for the native entry. */
-    vm->call_depth++;
-
-
-    lily_vm_execute(vm);
-
-    /* The return done adjusts for the foreign callee, but not for the native
-       caller. Do this or the foreign caller will have busted registers. */
-    vm->vm_regs -= vm->call_chain->prev->regs_used;
-}
-
-/*  lily_vm_get_foreign_reg
-    Obtain a value, adjusted for the function to be called. 0 is the value of the
-    return (if there is one). Otherwise, this may not be useful. */
-lily_value *lily_vm_get_foreign_reg(lily_vm_state *vm, int reg_pos)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    int load_start = vm->call_chain->prev->regs_used +
-            vm->call_chain->regs_used;
-
-    /* Intentionally adjust by -1 so the return register will be at 0. */
-    return vm_regs[load_start + reg_pos - 1];
-}
-
-/*  lily_vm_foreign_load_by_val
-    This loads a value into the callee function at the given position. The
-    callee function's registers start at 1.
-
-    vm:        The vm to do the foreign call.
-    index:     The index to use. Arguments start at index 1.
-    new_value: The new value to give the register at the given index.
-
-    Caveats:
-    * Do not assign an invalid value to the given position. */
-void lily_vm_foreign_load_by_val(lily_vm_state *vm, int index,
-        lily_value *new_value)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    int load_start = vm->call_chain->prev->regs_used +
-                     vm->call_chain->regs_used;
-
-    /* Intentionally adjust by -1 so the first arg starts at index 1. */
-    lily_value *reg = vm_regs[load_start + index - 1];
-    lily_assign_value(vm, reg, new_value);
-}
-
-static void seed_registers(lily_vm_state *vm, lily_function_val *f, int start)
-{
-    lily_register_info *info = f->reg_info;
-    int max = start + f->reg_count;
-    int i;
-
-    for (i = 0;start < max;start++,i++) {
-        lily_value *reg = vm->regs_from_main[start];
-
-        lily_deref(reg);
-
-        reg->type = info[i].type;
-        reg->flags = VAL_IS_NIL;
-    }
-}
-
-/*  lily_vm_foreign_prep
-    Prepare the given vm for a call from a foreign function. This will ensure
-    that the vm has stack space, and also initialize the registers to the
-    proper types. The stack entry is updated, but the stack depth is not
-    updated (so that raises show the proper value).
-
-    vm:     The vm to prepare to enter.
-    tocall: A value holding a function to call. */
-void lily_vm_foreign_prep(lily_vm_state *vm, lily_value *to_call)
-{
-    /* Step 1: Determine the total register need of this function. */
-    int register_need = to_call->value.function->reg_count;
-    lily_type *function_val_return_type = to_call->type->subtypes[0];
-    lily_function_val *function_val = to_call->value.function;
-    int callee_start;
-    /* In normal function calls, the caller is a function that reserves a
-       register to get a value back from the callee. Since that is not the
-       case here, add one more register to get a value in case one is
-       needed. */
-    if (function_val_return_type != NULL)
-        register_need++;
-
-    callee_start = vm->num_registers + (function_val_return_type != NULL);
-    register_need += vm->num_registers;
-
-    /* Step 2: If there aren't enough registers, make them. This may fail. */
-    if (register_need > vm->max_registers) {
-        grow_vm_registers(vm, register_need);
-        /* grow_vm_registers doesn't set this because prep_registers often
-           comes after it and initializes registers from vm->num_registers to
-           vm->max_registers. So...fix this up. */
-        vm->num_registers = register_need;
-    }
-
-    /* Step 3: If there's a return register, set it to the proper type. */
-    int function_vals_used = vm->call_chain->prev->regs_used;
-
-    if (function_val_return_type != NULL) {
-        lily_value *foreign_reg = vm->vm_regs[function_vals_used];
-        /* Set it to the right type, in case something looks at it later. */
-        foreign_reg->type = function_val_return_type;
-    }
-
-    seed_registers(vm, function_val, callee_start);
-
-    lily_call_frame *foreign_frame = vm->call_chain;
-
-    /* Step 4: Make sure there is a spot for the native entry that will be
-       added. The order and later usage of foreign_frame is vital, because
-       this function will update vm->call_chain. */
-    if (vm->call_chain->next == NULL)
-        add_call_frame(vm);
-
-    /* Step 5: Update the foreign function that was entered so that its code
-       returns to 'o_return_from_vm' to get back into that function. */
-    foreign_frame->code = vm->foreign_code;
-    foreign_frame->code_pos = 0;
-    foreign_frame->regs_used = (function_val_return_type != NULL);
-    foreign_frame->return_reg = -1;
-    foreign_frame->upvalues = NULL;
-    foreign_frame->build_value = NULL;
-
-    /* Step 6: Set the second stack entry (the native function). */
-    lily_call_frame *native_frame = foreign_frame->next;
-    native_frame->code = function_val->code;
-    native_frame->code_pos = 0;
-    native_frame->regs_used = function_val->reg_count;
-    native_frame->return_reg = 0;
-    native_frame->function = function_val;
-    native_frame->line_num = 0;
-    native_frame->upvalues = NULL;
-    native_frame->build_value = NULL;
-
-    /* lily_vm_foreign_call will bump this up before each call. The goal
-       is for control to seamlessly return to lily_vm_execute which will
-       drop the stack back to the right place. */
-    vm->call_chain = foreign_frame;
-}
-
-/******************************************************************************/
 /* Exported functions                                                         */
 /******************************************************************************/
 
@@ -1910,6 +1743,117 @@ void lily_move_raw_value(lily_vm_state *vm, lily_value *left,
 
     left->value = raw_right;
     left->flags = flags | (cls->flags & VAL_IS_PRIMITIVE);
+}
+
+/*  This is used by a function (the caller) to call another function (the
+    target). It is assumed that this function will be invoked within a loop, and
+    will be the only foreign function called within that loop. The cache should
+    be the address of an int set to 0. It will be set to 1 after the first pass,
+    so that subsequent passes can skip some work.
+
+    Notes:
+
+    * If the target causes an exception to be thrown, then the caller will be
+      bypassed, with control returning to the vm.
+
+    * The caller should be aware that this may grow the current register count.
+      That may, in turn, cause vm->vm_regs to be moved (so the caller must never
+      use a local copy of vm->vm_regs made before a call to this).
+
+    * If the target returns a value, then this will return that value. If it
+      does not, then this shall return NULL. */
+lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
+        lily_value *call_val, int num_values, ...)
+{
+    lily_function_val *target = call_val->value.function;
+    lily_type *return_type = call_val->type->subtypes[0];
+    lily_call_frame *calling_frame = vm->call_chain;
+    int have_return = return_type != NULL;
+    int target_need;
+    /* Don't set this just yet: grow_vm_registers may move it. */
+    int register_need;
+    lily_value **vm_regs;
+    lily_value *return_reg;
+
+    target_need = target->reg_count;
+    register_need = vm->num_registers + target_need + have_return;
+
+    if (vm->num_registers + register_need > vm->offset_max_registers)
+        grow_vm_registers(vm, register_need);
+
+    /* The vm doesn't increase vm->vm_regs for foreign calls, so that foreign
+       calls can use indexes from the caller without copying over. Since this is
+       going to put the vm in another function, that increase has to be done.
+       This local copy of vm_regs will have [0] set to target the caller's one
+       spare register. */
+    vm_regs = vm->vm_regs + calling_frame->prev->regs_used;
+
+    if (have_return) {
+        return_reg = vm_regs[0];
+
+        if ((return_reg->flags & VAL_IS_NOT_DEREFABLE) == 0)
+            lily_deref(return_reg);
+
+        return_reg->type = return_type;
+        return_reg->flags = VAL_IS_NIL;
+
+        vm_regs++;
+    }
+    else
+        return_reg = NULL;
+
+    if (*cached == 0) {
+        lily_call_frame *caller_frame = vm->call_chain;
+        caller_frame->code = vm->foreign_code;
+        caller_frame->code_pos = 0;
+        caller_frame->return_reg = -1;
+        caller_frame->build_value = NULL;
+        caller_frame->line_num = 0;
+
+        if (caller_frame->next == NULL) {
+            add_call_frame(vm);
+            /* The vm's call chain automatically advances when add_call_frame is
+               used. That's useful for the vm, but not here. Rewind the frame
+               back so that every invocation of this call will have the same
+               call_chain. */
+            vm->call_chain = caller_frame;
+        }
+
+        lily_call_frame *target_frame = caller_frame->next;
+        target_frame->code = target->code;
+        target_frame->code_pos = 0;
+        target_frame->regs_used = target_need;
+        target_frame->function = target;
+        target_frame->line_num = 0;
+        target_frame->build_value = NULL;
+    }
+
+    /* Read the values in that the caller passed. It is assumed that the caller
+       passed a valid number of values. Nothing needs to be done for optional
+       arguments: It is up to the target to handle that situation. */
+    va_list values;
+    va_start(values, num_values);
+    int i;
+    for (i = 0;i < num_values;i++) {
+        lily_value *v = va_arg(values, lily_value *);
+        if ((vm_regs[i]->flags & VAL_IS_NOT_DEREFABLE) == 0)
+            lily_deref(vm_regs[i]);
+        if ((v->flags & VAL_IS_NOT_DEREFABLE) == 0)
+            v->value.generic->refcount++;
+
+        *vm_regs[i] = *v;
+    }
+    va_end(values);
+
+    vm->vm_regs = vm_regs;
+    vm->call_chain = vm->call_chain->next;
+    vm->num_registers += target_need;
+    *cached = 1;
+
+    if (target->code)
+        lily_vm_execute(vm);
+
+    return return_reg;
 }
 
 /*  This is used by modules to raise exceptions which are marked as dynaloaded
@@ -2005,7 +1949,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
        registers to integer's type. */
     vm->integer_type = symtab->integer_class->type;
 
-    if (main_function->reg_count > vm->max_registers) {
+    if (main_function->reg_count > vm->offset_max_registers) {
         grow_vm_registers(vm, main_function->reg_count);
         /* grow_vm_registers will move vm->vm_regs (which is supposed to be
            local). That works everywhere...but here. Fix vm_regs back to the
@@ -2062,7 +2006,7 @@ void lily_vm_execute(lily_vm_state *vm)
     uint16_t *code;
     lily_value **regs_from_main;
     lily_value **vm_regs;
-    int i, num_registers, max_registers;
+    int i, num_registers, offset_max_registers;
     lily_type *cast_type;
     register int64_t for_temp;
     /* This unfortunately has to be volatile because otherwise calltrace() and
@@ -2086,7 +2030,7 @@ void lily_vm_execute(lily_vm_state *vm)
     vm_regs = vm->vm_regs;
     regs_from_main = vm->regs_from_main;
     num_registers = vm->num_registers;
-    max_registers = vm->max_registers;
+    offset_max_registers = vm->offset_max_registers;
     code_pos = 0;
 
     /* Only install a raiser jump on the first vm entry. */
@@ -2265,12 +2209,12 @@ void lily_vm_execute(lily_vm_state *vm)
                 if (fval->code != NULL) {
                     int register_need = fval->reg_count + num_registers;
 
-                    if (register_need > max_registers) {
+                    if (register_need > offset_max_registers) {
                         grow_vm_registers(vm, register_need);
                         /* Don't forget to update local info... */
-                        regs_from_main = vm->regs_from_main;
-                        vm_regs        = vm->vm_regs;
-                        max_registers  = vm->max_registers;
+                        regs_from_main       = vm->regs_from_main;
+                        vm_regs              = vm->vm_regs;
+                        offset_max_registers = vm->offset_max_registers;
                     }
 
                     /* Prepare the registers for what the function wants.
@@ -2310,21 +2254,29 @@ void lily_vm_execute(lily_vm_state *vm)
                     current_frame->code = NULL;
                     current_frame->build_value = NULL;
                     current_frame->upvalues = NULL;
+                    current_frame->regs_used = 1;
                     /* An offset from main does not have to be included, because
                        foreign functions don't have code which can catch an
                        exception. */
                     vm->call_depth++;
 
+                    /* This is done so that the foreign call API can safely
+                       store an intermediate value without worrying about having
+                       to toggle this. There's no harm in this because there are
+                       always two spare registers alloted. */
+                    vm->num_registers++;
+
                     func(vm, j, code+code_pos+5);
                     /* This function may have called the vm, thus growing the
                        number of registers. Copy over important data if that's
                        happened. */
-                    if (vm->max_registers != max_registers) {
-                        regs_from_main = vm->regs_from_main;
-                        vm_regs        = vm->vm_regs;
-                        max_registers  = vm->max_registers;
+                    if (vm->offset_max_registers != offset_max_registers) {
+                        regs_from_main       = vm->regs_from_main;
+                        vm_regs              = vm->vm_regs;
+                        offset_max_registers = vm->offset_max_registers;
                     }
 
+                    vm->num_registers--;
                     current_frame = current_frame->prev;
                     vm->call_chain = current_frame;
 

@@ -17,6 +17,8 @@ typedef struct lily_call_frame_ {
     int code_pos;
     int line_num;
 
+    uint32_t offset_to_main;
+
     lily_value **upvalues;
 
     /* This is set to the value of 'self' within the ::new of a class. The
@@ -37,12 +39,17 @@ typedef struct lily_vm_catch_entry_ {
        attempting to walk the call chain backward to figure out where
        vm->vm_regs will end up. */
     int offset_from_main;
-    int call_frame_depth;
     int code_pos;
+    uint32_t call_frame_depth;
+    uint32_t dispatch_restore;
 
     struct lily_vm_catch_entry_ *next;
     struct lily_vm_catch_entry_ *prev;
 } lily_vm_catch_entry;
+
+typedef struct {
+    uint8_t did_setup;
+} lily_call_cache;
 
 typedef struct lily_vm_state_ {
     lily_value **vm_regs;
@@ -59,7 +66,12 @@ typedef struct lily_vm_state_ {
     lily_gc_entry *gc_spare_entries;
 
     uint32_t num_registers;
-    uint32_t max_registers;
+
+    /* This is how many registers the vm has made, minus 2. This is used along
+       with the number of registers to determine */
+    uint32_t offset_max_registers;
+    uint32_t true_max_registers;
+    uint32_t pad;
 
     uint32_t readonly_count;
 
@@ -114,14 +126,12 @@ void lily_move_raw_value(lily_vm_state *, lily_value *, int, lily_raw_value);
 uint64_t lily_calculate_siphash(char *, lily_value *);
 void lily_process_format_string(lily_vm_state *, uint16_t *);
 
+lily_value *lily_foreign_call(lily_vm_state *, int *, lily_value *,
+        int, ...);
+
 void lily_vm_set_error(lily_vm_state *, const struct lily_base_seed_ *,
         const char *);
 void lily_vm_raise_prepared(lily_vm_state *);
 void lily_vm_module_raise(lily_vm_state *, const struct lily_base_seed_ *,
         const char *);
-
-void lily_vm_foreign_call(lily_vm_state *vm);
-void lily_vm_foreign_prep(lily_vm_state *, lily_value *);
-void lily_vm_foreign_load_by_val(lily_vm_state *, int, lily_value *);
-lily_value *lily_vm_get_foreign_reg(lily_vm_state *, int);
 #endif
