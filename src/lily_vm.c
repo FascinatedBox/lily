@@ -115,6 +115,31 @@ code_pos += 5;
 
 static void add_call_frame(lily_vm_state *);
 
+/*  This demands some explanation. A foreign function takes three arguments: The
+    vm, a number of arguments, and the arguments themselves. There are times
+    when a foreign function wants to call another foreign function such as
+        ["a", "b", "c"].apply(string::upper)
+
+    The calling function (list::apply) has one register set aside for
+    string::upper's result. string::upper needs a value, and needs to return
+    to somewhere.
+
+    Emitter writes down function calls in the form of '#values, return, args...'
+    In the above case, vm_regs[0] is where the return is, and the one argument
+    is at [1]. If there were two arguments, then the second argument would be
+    at [2]. The third at [3], etc.
+
+    This allows passing a maximum of 64 values (including the return). 64 values
+    should be enough for everyone. :) */
+static uint16_t foreign_call_stack[] = {0,
+     1,  2,  3,  4,  5,  6,  7,  8,  9, 10,
+    11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+    21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+    31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+    41, 42, 43, 44, 45, 46, 47, 48, 49, 50,
+    51, 52, 53, 54, 55, 56, 57, 58, 59, 60,
+    61, 62, 63, 64};
+
 /*****************************************************************************/
 /* VM setup and teardown                                                     */
 /*****************************************************************************/
@@ -1764,14 +1789,19 @@ lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
     lily_function_val *target = call_val->value.function;
     lily_type *return_type = call_val->type->subtypes[0];
     lily_call_frame *calling_frame = vm->call_chain;
+    int is_native_target = (target->foreign_func == NULL);
     int have_return = return_type != NULL;
     int target_need;
-    /* Don't set this just yet: grow_vm_registers may move it. */
     int register_need;
+    /* Don't set this just yet: grow_vm_registers may move it. */
     lily_value **vm_regs;
     lily_value *return_reg;
 
-    target_need = target->reg_count;
+    if (is_native_target)
+        target_need = target->reg_count;
+    else
+        target_need = num_values;
+
     register_need = vm->num_registers + target_need + have_return;
 
     if (vm->num_registers + register_need > vm->offset_max_registers)
@@ -1792,11 +1822,13 @@ lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
 
         return_reg->type = return_type;
         return_reg->flags = VAL_IS_NIL;
-
-        vm_regs++;
     }
     else
         return_reg = NULL;
+
+    /* This makes it so the values that get read in will drop into the registers
+       that the target will use. */
+    vm_regs++;
 
     if (*cached == 0) {
         lily_call_frame *caller_frame = vm->call_chain;
@@ -1848,6 +1880,18 @@ lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
 
     if (target->code)
         lily_vm_execute(vm);
+    else {
+        /* The drop is so vm_regs[0] targets the return value. */
+        vm->vm_regs--;
+        target->foreign_func(vm, num_values + 1, foreign_call_stack);
+        /* The values set above need to be manually scaled back because foreign
+           functions assume the vm will do it for them. */
+        vm->call_chain = vm->call_chain->prev;
+        vm->num_registers -= target_need;
+        /* Don't do "vm->vm_regs = vm_regs", because the target may have caused
+           the registers to have reallocated. */
+        vm->vm_regs -= vm->call_chain->prev->regs_used;
+    }
 
     return return_reg;
 }
