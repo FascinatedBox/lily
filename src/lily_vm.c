@@ -580,22 +580,15 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
     been made into.
 
     func:           A value holding a function to be called.
-    result_type:     The type that the result of this function call will
-                    produce. This is necessary when the emitter's type
-                    inference is used to deduce an output type when an input
-                    of that type is not given as an argument.
-    args_collected: How many arguments the function got.
-    reg_start:      Where the registers for the function start. This is used
-                    with args_collected to get type information from args,
-                    which is then used to resolve the locals/storages.
+    args_collected: How many values were collected for this function.
 
     This is only called if there are locals/storages in a generic function. */
 static void resolve_generic_registers(lily_vm_state *vm,
-        lily_function_val *fval, int args_collected, int reg_start)
+        lily_function_val *fval, int args_collected)
 {
-    lily_value **regs_from_main = vm->regs_from_main;
     int save_ceiling = lily_ts_raise_ceiling(vm->ts);
     int i;
+    lily_value **target_regs = vm->regs_from_main + vm->num_registers;
 
     /* lily_type_stack has a function called lily_ts_check which both checks
        that types are equal AND initializes generics by the first type seen.
@@ -609,7 +602,7 @@ static void resolve_generic_registers(lily_vm_state *vm,
        somewhere within the parameters. */
     for (i = 0;i < args_collected;i++) {
         lily_type *left_type = ri[i].type;
-        lily_type *right_type = regs_from_main[reg_start + i]->type;
+        lily_type *right_type = target_regs[i]->type;
 
         lily_ts_check(vm->ts, left_type, right_type);
     }
@@ -623,7 +616,7 @@ static void resolve_generic_registers(lily_vm_state *vm,
         if (new_type->flags & TYPE_IS_UNRESOLVED)
             new_type = lily_ts_resolve(vm->ts, new_type);
 
-        lily_value *reg = regs_from_main[reg_start + i];
+        lily_value *reg = target_regs[i];
 
         lily_deref(reg);
 
@@ -642,18 +635,18 @@ static void resolve_generic_registers(lily_vm_state *vm,
 static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
         uint16_t *code)
 {
-    lily_value **vm_regs = vm->vm_regs;
-    lily_value **regs_from_main = vm->regs_from_main;
     lily_register_info *register_seeds = fval->reg_info;
     int num_registers = vm->num_registers;
     int register_need = vm->num_registers + fval->reg_count;
     int i;
+    lily_value **input_regs = vm->vm_regs;
+    lily_value **target_regs = vm->regs_from_main + num_registers;
 
     /* A function's args always come first, so copy arguments over while clearing
        old values. */
     for (i = 0;i < code[4];i++, num_registers++) {
-        lily_value *get_reg = vm_regs[code[6+i]];
-        lily_value *set_reg = regs_from_main[num_registers];
+        lily_value *get_reg = input_regs[code[6+i]];
+        lily_value *set_reg = target_regs[i];
 
         /* The get must be run before the set. Otherwise, if
            something has 1 ref and assigns to itself, it will be
@@ -668,26 +661,26 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
         *set_reg = *get_reg;
     }
 
-    if (fval->has_generics == 0) {
-        /* For the rest of the registers, clear whatever value they have. */
-        for (;num_registers < register_need;i++, num_registers++) {
-            lily_register_info seed = register_seeds[i];
+    if (i != fval->reg_count) {
+        if (fval->has_generics == 0) {
+            /* For the rest of the registers, clear whatever value they have. */
+            for (;i < fval->reg_count;i++) {
+                lily_register_info seed = register_seeds[i];
 
-            lily_value *reg = regs_from_main[num_registers];
-            lily_deref(reg);
+                lily_value *reg = target_regs[i];
+                lily_deref(reg);
 
-            /* SET the flags to nil so that VAL_IS_PROTECTED gets blasted away if
-               it happens to be set. */
-            reg->flags = VAL_IS_NIL;
-            reg->type = seed.type;
+                /* SET the flags to nil so that VAL_IS_PROTECTED gets blasted away if
+                it happens to be set. */
+                reg->flags = VAL_IS_NIL;
+                reg->type = seed.type;
+            }
         }
-    }
-    else if (num_registers < register_need) {
-        resolve_generic_registers(vm, fval, i, num_registers - i);
-        num_registers = register_need;
+        else
+            resolve_generic_registers(vm, fval, i);
     }
 
-    vm->num_registers = num_registers;
+    vm->num_registers = register_need;
 }
 
 static void load_ties_into_readonly(lily_tie **readonly, lily_tie *tie,
