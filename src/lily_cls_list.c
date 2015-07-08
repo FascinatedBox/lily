@@ -201,14 +201,16 @@ void lily_list_append(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 void lily_list_apply(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_list_val *list_val = vm_regs[code[1]]->value.list;
+    lily_value *list_reg = vm_regs[code[1]];
     lily_value *function_reg = vm_regs[code[2]];
+    lily_list_val *list_val = list_reg->value.list;
+    lily_type *expect_type = list_reg->type->subtypes[0];
     int cached = 0;
 
     int i;
     for (i = 0;i < list_val->num_values;i++) {
-        lily_value *result = lily_foreign_call(vm, &cached, function_reg, 1,
-                list_val->elems[i]);
+        lily_value *result = lily_foreign_call(vm, &cached, expect_type,
+                function_reg, 1, list_val->elems[i]);
 
         lily_assign_value(vm, list_val->elems[i], result);
     }
