@@ -627,6 +627,29 @@ static void resolve_generic_registers(lily_vm_state *vm,
     lily_ts_lower_ceiling(vm->ts, save_ceiling);
 }
 
+static inline void fix_register_types(lily_vm_state *vm,
+        lily_function_val *fval, int args_collected)
+{
+    if (fval->has_generics == 0) {
+        lily_value **target_regs = vm->regs_from_main + vm->num_registers;
+        lily_register_info *register_seeds = fval->reg_info;
+        /* For the rest of the registers, clear whatever value they have. */
+        for (;args_collected < fval->reg_count;args_collected++) {
+            lily_register_info seed = register_seeds[args_collected];
+
+            lily_value *reg = target_regs[args_collected];
+            lily_deref(reg);
+
+            /* SET the flags to nil so that VAL_IS_PROTECTED gets blasted away
+               if it happens to be set. */
+            reg->flags = VAL_IS_NIL;
+            reg->type = seed.type;
+        }
+    }
+    else
+        resolve_generic_registers(vm, fval, args_collected);
+}
+
 /*  prep_registers
     This prepares the vm's registers for a 'native' function call. This blasts
     values in the registers for the native call while copying the callee's
@@ -635,16 +658,14 @@ static void resolve_generic_registers(lily_vm_state *vm,
 static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
         uint16_t *code)
 {
-    lily_register_info *register_seeds = fval->reg_info;
-    int num_registers = vm->num_registers;
     int register_need = vm->num_registers + fval->reg_count;
     int i;
     lily_value **input_regs = vm->vm_regs;
-    lily_value **target_regs = vm->regs_from_main + num_registers;
+    lily_value **target_regs = vm->regs_from_main + vm->num_registers;
 
     /* A function's args always come first, so copy arguments over while clearing
        old values. */
-    for (i = 0;i < code[4];i++, num_registers++) {
+    for (i = 0;i < code[4];i++) {
         lily_value *get_reg = input_regs[code[6+i]];
         lily_value *set_reg = target_regs[i];
 
@@ -661,24 +682,8 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
         *set_reg = *get_reg;
     }
 
-    if (i != fval->reg_count) {
-        if (fval->has_generics == 0) {
-            /* For the rest of the registers, clear whatever value they have. */
-            for (;i < fval->reg_count;i++) {
-                lily_register_info seed = register_seeds[i];
-
-                lily_value *reg = target_regs[i];
-                lily_deref(reg);
-
-                /* SET the flags to nil so that VAL_IS_PROTECTED gets blasted away if
-                it happens to be set. */
-                reg->flags = VAL_IS_NIL;
-                reg->type = seed.type;
-            }
-        }
-        else
-            resolve_generic_registers(vm, fval, i);
-    }
+    if (i != fval->reg_count)
+        fix_register_types(vm, fval, i);
 
     vm->num_registers = register_need;
 }
@@ -1777,13 +1782,12 @@ void lily_move_raw_value(lily_vm_state *vm, lily_value *left,
     * If the target returns a value, then this will return that value. If it
       does not, then this shall return NULL. */
 lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
-        lily_value *call_val, int num_values, ...)
+         lily_type *expect_type, lily_value *call_val, int num_values, ...)
 {
     lily_function_val *target = call_val->value.function;
-    lily_type *return_type = call_val->type->subtypes[0];
     lily_call_frame *calling_frame = vm->call_chain;
     int is_native_target = (target->foreign_func == NULL);
-    int have_return = return_type != NULL;
+    int have_return = expect_type != NULL;
     int target_need;
     int register_need;
     /* Don't set this just yet: grow_vm_registers may move it. */
@@ -1813,7 +1817,9 @@ lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
         if ((return_reg->flags & VAL_IS_NOT_DEREFABLE) == 0)
             lily_deref(return_reg);
 
-        return_reg->type = return_type;
+        /* The foreign call may have a return that isn't solved, so the caller
+           is expected to provide a solved one. */
+        return_reg->type = expect_type;
         return_reg->flags = VAL_IS_NIL;
     }
     else
@@ -1866,6 +1872,9 @@ lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
     }
     va_end(values);
 
+    if (is_native_target && i != target->reg_count)
+        fix_register_types(vm, target, i);
+
     vm->vm_regs = vm_regs;
     vm->call_chain = vm->call_chain->next;
     vm->num_registers += target_need;
@@ -1881,10 +1890,11 @@ lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
            functions assume the vm will do it for them. */
         vm->call_chain = vm->call_chain->prev;
         vm->num_registers -= target_need;
-        /* Don't do "vm->vm_regs = vm_regs", because the target may have caused
-           the registers to have reallocated. */
-        vm->vm_regs -= vm->call_chain->prev->regs_used;
     }
+
+    /* Don't do "vm->vm_regs = vm_regs", because the target may have caused the
+       registers to have reallocated. */
+    vm->vm_regs -= vm->call_chain->prev->regs_used;
 
     return return_reg;
 }
