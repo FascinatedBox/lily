@@ -273,7 +273,6 @@ void lily_emit_finalize_for_in(lily_emit_state *, lily_var *, lily_var *,
         lily_var *, lily_var *, int);
 void lily_emit_eval_lambda_body(lily_emit_state *, lily_ast_pool *, lily_type *,
         int);
-void lily_emit_lambda_dispatch(lily_emit_state *, lily_ast_pool *);
 void lily_emit_write_import_call(lily_emit_state *, lily_var *);
 void lily_emit_write_optargs(lily_emit_state *, uint16_t *, uint16_t);
 
