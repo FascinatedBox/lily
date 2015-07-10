@@ -3103,8 +3103,9 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        the expression function to ensure that the body of the lambda is valid. */
     lily_ast_freeze_state(parser->ast_pool);
     expression(parser);
-    lily_emit_eval_lambda_body(parser->emit, parser->ast_pool, result_wanted,
+    lily_emit_eval_lambda_body(parser->emit, parser->ast_pool, expect_type,
             did_resolve);
+
     if (parser->ast_pool->root->result)
         /* Save this before state thaw wipes it out. It can't be gotten (easily)
            later. */
