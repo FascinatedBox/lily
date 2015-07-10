@@ -1,0 +1,6 @@
+define f(g: function(integer, integer))
+{
+    g(1, 2)
+}
+
+f({|a, b| a + b})

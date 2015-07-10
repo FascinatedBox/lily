@@ -3987,18 +3987,36 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     emit->patch_pos++;
 }
 
+/*  Evaluate a single expression within a lambda on behalf of the parser. If
+    possible, type inference is performed upon the result of the expression.
+
+    * full_type:   This either describes what the entire lambda is expected to
+                   be, or is NULL. The type that the expression should return is
+                   the return type of this type.
+    * did_resolve: If 1, full_type has already been resolved, and cannot be
+                   resolved again. If 0, it can be resolved if it's generic. */
 void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
-        lily_type *wanted_type, int did_resolve)
+        lily_type *full_type, int did_resolve)
 {
+    lily_type *wanted_type = NULL;
+    if (full_type)
+        wanted_type = full_type->subtypes[0];
+
     if (wanted_type && wanted_type->cls->id == SYM_CLASS_GENERIC &&
         did_resolve == 0) {
         wanted_type = lily_ts_easy_resolve(emit->ts, wanted_type);
         did_resolve = 1;
     }
 
+    /* If full_type is NULL, then the parent is considered to have no particular
+       opinion as to if the lambda should or should not return a value. Default
+       to returning something. In the case that the parent has an opinion, and
+       the opinion is to not return anything, respect that. */
+    int return_wanted = (full_type == NULL || full_type->subtypes[0] != NULL);
+
     eval_tree(emit, ap->root, wanted_type, did_resolve);
 
-    if (ap->root->result != NULL) {
+    if (return_wanted && ap->root->result != NULL) {
         /* Type inference has to be done here, because the callers won't know
            to do it. This is similar to how return has to do this too.
            But don't error for the wrong type: Instead, let the info bubble
@@ -4006,9 +4024,14 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
         if (wanted_type != NULL && ap->root->result->type != wanted_type)
             type_matchup(emit, wanted_type, ap->root);
 
-        write_3(emit, o_return_val, ap->root->line_num,
-                ap->root->result->reg_spot);
+        /* If the caller doesn't want a return, then don't give one...regardless
+           of if there is one available. */
+            write_3(emit, o_return_val, ap->root->line_num,
+                    ap->root->result->reg_spot);
     }
+    else if (return_wanted == 0)
+        ap->root->result = NULL;
+
     /* It's important to NOT increase the count of expressions here. If it were
        to be increased, then the expression holding the lambda would think it
        isn't using any storages (and start writing over the ones that it is
