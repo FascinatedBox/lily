@@ -4368,19 +4368,6 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
     emit->block = new_block;
 }
 
-lily_block *find_block_of_type(lily_emit_state *emit, int type)
-{
-    lily_block *block_iter = emit->block->prev;
-    while (block_iter) {
-        if (block_iter->block_type & type)
-            break;
-
-        block_iter = block_iter->prev;
-    }
-
-    return block_iter;
-}
-
 /*  lily_emit_leave_block
     Leave a block. This includes a check for trying to leave from __main__.
     This hides vars that are no longer in scope, as well as finializing
