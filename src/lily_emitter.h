@@ -5,6 +5,25 @@
 # include "lily_symtab.h"
 # include "lily_type_system.h"
 
+typedef enum {
+    block_if,
+    block_if_elif,
+    block_if_else,
+    block_andor,
+    block_while,
+    block_do_while,
+    block_for_in,
+    block_try,
+    block_try_except,
+    block_match,
+    /* Anything past here has a function created on behalf of it, and thus must
+       go through a special entry/exit. */
+    block_define,
+    block_class,
+    block_lambda,
+    block_file
+} lily_block_type;
+
 typedef struct lily_block_ {
     /* This block can use storages starting from here. */
     lily_storage *storage_start;
@@ -30,7 +49,7 @@ typedef struct lily_block_ {
 
     uint16_t closed_start;
 
-    uint32_t block_type;
+    lily_block_type block_type : 32;
 
     /* Functions/lambdas: The start of this thing's code within emitter's
        code block. */
@@ -247,24 +266,6 @@ typedef struct {
     lily_symtab *symtab;
 } lily_emit_state;
 
-# define BLOCK_IF         0x00001
-# define BLOCK_IF_ELIF    0x00002
-# define BLOCK_IF_ELSE    0x00004
-# define BLOCK_ANDOR      0x00010
-# define BLOCK_WHILE      0x00020
-# define BLOCK_DO_WHILE   0x00040
-# define BLOCK_FOR_IN     0x00100
-# define BLOCK_TRY        0x00200
-# define BLOCK_TRY_EXCEPT 0x00400
-# define BLOCK_CLASS      0x01000
-# define BLOCK_MATCH      0x02000
-# define BLOCK_LAMBDA     0x04000
-# define BLOCK_FUNCTION   0x10000
-/* This includes 0x20000 to set it apart from others, as well as 0x10000 so that
-   it's treated like a function. It's done this way because __main__ calls a
-   special __import__ function for each imported file. */
-# define BLOCK_FILE       0x30000
-
 void lily_emit_eval_condition(lily_emit_state *, lily_ast_pool *);
 void lily_emit_eval_expr_to_var(lily_emit_state *, lily_ast_pool *,
         lily_var *);
@@ -287,7 +288,7 @@ void lily_emit_return(lily_emit_state *, lily_ast *);
 void lily_emit_change_block_to(lily_emit_state *emit, int);
 void lily_emit_enter_simple_block(lily_emit_state *, int);
 
-void lily_emit_enter_block(lily_emit_state *, int);
+void lily_emit_enter_block(lily_emit_state *, lily_block_type);
 void lily_emit_leave_block(lily_emit_state *);
 
 void lily_emit_try(lily_emit_state *, int);
