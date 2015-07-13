@@ -1114,19 +1114,20 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     lily_var *call_var;
     lily_symtab *symtab = parser->symtab;
     lily_emit_state *emit = parser->emit;
-    int block_type, generics_used;
+    lily_block_type block_type;
+    int generics_used;
     int flags = TC_MAKE_VARS | TC_TOPLEVEL;
 
     if (decl_class != NULL) {
         call_var = lily_emit_new_define_var(emit, call_type, "new");
 
-        block_type = BLOCK_FUNCTION | BLOCK_CLASS;
+        block_type = block_class;
         flags |= TC_CLASS_INIT;
     }
     else {
         ensure_unique_method_name(parser, lex->label);
         call_var = lily_emit_new_define_var(emit, call_type, lex->label);
-        block_type = BLOCK_FUNCTION;
+        block_type = block_define;
     }
 
     lily_lexer(lex);
@@ -1750,7 +1751,7 @@ static void var_handler(lily_parse_state *parser, int multi)
     int flags = SYM_NOT_INITIALIZED;
 
     lily_token token, want_token, other_token;
-    if (parser->emit->block->block_type & BLOCK_CLASS) {
+    if (parser->emit->block->block_type == block_class) {
         want_token = tk_prop_word;
         other_token = tk_word;
     }
@@ -2018,7 +2019,7 @@ static void if_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
 
-    lily_emit_enter_block(parser->emit, BLOCK_IF);
+    lily_emit_enter_block(parser->emit, block_if);
     expression(parser);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
     NEED_CURRENT_TOK(tk_colon)
@@ -2053,7 +2054,7 @@ static void if_handler(lily_parse_state *parser, int multi)
 static void elif_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
-    lily_emit_change_block_to(parser->emit, BLOCK_IF_ELIF);
+    lily_emit_change_block_to(parser->emit, block_if_elif);
     expression(parser);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
 
@@ -2069,7 +2070,7 @@ static void else_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
 
-    lily_emit_change_block_to(parser->emit, BLOCK_IF_ELSE);
+    lily_emit_change_block_to(parser->emit, block_if_else);
     NEED_CURRENT_TOK(tk_colon)
     lily_lexer(lex);
 
@@ -2081,7 +2082,7 @@ static void else_handler(lily_parse_state *parser, int multi)
     if an expression is needed, or if just 'return' alone is fine. */
 static void return_handler(lily_parse_state *parser, int multi)
 {
-    if (parser->emit->block->block_type & BLOCK_CLASS)
+    if (parser->emit->block->block_type == block_class)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'return' not allowed in a class constructor.\n");
 
@@ -2113,7 +2114,7 @@ static void while_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
 
-    lily_emit_enter_block(parser->emit, BLOCK_WHILE);
+    lily_emit_enter_block(parser->emit, block_while);
 
     expression(parser);
     lily_emit_eval_condition(parser->emit, parser->ast_pool);
@@ -2216,7 +2217,7 @@ static void for_handler(lily_parse_state *parser, int multi)
 
     NEED_CURRENT_TOK(tk_word)
 
-    lily_emit_enter_block(parser->emit, BLOCK_FOR_IN);
+    lily_emit_enter_block(parser->emit, block_for_in);
 
     loop_var = lily_find_var(parser->symtab, NULL, lex->label);
     if (loop_var == NULL) {
@@ -2280,7 +2281,7 @@ static void do_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
 
-    lily_emit_enter_block(parser->emit, BLOCK_DO_WHILE);
+    lily_emit_enter_block(parser->emit, block_do_while);
 
     NEED_CURRENT_TOK(tk_colon)
     lily_lexer(lex);
@@ -2349,7 +2350,7 @@ static void except_handler(lily_parse_state *parser, int multi)
     }
 
     NEED_CURRENT_TOK(tk_colon)
-    lily_emit_change_block_to(parser->emit, BLOCK_TRY_EXCEPT);
+    lily_emit_change_block_to(parser->emit, block_try_except);
     lily_emit_except(parser->emit, exception_class, exception_var,
             lex->line_num);
 
@@ -2476,7 +2477,7 @@ static void import_handler(lily_parse_state *parser, int multi)
                 lily_var *import_var = lily_emit_new_define_var(parser->emit,
                         parser->default_call_type, "__import__");
 
-                lily_emit_enter_block(parser->emit, BLOCK_FILE);
+                lily_emit_enter_block(parser->emit, block_file);
 
                 /* The whole of the file can be thought of as one large
                    statement. */
@@ -2490,7 +2491,7 @@ static void import_handler(lily_parse_state *parser, int multi)
                     lily_raise(parser->raiser, lily_SyntaxError,
                             "'}' outside of a block.\n");
 
-                if (parser->emit->block->block_type != BLOCK_FILE)
+                if (parser->emit->block->block_type != block_file)
                     lily_raise(parser->raiser, lily_SyntaxError,
                             "Unterminated block(s) at end of file.\n");
 
@@ -2529,7 +2530,7 @@ static void try_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
 
-    lily_emit_enter_block(parser->emit, BLOCK_TRY);
+    lily_emit_enter_block(parser->emit, block_try);
     lily_emit_try(parser->emit, parser->lex->line_num);
 
     NEED_CURRENT_TOK(tk_colon)
@@ -2573,7 +2574,7 @@ static void ensure_valid_class(lily_parse_state *parser, char *name)
 
     lily_block *block = parser->emit->block;
 
-    if (block->block_type != BLOCK_FILE && block->prev != NULL) {
+    if (block->block_type != block_file && block->prev != NULL) {
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Cannot declare a class here.\n");
     }
@@ -2793,7 +2794,7 @@ static void match_handler(lily_parse_state *parser, int multi)
 
     lily_lex_state *lex = parser->lex;
 
-    lily_emit_enter_block(parser->emit, BLOCK_MATCH);
+    lily_emit_enter_block(parser->emit, block_match);
 
     expression(parser);
     lily_emit_eval_match_expr(parser->emit, parser->ast_pool);
@@ -2832,7 +2833,7 @@ static void match_handler(lily_parse_state *parser, int multi)
 static void case_handler(lily_parse_state *parser, int multi)
 {
     lily_block *block = parser->emit->block;
-    if (block->block_type != BLOCK_MATCH)
+    if (block->block_type != block_match)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'case' not allowed outside of 'match'.\n");
 
@@ -2907,7 +2908,7 @@ static void define_handler(lily_parse_state *parser, int multi)
        make that function a member of the class.
        This is safe because 'define' always exits with the top-most variable
        being what was just defined. */
-    if (parser->emit->block->block_type & BLOCK_CLASS) {
+    if (parser->emit->block->block_type == block_class) {
         lily_add_class_method(parser->symtab,
                 parser->emit->current_class,
                 parser->symtab->active_import->var_chain);
@@ -3032,7 +3033,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
 
     /* From here on, vars created will be in the scope of the lambda. Also,
        this binds a function value to lambda_var. */
-    lily_emit_enter_block(parser->emit, BLOCK_LAMBDA | BLOCK_FUNCTION);
+    lily_emit_enter_block(parser->emit, block_lambda);
 
     lily_lexer(lex);
     /* Emitter ensures that the given type is either NULL or a function

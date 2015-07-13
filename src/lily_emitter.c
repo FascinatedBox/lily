@@ -20,9 +20,9 @@
     * Doing block handling + validation (if/elif/else, for.., etc.)
     * Preparing functions to be called by the vm when functions exit. **/
 
-# define IS_LOOP_BLOCK(b) (b == BLOCK_WHILE || \
-                           b == BLOCK_DO_WHILE || \
-                           b == BLOCK_FOR_IN)
+# define IS_LOOP_BLOCK(b) (b == block_while || \
+                           b == block_do_while || \
+                           b == block_for_in)
 
 # define lily_raise_adjusted(r, adjust, error_code, message, ...) \
 { \
@@ -279,8 +279,8 @@ static int count_inner_try_blocks(lily_emit_state *emit)
     lily_block *block_iter = emit->block;
     int ret = 0;
     while (IS_LOOP_BLOCK(block_iter->block_type) == 0 &&
-           (block_iter->block_type & BLOCK_FUNCTION) == 0) {
-        if (block_iter->block_type == BLOCK_TRY)
+           block_iter->block_type < block_define) {
+        if (block_iter->block_type == block_try)
             ret++;
 
         block_iter = block_iter->prev;
@@ -322,7 +322,7 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
             ret = block;
             break;
         }
-        else if (block->block_type & BLOCK_FUNCTION) {
+        else if (block->block_type >= block_define) {
             ret = NULL;
             break;
         }
@@ -337,8 +337,8 @@ static lily_block *find_deepest_func(lily_emit_state *emit)
     lily_block *result = NULL;
 
     for (block = emit->block; block; block = block->prev) {
-        if ((block->block_type & BLOCK_FUNCTION) &&
-             block->block_type != BLOCK_FILE) {
+        if (block->block_type >= block_define &&
+            block->block_type != block_file) {
             result = block;
             break;
         }
@@ -645,7 +645,7 @@ static int find_closed_self_spot(lily_emit_state *emit)
 static void maybe_close_over_class_self(lily_emit_state *emit)
 {
     lily_block *block = emit->block;
-    while ((block->block_type & BLOCK_CLASS) == 0)
+    while (block->block_type != block_class)
         block = block->prev;
 
     lily_sym *self = (lily_sym *)block->self;
@@ -1070,7 +1070,7 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
         write_4(emit, o_create_closure, f->line_num, emit->closed_pos,
                 s->reg_spot);
 
-        if (emit->block->block_type & BLOCK_CLASS) {
+        if (emit->block->block_type == block_class) {
             /* Classes are slightly tricky. There are (up to) three different
                things that really want to be at the top of the code:
                o_new_instance, o_setup_optargs, and o_function_call (in the
@@ -1108,8 +1108,8 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
         }
     }
     else if (emit->block->prev &&
-             emit->block->prev->block_type & BLOCK_CLASS) {
-        if ((emit->block->block_type & BLOCK_LAMBDA) == 0) {
+             emit->block->prev->block_type == block_class) {
+        if (emit->block->block_type != block_lambda) {
             lily_class *cls = emit->block->prev->class_entry;
             lily_prop_entry *closure_prop = lily_find_property(emit->symtab,
                     cls, "*closure");
@@ -1258,7 +1258,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
 {
     /* A lambda block never has to update the return type because the return is
        whatever the expression in the body returns. */
-    if (block->block_type & BLOCK_LAMBDA)
+    if (block->block_type == block_lambda)
         emit->top_function_ret = emit->top_var->type->subtypes[0];
     if (emit->block->class_entry == NULL) {
         if (emit->top_function_ret == NULL)
@@ -1266,7 +1266,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
                return a value. This saves the user from having to write an explicit
                'return'. */
             write_2(emit, o_return_noval, *emit->lex_linenum);
-        else if (block->block_type == BLOCK_FUNCTION &&
+        else if (block->block_type == block_define &&
                  block->last_return != emit->code_pos) {
             /* If this is a function created with 'define', then determine if
                the last return was the last instruction written. This is the
@@ -1289,7 +1289,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     /* Information must be pulled from and saved to the last function-like
        block. This loop is because of lambdas. */
     lily_block *last_func_block = block->prev;
-    while ((last_func_block->block_type & BLOCK_FUNCTION) == 0)
+    while (last_func_block->block_type < block_define)
         last_func_block = last_func_block->prev;
 
     lily_var *v = last_func_block->function_var;
@@ -1304,13 +1304,13 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
         emit->symtab->active_import->var_chain = block->function_var;
         lily_add_class_method(emit->symtab, cls, block->function_var);
     }
-    else if (emit->block->block_type != BLOCK_FILE)
+    else if (emit->block->block_type != block_file)
         emit->symtab->active_import->var_chain = block->function_var;
     /* For file 'blocks', don't fix the var_chain or all of the toplevel
        functions in that block will vanish! */
 
     if (block->prev->generic_count != block->generic_count &&
-        (block->block_type & BLOCK_LAMBDA) == 0) {
+        block->block_type != block_lambda) {
         lily_update_symtab_generics(emit->symtab, NULL,
                 last_func_block->generic_count);
     }
@@ -1323,8 +1323,8 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
 
     /* File 'blocks' do not bump up the depth because that's used to determine
        if something is a global or not. */
-    if (block->block_type != BLOCK_FILE) {
-        if (block->block_type & BLOCK_LAMBDA)
+    if (block->block_type != block_file) {
+        if (block->block_type == block_lambda)
             emit->lambda_depth--;
 
         emit->function_depth--;
@@ -2075,7 +2075,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
     if (ast->parent == NULL ||
         (ast->parent->tree_type != tree_binary || ast->parent->op != ast->op)) {
         is_top = 1;
-        lily_emit_enter_block(emit, BLOCK_ANDOR);
+        lily_emit_enter_block(emit, block_andor);
     }
     else
         is_top = 0;
@@ -3605,24 +3605,24 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
     another block type.
 
     One example is when the parser sees 'elif'. In that case, it wants to
-    change the current block into 'BLOCK_IF_ELIF'. */
+    change the current block into 'block_if_elif'. */
 void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
 {
-    int current_type = emit->block->block_type;
+    lily_block_type current_type = emit->block->block_type;
     int save_jump;
 
-    if (new_type == BLOCK_IF_ELIF || new_type == BLOCK_IF_ELSE) {
+    if (new_type == block_if_elif || new_type == block_if_else) {
         char *block_name;
-        if (new_type == BLOCK_IF_ELIF)
+        if (new_type == block_if_elif)
             block_name = "elif";
         else
             block_name = "else";
 
-        if (current_type != BLOCK_IF && current_type != BLOCK_IF_ELIF)
+        if (current_type != block_if && current_type != block_if_elif)
             lily_raise(emit->raiser, lily_SyntaxError,
                     "'%s' without 'if'.\n", block_name);
 
-        if (current_type == BLOCK_IF_ELSE)
+        if (current_type == block_if_else)
             lily_raise(emit->raiser, lily_SyntaxError, "'%s' after 'else'.\n",
                     block_name);
 
@@ -3630,15 +3630,15 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
         if (v != emit->symtab->active_import->var_chain)
             lily_hide_block_vars(emit->symtab, v);
     }
-    else if (new_type == BLOCK_TRY_EXCEPT) {
-        if (current_type != BLOCK_TRY && current_type != BLOCK_TRY_EXCEPT)
+    else if (new_type == block_try_except) {
+        if (current_type != block_try && current_type != block_try_except)
             lily_raise(emit->raiser, lily_SyntaxError,
                     "'except' outside 'try'.\n");
 
         /* If nothing in the 'try' block raises an error, the vm needs to be
            told to unregister the 'try' block since will become unreachable
            when the jump below occurs. */
-        if (current_type == BLOCK_TRY)
+        if (current_type == block_try)
             write_1(emit, o_pop_try);
     }
 
@@ -3713,7 +3713,7 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_ast_pool *ap,
 void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
 {
     lily_ast *ast = ap->root;
-    int current_type = emit->block->block_type;
+    lily_block_type current_type = emit->block->block_type;
 
     if ((ast->tree_type == tree_literal &&
          condition_optimize_check(ast)) == 0) {
@@ -3721,7 +3721,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
                 "Conditional expression has no value.\n");
         ensure_valid_condition_type(emit, ast->result->type);
 
-        if (current_type != BLOCK_DO_WHILE)
+        if (current_type != block_do_while)
             /* If this doesn't work, add a jump which will get fixed to the next
                branch start or the end of the block. */
             emit_jump_if(emit, ast, 0);
@@ -3737,7 +3737,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
         }
     }
     else {
-        if (current_type != BLOCK_DO_WHILE) {
+        if (current_type != block_do_while) {
             /* Code that handles if/elif/else transitions expects each branch to
                write a jump. There's no easy way to tell it that none was made...
                so give it a fake jump. */
@@ -4270,7 +4270,7 @@ void lily_reset_main(lily_emit_state *emit)
 /*  lily_emit_enter_block
     Enter a block of a given type. This only handles block states, not
     multi/single line information. */
-void lily_emit_enter_block(lily_emit_state *emit, int block_type)
+void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
 {
     lily_block *new_block;
     if (emit->block->next == NULL) {
@@ -4290,7 +4290,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
     new_block->generic_count = 0;
     new_block->patch_start = emit->patch_pos;
 
-    if ((block_type & BLOCK_FUNCTION) == 0) {
+    if (block_type < block_define) {
         /* Non-functions will continue using the storages that the parent uses.
            Additionally, the same technique is used to allow loop starts to
            bubble upward until a function gets in the way. */
@@ -4302,7 +4302,7 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
     }
     else {
         lily_var *v = emit->symtab->active_import->var_chain;
-        if (block_type & BLOCK_CLASS) {
+        if (block_type == block_class) {
             emit->current_class = emit->symtab->active_import->class_chain;
             new_block->class_entry = emit->symtab->active_import->class_chain;
         }
@@ -4319,8 +4319,8 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         lily_tie_function(emit->symtab, v, fval);
 
         if (emit->function_depth >= 2 &&
-            (emit->block->block_type & BLOCK_CLASS) == 0 &&
-            (block_type == BLOCK_FUNCTION)) {
+            emit->block->block_type != block_class &&
+            block_type == block_define) {
             /* This isn't a class method and it isn't a lambda. Close over the
                function now, on the assumption that it may use upvalues. */
             close_over_sym(emit, (lily_sym *)v);
@@ -4342,12 +4342,12 @@ void lily_emit_enter_block(lily_emit_state *emit, int block_type)
         /* This causes vars within this imported file to be seen as global
            vars, instead of locals. Without this, the interpreter gets confused
            and thinks the imported file's globals are really upvalues. */
-        if (block_type != BLOCK_FILE)
+        if (block_type != block_file)
             emit->function_depth++;
 
         emit->function_block = new_block;
 
-        if (block_type & BLOCK_LAMBDA)
+        if (block_type == block_lambda)
             emit->lambda_depth++;
 
         /* This function's storages start where the unused ones start, or NULL if
@@ -4385,16 +4385,16 @@ void lily_emit_leave_block(lily_emit_state *emit)
     block_type = block->block_type;
 
     /* These blocks need to jump back up when the bottom is hit. */
-    if (block_type == BLOCK_WHILE || block_type == BLOCK_FOR_IN)
+    if (block_type == block_while || block_type == block_for_in)
         write_2(emit, o_jump, emit->loop_start - block->jump_offset);
-    else if (block_type == BLOCK_MATCH) {
+    else if (block_type == block_match) {
         ensure_proper_match_block(emit);
         emit->match_case_pos = emit->block->match_case_start;
     }
 
     v = block->var_start;
 
-    if ((block_type & BLOCK_FUNCTION) == 0) {
+    if (block_type < block_define) {
         write_block_patches(emit, emit->code_pos - block->jump_offset);
 
         lily_hide_block_vars(emit->symtab, v);
@@ -4588,7 +4588,7 @@ void lily_emit_enter_main(lily_emit_state *emit)
 
     main_block->prev = NULL;
     main_block->next = NULL;
-    main_block->block_type = BLOCK_FUNCTION;
+    main_block->block_type = block_define;
     main_block->function_var = main_var;
     main_block->storage_start = emit->all_storage_start;
     main_block->class_entry = NULL;
