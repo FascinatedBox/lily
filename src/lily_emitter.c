@@ -1923,7 +1923,7 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
     function/method defined within a class. */
 static void eval_property(lily_emit_state *emit, lily_ast *ast)
 {
-    if (emit->lambda_depth && ast->left->tree_type == tree_self);
+    if (emit->lambda_depth)
         maybe_close_over_class_self(emit);
 
     if (ast->property->type == NULL)
