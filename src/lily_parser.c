@@ -2573,11 +2573,9 @@ static void ensure_valid_class(lily_parse_state *parser, char *name)
 
     lily_block *block = parser->emit->block;
 
-    if ((block->block_type & (BLOCK_CLASS | BLOCK_FILE)) == 0 &&
-        block->prev != NULL) {
-        /* This could probably be worded better... */
+    if (block->block_type != BLOCK_FILE && block->prev != NULL) {
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Attempt to declare a class within something that isn't another class.\n");
+                "Cannot declare a class here.\n");
     }
 
     lily_class *lookup_class = lily_find_class(parser->symtab, NULL, name);
