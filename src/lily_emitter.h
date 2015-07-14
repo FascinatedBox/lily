@@ -15,6 +15,7 @@ typedef enum {
     block_for_in,
     block_try,
     block_try_except,
+    block_try_except_all,
     block_match,
     /* Anything past here has a function created on behalf of it, and thus must
        go through a special entry/exit. */
@@ -49,7 +50,12 @@ typedef struct lily_block_ {
 
     uint16_t closed_start;
 
-    lily_block_type block_type : 32;
+    /* This is used by if/elif/else, match, and try+except. If every branch of
+       a block returns a value or exits, then that information bubbles up to the
+       parent block. */
+    uint16_t all_branches_exit;
+
+    lily_block_type block_type : 16;
 
     /* Functions/lambdas: The start of this thing's code within emitter's
        code block. */
@@ -70,10 +76,10 @@ typedef struct lily_block_ {
        entry. */
     uint32_t next_reg_spot;
 
-    /* Define blocks: If the block returns a value, then this is the last
-       return instruction finished at. If no return instruction has been seen,
-       this is -1. */
-    int32_t last_return;
+    /* This is the code position of the last instruction that is known to exit
+       from the block (a return or a raise). This is used to help figure out if
+       a function claiming to return a value will actually do so. */
+    int32_t last_exit;
 
     /* Match blocks: This sym holds a register spot and the type for helping
        with match case checking. */

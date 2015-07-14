@@ -1,0 +1,7 @@
+define f(a: integer => integer)
+{
+    try:
+        return 1
+    except Exception:
+        return 2
+}

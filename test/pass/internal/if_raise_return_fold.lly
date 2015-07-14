@@ -1,0 +1,7 @@
+define f(a: integer => integer)
+{
+    if a == 1:
+        raise ValueError::new("")
+    else:
+        raise ValueError::new("")
+}

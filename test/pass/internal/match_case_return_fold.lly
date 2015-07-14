@@ -1,0 +1,11 @@
+enum class Option[A] { Some(A), None }
+
+define f(a: Option[integer] => integer)
+{
+    match a: {
+        case Some(s):
+            return 1
+        case None:
+            return 2
+    }
+}
