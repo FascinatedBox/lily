@@ -2077,6 +2077,30 @@ static void else_handler(lily_parse_state *parser, int multi)
     statement(parser, multi);
 }
 
+/*  This function is called in a multi-line block after either a return or a
+    raise is done. This ensures that there is not a statement/expression that is
+    obviously not going to execute. */
+static void ensure_no_code_after_exit(lily_parse_state *parser,
+        const char *name)
+{
+    lily_token token = parser->lex->token;
+    if (token != tk_right_curly && token != tk_eof && token != tk_end_tag) {
+        int key_id;
+        if (token == tk_word)
+            key_id = keyword_by_name(parser->lex->label);
+        else
+            key_id = -1;
+
+        /* These are not part of a statement, but instead the start of a
+           different branch. This is okay. */
+        if (key_id != KEY_ELIF && key_id != KEY_ELSE && key_id != KEY_EXCEPT &&
+            key_id != KEY_CASE) {
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Statement(s) after '%s' will not execute.\n", name);
+        }
+    }
+}
+
 /*  return_handler
     This handles the return keyword. It'll look up the current function to see
     if an expression is needed, or if just 'return' alone is fine. */
@@ -2100,9 +2124,8 @@ static void return_handler(lily_parse_state *parser, int multi)
     if (ast)
         lily_ast_reset_pool(parser->ast_pool);
 
-    if (multi && parser->lex->token != tk_right_curly)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "'return' not at the end of a multi-line block.\n");
+    if (multi)
+        ensure_no_code_after_exit(parser, "return");
 }
 
 /*  while_handler
@@ -2321,6 +2344,7 @@ static void except_handler(lily_parse_state *parser, int multi)
     /* Exception is likely to always be the base exception class. */
     lily_class *exception_base = lily_find_class(parser->symtab, NULL,
             "Exception");
+    lily_block_type new_type = block_try_except;
 
     int is_valid = lily_check_right_inherits_or_is(exception_base,
             exception_class);
@@ -2328,6 +2352,9 @@ static void except_handler(lily_parse_state *parser, int multi)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' is not a valid exception class.\n",
                 exception_class->name);
+
+    if (exception_class == exception_base)
+        new_type = block_try_except_all;
 
     lily_var *exception_var = NULL;
 
@@ -2350,7 +2377,7 @@ static void except_handler(lily_parse_state *parser, int multi)
     }
 
     NEED_CURRENT_TOK(tk_colon)
-    lily_emit_change_block_to(parser->emit, block_try_except);
+    lily_emit_change_block_to(parser->emit, new_type);
     lily_emit_except(parser->emit, exception_class, exception_var,
             lex->line_num);
 
@@ -2563,6 +2590,10 @@ static void raise_handler(lily_parse_state *parser, int multi)
 {
     expression(parser);
     lily_emit_raise(parser->emit, parser->ast_pool->root);
+
+    if (multi)
+        ensure_no_code_after_exit(parser, "raise");
+
     lily_ast_reset_pool(parser->ast_pool);
 }
 

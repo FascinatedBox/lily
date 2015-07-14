@@ -1,0 +1,7 @@
+#[
+SyntaxError: Statement(s) after 'raise' will not execute.
+Where: File "expr_after_raise.lly" at line 7
+]#
+
+raise ValueError::new("")
+var v = 10

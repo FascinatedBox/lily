@@ -1,0 +1,14 @@
+define f(a: integer => integer)
+{
+    if a == 1: {
+        if a == 2: {
+            return 1
+        elif a == 3:
+            return 2
+        else:
+            return 3
+        }
+    else:
+        return 4
+    }
+}

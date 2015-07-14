@@ -1267,7 +1267,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
                'return'. */
             write_2(emit, o_return_noval, *emit->lex_linenum);
         else if (block->block_type == block_define &&
-                 block->last_return != emit->code_pos) {
+                 block->last_exit != emit->code_pos) {
             /* If this is a function created with 'define', then determine if
                the last return was the last instruction written. This is the
                simple way of ensuring that a function always returns a value
@@ -3611,6 +3611,9 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
     lily_block_type current_type = emit->block->block_type;
     int save_jump;
 
+    if (emit->block->last_exit != emit->code_pos)
+        emit->block->all_branches_exit = 0;
+
     if (new_type == block_if_elif || new_type == block_if_else) {
         char *block_name;
         if (new_type == block_if_elif)
@@ -3630,8 +3633,11 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
         if (v != emit->symtab->active_import->var_chain)
             lily_hide_block_vars(emit->symtab, v);
     }
-    else if (new_type == block_try_except) {
-        if (current_type != block_try && current_type != block_try_except)
+    else if (new_type == block_try_except || new_type == block_try_except_all) {
+        if (current_type == block_try_except_all)
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "'except' clause is unreachable.\n");
+        else if (current_type != block_try && current_type != block_try_except)
             lily_raise(emit->raiser, lily_SyntaxError,
                     "'except' outside 'try'.\n");
 
@@ -3816,6 +3822,9 @@ int lily_emit_add_match_case(lily_emit_state *emit, int pos)
             break;
         }
     }
+
+    if (emit->block->last_exit != emit->code_pos && is_first_case == 0)
+        emit->block->all_branches_exit = 0;
 
     if (emit->match_cases[block_offset + pos] == 0) {
         emit->match_cases[block_offset + pos] = 1;
@@ -4110,7 +4119,7 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
 
     if (ast) {
         write_3(emit, o_return_val, ast->line_num, ast->result->reg_spot);
-        emit->block->last_return = emit->code_pos;
+        emit->block->last_exit = emit->code_pos;
     }
     else
         write_2(emit, o_return_noval, *emit->lex_linenum);
@@ -4181,11 +4190,13 @@ void lily_emit_raise(lily_emit_state *emit, lily_ast *ast)
             o_raise,
             ast->line_num,
             ast->result->reg_spot);
+
+    emit->block->last_exit = emit->code_pos;
 }
 
 /*  lily_emit_except
     This handles writing an 'except' block. It should be called after calling
-    to change the current block to a TRY_EXCEPT block.
+    to change the current block to a try_except block.
 
     cls:        The class that this 'except' will catch.
     except_var: If an 'as x' clause is specified, this is the var that will be
@@ -4289,6 +4300,7 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
     new_block->self = NULL;
     new_block->generic_count = 0;
     new_block->patch_start = emit->patch_pos;
+    new_block->last_exit = -1;
 
     if (block_type < block_define) {
         /* Non-functions will continue using the storages that the parent uses.
@@ -4296,6 +4308,7 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
            bubble upward until a function gets in the way. */
         new_block->storage_start = emit->block->storage_start;
         new_block->jump_offset = emit->block->jump_offset;
+        new_block->all_branches_exit = 1;
 
         if (IS_LOOP_BLOCK(block_type))
             emit->loop_start = emit->code_pos;
@@ -4355,7 +4368,6 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
         new_block->storage_start = emit->unused_storage_start;
         new_block->function_var = v;
         new_block->function_value = fval;
-        new_block->last_return = -1;
         new_block->code_start = emit->code_pos;
         new_block->jump_offset = emit->code_pos;
 
@@ -4390,6 +4402,13 @@ void lily_emit_leave_block(lily_emit_state *emit)
     else if (block_type == block_match) {
         ensure_proper_match_block(emit);
         emit->match_case_pos = emit->block->match_case_start;
+    }
+
+    if ((block_type == block_if_else ||
+         block_type == block_match ||
+         block_type == block_try_except_all) &&
+        block->all_branches_exit && block->last_exit == emit->code_pos) {
+        emit->block->prev->last_exit = emit->code_pos;
     }
 
     v = block->var_start;

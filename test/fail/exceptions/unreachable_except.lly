@@ -1,0 +1,12 @@
+#[
+SyntaxError: 'except' clause is unreachable.
+Where: File "unreachable_except.lly" at line 10
+]#
+
+try:
+    1 / 0
+except Exception:
+    1
+except IndexError:
+    2
+
