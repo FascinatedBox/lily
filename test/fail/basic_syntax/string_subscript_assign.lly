@@ -1,0 +1,8 @@
+#[
+SyntaxError: Subscript assign not allowed on type string.
+Where: File "string_subscript_assign.lly" at line 8
+]#
+
+var v = "abc"
+
+v[0] = "def"

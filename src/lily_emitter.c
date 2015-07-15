@@ -459,10 +459,11 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
         lily_ast *index_ast)
 {
     int var_cls_id = var_ast->result->type->cls->id;
-    if (var_cls_id == SYM_CLASS_LIST) {
+    if (var_cls_id == SYM_CLASS_LIST || var_cls_id == SYM_CLASS_STRING) {
         if (index_ast->result->type->cls->id != SYM_CLASS_INTEGER)
             lily_raise_adjusted(emit->raiser, var_ast->line_num,
-                    lily_SyntaxError, "list index is not an integer.\n", "");
+                    lily_SyntaxError, "%s index is not an integer.\n",
+                    var_ast->result->type->cls->name);
     }
     else if (var_cls_id == SYM_CLASS_HASH) {
         lily_type *want_key = var_ast->result->type->subtypes[0];
@@ -511,6 +512,8 @@ static lily_type *get_subscript_result(lily_type *type, lily_ast *index_ast)
         int literal_index = index_ast->literal->value.integer;
         result = type->subtypes[literal_index];
     }
+    else if (type->cls->id == SYM_CLASS_STRING)
+        result = type;
     else
         /* Won't happen, but keeps the compiler from complaining. */
         result = NULL;
@@ -1514,6 +1517,8 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
             }
             else if (result_type->cls->id == SYM_CLASS_LIST)
                 result_type = result_type->subtypes[0];
+            /* Strings don't allow for subscript assign, so don't bother
+               checking for that here. */
         }
     }
     else if (ast->tree_type == tree_oo_access) {
@@ -2172,6 +2177,9 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
         eval_tree(emit, index_ast, NULL, 1);
 
     check_valid_subscript(emit, var_ast, index_ast);
+    if (var_ast->result->type->cls->id == SYM_CLASS_STRING)
+        lily_raise(emit->raiser, lily_SyntaxError,
+                "Subscript assign not allowed on type string.\n");
 
     elem_type = get_subscript_result(var_ast->result->type, index_ast);
 

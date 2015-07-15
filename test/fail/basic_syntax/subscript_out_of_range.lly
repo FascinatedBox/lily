@@ -1,0 +1,7 @@
+#[
+IndexError: Index -10 is out of range.
+Traceback:
+    File "subscript_out_of_range.lly", from __main__ at line 7
+]#
+
+"Ā ā Ă ă Ą"[-10]
