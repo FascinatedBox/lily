@@ -1,0 +1,16 @@
+define f() {
+    var a = 1, b = 1, c = 1, d = 1
+    var e = 1, g = 1, h = 1
+    raise ValueError::new("")
+}
+
+var i = 10
+
+while i < 1000: {
+    try:
+        f()
+    except Exception:
+        0
+
+    i += 1
+}
