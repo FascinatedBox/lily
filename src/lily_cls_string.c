@@ -793,6 +793,83 @@ void lily_string_format(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(vm, result_arg, 0, v);
 }
 
+static const char move_table[256] =
+{
+     /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
+/* 0 */ 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 1 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 2 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 3 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 4 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 5 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 6 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 7 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 8 */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+/* 9 */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+/* A */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+/* B */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+/* C */ 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+/* D */ 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+/* E */ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+/* F */ 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
+/*  This handles a subscript of a string. Lily assumes that strings will always
+    contain valid utf-8 and never have a \0 within them. As such, no
+    bounds-checking is performed.
+
+    input_reg should be a valid string, and index_reg should be a valid integer.
+    String subscripting moves by utf-8 chars, not bytes.
+
+    This will iterate through the input string by utf-8 chars, not by bytes. If
+    the given index is negative, it is treated as a distance (again in chars)
+    from the end of string (similar to what Python would do).
+    If the value given by index_reg is out-of-bounds, then ValueError is raised.
+    If it is not, then the entire utf-8 char shall be put into target_reg. */
+void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
+        lily_value *index_reg, lily_value *result_reg)
+{
+    char *input = input_reg->value.string->string;
+    int index = index_reg->value.integer;
+    char *ch;
+
+    if (index >= 0) {
+        ch = &input[0];
+        while (index && move_table[(unsigned char)*ch] != 0) {
+            ch += move_table[(unsigned char)*ch];
+            index--;
+        }
+        if (move_table[(unsigned char)*ch] == 0)
+            lily_raise(vm->raiser, lily_IndexError, "Index %d is out of range.\n",
+                    index_reg->value.integer);
+    }
+    else {
+        char *stop = &input[0];
+        ch = &input[input_reg->value.string->size];
+        while (stop != ch && index != 0) {
+            ch--;
+            if (move_table[(unsigned char)*ch] != 0)
+                index++;
+        }
+        if (index != 0)
+            lily_raise(vm->raiser, lily_IndexError, "Index %d is out of range.\n",
+                    index_reg->value.integer);
+    }
+
+    int to_copy = move_table[(unsigned char)*ch];
+    lily_string_val *result = make_sv(vm, to_copy + 1);
+    char *dest = &result->string[0];
+    dest[to_copy] = '\0';
+
+    do {
+        *dest++ = *ch++;
+        to_copy--;
+    } while (to_copy);
+
+    lily_raw_value v = {.string = result};
+    lily_move_raw_value(vm, result_reg, 0, v);
+}
+
 static const lily_func_seed format =
     {NULL, "format", dyna_function, "function format(string, list[any]... => string)", lily_string_format};
 

@@ -16,6 +16,7 @@
 #include "lily_cls_any.h"
 #include "lily_cls_hash.h"
 #include "lily_cls_function.h"
+#include "lily_cls_string.h"
 
 extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
 
@@ -1195,7 +1196,9 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code, int code_pos)
     /* list and tuple have the same representation internally. Since list
        stores proper values, lily_assign_value automagically set the type to
        the right thing. */
-    if (lhs_reg->type->cls->id != SYM_CLASS_HASH) {
+    if (lhs_reg->type->cls->id == SYM_CLASS_STRING)
+        lily_string_subscript(vm, lhs_reg, index_reg, result_reg);
+    else if (lhs_reg->type->cls->id != SYM_CLASS_HASH) {
         lily_list_val *list_val = lhs_reg->value.list;
         int index_int = index_reg->value.integer;
 

@@ -1,0 +1,2 @@
+if "abc"[-1][0] != "c":
+    stderr.write("Failed.\n")
