@@ -136,11 +136,11 @@ static void builtin_var_loader(lily_parse_state *parser, lily_var *var)
 
     if (strcmp(name, "stdin") == 0) {
         source = stdin;
-        mode = 'w';
+        mode = 'r';
     }
     else if (strcmp(name, "stdout") == 0) {
         source = stdout;
-        mode = 'r';
+        mode = 'w';
     }
     else {
         source = stderr;
