@@ -2099,6 +2099,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 code = current_frame->code;
                 code_pos = current_frame->code_pos;
                 vm_regs = vm->vm_regs;
+                vm->num_registers = (vm->vm_regs - regs_from_main) + current_frame->regs_used;
             }
         }
     }
