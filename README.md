@@ -19,5 +19,6 @@ Key features include:
 * Lambdas, with support for type inference
 * Any value can be passed to a function called show to reveal the contents
 * User-declarable classes
+* Python-inspired import semantics
 
 Lily is inspired by C++, Python, Ruby, Scala, and Rust.
