@@ -530,11 +530,6 @@ static void show_value(lily_debug_state *debug, lily_value *value)
     int cls_id = type->cls->id;
     lily_raw_value raw_value = value->value;
 
-    if (value->flags & VAL_IS_NIL) {
-        lily_impl_puts(debug->data, "(nil)\n");
-        return;
-    }
-
     if (cls_id == SYM_CLASS_STRING ||
         cls_id == SYM_CLASS_INTEGER ||
         cls_id == SYM_CLASS_DOUBLE ||
