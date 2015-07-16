@@ -4305,7 +4305,7 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
     new_block->block_type = block_type;
     new_block->var_start = emit->symtab->active_import->var_chain;
     new_block->class_entry = NULL;
-    new_block->self = NULL;
+    new_block->self = emit->block->self;
     new_block->generic_count = 0;
     new_block->patch_start = emit->patch_pos;
     new_block->last_exit = -1;
@@ -4363,13 +4363,17 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
         /* This causes vars within this imported file to be seen as global
            vars, instead of locals. Without this, the interpreter gets confused
            and thinks the imported file's globals are really upvalues. */
-        if (block_type != block_file)
+        if (block_type != block_file) {
+            if (block_type == block_lambda) {
+                emit->lambda_depth++;
+                /* A lambda cannot be guaranteed to have the 'self' of a class
+                   as the first parameter. If it wants 'self', it can close over
+                   it when it needs to. */
+                new_block->self = NULL;
+            }
             emit->function_depth++;
-
+        }
         emit->function_block = new_block;
-
-        if (block_type == block_lambda)
-            emit->lambda_depth++;
 
         /* This function's storages start where the unused ones start, or NULL if
            all are currently taken. */
