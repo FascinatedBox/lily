@@ -1395,6 +1395,8 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         caller_frame->build_value->true_class->id > instance_class->id) {
 
         result->value.instance = caller_frame->build_value;
+        result->value.generic->refcount++;
+        result->flags = 0;
 
         /* Important! This allows this memory-saving trick to bubble up through
            multiple ::new calls! */
