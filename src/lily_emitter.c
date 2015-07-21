@@ -3206,7 +3206,8 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     lily_item *debug_item = NULL;
     lily_type *call_type = NULL;
 
-    if (first_tt == tree_defined_func || first_tt == tree_inherited_new)
+    if (first_tt == tree_defined_func || first_tt == tree_inherited_new ||
+        first_tt == tree_static_func)
         call_item = ast->arg_start->item;
     else if (first_tt == tree_oo_access) {
         eval_oo_access_for_item(emit, ast->arg_start);
@@ -3528,6 +3529,7 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
     if (ast->tree_type == tree_global_var ||
         ast->tree_type == tree_literal ||
         ast->tree_type == tree_defined_func ||
+        ast->tree_type == tree_static_func ||
         ast->tree_type == tree_inherited_new)
         emit_nonlocal_var(emit, ast);
     else if (ast->tree_type == tree_call)

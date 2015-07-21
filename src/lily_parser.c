@@ -1212,10 +1212,23 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
         return;
     }
 
+    /* Is this the class that's currently being read in? If it is, then its
+       methods may not have been injected into the class just yet (especially if
+       it is the current method).
+       Don't push it as a defined_func, or emitter will assume that 'self' is to
+       be automatically injected into it. This allows class methods to call
+       other methods (like ::new) that do not take a class instance. */
+    if (parser->emit->current_class == cls) {
+        v = lily_find_var(parser->symtab, NULL, lex->label);
+        if (v != NULL && v->parent == cls) {
+            lily_ast_push_static_func(parser->ast_pool, v);
+            return;
+        }
+    }
+
     /* Enum classes allow scoped variants through `<enum class>::<variant>`. */
-    lily_class *variant_cls = NULL;
     if (cls->flags & CLS_ENUM_CLASS) {
-        variant_cls = lily_find_scoped_variant(cls, lex->label);
+        lily_class *variant_cls = lily_find_scoped_variant(cls, lex->label);
         if (variant_cls) {
             lily_ast_push_variant(parser->ast_pool, variant_cls);
             return;
