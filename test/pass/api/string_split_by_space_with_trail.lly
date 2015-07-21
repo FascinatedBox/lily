@@ -1,0 +1,2 @@
+if " 1 2 3 ".split(" ") != ["", "1", "2", "3", ""]:
+    stderr.write("Failed.\n")

@@ -1,0 +1,8 @@
+#[
+ValueError: Cannot split by empty string.
+Traceback:
+    File "[builtin]", from string::split
+    File "string_split_by_empty.lly", from __main__ at line 8
+]#
+
+"123".split("")

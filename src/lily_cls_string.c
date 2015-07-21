@@ -8,6 +8,8 @@
 #include "lily_vm.h"
 #include "lily_seed.h"
 
+#include "lily_cls_list.h"
+
 int lily_string_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
 {
@@ -814,6 +816,119 @@ static const char move_table[256] =
 /* F */ 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
+static void string_split_by_val(lily_vm_state *vm, char *input, char *splitby,
+        lily_list_val *dest)
+{
+    char *input_ch = &input[0];
+    char *splitby_ch = &splitby[0];
+    int values_needed = 0;
+    lily_value **elems;
+    lily_type *string_type = vm->symtab->string_class->type;
+
+    while (move_table[(unsigned char)*input_ch] != 0) {
+        if (*input_ch == *splitby_ch) {
+            char *restore_ch = input_ch;
+            int is_match = 1;
+            while (*input_ch == *splitby_ch) {
+                splitby_ch++;
+                if (*splitby_ch == '\0')
+                    break;
+
+                input_ch++;
+                if (*input_ch != *splitby_ch) {
+                    is_match = 0;
+                    input_ch = restore_ch;
+                    break;
+                }
+            }
+
+            splitby_ch = &splitby[0];
+            values_needed += is_match;
+        }
+
+        input_ch += move_table[(unsigned char)*input_ch];
+    }
+
+    values_needed++;
+    input_ch = &input[0];
+    elems = lily_malloc(sizeof(lily_value) * values_needed);
+    int i = 0;
+    char *last_start = input_ch;
+
+    while (1) {
+        char *match_start = input_ch;
+        int is_match = 0;
+        if (*input_ch == *splitby_ch) {
+            is_match = 1;
+            while (*input_ch == *splitby_ch) {
+                splitby_ch++;
+                if (*splitby_ch == '\0')
+                    break;
+
+                input_ch++;
+                if (*input_ch != *splitby_ch) {
+                    is_match = 0;
+                    input_ch = match_start;
+                    break;
+                }
+            }
+            splitby_ch = &splitby[0];
+        }
+
+        /* The second check is so that if the last bit of the input string
+           matches the split string, an empty string will be made.
+           Ex: "1 2 3 ".split(" ") # ["1", "2", "3", ""] */
+        if (is_match || *input_ch == '\0') {
+            lily_value *new_value = lily_malloc(sizeof(lily_value));
+            int sv_size = match_start - last_start;
+            lily_string_val *new_sv = make_sv(vm, sv_size + 1);
+            char *sv_buffer = &new_sv->string[0];
+
+            sv_buffer[sv_size] = '\0';
+            sv_size--;
+            while (sv_size >= 0) {
+                sv_buffer[sv_size] = last_start[sv_size];
+                sv_size--;
+            }
+
+            new_value->flags = 0;
+            new_value->type = string_type;
+            new_value->value.string = new_sv;
+            elems[i] = new_value;
+            i++;
+            if (*input_ch == '\0')
+                break;
+
+            last_start = input_ch + 1;
+        }
+        else if (*input_ch == '\0')
+            break;
+
+        input_ch++;
+    }
+
+    dest->elems = elems;
+    dest->num_values = values_needed;
+}
+
+void lily_string_split(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_string_val *input_strval = vm_regs[code[1]]->value.string;
+    lily_string_val *split_strval = vm_regs[code[2]]->value.string;
+    lily_value *result_reg = vm_regs[code[0]];
+
+    lily_list_val *lv = lily_new_list_val();
+
+    if (split_strval->size == 0)
+        lily_raise(vm->raiser, lily_ValueError, "Cannot split by empty string.\n");
+
+    string_split_by_val(vm, input_strval->string, split_strval->string, lv);
+
+    lily_raw_value v = {.list = lv};
+    lily_move_raw_value(vm, result_reg, 0, v);
+}
+
 /*  This handles a subscript of a string. Lily assumes that strings will always
     contain valid utf-8 and never have a \0 within them. As such, no
     bounds-checking is performed.
@@ -870,8 +985,11 @@ void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
     lily_move_raw_value(vm, result_reg, 0, v);
 }
 
+static const lily_func_seed split =
+    {NULL, "split", dyna_function, "function split(string, string => list[string])", lily_string_split};
+
 static const lily_func_seed format =
-    {NULL, "format", dyna_function, "function format(string, list[any]... => string)", lily_string_format};
+    {&split, "format", dyna_function, "function format(string, list[any]... => string)", lily_string_format};
 
 static const lily_func_seed htmlencode =
     {&format, "htmlencode", dyna_function, "function htmlencode(string => string)", lily_string_htmlencode};
