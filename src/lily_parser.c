@@ -1201,24 +1201,29 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
     lily_lex_state *lex = parser->lex;
     NEED_NEXT_TOK(tk_word)
 
+    /* Begin by checking if this is a class member. If it's not, attempt a
+       dynaload in case it's a method that hasn't been loaded yet. */
     lily_var *v = lily_find_class_callable(parser->symtab, cls, lex->label);
     if (v == NULL)
         v = lily_parser_dynamic_load(parser, cls, lex->label);
 
-    if (v)
+    if (v) {
         lily_ast_push_defined_func(parser->ast_pool, v);
-    else {
-        lily_class *variant_cls = NULL;
-        if (cls->flags & CLS_ENUM_CLASS)
-            variant_cls = lily_find_scoped_variant(cls, lex->label);
-
-        if (variant_cls == NULL) {
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "%s::%s does not exist.\n", cls->name, lex->label);
-        }
-        else
-            lily_ast_push_variant(parser->ast_pool, variant_cls);
+        return;
     }
+
+    /* Enum classes allow scoped variants through `<enum class>::<variant>`. */
+    lily_class *variant_cls = NULL;
+    if (cls->flags & CLS_ENUM_CLASS) {
+        variant_cls = lily_find_scoped_variant(cls, lex->label);
+        if (variant_cls) {
+            lily_ast_push_variant(parser->ast_pool, variant_cls);
+            return;
+        }
+    }
+
+    lily_raise(parser->raiser, lily_SyntaxError,
+            "%s::%s does not exist.\n", cls->name, lex->label);
 }
 
 /*  parse_special_keyword
