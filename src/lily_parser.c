@@ -1379,13 +1379,15 @@ static void expression_word(lily_parse_state *parser, int *state)
         int key_id = keyword_by_name(lex->label);
         if (key_id != -1) {
             lily_sym *sym = parse_special_keyword(parser, key_id);
-            if (sym->flags & ITEM_TYPE_TIE)
-                lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
-            else
-                lily_ast_push_self(parser->ast_pool);
+            if (sym != NULL) {
+                if (sym->flags & ITEM_TYPE_TIE)
+                    lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
+                else
+                    lily_ast_push_self(parser->ast_pool);
 
-            *state = ST_WANT_OPERATOR;
-            return;
+                *state = ST_WANT_OPERATOR;
+                return;
+            }
         }
     }
 
