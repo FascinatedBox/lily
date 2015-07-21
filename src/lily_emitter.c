@@ -3339,10 +3339,19 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
         return;
     }
 
-    int saved_ts_adjust = lily_ts_raise_ceiling(emit->ts);
-
     lily_emit_call_state *cs;
     cs = begin_call(emit, ast);
+
+    /* It's really, really important to raise the ceiling after starting a call.
+       begin_call might call for a dynaload, and that dynaload might be for
+       something in either the list or the hash class.
+       That function will now need 1 or 2 generic slots to store what A, B, etc.
+       are but...the ceiling has already been raised and set to...0.
+       ts assumes that anything past the ceiling is fair game. This results in
+       A/B/whatever being corrupted, which causes extremely awful and nasty bugs
+       down the line. */
+    int saved_ts_adjust = lily_ts_raise_ceiling(emit->ts);
+
     eval_verify_call_args(emit, cs, expect_type, did_resolve);
     write_call(emit, cs);
     end_call(emit, cs);
