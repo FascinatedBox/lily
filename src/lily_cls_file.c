@@ -85,7 +85,7 @@ void lily_file_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     filev->inner_file = f;
     filev->is_open = 1;
     filev->refcount = 1;
-    lily_move_raw_value(vm, result_reg, 0, v);
+    lily_move_raw_value(vm, result_reg, v);
 }
 
 void lily_file_close(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -170,7 +170,7 @@ void lily_file_readline(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     new_sv->size = pos;
 
     lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(vm, result_reg, 0, v);
+    lily_move_raw_value(vm, result_reg, v);
 }
 
 static const lily_func_seed file_readline =
