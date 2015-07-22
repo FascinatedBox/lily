@@ -1165,9 +1165,24 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
     *new_size = emit->code_pos - *new_start;
 }
 
-static void create_code_block_for(lily_emit_state *emit,
-        lily_function_val *f)
+static lily_function_val *create_code_block_for(lily_emit_state *emit,
+        lily_block *function_block)
 {
+    char *class_name;
+    if (function_block->class_entry)
+        class_name = function_block->class_entry->name;
+    else
+        class_name = NULL;
+
+    lily_var *var = function_block->function_var;
+    lily_function_val *f = lily_new_native_function_val(class_name,
+            var->name);
+
+    if (var->type->flags & TYPE_IS_UNRESOLVED)
+        f->has_generics = 1;
+
+    lily_tie_function(emit->symtab, var, f);
+
     int code_start, code_size;
 
     if (emit->closed_pos == 0) {
@@ -1182,6 +1197,7 @@ static void create_code_block_for(lily_emit_state *emit,
 
     f->code = code;
     f->len = code_size - 1;
+    return f;
 }
 
 /*  finalize_function_val
@@ -1196,17 +1212,15 @@ static void create_code_block_for(lily_emit_state *emit,
 static void finalize_function_val(lily_emit_state *emit,
         lily_block *function_block)
 {
-    lily_function_val *f = emit->top_function;
-    /* This must run before the rest, because if 'f' needs to be a
+    /* This must run before the rest, because if this call needs to be a
        closure, it will require a unique storage. */
-    create_code_block_for(emit, f);
+    lily_function_val *f = create_code_block_for(emit, function_block);
 
     int register_count = emit->function_block->next_reg_spot;
     lily_storage *storage_iter = function_block->storage_start;
     lily_register_info *info = lily_malloc(
             register_count * sizeof(lily_register_info));
     lily_var *var_stop = function_block->function_var;
-    lily_type *function_type = var_stop->type;
 
     /* Don't include functions inside of themselves... */
     if (emit->function_depth == 1)
@@ -1215,9 +1229,6 @@ static void finalize_function_val(lily_emit_state *emit,
     if (emit->function_depth != 1)
         add_var_chain_to_info(emit, info,
                 emit->symtab->active_import->var_chain, var_stop);
-
-    if (function_type->flags & TYPE_IS_UNRESOLVED)
-        f->has_generics = 1;
 
     add_storage_chain_to_info(info, function_block->storage_start);
 
@@ -1318,7 +1329,6 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
                 last_func_block->generic_count);
     }
 
-    emit->top_function = last_func_block->function_value;
     emit->top_var = v;
     emit->top_function_ret = v->type->subtypes[0];
     emit->code_pos = block->code_start;
@@ -4253,9 +4263,9 @@ void lily_prepare_main(lily_emit_state *emit, lily_import_entry *import_iter)
        instead of trying to create some 'backing' value. Because of that, this
        must work through every import loaded to discover all the globals.
        Additionally, the current var list must also be loaded. */
-    lily_function_val *f = emit->top_function;
+    lily_function_val *f = emit->symtab->main_function;
     int register_count = emit->main_block->next_reg_spot;
-    lily_register_info *info = lily_realloc(emit->top_function->reg_info,
+    lily_register_info *info = lily_realloc(f->reg_info,
             register_count * sizeof(lily_register_info));
 
     while (import_iter) {
@@ -4337,16 +4347,7 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
             new_block->class_entry = emit->symtab->active_import->class_chain;
         }
 
-        char *class_name;
         v->parent = emit->current_class;
-        if (v->parent)
-            class_name = v->parent->name;
-        else
-            class_name = NULL;
-
-        lily_function_val *fval = lily_new_native_function_val(
-                class_name, v->name);
-        lily_tie_function(emit->symtab, v, fval);
 
         if (emit->function_depth >= 2 &&
             emit->block->block_type != block_class &&
@@ -4388,11 +4389,9 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
            all are currently taken. */
         new_block->storage_start = emit->unused_storage_start;
         new_block->function_var = v;
-        new_block->function_value = fval;
         new_block->code_start = emit->code_pos;
         new_block->jump_offset = emit->code_pos;
 
-        emit->top_function = fval;
         emit->top_var = v;
     }
 
@@ -4633,12 +4632,10 @@ void lily_emit_enter_main(lily_emit_state *emit)
     main_block->storage_start = emit->all_storage_start;
     main_block->class_entry = NULL;
     main_block->generic_count = 0;
-    main_block->function_value = main_function;
     main_block->self = NULL;
     main_block->code_start = 0;
     main_block->jump_offset = 0;
     main_block->next_reg_spot = 0;
-    emit->top_function = main_function;
     emit->top_var = main_var;
     emit->block = main_block;
     emit->function_depth++;

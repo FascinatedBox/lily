@@ -32,9 +32,6 @@ typedef struct lily_block_ {
     /* Vars declared in this block are at var_start->next. */
     lily_var *var_start;
 
-    /* Define/class blocks: This is where the instructions will be written. */
-    lily_function_val *function_value;
-
     /* Define/class blocks: This is saved because the var has the name of the
        current function. */
     lily_var *function_var;
