@@ -45,7 +45,7 @@ typedef struct lily_block_ {
     /* Match blocks: The starting position in emitter's match_cases. */
     uint16_t match_case_start;
 
-    uint16_t closed_start;
+    uint16_t pad;
 
     /* This is used by if/elif/else, match, and try+except. If every branch of
        a block returns a value or exits, then that information bubbles up to the

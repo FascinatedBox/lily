@@ -4395,8 +4395,6 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
         emit->top_var = v;
     }
 
-    new_block->closed_start = emit->closed_pos;
-
     emit->block = new_block;
 }
 
