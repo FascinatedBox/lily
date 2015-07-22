@@ -76,7 +76,6 @@ lily_emit_state *lily_new_emit_state(lily_options *options,
     emit->lambda_depth = 0;
     emit->function_depth = 0;
 
-    emit->current_class = NULL;
     emit->raiser = raiser;
     emit->expr_num = 1;
     emit->loop_start = -1;
@@ -1113,7 +1112,7 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
     else if (emit->block->prev &&
              emit->block->prev->block_type == block_class) {
         if (emit->block->block_type != block_lambda) {
-            lily_class *cls = emit->block->prev->class_entry;
+            lily_class *cls = emit->block->class_entry;
             lily_prop_entry *closure_prop = lily_find_property(emit->symtab,
                     cls, "*closure");
             lily_class *parent = cls->parent;
@@ -1270,11 +1269,13 @@ static void finalize_function_val(lily_emit_state *emit,
 
 static void leave_function(lily_emit_state *emit, lily_block *block)
 {
-    /* A lambda block never has to update the return type because the return is
-       whatever the expression in the body returns. */
-    if (block->block_type == block_lambda)
-        emit->top_function_ret = emit->top_var->type->subtypes[0];
-    if (emit->block->class_entry == NULL) {
+    if (block->block_type == block_class)
+        write_3(emit, o_return_val, *emit->lex_linenum, block->self->reg_spot);
+    else {
+        /* A lambda block never has to update the return type because the return
+           is whatever the expression in the body returns. */
+        if (block->block_type == block_lambda)
+            emit->top_function_ret = emit->top_var->type->subtypes[0];
         if (emit->top_function_ret == NULL)
             /* Write an implicit 'return' at the end of a function claiming to not
                return a value. This saves the user from having to write an explicit
@@ -1290,13 +1291,6 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
                     "Missing return statement at end of function.\n");
         }
     }
-    else {
-        /* Constructors always return self. */
-        write_3(emit,
-                o_return_val,
-                *emit->lex_linenum,
-                emit->block->self->reg_spot);
-    }
 
     finalize_function_val(emit, block);
 
@@ -1308,11 +1302,9 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
 
     lily_var *v = last_func_block->function_var;
 
-    emit->current_class = block->prev->class_entry;
-
     /* If this function was the ::new for a class, move it over into that class
        since the class is about to close. */
-    if (emit->block->class_entry) {
+    if (emit->block->block_type == block_class) {
         lily_class *cls = emit->block->class_entry;
 
         emit->symtab->active_import->var_chain = block->function_var;
@@ -3116,8 +3108,8 @@ static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *c
     if (call_tt == tree_defined_func) {
         /* Do a self insert if the thing being called belongs to this class. */
         lily_var *first_result = ((lily_var *)ast->arg_start->sym);
-        if (emit->current_class != NULL &&
-            emit->current_class == first_result->parent) {
+        if (first_result->parent != NULL &&
+            emit->block->class_entry == first_result->parent) {
             add_value(emit, cs, (lily_sym *)emit->block->self);
         }
         else
@@ -4323,7 +4315,7 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
 
     new_block->block_type = block_type;
     new_block->var_start = emit->symtab->active_import->var_chain;
-    new_block->class_entry = NULL;
+    new_block->class_entry = emit->block->class_entry;
     new_block->self = emit->block->self;
     new_block->generic_count = 0;
     new_block->patch_start = emit->patch_pos;
@@ -4342,12 +4334,10 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
     }
     else {
         lily_var *v = emit->symtab->active_import->var_chain;
-        if (block_type == block_class) {
-            emit->current_class = emit->symtab->active_import->class_chain;
+        if (block_type == block_class)
             new_block->class_entry = emit->symtab->active_import->class_chain;
-        }
 
-        v->parent = emit->current_class;
+        v->parent = new_block->class_entry;
 
         if (emit->function_depth >= 2 &&
             emit->block->block_type != block_class &&

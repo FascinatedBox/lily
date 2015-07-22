@@ -1,0 +1,19 @@
+#[
+ValueError: Message.
+Traceback:
+    File "error_from_method.lly", from Example::action at line 13
+    File "error_from_method.lly", from Example::new at line 16
+    File "error_from_method.lly", from __main__ at line 19
+]#
+
+class Example() {
+    define action() {
+        if 1: {
+            var k = ValueError::new("Message.\n")
+            raise k
+        }
+    }
+    action()
+}
+
+Example::new()
