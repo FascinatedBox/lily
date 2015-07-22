@@ -3645,10 +3645,6 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
         if (current_type == block_if_else)
             lily_raise(emit->raiser, lily_SyntaxError, "'%s' after 'else'.\n",
                     block_name);
-
-        lily_var *v = emit->block->var_start;
-        if (v != emit->symtab->active_import->var_chain)
-            lily_hide_block_vars(emit->symtab, v);
     }
     else if (new_type == block_try_except || new_type == block_try_except_all) {
         if (current_type == block_try_except_all)
@@ -3664,6 +3660,10 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
         if (current_type == block_try)
             write_1(emit, o_pop_try);
     }
+
+    lily_var *v = emit->block->var_start;
+    if (v != emit->symtab->active_import->var_chain)
+        lily_hide_block_vars(emit->symtab, v);
 
     /* Transitioning between blocks is simple: First write a jump at the end of
        the current branch. This will get patched to the if/try's exit. */
