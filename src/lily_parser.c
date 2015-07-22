@@ -145,7 +145,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
 
     lily_import_entry *builtin_import = make_new_import_entry(parser, "",
             "[builtin]");
-    lily_raiser *raiser = lily_new_raiser(options);
+    lily_raiser *raiser = lily_new_raiser();
 
     parser->optarg_stack_pos = 0;
     parser->optarg_stack_size = 4;
@@ -163,7 +163,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->emit = lily_new_emit_state(options, parser->symtab, raiser);
     parser->lex = lily_new_lex_state(options, raiser);
     parser->vm = lily_new_vm_state(options, raiser);
-    parser->msgbuf = lily_new_msgbuf(options);
+    parser->msgbuf = lily_new_msgbuf();
     parser->options = options;
 
     parser->vm->symtab = parser->symtab;

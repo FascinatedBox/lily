@@ -13,11 +13,11 @@ static const char *lily_error_names[] =
      "FormatError", "IOError"};
 
 
-lily_raiser *lily_new_raiser(lily_options *options)
+lily_raiser *lily_new_raiser(void)
 {
     lily_raiser *raiser = lily_malloc(sizeof(lily_raiser));
 
-    raiser->msgbuf = lily_new_msgbuf(options);
+    raiser->msgbuf = lily_new_msgbuf();
     raiser->jumps = lily_malloc(2 * sizeof(jmp_buf));
     raiser->jump_pos = 0;
     raiser->jump_size = 2;

@@ -7,7 +7,7 @@
 #include "lily_msgbuf.h"
 #include "lily_core_types.h"
 
-lily_msgbuf *lily_new_msgbuf(lily_options *options)
+lily_msgbuf *lily_new_msgbuf(void)
 {
     lily_msgbuf *msgbuf = lily_malloc(sizeof(lily_msgbuf));
 

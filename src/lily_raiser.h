@@ -43,7 +43,7 @@ typedef struct lily_raiser_ {
     uint32_t pad;
 } lily_raiser;
 
-lily_raiser *lily_new_raiser(lily_options *);
+lily_raiser *lily_new_raiser(void);
 void lily_free_raiser(lily_raiser *);
 void lily_raise(lily_raiser *, int, char *, ...);
 void lily_raise_prebuilt(lily_raiser *, int);
