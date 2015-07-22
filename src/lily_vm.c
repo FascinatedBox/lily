@@ -903,7 +903,7 @@ void lily_builtin_calltrace(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_list_val *traceback_val = build_traceback_raw(vm, result->type);
 
     lily_raw_value v = {.list = traceback_val};
-    lily_move_raw_value(vm, result, 0, v);
+    lily_move_raw_value(vm, result, v);
 }
 
 /*  lily_builtin_show
@@ -1496,7 +1496,7 @@ static lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
     d->num_upvalues = count;
 
     lily_raw_value v = {.function = closure_func};
-    lily_move_raw_value(vm, result, 0, v);
+    lily_move_raw_value(vm, result, v);
     return upvalues;
 }
 
@@ -1526,7 +1526,7 @@ static void do_o_create_function(lily_vm_state *vm, uint16_t *code)
 
     lily_value **upvalues = closure_copy->closure_data->upvalues;
     upvalues[code[3]]->type = closure_reg->type;
-    lily_move_raw_value(vm, upvalues[code[3]], 0, v);
+    lily_move_raw_value(vm, upvalues[code[3]], v);
 }
 
 /*  This is written at the top of a function that uses closures but is not a
@@ -1541,7 +1541,7 @@ static lily_value **do_o_load_closure(lily_vm_state *vm, uint16_t *code)
 
     /* This isn't using assign because there is no proper lily value that is
        holding closure. Instead, do a move and manually bump the ref. */
-    lily_move_raw_value(vm, result, 0, v);
+    lily_move_raw_value(vm, result, v);
     f->refcount++;
 
     return f->closure_data->upvalues;
@@ -1604,7 +1604,7 @@ static void make_proper_exception_val(lily_vm_state *vm,
     ival->num_values = 2;
 
     lily_raw_value v = {.instance = ival};
-    lily_move_raw_value(vm, result, 0, v);
+    lily_move_raw_value(vm, result, v);
 }
 
 /*  maybe_catch_exception
@@ -1748,7 +1748,6 @@ void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
     left:      This is a proper value which will receive the new value. If it
                is marked as refcounted (but not nil or protected), it will
                receive a deref.
-    flags:     The new flags to set onto left.
     raw_right: A raw value that is of the same type as left. This value will not
                receive a ref bump.
 
@@ -1758,15 +1757,18 @@ void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
 
     This function is useful in cases where a newly-created raw value needs to be
     put into a register. Bumping the new value would cause it to have two refs,
-    which is wrong. */
+    which is wrong.
+
+    Left's flags are set to 0, as it is assumed that the moved value is not
+    marked as either protected or nil (the latter is especially nonsensical). */
 void lily_move_raw_value(lily_vm_state *vm, lily_value *left,
-        int flags, lily_raw_value raw_right)
+        lily_raw_value raw_right)
 {
     lily_class *cls = left->type->cls;
     lily_deref(left);
 
     left->value = raw_right;
-    left->flags = flags | (cls->flags & VAL_IS_PRIMITIVE);
+    left->flags = (cls->flags & VAL_IS_PRIMITIVE);
 }
 
 /*  This is used by a function (the caller) to call another function (the
