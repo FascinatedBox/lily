@@ -2989,7 +2989,7 @@ static void parser_loop(lily_parse_state *parser)
            package (so that exceptions can be bootstrapped). However, since
            __main__ holds all the global code for the first file, fix the path
            of it to target the first file. */
-        parser->emit->top_function->import = main_import;
+        parser->symtab->main_function->import = main_import;
 
         parser->symtab->active_import = main_import;
         parser->first_pass = 0;
