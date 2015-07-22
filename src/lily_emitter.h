@@ -238,7 +238,7 @@ typedef struct {
        implicitly entered before any user code. */
     lily_block *block;
 
-    uint16_t lambda_depth;
+    uint16_t pad2;
 
     /* How deep the current functions are. */
     uint16_t function_depth;
