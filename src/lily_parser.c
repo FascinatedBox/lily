@@ -2126,7 +2126,7 @@ static void ensure_no_code_after_exit(lily_parse_state *parser,
     if an expression is needed, or if just 'return' alone is fine. */
 static void return_handler(lily_parse_state *parser, int multi)
 {
-    if (parser->emit->block->block_type == block_class)
+    if (parser->emit->function_block->block_type == block_class)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'return' not allowed in a class constructor.\n");
 
