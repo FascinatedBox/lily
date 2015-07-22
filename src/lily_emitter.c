@@ -73,7 +73,6 @@ lily_emit_state *lily_new_emit_state(lily_options *options,
 
     emit->patch_pos = 0;
     emit->patch_size = 4;
-    emit->lambda_depth = 0;
     emit->function_depth = 0;
 
     emit->raiser = raiser;
@@ -1328,12 +1327,8 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
 
     /* File 'blocks' do not bump up the depth because that's used to determine
        if something is a global or not. */
-    if (block->block_type != block_file) {
-        if (block->block_type == block_lambda)
-            emit->lambda_depth--;
-
+    if (block->block_type != block_file)
         emit->function_depth--;
-    }
 }
 
 /*  eval_enforce_value
@@ -1834,7 +1829,8 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     This stores either the method var or the property within the ast's item. */
 static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
 {
-    if (emit->lambda_depth && ast->arg_start->tree_type == tree_self)
+    if (emit->function_block->block_type == block_lambda &&
+        ast->arg_start->tree_type == tree_self)
         maybe_close_over_class_self(emit);
 
     if (ast->arg_start->tree_type != tree_local_var)
@@ -1930,7 +1926,7 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
     function/method defined within a class. */
 static void eval_property(lily_emit_state *emit, lily_ast *ast)
 {
-    if (emit->lambda_depth)
+    if (emit->function_block->block_type == block_lambda)
         maybe_close_over_class_self(emit);
 
     if (ast->property->type == NULL)
@@ -1996,7 +1992,7 @@ static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
    The left side is always just a property. */
 static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
 {
-    if (emit->lambda_depth)
+    if (emit->function_block->block_type == block_lambda)
         maybe_close_over_class_self(emit);
 
     lily_type *left_type = ast->left->property->type;
@@ -4365,7 +4361,6 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
            and thinks the imported file's globals are really upvalues. */
         if (block_type != block_file) {
             if (block_type == block_lambda) {
-                emit->lambda_depth++;
                 /* A lambda cannot be guaranteed to have the 'self' of a class
                    as the first parameter. If it wants 'self', it can close over
                    it when it needs to. */
