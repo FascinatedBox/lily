@@ -1115,6 +1115,7 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     lily_symtab *symtab = parser->symtab;
     lily_emit_state *emit = parser->emit;
     lily_block_type block_type;
+    lily_type *decl_self_type = NULL;
     int generics_used;
     int flags = TC_MAKE_VARS | TC_TOPLEVEL;
 
@@ -1143,6 +1144,7 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     if (decl_class != NULL) {
         lily_make_constructor_return_type(symtab);
         parser->class_self_type = symtab->root_type;
+        decl_self_type = symtab->root_type;
     }
     else if (parser->class_depth && decl_class == NULL) {
         /* Functions of a class get a (self) of that class for the first
@@ -1159,7 +1161,7 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     call_type = inner_type_collector(parser, symtab->function_class, flags);
     call_var->type = call_type;
 
-    lily_emit_update_function_block(parser->emit, decl_class,
+    lily_emit_update_function_block(parser->emit, decl_self_type,
             generics_used, call_type->subtypes[0]);
 
     if (parser->optarg_stack_pos != 0) {

@@ -4148,17 +4148,15 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
     This is called at the opening of a new class, before any user code. This
     writes an initialization for the hidden self variable. */
 void lily_emit_update_function_block(lily_emit_state *emit,
-        lily_class *decl_class, int generic_count, lily_type *ret_type)
+        lily_type *self_type, int generic_count, lily_type *ret_type)
 {
     emit->top_function_ret = ret_type;
     emit->block->generic_count = generic_count;
 
-    if (decl_class) {
-        /* The most recent function is the constructor for this class, which will
-           always return a class instance. Since it's also the function var (and
-           the return of a function is always [0], this works. */
-        lily_type *self_type = emit->block->function_var->type->subtypes[0];
-
+    if (self_type) {
+        /* If there's a type for 'self', then this must be a class constructor.
+           Create the storage that will represent 'self' and write the
+           instruction to actually make the class. */
         lily_storage *self = get_storage(emit, self_type);
         emit->block->self = self;
 
