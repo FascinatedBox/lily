@@ -82,7 +82,9 @@ typedef struct lily_block_ {
        with match case checking. */
     lily_sym *match_sym;
 
-    /* The current class, or NULL if not within a class. */
+    /* This is the most recently-entered class. While Lily does not allow users
+       to create nested classes, it is possible for a class to be within a class
+       if there is a dynaload. */
     lily_class *class_entry;
 
     /* Where 'self' is at, or NULL if not within a class. */
@@ -215,9 +217,6 @@ typedef struct {
 
     /* The return type of the current function. */
     lily_type *top_function_ret;
-
-    /* Either the last-entered class, or NULL. */
-    lily_class *current_class;
 
     /* The beginning of the linked list of storages, as well as the top. The
        middle one, unused_storage_start, is used to make sure that functions

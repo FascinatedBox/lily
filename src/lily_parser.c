@@ -1220,7 +1220,7 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
        Don't push it as a defined_func, or emitter will assume that 'self' is to
        be automatically injected into it. This allows class methods to call
        other methods (like ::new) that do not take a class instance. */
-    if (parser->emit->current_class == cls) {
+    if (parser->emit->block->class_entry == cls) {
         v = lily_find_var(parser->symtab, NULL, lex->label);
         if (v != NULL && v->parent == cls) {
             lily_ast_push_static_func(parser->ast_pool, v);
@@ -1438,7 +1438,7 @@ static void expression_word(lily_parse_state *parser, int *state)
     Similar to expression_word, minus the complexity. */
 static void expression_property(lily_parse_state *parser, int *state)
 {
-    if (parser->emit->current_class == NULL)
+    if (parser->class_depth == 0)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Properties cannot be used outside of a class constructor.\n");
 
@@ -2963,7 +2963,7 @@ static void define_handler(lily_parse_state *parser, int multi)
        being what was just defined. */
     if (parser->emit->block->block_type == block_class) {
         lily_add_class_method(parser->symtab,
-                parser->emit->current_class,
+                parser->class_self_type->cls,
                 parser->symtab->active_import->var_chain);
     }
 }
