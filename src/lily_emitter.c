@@ -4327,6 +4327,11 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
 
         if (IS_LOOP_BLOCK(block_type))
             emit->loop_start = emit->code_pos;
+        else if (block_type == block_enum_class) {
+            /* Enum class entries are not considered function-like, because they
+               do not have a class ::new. */
+            new_block->class_entry = emit->symtab->active_import->class_chain;
+        }
     }
     else {
         lily_var *v = emit->symtab->active_import->var_chain;

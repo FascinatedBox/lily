@@ -1,0 +1,30 @@
+enum class Option[A] {
+    Some(A),
+    None
+
+    define and_then[A](f: function(A => Option[A]) => Option[A]) {
+        match self: {
+            case Some(s):
+                return f(s)
+            case None:
+                return None
+        }
+    }
+    define force[A]( => A) {
+        match self: {
+            case Some(s):
+                return s
+            case None:
+                raise ValueError::new("No value is present.")
+        }
+    }
+}
+
+var v = Some(10)
+
+if 
+    v.and_then({|a| Some(a * a)})
+     .and_then({|a| Some(a * a)})
+     .force()
+    != 10000:
+    stderr.write("Failed.\n")
