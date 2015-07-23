@@ -17,6 +17,7 @@ typedef enum {
     block_try_except,
     block_try_except_all,
     block_match,
+    block_enum_class,
     /* Anything past here has a function created on behalf of it, and thus must
        go through a special entry/exit. */
     block_define,

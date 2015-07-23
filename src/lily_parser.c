@@ -2770,8 +2770,13 @@ static void enum_handler(lily_parse_state *parser, int multi)
         generics_used = 0;
 
     lily_update_symtab_generics(parser->symtab, enum_class, generics_used);
+    lily_emit_enter_block(parser->emit, block_enum_class);
+
     lily_make_constructor_return_type(parser->symtab);
     lily_type *result_type = parser->symtab->root_type;
+    lily_type *save_self_type = parser->class_self_type;
+    parser->class_depth++;
+    parser->class_self_type = result_type;
 
     NEED_CURRENT_TOK(tk_left_curly)
     lily_lexer(lex);
@@ -2820,6 +2825,9 @@ static void enum_handler(lily_parse_state *parser, int multi)
             lily_lexer(lex);
         else if (lex->token == tk_right_curly)
             break;
+        else if (lex->token == tk_word && lex->label[0] == 'd' &&
+                 keyword_by_name(lex->label) == KEY_DEFINE)
+            break;
     }
 
     if (inner_class_count < 2) {
@@ -2827,7 +2835,29 @@ static void enum_handler(lily_parse_state *parser, int multi)
                 "An enum class must have at least two variants.\n");
     }
 
+    /* This marks the enum class as one (allowing match), and registers the
+       variants as being within the enum class. Because of that, it has to go
+       before pulling the member functions. */
     lily_finish_enum_class(parser->symtab, enum_class, is_scoped, result_type);
+
+    if (lex->token == tk_word) {
+        while (1) {
+            lily_lexer(lex);
+            define_handler(parser, 1);
+            if (lex->token == tk_right_curly)
+                break;
+            else if (lex->token != tk_word ||
+                keyword_by_name(lex->label) != KEY_DEFINE)
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Expected '}' or 'define', not '%s'.\n",
+                        tokname(lex->token));
+        }
+    }
+
+    lily_emit_leave_block(parser->emit);
+    parser->class_depth--;
+    parser->class_self_type = save_self_type;
+
     lily_update_symtab_generics(parser->symtab, NULL, save_generics);
     lily_lexer(lex);
 }
@@ -2961,7 +2991,8 @@ static void define_handler(lily_parse_state *parser, int multi)
        make that function a member of the class.
        This is safe because 'define' always exits with the top-most variable
        being what was just defined. */
-    if (parser->emit->block->block_type == block_class) {
+    if (parser->emit->block->block_type == block_class ||
+        parser->emit->block->block_type == block_enum_class) {
         lily_add_class_method(parser->symtab,
                 parser->class_self_type->cls,
                 parser->symtab->active_import->var_chain);
