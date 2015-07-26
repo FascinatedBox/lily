@@ -1708,17 +1708,29 @@ static void expression_raw(lily_parse_state *parser, int state)
             expression_dot(parser, &state);
         else if (lex->token == tk_minus || lex->token == tk_not)
             expression_unary(parser, &state);
+        else if (lex->token == tk_lambda) {
+            /* This is to allow `x.some_call{|x| ... }`
+               to act as        `x.some_call({|x| ... })`
+               This is a little thing that helps a lot. Oh, and make sure this
+               goes before the 'val_or_end' case, because lambdas are starting
+               tokens. */
+            if (state == ST_WANT_OPERATOR)
+                lily_ast_enter_tree(parser->ast_pool, tree_call);
+
+            lily_ast_push_lambda(parser->ast_pool, parser->lex->lambda_start_line,
+                    parser->lex->lambda_data);
+
+            if (state == ST_WANT_OPERATOR)
+                lily_ast_leave_tree(parser->ast_pool);
+
+            state = ST_WANT_OPERATOR;
+        }
         else if (parser_tok_table[lex->token].val_or_end &&
                  parser->ast_pool->save_depth == 0 &&
                  state == ST_WANT_OPERATOR)
             state = ST_DONE;
         else if (lex->token == tk_comma || lex->token == tk_arrow)
             expression_comma_arrow(parser, &state);
-        else if (lex->token == tk_lambda) {
-            lily_ast_push_lambda(parser->ast_pool, parser->lex->lambda_start_line,
-                     parser->lex->lambda_data);
-            state = ST_WANT_OPERATOR;
-        }
         else
             state = ST_BAD_TOKEN;
 

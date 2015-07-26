@@ -1,0 +1,6 @@
+define f(g: function(integer => string) => string)
+{
+    return g(10)
+}
+
+f{|a| a.to_s()}
