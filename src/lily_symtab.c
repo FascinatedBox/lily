@@ -916,28 +916,6 @@ lily_type *lily_build_type(lily_symtab *symtab, lily_class *cls,
     return result_type;
 }
 
-/*  lily_check_right_inherits_or_is
-    Check if 'right' is the same class as 'left' or inherits from it. This
-    function has a specific name so that the parameters won't get accidentally
-    swapped at some point in the future. */
-int lily_check_right_inherits_or_is(lily_class *left, lily_class *right)
-{
-    int ret = 0;
-    if (left != right) {
-        while (right != NULL) {
-            right = right->parent;
-            if (right == left) {
-                ret = 1;
-                break;
-            }
-        }
-    }
-    else
-        ret = 1;
-
-    return ret;
-}
-
 /*  lily_add_class_property
     Add a new property to the property chain of a class.
     On success: Returns the property, in case that's useful.

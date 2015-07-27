@@ -4196,7 +4196,7 @@ void lily_emit_raise(lily_emit_state *emit, lily_ast *ast)
 
     lily_class *result_cls = ast->result->type->cls;
     lily_class *except_cls = lily_find_class(emit->symtab, NULL, "Exception");
-    if (lily_check_right_inherits_or_is(except_cls, result_cls) == 0) {
+    if (lily_class_greater_eq(except_cls, result_cls) == 0) {
         lily_raise(emit->raiser, lily_SyntaxError,
                 "Invalid class '%s' given to raise.\n", result_cls->name);
     }

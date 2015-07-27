@@ -2380,9 +2380,7 @@ static void except_handler(lily_parse_state *parser, int multi)
             "Exception");
     lily_block_type new_type = block_try_except;
 
-    int is_valid = lily_check_right_inherits_or_is(exception_base,
-            exception_class);
-    if (is_valid == 0)
+    if (lily_class_greater_eq(exception_base, exception_class) == 0)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' is not a valid exception class.\n",
                 exception_class->name);
