@@ -103,7 +103,6 @@ lily_type *lily_new_type(lily_symtab *, lily_class *);
 lily_type *lily_build_type(lily_symtab *, lily_class *, int, lily_type **, int, int);
 
 void lily_hide_block_vars(lily_symtab *, lily_var *);
-int lily_check_right_inherits_or_is(lily_class *, lily_class *);
 
 lily_class *lily_new_class(lily_symtab *, char *);
 lily_class *lily_new_class_by_seed(lily_symtab *, const void *);

@@ -1665,7 +1665,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
             catch_reg = stack_regs[code[jump_location + 4]];
             lily_class *catch_class = catch_reg->type->cls;
             if (catch_class == raised_class ||
-                lily_check_right_inherits_or_is(catch_class, raised_class)) {
+                lily_class_greater_eq(catch_class, raised_class)) {
                 /* ...So that execution resumes from within the except block. */
                 do_unbox = code[jump_location + 3];
                 jump_location += 5;

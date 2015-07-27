@@ -363,3 +363,21 @@ void lily_ts_generics_seen(lily_type_system *ts, int amount)
     if (amount > ts->max_seen)
         ts->max_seen = amount;
 }
+
+int lily_class_greater_eq(lily_class *left, lily_class *right)
+{
+    int ret = 0;
+    if (left != right) {
+        while (right != NULL) {
+            right = right->parent;
+            if (right == left) {
+                ret = 1;
+                break;
+            }
+        }
+    }
+    else
+        ret = 1;
+
+    return ret;
+}

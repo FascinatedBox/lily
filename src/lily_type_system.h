@@ -123,4 +123,9 @@ int lily_ts_count_unresolved(lily_type_system *);
    how many were collected. max_seen may or may not be updated. */
 void lily_ts_generics_seen(lily_type_system *, int);
 
+/* Determine if the first class passed is either a base class or the same class
+   as the second one. This doesn't take the ts because the information needed
+   is within the classes themselves. */
+int lily_class_greater_eq(lily_class *, lily_class *);
+
 #endif
