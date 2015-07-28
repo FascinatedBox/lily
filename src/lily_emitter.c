@@ -3101,10 +3101,14 @@ static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *c
     lily_tree_type call_tt = ast->arg_start->tree_type;
 
     if (call_tt == tree_defined_func) {
-        /* Do a self insert if the thing being called belongs to this class. */
+        /* Inject self into this call if it is a class method, or it is a method
+           of something that this class inherits from. */
         lily_var *first_result = ((lily_var *)ast->arg_start->sym);
-        if (first_result->parent != NULL &&
-            emit->block->class_entry == first_result->parent) {
+
+        lily_class *current_class = emit->block->class_entry;
+        lily_class *callee_class = first_result->parent;
+        if (callee_class &&
+            lily_class_greater_eq(callee_class, current_class)) {
             add_value(emit, cs, (lily_sym *)emit->block->self);
         }
         else
