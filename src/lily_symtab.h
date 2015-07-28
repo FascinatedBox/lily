@@ -91,7 +91,7 @@ void lily_tie_function(lily_symtab *, lily_var *, lily_function_val *);
 void lily_tie_value(lily_symtab *, lily_var *, lily_value *);
 
 lily_class *lily_find_class(lily_symtab *, lily_import_entry *, const char *);
-lily_var *lily_find_class_callable(lily_symtab *, lily_class *, char *);
+lily_var *lily_find_method(lily_class *, char *);
 lily_prop_entry *lily_find_property(lily_symtab *, lily_class *, char *);
 lily_class *lily_find_scoped_variant(lily_class *, char *);
 
