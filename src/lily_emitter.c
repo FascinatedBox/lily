@@ -1838,8 +1838,7 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
 
     lily_class *lookup_class = ast->arg_start->result->type->cls;
     char *oo_name = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
-    lily_var *var = lily_find_class_callable(emit->symtab,
-            lookup_class, oo_name);
+    lily_var *var = lily_find_method(lookup_class, oo_name);
 
     /* Is this an attempt to access a method that hasn't been loaded yet? */
     if (var == NULL)

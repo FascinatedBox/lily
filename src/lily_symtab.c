@@ -737,15 +737,10 @@ lily_class *lily_find_class(lily_symtab *symtab, lily_import_entry *import,
     return result;
 }
 
-/*  lily_find_class_callable
-    Check if a class has a given function within it. If it doesn't, see if the
-    class comes with a 'dynaload_table' that defines more functions. If it has a
-    seed table, attempt to do a dynamic load of the given function.
-
-    This is a bit complicated, but it saves a LOT of memory from not having to
-    make type+var information for every builtin thing. */
-lily_var *lily_find_class_callable(lily_symtab *symtab, lily_class *cls,
-        char *name)
+/*  lily_find_method
+    Check if a class has a given function within it. This does not attempt to do
+    any dynaloading (that's the parser's job). */
+lily_var *lily_find_method(lily_class *cls, char *name)
 {
     lily_var *iter;
     uint64_t shorthash = shorthash_for_name(name);

@@ -514,8 +514,7 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
     /* Like with get_named_var, prevent properties from having the same name as
        what will become a class method. This is because they are both accessed
        in the same manner outside the class. */
-    lily_var *lookup_var = lily_find_class_callable(parser->symtab,
-            current_class, name);
+    lily_var *lookup_var = lily_find_method(current_class, name);
 
     if (lookup_var)
         lily_raise(parser->raiser, lily_SyntaxError,
@@ -1205,7 +1204,7 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
 
     /* Begin by checking if this is a class member. If it's not, attempt a
        dynaload in case it's a method that hasn't been loaded yet. */
-    lily_var *v = lily_find_class_callable(parser->symtab, cls, lex->label);
+    lily_var *v = lily_find_method(cls, lex->label);
     if (v == NULL)
         v = lily_parser_dynamic_load(parser, cls, lex->label);
 
@@ -1401,8 +1400,8 @@ static void expression_word(lily_parse_state *parser, int *state)
     }
 
     if (search_entry == NULL && parser->class_self_type) {
-        var = lily_find_class_callable(parser->symtab,
-                parser->symtab->active_import->class_chain, lex->label);
+        var = lily_find_method(parser->symtab->active_import->class_chain,
+                lex->label);
 
         if (var) {
             lily_ast_push_defined_func(parser->ast_pool, var);
@@ -2684,8 +2683,7 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
         block_iter = block_iter->prev;
     }
 
-    lily_var *class_new = lily_find_class_callable(parser->symtab,
-            super_class, "new");
+    lily_var *class_new = lily_find_method(super_class, "new");
 
     /* I don't think this is possible, but I'm not entirely sure. */
     if (class_new == NULL)
