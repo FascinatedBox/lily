@@ -750,6 +750,9 @@ lily_var *lily_find_method(lily_class *cls, char *name)
             break;
     }
 
+    if (iter == NULL && cls->parent)
+        iter = lily_find_method(cls->parent, name);
+
     return iter;
 }
 
