@@ -88,8 +88,47 @@ int lily_ts_check(lily_type_system *ts, lily_type *left, lily_type *right)
 
     if (left == NULL || right == NULL)
         ret = (left == right);
-    else if (left->cls->id == right->cls->id &&
-             left->cls->id != SYM_CLASS_GENERIC) {
+    else if (left->cls->id == SYM_CLASS_GENERIC) {
+        int generic_pos = ts->pos + left->generic_pos;
+        ret = 1;
+        if (ts->types[generic_pos] == NULL)
+            ts->types[generic_pos] = right;
+        else if (ts->types[generic_pos] != right)
+            ret = 0;
+    }
+    else if (left->cls->flags & CLS_ENUM_CLASS &&
+             right->cls->flags & CLS_VARIANT_CLASS &&
+             right->cls->parent == left->cls) {
+        /* The right is an enum class that is a member of the left.
+           Consider it valid if the right's types (if any) match to all the
+           types collected -so far- for the left. */
+
+        ret = 1;
+
+        if (right->cls->variant_type->subtype_count != 0) {
+            /* I think this is best explained as an example:
+               'enum class Option[A, B] { Some(A), None }'
+               In this case, the variant type of Some is defined as:
+               'function (A => Some[A])'
+               This pulls the 'Some[A]'. */
+            lily_type *variant_output = right->cls->variant_type->subtypes[0];
+            int i;
+            /* The result is an Option[A, B], but Some only has A. Match up
+               generics that are available, to proper positions in the
+               parent. If any fail, then stop. */
+            for (i = 0;i < variant_output->subtype_count;i++) {
+                int pos = variant_output->subtypes[i]->generic_pos;
+                ret = lily_ts_check(ts, left->subtypes[pos],
+                        right->subtypes[i]);
+                if (ret == 0)
+                    break;
+            }
+        }
+        /* else it takes no arguments and is automatically correct because
+           is nothing that could go wrong. */
+    }
+    else if (left->cls->id == right->cls->id ||
+             lily_class_greater_eq(left->cls, right->cls)) {
         if (right->flags & TYPE_HAS_OPTARGS) {
             /* The right side must be a function with optional arguments, with
                the left being a function (with/without optargs).
@@ -129,7 +168,9 @@ int lily_ts_check(lily_type_system *ts, lily_type *left, lily_type *right)
                 }
             }
         }
-        else if (left->subtype_count == right->subtype_count) {
+        else if ((left->cls->id == SYM_CLASS_FUNCTION &&
+                  left->subtype_count == right->subtype_count) ||
+                 left->subtype_count <= right->subtype_count) {
             ret = 1;
 
             lily_type **left_subtypes = left->subtypes;
@@ -146,47 +187,6 @@ int lily_ts_check(lily_type_system *ts, lily_type *left, lily_type *right)
                     break;
                 }
             }
-        }
-    }
-    else if (left->cls->id == SYM_CLASS_GENERIC) {
-        int generic_pos = ts->pos + left->generic_pos;
-        ret = 1;
-        if (ts->types[generic_pos] == NULL)
-            ts->types[generic_pos] = right;
-        else if (ts->types[generic_pos] != right)
-            ret = 0;
-    }
-    else {
-        if (left->cls->flags & CLS_ENUM_CLASS &&
-            right->cls->flags & CLS_VARIANT_CLASS &&
-            right->cls->parent == left->cls) {
-            /* The right is an enum class that is a member of the left.
-               Consider it valid if the right's types (if any) match to all the
-               types collected -so far- for the left. */
-
-            ret = 1;
-
-            if (right->cls->variant_type->subtype_count != 0) {
-                /* I think this is best explained as an example:
-                   'enum class Option[A, B] { Some(A), None }'
-                   In this case, the variant type of Some is defined as:
-                   'function (A => Some[A])'
-                   This pulls the 'Some[A]'. */
-                lily_type *variant_output = right->cls->variant_type->subtypes[0];
-                int i;
-                /* The result is an Option[A, B], but Some only has A. Match up
-                   generics that are available, to proper positions in the
-                   parent. If any fail, then stop. */
-                for (i = 0;i < variant_output->subtype_count;i++) {
-                    int pos = variant_output->subtypes[i]->generic_pos;
-                    ret = lily_ts_check(ts, left->subtypes[pos],
-                            right->subtypes[i]);
-                    if (ret == 0)
-                        break;
-                }
-            }
-            /* else it takes no arguments and is automatically correct because
-               is nothing that could go wrong. */
         }
     }
 
