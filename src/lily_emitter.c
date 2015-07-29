@@ -2612,11 +2612,20 @@ static int enum_membership_check(lily_emit_state *emit, lily_type *enum_type,
 }
 
 /*  type_matchup
-    This is called when 'right' doesn't have quite the right type.
-    If the wanted type is 'any', the value of 'right' is made into an any.
+    This function is called when a certain type is wanted, and a given ast
+    doesn't quite satisfy the requirement.
 
-    On success: right is fixed, 1 is returned.
-    On failure: right isn't fixed, 0 is returned. */
+    This returns 1 when it is possible for 'right' to be assigned to something
+    of 'want_type', 0 otherwise.
+
+    This attempts one of three things:
+     * If 'want_type' is any, the ast's result is converted so that it returns
+       a value of type any.
+     * If 'want_type' is an enum class, the ast's result is checked for being a
+       variant. If it is a variant (and the types fit), it is converted so that
+       it returns a value of the enum type.
+     * If 'want_type' is a superset of what the ast returns, 1 is returned, but
+       there is no conversion performed (because it isn't necessary). */
 static int type_matchup(lily_emit_state *emit, lily_type *want_type,
         lily_ast *right)
 {
@@ -2628,6 +2637,9 @@ static int type_matchup(lily_emit_state *emit, lily_type *want_type,
         if (ret)
             emit_rebox_value(emit, want_type, right);
     }
+    else if (want_type->cls->id != SYM_CLASS_GENERIC &&
+             lily_type_greater_eq(want_type, right->result->type))
+        ret = 1;
     else
         ret = 0;
 

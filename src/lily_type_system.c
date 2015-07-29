@@ -381,3 +381,33 @@ int lily_class_greater_eq(lily_class *left, lily_class *right)
 
     return ret;
 }
+
+int lily_type_greater_eq(lily_type *left, lily_type *right)
+{
+    int ret = 0;
+
+    if (lily_class_greater_eq(left->cls, right->cls) &&
+        left->subtype_count <= right->subtype_count) {
+        ret = 1;
+
+        lily_type **left_subtypes = left->subtypes;
+        lily_type **right_subtypes = right->subtypes;
+
+        /* The left side has to be an exact superset of the right side, no
+           defaulting allowed. This is because 'abc[integer]' may or may not be
+           transformable into 'def[any, integer]'. */
+        int i;
+        for (i = 0;i < left->subtype_count;i++) {
+            if (left_subtypes[i] != right_subtypes[i]) {
+                ret = 0;
+                break;
+            }
+        }
+
+        if (left->cls->id == SYM_CLASS_FUNCTION &&
+            left->subtype_count != right->subtype_count)
+            ret = 0;
+    }
+
+    return ret;
+}

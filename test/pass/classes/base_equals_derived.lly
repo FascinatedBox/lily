@@ -1,0 +1,16 @@
+class Point(x: integer, y: integer)
+{
+    var @x = x
+    var @y = y
+}
+
+class Point3D(x: integer, y: integer, z: integer) < Point(x, y)
+{
+    var @z = z
+}
+
+var p = Point::new(1, 2)
+p = Point3D::new(3, 4, 5)
+
+if p.x != 3 || p.y != 4:
+    stderr.write("Failed.\n")
