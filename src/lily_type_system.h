@@ -128,4 +128,10 @@ void lily_ts_generics_seen(lily_type_system *, int);
    is within the classes themselves. */
 int lily_class_greater_eq(lily_class *, lily_class *);
 
+/* Similar to lily_class_greater_eq, determine if the first class could be
+   considered a superset of the second class. The class to the right (except for
+   functions), must be >= to the left class, and have similar subtypes if that
+   applies. */
+int lily_type_greater_eq(lily_type *, lily_type *);
+
 #endif
