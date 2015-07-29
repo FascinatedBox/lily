@@ -2670,25 +2670,12 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
     else if (super_class == cls)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "A class cannot inherit from itself!\n");
-    else if (super_class->id <= SYM_CLASS_GENERIC)
+    else if (super_class->id <= SYM_CLASS_GENERIC ||
+             super_class->flags & CLS_ENUM_CLASS)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Cannot inherit from builtin classes. Sorry.\n");
-
-    lily_block *block_iter = parser->emit->block;
-    while (block_iter) {
-        if (block_iter->class_entry == super_class)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "A class cannot inherit from an incomplete class.\n");
-
-        block_iter = block_iter->prev;
-    }
+                "'%s' cannot be inherited from.\n", super_class->name);
 
     lily_var *class_new = lily_find_method(super_class, "new");
-
-    /* I don't think this is possible, but I'm not entirely sure. */
-    if (class_new == NULL)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "Inherited class does not have a constructor?\n");
 
     NEED_NEXT_TOK(tk_left_parenth)
 

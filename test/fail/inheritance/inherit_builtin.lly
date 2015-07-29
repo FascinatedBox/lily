@@ -1,5 +1,5 @@
 #[
-SyntaxError: Cannot inherit from builtin classes. Sorry.
+SyntaxError: 'integer' cannot be inherited from.
 Where: File "inherit_builtin.lly" at line 6
 ]#
 
