@@ -1,4 +1,4 @@
 enum class Option[A] {
-	Some(A),
+	Some(A)
 	None
 }

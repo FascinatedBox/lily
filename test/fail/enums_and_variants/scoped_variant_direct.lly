@@ -4,7 +4,7 @@ Where: File "scoped_variant_direct.lly" at line 11
 ]#
 
 enum class Option[A] {
-	::Some(A),
+	::Some(A)
 	::None
 }
 
