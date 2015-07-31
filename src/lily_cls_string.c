@@ -929,6 +929,52 @@ void lily_string_split(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(vm, result_reg, v);
 }
 
+void lily_string_to_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *result_reg = vm_regs[code[0]];
+    char *input = vm_regs[code[1]]->value.string->string;
+    uint64_t value = 0;
+    int is_negative = 0;
+    unsigned int rounds = 0;
+
+    if (*input == '-') {
+        is_negative = 1;
+        ++input;
+    }
+    else if (*input == '+')
+        ++input;
+
+    while (*input == '0')
+        ++input;
+
+    /* A signed int64 peaks at 9223372036854775807 (or ...808 for negative).
+       The maximum number of reasonable digits is therefore 20 for scanning
+       decimal. */
+    while (*input >= '0' && *input <= '9' && rounds != 20) {
+        value = (value * 10) + (*input - '0');
+        ++input;
+        rounds++;
+    }
+
+    if (value > ((uint64_t)INT64_MAX + is_negative))
+        lily_raise(vm->raiser, lily_ValueError, "Value exceeds allowed range.\n");
+
+    if (*input != '\0' || rounds == 0)
+        lily_raise(vm->raiser, lily_ValueError, "Invalid base 10 literal '%s'.\n",
+                vm_regs[code[1]]->value.string->string);
+
+    int64_t signed_value;
+
+    if (is_negative == 0)
+        signed_value = (int64_t)value;
+    else
+        signed_value = -(int64_t)value;
+
+    lily_raw_value v = {.integer = signed_value};
+    lily_move_raw_value(vm, result_reg, v);
+}
+
 /*  This handles a subscript of a string. Lily assumes that strings will always
     contain valid utf-8 and never have a \0 within them. As such, no
     bounds-checking is performed.
@@ -985,8 +1031,11 @@ void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
     lily_move_raw_value(vm, result_reg, v);
 }
 
+static const lily_func_seed to_i =
+    {NULL, "to_i", dyna_function, "function to_i(string => integer)", lily_string_to_i};
+
 static const lily_func_seed split =
-    {NULL, "split", dyna_function, "function split(string, string => list[string])", lily_string_split};
+    {&to_i, "split", dyna_function, "function split(string, string => list[string])", lily_string_split};
 
 static const lily_func_seed format =
     {&split, "format", dyna_function, "function format(string, list[any]... => string)", lily_string_format};
