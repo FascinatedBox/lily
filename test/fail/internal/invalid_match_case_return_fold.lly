@@ -3,7 +3,7 @@ SyntaxError: Missing return statement at end of function.
 Where: File "invalid_match_case_return_fold.lly" at line 16
 ]#
 
-enum class Option[A] { Some(A), None }
+enum class Option[A] { Some(A) None }
 
 define f(a: Option[integer] => integer)
 {

@@ -3,7 +3,7 @@ SyntaxError: 'Option' cannot be inherited from.
 Where: File "inherit_enum.lly" at line 8
 ]#
 
-enum class Option[A] { Some(A), None }
+enum class Option[A] { Some(A) None }
 
 class abc() < Option {
 }

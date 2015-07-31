@@ -2816,9 +2816,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
 
         inner_class_count++;
 
-        if (lex->token == tk_comma)
-            lily_lexer(lex);
-        else if (lex->token == tk_right_curly)
+        if (lex->token == tk_right_curly)
             break;
         else if (lex->token == tk_word && lex->label[0] == 'd' &&
                  keyword_by_name(lex->label) == KEY_DEFINE)

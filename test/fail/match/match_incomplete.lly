@@ -5,7 +5,7 @@ Where: File "match_incomplete.lly" at line 17
 ]#
 
 enum class Option[A] {
-    Some(A),
+    Some(A)
     None
 }
 

@@ -1,6 +1,6 @@
 enum class Test[A, B, C] {
-    First(A, B, C),
-    Second(A, B),
+    First(A, B, C)
+    Second(A, B)
     Third
 }
 
