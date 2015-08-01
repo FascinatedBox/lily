@@ -641,8 +641,7 @@ static inline void fix_register_types(lily_vm_state *vm,
             lily_value *reg = target_regs[args_collected];
             lily_deref(reg);
 
-            /* SET the flags to nil so that VAL_IS_PROTECTED gets blasted away
-               if it happens to be set. */
+            /* These are now just nil. Nothing more, nothing less. */
             reg->flags = VAL_IS_NIL;
             reg->type = seed.type;
         }
@@ -1081,9 +1080,8 @@ static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
     if (elem == NULL) {
         elem = lily_new_hash_elem();
         if (elem != NULL) {
-            /* It's important to copy over the flags, in case the key is a
-               literal and marked VAL_IS_PROTECTED. Doing so keeps hash deref
-               from trying to deref the key. */
+            /* Make sure everything, including the flags, is copied. The flags
+               may have "don't ref/deref me" markers on them. */
             elem->elem_key->flags = hash_key->flags;
             elem->elem_key->value = hash_key->value;
             elem->elem_key->type = hash_key->type;
@@ -2124,7 +2122,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 lily_deref(lhs_reg);
 
                 lhs_reg->value = readonly_val->value;
-                lhs_reg->flags = VAL_IS_PROTECTED;
+                lhs_reg->flags = VAL_IS_LITERAL;
                 code_pos += 4;
                 break;
             case o_integer_add:
