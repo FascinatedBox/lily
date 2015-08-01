@@ -47,10 +47,6 @@ typedef struct lily_vm_catch_entry_ {
     struct lily_vm_catch_entry_ *prev;
 } lily_vm_catch_entry;
 
-typedef struct {
-    uint8_t did_setup;
-} lily_call_cache;
-
 typedef struct lily_vm_state_ {
     lily_value **vm_regs;
     lily_value **regs_from_main;
