@@ -1778,8 +1778,7 @@ static void expression(lily_parse_state *parser)
 static void var_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
-    lily_var *var = NULL;
-    lily_prop_entry *prop = NULL;
+    lily_sym *sym = NULL;
     /* This prevents variables from being used to initialize themselves. */
     int flags = SYM_NOT_INITIALIZED;
 
@@ -1801,29 +1800,24 @@ static void var_handler(lily_parse_state *parser, int multi)
         NEED_CURRENT_TOK(want_token)
 
         if (lex->token == tk_word)
-            var = get_named_var(parser, NULL);
+            sym = (lily_sym *)get_named_var(parser, NULL);
         else
-            prop = get_named_property(parser, NULL, flags);
+            sym = (lily_sym *)get_named_property(parser, NULL, flags);
 
-        if (var != NULL) {
+        if (sym->flags & ITEM_TYPE_VAR) {
             /* It's important to add locals and globals differently, because
                the emitter can't optimize stuff with globals. */
             if (parser->emit->function_depth == 1)
-                lily_ast_push_global_var(parser->ast_pool, var);
+                lily_ast_push_global_var(parser->ast_pool, (lily_var *)sym);
             else
-                lily_ast_push_local_var(parser->ast_pool, var);
+                lily_ast_push_local_var(parser->ast_pool, (lily_var *)sym);
         }
         else
-            lily_ast_push_property(parser->ast_pool, prop);
+            lily_ast_push_property(parser->ast_pool, (lily_prop_entry *)sym);
 
         if (lex->token == tk_colon) {
             lily_lexer(lex);
-            lily_type *t = collect_var_type(parser);
-
-            if (var)
-                var->type = t;
-            else
-                prop->type = t;
+            sym->type = collect_var_type(parser);
         }
 
         if (lex->token != tk_equal) {
