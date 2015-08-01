@@ -616,6 +616,26 @@ static void close_over_sym(lily_emit_state *emit, lily_sym *sym)
     sym->flags |= SYM_CLOSED_OVER;
 }
 
+static void checked_close_over_var(lily_emit_state *emit, lily_var *var)
+{
+    /* The reason this exists is because Lily does not currently understand that
+       generics may have a certain scope applied to them. If that happens, then
+       this can be taken away.
+       This is to prevent crashing from assuming that 'A' is consistently solved
+       across defines. This is not an issue for class methods closing over
+       constructor parameters (they get self as the first argument, and thus
+       must be samely-solved). This is not an issue for lambdas, because they
+       do not create a new scope for generics.
+       Yeah, this sucks. */
+    if (emit->function_block->block_type == block_define &&
+        emit->function_block->prev->block_type == block_define &&
+        var->type->flags & TYPE_IS_UNRESOLVED)
+        lily_raise(emit->raiser, lily_SyntaxError,
+                "Cannot close over a var of an incomplete type in this scope.\n");
+
+    close_over_sym(emit, (lily_sym *)var);
+}
+
 static int find_closed_sym_spot(lily_emit_state *emit, lily_sym *sym)
 {
     int result = -1, i;
@@ -2039,7 +2059,7 @@ static void eval_upvalue_assign(lily_emit_state *emit, lily_ast *ast)
     int spot;
     lily_sym *left_sym = ast->left->sym;
     if (ast->left->tree_type == tree_open_upvalue) {
-        close_over_sym(emit, left_sym);
+        checked_close_over_var(emit, (lily_var *)left_sym);
         spot = emit->closed_pos - 1;
     }
     else
@@ -3535,7 +3555,7 @@ void eval_open_upvalue(lily_emit_state *emit, lily_ast *ast)
 {
     lily_sym *sym = ast->sym;
 
-    close_over_sym(emit, ast->sym);
+    checked_close_over_var(emit, (lily_var *)ast->sym);
     lily_storage *result = get_storage(emit, sym->type);
     write_4(emit, o_get_upvalue, ast->line_num, emit->closed_pos - 1,
             result->reg_spot);
