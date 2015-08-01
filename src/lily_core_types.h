@@ -565,9 +565,9 @@ typedef struct lily_options_ {
    prevent an accidental invalid read, however.
    If this flag is set, do not ref or deref the contents. */
 #define VAL_IS_NIL              0x10000
-/* This particular value has been assigned a value that is either a literal or
-   a defined function. Do not ref or deref this value. */
-#define VAL_IS_PROTECTED        0x20000
+/* This is a literal or a defined function, and thus must always be available to
+   the interpreter. Do not ref or deref this value: It's pointless. */
+#define VAL_IS_LITERAL          0x20000
 /* Values of this type are not refcounted. */
 #define VAL_IS_PRIMITIVE        0x40000
 /* Check if a value is nil, protected, or not refcounted. If any of those is
