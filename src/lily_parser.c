@@ -1208,11 +1208,6 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
     if (v == NULL)
         v = lily_parser_dynamic_load(parser, cls, lex->label);
 
-    if (v) {
-        lily_ast_push_defined_func(parser->ast_pool, v);
-        return;
-    }
-
     /* Is this the class that's currently being read in? If it is, then its
        methods may not have been injected into the class just yet (especially if
        it is the current method).
@@ -1221,10 +1216,14 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
        other methods (like ::new) that do not take a class instance. */
     if (parser->emit->block->class_entry == cls) {
         v = lily_find_var(parser->symtab, NULL, lex->label);
-        if (v != NULL && v->parent == cls) {
-            lily_ast_push_static_func(parser->ast_pool, v);
-            return;
-        }
+        if (v != NULL && v->parent != cls)
+            /* Ignore it, it doesn't belong to this class. */
+            v = NULL;
+    }
+
+    if (v) {
+        lily_ast_push_static_func(parser->ast_pool, v);
+        return;
     }
 
     /* Enum classes allow scoped variants through `<enum class>::<variant>`. */
