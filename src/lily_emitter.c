@@ -1438,6 +1438,36 @@ static void push_info_to_error(lily_emit_state *emit, lily_emit_call_state *cs)
             call_name);
 }
 
+static void ensure_valid_scope(lily_emit_state *emit, lily_sym *sym)
+{
+    if (sym->flags & (SYM_SCOPE_PRIVATE | SYM_SCOPE_PROTECTED)) {
+        lily_class *block_class = emit->block->class_entry;
+        lily_class *parent;
+        int is_private = (sym->flags & SYM_SCOPE_PRIVATE);
+        char *name;
+
+        if (sym->flags & ITEM_TYPE_PROPERTY) {
+            lily_prop_entry *prop = (lily_prop_entry *)sym;
+            parent = prop->cls;
+            name = prop->name;
+        }
+        else {
+            lily_var *v = (lily_var *)sym;
+            parent = v->parent;
+            name = v->name;
+        }
+
+        if ((is_private && block_class != parent) ||
+            (is_private == 0 &&
+             (block_class == NULL || lily_class_greater_eq(parent, block_class) == 0))) {
+            char *scope_name = is_private ? "private" : "protected";
+            lily_raise(emit->raiser, lily_SyntaxError,
+                       "%s::%s is marked %s, and not available here.\n",
+                       parent->name, name, scope_name);
+        }
+    }
+}
+
 /*  assign_post_check
     This function is called after any assignment is evaluated. This allows
     assignment chains (because those are nice), but disables assignments from
@@ -1882,6 +1912,8 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
     }
     else
         ast->item = (lily_item *)var;
+
+    ensure_valid_scope(emit, (lily_sym *)ast->item);
 }
 
 /* This is called on trees of type tree_oo_access which have their ast->item
@@ -1945,6 +1977,7 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
     function/method defined within a class. */
 static void eval_property(lily_emit_state *emit, lily_ast *ast)
 {
+    ensure_valid_scope(emit, ast->sym);
     if (emit->function_block->block_type == block_lambda)
         maybe_close_over_class_self(emit);
 
@@ -1971,6 +2004,7 @@ static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
 {
     lily_type *left_type;
 
+    ensure_valid_scope(emit, ast->sym);
     eval_oo_access_for_item(emit, ast->left);
     left_type = ast->left->property->type;
     if ((ast->left->item->flags & ITEM_TYPE_PROPERTY) == 0)
@@ -2014,6 +2048,7 @@ static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
     if (emit->function_block->block_type == block_lambda)
         maybe_close_over_class_self(emit);
 
+    ensure_valid_scope(emit, ast->left->sym);
     lily_type *left_type = ast->left->property->type;
     lily_sym *rhs;
 
@@ -3239,9 +3274,12 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     lily_item *debug_item = NULL;
     lily_type *call_type = NULL;
 
-    if (first_tt == tree_defined_func || first_tt == tree_inherited_new ||
-        first_tt == tree_static_func)
+    if (first_tt == tree_defined_func || first_tt == tree_inherited_new)
         call_item = ast->arg_start->item;
+    else if (first_tt == tree_static_func) {
+        ensure_valid_scope(emit, ast->arg_start->sym);
+        call_item = ast->arg_start->item;
+    }
     else if (first_tt == tree_oo_access) {
         eval_oo_access_for_item(emit, ast->arg_start);
         if (first_tree->item->flags & ITEM_TYPE_PROPERTY) {
@@ -3401,10 +3439,16 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     lily_storage *ret;
     int opcode;
 
-    if (ast->tree_type == tree_global_var)
-        opcode = o_get_global;
-    else
-        opcode = o_get_readonly;
+    switch (ast->tree_type) {
+        case tree_global_var:
+            opcode = o_get_global;
+            break;
+        case tree_static_func:
+            ensure_valid_scope(emit, ast->sym);
+        default:
+            opcode = o_get_readonly;
+            break;
+    }
 
     ret = get_storage(emit, ast->sym->type);
 

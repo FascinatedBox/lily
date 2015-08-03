@@ -1,0 +1,12 @@
+#[
+SyntaxError: abc::f is marked private, and not available here.
+Where: File "private_outside_scope.lly" at line 12
+]#
+
+class abc() {
+    private define f() { }
+}
+
+class def() < abc() {
+    abc::f()
+}

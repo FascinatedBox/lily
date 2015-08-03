@@ -533,12 +533,20 @@ typedef struct lily_options_ {
 
 /* properties, vars: This is used to prevent a value from being used to
    initialize itself. */
-#define SYM_NOT_INITIALIZED     0x100
+#define SYM_NOT_INITIALIZED     0x0100
 /* storages: This is set when the result of some expression cannot be assigned
    to. This is to prevent things like '[1,2,3][0] = 4'. */
-#define SYM_NOT_ASSIGNABLE      0x200
+#define SYM_NOT_ASSIGNABLE      0x0200
 
-#define SYM_CLOSED_OVER         0x400
+#define SYM_CLOSED_OVER         0x0400
+
+/* properties, vars: This is 'private' to the class it was declared within. */
+#define SYM_SCOPE_PRIVATE       0x1000
+
+/* properties, vars: This is 'protected' to the class it was declared within. */
+#define SYM_SCOPE_PROTECTED     0x2000
+
+/* There is no 'SYM_SCOPE_PUBLIC', because public is the default. */
 
 /* VAR_* flags are for vars. Since these have lily_sym as a superset, they begin
    where lily_sym's flags leave off. */
@@ -547,13 +555,13 @@ typedef struct lily_options_ {
 /* This is a var that is no longer in scope. It is kept around until the
    function it is within is done so type information can be loaded up into the
    registers later. */
-#define VAR_OUT_OF_SCOPE        0x1000
+#define VAR_OUT_OF_SCOPE        0x04000
 
 /* This is set on vars which will be used to hold the value of a defined
    function, a lambda, or a class constructor. Vars with this flag cannot be
    assigned to. Additionally, the reg_spot they contain is actually a spot in
    the vm's 'readonly_table'. */
-#define VAR_IS_READONLY         0x2000
+#define VAR_IS_READONLY         0x10000
 
 
 /* VAL_* flags are for lily_value. */
@@ -564,17 +572,17 @@ typedef struct lily_options_ {
    the contents of a value. The vm sets values to (integer) 0 beforehand to
    prevent an accidental invalid read, however.
    If this flag is set, do not ref or deref the contents. */
-#define VAL_IS_NIL              0x10000
-/* This is a literal or a defined function, and thus must always be available to
-   the interpreter. Do not ref or deref this value: It's pointless. */
-#define VAL_IS_LITERAL          0x20000
+#define VAL_IS_NIL              0x100000
+/* This particular value has been assigned a value that is either a literal or
+   a defined function. Do not ref or deref this value. */
+#define VAL_IS_LITERAL          0x200000
 /* Values of this type are not refcounted. */
-#define VAL_IS_PRIMITIVE        0x40000
+#define VAL_IS_PRIMITIVE        0x400000
 /* Check if a value is nil, protected, or not refcounted. If any of those is
    true, then the given value should not get a deref.
    There are some cases in the vm where only one of the above flags is set. This
    is intentional, as it only takes one flag to be unable to deref. */
-#define VAL_IS_NOT_DEREFABLE    0x70000
+#define VAL_IS_NOT_DEREFABLE    0x700000
 
 
 /* SYM_CLASS_* defines are for checking ids of a type's class. These are

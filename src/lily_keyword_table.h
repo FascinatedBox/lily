@@ -26,8 +26,10 @@ keyword_entry keywords[] = {
     {"return",       121437875889522},
     {"except",       128026086176869},
     {"import",       128034844732777},
+    {"private",      28556934595048048},
     {"__file__",     6872323072689856351},
     {"__line__",     6872323081280184159},
+    {"protected",    7310577382525465200},
     {"continue",     7310870969309884259},
     {"__function__", 7598807797348065119},
 };
@@ -51,10 +53,12 @@ keyword_entry keywords[] = {
 # define KEY_RETURN       16
 # define KEY_EXCEPT       17
 # define KEY_IMPORT       18
-# define KEY__FILE__      19
-# define KEY__LINE__      20
-# define KEY_CONTINUE     21
-# define KEY__FUNCTION__  22
-# define KEY_LAST_ID      22
+# define KEY_PRIVATE      19
+# define KEY__FILE__      20
+# define KEY__LINE__      21
+# define KEY_PROTECTED    22
+# define KEY_CONTINUE     23
+# define KEY__FUNCTION__  24
+# define KEY_LAST_ID      24
 
 #endif

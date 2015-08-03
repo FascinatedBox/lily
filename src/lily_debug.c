@@ -387,8 +387,16 @@ static void show_property(lily_debug_state *debug, lily_prop_entry *prop,
     if (prop->next)
         show_property(debug, prop->next, ival);
 
-    lily_msgbuf_add_fmt(debug->msgbuf, "^I|____[(%d) %s] = ", debug->indent,
-            prop->id, prop->name);
+    char *scope;
+    if (prop->flags & SYM_SCOPE_PRIVATE)
+        scope = " (private)";
+    else if (prop->flags & SYM_SCOPE_PROTECTED)
+        scope = " (protected)";
+    else
+        scope = "";
+
+    lily_msgbuf_add_fmt(debug->msgbuf, "^I|____[(%d) %s%s] = ", debug->indent,
+            prop->id, prop->name, scope);
     write_msgbuf(debug);
     debug->indent++;
 

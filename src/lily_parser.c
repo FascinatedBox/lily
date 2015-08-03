@@ -522,7 +522,7 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
                 current_class->name, name);
 
     prop = lily_add_class_property(parser->symtab, current_class, prop_type,
-            name, 0);
+            name, flags & ~SYM_NOT_INITIALIZED);
 
     lily_lexer(parser->lex);
     return prop;
@@ -1106,7 +1106,8 @@ static lily_var *parse_prototype(lily_parse_state *parser,
     This is called to parse class declarations (which are just functions that
     become a class) and toplevel functions (functions not a parameter inside
     something else). */
-static void parse_function(lily_parse_state *parser, lily_class *decl_class)
+static void parse_function(lily_parse_state *parser, lily_class *decl_class,
+        int modifiers)
 {
     lily_lex_state *lex = parser->lex;
     lily_type *call_type = parser->default_call_type;
@@ -1127,6 +1128,7 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class)
     else {
         ensure_unique_method_name(parser, lex->label);
         call_var = lily_emit_new_define_var(emit, call_type, lex->label);
+        call_var->flags |= modifiers;
         block_type = block_define;
     }
 
@@ -1771,15 +1773,19 @@ static void expression(lily_parse_state *parser)
     accesses of class variables is done with @ too). Otherwise, @ must -not-
     appear.
 
+    This function accepts modifiers for the var. This should be either 'private'
+    or 'protected' (a public scope is the default). These are only allowed for
+    class properties though.
+
     Additionally, all values MUST have an initializing assignment. This is
     mandatory so that the interpreter does not have to worry about uninitialized
     values. */
-static void var_handler(lily_parse_state *parser, int multi)
+static void parse_var(lily_parse_state *parser, int modifiers)
 {
     lily_lex_state *lex = parser->lex;
     lily_sym *sym = NULL;
     /* This prevents variables from being used to initialize themselves. */
-    int flags = SYM_NOT_INITIALIZED;
+    int flags = SYM_NOT_INITIALIZED | modifiers;
 
     lily_token token, want_token, other_token;
     if (parser->emit->block->block_type == block_class) {
@@ -1845,6 +1851,11 @@ static void var_handler(lily_parse_state *parser, int multi)
     }
 }
 
+static void var_handler(lily_parse_state *parser, int multi)
+{
+    parse_var(parser, 0);
+}
+
 /*  Given a name, return the type that represents it. This is used for dynaload
     of vars (the module provides a string that describes the var). */
 static lily_type *type_by_name(lily_parse_state *parser, char *name)
@@ -1908,8 +1919,10 @@ static void define_handler(lily_parse_state *, int);
 static void return_handler(lily_parse_state *, int);
 static void except_handler(lily_parse_state *, int);
 static void import_handler(lily_parse_state *, int);
+static void private_handler(lily_parse_state *, int);
 static void file_kw_handler(lily_parse_state *, int);
 static void line_kw_handler(lily_parse_state *, int);
+static void protected_handler(lily_parse_state *, int);
 static void continue_handler(lily_parse_state *, int);
 static void function_kw_handler(lily_parse_state *, int);
 
@@ -1936,8 +1949,10 @@ static keyword_handler *handlers[] = {
     return_handler,
     except_handler,
     import_handler,
+    private_handler,
     file_kw_handler,
     line_kw_handler,
+    protected_handler,
     continue_handler,
     function_kw_handler
 };
@@ -2703,7 +2718,7 @@ static void create_new_class(lily_parse_state *parser)
     lily_class *created_class = lily_new_class(parser->symtab, lex->label);
     lily_type *save_class_self_type = parser->class_self_type;
 
-    parse_function(parser, created_class);
+    parse_function(parser, created_class, 0);
 
     if (lex->token == tk_lt)
         parse_inheritance(parser, created_class);
@@ -2964,13 +2979,13 @@ static void case_handler(lily_parse_state *parser, int multi)
     lily_lexer(lex);
 }
 
-static void define_handler(lily_parse_state *parser, int multi)
+static void parse_define(lily_parse_state *parser, int modifiers)
 {
     lily_lex_state *lex = parser->lex;
-    parse_function(parser, NULL);
+    parse_function(parser, NULL, modifiers);
 
     NEED_CURRENT_TOK(tk_left_curly)
-    parse_multiline_block_body(parser, multi);
+    parse_multiline_block_body(parser, 1);
     lily_emit_leave_block(parser->emit);
 
     /* If the function defined is at the top level of a class, then immediately
@@ -2983,6 +2998,44 @@ static void define_handler(lily_parse_state *parser, int multi)
                 parser->class_self_type->cls,
                 parser->symtab->active_import->var_chain);
     }
+}
+
+static void define_handler(lily_parse_state *parser, int multi)
+{
+    parse_define(parser, 0);
+}
+
+static void parse_modifier(lily_parse_state *parser, char *name, int modifier)
+{
+    if (parser->emit->block->block_type != block_class)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'%s' is not allowed here.", name);
+
+    lily_lex_state *lex = parser->lex;
+    NEED_CURRENT_TOK(tk_word)
+    int key = keyword_by_name(parser->lex->label);
+    if (key == KEY_VAR) {
+        lily_lexer(lex);
+        parse_var(parser, modifier);
+    }
+    else if (key == KEY_DEFINE) {
+        lily_lexer(lex); /// assumed correct, untested.
+        parse_define(parser, modifier);
+    }
+    else
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Expected either 'var' or 'define', but got '%s'.\n",
+                lex->label);
+}
+
+static void private_handler(lily_parse_state *parser, int multi)
+{
+    parse_modifier(parser, "private", SYM_SCOPE_PRIVATE);
+}
+
+static void protected_handler(lily_parse_state *parser, int multi)
+{
+    parse_modifier(parser, "protected", SYM_SCOPE_PROTECTED);
 }
 
 static void self_handler(lily_parse_state *parser, int multi)
