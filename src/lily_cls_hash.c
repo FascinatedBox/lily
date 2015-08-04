@@ -262,8 +262,32 @@ void lily_hash_keys(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     result_reg->flags = 0;
 }
 
+/*  Implements hash::each_pair[A, B](hash[A, B], function(A, B))
+
+    This is fairly simple: It takes a function that takes both the key and the
+    value of a hash and calls it for each entry of the hash. */
+void lily_hash_each_pair(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_hash_val *hash_val = vm_regs[code[1]]->value.hash;
+    lily_value *function_reg = vm_regs[code[2]];
+    lily_hash_elem *elem_iter = hash_val->elem_chain;
+    int cached = 0;
+
+    while (elem_iter) {
+        lily_value *e_key = elem_iter->elem_key;
+        lily_value *e_value = elem_iter->elem_value;
+
+        lily_foreign_call(vm, &cached, NULL, function_reg, 2, e_key, e_value);
+        elem_iter = elem_iter->next;
+    }
+}
+
+static const lily_func_seed each_pair =
+    {NULL, "each_pair", dyna_function, "function each_pair[A, B](hash[A, B], function(A, B))", lily_hash_each_pair};
+
 static const lily_func_seed keys =
-    {NULL, "keys", dyna_function, "function keys[A, B](hash[A, B] => list[A])", lily_hash_keys};
+    {&each_pair, "keys", dyna_function, "function keys[A, B](hash[A, B] => list[A])", lily_hash_keys};
 
 static const lily_func_seed dynaload_start =
     {&keys, "get", dyna_function, "function get[A, B](hash[A, B], A, B => B)", lily_hash_get};
