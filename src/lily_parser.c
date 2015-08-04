@@ -3400,11 +3400,13 @@ char *lily_build_error_message(lily_parse_state *parser)
         while (strcmp(iter->filename, "[lambda]") == 0)
             iter = iter->prev;
 
-        /* Since importing is not yet possible, simply show the top entry. This
-           should be the actual file loaded. */
-        iter->saved_line_num = fixed_line_num;
-        lily_msgbuf_add_fmt(msgbuf, "Where: File \"%s\" at line %d\n",
-                iter->filename, iter->saved_line_num);
+        if (strcmp(iter->filename, "[builtin]") != 0) {
+            iter->saved_line_num = fixed_line_num;
+            lily_msgbuf_add_fmt(msgbuf, "Where: File \"%s\" at line %d\n",
+                    iter->filename, iter->saved_line_num);
+        }
+        /* The entry is only [builtin] if there was a failure to load the first
+           file. Don't show any filename because, well...there isn't one. */
     }
     else {
         lily_call_frame *frame = parser->vm->call_chain;
