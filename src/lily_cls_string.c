@@ -915,7 +915,16 @@ void lily_string_split(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_string_val *input_strval = vm_regs[code[1]]->value.string;
-    lily_string_val *split_strval = vm_regs[code[2]]->value.string;
+    lily_string_val *split_strval;
+    if (argc == 2)
+        split_strval = vm_regs[code[2]]->value.string;
+    else {
+        lily_string_val fake_sv;
+        fake_sv.string = " ";
+        fake_sv.size = 1;
+        split_strval = &fake_sv;
+    }
+
     lily_value *result_reg = vm_regs[code[0]];
 
     if (split_strval->size == 0)
@@ -1035,7 +1044,7 @@ static const lily_func_seed to_i =
     {NULL, "to_i", dyna_function, "function to_i(string => integer)", lily_string_to_i};
 
 static const lily_func_seed split =
-    {&to_i, "split", dyna_function, "function split(string, string => list[string])", lily_string_split};
+    {&to_i, "split", dyna_function, "function split(string, *string => list[string])", lily_string_split};
 
 static const lily_func_seed format =
     {&split, "format", dyna_function, "function format(string, list[any]... => string)", lily_string_format};
