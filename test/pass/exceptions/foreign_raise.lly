@@ -1,0 +1,14 @@
+define f(a: integer => integer)
+{
+    try: {
+        if a % 2:
+            raise ValueError::new("")
+    except Exception:
+
+    }
+
+    return a
+}
+
+
+[1, 2, 3, 4].apply(f)

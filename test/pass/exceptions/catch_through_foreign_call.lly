@@ -1,0 +1,13 @@
+define f(a: integer => integer)
+{
+    raise ValueError::new("")
+}
+
+for i in 0...5: {
+    var v = [1, 2, 3]
+    try: {
+        v.apply(f)
+    except Exception:
+
+    }
+}

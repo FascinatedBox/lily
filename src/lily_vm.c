@@ -1610,11 +1610,12 @@ static void make_proper_exception_val(lily_vm_state *vm,
     operation, or by the user. This looks through the exceptions that the vm
     has registered to see if one of them can handle the current exception.
 
-    On success: An exception value is created, if the user specified that they
-                wanted it.
-                Control goes to the appropriate 'except' block.
-                1 is returned.
-    On failure: 0 is returned, which will result in the vm exiting. */
+    Each exception that is registered has an associated raiser jump. If the
+    jumps do not match, or the exception cannot be caught, this returns 0 (and
+    the vm will go back a single jump).
+
+    If the exception can be caught, the current frame and catch entries are
+    fixed. It is up to the vm to fix the local data it has. */
 static int maybe_catch_exception(lily_vm_state *vm)
 {
     const char *except_name;
@@ -1622,6 +1623,8 @@ static int maybe_catch_exception(lily_vm_state *vm)
 
     if (vm->catch_top == NULL)
         return 0;
+
+    lily_jump_link *raiser_jump = vm->raiser->all_jumps;
 
     if (vm->raiser->exception_type == NULL) {
         except_name = lily_name_for_error(vm->raiser);
@@ -1645,6 +1648,14 @@ static int maybe_catch_exception(lily_vm_state *vm)
     match = 0;
 
     while (catch_iter != NULL) {
+        /* It's extremely important that the vm not attempt to catch exceptions
+           that were not made in the same jump level. If it does, the vm could
+           be called from a foreign function, but think it isn't. */
+        if (catch_iter->jump_entry != raiser_jump) {
+            vm->catch_top = catch_iter;
+            break;
+        }
+
         lily_call_frame *call_frame = catch_iter->call_frame;
         uint16_t *code = call_frame->function->code;
         /* A try block is done when the next jump is at 0 (because 0 would
@@ -2077,34 +2088,32 @@ void lily_vm_execute(lily_vm_state *vm)
     /* Initialize local vars from the vm state's vars. */
     vm_regs = vm->vm_regs;
     regs_from_main = vm->regs_from_main;
-    num_registers = vm->num_registers;
     offset_max_registers = vm->offset_max_registers;
     code_pos = 0;
 
-    /* Only install a raiser jump on the first vm entry. */
-    if (current_frame->prev == NULL) {
-        if (setjmp(vm->raiser->jumps[vm->raiser->jump_pos]) == 0)
-            vm->raiser->jump_pos++;
-        else {
-            /* If the current function is a native one, then fix the line
-               number of it. Otherwise, leave the line number alone. */
-            if (current_frame->function->code != NULL)
-                current_frame->line_num = current_frame->code[code_pos+1];
+    lily_jump_link *link = lily_jump_setup(vm->raiser);
+    if (setjmp(link->jump) != 0) {
+        /* If the current function is a native one, then fix the line
+           number of it. Otherwise, leave the line number alone. */
+        if (current_frame->function->code != NULL)
+            current_frame->line_num = current_frame->code[code_pos+1];
 
-            if (maybe_catch_exception(vm) == 0)
-                /* Couldn't catch it. Jump back into parser, which will jump
-                   back to the caller to give them the bad news. */
-                longjmp(vm->raiser->jumps[vm->raiser->jump_pos-2], 1);
-            else {
-                /* The exception was caught, so resync local data. */
-                current_frame = vm->call_chain;
-                code = current_frame->code;
-                code_pos = current_frame->code_pos;
-                vm_regs = vm->vm_regs;
-                vm->num_registers = (vm->vm_regs - regs_from_main) + current_frame->regs_used;
-            }
+        if (maybe_catch_exception(vm) == 0)
+            /* Couldn't catch it. Jump back into parser, which will jump
+               back to the caller to give them the bad news. */
+            lily_jump_back(vm->raiser);
+        else {
+            /* The exception was caught, so resync local data. */
+            current_frame = vm->call_chain;
+            code = current_frame->code;
+            code_pos = current_frame->code_pos;
+            regs_from_main = vm->regs_from_main;
+            vm_regs = vm->vm_regs;
+            vm->num_registers = (vm_regs - regs_from_main) + current_frame->regs_used;
         }
     }
+
+    num_registers = vm->num_registers;
 
     while (1) {
         switch(code[code_pos]) {
@@ -2508,6 +2517,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 catch_entry->call_frame = current_frame;
                 catch_entry->call_frame_depth = vm->call_depth;
                 catch_entry->code_pos = code_pos + 2;
+                catch_entry->jump_entry = vm->raiser->all_jumps;
                 catch_entry->offset_from_main = (int64_t)(vm_regs - regs_from_main);
 
                 vm->catch_top = vm->catch_chain;
@@ -2609,9 +2619,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 7;
                 break;
             case o_return_from_vm:
-                /* Only the first entry to the vm adds a stack entry... */
-                if (current_frame->prev == NULL)
-                    vm->raiser->jump_pos--;
+                vm->raiser->all_jumps = vm->raiser->all_jumps->prev;
                 return;
         }
     }

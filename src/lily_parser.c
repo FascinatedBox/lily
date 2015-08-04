@@ -3306,8 +3306,9 @@ lily_var *lily_parser_dynamic_load(lily_parse_state *parser, lily_class *cls,
     Returns 1 if successful, or 0 if an error was raised. */
 int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode, char *filename)
 {
-    if (setjmp(parser->raiser->jumps[parser->raiser->jump_pos]) == 0) {
-        parser->raiser->jump_pos++;
+    /* It is safe to do this, because the parser will always occupy the first
+       jump. All others should use lily_jump_setup instead. */
+    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         lily_load_file(parser->lex, mode, filename);
         fixup_import_basedir(parser, filename);
         parser_loop(parser);
@@ -3332,8 +3333,7 @@ int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode, char *filename
 int lily_parse_string(lily_parse_state *parser, char *name, lily_lex_mode mode,
         char *str)
 {
-    if (setjmp(parser->raiser->jumps[parser->raiser->jump_pos]) == 0) {
-        parser->raiser->jump_pos++;
+    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         lily_load_str(parser->lex, name, mode, str);
         parser_loop(parser);
         lily_pop_lex_entry(parser->lex);
