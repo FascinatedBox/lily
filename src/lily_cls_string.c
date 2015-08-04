@@ -918,10 +918,10 @@ void lily_string_split(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_string_val *split_strval = vm_regs[code[2]]->value.string;
     lily_value *result_reg = vm_regs[code[0]];
 
-    lily_list_val *lv = lily_new_list_val();
-
     if (split_strval->size == 0)
         lily_raise(vm->raiser, lily_ValueError, "Cannot split by empty string.\n");
+
+    lily_list_val *lv = lily_new_list_val();
 
     string_split_by_val(vm, input_strval->string, split_strval->string, lv);
 
