@@ -22,11 +22,15 @@
    seeds to have them, just forward declare this. */
 struct lily_base_seed_;
 
+typedef struct lily_jump_link_ {
+    struct lily_jump_link_ *prev;
+    struct lily_jump_link_ *next;
+
+    jmp_buf jump;
+} lily_jump_link;
+
 typedef struct lily_raiser_ {
-    /* The raiser will typically have two jumps: One for the vm to catch runtime
-       errors, and a second for the runner to catch parser errors. The raiser
-       will use the highest jump it has (the vm, typically). */
-    jmp_buf *jumps;
+    lily_jump_link *all_jumps;
     lily_msgbuf *msgbuf;
     lily_type *exception_type;
 
@@ -37,10 +41,8 @@ typedef struct lily_raiser_ {
          1 should report an error on line 1 (the assignment), not line 2.
        * Any vm error. */
     uint32_t line_adjust;
-    int32_t error_code;
-    uint16_t jump_pos;
-    uint16_t jump_size;
-    uint32_t pad;
+    int16_t error_code;
+    uint16_t have_error;
 } lily_raiser;
 
 lily_raiser *lily_new_raiser(void);
@@ -50,6 +52,8 @@ void lily_raise_prebuilt(lily_raiser *, int);
 void lily_raise_type_and_msg(lily_raiser *, lily_type *, const char *);
 void lily_raiser_set_error(lily_raiser *, lily_type *, const char *);
 void lily_raise_prepared(lily_raiser *);
+lily_jump_link *lily_jump_setup(lily_raiser *);
+void lily_jump_back(lily_raiser *);
 
 const char *lily_name_for_error(lily_raiser *);
 

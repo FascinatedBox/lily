@@ -12,15 +12,15 @@ static const char *lily_error_names[] =
      "BadTypecastError", "ValueError", "RecursionError", "KeyError",
      "FormatError", "IOError"};
 
-
 lily_raiser *lily_new_raiser(void)
 {
     lily_raiser *raiser = lily_malloc(sizeof(lily_raiser));
+    lily_jump_link *first_jump = malloc(sizeof(lily_jump_link));
+    first_jump->prev = NULL;
+    first_jump->next = NULL;
 
     raiser->msgbuf = lily_new_msgbuf();
-    raiser->jumps = lily_malloc(2 * sizeof(jmp_buf));
-    raiser->jump_pos = 0;
-    raiser->jump_size = 2;
+    raiser->all_jumps = first_jump;
     raiser->line_adjust = 0;
     raiser->exception_type = NULL;
 
@@ -32,8 +32,44 @@ void lily_free_raiser(lily_raiser *raiser)
     if (raiser->msgbuf)
         lily_free_msgbuf(raiser->msgbuf);
 
-    lily_free(raiser->jumps);
+    lily_jump_link *jump_next;
+    while (raiser->all_jumps->prev)
+        raiser->all_jumps = raiser->all_jumps->prev;
+
+    while (raiser->all_jumps) {
+        jump_next = raiser->all_jumps->next;
+        lily_free(raiser->all_jumps);
+        raiser->all_jumps = jump_next;
+    }
+
     lily_free(raiser);
+}
+
+/* This will either allocate a new slot for a jump, or yield one that is
+   currently not being used. */
+lily_jump_link *lily_jump_setup(lily_raiser *raiser)
+{
+    if (raiser->all_jumps->next)
+        raiser->all_jumps = raiser->all_jumps->next;
+    else {
+        lily_jump_link *new_link = lily_malloc(sizeof(lily_jump_link));
+        new_link->prev = raiser->all_jumps;
+        raiser->all_jumps->next = new_link;
+
+        new_link->next = NULL;
+
+        raiser->all_jumps = new_link;
+    }
+
+    return raiser->all_jumps;
+}
+
+/* This is used by vm as a means of restoring control to the previously held
+   jump. */
+void lily_jump_back(lily_raiser *raiser)
+{
+    raiser->all_jumps = raiser->all_jumps->prev;
+    longjmp(raiser->all_jumps->jump, 1);
 }
 
 /* lily_raise
@@ -59,7 +95,7 @@ void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
 
     raiser->exception_type = NULL;
     raiser->error_code = error_code;
-    longjmp(raiser->jumps[raiser->jump_pos-1], 1);
+    longjmp(raiser->all_jumps->jump, 1);
 }
 
 /* lily_raise_prebuilt
@@ -68,7 +104,7 @@ void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
 void lily_raise_prebuilt(lily_raiser *raiser, int error_code)
 {
     raiser->error_code = error_code;
-    longjmp(raiser->jumps[raiser->jump_pos-1], 1);
+    longjmp(raiser->all_jumps->jump, 1);
 }
 
 /*  This is called by the vm to set a type and a message on the raiser, on
@@ -84,7 +120,7 @@ void lily_raiser_set_error(lily_raiser *raiser, lily_type *type,
 
 void lily_raise_prepared(lily_raiser *raiser)
 {
-    longjmp(raiser->jumps[raiser->jump_pos-1], 1);
+    longjmp(raiser->all_jumps->jump, 1);
 }
 
 void lily_raise_type_and_msg(lily_raiser *raiser, lily_type *type,
@@ -94,7 +130,7 @@ void lily_raise_type_and_msg(lily_raiser *raiser, lily_type *type,
     lily_msgbuf_flush(raiser->msgbuf);
     lily_msgbuf_add(raiser->msgbuf, msg);
 
-    longjmp(raiser->jumps[raiser->jump_pos-1], 1);
+    longjmp(raiser->all_jumps->jump, 1);
 }
 
 const char *lily_name_for_error(lily_raiser *raiser)
