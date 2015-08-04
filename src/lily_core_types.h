@@ -291,8 +291,8 @@ typedef struct lily_instance_val_ {
     uint32_t pad;
     struct lily_gc_entry_ *gc_entry;
     struct lily_value_ **values;
-    int num_values;
-    int visited;
+    uint32_t num_values;
+    uint32_t visited;
     /* This is used to determine what class this value really belongs to. For
        example, this value might be a SyntaxError instance set to a register of
        class Exception. */
