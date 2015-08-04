@@ -2508,7 +2508,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 catch_entry->call_frame = current_frame;
                 catch_entry->call_frame_depth = vm->call_depth;
                 catch_entry->code_pos = code_pos + 2;
-                catch_entry->offset_from_main = (int64_t)(regs_from_main - vm_regs);
+                catch_entry->offset_from_main = (int64_t)(vm_regs - regs_from_main);
 
                 vm->catch_top = vm->catch_chain;
                 vm->catch_chain = vm->catch_chain->next;
