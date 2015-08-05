@@ -3316,6 +3316,10 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     result->item = call_item;
     result->call_type = call_type;
     result->error_item = debug_item;
+    /* Adjust ts to make space for this call's generics. It's important to do
+       this after doing the above evals, because an eval might trigger a
+       dynaload which might increase the maximum number of generics seen. */
+    result->ts_adjust = lily_ts_raise_ceiling(emit->ts);
 
     if (call_type->flags & TYPE_IS_VARARGS) {
         /* The vararg type is always the last type in the function. It is
@@ -3393,6 +3397,7 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
 
 static void end_call(lily_emit_state *emit, lily_emit_call_state *cs)
 {
+    lily_ts_lower_ceiling(emit->ts, cs->ts_adjust);
     emit->call_values_pos -= cs->arg_count;
     emit->call_state = cs;
 }
@@ -3410,24 +3415,11 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast,
         return;
     }
 
-    lily_emit_call_state *cs;
-    cs = begin_call(emit, ast);
-
-    /* It's really, really important to raise the ceiling after starting a call.
-       begin_call might call for a dynaload, and that dynaload might be for
-       something in either the list or the hash class.
-       That function will now need 1 or 2 generic slots to store what A, B, etc.
-       are but...the ceiling has already been raised and set to...0.
-       ts assumes that anything past the ceiling is fair game. This results in
-       A/B/whatever being corrupted, which causes extremely awful and nasty bugs
-       down the line. */
-    int saved_ts_adjust = lily_ts_raise_ceiling(emit->ts);
+    lily_emit_call_state *cs = begin_call(emit, ast);
 
     eval_verify_call_args(emit, cs, expect_type, did_resolve);
     write_call(emit, cs);
     end_call(emit, cs);
-
-    lily_ts_lower_ceiling(emit->ts, saved_ts_adjust);
 }
 
 /* emit_nonlocal_var
@@ -3486,7 +3478,6 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
                     "Variant class %s should not get args.\n",
                     variant_class->name);
 
-        int save_ceiling = lily_ts_raise_ceiling(emit->ts);
         lily_emit_call_state *cs;
         cs = begin_call(emit, ast);
         eval_verify_call_args(emit, cs, expect_type, did_resolve);
@@ -3502,8 +3493,6 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         result = (lily_storage *)emit->call_values[emit->call_values_pos - 1];
 
         end_call(emit, cs);
-
-        lily_ts_lower_ceiling(emit->ts, save_ceiling);
     }
     else {
         /* Did this need arguments? It was used incorrectly if so. */
