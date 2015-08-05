@@ -3155,16 +3155,11 @@ static void verify_argument_count(lily_emit_state *emit,
     }
 }
 
-/*  check_call_args
-    eval_call uses this to make sure the types of all the arguments are right.
-
-    If the function takes varargs, the extra arguments are packed into a list
-    of the vararg type. */
-static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *cs,
-        lily_type *expect_type, int did_resolve)
+static lily_type *maybe_inject_first_value(lily_emit_state *emit,
+        lily_emit_call_state *cs)
 {
+    lily_type *result = NULL;
     lily_ast *ast = cs->ast;
-    int num_args = ast->args_collected;
     lily_tree_type call_tt = ast->arg_start->tree_type;
 
     if (call_tt == tree_defined_func) {
@@ -3177,28 +3172,46 @@ static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *c
         if (callee_class &&
             lily_class_greater_eq(callee_class, current_class)) {
             add_value(emit, cs, (lily_sym *)emit->block->self);
+            result = emit->block->self->type;
         }
-        else
-            num_args--;
     }
-    else if (call_tt != tree_oo_access)
-        num_args--;
+    /* Since this assumes there is at least one argument needed, it has to come
+       after verifying the argument count. */
+    else if (call_tt == tree_oo_access) {
+        /* For x.y kinds of accesses, add the (evaluated) 'x' as the first
+           value. */
+        add_value(emit, cs, ast->arg_start->arg_start->result);
+        result = ast->arg_start->arg_start->result->type;
+    }
+
+    return result;
+}
+
+/*  check_call_args
+    eval_call uses this to make sure the types of all the arguments are right.
+
+    If the function takes varargs, the extra arguments are packed into a list
+    of the vararg type. */
+static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *cs,
+        lily_type *expect_type, int did_resolve)
+{
+    lily_ast *ast = cs->ast;
+    int num_args = ast->args_collected;
+    lily_tree_type call_tt = ast->arg_start->tree_type;
+
+    lily_type *inject_type = maybe_inject_first_value(emit, cs);
 
     /* ast->args_collected includes the first tree in that count. If the first
        tree doesn't provide that value, then the argument count must be
        adjusted. */
+    num_args -= (inject_type == NULL);
 
     verify_argument_count(emit, cs, num_args);
 
-    /* Since this assumes there is at least one argument needed, it has to come
-       after verifying the argument count. */
-    if (call_tt == tree_oo_access) {
-        lily_ts_check(emit->ts, get_expected_type(cs, 0),
-                ast->arg_start->arg_start->result->type);
-        /* For x.y kinds of accesses, add the (evaluated) 'x' as the first
-           value. */
-        add_value(emit, cs, ast->arg_start->arg_start->result);
-    }
+    /* Now that the argument count is known, and that there is a first type,
+       use that first type to fill in generics. It shouldn't be wrong. */
+    if (inject_type)
+        lily_ts_check(emit->ts, get_expected_type(cs, 0), inject_type);
 
     if (cs->call_type->flags & TYPE_IS_UNRESOLVED) {
         if (call_tt == tree_local_var || call_tt == tree_inherited_new) {
