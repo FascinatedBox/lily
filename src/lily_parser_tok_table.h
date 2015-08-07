@@ -73,6 +73,7 @@ static const lily_tok_info parser_tok_table[] =
     {tk_logical_or,       0          , expr_logical_or},
     {tk_typecast_parenth, 0          , -1},
     {tk_three_dots,       1          , -1},
+    {tk_func_pipe,        0          , expr_func_pipe},
     {tk_invalid,          0          , -1},
     {tk_end_tag,          1          , -1},
     {tk_eof,              1          , -1}

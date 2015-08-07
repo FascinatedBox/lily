@@ -342,6 +342,12 @@ static int priority_for_op(lily_expr_op o)
         case expr_gr_eq:
             prio = 4;
             break;
+        /* This...seems like a reasonable place for call piping to go. It's high
+           enough that you can do ```x |> y != z```, but low enough that one can
+           also do ```a * b |> c```. This may be moved in the future. */
+        case expr_func_pipe:
+            prio = 5;
+            break;
         /* Bitwise ops are intentionally put before equality operations. This
            allows users to use bitwise ops without parens.
            This:        a & 0x10 == x
@@ -349,30 +355,30 @@ static int priority_for_op(lily_expr_op o)
 
            Keeping their different precendence levels for now though. */
         case expr_bitwise_or:
-            prio = 5;
-            break;
-        case expr_bitwise_xor:
             prio = 6;
             break;
-        case expr_bitwise_and:
+        case expr_bitwise_xor:
             prio = 7;
+            break;
+        case expr_bitwise_and:
+            prio = 8;
             break;
         case expr_left_shift:
         case expr_right_shift:
-            prio = 8;
+            prio = 9;
             break;
         case expr_plus:
         case expr_minus:
-            prio = 9;
+            prio = 10;
             break;
         case expr_multiply:
         case expr_divide:
         case expr_modulo:
-            prio = 10;
+            prio = 11;
             break;
         case expr_unary_not:
         case expr_unary_minus:
-            prio = 11;
+            prio = 12;
             break;
         default:
             /* Won't happen, but makes -Wall happy. */

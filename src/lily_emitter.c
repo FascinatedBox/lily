@@ -232,8 +232,8 @@ static char *opname(lily_expr_op op)
 {
     static char *opnames[] =
     {"+", "-", "==", "<", "<=", ">", ">=", "!=", "%", "*", "/", "<<", ">>", "&",
-     "|", "^", "!", "-", "&&", "||", "=", "+=", "-=", "%=", "*=", "/=", "<<=",
-     ">>="};
+     "|", "^", "!", "-", "&&", "||", "|>", "=", "+=", "-=", "%=", "*=", "/=",
+     "<<=", ">>="};
 
     return opnames[op];
 }
@@ -3532,6 +3532,33 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
     ast->result = (lily_sym *)result;
 }
 
+/* Syntax: ```f |> g``` is equivalent to ```g(f)```. F# inspired this.
+   Lily handles function pipes by treating them as binary operations. The left
+   side is the value (which should be run first), and the right side is the
+   target. */
+static void eval_func_pipe(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect_type, int did_resolve)
+{
+    /* It might seem more sensible to evaluate the left first. However,
+       it's much simpler to say that it's a call argument which will eval it
+       and do all the other nice things needed. */
+    lily_emit_call_state *cs = begin_call(emit, ast);
+
+    lily_type *first_type = maybe_inject_first_value(emit, cs);
+
+    verify_argument_count(emit, cs, 1 + (first_type != NULL));
+
+    if (first_type)
+        /* This ts check is done in case the first argument is supposed to solve
+           for any generics. It's unlikely to fail. */
+        lily_ts_check(emit->ts, get_expected_type(cs, 0), first_type);
+
+    eval_call_arg(emit, cs, ast->left);
+
+    write_call(emit, cs);
+    end_call(emit, cs);
+}
+
 static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect_type, int did_resolve)
 {
@@ -3645,6 +3672,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
         }
         else if (ast->op == expr_logical_or || ast->op == expr_logical_and)
             eval_logical_op(emit, ast);
+        else if (ast->op == expr_func_pipe)
+            eval_func_pipe(emit, ast, expect_type, did_resolve);
         else {
             if (ast->left->tree_type != tree_local_var)
                 eval_tree(emit, ast->left, NULL, 1);

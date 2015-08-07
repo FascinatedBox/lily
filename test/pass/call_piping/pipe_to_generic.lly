@@ -1,0 +1,4 @@
+define f[A](input: A => A) { return input }
+define g(input: integer => integer) { return input }
+
+10 |> f |> g
