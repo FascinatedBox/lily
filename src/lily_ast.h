@@ -27,6 +27,7 @@ typedef enum {
     expr_unary_minus,
     expr_logical_and,
     expr_logical_or,
+    expr_func_pipe,
     expr_assign,
     expr_plus_assign,
     expr_minus_assign,
@@ -75,10 +76,14 @@ typedef struct lily_ast_ {
         lily_class *variant_class;
     };
 
+    struct lily_ast_ *left;
+
     /* Nothing uses both of these at the same time. */
     union {
+        /* For trees with subtrees, this is the first child. */
         struct lily_ast_ *arg_start;
-        struct lily_ast_ *left;
+        /* Binary: This is the right side of the operation. */
+        struct lily_ast_ *right;
     };
 
     union {
@@ -92,8 +97,6 @@ typedef struct lily_ast_ {
         int priority;
     };
 
-    /* right is the right side of a binary operation. Unused otherwise. */
-    struct lily_ast_ *right;
 
     /* If this tree is a subexpression, then this will be set to the calling
        tree. NULL otherwise. */
