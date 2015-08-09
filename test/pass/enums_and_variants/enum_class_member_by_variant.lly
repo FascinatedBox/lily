@@ -1,0 +1,15 @@
+enum class Option[A] {
+    Some(A)
+    None
+
+    define f[A](g: Option[A]) {
+    }
+
+    define h[A, B](i: Option[B]) {
+    }
+}
+
+None.f(Some(10))
+Some(10).f(Some(10))
+
+Some("10").h(Some(10))

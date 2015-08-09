@@ -1887,6 +1887,10 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
         eval_tree(emit, ast->arg_start, NULL, 1);
 
     lily_class *lookup_class = ast->arg_start->result->type->cls;
+    /* This allows variant values to use enum class methods. */
+    if (lookup_class->flags & CLS_VARIANT_CLASS)
+        lookup_class = lookup_class->parent;
+
     char *oo_name = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
     lily_var *var = lily_find_method(lookup_class, oo_name);
 
