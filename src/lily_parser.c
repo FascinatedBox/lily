@@ -1983,7 +1983,8 @@ static void statement(lily_parse_state *parser, int multi)
             else {
                 lclass = lily_find_class(parser->symtab, NULL, lex->label);
 
-                if (lclass != NULL) {
+                if (lclass != NULL &&
+                    (lclass->flags & CLS_VARIANT_CLASS) == 0) {
                     NEED_NEXT_TOK(tk_colon_colon)
                     expression_static_call(parser, lclass);
                     lily_lexer(lex);
