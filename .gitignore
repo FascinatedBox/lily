@@ -8,6 +8,8 @@ CMakeFiles
 CMakeCache.txt
 cmake_install.cmake
 Makefile
+compile_commands.json
+install_manifest.txt
 
 # Stuff from the Codelite IDE to ignore.
 .codelite/
