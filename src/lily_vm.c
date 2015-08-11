@@ -1319,8 +1319,10 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
 }
 
 /*  do_o_raise
-    Raise a user-defined exception. A proper traceback value is created and
-    given to the user's exception before raising it. */
+    Raise a user-defined exception. The current traceback is intentionally not
+    installed on the exception. Instead, the vm's exception handler will attach
+    trace (but only if the user is making a var). This is so that traceback is
+    not blindly made if it will not be used. */
 static void do_o_raise(lily_vm_state *vm, lily_value *exception_val)
 {
     /* The Exception class has values[0] as the message, values[1] as the
@@ -1329,7 +1331,7 @@ static void do_o_raise(lily_vm_state *vm, lily_value *exception_val)
     lily_instance_val *ival = exception_val->value.instance;
     char *message = ival->values[0]->value.string->string;
 
-    lily_raise_type_and_msg(vm->raiser, exception_val->type, message);
+    lily_raise_value(vm->raiser, exception_val, message);
 }
 
 /*  do_o_setup_optargs
@@ -1593,6 +1595,23 @@ static void make_proper_exception_val(lily_vm_state *vm,
     lily_move_raw_value(vm, result, v);
 }
 
+/*  This is called when an except clause specifies a var (so traceback needs to
+    be built), AND the exception was triggered by 'raise'. This situation is
+    tricky: the thrown value needs to be put into the result, but the traceback
+    also needs to be copied. */
+static void fixup_exception_val(lily_vm_state *vm, lily_value *result,
+        lily_value *thrown)
+{
+    lily_assign_value(vm, result, thrown);
+    lily_list_val *raw_trace = build_traceback_raw(vm);
+    lily_instance_val *iv = result->value.instance;
+    lily_raw_value v = {.list = raw_trace};
+
+    /* Only things that inherit from Exception are can be raised, and Exception
+       always has the traceback at slot 1. It's safe to do this. */
+    lily_move_raw_value(vm, iv->values[1], v);
+}
+
 /*  maybe_catch_exception
     This is called when the vm has an exception raised, either from an internal
     operation, or by the user. This looks through the exceptions that the vm
@@ -1678,9 +1697,19 @@ static int maybe_catch_exception(lily_vm_state *vm)
     }
 
     if (match) {
-        if (do_unbox)
-            make_proper_exception_val(vm, raised_class, catch_reg);
+        if (do_unbox) {
+            /* There is a var that the exception needs to be dropped into. If
+               this exception was triggered by raise, then use that (after
+               dumping traceback into it). If not, create a new instance to
+               hold the info. */
+            lily_value *raised_value = vm->raiser->exception_value;
+            if (raised_value)
+                fixup_exception_val(vm, catch_reg, raised_value);
+            else
+                make_proper_exception_val(vm, raised_class, catch_reg);
+        }
 
+        vm->raiser->exception_value = NULL;
         vm->call_chain = catch_iter->call_frame;
         vm->call_depth = catch_iter->call_frame_depth;
         vm->vm_regs = stack_regs;
