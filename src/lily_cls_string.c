@@ -85,16 +85,16 @@ void WRAP_NAME(lily_vm_state *vm, uint16_t argc, uint16_t *code) \
 \
     if (input_arg->flags & VAL_IS_NIL || \
         input_arg->value.string->size == 0) { \
-        ret_arg->value.integer = 0; \
-        ret_arg->flags = 0; \
+        lily_raw_value v = {.integer = 0}; \
+        lily_move_raw_value(vm, ret_arg, v); \
         return; \
     } \
 \
     char *loop_str = input_arg->value.string->string; \
     int i = 0; \
 \
-    ret_arg->value.integer = 1; \
-    ret_arg->flags = 0; \
+    lily_raw_value v = {.integer = 1}; \
+    lily_move_raw_value(vm, ret_arg, v); \
     for (i = 0;i < input_arg->value.string->size;i++) { \
         if (WRAPPED_CALL(loop_str[i]) == 0) { \
             ret_arg->value.integer = 0; \
@@ -316,8 +316,8 @@ void lily_string_startswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     int prefix_size = prefix_arg->value.string->size;
 
     if (input_arg->value.string->size < prefix_size) {
-        result_arg->value.integer = 0;
-        result_arg->flags = 0;
+        lily_raw_value v = {.integer = 0};
+        lily_move_raw_value(vm, result_arg, v);
         return;
     }
 
@@ -329,8 +329,8 @@ void lily_string_startswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         }
     }
 
-    result_arg->flags = 0;
-    result_arg->value.integer = ok;
+    lily_raw_value v = {.integer = ok};
+    lily_move_raw_value(vm, result_arg, v);
 }
 
 /*  rstrip_utf8_stop
@@ -491,8 +491,8 @@ void lily_string_endswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     int suffix_size = suffix_arg->value.string->size;
 
     if (suffix_size > input_size) {
-        result_arg->value.integer = 0;
-        result_arg->flags = 0;
+        lily_raw_value v = {.integer = 0};
+        lily_move_raw_value(vm, result_arg, v);
         return;
     }
 
@@ -506,8 +506,8 @@ void lily_string_endswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         }
     }
 
-    result_arg->flags = 0;
-    result_arg->value.integer = ok;
+    lily_raw_value v = {.integer = ok};
+    lily_move_raw_value(vm, result_arg, v);
 }
 
 void lily_string_lower(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -578,13 +578,13 @@ void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     int find_length = find_arg->value.string->size;
 
     if (find_length > input_length) {
-        result_arg->flags = 0;
-        result_arg->value.integer = -1;
+        lily_raw_value v = {.integer = -1};
+        lily_move_raw_value(vm, result_arg, v);
         return;
     }
     else if (find_length == 0) {
-        result_arg->flags = 0;
-        result_arg->value.integer = 0;
+        lily_raw_value v = {.integer = 0};
+        lily_move_raw_value(vm, result_arg, v);
         return;
     }
 
@@ -618,8 +618,8 @@ void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     if (match == 0)
         i = -1;
 
-    result_arg->flags = 0;
-    result_arg->value.integer = i;
+    lily_raw_value v = {.integer = i};
+    lily_move_raw_value(vm, result_arg, v);
 }
 
 void lily_string_strip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
