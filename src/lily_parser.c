@@ -1256,6 +1256,10 @@ static lily_sym *parse_special_keyword(lily_parse_state *parser, int key_id)
         ret = (lily_sym *) lily_get_string_literal(symtab, parser->lex->entry->filename);
     else if (key_id == KEY__FUNCTION__)
         ret = (lily_sym *) lily_get_string_literal(symtab, parser->emit->top_var->name);
+    else if (key_id == KEY_TRUE)
+        ret = (lily_sym *) lily_get_boolean_literal(symtab, 1);
+    else if (key_id == KEY_FALSE)
+        ret = (lily_sym *) lily_get_boolean_literal(symtab, 0);
     else if (key_id == KEY_SELF) {
         if (parser->class_self_type == NULL) {
             lily_raise(parser->raiser, lily_SyntaxError,
@@ -1907,11 +1911,13 @@ static void for_handler(lily_parse_state *, int);
 static void try_handler(lily_parse_state *, int);
 static void case_handler(lily_parse_state *, int);
 static void else_handler(lily_parse_state *, int);
+static void true_handler(lily_parse_state *, int);
 static void elif_handler(lily_parse_state *, int);
 static void self_handler(lily_parse_state *, int);
 static void enum_handler(lily_parse_state *, int);
 static void while_handler(lily_parse_state *, int);
 static void raise_handler(lily_parse_state *, int);
+static void false_handler(lily_parse_state *, int);
 static void match_handler(lily_parse_state *, int);
 static void break_handler(lily_parse_state *, int);
 static void class_handler(lily_parse_state *, int);
@@ -1937,11 +1943,13 @@ static keyword_handler *handlers[] = {
     try_handler,
     case_handler,
     else_handler,
+    true_handler,
     elif_handler,
     self_handler,
     enum_handler,
     while_handler,
     raise_handler,
+    false_handler,
     match_handler,
     break_handler,
     class_handler,
@@ -2119,6 +2127,34 @@ static void else_handler(lily_parse_state *parser, int multi)
     statement(parser, multi);
 }
 
+/*  do_keyword
+    This handles simple keywords that can start expressions. It unifies common
+    code in __line__, __file__, __function__, true, and false.
+
+    key_id: The id of the keyword to handle. */
+static void do_keyword(lily_parse_state *parser, int key_id)
+{
+    lily_sym *sym;
+    sym = parse_special_keyword(parser, key_id);
+    if (sym->flags & ITEM_TYPE_TIE)
+        lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
+    else
+        lily_ast_push_self(parser->ast_pool);
+
+    expression_raw(parser, ST_WANT_OPERATOR);
+    lily_emit_eval_expr(parser->emit, parser->ast_pool);
+}
+
+static void true_handler(lily_parse_state *parser, int multi)
+{
+    do_keyword(parser, KEY_TRUE);
+}
+
+static void false_handler(lily_parse_state *parser, int multi)
+{
+    do_keyword(parser, KEY_FALSE);
+}
+
 /*  This function is called in a multi-line block after either a return or a
     raise is done. This ensures that there is not a statement/expression that is
     obviously not going to execute. */
@@ -2216,24 +2252,6 @@ static void break_handler(lily_parse_state *parser, int multi)
     if (multi && parser->lex->token != tk_right_curly)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'break' not at the end of a multi-line block.\n");
-}
-
-/*  do_keyword
-    This handles simple keywords that can start expressions. It unifies common
-    code in __line__, __file__, and __function__.
-
-    key_id: The id of the keyword to handle. */
-static void do_keyword(lily_parse_state *parser, int key_id)
-{
-    lily_sym *sym;
-    sym = parse_special_keyword(parser, key_id);
-    if (sym->flags & ITEM_TYPE_TIE)
-        lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
-    else
-        lily_ast_push_self(parser->ast_pool);
-
-    expression_raw(parser, ST_WANT_OPERATOR);
-    lily_emit_eval_expr(parser->emit, parser->ast_pool);
 }
 
 /*  line_kw_handler

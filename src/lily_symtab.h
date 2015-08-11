@@ -67,6 +67,7 @@ typedef struct lily_symtab_ {
     lily_class *double_class;
     lily_class *string_class;
     lily_class *bytestring_class;
+    lily_class *boolean_class;
     lily_class *any_class;
     lily_class *function_class;
     lily_class *list_class;
@@ -80,6 +81,7 @@ typedef struct lily_symtab_ {
 lily_symtab *lily_new_symtab(lily_options *, lily_import_entry *);
 void lily_free_symtab(lily_symtab *);
 
+lily_tie *lily_get_boolean_literal(lily_symtab *, int64_t);
 lily_tie *lily_get_integer_literal(lily_symtab *, int64_t);
 lily_tie *lily_get_double_literal(lily_symtab *, double);
 lily_tie *lily_get_bytestring_literal(lily_symtab *, char *, int);

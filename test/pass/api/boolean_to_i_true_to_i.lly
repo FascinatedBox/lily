@@ -1,0 +1,2 @@
+if true.to_i() != 1:
+    stderr.write("Failed.\n")

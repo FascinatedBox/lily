@@ -1068,28 +1068,28 @@ static const lily_func_seed lower =
     {&upper, "lower", dyna_function, "function lower(string => string)", lily_string_lower};
 
 static const lily_func_seed endswith =
-    {&lower, "endswith", dyna_function, "function endswith(string, string => integer)", lily_string_endswith};
+    {&lower, "endswith", dyna_function, "function endswith(string, string => boolean)", lily_string_endswith};
 
 static const lily_func_seed rstrip =
     {&endswith, "rstrip", dyna_function, "function rstrip(string, string => string)", lily_string_rstrip};
 
 static const lily_func_seed startswith =
-    {&rstrip, "startswith", dyna_function, "function startswith(string, string => integer)", lily_string_startswith};
+    {&rstrip, "startswith", dyna_function, "function startswith(string, string => boolean)", lily_string_startswith};
 
 static const lily_func_seed lstrip =
     {&startswith, "lstrip", dyna_function, "function lstrip(string, string => string)", lily_string_lstrip};
 
 static const lily_func_seed isalnum_fn =
-    {&lstrip, "isalnum", dyna_function, "function isalnum(string => integer)", lily_string_isalnum};
+    {&lstrip, "isalnum", dyna_function, "function isalnum(string => boolean)", lily_string_isalnum};
 
 static const lily_func_seed isdigit_fn =
-    {&isalnum_fn, "isdigit", dyna_function, "function isdigit(string => integer)", lily_string_isdigit};
+    {&isalnum_fn, "isdigit", dyna_function, "function isdigit(string => boolean)", lily_string_isdigit};
 
 static const lily_func_seed isalpha_fn =
-    {&isdigit_fn, "isalpha", dyna_function, "function isalpha(string => integer)", lily_string_isalpha};
+    {&isdigit_fn, "isalpha", dyna_function, "function isalpha(string => boolean)", lily_string_isalpha};
 
 static const lily_func_seed isspace_fn =
-    {&isalpha_fn, "isspace", dyna_function,  "function isspace(string => integer)", lily_string_isspace};
+    {&isalpha_fn, "isspace", dyna_function,  "function isspace(string => boolean)", lily_string_isspace};
 
 static const lily_func_seed dynaload_start =
     {&isspace_fn, "concat", dyna_function, "function concat(string, string => string)", lily_string_concat};

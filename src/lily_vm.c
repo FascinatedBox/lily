@@ -2232,7 +2232,8 @@ void lily_vm_execute(lily_vm_state *vm)
                     int cls_id = lhs_reg->type->cls->id;
                     int result;
 
-                    if (cls_id == SYM_CLASS_INTEGER)
+                    if (cls_id == SYM_CLASS_INTEGER ||
+                        cls_id == SYM_CLASS_BOOLEAN)
                         result = (lhs_reg->value.integer == 0);
                     else if (cls_id == SYM_CLASS_DOUBLE)
                         result = (lhs_reg->value.doubleval == 0);

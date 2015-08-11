@@ -507,9 +507,32 @@ void lily_free_symtab(lily_symtab *symtab)
 /* Exported functions                                                        */
 /*****************************************************************************/
 
-/* These next three are used to get an integer, double, or string literal.
-   They first look to see of the symtab has a literal with that value, then
-   attempt to create it if there isn't one. */
+/* These next three are used to get a boolean, integer, double, or string
+   literal. They first look to see of the symtab has a literal with that value,
+   then attempt to create it if there isn't one. */
+
+lily_tie *lily_get_boolean_literal(lily_symtab *symtab, int64_t int_val)
+{
+    lily_tie *lit, *ret;
+    ret = NULL;
+    lily_class *boolean_cls = symtab->boolean_class;
+    lily_type *want_type = boolean_cls->type;
+
+    for (lit = symtab->literals;lit != NULL;lit = lit->next) {
+        if (lit->type == want_type && lit->value.integer == int_val) {
+            ret = lit;
+            break;
+        }
+    }
+
+    if (ret == NULL) {
+        ret = make_new_literal(symtab, boolean_cls);
+        ret->value.integer = int_val;
+        ret->flags |= VAL_IS_PRIMITIVE;
+    }
+
+    return ret;
+}
 
 lily_tie *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
 {
