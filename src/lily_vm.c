@@ -842,7 +842,7 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm,
         lv->elems[i - 1] = tuple_holder;
     }
 
-    lv->num_values = vm->call_depth - 1;
+    lv->num_values = vm->call_depth;
     return lv;
 }
 
