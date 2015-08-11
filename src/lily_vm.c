@@ -1618,7 +1618,6 @@ static void make_proper_exception_val(lily_vm_state *vm,
     fixed. It is up to the vm to fix the local data it has. */
 static int maybe_catch_exception(lily_vm_state *vm)
 {
-    const char *except_name;
     lily_class *raised_class;
 
     if (vm->catch_top == NULL)
@@ -1627,7 +1626,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
     lily_jump_link *raiser_jump = vm->raiser->all_jumps;
 
     if (vm->raiser->exception_type == NULL) {
-        except_name = lily_name_for_error(vm->raiser);
+        const char *except_name = lily_name_for_error(vm->raiser);
         /* This is called instead of lily_find_class so that the exception will
            be dynaloaded if it needs to be. Also, keep in mind that needing to
            dynaload an exception at this stage does not mean that the catch will
@@ -1637,7 +1636,6 @@ static int maybe_catch_exception(lily_vm_state *vm)
     else {
         lily_type *raise_type = vm->raiser->exception_type;
         raised_class = raise_type->cls;
-        except_name = raised_class->name;
     }
 
     lily_vm_catch_entry *catch_iter = vm->catch_top;
