@@ -592,14 +592,15 @@ typedef struct lily_options_ {
 #define SYM_CLASS_DOUBLE          1
 #define SYM_CLASS_STRING          2
 #define SYM_CLASS_BYTESTRING      3
-#define SYM_CLASS_FUNCTION        4
-#define SYM_CLASS_ANY             5
-#define SYM_CLASS_LIST            6
-#define SYM_CLASS_HASH            7
-#define SYM_CLASS_TUPLE           8
-#define SYM_CLASS_OPTARG          9
-#define SYM_CLASS_FILE           10
-#define SYM_CLASS_GENERIC        11
-#define SYM_CLASS_EXCEPTION      12
+#define SYM_CLASS_BOOLEAN         4
+#define SYM_CLASS_FUNCTION        5
+#define SYM_CLASS_ANY             6
+#define SYM_CLASS_LIST            7
+#define SYM_CLASS_HASH            8
+#define SYM_CLASS_TUPLE           9
+#define SYM_CLASS_OPTARG         10
+#define SYM_CLASS_FILE           11
+#define SYM_CLASS_GENERIC        12
+#define SYM_CLASS_EXCEPTION      13
 
 #endif

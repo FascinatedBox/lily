@@ -145,6 +145,14 @@ void lily_msgbuf_add_char(lily_msgbuf *msgbuf, char c)
     lily_msgbuf_add(msgbuf, ch_buf);
 }
 
+static void add_boolean(lily_msgbuf *msgbuf, int b)
+{
+    if (b == 0)
+        lily_msgbuf_add(msgbuf, "false");
+    else
+        lily_msgbuf_add(msgbuf, "true");
+}
+
 void lily_msgbuf_add_int(lily_msgbuf *msgbuf, int i)
 {
     char buf[64];
@@ -168,6 +176,8 @@ void lily_msgbuf_add_simple_value(lily_msgbuf *msgbuf, lily_value *v)
 {
     int cls_id = v->type->cls->id;
 
+    if (cls_id == SYM_CLASS_BOOLEAN)
+        add_boolean(msgbuf, v->value.integer);
     if (cls_id == SYM_CLASS_INTEGER)
         lily_msgbuf_add_int(msgbuf, v->value.integer);
     else if (cls_id == SYM_CLASS_DOUBLE)

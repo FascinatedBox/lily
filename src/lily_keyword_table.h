@@ -14,11 +14,13 @@ keyword_entry keywords[] = {
     {"try",          7959156},
     {"case",         1702060387},
     {"else",         1702063205},
+    {"true",         1702195828},
     {"elif",         1718185061},
     {"self",         1718379891},
     {"enum",         1836412517},
     {"while",        435610544247},
     {"raise",        435727982962},
+    {"false",        435728179558},
     {"match",        448345170285},
     {"break",        461195539042},
     {"class",        495857003619},
@@ -41,24 +43,26 @@ keyword_entry keywords[] = {
 # define KEY_TRY           4
 # define KEY_CASE          5
 # define KEY_ELSE          6
-# define KEY_ELIF          7
-# define KEY_SELF          8
-# define KEY_ENUM          9
-# define KEY_WHILE        10
-# define KEY_RAISE        11
-# define KEY_MATCH        12
-# define KEY_BREAK        13
-# define KEY_CLASS        14
-# define KEY_DEFINE       15
-# define KEY_RETURN       16
-# define KEY_EXCEPT       17
-# define KEY_IMPORT       18
-# define KEY_PRIVATE      19
-# define KEY__FILE__      20
-# define KEY__LINE__      21
-# define KEY_PROTECTED    22
-# define KEY_CONTINUE     23
-# define KEY__FUNCTION__  24
-# define KEY_LAST_ID      24
+# define KEY_TRUE          7
+# define KEY_ELIF          8
+# define KEY_SELF          9
+# define KEY_ENUM         10
+# define KEY_WHILE        11
+# define KEY_RAISE        12
+# define KEY_FALSE        13
+# define KEY_MATCH        14
+# define KEY_BREAK        15
+# define KEY_CLASS        16
+# define KEY_DEFINE       17
+# define KEY_RETURN       18
+# define KEY_EXCEPT       19
+# define KEY_IMPORT       20
+# define KEY_PRIVATE      21
+# define KEY__FILE__      22
+# define KEY__LINE__      23
+# define KEY_PROTECTED    24
+# define KEY_CONTINUE     25
+# define KEY__FUNCTION__  26
+# define KEY_LAST_ID      26
 
 #endif

@@ -261,6 +261,8 @@ static int condition_optimize_check(lily_ast *ast)
             can_optimize = 0;
         else if (lit_cls_id == SYM_CLASS_STRING && lit->value.string->size == 0)
             can_optimize = 0;
+        else if (lit_cls_id == SYM_CLASS_BOOLEAN && lit->value.integer == 0)
+            can_optimize = 0;
         else if (lit->type->cls->flags & CLS_VARIANT_CLASS)
             can_optimize = 0;
     }
@@ -444,7 +446,8 @@ static void ensure_valid_condition_type(lily_emit_state *emit, lily_type *type)
     if (cls_id != SYM_CLASS_INTEGER &&
         cls_id != SYM_CLASS_DOUBLE &&
         cls_id != SYM_CLASS_STRING &&
-        cls_id != SYM_CLASS_LIST)
+        cls_id != SYM_CLASS_LIST &&
+        cls_id != SYM_CLASS_BOOLEAN)
         lily_raise(emit->raiser, lily_SyntaxError,
                 "^T is not a valid condition type.\n", type);
 }
@@ -1607,7 +1610,7 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
 static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
 {
     int opcode;
-    lily_class *lhs_class, *rhs_class, *storage_class;
+    lily_class *lhs_class, *rhs_class;
     lily_storage *s;
 
     lhs_class = ast->left->result->type->cls;
@@ -1643,17 +1646,28 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
                    "Invalid operation: ^T %s ^T.\n", ast->left->result->type,
                    opname(ast->op), ast->right->result->type);
 
-    if (ast->op == expr_plus || ast->op == expr_minus ||
-        ast->op == expr_multiply || ast->op == expr_divide)
-        if (lhs_class->id >= rhs_class->id)
-            storage_class = lhs_class;
-        else
-            storage_class = rhs_class;
-    else
-        /* assign is handled elsewhere, so these are just comparison ops. These
-           always return 0 or 1, regardless of the classes put in. There's no
-           bool class (yet), so an integer class is used instead. */
-        storage_class = emit->symtab->integer_class;
+    lily_class *storage_class;
+    switch (ast->op) {
+        case expr_plus:
+        case expr_minus:
+        case expr_multiply:
+        case expr_divide:
+            if (lhs_class->id >= rhs_class->id)
+                storage_class = lhs_class;
+            else
+                storage_class = rhs_class;
+            break;
+        case expr_eq_eq:
+        case expr_lt:
+        case expr_lt_eq:
+        case expr_gr:
+        case expr_gr_eq:
+        case expr_not_eq:
+            storage_class = emit->symtab->boolean_class;
+            break;
+        default:
+            storage_class = emit->symtab->integer_class;
+    }
 
     s = get_storage(emit, storage_class->type);
     s->flags |= SYM_NOT_ASSIGNABLE;

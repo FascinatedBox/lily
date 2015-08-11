@@ -105,7 +105,7 @@ static void write_msgbuf(lily_debug_state *debug)
 }
 
 /*  show_simple_value
-    Show an integer, double, or string literal. */
+    Show an boolean, integer, double, or string literal. */
 static void show_simple_value(lily_debug_state *debug, lily_type *type,
         lily_raw_value value)
 {
@@ -541,7 +541,8 @@ static void show_value(lily_debug_state *debug, lily_value *value)
     if (cls_id == SYM_CLASS_STRING ||
         cls_id == SYM_CLASS_INTEGER ||
         cls_id == SYM_CLASS_DOUBLE ||
-        cls_id == SYM_CLASS_BYTESTRING) {
+        cls_id == SYM_CLASS_BYTESTRING ||
+        cls_id == SYM_CLASS_BOOLEAN) {
         show_simple_value(debug, type, raw_value);
         lily_impl_puts(debug->data, "\n");
     }
