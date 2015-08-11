@@ -3038,7 +3038,7 @@ static void parse_modifier(lily_parse_state *parser, char *name, int modifier)
         parse_var(parser, modifier);
     }
     else if (key == KEY_DEFINE) {
-        lily_lexer(lex); /// assumed correct, untested.
+        lily_lexer(lex);
         parse_define(parser, modifier);
     }
     else
