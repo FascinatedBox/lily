@@ -113,7 +113,9 @@ static lily_path_link *prepare_path_by_seed(lily_parse_state *parser,
     return result;
 }
 
-static void do_bootstrap(lily_parse_state *parser)
+/*  This will load the Exception class into the current import (which is the
+    builtin one). */
+static void bootstrap_exception(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_load_str(lex, "[builtin]", lm_no_tags, exception_bootstrap);
@@ -201,7 +203,16 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
        is set. */
     lily_pkg_sys_init(parser, options);
 
-    do_bootstrap(parser);
+    bootstrap_exception(parser);
+
+    /* Exception has a traceback that is described as:
+       ```list[tuple[string, string, integer]]```
+       Since Exception was just loaded, it'll be at the top of the current
+       import's classes. Properties are also linked (intentionally) where
+       traceback will be first. Save this special type in the vm, so it has an
+       easier time of making traceback. */
+    parser->vm->traceback_type =
+            parser->symtab->active_import->class_chain->properties->type;
 
     parser->executing = 0;
 
