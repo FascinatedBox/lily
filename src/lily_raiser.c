@@ -23,6 +23,7 @@ lily_raiser *lily_new_raiser(void)
     raiser->all_jumps = first_jump;
     raiser->line_adjust = 0;
     raiser->exception_type = NULL;
+    raiser->exception_value = NULL;
 
     return raiser;
 }
@@ -127,6 +128,16 @@ void lily_raise_type_and_msg(lily_raiser *raiser, lily_type *type,
         const char *msg)
 {
     raiser->exception_type = type;
+    lily_msgbuf_flush(raiser->msgbuf);
+    lily_msgbuf_add(raiser->msgbuf, msg);
+
+    longjmp(raiser->all_jumps->jump, 1);
+}
+
+void lily_raise_value(lily_raiser *raiser, lily_value *v, const char *msg)
+{
+    raiser->exception_value = v;
+    raiser->exception_type = v->type;
     lily_msgbuf_flush(raiser->msgbuf);
     lily_msgbuf_add(raiser->msgbuf, msg);
 

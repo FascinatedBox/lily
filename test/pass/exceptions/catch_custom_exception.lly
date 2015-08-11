@@ -1,0 +1,10 @@
+class Error(code: integer, message: string) < Exception(message)    {
+    var @code = code
+}
+
+try: {
+    raise Error::new(100, "Test")
+except Error as e:
+    if e.code != 100:
+        stderr.write("Failed.\n")
+}
