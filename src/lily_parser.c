@@ -2414,8 +2414,11 @@ static void except_handler(lily_parse_state *parser, int multi)
     if (exception_class == exception_base)
         new_type = block_try_except_all;
 
-    lily_var *exception_var = NULL;
+    /* The block change has to come before the var is made, or the var will be
+       made in the wrong scope. */
+    lily_emit_change_block_to(parser->emit, new_type);
 
+    lily_var *exception_var = NULL;
     lily_lexer(lex);
     if (lex->token == tk_word) {
         if (strcmp(parser->lex->label, "as") != 0)
@@ -2435,7 +2438,6 @@ static void except_handler(lily_parse_state *parser, int multi)
     }
 
     NEED_CURRENT_TOK(tk_colon)
-    lily_emit_change_block_to(parser->emit, new_type);
     lily_emit_except(parser->emit, exception_class, exception_var,
             lex->line_num);
 
