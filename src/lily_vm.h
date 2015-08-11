@@ -104,6 +104,10 @@ typedef struct lily_vm_state_ {
     lily_vm_catch_entry *catch_top;
     lily_vm_catch_entry *catch_chain;
 
+    /* This is used when building traceback, as the inner values of traceback
+       are full values which need types. */
+    lily_type *traceback_type;
+
     struct lily_parse_state_ *parser;
     lily_msgbuf *vm_buffer;
     lily_type_system *ts;
