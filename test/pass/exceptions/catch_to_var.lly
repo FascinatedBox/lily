@@ -1,0 +1,5 @@
+try: {
+    1 / 0
+except Exception as e:
+    var v = e.message
+}
