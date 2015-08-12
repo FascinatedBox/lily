@@ -293,10 +293,11 @@ typedef struct lily_instance_val_ {
     struct lily_value_ **values;
     uint32_t num_values;
     uint32_t visited;
-    /* This is used to determine what class this value really belongs to. For
-       example, this value might be a SyntaxError instance set to a register of
-       class Exception. */
-    lily_class *true_class;
+    /* This is the type that the value truly contains. This is used because a
+       var from a base class may be assigned to a value of a derived class.
+       Furthermore, the derived class may have generics (and the base class may
+       or may not have them). */
+    lily_type *true_type;
 } lily_instance_val;
 
 typedef struct lily_file_val_ {

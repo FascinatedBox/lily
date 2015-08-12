@@ -4341,15 +4341,14 @@ void lily_emit_raise(lily_emit_state *emit, lily_ast *ast)
     This handles writing an 'except' block. It should be called after calling
     to change the current block to a try_except block.
 
-    cls:        The class that this 'except' will catch.
+    type:       The type that this 'except' will catch.
     except_var: If an 'as x' clause is specified, this is the var that will be
                 given the exception value. If there is no clause, then the
                 parser will send NULL.
     line_num:   The line on which the 'except' starts. */
-void lily_emit_except(lily_emit_state *emit, lily_class *cls,
+void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
         lily_var *except_var, int line_num)
 {
-    lily_type *except_type = cls->type;
     lily_sym *except_sym = (lily_sym *)except_var;
     if (except_sym == NULL)
         except_sym = (lily_sym *)get_storage(emit, except_type);
