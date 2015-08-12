@@ -298,7 +298,7 @@ void lily_emit_enter_block(lily_emit_state *, lily_block_type);
 void lily_emit_leave_block(lily_emit_state *);
 
 void lily_emit_try(lily_emit_state *, int);
-void lily_emit_except(lily_emit_state *, lily_class *, lily_var *, int);
+void lily_emit_except(lily_emit_state *, lily_type *, lily_var *, int);
 void lily_emit_raise(lily_emit_state *, lily_ast *);
 
 void lily_emit_update_function_block(lily_emit_state *, lily_type *, int,

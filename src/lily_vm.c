@@ -1386,7 +1386,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
        of this value. If that is the case, then use that instance instead of
        building one that will simply be tossed. */
     if (caller_frame->build_value &&
-        caller_frame->build_value->true_class->id > instance_class->id) {
+        caller_frame->build_value->true_type->cls->id > instance_class->id) {
 
         result->value.instance = caller_frame->build_value;
         result->value.generic->refcount++;
@@ -1406,7 +1406,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     iv->values = iv_values;
     iv->gc_entry = NULL;
     iv->visited = 0;
-    iv->true_class = result->type->cls;
+    iv->true_type = result->type;
 
     if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
         add_gc_item(vm, result->type, (lily_generic_gc_val *)iv);
@@ -1568,7 +1568,7 @@ static lily_value **do_o_load_class_closure(lily_vm_state *vm, uint16_t *code,
     create a exception object that holds the traceback and the message from the
     raiser. */
 static void make_proper_exception_val(lily_vm_state *vm,
-        lily_class *raised_class, lily_value *result)
+        lily_type *raised_type, lily_value *result)
 {
     lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
 
@@ -1577,7 +1577,7 @@ static void make_proper_exception_val(lily_vm_state *vm,
     ival->visited = 0;
     ival->refcount = 1;
     ival->gc_entry = NULL;
-    ival->true_class = raised_class;
+    ival->true_type = raised_type;
 
     lily_value *message_val = lily_bind_string(vm->symtab,
             vm->raiser->msgbuf->message);
@@ -1625,24 +1625,22 @@ static void fixup_exception_val(lily_vm_state *vm, lily_value *result,
     fixed. It is up to the vm to fix the local data it has. */
 static int maybe_catch_exception(lily_vm_state *vm)
 {
-    lily_class *raised_class;
+    lily_type *raised_type = vm->raiser->exception_type;
 
     if (vm->catch_top == NULL)
         return 0;
 
     lily_jump_link *raiser_jump = vm->raiser->all_jumps;
 
-    if (vm->raiser->exception_type == NULL) {
+    if (raised_type == NULL) {
         const char *except_name = lily_name_for_error(vm->raiser);
         /* This is called instead of lily_find_class so that the exception will
            be dynaloaded if it needs to be. Also, keep in mind that needing to
            dynaload an exception at this stage does not mean that the catch will
            fail (the user may have put up a 'except Exception' somewhere). */
-        raised_class = lily_maybe_dynaload_class(vm->parser, NULL, except_name);
-    }
-    else {
-        lily_type *raise_type = vm->raiser->exception_type;
-        raised_class = raise_type->cls;
+        lily_class *cls = lily_maybe_dynaload_class(vm->parser, NULL,
+                except_name);
+        raised_type = cls->type;
     }
 
     lily_vm_catch_entry *catch_iter = vm->catch_top;
@@ -1677,9 +1675,8 @@ static int maybe_catch_exception(lily_vm_state *vm)
                particular exception. */
             int next_location = code[jump_location + 2];
             catch_reg = stack_regs[code[jump_location + 4]];
-            lily_class *catch_class = catch_reg->type->cls;
-            if (catch_class == raised_class ||
-                lily_class_greater_eq(catch_class, raised_class)) {
+            lily_type *catch_type = catch_reg->type;
+            if (lily_type_greater_eq(catch_type, raised_type)) {
                 /* ...So that execution resumes from within the except block. */
                 do_unbox = code[jump_location + 3];
                 jump_location += 5;
@@ -1706,7 +1703,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
             if (raised_value)
                 fixup_exception_val(vm, catch_reg, raised_value);
             else
-                make_proper_exception_val(vm, raised_class, catch_reg);
+                make_proper_exception_val(vm, raised_type, catch_reg);
         }
 
         vm->raiser->exception_value = NULL;

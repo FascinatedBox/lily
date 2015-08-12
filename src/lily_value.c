@@ -48,7 +48,7 @@ lily_instance_val *lily_new_instance_val()
     ival->values = NULL;
     ival->num_values = -1;
     ival->visited = 0;
-    ival->true_class = NULL;
+    ival->true_type = NULL;
 
     return ival;
 }
@@ -64,9 +64,7 @@ int lily_instance_eq(lily_vm_state *vm, int *depth, lily_value *left,
 {
     int ret;
 
-    if (left->value.instance->true_class ==
-        right->value.instance->true_class) {
-
+    if (left->value.instance->true_type == right->value.instance->true_type) {
         int i;
         ret = 1;
 

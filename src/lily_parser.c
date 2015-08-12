@@ -2411,26 +2411,24 @@ static void except_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
 
-    lily_class *exception_class = resolve_class_name(parser);
+    lily_type *except_type = collect_var_type(parser);
     /* Exception is likely to always be the base exception class. */
-    lily_class *exception_base = lily_find_class(parser->symtab, NULL,
-            "Exception");
+    lily_class *base_cls = lily_find_class(parser->symtab, NULL, "Exception");
+    lily_type *base_type = base_cls->type;
     lily_block_type new_type = block_try_except;
 
-    if (lily_class_greater_eq(exception_base, exception_class) == 0)
+    if (except_type == base_type)
+        new_type = block_try_except_all;
+    else if (lily_type_greater_eq(base_type, except_type) == 0)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' is not a valid exception class.\n",
-                exception_class->name);
-
-    if (exception_class == exception_base)
-        new_type = block_try_except_all;
+                except_type->cls->name);
 
     /* The block change has to come before the var is made, or the var will be
        made in the wrong scope. */
     lily_emit_change_block_to(parser->emit, new_type);
 
     lily_var *exception_var = NULL;
-    lily_lexer(lex);
     if (lex->token == tk_word) {
         if (strcmp(parser->lex->label, "as") != 0)
             lily_raise(parser->raiser, lily_SyntaxError,
@@ -2443,13 +2441,13 @@ static void except_handler(lily_parse_state *parser, int multi)
                 "%s has already been declared.\n", exception_var->name);
 
         exception_var = lily_emit_new_scoped_var(parser->emit,
-                exception_class->type, lex->label);
+                except_type, lex->label);
 
         lily_lexer(lex);
     }
 
     NEED_CURRENT_TOK(tk_colon)
-    lily_emit_except(parser->emit, exception_class, exception_var,
+    lily_emit_except(parser->emit, except_type, exception_var,
             lex->line_num);
 
     lily_lexer(lex);
