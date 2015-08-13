@@ -2195,9 +2195,13 @@ static void ensure_no_code_after_exit(lily_parse_state *parser,
     if an expression is needed, or if just 'return' alone is fine. */
 static void return_handler(lily_parse_state *parser, int multi)
 {
-    if (parser->emit->function_block->block_type == block_class)
+    lily_block_type block_type = parser->emit->function_block->block_type;
+    if (block_type == block_class)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'return' not allowed in a class constructor.\n");
+    else if (block_type == block_lambda)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'return' not allowed in a lambda.\n");
 
     lily_type *ret_type = parser->emit->top_function_ret;
     lily_ast *ast;
@@ -2657,6 +2661,10 @@ static void try_handler(lily_parse_state *parser, int multi)
 
 static void raise_handler(lily_parse_state *parser, int multi)
 {
+    if (parser->emit->function_block->block_type == block_lambda)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'raise' not allowed in a lambda.\n");
+
     expression(parser);
     lily_emit_raise(parser->emit, parser->ast_pool->root);
 
@@ -3011,6 +3019,9 @@ static void case_handler(lily_parse_state *parser, int multi)
 
 static void parse_define(lily_parse_state *parser, int modifiers)
 {
+    if (parser->emit->function_block->block_type == block_lambda)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'define' not allowed within a lambda.\n");
     lily_lex_state *lex = parser->lex;
     parse_function(parser, NULL, modifiers);
 
@@ -3148,6 +3159,54 @@ static void parser_loop(lily_parse_state *parser)
     }
 }
 
+static lily_type *parse_lambda_body(lily_parse_state *parser, lily_type *expect_type,
+        int did_resolve)
+{
+    /* The expressions/statements that this may run may cause emitter's expr_num
+       to increase. It's vital that expr_num be restored to what it was when
+       control returns to the caller.
+       If this does not happen, the caller will re-use storages that should
+       actually be considered to be claimed. */
+    int save_expr_num = parser->emit->expr_num;
+    lily_lex_state *lex = parser->lex;
+    int key_id = -1;
+    lily_type *result_type = NULL;
+
+    lily_lexer(parser->lex);
+    while (1) {
+        if (lex->token == tk_word)
+            key_id = keyword_by_name(lex->label);
+
+        if (key_id == -1) {
+            expression(parser);
+            if (lex->token != tk_right_curly)
+                /* This expression isn't the last one, so it can do whatever it
+                   wants to do. */
+                lily_emit_eval_expr(parser->emit, parser->ast_pool);
+            else {
+                /* The last expression is what will be returned, so give it the
+                   inference information of the lambda. */
+                lily_emit_eval_lambda_body(parser->emit, parser->ast_pool,
+                        expect_type, did_resolve);
+
+                if (parser->ast_pool->root->result)
+                    result_type = parser->ast_pool->root->result->type;
+
+                break;
+            }
+        }
+        else {
+            statement(parser, 0);
+            key_id = -1;
+            if (lex->token == tk_right_curly)
+                break;
+        }
+    }
+
+    parser->emit->expr_num = save_expr_num;
+    return result_type;
+}
+
 /*****************************************************************************/
 /* Exported API                                                              */
 /*****************************************************************************/
@@ -3242,8 +3301,6 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
         lily_raise(parser->raiser, lily_SyntaxError, "Unexpected token '%s'.\n",
                 lex->token);
 
-    lily_lexer(lex);
-
     /* If the emitter knows what the lambda's result should be, then use that
        to do some type inference on the result of the expression. */
     lily_type *result_wanted = NULL;
@@ -3254,18 +3311,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        the ast pool's state so that the save depth is 0 and such. This allows
        the expression function to ensure that the body of the lambda is valid. */
     lily_ast_freeze_state(parser->ast_pool);
-    expression(parser);
-    lily_emit_eval_lambda_body(parser->emit, parser->ast_pool, expect_type,
-            did_resolve);
-
-    if (parser->ast_pool->root->result)
-        /* Save this before state thaw wipes it out. It can't be gotten (easily)
-           later. */
-        root_result = parser->ast_pool->root->result->type;
-    else
-        /* It's possible that the body of the lambda is a function that doesn't
-           return a value. */
-        root_result = NULL;
+    root_result = parse_lambda_body(parser, expect_type, did_resolve);
 
     lily_ast_thaw_state(parser->ast_pool);
 
