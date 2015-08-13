@@ -1,0 +1,8 @@
+class example() {
+    define f() {
+
+    }
+    define use() {
+        example::f(self)
+    }
+}

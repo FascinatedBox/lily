@@ -1227,7 +1227,7 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
        Don't push it as a defined_func, or emitter will assume that 'self' is to
        be automatically injected into it. This allows class methods to call
        other methods (like ::new) that do not take a class instance. */
-    if (parser->emit->block->class_entry == cls) {
+    if (v == NULL && parser->emit->block->class_entry == cls) {
         v = lily_find_var(parser->symtab, NULL, lex->label);
         if (v != NULL && v->parent != cls)
             /* Ignore it, it doesn't belong to this class. */
