@@ -1,0 +1,6 @@
+#[
+SyntaxError: 'raise' not allowed in a lambda.
+Where: File "lambda_raise.lly" at line 6
+]#
+
+var v = {|| raise ValueError::new("") }

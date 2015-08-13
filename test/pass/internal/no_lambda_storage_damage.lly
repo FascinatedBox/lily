@@ -1,0 +1,27 @@
+# The result of every intermediate expression is put into what's called a
+# storage. Lily will first attempt to grab storages it has previously used, or
+# make a new one if it cannot find a currently existing one.
+#
+# Lily has two ways of determining if it can use a storage or not:
+# * The storage has to be in the scope of the current function.
+# * Each expression run increments a counter. It refuses to use the same storage
+#   twice in the same calculation.
+#
+# This is an interesting test because the lambda has two expressions inside of
+# it. This is the reason that Lily's parser must rewind the expression count
+# after processing a lambda.
+
+define add(a: integer, f: function(), b: integer => integer)
+{
+    return a + b
+}
+
+# 1 + 1 will query for a storage that will be equal to 2.
+# The lambda will run. It will use different storages, because the lambda is
+# a different function.
+# When the lambda exits, it blanks out the storages it used.
+# 2 + 2 needs an intermediate storage. If the expression counter isn't equal to
+# what it was before the lambda run, it will pick the same storage that 1 + 1
+# went to. This means add will get 4 twice, and result in 8. That's super bad.
+if add(1 + 1, {|| show(1 + 1 + 1) show(1 + 1 + 1)}, 2 + 2) != 6:
+    stderr.write("Failed.\n")

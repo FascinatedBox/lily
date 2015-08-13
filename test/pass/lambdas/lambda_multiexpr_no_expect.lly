@@ -1,0 +1,9 @@
+var a = 10
+var b = false
+
+var v = {||
+    if a == 10:
+        b = true
+    10 }
+
+v()
