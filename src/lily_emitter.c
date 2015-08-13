@@ -2302,7 +2302,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 
     lily_type *var_type = right_tree->result->type;
 
-    if (cast_type == var_type)
+    if (cast_type == var_type || lily_type_greater_eq(cast_type, var_type))
         ast->result = (lily_sym *)right_tree->result;
     else if (cast_type->cls->id == SYM_CLASS_ANY) {
         /* This function automatically fixes right_tree's result to the
