@@ -1290,13 +1290,11 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
         add_gc_item(vm, result->type, (lily_generic_gc_val *)lv);
 
-    /* The old value can be destroyed, now that the new value has been made. */
-    lily_deref(result);
-
-    /* Put the new list in the register so the gc doesn't try to collect it. */
-    result->value.list = lv;
-    /* Make sure the gc can collect when there's an error. */
-    result->flags = 0;
+    /* lily_assign_value can both trigger the gc, and create new values with a
+       gc tag on them. Because of that, the list value needs to be in a register
+       now. */
+    lily_raw_value v = {.list = lv};
+    lily_move_raw_value(vm, result, v);
 
     int i;
     for (i = 0;i < num_elems;i++) {
