@@ -2866,6 +2866,8 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
             type_matchup(emit, elem_type, arg);
     }
 
+    lily_ts_reserve_ceiling_types(emit->ts, ast->args_collected);
+
     for (i = 0, arg = ast->arg_start;
          i < ast->args_collected;
          i++, arg = arg->next_arg) {

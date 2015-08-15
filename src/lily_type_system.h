@@ -75,10 +75,9 @@ void lily_ts_resolve_as_variant_by_enum(lily_type_system *, lily_type *, lily_ty
      quasi-known) from being resolved to something when they can't be. */
 void lily_ts_resolve_as_self(lily_type_system *);
 
-/* This clears N ceiling types. This is useful when doing partial defaulting
-   of something (to make sure no old type information will influence the
-   defaulting. */
-void lily_ts_zap_ceiling_types(lily_type_system *, int);
+/* This ensures that there are enough empty slots beyond ts->pos and ts->ceiling
+   to place 'N' types. This is used when building tuples. */
+void lily_ts_reserve_ceiling_types(lily_type_system *, int);
 
 /* Set a type to the stack, at 'pos + ceiling + (index)'.
    Since the type is set after the ceiling, this will not harm the current
