@@ -417,7 +417,7 @@ static void destroy_gc_entries(lily_vm_state *vm)
                 that is a superset of lily_generic_gc_val.
 
     The value's ->gc_entry is set to the new gc_entry on success. */
-static void add_gc_item(lily_vm_state *vm, lily_type *value_type,
+void lily_add_gc_item(lily_vm_state *vm, lily_type *value_type,
         lily_generic_gc_val *value)
 {
     /* The given value is likely not in a register, so run the gc before adding
@@ -480,7 +480,7 @@ static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
 
     if (lhs_reg->flags & VAL_IS_NIL) {
         lhs_any = lily_new_any_val();
-        add_gc_item(vm, lhs_reg->type, (lily_generic_gc_val *)lhs_any);
+        lily_add_gc_item(vm, lhs_reg->type, (lily_generic_gc_val *)lhs_any);
 
         lhs_reg->value.any = lhs_any;
         lhs_reg->flags = 0;
@@ -1242,7 +1242,7 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code, int code_pos)
     lily_hash_val *hash_val = lily_new_hash_val();
 
     if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
-        add_gc_item(vm, result->type, (lily_generic_gc_val *)hash_val);
+        lily_add_gc_item(vm, result->type, (lily_generic_gc_val *)hash_val);
 
     lily_deref(result);
 
@@ -1288,7 +1288,7 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     lv->gc_entry = NULL;
 
     if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
-        add_gc_item(vm, result->type, (lily_generic_gc_val *)lv);
+        lily_add_gc_item(vm, result->type, (lily_generic_gc_val *)lv);
 
     /* lily_assign_value can both trigger the gc, and create new values with a
        gc tag on them. Because of that, the list value needs to be in a register
@@ -1403,7 +1403,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     iv->true_type = result->type;
 
     if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
-        add_gc_item(vm, result->type, (lily_generic_gc_val *)iv);
+        lily_add_gc_item(vm, result->type, (lily_generic_gc_val *)iv);
 
     lily_deref(result);
 
@@ -1463,7 +1463,7 @@ static lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
     /* There's probably a way of determining at emit time if a closure -really-
        needs to have a marker at this stage. However, it's easier and safer to
        just assume it needs a marker. */
-    add_gc_item(vm, result->type, (lily_generic_gc_val *)closure_func);
+    lily_add_gc_item(vm, result->type, (lily_generic_gc_val *)closure_func);
 
     lily_closure_data *d = lily_malloc(sizeof(lily_closure_data));
     lily_value **upvalues = lily_malloc(sizeof(lily_value *) * count);
@@ -1503,7 +1503,7 @@ static void do_o_create_function(lily_vm_state *vm, uint16_t *code)
     lily_function_val *closure_copy = lily_new_function_copy(raw_func);
     lily_value *closure_reg = vm_regs[code[2]];
 
-    add_gc_item(vm, function_literal->type,
+    lily_add_gc_item(vm, function_literal->type,
             (lily_generic_gc_val *)closure_copy);
 
     lily_function_val *active_closure = closure_reg->value.function;

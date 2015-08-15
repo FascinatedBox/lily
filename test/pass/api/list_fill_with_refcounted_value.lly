@@ -1,0 +1,7 @@
+class Point(x: integer, y: integer)
+{
+    var @x = x
+    var @y = y
+}
+
+list::fill(5, Point::new(1, 2))

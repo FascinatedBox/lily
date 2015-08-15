@@ -216,8 +216,58 @@ void lily_list_apply(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 }
 
+/*  Implement list::fill
+
+    Create a new list with a given value repeated 'n' times.
+
+    Arguments:
+    * n:         The number of times to repeat the value.
+    * to_repeat: The value used to fill the list.
+
+    Errors:
+    * if n < 0, ValueError is raised. */
+void lily_list_fill(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    int n = vm_regs[code[1]]->value.integer;
+    if (n < 0)
+        lily_raise(vm->raiser, lily_ValueError,
+                "Repeat count must be >= 0 (%d given).\n", n);
+
+    lily_value *to_repeat = vm_regs[code[2]];
+    lily_value *result = vm_regs[code[0]];
+    lily_list_val *lv = lily_new_list_val();
+
+    /* Note: I can't seem to write a test that causes a leak if this isn't */
+    if (result->type->flags & TYPE_MAYBE_CIRCULAR)
+        lily_add_gc_item(vm, result->type, (lily_generic_gc_val *)lv);
+
+    /* Do this before what's below, or one of the assignments could trigger the
+       gc and wipe out the list. */
+    lily_raw_value v = {.list = lv};
+    lily_move_raw_value(vm, result, v);
+
+    lily_value **elems = lily_malloc(sizeof(lily_value *) * n);
+    lv->num_values = 0;
+    lv->elems = elems;
+
+    int i;
+
+    for (i = 0;i < n;i++) {
+        lv->elems[i] = lily_malloc(sizeof(lily_value));
+        lv->elems[i]->flags = VAL_IS_NIL;
+        lv->elems[i]->type = to_repeat->type;
+        lv->num_values = i + 1;
+
+        lily_assign_value(vm, lv->elems[i], to_repeat);
+    }
+}
+
+static lily_func_seed fill =
+    {NULL, "fill", dyna_function, "function fill[A](integer, A => list[A])", lily_list_fill};
+
 static lily_func_seed apply =
-    {NULL, "apply", dyna_function, "function apply[A](list[A], function(A => A))", lily_list_apply};
+    {&fill, "apply", dyna_function, "function apply[A](list[A], function(A => A))", lily_list_apply};
 
 static const lily_func_seed append =
     {&apply, "append", dyna_function, "function append[A](list[A], A)", lily_list_append};
