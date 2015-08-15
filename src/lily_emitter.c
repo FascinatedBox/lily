@@ -2108,21 +2108,16 @@ static void eval_upvalue_assign(lily_emit_state *emit, lily_ast *ast)
 {
     eval_tree(emit, ast->right, NULL, 1);
 
-    int spot;
     lily_sym *left_sym = ast->left->sym;
-    if (ast->left->tree_type == tree_open_upvalue) {
+    int spot = find_closed_sym_spot(emit, left_sym);
+    if (spot == -1) {
         checked_close_over_var(emit, (lily_var *)left_sym);
         spot = emit->closed_pos - 1;
     }
-    else
-        spot = find_closed_sym_spot(emit, ast->left->sym);
 
     lily_sym *rhs = ast->right->result;
 
     if (ast->op > expr_assign) {
-        /* Don't call eval_tree again, because if the left is tree_open_upvalue,
-           the left will be closed over again. That will result in the compound
-           op using the wrong upvalue spot, which is bad. */
         lily_storage *s = get_storage(emit, ast->left->sym->type);
         write_4(emit, o_get_upvalue, ast->line_num, spot, s->reg_spot);
         ast->left->result = (lily_sym *)s;
@@ -3325,7 +3320,7 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     else if (first_tt != tree_variant) {
         eval_tree(emit, ast->arg_start, NULL, 1);
         call_item = (lily_item *)ast->arg_start->result;
-        if (first_tt == tree_upvalue || first_tt == tree_open_upvalue)
+        if (first_tt == tree_upvalue)
             debug_item = ast->arg_start->item;
     }
     else {
@@ -3638,21 +3633,12 @@ void eval_upvalue(lily_emit_state *emit, lily_ast *ast)
         if (emit->closed_syms[i] == sym)
             break;
 
+    if (i == emit->closed_pos)
+        checked_close_over_var(emit, (lily_var *)ast->sym);
+
     lily_storage *s = get_storage(emit, sym->type);
     write_4(emit, o_get_upvalue, ast->line_num, i, s->reg_spot);
     ast->result = (lily_sym *)s;
-}
-
-void eval_open_upvalue(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_sym *sym = ast->sym;
-
-    checked_close_over_var(emit, (lily_var *)ast->sym);
-    lily_storage *result = get_storage(emit, sym->type);
-    write_4(emit, o_get_upvalue, ast->line_num, emit->closed_pos - 1,
-            result->reg_spot);
-
-    ast->result = (lily_sym *)result;
 }
 
 /*  eval_tree
@@ -3680,8 +3666,7 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
                 eval_oo_assign(emit, ast);
             else if (left_tt == tree_property)
                 eval_property_assign(emit, ast);
-            else if (left_tt == tree_upvalue ||
-                     left_tt == tree_open_upvalue)
+            else if (left_tt == tree_upvalue)
                 eval_upvalue_assign(emit, ast);
             else
                 /* Let eval_assign say that it's wrong. */
@@ -3738,8 +3723,6 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast,
         eval_self(emit, ast);
     else if (ast->tree_type == tree_upvalue)
         eval_upvalue(emit, ast);
-    else if (ast->tree_type == tree_open_upvalue)
-        eval_open_upvalue(emit, ast);
 }
 
 /*****************************************************************************/

@@ -1331,7 +1331,7 @@ static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
     /* Anything else has to be an upvalue which hasn't been marked by emitter
        as being closed over. */
     else
-        lily_ast_push_open_upvalue(parser->ast_pool, var);
+        lily_ast_push_upvalue(parser->ast_pool, var);
 
     *state = ST_WANT_OPERATOR;
 }

@@ -615,14 +615,6 @@ void lily_ast_push_upvalue(lily_ast_pool *ap, lily_var *var)
     merge_value(ap, a);
 }
 
-void lily_ast_push_open_upvalue(lily_ast_pool *ap, lily_var *var)
-{
-    AST_COMMON_INIT(a, tree_open_upvalue);
-    a->sym = (lily_sym *)var;
-
-    merge_value(ap, a);
-}
-
 void lily_ast_push_defined_func(lily_ast_pool *ap, lily_var *func)
 {
     AST_COMMON_INIT(a, tree_defined_func);
