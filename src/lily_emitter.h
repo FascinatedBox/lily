@@ -46,7 +46,9 @@ typedef struct lily_block_ {
     /* Match blocks: The starting position in emitter's match_cases. */
     uint16_t match_case_start;
 
-    uint16_t pad;
+    /* This is the start of the most currently entered loop block. If not
+       currently in a loop block, this is -1. */
+    uint16_t loop_start;
 
     /* This is used by if/elif/else, match, and try+except. If every branch of
        a block returns a value or exits, then that information bubbles up to the
@@ -205,12 +207,6 @@ typedef struct {
     uint16_t match_case_pos;
 
     uint16_t match_case_size;
-
-    /* If there is a loop block currently entered, this is the code_start of
-       that block. If there is no loop block, then this is -1. */
-    int32_t loop_start;
-
-    uint32_t pad;
 
     /* The var that will receive the function value when the function block is
        done. */
