@@ -1281,9 +1281,7 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
 
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
 
-    /* This is set in case the gc looks at this list. This prevents the gc and
-       deref calls from touching ->values and ->flags. */
-    lv->num_values = -1;
+    lv->num_values = 0;
     lv->visited = 0;
     lv->refcount = 1;
     lv->elems = lily_malloc(num_elems * sizeof(lily_value *));
@@ -1314,8 +1312,6 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
 
         lily_assign_value(vm, lv->elems[i], rhs_reg);
     }
-
-    lv->num_values = num_elems;
 }
 
 /*  do_o_raise
