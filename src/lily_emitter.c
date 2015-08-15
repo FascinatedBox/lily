@@ -2326,26 +2326,28 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     This handles unary ops. Unary ops currently only work on integers. */
 static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
 {
-    uint16_t opcode;
-    lily_class *lhs_class;
+    uint16_t opcode = -1;
+    lily_class *lhs_class = ast->left->result->type->cls;
     lily_storage *storage;
-    lhs_class = ast->left->result->type->cls;
-    lily_class *integer_class = emit->symtab->integer_class;
 
-    if (lhs_class != integer_class)
+    lily_expr_op op = ast->op;
+
+    if (lhs_class == emit->symtab->boolean_class && op == expr_unary_not)
+        opcode = o_unary_not;
+    else if (lhs_class == emit->symtab->integer_class) {
+        if (ast->op == expr_unary_minus)
+            opcode = o_unary_minus;
+        else if (ast->op == expr_unary_not)
+            opcode = o_unary_not;
+    }
+
+    if (opcode == -1)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
                 "Invalid operation: %s%s.\n",
                 opname(ast->op), lhs_class->name);
 
-    storage = get_storage(emit, integer_class->type);
+    storage = get_storage(emit, lhs_class->type);
     storage->flags |= SYM_NOT_ASSIGNABLE;
-
-    if (ast->op == expr_unary_minus)
-        opcode = o_unary_minus;
-    else if (ast->op == expr_unary_not)
-        opcode = o_unary_not;
-    else
-        opcode = -1;
 
     write_4(emit,
             opcode,
