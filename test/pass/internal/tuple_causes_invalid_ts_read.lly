@@ -1,0 +1,4 @@
+# There used to be a bug where tuples would need to reserve as many spots as
+# there are elements...but wouldn't check for them first.
+# This doesn't cause a crash, only an invalid read.
+<[1, 2, 3, 4, 5]>
