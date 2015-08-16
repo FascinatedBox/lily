@@ -1,0 +1,11 @@
+#[
+SyntaxError: Cannot define an enum class here.
+Where: File "invalid_enum_class_decl_location.lly" at line 7
+]#
+
+define f() {
+    enum class Option[A] {
+        Some(A)
+        None
+    }
+}

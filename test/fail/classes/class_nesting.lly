@@ -1,5 +1,5 @@
 #[
-SyntaxError: Nested class declarations are not allowed.
+SyntaxError: Cannot define a class here.
 Where: File "class_nesting.lly" at line 7
 ]#
 

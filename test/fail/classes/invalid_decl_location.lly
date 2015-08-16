@@ -1,9 +1,0 @@
-#[
-SyntaxError: Cannot declare a class here.
-Where: File "invalid_decl_location.lly" at line 7
-]#
-
-if 1: {
-    class abc() {
-    }
-}

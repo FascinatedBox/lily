@@ -2542,10 +2542,11 @@ static lily_import_entry *load_import(lily_parse_state *parser, char *name)
 
 static void import_handler(lily_parse_state *parser, int multi)
 {
-    lily_block_type block_type = parser->emit->block->block_type;
-    if (block_type != block_file && parser->emit->block->prev != NULL)
+    lily_block *block = parser->emit->block;
+    if (block->block_type != block_file &&
+        block->prev != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'import' only allowed at top level.\n");
+                "Cannot import a file here.\n");
 
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
@@ -2780,12 +2781,14 @@ static void create_new_class(lily_parse_state *parser)
 
 static void class_handler(lily_parse_state *parser, int multi)
 {
+    lily_block *block = parser->emit->block;
+    if (block->block_type != block_file &&
+        block->prev != NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Cannot define a class here.\n");
+
     lily_lex_state *lex = parser->lex;
     NEED_CURRENT_TOK(tk_word);
-    if (parser->class_self_type) {
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "Nested class declarations are not allowed.\n");
-    }
 
     ensure_valid_class(parser, lex->label);
 
@@ -2794,6 +2797,12 @@ static void class_handler(lily_parse_state *parser, int multi)
 
 static void enum_handler(lily_parse_state *parser, int multi)
 {
+    lily_block *block = parser->emit->block;
+    if (block->block_type != block_file &&
+        block->prev != NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Cannot define an enum class here.\n");
+
     lily_lex_state *lex = parser->lex;
 
     NEED_CURRENT_TOK(tk_word)
@@ -3024,9 +3033,15 @@ static void case_handler(lily_parse_state *parser, int multi)
 
 static void parse_define(lily_parse_state *parser, int modifiers)
 {
-    if (parser->emit->function_block->block_type == block_lambda)
+    lily_block *block = parser->emit->block;
+    if (block->block_type != block_file &&
+        block->block_type != block_define &&
+        block->block_type != block_class &&
+        block->block_type != block_enum_class &&
+        block->prev != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'define' not allowed within a lambda.\n");
+                "Cannot define a function here.\n");
+
     lily_lex_state *lex = parser->lex;
     parse_function(parser, NULL, modifiers);
 
