@@ -1,0 +1,8 @@
+#[
+SyntaxError: 'import' only allowed at top level.
+Where: File "import_within_function.lly" at line 7
+]#
+
+define f() {
+    import empty.lly
+}
