@@ -2542,6 +2542,11 @@ static lily_import_entry *load_import(lily_parse_state *parser, char *name)
 
 static void import_handler(lily_parse_state *parser, int multi)
 {
+    lily_block_type block_type = parser->emit->block->block_type;
+    if (block_type != block_file && parser->emit->block->prev != NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'import' only allowed at top level.\n");
+
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
     lily_import_entry *link_target = symtab->active_import;
