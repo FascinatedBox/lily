@@ -1,0 +1,9 @@
+#[
+SyntaxError: Cannot define a class here.
+Where: File "invalid_class_decl_location.lly" at line 7
+]#
+
+if 1: {
+    class abc() {
+    }
+}
