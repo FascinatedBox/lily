@@ -44,8 +44,8 @@ void lily_pg_result_fetchrow(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_pg_result *boxed_result = (lily_pg_result *)
-            vm_regs[code[0]]->value.generic;
-    lily_value *result_reg = vm_regs[code[1]];
+            vm_regs[code[1]]->value.generic;
+    lily_value *result_reg = vm_regs[code[0]];
     PGresult *raw_result = boxed_result->pg_result;
     int row = boxed_result->current_row;
 
@@ -93,7 +93,7 @@ void lily_pg_result_fetchrow(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     boxed_result->current_row++;
 
     lily_raw_value v = {.list = lv};
-    lily_move_raw_value(vm, result_reg, 0, v);
+    lily_move_raw_value(vm, result_reg, v);
 }
 
 static const lily_func_seed result_dynaload_start =
@@ -134,11 +134,11 @@ void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     lily_msgbuf_flush(vm_buffer);
 
-    result_reg = vm_regs[code[3]];
+    result_reg = vm_regs[code[0]];
     lily_pg_conn_value *conn_value =
-            (lily_pg_conn_value *)vm_regs[code[0]]->value.generic;
-    fmt = vm_regs[code[1]]->value.string->string;
-    vararg_lv = vm_regs[code[2]]->value.list;
+            (lily_pg_conn_value *)vm_regs[code[1]]->value.generic;
+    fmt = vm_regs[code[2]]->value.string->string;
+    vararg_lv = vm_regs[code[3]]->value.list;
     arg_pos = 0;
     fmt_index = 0;
     int text_start = 0;
@@ -199,7 +199,7 @@ void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     new_result->column_count = PQnfields(raw_result);
 
     lily_raw_value v = {.generic = (lily_generic_val *)new_result};
-    lily_move_raw_value(vm, result_reg, 0, v);
+    lily_move_raw_value(vm, result_reg, v);
 }
 
 void lily_pg_conn_new(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -213,18 +213,18 @@ void lily_pg_conn_new(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     switch (argc) {
         case 6:
-            pass = vm_regs[code[4]]->value.string->string;
+            pass = vm_regs[code[5]]->value.string->string;
         case 5:
-            name = vm_regs[code[3]]->value.string->string;
+            name = vm_regs[code[4]]->value.string->string;
         case 4:
-            dbname = vm_regs[code[2]]->value.string->string;
+            dbname = vm_regs[code[3]]->value.string->string;
         case 3:
-            port = vm_regs[code[1]]->value.string->string;
+            port = vm_regs[code[2]]->value.string->string;
         case 2:
-            host = vm_regs[code[0]]->value.string->string;
+            host = vm_regs[code[1]]->value.string->string;
     }
 
-    lily_value *result = vm_regs[code[argc]];
+    lily_value *result = vm_regs[code[0]];
 
     PGconn *conn = PQsetdbLogin(host, port, NULL, NULL, dbname, name, pass);
     lily_pg_conn_value *new_val;
@@ -248,7 +248,7 @@ void lily_pg_conn_new(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 
     lily_raw_value v = {.generic = (lily_generic_val *)new_val};
-    lily_move_raw_value(vm, result, 0, v);
+    lily_move_raw_value(vm, result, v);
 }
 
 void destroy_conn(lily_value *v)
