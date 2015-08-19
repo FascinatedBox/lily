@@ -125,6 +125,7 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
 
     new_class->flags = 0;
     new_class->is_refcounted = 1;
+    new_class->is_builtin = 0;
     new_class->type = NULL;
     new_class->parent = NULL;
     new_class->shorthash = shorthash_for_name(name);
@@ -170,6 +171,7 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
     }
 
     new_class->type = type;
+    new_class->is_builtin = 1;
     new_class->generic_count = class_seed->generic_count;
     new_class->gc_marker = class_seed->gc_marker;
     new_class->flags = class_seed->flags;

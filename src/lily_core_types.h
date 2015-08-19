@@ -88,7 +88,7 @@ typedef struct lily_class_ {
     struct lily_class_ **variant_members;
 
     uint16_t id;
-    uint16_t pad;
+    uint16_t is_builtin;
     uint16_t is_refcounted;
     /* If positive, how many subtypes are allowed in this type. This can also
        be -1 if an infinite number of types are allowed (ex: functions). */
