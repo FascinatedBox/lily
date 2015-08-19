@@ -908,11 +908,18 @@ void lily_builtin_show(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 }
 
 /*  lily_builtin_print
-    Implements: function print(string) */
+    Implements: function print[A](A) */
 void lily_builtin_print(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value *reg = vm->vm_regs[code[1]];
-    lily_impl_puts(vm->data, reg->value.string->string);
+    if (reg->type->cls->id == SYM_CLASS_STRING)
+        lily_impl_puts(vm->data, reg->value.string->string);
+    else {
+        lily_msgbuf *msgbuf = vm->vm_buffer;
+        lily_msgbuf_add_value(msgbuf, reg);
+        lily_impl_puts(vm->data, msgbuf->message);
+        lily_msgbuf_flush(msgbuf);
+    }
 }
 
 void lily_process_format_string(lily_vm_state *vm, uint16_t *code)
@@ -965,11 +972,9 @@ void lily_process_format_string(lily_vm_state *vm, uint16_t *code)
             }
             else if (fmt[fmt_index] == 's') {
                 if (cls_id != SYM_CLASS_STRING)
-                    lily_raise(vm->raiser, lily_FormatError,
-                            "%%s is not valid for type ^T.\n",
-                            arg->type);
-
-                lily_msgbuf_add(vm_buffer, val.string->string);
+                    lily_msgbuf_add_value(vm_buffer, arg);
+                else
+                    lily_msgbuf_add(vm_buffer, val.string->string);
             }
             else if (fmt[fmt_index] == 'f') {
                 if (cls_id != SYM_CLASS_DOUBLE)
