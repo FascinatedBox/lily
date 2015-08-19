@@ -2713,8 +2713,7 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
     lily_lex_state *lex = parser->lex;
     NEED_NEXT_TOK(tk_word)
 
-    lily_class *super_class = lily_find_class(parser->symtab, NULL,
-            lex->label);
+    lily_class *super_class = resolve_class_name(parser);
 
     if (super_class == NULL)
         lily_raise(parser->raiser, lily_SyntaxError,

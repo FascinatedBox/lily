@@ -1,0 +1,5 @@
+import inherit_exception
+
+class example() < inherit_exception::MyException("")
+{
+}
