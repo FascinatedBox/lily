@@ -2721,7 +2721,7 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
     else if (super_class == cls)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "A class cannot inherit from itself!\n");
-    else if (super_class->id <= SYM_CLASS_GENERIC ||
+    else if (super_class->is_builtin ||
              super_class->flags & (CLS_ENUM_CLASS | CLS_VARIANT_CLASS))
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' cannot be inherited from.\n", super_class->name);
