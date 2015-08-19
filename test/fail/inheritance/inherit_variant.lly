@@ -1,0 +1,11 @@
+#[
+SyntaxError: 'None' cannot be inherited from.
+Where: File "inherit_variant.lly" at line 11
+]#
+
+enum class Option[A] {
+    Some(A)
+    None
+}
+
+class example() < None { }
