@@ -1,0 +1,12 @@
+class Point(x: integer, y: integer) {}
+var a: list[any] = [1, 2]
+a[0] = a
+
+enum class Option[A] { Some(A) None }
+
+# I'm intentionally not writing tests of how this should appear, because I may
+# change how some of these appear later on.
+# I'm more concerned with 'do these actually print and not crash.
+
+string::format("%s%s%s%s%s%s%s%s%s", [1,2,3], [1=>1], file::open, stdin, <[1]>,
+               Point::new(1, 1), a, None, Some(a))

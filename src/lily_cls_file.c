@@ -104,11 +104,18 @@ void lily_file_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_file_val *filev = vm_regs[code[1]]->value.file;
-    char *to_write = vm_regs[code[2]]->value.string->string;
+    lily_value *to_write = vm_regs[code[2]];
 
     write_check(vm, filev);
 
-    fputs(to_write, filev->inner_file);
+    if (to_write->type->cls->id == SYM_CLASS_STRING)
+        fputs(to_write->value.string->string, filev->inner_file);
+    else {
+        lily_msgbuf *msgbuf = vm->vm_buffer;
+        lily_msgbuf_add_value(msgbuf, to_write);
+        fputs(msgbuf->message, filev->inner_file);
+        lily_msgbuf_flush(msgbuf);
+    }
 }
 
 void lily_file_readline(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -177,7 +184,7 @@ static const lily_func_seed file_readline =
     {NULL, "readline", dyna_function, "function readline(file => bytestring)", lily_file_readline};
 
 static const lily_func_seed file_write =
-    {&file_readline, "write", dyna_function, "function write(file, string)", lily_file_write};
+    {&file_readline, "write", dyna_function, "function write[A](file, A)", lily_file_write};
 
 static const lily_func_seed file_close =
     {&file_write, "close", dyna_function, "function close(file)", lily_file_close};

@@ -111,7 +111,7 @@ static void show_simple_value(lily_debug_state *debug, lily_type *type,
 {
     lily_value v = {0, type, value};
 
-    lily_msgbuf_add_simple_value(debug->msgbuf, &v);
+    lily_msgbuf_add_value(debug->msgbuf, &v);
     write_msgbuf(debug);
 }
 

@@ -119,7 +119,7 @@ static const lily_func_seed calltrace =
 static const lily_func_seed show =
     {&calltrace, "show", dyna_function, "function show[A](A)", lily_builtin_show};
 static const lily_func_seed print =
-    {&show, "print", dyna_function, "function print(string)", lily_builtin_print};
+    {&show, "print", dyna_function, "function print[A](A)", lily_builtin_print};
 static const lily_func_seed printfmt =
     {&print, "printfmt", dyna_function, "function printfmt(string, list[any]...)", lily_builtin_printfmt};
 static const lily_var_seed seed_stderr =

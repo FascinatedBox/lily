@@ -169,16 +169,54 @@ void lily_msgbuf_add_double(lily_msgbuf *msgbuf, double d)
     lily_msgbuf_add(msgbuf, buf);
 }
 
-/*  lily_msgbuf_add_simple_value
-    This function adds a value of a simple type to the msgbuf. A simple type is
-    one of these: integer, double, string. */
-void lily_msgbuf_add_simple_value(lily_msgbuf *msgbuf, lily_value *v)
+/* This marker is used to prevent trying to stringify a value more than once. */
+typedef struct tag_ {
+    struct tag_ *prev;
+    lily_raw_value raw;
+} tag;
+
+static void do_add_value(lily_msgbuf *, tag *, lily_value *);
+
+static void add_list_like(lily_msgbuf *msgbuf, tag *t, lily_value *v,
+        const char *prefix, const char *suffix)
 {
+    lily_list_val *lv = v->value.list;
+    lily_msgbuf_add(msgbuf, prefix);
+    int i;
+    for (i = 0;i < lv->num_values - 1;i++) {
+        do_add_value(msgbuf, t, lv->elems[i]);
+        lily_msgbuf_add(msgbuf, ", ");
+    }
+    if (i != lv->num_values)
+        do_add_value(msgbuf, t, lv->elems[i]);
+
+    lily_msgbuf_add(msgbuf, suffix);
+}
+
+static void do_add_value(lily_msgbuf *msgbuf, tag *t, lily_value *v)
+{
+    if (v->type->flags & TYPE_MAYBE_CIRCULAR) {
+        tag *tag_iter = t;
+        while (tag_iter) {
+            /* Different containers may hold the same underlying values, so make
+               sure to NOT test the containers. */
+            if (memcmp(&tag_iter->raw, &v->value, sizeof(lily_raw_value)) == 0) {
+                lily_msgbuf_add(msgbuf, "[...]");
+                return;
+            }
+
+            tag_iter = tag_iter->prev;
+        }
+
+        tag new_tag = {.prev = t, .raw = v->value};
+        t = &new_tag;
+    }
+
     int cls_id = v->type->cls->id;
 
     if (cls_id == SYM_CLASS_BOOLEAN)
         add_boolean(msgbuf, v->value.integer);
-    if (cls_id == SYM_CLASS_INTEGER)
+    else if (cls_id == SYM_CLASS_INTEGER)
         lily_msgbuf_add_int(msgbuf, v->value.integer);
     else if (cls_id == SYM_CLASS_DOUBLE)
         lily_msgbuf_add_double(msgbuf, v->value.doubleval);
@@ -192,6 +230,77 @@ void lily_msgbuf_add_simple_value(lily_msgbuf *msgbuf, lily_value *v)
         lily_string_val *bytev = v->value.string;
         add_escaped_sized(msgbuf, 1, bytev->string, bytev->size);
     }
+    else if (cls_id == SYM_CLASS_FUNCTION) {
+        lily_function_val *fv = v->value.function;
+        const char *builtin = "";
+        const char *class_name = "";
+        const char *separator = "";
+
+        if (fv->code == NULL)
+            builtin = "built-in ";
+
+        if (fv->class_name) {
+            class_name = fv->class_name;
+            separator = "::";
+        }
+
+        lily_msgbuf_add_fmt(msgbuf, "<%sfunction %s%s%s>", builtin, class_name,
+                separator, fv->trace_name);
+    }
+    else if (v->type->cls->flags & CLS_ENUM_CLASS)
+        do_add_value(msgbuf, t, v->value.any->inner_value);
+    else if (cls_id == SYM_CLASS_LIST)
+        add_list_like(msgbuf, t, v, "[", "]");
+    else if (cls_id == SYM_CLASS_TUPLE)
+        add_list_like(msgbuf, t, v, "<[", "]>");
+    else if (cls_id == SYM_CLASS_HASH) {
+        lily_hash_val *hv = v->value.hash;
+        lily_msgbuf_add_char(msgbuf, '[');
+        lily_hash_elem *elem = hv->elem_chain;
+        while (elem) {
+            do_add_value(msgbuf, t, elem->elem_key);
+            lily_msgbuf_add(msgbuf, " => ");
+            do_add_value(msgbuf, t, elem->elem_value);
+            if (elem->next != NULL)
+                lily_msgbuf_add(msgbuf, ", ");
+
+            elem = elem->next;
+        }
+        lily_msgbuf_add_char(msgbuf, ']');
+    }
+    else if (cls_id == SYM_CLASS_FILE) {
+        lily_file_val *fv = v->value.file;
+        const char *state = fv->is_open ? "open" : "closed";
+        lily_msgbuf_add_fmt(msgbuf, "<%s file at %p>", state, fv);
+    }
+    else if (v->type->cls->flags & CLS_VARIANT_CLASS) {
+        lily_class *cls = v->type->cls;
+        lily_msgbuf_add(msgbuf, cls->name);
+        if (cls->variant_type->subtype_count > 1)
+            add_list_like(msgbuf, t, v, "(", ")");
+    }
+    else {
+        lily_class *cls;
+        const char *package_name = "";
+        const char *separator = "";
+        if (v->type->cls->is_builtin)
+            cls = v->type->cls;
+        else
+            cls = v->value.instance->true_type->cls;
+
+        if (cls->import->loadname[0] != '\0') {
+            package_name = cls->import->loadname;
+            separator = "::";
+        }
+
+        lily_msgbuf_add_fmt(msgbuf, "<%s%s%s at %p>", package_name, separator,
+                cls->name, v->value.generic);
+    }
+}
+
+void lily_msgbuf_add_value(lily_msgbuf *msgbuf, lily_value *v)
+{
+    do_add_value(msgbuf, NULL, v);
 }
 
 /*  lily_msgbuf_flush
@@ -287,6 +396,7 @@ void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
         va_list var_args)
 {
     char modifier_buf[5];
+    char buffer[128];
     int i, len, text_start;
 
     modifier_buf[0] = '%';
@@ -331,7 +441,6 @@ void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
                 if (modifier_buf[1] == '\0')
                     lily_msgbuf_add_int(msgbuf, d);
                 else {
-                    char buffer[128];
                     snprintf(buffer, 128, modifier_buf, d);
                     lily_msgbuf_add(msgbuf, buffer);
                     modifier_buf[1] = '\0';
@@ -340,6 +449,11 @@ void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
             else if (c == 'c') {
                 char ch = va_arg(var_args, int);
                 lily_msgbuf_add_char(msgbuf, ch);
+            }
+            else if (c == 'p') {
+                void *p = va_arg(var_args, void *);
+                snprintf(buffer, 128, "%p", p);
+                lily_msgbuf_add(msgbuf, buffer);
             }
 
             text_start = i+1;
@@ -370,7 +484,7 @@ void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
             }
             else if (c == 'V') {
                 lily_value *v = va_arg(var_args, lily_value *);
-                lily_msgbuf_add_simple_value(msgbuf, v);
+                lily_msgbuf_add_value(msgbuf, v);
             }
 
             text_start = i+1;
