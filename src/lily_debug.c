@@ -445,7 +445,7 @@ static void show_instance_value(lily_debug_state *debug, lily_type *type,
     /* This intentionally dives into circular refs so that (circular) can be
        written with proper indentation. */
     if (ival->visited) {
-        lily_msgbuf_add_fmt(msgbuf, "^I(circular)\n");
+        lily_msgbuf_add_fmt(msgbuf, "^I(circular)\n", debug->indent - 1);
         write_msgbuf(debug);
         return;
     }
@@ -468,7 +468,7 @@ static void show_list_value(lily_debug_state *debug, lily_type *type,
     /* This intentionally dives into circular refs so that (circular) can be
        written with proper indentation. */
     if (lv->visited) {
-        lily_msgbuf_add_fmt(msgbuf, "^I(circular)\n");
+        lily_msgbuf_add_fmt(msgbuf, "^I(circular)\n", indent - 1);
         write_msgbuf(debug);
         return;
     }
