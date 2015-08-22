@@ -1878,7 +1878,7 @@ lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
     }
     va_end(values);
 
-    if (is_native_target && i != target->reg_count)
+    if (*cached == 0 && is_native_target && i != target->reg_count)
         fix_register_types(vm, target, i);
 
     vm->vm_regs = vm_regs;
