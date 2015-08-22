@@ -739,36 +739,42 @@ void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     while (1) {
         if (*ch == '&') {
+            stop = (ch - input_str);
             lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
             lily_msgbuf_add(vm_buffer, "&amp;");
-            start++;
-            stop = start;
+            start = stop + 1;
         }
         else if (*ch == '<') {
+            stop = (ch - input_str);
             lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
             lily_msgbuf_add(vm_buffer, "&lt;");
-            start++;
-            stop = start;
+            start = stop + 1;
         }
         else if (*ch == '>') {
+            stop = (ch - input_str);
             lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
             lily_msgbuf_add(vm_buffer, "&gt;");
-            start++;
-            stop = start;
+            start = stop + 1;
         }
         else if (*ch == '\0')
             break;
 
         ch++;
-        stop++;
     }
 
-    lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
-    lily_string_val *new_sv = make_sv(vm, strlen(vm_buffer->message) + 1);
+    lily_raw_value v;
 
-    strcpy(new_sv->string, vm_buffer->message);
+    /* If nothing was escaped, output what was input. */
+    if (start == 0)
+        v = (lily_raw_value){.string = input_arg->value.string};
+    else {
+        stop = (ch - input_str);
+        lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
+        lily_string_val *new_sv = make_sv(vm, strlen(vm_buffer->message) + 1);
+        strcpy(new_sv->string, vm_buffer->message);
+        v = (lily_raw_value){.string = new_sv};
+    }
 
-    lily_raw_value v = {.string = new_sv};
     lily_move_raw_value(vm, result_arg, v);
 }
 
