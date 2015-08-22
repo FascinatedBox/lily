@@ -42,6 +42,7 @@ typedef struct lily_debug_state_ {
 char *opcode_names[] = {
     "fast assign",
     "assign",
+    "box assign",
     "integer add (+)",
     "integer minus (-)",
     "modulo (%)",

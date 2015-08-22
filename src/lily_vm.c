@@ -459,36 +459,21 @@ static int compare_values(lily_vm_state *vm, lily_value *left, lily_value *right
     return result;
 }
 
-/*  do_box_assign
-    This does assignment for any/enum class values for lily_assign_value (since
-    it's pretty complex).
-
-    vm:      If lhs_reg is nil, an any will be made that needs a gc entry.
-             The entry will be added to the vm's gc entries.
-    lhs_reg: The register containing an any to be assigned to. Might be nil.
-    rhs_reg: The register providing a value for the any. */
-static void do_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
+/*  do_o_box_assign
+    This places a value on the right side into a box, then assigns it to the
+    left. The refcount is increased, if necessary. This is used by enum classes
+    and type any. */
+static void do_o_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
         lily_value *rhs_reg)
 {
-    if (rhs_reg->type == lhs_reg->type)
-        rhs_reg = rhs_reg->value.any->inner_value;
-
     if ((rhs_reg->flags & VAL_IS_NOT_DEREFABLE) == 0)
         rhs_reg->value.generic->refcount++;
 
-    lily_any_val *lhs_any;
+    lily_any_val *lhs_any = lily_new_any_val();
+    lily_add_gc_item(vm, lhs_reg->type, (lily_generic_gc_val *)lhs_any);
 
-    if (lhs_reg->flags & VAL_IS_NIL) {
-        lhs_any = lily_new_any_val();
-        lily_add_gc_item(vm, lhs_reg->type, (lily_generic_gc_val *)lhs_any);
-
-        lhs_reg->value.any = lhs_any;
-        lhs_reg->flags = 0;
-    }
-    else {
-        lhs_any = lhs_reg->value.any;
-        lily_deref(lhs_any->inner_value);
-    }
+    lhs_reg->value.any = lhs_any;
+    lhs_reg->flags = 0;
 
     *(lhs_any->inner_value) = *rhs_reg;
 }
@@ -1744,21 +1729,15 @@ void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
 {
     lily_class *cls = left->type->cls;
 
-    if (cls->flags & CLS_ENUM_CLASS)
-        /* any/enum class assignment is...complicated. Use a separate function
-           for it. */
-        do_box_assign(vm, left, right);
-    else {
-        if (cls->is_refcounted) {
-            if ((right->flags & VAL_IS_NOT_DEREFABLE) == 0)
-                right->value.generic->refcount++;
+    if (cls->is_refcounted) {
+        if ((right->flags & VAL_IS_NOT_DEREFABLE) == 0)
+            right->value.generic->refcount++;
 
-            lily_deref(left);
-        }
-
-        left->value = right->value;
-        left->flags = right->flags;
+        lily_deref(left);
     }
+
+    left->value = right->value;
+    left->flags = right->flags;
 }
 
 /*  lily_move_raw_value
@@ -2426,6 +2405,13 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg = vm_regs[code[code_pos+3]];
 
                 lily_assign_value(vm, lhs_reg, rhs_reg);
+                code_pos += 4;
+                break;
+            case o_box_assign:
+                rhs_reg = vm_regs[code[code_pos+2]];
+                lhs_reg = vm_regs[code[code_pos+3]];
+
+                do_o_box_assign(vm, lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
             case o_get_item:

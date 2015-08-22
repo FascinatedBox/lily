@@ -51,6 +51,8 @@ typedef enum {
        assignments that create an any/enum class. */
     o_assign,
 
+    o_box_assign,
+
     /* Integer binary ops:
        * int lineno
        * reg(integer) left
