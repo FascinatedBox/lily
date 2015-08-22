@@ -1,0 +1,2 @@
+if string::htmlencode("+&+&+") != "+&amp;+&amp;+":
+    stderr.write("Failed.\n")

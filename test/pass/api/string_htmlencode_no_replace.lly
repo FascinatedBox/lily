@@ -1,0 +1,2 @@
+if string::htmlencode("abc") != "abc":
+    stderr.write("Failed.\n")
