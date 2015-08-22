@@ -4,6 +4,7 @@
 const int opcode_table[][8] = {
     {o_fast_assign,         3, C_LINENO,         C_INPUT,          C_OUTPUT,        -1,              -1,           -1},
     {o_assign,              3, C_LINENO,         C_INPUT,          C_OUTPUT,        -1,              -1,           -1},
+    {o_box_assign,          3, C_LINENO,         C_INPUT,          C_OUTPUT,        -1,              -1,           -1},
     {o_integer_add,         4, C_LINENO,         C_INPUT,          C_INPUT,         C_OUTPUT,        -1,           -1},
     {o_integer_minus,       4, C_LINENO,         C_INPUT,          C_INPUT,         C_OUTPUT,        -1,           -1},
     {o_modulo,              4, C_LINENO,         C_INPUT,          C_INPUT,         C_OUTPUT,        -1,           -1},

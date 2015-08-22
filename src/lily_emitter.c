@@ -715,7 +715,8 @@ static void write_build_op(lily_emit_state *emit, int opcode,
     emit->code_pos += 4 + num_values;
 }
 
-static void emit_rebox_value(lily_emit_state *, lily_type *, lily_ast *);
+static lily_storage *emit_rebox_sym(lily_emit_state *, lily_type *, lily_sym *,
+        uint32_t);
 
 /*  rebox_variant_to_enum
     This is a convenience function that will convert the variant value within
@@ -727,7 +728,9 @@ static void rebox_variant_to_enum(lily_emit_state *emit, lily_ast *ast)
     lily_type *rebox_type = lily_ts_build_enum_by_variant(emit->ts,
             ast->result->type);
 
-    emit_rebox_value(emit, rebox_type, ast);
+    lily_storage *result = emit_rebox_sym(emit, rebox_type,
+            (lily_sym *)ast->result, ast->line_num);
+    ast->result = (lily_sym *)result;
 }
 
 static lily_storage *emit_rebox_sym(lily_emit_state *emit,
@@ -735,18 +738,25 @@ static lily_storage *emit_rebox_sym(lily_emit_state *emit,
 {
     lily_storage *storage = get_storage(emit, new_type);
 
-    /* Don't allow a bare variant to be thrown into an any until it's thrown
-       into an enum box first. */
-    if (new_type->cls->id == SYM_CLASS_ANY &&
-        sym->type->cls->flags & CLS_VARIANT_CLASS) {
+    if (sym->type->cls->flags & CLS_VARIANT_CLASS &&
+        new_type->cls->id == SYM_CLASS_ANY) {
         lily_type *rebox_type = lily_ts_build_enum_by_variant(emit->ts,
                 sym->type);
 
         sym = (lily_sym *)emit_rebox_sym(emit, rebox_type, sym, line_num);
     }
 
-    write_4(emit, o_assign, line_num, sym->reg_spot,
-            storage->reg_spot);
+    int op;
+    /* o_box_assign will wrap the value so that it can be assigned to either an
+       enum class/any later on.
+       For everything else, use o_assign and rely on the vm not doing any type
+       checking. */
+    if (new_type->cls->flags & CLS_ENUM_CLASS)
+        op = o_box_assign;
+    else
+        op = o_assign;
+
+    write_4(emit, op, line_num, sym->reg_spot, storage->reg_spot);
 
     return storage;
 }
@@ -757,19 +767,9 @@ static lily_storage *emit_rebox_sym(lily_emit_state *emit,
 static void emit_rebox_value(lily_emit_state *emit, lily_type *new_type,
         lily_ast *ast)
 {
-    lily_storage *storage = get_storage(emit, new_type);
-
-    /* Don't allow a bare variant to be thrown into an any until it's thrown
-       into an enum box first. */
-    if (new_type->cls->id == SYM_CLASS_ANY &&
-        ast->result->type->cls->flags & CLS_VARIANT_CLASS) {
-        rebox_variant_to_enum(emit, ast);
-    }
-
-    write_4(emit, o_assign, ast->line_num, ast->result->reg_spot,
-            storage->reg_spot);
-
-    ast->result = (lily_sym *)storage;
+    lily_storage *result = emit_rebox_sym(emit, new_type,
+            (lily_sym *)ast->result, ast->line_num);
+    ast->result = (lily_sym *)result;
 }
 
 /*  emit_rebox_to_any
@@ -777,7 +777,9 @@ static void emit_rebox_value(lily_emit_state *emit, lily_type *new_type,
     with a type of class any. */
 static void emit_rebox_to_any(lily_emit_state *emit, lily_ast *ast)
 {
-    emit_rebox_value(emit, emit->symtab->any_class->type, ast);
+    lily_storage *result = emit_rebox_sym(emit, emit->symtab->any_class->type,
+            (lily_sym *)ast->result, ast->line_num);
+    ast->result = (lily_sym *)result;
 }
 
 /*  setup_types_for_build
@@ -1824,21 +1826,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     left_cls_id = left_sym->type->cls->id;
 
     if (left_sym->type != right_sym->type) {
-        if (left_sym->type->cls->id == SYM_CLASS_ANY) {
-            /* Bare variants are not allowed, and type_matchup is a bad idea
-               here. Rebox the variant into an enum, then let assign do the
-               rest of the magic.
-               The reason that type_matchup is a bad idea is that it will box
-               the variant into an enum, then an any, which will be the target
-               of the assign. This results in a junk storage. */
-            if (right_sym->type->cls->flags & CLS_VARIANT_CLASS) {
-                rebox_variant_to_enum(emit, ast->right);
-                right_sym = ast->right->result;
-            }
-
-            opcode = o_assign;
-        }
-        else if (type_matchup(emit, ast->left->result->type, ast->right)) {
+        if (type_matchup(emit, ast->left->result->type, ast->right)) {
             /* type_matchup may update the result, so update the cache. */
             right_sym = ast->right->result;
         }
@@ -2247,10 +2235,13 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
 
     elem_type = get_subscript_result(var_ast->result->type, index_ast);
 
-    if (elem_type != rhs->type && elem_type->cls->id != SYM_CLASS_ANY) {
-        emit->raiser->line_adjust = ast->line_num;
-        bad_assign_error(emit, ast->line_num, elem_type,
-                         rhs->type);
+    if (elem_type != rhs->type) {
+        if (type_matchup(emit, elem_type, ast->right) == 0) {
+            emit->raiser->line_adjust = ast->line_num;
+            bad_assign_error(emit, ast->line_num, elem_type, rhs->type);
+        }
+
+        rhs = ast->right->result;
     }
 
     if (ast->op > expr_assign) {
@@ -2479,12 +2470,15 @@ static void emit_hash_values_to_anys(lily_emit_state *emit,
        blocks. */
     write_prep(emit, value_count * 4);
 
+    lily_type *any_type = emit->symtab->any_class->type;
     lily_ast *iter_ast;
+
     for (iter_ast = hash_ast->arg_start;
          iter_ast != NULL;
          iter_ast = iter_ast->next_arg->next_arg) {
 
-        emit_rebox_to_any(emit, iter_ast->next_arg);
+        if (iter_ast->next_arg->result->type != any_type)
+            emit_rebox_to_any(emit, iter_ast->next_arg);
     }
 }
 
@@ -2507,11 +2501,15 @@ static void emit_list_values_to_anys(lily_emit_state *emit,
 
     write_prep(emit, value_count * 4);
 
+    lily_type *any_type = emit->symtab->any_class->type;
     lily_ast *iter_ast;
+
     for (iter_ast = list_ast->arg_start;
          iter_ast != NULL;
          iter_ast = iter_ast->next_arg) {
-        emit_rebox_to_any(emit, iter_ast);
+
+        if (iter_ast->result->type != any_type)
+            emit_rebox_to_any(emit, iter_ast);
     }
 }
 
@@ -4155,13 +4153,16 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
     int return_wanted = (full_type == NULL || full_type->subtypes[0] != NULL);
 
     eval_tree(emit, ap->root, wanted_type, did_resolve);
+    lily_sym *root_result = ap->root->result;
 
-    if (return_wanted && ap->root->result != NULL) {
+    if (return_wanted && root_result != NULL) {
         /* Type inference has to be done here, because the callers won't know
            to do it. This is similar to how return has to do this too.
            But don't error for the wrong type: Instead, let the info bubble
            upward to something that will know the full types in play. */
-        if (wanted_type != NULL && ap->root->result->type != wanted_type)
+        if (root_result->type->cls->flags & CLS_VARIANT_CLASS)
+            rebox_variant_to_enum(emit, ap->root);
+        else if (wanted_type != NULL && root_result->type != wanted_type)
             type_matchup(emit, wanted_type, ap->root);
 
         /* If the caller doesn't want a return, then don't give one...regardless
