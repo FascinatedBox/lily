@@ -1712,29 +1712,16 @@ static int maybe_catch_exception(lily_vm_state *vm)
 /******************************************************************************/
 
 /*  lily_assign_value
-    This is an extremely handy function that assigns 'left' to 'right'. This is
-    handy because it will handle any refs/derefs needed, nil, and any
-    copying.
-
-    vm:    The vm holding the two values. This is needed because if 'left' is
-           an any, then a gc pass may be triggered.
-    left:  The value to assign to.
-           The type of left determines what assignment is used. This is
-           important because it means that left must have a type set.
-    right: The value to assign.
-
-    Caveats:
-    * 'left' must have a type set. */
+    This assigns the value on the left side to the value on the right side. Any
+    necessary ref/deref action is done. The flags and the value are copied over,
+    but not the type (as the type is usually already set). */
 void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
 {
-    lily_class *cls = left->type->cls;
+    if ((right->flags & VAL_IS_NOT_DEREFABLE) == 0)
+        right->value.generic->refcount++;
 
-    if (cls->is_refcounted) {
-        if ((right->flags & VAL_IS_NOT_DEREFABLE) == 0)
-            right->value.generic->refcount++;
-
+    if ((left->flags & VAL_IS_NOT_DEREFABLE) == 0)
         lily_deref(left);
-    }
 
     left->value = right->value;
     left->flags = right->flags;
