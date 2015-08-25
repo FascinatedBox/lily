@@ -1270,35 +1270,24 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     lily_value *result = vm_regs[code[3+num_elems]];
 
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
+    lily_value **elems = lily_malloc(num_elems * sizeof(lily_value *));
 
-    lv->num_values = 0;
+    lv->num_values = num_elems;
     lv->visited = 0;
     lv->refcount = 1;
-    lv->elems = lily_malloc(num_elems * sizeof(lily_value *));
+    lv->elems = elems;
     lv->gc_entry = NULL;
 
     if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
         lily_add_gc_item(vm, result->type, (lily_generic_gc_val *)lv);
 
-    /* lily_assign_value can both trigger the gc, and create new values with a
-       gc tag on them. Because of that, the list value needs to be in a register
-       now. */
     lily_raw_value v = {.list = lv};
     lily_move_raw_value(result, v);
 
     int i;
     for (i = 0;i < num_elems;i++) {
         lily_value *rhs_reg = vm_regs[code[3+i]];
-
-        lv->elems[i] = lily_malloc(sizeof(lily_value));
-        /* For lists, the emitter verifies that each input has the same type.
-           For tuples, there is no such restriction. This allows one opcode to
-           handle building two (very similar) things. */
-        lv->elems[i]->type = rhs_reg->type;
-        lv->elems[i]->flags = VAL_IS_NIL;
-        lv->num_values = i + 1;
-
-        lily_assign_value(lv->elems[i], rhs_reg);
+        elems[i] = lily_copy_value(rhs_reg);
     }
 }
 
@@ -1740,6 +1729,21 @@ void lily_move_raw_value(lily_value *left, lily_raw_value raw_right)
 
     left->value = raw_right;
     left->flags = (left->type->cls->flags & VAL_IS_PRIMITIVE);
+}
+
+/*  lily_copy_value
+    Create a copy of the value passed in. If applicable, the refcount of the
+    value passed in is increased. The caller is responsible for putting the
+    returned value somewhere that the vm can see it. */
+lily_value *lily_copy_value(lily_value *input)
+{
+    if ((input->flags & VAL_IS_NOT_DEREFABLE) == 0)
+        input->value.generic->refcount++;
+
+    lily_value *result = lily_malloc(sizeof(lily_value));
+    *result = *input;
+
+    return result;
 }
 
 /*  This is used by a function (the caller) to call another function (the
