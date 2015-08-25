@@ -124,6 +124,7 @@ void lily_vm_execute(lily_vm_state *);
 lily_hash_elem *lily_lookup_hash_elem(lily_hash_val *, uint64_t, lily_value *);
 void lily_assign_value(lily_value *, lily_value *);
 void lily_move_raw_value(lily_value *, lily_raw_value);
+lily_value *lily_copy_value(lily_value *);
 uint64_t lily_calculate_siphash(char *, lily_value *);
 void lily_process_format_string(lily_vm_state *, uint16_t *);
 
