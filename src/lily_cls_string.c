@@ -273,7 +273,7 @@ void lily_string_lstrip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
     if (input_arg->value.string->size == 0 ||
         strip_arg->value.string->size == 0) {
-        lily_assign_value(vm, result_arg, input_arg);
+        lily_assign_value(result_arg, input_arg);
         return;
     }
 
@@ -445,7 +445,7 @@ void lily_string_rstrip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
     if (input_arg->value.string->size == 0 ||
         strip_arg->value.string->size == 0) {
-        lily_assign_value(vm, result_arg, input_arg);
+        lily_assign_value(result_arg, input_arg);
         return;
     }
 
@@ -632,7 +632,7 @@ void lily_string_strip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
     if (input_arg->value.string->size == 0 ||
         strip_arg->value.string->size == 0) {
-        lily_assign_value(vm, result_arg, input_arg);
+        lily_assign_value(result_arg, input_arg);
         return;
     }
 

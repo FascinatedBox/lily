@@ -1081,7 +1081,7 @@ static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
         }
     }
 
-    lily_assign_value(vm, elem->elem_value, hash_value);
+    lily_assign_value(elem->elem_value, hash_value);
 }
 
 /*****************************************************************************/
@@ -1099,7 +1099,7 @@ static void do_o_set_property(lily_vm_state *vm, uint16_t *code, int code_pos)
     index = code[code_pos + 3];
     rhs_reg = vm_regs[code[code_pos + 4]];
 
-    lily_assign_value(vm, ival->values[index], rhs_reg);
+    lily_assign_value(ival->values[index], rhs_reg);
 }
 
 /*  do_o_set_item
@@ -1132,7 +1132,7 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code, int code_pos)
         else if (index_int >= list_val->num_values)
             boundary_error(vm, index_int);
 
-        lily_assign_value(vm, list_val->elems[index_int], rhs_reg);
+        lily_assign_value(list_val->elems[index_int], rhs_reg);
     }
     else {
         uint64_t siphash;
@@ -1154,7 +1154,7 @@ static void do_o_get_property(lily_vm_state *vm, uint16_t *code, int code_pos)
     index = code[code_pos + 3];
     result_reg = vm_regs[code[code_pos + 4]];
 
-    lily_assign_value(vm, result_reg, ival->values[index]);
+    lily_assign_value(result_reg, ival->values[index]);
 }
 
 /*  do_o_get_item
@@ -1194,7 +1194,7 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code, int code_pos)
         else if (index_int >= list_val->num_values)
             boundary_error(vm, index_int);
 
-        lily_assign_value(vm, result_reg, list_val->elems[index_int]);
+        lily_assign_value(result_reg, list_val->elems[index_int]);
     }
     else {
         uint64_t siphash;
@@ -1208,7 +1208,7 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code, int code_pos)
         if (hash_elem == NULL)
             key_error(vm, code_pos, index_reg);
 
-        lily_assign_value(vm, result_reg, hash_elem->elem_value);
+        lily_assign_value(result_reg, hash_elem->elem_value);
     }
 }
 
@@ -1298,7 +1298,7 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
         lv->elems[i]->flags = VAL_IS_NIL;
         lv->num_values = i + 1;
 
-        lily_assign_value(vm, lv->elems[i], rhs_reg);
+        lily_assign_value(lv->elems[i], rhs_reg);
     }
 }
 
@@ -1586,7 +1586,7 @@ static void make_proper_exception_val(lily_vm_state *vm,
 static void fixup_exception_val(lily_vm_state *vm, lily_value *result,
         lily_value *thrown)
 {
-    lily_assign_value(vm, result, thrown);
+    lily_assign_value(result, thrown);
     lily_list_val *raw_trace = build_traceback_raw(vm);
     lily_instance_val *iv = result->value.instance;
     lily_raw_value v = {.list = raw_trace};
@@ -1715,7 +1715,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
     This assigns the value on the left side to the value on the right side. Any
     necessary ref/deref action is done. The flags and the value are copied over,
     but not the type (as the type is usually already set). */
-void lily_assign_value(lily_vm_state *vm, lily_value *left, lily_value *right)
+void lily_assign_value(lily_value *left, lily_value *right)
 {
     if ((right->flags & VAL_IS_NOT_DEREFABLE) == 0)
         right->value.generic->refcount++;
@@ -2349,7 +2349,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 lhs_reg = vm_regs[current_frame->prev->return_reg];
                 rhs_reg = vm_regs[code[code_pos+2]];
-                lily_assign_value(vm, lhs_reg, rhs_reg);
+                lily_assign_value(lhs_reg, rhs_reg);
 
                 /* DO NOT BREAK HERE.
                    These two do the same thing from here on, so fall through to
@@ -2377,21 +2377,21 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs_reg = regs_from_main[code[code_pos+2]];
                 lhs_reg = vm_regs[code[code_pos+3]];
 
-                lily_assign_value(vm, lhs_reg, rhs_reg);
+                lily_assign_value(lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
             case o_set_global:
                 rhs_reg = vm_regs[code[code_pos+2]];
                 lhs_reg = regs_from_main[code[code_pos+3]];
 
-                lily_assign_value(vm, lhs_reg, rhs_reg);
+                lily_assign_value(lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
             case o_assign:
                 rhs_reg = vm_regs[code[code_pos+2]];
                 lhs_reg = vm_regs[code[code_pos+3]];
 
-                lily_assign_value(vm, lhs_reg, rhs_reg);
+                lily_assign_value(lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
             case o_box_assign:
@@ -2435,7 +2435,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* Symtab ensures that two types don't define the same
                    thing, so this is okay. */
                 if (cast_type == rhs_reg->type)
-                    lily_assign_value(vm, lhs_reg, rhs_reg);
+                    lily_assign_value(lhs_reg, rhs_reg);
                 else {
                     current_frame->line_num = current_frame->code[code_pos+1];
 
@@ -2456,13 +2456,13 @@ void lily_vm_execute(lily_vm_state *vm)
                 if (lhs_reg->flags & VAL_IS_NIL)
                     lhs_reg->type = rhs_reg->type;
 
-                lily_assign_value(vm, lhs_reg, rhs_reg);
+                lily_assign_value(lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
             case o_get_upvalue:
                 lhs_reg = vm_regs[code[code_pos + 3]];
                 rhs_reg = upvalues[code[code_pos + 2]];
-                lily_assign_value(vm, lhs_reg, rhs_reg);
+                lily_assign_value(lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
             case o_setup_optargs:
@@ -2562,7 +2562,7 @@ void lily_vm_execute(lily_vm_state *vm)
                    emitter ensures that the decomposition won't go too far. */
                 for (i = 0;i < code[code_pos+3];i++) {
                     lhs_reg = vm_regs[code[code_pos + 4 + i]];
-                    lily_assign_value(vm, lhs_reg, variant_val->elems[i]);
+                    lily_assign_value(lhs_reg, variant_val->elems[i]);
                 }
 
                 code_pos += 4 + i;

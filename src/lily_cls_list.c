@@ -184,7 +184,7 @@ void lily_list_append(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     list_val->elems[value_count] = value_holder;
     list_val->num_values++;
 
-    lily_assign_value(vm, value_holder, insert_value);
+    lily_assign_value(value_holder, insert_value);
 }
 
 /*  lily_list_apply
@@ -212,7 +212,7 @@ void lily_list_apply(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         lily_value *result = lily_foreign_call(vm, &cached, expect_type,
                 function_reg, 1, list_val->elems[i]);
 
-        lily_assign_value(vm, list_val->elems[i], result);
+        lily_assign_value(list_val->elems[i], result);
     }
 }
 
@@ -259,7 +259,7 @@ void lily_list_fill(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         lv->elems[i]->type = to_repeat->type;
         lv->num_values = i + 1;
 
-        lily_assign_value(vm, lv->elems[i], to_repeat);
+        lily_assign_value(lv->elems[i], to_repeat);
     }
 }
 
