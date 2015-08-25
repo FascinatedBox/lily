@@ -65,7 +65,7 @@ static char *exception_bootstrap =
 "}\n";
 
 static lily_var *parse_prototype(lily_parse_state *, lily_import_entry *,
-        lily_class *, lily_foreign_func);
+        lily_class *, lily_func_seed *);
 static void statement(lily_parse_state *, int);
 static lily_import_entry *make_new_import_entry(lily_parse_state *,
         const char *, char *);
@@ -376,7 +376,7 @@ static lily_var *dynaload_function(lily_parse_state *parser,
     lily_func_seed *func_seed = (lily_func_seed *)seed;
     lily_load_str(lex, "[builtin]", lm_no_tags, func_seed->func_definition);
     lily_lexer(lex);
-    lily_var *ret = parse_prototype(parser, import, cls, func_seed->func);
+    lily_var *ret = parse_prototype(parser, import, cls, func_seed);
     lily_pop_lex_entry(lex);
     return ret;
 }
@@ -1060,16 +1060,13 @@ static lily_type *collect_var_type(lily_parse_state *parser)
 }
 
 static lily_var *parse_prototype(lily_parse_state *parser,
-        lily_import_entry *import, lily_class *cls, lily_foreign_func func)
+        lily_import_entry *import, lily_class *cls, lily_func_seed *seed)
 {
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
     lily_emit_state *emit = parser->emit;
-
-    /* Skip the 'function' part, going straight for the name. Since this is
-       from a builtin source, assume that the identifier is unique. */
-    NEED_CURRENT_TOK(tk_word)
-    lily_lexer(lex);
+    char *name = seed->name;
+    lily_foreign_func func = seed->func;
 
     int save_generics = parser->emit->block->generic_count;
     int generics_used;
@@ -1084,15 +1081,13 @@ static lily_var *parse_prototype(lily_parse_state *parser,
            instead of whatever might be current. */
         parser->symtab->active_import = cls->import;
         call_var = lily_emit_new_dyna_method_var(emit, func, cls, call_type,
-                lex->label);
+                name);
     }
     else {
         parser->symtab->active_import = import;
         call_var = lily_emit_new_dyna_define_var(parser->emit, func, import,
-                call_type, lex->label);
+                call_type, name);
     }
-
-    lily_lexer(lex);
 
     if (parser->lex->token == tk_left_bracket)
         generics_used = collect_generics(parser);

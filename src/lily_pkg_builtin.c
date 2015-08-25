@@ -115,13 +115,13 @@ static const lily_base_seed index_error =
 static const lily_base_seed dbz_error =
     {&index_error, "DivisionByZeroError", dyna_exception};
 static const lily_func_seed calltrace =
-    {&dbz_error, "calltrace", dyna_function, "function calltrace( => list[tuple[string, string, integer]])", lily_builtin_calltrace};
+    {&dbz_error, "calltrace", dyna_function, "( => list[tuple[string, string, integer]])", lily_builtin_calltrace};
 static const lily_func_seed show =
-    {&calltrace, "show", dyna_function, "function show[A](A)", lily_builtin_show};
+    {&calltrace, "show", dyna_function, "[A](A)", lily_builtin_show};
 static const lily_func_seed print =
-    {&show, "print", dyna_function, "function print[A](A)", lily_builtin_print};
+    {&show, "print", dyna_function, "[A](A)", lily_builtin_print};
 static const lily_func_seed printfmt =
-    {&print, "printfmt", dyna_function, "function printfmt(string, list[any]...)", lily_builtin_printfmt};
+    {&print, "printfmt", dyna_function, "(string, list[any]...)", lily_builtin_printfmt};
 static const lily_var_seed seed_stderr =
         {&printfmt, "stderr", dyna_var, "file"};
 static const lily_var_seed seed_stdout =

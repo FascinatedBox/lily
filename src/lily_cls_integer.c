@@ -47,10 +47,10 @@ void lily_integer_to_d(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 }
 
 static const lily_func_seed to_d =
-    {NULL, "to_d", dyna_function, "function to_d(integer => double)", &lily_integer_to_d};
+    {NULL, "to_d", dyna_function, "(integer => double)", &lily_integer_to_d};
 
 static const lily_func_seed dynaload_start =
-    {&to_d, "to_s", dyna_function, "function to_s(integer => string)", &lily_integer_to_s};
+    {&to_d, "to_s", dyna_function, "(integer => string)", &lily_integer_to_s};
 
 static lily_class_seed integer_seed =
 {

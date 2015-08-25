@@ -97,7 +97,7 @@ void lily_pg_result_fetchrow(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 }
 
 static const lily_func_seed result_dynaload_start =
-    {NULL, "fetchrow", dyna_function, "function fetchrow(Result => list[string])", &lily_pg_result_fetchrow};
+    {NULL, "fetchrow", dyna_function, "(Result => list[string])", &lily_pg_result_fetchrow};
 
 const lily_class_seed result_seed =
 {
@@ -260,10 +260,10 @@ void destroy_conn(lily_value *v)
 }
 
 static const lily_func_seed conn_query =
-    {NULL, "query", dyna_function, "function query(Conn, string, list[string]... => Result)", lily_pg_conn_query};
+    {NULL, "query", dyna_function, "(Conn, string, list[string]... => Result)", lily_pg_conn_query};
 
 static const lily_func_seed conn_dynaload_start =
-    {&conn_query, "new", dyna_function, "function new(*string, *string, *string, *string, *string => Conn)", lily_pg_conn_new};
+    {&conn_query, "new", dyna_function, "(*string, *string, *string, *string, *string => Conn)", lily_pg_conn_new};
 
 const lily_class_seed lily_dynaload_table =
 {
