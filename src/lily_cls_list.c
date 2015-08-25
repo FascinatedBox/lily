@@ -163,7 +163,7 @@ void lily_list_size(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value *ret_reg = vm_regs[code[0]];
 
     lily_raw_value v = {.integer = list_val->num_values};
-    lily_move_raw_value(vm, ret_reg, v);
+    lily_move_raw_value(ret_reg, v);
 }
 
 void lily_list_append(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -245,7 +245,7 @@ void lily_list_fill(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     /* Do this before what's below, or one of the assignments could trigger the
        gc and wipe out the list. */
     lily_raw_value v = {.list = lv};
-    lily_move_raw_value(vm, result, v);
+    lily_move_raw_value(result, v);
 
     lily_value **elems = lily_malloc(sizeof(lily_value *) * n);
     lv->num_values = 0;

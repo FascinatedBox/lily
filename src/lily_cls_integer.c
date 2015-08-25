@@ -33,7 +33,7 @@ void lily_integer_to_s(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     new_sv->refcount = 1;
 
     lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(vm, result_reg, v);
+    lily_move_raw_value(result_reg, v);
 }
 
 void lily_integer_to_d(lily_vm_state *vm, uint16_t argc, uint16_t *code)
