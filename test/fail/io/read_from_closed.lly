@@ -2,9 +2,8 @@
 IOError: IO operation on closed file.
 Traceback:
     File "[builtin]", from file::readline
-    File "read_from_closed.lly", from __main__ at line 10
+    File "read_from_closed.lly", from __main__ at line 9
 ]#
 
-var f = file::open("io_test_file.txt", "r+")
-f.close()
-f.readline()
+stdin.close()
+stdin.readline()
