@@ -217,7 +217,7 @@ void lily_hash_get(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     else
         new_value = default_value;
 
-    lily_assign_value(vm, result, new_value);
+    lily_assign_value(result, new_value);
 }
 
 /*  lily_hash_keys
@@ -249,7 +249,7 @@ void lily_hash_keys(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         new_value->value.integer = 0;
         new_value->flags = VAL_IS_NIL;
 
-        lily_assign_value(vm, new_value, elem_iter->elem_key);
+        lily_assign_value(new_value, elem_iter->elem_key);
         result_lv->elems[i] = new_value;
 
         i++;
