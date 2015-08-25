@@ -264,16 +264,16 @@ void lily_list_fill(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 }
 
 static lily_func_seed fill =
-    {NULL, "fill", dyna_function, "function fill[A](integer, A => list[A])", lily_list_fill};
+    {NULL, "fill", dyna_function, "[A](integer, A => list[A])", lily_list_fill};
 
 static lily_func_seed apply =
-    {&fill, "apply", dyna_function, "function apply[A](list[A], function(A => A))", lily_list_apply};
+    {&fill, "apply", dyna_function, "[A](list[A], function(A => A))", lily_list_apply};
 
 static const lily_func_seed append =
-    {&apply, "append", dyna_function, "function append[A](list[A], A)", lily_list_append};
+    {&apply, "append", dyna_function, "[A](list[A], A)", lily_list_append};
 
 static const lily_func_seed dynaload_start =
-    {&append, "size", dyna_function, "function size[A](list[A] => integer)", lily_list_size};
+    {&append, "size", dyna_function, "[A](list[A] => integer)", lily_list_size};
 
 static const lily_class_seed list_seed =
 {

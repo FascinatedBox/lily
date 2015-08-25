@@ -62,7 +62,7 @@ void lily_bytestring_encode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 }
 
 static const lily_func_seed dynaload_start =
-    {NULL, "encode", dyna_function, "function encode(bytestring, *string => string)", lily_bytestring_encode};
+    {NULL, "encode", dyna_function, "(bytestring, *string => string)", lily_bytestring_encode};
 
 static const lily_class_seed bytestring_seed =
 {
