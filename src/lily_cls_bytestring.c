@@ -58,7 +58,7 @@ void lily_bytestring_encode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     lily_raw_value v = {.string = new_sv};
 
-    lily_move_raw_value(vm, result, v);
+    lily_move_raw_value(result, v);
 }
 
 static const lily_func_seed dynaload_start =

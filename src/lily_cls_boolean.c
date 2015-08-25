@@ -44,7 +44,7 @@ void lily_boolean_to_s(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     lily_raw_value v = {.string = sv};
 
-    lily_move_raw_value(vm, result_reg, v);
+    lily_move_raw_value(result_reg, v);
 }
 
 static const lily_func_seed to_i =

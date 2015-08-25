@@ -93,7 +93,7 @@ void lily_pg_result_fetchrow(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     boxed_result->current_row++;
 
     lily_raw_value v = {.list = lv};
-    lily_move_raw_value(vm, result_reg, v);
+    lily_move_raw_value(result_reg, v);
 }
 
 static const lily_func_seed result_dynaload_start =
@@ -199,7 +199,7 @@ void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     new_result->column_count = PQnfields(raw_result);
 
     lily_raw_value v = {.generic = (lily_generic_val *)new_result};
-    lily_move_raw_value(vm, result_reg, v);
+    lily_move_raw_value(result_reg, v);
 }
 
 void lily_pg_conn_new(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -248,7 +248,7 @@ void lily_pg_conn_new(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 
     lily_raw_value v = {.generic = (lily_generic_val *)new_val};
-    lily_move_raw_value(vm, result, v);
+    lily_move_raw_value(result, v);
 }
 
 void destroy_conn(lily_value *v)

@@ -881,7 +881,7 @@ void lily_builtin_calltrace(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_list_val *traceback_val = build_traceback_raw(vm);
 
     lily_raw_value v = {.list = traceback_val};
-    lily_move_raw_value(vm, result, v);
+    lily_move_raw_value(result, v);
 }
 
 /*  lily_builtin_show
@@ -1284,7 +1284,7 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
        gc tag on them. Because of that, the list value needs to be in a register
        now. */
     lily_raw_value v = {.list = lv};
-    lily_move_raw_value(vm, result, v);
+    lily_move_raw_value(result, v);
 
     int i;
     for (i = 0;i < num_elems;i++) {
@@ -1474,7 +1474,7 @@ static lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
     d->num_upvalues = count;
 
     lily_raw_value v = {.function = closure_func};
-    lily_move_raw_value(vm, result, v);
+    lily_move_raw_value(result, v);
     return upvalues;
 }
 
@@ -1504,7 +1504,7 @@ static void do_o_create_function(lily_vm_state *vm, uint16_t *code)
 
     lily_value **upvalues = closure_copy->closure_data->upvalues;
     upvalues[code[3]]->type = closure_reg->type;
-    lily_move_raw_value(vm, upvalues[code[3]], v);
+    lily_move_raw_value(upvalues[code[3]], v);
 }
 
 /*  This is written at the top of a function that uses closures but is not a
@@ -1519,7 +1519,7 @@ static lily_value **do_o_load_closure(lily_vm_state *vm, uint16_t *code)
 
     /* This isn't using assign because there is no proper lily value that is
        holding closure. Instead, do a move and manually bump the ref. */
-    lily_move_raw_value(vm, result, v);
+    lily_move_raw_value(result, v);
     f->refcount++;
 
     return f->closure_data->upvalues;
@@ -1576,7 +1576,7 @@ static void make_proper_exception_val(lily_vm_state *vm,
     ival->num_values = 2;
 
     lily_raw_value v = {.instance = ival};
-    lily_move_raw_value(vm, result, v);
+    lily_move_raw_value(result, v);
 }
 
 /*  This is called when an except clause specifies a var (so traceback needs to
@@ -1593,7 +1593,7 @@ static void fixup_exception_val(lily_vm_state *vm, lily_value *result,
 
     /* Only things that inherit from Exception are can be raised, and Exception
        always has the traceback at slot 1. It's safe to do this. */
-    lily_move_raw_value(vm, iv->values[1], v);
+    lily_move_raw_value(iv->values[1], v);
 }
 
 /*  maybe_catch_exception
@@ -1728,33 +1728,18 @@ void lily_assign_value(lily_value *left, lily_value *right)
 }
 
 /*  lily_move_raw_value
-    This is nearly as handy as lily_assign_value. The purpose of this function
-    is to put a raw value (likely one that was just made) into another value.
-
-    left:      This is a proper value which will receive the new value. If it
-               is marked as refcounted (but not nil or protected), it will
-               receive a deref.
-    raw_right: A raw value that is of the same type as left. This value will not
-               receive a ref bump.
-
-    Do not pass values of type 'any' to this function, or enum/variant values.
-    It cannot handle those (I'll add that functionality when it's needed so I
-    have something to test it with!).
-
-    This function is useful in cases where a newly-created raw value needs to be
-    put into a register. Bumping the new value would cause it to have two refs,
-    which is wrong.
-
-    Left's flags are set to 0, as it is assumed that the moved value is not
-    marked as either protected or nil (the latter is especially nonsensical). */
-void lily_move_raw_value(lily_vm_state *vm, lily_value *left,
-        lily_raw_value raw_right)
+    Assign the value on the right side into the left side. Decrease the refcount
+    of the left side (if applicable), but do not increase the refcount of the
+    right side. This is useful in situations where the right side is a
+    newly-made value (which starts at one ref), and assign would falsely give it
+    two refs. */
+void lily_move_raw_value(lily_value *left, lily_raw_value raw_right)
 {
-    lily_class *cls = left->type->cls;
-    lily_deref(left);
+    if ((left->flags & VAL_IS_NOT_DEREFABLE) == 0)
+        lily_deref(left);
 
     left->value = raw_right;
-    left->flags = (cls->flags & VAL_IS_PRIMITIVE);
+    left->flags = (left->type->cls->flags & VAL_IS_PRIMITIVE);
 }
 
 /*  This is used by a function (the caller) to call another function (the
