@@ -468,6 +468,22 @@ static int keyword_by_name(char *name)
     return -1;
 }
 
+/*  Is this keyword a value that can be part of an expression?*/
+static int is_key_a_value(int key_id)
+{
+    switch(key_id) {
+        case KEY_TRUE:
+        case KEY_FALSE:
+        case KEY__FILE__:
+        case KEY__FUNCTION__:
+        case KEY__LINE__:
+        case KEY_SELF:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
 static void ensure_unique_method_name(lily_parse_state *parser, char *name)
 {
     if (lily_find_var(parser->symtab, NULL, name) != NULL)
@@ -3191,7 +3207,7 @@ static lily_type *parse_lambda_body(lily_parse_state *parser, lily_type *expect_
         if (lex->token == tk_word)
             key_id = keyword_by_name(lex->label);
 
-        if (key_id == -1) {
+        if (key_id == -1 || is_key_a_value(key_id)) {
             expression(parser);
             if (lex->token != tk_right_curly)
                 /* This expression isn't the last one, so it can do whatever it
