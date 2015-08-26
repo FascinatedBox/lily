@@ -16,6 +16,7 @@
 #include "lily_cls_any.h"
 #include "lily_cls_hash.h"
 #include "lily_cls_function.h"
+#include "lily_cls_list.h"
 #include "lily_cls_string.h"
 
 extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
@@ -788,13 +789,10 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
 {
     lily_type *traceback_tuple_type = vm->traceback_type;
     lily_symtab *symtab = vm->symtab;
-    lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
+    lily_list_val *lv = lily_new_list_val();
 
     lv->elems = lily_malloc(vm->call_depth * sizeof(lily_value *));
     lv->num_values = -1;
-    lv->visited = 0;
-    lv->refcount = 1;
-    lv->gc_entry = NULL;
     lily_call_frame *frame_iter;
 
     int i;
@@ -806,7 +804,7 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
          i >= 1;
          i--, frame_iter = frame_iter->prev) {
         lily_value *tuple_holder = lily_malloc(sizeof(lily_value));
-        lily_list_val *stack_tuple = lily_malloc(sizeof(lily_list_val));
+        lily_list_val *stack_tuple = lily_new_list_val();
         lily_value **tuple_values = lily_malloc(3 * sizeof(lily_value *));
 
         lily_value *path = lily_bind_string(symtab,
@@ -817,9 +815,6 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
                 frame_iter->line_num);
 
         stack_tuple->num_values = 3;
-        stack_tuple->visited = 0;
-        stack_tuple->refcount = 1;
-        stack_tuple->gc_entry = NULL;
         stack_tuple->elems = tuple_values;
         tuple_values[0] = path;
         tuple_values[1] = func_string;
@@ -1285,14 +1280,11 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     int num_elems = (intptr_t)(code[2]);
     lily_value *result = vm_regs[code[3+num_elems]];
 
-    lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
+    lily_list_val *lv = lily_new_list_val();
     lily_value **elems = lily_malloc(num_elems * sizeof(lily_value *));
 
     lv->num_values = num_elems;
-    lv->visited = 0;
-    lv->refcount = 1;
     lv->elems = elems;
-    lv->gc_entry = NULL;
 
     if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
         lily_add_gc_item(vm, result->type, (lily_generic_gc_val *)lv);
