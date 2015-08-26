@@ -1,0 +1,19 @@
+define f(input: integer => integer) {
+    var trace = calltrace()
+
+    if trace[-1][1] != "f" || trace.size() != 3:
+        stderr.write("Failed.\n")
+
+    return input
+}
+
+define apply(x: list[integer], g: function(integer => integer)) {
+    g(x[0])
+}
+
+var v = [1]
+
+v.apply(f)
+apply(v, f)
+v.apply(f)
+apply(v, f)
