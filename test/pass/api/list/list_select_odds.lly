@@ -1,1 +1,2 @@
-show([1,2,3,4,5].select{|i| (i % 2) == 1})
+if [1,2,3,4,5].select{|i| (i % 2) == 1} != [1,3,5]:
+    stderr.write("Failed.\n")
