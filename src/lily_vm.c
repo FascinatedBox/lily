@@ -878,7 +878,17 @@ void lily_builtin_calltrace(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value *result = vm->vm_regs[code[0]];
 
+    /* calltrace() should not report that calltrace() was the most recently
+       called function, as that is useless. The vm's call chain+depth are
+       adjusted here, because calltrace() is the only thing that needs to do
+       this (exceptions will always want the full stack). */
+    vm->call_chain = vm->call_chain->prev;
+    vm->call_depth--;
+
     lily_list_val *traceback_val = build_traceback_raw(vm);
+
+    vm->call_chain = vm->call_chain->next;
+    vm->call_depth++;
 
     lily_raw_value v = {.list = traceback_val};
     lily_move_raw_value(result, v);
