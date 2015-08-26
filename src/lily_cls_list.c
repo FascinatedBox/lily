@@ -255,13 +255,8 @@ void lily_list_fill(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lv->num_values = n;
 }
 
-/*  Implements list::select
-
-    Create a new list where all members of a list satisfy some predicate.
-
-    Arguments:
-    * f: A function taking [A] and returning boolean. */
-void lily_list_select(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+static void list_select_reject_common(lily_vm_state *vm, uint16_t argc,
+        uint16_t *code, int expect)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *result_reg = vm->vm_regs[code[0]];
@@ -280,7 +275,7 @@ void lily_list_select(lily_vm_state *vm, uint16_t argc, uint16_t *code)
             lily_value *result = lily_foreign_call(vm, &cached, expect_type,
                     function_reg, 1, list_val->elems[i]);
 
-            if (result->value.integer) {
+            if (result->value.integer == expect) {
                 vm_list->values[vm_list->pos] = list_val->elems[i];
                 vm_list->pos++;
             }
@@ -311,8 +306,33 @@ void lily_list_select(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(result_reg, v);
 }
 
+/*  Implements list::select
+
+    Create a new list where all members of a list satisfy some predicate.
+
+    Arguments:
+    * f: A function taking A and returning boolean. */
+void lily_list_select(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    list_select_reject_common(vm, argc, code, 1);
+}
+
+/*  Implements list::reject
+
+    Create a new list where all members of a list do not satisfy a predicate.
+
+    Arguments:
+    * f: A function taking A and returning boolean. */
+void lily_list_reject(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    list_select_reject_common(vm, argc, code, 0);
+}
+
+static lily_func_seed reject =
+    {NULL, "reject", dyna_function, "[A](list[A], function(A => boolean) => list[A])", lily_list_reject};
+
 static lily_func_seed select_fn =
-    {NULL, "select", dyna_function, "[A](list[A], function(A => boolean) => list[A])", lily_list_select};
+    {&reject, "select", dyna_function, "[A](list[A], function(A => boolean) => list[A])", lily_list_select};
 
 static lily_func_seed fill =
     {&select_fn, "fill", dyna_function, "[A](integer, A => list[A])", lily_list_fill};
