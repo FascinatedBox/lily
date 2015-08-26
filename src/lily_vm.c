@@ -1873,10 +1873,10 @@ lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
     *cached = 1;
 
     if (target->code) {
-        lily_vm_execute(vm);
-        /* The called function will hit o_return_{,no}val, which will drop the
-           depth. If that isn't offset, the depth drops into negatives. */
+        /* Do this so the vm knows this function was entered. It'll be offset by
+           the vm running into o_return_{val,noval} within the target func. */
         vm->call_depth++;
+        lily_vm_execute(vm);
     }
     else {
         /* The drop is so vm_regs[0] targets the return value. */
