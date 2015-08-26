@@ -255,8 +255,67 @@ void lily_list_fill(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lv->num_values = n;
 }
 
+/*  Implements list::select
+
+    Create a new list where all members of a list satisfy some predicate.
+
+    Arguments:
+    * f: A function taking [A] and returning boolean. */
+void lily_list_select(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *result_reg = vm->vm_regs[code[0]];
+    lily_list_val *list_val = vm_regs[code[1]]->value.list;
+    lily_value *function_reg = vm_regs[code[2]];
+    lily_type *expect_type = function_reg->type->subtypes[0];
+
+    lily_vm_list *vm_list = vm->vm_list;
+    int vm_list_start = vm_list->pos;
+    int cached = 0;
+
+    lily_jump_link *link = lily_jump_setup(vm->raiser);
+    if (setjmp(link->jump) == 0) {
+        int i;
+        for (i = 0;i < list_val->num_values;i++) {
+            lily_value *result = lily_foreign_call(vm, &cached, expect_type,
+                    function_reg, 1, list_val->elems[i]);
+
+            if (result->value.integer) {
+                vm_list->values[vm_list->pos] = list_val->elems[i];
+                vm_list->pos++;
+            }
+        }
+    }
+    else {
+        vm_list->pos = vm_list_start;
+        lily_jump_back(vm->raiser);
+    }
+
+    lily_list_val *result_list = lily_new_list_val();
+    int num_values = vm_list->pos - vm_list_start;
+    if (result_reg->type->flags & TYPE_MAYBE_CIRCULAR)
+        lily_add_gc_item(vm, result_reg->type, (lily_generic_gc_val *)list_val);
+
+    result_list->num_values = num_values;
+    result_list->elems = lily_malloc(sizeof(lily_value *) * num_values);
+
+    int i;
+    for (i = 0;i < num_values;i++) {
+        lily_value *target = vm_list->values[vm_list_start + i];
+        result_list->elems[i] = lily_copy_value(target);
+    }
+
+    vm_list->pos = vm_list_start;
+
+    lily_raw_value v = {.list = result_list};
+    lily_move_raw_value(result_reg, v);
+}
+
+static lily_func_seed select_fn =
+    {NULL, "select", dyna_function, "[A](list[A], function(A => boolean) => list[A])", lily_list_select};
+
 static lily_func_seed fill =
-    {NULL, "fill", dyna_function, "[A](integer, A => list[A])", lily_list_fill};
+    {&select_fn, "fill", dyna_function, "[A](integer, A => list[A])", lily_list_fill};
 
 static lily_func_seed apply =
     {&fill, "apply", dyna_function, "[A](list[A], function(A => A))", lily_list_apply};

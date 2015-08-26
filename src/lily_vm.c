@@ -176,6 +176,10 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->readonly_table = NULL;
     vm->readonly_count = 0;
     vm->call_chain = NULL;
+    vm->vm_list = lily_malloc(sizeof(lily_vm_list));
+    vm->vm_list->values = lily_malloc(4 * sizeof(lily_value *));
+    vm->vm_list->pos = 0;
+    vm->vm_list->size = 4;
 
     add_call_frame(vm);
 
@@ -248,6 +252,8 @@ void lily_free_vm(lily_vm_state *vm)
     invoke_gc(vm);
     destroy_gc_entries(vm);
 
+    lily_free(vm->vm_list->values);
+    lily_free(vm->vm_list);
     lily_free(vm->readonly_table);
     lily_free(vm->foreign_code);
     lily_free(vm->sipkey);
@@ -1893,6 +1899,20 @@ lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
     vm->vm_regs -= vm->call_chain->prev->regs_used;
 
     return return_reg;
+}
+
+/*  Make sure that the vm's intermediate holding list can hold at least 'need'
+    more elements. If necessary, grow it so it can hold what's needed. */
+void lily_vm_list_ensure(lily_vm_state *vm, uint32_t need)
+{
+    lily_vm_list *vm_list = vm->vm_list;
+    if ((vm_list->pos + need) > vm_list->size) {
+        while ((vm_list->pos + need) > vm_list->size)
+            vm_list->size *= 2;
+
+        vm_list->values = lily_realloc(vm_list->values,
+                sizeof(lily_value *) * vm_list->size);
+    }
 }
 
 /*  This is used by modules to raise exceptions which are marked as dynaloaded

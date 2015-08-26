@@ -1,0 +1,14 @@
+#[
+ValueError: Test
+Traceback:
+    File "list_select_interrupted.lly", from f at line 11
+    File "[builtin]", from list::select
+    File "list_select_interrupted.lly", from __main__ at line 14
+]#
+
+define f(x: integer => boolean)
+{
+    raise ValueError::new("Test\n")
+}
+
+[1].select(f)

@@ -1,0 +1,2 @@
+if [1,2,3].select{|a| true} != [1,2,3]:
+    stderr.write("Failed.\n")
