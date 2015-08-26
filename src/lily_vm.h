@@ -48,6 +48,12 @@ typedef struct lily_vm_catch_entry_ {
     struct lily_vm_catch_entry_ *prev;
 } lily_vm_catch_entry;
 
+typedef struct {
+    lily_value **values;
+    uint32_t pos;
+    uint32_t size;
+} lily_vm_list;
+
 typedef struct lily_vm_state_ {
     lily_value **vm_regs;
     lily_value **regs_from_main;
@@ -110,6 +116,12 @@ typedef struct lily_vm_state_ {
 
     struct lily_parse_state_ *parser;
     lily_msgbuf *vm_buffer;
+
+    /* This is used as an intermediate storage, when the resulting size of a
+       list is not yet known. This prevents functions from doing repeated
+       reallocs (in the case of large result lists), or from overallocating (in
+       the case of small result lists). */
+    lily_vm_list *vm_list;
     lily_type_system *ts;
     lily_symtab *symtab;
     lily_raiser *raiser;
@@ -132,6 +144,7 @@ void lily_add_gc_item(lily_vm_state *, lily_type *, lily_generic_gc_val *);
 
 lily_value *lily_foreign_call(lily_vm_state *, int *, lily_type *, lily_value *,
         int, ...);
+void lily_vm_list_ensure(lily_vm_state *, uint32_t);
 
 void lily_vm_set_error(lily_vm_state *, const struct lily_base_seed_ *,
         const char *);
