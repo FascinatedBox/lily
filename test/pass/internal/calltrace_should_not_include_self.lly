@@ -1,0 +1,2 @@
+if calltrace()[-1][1] == "calltrace":
+    stderr.write("Failed.\n")
