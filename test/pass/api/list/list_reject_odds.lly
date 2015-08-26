@@ -1,0 +1,2 @@
+if [1,2,3,4,5].reject{|i| (i % 2) == 1} != [2,4]:
+    stderr.write("Failed.\n")
