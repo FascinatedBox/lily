@@ -2,6 +2,7 @@
 #include "lily_vm.h"
 #include "lily_value.h"
 #include "lily_seed.h"
+#include "lily_cls_list.h"
 
 lily_hash_val *lily_new_hash_val()
 {
@@ -232,12 +233,9 @@ void lily_hash_keys(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     int num_elems = hash_val->num_elems;
 
-    lily_list_val *result_lv = lily_malloc(sizeof(lily_list_val));
+    lily_list_val *result_lv = lily_new_list_val();
     result_lv->num_values = num_elems;
-    result_lv->visited = 0;
-    result_lv->refcount = 1;
     result_lv->elems = lily_malloc(num_elems * sizeof(lily_value *));
-    result_lv->gc_entry = NULL;
 
     lily_type *key_type = result_reg->type->subtypes[0];
     int i = 0;

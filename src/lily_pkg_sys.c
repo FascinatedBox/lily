@@ -3,6 +3,7 @@
 #include "lily_alloc.h"
 #include "lily_parser.h"
 #include "lily_seed.h"
+#include "lily_cls_list.h"
 
 void lily_sys_var_loader(lily_parse_state *parser, lily_var *var)
 {
@@ -10,15 +11,11 @@ void lily_sys_var_loader(lily_parse_state *parser, lily_var *var)
     lily_symtab *symtab = parser->symtab;
     lily_type *string_type = var->type->subtypes[0];
 
-    lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
+    lily_list_val *lv = lily_new_list_val();
     lily_value **values = lily_malloc(options->argc * sizeof(lily_value));
 
-    lv->gc_entry = NULL;
     lv->elems = values;
     lv->num_values = options->argc;
-    lv->refcount = 1;
-    lv->elems = values;
-    lv->visited = 0;
 
     int i;
     for (i = 0;i < options->argc;i++) {
