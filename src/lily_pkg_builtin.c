@@ -104,10 +104,10 @@ static const lily_base_seed format_error =
     {&io_error, "FormatError", dyna_exception};
 static const lily_base_seed key_error =
     {&format_error, "KeyError", dyna_exception};
-static const lily_base_seed recursion_error =
-    {&key_error, "RecursionError", dyna_exception};
+static const lily_base_seed runtime_error =
+    {&key_error, "RuntimeError", dyna_exception};
 static const lily_base_seed value_error =
-    {&recursion_error, "ValueError", dyna_exception};
+    {&runtime_error, "ValueError", dyna_exception};
 static const lily_base_seed bad_tc_error =
     {&value_error, "BadTypecastError", dyna_exception};
 static const lily_base_seed index_error =

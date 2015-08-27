@@ -22,7 +22,7 @@ int lily_any_eq(lily_vm_state *vm, int *depth, lily_value *left,
     int ret;
 
     if (*depth == 100)
-        lily_raise(vm->raiser, lily_RecursionError, "Infinite loop in comparison.\n");
+        lily_raise(vm->raiser, lily_RuntimeError, "Infinite loop in comparison.\n");
 
     lily_value *left_inner = left->value.any->inner_value;
     lily_value *right_inner = right->value.any->inner_value;

@@ -9,7 +9,7 @@
    code. This is used by lily_fs to show what kind of error occured. */
 static const char *lily_error_names[] =
     {"Error", "SyntaxError", "DivisionByZeroError", "IndexError",
-     "BadTypecastError", "ValueError", "RecursionError", "KeyError",
+     "BadTypecastError", "ValueError", "RuntimeError", "KeyError",
      "FormatError", "IOError"};
 
 lily_raiser *lily_new_raiser(void)

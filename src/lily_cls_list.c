@@ -19,7 +19,7 @@ int lily_list_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
 {
     if (*depth == 100)
-        lily_raise(vm->raiser, lily_RecursionError, "Infinite loop in comparison.\n");
+        lily_raise(vm->raiser, lily_RuntimeError, "Infinite loop in comparison.\n");
 
     int ret;
 
