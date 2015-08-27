@@ -2241,7 +2241,7 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_function_call:
             {
                 if (vm->call_depth > 100)
-                    lily_raise(vm->raiser, lily_RecursionError,
+                    lily_raise(vm->raiser, lily_RuntimeError,
                             "Function call recursion limit reached.\n");
 
                 if (current_frame->next == NULL)

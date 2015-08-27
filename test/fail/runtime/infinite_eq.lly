@@ -1,5 +1,5 @@
 #[
-RecursionError: Infinite loop in comparison.
+RuntimeError: Infinite loop in comparison.
 Traceback:
     File "infinite_eq.lly", from __main__ at line 9
 ]#
