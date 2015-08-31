@@ -1431,6 +1431,7 @@ void lily_lexer(lily_lex_state *lexer)
         else if (group == CC_B) {
             if (*(ch + 1) == '"') {
                 ch++;
+                input_pos++;
                 int dummy;
                 scan_quoted(lexer, &input_pos, ch, &dummy);
                 token = tk_bytestring;
