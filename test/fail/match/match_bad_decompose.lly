@@ -3,7 +3,7 @@ SyntaxError: Expected '(', not :.
 Where: File "match_bad_decompose.lly" at line 14
 ]#
 
-enum class Option[A] {
+enum Option[A] {
     Some(A)
     None
 }

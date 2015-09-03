@@ -73,7 +73,7 @@ typedef struct lily_ast_ {
         lily_sym *sym;
         lily_tie *literal;
         lily_prop_entry *property;
-        lily_class *variant_class;
+        lily_class *variant;
     };
 
     struct lily_ast_ *left;

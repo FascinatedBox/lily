@@ -1,4 +1,4 @@
-enum class Option[A] { Some(A, A) None }
+enum Option[A] { Some(A, A) None }
 
 var v = Some(1, 2)
 

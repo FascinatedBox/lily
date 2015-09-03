@@ -247,7 +247,7 @@ static void do_add_value(lily_msgbuf *msgbuf, tag *t, lily_value *v)
         lily_msgbuf_add_fmt(msgbuf, "<%sfunction %s%s%s>", builtin, class_name,
                 separator, fv->trace_name);
     }
-    else if (v->type->cls->flags & CLS_ENUM_CLASS)
+    else if (v->type->cls->flags & CLS_IS_ENUM)
         do_add_value(msgbuf, t, v->value.any->inner_value);
     else if (cls_id == SYM_CLASS_LIST)
         add_list_like(msgbuf, t, v, "[", "]");
@@ -273,7 +273,7 @@ static void do_add_value(lily_msgbuf *msgbuf, tag *t, lily_value *v)
         const char *state = fv->is_open ? "open" : "closed";
         lily_msgbuf_add_fmt(msgbuf, "<%s file at %p>", state, fv);
     }
-    else if (v->type->cls->flags & CLS_VARIANT_CLASS) {
+    else if (v->type->cls->flags & CLS_IS_VARIANT) {
         lily_class *cls = v->type->cls;
         lily_msgbuf_add(msgbuf, cls->name);
         if (cls->variant_type->subtype_count > 1)

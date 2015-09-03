@@ -17,7 +17,7 @@ typedef enum {
     block_try_except,
     block_try_except_all,
     block_match,
-    block_enum_class,
+    block_enum,
     /* Anything past here has a function created on behalf of it, and thus must
        go through a special entry/exit. */
     block_define,
@@ -142,11 +142,11 @@ typedef struct lily_emit_call_state_ {
     /* How many arguments have been written so far. */
     uint16_t arg_count;
 
-    /* Lily requires that all values of an enum class (the variant classes) be
-       wrapped into an enum class. If a call has an unwrapped variant (ex:
-       f(Some(1)), then it needs to run a secondary pass to package up the
-       variants. This is done so that the enum class the variants are put into
-       has as much type info as possible. */
+    /* Lily requires that all values of an enum (the variants) be wrapped into
+       an enum. If a call has an unwrapped variant (ex: f(Some(1)), then it
+       needs to run a secondary pass to package up the variants. This is done
+       so that the enum the variants are put into has as much type info as
+       possible. */
     uint16_t have_bare_variants;
 
     /* Each call needs to have space set aside in ts for solving generics. To

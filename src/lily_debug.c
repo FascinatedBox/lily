@@ -337,8 +337,8 @@ static void show_code(lily_debug_state *debug)
                 match_cls = debug->current_function->reg_info[code[i+j]].type->cls;
             }
             /* This is for o_match_dispatch, and each of these cases
-               corresponds to a variant classes. To help with debugging, show
-               where the different classes will jump to. */
+               corresponds to a variant. To help with debugging, show where the
+               different classes will jump to. */
             else if (data_code == C_COUNT_JUMPS) {
                 int k;
                 for (k = 0;k < count;k++, i++) {
@@ -551,7 +551,7 @@ static void show_value(lily_debug_state *debug, lily_value *value)
              cls_id == SYM_CLASS_HASH ||
              cls_id == SYM_CLASS_TUPLE ||
              (cls_id >= SYM_CLASS_EXCEPTION &&
-              (type->cls->flags & CLS_ENUM_CLASS) == 0)) {
+              (type->cls->flags & CLS_IS_ENUM) == 0)) {
         lily_msgbuf_add_fmt(debug->msgbuf, "^T\n", type);
         write_msgbuf(debug);
 
@@ -560,7 +560,7 @@ static void show_value(lily_debug_state *debug, lily_value *value)
             show_hash_value(debug, type, raw_value.hash);
         else if (cls_id < SYM_CLASS_EXCEPTION)
             show_list_value(debug, type, raw_value.list);
-        else if (type->cls->flags & CLS_VARIANT_CLASS) {
+        else if (type->cls->flags & CLS_IS_VARIANT) {
             if (type->cls->variant_type->subtype_count != 0)
                 show_list_value(debug, type, raw_value.list);
             /* else it's a variant that does not take any arguments, so do
@@ -589,7 +589,7 @@ static void show_value(lily_debug_state *debug, lily_value *value)
         }
     }
     else if (cls_id == SYM_CLASS_ANY ||
-             type->cls->flags & CLS_ENUM_CLASS) {
+             type->cls->flags & CLS_IS_ENUM) {
         lily_value *any_value = raw_value.any->inner_value;
 
         lily_msgbuf_add_fmt(debug->msgbuf, "(^T) ", type);

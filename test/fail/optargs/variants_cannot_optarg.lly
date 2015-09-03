@@ -3,7 +3,7 @@ SyntaxError: Variant types cannot have default values.
 Where: File "variants_cannot_optarg.lly" at line 7
 ]#
 
-enum class Option {
+enum Option {
     Some(*integer),
     None
 }

@@ -468,8 +468,8 @@ static int compare_values(lily_vm_state *vm, lily_value *left, lily_value *right
 
 /*  do_o_box_assign
     This places a value on the right side into a box, then assigns it to the
-    left. The refcount is increased, if necessary. This is used by enum classes
-    and type any. */
+    left. The refcount is increased, if necessary. This is used by enums and
+    type any. */
 static void do_o_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
         lily_value *rhs_reg)
 {
@@ -2565,8 +2565,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* Variants are actually tuples stored within an 'any' value
                    (which is the enum clas). Tuples are just lists which the
                    emitter allows different values for.
-                   This takes the enum class value and pulls the real variant
-                   from it. */
+                   This takes the enum value and pulls the real variant from
+                   it. */
                 lily_list_val *variant_val = rhs_reg->value.any->inner_value->value.list;
 
                 /* Each variant value gets mapped away to a register. The

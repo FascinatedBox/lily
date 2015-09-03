@@ -262,7 +262,7 @@ static int condition_optimize_check(lily_ast *ast)
             can_optimize = 0;
         else if (lit_cls_id == SYM_CLASS_BOOLEAN && lit->value.integer == 0)
             can_optimize = 0;
-        else if (lit->type->cls->flags & CLS_VARIANT_CLASS)
+        else if (lit->type->cls->flags & CLS_IS_VARIANT)
             can_optimize = 0;
     }
 
@@ -738,7 +738,7 @@ static lily_storage *emit_rebox_sym(lily_emit_state *emit,
 {
     lily_storage *storage = get_storage(emit, new_type);
 
-    if (sym->type->cls->flags & CLS_VARIANT_CLASS &&
+    if (sym->type->cls->flags & CLS_IS_VARIANT &&
         new_type->cls->id == SYM_CLASS_ANY) {
         lily_type *rebox_type = lily_ts_build_enum_by_variant(emit->ts,
                 sym->type);
@@ -748,10 +748,10 @@ static lily_storage *emit_rebox_sym(lily_emit_state *emit,
 
     int op;
     /* o_box_assign will wrap the value so that it can be assigned to either an
-       enum class/any later on.
+       enum/any later on.
        For everything else, use o_assign and rely on the vm not doing any type
        checking. */
-    if (new_type->cls->flags & CLS_ENUM_CLASS)
+    if (new_type->cls->flags & CLS_IS_ENUM)
         op = o_box_assign;
     else
         op = o_assign;
@@ -1413,7 +1413,7 @@ static void push_info_to_error(lily_emit_state *emit, lily_emit_call_state *cs)
 
         call_name = var->name;
     }
-    else if (item_flags & ITEM_TYPE_VARIANT_CLASS) {
+    else if (item_flags & ITEM_TYPE_VARIANT) {
         lily_class *variant_cls = (lily_class *)cs->error_item;
         call_name = variant_cls->name;
 
@@ -1622,8 +1622,8 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
         opcode = generic_binop_table[ast->op][lhs_class->id][rhs_class->id];
     else {
         /* Calling type_matchup here to do the test allows 'any' to compare to
-           base values, as well as enum classes to compare to instances of
-           their inner subtypes.
+           base values, as well as enums to compare to instances of their inner
+           subtypes.
            Call it twice for each side so that this works:
                any a = 10
                a == 10
@@ -1787,7 +1787,7 @@ static int assign_optimize_check(lily_ast *ast)
 static lily_type *calculate_var_type(lily_emit_state *emit, lily_type *input_type)
 {
     lily_type *result;
-    if (input_type->cls->flags & CLS_VARIANT_CLASS)
+    if (input_type->cls->flags & CLS_IS_VARIANT)
         result = lily_ts_build_enum_by_variant(emit->ts, input_type);
     else
         result = input_type;
@@ -1888,8 +1888,8 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
         eval_tree(emit, ast->arg_start, NULL, 1);
 
     lily_class *lookup_class = ast->arg_start->result->type->cls;
-    /* This allows variant values to use enum class methods. */
-    if (lookup_class->flags & CLS_VARIANT_CLASS)
+    /* This allows variant values to use enum methods. */
+    if (lookup_class->flags & CLS_IS_VARIANT)
         lookup_class = lookup_class->parent;
 
     char *oo_name = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
@@ -2350,17 +2350,17 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     In the event that there is not a common type, the function attempts
     to find one by looking at the common parts between each value.
 
-    If all values are of a given enum class or variants of that class, then
-    the function ensures that the variants are put into an enum class value of
-    the common type.
+    If all values are of a given enum or variants of that enum, then the
+    function ensures that the variants are put into an enum value of the common
+    type.
 
-    If the common type is incomplete (some of the generics of the enum class
-    are not specified), then missing parts are given the class 'any', and the
-    values are put into an enum class value of some type.
+    If the common type is incomplete (some of the generics of the enum are not
+    specified), then missing parts are given the class 'any', and the values
+    are put into an enum value of some type.
 
-    If there is no common type, then each variant is put into an enum class
-    value based upon information known to only it, and all values are put into
-    an 'any' value (except those that are already 'any'). This is unlikely. */
+    If there is no common type, then each variant is put into an enum value
+    based upon information known to only it, and all values are put into an
+    'any' value (except those that are already 'any'). This is unlikely. */
 static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect_type, int is_hash)
 {
@@ -2381,13 +2381,13 @@ static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
     int ok = 1;
 
     /* The first order of business is to find the type that parser created which
-       has a class of the enum class, and all generics.
-       ex: enum class Option[A] { Some(A), None }
+       has a class of the enum, and all generics.
+       ex: enum Option[A] { Some(A) None }
        For the above, there's a Option[A] made by parser. Get that. If that
        isn't possible, then everything gets to be smacked to any. */
-    if (first_cls->flags & CLS_VARIANT_CLASS)
+    if (first_cls->flags & CLS_IS_VARIANT)
         first_cls = first_cls->parent;
-    if (first_cls->flags & CLS_ENUM_CLASS &&
+    if (first_cls->flags & CLS_IS_ENUM &&
         first_cls != any_class) {
         matching_type = first_cls->variant_type;
     }
@@ -2579,10 +2579,10 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         if (value_tree->tree_type != tree_local_var)
             eval_tree(emit, value_tree, expect_value_type, 1);
 
-        /* Only mark user-defined enum classes/variants, because those are the
-           ones that can default. */
+        /* Only mark user-defined enums/variants, because those are the ones
+           that can default. */
         if (value_tree->result->type->cls->flags &
-            (CLS_VARIANT_CLASS | CLS_ENUM_CLASS) &&
+            (CLS_IS_VARIANT | CLS_IS_ENUM) &&
             value_tree->result->type->cls->id != SYM_CLASS_ANY)
             found_variant_or_enum = 1;
 
@@ -2652,25 +2652,25 @@ static int check_proper_variant(lily_emit_state *emit, lily_type *enum_type,
 }
 
 /*  enum_membership_check
-    Given a type which is for some enum class, determine if 'right'
-    is a member of the enum class.
+    Given a type which is for some enum, determine if 'right' is a member of
+    the enum.
 
     Returns 1 if yes, 0 if no. */
 static int enum_membership_check(lily_emit_state *emit, lily_type *enum_type,
         lily_type *right)
 {
-    lily_class *variant_class = right->cls;
-    lily_class *enum_class = enum_type->cls;
+    lily_class *variant_cls = right->cls;
+    lily_class *enum_cls = enum_type->cls;
 
     int ok = 1;
 
-    /* A variant's parent is always the enum class that it belongs to. */
-    if (variant_class->parent == enum_class) {
+    /* A variant's parent is always the enum that it belongs to. */
+    if (variant_cls->parent == enum_cls) {
         /* If the variant does not take arguments, then there's nothing that
            could have been called wrong. Therefore, the use of the variant MUST
            be correct. */
         if (right->subtype_count != 0)
-            ok = check_proper_variant(emit, enum_type, right, variant_class);
+            ok = check_proper_variant(emit, enum_type, right, variant_cls);
     }
     else
         ok = 0;
@@ -2688,9 +2688,9 @@ static int enum_membership_check(lily_emit_state *emit, lily_type *enum_type,
     This attempts one of three things:
      * If 'want_type' is any, the ast's result is converted so that it returns
        a value of type any.
-     * If 'want_type' is an enum class, the ast's result is checked for being a
-       variant. If it is a variant (and the types fit), it is converted so that
-       it returns a value of the enum type.
+     * If 'want_type' is an enum, the ast's result is checked for being variant.
+       If it is a variant (and the types fit), it is converted so that it
+       returns a value of the enum type.
      * If 'want_type' is a superset of what the ast returns, 1 is returned, but
        there is no conversion performed (because it isn't necessary). */
 static int type_matchup(lily_emit_state *emit, lily_type *want_type,
@@ -2699,7 +2699,7 @@ static int type_matchup(lily_emit_state *emit, lily_type *want_type,
     int ret = 1;
     if (want_type->cls->id == SYM_CLASS_ANY)
         emit_rebox_to_any(emit, right);
-    else if (want_type->cls->flags & CLS_ENUM_CLASS) {
+    else if (want_type->cls->flags & CLS_IS_ENUM) {
         ret = enum_membership_check(emit, want_type, right->result->type);
         if (ret)
             emit_rebox_value(emit, want_type, right);
@@ -2757,9 +2757,9 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         if (arg->tree_type != tree_local_var)
             eval_tree(emit, arg, elem_type, 1);
 
-        /* 'any' is marked as an enum class, but this is only interested in
-           user-defined enum classes (which have special defaulting). */
-        if ((arg->result->type->cls->flags & (CLS_ENUM_CLASS | CLS_VARIANT_CLASS)) &&
+        /* 'any' is marked as an enum, but this is only interested in
+           user-defined enums (which have special defaulting). */
+        if ((arg->result->type->cls->flags & (CLS_IS_ENUM | CLS_IS_VARIANT)) &&
             arg->result->type->cls->id != SYM_CLASS_ANY)
             found_variant_or_enum = 1;
 
@@ -2929,7 +2929,7 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast,
    * {|| 10} ()   # A call of a lambda. Weird, but okay.
    * x[0]()       # A call of a subscript result.
    * x()()        # A call of a call result.
-   enum class Option[A] { Some(A), None }
+   enum Option[A] { Some(A) None }
    * x = Some(10) # A 'call' of a variant type. eval_variant handles writing out
                   # the code, but the arguments given pass through the same type
                   # checking that a regular call's arguments pass through.
@@ -3048,7 +3048,7 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
 
     /* Don't allow bare variants to solve for a type. Always force them to be in
        something to prevent bare variant values. */
-    if (arg->result->type->cls->flags & CLS_VARIANT_CLASS) {
+    if (arg->result->type->cls->flags & CLS_IS_VARIANT) {
         cs->have_bare_variants = 1;
         if (want_type->cls->id == SYM_CLASS_GENERIC) {
             matchup_type = lily_ts_easy_resolve(emit->ts, want_type);
@@ -3076,9 +3076,8 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
     AND the call has been tagged by the symtab as having enum values.
 
     This function exists because it's possible for a Lily function to not know
-    what the resulting enum class should be. In such a case, call argument
-    processing calls this to make sure any variants are put into a proper enum
-    class value. */
+    what the resulting enum should be. In such a case, call argument processing
+    calls this to make sure any variants are put into a proper enum value. */
 static void box_call_variants(lily_emit_state *emit, lily_emit_call_state *cs)
 {
     int num_args = cs->call_type->subtype_count - 1;
@@ -3092,7 +3091,7 @@ static void box_call_variants(lily_emit_state *emit, lily_emit_call_state *cs)
 
     for (i = 0;i != num_args;i++) {
         sym = emit->call_values[offset + i];
-        if (sym->type->cls->flags & CLS_VARIANT_CLASS) {
+        if (sym->type->cls->flags & CLS_IS_VARIANT) {
             lily_type *enum_type = lily_ts_resolve(emit->ts,
                     get_expected_type(cs, i));
             sym = (lily_sym *)emit_rebox_sym(emit, enum_type, sym, line_num);
@@ -3101,7 +3100,7 @@ static void box_call_variants(lily_emit_state *emit, lily_emit_call_state *cs)
     }
 
     if (i != cs->arg_count &&
-        cs->vararg_elem_type->cls->flags & CLS_ENUM_CLASS &&
+        cs->vararg_elem_type->cls->flags & CLS_IS_ENUM &&
         cs->vararg_elem_type->cls != emit->symtab->any_class) {
         lily_type *solved_elem_type = lily_ts_resolve(emit->ts,
                 get_expected_type(cs, i));
@@ -3111,7 +3110,7 @@ static void box_call_variants(lily_emit_state *emit, lily_emit_call_state *cs)
                looping over the args is fine.
                Varargs is represented as a list of some type, so this next line
                grabs the list, then what the list holds. */
-            if (sym->type->cls->flags & CLS_VARIANT_CLASS) {
+            if (sym->type->cls->flags & CLS_IS_VARIANT) {
                 sym = (lily_sym *)emit_rebox_sym(emit, solved_elem_type, sym,
                         line_num);
                 emit->call_values[offset + i] = sym;
@@ -3256,7 +3255,7 @@ static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *c
                        accurate problem that is likely to manifest later. */
                     lily_ts_check(emit->ts, call_result, expect_type);
                 }
-                else if (expect_type->cls->flags & CLS_ENUM_CLASS &&
+                else if (expect_type->cls->flags & CLS_IS_ENUM &&
                             call_result->cls->parent == expect_type->cls) {
                     lily_ts_resolve_as_variant_by_enum(emit->ts,
                             call_result, expect_type);
@@ -3324,8 +3323,8 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
             debug_item = ast->arg_start->item;
     }
     else {
-        call_item = (lily_item *)ast->arg_start->variant_class;
-        call_type = ast->arg_start->variant_class->variant_type;
+        call_item = (lily_item *)ast->arg_start->variant;
+        call_type = ast->arg_start->variant->variant_type;
     }
 
     if (debug_item == NULL)
@@ -3493,23 +3492,23 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
 
         /* The first arg is actually the variant. */
         lily_ast *variant_tree = ast->arg_start;
-        lily_class *variant_class = variant_tree->variant_class;
-        lily_type *variant_type = variant_class->variant_type;
+        lily_class *variant_cls = variant_tree->variant;
+        lily_type *variant_type = variant_cls->variant_type;
 
         /* This is necessary because ast->item is used for retrieving info if
            there is an error. */
-        ast->item = (lily_item *)variant_class;
+        ast->item = (lily_item *)variant_cls;
 
         if (variant_type->subtype_count == 1)
             lily_raise(emit->raiser, lily_SyntaxError,
-                    "Variant class %s should not get args.\n",
-                    variant_class->name);
+                    "Variant %s should not get args.\n",
+                    variant_cls->name);
 
         lily_emit_call_state *cs;
         cs = begin_call(emit, ast);
         eval_verify_call_args(emit, cs, expect_type, did_resolve);
 
-        lily_type *result_type = variant_class->variant_type->subtypes[0];
+        lily_type *result_type = variant_cls->variant_type->subtypes[0];
         if (result_type->flags & TYPE_IS_UNRESOLVED)
             result_type = lily_ts_resolve(emit->ts, result_type);
 
@@ -3523,18 +3522,18 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
     }
     else {
         /* Did this need arguments? It was used incorrectly if so. */
-        lily_type *variant_init_type = ast->variant_class->variant_type;
+        lily_type *variant_init_type = ast->variant->variant_type;
         if (variant_init_type->subtype_count != 0)
             lily_raise(emit->raiser, lily_SyntaxError,
-                    "Variant class %s needs %d arg(s).\n",
-                    ast->variant_class->name,
+                    "Variant %s needs %d arg(s).\n",
+                    ast->variant->name,
                     variant_init_type->subtype_count - 1);
 
         /* If a variant type takes no arguments, then it's essentially an empty
            container. It would be rather silly to have a bunch of UNIQUE empty
            containers (which will always be empty).
            So the interpreter creates a literal and hands that off. */
-        lily_type *variant_type = ast->variant_class->variant_type;
+        lily_type *variant_type = ast->variant->variant_type;
         lily_tie *variant_lit = lily_get_variant_literal(emit->symtab,
                 variant_type);
 
@@ -3928,9 +3927,9 @@ void lily_emit_variant_decompose(lily_emit_state *emit, lily_type *variant_type)
 }
 
 /*  lily_emit_add_match_case
-    This function is called by parser with a valid index of some variant class
-    within the current match enum class. This is responsible for ensuring that
-    a class does not have two cases for it.
+    This function is called by parser with a valid index of some variant within
+    the current match enum. This is responsible for ensuring that a class does
+    not have two cases for it.
 
     Additionally, this function also writes a jump at the end of every case
     that will be patched to the match block's end.
@@ -4000,10 +3999,10 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_ast_pool *ap)
     lily_block *block = emit->block;
     eval_enforce_value(emit, ast, NULL, "Match expression has no value.\n");
 
-    if ((ast->result->type->cls->flags & CLS_ENUM_CLASS) == 0 ||
+    if ((ast->result->type->cls->flags & CLS_IS_ENUM) == 0 ||
         ast->result->type->cls->id == SYM_CLASS_ANY) {
         lily_raise(emit->raiser, lily_SyntaxError,
-                "Match expression is not an enum class value.\n");
+                "Match expression is not an enum value.\n");
     }
 
     int match_cases_needed = ast->result->type->cls->variant_size;
@@ -4160,7 +4159,7 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
            to do it. This is similar to how return has to do this too.
            But don't error for the wrong type: Instead, let the info bubble
            upward to something that will know the full types in play. */
-        if (root_result->type->cls->flags & CLS_VARIANT_CLASS)
+        if (root_result->type->cls->flags & CLS_IS_VARIANT)
             rebox_variant_to_enum(emit, ap->root);
         else if (wanted_type != NULL && root_result->type != wanted_type)
             type_matchup(emit, wanted_type, ap->root);
@@ -4442,9 +4441,9 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
 
         if (IS_LOOP_BLOCK(block_type))
             new_block->loop_start = emit->code_pos;
-        else if (block_type == block_enum_class) {
-            /* Enum class entries are not considered function-like, because they
-               do not have a class ::new. */
+        else if (block_type == block_enum) {
+            /* Enum entries are not considered function-like, because they do
+               not have a class ::new. */
             new_block->class_entry = emit->symtab->active_import->class_chain;
             new_block->loop_start = -1;
         }

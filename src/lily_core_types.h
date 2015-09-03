@@ -84,7 +84,7 @@ typedef struct lily_class_ {
 
     struct lily_prop_entry_ *properties;
 
-    /* If it's an enum class, then the variants are here. NULL otherwise. */
+    /* If it's an enum, then the variants are here. NULL otherwise. */
     struct lily_class_ **variant_members;
 
     uint16_t id;
@@ -95,8 +95,8 @@ typedef struct lily_class_ {
     int16_t generic_count;
     uint32_t prop_count;
     uint32_t variant_size;
-    /* If the variant class takes arguments, then this is the type of a
-       function that maps from input to the result.
+    /* If the variant takes arguments, then this is the type of a function that
+       maps from input to the result.
        If the variant doesn't take arguments, then this is a simple type
        that just defines the class (like a default type). */
     struct lily_type_ *variant_type;
@@ -486,22 +486,22 @@ typedef struct lily_options_ {
    be cast to.
    To prevent potential clashes, the definitions afterward (except for
    type) start off where these end. */
-#define ITEM_TYPE_TIE           0x01
-#define ITEM_TYPE_VAR           0x02
-#define ITEM_TYPE_STORAGE       0x04
-#define ITEM_TYPE_VARIANT_CLASS 0x10
-#define ITEM_TYPE_PROPERTY      0x20
+#define ITEM_TYPE_TIE      0x01
+#define ITEM_TYPE_VAR      0x02
+#define ITEM_TYPE_STORAGE  0x04
+#define ITEM_TYPE_VARIANT  0x10
+#define ITEM_TYPE_PROPERTY 0x20
 
 
 /* CLS_* defines are for lily_class. */
 
 
 #define CLS_VALID_HASH_KEY 0x0100
-#define CLS_ENUM_CLASS     0x0200
-#define CLS_VARIANT_CLASS  0x0400
-/* This class is an enum class AND the variants within are scoped. The
-   difference is that scoped variants are accessed using 'enum::variant',
-   while normal variants can use just 'variant'. */
+#define CLS_IS_ENUM        0x0200
+#define CLS_IS_VARIANT     0x0400
+/* This class is an enum AND the variants within are scoped. The difference is
+   that scoped variants are accessed using 'enum::variant', while normal
+   variants can use just 'variant'. */
 #define CLS_ENUM_IS_SCOPED 0x1000
 
 

@@ -96,10 +96,10 @@ int lily_ts_check(lily_type_system *ts, lily_type *left, lily_type *right)
         else if (ts->types[generic_pos] != right)
             ret = 0;
     }
-    else if (left->cls->flags & CLS_ENUM_CLASS &&
-             right->cls->flags & CLS_VARIANT_CLASS &&
+    else if (left->cls->flags & CLS_IS_ENUM &&
+             right->cls->flags & CLS_IS_VARIANT &&
              right->cls->parent == left->cls) {
-        /* The right is an enum class that is a member of the left.
+        /* The right is an enum that is a member of the left.
            Consider it valid if the right's types (if any) match to all the
            types collected -so far- for the left. */
 
@@ -107,7 +107,7 @@ int lily_ts_check(lily_type_system *ts, lily_type *left, lily_type *right)
 
         if (right->cls->variant_type->subtype_count != 0) {
             /* I think this is best explained as an example:
-               'enum class Option[A, B] { Some(A), None }'
+               'enum Option[A, B] { Some(A) None }'
                In this case, the variant type of Some is defined as:
                'function (A => Some[A])'
                This pulls the 'Some[A]'. */
@@ -304,9 +304,9 @@ inline lily_type *lily_ts_build_by_ceiling(lily_type_system *ts,
 lily_type *lily_ts_build_enum_by_variant(lily_type_system *ts,
         lily_type *variant_type)
 {
-   /* The parent of a variant class is always the enum class it belongs to.
-       The 'variant_type' of an enum class is the type captured when
-       parsing it, and so it contains all the generics needed. */
+    /* The parent of a variant is always the enum it belongs to.
+       The 'variant_type' of an enum is the type captured when parsing it, and
+       so it contains all the generics needed. */
     lily_type *parent_variant_type = variant_type->cls->parent->variant_type;
 
     int types_needed = ts->pos + ts->ceiling + 1 +
@@ -326,8 +326,8 @@ lily_type *lily_ts_build_enum_by_variant(lily_type_system *ts,
 
     lily_type *any_type = ts->symtab->any_class->type;
 
-    /* Sometimes, a variant class does not use all of the generics provided by
-       the parent enum class. In that case, the class 'any' will be used. */
+    /* Sometimes, a variant does not use all of the generics provided by the
+       parent enum. In that case, the class 'any' will be used. */
     int i, j;
     for (i = 0, j = 0;i < parent_variant_type->subtype_count;i++) {
         if (child_result &&
