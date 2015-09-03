@@ -3,7 +3,7 @@ SyntaxError: Variant types not allowed in a declaration.
 Where: File "variant_decl.lly" at line 11
 ]#
 
-enum class Option[A] {
+enum Option[A] {
 	Some(A)
 	None
 }

@@ -264,8 +264,8 @@ static void finalize_type(lily_type *input_type)
     if (input_type->cls->id == SYM_CLASS_FUNCTION)
         input_type->flags |= TYPE_MAYBE_CIRCULAR;
 
-    /* fixme: Properly go over enum classes to determine circularity. */
-    if (input_type->cls->flags & CLS_ENUM_CLASS)
+    /* fixme: Properly go over enums to determine circularity. */
+    if (input_type->cls->flags & CLS_IS_ENUM)
         input_type->flags |= TYPE_MAYBE_CIRCULAR;
 }
 
@@ -424,7 +424,7 @@ static void free_classes(lily_symtab *symtab, lily_class *class_iter)
         lily_free(class_iter->name);
 
         if (class_iter->flags & CLS_ENUM_IS_SCOPED) {
-            /* Scoped enums pull the classes from the symtab's class chain so
+            /* Scoped enums pull their variants from the symtab's class chain so
                that parser won't find them. */
             int i;
             for (i = 0;i < class_iter->variant_size;i++) {
@@ -448,11 +448,11 @@ static void free_ties(lily_symtab *symtab, lily_tie *tie_iter)
     while (tie_iter) {
         tie_next = tie_iter->next;
         lily_class *tie_cls = tie_iter->type->cls;
-        /* Variant classes must be skipped, because their deref-er is a tuple
-           deref-er. This is bad, because variants that are created as literals
-           do not take inner values (and are represented as an integer).
-           Everything else? Yeah, blow it away. */
-        if ((tie_cls->flags & CLS_VARIANT_CLASS) == 0)
+        /* Variants must be skipped, because their deref-er is a tuple deref-er.
+           This is bad, because variants that are created as literals do not
+           take inner values (and are represented as an integer). Everything
+           else? Yeah, blow it away. */
+        if ((tie_cls->flags & CLS_IS_VARIANT) == 0)
             lily_deref_raw(tie_iter->type,
                     tie_iter->value);
 
@@ -651,8 +651,8 @@ lily_tie *lily_get_bytestring_literal(lily_symtab *symtab,
 
 /*  lily_get_variant_literal
     This function is like the other literal getters, except that it's called
-    for empty variant classes. An empty variant class will always be the same,
-    so an empty literal is passed around for the value.
+    for empty variants. An empty variant will always be the same, so an empty
+    literal is passed around for the value.
     Otherwise the interpreter would have to create a bunch of nothings with the
     same value, and that would be rather silly. :) */
 lily_tie *lily_get_variant_literal(lily_symtab *symtab,
@@ -827,17 +827,17 @@ lily_prop_entry *lily_find_property(lily_symtab *symtab, lily_class *cls, char *
     return ret;
 }
 
-lily_class *lily_find_scoped_variant(lily_class *enum_class, char *name)
+lily_class *lily_find_scoped_variant(lily_class *enum_cls, char *name)
 {
     int i;
     uint64_t shorthash = shorthash_for_name(name);
     lily_class *ret = NULL;
 
-    for (i = 0;i < enum_class->variant_size;i++) {
-        lily_class *variant_class = enum_class->variant_members[i];
-        if (variant_class->shorthash == shorthash &&
-            strcmp(variant_class->name, name) == 0) {
-            ret = variant_class;
+    for (i = 0;i < enum_cls->variant_size;i++) {
+        lily_class *variant_cls = enum_cls->variant_members[i];
+        if (variant_cls->shorthash == shorthash &&
+            strcmp(variant_cls->name, name) == 0) {
+            ret = variant_cls;
         }
     }
 
@@ -980,7 +980,7 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
 {
     lily_prop_entry *prop_iter = cls->properties;
 
-    if ((cls->flags & CLS_ENUM_CLASS) == 0) {
+    if ((cls->flags & CLS_IS_ENUM) == 0) {
         /* If the class has no generics, determine if it's circular and write
            that information onto the default type. */
         if (cls->generic_count == 0) {
@@ -1004,8 +1004,8 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
         cls->eq_func = symtab->tuple_class->eq_func;
     }
     else {
-        /* Enum classes have the same layout as 'any', and should thus use what
-           'any' uses for things. */
+        /* Enums have the same layout as 'any', and should thus use what 'any'
+           uses for things. */
         cls->gc_marker = symtab->any_class->gc_marker;
         cls->eq_func = symtab->any_class->eq_func;
         cls->destroy_func = symtab->any_class->destroy_func;
@@ -1101,26 +1101,26 @@ void lily_make_constructor_return_type(lily_symtab *symtab)
     }
 }
 
-/*  lily_add_variant_class
-    This adds a class to the symtab, marks it as a variant class, and makes it
-    a child of the given enum class.
+/*  lily_add_variant
+    This adds a class to the symtab, marks it as a variant, and makes it a child
+    of the given enum.
 
     The variant type of the class will be set when the parser has that info and
-    calls lily_finish_variant_class.
+    calls lily_finish_variant.
 
-    The newly-made variant class is returned. */
-lily_class *lily_new_variant_class(lily_symtab *symtab, lily_class *enum_class,
+    The newly-made variant is returned. */
+lily_class *lily_new_variant(lily_symtab *symtab, lily_class *enum_cls,
         char *name)
 {
     lily_class *cls = lily_new_class(symtab, name);
 
-    cls->flags |= CLS_VARIANT_CLASS | ITEM_TYPE_VARIANT_CLASS;
-    cls->parent = enum_class;
+    cls->flags |= CLS_IS_VARIANT | ITEM_TYPE_VARIANT;
+    cls->parent = enum_cls;
 
     return cls;
 }
 
-/*  lily_finish_variant_class
+/*  lily_finish_variant
     This function is called when the parser has completed gathering information
     about a given variant.
 
@@ -1129,39 +1129,39 @@ lily_class *lily_new_variant_class(lily_symtab *symtab, lily_class *enum_class,
 
     Note: A variant's generic_count is set within parser, when the return of a
           variant is calculated (assuming it takes arguments). */
-void lily_finish_variant_class(lily_symtab *symtab, lily_class *variant_class,
+void lily_finish_variant(lily_symtab *symtab, lily_class *variant_cls,
         lily_type *variant_type)
 {
     if (variant_type == NULL) {
         /* This variant doesn't take parameters, so give it a plain type. */
-        lily_type *type = lily_new_type(symtab, variant_class);
+        lily_type *type = lily_new_type(symtab, variant_cls);
 
-        type->cls = variant_class;
+        type->cls = variant_cls;
         /* Anything that doesn't take parameters gets a default type. */
-        variant_class->type = type;
+        variant_cls->type = type;
 
-        variant_class->variant_type = type;
+        variant_cls->variant_type = type;
         /* Empty variants are represented as integers, and won't need to be
            marked through. */
-        variant_class->eq_func = symtab->integer_class->eq_func;
-        variant_class->is_refcounted = 0;
+        variant_cls->eq_func = symtab->integer_class->eq_func;
+        variant_cls->is_refcounted = 0;
     }
     else {
-        variant_class->variant_type = variant_type;
+        variant_cls->variant_type = variant_type;
         /* The only difference between a tuple and a variant with args is that
            the variant has a variant type instead of a tuple one. */
-        variant_class->gc_marker = symtab->tuple_class->gc_marker;
-        variant_class->eq_func = symtab->tuple_class->eq_func;
-        variant_class->destroy_func = symtab->tuple_class->destroy_func;
+        variant_cls->gc_marker = symtab->tuple_class->gc_marker;
+        variant_cls->eq_func = symtab->tuple_class->eq_func;
+        variant_cls->destroy_func = symtab->tuple_class->destroy_func;
     }
 }
 
-void lily_finish_enum_class(lily_symtab *symtab, lily_class *enum_class,
-        int is_scoped, lily_type *enum_type)
+void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
+        lily_type *enum_type)
 {
     int i, variant_count = 0;
     lily_class *class_iter = symtab->active_import->class_chain;
-    while (class_iter != enum_class) {
+    while (class_iter != enum_cls) {
         variant_count++;
         class_iter = class_iter->next;
     }
@@ -1173,19 +1173,19 @@ void lily_finish_enum_class(lily_symtab *symtab, lily_class *enum_class,
          i++, class_iter = class_iter->next)
         members[i] = class_iter;
 
-    enum_class->variant_type = enum_type;
-    enum_class->variant_members = members;
-    enum_class->variant_size = variant_count;
-    enum_class->flags |= CLS_ENUM_CLASS;
-    enum_class->gc_marker = symtab->any_class->gc_marker;
-    enum_class->eq_func = symtab->any_class->eq_func;
-    enum_class->destroy_func = symtab->any_class->destroy_func;
+    enum_cls->variant_type = enum_type;
+    enum_cls->variant_members = members;
+    enum_cls->variant_size = variant_count;
+    enum_cls->flags |= CLS_IS_ENUM;
+    enum_cls->gc_marker = symtab->any_class->gc_marker;
+    enum_cls->eq_func = symtab->any_class->eq_func;
+    enum_cls->destroy_func = symtab->any_class->destroy_func;
 
     if (is_scoped) {
-        enum_class->flags |= CLS_ENUM_IS_SCOPED;
+        enum_cls->flags |= CLS_ENUM_IS_SCOPED;
         /* This removes the variants from symtab's classes, so that parser has
-           to get them from the enum class. */
-        symtab->active_import->class_chain = enum_class;
+           to get them from the enum. */
+        symtab->active_import->class_chain = enum_cls;
     }
 }
 

@@ -2,7 +2,7 @@ class Point(x: integer, y: integer) {}
 var a: list[any] = [1, 2]
 a[0] = a
 
-enum class Option[A] { Some(A) None }
+enum Option[A] { Some(A) None }
 
 # I'm intentionally not writing tests of how this should appear, because I may
 # change how some of these appear later on.

@@ -38,9 +38,9 @@ static const lily_class_seed any_seed =
     dyna_class,               /* load_type */
     1,                        /* is_refcounted */
     0,                        /* generic_count */
-    /* 'any' is treated as an enum class that has all classes ever defined
-       within it. */
-    CLS_ENUM_CLASS,           /* flags */
+    /* 'any' is treated as an enum that has all classes ever defined within
+       it. */
+    CLS_IS_ENUM,              /* flags */
     NULL,                     /* dynaload_table */
     &lily_gc_any_marker,      /* gc_marker */
     &lily_any_eq,             /* eq_func */

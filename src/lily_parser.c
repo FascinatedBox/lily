@@ -620,14 +620,14 @@ static void calculate_generics_used(lily_type *type, int *generic_map,
 /*  calculate_variant_return
     This function is called by inner_type_collector to determine what the
     resulting type of a variant 'function' is.
-    Ex: For 'enum class Option[A] { Some(A), ...}', a function is created with
-        the type 'function [A](A => Some[A])'.
+    Ex: For 'enum Option[A] { Some(A) ...}', a function is created with the
+        type 'function [A](A => Some[A])'.
 
     This is important because the variant may not use all the generics of the
-    enum class. In such a situation, the emitter can use the lack of explicit
+    enum. In such a situation, the emitter can use the lack of explicit
     information to better calculate type information. */
 static lily_type *calculate_variant_return(lily_parse_state *parser,
-        lily_class *variant_class, int stack_start, int stack_top)
+        lily_class *variant_cls, int stack_start, int stack_top)
 {
     int generic_map[32];
     int i, j, k, generic_max = 0;
@@ -656,14 +656,14 @@ static lily_type *calculate_variant_return(lily_parse_state *parser,
     }
 
     lily_type *variant_return = lily_build_type(parser->symtab,
-            variant_class, 0, parser->type_stack,
+            variant_cls, 0, parser->type_stack,
             stack_top + 1, k);
 
     /* Since the true number of generics that the class takes is known, set
        that directly on the class from here. Note that, for variants, the
        number of generics is not necessarily the highest generic's ID, since
        the variant could, for example, use only A and C. */
-    variant_class->generic_count = k;
+    variant_cls->generic_count = k;
     return variant_return;
 }
 
@@ -764,10 +764,10 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
     int state = TC_WANT_VALUE, stack_start = parser->type_stack_pos;
     int type_flags = 0, have_arrow = 0, have_dots = 0;
     lily_token end_token;
-    lily_class *variant_class = NULL;
+    lily_class *variant_cls = NULL;
 
     if (flags & TC_VARIANT_FUNC) {
-        variant_class = cls;
+        variant_cls = cls;
         cls = parser->symtab->function_class;
     }
 
@@ -954,7 +954,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
 
     if (flags & TC_VARIANT_FUNC) {
         lily_type *variant_return = calculate_variant_return(parser,
-                variant_class, stack_start, i);
+                variant_cls, stack_start, i);
         parser->type_stack[stack_start] = variant_return;
     }
 
@@ -1049,7 +1049,7 @@ static lily_type *collect_var_type(lily_parse_state *parser)
 
     lily_class *cls = resolve_class_name(parser);
 
-    if (cls->flags & CLS_VARIANT_CLASS)
+    if (cls->flags & CLS_IS_VARIANT)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Variant types not allowed in a declaration.\n");
 
@@ -1250,8 +1250,8 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
         return;
     }
 
-    /* Enum classes allow scoped variants through `<enum class>::<variant>`. */
-    if (cls->flags & CLS_ENUM_CLASS) {
+    /* Enums allow scoped variants through `<enum>::<variant>`. */
+    if (cls->flags & CLS_IS_ENUM) {
         lily_class *variant_cls = lily_find_scoped_variant(cls, lex->label);
         if (variant_cls) {
             lily_ast_push_variant(parser->ast_pool, variant_cls);
@@ -1297,8 +1297,8 @@ static lily_sym *parse_special_keyword(lily_parse_state *parser, int key_id)
 
 /*  expression_variant
     This is called when expression_word hits a label that's a class that's
-    marked as a variant class. They're used like a function, sometimes. Not
-    actually a function though. */
+    marked as a variant. They're used like a function, sometimes. Not actually
+    a function though. */
 static void expression_variant(lily_parse_state *parser,
         lily_class *variant_cls)
 {
@@ -1308,7 +1308,7 @@ static void expression_variant(lily_parse_state *parser,
 static void dispatch_word_as_class(lily_parse_state *parser, lily_class *cls,
         int *state)
 {
-    if (cls->flags & CLS_VARIANT_CLASS) {
+    if (cls->flags & CLS_IS_VARIANT) {
         expression_variant(parser, cls);
         *state = ST_WANT_OPERATOR;
     }
@@ -2014,7 +2014,7 @@ static void statement(lily_parse_state *parser, int multi)
                 lclass = lily_find_class(parser->symtab, NULL, lex->label);
 
                 if (lclass != NULL &&
-                    (lclass->flags & CLS_VARIANT_CLASS) == 0) {
+                    (lclass->flags & CLS_IS_VARIANT) == 0) {
                     NEED_NEXT_TOK(tk_colon_colon)
                     expression_static_call(parser, lclass);
                     lily_lexer(lex);
@@ -2733,7 +2733,7 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "A class cannot inherit from itself!\n");
     else if (super_class->is_builtin ||
-             super_class->flags & (CLS_ENUM_CLASS | CLS_VARIANT_CLASS))
+             super_class->flags & (CLS_IS_ENUM | CLS_IS_VARIANT))
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' cannot be inherited from.\n", super_class->name);
 
@@ -2811,20 +2811,14 @@ static void enum_handler(lily_parse_state *parser, int multi)
     if (block->block_type != block_file &&
         block->prev != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Cannot define an enum class here.\n");
+                "Cannot define an enum here.\n");
 
     lily_lex_state *lex = parser->lex;
 
     NEED_CURRENT_TOK(tk_word)
-    if (strcmp(lex->label, "class") != 0) {
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "Expected 'class', not '%s'.\n", lex->label);
-    }
-
-    NEED_NEXT_TOK(tk_word)
     ensure_valid_class(parser, lex->label);
 
-    lily_class *enum_class = lily_new_class(parser->symtab, lex->label);
+    lily_class *enum_cls = lily_new_class(parser->symtab, lex->label);
 
     lily_lexer(lex);
     int save_generics = parser->emit->block->generic_count;
@@ -2834,8 +2828,8 @@ static void enum_handler(lily_parse_state *parser, int multi)
     else
         generics_used = 0;
 
-    lily_update_symtab_generics(parser->symtab, enum_class, generics_used);
-    lily_emit_enter_block(parser->emit, block_enum_class);
+    lily_update_symtab_generics(parser->symtab, enum_cls, generics_used);
+    lily_emit_enter_block(parser->emit, block_enum);
 
     lily_make_constructor_return_type(parser->symtab);
     lily_type *result_type = parser->symtab->root_type;
@@ -2856,14 +2850,13 @@ static void enum_handler(lily_parse_state *parser, int multi)
         }
 
         NEED_CURRENT_TOK(tk_word)
-        lily_class *variant_class = lily_find_class(parser->symtab, NULL, lex->label);
-        if (variant_class != NULL)
+        lily_class *variant_cls = lily_find_class(parser->symtab, NULL, lex->label);
+        if (variant_cls != NULL)
             lily_raise(parser->raiser, lily_SyntaxError,
                     "A class with the name '%s' already exists.\n",
-                    variant_class->name);
+                    variant_cls->name);
 
-        variant_class = lily_new_variant_class(parser->symtab, enum_class,
-                lex->label);
+        variant_cls = lily_new_variant(parser->symtab, enum_cls, lex->label);
         lily_type *variant_type;
 
         lily_lexer(lex);
@@ -2871,9 +2864,9 @@ static void enum_handler(lily_parse_state *parser, int multi)
             lily_lexer(lex);
             if (lex->token == tk_right_parenth)
                 lily_raise(parser->raiser, lily_SyntaxError,
-                        "Variant class cannot take empty ().\n");
+                        "Variants cannot take empty ().\n");
 
-            variant_type = inner_type_collector(parser, variant_class,
+            variant_type = inner_type_collector(parser, variant_cls,
                     TC_VARIANT_FUNC);
 
             /* Skip the closing ')'. */
@@ -2882,7 +2875,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
         else
             variant_type = NULL;
 
-        lily_finish_variant_class(parser->symtab, variant_class, variant_type);
+        lily_finish_variant(parser->symtab, variant_cls, variant_type);
 
         inner_class_count++;
 
@@ -2895,13 +2888,13 @@ static void enum_handler(lily_parse_state *parser, int multi)
 
     if (inner_class_count < 2) {
         lily_raise(parser->raiser, lily_SyntaxError,
-                "An enum class must have at least two variants.\n");
+                "An enum must have at least two variants.\n");
     }
 
-    /* This marks the enum class as one (allowing match), and registers the
-       variants as being within the enum class. Because of that, it has to go
-       before pulling the member functions. */
-    lily_finish_enum_class(parser->symtab, enum_class, is_scoped, result_type);
+    /* This marks the enum as one (allowing match), and registers the variants
+       as being within the enum. Because of that, it has to go before pulling
+       the member functions. */
+    lily_finish_enum(parser->symtab, enum_cls, is_scoped, result_type);
 
     if (lex->token == tk_word) {
         while (1) {
@@ -2956,10 +2949,10 @@ static void match_handler(lily_parse_state *parser, int multi)
 /*  case_handler
     Syntax:
         For variants that do not take values:
-            'case <variant class>: ...'
+            'case <variant>: ...'
 
         For those that do:
-            'case <variant class>(<var name>, <var name>...):'
+            'case <variant>(<var name>, <var name>...):'
 
     Each case in a match block is multi-line, so that users don't have to put
     { and } around a lot of cases (because that would probably be annoying).
@@ -3000,7 +2993,7 @@ static void case_handler(lily_parse_state *parser, int multi)
 
     if (i == match_class->variant_size)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "%s is not a member of enum class %s.\n", lex->label,
+                "%s is not a member of enum %s.\n", lex->label,
                 match_class->name);
 
     if (lily_emit_add_match_case(parser->emit, i) == 0)
@@ -3047,7 +3040,7 @@ static void parse_define(lily_parse_state *parser, int modifiers)
     if (block->block_type != block_file &&
         block->block_type != block_define &&
         block->block_type != block_class &&
-        block->block_type != block_enum_class &&
+        block->block_type != block_enum &&
         block->prev != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Cannot define a function here.\n");
@@ -3064,7 +3057,7 @@ static void parse_define(lily_parse_state *parser, int modifiers)
        This is safe because 'define' always exits with the top-most variable
        being what was just defined. */
     if (parser->emit->block->block_type == block_class ||
-        parser->emit->block->block_type == block_enum_class) {
+        parser->emit->block->block_type == block_enum) {
         lily_add_class_method(parser->symtab,
                 parser->class_self_type->cls,
                 parser->symtab->active_import->var_chain);

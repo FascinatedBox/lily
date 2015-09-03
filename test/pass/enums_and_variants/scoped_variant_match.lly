@@ -1,4 +1,4 @@
-enum class Option[A] {
+enum Option[A] {
 	::Some(A)
 	::None
 }
@@ -7,8 +7,8 @@ var opt: Option[integer] = Option::Some(10)
 
 # Since the interpreter knows that 'opt' MUST be of type Option, it does not
 # require Option::<x> for each case.
-# This has an added benefit: Making an enum class scoped that wasn't scoped
-# will not break match code that uses that enum class.
+# This has an added benefit: Making an enum scoped that wasn't scoped
+# will not break match code that uses that enum.
 
 match opt: {
 	case Some(s):

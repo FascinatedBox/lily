@@ -97,7 +97,7 @@ void lily_gc_collect_value(lily_type *value_type,
         lily_gc_collect_list(value_type, value.list);
     else if (entry_cls_id == SYM_CLASS_HASH)
         lily_gc_collect_hash(value_type, value.hash);
-    else if (value_type->cls->flags & CLS_ENUM_CLASS)
+    else if (value_type->cls->flags & CLS_IS_ENUM)
         lily_gc_collect_any(value.any);
     else if (entry_cls_id == SYM_CLASS_TUPLE ||
              entry_cls_id >= SYM_CLASS_EXCEPTION)

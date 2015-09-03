@@ -47,8 +47,7 @@ typedef enum {
        * int lineno
        * reg left
        * reg right
-       This handles any assignment that needs a ref/deref, as well as
-       assignments that create an any/enum class. */
+       This handles any assignment that needs a ref/deref. */
     o_assign,
 
     o_box_assign,

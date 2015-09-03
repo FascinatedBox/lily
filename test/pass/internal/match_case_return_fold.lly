@@ -1,4 +1,4 @@
-enum class Option[A] { Some(A) None }
+enum Option[A] { Some(A) None }
 
 define f(a: Option[integer] => integer)
 {
