@@ -3195,6 +3195,8 @@ static lily_type *maybe_inject_first_value(lily_emit_state *emit,
            value. */
         add_value(emit, cs, ast->arg_start->arg_start->result);
         result = ast->arg_start->arg_start->result->type;
+        if (result->cls->flags & CLS_IS_VARIANT)
+            cs->have_bare_variants = 1;
     }
 
     return result;
