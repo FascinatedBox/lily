@@ -2011,15 +2011,15 @@ static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
 
     eval_oo_access_for_item(emit, ast->left);
     ensure_valid_scope(emit, ast->left->sym);
-    left_type = ast->left->property->type;
     if ((ast->left->item->flags & ITEM_TYPE_PROPERTY) == 0)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
                 "Left side of %s is not assignable.\n", opname(ast->op));
 
+    left_type = get_solved_property_type(emit, ast->left);
+
     if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right, left_type, 1);
 
-    left_type = get_solved_property_type(emit, ast->left);
     lily_sym *rhs = ast->right->result;
     lily_type *right_type = rhs->type;
 

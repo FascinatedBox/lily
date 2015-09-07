@@ -1,0 +1,8 @@
+class Box[A](input: A) {
+    var @contents = [input]
+}
+
+define f[A, B](in: Box[B])
+{
+    in.contents = []
+}
