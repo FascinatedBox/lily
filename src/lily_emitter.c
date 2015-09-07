@@ -2009,8 +2009,8 @@ static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
 {
     lily_type *left_type;
 
-    ensure_valid_scope(emit, ast->sym);
     eval_oo_access_for_item(emit, ast->left);
+    ensure_valid_scope(emit, ast->left->sym);
     left_type = ast->left->property->type;
     if ((ast->left->item->flags & ITEM_TYPE_PROPERTY) == 0)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
