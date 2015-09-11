@@ -212,15 +212,15 @@ void lily_pg_conn_new(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     const char *pass = NULL;
 
     switch (argc) {
-        case 6:
-            pass = vm_regs[code[5]]->value.string->string;
         case 5:
-            name = vm_regs[code[4]]->value.string->string;
+            pass = vm_regs[code[5]]->value.string->string;
         case 4:
-            dbname = vm_regs[code[3]]->value.string->string;
+            name = vm_regs[code[4]]->value.string->string;
         case 3:
-            port = vm_regs[code[2]]->value.string->string;
+            dbname = vm_regs[code[3]]->value.string->string;
         case 2:
+            port = vm_regs[code[2]]->value.string->string;
+        case 1:
             host = vm_regs[code[1]]->value.string->string;
     }
 
