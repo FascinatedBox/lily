@@ -268,6 +268,8 @@ static void list_select_reject_common(lily_vm_state *vm, uint16_t argc,
     int vm_list_start = vm_list->pos;
     int cached = 0;
 
+    lily_vm_list_ensure(vm, list_val->num_values);
+
     lily_jump_link *link = lily_jump_setup(vm->raiser);
     if (setjmp(link->jump) == 0) {
         int i;
@@ -344,6 +346,8 @@ void lily_list_map(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_vm_list *vm_list = vm->vm_list;
     int vm_list_start = vm_list->pos;
     int cached = 0;
+
+    lily_vm_list_ensure(vm, list_val->num_values);
 
     lily_jump_link *link = lily_jump_setup(vm->raiser);
     if (setjmp(link->jump) == 0) {
