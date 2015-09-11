@@ -1,0 +1,2 @@
+if [1, 2, 3].map{|a| a} != [1, 2, 3]:
+    stderr.write("Failed.\n")

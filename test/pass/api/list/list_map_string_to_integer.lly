@@ -1,0 +1,2 @@
+if ["10", "-2", "31"].map(string::to_i) != [10, -2, 31]:
+    stderr.write("Failed.\n")
