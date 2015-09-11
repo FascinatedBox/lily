@@ -328,8 +328,66 @@ void lily_list_reject(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     list_select_reject_common(vm, argc, code, 0);
 }
 
+/*  Implements list::map
+
+    This creates a new list that is a result of applying a transformation
+    function to an original list. This is VERY similar to both select and
+    reject, except that the list is carried over each time. */
+void lily_list_map(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *result_reg = vm->vm_regs[code[0]];
+    lily_list_val *list_val = vm_regs[code[1]]->value.list;
+    lily_value *function_reg = vm_regs[code[2]];
+    lily_type *expect_type = function_reg->type->subtypes[0];
+
+    lily_vm_list *vm_list = vm->vm_list;
+    int vm_list_start = vm_list->pos;
+    int cached = 0;
+
+    lily_jump_link *link = lily_jump_setup(vm->raiser);
+    if (setjmp(link->jump) == 0) {
+        int i;
+        for (i = 0;i < list_val->num_values;i++) {
+            lily_value *result = lily_foreign_call(vm, &cached, expect_type,
+                    function_reg, 1, list_val->elems[i]);
+
+            vm_list->values[vm_list->pos] = lily_copy_value(result);
+            vm_list->pos++;
+        }
+    }
+    else {
+        vm_list->pos = vm_list_start;
+        lily_jump_back(vm->raiser);
+    }
+
+    lily_list_val *result_list = lily_new_list_val();
+    int num_values = vm_list->pos - vm_list_start;
+    if (result_reg->type->flags & TYPE_MAYBE_CIRCULAR)
+        lily_add_gc_item(vm, result_reg->type, (lily_generic_gc_val *)list_val);
+
+    result_list->num_values = num_values;
+    result_list->elems = lily_malloc(sizeof(lily_value *) * num_values);
+
+    int i;
+    for (i = 0;i < num_values;i++) {
+        lily_value *source = vm_list->values[vm_list_start + i];
+        /* Unlike select/reject, a full copy of the value was made (instead of a
+           shallow one), so a simple assignment will work. */
+        result_list->elems[i] = source;
+    }
+
+    vm_list->pos = vm_list_start;
+
+    lily_raw_value v = {.list = result_list};
+    lily_move_raw_value(result_reg, v);
+}
+
+static lily_func_seed map =
+    {NULL, "map", dyna_function, "[A,B](list[A], function(A => B) => list[B])", lily_list_map};
+
 static lily_func_seed reject =
-    {NULL, "reject", dyna_function, "[A](list[A], function(A => boolean) => list[A])", lily_list_reject};
+    {&map, "reject", dyna_function, "[A](list[A], function(A => boolean) => list[A])", lily_list_reject};
 
 static lily_func_seed select_fn =
     {&reject, "select", dyna_function, "[A](list[A], function(A => boolean) => list[A])", lily_list_select};
