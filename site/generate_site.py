@@ -2,7 +2,7 @@ import os
 import markdown
 import codecs
 
-md = markdown.Markdown()
+md = markdown.Markdown(extensions=["markdown.extensions.fenced_code"])
 
 def readall(path):
     f = codecs.open(path, "r",encoding="utf-8")
@@ -24,7 +24,6 @@ for n in markdown_names:
     out_name = n.rsplit(".", 2)[0] + ".html"
     f = codecs.open(out_name, "w", encoding="utf-8", errors="xmlcharrefreplace")
     f.write(template_data[0])
-    print ("Generating %s.\n" % out_name)
     f.write(md.convert(source_text))
     md.reset()
     f.write(template_data[1])
