@@ -57,54 +57,65 @@
 <p>Lily allows <code>boolean</code>, <code>integer</code>, <code>double</code>, <code>string</code>, <code>bytestring</code>, and <code>list</code> to be checked for truthiness. <code>integer</code> and <code>double</code> are considered truthy if they aren't 0 (or 0.0). <code>string</code> and <code>bytestring</code> are considered truthy if their length is not 0. Finally, <code>list</code> is considered truthy if it isn't empty. Attempting to test any other type for truthiness is a syntax error.</p>
 <h1>if / elif / else</h1>
 <p>The simplest kind of condition.</p>
-<p><code>var age = 18
+<pre><code>var age = 18
 if age &gt;= 18:
-    print("You can drive!\n")
+    print(&quot;You can drive!\n&quot;)
 else:
-    print("You're not old enough yet. Sorry.\n")</code></p>
+    print(&quot;You're not old enough yet. Sorry.\n&quot;)
+</code></pre>
+
 <p>Similar to Python, Lily requires <code>:</code> at the end of conditions. However, whitespace is not significant for Lily. Instead, the above condition is considered single-line: Each 'arm' of the condition can only run a single expression.</p>
 <h1>Multi or single?</h1>
 <p>All blocks in Lily follow the same format: After the condition test, there is a colon. If, after the colon, there is a brace, then every 'arm' of the block allows for multiple expressions.</p>
-<p>```
-var v = false</p>
-<p>if v == false: {
+<pre><code>var v = false
+
+if v == false: {
     v = true
-    print("The value is now set to true.\n")
+    print(&quot;The value is now set to true.\n&quot;)
 else:
     v = false
-    print("The value has been changed to false.\n")
+    print(&quot;The value has been changed to false.\n&quot;)
 }
-```</p>
+</code></pre>
+
 <p>Lily's unique way of bracing means there's less chance of forgetting a curly brace, or having to add in curly braces because you have a single-line condition that needs to change. One brace to rule them all.</p>
 <p>On a side note, it is a syntax error to put a multi-line block inside of a single-line block.</p>
 <h1>while</h1>
-<p>```
-var i = 10
-var a = []</p>
-<p>while i &gt; 0:
+<pre><code>var i = 10
+var a = []
+
+while i &gt; 0:
     a.append(i)
-```</p>
+</code></pre>
+
 <p>Both <code>break</code> and <code>continue</code> </p>
 <h1>do while</h1>
-<p><code>do:
-    print("Test.\n")
-while 0:</code></p>
+<pre><code>do:
+    print(&quot;Test.\n&quot;)
+while 0:
+</code></pre>
+
 <p>Because Lily requires that all variables have a value, it is not possible to use variables defined within the scope of a <code>do</code> block to be used in the <code>while</code> condition. This is because Lily can't be completely sure that the variables within the <code>do</code> block have been properly initialized.</p>
 <h1>for</h1>
 <p>Lily's for loop is rather simple compared to other interpreted languages. It currently only supports an integer range and integer step. A simple version looks like this:</p>
-<p><code>for i in 0...10:
-    printfmt("i is %d.\n", i)</code></p>
+<pre><code>for i in 0...10:
+    printfmt(&quot;i is %d.\n&quot;, i)
+</code></pre>
+
 <p>By default, Lily will choose a step that goes in the appropriate direction: Either -1 each time, or +1 each time. You can also use an existing var for the loop increment as well:</p>
-<p>```
-var i = 0
+<pre><code>var i = 0
 var a = []
 for i in 0...10:
-    a.append(i)</p>
-<p>printfmt("i is now %d.\n", i)
-```</p>
+    a.append(i)
+
+printfmt(&quot;i is now %d.\n&quot;, i)
+</code></pre>
+
 <p>Alternatively, a step can be provided:</p>
-<p><code>for i in 0...10 by 2:
-    ...</code></p>
+<pre><code>for i in 0...10 by 2:
+    ...
+</code></pre>
+
 <p>Lily also supports <code>try</code>+<code>except</code> as well as <code>match</code> upon abstract data types. However, both of those features will be discussed in later sections.</p>
      </section>
    </article>

@@ -55,10 +55,12 @@
 <h1>Error Handling</h1>
 <p>Sometimes there are errors that occur from certain operations. A list has a subscript that goes too far, a division by zero, a bad format string, and more. When this occurs, Lily will raise an exception that can be caught.</p>
 <p>To begin with, all exceptions that are defined within Lily have Exception as their base class. This class is defined internally as follows:</p>
-<p><code>class Exception(msg: string) {
+<pre><code>class Exception(msg: string) {
     var @message = message
     var @traceback: list[tuple[string, string, integer]] = []
-}</code></p>
+}
+</code></pre>
+
 <p>Since it is defined like a normal class, instead of having a representation baked into the interpreter, it is possible to subclass it to provide more specific exceptions. That is, in fact, how Lily provides the exception classes that are built into it. Those builtin classes that derive from Exception are as follows:</p>
 <ul>
 <li>
@@ -92,47 +94,57 @@
 <p>Instances of each of these errors (except SyntaxError) can be constructed using only a string as a message (ex: <code>ValueError::new("That value is incorrect.")</code>)</p>
 <h1>Introducing try</h1>
 <p>Lily provides a common try+catch-style block as a means of capturing errors. Here's a simple example:</p>
-<p><code>try:
+<pre><code>try:
     1 / 0
 except DivisionByZeroError:
-    print("Oh no, a division by zero.\n")</code></p>
+    print(&quot;Oh no, a division by zero.\n&quot;)
+</code></pre>
+
 <p>try blocks, like all blocks so far, comes in both a multi-line and a single-line version. In the above example, the error is caught and ignored. To catch the error and do something with it, an <code>as &lt;name&gt;</code> clause is required</p>
-<p><code>try:
+<pre><code>try:
     1 / 0
 except DivisionByZeroError as e:
-    print(e.message)</code></p>
+    print(e.message)
+</code></pre>
+
 <p>While stack trace is provided, it is currently not useful as-is. This will be fixed in a future release.</p>
 <p>Perhaps the most important thing about exceptions is how they are caught. If a clause is found that is a base class of the exception being thrown, then that clause will be picked. This allows <code>except Exception</code> to catch all possible errors.</p>
-<p><code>try:
+<pre><code>try:
     1 / 0
 except Exception as e:
-    print("Caught it here.")
+    print(&quot;Caught it here.&quot;)
 except DivisonByZeroError:
-    print("Won't reach here.")</code></p>
+    print(&quot;Won't reach here.&quot;)
+</code></pre>
+
 <p>Not only will the clause for DivisionByZeroError not be reached (because Exception is a base class of the exception thrown). The following is trapped as a syntax error by Lily, because of that.</p>
 <p>Errors can also be manually raised, using the <code>raise</code> keyword.</p>
-<p><code>try:
-    raise ValueError::new("This value is wrong.")
+<pre><code>try:
+    raise ValueError::new(&quot;This value is wrong.&quot;)
 except Exception:
-    ...</code></p>
+    ...
+</code></pre>
+
 <p>An important thing to remember when handling exceptions is that each block is considered to be in a different scope. Because there is no guarantee that variables within the try clause cannot be used in an except clause</p>
-<p><code>try:
+<pre><code>try:
     var v = 1 / 0
 except DivisionByZeroError:
     # This is a syntax error.
-    printfmt("v is %d.\n", v)</code></p>
+    printfmt(&quot;v is %d.\n&quot;, v)
+</code></pre>
+
 <h1>Custom Errors</h1>
 <p>It's possible to create custom exceptions as follows:</p>
-<p>```
-class MyError(message: string, code: integer) &gt; Exception(message)
+<pre><code>class MyError(message: string, code: integer) &gt; Exception(message)
 {
     var @code = code
-}</p>
-<p>try:
-    raise MyError::new("The code is too large", 900)
+}
+
+try:
+    raise MyError::new(&quot;The code is too large&quot;, 900)
 except MyError as e:
-    printfmt("Error message: %s, code: %d.\n", e.message, e.code)
-```</p>
+    printfmt(&quot;Error message: %s, code: %d.\n&quot;, e.message, e.code)
+</code></pre>
      </section>
    </article>
      <footer>

@@ -62,10 +62,12 @@
 <p>For the first task, find an area that mentions 'Dynamic Shared Object (DSO) Support'. You'll need to write in a command to load the Lily library, which was just added to Apache's modules.</p>
 <p><code>LoadModule lily_module modules/mod_lily.so</code></p>
 <p>You'll now need to specify a directory that will be serving Lily files. I managed to get the whole of the cgi-bin directory to serve Lily files using the following configuration, nowhere in particular within Apache's same configuration file.</p>
-<p><code>&lt;Directory "/var/www/cgi-bin/"&gt;
+<pre><code>&lt;Directory &quot;/var/www/cgi-bin/&quot;&gt;
     SetHandler lily
     Options +ExecCGI
-&lt;/Directory&gt;</code></p>
+&lt;/Directory&gt;
+</code></pre>
+
 <p>You'll now need to either reboot Apache. The server should come back up, and report no errors.</p>
 <p>In the event of an error (particularly "undefined symbol suchandsuch"), that is a bug in Lily, and I would appeciate a bug report.</p>
 <p>However, if that is not the case, you should be able to serve Lily files now</p>

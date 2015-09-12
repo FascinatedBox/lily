@@ -54,21 +54,22 @@
      <section>
 <h1>Lambdas</h1>
 <p>Sometimes you need a function, but it's going to be very short and only serve a single use. You could <code>define</code> the function anyway, but that means you have one more named function hanging around. Lambdas are a shorthand way of defining a new function. The simplest form of a lambda looks like this:</p>
-<p>```</p>
-<h1>Inferred type: function( =&gt; integer)</h1>
-<p>var v = {|| 10}
-```</p>
+<pre><code># Inferred type: function( =&gt; integer)
+var v = {|| 10}
+</code></pre>
+
 <p>You can now call 'v' with no arguments and receive an integer. Since there was no <code>define</code>, you can assign 'v' to another function, and the current one will eventually be garbage collected. </p>
-<p>```
-define example<a href="left: A, f: function(A =&gt; A) =&gt; A">A</a>
+<pre><code>define example[A](left: A, f: function(A =&gt; A) =&gt; A)
 {
     return f(left)
-}</p>
-<p>example(10, {|a| a * a})                      # 100
-example("abc", {|hello| hello.concat("def")}) # "abcdef"</p>
-<h1>Invalid operation: list[integer] / integer</h1>
-<h1>example([1, 2, 3], {|lst| lst / 10})</h1>
-<p>```</p>
+}
+
+example(10, {|a| a * a})                      # 100
+example(&quot;abc&quot;, {|hello| hello.concat(&quot;def&quot;)}) # &quot;abcdef&quot;
+# Invalid operation: list[integer] / integer
+# example([1, 2, 3], {|lst| lst / 10})
+</code></pre>
+
 <p>Lambdas, like normal functions, are fully able to participate in type inference. In the first call, the lambda infers that it will have one parameter of type A. Since type A has been solved as integer, then the variable a must therefore have the type integer. The second time, it's solved as type string. Proof that this is type inference (and not the interpreter happening to allow something that works) can be found in the last usage, which generates a type error if run.</p>
 <p>Lambdas are currently limited in that they cannot have their types annotated, and thus rely entirely on inference for determining their parameters. Lambdas are also unable to have default arguments, or variable arguments. Those are limitations that may be lifted later.</p>
 <p>However, it is still possible to do some neat things with lambdas and generics:</p>
@@ -78,11 +79,13 @@ define transform<a href="input: A, f: function(A =&gt; B) =&gt; B">A, B</a>
     return f(input)
 }</p>
 <h1>Result: 3</h1>
-<p>transform(transform(10, {|a| [a, a, a]}), {|b| b.size()})
-```</p>
-<p>If a function requires only one argument, and that argument is a function, you can pass a lambda without parentheses.</p>
-<p>```
-define f(g: function( =&gt; integer) =&gt; integer) {
+<p>transform(transform(10, {|a| [a, a, a]}), {|b| b.size()})</p>
+<pre><code>
+If a function requires only one argument, and that argument is a function, you can pass a lambda without parentheses.
+
+</code></pre>
+
+<p>define f(g: function( =&gt; integer) =&gt; integer) {
     return g()
 }</p>
 <h1>Value: 20</h1>

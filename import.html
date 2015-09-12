@@ -54,42 +54,50 @@
      <section>
 <h1>import</h1>
 <p>It's hard to write a useful program without being able to include other files. Lily allows the inclusion of other files using <code>import</code>.</p>
-<p>```</p>
-<h1>fib.lly</h1>
-<p>define fib(n: integer =&gt; integer)
+<pre><code># fib.lly
+define fib(n: integer =&gt; integer)
 {
     if n &lt; 2:
         return n
     else:
         return fib(n + 1) + fib(n - 1)
-}</p>
-<p>var example = 1</p>
-<h1>other.lly</h1>
-<p>import fib</p>
-<p>fib::fib(10)</p>
-<p>print(fib::example)
-```</p>
+}
+
+var example = 1
+
+# other.lly
+import fib
+
+fib::fib(10)
+
+print(fib::example)
+</code></pre>
+
 <p>When a file is imported, the name that was given to import it acts as a namespace of sorts. Since the file was named 'fib', then the functions, classes, and variables inside of it must be accessed using that same namespace.</p>
 <p>If a module defines classes, then the classes of that module can be used in declarations:</p>
-<p>```</p>
-<h1>json.lly</h1>
-<p>class Error(message: string) &gt; Exception(message)
+<pre><code># json.lly
+class Error(message: string) &gt; Exception(message)
 {
     ...
-}</p>
-<h1>main.lly</h1>
-<p>import json</p>
-<p>define checkJsonError(e: json::Error) { ... }</p>
-<p>try:
+}
+
+# main.lly
+import json
+
+define checkJsonError(e: json::Error) { ... }
+
+try:
     ...
 except json::Error:
     ...
-```</p>
+</code></pre>
+
 <p>It's also possible to import modules using other names:</p>
-<p>```
-import fib as f</p>
-<p>f::fib(10)
-```</p>
+<pre><code>import fib as f
+
+f::fib(10)
+</code></pre>
+
 <h1>Modes</h1>
 <p>One may recall that Lily has two modes of being run. The normal mode is where everything is code. In the other mode, code is between <code>&lt;?lily ... ?&gt;</code> tags, and everything else is written as straight html (to apache for mod_lily, and to stdout if not).</p>
 <p>When a module is imported, it is always imported in non-tag mode. This is intentional, and has many benefits:</p>
@@ -110,18 +118,21 @@ import fib as f</p>
 <h1>The diamond problem</h1>
 <p>It's possible that one file will import two other files, and each of those files will import a single file between them. This common is referred to as the diamond problem, and it's a common issue with multiple inheritance. However, the issue also applies here.</p>
 <p>To explain how Lily deals with this, consider the following setup:</p>
-<p>```</p>
-<h1>four.lly</h1>
-<p>value = 10</p>
-<h1>three.lly</h1>
-<p>import four
-four::value += 1</p>
-<h1>two.lly</h1>
-<p>import four
-four::value += 1</p>
-<h1>one.lly</h1>
-<p>import two, three
-```</p>
+<pre><code># four.lly
+value = 10
+
+# three.lly
+import four
+four::value += 1
+
+# two.lly
+import four
+four::value += 1
+
+# one.lly
+import two, three
+</code></pre>
+
 <p>The actions are as follows:</p>
 <ul>
 <li>

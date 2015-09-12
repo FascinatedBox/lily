@@ -54,7 +54,7 @@
      <section>
 <h1>Enum Classes</h1>
 <p>An enum class is a special type that allows only specified variant types inside of it. </p>
-<p><code>enum TerminalColor {
+<pre><code>enum TerminalColor {
     Black
     Blue
     Cyan
@@ -63,79 +63,91 @@
     Red
     White
     Yellow
-}</code></p>
+}
+</code></pre>
+
 <p>This creates a new enum called TerminalColor. The only values that can be assigned to TerminalColor are the members listed within the curly braces. Lily calls these members variants. Here's a couple examples of this in action:</p>
-<p>```
-var current_color = Black</p>
-<p>define change_color(new_color: TerminalColor)
+<pre><code>var current_color = Black
+
+define change_color(new_color: TerminalColor)
 {
     current_color = new_color
-}</p>
-<p>change_color(Blue)</p>
-<h1>Variants can be compared...</h1>
-<p>if current_color == Blue:
-    print("It's blue now.\n")</p>
-<h1>Invalid: Variants are not implicitly truthy or falsey</h1>
-<h1>if Blue: ...</h1>
-<h1>Type: list[TerminalColor]</h1>
-<p>var my_colors = [Blue, Red, White]</p>
-<h1>Invalid: current_color has type TerminalColor</h1>
-<h1>current_color = 10</h1>
-<p>```</p>
+}
+
+change_color(Blue)
+
+# Variants can be compared...
+if current_color == Blue:
+    print(&quot;It's blue now.\n&quot;)
+
+# Invalid: Variants are not implicitly truthy or falsey
+# if Blue: ...
+
+# Type: list[TerminalColor]
+var my_colors = [Blue, Red, White]
+
+# Invalid: current_color has type TerminalColor
+# current_color = 10
+</code></pre>
+
 <p>You can create variables that are of TerminalColor's type, but the individual colors themselves are not valid types. Instead, they should be looked at more as values. Enums also introduce a new kind of block, called <code>match</code>. It's used like this:</p>
-<p>```
-define name_for_color(t: TerminalColor =&gt; string)
+<pre><code>define name_for_color(t: TerminalColor =&gt; string)
 {
     match t: {
         case Black:
-            return "Black"
+            return &quot;Black&quot;
         case Blue:
-            return "Blue"
+            return &quot;Blue&quot;
         case Cyan:
-            return "Cyan"
+            return &quot;Cyan&quot;
         case Magenta:
-            return "Magenta"
+            return &quot;Magenta&quot;
         case Red:
-            return "Red"
+            return &quot;Red&quot;
         case White:
-            return "White"
+            return &quot;White&quot;
         case Yellow:
-            return "Yellow"
+            return &quot;Yellow&quot;
     }
-}</p>
-<p>printfmt("The name for this color is '%s'.\n", name_for_color(Blue))
-```</p>
+}
+
+printfmt(&quot;The name for this color is '%s'.\n&quot;, name_for_color(Blue))
+</code></pre>
+
 <p><code>match</code> is an unusual block, in that it requires braces. As such, every <code>match</code> block is always a multi-line one. This will be fixed in a future release. Try to run the above, and you'll get a message like this:</p>
-<p><code>SyntaxError: Match pattern not exhaustive. The following case(s) are missing:
-* Green</code></p>
+<pre><code>SyntaxError: Match pattern not exhaustive. The following case(s) are missing:
+* Green
+</code></pre>
+
 <p>This is arguably the best part of <code>match</code>: It always makes sure that all cases are covered. Here it is, again, with Green included.</p>
-<p>```
-define name_for_color(t: TerminalColor =&gt; string)
+<pre><code>define name_for_color(t: TerminalColor =&gt; string)
 {
     match t: {
         case Black:
-            return "Black"
+            return &quot;Black&quot;
         case Blue:
-            return "Blue"
+            return &quot;Blue&quot;
         case Cyan:
-            return "Cyan"
+            return &quot;Cyan&quot;
         case Green:
-            return "Green"
+            return &quot;Green&quot;
         case Magenta:
-            return "Magenta"
+            return &quot;Magenta&quot;
         case Red:
-            return "Red"
+            return &quot;Red&quot;
         case White:
-            return "White"
+            return &quot;White&quot;
         case Yellow:
-            return "Yellow"
+            return &quot;Yellow&quot;
     }
-}</p>
-<p>printfmt("The name for this color is '%s'.\n", name_for_color(Blue))</p>
-<p>```</p>
+}
+
+printfmt(&quot;The name for this color is '%s'.\n&quot;, name_for_color(Blue))
+
+</code></pre>
+
 <p>But...it makes more sense for this to be a method that I can call on a TerminalColor, rather than an outside function. It's not possible to extend TerminalColor after it's already been declared. TerminalColor can instead be declared as such</p>
-<p>```
-enum TerminalColor {
+<pre><code>enum TerminalColor {
     Black
     Blue
     Cyan
@@ -143,40 +155,48 @@ enum TerminalColor {
     Magenta
     Red
     White
-    Yellow</p>
-<pre><code>define name_for_color( =&gt; string) {
-    match self: {
-        ...
+    Yellow
+
+    define name_for_color( =&gt; string) {
+        match self: {
+            ...
+        }
     }
 }
+
+var v = Black
+printfmt(&quot;The name for the color is '%s'.\n&quot;, v)
 </code></pre>
-<p>}</p>
-<p>var v = Black
-printfmt("The name for the color is '%s'.\n", v)
-```</p>
+
 <p>Do note, however, that an enum cannot have variables or expressions within the curly braces. Lily also requires that there are no extra enums declared after functions are declared.</p>
 <h1>Option</h1>
 <p>Let's go to something that's more useful. You may recall that Lily is a language that requires that all vars have a starting value. However, this is not always practical. Perhaps you've got a class which will open up a connection only when it's explicitly called for.</p>
-<p><code>enum Option[A] {
+<pre><code>enum Option[A] {
     Some(A)
     None
-}</code></p>
+}
+</code></pre>
+
 <p>This creates a new enum called Option that takes a single subtype. Values of type Option can only be assigned to a Some that has the same subtype, or None. Since the None is not qualified by a subtype, any Option can be assigned to a None.</p>
-<p>```</p>
-<h1>Type: Option[integer]</h1>
-<p>var my_opt = Some(1)</p>
-<p>my_opt = None</p>
-<h1>Type: list[Option[integer]]</h1>
-<p>var nested_option = [Some(1), None, Some(2)]</p>
-<p>nested_option[0] = None</p>
-<h1>Type: list[Option[any]]</h1>
-<p>var opt_list = [None, None, None]</p>
-<h1>Invalid: Option cannot be assigned to an integer</h1>
-<h1>my_opt = 10</h1>
-<p>```</p>
+<pre><code># Type: Option[integer]
+var my_opt = Some(1)
+
+my_opt = None
+
+# Type: list[Option[integer]]
+var nested_option = [Some(1), None, Some(2)]
+
+nested_option[0] = None
+
+# Type: list[Option[any]]
+var opt_list = [None, None, None]
+
+# Invalid: Option cannot be assigned to an integer
+# my_opt = 10
+</code></pre>
+
 <p><code>match</code> works here too. However, there's a slight difference:</p>
-<p>```
-define get_or_else<a href="opt: Option[A], or_else: A =&gt; A">A</a>
+<pre><code>define get_or_else[A](opt: Option[A], or_else: A =&gt; A)
 {
     match opt: {
         case Some(s):
@@ -184,41 +204,45 @@ define get_or_else<a href="opt: Option[A], or_else: A =&gt; A">A</a>
         case None:
             return or_else
     }
-}</p>
-<p>get_or_else(Some(10), 10)
+}
+
+get_or_else(Some(10), 10)
 get_or_else(None, 1)
 get_or_else(None, [1, 2, 3])
-```</p>
+</code></pre>
+
 <p>Since Some has a value inside of that, <code>match</code> requires that a parameter be named for that value. Lily knows what the types are for enums and their variants, and infers 's' to have the type 'A' (exactly what is to be returned). Lily requires that if a variant has values inside, that a variable is listed for each entry.</p>
-<p>```
-var v = Some(10)</p>
-<p>match v: {
+<pre><code>var v = Some(10)
+
+match v: {
     # Invalid: Some takes 1 value
     case Some: 
         ...
     # Invalid: None does not take values
     case None(n)
 }
-```</p>
+</code></pre>
+
 <p>By combining generics and enums, you can do some neat things:</p>
-<p>```
-enum Option[A] {
+<pre><code>enum Option[A] {
     Some(A)
-    None</p>
-<pre><code>define map[A, B](f: function(A =&gt; B) =&gt; Option[B])
-{
-    match self: {
-        case Some(s):
-            return Some(f(s))
-        case None:
-            return None
+    None
+
+    define map[A, B](f: function(A =&gt; B) =&gt; Option[B])
+    {
+        match self: {
+            case Some(s):
+                return Some(f(s))
+            case None:
+                return None
+        }
     }
 }
+
+var v = Some(10)
+
+printfmt(&quot;Changed the value to '%s'.\n&quot;, v.map(integer::to_s))
 </code></pre>
-<p>}</p>
-<p>var v = Some(10)</p>
-<p>printfmt("Changed the value to '%s'.\n", v.map(integer::to_s))
-```</p>
      </section>
    </article>
      <footer>

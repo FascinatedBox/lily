@@ -55,8 +55,7 @@
 <h1>Introducing Lily</h1>
 <p>Lily is an interpreted language that features static typing that's there to help you, rather than to get in the way. It mixes ideas from a number of languages, notably Scala, Rust, Ruby, and Python. </p>
 <p>By default, Lily will treat the entire source file as being code, and run it. This is called standalone mode. The alternative is tag mode. In tag mode, the interpreter will process anything between <code>&lt;?lily ... ?&gt;</code> as code, and anything outside as raw HTML.</p>
-<p>```
-define is_integer(input: string =&gt; boolean)
+<pre><code>define is_integer(input: string =&gt; boolean)
 {
     try: {
         input.to_i()
@@ -64,15 +63,20 @@ define is_integer(input: string =&gt; boolean)
     except Exception:
         return false
     }
-}</p>
-<h1>Inferred type: list of strings (list[string])</h1>
-<p>var to_convert = ["123", "99", "10pigs", "asdf"]</p>
-<h1>Drop the ones that can't be converted to integers.</h1>
-<p>to_convert.select(is_integer)</p>
-<h1>Inferred type: list[integer]</h1>
-<p>var integer_list = to_convert.map{|s| s.to_i()}</p>
-<p>print(integer_list)
-```</p>
+}
+
+# Inferred type: list of strings (list[string])
+var to_convert = [&quot;123&quot;, &quot;99&quot;, &quot;10pigs&quot;, &quot;asdf&quot;]
+
+# Drop the ones that can't be converted to integers.
+to_convert.select(is_integer)
+
+# Inferred type: list[integer]
+var integer_list = to_convert.map{|s| s.to_i()}
+
+print(integer_list)
+</code></pre>
+
 <p>Features:</p>
 <ul>
 <li>

@@ -73,7 +73,9 @@
 <p><code>Conn::query(self: Conn, format: string, args: list[string] =&gt; Result)</code></p>
 <p>This executes a query against the database, and stores the result of that query into a Result object. The format string is not in postgre's format, but instead operates on familiar ? replacement.</p>
 <p>Example:</p>
-<p><code>conn.query("select * from ? where name like ?", "employees", "Bob")</code></p>
+<pre><code>conn.query(&quot;select * from ? where name like ?&quot;, &quot;employees&quot;, &quot;Bob&quot;)
+</code></pre>
+
 <p>If the query request asks for more args than what are given, then FormatError is raised.</p>
 <p>If the query is invalid, or returns a result that Lily does not understand, then the Error class mentioned above is raised.</p>
 <h2>Request</h2>

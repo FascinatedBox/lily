@@ -107,16 +107,19 @@
 <p><code>string::to_i (self: string =&gt; integer)</code></p>
 <p>This attempts to convert a string into an integer. The function assumes that <code>self</code> describes a decimal value (and not, say, octal or hex). If unable to convert the string to an integer, <code>ValueError</code> is raised.</p>
 <p>Examples:</p>
-<p>```</p>
-<h1>Value: -5</h1>
-<p>"-5".to_i()</p>
-<h1>Value: 1</h1>
-<p>"00000001".to_i()</p>
-<h1>Invalid: Hex is not supported</h1>
-<h1>"0x10".to_i()</h1>
-<h1>Invalid: The whole thing must be an integer</h1>
-<h1>"10cats".to_i()</h1>
-<p>```</p>
+<pre><code># Value: -5
+&quot;-5&quot;.to_i()
+
+# Value: 1
+&quot;00000001&quot;.to_i()
+
+# Invalid: Hex is not supported
+# &quot;0x10&quot;.to_i()
+
+# Invalid: The whole thing must be an integer
+# &quot;10cats&quot;.to_i()
+</code></pre>
+
 <p><code>string::trim (self: string =&gt; string)</code></p>
 <p>This function returns with consecutive whitespace (<code>" \t\r\n"</code>) removed from both the start and end of the string.</p>
 <p><code>string::upper (self: string =&gt; string)</code></p>

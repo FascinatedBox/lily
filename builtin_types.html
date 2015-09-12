@@ -58,33 +58,37 @@
 <p>A value that is either <code>true</code> or <code>false</code>.</p>
 <h1>integer</h1>
 <p>This type is a signed 64-bit int. It has a range of +9,223,372,036,854,775,807 to to -9,223,372,036,854,775,808. Currently, operations in Lily do not check for overflow, and thus behavior during overflow is undefined. Here are some examples of integer literals:</p>
-<p>```
-123
--456</p>
-<h1>Octal</h1>
-<p>0t7</p>
-<h1>Hex</h1>
-<p>0xdeadbeef</p>
-<h1>Binary</h1>
-<p>0b101010
-```</p>
+<pre><code>123
+-456
+# Octal
+0t7
+# Hex
+0xdeadbeef
+# Binary
+0b101010
+</code></pre>
+
 <h1>double</h1>
 <p>This type is a C double. It's minimum and maximum values are...really big. Negative and positive values are allowed, as well as decimal values. Here are some <code>double</code> literals.</p>
-<p><code>1.5
+<pre><code>1.5
 1e-1
--1.0</code></p>
+-1.0
+</code></pre>
+
 <p>Note: Lily will not allow integer literals to be assigned to values which have specified a want for a double.</p>
 <h1>string</h1>
 <p>Lily's strings are utf-8 clean, and always 0-terminated. The methods of the string class are all utf-8 aware (so, for example, split is able to split on utf-8 codepoints, instead of by bytes). You can subscript from a string, and the index will be based off of codepoints, instead of bytes. The string class is also immutable: All string methods will create a new string instead of modifying the existing underlying string.</p>
 <p>String literals begin and end with the double quote (<code>"</code>). Lily supports the following escape sequences within a string.</p>
-<p><code>\n:   Newline
+<pre><code>\n:   Newline
 \r:   Carriage Return
 \t:   Tab
 \':   ' (single quote)
-\":   " (double quote)
+\&quot;:   &quot; (double quote)
 \\:   \
 \nnn: nnn represents three decimal digits.
-      Values allowed are \001...\127</code></p>
+      Values allowed are \001...\127
+</code></pre>
+
 <h1>bytestring</h1>
 <p>Sometimes you need to interface with something that may give back strings with embedded \0's, or may kick back invalid utf-8. For those situations, Lily provides a bytestrings. This class is length counted, therein allowing embedded zeroes. This class provides a method to convert to a string, allowing string to be a 'pure', valid string, and for bytestring to handle the nastier cases.</p>
 <p>Bytestring literals are like string literals, except they start with 'B' exactly before the opening double quote (<code>"</code>). Bytestring literals support all escape codes that string literals do, with the addition that bytestring literals allow <code>\nnn</code> escape sequences from <code>\001</code> to <code>\255</code></p>
@@ -93,93 +97,111 @@
 <h1>any</h1>
 <p>This type is, at first glance, rather odd. It's not possible to create literals of type any. To have a variable of type any, the type must explicitly be annotated as being type any.</p>
 <p>A variable of type any is best viewed as a box that can hold an unknown, unspecified type. Because it is not possible to know what type any contains immediately, it does not support any binary operations, any unary operations, or any methods. Instead, one must typecast the value away.</p>
-<p>```
-var v: any = 10</p>
-<h1>A typecast is denoted by <value>.@(<newtype>)</h1>
-<p>var i = v.@(integer)
-```</p>
+<pre><code>var v: any = 10
+
+# A typecast is denoted by &lt;value&gt;.@(&lt;newtype&gt;)
+var i = v.@(integer)
+</code></pre>
+
 <p>If a typecast fails, it will raise an exception called <code>TypecastError</code>. That error, and others, will be covered in more detail in a future section.</p>
-<p>Sometimes, type any is required, but something else is given. In such cases, the value is placed into a hidden value of type any behind the scenes:
-```
-define f(input: any)
-{</p>
-<p>}</p>
-<p>f(10)
-f("20")</p>
-<p>define g(input: integer =&gt; any)
+<p>Sometimes, type any is required, but something else is given. In such cases, the value is placed into a hidden value of type any behind the scenes:</p>
+<pre><code>define f(input: any)
+{
+
+}
+
+f(10)
+f(&quot;20&quot;)
+
+define g(input: integer =&gt; any)
 {
     if input == 1:
         return 10
     else:
         return [1, 0]
 }
-```</p>
+</code></pre>
+
 <p>The primary purpose of this class is to serve as a last resort. In certain cases, type inference doesn't have a common type and will use type any instead. In such cases, the action is referred to as <strong>defaulting to any</strong>. Sometimes this is useful, because the type isn't -super- important. In other cases, it's annoying. This type may be removed in the future.</p>
 <h1>list</h1>
 <p>The list class is Lily's most basic container type. Lily's lists are qualified by a single type, which is the type expected for elements. For example, the type <code>list[integer]</code> denotes a list that is supposed to contain just integers. <code>list[function( =&gt; integer)]</code> would be a list that is only supposed to hold functions which take no parameters, but return an integer. Lily's lists are flexible and can be designated to hold any type.</p>
-<p>```
-var a = [1, 2, 3]</p>
-<p>var b = ["1", "2", "3", "4"]</p>
-<p>var c = [b, b]</p>
-<h1>Subscript indexes are 0-based.</h1>
-<p>a[0] = 4</p>
-<h1>Subscript get/set is an error if out of bounds.</h1>
-<h1>a[4] = 4</h1>
-<h1>Negative subscripts are allowed.</h1>
-<p>var d = a[-1]
-```</p>
+<pre><code>var a = [1, 2, 3]
+
+var b = [&quot;1&quot;, &quot;2&quot;, &quot;3&quot;, &quot;4&quot;]
+
+var c = [b, b]
+
+# Subscript indexes are 0-based.
+a[0] = 4
+
+# Subscript get/set is an error if out of bounds.
+# a[4] = 4
+
+# Negative subscripts are allowed.
+var d = a[-1]
+</code></pre>
+
 <p>Lily attempts to do some type inference, when it can:</p>
-<p>```
-define f( =&gt; list[integer])
+<pre><code>define f( =&gt; list[integer])
 {
     # Inferred as an empty list[integer]
     return []
-}</p>
-<h1>Inferred as an empty list[list[integer]]</h1>
-<p>var v: list[list[integer]] = []
-```</p>
+}
+
+# Inferred as an empty list[list[integer]]
+var v: list[list[integer]] = []
+</code></pre>
+
 <p>However, there are cases where <code>[]</code> is used and there is no expected type to infer, or the elements between <code>[]</code> are not of a consistent type. In such cases, the resulting list will have the type <code>list[any]</code></p>
 <h1>hash</h1>
 <p>This is a basic hash collection, representing a mapping from a key to a value. The annotation for this type has the key first, and the value second. Therefore, a hash that maps from string keys to integer values would be written as <code>hash[string, integer]</code>. Hashes are created similar to how lists are created:</p>
-<p>```
-var v = ["a" =&gt; 1, "b" =&gt; 2, "c" =&gt; 3]</p>
-<h1>Show the value represented by "a".</h1>
-<p>show(v["a"])</p>
-<h1>New values can be added through assignment.</h1>
-<p>v["d"] = 4</p>
-<h1>With repeats, the right-most value has precedence.</h1>
-<p>v = ["a" =&gt; 1, "a" =&gt; 2] # Value: "a" =&gt; 2
-```</p>
+<pre><code>var v = [&quot;a&quot; =&gt; 1, &quot;b&quot; =&gt; 2, &quot;c&quot; =&gt; 3]
+
+# Show the value represented by &quot;a&quot;.
+show(v[&quot;a&quot;])
+
+# New values can be added through assignment.
+v[&quot;d&quot;] = 4
+
+# With repeats, the right-most value has precedence.
+v = [&quot;a&quot; =&gt; 1, &quot;a&quot; =&gt; 2] # Value: &quot;a&quot; =&gt; 2
+</code></pre>
+
 <p>Type inference works here too:</p>
-<p>```
-define f( =&gt; hash[integer, list[string]])
+<pre><code>define f( =&gt; hash[integer, list[string]])
 {
     # Inferred as an empty hash[integer, list[string]]
     return []
-}</p>
-<p>var h: hash[integer, any] = [1, "a"]</p>
-<p>h[1] = [20]
+}
+
+var h: hash[integer, any] = [1, &quot;a&quot;]
+
+h[1] = [20]
 h[1] = 30
-```</p>
+</code></pre>
+
 <p>Currently, the only classes that can be keys within a hash are <code>integer</code>, <code>double</code>, and <code>string</code>. It is currently not possible to define a hashing function for the hash class to use. This is likely to change in the future.</p>
 <p>Since <code>any</code> cannot be hashed, the interpreter insists upon all hash keys having exactly the same type (and being one of the above-mentioned types). However, it is possible for the values of a hash to default to <code>any</code>.</p>
 <h1>tuple</h1>
 <p>Occasionally, it is useful to have a grouping of various different types. This class takes an arbitrary number of types within it, making it useful in situations where there is a need for a 'record' type that holds a bag of types. As with the above mentioned types, the subtypes of tuple are denoted by the square braces that come after the type.</p>
 <p>Tuples are similar to lists, but have some interesting differences</p>
-<p>```</p>
-<h1>&lt;[ ... ]&gt; is the syntax for creating tuples.</h1>
-<p>var t = &lt;[1, "2", [3]]&gt;</p>
-<h1>Invalid: Empty tuples are not allowed.</h1>
-<h1>var empty = &lt;[]&gt;</h1>
-<h1>Tuples are also 0-indexed.</h1>
-<p>var my_list = t[2]</p>
-<h1>Tuple subscripts MUST be literals. This is why:</h1>
-<p>define subscript(my_tup: tuple[integer, string, list[integer]], x: integer)
+<pre><code># &lt;[ ... ]&gt; is the syntax for creating tuples.
+var t = &lt;[1, &quot;2&quot;, [3]]&gt;
+
+# Invalid: Empty tuples are not allowed.
+# var empty = &lt;[]&gt;
+
+# Tuples are also 0-indexed.
+var my_list = t[2]
+
+# Tuple subscripts MUST be literals. This is why:
+define subscript(my_tup: tuple[integer, string, list[integer]], x: integer)
 {
     # Invalid: Lily has no way of knowing what the resulting type will be.
     # var invalid = my_tup[x]
 }
-```</p>
+</code></pre>
+
 <h1>file</h1>
 <p>It's a file. Files can be opened with <code>file::open</code>, and some basic methods for IO are available on files.</p>
 <h1>Exception</h1>

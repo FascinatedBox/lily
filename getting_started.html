@@ -58,11 +58,13 @@ first in a vanilla configuration, and then with optional modules.</p>
 <p>To begin with, you'll need <code>cmake</code>, and a compiler that supports C11. 
 Newer versions of either gcc or clang should work just fine.</p>
 <p>To get the most basic build of Lily working, fire up a shell and run:</p>
-<p><code>git clone https://github.com/jesserayadkins/lily
+<pre><code>git clone https://github.com/jesserayadkins/lily
 cd lily
 cmake .
 make
-make install</code></p>
+make install
+</code></pre>
+
 <p>If all goes well, you'll have a lily executable. You can use this to 
 execute files directly (in standalone mode) using <code>./lily &lt;file&gt;</code> or in 
 tagged mode using <code>./lily -t &lt;file&gt;</code>. Alternatively, lily can also 
