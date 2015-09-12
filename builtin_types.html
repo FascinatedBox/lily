@@ -1,0 +1,200 @@
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <script src="modernizr-1.5.js"></script>
+    <link href="lily_style.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <img src="logo.png">
+      <h1>Lily</h1>
+    </header>
+
+    <aside>
+      <ul>
+        <li>Home</li>
+        <li><a href="index.html">Introducing Lily</a></li>
+        <li><a href="getting_started.html">Getting Started</a></li>
+      </ul>
+      <ul>
+        <li>Core</li>
+        <li><a href="syntax.html">Syntax</a></li>
+        <li><a href="control_flow.html">Control flow</a></li>
+        <li><a href="functions.html">Functions</a></li>
+        <li><a href="builtin_types.html">Builtin types</a></li>
+        <li><a href="generics.html">Generics</a></li>
+        <li><a href="classes.html">Classes</a></li>
+        <li><a href="enums.html">Enums</a></li>
+        <li><a href="lambdas.html">Lambdas</a></li>
+        <li><a href="error_handling.html">Error Handling</a></li>
+        <li><a href="import.html">Importing</a></li>
+      </ul>
+      <ul>
+        <li>Class Reference</li>
+        <li><a href="boolean_type.html">boolean</a></li>
+        <li><a href="integer_type.html">integer</a></li>
+        <li><a href="bytestring_type.html">bytestring</a></li>
+        <li><a href="string_type.html">string</a></li>
+        <li><a href="function_type.html">function</a></li>
+        <li><a href="list_type.html">list</a></li>
+        <li><a href="hash_type.html">hash</a></li>
+        <li><a href="tuple_type.html">tuple</a></li>
+        <li><a href="any_type.html">any</a></li>
+        <li><a href="exception_type.html">Exception</a></li>
+      </ul>
+      <ul>
+        <li>Reference</li>
+        <li><a href="sys.html">sys</a></li>
+        <li><a href="server.html">server</a></li>
+        <li><a href="postgre.html">postgre</a></li>
+        <li><a href="builtin_library.html">builtins</a></li>
+      </ul>
+    </aside>
+   <article>
+     <section>
+<h1>Builtin Types</h1>
+<p>Lily comes with a handful of types baked into it that are available from any scope. For now at least, these classes <strong>cannot</strong> be inherited from (aside from Exception).</p>
+<h1>boolean</h1>
+<p>A value that is either <code>true</code> or <code>false</code>.</p>
+<h1>integer</h1>
+<p>This type is a signed 64-bit int. It has a range of +9,223,372,036,854,775,807 to to -9,223,372,036,854,775,808. Currently, operations in Lily do not check for overflow, and thus behavior during overflow is undefined. Here are some examples of integer literals:</p>
+<p>```
+123
+-456</p>
+<h1>Octal</h1>
+<p>0t7</p>
+<h1>Hex</h1>
+<p>0xdeadbeef</p>
+<h1>Binary</h1>
+<p>0b101010
+```</p>
+<h1>double</h1>
+<p>This type is a C double. It's minimum and maximum values are...really big. Negative and positive values are allowed, as well as decimal values. Here are some <code>double</code> literals.</p>
+<p><code>1.5
+1e-1
+-1.0</code></p>
+<p>Note: Lily will not allow integer literals to be assigned to values which have specified a want for a double.</p>
+<h1>string</h1>
+<p>Lily's strings are utf-8 clean, and always 0-terminated. The methods of the string class are all utf-8 aware (so, for example, split is able to split on utf-8 codepoints, instead of by bytes). You can subscript from a string, and the index will be based off of codepoints, instead of bytes. The string class is also immutable: All string methods will create a new string instead of modifying the existing underlying string.</p>
+<p>String literals begin and end with the double quote (<code>"</code>). Lily supports the following escape sequences within a string.</p>
+<p><code>\n:   Newline
+\r:   Carriage Return
+\t:   Tab
+\':   ' (single quote)
+\":   " (double quote)
+\\:   \
+\nnn: nnn represents three decimal digits.
+      Values allowed are \001...\127</code></p>
+<h1>bytestring</h1>
+<p>Sometimes you need to interface with something that may give back strings with embedded \0's, or may kick back invalid utf-8. For those situations, Lily provides a bytestrings. This class is length counted, therein allowing embedded zeroes. This class provides a method to convert to a string, allowing string to be a 'pure', valid string, and for bytestring to handle the nastier cases.</p>
+<p>Bytestring literals are like string literals, except they start with 'B' exactly before the opening double quote (<code>"</code>). Bytestring literals support all escape codes that string literals do, with the addition that bytestring literals allow <code>\nnn</code> escape sequences from <code>\001</code> to <code>\255</code></p>
+<h1>functions</h1>
+<p>Lily's functions are considered first-class. This means they can be assigned to vars, passed as parameters, inserted into lists, and more. There are no function literals, but there are lambdas, which are discussed later. The <code>define</code> keyword is responsible for creating new functions.</p>
+<h1>any</h1>
+<p>This type is, at first glance, rather odd. It's not possible to create literals of type any. To have a variable of type any, the type must explicitly be annotated as being type any.</p>
+<p>A variable of type any is best viewed as a box that can hold an unknown, unspecified type. Because it is not possible to know what type any contains immediately, it does not support any binary operations, any unary operations, or any methods. Instead, one must typecast the value away.</p>
+<p>```
+var v: any = 10</p>
+<h1>A typecast is denoted by <value>.@(<newtype>)</h1>
+<p>var i = v.@(integer)
+```</p>
+<p>If a typecast fails, it will raise an exception called <code>TypecastError</code>. That error, and others, will be covered in more detail in a future section.</p>
+<p>Sometimes, type any is required, but something else is given. In such cases, the value is placed into a hidden value of type any behind the scenes:
+```
+define f(input: any)
+{</p>
+<p>}</p>
+<p>f(10)
+f("20")</p>
+<p>define g(input: integer =&gt; any)
+{
+    if input == 1:
+        return 10
+    else:
+        return [1, 0]
+}
+```</p>
+<p>The primary purpose of this class is to serve as a last resort. In certain cases, type inference doesn't have a common type and will use type any instead. In such cases, the action is referred to as <strong>defaulting to any</strong>. Sometimes this is useful, because the type isn't -super- important. In other cases, it's annoying. This type may be removed in the future.</p>
+<h1>list</h1>
+<p>The list class is Lily's most basic container type. Lily's lists are qualified by a single type, which is the type expected for elements. For example, the type <code>list[integer]</code> denotes a list that is supposed to contain just integers. <code>list[function( =&gt; integer)]</code> would be a list that is only supposed to hold functions which take no parameters, but return an integer. Lily's lists are flexible and can be designated to hold any type.</p>
+<p>```
+var a = [1, 2, 3]</p>
+<p>var b = ["1", "2", "3", "4"]</p>
+<p>var c = [b, b]</p>
+<h1>Subscript indexes are 0-based.</h1>
+<p>a[0] = 4</p>
+<h1>Subscript get/set is an error if out of bounds.</h1>
+<h1>a[4] = 4</h1>
+<h1>Negative subscripts are allowed.</h1>
+<p>var d = a[-1]
+```</p>
+<p>Lily attempts to do some type inference, when it can:</p>
+<p>```
+define f( =&gt; list[integer])
+{
+    # Inferred as an empty list[integer]
+    return []
+}</p>
+<h1>Inferred as an empty list[list[integer]]</h1>
+<p>var v: list[list[integer]] = []
+```</p>
+<p>However, there are cases where <code>[]</code> is used and there is no expected type to infer, or the elements between <code>[]</code> are not of a consistent type. In such cases, the resulting list will have the type <code>list[any]</code></p>
+<h1>hash</h1>
+<p>This is a basic hash collection, representing a mapping from a key to a value. The annotation for this type has the key first, and the value second. Therefore, a hash that maps from string keys to integer values would be written as <code>hash[string, integer]</code>. Hashes are created similar to how lists are created:</p>
+<p>```
+var v = ["a" =&gt; 1, "b" =&gt; 2, "c" =&gt; 3]</p>
+<h1>Show the value represented by "a".</h1>
+<p>show(v["a"])</p>
+<h1>New values can be added through assignment.</h1>
+<p>v["d"] = 4</p>
+<h1>With repeats, the right-most value has precedence.</h1>
+<p>v = ["a" =&gt; 1, "a" =&gt; 2] # Value: "a" =&gt; 2
+```</p>
+<p>Type inference works here too:</p>
+<p>```
+define f( =&gt; hash[integer, list[string]])
+{
+    # Inferred as an empty hash[integer, list[string]]
+    return []
+}</p>
+<p>var h: hash[integer, any] = [1, "a"]</p>
+<p>h[1] = [20]
+h[1] = 30
+```</p>
+<p>Currently, the only classes that can be keys within a hash are <code>integer</code>, <code>double</code>, and <code>string</code>. It is currently not possible to define a hashing function for the hash class to use. This is likely to change in the future.</p>
+<p>Since <code>any</code> cannot be hashed, the interpreter insists upon all hash keys having exactly the same type (and being one of the above-mentioned types). However, it is possible for the values of a hash to default to <code>any</code>.</p>
+<h1>tuple</h1>
+<p>Occasionally, it is useful to have a grouping of various different types. This class takes an arbitrary number of types within it, making it useful in situations where there is a need for a 'record' type that holds a bag of types. As with the above mentioned types, the subtypes of tuple are denoted by the square braces that come after the type.</p>
+<p>Tuples are similar to lists, but have some interesting differences</p>
+<p>```</p>
+<h1>&lt;[ ... ]&gt; is the syntax for creating tuples.</h1>
+<p>var t = &lt;[1, "2", [3]]&gt;</p>
+<h1>Invalid: Empty tuples are not allowed.</h1>
+<h1>var empty = &lt;[]&gt;</h1>
+<h1>Tuples are also 0-indexed.</h1>
+<p>var my_list = t[2]</p>
+<h1>Tuple subscripts MUST be literals. This is why:</h1>
+<p>define subscript(my_tup: tuple[integer, string, list[integer]], x: integer)
+{
+    # Invalid: Lily has no way of knowing what the resulting type will be.
+    # var invalid = my_tup[x]
+}
+```</p>
+<h1>file</h1>
+<p>It's a file. Files can be opened with <code>file::open</code>, and some basic methods for IO are available on files.</p>
+<h1>Exception</h1>
+<p>This class defines the most basic kind of raiseable error. This class is covered in more detail in the section about user-defined errors.</p>
+     </section>
+   </article>
+     <footer>
+      <p>
+Lily is designed by Jesse Ray Adkins (<a href="https://github.com/jesserayadkins">Github</a>,
+<a href="http://www.reddit.com/user/jesserayadkins">Reddit</a>).
+      </p>
+      <br />
+      <p>
+Logo source: <a href="http://sweetclipart.com/three-white-calla-lilies-1015">here</a>, via <a href="http://sweetclipart.com">sweetclipart.com</a>.
+      </p>
+    </footer>
+</body>
+</html>

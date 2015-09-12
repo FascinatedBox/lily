@@ -52,45 +52,26 @@
     </aside>
    <article>
      <section>
-<h1>Introducing Lily</h1>
-<p>Lily is an interpreted language that features static typing that's there to help you, rather than to get in the way. It mixes ideas from a number of languages, notably Scala, Rust, Ruby, and Python. </p>
-<p>By default, Lily will treat the entire source file as being code, and run it. This is called standalone mode. The alternative is tag mode. In tag mode, the interpreter will process anything between <code>&lt;?lily ... ?&gt;</code> as code, and anything outside as raw HTML.</p>
-<p>```
-define is_integer(input: string =&gt; boolean)
-{
-    try: {
-        input.to_i()
-        return true
-    except Exception:
-        return false
-    }
-}</p>
-<h1>Inferred type: list of strings (list[string])</h1>
-<p>var to_convert = ["123", "99", "10pigs", "asdf"]</p>
-<h1>Drop the ones that can't be converted to integers.</h1>
-<p>to_convert.select(is_integer)</p>
-<h1>Inferred type: list[integer]</h1>
-<p>var integer_list = to_convert.map{|s| s.to_i()}</p>
-<p>print(integer_list)
-```</p>
-<p>Features:</p>
-<ul>
-<li>
-<p>Types that doesn't get in the way. A variable's type is determined by the first thing it's assigned to. Beyond that, Lily uses type inference so that the types (and the safety they provide) is still there.</p>
-</li>
-<li>
-<p>Code from different files is imported into a namespace. No worries about global namespace pollution between different files.</p>
-</li>
-<li>
-<p>Exceptions are baked into the language, and into the core library. No error codes.</p>
-</li>
-<li>
-<p>Lily employs a technique called dynaload throughout the interpreter. It won't load information about functions, unless it can verify that a given function will be used. This allows a simple 'Hello World' script to run in under 9K of memory.</p>
-</li>
-<li>
-<p>Lily is very fast. The test suite has 350 tests, and a separate instance of the interpreter is booted up for each one. The test runner executes all of these tests in under three seconds.</p>
-</li>
-</ul>
+<h1>The Lily Programming Language</h1>
+<p><a href="https://gitter.im/jesserayadkins/lily?utm_source=badge&amp;utm_medium=badge&amp;utm_campaign=pr-badge&amp;utm_content=badge"><img alt="Gitter" src="https://badges.gitter.im/Join%20Chat.svg" /></a></p>
+<p>~~~
+<html>
+&lt;?lily print("Hello, world!") ?&gt;
+</html>
+~~~</p>
+<p>Lily is a language that can be used to make dynamically-generated content in a way similar to PHP. It can also be run by itself.</p>
+<p>Key features include:</p>
+<ol>
+<li>Static typing, with type inference inspired by Scala.</li>
+<li>All variables must always have a value (nil and NULL do not exist)</li>
+<li>Enum classes and variants (to allow for user-creation of an Option kind of type)</li>
+<li>Parameteric Polymorphism</li>
+<li>Lambdas, with support for type inference</li>
+<li>Any value can be passed to a function called show to reveal the contents</li>
+<li>User-declarable classes</li>
+<li>Python-inspired import semantics</li>
+</ol>
+<p>Lily is inspired by C++, Python, Ruby, Scala, and Rust.</p>
      </section>
    </article>
      <footer>

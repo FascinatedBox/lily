@@ -1,0 +1,114 @@
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <script src="modernizr-1.5.js"></script>
+    <link href="lily_style.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <img src="logo.png">
+      <h1>Lily</h1>
+    </header>
+
+    <aside>
+      <ul>
+        <li>Home</li>
+        <li><a href="index.html">Introducing Lily</a></li>
+        <li><a href="getting_started.html">Getting Started</a></li>
+      </ul>
+      <ul>
+        <li>Core</li>
+        <li><a href="syntax.html">Syntax</a></li>
+        <li><a href="control_flow.html">Control flow</a></li>
+        <li><a href="functions.html">Functions</a></li>
+        <li><a href="builtin_types.html">Builtin types</a></li>
+        <li><a href="generics.html">Generics</a></li>
+        <li><a href="classes.html">Classes</a></li>
+        <li><a href="enums.html">Enums</a></li>
+        <li><a href="lambdas.html">Lambdas</a></li>
+        <li><a href="error_handling.html">Error Handling</a></li>
+        <li><a href="import.html">Importing</a></li>
+      </ul>
+      <ul>
+        <li>Class Reference</li>
+        <li><a href="boolean_type.html">boolean</a></li>
+        <li><a href="integer_type.html">integer</a></li>
+        <li><a href="bytestring_type.html">bytestring</a></li>
+        <li><a href="string_type.html">string</a></li>
+        <li><a href="function_type.html">function</a></li>
+        <li><a href="list_type.html">list</a></li>
+        <li><a href="hash_type.html">hash</a></li>
+        <li><a href="tuple_type.html">tuple</a></li>
+        <li><a href="any_type.html">any</a></li>
+        <li><a href="exception_type.html">Exception</a></li>
+      </ul>
+      <ul>
+        <li>Reference</li>
+        <li><a href="sys.html">sys</a></li>
+        <li><a href="server.html">server</a></li>
+        <li><a href="postgre.html">postgre</a></li>
+        <li><a href="builtin_library.html">builtins</a></li>
+      </ul>
+    </aside>
+   <article>
+     <section>
+<h1>server</h1>
+<p>This package provides a means of accessing data from the Apache web server in a way that doesn't rely on the internals of it.</p>
+<p>This module will be getting a facelift by the end of this release.</p>
+<h1>Getting Apache to serve Lily files</h1>
+<p>This is not a default module. To build this module, you will first need to acquire Apache's development headers. Once that is done, execute <code>cmake -DWITH_APACHE=ON</code>. You can then execute the typical make and make install. The make install step will install the 'mod_lily.so' library in Apache's module directory.</p>
+<p>You'll now need to edit Apache's configuration file so that it knows how to load the mod_lily library, and to tell it what directories are to be handled using this module. You will likely need root privilege on your system (assuming it's a Linux-style system).</p>
+<p>On my system, the configuration file is located here: <code>/etc/httpd/conf/httpd.conf</code></p>
+<p>For the first task, find an area that mentions 'Dynamic Shared Object (DSO) Support'. You'll need to write in a command to load the Lily library, which was just added to Apache's modules.</p>
+<p><code>LoadModule lily_module modules/mod_lily.so</code></p>
+<p>You'll now need to specify a directory that will be serving Lily files. I managed to get the whole of the cgi-bin directory to serve Lily files using the following configuration, nowhere in particular within Apache's same configuration file.</p>
+<p><code>&lt;Directory "/var/www/cgi-bin/"&gt;
+    SetHandler lily
+    Options +ExecCGI
+&lt;/Directory&gt;</code></p>
+<p>You'll now need to either reboot Apache. The server should come back up, and report no errors.</p>
+<p>In the event of an error (particularly "undefined symbol suchandsuch"), that is a bug in Lily, and I would appeciate a bug report.</p>
+<p>However, if that is not the case, you should be able to serve Lily files now</p>
+<h1>Actually serving Lily files</h1>
+<p>If you've used PHP, it's about the same. When run from Apache, the interpreter is put into tagged mode. This means that it expects code to be between <code>&lt;?lily ... ?&gt;</code> tags, and everything else will be sent to the client as pure html. There are some differences between Lily and PHP though:</p>
+<ul>
+<li>
+<p>Files that Lily imports are imported in code-only mode. This means it is impossible to import a file that will accidentally send headers. This also forces a separation between files that have html and are to be served, and files that are not meant to be served.</p>
+</li>
+<li>
+<p>Files that Lily is to serve must have <code>&lt;?lily</code> as the absolute first part of them, even if it is empty. If this is not present at the absolute beginning of the file, Lily will refuse to serve it. This is to prevent the first tag coming in after headers are sent, and also to prevent serving files that are just code.</p>
+</li>
+<li>
+<p>Lily exposes server variables as being within a server namespace, rather than as superglobals.</p>
+</li>
+<li>
+<p>Lily employs a technique called dynaloading. If there is no reference to, say, the <code>server::post</code> variable anywhere in the code, then the server's post information will not be loaded into Lily at all.</p>
+</li>
+</ul>
+<h1>Classes</h1>
+<p>This module does not have any classes.</p>
+<h1>Methods</h1>
+<p>This module does not have any methods.</p>
+<h1>Variables</h1>
+<p><code>server::post: hash[string, string]</code></p>
+<p>This contains all variables that were sent to the server using HTTP post. If no variables were sent, then this is empty.</p>
+<p><code>server::env: hash[string, string]</code></p>
+<p>This contains the server's environment variables</p>
+<p><code>server::get: hash[string, string]</code></p>
+<p>This contains all variables that were sent to the server using HTTP get.</p>
+<p><code>server::httpmethod: string</code></p>
+<p>The http method that was used, in all caps. Common values are POST, GET, PUT, and DELETE</p>
+     </section>
+   </article>
+     <footer>
+      <p>
+Lily is designed by Jesse Ray Adkins (<a href="https://github.com/jesserayadkins">Github</a>,
+<a href="http://www.reddit.com/user/jesserayadkins">Reddit</a>).
+      </p>
+      <br />
+      <p>
+Logo source: <a href="http://sweetclipart.com/three-white-calla-lilies-1015">here</a>, via <a href="http://sweetclipart.com">sweetclipart.com</a>.
+      </p>
+    </footer>
+</body>
+</html>

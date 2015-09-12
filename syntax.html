@@ -52,45 +52,39 @@
     </aside>
    <article>
      <section>
-<h1>Introducing Lily</h1>
-<p>Lily is an interpreted language that features static typing that's there to help you, rather than to get in the way. It mixes ideas from a number of languages, notably Scala, Rust, Ruby, and Python. </p>
-<p>By default, Lily will treat the entire source file as being code, and run it. This is called standalone mode. The alternative is tag mode. In tag mode, the interpreter will process anything between <code>&lt;?lily ... ?&gt;</code> as code, and anything outside as raw HTML.</p>
+<h1>Syntax</h1>
+<p>Lily's syntax is likely to seem familiar to those who come from Python, Ruby, or other interpreted languages. First, and most importantly, there are no semicolons. Instead, Lily infers where a statement should end based on matching parentheses and determining where values apply:</p>
 <p>```
-define is_integer(input: string =&gt; boolean)
-{
-    try: {
-        input.to_i()
-        return true
-    except Exception:
-        return false
-    }
-}</p>
-<h1>Inferred type: list of strings (list[string])</h1>
-<p>var to_convert = ["123", "99", "10pigs", "asdf"]</p>
-<h1>Drop the ones that can't be converted to integers.</h1>
-<p>to_convert.select(is_integer)</p>
-<h1>Inferred type: list[integer]</h1>
-<p>var integer_list = to_convert.map{|s| s.to_i()}</p>
-<p>print(integer_list)
+print(
+    "Hello")</p>
+<p>print("World")
 ```</p>
-<p>Features:</p>
-<ul>
-<li>
-<p>Types that doesn't get in the way. A variable's type is determined by the first thing it's assigned to. Beyond that, Lily uses type inference so that the types (and the safety they provide) is still there.</p>
-</li>
-<li>
-<p>Code from different files is imported into a namespace. No worries about global namespace pollution between different files.</p>
-</li>
-<li>
-<p>Exceptions are baked into the language, and into the core library. No error codes.</p>
-</li>
-<li>
-<p>Lily employs a technique called dynaload throughout the interpreter. It won't load information about functions, unless it can verify that a given function will be used. This allows a simple 'Hello World' script to run in under 9K of memory.</p>
-</li>
-<li>
-<p>Lily is very fast. The test suite has 350 tests, and a separate instance of the interpreter is booted up for each one. The test runner executes all of these tests in under three seconds.</p>
-</li>
-</ul>
+<p>Since 'print' is a value, the second 'print' command is inferred to be the beginning of a different expression, instead of applying to the previous expression.</p>
+<h1>Comments</h1>
+<p>There are two kinds of comments in Lily:</p>
+<p>```</p>
+<h1>This comment covers a single line.</h1>
+<h1>[ This</h1>
+<p>covers
+   multiple
+   lines ]#
+```</p>
+<p>Multi-line comments do <strong>not</strong> nest.</p>
+<h1>Identifiers</h1>
+<p>Identifiers must start with _ or a letter. But after that, numbers are allowed. Spaces are not okay though. Capital letters and underscores have no special meaning. As a fun note, utf-8 can be used in identifiers.</p>
+<p><code>_i_like_pie
+camelCase
+abc123
+I□UNICODE</code></p>
+<h1>Special words</h1>
+<p>Lily reserves the following words:</p>
+<p><code>__file__ __function__ __line__ break case class continue define do elif
+else enum except false for if import match private protected raise return
+self true try var while</code></p>
+<p>The first three keywords are extra interesting:</p>
+<p><code>__line__</code> will always evaluate to the line of the current file.</p>
+<p><code>__function__</code> will always evaluate to the name of the name of the current function.</p>
+<p><code>__file__</code> will always evaluate to the name of the current file.</p>
      </section>
    </article>
      <footer>

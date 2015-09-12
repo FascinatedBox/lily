@@ -1,0 +1,123 @@
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <script src="modernizr-1.5.js"></script>
+    <link href="lily_style.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <img src="logo.png">
+      <h1>Lily</h1>
+    </header>
+
+    <aside>
+      <ul>
+        <li>Home</li>
+        <li><a href="index.html">Introducing Lily</a></li>
+        <li><a href="getting_started.html">Getting Started</a></li>
+      </ul>
+      <ul>
+        <li>Core</li>
+        <li><a href="syntax.html">Syntax</a></li>
+        <li><a href="control_flow.html">Control flow</a></li>
+        <li><a href="functions.html">Functions</a></li>
+        <li><a href="builtin_types.html">Builtin types</a></li>
+        <li><a href="generics.html">Generics</a></li>
+        <li><a href="classes.html">Classes</a></li>
+        <li><a href="enums.html">Enums</a></li>
+        <li><a href="lambdas.html">Lambdas</a></li>
+        <li><a href="error_handling.html">Error Handling</a></li>
+        <li><a href="import.html">Importing</a></li>
+      </ul>
+      <ul>
+        <li>Class Reference</li>
+        <li><a href="boolean_type.html">boolean</a></li>
+        <li><a href="integer_type.html">integer</a></li>
+        <li><a href="bytestring_type.html">bytestring</a></li>
+        <li><a href="string_type.html">string</a></li>
+        <li><a href="function_type.html">function</a></li>
+        <li><a href="list_type.html">list</a></li>
+        <li><a href="hash_type.html">hash</a></li>
+        <li><a href="tuple_type.html">tuple</a></li>
+        <li><a href="any_type.html">any</a></li>
+        <li><a href="exception_type.html">Exception</a></li>
+      </ul>
+      <ul>
+        <li>Reference</li>
+        <li><a href="sys.html">sys</a></li>
+        <li><a href="server.html">server</a></li>
+        <li><a href="postgre.html">postgre</a></li>
+        <li><a href="builtin_library.html">builtins</a></li>
+      </ul>
+    </aside>
+   <article>
+     <section>
+<h1>Generics</h1>
+<p>Generics offer a way to define a single function or class that is able to handle various kinds of data types (as long as they are consistent. Lily's generics are done through 'parametric polymorphism'. Think of it as an algebra of sorts, but for types.</p>
+<p>Let's start off with a simple example:</p>
+<p><code>define show_elements[A](l: list[A])
+{
+    for i in 0...l.size() - 1:
+        show(l[i])
+}</code></p>
+<p>This defines a function which can show the elements of a list. To use a generic type, it must first be listed using square braces, right after the function name. Lily also requires that generic types are from 'A' to 'Z'. These serve as placeholders for types.</p>
+<p>In the actual function, <code>A</code> will be replaced by a type. For this generic function to work right, time <code>A</code> is required, the same thing must be given. Here's some examples of calling the above function:</p>
+<p>```</p>
+<h1>Expected: list[A]</h1>
+<h1>Got: list[integer]</h1>
+<h1>Valid: A is always integer</h1>
+<p>show_elements([1, 2, 3])</p>
+<h1>Invalid: Expected list[A], but got integer</h1>
+<h1>show_elements(10)</h1>
+<h1>This next example might seem as if it would fail.</h1>
+<h1>However, the 'default to any' occurs before the type check.</h1>
+<h1>Expected: list[A]</h1>
+<h1>Got: list[any]</h1>
+<h1>Valid: A is always any</h1>
+<p>show_elements([1, "2", [3]])
+```</p>
+<p>A more interesting example can be found in the list::append function. This is defined as <code>function(list[A], A)</code>. That type is what is used to prevent elements of the wrong type from being added to a list. Here are some examples of it:</p>
+<p>```
+var int_list = [1, 2, 3]</p>
+<h1>Expected list[A], and A.</h1>
+<h1>Received list[integer], and integer.</h1>
+<h1>Valid: A is always integer.</h1>
+<p>int_list.append(4)</p>
+<p>var tuple_list = [&lt;[1, [2], "3"]&gt;]</p>
+<h1>Still valid, like above.</h1>
+<p>tuple_list.append(&lt;[7, [8, 9], "10"]&gt;)</p>
+<h1>Since there is nothing to infer from, this defaults to <code>list[any]</code></h1>
+<p>var any_list = []</p>
+<h1>These are not type any, but 'default to any' comes before type checking.</h1>
+<h1>Both of these will work.</h1>
+<p>any_list.append(10)
+any_list.append("20")
+```</p>
+<p>Generics can also be used as a means to transform values from one type to another</p>
+<p>```
+define f<a href="input: A, f: function(A =&gt; B) =&gt; B">A, B</a>
+{
+    return f(input)
+}</p>
+<h1>This is valid:</h1>
+<h1>The first parameter wants A, and gets integer.</h1>
+<h1>The second parameter wants something from A to B.</h1>
+<h1>A is still integer, and B is discovered to be string.</h1>
+<h1>This is a type-safe way to transform a value.</h1>
+<p>f(10, integer::to_s)
+```</p>
+<p>Generics do have some caveats, however. You can't call any methods on a generic type, compare them, or initialize them with a concrete type. They also cannot have default values. However, even with those restrictions, it is easy to create functions that serve many uses while retaining full type safety.</p>
+     </section>
+   </article>
+     <footer>
+      <p>
+Lily is designed by Jesse Ray Adkins (<a href="https://github.com/jesserayadkins">Github</a>,
+<a href="http://www.reddit.com/user/jesserayadkins">Reddit</a>).
+      </p>
+      <br />
+      <p>
+Logo source: <a href="http://sweetclipart.com/three-white-calla-lilies-1015">here</a>, via <a href="http://sweetclipart.com">sweetclipart.com</a>.
+      </p>
+    </footer>
+</body>
+</html>

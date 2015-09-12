@@ -1,0 +1,140 @@
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <script src="modernizr-1.5.js"></script>
+    <link href="lily_style.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <img src="logo.png">
+      <h1>Lily</h1>
+    </header>
+
+    <aside>
+      <ul>
+        <li>Home</li>
+        <li><a href="index.html">Introducing Lily</a></li>
+        <li><a href="getting_started.html">Getting Started</a></li>
+      </ul>
+      <ul>
+        <li>Core</li>
+        <li><a href="syntax.html">Syntax</a></li>
+        <li><a href="control_flow.html">Control flow</a></li>
+        <li><a href="functions.html">Functions</a></li>
+        <li><a href="builtin_types.html">Builtin types</a></li>
+        <li><a href="generics.html">Generics</a></li>
+        <li><a href="classes.html">Classes</a></li>
+        <li><a href="enums.html">Enums</a></li>
+        <li><a href="lambdas.html">Lambdas</a></li>
+        <li><a href="error_handling.html">Error Handling</a></li>
+        <li><a href="import.html">Importing</a></li>
+      </ul>
+      <ul>
+        <li>Class Reference</li>
+        <li><a href="boolean_type.html">boolean</a></li>
+        <li><a href="integer_type.html">integer</a></li>
+        <li><a href="bytestring_type.html">bytestring</a></li>
+        <li><a href="string_type.html">string</a></li>
+        <li><a href="function_type.html">function</a></li>
+        <li><a href="list_type.html">list</a></li>
+        <li><a href="hash_type.html">hash</a></li>
+        <li><a href="tuple_type.html">tuple</a></li>
+        <li><a href="any_type.html">any</a></li>
+        <li><a href="exception_type.html">Exception</a></li>
+      </ul>
+      <ul>
+        <li>Reference</li>
+        <li><a href="sys.html">sys</a></li>
+        <li><a href="server.html">server</a></li>
+        <li><a href="postgre.html">postgre</a></li>
+        <li><a href="builtin_library.html">builtins</a></li>
+      </ul>
+    </aside>
+   <article>
+     <section>
+<h1>Classes</h1>
+<p>While Lily does borrow lots of inspiration from more functional languages, it also provides facilities for the creation of user-defined classes. First, here is a class to represent a 2-dimensional point, perhaps on a grid or screen of some sort:</p>
+<p>```
+class Point2D(x: integer, y: integer)
+{
+    var @x = x
+    var @y = y</p>
+<pre><code>define increase(amount: integer) {
+    @x += amount
+    @y += amount
+}
+</code></pre>
+<p>}
+```</p>
+<p>One of the nice things about Lily is that you don't need to declare variables in one area, and then create a constructor in another area. Instead, the statements inside the body of the class are what is used to construct it. The body of the class becomes the constructor, and can be used through <code>&lt;classname&gt;::new</code>. In this case, <code>Point2D::new</code>.</p>
+<p>Lily's class members are referenced using the <code>@</code> prefix. For those familiar with more object-oriented languages, <code>@x</code> is synonymous with <code>this.x</code> or <code>self.x</code>.</p>
+<p>Class members, such as increase, will automatically get an instance of the current class as their first parameter, and can thus refer to class members without explicitly listing self.</p>
+<p>Here are some examples of the newly-created class</p>
+<p>```
+var v = Point2D::new(10, 20)
+v.increase(10) # v.x == 20, v.y == 30</p>
+<p>var points = [Point2D::new(1, 2), Point2D::new(3, 4)]</p>
+<h1>Point2D's x and y are both public so...</h1>
+<p>define swap_point_xy(input: Point2D)
+{
+    var temp = input.x
+    input.x = input.y
+    input.y = temp
+}
+```</p>
+<p>Since both methods of a class, and parameters of a class are usable through a dot syntax, Lily imposes the restriction that a class parameter and a class method cannot both share the same name.</p>
+<h1>Inheritance</h1>
+<p>A class can opt to inherit from one, and only one class. Currently, the only built-in class that can be inherited from is Exception. </p>
+<p>Here's an example of how to inherit from the previously-declared class:</p>
+<p>```
+class Point3D(x: integer, y: integer, z: integer) &gt; Point2D(x, y)
+{
+    var @z = z
+}</p>
+<p>var v = Point3D::new(10, 20, 30)</p>
+<h1>Using an inherited method</h1>
+<p>v.increase(5) # Point3D has values '15, 25, and 30'.
+```</p>
+<p>Lily also allows marking both class methods and variables as being either protected or private. There is no <code>public</code> keyword, because class methods and variables are public by default.</p>
+<p>```
+class Point2D(x: integer, y: integer)
+{
+    protected var @x = x
+    protected var @y = y
+    define increase(amount: integer) {
+        @x += amount
+        @y += amount
+    }
+}</p>
+<p>var v = Point2D::new(10, 20)</p>
+<h1>Syntax Error: @x is protected within Point2D</h1>
+<h1>v.x = 20</h1>
+<p>v.increase(10) # v.x == 20, v.y == 30
+```</p>
+<h1>Limitations</h1>
+<p>Since Lily is a work-in-progress, there are some limitations for classes:</p>
+<ul>
+<li>
+<p>There is no support for virtual functions. However, there are plans to do so in the future, through a C#-styled opt-in.</p>
+</li>
+<li>
+<p>There are no traits to constrain classes with just yet.</p>
+</li>
+<li>
+<p>Methods cannot be overloaded. This may be fixed in the future, unless it interferes greatly with type inference or requires a lot of casting. Thus far, signs for this point to no.</p>
+</li>
+</ul>
+     </section>
+   </article>
+     <footer>
+      <p>
+Lily is designed by Jesse Ray Adkins (<a href="https://github.com/jesserayadkins">Github</a>,
+<a href="http://www.reddit.com/user/jesserayadkins">Reddit</a>).
+      </p>
+      <br />
+      <p>
+Logo source: <a href="http://sweetclipart.com/three-white-calla-lilies-1015">here</a>, via <a href="http://sweetclipart.com">sweetclipart.com</a>.
+      </p>
+    </footer>
+</body>
+</html>

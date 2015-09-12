@@ -1,0 +1,108 @@
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <script src="modernizr-1.5.js"></script>
+    <link href="lily_style.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <img src="logo.png">
+      <h1>Lily</h1>
+    </header>
+
+    <aside>
+      <ul>
+        <li>Home</li>
+        <li><a href="index.html">Introducing Lily</a></li>
+        <li><a href="getting_started.html">Getting Started</a></li>
+      </ul>
+      <ul>
+        <li>Core</li>
+        <li><a href="syntax.html">Syntax</a></li>
+        <li><a href="control_flow.html">Control flow</a></li>
+        <li><a href="functions.html">Functions</a></li>
+        <li><a href="builtin_types.html">Builtin types</a></li>
+        <li><a href="generics.html">Generics</a></li>
+        <li><a href="classes.html">Classes</a></li>
+        <li><a href="enums.html">Enums</a></li>
+        <li><a href="lambdas.html">Lambdas</a></li>
+        <li><a href="error_handling.html">Error Handling</a></li>
+        <li><a href="import.html">Importing</a></li>
+      </ul>
+      <ul>
+        <li>Class Reference</li>
+        <li><a href="boolean_type.html">boolean</a></li>
+        <li><a href="integer_type.html">integer</a></li>
+        <li><a href="bytestring_type.html">bytestring</a></li>
+        <li><a href="string_type.html">string</a></li>
+        <li><a href="function_type.html">function</a></li>
+        <li><a href="list_type.html">list</a></li>
+        <li><a href="hash_type.html">hash</a></li>
+        <li><a href="tuple_type.html">tuple</a></li>
+        <li><a href="any_type.html">any</a></li>
+        <li><a href="exception_type.html">Exception</a></li>
+      </ul>
+      <ul>
+        <li>Reference</li>
+        <li><a href="sys.html">sys</a></li>
+        <li><a href="server.html">server</a></li>
+        <li><a href="postgre.html">postgre</a></li>
+        <li><a href="builtin_library.html">builtins</a></li>
+      </ul>
+    </aside>
+   <article>
+     <section>
+<h1>Builtin functions</h1>
+<p>These functions are built into Lily, and are always available from any scope without doing any importing.</p>
+<h1>Functions</h1>
+<p><code>print[A](input: A)</code></p>
+<p>Convert the value given into a string. Currently, this is done through an internal stringification process.</p>
+<p>If Lily is running from Apache, then this will add content to the current page.</p>
+<p>In any other case, this will write to stdout.</p>
+<p><code>printfmt(string: format, list[any] args...)</code></p>
+<p>This is like print, except that it allows <code>%</code> modifiers to indicate replacements. </p>
+<p>The following modifiers are supported:</p>
+<ul>
+<li>
+<p><code>%d</code>: Convert an integer value.</p>
+</li>
+<li>
+<p><code>%f</code>: Convert a double value.</p>
+</li>
+<li>
+<p><code>%s</code>: Convert anything to a string. This is currently a work-in-progress, as Lily has a crude mechanism for converting anything into a string. However, because Lily lacks virtual calls, it is unwise to use this for anything but built-in types such as lists and hashes.</p>
+</li>
+</ul>
+<p>If there are more format specifiers than arguments, then <code>ValueError</code> is raised.</p>
+<p>This function is deprecated. It will be superceded by string interpolation.</p>
+<p><code>calltrace( =&gt; list[tuple[string, string, integer]])</code></p>
+<p>This returns a description of the current call stack, but as a tuple so that it's annoying and complicated to deal with.</p>
+<p>There are plans to change the output to <code>list[string]</code> instead.</p>
+<p><code>show[A](value: A)</code></p>
+<p>This function prints a value to the current stdout (or the server if running from Apache). Instead of using the internal stringification routine that everything else does, it descends into values.</p>
+<p>For lists, hashes, and tuples, it will print every value within.</p>
+<p>For type any and enums, it will print the contents.</p>
+<p>For native functions, it will print a "readable" output of the function's bytecode. This is handy for debugging if something is running incorrectly because of an emitting error, or a vm error.</p>
+<p>For classes, it will print the contents of the class, as well as if the contents are private or protected. For classes that inherit from another, it will tell where the property came from.</p>
+<p>This function is aware of circular references, and will write '(circular)' instead of printing a value in that case.</p>
+<h1>Variables</h1>
+<p><code>stdout: file</code></p>
+<p>This is a wrapper around C's stdout.</p>
+<p><code>stderr: file</code></p>
+<p>This is a wrapper around C's stderr.</p>
+<p><code>stdin: file</code></p>
+<p>This is a wrapper around C's stdin.</p>
+     </section>
+   </article>
+     <footer>
+      <p>
+Lily is designed by Jesse Ray Adkins (<a href="https://github.com/jesserayadkins">Github</a>,
+<a href="http://www.reddit.com/user/jesserayadkins">Reddit</a>).
+      </p>
+      <br />
+      <p>
+Logo source: <a href="http://sweetclipart.com/three-white-calla-lilies-1015">here</a>, via <a href="http://sweetclipart.com">sweetclipart.com</a>.
+      </p>
+    </footer>
+</body>
+</html>

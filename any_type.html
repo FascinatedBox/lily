@@ -52,45 +52,16 @@
     </aside>
    <article>
      <section>
-<h1>Introducing Lily</h1>
-<p>Lily is an interpreted language that features static typing that's there to help you, rather than to get in the way. It mixes ideas from a number of languages, notably Scala, Rust, Ruby, and Python. </p>
-<p>By default, Lily will treat the entire source file as being code, and run it. This is called standalone mode. The alternative is tag mode. In tag mode, the interpreter will process anything between <code>&lt;?lily ... ?&gt;</code> as code, and anything outside as raw HTML.</p>
-<p>```
-define is_integer(input: string =&gt; boolean)
-{
-    try: {
-        input.to_i()
-        return true
-    except Exception:
-        return false
-    }
-}</p>
-<h1>Inferred type: list of strings (list[string])</h1>
-<p>var to_convert = ["123", "99", "10pigs", "asdf"]</p>
-<h1>Drop the ones that can't be converted to integers.</h1>
-<p>to_convert.select(is_integer)</p>
-<h1>Inferred type: list[integer]</h1>
-<p>var integer_list = to_convert.map{|s| s.to_i()}</p>
-<p>print(integer_list)
-```</p>
-<p>Features:</p>
-<ul>
-<li>
-<p>Types that doesn't get in the way. A variable's type is determined by the first thing it's assigned to. Beyond that, Lily uses type inference so that the types (and the safety they provide) is still there.</p>
-</li>
-<li>
-<p>Code from different files is imported into a namespace. No worries about global namespace pollution between different files.</p>
-</li>
-<li>
-<p>Exceptions are baked into the language, and into the core library. No error codes.</p>
-</li>
-<li>
-<p>Lily employs a technique called dynaload throughout the interpreter. It won't load information about functions, unless it can verify that a given function will be used. This allows a simple 'Hello World' script to run in under 9K of memory.</p>
-</li>
-<li>
-<p>Lily is very fast. The test suite has 350 tests, and a separate instance of the interpreter is booted up for each one. The test runner executes all of these tests in under three seconds.</p>
-</li>
-</ul>
+<h1>any</h1>
+<p>The any type is a container that allows any value to be placed inside of itself. It is commonly used as a fallback type, such as when trying to build a list or a hash where the values are of mixed types.</p>
+<p>Plain values of type any can only be created by annotating a variable before assigning it <code>var some_any: any = 10</code>.</p>
+<p>To recover values from type any, it is necessary to do a typecast like so: <code>some_any.@(integer)</code>. If this typecast happens to be incorrect, Lily will raise <code>BadTypecastError</code>.</p>
+<p>If a function parameter specifies type any, then parameters sent to it will be coerced into type any automatically. However, if the function takes, say, <code>list[any]</code> and is given <code>list[integer]</code>, that is a syntax error (it cannot be guaranteed that the function will not append in type any into the list of integers).</p>
+<h1>Operations</h1>
+<p>Binary: <code>!=</code> <code>==</code></p>
+<p>any equality is done by deep equality. If a value of type any contains a circular reference, then a comparison will raise <code>RuntimeError</code>.</p>
+<h1>Methods</h1>
+<p>This class has no methods.</p>
      </section>
    </article>
      <footer>

@@ -1,0 +1,96 @@
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <script src="modernizr-1.5.js"></script>
+    <link href="lily_style.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <img src="logo.png">
+      <h1>Lily</h1>
+    </header>
+
+    <aside>
+      <ul>
+        <li>Home</li>
+        <li><a href="index.html">Introducing Lily</a></li>
+        <li><a href="getting_started.html">Getting Started</a></li>
+      </ul>
+      <ul>
+        <li>Core</li>
+        <li><a href="syntax.html">Syntax</a></li>
+        <li><a href="control_flow.html">Control flow</a></li>
+        <li><a href="functions.html">Functions</a></li>
+        <li><a href="builtin_types.html">Builtin types</a></li>
+        <li><a href="generics.html">Generics</a></li>
+        <li><a href="classes.html">Classes</a></li>
+        <li><a href="enums.html">Enums</a></li>
+        <li><a href="lambdas.html">Lambdas</a></li>
+        <li><a href="error_handling.html">Error Handling</a></li>
+        <li><a href="import.html">Importing</a></li>
+      </ul>
+      <ul>
+        <li>Class Reference</li>
+        <li><a href="boolean_type.html">boolean</a></li>
+        <li><a href="integer_type.html">integer</a></li>
+        <li><a href="bytestring_type.html">bytestring</a></li>
+        <li><a href="string_type.html">string</a></li>
+        <li><a href="function_type.html">function</a></li>
+        <li><a href="list_type.html">list</a></li>
+        <li><a href="hash_type.html">hash</a></li>
+        <li><a href="tuple_type.html">tuple</a></li>
+        <li><a href="any_type.html">any</a></li>
+        <li><a href="exception_type.html">Exception</a></li>
+      </ul>
+      <ul>
+        <li>Reference</li>
+        <li><a href="sys.html">sys</a></li>
+        <li><a href="server.html">server</a></li>
+        <li><a href="postgre.html">postgre</a></li>
+        <li><a href="builtin_library.html">builtins</a></li>
+      </ul>
+    </aside>
+   <article>
+     <section>
+<h1>postgre</h1>
+<p>The postgre package allows access to the postgres database. This API provides a way of doing the most basic querying of the database, and little else. There are plans to expand this module.</p>
+<p>This is not a default module. To build this module, you will first need to get development headers for the C library libpq. Once you've done that, then execute <code>cmake -DWITH_POSTGRE=ON</code>. You may then use make and make install to install the lily postgres library.</p>
+<p>This library is very incomplete, and will receive a facelift in the near future.</p>
+<h1>Variables</h1>
+<p>This package does not provide any top-level variables.</p>
+<h1>Functions</h1>
+<p>This package does not provide any top-level functions.</p>
+<h1>Classes</h1>
+<p>Note: The classes that this module exports are considered 'built-in', and thus unable to be inherited from. This may change in a future release of Lily.</p>
+<h2>Error</h2>
+<p>Exceptions of this class are raised when there is an error of some sort calling a function defined within here. In the future, this error will be accompanied by others.</p>
+<p>This class inherits directly from Lily's core Exception class.</p>
+<h2>Conn</h2>
+<p><code>Conn::new(*host: string="", *port: string="", *dbname: string="", *login: string="", *password: string="" =&gt; Conn)</code></p>
+<p>Attempt to initialize a new connection to the database. To use the defaults, either don't pass an argument, or pass an empty string to them. Host and port will default such that the connection will target localhost.</p>
+<p>If unable to connect to the database, the Error class above is raised, with the message describing the issue.</p>
+<p>This connection is a synchronous, blocking connection to postgre. It can be used to execute extremely limited queries and fetching from the database.</p>
+<p><code>Conn::query(self: Conn, format: string, args: list[string] =&gt; Result)</code></p>
+<p>This executes a query against the database, and stores the result of that query into a Result object. The format string is not in postgre's format, but instead operates on familiar ? replacement.</p>
+<p>Example:</p>
+<p><code>conn.query("select * from ? where name like ?", "employees", "Bob")</code></p>
+<p>If the query request asks for more args than what are given, then FormatError is raised.</p>
+<p>If the query is invalid, or returns a result that Lily does not understand, then the Error class mentioned above is raised.</p>
+<h2>Request</h2>
+<p><code>Result::fetchrow(self: Result =&gt; list[string])</code></p>
+<p>Fetch a new row from the given result. If the Result does not contain any rows, or all rows have currently been read, then the <code>Error</code> class is raised. Each column's data is then converted into a string.</p>
+<p>Lily represents a null column value with the string <code>(null)</code>, as Lily does not allow a variable to not be initialized. It is thus not possible to determine if a text-based column actually contains <code>(null)</code>, or has a string with the value <code>(null)</code>.</p>
+     </section>
+   </article>
+     <footer>
+      <p>
+Lily is designed by Jesse Ray Adkins (<a href="https://github.com/jesserayadkins">Github</a>,
+<a href="http://www.reddit.com/user/jesserayadkins">Reddit</a>).
+      </p>
+      <br />
+      <p>
+Logo source: <a href="http://sweetclipart.com/three-white-calla-lilies-1015">here</a>, via <a href="http://sweetclipart.com">sweetclipart.com</a>.
+      </p>
+    </footer>
+</body>
+</html>

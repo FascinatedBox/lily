@@ -1,0 +1,158 @@
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <script src="modernizr-1.5.js"></script>
+    <link href="lily_style.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <img src="logo.png">
+      <h1>Lily</h1>
+    </header>
+
+    <aside>
+      <ul>
+        <li>Home</li>
+        <li><a href="index.html">Introducing Lily</a></li>
+        <li><a href="getting_started.html">Getting Started</a></li>
+      </ul>
+      <ul>
+        <li>Core</li>
+        <li><a href="syntax.html">Syntax</a></li>
+        <li><a href="control_flow.html">Control flow</a></li>
+        <li><a href="functions.html">Functions</a></li>
+        <li><a href="builtin_types.html">Builtin types</a></li>
+        <li><a href="generics.html">Generics</a></li>
+        <li><a href="classes.html">Classes</a></li>
+        <li><a href="enums.html">Enums</a></li>
+        <li><a href="lambdas.html">Lambdas</a></li>
+        <li><a href="error_handling.html">Error Handling</a></li>
+        <li><a href="import.html">Importing</a></li>
+      </ul>
+      <ul>
+        <li>Class Reference</li>
+        <li><a href="boolean_type.html">boolean</a></li>
+        <li><a href="integer_type.html">integer</a></li>
+        <li><a href="bytestring_type.html">bytestring</a></li>
+        <li><a href="string_type.html">string</a></li>
+        <li><a href="function_type.html">function</a></li>
+        <li><a href="list_type.html">list</a></li>
+        <li><a href="hash_type.html">hash</a></li>
+        <li><a href="tuple_type.html">tuple</a></li>
+        <li><a href="any_type.html">any</a></li>
+        <li><a href="exception_type.html">Exception</a></li>
+      </ul>
+      <ul>
+        <li>Reference</li>
+        <li><a href="sys.html">sys</a></li>
+        <li><a href="server.html">server</a></li>
+        <li><a href="postgre.html">postgre</a></li>
+        <li><a href="builtin_library.html">builtins</a></li>
+      </ul>
+    </aside>
+   <article>
+     <section>
+<h1>import</h1>
+<p>It's hard to write a useful program without being able to include other files. Lily allows the inclusion of other files using <code>import</code>.</p>
+<p>```</p>
+<h1>fib.lly</h1>
+<p>define fib(n: integer =&gt; integer)
+{
+    if n &lt; 2:
+        return n
+    else:
+        return fib(n + 1) + fib(n - 1)
+}</p>
+<p>var example = 1</p>
+<h1>other.lly</h1>
+<p>import fib</p>
+<p>fib::fib(10)</p>
+<p>print(fib::example)
+```</p>
+<p>When a file is imported, the name that was given to import it acts as a namespace of sorts. Since the file was named 'fib', then the functions, classes, and variables inside of it must be accessed using that same namespace.</p>
+<p>If a module defines classes, then the classes of that module can be used in declarations:</p>
+<p>```</p>
+<h1>json.lly</h1>
+<p>class Error(message: string) &gt; Exception(message)
+{
+    ...
+}</p>
+<h1>main.lly</h1>
+<p>import json</p>
+<p>define checkJsonError(e: json::Error) { ... }</p>
+<p>try:
+    ...
+except json::Error:
+    ...
+```</p>
+<p>It's also possible to import modules using other names:</p>
+<p>```
+import fib as f</p>
+<p>f::fib(10)
+```</p>
+<h1>Modes</h1>
+<p>One may recall that Lily has two modes of being run. The normal mode is where everything is code. In the other mode, code is between <code>&lt;?lily ... ?&gt;</code> tags, and everything else is written as straight html (to apache for mod_lily, and to stdout if not).</p>
+<p>When a module is imported, it is always imported in non-tag mode. This is intentional, and has many benefits:</p>
+<ul>
+<li>
+<p>It forces a separation of concerns. One set of files contains logic, and, for tagged mode, another set contains the glue and the layout.</p>
+</li>
+<li>
+<p>You can import the same set of files, regardless of the mode you are running. Got a neat library of modules? Drag and drop them into the server.</p>
+</li>
+<li>
+<p>If Lily is run in tagged mode, it will refuse to do anything if a <code>&lt;?lily</code> starting tag is not at the very front of the first file. This prevents people from getting dumps of your code-only files.</p>
+</li>
+<li>
+<p>Since files are not imported in tagged mode, there is no chance that they will accidentally print something to the server. Ever get a 'headers already sent' in PHP because an included file accidentally had a newline? In Lily, that's simply not possible.</p>
+</li>
+</ul>
+<h1>The diamond problem</h1>
+<p>It's possible that one file will import two other files, and each of those files will import a single file between them. This common is referred to as the diamond problem, and it's a common issue with multiple inheritance. However, the issue also applies here.</p>
+<p>To explain how Lily deals with this, consider the following setup:</p>
+<p>```</p>
+<h1>four.lly</h1>
+<p>value = 10</p>
+<h1>three.lly</h1>
+<p>import four
+four::value += 1</p>
+<h1>two.lly</h1>
+<p>import four
+four::value += 1</p>
+<h1>one.lly</h1>
+<p>import two, three
+```</p>
+<p>The actions are as follows:</p>
+<ul>
+<li>
+<p>one.lly is run. This calls for an import to two.lly</p>
+</li>
+<li>
+<p>two.lly is imported, and calls to import four.lly</p>
+</li>
+<li>
+<p>four.lly is imported, and defines value as 10</p>
+</li>
+<li>
+<p>two.lly increases four::value by 1</p>
+</li>
+<li>
+<p>three.lly is imported. The call to import four.lly is ignored, because something else already imported it. four::value is still increased by 1.</p>
+</li>
+</ul>
+<p>The result is that four::value is set to 2. Lily does this by running the toplevel part of each import once, and only once.</p>
+<p>Finally, this example shows how multiple files can be imported at the same time.</p>
+     </section>
+   </article>
+     <footer>
+      <p>
+Lily is designed by Jesse Ray Adkins (<a href="https://github.com/jesserayadkins">Github</a>,
+<a href="http://www.reddit.com/user/jesserayadkins">Reddit</a>).
+      </p>
+      <br />
+      <p>
+Logo source: <a href="http://sweetclipart.com/three-white-calla-lilies-1015">here</a>, via <a href="http://sweetclipart.com">sweetclipart.com</a>.
+      </p>
+    </footer>
+</body>
+</html>
