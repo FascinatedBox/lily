@@ -21,7 +21,7 @@ template_data = template_text.split("{{body}}")
 for n in markdown_names:
     source_text = readall(n)
 
-    out_name = n.rsplit(".", 2)[0] + ".html"
+    out_name = "../html_cache/" + n.rsplit(".", 2)[0] + ".html"
     f = codecs.open(out_name, "w", encoding="utf-8", errors="xmlcharrefreplace")
     f.write(template_data[0])
     f.write(md.convert(source_text))
