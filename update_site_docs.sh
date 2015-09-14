@@ -2,8 +2,7 @@
 # branch. This script isn't designated as a git hook, because it switches
 # branches so that it can create a branch in another area.
 
-# This script carries with it some assumptions:
-# * You're on a *nix system with a shell of some sort.
+# This script has a couple assumptions:
 # * You've just committed something that updates the docs. Don't run this during
 #   a commit that updates the markdown files. Only after.
 # * You are on master, and you have the gh-pages branch cloned.
