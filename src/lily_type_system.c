@@ -101,13 +101,15 @@ void lily_ts_pull_generics(lily_type_system *ts, lily_type *left, lily_type *rig
     }
 }
 
-int lily_ts_check(lily_type_system *ts, lily_type *left, lily_type *right)
-{
-    int ret = 0;
+static int check_raw(lily_type_system *, lily_type *, lily_type *, int);
 
-    if (left == NULL || right == NULL)
+static int check_generic(lily_type_system *ts, lily_type *left,
+        lily_type *right, int solve)
+{
+    int ret;
+    if (solve == 0)
         ret = (left == right);
-    else if (left->cls->id == SYM_CLASS_GENERIC) {
+    else {
         int generic_pos = ts->pos + left->generic_pos;
         ret = 1;
         if (ts->types[generic_pos] == NULL)
@@ -115,101 +117,126 @@ int lily_ts_check(lily_type_system *ts, lily_type *left, lily_type *right)
         else if (ts->types[generic_pos] != right)
             ret = 0;
     }
-    else if (left->cls->flags & CLS_IS_ENUM &&
-             right->cls->flags & CLS_IS_VARIANT &&
-             right->cls->parent == left->cls) {
-        /* The right is an enum that is a member of the left.
-           Consider it valid if the right's types (if any) match to all the
-           types collected -so far- for the left. */
 
-        ret = 1;
+    return ret;
+}
 
-        if (right->cls->variant_type->subtype_count != 0) {
-            /* I think this is best explained as an example:
-               'enum Option[A, B] { Some(A) None }'
-               In this case, the variant type of Some is defined as:
-               'function (A => Some[A])'
-               This pulls the 'Some[A]'. */
-            lily_type *variant_output = right->cls->variant_type->subtypes[0];
-            int i;
-            /* The result is an Option[A, B], but Some only has A. Match up
-               generics that are available, to proper positions in the
-               parent. If any fail, then stop. */
-            for (i = 0;i < variant_output->subtype_count;i++) {
-                int pos = variant_output->subtypes[i]->generic_pos;
-                ret = lily_ts_check(ts, left->subtypes[pos],
-                        right->subtypes[i]);
-                if (ret == 0)
-                    break;
-            }
+static int check_enum(lily_type_system *ts, lily_type *left, lily_type *right,
+        int solve)
+{
+    int ret = 1;
+
+    if (right->cls->variant_type->subtype_count != 0) {
+        /* I think this is best explained as an example:
+            'enum Option[A, B] { Some(A) None }'
+            In this case, the variant type of Some is defined as:
+            'function (A => Some[A])'
+            This pulls the 'Some[A]'. */
+        lily_type *variant_output = right->cls->variant_type->subtypes[0];
+        int i;
+        /* The result is an Option[A, B], but Some only has A. Match up
+            generics that are available, to proper positions in the
+            parent. If any fail, then stop. */
+        for (i = 0;i < variant_output->subtype_count;i++) {
+            int pos = variant_output->subtypes[i]->generic_pos;
+            ret = check_raw(ts, left->subtypes[pos], right->subtypes[i],
+                    solve);
+            if (ret == 0)
+                break;
         }
-        /* else it takes no arguments and is automatically correct because
-           is nothing that could go wrong. */
     }
-    else if (left->cls->id == right->cls->id ||
-             lily_class_greater_eq(left->cls, right->cls)) {
-        if (right->flags & TYPE_HAS_OPTARGS) {
-            /* The right side must be a function with optional arguments, with
-               the left being a function (with/without optargs).
 
-               Allow this assignment if, typewise, the --RIGHT-- has the same
-               types as the left, then has optional arguments past that. (ex:
-               left takes 1+ arguments, right takes 2+). We're just narrowing
-               the type of the right in this case.
+    return ret;
+}
 
-               This DOES NOT work in reverse (left takes 1+ arguments, but right
-               takes just 1). */
+static int check_function(lily_type_system *ts, lily_type *left,
+        lily_type *right, int solve)
+{
+    int ret = 1;
 
-            ret = 1;
+    /* Remember that [0] is the return type, and always exists. */
+    if (check_raw(ts, left->subtypes[0], right->subtypes[0], solve) == 0)
+        ret = 0;
 
-            /* Remember that [0] is the return type, and always exists. */
-            if (lily_ts_check(ts, left->subtypes[0], right->subtypes[0]) == 0)
-                ret = 0;
+    if (left->subtype_count > right->subtype_count)
+        ret = 0;
 
-            if (left->subtype_count > right->subtype_count)
-                ret = 0;
+    if (ret) {
+        int i;
+        for (i = 1;i < left->subtype_count;i++) {
+            lily_type *left_type = left->subtypes[i];
+            lily_type *right_type = right->subtypes[i];
 
-            if (ret) {
-                int i;
-                for (i = 1;i <  left ->subtype_count;i++) {
-                    lily_type *left_type = left->subtypes[i];
-                    lily_type *right_type = right->subtypes[i];
-
-                    if (right_type->cls->id == SYM_CLASS_OPTARG &&
-                        left_type->cls->id != SYM_CLASS_OPTARG) {
-                        right_type = right_type->subtypes[0];
-                    }
-
-                    if (lily_ts_check(ts, left_type, right_type) == 0) {
-                        ret = 0;
-                        break;
-                    }
-                }
+            if (right_type->cls->id == SYM_CLASS_OPTARG &&
+                left_type->cls->id != SYM_CLASS_OPTARG) {
+                right_type = right_type->subtypes[0];
             }
-        }
-        else if ((left->cls->id == SYM_CLASS_FUNCTION &&
-                  left->subtype_count == right->subtype_count) ||
-                 left->subtype_count <= right->subtype_count) {
-            ret = 1;
 
-            lily_type **left_subtypes = left->subtypes;
-            lily_type **right_subtypes = right->subtypes;
-            int i;
-            /* Simple types have subtype_count as 0, so they'll skip this and
-               yield 1. */
-            for (i = 0;i < left->subtype_count;i++) {
-                lily_type *left_entry = left_subtypes[i];
-                lily_type *right_entry = right_subtypes[i];
-                if (left_entry != right_entry &&
-                    lily_ts_check(ts, left_entry, right_entry) == 0) {
-                    ret = 0;
-                    break;
-                }
+            if (check_raw(ts, left_type, right_type, solve) == 0) {
+                ret = 0;
+                break;
             }
         }
     }
 
     return ret;
+}
+
+static int check_misc(lily_type_system *ts, lily_type *left, lily_type *right,
+        int solve)
+{
+    int ret;
+
+    if ((left->cls->id == right->cls->id ||
+         lily_class_greater_eq(left->cls, right->cls)) &&
+        left->subtype_count <= right->subtype_count) {
+        ret = 1;
+
+        lily_type **left_subtypes = left->subtypes;
+        lily_type **right_subtypes = right->subtypes;
+        int i;
+        /* Simple types have subtype_count as 0, so they'll skip this and
+           yield 1. */
+        for (i = 0;i < left->subtype_count;i++) {
+            lily_type *left_entry = left_subtypes[i];
+            lily_type *right_entry = right_subtypes[i];
+            if (left_entry != right_entry &&
+                check_raw(ts, left_entry, right_entry, solve) == 0) {
+                ret = 0;
+                break;
+            }
+        }
+    }
+    else
+        ret = 0;
+
+    return ret;
+}
+
+int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, int solve)
+{
+    int ret = 0;
+
+    if (left == NULL || right == NULL)
+        ret = (left == right);
+    else if (left->cls->id == SYM_CLASS_GENERIC)
+        ret = check_generic(ts, left, right, solve);
+    else if (left->cls->flags & CLS_IS_ENUM &&
+             right->cls->flags & CLS_IS_VARIANT &&
+             right->cls->parent == left->cls)
+        ret = check_enum(ts, left, right, solve);
+    else if (left->cls->id == SYM_CLASS_FUNCTION &&
+             right->cls->id == SYM_CLASS_FUNCTION)
+        ret = check_function(ts, left, right, solve);
+    else
+        ret = check_misc(ts, left, right, solve);
+
+    return ret;
+}
+
+int lily_ts_check(lily_type_system *ts, lily_type *left, lily_type *right)
+{
+    return check_raw(ts, left, right, 1);
 }
 
 inline lily_type *lily_ts_easy_resolve(lily_type_system *ts, lily_type *t)
