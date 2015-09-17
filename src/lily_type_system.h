@@ -41,6 +41,11 @@ void lily_free_type_system(lily_type_system *);
    and those generics are unresolved, then right's types solve those generics. */
 int lily_ts_check(lily_type_system *, lily_type *, lily_type *);
 
+/* This is a simpler version of lily_ts check that does not validate types.
+   Use it if you need to dig out type information that has already been
+   verified. */
+void lily_ts_pull_generics(lily_type_system *, lily_type *, lily_type *);
+
 /* Given a type that IS a generic (not one that contains them), determine what
    that generic has been resolved as.
    Note: May return NULL if the generic has not really been resolved. */

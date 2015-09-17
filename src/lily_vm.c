@@ -597,7 +597,7 @@ static void resolve_generic_registers(lily_vm_state *vm,
         lily_type *left_type = ri[i].type;
         lily_type *right_type = target_regs[i]->type;
 
-        lily_ts_check(vm->ts, left_type, right_type);
+        lily_ts_pull_generics(vm->ts, left_type, right_type);
     }
 
     /* All generics now have types. The types of the rest of the registers
