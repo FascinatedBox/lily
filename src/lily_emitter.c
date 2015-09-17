@@ -2622,62 +2622,6 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     ast->result = (lily_sym *)s;
 }
 
-/*  check_proper_variant
-    Make sure that the variant has the proper inner type to satisfy the
-    type wanted by the enum. */
-static int check_proper_variant(lily_emit_state *emit, lily_type *enum_type,
-        lily_type *given_type, lily_class *variant_cls)
-{
-    lily_type *variant_type = variant_cls->variant_type;
-    int i, result = 1;
-
-    if (variant_type->subtype_count != 0) {
-        lily_type *variant_result = variant_type->subtypes[0];
-        for (i = 0;i < variant_result->subtype_count;i++) {
-            /* The variant may not have all the generics that the parent does.
-               Consider the variant to be proper if the generics that it has
-               match up to the enum type.
-               Ex: For SomeVariant[B] and SomeEnum[A, B], consider it right if
-                   the B's match. */
-            int pos = variant_result->subtypes[i]->generic_pos;
-            if (given_type->subtypes[i] != enum_type->subtypes[pos]) {
-                result = 0;
-                break;
-            }
-        }
-    }
-    /* else the variant takes no generics, and nothing can be wrong. */
-
-    return result;
-}
-
-/*  enum_membership_check
-    Given a type which is for some enum, determine if 'right' is a member of
-    the enum.
-
-    Returns 1 if yes, 0 if no. */
-static int enum_membership_check(lily_emit_state *emit, lily_type *enum_type,
-        lily_type *right)
-{
-    lily_class *variant_cls = right->cls;
-    lily_class *enum_cls = enum_type->cls;
-
-    int ok = 1;
-
-    /* A variant's parent is always the enum that it belongs to. */
-    if (variant_cls->parent == enum_cls) {
-        /* If the variant does not take arguments, then there's nothing that
-           could have been called wrong. Therefore, the use of the variant MUST
-           be correct. */
-        if (right->subtype_count != 0)
-            ok = check_proper_variant(emit, enum_type, right, variant_cls);
-    }
-    else
-        ok = 0;
-
-    return ok;
-}
-
 /*  type_matchup
     This function is called when a certain type is wanted, and a given ast
     doesn't quite satisfy the requirement.
@@ -2700,7 +2644,7 @@ static int type_matchup(lily_emit_state *emit, lily_type *want_type,
     if (want_type->cls->id == SYM_CLASS_ANY)
         emit_rebox_to_any(emit, right);
     else if (want_type->cls->flags & CLS_IS_ENUM) {
-        ret = enum_membership_check(emit, want_type, right->result->type);
+        ret = lily_ts_enum_membership_check(emit->ts, want_type, right->result->type);
         if (ret)
             emit_rebox_value(emit, want_type, right);
     }

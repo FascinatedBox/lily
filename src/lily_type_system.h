@@ -117,6 +117,10 @@ int lily_ts_raise_ceiling(lily_type_system *);
    value. */
 void lily_ts_lower_ceiling(lily_type_system *, int);
 
+/* Given an enum type (the first), determine if the second is a valid member of that
+   enum. The type 'any' should not be passed to this, as it is not a true enum. */
+int lily_ts_enum_membership_check(lily_type_system *, lily_type *, lily_type *);
+
 /* Return a count of how many types, from ts->pos to ts->ceiling, are
    unresolved. This function is used by the emitter to make sure that lambda
    arguments have all of their type information (and that resolution isn't

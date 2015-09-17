@@ -389,6 +389,18 @@ lily_type *lily_ts_build_enum_by_variant(lily_type_system *ts,
     return lily_ts_build_by_ceiling(ts, variant_type->cls->parent, i, 0);
 }
 
+int lily_ts_enum_membership_check(lily_type_system *ts, lily_type *enum_type,
+        lily_type *variant_type)
+{
+    int ret;
+    if (variant_type->cls->parent == enum_type->cls)
+        ret = check_enum(ts, enum_type, variant_type, 0);
+    else
+        ret = 0;
+
+    return ret;
+}
+
 int lily_ts_count_unresolved(lily_type_system *ts)
 {
     int count = 0, top = ts->pos + ts->ceiling;
@@ -430,7 +442,8 @@ int lily_type_greater_eq(lily_type *left, lily_type *right)
     int ret = 0;
 
     if (lily_class_greater_eq(left->cls, right->cls) &&
-        left->subtype_count <= right->subtype_count) {
+        left->subtype_count <= right->subtype_count &&
+        left->generic_pos == right->generic_pos) {
         ret = 1;
 
         lily_type **left_subtypes = left->subtypes;
