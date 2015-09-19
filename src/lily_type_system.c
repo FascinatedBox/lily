@@ -213,7 +213,7 @@ static int check_misc(lily_type_system *ts, lily_type *left, lily_type *right,
     return ret;
 }
 
-int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, int solve)
+static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, int solve)
 {
     int ret = 0;
 
