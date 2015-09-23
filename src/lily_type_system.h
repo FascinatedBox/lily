@@ -41,6 +41,10 @@ void lily_free_type_system(lily_type_system *);
    and those generics are unresolved, then right's types solve those generics. */
 int lily_ts_check(lily_type_system *, lily_type *, lily_type *);
 
+/* This uses the type system to determine if the first type can be assigned
+   to the second type. This understands variance, but will not solve any generics. */
+int lily_ts_type_greater_eq(lily_type_system *, lily_type *, lily_type *);
+
 /* This is a simpler version of lily_ts check that does not validate types.
    Use it if you need to dig out type information that has already been
    verified. */
@@ -135,11 +139,5 @@ void lily_ts_generics_seen(lily_type_system *, int);
    as the second one. This doesn't take the ts because the information needed
    is within the classes themselves. */
 int lily_class_greater_eq(lily_class *, lily_class *);
-
-/* Similar to lily_class_greater_eq, determine if the first class could be
-   considered a superset of the second class. The class to the right (except for
-   functions), must be >= to the left class, and have similar subtypes if that
-   applies. */
-int lily_type_greater_eq(lily_type *, lily_type *);
 
 #endif
