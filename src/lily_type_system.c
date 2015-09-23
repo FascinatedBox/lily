@@ -8,6 +8,21 @@
 if (new_size >= ts->max) \
     grow_types(ts);
 
+/* If this is set, then check_generic will not attempt to do solving if it encounters a
+   generic. It will instead rely on direct equality.
+   When calling a raw matcher, this must be supplied, as the default is to solve for
+   generics. */
+#define T_DONT_SOLVE 0x1
+
+/* If this is set, then consider two types to be equivalent to each other if the right
+   side provides more than the left side (something more derived).
+   As of right now, only function returns make use of this. */
+#define T_COVARIANT 0x2
+
+/* If this is set, then consider two types to be equivalent to each other if the right
+   side provides LESS than the left side (something less derived).
+   As of right now, only function inputs use this. */
+#define T_CONTRAVARIANT 0x4
 
 lily_type_system *lily_new_type_system(lily_options *options,
         lily_symtab *symtab, lily_raiser *raiser)
@@ -104,10 +119,10 @@ void lily_ts_pull_generics(lily_type_system *ts, lily_type *left, lily_type *rig
 static int check_raw(lily_type_system *, lily_type *, lily_type *, int);
 
 static int check_generic(lily_type_system *ts, lily_type *left,
-        lily_type *right, int solve)
+        lily_type *right, int flags)
 {
     int ret;
-    if (solve == 0)
+    if (flags & T_DONT_SOLVE)
         ret = (left == right);
     else {
         int generic_pos = ts->pos + left->generic_pos;
@@ -122,11 +137,15 @@ static int check_generic(lily_type_system *ts, lily_type *left,
 }
 
 static int check_enum(lily_type_system *ts, lily_type *left, lily_type *right,
-        int solve)
+        int flags)
 {
     int ret = 1;
 
     if (right->cls->variant_type->subtype_count != 0) {
+        /* Erase the variance of the caller, since it doesn't apply to the subtypes of
+           this class. check_misc explains why this is important in more detail. */
+        flags &= T_DONT_SOLVE;
+
         /* I think this is best explained as an example:
             'enum Option[A, B] { Some(A) None }'
             In this case, the variant type of Some is defined as:
@@ -139,8 +158,7 @@ static int check_enum(lily_type_system *ts, lily_type *left, lily_type *right,
             parent. If any fail, then stop. */
         for (i = 0;i < variant_output->subtype_count;i++) {
             int pos = variant_output->subtypes[i]->generic_pos;
-            ret = check_raw(ts, left->subtypes[pos], right->subtypes[i],
-                    solve);
+            ret = check_raw(ts, left->subtypes[pos], right->subtypes[i], flags);
             if (ret == 0)
                 break;
         }
@@ -150,18 +168,20 @@ static int check_enum(lily_type_system *ts, lily_type *left, lily_type *right,
 }
 
 static int check_function(lily_type_system *ts, lily_type *left,
-        lily_type *right, int solve)
+        lily_type *right, int flags)
 {
     int ret = 1;
+    flags &= T_DONT_SOLVE;
 
     /* Remember that [0] is the return type, and always exists. */
-    if (check_raw(ts, left->subtypes[0], right->subtypes[0], solve) == 0)
+    if (check_raw(ts, left->subtypes[0], right->subtypes[0], flags | T_COVARIANT) == 0)
         ret = 0;
 
     if (left->subtype_count > right->subtype_count)
         ret = 0;
 
     if (ret) {
+        flags |= T_CONTRAVARIANT;
         int i;
         for (i = 1;i < left->subtype_count;i++) {
             lily_type *left_type = left->subtypes[i];
@@ -172,7 +192,7 @@ static int check_function(lily_type_system *ts, lily_type *left,
                 right_type = right_type->subtypes[0];
             }
 
-            if (check_raw(ts, left_type, right_type, solve) == 0) {
+            if (check_raw(ts, left_type, right_type, flags) == 0) {
                 ret = 0;
                 break;
             }
@@ -182,61 +202,117 @@ static int check_function(lily_type_system *ts, lily_type *left,
     return ret;
 }
 
-static int check_misc(lily_type_system *ts, lily_type *left, lily_type *right,
-        int solve)
+static int invariant_check(lily_type *left, lily_type *right, int *num_subtypes)
+{
+    int ret = left->cls == right->cls;
+    *num_subtypes = left->subtype_count;
+
+    return ret;
+}
+
+static int covariant_check(lily_type *left, lily_type *right, int *num_subtypes)
+{
+    int ret = lily_class_greater_eq(left->cls, right->cls);
+    *num_subtypes = left->subtype_count;
+
+    return ret;
+}
+
+static int contravariant_check(lily_type *left, lily_type *right, int *num_subtypes)
 {
     int ret;
+    if (left->cls == right->cls)
+        ret = (left->subtype_count == right->subtype_count);
+    else
+        ret = lily_class_greater_eq(right->cls, left->cls);
 
-    if ((left->cls->id == right->cls->id ||
-         lily_class_greater_eq(left->cls, right->cls)) &&
-        left->subtype_count <= right->subtype_count) {
+    *num_subtypes = right->subtype_count;
+    return ret;
+}
+
+static int check_misc(lily_type_system *ts, lily_type *left, lily_type *right,
+        int flags)
+{
+    int ret;
+    int num_subtypes;
+
+    if (flags & T_COVARIANT)
+        ret = covariant_check(left, right, &num_subtypes);
+    else if (flags & T_CONTRAVARIANT)
+        ret = contravariant_check(left, right, &num_subtypes);
+    else
+        ret = invariant_check(left, right, &num_subtypes);
+
+    if (ret && num_subtypes) {
+        /* This is really important. The caller's variance extends up to this class, but
+           not into it. The caller may want contravariant matching, but the class may
+           have its generics listed as being invariant.
+           Proof:
+
+           ```
+           class Point() { ... }
+           class Point3D() > Point() { ... }
+           define f(in: list[Point3D]) { ... }
+           define g(in: list[Point]) {
+               in.append(Point::new())
+           }
+
+           # Type: list[Point3D]
+           var v = [Point3D::new()]
+           # After this, v[1] has type Point, but should be at least Point3D.
+           g(v)
+
+           ``` */
+        flags &= T_DONT_SOLVE;
+
         ret = 1;
 
         lily_type **left_subtypes = left->subtypes;
         lily_type **right_subtypes = right->subtypes;
         int i;
-        /* Simple types have subtype_count as 0, so they'll skip this and
-           yield 1. */
-        for (i = 0;i < left->subtype_count;i++) {
+        for (i = 0;i < num_subtypes;i++) {
             lily_type *left_entry = left_subtypes[i];
             lily_type *right_entry = right_subtypes[i];
             if (left_entry != right_entry &&
-                check_raw(ts, left_entry, right_entry, solve) == 0) {
+                check_raw(ts, left_entry, right_entry, flags) == 0) {
                 ret = 0;
                 break;
             }
         }
     }
-    else
-        ret = 0;
 
     return ret;
 }
 
-static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, int solve)
+static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, int flags)
 {
     int ret = 0;
 
     if (left == NULL || right == NULL)
         ret = (left == right);
     else if (left->cls->id == SYM_CLASS_GENERIC)
-        ret = check_generic(ts, left, right, solve);
+        ret = check_generic(ts, left, right, flags);
     else if (left->cls->flags & CLS_IS_ENUM &&
              right->cls->flags & CLS_IS_VARIANT &&
              right->cls->parent == left->cls)
-        ret = check_enum(ts, left, right, solve);
+        ret = check_enum(ts, left, right, flags);
     else if (left->cls->id == SYM_CLASS_FUNCTION &&
              right->cls->id == SYM_CLASS_FUNCTION)
-        ret = check_function(ts, left, right, solve);
+        ret = check_function(ts, left, right, flags);
     else
-        ret = check_misc(ts, left, right, solve);
+        ret = check_misc(ts, left, right, flags);
 
     return ret;
 }
 
 int lily_ts_check(lily_type_system *ts, lily_type *left, lily_type *right)
 {
-    return check_raw(ts, left, right, 1);
+    return check_raw(ts, left, right, 0);
+}
+
+int lily_ts_type_greater_eq(lily_type_system *ts, lily_type *left, lily_type *right)
+{
+    return check_raw(ts, left, right, T_DONT_SOLVE | T_COVARIANT);
 }
 
 inline lily_type *lily_ts_easy_resolve(lily_type_system *ts, lily_type *t)
@@ -394,7 +470,7 @@ int lily_ts_enum_membership_check(lily_type_system *ts, lily_type *enum_type,
 {
     int ret;
     if (variant_type->cls->parent == enum_type->cls)
-        ret = check_enum(ts, enum_type, variant_type, 0);
+        ret = check_enum(ts, enum_type, variant_type, T_DONT_SOLVE);
     else
         ret = 0;
 
@@ -433,37 +509,6 @@ int lily_class_greater_eq(lily_class *left, lily_class *right)
     }
     else
         ret = 1;
-
-    return ret;
-}
-
-int lily_type_greater_eq(lily_type *left, lily_type *right)
-{
-    int ret = 0;
-
-    if (lily_class_greater_eq(left->cls, right->cls) &&
-        left->subtype_count <= right->subtype_count &&
-        left->generic_pos == right->generic_pos) {
-        ret = 1;
-
-        lily_type **left_subtypes = left->subtypes;
-        lily_type **right_subtypes = right->subtypes;
-
-        /* The left side has to be an exact superset of the right side, no
-           defaulting allowed. This is because 'abc[integer]' may or may not be
-           transformable into 'def[any, integer]'. */
-        int i;
-        for (i = 0;i < left->subtype_count;i++) {
-            if (left_subtypes[i] != right_subtypes[i]) {
-                ret = 0;
-                break;
-            }
-        }
-
-        if (left->cls->id == SYM_CLASS_FUNCTION &&
-            left->subtype_count != right->subtype_count)
-            ret = 0;
-    }
 
     return ret;
 }

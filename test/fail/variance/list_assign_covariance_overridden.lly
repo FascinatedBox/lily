@@ -1,0 +1,11 @@
+#[
+SyntaxError: Cannot assign type 'list[Two]' to type 'list[One]'.
+Where: File "list_assign_covariance_overridden.lly" at line 11
+]#
+
+class One() {}
+class Two() < One() {}
+
+var v = [[One::new()]]
+# Assignment is naturally covariant. However, lists are invariant.
+v[0] = [Two::new()]

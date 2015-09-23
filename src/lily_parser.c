@@ -2434,7 +2434,7 @@ static void except_handler(lily_parse_state *parser, int multi)
 
     if (except_type == base_type)
         new_type = block_try_except_all;
-    else if (lily_type_greater_eq(base_type, except_type) == 0)
+    else if (lily_class_greater_eq(base_type->cls, except_type->cls) == 0)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' is not a valid exception class.\n",
                 except_type->cls->name);

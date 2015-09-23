@@ -1,0 +1,13 @@
+#[
+SyntaxError: Cannot assign type 'function (Two)' to type 'function (One)'.
+Where: File "ensure_function_params_contravariant.lly" at line 13
+]#
+
+class One() {}
+class Two() < One() {}
+
+define f(a: One) {}
+define g(a: Two) {}
+
+var v = f
+    v = g
