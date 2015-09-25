@@ -126,10 +126,15 @@ static int check_generic(lily_type_system *ts, lily_type *left,
         ret = (left == right);
     else {
         int generic_pos = ts->pos + left->generic_pos;
+        lily_type *cmp_type = ts->types[generic_pos];
         ret = 1;
-        if (ts->types[generic_pos] == NULL)
+        if (cmp_type == NULL)
             ts->types[generic_pos] = right;
-        else if (ts->types[generic_pos] != right)
+        else if (cmp_type == right)
+            ;
+        else if (flags & (T_COVARIANT | T_CONTRAVARIANT))
+            ret = check_raw(ts, cmp_type, right, flags | T_DONT_SOLVE);
+        else
             ret = 0;
     }
 
