@@ -1,0 +1,13 @@
+class One() {}
+class Two() < One() {}
+class Three() < Two() {}
+
+define f[A](input: A, g: function(A => A)) {}
+
+# This works because when trying to solve as 'function(A => A)', the first A
+# is looked at contravariantly, while the second is covariant.
+# Doing the reverse (taking either Three or outputting One) would be incorrect.
+
+define g(a: One => Three) { return Three::new() }
+
+f(Two::new(), g)
