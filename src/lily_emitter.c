@@ -1825,15 +1825,11 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     right_sym = ast->right->result;
     left_cls_id = left_sym->type->cls->id;
 
-    if (left_sym->type != right_sym->type) {
-        if (type_matchup(emit, ast->left->result->type, ast->right)) {
-            /* type_matchup may update the result, so update the cache. */
-            right_sym = ast->right->result;
-        }
-        else
-            bad_assign_error(emit, ast->line_num, left_sym->type,
-                    right_sym->type);
-    }
+    if (left_sym->type != right_sym->type &&
+        type_matchup(emit, ast->left->result->type, ast->right) == 0)
+        bad_assign_error(emit, ast->line_num, left_sym->type, right_sym->type);
+
+    right_sym = ast->right->result;
 
     if (opcode == -1) {
         if (left_cls_id == SYM_CLASS_INTEGER ||
@@ -2023,11 +2019,14 @@ static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
     lily_sym *rhs = ast->right->result;
     lily_type *right_type = rhs->type;
 
-    if (left_type != right_type && left_type->cls->id != SYM_CLASS_ANY) {
+    if (left_type != right_type &&
+        type_matchup(emit, left_type, ast->right) == 0) {
         emit->raiser->line_adjust = ast->line_num;
-        bad_assign_error(emit, ast->line_num, left_type,
-                         right_type);
+        bad_assign_error(emit, ast->line_num, left_type, right_type);
     }
+
+    /* type_matchup may invalidate rhs: Make sure that has not happened. */
+    rhs = ast->right->result;
 
     if (ast->op > expr_assign) {
         oo_property_read(emit, ast->left);
@@ -2061,20 +2060,22 @@ static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
         /* Important! Expecting the lhs will auto-fix the rhs if needed. */
         eval_tree(emit, ast->right, left_type, 1);
 
-    rhs = ast->right->result;
     lily_type *right_type = ast->right->result->type;
     /* For 'var @<name> = ...', fix the type of the property. */
     if (left_type == NULL) {
+        right_type = calculate_var_type(emit, right_type);
         ast->left->property->type = right_type;
         ast->left->property->flags &= ~SYM_NOT_INITIALIZED;
         left_type = right_type;
     }
 
-    if (left_type != right_type && left_type->cls->id != SYM_CLASS_ANY) {
+    if (left_type != ast->right->result->type &&
+        type_matchup(emit, left_type, ast->right) == 0) {
         emit->raiser->line_adjust = ast->line_num;
-        bad_assign_error(emit, ast->line_num, left_type,
-                         right_type);
+        bad_assign_error(emit, ast->line_num, left_type, right_type);
     }
+
+    rhs = ast->right->result;
 
     if (ast->op > expr_assign) {
         eval_tree(emit, ast->left, NULL, 1);
@@ -2235,14 +2236,12 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
 
     elem_type = get_subscript_result(var_ast->result->type, index_ast);
 
-    if (elem_type != rhs->type) {
-        if (type_matchup(emit, elem_type, ast->right) == 0) {
-            emit->raiser->line_adjust = ast->line_num;
-            bad_assign_error(emit, ast->line_num, elem_type, rhs->type);
-        }
-
-        rhs = ast->right->result;
+    if (type_matchup(emit, elem_type, ast->right) == 0) {
+        emit->raiser->line_adjust = ast->line_num;
+        bad_assign_error(emit, ast->line_num, elem_type, rhs->type);
     }
+
+    rhs = ast->right->result;
 
     if (ast->op > expr_assign) {
         /* For a compound assignment to work, the left side must be subscripted
