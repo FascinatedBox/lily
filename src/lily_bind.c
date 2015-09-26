@@ -46,19 +46,3 @@ lily_value *lily_bind_string(lily_symtab *symtab, const char *string)
     strcpy(buffer, string);
     return lily_bind_string_take_buffer(symtab, buffer);
 }
-
-/*  lily_bind_integer
-    Create a new lily_value of type 'integer' with the given value. Returns the
-    new value, or NULL. */
-lily_value *lily_bind_integer(lily_symtab *symtab,
-        int64_t intval)
-{
-    lily_value *new_value = lily_malloc(sizeof(lily_value));
-    if (new_value) {
-        new_value->value.integer = intval;
-        new_value->type = symtab->integer_class->type;
-        new_value->flags = VAL_IS_PRIMITIVE;
-    }
-
-    return new_value;
-}

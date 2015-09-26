@@ -1,7 +1,7 @@
 define f(input: integer => integer) {
     var trace = calltrace()
 
-    if trace[-1][1] != "f" || trace.size() != 3:
+    if trace.size() != 3:
         stderr.write("Failed.\n")
 
     return input

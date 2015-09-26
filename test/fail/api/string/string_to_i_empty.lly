@@ -1,8 +1,8 @@
 #[
 ValueError: Invalid base 10 literal ''.
 Traceback:
-    File "[builtin]", from string::to_i
-    File "string_to_i_empty.lly", from __main__ at line 8
+    from [C]: in string::to_i
+    from string_to_i_empty.lly:8: in __main__
 ]#
 
 "".to_i()

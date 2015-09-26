@@ -1,7 +1,7 @@
 #[
 RuntimeError: Infinite loop in comparison.
 Traceback:
-    File "infinite_eq.lly", from __main__ at line 9
+    from infinite_eq.lly:9: in __main__
 ]#
 
 var lso: list[any] = [1, 2, 3]

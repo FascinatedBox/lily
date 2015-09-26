@@ -1,9 +1,9 @@
 #[
 ValueError: Test
 Traceback:
-    File "list_select_interrupted.lly", from f at line 11
-    File "[builtin]", from list::select
-    File "list_select_interrupted.lly", from __main__ at line 14
+    from list_select_interrupted.lly:11: in f
+    from [C]: in list::select
+    from list_select_interrupted.lly:14: in __main__
 ]#
 
 define f(x: integer => boolean)
