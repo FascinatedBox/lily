@@ -1,7 +1,7 @@
 #[
 KeyError: "b"
 Traceback:
-    File "trigger_keyerror.lly", from __main__ at line 9
+    from trigger_keyerror.lly:9: in __main__
 ]#
 
 var v = ["a" => 1]

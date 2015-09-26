@@ -1,8 +1,8 @@
 #[
 IOError: IO operation on closed file.
 Traceback:
-    File "[builtin]", from file::write
-    File "write_to_closed.lly", from __main__ at line 10
+    from [C]: in file::write
+    from write_to_closed.lly:10: in __main__
 ]#
 
 var f = file::open("io_test_file.txt", "w")

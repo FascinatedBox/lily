@@ -61,7 +61,7 @@ if (lex->token != expected) \
 static char *exception_bootstrap =
 "class Exception(message: string) {\n"
 "    var @message = message\n"
-"    var @traceback: list[tuple[string, string, integer]] = []\n"
+"    var @traceback: list[string] = []\n"
 "}\n";
 
 static lily_var *parse_prototype(lily_parse_state *, lily_import_entry *,
@@ -3524,14 +3524,13 @@ char *lily_build_error_message(lily_parse_state *parser)
                 separator = "::";
 
             if (frame->function->code == NULL)
-                lily_msgbuf_add_fmt(msgbuf, "    File \"%s\", from %s%s%s\n",
-                        func->import->path, class_name, separator,
-                        func->trace_name);
+                lily_msgbuf_add_fmt(msgbuf, "    from [C]: in %s%s%s\n",
+                        class_name, separator, func->trace_name);
             else
                 lily_msgbuf_add_fmt(msgbuf,
-                        "    File \"%s\", from %s%s%s at line %d\n",
-                        func->import->path, class_name, separator,
-                        func->trace_name, frame->line_num);
+                        "    from %s:%d: in %s%s%s\n",
+                        func->import->path, frame->line_num, class_name,
+                        separator, func->trace_name);
 
             frame = frame->prev;
         }

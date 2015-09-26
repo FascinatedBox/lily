@@ -1,7 +1,7 @@
 #[
 MyException: Correct!
 Traceback:
-    File "custom_exception.lly", from __main__ at line 11
+    from custom_exception.lly:11: in __main__
 ]#
 
 class MyException(msg: string) < Exception(msg) {

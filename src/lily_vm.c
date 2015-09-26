@@ -751,33 +751,6 @@ static void load_foreign_ties(lily_vm_state *vm)
     vm->symtab->foreign_ties = NULL;
 }
 
-/*  bind_function_name
-    Create a proper lily_value that represent the name of the given function.
-    If the function is from a class, the classname is added too. */
-static lily_value *bind_function_name(lily_vm_state *vm, lily_symtab *symtab,
-        lily_function_val *fval)
-{
-    char *class_name = fval->class_name;
-    char *separator;
-    if (class_name == NULL) {
-        class_name = "";
-        separator = "";
-    }
-    else
-        separator = "::";
-
-    int buffer_size = strlen(class_name) + strlen(separator) +
-            strlen(fval->trace_name);
-
-    char *buffer = lily_malloc(buffer_size + 1);
-
-    strcpy(buffer, class_name);
-    strcat(buffer, separator);
-    strcat(buffer, fval->trace_name);
-
-    return lily_bind_string_take_buffer(symtab, buffer);
-}
-
 /*  build_traceback_raw
     This creates a raw list value containing the current traceback. The
     traceback is represented as list[tuple[string, string, integer]].
@@ -788,7 +761,6 @@ static lily_value *bind_function_name(lily_vm_state *vm, lily_symtab *symtab,
 static lily_list_val *build_traceback_raw(lily_vm_state *vm)
 {
     lily_type *traceback_tuple_type = vm->traceback_type;
-    lily_symtab *symtab = vm->symtab;
     lily_list_val *lv = lily_new_list_val();
 
     lv->elems = lily_malloc(vm->call_depth * sizeof(lily_value *));
@@ -803,26 +775,46 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
     for (i = vm->call_depth, frame_iter = vm->call_chain;
          i >= 1;
          i--, frame_iter = frame_iter->prev) {
-        lily_value *tuple_holder = lily_malloc(sizeof(lily_value));
-        lily_list_val *stack_tuple = lily_new_list_val();
-        lily_value **tuple_values = lily_malloc(3 * sizeof(lily_value *));
+        lily_function_val *func_val = frame_iter->function;
+        char *path;
+        char line[16] = "";
+        char *class_name;
+        char *separator;
+        char *name = func_val->trace_name;
+        if (func_val->code) {
+            path = func_val->import->path;
+            sprintf(line, "%d:", func_val->line_num);
+        }
+        else
+            path = "[C]";
 
-        lily_value *path = lily_bind_string(symtab,
-                frame_iter->function->import->path);
-        lily_value *func_string = bind_function_name(vm, symtab,
-                frame_iter->function);
-        lily_value *linenum_integer = lily_bind_integer(symtab,
-                frame_iter->line_num);
+        if (func_val->class_name == NULL) {
+            class_name = "";
+            separator = "";
+        }
+        else {
+            separator = "::";
+            class_name = func_val->class_name;
+        }
 
-        stack_tuple->num_values = 3;
-        stack_tuple->elems = tuple_values;
-        tuple_values[0] = path;
-        tuple_values[1] = func_string;
-        tuple_values[2] = linenum_integer;
-        tuple_holder->type = traceback_tuple_type;
-        tuple_holder->value.list = stack_tuple;
-        tuple_holder->flags = 0;
-        lv->elems[i - 1] = tuple_holder;
+        /* +15 accounts for there maybe being a separator, the non-%s text, and
+           maybe having a line number. */
+        int str_size = strlen(class_name) + strlen(path) + strlen(path) + 15;
+
+        lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
+        char *str = lily_malloc(str_size);
+        sprintf(str, "%s:%s from %s%s%s", path, line, class_name, separator,
+                name);
+        sv->refcount = 1;
+        sv->size = strlen(str) - 1;
+        sv->string = str;
+
+        lily_value *sv_holder = lily_malloc(sizeof(lily_value));
+        sv_holder->flags = 0;
+        sv_holder->value.string = sv;
+        sv_holder->type = traceback_tuple_type->subtypes[0];
+
+        lv->elems[i - 1] = sv_holder;
     }
 
     lv->num_values = vm->call_depth;

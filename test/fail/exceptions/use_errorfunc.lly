@@ -1,8 +1,8 @@
 #[
 ValueError
 Traceback:
-    File "errorfunc.lly", from f at line 1
-    File "use_errorfunc.lly", from __main__ at line 10
+    from errorfunc.lly:1: in f
+    from use_errorfunc.lly:10: in __main__
 ]#
 
 import errorfunc

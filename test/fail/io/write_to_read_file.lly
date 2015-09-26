@@ -1,8 +1,8 @@
 #[
 IOError: File not open for writing.
 Traceback:
-    File "[builtin]", from file::write
-    File "write_to_read_file.lly", from __main__ at line 8
+    from [C]: in file::write
+    from write_to_read_file.lly:8: in __main__
 ]#
 
 stdin.write("123")
