@@ -1,6 +1,6 @@
 #[
 SyntaxError: Cannot define an enum here.
-Where: File "invalid_enum_class_decl_location.lly" at line 7
+    from invalid_enum_class_decl_location.lly:7
 ]#
 
 define f() {

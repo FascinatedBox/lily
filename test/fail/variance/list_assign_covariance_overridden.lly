@@ -1,6 +1,6 @@
 #[
 SyntaxError: Cannot assign type 'list[Two]' to type 'list[One]'.
-Where: File "list_assign_covariance_overridden.lly" at line 11
+    from list_assign_covariance_overridden.lly:11
 ]#
 
 class One() {}

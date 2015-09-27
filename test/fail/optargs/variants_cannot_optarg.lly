@@ -1,6 +1,6 @@
 #[
 SyntaxError: Variant types cannot have default values.
-Where: File "variants_cannot_optarg.lly" at line 7
+    from variants_cannot_optarg.lly:7
 ]#
 
 enum Option {

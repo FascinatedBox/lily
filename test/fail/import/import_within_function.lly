@@ -1,6 +1,6 @@
 #[
 SyntaxError: Cannot import a file here.
-Where: File "import_within_function.lly" at line 7
+    from import_within_function.lly:7
 ]#
 
 define f() {

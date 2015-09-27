@@ -1,6 +1,6 @@
 #[
 SyntaxError: Statement(s) after 'return' will not execute.
-Where: File "expr_after_return.lly" at line 9
+    from expr_after_return.lly:9
 ]#
 
 define f( => integer)

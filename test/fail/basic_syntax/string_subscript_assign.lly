@@ -1,6 +1,6 @@
 #[
 SyntaxError: Subscript assign not allowed on type string.
-Where: File "string_subscript_assign.lly" at line 8
+    from string_subscript_assign.lly:8
 ]#
 
 var v = "abc"

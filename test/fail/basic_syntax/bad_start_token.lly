@@ -1,6 +1,6 @@
 #[
 SyntaxError: Unexpected token +.
-Where: File "bad_start_token.lly" at line 6
+    from bad_start_token.lly:6
 ]#
 
 +

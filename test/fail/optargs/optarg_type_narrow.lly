@@ -1,6 +1,6 @@
 #[
 SyntaxError: Cannot assign type 'function (integer)' to type 'function (integer, *integer)'.
-Where: File "optarg_type_narrow.lly" at line 18
+    from optarg_type_narrow.lly:18
 ]#
 
 define f(a: integer) {  }

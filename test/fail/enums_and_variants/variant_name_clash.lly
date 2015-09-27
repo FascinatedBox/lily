@@ -1,6 +1,6 @@
 #[
 SyntaxError: A class with the name 'Some' already exists.
-Where: File "variant_name_clash.lly" at line 8
+    from variant_name_clash.lly:8
 ]#
 
 enum Option[A] {

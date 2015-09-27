@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'Option' cannot be inherited from.
-Where: File "inherit_enum.lly" at line 8
+    from inherit_enum.lly:8
 ]#
 
 enum Option[A] { Some(A) None }

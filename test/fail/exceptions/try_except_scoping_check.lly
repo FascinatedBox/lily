@@ -1,6 +1,6 @@
 #[
 SyntaxError: v has not been declared.
-Where: File "try_except_scoping_check.lly" at line 10
+    from try_except_scoping_check.lly:10
 ]#
 
 # This isn't allowed, because 'v' cannot be guaranteed to be set.

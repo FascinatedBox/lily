@@ -1,6 +1,6 @@
 #[
 SyntaxError: Multi-line block within single-line block.
-Where: File "multi_in_single.lly" at line 11
+    from multi_in_single.lly:11
 ]#
 
 var v = 10

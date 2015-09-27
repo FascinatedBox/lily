@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'return' not allowed in a class constructor.
-Where: File "class_constructor_return.lly" at line 8
+    from class_constructor_return.lly:8
 ]#
 
 class example() {

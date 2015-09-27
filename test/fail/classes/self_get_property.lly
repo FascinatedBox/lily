@@ -1,6 +1,6 @@
 #[
 SyntaxError: Use @<name> to get/set properties, not self.<name>.
-Where: File "self_get_property.lly" at line 9
+    from self_get_property.lly:9
 ]#
 
 class Point(x: integer, y: integer) {

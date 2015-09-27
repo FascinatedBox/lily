@@ -2,7 +2,7 @@
 SyntaxError: Function g, argument #1 is invalid:
 Expected Type: A
 Received Type: B
-Where: File "wrong_generic_type.lly" at line 11
+    from wrong_generic_type.lly:11
 ]#
 
 # This isn't allowed because A and B may be incompatible types.

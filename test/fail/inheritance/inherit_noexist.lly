@@ -1,6 +1,6 @@
 #[
 SyntaxError: Class 'invalid' does not exist.
-Where: File "inherit_noexist.lly" at line 6
+    from inherit_noexist.lly:6
 ]#
 
 class abc() < invalid {  }

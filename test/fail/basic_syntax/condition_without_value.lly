@@ -1,6 +1,6 @@
 #[
 SyntaxError: Conditional expression has no value.
-Where: File "condition_without_value.lly" at line 7
+    from condition_without_value.lly:7
 ]#
 
 define f() {}
