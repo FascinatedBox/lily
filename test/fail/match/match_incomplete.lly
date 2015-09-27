@@ -1,7 +1,7 @@
 #[
 SyntaxError: Match pattern not exhaustive. The following case(s) are missing:
 * None
-Where: File "match_incomplete.lly" at line 17
+    from match_incomplete.lly:17
 ]#
 
 enum Option[A] {

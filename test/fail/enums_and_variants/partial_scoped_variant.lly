@@ -1,6 +1,6 @@
 #[
 SyntaxError: Expected '::', not a label.
-Where: File "partial_scoped_variant.lly" at line 8
+    from partial_scoped_variant.lly:8
 ]#
 
 enum Option[A] {

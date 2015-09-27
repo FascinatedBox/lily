@@ -2,7 +2,7 @@
 SyntaxError: Function First::new, argument #1 is invalid:
 Expected Type: A
 Received Type: B
-Where: File "inherit_misordered_generics.lly" at line 10
+    from inherit_misordered_generics.lly:10
 ]#
 
 class First[A](value: A) {  }

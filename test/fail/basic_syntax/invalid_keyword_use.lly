@@ -1,6 +1,6 @@
 #[
 SyntaxError: var has not been declared.
-Where: File "invalid_keyword_use.lly" at line 6
+    from invalid_keyword_use.lly:6
 ]#
 
 var v = var

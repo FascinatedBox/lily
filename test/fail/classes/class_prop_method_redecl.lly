@@ -1,6 +1,6 @@
 #[
 SyntaxError: A method in class 'Test' already has the name 'abc'.
-Where: File "class_prop_method_redecl.lly" at line 10
+    from class_prop_method_redecl.lly:10
 ]#
 
 class Test() {

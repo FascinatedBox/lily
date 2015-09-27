@@ -1,6 +1,6 @@
 #[
 SyntaxError: Unexpected token '}'.
-Where: File "lambda_bad_token.lly" at line 6
+    from lambda_bad_token.lly:6
 ]#
 
 var v = {|| }

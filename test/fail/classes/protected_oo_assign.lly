@@ -1,6 +1,6 @@
 #[
 SyntaxError: Test::x is marked protected, and not available here.
-Where: File "protected_oo_assign.lly" at line 8
+    from protected_oo_assign.lly:8
 ]#
 
 class Test() { protected var @x = 10 }

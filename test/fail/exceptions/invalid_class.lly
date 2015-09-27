@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'integer' is not a valid exception class.
-Where: File "invalid_class.lly" at line 8
+    from invalid_class.lly:8
 ]#
 
 try:

@@ -1,6 +1,6 @@
 #[
 SyntaxError: Expected '}' or 'define', not 'a label'.
-Where: File "code_inside_enum_class_body.lly" at line 13
+    from code_inside_enum_class_body.lly:13
 ]#
 
 enum Option[A] {

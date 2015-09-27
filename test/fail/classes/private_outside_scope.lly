@@ -1,6 +1,6 @@
 #[
 SyntaxError: abc::f is marked private, and not available here.
-Where: File "private_outside_scope.lly" at line 12
+    from private_outside_scope.lly:12
 ]#
 
 class abc() {

@@ -1,6 +1,6 @@
 #[
 SyntaxError: Conditional expression has no value.
-Where: File "assign_in_condition.lly" at line 8
+    from assign_in_condition.lly:8
 ]#
 
 var a = 10

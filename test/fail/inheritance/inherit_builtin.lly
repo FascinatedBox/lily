@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'integer' cannot be inherited from.
-Where: File "inherit_builtin.lly" at line 6
+    from inherit_builtin.lly:6
 ]#
 
 class abc() < integer {  }

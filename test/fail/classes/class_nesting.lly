@@ -1,6 +1,6 @@
 #[
 SyntaxError: Cannot define a class here.
-Where: File "class_nesting.lly" at line 7
+    from class_nesting.lly:7
 ]#
 
 class c1(a: integer) {

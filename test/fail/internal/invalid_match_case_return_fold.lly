@@ -1,6 +1,6 @@
 #[
 SyntaxError: Missing return statement at end of function.
-Where: File "invalid_match_case_return_fold.lly" at line 16
+    from invalid_match_case_return_fold.lly:16
 ]#
 
 enum Option[A] { Some(A) None }

@@ -1,6 +1,6 @@
 #[
 SyntaxError: v has not been declared.
-Where: File "do_while_hide_vars.lly" at line 9
+    from do_while_hide_vars.lly:9
 ]#
 
 do: {

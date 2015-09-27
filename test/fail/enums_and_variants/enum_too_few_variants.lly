@@ -1,6 +1,6 @@
 #[
 SyntaxError: An enum must have at least two variants.
-Where: File "enum_too_few_variants.lly" at line 8
+    from enum_too_few_variants.lly:8
 ]#
 
 enum Option[A] {

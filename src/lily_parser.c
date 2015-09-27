@@ -3501,7 +3501,7 @@ char *lily_build_error_message(lily_parse_state *parser)
 
         if (strcmp(iter->filename, "[builtin]") != 0) {
             iter->saved_line_num = fixed_line_num;
-            lily_msgbuf_add_fmt(msgbuf, "Where: File \"%s\" at line %d\n",
+            lily_msgbuf_add_fmt(msgbuf, "    from %s:%d\n",
                     iter->filename, iter->saved_line_num);
         }
         /* The entry is only [builtin] if there was a failure to load the first

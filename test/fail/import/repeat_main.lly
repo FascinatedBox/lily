@@ -1,6 +1,6 @@
 #[
 SyntaxError: Package 'repeat_a' has already been imported in this file.
-Where: File "repeat_main.lly" at line 7
+    from repeat_main.lly:7
 ]#
 
 import repeat_a

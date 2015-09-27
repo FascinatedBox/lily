@@ -1,6 +1,6 @@
 #[
 SyntaxError: Missing return statement at end of function.
-Where: File "invalid_try_except_return_fold.lly" at line 12
+    from invalid_try_except_return_fold.lly:12
 ]#
 
 define f(a: integer => integer)

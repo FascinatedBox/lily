@@ -1,6 +1,6 @@
 #[
 SyntaxError: Some has not been declared.
-Where: File "scoped_variant_direct.lly" at line 11
+    from scoped_variant_direct.lly:11
 ]#
 
 enum Option[A] {

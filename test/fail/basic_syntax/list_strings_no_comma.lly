@@ -1,6 +1,6 @@
 #[
 SyntaxError: Unexpected token 'a string'.
-Where: File "list_strings_no_comma.lly" at line 6
+    from list_strings_no_comma.lly:6
 ]#
 
 var s = ["1" "2"]

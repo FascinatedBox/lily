@@ -2,7 +2,7 @@
 SyntaxError: Function f, argument #3 is invalid:
 Expected Type: list[A]
 Received Type: list[any]
-Where: File "ensure_call_generics_resolve_once.lly" at line 19
+    from ensure_call_generics_resolve_once.lly:19
 ]#
 
 define f[A, B](value: A, value2: B, value3: B) {

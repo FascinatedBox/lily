@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'return' not allowed in a lambda.
-Where: File "lambda_return.lly" at line 6
+    from lambda_return.lly:6
 ]#
 
 var v = {|| return }

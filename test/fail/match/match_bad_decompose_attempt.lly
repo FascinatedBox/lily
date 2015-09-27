@@ -1,6 +1,6 @@
 #[
 SyntaxError: Expected ':', not (.
-Where: File "match_bad_decompose_attempt.lly" at line 14
+    from match_bad_decompose_attempt.lly:14
 ]#
 
 enum Option[A] {

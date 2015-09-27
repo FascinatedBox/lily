@@ -2,7 +2,7 @@
 SyntaxError: Function f, argument #2 is invalid:
 Expected Type: integer
 Received Type: string
-Where: File "generics_default_only_resolved.lly" at line 14
+    from generics_default_only_resolved.lly:14
 ]#
 
 define f[A](value1: A, value2: A) {  }

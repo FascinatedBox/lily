@@ -1,6 +1,6 @@
 #[
 SyntaxError: Property abc.a expects 0 args, but got 2.
-Where: File "wrong_arg_count_property.lly" at line 11
+    from wrong_arg_count_property.lly:11
 ]#
 
 class abc() {
