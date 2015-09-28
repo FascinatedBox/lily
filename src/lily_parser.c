@@ -2117,6 +2117,10 @@ static void if_handler(lily_parse_state *parser, int multi)
             if (key_id == KEY_ELIF || key_id == KEY_ELSE) {
                 lily_lexer(parser->lex);
                 handlers[key_id](parser, 0);
+
+                /* Whatever comes next cannot be for the current if block. */
+                if (key_id == KEY_ELSE)
+                    break;
             }
             else
                 break;
