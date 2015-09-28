@@ -178,7 +178,6 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
        unresolved flag upward. */
     symtab->generic_class->type->flags |= TYPE_IS_UNRESOLVED;
     symtab->generic_type_start = symtab->generic_class->type;
-    symtab->next_class_id = 13;
 
     builtin->dynaload_table = &seed_stdin;
     builtin->var_load_fn = builtin_var_loader;
