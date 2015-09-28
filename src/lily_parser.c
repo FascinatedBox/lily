@@ -2670,9 +2670,9 @@ static void try_handler(lily_parse_state *parser, int multi)
         while (lex->token == tk_word) {
             if (strcmp("except", lex->label) == 0) {
                 lily_lexer(parser->lex);
-                /* Don't send multi, in case this is a single-line try+except
-                   within a multi-line block. */
                 except_handler(parser, 0);
+                if (parser->emit->block->block_type == block_try_except_all)
+                    break;
             }
             else
                 break;
