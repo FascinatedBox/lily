@@ -735,24 +735,27 @@ lily_class *lily_find_class(lily_symtab *symtab, lily_import_entry *import,
     lily_class *result;
 
     if (import == NULL) {
-        result = find_class(symtab->builtin_import->class_chain, name,
-                shorthash);
-        if (result == NULL) {
-            result = find_class(symtab->active_import->class_chain, name,
+        if (name[1] != '\0') {
+            result = find_class(symtab->builtin_import->class_chain, name,
                     shorthash);
-            if (result == NULL) {
-                /* The parser wants to be able to find classes by name...but it
-                   would be a waste to have lots of classes that never actually
-                   get used. The parser -really- just wants to get the type,
-                   so... */
-                if (name[1] == '\0') {
-                    lily_type *generic_type = lookup_generic(symtab, name);
-                    if (generic_type) {
-                        result = symtab->generic_class;
-                        result->type = generic_type;
-                    }
-                }
+            if (result == NULL)
+                result = find_class(symtab->active_import->class_chain, name,
+                        shorthash);
+        }
+        else {
+            lily_type *generic_type = lookup_generic(symtab, name);
+            if (generic_type) {
+                /* It's rather silly to make a different class for each generic
+                   type. Instead, write out whatever generic type was found as
+                   the default type. The generic class is written to have no
+                   subtypes, so this is okay.
+                   ts and other modules always special case the generic class,
+                   and won't be bothered by this little trick. */
+                result = symtab->generic_class;
+                result->type = generic_type;
             }
+            else
+                result = NULL;
         }
     }
     else
