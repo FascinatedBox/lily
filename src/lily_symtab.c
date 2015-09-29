@@ -931,8 +931,12 @@ lily_type *lily_build_type(lily_symtab *symtab, lily_class *cls,
                     sizeof(lily_type *));
             new_type->subtypes = new_subtypes;
         }
-        else
+        else {
             new_type->subtypes = NULL;
+            /* If this type has no subtypes, and it was just created, then it
+               has to be the default type for this class. */
+            fake_type.cls->type = new_type;
+        }
 
         new_type->subtype_count = entries_to_use;
 
@@ -1147,7 +1151,8 @@ lily_class *lily_new_variant(lily_symtab *symtab, lily_class *enum_cls,
     The 'variant_type' of Some is `function(A => Some(A))`.
 
     If the variant does not take arguments, then variant_type is a simple type
-    that can serve as the default type of the variant.
+    which has the variant as the class. This type also happens to be the default
+    type.
 
     Note: A variant's generic_count is set within parser, when the return of a
           variant is calculated (assuming it takes arguments). */
@@ -1155,9 +1160,6 @@ void lily_finish_variant(lily_symtab *symtab, lily_class *variant_cls,
         lily_type *variant_type)
 {
     if (variant_type->cls != symtab->function_class) {
-        /* Make it the default type, since it has no subtypes. */
-        variant_cls->type = variant_type;
-
         variant_cls->variant_type = variant_type;
         /* Empty variants are represented as integers, and won't need to be
            marked through. */
