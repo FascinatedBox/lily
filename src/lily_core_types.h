@@ -105,6 +105,9 @@ typedef struct lily_class_ {
        print a proper package name for classes.  */
     struct lily_import_entry_ *import;
 
+    /* This contains all types which have this class as their class. */
+    struct lily_type_ *all_subtypes;
+
     /* This holds class methods that may or may not have been loaded (non-native
        classes only). */
     const void *dynaload_table;
