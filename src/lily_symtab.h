@@ -101,7 +101,6 @@ lily_var *lily_new_raw_var(lily_symtab *, lily_type *, const char *);
 lily_var *lily_new_raw_unlinked_var(lily_symtab *, lily_type *, const char *);
 lily_var *lily_find_var(lily_symtab *, lily_import_entry *, char *);
 
-lily_type *lily_new_type(lily_symtab *, lily_class *);
 lily_type *lily_build_type(lily_symtab *, lily_class *, int, lily_type **, int, int);
 
 void lily_hide_block_vars(lily_symtab *, lily_var *);

@@ -99,7 +99,7 @@ lily_var *lily_new_raw_var(lily_symtab *symtab, lily_type *type,
 
 /* This creates a new type with the class set to the class given. The
    newly-created type is added to symtab's root type. */
-lily_type *lily_new_type(lily_symtab *symtab, lily_class *cls)
+static lily_type *make_new_type(lily_symtab *symtab, lily_class *cls)
 {
     lily_type *new_type = lily_malloc(sizeof(lily_type));
     new_type->cls = cls;
@@ -166,7 +166,7 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
         type = NULL;
     else {
         /* A basic class? Make a quick default type for it. */
-        type = lily_new_type(symtab, new_class);
+        type = make_new_type(symtab, new_class);
         new_class->type = type;
     }
 
@@ -917,7 +917,7 @@ lily_type *lily_build_type(lily_symtab *symtab, lily_class *cls,
     lily_type *result_type = lookup_type(symtab, &fake_type);
     if (result_type == NULL) {
         lily_type *save_root = symtab->root_type;
-        lily_type *new_type = lily_new_type(symtab, fake_type.cls);
+        lily_type *new_type = make_new_type(symtab, fake_type.cls);
         lily_type **new_subtypes = lily_malloc(entries_to_use *
                 sizeof(lily_type *));
 
@@ -1037,11 +1037,11 @@ void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
         type_iter->flags &= ~TYPE_HIDDEN_GENERIC;
         count--;
         if (type_iter->next->cls != symtab->generic_class && count) {
-            lily_type *new_type = lily_new_type(symtab, symtab->generic_class);
+            lily_type *new_type = make_new_type(symtab, symtab->generic_class);
             new_type->flags = TYPE_IS_UNRESOLVED;
             new_type->generic_pos = i;
 
-            /* lily_new_type makes the newly-created type the most recent one.
+            /* make_new_type makes the newly-created type the most recent one.
                However, it's simpler if the generic types (A, B, C, etc.) are
                all grouped together. */
             symtab->root_type = symtab->root_type->next;
@@ -1077,7 +1077,7 @@ void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
 void lily_make_constructor_return_type(lily_symtab *symtab)
 {
     lily_class *target_class = symtab->active_import->class_chain;
-    lily_type *type = lily_new_type(symtab, target_class);
+    lily_type *type = make_new_type(symtab, target_class);
 
     if (target_class->generic_count != 0) {
         int count = target_class->generic_count;
@@ -1133,7 +1133,7 @@ void lily_finish_variant(lily_symtab *symtab, lily_class *variant_cls,
 {
     if (variant_type == NULL) {
         /* This variant doesn't take parameters, so give it a plain type. */
-        lily_type *type = lily_new_type(symtab, variant_cls);
+        lily_type *type = make_new_type(symtab, variant_cls);
 
         type->cls = variant_cls;
         /* Anything that doesn't take parameters gets a default type. */
