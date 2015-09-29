@@ -997,6 +997,45 @@ static int collect_generics(lily_parse_state *parser)
     return seen;
 }
 
+/* This is called after processing the generics for either a normal class or an
+   enum class. It will build a type that describes the class with those
+   generics.
+   For example, `class Test[A, B] ...` will create the type `Test[A, B]`. This
+   is needed because this type is the 'self' type that will be injected as the
+   first argument to class methods. It's also the type of the keyword `self`'s
+   value. */
+static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls,
+        int generics_used)
+{
+    int start = parser->type_stack_pos;
+    lily_type *result;
+    if (generics_used) {
+        if (parser->type_stack_pos + generics_used > parser->type_stack_size)
+            grow_type_stack(parser);
+
+        char name[] = {'A', '\0'};
+        while (generics_used) {
+            lily_class *lookup_cls = lily_find_class(parser->symtab, NULL, name);
+            parser->type_stack[parser->type_stack_pos] = lookup_cls->type;
+            parser->type_stack_pos++;
+            name[0]++;
+            generics_used--;
+        }
+
+        result = lily_build_type(parser->symtab, cls, 0, parser->type_stack,
+                start, parser->type_stack_pos);
+        parser->type_stack_pos = start;
+    }
+    else {
+        /* Since it doesn't take subtypes, it can get a default type.
+           lily_build_type will mark the class as having this new type as the
+           default since it has no subtypes. */
+        result = lily_build_type(parser->symtab, cls, 0, NULL, 0, 0);
+    }
+
+    return result;
+}
+
 /* This is used by collect_var_type to collect a class when there may be one or
    more package entries before the type. This allows using package access within
    class declaration (ex: 'a::class'/'a::b::class'), as well as typical class
@@ -1165,9 +1204,8 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class,
     lily_update_symtab_generics(symtab, decl_class, generics_used);
 
     if (decl_class != NULL) {
-        lily_make_constructor_return_type(symtab);
-        parser->class_self_type = symtab->root_type;
-        decl_self_type = symtab->root_type;
+        decl_self_type = build_self_type(parser, decl_class, generics_used);
+        parser->class_self_type = decl_self_type;
     }
     else if (parser->class_depth && decl_class == NULL) {
         /* Functions of a class get a (self) of that class for the first
@@ -2842,8 +2880,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
     lily_update_symtab_generics(parser->symtab, enum_cls, generics_used);
     lily_emit_enter_block(parser->emit, block_enum);
 
-    lily_make_constructor_return_type(parser->symtab);
-    lily_type *result_type = parser->symtab->root_type;
+    lily_type *result_type = build_self_type(parser, enum_cls, generics_used);
     lily_type *save_self_type = parser->class_self_type;
     parser->class_depth++;
     parser->class_self_type = result_type;

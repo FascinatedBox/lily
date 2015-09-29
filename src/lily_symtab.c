@@ -1078,42 +1078,6 @@ void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
         decl_class->generic_count = save_count;
 }
 
-/*  lily_make_constructor_return_type
-    The parser is about to collect the arguments for a new class. This is used
-    to create a type that the constructor will return.
-    If a class has no generics, then it returns a type of just itself
-    (which also becomes the default type. For the other case, the construct will
-    return a type of the proper number of generics with the generics also
-    being ordered. So...
-    class Point[A]() # returns Point[A]
-    class Point[A, B, C]() # returns Point[A, B, C]
-    ...etc. */
-void lily_make_constructor_return_type(lily_symtab *symtab)
-{
-    lily_class *target_class = symtab->active_import->class_chain;
-    lily_type *type = make_new_type(symtab, target_class);
-
-    if (target_class->generic_count != 0) {
-        int count = target_class->generic_count;
-
-        type->subtypes = lily_malloc(count * sizeof(lily_type *));
-
-        lily_type *type_iter = symtab->generic_type_start;
-        int i;
-        for (i = 0;i < count;i++, type_iter = type_iter->next)
-            type->subtypes[i] = type_iter;
-
-        type->flags = TYPE_IS_UNRESOLVED;
-        type->subtype_count = count;
-        type->generic_pos = i;
-    }
-    else {
-        /* This makes this type the default for this class, because this class
-           doesn't use generics. */
-        target_class->type = type;
-    }
-}
-
 /*  lily_add_variant
     This adds a class to the symtab, marks it as a variant, and makes it a child
     of the given enum.
