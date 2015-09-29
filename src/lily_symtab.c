@@ -1123,23 +1123,32 @@ lily_class *lily_new_variant(lily_symtab *symtab, lily_class *enum_cls,
     This function is called when the parser has completed gathering information
     about a given variant.
 
-    If the variant takes arguments, then variant_type is non-NULL.
-    If the variant does not take arguments, a default type is made for it.
+    If the variant takes arguments, then variant_type is a function, and
+    describes the input(s) required, as well as an output that describes a
+    variant with any generics it needs.
+
+    Example:
+    ```
+    enum Option[A] {
+        Some(A)
+        None
+    }
+    ```
+    The 'variant_type' of Some is `function(A => Some(A))`.
+
+    If the variant does not take arguments, then variant_type is a simple type
+    that can serve as the default type of the variant.
 
     Note: A variant's generic_count is set within parser, when the return of a
           variant is calculated (assuming it takes arguments). */
 void lily_finish_variant(lily_symtab *symtab, lily_class *variant_cls,
         lily_type *variant_type)
 {
-    if (variant_type == NULL) {
-        /* This variant doesn't take parameters, so give it a plain type. */
-        lily_type *type = make_new_type(symtab, variant_cls);
+    if (variant_type->cls != symtab->function_class) {
+        /* Make it the default type, since it has no subtypes. */
+        variant_cls->type = variant_type;
 
-        type->cls = variant_cls;
-        /* Anything that doesn't take parameters gets a default type. */
-        variant_cls->type = type;
-
-        variant_cls->variant_type = type;
+        variant_cls->variant_type = variant_type;
         /* Empty variants are represented as integers, and won't need to be
            marked through. */
         variant_cls->eq_func = symtab->integer_class->eq_func;

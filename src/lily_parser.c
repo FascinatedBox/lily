@@ -2884,7 +2884,10 @@ static void enum_handler(lily_parse_state *parser, int multi)
             lily_lexer(lex);
         }
         else
-            variant_type = NULL;
+            /* This will build a type with no subtypes inside of it. The symtab
+               is then responsible for making that the default type. */
+            variant_type = lily_build_type(parser->symtab, variant_cls, 0, NULL,
+                    0, 0);
 
         lily_finish_variant(parser->symtab, variant_cls, variant_type);
 
