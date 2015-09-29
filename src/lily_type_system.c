@@ -371,7 +371,7 @@ void lily_ts_resolve_as_variant_by_enum(lily_type_system *ts,
 void lily_ts_resolve_as_self(lily_type_system *ts)
 {
     int i, stop;
-    lily_type *type_iter = ts->symtab->generic_type_start;
+    lily_type *type_iter = ts->symtab->generic_class->all_subtypes;
 
     stop = ts->pos + ts->ceiling;
     for (i = ts->pos;i < stop;i++, type_iter = type_iter->next) {

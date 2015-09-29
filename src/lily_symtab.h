@@ -31,10 +31,6 @@ typedef struct lily_symtab_ {
        packages, which need to save a value before the vm runs. */
     lily_tie *foreign_ties;
 
-    /* Additionally, the signatures that are used to hold generic info are
-       specifically linked together to make the search easier. */
-    lily_type *generic_type_start;
-
     lily_import_entry *builtin_import;
     lily_import_entry *active_import;
 
@@ -44,10 +40,6 @@ typedef struct lily_symtab_ {
 
     /* Ditto, for classes. */
     lily_class *old_class_chain;
-
-    /* Every type created is linked in here some way. This makes tearing down
-       types easy: Just iter through this and blast things along the way. */
-    lily_type *root_type;
 
     /* The symtab keeps this because __main__ requires a special teardown. */
     lily_function_val *main_function;

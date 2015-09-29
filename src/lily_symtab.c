@@ -97,9 +97,9 @@ lily_var *lily_new_raw_var(lily_symtab *symtab, lily_type *type,
     return var;
 }
 
-/* This creates a new type with the class set to the class given. The
-   newly-created type is added to symtab's root type. */
-static lily_type *make_new_type(lily_symtab *symtab, lily_class *cls)
+/* This creates a new type with the class set to the class given. The type is
+   automatically added to the 'all_subtypes' field within the given class. */
+static lily_type *make_new_type(lily_class *cls)
 {
     lily_type *new_type = lily_malloc(sizeof(lily_type));
     new_type->cls = cls;
@@ -107,9 +107,7 @@ static lily_type *make_new_type(lily_symtab *symtab, lily_class *cls)
     new_type->generic_pos = 0;
     new_type->subtype_count = 0;
     new_type->subtypes = NULL;
-
-    new_type->next = symtab->root_type;
-    symtab->root_type = new_type;
+    new_type->next = NULL;
 
     return new_type;
 }
@@ -140,6 +138,7 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     new_class->eq_func = NULL;
     new_class->destroy_func = NULL;
     new_class->import = symtab->active_import;
+    new_class->all_subtypes = NULL;
 
     new_class->id = symtab->next_class_id;
     symtab->next_class_id++;
@@ -166,8 +165,9 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
         type = NULL;
     else {
         /* A basic class? Make a quick default type for it. */
-        type = make_new_type(symtab, new_class);
+        type = make_new_type(new_class);
         new_class->type = type;
+        new_class->all_subtypes = type;
     }
 
     new_class->type = type;
@@ -199,27 +199,25 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
     Failure: NULL is returned. */
 static lily_type *lookup_type(lily_symtab *symtab, lily_type *input_type)
 {
-    lily_type *iter_type = symtab->root_type;
+    lily_type *iter_type = input_type->cls->all_subtypes;
     lily_type *ret = NULL;
 
     while (iter_type) {
-        if (iter_type->cls == input_type->cls) {
-            if (iter_type->subtypes      != NULL &&
-                iter_type->subtype_count == input_type->subtype_count &&
-                (iter_type->flags & SKIP_FLAGS) ==
-                 (input_type->flags & SKIP_FLAGS)) {
-                int i, match = 1;
-                for (i = 0;i < iter_type->subtype_count;i++) {
-                    if (iter_type->subtypes[i] != input_type->subtypes[i]) {
-                        match = 0;
-                        break;
-                    }
-                }
-
-                if (match == 1) {
-                    ret = iter_type;
+        if (iter_type->subtypes      != NULL &&
+            iter_type->subtype_count == input_type->subtype_count &&
+            (iter_type->flags & SKIP_FLAGS) ==
+                (input_type->flags & SKIP_FLAGS)) {
+            int i, match = 1;
+            for (i = 0;i < iter_type->subtype_count;i++) {
+                if (iter_type->subtypes[i] != input_type->subtypes[i]) {
+                    match = 0;
                     break;
                 }
+            }
+
+            if (match == 1) {
+                ret = iter_type;
+                break;
             }
         }
 
@@ -271,21 +269,18 @@ static void finalize_type(lily_type *input_type)
 static lily_type *lookup_generic(lily_symtab *symtab, const char *name)
 {
     int id = name[0] - 'A';
-    lily_type *type_iter = symtab->generic_type_start;
+    lily_type *type_iter = symtab->generic_class->all_subtypes;
 
-    while (id) {
-        if (type_iter->next->cls != symtab->generic_class)
+    while (type_iter) {
+        if (type_iter->generic_pos == id) {
+            if (type_iter->flags & TYPE_HIDDEN_GENERIC)
+                type_iter = NULL;
+
             break;
+        }
 
         type_iter = type_iter->next;
-        if (type_iter->flags & TYPE_HIDDEN_GENERIC)
-            break;
-
-        id--;
     }
-
-    if (type_iter->flags & TYPE_HIDDEN_GENERIC || id)
-        type_iter = NULL;
 
     return type_iter;
 }
@@ -363,9 +358,7 @@ lily_symtab *lily_new_symtab(lily_options *options,
     symtab->foreign_ties = NULL;
     symtab->builtin_import = builtin_import;
     symtab->active_import = builtin_import;
-    symtab->root_type = NULL;
     symtab->generic_class = NULL;
-    symtab->generic_type_start = NULL;
     symtab->old_class_chain = NULL;
 
     lily_init_builtin_package(symtab, builtin_import);
@@ -419,6 +412,15 @@ static void free_classes(lily_symtab *symtab, lily_class *class_iter)
 
         if (class_iter->call_chain != NULL)
             free_vars(symtab, class_iter->call_chain);
+
+        lily_type *type_iter = class_iter->all_subtypes;
+        lily_type *type_next;
+        while (type_iter) {
+            type_next = type_iter->next;
+            lily_free(type_iter->subtypes);
+            lily_free(type_iter);
+            type_iter = type_next;
+        }
 
         lily_free(class_iter->name);
 
@@ -486,16 +488,6 @@ void lily_free_symtab(lily_symtab *symtab)
     lily_function_val *main_function = symtab->main_function;
     lily_free(main_function->reg_info);
     lily_free(main_function);
-
-    lily_type *type, *type_temp;
-    type = symtab->root_type;
-    while (type != NULL) {
-        type_temp = type->next;
-
-        lily_free(type->subtypes);
-        lily_free(type);
-        type = type_temp;
-    }
 
     /* Symtab does not attempt to free 'foreign_ties'. This is because the vm
        frees the foreign ties as it loads them (since there are so few).
@@ -919,8 +911,7 @@ lily_type *lily_build_type(lily_symtab *symtab, lily_class *cls,
        means the new one has to be destroyed). */
     lily_type *result_type = lookup_type(symtab, &fake_type);
     if (result_type == NULL) {
-        lily_type *save_root = symtab->root_type;
-        lily_type *new_type = make_new_type(symtab, fake_type.cls);
+        lily_type *new_type = make_new_type(fake_type.cls);
 
         memcpy(new_type, &fake_type, sizeof(lily_type));
 
@@ -940,10 +931,8 @@ lily_type *lily_build_type(lily_symtab *symtab, lily_class *cls,
 
         new_type->subtype_count = entries_to_use;
 
-        /* This is necessary because the first memcpy wipes out the 'next'
-           field, which was the root before the new type was added. */
-        new_type->next = save_root;
-        symtab->root_type = new_type;
+        new_type->next = new_type->cls->all_subtypes;
+        new_type->cls->all_subtypes = new_type;
 
         finalize_type(new_type);
         result_type = new_type;
@@ -1044,34 +1033,30 @@ void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
 {
     /* The symtab special cases all types holding generic information so
        that they're unique, together, and in numerical order. */
-    lily_type *type_iter = symtab->generic_type_start;
+    lily_type *type_iter = symtab->generic_class->all_subtypes;
     int i = 1, save_count = count;
 
     while (count) {
         type_iter->flags &= ~TYPE_HIDDEN_GENERIC;
         count--;
-        if (type_iter->next->cls != symtab->generic_class && count) {
-            lily_type *new_type = make_new_type(symtab, symtab->generic_class);
+        if (type_iter->next == NULL && count) {
+            lily_type *new_type = make_new_type(symtab->generic_class);
             new_type->flags = TYPE_IS_UNRESOLVED;
             new_type->generic_pos = i;
 
-            /* make_new_type makes the newly-created type the most recent one.
-               However, it's simpler if the generic types (A, B, C, etc.) are
-               all grouped together. */
-            symtab->root_type = symtab->root_type->next;
-
-            new_type->next = type_iter->next;
+            /* It's much easier if generics are linked so that the higher number
+               ones come further on. (A => B => C) instead of having the newest
+               one be at the front. In fact, a couple of other modules poke the
+               generics directly and rely on this ordering. */
             type_iter->next = new_type;
         }
         i++;
         type_iter = type_iter->next;
     }
 
-    if (type_iter->cls == symtab->generic_class) {
-        while (type_iter->cls == symtab->generic_class) {
-            type_iter->flags |= TYPE_HIDDEN_GENERIC;
-            type_iter = type_iter->next;
-        }
+    while (type_iter) {
+        type_iter->flags |= TYPE_HIDDEN_GENERIC;
+        type_iter = type_iter->next;
     }
 
     if (decl_class)

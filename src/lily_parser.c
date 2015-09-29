@@ -644,7 +644,7 @@ static lily_type *calculate_variant_return(lily_parse_state *parser,
 
     /* The symtab puts each of the generic signatures together, from A onward.
        What this does is to add the generics that are seen. */
-    lily_type *generic_iter = parser->symtab->generic_type_start;
+    lily_type *generic_iter = parser->symtab->generic_class->all_subtypes;
     for (i = 0, j = stack_top + 1, k = 0;
          i < generic_max;
          i++, generic_iter = generic_iter->next) {
@@ -781,7 +781,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
                since it's the right one (lily_set_class_generics makes sure of
                it). */
             parser->type_stack[parser->type_stack_pos] =
-                    parser->symtab->root_type;
+                    parser->class_self_type;
         else
             parser->type_stack[parser->type_stack_pos] = NULL;
 
