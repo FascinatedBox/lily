@@ -918,12 +918,19 @@ lily_type *lily_build_type(lily_symtab *symtab, lily_class *cls,
     if (result_type == NULL) {
         lily_type *save_root = symtab->root_type;
         lily_type *new_type = make_new_type(symtab, fake_type.cls);
-        lily_type **new_subtypes = lily_malloc(entries_to_use *
-                sizeof(lily_type *));
 
         memcpy(new_type, &fake_type, sizeof(lily_type));
-        memcpy(new_subtypes, subtypes + offset, sizeof(lily_type *) * entries_to_use);
-        new_type->subtypes = new_subtypes;
+
+        if (entries_to_use) {
+            lily_type **new_subtypes = lily_malloc(entries_to_use *
+                    sizeof(lily_type *));
+            memcpy(new_subtypes, subtypes + offset, entries_to_use *
+                    sizeof(lily_type *));
+            new_type->subtypes = new_subtypes;
+        }
+        else
+            new_type->subtypes = NULL;
+
         new_type->subtype_count = entries_to_use;
 
         /* This is necessary because the first memcpy wipes out the 'next'
