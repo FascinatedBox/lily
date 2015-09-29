@@ -206,7 +206,6 @@ static lily_type *lookup_type(lily_symtab *symtab, lily_type *input_type)
         if (iter_type->cls == input_type->cls) {
             if (iter_type->subtypes      != NULL &&
                 iter_type->subtype_count == input_type->subtype_count &&
-                iter_type               != input_type &&
                 (iter_type->flags & SKIP_FLAGS) ==
                  (input_type->flags & SKIP_FLAGS)) {
                 int i, match = 1;
