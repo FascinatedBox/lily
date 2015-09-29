@@ -4642,15 +4642,14 @@ void lily_emit_enter_main(lily_emit_state *emit)
        know that emit->unused_storage_start is never NULL. */
     add_storage(emit);
 
-    lily_type *main_type = lily_new_type(emit->symtab,
-            emit->symtab->function_class);
-    /* This next part is only ok because __main__ is the first function and it
-       is not possible for this type to be a duplicate of anything else. */
-    main_type->subtypes = lily_malloc(2 * sizeof(lily_type));
-    main_type->subtypes[0] = NULL;
-    main_type->subtype_count = 1;
-    main_type->generic_pos = 0;
-    main_type->flags = 0;
+    /* __main__'s type is a function that takes no inputs, and has no output.
+       Functions are special, because their return type is at 0, and must always
+       exist. The value NULL is used to signal that the function does not return
+       anything. The lack of extra values means that it doesn't take anything
+       either. */
+    lily_type *fake_stack = {NULL};
+    lily_type *main_type = lily_build_type(emit->symtab,
+            emit->symtab->function_class, 0, &fake_stack, 0, 1);
 
     lily_var *main_var = lily_new_raw_var(emit->symtab, main_type, "__main__");
     main_var->reg_spot = 0;
