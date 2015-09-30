@@ -212,9 +212,6 @@ typedef struct {
        done. */
     lily_var *top_var;
 
-    /* The value that holds the bytecode. */
-    lily_function_val *top_function;
-
     /* The return type of the current function. */
     lily_type *top_function_ret;
 
