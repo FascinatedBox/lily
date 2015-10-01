@@ -9,10 +9,6 @@ typedef struct lily_symtab_ {
        vm later to kick things off. */
     lily_var *main_var;
 
-    /* To make generic class searches faster, the symtab holds the spot where
-       the generic class. */
-    lily_class *generic_class;
-
     /* Each literal (integer, double, string, etc) is stored in here.
        Additionally, variant psuedo-literals are stored here, so that basic
        variants (which do not have arguments) have a common, non-ref'd literal
@@ -66,6 +62,7 @@ typedef struct lily_symtab_ {
     lily_class *hash_class;
     lily_class *tuple_class;
     lily_class *optarg_class;
+    lily_class *generic_class;
 
     uint32_t *lex_linenum;
 } lily_symtab;
