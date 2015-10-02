@@ -659,11 +659,6 @@ static lily_type *calculate_variant_return(lily_parse_state *parser,
             variant_cls, 0, parser->type_stack,
             stack_top + 1, k);
 
-    /* Since the true number of generics that the class takes is known, set
-       that directly on the class from here. Note that, for variants, the
-       number of generics is not necessarily the highest generic's ID, since
-       the variant could, for example, use only A and C. */
-    variant_cls->generic_count = k;
     return variant_return;
 }
 
