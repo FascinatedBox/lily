@@ -1,6 +1,6 @@
 #include <ctype.h>
 #include <string.h>
-#include <inttypes.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #include "lily_alloc.h"

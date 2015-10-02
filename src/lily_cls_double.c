@@ -2,7 +2,6 @@
 
 #include "lily_vm.h"
 #include "lily_value.h"
-#include "inttypes.h"
 #include "lily_seed.h"
 
 int lily_double_eq(lily_vm_state *vm, int *depth, lily_value *left,

@@ -1,4 +1,4 @@
-#include <inttypes.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "lily_impl.h"

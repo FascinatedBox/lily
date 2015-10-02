@@ -1,5 +1,5 @@
 #include <string.h>
-#include <inttypes.h>
+#include <stdint.h>
 
 #include "lily_alloc.h"
 #include "lily_ast.h"
