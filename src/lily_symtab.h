@@ -3,6 +3,8 @@
 
 # include "lily_core_types.h"
 
+struct lily_type_maker_;
+
 typedef struct lily_symtab_ {
     /* This is where __main__ is. __main__ is a special function which holds
        all of the code outside of a defined function. This is executed by the
@@ -67,7 +69,7 @@ typedef struct lily_symtab_ {
     uint32_t *lex_linenum;
 } lily_symtab;
 
-lily_symtab *lily_new_symtab(lily_options *, lily_import_entry *);
+lily_symtab *lily_new_symtab(lily_import_entry *);
 void lily_free_symtab(lily_symtab *);
 
 lily_tie *lily_get_boolean_literal(lily_symtab *, int64_t);

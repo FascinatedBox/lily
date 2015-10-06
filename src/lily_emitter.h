@@ -4,6 +4,7 @@
 # include "lily_raiser.h"
 # include "lily_symtab.h"
 # include "lily_type_system.h"
+# include "lily_type_maker.h"
 
 typedef enum {
     block_if,
@@ -254,6 +255,8 @@ typedef struct {
     lily_membuf *ast_membuf;
 
     lily_type_system *ts;
+
+    lily_type_maker *tm;
 
     /* The parser is stored within the emitter so that the emitter can do
        dynamic loading of functions. */

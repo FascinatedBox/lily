@@ -189,83 +189,6 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
     return new_class;
 }
 
-#define SKIP_FLAGS \
-    ~(TYPE_MAYBE_CIRCULAR | TYPE_IS_UNRESOLVED)
-
-/*  lookup_type
-    Determine if the current type exists in the symtab.
-
-    Success: The type from the symtab is returned.
-    Failure: NULL is returned. */
-static lily_type *lookup_type(lily_symtab *symtab, lily_type *input_type)
-{
-    lily_type *iter_type = input_type->cls->all_subtypes;
-    lily_type *ret = NULL;
-
-    while (iter_type) {
-        if (iter_type->subtypes      != NULL &&
-            iter_type->subtype_count == input_type->subtype_count &&
-            (iter_type->flags & SKIP_FLAGS) ==
-                (input_type->flags & SKIP_FLAGS)) {
-            int i, match = 1;
-            for (i = 0;i < iter_type->subtype_count;i++) {
-                if (iter_type->subtypes[i] != input_type->subtypes[i]) {
-                    match = 0;
-                    break;
-                }
-            }
-
-            if (match == 1) {
-                ret = iter_type;
-                break;
-            }
-        }
-
-        iter_type = iter_type->next;
-    }
-
-    return ret;
-}
-
-#undef SKIP_FLAGS
-
-/*  finalize_type
-    Determine if the given type is circular. Also, if its class is not the
-    generic class, determine how many generics the type uses.
-
-    The symtab doesn't use this information at all. These are convenience
-    things for the emitter and the vm. */
-static void finalize_type(lily_type *input_type)
-{
-    if (input_type->subtypes) {
-        int i;
-        for (i = 0;i < input_type->subtype_count;i++) {
-            lily_type *subtype = input_type->subtypes[i];
-            if (subtype) {
-                int flags = subtype->flags;
-                if (flags & TYPE_MAYBE_CIRCULAR)
-                    input_type->flags |= TYPE_MAYBE_CIRCULAR;
-                if (flags & TYPE_IS_UNRESOLVED)
-                    input_type->flags |= TYPE_IS_UNRESOLVED;
-            }
-        }
-    }
-
-    /* This gives emitter and vm an easy way to check if a type needs to be
-       resolved or if it can used as-is. */
-    if (input_type->cls->id == SYM_CLASS_GENERIC)
-        input_type->flags |= TYPE_IS_UNRESOLVED;
-
-    /* Any function can be a closure, and potentially close over something that
-       is circular. Mark it as being possibly circular to be safe. */
-    if (input_type->cls->id == SYM_CLASS_FUNCTION)
-        input_type->flags |= TYPE_MAYBE_CIRCULAR;
-
-    /* fixme: Properly go over enums to determine circularity. */
-    if (input_type->cls->flags & CLS_IS_ENUM)
-        input_type->flags |= TYPE_MAYBE_CIRCULAR;
-}
-
 static lily_type *lookup_generic(lily_symtab *symtab, const char *name)
 {
     int id = name[0] - 'A';
@@ -343,8 +266,7 @@ static lily_import_entry *find_import(lily_import_entry *import,
 /* Symtab initialization */
 /*****************************************************************************/
 
-lily_symtab *lily_new_symtab(lily_options *options,
-        lily_import_entry *builtin_import)
+lily_symtab *lily_new_symtab(lily_import_entry *builtin_import)
 {
     lily_symtab *symtab = lily_malloc(sizeof(lily_symtab));
 
@@ -874,71 +796,6 @@ void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
         var_iter->flags |= VAR_OUT_OF_SCOPE;
         var_iter = var_iter->next;
     }
-}
-
-/*  lily_build_type
-    This function is used to ensure that creating a type for 'cls' with
-    the given information will not result in a duplicate type entry.
-    Unique types are a good thing, because that allows type == type
-    comparisons by emitter and the vm.
-    This creates a new type if, and only if, it would be unique.
-
-    cls:            The base class to look for.
-    flags:          Flags for the type. Important for functions, which
-                    may/may not be TYPE_IS_VARARGS.
-    subtypes:        The subtypes that proper types will be pulled from.
-    offset:         In subtypes, where to start taking types.
-    entries_to_use: How many types to take after 'offset'.
-
-    This is used by parser and emitter to make sure they don't create
-    types they'll have to throw away.
-
-    A unique, valid type is always returned. */
-lily_type *lily_build_type(lily_symtab *symtab, lily_class *cls,
-        int flags, lily_type **subtypes, int offset, int entries_to_use)
-{
-    lily_type fake_type;
-
-    fake_type.cls = cls;
-    fake_type.generic_pos = 0;
-    fake_type.subtypes = subtypes + offset;
-    fake_type.subtype_count = entries_to_use;
-    fake_type.flags = flags;
-    fake_type.next = NULL;
-
-    /* The reason it's done like this is purely to save memory. There's no
-       point in creating a new type if it already exists (since that just
-       means the new one has to be destroyed). */
-    lily_type *result_type = lookup_type(symtab, &fake_type);
-    if (result_type == NULL) {
-        lily_type *new_type = make_new_type(fake_type.cls);
-
-        memcpy(new_type, &fake_type, sizeof(lily_type));
-
-        if (entries_to_use) {
-            lily_type **new_subtypes = lily_malloc(entries_to_use *
-                    sizeof(lily_type *));
-            memcpy(new_subtypes, subtypes + offset, entries_to_use *
-                    sizeof(lily_type *));
-            new_type->subtypes = new_subtypes;
-        }
-        else {
-            new_type->subtypes = NULL;
-            /* If this type has no subtypes, and it was just created, then it
-               has to be the default type for this class. */
-            fake_type.cls->type = new_type;
-        }
-
-        new_type->subtype_count = entries_to_use;
-
-        new_type->next = new_type->cls->all_subtypes;
-        new_type->cls->all_subtypes = new_type;
-
-        finalize_type(new_type);
-        result_type = new_type;
-    }
-
-    return result_type;
 }
 
 /*  lily_add_class_property

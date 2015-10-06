@@ -8,6 +8,7 @@
 # include "lily_symtab.h"
 # include "lily_vm.h"
 # include "lily_msgbuf.h"
+# include "lily_type_maker.h"
 
 typedef struct lily_path_link_ {
     char *path;
@@ -39,6 +40,7 @@ typedef struct lily_parse_state_ {
     lily_emit_state *emit;
     lily_symtab *symtab;
     lily_vm_state *vm;
+    lily_type_maker *tm;
     lily_raiser *raiser;
     lily_options *options;
     void *data;

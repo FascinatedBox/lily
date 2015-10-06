@@ -46,11 +46,17 @@ lily_emit_state *lily_new_emit_state(lily_options *options,
 
     emit->patches = lily_malloc(sizeof(int) * 4);
     emit->match_cases = lily_malloc(sizeof(int) * 4);
-    emit->ts = lily_new_type_system(symtab);
+    emit->tm = lily_new_type_maker();
+    emit->ts = lily_new_type_system(emit->tm);
     emit->code = lily_malloc(sizeof(uint16_t) * 32);
     emit->closed_syms = lily_malloc(sizeof(lily_sym *) * 4);
     emit->transform_table = NULL;
     emit->transform_size = 0;
+
+    /* These two use the class 'any' as a special-cased default, and therefore
+       need access to it at all times. */
+    emit->tm->any_class_type = symtab->any_class->type;
+    emit->ts->any_class_type = symtab->any_class->type;
 
     emit->call_values = lily_malloc(sizeof(lily_sym *) * 8);
     emit->call_state = NULL;
@@ -725,7 +731,7 @@ static lily_storage *emit_rebox_sym(lily_emit_state *, lily_type *, lily_sym *,
           types are given the type of 'any'. */
 static void rebox_variant_to_enum(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_type *rebox_type = lily_ts_build_enum_by_variant(emit->ts,
+    lily_type *rebox_type = lily_tm_make_enum_by_variant(emit->tm,
             ast->result->type);
 
     lily_storage *result = emit_rebox_sym(emit, rebox_type,
@@ -740,7 +746,7 @@ static lily_storage *emit_rebox_sym(lily_emit_state *emit,
 
     if (sym->type->cls->flags & CLS_IS_VARIANT &&
         new_type->cls->id == SYM_CLASS_ANY) {
-        lily_type *rebox_type = lily_ts_build_enum_by_variant(emit->ts,
+        lily_type *rebox_type = lily_tm_make_enum_by_variant(emit->tm,
                 sym->type);
 
         sym = (lily_sym *)emit_rebox_sym(emit, rebox_type, sym, line_num);
@@ -1517,7 +1523,7 @@ static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
 
     /* If this call has unresolved generics, resolve those generics as
        themselves so the error message prints out correctly. */
-    lily_ts_resolve_as_self(emit->ts);
+    lily_ts_resolve_as_self(emit->ts, emit->symtab->generic_class->all_subtypes);
 
     /* These names are intentionally the same length and on separate lines so
        that slight naming issues become more apparent. */
@@ -1788,7 +1794,7 @@ static lily_type *calculate_var_type(lily_emit_state *emit, lily_type *input_typ
 {
     lily_type *result;
     if (input_type->cls->flags & CLS_IS_VARIANT)
-        result = lily_ts_build_enum_by_variant(emit->ts, input_type);
+        result = lily_tm_make_enum_by_variant(emit->tm, input_type);
     else
         result = input_type;
 
@@ -2611,9 +2617,9 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     }
 
     lily_class *hash_cls = emit->symtab->hash_class;
-    lily_ts_set_ceiling_type(emit->ts, last_key_type, 0);
-    lily_ts_set_ceiling_type(emit->ts, last_value_type, 1);
-    lily_type *new_type = lily_ts_build_by_ceiling(emit->ts, hash_cls, 2, 0);
+    lily_tm_add(emit->tm, last_key_type);
+    lily_tm_add(emit->tm, last_value_type);
+    lily_type *new_type = lily_tm_make(emit->tm, 0, hash_cls, 2);
 
     lily_storage *s = get_storage(emit, new_type);
 
@@ -2734,9 +2740,9 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         elem_type = ast->arg_start->result->type;
     }
 
-    lily_ts_set_ceiling_type(emit->ts, elem_type, 0);
-    lily_type *new_type = lily_ts_build_by_ceiling(emit->ts,
-            emit->symtab->list_class, 1, 0);
+    lily_tm_add(emit->tm, elem_type);
+    lily_type *new_type = lily_tm_make(emit->tm, 0, emit->symtab->list_class,
+            1);
 
     lily_storage *s = get_storage(emit, new_type);
 
@@ -2808,16 +2814,14 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
             type_matchup(emit, elem_type, arg);
     }
 
-    lily_ts_reserve_ceiling_types(emit->ts, ast->args_collected);
-
     for (i = 0, arg = ast->arg_start;
          i < ast->args_collected;
          i++, arg = arg->next_arg) {
-        lily_ts_set_ceiling_type(emit->ts, arg->result->type, i);
+        lily_tm_add(emit->tm, arg->result->type);
     }
 
-    lily_type *new_type = lily_ts_build_by_ceiling(emit->ts,
-            emit->symtab->tuple_class, i, 0);
+    lily_type *new_type = lily_tm_make(emit->tm, 0, emit->symtab->tuple_class,
+            i);
     lily_storage *s = get_storage(emit, new_type);
 
     write_build_op(emit, o_build_list_tuple, ast->arg_start, ast->line_num,
@@ -3188,7 +3192,8 @@ static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *c
                 By forcing 'two' to have the same generic ordering as 'one', Lily
                 greatly simplifies generics handling. The A of one is the A of
                 two. */
-            lily_ts_resolve_as_self(emit->ts);
+            lily_ts_resolve_as_self(emit->ts,
+                    emit->symtab->generic_class->all_subtypes);
         }
         else {
             lily_type *call_result = cs->call_type->subtypes[0];
@@ -4647,9 +4652,9 @@ void lily_emit_enter_main(lily_emit_state *emit)
        exist. The value NULL is used to signal that the function does not return
        anything. The lack of extra values means that it doesn't take anything
        either. */
-    lily_type *fake_stack = {NULL};
-    lily_type *main_type = lily_build_type(emit->symtab,
-            emit->symtab->function_class, 0, &fake_stack, 0, 1);
+    lily_tm_add(emit->tm, NULL);
+    lily_type *main_type = lily_tm_make(emit->tm, 0,
+            emit->symtab->function_class, 1);
 
     lily_var *main_var = lily_new_raw_var(emit->symtab, main_type, "__main__");
     main_var->reg_spot = 0;

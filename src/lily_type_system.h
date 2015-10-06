@@ -1,8 +1,8 @@
 # ifndef LILY_TYPE_SYSTEM_H
 # define LILY_TYPE_SYSTEM_H
+
 # include "lily_core_types.h"
-# include "lily_raiser.h"
-# include "lily_symtab.h"
+# include "lily_type_maker.h"
 
 /* lily_type_system is a container for type information that is used by
    different parts of the interpreter. As a bonus, a series of common
@@ -27,10 +27,11 @@ typedef struct {
        time. */
     uint16_t max_seen;
 
-    lily_symtab *symtab;
+    lily_type *any_class_type;
+    lily_type_maker *tm;
 } lily_type_system;
 
-lily_type_system *lily_new_type_system(lily_symtab *);
+lily_type_system *lily_new_type_system(lily_type_maker *);
 
 void lily_free_type_system(lily_type_system *);
 
@@ -81,11 +82,7 @@ void lily_ts_resolve_as_variant_by_enum(lily_type_system *, lily_type *, lily_ty
      doing this would cause the wrong types to get shown.
    * This prevents the generics from WITHIN a generic function (which are
      quasi-known) from being resolved to something when they can't be. */
-void lily_ts_resolve_as_self(lily_type_system *);
-
-/* This ensures that there are enough empty slots beyond ts->pos and ts->ceiling
-   to place 'N' types. This is used when building tuples. */
-void lily_ts_reserve_ceiling_types(lily_type_system *, int);
+void lily_ts_resolve_as_self(lily_type_system *, lily_type *);
 
 /* Set a type to the stack, at 'pos + ceiling + (index)'.
    Since the type is set after the ceiling, this will not harm the current
@@ -96,19 +93,6 @@ void lily_ts_set_ceiling_type(lily_type_system *, lily_type *, int);
 
 /* Retrieve a type from past the ceiling. */
 lily_type *lily_ts_get_ceiling_type(lily_type_system *, int);
-
-/* Occasionally, it is useful to store types in the ceiling of the stack, then
-   build a type from those ceiling types.
-   An example of this is emitter's hash build: The key is stored at
-   ceiling + 0, and the value at ceiling + 1. This is then called with class
-   hash and '2' to build a hash of two ceiling types.
-   The index given is the top index, relative to the ceiling. */
-lily_type *lily_ts_build_by_ceiling(lily_type_system *, lily_class *, int, int);
-
-/* Given a variant type, build an appropriate enum type. If the variant type
-   supplies any generics, then those are used. Generics that are in the enum
-   but not the variant will default to any. */
-lily_type *lily_ts_build_enum_by_variant(lily_type_system *, lily_type *);
 
 /* This function is called by emitter when it is about to enter a call. The
    current ceiling is added to the stack's pos. The new ceiling is set to
