@@ -24,13 +24,11 @@ if (new_size >= ts->max) \
    As of right now, only function inputs use this. */
 #define T_CONTRAVARIANT 0x4
 
-lily_type_system *lily_new_type_system(lily_options *options,
-        lily_symtab *symtab, lily_raiser *raiser)
+lily_type_system *lily_new_type_system(lily_symtab *symtab)
 {
     lily_type_system *ts = lily_malloc(sizeof(lily_type_system));
     lily_type **types = lily_malloc(4 * sizeof(lily_type *));
 
-    ts->raiser = raiser;
     ts->symtab = symtab;
     ts->types = types;
     ts->pos = 0;
