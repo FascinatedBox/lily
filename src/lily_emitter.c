@@ -46,7 +46,7 @@ lily_emit_state *lily_new_emit_state(lily_options *options,
 
     emit->patches = lily_malloc(sizeof(int) * 4);
     emit->match_cases = lily_malloc(sizeof(int) * 4);
-    emit->ts = lily_new_type_system(options, symtab, raiser);
+    emit->ts = lily_new_type_system(symtab);
     emit->code = lily_malloc(sizeof(uint16_t) * 32);
     emit->closed_syms = lily_malloc(sizeof(lily_sym *) * 4);
     emit->transform_table = NULL;

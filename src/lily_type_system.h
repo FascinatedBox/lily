@@ -28,10 +28,9 @@ typedef struct {
     uint16_t max_seen;
 
     lily_symtab *symtab;
-    lily_raiser *raiser;
 } lily_type_system;
 
-lily_type_system *lily_new_type_system(lily_options *, lily_symtab *, lily_raiser *);
+lily_type_system *lily_new_type_system(lily_symtab *);
 
 void lily_free_type_system(lily_type_system *);
 
