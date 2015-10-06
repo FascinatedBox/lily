@@ -24,12 +24,12 @@ if (new_size >= ts->max) \
    As of right now, only function inputs use this. */
 #define T_CONTRAVARIANT 0x4
 
-lily_type_system *lily_new_type_system(lily_symtab *symtab)
+lily_type_system *lily_new_type_system(lily_type_maker *tm)
 {
     lily_type_system *ts = lily_malloc(sizeof(lily_type_system));
     lily_type **types = lily_malloc(4 * sizeof(lily_type *));
 
-    ts->symtab = symtab;
+    ts->tm = tm;
     ts->types = types;
     ts->pos = 0;
     ts->max = 4;
@@ -76,8 +76,8 @@ static lily_type *deep_type_build(lily_type_system *ts, int generic_index,
             ts->pos++;
         }
 
-        ret = lily_build_type(ts->symtab, type->cls, type->flags,
-                ts->types, save_start, i);
+        ret = lily_tm_raw_make(ts->tm, type->flags, type->cls, ts->types,
+                save_start, i);
 
         ts->pos -= i;
     }
@@ -86,7 +86,7 @@ static lily_type *deep_type_build(lily_type_system *ts, int generic_index,
         /* Sometimes, a generic is wanted that was never filled in. In such a
            case, use 'any' because it is the most accepting of values. */
         if (ret == NULL) {
-            ret = ts->symtab->any_class->type;
+            ret = ts->any_class_type;
             /* This allows lambdas to determine that a given generic was not
                resolved (and prevent it). */
             ts->types[generic_index + type->generic_pos] = ret;
@@ -366,15 +366,14 @@ void lily_ts_resolve_as_variant_by_enum(lily_type_system *ts,
     }
 }
 
-void lily_ts_resolve_as_self(lily_type_system *ts)
+void lily_ts_resolve_as_self(lily_type_system *ts, lily_type *generic_iter)
 {
     int i, stop;
-    lily_type *type_iter = ts->symtab->generic_class->all_subtypes;
 
     stop = ts->pos + ts->ceiling;
-    for (i = ts->pos;i < stop;i++, type_iter = type_iter->next) {
+    for (i = ts->pos;i < stop;i++, generic_iter = generic_iter->next) {
         if (ts->types[i] == NULL)
-            ts->types[i] = type_iter;
+            ts->types[i] = generic_iter;
     }
 }
 
@@ -403,11 +402,6 @@ inline void lily_ts_lower_ceiling(lily_type_system *ts, int old_ceiling)
     ts->ceiling = old_ceiling;
 }
 
-void lily_ts_reserve_ceiling_types(lily_type_system *ts, int num_types)
-{
-    ENSURE_TYPE_STACK(ts->pos + ts->ceiling + 1 + num_types)
-}
-
 inline void lily_ts_set_ceiling_type(lily_type_system *ts, lily_type *type,
         int pos)
 {
@@ -417,55 +411,6 @@ inline void lily_ts_set_ceiling_type(lily_type_system *ts, lily_type *type,
 inline lily_type *lily_ts_get_ceiling_type(lily_type_system *ts, int pos)
 {
     return ts->types[ts->pos + ts->ceiling + 1 + pos];
-}
-
-inline lily_type *lily_ts_build_by_ceiling(lily_type_system *ts,
-        lily_class *cls, int num_types, int flags)
-{
-    return lily_build_type(ts->symtab, cls, flags, ts->types,
-            ts->pos + ts->ceiling + 1, num_types);
-}
-
-lily_type *lily_ts_build_enum_by_variant(lily_type_system *ts,
-        lily_type *variant_type)
-{
-    /* The parent of a variant is always the enum it belongs to.
-       The 'variant_type' of an enum is the type captured when parsing it, and
-       so it contains all the generics needed. */
-    lily_type *parent_variant_type = variant_type->cls->parent->variant_type;
-
-    int types_needed = ts->pos + ts->ceiling + 1 +
-            parent_variant_type->subtype_count;
-    ENSURE_TYPE_STACK(types_needed)
-
-    /* If the variant takes no values, then the variant type is simply the
-       default type for the class.
-       If it does, then it's a function with the return (at [0]) being the
-       variant result. */
-    lily_type *child_result;
-
-    if (variant_type->cls->variant_type->subtype_count != 0)
-        child_result = variant_type->cls->variant_type->subtypes[0];
-    else
-        child_result = NULL;
-
-    lily_type *any_type = ts->symtab->any_class->type;
-
-    /* Sometimes, a variant does not use all of the generics provided by the
-       parent enum. In that case, the class 'any' will be used. */
-    int i, j;
-    for (i = 0, j = 0;i < parent_variant_type->subtype_count;i++) {
-        if (child_result &&
-            child_result->subtype_count > j &&
-            child_result->subtypes[j]->generic_pos == i) {
-            lily_ts_set_ceiling_type(ts, variant_type->subtypes[j], i);
-            j++;
-        }
-        else
-            lily_ts_set_ceiling_type(ts, any_type, i);
-    }
-
-    return lily_ts_build_by_ceiling(ts, variant_type->cls->parent, i, 0);
 }
 
 int lily_ts_enum_membership_check(lily_type_system *ts, lily_type *enum_type,

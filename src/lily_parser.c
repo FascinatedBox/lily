@@ -151,22 +151,22 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
 
     parser->optarg_stack_pos = 0;
     parser->optarg_stack_size = 4;
-    parser->type_stack_pos = 0;
-    parser->type_stack_size = 4;
     parser->class_depth = 0;
     parser->next_lambda_id = 0;
     parser->first_pass = 1;
     parser->class_self_type = NULL;
     parser->raiser = raiser;
     parser->optarg_stack = lily_malloc(4 * sizeof(uint16_t));
-    parser->type_stack = lily_malloc(4 * sizeof(lily_type *));
     parser->ast_pool = lily_new_ast_pool(options, 8);
-    parser->symtab = lily_new_symtab(options, builtin_import);
+    parser->symtab = lily_new_symtab(builtin_import);
     parser->emit = lily_new_emit_state(options, parser->symtab, raiser);
     parser->lex = lily_new_lex_state(options, raiser);
     parser->vm = lily_new_vm_state(options, raiser);
     parser->msgbuf = lily_new_msgbuf();
+    parser->tm = lily_new_type_maker();
     parser->options = options;
+
+    parser->tm = parser->emit->tm;
 
     parser->vm->symtab = parser->symtab;
     parser->vm->ts = parser->emit->ts;
@@ -274,7 +274,7 @@ void lily_free_parse_state(lily_parse_state *parser)
     }
 
     lily_free_msgbuf(parser->msgbuf);
-    lily_free(parser->type_stack);
+    lily_free_type_maker(parser->tm);
     lily_free(parser);
 }
 
@@ -574,15 +574,6 @@ static void bad_decl_token(lily_parse_state *parser)
     lily_raise(parser->raiser, lily_SyntaxError, message);
 }
 
-/*  grow_type_stack
-    Make the stack holding type information bigger for more types. */
-static void grow_type_stack(lily_parse_state *parser)
-{
-    parser->type_stack_size *= 2;
-    parser->type_stack = lily_realloc(parser->type_stack,
-            sizeof(lily_type *) * parser->type_stack_size);
-}
-
 /*  grow_optarg_stack
     Make the optstack holding type information bigger for more values. */
 static void grow_optarg_stack(lily_parse_state *parser)
@@ -590,76 +581,6 @@ static void grow_optarg_stack(lily_parse_state *parser)
     parser->optarg_stack_size *= 2;
     parser->optarg_stack = lily_realloc(parser->optarg_stack,
             sizeof(uint16_t) * parser->optarg_stack_size);
-}
-
-/*  calculate_generics_used
-    This recurses through a given type, marking down what positions are seen
-    in the "map" of generics. Additionally, generic_max is set to the highest
-    generic position seen + 1. If A is the highest, it's 1, B = 2, C = 3, etc.
-    Since Lily's generics are from A to Z (literally), generic_map only needs
-    that many slots available. */
-static void calculate_generics_used(lily_type *type, int *generic_map,
-        int *generic_max)
-{
-    if (type == NULL)
-        return;
-    else if (type->cls->id == SYM_CLASS_GENERIC) {
-        int generic_pos = type->generic_pos;
-        generic_map[generic_pos] = 1;
-        if ((generic_pos + 1) > *generic_max)
-            *generic_max = generic_pos + 1;
-    }
-    else if (type->subtypes) {
-        int i;
-        for (i = 0;i < type->subtype_count;i++)
-            calculate_generics_used(type->subtypes[i], generic_map,
-                    generic_max);
-    }
-}
-
-/*  calculate_variant_return
-    This function is called by inner_type_collector to determine what the
-    resulting type of a variant 'function' is.
-    Ex: For 'enum Option[A] { Some(A) ...}', a function is created with the
-        type 'function [A](A => Some[A])'.
-
-    This is important because the variant may not use all the generics of the
-    enum. In such a situation, the emitter can use the lack of explicit
-    information to better calculate type information. */
-static lily_type *calculate_variant_return(lily_parse_state *parser,
-        lily_class *variant_cls, int stack_start, int stack_top)
-{
-    int generic_map[32];
-    int i, j, k, generic_max = 0;
-
-    memset(generic_map, 0, sizeof(generic_map));
-
-    for (i = stack_start;i < stack_top;i++) {
-        lily_type *t = parser->type_stack[i];
-        calculate_generics_used(t, generic_map, &generic_max);
-    }
-
-    if (stack_top + generic_max > parser->type_stack_size)
-        grow_type_stack(parser);
-
-    /* The symtab puts each of the generic signatures together, from A onward.
-       What this does is to add the generics that are seen. */
-    lily_type *generic_iter = parser->symtab->generic_class->all_subtypes;
-    for (i = 0, j = stack_top + 1, k = 0;
-         i < generic_max;
-         i++, generic_iter = generic_iter->next) {
-        if (generic_map[i]) {
-            parser->type_stack[j] = generic_iter;
-            j++;
-            k++;
-        }
-    }
-
-    lily_type *variant_return = lily_build_type(parser->symtab,
-            variant_cls, 0, parser->type_stack,
-            stack_top + 1, k);
-
-    return variant_return;
 }
 
 /*****************************************************************************/
@@ -681,12 +602,8 @@ static lily_type *collect_var_type(lily_parse_state *parser);
 static lily_type *make_optarg_type_of(lily_parse_state *parser, lily_type *type)
 {
     lily_class *optarg_class = parser->symtab->optarg_class;
-    parser->type_stack[parser->type_stack_pos] = type;
-
-    lily_type *result = lily_build_type(parser->symtab, optarg_class,
-            0, parser->type_stack, parser->type_stack_pos, 1);
-
-    return result;
+    lily_tm_add(parser->tm, type);
+    return lily_tm_make(parser->tm, 0, optarg_class, 1);
 }
 
 /*  get_optarg_expect_token
@@ -756,7 +673,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
         int flags)
 {
     int i;
-    int state = TC_WANT_VALUE, stack_start = parser->type_stack_pos;
+    int state = TC_WANT_VALUE, stack_start = parser->tm->pos;
     int type_flags = 0, have_arrow = 0, have_dots = 0;
     lily_token end_token;
     lily_class *variant_cls = NULL;
@@ -767,30 +684,19 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
     }
 
     if (cls->id == SYM_CLASS_FUNCTION) {
-        /* Functions have their return as the first type, so leave a hole. */
-        if ((parser->type_stack_pos + 2) == parser->type_stack_size)
-            grow_type_stack(parser);
-
         if (flags & TC_CLASS_INIT)
-            /* This is a constructor, so use the most recent type declared
-               since it's the right one (lily_set_class_generics makes sure of
-               it). */
-            parser->type_stack[parser->type_stack_pos] =
-                    parser->class_self_type;
+            lily_tm_add(parser->tm, parser->class_self_type);
         else
-            parser->type_stack[parser->type_stack_pos] = NULL;
+            /* This will be overwritten if there's something to return. */
+            lily_tm_add(parser->tm, NULL);
 
-        parser->type_stack_pos++;
         end_token = tk_right_parenth;
         i = 1;
 
-        /* Add an implicit 'self' for class functions (except for any nested
-           classes). */
+        /* Class methods always take 'self' as their first parameter. */
         if (flags & TC_TOPLEVEL && parser->class_depth &&
             (flags & TC_CLASS_INIT) == 0) {
-            parser->type_stack[parser->type_stack_pos] =
-                    parser->class_self_type;
-            parser->type_stack_pos++;
+            lily_tm_add(parser->tm, parser->class_self_type);
             i++;
         }
     }
@@ -807,9 +713,6 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
 
     while (1) {
         if (lex->token == tk_word || lex->token == tk_multiply) {
-            if (parser->type_stack_pos == parser->type_stack_size)
-                grow_type_stack(parser);
-
             lily_var *var = NULL;
             if (have_arrow)
                 flags &= ~(TC_MAKE_VARS);
@@ -842,6 +745,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
                                 "Variant types cannot have default values.\n");
 
                     is_optarg = 1;
+                    type_flags |= TYPE_HAS_OPTARGS;
                     have_optargs = 1;
                     lily_lexer(lex);
                 }
@@ -851,16 +755,16 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
 
             if (have_arrow == 0) {
                 lily_type *stack_type = type;
-                if (is_optarg) {
-                    stack_type = make_optarg_type_of(parser, type);
-                    type_flags |= TYPE_HAS_OPTARGS;
-                }
-                parser->type_stack[parser->type_stack_pos] = stack_type;
-                parser->type_stack_pos++;
+
+                if (is_optarg)
+                    lily_tm_add(parser->tm, make_optarg_type_of(parser, type));
+                else
+                    lily_tm_add(parser->tm, stack_type);
+
                 i++;
             }
             else
-                parser->type_stack[stack_start] = type;
+                lily_tm_insert(parser->tm, stack_start, type);
 
             if (var) {
                 var->type = type;
@@ -903,8 +807,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
                 state != TC_WANT_OPERATOR)
                 state = TC_BAD_TOKEN;
             else {
-                lily_type *last_type;
-                last_type = parser->type_stack[parser->type_stack_pos - 1];
+                lily_type *last_type = lily_tm_get(parser->tm, i - 1);
                 if (last_type->cls->id != SYM_CLASS_LIST)
                     lily_raise(parser->raiser, lily_SyntaxError,
                         "A list is required for variable arguments (...).\n");
@@ -926,12 +829,10 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
             lily_lexer(lex);
     }
 
-    if (parser->type_stack_pos - stack_start != cls->generic_count &&
-        cls->generic_count != -1) {
+    if (i != cls->generic_count && cls->generic_count != -1) {
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Class %s expects %d type(s), but got %d type(s).\n",
-                cls->name, cls->generic_count,
-                parser->type_stack_pos - stack_start);
+                cls->name, cls->generic_count, i);
     }
 
     if (cls->id == SYM_CLASS_HASH) {
@@ -939,7 +840,7 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
            Generics are allowed to be hash keys because the generic might
            resolve to a valid hash key.
            Also...the hash builtins don't work otherwise. */
-        lily_type *check_type = parser->type_stack[stack_start];
+        lily_type *check_type = lily_tm_get(parser->tm, stack_start);
         if ((check_type->cls->flags & CLS_VALID_HASH_KEY) == 0 &&
             check_type->cls->id != SYM_CLASS_GENERIC) {
             lily_raise(parser->raiser, lily_SyntaxError,
@@ -948,14 +849,13 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
     }
 
     if (flags & TC_VARIANT_FUNC) {
-        lily_type *variant_return = calculate_variant_return(parser,
+        lily_type *variant_return = lily_tm_make_variant_result(parser->tm,
                 variant_cls, stack_start, i);
-        parser->type_stack[stack_start] = variant_return;
+        lily_tm_insert(parser->tm, stack_start, variant_return);
     }
 
-    lily_type *result = lily_build_type(parser->symtab, cls,
-            type_flags, parser->type_stack, stack_start, i);
-    parser->type_stack_pos = stack_start;
+    lily_type *result = lily_tm_make(parser->tm, type_flags, cls, i);
+
     return result;
 }
 
@@ -1002,31 +902,20 @@ static int collect_generics(lily_parse_state *parser)
 static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls,
         int generics_used)
 {
-    int start = parser->type_stack_pos;
     lily_type *result;
     if (generics_used) {
-        if (parser->type_stack_pos + generics_used > parser->type_stack_size)
-            grow_type_stack(parser);
-
         char name[] = {'A', '\0'};
         while (generics_used) {
             lily_class *lookup_cls = lily_find_class(parser->symtab, NULL, name);
-            parser->type_stack[parser->type_stack_pos] = lookup_cls->type;
-            parser->type_stack_pos++;
+            lily_tm_add(parser->tm, lookup_cls->type);
             name[0]++;
             generics_used--;
         }
 
-        result = lily_build_type(parser->symtab, cls, 0, parser->type_stack,
-                start, parser->type_stack_pos);
-        parser->type_stack_pos = start;
+        result = lily_tm_make(parser->tm, 0, cls, (name[0] - 'A'));
     }
-    else {
-        /* Since it doesn't take subtypes, it can get a default type.
-           lily_build_type will mark the class as having this new type as the
-           default since it has no subtypes. */
-        result = lily_build_type(parser->symtab, cls, 0, NULL, 0, 0);
-    }
+    else
+        result = lily_tm_make_default_for(parser->tm, cls);
 
     return result;
 }
@@ -2916,10 +2805,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
             lily_lexer(lex);
         }
         else
-            /* This will build a type with no subtypes inside of it. The symtab
-               is then responsible for making that the default type. */
-            variant_type = lily_build_type(parser->symtab, variant_cls, 0, NULL,
-                    0, 0);
+            variant_type = lily_tm_make_default_for(parser->tm, variant_cls);
 
         lily_finish_variant(parser->symtab, variant_cls, variant_type);
 
@@ -3289,7 +3175,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
         int did_resolve)
 {
     lily_lex_state *lex = parser->lex;
-    int args_collected = 0, resolved_any_args = 0;
+    int args_collected = 0, tm_return = parser->tm->pos;
     lily_type *root_result;
 
     /* Process the lambda as if it were a file with a slightly adjusted
@@ -3323,6 +3209,8 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        least one argument. */
     lily_type_system *emit_ts = parser->emit->ts;
 
+    lily_tm_add(parser->tm, NULL);
+
     if (expect_type && expect_type->subtype_count > 1) {
         if (lex->token == tk_logical_or)
             lily_raise(parser->raiser, lily_SyntaxError,
@@ -3349,9 +3237,9 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
                     lily_raise(parser->raiser, lily_SyntaxError,
                             "Cannot infer type of '%s'.\n", lex->label);
                 }
-
-                resolved_any_args = 1;
             }
+
+            lily_tm_add(parser->tm, arg_type);
 
             get_named_var(parser, arg_type);
             args_collected++;
@@ -3370,12 +3258,6 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
         lily_raise(parser->raiser, lily_SyntaxError, "Unexpected token '%s'.\n",
                 lex->token);
 
-    /* If the emitter knows what the lambda's result should be, then use that
-       to do some type inference on the result of the expression. */
-    lily_type *result_wanted = NULL;
-    if (expect_type)
-        result_wanted = expect_type->subtypes[0];
-
     /* It's time to process the body of the lambda. Before this is done, freeze
        the ast pool's state so that the save depth is 0 and such. This allows
        the expression function to ensure that the body of the lambda is valid. */
@@ -3387,36 +3269,14 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     NEED_CURRENT_TOK(tk_right_curly)
     lily_lexer(lex);
 
-    if (resolved_any_args || root_result != result_wanted) {
-        /* The type passed does not accurately describe the lambda. Build
-           one that does, because the emitter may use this returned type in
-           further type inference. */
-        int types_needed = args_collected + 1;
-        int flags = 0, end = parser->type_stack_pos + types_needed;
-        int i;
-        lily_class *function_cls = parser->symtab->function_class;
-        lily_var *var_iter = parser->symtab->active_import->var_chain;
-        if (parser->type_stack_pos + types_needed > parser->type_stack_size)
-            grow_type_stack(parser);
+    lily_tm_insert(parser->tm, tm_return, root_result);
+    int flags = 0;
+    if (expect_type && expect_type->cls->id == SYM_CLASS_FUNCTION &&
+        expect_type->flags & TYPE_IS_VARARGS)
+        flags = TYPE_IS_VARARGS;
 
-        if (expect_type && expect_type->cls->id == SYM_CLASS_FUNCTION &&
-            expect_type->flags & TYPE_IS_VARARGS)
-            flags = TYPE_IS_VARARGS;
-
-        parser->type_stack[parser->type_stack_pos] = root_result;
-        /* Symtab puts the most recent var on top, and goes to the oldest.
-           That's the reverse order of the arguments so apply backward. */
-        for (i = 1;i < types_needed;i++, var_iter = var_iter->next)
-            parser->type_stack[end - i] = var_iter->type;
-
-        lily_type *new_type = lily_build_type(parser->symtab, function_cls,
-                flags, parser->type_stack, parser->type_stack_pos, types_needed);
-        lambda_var->type = new_type;
-    }
-    else if (expect_type)
-        lambda_var->type = expect_type;
-    else
-        lambda_var->type = parser->default_call_type;
+    lambda_var->type = lily_tm_make(parser->tm, flags,
+            parser->symtab->function_class, args_collected + 1);
 
     lily_emit_leave_block(parser->emit);
     lily_pop_lex_entry(lex);
