@@ -213,23 +213,11 @@ static int invariant_check(lily_type *left, lily_type *right, int *num_subtypes)
     return ret;
 }
 
-static int covariant_check(lily_type *left, lily_type *right, int *num_subtypes)
+static int non_invariant_check(lily_type *left, lily_type *right, int *num_subtypes)
 {
     int ret = lily_class_greater_eq(left->cls, right->cls);
     *num_subtypes = left->subtype_count;
 
-    return ret;
-}
-
-static int contravariant_check(lily_type *left, lily_type *right, int *num_subtypes)
-{
-    int ret;
-    if (left->cls == right->cls)
-        ret = (left->subtype_count == right->subtype_count);
-    else
-        ret = lily_class_greater_eq(right->cls, left->cls);
-
-    *num_subtypes = right->subtype_count;
     return ret;
 }
 
@@ -240,9 +228,11 @@ static int check_misc(lily_type_system *ts, lily_type *left, lily_type *right,
     int num_subtypes;
 
     if (flags & T_COVARIANT)
-        ret = covariant_check(left, right, &num_subtypes);
+        ret = non_invariant_check(left, right, &num_subtypes);
     else if (flags & T_CONTRAVARIANT)
-        ret = contravariant_check(left, right, &num_subtypes);
+        /* Contravariance is like covariance but with the sides in reverse
+           order. So...call it like that. */
+        ret = non_invariant_check(right, left, &num_subtypes);
     else
         ret = invariant_check(left, right, &num_subtypes);
 
