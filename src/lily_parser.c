@@ -205,14 +205,8 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
 
     bootstrap_exception(parser);
 
-    /* Exception has a traceback that is described as:
-       ```list[tuple[string, string, integer]]```
-       Since Exception was just loaded, it'll be at the top of the current
-       import's classes. Properties are also linked (intentionally) where
-       traceback will be first. Save this special type in the vm, so it has an
-       easier time of making traceback. */
-    parser->vm->traceback_type =
-            parser->symtab->active_import->class_chain->properties->type;
+    /* The vm uses this for tagging the inner values when building traceback. */
+    parser->vm->traceback_type = type_by_name(parser, "list[string]");
 
     parser->executing = 0;
 
