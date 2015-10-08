@@ -39,8 +39,7 @@ static void add_call_state(lily_emit_state *);
 /* Emitter setup and teardown                                                */
 /*****************************************************************************/
 
-lily_emit_state *lily_new_emit_state(lily_options *options,
-        lily_symtab *symtab, lily_raiser *raiser)
+lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
 {
     lily_emit_state *emit = lily_malloc(sizeof(lily_emit_state));
 
