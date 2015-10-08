@@ -314,6 +314,6 @@ lily_var *lily_emit_new_dyna_var(lily_emit_state *, lily_import_entry *,
 
 void lily_free_emit_state(lily_emit_state *);
 void lily_emit_enter_main(lily_emit_state *);
-lily_emit_state *lily_new_emit_state(lily_options *, lily_symtab *, lily_raiser *);
+lily_emit_state *lily_new_emit_state(lily_symtab *, lily_raiser *);
 
 #endif

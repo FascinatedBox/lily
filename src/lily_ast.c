@@ -86,7 +86,7 @@ static void add_save_entry(lily_ast_pool *);
 /* Ast pool creation and teardown.                                            */
 /******************************************************************************/
 
-lily_ast_pool *lily_new_ast_pool(lily_options *options, int pool_size)
+lily_ast_pool *lily_new_ast_pool(int pool_size)
 {
     lily_ast_pool *ap = lily_malloc(sizeof(lily_ast_pool));
 
