@@ -155,7 +155,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->class_self_type = NULL;
     parser->raiser = raiser;
     parser->optarg_stack = lily_malloc(4 * sizeof(uint16_t));
-    parser->ast_pool = lily_new_ast_pool(8);
+    parser->ast_pool = lily_new_ast_pool();
     parser->symtab = lily_new_symtab(builtin_import);
     parser->emit = lily_new_emit_state(parser->symtab, raiser);
     parser->lex = lily_new_lex_state(options, raiser);
