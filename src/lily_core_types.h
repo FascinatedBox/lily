@@ -433,6 +433,10 @@ typedef struct {
 
 /* This is used to manage information about imports. */
 typedef struct lily_import_entry_ {
+    /* This allows imports to be cast as lily_item, which is used during parser
+       dynaloading. */
+    uint64_t flags;
+
     /* The name given to import this thing. */
     char *loadname;
 
@@ -494,6 +498,7 @@ typedef struct lily_options_ {
 #define ITEM_TYPE_STORAGE  0x04
 #define ITEM_TYPE_VARIANT  0x10
 #define ITEM_TYPE_PROPERTY 0x20
+#define ITEM_TYPE_IMPORT   0x40
 
 
 /* CLS_* defines are for lily_class. */

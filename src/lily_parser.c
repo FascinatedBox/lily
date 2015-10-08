@@ -305,6 +305,7 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
     new_entry->var_chain = NULL;
     new_entry->dynaload_table = NULL;
     new_entry->var_load_fn = NULL;
+    new_entry->flags = ITEM_TYPE_IMPORT;
 
     return new_entry;
 }
@@ -348,9 +349,14 @@ static void fixup_import_basedir(lily_parse_state *parser, char *path)
         length);
 }
 
-static lily_base_seed *find_dynaload_entry(const void *table, char *name)
+static lily_base_seed *find_dynaload_entry(lily_item *item, char *name)
 {
-    const void *raw_iter = table;
+    const void *raw_iter;
+    if (item->flags & ITEM_TYPE_IMPORT)
+        raw_iter = ((lily_import_entry *)item)->dynaload_table;
+    else
+        raw_iter = ((lily_class *)item)->dynaload_table;
+
     while (raw_iter) {
         lily_base_seed *base_seed = (lily_base_seed *)raw_iter;
         if (strcmp(base_seed->name, name) == 0)
@@ -933,15 +939,15 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
         /* Is this a class that hasn't been loaded just yet? First try the
            builtins to figure that out... */
         lily_base_seed *call_seed =
-                find_dynaload_entry(search_import->dynaload_table, lex->label);
+                find_dynaload_entry((lily_item *)search_import, lex->label);
 
         /* If that doesn't work, then this could be a situation of being in a
            method dynaload that references types that have yet to be dynaloaded.
            In such a case, what's marked as the active import will have a
            dynaload table that isn't NULL. */
         if (call_seed == NULL)
-            call_seed = find_dynaload_entry(
-                    symtab->active_import->dynaload_table, lex->label);
+            call_seed = find_dynaload_entry((lily_item *)symtab->active_import,
+                    lex->label);
 
         if (call_seed && call_seed->seed_type == dyna_exception)
             result = dynaload_exception(parser, search_import, lex->label);
@@ -1362,8 +1368,8 @@ static void expression_word(lily_parse_state *parser, int *state)
     if (search_entry == NULL)
         search_entry = symtab->builtin_import;
 
-    lily_base_seed *base_seed = find_dynaload_entry(
-            search_entry->dynaload_table, lex->label);
+    lily_base_seed *base_seed = find_dynaload_entry((lily_item *)search_entry,
+            lex->label);
 
     if (base_seed) {
         dispatch_word_as_dynaloaded(parser, search_entry, base_seed, state);
@@ -3276,8 +3282,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
 lily_var *lily_parser_dynamic_load(lily_parse_state *parser, lily_class *cls,
         char *name)
 {
-    lily_base_seed *base_seed = find_dynaload_entry(cls->dynaload_table,
-            name);
+    lily_base_seed *base_seed = find_dynaload_entry((lily_item *)cls, name);
     lily_var *ret;
 
     if (base_seed != NULL)
