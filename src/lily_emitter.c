@@ -4582,45 +4582,38 @@ lily_var *lily_emit_new_define_var(lily_emit_state *emit, lily_type *type,
     return new_var;
 }
 
-lily_var *lily_emit_new_dyna_define_var(lily_emit_state *emit,
-        lily_foreign_func func, lily_import_entry *import, lily_type *type,
+lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
+        lily_foreign_func func, lily_item *source, lily_type *type,
         char *name)
 {
     lily_var *new_var = lily_new_raw_unlinked_var(emit->symtab, type, name);
 
-    new_var->next = import->var_chain;
-    import->var_chain = new_var;
-
-    new_var->reg_spot = emit->symtab->next_readonly_spot;
-    emit->symtab->next_readonly_spot++;
     new_var->function_depth = 1;
     new_var->flags |= VAR_IS_READONLY;
+    new_var->reg_spot = emit->symtab->next_readonly_spot;
+    emit->symtab->next_readonly_spot++;
 
-    /* Make sure to use new_var->name, because the name parameter is a shallow
-       copy of lex->label (and will be mutated). */
-    lily_function_val *func_val = lily_new_foreign_function_val(func, NULL,
-            new_var->name);
+    lily_function_val *func_val;
+
+    if (source->flags & ITEM_TYPE_IMPORT) {
+        lily_import_entry *import = (lily_import_entry *)source;
+
+        new_var->next = import->var_chain;
+        import->var_chain = new_var;
+
+        func_val = lily_new_foreign_function_val(func, NULL, name);
+    }
+    else {
+        lily_class *cls = (lily_class *)source;
+
+        new_var->next = cls->call_chain;
+        cls->call_chain = new_var;
+        new_var->parent = cls;
+
+        func_val = lily_new_foreign_function_val(func, cls->name, name);
+    }
+
     lily_tie_builtin(emit->symtab, new_var, func_val);
-    return new_var;
-}
-
-lily_var *lily_emit_new_dyna_method_var(lily_emit_state *emit,
-        lily_foreign_func func, lily_class *cls, lily_type *type, char *name)
-{
-    lily_var *new_var = lily_new_raw_unlinked_var(emit->symtab, type, name);
-    new_var->parent = cls;
-    new_var->function_depth = 1;
-    new_var->flags |= VAR_IS_READONLY;
-
-    new_var->reg_spot = emit->symtab->next_readonly_spot;
-    emit->symtab->next_readonly_spot++;
-
-    new_var->next = cls->call_chain;
-    cls->call_chain = new_var;
-
-    lily_function_val *func_val = lily_new_foreign_function_val(func, cls->name,
-            new_var->name);
-    lily_tie_function(emit->symtab, new_var, func_val);
     return new_var;
 }
 

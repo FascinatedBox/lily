@@ -307,12 +307,10 @@ void lily_update_call_generics(lily_emit_state *, int);
 
 lily_var *lily_emit_new_scoped_var(lily_emit_state *, lily_type *, char *);
 lily_var *lily_emit_new_define_var(lily_emit_state *, lily_type *, char *);
-lily_var *lily_emit_new_dyna_method_var(lily_emit_state *, lily_foreign_func,
-        lily_class *, lily_type *, char *);
+lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *, lily_foreign_func,
+        lily_item *, lily_type *, char *);
 lily_var *lily_emit_new_dyna_var(lily_emit_state *, lily_import_entry *,
         lily_type *, char *);
-lily_var *lily_emit_new_dyna_define_var(lily_emit_state *, lily_foreign_func,
-        lily_import_entry *, lily_type *, char *);
 
 void lily_free_emit_state(lily_emit_state *);
 void lily_emit_enter_main(lily_emit_state *);

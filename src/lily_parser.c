@@ -64,14 +64,13 @@ static char *exception_bootstrap =
 "    var @traceback: list[string] = []\n"
 "}\n";
 
-static lily_var *parse_prototype(lily_parse_state *, lily_import_entry *,
-        lily_class *, lily_func_seed *);
 static void statement(lily_parse_state *, int);
 static lily_import_entry *make_new_import_entry(lily_parse_state *,
         const char *, char *);
 static void link_import_to(lily_import_entry *, lily_import_entry *, const char *);
 static void create_new_class(lily_parse_state *);
 static lily_type *type_by_name(lily_parse_state *, char *);
+static lily_type *inner_type_collector(lily_parse_state *, lily_class *, int);
 
 /*****************************************************************************/
 /* Parser creation and teardown                                              */
@@ -349,6 +348,39 @@ static void fixup_import_basedir(lily_parse_state *parser, char *path)
         length);
 }
 
+static int collect_generics(lily_parse_state *parser)
+{
+    char name[] = "A";
+    char ch = name[0];
+    lily_lex_state *lex = parser->lex;
+
+    while (1) {
+        NEED_NEXT_TOK(tk_word)
+        if (lex->label[0] != ch || lex->label[1] != '\0') {
+            name[0] = ch;
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Invalid generic name (wanted %s, got %s).\n",
+                    name, lex->label);
+        }
+
+        ch++;
+        lily_lexer(lex);
+        if (lex->token == tk_right_bracket) {
+            lily_lexer(lex);
+            break;
+        }
+        else if (lex->token != tk_comma)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Expected either ',' or ']', not '%s'.\n",
+                    tokname(lex->token));
+    }
+
+    int seen = ch - 'A';
+
+    lily_ts_generics_seen(parser->emit->ts, seen);
+    return seen;
+}
+
 static lily_base_seed *find_dynaload_entry(lily_item *item, char *name)
 {
     const void *raw_iter;
@@ -368,16 +400,49 @@ static lily_base_seed *find_dynaload_entry(lily_item *item, char *name)
     return raw_iter;
 }
 
-static lily_var *dynaload_function(lily_parse_state *parser,
-        lily_import_entry *import, lily_class *cls, lily_base_seed *seed)
+static lily_var *dynaload_function(lily_parse_state *parser, lily_item *source,
+        lily_base_seed *seed)
 {
     lily_lex_state *lex = parser->lex;
+    lily_symtab *symtab = parser->symtab;
     lily_func_seed *func_seed = (lily_func_seed *)seed;
+    lily_import_entry *save_active = parser->symtab->active_import;
+    int save_generics = parser->emit->block->generic_count;
+    int generics_used;
+    lily_var *call_var;
+
     lily_load_str(lex, "[builtin]", lm_no_tags, func_seed->func_definition);
     lily_lexer(lex);
-    lily_var *ret = parse_prototype(parser, import, cls, func_seed);
+
+    /* Lookups for classes need to be done relative to what's being imported,
+       because the thing being imported won't know it's name at compile time. */
+    if (source->flags & ITEM_TYPE_IMPORT)
+        parser->symtab->active_import = (lily_import_entry *)source;
+    else
+        parser->symtab->active_import = ((lily_class *)source)->import;
+
+    if (parser->lex->token == tk_left_bracket)
+        generics_used = collect_generics(parser);
+    else
+        generics_used = 0;
+
+    NEED_CURRENT_TOK(tk_left_parenth)
+    lily_lexer(lex);
+
+    lily_update_symtab_generics(symtab, NULL, generics_used);
+
+    lily_type *type = inner_type_collector(parser,
+            parser->symtab->function_class, 0);
+    call_var = lily_emit_new_tied_dyna_var(parser->emit, func_seed->func,
+            source, type, func_seed->name);
+
+    lily_update_symtab_generics(symtab, NULL, save_generics);
+
+    parser->symtab->active_import = save_active;
+
     lily_pop_lex_entry(lex);
-    return ret;
+
+    return call_var;
 }
 
 lily_class *dynaload_exception(lily_parse_state *parser,
@@ -858,39 +923,6 @@ static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls
     return result;
 }
 
-static int collect_generics(lily_parse_state *parser)
-{
-    char name[] = "A";
-    char ch = name[0];
-    lily_lex_state *lex = parser->lex;
-
-    while (1) {
-        NEED_NEXT_TOK(tk_word)
-        if (lex->label[0] != ch || lex->label[1] != '\0') {
-            name[0] = ch;
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "Invalid generic name (wanted %s, got %s).\n",
-                    name, lex->label);
-        }
-
-        ch++;
-        lily_lexer(lex);
-        if (lex->token == tk_right_bracket) {
-            lily_lexer(lex);
-            break;
-        }
-        else if (lex->token != tk_comma)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "Expected either ',' or ']', not '%s'.\n",
-                    tokname(lex->token));
-    }
-
-    int seen = ch - 'A';
-
-    lily_ts_generics_seen(parser->emit->ts, seen);
-    return seen;
-}
-
 /* This is called after processing the generics for either a normal class or an
    enum class. It will build a type that describes the class with those
    generics.
@@ -995,54 +1027,6 @@ static lily_type *collect_var_type(lily_parse_state *parser)
 
     lily_lexer(lex);
     return result;
-}
-
-static lily_var *parse_prototype(lily_parse_state *parser,
-        lily_import_entry *import, lily_class *cls, lily_func_seed *seed)
-{
-    lily_lex_state *lex = parser->lex;
-    lily_symtab *symtab = parser->symtab;
-    lily_emit_state *emit = parser->emit;
-    char *name = seed->name;
-    lily_foreign_func func = seed->func;
-
-    int save_generics = parser->emit->block->generic_count;
-    int generics_used;
-    lily_var *call_var;
-    lily_type *call_type = parser->default_call_type;
-    lily_import_entry *save_active = parser->symtab->active_import;
-
-    if (cls) {
-        /* This makes it so lookups (dynaloading) are done in the scope of where
-           the class is defined. It's intentionally done before the var is made
-           so that the var's function value is marked as coming from that import
-           instead of whatever might be current. */
-        parser->symtab->active_import = cls->import;
-        call_var = lily_emit_new_dyna_method_var(emit, func, cls, call_type,
-                name);
-    }
-    else {
-        parser->symtab->active_import = import;
-        call_var = lily_emit_new_dyna_define_var(parser->emit, func, import,
-                call_type, name);
-    }
-
-    if (parser->lex->token == tk_left_bracket)
-        generics_used = collect_generics(parser);
-    else
-        generics_used = 0;
-
-    NEED_CURRENT_TOK(tk_left_parenth)
-    lily_lexer(lex);
-
-    lily_update_symtab_generics(symtab, NULL, generics_used);
-    call_var->type = inner_type_collector(parser,
-            parser->symtab->function_class, 0);
-    lily_update_symtab_generics(symtab, NULL, save_generics);
-
-    parser->symtab->active_import = save_active;
-
-    return call_var;
 }
 
 /*  parse_function
@@ -1298,7 +1282,7 @@ static void dispatch_word_as_dynaloaded(lily_parse_state *parser,
         *state = ST_WANT_OPERATOR;
     }
     else if (seed->seed_type == dyna_function) {
-        lily_var *new_var = dynaload_function(parser, import, NULL, seed);
+        lily_var *new_var = dynaload_function(parser, (lily_item *)import, seed);
         lily_ast_push_defined_func(parser->ast_pool, new_var);
         *state = ST_WANT_OPERATOR;
     }
@@ -3285,7 +3269,7 @@ lily_var *lily_parser_dynamic_load(lily_parse_state *parser, lily_class *cls,
     lily_var *ret;
 
     if (base_seed != NULL)
-        ret = dynaload_function(parser, NULL, cls, base_seed);
+        ret = dynaload_function(parser, (lily_item *)cls, base_seed);
     else
         ret = NULL;
 
