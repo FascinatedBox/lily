@@ -1039,7 +1039,6 @@ static lily_var *parse_prototype(lily_parse_state *parser,
     call_var->type = inner_type_collector(parser,
             parser->symtab->function_class, 0);
     lily_update_symtab_generics(symtab, NULL, save_generics);
-    lily_lexer(lex);
 
     parser->symtab->active_import = save_active;
 
