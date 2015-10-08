@@ -161,7 +161,6 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->lex = lily_new_lex_state(options, raiser);
     parser->vm = lily_new_vm_state(options, raiser);
     parser->msgbuf = lily_new_msgbuf();
-    parser->tm = lily_new_type_maker();
     parser->options = options;
 
     parser->tm = parser->emit->tm;
