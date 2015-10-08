@@ -26,7 +26,7 @@ typedef struct lily_parse_state_ {
     uint16_t optarg_stack_pos;
     uint16_t optarg_stack_size;
     uint16_t class_depth;
-    uint16_t next_lambda_id;
+    uint16_t pad;
 
     lily_type *class_self_type;
     lily_msgbuf *msgbuf;

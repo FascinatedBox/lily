@@ -152,7 +152,6 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->optarg_stack_pos = 0;
     parser->optarg_stack_size = 4;
     parser->class_depth = 0;
-    parser->next_lambda_id = 0;
     parser->first_pass = 1;
     parser->class_self_type = NULL;
     parser->raiser = raiser;
@@ -3181,16 +3180,12 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     lily_load_copy_string(lex, "[lambda]", lm_no_tags, lambda_body);
     lex->line_num = lambda_start_line;
 
-    char lambda_name[32];
-    snprintf(lambda_name, 32, "*lambda_%d", parser->next_lambda_id);
-    parser->next_lambda_id++;
-
     /* Block entry assumes that the most recent var added is the var to bind
        the function to. For the type of the lambda, use the default call
        type (a function with no args and no output) because expect_type may
        be NULL if the emitter doesn't know what it wants. */
     lily_var *lambda_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, lambda_name);
+            parser->default_call_type, "(lambda)");
 
     /* From here on, vars created will be in the scope of the lambda. Also,
        this binds a function value to lambda_var. */
