@@ -1129,7 +1129,7 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
                the closure through the class. This is likely to be the case, but
                may not always be (ex: the class only contains lambdas). */
             lily_prop_entry *closure_prop;
-            closure_prop = lily_find_property(emit->symtab, cls, "*closure");
+            closure_prop = lily_find_property(cls, "*closure");
 
             if (closure_prop) {
                 write_5(emit, o_set_property, linenum, self_reg_spot,
@@ -1141,8 +1141,7 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
              emit->block->prev->block_type == block_class) {
         if (emit->block->block_type != block_lambda) {
             lily_class *cls = emit->block->class_entry;
-            lily_prop_entry *closure_prop = lily_find_property(emit->symtab,
-                    cls, "*closure");
+            lily_prop_entry *closure_prop = lily_find_property(cls, "*closure");
             lily_class *parent = cls->parent;
             if (closure_prop == NULL ||
                 /* This should yield a closure stored in THIS class, not one
@@ -1584,8 +1583,7 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
             lily_class *lookup_class = result_type->cls;
             lily_type *lookup_type = result_type;
 
-            lily_prop_entry *prop = lily_find_property(emit->symtab,
-                    lookup_class, oo_name);
+            lily_prop_entry *prop = lily_find_property(lookup_class, oo_name);
 
             if (prop) {
                 result_type = prop->type;
@@ -1901,8 +1899,7 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
         var = lily_parser_dynamic_load(emit->parser, lookup_class, oo_name);
 
     if (var == NULL) {
-        lily_prop_entry *prop = lily_find_property(emit->symtab,
-                lookup_class, oo_name);
+        lily_prop_entry *prop = lily_find_property(lookup_class, oo_name);
 
         if (prop == NULL) {
             lily_raise(emit->raiser, lily_SyntaxError,
