@@ -555,10 +555,8 @@ static void ensure_unique_method_name(lily_parse_state *parser, char *name)
 
     if (parser->class_depth) {
         lily_class *current_class = parser->class_self_type->cls;
-        lily_prop_entry *entry = lily_find_property(parser->symtab,
-                current_class, name);
 
-        if (entry) {
+        if (lily_find_property(current_class, name)) {
             lily_raise(parser->raiser, lily_SyntaxError,
                 "A property in class '%s' already has the name '%s'.\n",
                 current_class->name, name);
@@ -593,8 +591,7 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
     char *name = parser->lex->label;
     lily_class *current_class = parser->class_self_type->cls;
 
-    lily_prop_entry *prop = lily_find_property(parser->symtab,
-            current_class, name);
+    lily_prop_entry *prop = lily_find_property(current_class, name);
 
     if (prop != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
@@ -1381,8 +1378,7 @@ static void expression_property(lily_parse_state *parser, int *state)
     char *name = parser->lex->label;
     lily_class *current_class = parser->class_self_type->cls;
 
-    lily_prop_entry *prop = lily_find_property(parser->symtab, current_class,
-            name);
+    lily_prop_entry *prop = lily_find_property(current_class, name);
     if (prop == NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Property %s is not in class %s.\n", name, current_class->name);

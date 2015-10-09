@@ -719,7 +719,7 @@ void lily_add_class_method(lily_symtab *symtab, lily_class *cls,
 
     On success: A valid property entry is returned.
     On failure: NULL is returned. */
-lily_prop_entry *lily_find_property(lily_symtab *symtab, lily_class *cls, char *name)
+lily_prop_entry *lily_find_property(lily_class *cls, char *name)
 {
     lily_prop_entry *ret = NULL;
 
@@ -738,7 +738,7 @@ lily_prop_entry *lily_find_property(lily_symtab *symtab, lily_class *cls, char *
     }
 
     if (ret == NULL && cls->parent != NULL)
-        ret = lily_find_property(symtab, cls->parent, name);
+        ret = lily_find_property(cls->parent, name);
 
     return ret;
 }
