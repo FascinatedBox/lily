@@ -115,7 +115,7 @@ static const lily_base_seed index_error =
 static const lily_base_seed dbz_error =
     {&index_error, "DivisionByZeroError", dyna_exception};
 static const lily_func_seed calltrace =
-    {&dbz_error, "calltrace", dyna_function, "( => list[string])", lily_builtin_calltrace};
+    {&dbz_error, "calltrace", dyna_function, ":list[string]", lily_builtin_calltrace};
 static const lily_func_seed show =
     {&calltrace, "show", dyna_function, "[A](A)", lily_builtin_show};
 static const lily_func_seed print =

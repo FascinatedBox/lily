@@ -285,10 +285,10 @@ static const lily_func_seed each_pair =
     {NULL, "each_pair", dyna_function, "[A, B](hash[A, B], function(A, B))", lily_hash_each_pair};
 
 static const lily_func_seed keys =
-    {&each_pair, "keys", dyna_function, "[A, B](hash[A, B] => list[A])", lily_hash_keys};
+    {&each_pair, "keys", dyna_function, "[A, B](hash[A, B]):list[A]", lily_hash_keys};
 
 static const lily_func_seed dynaload_start =
-    {&keys, "get", dyna_function, "[A, B](hash[A, B], A, B => B)", lily_hash_get};
+    {&keys, "get", dyna_function, "[A, B](hash[A, B], A, B):B", lily_hash_get};
 
 static const lily_class_seed hash_seed =
 {

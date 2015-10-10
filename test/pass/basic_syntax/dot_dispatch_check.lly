@@ -1,4 +1,4 @@
-define return_abc( => string) { return "abc" }
+define return_abc : string { return "abc" }
 
 var results: list[string] = []
 var abc = "abc"

@@ -3,7 +3,7 @@ SyntaxError: Function needed to return a value, but did not.
     from binary_noreturn.lly:8
 ]#
 
-define f() { }
+define f { }
 
 if f() || f():
     print("Failed.\n")

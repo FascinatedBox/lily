@@ -2,7 +2,7 @@ class Point(x: integer, y: integer)
 {
     var @x = x
     var @y = y
-    define f() {}
+    define f {}
 }
 
 class Point3d(x: integer, y: integer, z: integer) < Point(x, y)

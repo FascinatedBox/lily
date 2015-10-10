@@ -3,4 +3,4 @@ SyntaxError: f has already been declared.
     from function_redeclaration.lly:6
 ]#
 
-define f() {} define f() {}
+define f {} define f {}

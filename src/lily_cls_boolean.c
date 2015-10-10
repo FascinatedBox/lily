@@ -48,10 +48,10 @@ void lily_boolean_to_s(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 }
 
 static const lily_func_seed to_i =
-    {NULL, "to_i", dyna_function, "(boolean => integer)", &lily_boolean_to_i};
+    {NULL, "to_i", dyna_function, "(boolean):integer", &lily_boolean_to_i};
 
 static const lily_func_seed dynaload_start =
-    {&to_i, "to_s", dyna_function, "(boolean => string)", &lily_boolean_to_s};
+    {&to_i, "to_s", dyna_function, "(boolean):string", &lily_boolean_to_s};
 
 static lily_class_seed boolean_seed =
 {

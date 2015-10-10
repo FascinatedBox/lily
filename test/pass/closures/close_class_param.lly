@@ -1,6 +1,6 @@
 class test(a: integer) {
-    define increment() { a += 1 }
-    define ret( => integer) { return a }
+    define increment { a += 1 }
+    define ret : integer { return a }
 }
 
 var v = test::new(10)

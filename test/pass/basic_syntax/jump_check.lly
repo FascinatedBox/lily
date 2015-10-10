@@ -1,10 +1,10 @@
-define g() {}
+define g {}
 
 # This strangely-named test makes sure that jumps to future locations are
 # are patched correctly within a function.
 # If they aren't, this crashes.
 
-define f() {
+define f {
     if 1 == 1:
         g()
     else:

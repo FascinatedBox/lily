@@ -1,4 +1,4 @@
-define f() {}
+define f {}
 
 var other_any: any = 10
 var a: any = 1

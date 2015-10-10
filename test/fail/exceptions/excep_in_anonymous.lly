@@ -5,7 +5,7 @@ Traceback:
     from excep_in_anonymous.lly:14: in __main__
 ]#
 
-define f() {
+define f {
     var a: any = 10
     var s = a.@(string)
 }

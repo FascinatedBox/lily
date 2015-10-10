@@ -1,4 +1,4 @@
-define g()
+define g
 {
     try:
         raise ValueError::new("")
@@ -6,7 +6,7 @@ define g()
         1
 }
 
-define f()
+define f
 {
     var a = 1, b = 2, c = 3
     g()

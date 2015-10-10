@@ -4,6 +4,6 @@ SyntaxError: Function g expects 0 args, but got 1.
 ]#
 
 define f(a: integer) {
-    define g() { a += 1 }
+    define g { a += 1 }
     g(1)
 }

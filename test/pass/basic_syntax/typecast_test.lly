@@ -20,10 +20,10 @@ var aval_1: any = 10
 var aval_2: any = 1.1
 list_anyval = [aval_1, aval_2]
 
-define mval_10( => integer) { return 10 }
-define mval_20( => integer) { return 20 }
-define mval_30( => integer) { return 30 }
-define ret_any( => any) { var a2: any = 10 return a2 }
+define mval_10 : integer { return 10 }
+define mval_20 : integer { return 20 }
+define mval_30 : integer { return 30 }
+define ret_any : any { var a2: any = 10 return a2 }
 
 var list_mval = [mval_10]
 a = mval_20

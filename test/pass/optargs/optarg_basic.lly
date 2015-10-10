@@ -1,4 +1,4 @@
-define f(a: *integer=10 => integer) {
+define f(a: *integer=10):integer {
     return a
 }
 

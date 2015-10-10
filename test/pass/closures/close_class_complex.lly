@@ -1,11 +1,11 @@
 class Point(x: integer, y: integer) {
-    define f( => integer) {
+    define f : integer {
         return x + y
     }
 }
 
 class ThreeDeePoint(x: integer, y: integer, z: integer) < Point(x, y) {
-    define g( => integer) {
+    define g : integer {
         return x + y + z
     }
 }

@@ -7,7 +7,7 @@ enum Option[A] {
     Some(A)
     None
 
-    define f() {
+    define f {
     }
 
     var @v = 10

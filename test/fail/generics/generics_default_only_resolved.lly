@@ -6,7 +6,7 @@ Received Type: string
 ]#
 
 define f[A](value1: A, value2: A) {  }
-define g[A](value1: A => A) { return value1 }
+define g[A](value1: A) : A { return value1 }
 
 # g should not assume any type info for the argument it takes because the
 # A given isn't resolved. If it's pulled in, then the error message is somewhat

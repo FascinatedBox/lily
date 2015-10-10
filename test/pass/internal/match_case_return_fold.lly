@@ -1,6 +1,6 @@
 enum Option[A] { Some(A) None }
 
-define f(a: Option[integer] => integer)
+define f(a: Option[integer]) : integer
 {
     match a: {
         case Some(s):

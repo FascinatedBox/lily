@@ -3,6 +3,6 @@ SyntaxError: Test::x is marked protected, and not available here.
     from protected_oo_assign.lly:8
 ]#
 
-class Test() { protected var @x = 10 }
+class Test { protected var @x = 10 }
 
 Test::new().x = 11

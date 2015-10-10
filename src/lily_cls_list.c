@@ -388,16 +388,16 @@ void lily_list_map(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 }
 
 static lily_func_seed map =
-    {NULL, "map", dyna_function, "[A,B](list[A], function(A => B) => list[B])", lily_list_map};
+    {NULL, "map", dyna_function, "[A,B](list[A], function(A => B)):list[B]", lily_list_map};
 
 static lily_func_seed reject =
-    {&map, "reject", dyna_function, "[A](list[A], function(A => boolean) => list[A])", lily_list_reject};
+    {&map, "reject", dyna_function, "[A](list[A], function(A => boolean)):list[A]", lily_list_reject};
 
 static lily_func_seed select_fn =
-    {&reject, "select", dyna_function, "[A](list[A], function(A => boolean) => list[A])", lily_list_select};
+    {&reject, "select", dyna_function, "[A](list[A], function(A => boolean)):list[A]", lily_list_select};
 
 static lily_func_seed fill =
-    {&select_fn, "fill", dyna_function, "[A](integer, A => list[A])", lily_list_fill};
+    {&select_fn, "fill", dyna_function, "[A](integer, A):list[A]", lily_list_fill};
 
 static lily_func_seed apply =
     {&fill, "apply", dyna_function, "[A](list[A], function(A => A))", lily_list_apply};
@@ -406,7 +406,7 @@ static const lily_func_seed append =
     {&apply, "append", dyna_function, "[A](list[A], A)", lily_list_append};
 
 static const lily_func_seed dynaload_start =
-    {&append, "size", dyna_function, "[A](list[A] => integer)", lily_list_size};
+    {&append, "size", dyna_function, "[A](list[A]):integer", lily_list_size};
 
 static const lily_class_seed list_seed =
 {

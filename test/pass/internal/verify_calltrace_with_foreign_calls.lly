@@ -1,4 +1,4 @@
-define f(input: integer => integer) {
+define f(input: integer) : integer {
     var trace = calltrace()
 
     if trace.size() != 3:

@@ -4,7 +4,7 @@
 # Foreign calls forget to adjust for a function return dropping it, allowing
 # the depth to go into negatives.
 
-define my_apply(input: list[integer] => list[integer])
+define my_apply(input: list[integer]) : list[integer]
 {
     input.apply{|i| i}
     return input

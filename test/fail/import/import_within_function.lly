@@ -3,6 +3,6 @@ SyntaxError: Cannot import a file here.
     from import_within_function.lly:7
 ]#
 
-define f() {
+define f {
     import empty.lly
 }

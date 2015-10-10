@@ -2,7 +2,7 @@ class Point(x: integer, y: integer)
 {
     var @x = x
     var @y = y
-    define total( => integer) {
+    define total : integer {
         return @x + @y
     }
 }

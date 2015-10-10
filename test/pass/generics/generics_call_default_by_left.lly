@@ -1,4 +1,4 @@
-class Container[A]() {  }
+class Container[A] {  }
 
 # This requires a couple things in order to work:
 # First, the emitter must use Container[integer] to deduce that A should be

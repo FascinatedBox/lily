@@ -3,4 +3,4 @@ SyntaxError: 'integer' cannot be inherited from.
     from inherit_builtin.lly:6
 ]#
 
-class abc() < integer {  }
+class abc < integer {  }

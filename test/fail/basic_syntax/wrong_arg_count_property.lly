@@ -3,7 +3,7 @@ SyntaxError: Property abc.a expects 0 args, but got 2.
     from wrong_arg_count_property.lly:11
 ]#
 
-class abc() {
+class abc {
     var @a = {|| 10}
 }
 

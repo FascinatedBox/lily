@@ -3,8 +3,8 @@ SyntaxError: Cannot assign type 'function (Two)' to type 'function (One)'.
     from ensure_function_params_contravariant.lly:13
 ]#
 
-class One() {}
-class Two() < One() {}
+class One {}
+class Two < One {}
 
 define f(a: One) {}
 define g(a: Two) {}

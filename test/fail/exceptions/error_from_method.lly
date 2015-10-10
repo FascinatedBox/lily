@@ -6,8 +6,8 @@ Traceback:
     from error_from_method.lly:19: in __main__
 ]#
 
-class Example() {
-    define action() {
+class Example {
+    define action {
         if 1: {
             var k = ValueError::new("Message.\n")
             raise k

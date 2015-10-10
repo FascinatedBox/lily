@@ -1,6 +1,6 @@
 var a = 10
 
-define f() {
+define f {
 	a += 10
 }
 

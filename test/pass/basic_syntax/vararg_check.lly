@@ -7,7 +7,7 @@ define va_1(abc: list[integer]...) {    }
 # Since this one takes anys, any extra args also get converted to anys as
 # needed. The list part of that isn't tested yet, because there is no list
 # comparison utility.
-define va_2(format: string, args: list[any]... => integer) {
+define va_2(format: string, args: list[any]...) : integer {
     var ok = 0
     # This next statement helped to uncover about 3 bugs. Leave it be.
     if args[0].@(integer) == 1 &&

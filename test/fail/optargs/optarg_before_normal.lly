@@ -1,5 +1,5 @@
 #[
-SyntaxError: Cannot have normal arguments after optional arguments.
+SyntaxError: Non-optional argument follows optional argument.
     from optarg_before_normal.lly:6
 ]#
 

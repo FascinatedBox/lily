@@ -3,7 +3,7 @@
 # upon it. The result of the transformations is then yielded.
 define f[A, B, C](value: A,
                   g: function(A => B),
-                  h: function(B => C) => C) {
+                  h: function(B => C)) : C {
     return h(g(value))
 }
 

@@ -2,7 +2,7 @@ class Point(x: integer, y: integer)
 {
     var @x = x
     var @y = y
-    define clone( => Point) {
+    define clone : Point {
         return Point::new(@x, @y)
     }
 }

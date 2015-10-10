@@ -1,4 +1,4 @@
-define f[A](input: A => A) {
+define f[A](input: A) : A {
     var v = [input, input, input]
     v[0]
     v[1]
