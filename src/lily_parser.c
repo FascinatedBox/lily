@@ -29,24 +29,6 @@
     lookahead without having to save tokens.
 **/
 
-/* These flags are for inner_type_collector. */
-
-/* Expect a name with every class given. Create a var for each class+name pair.
-   This is suitable for collecting the args of a function. */
-#define TC_MAKE_VARS    0x1
-
-/* This is set if the variable is not inside another variable. This is suitable
-   for collecting a function that may have named arguments. */
-#define TC_TOPLEVEL     0x2
-
-/* This is for collecting the opening part of a class declaration. */
-#define TC_CLASS_INIT   0x4
-
-/* This is for collecting the type of a variant. This is because a variant
-   needs to have a result that includes only the generics that were seen within
-   the parentheses. */
-#define TC_VARIANT_FUNC 0x10
-
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
 if (lex->token != expected) \
@@ -70,7 +52,7 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *,
 static void link_import_to(lily_import_entry *, lily_import_entry *, const char *);
 static void create_new_class(lily_parse_state *);
 static lily_type *type_by_name(lily_parse_state *, char *);
-static lily_type *inner_type_collector(lily_parse_state *, lily_class *, int);
+static lily_class *resolve_class_name(lily_parse_state *);
 
 /*****************************************************************************/
 /* Parser creation and teardown                                              */
@@ -347,6 +329,231 @@ static void fixup_import_basedir(lily_parse_state *parser, char *path)
         length);
 }
 
+/*  make_optarg_type_of
+    This creates a new type that is composed of the one given, but put inside
+    of an optarg type. */
+static lily_type *make_optarg_type_of(lily_parse_state *parser, lily_type *type)
+{
+    lily_class *optarg_class = parser->symtab->optarg_class;
+    lily_tm_add(parser->tm, type);
+    return lily_tm_make(parser->tm, 0, optarg_class, 1);
+}
+
+/*  get_optarg_expect_token
+    Optional arguments must have a literal value as a default value. Since the
+    literal needed is only going to be one token, this returns that token (based
+    on what token is given).
+    If the type passed can't have a default argument, then tk_invalid is
+    returned. */
+static lily_token get_optarg_expect_token(lily_parse_state *parser,
+        lily_type *type)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_class *cls = type->cls;
+    lily_token ret;
+
+    if (cls == symtab->integer_class)
+        ret = tk_integer;
+    else if (cls == symtab->double_class)
+        ret = tk_double;
+    else if (cls == symtab->string_class)
+        ret = tk_double_quote;
+    else if (cls == symtab->bytestring_class)
+        ret = tk_bytestring;
+    else
+        ret = tk_invalid;
+
+    return ret;
+}
+
+static void ensure_valid_optarg(lily_parse_state *parser, lily_type *type)
+{
+    if (get_optarg_expect_token(parser, type) == tk_invalid)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Type '^T' cannot have a default value.\n", type);
+}
+
+static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
+{
+    if (type->subtype_count != type->cls->generic_count &&
+        type->cls->generic_count != -1)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Class %s expects %d type(s), but got %d type(s).\n",
+                type->cls->name, type->cls->generic_count,
+                type->subtype_count);
+
+    /* Unfortunately, Lily does not (yet!) understand constraints, and the
+       hashing function only works on certain builtin types. Because of these
+       restrictions, make sure that hashes do not specify a key which is
+       definitely going to be not-hashable.
+       This isn't perfect, because it allows generics which may be replaced by
+       something that is or isn't hashable.
+       Sorry. :( */
+    if (type->cls == parser->symtab->hash_class) {
+        lily_type *check_type = type->subtypes[0];
+        if ((check_type->cls->flags & CLS_VALID_HASH_KEY) == 0 &&
+            check_type->cls->id != SYM_CLASS_GENERIC)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "'^T' is not a valid hash key.\n", check_type);
+    }
+}
+
+static lily_type *get_type(lily_parse_state *);
+static void collect_optarg_for(lily_parse_state *, lily_var *);
+
+/** The two argument collectors (get_named_arg and get_nameless_arg) both use
+    the same set of flags. However, they do not have custom flags. The only
+    flags they're interested in are TYPE_HAS_OPTARGS and TYPE_IS_VARARGS. Using
+    those instead of custom flags allows the flags (after arg processing) to be
+    directly passed to lily_tm_make. It's a small speedup, but in a very used
+    area. **/
+
+static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
+{
+    lily_lex_state *lex = parser->lex;
+
+    if (lex->token == tk_multiply) {
+        *flags |= TYPE_HAS_OPTARGS;
+        lily_lexer(lex);
+    }
+    else if (*flags & TYPE_HAS_OPTARGS)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Non-optional argument follows optional argument.\n");
+
+    lily_type *type = get_type(parser);
+
+    /* get_type ends with a call to lily_lexer, so don't call that again. */
+
+    if (*flags & TYPE_HAS_OPTARGS) {
+        ensure_valid_optarg(parser, type);
+        type = make_optarg_type_of(parser, type);
+    }
+    else if (lex->token == tk_three_dots) {
+        if (type->cls != parser->symtab->list_class) {
+            lily_raise(parser->raiser, lily_SyntaxError,
+                "A list is required for variable arguments (...).\n");
+        }
+
+        lily_lexer(lex);
+        /* Varargs can't be optional, and they have to be at the end. So the
+           next thing should be either ')' to close, or an '=>' to designate
+           the return type. */
+        if (lex->token != tk_arrow && lex->token != tk_right_parenth)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Expected either '=>' or ')' after varargs.\n");
+
+        *flags |= TYPE_IS_VARARGS;
+    }
+
+    return type;
+}
+
+static lily_type *get_named_arg(lily_parse_state *parser, int *flags)
+{
+    lily_lex_state *lex = parser->lex;
+
+    /* The caller is responsible for ensuring that this starts with the token
+       as tk_label (and thus having a valid name). */
+    lily_var *var;
+
+    var = lily_find_var(parser->symtab, NULL, lex->label);
+    if (var != NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                   "%s has already been declared.\n", lex->label);
+
+    var = lily_emit_new_scoped_var(parser->emit, NULL, lex->label);
+    NEED_NEXT_TOK(tk_colon)
+
+    lily_lexer(lex);
+    lily_type *type = get_nameless_arg(parser, flags);
+
+    if (*flags & TYPE_HAS_OPTARGS) {
+        /* Optional arguments are created by making an optarg type which holds
+           a type that is supposed to be optional. For simplicity, give the
+           var the concrete underlying type, and the caller the true optarg
+           containing type. */
+        var->type = type->subtypes[0];
+        collect_optarg_for(parser, var);
+    }
+    else
+        var->type = type;
+
+    return type;
+}
+
+static lily_type *get_type(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_type *result;
+
+    lily_class *cls = resolve_class_name(parser);
+
+    if (cls->flags & CLS_IS_VARIANT)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Variant types not allowed in a declaration.\n");
+
+    if (cls->generic_count == 0)
+        result = cls->type;
+    else if (cls->id != SYM_CLASS_FUNCTION) {
+        NEED_NEXT_TOK(tk_left_bracket)
+        int i = 0;
+        while (1) {
+            lily_lexer(lex);
+            lily_tm_add(parser->tm, get_type(parser));
+            i++;
+
+            if (lex->token == tk_comma)
+                continue;
+            else if (lex->token == tk_right_bracket)
+                break;
+            else
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Expected either ',' or ']', not '%s'.\n",
+                        tokname(lex->token));
+        }
+
+        result = lily_tm_make(parser->tm, 0, cls, i);
+        ensure_valid_type(parser, result);
+    }
+    else if (cls->id == SYM_CLASS_FUNCTION) {
+        NEED_NEXT_TOK(tk_left_parenth)
+        lily_lexer(lex);
+        int arg_flags = 0;
+        int i = 0;
+        int result_pos = parser->tm->pos;
+
+        lily_tm_add(parser->tm, NULL);
+
+        if (lex->token != tk_arrow && lex->token != tk_right_parenth) {
+            while (1) {
+                
+                lily_tm_add(parser->tm, get_nameless_arg(parser, &arg_flags));
+                i++;
+                if (lex->token == tk_comma) {
+                    lily_lexer(lex);
+                    continue;
+                }
+
+                break;
+            }
+        }
+
+        if (lex->token == tk_arrow) {
+            lily_lexer(lex);
+            lily_tm_insert(parser->tm, result_pos, get_type(parser));
+        }
+
+        NEED_CURRENT_TOK(tk_right_parenth)
+
+        result = lily_tm_make(parser->tm, arg_flags, cls, i + 1);
+    }
+    else
+        result = NULL;
+
+    lily_lexer(lex);
+    return result;
+}
+
 static int collect_generics(lily_parse_state *parser)
 {
     char name[] = "A";
@@ -425,13 +632,43 @@ static lily_var *dynaload_function(lily_parse_state *parser, lily_item *source,
     else
         generics_used = 0;
 
-    NEED_CURRENT_TOK(tk_left_parenth)
-    lily_lexer(lex);
-
     lily_update_symtab_generics(symtab, NULL, generics_used);
+    int result_pos = parser->tm->pos;
+    int i = 1;
+    int flags = 0;
 
-    lily_type *type = inner_type_collector(parser,
-            parser->symtab->function_class, 0);
+    /* This means the function doesn't return anything. This is mostly about
+       reserving a slot to maybe be overwritten later. */
+    lily_tm_add(parser->tm, NULL);
+
+    if (lex->token == tk_left_parenth) {
+        lily_lexer(lex);
+        while (1) {
+            lily_tm_add(parser->tm, get_nameless_arg(parser, &flags));
+            i++;
+            if (lex->token == tk_comma) {
+                lily_lexer(lex);
+                continue;
+            }
+            else if (lex->token == tk_right_parenth) {
+                lily_lexer(lex);
+                break;
+            }
+            else
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Expected either ',' or ')', not '%s'.\n",
+                        tokname(lex->token));
+        }
+    }
+
+    if (lex->token == tk_colon) {
+        lily_lexer(lex);
+        lily_tm_insert(parser->tm, result_pos, get_type(parser));
+    }
+
+    lily_type *type = lily_tm_make(parser->tm, flags,
+            parser->symtab->function_class, i);
+
     call_var = lily_emit_new_tied_dyna_var(parser->emit, func_seed->func,
             source, type, func_seed->name);
 
@@ -647,59 +884,6 @@ static void grow_optarg_stack(lily_parse_state *parser)
 /* Type collection                                                           */
 /*****************************************************************************/
 
-static lily_type *collect_var_type(lily_parse_state *parser);
-
-#define TC_DEMAND_VALUE  1
-#define TC_WANT_VALUE    2
-/* In this case, an operator is => or , or ... */
-#define TC_WANT_OPERATOR 3
-#define TC_BAD_TOKEN     4
-#define TC_DONE          5
-
-/*  make_optarg_type_of
-    This creates a new type that is composed of the one given, but put inside
-    of an optarg type. */
-static lily_type *make_optarg_type_of(lily_parse_state *parser, lily_type *type)
-{
-    lily_class *optarg_class = parser->symtab->optarg_class;
-    lily_tm_add(parser->tm, type);
-    return lily_tm_make(parser->tm, 0, optarg_class, 1);
-}
-
-/*  get_optarg_expect_token
-    Optional arguments must have a literal value as a default value. Since the
-    literal needed is only going to be one token, this returns that token (based
-    on what token is given).
-    If the type passed can't have a default argument, then tk_invalid is
-    returned. */
-static lily_token get_optarg_expect_token(lily_parse_state *parser,
-        lily_type *type)
-{
-    lily_symtab *symtab = parser->symtab;
-    lily_class *cls = type->cls;
-    lily_token ret;
-
-    if (cls == symtab->integer_class)
-        ret = tk_integer;
-    else if (cls == symtab->double_class)
-        ret = tk_double;
-    else if (cls == symtab->string_class)
-        ret = tk_double_quote;
-    else if (cls == symtab->bytestring_class)
-        ret = tk_bytestring;
-    else
-        ret = tk_invalid;
-
-    return ret;
-}
-
-static void ensure_valid_optarg(lily_parse_state *parser, lily_type *type)
-{
-    if (get_optarg_expect_token(parser, type) == tk_invalid)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "Type '^T' cannot have a default value.\n", type);
-}
-
 /*  collect_optarg_for
     This collects a default value for 'var', which has been tagged as needing
     one. This first makes sure that the var is a type that actually can do that.
@@ -724,199 +908,6 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
     parser->optarg_stack_pos += 2;
 
     lily_lexer(lex);
-}
-
-/*  inner_type_collector
-    Given a class that takes inner types (like list, hash, function, etc.),
-    collect those inner types. A valid, unique type is returned. */
-static lily_type *inner_type_collector(lily_parse_state *parser, lily_class *cls,
-        int flags)
-{
-    int i;
-    int state = TC_WANT_VALUE, stack_start = parser->tm->pos;
-    int type_flags = 0, have_arrow = 0, have_dots = 0;
-    lily_token end_token;
-    lily_class *variant_cls = NULL;
-
-    if (flags & TC_VARIANT_FUNC) {
-        variant_cls = cls;
-        cls = parser->symtab->function_class;
-    }
-
-    if (cls->id == SYM_CLASS_FUNCTION) {
-        if (flags & TC_CLASS_INIT)
-            lily_tm_add(parser->tm, parser->class_self_type);
-        else
-            /* This will be overwritten if there's something to return. */
-            lily_tm_add(parser->tm, NULL);
-
-        end_token = tk_right_parenth;
-        i = 1;
-
-        /* Class methods always take 'self' as their first parameter. */
-        if (flags & TC_TOPLEVEL && parser->class_depth &&
-            (flags & TC_CLASS_INIT) == 0) {
-            lily_tm_add(parser->tm, parser->class_self_type);
-            i++;
-        }
-    }
-    else {
-        end_token = tk_right_bracket;
-        i = 0;
-    }
-
-    if (flags & TC_TOPLEVEL)
-        flags |= TC_MAKE_VARS;
-
-    lily_lex_state *lex = parser->lex;
-    int have_optargs = 0;
-
-    while (1) {
-        if (lex->token == tk_word || lex->token == tk_multiply) {
-            lily_var *var = NULL;
-            if (have_arrow)
-                flags &= ~(TC_MAKE_VARS);
-
-            if (flags & TC_MAKE_VARS) {
-                NEED_CURRENT_TOK(tk_word);
-                var = get_named_var(parser, NULL);
-                NEED_CURRENT_TOK(tk_colon)
-                lily_lexer(lex);
-            }
-
-            int is_optarg = 0;
-
-            if (end_token == tk_right_parenth) {
-                if (lex->token != tk_multiply && have_optargs == 1 &&
-                    have_arrow == 0) {
-                    lily_raise(parser->raiser, lily_SyntaxError,
-                            "Cannot have normal arguments after optional arguments.\n");
-                }
-                else if (lex->token == tk_multiply) {
-                    if (have_arrow)
-                        state = TC_BAD_TOKEN;
-
-                    /* Unexpected token seems wrong here, because one may expect
-                       variant types to support optargs and think they're
-                       doing the wrong syntax.
-                       Make it clear: variants do not support optargs. */
-                    if (flags & TC_VARIANT_FUNC)
-                        lily_raise(parser->raiser, lily_SyntaxError,
-                                "Variant types cannot have default values.\n");
-
-                    is_optarg = 1;
-                    type_flags |= TYPE_HAS_OPTARGS;
-                    have_optargs = 1;
-                    lily_lexer(lex);
-                }
-            }
-
-            lily_type *type = collect_var_type(parser);
-
-            if (have_arrow == 0) {
-                lily_type *stack_type = type;
-
-                if (is_optarg)
-                    lily_tm_add(parser->tm, make_optarg_type_of(parser, type));
-                else
-                    lily_tm_add(parser->tm, stack_type);
-
-                i++;
-            }
-            else
-                lily_tm_insert(parser->tm, stack_start, type);
-
-            if (var) {
-                var->type = type;
-                if (is_optarg)
-                    collect_optarg_for(parser, var);
-            }
-            else if (is_optarg)
-                ensure_valid_optarg(parser, type);
-
-            state = TC_WANT_OPERATOR;
-            continue;
-        }
-        else if (lex->token == tk_comma) {
-            if (have_arrow || have_dots ||
-                state != TC_WANT_OPERATOR)
-                state = TC_BAD_TOKEN;
-            else
-                state = TC_DEMAND_VALUE;
-        }
-        else if (lex->token == tk_arrow) {
-            if (state == TC_DEMAND_VALUE || have_arrow ||
-                end_token == tk_right_bracket ||
-                flags & TC_CLASS_INIT)
-                state = TC_BAD_TOKEN;
-            else if (state == TC_WANT_VALUE || state == TC_WANT_OPERATOR)
-                state = TC_DEMAND_VALUE;
-
-            have_arrow = 1;
-        }
-        else if (lex->token == end_token) {
-            /* If there are no args, bump i anyway so that the type will have
-               NULL at [1] to indicate no args. */
-            if (state == TC_DEMAND_VALUE)
-                state = TC_BAD_TOKEN;
-            else
-                state = TC_DONE;
-        }
-        else if (lex->token == tk_three_dots) {
-            if (have_dots || end_token == tk_right_bracket ||
-                state != TC_WANT_OPERATOR)
-                state = TC_BAD_TOKEN;
-            else {
-                lily_type *last_type = lily_tm_get(parser->tm, i - 1);
-                if (last_type->cls->id != SYM_CLASS_LIST)
-                    lily_raise(parser->raiser, lily_SyntaxError,
-                        "A list is required for variable arguments (...).\n");
-
-                have_dots = 1;
-                type_flags |= TYPE_IS_VARARGS;
-                state = TC_WANT_OPERATOR;
-            }
-        }
-        else
-            state = TC_BAD_TOKEN;
-
-        if (state == TC_DONE)
-            break;
-        else if (state == TC_BAD_TOKEN)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "Unexpected token '%s'.\n", tokname(lex->token));
-        else
-            lily_lexer(lex);
-    }
-
-    if (i != cls->generic_count && cls->generic_count != -1) {
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "Class %s expects %d type(s), but got %d type(s).\n",
-                cls->name, cls->generic_count, i);
-    }
-
-    if (cls->id == SYM_CLASS_HASH) {
-        /* For hash, make sure that the key (the first type) is valid.
-           Generics are allowed to be hash keys because the generic might
-           resolve to a valid hash key.
-           Also...the hash builtins don't work otherwise. */
-        lily_type *check_type = lily_tm_get(parser->tm, stack_start);
-        if ((check_type->cls->flags & CLS_VALID_HASH_KEY) == 0 &&
-            check_type->cls->id != SYM_CLASS_GENERIC) {
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "'^T' is not a valid hash key.\n", check_type);
-        }
-    }
-
-    if (flags & TC_VARIANT_FUNC) {
-        lily_type *variant_return = lily_tm_make_variant_result(parser->tm,
-                variant_cls, stack_start, i);
-        lily_tm_insert(parser->tm, stack_start, variant_return);
-    }
-
-    lily_type *result = lily_tm_make(parser->tm, type_flags, cls, i);
-
-    return result;
 }
 
 /* This is called after processing the generics for either a normal class or an
@@ -989,71 +980,29 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
     return result;
 }
 
-/*  collect_var_type
-    This is the outer part of type collection. This takes flags (TC_* defines)
-    which tell it how to act. */
-static lily_type *collect_var_type(lily_parse_state *parser)
+static void parse_define_header(lily_parse_state *parser, int modifiers)
 {
     lily_lex_state *lex = parser->lex;
-    lily_type *result;
+    NEED_CURRENT_TOK(tk_word)
 
-    lily_class *cls = resolve_class_name(parser);
+    ensure_unique_method_name(parser, lex->label);
 
-    if (cls->flags & CLS_IS_VARIANT)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "Variant types not allowed in a declaration.\n");
+    /* The type will be overwritten with the right thing later on. However, it's
+       necessary to have some function-like entity there instead of, say, NULL.
+       The reason is that a dynaload may be triggered, which may push a block.
+       The emitter will attempt to restore the return type via the type of the
+       define var here. */
+    lily_var *define_var = lily_emit_new_define_var(parser->emit,
+            parser->default_call_type, lex->label);
 
-    if (cls->generic_count == 0)
-        result = cls->type;
-    else if (cls->generic_count != 0 &&
-             cls->id != SYM_CLASS_FUNCTION) {
-        lily_lexer(lex);
-        NEED_CURRENT_TOK(tk_left_bracket)
-        lily_lexer(lex);
-        result = inner_type_collector(parser, cls, 0);
-    }
-    else if (cls->id == SYM_CLASS_FUNCTION) {
-        lily_lexer(lex);
-        NEED_CURRENT_TOK(tk_left_parenth)
-        lily_lexer(lex);
-        result = inner_type_collector(parser, cls, 0);
-    }
-    else
-        result = NULL;
-
-    lily_lexer(lex);
-    return result;
-}
-
-/*  parse_function
-    This is called to parse class declarations (which are just functions that
-    become a class) and toplevel functions (functions not a parameter inside
-    something else). */
-static void parse_function(lily_parse_state *parser, lily_class *decl_class,
-        int modifiers)
-{
-    lily_lex_state *lex = parser->lex;
-    lily_type *call_type = parser->default_call_type;
-    lily_var *call_var;
-    lily_symtab *symtab = parser->symtab;
-    lily_emit_state *emit = parser->emit;
-    lily_block_type block_type;
-    lily_type *decl_self_type = NULL;
+    int i = 0;
+    int arg_flags = 0;
+    int result_pos = parser->tm->pos;
     int generics_used;
-    int flags = TC_MAKE_VARS | TC_TOPLEVEL;
 
-    if (decl_class != NULL) {
-        call_var = lily_emit_new_define_var(emit, call_type, "new");
-
-        block_type = block_class;
-        flags |= TC_CLASS_INIT;
-    }
-    else {
-        ensure_unique_method_name(parser, lex->label);
-        call_var = lily_emit_new_define_var(emit, call_type, lex->label);
-        call_var->flags |= modifiers;
-        block_type = block_define;
-    }
+    /* This is the initial result. NULL means the function doesn't return
+       anything. If it does, then this spot will be overwritten. */
+    lily_tm_add(parser->tm, NULL);
 
     lily_lexer(lex);
 
@@ -1062,30 +1011,64 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class,
     else
         generics_used = parser->emit->block->generic_count;
 
-    lily_emit_enter_block(parser->emit, block_type);
-    lily_update_symtab_generics(symtab, decl_class, generics_used);
+    lily_emit_enter_block(parser->emit, block_define);
+    lily_update_symtab_generics(parser->symtab, NULL, generics_used);
 
-    if (decl_class != NULL) {
-        decl_self_type = build_self_type(parser, decl_class, generics_used);
-        parser->class_self_type = decl_self_type;
+    if (parser->class_self_type) {
+        /* This is a method of a class. It should implicitly take 'self' as
+           the first argument, and be registered to be within that class.
+           It may also have a private/protected modifier, so add that too. */
+        lily_tm_add(parser->tm, parser->class_self_type);
+        i++;
+
+        lily_var *self_var = lily_emit_new_scoped_var(parser->emit,
+                parser->class_self_type, "(self)");
+        define_var->parent = parser->class_self_type->cls;
+        define_var->flags |= modifiers;
+
+        parser->emit->block->self = (lily_storage *)self_var;
     }
-    else if (parser->class_depth && decl_class == NULL) {
-        /* Functions of a class get a (self) of that class for the first
-           parameter. */
-        lily_var *v = lily_emit_new_scoped_var(emit, parser->class_self_type,
-                "(self)");
 
-        parser->emit->block->self = (lily_storage *)v;
+    if (lex->token == tk_left_parenth) {
+        lily_lexer(lex);
+
+        /* If () is omitted, then it's assumed that the function will not take
+           any arguments (unless it implicitly takes self). */
+        if (lex->token == tk_right_parenth)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Empty () not needed for a define.\n");
+
+        while (1) {
+            NEED_CURRENT_TOK(tk_word)
+            lily_tm_add(parser->tm, get_named_arg(parser, &arg_flags));
+            i++;
+            if (lex->token == tk_comma) {
+                lily_lexer(lex);
+                continue;
+            }
+            else if (lex->token == tk_right_parenth) {
+                lily_lexer(lex);
+                break;
+            }
+            else
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Expected either ',' or ')', not '%s'.\n",
+                        tokname(lex->token));
+        }
     }
 
-    NEED_CURRENT_TOK(tk_left_parenth)
-    lily_lexer(lex);
+    if (lex->token == tk_colon) {
+        lily_lexer(lex);
+        lily_tm_insert(parser->tm, result_pos, get_type(parser));
+    }
 
-    call_type = inner_type_collector(parser, symtab->function_class, flags);
-    call_var->type = call_type;
+    NEED_CURRENT_TOK(tk_left_curly)
 
-    lily_emit_update_function_block(parser->emit, decl_self_type,
-            generics_used, call_type->subtypes[0]);
+    define_var->type = lily_tm_make(parser->tm, arg_flags,
+            parser->symtab->function_class, i + 1);
+
+    lily_emit_update_function_block(parser->emit, NULL,
+            generics_used, define_var->type->subtypes[0]);
 
     if (parser->optarg_stack_pos != 0) {
         lily_emit_write_optargs(parser->emit, parser->optarg_stack,
@@ -1093,8 +1076,6 @@ static void parse_function(lily_parse_state *parser, lily_class *decl_class,
 
         parser->optarg_stack_pos = 0;
     }
-
-    lily_lexer(lex);
 }
 
 /*****************************************************************************/
@@ -1538,7 +1519,7 @@ static void expression_dot(lily_parse_state *parser, int *state)
     }
     else if (lex->token == tk_typecast_parenth) {
         lily_lexer(lex);
-        lily_type *new_type = collect_var_type(parser);
+        lily_type *new_type = get_type(parser);
         lily_ast_enter_typecast(parser->ast_pool, new_type);
         lily_ast_leave_tree(parser->ast_pool);
         *state = ST_WANT_OPERATOR;
@@ -1754,7 +1735,7 @@ static void parse_var(lily_parse_state *parser, int modifiers)
 
         if (lex->token == tk_colon) {
             lily_lexer(lex);
-            sym->type = collect_var_type(parser);
+            sym->type = get_type(parser);
         }
 
         if (lex->token != tk_equal) {
@@ -1794,7 +1775,7 @@ static lily_type *type_by_name(lily_parse_state *parser, char *name)
 {
     lily_load_copy_string(parser->lex, "[api]", lm_no_tags, name);
     lily_lexer(parser->lex);
-    lily_type *result = collect_var_type(parser);
+    lily_type *result = get_type(parser);
     lily_pop_lex_entry(parser->lex);
 
     return result;
@@ -2336,7 +2317,7 @@ static void except_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
 
-    lily_type *except_type = collect_var_type(parser);
+    lily_type *except_type = get_type(parser);
     /* Exception is likely to always be the base exception class. */
     lily_class *base_cls = lily_find_class(parser->symtab, NULL, "Exception");
     lily_type *base_type = base_cls->type;
@@ -2621,6 +2602,75 @@ static void ensure_valid_class(lily_parse_state *parser, char *name)
     }
 }
 
+/*  This handles everything needed to create a class, up until figuring out
+    inheritance (if that's indicated). This is where the class ::new is
+    created, the class_self_type is set, and the class args are collected. If
+    The class ::new takes optargs, those are handled here. */
+static void parse_class_header(lily_parse_state *parser, lily_class *cls)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_symtab *symtab = parser->symtab;
+    /* Use the default call type (function ()) in case one of the types listed
+       triggers a dynaload. If a dynaload is triggered, emitter tries to
+       restore the current return type from the last define's return type. */
+    lily_var *call_var = lily_emit_new_define_var(parser->emit,
+            parser->default_call_type, "new");
+
+    int generics_used;
+
+    lily_lexer(lex);
+    if (lex->token == tk_left_bracket)
+        generics_used = collect_generics(parser);
+    else
+        generics_used = parser->emit->block->generic_count;
+
+    lily_emit_enter_block(parser->emit, block_class);
+    lily_update_symtab_generics(symtab, cls, generics_used);
+
+    parser->class_self_type = build_self_type(parser, cls, generics_used);
+
+    int i = 1;
+    int flags = 0;
+    lily_tm_add(parser->tm, parser->class_self_type);
+
+    if (lex->token == tk_left_parenth) {
+        lily_lexer(lex);
+        if (lex->token == tk_right_parenth)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Empty () not needed for a class.\n");
+
+        while (1) {
+            lily_tm_add(parser->tm, get_named_arg(parser, &flags));
+            i++;
+            if (lex->token == tk_comma) {
+                lily_lexer(lex);
+                continue;
+            }
+            else if (lex->token == tk_right_parenth) {
+                lily_lexer(lex);
+                break;
+            }
+            else
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Expected either ',' or ')', not '%s'.\n",
+                        tokname(lex->token));
+        }
+    }
+
+    call_var->type = lily_tm_make(parser->tm, flags,
+            parser->symtab->function_class, i);
+
+    lily_emit_update_function_block(parser->emit, parser->class_self_type,
+            generics_used, call_var->type->subtypes[0]);
+
+    if (parser->optarg_stack_pos != 0) {
+        lily_emit_write_optargs(parser->emit, parser->optarg_stack,
+                parser->optarg_stack_pos);
+
+        parser->optarg_stack_pos = 0;
+    }
+}
+
 /*  parse_inheritance
     Syntax: class Bird(args...) > Animal(args...) {
                        ^                 ^
@@ -2649,8 +2699,6 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
 
     lily_var *class_new = lily_find_method(super_class, "new");
 
-    NEED_NEXT_TOK(tk_left_parenth)
-
     /* There's a small problem here. The idea of being able to pass expressions
        as well as values is great. However, expression cannot be trusted to
        collect what's inside of the parentheses because it may allow a subscript
@@ -2664,16 +2712,25 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
     lily_ast_push_inherited_new(ap, class_new);
     lily_ast_collect_arg(ap);
 
-    /* Since the call was already entered, skip the first '(' or the parser
-       will attempt to enter it again. */
     lily_lexer(lex);
 
-    expression_raw(parser, ST_MAYBE_END_ON_PARENTH);
+    if (lex->token == tk_left_parenth) {
+        /* Since the call was already entered, skip the first '(' or the parser
+           will attempt to enter it again. */
+        lily_lexer(lex);
+        if (lex->token == tk_right_parenth)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Empty () not needed here for inherited new.\n");
+
+        expression_raw(parser, ST_MAYBE_END_ON_PARENTH);
+
+        lily_lexer(lex);
+    }
+    else
+        lily_ast_leave_tree(parser->ast_pool);
+
     lily_emit_eval_expr(parser->emit, ap);
     lily_change_parent_class(super_class, cls);
-
-    /* The caller will sure that this is '{'. */
-    lily_lexer(lex);
 }
 
 static void create_new_class(lily_parse_state *parser)
@@ -2682,7 +2739,7 @@ static void create_new_class(lily_parse_state *parser)
     lily_class *created_class = lily_new_class(parser->symtab, lex->label);
     lily_type *save_class_self_type = parser->class_self_type;
 
-    parse_function(parser, created_class, 0);
+    parse_class_header(parser, created_class);
 
     if (lex->token == tk_lt)
         parse_inheritance(parser, created_class);
@@ -2713,6 +2770,68 @@ static void class_handler(lily_parse_state *parser, int multi)
     ensure_valid_class(parser, lex->label);
 
     create_new_class(parser);
+}
+
+/*  This is called when a variant class has '(' after the name, indicating that
+    it will take parameters of some sort. The variant can take as many
+    parameters as it wants, and varargs is allowed. However, optional arguments
+    are not. That may change in the future.
+
+    Variants aren't quite functions though (that would add a lot of overhead).
+    This is different than, say, define or class init, because the return type
+    of the function-like thing this returns describes what generics that the
+    variant uses.
+
+    `enum Option[A] { Some(A) None }`
+
+    In this case, tm will create a result that is `function(A => Some(A))`,
+    because Some uses the A of Option. */
+static lily_type *parse_variant_header(lily_parse_state *parser,
+        lily_class *variant_cls)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_lexer(lex);
+    if (lex->token == tk_right_parenth)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Empty () not needed for a variant.\n");
+
+    int result_pos = parser->tm->pos;
+    int i = 1;
+    int flags = 0;
+
+    /* This reserves a slot for the return that will be written. */
+    lily_tm_add(parser->tm, NULL);
+
+    while (1) {
+        lily_tm_add(parser->tm, get_nameless_arg(parser, &flags));
+
+        if (flags & TYPE_HAS_OPTARGS)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Variant types cannot have default values.\n");
+
+        i++;
+        if (lex->token == tk_comma) {
+            lily_lexer(lex);
+            continue;
+        }
+        else if (lex->token == tk_right_parenth)
+            break;
+        else
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Expected either ',' or ')', not '%s'.\n",
+                    tokname(lex->token));
+    }
+
+    lily_lexer(lex);
+
+    lily_type *variant_return = lily_tm_make_variant_result(parser->tm,
+            variant_cls, result_pos, i);
+    lily_tm_insert(parser->tm, result_pos, variant_return);
+
+    lily_type *result = lily_tm_make(parser->tm, flags,
+            parser->symtab->function_class, i);
+
+    return result;
 }
 
 static void enum_handler(lily_parse_state *parser, int multi)
@@ -2769,18 +2888,8 @@ static void enum_handler(lily_parse_state *parser, int multi)
         lily_type *variant_type;
 
         lily_lexer(lex);
-        if (lex->token == tk_left_parenth) {
-            lily_lexer(lex);
-            if (lex->token == tk_right_parenth)
-                lily_raise(parser->raiser, lily_SyntaxError,
-                        "Variants cannot take empty ().\n");
-
-            variant_type = inner_type_collector(parser, variant_cls,
-                    TC_VARIANT_FUNC);
-
-            /* Skip the closing ')'. */
-            lily_lexer(lex);
-        }
+        if (lex->token == tk_left_parenth)
+            variant_type = parse_variant_header(parser, variant_cls);
         else
             variant_type = lily_tm_make_default_for(parser->tm, variant_cls);
 
@@ -2955,7 +3064,7 @@ static void parse_define(lily_parse_state *parser, int modifiers)
                 "Cannot define a function here.\n");
 
     lily_lex_state *lex = parser->lex;
-    parse_function(parser, NULL, modifiers);
+    parse_define_header(parser, modifiers);
 
     NEED_CURRENT_TOK(tk_left_curly)
     parse_multiline_block_body(parser, 1);

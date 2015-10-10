@@ -1,4 +1,4 @@
-class abc() {
+class abc {
     define ghi(a: *integer=10) {
     }
 }

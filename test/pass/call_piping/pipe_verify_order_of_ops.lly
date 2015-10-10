@@ -1,6 +1,6 @@
 var v: list[integer] = []
 
-define f(input: integer => integer)
+define f(input: integer) : integer
 {
     v.append(input)
     return input

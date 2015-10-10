@@ -3,10 +3,10 @@ enum Option[A] {
 	None
 }
 
-define f( => Option[integer]) {
+define f : Option[integer] {
 	return Some(10)
 }
 
-define g( => Option[integer]) {
+define g : Option[integer] {
 	return None
 }

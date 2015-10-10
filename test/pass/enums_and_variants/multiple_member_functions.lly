@@ -2,7 +2,7 @@ enum Option[A] {
     Some(A)
     None
 
-    define and_then[A](f: function(A => Option[A]) => Option[A]) {
+    define and_then[A](f: function(A => Option[A])) : Option[A] {
         match self: {
             case Some(s):
                 return f(s)
@@ -10,7 +10,7 @@ enum Option[A] {
                 return None
         }
     }
-    define force[A]( => A) {
+    define force[A] : A {
         match self: {
             case Some(s):
                 return s

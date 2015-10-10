@@ -1,5 +1,5 @@
-define f(a: *integer=10 => function( => integer)) {
-    define g( => integer) { return a }
+define f(a: *integer=10) : function( => integer) {
+    define g : integer { return a }
     return g
 }
 

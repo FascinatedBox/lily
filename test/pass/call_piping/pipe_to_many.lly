@@ -1,4 +1,4 @@
-define f(in: integer => integer) { return in * 2 }
+define f(in: integer) : integer { return in * 2 }
 
 if (10 |> f |> f) != 40:
     stderr.write("Failed.\n")

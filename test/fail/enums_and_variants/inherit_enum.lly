@@ -5,5 +5,5 @@ SyntaxError: 'Option' cannot be inherited from.
 
 enum Option[A] { Some(A) None }
 
-class abc() < Option {
+class abc < Option {
 }

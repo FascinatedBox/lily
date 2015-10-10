@@ -8,4 +8,4 @@ enum Option[A] {
     None
 }
 
-class example() < None { }
+class example < None { }

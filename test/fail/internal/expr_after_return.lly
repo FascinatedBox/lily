@@ -3,7 +3,7 @@ SyntaxError: Statement(s) after 'return' will not execute.
     from expr_after_return.lly:9
 ]#
 
-define f( => integer)
+define f : integer
 {
     return 1
     var v = 2

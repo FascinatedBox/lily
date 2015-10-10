@@ -5,7 +5,7 @@ define z(
         d: *integer=10,
         e: *integer=10,
         f: *integer=10,
-        g: *integer=10 => integer)
+        g: *integer=10):integer
 {
     return a + b + c + d + e + f + g
 }

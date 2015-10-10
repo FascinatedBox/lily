@@ -1,5 +1,5 @@
-class One() {}
-class Two() < One() {}
+class One {}
+class Two < One {}
 
 var v = One::new()
 v = Two::new()

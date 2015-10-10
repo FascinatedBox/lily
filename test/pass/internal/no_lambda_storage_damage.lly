@@ -11,7 +11,7 @@
 # it. This is the reason that Lily's parser must rewind the expression count
 # after processing a lambda.
 
-define add(a: integer, f: function(), b: integer => integer)
+define add(a: integer, f: function(), b: integer) : integer
 {
     return a + b
 }

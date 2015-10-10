@@ -1,5 +1,5 @@
-class One() {}
-class Two() < One() {}
+class One {}
+class Two < One {}
 
 define f(a: One) {}
 define g(a: Two) {}

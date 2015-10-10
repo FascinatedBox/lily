@@ -7,7 +7,7 @@
 # so that there's an offset to work with.
 var k = 0
 
-define f() {
+define f {
     var i = 0
     var val = 1
 

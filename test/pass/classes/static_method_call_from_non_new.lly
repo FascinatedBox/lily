@@ -1,8 +1,8 @@
-class example() {
-    define f() {
+class example {
+    define f {
 
     }
-    define use() {
+    define use {
         example::f(self)
     }
 }

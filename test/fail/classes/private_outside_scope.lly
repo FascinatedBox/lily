@@ -3,10 +3,10 @@ SyntaxError: abc::f is marked private, and not available here.
     from private_outside_scope.lly:12
 ]#
 
-class abc() {
-    private define f() { }
+class abc {
+    private define f { }
 }
 
-class def() < abc() {
+class def < abc {
     abc::f()
 }

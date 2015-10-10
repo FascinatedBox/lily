@@ -1,4 +1,4 @@
-class example() {
+class example {
     var @x = 10
     var @y = {|| @x }
 }

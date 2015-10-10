@@ -1,4 +1,4 @@
-define bottomFunc(i: integer => integer) { return i }
+define bottomFunc(i: integer) : integer { return i }
 
-class BottomClass() {
+class BottomClass {
 }

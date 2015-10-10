@@ -2,7 +2,7 @@ class Point(x: function(), y: integer)
 {
     var @y = y
 
-    define add_one() {
+    define add_one {
         @y += 1
     }
 
@@ -14,7 +14,7 @@ class Point(x: function(), y: integer)
     x()
 }
 
-define f() {
+define f {
 }
 
 Point::new(f, 10)

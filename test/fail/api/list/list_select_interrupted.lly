@@ -6,7 +6,7 @@ Traceback:
     from list_select_interrupted.lly:14: in __main__
 ]#
 
-define f(x: integer => boolean)
+define f(x: integer) : boolean
 {
     raise ValueError::new("Test\n")
 }

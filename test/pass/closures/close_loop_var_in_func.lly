@@ -1,4 +1,4 @@
-define wrap(x: integer => function( => integer)) {
+define wrap(x: integer) : function( => integer) {
     return {|| x * x}
 }
 

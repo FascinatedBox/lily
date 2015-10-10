@@ -2,7 +2,7 @@ enum Option[A] {
     Some(A)
     None
 
-    define or_else[A](other: A => A) {
+    define or_else[A](other: A) : A {
         match self: {
             case Some(s):
                 return s

@@ -1,6 +1,6 @@
 enum Option[A] { Some(A) None }
 
-class test() {
+class test {
     var @v = None
 }
 
