@@ -53,6 +53,8 @@ static void link_import_to(lily_import_entry *, lily_import_entry *, const char 
 static void create_new_class(lily_parse_state *);
 static lily_type *type_by_name(lily_parse_state *, char *);
 static lily_class *resolve_class_name(lily_parse_state *);
+static lily_type *get_type(lily_parse_state *);
+static void collect_optarg_for(lily_parse_state *, lily_var *);
 
 /*****************************************************************************/
 /* Parser creation and teardown                                              */
@@ -398,9 +400,6 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
     }
 }
 
-static lily_type *get_type(lily_parse_state *);
-static void collect_optarg_for(lily_parse_state *, lily_var *);
-
 /** The two argument collectors (get_named_arg and get_nameless_arg) both use
     the same set of flags. However, they do not have custom flags. The only
     flags they're interested in are TYPE_HAS_OPTARGS and TYPE_IS_VARARGS. Using
@@ -526,7 +525,6 @@ static lily_type *get_type(lily_parse_state *parser)
 
         if (lex->token != tk_arrow && lex->token != tk_right_parenth) {
             while (1) {
-                
                 lily_tm_add(parser->tm, get_nameless_arg(parser, &arg_flags));
                 i++;
                 if (lex->token == tk_comma) {
