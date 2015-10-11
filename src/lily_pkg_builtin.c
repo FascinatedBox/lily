@@ -173,10 +173,10 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
     lily_file_init(symtab);
     symtab->generic_class    = lily_new_class_by_seed(symtab, &generic_seed);
 
-    /* Classes that do not take subtypes only need one type to describe them.
-       This type is the default type. Create defaults for the builtin classes,
-       so that parser can be sure that types with 0 subtypes always have a
-       default type to grab. */
+    symtab->integer_class->flags |= CLS_VALID_OPTARG;
+    symtab->double_class->flags |= CLS_VALID_OPTARG;
+    symtab->string_class->flags |= CLS_VALID_OPTARG;
+    symtab->bytestring_class->flags |= CLS_VALID_OPTARG;
 
     symtab->any_class->type->flags |= TYPE_MAYBE_CIRCULAR;
     /* This needs to be set because symtab's type finalize bubbles this

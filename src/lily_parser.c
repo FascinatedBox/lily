@@ -370,7 +370,7 @@ static lily_token get_optarg_expect_token(lily_parse_state *parser,
 
 static void ensure_valid_optarg(lily_parse_state *parser, lily_type *type)
 {
-    if (get_optarg_expect_token(parser, type) == tk_invalid)
+    if ((type->cls->flags & CLS_VALID_OPTARG) == 0)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Type '^T' cannot have a default value.\n", type);
 }
