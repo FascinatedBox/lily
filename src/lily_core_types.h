@@ -505,12 +505,13 @@ typedef struct lily_options_ {
 
 
 #define CLS_VALID_HASH_KEY 0x0100
-#define CLS_IS_ENUM        0x0200
-#define CLS_IS_VARIANT     0x0400
+#define CLS_VALID_OPTARG   0x0200
+#define CLS_IS_ENUM        0x0400
+#define CLS_IS_VARIANT     0x1000
 /* This class is an enum AND the variants within are scoped. The difference is
    that scoped variants are accessed using 'enum::variant', while normal
    variants can use just 'variant'. */
-#define CLS_ENUM_IS_SCOPED 0x1000
+#define CLS_ENUM_IS_SCOPED 0x2000
 
 
 /* TYPE_* defines are for lily_type.
