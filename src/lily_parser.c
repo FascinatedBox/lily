@@ -341,33 +341,6 @@ static lily_type *make_optarg_type_of(lily_parse_state *parser, lily_type *type)
     return lily_tm_make(parser->tm, 0, optarg_class, 1);
 }
 
-/*  get_optarg_expect_token
-    Optional arguments must have a literal value as a default value. Since the
-    literal needed is only going to be one token, this returns that token (based
-    on what token is given).
-    If the type passed can't have a default argument, then tk_invalid is
-    returned. */
-static lily_token get_optarg_expect_token(lily_parse_state *parser,
-        lily_type *type)
-{
-    lily_symtab *symtab = parser->symtab;
-    lily_class *cls = type->cls;
-    lily_token ret;
-
-    if (cls == symtab->integer_class)
-        ret = tk_integer;
-    else if (cls == symtab->double_class)
-        ret = tk_double;
-    else if (cls == symtab->string_class)
-        ret = tk_double_quote;
-    else if (cls == symtab->bytestring_class)
-        ret = tk_bytestring;
-    else
-        ret = tk_invalid;
-
-    return ret;
-}
-
 static void ensure_valid_optarg(lily_parse_state *parser, lily_type *type)
 {
     if ((type->cls->flags & CLS_VALID_OPTARG) == 0)
@@ -882,6 +855,28 @@ static void grow_optarg_stack(lily_parse_state *parser)
 /* Type collection                                                           */
 /*****************************************************************************/
 
+static lily_tie *get_optarg_value(lily_parse_state *parser,
+        lily_class *cls)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_symtab *symtab = parser->symtab;
+    lily_token expect;
+    if (cls == symtab->integer_class)
+        expect = tk_integer;
+    else if (cls == symtab->double_class)
+        expect = tk_double;
+    else if (cls == symtab->string_class)
+        expect = tk_double_quote;
+    else if (cls == symtab->bytestring_class)
+        expect = tk_bytestring;
+    else
+        expect = tk_invalid;
+
+    NEED_NEXT_TOK(expect)
+
+    return lex->last_literal;
+}
+
 /*  collect_optarg_for
     This collects a default value for 'var', which has been tagged as needing
     one. This first makes sure that the var is a type that actually can do that.
@@ -891,17 +886,14 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
 {
     lily_lex_state *lex = parser->lex;
     NEED_CURRENT_TOK(tk_equal)
-    lily_lexer(lex);
 
     if (parser->optarg_stack_pos + 1 >= parser->optarg_stack_size)
         grow_optarg_stack(parser);
 
     ensure_valid_optarg(parser, var->type);
-    lily_token expect_token = get_optarg_expect_token(parser, var->type);
-    NEED_CURRENT_TOK(expect_token)
+    lily_tie *lit = get_optarg_value(parser, var->type->cls);
 
-    parser->optarg_stack[parser->optarg_stack_pos] =
-            lex->last_literal->reg_spot;
+    parser->optarg_stack[parser->optarg_stack_pos] = lit->reg_spot;
     parser->optarg_stack[parser->optarg_stack_pos + 1] = var->reg_spot;
     parser->optarg_stack_pos += 2;
 
