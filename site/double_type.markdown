@@ -11,6 +11,6 @@ For basic arithmetic operations, if an integer and a double are involved, the re
 
 # Methods
 
-`double::to_i(self: double => integer)`
+`double::to_i(self: double) : integer`
 
 Convert a double to an integer. Internally, this is done through a C typecast to uint64_t.

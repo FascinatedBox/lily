@@ -11,10 +11,10 @@ Unary operations: `!`
 
 # Methods
 
-`boolean::to_i(self: boolean => integer)`
+`boolean::to_i(self: boolean) : integer`
 
 Convert a boolean value to an integer.
 
-`boolean::to_s(self: boolean => string)`
+`boolean::to_s(self: boolean) : string`
 
 Convert a boolean value to a string. true => "true", false => "false"

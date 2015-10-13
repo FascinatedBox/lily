@@ -38,7 +38,7 @@ This creates a new list, based on `value` being repeated `n` times.
 If `n` is less than zero, then `ValueError` is raised.
 
 
-`list::reject(self: list[A], f: function(A => boolean) => list[A])`
+`list::reject(self: list[A], f: function(A => boolean)) : list[A]`
 
 Returns a list of all elements in `self` for which the predicate `f` returns `false`.
 
@@ -53,7 +53,7 @@ Examples:
 ```
 
 
-`list::select(self: list[A], f: function(A => boolean) => list[A])`
+`list::select(self: list[A], f: function(A => boolean)) : list[A]`
 
 Returns a list of all elements in `self` for which the predicate `f` returns `true`.
 
@@ -68,7 +68,7 @@ Examples:
 ```
 
 
-`list::size(self: list[A] => integer)`
+`list::size(self: list[A]) : integer`
 
 Returns the number of elements that are contained within `self`. This can be used in conjunction with a for loop as follows:
 

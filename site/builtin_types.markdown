@@ -86,7 +86,7 @@ define f(input: any)
 f(10)
 f("20")
 
-define g(input: integer => any)
+define g(input: integer) : any
 {
     if input == 1:
         return 10
@@ -121,7 +121,7 @@ var d = a[-1]
 Lily attempts to do some type inference, when it can:
 
 ```
-define f( => list[integer])
+define f : list[integer]
 {
     # Inferred as an empty list[integer]
     return []
@@ -153,7 +153,7 @@ v = ["a" => 1, "a" => 2] # Value: "a" => 2
 Type inference works here too:
 
 ```
-define f( => hash[integer, list[string]])
+define f : hash[integer, list[string]]
 {
     # Inferred as an empty hash[integer, list[string]]
     return []

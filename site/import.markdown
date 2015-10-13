@@ -5,7 +5,7 @@ It's hard to write a useful program without being able to include other files. L
 
 ```
 # fib.lly
-define fib(n: integer => integer)
+define fib(n: integer) : integer
 {
     if n < 2:
         return n

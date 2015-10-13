@@ -31,11 +31,17 @@ If there are more format specifiers than arguments, then `ValueError` is raised.
 This function is deprecated. It will be superceded by string interpolation.
 
 
-`calltrace( => list[tuple[string, string, integer]])`
+`calltrace : list[string])`
 
-This returns a description of the current call stack, but as a tuple so that it's annoying and complicated to deal with.
+This returns a description of the current call stack, with each string representing a single call. Lily's call stack includes native calls, as well as calls to API functions (such as `integer::to_s`)
 
-There are plans to change the output to `list[string]` instead.
+If this frame comes from something in native Lily code, then it takes the form of
+
+`from <filename>:<linenum>: in <function>`.
+
+If it comes from foreign code (such as `list::select`), then it takes the form of
+
+`from [C]: in <function>`.
 
 
 `show[A](value: A)`

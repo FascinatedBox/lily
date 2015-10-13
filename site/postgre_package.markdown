@@ -27,7 +27,7 @@ This class inherits directly from Lily's core Exception class.
 
 ## Conn
 
-`Conn::new(*host: string="", *port: string="", *dbname: string="", *login: string="", *password: string="" => Conn)`
+`Conn::new(*host: string="", *port: string="", *dbname: string="", *login: string="", *password: string="") : Conn`
 
 Attempt to initialize a new connection to the database. To use the defaults, either don't pass an argument, or pass an empty string to them. Host and port will default such that the connection will target localhost.
 
@@ -36,7 +36,7 @@ If unable to connect to the database, the Error class above is raised, with the 
 This connection is a synchronous, blocking connection to postgre. It can be used to execute extremely limited queries and fetching from the database.
 
 
-`Conn::query(self: Conn, format: string, args: list[string] => Result)`
+`Conn::query(self: Conn, format: string, args: list[string]) : Result`
 
 This executes a query against the database, and stores the result of that query into a Result object. The format string is not in postgre's format, but instead operates on familiar ? replacement.
 
@@ -52,7 +52,7 @@ If the query is invalid, or returns a result that Lily does not understand, then
 
 ## Request
 
-`Result::fetchrow(self: Result => list[string])`
+`Result::fetchrow(self: Result) : list[string]`
 
 Fetch a new row from the given result. If the Result does not contain any rows, or all rows have currently been read, then the `Error` class is raised. Each column's data is then converted into a string.
 

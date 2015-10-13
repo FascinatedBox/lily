@@ -11,9 +11,9 @@ Comparison between Exception classes is done using deep equality. This is wrong,
 
 # Members
 
-`@traceback: list[tuple[string, string, integer]]`
+`@traceback: list[string]`
 
-This represents one frame of traceback. This will change later, so that traceback is instead represented by a list of strings. While it is possible to assign to this, be aware that it will be overwritten when an exception is caught.
+This represents a single frame of traceback. If this frame comes from something in native Lily code, then it takes the form of `from <filename>:<linenum>: in <function>`. If it comes from foreign code (such as `list::apply`), then it takes the form of `from [C]: in <function>`.
 
 
 `@message: string`

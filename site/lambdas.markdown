@@ -11,7 +11,7 @@ var v = {|| 10}
 You can now call 'v' with no arguments and receive an integer. Since there was no `define`, you can assign 'v' to another function, and the current one will eventually be garbage collected. 
 
 ```
-define example[A](left: A, f: function(A => A) => A)
+define example[A](left: A, f: function(A => A)) : A
 {
     return f(left)
 }
@@ -29,7 +29,7 @@ Lambdas are currently limited in that they cannot have their types annotated, an
 However, it is still possible to do some neat things with lambdas and generics:
 
 ``
-define transform[A, B](input: A, f: function(A => B) => B)
+define transform[A, B](input: A, f: function(A => B)) : B
 {
     return f(input)
 }
@@ -41,7 +41,7 @@ transform(transform(10, {|a| [a, a, a]}), {|b| b.size()})
 If a function requires only one argument, and that argument is a function, you can pass a lambda without parentheses.
 
 ```
-define f(g: function( => integer) => integer) {
+define f(g: function( => integer)) : integer {
     return g()
 }
 
