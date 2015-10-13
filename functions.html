@@ -107,7 +107,7 @@ sum(1, 2, 3) # 6
 sum() # 0
 </code></pre>
 
-<p>Sometimes it would be nice for a function parameter to have a default value. Currently, the types <code>integer</code>, <code>double</code>, <code>string</code>, and <code>bytestring</code> can have default values. Default values must be literals, not function calls or even expressions. This is to keep them simple. Finally, arguments with default values must always come at the end.</p>
+<p>Sometimes it would be nice for a function parameter to have a default value. Currently, the types <code>boolean</code>, <code>integer</code>, <code>double</code>, <code>string</code>, and <code>bytestring</code> can have default values. Default values must be literals, not function calls or even expressions. This is to keep them simple. Finally, arguments with default values must always come at the end.</p>
 <pre><code>define say_greeting(name: string, greet: *string=&quot;Hello&quot;)
 {
     printfmt(&quot;%s, %s.\n&quot;, greet, name)
