@@ -341,13 +341,6 @@ static lily_type *make_optarg_type_of(lily_parse_state *parser, lily_type *type)
     return lily_tm_make(parser->tm, 0, optarg_class, 1);
 }
 
-static void ensure_valid_optarg(lily_parse_state *parser, lily_type *type)
-{
-    if ((type->cls->flags & CLS_VALID_OPTARG) == 0)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "Type '^T' cannot have a default value.\n", type);
-}
-
 static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
 {
     if (type->subtype_count != type->cls->generic_count &&
@@ -397,7 +390,10 @@ static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
     /* get_type ends with a call to lily_lexer, so don't call that again. */
 
     if (*flags & TYPE_HAS_OPTARGS) {
-        ensure_valid_optarg(parser, type);
+        if ((type->cls->flags & CLS_VALID_OPTARG) == 0)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Type '^T' cannot have a default value.\n", type);
+
         type = make_optarg_type_of(parser, type);
     }
     else if (lex->token == tk_three_dots) {
@@ -890,7 +886,6 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
     if (parser->optarg_stack_pos + 1 >= parser->optarg_stack_size)
         grow_optarg_stack(parser);
 
-    ensure_valid_optarg(parser, var->type);
     lily_tie *lit = get_optarg_value(parser, var->type->cls);
 
     parser->optarg_stack[parser->optarg_stack_pos] = lit->reg_spot;
