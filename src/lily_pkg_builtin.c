@@ -177,6 +177,7 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
     symtab->double_class->flags |= CLS_VALID_OPTARG;
     symtab->string_class->flags |= CLS_VALID_OPTARG;
     symtab->bytestring_class->flags |= CLS_VALID_OPTARG;
+    symtab->boolean_class->flags |= CLS_VALID_OPTARG;
 
     symtab->any_class->type->flags |= TYPE_MAYBE_CIRCULAR;
     /* This needs to be set because symtab's type finalize bubbles this

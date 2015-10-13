@@ -67,7 +67,7 @@ sum(1, 2, 3) # 6
 sum() # 0
 ```
 
-Sometimes it would be nice for a function parameter to have a default value. Currently, the types `integer`, `double`, `string`, and `bytestring` can have default values. Default values must be literals, not function calls or even expressions. This is to keep them simple. Finally, arguments with default values must always come at the end.
+Sometimes it would be nice for a function parameter to have a default value. Currently, the types `boolean`, `integer`, `double`, `string`, and `bytestring` can have default values. Default values must be literals, not function calls or even expressions. This is to keep them simple. Finally, arguments with default values must always come at the end.
 
 ```
 define say_greeting(name: string, greet: *string="Hello")

@@ -866,11 +866,24 @@ static lily_tie *get_optarg_value(lily_parse_state *parser,
     else if (cls == symtab->bytestring_class)
         expect = tk_bytestring;
     else
-        expect = tk_invalid;
+        expect = tk_word;
 
     NEED_NEXT_TOK(expect)
 
-    return lex->last_literal;
+    lily_tie *result;
+    if (expect == tk_word) {
+        int key_id = keyword_by_name(lex->label);
+        if (key_id != KEY_TRUE && key_id != KEY_FALSE)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "'%s' is not a valid default value for a boolean.\n",
+                    lex->label);
+
+        result = lily_get_boolean_literal(symtab, key_id == KEY_TRUE);
+    }
+    else
+        result = lex->last_literal;
+
+    return result;
 }
 
 /*  collect_optarg_for
