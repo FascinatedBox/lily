@@ -12,7 +12,7 @@ Attempting to use read operations on write files (or vice versa) will result in 
 Close the file given. Attempting to close a file that is already closed will not do anything. For short scripts, this is not entirely necessary, as Lily's refcounting and garbage collection will eventually collect and then close files that are left open.
 
 
-`file::readline(self: file => bytestring)`
+`file::readline(self: file) : bytestring`
 
 This reads a single line from the given file. This returns the line as a bytestring, instead of a string in case the file contains either invalid utf-8, or embedded zeroes inside of it.
 

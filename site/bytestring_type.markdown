@@ -11,7 +11,7 @@ Bytestring equality is by deep equality, and all bytes of the bytestring are com
 
 # Methods
 
-`bytestring::encode(bytestring self, encode: *string="error" => string)`
+`bytestring::encode(bytestring self, encode: *string="error") : string`
 
 Convert a bytestring into a string. Currently, the only method of encoding is "error", but more options will be added later. `encode` is also case-sensitive.
 

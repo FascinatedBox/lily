@@ -6,7 +6,7 @@ Lily is an interpreted language that features static typing that's there to help
 By default, Lily will treat the entire source file as being code, and run it. This is called standalone mode. The alternative is tag mode. In tag mode, the interpreter will process anything between `<?lily ... ?>` as code, and anything outside as raw HTML.
 
 ```
-define is_integer(input: string => boolean)
+define is_integer(input: string) : boolean
 {
     try: {
         input.to_i()

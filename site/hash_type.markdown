@@ -22,11 +22,11 @@ Hashes, like lists, do deep comparisons for equality. As such, `[1 => "a"] == [1
 This calls `f` on each key-value pair that exists within the hash.
 
 
-`hash::keys(self: hash[A, B] => list[A])`
+`hash::keys(self: hash[A, B]) : list[A]`
 
 Returns a list of all keys that are present within the hash.
 
 
-`hash::get(self: hash[A, B], key: A, or_else: B => B)`
+`hash::get(self: hash[A, B], key: A, or_else: B) : B`
 
 Attempt to get `key` from within the hash. If successful, return the matching value. If `key` does not exist within the hash, then return `or_else` instead. This can be considered a safe alternative to a subscript, as it does not raise any errors.

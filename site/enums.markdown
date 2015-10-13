@@ -45,7 +45,7 @@ var my_colors = [Blue, Red, White]
 You can create variables that are of TerminalColor's type, but the individual colors themselves are not valid types. Instead, they should be looked at more as values. Enums also introduce a new kind of block, called `match`. It's used like this:
 
 ```
-define name_for_color(t: TerminalColor => string)
+define name_for_color(t: TerminalColor) : string
 {
     match t: {
         case Black:
@@ -78,7 +78,7 @@ SyntaxError: Match pattern not exhaustive. The following case(s) are missing:
 This is arguably the best part of `match`: It always makes sure that all cases are covered. Here it is, again, with Green included.
 
 ```
-define name_for_color(t: TerminalColor => string)
+define name_for_color(t: TerminalColor) : string
 {
     match t: {
         case Black:
@@ -117,7 +117,7 @@ enum TerminalColor {
     White
     Yellow
 
-    define name_for_color( => string) {
+    define name_for_color : string {
         match self: {
             ...
         }
@@ -164,7 +164,7 @@ var opt_list = [None, None, None]
 `match` works here too. However, there's a slight difference:
 
 ```
-define get_or_else[A](opt: Option[A], or_else: A => A)
+define get_or_else[A](opt: Option[A], or_else: A) : A
 {
     match opt: {
         case Some(s):
@@ -200,7 +200,7 @@ enum Option[A] {
     Some(A)
     None
 
-    define map[A, B](f: function(A => B) => Option[B])
+    define map[A, B](f: function(A => B)) : Option[B]
     {
         match self: {
             case Some(s):

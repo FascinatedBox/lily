@@ -61,7 +61,7 @@ any_list.append("20")
 Generics can also be used as a means to transform values from one type to another
 
 ```
-define f[A, B](input: A, f: function(A => B) => B)
+define f[A, B](input: A, f: function(A => B)) : B
 {
     return f(input)
 }

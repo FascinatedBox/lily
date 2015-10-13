@@ -8,7 +8,7 @@ To begin with, all exceptions that are defined within Lily have Exception as the
 ```
 class Exception(msg: string) {
     var @message = message
-    var @traceback: list[tuple[string, string, integer]] = []
+    var @traceback: list[string] = []
 }
 ```
 
@@ -20,9 +20,9 @@ Since it is defined like a normal class, instead of having a representation bake
 
 * BadTypecastError: Raised when a value is unable to cast to a certain type.
 
-* ValueError: Raised when a value is out of the expected range (ex: list::repeat with a negative index
+* ValueError: Raised when a value is out of the expected range (ex: list::repeat with a negative index).
 
-* RuntimeError: Raised when there is an infinite loop in == or != (such as when there are recursive lists being compared.)
+* RuntimeError: Raised when there is an infinite loop in == or != (such as when there are recursive lists being compared).
 
 * KeyError: Raised when attempting to find a key in a hash that does not exist.
 
@@ -53,8 +53,6 @@ try:
 except DivisionByZeroError as e:
     print(e.message)
 ```
-
-While stack trace is provided, it is currently not useful as-is. This will be fixed in a future release.
 
 Perhaps the most important thing about exceptions is how they are caught. If a clause is found that is a base class of the exception being thrown, then that clause will be picked. This allows `except Exception` to catch all possible errors.
 
