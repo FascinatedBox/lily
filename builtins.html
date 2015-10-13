@@ -75,9 +75,12 @@
 </ul>
 <p>If there are more format specifiers than arguments, then <code>ValueError</code> is raised.</p>
 <p>This function is deprecated. It will be superceded by string interpolation.</p>
-<p><code>calltrace( =&gt; list[tuple[string, string, integer]])</code></p>
-<p>This returns a description of the current call stack, but as a tuple so that it's annoying and complicated to deal with.</p>
-<p>There are plans to change the output to <code>list[string]</code> instead.</p>
+<p><code>calltrace : list[string])</code></p>
+<p>This returns a description of the current call stack, with each string representing a single call. Lily's call stack includes native calls, as well as calls to API functions (such as <code>integer::to_s</code>)</p>
+<p>If this frame comes from something in native Lily code, then it takes the form of</p>
+<p><code>from &lt;filename&gt;:&lt;linenum&gt;: in &lt;function&gt;</code>.</p>
+<p>If it comes from foreign code (such as <code>list::select</code>), then it takes the form of</p>
+<p><code>from [C]: in &lt;function&gt;</code>.</p>
 <p><code>show[A](value: A)</code></p>
 <p>This function prints a value to the current stdout (or the server if running from Apache). Instead of using the internal stringification routine that everything else does, it descends into values.</p>
 <p>For lists, hashes, and tuples, it will print every value within.</p>

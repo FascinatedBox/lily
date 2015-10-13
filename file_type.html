@@ -58,7 +58,7 @@
 <h1>Methods</h1>
 <p><code>file::close(self: file)</code></p>
 <p>Close the file given. Attempting to close a file that is already closed will not do anything. For short scripts, this is not entirely necessary, as Lily's refcounting and garbage collection will eventually collect and then close files that are left open.</p>
-<p><code>file::readline(self: file =&gt; bytestring)</code></p>
+<p><code>file::readline(self: file) : bytestring</code></p>
 <p>This reads a single line from the given file. This returns the line as a bytestring, instead of a string in case the file contains either invalid utf-8, or embedded zeroes inside of it.</p>
 <p><code>file::write[A](self: file, value: A)</code></p>
 <p>This uses Lily's internal stringification to convert the value into a string if it is not already one. The contents of that string are then written to the file given.</p>

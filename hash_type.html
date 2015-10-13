@@ -63,9 +63,9 @@
 <h1>Methods</h1>
 <p><code>hash::each_pair(self: hash[A, B], f: function(A, B))</code></p>
 <p>This calls <code>f</code> on each key-value pair that exists within the hash.</p>
-<p><code>hash::keys(self: hash[A, B] =&gt; list[A])</code></p>
+<p><code>hash::keys(self: hash[A, B]) : list[A]</code></p>
 <p>Returns a list of all keys that are present within the hash.</p>
-<p><code>hash::get(self: hash[A, B], key: A, or_else: B =&gt; B)</code></p>
+<p><code>hash::get(self: hash[A, B], key: A, or_else: B) : B</code></p>
 <p>Attempt to get <code>key</code> from within the hash. If successful, return the matching value. If <code>key</code> does not exist within the hash, then return <code>or_else</code> instead. This can be considered a safe alternative to a subscript, as it does not raise any errors.</p>
      </section>
    </article>

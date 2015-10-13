@@ -103,7 +103,7 @@ any_list.append(&quot;20&quot;)
 </code></pre>
 
 <p>Generics can also be used as a means to transform values from one type to another</p>
-<pre><code>define f[A, B](input: A, f: function(A =&gt; B) =&gt; B)
+<pre><code>define f[A, B](input: A, f: function(A =&gt; B)) : B
 {
     return f(input)
 }

@@ -113,7 +113,7 @@ var i = v.@(integer)
 f(10)
 f(&quot;20&quot;)
 
-define g(input: integer =&gt; any)
+define g(input: integer) : any
 {
     if input == 1:
         return 10
@@ -142,7 +142,7 @@ var d = a[-1]
 </code></pre>
 
 <p>Lily attempts to do some type inference, when it can:</p>
-<pre><code>define f( =&gt; list[integer])
+<pre><code>define f : list[integer]
 {
     # Inferred as an empty list[integer]
     return []
@@ -168,7 +168,7 @@ v = [&quot;a&quot; =&gt; 1, &quot;a&quot; =&gt; 2] # Value: &quot;a&quot; =&gt; 
 </code></pre>
 
 <p>Type inference works here too:</p>
-<pre><code>define f( =&gt; hash[integer, list[string]])
+<pre><code>define f : hash[integer, list[string]]
 {
     # Inferred as an empty hash[integer, list[string]]
     return []

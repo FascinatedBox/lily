@@ -54,7 +54,7 @@
      <section>
 <h1>Functions</h1>
 <p>What's a language without the ability to define a function?</p>
-<pre><code>define say_hi()
+<pre><code>define say_hi
 {
     print(&quot;Hi\n&quot;)
 }
@@ -68,14 +68,22 @@
 </code></pre>
 
 <p>The above function can be written to return the greeting, instead of printing it out</p>
-<pre><code>define get_greet_string(name: string =&gt; string)
+<pre><code>define get_greet_string(name: string) : string
 {
     return string::format(&quot;Hello, %s.\n&quot;, name)
 }
 </code></pre>
 
-<p>Functions can also take other functions as arguments.</p>
-<pre><code>define apply(v: integer, f: function(integer =&gt; integer) =&gt; integer)
+<p>If you'd like to create a function that just returns a value, then skip the parentheses.</p>
+<pre><code>define return_ten : integer
+{
+    return 10
+}
+</code></pre>
+
+<p>Functions can also take other functions as arguments. In this case, <code>apply</code> takes a function <code>f</code> that takes one integer and returns that same integer. However, the result of <code>apply</code> is also an integer. The return type of the function being declared is always delimited by a colon
+outside of the parentheses of the arguments it takes.</p>
+<pre><code>define apply(v: integer, f: function(integer =&gt; integer)) : integer
 {
     return f(v)
 }
@@ -86,7 +94,7 @@ apply(10, add_one) # 11
 </code></pre>
 
 <p>Functions can also be marked as accepting a variable number of arguments. The extra arguments will be placed inside of a list for the caller to work with.</p>
-<pre><code>define sum(values: list[integer]... =&gt; integer)
+<pre><code>define sum(values: list[integer]...) : integer
 {
     var total = 0
     for i in 0...values.size() - 1:
@@ -110,11 +118,11 @@ say_greeting(&quot;Jesse&quot;) # Hello, Jesse.
 </code></pre>
 
 <p>Functions can be defined within other functions. By doing so, the outer-most function will automatically become a closure. Here's a basic example of what can be done with this:</p>
-<pre><code>define create_increment(start: integer, =&gt; function( =&gt; integer))
+<pre><code>define create_increment(start: integer) : function( =&gt; integer))
 {
     var i = 0
 
-    define increment( =&gt; integer)
+    define increment : integer
     {
         var result = i
         i += 1

@@ -66,11 +66,11 @@
 <p>Exceptions of this class are raised when there is an error of some sort calling a function defined within here. In the future, this error will be accompanied by others.</p>
 <p>This class inherits directly from Lily's core Exception class.</p>
 <h2>Conn</h2>
-<p><code>Conn::new(*host: string="", *port: string="", *dbname: string="", *login: string="", *password: string="" =&gt; Conn)</code></p>
+<p><code>Conn::new(*host: string="", *port: string="", *dbname: string="", *login: string="", *password: string="") : Conn</code></p>
 <p>Attempt to initialize a new connection to the database. To use the defaults, either don't pass an argument, or pass an empty string to them. Host and port will default such that the connection will target localhost.</p>
 <p>If unable to connect to the database, the Error class above is raised, with the message describing the issue.</p>
 <p>This connection is a synchronous, blocking connection to postgre. It can be used to execute extremely limited queries and fetching from the database.</p>
-<p><code>Conn::query(self: Conn, format: string, args: list[string] =&gt; Result)</code></p>
+<p><code>Conn::query(self: Conn, format: string, args: list[string]) : Result</code></p>
 <p>This executes a query against the database, and stores the result of that query into a Result object. The format string is not in postgre's format, but instead operates on familiar ? replacement.</p>
 <p>Example:</p>
 <pre><code>conn.query(&quot;select * from ? where name like ?&quot;, &quot;employees&quot;, &quot;Bob&quot;)
@@ -79,7 +79,7 @@
 <p>If the query request asks for more args than what are given, then FormatError is raised.</p>
 <p>If the query is invalid, or returns a result that Lily does not understand, then the Error class mentioned above is raised.</p>
 <h2>Request</h2>
-<p><code>Result::fetchrow(self: Result =&gt; list[string])</code></p>
+<p><code>Result::fetchrow(self: Result) : list[string]</code></p>
 <p>Fetch a new row from the given result. If the Result does not contain any rows, or all rows have currently been read, then the <code>Error</code> class is raised. Each column's data is then converted into a string.</p>
 <p>Lily represents a null column value with the string <code>(null)</code>, as Lily does not allow a variable to not be initialized. It is thus not possible to determine if a text-based column actually contains <code>(null)</code>, or has a string with the value <code>(null)</code>.</p>
      </section>

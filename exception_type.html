@@ -58,8 +58,8 @@
 <p>Binary: <code>!=</code> <code>==</code></p>
 <p>Comparison between Exception classes is done using deep equality. This is wrong, and will change.</p>
 <h1>Members</h1>
-<p><code>@traceback: list[tuple[string, string, integer]]</code></p>
-<p>This represents one frame of traceback. This will change later, so that traceback is instead represented by a list of strings. While it is possible to assign to this, be aware that it will be overwritten when an exception is caught.</p>
+<p><code>@traceback: list[string]</code></p>
+<p>This represents a single frame of traceback. If this frame comes from something in native Lily code, then it takes the form of <code>from &lt;filename&gt;:&lt;linenum&gt;: in &lt;function&gt;</code>. If it comes from foreign code (such as <code>list::apply</code>), then it takes the form of <code>from [C]: in &lt;function&gt;</code>.</p>
 <p><code>@message: string</code></p>
 <p>The exception error message.</p>
 <h1>Methods</h1>

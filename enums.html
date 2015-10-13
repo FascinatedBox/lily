@@ -91,7 +91,7 @@ var my_colors = [Blue, Red, White]
 </code></pre>
 
 <p>You can create variables that are of TerminalColor's type, but the individual colors themselves are not valid types. Instead, they should be looked at more as values. Enums also introduce a new kind of block, called <code>match</code>. It's used like this:</p>
-<pre><code>define name_for_color(t: TerminalColor =&gt; string)
+<pre><code>define name_for_color(t: TerminalColor) : string
 {
     match t: {
         case Black:
@@ -120,7 +120,7 @@ printfmt(&quot;The name for this color is '%s'.\n&quot;, name_for_color(Blue))
 </code></pre>
 
 <p>This is arguably the best part of <code>match</code>: It always makes sure that all cases are covered. Here it is, again, with Green included.</p>
-<pre><code>define name_for_color(t: TerminalColor =&gt; string)
+<pre><code>define name_for_color(t: TerminalColor) : string
 {
     match t: {
         case Black:
@@ -157,7 +157,7 @@ printfmt(&quot;The name for this color is '%s'.\n&quot;, name_for_color(Blue))
     White
     Yellow
 
-    define name_for_color( =&gt; string) {
+    define name_for_color : string {
         match self: {
             ...
         }
@@ -196,7 +196,7 @@ var opt_list = [None, None, None]
 </code></pre>
 
 <p><code>match</code> works here too. However, there's a slight difference:</p>
-<pre><code>define get_or_else[A](opt: Option[A], or_else: A =&gt; A)
+<pre><code>define get_or_else[A](opt: Option[A], or_else: A) : A
 {
     match opt: {
         case Some(s):
@@ -228,7 +228,7 @@ match v: {
     Some(A)
     None
 
-    define map[A, B](f: function(A =&gt; B) =&gt; Option[B])
+    define map[A, B](f: function(A =&gt; B)) : Option[B]
     {
         match self: {
             case Some(s):

@@ -60,13 +60,13 @@
 <p>Binary: <code>!=</code> <code>==</code> <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code></p>
 <p>Comparisons and equality for strings are done by comparing the bytes of each string. Comparisons are done using case-sensitive matching. Internally, it just uses C's strcmp.</p>
 <h1>Methods</h1>
-<p><code>string::concat (self: string, other: string =&gt; string)</code></p>
+<p><code>string::concat (self: string, other: string) : string</code></p>
 <p>Return a new string that is a combination of <code>self</code> and <code>other</code>.</p>
-<p><code>string::endswith (self: string, other: string =&gt; boolean)</code></p>
+<p><code>string::endswith (self: string, other: string) : boolean</code></p>
 <p>Returns <code>true</code> if <code>self</code> ends with <code>other</code>, <code>false</code> otherwise. If <code>other</code> is empty, then the result is always <code>true</code>.</p>
-<p><code>string::find (self: string, needle: string =&gt; integer)</code></p>
+<p><code>string::find (self: string, needle: string) : integer</code></p>
 <p>Attempt to locate <code>needle</code> within <code>self</code>. If <code>needle</code> is found, then the result is the index where <code>needle</code> starts. If it is not found, the result is -1.</p>
-<p><code>string::format (self: string, list[any]... =&gt; string)</code></p>
+<p><code>string::format (self: string, list[any]...) : string</code></p>
 <p>This uses <code>self</code> as a formatting string, with the values coming from whatever extra arguments are passed. The following format specifiers are accepted:</p>
 <ul>
 <li>
@@ -81,30 +81,30 @@
 </ul>
 <p>If there are more format specifiers than arguments, then <code>ValueError</code> is raised.</p>
 <p>It is currently <em>not</em> possible to specify a size along with a format specifier (ex: <code>%3d</code>).</p>
-<p><code>string::htmlencode (self: string =&gt; string)</code></p>
+<p><code>string::htmlencode (self: string) : string</code></p>
 <p>Encode a string so that it is suitable for being written to something expecting well-formatted html. <code>&amp;</code> becomes <code>&amp;amp;</code>, <code>&lt;</code> becomes <code>&amp;lt;</code>, <code>&gt;</code> becomes <code>&amp;gt;</code>.</p>
-<p><code>string::isalnum (self: string =&gt; boolean)</code></p>
+<p><code>string::isalnum (self: string) : boolean</code></p>
 <p>Return <code>true</code> if every character in a string is within a-z or within 0-9, <code>false</code> otherwise.</p>
-<p><code>string::isalpha (self: string =&gt; boolean)</code></p>
+<p><code>string::isalpha (self: string) : boolean</code></p>
 <p>Return <code>true</code> if every character in a string is within a-z, <code>false</code> otherwise.</p>
-<p><code>string::isdigit (self: string =&gt; boolean)</code></p>
+<p><code>string::isdigit (self: string) : boolean</code></p>
 <p>Return <code>true</code> if every character in a string is within 0-9, <code>false</code> otherwise.</p>
-<p><code>string::isspace (self: string =&gt; boolean)</code></p>
+<p><code>string::isspace (self: string) : boolean</code></p>
 <p>Return <code>true</code> if every character in a string is one of <code>\t\r\n</code>, <code>false</code> otherwise.</p>
-<p><code>string::lower (self: string =&gt; string)</code></p>
+<p><code>string::lower (self: string) : string</code></p>
 <p>This returns a string where all characters in the A-Z range are converted into their equivalents within a-z. Unicode characters are untouched.</p>
-<p><code>string::lstrip (self: string, to_strip: string =&gt; string)</code></p>
+<p><code>string::lstrip (self: string, to_strip: string) : string</code></p>
 <p>This returns a string where <code>to_strip</code> has been removed from the start of <code>self</code>. If <code>to_strip</code> is an empty string, then the input string is returned as-is.</p>
-<p><code>string::rstrip (self: string, to_strip: string =&gt; string)</code></p>
+<p><code>string::rstrip (self: string, to_strip: string) : string</code></p>
 <p>This returns a string where <code>to_strip</code> has been removed from the end of <code>self</code>. If <code>to_strip</code> is an empty string, then the input string is returned as-is.</p>
-<p><code>string::split (self: string, *by: string=" " =&gt; list[string])</code></p>
+<p><code>string::split (self: string, *by: string=" ") : list[string]</code></p>
 <p>This splits <code>self</code> by each character (not byte) that is within <code>by</code>. By default, it will split just by spaces.</p>
 <p>ValueError is raised if <code>by</code> is an empty string.</p>
-<p><code>string::startswith (self: string, other: string =&gt; boolean)</code></p>
+<p><code>string::startswith (self: string, other: string) : boolean</code></p>
 <p>Returns <code>true</code> if <code>self</code> begins with <code>other</code>, <code>false</code> otherwise. If <code>other</code> is empty, then the result is always <code>true</code>.</p>
-<p><code>string::strip (self: string, to_strip: string =&gt; string)</code></p>
+<p><code>string::strip (self: string, to_strip: string) : string</code></p>
 <p>This acts as a combination of lstrip and rstrip, returning a string which has <code>to_strip</code> removed from both the start and end of <code>self</code>. If <code>to_strip</code> is an empty string, then the input string is returned as-is.</p>
-<p><code>string::to_i (self: string =&gt; integer)</code></p>
+<p><code>string::to_i (self: string) : integer)</code></p>
 <p>This attempts to convert a string into an integer. The function assumes that <code>self</code> describes a decimal value (and not, say, octal or hex). If unable to convert the string to an integer, <code>ValueError</code> is raised.</p>
 <p>Examples:</p>
 <pre><code># Value: -5
@@ -120,9 +120,9 @@
 # &quot;10cats&quot;.to_i()
 </code></pre>
 
-<p><code>string::trim (self: string =&gt; string)</code></p>
+<p><code>string::trim (self: string) : string</code></p>
 <p>This function returns with consecutive whitespace (<code>" \t\r\n"</code>) removed from both the start and end of the string.</p>
-<p><code>string::upper (self: string =&gt; string)</code></p>
+<p><code>string::upper (self: string) : string</code></p>
 <p>This returns a string where all characters in the a-z range are converted into their equivalents within A-Z. Unicode characters are untouched.</p>
      </section>
    </article>

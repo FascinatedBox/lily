@@ -73,7 +73,7 @@
 <p><code>list::fill(n: integer, value: A =&gt; list[A])</code></p>
 <p>This creates a new list, based on <code>value</code> being repeated <code>n</code> times.</p>
 <p>If <code>n</code> is less than zero, then <code>ValueError</code> is raised.</p>
-<p><code>list::reject(self: list[A], f: function(A =&gt; boolean) =&gt; list[A])</code></p>
+<p><code>list::reject(self: list[A], f: function(A =&gt; boolean)) : list[A]</code></p>
 <p>Returns a list of all elements in <code>self</code> for which the predicate <code>f</code> returns <code>false</code>.</p>
 <p>Examples:</p>
 <pre><code># Value: [1, 3, 5]
@@ -83,7 +83,7 @@
 [&quot;aa&quot;, &quot;ab&quot;, &quot;ba&quot;, &quot;bb&quot;].select{|a| a.startswith(&quot;a&quot;)}
 </code></pre>
 
-<p><code>list::select(self: list[A], f: function(A =&gt; boolean) =&gt; list[A])</code></p>
+<p><code>list::select(self: list[A], f: function(A =&gt; boolean)) : list[A]</code></p>
 <p>Returns a list of all elements in <code>self</code> for which the predicate <code>f</code> returns <code>true</code>.</p>
 <p>Examples:</p>
 <pre><code># Value: [2, 4, 6]
@@ -93,7 +93,7 @@
 [&quot;aa&quot;, &quot;ab&quot;, &quot;ba&quot;, &quot;bb&quot;].select{|a| a.startswith(&quot;a&quot;)}
 </code></pre>
 
-<p><code>list::size(self: list[A] =&gt; integer)</code></p>
+<p><code>list::size(self: list[A]) : integer</code></p>
 <p>Returns the number of elements that are contained within <code>self</code>. This can be used in conjunction with a for loop as follows:</p>
 <pre><code>for i in 0...x.size() - 1:
     ...
