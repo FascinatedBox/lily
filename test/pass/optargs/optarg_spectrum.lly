@@ -2,7 +2,8 @@ define f(
         a: *integer=10,
         b: *double=1.1,
         c: *bytestring=B"",
-        d: *string="1")
+        d: *string="1",
+        e: *boolean=true)
 {
 
 }
