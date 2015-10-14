@@ -251,7 +251,7 @@ static lily_import_entry *find_import(lily_import_entry *import,
            non-null. In such a case, don't allow fallback access as 'x', just
            in case something else is imported with the name 'x'. */
         if ((as_name && strcmp(as_name, name) == 0) ||
-            (as_name == NULL && loadname && strcmp(loadname, name) == 0)) {
+            (as_name == NULL && strcmp(loadname, name) == 0)) {
             result = link_iter->entry;
             break;
         }
@@ -1033,8 +1033,7 @@ lily_import_entry *lily_find_import_anywhere(lily_symtab *symtab,
     lily_import_entry *entry_iter = symtab->builtin_import;
 
     while (entry_iter) {
-        if (entry_iter->loadname &&
-            strcmp(entry_iter->loadname, name) == 0)
+        if (strcmp(entry_iter->loadname, name) == 0)
             break;
 
         entry_iter = entry_iter->root_next;
