@@ -857,7 +857,7 @@ static void string_split_by_val(lily_vm_state *vm, char *input, char *splitby,
 
     values_needed++;
     input_ch = &input[0];
-    elems = lily_malloc(sizeof(lily_value) * values_needed);
+    elems = lily_malloc(sizeof(lily_value *) * values_needed);
     int i = 0;
     char *last_start = input_ch;
 
@@ -885,7 +885,6 @@ static void string_split_by_val(lily_vm_state *vm, char *input, char *splitby,
            matches the split string, an empty string will be made.
            Ex: "1 2 3 ".split(" ") # ["1", "2", "3", ""] */
         if (is_match || *input_ch == '\0') {
-            lily_value *new_value = lily_malloc(sizeof(lily_value));
             int sv_size = match_start - last_start;
             lily_string_val *new_sv = make_sv(vm, sv_size + 1);
             char *sv_buffer = &new_sv->string[0];
@@ -897,10 +896,8 @@ static void string_split_by_val(lily_vm_state *vm, char *input, char *splitby,
                 sv_size--;
             }
 
-            new_value->flags = 0;
-            new_value->type = string_type;
-            new_value->value.string = new_sv;
-            elems[i] = new_value;
+            elems[i] = lily_new_value(0, string_type,
+                    (lily_raw_value){.string = new_sv});
             i++;
             if (*input_ch == '\0')
                 break;

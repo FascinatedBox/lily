@@ -6,10 +6,8 @@ lily_any_val *lily_new_any_val()
 {
     lily_any_val *a = lily_malloc(sizeof(lily_any_val));
 
-    a->inner_value = lily_malloc(sizeof(lily_value));
-    a->inner_value->flags = VAL_IS_NIL;
-    a->inner_value->type = NULL;
-    a->inner_value->value.integer = 0;
+    a->inner_value = lily_new_value(VAL_IS_NIL, NULL,
+            (lily_raw_value){.integer = 0});
     a->gc_entry = NULL;
     a->refcount = 1;
 

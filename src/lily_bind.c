@@ -18,7 +18,6 @@
     string's buffer. */
 lily_value *lily_bind_string_take_buffer(lily_symtab *symtab, char *buffer)
 {
-    lily_value *new_value = lily_malloc(sizeof(lily_value));
     lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
     int string_size = strlen(buffer);
 
@@ -26,11 +25,8 @@ lily_value *lily_bind_string_take_buffer(lily_symtab *symtab, char *buffer)
     sv->string = buffer;
     sv->size = string_size;
 
-    new_value->value.string = sv;
-    new_value->flags = 0;
-    new_value->type = symtab->string_class->type;
-
-    return new_value;
+    return lily_new_value(0, symtab->string_class->type,
+            (lily_raw_value){.string = sv});
 }
 
 /*  lily_bind_string

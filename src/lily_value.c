@@ -40,7 +40,18 @@ void lily_deref_raw(lily_type *type, lily_raw_value raw)
     lily_deref(&v);
 }
 
-lily_instance_val *lily_new_instance_val()
+inline lily_value *lily_new_value(uint64_t flags, lily_type *type,
+        lily_raw_value raw)
+{
+    lily_value *v = lily_malloc(sizeof(lily_value));
+    v->flags = flags;
+    v->type = type;
+    v->value = raw;
+
+    return v;
+}
+
+inline lily_instance_val *lily_new_instance_val()
 {
     lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
     ival->refcount = 1;
