@@ -557,11 +557,9 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
     /* Start creating new registers. Have them default to an integer type so that
        nothing has to check for a NULL type. Integer is used as the default
        because it is not ref'd. */
-    for (;i < size;i++) {
-        new_regs[i] = lily_malloc(sizeof(lily_value));
-        new_regs[i]->type = integer_type;
-        new_regs[i]->flags = VAL_IS_NIL | VAL_IS_PRIMITIVE;
-    }
+    for (;i < size;i++)
+        new_regs[i] = lily_new_value(VAL_IS_NIL | VAL_IS_PRIMITIVE, integer_type,
+            (lily_raw_value){.integer = 0});
 
     vm->true_max_registers = size;
     vm->offset_max_registers = size - 2;
@@ -760,7 +758,7 @@ static void load_foreign_ties(lily_vm_state *vm)
     use build_traceback instead. */
 static lily_list_val *build_traceback_raw(lily_vm_state *vm)
 {
-    lily_type *traceback_tuple_type = vm->traceback_type;
+    lily_type *string_type = vm->symtab->string_class->type;
     lily_list_val *lv = lily_new_list_val();
 
     lv->elems = lily_malloc(vm->call_depth * sizeof(lily_value *));
@@ -809,12 +807,8 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
         sv->size = strlen(str) - 1;
         sv->string = str;
 
-        lily_value *sv_holder = lily_malloc(sizeof(lily_value));
-        sv_holder->flags = 0;
-        sv_holder->value.string = sv;
-        sv_holder->type = traceback_tuple_type->subtypes[0];
-
-        lv->elems[i - 1] = sv_holder;
+        lv->elems[i - 1] = lily_new_value(0, string_type,
+                (lily_raw_value){.string = sv});
     }
 
     lv->num_values = vm->call_depth;
@@ -827,13 +821,7 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
 static lily_value *build_traceback(lily_vm_state *vm)
 {
     lily_list_val *lv = build_traceback_raw(vm);
-    lily_value *v = lily_malloc(sizeof(lily_value));
-
-    v->value.list = lv;
-    v->type = vm->traceback_type;
-    v->flags = 0;
-
-    return v;
+    return lily_new_value(0, vm->traceback_type, (lily_raw_value){.list = lv});
 }
 
 /*  key_error
@@ -1403,14 +1391,12 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         }
 
         lily_type *value_type = prop->type;
-        iv->values[i] = lily_malloc(sizeof(lily_value));
-        iv->values[i]->flags = VAL_IS_NIL;
-
         if (value_type->flags & TYPE_IS_UNRESOLVED)
             value_type = lily_ts_resolve_by_second(vm->ts, result->type,
                     value_type);
 
-        iv->values[i]->type = value_type;
+        iv->values[i] = lily_new_value(VAL_IS_NIL, value_type,
+                (lily_raw_value){.integer = 0});
     }
 
     iv->num_values = total_entries;
@@ -1449,12 +1435,9 @@ static lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
     lily_type *integer_type = vm->integer_type;
 
     int i;
-    for (i = 0;i < count;i++) {
-        lily_value *v = lily_malloc(sizeof(lily_value));
-        v->type = integer_type;
-        v->flags = VAL_IS_NIL;
-        upvalues[i] = v;
-    }
+    for (i = 0;i < count;i++)
+        upvalues[i] = lily_new_value(VAL_IS_NIL, integer_type,
+                (lily_raw_value){.integer = 0});
 
     closure_func->closure_data = d;
     closure_func->refcount = 1;
@@ -1740,10 +1723,7 @@ lily_value *lily_copy_value(lily_value *input)
     if ((input->flags & VAL_IS_NOT_DEREFABLE) == 0)
         input->value.generic->refcount++;
 
-    lily_value *result = lily_malloc(sizeof(lily_value));
-    *result = *input;
-
-    return result;
+    return lily_new_value(input->flags, input->type, input->value);
 }
 
 /*  This is used by a function (the caller) to call another function (the

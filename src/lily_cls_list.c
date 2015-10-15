@@ -174,17 +174,10 @@ void lily_list_append(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     int value_count = list_val->num_values;
 
-    lily_value *value_holder = lily_malloc(sizeof(lily_value));
-
-    value_holder->type = insert_value->type;
-    value_holder->flags = VAL_IS_NIL;
-    value_holder->value.integer = 0;
     list_val->elems = lily_realloc(list_val->elems,
         (value_count + 1) * sizeof(lily_value *));;
-    list_val->elems[value_count] = value_holder;
+    list_val->elems[value_count] = lily_copy_value(insert_value);
     list_val->num_values++;
-
-    lily_assign_value(value_holder, insert_value);
 }
 
 /*  lily_list_apply

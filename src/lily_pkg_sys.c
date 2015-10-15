@@ -4,6 +4,7 @@
 #include "lily_parser.h"
 #include "lily_seed.h"
 #include "lily_cls_list.h"
+#include "lily_value.h"
 
 void lily_sys_var_loader(lily_parse_state *parser, lily_var *var)
 {
@@ -12,17 +13,15 @@ void lily_sys_var_loader(lily_parse_state *parser, lily_var *var)
     lily_type *string_type = var->type->subtypes[0];
 
     lily_list_val *lv = lily_new_list_val();
-    lily_value **values = lily_malloc(options->argc * sizeof(lily_value));
+    lily_value **values = lily_malloc(options->argc * sizeof(lily_value *));
 
     lv->elems = values;
     lv->num_values = options->argc;
 
     int i;
-    for (i = 0;i < options->argc;i++) {
-        values[i] = lily_malloc(sizeof(lily_value));
-        values[i]->type = string_type;
-        values[i]->flags = VAL_IS_NIL;
-    }
+    for (i = 0;i < options->argc;i++)
+        values[i] = lily_new_value(VAL_IS_NIL, string_type,
+                (lily_raw_value){.integer = 0});
 
     for (i = 0;i < options->argc;i++) {
         lily_string_val *sv = lily_malloc(sizeof(lily_string_val));

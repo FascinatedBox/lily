@@ -80,12 +80,8 @@ void lily_pg_result_fetchrow(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         strcpy(sv->string, field_text);
         sv->size = len;
 
-        lily_value *v = lily_malloc(sizeof(lily_value));
-        v->type = string_type;
-        v->flags = 0;
-        v->value.string = sv;
-
-        lv->elems[i] = v;
+        lv->elems[i] = lily_new_value(0, string_type,
+                (lily_raw_value){.string = sv});
     }
 
     lv->num_values = i;

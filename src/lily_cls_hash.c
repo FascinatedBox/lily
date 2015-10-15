@@ -20,16 +20,12 @@ lily_hash_elem *lily_new_hash_elem()
 {
     lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
 
-    elem->elem_key = lily_malloc(sizeof(lily_value));
-    elem->elem_value = lily_malloc(sizeof(lily_value));
-
     /* Hash lookup does not take into account or allow nil keys. So this should
        be set to a non-nil value as soon as possible. */
-    elem->elem_key->flags = VAL_IS_NIL;
-    elem->elem_key->value.integer = 0;
-
-    elem->elem_value->flags = VAL_IS_NIL;
-    elem->elem_value->value.integer = 0;
+    elem->elem_key = lily_new_value(VAL_IS_NIL, NULL,
+            (lily_raw_value){.integer = 0});
+    elem->elem_value = lily_new_value(VAL_IS_NIL, NULL,
+            (lily_raw_value){.integer = 0});
 
     elem->next = NULL;
     return elem;
@@ -237,18 +233,11 @@ void lily_hash_keys(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     result_lv->num_values = num_elems;
     result_lv->elems = lily_malloc(num_elems * sizeof(lily_value *));
 
-    lily_type *key_type = result_reg->type->subtypes[0];
     int i = 0;
 
     lily_hash_elem *elem_iter = hash_val->elem_chain;
     while (elem_iter) {
-        lily_value *new_value = lily_malloc(sizeof(lily_value));
-        new_value->type = key_type;
-        new_value->value.integer = 0;
-        new_value->flags = VAL_IS_NIL;
-
-        lily_assign_value(new_value, elem_iter->elem_key);
-        result_lv->elems[i] = new_value;
+        result_lv->elems[i] = lily_copy_value(elem_iter->elem_key);
 
         i++;
         elem_iter = elem_iter->next;
