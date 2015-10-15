@@ -547,7 +547,7 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
 
     /* Remember, use regs_from_main, NOT vm_regs, which is likely adjusted. */
     new_regs = lily_realloc(vm->regs_from_main, size *
-            sizeof(lily_value));
+            sizeof(lily_value *));
 
     /* Realloc can move the pointer, so always recalculate vm_regs again using
        regs_from_main and the offset. */
