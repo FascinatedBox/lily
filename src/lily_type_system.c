@@ -54,8 +54,7 @@ static void grow_types(lily_type_system *ts)
             sizeof(lily_type *) * ts->max);;
 }
 
-static lily_type *deep_type_build(lily_type_system *ts, int generic_index,
-        lily_type *type)
+lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
 {
     lily_type *ret = type;
 
@@ -63,35 +62,30 @@ static lily_type *deep_type_build(lily_type_system *ts, int generic_index,
         /* functions use NULL to indicate they don't return a value. */
         ret = NULL;
     else if (type->subtypes != NULL) {
-        int i, save_start;
+        int i;
+        /* lily_ts_resolve is called by the vm to rebuild generics. Instead of
+           using the normal add (which will do a grow check each time), call
+           for a grow check now and do unsafe adds. Every little bit counts. */
+        lily_tm_reserve(ts->tm, type->subtype_count);
         lily_type **subtypes = type->subtypes;
-        ENSURE_TYPE_STACK(ts->pos + type->subtype_count)
 
-        save_start = ts->pos;
+        for (i = 0;i < type->subtype_count;i++)
+            lily_tm_add_unchecked(ts->tm, lily_ts_resolve(ts, subtypes[i]));
 
-        for (i = 0;i < type->subtype_count;i++) {
-            lily_type *inner_type = deep_type_build(ts, generic_index,
-                    subtypes[i]);
-            ts->types[ts->pos] = inner_type;
-            ts->pos++;
-        }
-
-        ret = lily_tm_raw_make(ts->tm, type->flags, type->cls, ts->types,
-                save_start, i);
-
-        ts->pos -= i;
+        ret = lily_tm_make(ts->tm, type->flags, type->cls, i);
     }
     else if (type->cls->id == SYM_CLASS_GENERIC) {
-        ret = ts->types[generic_index + type->generic_pos];
+        ret = ts->types[ts->pos + type->generic_pos];
         /* Sometimes, a generic is wanted that was never filled in. In such a
            case, use 'any' because it is the most accepting of values. */
         if (ret == NULL) {
             ret = ts->any_class_type;
             /* This allows lambdas to determine that a given generic was not
                resolved (and prevent it). */
-            ts->types[generic_index + type->generic_pos] = ret;
+            ts->types[ts->pos + type->generic_pos] = ret;
         }
     }
+
     return ret;
 }
 
@@ -311,17 +305,6 @@ int lily_ts_type_greater_eq(lily_type_system *ts, lily_type *left, lily_type *ri
 inline lily_type *lily_ts_easy_resolve(lily_type_system *ts, lily_type *t)
 {
     return ts->types[ts->pos + t->generic_pos];
-}
-
-lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
-{
-    int save_generic_index = ts->pos;
-
-    ts->pos += ts->ceiling;
-    lily_type *ret = deep_type_build(ts, save_generic_index, type);
-    ts->pos -= ts->ceiling;
-
-    return ret;
 }
 
 lily_type *lily_ts_resolve_by_second(lily_type_system *ts, lily_type *first,

@@ -27,6 +27,22 @@ static lily_type *make_new_type(lily_class *cls)
     return new_type;
 }
 
+void lily_tm_reserve(lily_type_maker *tm, int amount)
+{
+    if (tm->pos + amount > tm->size) {
+        while (tm->pos + amount > tm->size)
+            tm->size *= 2;
+
+        tm->types = lily_realloc(tm->types, sizeof(lily_type *) * tm->size);
+    }
+}
+
+inline void lily_tm_add_unchecked(lily_type_maker *tm, lily_type *type)
+{
+    tm->types[tm->pos] = type;
+    tm->pos++;
+}
+
 void lily_tm_add(lily_type_maker *tm, lily_type *type)
 {
     if (tm->pos + 1 == tm->size) {
@@ -170,25 +186,6 @@ lily_type *lily_tm_make(lily_type_maker *tm, int flags, lily_class *cls,
         result_type = build_real_type_for(&fake_type);
 
     tm->pos -= num_entries;
-    return result_type;
-}
-
-lily_type *lily_tm_raw_make(lily_type_maker *tm, int flags, lily_class *cls,
-        lily_type **types, int offset, int count)
-{
-    lily_type fake_type;
-
-    fake_type.cls = cls;
-    fake_type.generic_pos = 0;
-    fake_type.subtypes = types + offset;
-    fake_type.subtype_count = count;
-    fake_type.flags = flags;
-    fake_type.next = NULL;
-
-    lily_type *result_type = lookup_type(&fake_type);
-    if (result_type == NULL)
-        result_type = build_real_type_for(&fake_type);
-
     return result_type;
 }
 
