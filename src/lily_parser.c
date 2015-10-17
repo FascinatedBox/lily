@@ -134,7 +134,6 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
 
     parser->optarg_stack_pos = 0;
     parser->optarg_stack_size = 4;
-    parser->class_depth = 0;
     parser->first_pass = 1;
     parser->class_self_type = NULL;
     parser->raiser = raiser;
@@ -753,7 +752,7 @@ static void ensure_unique_method_name(lily_parse_state *parser, char *name)
         lily_raise(parser->raiser, lily_SyntaxError,
                    "%s has already been declared.\n", name);
 
-    if (parser->class_depth) {
+    if (parser->class_self_type) {
         lily_class *current_class = parser->class_self_type->cls;
 
         if (lily_find_property(current_class, name)) {
@@ -1346,7 +1345,7 @@ static void expression_word(lily_parse_state *parser, int *state)
     Similar to expression_word, minus the complexity. */
 static void expression_property(lily_parse_state *parser, int *state)
 {
-    if (parser->class_depth == 0)
+    if (parser->class_self_type == NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Properties cannot be used outside of a class constructor.\n");
 
@@ -2740,9 +2739,7 @@ static void create_new_class(lily_parse_state *parser)
 
     NEED_CURRENT_TOK(tk_left_curly)
 
-    parser->class_depth++;
     parse_multiline_block_body(parser, 1);
-    parser->class_depth--;
 
     lily_finish_class(parser->symtab, created_class);
 
@@ -2856,7 +2853,6 @@ static void enum_handler(lily_parse_state *parser, int multi)
 
     lily_type *result_type = build_self_type(parser, enum_cls, generics_used);
     lily_type *save_self_type = parser->class_self_type;
-    parser->class_depth++;
     parser->class_self_type = result_type;
 
     NEED_CURRENT_TOK(tk_left_curly)
@@ -2923,7 +2919,6 @@ static void enum_handler(lily_parse_state *parser, int multi)
     }
 
     lily_emit_leave_block(parser->emit);
-    parser->class_depth--;
     parser->class_self_type = save_self_type;
 
     lily_update_symtab_generics(parser->symtab, NULL, save_generics);

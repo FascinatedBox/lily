@@ -25,8 +25,8 @@ typedef struct lily_parse_state_ {
     uint16_t *optarg_stack;
     uint16_t optarg_stack_pos;
     uint16_t optarg_stack_size;
-    uint16_t class_depth;
-    uint16_t pad;
+    uint16_t executing;
+    uint16_t first_pass;
 
     lily_type *class_self_type;
     lily_msgbuf *msgbuf;
@@ -40,8 +40,6 @@ typedef struct lily_parse_state_ {
     lily_raiser *raiser;
     lily_options *options;
     void *data;
-    uint32_t executing;
-    uint32_t first_pass;
 } lily_parse_state;
 
 lily_options *lily_new_default_options(void);
