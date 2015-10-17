@@ -1410,6 +1410,17 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 /* Closures                                                                  */
 /*****************************************************************************/
 
+static lily_value *make_cell_from(lily_value *value)
+{
+    lily_value *result = lily_malloc(sizeof(lily_value));
+    *result = *value;
+    result->cell_refcount = 1;
+    if ((value->flags & VAL_IS_NOT_DEREFABLE) == 0)
+        value->value.generic->refcount++;
+
+    return result;
+}
+
 /*  This function attempts to create the original closure. Other opcodes, such
     as o_create_function will make a shallow copy of the closure data within
     here.
@@ -1430,89 +1441,137 @@ static lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
        just assume it needs a marker. */
     lily_add_gc_item(vm, result->type, (lily_generic_gc_val *)closure_func);
 
-    lily_closure_data *d = lily_malloc(sizeof(lily_closure_data));
     lily_value **upvalues = lily_malloc(sizeof(lily_value *) * count);
-    lily_type *integer_type = vm->integer_type;
 
+    /* Cells are intentionally initialized to NULL instead of a blank value.
+       This lets closed over functions know they need to create a new cell each
+       time (instead of trying to use the parent's cells for their values). */
     int i;
     for (i = 0;i < count;i++)
-        upvalues[i] = lily_new_value(VAL_IS_NIL, integer_type,
-                (lily_raw_value){.integer = 0});
+        upvalues[i] = NULL;
 
-    closure_func->closure_data = d;
+    closure_func->num_upvalues = count;
+    closure_func->upvalues = upvalues;
     closure_func->refcount = 1;
-    d->upvalues = upvalues;
-    d->refcount = 1;
-    d->num_upvalues = count;
 
     lily_raw_value v = {.function = closure_func};
     lily_move_raw_value(result, v);
     return upvalues;
 }
 
+static void copy_upvalues(lily_function_val *target, lily_function_val *source)
+{
+    lily_value **source_upvalues = source->upvalues;
+    int count = source->num_upvalues;
+
+    lily_value **new_upvalues = lily_malloc(sizeof(lily_value *) * count);
+    lily_value *up;
+    int i;
+
+    for (i = 0;i < count;i++) {
+        up = source_upvalues[i];
+        if (up)
+            up->cell_refcount++;
+
+        new_upvalues[i] = up;
+    }
+
+    target->upvalues = new_upvalues;
+    target->num_upvalues = count;
+}
+
 /*  This opcode is written when either a function or lambda is created within
-    a defined function. It creates a copy of a given function, but stores
-    closure information within the copy. The copy created is used in place of
-    the given function, as it has upvalue information that the original does
-    not.
-    By doing this, calls to the function copy will load the function with
-    closures onto the stack. */
+    a defined function. This will copy whatever cells are in the incoming
+    closure into the new one. Cells that are non-null will be given a cell
+    refcount. */
 static void do_o_create_function(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_tie *function_literal = vm->readonly_table[code[1]];
-    lily_function_val *raw_func = function_literal->value.function;
-    lily_function_val *closure_copy = lily_new_function_copy(raw_func);
-    lily_value *closure_reg = vm_regs[code[2]];
+    lily_value *input_closure_reg = vm_regs[code[1]];
 
-    lily_add_gc_item(vm, function_literal->type,
-            (lily_generic_gc_val *)closure_copy);
+    lily_tie *target_literal = vm->readonly_table[code[2]];
+    lily_function_val *target_func = target_literal->value.function;
 
-    lily_function_val *active_closure = closure_reg->value.function;
-    closure_copy->closure_data = active_closure->closure_data;
-    closure_copy->closure_data->refcount++;
+    lily_value *result_reg = vm_regs[code[3]];
+    lily_function_val *new_closure = lily_new_function_copy(target_func);
+    new_closure->refcount = 1;
 
-    lily_raw_value v = {.function = closure_copy};
+    lily_add_gc_item(vm, target_literal->type,
+            (lily_generic_gc_val *)new_closure);
 
-    lily_value **upvalues = closure_copy->closure_data->upvalues;
-    upvalues[code[3]]->type = closure_reg->type;
-    lily_move_raw_value(upvalues[code[3]], v);
+    copy_upvalues(new_closure, input_closure_reg->value.function);
+
+    lily_raw_value v = {.function = new_closure};
+    lily_move_raw_value(result_reg, v);
+    new_closure->refcount++;
 }
 
-/*  This is written at the top of a function that uses closures but is not a
-    class method. Because of how o_create_function works, the most recent call
-    (this function) has closure data in the function part of the stack. This is
-    as simple as drawing that data out. */
+/*  This is written at the top of defines that use upvalues but are not class
+    methods. The closure information is attached to the function that was most
+    recently called. This will need to pull that closure down into the registers
+    where the opcodes can find it.
+    This also lists all the spots in the closure which have a variable which is
+    from this scope. If any of these spots has a cell, then that cell should get
+    a deref before being set to NULL. This is important, as it forces this
+    function to create new cells for those vars, instead of polluting the
+    caller's copies. */
 static lily_value **do_o_load_closure(lily_vm_state *vm, uint16_t *code)
 {
-    lily_function_val *f = vm->call_chain->function;
-    lily_raw_value v = {.function = f};
-    lily_value *result = vm->vm_regs[code[2]];
+    lily_function_val *input_closure = vm->call_chain->function;
 
-    /* This isn't using assign because there is no proper lily value that is
-       holding closure. Instead, do a move and manually bump the ref. */
-    lily_move_raw_value(result, v);
-    f->refcount++;
+    lily_value **upvalues = input_closure->upvalues;
+    int count = code[2];
+    int i;
+    lily_value *up;
 
-    return f->closure_data->upvalues;
+    code = code + 3;
+
+    for (i = 0;i < count;i++) {
+        up = upvalues[code[i]];
+        if (up) {
+            up->cell_refcount--;
+            if (up->cell_refcount == 0) {
+                lily_deref(up);
+                lily_free(up);
+            }
+
+            upvalues[code[i]] = NULL;
+        }
+    }
+
+    lily_value *result_reg = vm->vm_regs[code[i]];
+    lily_raw_value v = {.function = input_closure};
+
+    /* This does move+manual refcount increase because there's no proper Lily
+       value here (and f will always be refcounted). */
+    lily_move_raw_value(result_reg, v);
+    input_closure->refcount++;
+
+    return input_closure->upvalues;
 }
 
-/*  This is written at the top of a class method when the class has methods that
-    use upvalues. Unlike with typical functions, class methods can be referenced
-    statically outside of the class. Because class methods always take self as
-    their first parameter, the class will hold a closure that this will pull out
-    and put into a local register. */
+/*  This is written at the top of defines which are class methods. In this case,
+    the original closure data is kept within the class as one of the fields of
+    the class. So grab it from the class instead.
+    This will create a copy of the class closure, as well as copying the
+    upvalues that are stored in that closure. This will make it so that the
+    vars in this closure do not show up in the class closure. By doing so, this
+    doesn't need to worry about erasing cells for the vars on this level. */
 static lily_value **do_o_load_class_closure(lily_vm_state *vm, uint16_t *code,
         int code_pos)
 {
     do_o_get_property(vm, code, code_pos);
-    lily_value *closure_reg = vm->vm_regs[code[code_pos + 4]];
-    lily_function_val *f = closure_reg->value.function;
+    lily_value *result_reg = vm->vm_regs[code[code_pos + 4]];
+    lily_function_val *input_closure = result_reg->value.function;
 
-    /* Don't adjust any refcounts here, because do_o_get_property will use
-       lily_assign_value which will do that for us. */
+    lily_function_val *new_closure = lily_new_function_copy(input_closure);
+    new_closure->refcount = 1;
+    copy_upvalues(new_closure, input_closure);
 
-    return f->closure_data->upvalues;
+    lily_raw_value v = {.function = new_closure};
+    lily_move_raw_value(result_reg, v);
+
+    return new_closure->upvalues;
 }
 
 /*****************************************************************************/
@@ -2436,10 +2495,11 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_set_upvalue:
                 lhs_reg = upvalues[code[code_pos + 2]];
                 rhs_reg = vm_regs[code[code_pos + 3]];
-                if (lhs_reg->flags & VAL_IS_NIL)
-                    lhs_reg->type = rhs_reg->type;
+                if (lhs_reg == NULL)
+                    upvalues[code[code_pos + 2]] = make_cell_from(rhs_reg);
+                else
+                    lily_assign_value(lhs_reg, rhs_reg);
 
-                lily_assign_value(lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
             case o_get_upvalue:
@@ -2561,7 +2621,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_load_closure:
                 upvalues = do_o_load_closure(vm, code+code_pos);
-                code_pos += 3;
+                code_pos = code[code_pos+2] + 4;
                 break;
             case o_for_setup:
                 loop_reg = vm_regs[code[code_pos+2]];

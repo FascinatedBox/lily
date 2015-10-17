@@ -55,8 +55,8 @@ const int opcode_table[][8] = {
     {o_get_upvalue,         3, C_LINENO,         C_INT_VAL,        C_OUTPUT,        -1,              -1,           -1},
     {o_set_upvalue,         3, C_LINENO,         C_INT_VAL,        C_INPUT,         -1,              -1,           -1},
     {o_create_closure,      3, C_LINENO,         C_INT_VAL,        C_OUTPUT,        -1,              -1,           -1},
-    {o_create_function,     3, C_READONLY_INPUT, C_INPUT,          C_INT_VAL,       -1,              -1,           -1},
+    {o_create_function,     3, C_INPUT,          C_READONLY_INPUT, C_OUTPUT,        -1,              -1,           -1},
     {o_load_class_closure,  4, C_LINENO,         C_INPUT,          C_INT_VAL,       C_OUTPUT,        -1,           -1},
-    {o_load_closure,        2, C_LINENO,         C_OUTPUT,         -1,              -1,              -1,           -1},
+    {o_load_closure,        4, C_LINENO,         C_COUNT,          C_COUNT_SKIPS,   C_OUTPUT,        -1,           -1},
     {o_return_from_vm,      1, C_NOP,            -1,               -1,              -1,              -1,           -1}
 };

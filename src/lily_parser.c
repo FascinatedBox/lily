@@ -1209,19 +1209,13 @@ static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
                 "Attempt to use uninitialized value '%s'.\n",
                 var->name);
 
-    /* These are vars that are known to be upvalues. It is important to check
-       this first, because a defined function can be closed over. */
-    if (var->flags & SYM_CLOSED_OVER)
-        lily_ast_push_upvalue(parser->ast_pool, var);
-    /* Defined functions have a depth of one, so this has to come next. */
+    /* Defined functions have a depth of one, so they have to be first. */
     else if (var->flags & VAR_IS_READONLY)
         lily_ast_push_defined_func(parser->ast_pool, var);
     else if (var->function_depth == 1)
         lily_ast_push_global_var(parser->ast_pool, var);
     else if (var->function_depth == parser->emit->function_depth)
         lily_ast_push_local_var(parser->ast_pool, var);
-    /* Anything else has to be an upvalue which hasn't been marked by emitter
-       as being closed over. */
     else
         lily_ast_push_upvalue(parser->ast_pool, var);
 

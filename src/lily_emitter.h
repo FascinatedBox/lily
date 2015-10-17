@@ -51,10 +51,16 @@ typedef struct lily_block_ {
        currently in a loop block, this is -1. */
     uint16_t loop_start;
 
+    /* Define blocks: Initially 0, but set to 1 if the current define requires
+       closure information. During block exit, if this is 1, then that value
+       bubbles up to the parent so that the parent is forced to capture closure
+       data as well. */
+    uint8_t make_closure;
+
     /* This is used by if/elif/else, match, and try+except. If every branch of
        a block returns a value or exits, then that information bubbles up to the
        parent block. */
-    uint16_t all_branches_exit;
+    uint8_t all_branches_exit;
 
     lily_block_type block_type : 16;
 
