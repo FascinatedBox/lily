@@ -1,0 +1,8 @@
+#[
+SyntaxError: Expected '::', not ).
+    from invalid_static_access.lly:8
+]#
+
+class test {}
+
+show(test) new
