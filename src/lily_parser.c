@@ -1098,6 +1098,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
 static void expression_static_call(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
+    NEED_NEXT_TOK(tk_colon_colon)
     NEED_NEXT_TOK(tk_word)
 
     /* Begin by checking if this is a class member. If it's not, attempt a
@@ -1194,8 +1195,6 @@ static void dispatch_word_as_class(lily_parse_state *parser, lily_class *cls,
         *state = ST_WANT_OPERATOR;
     }
     else {
-        lily_lex_state *lex = parser->lex;
-        lily_lexer(lex);
         expression_static_call(parser, cls);
         *state = ST_WANT_OPERATOR;
     }
@@ -1889,7 +1888,6 @@ static void statement(lily_parse_state *parser, int multi)
 
                 if (lclass != NULL &&
                     (lclass->flags & CLS_IS_VARIANT) == 0) {
-                    NEED_NEXT_TOK(tk_colon_colon)
                     expression_static_call(parser, lclass);
                     lily_lexer(lex);
                     expression_raw(parser, ST_WANT_OPERATOR);
