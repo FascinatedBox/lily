@@ -1190,14 +1190,12 @@ static void expression_variant(lily_parse_state *parser,
 static void dispatch_word_as_class(lily_parse_state *parser, lily_class *cls,
         int *state)
 {
-    if (cls->flags & CLS_IS_VARIANT) {
+    if (cls->flags & CLS_IS_VARIANT)
         expression_variant(parser, cls);
-        *state = ST_WANT_OPERATOR;
-    }
-    else {
+    else
         expression_static_call(parser, cls);
-        *state = ST_WANT_OPERATOR;
-    }
+
+    *state = ST_WANT_OPERATOR;
 }
 
 static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
