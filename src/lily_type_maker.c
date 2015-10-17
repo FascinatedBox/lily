@@ -5,13 +5,13 @@
 
 lily_type_maker *lily_new_type_maker(void)
 {
-    lily_type_maker *tb = lily_malloc(sizeof(lily_type_maker));
+    lily_type_maker *tm = lily_malloc(sizeof(lily_type_maker));
 
-    tb->types = lily_malloc(sizeof(lily_type *) * 4);
-    tb->pos = 0;
-    tb->size = 4;
+    tm->types = lily_malloc(sizeof(lily_type *) * 4);
+    tm->pos = 0;
+    tm->size = 4;
 
-    return tb;
+    return tm;
 }
 
 static lily_type *make_new_type(lily_class *cls)
@@ -27,32 +27,32 @@ static lily_type *make_new_type(lily_class *cls)
     return new_type;
 }
 
-void lily_tm_add(lily_type_maker *tb, lily_type *type)
+void lily_tm_add(lily_type_maker *tm, lily_type *type)
 {
-    if (tb->pos + 1 == tb->size) {
-        tb->size *= 2;
-        tb->types = lily_realloc(tb->types, sizeof(lily_type *) * tb->size);
+    if (tm->pos + 1 == tm->size) {
+        tm->size *= 2;
+        tm->types = lily_realloc(tm->types, sizeof(lily_type *) * tm->size);
     }
 
-    tb->types[tb->pos] = type;
-    tb->pos++;
+    tm->types[tm->pos] = type;
+    tm->pos++;
 }
 
-void lily_tm_insert(lily_type_maker *tb, int pos, lily_type *type)
+void lily_tm_insert(lily_type_maker *tm, int pos, lily_type *type)
 {
-    if (pos >= tb->size) {
-        while (pos >= tb->size)
-            tb->size *= 2;
+    if (pos >= tm->size) {
+        while (pos >= tm->size)
+            tm->size *= 2;
 
-        tb->types = lily_realloc(tb->types, sizeof(lily_type *) * tb->size);
+        tm->types = lily_realloc(tm->types, sizeof(lily_type *) * tm->size);
     }
 
-    tb->types[pos] = type;
+    tm->types[pos] = type;
 }
 
-inline lily_type *lily_tm_get(lily_type_maker *tb, int pos)
+inline lily_type *lily_tm_get(lily_type_maker *tm, int pos)
 {
-    return tb->types[pos];
+    return tm->types[pos];
 }
 
 #define SKIP_FLAGS \
@@ -153,14 +153,14 @@ static lily_type *build_real_type_for(lily_type *fake_type)
     return new_type;
 }
 
-lily_type *lily_tm_make(lily_type_maker *tb, int flags, lily_class *cls,
+lily_type *lily_tm_make(lily_type_maker *tm, int flags, lily_class *cls,
         int num_entries)
 {
     lily_type fake_type;
 
     fake_type.cls = cls;
     fake_type.generic_pos = 0;
-    fake_type.subtypes = tb->types + (tb->pos - num_entries);
+    fake_type.subtypes = tm->types + (tm->pos - num_entries);
     fake_type.subtype_count = num_entries;
     fake_type.flags = flags;
     fake_type.next = NULL;
@@ -169,7 +169,7 @@ lily_type *lily_tm_make(lily_type_maker *tb, int flags, lily_class *cls,
     if (result_type == NULL)
         result_type = build_real_type_for(&fake_type);
 
-    tb->pos -= num_entries;
+    tm->pos -= num_entries;
     return result_type;
 }
 
@@ -192,14 +192,14 @@ lily_type *lily_tm_raw_make(lily_type_maker *tm, int flags, lily_class *cls,
     return result_type;
 }
 
-static void walk_for_generics(lily_type_maker *tb, lily_type **use_map,
+static void walk_for_generics(lily_type_maker *tm, lily_type **use_map,
         lily_type *type, int offset, int *max)
 {
     if (type) {
         if (type->subtypes) {
             int i;
             for (i = 0;i < type->subtype_count;i++)
-                walk_for_generics(tb, use_map, type->subtypes[i], offset, max);
+                walk_for_generics(tm, use_map, type->subtypes[i], offset, max);
         }
         else if (type->cls->id == SYM_CLASS_GENERIC) {
             int pos = type->generic_pos;
@@ -211,7 +211,7 @@ static void walk_for_generics(lily_type_maker *tb, lily_type **use_map,
     }
 }
 
-lily_type *lily_tm_make_variant_result(lily_type_maker *tb, lily_class *variant_cls,
+lily_type *lily_tm_make_variant_result(lily_type_maker *tm, lily_class *variant_cls,
         int start, int end)
 {
     int i, max_seen = -1;
@@ -221,7 +221,7 @@ lily_type *lily_tm_make_variant_result(lily_type_maker *tb, lily_class *variant_
         use_map[i] = NULL;
 
     for (i = start;i < end;i++)
-        walk_for_generics(tb, use_map, tb->types[i], tb->pos, &max_seen);
+        walk_for_generics(tm, use_map, tm->types[i], tm->pos, &max_seen);
 
     /* Necessary because generic positions start at 0 instead of 1. */
     max_seen++;
@@ -229,17 +229,17 @@ lily_type *lily_tm_make_variant_result(lily_type_maker *tb, lily_class *variant_
 
     for (i = 0;i < max_seen;i++) {
         if (use_map[i]) {
-            lily_tm_add(tb, use_map[i]);
+            lily_tm_add(tm, use_map[i]);
             j++;
         }
     }
 
-    lily_type *result = lily_tm_make(tb, 0, variant_cls, max_seen);
+    lily_type *result = lily_tm_make(tm, 0, variant_cls, max_seen);
 
     return result;
 }
 
-lily_type *lily_tm_make_enum_by_variant(lily_type_maker *tb,
+lily_type *lily_tm_make_enum_by_variant(lily_type_maker *tm,
         lily_type *variant)
 {
     /* The parent of a variant is always the enum that it is part of. */
@@ -250,11 +250,11 @@ lily_type *lily_tm_make_enum_by_variant(lily_type_maker *tb,
     if (enum_cls->generic_count == 0)
         result = enum_cls->type;
     else {
-        int start = tb->pos;
+        int start = tm->pos;
         int generic_need = enum_cls->generic_count;
         int i;
         for (i = 0;i < generic_need;i++)
-            lily_tm_add(tb, tb->any_class_type);
+            lily_tm_add(tm, tm->any_class_type);
 
         if (variant->cls->variant_type->subtype_count) {
             /* This type describes the result of invoking the variant as a
@@ -265,19 +265,19 @@ lily_type *lily_tm_make_enum_by_variant(lily_type_maker *tb,
             int i;
             for (i = 0;i < mapping_type->subtype_count;i++) {
                 lily_type *t = mapping_type->subtypes[i];
-                lily_tm_insert(tb, start + t->generic_pos, variant->subtypes[i]);
+                lily_tm_insert(tm, start + t->generic_pos, variant->subtypes[i]);
             }
         }
         /* else the variant does not take arguments. As such, it gets an enum
            with all generics defaulted to type any. */
 
-        result = lily_tm_make(tb, 0, enum_cls, generic_need);
+        result = lily_tm_make(tm, 0, enum_cls, generic_need);
     }
 
     return result;
 }
 
-lily_type *lily_tm_make_default_for(lily_type_maker *tb, lily_class *cls)
+lily_type *lily_tm_make_default_for(lily_type_maker *tm, lily_class *cls)
 {
     lily_type *new_type = make_new_type(cls);
     cls->type = new_type;
@@ -286,8 +286,8 @@ lily_type *lily_tm_make_default_for(lily_type_maker *tb, lily_class *cls)
     return new_type;
 }
 
-void lily_free_type_maker(lily_type_maker *tb)
+void lily_free_type_maker(lily_type_maker *tm)
 {
-    lily_free(tb->types);
-    lily_free(tb);
+    lily_free(tm->types);
+    lily_free(tm);
 }
