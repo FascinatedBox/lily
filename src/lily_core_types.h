@@ -311,12 +311,6 @@ typedef struct lily_file_val_ {
     FILE *inner_file;
 } lily_file_val;
 
-typedef struct {
-    uint32_t refcount;
-    uint32_t num_upvalues;
-    struct lily_value_ **upvalues;
-} lily_closure_data;
-
 /* Finally, functions. Functions come in two flavors: Native and foreign.
    * Native:  This function is declared and defined by a user. It has a code
               section (which the vm will execute), and has to initialize
@@ -353,9 +347,10 @@ typedef struct lily_function_val_ {
     /* This is how much code is in this particular function. */
     uint32_t len;
 
-    uint32_t pad;
+    uint32_t num_upvalues;
 
-    lily_closure_data *closure_data;
+    struct lily_value_ **upvalues;
+
     /* Does this function contain generics? If so, they may need to be solved
        at vm-time when it's called. */
     uint32_t has_generics;
@@ -386,7 +381,12 @@ typedef struct lily_generic_gc_val_ {
 /* Here's a proper value in Lily. It has flags (for nil and other stuff), a
    type, and the actual value. */
 typedef struct lily_value_ {
-    uint64_t flags;
+    uint32_t flags;
+    /* This field is ignored unless this value is an upvalue within a function
+       value. If it is, then each closure that uses this cell bumps the refcount
+       here. When cell_refcount is zero, the raw value is deref'd and the value
+       itself is destroyed. */
+    uint32_t cell_refcount;
     struct lily_type_ *type;
     lily_raw_value value;
 } lily_value;
@@ -572,6 +572,12 @@ typedef struct lily_options_ {
    assigned to. Additionally, the reg_spot they contain is actually a spot in
    the vm's 'readonly_table'. */
 #define VAR_IS_READONLY         0x10000
+
+/* This flag is set on defined functions that are found inside of other defined
+   functions. Calling a function with this tag may involve the use of closures,
+   so the emitter needs to wrap the given function so that it will have closure
+   information. */
+#define VAR_NEEDS_CLOSURE       0x20000
 
 
 /* VAL_* flags are for lily_value. */

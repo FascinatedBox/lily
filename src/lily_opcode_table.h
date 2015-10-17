@@ -56,5 +56,9 @@ extern const int opcode_table[][8];
                       It's the number of values, not the number of pairs though,
                       so that it's consistent with everything else. */
 # define C_COUNT_OPTARGS   19
+/* C_COUNT_SKIPS:     This specifies a series of values that should be skipped.
+                      This is used by o_load_function, and these values are
+                      upvalue positions in the closure that should be erased. */
+# define C_COUNT_SKIPS     20
 
 #endif

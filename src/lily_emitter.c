@@ -335,23 +335,6 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
     return ret;
 }
 
-static lily_block *find_deepest_func(lily_emit_state *emit)
-{
-    lily_block *block;
-    lily_block *result = NULL;
-
-    for (block = emit->block; block; block = block->prev) {
-        if (block->block_type >= block_define &&
-            block->block_type != block_file) {
-            result = block;
-            break;
-        }
-    }
-
-    return result;
-}
-
-
 /*  grow_patches
     Make emitter's patches bigger. */
 static void grow_patches(lily_emit_state *emit)
@@ -621,6 +604,7 @@ static void close_over_sym(lily_emit_state *emit, lily_sym *sym)
     emit->closed_syms[emit->closed_pos] = sym;
     emit->closed_pos++;
     sym->flags |= SYM_CLOSED_OVER;
+    emit->function_block->make_closure = 1;
 }
 
 static void checked_close_over_var(lily_emit_state *emit, lily_var *var)
@@ -661,7 +645,7 @@ static int find_closed_self_spot(lily_emit_state *emit)
     int i, result = -1;
     for (i = 0;i < emit->closed_pos;i++) {
         lily_sym *s = emit->closed_syms[i];
-        if ((s->flags & ITEM_TYPE_VAR) == 0) {
+        if (s && (s->flags & ITEM_TYPE_VAR) == 0) {
             result = i;
             break;
         }
@@ -682,6 +666,8 @@ static void maybe_close_over_class_self(lily_emit_state *emit)
 
     if (emit->block->self == NULL)
         emit->block->self = get_storage(emit, self->type);
+
+    emit->function_block->make_closure = 1;
 }
 
 /*  write_build_op
@@ -1066,6 +1052,50 @@ static void setup_transform_table(lily_emit_state *emit)
         }
     }
 }
+
+/* This function writes what values need to be erased from the active closure's
+   cells. This forces the closure to create a fresh set of vars, instead of
+   using an old set. Here is why this is needed:
+   ```
+   define f {
+       define g {
+           var v = []
+           define h {
+               v.append(10)
+           }
+           define i {
+               g();
+               show(v)
+           }
+       }
+   }
+   ```
+   'g' will be called using the same closure that 'i' uses. However, the 'g'
+   called from 'i' should not modify the upvalues that 'i' uses, but instead use
+   fresh copies. */
+
+static void write_closure_zap(lily_emit_state *emit)
+{
+    int spot = emit->code_pos;
+    /* This will be patched with the length later. */
+    write_1(emit, 0);
+    int count = 0;
+
+    int i;
+    for (i = 0;i < emit->closed_pos;i++) {
+        lily_sym *sym = emit->closed_syms[i];
+        if (sym && sym->flags & ITEM_TYPE_VAR) {
+            lily_var *var = (lily_var *)sym;
+            if (var->function_depth == emit->function_depth) {
+                write_1(emit, i);
+                count++;
+            }
+        }
+    }
+
+    emit->code[spot] = count;
+}
+
 /* This function is called to transform the currently available segment of code
    (emit->block->code_start up to emit->code_pos) into code that will work for
    closures.
@@ -1154,10 +1184,11 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
                     emit->block->self->reg_spot, closure_prop->id, s->reg_spot);
         }
         else {
-            /* Lambdas inside of a class are weird because they don't
-               necessarily have self as their first argument. They will,
-               however, have a closure to draw from. */
-            write_3(emit, o_load_closure, f->line_num, s->reg_spot);
+            /* Lambdas don't get 'self' as their first argument: They instead
+               need to pull it out of the closure.
+               Lambdas do not need to write in a zap for their level of
+               upvalues because they cannot be called by name twice. */
+            write_4(emit, o_load_closure, f->line_num, 0, s->reg_spot);
 
             lily_storage *lambda_self = emit->block->self;
             if (lambda_self) {
@@ -1166,8 +1197,11 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
             }
         }
     }
-    else
-        write_3(emit, o_load_closure, (uint16_t)f->line_num, s->reg_spot);
+    else {
+        write_2(emit, o_load_closure, (uint16_t)f->line_num);
+        write_closure_zap(emit);
+        write_1(emit, s->reg_spot);
+    }
 
     ensure_params_in_closure(emit);
     setup_transform_table(emit);
@@ -1211,7 +1245,7 @@ static lily_function_val *create_code_block_for(lily_emit_state *emit,
 
     int code_start, code_size;
 
-    if (emit->closed_pos == 0) {
+    if (function_block->make_closure == 0) {
         code_start = emit->block->code_start;
         code_size = emit->code_pos - emit->block->code_start;
     }
@@ -1355,8 +1389,20 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
 
     /* File 'blocks' do not bump up the depth because that's used to determine
        if something is a global or not. */
-    if (block->block_type != block_file)
+    if (block->block_type != block_file) {
         emit->function_depth--;
+
+        /* If a define 4 levels deep calls one that is 2 levels deep, then
+           make sure the define 3 levels deep knows it needs to make a closure.
+           This is necessary because the define at level 3 may not use upvalues
+           at all, but levels 2 and 4 may do so. So level 3 must pass closure
+           data.
+           This may cause __main__ to accidentally be marked as needing a
+           closure, but __main__ never goes through finalize so there's no need
+           to guard against that. */
+        if (block->make_closure == 1)
+            emit->function_block->make_closure = 1;
+    }
 }
 
 /*  eval_enforce_value
@@ -3229,6 +3275,18 @@ static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *c
     }
 }
 
+/*  This will write in an instruction to create a function that clones the
+    upvalues of the current closure into itself. Since the location of the
+    upvalues is not yet known, this injects a patch into the current function
+    block to do that. */
+static void emit_create_function(lily_emit_state *emit, lily_sym *func_sym,
+        lily_storage *target)
+{
+    write_4(emit, o_create_function, 0, func_sym->reg_spot, target->reg_spot);
+    inject_patch_into_block(emit, emit->function_block, emit->code_pos - 3);
+    emit->function_block->make_closure = 1;
+}
+
 static lily_emit_call_state *begin_call(lily_emit_state *emit,
         lily_ast *ast)
 {
@@ -3247,8 +3305,15 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     lily_item *debug_item = NULL;
     lily_type *call_type = NULL;
 
-    if (first_tt == tree_defined_func || first_tt == tree_inherited_new)
+    if (first_tt == tree_defined_func || first_tt == tree_inherited_new) {
         call_item = ast->arg_start->item;
+        if (call_item->flags & VAR_NEEDS_CLOSURE) {
+            debug_item = call_item;
+            lily_storage *s = get_storage(emit, ast->arg_start->sym->type);
+            emit_create_function(emit, ast->arg_start->sym, s);
+            call_item = (lily_item *)s;
+        }
+    }
     else if (first_tt == tree_static_func) {
         ensure_valid_scope(emit, ast->arg_start->sym);
         call_item = ast->arg_start->item;
@@ -3420,11 +3485,10 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     if (opcode != o_get_global)
         ret->flags |= SYM_NOT_ASSIGNABLE;
 
-    write_4(emit,
-            opcode,
-            ast->line_num,
-            ast->sym->reg_spot,
-            ret->reg_spot);
+    if ((ast->sym->flags & VAR_NEEDS_CLOSURE) == 0)
+        write_4(emit, opcode, ast->line_num, ast->sym->reg_spot, ret->reg_spot);
+    else
+        emit_create_function(emit, ast->sym, ret);
 
     ast->result = (lily_sym *)ret;
 }
@@ -3537,30 +3601,11 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
             ast->line_num, lambda_body, expect_type, did_resolve);
     lily_storage *s = get_storage(emit, lambda_result->type);
 
-    if (emit->closed_pos) {
-        /* Assume that the lambda uses either upvalues or is inside of a class
-           and uses self. */
-        close_over_sym(emit, lambda_result);
-
-        /* This will create a copy of the function (the copy will get a shallow
-           copy of upvalues to use). The code transformer will later rewrite the
-           upcoming lambda access to use the upvalue copy. */
-        write_4(emit, o_create_function, lambda_result->reg_spot, 0,
-                emit->closed_pos - 1);
-
-        inject_patch_into_block(emit, find_deepest_func(emit),
-                emit->code_pos - 2);
-
-        write_4(emit, o_get_upvalue, ast->line_num, emit->closed_pos - 1,
+    if (emit->function_block->make_closure == 0)
+        write_4(emit, o_get_readonly, ast->line_num, lambda_result->reg_spot,
                 s->reg_spot);
-    }
-    else {
-        write_4(emit,
-                o_get_readonly,
-                ast->line_num,
-                lambda_result->reg_spot,
-                s->reg_spot);
-    }
+    else
+        emit_create_function(emit, lambda_result, s);
 
     ast->result = (lily_sym *)s;
 }
@@ -3581,6 +3626,8 @@ void eval_upvalue(lily_emit_state *emit, lily_ast *ast)
 
     if (i == emit->closed_pos)
         checked_close_over_var(emit, (lily_var *)ast->sym);
+
+    emit->function_block->make_closure = 1;
 
     lily_storage *s = get_storage(emit, sym->type);
     write_4(emit, o_get_upvalue, ast->line_num, i, s->reg_spot);
@@ -4377,6 +4424,7 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
     new_block->patch_start = emit->patch_pos;
     new_block->last_exit = -1;
     new_block->loop_start = emit->block->loop_start;
+    new_block->make_closure = 0;
 
     if (block_type < block_define) {
         /* Non-functions will continue using the storages that the parent uses.
@@ -4402,24 +4450,11 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
 
         v->parent = new_block->class_entry;
 
-        if (emit->function_depth >= 2 &&
-            emit->block->block_type != block_class &&
-            block_type == block_define) {
-            /* This isn't a class method and it isn't a lambda. Close over the
-               function now, on the assumption that it may use upvalues. */
-            close_over_sym(emit, (lily_sym *)v);
-            write_4(emit, o_create_function, v->reg_spot, 0, emit->closed_pos - 1);
-            if (emit->patch_pos == emit->patch_size)
-                grow_patches(emit);
-
-            emit->patches[emit->patch_pos] = emit->code_pos - 2;
-            emit->patch_pos++;
-
-            /* THIS IS EXTREMELY IMPORTANT. This patch belongs to the current
-               block, not the block that was just entered. If this is not done,
-               then the block entered will write down the patch. That's bad. */
-            new_block->patch_start = emit->patch_pos;
-        }
+        /* This only happens when a define occurs within another define. The
+           inner define is marked as needing closures. This makes it so all
+           calls to the inner define will create a copy with closures. */
+        if (emit->function_depth >= 2 && emit->block->block_type != block_class)
+            v->flags |= VAR_NEEDS_CLOSURE;
 
         new_block->next_reg_spot = 0;
 

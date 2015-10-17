@@ -1,0 +1,25 @@
+define f : list[list[integer]] {
+    define g : tuple[function(), function( => list[integer])] {
+        var v: list[integer] = [0]
+        define h {
+            v.append(v[-1] + 1)
+        }
+        define i : list[integer] {
+            return v
+        }
+        return <[h, i]>
+    }
+    var a = g()
+    var b = g()
+
+    a[0]()
+    a[0]()
+    a[0]()
+    a[1]()
+
+    b[0]()
+    return [a[1](), b[1]()]
+}
+
+if f() != [[0, 1, 2, 3], [0, 1]]:
+    stderr.write("Failed.\n")

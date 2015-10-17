@@ -110,7 +110,7 @@ static void write_msgbuf(lily_debug_state *debug)
 static void show_simple_value(lily_debug_state *debug, lily_type *type,
         lily_raw_value value)
 {
-    lily_value v = {0, type, value};
+    lily_value v = {0, 0, type, value};
 
     lily_msgbuf_add_value(debug->msgbuf, &v);
     write_msgbuf(debug);
@@ -141,7 +141,7 @@ static void show_readonly(lily_debug_state *debug, int position)
     }
     else {
         lily_tie *lit = debug->vm->readonly_table[position];
-        lily_value v = {0, lit->type, lit->value};
+        lily_value v = {0, 0, lit->type, lit->value};
         lily_msgbuf_add_fmt(debug->msgbuf, "^I|     <---- (^T) ^V\n",
                 debug->indent, lit->type, &v);
         write_msgbuf(debug);
@@ -350,6 +350,8 @@ static void show_code(lily_debug_state *debug)
 
                 i--;
             }
+            else if (data_code == C_COUNT_SKIPS)
+                i += count - 1;
             /* This is currently only used by o_variant_decompose, so there's
                no need to check for -1 like in the normal output handler since
                that isn't possible. */
