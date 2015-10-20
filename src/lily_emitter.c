@@ -43,7 +43,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
 {
     lily_emit_state *emit = lily_malloc(sizeof(lily_emit_state));
 
-    emit->patches = lily_malloc(sizeof(int) * 4);
+    emit->patches = lily_new_u16(4);
     emit->match_cases = lily_malloc(sizeof(int) * 4);
     emit->tm = lily_new_type_maker();
     emit->ts = lily_new_type_system(emit->tm);
@@ -76,8 +76,6 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->all_storage_start = NULL;
     emit->all_storage_top = NULL;
 
-    emit->patch_pos = 0;
-    emit->patch_size = 4;
     emit->function_depth = 0;
 
     emit->raiser = raiser;
@@ -127,7 +125,7 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free(emit->call_values);
     lily_free_type_system(emit->ts);
     lily_free(emit->match_cases);
-    lily_free(emit->patches);
+    lily_free_buffer(emit->patches);
     lily_free(emit->code);
     lily_free(emit);
 }
@@ -335,61 +333,35 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
     return ret;
 }
 
-/*  grow_patches
-    Make emitter's patches bigger. */
-static void grow_patches(lily_emit_state *emit)
-{
-    emit->patch_size *= 2;
-    emit->patches = lily_realloc(emit->patches,
-        sizeof(int) * emit->patch_size);
-}
-
 void inject_patch_into_block(lily_emit_state *emit, lily_block *block,
-        int target)
+        uint16_t patch)
 {
-    if (emit->patch_pos == emit->patch_size)
-        grow_patches(emit);
-
     /* This is the most recent block, so add the patch to the top. */
-    if (emit->block == block) {
-        emit->patches[emit->patch_pos] = target;
-        emit->patch_pos++;
-    }
+    if (emit->block == block)
+        lily_u16_push(emit->patches, patch);
     else {
-        /* The block is not on top, so this will be fairly annoying... */
-        int move_by, move_start;
+        lily_u16_inject(emit->patches, block->next->patch_start, patch);
 
-        move_start = block->next->patch_start;
-        move_by = emit->patch_pos - move_start;
-
-        /* Move everything after this patch start over one, so that there's a
-           hole after the last while patch to write in a new one. */
-        memmove(emit->patches+move_start+1, emit->patches+move_start,
-                move_by * sizeof(int));
-        emit->patch_pos++;
-        emit->patches[move_start] = target;
-
-        for (block = block->next;
-             block;
-             block = block->next)
+        /* The blocks after the one that got the new patch need to have their
+           starts adjusted or they'll think it belongs to them. */
+        for (block = block->next; block; block = block->next)
             block->patch_start++;
     }
 }
 
 void write_block_patches(lily_emit_state *emit, int pos)
 {
-    int from = emit->patch_pos-1;
+    int from = emit->patches->pos - 1;
     int to = emit->block->patch_start;
 
     for (;from >= to;from--) {
         /* Skip -1's, which are fake patches from conditions that were
             optimized out. */
-        if (emit->patches[from] != -1)
-            emit->code[emit->patches[from]] = pos;
-    }
+        uint16_t patch = lily_u16_pop(emit->patches);
 
-    /* Use the space for new patches now. */
-    emit->patch_pos = to;
+        if (patch != (uint16_t)-1)
+            emit->code[patch] = pos;
+    }
 }
 
 static void grow_closed_syms(lily_emit_state *emit)
@@ -415,11 +387,8 @@ static void grow_match_cases(lily_emit_state *emit)
 static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
 {
     write_4(emit, o_jump_if, jump_on, ast->result->reg_spot, 0);
-    if (emit->patch_pos == emit->patch_size)
-        grow_patches(emit);
 
-    emit->patches[emit->patch_pos] = emit->code_pos - 1;
-    emit->patch_pos++;
+    lily_u16_push(emit->patches, emit->code_pos - 1);
 }
 
 /*  ensure_valid_condition_type
@@ -1212,7 +1181,7 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
     /* Closures create patches when they write o_create_function. Fix those
        patches with the spot of the closure (since they need to draw closure
        info but won't have it just yet). */
-    if (emit->block->patch_start != emit->patch_pos)
+    if (emit->block->patch_start != emit->patches->pos)
         write_block_patches(emit, s->reg_spot);
 
     /* Since jumps reference absolute locations, they need to be adjusted
@@ -3777,12 +3746,13 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
 
     /* The last jump of the previous branch wants to know where the check for
        the next branch starts. It's right now. */
-    if (emit->patches[emit->patch_pos - 1] != -1)
-        emit->code[emit->patches[emit->patch_pos-1]] =
-                emit->code_pos - emit->block->jump_offset;
+    uint16_t patch = lily_u16_pop(emit->patches);
+
+    if (patch != (uint16_t)-1)
+        emit->code[patch] = emit->code_pos - emit->block->jump_offset;
     /* else it's a fake branch from a condition that was optimized out. */
 
-    emit->patches[emit->patch_pos-1] = save_jump;
+    lily_u16_push(emit->patches, save_jump);
     emit->block->block_type = new_type;
 }
 
@@ -3869,11 +3839,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
             /* Code that handles if/elif/else transitions expects each branch to
                write a jump. There's no easy way to tell it that none was made...
                so give it a fake jump. */
-            if (emit->patch_pos == emit->patch_size)
-                grow_patches(emit);
-
-            emit->patches[emit->patch_pos] = -1;
-            emit->patch_pos++;
+            lily_u16_push(emit->patches, (uint16_t)-1);
         }
         else
             write_2(emit, o_jump, emit->block->loop_start);
@@ -3957,11 +3923,7 @@ int lily_emit_add_match_case(lily_emit_state *emit, int pos)
         if (is_first_case == 0) {
             write_2(emit, o_jump, 0);
 
-            if (emit->patch_pos == emit->patch_size)
-                grow_patches(emit);
-
-            emit->patches[emit->patch_pos] = emit->code_pos - 1;
-            emit->patch_pos++;
+            lily_u16_push(emit->patches, emit->code_pos - 1);
         }
 
         /* Patch the o_match_dispatch spot the corresponds with this class
@@ -4104,18 +4066,13 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
 
     emit->code_pos += 16;
 
-    if (emit->patch_pos == emit->patch_size)
-        grow_patches(emit);
-
     int offset;
     if (target == (lily_sym *)user_loop_var)
         offset = 1;
     else
         offset = 5;
 
-    emit->patches[emit->patch_pos] = emit->code_pos - offset;
-
-    emit->patch_pos++;
+    lily_u16_push(emit->patches, emit->code_pos - offset);
 }
 
 /*  Evaluate a single expression within a lambda on behalf of the parser. If
@@ -4184,9 +4141,6 @@ void lily_emit_break(lily_emit_state *emit)
         lily_raise(emit->raiser, lily_SyntaxError,
                 "'break' used outside of a loop.\n");
     }
-
-    if (emit->patch_pos == emit->patch_size)
-        grow_patches(emit);
 
     write_pop_inner_try_blocks(emit);
 
@@ -4288,11 +4242,7 @@ void lily_emit_try(lily_emit_state *emit, int line_num)
             line_num,
             0);
 
-    if (emit->patch_pos == emit->patch_size)
-        grow_patches(emit);
-
-    emit->patches[emit->patch_pos] = emit->code_pos - 1;
-    emit->patch_pos++;
+    lily_u16_push(emit->patches, emit->code_pos - 1);
 }
 
 /*  lily_emit_raise
@@ -4340,11 +4290,7 @@ void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
             (except_var != NULL),
             except_sym->reg_spot);
 
-    if (emit->patch_pos == emit->patch_size)
-        grow_patches(emit);
-
-    emit->patches[emit->patch_pos] = emit->code_pos - 3;
-    emit->patch_pos++;
+    lily_u16_push(emit->patches, emit->code_pos - 3);
 }
 
 /*  lily_prepare_main
@@ -4421,7 +4367,7 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
     new_block->class_entry = emit->block->class_entry;
     new_block->self = emit->block->self;
     new_block->generic_count = 0;
-    new_block->patch_start = emit->patch_pos;
+    new_block->patch_start = emit->patches->pos;
     new_block->last_exit = -1;
     new_block->loop_start = emit->block->loop_start;
     new_block->make_closure = 0;
@@ -4515,7 +4461,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
         /* The vm expects that the last except block will have a 'next' of 0 to
            indicate the end of the 'except' chain. Remove the patch that the
            last except block installed so it doesn't get patched. */
-        emit->patch_pos--;
+        emit->patches->pos--;
     }
 
     if ((block_type == block_if_else ||
