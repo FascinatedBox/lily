@@ -5,6 +5,7 @@
 # include "lily_symtab.h"
 # include "lily_type_system.h"
 # include "lily_type_maker.h"
+# include "lily_buffers.h"
 
 typedef enum {
     block_if,
@@ -171,7 +172,7 @@ typedef struct {
        block.
        One use of this is to make sure that the branches of an 'if' block all
        get patched to the end of the block once the end is known. */
-    int *patches;
+    lily_u16_buffer *patches;
 
     /* Match blocks allocate space in here, initially with 0. When a match case
        is seen, it's set to 1. This is used to make sure a case isn't seen
@@ -207,9 +208,7 @@ typedef struct {
 
     uint16_t closed_size;
 
-    uint16_t patch_pos;
-
-    uint16_t patch_size;
+    uint32_t pad;
 
     uint16_t match_case_pos;
 
