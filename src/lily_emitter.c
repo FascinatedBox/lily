@@ -4509,6 +4509,14 @@ void lily_emit_leave_block(lily_emit_state *emit)
         ensure_proper_match_block(emit);
         emit->match_case_pos = emit->block->match_case_start;
     }
+    else if (block_type == block_try ||
+             block_type == block_try_except ||
+             block_type == block_try_except_all) {
+        /* The vm expects that the last except block will have a 'next' of 0 to
+           indicate the end of the 'except' chain. Remove the patch that the
+           last except block installed so it doesn't get patched. */
+        emit->patch_pos--;
+    }
 
     if ((block_type == block_if_else ||
          block_type == block_match ||

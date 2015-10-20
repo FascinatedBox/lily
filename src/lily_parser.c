@@ -2542,11 +2542,6 @@ static void try_handler(lily_parse_state *parser, int multi)
         }
     }
 
-    /* The vm expects that the last except block will have a 'next' of 0 to
-       indicate the end of the 'except' chain. Remove the patch that the last
-       except block installed so it doesn't get patched. */
-    parser->emit->patch_pos--;
-
     lily_emit_leave_block(parser->emit);
 }
 
