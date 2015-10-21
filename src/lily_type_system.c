@@ -57,7 +57,8 @@ static void grow_types(lily_type_system *ts)
             sizeof(lily_type *) * ts->max);;
 }
 
-lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
+lily_type *lily_ts_resolve_with(lily_type_system *ts, lily_type *type,
+        lily_type *fallback)
 {
     lily_type *ret = type;
 
@@ -73,7 +74,8 @@ lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
         lily_type **subtypes = type->subtypes;
 
         for (i = 0;i < type->subtype_count;i++)
-            lily_tm_add_unchecked(ts->tm, lily_ts_resolve(ts, subtypes[i]));
+            lily_tm_add_unchecked(ts->tm,
+                    lily_ts_resolve_with(ts, subtypes[i], fallback));
 
         ret = lily_tm_make(ts->tm, type->flags, type->cls, i);
     }
@@ -82,14 +84,19 @@ lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
         /* Sometimes, a generic is wanted that was never filled in. In such a
            case, use 'any' because it is the most accepting of values. */
         if (ret == NULL) {
-            ret = ts->any_class_type;
+            ret = fallback;
             /* This allows lambdas to determine that a given generic was not
                resolved (and prevent it). */
-            ts->types[ts->pos + type->generic_pos] = ret;
+            ts->types[ts->pos + type->generic_pos] = fallback;
         }
     }
 
     return ret;
+}
+
+lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
+{
+    return lily_ts_resolve_with(ts, type, ts->any_class_type);
 }
 
 void lily_ts_pull_generics(lily_type_system *ts, lily_type *left, lily_type *right)
@@ -123,7 +130,7 @@ static int check_generic(lily_type_system *ts, lily_type *left,
         int generic_pos = ts->pos + left->generic_pos;
         lily_type *cmp_type = ts->types[generic_pos];
         ret = 1;
-        if (cmp_type == NULL)
+        if (cmp_type == NULL || cmp_type == ts->question_class_type)
             ts->types[generic_pos] = right;
         else if (cmp_type == right)
             ;
@@ -387,17 +394,6 @@ inline void lily_ts_lower_ceiling(lily_type_system *ts, int old_ceiling)
     ts->ceiling = old_ceiling;
 }
 
-inline void lily_ts_set_ceiling_type(lily_type_system *ts, lily_type *type,
-        int pos)
-{
-    ts->types[ts->pos + ts->ceiling + 1 + pos] = type;
-}
-
-inline lily_type *lily_ts_get_ceiling_type(lily_type_system *ts, int pos)
-{
-    return ts->types[ts->pos + ts->ceiling + 1 + pos];
-}
-
 int lily_ts_enum_membership_check(lily_type_system *ts, lily_type *enum_type,
         lily_type *variant_type)
 {
@@ -408,18 +404,6 @@ int lily_ts_enum_membership_check(lily_type_system *ts, lily_type *enum_type,
         ret = 0;
 
     return ret;
-}
-
-int lily_ts_count_unresolved(lily_type_system *ts)
-{
-    int count = 0, top = ts->pos + ts->ceiling;
-    int i;
-    for (i = ts->pos;i < top;i++) {
-        if (ts->types[i] == NULL)
-            count++;
-    }
-
-    return count;
 }
 
 void lily_ts_generics_seen(lily_type_system *ts, int amount)

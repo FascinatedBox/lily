@@ -64,6 +64,8 @@ lily_type *lily_ts_easy_resolve(lily_type_system *, lily_type *);
    The result is never NULL. */
 lily_type *lily_ts_resolve(lily_type_system *, lily_type *);
 
+lily_type *lily_ts_resolve_with(lily_type_system *, lily_type *, lily_type *);
+
 /* This function is called when the first type (left) needs to be solved BUT
    the generics within left are not within the type stack.
    This situation happens when class member accesses wherein the class member
@@ -90,16 +92,6 @@ void lily_ts_resolve_as_self(lily_type_system *, lily_type *);
    generics with the ? type. */
 void lily_ts_resolve_as_question(lily_type_system *);
 
-/* Set a type to the stack, at 'pos + ceiling + (index)'.
-   Since the type is set after the ceiling, this will not harm the current
-   resolution status of anything. However, other functions (particularly the
-   resolving ones), will cheerfully overwrite the types here.
-   This is suitable for short-term stashing only. */
-void lily_ts_set_ceiling_type(lily_type_system *, lily_type *, int);
-
-/* Retrieve a type from past the ceiling. */
-lily_type *lily_ts_get_ceiling_type(lily_type_system *, int);
-
 /* This function is called by emitter when it is about to enter a call. The
    current ceiling is added to the stack's pos. The new ceiling is set to
    whatever ts->max_seen is. */
@@ -113,12 +105,6 @@ void lily_ts_lower_ceiling(lily_type_system *, int);
 /* Given an enum type (the first), determine if the second is a valid member of that
    enum. The type 'any' should not be passed to this, as it is not a true enum. */
 int lily_ts_enum_membership_check(lily_type_system *, lily_type *, lily_type *);
-
-/* Return a count of how many types, from ts->pos to ts->ceiling, are
-   unresolved. This function is used by the emitter to make sure that lambda
-   arguments have all of their type information (and that resolution isn't
-   defaulting to any in some places). */
-int lily_ts_count_unresolved(lily_type_system *);
 
 /* The parser calls this each time that generics are collected. This reports
    how many were collected. max_seen may or may not be updated. */

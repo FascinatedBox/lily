@@ -3174,8 +3174,8 @@ static void parser_loop(lily_parse_state *parser)
     }
 }
 
-static lily_type *parse_lambda_body(lily_parse_state *parser, lily_type *expect_type,
-        int did_resolve)
+static lily_type *parse_lambda_body(lily_parse_state *parser,
+        lily_type *expect_type)
 {
     /* The expressions/statements that this may run may cause emitter's expr_num
        to increase. It's vital that expr_num be restored to what it was when
@@ -3202,7 +3202,7 @@ static lily_type *parse_lambda_body(lily_parse_state *parser, lily_type *expect_
                 /* The last expression is what will be returned, so give it the
                    inference information of the lambda. */
                 lily_emit_eval_lambda_body(parser->emit, parser->ast_pool,
-                        expect_type, did_resolve);
+                        expect_type);
 
                 if (parser->ast_pool->root->result)
                     result_type = parser->ast_pool->root->result->type;
@@ -3231,8 +3231,7 @@ static lily_type *parse_lambda_body(lily_parse_state *parser, lily_type *expect_
     type that the emitter expects is given so that the types of the
     lambda's arguments can be inferred. */
 lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
-        int lambda_start_line, char *lambda_body, lily_type *expect_type,
-        int did_resolve)
+        int lambda_start_line, char *lambda_body, lily_type *expect_type)
 {
     lily_lex_state *lex = parser->lex;
     int args_collected = 0, tm_return = parser->tm->pos;
@@ -3259,11 +3258,6 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     lily_emit_enter_block(parser->emit, block_lambda);
 
     lily_lexer(lex);
-    /* Emitter ensures that the given type is either NULL or a function
-       type.
-       Collect arguments if expecting a function and the function takes at
-       least one argument. */
-    lily_type_system *emit_ts = parser->emit->ts;
 
     lily_tm_add(parser->tm, NULL);
 
@@ -3275,24 +3269,14 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
 
         /* -1 because the return isn't an arg. */
         int num_args = expect_type->subtype_count - 1;
-        int originally_unresolved = -1;
         lily_token wanted_token = tk_comma;
-        if (did_resolve == 0)
-            originally_unresolved = lily_ts_count_unresolved(emit_ts);
 
         while (1) {
             NEED_NEXT_TOK(tk_word)
             lily_type *arg_type = expect_type->subtypes[args_collected + 1];
-            if (did_resolve == 0) {
-                arg_type = lily_ts_resolve(emit_ts, arg_type);
-                int num_unresolved = lily_ts_count_unresolved(emit_ts);
-                /* lily_resolve_type likes to fill in unresolved generics with
-                   type 'any' if it doesn't have type information. However, a
-                   lambda should have full type info for each arg. */
-                if (num_unresolved != originally_unresolved) {
-                    lily_raise(parser->raiser, lily_SyntaxError,
-                            "Cannot infer type of '%s'.\n", lex->label);
-                }
+            if (arg_type->flags & TYPE_IS_INCOMPLETE) {
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Cannot infer type of '%s'.\n", lex->label);
             }
 
             lily_tm_add(parser->tm, arg_type);
@@ -3318,7 +3302,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        the ast pool's state so that the save depth is 0 and such. This allows
        the expression function to ensure that the body of the lambda is valid. */
     lily_ast_freeze_state(parser->ast_pool);
-    root_result = parse_lambda_body(parser, expect_type, did_resolve);
+    root_result = parse_lambda_body(parser, expect_type);
 
     lily_ast_thaw_state(parser->ast_pool);
 
