@@ -536,7 +536,9 @@ typedef struct lily_options_ {
    is set so that emitter and ts can easily figure out if the function doesn't
    have to take some arguments. */
 #define TYPE_HAS_OPTARGS       0x20
-
+/* This is set on a type that either is the ? type, or has a type that contains
+   the ? type within it. */
+#define TYPE_IS_INCOMPLETE     0x40
 
 /* SYM_* flags are for things based off of lily_sym. */
 

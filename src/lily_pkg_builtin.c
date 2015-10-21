@@ -197,9 +197,9 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
     symtab->boolean_class->flags |= CLS_VALID_OPTARG;
 
     symtab->any_class->type->flags |= TYPE_MAYBE_CIRCULAR;
-    /* This needs to be set because symtab's type finalize bubbles this
-       unresolved flag upward. */
+    /* These need to be set here so type finalization can bubble them up. */
     symtab->generic_class->type->flags |= TYPE_IS_UNRESOLVED;
+    symtab->question_class->type->flags |= TYPE_IS_INCOMPLETE;
 
     builtin->dynaload_table = &seed_stdin;
     builtin->var_load_fn = builtin_var_loader;

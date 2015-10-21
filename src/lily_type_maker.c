@@ -6,7 +6,7 @@
 /* These are the TYPE_* flags that bubble up through types (it's written onto a
    type if any subtypes have them). */
 #define BUBBLE_FLAGS \
-    (TYPE_MAYBE_CIRCULAR | TYPE_IS_UNRESOLVED)
+    (TYPE_MAYBE_CIRCULAR | TYPE_IS_UNRESOLVED | TYPE_IS_INCOMPLETE)
 
 lily_type_maker *lily_new_type_maker(void)
 {
