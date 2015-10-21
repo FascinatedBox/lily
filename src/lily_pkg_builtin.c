@@ -93,6 +93,22 @@ static const lily_class_seed generic_seed =
     NULL                      /* destroy_func */
 };
 
+static const lily_class_seed question_seed =
+    /* This class is used as a placeholder when a full type isn't yet known.
+       No instances of this fake class are ever created. */
+{
+    NULL,                     /* next */
+    "?",                      /* name */
+    dyna_class,               /* load_type */
+    0,                        /* is_refcounted */
+    0,                        /* generic_count */
+    0,                        /* flags */
+    NULL,                     /* dynaload_table */
+    NULL,                     /* gc_marker */
+    NULL,                     /* eq_func */
+    NULL                      /* destroy_func */
+};
+
 void lily_builtin_print(lily_vm_state *, uint16_t, uint16_t *);
 void lily_builtin_show(lily_vm_state *, uint16_t, uint16_t *);
 void lily_builtin_printfmt(lily_vm_state *, uint16_t, uint16_t *);
@@ -172,6 +188,7 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
     symtab->optarg_class     = lily_new_class_by_seed(symtab, &optarg_seed);
     lily_file_init(symtab);
     symtab->generic_class    = lily_new_class_by_seed(symtab, &generic_seed);
+    symtab->question_class   = lily_new_class_by_seed(symtab, &question_seed);
 
     symtab->integer_class->flags |= CLS_VALID_OPTARG;
     symtab->double_class->flags |= CLS_VALID_OPTARG;

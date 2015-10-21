@@ -65,6 +65,7 @@ typedef struct lily_symtab_ {
     lily_class *tuple_class;
     lily_class *optarg_class;
     lily_class *generic_class;
+    lily_class *question_class;
 
     uint32_t *lex_linenum;
 } lily_symtab;

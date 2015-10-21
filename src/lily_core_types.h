@@ -617,6 +617,7 @@ typedef struct lily_options_ {
 #define SYM_CLASS_OPTARG         10
 #define SYM_CLASS_FILE           11
 #define SYM_CLASS_GENERIC        12
-#define SYM_CLASS_EXCEPTION      13
+#define SYM_CLASS_QUESTION       13
+#define SYM_CLASS_EXCEPTION      14
 
 #endif

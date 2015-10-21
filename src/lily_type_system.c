@@ -24,7 +24,8 @@ if (new_size >= ts->max) \
    As of right now, only function inputs use this. */
 #define T_CONTRAVARIANT 0x4
 
-lily_type_system *lily_new_type_system(lily_type_maker *tm)
+lily_type_system *lily_new_type_system(lily_type_maker *tm, lily_type *any_type,
+        lily_type *question_type)
 {
     lily_type_system *ts = lily_malloc(sizeof(lily_type_system));
     lily_type **types = lily_malloc(4 * sizeof(lily_type *));
@@ -35,6 +36,8 @@ lily_type_system *lily_new_type_system(lily_type_maker *tm)
     ts->max = 4;
     ts->max_seen = 0;
     ts->ceiling = 0;
+    ts->any_class_type = any_type;
+    ts->question_class_type = question_type;
 
     return ts;
 }
@@ -347,6 +350,15 @@ void lily_ts_resolve_as_self(lily_type_system *ts, lily_type *generic_iter)
     for (i = ts->pos;i < stop;i++, generic_iter = generic_iter->next) {
         if (ts->types[i] == NULL)
             ts->types[i] = generic_iter;
+    }
+}
+
+void lily_ts_resolve_as_question(lily_type_system *ts)
+{
+    int i, stop = ts->pos + ts->ceiling;
+    for (i = ts->pos;i < stop;i++) {
+        if (ts->types[i] == NULL)
+            ts->types[i] = ts->question_class_type;
     }
 }
 
