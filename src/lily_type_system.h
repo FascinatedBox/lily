@@ -28,10 +28,12 @@ typedef struct {
     uint16_t max_seen;
 
     lily_type *any_class_type;
+    lily_type *question_class_type;
     lily_type_maker *tm;
 } lily_type_system;
 
-lily_type_system *lily_new_type_system(lily_type_maker *);
+lily_type_system *lily_new_type_system(lily_type_maker *, lily_type *,
+        lily_type *);
 
 void lily_free_type_system(lily_type_system *);
 
@@ -83,6 +85,10 @@ void lily_ts_resolve_as_variant_by_enum(lily_type_system *, lily_type *, lily_ty
    * This prevents the generics from WITHIN a generic function (which are
      quasi-known) from being resolved to something when they can't be. */
 void lily_ts_resolve_as_self(lily_type_system *, lily_type *);
+
+/* This is called when there is an error. It replaces the NULL in unsolved
+   generics with the ? type. */
+void lily_ts_resolve_as_question(lily_type_system *);
 
 /* Set a type to the stack, at 'pos + ceiling + (index)'.
    Since the type is set after the ceiling, this will not harm the current

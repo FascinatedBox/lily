@@ -46,16 +46,15 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->patches = lily_new_u16(4);
     emit->match_cases = lily_malloc(sizeof(int) * 4);
     emit->tm = lily_new_type_maker();
-    emit->ts = lily_new_type_system(emit->tm);
+    emit->ts = lily_new_type_system(emit->tm, symtab->any_class->type,
+            symtab->question_class->type);
     emit->code = lily_malloc(sizeof(uint16_t) * 32);
     emit->closed_syms = lily_malloc(sizeof(lily_sym *) * 4);
     emit->transform_table = NULL;
     emit->transform_size = 0;
 
-    /* These two use the class 'any' as a special-cased default, and therefore
-       need access to it at all times. */
+    /* This uses any's type as a special default, so it needs that cached. */
     emit->tm->any_class_type = symtab->any_class->type;
-    emit->ts->any_class_type = symtab->any_class->type;
 
     emit->call_values = lily_malloc(sizeof(lily_sym *) * 8);
     emit->call_state = NULL;
@@ -1534,9 +1533,9 @@ static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
 
     emit->raiser->line_adjust = cs->ast->line_num;
 
-    /* If this call has unresolved generics, resolve those generics as
-       themselves so the error message prints out correctly. */
-    lily_ts_resolve_as_self(emit->ts, emit->symtab->generic_class->all_subtypes);
+    /* Ensure that generics that did not get a valid value are replaced with the
+       ? type (instead of NULL, which will cause a problem). */
+    lily_ts_resolve_as_question(emit->ts);
 
     /* These names are intentionally the same length and on separate lines so
        that slight naming issues become more apparent. */
