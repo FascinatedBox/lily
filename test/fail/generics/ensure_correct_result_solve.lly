@@ -1,0 +1,10 @@
+#[
+ValueError: Test.
+Traceback:
+    from ensure_correct_result_solve.lly:8: in f
+    from ensure_correct_result_solve.lly:10: in __main__
+]#
+
+define f[A] : A { raise ValueError::new("Test.\n") }
+
+var v = [f()]
