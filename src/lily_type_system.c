@@ -374,12 +374,9 @@ int lily_ts_raise_ceiling(lily_type_system *ts)
     int old_ceiling = ts->ceiling;
     int i;
 
-    /* This probably seems complicated. Let's break it down:
-       * ts->pos + ts->ceiling: This is where types are currently being sent.
-         It's important to not damage anything in here.
-       * ts->max_seen * 2: This ensures that there will be enough space beyond
-         the ceiling to do intermediate calculations. */
-    ENSURE_TYPE_STACK(ts->pos + ts->ceiling + (ts->max_seen * 2));
+    /* This makes sure that there's enough space for everything as well as the
+       just the new ceiling. */
+    ENSURE_TYPE_STACK(ts->pos + ts->ceiling + ts->max_seen);
     ts->pos += ts->ceiling;
     ts->ceiling = ts->max_seen;
     for (i = 0;i < ts->max_seen;i++)
