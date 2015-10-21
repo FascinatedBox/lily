@@ -3372,12 +3372,7 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
     if (cs->call_type->subtypes[0] != NULL) {
         lily_type *return_type = cs->call_type->subtypes[0];
 
-        /* If it's just a generic, grab the appropriate thing from the type
-           stack (which is okay until the next eval_call). Otherwise, just
-           give up and build the right thing. */
-        if (return_type->cls->id == SYM_CLASS_GENERIC)
-            return_type = lily_ts_easy_resolve(emit->ts, return_type);
-        else if (return_type->flags & TYPE_IS_UNRESOLVED)
+        if (return_type->flags & TYPE_IS_UNRESOLVED)
             return_type = lily_ts_resolve(emit->ts, return_type);
 
         lily_storage *storage = get_storage(emit, return_type);
