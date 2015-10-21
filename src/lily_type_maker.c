@@ -3,6 +3,11 @@
 #include "lily_alloc.h"
 #include "lily_type_maker.h"
 
+/* These are the TYPE_* flags that bubble up through types (it's written onto a
+   type if any subtypes have them). */
+#define BUBBLE_FLAGS \
+    (TYPE_MAYBE_CIRCULAR | TYPE_IS_UNRESOLVED)
+
 lily_type_maker *lily_new_type_maker(void)
 {
     lily_type_maker *tm = lily_malloc(sizeof(lily_type_maker));
@@ -71,9 +76,6 @@ inline lily_type *lily_tm_get(lily_type_maker *tm, int pos)
     return tm->types[pos];
 }
 
-#define SKIP_FLAGS \
-    ~(TYPE_MAYBE_CIRCULAR | TYPE_IS_UNRESOLVED)
-
 /*  lookup_type
     Determine if the current type exists in the symtab.
 
@@ -87,8 +89,8 @@ static lily_type *lookup_type(lily_type *input_type)
     while (iter_type) {
         if (iter_type->subtypes      != NULL &&
             iter_type->subtype_count == input_type->subtype_count &&
-            (iter_type->flags & SKIP_FLAGS) ==
-                (input_type->flags & SKIP_FLAGS)) {
+            (iter_type->flags & ~BUBBLE_FLAGS) ==
+                (input_type->flags & ~BUBBLE_FLAGS)) {
             int i, match = 1;
             for (i = 0;i < iter_type->subtype_count;i++) {
                 if (iter_type->subtypes[i] != input_type->subtypes[i]) {
@@ -109,8 +111,6 @@ static lily_type *lookup_type(lily_type *input_type)
     return ret;
 }
 
-#undef SKIP_FLAGS
-
 /*  finalize_type
     Determine if the given type is circular or unresolved. It's considered
     either if it contains things that are either of those. */
@@ -120,13 +120,8 @@ static void finalize_type(lily_type *input_type)
         int i;
         for (i = 0;i < input_type->subtype_count;i++) {
             lily_type *subtype = input_type->subtypes[i];
-            if (subtype) {
-                int flags = subtype->flags;
-                if (flags & TYPE_MAYBE_CIRCULAR)
-                    input_type->flags |= TYPE_MAYBE_CIRCULAR;
-                if (flags & TYPE_IS_UNRESOLVED)
-                    input_type->flags |= TYPE_IS_UNRESOLVED;
-            }
+            if (subtype)
+                input_type->flags |= subtype->flags & BUBBLE_FLAGS;
         }
     }
 
