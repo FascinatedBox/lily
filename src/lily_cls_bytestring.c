@@ -5,7 +5,7 @@
 #include "lily_lexer.h"
 #include "lily_vm.h"
 #include "lily_seed.h"
-
+#include "lily_utf8.h"
 #include "lily_cls_string.h"
 
 int lily_bytestring_eq(lily_vm_state *vm, int *depth, lily_value *left,
@@ -40,7 +40,7 @@ void lily_bytestring_encode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     char *byte_buffer = input_bytestring->string;
     int byte_buffer_size = input_bytestring->size;
 
-    if (lily_is_valid_utf8(byte_buffer, byte_buffer_size) == 0) {
+    if (lily_is_valid_sized_utf8(byte_buffer, byte_buffer_size) == 0) {
         lily_raise(vm->raiser, lily_ValueError,
                 "Invalid utf-8 sequence found in buffer.\n");
     }
