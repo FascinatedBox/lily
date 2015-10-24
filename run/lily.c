@@ -33,7 +33,7 @@ int do_tags = 0;
 int gc_threshold = 0;
 char *to_process = NULL;
 
-static void process_args(int argc, char **argv)
+static void process_args(int argc, char **argv, int *argc_offset)
 {
     int i;
     for (i = 1;i < argc;i++) {
@@ -54,27 +54,23 @@ static void process_args(int argc, char **argv)
             if (i == argc)
                 usage();
 
-            to_process = argv[i];
-            if ((i + 1) != argc)
-                usage();
-
             is_file = 0;
             break;
         }
         else {
-            to_process = argv[i];
-            if ((i + 1) != argc)
-                usage();
-
             is_file = 1;
             break;
         }
     }
+
+    to_process = argv[i];
+    *argc_offset = i;
 }
 
 int main(int argc, char **argv)
 {
-    process_args(argc, argv);
+    int argc_offset;
+    process_args(argc, argv, &argc_offset);
     if (to_process == NULL)
         usage();
 
@@ -82,8 +78,8 @@ int main(int argc, char **argv)
     if (gc_threshold != 0)
         options->gc_threshold = gc_threshold;
 
-    options->argc = argc;
-    options->argv = argv;
+    options->argc = argc - argc_offset;
+    options->argv = argv + argc_offset;
 
     lily_parse_state *parser = lily_new_parse_state(options);
     lily_lex_mode mode = (do_tags ? lm_tags : lm_no_tags);
