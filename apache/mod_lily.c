@@ -207,6 +207,59 @@ const lily_var_seed get_seed =
 const lily_var_seed env_seed =
         {&get_seed, "env", dyna_var, "hash[string, string]"};
 
+
+/*  Implements server::write
+
+    This function takes a string and writes the content directly to the server.
+    This function is unique in that only string literals are accepted. If a
+    string is passed that is not a literal, then ValueError is raised. */
+void lily_apache_server_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *write_reg = vm_regs[code[1]];
+    if ((write_reg->flags & VAL_IS_LITERAL) == 0)
+        lily_raise(vm->raiser, lily_ValueError,
+                "The string passed must be a literal.\n");
+
+    char *value = write_reg->value.string->string;
+
+    ap_rputs(value, (request_rec *)vm->data);
+}
+
+/*  Implements server::write_raw
+
+    This function takes a string and writes it directly to the server. It is
+    assumed that escaping has already been done by server::escape. */
+void lily_apache_server_write_raw(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    char *value = vm_regs[code[1]]->value.string->string;
+
+    ap_rputs(value, (request_rec *)vm->data);
+}
+
+void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code);
+
+/*  Implements server::escape
+
+    This function takes a string and performs basic html encoding upon it. The
+    resulting string is safe to pass to server::write_raw. */
+void lily_apache_server_escape(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_string_htmlencode(vm, argc, code);
+}
+
+
+const lily_func_seed escape =
+        {&env_seed, "escape", dyna_function, "(string):string", lily_apache_server_escape};
+
+const lily_func_seed write_raw =
+        {&escape, "write_raw", dyna_function, "(string)", lily_apache_server_write_raw};
+
+const lily_func_seed write_seed =
+        {&write_raw, "write", dyna_function, "(string)", lily_apache_server_write};
+
+
 static int lily_handler(request_rec *r)
 {
     if (strcmp(r->handler, "lily"))
@@ -218,7 +271,7 @@ static int lily_handler(request_rec *r)
     options->data = r;
 
     lily_parse_state *parser = lily_new_parse_state(options);
-    lily_register_import(parser, "server", &env_seed, apache_var_dynaloader);
+    lily_register_import(parser, "server", &write_seed, apache_var_dynaloader);
 
     lily_parse_file(parser, lm_tags, r->filename);
 
