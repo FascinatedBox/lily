@@ -38,7 +38,7 @@ decode(uint32_t* state, uint32_t* codep, uint32_t byte) {
 }
 
 /*  Determine if the given input is valid utf-8. Returns 1 if yes, 0 if no. */
-int lily_is_valid_utf8(char *input)
+int lily_is_valid_utf8(const char *input)
 {
     uint8_t *s = (uint8_t *)input;
     uint32_t codepoint;
@@ -53,7 +53,7 @@ int lily_is_valid_utf8(char *input)
 
 /*  Determine if the given input is valid utf-8 and that there is no early \0
     terminator. Returns 1 if yes, 0 if no. */
-int lily_is_valid_sized_utf8(char *input, int size)
+int lily_is_valid_sized_utf8(const char *input, int size)
 {
     uint8_t *s = (uint8_t *)input;
     uint8_t *end = s + size;
