@@ -40,10 +40,20 @@ if (lex->token != expected) \
     lily_raise(parser->raiser, lily_SyntaxError, "Expected '%s', not %s.\n", \
                tokname(expected), tokname(lex->token));
 
-static char *exception_bootstrap =
+/* Note: At some point in the future, both Exception and Tainted should both be
+   entirely dynaloaded (to save memory). For now, however, they're both
+   bootstrapped into the interpreter by force.
+   Sorry. */
+static char *bootstrap =
 "class Exception(message: string) {\n"
 "    var @message = message\n"
 "    var @traceback: list[string] = []\n"
+"}\n"
+"class Tainted[A](value: A) {\n"
+"    private var @value = value\n"
+"    define sanitize[A, B](f: function(A => B)):B {\n"
+"         return f(@value)\n"
+"    }\n"
 "}\n";
 
 static void statement(lily_parse_state *, int);
@@ -96,12 +106,12 @@ static lily_path_link *prepare_path_by_seed(lily_parse_state *parser,
     return result;
 }
 
-/*  This will load the Exception class into the current import (which is the
-    builtin one). */
-static void bootstrap_exception(lily_parse_state *parser)
+/*  This will load the Exception and Tainted classes into the current import
+    (which is the builtin one). */
+static void run_bootstrap(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-    lily_load_str(lex, "[builtin]", lm_no_tags, exception_bootstrap);
+    lily_load_str(lex, "[builtin]", lm_no_tags, bootstrap);
     lily_lexer(lex);
     statement(parser, 1);
     lily_pop_lex_entry(lex);
@@ -183,7 +193,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
        is set. */
     lily_pkg_sys_init(parser, options);
 
-    bootstrap_exception(parser);
+    run_bootstrap(parser);
 
     /* The vm uses this for tagging the inner values when building traceback. */
     parser->vm->traceback_type = type_by_name(parser, "list[string]");
