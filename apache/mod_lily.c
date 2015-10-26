@@ -15,6 +15,7 @@
 #include "lily_value.h"
 #include "lily_impl.h"
 #include "lily_seed.h"
+#include "lily_utf8.h"
 
 #include "lily_cls_hash.h"
 
@@ -60,6 +61,12 @@ struct table_bind_data {
 
 static int bind_table_entry(void *data, const char *key, const char *value)
 {
+    /* Don't allow anything to become a string that has invalid utf-8, because
+       Lily's string type assumes valid utf-8. */
+    if (lily_is_valid_utf8(key) == 0 ||
+        lily_is_valid_utf8(value) == 0)
+        return TRUE;
+
     struct table_bind_data *d = data;
 
     lily_value *elem_key = lily_bind_string(d->symtab, key);
@@ -107,9 +114,17 @@ static void bind_post(lily_parse_state *parser, request_rec *r,
     if (res == OK) {
         while (pairs && !apr_is_empty_array(pairs)) {
             ap_form_pair_t *pair = (ap_form_pair_t *) apr_array_pop(pairs);
+            if (lily_is_valid_utf8(pair->name) == 0)
+                continue;
+
             apr_brigade_length(pair->value, 1, &len);
             size = (apr_size_t) len;
             buffer = lily_malloc(size + 1);
+
+            if (lily_is_valid_utf8(buffer) == 0) {
+                lily_free(buffer);
+                continue;
+            }
 
             apr_brigade_flatten(pair->value, buffer, &size);
             buffer[len] = 0;
