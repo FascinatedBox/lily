@@ -64,6 +64,17 @@ inline lily_instance_val *lily_new_instance_val()
     return ival;
 }
 
+inline lily_instance_val *lily_new_instance_val_for(lily_type *t)
+{
+    lily_instance_val *ival = lily_new_instance_val();
+    int num_values = t->cls->prop_count;
+    ival->values = lily_malloc(num_values * sizeof(lily_value *));
+    ival->num_values = num_values;
+    ival->true_type = t;
+
+    return ival;
+}
+
 int lily_generic_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
 {

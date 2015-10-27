@@ -8,6 +8,7 @@ void lily_deref_raw(lily_type *, lily_raw_value);
 
 inline lily_value *lily_new_value(uint64_t, lily_type *, lily_raw_value);
 inline lily_instance_val *lily_new_instance_val();
+inline lily_instance_val *lily_new_instance_val_for(lily_type *);
 
 void lily_gc_collect_value(lily_type *, lily_raw_value);
 

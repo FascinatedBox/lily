@@ -56,8 +56,18 @@ struct table_bind_data {
     request_rec *r;
     int ok;
     lily_hash_val *hash_val;
+    lily_type *tainted_type;
     char *sipkey;
 };
+
+lily_value *bind_tainted_of(lily_parse_state *parser,
+        lily_type *tainted_type, lily_value *input)
+{
+    lily_instance_val *iv = lily_new_instance_val_for(tainted_type);
+    iv->values[0] = input;
+    lily_value *v = lily_new_value(0, tainted_type, (lily_raw_value)iv);
+    return v;
+}
 
 static int bind_table_entry(void *data, const char *key, const char *value)
 {
@@ -70,7 +80,9 @@ static int bind_table_entry(void *data, const char *key, const char *value)
     struct table_bind_data *d = data;
 
     lily_value *elem_key = lily_bind_string(d->symtab, key);
-    lily_value *elem_value = lily_bind_string(d->symtab, value);
+    lily_value *elem_raw_value = lily_bind_string(d->symtab, value);
+    lily_value *elem_value = bind_tainted_of(d->parser, d->tainted_type,
+            elem_raw_value);
     lily_hash_elem *new_elem = bind_hash_elem_with_values(d->sipkey, elem_key,
             elem_value);
 
@@ -92,6 +104,7 @@ static void bind_table_as(lily_parse_state *parser, request_rec *r,
     data.r = r;
     data.ok = 1;
     data.hash_val = hash_val;
+    data.tainted_type = var->type->subtypes[1];
     data.sipkey = parser->vm->sipkey;
     apr_table_do(bind_table_entry, &data, table, NULL);
 }
@@ -107,6 +120,7 @@ static void bind_post(lily_parse_state *parser, request_rec *r,
     char *buffer;
     char *sipkey = parser->vm->sipkey;
     lily_symtab *symtab = parser->symtab;
+    lily_type *tainted_type = var->type->subtypes[1];
 
     /* Credit: I found out how to use this by reading httpd 2.4's mod_lua
        (specifically req_parsebody of lua_request.c). */
@@ -131,8 +145,10 @@ static void bind_post(lily_parse_state *parser, request_rec *r,
 
             lily_value *elem_key = lily_bind_string(symtab, pair->name);
             /* Give the buffer to the value to save memory. */
-            lily_value *elem_value = lily_bind_string_take_buffer(symtab,
+            lily_value *elem_raw_value = lily_bind_string_take_buffer(symtab,
                     buffer);
+            lily_value *elem_value = bind_tainted_of(parser, tainted_type,
+                    elem_raw_value);
             lily_hash_elem *new_elem = bind_hash_elem_with_values(sipkey,
                     elem_key, elem_value);
 
@@ -199,13 +215,13 @@ const lily_var_seed httpmethod_seed =
         {NULL, "httpmethod", dyna_var, "string"};
 
 const lily_var_seed post_seed =
-        {&httpmethod_seed, "post", dyna_var, "hash[string, string]"};
+        {&httpmethod_seed, "post", dyna_var, "hash[string, Tainted[string]]"};
 
 const lily_var_seed get_seed =
-        {&post_seed, "get", dyna_var, "hash[string, string]"};
+        {&post_seed, "get", dyna_var, "hash[string, Tainted[string]]"};
 
 const lily_var_seed env_seed =
-        {&get_seed, "env", dyna_var, "hash[string, string]"};
+        {&get_seed, "env", dyna_var, "hash[string, Tainted[string]]"};
 
 
 /*  Implements server::write
