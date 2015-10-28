@@ -1,7 +1,7 @@
-exception
+Exception
 =========
 
-The exception type represents the most basic kind of type that can be raised. Unlike other builtin classes, it can be inherited from.
+The Exception type represents the most basic kind of type that can be raised. Unlike most other builtin classes, it can be inherited from.
 
 # Operations
 

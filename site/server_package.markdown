@@ -34,15 +34,17 @@ However, if that is not the case, you should be able to serve Lily files now
 
 # Actually serving Lily files
 
-If you've used PHP, it's about the same. When run from Apache, the interpreter is put into tagged mode. This means that it expects code to be between `<?lily ... ?>` tags, and everything else will be sent to the client as pure html. There are some differences between Lily and PHP though:
+When Lily runs from Apache, it runs in tagged mode. This means that code will be between `<?lily ... ?>` tags, and everything else is sent as-is to the server. Lily also provides direct, easy access to server GET, POST, and ENV variables. Lily aims to run with as little configuration as possible. Lily's design is greatly inspired by PHP, but it shares a number of key differences.
 
-* Files that Lily imports are imported in code-only mode. This means it is impossible to import a file that will accidentally send headers. This also forces a separation between files that have html and are to be served, and files that are not meant to be served.
+* Lily's mechanism to include other files is the `import` keyword, and has semantics inspired by Python. When a file is loaded, the name of that file becomes a namespace through which the variables, classes, and methods are accessed.
 
-* Files that Lily is to serve must have `<?lily` as the absolute first part of them, even if it is empty. If this is not present at the absolute beginning of the file, Lily will refuse to serve it. This is to prevent the first tag coming in after headers are sent, and also to prevent serving files that are just code.
+* When Lily is run from Apache, the library that binds them together registers the `server` package within Lily. This allows Lily to access the API listed at the bottom of this file, but only after explicitly saying `import server`. Requiring this import (instead of assuming it), is intentional. Doing so means it is possible to run a file meant for the server from the command line, but with a `server.lly` file that stands in place of the server. That, in turn, can be used for testing.
 
-* Lily exposes server variables as being within a server namespace, rather than as superglobals.
+* The imports that a file does are always in tagged mode. This means that you can have files that are only meant to be code and do not have `<?lily ... ?>` tags in them. This has the added benefit that you can 'drag and drop' your code-only files right alongside your other server files if you so wish. Lily will only serve files that have `<?lily` at the absolute first part of them (as a means of proving that the file is to be served. The initial tag can be empty though).
 
-* Lily employs a technique called dynaloading. If there is no reference to, say, the `server::post` variable anywhere in the code, then the server's post information will not be loaded into Lily at all.
+* Server variables (get, post, env) are provided through `server::get`, `server::post`, and `server::env` respectively, as hashes that use a string to map to a Tained string (`hash[string, Tainted[string]]`). The Tainted datatype does not allow direct access to contents, but instead requires that a sanitizing function be sent to it before accessing the contents. This prevents code such as `server::write(server::get["username"])`.
+
+* Lily internally assumes that all strings are valid utf-8 and zero terminated. If any key+value pair has invalid utf-8 within it, then the pair will be excluded from the server variables.
 
 # Classes
 
@@ -50,21 +52,34 @@ This module does not have any classes.
 
 # Methods
 
-This module does not have any methods.
+`server::escape(string):string`
+
+This encodes a string so that it is suitable for being directly printed to the server. `&` becomes `&amp;`, `<` becomes `&lt;`, `>` becomes `&gt;`.
+
+
+`server::write(string)`
+
+This function will write a string directly to the server without escaping it at all. However, there is a caveat: This function will only work on string literals. The reason for this, is that string literals are considered to be safe (You wouldn't XSS yourself, right?). If a string is passed to this function that is not a literal, then `ValueError` is raised.
+
+
+`server::write_raw(string)`
+
+This function takes any kind of a string (not just literals) and writes it directly to the server. It is assumed that the user has properly escaped the string using `server::escape`.
+
 
 # Variables
 
-`server::post: hash[string, string]`
+`server::post: hash[string, Tainted[string]]`
 
 This contains all variables that were sent to the server using HTTP post. If no variables were sent, then this is empty.
 
 
-`server::env: hash[string, string]`
+`server::env: hash[string, Tainted[string]]`
 
-This contains the server's environment variables
+This contains the server's environment variables.
 
 
-`server::get: hash[string, string]`
+`server::get: hash[string, Tainted[string]]`
 
 This contains all variables that were sent to the server using HTTP get.
 
