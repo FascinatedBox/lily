@@ -137,7 +137,7 @@ static const lily_func_seed show =
 static const lily_func_seed print =
     {&show, "print", dyna_function, "[A](A)", lily_builtin_print};
 static const lily_func_seed printfmt =
-    {&print, "printfmt", dyna_function, "(string, list[any]...)", lily_builtin_printfmt};
+    {&print, "printfmt", dyna_function, "(string, any...)", lily_builtin_printfmt};
 static const lily_var_seed seed_stderr =
         {&printfmt, "stderr", dyna_var, "file"};
 static const lily_var_seed seed_stdout =
