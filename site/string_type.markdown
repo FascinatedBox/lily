@@ -30,7 +30,7 @@ Returns `true` if `self` ends with `other`, `false` otherwise. If `other` is emp
 Attempt to locate `needle` within `self`. If `needle` is found, then the result is the index where `needle` starts. If it is not found, the result is -1.
 
 
-`string::format (self: string, list[any]...) : string`
+`string::format (self: string, any...) : string`
 
 This uses `self` as a formatting string, with the values coming from whatever extra arguments are passed. The following format specifiers are accepted:
 
