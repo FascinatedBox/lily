@@ -41,6 +41,7 @@
         <li><a href="tuple_type.html">tuple</a></li>
         <li><a href="any_type.html">any</a></li>
         <li><a href="exception_type.html">Exception</a></li>
+        <li><a href="tainted_type.html">Tainted</a></li>
       </ul>
       <ul>
         <li>Reference</li>
@@ -72,31 +73,39 @@
 <p>In the event of an error (particularly "undefined symbol suchandsuch"), that is a bug in Lily, and I would appeciate a bug report.</p>
 <p>However, if that is not the case, you should be able to serve Lily files now</p>
 <h1>Actually serving Lily files</h1>
-<p>If you've used PHP, it's about the same. When run from Apache, the interpreter is put into tagged mode. This means that it expects code to be between <code>&lt;?lily ... ?&gt;</code> tags, and everything else will be sent to the client as pure html. There are some differences between Lily and PHP though:</p>
+<p>When Lily runs from Apache, it runs in tagged mode. This means that code will be between <code>&lt;?lily ... ?&gt;</code> tags, and everything else is sent as-is to the server. Lily also provides direct, easy access to server GET, POST, and ENV variables. Lily aims to run with as little configuration as possible. Lily's design is greatly inspired by PHP, but it shares a number of key differences.</p>
 <ul>
 <li>
-<p>Files that Lily imports are imported in code-only mode. This means it is impossible to import a file that will accidentally send headers. This also forces a separation between files that have html and are to be served, and files that are not meant to be served.</p>
+<p>Lily's mechanism to include other files is the <code>import</code> keyword, and has semantics inspired by Python. When a file is loaded, the name of that file becomes a namespace through which the variables, classes, and methods are accessed.</p>
 </li>
 <li>
-<p>Files that Lily is to serve must have <code>&lt;?lily</code> as the absolute first part of them, even if it is empty. If this is not present at the absolute beginning of the file, Lily will refuse to serve it. This is to prevent the first tag coming in after headers are sent, and also to prevent serving files that are just code.</p>
+<p>When Lily is run from Apache, the library that binds them together registers the <code>server</code> package within Lily. This allows Lily to access the API listed at the bottom of this file, but only after explicitly saying <code>import server</code>. Requiring this import (instead of assuming it), is intentional. Doing so means it is possible to run a file meant for the server from the command line, but with a <code>server.lly</code> file that stands in place of the server. That, in turn, can be used for testing.</p>
 </li>
 <li>
-<p>Lily exposes server variables as being within a server namespace, rather than as superglobals.</p>
+<p>The imports that a file does are always in tagged mode. This means that you can have files that are only meant to be code and do not have <code>&lt;?lily ... ?&gt;</code> tags in them. This has the added benefit that you can 'drag and drop' your code-only files right alongside your other server files if you so wish. Lily will only serve files that have <code>&lt;?lily</code> at the absolute first part of them (as a means of proving that the file is to be served. The initial tag can be empty though).</p>
 </li>
 <li>
-<p>Lily employs a technique called dynaloading. If there is no reference to, say, the <code>server::post</code> variable anywhere in the code, then the server's post information will not be loaded into Lily at all.</p>
+<p>Server variables (get, post, env) are provided through <code>server::get</code>, <code>server::post</code>, and <code>server::env</code> respectively, as hashes that use a string to map to a Tained string (<code>hash[string, Tainted[string]]</code>). The Tainted datatype does not allow direct access to contents, but instead requires that a sanitizing function be sent to it before accessing the contents. This prevents code such as <code>server::write(server::get["username"])</code>.</p>
+</li>
+<li>
+<p>Lily internally assumes that all strings are valid utf-8 and zero terminated. If any key+value pair has invalid utf-8 within it, then the pair will be excluded from the server variables.</p>
 </li>
 </ul>
 <h1>Classes</h1>
 <p>This module does not have any classes.</p>
 <h1>Methods</h1>
-<p>This module does not have any methods.</p>
+<p><code>server::escape(string):string</code></p>
+<p>This encodes a string so that it is suitable for being directly printed to the server. <code>&amp;</code> becomes <code>&amp;amp;</code>, <code>&lt;</code> becomes <code>&amp;lt;</code>, <code>&gt;</code> becomes <code>&amp;gt;</code>.</p>
+<p><code>server::write(string)</code></p>
+<p>This function will write a string directly to the server without escaping it at all. However, there is a caveat: This function will only work on string literals. The reason for this, is that string literals are considered to be safe (You wouldn't XSS yourself, right?). If a string is passed to this function that is not a literal, then <code>ValueError</code> is raised.</p>
+<p><code>server::write_raw(string)</code></p>
+<p>This function takes any kind of a string (not just literals) and writes it directly to the server. It is assumed that the user has properly escaped the string using <code>server::escape</code>.</p>
 <h1>Variables</h1>
-<p><code>server::post: hash[string, string]</code></p>
+<p><code>server::post: hash[string, Tainted[string]]</code></p>
 <p>This contains all variables that were sent to the server using HTTP post. If no variables were sent, then this is empty.</p>
-<p><code>server::env: hash[string, string]</code></p>
-<p>This contains the server's environment variables</p>
-<p><code>server::get: hash[string, string]</code></p>
+<p><code>server::env: hash[string, Tainted[string]]</code></p>
+<p>This contains the server's environment variables.</p>
+<p><code>server::get: hash[string, Tainted[string]]</code></p>
 <p>This contains all variables that were sent to the server using HTTP get.</p>
 <p><code>server::httpmethod: string</code></p>
 <p>The http method that was used, in all caps. Common values are POST, GET, PUT, and DELETE</p>
