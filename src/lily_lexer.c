@@ -430,6 +430,7 @@ static int file_read_line_fn(lily_lex_entry *entry)
             /* Do this in case the realloc decides to use a different block
                instead of growing what it had. */
             input_buffer = lexer->input_buffer;
+            bufsize = lexer->input_size;
         }
 
         if (ch == EOF) {
@@ -502,6 +503,7 @@ static int str_read_line_fn(lily_lex_entry *entry)
             /* Do this in case the realloc decides to use a different block
                instead of growing what it had. */
             input_buffer = lexer->input_buffer;
+            bufsize = lexer->input_size;
         }
 
         if (*ch == '\0') {
