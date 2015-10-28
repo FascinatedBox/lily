@@ -95,7 +95,7 @@ apply(10, add_one) # 11
 </code></pre>
 
 <p>Functions can also be marked as accepting a variable number of arguments. The extra arguments will be placed inside of a list for the caller to work with.</p>
-<pre><code>define sum(values: list[integer]...) : integer
+<pre><code>define sum(values: integer...) : integer
 {
     var total = 0
     for i in 0...values.size() - 1:

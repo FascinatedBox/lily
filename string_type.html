@@ -67,7 +67,7 @@
 <p>Returns <code>true</code> if <code>self</code> ends with <code>other</code>, <code>false</code> otherwise. If <code>other</code> is empty, then the result is always <code>true</code>.</p>
 <p><code>string::find (self: string, needle: string) : integer</code></p>
 <p>Attempt to locate <code>needle</code> within <code>self</code>. If <code>needle</code> is found, then the result is the index where <code>needle</code> starts. If it is not found, the result is -1.</p>
-<p><code>string::format (self: string, list[any]...) : string</code></p>
+<p><code>string::format (self: string, any...) : string</code></p>
 <p>This uses <code>self</code> as a formatting string, with the values coming from whatever extra arguments are passed. The following format specifiers are accepted:</p>
 <ul>
 <li>
