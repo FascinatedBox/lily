@@ -1050,7 +1050,7 @@ static const lily_func_seed split =
     {&to_i, "split", dyna_function, "(string, *string):list[string]", lily_string_split};
 
 static const lily_func_seed format =
-    {&split, "format", dyna_function, "(string, list[any]...):string", lily_string_format};
+    {&split, "format", dyna_function, "(string, any...):string", lily_string_format};
 
 static const lily_func_seed htmlencode =
     {&format, "htmlencode", dyna_function, "(string):string", lily_string_htmlencode};

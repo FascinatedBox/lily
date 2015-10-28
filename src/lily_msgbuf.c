@@ -339,9 +339,16 @@ void lily_msgbuf_add_type(lily_msgbuf *msgbuf, lily_type *type)
                 lily_msgbuf_add(msgbuf, ", ");
             }
 
-            lily_msgbuf_add_type(msgbuf, type->subtypes[i]);
-            if (type->flags & TYPE_IS_VARARGS)
+            if (type->flags & TYPE_IS_VARARGS) {
+                /* Varargs are written as 'type ...', but internally are
+                   actually 'list[type] ...'. This writes them as they would
+                   have been written in (the extra ->subtypes[0] grabs the type
+                   within the list. */
+                lily_msgbuf_add_type(msgbuf, type->subtypes[i]->subtypes[0]);
                 lily_msgbuf_add(msgbuf, "...");
+            }
+            else
+                lily_msgbuf_add_type(msgbuf, type->subtypes[i]);
         }
         if (type->subtypes[0] == NULL)
             lily_msgbuf_add(msgbuf, ")");

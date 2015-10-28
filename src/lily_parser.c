@@ -336,14 +336,15 @@ static void fixup_import_basedir(lily_parse_state *parser, char *path)
         length);
 }
 
-/*  make_optarg_type_of
-    This creates a new type that is composed of the one given, but put inside
-    of an optarg type. */
-static lily_type *make_optarg_type_of(lily_parse_state *parser, lily_type *type)
+/*  make_type_of_class
+    This takes a class that takes a single subtype and creates a new type which
+    wraps around the class sent. For example, send 'list' and an integer type to
+    get 'list[integer]'. */
+static lily_type *make_type_of_class(lily_parse_state *parser, lily_class *cls,
+        lily_type *type)
 {
-    lily_class *optarg_class = parser->symtab->optarg_class;
     lily_tm_add(parser->tm, type);
-    return lily_tm_make(parser->tm, 0, optarg_class, 1);
+    return lily_tm_make(parser->tm, 0, cls, 1);
 }
 
 static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
@@ -399,13 +400,10 @@ static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
             lily_raise(parser->raiser, lily_SyntaxError,
                     "Type '^T' cannot have a default value.\n", type);
 
-        type = make_optarg_type_of(parser, type);
+        type = make_type_of_class(parser, parser->symtab->optarg_class, type);
     }
     else if (lex->token == tk_three_dots) {
-        if (type->cls != parser->symtab->list_class) {
-            lily_raise(parser->raiser, lily_SyntaxError,
-                "A list is required for variable arguments (...).\n");
-        }
+        type = make_type_of_class(parser, parser->symtab->list_class, type);
 
         lily_lexer(lex);
         /* Varargs can't be optional, and they have to be at the end. So the
