@@ -473,16 +473,26 @@ static int compare_values(lily_vm_state *vm, lily_value *left, lily_value *right
 static void do_o_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
         lily_value *rhs_reg)
 {
-    if ((rhs_reg->flags & VAL_IS_NOT_DEREFABLE) == 0)
-        rhs_reg->value.generic->refcount++;
+    if (rhs_reg->type->cls->id == SYM_CLASS_ANY &&
+        lhs_reg->type == rhs_reg->type)
+        /* This special case is necessary because it prevents an any from being
+           accidentally placed within an 'any'. This can happen if the left is
+           actually an 'any', and the right is a generic that became an 'any'.
+           The emitter won't know if, say, A is going to be 'any' or not, so it
+           writes a box assign as a precaution. */
+        lily_assign_value(lhs_reg, rhs_reg);
+    else {
+        if ((rhs_reg->flags & VAL_IS_NOT_DEREFABLE) == 0)
+            rhs_reg->value.generic->refcount++;
 
-    lily_any_val *lhs_any = lily_new_any_val();
-    lily_add_gc_item(vm, lhs_reg->type, (lily_generic_gc_val *)lhs_any);
+        lily_any_val *lhs_any = lily_new_any_val();
+        lily_add_gc_item(vm, lhs_reg->type, (lily_generic_gc_val *)lhs_any);
 
-    lhs_reg->value.any = lhs_any;
-    lhs_reg->flags = 0;
+        lhs_reg->value.any = lhs_any;
+        lhs_reg->flags = 0;
 
-    *(lhs_any->inner_value) = *rhs_reg;
+        *(lhs_any->inner_value) = *rhs_reg;
+    }
 }
 
 /*  Add a new call frame to vm's call_chain. The new frame becomes the current
