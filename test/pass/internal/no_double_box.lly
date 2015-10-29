@@ -1,0 +1,6 @@
+define f[A](a: A):any
+{
+    return a
+}
+
+f(10.@(any)).@(integer)
