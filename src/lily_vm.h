@@ -41,7 +41,7 @@ typedef struct lily_vm_catch_entry_ {
     int offset_from_main;
     int code_pos;
     uint32_t call_frame_depth;
-    uint32_t dispatch_restore;
+    uint32_t pad;
     lily_jump_link *jump_entry;
 
     struct lily_vm_catch_entry_ *next;
