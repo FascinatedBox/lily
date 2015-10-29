@@ -271,31 +271,26 @@ static int condition_optimize_check(lily_ast *ast)
     return can_optimize;
 }
 
-/*  count_inner_try_blocks
-    Count the number of 'try' blocks entered where an 'except' has not yet been
-    seen. This counts up to the deepest loop block, or the current function,
-    whichever comes first. */
-static int count_inner_try_blocks(lily_emit_state *emit)
+/*  This function is called before the instruction needed for a 'continue',
+    'break', or 'return' is written. It walks backward from the current block to
+    count how many try blocks need to be offset. This lets the vm know that N
+    try blocks are no longer valid.
+
+    A stop block is necessary because 'continue' and 'break' will exit out of
+    the current loop, but 'return' exits from the entire define. */
+static void write_pop_try_blocks_up_to(lily_emit_state *emit,
+        lily_block *stop_block)
 {
     lily_block *block_iter = emit->block;
-    int ret = 0;
-    while (IS_LOOP_BLOCK(block_iter->block_type) == 0 &&
-           block_iter->block_type < block_define) {
+    int try_count = 0;
+
+    while (block_iter != stop_block) {
         if (block_iter->block_type == block_try)
-            ret++;
+            try_count++;
 
         block_iter = block_iter->prev;
     }
-    return ret;
-}
 
-/*  write_pop_inner_try_blocks
-    This must be called before any 'continue', 'break', or 'return' code is
-    emitted. It ensures that the vm will pop the proper number of 'try' blocks
-    registered to offset the movement being done. */
-static void write_pop_inner_try_blocks(lily_emit_state *emit)
-{
-    int try_count = count_inner_try_blocks(emit);
     if (try_count) {
         write_prep(emit, try_count);
         int i;
@@ -4056,12 +4051,14 @@ void lily_emit_break(lily_emit_state *emit)
                 "'break' used outside of a loop.\n");
     }
 
-    write_pop_inner_try_blocks(emit);
+    lily_block *loop_block = find_deepest_loop(emit);
+
+    write_pop_try_blocks_up_to(emit, loop_block);
 
     /* Write the jump, then figure out where to put it. */
     write_2(emit, o_jump, 0);
 
-    inject_patch_into_block(emit, find_deepest_loop(emit), emit->code_pos - 1);
+    inject_patch_into_block(emit, loop_block, emit->code_pos - 1);
 }
 
 /*  lily_emit_continue
@@ -4076,7 +4073,7 @@ void lily_emit_continue(lily_emit_state *emit)
                 "'continue' used outside of a loop.\n");
     }
 
-    write_pop_inner_try_blocks(emit);
+    write_pop_try_blocks_up_to(emit, find_deepest_loop(emit));
 
     write_2(emit, o_jump, emit->block->loop_start);
 }
@@ -4108,7 +4105,7 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
         }
     }
 
-    write_pop_inner_try_blocks(emit);
+    write_pop_try_blocks_up_to(emit, emit->function_block);
 
     if (ast) {
         write_3(emit, o_return_val, ast->line_num, ast->result->reg_spot);
