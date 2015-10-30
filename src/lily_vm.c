@@ -1734,6 +1734,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
         vm->raiser->exception_value = NULL;
         vm->call_chain = catch_iter->call_frame;
         vm->call_depth = catch_iter->call_frame_depth;
+        vm->vm_list->pos = catch_iter->vm_list_pos;
         vm->vm_regs = stack_regs;
         vm->call_chain->code_pos = jump_location;
         /* Each try block can only successfully handle one exception, so use
@@ -2561,6 +2562,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 catch_entry->code_pos = code_pos + 2;
                 catch_entry->jump_entry = vm->raiser->all_jumps;
                 catch_entry->offset_from_main = (int64_t)(vm_regs - regs_from_main);
+                catch_entry->vm_list_pos = vm->vm_list->pos;
 
                 vm->catch_top = vm->catch_chain;
                 vm->catch_chain = vm->catch_chain->next;
