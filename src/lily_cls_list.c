@@ -263,22 +263,15 @@ static void list_select_reject_common(lily_vm_state *vm, uint16_t argc,
 
     lily_vm_list_ensure(vm, list_val->num_values);
 
-    lily_jump_link *link = lily_jump_setup(vm->raiser);
-    if (setjmp(link->jump) == 0) {
-        int i;
-        for (i = 0;i < list_val->num_values;i++) {
-            lily_value *result = lily_foreign_call(vm, &cached, expect_type,
-                    function_reg, 1, list_val->elems[i]);
+    int i;
+    for (i = 0;i < list_val->num_values;i++) {
+        lily_value *result = lily_foreign_call(vm, &cached, expect_type,
+                function_reg, 1, list_val->elems[i]);
 
-            if (result->value.integer == expect) {
-                vm_list->values[vm_list->pos] = list_val->elems[i];
-                vm_list->pos++;
-            }
+        if (result->value.integer == expect) {
+            vm_list->values[vm_list->pos] = list_val->elems[i];
+            vm_list->pos++;
         }
-    }
-    else {
-        vm_list->pos = vm_list_start;
-        lily_jump_back(vm->raiser);
     }
 
     lily_list_val *result_list = lily_new_list_val();
@@ -289,7 +282,6 @@ static void list_select_reject_common(lily_vm_state *vm, uint16_t argc,
     result_list->num_values = num_values;
     result_list->elems = lily_malloc(sizeof(lily_value *) * num_values);
 
-    int i;
     for (i = 0;i < num_values;i++) {
         lily_value *target = vm_list->values[vm_list_start + i];
         result_list->elems[i] = lily_copy_value(target);
@@ -342,20 +334,13 @@ void lily_list_map(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     lily_vm_list_ensure(vm, list_val->num_values);
 
-    lily_jump_link *link = lily_jump_setup(vm->raiser);
-    if (setjmp(link->jump) == 0) {
-        int i;
-        for (i = 0;i < list_val->num_values;i++) {
-            lily_value *result = lily_foreign_call(vm, &cached, expect_type,
-                    function_reg, 1, list_val->elems[i]);
+    int i;
+    for (i = 0;i < list_val->num_values;i++) {
+        lily_value *result = lily_foreign_call(vm, &cached, expect_type,
+                function_reg, 1, list_val->elems[i]);
 
-            vm_list->values[vm_list->pos] = lily_copy_value(result);
-            vm_list->pos++;
-        }
-    }
-    else {
-        vm_list->pos = vm_list_start;
-        lily_jump_back(vm->raiser);
+        vm_list->values[vm_list->pos] = lily_copy_value(result);
+        vm_list->pos++;
     }
 
     lily_list_val *result_list = lily_new_list_val();
@@ -366,7 +351,6 @@ void lily_list_map(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     result_list->num_values = num_values;
     result_list->elems = lily_malloc(sizeof(lily_value *) * num_values);
 
-    int i;
     for (i = 0;i < num_values;i++) {
         lily_value *source = vm_list->values[vm_list_start + i];
         /* Unlike select/reject, a full copy of the value was made (instead of a

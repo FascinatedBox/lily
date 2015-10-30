@@ -41,7 +41,9 @@ typedef struct lily_vm_catch_entry_ {
     int offset_from_main;
     int code_pos;
     uint32_t call_frame_depth;
-    uint32_t pad;
+    /* This is where vm->vm_list->pos (position in the temp list) should be
+       restored to. */
+    uint32_t vm_list_pos;
     lily_jump_link *jump_entry;
 
     struct lily_vm_catch_entry_ *next;
