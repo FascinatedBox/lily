@@ -505,6 +505,7 @@ static void add_call_frame(lily_vm_state *vm)
        caller will have proper values for those. */
     new_frame->prev = vm->call_chain;
     new_frame->next = NULL;
+    new_frame->return_target = NULL;
 
     if (vm->call_chain != NULL)
         vm->call_chain->next = new_frame;
@@ -1857,15 +1858,11 @@ lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
     else
         return_reg = NULL;
 
-    /* This makes it so the values that get read in will drop into the registers
-       that the target will use. */
-    vm_regs++;
-
     if (*cached == 0) {
         lily_call_frame *caller_frame = vm->call_chain;
         caller_frame->code = vm->foreign_code;
         caller_frame->code_pos = 0;
-        caller_frame->return_reg = -1;
+        caller_frame->return_target = vm_regs[0];
         caller_frame->build_value = NULL;
         caller_frame->line_num = 0;
 
@@ -1886,6 +1883,10 @@ lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
         target_frame->line_num = 0;
         target_frame->build_value = NULL;
     }
+
+    /* This makes it so the values that get read in will drop into the registers
+       that the target will use. */
+    vm_regs++;
 
     /* Read the values in that the caller passed. It is assumed that the caller
        passed a valid number of values. Nothing needs to be done for optional
@@ -2049,6 +2050,16 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
            start because we're still in __main__. */
         vm->vm_regs = vm->regs_from_main;
     }
+    else if (vm->vm_regs == NULL) {
+        /* This forces vm->vm_regs and vm->regs_from_main to not be NULL. This
+           prevents a segfault that happens when __main__ calls something that
+           does not have a register need (ex: __import__) and tries to calculate
+           the return register. Without this, vm->vm_regs will be NULL and not
+           get resized, resulting in a crash. */
+        grow_vm_registers(vm, 1);
+        vm->vm_regs = vm->regs_from_main;
+    }
+
     lily_value **regs_from_main = vm->regs_from_main;
 
     for (i = vm->prep_id_start;i < main_function->reg_count;i++) {
@@ -2079,7 +2090,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     first_frame->function = main_function;
     first_frame->code = main_function->code;
     first_frame->regs_used = main_function->reg_count;
-    first_frame->return_reg = 0;
+    first_frame->return_target = NULL;
     first_frame->code_pos = 0;
     first_frame->build_value = NULL;
     vm->call_depth = 1;
@@ -2316,11 +2327,9 @@ void lily_vm_execute(lily_vm_state *vm)
                     prep_registers(vm, fval, code+code_pos);
                     num_registers = vm->num_registers;
 
+                    current_frame->return_target = vm_regs[code[code_pos+5]];
                     vm_regs = vm_regs + current_frame->regs_used;
                     vm->vm_regs = vm_regs;
-
-                    current_frame->return_reg =
-                        -(current_frame->function->reg_count - code[code_pos+5]);
 
                     /* !PAST HERE TARGETS THE NEW FRAME! */
 
@@ -2395,12 +2404,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 4;
                 break;
             case o_return_val:
-                /* Note: Upon function entry, vm_regs is moved so that 0 is the
-                   start of the new function's registers.
-                   Because of this, the register return is a -negative- index
-                   that goes back into the caller's stack. */
-
-                lhs_reg = vm_regs[current_frame->prev->return_reg];
+                lhs_reg = current_frame->prev->return_target;
                 rhs_reg = vm_regs[code[code_pos+2]];
                 lily_assign_value(lhs_reg, rhs_reg);
 

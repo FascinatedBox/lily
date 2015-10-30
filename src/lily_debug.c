@@ -239,6 +239,7 @@ static void show_code(lily_debug_state *debug)
         char *opcode_name = opcode_names[opcode];
         int call_type = 0, count = 0, data_code, j;
         lily_class *match_cls = NULL;
+        int skip_output = 0;
 
         /* Group under a new line number if the current one isn't the last one
            seen. This makes it easy to see what operations that are caused by
@@ -274,11 +275,10 @@ static void show_code(lily_debug_state *debug)
             else if (data_code == C_INPUT)
                 show_register_info(debug, RI_INPUT, code[i+j]);
             else if (data_code == C_OUTPUT) {
-                /* output is NULL if it's a function that does not return a
-                   value. Omit this for brevity (the lack of a stated output
-                   meaning it doesn't have one). */
-                if ((int16_t)code[i+j] != -1)
+                if (skip_output == 0)
                     show_register_info(debug, RI_OUTPUT, code[i+j]);
+                else
+                    skip_output = 0;
             }
             else if (data_code == C_JUMP_ON) {
                 if (code[i+j] == 0)
@@ -325,10 +325,21 @@ static void show_code(lily_debug_state *debug)
             else if (data_code == C_CALL_TYPE)
                 call_type = code[i+j];
             else if (data_code == C_CALL_INPUT) {
-                if (call_type == 1)
+                lily_type *func_type;
+                /* The emitter writes in a 0 for the output if the function does
+                   not return a value. Use the type of what's being called to
+                   determine if the result is really going to that register. */
+                if (call_type == 1) {
                     show_readonly(debug, code[i+j]);
-                else
+                    func_type = debug->vm->readonly_table[code[i+j]]->type;
+                }
+                else {
+                    func_type = debug->current_function->reg_info[code[i+j]].type;
                     show_register_info(debug, RI_INPUT, code[i+j]);
+                }
+
+                if (func_type->subtypes[0] == NULL)
+                    skip_output = 1;
             }
             else if (data_code == C_READONLY_INPUT)
                 show_readonly(debug, code[i+j]);
