@@ -248,6 +248,36 @@ void lily_list_fill(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lv->num_values = n;
 }
 
+/*  This function will take 'vm_list->pos - vm_list_start' elements out of the
+    vm's vm_list and move them into a newly-made list. vm_list->pos is then
+    rewound to vm_list_start.
+    This function assumes that values which are put into vm_list are copied (and
+    thus receive a refcount bump). This allows the new list to simply take
+    ownership of the values in the vm_list. */
+static void slice_vm_list(lily_vm_state *vm, int vm_list_start,
+        lily_value *result_reg)
+{
+    lily_vm_list *vm_list = vm->vm_list;
+    lily_list_val *result_list = lily_new_list_val();
+    int num_values = vm_list->pos - vm_list_start;
+
+    if (result_reg->type->flags & TYPE_MAYBE_CIRCULAR)
+        lily_add_gc_item(vm, result_reg->type,
+                (lily_generic_gc_val *)result_list);
+
+    result_list->num_values = num_values;
+    result_list->elems = lily_malloc(sizeof(lily_value *) * num_values);
+
+    int i;
+    for (i = 0;i < num_values;i++)
+        result_list->elems[i] = vm_list->values[vm_list_start + i];
+
+    vm_list->pos = vm_list_start;
+
+    lily_raw_value v = {.list = result_list};
+    lily_move_raw_value(result_reg, v);
+}
+
 static void list_select_reject_common(lily_vm_state *vm, uint16_t argc,
         uint16_t *code, int expect)
 {
@@ -269,28 +299,12 @@ static void list_select_reject_common(lily_vm_state *vm, uint16_t argc,
                 function_reg, 1, list_val->elems[i]);
 
         if (result->value.integer == expect) {
-            vm_list->values[vm_list->pos] = list_val->elems[i];
+            vm_list->values[vm_list->pos] = lily_copy_value(list_val->elems[i]);
             vm_list->pos++;
         }
     }
 
-    lily_list_val *result_list = lily_new_list_val();
-    int num_values = vm_list->pos - vm_list_start;
-    if (result_reg->type->flags & TYPE_MAYBE_CIRCULAR)
-        lily_add_gc_item(vm, result_reg->type, (lily_generic_gc_val *)list_val);
-
-    result_list->num_values = num_values;
-    result_list->elems = lily_malloc(sizeof(lily_value *) * num_values);
-
-    for (i = 0;i < num_values;i++) {
-        lily_value *target = vm_list->values[vm_list_start + i];
-        result_list->elems[i] = lily_copy_value(target);
-    }
-
-    vm_list->pos = vm_list_start;
-
-    lily_raw_value v = {.list = result_list};
-    lily_move_raw_value(result_reg, v);
+    slice_vm_list(vm, vm_list_start, result_reg);
 }
 
 /*  Implements list::select
@@ -343,25 +357,7 @@ void lily_list_map(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         vm_list->pos++;
     }
 
-    lily_list_val *result_list = lily_new_list_val();
-    int num_values = vm_list->pos - vm_list_start;
-    if (result_reg->type->flags & TYPE_MAYBE_CIRCULAR)
-        lily_add_gc_item(vm, result_reg->type, (lily_generic_gc_val *)list_val);
-
-    result_list->num_values = num_values;
-    result_list->elems = lily_malloc(sizeof(lily_value *) * num_values);
-
-    for (i = 0;i < num_values;i++) {
-        lily_value *source = vm_list->values[vm_list_start + i];
-        /* Unlike select/reject, a full copy of the value was made (instead of a
-           shallow one), so a simple assignment will work. */
-        result_list->elems[i] = source;
-    }
-
-    vm_list->pos = vm_list_start;
-
-    lily_raw_value v = {.list = result_list};
-    lily_move_raw_value(result_reg, v);
+    slice_vm_list(vm, vm_list_start, result_reg);
 }
 
 static lily_func_seed map =
