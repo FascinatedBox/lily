@@ -4575,6 +4575,7 @@ void lily_emit_enter_main(lily_emit_state *emit)
     main_block->jump_offset = 0;
     main_block->next_reg_spot = 0;
     main_block->loop_start = -1;
+    main_block->make_closure = 0;
     emit->top_var = main_var;
     emit->block = main_block;
     emit->function_depth++;
