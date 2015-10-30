@@ -3318,7 +3318,7 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
             lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
                     "Function needed to return a value, but did not.\n", "");
         }
-        emit->code[emit->code_pos+5] = -1;
+        emit->code[emit->code_pos+5] = 0;
     }
 
     ast->result_code_offset = cs->arg_count + 1;
@@ -4410,7 +4410,7 @@ void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
     /* 0 arguments collected. */
     emit->code[emit->code_pos+4] = 0;
     /* This does not return a value. */
-    emit->code[emit->code_pos+5] = -1;
+    emit->code[emit->code_pos+5] = 0;
 
     emit->code_pos += 6;
 }

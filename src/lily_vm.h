@@ -9,7 +9,7 @@ struct lily_base_seed_;
 
 typedef struct lily_call_frame_ {
     lily_function_val *function;
-    signed int return_reg;
+    lily_value *return_target;
     /* How many registers this call uses. This is used to fix the vm's register
        stack after a call. */
     int regs_used;
