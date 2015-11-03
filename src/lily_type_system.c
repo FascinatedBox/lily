@@ -369,6 +369,32 @@ void lily_ts_resolve_as_question(lily_type_system *ts)
     }
 }
 
+void lily_ts_resolve_as_any(lily_type_system *ts)
+{
+    /* This isn't quite the same as lily_ts_resolve_with_question, because there
+       are also enums which could have been solved with any. */
+    int i, stop = ts->pos + ts->ceiling;
+    for (i = ts->pos;i < stop;i++) {
+        if (ts->types[i] == NULL || ts->types[i] == ts->question_class_type)
+            ts->types[i] = ts->any_class_type;
+        /* The ? type should not be nested, because there's no way for the user
+           to directly create the ? type. */
+        else if (ts->types[i]->flags & TYPE_IS_INCOMPLETE) {
+            lily_type *incomplete_type = ts->types[i]->subtypes[i];
+            int j;
+            for (j = 0;j < incomplete_type->subtype_count;j++) {
+                lily_type *subtype = incomplete_type->subtypes[j];
+                if (subtype->flags & TYPE_IS_INCOMPLETE)
+                    lily_tm_add(ts->tm, ts->any_class_type);
+                else
+                    lily_tm_add(ts->tm, subtype);
+            }
+
+            ts->types[i] = lily_tm_make(ts->tm, 0, incomplete_type->cls, j);
+        }
+    }
+}
+
 int lily_ts_raise_ceiling(lily_type_system *ts)
 {
     int old_ceiling = ts->ceiling;
