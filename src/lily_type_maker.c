@@ -116,18 +116,21 @@ static lily_type *lookup_type(lily_type *input_type)
     either if it contains things that are either of those. */
 static void finalize_type(lily_type *input_type)
 {
+    int cls_flags = input_type->cls->flags;
     if (input_type->subtypes) {
         int i;
         for (i = 0;i < input_type->subtype_count;i++) {
             lily_type *subtype = input_type->subtypes[i];
-            if (subtype)
+            if (subtype) {
                 input_type->flags |= subtype->flags & BUBBLE_FLAGS;
+                cls_flags |= subtype->cls->flags;
+            }
         }
     }
 
-    /* Any function can be a closure, and potentially close over something that
-       is circular. Mark it as being possibly circular to be safe. */
-    if (input_type->cls->id == SYM_CLASS_FUNCTION)
+    /* If something contains a type that needs to be marked, then the container
+       will need a marker as well as a precaution. */
+    if (cls_flags & CLS_ALWAYS_MARK)
         input_type->flags |= TYPE_MAYBE_CIRCULAR;
 
     /* fixme: Properly go over enums to determine circularity. */

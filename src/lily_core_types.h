@@ -512,6 +512,9 @@ typedef struct lily_options_ {
    that scoped variants are accessed using 'enum::variant', while normal
    variants can use just 'variant'. */
 #define CLS_ENUM_IS_SCOPED 0x2000
+/* This is set when any instance of a given class has the potential of becoming
+   circular. The 'any' class is one example of this. */
+#define CLS_ALWAYS_MARK    0x4000
 
 
 /* TYPE_* defines are for lily_type.

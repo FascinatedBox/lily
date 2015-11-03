@@ -196,7 +196,14 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
     symtab->bytestring_class->flags |= CLS_VALID_OPTARG;
     symtab->boolean_class->flags |= CLS_VALID_OPTARG;
 
+    /* There is only one 'any' type, and it's already been made, so manually tag
+       the type as being circular. */
     symtab->any_class->type->flags |= TYPE_MAYBE_CIRCULAR;
+    /* Functions have varying inputs and outputs, so the class itself needs to
+       be designated as circular. This is needed because a closure could be
+       passed instead of a closure. With a closure, all bets are off, because it
+       can hold anything. */
+    symtab->function_class->flags |= CLS_ALWAYS_MARK;
     /* These need to be set here so type finalization can bubble them up. */
     symtab->generic_class->type->flags |= TYPE_IS_UNRESOLVED;
     symtab->question_class->type->flags |= TYPE_IS_INCOMPLETE;
