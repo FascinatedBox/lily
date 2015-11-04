@@ -41,7 +41,8 @@ void lily_gc_any_marker(int pass, lily_value *v)
 {
     lily_any_val *any_val = v->value.any;
 
-    if (any_val->gc_entry->last_pass != pass) {
+    if (any_val->gc_entry &&
+        any_val->gc_entry->last_pass != pass) {
         any_val->gc_entry->last_pass = pass;
         lily_value *inner_value = any_val->inner_value;
 
@@ -54,10 +55,10 @@ void lily_destroy_any(lily_value *v)
 {
     lily_any_val *av = v->value.any;
 
-    /* Values of type 'any' always have a gc entry, so make sure the value of it
-       is set to NULL. This prevents the gc from trying to access this 'any'
-       that is about to be destroyed. */
-    av->gc_entry->value.generic = NULL;
+    /* Type 'any' always has a marker, but enums are laid out just like 'any'.
+       Enums, unlike 'any', don't always get a gc marker. */
+    if (av->gc_entry)
+        av->gc_entry->value.generic = NULL;
 
     lily_deref(av->inner_value);
 

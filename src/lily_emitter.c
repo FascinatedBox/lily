@@ -1105,9 +1105,14 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
             if (closure_prop == NULL ||
                 /* This should yield a closure stored in THIS class, not one
                    that may be in a parent class. */
-                (parent && closure_prop->id <= parent->prop_count))
+                (parent && closure_prop->id <= parent->prop_count)) {
                 closure_prop = lily_add_class_property(emit->symtab, cls,
                     s->type, "*closure", 0);
+                /* Since the class is holding something that definitely needs a
+                   gc marker, make sure that the types of the class are updated
+                   accordingly. */
+                lily_tm_set_circular(cls);
+            }
 
             write_5(emit, o_load_class_closure, f->line_num,
                     emit->block->self->reg_spot, closure_prop->id, s->reg_spot);

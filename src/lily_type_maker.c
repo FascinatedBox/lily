@@ -76,6 +76,21 @@ inline lily_type *lily_tm_get(lily_type_maker *tm, int pos)
     return tm->types[pos];
 }
 
+void lily_tm_set_circular(lily_class *cls)
+{
+    /* The only types that could have been made are types that are of this class. If
+       there are any, force them to be marked as being circular. */
+    lily_type *type_iter = cls->all_subtypes;
+    while (type_iter) {
+        type_iter->flags |= TYPE_MAYBE_CIRCULAR;
+        type_iter = type_iter->next;
+    }
+
+    /* Make sure any type which includes the current class in any variation will get
+        a marker since the class needs a marker. */
+    cls->flags |= CLS_ALWAYS_MARK;
+}
+
 /*  lookup_type
     Determine if the current type exists in the symtab.
 
@@ -116,7 +131,7 @@ static lily_type *lookup_type(lily_type *input_type)
     either if it contains things that are either of those. */
 static void finalize_type(lily_type *input_type)
 {
-    int cls_flags = input_type->cls->flags;
+    int cls_flags = 0;
     if (input_type->subtypes) {
         int i;
         for (i = 0;i < input_type->subtype_count;i++) {
@@ -128,13 +143,28 @@ static void finalize_type(lily_type *input_type)
         }
     }
 
+    /* If the current class has been put into a container (functions are not containers),
+       then consider the class circular. This is not perfect: It will make classes
+       circular if, say, they have a method that takes a list of them.
+       This method stinks, but at least it doesn't require rewalking types to update
+       circularity, which stinks more. */
+    if (cls_flags & CLS_IS_CURRENT &&
+        input_type->cls->id != SYM_CLASS_FUNCTION) {
+
+        int i;
+        lily_class *current_cls = NULL;
+        for (i = 0;i < input_type->subtype_count;i++) {
+            lily_type *subtype = input_type->subtypes[i];
+            if (subtype && subtype->cls->flags & CLS_IS_CURRENT)
+                current_cls = subtype->cls;
+        }
+
+        lily_tm_set_circular(current_cls);
+    }
+
     /* If something contains a type that needs to be marked, then the container
        will need a marker as well as a precaution. */
-    if (cls_flags & CLS_ALWAYS_MARK)
-        input_type->flags |= TYPE_MAYBE_CIRCULAR;
-
-    /* fixme: Properly go over enums to determine circularity. */
-    if (input_type->cls->flags & CLS_IS_ENUM)
+    if ((cls_flags | input_type->cls->flags) & CLS_ALWAYS_MARK)
         input_type->flags |= TYPE_MAYBE_CIRCULAR;
 }
 

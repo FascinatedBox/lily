@@ -489,7 +489,9 @@ static void do_o_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
             rhs_reg->value.generic->refcount++;
 
         lily_any_val *lhs_any = lily_new_any_val();
-        lily_add_gc_item(vm, lhs_reg->type, (lily_generic_gc_val *)lhs_any);
+
+        if (lhs_reg->type->flags & TYPE_MAYBE_CIRCULAR)
+            lily_add_gc_item(vm, lhs_reg->type, (lily_generic_gc_val *)lhs_any);
 
         lhs_reg->value.any = lhs_any;
         lhs_reg->flags = 0;
