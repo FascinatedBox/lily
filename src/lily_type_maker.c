@@ -259,7 +259,7 @@ lily_type *lily_tm_make_variant_result(lily_type_maker *tm, lily_class *variant_
         }
     }
 
-    lily_type *result = lily_tm_make(tm, 0, variant_cls, max_seen);
+    lily_type *result = lily_tm_make(tm, 0, variant_cls, j);
 
     return result;
 }
