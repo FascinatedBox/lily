@@ -504,18 +504,25 @@ typedef struct lily_options_ {
 /* CLS_* defines are for lily_class. */
 
 
-#define CLS_VALID_HASH_KEY 0x0100
-#define CLS_VALID_OPTARG   0x0200
-#define CLS_IS_ENUM        0x0400
-#define CLS_IS_VARIANT     0x1000
+#define CLS_VALID_HASH_KEY 0x00100
+#define CLS_VALID_OPTARG   0x00200
+#define CLS_IS_ENUM        0x00400
+#define CLS_IS_VARIANT     0x01000
 /* This class is an enum AND the variants within are scoped. The difference is
    that scoped variants are accessed using 'enum::variant', while normal
    variants can use just 'variant'. */
-#define CLS_ENUM_IS_SCOPED 0x2000
+#define CLS_ENUM_IS_SCOPED 0x02000
 /* This is set when any instance of a given class has the potential of becoming
    circular. The 'any' class is one example of this. */
-#define CLS_ALWAYS_MARK    0x4000
-
+#define CLS_ALWAYS_MARK    0x04000
+/* This class is currently being processed. If a class with this type is put
+   into a container, then the class and the container are assumed to be always
+   circular.
+   Note: This method is not foolproof. If a class has a method that contains a
+   container of the class, the class is designated as circular. However, it
+   prevents having to 'rewalk' types to adjust their circularity later, which is
+   believed to be prohibitively expensive. */
+#define CLS_IS_CURRENT     0x10000
 
 /* TYPE_* defines are for lily_type.
    Since types are not usable as values, they do not need to start where

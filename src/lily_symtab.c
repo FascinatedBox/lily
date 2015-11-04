@@ -121,7 +121,7 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
 
     strcpy(name_copy, name);
 
-    new_class->flags = 0;
+    new_class->flags = CLS_IS_CURRENT;
     new_class->is_refcounted = 1;
     new_class->is_builtin = 0;
     new_class->type = NULL;
@@ -837,26 +837,12 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
     gc entries made for them. */
 void lily_finish_class(lily_symtab *symtab, lily_class *cls)
 {
-    lily_prop_entry *prop_iter = cls->properties;
-
     if ((cls->flags & CLS_IS_ENUM) == 0) {
-        /* If the class has no generics, determine if it's circular and write
-           that information onto the default type. */
-        if (cls->generic_count == 0) {
-            while (prop_iter) {
-                if (prop_iter->type->flags & TYPE_MAYBE_CIRCULAR) {
-                    cls->type->flags |= TYPE_MAYBE_CIRCULAR;
-                    break;
-                }
-                prop_iter = prop_iter->next;
-            }
-
-            if (cls->type->flags & TYPE_MAYBE_CIRCULAR)
-                cls->gc_marker = symtab->tuple_class->gc_marker;
-        }
-        else
-            /* Each instance of a generic class may/may not be circular depending
-               on what it's given. */
+        /* If a class is CLS_ALWAYS_MARK, then the class has something that
+           definitely needs a marker.
+           Classes with 1+ generics are simply not trusted, ever, as one of the
+           generic types could be replaced with, say, type 'any'. */
+        if (cls->flags & CLS_ALWAYS_MARK || cls->generic_count != 0)
             cls->gc_marker = symtab->tuple_class->gc_marker;
 
         cls->destroy_func = symtab->tuple_class->destroy_func;
@@ -869,6 +855,8 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
         cls->eq_func = symtab->any_class->eq_func;
         cls->destroy_func = symtab->any_class->destroy_func;
     }
+
+    cls->flags &= ~CLS_IS_CURRENT;
 
     if (cls != symtab->old_class_chain) {
         lily_class *class_iter = symtab->active_import->class_chain;
@@ -1003,6 +991,7 @@ void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
     enum_cls->variant_members = members;
     enum_cls->variant_size = variant_count;
     enum_cls->flags |= CLS_IS_ENUM;
+    enum_cls->flags &= ~CLS_IS_CURRENT;
     enum_cls->gc_marker = symtab->any_class->gc_marker;
     enum_cls->eq_func = symtab->any_class->eq_func;
     enum_cls->destroy_func = symtab->any_class->destroy_func;
