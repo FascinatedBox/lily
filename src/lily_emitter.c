@@ -523,7 +523,13 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
             break;
         }
         else if (storage_iter->type == type &&
-                 storage_iter->expr_num != expr_num) {
+                 storage_iter->expr_num != expr_num &&
+                 (storage_iter->type->cls->flags &
+                    (CLS_IS_ENUM | CLS_IS_VARIANT)) == 0) {
+            /* Enums and variants (as well as any) are shallow containers. Don't
+               allow their re-use in the same function block because it can
+               cause really weird behavior (ex: Creating a new variant modifies
+               an existing var, without assignment). */
             storage_iter->expr_num = expr_num;
             break;
         }
@@ -1771,7 +1777,7 @@ static lily_type *calculate_var_type(lily_emit_state *emit, lily_type *input_typ
     This handles assignments where the left is not a subscript or dot access. */
 static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 {
-    int left_cls_id, opcode;
+    int can_optimize = 1, left_cls_id, opcode;
     lily_sym *left_sym, *right_sym;
     opcode = -1;
 
@@ -1785,6 +1791,11 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right, ast->left->result->type);
+
+    /* Don't optimize variants or assigning to an enum acts like it's an
+       assign by reference instead of by value. */
+    if (ast->right->result->type->cls->flags & CLS_IS_VARIANT)
+        can_optimize = 0;
 
     /* For 'var <name> = ...', fix the type. */
     if (ast->left->result->type == NULL)
@@ -1824,7 +1835,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     /* If assign can be optimized out, then rewrite the last result to point to
        the left side. */
-    if (assign_optimize_check(ast)) {
+    if (can_optimize && assign_optimize_check(ast)) {
         emit->code[emit->code_pos - ast->right->result_code_offset] =
                 left_sym->reg_spot;
     }

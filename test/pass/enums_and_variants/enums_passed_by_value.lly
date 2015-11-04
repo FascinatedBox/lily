@@ -1,0 +1,11 @@
+enum Option[A] { Some(A) None }
+
+define f(a: Option[integer])
+{
+    var v = [a]
+    a = Some(11)
+    if v[0] == Some(11):
+        stderr.write("Failed.\n")
+}
+
+var v: Option[integer] = Some(10)

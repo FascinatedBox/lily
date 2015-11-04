@@ -481,6 +481,9 @@ static void do_o_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
            The emitter won't know if, say, A is going to be 'any' or not, so it
            writes a box assign as a precaution. */
         lily_assign_value(lhs_reg, rhs_reg);
+    else if ((lhs_reg->flags & VAL_IS_NIL) == 0)
+        /* There is an existing value, so trample over it. */
+        lily_assign_value(lhs_reg->value.any->inner_value, rhs_reg);
     else {
         if ((rhs_reg->flags & VAL_IS_NOT_DEREFABLE) == 0)
             rhs_reg->value.generic->refcount++;
