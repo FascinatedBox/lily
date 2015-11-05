@@ -1,4 +1,0 @@
-enum Option[A] {
-	Some(A)
-	None
-}

@@ -1,8 +1,0 @@
-enum Option[A] { Some(A) None }
-
-class test {
-    var @v = None
-}
-
-var v = test::new()
-v.v = Some(1)

@@ -1,3 +1,0 @@
-import sys
-var s = sys::argv[0]
-var lst = sys::argv

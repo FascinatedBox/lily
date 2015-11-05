@@ -1,0 +1,31 @@
+define f {}
+
+# The call to f is to make sure classes don't always blindly inject self into
+# every call that is made.
+
+class One(a: integer) { var @a = a  f() }
+class Two(a: integer, b: string) < One(a) { var @b = b }
+class Three(a: integer, b: string, c: list[integer]) < Two(a, b) { var @c = c }
+
+define assign_to_better {
+    # The type is fixed by the first assignment, but assignments that have
+    # 'better', more capable types should succeed.
+    var v = One::new(1)
+    v = Two::new(1, "2")
+    v = Three::new(1, "2", [3])
+}
+
+define cast_to_base {
+    var v = Two::new(1, "2")
+    v.@(One)
+}
+
+define check_layout {
+    var v = Three::new(1, "2", [3])
+    if v.a != 1 || v.b != "2" || v.c != [3]:
+        stderr.write("Variables may have been laid out incorrectly.\n")
+}
+
+assign_to_better()
+cast_to_base()
+check_layout()

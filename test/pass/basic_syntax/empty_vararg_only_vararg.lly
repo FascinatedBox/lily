@@ -1,3 +1,0 @@
-define example(args: integer...) {    }
-
-example()

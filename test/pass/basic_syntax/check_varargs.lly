@@ -1,0 +1,7 @@
+define f(format: string, args: any...) {    }
+define g(args: integer...) { }
+
+f("abc")
+f("abc", 1, [2], "3")
+g()
+g(1)

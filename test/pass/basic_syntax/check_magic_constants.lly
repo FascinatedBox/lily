@@ -1,0 +1,16 @@
+
+
+if __line__ != 3:
+    stderr.write("__line__ is incorrect.\n")
+
+var v = {|| __file__ }
+
+if v() != __file__:
+    stderr.write("__file__ is wrong for lambdas.\n")
+
+define f {
+    if __function__ != "f":
+        stderr.write("__function__ is incorrect.\n")
+}
+
+f()

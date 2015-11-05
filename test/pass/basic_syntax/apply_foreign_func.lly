@@ -1,5 +1,0 @@
-var v = ["a", "b", "c"]
-v.apply(string::upper)
-
-if v != ["A", "B", "C"]:
-    stderr.write("Failed.\n")

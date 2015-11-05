@@ -1,8 +1,0 @@
-class example {
-    var @data: list[integer] = []
-    define add(v: integer) {
-        @data.append(v)
-    }
-
-    10 |> add
-}

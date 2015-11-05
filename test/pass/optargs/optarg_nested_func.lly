@@ -1,4 +1,0 @@
-define f {
-    define g(a: *integer=10) {
-    }
-}
