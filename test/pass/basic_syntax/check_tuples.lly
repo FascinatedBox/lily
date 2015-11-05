@@ -1,0 +1,30 @@
+# This test ensures that tuples are acting sanely.
+
+enum Option[A] {
+    Some(A)
+    None
+}
+
+var t: tuple[integer, string, list[integer]] = <[1, "1", [1]]>
+
+# Default to any should work.
+var t2: tuple[integer, integer, any] = <[11, 21, 31]>
+
+# ...as well as variant types.
+var t3: tuple[Option[integer], Option[double]] = <[Some(10), None]>
+var t4: tuple[any] = <[None]>
+
+# The interpreter should be able to figure the resulting type of this.
+var s = t[1].concat("1")
+
+t2[0] = 10
+t2[2] = 10
+t2[2] = "10"
+t2[2] = t2
+t2[2] = 1
+
+if t2[0] != 10:
+    stderr.write("Subscript failed.\n")
+
+if <[1, "2", [3]]> != <[1, "2", [3]]>:
+    stderr.write("Comparison failed.\n")

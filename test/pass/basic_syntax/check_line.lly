@@ -1,5 +1,0 @@
-
-
-
-if __line__ != 4:
-	stderr.write("Test failed.\n")

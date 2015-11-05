@@ -1,2 +1,0 @@
-if {|| __file__}() == "[lambda]":
-    stderr.write("Failed.\n")

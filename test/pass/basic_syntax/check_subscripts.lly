@@ -1,0 +1,24 @@
+if "abc"[0] != "a":
+    stderr.write("Basic string subscript failed.\n")
+
+if "abc"[-1] != "c":
+    stderr.write("String subscript with negative index failed.\n")
+
+var s = "Ā ā Ă ă Ą"
+
+if s[0] != "Ā" ||
+   s[1] != " " ||
+   s[2] != "ā" ||
+   s[3] != " " ||
+   s[4] != "Ă" ||
+   s[5] != " " ||
+   s[6] != "ă" ||
+   s[7] != " " ||
+   s[8] != "Ą":
+    stderr.write("String subscript with utf-8 failed.\n")
+
+if [1, 2, 3][0] != 1:
+    stderr.write("Basic list subscript failed.\n")
+
+if [1, 2, 3][-1] != 3:
+    stderr.write("List subscript with negative index failed.\n")

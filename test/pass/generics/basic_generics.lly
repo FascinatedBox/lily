@@ -1,0 +1,24 @@
+# This tests that variable arguments do not double-solve their inputs.
+define f[A, B, C, D, E, F](values: F...) {}
+define k[A](v1: A, v2: A) { f(v1, v2) }
+k(1, 2)
+
+define check_generics_inherited {
+    define a[A] {
+        define b(v1: A) {
+    
+        }
+    }
+}
+
+define check_any_default[A](a: A): any {
+    return a
+}
+
+define check_empty_list_assign[A](a: list[A]) {
+    a = []
+}
+
+define check_static_list_default[A](a: A, b: A): list[any] {
+    return [a, b]
+}

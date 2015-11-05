@@ -1,0 +1,2 @@
+# This should be seen as "1 + 1", not "1 +1".
+var v = 1+1

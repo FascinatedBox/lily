@@ -1,0 +1,13 @@
+enum Option[A] {
+    ::Some(A)
+    ::None
+}
+
+var v = [Option::Some(1), Option::None, Option::Some(2)]
+var check: Option[integer] = v[0]
+
+match check: {
+    case Some(s):
+    case None:
+        stderr.write("Check failed (Should be Option[integer])\n")
+}

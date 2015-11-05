@@ -1,0 +1,76 @@
+enum Option[A] {
+    Some(A)
+    None
+}
+
+class Test {
+    var @value = None
+}
+
+define check_assigning {
+    var v = Some(10)
+    v = None
+
+    var t = Test::new()
+    t.value = Some(1)
+}
+
+define check_variant_returning {
+    define a: Option[integer] { return Some(1) }
+    define b: Option[integer] { return None }
+}
+
+define check_defaulting {
+    var a: list[Option[any]] = [None, None, None]
+    var b: list[Option[integer]] = [Some(10), None, None]
+    var c: hash[integer, Option[integer]] = [1=>None, 2=>Some(10), 3=>Some(11)]
+}
+
+define check_any {
+    var a: any = Some(10)
+
+    if a != Some(10):
+        stderr.write("check_any: Incorrect value returned!\n")
+}
+
+define check_pass_by_value {
+    define f(a: Option[integer])
+    {
+        var v = [a]
+        a = Some(11)
+        if v[0] == Some(11):
+            stderr.write("Failed.\n")
+    }
+
+    var v: Option[integer] = Some(10)
+}
+
+define check_generic_calls {
+    define f[A](first: Option[A], second: Option[A]) {  }
+
+    f(None, None)
+    f(Some(10), Some(10))
+    f(Some("10"), None)
+    f(None, Some(10))
+}
+
+define check_varargs {
+    define f[A](values: Option[A]...) {  }
+
+    f(None, None, None)
+    f(None, Some(10), None)
+    f(Some(10), Some(10))
+}
+
+define check_nesting {
+    var t: Option[Option[integer]] = Some(Some(10))
+}
+
+check_assigning()
+check_variant_returning()
+check_defaulting()
+check_any()
+check_pass_by_value()
+check_generic_calls()
+check_varargs()
+check_nesting()

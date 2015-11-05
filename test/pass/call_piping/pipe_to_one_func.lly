@@ -1,7 +1,0 @@
-define f(x: integer)
-{
-    if x != 10:
-        stderr.write("Failed.\n")
-}
-
-10 |> f

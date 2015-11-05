@@ -1,5 +1,0 @@
-class aa {
-    define f {
-        show(1)
-    }
-}

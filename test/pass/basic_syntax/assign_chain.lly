@@ -1,33 +1,49 @@
-var ok = 1
 var a = 10
 var b = 20
 var c = 30
 var result = ""
 
 a = b = c
-if a != 30 || b != 30 || c != 30:
-    ok = 0
+if [a, b, c] != [30, 30, 30]:
+    stderr.write("Basic assign chain failed.\n")
 
 a = 10
 b = 20
 c = 30
 
 a *= b *= c
-if a != 6000 || b != 600 || c != 30:
-    ok = 0
+if [a, b, c] != [6000, 600, 30]:
+    stderr.write("Multiply assign chain failed.\n")
 
 a = 1000
 b = 100
 c = 10
 a /= b /= c
-if a != 100 || b != 10 || c != 10:
-    ok = 0
+if [a, b, c] != [100, 10, 10]:
+    stderr.write("Divide assign chain failed.\n")
 
 a = 10
 var d = [20]
 a += d[0] += a
 if a != 40 || d[0] != 30:
-    ok = 0
+    stderr.write("Subscript-using assign chain failed.\n")
 
-if ok == 0:
-    stderr.write("Failed.\n")
+class abc {
+    var @a = 1
+    var @b = 2
+    var @c = 3
+
+    @a = @b = @c
+    if [@a, @b, @c] != [3, 3, 3]:
+        stderr.write("Property assign chain failed.\n")
+
+}
+
+var v = abc::new()
+v.a = 1
+v.b = 2
+v.c = 3
+
+v.a = v.b = v.c
+if [v.a, v.b, v.c] != [3, 3, 3]:
+    stderr.write("Dot assign chain failed.\n")
