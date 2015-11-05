@@ -270,8 +270,7 @@ static int check_misc(lily_type_system *ts, lily_type *left, lily_type *right,
         for (i = 0;i < num_subtypes;i++) {
             lily_type *left_entry = left_subtypes[i];
             lily_type *right_entry = right_subtypes[i];
-            if (left_entry != right_entry &&
-                check_raw(ts, left_entry, right_entry, flags) == 0) {
+            if (check_raw(ts, left_entry, right_entry, flags) == 0) {
                 ret = 0;
                 break;
             }
