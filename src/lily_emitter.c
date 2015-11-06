@@ -523,13 +523,7 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
             break;
         }
         else if (storage_iter->type == type &&
-                 storage_iter->expr_num != expr_num &&
-                 (storage_iter->type->cls->flags &
-                    (CLS_IS_ENUM | CLS_IS_VARIANT)) == 0) {
-            /* Enums and variants (as well as any) are shallow containers. Don't
-               allow their re-use in the same function block because it can
-               cause really weird behavior (ex: Creating a new variant modifies
-               an existing var, without assignment). */
+                 storage_iter->expr_num != expr_num) {
             storage_iter->expr_num = expr_num;
             break;
         }
@@ -1796,11 +1790,6 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right, ast->left->result->type);
-
-    /* Don't optimize variants or assigning to an enum acts like it's an
-       assign by reference instead of by value. */
-    if (ast->right->result->type->cls->flags & CLS_IS_VARIANT)
-        can_optimize = 0;
 
     /* For 'var <name> = ...', fix the type. */
     if (ast->left->result->type == NULL)
