@@ -1886,7 +1886,6 @@ static void parse_multiline_block_body(lily_parse_state *, int);
 static void statement(lily_parse_state *parser, int multi)
 {
     int key_id;
-    lily_class *lclass;
     lily_lex_state *lex = parser->lex;
 
     do {
@@ -1900,19 +1899,8 @@ static void statement(lily_parse_state *parser, int multi)
                 handlers[key_id](parser, multi);
             }
             else {
-                lclass = lily_find_class(parser->symtab, NULL, lex->label);
-
-                if (lclass != NULL &&
-                    (lclass->flags & CLS_IS_VARIANT) == 0) {
-                    expression_static_call(parser, lclass);
-                    lily_lexer(lex);
-                    expression_raw(parser, ST_WANT_OPERATOR);
-                    lily_emit_eval_expr(parser->emit, parser->ast_pool);
-                }
-                else {
-                    expression(parser);
-                    lily_emit_eval_expr(parser->emit, parser->ast_pool);
-                }
+                expression(parser);
+                lily_emit_eval_expr(parser->emit, parser->ast_pool);
             }
         }
         else if (token == tk_integer || token == tk_double ||
