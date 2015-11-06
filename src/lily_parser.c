@@ -1112,6 +1112,12 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
     /* Begin by checking if this is a class member. If it's not, attempt a
        dynaload in case it's a method that hasn't been loaded yet. */
     lily_var *v = lily_find_method(cls, lex->label);
+
+    /* Make sure the method belongs to this class. This prevents accidentally
+       sending back a method of a parent class if there's a failure to match. */
+    if (v && v->parent != cls)
+        v = NULL;
+
     if (v == NULL)
         v = lily_parser_dynamic_load(parser, cls, lex->label);
 
@@ -1123,8 +1129,8 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
        other methods (like ::new) that do not take a class instance. */
     if (v == NULL && parser->emit->block->class_entry == cls) {
         v = lily_find_var(parser->symtab, NULL, lex->label);
-        if (v != NULL && v->parent != cls)
-            /* Ignore it, it doesn't belong to this class. */
+        if (v && v->parent != cls)
+            /* Same as before. */
             v = NULL;
     }
 

@@ -6,6 +6,9 @@ class Box[A](a: A)
 class BoxTwo[A, B](a: A, b: B) < Box(a)
 {
     var @b = b
+    define f {
+        BoxTwo::new(1, 2)
+    }
 }
 
 class Container[A](value: A) {
