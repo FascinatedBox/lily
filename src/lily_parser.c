@@ -1740,7 +1740,8 @@ static void parse_var(lily_parse_state *parser, int modifiers)
         expression(parser);
         lily_emit_eval_expr(parser->emit, parser->ast_pool);
 
-        if (want_token == tk_prop_word && sym->flags & TYPE_MAYBE_CIRCULAR)
+        if (want_token == tk_prop_word &&
+            sym->type->flags & TYPE_MAYBE_CIRCULAR)
             lily_tm_set_circular(parser->class_self_type->cls);
 
         token = lex->token;
