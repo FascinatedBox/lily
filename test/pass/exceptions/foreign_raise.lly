@@ -11,4 +11,4 @@ define f(a: integer) : integer
 }
 
 
-[1, 2, 3, 4].apply(f)
+[1, 2, 3, 4].map(f)
