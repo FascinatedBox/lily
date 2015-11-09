@@ -61,14 +61,14 @@
 <h1>Methods</h1>
 <p><code>list::append(self: list[A], value: A)</code></p>
 <p>Add an element to the list. If the list has the type <code>list[any]</code>, then any type can be appended to the list.</p>
-<p><code>list::apply(self: list[A], f: function(A =&gt; A))</code></p>
-<p>This replaces each element in the list with the result of calling <code>f</code> on that element.</p>
+<p><code>list::each(self: list[A], f: function(A)): list[A]</code></p>
+<p>This calls <code>f</code> once, using each element in the list. The result of this function is the list that was passed into it.</p>
 <p>Examples:</p>
-<pre><code># Value: [2, 4, 6]
-[1, 2, 3].apply{|a| a * a}
+<pre><code>[1, 2, 3].each{|a| printfmt(&quot;%d -- &quot;, a) }
+</code></pre>
 
-# Value: [&quot;za&quot;, &quot;zb&quot;, &quot;zc&quot;]
-[&quot;a&quot;, &quot;b&quot;, &quot;c&quot;].apply{|a| &quot;z&quot;.concat(a)}
+<p>Results in:</p>
+<pre><code>1 -- 2 -- 3 --
 </code></pre>
 
 <p><code>list::fill(n: integer, value: A =&gt; list[A])</code></p>

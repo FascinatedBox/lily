@@ -60,7 +60,7 @@
 <p>Comparison between Exception classes is done using deep equality. This is wrong, and will change.</p>
 <h1>Members</h1>
 <p><code>@traceback: list[string]</code></p>
-<p>This represents a single frame of traceback. If this frame comes from something in native Lily code, then it takes the form of <code>from &lt;filename&gt;:&lt;linenum&gt;: in &lt;function&gt;</code>. If it comes from foreign code (such as <code>list::apply</code>), then it takes the form of <code>from [C]: in &lt;function&gt;</code>.</p>
+<p>This represents a single frame of traceback. If this frame comes from something in native Lily code, then it takes the form of <code>from &lt;filename&gt;:&lt;linenum&gt;: in &lt;function&gt;</code>. If it comes from foreign code (such as <code>list::map</code>), then it takes the form of <code>from [C]: in &lt;function&gt;</code>.</p>
 <p><code>@message: string</code></p>
 <p>The exception error message.</p>
 <h1>Methods</h1>
