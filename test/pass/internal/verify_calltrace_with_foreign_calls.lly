@@ -7,13 +7,13 @@ define f(input: integer) : integer {
     return input
 }
 
-define apply(x: list[integer], g: function(integer => integer)) {
+define map(x: list[integer], g: function(integer => integer)) {
     g(x[0])
 }
 
 var v = [1]
 
-v.apply(f)
-apply(v, f)
-v.apply(f)
-apply(v, f)
+v.map(f)
+map(v, f)
+v.map(f)
+map(v, f)

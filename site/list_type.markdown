@@ -16,18 +16,20 @@ Lists compare using deep equality. Therefore `[1] == [1]` is `true`.
 Add an element to the list. If the list has the type `list[any]`, then any type can be appended to the list.
 
 
-`list::apply(self: list[A], f: function(A => A))`
+`list::each(self: list[A], f: function(A)): list[A]`
 
-This replaces each element in the list with the result of calling `f` on that element.
+This calls `f` once, using each element in the list. The result of this function is the list that was passed into it.
 
 Examples:
 
 ```
-# Value: [2, 4, 6]
-[1, 2, 3].apply{|a| a * a}
+[1, 2, 3].each{|a| printfmt("%d -- ", a) }
+```
 
-# Value: ["za", "zb", "zc"]
-["a", "b", "c"].apply{|a| "z".concat(a)}
+Results in:
+
+```
+1 -- 2 -- 3 --
 ```
 
 

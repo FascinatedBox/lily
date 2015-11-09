@@ -13,7 +13,7 @@ Comparison between Exception classes is done using deep equality. This is wrong,
 
 `@traceback: list[string]`
 
-This represents a single frame of traceback. If this frame comes from something in native Lily code, then it takes the form of `from <filename>:<linenum>: in <function>`. If it comes from foreign code (such as `list::apply`), then it takes the form of `from [C]: in <function>`.
+This represents a single frame of traceback. If this frame comes from something in native Lily code, then it takes the form of `from <filename>:<linenum>: in <function>`. If it comes from foreign code (such as `list::map`), then it takes the form of `from [C]: in <function>`.
 
 
 `@message: string`
