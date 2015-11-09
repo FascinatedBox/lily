@@ -4,10 +4,10 @@
 # Foreign calls forget to adjust for a function return dropping it, allowing
 # the depth to go into negatives.
 
-define my_apply(input: list[integer]) : list[integer]
+define f(input: list[integer]) : list[integer]
 {
-    input.apply{|i| i}
+    input.map{|i| i}
     return input
 }
 
-my_apply(my_apply([1, 2, 3]))
+f(f([1, 2, 3]))

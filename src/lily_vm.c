@@ -122,7 +122,7 @@ static void add_call_frame(lily_vm_state *);
     when a foreign function wants to call another foreign function such as
         ["a", "b", "c"].apply(string::upper)
 
-    The calling function (list::apply) has one register set aside for
+    The calling function (list::map) has one register set aside for
     string::upper's result. string::upper needs a value, and needs to return
     to somewhere.
 

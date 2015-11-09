@@ -180,18 +180,13 @@ void lily_list_append(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     list_val->num_values++;
 }
 
-/*  lily_list_apply
-    Implements list::apply
+/*  Implements list::each
 
-    Arguments:
-    * Input: A list to iterate over.
-    * Call:  A function to call for each element of the list.
-             This function takes the type of the list as an argument, and returns
-             a value of the type of the list.
-
-             If the list is type 'T'
-             then the call is 'function (T):T' */
-void lily_list_apply(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+    This function iterates over a list, calling a function on each element of
+    the list. The list that was sent to this function is returned at the end of
+    the call. The function called should not return a value, but that does not
+    prevent it from mutating the element. */
+void lily_list_each(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *list_reg = vm_regs[code[1]];
@@ -201,12 +196,11 @@ void lily_list_apply(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     int cached = 0;
 
     int i;
-    for (i = 0;i < list_val->num_values;i++) {
-        lily_value *result = lily_foreign_call(vm, &cached, expect_type,
-                function_reg, 1, list_val->elems[i]);
+    for (i = 0;i < list_val->num_values;i++)
+        lily_foreign_call(vm, &cached, expect_type, function_reg, 1,
+                list_val->elems[i]);
 
-        lily_assign_value(list_val->elems[i], result);
-    }
+    lily_assign_value(vm_regs[code[0]], list_reg);
 }
 
 /*  Implement list::fill
@@ -372,11 +366,11 @@ static lily_func_seed select_fn =
 static lily_func_seed fill =
     {&select_fn, "fill", dyna_function, "[A](integer, A):list[A]", lily_list_fill};
 
-static lily_func_seed apply =
-    {&fill, "apply", dyna_function, "[A](list[A], function(A => A))", lily_list_apply};
+static lily_func_seed each =
+    {&fill, "each", dyna_function, "[A](list[A], function(A)):list[A]", lily_list_each};
 
 static const lily_func_seed append =
-    {&apply, "append", dyna_function, "[A](list[A], A)", lily_list_append};
+    {&each, "append", dyna_function, "[A](list[A], A)", lily_list_append};
 
 static const lily_func_seed dynaload_start =
     {&append, "size", dyna_function, "[A](list[A]):integer", lily_list_size};
