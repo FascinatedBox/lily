@@ -3121,10 +3121,11 @@ static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *c
         lily_ts_check(emit->ts, get_expected_type(cs, 0), inject_type);
 
     if (cs->call_type->flags & TYPE_IS_UNRESOLVED) {
-        if (call_tt == tree_local_var || call_tt == tree_inherited_new) {
+        if (call_tt == tree_local_var || call_tt == tree_inherited_new ||
+            call_tt == tree_upvalue) {
             /* This forces each generic to be resolved as itself. (A = A, B = B,
                 etc.). This is really important.
-                tree_local_var:
+                tree_local_var + tree_upvalue:
                     define f[A](a: function (A => A), b: A)
                 If g is called, it can't resolve what A is. It gets that
                 information from f. I call this being 'quasi-solved'.
