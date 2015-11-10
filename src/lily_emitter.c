@@ -3094,26 +3094,18 @@ static lily_type *maybe_inject_first_value(lily_emit_state *emit,
     return result;
 }
 
-/*  check_call_args
-    eval_call uses this to make sure the types of all the arguments are right.
-
-    If the function takes varargs, the extra arguments are packed into a list
-    of the vararg type. */
-static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *cs,
-        lily_type *expect)
+/*  This is called after the beginning of a call, but before evaluating the
+    arguments for a call. It ensures that the target call has the right number
+    of arguments, and that the starting types are properly initialized.
+    This is not included in begin_call, because function pipes and normal calls
+    have different sources for their arguments. */
+static void validate_and_prep_call(lily_emit_state *emit,
+        lily_emit_call_state *cs, lily_type *expect, lily_tree_type call_tt,
+        int num_args)
 {
-    lily_ast *ast = cs->ast;
-    int num_args = ast->args_collected;
-    lily_tree_type call_tt = ast->arg_start->tree_type;
-
     lily_type *inject_type = maybe_inject_first_value(emit, cs);
 
-    /* ast->args_collected includes the first tree in that count. If the first
-       tree doesn't provide that value, then the argument count must be
-       adjusted. */
-    num_args -= (inject_type == NULL);
-
-    verify_argument_count(emit, cs, num_args);
+    verify_argument_count(emit, cs, num_args + (inject_type != NULL));
 
     /* Now that the argument count is known, and that there is a first type,
        use that first type to fill in generics. It shouldn't be wrong. */
@@ -3159,6 +3151,20 @@ static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *c
             }
         }
     }
+}
+
+/*  check_call_args
+    eval_call uses this to make sure the types of all the arguments are right.
+
+    If the function takes varargs, the extra arguments are packed into a list
+    of the vararg type. */
+static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *cs,
+        lily_type *expect)
+{
+    lily_ast *ast = cs->ast;
+
+    validate_and_prep_call(emit, cs, expect, ast->arg_start->tree_type,
+            ast->args_collected - 1);
 
     lily_ast *arg;
     for (arg = ast->arg_start->next_arg;arg != NULL;arg = arg->next_arg)
@@ -3469,14 +3475,7 @@ static void eval_func_pipe(lily_emit_state *emit, lily_ast *ast,
        and do all the other nice things needed. */
     lily_emit_call_state *cs = begin_call(emit, ast);
 
-    lily_type *first_type = maybe_inject_first_value(emit, cs);
-
-    verify_argument_count(emit, cs, 1 + (first_type != NULL));
-
-    if (first_type)
-        /* This ts check is done in case the first argument is supposed to solve
-           for any generics. It's unlikely to fail. */
-        lily_ts_check(emit->ts, get_expected_type(cs, 0), first_type);
+    validate_and_prep_call(emit, cs, expect, ast->right->tree_type, 1);
 
     eval_call_arg(emit, cs, ast->left);
 
