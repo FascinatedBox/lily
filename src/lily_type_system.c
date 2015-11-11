@@ -368,6 +368,17 @@ void lily_ts_resolve_as_question(lily_type_system *ts)
     }
 }
 
+int lily_ts_count_unsolved(lily_type_system *ts)
+{
+    int i, stop = ts->pos + ts->ceiling, unsolved = 0;
+    for (i = ts->pos;i < stop;i++) {
+        if (ts->types[i] == NULL || ts->types[i] == ts->question_class_type)
+            unsolved++;
+    }
+
+    return unsolved;
+}
+
 void lily_ts_resolve_as_any(lily_type_system *ts)
 {
     /* This isn't quite the same as lily_ts_resolve_with_question, because there

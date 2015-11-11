@@ -351,11 +351,14 @@ typedef struct lily_function_val_ {
 
     struct lily_value_ **upvalues;
 
+    /* If this function is a lambda that uses the type_block, then this is where
+       to start in that type block. */
+    uint16_t type_block_spot;
     /* Does this function contain generics? If so, they may need to be solved
        at vm-time when it's called. */
-    uint32_t has_generics;
+    uint16_t has_generics;
     /* This is how many registers that this function uses. */
-    uint32_t reg_count;
+    uint16_t reg_count;
     /* This is used to initialize registers when entering this function.  */
     struct lily_register_info_ *reg_info;
 } lily_function_val;

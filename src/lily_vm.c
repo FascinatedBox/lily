@@ -609,6 +609,17 @@ static void resolve_generic_registers(lily_vm_state *vm,
         lily_ts_pull_generics(vm->ts, left_type, right_type);
     }
 
+    if (fval->type_block_spot != 0) {
+        /* There are some variables in the closure with types that can
+           contribute toward the solving. */
+        lily_type **types = vm->type_block->types->data;
+        uint16_t *spots = vm->type_block->spots->data;
+        int i;
+
+        for (i = fval->type_block_spot - 1;types[i];i++)
+            lily_ts_pull_generics(vm->ts, types[i], fval->upvalues[spots[i]]->type);
+    }
+
     /* All generics now have types. The types of the rest of the registers
        can be calculated as the resolution of whatever the function says it
        really is. */

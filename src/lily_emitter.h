@@ -163,6 +163,11 @@ typedef struct lily_emit_call_state_ {
     uint16_t ts_adjust;
 } lily_emit_call_state;
 
+typedef struct lily_type_block_ {
+    lily_u16_buffer *spots;
+    lily_type_buffer *types;
+} lily_type_block;
+
 /* This is used by the emitter to do dynamic loads (ex: "abc".concat(...)). */
 struct lily_parse_state_t;
 
@@ -213,6 +218,8 @@ typedef struct {
     uint16_t match_case_pos;
 
     uint16_t match_case_size;
+
+    lily_type_block *type_block;
 
     /* The var that will receive the function value when the function block is
        done. */
