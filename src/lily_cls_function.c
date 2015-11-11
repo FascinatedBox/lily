@@ -17,6 +17,7 @@ lily_function_val *lily_new_foreign_function_val(lily_foreign_func func,
     f->gc_entry = NULL;
     f->reg_info = NULL;
     f->reg_count = -1;
+    f->type_block_spot = 0;
     f->has_generics = 0;
     return f;
 }
@@ -36,6 +37,7 @@ lily_function_val *lily_new_native_function_val(char *class_name,
     f->gc_entry = NULL;
     f->reg_info = NULL;
     f->reg_count = -1;
+    f->type_block_spot = 0;
     f->has_generics = 0;
     return f;
 }

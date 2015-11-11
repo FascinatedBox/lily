@@ -32,6 +32,7 @@ type lily_##name##_pop(lily_##name##_buffer *b) \
 }
 
 CREATE_BUFFER_FUNCTIONS_FOR(u16, uint16_t);
+CREATE_BUFFER_FUNCTIONS_FOR(type, lily_type *);
 
 /* Only int16_t needs this, so it's only for that type. */
 

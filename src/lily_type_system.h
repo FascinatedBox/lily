@@ -115,6 +115,8 @@ int lily_ts_enum_membership_check(lily_type_system *, lily_type *, lily_type *);
    how many were collected. max_seen may or may not be updated. */
 void lily_ts_generics_seen(lily_type_system *, int);
 
+int lily_ts_count_unsolved(lily_type_system *);
+
 /* Determine if the first class passed is either a base class or the same class
    as the second one. This doesn't take the ts because the information needed
    is within the classes themselves. */

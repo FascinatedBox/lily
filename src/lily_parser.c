@@ -162,6 +162,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->vm->ts = parser->emit->ts;
     parser->vm->vm_buffer = parser->raiser->msgbuf;
     parser->vm->parser = parser;
+    parser->vm->type_block = parser->emit->type_block;
 
     parser->symtab->lex_linenum = &parser->lex->line_num;
 
@@ -3144,6 +3145,9 @@ static void parser_loop(lily_parse_state *parser)
             }
 
             lily_prepare_main(parser->emit, parser->import_start);
+            /* The emitter's type_block is not always used, and thus is not
+               always allocated. Make sure the vm has it if it's needed. */
+            parser->vm->type_block = parser->emit->type_block;
             lily_vm_prep(parser->vm, parser->symtab);
 
             parser->executing = 1;

@@ -31,6 +31,8 @@ typedef struct lily_call_frame_ {
     struct lily_call_frame_ *next;
 } lily_call_frame;
 
+struct lily_type_block_;
+
 typedef struct lily_vm_catch_entry_ {
     lily_call_frame *call_frame;
     /* How far away vm->vm_regs (where the locals start) is from
@@ -116,7 +118,9 @@ typedef struct lily_vm_state_ {
        are full values which need types. */
     lily_type *traceback_type;
 
+    struct lily_type_block_ *type_block;
     struct lily_parse_state_ *parser;
+
     lily_msgbuf *vm_buffer;
 
     /* This is used as an intermediate storage, when the resulting size of a

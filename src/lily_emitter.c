@@ -52,6 +52,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->closed_syms = lily_malloc(sizeof(lily_sym *) * 4);
     emit->transform_table = NULL;
     emit->transform_size = 0;
+    emit->type_block = NULL;
 
     /* This uses any's type as a special default, so it needs that cached. */
     emit->tm->any_class_type = symtab->any_class->type;
@@ -124,6 +125,11 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free(emit->call_values);
     lily_free_type_system(emit->ts);
     lily_free(emit->match_cases);
+    if (emit->type_block) {
+        lily_free_buffer(emit->type_block->types);
+        lily_free_buffer(emit->type_block->spots);
+        lily_free(emit->type_block);
+    }
     lily_free_buffer(emit->patches);
     lily_free(emit->code);
     lily_free(emit);
@@ -1019,6 +1025,93 @@ static void write_closure_zap(lily_emit_state *emit)
     emit->code[spot] = count;
 }
 
+/*  This is called on a type that is not solveable with the current generics
+    info. It will continually pull upvalues down until it has the types needed
+    to solve the type given. */
+static void ensure_solveable_type(lily_emit_state *emit, lily_type *t)
+{
+    int i, num_unsolved;
+
+    num_unsolved = lily_ts_count_unsolved(emit->ts);
+
+    for (i = 0;i < emit->closed_pos;i++) {
+        lily_sym *s = emit->closed_syms[i];
+        if (s && s->type->flags & TYPE_IS_UNRESOLVED) {
+            lily_ts_check(emit->ts, s->type, s->type);
+            if (num_unsolved != lily_ts_count_unsolved(emit->ts)) {
+                if (emit->type_block == NULL) {
+                    emit->type_block = lily_malloc(sizeof(lily_type_block));
+                    emit->type_block->spots = lily_new_u16(4);
+                    emit->type_block->types = lily_new_type(4);
+                }
+                lily_u16_push(emit->type_block->spots, i);
+                lily_type_push(emit->type_block->types, s->type);
+                lily_type *solved_t = lily_ts_resolve(emit->ts, t);
+                if ((solved_t->flags & TYPE_IS_INCOMPLETE) == 0)
+                    break;
+            }
+        }
+    }
+}
+
+/*  Lambdas, unlike normal define blocks, are able to receive generic types from
+    another scope. It's therefore possible for a lambda to have a storage that
+    uses a generic type not within the lambda's scope. This causes a problem,
+    because Lily solves register types at runtime, and needs to know what types
+    the registers will have ahead of time.
+
+    The current solution to this is to look through the lambda's storages and
+    vars to see if there are any types which are going to be unknown. When an
+    unknown type is found, it's located within the current upvalues. The
+    original type is saved, as well as where within the closure that the given
+    value lives. This information is then later saved so that runtime register
+    resolve can use it. */
+static void maybe_setup_type_block_for(lily_emit_state *emit,
+        lily_type *func_type, lily_function_val *f)
+{
+    int adjust = lily_ts_raise_ceiling(emit->ts);
+
+    /* The simplest way to do this is to have a type just solve as itself. */
+    if (func_type->flags & TYPE_IS_UNRESOLVED)
+        lily_ts_check(emit->ts, func_type, func_type);
+
+    int start_pos = (emit->type_block) ? emit->type_block->types->pos : 0;
+    lily_block *block = emit->function_block;
+    lily_var *var_iter = emit->symtab->active_import->var_chain;
+    lily_type *question_type = emit->ts->question_class_type;
+
+    while (var_iter != block->var_start) {
+        if (var_iter->type->flags & TYPE_IS_UNRESOLVED) {
+            lily_type *t = lily_ts_resolve_with(emit->ts, var_iter->type,
+                    question_type);
+            if (t->flags & TYPE_IS_INCOMPLETE)
+                ensure_solveable_type(emit, var_iter->type);
+        }
+        var_iter = var_iter->next;
+    }
+
+    lily_storage *storage_iter = block->storage_start;
+    while (storage_iter) {
+        if (storage_iter->type &&
+            storage_iter->type->flags & TYPE_IS_UNRESOLVED) {
+            lily_type *t = lily_ts_resolve_with(emit->ts, storage_iter->type,
+                    question_type);
+            if (t->flags & TYPE_IS_INCOMPLETE)
+                ensure_solveable_type(emit, storage_iter->type);
+        }
+        storage_iter = storage_iter->next;
+    }
+
+    if (emit->type_block && emit->type_block->types->pos != start_pos) {
+        lily_type_push(emit->type_block->types, NULL);
+        lily_u16_push(emit->type_block->spots, 0);
+        /* Using spot + 1 allows 0 to be seen as an invalid index. */
+        f->type_block_spot = start_pos + 1;
+    }
+
+    lily_ts_lower_ceiling(emit->ts, adjust);
+}
+
 /* This function is called to transform the currently available segment of code
    (emit->block->code_start up to emit->code_pos) into code that will work for
    closures.
@@ -1168,6 +1261,9 @@ static lily_function_val *create_code_block_for(lily_emit_state *emit,
 
     if (var->type->flags & TYPE_IS_UNRESOLVED)
         f->has_generics = 1;
+
+    if (function_block->block_type == block_lambda)
+        maybe_setup_type_block_for(emit, var->type, f);
 
     lily_tie_function(emit->symtab, var, f);
 
@@ -3412,10 +3508,6 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         lily_ast *variant_tree = ast->arg_start;
         lily_class *variant_cls = variant_tree->variant;
         lily_type *variant_type = variant_cls->variant_type;
-
-        /* This is necessary because ast->item is used for retrieving info if
-           there is an error. */
-        ast->item = (lily_item *)variant_cls;
 
         if (variant_type->subtype_count == 1)
             lily_raise(emit->raiser, lily_SyntaxError,
