@@ -71,6 +71,9 @@
 <pre><code>1 -- 2 -- 3 --
 </code></pre>
 
+<p><code>list::each_index(self: list[A], f: function(integer)): list[A]</code></p>
+<p>This is similar to <code>list::each</code>, except that the function receives the index (from 0) of elements within the list.</p>
+<p>The result of this function is the list that was passed into it.</p>
 <p><code>list::fill(n: integer, value: A =&gt; list[A])</code></p>
 <p>This creates a new list, based on <code>value</code> being repeated <code>n</code> times.</p>
 <p>If <code>n</code> is less than zero, then <code>ValueError</code> is raised.</p>
