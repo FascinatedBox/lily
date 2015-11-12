@@ -234,6 +234,7 @@ void lily_list_each(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value *function_reg = vm_regs[code[2]];
     lily_list_val *list_val = list_reg->value.list;
     lily_type *expect_type = list_reg->type->subtypes[0];
+    lily_value *result_reg = vm_regs[code[0]];
     int cached = 0;
 
     int i;
@@ -241,7 +242,7 @@ void lily_list_each(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         lily_foreign_call(vm, &cached, expect_type, function_reg, 1,
                 list_val->elems[i]);
 
-    lily_assign_value(vm_regs[code[0]], list_reg);
+    lily_assign_value(result_reg, list_reg);
 }
 
 /*  Implement list::fill

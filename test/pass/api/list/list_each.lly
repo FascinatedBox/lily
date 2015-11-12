@@ -1,0 +1,10 @@
+var v = [1, 2, 3, 4, 5]
+var temp: list[integer] = []
+
+v.each{|e| temp.append(e) }
+
+if temp != [1, 2, 3, 4, 5]:
+    stderr.write("Failed.\n")
+
+if v.each{|e| true} != v:
+    stderr.write("Failed.\n")
