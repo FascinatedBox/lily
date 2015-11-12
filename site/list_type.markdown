@@ -33,6 +33,19 @@ Results in:
 Removes all elements from the list.
 
 
+`list::count(self: list[A], f: function(A => boolean)): integer`
+
+This calls `f` on each element of the list. The result is a count of how many times the predicate function `f` returned true.
+
+Examples:
+
+```
+[1, 2, 3, 4].count{|a| a % 2 == 0} # 2
+
+["abc", "def", "ghi"].count{|v| v.startswith("z") } # 0
+```
+
+
 `list::each_index(self: list[A], f: function(integer)): list[A]`
 
 This is similar to `list::each`, except that the function receives the index (from 0) of elements within the list.

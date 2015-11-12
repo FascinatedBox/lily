@@ -387,6 +387,34 @@ static void list_select_reject_common(lily_vm_state *vm, uint16_t argc,
     slice_vm_list(vm, vm_list_start, result_reg);
 }
 
+/*  Implements list::count
+
+    This takes a predicate function, and calls it using each element of the
+    list. The result is a count of how many times the predicate function
+    returns true. */
+void lily_list_count(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *result_reg = vm->vm_regs[code[0]];
+    lily_list_val *list_val = vm_regs[code[1]]->value.list;
+    lily_value *function_reg = vm_regs[code[2]];
+    lily_type *expect_type = function_reg->type->subtypes[0];
+    int count = 0;
+
+    int cached = 0;
+
+    int i;
+    for (i = 0;i < list_val->num_values;i++) {
+        lily_value *result = lily_foreign_call(vm, &cached, expect_type,
+                function_reg, 1, list_val->elems[i]);
+
+        if (result->value.integer == 1)
+            count++;
+    }
+
+    lily_move_raw_value(result_reg, (lily_raw_value){.integer = count});
+}
+
 /*  Implements list::select
 
     Create a new list where all members of a list satisfy some predicate.
@@ -440,8 +468,11 @@ void lily_list_map(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     slice_vm_list(vm, vm_list_start, result_reg);
 }
 
+static lily_func_seed count =
+    {NULL, "count", dyna_function, "[A](list[A], function(A => boolean)):integer", lily_list_count};
+
 static lily_func_seed clear =
-    {NULL, "clear", dyna_function, "[A](list[A])", lily_list_clear};
+    {&count, "clear", dyna_function, "[A](list[A])", lily_list_clear};
 
 static lily_func_seed pop =
     {&clear, "pop", dyna_function, "[A](list[A]):A", lily_list_pop};
