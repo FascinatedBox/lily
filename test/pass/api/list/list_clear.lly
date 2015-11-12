@@ -1,0 +1,11 @@
+var v = [1, 2, 3]
+v.clear()
+
+if v.size() != 0:
+    stderr.write("Failed.\n")
+
+var v2 = [1, 2.0, "3", [4]]
+v2.clear()
+
+if v2.size() != 0:
+    stderr.write("Failed.\n")

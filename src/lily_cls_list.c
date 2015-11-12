@@ -221,6 +221,23 @@ void lily_list_pop(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     list_val->extra_space++;
 }
 
+/*  Implements list::clear
+    This clears all the elements out of the list. */
+void lily_list_clear(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_list_val *list_val = vm_regs[code[1]]->value.list;
+    int i;
+
+    for (i = 0;i < list_val->num_values;i++) {
+        lily_deref(list_val->elems[i]);
+        lily_free(list_val->elems[i]);
+    }
+
+    list_val->extra_space += list_val->num_values;
+    list_val->num_values = 0;
+}
+
 /*  Implements list::each
 
     This function iterates over a list, calling a function on each element of
@@ -423,8 +440,11 @@ void lily_list_map(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     slice_vm_list(vm, vm_list_start, result_reg);
 }
 
+static lily_func_seed clear =
+    {NULL, "clear", dyna_function, "[A](list[A])", lily_list_clear};
+
 static lily_func_seed pop =
-    {NULL, "pop", dyna_function, "[A](list[A]):A", lily_list_pop};
+    {&clear, "pop", dyna_function, "[A](list[A]):A", lily_list_pop};
 
 static lily_func_seed map =
     {&pop, "map", dyna_function, "[A,B](list[A], function(A => B)):list[B]", lily_list_map};
