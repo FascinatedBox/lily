@@ -28,6 +28,11 @@ Results in:
 ```
 
 
+`list::clear(self: list[A])`
+
+Removes all elements from the list.
+
+
 `list::each_index(self: list[A], f: function(integer)): list[A]`
 
 This is similar to `list::each`, except that the function receives the index (from 0) of elements within the list.
