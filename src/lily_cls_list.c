@@ -195,6 +195,32 @@ void lily_list_append(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     list_val->extra_space--;
 }
 
+/*  Implements list::pop
+
+    This function attempts to take the last element out of the list and return
+    it. If the list is empty, then IndexError is raised. */
+void lily_list_pop(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_list_val *list_val = vm_regs[code[1]]->value.list;
+    lily_value *result_reg = vm_regs[code[0]];
+
+    if (list_val->num_values == 0)
+        lily_raise(vm->raiser, lily_IndexError, "Pop from an empty list.\n");
+
+    /* Do not use assign here: It will increase the refcount, and the element is
+       no longer in the list. Instead, use move and pretend the value does not
+       exist in the list any longer. */
+    lily_move_raw_value(result_reg,
+        list_val->elems[list_val->num_values - 1]->value);
+
+    /* For now, free extra values instead of trying to keep reserves around.
+       Not the best course of action, perhaps, but certainly the simplest. */
+    lily_free(list_val->elems[list_val->num_values - 1]);
+    list_val->num_values--;
+    list_val->extra_space++;
+}
+
 /*  Implements list::each
 
     This function iterates over a list, calling a function on each element of
@@ -369,8 +395,11 @@ void lily_list_map(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     slice_vm_list(vm, vm_list_start, result_reg);
 }
 
+static lily_func_seed pop =
+    {NULL, "pop", dyna_function, "[A](list[A]):A", lily_list_pop};
+
 static lily_func_seed map =
-    {NULL, "map", dyna_function, "[A,B](list[A], function(A => B)):list[B]", lily_list_map};
+    {&pop, "map", dyna_function, "[A,B](list[A], function(A => B)):list[B]", lily_list_map};
 
 static lily_func_seed reject =
     {&map, "reject", dyna_function, "[A](list[A], function(A => boolean)):list[A]", lily_list_reject};

@@ -40,6 +40,13 @@ This creates a new list, based on `value` being repeated `n` times.
 If `n` is less than zero, then `ValueError` is raised.
 
 
+`list::pop(self: list[A]):A`
+
+Takes the top-most element of the list out, and returns it.
+
+If the list is empty, then IndexError is raised.
+
+
 `list::reject(self: list[A], f: function(A => boolean)) : list[A]`
 
 Returns a list of all elements in `self` for which the predicate `f` returns `false`.
