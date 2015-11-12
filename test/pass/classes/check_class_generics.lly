@@ -22,4 +22,4 @@ var v2 = BoxTwo::new([10], "20")
 var check: integer = v2.a[0]
 
 var c: Container[integer] = Container::new(10)
-c.v.append(10)
+c.v.push(10)

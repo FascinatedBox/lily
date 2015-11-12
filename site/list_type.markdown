@@ -11,11 +11,6 @@ Lists compare using deep equality. Therefore `[1] == [1]` is `true`.
 
 # Methods
 
-`list::append(self: list[A], value: A)`
-
-Add an element to the list. If the list has the type `list[any]`, then any type can be appended to the list.
-
-
 `list::each(self: list[A], f: function(A)): list[A]`
 
 This calls `f` once, using each element in the list. The result of this function is the list that was passed into it.
@@ -52,6 +47,11 @@ If `n` is less than zero, then `ValueError` is raised.
 Takes the top-most element of the list out, and returns it.
 
 If the list is empty, then IndexError is raised.
+
+
+`list::push(self: list[A], value: A)`
+
+Add an element to the list. If the list has the type `list[any]`, then any type can be pushed to the list.
 
 
 `list::reject(self: list[A], f: function(A => boolean)) : list[A]`

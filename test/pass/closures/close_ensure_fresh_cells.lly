@@ -2,7 +2,7 @@ define f : list[list[integer]] {
     define g : tuple[function(), function( => list[integer])] {
         var v: list[integer] = [0]
         define h {
-            v.append(v[-1] + 1)
+            v.push(v[-1] + 1)
         }
         define i : list[integer] {
             return v

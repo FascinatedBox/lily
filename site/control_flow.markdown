@@ -46,7 +46,7 @@ var i = 10
 var a = []
 
 while i > 0:
-    a.append(i)
+    a.push(i)
 ```
 
 Both `break` and `continue` 
@@ -76,7 +76,7 @@ By default, Lily will choose a step that goes in the appropriate direction: Eith
 var i = 0
 var a = []
 for i in 0...10:
-    a.append(i)
+    a.push(i)
 
 printfmt("i is now %d.\n", i)
 ```

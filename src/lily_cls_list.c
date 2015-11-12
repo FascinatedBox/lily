@@ -179,7 +179,7 @@ static void make_extra_space_in_list(lily_list_val *lv)
     lv->extra_space = extra;
 }
 
-void lily_list_append(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_list_push(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_list_val *list_val = vm_regs[code[1]]->value.list;
@@ -444,11 +444,11 @@ static lily_func_seed each_index =
 static lily_func_seed each =
     {&each_index, "each", dyna_function, "[A](list[A], function(A)):list[A]", lily_list_each};
 
-static const lily_func_seed append =
-    {&each, "append", dyna_function, "[A](list[A], A)", lily_list_append};
+static const lily_func_seed push =
+    {&each, "push", dyna_function, "[A](list[A], A)", lily_list_push};
 
 static const lily_func_seed dynaload_start =
-    {&append, "size", dyna_function, "[A](list[A]):integer", lily_list_size};
+    {&push, "size", dyna_function, "[A](list[A]):integer", lily_list_size};
 
 static const lily_class_seed list_seed =
 {

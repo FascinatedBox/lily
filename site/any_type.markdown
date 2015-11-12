@@ -7,7 +7,7 @@ Plain values of type any can only be created by annotating a variable before ass
 
 To recover values from type any, it is necessary to do a typecast like so: `some_any.@(integer)`. If this typecast happens to be incorrect, Lily will raise `BadTypecastError`.
 
-If a function parameter specifies type any, then parameters sent to it will be coerced into type any automatically. However, if the function takes, say, `list[any]` and is given `list[integer]`, that is a syntax error (it cannot be guaranteed that the function will not append in type any into the list of integers).
+If a function parameter specifies type any, then parameters sent to it will be coerced into type any automatically. However, if the function takes, say, `list[any]` and is given `list[integer]`, that is a syntax error (it cannot be guaranteed that the function will not push in type any into the list of integers).
 
 # Operations
 

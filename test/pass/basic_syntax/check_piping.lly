@@ -27,11 +27,11 @@ var v: list[integer] = []
 
 define h(input: integer) : integer
 {
-    v.append(input)
+    v.push(input)
     return input
 }
 
-h(4) |> [h(1), h(2), h(3)].append
+h(4) |> [h(1), h(2), h(3)].push
 
 if v != [1, 2, 3, 4]:
     stderr.write("Order of operations failed.\n")

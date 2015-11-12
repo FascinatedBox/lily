@@ -1,7 +1,7 @@
 var v = [3, 2, 1]
 var values: list[integer] = []
 
-v.each_index{|i| values.append(i) }
+v.each_index{|i| values.push(i) }
 
 if values != [0, 1, 2]:
     stderr.write("Failed.\n")

@@ -5,7 +5,7 @@ define wrap(x: integer) : function( => integer) {
 var l: list[function( => integer)] = []
 
 for i in 0...5:
-    l.append(wrap(i))
+    l.push(wrap(i))
 
 if [l[0](), l[1](), l[2](), l[3](), l[4]()] != [0, 1, 4, 9, 16]:
     stderr.write("Failed.\n")
