@@ -33,6 +33,13 @@ Results in:
 ```
 
 
+`list::each_index(self: list[A], f: function(integer)): list[A]`
+
+This is similar to `list::each`, except that the function receives the index (from 0) of elements within the list.
+
+The result of this function is the list that was passed into it.
+
+
 `list::fill(n: integer, value: A => list[A])`
 
 This creates a new list, based on `value` being repeated `n` times.

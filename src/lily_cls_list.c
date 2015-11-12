@@ -245,6 +245,33 @@ void lily_list_each(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_assign_value(result_reg, list_reg);
 }
 
+/*  Implements list::each_index
+
+    This is similar to list::each, except that the calling function receives the
+    index instead of the element. */
+void lily_list_each_index(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *list_reg = vm_regs[code[1]];
+    lily_value *function_reg = vm_regs[code[2]];
+    lily_list_val *list_val = list_reg->value.list;
+    lily_value *result_reg = vm_regs[code[0]];
+    lily_value fake_reg;
+
+    fake_reg.value.integer = 0;
+    /* [1] is the first input of the function. This grabs the integer type. */
+    fake_reg.type = function_reg->type->subtypes[1];
+    fake_reg.flags = VAL_IS_PRIMITIVE;
+
+    int cached = 0;
+
+    int i;
+    for (i = 0;i < list_val->num_values;i++, fake_reg.value.integer++)
+        lily_foreign_call(vm, &cached, NULL, function_reg, 1, &fake_reg);
+
+    lily_assign_value(result_reg, list_reg);
+}
+
 /*  Implement list::fill
 
     Create a new list with a given value repeated 'n' times.
@@ -411,8 +438,11 @@ static lily_func_seed select_fn =
 static lily_func_seed fill =
     {&select_fn, "fill", dyna_function, "[A](integer, A):list[A]", lily_list_fill};
 
+static lily_func_seed each_index =
+    {&fill, "each_index", dyna_function, "[A](list[A], function(integer)):list[A]", lily_list_each_index};
+
 static lily_func_seed each =
-    {&fill, "each", dyna_function, "[A](list[A], function(A)):list[A]", lily_list_each};
+    {&each_index, "each", dyna_function, "[A](list[A], function(A)):list[A]", lily_list_each};
 
 static const lily_func_seed append =
     {&each, "append", dyna_function, "[A](list[A], A)", lily_list_append};
