@@ -74,7 +74,7 @@
 <p><code>w</code> : Open file for writing. If another file with the same name exists, the old one is erased.</p>
 </li>
 <li>
-<p><code>a</code> : Writing operations will append data to the file. The file is created if it does not exist.</p>
+<p><code>a</code> : Writing operations will push data to the file. The file is created if it does not exist.</p>
 </li>
 <li>
 <p><code>r+</code> : Opens the file for both reading and writing. It must exist.</p>
@@ -83,7 +83,7 @@
 <p><code>w+</code> : Creates an empty file for both reading and writing.</p>
 </li>
 <li>
-<p><code>a+</code> : Opens a file for reading and appending.</p>
+<p><code>a+</code> : Opens a file for reading and pushing.</p>
 </li>
 </ul>
 <p>If the file cannot be open, or the mode does not start with one of <code>arw</code>, then IOError is raised.</p>

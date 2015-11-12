@@ -57,7 +57,7 @@
 <p>The any type is a container that allows any value to be placed inside of itself. It is commonly used as a fallback type, such as when trying to build a list or a hash where the values are of mixed types.</p>
 <p>Plain values of type any can only be created by annotating a variable before assigning it <code>var some_any: any = 10</code>.</p>
 <p>To recover values from type any, it is necessary to do a typecast like so: <code>some_any.@(integer)</code>. If this typecast happens to be incorrect, Lily will raise <code>BadTypecastError</code>.</p>
-<p>If a function parameter specifies type any, then parameters sent to it will be coerced into type any automatically. However, if the function takes, say, <code>list[any]</code> and is given <code>list[integer]</code>, that is a syntax error (it cannot be guaranteed that the function will not append in type any into the list of integers).</p>
+<p>If a function parameter specifies type any, then parameters sent to it will be coerced into type any automatically. However, if the function takes, say, <code>list[any]</code> and is given <code>list[integer]</code>, that is a syntax error (it cannot be guaranteed that the function will not push in type any into the list of integers).</p>
 <h1>Operations</h1>
 <p>Binary: <code>!=</code> <code>==</code></p>
 <p>any equality is done by deep equality. If a value of type any contains a circular reference, then a comparison will raise <code>RuntimeError</code>.</p>

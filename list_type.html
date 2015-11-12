@@ -59,8 +59,6 @@
 <p>Binary: <code>!=</code> <code>==</code></p>
 <p>Lists compare using deep equality. Therefore <code>[1] == [1]</code> is <code>true</code>.</p>
 <h1>Methods</h1>
-<p><code>list::append(self: list[A], value: A)</code></p>
-<p>Add an element to the list. If the list has the type <code>list[any]</code>, then any type can be appended to the list.</p>
 <p><code>list::each(self: list[A], f: function(A)): list[A]</code></p>
 <p>This calls <code>f</code> once, using each element in the list. The result of this function is the list that was passed into it.</p>
 <p>Examples:</p>
@@ -80,6 +78,8 @@
 <p><code>list::pop(self: list[A]):A</code></p>
 <p>Takes the top-most element of the list out, and returns it.</p>
 <p>If the list is empty, then IndexError is raised.</p>
+<p><code>list::push(self: list[A], value: A)</code></p>
+<p>Add an element to the list. If the list has the type <code>list[any]</code>, then any type can be pushed to the list.</p>
 <p><code>list::reject(self: list[A], f: function(A =&gt; boolean)) : list[A]</code></p>
 <p>Returns a list of all elements in <code>self</code> for which the predicate <code>f</code> returns <code>false</code>.</p>
 <p>Examples:</p>

@@ -81,26 +81,26 @@ show_elements([1, 2, 3])
 show_elements([1, &quot;2&quot;, [3]])
 </code></pre>
 
-<p>A more interesting example can be found in the list::append function. This is defined as <code>function(list[A], A)</code>. That type is what is used to prevent elements of the wrong type from being added to a list. Here are some examples of it:</p>
+<p>A more interesting example can be found in the list::push function. This is defined as <code>function(list[A], A)</code>. That type is what is used to prevent elements of the wrong type from being added to a list. Here are some examples of it:</p>
 <pre><code>var int_list = [1, 2, 3]
 
 # Expected list[A], and A.
 # Received list[integer], and integer.
 # Valid: A is always integer.
-int_list.append(4)
+int_list.push(4)
 
 var tuple_list = [&lt;[1, [2], &quot;3&quot;]&gt;]
 
 # Still valid, like above.
-tuple_list.append(&lt;[7, [8, 9], &quot;10&quot;]&gt;)
+tuple_list.push(&lt;[7, [8, 9], &quot;10&quot;]&gt;)
 
 # Since there is nothing to infer from, this defaults to `list[any]`
 var any_list = []
 
 # These are not type any, but 'default to any' comes before type checking.
 # Both of these will work.
-any_list.append(10)
-any_list.append(&quot;20&quot;)
+any_list.push(10)
+any_list.push(&quot;20&quot;)
 </code></pre>
 
 <p>Generics can also be used as a means to transform values from one type to another</p>
