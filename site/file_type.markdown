@@ -32,12 +32,12 @@ Mode can be:
 
 * `w` : Open file for writing. If another file with the same name exists, the old one is erased.
 
-* `a` : Writing operations will append data to the file. The file is created if it does not exist.
+* `a` : Writing operations will push data to the file. The file is created if it does not exist.
 
 * `r+` : Opens the file for both reading and writing. It must exist.
 
 * `w+` : Creates an empty file for both reading and writing.
 
-* `a+` : Opens a file for reading and appending.
+* `a+` : Opens a file for reading and pushing.
 
 If the file cannot be open, or the mode does not start with one of `arw`, then IOError is raised.
