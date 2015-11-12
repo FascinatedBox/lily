@@ -74,6 +74,9 @@
 <p><code>list::fill(n: integer, value: A =&gt; list[A])</code></p>
 <p>This creates a new list, based on <code>value</code> being repeated <code>n</code> times.</p>
 <p>If <code>n</code> is less than zero, then <code>ValueError</code> is raised.</p>
+<p><code>list::pop(self: list[A]):A</code></p>
+<p>Takes the top-most element of the list out, and returns it.</p>
+<p>If the list is empty, then IndexError is raised.</p>
 <p><code>list::reject(self: list[A], f: function(A =&gt; boolean)) : list[A]</code></p>
 <p>Returns a list of all elements in <code>self</code> for which the predicate <code>f</code> returns <code>false</code>.</p>
 <p>Examples:</p>
