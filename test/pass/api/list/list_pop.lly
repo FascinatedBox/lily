@@ -1,0 +1,9 @@
+if [1].pop() != 1:
+    stderr.write("Failed.\n")
+
+try: {
+    [].pop()
+    stderr.write("Failed.\n")
+except IndexError:
+    1
+}
