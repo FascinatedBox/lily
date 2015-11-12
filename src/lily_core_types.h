@@ -255,10 +255,12 @@ typedef struct lily_any_val_ {
    list/tuple can become circular. */
 typedef struct lily_list_val_ {
     uint32_t refcount;
-    uint32_t pad;
+    uint32_t iter_count;
     struct lily_gc_entry_ *gc_entry;
     struct lily_value_ **elems;
     uint32_t num_values;
+    uint32_t extra_space;
+    uint32_t pad;
     /* visited is used by lily_debug to make sure that it doesn't enter an
        infinite loop when trying to print info. */
     uint32_t visited;

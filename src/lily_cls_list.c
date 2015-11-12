@@ -11,6 +11,8 @@ lily_list_val *lily_new_list_val()
     lv->elems = NULL;
     lv->num_values = -1;
     lv->visited = 0;
+    lv->iter_count = 0;
+    lv->extra_space = 0;
 
     return lv;
 }
@@ -166,18 +168,31 @@ void lily_list_size(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(ret_reg, v);
 }
 
+/* This expands the list value so there's more extra space. Growth is done
+   relative to the current size of the list, because why not? */
+static void make_extra_space_in_list(lily_list_val *lv)
+{
+    /* There's probably room for improvement here, later on. */
+    int extra = (lv->num_values + 8) >> 2;
+    lv->elems = lily_realloc(lv->elems,
+            (lv->num_values + extra) * sizeof(lily_value *));
+    lv->extra_space = extra;
+}
+
 void lily_list_append(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_list_val *list_val = vm_regs[code[1]]->value.list;
     lily_value *insert_value = vm_regs[code[2]];
 
+    if (list_val->extra_space == 0)
+        make_extra_space_in_list(list_val);
+
     int value_count = list_val->num_values;
 
-    list_val->elems = lily_realloc(list_val->elems,
-        (value_count + 1) * sizeof(lily_value *));;
     list_val->elems[value_count] = lily_copy_value(insert_value);
     list_val->num_values++;
+    list_val->extra_space--;
 }
 
 /*  Implements list::each
