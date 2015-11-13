@@ -102,6 +102,24 @@ Examples:
 ```
 
 
+`list::shift(self: list[A]): A`
+
+This takes the first element from the list and returns it.
+
+If the list is empty, then IndexError is raised.
+
+Examples:
+
+```
+var values = [10, 20, 30]
+
+values.shift() # 10
+values.size() # 2
+
+values == [20, 30] # true
+```
+
+
 `list::size(self: list[A]) : integer`
 
 Returns the number of elements that are contained within `self`. This can be used in conjunction with a for loop as follows:
