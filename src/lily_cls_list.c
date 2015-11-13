@@ -523,6 +523,32 @@ void lily_list_unshift(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     list_val->extra_space--;
 }
 
+/*  Implements list::fold
+
+    This function combines all of the elements in a list using a given function.
+    The function will take two elements: One, the accumulated value so far, and
+    two, the next element in the list. The placement of the accumulated value is
+    intentional (Scala also places the accumulated value first). */
+void lily_list_fold(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *result_reg = vm->vm_regs[code[0]];
+    lily_list_val *list_val = vm_regs[code[1]]->value.list;
+    lily_value *starting_reg = vm_regs[code[2]];
+    lily_value *function_reg = vm_regs[code[3]];
+    lily_type *expect_type = starting_reg->type;
+    lily_value *current = starting_reg;
+    int cached = 0;
+
+    int i;
+    for (i = 0;i < list_val->num_values;i++) {
+        current = lily_foreign_call(vm, &cached, expect_type,
+                function_reg, 2, current, list_val->elems[i]);
+    }
+
+    lily_assign_value(result_reg, current);
+}
+
 static lily_func_seed clear =
     {NULL, "clear", dyna_function, "[A](list[A])", lily_list_clear};
 
@@ -538,8 +564,11 @@ static lily_func_seed each_index =
 static lily_func_seed fill =
     {&each_index, "fill", dyna_function, "[A](integer, A):list[A]", lily_list_fill};
 
+static lily_func_seed fold =
+    {&fill, "fold", dyna_function, "[A](list[A], A, function(A, A => A)):A", lily_list_fold};
+
 static lily_func_seed map =
-    {&fill, "map", dyna_function, "[A,B](list[A], function(A => B)):list[B]", lily_list_map};
+    {&fold, "map", dyna_function, "[A,B](list[A], function(A => B)):list[B]", lily_list_map};
 
 static lily_func_seed pop =
     {&map, "pop", dyna_function, "[A](list[A]):A", lily_list_pop};
