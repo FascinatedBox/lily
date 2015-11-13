@@ -11,23 +11,6 @@ Lists compare using deep equality. Therefore `[1] == [1]` is `true`.
 
 # Methods
 
-`list::each(self: list[A], f: function(A)): list[A]`
-
-This calls `f` once, using each element in the list. The result of this function is the list that was passed into it.
-
-Examples:
-
-```
-[1, 2, 3].each{|a| printfmt("%d -- ", a) }
-```
-
-Results in:
-
-```
-1 -- 2 -- 3 --
-```
-
-
 `list::clear(self: list[A])`
 
 Removes all elements from the list.
@@ -43,6 +26,23 @@ Examples:
 [1, 2, 3, 4].count{|a| a % 2 == 0} # 2
 
 ["abc", "def", "ghi"].count{|v| v.startswith("z") } # 0
+```
+
+
+`list::each(self: list[A], f: function(A)): list[A]`
+
+This calls `f` once, using each element in the list. The result of this function is the list that was passed into it.
+
+Examples:
+
+```
+[1, 2, 3].each{|a| printfmt("%d -- ", a) }
+```
+
+Results in:
+
+```
+1 -- 2 -- 3 --
 ```
 
 
