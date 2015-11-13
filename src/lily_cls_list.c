@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "lily_alloc.h"
 #include "lily_vm.h"
 #include "lily_seed.h"
@@ -468,8 +470,42 @@ void lily_list_map(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     slice_vm_list(vm, vm_list_start, result_reg);
 }
 
+/*  Implements list::shift
+
+    This function attempts to take the first element out of the list and return
+    it. If the list is empty, then IndexError is raised. */
+void lily_list_shift(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_list_val *list_val = vm_regs[code[1]]->value.list;
+    lily_value *result_reg = vm_regs[code[0]];
+
+    if (list_val->num_values == 0)
+        lily_raise(vm->raiser, lily_IndexError, "Shift on an empty list.\n");
+
+    /* Do not use assign here: It will increase the refcount, and the element is
+       no longer in the list. Instead, use move and pretend the value does not
+       exist in the list any longer. */
+    lily_move_raw_value(result_reg, list_val->elems[0]->value);
+
+    /* For now, free extra values instead of trying to keep reserves around.
+       Not the best course of action, perhaps, but certainly the simplest. */
+    lily_free(list_val->elems[0]);
+
+    if (list_val->num_values != 1)
+        memmove(list_val->elems, list_val->elems + 1,
+                (list_val->num_values - 1) *
+                sizeof(lily_value *));
+
+    list_val->num_values--;
+    list_val->extra_space++;
+}
+
+static lily_func_seed shift =
+    {NULL, "shift", dyna_function, "[A](list[A]):A", lily_list_shift};
+
 static lily_func_seed count =
-    {NULL, "count", dyna_function, "[A](list[A], function(A => boolean)):integer", lily_list_count};
+    {&shift, "count", dyna_function, "[A](list[A], function(A => boolean)):integer", lily_list_count};
 
 static lily_func_seed clear =
     {&count, "clear", dyna_function, "[A](list[A])", lily_list_clear};

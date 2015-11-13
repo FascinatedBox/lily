@@ -1,0 +1,23 @@
+var v = [10, 20, 30]
+
+v.shift()
+
+if v != [20, 30]:
+    stderr.write("Failed.\n")
+
+v.shift()
+v.shift()
+
+try: {
+    v.shift()
+    stderr.write("Failed.\n")
+except IndexError:
+    1
+}
+
+v.push(10)
+v.push(20)
+v.push(30)
+
+if v != [10, 20, 30]:
+    stderr.write("Failed.\n")
