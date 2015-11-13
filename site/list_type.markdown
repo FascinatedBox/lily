@@ -128,3 +128,18 @@ Returns the number of elements that are contained within `self`. This can be use
 for i in 0...x.size() - 1:
     ...
 ```
+
+
+`list::unshift(self: list[A], A)`
+
+This adds an element at the front of a list.
+
+Example:
+
+```
+var v = [1, 2, 3]
+
+v.unshift(0)
+v.unshift(-1)
+v == [-1, 0, 1, 2, 3] # true
+```

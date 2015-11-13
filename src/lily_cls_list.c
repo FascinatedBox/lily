@@ -501,6 +501,28 @@ void lily_list_shift(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     list_val->extra_space++;
 }
 
+/*  Implements list::unshift
+
+    This function attempts to add an element to the beginning of a list. */
+void lily_list_unshift(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_list_val *list_val = vm_regs[code[1]]->value.list;
+    lily_value *input_reg = vm_regs[code[2]];
+
+    if (list_val->extra_space == 0)
+        make_extra_space_in_list(list_val);
+
+    if (list_val->num_values != 0)
+        memmove(list_val->elems + 1, list_val->elems,
+                list_val->num_values * sizeof(lily_value *));
+
+    list_val->elems[0] = lily_copy_value(input_reg);
+
+    list_val->num_values++;
+    list_val->extra_space--;
+}
+
 static lily_func_seed clear =
     {NULL, "clear", dyna_function, "[A](list[A])", lily_list_clear};
 
@@ -534,8 +556,11 @@ static lily_func_seed select_fn =
 static const lily_func_seed size =
     {&select_fn, "size", dyna_function, "[A](list[A]):integer", lily_list_size};
 
-static lily_func_seed dynaload_start =
+static lily_func_seed shift =
     {&size, "shift", dyna_function, "[A](list[A]):A", lily_list_shift};
+
+static lily_func_seed dynaload_start =
+    {&shift, "unshift", dyna_function, "[A](list[A], A)", lily_list_unshift};
 
 static const lily_class_seed list_seed =
 {
