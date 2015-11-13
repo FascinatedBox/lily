@@ -60,6 +60,29 @@ This creates a new list, based on `value` being repeated `n` times.
 If `n` is less than zero, then `ValueError` is raised.
 
 
+`list::fold(self: list[A], value: A, f: function(A, A => A)):A`
+
+This function can be used to combine elements of a list together. It works by repeatedly calling `f`, which takes two elements and defines how to combine them.
+
+On the first pass, `f` is called with `value` and element 0 of the list.
+
+Subsequent passes use the result of the last call, and the next element of the list.
+
+```
+define add(a: integer, b: integer): integer { return a + b }
+
+var v = [1, 2, 3]
+v.fold(0, add) # 6
+v.fold(20, add) # 26
+
+var strings = ["a", "b", "c"]
+strings.fold("", {|a, b| a.concat(b)}) # "abc"
+
+var empty: list[integer] = []
+empty.fold(100, {|a, b| 0}) # 100
+```
+
+
 `list::pop(self: list[A]):A`
 
 Takes the top-most element of the list out, and returns it.
