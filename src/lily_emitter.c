@@ -1421,10 +1421,9 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
            This is necessary because the define at level 3 may not use upvalues
            at all, but levels 2 and 4 may do so. So level 3 must pass closure
            data.
-           This may cause __main__ to accidentally be marked as needing a
-           closure, but __main__ never goes through finalize so there's no need
-           to guard against that. */
-        if (block->make_closure == 1)
+           But make sure that __main__ is not tagged this way, or toplevel
+           lambdas will think they're closures. */
+        if (block->make_closure == 1 && emit->function_block->prev != NULL)
             emit->function_block->make_closure = 1;
     }
 }
