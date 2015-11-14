@@ -223,6 +223,39 @@ void lily_list_pop(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     list_val->extra_space++;
 }
 
+void lily_list_insert(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_list_val *list_val = vm_regs[code[1]]->value.list;
+    int64_t insert_pos = vm_regs[code[2]]->value.integer;
+    lily_value *insert_value = vm_regs[code[3]];
+
+    if (insert_pos < 0) {
+        uint64_t unsigned_pos = -(int64_t)insert_pos;
+        if (unsigned_pos > list_val->num_values)
+            lily_raise(vm->raiser, lily_IndexError, "Index %d is too small for list (minimum: %d)\n",
+                    insert_pos, -(int64_t)list_val->num_values);
+
+        insert_pos = list_val->num_values - unsigned_pos;
+    }
+    else if (insert_pos > list_val->num_values) {
+        lily_raise(vm->raiser, lily_IndexError, "Index %d is too large for list (maximum: %d)\n",
+                insert_pos, list_val->num_values);
+    }
+
+    if (list_val->extra_space == 0)
+        make_extra_space_in_list(list_val);
+
+    /* Shove everything rightward to make space for the new value. */
+    if (insert_pos != list_val->num_values)
+        memmove(list_val->elems + insert_pos + 1, list_val->elems + insert_pos,
+                (list_val->num_values - insert_pos) * sizeof(lily_value *));
+
+    list_val->elems[insert_pos] = lily_copy_value(insert_value);
+    list_val->num_values++;
+    list_val->extra_space--;
+}
+
 /*  Implements list::clear
     This clears all the elements out of the list. */
 void lily_list_clear(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -567,8 +600,11 @@ static lily_func_seed fill =
 static lily_func_seed fold =
     {&fill, "fold", dyna_function, "[A](list[A], A, function(A, A => A)):A", lily_list_fold};
 
+static lily_func_seed insert =
+    {&fold, "insert", dyna_function, "[A](list[A], integer, A)", lily_list_insert};
+
 static lily_func_seed map =
-    {&fold, "map", dyna_function, "[A,B](list[A], function(A => B)):list[B]", lily_list_map};
+    {&insert, "map", dyna_function, "[A,B](list[A], function(A => B)):list[B]", lily_list_map};
 
 static lily_func_seed pop =
     {&map, "pop", dyna_function, "[A](list[A]):A", lily_list_pop};
