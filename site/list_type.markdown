@@ -83,6 +83,25 @@ empty.fold(100, {|a, b| 0}) # 100
 ```
 
 
+`list::insert(self: list[A], pos: integer, value: A)`
+
+Insert a single value into a list, before position `pos`. Negative values are accepted as well.
+
+If `pos` is out of range, then `IndexError` is raised.
+
+```
+var v = [0, 1, 3]
+
+v.insert(-1, 2)
+
+v == [0, 1, 2, 3] # true
+
+v.insert(0, -1)
+
+v == [-1, 0, 1, 2, 3] # true
+```
+
+
 `list::pop(self: list[A]):A`
 
 Takes the top-most element of the list out, and returns it.
