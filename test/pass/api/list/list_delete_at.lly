@@ -1,0 +1,30 @@
+var v = [1, 2, 3]
+
+v.delete_at(-1)
+v.delete_at(0)
+
+if v != [2]:
+    stderr.write("Failed.\n")
+
+try: {
+    v.delete_at(-2)
+    stderr.write("Failed.\n")
+except IndexError:
+    1
+}
+
+v.delete_at(0)
+
+try: {
+    v.delete_at(20)
+    stderr.write("Failed.\n")
+except IndexError:
+    1
+}
+
+try: {
+    v.delete_at(0)
+    stderr.write("Failed.\n")
+except IndexError:
+    1
+}

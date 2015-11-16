@@ -223,6 +223,24 @@ void lily_list_pop(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     list_val->extra_space++;
 }
 
+static int64_t get_relative_index(lily_vm_state *vm, lily_list_val *list_val,
+        int64_t pos)
+{
+    if (pos < 0) {
+        uint64_t unsigned_pos = -(int64_t)pos;
+        if (unsigned_pos > list_val->num_values)
+            lily_raise(vm->raiser, lily_IndexError, "Index %d is too small for list (minimum: %d)\n",
+                    pos, -(int64_t)list_val->num_values);
+
+        pos = list_val->num_values - unsigned_pos;
+    }
+    else if (pos > list_val->num_values)
+        lily_raise(vm->raiser, lily_IndexError, "Index %d is too large for list (maximum: %d)\n",
+                pos, list_val->num_values);
+
+    return pos;
+}
+
 void lily_list_insert(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -230,18 +248,7 @@ void lily_list_insert(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     int64_t insert_pos = vm_regs[code[2]]->value.integer;
     lily_value *insert_value = vm_regs[code[3]];
 
-    if (insert_pos < 0) {
-        uint64_t unsigned_pos = -(int64_t)insert_pos;
-        if (unsigned_pos > list_val->num_values)
-            lily_raise(vm->raiser, lily_IndexError, "Index %d is too small for list (minimum: %d)\n",
-                    insert_pos, -(int64_t)list_val->num_values);
-
-        insert_pos = list_val->num_values - unsigned_pos;
-    }
-    else if (insert_pos > list_val->num_values) {
-        lily_raise(vm->raiser, lily_IndexError, "Index %d is too large for list (maximum: %d)\n",
-                insert_pos, list_val->num_values);
-    }
+    insert_pos = get_relative_index(vm, list_val, insert_pos);
 
     if (list_val->extra_space == 0)
         make_extra_space_in_list(list_val);
@@ -254,6 +261,33 @@ void lily_list_insert(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     list_val->elems[insert_pos] = lily_copy_value(insert_value);
     list_val->num_values++;
     list_val->extra_space--;
+}
+
+void lily_list_delete_at(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_list_val *list_val = vm_regs[code[1]]->value.list;
+    int64_t pos = vm_regs[code[2]]->value.integer;
+
+    if (list_val->num_values == 0)
+        lily_raise(vm->raiser, lily_IndexError, "Cannot delete from an empty list.\n");
+
+    pos = get_relative_index(vm, list_val, pos);
+
+    if (list_val->extra_space == 0)
+        make_extra_space_in_list(list_val);
+
+    lily_value *to_delete = list_val->elems[pos];
+    lily_deref(to_delete);
+    lily_free(to_delete);
+
+    /* Shove everything leftward hide the hole from erasing the value. */
+    if (pos != list_val->num_values)
+        memmove(list_val->elems + pos, list_val->elems + pos + 1,
+                (list_val->num_values - pos) * sizeof(lily_value *));
+
+    list_val->num_values--;
+    list_val->extra_space++;
 }
 
 /*  Implements list::clear
@@ -588,8 +622,11 @@ static lily_func_seed clear =
 static lily_func_seed count =
     {&clear, "count", dyna_function, "[A](list[A], function(A => boolean)):integer", lily_list_count};
 
+static lily_func_seed delete_at =
+    {&count, "delete_at", dyna_function, "[A](list[A], integer)", lily_list_delete_at};
+
 static lily_func_seed each =
-    {&count, "each", dyna_function, "[A](list[A], function(A)):list[A]", lily_list_each};
+    {&delete_at, "each", dyna_function, "[A](list[A], function(A)):list[A]", lily_list_each};
 
 static lily_func_seed each_index =
     {&each, "each_index", dyna_function, "[A](list[A], function(integer)):list[A]", lily_list_each_index};
