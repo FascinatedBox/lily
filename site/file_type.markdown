@@ -22,6 +22,11 @@ This reads a single line from the given file. This returns the line as a bytestr
 This uses Lily's internal stringification to convert the value into a string if it is not already one. The contents of that string are then written to the file given.
 
 
+`file::print[A](self: file, value: A)`
+
+This is like `file::write`, except it writes a newline (`\n`) after the text.
+
+
 `file::open(string: filename, string: mode)`
 
 Attempt to open a file named `filename` with the mode provided.
