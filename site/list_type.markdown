@@ -53,6 +53,25 @@ This is similar to `list::each`, except that the function receives the index (fr
 The result of this function is the list that was passed into it.
 
 
+`list::delete_at(self: list[A], pos: integer)`
+
+This destroys the item in the list at `pos`. If `pos` is negative, then it is wrapped around similarly to `list::insert`.
+
+Attempting to delete an index from an empty list, or from a non-existent position raises `IndexError`
+
+```
+var v = [1, 2, 3]
+
+v.delete_at(-1)
+
+v == [1, 2]
+
+v.delete_at(0)
+
+v == [2]
+```
+
+
 `list::fill(n: integer, value: A => list[A])`
 
 This creates a new list, based on `value` being repeated `n` times.
