@@ -24,4 +24,4 @@ define add(a: integer, f: function(), b: integer) : integer
 # what it was before the lambda run, it will pick the same storage that 1 + 1
 # went to. This means add will get 4 twice, and result in 8. That's super bad.
 if add(1 + 1, {|| show(1 + 1 + 1) show(1 + 1 + 1)}, 2 + 2) != 6:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

@@ -13,4 +13,4 @@ var ret = v[1]
 increment()
 increment()
 if ret() != 12:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

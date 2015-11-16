@@ -24,7 +24,7 @@ t2[2] = t2
 t2[2] = 1
 
 if t2[0] != 10:
-    stderr.write("Subscript failed.\n")
+    stderr.print("Subscript failed.")
 
 if <[1, "2", [3]]> != <[1, "2", [3]]>:
-    stderr.write("Comparison failed.\n")
+    stderr.print("Comparison failed.")

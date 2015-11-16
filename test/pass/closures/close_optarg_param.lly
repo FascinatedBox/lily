@@ -4,7 +4,7 @@ define f(a: *integer=10) : function( => integer) {
 }
 
 if f()() != 10:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")
 
 if f(11)() != 11:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

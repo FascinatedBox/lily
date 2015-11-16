@@ -7,4 +7,4 @@ for i in 0...2: {
 }
 
 if v != [[1, 1, 1], [1, 1, 1], [1, 1, 1]]:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

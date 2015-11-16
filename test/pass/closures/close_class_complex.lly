@@ -12,4 +12,4 @@ class Two(x: integer, y: integer, z: integer) < One(x, y) {
 
 var p = Two::new(100, 200, 300)
 if p.g() != 600:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

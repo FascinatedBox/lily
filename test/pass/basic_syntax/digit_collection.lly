@@ -13,55 +13,55 @@ var hex_min     = -0x8000000000000000
 # Binary tests
 
 if 0b0110 != 6:
-    stderr.write("Error: 0b0110 should be 6.\n")
+    stderr.print("Error: 0b0110 should be 6.")
 
 if 0b000110 != 6:
-    stderr.write("Error: 0b000110 should be 6.\n")
+    stderr.print("Error: 0b000110 should be 6.")
 
 if binary_max != decimal_max:
-    stderr.write("Error: Binary max is not decimal max.\n")
+    stderr.print("Error: Binary max is not decimal max.")
 
 if binary_min != decimal_min:
-    stderr.write("Error: Binary min is not decimal min.\n")
+    stderr.print("Error: Binary min is not decimal min.")
 
 # Octal tests
 
 if 0c1234567 != 342391:
-    stderr.write("Error: 0c1234567 is not 342391.\n")
+    stderr.print("Error: 0c1234567 is not 342391.")
 
 if octal_max != decimal_max:
-    stderr.write("Error: Octal max is not decimal max.\n")
+    stderr.print("Error: Octal max is not decimal max.")
 
 if octal_min != decimal_min:
-    stderr.write("Error: Octal min is not decimal min.\n")
+    stderr.print("Error: Octal min is not decimal min.")
 
 # Hex tests
 
 if 0x1234567890 != 78187493520:
-    stderr.write("Error: 0x1234567890 is not 78187493520.\n")
+    stderr.print("Error: 0x1234567890 is not 78187493520.")
 
 if 0xabcdef != 11259375:
-    stderr.write("Error: 0xabcdef is not 11259375.\n")
+    stderr.print("Error: 0xabcdef is not 11259375.")
 
 if 0xABCDEF != 11259375:
-    stderr.write("Error: 0xABCDEF is not 11259375.\n")
+    stderr.print("Error: 0xABCDEF is not 11259375.")
 
 if hex_max != decimal_max:
-    stderr.write("Error: Hex max is not decimal max.\n")
+    stderr.print("Error: Hex max is not decimal max.")
 
 if hex_min != decimal_min:
-    stderr.write("Error: Hex min is not decimal min.\n")
+    stderr.print("Error: Hex min is not decimal min.")
 
 # Random other tests.
 
 if 1e-1 != 0.1:
-    stderr.write("Error: 1e-1 is not 0.1.\n")
+    stderr.print("Error: 1e-1 is not 0.1.")
 
 if 1e+1 != 10:
-    stderr.write("Error: 1e+1 is not 10.\n")
+    stderr.print("Error: 1e+1 is not 10.")
 
 if 1e+1 != 10:
-    stderr.write("Error: 1e1 is not 10.\n")
+    stderr.print("Error: 1e1 is not 10.")
 
 if .1 != 0.1:
-    stderr.write("Error: .1 is not 0.1.\n")
+    stderr.print("Error: .1 is not 0.1.")

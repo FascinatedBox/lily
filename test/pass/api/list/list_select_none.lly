@@ -1,2 +1,2 @@
 if [1,2,3].select{|a| false} != []:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

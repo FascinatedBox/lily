@@ -27,4 +27,4 @@ if
      .and_then({|a| Some(a * a)})
      .force()
     != 10000:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

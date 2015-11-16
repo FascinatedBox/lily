@@ -22,4 +22,4 @@ define f : list[list[integer]] {
 }
 
 if f() != [[0, 1, 2, 3], [0, 1]]:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

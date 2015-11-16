@@ -3,7 +3,7 @@ var v = [1, 2, 3]
 v.unshift(0)
 
 if v != [0, 1, 2, 3]:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")
 
 
 v.clear()
@@ -13,4 +13,4 @@ v.unshift(2)
 v.unshift(1)
 
 if v != [1, 2, 3]:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

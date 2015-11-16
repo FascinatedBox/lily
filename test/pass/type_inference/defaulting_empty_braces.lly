@@ -54,4 +54,4 @@ if sys::argv == []:
     ok = 0
 
 if ok == 0:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

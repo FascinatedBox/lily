@@ -28,15 +28,15 @@ while i < 3: {
 
 for i in 1...10: { }
 if i != 10:
-    stderr.write("for i in 1...10 did not end with i at 10.\n")
+    stderr.print("for i in 1...10 did not end with i at 10.")
 
 for i in 10...1: { }
 if i != 1:
-    stderr.write("for i in 10...1 did not end with i at 1.\n")
+    stderr.print("for i in 10...1 did not end with i at 1.")
 
 var intlist = [0, 0, 0, 0, 0, 0]
 for i in 1...5 by 2:
     intlist[i] = 1
 
 if intlist != [0, 1, 0, 1, 0, 1]:
-    stderr.write("for i in 1...5 by 2 not incrementing right.\n")
+    stderr.print("for i in 1...5 by 2 not incrementing right.")

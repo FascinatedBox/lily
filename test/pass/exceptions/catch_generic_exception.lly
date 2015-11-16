@@ -7,12 +7,12 @@ try: {
     raise Ex::new("", 100)
 except Ex[integer] as e:
     if e.value != 100:
-        stderr.write("Failed.\n")
+        stderr.print("Failed.")
 }
 
 try: {
     raise Ex::new("", [1, 2, 3])
 except Ex[list[integer]] as e:
     if e.value != [1, 2, 3]:
-        stderr.write("Failed.\n")
+        stderr.print("Failed.")
 }
