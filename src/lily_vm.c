@@ -918,6 +918,8 @@ void lily_builtin_print(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         lily_impl_puts(vm->data, msgbuf->message);
         lily_msgbuf_flush(msgbuf);
     }
+
+    lily_impl_puts(vm->data, "\n");
 }
 
 void lily_process_format_string(lily_vm_state *vm, uint16_t *code)
