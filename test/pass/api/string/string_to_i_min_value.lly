@@ -1,2 +1,2 @@
 if "-9223372036854775808".to_i() != -9223372036854775808:
-    stderr.write("Failed.")
+    stderr.print("Failed.")
