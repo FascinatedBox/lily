@@ -1,12 +1,12 @@
 if [1, 2, 3, 4, 5].count{|a| a % 2 == 0} != 2:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")
 
 enum Option[A] { Some(A) None }
 
 var v = [Some(10), None, Some(20)]
 
 if v.count{|a| a == None} != 1:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")
 
 if [].count{|a| true} != 0:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

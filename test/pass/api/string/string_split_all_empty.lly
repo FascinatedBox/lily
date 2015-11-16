@@ -1,2 +1,2 @@
 if "     ".split(" ") != ["", "", "", "", "", ""]:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

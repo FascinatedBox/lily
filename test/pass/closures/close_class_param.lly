@@ -8,4 +8,4 @@ v.increment()
 v.increment()
 
 if v.ret() != 12:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

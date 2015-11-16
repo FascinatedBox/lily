@@ -4,11 +4,11 @@ v.delete_at(-1)
 v.delete_at(0)
 
 if v != [2]:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")
 
 try: {
     v.delete_at(-2)
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")
 except IndexError:
     1
 }
@@ -17,14 +17,14 @@ v.delete_at(0)
 
 try: {
     v.delete_at(20)
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")
 except IndexError:
     1
 }
 
 try: {
     v.delete_at(0)
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")
 except IndexError:
     1
 }

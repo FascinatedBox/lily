@@ -1,2 +1,2 @@
 if "<<".htmlencode() != "&lt;&lt;":
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

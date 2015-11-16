@@ -4,7 +4,7 @@ var values: list[integer] = []
 v.each_index{|i| values.push(i) }
 
 if values != [0, 1, 2]:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")
 
 if v.each_index{|i| true } != v:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

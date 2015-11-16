@@ -1,2 +1,2 @@
 if "123".split(" ") != ["123"]:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

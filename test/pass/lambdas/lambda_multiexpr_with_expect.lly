@@ -5,4 +5,4 @@ var v: function(integer => integer) = {|a|
         }
 
 if v(10) != 11 || last != 10:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

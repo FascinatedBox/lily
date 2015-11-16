@@ -1,4 +1,4 @@
 import var_exporter
 
 if var_exporter::v != 10:
-    stderr.write("Failed!\n")
+    stderr.print("Failed!")

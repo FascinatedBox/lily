@@ -30,7 +30,7 @@ define check_any {
     var a: any = Some(10)
 
     if a != Some(10):
-        stderr.write("check_any: Incorrect value returned!\n")
+        stderr.print("check_any: Incorrect value returned!")
 }
 
 define check_pass_by_value {
@@ -39,7 +39,7 @@ define check_pass_by_value {
         var v = [a]
         a = Some(11)
         if v[0] == Some(11):
-            stderr.write("Failed.\n")
+            stderr.print("Failed.")
     }
 
     var v: Option[integer] = Some(10)

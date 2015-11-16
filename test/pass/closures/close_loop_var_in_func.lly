@@ -8,4 +8,4 @@ for i in 0...5:
     l.push(wrap(i))
 
 if [l[0](), l[1](), l[2](), l[3](), l[4]()] != [0, 1, 4, 9, 16]:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

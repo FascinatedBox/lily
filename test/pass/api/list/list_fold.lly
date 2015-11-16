@@ -1,11 +1,11 @@
 if [1, 2, 3, 4].fold(0, {|a, b| a + b}) != 10:
-    stderr.write("Failed.1\n")
+    stderr.print("Failed.1")
 
 if [1, 2, 3, 4].fold(10, {|a, b| a + b}) != 20:
-    stderr.write("Failed.2\n")
+    stderr.print("Failed.2")
 
 if ["b", "c", "d"].fold("a", {|a, b| a.concat(b)}) != "abcd":
-    stderr.write("Failed.3\n")
+    stderr.print("Failed.3")
 
 define f {
     [1, "2", [3]].fold([1 => 1], {|a, b| b})
@@ -16,4 +16,4 @@ f()
 var v: list[integer] = []
 
 if v.fold(0, {|a, b| a + b}) != 0:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

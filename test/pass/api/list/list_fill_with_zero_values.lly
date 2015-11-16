@@ -1,2 +1,2 @@
 if list::fill(0, [1, 2, 3]) != []:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")

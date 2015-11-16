@@ -13,5 +13,5 @@ enum Option[A] {
 }
 
 if Option::or_else(Some(1), 2) != 1:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")
 

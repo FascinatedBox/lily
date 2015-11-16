@@ -9,5 +9,5 @@ var check: Option[integer] = v[0]
 match check: {
     case Some(s):
     case None:
-        stderr.write("Check failed (Should be Option[integer])\n")
+        stderr.print("Check failed (Should be Option[integer])")
 }

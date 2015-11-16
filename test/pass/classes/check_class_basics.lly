@@ -23,7 +23,7 @@ define cast_to_base {
 define check_layout {
     var v = Three::new(1, "2", [3])
     if v.a != 1 || v.b != "2" || v.c != [3]:
-        stderr.write("Variables may have been laid out incorrectly.\n")
+        stderr.print("Variables may have been laid out incorrectly.")
 }
 
 assign_to_better()

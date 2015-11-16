@@ -14,12 +14,12 @@ define f[A](input: A) : A { return input }
 define g(input: integer) : integer { return input * 2 }
 
 if (10 |> f |> g) != 20:
-    stderr.write("Pipe to a generic failed.\n")
+    stderr.print("Pipe to a generic failed.")
 
 # What about piping to the same thing?
 
 if (10 |> g |> g) != 40:
-    stderr.write("Multi pipe failed.\n")
+    stderr.print("Multi pipe failed.")
 
 # Ensure that the order of operations is correct.
 
@@ -34,5 +34,5 @@ define h(input: integer) : integer
 h(4) |> [h(1), h(2), h(3)].push
 
 if v != [1, 2, 3, 4]:
-    stderr.write("Order of operations failed.\n")
+    stderr.print("Order of operations failed.")
     

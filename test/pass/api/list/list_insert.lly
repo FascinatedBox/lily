@@ -2,11 +2,11 @@ var v = [1]
 v.insert(0, 0)
 
 if v != [0, 1]:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")
 
 v.insert(2, 2)
 if v != [0, 1, 2]:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")
 
 v.clear()
 
@@ -17,18 +17,18 @@ v.insert(-3, -2)
 v.insert(v.size(), 2)
 
 if v != [-2, -1, 0, 1, 2]:
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")
 
 try: {
     v.insert(-6, 5)
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")
 except IndexError:
     1
 }
 
 try: {
     v.insert(6, 5)
-    stderr.write("Failed.\n")
+    stderr.print("Failed.")
 except IndexError:
     1
 }
