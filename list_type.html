@@ -82,6 +82,20 @@
 <p><code>list::each_index(self: list[A], f: function(integer)): list[A]</code></p>
 <p>This is similar to <code>list::each</code>, except that the function receives the index (from 0) of elements within the list.</p>
 <p>The result of this function is the list that was passed into it.</p>
+<p><code>list::delete_at(self: list[A], pos: integer)</code></p>
+<p>This destroys the item in the list at <code>pos</code>. If <code>pos</code> is negative, then it is wrapped around similarly to <code>list::insert</code>.</p>
+<p>Attempting to delete an index from an empty list, or from a non-existent position raises <code>IndexError</code></p>
+<pre><code>var v = [1, 2, 3]
+
+v.delete_at(-1)
+
+v == [1, 2]
+
+v.delete_at(0)
+
+v == [2]
+</code></pre>
+
 <p><code>list::fill(n: integer, value: A =&gt; list[A])</code></p>
 <p>This creates a new list, based on <code>value</code> being repeated <code>n</code> times.</p>
 <p>If <code>n</code> is less than zero, then <code>ValueError</code> is raised.</p>
@@ -100,6 +114,20 @@ strings.fold(&quot;&quot;, {|a, b| a.concat(b)}) # &quot;abc&quot;
 
 var empty: list[integer] = []
 empty.fold(100, {|a, b| 0}) # 100
+</code></pre>
+
+<p><code>list::insert(self: list[A], pos: integer, value: A)</code></p>
+<p>Insert a single value into a list, before position <code>pos</code>. Negative values are accepted as well.</p>
+<p>If <code>pos</code> is out of range, then <code>IndexError</code> is raised.</p>
+<pre><code>var v = [0, 1, 3]
+
+v.insert(-1, 2)
+
+v == [0, 1, 2, 3] # true
+
+v.insert(0, -1)
+
+v == [-1, 0, 1, 2, 3] # true
 </code></pre>
 
 <p><code>list::pop(self: list[A]):A</code></p>
