@@ -1767,49 +1767,6 @@ static int maybe_catch_exception(lily_vm_state *vm)
 /* Exported functions                                                         */
 /******************************************************************************/
 
-/*  lily_assign_value
-    This assigns the value on the left side to the value on the right side. Any
-    necessary ref/deref action is done. The flags and the value are copied over,
-    but not the type (as the type is usually already set). */
-void lily_assign_value(lily_value *left, lily_value *right)
-{
-    if ((right->flags & VAL_IS_NOT_DEREFABLE) == 0)
-        right->value.generic->refcount++;
-
-    if ((left->flags & VAL_IS_NOT_DEREFABLE) == 0)
-        lily_deref(left);
-
-    left->value = right->value;
-    left->flags = right->flags;
-}
-
-/*  lily_move_raw_value
-    Assign the value on the right side into the left side. Decrease the refcount
-    of the left side (if applicable), but do not increase the refcount of the
-    right side. This is useful in situations where the right side is a
-    newly-made value (which starts at one ref), and assign would falsely give it
-    two refs. */
-void lily_move_raw_value(lily_value *left, lily_raw_value raw_right)
-{
-    if ((left->flags & VAL_IS_NOT_DEREFABLE) == 0)
-        lily_deref(left);
-
-    left->value = raw_right;
-    left->flags = (left->type->cls->flags & VAL_IS_PRIMITIVE);
-}
-
-/*  lily_copy_value
-    Create a copy of the value passed in. If applicable, the refcount of the
-    value passed in is increased. The caller is responsible for putting the
-    returned value somewhere that the vm can see it. */
-lily_value *lily_copy_value(lily_value *input)
-{
-    if ((input->flags & VAL_IS_NOT_DEREFABLE) == 0)
-        input->value.generic->refcount++;
-
-    return lily_new_value(input->flags, input->type, input->value);
-}
-
 /*  This is used by a function (the caller) to call another function (the
     target). It is assumed that this function will be invoked within a loop, and
     will be the only foreign function called within that loop. The cache should
