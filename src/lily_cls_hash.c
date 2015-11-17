@@ -270,11 +270,28 @@ void lily_hash_each_pair(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 }
 
+void lily_hash_has_key(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_hash_val *hash_val = vm_regs[code[1]]->value.hash;
+    lily_value *lookup_val = vm_regs[code[2]];
+
+    uint64_t siphash = lily_calculate_siphash(vm->sipkey, lookup_val);
+    lily_hash_elem *hash_elem = lily_lookup_hash_elem(hash_val, siphash,
+            lookup_val);
+
+    lily_raw_value v = {.integer = hash_elem != NULL};
+    lily_move_raw_value(vm_regs[code[0]], v);
+}
+
 static const lily_func_seed each_pair =
     {NULL, "each_pair", dyna_function, "[A, B](hash[A, B], function(A, B))", lily_hash_each_pair};
 
+static const lily_func_seed has_key =
+    {&each_pair, "has_key", dyna_function, "[A, B](hash[A, B], A):boolean", lily_hash_has_key};
+
 static const lily_func_seed keys =
-    {&each_pair, "keys", dyna_function, "[A, B](hash[A, B]):list[A]", lily_hash_keys};
+    {&has_key, "keys", dyna_function, "[A, B](hash[A, B]):list[A]", lily_hash_keys};
 
 static const lily_func_seed dynaload_start =
     {&keys, "get", dyna_function, "[A, B](hash[A, B], A, B):B", lily_hash_get};
