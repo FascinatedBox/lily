@@ -22,6 +22,11 @@ Hashes, like lists, do deep comparisons for equality. As such, `[1 => "a"] == [1
 This calls `f` on each key-value pair that exists within the hash.
 
 
+`hash::has_key(self: hash[A, B], key: A):boolean`
+
+Checks if `key` exists within the hash.
+
+
 `hash::keys(self: hash[A, B]) : list[A]`
 
 Returns a list of all keys that are present within the hash.
