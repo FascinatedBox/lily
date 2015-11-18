@@ -89,6 +89,29 @@ void lily_hash_add_unique(lily_vm_state *vm, lily_hash_val *hash_val,
     hash_val->num_elems++;
 }
 
+/*  hash_add_unique_nocopy
+
+    This is similar to lily_hash_add_unique, except that the values are not
+    given a ref bump, and are not copied over. */
+static void hash_add_unique_nocopy(lily_vm_state *vm, lily_hash_val *hash_val,
+        lily_value *pair_key, lily_value *pair_value)
+{
+    if (hash_val->iter_count)
+        lily_raise(vm->raiser, lily_RuntimeError,
+                "Cannot add a new key into a hash during iteration.\n");
+
+    lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
+
+    elem->key_siphash = lily_siphash(vm, pair_key);
+    elem->elem_key = pair_key;
+    elem->elem_value = pair_value;
+
+    elem->next = hash_val->elem_chain;
+    hash_val->elem_chain = elem;
+
+    hash_val->num_elems++;
+}
+
 /*  lily_hash_set_elem
 
     This attempts to find 'pair_key' within 'hash_val'. If successful, then
@@ -381,6 +404,73 @@ void lily_hash_has_key(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(vm_regs[code[0]], v);
 }
 
+static void build_hash_from_vm_list(lily_vm_state *vm, int start,
+        lily_value *result_reg)
+{
+    int stop = vm->vm_list->pos;
+    int i;
+    lily_hash_val *hash_val = lily_new_hash_val();
+    lily_value **values = vm->vm_list->values;
+
+    if (result_reg->type->flags & TYPE_MAYBE_CIRCULAR)
+        lily_add_gc_item(vm, result_reg->type,
+                (lily_generic_gc_val *)hash_val);
+
+    for (i = start;i < stop;i += 2) {
+        lily_value *e_key = values[i];
+        lily_value *e_value = values[i + 1];
+
+        hash_add_unique_nocopy(vm, hash_val, e_key, e_value);
+    }
+
+    vm->vm_list->pos = start;
+
+    lily_raw_value v = {.hash = hash_val};
+    lily_move_raw_value(result_reg, v);
+}
+
+void lily_hash_map_values(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_hash_val *hash_val = vm_regs[code[1]]->value.hash;
+    lily_value *function_reg = vm_regs[code[2]];
+    lily_value *result_reg = vm_regs[code[0]];
+
+    lily_type *expect_type = function_reg->type->subtypes[0];
+    lily_hash_elem *elem_iter = hash_val->elem_chain;
+    lily_vm_list *vm_list = vm->vm_list;
+    int cached = 0;
+    int vm_list_start = vm->vm_list->pos;
+
+    lily_vm_list_ensure(vm, hash_val->num_elems * 2);
+
+    hash_val->iter_count++;
+    lily_jump_link *link = lily_jump_setup(vm->raiser);
+
+    if (setjmp(link->jump) == 0) {
+        while (elem_iter) {
+            lily_value *e_value = elem_iter->elem_value;
+
+            lily_value *new_value = lily_foreign_call(vm, &cached, expect_type,
+                    function_reg, 1, e_value);
+
+            vm_list->values[vm_list->pos] = lily_copy_value(elem_iter->elem_key);
+            vm_list->values[vm_list->pos+1] = lily_copy_value(new_value);
+            vm_list->pos += 2;
+
+            elem_iter = elem_iter->next;
+        }
+
+        build_hash_from_vm_list(vm, vm_list_start, result_reg);
+        hash_val->iter_count--;
+        lily_release_jump(vm->raiser);
+    }
+    else {
+        hash_val->iter_count--;
+        lily_jump_back(vm->raiser);
+    }
+}
+
 static const lily_func_seed clear =
     {NULL, "clear", dyna_function, "[A, B](hash[A, B])", lily_hash_clear};
 
@@ -393,8 +483,11 @@ static const lily_func_seed has_key =
 static const lily_func_seed keys =
     {&has_key, "keys", dyna_function, "[A, B](hash[A, B]):list[A]", lily_hash_keys};
 
-static const lily_func_seed dynaload_start =
+static const lily_func_seed get =
     {&keys, "get", dyna_function, "[A, B](hash[A, B], A, B):B", lily_hash_get};
+
+static const lily_func_seed dynaload_start =
+    {&get, "map_values", dyna_function, "[A, B, C](hash[A, B], function(B => C)): hash[A, C]", lily_hash_map_values};
 
 static const lily_class_seed hash_seed =
 {

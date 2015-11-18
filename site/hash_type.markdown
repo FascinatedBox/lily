@@ -40,3 +40,20 @@ Returns a list of all keys that are present within the hash.
 `hash::get(self: hash[A, B], key: A, or_else: B) : B`
 
 Attempt to get `key` from within the hash. If successful, return the matching value. If `key` does not exist within the hash, then return `or_else` instead. This can be considered a safe alternative to a subscript, as it does not raise any errors.
+
+
+`hash::map_values(self: hash[A, B], f: function(B => C)):hash[A, C]`
+
+This iterates over the hash given, calling `f` with each value held.
+
+A new hash is built that maps the old keys to the new values. The old hash is not modified.
+
+```
+var h = ["a" => -1, "b" => 5, "c" => 11]
+
+h.map_values{|v| (v * v).to_s() }
+# ["a" => "-2", "b" => "10", "c" => "22"]
+
+h.map_values{|v| v + 1}
+# ["a" => 0, "b" => 6, "c" => 12]
+```

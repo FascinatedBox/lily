@@ -1,0 +1,10 @@
+var h = [1 => 1, 2 => 2, 3 => 3]
+
+h = h.map_values{|v| v * 2 }
+
+if h != [1 => 2, 2 => 4, 3 => 6]:
+    stderr.print("Failed.")
+
+var h2 = h.map_values{|v| v.to_s() }
+if h2 != [1 => "2", 2 => "4", 3 => "6"]:
+    stderr.print("Failed.")
