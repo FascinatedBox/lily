@@ -277,10 +277,6 @@ typedef struct lily_hash_elem_ {
     struct lily_hash_elem_ *next;
 } lily_hash_elem;
 
-/* Here's the hash value. Hashes are similar to lists in that there is only a
-   gc entry if the associated typenature is determined to be possibly circualar.
-   Also, visited is there to protect lily_debug against a circular reference
-   causing an infinite loop. */
 typedef struct lily_hash_val_ {
     uint32_t refcount;
     uint32_t pad;
