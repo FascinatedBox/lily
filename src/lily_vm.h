@@ -139,11 +139,10 @@ lily_vm_state *lily_new_vm_state(lily_options *, lily_raiser *);
 void lily_free_vm(lily_vm_state *);
 void lily_vm_prep(lily_vm_state *, lily_symtab *);
 void lily_vm_execute(lily_vm_state *);
-lily_hash_elem *lily_lookup_hash_elem(lily_hash_val *, uint64_t, lily_value *);
-uint64_t lily_calculate_siphash(char *, lily_value *);
-void lily_process_format_string(lily_vm_state *, uint16_t *);
-
+uint64_t lily_siphash(lily_vm_state *, lily_value *);
 void lily_add_gc_item(lily_vm_state *, lily_type *, lily_generic_gc_val *);
+
+void lily_process_format_string(lily_vm_state *, uint16_t *);
 
 lily_value *lily_foreign_call(lily_vm_state *, int *, lily_type *, lily_value *,
         int, ...);
