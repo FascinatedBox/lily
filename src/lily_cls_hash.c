@@ -64,6 +64,13 @@ lily_hash_elem *lily_hash_get_elem(lily_vm_state *vm, lily_hash_val *hash_val,
     return elem_iter;
 }
 
+static inline void remove_key_check(lily_vm_state *vm, lily_hash_val *hash_val)
+{
+    if (hash_val->iter_count)
+        lily_raise(vm->raiser, lily_RuntimeError,
+                "Cannot remove key from hash during iteration.\n");
+}
+
 /*  hash_add_unique_nocopy
 
     This adds a new element to the hash, with 'pair_key' and 'pair_value'
@@ -72,9 +79,7 @@ lily_hash_elem *lily_hash_get_elem(lily_vm_state *vm, lily_hash_val *hash_val,
 static void hash_add_unique_nocopy(lily_vm_state *vm, lily_hash_val *hash_val,
         lily_value *pair_key, lily_value *pair_value)
 {
-    if (hash_val->iter_count)
-        lily_raise(vm->raiser, lily_RuntimeError,
-                "Cannot add a new key into a hash during iteration.\n");
+    remove_key_check(vm, hash_val);
 
     lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
 
@@ -82,6 +87,10 @@ static void hash_add_unique_nocopy(lily_vm_state *vm, lily_hash_val *hash_val,
     elem->elem_key = pair_key;
     elem->elem_value = pair_value;
 
+    if (hash_val->elem_chain)
+        hash_val->elem_chain->prev = elem;
+
+    elem->prev = NULL;
     elem->next = hash_val->elem_chain;
     hash_val->elem_chain = elem;
 
@@ -205,21 +214,26 @@ void lily_gc_hash_marker(int pass, lily_value *v)
     }
 }
 
+static void destroy_elem(lily_hash_elem *elem)
+{
+    lily_deref(elem->elem_key);
+    lily_free(elem->elem_key);
+
+    lily_deref(elem->elem_value);
+    lily_free(elem->elem_value);
+
+    lily_free(elem);
+}
+
 static void destroy_hash_elems(lily_hash_val *hash_val)
 {
     lily_hash_elem *elem_iter = hash_val->elem_chain;
     lily_hash_elem *elem_next;
 
     while (elem_iter) {
-        lily_deref(elem_iter->elem_key);
-        lily_free(elem_iter->elem_key);
-
-        lily_deref(elem_iter->elem_value);
-        lily_free(elem_iter->elem_value);
-
         elem_next = elem_iter->next;
 
-        lily_free(elem_iter);
+        destroy_elem(elem_iter);
 
         elem_iter = elem_next;
     }
@@ -349,6 +363,31 @@ void lily_hash_keys(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     result_reg->flags = 0;
 }
 
+void lily_hash_delete(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_hash_val *hash_val = vm_regs[code[1]]->value.hash;
+    lily_value *key = vm_regs[code[2]];
+
+    remove_key_check(vm, hash_val);
+
+    lily_hash_elem *hash_elem = lily_hash_get_elem(vm, hash_val, key);
+
+    if (hash_elem) {
+        if (hash_elem->next)
+            hash_elem->next->prev = hash_elem->prev;
+
+        if (hash_elem->prev)
+            hash_elem->prev->next = hash_elem->next;
+
+        if (hash_elem == hash_val->elem_chain)
+            hash_val->elem_chain = hash_elem->next;
+
+        destroy_elem(hash_elem);
+        hash_val->num_elems--;
+    }
+}
+
 /*  Implements hash::each_pair[A, B](hash[A, B], function(A, B))
 
     This is fairly simple: It takes a function that takes both the key and the
@@ -474,8 +513,11 @@ void lily_hash_size(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 static const lily_func_seed clear =
     {NULL, "clear", dyna_function, "[A, B](hash[A, B])", lily_hash_clear};
 
+static const lily_func_seed delete_fn =
+    {&clear, "delete", dyna_function, "[A, B](hash[A, B], A)", lily_hash_delete};
+
 static const lily_func_seed each_pair =
-    {&clear, "each_pair", dyna_function, "[A, B](hash[A, B], function(A, B))", lily_hash_each_pair};
+    {&delete_fn, "each_pair", dyna_function, "[A, B](hash[A, B], function(A, B))", lily_hash_each_pair};
 
 static const lily_func_seed has_key =
     {&each_pair, "has_key", dyna_function, "[A, B](hash[A, B], A):boolean", lily_hash_has_key};

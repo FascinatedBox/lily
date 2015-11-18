@@ -273,6 +273,7 @@ typedef struct lily_hash_elem_ {
     struct lily_value_ *elem_key;
     struct lily_value_ *elem_value;
     struct lily_hash_elem_ *next;
+    struct lily_hash_elem_ *prev;
 } lily_hash_elem;
 
 typedef struct lily_hash_val_ {
