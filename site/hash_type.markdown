@@ -64,6 +64,20 @@ h.map_values{|v| v + 1}
 ```
 
 
+`hash::merge(self: hash[A, B], others: hash[A, B]...):hash[A, B]`
+
+This creates a new hash that combines `self` and each hash within `others`.
+
+In the event of multiple hashes having the same value, the right-most value 'wins'.
+
+```
+var v = [1 => 1, 2 => 2, 3 => 3]
+
+v = v.merge([4 => 4, 3 => 6], [3 => 0])
+# [1 => 1, 2 => 2, 3 => 0, 4 => 4]
+```
+
+
 `hash::reject(self: hash[A, B], f: function(A, B => boolean)):hash[A, B]`
 
 Returns a new hash of all key-value pairs in `self` for which the predicate `f` returns `false`.

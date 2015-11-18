@@ -501,6 +501,45 @@ void lily_hash_map_values(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 }
 
+void lily_hash_merge(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_hash_val *hash_val = vm_regs[code[1]]->value.hash;
+    lily_list_val *to_merge = vm_regs[code[2]]->value.list;
+    lily_value *result_reg = vm_regs[code[0]];
+
+    lily_hash_val *result_hash = lily_new_hash_val();
+
+    if (result_reg->type->flags & TYPE_MAYBE_CIRCULAR)
+        lily_add_gc_item(vm, result_reg->type,
+                (lily_generic_gc_val *)result_hash);
+
+    /* The existing hash should be entirely unique, so just add the pairs in
+       directly. */
+    lily_hash_elem *elem_iter = hash_val->elem_chain;
+    while (elem_iter) {
+        lily_hash_add_unique(vm, result_hash, elem_iter->elem_key,
+                elem_iter->elem_value);
+
+        elem_iter = elem_iter->next;
+    }
+
+    int i;
+    for (i = 0;i < to_merge->num_values;i++) {
+        lily_hash_val *merging_hash = to_merge->elems[i]->value.hash;
+        elem_iter = merging_hash->elem_chain;
+        while (elem_iter) {
+            lily_hash_set_elem(vm, result_hash, elem_iter->elem_key,
+                    elem_iter->elem_value);
+
+            elem_iter = elem_iter->next;
+        }
+    }
+
+    lily_raw_value v = {.hash = result_hash};
+    lily_move_raw_value(result_reg, v);
+}
+
 static void hash_select_reject_common(lily_vm_state *vm, uint16_t argc,
         uint16_t *code, int expect)
 {
@@ -587,8 +626,11 @@ static const lily_func_seed get =
 static const lily_func_seed map_values =
     {&get, "map_values", dyna_function, "[A, B, C](hash[A, B], function(B => C)): hash[A, C]", lily_hash_map_values};
 
+static const lily_func_seed merge =
+    {&map_values, "merge", dyna_function, "[A, B](hash[A, B], hash[A, B]...): hash[A, B]", lily_hash_merge};
+
 static const lily_func_seed reject =
-    {&map_values, "reject", dyna_function, "[A, B](hash[A, B], function(A, B => boolean)):hash[A, B]", lily_hash_reject};
+    {&merge, "reject", dyna_function, "[A, B](hash[A, B], function(A, B => boolean)):hash[A, B]", lily_hash_reject};
 
 static const lily_func_seed select_fn =
     {&reject, "select", dyna_function, "[A, B](hash[A, B], function(A, B => boolean)):hash[A, B]", lily_hash_select};
