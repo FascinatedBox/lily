@@ -24,19 +24,6 @@ void lily_impl_puts(void *data, char *text)
     ap_rputs(text, (request_rec *)data);
 }
 
-static lily_hash_elem *bind_hash_elem_with_values(char *sipkey,
-        lily_value *key, lily_value *value)
-{
-    lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
-
-    elem->next = NULL;
-    elem->key_siphash = lily_calculate_siphash(sipkey, key);
-    elem->elem_key = key;
-    elem->elem_value = value;
-
-    return elem;
-}
-
 static lily_hash_val *get_new_tied_hash(lily_symtab *symtab, lily_var *tie_var)
 {
     lily_hash_val *hash_val = lily_new_hash_val();
@@ -83,11 +70,8 @@ static int bind_table_entry(void *data, const char *key, const char *value)
     lily_value *elem_raw_value = lily_bind_string(d->symtab, value);
     lily_value *elem_value = bind_tainted_of(d->parser, d->tainted_type,
             elem_raw_value);
-    lily_hash_elem *new_elem = bind_hash_elem_with_values(d->sipkey, elem_key,
-            elem_value);
 
-    new_elem->next = d->hash_val->elem_chain;
-    d->hash_val->elem_chain = new_elem;
+    lily_hash_add_unique(d->parser->vm, d->hash_val, elem_key, elem_value);
     return TRUE;
 }
 
@@ -118,7 +102,6 @@ static void bind_post(lily_parse_state *parser, request_rec *r,
     apr_off_t len;
     apr_size_t size;
     char *buffer;
-    char *sipkey = parser->vm->sipkey;
     lily_symtab *symtab = parser->symtab;
     lily_type *tainted_type = var->type->subtypes[1];
 
@@ -149,11 +132,8 @@ static void bind_post(lily_parse_state *parser, request_rec *r,
                     buffer);
             lily_value *elem_value = bind_tainted_of(parser, tainted_type,
                     elem_raw_value);
-            lily_hash_elem *new_elem = bind_hash_elem_with_values(sipkey,
-                    elem_key, elem_value);
 
-            new_elem->next = hash_val->elem_chain;
-            hash_val->elem_chain = new_elem;
+            lily_hash_add_unique(parser->vm, hash_val, elem_key, elem_value);
         }
     }
 }

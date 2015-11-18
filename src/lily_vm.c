@@ -1002,104 +1002,6 @@ void lily_builtin_printfmt(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 }
 
 /*****************************************************************************/
-/* Hash related functions                                                    */
-/*****************************************************************************/
-
-/*  lily_lookup_hash_elem
-    This attempts to find a hash element by key in the given hash. This will not
-    create a new element if it fails.
-
-    hash:        A valid hash, which may or may not have elements.
-    key_siphash: The calculated siphash of the given key. Use
-                 lily_calculate_siphash to get this.
-    key:         The key used for doing the search.
-
-    On success: The hash element that was inserted into the hash value is
-                returned.
-    On failure: NULL is returned. */
-lily_hash_elem *lily_lookup_hash_elem(lily_hash_val *hash,
-        uint64_t key_siphash, lily_value *key)
-{
-    int key_cls_id = key->type->cls->id;
-
-    lily_hash_elem *elem_iter = hash->elem_chain;
-    lily_raw_value key_value = key->value;
-
-    while (elem_iter) {
-        if (elem_iter->key_siphash == key_siphash) {
-            int ok;
-            lily_raw_value iter_value = elem_iter->elem_key->value;
-
-            if (key_cls_id == SYM_CLASS_INTEGER &&
-                iter_value.integer == key_value.integer)
-                ok = 1;
-            else if (key_cls_id == SYM_CLASS_DOUBLE &&
-                     iter_value.doubleval == key_value.doubleval)
-                ok = 1;
-            else if (key_cls_id == SYM_CLASS_STRING &&
-                    /* strings are immutable, so try a ptr compare first. */
-                    ((iter_value.string == key_value.string) ||
-                     /* No? Make sure the sizes match, then call for a strcmp.
-                        The size check is an easy way to potentially skip a
-                        strcmp in case of hash collision. */
-                      (iter_value.string->size == key_value.string->size &&
-                       strcmp(iter_value.string->string,
-                              key_value.string->string) == 0)))
-                ok = 1;
-            else
-                ok = 0;
-
-            if (ok)
-                break;
-        }
-        elem_iter = elem_iter->next;
-    }
-
-    return elem_iter;
-}
-
-/*  update_hash_key_value
-    This attempts to set a new value for a given hash key. This first checks
-    for an existing key to set. If none is found, then it attempts to create a
-    new entry in the given hash with the given key and value.
-
-    vm:          The vm that the hash is in.
-    hash:        A valid hash, which may or may not have elements.
-    key_siphash: The calculated siphash of the given key. Use
-                 lily_calculate_siphash to get this.
-    hash_key:    The key value, used for lookup.
-    hash_value:  The new value to associate with the given key. */
-static void update_hash_key_value(lily_vm_state *vm, lily_hash_val *hash,
-        uint64_t key_siphash, lily_value *hash_key,
-        lily_value *hash_value)
-{
-    lily_hash_elem *elem;
-    elem = lily_lookup_hash_elem(hash, key_siphash, hash_key);
-
-    if (elem == NULL) {
-        elem = lily_new_hash_elem();
-        if (elem != NULL) {
-            /* Make sure everything, including the flags, is copied. The flags
-               may have "don't ref/deref me" markers on them. */
-            elem->elem_key->flags = hash_key->flags;
-            elem->elem_key->value = hash_key->value;
-            elem->elem_key->type = hash_key->type;
-            elem->key_siphash = key_siphash;
-
-            /* lily_assign_value needs a type for the left side. */
-            elem->elem_value->type = hash_value->type;
-
-            elem->next = hash->elem_chain;
-            hash->elem_chain = elem;
-
-            hash->num_elems++;
-        }
-    }
-
-    lily_assign_value(elem->elem_value, hash_value);
-}
-
-/*****************************************************************************/
 /* Opcode implementations                                                    */
 /*****************************************************************************/
 
@@ -1149,13 +1051,8 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code, int code_pos)
 
         lily_assign_value(list_val->elems[index_int], rhs_reg);
     }
-    else {
-        uint64_t siphash;
-        siphash = lily_calculate_siphash(vm->sipkey, index_reg);
-
-        update_hash_key_value(vm, lhs_reg->value.hash, siphash, index_reg,
-                rhs_reg);
-    }
+    else
+        lily_hash_set_elem(vm, lhs_reg->value.hash, index_reg, rhs_reg);
 }
 
 static void do_o_get_property(lily_vm_state *vm, uint16_t *code, int code_pos)
@@ -1212,11 +1109,7 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code, int code_pos)
         lily_assign_value(result_reg, list_val->elems[index_int]);
     }
     else {
-        uint64_t siphash;
-        lily_hash_elem *hash_elem;
-
-        siphash = lily_calculate_siphash(vm->sipkey, index_reg);
-        hash_elem = lily_lookup_hash_elem(lhs_reg->value.hash, siphash,
+        lily_hash_elem *hash_elem = lily_hash_get_elem(vm, lhs_reg->value.hash,
                 index_reg);
 
         /* Give up if the key doesn't exist. */
@@ -1260,10 +1153,7 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code, int code_pos)
         key_reg = vm_regs[code[code_pos + 3 + i]];
         value_reg = vm_regs[code[code_pos + 3 + i + 1]];
 
-        uint64_t key_siphash;
-        key_siphash = lily_calculate_siphash(vm->sipkey, key_reg);
-
-        update_hash_key_value(vm, hash_val, key_siphash, key_reg, value_reg);
+        lily_hash_set_elem(vm, hash_val, key_reg, value_reg);
     }
 }
 
@@ -1967,28 +1857,24 @@ void lily_vm_raise_prepared(lily_vm_state *vm)
     lily_raise_prepared(vm->raiser);
 }
 
-/*  lily_calculate_siphash
-    Return a siphash based using the given siphash for the given key.
+/*  lily_siphash
 
-    sipkey:  The vm's sipkey for creating the hash.
-    key:     A value to make a hash for.
-
-    The caller must not pass a non-hashable type (such as any). Parser is
-    responsible for ensuring that hashes only use valid key types. */
-uint64_t lily_calculate_siphash(char *sipkey, lily_value *key)
+    This calculates a siphash for the value held within 'key', using the vm's
+    sipkey value. The caller should not call this if 'key' is not hashable. */
+uint64_t lily_siphash(lily_vm_state *vm, lily_value *key)
 {
     int key_cls_id = key->type->cls->id;
     uint64_t key_hash;
 
     if (key_cls_id == SYM_CLASS_STRING)
         key_hash = siphash24(key->value.string->string,
-                key->value.string->size, sipkey);
+                key->value.string->size, vm->sipkey);
     else if (key_cls_id == SYM_CLASS_INTEGER)
         key_hash = key->value.integer;
     else if (key_cls_id == SYM_CLASS_DOUBLE)
         /* siphash thinks it's sent a pointer (and will try to deref it), so
            send the address. */
-        key_hash = siphash24(&(key->value.doubleval), sizeof(double), sipkey);
+        key_hash = siphash24(&(key->value.doubleval), sizeof(double), vm->sipkey);
     else /* Should not happen, because no other classes are valid keys. */
         key_hash = 0;
 

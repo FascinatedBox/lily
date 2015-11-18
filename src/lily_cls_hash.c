@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "lily_alloc.h"
 #include "lily_vm.h"
 #include "lily_value.h"
@@ -20,8 +22,6 @@ lily_hash_elem *lily_new_hash_elem()
 {
     lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
 
-    /* Hash lookup does not take into account or allow nil keys. So this should
-       be set to a non-nil value as soon as possible. */
     elem->elem_key = lily_new_value(VAL_IS_NIL, NULL,
             (lily_raw_value){.integer = 0});
     elem->elem_value = lily_new_value(VAL_IS_NIL, NULL,
@@ -29,6 +29,87 @@ lily_hash_elem *lily_new_hash_elem()
 
     elem->next = NULL;
     return elem;
+}
+
+/*  lily_hash_get_elem
+
+    Attempt to find 'key' within 'hash_val'. If an element is found, then it is
+    returned. If no element is found, then NULL is returned. */
+lily_hash_elem *lily_hash_get_elem(lily_vm_state *vm, lily_hash_val *hash_val,
+        lily_value *key)
+{
+    uint64_t key_siphash = lily_siphash(vm, key);
+    lily_hash_elem *elem_iter = hash_val->elem_chain;
+    lily_raw_value key_value = key->value;
+    int key_cls_id = key->type->cls->id;
+    int ok = 0;
+
+    while (elem_iter) {
+        if (elem_iter->key_siphash == key_siphash) {
+            lily_raw_value iter_value = elem_iter->elem_key->value;
+
+            if (key_cls_id == SYM_CLASS_INTEGER &&
+                iter_value.integer == key_value.integer)
+                ok = 1;
+            else if (key_cls_id == SYM_CLASS_DOUBLE &&
+                     iter_value.doubleval == key_value.doubleval)
+                ok = 1;
+            else if (key_cls_id == SYM_CLASS_STRING &&
+                    /* strings are immutable, so try a ptr compare first. */
+                    ((iter_value.string == key_value.string) ||
+                     /* No? Make sure the sizes match, then call for a strcmp.
+                        The size check is an easy way to potentially skip a
+                        strcmp in case of hash collision. */
+                      (iter_value.string->size == key_value.string->size &&
+                       strcmp(iter_value.string->string,
+                              key_value.string->string) == 0)))
+                ok = 1;
+            else
+                ok = 0;
+
+            if (ok)
+                break;
+        }
+        elem_iter = elem_iter->next;
+    }
+
+    return elem_iter;
+}
+
+/*  lily_hash_add_unique
+
+    This function will add an element to the hash with 'pair_key' as the key and
+    'pair_value' as the value. This should only be used in cases where the
+    caller is completely certain that 'pair_key' is not within the hash. If the
+    caller is unsure, then lily_hash_set_elem should be used instead. */
+void lily_hash_add_unique(lily_vm_state *vm, lily_hash_val *hash_val,
+        lily_value *pair_key, lily_value *pair_value)
+{
+    lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
+
+    elem->key_siphash = lily_siphash(vm, pair_key);
+    elem->elem_key = lily_copy_value(pair_key);
+    elem->elem_value = lily_copy_value(pair_value);
+
+    elem->next = hash_val->elem_chain;
+    hash_val->elem_chain = elem;
+
+    hash_val->num_elems++;
+}
+
+/*  lily_hash_set_elem
+
+    This attempts to find 'pair_key' within 'hash_val'. If successful, then
+    the element's value is assigned to 'pair_value'. If unable to find an
+    element, a new element is created using 'pair_key' and 'pair_value'. */
+void lily_hash_set_elem(lily_vm_state *vm, lily_hash_val *hash_val,
+        lily_value *pair_key, lily_value *pair_value)
+{
+    lily_hash_elem *elem = lily_hash_get_elem(vm, hash_val, pair_key);
+    if (elem == NULL)
+        lily_hash_add_unique(vm, hash_val, pair_key, pair_value);
+    else
+        lily_assign_value(elem->elem_value, pair_value);
 }
 
 int lily_hash_eq(lily_vm_state *vm, int *depth, lily_value *left,
@@ -200,19 +281,12 @@ void lily_hash_get(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input = vm_regs[code[1]];
-    lily_value *find_key = vm_regs[code[2]];
+    lily_value *key = vm_regs[code[2]];
     lily_value *default_value = vm_regs[code[3]];
     lily_value *result = vm_regs[code[0]];
 
-    uint64_t siphash = lily_calculate_siphash(vm->sipkey, find_key);
-    lily_hash_elem *hash_elem = lily_lookup_hash_elem(input->value.hash,
-            siphash, find_key);
-
-    lily_value *new_value;
-    if (hash_elem)
-        new_value = hash_elem->elem_value;
-    else
-        new_value = default_value;
+    lily_hash_elem *hash_elem = lily_hash_get_elem(vm, input->value.hash, key);
+    lily_value *new_value = hash_elem ? hash_elem->elem_value : default_value;
 
     lily_assign_value(result, new_value);
 }
@@ -274,11 +348,9 @@ void lily_hash_has_key(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_hash_val *hash_val = vm_regs[code[1]]->value.hash;
-    lily_value *lookup_val = vm_regs[code[2]];
+    lily_value *key = vm_regs[code[2]];
 
-    uint64_t siphash = lily_calculate_siphash(vm->sipkey, lookup_val);
-    lily_hash_elem *hash_elem = lily_lookup_hash_elem(hash_val, siphash,
-            lookup_val);
+    lily_hash_elem *hash_elem = lily_hash_get_elem(vm, hash_val, key);
 
     lily_raw_value v = {.integer = hash_elem != NULL};
     lily_move_raw_value(vm_regs[code[0]], v);
