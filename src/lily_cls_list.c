@@ -13,7 +13,6 @@ lily_list_val *lily_new_list_val()
     lv->elems = NULL;
     lv->num_values = -1;
     lv->visited = 0;
-    lv->iter_count = 0;
     lv->extra_space = 0;
 
     return lv;
