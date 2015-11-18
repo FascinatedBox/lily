@@ -86,7 +86,16 @@ h.map_values{|v| v + 1}
 # [&quot;a&quot; =&gt; 0, &quot;b&quot; =&gt; 6, &quot;c&quot; =&gt; 12]
 </code></pre>
 
-<p><code>list::reject(self: hash[A, B], f: function(A, B =&gt; boolean)):hash[A, B]</code></p>
+<p><code>hash::merge(self: hash[A, B], others: hash[A, B]...):hash[A, B]</code></p>
+<p>This creates a new hash that combines <code>self</code> and each hash within <code>others</code>.</p>
+<p>In the event of multiple hashes having the same value, the right-most value 'wins'.</p>
+<pre><code>var v = [1 =&gt; 1, 2 =&gt; 2, 3 =&gt; 3]
+
+v = v.merge([4 =&gt; 4, 3 =&gt; 6], [3 =&gt; 0])
+# [1 =&gt; 1, 2 =&gt; 2, 3 =&gt; 0, 4 =&gt; 4]
+</code></pre>
+
+<p><code>hash::reject(self: hash[A, B], f: function(A, B =&gt; boolean)):hash[A, B]</code></p>
 <p>Returns a new hash of all key-value pairs in <code>self</code> for which the predicate <code>f</code> returns <code>false</code>.</p>
 <pre><code>[&quot;a&quot; =&gt; 1, &quot;b&quot; =&gt; 2, &quot;c&quot; =&gt; 3].reject{|k, v| v &gt;= 2}
 # [&quot;a&quot; =&gt; 1, &quot;b&quot; =&gt; 2]
@@ -95,7 +104,7 @@ h.map_values{|v| v + 1}
 # [1 =&gt; 1, 3 =&gt; 3]
 </code></pre>
 
-<p><code>list::reject(self: hash[A, B], f: function(A, B =&gt; boolean)):hash[A, B]</code></p>
+<p><code>hash::select(self: hash[A, B], f: function(A, B =&gt; boolean)):hash[A, B]</code></p>
 <p>Returns a new hash of all key-value pairs in <code>self</code> for which the predicate <code>f</code> returns <code>true</code>.</p>
 <pre><code>[&quot;a&quot; =&gt; 1, &quot;b&quot; =&gt; 2, &quot;c&quot; =&gt; 3].select{|k, v| v &gt;= 2}
 # [&quot;c&quot; =&gt; 3]
