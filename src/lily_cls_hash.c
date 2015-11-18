@@ -471,6 +471,15 @@ void lily_hash_map_values(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 }
 
+void lily_hash_size(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_hash_val *hash_val = vm_regs[code[1]]->value.hash;
+
+    lily_raw_value v = {.integer = hash_val->num_elems};
+    lily_move_raw_value(vm_regs[code[0]], v);
+}
+
 static const lily_func_seed clear =
     {NULL, "clear", dyna_function, "[A, B](hash[A, B])", lily_hash_clear};
 
@@ -486,8 +495,11 @@ static const lily_func_seed keys =
 static const lily_func_seed get =
     {&keys, "get", dyna_function, "[A, B](hash[A, B], A, B):B", lily_hash_get};
 
-static const lily_func_seed dynaload_start =
+static const lily_func_seed map_values =
     {&get, "map_values", dyna_function, "[A, B, C](hash[A, B], function(B => C)): hash[A, C]", lily_hash_map_values};
+
+static const lily_func_seed dynaload_start =
+    {&map_values, "size", dyna_function, "[A, B](hash[A, B]):integer", lily_hash_size};
 
 static const lily_class_seed hash_seed =
 {
