@@ -1,0 +1,8 @@
+var h = [1 => 1, 2 => 2, 3 => 3]
+
+h.clear()
+
+if h != []:
+    stderr.print("Failed.")
+
+h.clear()
