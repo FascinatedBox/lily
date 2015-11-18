@@ -62,6 +62,10 @@
 <p>Binary: <code>!=</code> <code>==</code></p>
 <p>Hashes, like lists, do deep comparisons for equality. As such, <code>[1 =&gt; "a"] == [1 =&gt; "a"]</code> is <code>true</code>.</p>
 <h1>Methods</h1>
+<p><code>hash::clear(self: hash[A, B])</code></p>
+<p>Removes all key-value pairs from the hash.</p>
+<p><code>hash::delete(self: hash[A, B], key: A)</code></p>
+<p>This attempts to erase <code>key</code> from the hash. If <code>key</code> does not exist within the hash, then nothing happens.</p>
 <p><code>hash::each_pair(self: hash[A, B], f: function(A, B))</code></p>
 <p>This calls <code>f</code> on each key-value pair that exists within the hash.</p>
 <p><code>hash::has_key(self: hash[A, B], key: A):boolean</code></p>
@@ -70,6 +74,20 @@
 <p>Returns a list of all keys that are present within the hash.</p>
 <p><code>hash::get(self: hash[A, B], key: A, or_else: B) : B</code></p>
 <p>Attempt to get <code>key</code> from within the hash. If successful, return the matching value. If <code>key</code> does not exist within the hash, then return <code>or_else</code> instead. This can be considered a safe alternative to a subscript, as it does not raise any errors.</p>
+<p><code>hash::map_values(self: hash[A, B], f: function(B =&gt; C)):hash[A, C]</code></p>
+<p>This iterates over the hash given, calling <code>f</code> with each value held.</p>
+<p>A new hash is built that maps the old keys to the new values. The old hash is not modified.</p>
+<pre><code>var h = [&quot;a&quot; =&gt; -1, &quot;b&quot; =&gt; 5, &quot;c&quot; =&gt; 11]
+
+h.map_values{|v| (v * v).to_s() }
+# [&quot;a&quot; =&gt; &quot;-2&quot;, &quot;b&quot; =&gt; &quot;10&quot;, &quot;c&quot; =&gt; &quot;22&quot;]
+
+h.map_values{|v| v + 1}
+# [&quot;a&quot; =&gt; 0, &quot;b&quot; =&gt; 6, &quot;c&quot; =&gt; 12]
+</code></pre>
+
+<p><code>hash::size(self: hash[A, B]):integer</code></p>
+<p>Returns the number of key-value pairs within the hash.</p>
      </section>
    </article>
      <footer>
