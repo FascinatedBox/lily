@@ -361,6 +361,7 @@ void lily_hash_each_pair(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         }
 
         hash_val->iter_count--;
+        lily_release_jump(vm->raiser);
     }
     else {
         hash_val->iter_count--;

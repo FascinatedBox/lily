@@ -65,6 +65,11 @@ lily_jump_link *lily_jump_setup(lily_raiser *raiser)
     return raiser->all_jumps;
 }
 
+inline void lily_release_jump(lily_raiser *raiser)
+{
+    raiser->all_jumps = raiser->all_jumps->prev;
+}
+
 /* This is used by vm as a means of restoring control to the previously held
    jump. */
 void lily_jump_back(lily_raiser *raiser)
