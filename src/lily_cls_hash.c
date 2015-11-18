@@ -501,6 +501,62 @@ void lily_hash_map_values(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 }
 
+static void hash_select_reject_common(lily_vm_state *vm, uint16_t argc,
+        uint16_t *code, int expect)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_hash_val *hash_val = vm_regs[code[1]]->value.hash;
+    lily_value *function_reg = vm_regs[code[2]];
+    lily_value *result_reg = vm_regs[code[0]];
+
+    lily_type *expect_type = function_reg->type->subtypes[0];
+    lily_hash_elem *elem_iter = hash_val->elem_chain;
+    lily_vm_list *vm_list = vm->vm_list;
+    int cached = 0;
+    int vm_list_start = vm->vm_list->pos;
+
+    lily_vm_list_ensure(vm, hash_val->num_elems * 2);
+
+    hash_val->iter_count++;
+    lily_jump_link *link = lily_jump_setup(vm->raiser);
+
+    if (setjmp(link->jump) == 0) {
+        while (elem_iter) {
+            lily_value *e_key = elem_iter->elem_key;
+            lily_value *e_value = elem_iter->elem_value;
+
+            lily_value *result = lily_foreign_call(vm, &cached, expect_type,
+                    function_reg, 2, e_key, e_value);
+
+            if (result->value.integer == expect) {
+                vm_list->values[vm_list->pos] = lily_copy_value(e_key);
+                vm_list->values[vm_list->pos+1] = lily_copy_value(e_value);
+                vm_list->pos += 2;
+            }
+
+            elem_iter = elem_iter->next;
+        }
+
+        build_hash_from_vm_list(vm, vm_list_start, result_reg);
+        hash_val->iter_count--;
+        lily_release_jump(vm->raiser);
+    }
+    else {
+        hash_val->iter_count--;
+        lily_jump_back(vm->raiser);
+    }
+}
+
+void lily_hash_reject(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    hash_select_reject_common(vm, argc, code, 0);
+}
+
+void lily_hash_select(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    hash_select_reject_common(vm, argc, code, 1);
+}
+
 void lily_hash_size(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -531,8 +587,14 @@ static const lily_func_seed get =
 static const lily_func_seed map_values =
     {&get, "map_values", dyna_function, "[A, B, C](hash[A, B], function(B => C)): hash[A, C]", lily_hash_map_values};
 
+static const lily_func_seed reject =
+    {&map_values, "reject", dyna_function, "[A, B](hash[A, B], function(A, B => boolean)):hash[A, B]", lily_hash_reject};
+
+static const lily_func_seed select_fn =
+    {&reject, "select", dyna_function, "[A, B](hash[A, B], function(A, B => boolean)):hash[A, B]", lily_hash_select};
+
 static const lily_func_seed dynaload_start =
-    {&map_values, "size", dyna_function, "[A, B](hash[A, B]):integer", lily_hash_size};
+    {&select_fn, "size", dyna_function, "[A, B](hash[A, B]):integer", lily_hash_size};
 
 static const lily_class_seed hash_seed =
 {

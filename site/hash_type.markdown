@@ -64,6 +64,32 @@ h.map_values{|v| v + 1}
 ```
 
 
+`list::reject(self: hash[A, B], f: function(A, B => boolean)):hash[A, B]`
+
+Returns a new hash of all key-value pairs in `self` for which the predicate `f` returns `false`.
+
+```
+["a" => 1, "b" => 2, "c" => 3].reject{|k, v| v >= 2}
+# ["a" => 1, "b" => 2]
+
+[1 => 1, 2 => 2, 3 => 3].reject{|k, v| (k * v) == 4}
+# [1 => 1, 3 => 3]
+```
+
+
+`list::reject(self: hash[A, B], f: function(A, B => boolean)):hash[A, B]`
+
+Returns a new hash of all key-value pairs in `self` for which the predicate `f` returns `true`.
+
+```
+["a" => 1, "b" => 2, "c" => 3].select{|k, v| v >= 2}
+# ["c" => 3]
+
+[1 => 1, 2 => 2, 3 => 3].select{|k, v| (k * v) == 4}
+# [2 => 2]
+```
+
+
 `hash::size(self: hash[A, B]):integer`
 
 Returns the number of key-value pairs within the hash.
