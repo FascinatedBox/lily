@@ -57,3 +57,8 @@ h.map_values{|v| (v * v).to_s() }
 h.map_values{|v| v + 1}
 # ["a" => 0, "b" => 6, "c" => 12]
 ```
+
+
+`hash::size(self: hash[A, B]):integer`
+
+Returns the number of key-value pairs within the hash.
