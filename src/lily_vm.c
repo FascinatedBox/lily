@@ -2523,7 +2523,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 7;
                 break;
             case o_return_from_vm:
-                vm->raiser->all_jumps = vm->raiser->all_jumps->prev;
+                lily_release_jump(vm->raiser);
                 return;
         }
     }

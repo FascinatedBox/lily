@@ -56,6 +56,7 @@ void lily_raiser_set_error(lily_raiser *, lily_type *, const char *);
 void lily_raise_prepared(lily_raiser *);
 lily_jump_link *lily_jump_setup(lily_raiser *);
 void lily_jump_back(lily_raiser *);
+inline void lily_release_jump(lily_raiser *);
 
 const char *lily_name_for_error(lily_raiser *);
 
