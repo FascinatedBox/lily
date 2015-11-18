@@ -17,6 +17,11 @@ Hashes, like lists, do deep comparisons for equality. As such, `[1 => "a"] == [1
 
 # Methods
 
+`hash::clear(self: hash[A, B])`
+
+Removes all key-value pairs from the hash.
+
+
 `hash::each_pair(self: hash[A, B], f: function(A, B))`
 
 This calls `f` on each key-value pair that exists within the hash.

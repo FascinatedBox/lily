@@ -186,6 +186,26 @@ void lily_gc_hash_marker(int pass, lily_value *v)
     }
 }
 
+static void destroy_hash_elems(lily_hash_val *hash_val)
+{
+    lily_hash_elem *elem_iter = hash_val->elem_chain;
+    lily_hash_elem *elem_next;
+
+    while (elem_iter) {
+        lily_deref(elem_iter->elem_key);
+        lily_free(elem_iter->elem_key);
+
+        lily_deref(elem_iter->elem_value);
+        lily_free(elem_iter->elem_value);
+
+        elem_next = elem_iter->next;
+
+        lily_free(elem_iter);
+
+        elem_iter = elem_next;
+    }
+}
+
 void lily_destroy_hash(lily_value *v)
 {
     lily_hash_val *hv = v->value.hash;
@@ -193,22 +213,7 @@ void lily_destroy_hash(lily_value *v)
     if (hv->gc_entry != NULL)
         hv->gc_entry->value.generic = NULL;
 
-    lily_hash_elem *elem, *save_next;
-    elem = hv->elem_chain;
-    while (elem) {
-        lily_value *elem_value = elem->elem_value;
-
-        lily_deref(elem_value);
-
-        save_next = elem->next;
-
-        lily_deref(elem->elem_key);
-
-        lily_free(elem->elem_key);
-        lily_free(elem->elem_value);
-        lily_free(elem);
-        elem = save_next;
-    }
+    destroy_hash_elems(hv);
 
     lily_free(hv);
 }
@@ -262,6 +267,17 @@ void lily_gc_collect_hash(lily_type *hash_type,
         if (marked == 0)
             lily_free(hash_val);
     }
+}
+
+void lily_hash_clear(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_hash_val *hash_val = vm_regs[code[1]]->value.hash;
+
+    destroy_hash_elems(hash_val);
+
+    hash_val->elem_chain = NULL;
+    hash_val->num_elems = 0;
 }
 
 void lily_hash_get(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -343,8 +359,11 @@ void lily_hash_has_key(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(vm_regs[code[0]], v);
 }
 
+static const lily_func_seed clear =
+    {NULL, "clear", dyna_function, "[A, B](hash[A, B])", lily_hash_clear};
+
 static const lily_func_seed each_pair =
-    {NULL, "each_pair", dyna_function, "[A, B](hash[A, B], function(A, B))", lily_hash_each_pair};
+    {&clear, "each_pair", dyna_function, "[A, B](hash[A, B], function(A, B))", lily_hash_each_pair};
 
 static const lily_func_seed has_key =
     {&each_pair, "has_key", dyna_function, "[A, B](hash[A, B], A):boolean", lily_hash_has_key};
