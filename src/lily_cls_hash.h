@@ -4,7 +4,6 @@
 # include "lily_core_types.h"
 
 lily_hash_val *lily_new_hash_val();
-lily_hash_elem *lily_new_hash_elem();
 
 lily_hash_elem *lily_hash_get_elem(lily_vm_state *vm, lily_hash_val *,
         lily_value *);

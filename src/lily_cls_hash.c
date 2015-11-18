@@ -18,19 +18,6 @@ lily_hash_val *lily_new_hash_val()
     return h;
 }
 
-lily_hash_elem *lily_new_hash_elem()
-{
-    lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
-
-    elem->elem_key = lily_new_value(VAL_IS_NIL, NULL,
-            (lily_raw_value){.integer = 0});
-    elem->elem_value = lily_new_value(VAL_IS_NIL, NULL,
-            (lily_raw_value){.integer = 0});
-
-    elem->next = NULL;
-    return elem;
-}
-
 /*  lily_hash_get_elem
 
     Attempt to find 'key' within 'hash_val'. If an element is found, then it is
