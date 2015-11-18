@@ -12,6 +12,7 @@ lily_hash_val *lily_new_hash_val()
 
     h->gc_entry = NULL;
     h->refcount = 1;
+    h->iter_count = 0;
     h->visited = 0;
     h->num_elems = 0;
     h->elem_chain = NULL;
@@ -72,6 +73,10 @@ lily_hash_elem *lily_hash_get_elem(lily_vm_state *vm, lily_hash_val *hash_val,
 void lily_hash_add_unique(lily_vm_state *vm, lily_hash_val *hash_val,
         lily_value *pair_key, lily_value *pair_value)
 {
+    if (hash_val->iter_count)
+        lily_raise(vm->raiser, lily_RuntimeError,
+                "Cannot add a new key into a hash during iteration.\n");
+
     lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
 
     elem->key_siphash = lily_siphash(vm, pair_key);
@@ -274,6 +279,10 @@ void lily_hash_clear(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value **vm_regs = vm->vm_regs;
     lily_hash_val *hash_val = vm_regs[code[1]]->value.hash;
 
+    if (hash_val->iter_count != 0)
+        lily_raise(vm->raiser, lily_RuntimeError,
+                "Cannot remove key from hash during iteration.\n");
+
     destroy_hash_elems(hash_val);
 
     hash_val->elem_chain = NULL;
@@ -338,12 +347,24 @@ void lily_hash_each_pair(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_hash_elem *elem_iter = hash_val->elem_chain;
     int cached = 0;
 
-    while (elem_iter) {
-        lily_value *e_key = elem_iter->elem_key;
-        lily_value *e_value = elem_iter->elem_value;
+    hash_val->iter_count++;
+    lily_jump_link *link = lily_jump_setup(vm->raiser);
+    if (setjmp(link->jump) == 0) {
+        while (elem_iter) {
+            lily_value *e_key = elem_iter->elem_key;
+            lily_value *e_value = elem_iter->elem_value;
 
-        lily_foreign_call(vm, &cached, NULL, function_reg, 2, e_key, e_value);
-        elem_iter = elem_iter->next;
+            lily_foreign_call(vm, &cached, NULL, function_reg, 2, e_key,
+                    e_value);
+
+            elem_iter = elem_iter->next;
+        }
+
+        hash_val->iter_count--;
+    }
+    else {
+        hash_val->iter_count--;
+        lily_jump_back(vm->raiser);
     }
 }
 

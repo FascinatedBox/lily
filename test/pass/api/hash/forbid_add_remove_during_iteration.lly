@@ -1,0 +1,31 @@
+var h = [1=>1]
+
+define preloop_check
+{
+    h.clear()
+    h[1] = 1
+    h.clear()
+    h[1] = 1
+    h[2] = 2
+}
+
+define run_checks(name: string)
+{
+    try: {
+        h[3] = 3
+        stderr.write("%s failed to forbid addition.".format(name))
+    except RuntimeError:
+        1
+    }
+
+    try: {
+        h.clear()
+        stderr.write("%s failed to forbid removal.".format(name))
+    except RuntimeError:
+        1
+    }
+}
+
+preloop_check()
+h.each_pair{|k, v| "each_pair" |> run_checks }
+preloop_check()
