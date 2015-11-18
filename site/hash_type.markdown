@@ -64,7 +64,7 @@ h.map_values{|v| v + 1}
 ```
 
 
-`list::reject(self: hash[A, B], f: function(A, B => boolean)):hash[A, B]`
+`hash::reject(self: hash[A, B], f: function(A, B => boolean)):hash[A, B]`
 
 Returns a new hash of all key-value pairs in `self` for which the predicate `f` returns `false`.
 
@@ -77,7 +77,7 @@ Returns a new hash of all key-value pairs in `self` for which the predicate `f` 
 ```
 
 
-`list::reject(self: hash[A, B], f: function(A, B => boolean)):hash[A, B]`
+`hash::select(self: hash[A, B], f: function(A, B => boolean)):hash[A, B]`
 
 Returns a new hash of all key-value pairs in `self` for which the predicate `f` returns `true`.
 
