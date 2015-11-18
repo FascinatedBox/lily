@@ -64,35 +64,11 @@ lily_hash_elem *lily_hash_get_elem(lily_vm_state *vm, lily_hash_val *hash_val,
     return elem_iter;
 }
 
-/*  lily_hash_add_unique
-
-    This function will add an element to the hash with 'pair_key' as the key and
-    'pair_value' as the value. This should only be used in cases where the
-    caller is completely certain that 'pair_key' is not within the hash. If the
-    caller is unsure, then lily_hash_set_elem should be used instead. */
-void lily_hash_add_unique(lily_vm_state *vm, lily_hash_val *hash_val,
-        lily_value *pair_key, lily_value *pair_value)
-{
-    if (hash_val->iter_count)
-        lily_raise(vm->raiser, lily_RuntimeError,
-                "Cannot add a new key into a hash during iteration.\n");
-
-    lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
-
-    elem->key_siphash = lily_siphash(vm, pair_key);
-    elem->elem_key = lily_copy_value(pair_key);
-    elem->elem_value = lily_copy_value(pair_value);
-
-    elem->next = hash_val->elem_chain;
-    hash_val->elem_chain = elem;
-
-    hash_val->num_elems++;
-}
-
 /*  hash_add_unique_nocopy
 
-    This is similar to lily_hash_add_unique, except that the values are not
-    given a ref bump, and are not copied over. */
+    This adds a new element to the hash, with 'pair_key' and 'pair_value'
+    inside. The key and value are not given a refbump, and are not copied over.
+    For that, see lily_hash_add_unique. */
 static void hash_add_unique_nocopy(lily_vm_state *vm, lily_hash_val *hash_val,
         lily_value *pair_key, lily_value *pair_value)
 {
@@ -110,6 +86,21 @@ static void hash_add_unique_nocopy(lily_vm_state *vm, lily_hash_val *hash_val,
     hash_val->elem_chain = elem;
 
     hash_val->num_elems++;
+}
+
+/*  lily_hash_add_unique
+
+    This function will add an element to the hash with 'pair_key' as the key and
+    'pair_value' as the value. This should only be used in cases where the
+    caller is completely certain that 'pair_key' is not within the hash. If the
+    caller is unsure, then lily_hash_set_elem should be used instead. */
+void lily_hash_add_unique(lily_vm_state *vm, lily_hash_val *hash_val,
+        lily_value *pair_key, lily_value *pair_value)
+{
+    pair_key = lily_copy_value(pair_key);
+    pair_value = lily_copy_value(pair_value);
+
+    hash_add_unique_nocopy(vm, hash_val, pair_key, pair_value);
 }
 
 /*  lily_hash_set_elem
