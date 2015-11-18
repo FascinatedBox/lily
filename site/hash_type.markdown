@@ -22,6 +22,11 @@ Hashes, like lists, do deep comparisons for equality. As such, `[1 => "a"] == [1
 Removes all key-value pairs from the hash.
 
 
+`hash::delete(self: hash[A, B], key: A)`
+
+This attempts to erase `key` from the hash. If `key` does not exist within the hash, then nothing happens.
+
+
 `hash::each_pair(self: hash[A, B], f: function(A, B))`
 
 This calls `f` on each key-value pair that exists within the hash.
