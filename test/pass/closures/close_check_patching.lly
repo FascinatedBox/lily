@@ -1,0 +1,17 @@
+# This is an internal-ish test that makes sure that the jumps are correct.
+# If they aren't, this segfaults.
+
+define f: integer {
+    var a = 1
+    define g: integer {
+        a = a - 1
+        return a
+    }
+
+    if a <= 0:
+        return a
+    else:
+        return g()
+}
+
+f()
