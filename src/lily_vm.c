@@ -1962,7 +1962,6 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     the important and hot opcodes in here. */
 void lily_vm_execute(lily_vm_state *vm)
 {
-    lily_function_val *f;
     uint16_t *code;
     lily_value **regs_from_main;
     lily_value **vm_regs;
@@ -1982,9 +1981,7 @@ void lily_vm_execute(lily_vm_state *vm)
     lily_value **upvalues = NULL;
 
     lily_call_frame *current_frame = vm->call_chain;
-
-    f = current_frame->function;
-    code = f->code;
+    code = current_frame->function->code;
 
     /* Initialize local vars from the vm state's vars. */
     vm_regs = vm->vm_regs;
