@@ -801,11 +801,22 @@ static void transform_code(lily_emit_state *emit, lily_function_val *f,
     int output_pos = -1, output_end;
     /* Do not create a local copy of emit->code here, because the write_4's
        may cause it to be realloc'd. */
+    int patch_start = emit->patches->pos;
 
-    while (pos < end) {
+    while (pos <= end) {
         int j = 0, op = emit->code[pos];
         int c, count, call_type, i, line_num;
         const int *opcode_data = opcode_table[op];
+        int patch_i;
+
+        /* If there are any jumps that were stored that target the current
+           position, they can be written now. This doesn't pop out jumps that
+           are written, since this isn't considered to be a hot path. */
+        for (patch_i = patch_start;patch_i != emit->patches->pos;patch_i += 2) {
+            int where = emit->patches->data[patch_i + 1];
+            if (pos == where)
+                emit->code[emit->patches->data[patch_i]] = pos + jump_adjust;
+        }
 
         for (i = 1;i <= opcode_data[1];i++) {
             c = opcode_data[i + 1];
@@ -889,8 +900,17 @@ static void transform_code(lily_emit_state *emit, lily_function_val *f,
                move * sizeof(uint16_t));
 
         if (jump_pos != -1) {
-            for (;jump_pos < jump_end;jump_pos++)
-                emit->code[emit->code_pos + jump_pos] += jump_adjust;
+            for (;jump_pos < jump_end;jump_pos++) {
+                if (emit->code[emit->code_pos + jump_pos] > pos) {
+                    /* This is a jump to a future place. Don't patch this now,
+                       because there may be more adjustments made between now
+                       and the target location. Mark it down for later. */
+                    lily_u16_push(emit->patches, emit->code_pos + jump_pos);
+                    lily_u16_push(emit->patches, emit->code[emit->code_pos + jump_pos]);
+                }
+                else
+                    emit->code[emit->code_pos + jump_pos] += jump_adjust;
+            }
 
             jump_pos = -1;
         }
@@ -912,6 +932,8 @@ static void transform_code(lily_emit_state *emit, lily_function_val *f,
 
         pos += move;
     }
+
+    emit->patches->pos = patch_start;
 }
 
 /*  Consider this:
