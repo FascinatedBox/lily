@@ -2008,6 +2008,7 @@ void lily_vm_execute(lily_vm_state *vm)
             current_frame = vm->call_chain;
             code = current_frame->code;
             code_pos = current_frame->code_pos;
+            upvalues = current_frame->upvalues;
             regs_from_main = vm->regs_from_main;
             vm_regs = vm->vm_regs;
             vm->num_registers = (vm_regs - regs_from_main) + current_frame->regs_used;
