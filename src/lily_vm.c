@@ -819,14 +819,14 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
 
         /* +15 accounts for there maybe being a separator, the non-%s text, and
            maybe having a line number. */
-        int str_size = strlen(class_name) + strlen(path) + strlen(path) + 15;
+        int str_size = strlen(class_name) + strlen(path) + strlen(line) + 15;
 
         lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
         char *str = lily_malloc(str_size);
-        sprintf(str, "%s:%s from %s%s%s", path, line, class_name, separator,
-                name);
+        int real_size = sprintf(str, "%s:%s from %s%s%s", path, line,
+                class_name, separator, name);
         sv->refcount = 1;
-        sv->size = strlen(str) - 1;
+        sv->size = real_size;
         sv->string = str;
 
         lv->elems[i - 1] = lily_new_value(0, string_type,
