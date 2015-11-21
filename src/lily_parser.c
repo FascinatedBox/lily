@@ -15,19 +15,6 @@
 
 #include "lily_cls_function.h"
 
-/** Parser is responsible for:
-    * Creating all other major structures (ast pool, emitter, lexer, etc.)
-    * Ensuring that all other major structures are deleted.
-    * Holding the startup functions (lily_parse_file and others).
-    * Processing expressions and ensuring they have the proper form. Actual
-      type-checking is done within the emitter.
-    * Handling importing (what links to what, making new ones, etc.)
-    * Dynamic load of class methods.
-
-    Most functions here will expect to have the current token when they start,
-    and call up the next token at exit. This allows the parser to do some
-    lookahead without having to save tokens.
-**/
 
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
@@ -56,19 +43,27 @@ static char *bootstrap =
 "    }\n"
 "}\n";
 
+/***
+ *      ____       _               
+ *     / ___|  ___| |_ _   _ _ __  
+ *     \___ \ / _ \ __| | | | '_ \ 
+ *      ___) |  __/ |_| |_| | |_) |
+ *     |____/ \___|\__|\__,_| .__/ 
+ *                          |_|    
+ */
+
 static void statement(lily_parse_state *, int);
 static lily_import_entry *make_new_import_entry(lily_parse_state *,
         const char *, char *);
-static void link_import_to(lily_import_entry *, lily_import_entry *, const char *);
-static void create_new_class(lily_parse_state *);
 static lily_type *type_by_name(lily_parse_state *, char *);
-static lily_class *resolve_class_name(lily_parse_state *);
-static lily_type *get_type(lily_parse_state *);
-static void collect_optarg_for(lily_parse_state *, lily_var *);
 
-/*****************************************************************************/
-/* Parser creation and teardown                                              */
-/*****************************************************************************/
+/** This area is where the parser is initialized. These first functions create
+    the two paths that the parser reads from. One path is the native path, and
+    the other path is the C/library path. These two are split from each other
+    because the latter path set is more restricted. Namely, .so/library files
+    cannot be loaded relative to the file run. This is to prevent .so files
+    from being stuck in a server. **/
+
 
 /* Create a new path link which has the 'initial' link as the next. The path of
    the new length is the given path_str, which has 'length' chars copied for the
@@ -106,8 +101,8 @@ static lily_path_link *prepare_path_by_seed(lily_parse_state *parser,
     return result;
 }
 
-/*  This will load the Exception and Tainted classes into the current import
-    (which is the builtin one). */
+/* This loads the Exception and Tainted classes into the parser now. Eventually,
+   those two classes should be dynaloaded. */
 static void run_bootstrap(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -117,8 +112,8 @@ static void run_bootstrap(lily_parse_state *parser)
     lily_pop_lex_entry(lex);
 }
 
-/* This function creates a new options type with the interpreter's
-   default values set. */
+/* Not sure what options to give the parser? Call this to get a 'reasonable'
+   starting point. */
 lily_options *lily_new_default_options(void)
 {
     lily_options *options = lily_malloc(sizeof(lily_options));
@@ -131,6 +126,9 @@ lily_options *lily_new_default_options(void)
     return options;
 }
 
+/* This sets up the core of the interpreter. It's pretty rough around the edges,
+   especially with how the parser is assigning into all sorts of various structs
+   when it shouldn't. */
 lily_parse_state *lily_new_parse_state(lily_options *options)
 {
     lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
@@ -138,6 +136,11 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->import_top = NULL;
     parser->import_start = NULL;
 
+    /* Booting up Lily is rather tricky. To begin with, there's a special-cased
+       import that's right here on this next line. This import will receive all
+       of the classes that are builtin (integer, string, function, etc). The
+       interpreter is special-cased to first search in the current import, then
+       this one if there is a problem. */
     lily_import_entry *builtin_import = make_new_import_entry(parser, "",
             "[builtin]");
     lily_raiser *raiser = lily_new_raiser();
@@ -156,6 +159,8 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->msgbuf = lily_new_msgbuf();
     parser->options = options;
 
+    /* Here's the awful part where parser digs in and links everything that different
+       sections need. */
     parser->tm = parser->emit->tm;
 
     parser->vm->symtab = parser->symtab;
@@ -176,22 +181,26 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->lex->symtab = parser->symtab;
     parser->lex->membuf = parser->ast_pool->ast_membuf;
 
+    /* Before things get carried away, define the import paths that will be
+       available. This isn't final: If the interpreter runs from a file, that
+       file's relative path will be added to the native set of paths as the
+       first one. */
     parser->import_paths = prepare_path_by_seed(parser, LILY_PATH_SEED);
     parser->library_import_paths = prepare_path_by_seed(parser,
             LILY_LIBRARY_PATH_SEED);
 
+    /* All code that isn't within a function is grouped together in a special
+       function called __main__. Since that function is the first kind of a
+       block, it needs a special function to initialize that block. */
     lily_emit_enter_main(parser->emit);
 
     parser->vm->main = parser->symtab->main_var;
 
-    /* When declaring a new function, initially give it the same type as
-       __main__. This ensures that, should building the proper type fail, the
-       symtab will still see the function as a function and destroy the
-       contents. */
+    /* This type represents a function that has no input and no outputs. This is
+       used when creating new functions so that they have a type. */
     parser->default_call_type = parser->vm->main->type;
 
-    /* This creates a new var, so it has to be done after symtab's lex_linenum
-       is set. */
+    /* This allows the internal sys package to be located later. */
     lily_pkg_sys_init(parser, options);
 
     run_bootstrap(parser);
@@ -224,8 +233,6 @@ void lily_free_parse_state(lily_parse_state *parser)
     lily_free_vm(parser->vm);
 
     lily_free_symtab(parser->symtab);
-
-    /* Order doesn't matter for the rest of this. */
 
     lily_free_lex_state(parser->lex);
 
@@ -263,10 +270,41 @@ void lily_free_parse_state(lily_parse_state *parser)
     lily_free(parser);
 }
 
-/*****************************************************************************/
-/* Shared code                                                               */
-/*****************************************************************************/
+/***
+ *      ___                            _   
+ *     |_ _|_ __ ___  _ __   ___  _ __| |_ 
+ *      | || '_ ` _ \| '_ \ / _ \| '__| __|
+ *      | || | | | | | |_) | (_) | |  | |_ 
+ *     |___|_| |_| |_| .__/ \___/|_|   \__|
+ *                   |_|                   
+ */
 
+/** Lily largely copies import semantics from Python, including the keyword.
+    Currently, the biggest differences are likely to be the lack of features:
+    No support for `import x.y`, and no `from x import *`. The former will be
+    changed hopefully in the near future. The latter, however, is unlikely to be
+    changed soon. The only other big difference is that access does not use '.',
+    but instead '::'.
+
+    An important function here is 'lily_register_import'. This function can be
+    used by a Lily 'runner' to provide a module that the script can import.
+    However, the script will still have to explicitly load the module. Why?
+
+    Suppose there is a script in tag mode that runs from Apache. Apache provides
+    a server module, and the script does not explicitly import it. If the script
+    is run through the command line, it fails because 'server' is not defined.
+    But worse, the script has to be manually patched to have 'import server'.
+
+    By requiring explicit import of modules that are registered, the script can
+    be moved elsewhere with ease. The interpreter will search for either
+    server.lly or a server library from the usual paths. So long as that module
+    provides what Apache provides, it just works.
+
+    One other thing: When importing files, the files that are imported are
+    always imported in non-tag mode. That is also intentional. **/
+
+/* This creates a new import entry within the parser and links it to existing
+   import entries. The loadname and path given are copied over. */
 static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
         const char *loadname, char *path)
 {
@@ -298,6 +336,22 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
     return new_entry;
 }
 
+/* This creates a new module using the information provided. The name supplied
+   will become the name used to load the module (the path will be "[builtin]").
+   Be aware that this does not automatically make the module loaded: It will
+   still need to be imported by the script. That is intentional. */
+void lily_register_import(lily_parse_state *parser, const char *name,
+        const void *dynaload_table, var_loader var_load_fn)
+{
+    lily_import_entry *entry = make_new_import_entry(parser, name, "[builtin]");
+    entry->dynaload_table = dynaload_table;
+    entry->var_load_fn = var_load_fn;
+}
+
+/* This adds 'to_link' as an entry within 'target' so that 'target' is able to
+   reference it later on. If 'as_name' is not NULL, then 'to_link' will be
+   available through that name. Otherwise, it will be available as the name it
+   actually has. */
 static void link_import_to(lily_import_entry *target,
         lily_import_entry *to_link, const char *as_name)
 {
@@ -337,10 +391,207 @@ static void fixup_import_basedir(lily_parse_state *parser, char *path)
         length);
 }
 
-/*  make_type_of_class
-    This takes a class that takes a single subtype and creates a new type which
-    wraps around the class sent. For example, send 'list' and an integer type to
-    get 'list[integer]'. */
+/* This attempts to load a native file using the path + name combo given.
+   Success: A newly-made import entry
+   Failure: NULL */
+static lily_import_entry *load_native(lily_parse_state *parser,
+        const char *name, char *path)
+{
+    lily_import_entry *result = NULL;
+    if (lily_try_load_file(parser->lex, parser->msgbuf->message))
+        result = make_new_import_entry(parser, name, path);
+
+    return result;
+}
+
+/* This attempts to load a foreign file using the path + name combo given. If it
+   works, then a newly-made import is returned (which has the library added).
+   Success: A newly-made import entry
+   Failure: NULL */
+static lily_import_entry *load_foreign(lily_parse_state *parser,
+        const char *name, char *path)
+{
+    lily_import_entry *result = NULL;
+    void *library = lily_library_load(path);
+    if (library) {
+        result = make_new_import_entry(parser, name, path);
+        result->library = library;
+    }
+
+    return result;
+}
+
+/* This takes one of parser's paths (native or foreign) and tries to import
+   the given name + suffix for each path that there is. The callback given is
+   used to attempt the import, and will be either 'load_native' or
+   'load_foreign'.
+   Success: A newly-made import entry
+   Failure: NULL */
+static lily_import_entry *attempt_import(lily_parse_state *parser,
+        lily_path_link *path_iter, const char *name, const char *suffix,
+        lily_import_entry *(*callback)(lily_parse_state *, const char *, char *))
+{
+    lily_import_entry *result = NULL;
+    lily_msgbuf *msgbuf = parser->msgbuf;
+
+    while (path_iter) {
+        lily_msgbuf_flush(msgbuf);
+        lily_msgbuf_add_fmt(msgbuf, "%s%s%s", path_iter->path, name,
+                suffix);
+        result = (*callback)(parser, name, msgbuf->message);
+        if (result)
+            break;
+
+        path_iter = path_iter->next;
+    }
+
+    return result;
+}
+
+/* This is called when all attempts to load a name have failed. This walks down
+   the path given, and writes all of the different combonations that have been
+   tried. */
+static void write_import_paths(lily_msgbuf *msgbuf,
+        lily_path_link *path_iter, const char *name, const char *suffix)
+{
+    while (path_iter) {
+        lily_msgbuf_add_fmt(msgbuf, "    no file '%s%s%s'\n",
+                path_iter->path, name, suffix);
+        path_iter = path_iter->next;
+    }
+}
+
+/* This is called when `import x` or `import x as y` has been seen. It tries to
+   find 'x' at any place along the paths that it has.
+   Success: A newly-made import entry is returned.
+   Failure: The paths tried are printed, and SyntaxError is raised. */
+static lily_import_entry *load_import(lily_parse_state *parser, char *name)
+{
+    lily_import_entry *result = NULL;
+    result = attempt_import(parser, parser->import_paths, name, ".lly",
+            load_native);
+    if (result == NULL) {
+        result = attempt_import(parser, parser->import_paths, name,
+                LILY_LIB_SUFFIX, load_foreign);
+        if (result == NULL) {
+            /* The parser's msgbuf is used for doing class dynaloading, so it
+               should not be in use here. Also, as credit, this idea comes from
+               seeing lua do the same. */
+            lily_msgbuf *msgbuf = parser->msgbuf;
+            lily_msgbuf_flush(msgbuf);
+            lily_msgbuf_add_fmt(msgbuf, "Cannot import '%s':\n", name);
+            lily_msgbuf_add_fmt(msgbuf, "no builtin module '%s'\n", name);
+            write_import_paths(msgbuf, parser->import_paths, name, ".lly");
+            write_import_paths(msgbuf, parser->library_import_paths, name,
+                    LILY_LIB_SUFFIX);
+            lily_raise(parser->raiser, lily_SyntaxError, parser->msgbuf->message);
+        }
+    }
+
+    parser->symtab->active_import = result;
+    return result;
+}
+
+/***
+ *      _____                     ____      _ _           _   _             
+ *     |_   _|   _ _ __   ___    / ___|___ | | | ___  ___| |_(_) ___  _ __  
+ *       | || | | | '_ \ / _ \  | |   / _ \| | |/ _ \/ __| __| |/ _ \| '_ \ 
+ *       | || |_| | |_) |  __/  | |__| (_) | | |  __/ (__| |_| | (_) | | | |
+ *       |_| \__, | .__/ \___|   \____\___/|_|_|\___|\___|\__|_|\___/|_| |_|
+ *           |___/|_|                                                       
+ */
+
+static lily_type *get_type(lily_parse_state *);
+static lily_class *resolve_class_name(lily_parse_state *);
+static int keyword_by_name(char *);
+
+/** Type collection can be roughly dividied into two subparts. One half deals
+    with general collection of types that either do or don't have a name. The
+    other half deals with optional arguments (optargs) and optional argument
+    value collection.
+    A common thing you'll see mentioned throughout type-related code is the idea
+    of a default type.
+    Before any type is created, the type maker module checks to see if there is
+    a type that describes what is trying to be made. If so, the existing type is
+    returned.
+    Some types have no subtypes, and thus only need a single type to describe
+    them. This type is their 'default type'. **/
+
+/*  grow_optarg_stack
+    Make the optstack holding type information bigger for more values. */
+static void grow_optarg_stack(lily_parse_state *parser)
+{
+    parser->optarg_stack_size *= 2;
+    parser->optarg_stack = lily_realloc(parser->optarg_stack,
+            sizeof(uint16_t) * parser->optarg_stack_size);
+}
+
+/* So you've got a class that wants to have an optional argument. This takes
+   that class, and grabs a valid default value for it. This is semi-tricky when
+   it comes to booleans, because booleans need a word, but the word must be
+   either `true` or `false`.
+   The requirement that default values have to be constants is intentional, with
+   the goal being to prevent complex expressions and/or emit-time evaluation of
+   functions/etc.
+   This is a helper function. No direct calls. */
+static lily_tie *get_optarg_value(lily_parse_state *parser,
+        lily_class *cls)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_symtab *symtab = parser->symtab;
+    lily_token expect;
+    if (cls == symtab->integer_class)
+        expect = tk_integer;
+    else if (cls == symtab->double_class)
+        expect = tk_double;
+    else if (cls == symtab->string_class)
+        expect = tk_double_quote;
+    else if (cls == symtab->bytestring_class)
+        expect = tk_bytestring;
+    else
+        expect = tk_word;
+
+    NEED_NEXT_TOK(expect)
+
+    lily_tie *result;
+    if (expect == tk_word) {
+        int key_id = keyword_by_name(lex->label);
+        if (key_id != KEY_TRUE && key_id != KEY_FALSE)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "'%s' is not a valid default value for a boolean.\n",
+                    lex->label);
+
+        result = lily_get_boolean_literal(symtab, key_id == KEY_TRUE);
+    }
+    else
+        result = lex->last_literal;
+
+    return result;
+}
+
+/* This takes a var that has been marked as being optional and collects a
+   default value for it.
+   Assumptions: var->type->cls is a valid optional argument class. */
+static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
+{
+    lily_lex_state *lex = parser->lex;
+    NEED_CURRENT_TOK(tk_equal)
+
+    if (parser->optarg_stack_pos + 1 >= parser->optarg_stack_size)
+        grow_optarg_stack(parser);
+
+    lily_tie *lit = get_optarg_value(parser, var->type->cls);
+
+    parser->optarg_stack[parser->optarg_stack_pos] = lit->reg_spot;
+    parser->optarg_stack[parser->optarg_stack_pos + 1] = var->reg_spot;
+    parser->optarg_stack_pos += 2;
+
+    lily_lexer(lex);
+}
+
+/* This takes a class that takes a single subtype and creates a new type which
+   wraps around the class sent. For example, send 'list' and an integer type to
+   get 'list[integer]'. */
 static lily_type *make_type_of_class(lily_parse_state *parser, lily_class *cls,
         lily_type *type)
 {
@@ -348,6 +599,10 @@ static lily_type *make_type_of_class(lily_parse_state *parser, lily_class *cls,
     return lily_tm_make(parser->tm, 0, cls, 1);
 }
 
+/* This checks to see if 'type' got as many subtypes as it was supposed to. If
+   it did not, then SyntaxError is raised.
+   For now, this also includes an extra check. It attempts to ensure that the
+   key of a hash is something that is hashable (or a generic type). */
 static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
 {
     if (type->subtype_count != type->cls->generic_count &&
@@ -357,13 +612,7 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
                 type->cls->name, type->cls->generic_count,
                 type->subtype_count);
 
-    /* Unfortunately, Lily does not (yet!) understand constraints, and the
-       hashing function only works on certain builtin types. Because of these
-       restrictions, make sure that hashes do not specify a key which is
-       definitely going to be not-hashable.
-       This isn't perfect, because it allows generics which may be replaced by
-       something that is or isn't hashable.
-       Sorry. :( */
+    /* Hack: This exists because Lily does not understand constraints. */
     if (type->cls == parser->symtab->hash_class) {
         lily_type *check_type = type->subtypes[0];
         if ((check_type->cls->flags & CLS_VALID_HASH_KEY) == 0 &&
@@ -373,13 +622,11 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
     }
 }
 
-/** The two argument collectors (get_named_arg and get_nameless_arg) both use
-    the same set of flags. However, they do not have custom flags. The only
-    flags they're interested in are TYPE_HAS_OPTARGS and TYPE_IS_VARARGS. Using
-    those instead of custom flags allows the flags (after arg processing) to be
-    directly passed to lily_tm_make. It's a small speedup, but in a very used
-    area. **/
-
+/* Call this if you need a type that may/may not have optargs/varargs, but no
+   name is reqired. This is useful for, say, doing collection of optargs/varargs
+   in nested parameter functions (`function(function(*integer))`).
+   'flags' has TYPE_HAS_OPTARGS or TYPE_IS_VARARGS set onto it if either of
+   those things was found. */
 static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
 {
     lily_lex_state *lex = parser->lex;
@@ -420,15 +667,15 @@ static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
     return type;
 }
 
+/* Call this if you have a need for a type that has a name attached. One example
+   would be argument collection of functions `<name>: <type>`.
+   'flags' has TYPE_HAS_OPTARGS or TYPE_IS_VARARGS set onto it if either of
+   those things was found.
+   Assumptions: lex->token should be lex->label (whatever <name> is). */
 static lily_type *get_named_arg(lily_parse_state *parser, int *flags)
 {
     lily_lex_state *lex = parser->lex;
-
-    /* The caller is responsible for ensuring that this starts with the token
-       as tk_label (and thus having a valid name). */
-    lily_var *var;
-
-    var = lily_find_var(parser->symtab, NULL, lex->label);
+    lily_var *var = lily_find_var(parser->symtab, NULL, lex->label);
     if (var != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
                    "%s has already been declared.\n", lex->label);
@@ -453,6 +700,12 @@ static lily_type *get_named_arg(lily_parse_state *parser, int *flags)
     return type;
 }
 
+/* Call this if you just need a type but no optional argument stuff to go along
+   with it. If there is any resolution needed (ex: `a::b::c`), then that is done
+   here. This is relied upon by get_named_arg and get_nameless_arg (which add
+   optarg/vararg functionality).
+   You probably don't want to call this directly, unless you just need a type
+   and it cannot be optargs/varargs (ex: `: <type>` of a var decl). */
 static lily_type *get_type(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -525,6 +778,21 @@ static lily_type *get_type(lily_parse_state *parser)
     return result;
 }
 
+/* Get a type represented by the name given. Largely used by dynaload. */
+static lily_type *type_by_name(lily_parse_state *parser, char *name)
+{
+    lily_load_copy_string(parser->lex, "[api]", lm_no_tags, name);
+    lily_lexer(parser->lex);
+    lily_type *result = get_type(parser);
+    lily_pop_lex_entry(parser->lex);
+
+    return result;
+}
+
+/* This should be called when `[` is found after the name of a define/class. The
+   purpose of this function is to collect the generic types and return how many
+   were found. This is easy now, because Lily currently requires that generics
+   are ordered from A...Z. */
 static int collect_generics(lily_parse_state *parser)
 {
     char name[] = "A";
@@ -558,6 +826,106 @@ static int collect_generics(lily_parse_state *parser)
     return seen;
 }
 
+/* This is called when creating a class and after any generics have been
+   collected.
+   If the class has generics, then the self type will be a type of the class
+   which has all of those generics:
+   `class Box[A]` == `Box[A]`
+   `enum Either[A, B]` == `Either[A, B]`.
+   If the class doesn't have generics, then the self type will be the default
+   type of a class. */
+static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls,
+        int generics_used)
+{
+    lily_type *result;
+    if (generics_used) {
+        char name[] = {'A', '\0'};
+        while (generics_used) {
+            lily_class *lookup_cls = lily_find_class(parser->symtab, NULL, name);
+            lily_tm_add(parser->tm, lookup_cls->type);
+            name[0]++;
+            generics_used--;
+        }
+
+        result = lily_tm_make(parser->tm, 0, cls, (name[0] - 'A'));
+    }
+    else
+        result = lily_tm_make_default_for(parser->tm, cls);
+
+    return result;
+}
+
+/***
+ *      ____                    _                 _ 
+ *     |  _ \ _   _ _ __   __ _| | ___   __ _  __| |
+ *     | | | | | | | '_ \ / _` | |/ _ \ / _` |/ _` |
+ *     | |_| | |_| | | | | (_| | | (_) | (_| | (_| |
+ *     |____/ \__, |_| |_|\__,_|_|\___/ \__,_|\__,_|
+ *            |___/                                 
+ */
+
+static void create_new_class(lily_parse_state *);
+static lily_class *dynaload_exception(lily_parse_state *, lily_import_entry *,
+        const char *);
+static void dispatch_word_as_class(lily_parse_state *, lily_class *, int *);
+
+/** Lily is a statically-typed language, which carries benefits as well as
+    drawbacks. One drawback is that creating a new function or a new var is
+    quite costly. A var needs a type, and that type may include subtypes.
+    Binding foreign functions includes creating a tie that the vm can later use
+    to associate 'this foreign function has that value', a type, and a var.
+    This can be rather wasteful if you're not going to use all of that. In fact,
+    it's unlikely that you'll use all API functions, all builtin functions, and
+    all builtin packages in a single program.
+
+    Consider a call to string::lower. This can be invoked as either "".lower or
+    string::lower. Since Lily is a statically-typed language, it's possible to
+    know if something is going to be used, or if it won't through a combo of
+    parse-time guessing (with static calls), and emit-time post-type-solving
+    knowledge (with anything else).
+
+    Lily's solution to the problem is to allow classes and modules to have seeds
+    that describe what they will provide. These seeds are a static linked list
+    that provide the useful information. For a foreign function, that would be
+    the name, the type, and the C function to call.
+
+    The loading is done by parser, either directly or when called from emitter.
+    These functions below handle dynaloading in various areas. The parser will
+    generally attempt to load existing vars before attempting to check for a
+    dynaload.
+
+    This may seem like overkill, but the memory saving is enormous. Furthermore,
+    it allows Lily to (eventually) have a generous standard library without fear
+    of wasting memory if such functions are loaded but never used.
+
+    An unfortunate side-effect of this is that it requires a lot of forward
+    definitions. Sorry about that. **/
+
+/* This function is called when the current label could potentially be a module.
+   If it is, then this function will continue digging until all of the modules
+   have been seen.
+   The result of this is the context from which to continue looking up. */
+static lily_import_entry *resolve_import(lily_parse_state *parser)
+{
+    lily_import_entry *result = NULL, *search_entry = NULL;
+    lily_symtab *symtab = parser->symtab;
+    lily_lex_state *lex = parser->lex;
+
+    search_entry = lily_find_import(symtab, result, lex->label);
+    while (search_entry) {
+        result = search_entry;
+        NEED_NEXT_TOK(tk_colon_colon)
+        NEED_NEXT_TOK(tk_word)
+        search_entry = lily_find_import(symtab, result, lex->label);
+    }
+
+    return result;
+}
+
+/* See if the given item has a dynaload table that contains the given name.
+   Success: A seed with a name matching 'name'
+   Failure: NULL
+   Assumptions: 'item' is either a class or a module. */
 static lily_base_seed *find_dynaload_entry(lily_item *item, char *name)
 {
     const void *raw_iter;
@@ -577,6 +945,46 @@ static lily_base_seed *find_dynaload_entry(lily_item *item, char *name)
     return raw_iter;
 }
 
+/* This is used to collect class names. Trying to just get a class name isn't
+   possible because there could be a module before the class name (`a::b::c`).
+   To make things more complicated, there could be a dynaload of a class. */
+static lily_class *resolve_class_name(lily_parse_state *parser)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_lex_state *lex = parser->lex;
+
+    NEED_CURRENT_TOK(tk_word)
+
+    lily_import_entry *search_import = resolve_import(parser);
+    lily_class *result = lily_find_class(symtab, search_import, lex->label);
+    if (result == NULL) {
+        if (search_import == NULL)
+            search_import = symtab->builtin_import;
+
+        /* Is it a dynaload from the builtin/given package? */
+        lily_base_seed *call_seed =
+                find_dynaload_entry((lily_item *)search_import, lex->label);
+
+        /* The active import could be a foreign package, which might have a
+           dynaload entry. Try that. */
+        if (call_seed == NULL)
+            call_seed = find_dynaload_entry((lily_item *)symtab->active_import,
+                    lex->label);
+
+        if (call_seed && call_seed->seed_type == dyna_exception)
+            result = dynaload_exception(parser, search_import, lex->label);
+        else if (call_seed && call_seed->seed_type == dyna_class)
+            result = lily_new_class_by_seed(parser->symtab, call_seed);
+        else
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Class '%s' does not exist.\n", lex->label);
+    }
+
+    return result;
+}
+
+/* Load the function described by 'seed' into 'source'. 'source' should either
+   be an import entry, or a class. */
 static lily_var *dynaload_function(lily_parse_state *parser, lily_item *source,
         lily_base_seed *seed)
 {
@@ -652,19 +1060,27 @@ static lily_var *dynaload_function(lily_parse_state *parser, lily_item *source,
     return call_var;
 }
 
-lily_class *dynaload_exception(lily_parse_state *parser,
+/* This is a bit gross. It's used to dynaload classes that are derived directly
+   from 'Exception'. 'import' is likely to be the builtin import, but could be a
+   foreign module that wants to make a custom exception (ex: postgres). */
+static lily_class *dynaload_exception(lily_parse_state *parser,
         lily_import_entry *import, const char *name)
 {
     lily_symtab *symtab = parser->symtab;
     lily_import_entry *saved_active = symtab->active_import;
     lily_class *result;
 
+    /* Hack: This exists because I originally thought it was really clever to
+       get classes to boot without using internal functions directly. However,
+       this is pretty awful. */
+
     /* This causes lookups and the class insertion to be done into the scope of
        whatever import that wanted this dynaload. This will make it so the
        dynaload lasts, instead of scoping out. */
     symtab->active_import = import;
     lily_msgbuf_flush(parser->msgbuf);
-    lily_msgbuf_add_fmt(parser->msgbuf, "class %s(msg: string) < Exception(msg) { }\n", name);
+    lily_msgbuf_add_fmt(parser->msgbuf,
+            "class %s(msg: string) < Exception(msg) { }\n", name);
     lily_load_str(parser->lex, "[dynaload]", lm_no_tags, parser->msgbuf->message);
     /* This calls up the first token, which will be 'class'. */
     lily_lexer(parser->lex);
@@ -686,21 +1102,87 @@ lily_class *dynaload_exception(lily_parse_state *parser,
     return result;
 }
 
-static lily_import_entry *resolve_import(lily_parse_state *parser)
+/* This is called by expression handling when a seed of some sort has been
+   found. 'import' is the context from which the seed is to be loaded. This
+   function updates the state for expression handling when it's done. */
+static void dispatch_word_as_dynaloaded(lily_parse_state *parser,
+        lily_import_entry *import, lily_base_seed *seed, int *state)
 {
-    lily_import_entry *result = NULL, *search_entry = NULL;
+#define ST_WANT_OPERATOR        2
+    lily_import_entry *saved_active = parser->symtab->active_import;
     lily_symtab *symtab = parser->symtab;
-    lily_lex_state *lex = parser->lex;
 
-    search_entry = lily_find_import(symtab, result, lex->label);
-    while (search_entry) {
-        result = search_entry;
-        NEED_NEXT_TOK(tk_colon_colon)
-        NEED_NEXT_TOK(tk_word)
-        search_entry = lily_find_import(symtab, result, lex->label);
+    symtab->active_import = import;
+
+    if (seed->seed_type == dyna_var) {
+        lily_var_seed *var_seed = (lily_var_seed *)seed;
+        /* Note: This is currently fine because there are no modules which
+           create vars of a type not found in the interpreter's core. However,
+           if that changes, this must change as well. */
+        lily_type *var_type = type_by_name(parser, var_seed->type);
+        lily_var *new_var = lily_emit_new_dyna_var(parser->emit, import,
+                var_type, seed->name);
+
+        /* This will tie some sort of value to the newly-made var. It doesn't
+           matter what though: The vm will figure that out later. */
+        import->var_load_fn(parser, new_var);
+        lily_ast_push_global_var(parser->ast_pool, new_var);
+        *state = ST_WANT_OPERATOR;
+    }
+    else if (seed->seed_type == dyna_function) {
+        lily_var *new_var = dynaload_function(parser, (lily_item *)import, seed);
+        lily_ast_push_defined_func(parser->ast_pool, new_var);
+        *state = ST_WANT_OPERATOR;
+    }
+    else if (seed->seed_type == dyna_class) {
+        lily_class *new_cls = lily_new_class_by_seed(symtab, seed);
+        dispatch_word_as_class(parser, new_cls, state);
+    }
+    else if (seed->seed_type == dyna_exception) {
+        lily_class *new_cls = dynaload_exception(parser, import,
+                seed->name);
+        dispatch_word_as_class(parser, new_cls, state);
     }
 
-    return result;
+    symtab->active_import = saved_active;
+#undef ST_WANT_OPERATOR
+}
+
+/* This is called from emitter to see if there is a function seed with the name
+   'name' within 'cls'. It's called because `x.y` might be a use of method 'y'
+   by instance 'x'. */
+lily_var *lily_parser_dynamic_load(lily_parse_state *parser, lily_class *cls,
+        char *name)
+{
+    lily_base_seed *base_seed = find_dynaload_entry((lily_item *)cls, name);
+    lily_var *ret;
+
+    if (base_seed != NULL)
+        ret = dynaload_function(parser, (lily_item *)cls, base_seed);
+    else
+        ret = NULL;
+
+    return ret;
+}
+
+/* This is called by the vm because the exception raised either was raised
+   through a code or by a module seed. So the vm needs parser to find the class
+   or dynaload it if it can't be found. One of those two should work.
+   'import' is likely to be the builtin import, but could be one for a foreign
+   module if a module wanted to make an exception (ex: postgres). */
+lily_class *lily_maybe_dynaload_class(lily_parse_state *parser,
+        lily_import_entry *import, const char *name)
+{
+    lily_symtab *symtab = parser->symtab;
+    if (import == NULL)
+        import = symtab->builtin_import;
+
+    lily_class *cls = lily_find_class(parser->symtab, import, name);
+
+    if (cls == NULL)
+        cls = dynaload_exception(parser, import, name);
+
+    return cls;
 }
 
 /*  shorthash_for_name
@@ -739,350 +1221,29 @@ static int keyword_by_name(char *name)
     return -1;
 }
 
-/*  Is this keyword a value that can be part of an expression?*/
-static int is_key_a_value(int key_id)
-{
-    switch(key_id) {
-        case KEY_TRUE:
-        case KEY_FALSE:
-        case KEY__FILE__:
-        case KEY__FUNCTION__:
-        case KEY__LINE__:
-        case KEY_SELF:
-            return 1;
-        default:
-            return 0;
-    }
-}
+/***
+ *      _____                              _                 
+ *     | ____|_  ___ __  _ __ ___  ___ ___(_) ___  _ __  ___ 
+ *     |  _| \ \/ / '_ \| '__/ _ \/ __/ __| |/ _ \| '_ \/ __|
+ *     | |___ >  <| |_) | | |  __/\__ \__ \ | (_) | | | \__ \
+ *     |_____/_/\_\ .__/|_|  \___||___/___/_|\___/|_| |_|___/
+ *                |_|                                        
+ */
 
-static void ensure_unique_method_name(lily_parse_state *parser, char *name)
-{
-    if (lily_find_var(parser->symtab, NULL, name) != NULL)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                   "%s has already been declared.\n", name);
+/** Expression handling is hard. It's largely broken up into three different
+    parts. The first, here, is parsing an expression to make sure that the form
+    is correct. The second, in ast, is making sure that expressions merge right.
+    The last, in emitter, is making sure the types make sense and writing out
+    the bytecode.
 
-    if (parser->class_self_type) {
-        lily_class *current_class = parser->class_self_type->cls;
+    Parser's job is to make sure that things have a relatively correct form. The
+    expression should finish without a right side to a binary +, and shouldn't
+    finish without a balance in ')' or ']', etc.
 
-        if (lily_find_property(current_class, name)) {
-            lily_raise(parser->raiser, lily_SyntaxError,
-                "A property in class '%s' already has the name '%s'.\n",
-                current_class->name, name);
-        }
-    }
-}
+    Lambdas are not completely handled here. Lexer scoops their internal
+    definition up as a string and hands it off to parser. As such, that part is
+    not included here. Besides, it's long and complex anyway. **/
 
-/*  get_named_var
-    Attempt to create a var with the given type. This will call lexer to
-    get the name, as well as ensuring that the given var is unique. */
-static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type)
-{
-    lily_lex_state *lex = parser->lex;
-    lily_var *var;
-
-    var = lily_find_var(parser->symtab, NULL, lex->label);
-    if (var != NULL)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                   "%s has already been declared.\n", lex->label);
-
-    var = lily_emit_new_scoped_var(parser->emit, var_type, lex->label);
-
-    lily_lexer(lex);
-    return var;
-}
-
-/*  get_named_property
-    The same thing as get_named_var, but with a property instead. */
-static lily_prop_entry *get_named_property(lily_parse_state *parser,
-        lily_type *prop_type, int flags)
-{
-    char *name = parser->lex->label;
-    lily_class *current_class = parser->class_self_type->cls;
-
-    lily_prop_entry *prop = lily_find_property(current_class, name);
-
-    if (prop != NULL)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "Property %s already exists in class %s.\n", name,
-                current_class->name);
-
-    /* Like with get_named_var, prevent properties from having the same name as
-       what will become a class method. This is because they are both accessed
-       in the same manner outside the class. */
-    lily_var *lookup_var = lily_find_method(current_class, name);
-
-    if (lookup_var)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "A method in class '%s' already has the name '%s'.\n",
-                current_class->name, name);
-
-    prop = lily_add_class_property(parser->symtab, current_class, prop_type,
-            name, flags & ~SYM_NOT_INITIALIZED);
-
-    lily_lexer(parser->lex);
-    return prop;
-}
-
-/*  bad_decl_token
-    This is a function called when var_handler is expecting a var name and gets
-    a property name, or vice versa. For either case, give the user a more
-    useful error message.
-    This is particularly important for classes: A new user may expect that
-    class properties don't have an @ starter. This gives a useful error message
-    in that case. */
-static void bad_decl_token(lily_parse_state *parser)
-{
-    char *message;
-
-    if (parser->lex->token == tk_word)
-        message = "Class properties must start with @.\n";
-    else
-        message = "Cannot use a class property outside of a constructor.\n";
-
-    lily_raise(parser->raiser, lily_SyntaxError, message);
-}
-
-/*  grow_optarg_stack
-    Make the optstack holding type information bigger for more values. */
-static void grow_optarg_stack(lily_parse_state *parser)
-{
-    parser->optarg_stack_size *= 2;
-    parser->optarg_stack = lily_realloc(parser->optarg_stack,
-            sizeof(uint16_t) * parser->optarg_stack_size);
-}
-
-/*****************************************************************************/
-/* Type collection                                                           */
-/*****************************************************************************/
-
-static lily_tie *get_optarg_value(lily_parse_state *parser,
-        lily_class *cls)
-{
-    lily_lex_state *lex = parser->lex;
-    lily_symtab *symtab = parser->symtab;
-    lily_token expect;
-    if (cls == symtab->integer_class)
-        expect = tk_integer;
-    else if (cls == symtab->double_class)
-        expect = tk_double;
-    else if (cls == symtab->string_class)
-        expect = tk_double_quote;
-    else if (cls == symtab->bytestring_class)
-        expect = tk_bytestring;
-    else
-        expect = tk_word;
-
-    NEED_NEXT_TOK(expect)
-
-    lily_tie *result;
-    if (expect == tk_word) {
-        int key_id = keyword_by_name(lex->label);
-        if (key_id != KEY_TRUE && key_id != KEY_FALSE)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "'%s' is not a valid default value for a boolean.\n",
-                    lex->label);
-
-        result = lily_get_boolean_literal(symtab, key_id == KEY_TRUE);
-    }
-    else
-        result = lex->last_literal;
-
-    return result;
-}
-
-/*  collect_optarg_for
-    This collects a default value for 'var', which has been tagged as needing
-    one. This first makes sure that the var is a type that actually can do that.
-    If so, it will grab the '=<value>' and register the value into the optarg
-    stack. */
-static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
-{
-    lily_lex_state *lex = parser->lex;
-    NEED_CURRENT_TOK(tk_equal)
-
-    if (parser->optarg_stack_pos + 1 >= parser->optarg_stack_size)
-        grow_optarg_stack(parser);
-
-    lily_tie *lit = get_optarg_value(parser, var->type->cls);
-
-    parser->optarg_stack[parser->optarg_stack_pos] = lit->reg_spot;
-    parser->optarg_stack[parser->optarg_stack_pos + 1] = var->reg_spot;
-    parser->optarg_stack_pos += 2;
-
-    lily_lexer(lex);
-}
-
-/* This is called after processing the generics for either a normal class or an
-   enum class. It will build a type that describes the class with those
-   generics.
-   For example, `class Test[A, B] ...` will create the type `Test[A, B]`. This
-   is needed because this type is the 'self' type that will be injected as the
-   first argument to class methods. It's also the type of the keyword `self`'s
-   value. */
-static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls,
-        int generics_used)
-{
-    lily_type *result;
-    if (generics_used) {
-        char name[] = {'A', '\0'};
-        while (generics_used) {
-            lily_class *lookup_cls = lily_find_class(parser->symtab, NULL, name);
-            lily_tm_add(parser->tm, lookup_cls->type);
-            name[0]++;
-            generics_used--;
-        }
-
-        result = lily_tm_make(parser->tm, 0, cls, (name[0] - 'A'));
-    }
-    else
-        result = lily_tm_make_default_for(parser->tm, cls);
-
-    return result;
-}
-
-/* This is used by collect_var_type to collect a class when there may be one or
-   more package entries before the type. This allows using package access within
-   class declaration (ex: 'a::class'/'a::b::class'), as well as typical class
-   declaration. */
-static lily_class *resolve_class_name(lily_parse_state *parser)
-{
-    lily_symtab *symtab = parser->symtab;
-    lily_lex_state *lex = parser->lex;
-
-    NEED_CURRENT_TOK(tk_word)
-
-    lily_import_entry *search_import = resolve_import(parser);
-    lily_class *result = lily_find_class(symtab, search_import, lex->label);
-    if (result == NULL) {
-        if (search_import == NULL)
-            search_import = symtab->builtin_import;
-
-        /* Is this a class that hasn't been loaded just yet? First try the
-           builtins to figure that out... */
-        lily_base_seed *call_seed =
-                find_dynaload_entry((lily_item *)search_import, lex->label);
-
-        /* If that doesn't work, then this could be a situation of being in a
-           method dynaload that references types that have yet to be dynaloaded.
-           In such a case, what's marked as the active import will have a
-           dynaload table that isn't NULL. */
-        if (call_seed == NULL)
-            call_seed = find_dynaload_entry((lily_item *)symtab->active_import,
-                    lex->label);
-
-        if (call_seed && call_seed->seed_type == dyna_exception)
-            result = dynaload_exception(parser, search_import, lex->label);
-        else if (call_seed && call_seed->seed_type == dyna_class)
-            result = lily_new_class_by_seed(parser->symtab, call_seed);
-        else
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "Class '%s' does not exist.\n", lex->label);
-    }
-
-    return result;
-}
-
-static void parse_define_header(lily_parse_state *parser, int modifiers)
-{
-    lily_lex_state *lex = parser->lex;
-    NEED_CURRENT_TOK(tk_word)
-
-    ensure_unique_method_name(parser, lex->label);
-
-    /* The type will be overwritten with the right thing later on. However, it's
-       necessary to have some function-like entity there instead of, say, NULL.
-       The reason is that a dynaload may be triggered, which may push a block.
-       The emitter will attempt to restore the return type via the type of the
-       define var here. */
-    lily_var *define_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, lex->label);
-
-    int i = 0;
-    int arg_flags = 0;
-    int result_pos = parser->tm->pos;
-    int generics_used;
-
-    /* This is the initial result. NULL means the function doesn't return
-       anything. If it does, then this spot will be overwritten. */
-    lily_tm_add(parser->tm, NULL);
-
-    lily_lexer(lex);
-
-    if (lex->token == tk_left_bracket)
-        generics_used = collect_generics(parser);
-    else
-        generics_used = parser->emit->block->generic_count;
-
-    lily_emit_enter_block(parser->emit, block_define);
-    lily_update_symtab_generics(parser->symtab, NULL, generics_used);
-
-    if (parser->class_self_type) {
-        /* This is a method of a class. It should implicitly take 'self' as
-           the first argument, and be registered to be within that class.
-           It may also have a private/protected modifier, so add that too. */
-        lily_tm_add(parser->tm, parser->class_self_type);
-        i++;
-
-        lily_var *self_var = lily_emit_new_scoped_var(parser->emit,
-                parser->class_self_type, "(self)");
-        define_var->parent = parser->class_self_type->cls;
-        define_var->flags |= modifiers;
-
-        parser->emit->block->self = (lily_storage *)self_var;
-    }
-
-    if (lex->token == tk_left_parenth) {
-        lily_lexer(lex);
-
-        /* If () is omitted, then it's assumed that the function will not take
-           any arguments (unless it implicitly takes self). */
-        if (lex->token == tk_right_parenth)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "Empty () not needed for a define.\n");
-
-        while (1) {
-            NEED_CURRENT_TOK(tk_word)
-            lily_tm_add(parser->tm, get_named_arg(parser, &arg_flags));
-            i++;
-            if (lex->token == tk_comma) {
-                lily_lexer(lex);
-                continue;
-            }
-            else if (lex->token == tk_right_parenth) {
-                lily_lexer(lex);
-                break;
-            }
-            else
-                lily_raise(parser->raiser, lily_SyntaxError,
-                        "Expected either ',' or ')', not '%s'.\n",
-                        tokname(lex->token));
-        }
-    }
-
-    if (lex->token == tk_colon) {
-        lily_lexer(lex);
-        lily_tm_insert(parser->tm, result_pos, get_type(parser));
-    }
-
-    NEED_CURRENT_TOK(tk_left_curly)
-
-    define_var->type = lily_tm_make(parser->tm, arg_flags,
-            parser->symtab->function_class, i + 1);
-
-    lily_emit_update_function_block(parser->emit, NULL,
-            generics_used, define_var->type->subtypes[0]);
-
-    if (parser->optarg_stack_pos != 0) {
-        lily_emit_write_optargs(parser->emit, parser->optarg_stack,
-                parser->optarg_stack_pos);
-
-        parser->optarg_stack_pos = 0;
-    }
-}
-
-/*****************************************************************************/
-/* Expression handling                                                       */
-/*****************************************************************************/
 
 /* I need a value to work with. */
 #define ST_DEMAND_VALUE         1
@@ -1102,8 +1263,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
 #define ST_DONE                 5
 #define ST_BAD_TOKEN            6
 
-/*  expression_static_call
-    This handles expressions like `<type>::member`. */
+/* This handles expressions like `<type>::member`. */
 static void expression_static_call(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
@@ -1153,8 +1313,7 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
             "%s::%s does not exist.\n", cls->name, lex->label);
 }
 
-/*  parse_special_keyword
-    This handles all the simple keywords that map to a string/integer value. */
+/* This handles all the simple keywords that map to a string/integer value. */
 static lily_sym *parse_special_keyword(lily_parse_state *parser, int key_id)
 {
     lily_symtab *symtab = parser->symtab;
@@ -1192,27 +1351,23 @@ static lily_sym *parse_special_keyword(lily_parse_state *parser, int key_id)
     return ret;
 }
 
-/*  expression_variant
-    This is called when expression_word hits a label that's a class that's
-    marked as a variant. They're used like a function, sometimes. Not actually
-    a function though. */
-static void expression_variant(lily_parse_state *parser,
-        lily_class *variant_cls)
-{
-    lily_ast_push_variant(parser->ast_pool, variant_cls);
-}
-
+/* This is called when a class (enum or regular) is found. This determines how
+   to handle the class: Either push the variant or run a static call, then
+   updates the state. */
 static void dispatch_word_as_class(lily_parse_state *parser, lily_class *cls,
         int *state)
 {
     if (cls->flags & CLS_IS_VARIANT)
-        expression_variant(parser, cls);
+        lily_ast_push_variant(parser->ast_pool, cls);
     else
         expression_static_call(parser, cls);
 
     *state = ST_WANT_OPERATOR;
 }
 
+/* This function takes a var and determines what kind of tree to put it into.
+   The tree type is used by emitter to group vars into different types as a
+   small optimization. */
 static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
         int *state)
 {
@@ -1234,50 +1389,8 @@ static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
     *state = ST_WANT_OPERATOR;
 }
 
-static void dispatch_word_as_dynaloaded(lily_parse_state *parser,
-        lily_import_entry *import, lily_base_seed *seed, int *state)
-{
-    lily_import_entry *saved_active = parser->symtab->active_import;
-    lily_symtab *symtab = parser->symtab;
-
-    symtab->active_import = import;
-
-    if (seed->seed_type == dyna_var) {
-        lily_var_seed *var_seed = (lily_var_seed *)seed;
-        /* Note: This is currently fine because there are no modules which
-           create vars of a type not found in the interpreter's core. However,
-           if that changes, this must change as well. */
-        lily_type *var_type = type_by_name(parser, var_seed->type);
-        lily_var *new_var = lily_emit_new_dyna_var(parser->emit, import,
-                var_type, seed->name);
-
-        /* This will tie some sort of value to the newly-made var. It doesn't
-           matter what though: The vm will figure that out later. */
-        import->var_load_fn(parser, new_var);
-        lily_ast_push_global_var(parser->ast_pool, new_var);
-        *state = ST_WANT_OPERATOR;
-    }
-    else if (seed->seed_type == dyna_function) {
-        lily_var *new_var = dynaload_function(parser, (lily_item *)import, seed);
-        lily_ast_push_defined_func(parser->ast_pool, new_var);
-        *state = ST_WANT_OPERATOR;
-    }
-    else if (seed->seed_type == dyna_class) {
-        lily_class *new_cls = lily_new_class_by_seed(symtab, seed);
-        dispatch_word_as_class(parser, new_cls, state);
-    }
-    else if (seed->seed_type == dyna_exception) {
-        lily_class *new_cls = dynaload_exception(parser, import,
-                seed->name);
-        dispatch_word_as_class(parser, new_cls, state);
-    }
-
-    symtab->active_import = saved_active;
-}
-
-/*  expression_word
-    This is a helper function that handles words in expressions. These are
-    sort of complicated. :( */
+/* This is called by expression when there is a word. This is complicated,
+   because a word could be a lot of things.  */
 static void expression_word(lily_parse_state *parser, int *state)
 {
     lily_symtab *symtab = parser->symtab;
@@ -1339,16 +1452,7 @@ static void expression_word(lily_parse_state *parser, int *state)
             lex->label);
 }
 
-/*  expression_property
-    Within a class declaration, the properties of the class are referred to
-    by using a @ in front of the name.
-
-    Example:
-        class Point(integer inX, integer inY) { @x = inX    @y = inY }
-        Point p = Point::new(1, 2)
-        # @x now availble as 'p.x', @y as 'p.y'.
-
-    Similar to expression_word, minus the complexity. */
+/* This is called to handle `@<prop>` accesses. */
 static void expression_property(lily_parse_state *parser, int *state)
 {
     if (parser->class_self_type == NULL)
@@ -1367,9 +1471,8 @@ static void expression_property(lily_parse_state *parser, int *state)
     *state = ST_WANT_OPERATOR;
 }
 
-/*  check_valid_close_tok
-    This is a helper function that makes sure blocks get the right close token.
-    It prevents things like 'abc(1, 2, 3]>' and '[1, 2, 3)'. */
+/* This makes sure that the current token is the right kind of token for closing
+   the current tree. If it is not, then SyntaxError is raised. */
 static void check_valid_close_tok(lily_parse_state *parser)
 {
     lily_token token = parser->lex->token;
@@ -1390,15 +1493,17 @@ static void check_valid_close_tok(lily_parse_state *parser)
                 tokname(token));
 }
 
-/*  maybe_digit_fixup
-    Sometimes 1+1 should actually be 1 + 1 instead of 1 +1. This will either
-    split it into two things or it won't if it can't. */
-static void maybe_digit_fixup(lily_parse_state *parser, int *did_fixup)
+/* There's this annoying problem where 1-1 can be 1 - 1 or 1 -1. This is called
+   if an operator is wanted but a digit is given instead. It checks to see if
+   the numeric token can be broken up into an operator and a value, instead of
+   just an operator. */
+static int maybe_digit_fixup(lily_parse_state *parser)
 {
     /* The lexer records where the last digit scan started. So check if it
        started with '+' or '-'. */
     lily_lex_state *lex = parser->lex;
     char ch = lex->input_buffer[lex->last_digit_start];
+    int fixed = 0;
 
     if (ch == '-' || ch == '+') {
         int expr_op;
@@ -1414,14 +1519,13 @@ static void maybe_digit_fixup(lily_parse_state *parser, int *did_fixup)
         lily_lexer_digit_rescan(lex);
 
         lily_ast_push_literal(parser->ast_pool, lex->last_literal);
-        *did_fixup = 1;
+        fixed = 1;
     }
-    else
-        *did_fixup = 0;
+
+    return fixed;
 }
 
-/*  expression_literal
-    This handles all literals: integer, double, and string. */
+/* This handles literals, and does that fixup thing if that's necessary. */
 static void expression_literal(lily_parse_state *parser, int *state)
 {
     lily_lex_state *lex = parser->lex;
@@ -1429,9 +1533,7 @@ static void expression_literal(lily_parse_state *parser, int *state)
 
     if (*state == ST_WANT_OPERATOR &&
          (token == tk_integer || token == tk_double)) {
-        int did_fixup;
-        maybe_digit_fixup(parser, &did_fixup);
-        if (did_fixup == 0)
+        if (maybe_digit_fixup(parser) == 0)
             *state = ST_DONE;
     }
     else if (*state == ST_WANT_OPERATOR)
@@ -1443,10 +1545,10 @@ static void expression_literal(lily_parse_state *parser, int *state)
     }
 }
 
-/*  expression_comma_arrow
-    This handles commas and arrows. The & 0x1 is nothing magical: a proper
-    hash will always have pairs of values. The values to the left side of
-    the arrow will always be odd, and the right ones will be even. */
+/* Both comma and arrow do similar-ish things, so they're both handled here. The
+   & 0x1 trick is used to detect even/odd-ness. A properly-formed hash should
+   look like `[1 => 1, 2 => 2, 3 => 3...]`. If it isn't, then args_collected
+   will be odd/even when it shouldn't be. */
 static void expression_comma_arrow(lily_parse_state *parser, int *state)
 {
     lily_lex_state *lex = parser->lex;
@@ -1480,6 +1582,7 @@ static void expression_comma_arrow(lily_parse_state *parser, int *state)
     *state = ST_DEMAND_VALUE;
 }
 
+/* Unary expressions! These are easy, because it's only two. */
 static void expression_unary(lily_parse_state *parser, int *state)
 {
     if (*state == ST_WANT_OPERATOR)
@@ -1495,44 +1598,27 @@ static void expression_unary(lily_parse_state *parser, int *state)
     }
 }
 
-/*  expression_dot
-    This handles "oo-style" accesses.
-        Those can be either for a callable member:
-            string x = "abc"
-            abc.concat("def")
-        Or for getting properties of a class:
-            ValueError v = ValueError::new("test")
-            show (v.message)
-    It also handles typecasts: `abc.@(type)`. */
+/* This handles two rather different things. It could be an `x.y` access, OR
+   `x.@(<type>)`. The emitter will have type information, so don't bother
+   checking if either of them is correct. */
 static void expression_dot(lily_parse_state *parser, int *state)
 {
     lily_lex_state *lex = parser->lex;
     lily_lexer(lex);
-    if (lex->token == tk_word) {
-        /* Create a magic oo access tree and expect an operator. This allows
-           the property to be called or not, important for implementing
-           properties and callables through dot. */
+    if (lex->token == tk_word)
         lily_ast_push_oo_access(parser->ast_pool, parser->lex->label);
-
-        *state = ST_WANT_OPERATOR;
-    }
     else if (lex->token == tk_typecast_parenth) {
         lily_lexer(lex);
         lily_type *new_type = get_type(parser);
         lily_ast_enter_typecast(parser->ast_pool, new_type);
         lily_ast_leave_tree(parser->ast_pool);
-        *state = ST_WANT_OPERATOR;
     }
+
+    *state = ST_WANT_OPERATOR;
 }
 
-/*  expression_raw
-    BEHOLD! This is the magic function that handles expressions. The expression
-    state is viewed as being in one of a handful of states. The ast pool takes
-    care of knowing how deep a current expression is.
-
-    It is recommended that expression be used instead of this, unless the
-    caller -really- needs to have a starting state that requires a word (yes,
-    this does happen). */
+/* This is the magic function that handles expressions. The states it uses are
+   defined above. Most callers will use expression instead of this. */
 static void expression_raw(lily_parse_state *parser, int state)
 {
     lily_lex_state *lex = parser->lex;
@@ -1637,6 +1723,8 @@ static void expression_raw(lily_parse_state *parser, int state)
 
             state = ST_WANT_OPERATOR;
         }
+        /* Make sure this case stays lower down. If it doesn't, then certain
+           expressions will exit before they really should. */
         else if (parser_tok_table[lex->token].val_or_end &&
                  parser->ast_pool->save_depth == 0 &&
                  state == ST_WANT_OPERATOR)
@@ -1656,42 +1744,295 @@ static void expression_raw(lily_parse_state *parser, int state)
     }
 }
 
-/*  expression
-    This calls expression_raw with a starting state of ST_DEMAND_VALUE. 99%
-    of the time, that's what's needed.
-
-    Calling this function is preferred, as there's no weird 'ST_DEMAND_VALUE'
-    showing up everywhere. */
+/* This calls expression_raw demanding a value. If you need that (and most
+   callers do), then use this. If you don't, then call it raw. */
 static void expression(lily_parse_state *parser)
 {
     expression_raw(parser, ST_DEMAND_VALUE);
 }
 
-/*  var_handler
-    Syntax: var <name> <: type> = <value>
+/***
+ *      _                    _         _           
+ *     | |    __ _ _ __ ___ | |__   __| | __ _ ___ 
+ *     | |   / _` | '_ ` _ \| '_ \ / _` |/ _` / __|
+ *     | |__| (_| | | | | | | |_) | (_| | (_| \__ \
+ *     |_____\__,_|_| |_| |_|_.__/ \__,_|\__,_|___/
+ *                                                 
+ */
 
-    If <:type> is not provided, then the type is initially set to NULL and the
-    emitter will set the var's type based upon the result of the expression.
+static lily_var *get_named_var(lily_parse_state *, lily_type *);
 
-    In many cases, the type is not necessary.
-        var a = 10        # inferred as integer
-        var b = 10.0      # inferred as double
-        var c = [1, 2, 3] # inferred as list[integer]
+/** Lambdas are really cool, but they're really difficult for Lily to parse.
+    Since lambda arguments require type information, this means that they can't
+    be solved up front like other values. Instead, parser collects the body of
+    a lambda and hands it off to the emitter later on. When the emitter has type
+    information, it's handed back to parser.
 
-    However, there are cases where it is useful:
-        var d: list[integer] = []
+    There's a lot to contend with. There's currently no ability to supply an
+    expected type to a lambda. The lambda may not provide complete types, and it
+    may or may not want a value to be pushed back. If the lambda's target is a
+    var, then it will have no type information at all (but returning a value is
+    okay.
 
-    Within a class constructor, the name of the var must start with @ (because
-    accesses of class variables is done with @ too). Otherwise, @ must -not-
-    appear.
+    Then there's the trouble of a lambda's return being the last thing that
+    runs. While loops, if statements, for loops, and raise make this tough
+    though. Worse, a huge if branch may not be at the very end. So, for now, any
+    block is considered to just not return a value.
 
-    This function accepts modifiers for the var. This should be either 'private'
-    or 'protected' (a public scope is the default). These are only allowed for
-    class properties though.
+    Lambdas also can get statement to run, so various keywords have guards
+    against being run within a lambda (ex: class decl, import, define, and
+    more). Aside from that, lambdas can do much of what typical defines do. **/
 
-    Additionally, all values MUST have an initializing assignment. This is
-    mandatory so that the interpreter does not have to worry about uninitialized
-    values. */
+/* Is this keyword a value that can be part of an expression? */
+static int is_key_a_value(int key_id)
+{
+    switch(key_id) {
+        case KEY_TRUE:
+        case KEY_FALSE:
+        case KEY__FILE__:
+        case KEY__FUNCTION__:
+        case KEY__LINE__:
+        case KEY_SELF:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
+/* This runs through the body of a lambda, running any statements inside. The
+   result of this function is the type of the last expression that was run.
+   If the last thing was a block, or did not return a value, then NULL is
+   returned. */
+static lily_type *parse_lambda_body(lily_parse_state *parser,
+        lily_type *expect_type)
+{
+    /* The expressions/statements that this may run may cause emitter's expr_num
+       to increase. It's vital that expr_num be restored to what it was when
+       control returns to the caller.
+       If this does not happen, the caller will re-use storages that should
+       actually be considered to be claimed. */
+    int save_expr_num = parser->emit->expr_num;
+    lily_lex_state *lex = parser->lex;
+    int key_id = -1;
+    lily_type *result_type = NULL;
+
+    lily_lexer(parser->lex);
+    while (1) {
+        if (lex->token == tk_word)
+            key_id = keyword_by_name(lex->label);
+
+        if (key_id == -1 || is_key_a_value(key_id)) {
+            expression(parser);
+            if (lex->token != tk_right_curly)
+                /* This expression isn't the last one, so it can do whatever it
+                   wants to do. */
+                lily_emit_eval_expr(parser->emit, parser->ast_pool);
+            else {
+                /* The last expression is what will be returned, so give it the
+                   inference information of the lambda. */
+                lily_emit_eval_lambda_body(parser->emit, parser->ast_pool,
+                        expect_type);
+
+                if (parser->ast_pool->root->result)
+                    result_type = parser->ast_pool->root->result->type;
+
+                break;
+            }
+        }
+        else {
+            statement(parser, 0);
+            key_id = -1;
+            if (lex->token == tk_right_curly)
+                break;
+        }
+    }
+
+    parser->emit->expr_num = save_expr_num;
+    return result_type;
+}
+
+/* This is the main workhorse of lambda handling. It takes the lambda body and
+   works through it. This is fairly complicated, because this happens during
+   tree eval. As such, the current state has to be saved and a lambda has to be
+   made too. When this is done, it has to build the resulting type of the lambda
+   as well. */
+lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
+        int lambda_start_line, char *lambda_body, lily_type *expect_type)
+{
+    lily_lex_state *lex = parser->lex;
+    int args_collected = 0, tm_return = parser->tm->pos;
+    lily_type *root_result;
+
+    /* Process the lambda as if it were a file with a slightly adjusted
+       starting line number. The line number is patched so that multi-line
+       lambdas show the right line number for errors.
+       Additionally, lambda_body is a shallow copy of data within the ast's
+       string pool. A deep copy MUST be made because expressions within this
+       lambda may cause the ast's string pool to be resized. */
+    lily_load_copy_string(lex, "[lambda]", lm_no_tags, lambda_body);
+    lex->line_num = lambda_start_line;
+
+    /* Block entry assumes that the most recent var added is the var to bind
+       the function to. For the type of the lambda, use the default call
+       type (a function with no args and no output) because expect_type may
+       be NULL if the emitter doesn't know what it wants. */
+    lily_var *lambda_var = lily_emit_new_define_var(parser->emit,
+            parser->default_call_type, "(lambda)");
+
+    /* From here on, vars created will be in the scope of the lambda. Also,
+       this binds a function value to lambda_var. */
+    lily_emit_enter_block(parser->emit, block_lambda);
+
+    lily_lexer(lex);
+
+    lily_tm_add(parser->tm, NULL);
+
+    if (expect_type && expect_type->subtype_count > 1) {
+        if (lex->token == tk_logical_or)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Lambda expected %d args, but got 0.\n",
+                    expect_type->subtype_count - 1);
+
+        /* -1 because the return isn't an arg. */
+        int num_args = expect_type->subtype_count - 1;
+        lily_token wanted_token = tk_comma;
+
+        while (1) {
+            NEED_NEXT_TOK(tk_word)
+            lily_type *arg_type = expect_type->subtypes[args_collected + 1];
+            if (arg_type->flags & TYPE_IS_INCOMPLETE) {
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Cannot infer type of '%s'.\n", lex->label);
+            }
+
+            lily_tm_add(parser->tm, arg_type);
+
+            get_named_var(parser, arg_type);
+            args_collected++;
+            if (args_collected == num_args)
+                wanted_token = tk_bitwise_or;
+
+            NEED_CURRENT_TOK(wanted_token)
+            if (wanted_token == tk_bitwise_or)
+                break;
+        }
+    }
+    else if (lex->token == tk_bitwise_or) {
+        NEED_NEXT_TOK(tk_bitwise_or)
+    }
+    else if (lex->token != tk_logical_or)
+        lily_raise(parser->raiser, lily_SyntaxError, "Unexpected token '%s'.\n",
+                lex->token);
+
+    /* It's time to process the body of the lambda. Before this is done, freeze
+       the ast pool's state so that the save depth is 0 and such. This allows
+       the expression function to ensure that the body of the lambda is valid. */
+    lily_ast_freeze_state(parser->ast_pool);
+    root_result = parse_lambda_body(parser, expect_type);
+
+    lily_ast_thaw_state(parser->ast_pool);
+
+    NEED_CURRENT_TOK(tk_right_curly)
+    lily_lexer(lex);
+
+    lily_tm_insert(parser->tm, tm_return, root_result);
+    int flags = 0;
+    if (expect_type && expect_type->cls->id == SYM_CLASS_FUNCTION &&
+        expect_type->flags & TYPE_IS_VARARGS)
+        flags = TYPE_IS_VARARGS;
+
+    lambda_var->type = lily_tm_make(parser->tm, flags,
+            parser->symtab->function_class, args_collected + 1);
+
+    lily_emit_leave_block(parser->emit);
+    lily_pop_lex_entry(lex);
+
+    return lambda_var;
+}
+
+/***
+ *     __     __             
+ *     \ \   / /_ _ _ __ ___ 
+ *      \ \ / / _` | '__/ __|
+ *       \ V / (_| | |  \__ \
+ *        \_/ \__,_|_|  |___/
+ *                           
+ */
+
+/** Var declaration gets a special block because there's a fair amount of
+    complexity involved in it. They're slightly annoying because of the **/
+
+/* This tries to make a var with the given type, but won't if a var with that
+   name already exists. */
+static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_var *var;
+
+    var = lily_find_var(parser->symtab, NULL, lex->label);
+    if (var != NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                   "%s has already been declared.\n", lex->label);
+
+    var = lily_emit_new_scoped_var(parser->emit, var_type, lex->label);
+
+    lily_lexer(lex);
+    return var;
+}
+
+/* The same thing as get_named_var, but with a property instead. */
+static lily_prop_entry *get_named_property(lily_parse_state *parser,
+        lily_type *prop_type, int flags)
+{
+    char *name = parser->lex->label;
+    lily_class *current_class = parser->class_self_type->cls;
+
+    lily_prop_entry *prop = lily_find_property(current_class, name);
+
+    if (prop != NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Property %s already exists in class %s.\n", name,
+                current_class->name);
+
+    /* Like with get_named_var, prevent properties from having the same name as
+       what will become a class method. This is because they are both accessed
+       in the same manner outside the class. */
+    lily_var *lookup_var = lily_find_method(current_class, name);
+
+    if (lookup_var)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "A method in class '%s' already has the name '%s'.\n",
+                current_class->name, name);
+
+    prop = lily_add_class_property(parser->symtab, current_class, prop_type,
+            name, flags & ~SYM_NOT_INITIALIZED);
+
+    lily_lexer(parser->lex);
+    return prop;
+}
+
+/* This is called when @<name> is given outside of a class or <name> is given at
+   the top of a class. */
+static void bad_decl_token(lily_parse_state *parser)
+{
+    char *message;
+
+    if (parser->lex->token == tk_word)
+        message = "Class properties must start with @.\n";
+    else
+        message = "Cannot use a class property outside of a constructor.\n";
+
+    lily_raise(parser->raiser, lily_SyntaxError, message);
+}
+
+/* Syntax `var <name> [:<type>] = <value>
+   This is where vars are handled. Providing a type is a nice thing, but not
+   required. If there are modifiers, then they'll call this function with
+   whatever modifiers that they'd like.
+
+   All vars are required to have an initial value. A flag is set on them when
+   they are created to prevent them from being used in their own initialization
+   expression. */
 static void parse_var(lily_parse_state *parser, int modifiers)
 {
     lily_lex_state *lex = parser->lex;
@@ -1767,55 +2108,20 @@ static void parse_var(lily_parse_state *parser, int modifiers)
     }
 }
 
-static void var_handler(lily_parse_state *parser, int multi)
-{
-    parse_var(parser, 0);
-}
+/***
+ *      ____  _        _                            _       
+ *     / ___|| |_ __ _| |_ ___ _ __ ___   ___ _ __ | |_ ___ 
+ *     \___ \| __/ _` | __/ _ \ '_ ` _ \ / _ \ '_ \| __/ __|
+ *      ___) | || (_| | ||  __/ | | | | |  __/ | | | |_\__ \
+ *     |____/ \__\__,_|\__\___|_| |_| |_|\___|_| |_|\__|___/
+ *                                                          
+ */
 
-/*  Given a name, return the type that represents it. This is used for dynaload
-    of vars (the module provides a string that describes the var). */
-static lily_type *type_by_name(lily_parse_state *parser, char *name)
-{
-    lily_load_copy_string(parser->lex, "[api]", lm_no_tags, name);
-    lily_lexer(parser->lex);
-    lily_type *result = get_type(parser);
-    lily_pop_lex_entry(parser->lex);
+/** The rest of this focuses on handling handling keywords and blocks. Much of
+    this is straightforward and kept in small functions that rely on the above
+    stuff. As such, there's no real special attention paid to the rest.
+    Near the bottom is parser_loop, which is the entry point of the parser. **/
 
-    return result;
-}
-
-static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
-{
-    lily_ast_pool *ap = parser->ast_pool;
-    expression(parser);
-
-    /* Don't allow assigning expressions, since that just looks weird.
-       ex: for i in a += 10..5
-       Also, it makes no real sense to do that. */
-    if (ap->root->tree_type == tree_binary &&
-        ap->root->op >= expr_assign) {
-        lily_raise(parser->raiser, lily_SyntaxError,
-                   "For range value expression contains an assignment.");
-    }
-
-    lily_class *cls = parser->symtab->integer_class;
-
-    /* For loop values are created as vars so there's a name in case of a
-       problem. This name doesn't have to be unique, since it will never be
-       found by the user. */
-    lily_var *var = lily_emit_new_scoped_var(parser->emit, cls->type, name);
-
-    lily_emit_eval_expr_to_var(parser->emit, ap, var);
-
-    return var;
-}
-
-/*****************************************************************************/
-/* Statement handling                                                        */
-/*****************************************************************************/
-
-/* Every keyword has an associated handler, even if it's something rather
-   simple. */
 static void if_handler(lily_parse_state *, int);
 static void do_handler(lily_parse_state *, int);
 static void var_handler(lily_parse_state *, int);
@@ -1877,13 +2183,154 @@ static keyword_handler *handlers[] = {
     function_kw_handler
 };
 
-static void parse_multiline_block_body(lily_parse_state *, int);
+static void var_handler(lily_parse_state *parser, int multi)
+{
+    parse_var(parser, 0);
+}
 
-/*  statement
-    This is a magic function that handles keywords outside of expression,
-    as well as getting declarations started.
-    If multi is set, this function will do the above until it finds a starting
-    token that isn't a label. */
+static void ensure_unique_method_name(lily_parse_state *parser, char *name)
+{
+    if (lily_find_var(parser->symtab, NULL, name) != NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                   "%s has already been declared.\n", name);
+
+    if (parser->class_self_type) {
+        lily_class *current_class = parser->class_self_type->cls;
+
+        if (lily_find_property(current_class, name)) {
+            lily_raise(parser->raiser, lily_SyntaxError,
+                "A property in class '%s' already has the name '%s'.\n",
+                current_class->name, name);
+        }
+    }
+}
+
+static void parse_define_header(lily_parse_state *parser, int modifiers)
+{
+    lily_lex_state *lex = parser->lex;
+    NEED_CURRENT_TOK(tk_word)
+
+    ensure_unique_method_name(parser, lex->label);
+
+    /* The type will be overwritten with the right thing later on. However, it's
+       necessary to have some function-like entity there instead of, say, NULL.
+       The reason is that a dynaload may be triggered, which may push a block.
+       The emitter will attempt to restore the return type via the type of the
+       define var here. */
+    lily_var *define_var = lily_emit_new_define_var(parser->emit,
+            parser->default_call_type, lex->label);
+
+    int i = 0;
+    int arg_flags = 0;
+    int result_pos = parser->tm->pos;
+    int generics_used;
+
+    /* This is the initial result. NULL means the function doesn't return
+       anything. If it does, then this spot will be overwritten. */
+    lily_tm_add(parser->tm, NULL);
+
+    lily_lexer(lex);
+
+    if (lex->token == tk_left_bracket)
+        generics_used = collect_generics(parser);
+    else
+        generics_used = parser->emit->block->generic_count;
+
+    lily_emit_enter_block(parser->emit, block_define);
+    lily_update_symtab_generics(parser->symtab, NULL, generics_used);
+
+    if (parser->class_self_type) {
+        /* This is a method of a class. It should implicitly take 'self' as
+           the first argument, and be registered to be within that class.
+           It may also have a private/protected modifier, so add that too. */
+        lily_tm_add(parser->tm, parser->class_self_type);
+        i++;
+
+        lily_var *self_var = lily_emit_new_scoped_var(parser->emit,
+                parser->class_self_type, "(self)");
+        define_var->parent = parser->class_self_type->cls;
+        define_var->flags |= modifiers;
+
+        parser->emit->block->self = (lily_storage *)self_var;
+    }
+
+    if (lex->token == tk_left_parenth) {
+        lily_lexer(lex);
+
+        /* If () is omitted, then it's assumed that the function will not take
+           any arguments (unless it implicitly takes self). */
+        if (lex->token == tk_right_parenth)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Empty () not needed for a define.\n");
+
+        while (1) {
+            NEED_CURRENT_TOK(tk_word)
+            lily_tm_add(parser->tm, get_named_arg(parser, &arg_flags));
+            i++;
+            if (lex->token == tk_comma) {
+                lily_lexer(lex);
+                continue;
+            }
+            else if (lex->token == tk_right_parenth) {
+                lily_lexer(lex);
+                break;
+            }
+            else
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Expected either ',' or ')', not '%s'.\n",
+                        tokname(lex->token));
+        }
+    }
+
+    if (lex->token == tk_colon) {
+        lily_lexer(lex);
+        lily_tm_insert(parser->tm, result_pos, get_type(parser));
+    }
+
+    NEED_CURRENT_TOK(tk_left_curly)
+
+    define_var->type = lily_tm_make(parser->tm, arg_flags,
+            parser->symtab->function_class, i + 1);
+
+    lily_emit_update_function_block(parser->emit, NULL,
+            generics_used, define_var->type->subtypes[0]);
+
+    if (parser->optarg_stack_pos != 0) {
+        lily_emit_write_optargs(parser->emit, parser->optarg_stack,
+                parser->optarg_stack_pos);
+
+        parser->optarg_stack_pos = 0;
+    }
+}
+
+static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
+{
+    lily_ast_pool *ap = parser->ast_pool;
+    expression(parser);
+
+    /* Don't allow assigning expressions, since that just looks weird.
+       ex: for i in a += 10..5
+       Also, it makes no real sense to do that. */
+    if (ap->root->tree_type == tree_binary &&
+        ap->root->op >= expr_assign) {
+        lily_raise(parser->raiser, lily_SyntaxError,
+                   "For range value expression contains an assignment.");
+    }
+
+    lily_class *cls = parser->symtab->integer_class;
+
+    /* For loop values are created as vars so there's a name in case of a
+       problem. This name doesn't have to be unique, since it will never be
+       found by the user. */
+    lily_var *var = lily_emit_new_scoped_var(parser->emit, cls->type, name);
+
+    lily_emit_eval_expr_to_var(parser->emit, ap, var);
+
+    return var;
+}
+
+/* This is a magic function that will either run one expression or multiple
+   ones. If it's going to run multiple ones, then it stops on eof or '}'. */
 static void statement(lily_parse_state *parser, int multi)
 {
     int key_id;
@@ -1923,23 +2370,7 @@ static void statement(lily_parse_state *parser, int multi)
     } while (multi);
 }
 
-/*  parse_block_body
-    This is a helper function for parsing the body of a simple (but multi-line)
-    block. This is suitable for 'while', 'do while', and 'for...in'.
-
-    This is called when the current token is the ':'. It will handle the '{',
-    call statement, then check that '}' is found after the statement. Finally,
-    it calls up the next token for the parent.
-
-    for i in 1..10: { ... }
-                  ^
-    do: {  ... } while 1:
-      ^
-    while 1: { ... }
-           ^
-    if 1: { ... }
-        ^
-    */
+/* This handles the '{' ... '}' part for blocks that are multi-lined. */
 static void parse_multiline_block_body(lily_parse_state *parser,
         int multi)
 {
@@ -1957,13 +2388,6 @@ static void parse_multiline_block_body(lily_parse_state *parser,
     lily_lexer(lex);
 }
 
-/*  if_handler
-    This handles parsing 'if'. There are two kinds of if blocks:
-    (multi-line)  if expr { expr... }
-    (single-line) if expr: expr
-
-    'elif' and 'else' are multi-line if 'if' is multi-line. The 'if' is closed
-    by a single '}', rather than by each 'elif'/'else' (like with C). */
 static void if_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
@@ -2000,10 +2424,6 @@ static void if_handler(lily_parse_state *parser, int multi)
     lily_emit_leave_block(parser->emit);
 }
 
-/*  elif_handler
-    This handles elif. Both elif and else don't call the block because they're
-    always called somehow through if_handler calling statement.
-    The multi-line-ness has already been determined by the if block. */
 static void elif_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
@@ -2017,8 +2437,6 @@ static void elif_handler(lily_parse_state *parser, int multi)
     statement(parser, multi);
 }
 
-/*  else_handler
-    This handles the else keyword. Doesn't get much easier. */
 static void else_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
@@ -2030,11 +2448,7 @@ static void else_handler(lily_parse_state *parser, int multi)
     statement(parser, multi);
 }
 
-/*  do_keyword
-    This handles simple keywords that can start expressions. It unifies common
-    code in __line__, __file__, __function__, true, and false.
-
-    key_id: The id of the keyword to handle. */
+/* This handles keywords that start expressions (true, false, __line__, etc.) */
 static void do_keyword(lily_parse_state *parser, int key_id)
 {
     lily_sym *sym;
@@ -2058,9 +2472,7 @@ static void false_handler(lily_parse_state *parser, int multi)
     do_keyword(parser, KEY_FALSE);
 }
 
-/*  This function is called in a multi-line block after either a return or a
-    raise is done. This ensures that there is not a statement/expression that is
-    obviously not going to execute. */
+/* Call this to make sure there's no obviously-dead code. */
 static void ensure_no_code_after_exit(lily_parse_state *parser,
         const char *name)
 {
@@ -2082,9 +2494,6 @@ static void ensure_no_code_after_exit(lily_parse_state *parser,
     }
 }
 
-/*  return_handler
-    This handles the return keyword. It'll look up the current function to see
-    if an expression is needed, or if just 'return' alone is fine. */
 static void return_handler(lily_parse_state *parser, int multi)
 {
     lily_block_type block_type = parser->emit->function_block->block_type;
@@ -2113,11 +2522,6 @@ static void return_handler(lily_parse_state *parser, int multi)
         ensure_no_code_after_exit(parser, "return");
 }
 
-/*  while_handler
-    Syntax:
-        (multi-line)  while expr: { expr... }
-        (single-line) while expr: expr
-    */
 static void while_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
@@ -2137,9 +2541,6 @@ static void while_handler(lily_parse_state *parser, int multi)
     lily_emit_leave_block(parser->emit);
 }
 
-/*  continue_handler
-    This handles a 'continue' command. This just tells the emitter to insert a
-    continue, nothing fancy. */
 static void continue_handler(lily_parse_state *parser, int multi)
 {
     lily_emit_continue(parser->emit);
@@ -2149,9 +2550,6 @@ static void continue_handler(lily_parse_state *parser, int multi)
                 "'continue' not at the end of a multi-line block.\n");
 }
 
-/*  break_handler
-    This handles the 'break' statement. Just a wrapper for emitter to call
-    to emit a break. */
 static void break_handler(lily_parse_state *parser, int multi)
 {
     lily_emit_break(parser->emit);
@@ -2161,45 +2559,21 @@ static void break_handler(lily_parse_state *parser, int multi)
                 "'break' not at the end of a multi-line block.\n");
 }
 
-/*  line_kw_handler
-    This handles __line__. This raises an error because it's not considered all
-    that useful outside of an expression. */
 static void line_kw_handler(lily_parse_state *parser, int multi)
 {
     do_keyword(parser, KEY__LINE__);
 }
 
-/*  file_kw_handler
-    This handles __file__. This raises an error because it's not considered all
-    that useful outside of an expression. */
 static void file_kw_handler(lily_parse_state *parser, int multi)
 {
     do_keyword(parser, KEY__FILE__);
 }
 
-/*  function_kw_handler
-    This handles __function__. This raises an error because it's not considered
-    all that useful outside of an expression. */
 static void function_kw_handler(lily_parse_state *parser, int multi)
 {
     do_keyword(parser, KEY__FUNCTION__);
 }
 
-/*  for_handler
-    Syntax:
-        (multi-line)  for var in start..end: { expr... }
-        (single-line) for var in start..end: expr
-
-    This handles for..in statements. These only accept integers for var, start,
-    and end. Additionally, start and end can be expressions, but may not
-    contain any sort of assignment.
-
-    (So this would be invalid: for i in a = 10..11: ...)
-    (But this is okay: for i in 1+2..4*4: ...)
-
-    If var does not exist, it is created as an integer, and falls out of scope
-    when the loop exits.
-    If var does exist, then it will exist after the loop. */
 static void for_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
@@ -2261,12 +2635,6 @@ static void for_handler(lily_parse_state *parser, int multi)
     lily_emit_leave_block(parser->emit);
 }
 
-/*  do_handler
-    Syntax:
-        (multi-line)  do: { expr... } while expr:
-        (single-line) do: expr while expr:
-    This is like while, except there's no check on entry and the while check
-    jumps to the top if successful. */
 static void do_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
@@ -2349,87 +2717,6 @@ static void except_handler(lily_parse_state *parser, int multi)
     lily_lexer(lex);
     if (lex->token != tk_right_curly)
         statement(parser, multi);
-}
-
-static lily_import_entry *load_native(lily_parse_state *parser,
-        const char *name, char *path)
-{
-    lily_import_entry *result = NULL;
-    if (lily_try_load_file(parser->lex, parser->msgbuf->message))
-        result = make_new_import_entry(parser, name, path);
-
-    return result;
-}
-
-static lily_import_entry *load_foreign(lily_parse_state *parser,
-        const char *name, char *path)
-{
-    lily_import_entry *result = NULL;
-    void *library = lily_library_load(path);
-    if (library) {
-        result = make_new_import_entry(parser, name, path);
-        result->library = library;
-    }
-
-    return result;
-}
-
-static lily_import_entry *attempt_import(lily_parse_state *parser,
-        lily_path_link *path_iter, const char *name, const char *suffix,
-        lily_import_entry *(*callback)(lily_parse_state *, const char *, char *))
-{
-    lily_import_entry *result = NULL;
-    lily_msgbuf *msgbuf = parser->msgbuf;
-
-    while (path_iter) {
-        lily_msgbuf_flush(msgbuf);
-        lily_msgbuf_add_fmt(msgbuf, "%s%s%s", path_iter->path, name,
-                suffix);
-        result = (*callback)(parser, name, msgbuf->message);
-        if (result)
-            break;
-
-        path_iter = path_iter->next;
-    }
-
-    return result;
-}
-
-static void write_import_paths(lily_msgbuf *msgbuf,
-        lily_path_link *path_iter, const char *name, const char *suffix)
-{
-    while (path_iter) {
-        lily_msgbuf_add_fmt(msgbuf, "    no file '%s%s%s'\n",
-                path_iter->path, name, suffix);
-        path_iter = path_iter->next;
-    }
-}
-
-static lily_import_entry *load_import(lily_parse_state *parser, char *name)
-{
-    lily_import_entry *result = NULL;
-    result = attempt_import(parser, parser->import_paths, name, ".lly",
-            load_native);
-    if (result == NULL) {
-        result = attempt_import(parser, parser->import_paths, name,
-                LILY_LIB_SUFFIX, load_foreign);
-        if (result == NULL) {
-            /* The parser's msgbuf is used for doing class dynaloading, so it
-               should not be in use here. Also, as credit, this idea comes from
-               seeing lua do the same. */
-            lily_msgbuf *msgbuf = parser->msgbuf;
-            lily_msgbuf_flush(msgbuf);
-            lily_msgbuf_add_fmt(msgbuf, "Cannot import '%s':\n", name);
-            lily_msgbuf_add_fmt(msgbuf, "no builtin module '%s'\n", name);
-            write_import_paths(msgbuf, parser->import_paths, name, ".lly");
-            write_import_paths(msgbuf, parser->library_import_paths, name,
-                    LILY_LIB_SUFFIX);
-            lily_raise(parser->raiser, lily_SyntaxError, parser->msgbuf->message);
-        }
-    }
-
-    parser->symtab->active_import = result;
-    return result;
 }
 
 static void import_handler(lily_parse_state *parser, int multi)
@@ -2587,10 +2874,8 @@ static void ensure_valid_class(lily_parse_state *parser, char *name)
     }
 }
 
-/*  This handles everything needed to create a class, up until figuring out
-    inheritance (if that's indicated). This is where the class ::new is
-    created, the class_self_type is set, and the class args are collected. If
-    The class ::new takes optargs, those are handled here. */
+/* This handles everything needed to create a class, up until figuring out
+   inheritance (if that's indicated). */
 static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
@@ -2656,14 +2941,9 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     }
 }
 
-/*  parse_inheritance
-    Syntax: class Bird(args...) > Animal(args...) {
-                       ^                 ^
-                       Start             End
-
-    This function is responsible making sure that the class to be inherited
-    from is valid and inheritable. This also collects the arguments to call
-    the ::new of the inherited class and executes the call. */
+/* This is called when one class wants to inherit from another. It makes sure
+   that the inheritance is valid, and then runs the expression necessary to make
+   the inheritance work. */
 static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
@@ -2755,20 +3035,9 @@ static void class_handler(lily_parse_state *parser, int multi)
     create_new_class(parser);
 }
 
-/*  This is called when a variant class has '(' after the name, indicating that
-    it will take parameters of some sort. The variant can take as many
-    parameters as it wants, and varargs is allowed. However, optional arguments
-    are not. That may change in the future.
-
-    Variants aren't quite functions though (that would add a lot of overhead).
-    This is different than, say, define or class init, because the return type
-    of the function-like thing this returns describes what generics that the
-    variant uses.
-
-    `enum Option[A] { Some(A) None }`
-
-    In this case, tm will create a result that is `function(A => Some(A))`,
-    because Some uses the A of Option. */
+/* This is called when a variant takes arguments. It parses those arguments to
+   spit out the 'variant_type' conversion type of the variant. These types are
+   internally really going to make a tuple instead of being a call. */
 static lily_type *parse_variant_header(lily_parse_state *parser,
         lily_class *variant_cls)
 {
@@ -2917,13 +3186,6 @@ static void enum_handler(lily_parse_state *parser, int multi)
     lily_lexer(lex);
 }
 
-/*  match_handler
-    Syntax:
-        'match <expr>: { ... }'
-
-    The match block is an outlier compared to other blocks because it must
-    always have the { and } after it. This is so that the inner case entries
-    can automagically be multi-line. */
 static void match_handler(lily_parse_state *parser, int multi)
 {
     if (multi == 0)
@@ -2945,29 +3207,6 @@ static void match_handler(lily_parse_state *parser, int multi)
     lily_emit_leave_block(parser->emit);
 }
 
-/*  case_handler
-    Syntax:
-        For variants that do not take values:
-            'case <variant>: ...'
-
-        For those that do:
-            'case <variant>(<var name>, <var name>...):'
-
-    Each case in a match block is multi-line, so that users don't have to put
-    { and } around a lot of cases (because that would probably be annoying).
-
-    The emitter will check that, within a match block, each variant is seen
-    exactly once (lily_emit_check_match_case).
-
-    Some variants may have inner values. For those, parser will collect the
-    appropriate number of identifiers and determine what the type of those
-    identifiers should be! The variant's values are then decomposed to those
-    identifiers.
-
-    Checking for incomplete match blocks is done within emitter when the match
-    block closes.
-
-    The section for a case is done when the next case is seen. */
 static void case_handler(lily_parse_state *parser, int multi)
 {
     lily_block *block = parser->emit->block;
@@ -3106,10 +3345,9 @@ static void self_handler(lily_parse_state *parser, int multi)
     do_keyword(parser, KEY_SELF);
 }
 
-/*  parser_loop
-    This is the main parsing function. This is called by a lily_parse_*
-    function which will set the raiser and give the lexer a file before calling
-    this function. */
+/* This is the entry point of the parser. It parses the thing that it was given
+   and then runs the code. This shouldn't be called directly, but instead by
+   one of the lily_parse_* functions that will set it up right. */
 static void parser_loop(lily_parse_state *parser)
 {
     /* The first pass of the interpreter starts with the current namespace being
@@ -3184,180 +3422,6 @@ static void parser_loop(lily_parse_state *parser)
     }
 }
 
-static lily_type *parse_lambda_body(lily_parse_state *parser,
-        lily_type *expect_type)
-{
-    /* The expressions/statements that this may run may cause emitter's expr_num
-       to increase. It's vital that expr_num be restored to what it was when
-       control returns to the caller.
-       If this does not happen, the caller will re-use storages that should
-       actually be considered to be claimed. */
-    int save_expr_num = parser->emit->expr_num;
-    lily_lex_state *lex = parser->lex;
-    int key_id = -1;
-    lily_type *result_type = NULL;
-
-    lily_lexer(parser->lex);
-    while (1) {
-        if (lex->token == tk_word)
-            key_id = keyword_by_name(lex->label);
-
-        if (key_id == -1 || is_key_a_value(key_id)) {
-            expression(parser);
-            if (lex->token != tk_right_curly)
-                /* This expression isn't the last one, so it can do whatever it
-                   wants to do. */
-                lily_emit_eval_expr(parser->emit, parser->ast_pool);
-            else {
-                /* The last expression is what will be returned, so give it the
-                   inference information of the lambda. */
-                lily_emit_eval_lambda_body(parser->emit, parser->ast_pool,
-                        expect_type);
-
-                if (parser->ast_pool->root->result)
-                    result_type = parser->ast_pool->root->result->type;
-
-                break;
-            }
-        }
-        else {
-            statement(parser, 0);
-            key_id = -1;
-            if (lex->token == tk_right_curly)
-                break;
-        }
-    }
-
-    parser->emit->expr_num = save_expr_num;
-    return result_type;
-}
-
-/*****************************************************************************/
-/* Exported API                                                              */
-/*****************************************************************************/
-
-/*  lily_parser_lambda_eval
-    This function is called by the emitter to process the body of a lambda. The
-    type that the emitter expects is given so that the types of the
-    lambda's arguments can be inferred. */
-lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
-        int lambda_start_line, char *lambda_body, lily_type *expect_type)
-{
-    lily_lex_state *lex = parser->lex;
-    int args_collected = 0, tm_return = parser->tm->pos;
-    lily_type *root_result;
-
-    /* Process the lambda as if it were a file with a slightly adjusted
-       starting line number. The line number is patched so that multi-line
-       lambdas show the right line number for errors.
-       Additionally, lambda_body is a shallow copy of data within the ast's
-       string pool. A deep copy MUST be made because expressions within this
-       lambda may cause the ast's string pool to be resized. */
-    lily_load_copy_string(lex, "[lambda]", lm_no_tags, lambda_body);
-    lex->line_num = lambda_start_line;
-
-    /* Block entry assumes that the most recent var added is the var to bind
-       the function to. For the type of the lambda, use the default call
-       type (a function with no args and no output) because expect_type may
-       be NULL if the emitter doesn't know what it wants. */
-    lily_var *lambda_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, "(lambda)");
-
-    /* From here on, vars created will be in the scope of the lambda. Also,
-       this binds a function value to lambda_var. */
-    lily_emit_enter_block(parser->emit, block_lambda);
-
-    lily_lexer(lex);
-
-    lily_tm_add(parser->tm, NULL);
-
-    if (expect_type && expect_type->subtype_count > 1) {
-        if (lex->token == tk_logical_or)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "Lambda expected %d args, but got 0.\n",
-                    expect_type->subtype_count - 1);
-
-        /* -1 because the return isn't an arg. */
-        int num_args = expect_type->subtype_count - 1;
-        lily_token wanted_token = tk_comma;
-
-        while (1) {
-            NEED_NEXT_TOK(tk_word)
-            lily_type *arg_type = expect_type->subtypes[args_collected + 1];
-            if (arg_type->flags & TYPE_IS_INCOMPLETE) {
-                lily_raise(parser->raiser, lily_SyntaxError,
-                        "Cannot infer type of '%s'.\n", lex->label);
-            }
-
-            lily_tm_add(parser->tm, arg_type);
-
-            get_named_var(parser, arg_type);
-            args_collected++;
-            if (args_collected == num_args)
-                wanted_token = tk_bitwise_or;
-
-            NEED_CURRENT_TOK(wanted_token)
-            if (wanted_token == tk_bitwise_or)
-                break;
-        }
-    }
-    else if (lex->token == tk_bitwise_or) {
-        NEED_NEXT_TOK(tk_bitwise_or)
-    }
-    else if (lex->token != tk_logical_or)
-        lily_raise(parser->raiser, lily_SyntaxError, "Unexpected token '%s'.\n",
-                lex->token);
-
-    /* It's time to process the body of the lambda. Before this is done, freeze
-       the ast pool's state so that the save depth is 0 and such. This allows
-       the expression function to ensure that the body of the lambda is valid. */
-    lily_ast_freeze_state(parser->ast_pool);
-    root_result = parse_lambda_body(parser, expect_type);
-
-    lily_ast_thaw_state(parser->ast_pool);
-
-    NEED_CURRENT_TOK(tk_right_curly)
-    lily_lexer(lex);
-
-    lily_tm_insert(parser->tm, tm_return, root_result);
-    int flags = 0;
-    if (expect_type && expect_type->cls->id == SYM_CLASS_FUNCTION &&
-        expect_type->flags & TYPE_IS_VARARGS)
-        flags = TYPE_IS_VARARGS;
-
-    lambda_var->type = lily_tm_make(parser->tm, flags,
-            parser->symtab->function_class, args_collected + 1);
-
-    lily_emit_leave_block(parser->emit);
-    lily_pop_lex_entry(lex);
-
-    return lambda_var;
-}
-
-lily_var *lily_parser_dynamic_load(lily_parse_state *parser, lily_class *cls,
-        char *name)
-{
-    lily_base_seed *base_seed = find_dynaload_entry((lily_item *)cls, name);
-    lily_var *ret;
-
-    if (base_seed != NULL)
-        ret = dynaload_function(parser, (lily_item *)cls, base_seed);
-    else
-        ret = NULL;
-
-    return ret;
-}
-
-/*  lily_parse_file
-    This function starts parsing from a file indicated by the given filename.
-    The file is opened through fopen, and is automatically destroyed when the
-    parser is free'd.
-
-    parser:  The parser that will be used to parse and run the data.
-    mode:    This determines if <?lily ?> tags are parsed or not.
-    str:     The string to parse.
-
-    Returns 1 if successful, or 0 if an error was raised. */
 int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode, char *filename)
 {
     /* It is safe to do this, because the parser will always occupy the first
@@ -3374,16 +3438,6 @@ int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode, char *filename
     return 0;
 }
 
-/*  lily_parse_string
-    This function starts parsing from a source that is a string passed. The caller
-    is responsible for destroying the string if it needs to be destroyed.
-
-    parser:  The parser that will be used to parse and run the data.
-    name:    The name for this file, for when trace is printed.
-    mode:    This determines if <?lily ?> tags are parsed or not.
-    str:     The string to parse.
-
-    Returns 1 if successful, or 0 if some error occured. */
 int lily_parse_string(lily_parse_state *parser, char *name, lily_lex_mode mode,
         char *str)
 {
@@ -3397,29 +3451,14 @@ int lily_parse_string(lily_parse_state *parser, char *name, lily_lex_mode mode,
     return 0;
 }
 
-lily_class *lily_maybe_dynaload_class(lily_parse_state *parser,
-        lily_import_entry *import, const char *name)
-{
-    lily_symtab *symtab = parser->symtab;
-    if (import == NULL)
-        import = symtab->builtin_import;
-
-    lily_class *cls = lily_find_class(parser->symtab, import, name);
-
-    if (cls == NULL)
-        cls = dynaload_exception(parser, import, name);
-
-    return cls;
-}
-
-void lily_register_import(lily_parse_state *parser, const char *name,
-        const void *dynaload_table, var_loader var_load_fn)
-{
-    lily_import_entry *entry = make_new_import_entry(parser, name, "[builtin]");
-    entry->dynaload_table = dynaload_table;
-    entry->var_load_fn = var_load_fn;
-}
-
+/* This is provided for runners (such as the standalone runner provided in the
+   run directory). This puts together the current error message so that the
+   runner is able to use it. The error message (and stack) are returned in full
+   in the string.
+   The string returned is a shallow reference (it's really
+   parser->msgbuf->message). If the caller wants to keep the message, then the
+   caller needs to copy it. If the caller does not, the message will get blasted
+   by the next run. */
 char *lily_build_error_message(lily_parse_state *parser)
 {
     lily_raiser *raiser = parser->raiser;
