@@ -2057,21 +2057,18 @@ static void parse_var(lily_parse_state *parser, int modifiers)
 
         NEED_CURRENT_TOK(want_token)
 
-        if (lex->token == tk_word)
+        if (lex->token == tk_word) {
             sym = (lily_sym *)get_named_var(parser, NULL);
-        else
-            sym = (lily_sym *)get_named_property(parser, NULL, flags);
-
-        if (sym->flags & ITEM_TYPE_VAR) {
-            /* It's important to add locals and globals differently, because
-               the emitter can't optimize stuff with globals. */
+            sym->flags |= SYM_NOT_INITIALIZED;
             if (parser->emit->function_depth == 1)
                 lily_ast_push_global_var(parser->ast_pool, (lily_var *)sym);
             else
                 lily_ast_push_local_var(parser->ast_pool, (lily_var *)sym);
         }
-        else
+        else {
+            sym = (lily_sym *)get_named_property(parser, NULL, flags);
             lily_ast_push_property(parser->ast_pool, (lily_prop_entry *)sym);
+        }
 
         if (lex->token == tk_colon) {
             lily_lexer(lex);
