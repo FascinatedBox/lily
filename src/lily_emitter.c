@@ -12,14 +12,6 @@
 
 #include "lily_cls_function.h"
 
-/** Emitter is responsible for:
-    * Taking in a given tree and writing out code that represents it. In the
-      case of lambdas, it will dispatch into parser to process the lambdas
-      block.
-    * Verifying that call argument counts are correct, and that types are valid.
-    * Doing block handling + validation (if/elif/else, for.., etc.)
-    * Preparing functions to be called by the vm when functions exit. **/
-
 # define IS_LOOP_BLOCK(b) (b == block_while || \
                            b == block_do_while || \
                            b == block_for_in)
@@ -30,14 +22,17 @@
     lily_raise(r, error_code, message, __VA_ARGS__); \
 }
 
-static int type_matchup(lily_emit_state *, lily_type *, lily_ast *);
-static void eval_tree(lily_emit_state *, lily_ast *, lily_type *);
-static void eval_variant(lily_emit_state *, lily_ast *, lily_type *);
-static void add_call_state(lily_emit_state *);
+/***
+ *      ____       _
+ *     / ___|  ___| |_ _   _ _ __
+ *     \___ \ / _ \ __| | | | '_ \
+ *      ___) |  __/ |_| |_| | |_) |
+ *     |____/ \___|\__|\__,_| .__/
+ *                          |_|
+ */
 
-/*****************************************************************************/
-/* Emitter setup and teardown                                                */
-/*****************************************************************************/
+static void add_call_state(lily_emit_state *);
+static void add_storage(lily_emit_state *);
 
 lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
 {
@@ -135,25 +130,213 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free(emit);
 }
 
-/*****************************************************************************/
-/* Writing functions                                                         */
-/*****************************************************************************/
+/* This is called once during parser init. It creates the first storage, and
+   enters the block that represents __main__. */
+void lily_emit_enter_main(lily_emit_state *emit)
+{
+    add_storage(emit);
 
-/*  small_grow
-    Grow the size of emitter's current code block once. This should be called
-    if a grow must be done, and the code to be written is not a variable size.
+    /* This creates the type for __main__. __main__ is a function that takes 0
+       arguments and does not return anything. */
+    lily_tm_add(emit->tm, NULL);
+    lily_type *main_type = lily_tm_make(emit->tm, 0,
+            emit->symtab->function_class, 1);
 
-    This is intended to be called by individual write_* functions which will
-    only need one grow at the most. */
+    lily_var *main_var = lily_new_raw_var(emit->symtab, main_type, "__main__");
+    main_var->reg_spot = 0;
+    main_var->function_depth = 1;
+    main_var->flags |= VAR_IS_READONLY;
+    emit->symtab->next_readonly_spot++;
+
+    lily_block *main_block = lily_malloc(sizeof(lily_block));
+    lily_function_val *main_function = lily_new_native_function_val(
+            NULL, main_var->name);
+
+    emit->symtab->main_var = main_var;
+    emit->symtab->main_function = main_function;
+
+    /* __main__ needs two refs because it goes through a custom deref. Most
+       function values hold (copies of) the names of their vars inside for show
+       to print. However, __main__ does not, because __main__'s vars are global
+       and alive. Because of this, __main__ has a special deref. */
+    main_function->refcount++;
+    lily_tie_function(emit->symtab, main_var, main_function);
+
+    /* Everything is set manually because creating a block requires taking info
+       from a previous block (for things such as self). */
+    main_block->prev = NULL;
+    main_block->next = NULL;
+    main_block->block_type = block_define;
+    main_block->function_var = main_var;
+    main_block->storage_start = emit->all_storage_start;
+    main_block->class_entry = NULL;
+    main_block->generic_count = 0;
+    main_block->self = NULL;
+    main_block->code_start = 0;
+    main_block->jump_offset = 0;
+    main_block->next_reg_spot = 0;
+    main_block->loop_start = -1;
+    main_block->make_closure = 0;
+    emit->top_var = main_var;
+    emit->block = main_block;
+    emit->function_depth++;
+    emit->main_block = main_block;
+    emit->function_block = main_block;
+}
+
+/***
+ *     __     __
+ *     \ \   / /_ _ _ __ ___
+ *      \ \ / / _` | '__/ __|
+ *       \ V / (_| | |  \__ \
+ *        \_/ \__,_|_|  |___/
+ *
+ */
+
+/** Lily's vm is a register-based vm. This means that when a var is created, it
+    occupies a certain slot and will retain that slot through the lifetime of
+    the function. This has the benefit of having to set type information once,
+    but some drawbacks too. For one, it makes variable creation tougher. Just
+    creating a var is not possible.
+
+    One problem that this creates is that temporary values (termed storages) are
+    in one area (emitter), and vars are in another (symtab). The emitter must
+    make sure that vars always retain their position, but allow storages to be
+    used repeatedly.
+
+    One trick that is employed by Lily is that all imports capture their
+    toplevel code into a function called __import__. This allows error tracking
+    to know what file had a problem. It's important that vars within __import__
+    are available in other scopes, so __import__'s vars are registered as
+    globals instead of locals.
+
+    Lily also has an artificial requirement that define-d functions not be
+    altered. Vars that are associated with a define are put into a separate
+    table, and not loaded into any register (they'll never go out of scope,
+    after all). These vars have a register spot that is actually a spot in a
+    special read-only table within vm.
+
+    To simplify this, emitter is in charge of setting register spots for vars
+    and for storages too. Different kinds of vars will have different needs,
+    however, and thus have different entry functions. **/
+
+/* This is the most commonly-used function for creating a new var. This creates
+   a new var that will be destroyed when the current block is complete. */
+lily_var *lily_emit_new_scoped_var(lily_emit_state *emit, lily_type *type,
+        char *name)
+{
+    lily_var *new_var = lily_new_raw_var(emit->symtab, type, name);
+
+    if (emit->function_depth == 1) {
+        new_var->reg_spot = emit->main_block->next_reg_spot;
+        emit->main_block->next_reg_spot++;
+    }
+    else {
+        new_var->reg_spot = emit->function_block->next_reg_spot;
+        emit->function_block->next_reg_spot++;
+    }
+
+    new_var->function_depth = emit->function_depth;
+
+    return new_var;
+}
+
+/* This creates a new var that will be associated with a 'define'. */
+lily_var *lily_emit_new_define_var(lily_emit_state *emit, lily_type *type,
+        char *name)
+{
+    lily_var *new_var = lily_new_raw_var(emit->symtab, type, name);
+
+    new_var->reg_spot = emit->symtab->next_readonly_spot;
+    emit->symtab->next_readonly_spot++;
+    new_var->function_depth = 1;
+    new_var->flags |= VAR_IS_READONLY;
+
+    return new_var;
+}
+
+/* This is used to create a var that goes into a particular scope, and which has
+   a foreign function associated with it. */
+lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
+        lily_foreign_func func, lily_item *source, lily_type *type,
+        char *name)
+{
+    lily_var *new_var = lily_new_raw_unlinked_var(emit->symtab, type, name);
+
+    new_var->function_depth = 1;
+    new_var->flags |= VAR_IS_READONLY;
+    new_var->reg_spot = emit->symtab->next_readonly_spot;
+    emit->symtab->next_readonly_spot++;
+
+    lily_function_val *func_val;
+
+    if (source->flags & ITEM_TYPE_IMPORT) {
+        lily_import_entry *import = (lily_import_entry *)source;
+
+        new_var->next = import->var_chain;
+        import->var_chain = new_var;
+
+        func_val = lily_new_foreign_function_val(func, NULL, name);
+    }
+    else {
+        lily_class *cls = (lily_class *)source;
+
+        new_var->next = cls->call_chain;
+        cls->call_chain = new_var;
+        new_var->parent = cls;
+
+        func_val = lily_new_foreign_function_val(func, cls->name, name);
+    }
+
+    lily_tie_builtin(emit->symtab, new_var, func_val);
+    return new_var;
+}
+
+/* This creates a var that will be put into some special non-current space. This
+   is used so that dynamically-loaded vars will be loaded once (and only once)
+   into their appropriate scope. */
+lily_var *lily_emit_new_dyna_var(lily_emit_state *emit,
+        lily_import_entry *import, lily_type *type, char *name)
+{
+    lily_var *new_var = lily_new_raw_unlinked_var(emit->symtab, type, name);
+
+    new_var->reg_spot = emit->main_block->next_reg_spot;
+    emit->main_block->next_reg_spot++;
+    new_var->function_depth = 1;
+
+    new_var->next = import->var_chain;
+    import->var_chain = new_var;
+
+    return new_var;
+}
+
+/***
+ *     __        __    _ _   _
+ *     \ \      / / __(_) |_(_)_ __   __ _
+ *      \ \ /\ / / '__| | __| | '_ \ / _` |
+ *       \ V  V /| |  | | |_| | | | | (_| |
+ *        \_/\_/ |_|  |_|\__|_|_| |_|\__, |
+ *                                   |___/
+ */
+
+static lily_storage *get_storage(lily_emit_state *, lily_type *);
+static lily_block *find_deepest_loop(lily_emit_state *);
+static void inject_patch_into_block(lily_emit_state *, lily_block *, uint16_t);
+
+/** Most of this is composed of special functions for writing N values directly
+    to emitter's code array. Easy enough. Special-cased writing functions are
+    below those. **/
+
+/* Double the space available for emitter's code. Don't use this for custom
+   writes over 8 cells, as there may be an overflow. */
 static void small_grow(lily_emit_state *emit)
 {
     emit->code_size *= 2;
     emit->code = lily_realloc(emit->code, sizeof(uint16_t) * emit->code_size);
 }
 
-/*  write_prep
-    This ensures that the current function can take 'size' more blocks of code.
-    This will grow emitter's code until it's the right size, if necessary. */
+/* Grow emitter's code until there is space for 'size' more entries inside. Do
+   use this for large custom writes. */
 static void write_prep(lily_emit_state *emit, int size)
 {
     if ((emit->code_pos + size) > emit->code_size) {
@@ -165,12 +348,6 @@ static void write_prep(lily_emit_state *emit, int size)
     }
 }
 
-/* These next five functions write a particular number of instructions to code
-   and increment the code's position.
-   Some tips on writing instructions to code:
-   * write_5 and write_2 is better than inlining a "write_7", except for
-     certain circumstances.
-   * If implementing new instructions, 'show' is helpful when debugging. */
 static void write_1(lily_emit_state *emit, uint16_t one)
 {
     if ((emit->code_pos + 1) > emit->code_size)
@@ -229,52 +406,117 @@ static void write_5(lily_emit_state *emit, uint16_t one, uint16_t two,
     emit->code_pos += 5;
 }
 
-/*****************************************************************************/
-/* Internal helper functions                                                 */
-/*****************************************************************************/
-
-/*  opname
-    Return a string that represents the given lily_expr_op. */
-static char *opname(lily_expr_op op)
+/* This is called from parser to get emitter to write a function call targeting
+   a var. The var should always be an __import__ function. */
+void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
 {
-    static char *opnames[] =
-    {"+", "-", "==", "<", "<=", ">", ">=", "!=", "%", "*", "/", "<<", ">>", "&",
-     "|", "^", "!", "-", "&&", "||", "|>", "=", "+=", "-=", "%=", "*=", "/=",
-     "<<=", ">>="};
+    write_prep(emit, 6);
+    emit->code[emit->code_pos] = o_function_call;
+    emit->code[emit->code_pos+1] = *emit->lex_linenum;
+    /* 1 means that +3 is a readonly var's spot. */
+    emit->code[emit->code_pos+2] = 1;
+    emit->code[emit->code_pos+3] = var->reg_spot;
+    /* 0 arguments collected. */
+    emit->code[emit->code_pos+4] = 0;
+    /* This does not return a value. */
+    emit->code[emit->code_pos+5] = 0;
 
-    return opnames[op];
+    emit->code_pos += 6;
 }
 
-/*  condition_optimize_check
-    This is called when lily_emit_eval_condition is called with a tree that has
-    type 'tree_literal'. If the given tree is always true, then the emitter
-    can optimize the load out.
-    Without this, a 'while 1: { ... }' will load "1" and check it at the top of
-    every loop...which is rather silly. */
-static int condition_optimize_check(lily_ast *ast)
+/* This is called from parser to force the writing of the optargs chunk that
+   will occur at/near the top of a function. */
+void lily_emit_write_optargs(lily_emit_state *emit, uint16_t *reg_spots,
+        uint16_t count)
 {
-    int can_optimize = 1;
+    write_prep(emit, count + 2);
 
-    /* This may not be a literal. It could be a user-defined/built-in function
-       which would always automatically be true. */
-    if (ast->result->flags & ITEM_TYPE_TIE) {
-        lily_tie *lit = (lily_tie *)ast->result;
+    emit->code[emit->code_pos] = o_setup_optargs;
+    emit->code[emit->code_pos+1] = count;
 
-        /* Keep this synced with vm's o_jump_if calculation. */
-        int lit_cls_id = lit->type->cls->id;
-        if (lit_cls_id == SYM_CLASS_INTEGER && lit->value.integer == 0)
-            can_optimize = 0;
-        else if (lit_cls_id == SYM_CLASS_DOUBLE && lit->value.doubleval == 0.0)
-            can_optimize = 0;
-        else if (lit_cls_id == SYM_CLASS_STRING && lit->value.string->size == 0)
-            can_optimize = 0;
-        else if (lit_cls_id == SYM_CLASS_BOOLEAN && lit->value.integer == 0)
-            can_optimize = 0;
-        else if (lit->type->cls->flags & CLS_IS_VARIANT)
-            can_optimize = 0;
+    emit->code_pos += 2;
+
+    int i, j;
+    for (j = 0;j < 2;j++) {
+        for (i = j;i < count;i += 2) {
+            emit->code[emit->code_pos] = reg_spots[i];
+            emit->code_pos++;
+        }
+    }
+}
+
+/* This function writes the code necessary to get a for <var> in x...y style
+   loop to work. */
+void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
+        lily_var *for_start, lily_var *for_end, lily_var *for_step,
+        int line_num)
+{
+    lily_class *cls = emit->symtab->integer_class;
+
+    int have_step = (for_step != NULL);
+    if (have_step == 0)
+        for_step = lily_emit_new_scoped_var(emit, cls->type, "(for step)");
+
+    lily_sym *target;
+    /* Global vars cannot be used directly, because o_for_setup and
+       o_integer_for expect local registers. */
+    if (user_loop_var->function_depth == 1)
+        target = (lily_sym *)get_storage(emit, user_loop_var->type);
+    else
+        target = (lily_sym *)user_loop_var;
+
+    write_prep(emit, 16 + ((target != (lily_sym *)user_loop_var) * 8));
+    emit->code[emit->code_pos  ] = o_for_setup;
+    emit->code[emit->code_pos+1] = line_num;
+    emit->code[emit->code_pos+2] = target->reg_spot;
+    emit->code[emit->code_pos+3] = for_start->reg_spot;
+    emit->code[emit->code_pos+4] = for_end->reg_spot;
+    emit->code[emit->code_pos+5] = for_step->reg_spot;
+    /* This value is used to determine if the step needs to be calculated. */
+    emit->code[emit->code_pos+6] = !have_step;
+
+    if (target != (lily_sym *)user_loop_var) {
+        emit->code[emit->code_pos+7] = o_set_global;
+        emit->code[emit->code_pos+8] = line_num;
+        emit->code[emit->code_pos+9] = target->reg_spot;
+        emit->code[emit->code_pos+10] = user_loop_var->reg_spot;
+        emit->code_pos += 4;
+    }
+    /* for..in is entered right after 'for' is seen. However, range values can
+       be expressions. This needs to be fixed, or the loop will jump back up to
+       re-eval those expressions. */
+    emit->block->loop_start = emit->code_pos+9;
+
+    /* Write a jump to the inside of the loop. This prevents the value from
+       being incremented before being seen by the inside of the loop. */
+    emit->code[emit->code_pos+7] = o_jump;
+    emit->code[emit->code_pos+8] =
+            (emit->code_pos - emit->block->jump_offset) + 16;
+
+    emit->code[emit->code_pos+9] = o_integer_for;
+    emit->code[emit->code_pos+10] = line_num;
+    emit->code[emit->code_pos+11] = target->reg_spot;
+    emit->code[emit->code_pos+12] = for_start->reg_spot;
+    emit->code[emit->code_pos+13] = for_end->reg_spot;
+    emit->code[emit->code_pos+14] = for_step->reg_spot;
+    emit->code[emit->code_pos+15] = 0;
+    if (target != (lily_sym *)user_loop_var) {
+        emit->code[emit->code_pos+16] = o_set_global;
+        emit->code[emit->code_pos+17] = line_num;
+        emit->code[emit->code_pos+18] = target->reg_spot;
+        emit->code[emit->code_pos+19] = user_loop_var->reg_spot;
+        emit->code_pos += 4;
     }
 
-    return can_optimize;
+    emit->code_pos += 16;
+
+    int offset;
+    if (target == (lily_sym *)user_loop_var)
+        offset = 1;
+    else
+        offset = 5;
+
+    lily_u16_push(emit->patches, emit->code_pos - offset);
 }
 
 /*  This function is called before the instruction needed for a 'continue',
@@ -307,13 +549,473 @@ static void write_pop_try_blocks_up_to(lily_emit_state *emit,
     }
 }
 
-/*  find_deepest_loop
-    Look backward from the current block to find the inner-most block that is a
-    loop. This block is the one that should receive any 'continue' and 'break'
-    jumps.
+/* The parser has a 'break' and wants the emitter to write the code. */
+void lily_emit_break(lily_emit_state *emit)
+{
+    if (emit->block->loop_start == (uint16_t)-1) {
+        lily_raise(emit->raiser, lily_SyntaxError,
+                "'break' used outside of a loop.\n");
+    }
 
-    Success: A block is returned that is a loop block.
-    Failure: NULL is returned. */
+    lily_block *loop_block = find_deepest_loop(emit);
+
+    write_pop_try_blocks_up_to(emit, loop_block);
+
+    /* Write the jump, then figure out where to put it. */
+    write_2(emit, o_jump, 0);
+
+    inject_patch_into_block(emit, loop_block, emit->code_pos - 1);
+}
+
+/* The parser has a 'continue' and wants the emitter to write the code. */
+void lily_emit_continue(lily_emit_state *emit)
+{
+    if (emit->block->loop_start == (uint16_t)-1) {
+        lily_raise(emit->raiser, lily_SyntaxError,
+                "'continue' used outside of a loop.\n");
+    }
+
+    write_pop_try_blocks_up_to(emit, find_deepest_loop(emit));
+
+    write_2(emit, o_jump, emit->block->loop_start);
+}
+
+/* The parser has a 'try' and wants the emitter to write the code. */
+void lily_emit_try(lily_emit_state *emit, int line_num)
+{
+    write_3(emit, o_push_try, line_num, 0);
+
+    lily_u16_push(emit->patches, emit->code_pos - 1);
+}
+
+/* The parser has an 'except' clause and wants emitter to write code for it. */
+void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
+        lily_var *except_var, int line_num)
+{
+    lily_sym *except_sym = (lily_sym *)except_var;
+    if (except_sym == NULL)
+        except_sym = (lily_sym *)get_storage(emit, except_type);
+
+    write_5(emit, o_except, line_num, 0, (except_var != NULL),
+            except_sym->reg_spot);
+
+    lily_u16_push(emit->patches, emit->code_pos - 3);
+}
+
+/* Write a conditional jump. 0 means jump if false, 1 means jump if true. The
+   ast is the thing to test. */
+static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
+{
+    write_4(emit, o_jump_if, jump_on, ast->result->reg_spot, 0);
+
+    lily_u16_push(emit->patches, emit->code_pos - 1);
+}
+
+/* This takes all patches that exist in the current block and makes them target
+   'pos'. The patches are removed. */
+void write_block_patches(lily_emit_state *emit, int pos)
+{
+    int from = emit->patches->pos - 1;
+    int to = emit->block->patch_start;
+
+    for (;from >= to;from--) {
+        /* Skip -1's, which are fake patches from conditions that were
+            optimized out. */
+        uint16_t patch = lily_u16_pop(emit->patches);
+
+        if (patch != (uint16_t)-1)
+            emit->code[patch] = pos;
+    }
+}
+
+/***
+ *      ____  _
+ *     / ___|| |_ ___  _ __ __ _  __ _  ___  ___
+ *     \___ \| __/ _ \| '__/ _` |/ _` |/ _ \/ __|
+ *      ___) | || (_) | | | (_| | (_| |  __/\__ \
+ *     |____/ \__\___/|_|  \__,_|\__, |\___||___/
+ *                               |___/
+ */
+
+/** Storages are used to hold intermediate values. The emitter is responsible
+    for handing them out, controlling their position, and making new ones.
+    Most of that is done in get_storage. **/
+
+static void add_storage(lily_emit_state *emit)
+{
+    lily_storage *storage = lily_malloc(sizeof(lily_storage));
+
+    storage->type = NULL;
+    storage->next = NULL;
+    storage->expr_num = 0;
+    storage->flags = 0;
+
+    if (emit->all_storage_start == NULL)
+        emit->all_storage_start = storage;
+    else
+        emit->all_storage_top->next = storage;
+
+    emit->all_storage_top = storage;
+    emit->unused_storage_start = storage;
+}
+
+/* This attempts to grab a storage of the given type. It will first attempt to
+   get a used storage, then a new one. */
+static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
+{
+    lily_storage *storage_iter = emit->block->storage_start;
+    int expr_num = emit->expr_num;
+
+    while (storage_iter) {
+        /* A storage with a type of NULL is not in use and can be claimed. */
+        if (storage_iter->type == NULL) {
+            storage_iter->type = type;
+
+            storage_iter->reg_spot = emit->function_block->next_reg_spot;
+            emit->function_block->next_reg_spot++;
+
+            if (storage_iter->next)
+                emit->unused_storage_start = storage_iter->next;
+
+            break;
+        }
+        else if (storage_iter->type == type &&
+                 storage_iter->expr_num != expr_num) {
+            storage_iter->expr_num = expr_num;
+            break;
+        }
+
+        storage_iter = storage_iter->next;
+    }
+
+    storage_iter->expr_num = expr_num;
+    /* This ensures that there is always a valid extra storage. It makes setting
+       the storage starting position easier. */
+    if (storage_iter->next == NULL)
+        add_storage(emit);
+
+    storage_iter->flags &= ~SYM_NOT_ASSIGNABLE;
+    return storage_iter;
+}
+
+/* This function attempts to get a storage of a particular type that has not
+   been used before. This is used by closures. */
+lily_storage *get_unique_storage(lily_emit_state *emit, lily_type *type)
+{
+    int next_spot = emit->function_block->next_reg_spot;
+    lily_storage *s = NULL;
+
+    do {
+        s = get_storage(emit, type);
+    } while (emit->function_block->next_reg_spot == next_spot);
+
+    return s;
+}
+
+/***
+ *      ____  _            _
+ *     | __ )| | ___   ___| | _____
+ *     |  _ \| |/ _ \ / __| |/ / __|
+ *     | |_) | | (_) | (__|   <\__ \
+ *     |____/|_|\___/ \___|_|\_\___/
+ *
+ */
+
+static void inject_patch_into_block(lily_emit_state *, lily_block *, uint16_t);
+static lily_function_val *create_code_block_for(lily_emit_state *, lily_block *);
+static void ensure_proper_match_block(lily_emit_state *);
+
+/** The emitter's blocks keep track of the current context of things. Is the
+    current block an if with or without an else? Where do storages start? Were
+    any vars created in this scope?
+
+    Blocks are currently in a rough state. They've accidentally grown fat, and
+    likely carry too much info. The same thing represents both a defined
+    function, an if block, etc. Some blocks don't necessarily use all of the
+    items that are inside. **/
+
+/* This enters a block of the given block type. A block's vars are considered to
+   be any vars created after the block has been entered. Information such as the
+   current class entered and self's location is inferred from existing info. */
+void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
+{
+    lily_block *new_block;
+    if (emit->block->next == NULL) {
+        new_block = lily_malloc(sizeof(lily_block));
+
+        emit->block->next = new_block;
+        new_block->prev = emit->block;
+        new_block->next = NULL;
+    }
+    else
+        new_block = emit->block->next;
+
+    new_block->block_type = block_type;
+    new_block->var_start = emit->symtab->active_import->var_chain;
+    new_block->class_entry = emit->block->class_entry;
+    new_block->self = emit->block->self;
+    new_block->generic_count = 0;
+    new_block->patch_start = emit->patches->pos;
+    new_block->last_exit = -1;
+    new_block->loop_start = emit->block->loop_start;
+    new_block->make_closure = 0;
+
+    if (block_type < block_define) {
+        /* Non-functions will continue using the storages that the parent uses.
+           Additionally, the same technique is used to allow loop starts to
+           bubble upward until a function gets in the way. */
+        new_block->storage_start = emit->block->storage_start;
+        new_block->jump_offset = emit->block->jump_offset;
+        new_block->all_branches_exit = 1;
+
+        if (IS_LOOP_BLOCK(block_type))
+            new_block->loop_start = emit->code_pos;
+        else if (block_type == block_enum) {
+            /* Enum entries are not considered function-like, because they do
+               not have a class ::new. */
+            new_block->class_entry = emit->symtab->active_import->class_chain;
+            new_block->loop_start = -1;
+        }
+    }
+    else {
+        lily_var *v = emit->symtab->active_import->var_chain;
+        if (block_type == block_class)
+            new_block->class_entry = emit->symtab->active_import->class_chain;
+
+        v->parent = new_block->class_entry;
+
+        /* This only happens when a define occurs within another define. The
+           inner define is marked as needing closures. This makes it so all
+           calls to the inner define will create a copy with closures. */
+        if (emit->function_depth >= 2 && emit->block->block_type != block_class)
+            v->flags |= VAR_NEEDS_CLOSURE;
+
+        new_block->next_reg_spot = 0;
+
+        /* This causes vars within this imported file to be seen as global
+           vars, instead of locals. Without this, the interpreter gets confused
+           and thinks the imported file's globals are really upvalues. */
+        if (block_type != block_file) {
+            if (block_type == block_lambda) {
+                /* A lambda cannot be guaranteed to have the 'self' of a class
+                   as the first parameter. If it wants 'self', it can close over
+                   it when it needs to. */
+                new_block->self = NULL;
+            }
+            emit->function_depth++;
+        }
+        emit->function_block = new_block;
+
+        new_block->storage_start = emit->unused_storage_start;
+        new_block->function_var = v;
+        new_block->code_start = emit->code_pos;
+        new_block->jump_offset = emit->code_pos;
+        new_block->loop_start = -1;
+
+        emit->top_var = v;
+    }
+
+    emit->block = new_block;
+}
+
+static void add_var_chain_to_info(lily_emit_state *emit,
+        lily_register_info *info, lily_var *from_var, lily_var *to_var)
+{
+    while (from_var != to_var) {
+        if ((from_var->flags & VAR_IS_READONLY) == 0) {
+            info[from_var->reg_spot].type = from_var->type;
+            info[from_var->reg_spot].name = from_var->name;
+            info[from_var->reg_spot].line_num = from_var->line_num;
+        }
+
+        from_var = from_var->next;
+    }
+}
+
+static void add_storage_chain_to_info(lily_register_info *info,
+        lily_storage *storage)
+{
+    while (storage && storage->type) {
+        info[storage->reg_spot].type = storage->type;
+        info[storage->reg_spot].name = NULL;
+        info[storage->reg_spot].line_num = -1;
+        storage = storage->next;
+    }
+}
+
+/* This is called when a function-like block is exiting. The function value
+   that the block needs is made, the register info is made, and storages are
+   freed up. */
+static void finalize_function_block(lily_emit_state *emit,
+        lily_block *function_block)
+{
+    /* This must run before the rest, because if this call needs to be a
+       closure, it will require a unique storage. */
+    lily_function_val *f = create_code_block_for(emit, function_block);
+
+    int register_count = emit->function_block->next_reg_spot;
+    lily_storage *storage_iter = function_block->storage_start;
+    lily_register_info *info = lily_malloc(
+            register_count * sizeof(lily_register_info));
+    lily_var *var_stop = function_block->function_var;
+
+    /* Don't include functions inside of themselves... */
+    if (emit->function_depth == 1)
+        var_stop = var_stop->next;
+
+    if (emit->function_depth != 1)
+        add_var_chain_to_info(emit, info,
+                emit->symtab->active_import->var_chain, var_stop);
+
+    add_storage_chain_to_info(info, function_block->storage_start);
+
+    if (emit->function_depth > 1) {
+        /* todo: Reuse the var shells instead of destroying. Seems petty, but
+                 malloc isn't cheap if there are a lot of vars. */
+        lily_var *var_iter = emit->symtab->active_import->var_chain;
+        lily_var *var_temp;
+        while (var_iter != var_stop) {
+            var_temp = var_iter->next;
+            if ((var_iter->flags & VAR_IS_READONLY) == 0)
+                lily_free(var_iter);
+            else {
+                /* This is a function declared within the current function. Hide it
+                   in symtab's old functions since it's going out of scope. */
+                var_iter->next = emit->symtab->old_function_chain;
+                emit->symtab->old_function_chain = var_iter;
+            }
+
+            /* The function value now owns the var names, so don't free them. */
+            var_iter = var_temp;
+        }
+    }
+
+    storage_iter = function_block->storage_start;
+    while (storage_iter) {
+        storage_iter->type = NULL;
+        storage_iter = storage_iter->next;
+    }
+
+    emit->unused_storage_start = function_block->storage_start;
+
+    f->reg_info = info;
+    f->reg_count = register_count;
+}
+
+static void leave_function(lily_emit_state *emit, lily_block *block)
+{
+    if (block->block_type == block_class)
+        write_3(emit, o_return_val, *emit->lex_linenum, block->self->reg_spot);
+    else {
+        /* A lambda's return is whatever the last expression returns. */
+        if (block->block_type == block_lambda)
+            emit->top_function_ret = emit->top_var->type->subtypes[0];
+        if (emit->top_function_ret == NULL)
+            write_2(emit, o_return_noval, *emit->lex_linenum);
+        else if (block->block_type == block_define &&
+                 block->last_exit != emit->code_pos) {
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "Missing return statement at end of function.\n");
+        }
+    }
+
+    finalize_function_block(emit, block);
+
+    /* Information must be pulled from and saved to the last function-like
+       block. This loop is because of lambdas. */
+    lily_block *last_func_block = block->prev;
+    while (last_func_block->block_type < block_define)
+        last_func_block = last_func_block->prev;
+
+    lily_var *v = last_func_block->function_var;
+
+    /* If this function was the ::new for a class, move it over into that class
+       since the class is about to close. */
+    if (emit->block->block_type == block_class) {
+        lily_class *cls = emit->block->class_entry;
+
+        emit->symtab->active_import->var_chain = block->function_var;
+        lily_add_class_method(emit->symtab, cls, block->function_var);
+    }
+    else if (emit->block->block_type != block_file)
+        emit->symtab->active_import->var_chain = block->function_var;
+    /* For file 'blocks', don't fix the var_chain or all of the toplevel
+       functions in that block will vanish! */
+
+    if (block->prev->generic_count != block->generic_count &&
+        block->block_type != block_lambda) {
+        lily_update_symtab_generics(emit->symtab, NULL,
+                last_func_block->generic_count);
+    }
+
+    emit->top_var = v;
+    emit->top_function_ret = v->type->subtypes[0];
+    emit->code_pos = block->code_start;
+    emit->function_block = last_func_block;
+
+    /* File 'blocks' do not bump up the depth because that's used to determine
+       if something is a global or not. */
+    if (block->block_type != block_file) {
+        emit->function_depth--;
+
+        /* If this block needed to make a closure, then mark the upward block
+           as that too. This ensures that necessary closure data is not
+           forgotten. But...don't do that to __main__ or things get weird. */
+        if (block->make_closure == 1 && emit->function_block->prev != NULL)
+            emit->function_block->make_closure = 1;
+    }
+}
+
+/* This leaves the current block. If there is a function-like entity that has
+   been left, then it's prepared and cleaned up. */
+void lily_emit_leave_block(lily_emit_state *emit)
+{
+    lily_var *v;
+    lily_block *block;
+    int block_type;
+
+    if (emit->block->prev == NULL)
+        lily_raise(emit->raiser, lily_SyntaxError, "'}' outside of a block.\n");
+
+    block = emit->block;
+    block_type = block->block_type;
+
+    /* These blocks need to jump back up when the bottom is hit. */
+    if (block_type == block_while || block_type == block_for_in)
+        write_2(emit, o_jump, block->loop_start - block->jump_offset);
+    else if (block_type == block_match) {
+        ensure_proper_match_block(emit);
+        emit->match_case_pos = emit->block->match_case_start;
+    }
+    else if (block_type == block_try ||
+             block_type == block_try_except ||
+             block_type == block_try_except_all) {
+        /* The vm expects that the last except block will have a 'next' of 0 to
+           indicate the end of the 'except' chain. Remove the patch that the
+           last except block installed so it doesn't get patched. */
+        emit->patches->pos--;
+    }
+
+    if ((block_type == block_if_else ||
+         block_type == block_match ||
+         block_type == block_try_except_all) &&
+        block->all_branches_exit && block->last_exit == emit->code_pos) {
+        emit->block->prev->last_exit = emit->code_pos;
+    }
+
+    v = block->var_start;
+
+    if (block_type < block_define) {
+        write_block_patches(emit, emit->code_pos - block->jump_offset);
+
+        lily_hide_block_vars(emit->symtab, v);
+    }
+    else
+        leave_function(emit, block);
+
+    emit->block = emit->block->prev;
+}
+
 static lily_block *find_deepest_loop(lily_emit_state *emit)
 {
     lily_block *block, *ret;
@@ -333,7 +1035,9 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
     return ret;
 }
 
-void inject_patch_into_block(lily_emit_state *emit, lily_block *block,
+/* This is called when a patch needs to be put into a particular block. The
+   given block may or may not be the current block. */
+static void inject_patch_into_block(lily_emit_state *emit, lily_block *block,
         uint16_t patch)
 {
     /* This is the most recent block, so add the patch to the top. */
@@ -349,220 +1053,108 @@ void inject_patch_into_block(lily_emit_state *emit, lily_block *block,
     }
 }
 
-void write_block_patches(lily_emit_state *emit, int pos)
+
+/* This function is called from parser to change the current block into a block
+   of the given type. The emitter does some checks to make sure that the change
+   is valid, as well as jump patching. */
+void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
 {
-    int from = emit->patches->pos - 1;
-    int to = emit->block->patch_start;
+    lily_block_type current_type = emit->block->block_type;
+    int save_jump;
 
-    for (;from >= to;from--) {
-        /* Skip -1's, which are fake patches from conditions that were
-            optimized out. */
-        uint16_t patch = lily_u16_pop(emit->patches);
+    if (emit->block->last_exit != emit->code_pos)
+        emit->block->all_branches_exit = 0;
 
-        if (patch != (uint16_t)-1)
-            emit->code[patch] = pos;
+    if (new_type == block_if_elif || new_type == block_if_else) {
+        char *block_name;
+        if (new_type == block_if_elif)
+            block_name = "elif";
+        else
+            block_name = "else";
+
+        if (current_type != block_if && current_type != block_if_elif)
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "'%s' without 'if'.\n", block_name);
+
+        if (current_type == block_if_else)
+            lily_raise(emit->raiser, lily_SyntaxError, "'%s' after 'else'.\n",
+                    block_name);
     }
+    else if (new_type == block_try_except || new_type == block_try_except_all) {
+        if (current_type == block_try_except_all)
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "'except' clause is unreachable.\n");
+        else if (current_type != block_try && current_type != block_try_except)
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "'except' outside 'try'.\n");
+
+        /* If nothing in the 'try' block raises an error, the vm needs to be
+           told to unregister the 'try' block since will become unreachable
+           when the jump below occurs. */
+        if (current_type == block_try)
+            write_1(emit, o_pop_try);
+    }
+
+    lily_var *v = emit->block->var_start;
+    if (v != emit->symtab->active_import->var_chain)
+        lily_hide_block_vars(emit->symtab, v);
+
+    /* Transitioning between blocks is simple: First write a jump at the end of
+       the current branch. This will get patched to the if/try's exit. */
+    write_2(emit, o_jump, 0);
+    save_jump = emit->code_pos - 1;
+
+    /* The last jump of the previous branch wants to know where the check for
+       the next branch starts. It's right now. */
+    uint16_t patch = lily_u16_pop(emit->patches);
+
+    if (patch != (uint16_t)-1)
+        emit->code[patch] = emit->code_pos - emit->block->jump_offset;
+    /* else it's a fake branch from a condition that was optimized out. */
+
+    lily_u16_push(emit->patches, save_jump);
+    emit->block->block_type = new_type;
 }
+
+/***
+ *       ____ _
+ *      / ___| | ___  ___ _   _ _ __ ___  ___
+ *     | |   | |/ _ \/ __| | | | '__/ _ \/ __|
+ *     | |___| | (_) \__ \ |_| | | |  __/\__ \
+ *      \____|_|\___/|___/\__,_|_|  \___||___/
+ *
+ */
+
+/** Closures are a tricky part of the emitter. The values that are stored in a
+    closure are termed its cells. A closure's cells must always be fresh. If a
+    variable is assigned to 10 in one scope, then it must be seen as 10 at any
+    point in any other scope.
+
+    The current implementation of closures works by 'shadowing' assignments. If
+    a value that is closed over is assigned something, then a secondary
+    assignment is made to the closure cell. Similarly, if a value is read from
+    and closed over, then it needs to be pulled from the closure first. This is
+    complicated by not having exact metrics of what is and isn't closed over.
+    A define within a define is easy to keep track of, but lambdas are not so
+    easy to track. This implementation was chosen because Lily has a
+    register-based vm instead of a stack-based one.
+
+    There are other complications. Generics get...strange. If two functions, f
+    and g, both take a type A, they may be called such that their A's disagree.
+    A barrier has been setup to prevent doing wrong things. Lambdas, however,
+    can close over untyped variables because they do not create a generic scope.
+
+    Another tough issue is self. A decision (which may be reverted) is that
+    lambdas should be able to close over self. This allows methods to be easily
+    called within a lambda, even if the lambda may not be a class member.
+    However, it carries a side-effect of making method access need to check for
+    self existing either closed over or not. **/
 
 static void grow_closed_syms(lily_emit_state *emit)
 {
     emit->closed_size *= 2;
     emit->closed_syms = lily_realloc(emit->closed_syms,
         sizeof(lily_sym *) * emit->closed_size);
-}
-
-static void grow_match_cases(lily_emit_state *emit)
-{
-    emit->match_case_size *= 2;
-    emit->match_cases = lily_realloc(emit->match_cases,
-        sizeof(int) * emit->match_case_size);
-}
-
-/*  emit_jump_if
-    Write a conditional jump and add it to emitter's current patches.
-    0 == o_jump_if_false
-        The jump happens if the ast's result is 0/false.
-    1 == o_jump_if_true
-        The jump happens if the ast's result is non-zero. */
-static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
-{
-    write_4(emit, o_jump_if, jump_on, ast->result->reg_spot, 0);
-
-    lily_u16_push(emit->patches, emit->code_pos - 1);
-}
-
-/*  ensure_valid_condition_type
-    This ensures that the resulting value for a condition is one that the vm
-    can determine is true or false.
-    If these are changed, then the vm's o_jump_if should be updated. */
-static void ensure_valid_condition_type(lily_emit_state *emit, lily_type *type)
-{
-    int cls_id = type->cls->id;
-
-    if (cls_id != SYM_CLASS_INTEGER &&
-        cls_id != SYM_CLASS_DOUBLE &&
-        cls_id != SYM_CLASS_STRING &&
-        cls_id != SYM_CLASS_LIST &&
-        cls_id != SYM_CLASS_BOOLEAN)
-        lily_raise(emit->raiser, lily_SyntaxError,
-                "^T is not a valid condition type.\n", type);
-}
-
-/*  check_valid_subscript
-    Determine if the given var is subscriptable by the type of the given index.
-    Additionally, an 'index literal' is given as a special-case for tuples.
-    This raises an error for unsubscriptable types. */
-static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
-        lily_ast *index_ast)
-{
-    int var_cls_id = var_ast->result->type->cls->id;
-    if (var_cls_id == SYM_CLASS_LIST || var_cls_id == SYM_CLASS_STRING) {
-        if (index_ast->result->type->cls->id != SYM_CLASS_INTEGER)
-            lily_raise_adjusted(emit->raiser, var_ast->line_num,
-                    lily_SyntaxError, "%s index is not an integer.\n",
-                    var_ast->result->type->cls->name);
-    }
-    else if (var_cls_id == SYM_CLASS_HASH) {
-        lily_type *want_key = var_ast->result->type->subtypes[0];
-        lily_type *have_key = index_ast->result->type;
-
-        if (want_key != have_key) {
-            lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
-                    "hash index should be type '^T', not type '^T'.\n",
-                    want_key, have_key);
-        }
-    }
-    else if (var_cls_id == SYM_CLASS_TUPLE) {
-        if (index_ast->result->type->cls->id != SYM_CLASS_INTEGER ||
-            index_ast->tree_type != tree_literal) {
-            lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
-                    "tuple subscripts must be integer literals.\n", "");
-        }
-
-        int index_value = index_ast->literal->value.integer;
-        lily_type *var_type = var_ast->result->type;
-        if (index_value < 0 || index_value >= var_type->subtype_count) {
-            lily_raise_adjusted(emit->raiser, var_ast->line_num,
-                    lily_SyntaxError, "Index %d is out of range for ^T.\n",
-                    index_value, var_type);
-        }
-    }
-    else {
-        lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
-                "Cannot subscript type '^T'.\n",
-                var_ast->result->type);
-    }
-}
-
-/*  get_subscript_result
-    Get the type that would result from doing a subscript. tuple_index_lit is
-    a special case for tuples. */
-static lily_type *get_subscript_result(lily_type *type, lily_ast *index_ast)
-{
-    lily_type *result;
-    if (type->cls->id == SYM_CLASS_LIST)
-        result = type->subtypes[0];
-    else if (type->cls->id == SYM_CLASS_HASH)
-        result = type->subtypes[1];
-    else if (type->cls->id == SYM_CLASS_TUPLE) {
-        /* check_valid_subscript ensures that this is safe. */
-        int literal_index = index_ast->literal->value.integer;
-        result = type->subtypes[literal_index];
-    }
-    else if (type->cls->id == SYM_CLASS_STRING)
-        result = type;
-    else
-        /* Won't happen, but keeps the compiler from complaining. */
-        result = NULL;
-
-    return result;
-}
-
-/*  Add a new storage to emitter's list of storages. */
-static void add_storage(lily_emit_state *emit)
-{
-    lily_storage *storage = lily_malloc(sizeof(lily_storage));
-
-    storage->type = NULL;
-    storage->next = NULL;
-    storage->expr_num = 0;
-    storage->flags = 0;
-
-    if (emit->all_storage_start == NULL)
-        emit->all_storage_start = storage;
-    else
-        emit->all_storage_top->next = storage;
-
-    emit->all_storage_top = storage;
-    emit->unused_storage_start = storage;
-}
-
-/*  get_storage
-    Attempt to get an unused storage of the type given. Additionally, a
-    line number is required to fix up the line number in case there is an
-    out-of-memory situation.
-    Additionally, this function ensures that emit->unused_storage_start is both
-    updated appropriately and will never become NULL.
-
-    This returns a valid storage. */
-static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
-{
-    lily_storage *storage_iter = emit->block->storage_start;
-    int expr_num = emit->expr_num;
-
-    /* Emitter's linked list of storages is done such that there is always one
-       unused storage at the end. Therefore, this loop will never end with
-       storage_iter == NULL. */
-    while (storage_iter) {
-        /* If the type is NULL, then nothing is using this storage and it
-           can be repurposed for the current function. */
-        if (storage_iter->type == NULL) {
-            storage_iter->type = type;
-
-            storage_iter->reg_spot = emit->function_block->next_reg_spot;
-            emit->function_block->next_reg_spot++;
-
-            /* This ensures that lambdas don't clobber on current storages. */
-            if (storage_iter->next)
-                emit->unused_storage_start = storage_iter->next;
-
-            break;
-        }
-        else if (storage_iter->type == type &&
-                 storage_iter->expr_num != expr_num) {
-            storage_iter->expr_num = expr_num;
-            break;
-        }
-
-        storage_iter = storage_iter->next;
-    }
-
-    storage_iter->expr_num = expr_num;
-    /* This ensures that emit->unused_storage_start is always valid and always
-       something unused. */
-    if (storage_iter->next == NULL)
-        add_storage(emit);
-
-    storage_iter->flags &= ~SYM_NOT_ASSIGNABLE;
-    return storage_iter;
-}
-
-/*  This attempts to locate a storage, but makes sure that it has never been
-    used before. This is necessary for closures, which dump the source of
-    upvalue into a register (this prevents it from being destroyed early). */
-lily_storage *get_unique_storage(lily_emit_state *emit, lily_type *type)
-{
-    int next_spot = emit->function_block->next_reg_spot;
-    lily_storage *s = NULL;
-
-    /* As long as the next register spot doesn't change, the resulting storage
-       may be one that is used somewhere else. There's probably a faster, more
-       direct approach, but this is really likely to succeed the first time. */
-    do {
-        s = get_storage(emit, type);
-    } while (emit->function_block->next_reg_spot == next_spot);
-
-    return s;
 }
 
 static void close_over_sym(lily_emit_state *emit, lily_sym *sym)
@@ -576,17 +1168,24 @@ static void close_over_sym(lily_emit_state *emit, lily_sym *sym)
     emit->function_block->make_closure = 1;
 }
 
+/* This writes o_create_function which will create a copy of 'func_sym' but
+   with closure information. 'target' is a storage where the closed-over copy
+   will end up. The result cannot be cached in any way (each invocation should
+   get a fresh set of cells). */
+static void emit_create_function(lily_emit_state *emit, lily_sym *func_sym,
+        lily_storage *target)
+{
+    write_4(emit, o_create_function, 0, func_sym->reg_spot, target->reg_spot);
+    inject_patch_into_block(emit, emit->function_block, emit->code_pos - 3);
+    emit->function_block->make_closure = 1;
+}
+
+/* This function closes over a var, but has a requirement. The requirement is
+   that it cannot be an unsolved type from a higher-up scope. This requirement
+   exists because Lily does not currently understand how to have two different
+   kinds of a generic that are not equivalent / scoped generics. */
 static void checked_close_over_var(lily_emit_state *emit, lily_var *var)
 {
-    /* The reason this exists is because Lily does not currently understand that
-       generics may have a certain scope applied to them. If that happens, then
-       this can be taken away.
-       This is to prevent crashing from assuming that 'A' is consistently solved
-       across defines. This is not an issue for class methods closing over
-       constructor parameters (they get self as the first argument, and thus
-       must be samely-solved). This is not an issue for lambdas, because they
-       do not create a new scope for generics.
-       Yeah, this sucks. */
     if (emit->function_block->block_type == block_define &&
         emit->function_block->prev->block_type == block_define &&
         var->type->flags & TYPE_IS_UNRESOLVED)
@@ -596,6 +1195,9 @@ static void checked_close_over_var(lily_emit_state *emit, lily_var *var)
     close_over_sym(emit, (lily_sym *)var);
 }
 
+/* See if the given sym has been closed over.
+   Success: The spot
+   Failure: -1 */
 static int find_closed_sym_spot(lily_emit_state *emit, lily_sym *sym)
 {
     int result = -1, i;
@@ -609,6 +1211,7 @@ static int find_closed_sym_spot(lily_emit_state *emit, lily_sym *sym)
     return result;
 }
 
+/* Like find_closed_sym_spot, but checks for 'self' instead. */
 static int find_closed_self_spot(lily_emit_state *emit)
 {
     int i, result = -1;
@@ -623,6 +1226,7 @@ static int find_closed_self_spot(lily_emit_state *emit)
     return result;
 }
 
+/* If 'self' isn't close over, then close over it. */
 static void maybe_close_over_class_self(lily_emit_state *emit)
 {
     lily_block *block = emit->block;
@@ -639,159 +1243,19 @@ static void maybe_close_over_class_self(lily_emit_state *emit)
     emit->function_block->make_closure = 1;
 }
 
-/*  write_build_op
 
-    This is responsible for writing the actual o_build_list_tuple or
-    o_build_hash code, depending on the opcode given. The list will be put into
-    a register at reg_spot, which is assumed to have the correct type to hold
-    the given result.
+/* This function walks over the opcodes from 'pos' to 'end'. As it walks through
+   opcodes, the values are put into three relative groups:
+   * This is a local read (needs to be shadowed over).
+   * This is a local write (shadow)
+   * This is a jump (it needs to be adjusted OR held)
+   * I don't care about this.
 
-    emit:       The emitter holding the function to write to.
-    opcode:     The opcode to write: o_build_list_tuple for a list/tuple, or
-                o_build_hash for a hash.
-    first_arg:  The first argument to start iterating over.
-    line_num:   A line number for the o_build_* opcode.
-    num_values: The number of values that will be written. This is typically
-                the parent's args_collected.
-    reg_spot:   The id of a register where the opcode's result will go. The
-                caller is expected to ensure that the register has the proper
-                type to hold the resulting thing.
-*/
-static void write_build_op(lily_emit_state *emit, int opcode,
-        lily_ast *first_arg, int line_num, int num_values, int reg_spot)
-{
-    int i;
-    lily_ast *arg;
+   Raw code is walked over, emitting new code in the process. Before this is
+   called, the one caller makes sure to do a write_prep that will prevent
+   emit->code from being resized while being iterated over.
 
-    write_prep(emit, num_values + 4);
-    emit->code[emit->code_pos] = opcode;
-    emit->code[emit->code_pos+1] = line_num;
-    emit->code[emit->code_pos+2] = num_values;
-
-    for (i = 3, arg = first_arg; arg != NULL; arg = arg->next_arg, i++)
-        emit->code[emit->code_pos + i] = arg->result->reg_spot;
-
-    emit->code[emit->code_pos+i] = reg_spot;
-    emit->code_pos += 4 + num_values;
-}
-
-static lily_storage *emit_rebox_sym(lily_emit_state *, lily_type *, lily_sym *,
-        uint32_t);
-
-/*  rebox_variant_to_enum
-    This is a convenience function that will convert the variant value within
-    the given ast to an enum value.
-    Note: If the variant does not supply full type information, then missing
-          types are given the type of 'any'. */
-static void rebox_variant_to_enum(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_type *rebox_type = lily_tm_make_enum_by_variant(emit->tm,
-            ast->result->type);
-
-    lily_storage *result = emit_rebox_sym(emit, rebox_type,
-            (lily_sym *)ast->result, ast->line_num);
-    ast->result = (lily_sym *)result;
-}
-
-static lily_storage *emit_rebox_sym(lily_emit_state *emit,
-        lily_type *new_type, lily_sym *sym, uint32_t line_num)
-{
-    lily_storage *storage = get_storage(emit, new_type);
-
-    if (sym->type->cls->flags & CLS_IS_VARIANT &&
-        new_type->cls->id == SYM_CLASS_ANY) {
-        lily_type *rebox_type = lily_tm_make_enum_by_variant(emit->tm,
-                sym->type);
-
-        sym = (lily_sym *)emit_rebox_sym(emit, rebox_type, sym, line_num);
-    }
-
-    int op;
-    /* o_box_assign will wrap the value so that it can be assigned to either an
-       enum/any later on.
-       For everything else, use o_assign and rely on the vm not doing any type
-       checking. */
-    if (new_type->cls->flags & CLS_IS_ENUM)
-        op = o_box_assign;
-    else
-        op = o_assign;
-
-    write_4(emit, op, line_num, sym->reg_spot, storage->reg_spot);
-
-    return storage;
-}
-
-/*  emit_rebox_value
-    Make a storage of type 'new_type' and assign ast's result to it. The tree's
-    result is written over. */
-static void emit_rebox_value(lily_emit_state *emit, lily_type *new_type,
-        lily_ast *ast)
-{
-    lily_storage *result = emit_rebox_sym(emit, new_type,
-            (lily_sym *)ast->result, ast->line_num);
-    ast->result = (lily_sym *)result;
-}
-
-/*  emit_rebox_to_any
-    This is a helper function that calls emit_rebox_value on the given tree
-    with a type of class any. */
-static void emit_rebox_to_any(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_storage *result = emit_rebox_sym(emit, emit->symtab->any_class->type,
-            (lily_sym *)ast->result, ast->line_num);
-    ast->result = (lily_sym *)result;
-}
-
-/*  add_var_chain_to_info
-    Add info for a linked-list of vars to the given register info. Functions do
-    not get a register (VAR_IS_READONLY), so don't add them. */
-static void add_var_chain_to_info(lily_emit_state *emit,
-        lily_register_info *info, lily_var *from_var, lily_var *to_var)
-{
-    while (from_var != to_var) {
-        if ((from_var->flags & VAR_IS_READONLY) == 0) {
-            info[from_var->reg_spot].type = from_var->type;
-            info[from_var->reg_spot].name = from_var->name;
-            info[from_var->reg_spot].line_num = from_var->line_num;
-        }
-
-        from_var = from_var->next;
-    }
-}
-
-/*  add_storage_chain_to_info
-    Add info for a linked-list of storages to the given register info. Only
-    used by finalize_function_val. */
-static void add_storage_chain_to_info(lily_register_info *info,
-        lily_storage *storage)
-{
-    while (storage && storage->type) {
-        info[storage->reg_spot].type = storage->type;
-        info[storage->reg_spot].name = NULL;
-        info[storage->reg_spot].line_num = -1;
-        storage = storage->next;
-    }
-}
-
-/* This traverses within emit->code from the initially given start and end
-   positions.
-   This function is concerned with values that are local to this function which
-   have been closed over.
-   * Any read of a local that has been closed over will have a o_get_upvalue
-     written before the opcode.
-   * Any write of a local will have o_set_upvalue written after the opcode.
-   * Jumps encounted are adjusted to account for any get/set_upvalue's written.
-   In most cases, this isn't necessary. However, consider this:
-    define f() {
-        var i = 10
-        var g = {|| i += 1 }
-        g()
-        i += 1
-        show(i)
-    }
-   In this case, 'i' should have o_get/set_upvalue written appropriately so that
-   'i' will come out as 12 (the lambda update being factored in) instead of 11
-   (using local assigns only). */
+   This helps ensure that the closure always has fresh cells. */
 static void transform_code(lily_emit_state *emit, lily_function_val *f,
         int pos, int end, int starting_adjust)
 {
@@ -936,19 +1400,10 @@ static void transform_code(lily_emit_state *emit, lily_function_val *f,
     emit->patches->pos = patch_start;
 }
 
-/*  Consider this:
-    define f(a: integer => function( => integer)) {
-        return {|| a}
-    }
-
-    The parameter 'a' is used as an upvalue, is never used within the function
-    it is declared in. As a result, there are no writes to transform as a means
-    of putting 'a' into the closure.
-
-    This solves that by writing an explicit o_set_upvalue where it is needed,
-    before the transform. However, if o_setup_optargs is present, then nothing
-    is written for the parameter (o_setup_optargs will come later, and it will
-    not have a value). */
+/* The parameters of a function are never assigned anywhere. As a result, the
+   values won't have a shadowing assignment. If any parameters are closed over,
+   this will write a direct upvalue assignment to them. This ensures that they
+   will be in the closure. */
 static void ensure_params_in_closure(lily_emit_state *emit)
 {
     lily_var *function_var = emit->block->function_var;
@@ -976,6 +1431,8 @@ static void ensure_params_in_closure(lily_emit_state *emit)
     }
 }
 
+/* This sets up the table used to map from a register spot to where that spot is
+   in the closure. */
 static void setup_transform_table(lily_emit_state *emit)
 {
     if (emit->transform_size < emit->function_block->next_reg_spot) {
@@ -1004,27 +1461,10 @@ static void setup_transform_table(lily_emit_state *emit)
     }
 }
 
-/* This function writes what values need to be erased from the active closure's
-   cells. This forces the closure to create a fresh set of vars, instead of
-   using an old set. Here is why this is needed:
-   ```
-   define f {
-       define g {
-           var v = []
-           define h {
-               v.append(10)
-           }
-           define i {
-               g();
-               show(v)
-           }
-       }
-   }
-   ```
-   'g' will be called using the same closure that 'i' uses. However, the 'g'
-   called from 'i' should not modify the upvalues that 'i' uses, but instead use
-   fresh copies. */
-
+/* Some functions are closures and recursive. Calling a recursive function
+   should not result in local values being mutated. This function solves that by
+   'zapping' the cells on the current level. This forces the closed-over
+   function to make new cells. */
 static void write_closure_zap(lily_emit_state *emit)
 {
     int spot = emit->code_pos;
@@ -1047,9 +1487,9 @@ static void write_closure_zap(lily_emit_state *emit)
     emit->code[spot] = count;
 }
 
-/*  This is called on a type that is not solveable with the current generics
-    info. It will continually pull upvalues down until it has the types needed
-    to solve the type given. */
+/* This is called on a type that is not solveable with the current generics
+   info. It will continually pull upvalues down until it has the types needed
+   to solve the type given. */
 static void ensure_solveable_type(lily_emit_state *emit, lily_type *t)
 {
     int i, num_unsolved;
@@ -1076,18 +1516,25 @@ static void ensure_solveable_type(lily_emit_state *emit, lily_type *t)
     }
 }
 
-/*  Lambdas, unlike normal define blocks, are able to receive generic types from
-    another scope. It's therefore possible for a lambda to have a storage that
-    uses a generic type not within the lambda's scope. This causes a problem,
-    because Lily solves register types at runtime, and needs to know what types
-    the registers will have ahead of time.
+/* Lambdas are allowed to have unsolved generics from another scope because they
+   do not declare generics. Unfortunately, this causes a problem. There are
+   certain cases where the lambda needs to know the original type to do generic
+   resolution at runtime.
 
-    The current solution to this is to look through the lambda's storages and
-    vars to see if there are any types which are going to be unknown. When an
-    unknown type is found, it's located within the current upvalues. The
-    original type is saved, as well as where within the closure that the given
-    value lives. This information is then later saved so that runtime register
-    resolve can use it. */
+   ```
+   define and_then[A, B, C](f: function(A => B), g: function(A => C))
+       : function(A => C)
+   {
+       return {|a| g(f(a)) }
+   }
+   ```
+
+   The lambda will have upvalues, but without this it won't know their original
+   types. It won't know what B should solve as, and thus will guess something
+   incorrect.
+
+   This function ensures that in cases like the above, there is solving info
+   so that the B can be determined. */
 static void maybe_setup_type_block_for(lily_emit_state *emit,
         lily_type *func_type, lily_function_val *f)
 {
@@ -1268,6 +1715,9 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
     *new_size = emit->code_pos - *new_start;
 }
 
+/* This makes the function value that will be needed by the current code
+   block. If the current function is a closure, then the appropriate transform
+   is done to it. */
 static lily_function_val *create_code_block_for(lily_emit_state *emit,
         lily_block *function_block)
 {
@@ -1306,166 +1756,118 @@ static lily_function_val *create_code_block_for(lily_emit_state *emit,
     return f;
 }
 
-/*  finalize_function_val
-    This is a helper called when a function block is being exited, OR __main__
-    needs to run.
+/***
+ *      ____      _               _
+ *     |  _ \ ___| |__   _____  _(_)_ __   __ _
+ *     | |_) / _ \ '_ \ / _ \ \/ / | '_ \ / _` |
+ *     |  _ <  __/ |_) | (_) >  <| | | | | (_| |
+ *     |_| \_\___|_.__/ \___/_/\_\_|_| |_|\__, |
+ *                                        |___/
+ */
 
-    In both cases, the register info that the vm needs to init the registers
-    for this function is created.
+/** The type 'any' is a special type: It is able to be assigned any value,
+    acting as a container of sorts. Because of how accepting it is, it is often
+    used when there is no true lowest common type. This is common enough that it
+    is termed 'defaulting to any'.
 
-    For non-__main__ functions, inner functions are hidden in symtab's
-    old_function_chain, and the vars go out of scope. */
-static void finalize_function_val(lily_emit_state *emit,
-        lily_block *function_block)
+    Another common problem is when a variant has been used that does not have as
+    many generics as the enum. In such cases, the variant is widened out,
+    filling the empty type slots with 'any'.
+
+    These functions handle 'reboxing' values: putting them into a new register
+    with the type that's expected. **/
+
+static lily_storage *emit_rebox_sym(lily_emit_state *, lily_type *, lily_sym *,
+        uint32_t);
+
+/* This takes an ast that returns a variant. An enum type is created wherein
+   missing types default to any.
+   The ast's result is rewritten such that it will return the enum instead of a
+   variant. */
+static void rebox_variant_to_enum(lily_emit_state *emit, lily_ast *ast)
 {
-    /* This must run before the rest, because if this call needs to be a
-       closure, it will require a unique storage. */
-    lily_function_val *f = create_code_block_for(emit, function_block);
+    lily_type *rebox_type = lily_tm_make_enum_by_variant(emit->tm,
+            ast->result->type);
 
-    int register_count = emit->function_block->next_reg_spot;
-    lily_storage *storage_iter = function_block->storage_start;
-    lily_register_info *info = lily_malloc(
-            register_count * sizeof(lily_register_info));
-    lily_var *var_stop = function_block->function_var;
-
-    /* Don't include functions inside of themselves... */
-    if (emit->function_depth == 1)
-        var_stop = var_stop->next;
-
-    if (emit->function_depth != 1)
-        add_var_chain_to_info(emit, info,
-                emit->symtab->active_import->var_chain, var_stop);
-
-    add_storage_chain_to_info(info, function_block->storage_start);
-
-    if (emit->function_depth > 1) {
-        /* todo: Reuse the var shells instead of destroying. Seems petty, but
-                 malloc isn't cheap if there are a lot of vars. */
-        lily_var *var_iter = emit->symtab->active_import->var_chain;
-        lily_var *var_temp;
-        while (var_iter != var_stop) {
-            var_temp = var_iter->next;
-            if ((var_iter->flags & VAR_IS_READONLY) == 0)
-                lily_free(var_iter);
-            else {
-                /* This is a function declared within the current function. Hide it
-                   in symtab's old functions since it's going out of scope. */
-                var_iter->next = emit->symtab->old_function_chain;
-                emit->symtab->old_function_chain = var_iter;
-            }
-
-            /* The function value now owns the var names, so don't free them. */
-            var_iter = var_temp;
-        }
-    }
-
-    /* Blank the types of the storages that were used. This lets other functions
-       know that the types are not in use. */
-    storage_iter = function_block->storage_start;
-    while (storage_iter) {
-        storage_iter->type = NULL;
-        storage_iter = storage_iter->next;
-    }
-
-    /* Unused storages now begin where the function starting zapping them. */
-    emit->unused_storage_start = function_block->storage_start;
-
-    f->reg_info = info;
-    f->reg_count = register_count;
+    lily_storage *result = emit_rebox_sym(emit, rebox_type,
+            (lily_sym *)ast->result, ast->line_num);
+    ast->result = (lily_sym *)result;
 }
 
-static void leave_function(lily_emit_state *emit, lily_block *block)
+/* This takes a sym and assigns it to a new storage. The storage will have type
+   'new_type'. It is assumed that 'new_type' is valid for sym's type. The line
+   number is used for writing a line number for the reboxing assignments. */
+static lily_storage *emit_rebox_sym(lily_emit_state *emit,
+        lily_type *new_type, lily_sym *sym, uint32_t line_num)
 {
-    if (block->block_type == block_class)
-        write_3(emit, o_return_val, *emit->lex_linenum, block->self->reg_spot);
-    else {
-        /* A lambda block never has to update the return type because the return
-           is whatever the expression in the body returns. */
-        if (block->block_type == block_lambda)
-            emit->top_function_ret = emit->top_var->type->subtypes[0];
-        if (emit->top_function_ret == NULL)
-            /* Write an implicit 'return' at the end of a function claiming to not
-               return a value. This saves the user from having to write an explicit
-               'return'. */
-            write_2(emit, o_return_noval, *emit->lex_linenum);
-        else if (block->block_type == block_define &&
-                 block->last_exit != emit->code_pos) {
-            /* If this is a function created with 'define', then determine if
-               the last return was the last instruction written. This is the
-               simple way of ensuring that a function always returns a value
-               that stops potential issues at emit-time. */
-            lily_raise(emit->raiser, lily_SyntaxError,
-                    "Missing return statement at end of function.\n");
-        }
+    lily_storage *storage = get_storage(emit, new_type);
+
+    /* One of Lily's rules is "no bare variants", because that causes problems.
+       Do not allow a variant to be within an 'any', unless it's first put into
+       an enum. */
+    if (sym->type->cls->flags & CLS_IS_VARIANT &&
+        new_type->cls->id == SYM_CLASS_ANY) {
+        lily_type *rebox_type = lily_tm_make_enum_by_variant(emit->tm,
+                sym->type);
+
+        sym = (lily_sym *)emit_rebox_sym(emit, rebox_type, sym, line_num);
     }
 
-    finalize_function_val(emit, block);
+    int op;
+    if (new_type->cls->flags & CLS_IS_ENUM)
+        op = o_box_assign;
+    else
+        op = o_assign;
 
-    /* Information must be pulled from and saved to the last function-like
-       block. This loop is because of lambdas. */
-    lily_block *last_func_block = block->prev;
-    while (last_func_block->block_type < block_define)
-        last_func_block = last_func_block->prev;
+    write_4(emit, op, line_num, sym->reg_spot, storage->reg_spot);
 
-    lily_var *v = last_func_block->function_var;
-
-    /* If this function was the ::new for a class, move it over into that class
-       since the class is about to close. */
-    if (emit->block->block_type == block_class) {
-        lily_class *cls = emit->block->class_entry;
-
-        emit->symtab->active_import->var_chain = block->function_var;
-        lily_add_class_method(emit->symtab, cls, block->function_var);
-    }
-    else if (emit->block->block_type != block_file)
-        emit->symtab->active_import->var_chain = block->function_var;
-    /* For file 'blocks', don't fix the var_chain or all of the toplevel
-       functions in that block will vanish! */
-
-    if (block->prev->generic_count != block->generic_count &&
-        block->block_type != block_lambda) {
-        lily_update_symtab_generics(emit->symtab, NULL,
-                last_func_block->generic_count);
-    }
-
-    emit->top_var = v;
-    emit->top_function_ret = v->type->subtypes[0];
-    emit->code_pos = block->code_start;
-    emit->function_block = last_func_block;
-
-    /* File 'blocks' do not bump up the depth because that's used to determine
-       if something is a global or not. */
-    if (block->block_type != block_file) {
-        emit->function_depth--;
-
-        /* If a define 4 levels deep calls one that is 2 levels deep, then
-           make sure the define 3 levels deep knows it needs to make a closure.
-           This is necessary because the define at level 3 may not use upvalues
-           at all, but levels 2 and 4 may do so. So level 3 must pass closure
-           data.
-           But make sure that __main__ is not tagged this way, or toplevel
-           lambdas will think they're closures. */
-        if (block->make_closure == 1 && emit->function_block->prev != NULL)
-            emit->function_block->make_closure = 1;
-    }
+    return storage;
 }
 
-/*  eval_enforce_value
-    Evaluate a given ast and make sure it returns a value. */
-static void eval_enforce_value(lily_emit_state *emit, lily_ast *ast,
-        lily_type *expect, char *message)
+/* This takes an ast and reboxes the result into a newly-made storage of
+   'new_type'. The ast's result is set to the newly-made storage. */
+static void emit_rebox_value(lily_emit_state *emit, lily_type *new_type,
+        lily_ast *ast)
 {
-    eval_tree(emit, ast, expect);
-    emit->expr_num++;
-
-    if (ast->result == NULL)
-        lily_raise(emit->raiser, lily_SyntaxError, message);
+    lily_storage *result = emit_rebox_sym(emit, new_type,
+            (lily_sym *)ast->result, ast->line_num);
+    ast->result = (lily_sym *)result;
 }
 
-/*  ensure_proper_match_block
-    This function checks if the current block (verified to be a match block by
-    the caller) has all cases satisfied. Raise SyntaxError if there are missing
-    cases. */
+/* This calls emit_rebox_value with the type 'any'. */
+static void emit_rebox_to_any(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_storage *result = emit_rebox_sym(emit, emit->symtab->any_class->type,
+            (lily_sym *)ast->result, ast->line_num);
+    ast->result = (lily_sym *)result;
+}
+
+/***
+ *      __  __       _       _
+ *     |  \/  | __ _| |_ ___| |__
+ *     | |\/| |/ _` | __/ __| '_ \
+ *     | |  | | (_| | || (__| | | |
+ *     |_|  |_|\__,_|\__\___|_| |_|
+ *
+ */
+
+static void eval_enforce_value(lily_emit_state *, lily_ast *, lily_type *,
+        char *);
+
+/** Match is a weird block. It needs to be exhaustive, and it needs to be able
+    to decompose variant values. There's plenty of other code that deals with
+    enums and variants, but this focuses on match and decomposition. This isn't
+    terrible, but it's not great either. **/
+
+static void grow_match_cases(lily_emit_state *emit)
+{
+    emit->match_case_size *= 2;
+    emit->match_cases = lily_realloc(emit->match_cases,
+        sizeof(int) * emit->match_case_size);
+}
+
+/* This checks that the current match block (which is exiting) is exhaustive. IF
+   it is not, then a SyntaxError is raised. */
 static void ensure_proper_match_block(lily_emit_state *emit)
 {
     lily_block *block = emit->block;
@@ -1491,52 +1893,301 @@ static void ensure_proper_match_block(lily_emit_state *emit)
         lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
 }
 
-static void push_info_to_error(lily_emit_state *emit, lily_emit_call_state *cs)
+/* This writes a decomposition for a given variant type. As for the values, it
+   pulls from recently-declared vars and assumes those vars should be the
+   targets. */
+void lily_emit_variant_decompose(lily_emit_state *emit, lily_type *variant_type)
 {
-    char *class_name = "", *separator = "", *kind = "Function";
-    char *call_name;
-    lily_msgbuf *msgbuf = emit->raiser->msgbuf;
+    int value_count = variant_type->subtype_count - 1;
+    int i;
 
-    int item_flags = cs->error_item->flags;
+    write_prep(emit, 4 + value_count);
 
-    if (item_flags & ITEM_TYPE_VAR) {
-        lily_var *var = (lily_var *)cs->error_item;
-        if (var->parent) {
-            class_name = var->parent->name;
-            separator = "::";
-        }
+    emit->code[emit->code_pos  ] = o_variant_decompose;
+    emit->code[emit->code_pos+1] = *(emit->lex_linenum);
+    emit->code[emit->code_pos+2] = emit->block->match_sym->reg_spot;
+    emit->code[emit->code_pos+3] = value_count;
 
-        call_name = var->name;
-    }
-    else if (item_flags & ITEM_TYPE_VARIANT) {
-        lily_class *variant_cls = (lily_class *)cs->error_item;
-        call_name = variant_cls->name;
+    /* Since this function is called immediately after declaring the last var
+       that will receive the decompose, it's safe to pull the vars directly
+       from symtab's var chain. */
+    lily_var *var_iter = emit->symtab->active_import->var_chain;
 
-        if (variant_cls->parent->flags & CLS_ENUM_IS_SCOPED) {
-            class_name = variant_cls->parent->name;
-            separator = "::";
-        }
-
-        kind = "Variant";
-    }
-    else if (item_flags & ITEM_TYPE_PROPERTY) {
-        lily_prop_entry *prop = (lily_prop_entry *)cs->error_item;
-
-        class_name = prop->cls->name;
-        call_name = prop->name;
-        separator = ".";
-        kind = "Property";
-    }
-    else {
-        /* This occurs when there's a call of a call, a call of a subscript
-           result, or something else weird. */
-        call_name = "(anonymous)";
+    /* Go down because the vars are linked from newest -> oldest. If this isn't
+       done, then the first var will get the last value in the variant, the
+       second will get the next-to-last value, etc. */
+    for (i = value_count - 1;i >= 0;i--) {
+        emit->code[emit->code_pos+4+i] = var_iter->reg_spot;
+        var_iter = var_iter->next;
     }
 
-    lily_msgbuf_add_fmt(msgbuf, "%s %s%s%s", kind, class_name, separator,
-            call_name);
+    emit->code_pos += 4 + value_count;
 }
 
+/* This adds a match case to the current match block. 'pos' is the index of a
+   valid variant within the current match enum type. This will hide the current
+   block's vars. If 'pos' has been seen twice, then SyntaxError is raised. */
+int lily_emit_add_match_case(lily_emit_state *emit, int pos)
+{
+    int block_offset = emit->block->match_case_start;
+    int is_first_case = 1, ret = 1;
+    int i;
+
+    for (i = emit->block->match_case_start;
+         i < emit->match_case_pos;
+         i++) {
+        if (emit->match_cases[i] == 1) {
+            is_first_case = 0;
+            break;
+        }
+    }
+
+    if (emit->block->last_exit != emit->code_pos && is_first_case == 0)
+        emit->block->all_branches_exit = 0;
+
+    if (emit->match_cases[block_offset + pos] == 0) {
+        emit->match_cases[block_offset + pos] = 1;
+
+        /* Every case added after the first needs to write an exit jump before
+           any code. This makes it so the previous branch jumps outside the
+           match instead of falling through (very bad, in this case). */
+        if (is_first_case == 0) {
+            write_2(emit, o_jump, 0);
+
+            lily_u16_push(emit->patches, emit->code_pos - 1);
+        }
+
+        /* Patch the o_match_dispatch spot the corresponds with this class
+           so that it will jump to the current location.
+           Oh, and make sure to do it AFTER writing the jump, or the dispatch
+           will go to the exit jump. */
+        emit->code[emit->block->match_code_start + pos] =
+                emit->code_pos - emit->block->jump_offset;
+
+        /* This is necessary to keep vars created from the decomposition of one
+           class from showing up in subsequent cases. */
+        lily_var *v = emit->block->var_start;
+        if (v != emit->symtab->active_import->var_chain)
+            lily_hide_block_vars(emit->symtab, v);
+    }
+    else
+        ret = 0;
+
+    return ret;
+}
+
+/* This evaluates the expression to be sent to 'match' The resulting value is
+   checked for returning a value that is a valid enum. The match block's state
+   is then prepared.
+   The pool is cleared out for the next expression after this. */
+void lily_emit_eval_match_expr(lily_emit_state *emit, lily_ast_pool *ap)
+{
+    lily_ast *ast = ap->root;
+    lily_block *block = emit->block;
+    eval_enforce_value(emit, ast, NULL, "Match expression has no value.\n");
+
+    if ((ast->result->type->cls->flags & CLS_IS_ENUM) == 0 ||
+        ast->result->type->cls->id == SYM_CLASS_ANY) {
+        lily_raise(emit->raiser, lily_SyntaxError,
+                "Match expression is not an enum value.\n");
+    }
+
+    int match_cases_needed = ast->result->type->cls->variant_size;
+    if (emit->match_case_pos + match_cases_needed > emit->match_case_size)
+        grow_match_cases(emit);
+
+    block->match_case_start = emit->match_case_pos;
+
+    /* This is how the emitter knows that no cases have been given yet. */
+    int i;
+    for (i = 0;i < match_cases_needed;i++)
+        emit->match_cases[emit->match_case_pos + i] = 0;
+
+    emit->match_case_pos += match_cases_needed;
+
+    block->match_code_start = emit->code_pos + 4;
+    block->match_sym = (lily_sym *)ast->result;
+
+    write_prep(emit, 4 + match_cases_needed);
+
+    emit->code[emit->code_pos  ] = o_match_dispatch;
+    emit->code[emit->code_pos+1] = *(emit->lex_linenum);
+    emit->code[emit->code_pos+2] = ast->result->reg_spot;
+    emit->code[emit->code_pos+3] = match_cases_needed;
+    for (i = 0;i < match_cases_needed;i++)
+        emit->code[emit->code_pos + 4 + i] = 0;
+
+    emit->code_pos += 4 + i;
+
+    lily_ast_reset_pool(ap);
+}
+
+/***
+ *      _   _      _
+ *     | | | | ___| |_ __   ___ _ __ ___
+ *     | |_| |/ _ \ | '_ \ / _ \ '__/ __|
+ *     |  _  |  __/ | |_) |  __/ |  \__ \
+ *     |_| |_|\___|_| .__/ \___|_|  |___/
+ *                  |_|
+ */
+
+/** These are various helping functions collected together. There's no real
+    organization other than that. **/
+
+/* Return a string representation of the given op. */
+static char *opname(lily_expr_op op)
+{
+    static char *opnames[] =
+    {"+", "-", "==", "<", "<=", ">", ">=", "!=", "%", "*", "/", "<<", ">>", "&",
+     "|", "^", "!", "-", "&&", "||", "|>", "=", "+=", "-=", "%=", "*=", "/=",
+     "<<=", ">>="};
+
+    return opnames[op];
+}
+
+/* This is called to see if 'ast' contains a literal that is always considered
+   truthy. 1 if yes, 0 if no. */
+static int condition_optimize_check(lily_ast *ast)
+{
+    int can_optimize = 1;
+
+    /* This may not be a literal. It could be a user-defined/built-in function
+       which would always automatically be true. */
+    if (ast->result->flags & ITEM_TYPE_TIE) {
+        lily_tie *lit = (lily_tie *)ast->result;
+
+        /* Keep this synced with vm's o_jump_if calculation. */
+        int lit_cls_id = lit->type->cls->id;
+        if (lit_cls_id == SYM_CLASS_INTEGER && lit->value.integer == 0)
+            can_optimize = 0;
+        else if (lit_cls_id == SYM_CLASS_DOUBLE && lit->value.doubleval == 0.0)
+            can_optimize = 0;
+        else if (lit_cls_id == SYM_CLASS_STRING && lit->value.string->size == 0)
+            can_optimize = 0;
+        else if (lit_cls_id == SYM_CLASS_BOOLEAN && lit->value.integer == 0)
+            can_optimize = 0;
+        else if (lit->type->cls->flags & CLS_IS_VARIANT)
+            can_optimize = 0;
+    }
+
+    return can_optimize;
+}
+
+/* Check if 'type' is something that can be considered truthy/falsey.
+   Keep this synced with the vm's o_jump_if calculation.
+   Failure: SyntaxError is raised. */
+static void ensure_valid_condition_type(lily_emit_state *emit, lily_type *type)
+{
+    int cls_id = type->cls->id;
+
+    if (cls_id != SYM_CLASS_INTEGER &&
+        cls_id != SYM_CLASS_DOUBLE &&
+        cls_id != SYM_CLASS_STRING &&
+        cls_id != SYM_CLASS_LIST &&
+        cls_id != SYM_CLASS_BOOLEAN)
+        lily_raise(emit->raiser, lily_SyntaxError,
+                "^T is not a valid condition type.\n", type);
+}
+
+/* This checks to see if 'index_ast' has a type (and possibly, a value) that is
+   a valid index for the type held by 'var_ast'.
+   Failure: SyntaxError is raised. */
+static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
+        lily_ast *index_ast)
+{
+    int var_cls_id = var_ast->result->type->cls->id;
+    if (var_cls_id == SYM_CLASS_LIST || var_cls_id == SYM_CLASS_STRING) {
+        if (index_ast->result->type->cls->id != SYM_CLASS_INTEGER)
+            lily_raise_adjusted(emit->raiser, var_ast->line_num,
+                    lily_SyntaxError, "%s index is not an integer.\n",
+                    var_ast->result->type->cls->name);
+    }
+    else if (var_cls_id == SYM_CLASS_HASH) {
+        lily_type *want_key = var_ast->result->type->subtypes[0];
+        lily_type *have_key = index_ast->result->type;
+
+        if (want_key != have_key) {
+            lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
+                    "hash index should be type '^T', not type '^T'.\n",
+                    want_key, have_key);
+        }
+    }
+    else if (var_cls_id == SYM_CLASS_TUPLE) {
+        if (index_ast->result->type->cls->id != SYM_CLASS_INTEGER ||
+            index_ast->tree_type != tree_literal) {
+            lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
+                    "tuple subscripts must be integer literals.\n", "");
+        }
+
+        int index_value = index_ast->literal->value.integer;
+        lily_type *var_type = var_ast->result->type;
+        if (index_value < 0 || index_value >= var_type->subtype_count) {
+            lily_raise_adjusted(emit->raiser, var_ast->line_num,
+                    lily_SyntaxError, "Index %d is out of range for ^T.\n",
+                    index_value, var_type);
+        }
+    }
+    else {
+        lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
+                "Cannot subscript type '^T'.\n",
+                var_ast->result->type);
+    }
+}
+
+/* This returns the result of subscripting 'type' with the value within
+   'index_ast'. It should only be called once 'index_ast' has been validated
+   with check_valid_subscript.
+   This will not fail. */
+static lily_type *get_subscript_result(lily_type *type, lily_ast *index_ast)
+{
+    lily_type *result;
+    if (type->cls->id == SYM_CLASS_LIST)
+        result = type->subtypes[0];
+    else if (type->cls->id == SYM_CLASS_HASH)
+        result = type->subtypes[1];
+    else if (type->cls->id == SYM_CLASS_TUPLE) {
+        /* check_valid_subscript ensures that this is safe. */
+        int literal_index = index_ast->literal->value.integer;
+        result = type->subtypes[literal_index];
+    }
+    else if (type->cls->id == SYM_CLASS_STRING)
+        result = type;
+    else
+        /* Won't happen, but keeps the compiler from complaining. */
+        result = NULL;
+
+    return result;
+}
+
+
+/* Since o_build_list_tuple and o_build_hash are fairly similar (and the former
+   is moderately common), this function will write that.
+
+   This function takes a tree, and will walk it up to 'num_values' times. This
+   function does not create a storage. Instead, the caller is expected to
+   provide a storage of the appropriate type. Said storage should have a spot
+   that is 'reg_spot'. */
+static void write_build_op(lily_emit_state *emit, int opcode,
+        lily_ast *first_arg, int line_num, int num_values, int reg_spot)
+{
+    int i;
+    lily_ast *arg;
+
+    write_prep(emit, num_values + 4);
+    emit->code[emit->code_pos] = opcode;
+    emit->code[emit->code_pos+1] = line_num;
+    emit->code[emit->code_pos+2] = num_values;
+
+    for (i = 3, arg = first_arg; arg != NULL; arg = arg->next_arg, i++)
+        emit->code[emit->code_pos + i] = arg->result->reg_spot;
+
+    emit->code[emit->code_pos+i] = reg_spot;
+    emit->code_pos += 4 + num_values;
+}
+
+
+/* This checks that 'sym' (either a var or a property) can be used within the
+   current scope. If it cannot be, then SyntaxError is raised. */
 static void ensure_valid_scope(lily_emit_state *emit, lily_sym *sym)
 {
     if (sym->flags & (SYM_SCOPE_PRIVATE | SYM_SCOPE_PROTECTED)) {
@@ -1567,71 +2218,15 @@ static void ensure_valid_scope(lily_emit_state *emit, lily_sym *sym)
     }
 }
 
-/*  assign_post_check
-    This function is called after any assignment is evaluated. This allows
-    assignment chains (because those are nice), but disables assignments from
-    being nested within other expressions.
+/* Subscript assign is in a curious position. The correct order (determined by
+   checking other languages) is that the right evaluates before the left. This
+   causes a chicken-and-egg problem though: The right needs to infer based off
+   of the left, but the left needs to run to generate that.
 
-    Without this function, things like 'integer a = (b = 10)' are possible.
-
-    The tree passed is the assignment tree itself. */
-static void assign_post_check(lily_emit_state *emit, lily_ast *ast)
-{
-    if (ast->parent &&
-         (ast->parent->tree_type != tree_binary ||
-          ast->parent->op < expr_assign)) {
-        lily_raise(emit->raiser, lily_SyntaxError,
-                "Cannot nest an assignment within an expression.\n");
-    }
-    else if (ast->parent == NULL)
-        /* This prevents conditions from using the result of an assignment. */
-        ast->result = NULL;
-}
-
-/*****************************************************************************/
-/* Error raising functions                                                   */
-/*****************************************************************************/
-
-static void bad_assign_error(lily_emit_state *emit, int line_num,
-                          lily_type *left_type, lily_type *right_type)
-{
-    /* Remember that right is being assigned to left, so right should
-       get printed first. */
-    lily_raise_adjusted(emit->raiser, line_num, lily_SyntaxError,
-            "Cannot assign type '^T' to type '^T'.\n",
-            right_type, left_type);
-}
-
-static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
-        lily_type *got, lily_type *expected)
-{
-    push_info_to_error(emit, cs);
-    lily_msgbuf *msgbuf = emit->raiser->msgbuf;
-
-    emit->raiser->line_adjust = cs->ast->line_num;
-
-    /* Ensure that generics that did not get a valid value are replaced with the
-       ? type (instead of NULL, which will cause a problem). */
-    lily_ts_resolve_as_question(emit->ts);
-
-    /* These names are intentionally the same length and on separate lines so
-       that slight naming issues become more apparent. */
-    lily_msgbuf_add_fmt(msgbuf,
-            ", argument #%d is invalid:\n"
-            "Expected Type: ^T\n"
-            "Received Type: ^T\n",
-            cs->arg_count + 1, lily_ts_resolve(emit->ts, expected), got);
-    lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
-}
-
-/*  determine_left_type
-    This function is called on the left side of an assignment to determine
-    what the result of that assignment will be. However, this function does
-    NOT do any evaluation.
-
-    This function exists because assignments run from right to left, but at
-    the same time the right side should infer the resulting type based off of
-    the left side. */
+   The emitter has no support for rewinding. As a bandage, this function does
+   what would be done by doing the eval, except no storages are created. If the
+   left's type is invalid, then NULL will be returned. Otherwise, this returns
+   a type against which the right side should infer. */
 static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
 {
     lily_type *result_type = NULL;
@@ -1694,14 +2289,372 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
     return result_type;
 }
 
-/*****************************************************************************/
-/* Tree evaluation functions (and tree-related helpers).                     */
-/*****************************************************************************/
+/* This checks what the parent of an assignment is. It has been decided that
+   assignment chains are okay, but assignments inside of non-assignment chains
+   are not okay. */
+static void assign_post_check(lily_emit_state *emit, lily_ast *ast)
+{
+    if (ast->parent &&
+         (ast->parent->tree_type != tree_binary ||
+          ast->parent->op < expr_assign)) {
+        lily_raise(emit->raiser, lily_SyntaxError,
+                "Cannot nest an assignment within an expression.\n");
+    }
+    else if (ast->parent == NULL)
+        /* This prevents conditions from using the result of an assignment. */
+        ast->result = NULL;
+}
 
-/*  emit_binary_op
-    This is called to handle simple binary ops (except for assign). Compound
-    ops will route through here via emit_op_for_compound, and depend on this
-    function NOT doing any evaluation. */
+/* Does an assignment -really- have to be written, or can the last tree's result
+   be rewritten to target the left side? Given a tree (the whole assign), this
+   figures that out.
+   Note: Only valid for basic assignments. Upvalue/subscript/etc. do not belong
+   here. */
+static int assign_optimize_check(lily_ast *ast)
+{
+    int can_optimize = 1;
+
+    do {
+        /* assigning to a global is done differently than with a local, so it
+           can't be optimized. */
+        if (ast->left->tree_type == tree_global_var) {
+            can_optimize = 0;
+            break;
+        }
+
+        lily_ast *right_tree = ast->right;
+
+        /* Parenths don't write anything, so dive to the bottom of them. */
+        while (right_tree->tree_type == tree_parenth)
+            right_tree = right_tree->arg_start;
+
+        /* Gotta do basic assignments. */
+        if (right_tree->tree_type == tree_local_var) {
+            can_optimize = 0;
+            break;
+        }
+
+        /* If the parent is binary, then it is an assignment or compound op.
+           Those eval from right-to-left, so leave them alone. */
+        if (ast->parent != NULL && ast->parent->tree_type == tree_binary) {
+            can_optimize = 0;
+            break;
+        }
+
+        /* Also check if the right side is an assignment or compound op. */
+        if (right_tree->tree_type == tree_binary &&
+            right_tree->op >= expr_assign) {
+            can_optimize = 0;
+            break;
+        }
+
+        /* If the left is an any and the right is not, then don't reduce.
+           Any assignment is written so that it puts the right side into a
+           container. */
+        if (ast->left->result->type->cls->id == SYM_CLASS_ANY &&
+            right_tree->result->type->cls->id != SYM_CLASS_ANY) {
+            can_optimize = 0;
+            break;
+        }
+    } while (0);
+
+    return can_optimize;
+}
+
+/* This is a really important function during evaluation of trees. This should
+   be called when generic matching (if that applies) has already been done. It
+   tries to see if 'right' is suitable to be 'want_type'.
+
+   NOTE: In the case of 'want_type' being either any or an enum, the result of
+   'right' may be reboxed and reassigned. It is therefore necessary to adjust
+   any cached value of right->result after using this (if it returns 1).
+
+   If this fails, then 'right' is not suitable to be 'want_type'. The caller is
+   expected to print a relevant error. */
+static int type_matchup(lily_emit_state *emit, lily_type *want_type,
+        lily_ast *right)
+{
+    int ret = 1;
+    if (want_type->cls->id == SYM_CLASS_ANY)
+        emit_rebox_to_any(emit, right);
+    else if (want_type->cls->flags & CLS_IS_ENUM) {
+        ret = lily_ts_enum_membership_check(emit->ts, want_type, right->result->type);
+        if (ret)
+            emit_rebox_value(emit, want_type, right);
+    }
+    else if (want_type->cls->id != SYM_CLASS_GENERIC &&
+             lily_ts_type_greater_eq(emit->ts, want_type, right->result->type))
+        ret = 1;
+    else
+        ret = 0;
+
+    return ret;
+}
+
+/***
+ *      _____
+ *     | ____|_ __ _ __ ___  _ __ ___
+ *     |  _| | '__| '__/ _ \| '__/ __|
+ *     | |___| |  | | | (_) | |  \__ \
+ *     |_____|_|  |_|  \___/|_|  |___/
+ *
+ */
+
+static void bad_assign_error(lily_emit_state *emit, int line_num,
+        lily_type *left_type, lily_type *right_type)
+{
+    lily_raise_adjusted(emit->raiser, line_num, lily_SyntaxError,
+            "Cannot assign type '^T' to type '^T'.\n",
+            right_type, left_type);
+}
+
+/* This function takes a call state (more on that later) and writes down the
+   thing that was called incorrectly. This is the first step in generating
+   error messages related to calls. */
+static void push_info_to_error(lily_emit_state *emit, lily_emit_call_state *cs)
+{
+    char *class_name = "", *separator = "", *kind = "Function";
+    char *call_name;
+    lily_msgbuf *msgbuf = emit->raiser->msgbuf;
+
+    int item_flags = cs->error_item->flags;
+
+    if (item_flags & ITEM_TYPE_VAR) {
+        lily_var *var = (lily_var *)cs->error_item;
+        if (var->parent) {
+            class_name = var->parent->name;
+            separator = "::";
+        }
+
+        call_name = var->name;
+    }
+    else if (item_flags & ITEM_TYPE_VARIANT) {
+        lily_class *variant_cls = (lily_class *)cs->error_item;
+        call_name = variant_cls->name;
+
+        if (variant_cls->parent->flags & CLS_ENUM_IS_SCOPED) {
+            class_name = variant_cls->parent->name;
+            separator = "::";
+        }
+
+        kind = "Variant";
+    }
+    else if (item_flags & ITEM_TYPE_PROPERTY) {
+        lily_prop_entry *prop = (lily_prop_entry *)cs->error_item;
+
+        class_name = prop->cls->name;
+        call_name = prop->name;
+        separator = ".";
+        kind = "Property";
+    }
+    else {
+        /* This occurs when there's a call of a call, a call of a subscript
+           result, or something else weird. */
+        call_name = "(anonymous)";
+    }
+
+    lily_msgbuf_add_fmt(msgbuf, "%s %s%s%s", kind, class_name, separator,
+            call_name);
+}
+
+/* This is called when the call state (more on that later) has an argument that
+   does not work. This will raise a SyntaxError explaining the issue. */
+static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
+        lily_type *got, lily_type *expected)
+{
+    push_info_to_error(emit, cs);
+    lily_msgbuf *msgbuf = emit->raiser->msgbuf;
+
+    emit->raiser->line_adjust = cs->ast->line_num;
+
+    /* Ensure that generics that did not get a valid value are replaced with the
+       ? type (instead of NULL, which will cause a problem). */
+    lily_ts_resolve_as_question(emit->ts);
+
+    /* These names are intentionally the same length and on separate lines so
+       that slight naming issues become more apparent. */
+    lily_msgbuf_add_fmt(msgbuf,
+            ", argument #%d is invalid:\n"
+            "Expected Type: ^T\n"
+            "Received Type: ^T\n",
+            cs->arg_count + 1, lily_ts_resolve(emit->ts, expected), got);
+    lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
+}
+
+/***
+ *      __  __                _
+ *     |  \/  | ___ _ __ ___ | |__   ___ _ __ ___
+ *     | |\/| |/ _ \ '_ ` _ \| '_ \ / _ \ '__/ __|
+ *     | |  | |  __/ | | | | | |_) |  __/ |  \__ \
+ *     |_|  |_|\___|_| |_| |_|_.__/ \___|_|  |___/
+ *
+ */
+
+static void eval_tree(lily_emit_state *, lily_ast *, lily_type *);
+static void emit_op_for_compound(lily_emit_state *, lily_ast *);
+
+/** Member access for classes is quite annoying. The parser doesn't have type
+    information, so it packages them as having a tree and a name. It seems like
+    it would be as simple as 'evaluate the tree, lookup the name', but it isn't.
+
+    The name could be a method that needs to be dynaloaded, a class member, or a
+    method that has already been loaded. The thing that is loaded must dump a
+    value to a storage.
+
+    Problems begin with 'x.y = z' (oo/prop assign). This kind of access needs to
+    know what type that it is targeting. Running the 'x.y' access is a waste,
+    because it's not possible to assign to a storage (that fails if y is an
+    integer property). Additionally, 'y' might be a property that isn't solved
+    yet, so that's another issue. 'x.y += z' is also tricky. **/
+
+/* This runs an 'x.y' kind of access. The inner tree is evaluated, but no result
+   is set. Instead, the ast's item is set to either the var or the storage that
+   is returned.
+
+   SyntaxError is raised if the name specified doesn't exist, or is not
+   available in the current scope. */
+static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
+{
+    if (emit->function_block->block_type == block_lambda &&
+        ast->arg_start->tree_type == tree_self)
+        maybe_close_over_class_self(emit);
+
+    if (ast->arg_start->tree_type != tree_local_var)
+        eval_tree(emit, ast->arg_start, NULL);
+
+    lily_class *lookup_class = ast->arg_start->result->type->cls;
+    /* This allows variant values to use enum methods. */
+    if (lookup_class->flags & CLS_IS_VARIANT)
+        lookup_class = lookup_class->parent;
+
+    char *oo_name = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
+    lily_var *var = lily_find_method(lookup_class, oo_name);
+
+    /* Is this an attempt to access a method that hasn't been loaded yet? */
+    if (var == NULL)
+        var = lily_parser_dynamic_load(emit->parser, lookup_class, oo_name);
+
+    if (var == NULL) {
+        lily_prop_entry *prop = lily_find_property(lookup_class, oo_name);
+
+        if (prop == NULL) {
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "Class %s has no method or property named %s.\n",
+                    lookup_class->name, oo_name);
+        }
+
+        if (ast->arg_start->tree_type == tree_self)
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "Use @<name> to get/set properties, not self.<name>.\n");
+
+        ast->item = (lily_item *)prop;
+    }
+    else
+        ast->item = (lily_item *)var;
+
+    ensure_valid_scope(emit, (lily_sym *)ast->item);
+}
+
+/* This is called on oo trees that have been evaluated and which contain a
+   property. This will solve the property's type using the information of the
+   inner tree. The inner tree will not be evaluated again. */
+static lily_type *get_solved_property_type(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_type *property_type = ast->property->type;
+    if (property_type->flags & TYPE_IS_UNRESOLVED) {
+        property_type = lily_ts_resolve_by_second(emit->ts,
+                ast->arg_start->result->type, property_type);
+    }
+
+    return property_type;
+}
+
+/* This is called after eval_oo_access_for_item. It dumps the property or var
+   to a storage. */
+static void oo_property_read(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_prop_entry *prop = ast->property;
+    lily_type *type = get_solved_property_type(emit, ast);
+    lily_storage *result = get_storage(emit, type);
+
+    /* This function is only called on trees of type tree_oo_access which have
+       a property into the ast's item. */
+    write_5(emit, o_get_property, ast->line_num,
+            ast->arg_start->result->reg_spot, prop->id, result->reg_spot);
+
+    ast->result = (lily_sym *)result;
+}
+
+/* This is the actual handler for simple 'x.y' accesses. It doesn't do assigns
+   though. */
+static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
+{
+    eval_oo_access_for_item(emit, ast);
+    /* An 'x.y' access will either yield a property or a class method. */
+    if (ast->item->flags & ITEM_TYPE_PROPERTY)
+        oo_property_read(emit, ast);
+    else {
+        lily_storage *result = get_storage(emit, ast->sym->type);
+        write_4(emit, o_get_readonly, ast->line_num, ast->sym->reg_spot,
+                result->reg_spot);
+        ast->result = (lily_sym *)result;
+    }
+}
+
+/* This handles 'x.y = z' kinds of assignments. */
+static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_type *left_type;
+
+    eval_oo_access_for_item(emit, ast->left);
+    ensure_valid_scope(emit, ast->left->sym);
+    if ((ast->left->item->flags & ITEM_TYPE_PROPERTY) == 0)
+        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+                "Left side of %s is not assignable.\n", opname(ast->op));
+
+    left_type = get_solved_property_type(emit, ast->left);
+
+    if (ast->right->tree_type != tree_local_var)
+        eval_tree(emit, ast->right, left_type);
+
+    lily_sym *rhs = ast->right->result;
+    lily_type *right_type = rhs->type;
+
+    if (left_type != right_type &&
+        type_matchup(emit, left_type, ast->right) == 0) {
+        emit->raiser->line_adjust = ast->line_num;
+        bad_assign_error(emit, ast->line_num, left_type, right_type);
+    }
+
+    /* type_matchup may invalidate rhs: Make sure that has not happened. */
+    rhs = ast->right->result;
+
+    if (ast->op > expr_assign) {
+        oo_property_read(emit, ast->left);
+        emit_op_for_compound(emit, ast);
+        rhs = ast->result;
+    }
+
+    write_5(emit, o_set_property, ast->line_num,
+            ast->left->arg_start->result->reg_spot, ast->left->property->id,
+            rhs->reg_spot);
+
+    ast->result = rhs;
+}
+
+/***
+ *      _____                _____            _
+ *     |_   _| __ ___  ___  | ____|_   ____ _| |
+ *       | || '__/ _ \/ _ \ |  _| \ \ / / _` | |
+ *       | || | |  __/  __/ | |___ \ V / (_| | |
+ *       |_||_|  \___|\___| |_____| \_/ \__,_|_|
+ *
+ */
+
+/** Here are most of the functions related to evaluating trees. **/
+
+/* This handles simple binary ops (no assign, &&/||, |>, or compounds. This
+   assumes that both sides have already been evaluated. */
 static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
 {
     int opcode;
@@ -1767,25 +2720,18 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
     s = get_storage(emit, storage_class->type);
     s->flags |= SYM_NOT_ASSIGNABLE;
 
-    write_5(emit,
-            opcode,
-            ast->line_num,
-            ast->left->result->reg_spot,
-            ast->right->result->reg_spot,
-            s->reg_spot);
+    write_5(emit, opcode, ast->line_num, ast->left->result->reg_spot,
+            ast->right->result->reg_spot, s->reg_spot);
 
     ast->result = (lily_sym *)s;
 }
 
-/*  emit_op_for_compound
-    Examples: +=, -=, *=, /=, etc.
+/* This takes a tree and will change the op from an 'X Y= Z' to 'X Y Z'. The
+   tree is run as a binary op, then fixed back. This is how compound operations
+   are broken down.
 
-    X Y= Z
-    can be folded into
-    X = X Y Z
-
-    This allows the vm to not have compound expression opcodes. This assumes
-    that the left and the right have already been walked. */
+   emit_binary_op assumes that the left and right have already been evaluated,
+   so this won't double-eval. */
 static void emit_op_for_compound(lily_emit_state *emit, lily_ast *ast)
 {
     int save_op = ast->op;
@@ -1816,68 +2762,11 @@ static void emit_op_for_compound(lily_emit_state *emit, lily_ast *ast)
     ast->op = save_op;
 }
 
-/*  assign_optimize_check
-    ALL opcodes that return a result always have the result as the last value
-    written. This is no accident: There are many cases where the emitter makes
-    a storage that isn't needed.
-
-    This function determines if an assignment can be optimized out by rewriting
-    the last emitted opcode to return to what would have been assigned to. */
-static int assign_optimize_check(lily_ast *ast)
-{
-    int can_optimize = 1;
-
-    do {
-        /* assigning to a global is done differently than with a local, so it
-           can't be optimized. */
-        if (ast->left->tree_type == tree_global_var) {
-            can_optimize = 0;
-            break;
-        }
-
-        lily_ast *right_tree = ast->right;
-
-        /* Parenths don't write anything, so dive to the bottom of them. */
-        while (right_tree->tree_type == tree_parenth)
-            right_tree = right_tree->arg_start;
-
-        /* Gotta do basic assignments. */
-        if (right_tree->tree_type == tree_local_var) {
-            can_optimize = 0;
-            break;
-        }
-
-        /* If the parent is binary, then it is an assignment or compound op.
-           Those eval from right-to-left, so leave them alone. */
-        if (ast->parent != NULL && ast->parent->tree_type == tree_binary) {
-            can_optimize = 0;
-            break;
-        }
-
-        /* Also check if the right side is an assignment or compound op. */
-        if (right_tree->tree_type == tree_binary &&
-            right_tree->op >= expr_assign) {
-            can_optimize = 0;
-            break;
-        }
-
-        /* If the left is an any and the right is not, then don't reduce.
-           Any assignment is written so that it puts the right side into a
-           container. */
-        if (ast->left->result->type->cls->id == SYM_CLASS_ANY &&
-            right_tree->result->type->cls->id != SYM_CLASS_ANY) {
-            can_optimize = 0;
-            break;
-        }
-    } while (0);
-
-    return can_optimize;
-}
-
-/*  calculate_var_type
-    This is called when the left side of an assignment doesn't have a type
-    because it was declared using 'var ...'. This will return the proper
-    type for the left side of the expression. */
+/* This is called because tree_variant does not check if the parent is a binary
+   tree that is an assign.
+   If the input tree (the right) is a variant, then it's boxed into an enum so
+   that there are no bare variants.
+   For all other trees, this passes along the type given. */
 static lily_type *calculate_var_type(lily_emit_state *emit, lily_type *input_type)
 {
     lily_type *result;
@@ -1889,8 +2778,7 @@ static lily_type *calculate_var_type(lily_emit_state *emit, lily_type *input_typ
     return result;
 }
 
-/*  eval_assign
-    This handles assignments where the left is not a subscript or dot access. */
+/* This handles basic assignments (locals and globals). */
 static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 {
     int can_optimize = 1, left_cls_id, opcode;
@@ -1951,124 +2839,14 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
                 left_sym->reg_spot;
     }
     else {
-        write_4(emit,
-                opcode,
-                ast->line_num,
-                right_sym->reg_spot,
+        write_4(emit, opcode, ast->line_num, right_sym->reg_spot,
                 left_sym->reg_spot);
     }
     ast->result = right_sym;
 }
 
-/*  This is an access like 'abc.xyz'. There are two fairly different cases for
-    this:
-    1: The given class has a method named xyz. This is checked first.
-       Examples: 'string.concat' and 'integer.to_string'.
-    2: The given class has a property named xyz. In this case, the value is a
-       class which is subscripted for the right property.
-
-    This stores either the method var or the property within the ast's item. */
-static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
-{
-    if (emit->function_block->block_type == block_lambda &&
-        ast->arg_start->tree_type == tree_self)
-        maybe_close_over_class_self(emit);
-
-    if (ast->arg_start->tree_type != tree_local_var)
-        eval_tree(emit, ast->arg_start, NULL);
-
-    lily_class *lookup_class = ast->arg_start->result->type->cls;
-    /* This allows variant values to use enum methods. */
-    if (lookup_class->flags & CLS_IS_VARIANT)
-        lookup_class = lookup_class->parent;
-
-    char *oo_name = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
-    lily_var *var = lily_find_method(lookup_class, oo_name);
-
-    /* Is this an attempt to access a method that hasn't been loaded yet? */
-    if (var == NULL)
-        var = lily_parser_dynamic_load(emit->parser, lookup_class, oo_name);
-
-    if (var == NULL) {
-        lily_prop_entry *prop = lily_find_property(lookup_class, oo_name);
-
-        if (prop == NULL) {
-            lily_raise(emit->raiser, lily_SyntaxError,
-                    "Class %s has no method or property named %s.\n",
-                    lookup_class->name, oo_name);
-        }
-
-        if (ast->arg_start->tree_type == tree_self)
-            lily_raise(emit->raiser, lily_SyntaxError,
-                    "Use @<name> to get/set properties, not self.<name>.\n");
-
-        ast->item = (lily_item *)prop;
-    }
-    else
-        ast->item = (lily_item *)var;
-
-    ensure_valid_scope(emit, (lily_sym *)ast->item);
-}
-
-/* This is called on trees of type tree_oo_access which have their ast->item
-   as a property. This will solve the property with the type that lead up to
-   it.
-
-   class example[A](value: A) { var contents = value }
-
-   var v = example::new(10).contents
-
-   'contents' has type 'A' relative to whatever type that 'example' contains.
-   Since example has type 'integer', then 'v' is solved to be of type integer.
-
-   This is a convenience function to avoid creating a storage for the property
-   when that may not be wanted. */
-static lily_type *get_solved_property_type(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_type *property_type = ast->property->type;
-    if (property_type->flags & TYPE_IS_UNRESOLVED) {
-        property_type = lily_ts_resolve_by_second(emit->ts,
-                ast->arg_start->result->type, property_type);
-    }
-
-    return property_type;
-}
-
-/* This is called after the caller has run eval_oo_access_for_item and has
-   determined that they want the property in a storage. This does that. */
-static void oo_property_read(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_prop_entry *prop = ast->property;
-    lily_type *type = get_solved_property_type(emit, ast);
-    lily_storage *result = get_storage(emit, type);
-
-    /* This function is only called on trees of type tree_oo_access which have
-       a property into the ast's item. */
-    write_5(emit, o_get_property, ast->line_num,
-            ast->arg_start->result->reg_spot, prop->id, result->reg_spot);
-
-    ast->result = (lily_sym *)result;
-}
-
-/* This handles tree_oo_access for eval_tree. The contents are always dumped
-   into a storage, unlike with some users of tree_oo_access. */
-static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
-{
-    eval_oo_access_for_item(emit, ast);
-    /* An 'x.y' access will either yield a property or a class method. */
-    if (ast->item->flags & ITEM_TYPE_PROPERTY)
-        oo_property_read(emit, ast);
-    else {
-        lily_storage *result = get_storage(emit, ast->sym->type);
-        write_4(emit, o_get_readonly, ast->line_num, ast->sym->reg_spot,
-                result->reg_spot);
-        ast->result = (lily_sym *)result;
-    }
-}
-
-/*  eval_property
-    This handles evaluating '@<x>' within a either a class constructor or a
-    function/method defined within a class. */
+/* This handles ```@<name>```. Properties, unlike member access, are validated
+   at parse-time. */
 static void eval_property(lily_emit_state *emit, lily_ast *ast)
 {
     ensure_valid_scope(emit, ast->sym);
@@ -2082,64 +2860,14 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
 
     lily_storage *result = get_storage(emit, ast->property->type);
 
-    write_5(emit,
-            o_get_property,
-            ast->line_num,
-            emit->block->self->reg_spot,
-            ast->property->id,
-            result->reg_spot);
+    write_5(emit, o_get_property, ast->line_num, emit->block->self->reg_spot,
+            ast->property->id, result->reg_spot);
 
     ast->result = (lily_sym *)result;
 }
 
-/*  This is called to handle assignments when the left side is of type
-    tree_oo_access (ex: x[0].y = z, a.b.c = d). */
-static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_type *left_type;
-
-    eval_oo_access_for_item(emit, ast->left);
-    ensure_valid_scope(emit, ast->left->sym);
-    if ((ast->left->item->flags & ITEM_TYPE_PROPERTY) == 0)
-        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Left side of %s is not assignable.\n", opname(ast->op));
-
-    left_type = get_solved_property_type(emit, ast->left);
-
-    if (ast->right->tree_type != tree_local_var)
-        eval_tree(emit, ast->right, left_type);
-
-    lily_sym *rhs = ast->right->result;
-    lily_type *right_type = rhs->type;
-
-    if (left_type != right_type &&
-        type_matchup(emit, left_type, ast->right) == 0) {
-        emit->raiser->line_adjust = ast->line_num;
-        bad_assign_error(emit, ast->line_num, left_type, right_type);
-    }
-
-    /* type_matchup may invalidate rhs: Make sure that has not happened. */
-    rhs = ast->right->result;
-
-    if (ast->op > expr_assign) {
-        oo_property_read(emit, ast->left);
-        emit_op_for_compound(emit, ast);
-        rhs = ast->result;
-    }
-
-    write_5(emit,
-            o_set_property,
-            ast->line_num,
-            ast->left->arg_start->result->reg_spot,
-            ast->left->property->id,
-            rhs->reg_spot);
-
-    ast->result = rhs;
-}
-
-/* This handles assignments like '@x = y'. These are always simple, because if
-   it was something like '@x[y] = z', then subscript assign would get it.
-   The left side is always just a property. */
+/* This handles assignments to a property. It's similar in spirit to oo assign,
+   but not as complicated. */
 static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
 {
     if (emit->function_block->block_type == block_lambda)
@@ -2176,16 +2904,56 @@ static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
         rhs = ast->result;
     }
 
-    write_5(emit,
-            o_set_property,
-            ast->line_num,
-            emit->block->self->reg_spot,
-            ast->left->property->id,
-            rhs->reg_spot);
+    write_5(emit, o_set_property, ast->line_num, emit->block->self->reg_spot,
+            ast->left->property->id, rhs->reg_spot);
 
     ast->result = rhs;
 }
 
+void eval_upvalue(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_sym *sym = ast->sym;
+
+    int i;
+    for (i = 0;i < emit->closed_pos;i++)
+        if (emit->closed_syms[i] == sym)
+            break;
+
+    if (i == emit->closed_pos)
+        checked_close_over_var(emit, (lily_var *)ast->sym);
+
+    emit->function_block->make_closure = 1;
+
+    lily_storage *s = get_storage(emit, sym->type);
+    write_4(emit, o_get_upvalue, ast->line_num, i, s->reg_spot);
+    ast->result = (lily_sym *)s;
+}
+
+/* This evaluates a lambda. The parser sent the lambda over as a blob of text
+   since it didn't know what the types were. Now that the types are known, pass
+   it back to the parser to, umm, parse. */
+static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
+{
+    char *lambda_body = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
+
+    if (expect && expect->cls->id != SYM_CLASS_FUNCTION)
+        expect = NULL;
+
+    lily_sym *lambda_result = (lily_sym *)lily_parser_lambda_eval(emit->parser,
+            ast->line_num, lambda_body, expect);
+    lily_storage *s = get_storage(emit, lambda_result->type);
+
+    if (emit->function_block->make_closure == 0)
+        write_4(emit, o_get_readonly, ast->line_num, lambda_result->reg_spot,
+                s->reg_spot);
+    else
+        emit_create_function(emit, lambda_result, s);
+
+    ast->result = (lily_sym *)s;
+}
+
+/* This handles assignments to things that are marked as upvalues. */
 static void eval_upvalue_assign(lily_emit_state *emit, lily_ast *ast)
 {
     eval_tree(emit, ast->right, NULL);
@@ -2212,8 +2980,7 @@ static void eval_upvalue_assign(lily_emit_state *emit, lily_ast *ast)
     ast->result = ast->right->result;
 }
 
-/*  eval_logical_op
-    This handles || (or) as well as && (and). */
+/* This takes care of binary || and &&. */
 static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 {
     lily_storage *result;
@@ -2257,21 +3024,16 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         failure_lit = lily_get_integer_literal(symtab,
                 (ast->op == expr_logical_or));
 
-        write_4(emit,
-                o_get_readonly,
-                ast->line_num,
-                success_lit->reg_spot,
+        write_4(emit, o_get_readonly, ast->line_num, success_lit->reg_spot,
                 result->reg_spot);
 
         write_2(emit, o_jump, 0);
         save_pos = emit->code_pos - 1;
 
         lily_emit_leave_block(emit);
-        write_4(emit,
-                o_get_readonly,
-                ast->line_num,
-                failure_lit->reg_spot,
+        write_4(emit, o_get_readonly, ast->line_num, failure_lit->reg_spot,
                 result->reg_spot);
+
         emit->code[save_pos] = emit->code_pos - emit->block->jump_offset;
         ast->result = (lily_sym *)result;
     }
@@ -2283,16 +3045,42 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         ast->result = NULL;
 }
 
-/*  emit_sub_assign
-    This handles an assignment where the left side has a subscript involved
-    (ex: x[0] = 10). This handles compound ops as well as all subscript
-    assigning types (list, hash, and tuple)
+/* This runs a subscript, including validation of the indexes. */
+static void eval_subscript(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
+{
+    lily_ast *var_ast = ast->arg_start;
+    lily_ast *index_ast = var_ast->next_arg;
+    if (var_ast->tree_type != tree_local_var)
+        eval_tree(emit, var_ast, NULL);
 
-    There are three parts: The var, the index, and the new value (right).
+    if (index_ast->tree_type != tree_local_var)
+        eval_tree(emit, index_ast, NULL);
 
-    Var:   ast->left->arg_start
-    Index: ast->left->arg_start->next
-    Right: ast->right */
+    check_valid_subscript(emit, var_ast, index_ast);
+
+    lily_type *type_for_result;
+    type_for_result = get_subscript_result(var_ast->result->type, index_ast);
+
+    lily_storage *result = get_storage(emit, type_for_result);
+
+    write_5(emit, o_get_item, ast->line_num, var_ast->result->reg_spot,
+            index_ast->result->reg_spot, result->reg_spot);
+
+    if (var_ast->result->flags & SYM_NOT_ASSIGNABLE)
+        result->flags |= SYM_NOT_ASSIGNABLE;
+
+    ast->result = (lily_sym *)result;
+}
+
+/* This handles subscript assign. Subscript assign has two issues that make it
+   a bit tough:
+
+   * The right side must go first (other languages do this), but should have
+     inference from the left. This is implemented a bit hackish.
+   * Similar to oo access, the subscript target needs to be verified, but
+     without doing an eval of the inner tree. Such is needed because evaluating
+     the inner tree would make a junk storage. */
 static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
 {
     lily_ast *var_ast = ast->left->arg_start;
@@ -2342,12 +3130,8 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
 
         lily_storage *subs_storage = get_storage(emit, elem_type);
 
-        write_5(emit,
-                o_get_item,
-                ast->line_num,
-                var_ast->result->reg_spot,
-                index_ast->result->reg_spot,
-                subs_storage->reg_spot);
+        write_5(emit, o_get_item, ast->line_num, var_ast->result->reg_spot,
+                index_ast->result->reg_spot, subs_storage->reg_spot);
 
         ast->left->result = (lily_sym *)subs_storage;
 
@@ -2356,20 +3140,12 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
         rhs = ast->result;
     }
 
-    write_5(emit,
-            o_set_item,
-            ast->line_num,
-            var_ast->result->reg_spot,
-            index_ast->result->reg_spot,
-            rhs->reg_spot);
+    write_5(emit, o_set_item, ast->line_num, var_ast->result->reg_spot,
+            index_ast->result->reg_spot, rhs->reg_spot);
 
     ast->result = rhs;
 }
 
-/*  eval_typecast
-    This handles writing a typecast. A typecast has two parts:
-    Value:     ast->arg_start
-    type: ast->arg_start->next_arg->type */
 static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 {
     lily_type *cast_type = ast->arg_start->next_arg->typecast_type;
@@ -2401,8 +3177,6 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     }
 }
 
-/*  eval_unary_op
-    This handles unary ops. Unary ops currently only work on integers. */
 static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
 {
     uint16_t opcode = -1;
@@ -2428,32 +3202,130 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     storage = get_storage(emit, lhs_class->type);
     storage->flags |= SYM_NOT_ASSIGNABLE;
 
-    write_4(emit,
-            opcode,
-            ast->line_num,
-            ast->left->result->reg_spot,
+    write_4(emit, opcode, ast->line_num, ast->left->result->reg_spot,
             storage->reg_spot);
 
     ast->result = (lily_sym *)storage;
 }
 
-/*  rebox_enum_variant_values
-    This function is called when building a list or a hash and the values
-    contain at least one variant or enum value.
-    In the event that there is not a common type, the function attempts
-    to find one by looking at the common parts between each value.
+/* This handles building tuples ```<[1, "2", 3.3]>```. Tuples are structures
+   that allow varying types, but with a fixed size. */
+static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
+{
+    if (ast->args_collected == 0) {
+        lily_raise(emit->raiser, lily_SyntaxError,
+                "Cannot create an empty tuple.\n");
+    }
 
-    If all values are of a given enum or variants of that enum, then the
-    function ensures that the variants are put into an enum value of the common
-    type.
+    if (expect && expect->cls->id != SYM_CLASS_TUPLE)
+        expect = NULL;
 
-    If the common type is incomplete (some of the generics of the enum are not
-    specified), then missing parts are given the class 'any', and the values
-    are put into an enum value of some type.
+    int i;
+    lily_ast *arg;
 
-    If there is no common type, then each variant is put into an enum value
-    based upon information known to only it, and all values are put into an
-    'any' value (except those that are already 'any'). This is unlikely. */
+    for (i = 0, arg = ast->arg_start;
+         arg != NULL;
+         i++, arg = arg->next_arg) {
+        lily_type *elem_type = NULL;
+
+        /* It's important to do this for each pass because it allows the inner
+           trees to infer types that this tree's parent may want. */
+        if (expect)
+            elem_type = expect->subtypes[i];
+
+        if (arg->tree_type != tree_local_var)
+            eval_tree(emit, arg, elem_type);
+
+        if (elem_type && elem_type != arg->result->type)
+            /* Attempt to fix the type to what's wanted. If it fails, the parent
+               tree will note a type mismatch. Can't do anything else here
+               though. */
+            type_matchup(emit, elem_type, arg);
+    }
+
+    for (i = 0, arg = ast->arg_start;
+         i < ast->args_collected;
+         i++, arg = arg->next_arg) {
+        lily_tm_add(emit->tm, arg->result->type);
+    }
+
+    lily_type *new_type = lily_tm_make(emit->tm, 0, emit->symtab->tuple_class,
+            i);
+    lily_storage *s = get_storage(emit, new_type);
+
+    write_build_op(emit, o_build_list_tuple, ast->arg_start, ast->line_num,
+            ast->args_collected, s->reg_spot);
+    ast->result = (lily_sym *)s;
+}
+
+/* This handles globals and static functions. */
+static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_storage *ret;
+    int opcode;
+
+    switch (ast->tree_type) {
+        case tree_global_var:
+            opcode = o_get_global;
+            break;
+        case tree_static_func:
+            ensure_valid_scope(emit, ast->sym);
+        default:
+            opcode = o_get_readonly;
+            break;
+    }
+
+    ret = get_storage(emit, ast->sym->type);
+
+    if (opcode != o_get_global)
+        ret->flags |= SYM_NOT_ASSIGNABLE;
+
+    if ((ast->sym->flags & VAR_NEEDS_CLOSURE) == 0)
+        write_4(emit, opcode, ast->line_num, ast->sym->reg_spot, ret->reg_spot);
+    else
+        emit_create_function(emit, ast->sym, ret);
+
+    ast->result = (lily_sym *)ret;
+}
+
+void eval_self(lily_emit_state *emit, lily_ast *ast)
+{
+    ast->result = (lily_sym *)emit->block->self;
+}
+
+/***
+ *      _     _     _             _   _           _
+ *     | |   (_)___| |_     _    | | | | __ _ ___| |__
+ *     | |   | / __| __|  _| |_  | |_| |/ _` / __| '_ \
+ *     | |___| \__ \ |_  |_   _| |  _  | (_| \__ \ | | |
+ *     |_____|_|___/\__|   |_|   |_| |_|\__,_|___/_| |_|
+ *
+ */
+
+/** The eval for these two is broken away from the others because it is fairly
+    difficult. The bulk of the problem comes with trying to find a 'bottom type'
+    of all the values that were entered. This process is termed 'unification',
+    and it isn't easy here.
+
+    Unification is currently done after lists and hashes have evaluated all of
+    their members. This is unfortunate, because it means that certain cases will
+    not work as well as they could. Another problem with the current unification
+    is that it only works for enums and variants. Anything else gets sent
+    straight to type any. It's unfortunate. **/
+
+
+/* Here is the terrible function that attempts to do unification for a list or
+   a hash. It will attempt to find common ground if (and only if) all of the
+   elements belong to the same enum.
+   If a common type is found, then the elements of the list or hash are reboxed
+   to that common type. If the common type has some holes, then they default to
+   any.
+   If no common type is found, the elements default to any. If they are bare
+   variants, they're put in enums based on individual information, then default
+   to any.
+   'expect' is used to perform some inference (in case the caller expects
+   something in particular). */
 static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect, int is_hash)
 {
@@ -2539,18 +3411,7 @@ static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
     lily_ts_lower_ceiling(emit->ts, adjust);
 }
 
-/*  hash_values_to_anys
-
-    This converts all of the values of the given ast into anys using
-    o_assign. The result of each value is rewritten to be the any,
-    instead of the old value.
-
-    emit:     The emitter holding the function to write code to.
-    hash_ast: An ast of type tree_hash which has already been evaluated.
-
-    Caveats:
-    * Caller must do this before writing the o_build_hash instruction out.
-    * Caller must evaluate the hash before calling this. */
+/* This reboxes all values in a hash to type any. */
 static void emit_hash_values_to_anys(lily_emit_state *emit,
         lily_ast *hash_ast)
 {
@@ -2575,18 +3436,7 @@ static void emit_hash_values_to_anys(lily_emit_state *emit,
     }
 }
 
-/*  emit_list_values_to_anys
-
-    This converts all of the values of the given ast into anys using
-    o_assign. The result of each value is rewritten to be the any, instead of
-    the old value.
-
-    emit:     The emitter holding the function to write code to.
-    list_ast: An ast of type tree_list which has already been evaluated.
-
-    Caveats:
-    * Caller must do this before writing the o_build_list_tuple instruction.
-    * Caller must evaluate the list before calling this. */
+/* This reboxes all values in a list to type any. */
 static void emit_list_values_to_anys(lily_emit_state *emit,
         lily_ast *list_ast)
 {
@@ -2606,18 +3456,6 @@ static void emit_list_values_to_anys(lily_emit_state *emit,
     }
 }
 
-/*  eval_build_hash
-    This handles evaluating trees that are of type tree_hash. This tree is
-    created from a static hash (ex: ["a" => 1, "b" => 2, ...]). Parser has
-    chained the keys and values in a tree_hash as arguments. The arguments are
-    key, value, key, value, key, value. Thus, ->args_collected is the number of
-    items, not the number of pairs collected.
-
-    Caveats:
-    * Keys can't default to "any", because "any" is not immutable.
-
-    emit: The emit state containing a function to write the resulting code to.
-    ast:  An ast of type tree_hash. */
 static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
@@ -2715,48 +3553,6 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     ast->result = (lily_sym *)s;
 }
 
-/*  type_matchup
-    This function is called when a certain type is wanted, and a given ast
-    doesn't quite satisfy the requirement.
-
-    This returns 1 when it is possible for 'right' to be assigned to something
-    of 'want_type', 0 otherwise.
-
-    This attempts one of three things:
-     * If 'want_type' is any, the ast's result is converted so that it returns
-       a value of type any.
-     * If 'want_type' is an enum, the ast's result is checked for being variant.
-       If it is a variant (and the types fit), it is converted so that it
-       returns a value of the enum type.
-     * If 'want_type' is a superset of what the ast returns, 1 is returned, but
-       there is no conversion performed (because it isn't necessary). */
-static int type_matchup(lily_emit_state *emit, lily_type *want_type,
-        lily_ast *right)
-{
-    int ret = 1;
-    if (want_type->cls->id == SYM_CLASS_ANY)
-        emit_rebox_to_any(emit, right);
-    else if (want_type->cls->flags & CLS_IS_ENUM) {
-        ret = lily_ts_enum_membership_check(emit->ts, want_type, right->result->type);
-        if (ret)
-            emit_rebox_value(emit, want_type, right);
-    }
-    else if (want_type->cls->id != SYM_CLASS_GENERIC &&
-             lily_ts_type_greater_eq(emit->ts, want_type, right->result->type))
-        ret = 1;
-    else
-        ret = 0;
-
-    return ret;
-}
-
-/*  eval_build_list
-    This writes an instruction to build a list from a set of values given.
-
-    If all list elements have the same type, the resulting list shall be of the
-    common type (Ex: [1, 2, 3] is a list[integer]).
-
-    If they do not, the resulting type shall be list[any]. */
 static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
@@ -2765,6 +3561,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     int found_variant_or_enum = 0, make_anys = 0;
 
     if (expect) {
+        /* This allows hashes to be assigned to []. */
         if (ast->args_collected == 0 && expect->cls->id == SYM_CLASS_HASH) {
             eval_build_hash(emit, ast, expect);
             return;
@@ -2799,8 +3596,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     if (elem_type == NULL && last_type == NULL) {
         /* This happens when there's an empty list and a list is probably not
            expected. Default to list[any] and hope that's right. */
-        lily_class *cls = emit->symtab->any_class;
-        elem_type = cls->type;
+        elem_type = emit->symtab->any_class->type;
     }
     else if (last_type != NULL) {
         if (found_variant_or_enum)
@@ -2826,129 +3622,51 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     ast->result = (lily_sym *)s;
 }
 
-/*  eval_build_tuple
-    This handles creation of a tuple from a series of values. The resulting
-    tuple will have a type that matches what it obtained.
+/***
+ *       ____      _ _
+ *      / ___|__ _| | |___
+ *     | |   / _` | | / __|
+ *     | |__| (_| | | \__ \
+ *      \____\__,_|_|_|___/
+ *
+ */
 
-    <[1, "2", 3.3]> # tuple[integer, string, double]
+static void eval_variant(lily_emit_state *emit, lily_ast *, lily_type *);
 
-    This attempts to do the same sort of defaulting that eval_build_list and
-    eval_build_hash do:
+/** Lily allows the following kinds of calls:
 
-    tuple[any] t = <[1]> # Becomes tuple[any]. */
-static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
-        lily_type *expect)
-{
-    if (ast->args_collected == 0) {
-        lily_raise(emit->raiser, lily_SyntaxError,
-                "Cannot create an empty tuple.\n");
-    }
+    * x()
+    * x.y()
+    * x::y()
+    * @y
+    * x[0]()
+    * x()()
+    * Some(10)
+    * {|| 10} ()
+    * [1, 2, 3].y()
 
-    if (expect && expect->cls->id != SYM_CLASS_TUPLE)
-        expect = NULL;
+    Most of the above are allowed to have default arguments. All of them support
+    varargs. This flexibility is great to have, but it's tough to implement
+    right. Below are a handful of functions that do the backbone of calls. A big
+    part of this is type_matchup, which is listed far above.
 
-    int i;
-    lily_ast *arg;
+    To handle the different needs of calls, the emitter provides call states. A
+    call state holds everything that one might need to know about a call: Where
+    to get error information, the current arg number, if there are variants to
+    be promoted, and more. Calls begin by using, naturally, begin_call.
 
-    for (i = 0, arg = ast->arg_start;
-         arg != NULL;
-         i++, arg = arg->next_arg) {
-        lily_type *elem_type = NULL;
+    A big problem right now with calls is checking arguments. Calls put the
+    target as the first tree and count it as an argument. The target may or may
+    not be part of the value (ex: Yes for x.y(), No for x()). For calls like
+    x.y(), the 'x' should always be first. Plain calls within a class should get
+    self instead first.
 
-        /* It's important to do this for each pass because it allows the inner
-           trees to infer types that this tree's parent may want. */
-        if (expect)
-            elem_type = expect->subtypes[i];
+    There's also call piping which adds a value that isn't associated with a
+    child tree. If there's no value to claim the first spot, then the pipe
+    claims it. Otherwise, the pipe gets the second spot. But the pipe doesn't go
+    to a call (ex: x |> y is y(x), but x |> y() is y()(x)).
+    **/
 
-        if (arg->tree_type != tree_local_var)
-            eval_tree(emit, arg, elem_type);
-
-        if (elem_type && elem_type != arg->result->type)
-            /* Attempt to fix the type to what's wanted. If it fails, the parent
-               tree will note a type mismatch. Can't do anything else here
-               though. */
-            type_matchup(emit, elem_type, arg);
-    }
-
-    for (i = 0, arg = ast->arg_start;
-         i < ast->args_collected;
-         i++, arg = arg->next_arg) {
-        lily_tm_add(emit->tm, arg->result->type);
-    }
-
-    lily_type *new_type = lily_tm_make(emit->tm, 0, emit->symtab->tuple_class,
-            i);
-    lily_storage *s = get_storage(emit, new_type);
-
-    write_build_op(emit, o_build_list_tuple, ast->arg_start, ast->line_num,
-            ast->args_collected, s->reg_spot);
-    ast->result = (lily_sym *)s;
-}
-
-/*  eval_subscript
-    Evaluate a subscript, returning the resulting value. This handles
-    subscripts of list, hash, and tuple. */
-static void eval_subscript(lily_emit_state *emit, lily_ast *ast,
-        lily_type *expect)
-{
-    lily_ast *var_ast = ast->arg_start;
-    lily_ast *index_ast = var_ast->next_arg;
-    if (var_ast->tree_type != tree_local_var)
-        eval_tree(emit, var_ast, NULL);
-
-    if (index_ast->tree_type != tree_local_var)
-        eval_tree(emit, index_ast, NULL);
-
-    check_valid_subscript(emit, var_ast, index_ast);
-
-    lily_type *type_for_result;
-    type_for_result = get_subscript_result(var_ast->result->type, index_ast);
-
-    lily_storage *result = get_storage(emit, type_for_result);
-
-    write_5(emit,
-            o_get_item,
-            ast->line_num,
-            var_ast->result->reg_spot,
-            index_ast->result->reg_spot,
-            result->reg_spot);
-
-    if (var_ast->result->flags & SYM_NOT_ASSIGNABLE)
-        result->flags |= SYM_NOT_ASSIGNABLE;
-
-    ast->result = (lily_sym *)result;
-}
-
-/******************************************************************************/
-/* Call handling                                                              */
-/******************************************************************************/
-
-/* Function calls are rather complex things, and so they have everything under
-   this area.
-   To begin with, Lily supports the following kinds of calls:
-   * x()          # This is a simple call.
-   * x.y()        # x is an instance of some class. y is either a property of the
-                  # class, or a class method. 'x' is added as the first argument
-                  # of the call.
-   * {|| 10} ()   # A call of a lambda. Weird, but okay.
-   * x[0]()       # A call of a subscript result.
-   * x()()        # A call of a call result.
-   enum Option[A] { Some(A) None }
-   * x = Some(10) # A 'call' of a variant type. eval_variant handles writing out
-                  # the code, but the arguments given pass through the same type
-                  # checking that a regular call's arguments pass through.
-
-   Calls are also the backbone of type inference. The arguments they expect are
-   passed down to evaluated trees. List, hash, and tuple eval all use the types
-   that are given to infer what they can. However, calls also need to infer a
-   a little bit. One example is that if a call wants type any, but a non-any is
-   supplied, it will 'rebox' the non-any into an any.
-
-   Finally, calls must keep track of their arguments. This is kept track of
-   using a min and a max. Most functions take a set number of arguments, and min
-   will be the same as max. However, min is less than max for functions that
-   have optional arguments. Max is set to -1 for functions that take varargs. It
-   is currently not possible for a function to be both optargs and varargs. */
 static void add_call_state(lily_emit_state *emit)
 {
     lily_emit_call_state *new_state = lily_malloc(sizeof(lily_emit_call_state));
@@ -3001,6 +3719,9 @@ static lily_type *get_expected_type(lily_emit_call_state *cs, int pos)
     return result;
 }
 
+/* This takes the values in the call state from 'from' up to 'to' and squishes
+   them into a list/tuple. A storage is made of 'type' to hold the result, and
+   is inserted as a new value. */
 static void condense_args(lily_emit_state *emit, lily_emit_call_state *cs,
         lily_type *type, uint16_t from, uint16_t to)
 {
@@ -3029,10 +3750,8 @@ static void condense_args(lily_emit_state *emit, lily_emit_call_state *cs,
     emit->code_pos += 4 + i;
 }
 
-/*  eval_call_arg
-    Evaluate the argument of a function call and do some type matching up on
-    the result. This is different than type_matchup, because it's a fair chance
-    that the arguments may hold information about generics. */
+/* This evaluates a call argument and checks that the type is what is wanted or
+   equivalent to what's expected. */
 static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
         lily_ast *arg)
 {
@@ -3080,13 +3799,8 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
         bad_arg_error(emit, cs, arg->result->type, want_type);
 }
 
-/*  box_call_variants
-    This function is called when check_call_args is done processing arguments
-    AND the call has been tagged by the symtab as having enum values.
-
-    This function exists because it's possible for a Lily function to not know
-    what the resulting enum should be. In such a case, call argument processing
-    calls this to make sure any variants are put into a proper enum value. */
+/* This is called after call arguments have been evaluated. It reboxes any
+   variant into an enum using the generic information known. */
 static void box_call_variants(lily_emit_state *emit, lily_emit_call_state *cs)
 {
     int num_args = cs->call_type->subtype_count - 1;
@@ -3128,10 +3842,8 @@ static void box_call_variants(lily_emit_state *emit, lily_emit_call_state *cs)
     }
 }
 
-/*  verify_argument_count
-    This makes sure that the function being called (specified by 'ast') is being
-    called with the right number of arguments. This is slightly tricky, because
-    of optional arguments and variable arguments. */
+/* Make sure that the function being called has the right number of
+   arguments. SyntaxError is raised if the count is wrong. */
 static void verify_argument_count(lily_emit_state *emit,
         lily_emit_call_state *cs, int num_args)
 {
@@ -3177,6 +3889,9 @@ static void verify_argument_count(lily_emit_state *emit,
     }
 }
 
+/* This is called before counting the number of arguments. If the target being
+   called needs a first value (either self or the x of x.y), then that is added
+   to the call's values. */
 static lily_type *maybe_inject_first_value(lily_emit_state *emit,
         lily_emit_call_state *cs)
 {
@@ -3211,11 +3926,8 @@ static lily_type *maybe_inject_first_value(lily_emit_state *emit,
     return result;
 }
 
-/*  This is called after the beginning of a call, but before evaluating the
-    arguments for a call. It ensures that the target call has the right number
-    of arguments, and that the starting types are properly initialized.
-    This is not included in begin_call, because function pipes and normal calls
-    have different sources for their arguments. */
+/* This will make sure the call is sound, and add some starting type
+   information. It is then possible to run the call. */
 static void validate_and_prep_call(lily_emit_state *emit,
         lily_emit_call_state *cs, lily_type *expect, lily_tree_type call_tt,
         int num_args)
@@ -3270,11 +3982,7 @@ static void validate_and_prep_call(lily_emit_state *emit,
     }
 }
 
-/*  check_call_args
-    eval_call uses this to make sure the types of all the arguments are right.
-
-    If the function takes varargs, the extra arguments are packed into a list
-    of the vararg type. */
+/* This actually does the evaluating for calls. */
 static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *cs,
         lily_type *expect)
 {
@@ -3305,18 +4013,8 @@ static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *c
     }
 }
 
-/*  This will write in an instruction to create a function that clones the
-    upvalues of the current closure into itself. Since the location of the
-    upvalues is not yet known, this injects a patch into the current function
-    block to do that. */
-static void emit_create_function(lily_emit_state *emit, lily_sym *func_sym,
-        lily_storage *target)
-{
-    write_4(emit, o_create_function, 0, func_sym->reg_spot, target->reg_spot);
-    inject_patch_into_block(emit, emit->function_block, emit->code_pos - 3);
-    emit->function_block->make_closure = 1;
-}
-
+/* This grabs and prepares a new call state. Part of this involves figuring out
+   the type of the first tree (possibly evaluating it too). */
 static lily_emit_call_state *begin_call(lily_emit_state *emit,
         lily_ast *ast)
 {
@@ -3406,6 +4104,8 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     return result;
 }
 
+/* The call's subtrees have been evaluated now. Write the instruction to do the
+   call and make a storage to put the result in (if needed). */
 static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
 {
     int offset = emit->call_values_pos - cs->arg_count;
@@ -3458,6 +4158,8 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
     emit->code_pos += 6 + cs->arg_count;
 }
 
+/* Finishes a call: The state is relinquished, and the ts ceiling associated
+   with it is lowered back down. */
 static void end_call(lily_emit_state *emit, lily_emit_call_state *cs)
 {
     lily_ts_lower_ceiling(emit->ts, cs->ts_adjust);
@@ -3465,8 +4167,8 @@ static void end_call(lily_emit_state *emit, lily_emit_call_state *cs)
     emit->call_state = cs;
 }
 
-/*  eval_call
-    This handles doing calls to what should be a function. */
+/* This is the gateway to handling all kinds of calls. Most work has been farmed
+   out to begin_call and related helpers though. */
 static void eval_call(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
 {
     lily_tree_type first_t = ast->arg_start->tree_type;
@@ -3484,39 +4186,10 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
     end_call(emit, cs);
 }
 
-/* emit_nonlocal_var
-   This handles vars that are not local and are on the right hand side of an
-   expression. This handles loading both literals and globals into a local
-   register. */
-static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_storage *ret;
-    int opcode;
-
-    switch (ast->tree_type) {
-        case tree_global_var:
-            opcode = o_get_global;
-            break;
-        case tree_static_func:
-            ensure_valid_scope(emit, ast->sym);
-        default:
-            opcode = o_get_readonly;
-            break;
-    }
-
-    ret = get_storage(emit, ast->sym->type);
-
-    if (opcode != o_get_global)
-        ret->flags |= SYM_NOT_ASSIGNABLE;
-
-    if ((ast->sym->flags & VAR_NEEDS_CLOSURE) == 0)
-        write_4(emit, opcode, ast->line_num, ast->sym->reg_spot, ret->reg_spot);
-    else
-        emit_create_function(emit, ast->sym, ret);
-
-    ast->result = (lily_sym *)ret;
-}
-
+/* This evaluates a variant type. Variant types are interesting because some of
+   them take arguments (and thus look like calls). However, for the sake of
+   simplicity, they're actually tuples with a different name and in a box (the
+   enum). */
 static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
@@ -3576,10 +4249,10 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
     ast->result = (lily_sym *)result;
 }
 
-/* Syntax: ```f |> g``` is equivalent to ```g(f)```. F# inspired this.
-   Lily handles function pipes by treating them as binary operations. The left
-   side is the value (which should be run first), and the right side is the
-   target. */
+/* This handles function pipes (|>). These are rather curious, because they
+   run the right side, then the left. The job of this is to turn `f |> g` into
+   `g(f)`.
+   Shoutout to F#, which inspired this idea. */
 static void eval_func_pipe(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
@@ -3596,53 +4269,21 @@ static void eval_func_pipe(lily_emit_state *emit, lily_ast *ast,
     end_call(emit, cs);
 }
 
-static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
-        lily_type *expect)
-{
-    char *lambda_body = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
+/***
+ *         _    ____ ___
+ *        / \  |  _ \_ _|
+ *       / _ \ | |_) | |
+ *      / ___ \|  __/| |
+ *     /_/   \_\_|  |___|
+ *
+ */
 
-    if (expect && expect->cls->id != SYM_CLASS_FUNCTION)
-        expect = NULL;
+/** The rest are functions that are used by parser (or eval_tree which helps
+    them) that don't seem to fit anywhere else. Most of these deal with running
+    an expression. **/
 
-    lily_sym *lambda_result = (lily_sym *)lily_parser_lambda_eval(emit->parser,
-            ast->line_num, lambda_body, expect);
-    lily_storage *s = get_storage(emit, lambda_result->type);
-
-    if (emit->function_block->make_closure == 0)
-        write_4(emit, o_get_readonly, ast->line_num, lambda_result->reg_spot,
-                s->reg_spot);
-    else
-        emit_create_function(emit, lambda_result, s);
-
-    ast->result = (lily_sym *)s;
-}
-
-void eval_self(lily_emit_state *emit, lily_ast *ast)
-{
-    ast->result = (lily_sym *)emit->block->self;
-}
-
-void eval_upvalue(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_sym *sym = ast->sym;
-
-    int i;
-    for (i = 0;i < emit->closed_pos;i++)
-        if (emit->closed_syms[i] == sym)
-            break;
-
-    if (i == emit->closed_pos)
-        checked_close_over_var(emit, (lily_var *)ast->sym);
-
-    emit->function_block->make_closure = 1;
-
-    lily_storage *s = get_storage(emit, sym->type);
-    write_4(emit, o_get_upvalue, ast->line_num, i, s->reg_spot);
-    ast->result = (lily_sym *)s;
-}
-
-/*  eval_tree
-    Magically determine what function actually handles the given ast. */
+/* Evaluate 'ast' using 'expect' for inference. If unsure (or have no opinion of
+   what 'ast' should be), 'expect' can be NULL. */
 static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
 {
     if (ast->tree_type == tree_global_var ||
@@ -3724,78 +4365,20 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         eval_upvalue(emit, ast);
 }
 
-/*****************************************************************************/
-/* Exported functions                                                        */
-/*****************************************************************************/
-
-/*  lily_emit_change_block_to
-    This is called when the parser would like to change the current block into
-    another block type.
-
-    One example is when the parser sees 'elif'. In that case, it wants to
-    change the current block into 'block_if_elif'. */
-void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
+/* Evaluate a tree with 'expect' sent for inference. If the tree does not return
+   a value, then SyntaxError is raised with 'message'. */
+static void eval_enforce_value(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect, char *message)
 {
-    lily_block_type current_type = emit->block->block_type;
-    int save_jump;
+    eval_tree(emit, ast, expect);
+    emit->expr_num++;
 
-    if (emit->block->last_exit != emit->code_pos)
-        emit->block->all_branches_exit = 0;
-
-    if (new_type == block_if_elif || new_type == block_if_else) {
-        char *block_name;
-        if (new_type == block_if_elif)
-            block_name = "elif";
-        else
-            block_name = "else";
-
-        if (current_type != block_if && current_type != block_if_elif)
-            lily_raise(emit->raiser, lily_SyntaxError,
-                    "'%s' without 'if'.\n", block_name);
-
-        if (current_type == block_if_else)
-            lily_raise(emit->raiser, lily_SyntaxError, "'%s' after 'else'.\n",
-                    block_name);
-    }
-    else if (new_type == block_try_except || new_type == block_try_except_all) {
-        if (current_type == block_try_except_all)
-            lily_raise(emit->raiser, lily_SyntaxError,
-                    "'except' clause is unreachable.\n");
-        else if (current_type != block_try && current_type != block_try_except)
-            lily_raise(emit->raiser, lily_SyntaxError,
-                    "'except' outside 'try'.\n");
-
-        /* If nothing in the 'try' block raises an error, the vm needs to be
-           told to unregister the 'try' block since will become unreachable
-           when the jump below occurs. */
-        if (current_type == block_try)
-            write_1(emit, o_pop_try);
-    }
-
-    lily_var *v = emit->block->var_start;
-    if (v != emit->symtab->active_import->var_chain)
-        lily_hide_block_vars(emit->symtab, v);
-
-    /* Transitioning between blocks is simple: First write a jump at the end of
-       the current branch. This will get patched to the if/try's exit. */
-    write_2(emit, o_jump, 0);
-    save_jump = emit->code_pos - 1;
-
-    /* The last jump of the previous branch wants to know where the check for
-       the next branch starts. It's right now. */
-    uint16_t patch = lily_u16_pop(emit->patches);
-
-    if (patch != (uint16_t)-1)
-        emit->code[patch] = emit->code_pos - emit->block->jump_offset;
-    /* else it's a fake branch from a condition that was optimized out. */
-
-    lily_u16_push(emit->patches, save_jump);
-    emit->block->block_type = new_type;
+    if (ast->result == NULL)
+        lily_raise(emit->raiser, lily_SyntaxError, message);
 }
 
-/*  lily_emit_expr
-    This evaluates the root of the ast pool given (the expression), then clears
-    the pool for the next expression. */
+/* This evaluates an expression at the root of the given pool, then resets the
+   pool for the next expression. */
 void lily_emit_eval_expr(lily_emit_state *emit, lily_ast_pool *ap)
 {
     eval_tree(emit, ap->root, NULL);
@@ -3804,14 +4387,11 @@ void lily_emit_eval_expr(lily_emit_state *emit, lily_ast_pool *ap)
     lily_ast_reset_pool(ap);
 }
 
-/*  lily_emit_eval_expr_to_var
-    This evaluates the root of the current ast pool, then assigns the result
-    to the given var.
-
-    This is used for expressions within 'for..in', and thus the var is expected
-    to always be an integer.
-
-    This clears the ast pool for the next pass. */
+/* This is used by 'for...in'. It evaluates an expression, then writes an
+   assignment that targets 'var'.
+   Since this is used by 'for...in', it checks to make sure that the expression
+   returns a value of type integer. If it does not, then SyntaxError is raised.
+   The pool given will be cleared. */
 void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_ast_pool *ap,
         lily_var *var)
 {
@@ -3828,23 +4408,16 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_ast_pool *ap,
 
     /* Note: This works because the only time this is called is to handle
              for..in range expressions, which are always integers. */
-    write_4(emit,
-            o_fast_assign,
-            ast->line_num,
-            ast->result->reg_spot,
+    write_4(emit, o_fast_assign, ast->line_num, ast->result->reg_spot,
             var->reg_spot);
 
     lily_ast_reset_pool(ap);
 }
 
-/*  lily_emit_eval_condition
-    This function evaluates an ast that will decide if a block should be
-    entered. This will write o_jump_if_false which will jump to the next
-    branch or outside the block if the ast's result is false.
-
-    This is suitable for 'if', 'elif', 'while', and 'do...while'.
-
-    This clears the ast pool for the next pass. */
+/* Evaluate the root of the given pool, making sure that the result is something
+   that can be truthy/falsey. SyntaxError is raised if the result isn't.
+   Since this is called to evaluate conditions, this also writes any needed jump
+   or patch necessary. */
 void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
 {
     lily_ast *ast = ap->root;
@@ -3864,10 +4437,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
             /* In a 'do...while' block, the condition is at the end, so the jump is
                reversed: If successful, go back to the top, otherwise fall out of
                the loop. */
-            write_4(emit,
-                    o_jump_if,
-                    1,
-                    ast->result->reg_spot,
+            write_4(emit, o_jump_if, 1, ast->result->reg_spot,
                     emit->block->loop_start);
         }
     }
@@ -3885,239 +4455,10 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
     lily_ast_reset_pool(ap);
 }
 
-/*  lily_emit_variant_decompose
-    This function writes out an o_variant_decompose instruction based upon the
-    type given. The target(s) of the decompose are however many vars that
-    the variant calls for, and pulled from the top of the symtab's vars.
-
-    Assumptions:
-    * The most recent vars that have been added to the symtab are the ones that
-      are to get the values.
-    * The given variant type actually has inner values (empty variants
-      should never be sent here). */
-void lily_emit_variant_decompose(lily_emit_state *emit, lily_type *variant_type)
-{
-    int value_count = variant_type->subtype_count - 1;
-    int i;
-
-    write_prep(emit, 4 + value_count);
-
-    emit->code[emit->code_pos  ] = o_variant_decompose;
-    emit->code[emit->code_pos+1] = *(emit->lex_linenum);
-    emit->code[emit->code_pos+2] = emit->block->match_sym->reg_spot;
-    emit->code[emit->code_pos+3] = value_count;
-
-    /* Since this function is called immediately after declaring the last var
-       that will receive the decompose, it's safe to pull the vars directly
-       from symtab's var chain. */
-    lily_var *var_iter = emit->symtab->active_import->var_chain;
-
-    /* Go down because the vars are linked from newest -> oldest. If this isn't
-       done, then the first var will get the last value in the variant, the
-       second will get the next-to-last value, etc. */
-    for (i = value_count - 1;i >= 0;i--) {
-        emit->code[emit->code_pos+4+i] = var_iter->reg_spot;
-        var_iter = var_iter->next;
-    }
-
-    emit->code_pos += 4 + value_count;
-}
-
-/*  lily_emit_add_match_case
-    This function is called by parser with a valid index of some variant within
-    the current match enum. This is responsible for ensuring that a class does
-    not have two cases for it.
-
-    Additionally, this function also writes a jump at the end of every case
-    that will be patched to the match block's end.
-
-    Any vars from previous match cases are also wiped out here, as they're no
-    longer valid now. */
-int lily_emit_add_match_case(lily_emit_state *emit, int pos)
-{
-    int block_offset = emit->block->match_case_start;
-    int is_first_case = 1, ret = 1;
-    int i;
-
-    for (i = emit->block->match_case_start;
-         i < emit->match_case_pos;
-         i++) {
-        if (emit->match_cases[i] == 1) {
-            is_first_case = 0;
-            break;
-        }
-    }
-
-    if (emit->block->last_exit != emit->code_pos && is_first_case == 0)
-        emit->block->all_branches_exit = 0;
-
-    if (emit->match_cases[block_offset + pos] == 0) {
-        emit->match_cases[block_offset + pos] = 1;
-
-        /* Every case added after the first needs to write an exit jump before
-           any code. This makes it so the previous branch jumps outside the
-           match instead of falling through (very bad, in this case). */
-        if (is_first_case == 0) {
-            write_2(emit, o_jump, 0);
-
-            lily_u16_push(emit->patches, emit->code_pos - 1);
-        }
-
-        /* Patch the o_match_dispatch spot the corresponds with this class
-           so that it will jump to the current location.
-           Oh, and make sure to do it AFTER writing the jump, or the dispatch
-           will go to the exit jump. */
-        emit->code[emit->block->match_code_start + pos] =
-                emit->code_pos - emit->block->jump_offset;
-
-        /* This is necessary to keep vars created from the decomposition of one
-           class from showing up in subsequent cases. */
-        lily_var *v = emit->block->var_start;
-        if (v != emit->symtab->active_import->var_chain)
-            lily_hide_block_vars(emit->symtab, v);
-    }
-    else
-        ret = 0;
-
-    return ret;
-}
-
-/*  lily_emit_eval_match_expr
-    This function is called by parser with an expression to switch on for
-    'match'. This evaluates the given expression, checks it, and then sets
-    up the current block with the appropriate information for the match. */
-void lily_emit_eval_match_expr(lily_emit_state *emit, lily_ast_pool *ap)
-{
-    lily_ast *ast = ap->root;
-    lily_block *block = emit->block;
-    eval_enforce_value(emit, ast, NULL, "Match expression has no value.\n");
-
-    if ((ast->result->type->cls->flags & CLS_IS_ENUM) == 0 ||
-        ast->result->type->cls->id == SYM_CLASS_ANY) {
-        lily_raise(emit->raiser, lily_SyntaxError,
-                "Match expression is not an enum value.\n");
-    }
-
-    int match_cases_needed = ast->result->type->cls->variant_size;
-    if (emit->match_case_pos + match_cases_needed > emit->match_case_size)
-        grow_match_cases(emit);
-
-    block->match_case_start = emit->match_case_pos;
-
-    /* This is how the emitter knows that no cases have been given yet. */
-    int i;
-    for (i = 0;i < match_cases_needed;i++)
-        emit->match_cases[emit->match_case_pos + i] = 0;
-
-    emit->match_case_pos += match_cases_needed;
-
-    block->match_code_start = emit->code_pos + 4;
-    block->match_sym = (lily_sym *)ast->result;
-
-    write_prep(emit, 4 + match_cases_needed);
-
-    emit->code[emit->code_pos  ] = o_match_dispatch;
-    emit->code[emit->code_pos+1] = *(emit->lex_linenum);
-    emit->code[emit->code_pos+2] = ast->result->reg_spot;
-    emit->code[emit->code_pos+3] = match_cases_needed;
-    for (i = 0;i < match_cases_needed;i++)
-        emit->code[emit->code_pos + 4 + i] = 0;
-
-    emit->code_pos += 4 + i;
-
-    lily_ast_reset_pool(ap);
-}
-
-/*  lily_emit_finalize_for_in
-    This function takes the symbols used in a for..in loop and writes out the
-    appropriate code to start off a for loop. This should be done at the very
-    end of a for..in loop, after the 'by' expression has been collected.
-    * user_loop_var: This is the user var that will have the range value
-                     written to it.
-    * for_start:     The var holding the start of the range.
-    * for_end:       The var holding the end of the range.
-    * for_step:      The var holding the step of the range. This is NULL if the
-                     user did not specify a step.
-    * line_num:      A line number for writing code to be run before the actual
-                     for code. */
-void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
-        lily_var *for_start, lily_var *for_end, lily_var *for_step,
-        int line_num)
-{
-    lily_class *cls = emit->symtab->integer_class;
-
-    int have_step = (for_step != NULL);
-    if (have_step == 0)
-        for_step = lily_emit_new_scoped_var(emit, cls->type, "(for step)");
-
-    lily_sym *target;
-    /* Global vars cannot be used directly, because o_for_setup and
-       o_integer_for expect local registers. */
-    if (user_loop_var->function_depth == 1)
-        target = (lily_sym *)get_storage(emit, user_loop_var->type);
-    else
-        target = (lily_sym *)user_loop_var;
-
-    write_prep(emit, 16 + ((target != (lily_sym *)user_loop_var) * 8));
-    emit->code[emit->code_pos  ] = o_for_setup;
-    emit->code[emit->code_pos+1] = line_num;
-    emit->code[emit->code_pos+2] = target->reg_spot;
-    emit->code[emit->code_pos+3] = for_start->reg_spot;
-    emit->code[emit->code_pos+4] = for_end->reg_spot;
-    emit->code[emit->code_pos+5] = for_step->reg_spot;
-    /* This value is used to determine if the step needs to be calculated. */
-    emit->code[emit->code_pos+6] = !have_step;
-
-    if (target != (lily_sym *)user_loop_var) {
-        emit->code[emit->code_pos+7] = o_set_global;
-        emit->code[emit->code_pos+8] = line_num;
-        emit->code[emit->code_pos+9] = target->reg_spot;
-        emit->code[emit->code_pos+10] = user_loop_var->reg_spot;
-        emit->code_pos += 4;
-    }
-    /* for..in is entered right after 'for' is seen. However, range values can
-       be expressions. This needs to be fixed, or the loop will jump back up to
-       re-eval those expressions. */
-    emit->block->loop_start = emit->code_pos+9;
-
-    /* Write a jump to the inside of the loop. This prevents the value from
-       being incremented before being seen by the inside of the loop. */
-    emit->code[emit->code_pos+7] = o_jump;
-    emit->code[emit->code_pos+8] =
-            (emit->code_pos - emit->block->jump_offset) + 16;
-
-    emit->code[emit->code_pos+9] = o_integer_for;
-    emit->code[emit->code_pos+10] = line_num;
-    emit->code[emit->code_pos+11] = target->reg_spot;
-    emit->code[emit->code_pos+12] = for_start->reg_spot;
-    emit->code[emit->code_pos+13] = for_end->reg_spot;
-    emit->code[emit->code_pos+14] = for_step->reg_spot;
-    emit->code[emit->code_pos+15] = 0;
-    if (target != (lily_sym *)user_loop_var) {
-        emit->code[emit->code_pos+16] = o_set_global;
-        emit->code[emit->code_pos+17] = line_num;
-        emit->code[emit->code_pos+18] = target->reg_spot;
-        emit->code[emit->code_pos+19] = user_loop_var->reg_spot;
-        emit->code_pos += 4;
-    }
-
-    emit->code_pos += 16;
-
-    int offset;
-    if (target == (lily_sym *)user_loop_var)
-        offset = 1;
-    else
-        offset = 5;
-
-    lily_u16_push(emit->patches, emit->code_pos - offset);
-}
-
-/*  Evaluate a single expression within a lambda on behalf of the parser. If
-    possible, type inference is performed upon the result of the expression.
-
-    * full_type:   This either describes what the entire lambda is expected to
-                   be, or is NULL. The type that the expression should return is
-                   the return type of this type. */
+/* This is called from parser to evaluate the last expression that is within a
+   lambda. This is rather tricky, because 'full_type' is supposed to describe
+   the full type of the lambda, but may be NULL. If it isn't NULL, then use that
+   to infer what the result of the lambda should be. */
 void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
         lily_type *full_type)
 {
@@ -4148,8 +4489,8 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
 
         /* If the caller doesn't want a return, then don't give one...regardless
            of if there is one available. */
-            write_3(emit, o_return_val, ap->root->line_num,
-                    ap->root->result->reg_spot);
+        write_3(emit, o_return_val, ap->root->line_num,
+                ap->root->result->reg_spot);
     }
     else if (return_wanted == 0)
         ap->root->result = NULL;
@@ -4160,53 +4501,9 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
        actually using). */
 }
 
-/* lily_emit_break
-   This writes a break (jump to the end of a loop) for the parser. Since it
-   is called by parser, it needs to verify that it is called from within a
-   loop. */
-void lily_emit_break(lily_emit_state *emit)
-{
-    if (emit->block->loop_start == (uint16_t)-1) {
-        /* This is called by parser on the source line, so do not adjust the
-           raiser. */
-        lily_raise(emit->raiser, lily_SyntaxError,
-                "'break' used outside of a loop.\n");
-    }
-
-    lily_block *loop_block = find_deepest_loop(emit);
-
-    write_pop_try_blocks_up_to(emit, loop_block);
-
-    /* Write the jump, then figure out where to put it. */
-    write_2(emit, o_jump, 0);
-
-    inject_patch_into_block(emit, loop_block, emit->code_pos - 1);
-}
-
-/*  lily_emit_continue
-    The parser wants to write a jump to the top of the current loop (continue
-    keyword). */
-void lily_emit_continue(lily_emit_state *emit)
-{
-    /* This is called by parser on the source line, so do not adjust the
-       raiser. */
-    if (emit->block->loop_start == (uint16_t)-1) {
-        lily_raise(emit->raiser, lily_SyntaxError,
-                "'continue' used outside of a loop.\n");
-    }
-
-    write_pop_try_blocks_up_to(emit, find_deepest_loop(emit));
-
-    write_2(emit, o_jump, emit->block->loop_start);
-}
-
-/*  lily_emit_return
-    This handles the 'return' keyword for the parser.
-
-    If the current function DOES return a value, then ast should NOT be NULL.
-    The ast given will be evaluated and the type checked.
-
-    If it does not, then ast should be NULL. */
+/* This handles the 'return' keyword. The parser will send an ast only if the
+   current function should return a value. If it sends one, the return is
+   validated. */
 void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
 {
     if (emit->function_depth == 1)
@@ -4237,9 +4534,8 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
         write_2(emit, o_return_noval, *emit->lex_linenum);
 }
 
-/*  lily_emit_update_function_block
-    This is called at the opening of a new class, before any user code. This
-    writes an initialization for the hidden self variable. */
+/* This is called after parsing the header of a define or a class. Since blocks
+   are entered early, this does adjustments to block data. */
 void lily_emit_update_function_block(lily_emit_state *emit,
         lily_type *self_type, int generic_count, lily_type *ret_type)
 {
@@ -4253,34 +4549,13 @@ void lily_emit_update_function_block(lily_emit_state *emit,
         lily_storage *self = get_storage(emit, self_type);
         emit->block->self = self;
 
-        write_3(emit,
-                o_new_instance,
-                *emit->lex_linenum,
-                self->reg_spot);
+        write_3(emit, o_new_instance, *emit->lex_linenum, self->reg_spot);
     }
 }
 
-/*  lily_emit_try
-    This should be called after adding a TRY block. This registers a try and
-    mentions the line in which it starts (for debug).
-
-    At the end of a 'try' block, there is an o_pop_try that gets written to
-    unregister this try from the vm. Similarly, write_pop_try_blocks is called
-    for each current 'try' when a continue/break/return is called to exit any
-    current 'try' entries. */
-void lily_emit_try(lily_emit_state *emit, int line_num)
-{
-    write_3(emit,
-            o_push_try,
-            line_num,
-            0);
-
-    lily_u16_push(emit->patches, emit->code_pos - 1);
-}
-
-/*  lily_emit_raise
-    Process the given ast and write an instruction that will attempt to raise
-    the resulting value. The ast is checked to ensure it can be raised. */
+/* Evaluate the given tree, then try to write instructions that will raise the
+   result of the tree.
+   SyntaxError happens if the tree's result is not raise-able. */
 void lily_emit_raise(lily_emit_state *emit, lily_ast *ast)
 {
     eval_enforce_value(emit, ast, NULL, "'raise' expression has no value.\n");
@@ -4292,415 +4567,57 @@ void lily_emit_raise(lily_emit_state *emit, lily_ast *ast)
                 "Invalid class '%s' given to raise.\n", result_cls->name);
     }
 
-    write_3(emit,
-            o_raise,
-            ast->line_num,
-            ast->result->reg_spot);
+    write_3(emit, o_raise, ast->line_num, ast->result->reg_spot);
 
     emit->block->last_exit = emit->code_pos;
 }
 
-/*  lily_emit_except
-    This handles writing an 'except' block. It should be called after calling
-    to change the current block to a try_except block.
-
-    type:       The type that this 'except' will catch.
-    except_var: If an 'as x' clause is specified, this is the var that will be
-                given the exception value. If there is no clause, then the
-                parser will send NULL.
-    line_num:   The line on which the 'except' starts. */
-void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
-        lily_var *except_var, int line_num)
-{
-    lily_sym *except_sym = (lily_sym *)except_var;
-    if (except_sym == NULL)
-        except_sym = (lily_sym *)get_storage(emit, except_type);
-
-    write_5(emit,
-            o_except,
-            line_num,
-            0,
-            (except_var != NULL),
-            except_sym->reg_spot);
-
-    lily_u16_push(emit->patches, emit->code_pos - 3);
-}
-
-/*  lily_prepare_main
-    This is called before __main__ is about to be executed (which happens at eof
-    for normal files, or for each ?> when doing tags. This will prepare type
-    information for __main__'s global registers, and write o_return_from_vm at
-    the end of __main__'s code. */
-void lily_prepare_main(lily_emit_state *emit, lily_import_entry *import_iter)
-{
-    /* Whenever any packages are loaded, the vars are created as globals,
-       instead of trying to create some 'backing' value. Because of that, this
-       must work through every import loaded to discover all the globals.
-       Additionally, the current var list must also be loaded. */
-    lily_function_val *f = emit->symtab->main_function;
-    int register_count = emit->main_block->next_reg_spot;
-    lily_register_info *info = lily_realloc(f->reg_info,
-            register_count * sizeof(lily_register_info));
-
-    while (import_iter) {
-        add_var_chain_to_info(emit, info, import_iter->var_chain, NULL);
-        import_iter = import_iter->root_next;
-    }
-
-    add_var_chain_to_info(emit, info, emit->symtab->active_import->var_chain,
-            NULL);
-    add_storage_chain_to_info(info, emit->block->storage_start);
-
-    /* Ensure that there are at least 16 code slots after __main__'s code. It is
-       possible for an exception to dynaload at vm time, and that will want to
-       write initializing code into __main__ past where __main__'s code is. This
-       may, in turn, cause code to be resized. Since __main__'s code is a
-       shallow reference to emitter->code, that's really, really bad.
-       This prevents that, by setting up enough space that any dynaloaded code
-       will not be large enough to resize emitter->code. */
-    write_prep(emit, 16);
-
-    write_1(emit, o_return_from_vm);
-
-    /* To simplify things, __main__'s code IS emitter->code. There's no reason
-       to give it a private block of code, since __main__'s code is wiped on the
-       next pass anyway. */
-    f->code = emit->code;
-    f->len = emit->code_pos;
-    f->reg_info = info;
-    f->reg_count = register_count;
-}
-
-/*  lily_reset_main
-    (tagged mode) This is called after __main__ is executed to prepare __main__
-    for new code. */
+/* This resets __main__'s code position for the next pass. Only tagged mode
+   needs this. */
 void lily_reset_main(lily_emit_state *emit)
 {
     emit->code_pos = 0;
 }
 
-/*  lily_emit_enter_block
-    Enter a block of a given type. This only handles block states, not
-    multi/single line information. */
-void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
+
+/* This function is to be called before lily_vm_prep. This will ensure that the
+   register info for __main__ is up-to-date. If any text is parsed, then this
+   has to be called before running the vm. */
+void lily_prepare_main(lily_emit_state *emit, lily_import_entry *import_iter)
 {
-    lily_block *new_block;
-    if (emit->block->next == NULL) {
-        new_block = lily_malloc(sizeof(lily_block));
+    lily_function_val *f = emit->symtab->main_function;
+    int register_count = emit->main_block->next_reg_spot;
+    lily_register_info *info = lily_realloc(f->reg_info,
+            register_count * sizeof(lily_register_info));
 
-        emit->block->next = new_block;
-        new_block->prev = emit->block;
-        new_block->next = NULL;
-    }
-    else
-        new_block = emit->block->next;
-
-    new_block->block_type = block_type;
-    new_block->var_start = emit->symtab->active_import->var_chain;
-    new_block->class_entry = emit->block->class_entry;
-    new_block->self = emit->block->self;
-    new_block->generic_count = 0;
-    new_block->patch_start = emit->patches->pos;
-    new_block->last_exit = -1;
-    new_block->loop_start = emit->block->loop_start;
-    new_block->make_closure = 0;
-
-    if (block_type < block_define) {
-        /* Non-functions will continue using the storages that the parent uses.
-           Additionally, the same technique is used to allow loop starts to
-           bubble upward until a function gets in the way. */
-        new_block->storage_start = emit->block->storage_start;
-        new_block->jump_offset = emit->block->jump_offset;
-        new_block->all_branches_exit = 1;
-
-        if (IS_LOOP_BLOCK(block_type))
-            new_block->loop_start = emit->code_pos;
-        else if (block_type == block_enum) {
-            /* Enum entries are not considered function-like, because they do
-               not have a class ::new. */
-            new_block->class_entry = emit->symtab->active_import->class_chain;
-            new_block->loop_start = -1;
-        }
-    }
-    else {
-        lily_var *v = emit->symtab->active_import->var_chain;
-        if (block_type == block_class)
-            new_block->class_entry = emit->symtab->active_import->class_chain;
-
-        v->parent = new_block->class_entry;
-
-        /* This only happens when a define occurs within another define. The
-           inner define is marked as needing closures. This makes it so all
-           calls to the inner define will create a copy with closures. */
-        if (emit->function_depth >= 2 && emit->block->block_type != block_class)
-            v->flags |= VAR_NEEDS_CLOSURE;
-
-        new_block->next_reg_spot = 0;
-
-        /* This causes vars within this imported file to be seen as global
-           vars, instead of locals. Without this, the interpreter gets confused
-           and thinks the imported file's globals are really upvalues. */
-        if (block_type != block_file) {
-            if (block_type == block_lambda) {
-                /* A lambda cannot be guaranteed to have the 'self' of a class
-                   as the first parameter. If it wants 'self', it can close over
-                   it when it needs to. */
-                new_block->self = NULL;
-            }
-            emit->function_depth++;
-        }
-        emit->function_block = new_block;
-
-        /* This function's storages start where the unused ones start, or NULL if
-           all are currently taken. */
-        new_block->storage_start = emit->unused_storage_start;
-        new_block->function_var = v;
-        new_block->code_start = emit->code_pos;
-        new_block->jump_offset = emit->code_pos;
-        new_block->loop_start = -1;
-
-        emit->top_var = v;
+    /* The vars that are at the toplevel of any module are global vars so that
+       other modules can access them. The emitter has no way of telling what
+       modules have updated...so it loads all of them. */
+    while (import_iter) {
+        add_var_chain_to_info(emit, info, import_iter->var_chain, NULL);
+        import_iter = import_iter->root_next;
     }
 
-    emit->block = new_block;
-}
+    /* __main__ is different though, because both the vars and the storages
+       that are within __main__ are globals. It stinks that __main__ has global
+       storages, but the values have to go -somewhere-. */
+    add_var_chain_to_info(emit, info, emit->symtab->active_import->var_chain,
+            NULL);
+    add_storage_chain_to_info(info, emit->block->storage_start);
 
-/*  lily_emit_leave_block
-    Leave a block. This includes a check for trying to leave from __main__.
-    This hides vars that are no longer in scope, as well as finializing
-    functions. */
-void lily_emit_leave_block(lily_emit_state *emit)
-{
-    lily_var *v;
-    lily_block *block;
-    int block_type;
+    /* Hack: This exists because of a two decisions.
+       * One: __main__'s code is a shallow copy of emit->code.
+       * Two: Parser's exception dynaload causes an expression to run, and then
+         slices away code (like anything else that dynaloads). Except that this
+         may happen at vm-time.
+         If there is not enough space, then emit->code may be realloc'd, and
+         thus invalidate __main__'s code...during vm exec. */
+    write_prep(emit, 16);
 
-    if (emit->block->prev == NULL)
-        lily_raise(emit->raiser, lily_SyntaxError, "'}' outside of a block.\n");
+    write_1(emit, o_return_from_vm);
 
-    block = emit->block;
-    block_type = block->block_type;
-
-    /* These blocks need to jump back up when the bottom is hit. */
-    if (block_type == block_while || block_type == block_for_in)
-        write_2(emit, o_jump, block->loop_start - block->jump_offset);
-    else if (block_type == block_match) {
-        ensure_proper_match_block(emit);
-        emit->match_case_pos = emit->block->match_case_start;
-    }
-    else if (block_type == block_try ||
-             block_type == block_try_except ||
-             block_type == block_try_except_all) {
-        /* The vm expects that the last except block will have a 'next' of 0 to
-           indicate the end of the 'except' chain. Remove the patch that the
-           last except block installed so it doesn't get patched. */
-        emit->patches->pos--;
-    }
-
-    if ((block_type == block_if_else ||
-         block_type == block_match ||
-         block_type == block_try_except_all) &&
-        block->all_branches_exit && block->last_exit == emit->code_pos) {
-        emit->block->prev->last_exit = emit->code_pos;
-    }
-
-    v = block->var_start;
-
-    if (block_type < block_define) {
-        write_block_patches(emit, emit->code_pos - block->jump_offset);
-
-        lily_hide_block_vars(emit->symtab, v);
-    }
-    else
-        leave_function(emit, block);
-
-    emit->block = emit->block->prev;
-}
-
-/*  lily_emit_write_import_call
-    This is called by the parser after an imported file has left. The var is
-    always the special __import__ function holding the contents of the imported
-    file (which takes 0 args and returns nothing). */
-void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
-{
-    write_prep(emit, 6);
-    emit->code[emit->code_pos] = o_function_call;
-    emit->code[emit->code_pos+1] = *emit->lex_linenum;
-    /* 1 means that +3 is a readonly var's spot. */
-    emit->code[emit->code_pos+2] = 1;
-    emit->code[emit->code_pos+3] = var->reg_spot;
-    /* 0 arguments collected. */
-    emit->code[emit->code_pos+4] = 0;
-    /* This does not return a value. */
-    emit->code[emit->code_pos+5] = 0;
-
-    emit->code_pos += 6;
-}
-
-/*  lily_emit_write_optargs
-    This function writes o_setup_optargs for the parser. It's currently called
-    near the beginning of any function that uses optional arguments.
-
-    reg_spots: A series of pairs to write out. Each pair is a literal's register
-               spot, then a var's register spot.
-    count:     The total number of spots to write (not the number of pairs).
-
-    Parser writes optargs in pairs so the it doesn't have to potentially resize
-    and shift things over for large optarg blocks. However, debug and vm would
-    like optargs to be written with the literals first in a block, then the vars
-    next in a block. */
-void lily_emit_write_optargs(lily_emit_state *emit, uint16_t *reg_spots,
-        uint16_t count)
-{
-    write_prep(emit, count + 2);
-
-    emit->code[emit->code_pos] = o_setup_optargs;
-    emit->code[emit->code_pos+1] = count;
-
-    emit->code_pos += 2;
-
-    int i, j;
-    for (j = 0;j < 2;j++) {
-        for (i = j;i < count;i += 2) {
-            emit->code[emit->code_pos] = reg_spots[i];
-            emit->code_pos++;
-        }
-    }
-}
-
-lily_var *lily_emit_new_scoped_var(lily_emit_state *emit, lily_type *type,
-        char *name)
-{
-    lily_var *new_var = lily_new_raw_var(emit->symtab, type, name);
-
-    if (emit->function_depth == 1) {
-        new_var->reg_spot = emit->main_block->next_reg_spot;
-        emit->main_block->next_reg_spot++;
-    }
-    else {
-        new_var->reg_spot = emit->function_block->next_reg_spot;
-        emit->function_block->next_reg_spot++;
-    }
-
-    new_var->function_depth = emit->function_depth;
-
-    return new_var;
-}
-
-lily_var *lily_emit_new_define_var(lily_emit_state *emit, lily_type *type,
-        char *name)
-{
-    lily_var *new_var = lily_new_raw_var(emit->symtab, type, name);
-
-    new_var->reg_spot = emit->symtab->next_readonly_spot;
-    emit->symtab->next_readonly_spot++;
-    new_var->function_depth = 1;
-    new_var->flags |= VAR_IS_READONLY;
-
-    return new_var;
-}
-
-lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
-        lily_foreign_func func, lily_item *source, lily_type *type,
-        char *name)
-{
-    lily_var *new_var = lily_new_raw_unlinked_var(emit->symtab, type, name);
-
-    new_var->function_depth = 1;
-    new_var->flags |= VAR_IS_READONLY;
-    new_var->reg_spot = emit->symtab->next_readonly_spot;
-    emit->symtab->next_readonly_spot++;
-
-    lily_function_val *func_val;
-
-    if (source->flags & ITEM_TYPE_IMPORT) {
-        lily_import_entry *import = (lily_import_entry *)source;
-
-        new_var->next = import->var_chain;
-        import->var_chain = new_var;
-
-        func_val = lily_new_foreign_function_val(func, NULL, name);
-    }
-    else {
-        lily_class *cls = (lily_class *)source;
-
-        new_var->next = cls->call_chain;
-        cls->call_chain = new_var;
-        new_var->parent = cls;
-
-        func_val = lily_new_foreign_function_val(func, cls->name, name);
-    }
-
-    lily_tie_builtin(emit->symtab, new_var, func_val);
-    return new_var;
-}
-
-lily_var *lily_emit_new_dyna_var(lily_emit_state *emit,
-        lily_import_entry *import, lily_type *type, char *name)
-{
-    lily_var *new_var = lily_new_raw_unlinked_var(emit->symtab, type, name);
-
-    new_var->reg_spot = emit->main_block->next_reg_spot;
-    emit->main_block->next_reg_spot++;
-    new_var->function_depth = 1;
-
-    new_var->next = import->var_chain;
-    import->var_chain = new_var;
-
-    return new_var;
-}
-
-/*  Create the first block that will represent __main__, as well as __main__
-    itself. This first block will never be exited from. */
-void lily_emit_enter_main(lily_emit_state *emit)
-{
-    /* This adds the first storage and makes sure that the emitter can always
-       know that emit->unused_storage_start is never NULL. */
-    add_storage(emit);
-
-    /* __main__'s type is a function that takes no inputs, and has no output.
-       Functions are special, because their return type is at 0, and must always
-       exist. The value NULL is used to signal that the function does not return
-       anything. The lack of extra values means that it doesn't take anything
-       either. */
-    lily_tm_add(emit->tm, NULL);
-    lily_type *main_type = lily_tm_make(emit->tm, 0,
-            emit->symtab->function_class, 1);
-
-    lily_var *main_var = lily_new_raw_var(emit->symtab, main_type, "__main__");
-    main_var->reg_spot = 0;
-    main_var->function_depth = 1;
-    main_var->flags |= VAR_IS_READONLY;
-    emit->symtab->next_readonly_spot++;
-
-    lily_block *main_block = lily_malloc(sizeof(lily_block));
-    lily_function_val *main_function = lily_new_native_function_val(
-            NULL, main_var->name);
-
-    emit->symtab->main_var = main_var;
-    emit->symtab->main_function = main_function;
-    /* __main__ is given two refs so that it must go through a custom deref to
-       be destroyed. This is because the names in the function info it has are
-       shared with vars that are still around. */
-    main_function->refcount++;
-    lily_tie_function(emit->symtab, main_var, main_function);
-
-    main_block->prev = NULL;
-    main_block->next = NULL;
-    main_block->block_type = block_define;
-    main_block->function_var = main_var;
-    main_block->storage_start = emit->all_storage_start;
-    main_block->class_entry = NULL;
-    main_block->generic_count = 0;
-    main_block->self = NULL;
-    main_block->code_start = 0;
-    main_block->jump_offset = 0;
-    main_block->next_reg_spot = 0;
-    main_block->loop_start = -1;
-    main_block->make_closure = 0;
-    emit->top_var = main_var;
-    emit->block = main_block;
-    emit->function_depth++;
-    emit->main_block = main_block;
-    emit->function_block = main_block;
+    f->code = emit->code;
+    f->len = emit->code_pos;
+    f->reg_info = info;
+    f->reg_count = register_count;
 }
