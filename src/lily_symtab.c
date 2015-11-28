@@ -832,20 +832,6 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
     }
 
     cls->flags &= ~CLS_IS_CURRENT;
-
-    if (cls != symtab->old_class_chain) {
-        lily_class *class_iter = symtab->active_import->class_chain;
-        lily_class *class_next;
-
-        while (class_iter != cls) {
-            class_next = class_iter->next;
-            class_iter->next = symtab->old_class_chain;
-            symtab->old_class_chain = class_iter;
-            class_iter = class_next;
-        }
-
-        symtab->active_import->class_chain = cls;
-    }
 }
 
 /***
