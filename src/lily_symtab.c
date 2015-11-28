@@ -8,263 +8,14 @@
 
 #include "lily_value.h"
 
-/** Symtab is responsible for:
-    * Providing functions for finding and creating classes and vars.
-    * Holding 'ties' that associate vars with values (so that a vars do not
-      actually hold values.
-    * Creating and finding new literals.
-    * Creation of new types (and ensuring that each type created is unique so
-      that == can compare them.
-**/
-
-
-/*****************************************************************************/
-/* Shared code                                                               */
-/*****************************************************************************/
-
-/*  shorthash_for_name
-    This captures (up to) the first 8 bytes in a name. This is used for symbol
-    comparisons before doing a strcmp to save time. */
-static uint64_t shorthash_for_name(const char *name)
-{
-    const char *ch = &name[0];
-    int i, shift;
-    uint64_t ret;
-    for (i = 0, shift = 0, ret = 0;
-         *ch != '\0' && i != 8;
-         ch++, i++, shift += 8) {
-        ret |= ((uint64_t)*ch) << shift;
-    }
-    return ret;
-}
-
-/*  make_new_literal
-    Attempt to add a new literal of the given class to the symtab. The literal
-    will be created with the given value (copying it if it's a string).
-
-    The newly-created literal is returned. */
-static lily_tie *make_new_literal(lily_symtab *symtab, lily_class *cls)
-{
-    lily_tie *lit = lily_malloc(sizeof(lily_tie));
-
-    /* Literal values always have a default type, so this is safe. */
-    lit->type = cls->type;
-
-    lit->flags = ITEM_TYPE_TIE;
-    /* Literals aren't put in registers, but they ARE put in a special vm
-       table. This is the literal's index into that table. */
-    lit->reg_spot = symtab->next_readonly_spot;
-    symtab->next_readonly_spot++;
-
-    lit->next = symtab->literals;
-    symtab->literals = lit;
-
-    return lit;
-}
-
-/*  This creates a new var with the given type and name. This var does not have
-    a reg_spot set just yet. It's also NOT linked in the symtab, and thus must
-    be injected into a var_chain somewhere. */
-lily_var *lily_new_raw_unlinked_var(lily_symtab *symtab, lily_type *type,
-        const char *name)
-{
-    lily_var *var = lily_malloc(sizeof(lily_var));
-
-    var->name = lily_malloc(strlen(name) + 1);
-    var->flags = ITEM_TYPE_VAR;
-    strcpy(var->name, name);
-    var->line_num = *symtab->lex_linenum;
-
-    var->shorthash = shorthash_for_name(name);
-    var->type = type;
-    var->next = NULL;
-    var->parent = NULL;
-
-    return var;
-}
-
-/*  Create a new var that isn't quite setup just yet. The newly-made var is
-    added to the symtab, but the reg_spot of the var is not yet set. This is
-    meant to be called by a lily_emit_new_*_var function. */
-lily_var *lily_new_raw_var(lily_symtab *symtab, lily_type *type,
-        const char *name)
-{
-    lily_var *var = lily_new_raw_unlinked_var(symtab, type, name);
-
-    var->next = symtab->active_import->var_chain;
-    symtab->active_import->var_chain = var;
-
-    return var;
-}
-
-/* This creates a new type with the class set to the class given. The type is
-   automatically added to the 'all_subtypes' field within the given class. */
-static lily_type *make_new_type(lily_class *cls)
-{
-    lily_type *new_type = lily_malloc(sizeof(lily_type));
-    new_type->cls = cls;
-    new_type->flags = 0;
-    new_type->generic_pos = 0;
-    new_type->subtype_count = 0;
-    new_type->subtypes = NULL;
-    new_type->next = NULL;
-
-    return new_type;
-}
-
-/* Create a new class with the given name and add it to the classes currently
-   available. */
-lily_class *lily_new_class(lily_symtab *symtab, char *name)
-{
-    lily_class *new_class = lily_malloc(sizeof(lily_class));
-    char *name_copy = lily_malloc(strlen(name) + 1);
-
-    strcpy(name_copy, name);
-
-    new_class->flags = CLS_IS_CURRENT;
-    new_class->is_refcounted = 1;
-    new_class->is_builtin = 0;
-    new_class->type = NULL;
-    new_class->parent = NULL;
-    new_class->shorthash = shorthash_for_name(name);
-    new_class->name = name_copy;
-    new_class->generic_count = 0;
-    new_class->properties = NULL;
-    new_class->prop_count = 0;
-    new_class->dynaload_table = NULL;
-    new_class->call_chain = NULL;
-    new_class->variant_members = NULL;
-    new_class->gc_marker = NULL;
-    new_class->eq_func = NULL;
-    new_class->destroy_func = NULL;
-    new_class->import = symtab->active_import;
-    new_class->all_subtypes = NULL;
-
-    new_class->id = symtab->next_class_id;
-    symtab->next_class_id++;
-
-    new_class->next = symtab->active_import->class_chain;
-    symtab->active_import->class_chain = new_class;
-
-    return new_class;
-}
-
-/* This creates a new class based off of a given seed. The name is copied over
-   from the seed given.
-   If the given class does not take generics, this will also set the default
-   type of the newly-made class. */
-lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
-{
-    lily_class_seed *class_seed = (lily_class_seed *)seed;
-    lily_class *new_class = lily_new_class(symtab, class_seed->name);
-    lily_type *type;
-
-    /* If a class doesn't take generics (or isn't the generic class), then
-        give it a default type.  */
-    if (class_seed->generic_count != 0)
-        type = NULL;
-    else {
-        /* A basic class? Make a quick default type for it. */
-        type = make_new_type(new_class);
-        new_class->type = type;
-        new_class->all_subtypes = type;
-    }
-
-    new_class->type = type;
-    new_class->is_builtin = 1;
-    new_class->generic_count = class_seed->generic_count;
-    new_class->gc_marker = class_seed->gc_marker;
-    new_class->flags = class_seed->flags;
-    new_class->is_refcounted = class_seed->is_refcounted;
-    new_class->eq_func = class_seed->eq_func;
-    new_class->destroy_func = class_seed->destroy_func;
-    new_class->import = symtab->active_import;
-    new_class->dynaload_table = class_seed->dynaload_table;
-
-    /* This is done so that the vm can & the flags of the class as a fast means
-       of determining if something is refcounted. */
-    if (new_class->is_refcounted == 0)
-        new_class->flags |= VAL_IS_PRIMITIVE;
-
-    return new_class;
-}
-
-static lily_type *lookup_generic(lily_symtab *symtab, const char *name)
-{
-    int id = name[0] - 'A';
-    lily_type *type_iter = symtab->generic_class->all_subtypes;
-
-    while (type_iter) {
-        if (type_iter->generic_pos == id) {
-            if (type_iter->flags & TYPE_HIDDEN_GENERIC)
-                type_iter = NULL;
-
-            break;
-        }
-
-        type_iter = type_iter->next;
-    }
-
-    return type_iter;
-}
-
-static lily_class *find_class(lily_class *class_iter, const char *name,
-        uint64_t shorthash)
-{
-    while (class_iter) {
-        if (class_iter->shorthash == shorthash &&
-            strcmp(class_iter->name, name) == 0)
-            break;
-
-        class_iter = class_iter->next;
-    }
-
-    return class_iter;
-}
-
-static lily_var *find_var(lily_var *var_iter, char *name, uint64_t shorthash)
-{
-    while (var_iter != NULL) {
-        if (var_iter->shorthash == shorthash &&
-            ((var_iter->flags & VAR_OUT_OF_SCOPE) == 0) &&
-            strcmp(var_iter->name, name) == 0) {
-
-            break;
-            
-        }
-        var_iter = var_iter->next;
-    }
-
-    return var_iter;
-}
-
-static lily_import_entry *find_import(lily_import_entry *import,
-        char *name)
-{
-    lily_import_link *link_iter = import->import_chain;
-    lily_import_entry *result = NULL;
-    while (link_iter) {
-        char *as_name = link_iter->as_name;
-        char *loadname = link_iter->entry->loadname;
-
-        /* If it was imported like 'import x as y', then as_name will be
-           non-null. In such a case, don't allow fallback access as 'x', just
-           in case something else is imported with the name 'x'. */
-        if ((as_name && strcmp(as_name, name) == 0) ||
-            (as_name == NULL && strcmp(loadname, name) == 0)) {
-            result = link_iter->entry;
-            break;
-        }
-
-        link_iter = link_iter->next_import;
-    }
-
-    return result;
-}
-
-/*****************************************************************************/
-/* Symtab initialization */
-/*****************************************************************************/
+/***
+ *      ____       _
+ *     / ___|  ___| |_ _   _ _ __
+ *     \___ \ / _ \ __| | | | '_ \
+ *      ___) |  __/ |_| |_| | |_) |
+ *     |____/ \___|\__|\__,_| .__/
+ *                          |_|
+ */
 
 lily_symtab *lily_new_symtab(lily_import_entry *builtin_import)
 {
@@ -283,19 +34,12 @@ lily_symtab *lily_new_symtab(lily_import_entry *builtin_import)
     symtab->generic_class = NULL;
     symtab->old_class_chain = NULL;
 
+    /* Builtin classes are established by this function. */
     lily_init_builtin_package(symtab, builtin_import);
 
     return symtab;
 }
 
-/*****************************************************************************/
-/* Symtab teardown                                                           */
-/*****************************************************************************/
-
-/** Symtab free-ing **/
-
-/*  free_vars
-    Free a given linked list of vars. */
 void free_vars(lily_symtab *symtab, lily_var *var)
 {
     lily_var *var_next;
@@ -310,8 +54,6 @@ void free_vars(lily_symtab *symtab, lily_var *var)
     }
 }
 
-/*  free_properties
-    Free property information associated with a given class. */
 static void free_properties(lily_symtab *symtab, lily_class *cls)
 {
     lily_prop_entry *prop_iter = cls->properties;
@@ -371,10 +113,8 @@ static void free_ties(lily_symtab *symtab, lily_tie *tie_iter)
     while (tie_iter) {
         tie_next = tie_iter->next;
         lily_class *tie_cls = tie_iter->type->cls;
-        /* Variants must be skipped, because their deref-er is a tuple deref-er.
-           This is bad, because variants that are created as literals do not
-           take inner values (and are represented as an integer). Everything
-           else? Yeah, blow it away. */
+        /* Don't call deref for variant types because they don't have anything
+           deref-able inside them (as of now). */
         if ((tie_cls->flags & CLS_IS_VARIANT) == 0)
             lily_deref_raw(tie_iter->type,
                     tie_iter->value);
@@ -384,9 +124,6 @@ static void free_ties(lily_symtab *symtab, lily_tie *tie_iter)
     }
 }
 
-/*  Destroy everything inside of the symtab. This happens after the vm is done
-    being torn down, so it is safe to blast literals, defined functions, types,
-    etc. */
 void lily_free_symtab(lily_symtab *symtab)
 {
     /* Ties have to come first because deref functions rely on type and class
@@ -411,20 +148,40 @@ void lily_free_symtab(lily_symtab *symtab)
     lily_free(main_function->reg_info);
     lily_free(main_function);
 
-    /* Symtab does not attempt to free 'foreign_ties'. This is because the vm
-       frees the foreign ties as it loads them (since there are so few).
-       Therefore, foreign_ties should always be NULL at this point. */
-
     lily_free(symtab);
 }
 
-/*****************************************************************************/
-/* Exported functions                                                        */
-/*****************************************************************************/
+/***
+ *      _     _ _                 _
+ *     | |   (_) |_ ___ _ __ __ _| |___
+ *     | |   | | __/ _ \ '__/ _` | / __|
+ *     | |___| | ||  __/ | | (_| | \__ \
+ *     |_____|_|\__\___|_|  \__,_|_|___/
+ *
+ */
 
-/* These next three are used to get a boolean, integer, double, or string
-   literal. They first look to see of the symtab has a literal with that value,
-   then attempt to create it if there isn't one. */
+/** These functions are used to grab a new literal value. Each getter will try
+    to get an existing literal of the given value before making a new one.
+    The only one of interest is the variant 'literal'. Some variants like the
+    None of an Option do not need a unique value. So, instead, they all share
+    a literal tagged as a None (but which is just an integer). **/
+
+static lily_tie *make_new_literal(lily_symtab *symtab, lily_class *cls)
+{
+    lily_tie *lit = lily_malloc(sizeof(lily_tie));
+
+    /* Literal values always have a default type, so this is safe. */
+    lit->type = cls->type;
+
+    lit->flags = ITEM_TYPE_TIE;
+    lit->reg_spot = symtab->next_readonly_spot;
+    symtab->next_readonly_spot++;
+
+    lit->next = symtab->literals;
+    symtab->literals = lit;
+
+    return lit;
+}
 
 lily_tie *lily_get_boolean_literal(lily_symtab *symtab, int64_t int_val)
 {
@@ -562,12 +319,6 @@ lily_tie *lily_get_bytestring_literal(lily_symtab *symtab,
     return ret;
 }
 
-/*  lily_get_variant_literal
-    This function is like the other literal getters, except that it's called
-    for empty variants. An empty variant will always be the same, so an empty
-    literal is passed around for the value.
-    Otherwise the interpreter would have to create a bunch of nothings with the
-    same value, and that would be rather silly. :) */
 lily_tie *lily_get_variant_literal(lily_symtab *symtab,
         lily_type *variant_type)
 {
@@ -591,6 +342,135 @@ lily_tie *lily_get_variant_literal(lily_symtab *symtab,
 
     return ret;
 }
+
+/***
+ *     __     __
+ *     \ \   / /_ _ _ __ ___
+ *      \ \ / / _` | '__/ __|
+ *       \ V / (_| | |  \__ \
+ *        \_/ \__,_|_|  |___/
+ *
+ */
+
+/** Symtab is responsible for creating vars. However, emitter is the one that
+    knows about register positions and where the var will go. So the symtab may
+    make the vars but it that's about it. **/
+
+/* This gets (up to) the first 8 bytes of a name and puts it into a numeric
+   value. The numeric value is compared before comparing names to speed things
+   up just a bit. */
+static uint64_t shorthash_for_name(const char *name)
+{
+    const char *ch = &name[0];
+    int i, shift;
+    uint64_t ret;
+    for (i = 0, shift = 0, ret = 0;
+         *ch != '\0' && i != 8;
+         ch++, i++, shift += 8) {
+        ret |= ((uint64_t)*ch) << shift;
+    }
+    return ret;
+}
+
+/* Create a new var, but leave it to the caller to link it somewhere. */
+lily_var *lily_new_raw_unlinked_var(lily_symtab *symtab, lily_type *type,
+        const char *name)
+{
+    lily_var *var = lily_malloc(sizeof(lily_var));
+
+    var->name = lily_malloc(strlen(name) + 1);
+    var->flags = ITEM_TYPE_VAR;
+    strcpy(var->name, name);
+    var->line_num = *symtab->lex_linenum;
+
+    var->shorthash = shorthash_for_name(name);
+    var->type = type;
+    var->next = NULL;
+    var->parent = NULL;
+
+    return var;
+}
+
+/* Create a new var that is immediately added to the current import. */
+lily_var *lily_new_raw_var(lily_symtab *symtab, lily_type *type,
+        const char *name)
+{
+    lily_var *var = lily_new_raw_unlinked_var(symtab, type, name);
+
+    var->next = symtab->active_import->var_chain;
+    symtab->active_import->var_chain = var;
+
+    return var;
+}
+
+static lily_var *find_var(lily_var *var_iter, char *name, uint64_t shorthash)
+{
+    while (var_iter != NULL) {
+        /* TODO: Emitter marks vars as being out of scope so that it can grab
+           their types later during function finalize. While that's fine, the
+           vars shouldn't be left for the symtab to have to jump over. */
+        if (var_iter->shorthash == shorthash &&
+            ((var_iter->flags & VAR_OUT_OF_SCOPE) == 0) &&
+            strcmp(var_iter->name, name) == 0) {
+
+            break;
+        }
+        var_iter = var_iter->next;
+    }
+
+    return var_iter;
+}
+
+/*  Attempt to locate a var. The semantics differ depending on if 'import' is
+    NULL or not.
+
+    import == NULL:
+        Search through the current import and the builtin import.
+    import != NULL:
+        Search only through the import given. */
+lily_var *lily_find_var(lily_symtab *symtab, lily_import_entry *import,
+        char *name)
+{
+    uint64_t shorthash = shorthash_for_name(name);
+    lily_var *result;
+
+    if (import == NULL) {
+        result = find_var(symtab->builtin_import->var_chain, name,
+                    shorthash);
+        if (result == NULL)
+            result = find_var(symtab->active_import->var_chain, name, shorthash);
+    }
+    else
+        result = find_var(import->var_chain, name, shorthash);
+
+    return result;
+}
+
+/*  lily_hide_block_vars
+    This function is called by emitter when a block goes out of scope. Vars
+    until 'var_stop' are now out of scope. But...don't delete them because the
+    emitter will need to know their type info later. */
+void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
+{
+    lily_var *var_iter = symtab->active_import->var_chain;
+    while (var_iter != var_stop) {
+        var_iter->flags |= VAR_OUT_OF_SCOPE;
+        var_iter = var_iter->next;
+    }
+}
+
+/***
+ *      _____ _
+ *     |_   _(_) ___  ___
+ *       | | | |/ _ \/ __|
+ *       | | | |  __/\__ \
+ *       |_| |_|\___||___/
+ *
+ */
+
+/** Ties are used to associate some piece of data with a register spot. The vm
+    is responsible for loading these ties into somewhere appropriate during the
+    next vm prep phase. **/
 
 static void tie_function(lily_symtab *symtab, lily_var *func_var,
         lily_function_val *func_val, lily_import_entry *import)
@@ -634,14 +514,150 @@ void lily_tie_value(lily_symtab *symtab, lily_var *var, lily_value *value)
     symtab->foreign_ties = tie;
 }
 
-/*  Attempt to locate a class. The semantics differ depending on if 'import' is
-    NULL or not.
+/***
+ *       ____ _
+ *      / ___| | __ _ ___ ___  ___  ___
+ *     | |   | |/ _` / __/ __|/ _ \/ __|
+ *     | |___| | (_| \__ \__ \  __/\__ \
+ *      \____|_|\__,_|___/___/\___||___/
+ *
+ */
 
-    import == NULL:
-        Search through the current import and the builtin import. If both of
-        those fail, then check for the name being a generic ('A', for example.
-    import != NULL:
-        Search only through the import given. */
+static lily_type *make_new_type(lily_class *);
+
+/* This creates a new class based off of a given seed. The name is copied over
+   from the seed given.
+   If the given class does not take generics, this will also set the default
+   type of the newly-made class. */
+lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
+{
+    lily_class_seed *class_seed = (lily_class_seed *)seed;
+    lily_class *new_class = lily_new_class(symtab, class_seed->name);
+    lily_type *type;
+
+    /* If a class doesn't take generics (or isn't the generic class), then
+        give it a default type.  */
+    if (class_seed->generic_count != 0)
+        type = NULL;
+    else {
+        /* A basic class? Make a quick default type for it. */
+        type = make_new_type(new_class);
+        new_class->type = type;
+        new_class->all_subtypes = type;
+    }
+
+    new_class->type = type;
+    new_class->is_builtin = 1;
+    new_class->generic_count = class_seed->generic_count;
+    new_class->gc_marker = class_seed->gc_marker;
+    new_class->flags = class_seed->flags;
+    new_class->is_refcounted = class_seed->is_refcounted;
+    new_class->eq_func = class_seed->eq_func;
+    new_class->destroy_func = class_seed->destroy_func;
+    new_class->import = symtab->active_import;
+    new_class->dynaload_table = class_seed->dynaload_table;
+
+    /* This is done so that the vm can & the flags of the class as a fast means
+       of determining if something is refcounted. */
+    if (new_class->is_refcounted == 0)
+        new_class->flags |= VAL_IS_PRIMITIVE;
+
+    return new_class;
+}
+
+/* This creates a new class entity. This entity is used for, well, more than it
+   should be. The entity is going to be either an enum, a variant, or a
+   user-defined class. The class is assumed to be refcounted, because it usually
+   is.
+   The new class is automatically linked up to the current import. No default
+   type is created, in case the newly-made class ends up needing generics. */
+lily_class *lily_new_class(lily_symtab *symtab, char *name)
+{
+    lily_class *new_class = lily_malloc(sizeof(lily_class));
+    char *name_copy = lily_malloc(strlen(name) + 1);
+
+    strcpy(name_copy, name);
+
+    new_class->flags = CLS_IS_CURRENT;
+    new_class->is_refcounted = 1;
+    new_class->is_builtin = 0;
+    new_class->type = NULL;
+    new_class->parent = NULL;
+    new_class->shorthash = shorthash_for_name(name);
+    new_class->name = name_copy;
+    new_class->generic_count = 0;
+    new_class->properties = NULL;
+    new_class->prop_count = 0;
+    new_class->dynaload_table = NULL;
+    new_class->call_chain = NULL;
+    new_class->variant_members = NULL;
+    new_class->gc_marker = NULL;
+    new_class->eq_func = NULL;
+    new_class->destroy_func = NULL;
+    new_class->import = symtab->active_import;
+    new_class->all_subtypes = NULL;
+
+    new_class->id = symtab->next_class_id;
+    symtab->next_class_id++;
+
+    new_class->next = symtab->active_import->class_chain;
+    symtab->active_import->class_chain = new_class;
+
+    return new_class;
+}
+
+/* This creates a new type but doesn't add it to the 'all_subtypes' field of the
+   given class (that's left for the caller to do). */
+static lily_type *make_new_type(lily_class *cls)
+{
+    lily_type *new_type = lily_malloc(sizeof(lily_type));
+    new_type->cls = cls;
+    new_type->flags = 0;
+    new_type->generic_pos = 0;
+    new_type->subtype_count = 0;
+    new_type->subtypes = NULL;
+    new_type->next = NULL;
+
+    return new_type;
+}
+
+static lily_type *lookup_generic(lily_symtab *symtab, const char *name)
+{
+    int id = name[0] - 'A';
+    lily_type *type_iter = symtab->generic_class->all_subtypes;
+
+    while (type_iter) {
+        if (type_iter->generic_pos == id) {
+            if (type_iter->flags & TYPE_HIDDEN_GENERIC)
+                type_iter = NULL;
+
+            break;
+        }
+
+        type_iter = type_iter->next;
+    }
+
+    return type_iter;
+}
+
+static lily_class *find_class(lily_class *class_iter, const char *name,
+        uint64_t shorthash)
+{
+    while (class_iter) {
+        if (class_iter->shorthash == shorthash &&
+            strcmp(class_iter->name, name) == 0)
+            break;
+
+        class_iter = class_iter->next;
+    }
+
+    return class_iter;
+}
+
+
+/* Try to find a class. If 'import' is NULL, then search through both the
+   current import AND the builtin import. In all other cases, search just the
+   import given. */
 lily_class *lily_find_class(lily_symtab *symtab, lily_import_entry *import,
         const char *name)
 {
@@ -678,9 +694,8 @@ lily_class *lily_find_class(lily_symtab *symtab, lily_import_entry *import,
     return result;
 }
 
-/*  lily_find_method
-    Check if a class has a given function within it. This does not attempt to do
-    any dynaloading (that's the parser's job). */
+/* Try to find a method within the class given. The given class is search first,
+   then any parents of the class. */
 lily_var *lily_find_method(lily_class *cls, char *name)
 {
     lily_var *iter;
@@ -697,10 +712,8 @@ lily_var *lily_find_method(lily_class *cls, char *name)
     return iter;
 }
 
-/*  lily_add_class_method
-    Add the given var to the methods of the given class. If the variable given
-    is the current global var, the symtab's linked list of vars moves to the
-    next var. */
+/* Add a var as a method to the current class. The var should be at the top of
+   whatever list it is in, since it is to be taken out of it's current list. */
 void lily_add_class_method(lily_symtab *symtab, lily_class *cls,
         lily_var *method_var)
 {
@@ -713,12 +726,8 @@ void lily_add_class_method(lily_symtab *symtab, lily_class *cls,
     cls->call_chain = method_var;
 }
 
-/*  lily_find_property
-    Attempt to find a property with the given name in the class. If the class
-    given inherits other classes, then they're checked too.
-
-    On success: A valid property entry is returned.
-    On failure: NULL is returned. */
+/* Try to find a property with a name in a class. The parent class(es), if any,
+   are tries as a fallback if unable to find it in the given class. */
 lily_prop_entry *lily_find_property(lily_class *cls, char *name)
 {
     lily_prop_entry *ret = NULL;
@@ -743,65 +752,32 @@ lily_prop_entry *lily_find_property(lily_class *cls, char *name)
     return ret;
 }
 
-lily_class *lily_find_scoped_variant(lily_class *enum_cls, char *name)
-{
-    int i;
-    uint64_t shorthash = shorthash_for_name(name);
-    lily_class *ret = NULL;
-
-    for (i = 0;i < enum_cls->variant_size;i++) {
-        lily_class *variant_cls = enum_cls->variant_members[i];
-        if (variant_cls->shorthash == shorthash &&
-            strcmp(variant_cls->name, name) == 0) {
-            ret = variant_cls;
-        }
-    }
-
-    return ret;
-}
-
-/*  Attempt to locate a var. The semantics differ depending on if 'import' is
-    NULL or not.
-
-    import == NULL:
-        Search through the current import and the builtin import.
-    import != NULL:
-        Search only through the import given. */
-lily_var *lily_find_var(lily_symtab *symtab, lily_import_entry *import,
+static lily_import_entry *find_import(lily_import_entry *import,
         char *name)
 {
-    uint64_t shorthash = shorthash_for_name(name);
-    lily_var *result;
+    lily_import_link *link_iter = import->import_chain;
+    lily_import_entry *result = NULL;
+    while (link_iter) {
+        char *as_name = link_iter->as_name;
+        char *loadname = link_iter->entry->loadname;
 
-    if (import == NULL) {
-        result = find_var(symtab->builtin_import->var_chain, name,
-                    shorthash);
-        if (result == NULL)
-            result = find_var(symtab->active_import->var_chain, name, shorthash);
+        /* If it was imported like 'import x as y', then as_name will be
+           non-null. In such a case, don't allow fallback access as 'x', just
+           in case something else is imported with the name 'x'. */
+        if ((as_name && strcmp(as_name, name) == 0) ||
+            (as_name == NULL && strcmp(loadname, name) == 0)) {
+            result = link_iter->entry;
+            break;
+        }
+
+        link_iter = link_iter->next_import;
     }
-    else
-        result = find_var(import->var_chain, name, shorthash);
 
     return result;
 }
 
-/*  lily_hide_block_vars
-    This function is called by emitter when a block goes out of scope. Vars
-    until 'var_stop' are now out of scope. But...don't delete them because the
-    emitter will need to know their type info later. */
-void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
-{
-    lily_var *var_iter = symtab->active_import->var_chain;
-    while (var_iter != var_stop) {
-        var_iter->flags |= VAR_OUT_OF_SCOPE;
-        var_iter = var_iter->next;
-    }
-}
-
-/*  lily_add_class_property
-    Add a new property to the property chain of a class.
-    On success: Returns the property, in case that's useful.
-    On failure: NULL is returned. */
+/* Create a new property and add it into the class. As a convenience, the
+   newly-made property is also returned. */
 lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
         lily_type *type, char *name, int flags)
 {
@@ -832,9 +808,8 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
     return entry;
 }
 
-/*  lily_finish_class
-    The given class is done. Determine if instances of it will need to have
-    gc entries made for them. */
+/* This is called when a class is being exited. It sets the various callbacks on
+   the class (mark, eq, and others). */
 void lily_finish_class(lily_symtab *symtab, lily_class *cls)
 {
     if ((cls->flags & CLS_IS_ENUM) == 0) {
@@ -873,6 +848,157 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
     }
 }
 
+/***
+ *      _____
+ *     | ____|_ __  _   _ _ __ ___  ___
+ *     |  _| | '_ \| | | | '_ ` _ \/ __|
+ *     | |___| | | | |_| | | | | | \__ \
+ *     |_____|_| |_|\__,_|_| |_| |_|___/
+ *
+ */
+
+/* This creates a new variant called 'name' and installs it into 'enum_cls'. */
+lily_class *lily_new_variant(lily_symtab *symtab, lily_class *enum_cls,
+        char *name)
+{
+    lily_class *cls = lily_new_class(symtab, name);
+
+    cls->flags |= CLS_IS_VARIANT | ITEM_TYPE_VARIANT;
+    cls->parent = enum_cls;
+
+    return cls;
+}
+
+/* Scoped variants are stored within the enum they're part of. This will try to
+   find a variant stored within 'enum_cls'. */
+lily_class *lily_find_scoped_variant(lily_class *enum_cls, char *name)
+{
+    int i;
+    uint64_t shorthash = shorthash_for_name(name);
+    lily_class *ret = NULL;
+
+    for (i = 0;i < enum_cls->variant_size;i++) {
+        lily_class *variant_cls = enum_cls->variant_members[i];
+        if (variant_cls->shorthash == shorthash &&
+            strcmp(variant_cls->name, name) == 0) {
+            ret = variant_cls;
+        }
+    }
+
+    return ret;
+}
+
+/* This is called when the body of a variant has been completely parsed. It's...
+   not that great. The 'variant_type' given should either be NULL or a function
+   that describes how to map from the inputs to the variant. Some callbacks are
+   also set on the variant type. */
+void lily_finish_variant(lily_symtab *symtab, lily_class *variant_cls,
+        lily_type *variant_type)
+{
+    if (variant_type->cls != symtab->function_class) {
+        variant_cls->variant_type = variant_type;
+        /* Empty variants are represented as integers, and won't need to be
+           marked through. */
+        variant_cls->eq_func = symtab->integer_class->eq_func;
+        variant_cls->is_refcounted = 0;
+    }
+    else {
+        variant_cls->variant_type = variant_type;
+        /* The only difference between a tuple and a variant with args is that
+           the variant has a variant type instead of a tuple one. */
+        variant_cls->gc_marker = symtab->tuple_class->gc_marker;
+        variant_cls->eq_func = symtab->tuple_class->eq_func;
+        variant_cls->destroy_func = symtab->tuple_class->destroy_func;
+    }
+}
+
+/* This is called when an enum class has finished scanning the variant members.
+   If the enum is to be scoped, then the enums are bound within it. This is also
+   where some callbacks are set on the enum (gc, eq, etc.) */
+void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
+        lily_type *enum_type)
+{
+    int i, variant_count = 0;
+    lily_class *class_iter = symtab->active_import->class_chain;
+    while (class_iter != enum_cls) {
+        variant_count++;
+        class_iter = class_iter->next;
+    }
+
+    lily_class **members = lily_malloc(variant_count * sizeof(lily_class *));
+
+    for (i = 0, class_iter = symtab->active_import->class_chain;
+         i < variant_count;
+         i++, class_iter = class_iter->next)
+        members[i] = class_iter;
+
+    enum_cls->variant_type = enum_type;
+    enum_cls->variant_members = members;
+    enum_cls->variant_size = variant_count;
+    enum_cls->flags |= CLS_IS_ENUM;
+    enum_cls->flags &= ~CLS_IS_CURRENT;
+    enum_cls->gc_marker = symtab->any_class->gc_marker;
+    enum_cls->eq_func = symtab->any_class->eq_func;
+    enum_cls->destroy_func = symtab->any_class->destroy_func;
+
+    if (is_scoped) {
+        enum_cls->flags |= CLS_ENUM_IS_SCOPED;
+        /* This removes the variants from symtab's classes, so that parser has
+           to get them from the enum. */
+        symtab->active_import->class_chain = enum_cls;
+    }
+}
+
+/***
+ *      _   _      _
+ *     | | | | ___| |_ __   ___ _ __ ___
+ *     | |_| |/ _ \ | '_ \ / _ \ '__/ __|
+ *     |  _  |  __/ | |_) |  __/ |  \__ \
+ *     |_| |_|\___|_| .__/ \___|_|  |___/
+ *                  |_|
+ */
+
+/* This checks if a package named 'name' has been imported anywhere at all. This
+   is used to prevent re-importing something that has already been imported (it
+   can just be linked). */
+lily_import_entry *lily_find_import_anywhere(lily_symtab *symtab,
+        char *name)
+{
+    lily_import_entry *entry_iter = symtab->builtin_import;
+
+    while (entry_iter) {
+        if (strcmp(entry_iter->loadname, name) == 0)
+            break;
+
+        entry_iter = entry_iter->root_next;
+    }
+
+    return entry_iter;
+}
+
+/* Try to find an import named 'name' within the given import. If the given
+   import is NULL, then both the current import AND the builtin import are
+   searched. */
+lily_import_entry *lily_find_import(lily_symtab *symtab,
+        lily_import_entry *import, char *name)
+{
+    lily_import_entry *result;
+    if (import == NULL) {
+        result = find_import(symtab->active_import,
+                name);
+        if (result == NULL)
+            result = find_import(symtab->builtin_import, name);
+    }
+    else
+        result = find_import(import, name);
+
+    return result;
+}
+
+
+/* This...is called to 'fix' how many generics are available in the current
+   class. As a 'neat' side-effect, it also sets how many generics that
+   'decl_class' has. */
 void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
         int count)
 {
@@ -908,104 +1034,7 @@ void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
         decl_class->generic_count = save_count;
 }
 
-/*  lily_add_variant
-    This adds a class to the symtab, marks it as a variant, and makes it a child
-    of the given enum.
-
-    The variant type of the class will be set when the parser has that info and
-    calls lily_finish_variant.
-
-    The newly-made variant is returned. */
-lily_class *lily_new_variant(lily_symtab *symtab, lily_class *enum_cls,
-        char *name)
-{
-    lily_class *cls = lily_new_class(symtab, name);
-
-    cls->flags |= CLS_IS_VARIANT | ITEM_TYPE_VARIANT;
-    cls->parent = enum_cls;
-
-    return cls;
-}
-
-/*  lily_finish_variant
-    This function is called when the parser has completed gathering information
-    about a given variant.
-
-    If the variant takes arguments, then variant_type is a function, and
-    describes the input(s) required, as well as an output that describes a
-    variant with any generics it needs.
-
-    Example:
-    ```
-    enum Option[A] {
-        Some(A)
-        None
-    }
-    ```
-    The 'variant_type' of Some is `function(A => Some(A))`.
-
-    If the variant does not take arguments, then variant_type is a simple type
-    which has the variant as the class. This type also happens to be the default
-    type.
-
-    Note: A variant's generic_count is set within parser, when the return of a
-          variant is calculated (assuming it takes arguments). */
-void lily_finish_variant(lily_symtab *symtab, lily_class *variant_cls,
-        lily_type *variant_type)
-{
-    if (variant_type->cls != symtab->function_class) {
-        variant_cls->variant_type = variant_type;
-        /* Empty variants are represented as integers, and won't need to be
-           marked through. */
-        variant_cls->eq_func = symtab->integer_class->eq_func;
-        variant_cls->is_refcounted = 0;
-    }
-    else {
-        variant_cls->variant_type = variant_type;
-        /* The only difference between a tuple and a variant with args is that
-           the variant has a variant type instead of a tuple one. */
-        variant_cls->gc_marker = symtab->tuple_class->gc_marker;
-        variant_cls->eq_func = symtab->tuple_class->eq_func;
-        variant_cls->destroy_func = symtab->tuple_class->destroy_func;
-    }
-}
-
-void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
-        lily_type *enum_type)
-{
-    int i, variant_count = 0;
-    lily_class *class_iter = symtab->active_import->class_chain;
-    while (class_iter != enum_cls) {
-        variant_count++;
-        class_iter = class_iter->next;
-    }
-
-    lily_class **members = lily_malloc(variant_count * sizeof(lily_class *));
-
-    for (i = 0, class_iter = symtab->active_import->class_chain;
-         i < variant_count;
-         i++, class_iter = class_iter->next)
-        members[i] = class_iter;
-
-    enum_cls->variant_type = enum_type;
-    enum_cls->variant_members = members;
-    enum_cls->variant_size = variant_count;
-    enum_cls->flags |= CLS_IS_ENUM;
-    enum_cls->flags &= ~CLS_IS_CURRENT;
-    enum_cls->gc_marker = symtab->any_class->gc_marker;
-    enum_cls->eq_func = symtab->any_class->eq_func;
-    enum_cls->destroy_func = symtab->any_class->destroy_func;
-
-    if (is_scoped) {
-        enum_cls->flags |= CLS_ENUM_IS_SCOPED;
-        /* This removes the variants from symtab's classes, so that parser has
-           to get them from the enum. */
-        symtab->active_import->class_chain = enum_cls;
-    }
-}
-
-/*  lily_change_parent_class
-    This marks the first class as being inherited by the second class. */
+/* This makes 'sub_class' have 'super_class' as a parent. */
 void lily_change_parent_class(lily_class *super_class, lily_class *sub_class)
 {
     sub_class->parent = super_class;
@@ -1014,42 +1043,4 @@ void lily_change_parent_class(lily_class *super_class, lily_class *sub_class)
        Subclass properties can safely start after superclass properties because
        of single inheritance. */
     sub_class->prop_count = super_class->prop_count;
-}
-
-lily_import_entry *lily_find_import_anywhere(lily_symtab *symtab,
-        char *name)
-{
-    lily_import_entry *entry_iter = symtab->builtin_import;
-
-    while (entry_iter) {
-        if (strcmp(entry_iter->loadname, name) == 0)
-            break;
-
-        entry_iter = entry_iter->root_next;
-    }
-
-    return entry_iter;
-}
-
-/*  Attempt to locate an import. The semantics differ depending on if 'import'
-    is NULL or not.
-
-    import == NULL:
-        Search through the current import and the builtin import.
-    import != NULL:
-        Search only through the import given. */
-lily_import_entry *lily_find_import(lily_symtab *symtab,
-        lily_import_entry *import, char *name)
-{
-    lily_import_entry *result;
-    if (import == NULL) {
-        result = find_import(symtab->active_import,
-                name);
-        if (result == NULL)
-            result = find_import(symtab->builtin_import, name);
-    }
-    else
-        result = find_import(import, name);
-
-    return result;
 }
