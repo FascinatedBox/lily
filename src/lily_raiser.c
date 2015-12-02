@@ -5,8 +5,8 @@
 #include "lily_raiser.h"
 #include "lily_seed.h"
 
-/* This is used by lily_name_for_error to get a printable name for an error
-   code. This is used by lily_fs to show what kind of error occured. */
+/* If the error raised is a code (and not a proper error), then this is used to
+   get a name for the error. */
 static const char *lily_error_names[] =
     {"Error", "SyntaxError", "DivisionByZeroError", "IndexError",
      "BadTypecastError", "ValueError", "RuntimeError", "KeyError",
@@ -46,8 +46,8 @@ void lily_free_raiser(lily_raiser *raiser)
     lily_free(raiser);
 }
 
-/* This will either allocate a new slot for a jump, or yield one that is
-   currently not being used. */
+/* This ensures that there is space for a jump for the caller. It will first try
+   to reuse a jump, then to allocate a new one. */
 lily_jump_link *lily_jump_setup(lily_raiser *raiser)
 {
     if (raiser->all_jumps->next)
@@ -65,33 +65,25 @@ lily_jump_link *lily_jump_setup(lily_raiser *raiser)
     return raiser->all_jumps;
 }
 
+/* Releases the jump provided by lily_jump_setup. */
 inline void lily_release_jump(lily_raiser *raiser)
 {
     raiser->all_jumps = raiser->all_jumps->prev;
 }
 
-/* This is used by vm as a means of restoring control to the previously held
-   jump. */
+/* This will execute a jump to the most recently-held jump. This should only be
+   called if an error has been set. */
 void lily_jump_back(lily_raiser *raiser)
 {
     raiser->all_jumps = raiser->all_jumps->prev;
     longjmp(raiser->all_jumps->jump, 1);
 }
 
-/* lily_raise
-   This stops the interpreter. error_code is one of the error codes defined in
-   lily_raiser.h, which are matched to lily_error_names. Every error passes
-   through here.
-   Instead of printing the message, this function saves the message so that
-   whatever runs the interpreter can choose what to do with it (ignoring it,
-   printing it to a special file, printing it to an application window, etc.) */
+/* This raises an error for the given 'error_code'. The vm will need to load a
+   proper exception for the code (or the raiser will die). */
 void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
 {
-    /* This is more important than whatever the msgbuf currently has. Blast the
-       current contents away. */
     lily_msgbuf_flush(raiser->msgbuf);
-    /* Clear out any value raised previously, since otherwise
-       lily_name_for_error will grab the name using that. */
     raiser->exception_type = NULL;
 
     va_list var_args;
@@ -99,23 +91,19 @@ void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
     lily_msgbuf_add_fmt_va(raiser->msgbuf, fmt, var_args);
     va_end(var_args);
 
-    raiser->exception_type = NULL;
     raiser->error_code = error_code;
     longjmp(raiser->all_jumps->jump, 1);
 }
 
-/* lily_raise_prebuilt
-   This is similar to lily_raise, except that the raiser's msgbuf has already
-   been prepared with the proper error message. */
+/* This raises an error when the msgbuf already has a message set. */
 void lily_raise_prebuilt(lily_raiser *raiser, int error_code)
 {
     raiser->error_code = error_code;
     longjmp(raiser->all_jumps->jump, 1);
 }
 
-/*  This is called by the vm to set a type and a message on the raiser, on
-    behalf of a loaded module. This function intentionally does not do the
-    longjmp, in case the module needs to do some cleanup. */
+/* This sets the message of the raiser's msgbuf, as well as a proper type for an
+   error. Nothing is raised (use lily_raise_prepared). */
 void lily_raiser_set_error(lily_raiser *raiser, lily_type *type,
         const char *msg)
 {
@@ -129,6 +117,7 @@ void lily_raise_prepared(lily_raiser *raiser)
     longjmp(raiser->all_jumps->jump, 1);
 }
 
+/* This will raise an error with a proper type and the given message. */
 void lily_raise_type_and_msg(lily_raiser *raiser, lily_type *type,
         const char *msg)
 {
@@ -139,6 +128,7 @@ void lily_raise_type_and_msg(lily_raiser *raiser, lily_type *type,
     longjmp(raiser->all_jumps->jump, 1);
 }
 
+/* This is called to raise a proper Lily value as an exception. */
 void lily_raise_value(lily_raiser *raiser, lily_value *v, const char *msg)
 {
     raiser->exception_value = v;
@@ -149,6 +139,7 @@ void lily_raise_value(lily_raiser *raiser, lily_value *v, const char *msg)
     longjmp(raiser->all_jumps->jump, 1);
 }
 
+/* This fetches the name of the currently-registered exception. */
 const char *lily_name_for_error(lily_raiser *raiser)
 {
     const char *result;
