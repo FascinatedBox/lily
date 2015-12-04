@@ -979,10 +979,7 @@ void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
     char *dest = &result->string[0];
     dest[to_copy] = '\0';
 
-    do {
-        *dest++ = *ch++;
-        to_copy--;
-    } while (to_copy);
+    strncpy(dest, ch, to_copy);
 
     lily_raw_value v = {.string = result};
     lily_move_raw_value(result_reg, v);
