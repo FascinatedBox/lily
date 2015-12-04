@@ -9,9 +9,6 @@
 
 #include "lily_cls_integer.h"
 
-/*  Implements boolean::to_i
-    This converts a boolean value to an integer. Boolean values are represented
-    as integers internally, so this only needs to shift the value over. */
 void lily_boolean_to_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -22,9 +19,6 @@ void lily_boolean_to_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     result_reg->flags = VAL_IS_PRIMITIVE;
 }
 
-/*  Implements boolean::to_s
-    This converts a boolean value to a string. The result will be either "true"
-    or "false". */
 void lily_boolean_to_s(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;

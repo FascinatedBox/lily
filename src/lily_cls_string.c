@@ -47,35 +47,6 @@ static lily_string_val *make_sv(lily_vm_state *vm, int size)
     return new_sv;
 }
 
-/*  lily_string_concat
-    Implements str::concat
-
-    Arguments:
-    * input: The base string.
-    * other: The string to add.
-
-    This creates a new string comprised of 'self' and 'other'. */
-void lily_string_concat(lily_vm_state *vm, uint16_t argc, uint16_t *code)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    lily_value *result_arg = vm_regs[code[0]];
-    lily_value *self_arg = vm_regs[code[1]];
-    lily_value *other_arg = vm_regs[code[2]];
-
-    lily_string_val *self_sv = self_arg->value.string;
-    lily_string_val *other_sv = other_arg->value.string;
-
-    int new_size = self_sv->size + other_sv->size + 1;
-    lily_string_val *new_sv = make_sv(vm, new_size);
-
-    char *new_str = new_sv->string;
-    strcpy(new_str, self_sv->string);
-    strcat(new_str, other_sv->string);
-
-    lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(result_arg, v);
-}
-
 #define CTYPE_WRAP(WRAP_NAME, WRAPPED_CALL) \
 void WRAP_NAME(lily_vm_state *vm, uint16_t argc, uint16_t *code) \
 { \
@@ -132,9 +103,184 @@ static const char follower_table[256] =
 /* F */ 4, 4, 4, 4, 4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
 };
 
-/*  lstrip_utf8_start
-    This is a helper for lstrip where input_arg's string has been checked to
-    hold at least one utf8 chunk. */
+void lily_string_concat(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *result_arg = vm_regs[code[0]];
+    lily_value *self_arg = vm_regs[code[1]];
+    lily_value *other_arg = vm_regs[code[2]];
+
+    lily_string_val *self_sv = self_arg->value.string;
+    lily_string_val *other_sv = other_arg->value.string;
+
+    int new_size = self_sv->size + other_sv->size + 1;
+    lily_string_val *new_sv = make_sv(vm, new_size);
+
+    char *new_str = new_sv->string;
+    strcpy(new_str, self_sv->string);
+    strcat(new_str, other_sv->string);
+
+    lily_raw_value v = {.string = new_sv};
+    lily_move_raw_value(result_arg, v);
+}
+
+void lily_string_endswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *input_arg = vm_regs[code[1]];
+    lily_value *suffix_arg = vm_regs[code[2]];
+    lily_value *result_arg = vm_regs[code[0]];
+
+    char *input_raw_str = input_arg->value.string->string;
+    char *suffix_raw_str = suffix_arg->value.string->string;
+    int input_size = input_arg->value.string->size;
+    int suffix_size = suffix_arg->value.string->size;
+
+    if (suffix_size > input_size) {
+        lily_raw_value v = {.integer = 0};
+        lily_move_raw_value(result_arg, v);
+        return;
+    }
+
+    int input_i, suffix_i, ok = 1;
+    for (input_i = input_size - 1, suffix_i = suffix_size - 1;
+         suffix_i > 0;
+         input_i--, suffix_i--) {
+        if (input_raw_str[input_i] != suffix_raw_str[suffix_i]) {
+            ok = 0;
+            break;
+        }
+    }
+
+    lily_raw_value v = {.integer = ok};
+    lily_move_raw_value(result_arg, v);
+}
+
+void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *input_arg = vm_regs[code[1]];
+    lily_value *find_arg = vm_regs[code[2]];
+    lily_value *result_arg = vm_regs[code[0]];
+
+    char *input_str = input_arg->value.string->string;
+    int input_length = input_arg->value.string->size;
+
+    char *find_str = find_arg->value.string->string;
+    int find_length = find_arg->value.string->size;
+
+    if (find_length > input_length) {
+        lily_raw_value v = {.integer = -1};
+        lily_move_raw_value(result_arg, v);
+        return;
+    }
+    else if (find_length == 0) {
+        lily_raw_value v = {.integer = 0};
+        lily_move_raw_value(result_arg, v);
+        return;
+    }
+
+    char find_ch;
+    int i, j, k, length_diff, match;
+
+    length_diff = input_length - find_length;
+    find_ch = find_str[0];
+    match = 0;
+
+    /* This stops at length_diff for two reasons:
+       * The inner loop won't have to do a boundary check.
+       * Search will stop if there isn't enough length left for a match
+         (ex: "abcdef".find("defg")) */
+    for (i = 0;i <= length_diff;i++) {
+        if (input_str[i] == find_ch) {
+            match = 1;
+            /* j starts at i + 1 to skip the first match.
+               k starts at 1 for the same reason. */
+            for (j = i + 1, k = 1;k < find_length;j++, k++) {
+                if (input_str[j] != find_str[k]) {
+                    match = 0;
+                    break;
+                }
+            }
+            if (match == 1)
+                break;
+        }
+    }
+
+    if (match == 0)
+        i = -1;
+
+    lily_raw_value v = {.integer = i};
+    lily_move_raw_value(result_arg, v);
+}
+
+void lily_string_format(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_process_format_string(vm, code);
+    char *buffer = vm->vm_buffer->message;
+    lily_value *result_arg = vm->vm_regs[code[0]];
+    lily_string_val *new_sv = make_sv(vm, strlen(buffer) + 1);
+
+    strcpy(new_sv->string, buffer);
+
+    lily_raw_value v = {.string = new_sv};
+    lily_move_raw_value(result_arg, v);
+}
+
+void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *input_arg = vm_regs[code[1]];
+    lily_value *result_arg = vm_regs[code[0]];
+
+    lily_msgbuf *vm_buffer = vm->vm_buffer;
+    lily_msgbuf_flush(vm_buffer);
+    int start = 0, stop = 0;
+    char *input_str = input_arg->value.string->string;
+    char *ch = &input_str[0];
+
+    while (1) {
+        if (*ch == '&') {
+            stop = (ch - input_str);
+            lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
+            lily_msgbuf_add(vm_buffer, "&amp;");
+            start = stop + 1;
+        }
+        else if (*ch == '<') {
+            stop = (ch - input_str);
+            lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
+            lily_msgbuf_add(vm_buffer, "&lt;");
+            start = stop + 1;
+        }
+        else if (*ch == '>') {
+            stop = (ch - input_str);
+            lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
+            lily_msgbuf_add(vm_buffer, "&gt;");
+            start = stop + 1;
+        }
+        else if (*ch == '\0')
+            break;
+
+        ch++;
+    }
+
+    lily_raw_value v;
+
+    /* If nothing was escaped, output what was input. */
+    if (start == 0)
+        v = (lily_raw_value){.string = input_arg->value.string};
+    else {
+        stop = (ch - input_str);
+        lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
+        lily_string_val *new_sv = make_sv(vm, strlen(vm_buffer->message) + 1);
+        strcpy(new_sv->string, vm_buffer->message);
+        v = (lily_raw_value){.string = new_sv};
+    }
+
+    lily_move_raw_value(result_arg, v);
+}
+
+/* This is a helper for lstrip wherein input_arg has some utf-8 bits inside. */
 static int lstrip_utf8_start(lily_value *input_arg, lily_string_val *strip_sv)
 {
     char *input_str = input_arg->value.string->string;
@@ -217,10 +363,7 @@ static int lstrip_utf8_start(lily_value *input_arg, lily_string_val *strip_sv)
     return i;
 }
 
-/*  lstrip_ascii_start
-    This is a helper for lstrip where input_arg's string has been checked to
-    hold no utf8 chunks. This does byte stripping, which is simpler than utf8
-    chunk check+strip. */
+/* This is a helper for lstrip wherein input_arg does not have utf-8. */
 static int lstrip_ascii_start(lily_value *input_arg, lily_string_val *strip_sv)
 {
     int i;
@@ -304,40 +447,35 @@ void lily_string_lstrip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(result_arg, v);
 }
 
-void lily_string_startswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_string_lower(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[1]];
-    lily_value *prefix_arg = vm_regs[code[2]];
     lily_value *result_arg = vm_regs[code[0]];
 
-    char *input_raw_str = input_arg->value.string->string;
-    char *prefix_raw_str = prefix_arg->value.string->string;
-    int prefix_size = prefix_arg->value.string->size;
+    int new_size = input_arg->value.string->size + 1;
+    lily_string_val *new_sv = make_sv(vm, new_size);
 
-    if (input_arg->value.string->size < prefix_size) {
-        lily_raw_value v = {.integer = 0};
-        lily_move_raw_value(result_arg, v);
-        return;
+    char *new_str = new_sv->string;
+    char *input_str = input_arg->value.string->string;
+    int input_length = input_arg->value.string->size;
+    int i;
+
+    for (i = 0;i < input_length;i++) {
+        char ch = input_str[i];
+        if (isupper(ch))
+            new_str[i] = tolower(ch);
+        else
+            new_str[i] = ch;
     }
+    new_str[input_length] = '\0';
 
-    int i, ok = 1;
-    for (i = 0;i < prefix_size;i++) {
-        if (input_raw_str[i] != prefix_raw_str[i]) {
-            ok = 0;
-            break;
-        }
-    }
-
-    lily_raw_value v = {.integer = ok};
+    lily_raw_value v = {.string = new_sv};
     lily_move_raw_value(result_arg, v);
 }
 
-/*  rstrip_utf8_stop
-    This is a helper for str's rstrip that handles the case where there are
-    no utf-8 chunks. This has a fast loop for stripping one byte, and a more
-    general one for stripping out different bytes.
-    This returns where string copying should stop at. */
+
+/* This is a helper for rstrip when there's no utf-8 in input_arg. */
 static int rstrip_ascii_stop(lily_value *input_arg, lily_string_val *strip_sv)
 {
     int i;
@@ -372,10 +510,7 @@ static int rstrip_ascii_stop(lily_value *input_arg, lily_string_val *strip_sv)
     return i + 1;
 }
 
-/*  rstrip_utf8_stop
-    This is a helper for str's rstrip that handles the case where the part to
-    remove has at least one utf-8 chunk inside of it.
-    This returns where string copying should stop at. */
+/* Helper for rstrip, for when there is some utf-8. */
 static int rstrip_utf8_stop(lily_value *input_arg, lily_string_val *strip_sv)
 {
     char *input_str = input_arg->value.string->string;
@@ -478,147 +613,32 @@ void lily_string_rstrip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(result_arg, v);
 }
 
-void lily_string_endswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_string_startswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[1]];
-    lily_value *suffix_arg = vm_regs[code[2]];
+    lily_value *prefix_arg = vm_regs[code[2]];
     lily_value *result_arg = vm_regs[code[0]];
 
     char *input_raw_str = input_arg->value.string->string;
-    char *suffix_raw_str = suffix_arg->value.string->string;
-    int input_size = input_arg->value.string->size;
-    int suffix_size = suffix_arg->value.string->size;
+    char *prefix_raw_str = prefix_arg->value.string->string;
+    int prefix_size = prefix_arg->value.string->size;
 
-    if (suffix_size > input_size) {
+    if (input_arg->value.string->size < prefix_size) {
         lily_raw_value v = {.integer = 0};
         lily_move_raw_value(result_arg, v);
         return;
     }
 
-    int input_i, suffix_i, ok = 1;
-    for (input_i = input_size - 1, suffix_i = suffix_size - 1;
-         suffix_i > 0;
-         input_i--, suffix_i--) {
-        if (input_raw_str[input_i] != suffix_raw_str[suffix_i]) {
+    int i, ok = 1;
+    for (i = 0;i < prefix_size;i++) {
+        if (input_raw_str[i] != prefix_raw_str[i]) {
             ok = 0;
             break;
         }
     }
 
     lily_raw_value v = {.integer = ok};
-    lily_move_raw_value(result_arg, v);
-}
-
-void lily_string_lower(lily_vm_state *vm, uint16_t argc, uint16_t *code)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[1]];
-    lily_value *result_arg = vm_regs[code[0]];
-
-    int new_size = input_arg->value.string->size + 1;
-    lily_string_val *new_sv = make_sv(vm, new_size);
-
-    char *new_str = new_sv->string;
-    char *input_str = input_arg->value.string->string;
-    int input_length = input_arg->value.string->size;
-    int i;
-
-    for (i = 0;i < input_length;i++) {
-        char ch = input_str[i];
-        if (isupper(ch))
-            new_str[i] = tolower(ch);
-        else
-            new_str[i] = ch;
-    }
-    new_str[input_length] = '\0';
-
-    lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(result_arg, v);
-}
-
-void lily_string_upper(lily_vm_state *vm, uint16_t argc, uint16_t *code)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[1]];
-    lily_value *result_arg = vm_regs[code[0]];
-
-    int new_size = input_arg->value.string->size + 1;
-    lily_string_val *new_sv = make_sv(vm, new_size);
-
-    char *new_str = new_sv->string;
-    char *input_str = input_arg->value.string->string;
-    int input_length = input_arg->value.string->size;
-    int i;
-
-    for (i = 0;i < input_length;i++) {
-        char ch = input_str[i];
-        if (islower(ch))
-            new_str[i] = toupper(ch);
-        else
-            new_str[i] = ch;
-    }
-    new_str[input_length] = '\0';
-
-    lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(result_arg, v);
-}
-
-void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[1]];
-    lily_value *find_arg = vm_regs[code[2]];
-    lily_value *result_arg = vm_regs[code[0]];
-
-    char *input_str = input_arg->value.string->string;
-    int input_length = input_arg->value.string->size;
-
-    char *find_str = find_arg->value.string->string;
-    int find_length = find_arg->value.string->size;
-
-    if (find_length > input_length) {
-        lily_raw_value v = {.integer = -1};
-        lily_move_raw_value(result_arg, v);
-        return;
-    }
-    else if (find_length == 0) {
-        lily_raw_value v = {.integer = 0};
-        lily_move_raw_value(result_arg, v);
-        return;
-    }
-
-    char find_ch;
-    int i, j, k, length_diff, match;
-
-    length_diff = input_length - find_length;
-    find_ch = find_str[0];
-    match = 0;
-
-    /* This stops at length_diff for two reasons:
-       * The inner loop won't have to do a boundary check.
-       * Search will stop if there isn't enough length left for a match
-         (ex: "abcdef".find("defg")) */
-    for (i = 0;i <= length_diff;i++) {
-        if (input_str[i] == find_ch) {
-            match = 1;
-            /* j starts at i + 1 to skip the first match.
-               k starts at 1 for the same reason. */
-            for (j = i + 1, k = 1;k < find_length;j++, k++) {
-                if (input_str[j] != find_str[k]) {
-                    match = 0;
-                    break;
-                }
-            }
-            if (match == 1)
-                break;
-        }
-    }
-
-    if (match == 0)
-        i = -1;
-
-    lily_raw_value v = {.integer = i};
     lily_move_raw_value(result_arg, v);
 }
 
@@ -673,129 +693,6 @@ void lily_string_strip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     char *new_str = new_sv->string;
     strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
     new_str[new_size - 1] = '\0';
-
-    lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(result_arg, v);
-}
-
-/*  lily_string_trim
-    Implements str::trim
-
-    Arguments:
-    * input: The string to be stripped.
-
-    This removes all whitespace from the front and the back of 'input'.
-    Whitespace is any of: ' \t\r\n'.
-
-    Returns the newly made string. */
-void lily_string_trim(lily_vm_state *vm, uint16_t argc, uint16_t *code)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[1]];
-    lily_value *result_arg = vm_regs[code[0]];
-
-    char fake_buffer[5] = " \t\r\n";
-    lily_string_val fake_sv;
-    fake_sv.string = fake_buffer;
-    fake_sv.size = strlen(fake_buffer);
-
-    int copy_from, copy_to;
-    copy_from = lstrip_ascii_start(input_arg, &fake_sv);
-    copy_to = rstrip_ascii_stop(input_arg, &fake_sv);
-
-    int new_size = (copy_to - copy_from) + 1;
-    lily_string_val *new_sv = make_sv(vm, new_size);
-
-    char *new_str = new_sv->string;
-
-    strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
-    new_str[new_size - 1] = '\0';
-
-    lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(result_arg, v);
-}
-
-/*  lily_string_htmlencode
-    Implements str::htmlencode
-
-    Arguments:
-    * input: The string to be encoded.
-
-    This transforms any html entities to their encoded versions:
-    < becomes &lt;
-    > becomes &gt;
-    & becomes &amp; */
-void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[1]];
-    lily_value *result_arg = vm_regs[code[0]];
-
-    lily_msgbuf *vm_buffer = vm->vm_buffer;
-    lily_msgbuf_flush(vm_buffer);
-    int start = 0, stop = 0;
-    char *input_str = input_arg->value.string->string;
-    char *ch = &input_str[0];
-
-    while (1) {
-        if (*ch == '&') {
-            stop = (ch - input_str);
-            lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
-            lily_msgbuf_add(vm_buffer, "&amp;");
-            start = stop + 1;
-        }
-        else if (*ch == '<') {
-            stop = (ch - input_str);
-            lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
-            lily_msgbuf_add(vm_buffer, "&lt;");
-            start = stop + 1;
-        }
-        else if (*ch == '>') {
-            stop = (ch - input_str);
-            lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
-            lily_msgbuf_add(vm_buffer, "&gt;");
-            start = stop + 1;
-        }
-        else if (*ch == '\0')
-            break;
-
-        ch++;
-    }
-
-    lily_raw_value v;
-
-    /* If nothing was escaped, output what was input. */
-    if (start == 0)
-        v = (lily_raw_value){.string = input_arg->value.string};
-    else {
-        stop = (ch - input_str);
-        lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
-        lily_string_val *new_sv = make_sv(vm, strlen(vm_buffer->message) + 1);
-        strcpy(new_sv->string, vm_buffer->message);
-        v = (lily_raw_value){.string = new_sv};
-    }
-
-    lily_move_raw_value(result_arg, v);
-}
-
-/*  lily_string_format
-    Implements string::format
-
-    Arguments:
-    * input: The format string, describing how to use the args given.
-    * args: The values to format.
-
-    This takes 'input' as a format string, and 'args' as the values to format.
-    The result is a string formatted appropriately. This is the same as the
-    builtin function 'printfmt' (except the result goes to a string). */
-void lily_string_format(lily_vm_state *vm, uint16_t argc, uint16_t *code)
-{
-    lily_process_format_string(vm, code);
-    char *buffer = vm->vm_buffer->message;
-    lily_value *result_arg = vm->vm_regs[code[0]];
-    lily_string_val *new_sv = make_sv(vm, strlen(buffer) + 1);
-
-    strcpy(new_sv->string, buffer);
 
     lily_raw_value v = {.string = new_sv};
     lily_move_raw_value(result_arg, v);
@@ -987,18 +884,66 @@ void lily_string_to_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(result_reg, v);
 }
 
-/*  This handles a subscript of a string. Lily assumes that strings will always
-    contain valid utf-8 and never have a \0 within them. As such, no
-    bounds-checking is performed.
+void lily_string_trim(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *input_arg = vm_regs[code[1]];
+    lily_value *result_arg = vm_regs[code[0]];
 
-    input_reg should be a valid string, and index_reg should be a valid integer.
-    String subscripting moves by utf-8 chars, not bytes.
+    char fake_buffer[5] = " \t\r\n";
+    lily_string_val fake_sv;
+    fake_sv.string = fake_buffer;
+    fake_sv.size = strlen(fake_buffer);
 
-    This will iterate through the input string by utf-8 chars, not by bytes. If
-    the given index is negative, it is treated as a distance (again in chars)
-    from the end of string (similar to what Python would do).
-    If the value given by index_reg is out-of-bounds, then ValueError is raised.
-    If it is not, then the entire utf-8 char shall be put into target_reg. */
+    int copy_from, copy_to;
+    copy_from = lstrip_ascii_start(input_arg, &fake_sv);
+    copy_to = rstrip_ascii_stop(input_arg, &fake_sv);
+
+    int new_size = (copy_to - copy_from) + 1;
+    lily_string_val *new_sv = make_sv(vm, new_size);
+
+    char *new_str = new_sv->string;
+
+    strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
+    new_str[new_size - 1] = '\0';
+
+    lily_raw_value v = {.string = new_sv};
+    lily_move_raw_value(result_arg, v);
+}
+
+void lily_string_upper(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *input_arg = vm_regs[code[1]];
+    lily_value *result_arg = vm_regs[code[0]];
+
+    int new_size = input_arg->value.string->size + 1;
+    lily_string_val *new_sv = make_sv(vm, new_size);
+
+    char *new_str = new_sv->string;
+    char *input_str = input_arg->value.string->string;
+    int input_length = input_arg->value.string->size;
+    int i;
+
+    for (i = 0;i < input_length;i++) {
+        char ch = input_str[i];
+        if (islower(ch))
+            new_str[i] = toupper(ch);
+        else
+            new_str[i] = ch;
+    }
+    new_str[input_length] = '\0';
+
+    lily_raw_value v = {.string = new_sv};
+    lily_move_raw_value(result_arg, v);
+}
+
+
+/* This handles a string subscript. The subscript may be negative (in which case
+   it is an offset against the end). This must check if the index given by
+   'index_reg' is a valid one.
+   This moves by utf-8 codepoints, not by bytes. The result is sent to
+   'result_reg', unless IndexError is raised. */
 void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
         lily_value *index_reg, lily_value *result_reg)
 {
@@ -1043,59 +988,59 @@ void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
     lily_move_raw_value(result_reg, v);
 }
 
-static const lily_func_seed to_i =
-    {NULL, "to_i", dyna_function, "(string):integer", lily_string_to_i};
+static const lily_func_seed concat =
+    {NULL, "concat", dyna_function, "(string, string):string", lily_string_concat};
 
-static const lily_func_seed split =
-    {&to_i, "split", dyna_function, "(string, *string):list[string]", lily_string_split};
+static const lily_func_seed endswith =
+    {&concat, "endswith", dyna_function, "(string, string):boolean", lily_string_endswith};
+
+static const lily_func_seed find =
+    {&endswith, "find", dyna_function, "(string, string):integer", lily_string_find};
 
 static const lily_func_seed format =
-    {&split, "format", dyna_function, "(string, any...):string", lily_string_format};
+    {&find, "format", dyna_function, "(string, any...):string", lily_string_format};
 
 static const lily_func_seed htmlencode =
     {&format, "htmlencode", dyna_function, "(string):string", lily_string_htmlencode};
 
-static const lily_func_seed trim =
-    {&htmlencode, "trim", dyna_function, "(string):string", lily_string_trim};
+static const lily_func_seed isalpha_fn =
+    {&htmlencode, "isalpha", dyna_function, "(string):boolean", lily_string_isalpha};
 
-static const lily_func_seed strip =
-    {&trim, "strip", dyna_function, "(string, string):string", lily_string_strip};
+static const lily_func_seed isdigit_fn =
+    {&isalpha_fn, "isdigit", dyna_function, "(string):boolean", lily_string_isdigit};
 
-static const lily_func_seed find =
-    {&strip, "find", dyna_function, "(string, string):integer", lily_string_find};
+static const lily_func_seed isalnum_fn =
+    {&isdigit_fn, "isalnum", dyna_function, "(string):boolean", lily_string_isalnum};
 
-static const lily_func_seed upper =
-    {&find, "upper", dyna_function, "(string):string", lily_string_upper};
+static const lily_func_seed isspace_fn =
+    {&isalnum_fn, "isspace", dyna_function, "(string):boolean", lily_string_isspace};
+
+static const lily_func_seed lstrip =
+    {&isspace_fn, "lstrip", dyna_function, "(string, string):string", lily_string_lstrip};
 
 static const lily_func_seed lower =
-    {&upper, "lower", dyna_function, "(string):string", lily_string_lower};
-
-static const lily_func_seed endswith =
-    {&lower, "endswith", dyna_function, "(string, string):boolean", lily_string_endswith};
+    {&lstrip, "lower", dyna_function, "(string):string", lily_string_lower};
 
 static const lily_func_seed rstrip =
-    {&endswith, "rstrip", dyna_function, "(string, string):string", lily_string_rstrip};
+    {&lower, "rstrip", dyna_function, "(string, string):string", lily_string_rstrip};
 
 static const lily_func_seed startswith =
     {&rstrip, "startswith", dyna_function, "(string, string):boolean", lily_string_startswith};
 
-static const lily_func_seed lstrip =
-    {&startswith, "lstrip", dyna_function, "(string, string):string", lily_string_lstrip};
+static const lily_func_seed split =
+    {&startswith, "split", dyna_function, "(string, *string):list[string]", lily_string_split};
 
-static const lily_func_seed isalnum_fn =
-    {&lstrip, "isalnum", dyna_function, "(string):boolean", lily_string_isalnum};
+static const lily_func_seed strip =
+    {&split, "strip", dyna_function, "(string, string):string", lily_string_strip};
 
-static const lily_func_seed isdigit_fn =
-    {&isalnum_fn, "isdigit", dyna_function, "(string):boolean", lily_string_isdigit};
+static const lily_func_seed to_i =
+    {&strip, "to_i", dyna_function, "(string):integer", lily_string_to_i};
 
-static const lily_func_seed isalpha_fn =
-    {&isdigit_fn, "isalpha", dyna_function, "(string):boolean", lily_string_isalpha};
-
-static const lily_func_seed isspace_fn =
-    {&isalpha_fn, "isspace", dyna_function, "(string):boolean", lily_string_isspace};
+static const lily_func_seed trim =
+    {&to_i, "trim", dyna_function, "(string):string", lily_string_trim};
 
 static const lily_func_seed dynaload_start =
-    {&isspace_fn, "concat", dyna_function, "(string, string):string", lily_string_concat};
+    {&trim, "upper", dyna_function, "(string):string", lily_string_upper};
 
 static const lily_class_seed string_seed =
 {

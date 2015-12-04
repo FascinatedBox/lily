@@ -10,14 +10,7 @@
 #include "lily_cls_any.h"
 #include "lily_cls_function.h"
 
-/*  lily_deref
-    This function will check that the value is refcounted and that it is not
-    nil/protected before giving it a deref. It is therefore safe to pass
-    anything to this function as long as it's not a NULL value.
-    If the value given falls to 0 refs, it is immediately destroyed, as well as
-    whatever is inside of it.
-
-    Note: This destroys the contents inside the value, NOT the value itself. */
+/* Check if the value given is deref-able. If so, hit it with a deref. */
 void lily_deref(lily_value *value)
 {
     if ((value->flags & VAL_IS_NOT_DEREFABLE) == 0) {
@@ -27,9 +20,8 @@ void lily_deref(lily_value *value)
     }
 }
 
-/*  lily_deref_raw
-    This is a helper function for lily_deref. This function calls lily_deref
-    with a proper value that has the given type and raw value inside. */
+/* This calls deref on the raw part of a value. This should not be used when a
+   proper value is available. */
 void lily_deref_raw(lily_type *type, lily_raw_value raw)
 {
     lily_value v;
@@ -51,10 +43,9 @@ inline lily_value *lily_new_value(uint64_t flags, lily_type *type,
     return v;
 }
 
-/*  lily_assign_value
-    This assigns the value on the left side to the value on the right side. Any
-    necessary ref/deref action is done. The flags and the value are copied over,
-    but not the type (as the type is usually already set). */
+/* Assign one value to another. The right may get a ref, and the left may get a
+   deref. Both sides are assumed to be equivalent type-wise (only value and
+   flags move over). */
 void lily_assign_value(lily_value *left, lily_value *right)
 {
     if ((right->flags & VAL_IS_NOT_DEREFABLE) == 0)
@@ -67,12 +58,9 @@ void lily_assign_value(lily_value *left, lily_value *right)
     left->flags = right->flags;
 }
 
-/*  lily_move_raw_value
-    Assign the value on the right side into the left side. Decrease the refcount
-    of the left side (if applicable), but do not increase the refcount of the
-    right side. This is useful in situations where the right side is a
-    newly-made value (which starts at one ref), and assign would falsely give it
-    two refs. */
+/* This puts a raw value into a proper value. The proper value may get a deref,
+   but the raw one will not. Use this to put newly-made raw values into a proper
+   value. */
 void lily_move_raw_value(lily_value *left, lily_raw_value raw_right)
 {
     if ((left->flags & VAL_IS_NOT_DEREFABLE) == 0)
@@ -82,10 +70,7 @@ void lily_move_raw_value(lily_value *left, lily_raw_value raw_right)
     left->flags = (left->type->cls->flags & VAL_IS_PRIMITIVE);
 }
 
-/*  lily_copy_value
-    Create a copy of the value passed in. If applicable, the refcount of the
-    value passed in is increased. The caller is responsible for putting the
-    returned value somewhere that the vm can see it. */
+/* Create a copy of a value. It may get a ref. */
 lily_value *lily_copy_value(lily_value *input)
 {
     if ((input->flags & VAL_IS_NOT_DEREFABLE) == 0)

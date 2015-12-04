@@ -25,8 +25,6 @@ static void resize_msgbuf(lily_msgbuf *msgbuf, int new_size)
     msgbuf->size = new_size;
 }
 
-/*  add_escaped_char
-    This adds the given */
 static void add_escaped_char(lily_msgbuf *msgbuf, char ch)
 {
     char buffer[16];
@@ -35,17 +33,8 @@ static void add_escaped_char(lily_msgbuf *msgbuf, char ch)
     lily_msgbuf_add(msgbuf, buffer);
 }
 
-/*  add_escaped_sized
-    This adds the string given into the msgbuf. The len is provided in case
-    'str' is part of a bytestring which has embedded \0 values.
-    This prints out a more readable version of the string given.
-
-    If is_bytestring is 1, then chars > 127 are replaced with numeric escapes
-    (\nnn) in case they are not valid utf-8.
-    If it is not 1, then chars > 127 are added directly, assuming they are valid
-    utf-8.
-
-    Non-printable characters are always replaced with numeric escapes. */
+/* Add a safe, escaped version of a given string to the msgbuf. A size is given
+   as well so that bytestrings may be sent. */
 static void add_escaped_sized(lily_msgbuf *msgbuf, int is_bytestring,
         const char *str, int len)
 {
@@ -117,14 +106,14 @@ void lily_msgbuf_add(lily_msgbuf *msgbuf, const char *str)
     msgbuf->pos += len;
 }
 
-/*  lily_msgbuf_escape_add_str
-    This is a convenience function for adding a safe, escaped version of the
-    given string to the msgbuf. */
+/* Add a safe version of a \0 terminated string to a buffer. */
 void lily_msgbuf_escape_add_str(lily_msgbuf *msgbuf, const char *str)
 {
     add_escaped_sized(msgbuf, 0, str, strlen(str));
 }
 
+/* Add a slice of text (start to stop) to the msgbuf. The slice does not need to
+   be \0 terminated. However, the result will be \0 terminated. */
 void lily_msgbuf_add_text_range(lily_msgbuf *msgbuf, const char *text,
         int start, int stop)
 {
@@ -303,8 +292,7 @@ void lily_msgbuf_add_value(lily_msgbuf *msgbuf, lily_value *v)
     do_add_value(msgbuf, NULL, v);
 }
 
-/*  lily_msgbuf_flush
-    This is called by to clear the contents of the given msgbuf. */
+/* This erases what the msgbuf currently holds. */
 void lily_msgbuf_flush(lily_msgbuf *msgbuf)
 {
     msgbuf->pos = 0;
@@ -378,11 +366,6 @@ void lily_msgbuf_add_type(lily_msgbuf *msgbuf, lily_type *type)
     }
 }
 
-/*  msgbuf_add_indent
-    msgbuf: The msgbuf to add the data to.
-    indent: The number if indents to add. "|    " is added for each indent.
-
-    This is used rather frequently for indenting by the debug part of Lily. */
 static void msgbuf_add_indent(lily_msgbuf *msgbuf, int indent)
 {
     int i;

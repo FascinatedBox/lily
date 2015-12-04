@@ -371,15 +371,8 @@ static void link_import_to(lily_import_entry *target,
     target->import_chain = new_link;
 }
 
-/*  fixup_import_basedir
-    This function is called to set the first import path to the path used by the
-    first file parsed (assuming a file parse mode. String parsing does not go
-    through this). This makes it so that imports will look first at the path of
-    the file imported, THEN relative to where the interpreter is.
-
-    Ex: ./lily test/pass/import/test_deep_access.lly
-
-    In such a case, test/pass/import/ is searched before '.' is searched. */
+/* This is called when the first file is loaded, and adds the path of the first
+   file to the imports. */
 static void fixup_import_basedir(lily_parse_state *parser, char *path)
 {
     char *search_str = strrchr(path, '/');
@@ -517,8 +510,6 @@ static int keyword_by_name(char *);
     Some types have no subtypes, and thus only need a single type to describe
     them. This type is their 'default type'. **/
 
-/*  grow_optarg_stack
-    Make the optstack holding type information bigger for more values. */
 static void grow_optarg_stack(lily_parse_state *parser)
 {
     parser->optarg_stack_size *= 2;
@@ -1185,9 +1176,9 @@ lily_class *lily_maybe_dynaload_class(lily_parse_state *parser,
     return cls;
 }
 
-/*  shorthash_for_name
-    Copied from symtab for keyword_by_name. This gives (up to) the first 8
-    bytes of the name as an int for doing fast comparisons. */
+/* This gets (up to) the first 8 bytes of a name and puts it into a numeric
+   value. The numeric value is compared before comparing names to speed things
+   up just a bit. */
 static uint64_t shorthash_for_name(const char *name)
 {
     const char *ch = &name[0];
@@ -1201,10 +1192,6 @@ static uint64_t shorthash_for_name(const char *name)
     return ret;
 }
 
-/*  keyword_by_name
-    Do a fast lookup through the keyword table to see if the name given is a
-    keyword. Returns -1 if not found, or something higher than that if the name
-    is a keyword. */
 static int keyword_by_name(char *name)
 {
     int i;

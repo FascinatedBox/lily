@@ -519,13 +519,10 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     lily_u16_push(emit->patches, emit->code_pos - offset);
 }
 
-/*  This function is called before the instruction needed for a 'continue',
-    'break', or 'return' is written. It walks backward from the current block to
-    count how many try blocks need to be offset. This lets the vm know that N
-    try blocks are no longer valid.
-
-    A stop block is necessary because 'continue' and 'break' will exit out of
-    the current loop, but 'return' exits from the entire define. */
+/* This is called before 'continue', 'break', or 'return' is written. It writes
+   the appropriate number of try+catch pop instructions to offset the movement.
+   A search is done from the current block down to 'stop_block' to find out how
+   many try pop's to write. */
 static void write_pop_try_blocks_up_to(lily_emit_state *emit,
         lily_block *stop_block)
 {
