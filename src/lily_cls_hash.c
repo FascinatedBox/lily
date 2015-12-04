@@ -19,10 +19,8 @@ lily_hash_val *lily_new_hash_val()
     return h;
 }
 
-/*  lily_hash_get_elem
-
-    Attempt to find 'key' within 'hash_val'. If an element is found, then it is
-    returned. If no element is found, then NULL is returned. */
+/* Attempt to find 'key' within 'hash_val'. If an element is found, then it is
+   returned. If no element is found, then NULL is returned. */
 lily_hash_elem *lily_hash_get_elem(lily_vm_state *vm, lily_hash_val *hash_val,
         lily_value *key)
 {
@@ -71,11 +69,9 @@ static inline void remove_key_check(lily_vm_state *vm, lily_hash_val *hash_val)
                 "Cannot remove key from hash during iteration.\n");
 }
 
-/*  hash_add_unique_nocopy
-
-    This adds a new element to the hash, with 'pair_key' and 'pair_value'
-    inside. The key and value are not given a refbump, and are not copied over.
-    For that, see lily_hash_add_unique. */
+/* This adds a new element to the hash, with 'pair_key' and 'pair_value' inside.
+   The key and value are not given a refbump, and are not copied over. For that,
+   see lily_hash_add_unique. */
 static void hash_add_unique_nocopy(lily_vm_state *vm, lily_hash_val *hash_val,
         lily_value *pair_key, lily_value *pair_value)
 {
@@ -97,12 +93,10 @@ static void hash_add_unique_nocopy(lily_vm_state *vm, lily_hash_val *hash_val,
     hash_val->num_elems++;
 }
 
-/*  lily_hash_add_unique
-
-    This function will add an element to the hash with 'pair_key' as the key and
-    'pair_value' as the value. This should only be used in cases where the
-    caller is completely certain that 'pair_key' is not within the hash. If the
-    caller is unsure, then lily_hash_set_elem should be used instead. */
+/* This function will add an element to the hash with 'pair_key' as the key and
+   'pair_value' as the value. This should only be used in cases where the
+   caller is completely certain that 'pair_key' is not within the hash. If the
+   caller is unsure, then lily_hash_set_elem should be used instead. */
 void lily_hash_add_unique(lily_vm_state *vm, lily_hash_val *hash_val,
         lily_value *pair_key, lily_value *pair_value)
 {
@@ -112,11 +106,9 @@ void lily_hash_add_unique(lily_vm_state *vm, lily_hash_val *hash_val,
     hash_add_unique_nocopy(vm, hash_val, pair_key, pair_value);
 }
 
-/*  lily_hash_set_elem
-
-    This attempts to find 'pair_key' within 'hash_val'. If successful, then
-    the element's value is assigned to 'pair_value'. If unable to find an
-    element, a new element is created using 'pair_key' and 'pair_value'. */
+/* This attempts to find 'pair_key' within 'hash_val'. If successful, then the
+   element's value is assigned to 'pair_value'. If unable to find an element, a
+   new element is created using 'pair_key' and 'pair_value'. */
 void lily_hash_set_elem(lily_vm_state *vm, lily_hash_val *hash_val,
         lily_value *pair_key, lily_value *pair_value)
 {
@@ -331,10 +323,6 @@ void lily_hash_get(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_assign_value(result, new_value);
 }
 
-/*  lily_hash_keys
-    Implements hash::keys
-
-    This function returns a list containing each key within the hash. */
 void lily_hash_keys(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -388,10 +376,6 @@ void lily_hash_delete(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 }
 
-/*  Implements hash::each_pair[A, B](hash[A, B], function(A, B))
-
-    This is fairly simple: It takes a function that takes both the key and the
-    value of a hash and calls it for each entry of the hash. */
 void lily_hash_each_pair(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;

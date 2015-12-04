@@ -196,10 +196,6 @@ void lily_list_push(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     list_val->extra_space--;
 }
 
-/*  Implements list::pop
-
-    This function attempts to take the last element out of the list and return
-    it. If the list is empty, then IndexError is raised. */
 void lily_list_pop(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -289,8 +285,6 @@ void lily_list_delete_at(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     list_val->extra_space++;
 }
 
-/*  Implements list::clear
-    This clears all the elements out of the list. */
 void lily_list_clear(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -306,12 +300,6 @@ void lily_list_clear(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     list_val->num_values = 0;
 }
 
-/*  Implements list::each
-
-    This function iterates over a list, calling a function on each element of
-    the list. The list that was sent to this function is returned at the end of
-    the call. The function called should not return a value, but that does not
-    prevent it from mutating the element. */
 void lily_list_each(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -330,10 +318,6 @@ void lily_list_each(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_assign_value(result_reg, list_reg);
 }
 
-/*  Implements list::each_index
-
-    This is similar to list::each, except that the calling function receives the
-    index instead of the element. */
 void lily_list_each_index(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -357,16 +341,6 @@ void lily_list_each_index(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_assign_value(result_reg, list_reg);
 }
 
-/*  Implement list::fill
-
-    Create a new list with a given value repeated 'n' times.
-
-    Arguments:
-    * n:         The number of times to repeat the value.
-    * to_repeat: The value used to fill the list.
-
-    Errors:
-    * if n < 0, ValueError is raised. */
 void lily_list_fill(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -396,12 +370,12 @@ void lily_list_fill(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lv->num_values = n;
 }
 
-/*  This function will take 'vm_list->pos - vm_list_start' elements out of the
-    vm's vm_list and move them into a newly-made list. vm_list->pos is then
-    rewound to vm_list_start.
-    This function assumes that values which are put into vm_list are copied (and
-    thus receive a refcount bump). This allows the new list to simply take
-    ownership of the values in the vm_list. */
+/* This function will take 'vm_list->pos - vm_list_start' elements out of the
+   vm's vm_list and move them into a newly-made list. vm_list->pos is then
+   rewound to vm_list_start.
+   This function assumes that values which are put into vm_list are copied (and
+   thus receive a refcount bump). This allows the new list to simply take
+   ownership of the values in the vm_list. */
 static void slice_vm_list(lily_vm_state *vm, int vm_list_start,
         lily_value *result_reg)
 {
@@ -455,11 +429,6 @@ static void list_select_reject_common(lily_vm_state *vm, uint16_t argc,
     slice_vm_list(vm, vm_list_start, result_reg);
 }
 
-/*  Implements list::count
-
-    This takes a predicate function, and calls it using each element of the
-    list. The result is a count of how many times the predicate function
-    returns true. */
 void lily_list_count(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -483,33 +452,16 @@ void lily_list_count(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(result_reg, (lily_raw_value){.integer = count});
 }
 
-/*  Implements list::select
-
-    Create a new list where all members of a list satisfy some predicate.
-
-    Arguments:
-    * f: A function taking A and returning boolean. */
 void lily_list_select(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     list_select_reject_common(vm, argc, code, 1);
 }
 
-/*  Implements list::reject
-
-    Create a new list where all members of a list do not satisfy a predicate.
-
-    Arguments:
-    * f: A function taking A and returning boolean. */
 void lily_list_reject(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     list_select_reject_common(vm, argc, code, 0);
 }
 
-/*  Implements list::map
-
-    This creates a new list that is a result of applying a transformation
-    function to an original list. This is VERY similar to both select and
-    reject, except that the list is carried over each time. */
 void lily_list_map(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -536,10 +488,6 @@ void lily_list_map(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     slice_vm_list(vm, vm_list_start, result_reg);
 }
 
-/*  Implements list::shift
-
-    This function attempts to take the first element out of the list and return
-    it. If the list is empty, then IndexError is raised. */
 void lily_list_shift(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -567,9 +515,6 @@ void lily_list_shift(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     list_val->extra_space++;
 }
 
-/*  Implements list::unshift
-
-    This function attempts to add an element to the beginning of a list. */
 void lily_list_unshift(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -589,12 +534,6 @@ void lily_list_unshift(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     list_val->extra_space--;
 }
 
-/*  Implements list::fold
-
-    This function combines all of the elements in a list using a given function.
-    The function will take two elements: One, the accumulated value so far, and
-    two, the next element in the list. The placement of the accumulated value is
-    intentional (Scala also places the accumulated value first). */
 void lily_list_fold(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;

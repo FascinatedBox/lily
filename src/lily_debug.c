@@ -105,8 +105,6 @@ static void write_msgbuf(lily_debug_state *debug)
     lily_msgbuf_flush(debug->msgbuf);
 }
 
-/*  show_simple_value
-    Show an boolean, integer, double, or string literal. */
 static void show_simple_value(lily_debug_state *debug, lily_type *type,
         lily_raw_value value)
 {
@@ -116,8 +114,6 @@ static void show_simple_value(lily_debug_state *debug, lily_type *type,
     write_msgbuf(debug);
 }
 
-/*  show_function
-    Show the name of a literal|function at the given position. */
 static void show_readonly(lily_debug_state *debug, int position)
 {
     lily_tie *tie = debug->vm->readonly_table[position];
@@ -148,9 +144,8 @@ static void show_readonly(lily_debug_state *debug, int position)
     }
 }
 
-/*  show_register_info
-    Show information about a given register which may or may not be a global.
-    This is called by show_code to print out what registers are being used. */
+/* Show a register spot, with flags being used to determine if the spot is
+   global or local (among other things). */
 static void show_register_info(lily_debug_state *debug, int flags, int reg_num)
 {
     lily_register_info reg_info;
@@ -189,9 +184,6 @@ static void show_register_info(lily_debug_state *debug, int flags, int reg_num)
     write_msgbuf(debug);
 }
 
-/*  show_code
-    Show the code inside of a function. This uses opcode_table and opcode_names
-    to assist in showing code information. */
 static void show_code(lily_debug_state *debug)
 {
     char format[5];
@@ -427,9 +419,6 @@ static void show_property(lily_debug_state *debug, lily_prop_entry *prop,
     debug->indent--;
 }
 
-/*  show_instance_helper
-    Recursively go through a given value, showing the properties that it
-    contains (as well as the class that each came from). */
 static void show_instance_helper(lily_debug_state *debug, lily_class *cls,
         lily_instance_val *ival, int depth)
 {
@@ -541,11 +530,6 @@ static void show_hash_value(lily_debug_state *debug, lily_type *type,
     hash_val->visited = 0;
 }
 
-/*  show_value
-    Recursively show a value given.
-    Each command should end with an extra '\n' in some way. This consistency is
-    important for making sure that any value sent to show results in the same
-    amount of \n's written after it. */
 static void show_value(lily_debug_state *debug, lily_value *value)
 {
     lily_type *type = value->type;
@@ -612,8 +596,7 @@ static void show_value(lily_debug_state *debug, lily_value *value)
 }
 
 /** API for lily_debug.c **/
-/*  lily_show_value
-    The vm calls this for values given to 'show'. */
+
 void lily_show_value(lily_vm_state *vm, lily_value *value)
 {
     lily_debug_state debug;

@@ -222,10 +222,8 @@ void lily_free_lex_state(lily_lex_state *lexer)
     lily_free(lexer);
 }
 
-/*  get_entry
-    Obtain a lily_lex_entry to be used for entering a string, file, or some
-    other source. The lexer retains a linked list of these, and attempts to
-    reuse them when it can. */
+/* Get an entry to hold the given filename. This attempts to use an unused one,
+   but makes a new one if needed. */
 static lily_lex_entry *get_entry(lily_lex_state *lexer, char *filename)
 {
     lily_lex_entry *ret_entry = NULL;
@@ -301,9 +299,8 @@ static lily_lex_entry *get_entry(lily_lex_state *lexer, char *filename)
     return ret_entry;
 }
 
-/*  setup_entry
-    This function is called after adding a new entry to the lexer. It handles
-    pulling up the first line into the lexer's buffer. */
+/* This reads the first line of 'new_entry'. If the mode given is tagged mode,
+   then it is checked for starting with '<?lily' here. */
 static void setup_entry(lily_lex_state *lexer, lily_lex_entry *new_entry,
         lily_lex_mode mode)
 {
@@ -326,10 +323,7 @@ static void setup_entry(lily_lex_state *lexer, lily_lex_entry *new_entry,
         new_entry->read_line_fn(new_entry);
 }
 
-/*  lily_pop_lex_entry
-    This is called by parser when an entry is to be removed from the current
-    listing of entries. If there is a previously available entry, then the state
-    of that entry is restored. */
+/* Remove the top-most entry. Restore state to what the previous entry held. */
 void lily_pop_lex_entry(lily_lex_state *lexer)
 {
     lily_lex_entry *entry = lexer->entry;
@@ -379,9 +373,7 @@ void lily_pop_lex_entry(lily_lex_state *lexer)
 
 /** file and str reading functions **/
 
-/*  file_read_line_fn
-    This is the function that scans in a line to input_buffer when the source
-    is a raw C FILE *. */
+/* This reads a line from a file-backed entry. */
 static int file_read_line_fn(lily_lex_entry *entry)
 {
     int bufsize, ch, i, ok;
@@ -452,11 +444,7 @@ static int file_read_line_fn(lily_lex_entry *entry)
     return ok;
 }
 
-/*  str_read_line_fn
-    This is the function that scans text into input_buffer when the source is
-    a string. The address of the string to start at is at entry->source. It's
-    much the same as file_read_line_fn, except that *ch and ch++ are
-    used instead of C's file IO. */
+/* This reads a line from a string-backed entry. */
 static int str_read_line_fn(lily_lex_entry *entry)
 {
     int bufsize, i, ok, utf8_check;
@@ -551,11 +539,8 @@ static void string_copy_close_fn(lily_lex_entry *entry)
 
 /** Scanning functions and helpers **/
 
-/*  scan_escape
-    This processes escape codes for scan_quoted. 'ch' starts at the '\' of the
-    escape.
-    'adjust' should only be set in the event that a non-simple escape is found
-    (an escape that takes more than on character). */
+/* This handles escape codes. 'ch' starts at the '\'. adjust is set to how much
+   adjustment there should be. The result is the escape char value. */
 static char scan_escape(lily_lex_state *lexer, char *ch, int *adjust)
 {
     char ret;
@@ -612,10 +597,6 @@ static char scan_escape(lily_lex_state *lexer, char *ch, int *adjust)
    scan_decimal takes an extra is_integer param because it may have an exponent
    which automatically meant it will yield a double result. */
 
-/* scan_exponent
-   This scans across the exponent of a decimal number to find where the end is.
-   Since the result will definitely be a double, no value calculation is done
-   (scan_number will handle it). */
 static void scan_exponent(lily_lex_state *lexer, int *pos, char *new_ch)
 {
     int num_pos = *pos + 1;
@@ -644,8 +625,6 @@ static void scan_exponent(lily_lex_state *lexer, int *pos, char *new_ch)
     *pos = num_pos;
 }
 
-/* scan_binary
-   Helper for scan_number. This handles binary numbers. */
 static uint64_t scan_binary(int *pos, char *ch)
 {
     uint64_t result = 0;
@@ -672,8 +651,6 @@ static uint64_t scan_binary(int *pos, char *ch)
     return result;
 }
 
-/* scan_octal
-   Helper for scan_number. This handles octal numbers. */
 static uint64_t scan_octal(int *pos, char *ch)
 {
     uint64_t result = 0;
@@ -700,10 +677,6 @@ static uint64_t scan_octal(int *pos, char *ch)
     return result;
 }
 
-/* scan_decimal
-   Helper for scan_number. This handles decimal numbers, including dots and
-   exponent values. This takes in is_integer because a dot or exponent will
-   make is_integer = 0. */
 static uint64_t scan_decimal(lily_lex_state *lexer, int *pos, int *is_integer,
         char *new_ch)
 {
@@ -754,8 +727,6 @@ static uint64_t scan_decimal(lily_lex_state *lexer, int *pos, int *is_integer,
     return result;
 }
 
-/* scan_hex
-   Helper for scan_number. This handles hex numbers. */
 static uint64_t scan_hex(int *pos, char *new_ch)
 {
     uint64_t result = 0;
@@ -792,11 +763,9 @@ static uint64_t scan_hex(int *pos, char *new_ch)
     return result;
 }
 
-/* scan_number
-   This handles all integer and double scanning within Lily. Updates the
-   position in lexer's input_buffer for lily_lexer. This also takes a pointer to
-   the lexer's token so it can update that (to either tk_double or
-   tk_integer). */
+/* This handles all numeric scanning. 'pos' is used as the starting spot. The
+   results are sent to 'tok' (which is set to either tk_integer or tk_double),
+   and 'new_ch' (which is set to the place to start scanning from next time). */
 static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
         char *new_ch)
 {
@@ -887,11 +856,6 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
     *pos = num_pos;
 }
 
-/*  scan_multiline_comment
-    Syntax: #[ ... ]#
-
-    This is called after the opening #[ has already been scanned in, and reads
-    to the closing ]#. This comment does not nest. */
 static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
 {
     int comment_pos, start_line;
@@ -942,12 +906,6 @@ static void ensure_lambda_data_size(lily_lex_state *lexer, int at_least)
     lexer->lambda_data_size = new_size;
 }
 
-/*  scan_quoted
-    This handles scanning of data in between double quotes.
-    " ... " are single-line only.
-    """ ... """ can be multi-line.
-    This will always result in a new literal being made and stored to lexer's
-    last_literal. This handles scooping up both bytestrings and strings. */
 static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
         int *is_multiline)
 {
@@ -1049,10 +1007,6 @@ static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
                 label_pos);
 }
 
-/*  scan_lambda
-    This is called when {| is found. The lexer is responsible for scooping up
-    text until the end of the lambda. This function should also ensure that a
-    proper number of braces are found. */
 static void scan_lambda(lily_lex_state *lexer, int *pos)
 {
     char *input = lexer->input_buffer;
@@ -1154,12 +1108,10 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
     *pos = input_pos + 1;
 }
 
-/*  lily_lexer_digit_rescan
-    The lexer doesn't have context, so it scanned '-1' or something like that
-    as a single value (negative 1 as a literal). But...parser was expecting a
-    binary value, so it should have really just been the digit value by itself.
-    A rescan is done because it will trap over/under-flows.
-    This should only be called by parser. */
+/* This is kinda awful. This is called when something like '1+1' was seen and it
+   was broken up as '1' and '+1'. But '+1' should really have been '+' and '1'.
+   This rescans the literal in case it's no longer valid (and is only a problem
+   for negative max). */
 void lily_lexer_digit_rescan(lily_lex_state *lexer)
 {
     /* Reset the scanning position to just after the '+' or '-' and try
@@ -1172,11 +1124,8 @@ void lily_lexer_digit_rescan(lily_lex_state *lexer)
 
 /** Lexer API **/
 
-/*  lily_grow_lexer_buffers
-    This is used to grow lexer->input_buffer. If it's the same size as
-    lexer->label, then both of them will be resized. By keeping lexer->label
-    the same size or more than lexer->input_buffer, the lexer does not have to
-    worry about an overflow when scanning in a label. */
+/* This grows the lexer's input_buffer and lexer's label. The two are kept in
+   sync so that labels can be copied over without size checking. */
 void lily_grow_lexer_buffers(lily_lex_state *lexer)
 {
     int new_size = lexer->input_size;
@@ -1202,11 +1151,9 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
     lexer->input_size = new_size;
 }
 
-/*  The loaders take the mode of the first file given to determine what the
-    mode should be. The mode is intentionally ignored for subsequent includes.
-    This is so that both tagged and untagged modes can import the same stuff.
-    This has the additional benefit of making it so that included files do not
-    have whitespace which sends the headers early. */
+/* The loaders use the first file loaded to determine what the mode should be.
+   Subsequent loads can only be in code mode. This prevents including something
+   that accidentally sends data, and lots of other problems. */
 
 static void setup_opened_file(lily_lex_state *lexer, lily_lex_mode mode,
         FILE *f, char *filename)
@@ -1230,12 +1177,8 @@ int lily_try_load_file(lily_lex_state *lexer, char *filename)
     return 1;
 }
 
-/*  lily_load_file
-    This function creates a new entry for the lexer based off a fopen-ing the
-    given path. This will call up the first line and ensure the lexer starts
-    after the <?lily block.
-
-    Note: If unable to open the given path, an error is raised. */
+/* This loads an initial file. If unable to open the path given, an error is
+   raised. */
 void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
 {
     FILE *load_file = fopen(filename, "r");
@@ -1246,10 +1189,7 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
     setup_opened_file(lexer, mode, load_file, filename);
 }
 
-/*  lily_load_str
-    This creates a new entry for the lexer that will use the given string as
-    the source. This calls up the first line, but doesn't do <?lily or ?>
-    because that seems silly. */
+/* This loads a string as an initial entry. A shallow copy of 'str' is kept. */
 void lily_load_str(lily_lex_state *lexer, char *name, lily_lex_mode mode, char *str)
 {
     lily_lex_entry *new_entry = get_entry(lexer, name);
@@ -1261,10 +1201,7 @@ void lily_load_str(lily_lex_state *lexer, char *name, lily_lex_mode mode, char *
     setup_entry(lexer, new_entry, mode);
 }
 
-/*  lily_load_copy_string
-    This is the same thing as lily_load_str, except that a copy of 'str' is
-    made. The lexer's teardown ensures that the copy of the string is deleted.
-    This should be used in cases where the given string may be mutated. */
+/* This loads a string as an entry, but does a deep copy of the string. */
 void lily_load_copy_string(lily_lex_state *lexer, char *name,
         lily_lex_mode mode, char *str)
 {
@@ -1282,9 +1219,7 @@ void lily_load_copy_string(lily_lex_state *lexer, char *name,
     setup_entry(lexer, new_entry, mode);
 }
 
-/* lily_lexer
-   This is the main scanning function. It sometimes farms work out to other
-   functions in the case of strings and numeric values. */
+/* Magic scanning function. */
 void lily_lexer(lily_lex_state *lexer)
 {
     char *ch_class;
@@ -1588,11 +1523,7 @@ void lily_lexer(lily_lex_state *lexer)
     }
 }
 
-/* lily_lexer_handle_page_data
-   This scans the html outside of the <?lily and ?> tags, sending it off to
-   lily_impl_puts (which differs depending on the runner). This is only called
-   when handling files (lily_lexer won't send the ?> end_tag token for
-   string-based scanning).*/
+/* This handles what's outside of <?lily ... ?>. */
 void lily_lexer_handle_page_data(lily_lex_state *lexer)
 {
     char c;
@@ -1651,9 +1582,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
     lexer->input_pos = lbp;
 }
 
-/* tokname
-   This function returns a printable name for a given token. This is mostly for
-   parser to be able to print the token when it has an unexpected token. */
+/* Give a printable name for a given token. Assumes only valid tokens. */
 char *tokname(lily_token t)
 {
     static char *toknames[] =

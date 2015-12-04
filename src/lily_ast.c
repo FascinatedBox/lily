@@ -40,8 +40,7 @@
       Again, the pool assumes that parser will use this correctly.
 **/
 
-/*  ACQUIRE_SPARE_TREE
-    This macro creates and initializes an extra tree with the name given. */
+/* Create + init an extra tree. */
 #define ACQUIRE_SPARE_TREE(spare) \
 lily_ast *spare; \
 spare = ap->available_current; \
@@ -53,9 +52,6 @@ spare->next_arg = NULL; \
 spare->line_num = *ap->lex_linenum; \
 spare->parent = a;
 
-/*  AST_COMMON_INIT
-    This macro does common initialization for all new asts. This doesn't set
-    result to NULL, because value trees set a result. */
 #define AST_COMMON_INIT(a, tt) \
 lily_ast *a; \
 a = ap->available_current; \
@@ -69,9 +65,6 @@ a->line_num = *ap->lex_linenum; \
 a->result_code_offset = 1; \
 a->parent = NULL;
 
-/*  AST_ENTERABLE_INIT
-    This macro does common initialization for trees that are meant to be
-    entered (and will collect args). */
 #define AST_ENTERABLE_INIT(a, tt) \
 AST_COMMON_INIT(a, tt) \
 a->args_collected = 0; \
@@ -180,8 +173,6 @@ void lily_free_ast_pool(lily_ast_pool *ap)
     lily_free(ap);
 }
 
-/*  lily_ast_reset_pool
-    Clear out old ast information for a new expression. */
 void lily_ast_reset_pool(lily_ast_pool *ap)
 {
     ap->root = NULL;
@@ -194,8 +185,6 @@ void lily_ast_reset_pool(lily_ast_pool *ap)
 /* Merging functions                                                          */
 /******************************************************************************/
 
-/*  merge_absorb
-    new_tree wishes to absorb the current tree as an argument. */
 static void merge_absorb(lily_ast_pool *ap, lily_ast *given, lily_ast *new_tree)
 {
     /* If the swallowed tree is active/root, become those. */
@@ -211,9 +200,6 @@ static void merge_absorb(lily_ast_pool *ap, lily_ast *given, lily_ast *new_tree)
     new_tree->next_arg = NULL;
 }
 
-/*  merge_unary
-    given is the top-most part of a unary expression. new_tree goes at the
-    bottom of it. */
 static void merge_unary(lily_ast_pool *ap, lily_ast *given, lily_ast *new_tree)
 {
     /* Unary ops are right to left, so newer trees go lower. Descend to find
@@ -236,10 +222,6 @@ static void merge_unary(lily_ast_pool *ap, lily_ast *given, lily_ast *new_tree)
     new_tree->parent = given;
 }
 
-/*  merge_value
-    Merge a new value against the current tree. This attempts to pick the right
-    merge to used based upon the current tree. In most cases, this picks the
-    correct tree. */
 static void merge_value(lily_ast_pool *ap, lily_ast *new_tree)
 {
     lily_ast *active = ap->active;
@@ -278,8 +260,6 @@ static void merge_value(lily_ast_pool *ap, lily_ast *new_tree)
 /* Helper functions                                                           */
 /******************************************************************************/
 
-/*  add_save_entry
-    Adds a new entry to the end of the pool's save entries. */
 static void add_save_entry(lily_ast_pool *ap)
 {
     lily_ast_save_entry *new_entry = lily_malloc(sizeof(lily_ast_save_entry));
@@ -299,8 +279,6 @@ static void add_save_entry(lily_ast_pool *ap)
     new_entry->next = NULL;
 }
 
-/*  add_new_tree
-    Add a new tree to the linked list of currently available trees. */
 static void add_new_tree(lily_ast_pool *ap)
 {
     lily_ast *new_tree = lily_malloc(sizeof(lily_ast));
@@ -310,8 +288,6 @@ static void add_new_tree(lily_ast_pool *ap)
     ap->available_current->next_tree = new_tree;
 }
 
-/*  priority_for_op
-    For binary: Determine the priority of the current op. */
 static int priority_for_op(lily_expr_op o)
 {
     int prio;
@@ -397,8 +373,6 @@ static void push_typecast_type(lily_ast_pool *ap, lily_type *type)
     merge_value(ap, a);
 }
 
-/*  push_tree_arg
-    This adds an 'arg' as the newest argument to the given entered tree. */
 static void push_tree_arg(lily_ast_pool *ap, lily_ast *entered_tree, lily_ast *arg)
 {
     /* This happens when the parser sees () and calls to collect an argument
@@ -426,9 +400,6 @@ static void push_tree_arg(lily_ast_pool *ap, lily_ast *entered_tree, lily_ast *a
 /* Exported functions                                                         */
 /******************************************************************************/
 
-/*  lily_ast_collect_arg
-    The current tree is an argument to whatever tree was saved last. Add it, then
-    reset for another tree. */
 void lily_ast_collect_arg(lily_ast_pool *ap)
 {
     lily_ast_save_entry *entry = ap->save_chain->prev;
@@ -440,8 +411,6 @@ void lily_ast_collect_arg(lily_ast_pool *ap)
     ap->active = NULL;
 }
 
-/*  lily_ast_enter_tree
-    This begins a subexpression that takes comma-separated arguments. */
 void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type)
 {
     AST_ENTERABLE_INIT(a, tree_type)
@@ -464,10 +433,6 @@ void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type)
     ap->active = NULL;
 }
 
-/*  lily_ast_leave_tree
-    This leaves the currently-entered tree. Parser is expected to check that
-    the right token was used to close the tree. The last tree is added as an
-    argument, but no type-checking is done (emitter does that). */
 void lily_ast_leave_tree(lily_ast_pool *ap)
 {
     lily_ast_save_entry *entry = ap->save_chain->prev;
@@ -481,14 +446,7 @@ void lily_ast_leave_tree(lily_ast_pool *ap)
     ap->save_depth--;
 }
 
-/*  lily_ast_get_saved_tree
-    This returns the tree that was last entered. This is used by parser to
-    determine if tk_arrow / tk_comma are valid.
-
-    ap: The ast pool that the parser is using.
-
-    Parser is responsible for ensuring that this is only called when the pool
-    has entered a tree (ap->save_index != 0) before calling this. */
+/* Get the tree that was entered last. */
 lily_ast *lily_ast_get_saved_tree(lily_ast_pool *ap)
 {
     return ap->save_chain->prev->entered_tree;

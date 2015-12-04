@@ -58,6 +58,18 @@ static void read_check(lily_vm_state *vm, lily_file_val *filev)
         lily_raise(vm->raiser, lily_IOError, "File not open for reading.\n");
 }
 
+void lily_file_close(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_file_val *filev = vm_regs[code[1]]->value.file;
+
+    if (filev->inner_file != NULL) {
+        fclose(filev->inner_file);
+        filev->inner_file = NULL;
+        filev->is_open = 0;
+    }
+}
+
 void lily_file_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -88,35 +100,7 @@ void lily_file_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(result_reg, v);
 }
 
-void lily_file_close(lily_vm_state *vm, uint16_t argc, uint16_t *code)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    lily_file_val *filev = vm_regs[code[1]]->value.file;
-
-    if (filev->inner_file != NULL) {
-        fclose(filev->inner_file);
-        filev->inner_file = NULL;
-        filev->is_open = 0;
-    }
-}
-
-void lily_file_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    lily_file_val *filev = vm_regs[code[1]]->value.file;
-    lily_value *to_write = vm_regs[code[2]];
-
-    write_check(vm, filev);
-
-    if (to_write->type->cls->id == SYM_CLASS_STRING)
-        fputs(to_write->value.string->string, filev->inner_file);
-    else {
-        lily_msgbuf *msgbuf = vm->vm_buffer;
-        lily_msgbuf_add_value(msgbuf, to_write);
-        fputs(msgbuf->message, filev->inner_file);
-        lily_msgbuf_flush(msgbuf);
-    }
-}
+void lily_file_write(lily_vm_state *, uint16_t, uint16_t *);
 
 void lily_file_print(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
@@ -186,20 +170,39 @@ void lily_file_readline(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(result_reg, v);
 }
 
-static const lily_func_seed file_readline =
-    {NULL, "readline", dyna_function, "(file):bytestring", lily_file_readline};
+void lily_file_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_file_val *filev = vm_regs[code[1]]->value.file;
+    lily_value *to_write = vm_regs[code[2]];
 
-static const lily_func_seed file_print =
-    {&file_readline, "print", dyna_function, "[A](file, A)", lily_file_print};
+    write_check(vm, filev);
 
-static const lily_func_seed file_write =
-    {&file_print, "write", dyna_function, "[A](file, A)", lily_file_write};
+    if (to_write->type->cls->id == SYM_CLASS_STRING)
+        fputs(to_write->value.string->string, filev->inner_file);
+    else {
+        lily_msgbuf *msgbuf = vm->vm_buffer;
+        lily_msgbuf_add_value(msgbuf, to_write);
+        fputs(msgbuf->message, filev->inner_file);
+        lily_msgbuf_flush(msgbuf);
+    }
+}
 
 static const lily_func_seed file_close =
-    {&file_write, "close", dyna_function, "(file)", lily_file_close};
+    {NULL, "close", dyna_function, "(file)", lily_file_close};
+
+static const lily_func_seed file_open =
+    {&file_close, "open", dyna_function, "(string, string):file", lily_file_open};
+
+static const lily_func_seed file_print =
+    {&file_open, "print", dyna_function, "[A](file, A)", lily_file_print};
+
+static const lily_func_seed file_readline =
+    {&file_print, "readline", dyna_function, "(file):bytestring", lily_file_readline};
 
 static const lily_func_seed dynaload_start =
-    {&file_close, "open", dyna_function, "(string, string):file", lily_file_open};
+    {&file_readline, "write", dyna_function, "[A](file, A)", lily_file_write};
+
 
 static const lily_class_seed file_seed =
 {

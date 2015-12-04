@@ -421,13 +421,9 @@ static lily_var *find_var(lily_var *var_iter, char *name, uint64_t shorthash)
     return var_iter;
 }
 
-/*  Attempt to locate a var. The semantics differ depending on if 'import' is
-    NULL or not.
-
-    import == NULL:
-        Search through the current import and the builtin import.
-    import != NULL:
-        Search only through the import given. */
+/* Try to find a var. If the given import is NULL, then search through both the
+   current and builtin imports. For everything else, just search through the
+   import given. */
 lily_var *lily_find_var(lily_symtab *symtab, lily_import_entry *import,
         char *name)
 {
@@ -446,10 +442,7 @@ lily_var *lily_find_var(lily_symtab *symtab, lily_import_entry *import,
     return result;
 }
 
-/*  lily_hide_block_vars
-    This function is called by emitter when a block goes out of scope. Vars
-    until 'var_stop' are now out of scope. But...don't delete them because the
-    emitter will need to know their type info later. */
+/* Hide all vars that occur until 'var_stop'. */
 void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
 {
     lily_var *var_iter = symtab->active_import->var_chain;

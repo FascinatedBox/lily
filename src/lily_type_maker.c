@@ -91,11 +91,8 @@ void lily_tm_set_circular(lily_class *cls)
     cls->flags |= CLS_ALWAYS_MARK;
 }
 
-/*  lookup_type
-    Determine if the current type exists in the symtab.
-
-    Success: The type from the symtab is returned.
-    Failure: NULL is returned. */
+/* Try to see if a type that describes 'input_type' already exists. If so,
+   return the existing type. If not, return NULL. */
 static lily_type *lookup_type(lily_type *input_type)
 {
     lily_type *iter_type = input_type->cls->all_subtypes;
@@ -126,9 +123,7 @@ static lily_type *lookup_type(lily_type *input_type)
     return ret;
 }
 
-/*  finalize_type
-    Determine if the given type is circular or unresolved. It's considered
-    either if it contains things that are either of those. */
+/* This does circularity marking and flag bubbling for a newly-made type. */
 static void finalize_type(lily_type *input_type)
 {
     int cls_flags = 0;
