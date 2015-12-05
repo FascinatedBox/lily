@@ -166,6 +166,8 @@ void lily_file_readline(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     new_sv->refcount = 1;
     new_sv->size = pos;
 
+    lily_msgbuf_flush(vm_buffer);
+
     lily_raw_value v = {.string = new_sv};
     lily_move_raw_value(result_reg, v);
 }
