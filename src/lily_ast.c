@@ -402,7 +402,7 @@ static void push_tree_arg(lily_ast_pool *ap, lily_ast *entered_tree, lily_ast *a
 
 void lily_ast_collect_arg(lily_ast_pool *ap)
 {
-    lily_ast_save_entry *entry = ap->save_chain->prev;
+    lily_ast_save_entry *entry = ap->save_chain;
 
     push_tree_arg(ap, entry->entered_tree, ap->root);
 
@@ -417,13 +417,16 @@ void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type)
 
     merge_value(ap, a);
 
-    /* Make it so ap->save_chain always points to a non-NULL entry, and that it
-       is always an unused one. This allows fast, simple access. */
     lily_ast_save_entry *save_entry = ap->save_chain;
-    if (save_entry->next == NULL)
-        add_save_entry(ap);
+    /* The entered tree is only NULL if it's not being used. */
+    if (save_entry->entered_tree != NULL) {
+        if (save_entry->next == NULL)
+            add_save_entry(ap);
 
-    ap->save_chain = save_entry->next;
+        ap->save_chain = ap->save_chain->next;
+        save_entry = ap->save_chain;
+    }
+
     save_entry->root_tree = ap->root;
     save_entry->active_tree = ap->active;
     save_entry->entered_tree = a;
@@ -435,21 +438,25 @@ void lily_ast_enter_tree(lily_ast_pool *ap, lily_tree_type tree_type)
 
 void lily_ast_leave_tree(lily_ast_pool *ap)
 {
-    lily_ast_save_entry *entry = ap->save_chain->prev;
+    lily_ast_save_entry *entry = ap->save_chain;
 
     push_tree_arg(ap, entry->entered_tree, ap->root);
 
     ap->root = entry->root_tree;
     ap->active = entry->active_tree;
 
-    ap->save_chain = entry;
+    if (ap->save_chain->prev == NULL)
+        ap->save_chain->entered_tree = NULL;
+    else
+        ap->save_chain = ap->save_chain->prev;
+
     ap->save_depth--;
 }
 
 /* Get the tree that was entered last. */
 lily_ast *lily_ast_get_saved_tree(lily_ast_pool *ap)
 {
-    return ap->save_chain->prev->entered_tree;
+    return ap->save_chain->entered_tree;
 }
 
 /*****************************************************************************/

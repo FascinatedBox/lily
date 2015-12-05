@@ -1,0 +1,6 @@
+#[
+SyntaxError: Cannot anonymously call resulting type 'list[function (A)]'.
+    from correct_dynaload_rewind.lly:6
+]#
+
+[print]("")

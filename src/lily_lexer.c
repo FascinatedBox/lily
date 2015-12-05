@@ -349,20 +349,18 @@ void lily_pop_lex_entry(lily_lex_state *lexer)
         /* lexer->label has almost certainly been overwritten with something
            else. Restore it by rolling back and calling for a rescan. */
         if (lexer->token == tk_word) {
-            int pos = lexer->input_pos - 1;
-            char ch = lexer->input_buffer[pos];
-            while (ident_table[(unsigned int)ch] && pos != 0) {
-                pos--;
-                ch = lexer->input_buffer[pos];
-            }
-            /* The rewinding stops on a non-identifier position if it isn't
-               zero. Move it forward one, or the lexer will yield the wrong
-               token. */
-            if (pos != 0)
-                pos++;
+            int end, pos;
+            end = pos = lexer->input_pos;
 
-            lexer->input_pos = pos;
-            lily_lexer(lexer);
+            do {
+                char ch = lexer->input_buffer[pos - 1];
+                if (ident_table[(unsigned int)ch] == 0)
+                    break;
+                pos--;
+            } while (pos);
+
+            strncpy(lexer->label, lexer->input_buffer + pos, end - pos);
+            lexer->label[(end - pos)] = '\0';
         }
     }
     else
