@@ -2,6 +2,10 @@ enum Option[A] {
     Some(A)
     None
 
+    define with_default[A](a: *integer = 0) : Option[A] {
+        return self
+    }
+
     define and_then[A](f: function(A => Option[A])) : Option[A] {
         match self: {
             case Some(s):
@@ -24,7 +28,9 @@ var v = Some(10)
 
 if 
     v.and_then({|a| Some(a * a)})
+     .with_default()
      .and_then({|a| Some(a * a)})
+     .with_default(1)
      .force()
     != 10000:
     stderr.print("Failed.")
