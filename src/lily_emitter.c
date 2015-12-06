@@ -3800,41 +3800,21 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
    variant into an enum using the generic information known. */
 static void box_call_variants(lily_emit_state *emit, lily_emit_call_state *cs)
 {
-    int num_args = cs->call_type->subtype_count - 1;
     int i;
     lily_sym *sym;
     int offset = emit->call_values_pos - cs->arg_count;
     uint32_t line_num = cs->ast->line_num;
 
-    if (cs->vararg_start != (uint16_t)-1)
-        num_args--;
-
-    for (i = 0;i != num_args;i++) {
+    /* get_expected_type will return the vararg type where it should. This
+       should just worry about fixing the args that were collected (some may be
+       'missing' because of defaults. */
+    for (i = 0;i != cs->arg_count;i++) {
         sym = emit->call_values[offset + i];
         if (sym->type->cls->flags & CLS_IS_VARIANT) {
             lily_type *enum_type = lily_ts_resolve(emit->ts,
                     get_expected_type(cs, i));
             sym = (lily_sym *)emit_rebox_sym(emit, enum_type, sym, line_num);
             emit->call_values[offset + i] = sym;
-        }
-    }
-
-    if (i != cs->arg_count &&
-        cs->vararg_elem_type->cls->flags & CLS_IS_ENUM &&
-        cs->vararg_elem_type->cls != emit->symtab->any_class) {
-        lily_type *solved_elem_type = lily_ts_resolve(emit->ts,
-                get_expected_type(cs, i));
-        for (;i != cs->arg_count;i++) {
-            sym = emit->call_values[offset + i];
-            /* This is called before the varargs are shoved into a list, so
-               looping over the args is fine.
-               Varargs is represented as a list of some type, so this next line
-               grabs the list, then what the list holds. */
-            if (sym->type->cls->flags & CLS_IS_VARIANT) {
-                sym = (lily_sym *)emit_rebox_sym(emit, solved_elem_type, sym,
-                        line_num);
-                emit->call_values[offset + i] = sym;
-            }
         }
     }
 }
