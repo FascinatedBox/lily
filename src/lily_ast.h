@@ -74,9 +74,8 @@ typedef struct lily_ast_ {
         lily_tie *literal;
         lily_prop_entry *property;
         lily_class *variant;
+        struct lily_ast_ *left;
     };
-
-    struct lily_ast_ *left;
 
     /* Nothing uses both of these at the same time. */
     union {
