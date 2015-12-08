@@ -7,6 +7,13 @@ class One(a: integer) { var @a = a  f() }
 class Two(a: integer, b: string) < One(a) { var @b = b }
 class Three(a: integer, b: string, c: list[integer]) < Two(a, b) { var @c = c }
 
+class AccessCheck {
+    define g {
+        AccessCheck::g(self)
+        self.g()
+    }
+}
+
 define assign_to_better {
     # The type is fixed by the first assignment, but assignments that have
     # 'better', more capable types should succeed.
