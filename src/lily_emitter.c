@@ -2531,6 +2531,13 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
     if (var == NULL)
         var = lily_parser_dynamic_load(emit->parser, lookup_class, oo_name);
 
+    /* Is this a method that just hasn't been added to the method table yet? */
+    if (var == NULL) {
+        var = lily_find_var(emit->symtab, emit->symtab->active_import, oo_name);
+        if (var && var->parent != lookup_class)
+            var = NULL;
+    }
+
     if (var == NULL) {
         lily_prop_entry *prop = lily_find_property(lookup_class, oo_name);
 
