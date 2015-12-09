@@ -448,20 +448,28 @@ void lily_emit_write_optargs(lily_emit_state *emit, uint16_t *reg_spots,
 /* This function writes the code necessary to get a for <var> in x...y style
    loop to work. */
 void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
-        lily_var *for_start, lily_var *for_end, lily_var *for_step,
+        lily_var *for_start, lily_var *for_end, lily_sym *for_step,
         int line_num)
 {
     lily_class *cls = emit->symtab->integer_class;
 
-    int have_step = (for_step != NULL);
-    if (have_step == 0)
-        for_step = lily_emit_new_scoped_var(emit, cls->type, "(for step)");
+    /* If no step is provided, provide '1' as a step. */
+    if (for_step == NULL) {
+        lily_tie *integer_lit = lily_get_integer_literal(emit->symtab, 1);
+        for_step = (lily_sym *)lily_emit_new_scoped_var(emit, cls->type,
+                "(for step)");
+        write_4(emit, o_get_readonly, line_num, integer_lit->reg_spot,
+                for_step->reg_spot);
+    }
 
     lily_sym *target;
-    /* Global vars cannot be used directly, because o_for_setup and
-       o_integer_for expect local registers. */
     if (user_loop_var->function_depth == 1)
-        target = (lily_sym *)get_storage(emit, user_loop_var->type);
+        /* DO NOT use a storage here. Global operations are equivalent to local
+           operations when in just __main__. Besides, a storage would almost
+           certainly be repurposed. At the writing of this comment, there is no
+           way to lock a storage to prevent other uses of it. */
+        target = (lily_sym *)lily_emit_new_scoped_var(emit, cls->type,
+                "(for temp)");
     else
         target = (lily_sym *)user_loop_var;
 
@@ -473,7 +481,7 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     emit->code[emit->code_pos+4] = for_end->reg_spot;
     emit->code[emit->code_pos+5] = for_step->reg_spot;
     /* This value is used to determine if the step needs to be calculated. */
-    emit->code[emit->code_pos+6] = !have_step;
+    emit->code[emit->code_pos+6] = 0;
 
     if (target != (lily_sym *)user_loop_var) {
         emit->code[emit->code_pos+7] = o_set_global;
@@ -485,30 +493,24 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     /* for..in is entered right after 'for' is seen. However, range values can
        be expressions. This needs to be fixed, or the loop will jump back up to
        re-eval those expressions. */
-    emit->block->loop_start = emit->code_pos+9;
+    emit->block->loop_start = emit->code_pos+7;
 
-    /* Write a jump to the inside of the loop. This prevents the value from
-       being incremented before being seen by the inside of the loop. */
-    emit->code[emit->code_pos+7] = o_jump;
-    emit->code[emit->code_pos+8] =
-            (emit->code_pos - emit->block->jump_offset) + 16;
-
-    emit->code[emit->code_pos+9] = o_integer_for;
-    emit->code[emit->code_pos+10] = line_num;
-    emit->code[emit->code_pos+11] = target->reg_spot;
-    emit->code[emit->code_pos+12] = for_start->reg_spot;
-    emit->code[emit->code_pos+13] = for_end->reg_spot;
-    emit->code[emit->code_pos+14] = for_step->reg_spot;
-    emit->code[emit->code_pos+15] = 0;
+    emit->code[emit->code_pos+7] = o_integer_for;
+    emit->code[emit->code_pos+8] = line_num;
+    emit->code[emit->code_pos+9] = target->reg_spot;
+    emit->code[emit->code_pos+10] = for_start->reg_spot;
+    emit->code[emit->code_pos+11] = for_end->reg_spot;
+    emit->code[emit->code_pos+12] = for_step->reg_spot;
+    emit->code[emit->code_pos+13] = 0;
     if (target != (lily_sym *)user_loop_var) {
-        emit->code[emit->code_pos+16] = o_set_global;
-        emit->code[emit->code_pos+17] = line_num;
-        emit->code[emit->code_pos+18] = target->reg_spot;
-        emit->code[emit->code_pos+19] = user_loop_var->reg_spot;
+        emit->code[emit->code_pos+14] = o_set_global;
+        emit->code[emit->code_pos+15] = line_num;
+        emit->code[emit->code_pos+16] = target->reg_spot;
+        emit->code[emit->code_pos+17] = user_loop_var->reg_spot;
         emit->code_pos += 4;
     }
 
-    emit->code_pos += 16;
+    emit->code_pos += 14;
 
     int offset;
     if (target == (lily_sym *)user_loop_var)

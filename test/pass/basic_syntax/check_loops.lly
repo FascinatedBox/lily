@@ -30,10 +30,6 @@ for i in 1...10: { }
 if i != 10:
     stderr.print("for i in 1...10 did not end with i at 10.")
 
-for i in 10...1: { }
-if i != 1:
-    stderr.print("for i in 10...1 did not end with i at 1.")
-
 var intlist = [0, 0, 0, 0, 0, 0]
 for i in 1...5 by 2:
     intlist[i] = 1

@@ -2383,17 +2383,18 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 2 + code[code_pos + 1];
                 break;
             case o_integer_for:
+                /* loop_reg is an internal counter, while lhs_reg is an external
+                   counter. rhs_reg is the stopping point. */
                 loop_reg = vm_regs[code[code_pos+2]];
-                /* lhs is the start, and also incremented. This is done so that
-                   user assignments cannot cause the loop to leave early. This
-                   may be changed in the future.
-                   rhs is the stop value. */
                 lhs_reg  = vm_regs[code[code_pos+3]];
                 rhs_reg  = vm_regs[code[code_pos+4]];
                 step_reg = vm_regs[code[code_pos+5]];
 
-                for_temp = lhs_reg->value.integer + step_reg->value.integer;
-                /* Copied from Lua's for loop. */
+                /* Note the use of the loop_reg. This makes it use the internal
+                   counter, and thus prevent user assignments from damaging the loop. */
+                for_temp = loop_reg->value.integer + step_reg->value.integer;
+
+                /* This idea comes from seeing Lua do something similar. */
                 if ((step_reg->value.integer > 0)
                         /* Positive bound check */
                         ? (for_temp <= rhs_reg->value.integer)
@@ -2501,22 +2502,13 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg = vm_regs[code[code_pos+3]];
                 rhs_reg = vm_regs[code[code_pos+4]];
 
-                /* +6 is used to indicate if the step needs to be generated, or
-                   if it's already calculated. */
-                if (code[code_pos+6] == 1) {
-                    if (lhs_reg->value.integer <= rhs_reg->value.integer)
-                        step_reg->value.integer = +1;
-                    else
-                        step_reg->value.integer = -1;
-
-                    step_reg->flags = VAL_IS_PRIMITIVE;
-                }
-                else if (step_reg->value.integer == 0) {
+                if (step_reg->value.integer == 0)
                     lily_raise(vm->raiser, lily_ValueError,
                                "for loop step cannot be 0.\n");
-                }
 
-                loop_reg->value.integer = lhs_reg->value.integer;
+                /* Do a negative step to offset falling into o_for_loop. */
+                loop_reg->value.integer =
+                        lhs_reg->value.integer - step_reg->value.integer;
                 loop_reg->flags = VAL_IS_PRIMITIVE;
 
                 code_pos += 7;
