@@ -2586,7 +2586,8 @@ static void for_handler(lily_parse_state *parser, int multi)
 
     lily_lexer(lex);
 
-    lily_var *for_start, *for_end, *for_step;
+    lily_var *for_start, *for_end;
+    lily_sym *for_step;
 
     for_start = parse_for_range_value(parser, "(for start)");
 
@@ -2601,7 +2602,7 @@ static void for_handler(lily_parse_state *parser, int multi)
                        "Expected 'by', not '%s'.\n", lex->label);
 
         lily_lexer(lex);
-        for_step = parse_for_range_value(parser, "(for step)");
+        for_step = (lily_sym *)parse_for_range_value(parser, "(for step)");
     }
     else
         for_step = NULL;

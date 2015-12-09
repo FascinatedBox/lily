@@ -67,25 +67,43 @@ Lily's for loop is rather simple compared to other interpreted languages. It cur
 
 ```
 for i in 0...10:
-    printfmt("i is %d.\n", i)
+    printfmt("i is %d.\n", i) # prints 0 to 10, inclusive.
 ```
 
-By default, Lily will choose a step that goes in the appropriate direction: Either -1 each time, or +1 each time. You can also use an existing var for the loop increment as well:
+A step can be provided, but is not required. If no step is provided, then Lily uses the value `1` (such as in the above example.
 
 ```
-var i = 0
-var a = []
-for i in 0...10:
-    a.push(i)
-
-printfmt("i is now %d.\n", i)
+for i in -8...-2 by -2:
+    print(i) # prints -8, -6, -4, -2
 ```
 
-Alternatively, a step can be provided:
+The increment variable can also be an existing value. In such a case, the existing value is overwritten with each pass. The increment variable's value will be the last value within the range:
 
 ```
-for i in 0...10 by 2:
+var i = 10
+
+for i in 1...3:
     ...
+
+print(i) # prints 3
+```
+
+Some other bits to note:
+
+```
+for j in 1...1:
+    ... # This will run, but only once.
+
+for j in 10...0:
+    ... # This does nothing.
+
+# { ... } means the `for` allows multiple expressions.
+
+for i in 0...5: {
+    expr1
+    expr2
+    expr...
+}
 ```
 
 Lily also supports `try`+`except` as well as `match` upon abstract data types. However, both of those features will be discussed in later sections.
