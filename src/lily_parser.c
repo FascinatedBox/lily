@@ -1619,7 +1619,10 @@ static void expression_raw(lily_parse_state *parser, int state)
         int expr_op = parser_tok_table[lex->token].expr_op;
         if (lex->token == tk_word) {
             if (state == ST_WANT_OPERATOR)
-                state = ST_DONE;
+                if (parser->ast_pool->save_depth == 0)
+                    state = ST_DONE;
+                else
+                    state = ST_BAD_TOKEN;
             else
                 expression_word(parser, &state);
         }
