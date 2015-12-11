@@ -184,9 +184,9 @@ void lily_file_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         fputs(to_write->value.string->string, filev->inner_file);
     else {
         lily_msgbuf *msgbuf = vm->vm_buffer;
+        lily_msgbuf_flush(msgbuf);
         lily_msgbuf_add_value(msgbuf, to_write);
         fputs(msgbuf->message, filev->inner_file);
-        lily_msgbuf_flush(msgbuf);
     }
 }
 
