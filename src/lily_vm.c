@@ -742,9 +742,9 @@ void lily_builtin_print(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         lily_impl_puts(vm->data, reg->value.string->string);
     else {
         lily_msgbuf *msgbuf = vm->vm_buffer;
+        lily_msgbuf_flush(msgbuf);
         lily_msgbuf_add_value(msgbuf, reg);
         lily_impl_puts(vm->data, msgbuf->message);
-        lily_msgbuf_flush(msgbuf);
     }
 
     lily_impl_puts(vm->data, "\n");
@@ -824,7 +824,6 @@ void lily_builtin_printfmt(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_process_format_string(vm, code);
     lily_impl_puts(vm->data, vm->vm_buffer->message);
-    lily_msgbuf_flush(vm->vm_buffer);
 }
 
 /***
