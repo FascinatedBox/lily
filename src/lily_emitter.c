@@ -2375,7 +2375,7 @@ static int type_matchup(lily_emit_state *emit, lily_type *want_type,
 {
     int ret = 1;
     if (want_type->cls->id == SYM_CLASS_ANY)
-        emit_rebox_to_any(emit, right);
+        ;
     else if (want_type->cls->flags & CLS_IS_ENUM) {
         ret = lily_ts_enum_membership_check(emit->ts, want_type, right->result->type);
         if (ret)
@@ -4337,6 +4337,11 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         eval_self(emit, ast);
     else if (ast->tree_type == tree_upvalue)
         eval_upvalue(emit, ast);
+
+    if (expect &&
+        expect->cls->id == SYM_CLASS_ANY &&
+        ast->result->type != expect)
+        emit_rebox_to_any(emit, ast);
 }
 
 /* Evaluate a tree with 'expect' sent for inference. If the tree does not return
@@ -4456,10 +4461,6 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
            upward to something that will know the full types in play. */
         if (root_result->type->cls->flags & CLS_IS_VARIANT)
             rebox_variant_to_enum(emit, ap->root);
-        else if (wanted_type != emit->ts->question_class_type &&
-                 wanted_type != NULL &&
-                 root_result->type != wanted_type)
-            type_matchup(emit, wanted_type, ap->root);
 
         /* If the caller doesn't want a return, then don't give one...regardless
            of if there is one available. */
