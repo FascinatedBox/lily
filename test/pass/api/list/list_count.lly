@@ -1,11 +1,24 @@
 if [1, 2, 3, 4, 5].count{|a| a % 2 == 0} != 2:
     stderr.print("Failed.")
 
-enum Option[A] { Some(A) None }
+enum Option[A]
+{
+    Some(A)
+    None
+
+    define is_none : boolean {
+        match self: {
+            case Some(s):
+                return false
+            case None:
+                return true
+        }
+    }
+}
 
 var v = [Some(10), None, Some(20)]
 
-if v.count{|a| a == None} != 1:
+if v.count{|a| a.is_none() } != 1:
     stderr.print("Failed.")
 
 if [].count{|a| true} != 0:

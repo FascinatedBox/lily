@@ -26,20 +26,16 @@ define check_defaulting {
     var c: hash[integer, Option[integer]] = [1=>None, 2=>Some(10), 3=>Some(11)]
 }
 
-define check_any {
-    var a: any = Some(10)
-
-    if a != Some(10):
-        stderr.print("check_any: Incorrect value returned!")
-}
-
 define check_pass_by_value {
     define f(a: Option[integer])
     {
         var v = [a]
         a = Some(11)
-        if v[0] == Some(11):
-            stderr.print("Failed.")
+        match v[0]: {
+            case Some(s):
+                stderr.print("Failed.")
+            case None:
+        }
     }
 
     var v: Option[integer] = Some(10)
@@ -69,7 +65,6 @@ define check_nesting {
 check_assigning()
 check_variant_returning()
 check_defaulting()
-check_any()
 check_pass_by_value()
 check_generic_calls()
 check_varargs()

@@ -2674,16 +2674,7 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
         rhs_class->id <= SYM_CLASS_STRING)
         opcode = generic_binop_table[ast->op][lhs_class->id][rhs_class->id];
     else {
-        /* Calling type_matchup here to do the test allows 'any' to compare to
-           base values, as well as enums to compare to instances of their inner
-           subtypes.
-           Call it twice for each side so that this works:
-               any a = 10
-               a == 10
-               10 == a */
-        if (ast->left->result->type == ast->right->result->type ||
-            type_matchup(emit, ast->left->result->type, ast->right) ||
-            type_matchup(emit, ast->right->result->type, ast->left)) {
+        if (ast->left->result->type == ast->right->result->type) {
             if (ast->op == expr_eq_eq)
                 opcode = o_is_equal;
             else if (ast->op == expr_not_eq)
