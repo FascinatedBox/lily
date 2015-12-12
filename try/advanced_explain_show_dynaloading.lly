@@ -1,0 +1,28 @@
+#[
+Static typing isn't cheap. A fair amount of Lily's time and memory use can be
+attributed to keeping track of the types of values, and checking type-safety.
+Lily's builtin library is also fairly sizeable: It's currently at over 60
+builtin functions, and has around 8+ classes residing in it.
+
+If you run a small program (say ./lily -s 'print("Hello")') in a memory
+profiler, you'll see that Lily uses less than 10K of memory.
+
+Lily is able to accomplish this through something it calls dynaloading. It holds
+strings in memory saying what needs to be loaded. Lily's methods and builtin
+variables are loaded only when they are explicitly called for. By doing this,
+Lily only allocates memory for methods and loaded variables that are truly
+needed. The loading is also a one-time cost.
+
+To see this in action, try uncommenting some of the following lines. Notice that
+the cost of loading any method only happens once, and happens seamlessly.
+]#
+
+# var error_funcs = [IndexError::new, ValueError::new, Exception::new]
+
+# var load_print = print
+
+# var print_array = [print, print, print]
+
+# var q = "1".concat("2").trim().lstrip("").rstrip("").split(" ")
+
+# var b = [1 => list::select, 2 => hash::select, 3 => [1].select]

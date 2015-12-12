@@ -1,0 +1,20 @@
+#[
+show is a neat function that will dump any kind of a value, even classes!
+You don't need to do anything to a class to get it to work with show.
+]#
+
+class Point(x: integer, y: integer)
+{
+    var @x = x
+    var @y = y
+}
+
+define f {}
+
+show(1)
+show("2")
+show([3, 4, 5])
+show([6 => 7, 7 => 8])
+show(Point::new(9, 10))
+show(print)
+show(f)

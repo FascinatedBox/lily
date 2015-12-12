@@ -1,0 +1,97 @@
+#[
+Lily supports doing exception handling through try+catch. You can nest
+exception capturing, and use it to provide safety too.
+
+In terms of style (as far as Lily goes), it is considered better to return an
+Option (or a Result) instead of throwing an exception. In fact, in a future
+release of Lily, those enums will be baked into the language and into the
+builtin library.
+
+One of Lily's optimizations is that it only builds stack trace if it needs to.
+As a result 'except Exception' can be done relatively fast, but
+'except Exception as e' will be a bit slower, because Lily has to build the
+stack trace for the exception. The reason for this optimization is that it makes
+cases where the actual exception contents are not as important as the exception
+itself. 'safe_to_i' below is a good example of one such case.
+]#
+
+enum Option[A] {
+    Some(A)
+    None
+    define unwrap[A] : A {
+        match self: {
+            case Some(s):
+                return s
+            case None:
+                raise ValueError::new("Unwrap called with no value present!")
+        }
+    }
+    define is_none: boolean {
+        match self: {
+            case Some(s):
+                return false
+            case None:
+                return true
+        }
+    }
+}
+
+define safe_to_i(input: string): Option[integer]
+{
+    try:
+        return Some(input.to_i())
+    # catching Exception (and not just ValueError) is necessary because Lily
+    # cannot be sure that all cases are covered otherwise.
+    except Exception:
+        return None
+}
+
+var values = 
+    # Start by creating a list of string that may or may not be numbers.
+    ["1", "9001", "25", "Bob", "-83", " 7 "]
+
+    # Transform it into a list[Option[integer]].
+    # Valid numbers are Some's, invalid are None.
+    .map{|a| safe_to_i(a) }
+
+    # Kick out values that are None.
+    .reject{|a| a.is_none() }
+
+    # Transform again, this time to a list[integer].
+    # This is safe because no None values are present.
+    .map{|a| a.unwrap() }
+
+printfmt("The filtered list is: %s.\n", values)
+
+try:
+    1 / 0
+except DivisionByZeroError:
+    print("Caught Division by zero!")
+
+try: {
+    try: {
+        var k = [1]
+        k[9]
+    # except Exception is less specific than IndexError, but IndexError inherits
+    # from Exception AND (most importantly) this except clause is 'closer' to
+    # the error than the other one.
+    except Exception as e:
+        # Note: It is not possible to use 'k' here. That is intentional, as Lily
+        # cannot guarantee that 'k' is properly initialized.
+        printfmt("Caught index error! Traceback: %s.\n", e.traceback[0])
+    }
+except IndexError:
+    0
+}
+
+# Exception is inheritable, and currently only provides @traceback and @message.
+# @message can be altered, but @traceback is rewritten when the error is caught.
+class MyError(message: string, code: integer) < Exception(message)
+{
+    var @code = code
+}
+
+try:
+    raise MyError::new("Error!", 100)
+except MyError as err:
+    printfmt("Caught a custom error with code %d.\n", err.code)

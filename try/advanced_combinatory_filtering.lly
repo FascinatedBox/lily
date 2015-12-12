@@ -1,0 +1,118 @@
+#[
+This demo shows off a few different features of Lily. The biggest one is the |>
+operator. It's a binary operator that's borrowed from F#. The |> operator takes
+what's on the left side, and uses it as a single argument to a function on the
+right side. Note that when it is used, there are no parentheses involved.
+
+The idea of this demo is to build a mail filter that works iteratively. You can
+then take a filter and chain it with another filter to make an even better
+filter.
+]#
+
+#[
+To begin with, define what mail is. Lily doesn't support named arguments, so
+you'll need to be careful to not create the mail out of order.
+The 'var @<name> = <name>' creates class properties within the mail class. That
+is necessary because Lily doesn't yet have a way to do it in the class header,
+which it should.
+]#
+
+class Mail(sender: string, receiver: string, header: string, body: string)
+{
+    var @sender = sender
+    var @receiver = receiver
+    var @header = header
+    var @body = body
+}
+
+#[
+The combine function will take two filters and chain them together. This imposes
+a shape on the filtering functions (Mail => boolean). This, however, implies
+that the functions should be pure ones (no side effects).
+
+The {| denotes a lambda. The name 'a' is used because it's not that important.
+Since this is a filter combiner, it should stop on the first 'true' value.
+]#
+
+define combine(f: function(Mail => boolean), g: function(Mail => boolean))
+    : function(Mail => boolean)
+{
+    return {|a|
+        var result = a |> f
+        if result == false:
+            result = a |> g
+
+        result }
+}
+
+define drop_bad_domain(input: Mail): boolean
+{
+    return input.sender.endswith("@evil.com")
+}
+
+define drop_chain_letters(input: Mail): boolean
+{
+    return input.header.startswith("RE: RE: RE:")
+}
+
+#[
+Here's a custom filter. Two lambdas are thrown into the mix to demonstrate that
+Lily's type inference capabilities.
+]#
+
+var my_filter =
+    combine(drop_bad_domain,
+        combine(drop_chain_letters,
+            combine({|m| m.body == ""},
+                {|m| m.header == ""})))
+
+var messages =
+    ["Bob to Tom" =>
+        Mail::new(
+            "Bob@ok.com",
+            "Tom@ok.com",
+            "Hello",
+            "How are you?"),
+     "Bad domain to Bob" =>
+        Mail::new(
+            "Blah@evil.com",
+            "Bob@ok.com",
+            "Spam!",
+            "I have spam for you!"),
+     "Garbage message" =>
+        Mail::new(
+            "",
+            "",
+            "",
+            ""),
+     "Tom to Bob" =>
+        Mail::new(
+            "Bob@ok.com",
+            "Tom@ok.com",
+            "RE: Hello",
+            "I'm doing well. How are you?"),
+     "Chain letter" =>
+        Mail::new(
+            "omg@aol.com",
+            "Tom@ok.com",
+            "RE: RE: RE: RE: YOU HAVE TO SEE THIS",
+            "Blah blah chain letter spam")
+     ]
+
+#[
+Messages now fall into two categories: Those that will be filtered, and those
+that will not be filtered. Build a list of each one, then dump that list.
+]#
+
+var rejected =
+    messages
+        .select{|k, v| v |> my_filter}
+        .keys()
+
+var accepted =
+    messages
+        .reject{|k, v| v |> my_filter}
+        .keys()
+
+printfmt("Accepted messages: %s\n", accepted)
+printfmt("Rejected messages: %s\n", rejected)
