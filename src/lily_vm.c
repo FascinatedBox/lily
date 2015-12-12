@@ -1381,7 +1381,7 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
         char *name = func_val->trace_name;
         if (func_val->code) {
             path = func_val->import->path;
-            sprintf(line, "%d:", func_val->line_num);
+            sprintf(line, "%d:", frame_iter->line_num);
         }
         else
             path = "[C]";
