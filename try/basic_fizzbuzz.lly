@@ -1,0 +1,27 @@
+#[
+Fizzbuzz is a simple engineering problem. Print values from 1 to 100. Multiples
+of 3 should print Fizz, those of 5 print Buzz. Those of both print FizzBuzz.
+
+This is nothing special. The *integer = <value> show off Lily's ability to
+handle optional arguments. You can thus call fizzbuzz() or fizzbuzz(1) instead
+of fizzbuzz(1, 100) and get the same result each time.
+
+Note that Lily only supports optional arguments for basic values (boolean,
+integer, double, string, and bytestring)
+]#
+
+define fizzbuzz(start: *integer = 1, stop: *integer = 100) {
+    for i in start...stop: {
+        if (i % 3) == 0:
+            if (i % 5) == 0:
+                print("FizzBuzz")
+            else:
+                print("Fizz")
+        elif (i % 5) == 0:
+            print("Buzz")
+        else:
+            print(i)
+    }
+}
+
+fizzbuzz(1, 100)

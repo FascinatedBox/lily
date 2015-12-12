@@ -1,0 +1,128 @@
+#[
+Lily's enums are type-safe enums that allow only the types that are specified to
+be allowed inside. Those inner types are termed the enum's variant types. Lily
+does some behind-the-scenes magic to make sure that all vars are proper enums
+and not variant types, so that type inference is easier.
+
+Enums have many uses, one of them being enhancing safety. One of Lily's current
+restrictions is that it does not provide any NULL or nothing value. Such a thing
+is useful in situations where creating a value involves an expensive
+computation. This can be fixed as follows:
+
+enum Option[A] {
+    Some(A)
+    None
+}
+
+This creates an enum called Option which has two variant types. Any Option[A]
+can be only assigned either Some(A), or None. Since None does not have any
+generics, I can assign a None to any Option value like so:
+
+var v = Some(10)
+var v2 = Some("20")
+v = None
+v2 = None
+
+To get the value of either v or v2, I'd need to match it like so:
+
+match v: {
+    case Some(s):
+    case None:
+}
+
+Lily currently has a restriction that match blocks have to be multi-line (the
+brace), but that is likely to change in a future release.
+
+The name 's' is valid only within the 'Some' branch of the match.
+
+You can also make enums scoped:
+
+enum Option[A] {
+    ::Some(A)
+    ::None
+}
+
+match operates the same regardless of scoping, but v and v2 above would need to
+be initialized with Option::Some or Option::None instead of just Some or just
+None.
+]#
+
+enum Option[A] {
+    Some(A)
+    None
+
+    define and_then[A, B](f: function(A => B)): Option[B] {
+        match self: {
+            case Some(s):
+                return Some(f(s))
+            case None:
+                return None
+        }
+    }
+    define or_else[A](fallback: A): Option[A] {
+        match self: {
+            case Some(s):
+                return self
+            case None:
+                return Some(fallback)
+        }
+    }
+    define unwrap[A] : A {
+        match self: {
+            case Some(s):
+                return s
+            case None:
+                raise ValueError::new("Unwrap: No value inside!")
+        }
+    }
+}
+
+define get[A, B](h: hash[A, B], key: A): Option[B]
+{
+    try:
+        return Some(h[key])
+    except Exception:
+        return None
+}
+
+
+var h = ["red"  =>  Tainted::new("10"),
+         "blue" =>  Tainted::new("-5")]
+
+var blue =
+    (get(h, "blue"))
+    .and_then{|t| string::to_i |> t.sanitize }
+    .or_else(0)
+    .unwrap()
+
+#[
+Breaking it down:
+    (get(h, "blue"))
+    * Hash currently has no way to safely get a member into an Option (this is
+      something that will come in a future release). Instead, provide a small
+      function that does that. Either get the value wanted, or get a nothing.
+      The result is an Option[Tainted[string]]
+      The parentheses have been added for clarity. They are not needed.
+
+    .and_then{|t| string::to_i |> t.sanitize }
+
+    * and_then is an extraordinarily useful function. If the Option has a Some,
+      then the Some is transformed according to the result of the lambda. Lily
+      is able to infer that t should have the type Tainted[string].
+      From there, the problem is sanitizing the data. To do this, a function is
+      needed that maps from the tainted value to a different type. The function
+      string::to_i accomplishes this.
+      The function pipe is used to eliminate unnecessary parentheses, and to
+      keep operations flowing from left to right.
+
+    .or_else(-1)
+
+    * The and_then above doesn't handle the other case. What if the Option had a
+      None before? In such a case, Option::or_else will replace the None with a
+      proper Some value. This makes sure that...
+
+    .unwrap()
+
+    * Option::unwrap, which fetches the contents, will always succeed and always
+      yield a numeric value.
+]#

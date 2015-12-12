@@ -1,0 +1,72 @@
+#[
+This one-line program reads numbers from stdin and writes out the sum.
+First is the program, then a breakdown of what's happening.
+]#
+
+stdin
+    .readline()
+    .encode()
+    .trim()
+    .split(" ")
+    .map{|str| str.to_i()}
+    # .map{|mystery| mystery.push(1) }
+    .fold(0, {|a, b| a + b})
+    |> print
+
+#[
+stdin
+    .readline()
+    * file::readline will read a single line from stdin.
+      The result is a bytestring.
+      A bytestring is different than a string, in that bytestrings may have
+      invalid utf-8, and may have embedded zeros.
+
+    .encode()
+    * bytestring::encode takes a bytestring and makes it into a string.
+      The default encoding method is 'error', which means an exception is raised
+      if there is invalid utf-8 or embedded zeroes.
+
+    .trim()
+    * string::trim will remove any whitespace from the start or the end of the
+      string.
+
+    .split(" ")
+    * string::split will split the string by spaces. If there are multiple
+      spaces between one value and another, that will leave blanks.
+      The result is a list of strings.
+
+    .reject{|str| str.isspace()}
+    * list::reject takes a list of A, and checks if it matches some predicate.
+      In this case, A is a string. The predicate is a function that takes that
+      A and returns either true or false.
+      list::reject builds a new list that holds all elements where the predicate
+      returns false.
+
+    .map{|str| str.to_i()}
+    * list::map takes a list of A and a function that converts from A to B.
+      In this case, A is string, and B is whatever the lambda returns. As a
+      bonus, Lily is smart enough to know that 'str' is a string, and only allow
+      operations that work on a string to work on it.
+      The result is a new list of integers (list[integer])
+
+    .map{|mystery| mystery.push(1) }
+    * This doesn't work, no matter what! Lily is smart enough to know that the
+      lambda's parameter should be an integer. Trying to call push on it (a list
+      method) will thus fail.
+
+    .fold(0, {|a, b| a + b})
+    * list::fold is an operation that returns a combination the elements within
+      a list. The first value, zero, is the starting value. The lambda is an
+      operation that will be called for each element of the list. If there are
+      no values in the list, then the result is just the starting value.
+      Since the list being worked on is a list of integers, it makes sense that
+      the lambda's values are both integers. Because of that, Lily allows
+      addition on them (as well as any other valid integer operations.
+
+    |> print
+    * print is...not a method of anything. It's a toplevel global function.
+      |> is a nifty binary (!) operation borrowed from F#. It's purpose is to
+      take everything that's been done so far and send it as an argument to
+      print. This is handy because it eliminates one layer of parentheses, and
+      keeps everything flowing from left to right.
+]#

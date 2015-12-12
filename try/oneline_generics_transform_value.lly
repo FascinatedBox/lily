@@ -1,0 +1,53 @@
+#[
+This demo takes a value and runs it through a function that will perform
+several transformations on the value. This demo's purpose is to show off Lily's
+type-inference capabilities.
+]#
+
+define transform[A, B, C, D](
+    value: A,
+    f: function(A => B),
+    g: function(B => C),
+    h: function(C => D))
+    : D
+{
+    # This could also be written as
+    # value |> f |> g |> h
+    return h(g(f(value)))
+}
+
+define length[A](input: list[string]): integer { return input.size() }
+
+transform(
+    10,
+    #[
+        A = integer, B = ?, C = ?, D = ?
+        integer::to_s is defined as 'function(integer):string'
+        B is set to string
+    ]#
+    integer::to_s,
+
+    #[
+        A = integer, B = string, C = ?, D = ?
+        The lambda infers that the input (b) should be type B.
+        The .concat(b) is useless to the final result, but proves that Lily
+        knows that 'b' has the type 'string'
+        It then resolves B as being a string.
+        C is set to list[string]
+    ]#
+    {|b| [b.concat(b)]},
+    #[
+        A = integer, B = string, C = list[string], D = ?
+        The length function above wants a list of something and will give an
+        integer in return. It'll get C, which is list[string] (valid).
+        D is set to integer
+    ]#
+    length
+
+    #[
+        To prove that Lily knows what it's doing, try uncommenting this lambda
+        and commenting out length.
+        The input of the lambda is C, which is list[string].
+    ]#
+    # {|c| c + 5}
+) |> show

@@ -1,0 +1,64 @@
+#[
+This is a simple example that shows how classes work. Class members are denoted
+by '@<name>'. Class methods implicitly get 'self' as their first argument. It
+is technically possible to do self.<name> to assign values, but the interpreter
+has a rule written to prevent that as a means of enforcing @<name>
+
+One big change in comparison to other languages is the lack of an constructor
+function located within the class. In Lily, the body of the class IS the
+constructor for that class. It will eventually be wrapped up in a function
+called ::new.
+
+Lily supports private and protected on both instance variables
+(private var @x = ...
+ OR
+ protected define x { ... }
+). Those are not demonstrated here because their semantics are fairly common and
+thought to be well-understood (private values only accessible in the same class,
+protected only accessible through inherited classes).
+
+Lily currently does not support method overloading or polymorphism. These may be
+added in a future release.
+]#
+
+class Point(x: integer, y: integer)
+{
+    var @x = x
+    var @y = y
+    define add(other: Point) {
+        @x += other.x
+        @y += other.y
+    }
+
+    define add_twice(other: Point) {
+        self.add(other)
+        Point::add(self, other)
+    }
+
+    define clone_point : Point {
+        return Point::new(@x, @y)
+    }
+
+    #[
+    # You can't do this because class methods and members must be unique.
+    # This allows <instance>.<member> to target either a method or a variable.
+    define x {
+    }
+    ]#
+}
+
+class Point3D(x: integer, y: integer, z: integer) < Point(x, y)
+{
+    var @z = z
+
+    define clone_point3d : Point3D {
+        return Point3D::new(@x, @y, @z)
+    }
+}
+
+var my_point = Point::new(10, 20)
+my_point.x += 10
+my_point.add(Point::new(1, 2))
+
+var my_3d_point = Point3D::new(10, 20, 30)
+my_3d_point.add(Point3D::new(1, 2, 3))
