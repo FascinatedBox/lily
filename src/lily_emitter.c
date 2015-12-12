@@ -2673,18 +2673,15 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
     if (lhs_class->id <= SYM_CLASS_STRING &&
         rhs_class->id <= SYM_CLASS_STRING)
         opcode = generic_binop_table[ast->op][lhs_class->id][rhs_class->id];
-    else {
-        if (ast->left->result->type == ast->right->result->type) {
-            if (ast->op == expr_eq_eq)
-                opcode = o_is_equal;
-            else if (ast->op == expr_not_eq)
-                opcode = o_not_eq;
-            else
-                opcode = -1;
-        }
+    else if (ast->left->result->type == ast->right->result->type)
+        if (ast->op == expr_eq_eq)
+            opcode = o_is_equal;
+        else if (ast->op == expr_not_eq)
+            opcode = o_not_eq;
         else
             opcode = -1;
-    }
+    else
+        opcode = -1;
 
     if (opcode == -1)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
