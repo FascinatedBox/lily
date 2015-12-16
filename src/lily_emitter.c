@@ -3450,6 +3450,67 @@ static void emit_list_values_to_anys(lily_emit_state *emit,
     }
 }
 
+/* Make sure that 'key_type' is a valid key. It may be NULL or ? depending on
+   inference. If 'key_type' is not suitable to be a hash key, then raise a
+   syntax error. */
+static void ensure_valid_key_type(lily_emit_state *emit, lily_ast *ast,
+        lily_type *key_type)
+{
+    if (key_type == NULL || key_type->cls->id == SYM_CLASS_QUESTION)
+        key_type = emit->symtab->any_class->type;
+
+    if (key_type == NULL || (key_type->cls->flags & CLS_VALID_HASH_KEY) == 0)
+        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+                "Type '^T' is not a valid hash key.\n", "");
+}
+
+/* Build an empty something. It's an empty hash only if the caller wanted a
+   hash. In any other case, it becomes an empty list. Default to any where it's
+   needed. The purpose of this function is to make it so list and hash build do
+   not need to worry about missing information. */
+static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
+{
+    lily_type *any_type = emit->symtab->any_class->type;
+    lily_class *cls;
+    int num, op;
+
+    if (expect && expect->cls->id == SYM_CLASS_HASH) {
+        lily_type *key_type = expect->subtypes[0];
+        lily_type *value_type = expect->subtypes[1];
+        ensure_valid_key_type(emit, ast, key_type);
+
+        if (value_type == NULL || value_type->cls->id == SYM_CLASS_QUESTION)
+            value_type = any_type;
+
+        lily_tm_add(emit->tm, key_type);
+        lily_tm_add(emit->tm, value_type);
+
+        cls = emit->symtab->hash_class;
+        op = o_build_hash;
+        num = 2;
+    }
+    else {
+        lily_type *elem_type;
+        if (expect && expect->cls->id == SYM_CLASS_LIST &&
+            expect->subtypes[0]->cls->id != SYM_CLASS_QUESTION) {
+            elem_type = expect->subtypes[0];
+        }
+        else
+            elem_type = any_type;
+
+        lily_tm_add(emit->tm, elem_type);
+
+        cls = emit->symtab->list_class;
+        op = o_build_list_tuple;
+        num = 1;
+    }
+
+    lily_storage *s = get_storage(emit, lily_tm_make(emit->tm, 0, cls, num));
+    write_build_op(emit, op, ast->arg_start, ast->line_num, 0, s->reg_spot);
+    ast->result = (lily_sym *)s;
+}
+
 static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
@@ -3484,13 +3545,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
            later on because any are not valid keys (not immutable). */
         if (key_tree->result->type != last_key_type) {
             if (last_key_type == NULL) {
-                if ((key_tree->result->type->cls->flags & CLS_VALID_HASH_KEY) == 0) {
-                    lily_raise_adjusted(emit->raiser, key_tree->line_num,
-                            lily_SyntaxError,
-                            "Resulting type '^T' is not a valid hash key.\n",
-                            key_tree->result->type);
-                }
-
+                ensure_valid_key_type(emit, ast, key_tree->result->type);
                 last_key_type = key_tree->result->type;
             }
             else {
@@ -3520,20 +3575,14 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         }
     }
 
-    if (ast->args_collected == 0) {
-        last_key_type = expect_key_type;
-        last_value_type = expect_value_type;
-    }
-    else {
-        if (found_variant_or_enum)
-            rebox_enum_variant_values(emit, ast, expect_value_type, 1);
-        else if (make_anys ||
-                 (expect_value_type &&
-                  expect_value_type->cls->id == SYM_CLASS_ANY))
-            emit_hash_values_to_anys(emit, ast);
+    if (found_variant_or_enum)
+        rebox_enum_variant_values(emit, ast, expect_value_type, 1);
+    else if (make_anys ||
+                (expect_value_type &&
+                expect_value_type->cls->id == SYM_CLASS_ANY))
+        emit_hash_values_to_anys(emit, ast);
 
-        last_value_type = ast->arg_start->next_arg->result->type;
-    }
+    last_value_type = ast->arg_start->next_arg->result->type;
 
     lily_class *hash_cls = emit->symtab->hash_class;
     lily_tm_add(emit->tm, last_key_type);
@@ -3550,22 +3599,17 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
 static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
+    if (ast->args_collected == 0) {
+        make_empty_list_or_hash(emit, ast, expect);
+        return;
+    }
+
     lily_type *elem_type = NULL;
     lily_ast *arg;
     int found_variant_or_enum = 0, make_anys = 0;
 
-    if (expect) {
-        /* This allows hashes to be assigned to []. */
-        if (ast->args_collected == 0 && expect->cls->id == SYM_CLASS_HASH) {
-            eval_build_hash(emit, ast, expect);
-            return;
-        }
-        else if (expect->cls->id == SYM_CLASS_LIST) {
-            elem_type = expect->subtypes[0];
-            if (elem_type == emit->symtab->question_class->type)
-                elem_type = NULL;
-        }
-    }
+    if (expect && expect->cls->id == SYM_CLASS_LIST)
+        elem_type = expect->subtypes[0];
 
     lily_type *last_type = NULL;
 
@@ -3587,23 +3631,14 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         }
     }
 
-    if (elem_type == NULL && last_type == NULL) {
-        /* This happens when there's an empty list and a list is probably not
-           expected. Default to list[any] and hope that's right. */
-        elem_type = emit->symtab->any_class->type;
-    }
-    else if (last_type != NULL) {
-        if (found_variant_or_enum)
-            rebox_enum_variant_values(emit, ast, elem_type, 0);
-        else if (make_anys ||
-                 (elem_type && elem_type->cls->id == SYM_CLASS_ANY))
-            emit_list_values_to_anys(emit, ast);
-        /* else all types already match, so nothing to do. */
+    if (found_variant_or_enum)
+        rebox_enum_variant_values(emit, ast, elem_type, 0);
+    else if (make_anys ||
+                (elem_type && elem_type->cls->id == SYM_CLASS_ANY))
+        emit_list_values_to_anys(emit, ast);
+    /* else all types already match, so nothing to do. */
 
-        /* At this point, all list values are guaranteed to have the same
-           type, so this works. */
-        elem_type = ast->arg_start->result->type;
-    }
+    elem_type = ast->arg_start->result->type;
 
     lily_tm_add(emit->tm, elem_type);
     lily_type *new_type = lily_tm_make(emit->tm, 0, emit->symtab->list_class,
