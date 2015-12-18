@@ -92,10 +92,11 @@ void lily_ts_resolve_as_self(lily_type_system *, lily_type *);
    generics with the ? type. */
 void lily_ts_resolve_as_question(lily_type_system *);
 
-/* This is called when all arguments have been evaluated by emitter (so there's
-   no issues with errors). This forces any generics which are solved with ? or
-   solved with a type holding ? to be solved with any. */
-void lily_ts_resolve_as_any(lily_type_system *);
+/* If a type has been resolved as something but that resolution isn't complete,
+   this replaces the resolution with something that does ? to any. This is
+   called after evaluating arguments to make sure that the emitter does not
+   create types with ? inside. */
+void lily_ts_default_incomplete_solves(lily_type_system *);
 
 /* This function is called by emitter when it is about to enter a call. The
    current ceiling is added to the stack's pos. The new ceiling is set to

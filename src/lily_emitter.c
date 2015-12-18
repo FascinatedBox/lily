@@ -4004,9 +4004,10 @@ static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *c
     for (arg = ast->arg_start->next_arg;arg != NULL;arg = arg->next_arg)
         eval_call_arg(emit, cs, arg);
 
-    /* Now that the arguments have all been collected, make sure that any ?
-       types are instead fixed to be any. The vm should never see the ? type. */
-    lily_ts_resolve_as_any(emit->ts);
+    /* All arguments have been collected and run. If there are any incomplete solutions
+       to a generic (ex: Option[?]), then default those incomplete inner types to any.
+       Incomplete toplevel types (just ?) are left alone. */
+    lily_ts_default_incomplete_solves(emit->ts);
 
     if (cs->have_bare_variants)
         box_call_variants(emit, cs);
