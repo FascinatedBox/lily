@@ -379,28 +379,26 @@ int lily_ts_count_unsolved(lily_type_system *ts)
     return unsolved;
 }
 
-void lily_ts_resolve_as_any(lily_type_system *ts)
+void lily_ts_default_incomplete_solves(lily_type_system *ts)
 {
     /* This isn't quite the same as lily_ts_resolve_with_question, because there
        are also enums which could have been solved with any. */
     int i, stop = ts->pos + ts->ceiling;
+    lily_type *question = ts->question_class_type;
+
     for (i = ts->pos;i < stop;i++) {
-        if (ts->types[i] == NULL || ts->types[i] == ts->question_class_type)
-            ts->types[i] = ts->any_class_type;
-        /* The ? type should not be nested, because there's no way for the user
-           to directly create the ? type. */
-        else if (ts->types[i]->flags & TYPE_IS_INCOMPLETE) {
-            lily_type *incomplete_type = ts->types[i]->subtypes[i];
+        lily_type *t = ts->types[i];
+        if (t && t != question && t->flags & TYPE_IS_INCOMPLETE) {
             int j;
-            for (j = 0;j < incomplete_type->subtype_count;j++) {
-                lily_type *subtype = incomplete_type->subtypes[j];
+            for (j = 0;j < t->subtype_count;j++) {
+                lily_type *subtype = t->subtypes[j];
                 if (subtype->flags & TYPE_IS_INCOMPLETE)
                     lily_tm_add(ts->tm, ts->any_class_type);
                 else
                     lily_tm_add(ts->tm, subtype);
             }
 
-            ts->types[i] = lily_tm_make(ts->tm, 0, incomplete_type->cls, j);
+            ts->types[i] = lily_tm_make(ts->tm, 0, t->cls, j);
         }
     }
 }
