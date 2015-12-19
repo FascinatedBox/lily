@@ -1,7 +1,7 @@
 #[
-SyntaxError: Function f, argument #3 is invalid:
-Expected Type: list[A]
-Received Type: list[any]
+SyntaxError: List elements do not have a consistent type.
+Expected Type: A
+Received Type: any
     from ensure_call_generics_resolve_once.lly:19
 ]#
 

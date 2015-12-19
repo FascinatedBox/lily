@@ -3424,26 +3424,6 @@ static void emit_hash_values_to_anys(lily_emit_state *emit,
     }
 }
 
-/* This reboxes all values in a list to type any. */
-static void emit_list_values_to_anys(lily_emit_state *emit,
-        lily_ast *list_ast)
-{
-    int value_count = list_ast->args_collected;
-
-    write_prep(emit, value_count * 4);
-
-    lily_type *any_type = emit->symtab->any_class->type;
-    lily_ast *iter_ast;
-
-    for (iter_ast = list_ast->arg_start;
-         iter_ast != NULL;
-         iter_ast = iter_ast->next_arg) {
-
-        if (iter_ast->result->type != any_type)
-            emit_rebox_to_any(emit, iter_ast);
-    }
-}
-
 /* Make sure that 'key_type' is a valid key. It may be NULL or ? depending on
    inference. If 'key_type' is not suitable to be a hash key, then raise a
    syntax error. */
@@ -3598,38 +3578,42 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
 
     lily_type *elem_type = NULL;
     lily_ast *arg;
-    int found_variant_or_enum = 0, make_anys = 0;
+    int found_variant_or_enum = 0;
 
     if (expect && expect->cls->id == SYM_CLASS_LIST)
         elem_type = expect->subtypes[0];
 
-    lily_type *last_type = NULL;
+    if (elem_type == NULL)
+        elem_type = emit->ts->question_class_type;
 
     for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
         eval_tree(emit, arg, elem_type);
 
-        /* 'any' is marked as an enum, but this is only interested in
-           user-defined enums (which have special defaulting). */
-        if ((arg->result->type->cls->flags & (CLS_IS_ENUM | CLS_IS_VARIANT)) &&
-            arg->result->type->cls->id != SYM_CLASS_ANY)
+        lily_type *unify_type;
+        if (arg->tree_type == tree_variant ||
+            (arg->tree_type == tree_call &&
+             arg->arg_start->tree_type == tree_variant)) {
+            unify_type = arg->padded_variant_type;
             found_variant_or_enum = 1;
-
-        if (arg->result->type != last_type) {
-            if (last_type == NULL)
-                last_type = arg->result->type;
-            else
-                make_anys = 1;
         }
+        else
+            unify_type = arg->result->type;
+
+        lily_type *new_elem_type = lily_ts_unify(emit->ts, elem_type, unify_type);
+        if (new_elem_type == NULL)
+            lily_raise_adjusted(emit->raiser, arg->line_num, lily_SyntaxError,
+                    "List elements do not have a consistent type.\n"
+                    "Expected Type: ^T\n"
+                    "Received Type: ^T\n",
+                    elem_type, unify_type);
+
+        elem_type = new_elem_type;
     }
 
-    if (found_variant_or_enum)
+    if (found_variant_or_enum) {
         rebox_enum_variant_values(emit, ast, elem_type, 0);
-    else if (make_anys ||
-                (elem_type && elem_type->cls->id == SYM_CLASS_ANY))
-        emit_list_values_to_anys(emit, ast);
-    /* else all types already match, so nothing to do. */
-
-    elem_type = ast->arg_start->result->type;
+        elem_type = ast->arg_start->result->type;
+    }
 
     lily_tm_add(emit->tm, elem_type);
     lily_type *new_type = lily_tm_make(emit->tm, 0, emit->symtab->list_class,

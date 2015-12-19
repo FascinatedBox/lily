@@ -1,7 +1,7 @@
 var a: list[any] = [1]
 
 var d: list[any] = list::fill(2, 1.@(any))
-d[0] = [1, 1.1]
+d[0] = [1, 1.1].@(list[any])
 
 var f: any = a[0]
 var g: any = d[0].@(list[any])[0]

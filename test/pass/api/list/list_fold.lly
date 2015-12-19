@@ -8,7 +8,7 @@ if ["b", "c", "d"].fold("a", {|a, b| a.concat(b)}) != "abcd":
     stderr.print("Failed.3")
 
 define f {
-    [1, "2", [3]].fold([1 => 1], {|a, b| b})
+    [1, "2", [3]].@(list[any]).fold([1 => 1], {|a, b| b})
 }
 
 f()
