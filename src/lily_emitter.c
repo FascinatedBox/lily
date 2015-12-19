@@ -2469,6 +2469,7 @@ static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
     /* Ensure that generics that did not get a valid value are replaced with the
        ? type (instead of NULL, which will cause a problem). */
     lily_ts_resolve_as_question(emit->ts);
+    lily_type *question = emit->ts->question_class_type;
 
     /* These names are intentionally the same length and on separate lines so
        that slight naming issues become more apparent. */
@@ -2476,7 +2477,9 @@ static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
             ", argument #%d is invalid:\n"
             "Expected Type: ^T\n"
             "Received Type: ^T\n",
-            cs->arg_count + 1, lily_ts_resolve(emit->ts, expected), got);
+            cs->arg_count + 1,
+            lily_ts_resolve_with(emit->ts, expected, question), got);
+
     lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
 }
 

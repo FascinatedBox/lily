@@ -86,7 +86,7 @@ lily_type *lily_ts_resolve_with(lily_type_system *ts, lily_type *type,
         ret = ts->types[ts->pos + type->generic_pos];
         /* Sometimes, a generic is wanted that was never filled in. In such a
            case, use 'any' because it is the most accepting of values. */
-        if (ret == NULL) {
+        if (ret == NULL || ret->cls->id == SYM_CLASS_QUESTION) {
             ret = fallback;
             /* This allows lambdas to determine that a given generic was not
                resolved (and prevent it). */
