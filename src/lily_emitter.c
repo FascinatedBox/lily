@@ -3798,21 +3798,18 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
         eval_tree(emit, arg, eval_type);
     }
 
-    /* This is used so that type_matchup gets the resolved type (if there
-       is one) because the resolved type might be 'any'. */
-    lily_type *matchup_type = want_type;
-
-    /* Don't allow bare variants to solve for a type. Always force them to be in
-       something to prevent bare variant values. */
-    if (arg->result->type->cls->flags & CLS_IS_VARIANT) {
+    lily_type *result_type;
+    if (arg->tree_type == tree_variant ||
+        (arg->tree_type == tree_call &&
+         arg->arg_start->tree_type == tree_variant)) {
+        /* The variant does not provide full information: Instead, rely on the
+           padded type that it provides. That type will be a full enum type but
+           with ? in the unimportant spots. */
+        result_type = arg->padded_variant_type;
         cs->have_bare_variants = 1;
-        if (want_type->cls->id == SYM_CLASS_GENERIC) {
-            matchup_type = lily_ts_easy_resolve(emit->ts, want_type);
-            if (matchup_type == NULL ||
-                matchup_type == emit->ts->question_class_type)
-                rebox_variant_to_enum(emit, arg);
-        }
     }
+    else
+        result_type = arg->result->type;
 
     lily_type *match_type = want_type;
     if (want_type->cls->id == SYM_CLASS_GENERIC)
@@ -3820,12 +3817,12 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
 
     /* ok == 0 protects from potentially attempting to resolve the same generic
        twice, which breaks things. */
-    if (lily_ts_check(emit->ts, want_type, arg->result->type) ||
+    if (lily_ts_check(emit->ts, want_type, result_type) ||
         type_matchup(emit, match_type, arg)) {
         add_value(emit, cs, arg->result);
     }
     else
-        bad_arg_error(emit, cs, arg->result->type, want_type);
+        bad_arg_error(emit, cs, result_type, want_type);
 }
 
 /* This is called after call arguments have been evaluated. It reboxes any
@@ -4204,6 +4201,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
     lily_storage *result = NULL;
+    lily_type *padded_type;
 
     if (ast->tree_type == tree_call) {
         ast->result = NULL;
@@ -4221,6 +4219,12 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         lily_emit_call_state *cs;
         cs = begin_call(emit, ast);
         eval_verify_call_args(emit, cs, expect);
+
+        /* A variant is responsible for creating a padded type. Said padded type
+           describes an enum wherein the types are either filled or have ? in
+           their place. This makes working with variants much saner. */
+        padded_type = lily_ts_resolve_with(emit->ts,
+                variant_cls->parent->self_type, emit->ts->question_class_type);
 
         lily_type *result_type = variant_cls->variant_type->subtypes[0];
         if (result_type->flags & TYPE_IS_UNRESOLVED)
@@ -4254,8 +4258,23 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         result = get_storage(emit, variant_type);
         write_4(emit, o_get_readonly, ast->line_num, variant_lit->reg_spot,
                 result->reg_spot);
+
+        /* Either provide an all-? solved type, or the parent's default type as
+           the padded one. */
+        if (ast->variant->parent->generic_count) {
+            int amount = lily_ts_raise_ceiling(emit->ts);
+
+            padded_type = lily_ts_resolve_with(emit->ts,
+                    ast->variant->parent->self_type,
+                    emit->ts->question_class_type);
+
+            lily_ts_lower_ceiling(emit->ts, amount);
+        }
+        else
+            padded_type = ast->variant->parent->self_type;
     }
 
+    ast->padded_variant_type = padded_type;
     ast->result = (lily_sym *)result;
 }
 

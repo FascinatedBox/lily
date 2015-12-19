@@ -89,6 +89,10 @@ typedef struct lily_ast_ {
         /* This is no longer called 'type', because of numerous prior issues
            with doing ast->type instead of ast->result->type. */
         lily_type *typecast_type;
+        /* This is the enum type that resulted from evaluating a variant. If the
+           enum has generics, but the variant did not have an opinion, then ? is
+           used as a solution. */
+        lily_type *padded_variant_type;
         /* If tree_oo_access looks up a property, then it stores the index of that
            property here. This is used by oo assign to prevent two lookups of the
            same property. */

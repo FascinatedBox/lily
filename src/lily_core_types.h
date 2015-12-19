@@ -95,11 +95,14 @@ typedef struct lily_class_ {
     int16_t generic_count;
     uint32_t prop_count;
     uint32_t variant_size;
-    /* If the variant takes arguments, then this is the type of a function that
-       maps from input to the result.
-       If the variant doesn't take arguments, then this is a simple type
-       that just defines the class (like a default type). */
-    struct lily_type_ *variant_type;
+    union {
+        /* Variants with arguments: This type maps from the input to the result.
+           Variants without arguments: It's the default type. */
+        struct lily_type_ *variant_type;
+        /* Enums and classes: This is the type that 'self' will have. For those
+           without generics, this is the default type. */
+        struct lily_type_ *self_type;
+    };
 
     /* This is the package that this class was defined within. This is used to
        print a proper package name for classes.  */

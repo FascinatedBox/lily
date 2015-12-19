@@ -286,6 +286,9 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
 
     if (left == NULL || right == NULL)
         ret = (left == right);
+    else if (left->cls->id == SYM_CLASS_QUESTION ||
+             right->cls->id == SYM_CLASS_QUESTION)
+        ret = 1;
     else if (left->cls->id == SYM_CLASS_GENERIC)
         ret = check_generic(ts, left, right, flags);
     else if (left->cls->flags & CLS_IS_ENUM &&

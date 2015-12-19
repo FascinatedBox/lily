@@ -843,6 +843,8 @@ static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls,
     else
         result = lily_tm_make_default_for(parser->tm, cls);
 
+    cls->self_type = result;
+
     return result;
 }
 
