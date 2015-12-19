@@ -1,7 +1,7 @@
 #[
-SyntaxError: Function f, argument #3 is invalid:
-Expected Type: list[A]
-Received Type: list[list[integer]]
+SyntaxError: List elements do not have a consistent type.
+Expected Type: A
+Received Type: list[integer]
     from double_resolve_proof.lly:28
 ]#
 

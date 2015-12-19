@@ -76,6 +76,13 @@ inline lily_type *lily_tm_get(lily_type_maker *tm, int pos)
     return tm->types[pos];
 }
 
+lily_type *lily_tm_pop(lily_type_maker *tm)
+{
+    tm->pos--;
+    lily_type *result = tm->types[tm->pos];
+    return result;
+}
+
 void lily_tm_set_circular(lily_class *cls)
 {
     /* The only types that could have been made are types that are of this class. If

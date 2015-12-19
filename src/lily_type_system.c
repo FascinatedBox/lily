@@ -24,6 +24,9 @@ if (new_size >= ts->max) \
    As of right now, only function inputs use this. */
 #define T_CONTRAVARIANT 0x4
 
+/* Add the narrowest of the two matching types during match. */
+#define T_UNIFY 0x10
+
 lily_type_system *lily_new_type_system(lily_type_maker *tm, lily_type *any_type,
         lily_type *question_type)
 {
@@ -118,14 +121,31 @@ void lily_ts_pull_generics(lily_type_system *ts, lily_type *left, lily_type *rig
     }
 }
 
+static void simple_unify(lily_type_system *ts, lily_type *left,
+        lily_type *right, int num_subtypes)
+{
+    lily_class *cls = left->cls->id < right->cls->id ? left->cls : right->cls;
+
+    if (num_subtypes) {
+        int flags = (left->flags & TYPE_IS_VARARGS) &
+                    (right->flags & TYPE_IS_VARARGS);
+        lily_tm_add(ts->tm, lily_tm_make(ts->tm, flags, cls, num_subtypes));
+    }
+    else
+        lily_tm_add(ts->tm, cls->type);
+}
+
 static int check_raw(lily_type_system *, lily_type *, lily_type *, int);
 
 static int check_generic(lily_type_system *ts, lily_type *left,
         lily_type *right, int flags)
 {
     int ret;
-    if (flags & T_DONT_SOLVE)
+    if (flags & T_DONT_SOLVE) {
         ret = (left == right);
+        if (ret && flags & T_UNIFY)
+            lily_tm_add(ts->tm, left);
+    }
     else {
         int generic_pos = ts->pos + left->generic_pos;
         lily_type *cmp_type = ts->types[generic_pos];
@@ -151,7 +171,7 @@ static int check_enum(lily_type_system *ts, lily_type *left, lily_type *right,
     if (right->cls->variant_type->subtype_count != 0) {
         /* Erase the variance of the caller, since it doesn't apply to the subtypes of
            this class. check_misc explains why this is important in more detail. */
-        flags &= T_DONT_SOLVE;
+        flags &= T_DONT_SOLVE | T_UNIFY;
 
         /* I think this is best explained as an example:
             'enum Option[A, B] { Some(A) None }'
@@ -171,6 +191,11 @@ static int check_enum(lily_type_system *ts, lily_type *left, lily_type *right,
         }
     }
 
+    /* For now, enums are all invariant, so the result will be whatever the enum
+       is. In the future, that may change. */
+    if (ret && flags & T_UNIFY)
+        lily_tm_add(ts->tm, left);
+        
     return ret;
 }
 
@@ -178,7 +203,7 @@ static int check_function(lily_type_system *ts, lily_type *left,
         lily_type *right, int flags)
 {
     int ret = 1;
-    flags &= T_DONT_SOLVE;
+    flags &= T_DONT_SOLVE | T_UNIFY;
 
     /* Remember that [0] is the return type, and always exists. */
     if (check_raw(ts, left->subtypes[0], right->subtypes[0], flags | T_COVARIANT) == 0)
@@ -205,6 +230,9 @@ static int check_function(lily_type_system *ts, lily_type *left,
             }
         }
     }
+
+    if (ret && flags & T_UNIFY)
+        simple_unify(ts, left, right, left->subtype_count);
 
     return ret;
 }
@@ -260,7 +288,7 @@ static int check_misc(lily_type_system *ts, lily_type *left, lily_type *right,
            g(v)
 
            ``` */
-        flags &= T_DONT_SOLVE;
+        flags &= T_DONT_SOLVE | T_UNIFY;
 
         ret = 1;
 
@@ -277,6 +305,9 @@ static int check_misc(lily_type_system *ts, lily_type *left, lily_type *right,
         }
     }
 
+    if (ret && flags & T_UNIFY)
+        simple_unify(ts, left, right, num_subtypes);
+
     return ret;
 }
 
@@ -284,11 +315,21 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
 {
     int ret = 0;
 
-    if (left == NULL || right == NULL)
+    if (left == NULL || right == NULL) {
         ret = (left == right);
-    else if (left->cls->id == SYM_CLASS_QUESTION ||
-             right->cls->id == SYM_CLASS_QUESTION)
+        if (ret)
+            lily_tm_add(ts->tm, left);
+    }
+    else if (left->cls->id == SYM_CLASS_QUESTION) {
         ret = 1;
+        if (flags & T_UNIFY)
+            lily_tm_add(ts->tm, right);
+    }
+    else if (right->cls->id == SYM_CLASS_QUESTION) {
+        ret = 1;
+        if (flags & T_UNIFY)
+            lily_tm_add(ts->tm, left);
+    }
     else if (left->cls->id == SYM_CLASS_GENERIC)
         ret = check_generic(ts, left, right, flags);
     else if (left->cls->flags & CLS_IS_ENUM &&
@@ -307,6 +348,27 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
 int lily_ts_check(lily_type_system *ts, lily_type *left, lily_type *right)
 {
     return check_raw(ts, left, right, 0);
+}
+
+lily_type *lily_ts_unify(lily_type_system *ts, lily_type *left, lily_type *right)
+{
+    int save_pos = ts->tm->pos;
+    /// hmm...this seems suspicous. I'd like to allow covariance, but contra is
+    /// okay too.
+    /// I just want the lowest of whatever has been passed. Do I need to run it
+    /// twice, one for each side, maybe?
+    /// That seems a bit wasteful though...
+    int ok = check_raw(ts, left, right, T_DONT_SOLVE | T_COVARIANT | T_UNIFY);
+    lily_type *result;
+
+    if (ok)
+        result = lily_tm_pop(ts->tm);
+    else {
+        ts->tm->pos = save_pos;
+        result = NULL;
+    }
+
+    return result;
 }
 
 int lily_ts_type_greater_eq(lily_type_system *ts, lily_type *left, lily_type *right)

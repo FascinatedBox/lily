@@ -4,7 +4,7 @@ v.clear()
 if v.size() != 0:
     stderr.print("Failed.")
 
-var v2 = [1, 2.0, "3", [4]]
+var v2: list[any] = [1, 2.0, "3", [4]]
 v2.clear()
 
 if v2.size() != 0:

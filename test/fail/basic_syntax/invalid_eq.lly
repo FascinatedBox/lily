@@ -1,6 +1,9 @@
 #[
 SyntaxError: Invalid operation: list[integer] == list[string].
-    from invalid_eq.lly:6
+    from invalid_eq.lly:9
 ]#
 
-[1] == ["1"]
+var v1 = [1]
+var v2 = ["1"]
+
+v1 == v2

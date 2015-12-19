@@ -43,6 +43,8 @@ void lily_free_type_system(lily_type_system *);
    and those generics are unresolved, then right's types solve those generics. */
 int lily_ts_check(lily_type_system *, lily_type *, lily_type *);
 
+lily_type *lily_ts_unify(lily_type_system *, lily_type *, lily_type *);
+
 /* This uses the type system to determine if the first type can be assigned
    to the second type. This understands variance, but will not solve any generics. */
 int lily_ts_type_greater_eq(lily_type_system *, lily_type *, lily_type *);

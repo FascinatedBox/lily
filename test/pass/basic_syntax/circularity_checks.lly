@@ -42,7 +42,7 @@ var q: list[list[any]] = [[1, 1.1]]
 var r: list[any] = [1, 1.1, 1.1, 1.1]
 
 r[0] = q
-r[1] = [q, q, q, q, [[q]], 1.1, 5]
+r[1] = [q, q, q, q, [[q]], 1.1, 5].@(list[any])
 q[0] = r
 
 var s: list[any] = [1, 2.1, 3]
