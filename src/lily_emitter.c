@@ -2620,8 +2620,7 @@ static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
 
     left_type = get_solved_property_type(emit, ast->left);
 
-    if (ast->right->tree_type != tree_local_var)
-        eval_tree(emit, ast->right, left_type);
+    eval_tree(emit, ast->right, left_type);
 
     lily_sym *rhs = ast->right->result;
     lily_type *right_type = rhs->type;
@@ -2787,8 +2786,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
                 "Left side of %s is not assignable.\n", opname(ast->op));
     }
 
-    if (ast->right->tree_type != tree_local_var)
-        eval_tree(emit, ast->right, ast->left->result->type);
+    eval_tree(emit, ast->right, ast->left->result->type);
 
     /* For 'var <name> = ...', fix the type. */
     if (ast->left->result->type == NULL)
@@ -2871,9 +2869,7 @@ static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
     lily_type *left_type = ast->left->property->type;
     lily_sym *rhs;
 
-    if (ast->right->tree_type != tree_local_var)
-        /* Important! Expecting the lhs will auto-fix the rhs if needed. */
-        eval_tree(emit, ast->right, left_type);
+    eval_tree(emit, ast->right, left_type);
 
     lily_type *right_type = ast->right->result->type;
     /* For 'var @<name> = ...', fix the type of the property. */
@@ -3144,8 +3140,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 {
     lily_type *cast_type = ast->arg_start->next_arg->typecast_type;
     lily_ast *right_tree = ast->arg_start;
-    if (right_tree->tree_type != tree_local_var)
-        eval_tree(emit, right_tree, cast_type);
+    eval_tree(emit, right_tree, cast_type);
 
     lily_type *var_type = right_tree->result->type;
 
@@ -3228,8 +3223,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
         if (expect)
             elem_type = expect->subtypes[i];
 
-        if (arg->tree_type != tree_local_var)
-            eval_tree(emit, arg, elem_type);
+        eval_tree(emit, arg, elem_type);
 
         if (elem_type && elem_type != arg->result->type)
             /* Attempt to fix the type to what's wanted. If it fails, the parent
@@ -3538,8 +3532,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         key_tree = tree_iter;
         value_tree = tree_iter->next_arg;
 
-        if (key_tree->tree_type != tree_local_var)
-            eval_tree(emit, key_tree, expect_key_type);
+        eval_tree(emit, key_tree, expect_key_type);
 
         /* Keys -must- all be the same type. They cannot be converted to any
            later on because any are not valid keys (not immutable). */
@@ -3556,8 +3549,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
             }
         }
 
-        if (value_tree->tree_type != tree_local_var)
-            eval_tree(emit, value_tree, expect_value_type);
+        eval_tree(emit, value_tree, expect_value_type);
 
         /* Only mark user-defined enums/variants, because those are the ones
            that can default. */
@@ -3614,8 +3606,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     lily_type *last_type = NULL;
 
     for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
-        if (arg->tree_type != tree_local_var)
-            eval_tree(emit, arg, elem_type);
+        eval_tree(emit, arg, elem_type);
 
         /* 'any' is marked as an enum, but this is only interested in
            user-defined enums (which have special defaulting). */
@@ -3789,14 +3780,12 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
     if (want_type->cls->id == SYM_CLASS_OPTARG)
         want_type = want_type->subtypes[0];
 
-    if (arg->tree_type != tree_local_var) {
-        lily_type *eval_type = want_type;
-        if (eval_type->flags & TYPE_IS_UNRESOLVED) {
-            eval_type = lily_ts_resolve_with(emit->ts, want_type,
-                    emit->ts->question_class_type);
-        }
-        eval_tree(emit, arg, eval_type);
+    lily_type *eval_type = want_type;
+    if (eval_type->flags & TYPE_IS_UNRESOLVED) {
+        eval_type = lily_ts_resolve_with(emit->ts, want_type,
+                emit->ts->question_class_type);
     }
+    eval_tree(emit, arg, eval_type);
 
     lily_type *result_type;
     if (arg->tree_type == tree_variant ||
@@ -4358,8 +4347,7 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         }
     }
     else if (ast->tree_type == tree_parenth) {
-        if (ast->arg_start->tree_type != tree_local_var)
-            eval_tree(emit, ast->arg_start, expect);
+        eval_tree(emit, ast->arg_start, expect);
 
         ast->result = ast->arg_start->result;
         ast->result_code_offset = ast->arg_start->result_code_offset;
