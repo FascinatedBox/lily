@@ -3291,6 +3291,9 @@ void eval_self(lily_emit_state *emit, lily_ast *ast)
  *
  */
 
+static lily_type *partial_eval(lily_emit_state *, lily_ast *, lily_type *,
+        uint16_t *);
+
 /** The eval for these two is broken away from the others because it is fairly
     difficult. The bulk of the problem comes with trying to find a 'bottom type'
     of all the values that were entered. This process is termed 'unification',
@@ -3578,7 +3581,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
 
     lily_type *elem_type = NULL;
     lily_ast *arg;
-    int found_variant_or_enum = 0;
+    uint16_t found_variant = 0;
 
     if (expect && expect->cls->id == SYM_CLASS_LIST)
         elem_type = expect->subtypes[0];
@@ -3587,17 +3590,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         elem_type = emit->ts->question_class_type;
 
     for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
-        eval_tree(emit, arg, elem_type);
-
-        lily_type *unify_type;
-        if (arg->tree_type == tree_variant ||
-            (arg->tree_type == tree_call &&
-             arg->arg_start->tree_type == tree_variant)) {
-            unify_type = arg->padded_variant_type;
-            found_variant_or_enum = 1;
-        }
-        else
-            unify_type = arg->result->type;
+        lily_type *unify_type = partial_eval(emit, arg, elem_type, &found_variant);
 
         lily_type *new_elem_type = lily_ts_unify(emit->ts, elem_type, unify_type);
         if (new_elem_type == NULL)
@@ -3610,7 +3603,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         elem_type = new_elem_type;
     }
 
-    if (found_variant_or_enum) {
+    if (found_variant) {
         rebox_enum_variant_values(emit, ast, elem_type, 0);
         elem_type = ast->arg_start->result->type;
     }
@@ -3769,20 +3762,9 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
         eval_type = lily_ts_resolve_with(emit->ts, want_type,
                 emit->ts->question_class_type);
     }
-    eval_tree(emit, arg, eval_type);
 
-    lily_type *result_type;
-    if (arg->tree_type == tree_variant ||
-        (arg->tree_type == tree_call &&
-         arg->arg_start->tree_type == tree_variant)) {
-        /* The variant does not provide full information: Instead, rely on the
-           padded type that it provides. That type will be a full enum type but
-           with ? in the unimportant spots. */
-        result_type = arg->padded_variant_type;
-        cs->have_bare_variants = 1;
-    }
-    else
-        result_type = arg->result->type;
+    lily_type *result_type = partial_eval(emit, arg, eval_type,
+            &cs->have_bare_variants);
 
     lily_type *match_type = want_type;
     if (want_type->cls->id == SYM_CLASS_GENERIC)
@@ -4369,6 +4351,28 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         expect->cls->id == SYM_CLASS_ANY &&
         ast->result->type != expect)
         emit_rebox_to_any(emit, ast);
+}
+
+/* This is used for doing an eval but with an interest in not defaulting any
+   variant types (unless expect is any). The result of this function is either
+   the padded enum type, or the type of any result. Additionally, if a variant
+   is seen, then *found_variant is set to 1. */
+static lily_type *partial_eval(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect, uint16_t *found_variant)
+{
+    eval_tree(emit, ast, expect);
+
+    lily_type *eval_type;
+    if (ast->tree_type == tree_variant ||
+        (ast->tree_type == tree_call &&
+         ast->arg_start->tree_type == tree_variant)) {
+        eval_type = ast->padded_variant_type;
+        *found_variant = 1;
+    }
+    else
+        eval_type = ast->result->type;
+
+    return eval_type;
 }
 
 /* Evaluate a tree with 'expect' sent for inference. If the tree does not return
