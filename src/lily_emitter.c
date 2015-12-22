@@ -2399,6 +2399,16 @@ static int type_matchup(lily_emit_state *emit, lily_type *want_type,
  *
  */
 
+static void inconsistent_type_error(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect, lily_type *got, const char *context)
+{
+    lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+            "%s do not have a consistent type.\n"
+            "Expected Type: ^T\n"
+            "Received Type: ^T\n",
+            context, expect, got);
+}
+
 static void bad_assign_error(lily_emit_state *emit, int line_num,
         lily_type *left_type, lily_type *right_type)
 {
@@ -3405,31 +3415,6 @@ static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
     lily_ts_lower_ceiling(emit->ts, adjust);
 }
 
-/* This reboxes all values in a hash to type any. */
-static void emit_hash_values_to_anys(lily_emit_state *emit,
-        lily_ast *hash_ast)
-{
-    /* The keys and values are in hash_ast as args. Since they're in pairs and
-       this only modifies the values, this is how many values there are. */
-    int value_count = hash_ast->args_collected / 2;
-
-    /* Make a single large prep that will cover everything needed. This ensures
-       that any growing will be done all at once, instead of in smaller
-       blocks. */
-    write_prep(emit, value_count * 4);
-
-    lily_type *any_type = emit->symtab->any_class->type;
-    lily_ast *iter_ast;
-
-    for (iter_ast = hash_ast->arg_start;
-         iter_ast != NULL;
-         iter_ast = iter_ast->next_arg->next_arg) {
-
-        if (iter_ast->next_arg->result->type != any_type)
-            emit_rebox_to_any(emit, iter_ast->next_arg);
-    }
-}
-
 /* Make sure that 'key_type' is a valid key. It may be NULL or ? depending on
    inference. If 'key_type' is not suitable to be a hash key, then raise a
    syntax error. */
@@ -3441,7 +3426,7 @@ static void ensure_valid_key_type(lily_emit_state *emit, lily_ast *ast,
 
     if (key_type == NULL || (key_type->cls->flags & CLS_VALID_HASH_KEY) == 0)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Type '^T' is not a valid hash key.\n", "");
+                "Type '^T' is not a valid hash key.\n", key_type);
 }
 
 /* Build an empty something. It's an empty hash only if the caller wanted a
@@ -3496,18 +3481,22 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
 {
     lily_ast *tree_iter;
 
-    lily_type *last_key_type = NULL, *last_value_type = NULL,
-             *expect_key_type = NULL, *expect_value_type = NULL;
-    int make_anys = 0, found_variant_or_enum = 0;
+    lily_type *key_type, *question_type, *value_type;
+    question_type = emit->symtab->question_class->type;
+    uint16_t found_variant_or_enum = 0;
 
     if (expect && expect->cls->id == SYM_CLASS_HASH) {
-        expect_key_type = expect->subtypes[0];
-        expect_value_type = expect->subtypes[1];
-        if (expect_key_type == emit->symtab->question_class->type)
-            expect_key_type = NULL;
+        key_type = expect->subtypes[0];
+        value_type = expect->subtypes[1];
+        if (key_type == NULL)
+            key_type = question_type;
 
-        if (expect_value_type == emit->symtab->question_class->type)
-            expect_value_type = NULL;
+        if (value_type == NULL)
+            value_type = question_type;
+    }
+    else {
+        key_type = question_type;
+        value_type = question_type;
     }
 
     for (tree_iter = ast->arg_start;
@@ -3518,53 +3507,38 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         key_tree = tree_iter;
         value_tree = tree_iter->next_arg;
 
-        eval_tree(emit, key_tree, expect_key_type);
+        lily_type *partial_type, *unify_type;
 
-        /* Keys -must- all be the same type. They cannot be converted to any
-           later on because any are not valid keys (not immutable). */
-        if (key_tree->result->type != last_key_type) {
-            if (last_key_type == NULL) {
-                ensure_valid_key_type(emit, ast, key_tree->result->type);
-                last_key_type = key_tree->result->type;
-            }
-            else {
-                lily_raise_adjusted(emit->raiser, key_tree->line_num,
-                        lily_SyntaxError,
-                        "Expected a key of type '^T', but key is of type '^T'.\n",
-                        last_key_type, key_tree->result->type);
-            }
+        partial_type = partial_eval(emit, key_tree, key_type,
+                &found_variant_or_enum);
+
+        unify_type = lily_ts_unify(emit->ts, key_type, partial_type);
+        if (unify_type == NULL)
+            inconsistent_type_error(emit, key_tree, key_type, partial_type,
+                    "Hash keys");
+        else {
+            ensure_valid_key_type(emit, ast, unify_type);
+            key_type = unify_type;
         }
 
-        eval_tree(emit, value_tree, expect_value_type);
-
-        /* Only mark user-defined enums/variants, because those are the ones
-           that can default. */
-        if (value_tree->result->type->cls->flags &
-            (CLS_IS_VARIANT | CLS_IS_ENUM) &&
-            value_tree->result->type->cls->id != SYM_CLASS_ANY)
-            found_variant_or_enum = 1;
-
-        /* Values being promoted to any is okay though. :) */
-        if (value_tree->result->type != last_value_type) {
-            if (last_value_type == NULL)
-                last_value_type = value_tree->result->type;
-            else
-                make_anys = 1;
-        }
+        partial_type = partial_eval(emit, value_tree, value_type,
+                &found_variant_or_enum);
+        unify_type = lily_ts_unify(emit->ts, value_type, partial_type);
+        if (unify_type == NULL)
+            inconsistent_type_error(emit, value_tree, value_type, partial_type,
+                    "Hash values");
+        else
+            value_type = unify_type;
     }
 
-    if (found_variant_or_enum)
-        rebox_enum_variant_values(emit, ast, expect_value_type, 1);
-    else if (make_anys ||
-                (expect_value_type &&
-                expect_value_type->cls->id == SYM_CLASS_ANY))
-        emit_hash_values_to_anys(emit, ast);
-
-    last_value_type = ast->arg_start->next_arg->result->type;
+    if (found_variant_or_enum) {
+        rebox_enum_variant_values(emit, ast, value_type, 1);
+        value_type = ast->arg_start->next_arg->result->type;
+    }
 
     lily_class *hash_cls = emit->symtab->hash_class;
-    lily_tm_add(emit->tm, last_key_type);
-    lily_tm_add(emit->tm, last_value_type);
+    lily_tm_add(emit->tm, key_type);
+    lily_tm_add(emit->tm, value_type);
     lily_type *new_type = lily_tm_make(emit->tm, 0, hash_cls, 2);
 
     lily_storage *s = get_storage(emit, new_type);
@@ -3597,11 +3571,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
 
         lily_type *new_elem_type = lily_ts_unify(emit->ts, elem_type, unify_type);
         if (new_elem_type == NULL)
-            lily_raise_adjusted(emit->raiser, arg->line_num, lily_SyntaxError,
-                    "List elements do not have a consistent type.\n"
-                    "Expected Type: ^T\n"
-                    "Received Type: ^T\n",
-                    elem_type, unify_type);
+            inconsistent_type_error(emit, arg, elem_type, unify_type, "List elements");
 
         elem_type = new_elem_type;
     }
