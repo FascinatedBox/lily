@@ -3815,32 +3815,29 @@ static void verify_argument_count(lily_emit_state *emit,
     }
 }
 
-/* This is called before counting the number of arguments. If the target being
-   called needs a first value (either self or the x of x.y), then that is added
-   to the call's values. */
-static lily_type *maybe_inject_first_value(lily_emit_state *emit,
+/* This is called when the first tree of a call implies a starting value. This
+   pushes the appropriate value. */
+static void push_first_tree_value(lily_emit_state *emit,
         lily_emit_call_state *cs)
 {
-    lily_type *result = NULL;
     lily_ast *ast = cs->ast;
     lily_tree_type call_tt = ast->arg_start->tree_type;
+    lily_type *push_type;
 
     if (call_tt == tree_method) {
+        push_type = emit->block->self->type;
         add_value(emit, cs, (lily_sym *)emit->block->self);
-        result = emit->block->self->type;
     }
-    /* Since this assumes there is at least one argument needed, it has to come
-       after verifying the argument count. */
-    else if (call_tt == tree_oo_access) {
-        /* For x.y kinds of accesses, add the (evaluated) 'x' as the first
-           value. */
-        add_value(emit, cs, ast->arg_start->arg_start->result);
-        result = ast->arg_start->arg_start->result->type;
-        if (result->cls->flags & CLS_IS_VARIANT)
+    else {
+        lily_ast *arg = ast->arg_start->arg_start;
+        add_value(emit, cs, arg->result);
+        push_type = arg->result->type;
+        if (push_type->cls->flags & CLS_IS_VARIANT)
             cs->have_bare_variants = 1;
     }
 
-    return result;
+    /* This causes type inference to get pulled in. It shouldn't be wrong. */
+    lily_ts_check(emit->ts, get_expected_type(cs, 0), push_type);
 }
 
 /* This will make sure the call is sound, and add some starting type
@@ -3849,14 +3846,17 @@ static void validate_and_prep_call(lily_emit_state *emit,
         lily_emit_call_state *cs, lily_type *expect, lily_tree_type call_tt,
         int num_args)
 {
-    lily_type *inject_type = maybe_inject_first_value(emit, cs);
+    lily_tree_type first_tt = cs->ast->arg_start->tree_type;
+    /* The first tree is counted as an argument. However, most trees don't
+       actually add the first argument. In fact, only two will:
+       tree_method will inject self as a first argument.
+       tree_oo_access will inject the left of the dot (a.x() adds 'a'). */
+    int count_first = (first_tt == tree_oo_access || first_tt == tree_method);
 
-    verify_argument_count(emit, cs, num_args + (inject_type != NULL));
+    verify_argument_count(emit, cs, num_args + count_first);
 
-    /* Now that the argument count is known, and that there is a first type,
-       use that first type to fill in generics. It shouldn't be wrong. */
-    if (inject_type)
-        lily_ts_check(emit->ts, get_expected_type(cs, 0), inject_type);
+    if (count_first)
+        push_first_tree_value(emit, cs);
 
     if (cs->call_type->flags & TYPE_IS_UNRESOLVED) {
         if (call_tt == tree_local_var || call_tt == tree_inherited_new ||
