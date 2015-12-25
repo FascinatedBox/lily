@@ -3843,9 +3843,10 @@ static void push_first_tree_value(lily_emit_state *emit,
 /* This will make sure the call is sound, and add some starting type
    information. It is then possible to run the call. */
 static void validate_and_prep_call(lily_emit_state *emit,
-        lily_emit_call_state *cs, lily_type *expect, lily_tree_type call_tt,
-        int num_args)
+        lily_emit_call_state *cs, lily_type *expect, int num_args)
 {
+    /* NOTE: This works for both calls and func pipe because the arg_start and
+       right fields of lily_ast are in a union together. */
     lily_tree_type first_tt = cs->ast->arg_start->tree_type;
     /* The first tree is counted as an argument. However, most trees don't
        actually add the first argument. In fact, only two will:
@@ -3859,8 +3860,8 @@ static void validate_and_prep_call(lily_emit_state *emit,
         push_first_tree_value(emit, cs);
 
     if (cs->call_type->flags & TYPE_IS_UNRESOLVED) {
-        if (call_tt == tree_local_var || call_tt == tree_inherited_new ||
-            call_tt == tree_upvalue) {
+        if (first_tt == tree_local_var || first_tt == tree_inherited_new ||
+            first_tt == tree_upvalue) {
             /* This forces each generic to be resolved as itself. (A = A, B = B,
                 etc.). This is really important.
                 tree_local_var + tree_upvalue:
@@ -3905,8 +3906,7 @@ static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *c
 {
     lily_ast *ast = cs->ast;
 
-    validate_and_prep_call(emit, cs, expect, ast->arg_start->tree_type,
-            ast->args_collected - 1);
+    validate_and_prep_call(emit, cs, expect, ast->args_collected - 1);
 
     lily_ast *arg;
     for (arg = ast->arg_start->next_arg;arg != NULL;arg = arg->next_arg)
@@ -4194,7 +4194,7 @@ static void eval_func_pipe(lily_emit_state *emit, lily_ast *ast,
        and do all the other nice things needed. */
     lily_emit_call_state *cs = begin_call(emit, ast);
 
-    validate_and_prep_call(emit, cs, expect, ast->right->tree_type, 1);
+    validate_and_prep_call(emit, cs, expect, 1);
 
     eval_call_arg(emit, cs, ast->left);
 
