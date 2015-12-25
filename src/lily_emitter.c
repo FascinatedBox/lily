@@ -3825,18 +3825,9 @@ static lily_type *maybe_inject_first_value(lily_emit_state *emit,
     lily_ast *ast = cs->ast;
     lily_tree_type call_tt = ast->arg_start->tree_type;
 
-    if (call_tt == tree_defined_func) {
-        /* Inject self into this call if it is a class method, or it is a method
-           of something that this class inherits from. */
-        lily_var *first_result = ((lily_var *)ast->arg_start->sym);
-
-        lily_class *current_class = emit->block->class_entry;
-        lily_class *callee_class = first_result->parent;
-        if (callee_class &&
-            lily_class_greater_eq(callee_class, current_class)) {
-            add_value(emit, cs, (lily_sym *)emit->block->self);
-            result = emit->block->self->type;
-        }
+    if (call_tt == tree_method) {
+        add_value(emit, cs, (lily_sym *)emit->block->self);
+        result = emit->block->self->type;
     }
     /* Since this assumes there is at least one argument needed, it has to come
        after verifying the argument count. */
@@ -3959,7 +3950,9 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     lily_item *call_item = NULL;
     lily_type *call_type = NULL;
 
-    if (first_tt == tree_defined_func || first_tt == tree_inherited_new) {
+    if (first_tt == tree_defined_func ||
+        first_tt == tree_inherited_new ||
+        first_tt == tree_method) {
         call_item = ast->arg_start->item;
         if (call_item->flags & VAR_NEEDS_CLOSURE) {
             lily_storage *s = get_storage(emit, ast->arg_start->sym->type);
@@ -4230,6 +4223,7 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         ast->tree_type == tree_literal ||
         ast->tree_type == tree_defined_func ||
         ast->tree_type == tree_static_func ||
+        ast->tree_type == tree_method ||
         ast->tree_type == tree_inherited_new)
         emit_nonlocal_var(emit, ast);
     else if (ast->tree_type == tree_call)

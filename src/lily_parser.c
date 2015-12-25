@@ -1354,6 +1354,19 @@ static void dispatch_word_as_class(lily_parse_state *parser, lily_class *cls,
     *state = ST_WANT_OPERATOR;
 }
 
+/* This function is to be called when 'func' could be a class method or just a
+   plain function. The emitter's call handling special-cases tree_method to
+   do an auto-injection of 'self'.  */
+static void push_maybe_method(lily_parse_state *parser, lily_var *func)
+{
+    if (func->parent &&
+        parser->class_self_type &&
+        lily_class_greater_eq(func->parent, parser->class_self_type->cls))
+        lily_ast_push_method(parser->ast_pool, func);
+    else
+        lily_ast_push_defined_func(parser->ast_pool, func);
+}
+
 /* This function takes a var and determines what kind of tree to put it into.
    The tree type is used by emitter to group vars into different types as a
    small optimization. */
@@ -1367,7 +1380,7 @@ static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
 
     /* Defined functions have a depth of one, so they have to be first. */
     else if (var->flags & VAR_IS_READONLY)
-        lily_ast_push_defined_func(parser->ast_pool, var);
+        push_maybe_method(parser, var);
     else if (var->function_depth == 1)
         lily_ast_push_global_var(parser->ast_pool, var);
     else if (var->function_depth == parser->emit->function_depth)
@@ -1420,7 +1433,7 @@ static void expression_word(lily_parse_state *parser, int *state)
                 lex->label);
 
         if (var) {
-            lily_ast_push_defined_func(parser->ast_pool, var);
+            lily_ast_push_method(parser->ast_pool, var);
             *state = ST_WANT_OPERATOR;
             return;
         }
