@@ -1,5 +1,5 @@
 #[
-SyntaxError: Function g expects 0 args, but got 1.
+SyntaxError: g expects 0 args, but got 1.
     from wrong_arg_count_closed_call.lly:8
 ]#
 

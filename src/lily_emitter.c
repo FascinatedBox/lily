@@ -2417,53 +2417,34 @@ static void bad_assign_error(lily_emit_state *emit, int line_num,
             right_type, left_type);
 }
 
-/* This function takes a call state (more on that later) and writes down the
-   thing that was called incorrectly. This is the first step in generating
-   error messages related to calls. */
-static void push_info_to_error(lily_emit_state *emit, lily_emit_call_state *cs)
+static void get_error_name(lily_emit_state *emit, lily_emit_call_state *cs,
+        const char **class_name, const char **separator, const char **name)
 {
-    char *class_name = "", *separator = "", *kind = "Function";
-    char *call_name;
-    lily_msgbuf *msgbuf = emit->raiser->msgbuf;
+    *class_name = "";
+    *separator = "";
 
     int item_flags = cs->error_item->flags;
 
+    /* Unfortunately, each of these kinds of things stores the name it holds at
+       a different offset. Maybe this will change one day.*/
     if (item_flags & ITEM_TYPE_VAR) {
-        lily_var *var = (lily_var *)cs->error_item;
-        if (var->parent) {
-            class_name = var->parent->name;
-            separator = "::";
+        lily_var *v = ((lily_var *)cs->error_item);
+        if (v->parent) {
+            *class_name = v->parent->name;
+            *separator = "::";
         }
-
-        call_name = var->name;
+        *name = v->name;
     }
-    else if (item_flags & ITEM_TYPE_VARIANT) {
-        lily_class *variant_cls = (lily_class *)cs->error_item;
-        call_name = variant_cls->name;
-
-        if (variant_cls->parent->flags & CLS_ENUM_IS_SCOPED) {
-            class_name = variant_cls->parent->name;
-            separator = "::";
-        }
-
-        kind = "Variant";
-    }
+    else if (item_flags & ITEM_TYPE_VARIANT)
+        *name = ((lily_class *)cs->error_item)->name;
     else if (item_flags & ITEM_TYPE_PROPERTY) {
-        lily_prop_entry *prop = (lily_prop_entry *)cs->error_item;
-
-        class_name = prop->cls->name;
-        call_name = prop->name;
-        separator = ".";
-        kind = "Property";
+        lily_prop_entry *p = ((lily_prop_entry *)cs->error_item);
+        *class_name = p->cls->name;
+        *separator = ".";
+        *name = p->name;
     }
-    else {
-        /* This occurs when there's a call of a call, a call of a subscript
-           result, or something else weird. */
-        call_name = "(anonymous)";
-    }
-
-    lily_msgbuf_add_fmt(msgbuf, "%s %s%s%s", kind, class_name, separator,
-            call_name);
+    else
+        *name = "(anonymous)";
 }
 
 /* This is called when the call state (more on that later) has an argument that
@@ -2471,7 +2452,9 @@ static void push_info_to_error(lily_emit_state *emit, lily_emit_call_state *cs)
 static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
         lily_type *got, lily_type *expected)
 {
-    push_info_to_error(emit, cs);
+    const char *class_name, *separator, *name;
+    get_error_name(emit, cs, &class_name, &separator, &name);
+
     lily_msgbuf *msgbuf = emit->raiser->msgbuf;
 
     emit->raiser->line_adjust = cs->ast->line_num;
@@ -2484,10 +2467,11 @@ static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
     /* These names are intentionally the same length and on separate lines so
        that slight naming issues become more apparent. */
     lily_msgbuf_add_fmt(msgbuf,
-            ", argument #%d is invalid:\n"
+            "Argument #%d to %s%s%s is invalid:\n"
             "Expected Type: ^T\n"
             "Received Type: ^T\n",
             cs->arg_count + 1,
+            class_name, separator, name,
             lily_ts_resolve_with(emit->ts, expected, question), got);
 
     lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
@@ -3804,10 +3788,13 @@ static void verify_argument_count(lily_emit_state *emit,
     }
 
     if (num_args < min || num_args > max) {
-        push_info_to_error(emit, cs);
+        const char *class_name, *separator, *name;
+
+        get_error_name(emit, cs, &class_name, &separator, &name);
         lily_msgbuf *msgbuf = emit->raiser->msgbuf;
 
-        lily_msgbuf_add(msgbuf, " expects ");
+        lily_msgbuf_add_fmt(msgbuf, "%s%s%s expects ", class_name, separator,
+                name);
 
         if (max == (unsigned int)-1)
             lily_msgbuf_add_fmt(msgbuf, "at least %d args", min);
