@@ -1,5 +1,5 @@
 #[
-SyntaxError: Function string::concat expects 2 args, but got 4.
+SyntaxError: string::concat expects 2 args, but got 4.
     from wrong_arg_count_class_method.lly:8
 ]#
 

@@ -1,5 +1,5 @@
 #[
-SyntaxError: Function f, argument #1 is invalid:
+SyntaxError: Argument #1 to f is invalid:
 Expected Type: list[?]
 Received Type: integer
     from ensure_error_has_question_mark.lly:10

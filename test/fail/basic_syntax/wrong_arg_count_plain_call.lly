@@ -1,5 +1,5 @@
 #[
-SyntaxError: Function f expects 0 args, but got 1.
+SyntaxError: f expects 0 args, but got 1.
     from wrong_arg_count_plain_call.lly:8
 ]#
 

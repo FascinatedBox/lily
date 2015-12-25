@@ -1,5 +1,5 @@
 #[
-SyntaxError: Function f, argument #1 is invalid:
+SyntaxError: Argument #1 to f is invalid:
 Expected Type: integer
 Received Type: string
     from wrong_arg_type.lly:8

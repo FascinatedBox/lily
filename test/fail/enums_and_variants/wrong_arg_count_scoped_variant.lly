@@ -1,5 +1,5 @@
 #[
-SyntaxError: Variant Option::Some expects 1 args, but got 2.
+SyntaxError: Some expects 1 args, but got 2.
     from wrong_arg_count_scoped_variant.lly:11
 ]#
 
