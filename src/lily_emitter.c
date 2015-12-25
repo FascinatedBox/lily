@@ -2417,18 +2417,23 @@ static void bad_assign_error(lily_emit_state *emit, int line_num,
             right_type, left_type);
 }
 
-static void get_error_name(lily_emit_state *emit, lily_emit_call_state *cs,
+static void get_error_name(lily_emit_state *emit, lily_ast *ast,
         const char **class_name, const char **separator, const char **name)
 {
     *class_name = "";
     *separator = "";
 
-    int item_flags = cs->error_item->flags;
+    if (ast->tree_type == tree_binary)
+        ast = ast->right;
+    else
+        ast = ast->arg_start;
+
+    int item_flags = ast->item->flags;
 
     /* Unfortunately, each of these kinds of things stores the name it holds at
-       a different offset. Maybe this will change one day.*/
+       a different offset. Maybe this will change one day. */
     if (item_flags & ITEM_TYPE_VAR) {
-        lily_var *v = ((lily_var *)cs->error_item);
+        lily_var *v = ((lily_var *)ast->item);
         if (v->parent) {
             *class_name = v->parent->name;
             *separator = "::";
@@ -2436,9 +2441,9 @@ static void get_error_name(lily_emit_state *emit, lily_emit_call_state *cs,
         *name = v->name;
     }
     else if (item_flags & ITEM_TYPE_VARIANT)
-        *name = ((lily_class *)cs->error_item)->name;
+        *name = ((lily_class *)ast->item)->name;
     else if (item_flags & ITEM_TYPE_PROPERTY) {
-        lily_prop_entry *p = ((lily_prop_entry *)cs->error_item);
+        lily_prop_entry *p = ((lily_prop_entry *)ast->item);
         *class_name = p->cls->name;
         *separator = ".";
         *name = p->name;
@@ -2453,7 +2458,7 @@ static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
         lily_type *got, lily_type *expected)
 {
     const char *class_name, *separator, *name;
-    get_error_name(emit, cs, &class_name, &separator, &name);
+    get_error_name(emit, cs->ast, &class_name, &separator, &name);
 
     lily_msgbuf *msgbuf = emit->raiser->msgbuf;
 
@@ -3790,7 +3795,7 @@ static void verify_argument_count(lily_emit_state *emit,
     if (num_args < min || num_args > max) {
         const char *class_name, *separator, *name;
 
-        get_error_name(emit, cs, &class_name, &separator, &name);
+        get_error_name(emit, cs->ast, &class_name, &separator, &name);
         lily_msgbuf *msgbuf = emit->raiser->msgbuf;
 
         lily_msgbuf_add_fmt(msgbuf, "%s%s%s expects ", class_name, separator,
@@ -3952,13 +3957,11 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     lily_ast *first_tree = ast->arg_start;
     lily_tree_type first_tt = first_tree->tree_type;
     lily_item *call_item = NULL;
-    lily_item *debug_item = NULL;
     lily_type *call_type = NULL;
 
     if (first_tt == tree_defined_func || first_tt == tree_inherited_new) {
         call_item = ast->arg_start->item;
         if (call_item->flags & VAR_NEEDS_CLOSURE) {
-            debug_item = call_item;
             lily_storage *s = get_storage(emit, ast->arg_start->sym->type);
             emit_create_function(emit, ast->arg_start->sym, s);
             call_item = (lily_item *)s;
@@ -3971,7 +3974,6 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     else if (first_tt == tree_oo_access) {
         eval_oo_access_for_item(emit, ast->arg_start);
         if (first_tree->item->flags & ITEM_TYPE_PROPERTY) {
-            debug_item = (lily_item *)first_tree->property;
             oo_property_read(emit, first_tree);
             call_item = (lily_item *)first_tree->result;
         }
@@ -3981,16 +3983,11 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     else if (first_tt != tree_variant) {
         eval_tree(emit, ast->arg_start, NULL);
         call_item = (lily_item *)ast->arg_start->result;
-        if (first_tt == tree_upvalue)
-            debug_item = ast->arg_start->item;
     }
     else {
         call_item = (lily_item *)ast->arg_start->variant;
         call_type = ast->arg_start->variant->variant_type;
     }
-
-    if (debug_item == NULL)
-        debug_item = call_item;
 
     if (call_type == NULL)
         call_type = ((lily_sym *)call_item)->type;
@@ -4003,7 +4000,6 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
 
     result->item = call_item;
     result->call_type = call_type;
-    result->error_item = debug_item;
     /* Adjust ts to make space for this call's generics. It's important to do
        this after doing the above evals, because an eval might trigger a
        dynaload which might increase the maximum number of generics seen. */
