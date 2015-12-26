@@ -1,5 +1,5 @@
 #[
-SyntaxError: f expects 1 to 2 args, but got 3.
+SyntaxError: Wrong number of arguments to f (3 for 1..2).
     from optarg_too_many.lly:10
 ]#
 

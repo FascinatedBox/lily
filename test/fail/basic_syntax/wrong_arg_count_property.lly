@@ -1,5 +1,5 @@
 #[
-SyntaxError: abc.a expects 0 args, but got 2.
+SyntaxError: Wrong number of arguments to abc.a (2 for 0).
     from wrong_arg_count_property.lly:11
 ]#
 
