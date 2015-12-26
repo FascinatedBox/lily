@@ -2425,7 +2425,7 @@ static void get_error_name(lily_emit_state *emit, lily_ast *ast,
 
     if (ast->tree_type == tree_binary)
         ast = ast->right;
-    else
+    else if (ast->tree_type != tree_variant)
         ast = ast->arg_start;
 
     int item_flags = ast->item->flags;
@@ -3789,23 +3789,27 @@ static void get_func_min_max(lily_type *call_type, unsigned int *min,
 
 /* Make sure that the function being called has the right number of
    arguments. SyntaxError is raised if the count is wrong. */
-static void verify_argument_count(lily_emit_state *emit,
-        lily_emit_call_state *cs, int num_args)
+static void verify_argument_count(lily_emit_state *emit, lily_ast *target,
+        lily_type *call_type, int num_args)
 {
-    lily_type *call_type = cs->call_type;
     /* unsignedness is intentional: It causes -1 to be whatever the signed max
        is without using limits.h. */
     unsigned int min, max;
     get_func_min_max(call_type, &min, &max);
 
-    if (num_args < min || num_args > max) {
+    if (num_args == -1 || num_args < min || num_args > max) {
         /* I'd like the error message to be done all at once, instead of one
            piece at a time. Here are the possibilites:
            (# for n)
            (# for n+)
            (# for n..m) */
         const char *class_name, *separator, *name, *div_str = "";
-        char min_str[8] = "", max_str[8] = "";
+        char arg_str[8], min_str[8] = "", max_str[8] = "";
+
+        if (num_args == -1)
+            strncpy(arg_str, "none", sizeof(arg_str));
+        else
+            snprintf(arg_str, sizeof(arg_str), "%d", num_args);
 
         snprintf(min_str, sizeof(min_str), "%d", min);
 
@@ -3818,11 +3822,11 @@ static void verify_argument_count(lily_emit_state *emit,
             snprintf(max_str, sizeof(max_str), "%d", max);
         }
 
-        get_error_name(emit, cs->ast, &class_name, &separator, &name);
+        get_error_name(emit, target, &class_name, &separator, &name);
 
-        lily_raise_adjusted(emit->raiser, cs->ast->line_num, lily_SyntaxError,
-                "Wrong number of arguments to %s%s%s (%d for %s%s%s).\n",
-                class_name, separator, name, num_args,
+        lily_raise_adjusted(emit->raiser, target->line_num, lily_SyntaxError,
+                "Wrong number of arguments to %s%s%s (%s for %s%s%s).\n",
+                class_name, separator, name, arg_str,
                 min_str, div_str, max_str);
     }
 }
@@ -3866,7 +3870,7 @@ static void validate_and_prep_call(lily_emit_state *emit,
        tree_oo_access will inject the left of the dot (a.x() adds 'a'). */
     int count_first = (first_tt == tree_oo_access || first_tt == tree_method);
 
-    verify_argument_count(emit, cs, num_args + count_first);
+    verify_argument_count(emit, cs->ast, cs->call_type, num_args + count_first);
 
     if (count_first)
         push_first_tree_value(emit, cs);
@@ -4158,10 +4162,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         /* Did this need arguments? It was used incorrectly if so. */
         lily_type *variant_init_type = ast->variant->variant_type;
         if (variant_init_type->subtype_count != 0)
-            lily_raise(emit->raiser, lily_SyntaxError,
-                    "Variant %s needs %d arg(s).\n",
-                    ast->variant->name,
-                    variant_init_type->subtype_count - 1);
+            verify_argument_count(emit, ast, ast->variant->variant_type, -1);
 
         /* If a variant type takes no arguments, then it's essentially an empty
            container. It would be rather silly to have a bunch of UNIQUE empty
