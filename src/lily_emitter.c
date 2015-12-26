@@ -3765,53 +3765,65 @@ static void box_call_variants(lily_emit_state *emit, lily_emit_call_state *cs)
     }
 }
 
-/* Make sure that the function being called has the right number of
-   arguments. SyntaxError is raised if the count is wrong. */
-static void verify_argument_count(lily_emit_state *emit,
-        lily_emit_call_state *cs, int num_args)
+static void get_func_min_max(lily_type *call_type, unsigned int *min,
+        unsigned int *max)
 {
-    lily_type *call_type = cs->call_type;
-    /* The -1 is because the return type of a function is the first type. */
-    int args_needed = cs->call_type->subtype_count - 1;
-    unsigned int min = args_needed;
-    unsigned int max = args_needed;
+    *min = call_type->subtype_count - 1;
+    *max = *min;
 
-    /* A function can be either varargs or optargs. They cannot coexist because
-       parser does not allow a default value for varargs, and varargs must
-       always be last. */
+    /* For now, it's currently not possible to have a function that has optional
+       arguments and variable arguments too. */
     if (call_type->flags & TYPE_HAS_OPTARGS) {
         int i;
         for (i = 1;i < call_type->subtype_count;i++) {
             if (call_type->subtypes[i]->cls->id == SYM_CLASS_OPTARG)
                 break;
         }
-        min = i - 1;
+        *min = i - 1;
     }
     else if (call_type->flags & TYPE_IS_VARARGS) {
-        max = (unsigned int)-1;
-        min = args_needed - 1;
+        *max = (unsigned int)-1;
+        *min = *min - 1;
     }
+}
+
+/* Make sure that the function being called has the right number of
+   arguments. SyntaxError is raised if the count is wrong. */
+static void verify_argument_count(lily_emit_state *emit,
+        lily_emit_call_state *cs, int num_args)
+{
+    lily_type *call_type = cs->call_type;
+    /* unsignedness is intentional: It causes -1 to be whatever the signed max
+       is without using limits.h. */
+    unsigned int min, max;
+    get_func_min_max(call_type, &min, &max);
 
     if (num_args < min || num_args > max) {
-        const char *class_name, *separator, *name;
+        /* I'd like the error message to be done all at once, instead of one
+           piece at a time. Here are the possibilites:
+           (# for n)
+           (# for n+)
+           (# for n..m) */
+        const char *class_name, *separator, *name, *div_str = "";
+        char min_str[8] = "", max_str[8] = "";
+
+        snprintf(min_str, sizeof(min_str), "%d", min);
+
+        if (min == max)
+            div_str = "";
+        else if (max == -1)
+            div_str = "+";
+        else {
+            div_str = "..";
+            snprintf(max_str, sizeof(max_str), "%d", max);
+        }
 
         get_error_name(emit, cs->ast, &class_name, &separator, &name);
-        lily_msgbuf *msgbuf = emit->raiser->msgbuf;
 
-        lily_msgbuf_add_fmt(msgbuf, "%s%s%s expects ", class_name, separator,
-                name);
-
-        if (max == (unsigned int)-1)
-            lily_msgbuf_add_fmt(msgbuf, "at least %d args", min);
-        else if (max > min)
-            lily_msgbuf_add_fmt(msgbuf, "%d to %d args", min, max);
-        else
-            lily_msgbuf_add_fmt(msgbuf, "%d args", min);
-
-        lily_msgbuf_add_fmt(msgbuf, ", but got %d.\n", num_args);
-
-        emit->raiser->line_adjust = cs->ast->line_num;
-        lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
+        lily_raise_adjusted(emit->raiser, cs->ast->line_num, lily_SyntaxError,
+                "Wrong number of arguments to %s%s%s (%d for %s%s%s).\n",
+                class_name, separator, name, num_args,
+                min_str, div_str, max_str);
     }
 }
 
