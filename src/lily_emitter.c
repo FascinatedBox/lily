@@ -4123,7 +4123,8 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
     lily_storage *result = NULL;
     lily_type *padded_type;
 
-    if (ast->tree_type == tree_call) {
+    /* tree_binary is only if the caller is really |>. */
+    if (ast->tree_type == tree_call || ast->tree_type == tree_binary) {
         ast->result = NULL;
 
         /* The first arg is actually the variant. */
@@ -4195,24 +4196,24 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
     ast->result = (lily_sym *)result;
 }
 
-/* This handles function pipes (|>). These are rather curious, because they
-   run the right side, then the left. The job of this is to turn `f |> g` into
-   `g(f)`.
+/* This handles function pipes by faking them as calls and running them as a
+   call. The job of this is to turn `f |> g` into `g(f)`.
    Shoutout to F#, which inspired this idea. */
 static void eval_func_pipe(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
-    /* It might seem more sensible to evaluate the left first. However,
-       it's much simpler to say that it's a call argument which will eval it
-       and do all the other nice things needed. */
-    lily_emit_call_state *cs = begin_call(emit, ast);
-
-    validate_and_prep_call(emit, cs, expect, 1);
-
-    eval_call_arg(emit, cs, ast->left);
-
-    write_call(emit, cs);
-    end_call(emit, cs);
+    /* lily_ast has 'right' and 'arg_start' in a union. 'right' is also the
+       thing to be called. So, by itself, that's quite a bit already done. For
+       calls to be sufficiently faked, the left needs to first be hooked up to
+       follow the right. */
+    ast->right->next_arg = ast->left;
+    /* No matter what, say there are just two arguments. It's up to calls to
+       find out if there are really two arguments or not. */
+    ast->args_collected = 2;
+    /* This particular operation is a special case. In nearly any other case,
+       evaluating a tree should not damage the subtrees in any way. I'm doing it
+       this way only because calls are hard. */
+    eval_call(emit, ast, expect);
 }
 
 /***
@@ -4327,6 +4328,9 @@ static lily_type *partial_eval(lily_emit_state *emit, lily_ast *ast,
 
     lily_type *eval_type;
     if (ast->tree_type == tree_variant ||
+        (ast->tree_type == tree_binary &&
+         ast->op == expr_func_pipe &&
+         ast->right->tree_type == tree_variant) ||
         (ast->tree_type == tree_call &&
          ast->arg_start->tree_type == tree_variant)) {
         eval_type = ast->padded_variant_type;

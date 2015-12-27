@@ -1,4 +1,5 @@
 # This test checks that call piping works.
+enum Option[A] { Some(A) None }
 
 class example {
     define add(v: integer) {}
@@ -35,4 +36,7 @@ h(4) |> [h(1), h(2), h(3)].push
 
 if v != [1, 2, 3, 4]:
     stderr.print("Order of operations failed.")
-    
+
+define i(input: Option[integer]) {}
+
+i(10 |> Some)
