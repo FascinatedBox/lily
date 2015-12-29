@@ -3742,27 +3742,40 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
         bad_arg_error(emit, cs, result_type, want_type);
 }
 
+static void box_variant_at(lily_emit_state *emit, lily_emit_call_state *cs,
+        lily_ast *ast, int where)
+{
+    int offset = emit->call_values_pos - cs->arg_count;
+    lily_type *enum_type = lily_ts_resolve(emit->ts,
+            get_expected_type(cs, where));
+    emit_rebox_value(emit, enum_type, ast);
+    emit->call_values[offset + where] = ast->result;
+}
+
 /* This is called after call arguments have been evaluated. It reboxes any
    variant into an enum using the generic information known. */
 static void box_call_variants(lily_emit_state *emit, lily_emit_call_state *cs)
 {
-    int i;
-    lily_sym *sym;
-    int offset = emit->call_values_pos - cs->arg_count;
-    uint32_t line_num = cs->ast->line_num;
+    int arg_num = 0;
+    lily_ast *tree_iter = cs->ast->arg_start;
 
-    /* get_expected_type will return the vararg type where it should. This
-       should just worry about fixing the args that were collected (some may be
-       'missing' because of defaults. */
-    for (i = 0;i != cs->arg_count;i++) {
-        sym = emit->call_values[offset + i];
-        if (sym->type->cls->flags & CLS_IS_VARIANT) {
-            lily_type *enum_type = lily_ts_resolve(emit->ts,
-                    get_expected_type(cs, i));
-            sym = (lily_sym *)emit_rebox_sym(emit, enum_type, sym, line_num);
-            emit->call_values[offset + i] = sym;
-        }
+    if (tree_iter->tree_type == tree_oo_access) {
+        /* The first tree will yield a value unless it's a variant. */
+        if (tree_iter->result == NULL)
+            box_variant_at(emit, cs, tree_iter->arg_start, 0);
+
+        arg_num++;
     }
+    else if (tree_iter->tree_type == tree_method)
+        /* This causes self to be injected, and self is never a variant. */
+        arg_num++;
+
+    /* The first tree has been handled or is uninteresting. Skip it. */
+    tree_iter = tree_iter->next_arg;
+
+    for (;tree_iter;tree_iter = tree_iter->next_arg, arg_num++)
+        if (tree_iter->result->type->cls->flags & CLS_IS_VARIANT)
+            box_variant_at(emit, cs, tree_iter, arg_num);
 }
 
 static void get_func_min_max(lily_type *call_type, unsigned int *min,
