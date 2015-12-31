@@ -99,7 +99,6 @@ inline lily_instance_val *lily_new_instance_val_for(lily_type *t)
     ival->values = lily_malloc(num_values * sizeof(lily_value *));
     ival->num_values = num_values;
     ival->true_type = t;
-
     return ival;
 }
 
@@ -147,7 +146,7 @@ void lily_gc_collect_value(lily_type *value_type,
         lily_gc_collect_list(value_type, value.list);
     else if (entry_cls_id == SYM_CLASS_HASH)
         lily_gc_collect_hash(value_type, value.hash);
-    else if (value_type->cls->flags & CLS_IS_ENUM)
+    else if (entry_cls_id == SYM_CLASS_ANY)
         lily_gc_collect_any(value.any);
     else if (entry_cls_id == SYM_CLASS_TUPLE ||
              entry_cls_id >= SYM_CLASS_EXCEPTION)

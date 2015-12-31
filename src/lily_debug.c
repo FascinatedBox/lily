@@ -72,6 +72,7 @@ char *opcode_names[] = {
     "unary minus (-x)",
     "build list/tuple",
     "build hash",
+    "build enum",
     "typecast",
     "for (integer range)",
     "for setup",
@@ -547,8 +548,7 @@ static void show_value(lily_debug_state *debug, lily_value *value)
     else if (cls_id == SYM_CLASS_LIST ||
              cls_id == SYM_CLASS_HASH ||
              cls_id == SYM_CLASS_TUPLE ||
-             (cls_id >= SYM_CLASS_EXCEPTION &&
-              (type->cls->flags & CLS_IS_ENUM) == 0)) {
+             cls_id >= SYM_CLASS_EXCEPTION) {
         lily_msgbuf_add_fmt(debug->msgbuf, "^T\n", type);
         write_msgbuf(debug);
 
@@ -557,9 +557,8 @@ static void show_value(lily_debug_state *debug, lily_value *value)
             show_hash_value(debug, type, raw_value.hash);
         else if (cls_id < SYM_CLASS_EXCEPTION)
             show_list_value(debug, type, raw_value.list);
-        else if (type->cls->flags & CLS_IS_VARIANT) {
-            if (type->cls->variant_type->subtype_count != 0)
-                show_list_value(debug, type, raw_value.list);
+        else if (type->cls->flags & CLS_IS_ENUM) {
+            show_list_value(debug, type, raw_value.list);
             /* else it's a variant that does not take any arguments, so do
                nothing because nothing to show. */
         }

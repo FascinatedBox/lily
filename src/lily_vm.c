@@ -1029,6 +1029,33 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     }
 }
 
+static void do_o_build_enum(lily_vm_state *vm, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    int variant_id = code[2];
+    int num_values = code[3];
+    lily_value *result = vm_regs[code[code[3] + 4]];
+    int slots_needed = result->type->cls->enum_slot_count;
+
+    lily_instance_val *ival = lily_new_instance_val();
+    lily_value **slots = lily_malloc(slots_needed * sizeof(lily_value *));
+    ival->num_values = num_values;
+    ival->values = slots;
+    ival->variant_id = variant_id;
+
+    if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
+        lily_add_gc_item(vm, result->type, (lily_generic_gc_val *)ival);
+
+    lily_raw_value v = {.instance = ival};
+    lily_move_raw_value(result, v);
+
+    int i;
+    for (i = 0;i < num_values;i++) {
+        lily_value *rhs_reg = vm_regs[code[4+i]];
+        slots[i] = lily_copy_value(rhs_reg);
+    }
+}
+
 /* This raises a user-defined exception. The emitter has verified that the thing
    to be raised is raiseable (extends Exception). */
 static void do_o_raise(lily_vm_state *vm, lily_value *exception_val)
@@ -2336,6 +2363,10 @@ void lily_vm_execute(lily_vm_state *vm)
                 do_o_build_list_tuple(vm, code+code_pos);
                 code_pos += code[code_pos+2] + 4;
                 break;
+            case o_build_enum:
+                do_o_build_enum(vm, code+code_pos);
+                code_pos += code[code_pos+3] + 5;
+                break;
             case o_any_typecast:
                 lhs_reg = vm_regs[code[code_pos+3]];
                 cast_type = lhs_reg->type;
@@ -2448,12 +2479,10 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_match_dispatch:
             {
                 lhs_reg = vm_regs[code[code_pos+2]];
-                lily_class *enum_cls, *variant_cls;
-
-                enum_cls = lhs_reg->type->cls;
-                variant_cls = lhs_reg->value.any->inner_value->type->cls;
+                int variant_id = lhs_reg->value.instance->variant_id;
+                lily_class *enum_cls = lhs_reg->type->cls;
                 for (i = 0;i < code[code_pos+3];i++) {
-                    if (enum_cls->variant_members[i] == variant_cls)
+                    if (enum_cls->variant_members[i]->variant_id == variant_id)
                         break;
                 }
 
@@ -2465,18 +2494,13 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_variant_decompose:
             {
                 rhs_reg = vm_regs[code[code_pos + 2]];
-                /* Variants are actually tuples stored within an 'any' value
-                   (which is the enum clas). Tuples are just lists which the
-                   emitter allows different values for.
-                   This takes the enum value and pulls the real variant from
-                   it. */
-                lily_list_val *variant_val = rhs_reg->value.any->inner_value->value.list;
+                lily_value **decompose_values = rhs_reg->value.instance->values;
 
                 /* Each variant value gets mapped away to a register. The
                    emitter ensures that the decomposition won't go too far. */
                 for (i = 0;i < code[code_pos+3];i++) {
                     lhs_reg = vm_regs[code[code_pos + 4 + i]];
-                    lily_assign_value(lhs_reg, variant_val->elems[i]);
+                    lily_assign_value(lhs_reg, decompose_values[i]);
                 }
 
                 code_pos += 4 + i;

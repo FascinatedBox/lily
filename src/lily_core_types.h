@@ -94,7 +94,17 @@ typedef struct lily_class_ {
        be -1 if an infinite number of types are allowed (ex: functions). */
     int16_t generic_count;
     uint32_t prop_count;
-    uint32_t variant_size;
+    uint16_t variant_size;
+
+    union {
+        /* Enums: This is how many subvalues (slots) that the vm must
+           allocate for this if it's an enum. */
+        uint16_t enum_slot_count;
+        /* Variants: This is the location of this variant within the parent
+           enum's 'variant_members' field. It is not the variant's actual id. */
+        uint16_t variant_id;
+    };
+
     union {
         /* Variants with arguments: This type maps from the input to the result.
            Variants without arguments: It's the default type. */
@@ -288,7 +298,7 @@ typedef struct lily_hash_val_ {
     lily_hash_elem *elem_chain;
 } lily_hash_val;
 
-/* This represents an instance of a class. */
+/* This represents either a class instance or an enum. */
 typedef struct lily_instance_val_ {
     uint32_t refcount;
     uint32_t pad;
@@ -296,11 +306,15 @@ typedef struct lily_instance_val_ {
     struct lily_value_ **values;
     uint32_t num_values;
     uint32_t visited;
-    /* This is the type that the value truly contains. This is used because a
-       var from a base class may be assigned to a value of a derived class.
-       Furthermore, the derived class may have generics (and the base class may
-       or may not have them). */
-    lily_type *true_type;
+    union {
+        /* Instance values: This is the actual type of the value. This exists
+           because the value may be put into a register of a lesser/simpler
+           type. */
+        lily_type *true_type;
+        /* Enums: This holds a variant_id for the variant that this enum is
+           currently holding. This is not a class id. */
+        uint16_t variant_id;
+    };
 } lily_instance_val;
 
 typedef struct lily_file_val_ {

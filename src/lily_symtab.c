@@ -891,6 +891,29 @@ void lily_finish_variant(lily_symtab *symtab, lily_class *variant_cls,
     }
 }
 
+/* The vm will create enums as a value with a certain number of sub values. The
+   number of subvalues necessary is the maximum number of values that any one
+   variant has. This function will walk through an enum's variants to find out
+   how many slots that the vm will need to make. */
+static uint16_t get_enum_slot_count(lily_class *enum_cls)
+{
+    int i;
+    uint16_t result = 0;
+    for (i = 0;i < enum_cls->variant_size;i++) {
+        /* Variants that take 'arguments' will have a variant_type that is a
+           function. Variants that don't take arguments don't need slots, and
+           thus don't matter. */
+        lily_type *vtype = enum_cls->variant_members[i]->variant_type;
+        if (vtype->cls->id == SYM_CLASS_FUNCTION) {
+            uint16_t num_subtypes = vtype->subtype_count - 1;
+            if (num_subtypes > result)
+                result = num_subtypes;
+        }
+    }
+
+    return result;
+}
+
 /* This is called when an enum class has finished scanning the variant members.
    If the enum is to be scoped, then the enums are bound within it. This is also
    where some callbacks are set on the enum (gc, eq, etc.) */
@@ -906,19 +929,24 @@ void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
 
     lily_class **members = lily_malloc(variant_count * sizeof(lily_class *));
 
+    /* The ordering is important here. This makes it so the first variant will
+       get the lowest id and be at 0. It makes indexing in vm sensible. */
     for (i = 0, class_iter = symtab->active_import->class_chain;
          i < variant_count;
-         i++, class_iter = class_iter->next)
-        members[i] = class_iter;
+         i++, class_iter = class_iter->next) {
+        members[variant_count - 1 - i] = class_iter;
+        class_iter->variant_id = variant_count - 1 - i;
+    }
 
     enum_cls->variant_type = enum_type;
     enum_cls->variant_members = members;
     enum_cls->variant_size = variant_count;
     enum_cls->flags |= CLS_IS_ENUM;
     enum_cls->flags &= ~CLS_IS_CURRENT;
-    enum_cls->gc_marker = symtab->any_class->gc_marker;
-    enum_cls->eq_func = symtab->any_class->eq_func;
-    enum_cls->destroy_func = symtab->any_class->destroy_func;
+    enum_cls->gc_marker = symtab->tuple_class->gc_marker;
+    enum_cls->eq_func = symtab->tuple_class->eq_func;
+    enum_cls->destroy_func = symtab->tuple_class->destroy_func;
+    enum_cls->enum_slot_count = get_enum_slot_count(enum_cls);
 
     if (is_scoped) {
         enum_cls->flags |= CLS_ENUM_IS_SCOPED;

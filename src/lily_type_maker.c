@@ -266,6 +266,21 @@ lily_type *lily_tm_make_variant_result(lily_type_maker *tm, lily_class *variant_
     return result;
 }
 
+lily_type *lily_tm_make_anyd_copy(lily_type_maker *tm, lily_type *t)
+{
+    lily_type *any_type = tm->any_class_type;
+    int j;
+    for (j = 0;j < t->subtype_count;j++) {
+        lily_type *subtype = t->subtypes[j];
+        if (subtype->flags & TYPE_IS_INCOMPLETE)
+            lily_tm_add(tm, any_type);
+        else
+            lily_tm_add(tm, subtype);
+    }
+
+    return lily_tm_make(tm, 0, t->cls, j);
+}
+
 lily_type *lily_tm_make_enum_by_variant(lily_type_maker *tm,
         lily_type *variant)
 {

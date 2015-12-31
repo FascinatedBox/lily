@@ -34,6 +34,7 @@ const int opcode_table[][8] = {
     {o_unary_minus,         3, C_LINENO,         C_INPUT,          C_OUTPUT,        -1,              -1,           -1},
     {o_build_list_tuple,    4, C_LINENO,         C_COUNT,          C_COUNT_LIST,    C_OUTPUT,        -1,           -1},
     {o_build_hash,          4, C_LINENO,         C_COUNT,          C_COUNT_LIST,    C_OUTPUT,        -1,           -1},
+    {o_build_enum,          5, C_LINENO,         C_INT_VAL,        C_COUNT,         C_COUNT_LIST,    C_OUTPUT,     -1},
     {o_any_typecast,        3, C_LINENO,         C_INPUT,          C_OUTPUT,        -1,              -1,           -1},
     {o_integer_for,         6, C_LINENO,         C_INPUT,          C_OUTPUT,        C_INPUT,         C_INPUT,      C_JUMP},
     {o_for_setup,           6, C_LINENO,         C_INPUT,          C_INPUT,         C_INPUT,         C_INPUT,      C_INT_VAL},

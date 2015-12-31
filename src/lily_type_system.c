@@ -154,10 +154,16 @@ static int check_generic(lily_type_system *ts, lily_type *left,
             ts->types[generic_pos] = right;
         else if (cmp_type == right)
             ;
-        else if (flags & (T_COVARIANT | T_CONTRAVARIANT))
-            ret = check_raw(ts, cmp_type, right, flags | T_DONT_SOLVE);
+        else if (cmp_type->flags & TYPE_IS_INCOMPLETE) {
+            lily_type *unify_type;
+            unify_type = lily_ts_unify(ts, cmp_type, right);
+            if (unify_type)
+                ts->types[generic_pos] = unify_type;
+            else
+                ret = 0;
+        }
         else
-            ret = 0;
+            ret = check_raw(ts, cmp_type, right, flags | T_DONT_SOLVE);
     }
 
     return ret;

@@ -63,6 +63,7 @@ a->tree_type = tt; \
 a->next_arg = NULL; \
 a->line_num = *ap->lex_linenum; \
 a->result_code_offset = 1; \
+a->variant_result_pos = 0; \
 a->parent = NULL;
 
 #define AST_ENTERABLE_INIT(a, tt) \
