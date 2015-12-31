@@ -167,6 +167,8 @@ typedef enum {
        values. */
     o_build_hash,
 
+    o_build_enum,
+
     /* Any typecast:
        * int lineno
        * reg(any) left

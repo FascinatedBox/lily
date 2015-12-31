@@ -57,9 +57,15 @@ typedef struct lily_ast_ {
     uint16_t result_code_offset;
     uint16_t args_collected;
 
-    /* If this tree has some text data associated with it, then that data can
-       be gotten from the ast pool's membuf at this position. */
-    uint32_t membuf_pos;
+    union {
+        /* If this tree has some text data associated with it, then that data
+           can be gotten from the ast pool's membuf at this position. */
+        uint32_t membuf_pos;
+        /* This is the code position where the variant's result was placed.
+           When a variant is done, this spot is patched so that it points to a
+           valid storage. */
+        uint32_t variant_result_pos;
+    };
 
     /* Since lily_item is a superset of all of the types that follow, it would
        be possible to just use lily_item alone here. However, that results in
@@ -77,7 +83,6 @@ typedef struct lily_ast_ {
         struct lily_ast_ *left;
     };
 
-    /* Nothing uses both of these at the same time. */
     union {
         /* For trees with subtrees, this is the first child. */
         struct lily_ast_ *arg_start;
@@ -99,7 +104,6 @@ typedef struct lily_ast_ {
         int oo_property_index;
         int priority;
     };
-
 
     /* If this tree is a subexpression, then this will be set to the calling
        tree. NULL otherwise. */
