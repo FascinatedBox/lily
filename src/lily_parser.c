@@ -1095,15 +1095,15 @@ static lily_class *dynaload_exception(lily_parse_state *parser,
     return result;
 }
 
-/* This is called by expression handling when a seed of some sort has been
-   found. 'import' is the context from which the seed is to be loaded. This
-   function updates the state for expression handling when it's done. */
-static void dispatch_word_as_dynaloaded(lily_parse_state *parser,
-        lily_import_entry *import, lily_base_seed *seed, int *state)
+/* A seed has been found. Load it in the context of 'import' (which may be a
+   class in disguise). The result of the load is returned as an item for the
+   caller. */
+static lily_item *run_dynaload(lily_parse_state *parser,
+        lily_import_entry *import, lily_base_seed *seed)
 {
-#define ST_WANT_OPERATOR        2
     lily_import_entry *saved_active = parser->symtab->active_import;
     lily_symtab *symtab = parser->symtab;
+    lily_item *result;
 
     symtab->active_import = import;
 
@@ -1119,26 +1119,24 @@ static void dispatch_word_as_dynaloaded(lily_parse_state *parser,
         /* This will tie some sort of value to the newly-made var. It doesn't
            matter what though: The vm will figure that out later. */
         import->var_load_fn(parser, new_var);
-        lily_ast_push_global_var(parser->ast_pool, new_var);
-        *state = ST_WANT_OPERATOR;
+        result = (lily_item *)new_var;
     }
     else if (seed->seed_type == dyna_function) {
         lily_var *new_var = dynaload_function(parser, (lily_item *)import, seed);
-        lily_ast_push_defined_func(parser->ast_pool, new_var);
-        *state = ST_WANT_OPERATOR;
+        result = (lily_item *)new_var;
     }
     else if (seed->seed_type == dyna_class) {
         lily_class *new_cls = lily_new_class_by_seed(symtab, seed);
-        dispatch_word_as_class(parser, new_cls, state);
+        result = (lily_item *)new_cls;
     }
     else if (seed->seed_type == dyna_exception) {
         lily_class *new_cls = dynaload_exception(parser, import,
                 seed->name);
-        dispatch_word_as_class(parser, new_cls, state);
+        result = (lily_item *)new_cls;
     }
 
     symtab->active_import = saved_active;
-#undef ST_WANT_OPERATOR
+    return result;
 }
 
 /* This is called from emitter to see if there is a function seed with the name
@@ -1391,6 +1389,25 @@ static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
     *state = ST_WANT_OPERATOR;
 }
 
+/* Something was dynaloaded. Push it into the ast and update state. */
+static void dispatch_dynaload(lily_parse_state *parser, lily_item *dl_item,
+        int *state)
+{
+    lily_ast_pool *ap = parser->ast_pool;
+
+    if (dl_item->flags & ITEM_TYPE_VAR) {
+        lily_var *v = (lily_var *)dl_item;
+        if (v->flags & VAR_IS_READONLY)
+            lily_ast_push_defined_func(ap, v);
+        else
+            lily_ast_push_global_var(ap, v);
+
+        *state = ST_WANT_OPERATOR;
+    }
+    else
+        dispatch_word_as_class(parser, (lily_class *)dl_item, state);
+}
+
 /* This is called by expression when there is a word. This is complicated,
    because a word could be a lot of things.  */
 static void expression_word(lily_parse_state *parser, int *state)
@@ -1446,7 +1463,8 @@ static void expression_word(lily_parse_state *parser, int *state)
             lex->label);
 
     if (base_seed) {
-        dispatch_word_as_dynaloaded(parser, search_entry, base_seed, state);
+        lily_item *dl_result = run_dynaload(parser, search_entry, base_seed);
+        dispatch_dynaload(parser, dl_result, state);
         return;
     }
 
