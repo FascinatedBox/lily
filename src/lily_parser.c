@@ -1095,15 +1095,19 @@ static lily_class *dynaload_exception(lily_parse_state *parser,
     return result;
 }
 
-/* A seed has been found. Load it in the context of 'import' (which may be a
-   class in disguise). The result of the load is returned as an item for the
-   caller. */
-static lily_item *run_dynaload(lily_parse_state *parser,
-        lily_import_entry *import, lily_base_seed *seed)
+/* Given a name, try to find that within the dynaload table of 'import' (which
+   may be a class). If a seed is found, run it in the context of 'import' and
+   return the result as an item. If nothing is found, return NULL. */
+static lily_item *find_run_dynaload(lily_parse_state *parser,
+        lily_import_entry *import, char *name)
 {
     lily_import_entry *saved_active = parser->symtab->active_import;
     lily_symtab *symtab = parser->symtab;
     lily_item *result;
+
+    lily_base_seed *seed = find_dynaload_entry((lily_item *)import, name);
+    if (seed == NULL)
+        return NULL;
 
     symtab->active_import = import;
 
@@ -1459,11 +1463,9 @@ static void expression_word(lily_parse_state *parser, int *state)
     if (search_entry == NULL)
         search_entry = symtab->builtin_import;
 
-    lily_base_seed *base_seed = find_dynaload_entry((lily_item *)search_entry,
-            lex->label);
+    lily_item *dl_result = find_run_dynaload(parser, search_entry, lex->label);
 
-    if (base_seed) {
-        lily_item *dl_result = run_dynaload(parser, search_entry, base_seed);
+    if (dl_result) {
         dispatch_dynaload(parser, dl_result, state);
         return;
     }
