@@ -860,7 +860,6 @@ static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls,
 static void create_new_class(lily_parse_state *);
 static lily_class *dynaload_exception(lily_parse_state *, lily_import_entry *,
         const char *);
-static void dispatch_word_as_class(lily_parse_state *, lily_class *, int *);
 
 /** Lily is a statically-typed language, which carries benefits as well as
     drawbacks. One drawback is that creating a new function or a new var is
@@ -1143,21 +1142,37 @@ static lily_item *find_run_dynaload(lily_parse_state *parser,
     return result;
 }
 
-/* This is called from emitter to see if there is a function seed with the name
-   'name' within 'cls'. It's called because `x.y` might be a use of method 'y'
-   by instance 'x'. */
-lily_var *lily_parser_dynamic_load(lily_parse_state *parser, lily_class *cls,
+/* Given a class, attempt to find 'name' as a member of that class. The result
+   may be that it's a property OR a var.
+   The search order is: Property, methods in progress, existing methods, and
+   dynaloads. There's no real importance to the search order here...aside from
+   methods in progress needing to go before the rest. The reason is that methods
+   in progress will be for the most recent class.
+   If, say, there's a Two class being declared that inherits from One, then it
+   will have a ::new already (One::new). However, the Two::new should be
+   considered first. */
+lily_item *lily_find_or_dl_member(lily_parse_state *parser, lily_class *cls,
         char *name)
 {
-    lily_base_seed *base_seed = find_dynaload_entry((lily_item *)cls, name);
-    lily_var *ret;
+    lily_prop_entry *prop = lily_find_property(cls, name);
+    if (prop)
+        return (lily_item *)prop;
 
-    if (base_seed != NULL)
-        ret = dynaload_function(parser, (lily_item *)cls, base_seed);
-    else
-        ret = NULL;
+    lily_var *var = lily_find_var(parser->symtab, NULL, name);
+    if (var && var->parent == cls)
+        return (lily_item *)var;
 
-    return ret;
+    var = lily_find_method(cls, name);
+    if (var)
+        return (lily_item *)var;
+
+    /* This should return a var if it succeeds, as nested classes are not
+       allowed. */
+    var = (lily_var *)find_run_dynaload(parser, (lily_import_entry *)cls, name);
+    if (var)
+        return (lily_item *)var;
+
+    return NULL;
 }
 
 /* This is called by the vm because the exception raised either was raised
@@ -1261,33 +1276,24 @@ static void expression_static_call(lily_parse_state *parser, lily_class *cls)
     NEED_NEXT_TOK(tk_colon_colon)
     NEED_NEXT_TOK(tk_word)
 
-    /* Begin by checking if this is a class member. If it's not, attempt a
-       dynaload in case it's a method that hasn't been loaded yet. */
-    lily_var *v = lily_find_method(cls, lex->label);
+    lily_item *item = lily_find_or_dl_member(parser, cls, lex->label);
 
-    /* Make sure the method belongs to this class. This prevents accidentally
-       sending back a method of a parent class if there's a failure to match. */
-    if (v && v->parent != cls)
-        v = NULL;
+    /* Breaking this down:
+       If there's a var, then it needs to be a member of THIS exact class, not
+       a subclass. I suspect that would be an unwelcome surprise.
+       No properties. Properties need to be accessed through a dot, since they
+       are per-instance. */
 
-    if (v == NULL)
-        v = lily_parser_dynamic_load(parser, cls, lex->label);
+    if (item &&
+        (
+         (item->flags & ITEM_TYPE_VAR &&
+          ((lily_var *)item)->parent != cls) ||
+         (item->flags & ITEM_TYPE_PROPERTY)
+        ))
+        item = NULL;
 
-    /* Is this the class that's currently being read in? If it is, then its
-       methods may not have been injected into the class just yet (especially if
-       it is the current method).
-       Don't push it as a defined_func, or emitter will assume that 'self' is to
-       be automatically injected into it. This allows class methods to call
-       other methods (like ::new) that do not take a class instance. */
-    if (v == NULL && parser->emit->block->class_entry == cls) {
-        v = lily_find_var(parser->symtab, NULL, lex->label);
-        if (v && v->parent != cls)
-            /* Same as before. */
-            v = NULL;
-    }
-
-    if (v) {
-        lily_ast_push_static_func(parser->ast_pool, v);
+    if (item) {
+        lily_ast_push_static_func(parser->ast_pool, (lily_var *)item);
         return;
     }
 
