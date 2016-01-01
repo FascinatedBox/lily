@@ -2490,38 +2490,21 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
         lookup_class = lookup_class->parent;
 
     char *oo_name = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
-    lily_var *var = lily_find_method(lookup_class, oo_name);
+    lily_item *item = lily_find_or_dl_member(emit->parser, lookup_class,
+            oo_name);
 
-    /* Is this an attempt to access a method that hasn't been loaded yet? */
-    if (var == NULL)
-        var = lily_parser_dynamic_load(emit->parser, lookup_class, oo_name);
-
-    /* Is this a method that just hasn't been added to the method table yet? */
-    if (var == NULL) {
-        var = lily_find_var(emit->symtab, emit->symtab->active_import, oo_name);
-        if (var && var->parent != lookup_class)
-            var = NULL;
-    }
-
-    if (var == NULL) {
-        lily_prop_entry *prop = lily_find_property(lookup_class, oo_name);
-
-        if (prop == NULL) {
-            lily_raise(emit->raiser, lily_SyntaxError,
-                    "Class %s has no method or property named %s.\n",
-                    lookup_class->name, oo_name);
-        }
-
-        if (ast->arg_start->tree_type == tree_self)
-            lily_raise(emit->raiser, lily_SyntaxError,
-                    "Use @<name> to get/set properties, not self.<name>.\n");
-
-        ast->item = (lily_item *)prop;
-    }
+    if (item == NULL)
+        lily_raise(emit->raiser, lily_SyntaxError,
+                "Class %s has no method or property named %s.\n",
+                lookup_class->name, oo_name);
+    else if (item->flags & ITEM_TYPE_PROPERTY &&
+             ast->arg_start->tree_type == tree_self)
+        lily_raise(emit->raiser, lily_SyntaxError,
+                "Use @<name> to get/set properties, not self.<name>.\n");
     else
-        ast->item = (lily_item *)var;
+        ast->item = item;
 
-    ensure_valid_scope(emit, (lily_sym *)ast->item);
+    ensure_valid_scope(emit, (lily_sym *)item);
 }
 
 /* This is called on oo trees that have been evaluated and which contain a

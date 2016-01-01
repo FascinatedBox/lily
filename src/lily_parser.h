@@ -46,7 +46,7 @@ lily_options *lily_new_default_options(void);
 void lily_free_options(lily_options *);
 
 lily_var *lily_parser_lambda_eval(lily_parse_state *, int, char *, lily_type *);
-lily_var *lily_parser_dynamic_load(lily_parse_state *, lily_class *, char *);
+lily_item *lily_find_or_dl_member(lily_parse_state *, lily_class *, char *);
 void lily_free_parse_state(lily_parse_state *);
 lily_parse_state *lily_new_parse_state(lily_options *);
 int lily_parse_file(lily_parse_state *, lily_lex_mode, char *);
