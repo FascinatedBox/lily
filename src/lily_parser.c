@@ -2282,8 +2282,8 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
     else
         generics_used = parser->emit->block->generic_count;
 
-    lily_emit_enter_block(parser->emit, block_define);
     lily_update_symtab_generics(parser->symtab, NULL, generics_used);
+    lily_emit_enter_block(parser->emit, block_define);
 
     if (parser->class_self_type) {
         /* This is a method of a class. It should implicitly take 'self' as
@@ -2941,8 +2941,8 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     else
         generics_used = parser->emit->block->generic_count;
 
-    lily_emit_enter_block(parser->emit, block_class);
     lily_update_symtab_generics(symtab, cls, generics_used);
+    lily_emit_enter_block(parser->emit, block_class);
 
     parser->class_self_type = build_self_type(parser, cls, generics_used);
 
@@ -3149,7 +3149,6 @@ static void enum_handler(lily_parse_state *parser, int multi)
     lily_class *enum_cls = lily_new_class(parser->symtab, lex->label);
 
     lily_lexer(lex);
-    int save_generics = parser->emit->block->generic_count;
     int generics_used;
     if (lex->token == tk_left_bracket)
         generics_used = collect_generics(parser);
@@ -3229,7 +3228,6 @@ static void enum_handler(lily_parse_state *parser, int multi)
     lily_emit_leave_block(parser->emit);
     parser->class_self_type = save_self_type;
 
-    lily_update_symtab_generics(parser->symtab, NULL, save_generics);
     lily_lexer(lex);
 }
 
