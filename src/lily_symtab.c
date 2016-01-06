@@ -112,13 +112,6 @@ static void free_ties(lily_symtab *symtab, lily_tie *tie_iter)
 
     while (tie_iter) {
         tie_next = tie_iter->next;
-        lily_class *tie_cls = tie_iter->type->cls;
-        /* Don't call deref for variant types because they don't have anything
-           deref-able inside them (as of now). */
-        if ((tie_cls->flags & CLS_IS_VARIANT) == 0)
-            lily_deref_raw(tie_iter->type,
-                    tie_iter->value);
-
         lily_free(tie_iter);
         tie_iter = tie_next;
     }
@@ -865,30 +858,6 @@ lily_class *lily_find_scoped_variant(lily_class *enum_cls, char *name)
     }
 
     return ret;
-}
-
-/* This is called when the body of a variant has been completely parsed. It's...
-   not that great. The 'variant_type' given should either be NULL or a function
-   that describes how to map from the inputs to the variant. Some callbacks are
-   also set on the variant type. */
-void lily_finish_variant(lily_symtab *symtab, lily_class *variant_cls,
-        lily_type *variant_type)
-{
-    if (variant_type->cls != symtab->function_class) {
-        variant_cls->variant_type = variant_type;
-        /* Empty variants are represented as integers, and won't need to be
-           marked through. */
-        variant_cls->eq_func = symtab->integer_class->eq_func;
-        variant_cls->is_refcounted = 0;
-    }
-    else {
-        variant_cls->variant_type = variant_type;
-        /* The only difference between a tuple and a variant with args is that
-           the variant has a variant type instead of a tuple one. */
-        variant_cls->gc_marker = symtab->tuple_class->gc_marker;
-        variant_cls->eq_func = symtab->tuple_class->eq_func;
-        variant_cls->destroy_func = symtab->tuple_class->destroy_func;
-    }
 }
 
 /* The vm will create enums as a value with a certain number of sub values. The
