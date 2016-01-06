@@ -160,12 +160,13 @@ void lily_free_symtab(lily_symtab *symtab)
     None of an Option do not need a unique value. So, instead, they all share
     a literal tagged as a None (but which is just an integer). **/
 
-static lily_tie *make_new_literal(lily_symtab *symtab, lily_class *cls)
+
+static lily_tie *make_new_literal_of_type(lily_symtab *symtab, lily_type *type)
 {
     lily_tie *lit = lily_malloc(sizeof(lily_tie));
 
     /* Literal values always have a default type, so this is safe. */
-    lit->type = cls->type;
+    lit->type = type;
 
     lit->flags = ITEM_TYPE_TIE;
     lit->reg_spot = symtab->next_readonly_spot;
@@ -175,6 +176,12 @@ static lily_tie *make_new_literal(lily_symtab *symtab, lily_class *cls)
     symtab->literals = lit;
 
     return lit;
+}
+
+static lily_tie *make_new_literal(lily_symtab *symtab, lily_class *cls)
+{
+    /* Non-variant literals always have a default type, so this is safe. */
+    return make_new_literal_of_type(symtab, cls->type);
 }
 
 lily_tie *lily_get_boolean_literal(lily_symtab *symtab, int64_t int_val)
@@ -308,30 +315,6 @@ lily_tie *lily_get_bytestring_literal(lily_symtab *symtab,
 
         ret = make_new_literal(symtab, cls);
         ret->value.string = bv;
-    }
-
-    return ret;
-}
-
-lily_tie *lily_get_variant_literal(lily_symtab *symtab,
-        lily_type *variant_type)
-{
-    lily_tie *lit_iter, *ret;
-    ret = NULL;
-
-    for (lit_iter = symtab->literals;
-         lit_iter != NULL;
-         lit_iter = lit_iter->next) {
-        if (lit_iter->type == variant_type) {
-            ret = lit_iter;
-            break;
-        }
-    }
-
-    if (ret == NULL) {
-        ret = make_new_literal(symtab, variant_type->cls);
-        ret->value.integer = 0;
-        ret->flags |= VAL_IS_PRIMITIVE;
     }
 
     return ret;
@@ -884,6 +867,22 @@ static uint16_t get_enum_slot_count(lily_class *enum_cls)
     return result;
 }
 
+lily_tie *make_variant_default(lily_symtab *symtab, lily_class *variant)
+{
+    /* This makes it easier to destroy, but makes no other difference. */
+    lily_type *enum_type = variant->parent->self_type;
+
+    lily_instance_val *iv = lily_new_instance_val();
+    iv->variant_id = variant->variant_id;
+    iv->num_values = 0;
+
+    lily_tie *ret = make_new_literal_of_type(symtab, enum_type);
+    ret->value.instance = iv;
+    ret->flags |= VAL_IS_LITERAL;
+
+    return ret;
+}
+
 /* This is called when an enum class has finished scanning the variant members.
    If the enum is to be scoped, then the enums are bound within it. This is also
    where some callbacks are set on the enum (gc, eq, etc.) */
@@ -906,6 +905,15 @@ void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
          i++, class_iter = class_iter->next) {
         members[variant_count - 1 - i] = class_iter;
         class_iter->variant_id = variant_count - 1 - i;
+
+        lily_tie *default_value;
+        /* Variants that have a default type should also get a default value. */
+        if (class_iter->type != NULL)
+            default_value = make_variant_default(symtab, class_iter);
+        else
+            default_value = NULL;
+
+        class_iter->default_value = default_value;
     }
 
     enum_cls->variant_type = enum_type;

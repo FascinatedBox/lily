@@ -4042,7 +4042,8 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         if (variant_init_type->subtype_count != 0)
             verify_argument_count(emit, ast, variant->variant_type, -1);
 
-        write_5(emit, o_build_enum, ast->line_num, variant->variant_id, 0, 0);
+        write_4(emit, o_get_readonly, ast->line_num,
+                variant->default_value->reg_spot, 0);
 
         if (variant->parent->generic_count) {
             int amount = lily_ts_raise_ceiling(emit->ts);
