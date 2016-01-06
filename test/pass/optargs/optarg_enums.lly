@@ -1,0 +1,36 @@
+enum Color { Black Blue Cyan Green Magenta Red White Yellow }
+
+define f(a: *Color = Black, b: *Color = Yellow)
+{
+
+}
+
+f()
+f(Black, Red)
+f(Red)
+show(f)
+
+enum Option[A] {
+    Some(A)
+    None
+    define unwrap[A]: A
+    {
+        match self: {
+            case Some(s):
+                return s
+            case None:
+                raise ValueError::new("No value!")
+        }
+    }
+}
+
+define my_print(message: string, target: *Option[file] = None)
+{
+    if target == None:
+        target = Some(stdout)
+
+    var file_target = target.unwrap()
+}
+
+my_print("Hello")
+my_print("Hello", Some(stdout))

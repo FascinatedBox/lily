@@ -908,8 +908,10 @@ void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
 
         lily_tie *default_value;
         /* Variants that have a default type should also get a default value. */
-        if (class_iter->type != NULL)
+        if (class_iter->variant_type == class_iter->type) {
             default_value = make_variant_default(symtab, class_iter);
+            enum_cls->flags |= CLS_VALID_OPTARG;
+        }
         else
             default_value = NULL;
 
