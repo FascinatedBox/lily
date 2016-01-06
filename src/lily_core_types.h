@@ -121,9 +121,16 @@ typedef struct lily_class_ {
     /* This contains all types which have this class as their class. */
     struct lily_type_ *all_subtypes;
 
-    /* This holds class methods that may or may not have been loaded (non-native
-       classes only). */
-    const void *dynaload_table;
+    union {
+        /* Builtin classes: These may be class methods that may or may not be
+           loaded already. */
+        const void *dynaload_table;
+        /* Variants: If a variant does not take any parameters, then a literal
+           is created for it. Instead of building a new value, the vm will
+           instead load a common value. This is similar to how classes that do
+           not have generics have a shared default type. */
+        struct lily_tie_ *default_value;
+    };
     gc_marker_func gc_marker;
     class_eq_func eq_func;
 } lily_class;
