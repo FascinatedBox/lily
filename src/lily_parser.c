@@ -545,7 +545,7 @@ static lily_tie *get_optarg_value(lily_parse_state *parser,
     NEED_NEXT_TOK(expect)
 
     lily_tie *result;
-    if (expect == tk_word) {
+    if (cls == symtab->boolean_class) {
         int key_id = keyword_by_name(lex->label);
         if (key_id != KEY_TRUE && key_id != KEY_FALSE)
             lily_raise(parser->raiser, lily_SyntaxError,
@@ -553,6 +553,24 @@ static lily_tie *get_optarg_value(lily_parse_state *parser,
                     lex->label);
 
         result = lily_get_boolean_literal(symtab, key_id == KEY_TRUE);
+    }
+    else if (expect == tk_word) {
+        /* It's an enum. Allow any variant to be a default argument if that
+           variant doesn't take arguments. Those variants have a backing literal
+           which means they work like other arguments.
+           Is the enum scoped? It should not matter: It's patently obvious what
+           enum that this variant should be a member of. It's also consistent
+           with match (which ignores scoping for the same reason). */
+        lily_class *variant = lily_find_scoped_variant(cls, lex->label);
+        if (variant == NULL)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "'%s' does not have a variant named '%s'.\n", cls->name, lex->label);
+
+        if (variant->default_value == NULL)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Only variants that take no arguments can be default arguments.\n");
+
+        result = variant->default_value;
     }
     else
         result = lex->last_literal;
