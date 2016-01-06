@@ -112,6 +112,7 @@ static void free_ties(lily_symtab *symtab, lily_tie *tie_iter)
 
     while (tie_iter) {
         tie_next = tie_iter->next;
+        lily_deref_raw(tie_iter->type, tie_iter->value);
         lily_free(tie_iter);
         tie_iter = tie_next;
     }
