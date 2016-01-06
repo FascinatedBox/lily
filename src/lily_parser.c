@@ -3173,7 +3173,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
         else
             variant_type = lily_tm_make_default_for(parser->tm, variant_cls);
 
-        lily_finish_variant(parser->symtab, variant_cls, variant_type);
+        variant_cls->variant_type = variant_type;
 
         inner_class_count++;
 
