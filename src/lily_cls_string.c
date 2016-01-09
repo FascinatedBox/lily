@@ -787,11 +787,7 @@ static void string_split_by_val(lily_vm_state *vm, char *input, char *splitby,
             char *sv_buffer = &new_sv->string[0];
 
             sv_buffer[sv_size] = '\0';
-            sv_size--;
-            while (sv_size >= 0) {
-                sv_buffer[sv_size] = last_start[sv_size];
-                sv_size--;
-            }
+            strncpy(sv_buffer, last_start, sv_size);
 
             elems[i] = lily_new_value(0, string_type,
                     (lily_raw_value){.string = new_sv});
