@@ -14,6 +14,10 @@ option(WITH_APACHE, "Build and install mod_lily for apache" OFF)
 
 add_subdirectory(src)
 add_subdirectory(run)
+
+if(WITH_EMSCRIPTEN)
+    add_subdirectory(em)
+endif(WITH_EMSCRIPTEN)
 if(WITH_POSTGRE)
     add_subdirectory(postgre)
 endif(WITH_POSTGRE)
