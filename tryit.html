@@ -1,0 +1,274 @@
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <script async type="text/javascript" src="tryit_files/trylily.js"></script>
+    <script src="tryit_files/codemirror.js"></script>
+
+    <link rel="stylesheet" href="tryit_files/codemirror.css">
+    <link href="lily_style.css" rel="stylesheet" type="text/css" />
+
+    <title>Try Lily</title>
+    <style>
+      section {
+        width: 700px
+      }
+
+      .runbutton {
+          margin-left: auto;
+          margin-right: auto;
+          display: block;
+          padding: 3px;
+      }
+
+      .example {
+          display:none;
+      }
+
+      #results {
+          width: inherit;
+          border-width: 1px;
+      }
+    </style>
+  </head>
+  <body onload="ready();">
+    <header>
+      <img src="logo.png">
+      <h1>Lily</h1>
+    </header>
+
+    <aside>
+      <ul>
+        <li>Home</li>
+        <li><a href="index.html">Introducing Lily</a></li>
+        <li><a href="getting_started.html">Getting Started</a></li>
+        <li><a href="tryit.html">Try it</a></li>
+      </ul>
+      <ul>
+        <li>Core</li>
+        <li><a href="syntax.html">Syntax</a></li>
+        <li><a href="control_flow.html">Control flow</a></li>
+        <li><a href="functions.html">Functions</a></li>
+        <li><a href="builtin_types.html">Builtin types</a></li>
+        <li><a href="generics.html">Generics</a></li>
+        <li><a href="classes.html">Classes</a></li>
+        <li><a href="enums.html">Enums</a></li>
+        <li><a href="lambdas.html">Lambdas</a></li>
+        <li><a href="error_handling.html">Error Handling</a></li>
+        <li><a href="import.html">Importing</a></li>
+      </ul>
+      <ul>
+        <li>Class Reference</li>
+        <li><a href="boolean_type.html">boolean</a></li>
+        <li><a href="integer_type.html">integer</a></li>
+        <li><a href="double_type.html">double</a></li>
+        <li><a href="bytestring_type.html">bytestring</a></li>
+        <li><a href="string_type.html">string</a></li>
+        <li><a href="function_type.html">function</a></li>
+        <li><a href="list_type.html">list</a></li>
+        <li><a href="hash_type.html">hash</a></li>
+        <li><a href="tuple_type.html">tuple</a></li>
+        <li><a href="any_type.html">any</a></li>
+        <li><a href="exception_type.html">Exception</a></li>
+        <li><a href="tainted_type.html">Tainted</a></li>
+      </ul>
+      <ul>
+        <li>Reference</li>
+        <li><a href="sys_package.html">sys</a></li>
+        <li><a href="server_package.html">server</a></li>
+        <li><a href="postgre_package.html">postgre</a></li>
+        <li><a href="builtins.html">builtins</a></li>
+      </ul>
+    </aside>
+    <article>
+      <section>
+<div class="example" id="hello.lly">
+# Simple "Hello World" example
+print("Hello World")
+</div>
+
+<div class="example" id="one_hundred_doors.lly" >
+#[
+100 values, each representing a door. Each door is visited as many times as
+its position in the array (door 2 twice, door 10 visited 10 times).
+]#
+
+var doors = list::fill(100, false)
+
+# Braces are not necessary here because it's just a single expression.
+for i in 0...99:
+    for j in i...99 by i + 1:
+        doors[j] = !doors[j]
+
+var open_doors: list[integer] = []
+
+doors.each_index{|i|
+    if doors[i]:
+        open_doors.push(i + 1)
+}
+
+printfmt("Open doors: %s\n", open_doors)
+</div>
+
+<div class="example" id="transform.lly">
+#[
+Type safety and generics are important parts of Lily.
+Transform a value, safely.
+]#
+
+define transform[A, B](value: A, f: function(A => B)): B
+{
+    return f(value)
+}
+
+# C++-styled static reference to class member function.
+print(transform(10, integer::to_s))
+
+# ...or as an instance method
+print(transform(20, 20.to_s)
+
+# ...or a lambda
+print(transform("   abc   ", {|a| a.trim().upper() }))
+
+# Lily won't allow this: 'a' is inferred as 'integer', and integer does not
+# have this method.
+# print(transform(10, {|a| a.upper()}))
+</div>
+
+<div class="example" id="btree.lly">
+#[
+'enum' allows creating a class that is constrained to a sealed set of classes.
+]#
+
+enum BTree {
+    Value(integer)
+    Branch(BTree, BTree)
+
+    define repr: string {
+        # Pattern matching is supported, and all cases must be handled.
+        match self: {
+            case Value(v):
+                return v.to_s()
+            case Branch(left, right):
+                return "(%s %s)".format(left.repr(), right.repr())
+        }
+    }
+}
+
+print(
+    Branch(
+        Value(1),
+        Branch(
+            Value(2),
+            Value(3)
+        )
+    ).repr()
+)
+</div>
+        <div>
+          <select id="examples" onchange="updatecontent()">
+          </select>
+        </div>
+        <br>
+
+        <div id="editor"></div>
+
+        <script>
+var codemirror = CodeMirror(document.getElementById("editor"), {
+    lineNumbers: true,
+    tabSize:     4,
+    value:       "",
+});
+
+var parser_create;
+var parser_run;
+var parser_get_error;
+var parser_destroy;
+var results_elem;
+
+function ready() {
+    parser_create = Module.cwrap('get_parser', 'number', []);
+    parser_run = Module.cwrap('run_parser', 'number', ['number', 'string']);
+    parser_get_error = Module.cwrap('get_parser_error', 'string', ['number']);
+    parser_destroy = Module.cwrap('destroy_parser', '', ['number']);
+    results_elem = document.getElementById("results");
+
+    var fn = function(tty, val) { results_elem.value += TTY.utf8.processCChar(val); }
+    /* Emscripten provides two printing functions to customize printing (print
+       and printErr within Module). These functions are called when either stdout
+       or stderr is given a line with the data. Most of the time, that's okay.
+       However, Lily provides file::write, which does not have an ending newline.
+       This causes a problem, because emscripten won't think to flush stdout /
+       stderr. So, as a workaround, redefine stdout and stderr's per-char write
+       function to immediately put down a result (and pump it to the result
+       window. */
+    FS.getStream(2).tty.ops.put_char = fn;
+    FS.getStream(3).tty.ops.put_char = fn;
+}
+
+function updatecontent() {
+    var o = document.getElementById("examples")
+    var name = o.options[o.selectedIndex].value
+    var content = document.getElementById(name).textContent
+    codemirror.setValue(content.replace(/^\n/,""))
+    codemirror.setCursor(codemirror.lineCount(),0)
+    codemirror.focus()
+}
+
+function execute() {
+    /* There are certain parts of the interpreter that are not yet ready to do
+       state rewinding. Because of this, I've decided to create and destroy
+       parsers for each pass. This isn't...too bad, because parser start and
+       teardown should be 1:1 for alloc/free. Still, it could be greatly
+       improved by state rewinding sometime in the future. That would allow
+       using the same parser and save a lot of excess alloc/free calls. */
+    var streams = [null, FS.getStream(1), FS.getStream(2), FS.getStream(3)];
+
+    results_elem.value = "";
+    var p = parser_create();
+    var code_result = parser_run(p, codemirror.getValue());
+    if (code_result == 0)
+        results_elem.value = parser_get_error(p);
+
+    parser_destroy(p);
+
+    /* If any of std{in,out,err} are dynaloaded, it causes the FS stream to be
+       set to null. Fix that. */
+    FS.streams[1] = streams[1];
+    FS.streams[2] = streams[2];
+    FS.streams[3] = streams[3];
+}
+
+var selector = document.getElementById("examples")
+var examples = document.getElementsByClassName("example")
+
+for (var i = 0; i < examples.length; i++) {
+    var o = document.createElement("option")
+    o.textContent = examples[i].id
+    selector.appendChild(o)
+}
+
+updatecontent()
+
+        </script>
+        <br>
+        <button class="runbutton" type="button" onclick="execute()">Execute</button>
+        <br>
+        <br>
+        <span>Output:</span>
+        <textarea id="results" rows="8" disabled="1"></textarea>
+      </section>
+    </article>
+    <footer>
+      <p>
+Lily is designed by Jesse Ray Adkins (<a href="https://github.com/jesserayadkins">Github</a>,
+<a href="http://www.reddit.com/user/jesserayadkins">Reddit</a>).
+      </p>
+      <br />
+      <p>
+Logo source: <a href="http://sweetclipart.com/three-white-calla-lilies-1015">here</a>, via <a href="http://sweetclipart.com">sweetclipart.com</a>.
+      </p>
+    </footer>
+</body>
+</html>
