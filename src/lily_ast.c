@@ -720,5 +720,5 @@ void lily_ast_thaw_state(lily_ast_pool *ap)
 
     entry->in_use = 0;
     if (entry->prev)
-        entry = entry->prev;
+        ap->freeze_chain = entry->prev;
 }

@@ -1,0 +1,15 @@
+class Box[A](input: A)
+{
+    var @input = input
+}
+
+var v =
+    {||
+        {||
+            Box::new(
+                {|| 1}
+            )
+        }
+    }
+
+v()()
