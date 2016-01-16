@@ -1,26 +1,26 @@
-enum Option[A] {
-    Some(A)
-    None
+enum Test[A] {
+    One(A)
+    Two
 
-    define f[A](g: Option[A]) {
+    define f[A](g: Test[A]) {
     }
 
-    define h[A, B](i: Option[B]) {
+    define h[A, B](i: Test[B]) {
     }
 
-    define map[A, B](f: function(A => B)):Option[B] {
+    define map[A, B](f: function(A => B)):Test[B] {
         match self: {
-            case Some(s):
-                return Some(f(s))
-            case None:
-                return None
+            case One(s):
+                return One(f(s))
+            case Two:
+                return Two
         }
     }
 }
 
-None.f(Some(10))
-Some(10).f(Some(10))
-Some("10").h(Some(10))
+Two.f(One(10))
+One(10).f(One(10))
+One("10").h(One(10))
 
-Some(10).map(integer::to_s)
-Some(true).map{|a| a.to_i()}
+One(10).map(integer::to_s)
+One(true).map{|a| a.to_i()}

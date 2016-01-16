@@ -1,9 +1,9 @@
 #[
-SyntaxError: A class with the name 'Some' already exists.
+SyntaxError: A class with the name 'One' already exists.
     from variant_name_clash.lly:8
 ]#
 
-enum Option[A] {
-    Some(A)
-    Some(A)
+enum Test[A] {
+    One(A)
+    One(A)
 }

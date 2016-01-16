@@ -1,9 +1,7 @@
 #[
 SyntaxError: 'Option' cannot be inherited from.
-    from inherit_enum.lly:8
+    from inherit_enum.lly:6
 ]#
-
-enum Option[A] { Some(A) None }
 
 class abc < Option {
 }

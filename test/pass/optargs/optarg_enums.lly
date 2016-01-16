@@ -10,20 +10,6 @@ f(Black, Red)
 f(Red)
 show(f)
 
-enum Option[A] {
-    Some(A)
-    None
-    define unwrap[A]: A
-    {
-        match self: {
-            case Some(s):
-                return s
-            case None:
-                raise ValueError::new("No value!")
-        }
-    }
-}
-
 define my_print(message: string, target: *Option[file] = None)
 {
     if target == None:

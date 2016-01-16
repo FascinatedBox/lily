@@ -15,7 +15,10 @@
 #include "lily_cls_hash.h"
 #include "lily_cls_tuple.h"
 #include "lily_cls_file.h"
+#include "lily_cls_option.h"
 #include "lily_seed.h"
+
+extern const lily_func_seed lily_option_dl_start;
 
 static const lily_class_seed function_seed =
 {
@@ -114,8 +117,37 @@ void lily_builtin_show(lily_vm_state *, uint16_t, uint16_t *);
 void lily_builtin_printfmt(lily_vm_state *, uint16_t, uint16_t *);
 void lily_builtin_calltrace(lily_vm_state *, uint16_t, uint16_t *);
 
+static const lily_variant_seed seed_none =
+{
+    NULL,
+    "None",
+    dyna_variant,
+    "",
+    "Option"
+};
+
+static const lily_variant_seed seed_some =
+{
+    &seed_none,
+    "Some",
+    dyna_variant,
+    "(A)",
+    "Option"
+};
+
+static const lily_enum_seed seed_option =
+{
+    &seed_some,
+    "Option",
+    dyna_enum,
+    0,
+    1,
+    0,
+    &lily_option_dl_start,
+};
+
 static const lily_base_seed io_error =
-    {NULL, "IOError", dyna_exception};
+    {&seed_option, "IOError", dyna_exception};
 static const lily_base_seed format_error =
     {&io_error, "FormatError", dyna_exception};
 static const lily_base_seed key_error =

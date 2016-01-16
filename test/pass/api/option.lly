@@ -1,0 +1,65 @@
+var errors: list[string] = []
+
+define run(message: string, f: function( => boolean))
+{
+    if f() == false:
+        errors.push(message)
+}
+
+var tests =
+[
+    {||
+        run("Some(A).is_some() == true",                  {|| Some(1).is_some() == true })
+        run("None.is_some() == false",                    {|| None.is_some() == false })
+    },
+    {||
+        run("Some(A).is_none() == false",                 {|| Some(1).is_none() == false })
+        run("None.is_none() == true",                     {|| None.is_none() == true })
+    },
+    {||
+        run("Some(A).and(Some(B)) == Some(B)",            {|| Some(1).and(Some("B")).is_some() })
+        run("Some(A).and(None) == None",                  {|| Some(1).and(None).is_none() })
+        run("None.and(Some(B)) == None",                  {|| None.and(None).is_none() })
+        run("None.and(None) == None",                     {|| None.and(None).is_none() })
+    },
+    {||
+        run("Some(A).unwrap()",                           {|| Some(4).unwrap() == 4 })
+        try:
+            run("None.unwrap()",                          {|| None.unwrap().@(boolean) == true })
+        except ValueError:
+            0
+    },
+    {||
+        var sq: function(integer => Option[integer]) = {|x| Some(x * x) }
+        var empty: function(integer => Option[integer]) = {|x| None }
+
+        run("Some(4).and_then(sq).unwrap() == 16",        {|| Some(4).and_then(sq).unwrap() == 16 })
+        run("Some(4).and_then(empty).unwrap().is_none()", {|| Some(4).and_then(empty).is_none() })
+    },
+    {||
+        var size: function(list[integer] => integer) = {|l| l.size() }
+
+        run("Some([1]).map(size).unwrap() == 1",          {|| Some([1]).map(size).unwrap() == 1 })
+    },
+    {||
+        run("Some(1).or(Some(2)).unwrap() == 1",          {|| Some(1).or(Some(2)).unwrap() == 1 })
+        run("Some(1).or(None).unwrap() == 1",             {|| Some(1).or(None).unwrap() == 1 })
+    },
+    {||
+        run("Some(1).or_else{|| Some(5)}.unwrap() == 1",  {|| Some(1).or_else{|| Some(5) }.unwrap() == 1 })
+        run("None.or_else{|| Some(5)}.unwrap() == 5",     {|| None.or_else{|| Some(5.@(any)) }.unwrap() true })
+    },
+    {||
+        run("Some(1).unwrap_or(5) == 1",                  {|| Some(1).unwrap_or(5) == 1 })
+        run("None.unwrap_or(5) == 5",                     {|| None.unwrap_or(5) == 5 })
+    },
+    {||
+        run("Some(1).unwrap_or_else{|| 2} == 1",          {|| Some(1).unwrap_or_else{|| 2} == 1 })
+        run("None.unwrap_or_else{|| 2} == 2",             {|| None.unwrap_or_else{|| 2 } == 2 })
+    }
+]
+
+tests.each{|e| e()}
+
+if errors.size():
+    errors |> stderr.print

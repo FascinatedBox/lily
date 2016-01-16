@@ -1,11 +1,11 @@
 #[
-SyntaxError: 'None' cannot be inherited from.
+SyntaxError: 'Two' cannot be inherited from.
     from inherit_variant.lly:11
 ]#
 
-enum Option[A] {
-    Some(A)
-    None
+enum Test {
+    One
+    Two
 }
 
-class example < None { }
+class example < Two { }

@@ -1,5 +1,3 @@
-enum Option[A] { Some(A) None }
-
 define f(a: Option[integer]) : function( => integer) {
     var v = {|| 1}
 
