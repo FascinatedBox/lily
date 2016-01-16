@@ -1,8 +1,0 @@
-#[
-ValueError: Value exceeds allowed range.
-Traceback:
-    from [C]: in string::to_i
-    from string_to_i_under_min.lly:8: in __main__
-]#
-
-"-9223372036854775809".to_i()

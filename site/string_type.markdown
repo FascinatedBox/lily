@@ -25,9 +25,13 @@ Return a new string that is a combination of `self` and `other`.
 Returns `true` if `self` ends with `other`, `false` otherwise. If `other` is empty, then the result is always `true`.
 
 
-`string::find (self: string, needle: string) : integer`
+`string::find (self: string, needle: string) : Option[integer]`
 
-Attempt to locate `needle` within `self`. If `needle` is found, then the result is the index where `needle` starts. If it is not found, the result is -1.
+Attempt to locate `needle` within `self`.
+
+If `needle` is found, then the result is a `Some` of the index where `needle` starts.
+
+Otherwise, the result is `None`.
 
 
 `string::format (self: string, any...) : string`
@@ -80,6 +84,29 @@ This returns a string where all characters in the A-Z range are converted into t
 This returns a string where `to_strip` has been removed from the start of `self`. If `to_strip` is an empty string, then the input string is returned as-is.
 
 
+`string::parse_i (self: string) : Option[integer]`
+
+This attempts to convert a string into an integer. `self` is assumed to be a plain base-10 decimal value.
+
+If successful, a `Some` of the numeric value is returned.
+
+Otherwise, `None` is returned.
+
+Examples:
+
+```
+"-5".parse_i() # Some(-5)
+
+"00000001".to_i() # Some(1)
+
+# Sorry, but no hex.
+"0x10".to_i() # None
+
+# Invalid: The whole thing must be an integer
+"10cats".to_i() # None
+```
+
+
 `string::rstrip (self: string, to_strip: string) : string`
 
 This returns a string where `to_strip` has been removed from the end of `self`. If `to_strip` is an empty string, then the input string is returned as-is.
@@ -100,27 +127,6 @@ Returns `true` if `self` begins with `other`, `false` otherwise. If `other` is e
 `string::strip (self: string, to_strip: string) : string`
 
 This acts as a combination of lstrip and rstrip, returning a string which has `to_strip` removed from both the start and end of `self`. If `to_strip` is an empty string, then the input string is returned as-is.
-
-
-`string::to_i (self: string) : integer)`
-
-This attempts to convert a string into an integer. The function assumes that `self` describes a decimal value (and not, say, octal or hex). If unable to convert the string to an integer, `ValueError` is raised.
-
-Examples:
-
-```
-# Value: -5
-"-5".to_i()
-
-# Value: 1
-"00000001".to_i()
-
-# Invalid: Hex is not supported
-# "0x10".to_i()
-
-# Invalid: The whole thing must be an integer
-# "10cats".to_i()
-```
 
 
 `string::trim (self: string) : string`
