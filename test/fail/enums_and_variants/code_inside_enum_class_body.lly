@@ -3,9 +3,9 @@ SyntaxError: Expected '}' or 'define', not 'a label'.
     from code_inside_enum_class_body.lly:13
 ]#
 
-enum Option[A] {
-    Some(A)
-    None
+enum Test {
+    One
+    Two
 
     define f {
     }

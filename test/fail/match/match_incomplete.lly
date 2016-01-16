@@ -1,13 +1,8 @@
 #[
 SyntaxError: Match pattern not exhaustive. The following case(s) are missing:
 * None
-    from match_incomplete.lly:17
+    from match_incomplete.lly:12
 ]#
-
-enum Option[A] {
-    Some(A)
-    None
-}
 
 var v = None
 

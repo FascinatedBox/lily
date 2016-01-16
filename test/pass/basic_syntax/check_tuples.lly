@@ -1,10 +1,5 @@
 # This test ensures that tuples are acting sanely.
 
-enum Option[A] {
-    Some(A)
-    None
-}
-
 var t: tuple[integer, string, list[integer]] = <[1, "1", [1]]>
 
 # Default to any should work.

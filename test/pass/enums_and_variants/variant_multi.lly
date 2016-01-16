@@ -1,8 +1,8 @@
-enum Option[A] { Some(A, A) None }
+enum Test[A] { Multi(A, A) Single(A) }
 
-var v = Some(1, 2)
+var v = Multi(1, 2)
 
 match v: {
-    case Some(s1, s2):
-    case None:
+    case Multi(s1, s2):
+    case Single(s3):
 }

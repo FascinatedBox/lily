@@ -1074,8 +1074,7 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
             len = strlen(lexer->label);
             /* +7 : 3 for a starting """, 3 for the ending, 1 for the
                terminator. */
-            ensure_lambda_data_size(lexer, len + 7);
-
+            ensure_lambda_data_size(lexer, i + len + 7);
             lambda_data = lexer->lambda_data;
             snprintf(lambda_data + i, len + 1 + (strlen(head_tail) * 2), "%s%s%s",
                     head_tail, lexer->label, head_tail);

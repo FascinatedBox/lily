@@ -3,9 +3,9 @@ SyntaxError: Variant types not allowed in a declaration.
     from variant_decl.lly:11
 ]#
 
-enum Option[A] {
-	Some(A)
-	None
+enum Test[A] {
+    One(A)
+    Two
 }
 
-var v: Some[integer] = Some(10)
+var v: One[integer] = One(10)

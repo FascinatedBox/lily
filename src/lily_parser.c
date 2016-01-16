@@ -876,8 +876,9 @@ static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls,
  */
 
 static void create_new_class(lily_parse_state *);
-static lily_class *dynaload_exception(lily_parse_state *, lily_import_entry *,
-        const char *);
+static lily_class *find_run_class_dynaload(lily_parse_state *, lily_import_entry *,
+        char *);
+static lily_type *parse_variant_header(lily_parse_state *, lily_class *);
 
 /** Lily is a statically-typed language, which carries benefits as well as
     drawbacks. One drawback is that creating a new function or a new var is
@@ -971,23 +972,13 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
         if (search_import == NULL)
             search_import = symtab->builtin_import;
 
-        /* Is it a dynaload from the builtin/given package? */
-        lily_base_seed *call_seed =
-                find_dynaload_entry((lily_item *)search_import, lex->label);
-
-        /* The active import could be a foreign package, which might have a
-           dynaload entry. Try that. */
-        if (call_seed == NULL)
-            call_seed = find_dynaload_entry((lily_item *)symtab->active_import,
+        result = find_run_class_dynaload(parser, search_import, lex->label);
+        if (result == NULL)
+            result = find_run_class_dynaload(parser, symtab->active_import,
                     lex->label);
-
-        if (call_seed && call_seed->seed_type == dyna_exception)
-            result = dynaload_exception(parser, search_import, lex->label);
-        else if (call_seed && call_seed->seed_type == dyna_class)
-            result = lily_new_class_by_seed(parser->symtab, call_seed);
-        else
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "Class '%s' does not exist.\n", lex->label);
+            if (result == NULL)
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Class '%s' does not exist.\n", lex->label);
     }
 
     return result;
@@ -1112,19 +1103,78 @@ static lily_class *dynaload_exception(lily_parse_state *parser,
     return result;
 }
 
-/* Given a name, try to find that within the dynaload table of 'import' (which
-   may be a class). If a seed is found, run it in the context of 'import' and
-   return the result as an item. If nothing is found, return NULL. */
-static lily_item *find_run_dynaload(lily_parse_state *parser,
-        lily_import_entry *import, char *name)
+/* This dynaloads an enum that is represented by 'seed' with 'import' as the
+   context. The result of this is the enum class that was dynaloaded. */
+static lily_class *dynaload_enum(lily_parse_state *parser,
+        lily_import_entry *import, lily_base_seed *seed)
+{
+    /* Dynaloading an enum is similar to creating a regular one: A scope needs
+       to be made so that the generic count can be saved/restored later. That,
+       in turn, means loading the block.
+       'ensure_valid_class' is absent intentionally, as it is assumed the caller
+       will only provide a proper, non-clashing name. */
+    lily_enum_seed *enum_seed = (lily_enum_seed *)seed;
+    lily_class *enum_cls = lily_new_class(parser->symtab, seed->name);
+    enum_cls->dynaload_table = enum_seed->dynaload_table;
+
+    int generics_used = enum_seed->generic_count;
+    lily_lex_state *lex = parser->lex;
+
+    lily_emit_enter_block(parser->emit, block_enum);
+    lily_update_symtab_generics(parser->symtab, enum_cls, generics_used);
+
+    lily_type *result_type = build_self_type(parser, enum_cls, generics_used);
+    lily_type *save_self_type = parser->class_self_type;
+    parser->class_self_type = result_type;
+
+    /* Option, at least, is linked so that the variants that it holds come after
+       it. For the sake of simplicity, it is assumed that future enums will be
+       made in the same way. By doing so, there is no need to search for the
+       variants since they're all in a line. */
+    lily_base_seed *seed_iter = enum_seed->next;
+    do {
+        lily_variant_seed *variant_seed = (lily_variant_seed *)seed_iter;
+        lily_class *variant_cls = lily_new_variant(parser->symtab, enum_cls,
+                variant_seed->name);
+
+        lily_load_str(parser->lex, "[builtin]", lm_no_tags, variant_seed->body);
+        lily_lexer(lex);
+        lily_type *variant_type;
+        if (lex->token == tk_left_parenth)
+            variant_type = parse_variant_header(parser, variant_cls);
+        else
+            variant_type = lily_tm_make_default_for(parser->tm, variant_cls);
+
+        variant_cls->variant_type = variant_type;
+        lily_pop_lex_entry(parser->lex);
+        seed_iter = seed_iter->next;
+    } while (seed_iter && seed_iter->seed_type == dyna_variant);
+
+    lily_finish_enum(parser->symtab, enum_cls, 0, result_type);
+    lily_emit_leave_block(parser->emit);
+    parser->class_self_type = save_self_type;
+    return enum_cls;
+}
+
+/* Dynaload a variant, represented by 'seed', into the context 'import'. The
+   result of this is the variant. As a side-effect, this calls dynaload_enum to
+   ensure all variants of the parent enum are loaded. */
+static lily_class *dynaload_variant(lily_parse_state *parser,
+        lily_import_entry *import, lily_base_seed *seed)
+{
+    lily_variant_seed *variant_seed = (lily_variant_seed *)seed;
+    lily_base_seed *enum_seed = find_dynaload_entry((lily_item *)import,
+            variant_seed->enum_name);
+    dynaload_enum(parser, import, enum_seed);
+    return lily_find_class(parser->symtab, import, seed->name);
+}
+
+static lily_item *run_dynaload(lily_parse_state *parser,
+        lily_import_entry *import, lily_base_seed *seed)
 {
     lily_import_entry *saved_active = parser->symtab->active_import;
     lily_symtab *symtab = parser->symtab;
     lily_item *result;
-
-    lily_base_seed *seed = find_dynaload_entry((lily_item *)import, name);
-    if (seed == NULL)
-        return NULL;
 
     symtab->active_import = import;
 
@@ -1155,8 +1205,52 @@ static lily_item *find_run_dynaload(lily_parse_state *parser,
                 seed->name);
         result = (lily_item *)new_cls;
     }
+    else if (seed->seed_type == dyna_variant) {
+        lily_class *new_cls = dynaload_variant(parser, import, seed);
+        result = (lily_item *)new_cls;
+    }
+    else if (seed->seed_type == dyna_enum) {
+        lily_class *new_cls = dynaload_enum(parser, import, seed);
+        result = (lily_item *)new_cls;
+    }
 
     symtab->active_import = saved_active;
+    return result;
+}
+
+/* Given a name, try to find that within the dynaload table of 'import' (which
+   may be a class). If a seed is found, run it in the context of 'import' and
+   return the result as an item. If nothing is found, return NULL. */
+static lily_item *find_run_dynaload(lily_parse_state *parser,
+        lily_import_entry *import, char *name)
+{
+    lily_item *result;
+
+    lily_base_seed *seed = find_dynaload_entry((lily_item *)import, name);
+    if (seed)
+        result = run_dynaload(parser, import, seed);
+    else
+        result = NULL;
+
+    return result;
+}
+
+/* Like find_run_dynaload, but only do the dynaload if the entity to be loaded
+   is a class-like entity. */
+static lily_class *find_run_class_dynaload(lily_parse_state *parser,
+        lily_import_entry *import, char *name)
+{
+    lily_class *result;
+
+    lily_base_seed *seed = find_dynaload_entry((lily_item *)import, name);
+    if (seed &&
+        (seed->seed_type == dyna_class ||
+         seed->seed_type == dyna_exception ||
+         seed->seed_type == dyna_enum))
+        result = (lily_class *)run_dynaload(parser, import, seed);
+    else
+        result = NULL;
+
     return result;
 }
 
@@ -2276,7 +2370,6 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
     lily_tm_add(parser->tm, NULL);
 
     lily_lexer(lex);
-
     if (lex->token == tk_left_bracket)
         generics_used = collect_generics(parser);
     else
@@ -2919,6 +3012,15 @@ static void ensure_valid_class(lily_parse_state *parser, char *name)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Class '%s' has already been declared.\n", name);
     }
+
+    lily_base_seed *dl_item = find_dynaload_entry(
+            (lily_item *)parser->symtab->builtin_import, name);
+    if (dl_item &&
+        (dl_item->seed_type == dyna_class ||
+         dl_item->seed_type == dyna_enum ||
+         dl_item->seed_type == dyna_exception))
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "A built-in class named '%s' already exists.\n", name);
 }
 
 /* This handles everything needed to create a class, up until figuring out

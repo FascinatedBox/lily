@@ -1,9 +1,7 @@
 #[
 SyntaxError: Missing return statement at end of function.
-    from invalid_match_case_return_fold.lly:16
+    from invalid_match_case_return_fold.lly:14
 ]#
-
-enum Option[A] { Some(A) None }
 
 define f(a: Option[integer]) : integer
 {

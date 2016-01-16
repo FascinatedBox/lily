@@ -1,35 +1,35 @@
-enum Option[A] {
-    Some(A)
-    None
+enum Test[A] {
+    One(A)
+    Two
 
-    define with_default[A](a: *integer = 0) : Option[A] {
+    define with_default[A](a: *integer = 0) : Test[A] {
         return self
     }
 
-    define and_then[A](f: function(A => Option[A])) : Option[A] {
+    define and_then[A](f: function(A => Test[A])) : Test[A] {
         match self: {
-            case Some(s):
+            case One(s):
                 return f(s)
-            case None:
-                return None
+            case Two:
+                return Two
         }
     }
     define force[A] : A {
         match self: {
-            case Some(s):
+            case One(s):
                 return s
-            case None:
+            case Two:
                 raise ValueError::new("No value is present.")
         }
     }
 }
 
-var v = Some(10)
+var v = One(10)
 
 if 
-    v.and_then({|a| Some(a * a)})
+    v.and_then({|a| One(a * a)})
      .with_default()
-     .and_then({|a| Some(a * a)})
+     .and_then({|a| One(a * a)})
      .with_default(1)
      .force()
     != 10000:

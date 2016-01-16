@@ -1,11 +1,11 @@
 #[
-SyntaxError: Some has not been declared.
+SyntaxError: One has not been declared.
     from scoped_variant_direct.lly:11
 ]#
 
-enum Option[A] {
-	::Some(A)
-	::None
+enum Test[A] {
+    ::One(A)
+    ::Two
 }
 
-var opt: Option[integer] = Some(10)
+var opt: Test[integer] = One(10)

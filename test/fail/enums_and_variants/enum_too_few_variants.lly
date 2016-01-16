@@ -3,6 +3,6 @@ SyntaxError: An enum must have at least two variants.
     from enum_too_few_variants.lly:8
 ]#
 
-enum Option[A] {
-	Some(A)
+enum Test[A] {
+    One(A)
 }

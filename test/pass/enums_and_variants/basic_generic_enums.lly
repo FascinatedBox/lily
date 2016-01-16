@@ -1,8 +1,3 @@
-enum Option[A] {
-    Some(A)
-    None
-}
-
 class Test {
     var @value = None
 }

@@ -1,5 +1,3 @@
-enum Option[A] { Some(A) None }
-
 var a = Some(Some(10))
 
 match a: {

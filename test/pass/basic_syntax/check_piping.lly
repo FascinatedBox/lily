@@ -1,6 +1,4 @@
 # This test checks that call piping works.
-enum Option[A] { Some(A) None }
-
 class example {
     define add(v: integer) {}
 

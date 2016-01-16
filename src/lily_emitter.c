@@ -2342,11 +2342,19 @@ static int type_matchup(lily_emit_state *emit, lily_type *want_type,
     int ret = 1;
     if (want_type->cls->id == SYM_CLASS_ANY)
         ;
-    else if (want_type->cls->id != SYM_CLASS_GENERIC &&
-             lily_ts_type_greater_eq(emit->ts, want_type, right->result->type))
-        ret = 1;
-    else
-        ret = 0;
+    else {
+        lily_type *right_type;
+        if (right->result)
+            right_type = right->result->type;
+        else
+            right_type = right->padded_variant_type;
+
+        if (want_type->cls->id != SYM_CLASS_GENERIC &&
+            lily_ts_type_greater_eq(emit->ts, want_type, right_type))
+            ret = 1;
+        else
+            ret = 0;
+    }
 
     return ret;
 }
