@@ -3616,8 +3616,6 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
     if (want_type->cls->id == SYM_CLASS_GENERIC)
         match_type = lily_ts_easy_resolve(emit->ts, want_type);
 
-    /* ok == 0 protects from potentially attempting to resolve the same generic
-       twice, which breaks things. */
     if (lily_ts_check(emit->ts, want_type, result_type) ||
         type_matchup(emit, match_type, arg)) {
         add_value(emit, cs, arg->result);
