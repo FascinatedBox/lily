@@ -68,8 +68,10 @@
 <p>Return a new string that is a combination of <code>self</code> and <code>other</code>.</p>
 <p><code>string::endswith (self: string, other: string) : boolean</code></p>
 <p>Returns <code>true</code> if <code>self</code> ends with <code>other</code>, <code>false</code> otherwise. If <code>other</code> is empty, then the result is always <code>true</code>.</p>
-<p><code>string::find (self: string, needle: string) : integer</code></p>
-<p>Attempt to locate <code>needle</code> within <code>self</code>. If <code>needle</code> is found, then the result is the index where <code>needle</code> starts. If it is not found, the result is -1.</p>
+<p><code>string::find (self: string, needle: string) : Option[integer]</code></p>
+<p>Attempt to locate <code>needle</code> within <code>self</code>.</p>
+<p>If <code>needle</code> is found, then the result is a <code>Some</code> of the index where <code>needle</code> starts.</p>
+<p>Otherwise, the result is <code>None</code>.</p>
 <p><code>string::format (self: string, any...) : string</code></p>
 <p>This uses <code>self</code> as a formatting string, with the values coming from whatever extra arguments are passed. The following format specifiers are accepted:</p>
 <ul>
@@ -99,6 +101,22 @@
 <p>This returns a string where all characters in the A-Z range are converted into their equivalents within a-z. Unicode characters are untouched.</p>
 <p><code>string::lstrip (self: string, to_strip: string) : string</code></p>
 <p>This returns a string where <code>to_strip</code> has been removed from the start of <code>self</code>. If <code>to_strip</code> is an empty string, then the input string is returned as-is.</p>
+<p><code>string::parse_i (self: string) : Option[integer]</code></p>
+<p>This attempts to convert a string into an integer. <code>self</code> is assumed to be a plain base-10 decimal value.</p>
+<p>If successful, a <code>Some</code> of the numeric value is returned.</p>
+<p>Otherwise, <code>None</code> is returned.</p>
+<p>Examples:</p>
+<pre><code>&quot;-5&quot;.parse_i() # Some(-5)
+
+&quot;00000001&quot;.to_i() # Some(1)
+
+# Sorry, but no hex.
+&quot;0x10&quot;.to_i() # None
+
+# Invalid: The whole thing must be an integer
+&quot;10cats&quot;.to_i() # None
+</code></pre>
+
 <p><code>string::rstrip (self: string, to_strip: string) : string</code></p>
 <p>This returns a string where <code>to_strip</code> has been removed from the end of <code>self</code>. If <code>to_strip</code> is an empty string, then the input string is returned as-is.</p>
 <p><code>string::split (self: string, *by: string=" ") : list[string]</code></p>
@@ -108,22 +126,6 @@
 <p>Returns <code>true</code> if <code>self</code> begins with <code>other</code>, <code>false</code> otherwise. If <code>other</code> is empty, then the result is always <code>true</code>.</p>
 <p><code>string::strip (self: string, to_strip: string) : string</code></p>
 <p>This acts as a combination of lstrip and rstrip, returning a string which has <code>to_strip</code> removed from both the start and end of <code>self</code>. If <code>to_strip</code> is an empty string, then the input string is returned as-is.</p>
-<p><code>string::to_i (self: string) : integer)</code></p>
-<p>This attempts to convert a string into an integer. The function assumes that <code>self</code> describes a decimal value (and not, say, octal or hex). If unable to convert the string to an integer, <code>ValueError</code> is raised.</p>
-<p>Examples:</p>
-<pre><code># Value: -5
-&quot;-5&quot;.to_i()
-
-# Value: 1
-&quot;00000001&quot;.to_i()
-
-# Invalid: Hex is not supported
-# &quot;0x10&quot;.to_i()
-
-# Invalid: The whole thing must be an integer
-# &quot;10cats&quot;.to_i()
-</code></pre>
-
 <p><code>string::trim (self: string) : string</code></p>
 <p>This function returns with consecutive whitespace (<code>" \t\r\n"</code>) removed from both the start and end of the string.</p>
 <p><code>string::upper (self: string) : string</code></p>
