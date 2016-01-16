@@ -3,7 +3,7 @@ var result: hash[integer, integer] = []
 define f {
     ["1" => "10",
      "2" => "100",
-     "3" => "1000"].each_pair{|k, v| result[k.to_i()] = v.to_i()}
+     "3" => "1000"].each_pair{|k, v| result[k.parse_i().unwrap()] = v.parse_i().unwrap()}
 }
 
 f()

@@ -1,2 +1,0 @@
-if "+12345".to_i() != 12345:
-    stderr.print("Failed.")

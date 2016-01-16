@@ -1,0 +1,2 @@
+if [10, -2, 31].map(integer::to_s) != ["10", "-2", "31"]:
+    stderr.print("Failed.")

@@ -9,6 +9,7 @@
 #include "lily_seed.h"
 
 #include "lily_cls_list.h"
+#include "lily_cls_option.h"
 
 int lily_string_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
@@ -207,11 +208,17 @@ void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         }
     }
 
-    if (match == 0)
-        i = -1;
+    lily_instance_val *source;
+    if (match) {
+        lily_type *integer_type = result_arg->type->subtypes[0];
+        lily_value *v = lily_new_value(VAL_IS_PRIMITIVE, integer_type,
+                    (lily_raw_value){.integer = i});
+        source = lily_new_option_some(v);
+    }
+    else
+        source = lily_get_option_none(result_arg->type);
 
-    lily_raw_value v = {.integer = i};
-    lily_move_raw_value(result_arg, v);
+    lily_move_raw_value(result_arg, (lily_raw_value)source);
 }
 
 void lily_string_format(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -474,6 +481,58 @@ void lily_string_lower(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(result_arg, v);
 }
 
+void lily_string_parse_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *result_reg = vm_regs[code[0]];
+    char *input = vm_regs[code[1]]->value.string->string;
+    uint64_t value = 0;
+    int is_negative = 0;
+    unsigned int rounds = 0;
+
+    if (*input == '-') {
+        is_negative = 1;
+        ++input;
+    }
+    else if (*input == '+')
+        ++input;
+
+    while (*input == '0')
+        ++input;
+
+    /* A signed int64 peaks at 9223372036854775807 (or ...808 for negative).
+       The maximum number of reasonable digits is therefore 20 for scanning
+       decimal. */
+    while (*input >= '0' && *input <= '9' && rounds != 20) {
+        value = (value * 10) + (*input - '0');
+        ++input;
+        rounds++;
+    }
+
+    lily_instance_val *source;
+
+    if (value > ((uint64_t)INT64_MAX + is_negative) ||
+        *input != '\0' ||
+        rounds == 0) {
+        source = lily_get_option_none(result_reg->type);
+    }
+    else {
+        int64_t signed_value;
+
+        if (is_negative == 0)
+            signed_value = (int64_t)value;
+        else
+            signed_value = -(int64_t)value;
+
+        lily_type *integer_type = result_reg->type->subtypes[0];
+        lily_value *v = lily_new_value(VAL_IS_PRIMITIVE, integer_type,
+                (lily_raw_value){.integer = signed_value});
+
+        source = lily_new_option_some(v);
+    }
+
+    lily_move_raw_value(result_reg, (lily_raw_value)source);
+}
 
 /* This is a helper for rstrip when there's no utf-8 in input_arg. */
 static int rstrip_ascii_stop(lily_value *input_arg, lily_string_val *strip_sv)
@@ -834,52 +893,6 @@ void lily_string_split(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(result_reg, v);
 }
 
-void lily_string_to_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    lily_value *result_reg = vm_regs[code[0]];
-    char *input = vm_regs[code[1]]->value.string->string;
-    uint64_t value = 0;
-    int is_negative = 0;
-    unsigned int rounds = 0;
-
-    if (*input == '-') {
-        is_negative = 1;
-        ++input;
-    }
-    else if (*input == '+')
-        ++input;
-
-    while (*input == '0')
-        ++input;
-
-    /* A signed int64 peaks at 9223372036854775807 (or ...808 for negative).
-       The maximum number of reasonable digits is therefore 20 for scanning
-       decimal. */
-    while (*input >= '0' && *input <= '9' && rounds != 20) {
-        value = (value * 10) + (*input - '0');
-        ++input;
-        rounds++;
-    }
-
-    if (value > ((uint64_t)INT64_MAX + is_negative))
-        lily_raise(vm->raiser, lily_ValueError, "Value exceeds allowed range.\n");
-
-    if (*input != '\0' || rounds == 0)
-        lily_raise(vm->raiser, lily_ValueError, "Invalid base 10 literal '%s'.\n",
-                vm_regs[code[1]]->value.string->string);
-
-    int64_t signed_value;
-
-    if (is_negative == 0)
-        signed_value = (int64_t)value;
-    else
-        signed_value = -(int64_t)value;
-
-    lily_raw_value v = {.integer = signed_value};
-    lily_move_raw_value(result_reg, v);
-}
-
 void lily_string_trim(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -988,7 +1001,7 @@ static const lily_func_seed endswith =
     {&concat, "endswith", dyna_function, "(string, string):boolean", lily_string_endswith};
 
 static const lily_func_seed find =
-    {&endswith, "find", dyna_function, "(string, string):integer", lily_string_find};
+    {&endswith, "find", dyna_function, "(string, string):Option[integer]", lily_string_find};
 
 static const lily_func_seed format =
     {&find, "format", dyna_function, "(string, any...):string", lily_string_format};
@@ -1014,8 +1027,11 @@ static const lily_func_seed lstrip =
 static const lily_func_seed lower =
     {&lstrip, "lower", dyna_function, "(string):string", lily_string_lower};
 
+static const lily_func_seed parse_i =
+    {&lower, "parse_i", dyna_function, "(string):Option[integer]", lily_string_parse_i};
+
 static const lily_func_seed rstrip =
-    {&lower, "rstrip", dyna_function, "(string, string):string", lily_string_rstrip};
+    {&parse_i, "rstrip", dyna_function, "(string, string):string", lily_string_rstrip};
 
 static const lily_func_seed startswith =
     {&rstrip, "startswith", dyna_function, "(string, string):boolean", lily_string_startswith};
@@ -1026,11 +1042,8 @@ static const lily_func_seed split =
 static const lily_func_seed strip =
     {&split, "strip", dyna_function, "(string, string):string", lily_string_strip};
 
-static const lily_func_seed to_i =
-    {&strip, "to_i", dyna_function, "(string):integer", lily_string_to_i};
-
 static const lily_func_seed trim =
-    {&to_i, "trim", dyna_function, "(string):string", lily_string_trim};
+    {&strip, "trim", dyna_function, "(string):string", lily_string_trim};
 
 static const lily_func_seed dynaload_start =
     {&trim, "upper", dyna_function, "(string):string", lily_string_upper};
