@@ -3612,12 +3612,8 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
     lily_type *result_type = partial_eval(emit, arg, eval_type,
             &cs->have_bare_variants);
 
-    lily_type *match_type = want_type;
-    if (want_type->cls->id == SYM_CLASS_GENERIC)
-        match_type = lily_ts_easy_resolve(emit->ts, want_type);
-
     if (lily_ts_check(emit->ts, want_type, result_type) ||
-        type_matchup(emit, match_type, arg)) {
+        type_matchup(emit, want_type, arg)) {
         add_value(emit, cs, arg->result);
     }
     else

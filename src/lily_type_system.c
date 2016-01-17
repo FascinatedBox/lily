@@ -382,11 +382,6 @@ int lily_ts_type_greater_eq(lily_type_system *ts, lily_type *left, lily_type *ri
     return check_raw(ts, left, right, T_DONT_SOLVE | T_COVARIANT);
 }
 
-inline lily_type *lily_ts_easy_resolve(lily_type_system *ts, lily_type *t)
-{
-    return ts->types[ts->pos + t->generic_pos];
-}
-
 lily_type *lily_ts_resolve_by_second(lily_type_system *ts, lily_type *first,
         lily_type *second)
 {
