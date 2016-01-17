@@ -3612,10 +3612,16 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
     lily_type *result_type = partial_eval(emit, arg, eval_type,
             &cs->have_bare_variants);
 
-    if (lily_ts_check(emit->ts, want_type, result_type) ||
-        type_matchup(emit, want_type, arg)) {
+    /* This is important. If the callee wants something generic, it HAS to be
+       a resolving match. Otherwise, it HAS to be a strict >= type match.
+       Example: Callee wants list[A], and A = integer. Giving an actual list[A]
+       is wrong. */
+    if (((want_type->flags & TYPE_IS_UNRESOLVED) &&
+          lily_ts_check(emit->ts, want_type, result_type))
+        ||
+        (((want_type->flags & TYPE_IS_UNRESOLVED) == 0) &&
+         type_matchup(emit, want_type, arg)))
         add_value(emit, cs, arg->result);
-    }
     else
         bad_arg_error(emit, cs, result_type, want_type);
 }
