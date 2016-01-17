@@ -54,11 +54,6 @@ int lily_ts_type_greater_eq(lily_type_system *, lily_type *, lily_type *);
    verified. */
 void lily_ts_pull_generics(lily_type_system *, lily_type *, lily_type *);
 
-/* Given a type that IS a generic (not one that contains them), determine what
-   that generic has been resolved as.
-   Note: May return NULL if the generic has not really been resolved. */
-lily_type *lily_ts_easy_resolve(lily_type_system *, lily_type *);
-
 /* This recurses through the given type, building up a new, completely resolved
    type whereever the given type has generics.
    In the event that the given type specifies generics that are not solved,
