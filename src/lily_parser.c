@@ -2827,6 +2827,9 @@ static void except_handler(lily_parse_state *parser, int multi)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' is not a valid exception class.\n",
                 except_type->cls->name);
+    else if (except_type->subtypes != 0)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'except' type cannot have subtypes.\n");
 
     /* The block change has to come before the var is made, or the var will be
        made in the wrong scope. */

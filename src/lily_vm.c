@@ -1515,6 +1515,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
         return 0;
 
     lily_jump_link *raiser_jump = vm->raiser->all_jumps;
+    lily_class *raised_cls;
 
     if (raised_type == NULL) {
         const char *except_name = lily_name_for_error(vm->raiser);
@@ -1522,10 +1523,10 @@ static int maybe_catch_exception(lily_vm_state *vm)
            of the interpreter have to deal with this. Provide something so that
            exceptions raised at vm-time have to do the dynaload somewhere that
            is not here. */
-        lily_class *cls = lily_maybe_dynaload_class(vm->parser, NULL,
-                except_name);
-        raised_type = cls->type;
+        raised_cls = lily_maybe_dynaload_class(vm->parser, NULL, except_name);
     }
+    else
+        raised_cls = raised_type->cls;
 
     lily_vm_catch_entry *catch_iter = vm->catch_top;
     lily_value *catch_reg = NULL;
@@ -1560,7 +1561,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
             int next_location = code[jump_location + 2];
             catch_reg = stack_regs[code[jump_location + 4]];
             lily_type *catch_type = catch_reg->type;
-            if (lily_ts_type_greater_eq(vm->ts, catch_type, raised_type)) {
+            if (lily_class_greater_eq(catch_type->cls, raised_cls)) {
                 /* ...So that execution resumes from within the except block. */
                 do_unbox = code[jump_location + 3];
                 jump_location += 5;
