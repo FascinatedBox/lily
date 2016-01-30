@@ -6,4 +6,4 @@ Traceback:
 
 var v = ["a" => 1]
 
-show(v["b"])
+print(v["b"])

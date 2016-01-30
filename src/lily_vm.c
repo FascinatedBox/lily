@@ -8,7 +8,6 @@
 #include "lily_value.h"
 #include "lily_opcode.h"
 #include "lily_vm.h"
-#include "lily_debug.h"
 #include "lily_bind.h"
 #include "lily_parser.h"
 #include "lily_seed.h"
@@ -729,12 +728,6 @@ void lily_builtin_calltrace(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_raw_value(result, v);
 }
 
-void lily_builtin_show(lily_vm_state *vm, uint16_t argc, uint16_t *code)
-{
-    lily_value *reg = vm->vm_regs[code[1]];
-    lily_show_value(vm, reg);
-}
-
 void lily_builtin_print(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value *reg = vm->vm_regs[code[1]];
@@ -1139,7 +1132,6 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     iv->refcount = 1;
     iv->values = iv_values;
     iv->gc_entry = NULL;
-    iv->visited = 0;
     iv->true_type = result->type;
 
     if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
@@ -1461,7 +1453,6 @@ static void make_proper_exception_val(lily_vm_state *vm,
 
     ival->values = lily_malloc(2 * sizeof(lily_value *));
     ival->num_values = -1;
-    ival->visited = 0;
     ival->refcount = 1;
     ival->gc_entry = NULL;
     ival->true_type = raised_type;

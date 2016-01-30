@@ -44,20 +44,6 @@ If it comes from foreign code (such as `list::select`), then it takes the form o
 `from [C]: in <function>`.
 
 
-`show[A](value: A)`
-
-This function prints a value to the current stdout (or the server if running from Apache). Instead of using the internal stringification routine that everything else does, it descends into values.
-
-For lists, hashes, and tuples, it will print every value within.
-
-For type any and enums, it will print the contents.
-
-For native functions, it will print a "readable" output of the function's bytecode. This is handy for debugging if something is running incorrectly because of an emitting error, or a vm error.
-
-For classes, it will print the contents of the class, as well as if the contents are private or protected. For classes that inherit from another, it will tell where the property came from.
-
-This function is aware of circular references, and will write '(circular)' instead of printing a value in that case.
-
 # Variables
 
 `stdout: file`

@@ -1,8 +1,10 @@
 #[
 SyntaxError: Expected '::', not ).
-    from invalid_static_access.lly:8
+    from invalid_static_access.lly:10
 ]#
+
+define id[A](a: A): A { return a }
 
 class test {}
 
-show(test) new
+id(test) new

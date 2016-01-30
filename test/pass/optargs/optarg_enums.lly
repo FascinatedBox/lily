@@ -8,7 +8,6 @@ define f(a: *Color = Black, b: *Color = Yellow)
 f()
 f(Black, Red)
 f(Red)
-show(f)
 
 define my_print(message: string, target: *Option[file] = None)
 {

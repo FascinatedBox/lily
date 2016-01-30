@@ -1,3 +1,0 @@
-var a: list[any] = [1, 2]
-a[0] = a
-show(a)

@@ -11,6 +11,8 @@
 # it. This is the reason that Lily's parser must rewind the expression count
 # after processing a lambda.
 
+define empty[A](a: A) {  }
+
 define add(a: integer, f: function(), b: integer) : integer
 {
     return a + b
@@ -23,5 +25,5 @@ define add(a: integer, f: function(), b: integer) : integer
 # 2 + 2 needs an intermediate storage. If the expression counter isn't equal to
 # what it was before the lambda run, it will pick the same storage that 1 + 1
 # went to. This means add will get 4 twice, and result in 8. That's super bad.
-if add(1 + 1, {|| show(1 + 1 + 1) show(1 + 1 + 1)}, 2 + 2) != 6:
+if add(1 + 1, {|| empty(1 + 1 + 1) empty(1 + 1 + 1)}, 2 + 2) != 6:
     stderr.print("Failed.")

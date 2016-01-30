@@ -6,10 +6,10 @@ Generics offer a way to define a single function or class that is able to handle
 Let's start off with a simple example:
 
 ```
-define show_elements[A](l: list[A])
+define print_elements[A](l: list[A])
 {
     for i in 0...l.size() - 1:
-        show(l[i])
+        print(l[i])
 }
 ```
 
@@ -21,17 +21,17 @@ In the actual function, `A` will be replaced by a type. For this generic functio
 # Expected: list[A]
 # Got: list[integer]
 # Valid: A is always integer
-show_elements([1, 2, 3])
+print_elements([1, 2, 3])
 
 # Invalid: Expected list[A], but got integer
-# show_elements(10)
+# print_elements(10)
 
 # This next example might seem as if it would fail.
 # However, the 'default to any' occurs before the type check.
 # Expected: list[A]
 # Got: list[any]
 # Valid: A is always any
-show_elements([1, "2", [3]])
+print_elements([1, "2", [3]])
 ```
 
 A more interesting example can be found in the list::push function. This is defined as `function(list[A], A)`. That type is what is used to prevent elements of the wrong type from being added to a list. Here are some examples of it:
