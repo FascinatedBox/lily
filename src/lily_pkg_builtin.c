@@ -113,7 +113,6 @@ static const lily_class_seed question_seed =
 };
 
 void lily_builtin_print(lily_vm_state *, uint16_t, uint16_t *);
-void lily_builtin_show(lily_vm_state *, uint16_t, uint16_t *);
 void lily_builtin_printfmt(lily_vm_state *, uint16_t, uint16_t *);
 void lily_builtin_calltrace(lily_vm_state *, uint16_t, uint16_t *);
 
@@ -164,10 +163,8 @@ static const lily_base_seed dbz_error =
     {&index_error, "DivisionByZeroError", dyna_exception};
 static const lily_func_seed calltrace =
     {&dbz_error, "calltrace", dyna_function, ":list[string]", lily_builtin_calltrace};
-static const lily_func_seed show =
-    {&calltrace, "show", dyna_function, "[A](A)", lily_builtin_show};
 static const lily_func_seed print =
-    {&show, "print", dyna_function, "[A](A)", lily_builtin_print};
+    {&calltrace, "print", dyna_function, "[A](A)", lily_builtin_print};
 static const lily_func_seed printfmt =
     {&print, "printfmt", dyna_function, "(string, any...)", lily_builtin_printfmt};
 static const lily_var_seed seed_stderr =

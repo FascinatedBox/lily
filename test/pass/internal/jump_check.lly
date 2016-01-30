@@ -11,5 +11,4 @@ define f {
         g()
 }
 
-show(f)
 f()

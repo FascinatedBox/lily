@@ -13,7 +13,6 @@ lily_hash_val *lily_new_hash_val()
     h->gc_entry = NULL;
     h->refcount = 1;
     h->iter_count = 0;
-    h->visited = 0;
     h->num_elems = 0;
     h->elem_chain = NULL;
     return h;

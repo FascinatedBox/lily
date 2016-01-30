@@ -279,9 +279,7 @@ typedef struct lily_list_val_ {
     struct lily_gc_entry_ *gc_entry;
     struct lily_value_ **elems;
     uint32_t num_values;
-    /* visited is used by lily_debug to make sure that it doesn't enter an
-       infinite loop when trying to print info. */
-    uint32_t visited;
+    uint32_t pad;
 } lily_list_val;
 
 /* Lily's hashes are in two parts: The hash value, and the hash element. The
@@ -300,7 +298,7 @@ typedef struct lily_hash_val_ {
     uint32_t refcount;
     uint32_t iter_count;
     struct lily_gc_entry_ *gc_entry;
-    uint32_t visited;
+    uint32_t pad;
     uint32_t num_elems;
     lily_hash_elem *elem_chain;
 } lily_hash_val;
@@ -312,7 +310,7 @@ typedef struct lily_instance_val_ {
     struct lily_gc_entry_ *gc_entry;
     struct lily_value_ **values;
     uint32_t num_values;
-    uint32_t visited;
+    uint32_t pad2;
     union {
         /* Instance values: This is the actual type of the value. This exists
            because the value may be put into a register of a lesser/simpler

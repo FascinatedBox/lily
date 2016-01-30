@@ -86,7 +86,6 @@ inline lily_instance_val *lily_new_instance_val()
     ival->gc_entry = NULL;
     ival->values = NULL;
     ival->num_values = -1;
-    ival->visited = 0;
     ival->true_type = NULL;
 
     return ival;

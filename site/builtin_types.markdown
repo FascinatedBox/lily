@@ -140,8 +140,8 @@ This is a basic hash collection, representing a mapping from a key to a value. T
 ```
 var v = ["a" => 1, "b" => 2, "c" => 3]
 
-# Show the value represented by "a".
-show(v["a"])
+# Print the value represented by "a".
+print(v["a"])
 
 # New values can be added through assignment.
 v["d"] = 4
