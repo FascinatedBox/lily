@@ -32,7 +32,7 @@ typedef struct lily_jump_link_ {
 typedef struct lily_raiser_ {
     lily_jump_link *all_jumps;
     lily_msgbuf *msgbuf;
-    lily_type *exception_type;
+    lily_class *exception_cls;
     lily_value *exception_value;
 
     /* This is 0 if the error line is the lexer's current line number.
@@ -50,9 +50,7 @@ lily_raiser *lily_new_raiser(void);
 void lily_free_raiser(lily_raiser *);
 void lily_raise(lily_raiser *, int, char *, ...);
 void lily_raise_prebuilt(lily_raiser *, int);
-void lily_raise_type_and_msg(lily_raiser *, lily_type *, const char *);
-void lily_raise_value(lily_raiser *, lily_value *, const char *);
-void lily_raiser_set_error(lily_raiser *, lily_type *, const char *);
+void lily_raise_value(lily_raiser *, lily_class *, lily_value *, const char *);
 void lily_raise_prepared(lily_raiser *);
 lily_jump_link *lily_jump_setup(lily_raiser *);
 void lily_jump_back(lily_raiser *);

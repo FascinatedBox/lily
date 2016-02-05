@@ -164,10 +164,8 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->tm = parser->emit->tm;
 
     parser->vm->symtab = parser->symtab;
-    parser->vm->ts = parser->emit->ts;
     parser->vm->vm_buffer = parser->raiser->msgbuf;
     parser->vm->parser = parser;
-    parser->vm->type_block = parser->emit->type_block;
 
     parser->symtab->lex_linenum = &parser->lex->line_num;
 
@@ -204,9 +202,6 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     lily_pkg_sys_init(parser, options);
 
     run_bootstrap(parser);
-
-    /* The vm uses this for tagging the inner values when building traceback. */
-    parser->vm->traceback_type = type_by_name(parser, "list[string]");
 
     parser->executing = 0;
 
@@ -1115,6 +1110,14 @@ static lily_class *dynaload_enum(lily_parse_state *parser,
        will only provide a proper, non-clashing name. */
     lily_enum_seed *enum_seed = (lily_enum_seed *)seed;
     lily_class *enum_cls = lily_new_class(parser->symtab, seed->name);
+
+    /* HACK: The Option and string classes both have builtin methods that need
+       to create Option instances. Those instances need to be tagged with an id.
+       To simplify things, make sure that Option always gets the same id so that
+       those methods don't have to hunt for the id at runtime. */
+    parser->symtab->next_class_id--;
+    enum_cls->id = SYM_CLASS_OPTION;
+
     enum_cls->dynaload_table = enum_seed->dynaload_table;
 
     int generics_used = enum_seed->generic_count;
@@ -1301,8 +1304,11 @@ lily_class *lily_maybe_dynaload_class(lily_parse_state *parser,
 
     lily_class *cls = lily_find_class(parser->symtab, import, name);
 
-    if (cls == NULL)
+    if (cls == NULL) {
         cls = dynaload_exception(parser, import, name);
+        /* ...Just in case an instance needs to be printed. */
+        lily_vm_add_class(parser->vm, cls);
+    }
 
     return cls;
 }
@@ -2227,10 +2233,6 @@ static void parse_var(lily_parse_state *parser, int modifiers)
         lily_lexer(lex);
         expression(parser);
         lily_emit_eval_expr(parser->emit, parser->ast_pool);
-
-        if (want_token == tk_prop_word &&
-            sym->type->flags & TYPE_MAYBE_CIRCULAR)
-            lily_tm_set_circular(parser->class_self_type->cls);
 
         token = lex->token;
         /* This is the start of the next statement (or, for 'var', only allow
@@ -3534,10 +3536,8 @@ static void parser_loop(lily_parse_state *parser)
                            "Unterminated block(s) at end of parsing.\n");
             }
 
+            lily_register_classes(parser->symtab, parser->vm);
             lily_prepare_main(parser->emit, parser->import_start);
-            /* The emitter's type_block is not always used, and thus is not
-               always allocated. Make sure the vm has it if it's needed. */
-            parser->vm->type_block = parser->emit->type_block;
             lily_vm_prep(parser->vm, parser->symtab);
 
             parser->executing = 1;
@@ -3618,12 +3618,12 @@ char *lily_build_error_message(lily_parse_state *parser)
 
     lily_msgbuf_flush(parser->msgbuf);
 
-    if (raiser->exception_type) {
+    if (raiser->exception_cls) {
         /* If this error is not one of the builtin ones, then show the package
            from where it came. The reason for this is that different packages
            may wish to export a general error class (ex: pg::Error,
            mysql::Error, etc). So making it clear -which- one can be useful. */
-        char *loadname = raiser->exception_type->cls->import->loadname;
+        char *loadname = raiser->exception_cls->import->loadname;
         if (strcmp(loadname, "") != 0)
             lily_msgbuf_add_fmt(msgbuf, "%s::", loadname);
     }

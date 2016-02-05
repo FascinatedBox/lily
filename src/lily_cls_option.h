@@ -4,6 +4,6 @@
 # include "lily_core_types.h"
 
 lily_instance_val *lily_new_option_some(lily_value *);
-lily_instance_val *lily_get_option_none(lily_type *);
+lily_instance_val *lily_get_option_none(struct lily_vm_state_ *);
 
 #endif

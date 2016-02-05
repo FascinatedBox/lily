@@ -1,9 +1,9 @@
 #ifndef LILY_VM_H
 # define LILY_VM_H
 
+# include "lily_buffers.h"
 # include "lily_raiser.h"
 # include "lily_symtab.h"
-# include "lily_type_system.h"
 
 struct lily_base_seed_;
 
@@ -30,8 +30,6 @@ typedef struct lily_call_frame_ {
     struct lily_call_frame_ *prev;
     struct lily_call_frame_ *next;
 } lily_call_frame;
-
-struct lily_type_block_;
 
 typedef struct lily_vm_catch_entry_ {
     lily_call_frame *call_frame;
@@ -64,6 +62,8 @@ typedef struct lily_vm_state_ {
     lily_call_frame *call_chain;
 
     lily_tie **readonly_table;
+    lily_class **class_table;
+    lily_type_buffer *cast_types;
 
     /* A linked list of entries that are currently being used. */
     lily_gc_entry *gc_live_entries;
@@ -78,8 +78,8 @@ typedef struct lily_vm_state_ {
        with the number of registers to determine */
     uint32_t offset_max_registers;
     uint32_t true_max_registers;
-    uint32_t pad;
 
+    uint32_t class_count;
     uint32_t readonly_count;
 
     uint32_t call_depth;
@@ -114,11 +114,6 @@ typedef struct lily_vm_state_ {
     lily_vm_catch_entry *catch_top;
     lily_vm_catch_entry *catch_chain;
 
-    /* This is used when building traceback, as the inner values of traceback
-       are full values which need types. */
-    lily_type *traceback_type;
-
-    struct lily_type_block_ *type_block;
     struct lily_parse_state_ *parser;
 
     lily_msgbuf *vm_buffer;
@@ -128,7 +123,6 @@ typedef struct lily_vm_state_ {
        reallocs (in the case of large result lists), or from overallocating (in
        the case of small result lists). */
     lily_vm_list *vm_list;
-    lily_type_system *ts;
     lily_symtab *symtab;
     lily_raiser *raiser;
     void *data;
@@ -140,17 +134,18 @@ void lily_free_vm(lily_vm_state *);
 void lily_vm_prep(lily_vm_state *, lily_symtab *);
 void lily_vm_execute(lily_vm_state *);
 uint64_t lily_siphash(lily_vm_state *, lily_value *);
-void lily_add_gc_item(lily_vm_state *, lily_type *, lily_generic_gc_val *);
+void lily_vm_add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *, lily_value *);
+
+void lily_tag_value(lily_vm_state *, lily_value *);
+void lily_gc_mark(int, lily_value *);
+
+void lily_vm_ensure_class_table(lily_vm_state *, int);
+void lily_vm_add_class_unchecked(lily_vm_state *, lily_class *);
+void lily_vm_add_class(lily_vm_state *, lily_class *);
 
 void lily_process_format_string(lily_vm_state *, uint16_t *);
 
-lily_value *lily_foreign_call(lily_vm_state *, int *, lily_type *, lily_value *,
+lily_value *lily_foreign_call(lily_vm_state *, int *, int, lily_value *,
         int, ...);
 void lily_vm_list_ensure(lily_vm_state *, uint32_t);
-
-void lily_vm_set_error(lily_vm_state *, const struct lily_base_seed_ *,
-        const char *);
-void lily_vm_raise_prepared(lily_vm_state *);
-void lily_vm_module_raise(lily_vm_state *, const struct lily_base_seed_ *,
-        const char *);
 #endif

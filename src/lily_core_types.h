@@ -14,23 +14,13 @@ struct lily_vm_state_;
 struct lily_value_;
 struct lily_var_;
 struct lily_type_;
-struct lily_register_info_;
 struct lily_function_val_;
 struct lily_symtab_;
 struct lily_parse_state_;
 
-/* gc_marker_func is a function called to mark all values within a given value.
-   The is used by the gc to mark values as being visited. Values not visited
-   will be collected. */
-typedef void (*gc_marker_func)(int, struct lily_value_ *);
 /* Lily's foreign functions look like this. */
 typedef void (*lily_foreign_func)(struct lily_vm_state_ *, uint16_t,
         uint16_t *);
-/* This is called to do == and != when the vm has complex values, and also for
-   comparing values held in an any. The vm is passed as a guard against
-   an infinite loop. */
-typedef int (*class_eq_func)(struct lily_vm_state_ *, int *,
-        struct lily_value_ *, struct lily_value_ *);
 /* This function is called when a value tagged as refcounted drops to 0 refs.
    This handles a value of a given class (regardless of type) and frees what is
    inside. */
@@ -93,7 +83,9 @@ typedef struct lily_class_ {
     /* If positive, how many subtypes are allowed in this type. This can also
        be -1 if an infinite number of types are allowed (ex: functions). */
     int16_t generic_count;
-    uint32_t prop_count;
+    uint32_t move_flags;
+    uint16_t pad;
+    uint16_t prop_count;
     uint16_t variant_size;
 
     union {
@@ -131,8 +123,6 @@ typedef struct lily_class_ {
            not have generics have a shared default type. */
         struct lily_tie_ *default_value;
     };
-    gc_marker_func gc_marker;
-    class_eq_func eq_func;
 } lily_class;
 
 typedef struct lily_type_ {
@@ -201,7 +191,7 @@ typedef struct lily_tie_ {
     uint64_t flags;
     lily_type *type;
     uint32_t reg_spot;
-    uint32_t pad;
+    uint32_t move_flags;
     lily_raw_value value;
     struct lily_tie_ *next;
 } lily_tie;
@@ -306,20 +296,12 @@ typedef struct lily_hash_val_ {
 /* This represents either a class instance or an enum. */
 typedef struct lily_instance_val_ {
     uint32_t refcount;
-    uint32_t pad;
+    uint16_t instance_id;
+    uint16_t variant_id;
     struct lily_gc_entry_ *gc_entry;
     struct lily_value_ **values;
     uint32_t num_values;
-    uint32_t pad2;
-    union {
-        /* Instance values: This is the actual type of the value. This exists
-           because the value may be put into a register of a lesser/simpler
-           type. */
-        lily_type *true_type;
-        /* Enums: This holds a variant_id for the variant that this enum is
-           currently holding. This is not a class id. */
-        uint16_t variant_id;
-    };
+    uint32_t pad;
 } lily_instance_val;
 
 typedef struct lily_file_val_ {
@@ -366,20 +348,12 @@ typedef struct lily_function_val_ {
     /* This is how much code is in this particular function. */
     uint32_t len;
 
-    uint32_t num_upvalues;
+    uint16_t num_upvalues;
 
-    struct lily_value_ **upvalues;
-
-    /* If this function is a lambda that uses the type_block, then this is where
-       to start in that type block. */
-    uint16_t type_block_spot;
-    /* Does this function contain generics? If so, they may need to be solved
-       at vm-time when it's called. */
-    uint16_t has_generics;
     /* This is how many registers that this function uses. */
     uint16_t reg_count;
-    /* This is used to initialize registers when entering this function.  */
-    struct lily_register_info_ *reg_info;
+
+    struct lily_value_ **upvalues;
 } lily_function_val;
 
 /* Every value that is refcounted is a superset of this. */
@@ -409,7 +383,6 @@ typedef struct lily_value_ {
        here. When cell_refcount is zero, the raw value is deref'd and the value
        itself is destroyed. */
     uint32_t cell_refcount;
-    struct lily_type_ *type;
     lily_raw_value value;
 } lily_value;
 
@@ -417,26 +390,17 @@ typedef struct lily_value_ {
    raw value and the value's type. It's important to NOT copy the value,
    because the value may be a register, and the type will change. */
 typedef struct lily_gc_entry_ {
-    struct lily_type_ *value_type;
     /* If this is destroyed outside of the gc, then value.generic should be set
        to NULL to keep the gc from looking at an invalid data. */
     lily_raw_value value;
     /* Each gc pass has a different number that always goes up. If an entry's
        last_pass is not the current number, then the contained value is
        destroyed. */
-    uint32_t last_pass;
-    uint32_t pad;
+    int32_t last_pass;
+    /* The flags from the value. Used to determine what's inside the value. */
+    uint32_t flags;
     struct lily_gc_entry_ *next;
 } lily_gc_entry;
-
-/* This is used to initialize the registers that a function uses. It also holds
-   names for doing trace. */
-typedef struct lily_register_info_ {
-    lily_type *type;
-    char *name;
-    uint32_t line_num;
-    uint32_t pad;
-} lily_register_info;
 
 typedef struct lily_import_link_ {
     struct lily_import_entry_ *entry;
@@ -534,9 +498,6 @@ typedef struct lily_options_ {
    that scoped variants are accessed using 'enum::variant', while normal
    variants can use just 'variant'. */
 #define CLS_ENUM_IS_SCOPED 0x02000
-/* This is set when any instance of a given class has the potential of becoming
-   circular. The 'any' class is one example of this. */
-#define CLS_ALWAYS_MARK    0x04000
 /* This class is currently being processed. If a class with this type is put
    into a container, then the class and the container are assumed to be always
    circular.
@@ -544,7 +505,7 @@ typedef struct lily_options_ {
    container of the class, the class is designated as circular. However, it
    prevents having to 'rewalk' types to adjust their circularity later, which is
    believed to be prohibitively expensive. */
-#define CLS_IS_CURRENT     0x10000
+#define CLS_IS_CURRENT     0x04000
 
 /* TYPE_* defines are for lily_type.
    Since types are not usable as values, they do not need to start where
@@ -553,24 +514,21 @@ typedef struct lily_options_ {
 
 /* If set, the type is a function that takes a variable number of values. */
 #define TYPE_IS_VARARGS        0x01
-/* If this is set, a gc entry is allocated for the type. This means that the
-   value is a superset of lily_generic_gc_val_t. */
-#define TYPE_MAYBE_CIRCULAR    0x02
 /* The symtab puts this flag onto generic types which aren't currently
    available. So if there are 4 generic types available but only 2 used, it
    simply hides the second two from being returned. */
-#define TYPE_HIDDEN_GENERIC    0x04
+#define TYPE_HIDDEN_GENERIC    0x02
 /* This is set on a type when it is a generic (ex: A, B, ...), or when it
    contains generics at some point. Emitter and vm use this as a fast way of
    checking if a type needs to be resolved or not. */
-#define TYPE_IS_UNRESOLVED     0x10
+#define TYPE_IS_UNRESOLVED     0x04
 /* This is set on function types that have at least one optional argument. This
    is set so that emitter and ts can easily figure out if the function doesn't
    have to take some arguments. */
-#define TYPE_HAS_OPTARGS       0x20
+#define TYPE_HAS_OPTARGS       0x10
 /* This is set on a type that either is the ? type, or has a type that contains
    the ? type within it. */
-#define TYPE_IS_INCOMPLETE     0x40
+#define TYPE_IS_INCOMPLETE     0x20
 
 /* SYM_* flags are for things based off of lily_sym. */
 
@@ -617,23 +575,21 @@ typedef struct lily_options_ {
 /* VAL_* flags are for lily_value. */
 
 
-/* This is set on when there is no -appropriate- data in the inner part of the
-   value. This flag exists to prevent unnecessary or invalid attempts to deref
-   the contents of a value. The vm sets values to (integer) 0 beforehand to
-   prevent an accidental invalid read, however.
-   If this flag is set, do not ref or deref the contents. */
-#define VAL_IS_NIL              0x100000
-/* This particular value has been assigned a value that is either a literal or
-   a defined function. Do not ref or deref this value. */
-#define VAL_IS_LITERAL          0x200000
-/* Values of this type are not refcounted. */
-#define VAL_IS_PRIMITIVE        0x400000
-/* Check if a value is nil, protected, or not refcounted. If any of those is
-   true, then the given value should not get a deref.
-   There are some cases in the vm where only one of the above flags is set. This
-   is intentional, as it only takes one flag to be unable to deref. */
-#define VAL_IS_NOT_DEREFABLE    0x700000
-
+#define VAL_IS_BOOLEAN          0x00001
+#define VAL_IS_INTEGER          0x00002
+#define VAL_IS_DOUBLE           0x00004
+#define VAL_IS_STRING           0x00010
+#define VAL_IS_BYTESTRING       0x00020
+#define VAL_IS_FUNCTION         0x00040
+#define VAL_IS_ANY              0x00100
+#define VAL_IS_LIST             0x00200
+#define VAL_IS_HASH             0x00400
+#define VAL_IS_TUPLE            0x01000
+#define VAL_IS_INSTANCE         0x02000
+#define VAL_IS_ENUM             0x04000
+#define VAL_IS_FILE             0x10000
+#define VAL_IS_DEREFABLE        0x20000
+#define VAL_IS_GC_TAGGED        0x40000
 
 /* SYM_CLASS_* defines are for checking ids of a type's class. These are
    used very frequently. These must be kept in sync with the class loading
@@ -653,5 +609,7 @@ typedef struct lily_options_ {
 #define SYM_CLASS_GENERIC        12
 #define SYM_CLASS_QUESTION       13
 #define SYM_CLASS_EXCEPTION      14
+#define SYM_CLASS_OPTION         15
+#define START_CLASS_ID           16
 
 #endif

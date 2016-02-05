@@ -109,6 +109,8 @@ void lily_finish_class(lily_symtab *, lily_class *);
 void lily_finish_enum(lily_symtab *, lily_class *, int, lily_type *);
 void lily_change_parent_class(lily_class *, lily_class *);
 
+void lily_register_classes(lily_symtab *, struct lily_vm_state_ *);
+
 void lily_set_import(lily_symtab *, lily_import_entry *);
 lily_import_entry *lily_find_import(lily_symtab *, lily_import_entry *, char *);
 lily_import_entry *lily_find_import_anywhere(lily_symtab *, char *);

@@ -22,7 +22,7 @@ lily_raiser *lily_new_raiser(void)
     raiser->msgbuf = lily_new_msgbuf();
     raiser->all_jumps = first_jump;
     raiser->line_adjust = 0;
-    raiser->exception_type = NULL;
+    raiser->exception_cls = NULL;
     raiser->exception_value = NULL;
 
     return raiser;
@@ -84,7 +84,7 @@ void lily_jump_back(lily_raiser *raiser)
 void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
 {
     lily_msgbuf_flush(raiser->msgbuf);
-    raiser->exception_type = NULL;
+    raiser->exception_cls = NULL;
 
     va_list var_args;
     va_start(var_args, fmt);
@@ -102,37 +102,13 @@ void lily_raise_prebuilt(lily_raiser *raiser, int error_code)
     longjmp(raiser->all_jumps->jump, 1);
 }
 
-/* This sets the message of the raiser's msgbuf, as well as a proper type for an
-   error. Nothing is raised (use lily_raise_prepared). */
-void lily_raiser_set_error(lily_raiser *raiser, lily_type *type,
+/* This is called to raise a proper Lily value as an exception. A class is
+   required because the value only has a class id. */
+void lily_raise_value(lily_raiser *raiser, lily_class *raise_cls, lily_value *v,
         const char *msg)
-{
-    raiser->exception_type = type;
-    lily_msgbuf_flush(raiser->msgbuf);
-    lily_msgbuf_add(raiser->msgbuf, msg);
-}
-
-void lily_raise_prepared(lily_raiser *raiser)
-{
-    longjmp(raiser->all_jumps->jump, 1);
-}
-
-/* This will raise an error with a proper type and the given message. */
-void lily_raise_type_and_msg(lily_raiser *raiser, lily_type *type,
-        const char *msg)
-{
-    raiser->exception_type = type;
-    lily_msgbuf_flush(raiser->msgbuf);
-    lily_msgbuf_add(raiser->msgbuf, msg);
-
-    longjmp(raiser->all_jumps->jump, 1);
-}
-
-/* This is called to raise a proper Lily value as an exception. */
-void lily_raise_value(lily_raiser *raiser, lily_value *v, const char *msg)
 {
     raiser->exception_value = v;
-    raiser->exception_type = v->type;
+    raiser->exception_cls = raise_cls;
     lily_msgbuf_flush(raiser->msgbuf);
     lily_msgbuf_add(raiser->msgbuf, msg);
 
@@ -144,8 +120,8 @@ const char *lily_name_for_error(lily_raiser *raiser)
 {
     const char *result;
 
-    if (raiser->exception_type)
-        result = raiser->exception_type->cls->name;
+    if (raiser->exception_cls)
+        result = raiser->exception_cls->name;
     else
         result = lily_error_names[raiser->error_code];
 

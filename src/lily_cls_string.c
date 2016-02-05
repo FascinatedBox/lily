@@ -11,21 +11,6 @@
 #include "lily_cls_list.h"
 #include "lily_cls_option.h"
 
-int lily_string_eq(lily_vm_state *vm, int *depth, lily_value *left,
-        lily_value *right)
-{
-    int ret;
-
-    if (left->value.string->size == right->value.string->size &&
-        (left->value.string == right->value.string ||
-         strcmp(left->value.string->string, right->value.string->string) == 0))
-        ret = 1;
-    else
-        ret = 0;
-
-    return ret;
-}
-
 void lily_destroy_string(lily_value *v)
 {
     lily_string_val *sv = v->value.string;
@@ -55,18 +40,15 @@ void WRAP_NAME(lily_vm_state *vm, uint16_t argc, uint16_t *code) \
     lily_value *ret_arg = vm_regs[code[0]]; \
     lily_value *input_arg = vm_regs[code[1]]; \
 \
-    if (input_arg->flags & VAL_IS_NIL || \
-        input_arg->value.string->size == 0) { \
-        lily_raw_value v = {.integer = 0}; \
-        lily_move_raw_value(ret_arg, v); \
+    if (input_arg->value.string->size == 0) { \
+        lily_move_integer(ret_arg, 0); \
         return; \
     } \
 \
     char *loop_str = input_arg->value.string->string; \
     int i = 0; \
 \
-    lily_raw_value v = {.integer = 1}; \
-    lily_move_raw_value(ret_arg, v); \
+    lily_move_integer(ret_arg, 1); \
     for (i = 0;i < input_arg->value.string->size;i++) { \
         if (WRAPPED_CALL(loop_str[i]) == 0) { \
             ret_arg->value.integer = 0; \
@@ -121,8 +103,7 @@ void lily_string_concat(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     strcpy(new_str, self_sv->string);
     strcat(new_str, other_sv->string);
 
-    lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(result_arg, v);
+    lily_move_string(result_arg, new_sv);
 }
 
 void lily_string_endswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -138,8 +119,7 @@ void lily_string_endswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     int suffix_size = suffix_arg->value.string->size;
 
     if (suffix_size > input_size) {
-        lily_raw_value v = {.integer = 0};
-        lily_move_raw_value(result_arg, v);
+        lily_move_integer(result_arg, 0);
         return;
     }
 
@@ -153,8 +133,7 @@ void lily_string_endswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         }
     }
 
-    lily_raw_value v = {.integer = ok};
-    lily_move_raw_value(result_arg, v);
+    lily_move_boolean(result_arg, ok);
 }
 
 void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -171,13 +150,11 @@ void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     int find_length = find_arg->value.string->size;
 
     if (find_length > input_length) {
-        lily_raw_value v = {.integer = -1};
-        lily_move_raw_value(result_arg, v);
+        lily_move_integer(result_arg, -1);
         return;
     }
     else if (find_length == 0) {
-        lily_raw_value v = {.integer = 0};
-        lily_move_raw_value(result_arg, v);
+        lily_move_integer(result_arg, 0);
         return;
     }
 
@@ -210,15 +187,14 @@ void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     lily_instance_val *source;
     if (match) {
-        lily_type *integer_type = result_arg->type->subtypes[0];
-        lily_value *v = lily_new_value(VAL_IS_PRIMITIVE, integer_type,
-                    (lily_raw_value){.integer = i});
+        lily_value *v = lily_new_value(VAL_IS_INTEGER,
+                (lily_raw_value){.integer = i});
         source = lily_new_option_some(v);
     }
     else
-        source = lily_get_option_none(result_arg->type);
+        source = lily_get_option_none(vm);
 
-    lily_move_raw_value(result_arg, (lily_raw_value)source);
+    lily_move_enum(result_arg, source);
 }
 
 void lily_string_format(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -230,8 +206,7 @@ void lily_string_format(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     strcpy(new_sv->string, buffer);
 
-    lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(result_arg, v);
+    lily_move_string(result_arg, new_sv);
 }
 
 void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -271,20 +246,18 @@ void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         ch++;
     }
 
-    lily_raw_value v;
-
     /* If nothing was escaped, output what was input. */
     if (start == 0)
-        v = (lily_raw_value){.string = input_arg->value.string};
+        lily_assign_value(result_arg, input_arg);
     else {
         stop = (ch - input_str);
         lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
+
         lily_string_val *new_sv = make_sv(vm, strlen(vm_buffer->message) + 1);
         strcpy(new_sv->string, vm_buffer->message);
-        v = (lily_raw_value){.string = new_sv};
-    }
 
-    lily_move_raw_value(result_arg, v);
+        lily_move_string(result_arg, new_sv);
+    }
 }
 
 /* This is a helper for lstrip wherein input_arg has some utf-8 bits inside. */
@@ -450,8 +423,7 @@ void lily_string_lstrip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     strcpy(new_sv->string, input_arg->value.string->string + copy_from);
 
-    lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(result_arg, v);
+    lily_move_string(result_arg, new_sv);
 }
 
 void lily_string_lower(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -477,8 +449,7 @@ void lily_string_lower(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
     new_str[input_length] = '\0';
 
-    lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(result_arg, v);
+    lily_move_string(result_arg, new_sv);
 }
 
 void lily_string_parse_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -509,12 +480,10 @@ void lily_string_parse_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         rounds++;
     }
 
-    lily_instance_val *source;
-
     if (value > ((uint64_t)INT64_MAX + is_negative) ||
         *input != '\0' ||
         rounds == 0) {
-        source = lily_get_option_none(result_reg->type);
+        lily_move_shared_enum(result_reg, lily_get_option_none(vm));
     }
     else {
         int64_t signed_value;
@@ -524,14 +493,11 @@ void lily_string_parse_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         else
             signed_value = -(int64_t)value;
 
-        lily_type *integer_type = result_reg->type->subtypes[0];
-        lily_value *v = lily_new_value(VAL_IS_PRIMITIVE, integer_type,
+        lily_value *v = lily_new_value(VAL_IS_INTEGER,
                 (lily_raw_value){.integer = signed_value});
 
-        source = lily_new_option_some(v);
+        lily_move_enum(result_reg, lily_new_option_some(v));
     }
-
-    lily_move_raw_value(result_reg, (lily_raw_value)source);
 }
 
 /* This is a helper for rstrip when there's no utf-8 in input_arg. */
@@ -668,8 +634,7 @@ void lily_string_rstrip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     /* This will always copy a partial string, so make sure to add a terminator. */
     new_sv->string[copy_to] = '\0';
 
-    lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(result_arg, v);
+    lily_move_string(result_arg, new_sv);
 }
 
 void lily_string_startswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -684,8 +649,7 @@ void lily_string_startswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     int prefix_size = prefix_arg->value.string->size;
 
     if (input_arg->value.string->size < prefix_size) {
-        lily_raw_value v = {.integer = 0};
-        lily_move_raw_value(result_arg, v);
+        lily_move_integer(result_arg, 0);
         return;
     }
 
@@ -697,8 +661,7 @@ void lily_string_startswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         }
     }
 
-    lily_raw_value v = {.integer = ok};
-    lily_move_raw_value(result_arg, v);
+    lily_move_integer(result_arg, ok);
 }
 
 void lily_string_strip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -753,8 +716,7 @@ void lily_string_strip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
     new_str[new_size - 1] = '\0';
 
-    lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(result_arg, v);
+    lily_move_string(result_arg, new_sv);
 }
 
 static const char move_table[256] =
@@ -785,7 +747,6 @@ static void string_split_by_val(lily_vm_state *vm, char *input, char *splitby,
     char *splitby_ch = &splitby[0];
     int values_needed = 0;
     lily_value **elems;
-    lily_type *string_type = vm->symtab->string_class->type;
 
     while (move_table[(unsigned char)*input_ch] != 0) {
         if (*input_ch == *splitby_ch) {
@@ -848,8 +809,7 @@ static void string_split_by_val(lily_vm_state *vm, char *input, char *splitby,
             sv_buffer[sv_size] = '\0';
             strncpy(sv_buffer, last_start, sv_size);
 
-            elems[i] = lily_new_value(0, string_type,
-                    (lily_raw_value){.string = new_sv});
+            elems[i] = lily_new_string(new_sv);
             i++;
             if (*input_ch == '\0')
                 break;
@@ -889,8 +849,7 @@ void lily_string_split(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     string_split_by_val(vm, input_strval->string, split_strval->string, lv);
 
-    lily_raw_value v = {.list = lv};
-    lily_move_raw_value(result_reg, v);
+    lily_move_list(result_reg, lv);
 }
 
 void lily_string_trim(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -916,8 +875,7 @@ void lily_string_trim(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
     new_str[new_size - 1] = '\0';
 
-    lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(result_arg, v);
+    lily_move_string(result_arg, new_sv);
 }
 
 void lily_string_upper(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -943,8 +901,7 @@ void lily_string_upper(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
     new_str[input_length] = '\0';
 
-    lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(result_arg, v);
+    lily_move_string(result_arg, new_sv);
 }
 
 
@@ -990,8 +947,7 @@ void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
 
     strncpy(dest, ch, to_copy);
 
-    lily_raw_value v = {.string = result};
-    lily_move_raw_value(result_reg, v);
+    lily_move_string(result_reg, result);
 }
 
 static const lily_func_seed concat =
@@ -1057,8 +1013,6 @@ static const lily_class_seed string_seed =
     0,                  /* generic_count */
     CLS_VALID_HASH_KEY, /* flags */
     &dynaload_start,    /* dynaload_table */
-    NULL,               /* gc_marker */
-    &lily_string_eq,    /* eq_func */
     lily_destroy_string /* destroy_func */
 };
 

@@ -15,8 +15,7 @@ void lily_boolean_to_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value *input_reg = vm_regs[code[1]];
     lily_value *result_reg = vm_regs[code[0]];
 
-    result_reg->value.integer = input_reg->value.integer;
-    result_reg->flags = VAL_IS_PRIMITIVE;
+    lily_move_integer(result_reg, input_reg->value.integer);
 }
 
 void lily_boolean_to_s(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -36,9 +35,7 @@ void lily_boolean_to_s(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     sv->refcount = 1;
     sv->size = strlen(to_copy);
 
-    lily_raw_value v = {.string = sv};
-
-    lily_move_raw_value(result_reg, v);
+    lily_move_string(result_reg, sv);
 }
 
 static const lily_func_seed to_i =
@@ -56,8 +53,6 @@ static lily_class_seed boolean_seed =
     0,                  /* generic_count */
     0,                  /* flags */
     &dynaload_start,    /* dynaload_table */
-    NULL,               /* gc_marker */
-    &lily_integer_eq,   /* eq_func */
     NULL,               /* destroy_func */
 };
 

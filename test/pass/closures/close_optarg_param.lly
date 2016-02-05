@@ -3,8 +3,12 @@ define f(a: *integer=10) : function( => integer) {
     return g
 }
 
-if f()() != 10:
-    stderr.print("Failed.")
+#show(f()())
+#
+#if f()() != 10:
+#    stderr.print("Failed.")
 
-if f(11)() != 11:
-    stderr.print("Failed.")
+f(11)()
+
+#if f(11)() != 11:
+#    stderr.print("Failed.")

@@ -22,19 +22,20 @@ lily_instance_val *lily_new_option_some(lily_value *v)
     iv->values[0] = v;
     iv->num_values = 1;
     iv->variant_id = SOME_VARIANT_ID;
-    if ((v->flags & VAL_IS_NOT_DEREFABLE) == 0)
+    iv->instance_id = SYM_CLASS_OPTION;
+    if (v->flags & VAL_IS_DEREFABLE)
         v->value.generic->refcount++;
 
     return iv;
 }
 
-/* Since 'None' has no arguments, it has a backing literal. This reaches down
-   and gets the instance that backing literal has, based upon a type that
-   should be an Option. It doesn't matter what the type contains, just that it
-   has Option as a class. */
-lily_instance_val *lily_get_option_none(lily_type *enum_type)
+/* Since None has no arguments, it has a backing literal to represent it. This
+   dives into the vm's class table to get the backing literal of the None. */
+lily_instance_val *lily_get_option_none(lily_vm_state *vm)
 {
-    return enum_type->cls->variant_members[NONE_VARIANT_ID]->default_value->value.instance;
+    lily_class *opt_class = vm->class_table[SYM_CLASS_OPTION];
+    lily_class *none_class = opt_class->variant_members[NONE_VARIANT_ID];
+    return none_class->default_value->value.instance;
 }
 
 void lily_option_and(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -59,13 +60,12 @@ void lily_option_and_then(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value *opt_reg = vm_regs[code[1]];
     lily_value *function_reg = vm_regs[code[2]];
     lily_value *result_reg = vm_regs[code[0]];
-    lily_type *expect_type = result_reg->type->subtypes[0];
     lily_instance_val *optval = opt_reg->value.instance;
     lily_value *source;
     int cached = 0;
 
     if (optval->variant_id == SOME_VARIANT_ID) {
-        lily_value *output = lily_foreign_call(vm, &cached, expect_type,
+        lily_value *output = lily_foreign_call(vm, &cached, 1,
                 function_reg, 1, optval->values[0]);
 
         source = output;
@@ -81,10 +81,9 @@ static void option_is_some_or_none(lily_vm_state *vm, uint16_t argc,
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_instance_val *optval = vm_regs[code[1]]->value.instance;
-    lily_raw_value v = {.integer = (optval->num_values == num_expected)};
     lily_value *result_reg = vm_regs[code[0]];
 
-    lily_move_raw_value(result_reg, v);
+    lily_move_boolean(result_reg, (optval->num_values == num_expected));
 }
 
 void lily_option_map(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -93,21 +92,21 @@ void lily_option_map(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value *opt_reg = vm_regs[code[1]];
     lily_value *function_reg = vm_regs[code[2]];
     lily_value *result_reg = vm_regs[code[0]];
-    lily_type *expect_type = result_reg->type->subtypes[0];
     lily_instance_val *optval = opt_reg->value.instance;
     lily_instance_val *source;
     int cached = 0;
 
     if (optval->variant_id == SOME_VARIANT_ID) {
-        lily_value *output = lily_foreign_call(vm, &cached, expect_type,
+        lily_value *output = lily_foreign_call(vm, &cached, 1,
                 function_reg, 1, optval->values[0]);
 
         source = lily_new_option_some(lily_copy_value(output));
+        lily_move_enum(result_reg, source);
     }
-    else
-        source = lily_get_option_none(result_reg->type);
-
-    lily_move_raw_value(result_reg, (lily_raw_value)source);
+    else {
+        source = lily_get_option_none(vm);
+        lily_move_shared_enum(result_reg, source);
+    }
 }
 
 void lily_option_is_some(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -172,7 +171,6 @@ void lily_option_or_else(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value *opt_reg = vm_regs[code[1]];
     lily_value *function_reg = vm_regs[code[2]];
     lily_value *result_reg = vm_regs[code[0]];
-    lily_type *expect_type = result_reg->type->subtypes[0];
     lily_instance_val *optval = opt_reg->value.instance;
     lily_value *source;
     int cached = 0;
@@ -180,7 +178,7 @@ void lily_option_or_else(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     if (optval->variant_id == SOME_VARIANT_ID)
         source = opt_reg;
     else
-        source = lily_foreign_call(vm, &cached, expect_type, function_reg, 0);
+        source = lily_foreign_call(vm, &cached, 1, function_reg, 0);
 
     lily_assign_value(result_reg, source);
 }
@@ -191,7 +189,6 @@ void lily_option_unwrap_or_else(lily_vm_state *vm, uint16_t argc, uint16_t *code
     lily_value *opt_reg = vm_regs[code[1]];
     lily_value *function_reg = vm_regs[code[2]];
     lily_value *result_reg = vm_regs[code[0]];
-    lily_type *expect_type = result_reg->type;
     lily_instance_val *optval = opt_reg->value.instance;
     lily_value *source;
     int cached = 0;
@@ -199,7 +196,7 @@ void lily_option_unwrap_or_else(lily_vm_state *vm, uint16_t argc, uint16_t *code
     if (optval->variant_id == SOME_VARIANT_ID)
         source = opt_reg->value.instance->values[0];
     else
-        source = lily_foreign_call(vm, &cached, expect_type, function_reg, 0);
+        source = lily_foreign_call(vm, &cached, 1, function_reg, 0);
 
     lily_assign_value(result_reg, source);
 }

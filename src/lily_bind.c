@@ -16,8 +16,7 @@ lily_value *lily_bind_string_take_buffer(lily_symtab *symtab, char *buffer)
     sv->string = buffer;
     sv->size = string_size;
 
-    return lily_new_value(0, symtab->string_class->type,
-            (lily_raw_value){.string = sv});
+    return lily_new_string(sv);
 }
 
 /* This creates a new string value with a copy of 'string' as the underlying
