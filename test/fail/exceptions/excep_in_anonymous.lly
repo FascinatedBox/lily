@@ -1,5 +1,5 @@
 #[
-BadTypecastError: Cannot cast any containing type 'integer' to type 'string'.
+BadTypecastError: Cannot cast any to type 'string'.
 Traceback:
     from excep_in_anonymous.lly:10: in f
     from excep_in_anonymous.lly:14: in __main__

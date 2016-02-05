@@ -1,22 +1,42 @@
+#include <string.h>
+
 #include "lily_alloc.h"
 #include "lily_value.h"
 #include "lily_vm.h"
 
-/* This is to get their gc collection functions... :( */
+/* This is for the gc + destroy funcs. :( */
 
+#include "lily_cls_string.h"
 #include "lily_cls_list.h"
-#include "lily_cls_tuple.h"
 #include "lily_cls_hash.h"
 #include "lily_cls_any.h"
 #include "lily_cls_function.h"
+#include "lily_cls_file.h"
+
+void destroy_value(lily_value *v)
+{
+    int flags = v->flags;
+    if (flags & (VAL_IS_LIST | VAL_IS_INSTANCE | VAL_IS_TUPLE | VAL_IS_ENUM))
+        lily_destroy_list(v);
+    else if (flags & (VAL_IS_STRING | VAL_IS_BYTESTRING))
+        lily_destroy_string(v);
+    else if (flags & VAL_IS_FUNCTION)
+        lily_destroy_function(v);
+    else if (flags & VAL_IS_HASH)
+        lily_destroy_hash(v);
+    else if (flags & VAL_IS_ANY)
+        lily_destroy_any(v);
+    else if (flags & VAL_IS_FILE)
+        lily_destroy_file(v);
+}
 
 /* Check if the value given is deref-able. If so, hit it with a deref. */
 void lily_deref(lily_value *value)
 {
-    if ((value->flags & VAL_IS_NOT_DEREFABLE) == 0) {
+    if (value->flags & VAL_IS_DEREFABLE) {
         value->value.generic->refcount--;
         if (value->value.generic->refcount == 0)
-            value->type->cls->destroy_func(value);
+            destroy_value(value);
     }
 }
 
@@ -25,19 +45,16 @@ void lily_deref(lily_value *value)
 void lily_deref_raw(lily_type *type, lily_raw_value raw)
 {
     lily_value v;
-    v.type = type;
-    v.flags = (type->cls->flags & VAL_IS_PRIMITIVE);
+    v.flags = type->cls->move_flags | VAL_IS_DEREFABLE;
     v.value = raw;
 
     lily_deref(&v);
 }
 
-inline lily_value *lily_new_value(uint64_t flags, lily_type *type,
-        lily_raw_value raw)
+inline lily_value *lily_new_value(uint64_t flags, lily_raw_value raw)
 {
     lily_value *v = lily_malloc(sizeof(lily_value));
     v->flags = flags;
-    v->type = type;
     v->value = raw;
 
     return v;
@@ -48,35 +65,32 @@ inline lily_value *lily_new_value(uint64_t flags, lily_type *type,
    flags move over). */
 void lily_assign_value(lily_value *left, lily_value *right)
 {
-    if ((right->flags & VAL_IS_NOT_DEREFABLE) == 0)
+    if (right->flags & VAL_IS_DEREFABLE)
         right->value.generic->refcount++;
 
-    if ((left->flags & VAL_IS_NOT_DEREFABLE) == 0)
+    if (left->flags & VAL_IS_DEREFABLE)
         lily_deref(left);
 
     left->value = right->value;
     left->flags = right->flags;
 }
 
-/* This puts a raw value into a proper value. The proper value may get a deref,
-   but the raw one will not. Use this to put newly-made raw values into a proper
-   value. */
-void lily_move_raw_value(lily_value *left, lily_raw_value raw_right)
+void lily_move(lily_value *left, lily_raw_value raw_right, int move_flags)
 {
-    if ((left->flags & VAL_IS_NOT_DEREFABLE) == 0)
+    if (left->flags & VAL_IS_DEREFABLE)
         lily_deref(left);
 
     left->value = raw_right;
-    left->flags = (left->type->cls->flags & VAL_IS_PRIMITIVE);
+    left->flags = move_flags;
 }
 
 /* Create a copy of a value. It may get a ref. */
 lily_value *lily_copy_value(lily_value *input)
 {
-    if ((input->flags & VAL_IS_NOT_DEREFABLE) == 0)
+    if (input->flags & VAL_IS_DEREFABLE)
         input->value.generic->refcount++;
 
-    return lily_new_value(input->flags, input->type, input->value);
+    return lily_new_value(input->flags, input->value);
 }
 
 inline lily_instance_val *lily_new_instance_val()
@@ -86,72 +100,163 @@ inline lily_instance_val *lily_new_instance_val()
     ival->gc_entry = NULL;
     ival->values = NULL;
     ival->num_values = -1;
-    ival->true_type = NULL;
 
     return ival;
 }
 
-inline lily_instance_val *lily_new_instance_val_for(lily_type *t)
-{
-    lily_instance_val *ival = lily_new_instance_val();
-    int num_values = t->cls->prop_count;
-    ival->values = lily_malloc(num_values * sizeof(lily_value *));
-    ival->num_values = num_values;
-    ival->true_type = t;
-    return ival;
-}
+static int lily_value_eq_raw(lily_vm_state *, int *, lily_value *,
+        lily_value *);
 
-int lily_generic_eq(lily_vm_state *vm, int *depth, lily_value *left,
+/* This checks of all elements of two (lists, tuples, enums) are equivalent to
+   each other. */
+static int subvalue_eq(lily_vm_state *vm, int *depth, lily_value *left,
         lily_value *right)
 {
-    return (left->value.generic == right->value.generic);
-}
-
-int lily_instance_eq(lily_vm_state *vm, int *depth, lily_value *left,
-        lily_value *right)
-{
-    int ret;
-
-    if (left->value.instance->true_type == right->value.instance->true_type) {
+    lily_list_val *left_list = left->value.list;
+    lily_list_val *right_list = right->value.list;
+    int ok;
+    if (left_list->num_values == right_list->num_values) {
+        ok = 1;
         int i;
-        ret = 1;
-
-        for (i = 0;i < left->value.instance->num_values;i++) {
-            lily_value **left_values = left->value.instance->values;
-            lily_value **right_values = right->value.instance->values;
-
-            class_eq_func eq_func = left_values[i]->type->cls->eq_func;
+        for (i = 0;i < left_list->num_values;i++) {
+            lily_value *left_item = left_list->elems[i];
+            lily_value *right_item = right_list->elems[i];
             (*depth)++;
-            if (eq_func(vm, depth, left_values[i], right_values[i]) == 0) {
-                ret = 0;
+            if (lily_value_eq_raw(vm, depth, left_item, right_item) == 0) {
                 (*depth)--;
+                ok = 0;
                 break;
             }
             (*depth)--;
         }
     }
     else
-        ret = 0;
+        ok = 0;
 
-    return ret;
+    return ok;
 }
 
-void lily_gc_collect_value(lily_type *value_type,
-        lily_raw_value value)
+/* Determine if two values are equivalent to each other. */
+int lily_value_eq_raw(lily_vm_state *vm, int *depth, lily_value *left, lily_value *right)
 {
-    int entry_cls_id = value_type->cls->id;
+    int left_tag = left->flags & ~(VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED);
+    int right_tag = right->flags & ~(VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED);
 
-    if (entry_cls_id == SYM_CLASS_LIST)
-        lily_gc_collect_list(value_type, value.list);
-    else if (entry_cls_id == SYM_CLASS_HASH)
-        lily_gc_collect_hash(value_type, value.hash);
-    else if (entry_cls_id == SYM_CLASS_ANY)
-        lily_gc_collect_any(value.any);
-    else if (entry_cls_id == SYM_CLASS_TUPLE ||
-             entry_cls_id >= SYM_CLASS_EXCEPTION)
-        lily_gc_collect_tuple(value_type, value.list);
-    else if (entry_cls_id == SYM_CLASS_FUNCTION)
-        lily_gc_collect_function(value_type, value.function);
+    if (*depth == 100)
+        lily_raise(vm->raiser, lily_RuntimeError, "Infinite loop in comparison.\n");
+
+    if (left_tag != right_tag)
+        return 0;
+    else if (left_tag & (VAL_IS_INTEGER | VAL_IS_BOOLEAN))
+        return left->value.integer == right->value.integer;
+    else if (left_tag & VAL_IS_DOUBLE)
+        return left->value.doubleval == right->value.doubleval;
+    else if (left_tag & VAL_IS_STRING)
+        return strcmp(left->value.string->string,
+                right->value.string->string) == 0;
+    else if (left_tag & VAL_IS_BYTESTRING) {
+        lily_string_val *left_sv = left->value.string;
+        lily_string_val *right_sv = right->value.string;
+        char *left_s = left_sv->string;
+        char *right_s = right_sv->string;
+        int left_size = left_sv->size;
+        return (left_size == right_sv->size &&
+                memcmp(left_s, right_s, left_size) == 0);
+    }
+    else if (left_tag & (VAL_IS_LIST | VAL_IS_TUPLE)) {
+        return subvalue_eq(vm, depth, left, right);
+    }
+    else if (left_tag & VAL_IS_HASH) {
+        lily_hash_val *left_hash = left->value.hash;
+        lily_hash_val *right_hash = right->value.hash;
+
+        lily_hash_elem *left_iter = left_hash->elem_chain;
+        lily_hash_elem *right_iter;
+        lily_hash_elem *right_start = right_hash->elem_chain;
+        /* Assume success, in case the hash is empty. */
+        int ok = 1;
+        for (left_iter = left_hash->elem_chain;
+             left_iter != NULL;
+             left_iter = left_iter->next) {
+            (*depth)++;
+            ok = 0;
+            for (right_iter = right_start;
+                 right_iter != NULL;
+                 right_iter = right_iter->next) {
+                if (left_iter->key_siphash == right_iter->key_siphash) {
+                    ok = lily_value_eq_raw(vm, depth, left_iter->elem_key,
+                            right_iter->elem_key);
+                    ok = ok && lily_value_eq_raw(vm, depth,
+                            left_iter->elem_value, right_iter->elem_value);
+
+                    /* Hash keys are unique, so this won't be found again. */
+                    if (right_iter == right_start)
+                        right_start = right_start->next;
+
+                    break;
+                }
+            }
+            (*depth)--;
+
+            if (ok == 0)
+                break;
+        }
+
+        return ok;
+    }
+    else if (left_tag & VAL_IS_ANY) {
+        (*depth)++;
+        lily_value *left_value = left->value.any->inner_value;
+        lily_value *right_value = right->value.any->inner_value;
+        int ok = lily_value_eq_raw(vm, depth, left_value, right_value);
+        (*depth)--;
+
+        return ok;
+    }
+    else if (left_tag & VAL_IS_ENUM) {
+        lily_instance_val *left_i = left->value.instance;
+        lily_instance_val *right_i = right->value.instance;
+        int ok;
+        if (left_i->instance_id == right_i->instance_id &&
+            left_i->variant_id == right_i->variant_id)
+            ok = subvalue_eq(vm, depth, left, right);
+        else
+            ok = 0;
+
+        return ok;
+    }
     else
-        lily_deref_raw(value_type, value);
+        /* Everything else gets pointer equality. */
+        return left->value.generic == right->value.generic;
+}
+
+int lily_value_eq(lily_vm_state *vm, lily_value *left, lily_value *right)
+{
+    int depth = 0;
+    return lily_value_eq_raw(vm, &depth, left, right);
+}
+
+void lily_gc_collect_value(lily_value *v)
+{
+    int flags = v->flags;
+
+    if (flags & (VAL_IS_LIST | VAL_IS_INSTANCE | VAL_IS_TUPLE | VAL_IS_ENUM))
+        lily_gc_collect_list(v);
+    else if (flags & VAL_IS_HASH)
+        lily_gc_collect_hash(v);
+    else if (flags & VAL_IS_ANY)
+        lily_gc_collect_any(v);
+    else if (flags & VAL_IS_FUNCTION)
+        lily_gc_collect_function(v);
+    else if (flags & (VAL_IS_STRING | VAL_IS_BYTESTRING))
+        lily_deref(v);
+}
+
+void lily_gc_collect_raw(lily_raw_value value, int value_flags)
+{
+    lily_value v;
+    v.flags = value_flags;
+    v.value = value;
+
+    lily_gc_collect_value(&v);
 }

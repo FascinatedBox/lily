@@ -39,8 +39,6 @@ typedef const struct {
     uint16_t generic_count;
     uint32_t flags;
     const void *dynaload_table;
-    gc_marker_func gc_marker;
-    class_eq_func eq_func;
     class_destroy_func destroy_func;
 } lily_class_seed;
 

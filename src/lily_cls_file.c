@@ -92,12 +92,11 @@ void lily_file_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 
     lily_file_val *filev = lily_new_file_val(f, mode_ch);
-    lily_raw_value v = {.file = filev};
 
     filev->inner_file = f;
     filev->is_open = 1;
     filev->refcount = 1;
-    lily_move_raw_value(result_reg, v);
+    lily_move_file(result_reg, filev);
 }
 
 void lily_file_write(lily_vm_state *, uint16_t, uint16_t *);
@@ -168,8 +167,7 @@ void lily_file_readline(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     lily_msgbuf_flush(vm_buffer);
 
-    lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(result_reg, v);
+    lily_move_string(result_reg, new_sv);
 }
 
 void lily_file_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -180,12 +178,12 @@ void lily_file_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     write_check(vm, filev);
 
-    if (to_write->type->cls->id == SYM_CLASS_STRING)
+    if (to_write->flags & VAL_IS_STRING)
         fputs(to_write->value.string->string, filev->inner_file);
     else {
         lily_msgbuf *msgbuf = vm->vm_buffer;
         lily_msgbuf_flush(msgbuf);
-        lily_msgbuf_add_value(msgbuf, to_write);
+        lily_vm_add_value_to_msgbuf(vm, msgbuf, to_write);
         fputs(msgbuf->message, filev->inner_file);
     }
 }
@@ -215,8 +213,6 @@ static const lily_class_seed file_seed =
     0,                /* generic_count */
     0,                /* flags */
     &dynaload_start,  /* dynaload_table */
-    NULL,             /* gc_marker */
-    &lily_generic_eq, /* eq_func */
     lily_destroy_file /* destroy_func */
 };
 

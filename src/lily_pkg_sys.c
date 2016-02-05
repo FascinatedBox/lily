@@ -10,7 +10,6 @@ void lily_sys_var_loader(lily_parse_state *parser, lily_var *var)
 {
     lily_options *options = parser->options;
     lily_symtab *symtab = parser->symtab;
-    lily_type *string_type = var->type->subtypes[0];
 
     lily_list_val *lv = lily_new_list_val();
     lily_value **values = lily_malloc(options->argc * sizeof(lily_value *));
@@ -19,10 +18,6 @@ void lily_sys_var_loader(lily_parse_state *parser, lily_var *var)
     lv->num_values = options->argc;
 
     int i;
-    for (i = 0;i < options->argc;i++)
-        values[i] = lily_new_value(VAL_IS_NIL, string_type,
-                (lily_raw_value){.integer = 0});
-
     for (i = 0;i < options->argc;i++) {
         lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
         char *raw_string = lily_malloc(strlen(options->argv[i]) + 1);
@@ -31,13 +26,11 @@ void lily_sys_var_loader(lily_parse_state *parser, lily_var *var)
         sv->size = strlen(options->argv[i]);
         sv->refcount = 1;
         sv->string = raw_string;
-        values[i]->flags = 0;
-        values[i]->value.string = sv;
+        values[i] = lily_new_string(sv);
     }
 
     lily_value v;
-    v.type = var->type;
-    v.flags = 0;
+    v.flags = VAL_IS_LIST;
     v.value.list = lv;
 
     lily_tie_value(symtab, var, &v);

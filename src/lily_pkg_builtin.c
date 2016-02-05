@@ -13,7 +13,6 @@
 #include "lily_cls_any.h"
 #include "lily_cls_list.h"
 #include "lily_cls_hash.h"
-#include "lily_cls_tuple.h"
 #include "lily_cls_file.h"
 #include "lily_cls_option.h"
 #include "lily_seed.h"
@@ -29,8 +28,6 @@ static const lily_class_seed function_seed =
     -1,                       /* generic_count */
     0,                        /* flags */
     NULL,                     /* dynaload_table */
-    &lily_gc_function_marker, /* gc_marker */
-    &lily_generic_eq,         /* eq_func */
     lily_destroy_function     /* destroy_func */
 };
 
@@ -45,8 +42,6 @@ static const lily_class_seed any_seed =
        it. */
     CLS_IS_ENUM,              /* flags */
     NULL,                     /* dynaload_table */
-    &lily_gc_any_marker,      /* gc_marker */
-    &lily_any_eq,             /* eq_func */
     lily_destroy_any          /* destroy_func */
 };
 
@@ -59,9 +54,7 @@ static const lily_class_seed tuple_seed =
     -1,                       /* generic_count */
     0,                        /* flags */
     NULL,                     /* dynaload_table */
-    &lily_gc_tuple_marker,    /* gc_marker */
-    &lily_tuple_eq,           /* eq_func */
-    lily_destroy_tuple        /* destroy_func */
+    NULL                      /* destroy_func */
 };
 
 static const lily_class_seed optarg_seed =
@@ -75,8 +68,6 @@ static const lily_class_seed optarg_seed =
     1,                        /* generic_count */
     0,                        /* flags */
     NULL,                     /* dynaload_table */
-    NULL,                     /* gc_marker */
-    NULL,                     /* eq_func */
     NULL                      /* destroy_func */
 };
 
@@ -91,8 +82,6 @@ static const lily_class_seed generic_seed =
     0,                        /* generic_count */
     0,                        /* flags */
     NULL,                     /* dynaload_table */
-    NULL,                     /* gc_marker */
-    NULL,                     /* eq_func */
     NULL                      /* destroy_func */
 };
 
@@ -107,8 +96,6 @@ static const lily_class_seed question_seed =
     0,                        /* generic_count */
     0,                        /* flags */
     NULL,                     /* dynaload_table */
-    NULL,                     /* gc_marker */
-    NULL,                     /* eq_func */
     NULL                      /* destroy_func */
 };
 
@@ -196,7 +183,6 @@ static void builtin_var_loader(lily_parse_state *parser, lily_var *var)
     lily_raw_value raw = {.file = lily_new_file_val(source, mode)};
     lily_value v;
     v.flags = 0;
-    v.type = var->type;
     v.value = raw;
 
     lily_tie_value(parser->symtab, var, &v);
@@ -215,7 +201,7 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
     symtab->hash_class       = lily_hash_init(symtab);
     symtab->tuple_class      = lily_new_class_by_seed(symtab, &tuple_seed);
     symtab->optarg_class     = lily_new_class_by_seed(symtab, &optarg_seed);
-    lily_file_init(symtab);
+    lily_class *file_class   = lily_file_init(symtab);
     symtab->generic_class    = lily_new_class_by_seed(symtab, &generic_seed);
     symtab->question_class   = lily_new_class_by_seed(symtab, &question_seed);
 
@@ -225,17 +211,24 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
     symtab->bytestring_class->flags |= CLS_VALID_OPTARG;
     symtab->boolean_class->flags |= CLS_VALID_OPTARG;
 
-    /* There is only one 'any' type, and it's already been made, so manually tag
-       the type as being circular. */
-    symtab->any_class->type->flags |= TYPE_MAYBE_CIRCULAR;
-    /* Functions have varying inputs and outputs, so the class itself needs to
-       be designated as circular. This is needed because a closure could be
-       passed instead of a closure. With a closure, all bets are off, because it
-       can hold anything. */
-    symtab->function_class->flags |= CLS_ALWAYS_MARK;
+    symtab->integer_class->move_flags    = VAL_IS_INTEGER;
+    symtab->double_class->move_flags     = VAL_IS_DOUBLE;
+    symtab->string_class->move_flags     = VAL_IS_STRING;
+    symtab->bytestring_class->move_flags = VAL_IS_BYTESTRING;
+    symtab->boolean_class->move_flags    = VAL_IS_BOOLEAN;
+    symtab->function_class->move_flags   = VAL_IS_FUNCTION;
+    symtab->any_class->move_flags        = VAL_IS_ANY;
+    symtab->list_class->move_flags       = VAL_IS_LIST;
+    symtab->hash_class->move_flags       = VAL_IS_HASH;
+    symtab->tuple_class->move_flags      = VAL_IS_TUPLE;
+    file_class->move_flags               = VAL_IS_FILE;
+
     /* These need to be set here so type finalization can bubble them up. */
     symtab->generic_class->type->flags |= TYPE_IS_UNRESOLVED;
     symtab->question_class->type->flags |= TYPE_IS_INCOMPLETE;
+
+    /* HACK: This ensures that there is a 'hole' for Option to dynaload into. */
+    symtab->next_class_id = START_CLASS_ID;
 
     builtin->dynaload_table = &seed_stdin;
     builtin->var_load_fn = builtin_var_loader;

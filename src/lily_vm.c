@@ -25,14 +25,14 @@ lhs_reg = vm_regs[code[code_pos + 2]]; \
 rhs_reg = vm_regs[code[code_pos + 3]]; \
 vm_regs[code[code_pos+4]]->value.integer = \
 lhs_reg->value.integer OP rhs_reg->value.integer; \
-vm_regs[code[code_pos+4]]->flags = VAL_IS_PRIMITIVE; \
+vm_regs[code[code_pos+4]]->flags = VAL_IS_INTEGER; \
 code_pos += 5;
 
 #define INTDBL_OP(OP) \
 lhs_reg = vm_regs[code[code_pos + 2]]; \
 rhs_reg = vm_regs[code[code_pos + 3]]; \
-if (lhs_reg->type == double_type) { \
-    if (rhs_reg->type == double_type) \
+if (lhs_reg->flags & VAL_IS_DOUBLE) { \
+    if (rhs_reg->flags & VAL_IS_DOUBLE) \
         vm_regs[code[code_pos+4]]->value.doubleval = \
         lhs_reg->value.doubleval OP rhs_reg->value.doubleval; \
     else \
@@ -42,7 +42,7 @@ if (lhs_reg->type == double_type) { \
 else \
     vm_regs[code[code_pos+4]]->value.doubleval = \
     lhs_reg->value.integer OP rhs_reg->value.doubleval; \
-vm_regs[code[code_pos+4]]->flags = VAL_IS_PRIMITIVE; \
+vm_regs[code[code_pos+4]]->flags = VAL_IS_DOUBLE; \
 code_pos += 5;
 
 /* EQUALITY_COMPARE_OP is used for == and !=, instead of a normal COMPARE_OP.
@@ -59,68 +59,68 @@ code_pos += 5;
 #define EQUALITY_COMPARE_OP(OP, STRINGOP) \
 lhs_reg = vm_regs[code[code_pos + 2]]; \
 rhs_reg = vm_regs[code[code_pos + 3]]; \
-if (lhs_reg->type == double_type) { \
-    if (rhs_reg->type == double_type) \
+if (lhs_reg->flags & VAL_IS_DOUBLE) { \
+    if (rhs_reg->flags & VAL_IS_DOUBLE) \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
     else \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.doubleval OP rhs_reg->value.integer); \
 } \
-else if (lhs_reg->type == integer_type) { \
-    if (rhs_reg->type == integer_type) \
+else if (lhs_reg->flags & VAL_IS_INTEGER) { \
+    if (rhs_reg->flags & VAL_IS_INTEGER) \
         vm_regs[code[code_pos+4]]->value.integer =  \
         (lhs_reg->value.integer OP rhs_reg->value.integer); \
     else \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.integer OP rhs_reg->value.doubleval); \
 } \
-else if (lhs_reg->type->cls->id == SYM_CLASS_STRING) { \
+else if (lhs_reg->flags & VAL_IS_STRING) { \
     vm_regs[code[code_pos+4]]->value.integer = \
     strcmp(lhs_reg->value.string->string, \
            rhs_reg->value.string->string) STRINGOP; \
 } \
-else if (lhs_reg->type == rhs_reg->type) { \
+else { \
     vm_regs[code[code_pos+4]]->value.integer = \
-    compare_values(vm, lhs_reg, rhs_reg) OP 1; \
+    lily_value_eq(vm, lhs_reg, rhs_reg) OP 1; \
 } \
-vm_regs[code[code_pos+4]]->flags = VAL_IS_PRIMITIVE; \
+vm_regs[code[code_pos+4]]->flags = VAL_IS_BOOLEAN; \
 code_pos += 5;
 
 #define COMPARE_OP(OP, STRINGOP) \
 lhs_reg = vm_regs[code[code_pos + 2]]; \
 rhs_reg = vm_regs[code[code_pos + 3]]; \
-if (lhs_reg->type == double_type) { \
-    if (rhs_reg->type == double_type) \
+if (lhs_reg->flags & VAL_IS_DOUBLE) { \
+    if (rhs_reg->flags & VAL_IS_DOUBLE) \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
     else \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.doubleval OP rhs_reg->value.integer); \
 } \
-else if (lhs_reg->type == integer_type) { \
-    if (rhs_reg->type == integer_type) \
+else if (lhs_reg->flags & VAL_IS_INTEGER) { \
+    if (rhs_reg->flags & VAL_IS_INTEGER) \
         vm_regs[code[code_pos+4]]->value.integer =  \
         (lhs_reg->value.integer OP rhs_reg->value.integer); \
     else \
         vm_regs[code[code_pos+4]]->value.integer = \
         (lhs_reg->value.integer OP rhs_reg->value.doubleval); \
 } \
-else if (lhs_reg->type->cls->id == SYM_CLASS_STRING) { \
+else if (lhs_reg->flags & VAL_IS_STRING) { \
     vm_regs[code[code_pos+4]]->value.integer = \
     strcmp(lhs_reg->value.string->string, \
            rhs_reg->value.string->string) STRINGOP; \
 } \
-vm_regs[code[code_pos+4]]->flags = VAL_IS_PRIMITIVE; \
+vm_regs[code[code_pos+4]]->flags = VAL_IS_BOOLEAN; \
 code_pos += 5;
 
-/** If you're interested in working on the vm, or having trouble with it, here's
+/** If you're interestforeign_called in working on the vm, or having trouble with it, here's
     some advice that might make things easier.
 
-    * The vm uses a mix of refcounting and a gc. Values that are tagged by the
-      type maker or symtab as being possibly circular get a gc tag. Anything
-      else can only be destroyed by pure ref/deref. This allows Lily to have a
-      gc, but allow it to mark and sweep over fewer values.
+    * The vm uses a mix of refcounting and a gc. Anything that has subvalues
+      will get a gc tag. Values that can be destroyed are destroy-able through
+      pure ref/deref (and that will zap the tag to prevent a double free), or
+      through the gc if it comes to that.
 
     * lily_value.h contains useful functions for handling values. In general, it
       is an unwise idea to manipulate values directly.
@@ -208,6 +208,8 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->vm_list->values = lily_malloc(4 * sizeof(lily_value *));
     vm->vm_list->pos = 0;
     vm->vm_list->size = 4;
+    vm->class_count = 0;
+    vm->class_table = NULL;
 
     add_call_frame(vm);
 
@@ -295,6 +297,7 @@ void lily_free_vm(lily_vm_state *vm)
     invoke_gc(vm);
     destroy_gc_entries(vm);
 
+    lily_free(vm->class_table);
     lily_free(vm->vm_list->values);
     lily_free(vm->vm_list);
     lily_free(vm->readonly_table);
@@ -354,10 +357,9 @@ static void invoke_gc(lily_vm_state *vm)
                 that will mark every inner value that's visible. */
     for (i = 0;i < vm->num_registers;i++) {
         lily_value *reg = regs_from_main[i];
-        if ((reg->type->flags & TYPE_MAYBE_CIRCULAR) &&
-            (reg->flags & VAL_IS_NIL) == 0 &&
+        if (reg->flags & VAL_IS_GC_TAGGED &&
              reg->value.gc_generic->gc_entry != NULL) {
-            (*reg->type->cls->gc_marker)(pass, reg);
+            lily_gc_mark(pass, reg);
         }
     }
 
@@ -369,8 +371,7 @@ static void invoke_gc(lily_vm_state *vm)
          gc_iter = gc_iter->next) {
         if (gc_iter->last_pass != pass &&
             gc_iter->value.generic != NULL) {
-            lily_gc_collect_value(gc_iter->value_type,
-                    gc_iter->value);
+            lily_gc_collect_raw(gc_iter->value, gc_iter->flags);
         }
     }
 
@@ -383,12 +384,11 @@ static void invoke_gc(lily_vm_state *vm)
                     register as nil so that the value will be cleared later. */
         for (i = vm->num_registers;i < vm->true_max_registers;i++) {
             lily_value *reg = regs_from_main[i];
-            if ((reg->type->flags & TYPE_MAYBE_CIRCULAR) &&
-                (reg->flags & VAL_IS_NIL) == 0 &&
+            if (reg->flags & VAL_IS_GC_TAGGED &&
                 /* Not sure if this next line is necessary though... */
                 reg->value.gc_generic->gc_entry != NULL &&
                 reg->value.gc_generic->gc_entry->last_pass == -1) {
-                reg->flags |= VAL_IS_NIL;
+                reg->flags = 0;
             }
         }
     }
@@ -425,6 +425,27 @@ static void invoke_gc(lily_vm_state *vm)
     vm->gc_spare_entries = new_spare_entries;
 }
 
+void lily_gc_mark(int pass, lily_value *v)
+{
+    if ((v->flags & VAL_IS_GC_TAGGED) &&
+        v->value.gc_generic->gc_entry &&
+        v->value.gc_generic->gc_entry->last_pass != pass)
+    {
+        lily_generic_gc_val *gen_val = v->value.gc_generic;
+        gen_val->gc_entry->last_pass = pass;
+
+        if (v->flags &
+            (VAL_IS_LIST | VAL_IS_INSTANCE | VAL_IS_ENUM | VAL_IS_TUPLE))
+            lily_gc_list_marker(pass, v);
+        else if (v->flags & VAL_IS_HASH)
+            lily_gc_hash_marker(pass, v);
+        else if (v->flags & VAL_IS_ANY)
+            lily_gc_any_marker(pass, v);
+        else if (v->flags & VAL_IS_FUNCTION)
+            lily_gc_function_marker(pass, v);
+    }
+}
+
 /* This will attempt to grab a spare entry and associate it with the value
    given. If there are no spare entries, then a new entry is made. These entries
    are how the gc is able to locate values later.
@@ -432,8 +453,7 @@ static void invoke_gc(lily_vm_state *vm)
    If the number of living gc objects is at or past the threshold, then the
    collector will run BEFORE the association. This is intentional, as 'value' is
    not guaranteed to be in a register. */
-void lily_add_gc_item(lily_vm_state *vm, lily_type *value_type,
-        lily_generic_gc_val *value)
+void lily_tag_value(lily_vm_state *vm, lily_value *v)
 {
     if (vm->gc_live_entry_count >= vm->gc_threshold)
         invoke_gc(vm);
@@ -446,16 +466,18 @@ void lily_add_gc_item(lily_vm_state *vm, lily_type *value_type,
     else
         new_entry = lily_malloc(sizeof(lily_gc_entry));
 
-    new_entry->value_type = value_type;
-    new_entry->value.gc_generic = value;
+    new_entry->value.gc_generic = v->value.gc_generic;
     new_entry->last_pass = 0;
+    new_entry->flags = v->flags;
 
     new_entry->next = vm->gc_live_entries;
     vm->gc_live_entries = new_entry;
 
     /* Attach the gc_entry to the value so the caller doesn't have to. */
-    value->gc_entry = new_entry;
+    v->value.gc_generic->gc_entry = new_entry;
     vm->gc_live_entry_count++;
+
+    v->flags |= VAL_IS_GC_TAGGED;
 }
 
 /***
@@ -489,7 +511,6 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
     register_need += 2;
 
     lily_value **new_regs;
-    lily_type *integer_type = vm->integer_type;
     int i = vm->true_max_registers;
 
     ptrdiff_t reg_offset = vm->vm_regs - vm->regs_from_main;
@@ -517,84 +538,25 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
        nothing has to check for a NULL type. Integer is used as the default
        because it is not ref'd. */
     for (;i < size;i++)
-        new_regs[i] = lily_new_value(VAL_IS_NIL | VAL_IS_PRIMITIVE, integer_type,
+        new_regs[i] = lily_new_value(0,
             (lily_raw_value){.integer = 0});
 
     vm->true_max_registers = size;
     vm->offset_max_registers = size - 2;
 }
 
-/* This is called when there are unsolved generic-typed registers during prep.
-   This function makes use of ts, the arguments passed, and maybe upvalues to
-   solve what the generic types are. Register types are initialized to proper
-   concrete types. */
-static void resolve_generic_registers(lily_vm_state *vm,
-        lily_function_val *fval, int args_collected)
-{
-    int save_ceiling = lily_ts_raise_ceiling(vm->ts);
-    int i;
-    lily_value **target_regs = vm->regs_from_main + vm->num_registers;
-
-    lily_register_info *ri = fval->reg_info;
-
-    for (i = 0;i < args_collected;i++) {
-        lily_type *left_type = ri[i].type;
-        lily_type *right_type = target_regs[i]->type;
-
-        lily_ts_pull_generics(vm->ts, left_type, right_type);
-    }
-
-    if (fval->type_block_spot != 0) {
-        /* There are some variables in the closure with types that can
-           contribute toward the solving. */
-        lily_type **types = vm->type_block->types->data;
-        uint16_t *spots = vm->type_block->spots->data;
-        int i;
-
-        for (i = fval->type_block_spot - 1;types[i];i++)
-            lily_ts_pull_generics(vm->ts, types[i], fval->upvalues[spots[i]]->type);
-    }
-
-    /* All generics SHOULD now have types (if they don't, it's a bug and they'll
-       default to any). Start figuring out what the real types are. */
-    int reg_stop = fval->reg_count;
-    for (;i < reg_stop;i++) {
-        lily_type *new_type = ri[i].type;
-        if (new_type->flags & TYPE_IS_UNRESOLVED)
-            new_type = lily_ts_resolve(vm->ts, new_type);
-
-        lily_value *reg = target_regs[i];
-
-        lily_deref(reg);
-
-        reg->flags = VAL_IS_NIL | (new_type->cls->flags & VAL_IS_PRIMITIVE);
-        reg->type = new_type;
-    }
-
-    lily_ts_lower_ceiling(vm->ts, save_ceiling);
-}
-
 /* This is called to fix the types of registers that aren't parameters. */
 static inline void fix_register_types(lily_vm_state *vm,
         lily_function_val *fval, int args_collected)
 {
-    if (fval->has_generics == 0) {
-        lily_value **target_regs = vm->regs_from_main + vm->num_registers;
-        lily_register_info *register_seeds = fval->reg_info;
-        /* For the rest of the registers, clear whatever value they have. */
-        for (;args_collected < fval->reg_count;args_collected++) {
-            lily_register_info seed = register_seeds[args_collected];
+    lily_value **target_regs = vm->regs_from_main + vm->num_registers;
+    /* For the rest of the registers, clear whatever value they have. */
+    for (;args_collected < fval->reg_count;args_collected++) {
+        lily_value *reg = target_regs[args_collected];
+        lily_deref(reg);
 
-            lily_value *reg = target_regs[args_collected];
-            lily_deref(reg);
-
-            /* These are now just nil. Nothing more, nothing less. */
-            reg->flags = VAL_IS_NIL;
-            reg->type = seed.type;
-        }
+        reg->flags = 0;
     }
-    else
-        resolve_generic_registers(vm, fval, args_collected);
 }
 
 /* This is called to initialize the registers that 'fval' will need to types
@@ -614,10 +576,10 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
         lily_value *get_reg = input_regs[code[6+i]];
         lily_value *set_reg = target_regs[i];
 
-        if ((get_reg->flags & VAL_IS_NOT_DEREFABLE) == 0)
+        if (get_reg->flags & VAL_IS_DEREFABLE)
             get_reg->value.generic->refcount++;
 
-        if ((set_reg->flags & VAL_IS_NOT_DEREFABLE) == 0)
+        if (set_reg->flags & VAL_IS_DEREFABLE)
             lily_deref(set_reg);
 
         *set_reg = *get_reg;
@@ -654,18 +616,6 @@ static void add_call_frame(lily_vm_state *vm)
     vm->call_chain = new_frame;
 }
 
-/* This determines if 'left' is equivalent to 'right' by recursively calling an
-   equality function on them. This may return RuntimeError if it encounters an
-   recursive value. */
-static int compare_values(lily_vm_state *vm, lily_value *left, lily_value *right)
-{
-    class_eq_func eq_func = left->type->cls->eq_func;
-    int depth = 0;
-
-    int result = eq_func(vm, &depth, left, right);
-    return result;
-}
-
 static void add_catch_entry(lily_vm_state *vm)
 {
     lily_vm_catch_entry *new_entry = lily_malloc(sizeof(lily_vm_catch_entry));
@@ -689,7 +639,11 @@ static void key_error(lily_vm_state *vm, int code_pos, lily_value *key)
 {
     vm->call_chain->line_num = vm->call_chain->code[code_pos + 1];
 
-    lily_raise(vm->raiser, lily_KeyError, "^V\n", key);
+    lily_msgbuf *msgbuf = vm->raiser->msgbuf;
+    lily_vm_add_value_to_msgbuf(vm, msgbuf, key);
+    lily_msgbuf_add_char(msgbuf, '\n');
+
+    lily_raise_prebuilt(vm->raiser, lily_KeyError);
 }
 
 /* Raise IndexError, noting that 'bad_index' is, well, bad. */
@@ -724,19 +678,18 @@ void lily_builtin_calltrace(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     vm->call_chain = vm->call_chain->next;
     vm->call_depth++;
 
-    lily_raw_value v = {.list = traceback_val};
-    lily_move_raw_value(result, v);
+    lily_move_list(result, traceback_val);
 }
 
 void lily_builtin_print(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value *reg = vm->vm_regs[code[1]];
-    if (reg->type->cls->id == SYM_CLASS_STRING)
+    if (reg->flags & VAL_IS_STRING)
         lily_impl_puts(vm->data, reg->value.string->string);
     else {
         lily_msgbuf *msgbuf = vm->vm_buffer;
         lily_msgbuf_flush(msgbuf);
-        lily_msgbuf_add_value(msgbuf, reg);
+        lily_vm_add_value_to_msgbuf(vm, msgbuf, reg);
         lily_impl_puts(vm->data, msgbuf->message);
     }
 
@@ -780,28 +733,26 @@ void lily_process_format_string(lily_vm_state *vm, uint16_t *code)
             fmt_index++;
 
             lily_value *arg = vararg_lv->elems[arg_pos]->value.any->inner_value;
-            int cls_id = arg->type->cls->id;
+            int arg_flags = arg->flags;
             lily_raw_value val = arg->value;
 
             if (fmt[fmt_index] == 'd') {
-                if (cls_id != SYM_CLASS_INTEGER)
+                if ((arg_flags & VAL_IS_INTEGER) == 0)
                     lily_raise(vm->raiser, lily_FormatError,
-                            "%%d is not valid for type ^T.\n",
-                            arg->type);
+                            "%%d given for non-integer type.\n");
 
                 lily_msgbuf_add_int(vm_buffer, val.integer);
             }
             else if (fmt[fmt_index] == 's') {
-                if (cls_id != SYM_CLASS_STRING)
-                    lily_msgbuf_add_value(vm_buffer, arg);
+                if ((arg_flags & VAL_IS_STRING) == 0)
+                    lily_vm_add_value_to_msgbuf(vm, vm_buffer, arg);
                 else
                     lily_msgbuf_add(vm_buffer, val.string->string);
             }
             else if (fmt[fmt_index] == 'f') {
-                if (cls_id != SYM_CLASS_DOUBLE)
+                if ((arg_flags & VAL_IS_DOUBLE) == 0)
                     lily_raise(vm->raiser, lily_FormatError,
-                            "%%f is not valid for type ^T.\n",
-                            arg->type);
+                            "%%f given for non-double type.\n");
 
                 lily_msgbuf_add_double(vm_buffer, val.doubleval);
             }
@@ -836,25 +787,19 @@ void lily_builtin_printfmt(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 static void do_o_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
         lily_value *rhs_reg)
 {
-    if (rhs_reg->type->cls->id == SYM_CLASS_ANY &&
-        lhs_reg->type == rhs_reg->type)
-        /* This special case is necessary because it prevents an any from being
-           accidentally placed within an 'any'. This can happen if the left is
-           actually an 'any', and the right is a generic that became an 'any'.
-           The emitter won't know if, say, A is going to be 'any' or not, so it
-           writes a box assign as a precaution. */
+    if (rhs_reg->flags & VAL_IS_ANY)
+        /* In this case, don't box the any because then there's an 'any' inside
+           of another 'any'. */
         lily_assign_value(lhs_reg, rhs_reg);
     else {
-        if ((rhs_reg->flags & VAL_IS_NOT_DEREFABLE) == 0)
+        if (rhs_reg->flags & VAL_IS_DEREFABLE)
             rhs_reg->value.generic->refcount++;
 
         lily_any_val *lhs_any = lily_new_any_val();
 
-        if (lhs_reg->type->flags & TYPE_MAYBE_CIRCULAR)
-            lily_add_gc_item(vm, lhs_reg->type, (lily_generic_gc_val *)lhs_any);
-
         *(lhs_any->inner_value) = *rhs_reg;
-        lily_move_raw_value(lhs_reg, (lily_raw_value)lhs_any);
+        lily_move_any(lhs_reg, lhs_any);
+        lily_tag_value(vm, lhs_reg);
     }
 }
 
@@ -900,7 +845,7 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code, int code_pos)
     index_reg = vm_regs[code[code_pos + 3]];
     rhs_reg = vm_regs[code[code_pos + 4]];
 
-    if (lhs_reg->type->cls->id != SYM_CLASS_HASH) {
+    if ((lhs_reg->flags & VAL_IS_HASH) == 0) {
         lily_list_val *list_val = lhs_reg->value.list;
         int index_int = index_reg->value.integer;
 
@@ -934,9 +879,9 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code, int code_pos)
     /* list and tuple have the same representation internally. Since list
        stores proper values, lily_assign_value automagically set the type to
        the right thing. */
-    if (lhs_reg->type->cls->id == SYM_CLASS_STRING)
+    if (lhs_reg->flags & VAL_IS_STRING)
         lily_string_subscript(vm, lhs_reg, index_reg, result_reg);
-    else if (lhs_reg->type->cls->id != SYM_CLASS_HASH) {
+    else if (lhs_reg->flags & (VAL_IS_LIST | VAL_IS_TUPLE)) {
         lily_list_val *list_val = lhs_reg->value.list;
         int index_int = index_reg->value.integer;
 
@@ -975,14 +920,7 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code, int code_pos)
     result = vm_regs[code[code_pos + 3 + num_values]];
 
     lily_hash_val *hash_val = lily_new_hash_val();
-
-    if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
-        lily_add_gc_item(vm, result->type, (lily_generic_gc_val *)hash_val);
-
-    lily_deref(result);
-
-    result->value.hash = hash_val;
-    result->flags = 0;
+    lily_move_hash(result, hash_val);
 
     for (i = 0;
          i < num_values;
@@ -992,6 +930,8 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code, int code_pos)
 
         lily_hash_set_elem(vm, hash_val, key_reg, value_reg);
     }
+
+    lily_tag_value(vm, result);
 }
 
 /* Lists and tuples are effectively the same thing internally, since the list
@@ -1009,44 +949,42 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     lv->num_values = num_elems;
     lv->elems = elems;
 
-    if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
-        lily_add_gc_item(vm, result->type, (lily_generic_gc_val *)lv);
-
-    lily_raw_value v = {.list = lv};
-    lily_move_raw_value(result, v);
+    lily_move_list(result, lv);
 
     int i;
     for (i = 0;i < num_elems;i++) {
         lily_value *rhs_reg = vm_regs[code[3+i]];
         elems[i] = lily_copy_value(rhs_reg);
     }
+
+    lily_tag_value(vm, result);
 }
 
 static void do_o_build_enum(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    int variant_id = code[2];
-    int num_values = code[3];
-    lily_value *result = vm_regs[code[code[3] + 4]];
-    int slots_needed = result->type->cls->enum_slot_count;
+    int instance_id = code[2];
+    int variant_id = code[3];
+    int num_values = code[4];
+    lily_value *result = vm_regs[code[code[4] + 5]];
+    int slots_needed = vm->class_table[instance_id]->enum_slot_count;
 
     lily_instance_val *ival = lily_new_instance_val();
     lily_value **slots = lily_malloc(slots_needed * sizeof(lily_value *));
     ival->num_values = num_values;
     ival->values = slots;
     ival->variant_id = variant_id;
+    ival->instance_id = instance_id;
 
-    if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
-        lily_add_gc_item(vm, result->type, (lily_generic_gc_val *)ival);
-
-    lily_raw_value v = {.instance = ival};
-    lily_move_raw_value(result, v);
+    lily_move_enum(result, ival);
 
     int i;
     for (i = 0;i < num_values;i++) {
-        lily_value *rhs_reg = vm_regs[code[4+i]];
+        lily_value *rhs_reg = vm_regs[code[5+i]];
         slots[i] = lily_copy_value(rhs_reg);
     }
+
+    lily_tag_value(vm, result);
 }
 
 /* This raises a user-defined exception. The emitter has verified that the thing
@@ -1058,13 +996,13 @@ static void do_o_raise(lily_vm_state *vm, lily_value *exception_val)
 
     lily_instance_val *ival = exception_val->value.instance;
     char *message = ival->values[0]->value.string->string;
+    lily_class *raise_cls = vm->class_table[ival->instance_id];
 
-    lily_raise_value(vm->raiser, exception_val, message);
+    lily_raise_value(vm->raiser, raise_cls, exception_val, message);
 }
 
 /* o_setup_optargs is a strange opcode. The contents are
-   '#values, lit, reg, lit, reg...'. This takes advantage of VAL_IS_NIL to check
-   if a value needs to be set on something. */
+   '#values, lit, reg, lit, reg...'. */
 static void do_o_setup_optargs(lily_vm_state *vm, uint16_t *code, int code_pos)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -1080,17 +1018,14 @@ static void do_o_setup_optargs(lily_vm_state *vm, uint16_t *code, int code_pos)
 
     for (;i > end;i--) {
         lily_value *left = vm_regs[code[i]];
-        if ((left->flags & VAL_IS_NIL) == 0)
+        if (left->flags)
             break;
 
         /* Note! The right side is ALWAYS a literal. Do not use vm_regs! */
         lily_tie *right = ro_table[code[i - half]];
 
-        /* The left side has been verified to be nil, so there is no reason for
-           a deref check.
-           The right side is a literal, so it is definitely marked protected,
-           and there is no need to check to ref it. */
-        left->flags = right->flags;
+        /* It's definitely a literal, so just move it over without a ref. */
+        left->flags = right->move_flags;
         left->value = right->value;
     }
 }
@@ -1101,9 +1036,10 @@ static void do_o_setup_optargs(lily_vm_state *vm, uint16_t *code, int code_pos)
 static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 {
     int i, total_entries;
+    int cls_id = code[2];
     lily_value **vm_regs = vm->vm_regs;
-    lily_value *result = vm_regs[code[2]];
-    lily_class *instance_class = result->type->cls;
+    lily_value *result = vm_regs[code[3]];
+    lily_class *instance_class = vm->class_table[cls_id];
 
     total_entries = instance_class->prop_count;
 
@@ -1113,11 +1049,11 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
        of this value. If that is the case, then use that instance instead of
        building one that will simply be tossed. */
     if (caller_frame->build_value &&
-        caller_frame->build_value->true_type->cls->id > instance_class->id) {
+        caller_frame->build_value->instance_id > instance_class->id) {
 
-        result->value.instance = caller_frame->build_value;
+        lily_move(result, (lily_raw_value)caller_frame->build_value,
+                VAL_IS_INSTANCE | VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED);
         result->value.generic->refcount++;
-        result->flags = 0;
 
         /* Important! This allows this memory-saving trick to bubble up through
            multiple ::new calls! */
@@ -1132,15 +1068,10 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     iv->refcount = 1;
     iv->values = iv_values;
     iv->gc_entry = NULL;
-    iv->true_type = result->type;
+    iv->instance_id = cls_id;
 
-    if ((result->type->flags & TYPE_MAYBE_CIRCULAR))
-        lily_add_gc_item(vm, result->type, (lily_generic_gc_val *)iv);
-
-    lily_deref(result);
-
-    result->value.instance = iv;
-    result->flags = 0;
+    lily_move_instance(result, iv);
+    lily_tag_value(vm, result);
 
     i = 0;
 
@@ -1155,12 +1086,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
             prop = prop_class->properties;
         }
 
-        lily_type *value_type = prop->type;
-        if (value_type->flags & TYPE_IS_UNRESOLVED)
-            value_type = lily_ts_resolve_by_second(vm->ts, result->type,
-                    value_type);
-
-        iv->values[i] = lily_new_value(VAL_IS_NIL, value_type,
+        iv->values[i] = lily_new_value(0,
                 (lily_raw_value){.integer = 0});
     }
 
@@ -1169,6 +1095,34 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     /* This is set so that a superclass ::new can simply pull this instance,
        since this instance will have >= the # of types. */
     vm->call_chain->build_value = iv;
+}
+
+
+
+void do_o_any_typecast(lily_vm_state *vm, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_class *cast_class = vm->class_table[code[2]];
+    lily_value *rhs_reg = vm_regs[code[3]];
+    lily_value *lhs_reg = vm_regs[code[4]];
+
+    lily_value *inner = rhs_reg->value.any->inner_value;
+
+    int ok = 0;
+    if (inner->flags & (VAL_IS_INSTANCE | VAL_IS_ENUM))
+        ok = (inner->value.instance->instance_id == cast_class->id);
+    else
+        /* Note: This won't work for foreign values, but there are none of those
+           until the postgres module is fixed. */
+        ok = cast_class->move_flags & inner->flags;
+
+    if (ok)
+        lily_assign_value(lhs_reg, inner);
+    else {
+        lily_raise(vm->raiser, lily_BadTypecastError,
+                "Cannot cast any to type '%s'.\n",
+                cast_class->name);
+    }
 }
 
 /***
@@ -1204,7 +1158,7 @@ static lily_value *make_cell_from(lily_value *value)
     lily_value *result = lily_malloc(sizeof(lily_value));
     *result = *value;
     result->cell_refcount = 1;
-    if ((value->flags & VAL_IS_NOT_DEREFABLE) == 0)
+    if (value->flags & VAL_IS_DEREFABLE)
         value->value.generic->refcount++;
 
     return result;
@@ -1220,9 +1174,6 @@ static lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
     lily_function_val *last_call = vm->call_chain->function;
 
     lily_function_val *closure_func = lily_new_function_copy(last_call);
-    /* Without complete type information, it's hard to know if the closure
-       really needs a tag. Better safe than not. */
-    lily_add_gc_item(vm, result->type, (lily_generic_gc_val *)closure_func);
 
     lily_value **upvalues = lily_malloc(sizeof(lily_value *) * count);
 
@@ -1236,8 +1187,9 @@ static lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
     closure_func->upvalues = upvalues;
     closure_func->refcount = 1;
 
-    lily_raw_value v = {.function = closure_func};
-    lily_move_raw_value(result, v);
+    lily_move_function(result, closure_func);
+    lily_tag_value(vm, result);
+
     return upvalues;
 }
 
@@ -1278,14 +1230,10 @@ static void do_o_create_function(lily_vm_state *vm, uint16_t *code)
     lily_function_val *new_closure = lily_new_function_copy(target_func);
     new_closure->refcount = 1;
 
-    lily_add_gc_item(vm, target_literal->type,
-            (lily_generic_gc_val *)new_closure);
-
     copy_upvalues(new_closure, input_closure_reg->value.function);
 
-    lily_raw_value v = {.function = new_closure};
-    lily_move_raw_value(result_reg, v);
-    new_closure->refcount++;
+    lily_move_function(result_reg, new_closure);
+    lily_tag_value(vm, result_reg);
 }
 
 /* This is written at the top of a define that uses a closure (unless that
@@ -1325,12 +1273,14 @@ static lily_value **do_o_load_closure(lily_vm_state *vm, uint16_t *code)
     }
 
     lily_value *result_reg = vm->vm_regs[code[i]];
-    lily_raw_value v = {.function = input_closure};
 
-    /* This does move+manual refcount increase because there's no proper Lily
-       value here (and f will always be refcounted). */
-    lily_move_raw_value(result_reg, v);
     input_closure->refcount++;
+
+    /* All closures are always tagged. It is extremely important to add the tag
+       flag. Failure to do so will cause at least two tests (at the time of this
+       writing) to experience very not-fun heap corruption. */
+    lily_move(result_reg, (lily_raw_value)input_closure,
+            VAL_IS_GC_TAGGED | VAL_IS_FUNCTION | VAL_IS_DEREFABLE);
 
     return input_closure->upvalues;
 }
@@ -1350,8 +1300,7 @@ static lily_value **do_o_load_class_closure(lily_vm_state *vm, uint16_t *code,
     new_closure->refcount = 1;
     copy_upvalues(new_closure, input_closure);
 
-    lily_raw_value v = {.function = new_closure};
-    lily_move_raw_value(result_reg, v);
+    lily_move_function(result_reg, new_closure);
 
     return new_closure->upvalues;
 }
@@ -1377,7 +1326,6 @@ static lily_value **do_o_load_class_closure(lily_vm_state *vm, uint16_t *code,
    to the caller to move the raw list to somewhere useful. */
 static lily_list_val *build_traceback_raw(lily_vm_state *vm)
 {
-    lily_type *string_type = vm->symtab->string_class->type;
     lily_list_val *lv = lily_new_list_val();
 
     lv->elems = lily_malloc(vm->call_depth * sizeof(lily_value *));
@@ -1416,7 +1364,7 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
 
         /* +15 accounts for there maybe being a separator, the non-%s text, and
            maybe having a line number. */
-        int str_size = strlen(class_name) + strlen(path) + strlen(line) + 15;
+        int str_size = strlen(class_name) + strlen(path) + strlen(line) + 16;
 
         lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
         char *str = lily_malloc(str_size);
@@ -1426,8 +1374,7 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
         sv->size = real_size;
         sv->string = str;
 
-        lv->elems[i - 1] = lily_new_value(0, string_type,
-                (lily_raw_value){.string = sv});
+        lv->elems[i - 1] = lily_new_string(sv);
     }
 
     lv->num_values = vm->call_depth;
@@ -1439,7 +1386,7 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
 static lily_value *build_traceback(lily_vm_state *vm)
 {
     lily_list_val *lv = build_traceback_raw(vm);
-    return lily_new_value(0, vm->traceback_type, (lily_raw_value){.list = lv});
+    return lily_new_list(lv);
 }
 
 /* This is called when a builtin exception has been thrown. All builtin
@@ -1447,7 +1394,7 @@ static lily_value *build_traceback(lily_vm_state *vm)
    field being set. This builds a new value of the given type with the message
    and newly-made traceback. */
 static void make_proper_exception_val(lily_vm_state *vm,
-        lily_type *raised_type, lily_value *result)
+        lily_class *raised_cls, lily_value *result)
 {
     lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
 
@@ -1455,7 +1402,7 @@ static void make_proper_exception_val(lily_vm_state *vm,
     ival->num_values = -1;
     ival->refcount = 1;
     ival->gc_entry = NULL;
-    ival->true_type = raised_type;
+    ival->instance_id = raised_cls->id;
 
     lily_value *message_val = lily_bind_string(vm->symtab,
             vm->raiser->msgbuf->message);
@@ -1469,8 +1416,7 @@ static void make_proper_exception_val(lily_vm_state *vm,
     ival->values[1] = traceback_val;
     ival->num_values = 2;
 
-    lily_raw_value v = {.instance = ival};
-    lily_move_raw_value(result, v);
+    lily_move_instance(result, ival);
 }
 
 /* This is called when 'raise' raises an error. The traceback property is
@@ -1482,11 +1428,8 @@ static void fixup_exception_val(lily_vm_state *vm, lily_value *result,
     lily_assign_value(result, thrown);
     lily_list_val *raw_trace = build_traceback_raw(vm);
     lily_instance_val *iv = result->value.instance;
-    lily_raw_value v = {.list = raw_trace};
 
-    /* Only things that inherit from Exception are can be raised, and Exception
-       always has the traceback at slot 1. It's safe to do this. */
-    lily_move_raw_value(iv->values[1], v);
+    lily_move_instance(iv->values[1], raw_trace);
 }
 
 /* This attempts to catch the exception that the raiser currently holds. If it
@@ -1500,15 +1443,14 @@ static void fixup_exception_val(lily_vm_state *vm, lily_value *result,
    Returns 1 if the exception has been caught, 0 otherwise. */
 static int maybe_catch_exception(lily_vm_state *vm)
 {
-    lily_type *raised_type = vm->raiser->exception_type;
+    lily_class *raised_cls = vm->raiser->exception_cls;
 
     if (vm->catch_top == NULL)
         return 0;
 
     lily_jump_link *raiser_jump = vm->raiser->all_jumps;
-    lily_class *raised_cls;
 
-    if (raised_type == NULL) {
+    if (raised_cls == NULL) {
         const char *except_name = lily_name_for_error(vm->raiser);
         /* TODO: The vm should not be doing this HERE, because multiple levels
            of the interpreter have to deal with this. Provide something so that
@@ -1516,8 +1458,6 @@ static int maybe_catch_exception(lily_vm_state *vm)
            is not here. */
         raised_cls = lily_maybe_dynaload_class(vm->parser, NULL, except_name);
     }
-    else
-        raised_cls = raised_type->cls;
 
     lily_vm_catch_entry *catch_iter = vm->catch_top;
     lily_value *catch_reg = NULL;
@@ -1546,16 +1486,19 @@ static int maybe_catch_exception(lily_vm_state *vm)
             /* Instead of the vm hopping around to different o_except blocks,
                this function visits them to find out which (if any) handles
                the current exception.
-               +1 is the line number (for debug), +2 is the spot for the next
-               jump, and +3 is a register that holds a value to store this
-               particular exception. */
+               Line numbers are:
+               +1: line number
+               +2: next jump
+               +3: unwrap this? (0 or 1)
+               +4: catch class
+               +5: unwrap target */
             int next_location = code[jump_location + 2];
-            catch_reg = stack_regs[code[jump_location + 4]];
-            lily_type *catch_type = catch_reg->type;
-            if (lily_class_greater_eq(catch_type->cls, raised_cls)) {
+            catch_reg = stack_regs[code[jump_location + 5]];
+            lily_class *catch_class = vm->class_table[code[jump_location + 4]];
+            if (lily_class_greater_eq(catch_class, raised_cls)) {
                 /* ...So that execution resumes from within the except block. */
                 do_unbox = code[jump_location + 3];
-                jump_location += 5;
+                jump_location += 6;
                 match = 1;
                 break;
             }
@@ -1579,7 +1522,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
             if (raised_value)
                 fixup_exception_val(vm, catch_reg, raised_value);
             else
-                make_proper_exception_val(vm, raised_type, catch_reg);
+                make_proper_exception_val(vm, raised_cls, catch_reg);
         }
 
         vm->raiser->exception_value = NULL;
@@ -1613,10 +1556,9 @@ static int maybe_catch_exception(lily_vm_state *vm)
     the functions within here. Do be careful with foreign calls, however. **/
 
 
-/* This executes 'call_val' using however many values are provided. The call's
-   result should be 'expect_type'. If the call does not return a value, then
-   'expect_type' can be NULL. 'cached' is used to determine if some extra setup
-   is necessary (the first call has to setup frames and upward types). The
+/* This executes 'call_val' using however many values are provided. If the call
+   needs a result, then 'need_result' should be 1. 'cached' is used to determine
+   if some extra setup is necessary (the first call has to setup frames). The
    cached marker is valid so long as the same function is called repeatedly.
 
    This function should be called with care. If this triggers an uncaught
@@ -1627,12 +1569,11 @@ static int maybe_catch_exception(lily_vm_state *vm)
    The result of this function is the register that the function's value
    returned to, or NULL if there was no returned value. */
 lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
-         lily_type *expect_type, lily_value *call_val, int num_values, ...)
+         int need_result, lily_value *call_val, int num_values, ...)
 {
     lily_function_val *target = call_val->value.function;
     lily_call_frame *calling_frame = vm->call_chain;
     int is_native_target = (target->foreign_func == NULL);
-    int have_return = expect_type != NULL;
     int target_need;
     int register_need;
     /* Don't set this just yet: grow_vm_registers may move it. */
@@ -1644,7 +1585,7 @@ lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
     else
         target_need = num_values;
 
-    register_need = vm->num_registers + target_need + have_return;
+    register_need = vm->num_registers + target_need + need_result;
 
     if (vm->num_registers + register_need > vm->offset_max_registers)
         grow_vm_registers(vm, register_need);
@@ -1656,16 +1597,13 @@ lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
        spare register. */
     vm_regs = vm->vm_regs + calling_frame->prev->regs_used;
 
-    if (have_return) {
+    if (need_result) {
         return_reg = vm_regs[0];
 
-        if ((return_reg->flags & VAL_IS_NOT_DEREFABLE) == 0)
+        if (return_reg->flags & VAL_IS_DEREFABLE)
             lily_deref(return_reg);
 
-        /* The foreign call may have a return that isn't solved, so the caller
-           is expected to provide a solved one. */
-        return_reg->type = expect_type;
-        return_reg->flags = VAL_IS_NIL;
+        return_reg->flags = 0;
     }
     else
         return_reg = NULL;
@@ -1708,9 +1646,9 @@ lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
     int i;
     for (i = 0;i < num_values;i++) {
         lily_value *v = va_arg(values, lily_value *);
-        if ((vm_regs[i]->flags & VAL_IS_NOT_DEREFABLE) == 0)
+        if (vm_regs[i]->flags & VAL_IS_DEREFABLE)
             lily_deref(vm_regs[i]);
-        if ((v->flags & VAL_IS_NOT_DEREFABLE) == 0)
+        if (v->flags & VAL_IS_DEREFABLE)
             v->value.generic->refcount++;
 
         *vm_regs[i] = *v;
@@ -1762,59 +1700,20 @@ void lily_vm_list_ensure(lily_vm_state *vm, uint32_t need)
     }
 }
 
-/* This is used by a module to SET an exception based on a seed. The import
-   context is inferred from the import context of the last function called.
-   The exception will have 'msg' set as the exception message.
-
-   While this establishes an error, it does not raise it. The reason is that the
-   message may rely on a value that needs to be free'd before the actual raise.
-   Making this a two-step process allows an error to be established but for an
-   exception to be raised too. */
-void lily_vm_set_error(lily_vm_state *vm, lily_base_seed *error_seed,
-        const char *msg)
-{
-    lily_import_entry *seed_import = vm->call_chain->function->import;
-    lily_class *raise_class = lily_maybe_dynaload_class(vm->parser, seed_import,
-            error_seed->name);
-
-    /* An exception that has been dynaloaded will never have generics, and thus
-       will always have a default type. It is thus safe to grab the type of the
-       newly-made class. */
-    lily_raiser_set_error(vm->raiser, raise_class->type, msg);
-}
-
-/* This is like lily_vm_set_error, except that the exception is triggered
-   immediately instead of being deferred. */
-void lily_vm_module_raise(lily_vm_state *vm, lily_base_seed *error_seed,
-        const char *msg)
-{
-    lily_import_entry *seed_import = vm->call_chain->function->import;
-    lily_class *raise_class = lily_maybe_dynaload_class(vm->parser, seed_import,
-            error_seed->name);
-
-    lily_raise_type_and_msg(vm->raiser, raise_class->type, msg);
-}
-
-/* This raises an exception stored by lily_vm_set_error. */
-void lily_vm_raise_prepared(lily_vm_state *vm)
-{
-    lily_raise_prepared(vm->raiser);
-}
-
 /* This calculates a siphash for a given hash value. The siphash is based off of
    the vm's sipkey. The caller is expected to only call this for keys that are
    hashable. */
 uint64_t lily_siphash(lily_vm_state *vm, lily_value *key)
 {
-    int key_cls_id = key->type->cls->id;
+    int flags = key->flags;
     uint64_t key_hash;
 
-    if (key_cls_id == SYM_CLASS_STRING)
+    if (flags & VAL_IS_STRING)
         key_hash = siphash24(key->value.string->string,
                 key->value.string->size, vm->sipkey);
-    else if (key_cls_id == SYM_CLASS_INTEGER)
+    else if (flags & VAL_IS_INTEGER)
         key_hash = key->value.integer;
-    else if (key_cls_id == SYM_CLASS_DOUBLE)
+    else if (flags & VAL_IS_DOUBLE)
         /* siphash thinks it's sent a pointer (and will try to deref it), so
            send the address. */
         key_hash = siphash24(&(key->value.doubleval), sizeof(double), vm->sipkey);
@@ -1822,6 +1721,139 @@ uint64_t lily_siphash(lily_vm_state *vm, lily_value *key)
         key_hash = 0;
 
     return key_hash;
+}
+
+typedef struct tag_ {
+    struct tag_ *prev;
+    lily_raw_value raw;
+} tag;
+
+static void add_value_to_msgbuf(lily_vm_state *, lily_msgbuf *, tag *,
+        lily_value *);
+
+static void add_list_like(lily_vm_state *vm, lily_msgbuf *msgbuf, tag *t,
+        lily_value *v, const char *prefix, const char *suffix)
+{
+    lily_list_val *lv = v->value.list;
+    lily_msgbuf_add(msgbuf, prefix);
+
+    /* This is necessary because num_values is unsigned. */
+    if (lv->num_values != 0) {
+        int i;
+        for (i = 0;i < lv->num_values - 1;i++) {
+            add_value_to_msgbuf(vm, msgbuf, t, lv->elems[i]);
+            lily_msgbuf_add(msgbuf, ", ");
+        }
+        if (i != lv->num_values)
+            add_value_to_msgbuf(vm, msgbuf, t, lv->elems[i]);
+    }
+
+    lily_msgbuf_add(msgbuf, suffix);
+}
+
+static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
+        tag *t, lily_value *v)
+{
+    if (v->flags & VAL_IS_GC_TAGGED) {
+        tag *tag_iter = t;
+        while (tag_iter) {
+            /* Different containers may hold the same underlying values, so make
+               sure to NOT test the containers. */
+            if (memcmp(&tag_iter->raw, &v->value, sizeof(lily_raw_value)) == 0) {
+                lily_msgbuf_add(msgbuf, "[...]");
+                return;
+            }
+
+            tag_iter = tag_iter->prev;
+        }
+
+        tag new_tag = {.prev = t, .raw = v->value};
+        t = &new_tag;
+    }
+
+    if (v->flags & VAL_IS_BOOLEAN)
+        lily_msgbuf_add_boolean(msgbuf, v->value.integer);
+    else if (v->flags & VAL_IS_INTEGER)
+        lily_msgbuf_add_int(msgbuf, v->value.integer);
+    else if (v->flags & VAL_IS_DOUBLE)
+        lily_msgbuf_add_double(msgbuf, v->value.doubleval);
+    else if (v->flags & VAL_IS_STRING) {
+        lily_msgbuf_add_char(msgbuf, '\"');
+        /* Note: This is fine because strings can't contain \0. */
+        lily_msgbuf_add(msgbuf, v->value.string->string);
+        lily_msgbuf_add_char(msgbuf, '\"');
+    }
+    else if (v->flags & VAL_IS_BYTESTRING)
+        lily_msgbuf_add_bytestring(msgbuf, v->value.string);
+    else if (v->flags & VAL_IS_FUNCTION) {
+        lily_function_val *fv = v->value.function;
+        const char *builtin = "";
+        const char *class_name = "";
+        const char *separator = "";
+
+        if (fv->code == NULL)
+            builtin = "built-in ";
+
+        if (fv->class_name) {
+            class_name = fv->class_name;
+            separator = "::";
+        }
+
+        lily_msgbuf_add_fmt(msgbuf, "<%sfunction %s%s%s>", builtin, class_name,
+                separator, fv->trace_name);
+    }
+    else if (v->flags & VAL_IS_ANY)
+        add_value_to_msgbuf(vm, msgbuf, t, v->value.any->inner_value);
+    else if (v->flags & VAL_IS_LIST)
+        add_list_like(vm, msgbuf, t, v, "[", "]");
+    else if (v->flags & VAL_IS_TUPLE)
+        add_list_like(vm, msgbuf, t, v, "<[", "]>");
+    else if (v->flags & VAL_IS_HASH) {
+        lily_hash_val *hv = v->value.hash;
+        lily_msgbuf_add_char(msgbuf, '[');
+        lily_hash_elem *elem = hv->elem_chain;
+        while (elem) {
+            add_value_to_msgbuf(vm, msgbuf, t, elem->elem_key);
+            lily_msgbuf_add(msgbuf, " => ");
+            add_value_to_msgbuf(vm, msgbuf, t, elem->elem_value);
+            if (elem->next != NULL)
+                lily_msgbuf_add(msgbuf, ", ");
+
+            elem = elem->next;
+        }
+        lily_msgbuf_add_char(msgbuf, ']');
+    }
+    else if (v->flags & VAL_IS_FILE) {
+        lily_file_val *fv = v->value.file;
+        const char *state = fv->is_open ? "open" : "closed";
+        lily_msgbuf_add_fmt(msgbuf, "<%s file at %p>", state, fv);
+    }
+    else if (v->flags & VAL_IS_ENUM) {
+        lily_class *enum_cls = vm->class_table[v->value.instance->instance_id];
+        int id = v->value.instance->variant_id;
+        lily_msgbuf_add(msgbuf, enum_cls->variant_members[id]->name);
+        if (v->value.instance->num_values)
+            add_list_like(vm, msgbuf, t, v, "(", ")");
+    }
+    else {
+        lily_class *cls = vm->class_table[v->value.instance->instance_id];
+        const char *package_name = "";
+        const char *separator = "";
+
+        if (cls->import->loadname[0] != '\0') {
+            package_name = cls->import->loadname;
+            separator = "::";
+        }
+
+        lily_msgbuf_add_fmt(msgbuf, "<%s%s%s at %p>", package_name, separator,
+                cls->name, v->value.generic);
+    }
+}
+
+void lily_vm_add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
+        lily_value *value)
+{
+    add_value_to_msgbuf(vm, msgbuf, NULL, value);
 }
 
 /***
@@ -1874,6 +1906,31 @@ static void setup_readonly_table(lily_vm_state *vm)
     vm->readonly_table = new_table;
 }
 
+void lily_vm_ensure_class_table(lily_vm_state *vm, int size)
+{
+    if (size >= vm->class_count) {
+        if (vm->class_count == 0)
+            vm->class_count = 1;
+
+        while (size >= vm->class_count)
+            vm->class_count *= 2;
+
+        vm->class_table = lily_realloc(vm->class_table,
+                sizeof(lily_class *) * vm->class_count);
+    }
+}
+
+void lily_vm_add_class_unchecked(lily_vm_state *vm, lily_class *cls)
+{
+    vm->class_table[cls->id] = cls;
+}
+
+void lily_vm_add_class(lily_vm_state *vm, lily_class *cls)
+{
+    lily_vm_ensure_class_table(vm, cls->id + 1);
+    vm->class_table[cls->id] = cls;
+}
+
 /* Foreign ties are created when a module wants to associate some bit of data
    with a particular register. This happens mostly when dynaloading vars (such
    as sys::argv, stdio, etc.)
@@ -1892,10 +1949,8 @@ static void load_foreign_ties(lily_vm_state *vm)
            tie is just for shifting a value over). */
         lily_value *reg_value = regs_from_main[tie_iter->reg_spot];
 
-        reg_value->type = tie_iter->type;
-        /* The flags and type have already been set by vm prep. */
         reg_value->value = tie_iter->value;
-        reg_value->flags = (tie_iter->type->cls->flags & VAL_IS_PRIMITIVE);
+        reg_value->flags = tie_iter->move_flags;
 
         tie_next = tie_iter->next;
         lily_free(tie_iter);
@@ -1938,13 +1993,8 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
 
     for (i = vm->prep_id_start;i < main_function->reg_count;i++) {
         lily_value *reg = regs_from_main[i];
-        lily_register_info seed = main_function->reg_info[i];
 
-        /* This allows opcodes to copy over a register value without checking
-           if VAL_IS_NIL is set. This is fine, because the value won't actually
-           be used if VAL_IS_NIL is set (optimization!) */
-        reg->flags = VAL_IS_NIL;
-        reg->type = seed.type;
+        reg->flags = 0;
     }
 
     /* Zap only the slots that new globals need next time. */
@@ -1985,17 +2035,12 @@ void lily_vm_execute(lily_vm_state *vm)
     lily_value **regs_from_main;
     lily_value **vm_regs;
     int i, num_registers, offset_max_registers;
-    lily_type *cast_type;
     register int64_t for_temp;
     /* This unfortunately has to be volatile because otherwise calltrace() and
        traceback tend to be 'off'. */
     register volatile int code_pos;
     register lily_value *lhs_reg, *rhs_reg, *loop_reg, *step_reg;
     register lily_tie *readonly_val;
-    /* These next two are used so that INTDBL operations have a fast way to
-       check the type of a register. */
-    lily_type *integer_type = vm->symtab->integer_class->type;
-    lily_type *double_type = vm->symtab->double_class->type;
     lily_function_val *fval;
     lily_value **upvalues = NULL;
 
@@ -2049,7 +2094,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 lily_deref(lhs_reg);
 
                 lhs_reg->value = readonly_val->value;
-                lhs_reg->flags = VAL_IS_LITERAL;
+                lhs_reg->flags = readonly_val->move_flags;
                 code_pos += 4;
                 break;
             case o_integer_add:
@@ -2129,11 +2174,11 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* This is a little more tricky, because the rhs could be a
                    number or an integer... */
                 rhs_reg = vm_regs[code[code_pos+3]];
-                if (rhs_reg->type->cls->id == SYM_CLASS_INTEGER &&
+                if (rhs_reg->flags & VAL_IS_INTEGER &&
                     rhs_reg->value.integer == 0)
                     lily_raise(vm->raiser, lily_DivisionByZeroError,
                             "Attempt to divide by zero.\n");
-                else if (rhs_reg->type->cls->id == SYM_CLASS_DOUBLE &&
+                else if (rhs_reg->flags & VAL_IS_DOUBLE &&
                          rhs_reg->value.doubleval == 0)
                     lily_raise(vm->raiser, lily_DivisionByZeroError,
                             "Attempt to divide by zero.\n");
@@ -2143,17 +2188,16 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_jump_if:
                 lhs_reg = vm_regs[code[code_pos+2]];
                 {
-                    int cls_id = lhs_reg->type->cls->id;
+                    int flags = lhs_reg->flags;
                     int result;
 
-                    if (cls_id == SYM_CLASS_INTEGER ||
-                        cls_id == SYM_CLASS_BOOLEAN)
+                    if (flags & (VAL_IS_INTEGER | VAL_IS_BOOLEAN))
                         result = (lhs_reg->value.integer == 0);
-                    else if (cls_id == SYM_CLASS_DOUBLE)
+                    else if (flags & VAL_IS_DOUBLE)
                         result = (lhs_reg->value.doubleval == 0);
-                    else if (cls_id == SYM_CLASS_STRING)
+                    else if (flags & VAL_IS_STRING)
                         result = (lhs_reg->value.string->size == 0);
-                    else if (cls_id == SYM_CLASS_LIST)
+                    else if (flags & VAL_IS_LIST)
                         result = (lhs_reg->value.list->num_values == 0);
                     else
                         result = 1;
@@ -2264,7 +2308,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg = vm_regs[code[code_pos+2]];
 
                 rhs_reg = vm_regs[code[code_pos+3]];
-                rhs_reg->flags = VAL_IS_PRIMITIVE;
+                rhs_reg->flags = lhs_reg->flags;
                 rhs_reg->value.integer = !(lhs_reg->value.integer);
                 code_pos += 4;
                 break;
@@ -2272,7 +2316,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg = vm_regs[code[code_pos+2]];
 
                 rhs_reg = vm_regs[code[code_pos+3]];
-                rhs_reg->flags = VAL_IS_PRIMITIVE;
+                rhs_reg->flags = VAL_IS_INTEGER;
                 rhs_reg->value.integer = -(lhs_reg->value.integer);
                 code_pos += 4;
                 break;
@@ -2357,28 +2401,11 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_build_enum:
                 do_o_build_enum(vm, code+code_pos);
-                code_pos += code[code_pos+3] + 5;
+                code_pos += code[code_pos+4] + 6;
                 break;
             case o_any_typecast:
-                lhs_reg = vm_regs[code[code_pos+3]];
-                cast_type = lhs_reg->type;
-
-                rhs_reg = vm_regs[code[code_pos+2]];
-                rhs_reg = rhs_reg->value.any->inner_value;
-
-                /* Symtab ensures that two types don't define the same
-                   thing, so this is okay. */
-                if (cast_type == rhs_reg->type)
-                    lily_assign_value(lhs_reg, rhs_reg);
-                else {
-                    current_frame->line_num = current_frame->code[code_pos+1];
-
-                    lily_raise(vm->raiser, lily_BadTypecastError,
-                            "Cannot cast any containing type '^T' to type '^T'.\n",
-                            rhs_reg->type, lhs_reg->type);
-                }
-
-                code_pos += 4;
+                do_o_any_typecast(vm, code+code_pos);
+                code_pos += 5;
                 break;
             case o_create_function:
                 do_o_create_function(vm, code + code_pos);
@@ -2465,22 +2492,19 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_new_instance:
             {
                 do_o_new_instance(vm, code+code_pos);
-                code_pos += 3;
+                code_pos += 4;
                 break;
             }
             case o_match_dispatch:
             {
+                /* This opcode is easy because emitter ensures that the match is
+                   exhaustive. It also writes down the jumps in order (even if
+                   they came out of order). This becomes a simple matter of
+                   going to the jump that's 'variant_id' slots in. */
                 lhs_reg = vm_regs[code[code_pos+2]];
                 int variant_id = lhs_reg->value.instance->variant_id;
-                lily_class *enum_cls = lhs_reg->type->cls;
-                for (i = 0;i < code[code_pos+3];i++) {
-                    if (enum_cls->variant_members[i]->variant_id == variant_id)
-                        break;
-                }
 
-                /* The emitter ensures that the match pattern is exhaustive, so
-                   something must have been found. */
-                code_pos = code[code_pos + 4 + i];
+                code_pos = code[code_pos + 4 + variant_id];
                 break;
             }
             case o_variant_decompose:
@@ -2524,7 +2548,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* Do a negative step to offset falling into o_for_loop. */
                 loop_reg->value.integer =
                         lhs_reg->value.integer - step_reg->value.integer;
-                loop_reg->flags = VAL_IS_PRIMITIVE;
+                loop_reg->flags = VAL_IS_INTEGER;
 
                 code_pos += 7;
                 break;

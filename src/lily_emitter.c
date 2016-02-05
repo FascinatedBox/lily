@@ -47,7 +47,6 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->closed_syms = lily_malloc(sizeof(lily_sym *) * 4);
     emit->transform_table = NULL;
     emit->transform_size = 0;
-    emit->type_block = NULL;
 
     /* This uses any's type as a special default, so it needs that cached. */
     emit->tm->any_class_type = symtab->any_class->type;
@@ -120,11 +119,6 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free(emit->call_values);
     lily_free_type_system(emit->ts);
     lily_free(emit->match_cases);
-    if (emit->type_block) {
-        lily_free_buffer(emit->type_block->types);
-        lily_free_buffer(emit->type_block->spots);
-        lily_free(emit->type_block);
-    }
     lily_free_buffer(emit->patches);
     lily_free(emit->code);
     lily_free(emit);
@@ -406,6 +400,21 @@ static void write_5(lily_emit_state *emit, uint16_t one, uint16_t two,
     emit->code_pos += 5;
 }
 
+static void write_6(lily_emit_state *emit, uint16_t one, uint16_t two,
+        uint16_t three, uint16_t four, uint16_t five, uint16_t six)
+{
+    if ((emit->code_pos + 6) > emit->code_size)
+        small_grow(emit);
+
+    emit->code[emit->code_pos] = one;
+    emit->code[emit->code_pos + 1] = two;
+    emit->code[emit->code_pos + 2] = three;
+    emit->code[emit->code_pos + 3] = four;
+    emit->code[emit->code_pos + 4] = five;
+    emit->code[emit->code_pos + 5] = six;
+    emit->code_pos += 6;
+}
+
 /* This is called from parser to get emitter to write a function call targeting
    a var. The var should always be an __import__ function. */
 void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
@@ -595,8 +604,8 @@ void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
     if (except_sym == NULL)
         except_sym = (lily_sym *)get_storage(emit, except_type);
 
-    write_5(emit, o_except, line_num, 0, (except_var != NULL),
-            except_sym->reg_spot);
+    write_6(emit, o_except, line_num, 0, (except_var != NULL),
+            except_type->cls->id, except_sym->reg_spot);
 
     lily_u16_push(emit->patches, emit->code_pos - 3);
 }
@@ -817,31 +826,6 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
     emit->block = new_block;
 }
 
-static void add_var_chain_to_info(lily_emit_state *emit,
-        lily_register_info *info, lily_var *from_var, lily_var *to_var)
-{
-    while (from_var != to_var) {
-        if ((from_var->flags & VAR_IS_READONLY) == 0) {
-            info[from_var->reg_spot].type = from_var->type;
-            info[from_var->reg_spot].name = from_var->name;
-            info[from_var->reg_spot].line_num = from_var->line_num;
-        }
-
-        from_var = from_var->next;
-    }
-}
-
-static void add_storage_chain_to_info(lily_register_info *info,
-        lily_storage *storage)
-{
-    while (storage && storage->type) {
-        info[storage->reg_spot].type = storage->type;
-        info[storage->reg_spot].name = NULL;
-        info[storage->reg_spot].line_num = -1;
-        storage = storage->next;
-    }
-}
-
 /* This is called when a function-like block is exiting. The function value
    that the block needs is made, the register info is made, and storages are
    freed up. */
@@ -854,19 +838,11 @@ static void finalize_function_block(lily_emit_state *emit,
 
     int register_count = emit->function_block->next_reg_spot;
     lily_storage *storage_iter = function_block->storage_start;
-    lily_register_info *info = lily_malloc(
-            register_count * sizeof(lily_register_info));
     lily_var *var_stop = function_block->function_var;
 
     /* Don't include functions inside of themselves... */
     if (emit->function_depth == 1)
         var_stop = var_stop->next;
-
-    if (emit->function_depth != 1)
-        add_var_chain_to_info(emit, info,
-                emit->symtab->active_import->var_chain, var_stop);
-
-    add_storage_chain_to_info(info, function_block->storage_start);
 
     if (emit->function_depth > 1) {
         /* todo: Reuse the var shells instead of destroying. Seems petty, but
@@ -875,8 +851,10 @@ static void finalize_function_block(lily_emit_state *emit,
         lily_var *var_temp;
         while (var_iter != var_stop) {
             var_temp = var_iter->next;
-            if ((var_iter->flags & VAR_IS_READONLY) == 0)
+            if ((var_iter->flags & VAR_IS_READONLY) == 0) {
+                lily_free(var_iter->name);
                 lily_free(var_iter);
+            }
             else {
                 /* This is a function declared within the current function. Hide it
                    in symtab's old functions since it's going out of scope. */
@@ -897,7 +875,6 @@ static void finalize_function_block(lily_emit_state *emit,
 
     emit->unused_storage_start = function_block->storage_start;
 
-    f->reg_info = info;
     f->reg_count = register_count;
 }
 
@@ -1486,100 +1463,6 @@ static void write_closure_zap(lily_emit_state *emit)
     emit->code[spot] = count;
 }
 
-/* This is called on a type that is not solveable with the current generics
-   info. It will continually pull upvalues down until it has the types needed
-   to solve the type given. */
-static void ensure_solveable_type(lily_emit_state *emit, lily_type *t)
-{
-    int i, num_unsolved;
-
-    num_unsolved = lily_ts_count_unsolved(emit->ts);
-
-    for (i = 0;i < emit->closed_pos;i++) {
-        lily_sym *s = emit->closed_syms[i];
-        if (s && s->type->flags & TYPE_IS_UNRESOLVED) {
-            lily_ts_check(emit->ts, s->type, s->type);
-            if (num_unsolved != lily_ts_count_unsolved(emit->ts)) {
-                if (emit->type_block == NULL) {
-                    emit->type_block = lily_malloc(sizeof(lily_type_block));
-                    emit->type_block->spots = lily_new_u16(4);
-                    emit->type_block->types = lily_new_type(4);
-                }
-                lily_u16_push(emit->type_block->spots, i);
-                lily_type_push(emit->type_block->types, s->type);
-                lily_type *solved_t = lily_ts_resolve(emit->ts, t);
-                if ((solved_t->flags & TYPE_IS_INCOMPLETE) == 0)
-                    break;
-            }
-        }
-    }
-}
-
-/* Lambdas are allowed to have unsolved generics from another scope because they
-   do not declare generics. Unfortunately, this causes a problem. There are
-   certain cases where the lambda needs to know the original type to do generic
-   resolution at runtime.
-
-   ```
-   define and_then[A, B, C](f: function(A => B), g: function(A => C))
-       : function(A => C)
-   {
-       return {|a| g(f(a)) }
-   }
-   ```
-
-   The lambda will have upvalues, but without this it won't know their original
-   types. It won't know what B should solve as, and thus will guess something
-   incorrect.
-
-   This function ensures that in cases like the above, there is solving info
-   so that the B can be determined. */
-static void maybe_setup_type_block_for(lily_emit_state *emit,
-        lily_type *func_type, lily_function_val *f)
-{
-    int adjust = lily_ts_raise_ceiling(emit->ts);
-
-    /* The simplest way to do this is to have a type just solve as itself. */
-    if (func_type->flags & TYPE_IS_UNRESOLVED)
-        lily_ts_check(emit->ts, func_type, func_type);
-
-    int start_pos = (emit->type_block) ? emit->type_block->types->pos : 0;
-    lily_block *block = emit->function_block;
-    lily_var *var_iter = emit->symtab->active_import->var_chain;
-    lily_type *question_type = emit->ts->question_class_type;
-
-    while (var_iter != block->var_start) {
-        if (var_iter->type->flags & TYPE_IS_UNRESOLVED) {
-            lily_type *t = lily_ts_resolve_with(emit->ts, var_iter->type,
-                    question_type);
-            if (t->flags & TYPE_IS_INCOMPLETE)
-                ensure_solveable_type(emit, var_iter->type);
-        }
-        var_iter = var_iter->next;
-    }
-
-    lily_storage *storage_iter = block->storage_start;
-    while (storage_iter) {
-        if (storage_iter->type &&
-            storage_iter->type->flags & TYPE_IS_UNRESOLVED) {
-            lily_type *t = lily_ts_resolve_with(emit->ts, storage_iter->type,
-                    question_type);
-            if (t->flags & TYPE_IS_INCOMPLETE)
-                ensure_solveable_type(emit, storage_iter->type);
-        }
-        storage_iter = storage_iter->next;
-    }
-
-    if (emit->type_block && emit->type_block->types->pos != start_pos) {
-        lily_type_push(emit->type_block->types, NULL);
-        lily_u16_push(emit->type_block->spots, 0);
-        /* Using spot + 1 allows 0 to be seen as an invalid index. */
-        f->type_block_spot = start_pos + 1;
-    }
-
-    lily_ts_lower_ceiling(emit->ts, adjust);
-}
-
 /* This function is called to transform the currently available segment of code
    (emit->block->code_start up to emit->code_pos) into code that will work for
    closures.
@@ -1623,10 +1506,11 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
                transform doesn't write it in again. */
 
             uint16_t linenum = emit->code[start + 1];
-            uint16_t self_reg_spot = emit->code[start + 2];
-            write_3(emit, o_new_instance, linenum, self_reg_spot);
+            uint16_t cls_id = emit->code[start + 2];
+            uint16_t self_reg_spot = emit->code[start + 3];
+            write_4(emit, o_new_instance, linenum, cls_id, self_reg_spot);
 
-            transform_start += 3;
+            transform_start += 4;
 
             /* The closure only needs to hold self if there was a lambda that
                used self (because the lambda doesn't automatically get self). */
@@ -1663,10 +1547,6 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
                 (parent && closure_prop->id <= parent->prop_count)) {
                 closure_prop = lily_add_class_property(emit->symtab, cls,
                     s->type, "*closure", 0);
-                /* Since the class is holding something that definitely needs a
-                   gc marker, make sure that the types of the class are updated
-                   accordingly. */
-                lily_tm_set_circular(cls);
             }
 
             write_5(emit, o_load_class_closure, f->line_num,
@@ -1729,12 +1609,6 @@ static lily_function_val *create_code_block_for(lily_emit_state *emit,
     lily_var *var = function_block->function_var;
     lily_function_val *f = lily_new_native_function_val(class_name,
             var->name);
-
-    if (var->type->flags & TYPE_IS_UNRESOLVED)
-        f->has_generics = 1;
-
-    if (function_block->block_type == block_lambda)
-        maybe_setup_type_block_for(emit, var->type, f);
 
     lily_tie_function(emit->symtab, var, f);
 
@@ -3103,9 +2977,16 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
         ast->result = right_tree->result;
     }
     else if (var_type->cls->id == SYM_CLASS_ANY) {
+        /* Lily's emitter is designed so that it has full type information.
+           However, the vm only knows about classes. Because of that, casts that
+           use subtyping need to be forbidden. */
+        if (cast_type->cls->generic_count != 0)
+            lily_raise(emit->raiser, lily_SyntaxError,
+                    "Casts from 'any' cannot include subtypes.\n");
+
         lily_storage *result = get_storage(emit, cast_type);
 
-        write_4(emit, o_any_typecast, ast->line_num,
+        write_5(emit, o_any_typecast, ast->line_num, cast_type->cls->id,
                 right_tree->result->reg_spot, result->reg_spot);
         ast->result = (lily_sym *)result;
     }
@@ -3586,9 +3467,10 @@ static void write_varargs(lily_emit_state *emit, lily_emit_call_state *cs,
 }
 
 static void write_build_enum(lily_emit_state *emit, lily_emit_call_state *cs,
-        int variant_id)
+        lily_class *variant_cls)
 {
-    write_4(emit, o_build_enum, cs->ast->line_num, variant_id, cs->arg_count);
+    write_5(emit, o_build_enum, cs->ast->line_num, variant_cls->parent->id,
+            variant_cls->variant_id, cs->arg_count);
     write_call_values(emit, cs, 0);
     write_1(emit, 0);
 }
@@ -4039,7 +3921,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
 
         /* This causes all arguments to be written down into an o_build_enum op
            and be drained from the call. */
-        write_build_enum(emit, cs, variant_cls->variant_id);
+        write_build_enum(emit, cs, variant_cls);
 
         end_call(emit, cs);
     }
@@ -4415,7 +4297,8 @@ void lily_emit_update_function_block(lily_emit_state *emit,
         lily_storage *self = get_storage(emit, self_type);
         emit->block->self = self;
 
-        write_3(emit, o_new_instance, *emit->lex_linenum, self->reg_spot);
+        write_4(emit, o_new_instance, *emit->lex_linenum, self_type->cls->id,
+                self->reg_spot);
     }
 }
 
@@ -4453,23 +4336,6 @@ void lily_prepare_main(lily_emit_state *emit, lily_import_entry *import_iter)
 {
     lily_function_val *f = emit->symtab->main_function;
     int register_count = emit->main_block->next_reg_spot;
-    lily_register_info *info = lily_realloc(f->reg_info,
-            register_count * sizeof(lily_register_info));
-
-    /* The vars that are at the toplevel of any module are global vars so that
-       other modules can access them. The emitter has no way of telling what
-       modules have updated...so it loads all of them. */
-    while (import_iter) {
-        add_var_chain_to_info(emit, info, import_iter->var_chain, NULL);
-        import_iter = import_iter->root_next;
-    }
-
-    /* __main__ is different though, because both the vars and the storages
-       that are within __main__ are globals. It stinks that __main__ has global
-       storages, but the values have to go -somewhere-. */
-    add_var_chain_to_info(emit, info, emit->symtab->active_import->var_chain,
-            NULL);
-    add_storage_chain_to_info(info, emit->block->storage_start);
 
     /* Hack: This exists because of a two decisions.
        * One: __main__'s code is a shallow copy of emit->code.
@@ -4484,6 +4350,5 @@ void lily_prepare_main(lily_emit_state *emit, lily_import_entry *import_iter)
 
     f->code = emit->code;
     f->len = emit->code_pos;
-    f->reg_info = info;
     f->reg_count = register_count;
 }

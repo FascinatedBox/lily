@@ -7,6 +7,7 @@
 #include "lily_seed.h"
 
 #include "lily_value.h"
+#include "lily_vm.h"
 
 /***
  *      ____       _
@@ -112,7 +113,8 @@ static void free_ties(lily_symtab *symtab, lily_tie *tie_iter)
 
     while (tie_iter) {
         tie_next = tie_iter->next;
-        lily_deref_raw(tie_iter->type, tie_iter->value);
+        if (tie_iter->type->cls->is_refcounted)
+            lily_deref_raw(tie_iter->type, tie_iter->value);
         lily_free(tie_iter);
         tie_iter = tie_next;
     }
@@ -139,7 +141,6 @@ void lily_free_symtab(lily_symtab *symtab)
     /* __main__ requires a special teardown because it doesn't allocate names
        for debug, and its code is a shallow copy of emitter's code block. */
     lily_function_val *main_function = symtab->main_function;
-    lily_free(main_function->reg_info);
     lily_free(main_function);
 
     lily_free(symtab);
@@ -170,6 +171,7 @@ static lily_tie *make_new_literal_of_type(lily_symtab *symtab, lily_type *type)
 
     lit->flags = ITEM_TYPE_TIE;
     lit->reg_spot = symtab->next_readonly_spot;
+    lit->move_flags = type->cls->move_flags;
     symtab->next_readonly_spot++;
 
     lit->next = symtab->literals;
@@ -201,7 +203,6 @@ lily_tie *lily_get_boolean_literal(lily_symtab *symtab, int64_t int_val)
     if (ret == NULL) {
         ret = make_new_literal(symtab, boolean_cls);
         ret->value.integer = int_val;
-        ret->flags |= VAL_IS_PRIMITIVE;
     }
 
     return ret;
@@ -224,7 +225,6 @@ lily_tie *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
     if (ret == NULL) {
         ret = make_new_literal(symtab, integer_cls);
         ret->value.integer = int_val;
-        ret->flags |= VAL_IS_PRIMITIVE;
     }
 
     return ret;
@@ -247,7 +247,6 @@ lily_tie *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
     if (ret == NULL) {
         ret = make_new_literal(symtab, double_cls);
         ret->value.doubleval = dbl_val;
-        ret->flags |= VAL_IS_PRIMITIVE;
     }
 
     return ret;
@@ -281,6 +280,7 @@ lily_tie *lily_get_string_literal(lily_symtab *symtab, char *want_string)
 
         ret = make_new_literal(symtab, cls);
         ret->value.string = sv;
+        ret->flags |= VAL_IS_STRING;
     }
 
     return ret;
@@ -315,6 +315,7 @@ lily_tie *lily_get_bytestring_literal(lily_symtab *symtab,
 
         ret = make_new_literal(symtab, cls);
         ret->value.string = bv;
+        ret->flags |= VAL_IS_BYTESTRING;
     }
 
     return ret;
@@ -454,7 +455,8 @@ static void tie_function(lily_symtab *symtab, lily_var *func_var,
     tie->type = func_var->type;
     tie->value.function = func_val;
     tie->reg_spot = func_var->reg_spot;
-    tie->flags = ITEM_TYPE_TIE;
+    tie->flags = ITEM_TYPE_TIE | VAL_IS_FUNCTION;
+    tie->move_flags = VAL_IS_FUNCTION;
 
     tie->next = symtab->function_ties;
     symtab->function_ties = tie;
@@ -480,6 +482,7 @@ void lily_tie_value(lily_symtab *symtab, lily_var *var, lily_value *value)
     tie->value = value->value;
     tie->reg_spot = var->reg_spot;
     tie->flags = ITEM_TYPE_TIE;
+    tie->move_flags = VAL_IS_DEREFABLE | var->type->cls->move_flags;
     tie->next = symtab->foreign_ties;
     symtab->foreign_ties = tie;
 }
@@ -519,18 +522,11 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
     new_class->type = type;
     new_class->is_builtin = 1;
     new_class->generic_count = class_seed->generic_count;
-    new_class->gc_marker = class_seed->gc_marker;
     new_class->flags = class_seed->flags;
     new_class->is_refcounted = class_seed->is_refcounted;
-    new_class->eq_func = class_seed->eq_func;
     new_class->destroy_func = class_seed->destroy_func;
     new_class->import = symtab->active_import;
     new_class->dynaload_table = class_seed->dynaload_table;
-
-    /* This is done so that the vm can & the flags of the class as a fast means
-       of determining if something is refcounted. */
-    if (new_class->is_refcounted == 0)
-        new_class->flags |= VAL_IS_PRIMITIVE;
 
     return new_class;
 }
@@ -561,11 +557,10 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     new_class->dynaload_table = NULL;
     new_class->call_chain = NULL;
     new_class->variant_members = NULL;
-    new_class->gc_marker = NULL;
-    new_class->eq_func = NULL;
     new_class->destroy_func = NULL;
     new_class->import = symtab->active_import;
     new_class->all_subtypes = NULL;
+    new_class->move_flags = VAL_IS_INSTANCE;
 
     new_class->id = symtab->next_class_id;
     symtab->next_class_id++;
@@ -787,17 +782,11 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
            definitely needs a marker.
            Classes with 1+ generics are simply not trusted, ever, as one of the
            generic types could be replaced with, say, type 'any'. */
-        if (cls->flags & CLS_ALWAYS_MARK || cls->generic_count != 0)
-            cls->gc_marker = symtab->tuple_class->gc_marker;
-
         cls->destroy_func = symtab->tuple_class->destroy_func;
-        cls->eq_func = symtab->tuple_class->eq_func;
     }
     else {
         /* Enums have the same layout as 'any', and should thus use what 'any'
            uses for things. */
-        cls->gc_marker = symtab->any_class->gc_marker;
-        cls->eq_func = symtab->any_class->eq_func;
         cls->destroy_func = symtab->any_class->destroy_func;
     }
 
@@ -873,12 +862,13 @@ lily_tie *make_variant_default(lily_symtab *symtab, lily_class *variant)
     lily_type *enum_type = variant->parent->self_type;
 
     lily_instance_val *iv = lily_new_instance_val();
+    iv->instance_id = variant->parent->id;
     iv->variant_id = variant->variant_id;
     iv->num_values = 0;
 
     lily_tie *ret = make_new_literal_of_type(symtab, enum_type);
     ret->value.instance = iv;
-    ret->flags |= VAL_IS_LITERAL;
+    ret->move_flags = VAL_IS_ENUM;
 
     return ret;
 }
@@ -918,13 +908,12 @@ void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
         class_iter->default_value = default_value;
     }
 
+    enum_cls->move_flags = VAL_IS_ENUM;
     enum_cls->variant_type = enum_type;
     enum_cls->variant_members = members;
     enum_cls->variant_size = variant_count;
     enum_cls->flags |= CLS_IS_ENUM;
     enum_cls->flags &= ~CLS_IS_CURRENT;
-    enum_cls->gc_marker = symtab->tuple_class->gc_marker;
-    enum_cls->eq_func = symtab->tuple_class->eq_func;
     enum_cls->destroy_func = symtab->tuple_class->destroy_func;
     enum_cls->enum_slot_count = get_enum_slot_count(enum_cls);
 
@@ -944,6 +933,23 @@ void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
  *     |_| |_|\___|_| .__/ \___|_|  |___/
  *                  |_|
  */
+
+/* This loads the symtab's classes into the vm's class table. That class table
+   is used to give classes out to instances and enums that are built. The class
+   information is later used to differentiate different instances. */
+void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm)
+{
+    lily_vm_ensure_class_table(vm, symtab->next_class_id + 1);
+    lily_import_entry *import_iter = symtab->builtin_import;
+    while (import_iter) {
+        lily_class *class_iter = import_iter->class_chain;
+        while (class_iter) {
+            lily_vm_add_class_unchecked(vm, class_iter);
+            class_iter = class_iter->next;
+        }
+        import_iter = import_iter->root_next;
+    }
+}
 
 /* This checks if a package named 'name' has been imported anywhere at all. This
    is used to prevent re-importing something that has already been imported (it

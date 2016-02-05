@@ -7,20 +7,13 @@
 #include "lily_value.h"
 #include "lily_seed.h"
 
-int lily_integer_eq(lily_vm_state *vm, int *depth, lily_value *left,
-        lily_value *right)
-{
-    return (left->value.integer == right->value.integer);
-}
-
 void lily_integer_to_d(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    int64_t integer_val = vm_regs[code[1]]->value.integer;
     lily_value *result_reg = vm_regs[code[0]];
+    double doubleval = (double)vm_regs[code[1]]->value.integer;
 
-    result_reg->flags = VAL_IS_PRIMITIVE;
-    result_reg->value.doubleval = (double)integer_val;
+    lily_move_double(result_reg, doubleval);
 }
 
 void lily_integer_to_s(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -40,8 +33,7 @@ void lily_integer_to_s(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     new_sv->size = strlen(buffer);
     new_sv->refcount = 1;
 
-    lily_raw_value v = {.string = new_sv};
-    lily_move_raw_value(result_reg, v);
+    lily_move_string(result_reg, new_sv);
 }
 
 static const lily_func_seed to_d =
@@ -59,8 +51,6 @@ static lily_class_seed integer_seed =
     0,                  /* generic_count */
     CLS_VALID_HASH_KEY, /* flags */
     &dynaload_start,    /* dynaload_table */
-    NULL,               /* gc_marker */
-    &lily_integer_eq,   /* eq_func */
     NULL,               /* destroy_func */
 };
 

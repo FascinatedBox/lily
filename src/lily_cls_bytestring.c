@@ -9,22 +9,6 @@
 #include "lily_value.h"
 #include "lily_cls_string.h"
 
-int lily_bytestring_eq(lily_vm_state *vm, int *depth, lily_value *left,
-        lily_value *right)
-{
-    int ret;
-
-    if (left->value.string->size == right->value.string->size &&
-        (left->value.string == right->value.string ||
-         memcmp(left->value.string->string, right->value.string->string,
-                left->value.string->size) == 0))
-        ret = 1;
-    else
-        ret = 0;
-
-    return ret;
-}
-
 void lily_bytestring_encode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -57,9 +41,7 @@ void lily_bytestring_encode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     new_sv->string = sv_buffer;
     new_sv->size = byte_buffer_size;
 
-    lily_raw_value v = {.string = new_sv};
-
-    lily_move_raw_value(result, v);
+    lily_move_string(result, new_sv);
 }
 
 static const lily_func_seed dynaload_start =
@@ -74,8 +56,6 @@ static const lily_class_seed bytestring_seed =
     0,                   /* generic_count */
     0,                   /* flags */
     &dynaload_start,     /* dynaload_table */
-    NULL,                /* gc_marker */
-    &lily_bytestring_eq, /* eq_func */
     lily_destroy_string  /* destroy_func */
 };
 
