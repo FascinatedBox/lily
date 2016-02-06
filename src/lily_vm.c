@@ -916,7 +916,7 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code, int code_pos)
     int i, num_values;
     lily_value *result, *key_reg, *value_reg;
 
-    num_values = (intptr_t)(code[code_pos + 2]);
+    num_values = code[code_pos + 2];
     result = vm_regs[code[code_pos + 3 + num_values]];
 
     lily_hash_val *hash_val = lily_new_hash_val();
@@ -940,7 +940,7 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code, int code_pos)
 static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    int num_elems = (intptr_t)(code[2]);
+    int num_elems = code[2];
     lily_value *result = vm_regs[code[3+num_elems]];
 
     lily_list_val *lv = lily_new_list_val();
