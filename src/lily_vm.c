@@ -1,7 +1,5 @@
 #include <stddef.h>
 #include <string.h>
-#include <stdio.h>
-#include <inttypes.h>
 
 #include "lily_alloc.h"
 #include "lily_impl.h"
@@ -10,7 +8,6 @@
 #include "lily_vm.h"
 #include "lily_bind.h"
 #include "lily_parser.h"
-#include "lily_seed.h"
 
 #include "lily_cls_any.h"
 #include "lily_cls_hash.h"
