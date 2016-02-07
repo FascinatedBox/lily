@@ -1822,7 +1822,7 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
     }
     else if (v->flags & VAL_IS_FILE) {
         lily_file_val *fv = v->value.file;
-        const char *state = fv->is_open ? "open" : "closed";
+        const char *state = fv->inner_file ? "open" : "closed";
         lily_msgbuf_add_fmt(msgbuf, "<%s file at %p>", state, fv);
     }
     else if (v->flags & VAL_IS_ENUM) {

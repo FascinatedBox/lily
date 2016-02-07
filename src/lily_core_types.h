@@ -306,9 +306,10 @@ typedef struct lily_instance_val_ {
 
 typedef struct lily_file_val_ {
     uint32_t refcount;
-    uint32_t is_open;
-    uint32_t read_ok;
-    uint32_t write_ok;
+    uint8_t read_ok;
+    uint8_t write_ok;
+    uint16_t pad;
+    uint32_t pad2;
     FILE *inner_file;
 } lily_file_val;
 

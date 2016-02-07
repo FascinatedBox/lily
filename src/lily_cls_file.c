@@ -7,25 +7,14 @@
 #include "lily_value.h"
 #include "lily_seed.h"
 
-lily_file_val *lily_new_file_val(FILE *inner_file,
-        char mode_ch)
+lily_file_val *lily_new_file_val(FILE *inner_file, char mode_ch)
 {
     lily_file_val *filev = lily_malloc(sizeof(lily_file_val));
 
     filev->refcount = 1;
     filev->inner_file = inner_file;
-    filev->is_open = (inner_file != NULL);
-
-    int read_ok = 1;
-    int write_ok = 1;
-
-    if (mode_ch == 'w')
-        read_ok = 0;
-    else if (mode_ch == 'r')
-        write_ok = 0;
-
-    filev->read_ok = read_ok;
-    filev->write_ok = write_ok;
+    filev->read_ok = (mode_ch == 'r');
+    filev->write_ok = (mode_ch == 'w');
 
     return filev;
 }
@@ -34,7 +23,7 @@ void lily_destroy_file(lily_value *v)
 {
     lily_file_val *filev = v->value.file;
 
-    if (filev->is_open)
+    if (filev->inner_file)
         fclose(filev->inner_file);
 
     lily_free(filev);
@@ -66,7 +55,6 @@ void lily_file_close(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     if (filev->inner_file != NULL) {
         fclose(filev->inner_file);
         filev->inner_file = NULL;
-        filev->is_open = 0;
     }
 }
 
@@ -93,9 +81,6 @@ void lily_file_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     lily_file_val *filev = lily_new_file_val(f, mode_ch);
 
-    filev->inner_file = f;
-    filev->is_open = 1;
-    filev->refcount = 1;
     lily_move_file(result_reg, filev);
 }
 
