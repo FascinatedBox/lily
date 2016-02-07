@@ -15,6 +15,7 @@ lily_file_val *lily_new_file_val(FILE *inner_file, char mode_ch)
     filev->inner_file = inner_file;
     filev->read_ok = (mode_ch == 'r');
     filev->write_ok = (mode_ch == 'w');
+    filev->is_builtin = 0;
 
     return filev;
 }
@@ -23,7 +24,7 @@ void lily_destroy_file(lily_value *v)
 {
     lily_file_val *filev = v->value.file;
 
-    if (filev->inner_file)
+    if (filev->inner_file && filev->is_builtin == 0)
         fclose(filev->inner_file);
 
     lily_free(filev);
@@ -53,7 +54,8 @@ void lily_file_close(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_file_val *filev = vm_regs[code[1]]->value.file;
 
     if (filev->inner_file != NULL) {
-        fclose(filev->inner_file);
+        if (filev->is_builtin == 0)
+            fclose(filev->inner_file);
         filev->inner_file = NULL;
     }
 }

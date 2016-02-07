@@ -308,7 +308,8 @@ typedef struct lily_file_val_ {
     uint32_t refcount;
     uint8_t read_ok;
     uint8_t write_ok;
-    uint16_t pad;
+    uint8_t is_builtin;
+    uint8_t pad1;
     uint32_t pad2;
     FILE *inner_file;
 } lily_file_val;
