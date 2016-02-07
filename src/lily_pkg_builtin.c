@@ -180,10 +180,13 @@ static void builtin_var_loader(lily_parse_state *parser, lily_var *var)
         mode = 'w';
     }
 
-    lily_raw_value raw = {.file = lily_new_file_val(source, mode)};
+    lily_file_val *file_val = lily_new_file_val(source, mode);
+    /* This prevents std* streams from being closed. */
+    file_val->is_builtin = 1;
+
     lily_value v;
     v.flags = 0;
-    v.value = raw;
+    v.value = (lily_raw_value)file_val;
 
     lily_tie_value(parser->symtab, var, &v);
 }
