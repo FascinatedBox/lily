@@ -544,7 +544,7 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
 
     strcpy(name_copy, name);
 
-    new_class->flags = CLS_IS_CURRENT;
+    new_class->flags = 0;
     new_class->is_refcounted = 1;
     new_class->is_builtin = 0;
     new_class->type = NULL;
@@ -789,8 +789,6 @@ void lily_finish_class(lily_symtab *symtab, lily_class *cls)
            uses for things. */
         cls->destroy_func = symtab->any_class->destroy_func;
     }
-
-    cls->flags &= ~CLS_IS_CURRENT;
 }
 
 /***
@@ -913,7 +911,6 @@ void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
     enum_cls->variant_members = members;
     enum_cls->variant_size = variant_count;
     enum_cls->flags |= CLS_IS_ENUM;
-    enum_cls->flags &= ~CLS_IS_CURRENT;
     enum_cls->destroy_func = symtab->tuple_class->destroy_func;
     enum_cls->enum_slot_count = get_enum_slot_count(enum_cls);
 
