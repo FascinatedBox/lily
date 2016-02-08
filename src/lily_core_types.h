@@ -500,14 +500,6 @@ typedef struct lily_options_ {
    that scoped variants are accessed using 'enum::variant', while normal
    variants can use just 'variant'. */
 #define CLS_ENUM_IS_SCOPED 0x02000
-/* This class is currently being processed. If a class with this type is put
-   into a container, then the class and the container are assumed to be always
-   circular.
-   Note: This method is not foolproof. If a class has a method that contains a
-   container of the class, the class is designated as circular. However, it
-   prevents having to 'rewalk' types to adjust their circularity later, which is
-   believed to be prohibitively expensive. */
-#define CLS_IS_CURRENT     0x04000
 
 /* TYPE_* defines are for lily_type.
    Since types are not usable as values, they do not need to start where
