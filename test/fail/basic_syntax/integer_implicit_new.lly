@@ -1,0 +1,6 @@
+#[
+SyntaxError: Class 'integer' has no ::new to implicitly use.
+    from integer_implicit_new.lly:6
+]#
+
+var v = integer(10)

@@ -16,7 +16,7 @@ class Point2D(x: integer, y: integer)
 }
 ```
 
-One of the nice things about Lily is that you don't need to declare variables in one area, and then create a constructor in another area. Instead, the statements inside the body of the class are what is used to construct it. The body of the class becomes the constructor, and can be used through `<classname>::new`. In this case, `Point2D::new`.
+One of the nice things about Lily is that you don't need to declare variables in one area, and then create a constructor in another area. Instead, the statements inside the body of the class are what is used to construct it. The body of the class becomes a constructor, and the constructor's name is `new`. Thus, one can use the constructor of Point2D through `Point2D::new`.
 
 Lily's class members are referenced using the `@` prefix. For those familiar with more object-oriented languages, `@x` is synonymous with `this.x` or `self.x`.
 
@@ -40,6 +40,13 @@ define swap_point_xy(input: Point2D)
 ```
 
 Since both methods of a class, and parameters of a class are usable through a dot syntax, Lily imposes the restriction that a class parameter and a class method cannot both share the same name.
+
+Another way to refer to the constructor of a class is through the class name itself. This is useful in cases where you'd like to make several items of a class, but don't want to write `::new` repeatedly. You can thus also write:
+
+```
+var v = Point2D(10, 20)
+var points = [Point2D(1, 2), Point2D(3, 4)]
+```
 
 # Inheritance
 
