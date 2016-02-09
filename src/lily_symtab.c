@@ -571,6 +571,16 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     return new_class;
 }
 
+/* Use this to create a new class that represents an enum. */
+lily_class *lily_new_enum(lily_symtab *symtab, char *name)
+{
+    lily_class *new_class = lily_new_class(symtab, name);
+    new_class->flags |= CLS_IS_ENUM;
+    new_class->move_flags = VAL_IS_ENUM;
+
+    return new_class;
+}
+
 /* This creates a new type but doesn't add it to the 'all_subtypes' field of the
    given class (that's left for the caller to do). */
 static lily_type *make_new_type(lily_class *cls)

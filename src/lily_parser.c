@@ -1109,7 +1109,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser,
        'ensure_valid_class' is absent intentionally, as it is assumed the caller
        will only provide a proper, non-clashing name. */
     lily_enum_seed *enum_seed = (lily_enum_seed *)seed;
-    lily_class *enum_cls = lily_new_class(parser->symtab, seed->name);
+    lily_class *enum_cls = lily_new_enum(parser->symtab, seed->name);
 
     /* HACK: The Option and string classes both have builtin methods that need
        to create Option instances. Those instances need to be tagged with an id.
@@ -1386,14 +1386,38 @@ static int keyword_by_name(char *name)
 
 #define ST_DONE                 5
 #define ST_BAD_TOKEN            6
+/* Normally, the next token is pulled up after an expression_* helper has been
+   called. If this is or'd onto the state, then it's assumed that the next token
+   has already been pulled up. */
+#define ST_FORWARD              0x8
 
-/* This handles expressions like `<type>::member`. */
-static void expression_static_call(lily_parse_state *parser, lily_class *cls)
+/* This handles when a class is seen within an expression. Any import qualifier
+   has already been scanned and is unimportant. The key here is to figure out if
+   this is `<class>::member` or `<class>()`. The first is a static access, while
+   the latter is an implicit `<class>::new()`. */
+static void expression_class_access(lily_parse_state *parser, lily_class *cls,
+        int *state)
 {
     lily_lex_state *lex = parser->lex;
-    NEED_NEXT_TOK(tk_colon_colon)
-    NEED_NEXT_TOK(tk_word)
+    lily_lexer(lex);
+    if (lex->token != tk_colon_colon) {
+        if (cls->flags & CLS_IS_ENUM)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Cannot implicitly use the constructor of an enum.\n");
 
+        lily_item *target = lily_find_or_dl_member(parser, cls, "new");
+        if (target == NULL)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Class '%s' has no ::new to implicitly use.\n", cls->name);
+
+        lily_ast_push_static_func(parser->ast_pool, (lily_var *)target);
+        *state = ST_FORWARD | ST_WANT_OPERATOR;
+        return;
+    }
+
+    *state = ST_WANT_OPERATOR;
+
+    NEED_NEXT_TOK(tk_word)
     lily_item *item = lily_find_or_dl_member(parser, cls, lex->label);
 
     /* Breaking this down:
@@ -1472,12 +1496,12 @@ static lily_sym *parse_special_keyword(lily_parse_state *parser, int key_id)
 static void dispatch_word_as_class(lily_parse_state *parser, lily_class *cls,
         int *state)
 {
-    if (cls->flags & CLS_IS_VARIANT)
+    if (cls->flags & CLS_IS_VARIANT) {
         lily_ast_push_variant(parser->ast_pool, cls);
+        *state = ST_WANT_OPERATOR;
+    }
     else
-        expression_static_call(parser, cls);
-
-    *state = ST_WANT_OPERATOR;
+        expression_class_access(parser, cls, state);
 }
 
 /* This function is to be called when 'func' could be a class method or just a
@@ -1888,6 +1912,8 @@ static void expression_raw(lily_parse_state *parser, int state)
         else if (state == ST_BAD_TOKEN)
             lily_raise(parser->raiser, lily_SyntaxError,
                     "Unexpected token '%s'.\n", tokname(lex->token));
+        else if (state & ST_FORWARD)
+            state &= ~ST_FORWARD;
         else
             lily_lexer(lex);
     }
@@ -3253,7 +3279,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
     NEED_CURRENT_TOK(tk_word)
     ensure_valid_class(parser, lex->label);
 
-    lily_class *enum_cls = lily_new_class(parser->symtab, lex->label);
+    lily_class *enum_cls = lily_new_enum(parser->symtab, lex->label);
 
     lily_lexer(lex);
     int save_generics = parser->emit->block->generic_count;
