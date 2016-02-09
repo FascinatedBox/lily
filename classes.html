@@ -70,7 +70,7 @@
 }
 </code></pre>
 
-<p>One of the nice things about Lily is that you don't need to declare variables in one area, and then create a constructor in another area. Instead, the statements inside the body of the class are what is used to construct it. The body of the class becomes the constructor, and can be used through <code>&lt;classname&gt;::new</code>. In this case, <code>Point2D::new</code>.</p>
+<p>One of the nice things about Lily is that you don't need to declare variables in one area, and then create a constructor in another area. Instead, the statements inside the body of the class are what is used to construct it. The body of the class becomes a constructor, and the constructor's name is <code>new</code>. Thus, one can use the constructor of Point2D through <code>Point2D::new</code>.</p>
 <p>Lily's class members are referenced using the <code>@</code> prefix. For those familiar with more object-oriented languages, <code>@x</code> is synonymous with <code>this.x</code> or <code>self.x</code>.</p>
 <p>Class members, such as increase, will automatically get an instance of the current class as their first parameter, and can thus refer to class members without explicitly listing self.</p>
 <p>Here are some examples of the newly-created class</p>
@@ -89,6 +89,11 @@ define swap_point_xy(input: Point2D)
 </code></pre>
 
 <p>Since both methods of a class, and parameters of a class are usable through a dot syntax, Lily imposes the restriction that a class parameter and a class method cannot both share the same name.</p>
+<p>Another way to refer to the constructor of a class is through the class name itself. This is useful in cases where you'd like to make several items of a class, but don't want to write <code>::new</code> repeatedly. You can thus also write:</p>
+<pre><code>var v = Point2D(10, 20)
+var points = [Point2D(1, 2), Point2D(3, 4)]
+</code></pre>
+
 <h1>Inheritance</h1>
 <p>A class can opt to inherit from one, and only one class. Currently, the only built-in class that can be inherited from is Exception. </p>
 <p>Here's an example of how to inherit from the previously-declared class:</p>

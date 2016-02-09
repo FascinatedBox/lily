@@ -59,10 +59,10 @@
 <h1>Generics</h1>
 <p>Generics offer a way to define a single function or class that is able to handle various kinds of data types (as long as they are consistent. Lily's generics are done through 'parametric polymorphism'. Think of it as an algebra of sorts, but for types.</p>
 <p>Let's start off with a simple example:</p>
-<pre><code>define show_elements[A](l: list[A])
+<pre><code>define print_elements[A](l: list[A])
 {
     for i in 0...l.size() - 1:
-        show(l[i])
+        print(l[i])
 }
 </code></pre>
 
@@ -71,17 +71,17 @@
 <pre><code># Expected: list[A]
 # Got: list[integer]
 # Valid: A is always integer
-show_elements([1, 2, 3])
+print_elements([1, 2, 3])
 
 # Invalid: Expected list[A], but got integer
-# show_elements(10)
+# print_elements(10)
 
 # This next example might seem as if it would fail.
 # However, the 'default to any' occurs before the type check.
 # Expected: list[A]
 # Got: list[any]
 # Valid: A is always any
-show_elements([1, &quot;2&quot;, [3]])
+print_elements([1, &quot;2&quot;, [3]])
 </code></pre>
 
 <p>A more interesting example can be found in the list::push function. This is defined as <code>function(list[A], A)</code>. That type is what is used to prevent elements of the wrong type from being added to a list. Here are some examples of it:</p>

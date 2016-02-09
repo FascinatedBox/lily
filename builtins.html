@@ -85,13 +85,6 @@
 <p><code>from &lt;filename&gt;:&lt;linenum&gt;: in &lt;function&gt;</code>.</p>
 <p>If it comes from foreign code (such as <code>list::select</code>), then it takes the form of</p>
 <p><code>from [C]: in &lt;function&gt;</code>.</p>
-<p><code>show[A](value: A)</code></p>
-<p>This function prints a value to the current stdout (or the server if running from Apache). Instead of using the internal stringification routine that everything else does, it descends into values.</p>
-<p>For lists, hashes, and tuples, it will print every value within.</p>
-<p>For type any and enums, it will print the contents.</p>
-<p>For native functions, it will print a "readable" output of the function's bytecode. This is handy for debugging if something is running incorrectly because of an emitting error, or a vm error.</p>
-<p>For classes, it will print the contents of the class, as well as if the contents are private or protected. For classes that inherit from another, it will tell where the property came from.</p>
-<p>This function is aware of circular references, and will write '(circular)' instead of printing a value in that case.</p>
 <h1>Variables</h1>
 <p><code>stdout: file</code></p>
 <p>This is a wrapper around C's stdout.</p>
