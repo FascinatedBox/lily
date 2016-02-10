@@ -41,15 +41,15 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->patches = lily_new_u16(4);
     emit->match_cases = lily_malloc(sizeof(int) * 4);
     emit->tm = lily_new_type_maker();
-    emit->ts = lily_new_type_system(emit->tm, symtab->any_class->type,
+    emit->ts = lily_new_type_system(emit->tm, symtab->dynamic_class->type,
             symtab->question_class->type);
     emit->code = lily_malloc(sizeof(uint16_t) * 32);
     emit->closed_syms = lily_malloc(sizeof(lily_sym *) * 4);
     emit->transform_table = NULL;
     emit->transform_size = 0;
 
-    /* This uses any's type as a special default, so it needs that cached. */
-    emit->tm->any_class_type = symtab->any_class->type;
+    /* tm uses Dynamic's type as a special default, so it needs that. */
+    emit->tm->dynamic_class_type = symtab->dynamic_class->type;
 
     emit->call_values = lily_malloc(sizeof(lily_sym *) * 8);
     emit->call_state = NULL;
@@ -1630,63 +1630,6 @@ static lily_function_val *create_code_block_for(lily_emit_state *emit,
 }
 
 /***
- *      ____      _               _
- *     |  _ \ ___| |__   _____  _(_)_ __   __ _
- *     | |_) / _ \ '_ \ / _ \ \/ / | '_ \ / _` |
- *     |  _ <  __/ |_) | (_) >  <| | | | | (_| |
- *     |_| \_\___|_.__/ \___/_/\_\_|_| |_|\__, |
- *                                        |___/
- */
-
-/** The type 'any' is a special type: It is able to be assigned any value,
-    acting as a container of sorts. Because of how accepting it is, it is often
-    used when there is no true lowest common type. This is common enough that it
-    is termed 'defaulting to any'.
-
-    Another problem is when a variant needs to be completed. Some variants do
-    not have as many generics as their parent. In such cases, the variant will
-    need to fill those uncertain slots with type 'any'. **/
-
-/* 'ast' is some tree that isn't complete (it's a variant). Attempt to finish it
-   off. 'infer_type' may provide some extra inference information, or be NULL.
-   If there are any incomplete generics within the variant type, */
-static void rebox_variant_to_enum(lily_emit_state *emit, lily_ast *ast,
-        lily_type *infer_type)
-{
-    lily_type *storage_type = ast->padded_variant_type;
-
-    if (storage_type->flags & TYPE_IS_INCOMPLETE) {
-        lily_type *unify_type = lily_ts_unify(emit->ts, storage_type,
-                infer_type);
-        if (unify_type)
-            storage_type = unify_type;
-    }
-
-    if (storage_type->flags & TYPE_IS_INCOMPLETE)
-        storage_type = lily_tm_make_anyd_copy(emit->tm, storage_type);
-
-    lily_storage *s = get_storage(emit, storage_type);
-
-    emit->code[ast->variant_result_pos] = s->reg_spot;
-    ast->result = (lily_sym *)s;
-}
-
-/* This will rewrite 'ast' so that the resulting storage is of type 'any'. If
-   'ast' is incomplete (a variant), then it is finished without extra type
-   information before being placed into a storage of type 'any'. */
-static void rebox_to_any(lily_emit_state *emit, lily_ast *ast)
-{
-    if (ast->result == NULL)
-        rebox_variant_to_enum(emit, ast, NULL);
-
-    lily_storage *s = get_storage(emit, emit->tm->any_class_type);
-    write_4(emit, o_box_assign, ast->line_num, ast->result->reg_spot,
-            s->reg_spot);
-
-    ast->result = (lily_sym *)s;
-}
-
-/***
  *      __  __       _       _
  *     |  \/  | __ _| |_ ___| |__
  *     | |\/| |/ _` | __/ __| '_ \
@@ -1831,7 +1774,7 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_ast_pool *ap)
     eval_enforce_value(emit, ast, NULL, "Match expression has no value.\n");
 
     if ((ast->result->type->cls->flags & CLS_IS_ENUM) == 0 ||
-        ast->result->type->cls->id == SYM_CLASS_ANY) {
+        ast->result->type->cls->id == SYM_CLASS_DYNAMIC) {
         lily_raise(emit->raiser, lily_SyntaxError,
                 "Match expression is not an enum value.\n");
     }
@@ -2194,15 +2137,6 @@ static int assign_optimize_check(lily_ast *ast)
             can_optimize = 0;
             break;
         }
-
-        /* If the left is an any and the right is not, then don't reduce.
-           Any assignment is written so that it puts the right side into a
-           container. */
-        if (ast->left->result->type->cls->id == SYM_CLASS_ANY &&
-            right_tree->result->type->cls->id != SYM_CLASS_ANY) {
-            can_optimize = 0;
-            break;
-        }
     } while (0);
 
     return can_optimize;
@@ -2214,23 +2148,43 @@ static int type_matchup(lily_emit_state *emit, lily_type *want_type,
         lily_ast *right)
 {
     int ret = 1;
-    if (want_type->cls->id == SYM_CLASS_ANY)
-        ;
-    else {
-        lily_type *right_type;
-        if (right->result)
-            right_type = right->result->type;
-        else
-            right_type = right->padded_variant_type;
+    lily_type *right_type;
+    if (right->result)
+        right_type = right->result->type;
+    else
+        right_type = right->padded_variant_type;
 
-        if (want_type->cls->id != SYM_CLASS_GENERIC &&
-            lily_ts_type_greater_eq(emit->ts, want_type, right_type))
-            ret = 1;
-        else
-            ret = 0;
-    }
+    if (want_type->cls->id != SYM_CLASS_GENERIC &&
+        lily_ts_type_greater_eq(emit->ts, want_type, right_type))
+        ret = 1;
+    else
+        ret = 0;
 
     return ret;
+}
+
+/* 'ast' is some tree that isn't complete (it's a variant). Attempt to finish it
+   off. 'infer_type' may provide some extra inference information, or be NULL.
+   Generics that don't have a type get the type Dynamic as a fallback. */
+static void rebox_variant_to_enum(lily_emit_state *emit, lily_ast *ast,
+        lily_type *infer_type)
+{
+    lily_type *storage_type = ast->padded_variant_type;
+
+    if (storage_type->flags & TYPE_IS_INCOMPLETE) {
+        lily_type *unify_type = lily_ts_unify(emit->ts, storage_type,
+                infer_type);
+        if (unify_type)
+            storage_type = unify_type;
+    }
+
+    if (storage_type->flags & TYPE_IS_INCOMPLETE)
+        storage_type = lily_tm_make_dynamicd_copy(emit->tm, storage_type);
+
+    lily_storage *s = get_storage(emit, storage_type);
+
+    emit->code[ast->variant_result_pos] = s->reg_spot;
+    ast->result = (lily_sym *)s;
 }
 
 /***
@@ -2961,39 +2915,31 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
 
 static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_type *cast_type = ast->arg_start->next_arg->typecast_type;
+    lily_type *boxed_type = ast->arg_start->next_arg->typecast_type;
     lily_ast *right_tree = ast->arg_start;
+    lily_type *cast_type = boxed_type->subtypes[0];
+
     eval_tree(emit, right_tree, cast_type);
 
     lily_type *var_type = right_tree->result->type;
 
-    if (cast_type == var_type ||
-        lily_ts_type_greater_eq(emit->ts, cast_type, var_type))
-        ast->result = (lily_sym *)right_tree->result;
-    else if (cast_type->cls->id == SYM_CLASS_ANY) {
-        /* This function automatically fixes right_tree's result to the
-           new any value. */
-        rebox_to_any(emit, right_tree);
-        ast->result = right_tree->result;
-    }
-    else if (var_type->cls->id == SYM_CLASS_ANY) {
+    if (var_type->cls->id == SYM_CLASS_DYNAMIC) {
         /* Lily's emitter is designed so that it has full type information.
            However, the vm only knows about classes. Because of that, casts that
            use subtyping need to be forbidden. */
         if (cast_type->cls->generic_count != 0)
             lily_raise(emit->raiser, lily_SyntaxError,
-                    "Casts from 'any' cannot include subtypes.\n");
+                    "Casts from Dynamic cannot include subtypes.\n");
 
-        lily_storage *result = get_storage(emit, cast_type);
+        lily_storage *result = get_storage(emit, boxed_type);
 
-        write_5(emit, o_any_typecast, ast->line_num, cast_type->cls->id,
+        write_5(emit, o_dynamic_cast, ast->line_num, cast_type->cls->id,
                 right_tree->result->reg_spot, result->reg_spot);
         ast->result = (lily_sym *)result;
     }
-    else {
+    else
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
                 "Cannot cast type '^T' to type '^T'.\n", var_type, cast_type);
-    }
 }
 
 static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
@@ -3133,7 +3079,7 @@ static lily_type *partial_eval(lily_emit_state *, lily_ast *, lily_type *,
     their members. This is unfortunate, because it means that certain cases will
     not work as well as they could. Another problem with the current unification
     is that it only works for enums and variants. Anything else gets sent
-    straight to type any. It's unfortunate. **/
+    straight to type Dynamic. It's unfortunate. **/
 
 /* This is called when a static list or hash has one or more variant values. It
    walks over each value and determines if the value is a variant. Now that the
@@ -3162,7 +3108,7 @@ static void ensure_valid_key_type(lily_emit_state *emit, lily_ast *ast,
         lily_type *key_type)
 {
     if (key_type == NULL || key_type->cls->id == SYM_CLASS_QUESTION)
-        key_type = emit->symtab->any_class->type;
+        key_type = emit->symtab->dynamic_class->type;
 
     if (key_type == NULL || (key_type->cls->flags & CLS_VALID_HASH_KEY) == 0)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
@@ -3170,13 +3116,13 @@ static void ensure_valid_key_type(lily_emit_state *emit, lily_ast *ast,
 }
 
 /* Build an empty something. It's an empty hash only if the caller wanted a
-   hash. In any other case, it becomes an empty list. Default to any where it's
-   needed. The purpose of this function is to make it so list and hash build do
-   not need to worry about missing information. */
+   hash. In any other case, it becomes an empty list. Use Dynamic as a default
+   where it's needed. The purpose of this function is to make it so list and
+   hash build do not need to worry about missing information. */
 static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
-    lily_type *any_type = emit->symtab->any_class->type;
+    lily_type *dynamic_type = emit->symtab->dynamic_class->type;
     lily_class *cls;
     int num, op;
 
@@ -3186,7 +3132,7 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
         ensure_valid_key_type(emit, ast, key_type);
 
         if (value_type == NULL || value_type->cls->id == SYM_CLASS_QUESTION)
-            value_type = any_type;
+            value_type = dynamic_type;
 
         lily_tm_add(emit->tm, key_type);
         lily_tm_add(emit->tm, value_type);
@@ -3202,7 +3148,7 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
             elem_type = expect->subtypes[0];
         }
         else
-            elem_type = any_type;
+            elem_type = dynamic_type;
 
         lily_tm_add(emit->tm, elem_type);
 
@@ -3273,7 +3219,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
 
     if (found_variant_or_enum) {
         if (value_type->flags & TYPE_IS_INCOMPLETE)
-            value_type = lily_tm_make_anyd_copy(emit->tm, value_type);
+            value_type = lily_tm_make_dynamicd_copy(emit->tm, value_type);
 
         rebox_enum_variant_values(emit, ast, value_type, 1);
     }
@@ -3320,7 +3266,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
 
     if (found_variant) {
         if (elem_type->flags & TYPE_IS_INCOMPLETE)
-            elem_type = lily_tm_make_anyd_copy(emit->tm, elem_type);
+            elem_type = lily_tm_make_dynamicd_copy(emit->tm, elem_type);
 
         rebox_enum_variant_values(emit, ast, elem_type, 0);
     }
@@ -3707,9 +3653,10 @@ static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *c
     for (arg = ast->arg_start->next_arg;arg != NULL;arg = arg->next_arg)
         eval_call_arg(emit, cs, arg);
 
-    /* All arguments have been collected and run. If there are any incomplete solutions
-       to a generic (ex: Option[?]), then default those incomplete inner types to any.
-       Incomplete toplevel types (just ?) are left alone. */
+    /* All arguments have been collected and run. If there are any incomplete
+       solutions to a generic (ex: Option[?]), then default those incomplete
+       inner types to Dynamic. Incomplete toplevel types (just ?) are left
+       alone. */
     lily_ts_default_incomplete_solves(emit->ts);
 
     if (cs->have_bare_variants)
@@ -4077,11 +4024,6 @@ static void eval_raw(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         eval_self(emit, ast);
     else if (ast->tree_type == tree_upvalue)
         eval_upvalue(emit, ast);
-
-    if (expect &&
-        expect->cls->id == SYM_CLASS_ANY &&
-        (ast->result == NULL || ast->result->type != expect))
-        rebox_to_any(emit, ast);
 }
 
 /* Evaluate 'ast', using 'expect' for inference. If 'ast' produces an incomplete
@@ -4100,9 +4042,9 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
 }
 
 /* This is used for doing an eval but with an interest in not defaulting any
-   variant types (unless expect is any). The result of this function is either
-   the padded enum type, or the type of any result. Additionally, if a variant
-   is seen, then *found_variant is set to 1. */
+   variant types (unless expect is Dynamic). The result of this function is
+   either the padded enum type, or the type of any result. Additionally, if a
+   variant is seen, then *found_variant is set to 1. */
 static lily_type *partial_eval(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect, uint16_t *found_variant)
 {

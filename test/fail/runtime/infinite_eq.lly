@@ -4,7 +4,7 @@ Traceback:
     from infinite_eq.lly:9: in __main__
 ]#
 
-var lso: list[any] = [1, 2, 3]
-lso[0] = lso
+var lso = [Dynamic(1), Dynamic(2), Dynamic(3)]
+lso[0] = Dynamic(lso)
 if lso == lso:
 	print("This will never happen.\n")

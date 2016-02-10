@@ -960,7 +960,7 @@ static const lily_func_seed find =
     {&endswith, "find", dyna_function, "(string, string):Option[integer]", lily_string_find};
 
 static const lily_func_seed format =
-    {&find, "format", dyna_function, "(string, any...):string", lily_string_format};
+    {&find, "format", dyna_function, "(string, Dynamic...):string", lily_string_format};
 
 static const lily_func_seed htmlencode =
     {&format, "htmlencode", dyna_function, "(string):string", lily_string_htmlencode};

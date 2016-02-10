@@ -3,4 +3,4 @@ SyntaxError: Cannot anonymously call resulting type 'integer'.
     from bad_anon_call.lly:6
 ]#
 
-10.@(integer)()
+(10)()

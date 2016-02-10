@@ -9,11 +9,12 @@
 #include "lily_bind.h"
 #include "lily_parser.h"
 
-#include "lily_cls_any.h"
+#include "lily_cls_dynamic.h"
 #include "lily_cls_hash.h"
 #include "lily_cls_function.h"
 #include "lily_cls_list.h"
 #include "lily_cls_string.h"
+#include "lily_cls_option.h"
 
 extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
 
@@ -334,7 +335,7 @@ void lily_free_vm(lily_vm_state *vm)
       destroyed. It's -very- important that these registers be marked as nil so
       that prep_registers will not try to deref a value that has been destroyed
       by the gc.
-   4: Finally, destroy the lists, anys, etc. that stage 2 didn't clear.
+   4: Finally, destroy any values that stage 2 didn't clear.
       Absolutely nothing is using these now, so it's safe to destroy them. */
 static void invoke_gc(lily_vm_state *vm)
 {
@@ -390,7 +391,7 @@ static void invoke_gc(lily_vm_state *vm)
         }
     }
 
-    /* Stage 4: Delete the lists/anys/etc. that stage 2 didn't delete.
+    /* Stage 4: Delete the values that stage 2 didn't delete.
                 Nothing is using them anymore. Also, sort entries into those
                 that are living and those that are no longer used. */
     i = 0;
@@ -436,8 +437,8 @@ void lily_gc_mark(int pass, lily_value *v)
             lily_gc_list_marker(pass, v);
         else if (v->flags & VAL_IS_HASH)
             lily_gc_hash_marker(pass, v);
-        else if (v->flags & VAL_IS_ANY)
-            lily_gc_any_marker(pass, v);
+        else if (v->flags & VAL_IS_DYNAMIC)
+            lily_gc_dynamic_marker(pass, v);
         else if (v->flags & VAL_IS_FUNCTION)
             lily_gc_function_marker(pass, v);
     }
@@ -729,7 +730,7 @@ void lily_process_format_string(lily_vm_state *vm, uint16_t *code)
 
             fmt_index++;
 
-            lily_value *arg = vararg_lv->elems[arg_pos]->value.any->inner_value;
+            lily_value *arg = vararg_lv->elems[arg_pos]->value.dynamic->inner_value;
             int arg_flags = arg->flags;
             lily_raw_value val = arg->value;
 
@@ -778,27 +779,6 @@ void lily_builtin_printfmt(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
 /** These functions handle various opcodes for the vm. The thinking is to try to
     keep the vm exec function "small" by kicking out big things. **/
-
-/* This handles assignments that target either 'any' or an enum. The right side
-   may or may not be an any/enum. */
-static void do_o_box_assign(lily_vm_state *vm, lily_value *lhs_reg,
-        lily_value *rhs_reg)
-{
-    if (rhs_reg->flags & VAL_IS_ANY)
-        /* In this case, don't box the any because then there's an 'any' inside
-           of another 'any'. */
-        lily_assign_value(lhs_reg, rhs_reg);
-    else {
-        if (rhs_reg->flags & VAL_IS_DEREFABLE)
-            rhs_reg->value.generic->refcount++;
-
-        lily_any_val *lhs_any = lily_new_any_val();
-
-        *(lhs_any->inner_value) = *rhs_reg;
-        lily_move_any(lhs_reg, lhs_any);
-        lily_tag_value(vm, lhs_reg);
-    }
-}
 
 /* Internally, classes are really just tuples. So assigning them is like
    accessing a tuple, except that the index is a raw int instead of needing to
@@ -1094,16 +1074,14 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     vm->call_chain->build_value = iv;
 }
 
-
-
-void do_o_any_typecast(lily_vm_state *vm, uint16_t *code)
+void do_o_dynamic_cast(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_class *cast_class = vm->class_table[code[2]];
     lily_value *rhs_reg = vm_regs[code[3]];
     lily_value *lhs_reg = vm_regs[code[4]];
 
-    lily_value *inner = rhs_reg->value.any->inner_value;
+    lily_value *inner = rhs_reg->value.dynamic->inner_value;
 
     int ok = 0;
     if (inner->flags & (VAL_IS_INSTANCE | VAL_IS_ENUM))
@@ -1114,12 +1092,9 @@ void do_o_any_typecast(lily_vm_state *vm, uint16_t *code)
         ok = cast_class->move_flags & inner->flags;
 
     if (ok)
-        lily_assign_value(lhs_reg, inner);
-    else {
-        lily_raise(vm->raiser, lily_BadTypecastError,
-                "Cannot cast any to type '%s'.\n",
-                cast_class->name);
-    }
+        lily_move_enum(lhs_reg, lily_new_option_some(inner));
+    else
+        lily_move_shared_enum(lhs_reg, lily_get_option_none(vm));
 }
 
 /***
@@ -1799,8 +1774,8 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         lily_msgbuf_add_fmt(msgbuf, "<%sfunction %s%s%s>", builtin, class_name,
                 separator, fv->trace_name);
     }
-    else if (v->flags & VAL_IS_ANY)
-        add_value_to_msgbuf(vm, msgbuf, t, v->value.any->inner_value);
+    else if (v->flags & VAL_IS_DYNAMIC)
+        add_value_to_msgbuf(vm, msgbuf, t, v->value.dynamic->inner_value);
     else if (v->flags & VAL_IS_LIST)
         add_list_like(vm, msgbuf, t, v, "[", "]");
     else if (v->flags & VAL_IS_TUPLE)
@@ -2365,13 +2340,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 lily_assign_value(lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
-            case o_box_assign:
-                rhs_reg = vm_regs[code[code_pos+2]];
-                lhs_reg = vm_regs[code[code_pos+3]];
-
-                do_o_box_assign(vm, lhs_reg, rhs_reg);
-                code_pos += 4;
-                break;
             case o_get_item:
                 do_o_get_item(vm, code, code_pos);
                 code_pos += 5;
@@ -2400,8 +2368,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 do_o_build_enum(vm, code+code_pos);
                 code_pos += code[code_pos+4] + 6;
                 break;
-            case o_any_typecast:
-                do_o_any_typecast(vm, code+code_pos);
+            case o_dynamic_cast:
+                do_o_dynamic_cast(vm, code+code_pos);
                 code_pos += 5;
                 break;
             case o_create_function:

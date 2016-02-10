@@ -1,1 +1,5 @@
-var v = [ValueError::new, IOError::new("10"), KeyError::new].@(list[any])
+var v = [
+    ValueError::new    |> Dynamic,
+    IOError::new("10") |> Dynamic,
+    KeyError::new      |> Dynamic
+    ]

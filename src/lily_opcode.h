@@ -50,8 +50,6 @@ typedef enum {
        This handles any assignment that needs a ref/deref. */
     o_assign,
 
-    o_box_assign,
-
     /* Integer binary ops:
        * int lineno
        * reg(integer) left
@@ -169,16 +167,7 @@ typedef enum {
 
     o_build_enum,
 
-    /* Any typecast:
-       * int lineno
-       * reg(any) left
-       * reg(!any) result
-       This checks that the value contained by left is the same type as result.
-       If it is, left's held value is set to 'right'. This is not checked by
-       emitter (because what anys actually contain cannot be known at
-       emit-time), and may raise BadTypecastError if the types do not match.
-       This can be thought of as the converse of o_any_assign. */
-    o_any_typecast,
+    o_dynamic_cast,
 
     /* for (integer range):
        * int lineno

@@ -1,14 +1,14 @@
 if [1, 2, 3, 4].fold(0, {|a, b| a + b}) != 10:
-    stderr.print("Failed.1")
+    stderr.print("Failed.")
 
 if [1, 2, 3, 4].fold(10, {|a, b| a + b}) != 20:
-    stderr.print("Failed.2")
+    stderr.print("Failed.")
 
 if ["b", "c", "d"].fold("a", {|a, b| a.concat(b)}) != "abcd":
-    stderr.print("Failed.3")
+    stderr.print("Failed.")
 
 define f {
-    [1, "2", [3]].@(list[any]).fold([1 => 1], {|a, b| b})
+    [Dynamic(1), Dynamic("2")].fold(Dynamic([1 => 1]), {|a, b| b})
 }
 
 f()

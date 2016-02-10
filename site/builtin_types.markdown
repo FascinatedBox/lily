@@ -61,41 +61,13 @@ Bytestring literals are like string literals, except they start with 'B' exactly
 
 Lily's functions are considered first-class. This means they can be assigned to vars, passed as parameters, inserted into lists, and more. There are no function literals, but there are lambdas, which are discussed later. The `define` keyword is responsible for creating new functions.
 
-# any
+# Dynamic
 
-This type is, at first glance, rather odd. It's not possible to create literals of type any. To have a variable of type any, the type must explicitly be annotated as being type any.
+This class exists to hold values of other classes. `Dynamic` is useful because instances of `Dynamic` are not constrained to any single type. This allows a `list` to hold a mixture of values (with the actual values hidden behind `Dynamic` instances).
 
-A variable of type any is best viewed as a box that can hold an unknown, unspecified type. Because it is not possible to know what type any contains immediately, it does not support any binary operations, any unary operations, or any methods. Instead, one must typecast the value away.
+Fetching a value from Dynamic is done through typecasting. Since Lily strives to be a safe language, typecasts will yield either an `Option[<type>]` which holds a `Some(<type>)` on success and `None` on failure.
 
-```
-var v: any = 10
-
-# A typecast is denoted by <value>.@(<newtype>)
-var i = v.@(integer)
-```
-
-If a typecast fails, it will raise an exception called `TypecastError`. That error, and others, will be covered in more detail in a future section.
-
-Sometimes, type any is required, but something else is given. In such cases, the value is placed into a hidden value of type any behind the scenes:
-```
-define f(input: any)
-{
-    
-}
-
-f(10)
-f("20")
-
-define g(input: integer) : any
-{
-    if input == 1:
-        return 10
-    else:
-        return [1, 0]
-}
-```
-
-The primary purpose of this class is to serve as a last resort. In certain cases, type inference doesn't have a common type and will use type any instead. In such cases, the action is referred to as **defaulting to any**. Sometimes this is useful, because the type isn't -super- important. In other cases, it's annoying. This type may be removed in the future.
+There are occasionally cases where Lily is not able to use inference to determine all the subtypes that a value should have. In such cases, `Dynamic` is used as a filler type, since it permits a wide range of values.
 
 # list
 
@@ -116,6 +88,9 @@ a[0] = 4
 
 # Negative subscripts are allowed.
 var d = a[-1]
+
+# With nothing to infer from, this has the type `list[Dynamic]`
+var e = []
 ```
 
 Lily attempts to do some type inference, when it can:
@@ -130,8 +105,6 @@ define f : list[integer]
 # Inferred as an empty list[list[integer]]
 var v: list[list[integer]] = []
 ```
-
-However, there are cases where `[]` is used and there is no expected type to infer, or the elements between `[]` are not of a consistent type. In such cases, the resulting list will have the type `list[any]`
 
 # hash
 
@@ -150,24 +123,9 @@ v["d"] = 4
 v = ["a" => 1, "a" => 2] # Value: "a" => 2
 ```
 
-Type inference works here too:
+For now, only `integer`, `double`, and `string` are considered valid hash keys. In the future, it may be possible to have user-defined classes that are hashable.
 
-```
-define f : hash[integer, list[string]]
-{
-    # Inferred as an empty hash[integer, list[string]]
-    return []
-}
-
-var h: hash[integer, any] = [1, "a"]
-
-h[1] = [20]
-h[1] = 30
-```
-
-Currently, the only classes that can be keys within a hash are `integer`, `double`, and `string`. It is currently not possible to define a hashing function for the hash class to use. This is likely to change in the future.
-
-Since `any` cannot be hashed, the interpreter insists upon all hash keys having exactly the same type (and being one of the above-mentioned types). However, it is possible for the values of a hash to default to `any`.
+It is also worth noting that Lily will insist that, when creating a hash, that there is some common bottom type to all elements in the hash.
 
 # tuple
 

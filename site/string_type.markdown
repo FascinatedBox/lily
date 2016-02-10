@@ -34,7 +34,7 @@ If `needle` is found, then the result is a `Some` of the index where `needle` st
 Otherwise, the result is `None`.
 
 
-`string::format (self: string, any...) : string`
+`string::format (self: string, Dynamic...) : string`
 
 This uses `self` as a formatting string, with the values coming from whatever extra arguments are passed. The following format specifiers are accepted:
 

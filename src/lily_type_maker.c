@@ -227,14 +227,14 @@ lily_type *lily_tm_make_variant_result(lily_type_maker *tm, lily_class *variant_
     return result;
 }
 
-lily_type *lily_tm_make_anyd_copy(lily_type_maker *tm, lily_type *t)
+lily_type *lily_tm_make_dynamicd_copy(lily_type_maker *tm, lily_type *t)
 {
-    lily_type *any_type = tm->any_class_type;
+    lily_type *dynamic_type = tm->dynamic_class_type;
     int j;
     for (j = 0;j < t->subtype_count;j++) {
         lily_type *subtype = t->subtypes[j];
         if (subtype->flags & TYPE_IS_INCOMPLETE)
-            lily_tm_add(tm, any_type);
+            lily_tm_add(tm, dynamic_type);
         else
             lily_tm_add(tm, subtype);
     }
@@ -257,7 +257,7 @@ lily_type *lily_tm_make_enum_by_variant(lily_type_maker *tm,
         int generic_need = enum_cls->generic_count;
         int i;
         for (i = 0;i < generic_need;i++)
-            lily_tm_add(tm, tm->any_class_type);
+            lily_tm_add(tm, tm->dynamic_class_type);
 
         if (variant->cls->variant_type->subtype_count) {
             /* This type describes the result of invoking the variant as a

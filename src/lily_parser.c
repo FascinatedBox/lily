@@ -1779,8 +1779,22 @@ static void expression_dot(lily_parse_state *parser, int *state)
         lily_ast_push_oo_access(parser->ast_pool, parser->lex->label);
     else if (lex->token == tk_typecast_parenth) {
         lily_lexer(lex);
-        lily_type *new_type = get_type(parser);
-        lily_ast_enter_typecast(parser->ast_pool, new_type);
+        lily_type *bare_type = get_type(parser);
+
+        /* Make sure Option exists, then wrap the resulting type in an Option of
+           the specified type. This allows emitter to not worry about
+           dynaloading when casting. */
+        lily_symtab *symtab = parser->symtab;
+        lily_class *option_cls = lily_find_class(symtab, symtab->builtin_import,
+                "Option");
+        if (option_cls == NULL)
+            option_cls = (lily_class *)find_run_dynaload(parser,
+                    symtab->builtin_import, "Option");
+
+        lily_tm_add(parser->tm, bare_type);
+        lily_type *cast_type = lily_tm_make(parser->tm, 0, option_cls, 1);
+
+        lily_ast_enter_typecast(parser->ast_pool, cast_type);
         lily_ast_leave_tree(parser->ast_pool);
     }
 
@@ -3192,8 +3206,6 @@ static void create_new_class(lily_parse_state *parser)
     NEED_CURRENT_TOK(tk_left_curly)
 
     parse_multiline_block_body(parser, 1);
-
-    lily_finish_class(parser->symtab, created_class);
 
     parser->class_self_type = save_class_self_type;
     lily_emit_leave_block(parser->emit);

@@ -783,24 +783,6 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
     return entry;
 }
 
-/* This is called when a class is being exited. It sets the various callbacks on
-   the class (mark, eq, and others). */
-void lily_finish_class(lily_symtab *symtab, lily_class *cls)
-{
-    if ((cls->flags & CLS_IS_ENUM) == 0) {
-        /* If a class is CLS_ALWAYS_MARK, then the class has something that
-           definitely needs a marker.
-           Classes with 1+ generics are simply not trusted, ever, as one of the
-           generic types could be replaced with, say, type 'any'. */
-        cls->destroy_func = symtab->tuple_class->destroy_func;
-    }
-    else {
-        /* Enums have the same layout as 'any', and should thus use what 'any'
-           uses for things. */
-        cls->destroy_func = symtab->any_class->destroy_func;
-    }
-}
-
 /***
  *      _____
  *     | ____|_ __  _   _ _ __ ___  ___

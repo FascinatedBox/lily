@@ -23,7 +23,7 @@ define g[A](one: A) {
 
     # Incorrect:
     # [[1]], expect B.       B = list[list[A]]
-    #  [1],  expect list[A]. A = any  (double resolve!)
+    #  [1],  expect list[A]. A = Dynamic (double resolve!)
 
-    f([10.@(any)], [one], [[1]])
+    f([Dynamic(10)], [one], [[1]])
 }

@@ -27,7 +27,7 @@ typedef struct {
        time. */
     uint16_t max_seen;
 
-    lily_type *any_class_type;
+    lily_type *dynamic_class_type;
     lily_type *question_class_type;
     lily_type_maker *tm;
 } lily_type_system;
@@ -57,7 +57,7 @@ void lily_ts_pull_generics(lily_type_system *, lily_type *, lily_type *);
 /* This recurses through the given type, building up a new, completely resolved
    type whereever the given type has generics.
    In the event that the given type specifies generics that are not solved,
-   this function will solve them as 'any'.
+   this function will solve them as Dynamic.
    The result is never NULL. */
 lily_type *lily_ts_resolve(lily_type_system *, lily_type *);
 
@@ -90,7 +90,7 @@ void lily_ts_resolve_as_self(lily_type_system *, lily_type *);
 void lily_ts_resolve_as_question(lily_type_system *);
 
 /* If a type has been resolved as something but that resolution isn't complete,
-   this replaces the resolution with something that does ? to any. This is
+   this replaces the resolution with something that does ? to Dynamic. This is
    called after evaluating arguments to make sure that the emitter does not
    create types with ? inside. */
 void lily_ts_default_incomplete_solves(lily_type_system *);
@@ -106,7 +106,7 @@ int lily_ts_raise_ceiling(lily_type_system *);
 void lily_ts_lower_ceiling(lily_type_system *, int);
 
 /* Given an enum type (the first), determine if the second is a valid member of that
-   enum. The type 'any' should not be passed to this, as it is not a true enum. */
+   enum. */
 int lily_ts_enum_membership_check(lily_type_system *, lily_type *, lily_type *);
 
 /* The parser calls this each time that generics are collected. This reports

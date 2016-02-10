@@ -22,11 +22,6 @@ define assign_to_better {
     v = Three::new(1, "2", [3])
 }
 
-define cast_to_base {
-    var v = Two::new(1, "2")
-    v.@(One)
-}
-
 define check_layout {
     var v = Three::new(1, "2", [3])
     if v.a != 1 || v.b != "2" || v.c != [3]:
@@ -34,5 +29,4 @@ define check_layout {
 }
 
 assign_to_better()
-cast_to_base()
 check_layout()

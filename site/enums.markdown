@@ -154,7 +154,7 @@ var nested_option = [Some(1), None, Some(2)]
 
 nested_option[0] = None
 
-# Type: list[Option[any]]
+# Type: list[Option[Dynamic]]
 var opt_list = [None, None, None]
 
 # Invalid: Option cannot be assigned to an integer

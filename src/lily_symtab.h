@@ -58,7 +58,7 @@ typedef struct lily_symtab_ {
     lily_class *string_class;
     lily_class *bytestring_class;
     lily_class *boolean_class;
-    lily_class *any_class;
+    lily_class *dynamic_class;
     lily_class *function_class;
     lily_class *list_class;
     lily_class *hash_class;
@@ -106,7 +106,6 @@ void lily_add_class_method(lily_symtab *, lily_class *, lily_var *);
 lily_prop_entry *lily_add_class_property(lily_symtab *, lily_class *,
         lily_type *, char *, int);
 void lily_update_symtab_generics(lily_symtab *, lily_class *, int);
-void lily_finish_class(lily_symtab *, lily_class *);
 void lily_finish_enum(lily_symtab *, lily_class *, int, lily_type *);
 void lily_change_parent_class(lily_class *, lily_class *);
 
