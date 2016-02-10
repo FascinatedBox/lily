@@ -41,7 +41,7 @@
         <li><a href="list_type.html">list</a></li>
         <li><a href="hash_type.html">hash</a></li>
         <li><a href="tuple_type.html">tuple</a></li>
-        <li><a href="any_type.html">any</a></li>
+        <li><a href="dynamic_type.html">Dynamic</a></li>
         <li><a href="exception_type.html">Exception</a></li>
         <li><a href="tainted_type.html">Tainted</a></li>
         <li><a href="option_type.html">Option</a></li>
@@ -137,7 +137,7 @@ v == [-1, 0, 1, 2, 3] # true
 <p>Takes the top-most element of the list out, and returns it.</p>
 <p>If the list is empty, then IndexError is raised.</p>
 <p><code>list::push(self: list[A], value: A)</code></p>
-<p>Add an element to the list. If the list has the type <code>list[any]</code>, then any type can be pushed to the list.</p>
+<p>Add an element to the end of the list.</p>
 <p><code>list::reject(self: list[A], f: function(A =&gt; boolean)) : list[A]</code></p>
 <p>Returns a list of all elements in <code>self</code> for which the predicate <code>f</code> returns <code>false</code>.</p>
 <p>Examples:</p>

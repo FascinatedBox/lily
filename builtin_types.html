@@ -41,7 +41,7 @@
         <li><a href="list_type.html">list</a></li>
         <li><a href="hash_type.html">hash</a></li>
         <li><a href="tuple_type.html">tuple</a></li>
-        <li><a href="any_type.html">any</a></li>
+        <li><a href="dynamic_type.html">Dynamic</a></li>
         <li><a href="exception_type.html">Exception</a></li>
         <li><a href="tainted_type.html">Tainted</a></li>
         <li><a href="option_type.html">Option</a></li>
@@ -98,35 +98,10 @@
 <p>Bytestring literals are like string literals, except they start with 'B' exactly before the opening double quote (<code>"</code>). Bytestring literals support all escape codes that string literals do, with the addition that bytestring literals allow <code>\nnn</code> escape sequences from <code>\001</code> to <code>\255</code></p>
 <h1>functions</h1>
 <p>Lily's functions are considered first-class. This means they can be assigned to vars, passed as parameters, inserted into lists, and more. There are no function literals, but there are lambdas, which are discussed later. The <code>define</code> keyword is responsible for creating new functions.</p>
-<h1>any</h1>
-<p>This type is, at first glance, rather odd. It's not possible to create literals of type any. To have a variable of type any, the type must explicitly be annotated as being type any.</p>
-<p>A variable of type any is best viewed as a box that can hold an unknown, unspecified type. Because it is not possible to know what type any contains immediately, it does not support any binary operations, any unary operations, or any methods. Instead, one must typecast the value away.</p>
-<pre><code>var v: any = 10
-
-# A typecast is denoted by &lt;value&gt;.@(&lt;newtype&gt;)
-var i = v.@(integer)
-</code></pre>
-
-<p>If a typecast fails, it will raise an exception called <code>TypecastError</code>. That error, and others, will be covered in more detail in a future section.</p>
-<p>Sometimes, type any is required, but something else is given. In such cases, the value is placed into a hidden value of type any behind the scenes:</p>
-<pre><code>define f(input: any)
-{
-
-}
-
-f(10)
-f(&quot;20&quot;)
-
-define g(input: integer) : any
-{
-    if input == 1:
-        return 10
-    else:
-        return [1, 0]
-}
-</code></pre>
-
-<p>The primary purpose of this class is to serve as a last resort. In certain cases, type inference doesn't have a common type and will use type any instead. In such cases, the action is referred to as <strong>defaulting to any</strong>. Sometimes this is useful, because the type isn't -super- important. In other cases, it's annoying. This type may be removed in the future.</p>
+<h1>Dynamic</h1>
+<p>This class exists to hold values of other classes. <code>Dynamic</code> is useful because instances of <code>Dynamic</code> are not constrained to any single type. This allows a <code>list</code> to hold a mixture of values (with the actual values hidden behind <code>Dynamic</code> instances).</p>
+<p>Fetching a value from Dynamic is done through typecasting. Since Lily strives to be a safe language, typecasts will yield either an <code>Option[&lt;type&gt;]</code> which holds a <code>Some(&lt;type&gt;)</code> on success and <code>None</code> on failure.</p>
+<p>There are occasionally cases where Lily is not able to use inference to determine all the subtypes that a value should have. In such cases, <code>Dynamic</code> is used as a filler type, since it permits a wide range of values.</p>
 <h1>list</h1>
 <p>The list class is Lily's most basic container type. Lily's lists are qualified by a single type, which is the type expected for elements. For example, the type <code>list[integer]</code> denotes a list that is supposed to contain just integers. <code>list[function( =&gt; integer)]</code> would be a list that is only supposed to hold functions which take no parameters, but return an integer. Lily's lists are flexible and can be designated to hold any type.</p>
 <pre><code>var a = [1, 2, 3]
@@ -143,6 +118,9 @@ a[0] = 4
 
 # Negative subscripts are allowed.
 var d = a[-1]
+
+# With nothing to infer from, this has the type `list[Dynamic]`
+var e = []
 </code></pre>
 
 <p>Lily attempts to do some type inference, when it can:</p>
@@ -156,7 +134,6 @@ var d = a[-1]
 var v: list[list[integer]] = []
 </code></pre>
 
-<p>However, there are cases where <code>[]</code> is used and there is no expected type to infer, or the elements between <code>[]</code> are not of a consistent type. In such cases, the resulting list will have the type <code>list[any]</code></p>
 <h1>hash</h1>
 <p>This is a basic hash collection, representing a mapping from a key to a value. The annotation for this type has the key first, and the value second. Therefore, a hash that maps from string keys to integer values would be written as <code>hash[string, integer]</code>. Hashes are created similar to how lists are created:</p>
 <pre><code>var v = [&quot;a&quot; =&gt; 1, &quot;b&quot; =&gt; 2, &quot;c&quot; =&gt; 3]
@@ -171,21 +148,8 @@ v[&quot;d&quot;] = 4
 v = [&quot;a&quot; =&gt; 1, &quot;a&quot; =&gt; 2] # Value: &quot;a&quot; =&gt; 2
 </code></pre>
 
-<p>Type inference works here too:</p>
-<pre><code>define f : hash[integer, list[string]]
-{
-    # Inferred as an empty hash[integer, list[string]]
-    return []
-}
-
-var h: hash[integer, any] = [1, &quot;a&quot;]
-
-h[1] = [20]
-h[1] = 30
-</code></pre>
-
-<p>Currently, the only classes that can be keys within a hash are <code>integer</code>, <code>double</code>, and <code>string</code>. It is currently not possible to define a hashing function for the hash class to use. This is likely to change in the future.</p>
-<p>Since <code>any</code> cannot be hashed, the interpreter insists upon all hash keys having exactly the same type (and being one of the above-mentioned types). However, it is possible for the values of a hash to default to <code>any</code>.</p>
+<p>For now, only <code>integer</code>, <code>double</code>, and <code>string</code> are considered valid hash keys. In the future, it may be possible to have user-defined classes that are hashable.</p>
+<p>It is also worth noting that Lily will insist that, when creating a hash, that there is some common bottom type to all elements in the hash.</p>
 <h1>tuple</h1>
 <p>Occasionally, it is useful to have a grouping of various different types. This class takes an arbitrary number of types within it, making it useful in situations where there is a need for a 'record' type that holds a bag of types. As with the above mentioned types, the subtypes of tuple are denoted by the square braces that come after the type.</p>
 <p>Tuples are similar to lists, but have some interesting differences</p>
