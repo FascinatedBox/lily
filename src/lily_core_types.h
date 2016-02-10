@@ -35,7 +35,7 @@ typedef union lily_raw_value_ {
     int64_t integer;
     double doubleval;
     struct lily_string_val_ *string;
-    struct lily_any_val_ *any;
+    struct lily_dynamic_val_ *dynamic;
     struct lily_list_val_ *list;
     /* generic is a subset of any type that is refcounted. */
     struct lily_generic_val_ *generic;
@@ -246,17 +246,14 @@ typedef struct lily_string_val_ {
     char *string;
 } lily_string_val;
 
-/* Next are anys. These are marked as refcounted, but that's just to keep
-   them from being treated like simple values (such as integer or number).
-   In reality, these copy their inner_value when assigning to other stuff.
-   Because an any can hold any value, it has a gc entry to allow Lily's gc
-   to check for circularity. */
-typedef struct lily_any_val_ {
+/* These are values for the Dynamic class. They're always refcounted. Since the
+   contents are unknown, Dynamic values always have a gc tag set on them. */
+typedef struct lily_dynamic_val_ {
     uint32_t refcount;
     uint32_t pad;
     struct lily_gc_entry_ *gc_entry;
     struct lily_value_ *inner_value;
-} lily_any_val;
+} lily_dynamic_val;
 
 /* This implements Lily's list, and tuple as well. The list class only allows
    the elements to have a single type. However, the tuple class allows for
@@ -575,7 +572,7 @@ typedef struct lily_options_ {
 #define VAL_IS_STRING           0x00010
 #define VAL_IS_BYTESTRING       0x00020
 #define VAL_IS_FUNCTION         0x00040
-#define VAL_IS_ANY              0x00100
+#define VAL_IS_DYNAMIC          0x00100
 #define VAL_IS_LIST             0x00200
 #define VAL_IS_HASH             0x00400
 #define VAL_IS_TUPLE            0x01000
@@ -594,7 +591,7 @@ typedef struct lily_options_ {
 #define SYM_CLASS_BYTESTRING      3
 #define SYM_CLASS_BOOLEAN         4
 #define SYM_CLASS_FUNCTION        5
-#define SYM_CLASS_ANY             6
+#define SYM_CLASS_DYNAMIC         6
 #define SYM_CLASS_LIST            7
 #define SYM_CLASS_HASH            8
 #define SYM_CLASS_TUPLE           9

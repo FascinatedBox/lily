@@ -18,7 +18,7 @@ enum Test[A] {
     }
 }
 
-Two.f(One(10))
+Two.f(One(Dynamic(10)))
 One(10).f(One(10))
 One("10").h(One(10))
 

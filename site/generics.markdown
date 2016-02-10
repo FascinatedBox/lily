@@ -25,13 +25,6 @@ print_elements([1, 2, 3])
 
 # Invalid: Expected list[A], but got integer
 # print_elements(10)
-
-# This next example might seem as if it would fail.
-# However, the 'default to any' occurs before the type check.
-# Expected: list[A]
-# Got: list[any]
-# Valid: A is always any
-print_elements([1, "2", [3]])
 ```
 
 A more interesting example can be found in the list::push function. This is defined as `function(list[A], A)`. That type is what is used to prevent elements of the wrong type from being added to a list. Here are some examples of it:
@@ -49,13 +42,11 @@ var tuple_list = [<[1, [2], "3"]>]
 # Still valid, like above.
 tuple_list.push(<[7, [8, 9], "10"]>)
 
-# Since there is nothing to infer from, this defaults to `list[any]`
-var any_list = []
+# Since there is nothing to infer from, this has the type `list[Dynamic]`
+var dynamic_list = []
 
-# These are not type any, but 'default to any' comes before type checking.
-# Both of these will work.
-any_list.push(10)
-any_list.push("20")
+dynamic_list.push(Dynamic(10))
+dynamic_list.push(Dynamic("20"))
 ```
 
 Generics can also be used as a means to transform values from one type to another

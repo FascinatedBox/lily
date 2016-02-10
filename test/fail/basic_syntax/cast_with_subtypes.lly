@@ -1,7 +1,6 @@
 #[
-SyntaxError: Casts from 'any' cannot include subtypes.
-    from cast_with_subtypes.lly:7
+SyntaxError: Casts from Dynamic cannot include subtypes.
+    from cast_with_subtypes.lly:6
 ]#
 
-var v: any = 10
-v.@(list[integer])
+Dynamic(10).@(list[integer])

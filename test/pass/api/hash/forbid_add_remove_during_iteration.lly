@@ -13,14 +13,14 @@ define run_checks(name: string)
 {
     try: {
         h[3] = 3
-        stderr.write("%s failed to forbid addition.".format(name))
+        stderr.write("%s failed to forbid addition.".format(Dynamic(name)))
     except RuntimeError:
         1
     }
 
     try: {
         h.clear()
-        stderr.write("%s failed to forbid removal.".format(name))
+        stderr.write("%s failed to forbid removal.".format(Dynamic(name)))
     except RuntimeError:
         1
     }

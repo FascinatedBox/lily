@@ -27,8 +27,8 @@ if (new_size >= ts->max) \
 /* Add the narrowest of the two matching types during match. */
 #define T_UNIFY 0x10
 
-lily_type_system *lily_new_type_system(lily_type_maker *tm, lily_type *any_type,
-        lily_type *question_type)
+lily_type_system *lily_new_type_system(lily_type_maker *tm,
+        lily_type *dynamic_type, lily_type *question_type)
 {
     lily_type_system *ts = lily_malloc(sizeof(lily_type_system));
     lily_type **types = lily_malloc(4 * sizeof(lily_type *));
@@ -39,7 +39,7 @@ lily_type_system *lily_new_type_system(lily_type_maker *tm, lily_type *any_type,
     ts->max = 4;
     ts->max_seen = 0;
     ts->ceiling = 0;
-    ts->any_class_type = any_type;
+    ts->dynamic_class_type = dynamic_type;
     ts->question_class_type = question_type;
 
     return ts;
@@ -85,7 +85,7 @@ lily_type *lily_ts_resolve_with(lily_type_system *ts, lily_type *type,
     else if (type->cls->id == SYM_CLASS_GENERIC) {
         ret = ts->types[ts->pos + type->generic_pos];
         /* Sometimes, a generic is wanted that was never filled in. In such a
-           case, use 'any' because it is the most accepting of values. */
+           case, use Dynamic because it is the most accepting of values. */
         if (ret == NULL || ret->cls->id == SYM_CLASS_QUESTION) {
             ret = fallback;
             /* This allows lambdas to determine that a given generic was not
@@ -99,7 +99,7 @@ lily_type *lily_ts_resolve_with(lily_type_system *ts, lily_type *type,
 
 lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
 {
-    return lily_ts_resolve_with(ts, type, ts->any_class_type);
+    return lily_ts_resolve_with(ts, type, ts->dynamic_class_type);
 }
 
 void lily_ts_pull_generics(lily_type_system *ts, lily_type *left, lily_type *right)
@@ -459,7 +459,7 @@ void lily_ts_default_incomplete_solves(lily_type_system *ts)
             for (j = 0;j < t->subtype_count;j++) {
                 lily_type *subtype = t->subtypes[j];
                 if (subtype->flags & TYPE_IS_INCOMPLETE)
-                    lily_tm_add(ts->tm, ts->any_class_type);
+                    lily_tm_add(ts->tm, ts->dynamic_class_type);
                 else
                     lily_tm_add(ts->tm, subtype);
             }

@@ -10,7 +10,7 @@
 #include "lily_cls_bytestring.h"
 #include "lily_cls_boolean.h"
 #include "lily_cls_function.h"
-#include "lily_cls_any.h"
+#include "lily_cls_dynamic.h"
 #include "lily_cls_list.h"
 #include "lily_cls_hash.h"
 #include "lily_cls_file.h"
@@ -18,6 +18,7 @@
 #include "lily_seed.h"
 
 extern const lily_func_seed lily_option_dl_start;
+extern const lily_func_seed lily_dynamic_dl_start;
 
 static const lily_class_seed function_seed =
 {
@@ -31,18 +32,16 @@ static const lily_class_seed function_seed =
     lily_destroy_function     /* destroy_func */
 };
 
-static const lily_class_seed any_seed =
+static const lily_class_seed dynamic_seed =
 {
     NULL,                     /* next */
-    "any",                    /* name */
+    "Dynamic",                /* name */
     dyna_class,               /* load_type */
     1,                        /* is_refcounted */
     0,                        /* generic_count */
-    /* 'any' is treated as an enum that has all classes ever defined within
-       it. */
-    CLS_IS_ENUM,              /* flags */
-    NULL,                     /* dynaload_table */
-    lily_destroy_any          /* destroy_func */
+    0,                        /* flags */
+    &lily_dynamic_dl_start,   /* dynaload_table */
+    lily_destroy_dynamic      /* destroy_func */
 };
 
 static const lily_class_seed tuple_seed =
@@ -142,10 +141,8 @@ static const lily_base_seed runtime_error =
     {&key_error, "RuntimeError", dyna_exception};
 static const lily_base_seed value_error =
     {&runtime_error, "ValueError", dyna_exception};
-static const lily_base_seed bad_tc_error =
-    {&value_error, "BadTypecastError", dyna_exception};
 static const lily_base_seed index_error =
-    {&bad_tc_error, "IndexError", dyna_exception};
+    {&value_error, "IndexError", dyna_exception};
 static const lily_base_seed dbz_error =
     {&index_error, "DivisionByZeroError", dyna_exception};
 static const lily_func_seed calltrace =
@@ -153,7 +150,7 @@ static const lily_func_seed calltrace =
 static const lily_func_seed print =
     {&calltrace, "print", dyna_function, "[A](A)", lily_builtin_print};
 static const lily_func_seed printfmt =
-    {&print, "printfmt", dyna_function, "(string, any...)", lily_builtin_printfmt};
+    {&print, "printfmt", dyna_function, "(string, Dynamic...)", lily_builtin_printfmt};
 static const lily_var_seed seed_stderr =
         {&printfmt, "stderr", dyna_var, "file"};
 static const lily_var_seed seed_stdout =
@@ -199,7 +196,7 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
     symtab->bytestring_class = lily_bytestring_init(symtab);
     symtab->boolean_class    = lily_boolean_init(symtab);
     symtab->function_class   = lily_new_class_by_seed(symtab, &function_seed);
-    symtab->any_class        = lily_new_class_by_seed(symtab, &any_seed);
+    symtab->dynamic_class    = lily_new_class_by_seed(symtab, &dynamic_seed);
     symtab->list_class       = lily_list_init(symtab);
     symtab->hash_class       = lily_hash_init(symtab);
     symtab->tuple_class      = lily_new_class_by_seed(symtab, &tuple_seed);
@@ -220,7 +217,7 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
     symtab->bytestring_class->move_flags = VAL_IS_BYTESTRING;
     symtab->boolean_class->move_flags    = VAL_IS_BOOLEAN;
     symtab->function_class->move_flags   = VAL_IS_FUNCTION;
-    symtab->any_class->move_flags        = VAL_IS_ANY;
+    symtab->dynamic_class->move_flags    = VAL_IS_DYNAMIC;
     symtab->list_class->move_flags       = VAL_IS_LIST;
     symtab->hash_class->move_flags       = VAL_IS_HASH;
     symtab->tuple_class->move_flags      = VAL_IS_TUPLE;

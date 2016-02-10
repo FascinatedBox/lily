@@ -14,7 +14,7 @@ If Lily is running from Apache, then this will add content to the current page.
 In any other case, this will write to stdout.
 
 
-`printfmt(string: format, list[any] args...)`
+`printfmt(string: format, list[Dynamic] args...)`
 
 This is like print, except that it allows `%` modifiers to indicate replacements. 
 

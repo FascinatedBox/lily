@@ -30,14 +30,14 @@ lily_new_value(VAL_IS_LIST | VAL_IS_DEREFABLE, (lily_raw_value)raw);
 
 
 
-#define lily_move_any(target, raw) \
-lily_move(target, (lily_raw_value)raw, VAL_IS_ANY | VAL_IS_DEREFABLE)
-
 #define lily_move_boolean(target, raw) \
 lily_move(target, (lily_raw_value){.integer = raw}, VAL_IS_BOOLEAN)
 
 #define lily_move_double(target, raw) \
 lily_move(target, (lily_raw_value)raw, VAL_IS_DOUBLE)
+
+#define lily_move_dynamic(target, raw) \
+lily_move(target, (lily_raw_value)raw, VAL_IS_DYNAMIC | VAL_IS_DEREFABLE)
 
 #define lily_move_enum(target, raw) \
 lily_move(target, (lily_raw_value)raw, VAL_IS_ENUM | VAL_IS_DEREFABLE)

@@ -1,10 +1,18 @@
 class Point(x: integer, y: integer) {}
-var a: list[any] = [1, 2]
-a[0] = a
+var a = [Dynamic(1), Dynamic(2)]
+a[0] = Dynamic(a)
 
 # I'm intentionally not writing tests of how this should appear, because I may
 # change how some of these appear later on.
 # I'm more concerned with 'do these actually print and not crash.
 
-string::format("%s%s%s%s%s%s%s%s%s", [1,2,3], [1=>1], file::open, stdin, <[1]>,
-               Point::new(1, 1), a, None, Some(a))
+string::format("%s%s%s%s%s%s%s%s%s",
+        [1,2,3]          |> Dynamic ,
+        [1=>1]           |> Dynamic ,
+        file::open       |> Dynamic ,
+        stdin            |> Dynamic ,
+        <[1]>            |> Dynamic ,
+        Point::new(1, 1) |> Dynamic ,
+        a                |> Dynamic ,
+        None             |> Dynamic ,
+        Some(a)          |> Dynamic)

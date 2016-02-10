@@ -20,7 +20,3 @@ var str_str_map: hash[string, string] = ["a" => "b", "c" => "d", "e" => "f"]
 # gets the value.
 var str_str_map_two: hash[string, string] = ["a" => "a", "a" => "b", "a" => "c",
     "d" => "e"]
-
-# Test for any defaulting with duplicate keys.
-var str_any_map: hash[string, any] = ["a" => "1", "b" => 2, "c" => 2,
-    "a" => 1]

@@ -7,7 +7,7 @@ define check_assigning {
     v = None
 
     var t = Test::new()
-    t.value = Some(1)
+    t.value = Some(Dynamic(1))
 }
 
 define check_variant_returning {
@@ -16,9 +16,8 @@ define check_variant_returning {
 }
 
 define check_defaulting {
-    var a: list[Option[any]] = [None, None, None]
-    var b: list[Option[integer]] = [Some(10), None, None]
-    var c: hash[integer, Option[integer]] = [1=>None, 2=>Some(10), 3=>Some(11)]
+    var a: list[Option[integer]] = [Some(10), None, None]
+    var b: hash[integer, Option[integer]] = [1=>None, 2=>Some(10), 3=>Some(11)]
 }
 
 define check_pass_by_value {

@@ -8,9 +8,9 @@ typedef struct {
     uint32_t pos;
     uint32_t size;
 
-    /* This is the default type of class 'any'. This type is used when a
-       concrete type is needed and there is nothing to go on. */
-    lily_type *any_class_type;
+    /* This is Dynamic's default type. It's used as a filler when a type needs
+       to be made but there's no opinion on it. */
+    lily_type *dynamic_class_type;
 } lily_type_maker;
 
 lily_type_maker *lily_new_type_maker(void);
@@ -24,7 +24,7 @@ lily_type *lily_tm_make(lily_type_maker *, int, lily_class *, int);
 lily_type *lily_tm_make_variant_result(lily_type_maker *, lily_class *, int,
         int);
 lily_type *lily_tm_make_default_for(lily_type_maker *, lily_class *);
-lily_type *lily_tm_make_anyd_copy(lily_type_maker *, lily_type *);
+lily_type *lily_tm_make_dynamicd_copy(lily_type_maker *, lily_type *);
 lily_type *lily_tm_make_enum_by_variant(lily_type_maker *, lily_type *);
 
 void lily_free_type_maker(lily_type_maker *);

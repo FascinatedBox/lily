@@ -130,7 +130,7 @@ If the list is empty, then IndexError is raised.
 
 `list::push(self: list[A], value: A)`
 
-Add an element to the list. If the list has the type `list[any]`, then any type can be pushed to the list.
+Add an element to the end of the list.
 
 
 `list::reject(self: list[A], f: function(A => boolean)) : list[A]`

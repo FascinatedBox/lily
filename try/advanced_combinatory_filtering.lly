@@ -114,5 +114,5 @@ var accepted =
         .reject{|k, v| v |> my_filter}
         .keys()
 
-printfmt("Accepted messages: %s\n", accepted)
-printfmt("Rejected messages: %s\n", rejected)
+printfmt("Accepted messages: %s\n", Dynamic(accepted))
+printfmt("Rejected messages: %s\n", Dynamic(rejected))

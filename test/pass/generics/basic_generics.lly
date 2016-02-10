@@ -11,14 +11,6 @@ define check_generics_inherited {
     }
 }
 
-define check_any_default[A](a: A): any {
-    return a
-}
-
 define check_empty_list_assign[A](a: list[A]) {
     a = []
-}
-
-define check_static_list_default[A](a: A, b: A): list[any] {
-    return [a, b]
 }

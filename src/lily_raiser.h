@@ -10,12 +10,11 @@
 # define lily_SyntaxError         1
 # define lily_DivisionByZeroError 2
 # define lily_IndexError          3
-# define lily_BadTypecastError    4
-# define lily_ValueError          5
-# define lily_RuntimeError        6
-# define lily_KeyError            7
-# define lily_FormatError         8
-# define lily_IOError             9
+# define lily_ValueError          4
+# define lily_RuntimeError        5
+# define lily_KeyError            6
+# define lily_FormatError         7
+# define lily_IOError             8
 
 /* The raiser is included by a majority of Lily's core modules, but seed raise
    is only used by foreign modules. Since foreign modules will need to include

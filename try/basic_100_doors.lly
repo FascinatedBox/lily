@@ -23,4 +23,4 @@ doors.each_index{|i|
         open_doors.push(i + 1)
 }
 
-printfmt("Open doors: %s\n", open_doors)
+printfmt("Open doors: %s\n", Dynamic(open_doors))

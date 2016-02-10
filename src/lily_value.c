@@ -9,7 +9,7 @@
 #include "lily_cls_string.h"
 #include "lily_cls_list.h"
 #include "lily_cls_hash.h"
-#include "lily_cls_any.h"
+#include "lily_cls_dynamic.h"
 #include "lily_cls_function.h"
 #include "lily_cls_file.h"
 
@@ -24,8 +24,8 @@ void destroy_value(lily_value *v)
         lily_destroy_function(v);
     else if (flags & VAL_IS_HASH)
         lily_destroy_hash(v);
-    else if (flags & VAL_IS_ANY)
-        lily_destroy_any(v);
+    else if (flags & VAL_IS_DYNAMIC)
+        lily_destroy_dynamic(v);
     else if (flags & VAL_IS_FILE)
         lily_destroy_file(v);
 }
@@ -204,10 +204,10 @@ int lily_value_eq_raw(lily_vm_state *vm, int *depth, lily_value *left, lily_valu
 
         return ok;
     }
-    else if (left_tag & VAL_IS_ANY) {
+    else if (left_tag & VAL_IS_DYNAMIC) {
         (*depth)++;
-        lily_value *left_value = left->value.any->inner_value;
-        lily_value *right_value = right->value.any->inner_value;
+        lily_value *left_value = left->value.dynamic->inner_value;
+        lily_value *right_value = right->value.dynamic->inner_value;
         int ok = lily_value_eq_raw(vm, depth, left_value, right_value);
         (*depth)--;
 
@@ -244,8 +244,8 @@ void lily_gc_collect_value(lily_value *v)
         lily_gc_collect_list(v);
     else if (flags & VAL_IS_HASH)
         lily_gc_collect_hash(v);
-    else if (flags & VAL_IS_ANY)
-        lily_gc_collect_any(v);
+    else if (flags & VAL_IS_DYNAMIC)
+        lily_gc_collect_dynamic(v);
     else if (flags & VAL_IS_FUNCTION)
         lily_gc_collect_function(v);
     else if (flags & (VAL_IS_STRING | VAL_IS_BYTESTRING))
