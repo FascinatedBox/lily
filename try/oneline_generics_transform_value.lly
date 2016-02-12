@@ -50,4 +50,4 @@ transform(
         The input of the lambda is C, which is list[string].
     ]#
     # {|c| c + 5}
-) |> show
+) |> print

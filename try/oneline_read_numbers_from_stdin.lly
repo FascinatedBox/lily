@@ -8,7 +8,7 @@ stdin
     .encode()
     .trim()
     .split(" ")
-    .map{|str| str.to_i()}
+    .map{|str| str.parse_i().unwrap_or(0) }
     # .map{|mystery| mystery.push(1) }
     .fold(0, {|a, b| a + b})
     |> print
@@ -42,11 +42,14 @@ stdin
       list::reject builds a new list that holds all elements where the predicate
       returns false.
 
-    .map{|str| str.to_i()}
+    .map{|str| str.parse_i().unwrap_or(0) }
     * list::map takes a list of A and a function that converts from A to B.
       In this case, A is string, and B is whatever the lambda returns. As a
       bonus, Lily is smart enough to know that 'str' is a string, and only allow
       operations that work on a string to work on it.
+      Since string::parse_i can fail, it returns Option[integer]. The unwrap_or
+      method provides the value 0 as a fallback in case that the input was not
+      valid.
       The result is a new list of integers (list[integer])
 
     .map{|mystery| mystery.push(1) }
