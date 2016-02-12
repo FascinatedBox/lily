@@ -1,0 +1,1 @@
+var v = Some(10).and(Some(10)).or(None)

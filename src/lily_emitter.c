@@ -3473,7 +3473,7 @@ static void box_call_variants(lily_emit_state *emit, lily_emit_call_state *cs)
 
     if (tree_iter->tree_type == tree_oo_access) {
         /* The first tree will yield a value unless it's a variant. */
-        if (tree_iter->result == NULL)
+        if (tree_iter->arg_start->result == NULL)
             box_variant_at(emit, cs, tree_iter->arg_start, 0);
 
         arg_num++;
