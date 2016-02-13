@@ -1685,10 +1685,6 @@ uint64_t lily_siphash(lily_vm_state *vm, lily_value *key)
                 key->value.string->size, vm->sipkey);
     else if (flags & VAL_IS_INTEGER)
         key_hash = key->value.integer;
-    else if (flags & VAL_IS_DOUBLE)
-        /* siphash thinks it's sent a pointer (and will try to deref it), so
-           send the address. */
-        key_hash = siphash24(&(key->value.doubleval), sizeof(double), vm->sipkey);
     else /* Should not happen, because no other classes are valid keys. */
         key_hash = 0;
 
@@ -2165,8 +2161,6 @@ void lily_vm_execute(lily_vm_state *vm)
 
                     if (flags & (VAL_IS_INTEGER | VAL_IS_BOOLEAN))
                         result = (lhs_reg->value.integer == 0);
-                    else if (flags & VAL_IS_DOUBLE)
-                        result = (lhs_reg->value.doubleval == 0);
                     else if (flags & VAL_IS_STRING)
                         result = (lhs_reg->value.string->size == 0);
                     else if (flags & VAL_IS_LIST)

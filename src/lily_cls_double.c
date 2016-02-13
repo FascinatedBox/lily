@@ -23,7 +23,6 @@ static lily_class_seed double_seed =
     dyna_class,         /* load_type */
     0,                  /* is_refcounted */
     0,                  /* generic_count */
-    CLS_VALID_HASH_KEY, /* flags */
     &dynaload_start,    /* dynaload_table */
     NULL,               /* destroy_func */
 };

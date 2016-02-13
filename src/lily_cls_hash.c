@@ -535,7 +535,6 @@ static const lily_class_seed hash_seed =
     dyna_class,           /* load_type */
     1,                    /* is_refcounted */
     2,                    /* generic_count */
-    0,                    /* flags */
     &dynaload_start,      /* dynaload_table */
     lily_destroy_hash,    /* destroy_func */
 };

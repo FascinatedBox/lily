@@ -522,7 +522,7 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
     new_class->type = type;
     new_class->is_builtin = 1;
     new_class->generic_count = class_seed->generic_count;
-    new_class->flags = class_seed->flags;
+    new_class->flags = 0;
     new_class->is_refcounted = class_seed->is_refcounted;
     new_class->destroy_func = class_seed->destroy_func;
     new_class->import = symtab->active_import;
