@@ -45,9 +45,8 @@ typedef const struct {
     const void *next;
     char *name;
     uint64_t seed_type;
-    uint16_t pad;
-    uint16_t generic_count;
-    uint32_t flags;
+    uint32_t generic_count;
+    uint32_t pad;
     const void *dynaload_table;
     /* Enums use tuple's versions of mark, eq, and destroy, and thus do not need
        them specified here. */
