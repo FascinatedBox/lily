@@ -97,20 +97,20 @@
 <h1>Classes</h1>
 <p>This module does not have any classes.</p>
 <h1>Methods</h1>
-<p><code>server::escape(string):string</code></p>
+<p><code>server::escape(String):String</code></p>
 <p>This encodes a string so that it is suitable for being directly printed to the server. <code>&amp;</code> becomes <code>&amp;amp;</code>, <code>&lt;</code> becomes <code>&amp;lt;</code>, <code>&gt;</code> becomes <code>&amp;gt;</code>.</p>
-<p><code>server::write(string)</code></p>
+<p><code>server::write(String)</code></p>
 <p>This function will write a string directly to the server without escaping it at all. However, there is a caveat: This function will only work on string literals. The reason for this, is that string literals are considered to be safe (You wouldn't XSS yourself, right?). If a string is passed to this function that is not a literal, then <code>ValueError</code> is raised.</p>
-<p><code>server::write_raw(string)</code></p>
+<p><code>server::write_raw(String)</code></p>
 <p>This function takes any kind of a string (not just literals) and writes it directly to the server. It is assumed that the user has properly escaped the string using <code>server::escape</code>.</p>
 <h1>Variables</h1>
-<p><code>server::post: hash[string, Tainted[string]]</code></p>
+<p><code>server::post: Hash[String, Tainted[String]]</code></p>
 <p>This contains all variables that were sent to the server using HTTP post. If no variables were sent, then this is empty.</p>
-<p><code>server::env: hash[string, Tainted[string]]</code></p>
+<p><code>server::env: Hash[String, Tainted[String]]</code></p>
 <p>This contains the server's environment variables.</p>
-<p><code>server::get: hash[string, Tainted[string]]</code></p>
+<p><code>server::get: Hash[String, Tainted[String]]</code></p>
 <p>This contains all variables that were sent to the server using HTTP get.</p>
-<p><code>server::httpmethod: string</code></p>
+<p><code>server::httpmethod: String</code></p>
 <p>The http method that was used, in all caps. Common values are POST, GET, PUT, and DELETE</p>
      </section>
    </article>

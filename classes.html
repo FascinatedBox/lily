@@ -58,12 +58,12 @@
      <section>
 <h1>Classes</h1>
 <p>While Lily does borrow lots of inspiration from more functional languages, it also provides facilities for the creation of user-defined classes. First, here is a class to represent a 2-dimensional point, perhaps on a grid or screen of some sort:</p>
-<pre><code>class Point2D(x: integer, y: integer)
+<pre><code>class Point2D(x: Integer, y: Integer)
 {
     var @x = x
     var @y = y
 
-    define increase(amount: integer) {
+    define increase(amount: Integer) {
         @x += amount
         @y += amount
     }
@@ -97,7 +97,7 @@ var points = [Point2D(1, 2), Point2D(3, 4)]
 <h1>Inheritance</h1>
 <p>A class can opt to inherit from one, and only one class. Currently, the only built-in class that can be inherited from is Exception. </p>
 <p>Here's an example of how to inherit from the previously-declared class:</p>
-<pre><code>class Point3D(x: integer, y: integer, z: integer) &gt; Point2D(x, y)
+<pre><code>class Point3D(x: Integer, y: Integer, z: Integer) &gt; Point2D(x, y)
 {
     var @z = z
 }
@@ -108,11 +108,11 @@ v.increase(5) # Point3D has values '15, 25, and 30'.
 </code></pre>
 
 <p>Lily also allows marking both class methods and variables as being either protected or private. There is no <code>public</code> keyword, because class methods and variables are public by default.</p>
-<pre><code>class Point2D(x: integer, y: integer)
+<pre><code>class Point2D(x: Integer, y: Integer)
 {
     protected var @x = x
     protected var @y = y
-    define increase(amount: integer) {
+    define increase(amount: Integer) {
         @x += amount
         @y += amount
     }

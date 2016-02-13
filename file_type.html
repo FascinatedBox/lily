@@ -60,15 +60,15 @@
 <p>The file class is a wrapper around C's FILE. It currently provides a bare minimum necessary to read and write from files. This API should not be considered final, as a facelift is in order for it.</p>
 <p>Attempting to use read operations on write files (or vice versa) will result in IOError being raised. Similarly, operating on a closed file will also raise IOError.</p>
 <h1>Methods</h1>
-<p><code>file::close(self: file)</code></p>
+<p><code>File::close(self: File)</code></p>
 <p>Close the file given. Attempting to close a file that is already closed will not do anything. For short scripts, this is not entirely necessary, as Lily's refcounting and garbage collection will eventually collect and then close files that are left open.</p>
-<p><code>file::readline(self: file) : bytestring</code></p>
+<p><code>File::readline(self: File) : bytestring</code></p>
 <p>This reads a single line from the given file. This returns the line as a bytestring, instead of a string in case the file contains either invalid utf-8, or embedded zeroes inside of it.</p>
-<p><code>file::write[A](self: file, value: A)</code></p>
+<p><code>File::write[A](self: File, value: A)</code></p>
 <p>This uses Lily's internal stringification to convert the value into a string if it is not already one. The contents of that string are then written to the file given.</p>
-<p><code>file::print[A](self: file, value: A)</code></p>
-<p>This is like <code>file::write</code>, except it writes a newline (<code>\n</code>) after the text.</p>
-<p><code>file::open(string: filename, string: mode)</code></p>
+<p><code>File::print[A](self: File, value: A)</code></p>
+<p>This is like <code>File::write</code>, except it writes a newline (<code>\n</code>) after the text.</p>
+<p><code>File::open(String: filename, String: mode)</code></p>
 <p>Attempt to open a file named <code>filename</code> with the mode provided.</p>
 <p>Mode can be:</p>
 <ul>

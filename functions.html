@@ -65,21 +65,21 @@
 </code></pre>
 
 <p>This creates a function that does not accept any arguments coming in, and also does not return anything. A function that has been defined can be used as a value, but it can't be assigned to. For now, let's just adjust the above function so it can greet people.</p>
-<pre><code>define greet(name: string)
+<pre><code>define greet(name: String)
 {
     printfmt(&quot;Hello, %s.\n&quot;, name)
 }
 </code></pre>
 
 <p>The above function can be written to return the greeting, instead of printing it out</p>
-<pre><code>define get_greet_string(name: string) : string
+<pre><code>define get_greet_string(name: String) : string
 {
-    return string::format(&quot;Hello, %s.\n&quot;, name)
+    return String::format(&quot;Hello, %s.\n&quot;, name)
 }
 </code></pre>
 
 <p>If you'd like to create a function that just returns a value, then skip the parentheses.</p>
-<pre><code>define return_ten : integer
+<pre><code>define return_ten : Integer
 {
     return 10
 }
@@ -87,18 +87,18 @@
 
 <p>Functions can also take other functions as arguments. In this case, <code>apply</code> takes a function <code>f</code> that takes one integer and returns that same integer. However, the result of <code>apply</code> is also an integer. The return type of the function being declared is always delimited by a colon
 outside of the parentheses of the arguments it takes.</p>
-<pre><code>define apply(v: integer, f: function(integer =&gt; integer)) : integer
+<pre><code>define apply(v: Integer, f: Function(Integer =&gt; Integer)) : Integer
 {
     return f(v)
 }
 
-define add_one(x: integer) { return x + 1 }
+define add_one(x: Integer) { return x + 1 }
 
 apply(10, add_one) # 11
 </code></pre>
 
 <p>Functions can also be marked as accepting a variable number of arguments. The extra arguments will be placed inside of a list for the caller to work with.</p>
-<pre><code>define sum(values: integer...) : integer
+<pre><code>define sum(values: Integer...) : Integer
 {
     var total = 0
     for i in 0...values.size() - 1:
@@ -112,7 +112,7 @@ sum() # 0
 </code></pre>
 
 <p>Sometimes it would be nice for a function parameter to have a default value. Currently, the types <code>boolean</code>, <code>integer</code>, <code>double</code>, <code>string</code>, and <code>bytestring</code> can have default values. Default values must be literals, not function calls or even expressions. This is to keep them simple. Finally, arguments with default values must always come at the end.</p>
-<pre><code>define say_greeting(name: string, greet: *string=&quot;Hello&quot;)
+<pre><code>define say_greeting(name: String, greet: *String=&quot;Hello&quot;)
 {
     printfmt(&quot;%s, %s.\n&quot;, greet, name)
 }
@@ -122,11 +122,11 @@ say_greeting(&quot;Jesse&quot;) # Hello, Jesse.
 </code></pre>
 
 <p>Functions can be defined within other functions. By doing so, the outer-most function will automatically become a closure. Here's a basic example of what can be done with this:</p>
-<pre><code>define create_increment(start: integer) : function( =&gt; integer))
+<pre><code>define create_increment(start: Integer) : Function( =&gt; Integer))
 {
     var i = 0
 
-    define increment : integer
+    define increment : Integer
     {
         var result = i
         i += 1

@@ -56,28 +56,28 @@
     </aside>
    <article>
      <section>
-<h1>hash</h1>
-<p>The hash type represents a mapping from a key to a value. When annotating a hash type, the key comes first, and the value afterward. A hash mapping from integer to string could thus be annotated as <code>hash[integer, string]</code>. Within the method listing, type A refers to the key, and type B refers to the value.</p>
-<p>The following types are valid hash keys: <code>integer</code>, <code>double</code>, and <code>string</code>.</p>
+<h1>Hash</h1>
+<p>The Hash type represents a mapping from a key to a value. When annotating a hash type, the key comes first, and the value afterward. A hash mapping from integer to string could thus be annotated as <code>Hash[Integer, String]</code>. Within the method listing, type A refers to the key, and type B refers to the value.</p>
+<p>The following types are valid hash keys: <code>Integer</code>, <code>Double</code>, and <code>String</code>.</p>
 <p>Values can be added to hashes through subscript assignment. However, attempting to retrieve a key that does not exist will trigger <code>KeyError</code>.</p>
 <p>Hashes are currently considered incomplete.</p>
 <h1>Operations</h1>
 <p>Binary: <code>!=</code> <code>==</code></p>
 <p>Hashes, like lists, do deep comparisons for equality. As such, <code>[1 =&gt; "a"] == [1 =&gt; "a"]</code> is <code>true</code>.</p>
 <h1>Methods</h1>
-<p><code>hash::clear(self: hash[A, B])</code></p>
+<p><code>Hash::clear(self: Hash[A, B])</code></p>
 <p>Removes all key-value pairs from the hash.</p>
-<p><code>hash::delete(self: hash[A, B], key: A)</code></p>
+<p><code>Hash::delete(self: Hash[A, B], key: A)</code></p>
 <p>This attempts to erase <code>key</code> from the hash. If <code>key</code> does not exist within the hash, then nothing happens.</p>
-<p><code>hash::each_pair(self: hash[A, B], f: function(A, B))</code></p>
+<p><code>Hash::each_pair(self: Hash[A, B], f: Function(A, B))</code></p>
 <p>This calls <code>f</code> on each key-value pair that exists within the hash.</p>
-<p><code>hash::has_key(self: hash[A, B], key: A):boolean</code></p>
+<p><code>Hash::has_key(self: Hash[A, B], key: A):Boolean</code></p>
 <p>Checks if <code>key</code> exists within the hash.</p>
-<p><code>hash::keys(self: hash[A, B]) : list[A]</code></p>
+<p><code>Hash::keys(self: Hash[A, B]) : List[A]</code></p>
 <p>Returns a list of all keys that are present within the hash.</p>
-<p><code>hash::get(self: hash[A, B], key: A, or_else: B) : B</code></p>
+<p><code>Hash::get(self: Hash[A, B], key: A, or_else: B) : B</code></p>
 <p>Attempt to get <code>key</code> from within the hash. If successful, return the matching value. If <code>key</code> does not exist within the hash, then return <code>or_else</code> instead. This can be considered a safe alternative to a subscript, as it does not raise any errors.</p>
-<p><code>hash::map_values(self: hash[A, B], f: function(B =&gt; C)):hash[A, C]</code></p>
+<p><code>Hash::map_values(self: Hash[A, B], f: Function(B =&gt; C)):Hash[A, C]</code></p>
 <p>This iterates over the hash given, calling <code>f</code> with each value held.</p>
 <p>A new hash is built that maps the old keys to the new values. The old hash is not modified.</p>
 <pre><code>var h = [&quot;a&quot; =&gt; -1, &quot;b&quot; =&gt; 5, &quot;c&quot; =&gt; 11]
@@ -89,7 +89,7 @@ h.map_values{|v| v + 1}
 # [&quot;a&quot; =&gt; 0, &quot;b&quot; =&gt; 6, &quot;c&quot; =&gt; 12]
 </code></pre>
 
-<p><code>hash::merge(self: hash[A, B], others: hash[A, B]...):hash[A, B]</code></p>
+<p><code>Hash::merge(self: Hash[A, B], others: Hash[A, B]...):Hash[A, B]</code></p>
 <p>This creates a new hash that combines <code>self</code> and each hash within <code>others</code>.</p>
 <p>In the event of multiple hashes having the same value, the right-most value 'wins'.</p>
 <pre><code>var v = [1 =&gt; 1, 2 =&gt; 2, 3 =&gt; 3]
@@ -98,7 +98,7 @@ v = v.merge([4 =&gt; 4, 3 =&gt; 6], [3 =&gt; 0])
 # [1 =&gt; 1, 2 =&gt; 2, 3 =&gt; 0, 4 =&gt; 4]
 </code></pre>
 
-<p><code>hash::reject(self: hash[A, B], f: function(A, B =&gt; boolean)):hash[A, B]</code></p>
+<p><code>Hash::reject(self: Hash[A, B], f: Function(A, B =&gt; Boolean)):Hash[A, B]</code></p>
 <p>Returns a new hash of all key-value pairs in <code>self</code> for which the predicate <code>f</code> returns <code>false</code>.</p>
 <pre><code>[&quot;a&quot; =&gt; 1, &quot;b&quot; =&gt; 2, &quot;c&quot; =&gt; 3].reject{|k, v| v &gt;= 2}
 # [&quot;a&quot; =&gt; 1, &quot;b&quot; =&gt; 2]
@@ -107,7 +107,7 @@ v = v.merge([4 =&gt; 4, 3 =&gt; 6], [3 =&gt; 0])
 # [1 =&gt; 1, 3 =&gt; 3]
 </code></pre>
 
-<p><code>hash::select(self: hash[A, B], f: function(A, B =&gt; boolean)):hash[A, B]</code></p>
+<p><code>Hash::select(self: Hash[A, B], f: Function(A, B =&gt; Boolean)):Hash[A, B]</code></p>
 <p>Returns a new hash of all key-value pairs in <code>self</code> for which the predicate <code>f</code> returns <code>true</code>.</p>
 <pre><code>[&quot;a&quot; =&gt; 1, &quot;b&quot; =&gt; 2, &quot;c&quot; =&gt; 3].select{|k, v| v &gt;= 2}
 # [&quot;c&quot; =&gt; 3]
@@ -116,7 +116,7 @@ v = v.merge([4 =&gt; 4, 3 =&gt; 6], [3 =&gt; 0])
 # [2 =&gt; 2]
 </code></pre>
 
-<p><code>hash::size(self: hash[A, B]):integer</code></p>
+<p><code>Hash::size(self: Hash[A, B]):Integer</code></p>
 <p>Returns the number of key-value pairs within the hash.</p>
      </section>
    </article>

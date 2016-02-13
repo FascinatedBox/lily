@@ -72,20 +72,20 @@
 <p><code>Option::and[A, B](self: Option[A], other: Option[B]):Option[B]</code></p>
 <p>If <code>self</code> is <code>None</code>, then this returns <code>None</code>.</p>
 <p>Otherwise, this returns <code>other</code>.</p>
-<p><code>Option::and_then[A, B](self: Option[A], fn: function(A =&gt; Option[B])):Option[B]</code></p>
+<p><code>Option::and_then[A, B](self: Option[A], fn: Function(A =&gt; Option[B])):Option[B]</code></p>
 <p>If <code>self</code> is <code>None</code>, then this returns <code>None</code>.</p>
 <p>Otherwise, the wrapped value is passed to <code>fn</code>, and the result is what <code>fn</code> returns.</p>
-<p><code>Option::is_none[A](self: Option[A]):boolean</code></p>
+<p><code>Option::is_none[A](self: Option[A]):Boolean</code></p>
 <p>Returns <code>true</code> if <code>self</code> is <code>None</code>, <code>false</code> otherwise.</p>
-<p><code>Option::is_some[A](self: Option[A]):boolean</code></p>
+<p><code>Option::is_some[A](self: Option[A]):Boolean</code></p>
 <p>Returns <code>false</code> if <code>self</code> is <code>None</code>, <code>false</code> otherwise.</p>
-<p><code>Option::map[A, B](self: Option[A], fn: function(A =&gt; B)):Option[B]</code></p>
+<p><code>Option::map[A, B](self: Option[A], fn: Function(A =&gt; B)):Option[B]</code></p>
 <p>If <code>self</code> is <code>None</code>, then this returns <code>None</code>.</p>
 <p>Otherwise, transforms the wrapped value using <code>fn</code>.</p>
 <p><code>Option::or[A](self: Option[A], fallback: Option[A]):Option[A]</code></p>
 <p>If <code>self</code> is <code>None</code>, then this returns <code>fallback</code>.</p>
 <p>Otherwise, this returns <code>self</code>.</p>
-<p><code>Option::or_else[A](self: Option[A], fn: function( =&gt; Option[A])):Option[A]</code></p>
+<p><code>Option::or_else[A](self: Option[A], fn: Function( =&gt; Option[A])):Option[A]</code></p>
 <p>If <code>self</code> is <code>None</code>, then this returns whatever <code>fn()</code> returns.</p>
 <p>Otherwise, this returns <code>self</code>.</p>
 <p><code>Option::unwrap[A](self: Option[A]):A</code></p>
@@ -94,7 +94,7 @@
 <p><code>Option::unwrap_or[A](self: Option[A], fallback: A):A</code></p>
 <p>If <code>self</code> is <code>None</code>, then this returns <code>fallback</code>.</p>
 <p>Otherwise, this returns the value wrapped by <code>self</code>.</p>
-<p><code>Option::unwrap_or_else[A](self: Option[A], fn: function( =&gt; A)):A</code></p>
+<p><code>Option::unwrap_or_else[A](self: Option[A], fn: Function( =&gt; A)):A</code></p>
 <p>If <code>self</code> is <code>None</code>, then this returns whatever <code>fn()</code> returns.</p>
 <p>Otherwise, this returns the value wrapped by <code>self</code>.</p>
      </section>

@@ -63,7 +63,7 @@
 <p>Convert the value given into a string. Currently, this is done through an internal stringification process.</p>
 <p>If Lily is running from Apache, then this will add content to the current page.</p>
 <p>In any other case, this will write to stdout.</p>
-<p><code>printfmt(string: format, list[Dynamic] args...)</code></p>
+<p><code>printfmt(format: string, args: List[Dynamic]...)</code></p>
 <p>This is like print, except that it allows <code>%</code> modifiers to indicate replacements. </p>
 <p>The following modifiers are supported:</p>
 <ul>
@@ -79,18 +79,18 @@
 </ul>
 <p>If there are more format specifiers than arguments, then <code>ValueError</code> is raised.</p>
 <p>This function is deprecated. It will be superceded by string interpolation.</p>
-<p><code>calltrace : list[string])</code></p>
+<p><code>calltrace : List[String])</code></p>
 <p>This returns a description of the current call stack, with each string representing a single call. Lily's call stack includes native calls, as well as calls to API functions (such as <code>integer::to_s</code>)</p>
 <p>If this frame comes from something in native Lily code, then it takes the form of</p>
 <p><code>from &lt;filename&gt;:&lt;linenum&gt;: in &lt;function&gt;</code>.</p>
-<p>If it comes from foreign code (such as <code>list::select</code>), then it takes the form of</p>
+<p>If it comes from foreign code (such as <code>List::select</code>), then it takes the form of</p>
 <p><code>from [C]: in &lt;function&gt;</code>.</p>
 <h1>Variables</h1>
-<p><code>stdout: file</code></p>
+<p><code>stdout: File</code></p>
 <p>This is a wrapper around C's stdout.</p>
-<p><code>stderr: file</code></p>
+<p><code>stderr: File</code></p>
 <p>This is a wrapper around C's stderr.</p>
-<p><code>stdin: file</code></p>
+<p><code>stdin: File</code></p>
 <p>This is a wrapper around C's stdin.</p>
      </section>
    </article>

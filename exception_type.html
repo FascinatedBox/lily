@@ -60,14 +60,14 @@
 <p>The Exception type represents the most basic kind of type that can be raised. Unlike most other builtin classes, it can be inherited from.</p>
 <h1>Operations</h1>
 <p>Binary: <code>!=</code> <code>==</code></p>
-<p>Comparison between Exception classes is done using deep equality. This is wrong, and will change.</p>
+<p>Comparison between Exception instances is done using shallow equality.</p>
 <h1>Members</h1>
-<p><code>@traceback: list[string]</code></p>
-<p>This represents a single frame of traceback. If this frame comes from something in native Lily code, then it takes the form of <code>from &lt;filename&gt;:&lt;linenum&gt;: in &lt;function&gt;</code>. If it comes from foreign code (such as <code>list::map</code>), then it takes the form of <code>from [C]: in &lt;function&gt;</code>.</p>
-<p><code>@message: string</code></p>
+<p><code>@traceback: List[String]</code></p>
+<p>This represents a single frame of traceback. If this frame comes from something in native Lily code, then it takes the form of <code>from &lt;filename&gt;:&lt;linenum&gt;: in &lt;function&gt;</code>. If it comes from foreign code (such as <code>List::map</code>), then it takes the form of <code>from [C]: in &lt;function&gt;</code>.</p>
+<p><code>@message: String</code></p>
 <p>The exception error message.</p>
 <h1>Methods</h1>
-<p><code>exception::new(string: message)</code></p>
+<p><code>Exception::new(message: String)</code></p>
 <p>Construct a new exception having the given message.</p>
      </section>
    </article>

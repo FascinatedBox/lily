@@ -59,9 +59,9 @@
 <h1>Error Handling</h1>
 <p>Sometimes there are errors that occur from certain operations. A list has a subscript that goes too far, a division by zero, a bad format string, and more. When this occurs, Lily will raise an exception that can be caught.</p>
 <p>To begin with, all exceptions that are defined within Lily have Exception as their base class. This class is defined internally as follows:</p>
-<pre><code>class Exception(msg: string) {
+<pre><code>class Exception(msg: String) {
     var @message = message
-    var @traceback: list[string] = []
+    var @traceback: List[String] = []
 }
 </code></pre>
 
@@ -74,10 +74,7 @@
 <p>IndexError: Raised when an list subscript is out of bounds.</p>
 </li>
 <li>
-<p>BadTypecastError: Raised when a value is unable to cast to a certain type.</p>
-</li>
-<li>
-<p>ValueError: Raised when a value is out of the expected range (ex: list::repeat with a negative index).</p>
+<p>ValueError: Raised when a value is out of the expected range (ex: List::repeat with a negative index).</p>
 </li>
 <li>
 <p>RuntimeError: Raised when there is an infinite loop in == or != (such as when there are recursive lists being compared).</p>
@@ -86,7 +83,7 @@
 <p>KeyError: Raised when attempting to find a key in a hash that does not exist.</p>
 </li>
 <li>
-<p>FormatError: Raised when string::format or printfmt receive the wrong number of args for their format specifiers (ex: <code>string::format("%s")</code>)</p>
+<p>FormatError: Raised when String::format or printfmt receive the wrong number of args for their format specifiers (ex: <code>String::format("%s")</code>)</p>
 </li>
 <li>
 <p>IOError: Raised when there is an issue calling a method of the file class (ex: Reading from a closed file, writing to a read-mode file, etc).</p>
@@ -138,7 +135,7 @@ except DivisionByZeroError:
 
 <h1>Custom Errors</h1>
 <p>It's possible to create custom exceptions as follows:</p>
-<pre><code>class MyError(message: string, code: integer) &gt; Exception(message)
+<pre><code>class MyError(message: String, code: Integer) &gt; Exception(message)
 {
     var @code = code
 }
