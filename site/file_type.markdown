@@ -7,27 +7,27 @@ Attempting to use read operations on write files (or vice versa) will result in 
 
 # Methods
 
-`file::close(self: file)`
+`File::close(self: File)`
 
 Close the file given. Attempting to close a file that is already closed will not do anything. For short scripts, this is not entirely necessary, as Lily's refcounting and garbage collection will eventually collect and then close files that are left open.
 
 
-`file::readline(self: file) : bytestring`
+`File::readline(self: File) : bytestring`
 
 This reads a single line from the given file. This returns the line as a bytestring, instead of a string in case the file contains either invalid utf-8, or embedded zeroes inside of it.
 
 
-`file::write[A](self: file, value: A)`
+`File::write[A](self: File, value: A)`
 
 This uses Lily's internal stringification to convert the value into a string if it is not already one. The contents of that string are then written to the file given.
 
 
-`file::print[A](self: file, value: A)`
+`File::print[A](self: File, value: A)`
 
-This is like `file::write`, except it writes a newline (`\n`) after the text.
+This is like `File::write`, except it writes a newline (`\n`) after the text.
 
 
-`file::open(string: filename, string: mode)`
+`File::open(String: filename, String: mode)`
 
 Attempt to open a file named `filename` with the mode provided.
 

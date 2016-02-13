@@ -478,57 +478,57 @@ void lily_list_fold(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 }
 
 static lily_func_seed clear =
-    {NULL, "clear", dyna_function, "[A](list[A])", lily_list_clear};
+    {NULL, "clear", dyna_function, "[A](List[A])", lily_list_clear};
 
 static lily_func_seed count =
-    {&clear, "count", dyna_function, "[A](list[A], function(A => boolean)):integer", lily_list_count};
+    {&clear, "count", dyna_function, "[A](List[A], Function(A => Boolean)):Integer", lily_list_count};
 
 static lily_func_seed delete_at =
-    {&count, "delete_at", dyna_function, "[A](list[A], integer)", lily_list_delete_at};
+    {&count, "delete_at", dyna_function, "[A](List[A], Integer)", lily_list_delete_at};
 
 static lily_func_seed each =
-    {&delete_at, "each", dyna_function, "[A](list[A], function(A)):list[A]", lily_list_each};
+    {&delete_at, "each", dyna_function, "[A](List[A], Function(A)):List[A]", lily_list_each};
 
 static lily_func_seed each_index =
-    {&each, "each_index", dyna_function, "[A](list[A], function(integer)):list[A]", lily_list_each_index};
+    {&each, "each_index", dyna_function, "[A](List[A], Function(Integer)):List[A]", lily_list_each_index};
 
 static lily_func_seed fill =
-    {&each_index, "fill", dyna_function, "[A](integer, A):list[A]", lily_list_fill};
+    {&each_index, "fill", dyna_function, "[A](Integer, A):List[A]", lily_list_fill};
 
 static lily_func_seed fold =
-    {&fill, "fold", dyna_function, "[A](list[A], A, function(A, A => A)):A", lily_list_fold};
+    {&fill, "fold", dyna_function, "[A](List[A], A, Function(A, A => A)):A", lily_list_fold};
 
 static lily_func_seed insert =
-    {&fold, "insert", dyna_function, "[A](list[A], integer, A)", lily_list_insert};
+    {&fold, "insert", dyna_function, "[A](List[A], Integer, A)", lily_list_insert};
 
 static lily_func_seed map =
-    {&insert, "map", dyna_function, "[A,B](list[A], function(A => B)):list[B]", lily_list_map};
+    {&insert, "map", dyna_function, "[A,B](List[A], Function(A => B)):List[B]", lily_list_map};
 
 static lily_func_seed pop =
-    {&map, "pop", dyna_function, "[A](list[A]):A", lily_list_pop};
+    {&map, "pop", dyna_function, "[A](List[A]):A", lily_list_pop};
 
 static const lily_func_seed push =
-    {&pop, "push", dyna_function, "[A](list[A], A)", lily_list_push};
+    {&pop, "push", dyna_function, "[A](List[A], A)", lily_list_push};
 
 static lily_func_seed reject =
-    {&push, "reject", dyna_function, "[A](list[A], function(A => boolean)):list[A]", lily_list_reject};
+    {&push, "reject", dyna_function, "[A](List[A], Function(A => Boolean)):List[A]", lily_list_reject};
 
 static lily_func_seed select_fn =
-    {&reject, "select", dyna_function, "[A](list[A], function(A => boolean)):list[A]", lily_list_select};
+    {&reject, "select", dyna_function, "[A](List[A], Function(A => Boolean)):List[A]", lily_list_select};
 
 static const lily_func_seed size =
-    {&select_fn, "size", dyna_function, "[A](list[A]):integer", lily_list_size};
+    {&select_fn, "size", dyna_function, "[A](List[A]):Integer", lily_list_size};
 
 static lily_func_seed shift =
-    {&size, "shift", dyna_function, "[A](list[A]):A", lily_list_shift};
+    {&size, "shift", dyna_function, "[A](List[A]):A", lily_list_shift};
 
 static lily_func_seed dynaload_start =
-    {&shift, "unshift", dyna_function, "[A](list[A], A)", lily_list_unshift};
+    {&shift, "unshift", dyna_function, "[A](List[A], A)", lily_list_unshift};
 
 static const lily_class_seed list_seed =
 {
     NULL,                 /* next */
-    "list",               /* name */
+    "List",               /* name */
     dyna_class,           /* load_type */
     1,                    /* is_refcounted */
     1,                    /* generic_count */

@@ -1,7 +1,7 @@
-list
+List
 ====
 
-The list type represents a type-safe container. The list type takes one subtype, which is the type of the elements that are allowed within it. Within the methods listed, this element type is referred to as the generic type `A`.
+The List type represents a type-safe container. The list type takes one subtype, which is the type of the elements that are allowed within it. Within the methods listed, this element type is referred to as the generic type `A`.
 
 # Operations
 
@@ -11,12 +11,12 @@ Lists compare using deep equality. Therefore `[1] == [1]` is `true`.
 
 # Methods
 
-`list::clear(self: list[A])`
+`List::clear(self: List[A])`
 
 Removes all elements from the list.
 
 
-`list::count(self: list[A], f: function(A => boolean)): integer`
+`List::count(self: List[A], f: Function(A => Boolean)): Integer`
 
 This calls `f` on each element of the list. The result is a count of how many times the predicate function `f` returned true.
 
@@ -29,7 +29,7 @@ Examples:
 ```
 
 
-`list::each(self: list[A], f: function(A)): list[A]`
+`List::each(self: List[A], f: Function(A)): List[A]`
 
 This calls `f` once, using each element in the list. The result of this function is the list that was passed into it.
 
@@ -46,16 +46,16 @@ Results in:
 ```
 
 
-`list::each_index(self: list[A], f: function(integer)): list[A]`
+`List::each_index(self: List[A], f: Function(Integer)): List[A]`
 
-This is similar to `list::each`, except that the function receives the index (from 0) of elements within the list.
+This is similar to `List::each`, except that the function receives the index (from 0) of elements within the list.
 
 The result of this function is the list that was passed into it.
 
 
-`list::delete_at(self: list[A], pos: integer)`
+`List::delete_at(self: List[A], pos: Integer)`
 
-This destroys the item in the list at `pos`. If `pos` is negative, then it is wrapped around similarly to `list::insert`.
+This destroys the item in the list at `pos`. If `pos` is negative, then it is wrapped around similarly to `List::insert`.
 
 Attempting to delete an index from an empty list, or from a non-existent position raises `IndexError`
 
@@ -72,14 +72,14 @@ v == [2]
 ```
 
 
-`list::fill(n: integer, value: A => list[A])`
+`List::fill(n: Integer, value: A => List[A])`
 
 This creates a new list, based on `value` being repeated `n` times.
 
 If `n` is less than zero, then `ValueError` is raised.
 
 
-`list::fold(self: list[A], value: A, f: function(A, A => A)):A`
+`List::fold(self: List[A], value: A, f: Function(A, A => A)):A`
 
 This function can be used to combine elements of a list together. It works by repeatedly calling `f`, which takes two elements and defines how to combine them.
 
@@ -88,7 +88,7 @@ On the first pass, `f` is called with `value` and element 0 of the list.
 Subsequent passes use the result of the last call, and the next element of the list.
 
 ```
-define add(a: integer, b: integer): integer { return a + b }
+define add(a: Integer, b: Integer): Integer { return a + b }
 
 var v = [1, 2, 3]
 v.fold(0, add) # 6
@@ -97,12 +97,12 @@ v.fold(20, add) # 26
 var strings = ["a", "b", "c"]
 strings.fold("", {|a, b| a.concat(b)}) # "abc"
 
-var empty: list[integer] = []
+var empty: List[Integer] = []
 empty.fold(100, {|a, b| 0}) # 100
 ```
 
 
-`list::insert(self: list[A], pos: integer, value: A)`
+`List::insert(self: List[A], pos: Integer, value: A)`
 
 Insert a single value into a list, before position `pos`. Negative values are accepted as well.
 
@@ -121,19 +121,19 @@ v == [-1, 0, 1, 2, 3] # true
 ```
 
 
-`list::pop(self: list[A]):A`
+`List::pop(self: List[A]):A`
 
 Takes the top-most element of the list out, and returns it.
 
 If the list is empty, then IndexError is raised.
 
 
-`list::push(self: list[A], value: A)`
+`List::push(self: List[A], value: A)`
 
 Add an element to the end of the list.
 
 
-`list::reject(self: list[A], f: function(A => boolean)) : list[A]`
+`List::reject(self: List[A], f: Function(A => boolean)) : List[A]`
 
 Returns a list of all elements in `self` for which the predicate `f` returns `false`.
 
@@ -148,7 +148,7 @@ Examples:
 ```
 
 
-`list::select(self: list[A], f: function(A => boolean)) : list[A]`
+`List::select(self: List[A], f: Function(A => boolean)) : List[A]`
 
 Returns a list of all elements in `self` for which the predicate `f` returns `true`.
 
@@ -163,7 +163,7 @@ Examples:
 ```
 
 
-`list::shift(self: list[A]): A`
+`List::shift(self: List[A]): A`
 
 This takes the first element from the list and returns it.
 
@@ -181,7 +181,7 @@ values == [20, 30] # true
 ```
 
 
-`list::size(self: list[A]) : integer`
+`List::size(self: List[A]) : Integer`
 
 Returns the number of elements that are contained within `self`. This can be used in conjunction with a for loop as follows:
 
@@ -191,7 +191,7 @@ for i in 0...x.size() - 1:
 ```
 
 
-`list::unshift(self: list[A], A)`
+`List::unshift(self: List[A], A)`
 
 This adds an element at the front of a list.
 

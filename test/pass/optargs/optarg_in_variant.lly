@@ -1,5 +1,5 @@
 
 enum abc {
-    ghi(function(*integer))
+    ghi(Function(*Integer))
     xyz
 }

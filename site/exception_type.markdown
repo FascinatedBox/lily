@@ -7,21 +7,21 @@ The Exception type represents the most basic kind of type that can be raised. Un
 
 Binary: `!=` `==`
 
-Comparison between Exception classes is done using deep equality. This is wrong, and will change.
+Comparison between Exception instances is done using shallow equality.
 
 # Members
 
-`@traceback: list[string]`
+`@traceback: List[String]`
 
-This represents a single frame of traceback. If this frame comes from something in native Lily code, then it takes the form of `from <filename>:<linenum>: in <function>`. If it comes from foreign code (such as `list::map`), then it takes the form of `from [C]: in <function>`.
+This represents a single frame of traceback. If this frame comes from something in native Lily code, then it takes the form of `from <filename>:<linenum>: in <function>`. If it comes from foreign code (such as `List::map`), then it takes the form of `from [C]: in <function>`.
 
 
-`@message: string`
+`@message: String`
 
 The exception error message.
 
 # Methods
 
-`exception::new(string: message)`
+`Exception::new(message: String)`
 
 Construct a new exception having the given message.

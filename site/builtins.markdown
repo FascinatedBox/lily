@@ -14,7 +14,7 @@ If Lily is running from Apache, then this will add content to the current page.
 In any other case, this will write to stdout.
 
 
-`printfmt(string: format, list[Dynamic] args...)`
+`printfmt(format: string, args: List[Dynamic]...)`
 
 This is like print, except that it allows `%` modifiers to indicate replacements. 
 
@@ -31,7 +31,7 @@ If there are more format specifiers than arguments, then `ValueError` is raised.
 This function is deprecated. It will be superceded by string interpolation.
 
 
-`calltrace : list[string])`
+`calltrace : List[String])`
 
 This returns a description of the current call stack, with each string representing a single call. Lily's call stack includes native calls, as well as calls to API functions (such as `integer::to_s`)
 
@@ -39,21 +39,21 @@ If this frame comes from something in native Lily code, then it takes the form o
 
 `from <filename>:<linenum>: in <function>`.
 
-If it comes from foreign code (such as `list::select`), then it takes the form of
+If it comes from foreign code (such as `List::select`), then it takes the form of
 
 `from [C]: in <function>`.
 
 
 # Variables
 
-`stdout: file`
+`stdout: File`
 
 This is a wrapper around C's stdout.
 
-`stderr: file`
+`stderr: File`
 
 This is a wrapper around C's stderr.
 
-`stdin: file`
+`stdin: File`
 
 This is a wrapper around C's stdin.

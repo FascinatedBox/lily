@@ -16,38 +16,38 @@ stdin
 #[
 stdin
     .readline()
-    * file::readline will read a single line from stdin.
+    * File::readline will read a single line from stdin.
       The result is a bytestring.
       A bytestring is different than a string, in that bytestrings may have
       invalid utf-8, and may have embedded zeros.
 
     .encode()
-    * bytestring::encode takes a bytestring and makes it into a string.
+    * ByteString::encode takes a bytestring and makes it into a string.
       The default encoding method is 'error', which means an exception is raised
       if there is invalid utf-8 or embedded zeroes.
 
     .trim()
-    * string::trim will remove any whitespace from the start or the end of the
+    * String::trim will remove any whitespace from the start or the end of the
       string.
 
     .split(" ")
-    * string::split will split the string by spaces. If there are multiple
+    * String::split will split the string by spaces. If there are multiple
       spaces between one value and another, that will leave blanks.
       The result is a list of strings.
 
     .reject{|str| str.isspace()}
-    * list::reject takes a list of A, and checks if it matches some predicate.
+    * List::reject takes a list of A, and checks if it matches some predicate.
       In this case, A is a string. The predicate is a function that takes that
       A and returns either true or false.
-      list::reject builds a new list that holds all elements where the predicate
+      List::reject builds a new list that holds all elements where the predicate
       returns false.
 
     .map{|str| str.parse_i().unwrap_or(0) }
-    * list::map takes a list of A and a function that converts from A to B.
+    * List::map takes a list of A and a function that converts from A to B.
       In this case, A is string, and B is whatever the lambda returns. As a
       bonus, Lily is smart enough to know that 'str' is a string, and only allow
       operations that work on a string to work on it.
-      Since string::parse_i can fail, it returns Option[integer]. The unwrap_or
+      Since String::parse_i can fail, it returns Option[integer]. The unwrap_or
       method provides the value 0 as a fallback in case that the input was not
       valid.
       The result is a new list of integers (list[integer])
@@ -58,7 +58,7 @@ stdin
       method) will thus fail.
 
     .fold(0, {|a, b| a + b})
-    * list::fold is an operation that returns a combination the elements within
+    * List::fold is an operation that returns a combination the elements within
       a list. The first value, zero, is the starting value. The lambda is an
       operation that will be called for each element of the list. If there are
       no values in the list, then the result is just the starting value.

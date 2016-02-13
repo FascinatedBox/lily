@@ -1,12 +1,12 @@
 #[
 SyntaxError: Argument #2 to f is invalid:
-Expected Type: list[integer]
-Received Type: list[A]
+Expected Type: List[Integer]
+Received Type: List[A]
     from wrong_kind_of_a.lly:11
 ]#
 
-define f[A](a: list[A], b: list[A]) {}
+define f[A](a: List[A], b: List[A]) {}
 
-define g[A](a: list[A]) {
+define g[A](a: List[A]) {
     f([1], a)
 }

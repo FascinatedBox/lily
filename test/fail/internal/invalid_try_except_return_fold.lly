@@ -3,7 +3,7 @@ SyntaxError: Missing return statement at end of function.
     from invalid_try_except_return_fold.lly:12
 ]#
 
-define f(a: integer) : integer
+define f(a: Integer) : Integer
 {
     try:
         a = 1

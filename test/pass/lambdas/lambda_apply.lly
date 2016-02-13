@@ -1,4 +1,4 @@
-define f(g: function(integer => string)) : string
+define f(g: Function(Integer => String)): String
 {
     return g(10)
 }

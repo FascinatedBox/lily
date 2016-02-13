@@ -2,11 +2,11 @@
 ValueError: Test
 Traceback:
     from list_select_interrupted.lly:11: in f
-    from [C]: in list::select
+    from [C]: in List::select
     from list_select_interrupted.lly:14: in __main__
 ]#
 
-define f(x: integer) : boolean
+define f(x: Integer): Boolean
 {
     raise ValueError::new("Test\n")
 }

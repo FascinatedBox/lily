@@ -1,4 +1,4 @@
-define f : boolean {
+define f : Boolean {
     var a = 0
     var ok = true
 

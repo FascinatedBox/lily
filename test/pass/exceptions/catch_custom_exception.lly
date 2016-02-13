@@ -1,4 +1,4 @@
-class Error(code: integer, message: string) < Exception(message)    {
+class Error(code: Integer, message: String) < Exception(message)    {
     var @code = code
 }
 

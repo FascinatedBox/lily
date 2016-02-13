@@ -23,7 +23,7 @@ extern const lily_func_seed lily_dynamic_dl_start;
 static const lily_class_seed function_seed =
 {
     NULL,                     /* next */
-    "function",               /* name */
+    "Function",               /* name */
     dyna_class,               /* load_type */
     1,                        /* is_refcounted */
     -1,                       /* generic_count */
@@ -47,7 +47,7 @@ static const lily_class_seed dynamic_seed =
 static const lily_class_seed tuple_seed =
 {
     NULL,                     /* next */
-    "tuple",                  /* name */
+    "Tuple",                  /* name */
     dyna_class,               /* load_type */
     1,                        /* is_refcounted */
     -1,                       /* generic_count */
@@ -146,17 +146,17 @@ static const lily_base_seed index_error =
 static const lily_base_seed dbz_error =
     {&index_error, "DivisionByZeroError", dyna_exception};
 static const lily_func_seed calltrace =
-    {&dbz_error, "calltrace", dyna_function, ":list[string]", lily_builtin_calltrace};
+    {&dbz_error, "calltrace", dyna_function, ":List[String]", lily_builtin_calltrace};
 static const lily_func_seed print =
     {&calltrace, "print", dyna_function, "[A](A)", lily_builtin_print};
 static const lily_func_seed printfmt =
-    {&print, "printfmt", dyna_function, "(string, Dynamic...)", lily_builtin_printfmt};
+    {&print, "printfmt", dyna_function, "(String, Dynamic...)", lily_builtin_printfmt};
 static const lily_var_seed seed_stderr =
-        {&printfmt, "stderr", dyna_var, "file"};
+        {&printfmt, "stderr", dyna_var, "File"};
 static const lily_var_seed seed_stdout =
-        {&seed_stderr, "stdout", dyna_var, "file"};
+        {&seed_stderr, "stdout", dyna_var, "File"};
 static const lily_var_seed seed_stdin =
-        {&seed_stdout, "stdin", dyna_var, "file"};
+        {&seed_stdout, "stdin", dyna_var, "File"};
 
 static void builtin_var_loader(lily_parse_state *parser, lily_var *var)
 {

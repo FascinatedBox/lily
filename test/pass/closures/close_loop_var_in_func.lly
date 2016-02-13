@@ -1,8 +1,8 @@
-define wrap(x: integer) : function( => integer) {
+define wrap(x: Integer) : Function( => Integer) {
     return {|| x * x}
 }
 
-var l: list[function( => integer)] = []
+var l: List[Function( => Integer)] = []
 
 for i in 0...5:
     l.push(wrap(i))

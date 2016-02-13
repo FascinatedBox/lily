@@ -1,5 +1,5 @@
 #[
-SyntaxError: Invalid operation: list[integer] == list[string].
+SyntaxError: Invalid operation: List[Integer] == List[String].
     from invalid_eq.lly:9
 ]#
 

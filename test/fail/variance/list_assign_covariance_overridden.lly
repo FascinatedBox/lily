@@ -1,5 +1,5 @@
 #[
-SyntaxError: Cannot assign type 'list[Two]' to type 'list[One]'.
+SyntaxError: Cannot assign type 'List[Two]' to type 'List[One]'.
     from list_assign_covariance_overridden.lly:12
 ]#
 

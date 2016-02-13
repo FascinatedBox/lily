@@ -1,11 +1,11 @@
-class One(x: integer, y: integer) {
-    define f : integer {
+class One(x: Integer, y: Integer) {
+    define f : Integer {
         return x + y
     }
 }
 
-class Two(x: integer, y: integer, z: integer) < One(x, y) {
-    define g : integer {
+class Two(x: Integer, y: Integer, z: Integer) < One(x, y) {
+    define g : Integer {
         return x + y + z
     }
 }

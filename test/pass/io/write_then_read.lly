@@ -1,7 +1,7 @@
-var f = file::open("io_test_file.txt", "w")
+var f = File::open("io_test_file.txt", "w")
 f.write("1234567890")
 f.close()
 
-f = file::open("io_test_file.txt", "r")
+f = File::open("io_test_file.txt", "r")
 if f.readline().encode("error") != "1234567890":
     stderr.print("Failed.")

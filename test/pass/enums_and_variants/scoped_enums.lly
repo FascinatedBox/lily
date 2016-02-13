@@ -4,10 +4,10 @@ enum ScopeTest[A] {
 }
 
 var v = [ScopeTest::One(1), ScopeTest::Two, ScopeTest::One(2)]
-var check: ScopeTest[integer] = v[0]
+var check: ScopeTest[Integer] = v[0]
 
 match check: {
     case One(s):
     case Two:
-        stderr.print("Check failed (Should be Option[integer])")
+        stderr.print("Check failed (Should be Option[Integer])")
 }

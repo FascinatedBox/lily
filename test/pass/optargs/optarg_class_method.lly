@@ -1,5 +1,5 @@
 class abc {
-    define ghi(a: *integer=10) {
+    define ghi(a: *Integer=10) {
     }
 }
 

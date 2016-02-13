@@ -1,8 +1,8 @@
 # This test ensures that tuples are acting sanely.
 
-var t: tuple[integer, string, list[integer]] = <[1, "1", [1]]>
+var t: Tuple[Integer, String, List[Integer]] = <[1, "1", [1]]>
 
-var t2: tuple[integer, Option[integer]] = <[10, Some(10)]>
+var t2: Tuple[Integer, Option[Integer]] = <[10, Some(10)]>
 
 # The interpreter should be able to figure the resulting type of this.
 var s = t[1].concat("1")

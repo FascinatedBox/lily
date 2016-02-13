@@ -2,31 +2,29 @@
 Lily's enums are types that are able to be assigned one of a number of different
 inner types. The inner types that an enum can be assigned to are termed the
 'variant types' or the 'variants' of the enum. The enum here has two different
-variants: Value, and List.
+variants: TreeValue, and TreeList.
 
 The enum here is fairly simple, as there are no generics associated with it. The
-first variant, Value, will take just an integer. The second, List, is able to
-accept any number of Object values (including 0).
+first variant, TreeValue, will take just an integer. The second, TreeList, is
+able to accept any number of TreeValue (including 0).
 
 Enums are sealed. There's no way to introduce new variants outside of the
 initial declaration. Additionally, it's possible to attach member functions to
 enums to make them more useful. However, once a member function is declared, it
 is no longer possible to add variants to the enum. This is because match needs
 to know exactly how many variants there are.
-
-match is another
 ]#
 
-enum Object {
-    Value(integer)
-    List(Object...)
+enum TreeObject {
+    TreeValue(Integer)
+    TreeList(TreeObject...)
 
     define display {
         match self: {
-            case Value(v):
+            case TreeValue(v):
                 stdout.write(v)
 
-            case List(l):
+            case TreeList(l):
                 stdout.write("[")
 
                 var size = l.size() - 1
@@ -43,18 +41,18 @@ enum Object {
 }
 
 stdout.write("The tree looks like this: ")
-List(
-        List(
-            Value(1), Value(2)
+TreeList(
+        TreeList(
+            TreeValue(1), TreeValue(2)
         ),
-        List(
-            Value(3),
-            List(
-                Value(4)
+        TreeList(
+            TreeValue(3),
+            TreeList(
+                TreeValue(4)
             )
         ),
-        List(
-            List()
+        TreeList(
+            TreeList()
         )
     )
     .display()

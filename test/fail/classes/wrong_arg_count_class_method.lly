@@ -1,8 +1,8 @@
 #[
-SyntaxError: Wrong number of arguments to string::concat (4 for 2).
+SyntaxError: Wrong number of arguments to String::concat (4 for 2).
     from wrong_arg_count_class_method.lly:8
 ]#
 
-var s: string = ""
+var s: String = ""
 
 s.concat(1, 2, 3)

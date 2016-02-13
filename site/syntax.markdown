@@ -1,5 +1,5 @@
 Syntax
-=====
+======
 
 Lily's syntax is likely to seem familiar to those who come from Python, Ruby, or other interpreted languages. First, and most importantly, there are no semicolons. Instead, Lily infers where a statement should end based on matching parentheses and determining where values apply:
 

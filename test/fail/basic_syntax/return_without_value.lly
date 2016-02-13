@@ -3,4 +3,4 @@ SyntaxError: 'return' expression has no value.
     from return_without_value.lly:6
 ]#
 
-define f {  } define g : integer { return f() }
+define f {  } define g : Integer { return f() }

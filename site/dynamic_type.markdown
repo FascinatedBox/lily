@@ -31,13 +31,13 @@ var my_int =
         values[0]
         .@(Dynamic)
         .unwrap()
-        .@(integer)
+        .@(Integer)
         .unwrap() # 10
 
 var bad_cast = values[2].@(integer) # None
 ```
 
-One limitation with `Dynamic` is that typecasts are now allowed to use subtypes like `list[integer]` or `function()`. This limitation exists because Lily retains class information at runtime, but discards all subtyping information. Because of that, there is no way to determine if, say, an empty list holds the desired type.
+One limitation with `Dynamic` is that typecasts are now allowed to use subtypes like `List[integer]` or `Function()`. This limitation exists because Lily retains class information at runtime, but discards all subtyping information. Because of that, there is no way to determine if, say, an empty list holds the desired type.
 
 # Operations
 

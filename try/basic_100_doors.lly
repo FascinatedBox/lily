@@ -7,16 +7,16 @@ This example is loosely based off of Ruby's example, but with some alterations.
 For one, this example uses a for loop since Lily's for loop is an integer-only
 loop that runs decently fast (there's no 10.times here).
 ]#
-var doors = list::fill(100, false)
+var doors = List::fill(100, false)
  
 for i in 0...99:
     for j in i...99 by i + 1:
         doors[j] = !doors[j]
 
-# The list[integer] type is enforced here to prevent defaulting to list[any].
+# The List[integer] type is enforced here to prevent defaulting to List[any].
 # This prevents needless wrapping of things in type 'any' when that does not
 # need to happen.
-var open_doors: list[integer] = []
+var open_doors: List[Integer] = []
 
 doors.each_index{|i|
     if doors[i]:

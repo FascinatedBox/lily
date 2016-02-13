@@ -1,2 +1,2 @@
-if string::htmlencode("abc") != "abc":
+if String::htmlencode("abc") != "abc":
     stderr.print("Failed.")

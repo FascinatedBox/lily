@@ -21,7 +21,7 @@ Lily currently does not support method overloading or polymorphism. These may be
 added in a future release.
 ]#
 
-class Point(x: integer, y: integer)
+class Point(x: Integer, y: Integer)
 {
     var @x = x
     var @y = y
@@ -47,7 +47,7 @@ class Point(x: integer, y: integer)
     ]#
 }
 
-class Point3D(x: integer, y: integer, z: integer) < Point(x, y)
+class Point3D(x: Integer, y: Integer, z: Integer) < Point(x, y)
 {
     var @z = z
 

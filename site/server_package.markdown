@@ -52,38 +52,38 @@ This module does not have any classes.
 
 # Methods
 
-`server::escape(string):string`
+`server::escape(String):String`
 
 This encodes a string so that it is suitable for being directly printed to the server. `&` becomes `&amp;`, `<` becomes `&lt;`, `>` becomes `&gt;`.
 
 
-`server::write(string)`
+`server::write(String)`
 
 This function will write a string directly to the server without escaping it at all. However, there is a caveat: This function will only work on string literals. The reason for this, is that string literals are considered to be safe (You wouldn't XSS yourself, right?). If a string is passed to this function that is not a literal, then `ValueError` is raised.
 
 
-`server::write_raw(string)`
+`server::write_raw(String)`
 
 This function takes any kind of a string (not just literals) and writes it directly to the server. It is assumed that the user has properly escaped the string using `server::escape`.
 
 
 # Variables
 
-`server::post: hash[string, Tainted[string]]`
+`server::post: Hash[String, Tainted[String]]`
 
 This contains all variables that were sent to the server using HTTP post. If no variables were sent, then this is empty.
 
 
-`server::env: hash[string, Tainted[string]]`
+`server::env: Hash[String, Tainted[String]]`
 
 This contains the server's environment variables.
 
 
-`server::get: hash[string, Tainted[string]]`
+`server::get: Hash[String, Tainted[String]]`
 
 This contains all variables that were sent to the server using HTTP get.
 
 
-`server::httpmethod: string`
+`server::httpmethod: String`
 
 The http method that was used, in all caps. Common values are POST, GET, PUT, and DELETE

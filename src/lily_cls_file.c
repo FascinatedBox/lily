@@ -176,25 +176,25 @@ void lily_file_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 }
 
 static const lily_func_seed file_close =
-    {NULL, "close", dyna_function, "(file)", lily_file_close};
+    {NULL, "close", dyna_function, "(File)", lily_file_close};
 
 static const lily_func_seed file_open =
-    {&file_close, "open", dyna_function, "(string, string):file", lily_file_open};
+    {&file_close, "open", dyna_function, "(String, String):File", lily_file_open};
 
 static const lily_func_seed file_print =
-    {&file_open, "print", dyna_function, "[A](file, A)", lily_file_print};
+    {&file_open, "print", dyna_function, "[A](File, A)", lily_file_print};
 
 static const lily_func_seed file_readline =
-    {&file_print, "readline", dyna_function, "(file):bytestring", lily_file_readline};
+    {&file_print, "readline", dyna_function, "(File):ByteString", lily_file_readline};
 
 static const lily_func_seed dynaload_start =
-    {&file_readline, "write", dyna_function, "[A](file, A)", lily_file_write};
+    {&file_readline, "write", dyna_function, "[A](File, A)", lily_file_write};
 
 
 static const lily_class_seed file_seed =
 {
     NULL,             /* next */
-    "file",           /* name */
+    "File",           /* name */
     dyna_class,       /* load_type */
     1,                /* is_refcounted */
     0,                /* generic_count */

@@ -1,5 +1,5 @@
 #[
-SyntaxError: Cannot anonymously call resulting type 'integer'.
+SyntaxError: Cannot anonymously call resulting type 'Integer'.
     from bad_anon_call.lly:6
 ]#
 

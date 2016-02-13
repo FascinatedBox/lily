@@ -11,17 +11,17 @@ define check_assigning {
 }
 
 define check_variant_returning {
-    define a: Option[integer] { return Some(1) }
-    define b: Option[integer] { return None }
+    define a: Option[Integer] { return Some(1) }
+    define b: Option[Integer] { return None }
 }
 
 define check_defaulting {
-    var a: list[Option[integer]] = [Some(10), None, None]
-    var b: hash[integer, Option[integer]] = [1=>None, 2=>Some(10), 3=>Some(11)]
+    var a: List[Option[Integer]] = [Some(10), None, None]
+    var b: Hash[Integer, Option[Integer]] = [1=>None, 2=>Some(10), 3=>Some(11)]
 }
 
 define check_pass_by_value {
-    define f(a: Option[integer])
+    define f(a: Option[Integer])
     {
         var v = [a]
         a = Some(11)
@@ -32,7 +32,7 @@ define check_pass_by_value {
         }
     }
 
-    var v: Option[integer] = Some(10)
+    var v: Option[Integer] = Some(10)
 }
 
 define check_generic_calls {
@@ -53,7 +53,7 @@ define check_varargs {
 }
 
 define check_nesting {
-    var t: Option[Option[integer]] = Some(Some(10))
+    var t: Option[Option[Integer]] = Some(Some(10))
 }
 
 check_assigning()

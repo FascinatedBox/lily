@@ -3,7 +3,7 @@ Control Flow
 
 It's hard to discuss control flow without discussing truth. 
 
-Lily allows `boolean`, `integer`, `double`, `string`, `bytestring`, and `list` to be checked for truthiness. `integer` and `double` are considered truthy if they aren't 0 (or 0.0). `string` and `bytestring` are considered truthy if their length is not 0. Finally, `list` is considered truthy if it isn't empty. Attempting to test any other type for truthiness is a syntax error.
+Lily allows `Boolean`, `Integer`, `Double`, `String`, `ByteString`, and `List` to be checked for truthiness. `Integer` and `Double` are considered truthy if they aren't 0 (or 0.0). `String` and `ByteString` are considered truthy if their length is not 0. Finally, `List` is considered truthy if it isn't empty. Attempting to test any other type for truthiness is a syntax error.
 
 # if / elif / else
 

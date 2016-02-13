@@ -1,5 +1,5 @@
 #[
-SyntaxError: Cannot anonymously call resulting type 'list[function (A)]'.
+SyntaxError: Cannot anonymously call resulting type 'List[Function (A)]'.
     from correct_dynaload_rewind.lly:6
 ]#
 

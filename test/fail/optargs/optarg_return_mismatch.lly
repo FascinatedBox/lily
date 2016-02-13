@@ -1,11 +1,11 @@
 #[
-SyntaxError: Cannot assign type 'function (integer, *integer => integer)' to type 'function (integer => string)'.
+SyntaxError: Cannot assign type 'Function (Integer, *Integer => Integer)' to type 'Function (Integer => String)'.
     from optarg_return_mismatch.lly:12
 ]#
 
-define f(a: integer) : string { return "10" }
+define f(a: Integer) : String { return "10" }
 
-define g(a: integer, b: *integer=10) : integer { return 10 }
+define g(a: Integer, b: *Integer=10) : Integer { return 10 }
 
 var h = f
 

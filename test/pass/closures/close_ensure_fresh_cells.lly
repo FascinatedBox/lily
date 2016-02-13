@@ -1,10 +1,10 @@
-define f : list[list[integer]] {
-    define g : tuple[function(), function( => list[integer])] {
-        var v: list[integer] = [0]
+define f : List[List[Integer]] {
+    define g : Tuple[Function(), Function( => List[Integer])] {
+        var v: List[Integer] = [0]
         define h {
             v.push(v[-1] + 1)
         }
-        define i : list[integer] {
+        define i : List[Integer] {
             return v
         }
         return <[h, i]>

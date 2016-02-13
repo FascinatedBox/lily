@@ -17,7 +17,7 @@ is necessary because Lily doesn't yet have a way to do it in the class header,
 which it should.
 ]#
 
-class Mail(sender: string, receiver: string, header: string, body: string)
+class Mail(sender: String, receiver: String, header: String, body: String)
 {
     var @sender = sender
     var @receiver = receiver
@@ -34,8 +34,8 @@ The {| denotes a lambda. The name 'a' is used because it's not that important.
 Since this is a filter combiner, it should stop on the first 'true' value.
 ]#
 
-define combine(f: function(Mail => boolean), g: function(Mail => boolean))
-    : function(Mail => boolean)
+define combine(f: Function(Mail => Boolean), g: Function(Mail => Boolean))
+    : Function(Mail => Boolean)
 {
     return {|a|
         var result = a |> f
@@ -45,12 +45,12 @@ define combine(f: function(Mail => boolean), g: function(Mail => boolean))
         result }
 }
 
-define drop_bad_domain(input: Mail): boolean
+define drop_bad_domain(input: Mail): Boolean
 {
     return input.sender.endswith("@evil.com")
 }
 
-define drop_chain_letters(input: Mail): boolean
+define drop_chain_letters(input: Mail): Boolean
 {
     return input.header.startswith("RE: RE: RE:")
 }

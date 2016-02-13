@@ -8,4 +8,4 @@ enum Test[A] {
     ::Two
 }
 
-var opt: Test[integer] = Test::One(1, 2)
+var opt: Test[Integer] = Test::One(1, 2)

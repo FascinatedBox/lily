@@ -32,13 +32,13 @@ if (lex->token != expected) \
    bootstrapped into the interpreter by force.
    Sorry. */
 static char *bootstrap =
-"class Exception(message: string) {\n"
+"class Exception(message: String) {\n"
 "    var @message = message\n"
-"    var @traceback: list[string] = []\n"
+"    var @traceback: List[String] = []\n"
 "}\n"
 "class Tainted[A](value: A) {\n"
 "    private var @value = value\n"
-"    define sanitize[A, B](f: function(A => B)):B {\n"
+"    define sanitize[A, B](f: Function(A => B)):B {\n"
 "         return f(@value)\n"
 "    }\n"
 "}\n";
@@ -544,7 +544,7 @@ static lily_tie *get_optarg_value(lily_parse_state *parser,
         int key_id = keyword_by_name(lex->label);
         if (key_id != KEY_TRUE && key_id != KEY_FALSE)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "'%s' is not a valid default value for a boolean.\n",
+                    "'%s' is not a valid default value for a Boolean.\n",
                     lex->label);
 
         result = lily_get_boolean_literal(symtab, key_id == KEY_TRUE);
@@ -1076,7 +1076,7 @@ static lily_class *dynaload_exception(lily_parse_state *parser,
     symtab->active_import = import;
     lily_msgbuf_flush(parser->msgbuf);
     lily_msgbuf_add_fmt(parser->msgbuf,
-            "class %s(msg: string) < Exception(msg) { }\n", name);
+            "class %s(msg: String) < Exception(msg) { }\n", name);
     lily_load_str(parser->lex, "[dynaload]", lm_no_tags, parser->msgbuf->message);
     /* This calls up the first token, which will be 'class'. */
     lily_lexer(parser->lex);

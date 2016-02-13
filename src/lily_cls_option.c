@@ -205,22 +205,22 @@ static const lily_func_seed and_fn =
     {NULL, "and", dyna_function, "[A, B](Option[A], Option[B]):Option[B]", &lily_option_and};
 
 static const lily_func_seed and_then =
-    {&and_fn, "and_then", dyna_function, "[A, B](Option[A], function(A => Option[B])):Option[B]", &lily_option_and_then};
+    {&and_fn, "and_then", dyna_function, "[A, B](Option[A], Function(A => Option[B])):Option[B]", &lily_option_and_then};
 
 static const lily_func_seed is_none =
-    {&and_then, "is_none", dyna_function, "[A](Option[A]):boolean", &lily_option_is_none};
+    {&and_then, "is_none", dyna_function, "[A](Option[A]):Boolean", &lily_option_is_none};
 
 static const lily_func_seed is_some =
-    {&is_none, "is_some", dyna_function, "[A](Option[A]):boolean", &lily_option_is_some};
+    {&is_none, "is_some", dyna_function, "[A](Option[A]):Boolean", &lily_option_is_some};
 
 static const lily_func_seed map =
-    {&is_some, "map", dyna_function, "[A, B](Option[A], function(A => B)):Option[B]", &lily_option_map};
+    {&is_some, "map", dyna_function, "[A, B](Option[A], Function(A => B)):Option[B]", &lily_option_map};
 
 static const lily_func_seed or_fn =
     {&map, "or", dyna_function, "[A](Option[A], Option[A]):Option[A]", &lily_option_or};
 
 static const lily_func_seed or_else =
-    {&or_fn, "or_else", dyna_function, "[A](Option[A], function( => Option[A])):Option[A]", &lily_option_or_else};
+    {&or_fn, "or_else", dyna_function, "[A](Option[A], Function( => Option[A])):Option[A]", &lily_option_or_else};
 
 static const lily_func_seed unwrap =
     {&or_else, "unwrap", dyna_function, "[A](Option[A]):A", &lily_option_unwrap};
@@ -229,4 +229,4 @@ static const lily_func_seed unwrap_or =
     {&unwrap, "unwrap_or", dyna_function, "[A](Option[A], A):A", &lily_option_unwrap_or};
 
 const lily_func_seed lily_option_dl_start =
-    {&unwrap_or, "unwrap_or_else", dyna_function, "[A](Option[A], function( => A)):A", &lily_option_unwrap_or_else};
+    {&unwrap_or, "unwrap_or_else", dyna_function, "[A](Option[A], Function( => A)):A", &lily_option_unwrap_or_else};

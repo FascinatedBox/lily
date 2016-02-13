@@ -1,8 +1,8 @@
-define f(a: integer) :
-    tuple[function(), function( => integer)] {
+define f(a: Integer) :
+    Tuple[Function(), Function( => Integer)] {
 
     define g { a += 1 }
-    define h : integer { return a }
+    define h : Integer { return a }
     return <[g, h]>
 }
 

@@ -9,12 +9,12 @@ f()
 f(Black, Red)
 f(Red)
 
-define my_print(message: string, target: *Option[file] = None)
+define my_print(message: String, target: *Option[File] = None)
 {
     if target == None:
         target = Some(stdout)
 
-    var file_target = target.unwrap()
+    var File_target = target.unwrap()
 }
 
 my_print("Hello")
