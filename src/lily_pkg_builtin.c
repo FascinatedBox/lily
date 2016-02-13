@@ -27,7 +27,6 @@ static const lily_class_seed function_seed =
     dyna_class,               /* load_type */
     1,                        /* is_refcounted */
     -1,                       /* generic_count */
-    0,                        /* flags */
     NULL,                     /* dynaload_table */
     lily_destroy_function     /* destroy_func */
 };
@@ -39,7 +38,6 @@ static const lily_class_seed dynamic_seed =
     dyna_class,               /* load_type */
     1,                        /* is_refcounted */
     0,                        /* generic_count */
-    0,                        /* flags */
     &lily_dynamic_dl_start,   /* dynaload_table */
     lily_destroy_dynamic      /* destroy_func */
 };
@@ -51,7 +49,6 @@ static const lily_class_seed tuple_seed =
     dyna_class,               /* load_type */
     1,                        /* is_refcounted */
     -1,                       /* generic_count */
-    0,                        /* flags */
     NULL,                     /* dynaload_table */
     NULL                      /* destroy_func */
 };
@@ -65,7 +62,6 @@ static const lily_class_seed optarg_seed =
     dyna_class,               /* load_type */
     0,                        /* is_refcounted */
     1,                        /* generic_count */
-    0,                        /* flags */
     NULL,                     /* dynaload_table */
     NULL                      /* destroy_func */
 };
@@ -79,7 +75,6 @@ static const lily_class_seed generic_seed =
     dyna_class,               /* load_type */
     0,                        /* is_refcounted */
     0,                        /* generic_count */
-    0,                        /* flags */
     NULL,                     /* dynaload_table */
     NULL                      /* destroy_func */
 };
@@ -93,7 +88,6 @@ static const lily_class_seed question_seed =
     dyna_class,               /* load_type */
     0,                        /* is_refcounted */
     0,                        /* generic_count */
-    0,                        /* flags */
     NULL,                     /* dynaload_table */
     NULL                      /* destroy_func */
 };
@@ -205,11 +199,11 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
     symtab->generic_class    = lily_new_class_by_seed(symtab, &generic_seed);
     symtab->question_class   = lily_new_class_by_seed(symtab, &question_seed);
 
-    symtab->integer_class->flags |= CLS_VALID_OPTARG;
-    symtab->double_class->flags |= CLS_VALID_OPTARG;
-    symtab->string_class->flags |= CLS_VALID_OPTARG;
+    symtab->integer_class->flags    |= CLS_VALID_OPTARG | CLS_VALID_HASH_KEY;
+    symtab->double_class->flags     |= CLS_VALID_OPTARG;
+    symtab->string_class->flags     |= CLS_VALID_OPTARG | CLS_VALID_HASH_KEY;
     symtab->bytestring_class->flags |= CLS_VALID_OPTARG;
-    symtab->boolean_class->flags |= CLS_VALID_OPTARG;
+    symtab->boolean_class->flags    |= CLS_VALID_OPTARG;
 
     symtab->integer_class->move_flags    = VAL_IS_INTEGER;
     symtab->double_class->move_flags     = VAL_IS_DOUBLE;

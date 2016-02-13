@@ -9,11 +9,6 @@ int_str_map[10] = "10"
 int_str_map[5000] = "11"
 int_str_map[0x10] = "12"
 
-# Doubles as keys, with some exponential stuff too.
-var num_str_map: Hash[Double, String] = []
-num_str_map[5.5] = "10"
-num_str_map[1e1] = "12"
-
 # static hash creation
 var str_str_map: Hash[String, String] = ["a" => "b", "c" => "d", "e" => "f"]
 # Again, but some of the keys repeat. In this case, the right-most key

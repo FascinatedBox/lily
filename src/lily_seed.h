@@ -35,9 +35,8 @@ typedef const struct {
     const void *next;
     char *name;
     uint64_t seed_type;
-    uint16_t is_refcounted;
-    uint16_t generic_count;
-    uint32_t flags;
+    uint32_t is_refcounted;
+    uint32_t generic_count;
     const void *dynaload_table;
     class_destroy_func destroy_func;
 } lily_class_seed;
