@@ -1,7 +1,7 @@
-# Make sure string::format can handle multiple formats by each other.
+# Make sure String::format can handle multiple formats by each other.
 
-var s: string = "    "
-var result = string::format("%s%s%s%s%s%s%s%s%s%s",
+var s: String = "    "
+var result = String::format("%s%s%s%s%s%s%s%s%s%s",
         s |> Dynamic,
         s |> Dynamic,
         s |> Dynamic,

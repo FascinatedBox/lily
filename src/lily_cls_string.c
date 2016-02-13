@@ -951,63 +951,63 @@ void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
 }
 
 static const lily_func_seed concat =
-    {NULL, "concat", dyna_function, "(string, string):string", lily_string_concat};
+    {NULL, "concat", dyna_function, "(String, String):String", lily_string_concat};
 
 static const lily_func_seed endswith =
-    {&concat, "endswith", dyna_function, "(string, string):boolean", lily_string_endswith};
+    {&concat, "endswith", dyna_function, "(String, String):Boolean", lily_string_endswith};
 
 static const lily_func_seed find =
-    {&endswith, "find", dyna_function, "(string, string):Option[integer]", lily_string_find};
+    {&endswith, "find", dyna_function, "(String, String):Option[Integer]", lily_string_find};
 
 static const lily_func_seed format =
-    {&find, "format", dyna_function, "(string, Dynamic...):string", lily_string_format};
+    {&find, "format", dyna_function, "(String, Dynamic...):String", lily_string_format};
 
 static const lily_func_seed htmlencode =
-    {&format, "htmlencode", dyna_function, "(string):string", lily_string_htmlencode};
+    {&format, "htmlencode", dyna_function, "(String):String", lily_string_htmlencode};
 
 static const lily_func_seed isalpha_fn =
-    {&htmlencode, "isalpha", dyna_function, "(string):boolean", lily_string_isalpha};
+    {&htmlencode, "isalpha", dyna_function, "(String):Boolean", lily_string_isalpha};
 
 static const lily_func_seed isdigit_fn =
-    {&isalpha_fn, "isdigit", dyna_function, "(string):boolean", lily_string_isdigit};
+    {&isalpha_fn, "isdigit", dyna_function, "(String):Boolean", lily_string_isdigit};
 
 static const lily_func_seed isalnum_fn =
-    {&isdigit_fn, "isalnum", dyna_function, "(string):boolean", lily_string_isalnum};
+    {&isdigit_fn, "isalnum", dyna_function, "(String):Boolean", lily_string_isalnum};
 
 static const lily_func_seed isspace_fn =
-    {&isalnum_fn, "isspace", dyna_function, "(string):boolean", lily_string_isspace};
+    {&isalnum_fn, "isspace", dyna_function, "(String):Boolean", lily_string_isspace};
 
 static const lily_func_seed lstrip =
-    {&isspace_fn, "lstrip", dyna_function, "(string, string):string", lily_string_lstrip};
+    {&isspace_fn, "lstrip", dyna_function, "(String, String):String", lily_string_lstrip};
 
 static const lily_func_seed lower =
-    {&lstrip, "lower", dyna_function, "(string):string", lily_string_lower};
+    {&lstrip, "lower", dyna_function, "(String):String", lily_string_lower};
 
 static const lily_func_seed parse_i =
-    {&lower, "parse_i", dyna_function, "(string):Option[integer]", lily_string_parse_i};
+    {&lower, "parse_i", dyna_function, "(String):Option[Integer]", lily_string_parse_i};
 
 static const lily_func_seed rstrip =
-    {&parse_i, "rstrip", dyna_function, "(string, string):string", lily_string_rstrip};
+    {&parse_i, "rstrip", dyna_function, "(String, String):String", lily_string_rstrip};
 
 static const lily_func_seed startswith =
-    {&rstrip, "startswith", dyna_function, "(string, string):boolean", lily_string_startswith};
+    {&rstrip, "startswith", dyna_function, "(String, String):Boolean", lily_string_startswith};
 
 static const lily_func_seed split =
-    {&startswith, "split", dyna_function, "(string, *string):list[string]", lily_string_split};
+    {&startswith, "split", dyna_function, "(String, *String):List[String]", lily_string_split};
 
 static const lily_func_seed strip =
-    {&split, "strip", dyna_function, "(string, string):string", lily_string_strip};
+    {&split, "strip", dyna_function, "(String, String):String", lily_string_strip};
 
 static const lily_func_seed trim =
-    {&strip, "trim", dyna_function, "(string):string", lily_string_trim};
+    {&strip, "trim", dyna_function, "(String):String", lily_string_trim};
 
 static const lily_func_seed dynaload_start =
-    {&trim, "upper", dyna_function, "(string):string", lily_string_upper};
+    {&trim, "upper", dyna_function, "(String):String", lily_string_upper};
 
 static const lily_class_seed string_seed =
 {
     NULL,               /* next */
-    "string",           /* name */
+    "String",           /* name */
     dyna_class,         /* load_type */
     1,                  /* is_refcounted */
     0,                  /* generic_count */

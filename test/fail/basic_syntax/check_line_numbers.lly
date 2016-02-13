@@ -1,5 +1,5 @@
 #[
-SyntaxError: Cannot assign type 'string' to type 'integer'.
+SyntaxError: Cannot assign type 'String' to type 'Integer'.
     from check_line_numbers.lly:7
 ]#
 

@@ -15,31 +15,10 @@ cases where the actual exception contents are not as important as the exception
 itself. 'safe_to_i' below is a good example of one such case.
 ]#
 
-enum Option[A] {
-    Some(A)
-    None
-    define unwrap[A] : A {
-        match self: {
-            case Some(s):
-                return s
-            case None:
-                raise ValueError::new("Unwrap called with no value present!")
-        }
-    }
-    define is_none: boolean {
-        match self: {
-            case Some(s):
-                return false
-            case None:
-                return true
-        }
-    }
-}
-
-define safe_to_i(input: string): Option[integer]
+define safe_to_i(input: String): Option[Integer]
 {
     try:
-        return Some(input.to_i())
+        return Some(input.parse_i().unwrap())
     # catching Exception (and not just ValueError) is necessary because Lily
     # cannot be sure that all cases are covered otherwise.
     except Exception:
@@ -50,18 +29,18 @@ var values =
     # Start by creating a list of string that may or may not be numbers.
     ["1", "9001", "25", "Bob", "-83", " 7 "]
 
-    # Transform it into a list[Option[integer]].
+    # Transform it into a List[Option[integer]].
     # Valid numbers are Some's, invalid are None.
     .map{|a| safe_to_i(a) }
 
     # Kick out values that are None.
     .reject{|a| a.is_none() }
 
-    # Transform again, this time to a list[integer].
+    # Transform again, this time to a List[integer].
     # This is safe because no None values are present.
     .map{|a| a.unwrap() }
 
-printfmt("The filtered list is: %s.\n", values)
+printfmt("The filtered list is: %s.\n", Dynamic(values))
 
 try:
     1 / 0
@@ -78,7 +57,7 @@ try: {
     except Exception as e:
         # Note: It is not possible to use 'k' here. That is intentional, as Lily
         # cannot guarantee that 'k' is properly initialized.
-        printfmt("Caught index error! Traceback: %s.\n", e.traceback[0])
+        printfmt("Caught index error! Traceback: %s.\n", Dynamic(e.traceback[0]))
     }
 except IndexError:
     0
@@ -86,7 +65,7 @@ except IndexError:
 
 # Exception is inheritable, and currently only provides @traceback and @message.
 # @message can be altered, but @traceback is rewritten when the error is caught.
-class MyError(message: string, code: integer) < Exception(message)
+class MyError(message: String, code: Integer) < Exception(message)
 {
     var @code = code
 }
@@ -94,4 +73,4 @@ class MyError(message: string, code: integer) < Exception(message)
 try:
     raise MyError::new("Error!", 100)
 except MyError as err:
-    printfmt("Caught a custom error with code %d.\n", err.code)
+    printfmt("Caught a custom error with code %d.\n", Dynamic(err.code))

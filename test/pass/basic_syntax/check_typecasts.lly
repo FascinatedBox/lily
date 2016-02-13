@@ -1,14 +1,14 @@
 var a = Dynamic(10)
 var intval = 0
-intval = a.@(integer).unwrap()
+intval = a.@(Integer).unwrap()
 
 var dblval = 0.0
 a = Dynamic(10.0)
-dblval = a.@(double).unwrap()
+dblval = a.@(Double).unwrap()
 
 var strval = ""
 a = Dynamic("10")
-strval = a.@(string).unwrap()
+strval = a.@(String).unwrap()
 
-if Dynamic(10).@(string) != None:
-    stderr.print("Dynamic(10) cast as string is not None.")
+if Dynamic(10).@(String) != None:
+    stderr.print("Dynamic(10) cast as String is not None.")

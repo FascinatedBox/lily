@@ -1,5 +1,5 @@
-define f(format: string, args: Dynamic...) {    }
-define g(args: integer...) { }
+define f(format: String, args: Dynamic...) {    }
+define g(args: Integer...) { }
 
 f("abc")
 f("abc", Dynamic(1), Dynamic("3"))

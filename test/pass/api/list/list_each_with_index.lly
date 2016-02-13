@@ -1,5 +1,5 @@
 var v = [3, 2, 1]
-var values: list[integer] = []
+var values: List[Integer] = []
 
 v.each_index{|i| values.push(i) }
 

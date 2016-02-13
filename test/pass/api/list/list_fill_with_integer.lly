@@ -1,2 +1,2 @@
-if list::fill(5, 10) != [10, 10, 10, 10, 10]:
+if List::fill(5, 10) != [10, 10, 10, 10, 10]:
     stderr.print("Failed.")

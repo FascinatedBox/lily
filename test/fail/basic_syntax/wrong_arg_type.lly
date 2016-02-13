@@ -1,8 +1,8 @@
 #[
 SyntaxError: Argument #1 to f is invalid:
-Expected Type: integer
-Received Type: string
+Expected Type: Integer
+Received Type: String
     from wrong_arg_type.lly:8
 ]#
 
-define f(a: integer) {} f("a")
+define f(a: Integer) {} f("a")

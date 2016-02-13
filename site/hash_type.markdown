@@ -1,9 +1,9 @@
-hash
+Hash
 ====
 
-The hash type represents a mapping from a key to a value. When annotating a hash type, the key comes first, and the value afterward. A hash mapping from integer to string could thus be annotated as `hash[integer, string]`. Within the method listing, type A refers to the key, and type B refers to the value.
+The Hash type represents a mapping from a key to a value. When annotating a hash type, the key comes first, and the value afterward. A hash mapping from integer to string could thus be annotated as `Hash[Integer, String]`. Within the method listing, type A refers to the key, and type B refers to the value.
 
-The following types are valid hash keys: `integer`, `double`, and `string`.
+The following types are valid hash keys: `Integer`, `Double`, and `String`.
 
 Values can be added to hashes through subscript assignment. However, attempting to retrieve a key that does not exist will trigger `KeyError`.
 
@@ -17,37 +17,37 @@ Hashes, like lists, do deep comparisons for equality. As such, `[1 => "a"] == [1
 
 # Methods
 
-`hash::clear(self: hash[A, B])`
+`Hash::clear(self: Hash[A, B])`
 
 Removes all key-value pairs from the hash.
 
 
-`hash::delete(self: hash[A, B], key: A)`
+`Hash::delete(self: Hash[A, B], key: A)`
 
 This attempts to erase `key` from the hash. If `key` does not exist within the hash, then nothing happens.
 
 
-`hash::each_pair(self: hash[A, B], f: function(A, B))`
+`Hash::each_pair(self: Hash[A, B], f: Function(A, B))`
 
 This calls `f` on each key-value pair that exists within the hash.
 
 
-`hash::has_key(self: hash[A, B], key: A):boolean`
+`Hash::has_key(self: Hash[A, B], key: A):Boolean`
 
 Checks if `key` exists within the hash.
 
 
-`hash::keys(self: hash[A, B]) : list[A]`
+`Hash::keys(self: Hash[A, B]) : List[A]`
 
 Returns a list of all keys that are present within the hash.
 
 
-`hash::get(self: hash[A, B], key: A, or_else: B) : B`
+`Hash::get(self: Hash[A, B], key: A, or_else: B) : B`
 
 Attempt to get `key` from within the hash. If successful, return the matching value. If `key` does not exist within the hash, then return `or_else` instead. This can be considered a safe alternative to a subscript, as it does not raise any errors.
 
 
-`hash::map_values(self: hash[A, B], f: function(B => C)):hash[A, C]`
+`Hash::map_values(self: Hash[A, B], f: Function(B => C)):Hash[A, C]`
 
 This iterates over the hash given, calling `f` with each value held.
 
@@ -64,7 +64,7 @@ h.map_values{|v| v + 1}
 ```
 
 
-`hash::merge(self: hash[A, B], others: hash[A, B]...):hash[A, B]`
+`Hash::merge(self: Hash[A, B], others: Hash[A, B]...):Hash[A, B]`
 
 This creates a new hash that combines `self` and each hash within `others`.
 
@@ -78,7 +78,7 @@ v = v.merge([4 => 4, 3 => 6], [3 => 0])
 ```
 
 
-`hash::reject(self: hash[A, B], f: function(A, B => boolean)):hash[A, B]`
+`Hash::reject(self: Hash[A, B], f: Function(A, B => Boolean)):Hash[A, B]`
 
 Returns a new hash of all key-value pairs in `self` for which the predicate `f` returns `false`.
 
@@ -91,7 +91,7 @@ Returns a new hash of all key-value pairs in `self` for which the predicate `f` 
 ```
 
 
-`hash::select(self: hash[A, B], f: function(A, B => boolean)):hash[A, B]`
+`Hash::select(self: Hash[A, B], f: Function(A, B => Boolean)):Hash[A, B]`
 
 Returns a new hash of all key-value pairs in `self` for which the predicate `f` returns `true`.
 
@@ -104,6 +104,6 @@ Returns a new hash of all key-value pairs in `self` for which the predicate `f` 
 ```
 
 
-`hash::size(self: hash[A, B]):integer`
+`Hash::size(self: Hash[A, B]):Integer`
 
 Returns the number of key-value pairs within the hash.

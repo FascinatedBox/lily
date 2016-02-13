@@ -1,1 +1,1 @@
-class error(msg: string) < Exception(msg) {  }
+class error(msg: String) < Exception(msg) {  }

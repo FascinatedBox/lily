@@ -1,4 +1,4 @@
-define f(a: integer) : integer
+define f(a: Integer) : Integer
 {
     if a == 1: {
         if a == 2: {

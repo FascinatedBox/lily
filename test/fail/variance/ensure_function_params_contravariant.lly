@@ -1,5 +1,5 @@
 #[
-SyntaxError: Cannot assign type 'function (Two)' to type 'function (One)'.
+SyntaxError: Cannot assign type 'Function (Two)' to type 'Function (One)'.
     from ensure_function_params_contravariant.lly:13
 ]#
 

@@ -6,9 +6,9 @@ type-inference capabilities.
 
 define transform[A, B, C, D](
     value: A,
-    f: function(A => B),
-    g: function(B => C),
-    h: function(C => D))
+    f: Function(A => B),
+    g: Function(B => C),
+    h: Function(C => D))
     : D
 {
     # This could also be written as
@@ -16,38 +16,38 @@ define transform[A, B, C, D](
     return h(g(f(value)))
 }
 
-define length[A](input: list[string]): integer { return input.size() }
+define length[A](input: List[String]): Integer { return input.size() }
 
 transform(
     10,
     #[
-        A = integer, B = ?, C = ?, D = ?
-        integer::to_s is defined as 'function(integer):string'
-        B is set to string
+        A = Integer, B = ?, C = ?, D = ?
+        Integer::to_s is defined as 'Function(Integer):String'
+        B is set to String
     ]#
-    integer::to_s,
+    Integer::to_s,
 
     #[
-        A = integer, B = string, C = ?, D = ?
+        A = Integer, B = String, C = ?, D = ?
         The lambda infers that the input (b) should be type B.
         The .concat(b) is useless to the final result, but proves that Lily
-        knows that 'b' has the type 'string'
+        knows that b = String.
         It then resolves B as being a string.
-        C is set to list[string]
+        C is set to List[String]
     ]#
     {|b| [b.concat(b)]},
     #[
-        A = integer, B = string, C = list[string], D = ?
+        A = Integer, B = String, C = List[String], D = ?
         The length function above wants a list of something and will give an
-        integer in return. It'll get C, which is list[string] (valid).
-        D is set to integer
+        integer in return. It'll get C, which is List[String] (valid).
+        D is set to Integer
     ]#
     length
 
     #[
         To prove that Lily knows what it's doing, try uncommenting this lambda
         and commenting out length.
-        The input of the lambda is C, which is list[string].
+        The input of the lambda is C, which is List[String].
     ]#
     # {|c| c + 5}
 ) |> print

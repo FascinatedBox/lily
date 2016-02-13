@@ -3,9 +3,9 @@ define f {}
 # The call to f is to make sure classes don't always blindly inject self into
 # every call that is made.
 
-class One(a: integer) { var @a = a  f() }
-class Two(a: integer, b: string) < One(a) { var @b = b }
-class Three(a: integer, b: string, c: list[integer]) < Two(a, b) { var @c = c }
+class One(a: Integer) { var @a = a  f() }
+class Two(a: Integer, b: String) < One(a) { var @b = b }
+class Three(a: Integer, b: String, c: List[Integer]) < Two(a, b) { var @c = c }
 
 class AccessCheck {
     define g {

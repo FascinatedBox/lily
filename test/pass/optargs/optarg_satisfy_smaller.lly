@@ -1,5 +1,5 @@
-define f(a: integer, b: *integer=10) {  }
+define f(a: Integer, b: *Integer=10) {  }
 
-define g(a: function(integer)) {  }
+define g(a: Function(Integer)) {  }
 
 g(f)

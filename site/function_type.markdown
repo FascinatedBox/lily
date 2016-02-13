@@ -1,7 +1,7 @@
-function
+Function
 ========
 
-The function type is the only type that is able to be called with arguments. In Lily, functions are considered 'first-class': They can be passed around as arguments, returned from a function, be placed into a list, and more.
+The Function type is the only type that is able to be called with arguments. In Lily, functions are considered 'first-class': They can be passed around as arguments, returned from a function, be placed into a list, and more.
 
 Annotating a function is different than for other types. All other types place their subtypes between `[...]`. However, a function's subtypes are listed between `(...)`. There is no limitation on how many arguments that a function can support. However, a function is only allowed to return one value.
 

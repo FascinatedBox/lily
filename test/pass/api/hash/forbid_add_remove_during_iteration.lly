@@ -9,7 +9,7 @@ define preloop_check
     h[2] = 2
 }
 
-define run_checks(name: string)
+define run_checks(name: String)
 {
     try: {
         h[3] = 3

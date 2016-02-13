@@ -35,7 +35,7 @@ if current_color == Blue:
 # Invalid: Variants are not implicitly truthy or falsey
 # if Blue: ...
 
-# Type: list[TerminalColor]
+# Type: List[TerminalColor]
 var my_colors = [Blue, Red, White]
 
 # Invalid: current_color has type TerminalColor
@@ -132,7 +132,7 @@ Do note, however, that an enum cannot have variables or expressions within the c
 
 # Option
 
-Let's go to something that's more useful. You may recall that Lily is a language that requires that all vars have a starting value. However, this is not always practical. Perhaps you've got a class which will open up a connection only when it's explicitly called for.
+Let's go to something that's more useful. You may recall that Lily is a language that requires that all vars have a starting value. However, this is not always practical. Perhaps you've got a class which will open up a connection only when it's explicitly called for. Lily defines a built-in enum called `Option`. It looks like this:
 
 ```
 enum Option[A] {
@@ -141,23 +141,23 @@ enum Option[A] {
 }
 ```
 
-This creates a new enum called Option that takes a single subtype. Values of type Option can only be assigned to a Some that has the same subtype, or None. Since the None is not qualified by a subtype, any Option can be assigned to a None.
+Values of type Option can only be assigned to a Some that has the same subtype, or None. Since the None is not qualified by a subtype, any Option can be assigned to a None.
 
 ```
-# Type: Option[integer]
+# Type: Option[Integer]
 var my_opt = Some(1)
 
 my_opt = None
 
-# Type: list[Option[integer]]
+# Type: List[Option[Integer]]
 var nested_option = [Some(1), None, Some(2)]
 
 nested_option[0] = None
 
-# Type: list[Option[Dynamic]]
+# Type: List[Option[Dynamic]]
 var opt_list = [None, None, None]
 
-# Invalid: Option cannot be assigned to an integer
+# Invalid: Option cannot be assigned to an Integer
 # my_opt = 10
 ```
 
@@ -200,7 +200,7 @@ enum Option[A] {
     Some(A)
     None
 
-    define map[A, B](f: function(A => B)) : Option[B]
+    define map[A, B](f: Function(A => B)) : Option[B]
     {
         match self: {
             case Some(s):
@@ -213,5 +213,5 @@ enum Option[A] {
 
 var v = Some(10)
 
-printfmt("Changed the value to '%s'.\n", v.map(integer::to_s))
+printfmt("Changed the value to '%s'.\n", v.map(Integer::to_s))
 ```

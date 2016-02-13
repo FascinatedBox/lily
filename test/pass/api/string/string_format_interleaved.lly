@@ -11,7 +11,7 @@ var expected =
  "10_10"]
 
 for i in 1...10: {
-    var result = string::format("%d_%d", Dynamic(i), Dynamic(i))
+    var result = String::format("%d_%d", Dynamic(i), Dynamic(i))
     if result != expected[i - 1]:
         stderr.print("Failed.")
 }

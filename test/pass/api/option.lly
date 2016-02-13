@@ -1,6 +1,6 @@
-var errors: list[string] = []
+var errors: List[String] = []
 
-define run(message: string, f: function( => boolean))
+define run(message: String, f: Function( => Boolean))
 {
     if f() == false:
         errors.push(message)
@@ -30,14 +30,14 @@ var tests =
             0
     },
     {||
-        var sq: function(integer => Option[integer]) = {|x| Some(x * x) }
-        var empty: function(integer => Option[integer]) = {|x| None }
+        var sq: Function(Integer => Option[Integer]) = {|x| Some(x * x) }
+        var empty: Function(Integer => Option[Integer]) = {|x| None }
 
         run("Some(4).and_then(sq).unwrap() == 16",        {|| Some(4).and_then(sq).unwrap() == 16 })
         run("Some(4).and_then(empty).unwrap().is_none()", {|| Some(4).and_then(empty).is_none() })
     },
     {||
-        var size: function(list[integer] => integer) = {|l| l.size() }
+        var size: Function(List[Integer] => Integer) = {|l| l.size() }
 
         run("Some([1]).map(size).unwrap() == 1",          {|| Some([1]).map(size).unwrap() == 1 })
     },

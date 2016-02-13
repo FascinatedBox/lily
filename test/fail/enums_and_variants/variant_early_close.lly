@@ -5,7 +5,7 @@ SyntaxError: Unexpected token 'a label'.
 
 enum Object {
     Value
-    List(Object...)
+    ObjList(Object...)
 }
 
-List(List() List())
+ObjList(ObjList() ObjList())

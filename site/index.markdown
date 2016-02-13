@@ -6,24 +6,24 @@ Lily is an interpreted language that features static typing that's there to help
 By default, Lily will treat the entire source file as being code, and run it. This is called standalone mode. The alternative is tag mode. In tag mode, the interpreter will process anything between `<?lily ... ?>` as code, and anything outside as raw HTML.
 
 ```
-define is_integer(input: string) : boolean
+define is_integer(input: String) : Boolean
 {
     try: {
-        input.to_i()
+        input.parse_i().unwrap()
         return true
     except Exception:
         return false
     }
 }
 
-# Inferred type: list of strings (list[string])
+# Inferred type: list of strings (List[String])
 var to_convert = ["123", "99", "10pigs", "asdf"]
 
 # Drop the ones that can't be converted to integers.
 to_convert.select(is_integer)
 
-# Inferred type: list[integer]
-var integer_list = to_convert.map{|s| s.to_i()}
+# Inferred type: List[Integer]
+var integer_list = to_convert.map{|s| s.parse_i().unwrap()}
 
 print(integer_list)
 ```

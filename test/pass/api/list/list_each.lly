@@ -1,5 +1,5 @@
 var v = [1, 2, 3, 4, 5]
-var temp: list[integer] = []
+var temp: List[Integer] = []
 
 v.each{|e| temp.push(e) }
 

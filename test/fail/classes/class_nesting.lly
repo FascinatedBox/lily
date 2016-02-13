@@ -3,8 +3,8 @@ SyntaxError: Cannot define a class here.
     from class_nesting.lly:7
 ]#
 
-class c1(a: integer) {
-    class c2(b: integer) {
+class c1(a: Integer) {
+    class c2(b: Integer) {
 
     }
 }

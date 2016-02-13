@@ -4,7 +4,7 @@
 # Foreign calls forget to adjust for a function return dropping it, allowing
 # the depth to go into negatives.
 
-define f(input: list[integer]) : list[integer]
+define f(input: List[Integer]): List[Integer]
 {
     input.map{|i| i}
     return input

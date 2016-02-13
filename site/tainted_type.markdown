@@ -9,8 +9,6 @@ Unlike most builtin types, Tainted can be inherited from.
 
 Binary: `!=` `==`
 
-Comparison between Exception classes is done using deep equality. This is wrong, and will change.
-
 # Members
 
 `private @value: A`

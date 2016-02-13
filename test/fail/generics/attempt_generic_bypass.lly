@@ -1,7 +1,7 @@
 #[
 SyntaxError: Argument #2 to f is invalid:
 Expected Type: A
-Received Type: integer
+Received Type: Integer
     from attempt_generic_bypass.lly:17
 ]#
 

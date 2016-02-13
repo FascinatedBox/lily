@@ -13,7 +13,7 @@
 
 define empty[A](a: A) {  }
 
-define add(a: integer, f: function(), b: integer) : integer
+define add(a: Integer, f: Function(), b: Integer) : Integer
 {
     return a + b
 }

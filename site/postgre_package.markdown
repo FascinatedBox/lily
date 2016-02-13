@@ -7,6 +7,8 @@ This is not a default module. To build this module, you will first need to get d
 
 This library is very incomplete, and will receive a facelift in the near future.
 
+Note: This module is not working right now. It will be fixed when an Either-like enum is introduced, so that operations are safe.
+
 # Variables
 
 This package does not provide any top-level variables.

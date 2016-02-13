@@ -1,9 +1,9 @@
 define f(
-        a: *integer=10,
-        b: *double=1.1,
-        c: *bytestring=B"",
-        d: *string="1",
-        e: *boolean=true)
+        a: *Integer=10,
+        b: *Double=1.1,
+        c: *ByteString=B"",
+        d: *String="1",
+        e: *Boolean=true)
 {
 
 }

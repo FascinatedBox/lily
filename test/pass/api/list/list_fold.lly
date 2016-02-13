@@ -13,7 +13,7 @@ define f {
 
 f()
 
-var v: list[integer] = []
+var v: List[Integer] = []
 
 if v.fold(0, {|a, b| a + b}) != 0:
     stderr.print("Failed.")

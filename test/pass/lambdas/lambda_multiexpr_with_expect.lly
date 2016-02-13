@@ -1,5 +1,5 @@
 var last = 0
-var v: function(integer => integer) = {|a|
+var v: Function(Integer => Integer) = {|a|
         last = a
         a + 1
         }

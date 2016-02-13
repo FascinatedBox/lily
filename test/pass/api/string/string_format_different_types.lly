@@ -1,4 +1,4 @@
-class Point(x: integer, y: integer) {}
+class Point(x: Integer, y: Integer) {}
 var a = [Dynamic(1), Dynamic(2)]
 a[0] = Dynamic(a)
 
@@ -6,10 +6,10 @@ a[0] = Dynamic(a)
 # change how some of these appear later on.
 # I'm more concerned with 'do these actually print and not crash.
 
-string::format("%s%s%s%s%s%s%s%s%s",
+String::format("%s%s%s%s%s%s%s%s%s",
         [1,2,3]          |> Dynamic ,
         [1=>1]           |> Dynamic ,
-        file::open       |> Dynamic ,
+        File::open       |> Dynamic ,
         stdin            |> Dynamic ,
         <[1]>            |> Dynamic ,
         Point::new(1, 1) |> Dynamic ,

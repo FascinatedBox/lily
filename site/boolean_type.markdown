@@ -1,7 +1,7 @@
-boolean
+Boolean
 =======
 
-The boolean type represents a value that is either there or not there.
+The Boolean type represents a value that is either there or not there.
 
 # Operations
 
@@ -11,10 +11,10 @@ Unary operations: `!`
 
 # Methods
 
-`boolean::to_i(self: boolean) : integer`
+`Boolean::to_i(self: Boolean) : Integer`
 
 Convert a boolean value to an integer.
 
-`boolean::to_s(self: boolean) : string`
+`Boolean::to_s(self: Boolean) : String`
 
 Convert a boolean value to a string. true => "true", false => "false"

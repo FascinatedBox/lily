@@ -1,7 +1,7 @@
 #[
 ValueError: Cannot split by empty string.
 Traceback:
-    from [C]: in string::split
+    from [C]: in String::split
     from string_split_by_empty.lly:8: in __main__
 ]#
 

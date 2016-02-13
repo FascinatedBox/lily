@@ -1,6 +1,6 @@
 # This test checks that call piping works.
 class example {
-    define add(v: integer) {}
+    define add(v: Integer) {}
 
     # add is a class method, so self is automatically expected and sent first.
     # This would not work with example::add, because that does not implicitly
@@ -10,7 +10,7 @@ class example {
 
 # Does piping to a generic function work?
 define f[A](input: A) : A { return input }
-define g(input: integer) : integer { return input * 2 }
+define g(input: Integer) : Integer { return input * 2 }
 
 if (10 |> f |> g) != 20:
     stderr.print("Pipe to a generic failed.")
@@ -22,9 +22,9 @@ if (10 |> g |> g) != 40:
 
 # Ensure that the order of operations is correct.
 
-var v: list[integer] = []
+var v: List[Integer] = []
 
-define h(input: integer) : integer
+define h(input: Integer) : Integer
 {
     v.push(input)
     return input
@@ -35,6 +35,6 @@ h(4) |> [h(1), h(2), h(3)].push
 if v != [1, 2, 3, 4]:
     stderr.print("Order of operations failed.")
 
-define i(input: Option[integer]) {}
+define i(input: Option[Integer]) {}
 
 i(10 |> Some)

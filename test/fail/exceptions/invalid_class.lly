@@ -1,9 +1,9 @@
 #[
-SyntaxError: 'integer' is not a valid exception class.
+SyntaxError: 'Integer' is not a valid exception class.
     from invalid_class.lly:8
 ]#
 
 try:
     var v = 10
-except integer:
+except Integer:
     var x = 11

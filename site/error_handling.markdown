@@ -6,9 +6,9 @@ Sometimes there are errors that occur from certain operations. A list has a subs
 To begin with, all exceptions that are defined within Lily have Exception as their base class. This class is defined internally as follows:
 
 ```
-class Exception(msg: string) {
+class Exception(msg: String) {
     var @message = message
-    var @traceback: list[string] = []
+    var @traceback: List[String] = []
 }
 ```
 
@@ -18,15 +18,13 @@ Since it is defined like a normal class, instead of having a representation bake
 
 * IndexError: Raised when an list subscript is out of bounds.
 
-* BadTypecastError: Raised when a value is unable to cast to a certain type.
-
-* ValueError: Raised when a value is out of the expected range (ex: list::repeat with a negative index).
+* ValueError: Raised when a value is out of the expected range (ex: List::repeat with a negative index).
 
 * RuntimeError: Raised when there is an infinite loop in == or != (such as when there are recursive lists being compared).
 
 * KeyError: Raised when attempting to find a key in a hash that does not exist.
 
-* FormatError: Raised when string::format or printfmt receive the wrong number of args for their format specifiers (ex: `string::format("%s")`)
+* FormatError: Raised when String::format or printfmt receive the wrong number of args for their format specifiers (ex: `String::format("%s")`)
 
 * IOError: Raised when there is an issue calling a method of the file class (ex: Reading from a closed file, writing to a read-mode file, etc).
 
@@ -91,7 +89,7 @@ except DivisionByZeroError:
 It's possible to create custom exceptions as follows:
 
 ```
-class MyError(message: string, code: integer) > Exception(message)
+class MyError(message: String, code: Integer) > Exception(message)
 {
     var @code = code
 }

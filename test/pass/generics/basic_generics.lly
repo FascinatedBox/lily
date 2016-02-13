@@ -11,6 +11,6 @@ define check_generics_inherited {
     }
 }
 
-define check_empty_list_assign[A](a: list[A]) {
+define check_empty_list_assign[A](a: List[A]) {
     a = []
 }

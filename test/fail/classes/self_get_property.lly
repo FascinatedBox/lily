@@ -3,7 +3,7 @@ SyntaxError: Use @<name> to get/set properties, not self.<name>.
     from self_get_property.lly:9
 ]#
 
-class Point(x: integer, y: integer) {
+class Point(x: Integer, y: Integer) {
     var @x = x
     var @y = self.x
 }

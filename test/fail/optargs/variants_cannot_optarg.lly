@@ -4,6 +4,6 @@ SyntaxError: Variant types cannot have default values.
 ]#
 
 enum Test {
-    Check(*integer),
+    Check(*Integer),
     Blank
 }

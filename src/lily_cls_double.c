@@ -14,12 +14,12 @@ void lily_double_to_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 }
 
 static const lily_func_seed dynaload_start =
-    {NULL, "to_i", dyna_function, "(double):integer", lily_double_to_i};
+    {NULL, "to_i", dyna_function, "(Double):Integer", lily_double_to_i};
 
 static lily_class_seed double_seed =
 {
     NULL,               /* next */
-    "double",           /* name */
+    "Double",           /* name */
     dyna_class,         /* load_type */
     0,                  /* is_refcounted */
     0,                  /* generic_count */

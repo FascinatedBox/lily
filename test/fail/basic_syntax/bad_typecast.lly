@@ -1,6 +1,6 @@
 #[
-SyntaxError: Cannot cast type 'integer' to type 'string'.
+SyntaxError: Cannot cast type 'Integer' to type 'String'.
     from bad_typecast.lly:6
 ]#
 
-10.@(string)
+10.@(String)

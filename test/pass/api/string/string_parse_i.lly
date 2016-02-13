@@ -1,6 +1,6 @@
-var errors: list[string] = []
+var errors: List[String] = []
 
-define run(message: string, f: function( => boolean))
+define run(message: String, f: Function( => Boolean))
 {
     if f() == false:
         errors.push(message)
@@ -15,7 +15,7 @@ var tests =
         run("String max",     {|| "9223372036854775807".parse_i().unwrap() == 9223372036854775807 })
         run("String min",     {|| "-9223372036854775808".parse_i().unwrap() == -9223372036854775808 })
 
-        run("Empty string",   {|| "".parse_i().is_none() })
+        run("Empty String",   {|| "".parse_i().is_none() })
         run("Too big",        {|| "9223372036854775808".parse_i().is_none() })
         run("Too small",      {|| "-9223372036854775809".parse_i().is_none() })
         run("123abc",         {|| "123abc".parse_i().is_none() })

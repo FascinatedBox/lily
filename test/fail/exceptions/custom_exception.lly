@@ -4,7 +4,7 @@ Traceback:
     from custom_exception.lly:11: in __main__
 ]#
 
-class MyException(msg: string) < Exception(msg) {
+class MyException(msg: String) < Exception(msg) {
 
 }
 

@@ -1,4 +1,4 @@
-define f(input: integer) : integer {
+define f(input: Integer): Integer {
     var trace = calltrace()
 
     if trace.size() != 3:
@@ -7,7 +7,7 @@ define f(input: integer) : integer {
     return input
 }
 
-define map(x: list[integer], g: function(integer => integer)) {
+define map(x: List[Integer], g: Function(Integer => Integer)) {
     g(x[0])
 }
 
