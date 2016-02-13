@@ -1853,8 +1853,6 @@ static int condition_optimize_check(lily_ast *ast)
             can_optimize = 0;
         else if (lit_cls_id == SYM_CLASS_BOOLEAN && lit->value.integer == 0)
             can_optimize = 0;
-        else if (lit->type->cls->flags & CLS_IS_VARIANT)
-            can_optimize = 0;
     }
 
     return can_optimize;
