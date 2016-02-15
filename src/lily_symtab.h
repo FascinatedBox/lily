@@ -100,7 +100,7 @@ void lily_hide_block_vars(lily_symtab *, lily_var *);
 lily_class *lily_new_class(lily_symtab *, char *);
 lily_class *lily_new_enum(lily_symtab *, char *);
 lily_class *lily_new_class_by_seed(lily_symtab *, const void *);
-lily_class *lily_new_variant(lily_symtab *, lily_class *, char *);
+lily_class *lily_new_variant(lily_symtab *, lily_class *, char *, int);
 void lily_add_class_method(lily_symtab *, lily_class *, lily_var *);
 
 lily_prop_entry *lily_add_class_property(lily_symtab *, lily_class *,

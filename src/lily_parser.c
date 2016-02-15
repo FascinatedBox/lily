@@ -1135,10 +1135,13 @@ static lily_class *dynaload_enum(lily_parse_state *parser,
        made in the same way. By doing so, there is no need to search for the
        variants since they're all in a line. */
     lily_base_seed *seed_iter = enum_seed->next;
+    int i = 0;
+
     do {
         lily_variant_seed *variant_seed = (lily_variant_seed *)seed_iter;
         lily_class *variant_cls = lily_new_variant(parser->symtab, enum_cls,
-                variant_seed->name);
+                variant_seed->name, i);
+        i++;
 
         lily_load_str(parser->lex, "[builtin]", lm_no_tags, variant_seed->body);
         lily_lexer(lex);
@@ -3311,7 +3314,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
     NEED_CURRENT_TOK(tk_left_curly)
     lily_lexer(lex);
 
-    int inner_class_count = 0;
+    int variant_count = 0;
     int is_scoped = (lex->token == tk_colon_colon);
 
     while (1) {
@@ -3327,7 +3330,10 @@ static void enum_handler(lily_parse_state *parser, int multi)
                     "A class with the name '%s' already exists.\n",
                     variant_cls->name);
 
-        variant_cls = lily_new_variant(parser->symtab, enum_cls, lex->label);
+        variant_cls = lily_new_variant(parser->symtab, enum_cls, lex->label,
+                variant_count);
+        variant_count++;
+
         lily_type *variant_type;
 
         lily_lexer(lex);
@@ -3338,8 +3344,6 @@ static void enum_handler(lily_parse_state *parser, int multi)
 
         variant_cls->variant_type = variant_type;
 
-        inner_class_count++;
-
         if (lex->token == tk_right_curly)
             break;
         else if (lex->token == tk_word && lex->label[0] == 'd' &&
@@ -3347,7 +3351,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
             break;
     }
 
-    if (inner_class_count < 2) {
+    if (variant_count < 2) {
         lily_raise(parser->raiser, lily_SyntaxError,
                 "An enum must have at least two variants.\n");
     }

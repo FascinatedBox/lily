@@ -794,12 +794,18 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
 
 /* This creates a new variant called 'name' and installs it into 'enum_cls'. */
 lily_class *lily_new_variant(lily_symtab *symtab, lily_class *enum_cls,
-        char *name)
+        char *name, int variant_id)
 {
     lily_class *cls = lily_new_class(symtab, name);
 
+    cls->variant_id = variant_id;
     cls->flags |= CLS_IS_VARIANT | ITEM_TYPE_VARIANT;
     cls->parent = enum_cls;
+
+    /* Variant classes do not need a unique class id because they are not
+       compared in ts. In vm, they're always accessed through their enum. */
+    cls->id = 0;
+    symtab->next_class_id--;
 
     return cls;
 }
@@ -884,7 +890,6 @@ void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
          i < variant_count;
          i++, class_iter = class_iter->next) {
         members[variant_count - 1 - i] = class_iter;
-        class_iter->variant_id = variant_count - 1 - i;
 
         lily_tie *default_value;
         /* Variants that have a default type should also get a default value. */
@@ -938,6 +943,11 @@ void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm)
         }
         import_iter = import_iter->root_next;
     }
+
+    /* Variants have an id of 0 since they don't need to go into the class
+       table. However, this causes them to take over Integer's slot. This makes
+       sure that Integer has Integer's slot. */
+    lily_vm_add_class_unchecked(vm, symtab->integer_class);
 }
 
 /* This checks if a package named 'name' has been imported anywhere at all. This
