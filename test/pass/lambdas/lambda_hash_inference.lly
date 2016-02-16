@@ -1,0 +1,4 @@
+var h = ["+" => {|a: Integer, b: Integer| a + b},
+         "-" => {|a, b| a - b},
+         "*" => {|a, b| a * b},
+         "/" => {|a, b| a / b}]
