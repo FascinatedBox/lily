@@ -2043,6 +2043,54 @@ static lily_type *parse_lambda_body(lily_parse_state *parser,
     return result_type;
 }
 
+/* This collects the arguments between the two '|' tokens of a lambda.
+   'expect_type' is either a function type for inference to be pulled from, or
+   NULL. Arguments may be just names, or names with types. */
+static int collect_lambda_args(lily_parse_state *parser,
+        lily_type *expect_type)
+{
+    int infer_count = (expect_type) ? expect_type->subtype_count : -1;
+    int num_args = 0;
+    lily_lex_state *lex = parser->lex;
+
+    while (1) {
+        NEED_NEXT_TOK(tk_word)
+        lily_var *arg_var = get_named_var(parser, NULL);
+        lily_type *arg_type;
+
+        if (lex->token == tk_colon) {
+            lily_lexer(lex);
+            arg_type = get_type(parser);
+            arg_var->type = arg_type;
+        }
+        else {
+            arg_type = NULL;
+            if (num_args < infer_count)
+                arg_type = expect_type->subtypes[num_args + 1];
+
+            if (arg_type == NULL || arg_type->flags & TYPE_IS_INCOMPLETE)
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Cannot infer type of '%s'.\n", lex->label);
+
+            arg_var->type = arg_type;
+        }
+
+        lily_tm_add(parser->tm, arg_type);
+        num_args++;
+
+        if (lex->token == tk_comma)
+            continue;
+        else if (lex->token == tk_bitwise_or)
+            break;
+        else
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Expected either ',' or '|', not '%s'.\n",
+                    tokname(lex->token));
+    }
+
+    return num_args;
+}
+
 /* This is the main workhorse of lambda handling. It takes the lambda body and
    works through it. This is fairly complicated, because this happens during
    tree eval. As such, the current state has to be saved and a lambda has to be
@@ -2079,36 +2127,8 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
 
     lily_tm_add(parser->tm, NULL);
 
-    if (expect_type && expect_type->subtype_count > 1) {
-        if (lex->token == tk_logical_or)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "Lambda expected %d args, but got 0.\n",
-                    expect_type->subtype_count - 1);
-
-        /* -1 because the return isn't an arg. */
-        int num_args = expect_type->subtype_count - 1;
-        lily_token wanted_token = tk_comma;
-
-        while (1) {
-            NEED_NEXT_TOK(tk_word)
-            lily_type *arg_type = expect_type->subtypes[args_collected + 1];
-            if (arg_type->flags & TYPE_IS_INCOMPLETE) {
-                lily_raise(parser->raiser, lily_SyntaxError,
-                        "Cannot infer type of '%s'.\n", lex->label);
-            }
-
-            lily_tm_add(parser->tm, arg_type);
-
-            get_named_var(parser, arg_type);
-            args_collected++;
-            if (args_collected == num_args)
-                wanted_token = tk_bitwise_or;
-
-            NEED_CURRENT_TOK(wanted_token)
-            if (wanted_token == tk_bitwise_or)
-                break;
-        }
-    }
+    if (lex->token == tk_bitwise_or)
+        args_collected = collect_lambda_args(parser, expect_type);
     else if (lex->token == tk_bitwise_or) {
         NEED_NEXT_TOK(tk_bitwise_or)
     }
