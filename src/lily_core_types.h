@@ -345,7 +345,7 @@ typedef struct lily_function_val_ {
     uint16_t *code;
 
     /* This is how much code is in this particular function. */
-    uint32_t len;
+    uint32_t pad;
 
     uint16_t num_upvalues;
 

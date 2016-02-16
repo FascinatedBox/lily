@@ -1625,7 +1625,6 @@ static lily_function_val *create_code_block_for(lily_emit_state *emit,
     memcpy(code, emit->code + code_start, sizeof(uint16_t) * code_size);
 
     f->code = code;
-    f->len = code_size - 1;
     return f;
 }
 
@@ -4289,6 +4288,5 @@ void lily_prepare_main(lily_emit_state *emit, lily_import_entry *import_iter)
     write_1(emit, o_return_from_vm);
 
     f->code = emit->code;
-    f->len = emit->code_pos;
     f->reg_count = register_count;
 }
