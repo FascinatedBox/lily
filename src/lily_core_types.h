@@ -9,13 +9,11 @@
    reference each other. Some are left incomplete, because not every part of
    the interpreter uses all of them. */
 
-struct lily_class_;
 struct lily_vm_state_;
 struct lily_value_;
 struct lily_var_;
 struct lily_type_;
 struct lily_function_val_;
-struct lily_symtab_;
 struct lily_parse_state_;
 
 /* Lily's foreign functions look like this. */
