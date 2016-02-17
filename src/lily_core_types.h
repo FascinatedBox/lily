@@ -382,19 +382,18 @@ typedef struct lily_value_ {
     lily_raw_value value;
 } lily_value;
 
-/* This is a gc entry. When these are created, the gc entry copies the value's
-   raw value and the value's type. It's important to NOT copy the value,
-   because the value may be a register, and the type will change. */
+/* This holds a value that has been deemed interesting to the gc. This has the
+   same layout as a lily_value_ on purpose. */
 typedef struct lily_gc_entry_ {
-    /* If this is destroyed outside of the gc, then value.generic should be set
-       to NULL to keep the gc from looking at an invalid data. */
-    lily_raw_value value;
+    /* The flags from the value. Used to determine what's inside the value. */
+    uint32_t flags;
     /* Each gc pass has a different number that always goes up. If an entry's
        last_pass is not the current number, then the contained value is
        destroyed. */
     int32_t last_pass;
-    /* The flags from the value. Used to determine what's inside the value. */
-    uint32_t flags;
+    /* If this is destroyed outside of the gc, then value.generic should be set
+       to NULL to keep the gc from looking at an invalid data. */
+    lily_raw_value value;
     struct lily_gc_entry_ *next;
 } lily_gc_entry;
 

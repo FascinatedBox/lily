@@ -16,7 +16,6 @@ lily_value *lily_new_value(uint64_t, lily_raw_value);
 lily_instance_val *lily_new_instance_val();
 
 void lily_gc_collect_value(lily_value *);
-void lily_gc_collect_raw(lily_raw_value, int);
 
 int lily_value_eq(struct lily_vm_state_ *, lily_value *, lily_value *);
 

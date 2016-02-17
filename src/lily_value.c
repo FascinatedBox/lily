@@ -251,12 +251,3 @@ void lily_gc_collect_value(lily_value *v)
     else if (flags & (VAL_IS_STRING | VAL_IS_BYTESTRING))
         lily_deref(v);
 }
-
-void lily_gc_collect_raw(lily_raw_value value, int value_flags)
-{
-    lily_value v;
-    v.flags = value_flags;
-    v.value = value;
-
-    lily_gc_collect_value(&v);
-}
