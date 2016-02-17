@@ -50,7 +50,8 @@ typedef union lily_raw_value_ {
 
 /* lily_class represents a class in the language. */
 typedef struct lily_class_ {
-    uint64_t flags;
+    uint32_t flags;
+    uint32_t move_flags;
 
     char *name;
     /* This holds (up to) the first 8 bytes of the name. This is checked before
@@ -83,7 +84,6 @@ typedef struct lily_class_ {
     /* If positive, how many subtypes are allowed in this type. This can also
        be -1 if an infinite number of types are allowed (ex: functions). */
     int16_t generic_count;
-    uint32_t move_flags;
     uint16_t pad;
     uint16_t prop_count;
     uint16_t variant_size;
@@ -154,31 +154,30 @@ typedef struct lily_type_ {
 /* This is a superset of lily_class, as well as everything that lily_sym is a
    superset of. */
 typedef struct {
-    uint64_t flags;
+    uint32_t flags;
+    uint32_t pad;
 } lily_item;
 
 /* lily_sym is a subset of all symbol-related structs. Nothing should create
    values of this type. This is just for casting arguments. */
 typedef struct lily_sym_ {
-    uint64_t flags;
-    lily_type *type;
+    uint32_t flags;
     /* Every function has a set of registers that it puts the values it has into.
        Intermediate values (such as the result of addition or a function call),
        parameters, and variables.
        Note that functions do not go into registers, and are instead loaded
        like literals. */
     uint32_t reg_spot;
-    uint32_t unused_pad;
+    lily_type *type;
 } lily_sym;
 
 /* This represents a property within a class that isn't "primitive" to the
    interpreter (lists, tuples, integer, string, etc.).
    User-defined classes and Exception both support these. */
 typedef struct lily_prop_entry_ {
-    uint64_t flags;
-    struct lily_type_ *type;
+    uint32_t flags;
     uint32_t id;
-    uint32_t pad;
+    struct lily_type_ *type;
     char *name;
     uint64_t name_shorthash;
     lily_class *cls;
@@ -188,9 +187,10 @@ typedef struct lily_prop_entry_ {
 /* A tie represents an association between some particular spot, and a value
    given. This struct represents literals, readonly vars, and foreign values. */
 typedef struct lily_tie_ {
-    uint64_t flags;
-    lily_type *type;
+    uint32_t flags;
     uint32_t reg_spot;
+    lily_type *type;
+    uint32_t pad;
     uint32_t move_flags;
     lily_raw_value value;
     struct lily_tie_ *next;
@@ -202,34 +202,33 @@ typedef struct lily_tie_ {
    integer, then the same storage will be picked. However, reuse does not
    happen on the same line. */
 typedef struct lily_storage_ {
-    uint64_t flags;
-    lily_type *type;
+    uint32_t flags;
     uint32_t reg_spot;
     /* Each expression has a different expr_num. This prevents the same
        expression from using the same storage twice (which could lead to
        incorrect data). */
+    lily_type *type;
     uint32_t expr_num;
     struct lily_storage_ *next;
 } lily_storage;
 
 /* lily_var is used to represent a declared variable. */
 typedef struct lily_var_ {
-    uint64_t flags;
-    lily_type *type;
+    uint32_t flags;
     uint32_t reg_spot;
+    lily_type *type;
     /* The line on which this var was declared. If this is a builtin var, then
        line_num will be 0. */
     uint32_t line_num;
-    char *name;
-    /* (Up to) the first 8 bytes of the name. This is compared before comparing
-       the name. */
-    uint64_t shorthash;
     /* How deep that functions were when this var was declared. If this is 1,
        then the var is in __main__ and a global. Otherwise, it is a local.
        This is an important difference, because the vm has to do different
        loads for globals versus locals. */
     uint32_t function_depth;
-    uint32_t pad;
+    char *name;
+    /* (Up to) the first 8 bytes of the name. This is compared before comparing
+       the name. */
+    uint64_t shorthash;
     struct lily_class_ *parent;
     struct lily_var_ *next;
 } lily_var;
@@ -420,7 +419,8 @@ typedef struct {
 typedef struct lily_import_entry_ {
     /* This allows imports to be cast as lily_item, which is used during parser
        dynaloading. */
-    uint64_t flags;
+    uint32_t flags;
+    uint32_t pad;
 
     /* The name given to import this thing. */
     char *loadname;
