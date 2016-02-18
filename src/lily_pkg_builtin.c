@@ -118,9 +118,9 @@ static const lily_enum_seed seed_option =
 {
     &seed_some,
     "Option",
-    dyna_enum,
+    dyna_builtin_enum,
     1,
-    0,
+    SYM_CLASS_OPTION,
     &lily_option_dl_start,
 };
 

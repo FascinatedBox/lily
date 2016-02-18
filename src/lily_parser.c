@@ -1111,12 +1111,11 @@ static lily_class *dynaload_enum(lily_parse_state *parser,
     lily_enum_seed *enum_seed = (lily_enum_seed *)seed;
     lily_class *enum_cls = lily_new_enum(parser->symtab, seed->name);
 
-    /* HACK: The Option and string classes both have builtin methods that need
-       to create Option instances. Those instances need to be tagged with an id.
-       To simplify things, make sure that Option always gets the same id so that
-       those methods don't have to hunt for the id at runtime. */
-    parser->symtab->next_class_id--;
-    enum_cls->id = SYM_CLASS_OPTION;
+
+    if (seed->seed_type == dyna_builtin_enum) {
+        parser->symtab->next_class_id--;
+        enum_cls->id = enum_seed->builtin_id;
+    }
 
     enum_cls->dynaload_table = enum_seed->dynaload_table;
 
@@ -1215,7 +1214,8 @@ static lily_item *run_dynaload(lily_parse_state *parser,
         lily_class *new_cls = dynaload_variant(parser, import, seed);
         result = (lily_item *)new_cls;
     }
-    else if (seed->seed_type == dyna_enum) {
+    else if (seed->seed_type == dyna_enum ||
+             seed->seed_type == dyna_builtin_enum) {
         lily_class *new_cls = dynaload_enum(parser, import, seed);
         result = (lily_item *)new_cls;
     }
@@ -1252,7 +1252,8 @@ static lily_class *find_run_class_dynaload(lily_parse_state *parser,
     if (seed &&
         (seed->seed_type == dyna_class ||
          seed->seed_type == dyna_exception ||
-         seed->seed_type == dyna_enum))
+         seed->seed_type == dyna_enum ||
+         seed->seed_type == dyna_builtin_enum))
         result = (lily_class *)run_dynaload(parser, import, seed);
     else
         result = NULL;
@@ -3086,6 +3087,7 @@ static void ensure_valid_class(lily_parse_state *parser, char *name)
     if (dl_item &&
         (dl_item->seed_type == dyna_class ||
          dl_item->seed_type == dyna_enum ||
+         dl_item->seed_type == dyna_builtin_enum ||
          dl_item->seed_type == dyna_exception))
         lily_raise(parser->raiser, lily_SyntaxError,
                 "A built-in class named '%s' already exists.\n", name);
