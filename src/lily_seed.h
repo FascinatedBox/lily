@@ -7,6 +7,7 @@ typedef enum {
     dyna_var,
     dyna_exception,
     dyna_enum,
+    dyna_builtin_enum,
     dyna_variant
 } dyna_type;
 
@@ -46,10 +47,10 @@ typedef const struct {
     char *name;
     uint64_t seed_type;
     uint32_t generic_count;
-    uint32_t pad;
+    /* dyna_builtin_enum will set this to a specific id, but dyna_enum should
+       set it to 0. */
+    uint32_t builtin_id;
     const void *dynaload_table;
-    /* Enums use tuple's versions of mark, eq, and destroy, and thus do not need
-       them specified here. */
 } lily_enum_seed;
 
 typedef const struct {
