@@ -401,19 +401,6 @@ lily_type *lily_ts_resolve_by_second(lily_type_system *ts, lily_type *first,
     return result_type;
 }
 
-void lily_ts_resolve_as_variant_by_enum(lily_type_system *ts,
-        lily_type *call_result, lily_type *enum_type)
-{
-    lily_type *variant_type = call_result->cls->variant_type->subtypes[0];
-    int max = call_result->subtype_count;
-    int i;
-
-    for (i = 0;i < max;i++) {
-        int pos = variant_type->subtypes[0]->generic_pos;
-        ts->types[ts->pos + pos] = enum_type->subtypes[pos];
-    }
-}
-
 void lily_ts_resolve_as_self(lily_type_system *ts, lily_type *generic_iter)
 {
     int i, stop;

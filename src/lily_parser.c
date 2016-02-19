@@ -3294,7 +3294,7 @@ static lily_type *parse_variant_header(lily_parse_state *parser,
     lily_lexer(lex);
 
     lily_type *variant_return = lily_tm_make_variant_result(parser->tm,
-            variant_cls, result_pos, i);
+            variant_cls->parent, result_pos, i);
     lily_tm_insert(parser->tm, result_pos, variant_return);
 
     lily_type *result = lily_tm_make(parser->tm, flags,

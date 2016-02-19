@@ -50,6 +50,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
 
     /* tm uses Dynamic's type as a special default, so it needs that. */
     emit->tm->dynamic_class_type = symtab->dynamic_class->type;
+    emit->tm->question_class_type = symtab->question_class->type;
 
     emit->call_values = lily_malloc(sizeof(lily_sym *) * 8);
     emit->call_state = NULL;
@@ -3627,11 +3628,6 @@ static void validate_and_prep_call(lily_emit_state *emit,
                     /* The return isn't checked because there will be a more
                        accurate problem that is likely to manifest later. */
                     lily_ts_check(emit->ts, call_result, expect);
-                }
-                else if (expect->cls->flags & CLS_IS_ENUM &&
-                            call_result->cls->parent == expect->cls) {
-                    lily_ts_resolve_as_variant_by_enum(emit->ts,
-                            call_result, expect);
                 }
             }
         }

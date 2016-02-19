@@ -71,12 +71,6 @@ lily_type *lily_ts_resolve_with(lily_type_system *, lily_type *, lily_type *);
    The result is a solved type, and never NULL. */
 lily_type *lily_ts_resolve_by_second(lily_type_system *, lily_type *, lily_type *);
 
-/* This is called to fill in generics directly, in the event that the first
-   type is a variant and the second is the enum. The enum fills in the types
-   that the variant wants (which may not be exactly [A, B, C], but could be
-   [A, C]). */
-void lily_ts_resolve_as_variant_by_enum(lily_type_system *, lily_type *, lily_type *);
-
 /* This function marks every unresolved generic as solved by itself. This may
    seem silly, but there are at least two uses for this:
    * Function argument type mismatch, where some generics are not solved. Not
