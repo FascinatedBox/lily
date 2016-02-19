@@ -8,6 +8,7 @@ typedef struct {
     uint32_t pos;
     uint32_t size;
 
+    lily_type *question_class_type;
     /* This is Dynamic's default type. It's used as a filler when a type needs
        to be made but there's no opinion on it. */
     lily_type *dynamic_class_type;
