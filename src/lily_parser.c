@@ -1241,6 +1241,20 @@ static lily_item *find_run_dynaload(lily_parse_state *parser,
     return result;
 }
 
+static int is_class_seed(lily_base_seed *seed)
+{
+    int seed_type = seed->seed_type;
+    int result = 0;
+
+    if (seed_type == dyna_class ||
+        seed_type == dyna_enum ||
+        seed_type == dyna_exception ||
+        seed_type == dyna_builtin_enum)
+        result = 1;
+
+    return result;
+}
+
 /* Like find_run_dynaload, but only do the dynaload if the entity to be loaded
    is a class-like entity. */
 static lily_class *find_run_class_dynaload(lily_parse_state *parser,
@@ -1249,11 +1263,7 @@ static lily_class *find_run_class_dynaload(lily_parse_state *parser,
     lily_class *result;
 
     lily_base_seed *seed = find_dynaload_entry((lily_item *)import, name);
-    if (seed &&
-        (seed->seed_type == dyna_class ||
-         seed->seed_type == dyna_exception ||
-         seed->seed_type == dyna_enum ||
-         seed->seed_type == dyna_builtin_enum))
+    if (seed && is_class_seed(seed))
         result = (lily_class *)run_dynaload(parser, import, seed);
     else
         result = NULL;
@@ -3084,11 +3094,7 @@ static void ensure_valid_class(lily_parse_state *parser, char *name)
 
     lily_base_seed *dl_item = find_dynaload_entry(
             (lily_item *)parser->symtab->builtin_import, name);
-    if (dl_item &&
-        (dl_item->seed_type == dyna_class ||
-         dl_item->seed_type == dyna_enum ||
-         dl_item->seed_type == dyna_builtin_enum ||
-         dl_item->seed_type == dyna_exception))
+    if (dl_item && is_class_seed(dl_item))
         lily_raise(parser->raiser, lily_SyntaxError,
                 "A built-in class named '%s' already exists.\n", name);
 }
