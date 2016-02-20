@@ -169,42 +169,6 @@ static int check_generic(lily_type_system *ts, lily_type *left,
     return ret;
 }
 
-static int check_enum(lily_type_system *ts, lily_type *left, lily_type *right,
-        int flags)
-{
-    int ret = 1;
-
-    if (right->cls->variant_type->subtype_count != 0) {
-        /* Erase the variance of the caller, since it doesn't apply to the subtypes of
-           this class. check_misc explains why this is important in more detail. */
-        flags &= T_DONT_SOLVE | T_UNIFY;
-
-        /* I think this is best explained as an example:
-            'enum Option[A, B] { Some(A) None }'
-            In this case, the variant type of Some is defined as:
-            'function (A => Some[A])'
-            This pulls the 'Some[A]'. */
-        lily_type *variant_output = right->cls->variant_type->subtypes[0];
-        int i;
-        /* The result is an Option[A, B], but Some only has A. Match up
-            generics that are available, to proper positions in the
-            parent. If any fail, then stop. */
-        for (i = 0;i < variant_output->subtype_count;i++) {
-            int pos = variant_output->subtypes[i]->generic_pos;
-            ret = check_raw(ts, left->subtypes[pos], right->subtypes[i], flags);
-            if (ret == 0)
-                break;
-        }
-    }
-
-    /* For now, enums are all invariant, so the result will be whatever the enum
-       is. In the future, that may change. */
-    if (ret && flags & T_UNIFY)
-        lily_tm_add(ts->tm, left);
-        
-    return ret;
-}
-
 static int check_function(lily_type_system *ts, lily_type *left,
         lily_type *right, int flags)
 {
@@ -338,10 +302,6 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
     }
     else if (left->cls->id == SYM_CLASS_GENERIC)
         ret = check_generic(ts, left, right, flags);
-    else if (left->cls->flags & CLS_IS_ENUM &&
-             right->cls->flags & CLS_IS_VARIANT &&
-             right->cls->parent == left->cls)
-        ret = check_enum(ts, left, right, flags);
     else if (left->cls->id == SYM_CLASS_FUNCTION &&
              right->cls->id == SYM_CLASS_FUNCTION)
         ret = check_function(ts, left, right, flags);
@@ -476,18 +436,6 @@ inline void lily_ts_lower_ceiling(lily_type_system *ts, int old_ceiling)
 {
     ts->pos -= old_ceiling;
     ts->ceiling = old_ceiling;
-}
-
-int lily_ts_enum_membership_check(lily_type_system *ts, lily_type *enum_type,
-        lily_type *variant_type)
-{
-    int ret;
-    if (variant_type->cls->parent == enum_type->cls)
-        ret = check_enum(ts, enum_type, variant_type, T_DONT_SOLVE);
-    else
-        ret = 0;
-
-    return ret;
 }
 
 void lily_ts_generics_seen(lily_type_system *ts, int amount)

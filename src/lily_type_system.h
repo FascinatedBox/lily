@@ -99,10 +99,6 @@ int lily_ts_raise_ceiling(lily_type_system *);
    value. */
 void lily_ts_lower_ceiling(lily_type_system *, int);
 
-/* Given an enum type (the first), determine if the second is a valid member of that
-   enum. */
-int lily_ts_enum_membership_check(lily_type_system *, lily_type *, lily_type *);
-
 /* The parser calls this each time that generics are collected. This reports
    how many were collected. max_seen may or may not be updated. */
 void lily_ts_generics_seen(lily_type_system *, int);
