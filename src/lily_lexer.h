@@ -110,15 +110,14 @@ typedef struct lily_lex_state_ {
     char *label;
 
     uint32_t line_num;
+    uint32_t pad;
     /* Where the last digit scan started at. This is used by parser to fixup
        the '1+1' case. */
     uint16_t last_digit_start;
-    uint16_t pad;
+    uint16_t label_size;
 
-    uint16_t input_end;
     uint16_t input_size;
     uint16_t input_pos;
-    uint16_t label_size;
 
     char *lambda_data;
     uint32_t lambda_data_size;
@@ -131,7 +130,6 @@ typedef struct lily_lex_state_ {
        make a literal value. Said value is stored here, for the parser to use. */
     lily_tie *last_literal;
     lily_symtab *symtab;
-    lily_membuf *membuf;
     lily_raiser *raiser;
     void *data;
 } lily_lex_state;
