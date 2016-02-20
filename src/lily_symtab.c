@@ -72,6 +72,15 @@ static void free_properties(lily_symtab *symtab, lily_class *cls)
 static void free_classes(lily_symtab *symtab, lily_class *class_iter)
 {
     while (class_iter) {
+        lily_free(class_iter->name);
+
+        if (class_iter->flags & CLS_IS_VARIANT) {
+            lily_class *class_next = class_iter->next;
+            lily_free(class_iter);
+            class_iter = class_next;
+            continue;
+        }
+
         if (class_iter->properties != NULL)
             free_properties(symtab, class_iter);
 
@@ -86,8 +95,6 @@ static void free_classes(lily_symtab *symtab, lily_class *class_iter)
             lily_free(type_iter);
             type_iter = type_next;
         }
-
-        lily_free(class_iter->name);
 
         if (class_iter->flags & CLS_ENUM_IS_SCOPED) {
             /* Scoped enums pull their variants from the symtab's class chain so
@@ -799,37 +806,42 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
  */
 
 /* This creates a new variant called 'name' and installs it into 'enum_cls'. */
-lily_class *lily_new_variant(lily_symtab *symtab, lily_class *enum_cls,
+lily_variant_class *lily_new_variant(lily_symtab *symtab, lily_class *enum_cls,
         char *name, int variant_id)
 {
-    lily_class *cls = lily_new_class(symtab, name);
+    lily_variant_class *variant = lily_malloc(sizeof(lily_variant_class));
 
-    cls->variant_id = variant_id;
-    cls->item_kind = ITEM_TYPE_VARIANT;
-    cls->flags |= CLS_IS_VARIANT;
-    cls->parent = enum_cls;
+    variant->item_kind = ITEM_TYPE_VARIANT;
+    variant->flags = CLS_IS_VARIANT | CLS_EMPTY_VARIANT;
+    variant->variant_id = variant_id;
+    variant->parent = enum_cls;
+    variant->build_type = NULL;
+    variant->shorthash = shorthash_for_name(name);
+    variant->name = lily_malloc(strlen(name) + 1);
+    strcpy(variant->name, name);
+
+    variant->next = symtab->active_import->class_chain;
+    symtab->active_import->class_chain = (lily_class *)variant;
 
     /* Variant classes do not need a unique class id because they are not
        compared in ts. In vm, they're always accessed through their enum. */
-    cls->id = 0;
-    symtab->next_class_id--;
 
-    return cls;
+    return variant;
 }
 
 /* Scoped variants are stored within the enum they're part of. This will try to
    find a variant stored within 'enum_cls'. */
-lily_class *lily_find_scoped_variant(lily_class *enum_cls, char *name)
+lily_variant_class *lily_find_scoped_variant(lily_class *enum_cls, char *name)
 {
     int i;
     uint64_t shorthash = shorthash_for_name(name);
-    lily_class *ret = NULL;
+    lily_variant_class *ret = NULL;
 
     for (i = 0;i < enum_cls->variant_size;i++) {
-        lily_class *variant_cls = enum_cls->variant_members[i];
-        if (variant_cls->shorthash == shorthash &&
-            strcmp(variant_cls->name, name) == 0) {
-            ret = variant_cls;
+        lily_variant_class *cls = enum_cls->variant_members[i];
+        if (cls->shorthash == shorthash &&
+            strcmp(cls->name, name) == 0) {
+            ret = cls;
         }
     }
 
@@ -844,13 +856,10 @@ static uint16_t get_enum_slot_count(lily_class *enum_cls)
 {
     int i;
     uint16_t result = 0;
+    lily_variant_class **members = enum_cls->variant_members;
     for (i = 0;i < enum_cls->variant_size;i++) {
-        /* Variants that take 'arguments' will have a variant_type that is a
-           function. Variants that don't take arguments don't need slots, and
-           thus don't matter. */
-        lily_type *vtype = enum_cls->variant_members[i]->variant_type;
-        if (vtype->cls->id == SYM_CLASS_FUNCTION) {
-            uint16_t num_subtypes = vtype->subtype_count - 1;
+        if ((members[i]->flags & CLS_EMPTY_VARIANT) == 0) {
+            uint16_t num_subtypes = members[i]->build_type->subtype_count - 1;
             if (num_subtypes > result)
                 result = num_subtypes;
         }
@@ -859,7 +868,8 @@ static uint16_t get_enum_slot_count(lily_class *enum_cls)
     return result;
 }
 
-lily_tie *make_variant_default(lily_symtab *symtab, lily_class *variant)
+lily_tie *make_variant_default(lily_symtab *symtab,
+        lily_variant_class *variant)
 {
     /* This makes it easier to destroy, but makes no other difference. */
     lily_type *enum_type = variant->parent->self_type;
@@ -889,29 +899,24 @@ void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
         class_iter = class_iter->next;
     }
 
-    lily_class **members = lily_malloc(variant_count * sizeof(lily_class *));
+    lily_variant_class **members =
+            lily_malloc(variant_count * sizeof(lily_variant_class *));
 
     /* The ordering is important here. This makes it so the first variant will
        get the lowest id and be at 0. It makes indexing in vm sensible. */
     for (i = 0, class_iter = symtab->active_import->class_chain;
          i < variant_count;
          i++, class_iter = class_iter->next) {
-        members[variant_count - 1 - i] = class_iter;
+        lily_variant_class *variant = (lily_variant_class *)class_iter;
+        members[variant_count - 1 - i] = variant;
 
-        lily_tie *default_value;
-        /* Variants that have a default type should also get a default value. */
-        if (class_iter->variant_type == class_iter->type) {
-            default_value = make_variant_default(symtab, class_iter);
+        if (variant->build_type == NULL) {
+            variant->default_value = make_variant_default(symtab, variant);
             enum_cls->flags |= CLS_VALID_OPTARG;
         }
-        else
-            default_value = NULL;
-
-        class_iter->default_value = default_value;
     }
 
     enum_cls->move_flags = VAL_IS_ENUM;
-    enum_cls->variant_type = enum_type;
     enum_cls->variant_members = members;
     enum_cls->variant_size = variant_count;
     enum_cls->flags |= CLS_IS_ENUM;
@@ -945,7 +950,8 @@ void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm)
     while (import_iter) {
         lily_class *class_iter = import_iter->class_chain;
         while (class_iter) {
-            lily_vm_add_class_unchecked(vm, class_iter);
+            if ((class_iter->flags & CLS_IS_VARIANT) == 0)
+                lily_vm_add_class_unchecked(vm, class_iter);
             class_iter = class_iter->next;
         }
         import_iter = import_iter->root_next;

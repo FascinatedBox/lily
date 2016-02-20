@@ -645,7 +645,7 @@ void lily_ast_push_property(lily_ast_pool *ap, lily_prop_entry *prop)
     merge_value(ap, a);
 }
 
-void lily_ast_push_variant(lily_ast_pool *ap, lily_class *variant)
+void lily_ast_push_variant(lily_ast_pool *ap, lily_variant_class *variant)
 {
     AST_COMMON_INIT(a, tree_variant);
     a->variant = variant;

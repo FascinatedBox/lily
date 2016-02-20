@@ -3393,7 +3393,7 @@ static void write_varargs(lily_emit_state *emit, lily_emit_call_state *cs,
 }
 
 static void write_build_enum(lily_emit_state *emit, lily_emit_call_state *cs,
-        lily_class *variant_cls)
+        lily_variant_class *variant_cls)
 {
     write_5(emit, o_build_enum, cs->ast->line_num, variant_cls->parent->id,
             variant_cls->variant_id, cs->arg_count);
@@ -3695,7 +3695,7 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     }
     else {
         call_item = (lily_item *)ast->arg_start->variant;
-        call_type = ast->arg_start->variant->variant_type;
+        call_type = ast->arg_start->variant->build_type;
     }
 
     if (call_type == NULL)
@@ -3819,13 +3819,13 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
 
         /* The first arg is actually the variant. */
         lily_ast *variant_tree = ast->arg_start;
-        lily_class *variant_cls = variant_tree->variant;
-        lily_type *variant_type = variant_cls->variant_type;
+        lily_variant_class *variant = variant_tree->variant;
+        lily_type *build_type = variant->build_type;
 
-        if (variant_type->subtype_count == 1)
+        if (build_type->subtype_count == 1)
             lily_raise(emit->raiser, lily_SyntaxError,
                     "Variant %s should not get args.\n",
-                    variant_cls->name);
+                    variant->name);
 
         lily_emit_call_state *cs;
         cs = begin_call(emit, ast);
@@ -3835,24 +3835,23 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
            describes an enum wherein the types are either filled or have ? in
            their place. This makes working with variants much saner. */
         padded_type = lily_ts_resolve_with(emit->ts,
-                variant_cls->parent->self_type, emit->ts->question_class_type);
+                variant->parent->self_type, emit->ts->question_class_type);
 
-        lily_type *result_type = variant_cls->variant_type->subtypes[0];
+        lily_type *result_type = build_type->subtypes[0];
         if (result_type->flags & TYPE_IS_UNRESOLVED)
             result_type = lily_ts_resolve(emit->ts, result_type);
 
         /* This causes all arguments to be written down into an o_build_enum op
            and be drained from the call. */
-        write_build_enum(emit, cs, variant_cls);
+        write_build_enum(emit, cs, variant);
 
         end_call(emit, cs);
     }
     else {
-        lily_class *variant = ast->variant;
+        lily_variant_class *variant = ast->variant;
         /* Did this need arguments? It was used incorrectly if so. */
-        lily_type *variant_init_type = variant->variant_type;
-        if (variant_init_type->subtype_count != 0)
-            verify_argument_count(emit, ast, variant->variant_type, -1);
+        if ((variant->flags & CLS_EMPTY_VARIANT) == 0)
+            verify_argument_count(emit, ast, variant->build_type, -1);
 
         write_4(emit, o_get_readonly, ast->line_num,
                 variant->default_value->reg_spot, 0);

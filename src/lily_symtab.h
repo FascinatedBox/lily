@@ -87,7 +87,7 @@ void lily_tie_value(lily_symtab *, lily_var *, lily_value *);
 lily_class *lily_find_class(lily_symtab *, lily_import_entry *, const char *);
 lily_var *lily_find_method(lily_class *, char *);
 lily_prop_entry *lily_find_property(lily_class *, char *);
-lily_class *lily_find_scoped_variant(lily_class *, char *);
+lily_variant_class *lily_find_scoped_variant(lily_class *, char *);
 
 lily_var *lily_new_raw_var(lily_symtab *, lily_type *, const char *);
 lily_var *lily_new_raw_unlinked_var(lily_symtab *, lily_type *, const char *);
@@ -100,7 +100,7 @@ void lily_hide_block_vars(lily_symtab *, lily_var *);
 lily_class *lily_new_class(lily_symtab *, char *);
 lily_class *lily_new_enum(lily_symtab *, char *);
 lily_class *lily_new_class_by_seed(lily_symtab *, const void *);
-lily_class *lily_new_variant(lily_symtab *, lily_class *, char *, int);
+lily_variant_class *lily_new_variant(lily_symtab *, lily_class *, char *, int);
 void lily_add_class_method(lily_symtab *, lily_class *, lily_var *);
 
 lily_prop_entry *lily_add_class_property(lily_symtab *, lily_class *,
