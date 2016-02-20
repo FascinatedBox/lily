@@ -34,8 +34,8 @@ lily_instance_val *lily_new_option_some(lily_value *v)
 lily_instance_val *lily_get_option_none(lily_vm_state *vm)
 {
     lily_class *opt_class = vm->class_table[SYM_CLASS_OPTION];
-    lily_class *none_class = opt_class->variant_members[NONE_VARIANT_ID];
-    return none_class->default_value->value.instance;
+    lily_variant_class *none_cls = opt_class->variant_members[NONE_VARIANT_ID];
+    return none_cls->default_value->value.instance;
 }
 
 void lily_option_and(lily_vm_state *vm, uint16_t argc, uint16_t *code)

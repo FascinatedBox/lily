@@ -79,7 +79,7 @@ typedef struct lily_ast_ {
         lily_sym *sym;
         lily_tie *literal;
         lily_prop_entry *property;
-        lily_class *variant;
+        lily_variant_class *variant;
         struct lily_ast_ *left;
     };
 
@@ -227,7 +227,7 @@ void lily_ast_push_literal(lily_ast_pool *, lily_tie *);
 void lily_ast_push_unary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_oo_access(lily_ast_pool *, char *);
 void lily_ast_push_property(lily_ast_pool *, lily_prop_entry *);
-void lily_ast_push_variant(lily_ast_pool *, lily_class *);
+void lily_ast_push_variant(lily_ast_pool *, lily_variant_class *);
 void lily_ast_push_lambda(lily_ast_pool *, int, char *);
 void lily_ast_push_inherited_new(lily_ast_pool *, lily_var *);
 void lily_ast_push_self(lily_ast_pool *);

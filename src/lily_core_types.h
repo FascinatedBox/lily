@@ -46,6 +46,25 @@ typedef union lily_raw_value_ {
     struct lily_instance_val_ *instance;
 } lily_raw_value;
 
+typedef struct {
+    struct lily_class_ *next;
+
+    uint16_t item_kind;
+    uint16_t flags;
+    uint16_t variant_id;
+    uint16_t pad;
+
+    char *name;
+    uint64_t shorthash;
+
+    union {
+        struct lily_type_ *build_type;
+        struct lily_tie_ *default_value;
+    };
+
+    struct lily_class_ *parent;
+} lily_variant_class;
+
 /* lily_class represents a class in the language. */
 typedef struct lily_class_ {
     struct lily_class_ *next;
@@ -76,7 +95,7 @@ typedef struct lily_class_ {
     struct lily_prop_entry_ *properties;
 
     /* If it's an enum, then the variants are here. NULL otherwise. */
-    struct lily_class_ **variant_members;
+    lily_variant_class **variant_members;
 
     uint16_t id;
     uint16_t is_builtin;
@@ -84,27 +103,16 @@ typedef struct lily_class_ {
     /* If positive, how many subtypes are allowed in this type. This can also
        be -1 if an infinite number of types are allowed (ex: functions). */
     int16_t generic_count;
-    uint16_t pad;
     uint16_t prop_count;
     uint16_t variant_size;
 
-    union {
-        /* Enums: This is how many subvalues (slots) that the vm must
-           allocate for this if it's an enum. */
-        uint16_t enum_slot_count;
-        /* Variants: This is the location of this variant within the parent
-           enum's 'variant_members' field. It is not the variant's actual id. */
-        uint16_t variant_id;
-    };
+    /* Enums: This is how many subvalues (slots) that the vm must allocate for
+       this if it's an enum. */
+    uint16_t enum_slot_count;
 
-    union {
-        /* Variants with arguments: This type maps from the input to the result.
-           Variants without arguments: It's the default type. */
-        struct lily_type_ *variant_type;
-        /* Enums and classes: This is the type that 'self' will have. For those
-           without generics, this is the default type. */
-        struct lily_type_ *self_type;
-    };
+    /* Enums and classes: This is the type that 'self' will have. For those
+       without generics, this is the default type. */
+    struct lily_type_ *self_type;
 
     /* This is the package that this class was defined within. This is used to
        print a proper package name for classes.  */
@@ -113,16 +121,7 @@ typedef struct lily_class_ {
     /* This contains all types which have this class as their class. */
     struct lily_type_ *all_subtypes;
 
-    union {
-        /* Builtin classes: These may be class methods that may or may not be
-           loaded already. */
-        const void *dynaload_table;
-        /* Variants: If a variant does not take any parameters, then a literal
-           is created for it. Instead of building a new value, the vm will
-           instead load a common value. This is similar to how classes that do
-           not have generics have a shared default type. */
-        struct lily_tie_ *default_value;
-    };
+    const void *dynaload_table;
 } lily_class;
 
 typedef struct lily_type_ {
@@ -504,6 +503,7 @@ typedef struct lily_options_ {
    that scoped variants are accessed using 'enum::variant', while normal
    variants can use just 'variant'. */
 #define CLS_ENUM_IS_SCOPED 0x20
+#define CLS_EMPTY_VARIANT  0x40
 
 /* TYPE_* defines are for lily_type.
    Since types are not usable as values, they do not need to start where

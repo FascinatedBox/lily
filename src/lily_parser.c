@@ -556,12 +556,12 @@ static lily_tie *get_optarg_value(lily_parse_state *parser,
            Is the enum scoped? It should not matter: It's patently obvious what
            enum that this variant should be a member of. It's also consistent
            with match (which ignores scoping for the same reason). */
-        lily_class *variant = lily_find_scoped_variant(cls, lex->label);
+        lily_variant_class *variant = lily_find_scoped_variant(cls, lex->label);
         if (variant == NULL)
             lily_raise(parser->raiser, lily_SyntaxError,
                     "'%s' does not have a variant named '%s'.\n", cls->name, lex->label);
 
-        if (variant->default_value == NULL)
+        if ((variant->flags & CLS_EMPTY_VARIANT) == 0)
             lily_raise(parser->raiser, lily_SyntaxError,
                     "Only variants that take no arguments can be default arguments.\n");
 
@@ -873,7 +873,7 @@ static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls,
 static void create_new_class(lily_parse_state *);
 static lily_class *find_run_class_dynaload(lily_parse_state *, lily_import_entry *,
         char *);
-static lily_type *parse_variant_header(lily_parse_state *, lily_class *);
+static void parse_variant_header(lily_parse_state *, lily_variant_class *);
 
 /** Lily is a statically-typed language, which carries benefits as well as
     drawbacks. One drawback is that creating a new function or a new var is
@@ -1138,19 +1138,16 @@ static lily_class *dynaload_enum(lily_parse_state *parser,
 
     do {
         lily_variant_seed *variant_seed = (lily_variant_seed *)seed_iter;
-        lily_class *variant_cls = lily_new_variant(parser->symtab, enum_cls,
-                variant_seed->name, i);
+        lily_variant_class *variant_cls = lily_new_variant(parser->symtab,
+                enum_cls, variant_seed->name, i);
         i++;
 
         lily_load_str(parser->lex, "[builtin]", lm_no_tags, variant_seed->body);
         lily_lexer(lex);
-        lily_type *variant_type;
-        if (lex->token == tk_left_parenth)
-            variant_type = parse_variant_header(parser, variant_cls);
-        else
-            variant_type = lily_tm_make_default_for(parser->tm, variant_cls);
 
-        variant_cls->variant_type = variant_type;
+        if (lex->token == tk_left_parenth)
+            parse_variant_header(parser, variant_cls);
+
         lily_pop_lex_entry(parser->lex);
         seed_iter = seed_iter->next;
     } while (seed_iter && seed_iter->seed_type == dyna_variant);
@@ -1455,9 +1452,9 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
 
     /* Enums allow scoped variants through `<enum>::<variant>`. */
     if (cls->flags & CLS_IS_ENUM) {
-        lily_class *variant_cls = lily_find_scoped_variant(cls, lex->label);
-        if (variant_cls) {
-            lily_ast_push_variant(parser->ast_pool, variant_cls);
+        lily_variant_class *variant = lily_find_scoped_variant(cls, lex->label);
+        if (variant) {
+            lily_ast_push_variant(parser->ast_pool, variant);
             return;
         }
     }
@@ -1511,7 +1508,7 @@ static void dispatch_word_as_class(lily_parse_state *parser, lily_class *cls,
         int *state)
 {
     if (cls->flags & CLS_IS_VARIANT) {
-        lily_ast_push_variant(parser->ast_pool, cls);
+        lily_ast_push_variant(parser->ast_pool, (lily_variant_class *)cls);
         *state = ST_WANT_OPERATOR;
     }
     else
@@ -3260,8 +3257,8 @@ static void class_handler(lily_parse_state *parser, int multi)
 /* This is called when a variant takes arguments. It parses those arguments to
    spit out the 'variant_type' conversion type of the variant. These types are
    internally really going to make a tuple instead of being a call. */
-static lily_type *parse_variant_header(lily_parse_state *parser,
-        lily_class *variant_cls)
+static void parse_variant_header(lily_parse_state *parser,
+        lily_variant_class *variant_cls)
 {
     lily_lex_state *lex = parser->lex;
     lily_lexer(lex);
@@ -3302,10 +3299,11 @@ static lily_type *parse_variant_header(lily_parse_state *parser,
             variant_cls->parent, result_pos, i);
     lily_tm_insert(parser->tm, result_pos, variant_return);
 
-    lily_type *result = lily_tm_make(parser->tm, flags,
+    lily_type *build_type = lily_tm_make(parser->tm, flags,
             parser->symtab->function_class, i);
 
-    return result;
+    variant_cls->build_type = build_type;
+    variant_cls->flags &= ~CLS_EMPTY_VARIANT;
 }
 
 static void enum_handler(lily_parse_state *parser, int multi)
@@ -3351,25 +3349,19 @@ static void enum_handler(lily_parse_state *parser, int multi)
         }
 
         NEED_CURRENT_TOK(tk_word)
-        lily_class *variant_cls = lily_find_class(parser->symtab, NULL, lex->label);
-        if (variant_cls != NULL)
+        lily_class *cls = lily_find_class(parser->symtab, NULL, lex->label);
+        if (cls != NULL)
             lily_raise(parser->raiser, lily_SyntaxError,
                     "A class with the name '%s' already exists.\n",
-                    variant_cls->name);
+                    cls->name);
 
-        variant_cls = lily_new_variant(parser->symtab, enum_cls, lex->label,
-                variant_count);
+        lily_variant_class *variant_cls = lily_new_variant(parser->symtab,
+                enum_cls, lex->label, variant_count);
         variant_count++;
-
-        lily_type *variant_type;
 
         lily_lexer(lex);
         if (lex->token == tk_left_parenth)
-            variant_type = parse_variant_header(parser, variant_cls);
-        else
-            variant_type = lily_tm_make_default_for(parser->tm, variant_cls);
-
-        variant_cls->variant_type = variant_type;
+            parse_variant_header(parser, variant_cls);
 
         if (lex->token == tk_right_curly)
             break;
@@ -3440,14 +3432,14 @@ static void case_handler(lily_parse_state *parser, int multi)
     lily_type *match_input_type = block->match_sym->type;
     lily_class *match_class = match_input_type->cls;
     lily_lex_state *lex = parser->lex;
-    lily_class *case_class = NULL;
+    lily_variant_class *variant_case = NULL;
 
     NEED_CURRENT_TOK(tk_word)
 
     int i;
     for (i = 0;i < match_class->variant_size;i++) {
         if (strcmp(lex->label, match_class->variant_members[i]->name) == 0) {
-            case_class = match_class->variant_members[i];
+            variant_case = match_class->variant_members[i];
             break;
         }
     }
@@ -3461,32 +3453,32 @@ static void case_handler(lily_parse_state *parser, int multi)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Already have a case for variant %s.\n", lex->label);
 
-    lily_type *variant_type = case_class->variant_type;
-    lily_type_system *ts = parser->emit->ts;
-    if (variant_type->subtype_count != 0) {
+    if ((variant_case->flags & CLS_EMPTY_VARIANT) == 0) {
+        lily_type *build_type = variant_case->build_type;
+        lily_type_system *ts = parser->emit->ts;
         NEED_NEXT_TOK(tk_left_parenth)
         /* There should be as many identifiers as there are arguments to this
            variant's creation type.
            Also, start at 1 so that the return at [0] is skipped. */
         NEED_NEXT_TOK(tk_word)
 
-        for (i = 1;i < variant_type->subtype_count;i++) {
+        for (i = 1;i < build_type->subtype_count;i++) {
             lily_type *var_type = lily_ts_resolve_by_second(ts,
-                    match_input_type, variant_type->subtypes[i]);
+                    match_input_type, build_type->subtypes[i]);
 
             /* It doesn't matter what the var is, only that it's unique. The
                emitter will grab the vars it needs from the symtab when writing
                the decompose.
                This function also calls up the next token. */
             get_named_var(parser, var_type);
-            if (i != variant_type->subtype_count - 1) {
+            if (i != build_type->subtype_count - 1) {
                 NEED_CURRENT_TOK(tk_comma)
                 NEED_NEXT_TOK(tk_word)
             }
         }
         NEED_CURRENT_TOK(tk_right_parenth)
 
-        lily_emit_variant_decompose(parser->emit, variant_type);
+        lily_emit_variant_decompose(parser->emit, build_type);
     }
     /* else the variant does not take arguments, and cannot decompose because
        there is nothing inside to decompose. */
