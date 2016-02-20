@@ -48,6 +48,8 @@ typedef union lily_raw_value_ {
 
 /* lily_class represents a class in the language. */
 typedef struct lily_class_ {
+    struct lily_class_ *next;
+
     uint32_t flags;
     uint32_t move_flags;
 
@@ -69,7 +71,6 @@ typedef struct lily_class_ {
     struct lily_var_ *call_chain;
 
     struct lily_class_ *parent;
-    struct lily_class_ *next;
 
     struct lily_prop_entry_ *properties;
 
@@ -152,13 +153,15 @@ typedef struct lily_type_ {
 /* This is a superset of lily_class, as well as everything that lily_sym is a
    superset of. */
 typedef struct {
+    void *pad;
     uint32_t flags;
-    uint32_t pad;
+    uint32_t pad2;
 } lily_item;
 
 /* lily_sym is a subset of all symbol-related structs. Nothing should create
    values of this type. This is just for casting arguments. */
 typedef struct lily_sym_ {
+    void *pad;
     uint32_t flags;
     /* Every function has a set of registers that it puts the values it has into.
        Intermediate values (such as the result of addition or a function call),
@@ -173,25 +176,25 @@ typedef struct lily_sym_ {
    interpreter (lists, tuples, integer, string, etc.).
    User-defined classes and Exception both support these. */
 typedef struct lily_prop_entry_ {
+    struct lily_prop_entry_ *next;
     uint32_t flags;
     uint32_t id;
     struct lily_type_ *type;
     char *name;
     uint64_t name_shorthash;
     lily_class *cls;
-    struct lily_prop_entry_ *next;
 } lily_prop_entry;
 
 /* A tie represents an association between some particular spot, and a value
    given. This struct represents literals, readonly vars, and foreign values. */
 typedef struct lily_tie_ {
+    struct lily_tie_ *next;
     uint32_t flags;
     uint32_t reg_spot;
     lily_type *type;
     uint32_t pad;
     uint32_t move_flags;
     lily_raw_value value;
-    struct lily_tie_ *next;
 } lily_tie;
 
 /* lily_storage is a struct used by emitter to hold info for intermediate
@@ -200,6 +203,7 @@ typedef struct lily_tie_ {
    integer, then the same storage will be picked. However, reuse does not
    happen on the same line. */
 typedef struct lily_storage_ {
+    struct lily_storage_ *next;
     uint32_t flags;
     uint32_t reg_spot;
     /* Each expression has a different expr_num. This prevents the same
@@ -207,11 +211,11 @@ typedef struct lily_storage_ {
        incorrect data). */
     lily_type *type;
     uint32_t expr_num;
-    struct lily_storage_ *next;
 } lily_storage;
 
 /* lily_var is used to represent a declared variable. */
 typedef struct lily_var_ {
+    struct lily_var_ *next;
     uint32_t flags;
     uint32_t reg_spot;
     lily_type *type;
@@ -228,7 +232,6 @@ typedef struct lily_var_ {
        the name. */
     uint64_t shorthash;
     struct lily_class_ *parent;
-    struct lily_var_ *next;
 } lily_var;
 
 
@@ -414,6 +417,10 @@ typedef struct {
 
 /* This is used to manage information about imports. */
 typedef struct lily_import_entry_ {
+    /* Every import entry that is created is linked to each other starting from
+       this one. */
+    struct lily_import_entry_ *root_next;
+
     /* This allows imports to be cast as lily_item, which is used during parser
        dynaloading. */
     uint32_t flags;
@@ -444,10 +451,6 @@ typedef struct lily_import_entry_ {
     /* If the import provides seeds of type dyna_var, this is called with the
        name when the given name is referenced. */
     var_loader var_load_fn;
-
-    /* Every import entry that is created is linked to each other starting from
-       this one. */
-    struct lily_import_entry_ *root_next;
 } lily_import_entry;
 
 /* This structure defines a series of options */
