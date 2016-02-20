@@ -265,7 +265,7 @@ lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
 
     lily_function_val *func_val;
 
-    if (source->flags & ITEM_TYPE_IMPORT) {
+    if (source->item_kind == ITEM_TYPE_IMPORT) {
         lily_import_entry *import = (lily_import_entry *)source;
 
         new_var->next = import->var_chain;
@@ -1194,7 +1194,7 @@ static int find_closed_self_spot(lily_emit_state *emit)
     int i, result = -1;
     for (i = 0;i < emit->closed_pos;i++) {
         lily_sym *s = emit->closed_syms[i];
-        if (s && (s->flags & ITEM_TYPE_VAR) == 0) {
+        if (s && s->item_kind != ITEM_TYPE_VAR) {
             result = i;
             break;
         }
@@ -1425,7 +1425,7 @@ static void setup_transform_table(lily_emit_state *emit)
 
     for (i = 0;i < emit->closed_pos;i++) {
         lily_sym *s = (lily_sym *)emit->closed_syms[i];
-        if (s && s->flags & ITEM_TYPE_VAR) {
+        if (s && s->item_kind == ITEM_TYPE_VAR) {
             lily_var *v = (lily_var *)s;
             if (v->function_depth == emit->function_depth) {
                 emit->transform_table[v->reg_spot] = i;
@@ -1452,7 +1452,7 @@ static void write_closure_zap(lily_emit_state *emit)
     int i;
     for (i = 0;i < emit->closed_pos;i++) {
         lily_sym *sym = emit->closed_syms[i];
-        if (sym && sym->flags & ITEM_TYPE_VAR) {
+        if (sym && sym->item_kind == ITEM_TYPE_VAR) {
             lily_var *var = (lily_var *)sym;
             if (var->function_depth == emit->function_depth) {
                 write_1(emit, i);
@@ -1840,7 +1840,7 @@ static int condition_optimize_check(lily_ast *ast)
 
     /* This may not be a literal. It could be a user-defined/built-in function
        which would always automatically be true. */
-    if (ast->result->flags & ITEM_TYPE_TIE) {
+    if (ast->result->item_kind == ITEM_TYPE_TIE) {
         lily_tie *lit = (lily_tie *)ast->result;
 
         /* Keep this synced with vm's o_jump_if calculation. */
@@ -1981,7 +1981,7 @@ static void ensure_valid_scope(lily_emit_state *emit, lily_sym *sym)
         int is_private = (sym->flags & SYM_SCOPE_PRIVATE);
         char *name;
 
-        if (sym->flags & ITEM_TYPE_PROPERTY) {
+        if (sym->item_kind == ITEM_TYPE_PROPERTY) {
             lily_prop_entry *prop = (lily_prop_entry *)sym;
             parent = prop->cls;
             name = prop->name;
@@ -2223,11 +2223,11 @@ static void get_error_name(lily_emit_state *emit, lily_ast *ast,
     else if (ast->tree_type != tree_variant)
         ast = ast->arg_start;
 
-    int item_flags = ast->item->flags;
+    int item_kind = ast->item->item_kind;
 
     /* Unfortunately, each of these kinds of things stores the name it holds at
        a different offset. Maybe this will change one day. */
-    if (item_flags & ITEM_TYPE_VAR) {
+    if (item_kind == ITEM_TYPE_VAR) {
         lily_var *v = ((lily_var *)ast->item);
         if (v->parent) {
             *class_name = v->parent->name;
@@ -2235,9 +2235,9 @@ static void get_error_name(lily_emit_state *emit, lily_ast *ast,
         }
         *name = v->name;
     }
-    else if (item_flags & ITEM_TYPE_VARIANT)
+    else if (item_kind == ITEM_TYPE_VARIANT)
         *name = ((lily_class *)ast->item)->name;
-    else if (item_flags & ITEM_TYPE_PROPERTY) {
+    else if (item_kind == ITEM_TYPE_PROPERTY) {
         lily_prop_entry *p = ((lily_prop_entry *)ast->item);
         *class_name = p->cls->name;
         *separator = ".";
@@ -2331,7 +2331,7 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
         lily_raise(emit->raiser, lily_SyntaxError,
                 "Class %s has no method or property named %s.\n",
                 lookup_class->name, oo_name);
-    else if (item->flags & ITEM_TYPE_PROPERTY &&
+    else if (item->item_kind == ITEM_TYPE_PROPERTY &&
              ast->arg_start->tree_type == tree_self)
         lily_raise(emit->raiser, lily_SyntaxError,
                 "Use @<name> to get/set properties, not self.<name>.\n");
@@ -2377,7 +2377,7 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
 {
     eval_oo_access_for_item(emit, ast);
     /* An 'x.y' access will either yield a property or a class method. */
-    if (ast->item->flags & ITEM_TYPE_PROPERTY)
+    if (ast->item->item_kind == ITEM_TYPE_PROPERTY)
         oo_property_read(emit, ast);
     else {
         lily_storage *result = get_storage(emit, ast->sym->type);
@@ -2394,7 +2394,7 @@ static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
 
     eval_oo_access_for_item(emit, ast->left);
     ensure_valid_scope(emit, ast->left->sym);
-    if ((ast->left->item->flags & ITEM_TYPE_PROPERTY) == 0)
+    if (ast->left->item->item_kind != ITEM_TYPE_PROPERTY)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
                 "Left side of %s is not assignable.\n", opname(ast->op));
 
@@ -3700,7 +3700,7 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     }
     else if (first_tt == tree_oo_access) {
         eval_oo_access_for_item(emit, ast->arg_start);
-        if (first_tree->item->flags & ITEM_TYPE_PROPERTY) {
+        if (first_tree->item->item_kind == ITEM_TYPE_PROPERTY) {
             oo_property_read(emit, first_tree);
             call_item = (lily_item *)first_tree->result;
         }

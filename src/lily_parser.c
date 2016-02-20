@@ -326,7 +326,7 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
     new_entry->var_chain = NULL;
     new_entry->dynaload_table = NULL;
     new_entry->var_load_fn = NULL;
-    new_entry->flags = ITEM_TYPE_IMPORT;
+    new_entry->item_kind = ITEM_TYPE_IMPORT;
 
     return new_entry;
 }
@@ -935,7 +935,7 @@ static lily_import_entry *resolve_import(lily_parse_state *parser)
 static lily_base_seed *find_dynaload_entry(lily_item *item, char *name)
 {
     const void *raw_iter;
-    if (item->flags & ITEM_TYPE_IMPORT)
+    if (item->item_kind == ITEM_TYPE_IMPORT)
         raw_iter = ((lily_import_entry *)item)->dynaload_table;
     else
         raw_iter = ((lily_class *)item)->dynaload_table;
@@ -997,7 +997,7 @@ static lily_var *dynaload_function(lily_parse_state *parser, lily_item *source,
 
     /* Lookups for classes need to be done relative to what's being imported,
        because the thing being imported won't know it's name at compile time. */
-    if (source->flags & ITEM_TYPE_IMPORT)
+    if (source->item_kind == ITEM_TYPE_IMPORT)
         parser->symtab->active_import = (lily_import_entry *)source;
     else
         parser->symtab->active_import = ((lily_class *)source)->import;
@@ -1442,9 +1442,9 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
 
     if (item &&
         (
-         (item->flags & ITEM_TYPE_VAR &&
+         (item->item_kind == ITEM_TYPE_VAR &&
           ((lily_var *)item)->parent != cls) ||
-         (item->flags & ITEM_TYPE_PROPERTY)
+         (item->item_kind == ITEM_TYPE_PROPERTY)
         ))
         item = NULL;
 
@@ -1561,7 +1561,7 @@ static void dispatch_dynaload(lily_parse_state *parser, lily_item *dl_item,
 {
     lily_ast_pool *ap = parser->ast_pool;
 
-    if (dl_item->flags & ITEM_TYPE_VAR) {
+    if (dl_item->item_kind == ITEM_TYPE_VAR) {
         lily_var *v = (lily_var *)dl_item;
         if (v->flags & VAR_IS_READONLY)
             lily_ast_push_defined_func(ap, v);
@@ -1593,7 +1593,7 @@ static void expression_word(lily_parse_state *parser, int *state)
         if (key_id != -1) {
             lily_sym *sym = parse_special_keyword(parser, key_id);
             if (sym != NULL) {
-                if (sym->flags & ITEM_TYPE_TIE)
+                if (sym->item_kind == ITEM_TYPE_TIE)
                     lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
                 else
                     lily_ast_push_self(parser->ast_pool);
@@ -2668,7 +2668,7 @@ static void do_keyword(lily_parse_state *parser, int key_id)
 {
     lily_sym *sym;
     sym = parse_special_keyword(parser, key_id);
-    if (sym->flags & ITEM_TYPE_TIE)
+    if (sym->item_kind == ITEM_TYPE_TIE)
         lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
     else
         lily_ast_push_self(parser->ast_pool);

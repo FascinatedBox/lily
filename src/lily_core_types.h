@@ -50,7 +50,8 @@ typedef union lily_raw_value_ {
 typedef struct lily_class_ {
     struct lily_class_ *next;
 
-    uint32_t flags;
+    uint16_t item_kind;
+    uint16_t flags;
     uint32_t move_flags;
 
     char *name;
@@ -154,7 +155,8 @@ typedef struct lily_type_ {
    superset of. */
 typedef struct {
     void *pad;
-    uint32_t flags;
+    uint16_t item_kind;
+    uint16_t flags;
     uint32_t pad2;
 } lily_item;
 
@@ -162,7 +164,8 @@ typedef struct {
    values of this type. This is just for casting arguments. */
 typedef struct lily_sym_ {
     void *pad;
-    uint32_t flags;
+    uint16_t item_kind;
+    uint16_t flags;
     /* Every function has a set of registers that it puts the values it has into.
        Intermediate values (such as the result of addition or a function call),
        parameters, and variables.
@@ -177,7 +180,8 @@ typedef struct lily_sym_ {
    User-defined classes and Exception both support these. */
 typedef struct lily_prop_entry_ {
     struct lily_prop_entry_ *next;
-    uint32_t flags;
+    uint16_t item_kind;
+    uint16_t flags;
     uint32_t id;
     struct lily_type_ *type;
     char *name;
@@ -189,7 +193,8 @@ typedef struct lily_prop_entry_ {
    given. This struct represents literals, readonly vars, and foreign values. */
 typedef struct lily_tie_ {
     struct lily_tie_ *next;
-    uint32_t flags;
+    uint16_t item_kind;
+    uint16_t flags;
     uint32_t reg_spot;
     lily_type *type;
     uint32_t pad;
@@ -204,7 +209,8 @@ typedef struct lily_tie_ {
    happen on the same line. */
 typedef struct lily_storage_ {
     struct lily_storage_ *next;
-    uint32_t flags;
+    uint16_t item_kind;
+    uint16_t flags;
     uint32_t reg_spot;
     /* Each expression has a different expr_num. This prevents the same
        expression from using the same storage twice (which could lead to
@@ -216,7 +222,8 @@ typedef struct lily_storage_ {
 /* lily_var is used to represent a declared variable. */
 typedef struct lily_var_ {
     struct lily_var_ *next;
-    uint32_t flags;
+    uint16_t item_kind;
+    uint16_t flags;
     uint32_t reg_spot;
     lily_type *type;
     /* The line on which this var was declared. If this is a builtin var, then
@@ -423,7 +430,7 @@ typedef struct lily_import_entry_ {
 
     /* This allows imports to be cast as lily_item, which is used during parser
        dynaloading. */
-    uint32_t flags;
+    uint32_t item_kind;
     uint32_t pad;
 
     /* The name given to import this thing. */
@@ -478,25 +485,25 @@ typedef struct lily_options_ {
    be cast to.
    To prevent potential clashes, the definitions afterward (except for
    type) start off where these end. */
-#define ITEM_TYPE_TIE      0x01
-#define ITEM_TYPE_VAR      0x02
-#define ITEM_TYPE_STORAGE  0x04
-#define ITEM_TYPE_VARIANT  0x10
-#define ITEM_TYPE_PROPERTY 0x20
-#define ITEM_TYPE_IMPORT   0x40
+#define ITEM_TYPE_TIE      1
+#define ITEM_TYPE_VAR      2
+#define ITEM_TYPE_STORAGE  3
+#define ITEM_TYPE_VARIANT  4
+#define ITEM_TYPE_PROPERTY 5
+#define ITEM_TYPE_IMPORT   6
 
 
 /* CLS_* defines are for lily_class. */
 
 
-#define CLS_VALID_HASH_KEY 0x00100
-#define CLS_VALID_OPTARG   0x00200
-#define CLS_IS_ENUM        0x00400
-#define CLS_IS_VARIANT     0x01000
+#define CLS_VALID_HASH_KEY 0x01
+#define CLS_VALID_OPTARG   0x02
+#define CLS_IS_ENUM        0x04
+#define CLS_IS_VARIANT     0x10
 /* This class is an enum AND the variants within are scoped. The difference is
    that scoped variants are accessed using 'enum::variant', while normal
    variants can use just 'variant'. */
-#define CLS_ENUM_IS_SCOPED 0x02000
+#define CLS_ENUM_IS_SCOPED 0x20
 
 /* TYPE_* defines are for lily_type.
    Since types are not usable as values, they do not need to start where
@@ -526,18 +533,18 @@ typedef struct lily_options_ {
 
 /* properties, vars: This is used to prevent a value from being used to
    initialize itself. */
-#define SYM_NOT_INITIALIZED     0x0100
+#define SYM_NOT_INITIALIZED     0x01
 /* storages: This is set when the result of some expression cannot be assigned
    to. This is to prevent things like '[1,2,3][0] = 4'. */
-#define SYM_NOT_ASSIGNABLE      0x0200
+#define SYM_NOT_ASSIGNABLE      0x02
 
-#define SYM_CLOSED_OVER         0x0400
+#define SYM_CLOSED_OVER         0x04
 
 /* properties, vars: This is 'private' to the class it was declared within. */
-#define SYM_SCOPE_PRIVATE       0x1000
+#define SYM_SCOPE_PRIVATE       0x10
 
 /* properties, vars: This is 'protected' to the class it was declared within. */
-#define SYM_SCOPE_PROTECTED     0x2000
+#define SYM_SCOPE_PROTECTED     0x20
 
 /* There is no 'SYM_SCOPE_PUBLIC', because public is the default. */
 
@@ -548,19 +555,19 @@ typedef struct lily_options_ {
 /* This is a var that is no longer in scope. It is kept around until the
    function it is within is done so type information can be loaded up into the
    registers later. */
-#define VAR_OUT_OF_SCOPE        0x04000
+#define VAR_OUT_OF_SCOPE        0x040
 
 /* This is set on vars which will be used to hold the value of a defined
    function, a lambda, or a class constructor. Vars with this flag cannot be
    assigned to. Additionally, the reg_spot they contain is actually a spot in
    the vm's 'readonly_table'. */
-#define VAR_IS_READONLY         0x10000
+#define VAR_IS_READONLY         0x100
 
 /* This flag is set on defined functions that are found inside of other defined
    functions. Calling a function with this tag may involve the use of closures,
    so the emitter needs to wrap the given function so that it will have closure
    information. */
-#define VAR_NEEDS_CLOSURE       0x20000
+#define VAR_NEEDS_CLOSURE       0x200
 
 
 /* VAL_* flags are for lily_value. */
