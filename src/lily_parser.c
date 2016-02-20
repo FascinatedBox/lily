@@ -177,7 +177,6 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->emit->parser = parser;
 
     parser->lex->symtab = parser->symtab;
-    parser->lex->membuf = parser->ast_pool->ast_membuf;
 
     /* Before things get carried away, define the import paths that will be
        available. This isn't final: If the interpreter runs from a file, that
