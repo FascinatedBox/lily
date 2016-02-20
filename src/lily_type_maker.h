@@ -26,7 +26,6 @@ lily_type *lily_tm_make_variant_result(lily_type_maker *, lily_class *, int,
         int);
 lily_type *lily_tm_make_default_for(lily_type_maker *, lily_class *);
 lily_type *lily_tm_make_dynamicd_copy(lily_type_maker *, lily_type *);
-lily_type *lily_tm_make_enum_by_variant(lily_type_maker *, lily_type *);
 
 void lily_free_type_maker(lily_type_maker *);
 

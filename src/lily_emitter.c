@@ -2532,22 +2532,6 @@ static void emit_op_for_compound(lily_emit_state *emit, lily_ast *ast)
     ast->op = save_op;
 }
 
-/* This is called because tree_variant does not check if the parent is a binary
-   tree that is an assign.
-   If the input tree (the right) is a variant, then it's boxed into an enum so
-   that there are no bare variants.
-   For all other trees, this passes along the type given. */
-static lily_type *calculate_var_type(lily_emit_state *emit, lily_type *input_type)
-{
-    lily_type *result;
-    if (input_type->cls->flags & CLS_IS_VARIANT)
-        result = lily_tm_make_enum_by_variant(emit->tm, input_type);
-    else
-        result = input_type;
-
-    return result;
-}
-
 /* This handles basic assignments (locals and globals). */
 static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 {
@@ -2567,8 +2551,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     /* For 'var <name> = ...', fix the type. */
     if (ast->left->result->type == NULL)
-        ast->left->result->type = calculate_var_type(emit,
-                ast->right->result->type);
+        ast->left->result->type = ast->right->result->type;
 
     ast->left->result->flags &= ~SYM_NOT_INITIALIZED;
 
@@ -2649,7 +2632,6 @@ static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
     lily_type *right_type = ast->right->result->type;
     /* For 'var @<name> = ...', fix the type of the property. */
     if (left_type == NULL) {
-        right_type = calculate_var_type(emit, right_type);
         ast->left->property->type = right_type;
         ast->left->property->flags &= ~SYM_NOT_INITIALIZED;
         left_type = right_type;
