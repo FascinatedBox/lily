@@ -1612,8 +1612,7 @@ static void expression_word(lily_parse_state *parser, int *state)
     }
 
     if (search_entry == NULL && parser->class_self_type) {
-        var = lily_find_method(parser->symtab->active_import->class_chain,
-                lex->label);
+        var = lily_find_method(parser->class_self_type->cls, lex->label);
 
         if (var) {
             lily_ast_push_method(parser->ast_pool, var);
