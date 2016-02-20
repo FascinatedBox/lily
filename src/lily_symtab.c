@@ -169,7 +169,8 @@ static lily_tie *make_new_literal_of_type(lily_symtab *symtab, lily_type *type)
     /* Literal values always have a default type, so this is safe. */
     lit->type = type;
 
-    lit->flags = ITEM_TYPE_TIE;
+    lit->item_kind = ITEM_TYPE_TIE;
+    lit->flags = 0;
     lit->reg_spot = symtab->next_readonly_spot;
     lit->move_flags = type->cls->move_flags;
     symtab->next_readonly_spot++;
@@ -357,7 +358,8 @@ lily_var *lily_new_raw_unlinked_var(lily_symtab *symtab, lily_type *type,
     lily_var *var = lily_malloc(sizeof(lily_var));
 
     var->name = lily_malloc(strlen(name) + 1);
-    var->flags = ITEM_TYPE_VAR;
+    var->item_kind = ITEM_TYPE_VAR;
+    var->flags = 0;
     strcpy(var->name, name);
     var->line_num = *symtab->lex_linenum;
 
@@ -455,7 +457,8 @@ static void tie_function(lily_symtab *symtab, lily_var *func_var,
     tie->type = func_var->type;
     tie->value.function = func_val;
     tie->reg_spot = func_var->reg_spot;
-    tie->flags = ITEM_TYPE_TIE | VAL_IS_FUNCTION;
+    tie->item_kind = ITEM_TYPE_TIE;
+    tie->flags = VAL_IS_FUNCTION;
     tie->move_flags = VAL_IS_FUNCTION;
 
     tie->next = symtab->function_ties;
@@ -481,7 +484,8 @@ void lily_tie_value(lily_symtab *symtab, lily_var *var, lily_value *value)
     tie->type = var->type;
     tie->value = value->value;
     tie->reg_spot = var->reg_spot;
-    tie->flags = ITEM_TYPE_TIE;
+    tie->item_kind = ITEM_TYPE_TIE;
+    tie->flags = 0;
     tie->move_flags = VAL_IS_DEREFABLE | var->type->cls->move_flags;
     tie->next = symtab->foreign_ties;
     symtab->foreign_ties = tie;
@@ -544,6 +548,7 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
 
     strcpy(name_copy, name);
 
+    new_class->item_kind = 0;
     new_class->flags = 0;
     new_class->is_refcounted = 1;
     new_class->is_builtin = 0;
@@ -761,7 +766,8 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
 
     strcpy(entry_name, name);
 
-    entry->flags = flags | ITEM_TYPE_PROPERTY;
+    entry->item_kind = ITEM_TYPE_PROPERTY;
+    entry->flags = flags;
     entry->name = entry_name;
     entry->type = type;
     entry->name_shorthash = shorthash_for_name(entry_name);
@@ -799,7 +805,8 @@ lily_class *lily_new_variant(lily_symtab *symtab, lily_class *enum_cls,
     lily_class *cls = lily_new_class(symtab, name);
 
     cls->variant_id = variant_id;
-    cls->flags |= CLS_IS_VARIANT | ITEM_TYPE_VARIANT;
+    cls->item_kind = ITEM_TYPE_VARIANT;
+    cls->flags |= CLS_IS_VARIANT;
     cls->parent = enum_cls;
 
     /* Variant classes do not need a unique class id because they are not
