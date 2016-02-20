@@ -245,8 +245,6 @@ static lily_lex_entry *get_entry(lily_lex_state *lexer, char *filename)
         ret_entry->extra = NULL;
         ret_entry->saved_input = NULL;
         ret_entry->saved_input_pos = 0;
-        ret_entry->saved_input_size = 0;
-        ret_entry->saved_input_end = 0;
         ret_entry->filename = NULL;
 
         ret_entry->next = NULL;
@@ -286,7 +284,6 @@ static lily_lex_entry *get_entry(lily_lex_state *lexer, char *filename)
         prev_entry->saved_line_num = lexer->line_num;
         prev_entry->saved_input_pos = lexer->input_pos;
         prev_entry->saved_input_size = lexer->input_size;
-        prev_entry->saved_input_end = lexer->input_end;
         prev_entry->saved_token = lexer->token;
         prev_entry->saved_last_literal = lexer->last_literal;
 
@@ -340,7 +337,6 @@ void lily_pop_lex_entry(lily_lex_state *lexer)
         lexer->input_pos = entry->saved_input_pos;
         /* The lexer's input buffer may have been resized by the entered file.
            Do NOT restore lexer->input_size here. Ever. */
-        lexer->input_end = entry->saved_input_end;
         lexer->entry = entry;
         lexer->last_literal = entry->saved_last_literal;
 
@@ -397,7 +393,6 @@ static int file_read_line_fn(lily_lex_entry *entry)
         if (ch == EOF) {
             lexer->input_buffer[i] = '\n';
             lexer->input_buffer[i + 1] = '\0';
-            lexer->input_end = i + 1;
             /* If i is 0, then nothing is on this line except eof. Return 0 to
                let the caller know this is the end. Don't bump the line number
                because it's already been counted.
@@ -414,7 +409,6 @@ static int file_read_line_fn(lily_lex_entry *entry)
         input_buffer[i] = ch;
 
         if (ch == '\r' || ch == '\n') {
-            lexer->input_end = i;
             lexer->line_num++;
             ok = 1;
 
@@ -467,7 +461,6 @@ static int str_read_line_fn(lily_lex_entry *entry)
             input_buffer[i] = '\n';
             lexer->input_buffer[i] = '\n';
             lexer->input_buffer[i + 1] = '\0';
-            lexer->input_end = i + 1;
             /* If i is 0, then nothing is on this line except eof. Return 0 to
                let the caller know this is the end. Don't bump the line number
                because it's already been counted.
@@ -483,17 +476,14 @@ static int str_read_line_fn(lily_lex_entry *entry)
         input_buffer[i] = *ch;
 
         if (*ch == '\r' || *ch == '\n') {
-            lexer->input_end = i;
             lexer->line_num++;
             ok = 1;
 
             if (*ch == '\r') {
                 input_buffer[i] = '\n';
                 ch++;
-                if (*ch == '\n') {
-                    lexer->input_end++;
+                if (*ch == '\n')
                     ch++;
-                }
             }
             else
                 ch++;
@@ -1537,8 +1527,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
     while (1) {
         lbp++;
         if (c == '<') {
-            if ((lbp + 4) <= lexer->input_end &&
-                strncmp(lexer->input_buffer + lbp, "?lily", 5) == 0) {
+            if (strncmp(lexer->input_buffer + lbp, "?lily", 5) == 0) {
                 if (htmlp != 0) {
                     /* Don't include the '<', because it goes with <?lily. */
                     lexer->label[htmlp] = '\0';
