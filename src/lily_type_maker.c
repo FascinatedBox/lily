@@ -238,44 +238,6 @@ lily_type *lily_tm_make_dynamicd_copy(lily_type_maker *tm, lily_type *t)
     return lily_tm_make(tm, 0, t->cls, j);
 }
 
-lily_type *lily_tm_make_enum_by_variant(lily_type_maker *tm,
-        lily_type *variant)
-{
-    /* The parent of a variant is always the enum that it is part of. */
-    lily_class *enum_cls = variant->cls->parent;
-    lily_type *result;
-
-    /* If the enum does not take subtypes, then it will have a default type. */
-    if (enum_cls->generic_count == 0)
-        result = enum_cls->type;
-    else {
-        int start = tm->pos;
-        int generic_need = enum_cls->generic_count;
-        int i;
-        for (i = 0;i < generic_need;i++)
-            lily_tm_add(tm, tm->dynamic_class_type);
-
-        if (variant->cls->variant_type->subtype_count) {
-            /* This type describes the result of invoking the variant as a
-               function. Use this to map the incoming variant to an enum using
-               the generic positions. As usual, the [0] is to get the result
-               type of that function-like entity. */
-            lily_type *mapping_type = variant->cls->variant_type->subtypes[0];
-            int i;
-            for (i = 0;i < mapping_type->subtype_count;i++) {
-                lily_type *t = mapping_type->subtypes[i];
-                lily_tm_insert(tm, start + t->generic_pos, variant->subtypes[i]);
-            }
-        }
-        /* else the variant does not take arguments. As such, it gets an enum
-           with all generics defaulted to type any. */
-
-        result = lily_tm_make(tm, 0, enum_cls, generic_need);
-    }
-
-    return result;
-}
-
 lily_type *lily_tm_make_default_for(lily_type_maker *tm, lily_class *cls)
 {
     lily_type *new_type = make_new_type(cls);
