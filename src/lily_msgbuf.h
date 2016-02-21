@@ -6,12 +6,8 @@
 
 # include "lily_core_types.h"
 
-/* Don't include lily_core_types.h when this is all that's needed from it. */
-struct lily_type_t;
-
-/* This is shared by different modules of the interpreter for different reasons.
-   Raiser uses it for formatting error messages, and debug uses it for holding
-   literals for printing. */
+/* msgbuf is pretty simple: It's a sized buffer plus functions for safely adding
+   data into that buffer. */
 typedef struct {
     /* The message being stored. */
     char *message;
