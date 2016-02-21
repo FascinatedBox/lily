@@ -16,11 +16,6 @@
 # define lily_FormatError         7
 # define lily_IOError             8
 
-/* The raiser is included by a majority of Lily's core modules, but seed raise
-   is only used by foreign modules. Since foreign modules will need to include
-   seeds to have them, just forward declare this. */
-struct lily_base_seed_;
-
 typedef struct lily_jump_link_ {
     struct lily_jump_link_ *prev;
     struct lily_jump_link_ *next;
@@ -34,12 +29,9 @@ typedef struct lily_raiser_ {
     lily_class *exception_cls;
     lily_value *exception_value;
 
-    /* This is 0 if the error line is the lexer's current line number.
-       Otherwise, this is the line number to report. It is not an offset.
-       Uses:
-       * Merging ASTs. number a = 1 +
-         1 should report an error on line 1 (the assignment), not line 2.
-       * Any vm error. */
+    /* This is set when the emitter raises an error and that error does not
+       reference the current line. This will be set to the actual line. It can
+       be ignored when 0. */
     uint32_t line_adjust;
     int16_t error_code;
     uint16_t have_error;
