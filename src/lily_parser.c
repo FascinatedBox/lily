@@ -2004,12 +2004,6 @@ static int is_key_a_value(int key_id)
 static lily_type *parse_lambda_body(lily_parse_state *parser,
         lily_type *expect_type)
 {
-    /* The expressions/statements that this may run may cause emitter's expr_num
-       to increase. It's vital that expr_num be restored to what it was when
-       control returns to the caller.
-       If this does not happen, the caller will re-use storages that should
-       actually be considered to be claimed. */
-    int save_expr_num = parser->emit->expr_num;
     lily_lex_state *lex = parser->lex;
     int key_id = -1;
     lily_type *result_type = NULL;
@@ -2045,7 +2039,6 @@ static lily_type *parse_lambda_body(lily_parse_state *parser,
         }
     }
 
-    parser->emit->expr_num = save_expr_num;
     return result_type;
 }
 

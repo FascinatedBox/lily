@@ -2682,6 +2682,7 @@ void eval_upvalue(lily_emit_state *emit, lily_ast *ast)
 static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
+    int save_expr_num = emit->expr_num;
     char *lambda_body = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
 
     if (expect && expect->cls->id != SYM_CLASS_FUNCTION)
@@ -2689,6 +2690,11 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
 
     lily_sym *lambda_result = (lily_sym *)lily_parser_lambda_eval(emit->parser,
             ast->line_num, lambda_body, expect);
+
+    /* Lambdas may run 1+ expressions. Restoring the expression count to what it
+       was prevents grabbing expressions that are currently in use. */
+    emit->expr_num = save_expr_num;
+
     lily_storage *s = get_storage(emit, lambda_result->type);
 
     if (emit->function_block->make_closure == 0)
@@ -4158,11 +4164,6 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
     }
     else if (return_wanted == 0)
         ap->root->result = NULL;
-
-    /* It's important to NOT increase the count of expressions here. If it were
-       to be increased, then the expression holding the lambda would think it
-       isn't using any storages (and start writing over the ones that it is
-       actually using). */
 }
 
 /* This handles the 'return' keyword. The parser will send an ast only if the
