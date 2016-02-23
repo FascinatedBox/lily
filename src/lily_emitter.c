@@ -2122,6 +2122,17 @@ static int assign_optimize_check(lily_ast *ast)
             break;
         }
 
+        /* && and || work by having one set of cases write down to one storage,
+           and the other set write down to another storage. Because of that, it
+           can't be folded, or the first set of cases will target a storage
+           while the second target the var. */
+        if (right_tree->tree_type == tree_binary &&
+            (right_tree->op == expr_logical_and ||
+             right_tree->op == expr_logical_or)) {
+            can_optimize = 0;
+            break;
+        }
+
         /* If the parent is binary, then it is an assignment or compound op.
            Those eval from right-to-left, so leave them alone. */
         if (ast->parent != NULL && ast->parent->tree_type == tree_binary) {
