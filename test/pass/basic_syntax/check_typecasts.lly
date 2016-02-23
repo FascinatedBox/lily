@@ -1,7 +1,12 @@
-var a = Dynamic(10)
-var intval = 0
-intval = a.@(Integer).unwrap()
+define f: Integer {
+    var v = Dynamic(10)
+    var intval = 0
+    return v.@(Integer).unwrap()
+}
 
+f()
+
+var a = Dynamic(10)
 var dblval = 0.0
 a = Dynamic(10.0)
 dblval = a.@(Double).unwrap()
