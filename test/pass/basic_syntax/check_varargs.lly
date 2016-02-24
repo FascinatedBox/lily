@@ -1,7 +1,0 @@
-define f(format: String, args: Dynamic...) {    }
-define g(args: Integer...) { }
-
-f("abc")
-f("abc", Dynamic(1), Dynamic("3"))
-g()
-g(1)

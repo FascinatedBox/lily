@@ -1,7 +1,0 @@
-try:
-    try:
-        1
-    except Exception:
-        1
-except Exception:
-    1
