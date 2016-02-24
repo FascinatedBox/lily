@@ -3984,8 +3984,10 @@ static void eval_raw(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
             ast->result = start->result;
             ast->result_code_offset = start->result_code_offset;
         }
-        else
+        else {
             ast->variant_result_pos = start->variant_result_pos;
+            ast->padded_variant_type = start->padded_variant_type;
+        }
    }
     else if (ast->tree_type == tree_unary) {
         if (ast->left->tree_type != tree_local_var)
