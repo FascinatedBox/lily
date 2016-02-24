@@ -38,3 +38,5 @@ if v != [1, 2, 3, 4]:
 define i(input: Option[Integer]) {}
 
 i(10 |> Some)
+
+var x = (10 |> Some)
