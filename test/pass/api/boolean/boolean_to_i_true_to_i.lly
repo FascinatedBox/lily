@@ -1,2 +1,0 @@
-if true.to_i() != 1:
-    stderr.print("Failed.")
