@@ -1,2 +1,0 @@
-if false.to_s() != "false":
-    stderr.print("Failed.")
