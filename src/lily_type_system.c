@@ -287,7 +287,7 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
 
     if (left == NULL || right == NULL) {
         ret = (left == right);
-        if (ret)
+        if (ret && flags & T_UNIFY)
             lily_tm_add(ts->tm, left);
     }
     else if (left->cls->id == SYM_CLASS_QUESTION) {
