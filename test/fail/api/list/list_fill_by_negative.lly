@@ -1,8 +1,0 @@
-#[
-ValueError: Repeat count must be >= 0 (-1 given).
-Traceback:
-    from [C]: in List::fill
-    from list_fill_by_negative.lly:8: in __main__
-]#
-
-List::fill(-1, 100)

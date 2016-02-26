@@ -215,6 +215,18 @@ ok({||
     }(),                                "List::select keeping all values.")
 
 ok({||
+    var fn = {|x: Integer|
+              1 / 0
+              true}
+    var result = false
+    try:
+        [1].select(fn)
+    except DivisionByZeroError:
+        result = true
+    result
+    }(),                                "List::select being interrupted.")
+
+ok({||
     [1, 2, 3].select{|a| false} == []
     }(),                                "List::select rejecting all values.")
 
