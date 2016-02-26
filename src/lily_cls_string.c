@@ -125,7 +125,7 @@ void lily_string_endswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     int input_i, suffix_i, ok = 1;
     for (input_i = input_size - 1, suffix_i = suffix_size - 1;
-         suffix_i > 0;
+         suffix_i >= 0;
          input_i--, suffix_i--) {
         if (input_raw_str[input_i] != suffix_raw_str[suffix_i]) {
             ok = 0;
