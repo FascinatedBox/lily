@@ -149,12 +149,9 @@ void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     char *find_str = find_arg->value.string->string;
     int find_length = find_arg->value.string->size;
 
-    if (find_length > input_length) {
-        lily_move_integer(result_arg, -1);
-        return;
-    }
-    else if (find_length == 0) {
-        lily_move_integer(result_arg, 0);
+    if (find_length > input_length ||
+        find_length == 0) {
+        lily_move_shared_enum(result_arg, lily_get_option_none(vm));
         return;
     }
 
@@ -190,11 +187,10 @@ void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         lily_value *v = lily_new_value(VAL_IS_INTEGER,
                 (lily_raw_value){.integer = i});
         source = lily_new_option_some(v);
+        lily_move_enum(result_arg, source);
     }
     else
-        source = lily_get_option_none(vm);
-
-    lily_move_enum(result_arg, source);
+        lily_move_shared_enum(result_arg, lily_get_option_none(vm));
 }
 
 void lily_string_format(lily_vm_state *vm, uint16_t argc, uint16_t *code)
