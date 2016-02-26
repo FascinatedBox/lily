@@ -1,9 +1,0 @@
-if [1].pop() != 1:
-    stderr.print("Failed.")
-
-try: {
-    [].pop()
-    stderr.print("Failed.")
-except IndexError:
-    1
-}

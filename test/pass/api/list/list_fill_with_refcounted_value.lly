@@ -1,7 +1,0 @@
-class Point(x: Integer, y: Integer)
-{
-    var @x = x
-    var @y = y
-}
-
-List::fill(5, Point::new(1, 2))
