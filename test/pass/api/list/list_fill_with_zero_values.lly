@@ -1,2 +1,0 @@
-if List::fill(0, [1, 2, 3]) != []:
-    stderr.print("Failed.")
