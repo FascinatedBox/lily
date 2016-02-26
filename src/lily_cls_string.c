@@ -119,7 +119,7 @@ void lily_string_endswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     int suffix_size = suffix_arg->value.string->size;
 
     if (suffix_size > input_size) {
-        lily_move_integer(result_arg, 0);
+        lily_move_boolean(result_arg, 0);
         return;
     }
 
