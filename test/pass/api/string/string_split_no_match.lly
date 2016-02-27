@@ -1,2 +1,0 @@
-if "123".split(" ") != ["123"]:
-    stderr.print("Failed.")

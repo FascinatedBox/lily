@@ -1,2 +1,0 @@
-if "<<".htmlencode() != "&lt;&lt;":
-    stderr.print("Failed.")

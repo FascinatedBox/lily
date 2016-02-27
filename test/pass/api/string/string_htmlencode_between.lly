@@ -1,2 +1,0 @@
-if String::htmlencode("+&+&+") != "+&amp;+&amp;+":
-    stderr.print("Failed.")

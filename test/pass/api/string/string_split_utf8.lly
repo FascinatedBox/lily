@@ -1,2 +1,0 @@
-if "À aÈ aÌ aÒ aÜ".split(" a") != ["À", "È", "Ì", "Ò", "Ü"]:
-    stderr.print("Failed.")
