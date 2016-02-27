@@ -1,0 +1,121 @@
+var total = 0, failed = 0
+
+define ok(b: Boolean, s: String)
+{
+    total += 1
+
+    if b == false: {
+        String::format("Test %d (%s) failed.\n", Dynamic(total), Dynamic(s))
+            |> stderr.write
+        failed += 1
+    }
+}
+
+ok({||
+    var h = [1 => 1, 2 => 2]
+    h.clear()
+    h == []
+    }(),                            "Hash::clear on non-empty hash.")
+
+ok({||
+    var h = [1 => 1]
+    h.clear()
+    h.clear()
+    true
+    }(),                            "Hash::clear on empty hash.")
+
+ok({||
+    var h = [1 => 1, 2 => 2, 3 => 3]
+    h.delete(1)
+    h.delete(2)
+    h == [3 => 3]
+    }(),                            "Hash::delete removes hash entries.")
+
+ok({||
+    var h = [1 => 1, 2 => 2, 3 => 3]
+    h.delete(-1)
+    true
+    }(),                            "Hash::delete is a no-op when entry is missing.")
+
+ok({||
+    var h = [0 => 0, 1 => -1, 2 => -2]
+    var entries = [0, 0, 0]
+
+    h.each_pair{|k, v| entries[k] = v }
+    entries == [0, -1, -2]
+    }(),                            "Hash::each_pair does inference correctly.")
+
+ok([1 => 1].has_key(1),             "Hash::has_key success case.")
+ok([1 => 1].has_key(2) == false,    "Hash::has_key failure case.")
+
+ok({||
+    var h = [1 => 1, 2 => 2]
+    var entries = [0, 0, 0]
+
+    h.keys().each{|e| entries[e] = 1 }
+
+    entries == [0, 1, 1]
+    }(),                            "Hash::keys includes all keys.")
+
+ok({||
+    var h = [1 => "1", 2 => "a", 3 => "2"]
+
+    var mapped = h.map_values(String::parse_i)
+    mapped == [1 => Some(1), 2 => None, 3 => Some(2)]
+    }(),                            "Hash::map_values can transform values.")
+
+ok({||
+    var h: Hash[Integer, Integer] = []
+    var result = true
+
+    try:
+        h.map_values{|v| 1 / 0}
+    except Exception:
+        result = false
+
+    result
+    }(),                            "Hash::map_values is a no-op for an empty hash.")
+
+ok({||
+    var h1 = [1 => 1, 2 => 2]
+    var h2 = [3 => 3]
+
+    Hash::merge(h1, h2) == [1 => 1, 2 => 2, 3 => 3]
+    }(),                            "Hash::merge basic success case.")
+
+ok({||
+    var h1 = [1 => 1, 2 => 2]
+    var h2 = [3 => 3]
+    var h3 = [4 => 4]
+
+    Hash::merge(h1, h2, h3) == [1 => 1, 2 => 2, 3 => 3, 4 => 4]
+    }(),                            "Hash::merge merging three hashes.")
+
+ok({||
+    var h1 = [1 => 1, 2 => 2]
+    var h2 = [2 => 4]
+
+    h1.merge(h2) == [1 => 1, 2 => 4]
+    }(),                            "Hash::merge being right-biased.")
+
+ok({||
+    [1 => 1, 2 => 2, 3 => 3].reject{|k, v| (k % 2) == 1} == [2 => 2, 4 => 4]
+    }(),                            "Hash::reject removing odd keys.")
+
+ok({||
+    [1 => 1, 2 => 2, 3 => 3].select{|k, v| true} == [1 => 1, 2 => 2, 3 => 3]
+    }(),                            "Hash::select keeping everything.")
+
+ok([1 => 1].size() == 1,            "Hash::size working for non-empty hash.")
+ok({||
+    var h = [1 => 1]
+    h.delete(1)
+    h.size() == 0
+    }(),                            "Hash::size working for non-empty hash.")
+
+
+if failed == 0:
+    printfmt("%d of %d tests passed.\n", Dynamic(total), Dynamic(total))
+else:
+    String::format("%d tests have failed.\n", Dynamic(failed))
+    |> stderr.write
