@@ -750,10 +750,10 @@ static void string_split_by_val(lily_vm_state *vm, char *input, char *splitby,
             int is_match = 1;
             while (*input_ch == *splitby_ch) {
                 splitby_ch++;
+                input_ch++;
                 if (*splitby_ch == '\0')
                     break;
 
-                input_ch++;
                 if (*input_ch != *splitby_ch) {
                     is_match = 0;
                     input_ch = restore_ch;
@@ -764,8 +764,8 @@ static void string_split_by_val(lily_vm_state *vm, char *input, char *splitby,
             splitby_ch = &splitby[0];
             values_needed += is_match;
         }
-
-        input_ch += move_table[(unsigned char)*input_ch];
+        else
+            input_ch += move_table[(unsigned char)*input_ch];
     }
 
     values_needed++;
