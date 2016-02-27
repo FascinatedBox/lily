@@ -1,9 +1,0 @@
-var v = [1 => [1], 2 => [2], 3 => [3]]
-
-v = v.merge([3 => [4]], [3 => [5]])
-
-if v != [1 => [1], 2 => [2], 3 => [5]]:
-    stderr.print("Failed.")
-
-if Hash::merge([1 => 1]) != [1 => 1]:
-    stderr.print("Failed.")
