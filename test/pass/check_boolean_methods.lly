@@ -11,11 +11,11 @@ define ok(b: Boolean, s: String)
     }
 }
 
-ok(true.to_i() == 1, "true.to_i() == 1")
-ok(false.to_i() == 0, "false.to_i() == 0")
+ok(true.to_i() == 1,        "Boolean::to_i() == 1.")
+ok(false.to_i() == 0,       "Boolean::to_i() == 0.")
 
-ok(true.to_s() == "true", "true.to_s() == \"true\"")
-ok(false.to_s() == "false", "false.to_s() == \"false\"")
+ok(true.to_s() == "true",   "Boolean::to_s() == 'true'.")
+ok(false.to_s() == "false", "Boolean::to_s() == 'false'.")
 
 if failed == 0:
     printfmt("%d of %d tests passed.\n", Dynamic(total), Dynamic(total))
