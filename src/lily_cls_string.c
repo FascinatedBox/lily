@@ -859,17 +859,23 @@ void lily_string_trim(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     fake_sv.string = fake_buffer;
     fake_sv.size = strlen(fake_buffer);
 
-    int copy_from, copy_to;
-    copy_from = lstrip_ascii_start(input_arg, &fake_sv);
-    copy_to = rstrip_ascii_stop(input_arg, &fake_sv);
+    int copy_from = lstrip_ascii_start(input_arg, &fake_sv);
+    lily_string_val *new_sv;
 
-    int new_size = (copy_to - copy_from) + 1;
-    lily_string_val *new_sv = make_sv(vm, new_size);
+    if (copy_from != input_arg->value.string->size) {
+        int copy_to = rstrip_ascii_stop(input_arg, &fake_sv);
+        int new_size = (copy_to - copy_from) + 1;
+        new_sv = make_sv(vm, new_size);
+        char *new_str = new_sv->string;
 
-    char *new_str = new_sv->string;
-
-    strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
-    new_str[new_size - 1] = '\0';
+        strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
+        new_str[new_size - 1] = '\0';
+    }
+    else {
+        /* It's all space, so make a new empty string. */
+        new_sv = make_sv(vm, 1);
+        new_sv->string[0] = '\0';
+    }
 
     lily_move_string(result_arg, new_sv);
 }
