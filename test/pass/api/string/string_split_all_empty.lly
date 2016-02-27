@@ -1,2 +1,0 @@
-if "     ".split(" ") != ["", "", "", "", "", ""]:
-    stderr.print("Failed.")

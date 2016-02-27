@@ -1,2 +1,0 @@
-if "11abc22abc33".split("abc") != ["11", "22", "33"]:
-    stderr.print("Failed.")
