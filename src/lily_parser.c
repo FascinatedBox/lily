@@ -1121,8 +1121,8 @@ static lily_class *dynaload_enum(lily_parse_state *parser,
     int generics_used = enum_seed->generic_count;
     lily_lex_state *lex = parser->lex;
 
-    lily_emit_enter_block(parser->emit, block_enum);
     lily_update_symtab_generics(parser->symtab, enum_cls, generics_used);
+    lily_emit_enter_block(parser->emit, block_enum);
 
     lily_type *result_type = build_self_type(parser, enum_cls, generics_used);
     lily_type *save_self_type = parser->class_self_type;
