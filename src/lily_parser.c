@@ -148,6 +148,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->optarg_stack_pos = 0;
     parser->optarg_stack_size = 4;
     parser->first_pass = 1;
+    parser->generic_count = 0;
     parser->class_self_type = NULL;
     parser->raiser = raiser;
     parser->optarg_stack = lily_malloc(4 * sizeof(uint16_t));
@@ -792,41 +793,50 @@ static lily_type *type_by_name(lily_parse_state *parser, char *name)
     return result;
 }
 
-/* This should be called when `[` is found after the name of a define/class. The
-   purpose of this function is to collect the generic types and return how many
-   were found. This is easy now, because Lily currently requires that generics
-   are ordered from A...Z. */
-static int collect_generics(lily_parse_state *parser)
+/* This is called at the start of a class or define. If '[' is present, then
+   generics are collected. They currently are required be ordered from A to Z
+   and be finished with ']'. If '[' is not present, then generics are set to
+   the fallback value passed.
+   After a generic count is established, parser's generic count and symtab's
+   generic count are both updated. */
+static void collect_generics_or(lily_parse_state *parser, int fallback)
 {
-    char name[] = "A";
-    char ch = name[0];
     lily_lex_state *lex = parser->lex;
+    int new_count;
 
-    while (1) {
-        NEED_NEXT_TOK(tk_word)
-        if (lex->label[0] != ch || lex->label[1] != '\0') {
-            name[0] = ch;
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "Invalid generic name (wanted %s, got %s).\n",
-                    name, lex->label);
-        }
+    if (lex->token == tk_left_bracket) {
+        char name[] = "A";
+        char ch = name[0];
 
-        ch++;
-        lily_lexer(lex);
-        if (lex->token == tk_right_bracket) {
+        while (1) {
+            NEED_NEXT_TOK(tk_word)
+            if (lex->label[0] != ch || lex->label[1] != '\0') {
+                name[0] = ch;
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Invalid generic name (wanted %s, got %s).\n",
+                        name, lex->label);
+            }
+
+            ch++;
             lily_lexer(lex);
-            break;
+            if (lex->token == tk_right_bracket) {
+                lily_lexer(lex);
+                break;
+            }
+            else if (lex->token != tk_comma)
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "Expected either ',' or ']', not '%s'.\n",
+                        tokname(lex->token));
         }
-        else if (lex->token != tk_comma)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "Expected either ',' or ']', not '%s'.\n",
-                    tokname(lex->token));
+        int seen = ch - 'A';
+        lily_ts_generics_seen(parser->emit->ts, seen);
+        new_count = seen;
     }
+    else
+        new_count = fallback;
 
-    int seen = ch - 'A';
-
-    lily_ts_generics_seen(parser->emit->ts, seen);
-    return seen;
+    parser->generic_count = new_count;
+    lily_update_symtab_generics(parser->symtab, new_count);
 }
 
 /* This is called when creating a class and after any generics have been
@@ -987,8 +997,7 @@ static lily_var *dynaload_function(lily_parse_state *parser, lily_item *source,
     lily_symtab *symtab = parser->symtab;
     lily_func_seed *func_seed = (lily_func_seed *)seed;
     lily_import_entry *save_active = parser->symtab->active_import;
-    int save_generics = parser->emit->block->generic_count;
-    int generics_used;
+    int save_generics = parser->generic_count;
     lily_var *call_var;
 
     lily_load_str(lex, "[builtin]", lm_no_tags, func_seed->func_definition);
@@ -1001,12 +1010,8 @@ static lily_var *dynaload_function(lily_parse_state *parser, lily_item *source,
     else
         parser->symtab->active_import = ((lily_class *)source)->import;
 
-    if (parser->lex->token == tk_left_bracket)
-        generics_used = collect_generics(parser);
-    else
-        generics_used = 0;
+    collect_generics_or(parser, 0);
 
-    lily_update_symtab_generics(symtab, NULL, generics_used);
     int result_pos = parser->tm->pos;
     int i = 1;
     int flags = 0;
@@ -1046,7 +1051,7 @@ static lily_var *dynaload_function(lily_parse_state *parser, lily_item *source,
     call_var = lily_emit_new_tied_dyna_var(parser->emit, func_seed->func,
             source, type, func_seed->name);
 
-    lily_update_symtab_generics(symtab, NULL, save_generics);
+    lily_update_symtab_generics(symtab, save_generics);
 
     parser->symtab->active_import = save_active;
 
@@ -1110,18 +1115,19 @@ static lily_class *dynaload_enum(lily_parse_state *parser,
     lily_enum_seed *enum_seed = (lily_enum_seed *)seed;
     lily_class *enum_cls = lily_new_enum(parser->symtab, seed->name);
 
-
     if (seed->seed_type == dyna_builtin_enum) {
         parser->symtab->next_class_id--;
         enum_cls->id = enum_seed->builtin_id;
     }
 
-    enum_cls->dynaload_table = enum_seed->dynaload_table;
-
+    int save_generics = parser->generic_count;
     int generics_used = enum_seed->generic_count;
     lily_lex_state *lex = parser->lex;
 
-    lily_update_symtab_generics(parser->symtab, enum_cls, generics_used);
+    enum_cls->dynaload_table = enum_seed->dynaload_table;
+    enum_cls->generic_count = enum_seed->generic_count;
+
+    lily_update_symtab_generics(parser->symtab, generics_used);
     lily_emit_enter_block(parser->emit, block_enum);
 
     lily_type *result_type = build_self_type(parser, enum_cls, generics_used);
@@ -1153,6 +1159,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser,
 
     lily_finish_enum(parser->symtab, enum_cls, 0, result_type);
     lily_emit_leave_block(parser->emit);
+    lily_update_symtab_generics(parser->symtab, save_generics);
     parser->class_self_type = save_self_type;
     return enum_cls;
 }
@@ -2427,19 +2434,13 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
     int i = 0;
     int arg_flags = 0;
     int result_pos = parser->tm->pos;
-    int generics_used;
 
     /* This is the initial result. NULL means the function doesn't return
        anything. If it does, then this spot will be overwritten. */
     lily_tm_add(parser->tm, NULL);
 
     lily_lexer(lex);
-    if (lex->token == tk_left_bracket)
-        generics_used = collect_generics(parser);
-    else
-        generics_used = parser->emit->block->generic_count;
-
-    lily_update_symtab_generics(parser->symtab, NULL, generics_used);
+    collect_generics_or(parser, parser->generic_count);
     lily_emit_enter_block(parser->emit, block_define);
 
     if (parser->class_self_type) {
@@ -2496,7 +2497,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
             parser->symtab->function_class, i + 1);
 
     lily_emit_update_function_block(parser->emit, NULL,
-            generics_used, define_var->type->subtypes[0]);
+            define_var->type->subtypes[0]);
 
     if (parser->optarg_stack_pos != 0) {
         lily_emit_write_optargs(parser->emit, parser->optarg_stack,
@@ -3092,25 +3093,20 @@ static void ensure_valid_class(lily_parse_state *parser, char *name)
 static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
-    lily_symtab *symtab = parser->symtab;
     /* Use the default call type (function ()) in case one of the types listed
        triggers a dynaload. If a dynaload is triggered, emitter tries to
        restore the current return type from the last define's return type. */
     lily_var *call_var = lily_emit_new_define_var(parser->emit,
             parser->default_call_type, "new");
 
-    int generics_used;
-
     lily_lexer(lex);
-    if (lex->token == tk_left_bracket)
-        generics_used = collect_generics(parser);
-    else
-        generics_used = parser->emit->block->generic_count;
+    collect_generics_or(parser, 0);
+    cls->generic_count = parser->generic_count;
 
-    lily_update_symtab_generics(symtab, cls, generics_used);
     lily_emit_enter_block(parser->emit, block_class);
 
-    parser->class_self_type = build_self_type(parser, cls, generics_used);
+    parser->class_self_type = build_self_type(parser, cls,
+            parser->generic_count);
 
     int i = 1;
     int flags = 0;
@@ -3144,7 +3140,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
             parser->symtab->function_class, i);
 
     lily_emit_update_function_block(parser->emit, parser->class_self_type,
-            generics_used, call_var->type->subtypes[0]);
+            call_var->type->subtypes[0]);
 
     if (parser->optarg_stack_pos != 0) {
         lily_emit_write_optargs(parser->emit, parser->optarg_stack,
@@ -3217,6 +3213,7 @@ static void create_new_class(lily_parse_state *parser)
     lily_class *created_class = lily_new_class(parser->symtab, lex->label);
     lily_type *save_class_self_type = parser->class_self_type;
 
+    int save_generics = parser->generic_count;
     parse_class_header(parser, created_class);
 
     if (lex->token == tk_lt)
@@ -3228,6 +3225,8 @@ static void create_new_class(lily_parse_state *parser)
 
     parser->class_self_type = save_class_self_type;
     lily_emit_leave_block(parser->emit);
+    lily_update_symtab_generics(parser->symtab, save_generics);
+    parser->generic_count = save_generics;
 }
 
 static void class_handler(lily_parse_state *parser, int multi)
@@ -3314,17 +3313,14 @@ static void enum_handler(lily_parse_state *parser, int multi)
     lily_class *enum_cls = lily_new_enum(parser->symtab, lex->label);
 
     lily_lexer(lex);
-    int save_generics = parser->emit->block->generic_count;
-    int generics_used;
-    if (lex->token == tk_left_bracket)
-        generics_used = collect_generics(parser);
-    else
-        generics_used = 0;
+    int save_generics = parser->generic_count;
+    collect_generics_or(parser, 0);
+    enum_cls->generic_count = parser->generic_count;
 
-    lily_update_symtab_generics(parser->symtab, enum_cls, generics_used);
     lily_emit_enter_block(parser->emit, block_enum);
 
-    lily_type *result_type = build_self_type(parser, enum_cls, generics_used);
+    lily_type *result_type = build_self_type(parser, enum_cls,
+           parser->generic_count);
     lily_type *save_self_type = parser->class_self_type;
     parser->class_self_type = result_type;
 
@@ -3389,7 +3385,8 @@ static void enum_handler(lily_parse_state *parser, int multi)
     lily_emit_leave_block(parser->emit);
     parser->class_self_type = save_self_type;
 
-    lily_update_symtab_generics(parser->symtab, NULL, save_generics);
+    lily_update_symtab_generics(parser->symtab, save_generics);
+
     lily_lexer(lex);
 }
 
@@ -3491,11 +3488,13 @@ static void parse_define(lily_parse_state *parser, int modifiers)
                 "Cannot define a function here.\n");
 
     lily_lex_state *lex = parser->lex;
+    int save_generics = parser->generic_count;
     parse_define_header(parser, modifiers);
 
     NEED_CURRENT_TOK(tk_left_curly)
     parse_multiline_block_body(parser, 1);
     lily_emit_leave_block(parser->emit);
+    lily_update_symtab_generics(parser->symtab, save_generics);
 
     /* If the function defined is at the top level of a class, then immediately
        make that function a member of the class.

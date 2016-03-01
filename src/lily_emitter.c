@@ -165,7 +165,6 @@ void lily_emit_enter_main(lily_emit_state *emit)
     main_block->function_var = main_var;
     main_block->storage_start = emit->all_storage_start;
     main_block->class_entry = NULL;
-    main_block->generic_count = 0;
     main_block->self = NULL;
     main_block->code_start = 0;
     main_block->jump_offset = 0;
@@ -763,7 +762,6 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
     new_block->var_start = emit->symtab->active_import->var_chain;
     new_block->class_entry = emit->block->class_entry;
     new_block->self = emit->block->self;
-    new_block->generic_count = 0;
     new_block->patch_start = emit->patches->pos;
     new_block->last_exit = -1;
     new_block->loop_start = emit->block->loop_start;
@@ -918,12 +916,6 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
         emit->symtab->active_import->var_chain = block->function_var;
     /* For file 'blocks', don't fix the var_chain or all of the toplevel
        functions in that block will vanish! */
-
-    if (block->prev->generic_count != block->generic_count &&
-        block->block_type != block_lambda) {
-        lily_update_symtab_generics(emit->symtab, NULL,
-                last_func_block->generic_count);
-    }
 
     emit->top_var = v;
     emit->top_function_ret = v->type->subtypes[0];
@@ -4215,10 +4207,9 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
 /* This is called after parsing the header of a define or a class. Since blocks
    are entered early, this does adjustments to block data. */
 void lily_emit_update_function_block(lily_emit_state *emit,
-        lily_type *self_type, int generic_count, lily_type *ret_type)
+        lily_type *self_type, lily_type *ret_type)
 {
     emit->top_function_ret = ret_type;
-    emit->block->generic_count = generic_count;
 
     if (self_type) {
         /* If there's a type for 'self', then this must be a class constructor.

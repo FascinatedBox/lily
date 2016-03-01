@@ -105,7 +105,7 @@ void lily_add_class_method(lily_symtab *, lily_class *, lily_var *);
 
 lily_prop_entry *lily_add_class_property(lily_symtab *, lily_class *,
         lily_type *, char *, int);
-void lily_update_symtab_generics(lily_symtab *, lily_class *, int);
+void lily_update_symtab_generics(lily_symtab *, int);
 void lily_finish_enum(lily_symtab *, lily_class *, int, lily_type *);
 void lily_change_parent_class(lily_class *, lily_class *);
 
