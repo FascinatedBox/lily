@@ -104,6 +104,21 @@ inline lily_instance_val *lily_new_instance_val()
     return ival;
 }
 
+lily_instance_val *lily_new_enum_1(uint16_t class_id, uint16_t variant_id,
+        lily_value *v)
+{
+    lily_instance_val *iv = lily_new_instance_val();
+    iv->values = lily_malloc(sizeof(lily_value));
+    iv->values[0] = v;
+    iv->num_values = 1;
+    iv->variant_id = variant_id;
+    iv->instance_id = class_id;
+    if (v->flags & VAL_IS_DEREFABLE)
+        v->value.generic->refcount++;
+
+    return iv;
+}
+
 static int lily_value_eq_raw(lily_vm_state *, int *, lily_value *,
         lily_value *);
 

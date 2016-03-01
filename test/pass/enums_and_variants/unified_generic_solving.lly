@@ -1,0 +1,9 @@
+enum Dual[A, B] {
+    One(A)
+    Two(B)
+}
+
+define f[A](a: A, b: A) {}
+
+f(One(10), Two(""))
+var v = [One(5), One(10), Two([1])]
