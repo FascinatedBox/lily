@@ -26,7 +26,8 @@ typedef struct lily_parse_state_ {
     uint16_t optarg_stack_pos;
     uint16_t optarg_stack_size;
     uint16_t executing;
-    uint16_t first_pass;
+    uint8_t first_pass;
+    uint8_t generic_count;
 
     lily_type *class_self_type;
     lily_msgbuf *msgbuf;

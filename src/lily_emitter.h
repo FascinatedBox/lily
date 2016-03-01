@@ -42,8 +42,7 @@ typedef struct lily_block_ {
     /* An index where the patches for this block start off. */
     uint16_t patch_start;
 
-    /* Define/class blocks: How many generics are available in this block. */
-    uint16_t generic_count;
+    uint16_t pad;
 
     /* Match blocks: The starting position in emitter's match_cases. */
     uint16_t match_case_start;
@@ -296,7 +295,7 @@ void lily_emit_try(lily_emit_state *, int);
 void lily_emit_except(lily_emit_state *, lily_type *, lily_var *, int);
 void lily_emit_raise(lily_emit_state *, lily_ast *);
 
-void lily_emit_update_function_block(lily_emit_state *, lily_type *, int,
+void lily_emit_update_function_block(lily_emit_state *, lily_type *,
         lily_type *);
 
 void lily_prepare_main(lily_emit_state *, lily_import_entry *);

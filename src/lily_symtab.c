@@ -1004,13 +1004,12 @@ lily_import_entry *lily_find_import(lily_symtab *symtab,
 /* This...is called to 'fix' how many generics are available in the current
    class. As a 'neat' side-effect, it also sets how many generics that
    'decl_class' has. */
-void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
-        int count)
+void lily_update_symtab_generics(lily_symtab *symtab, int count)
 {
     /* The symtab special cases all types holding generic information so
        that they're unique, together, and in numerical order. */
     lily_type *type_iter = symtab->generic_class->all_subtypes;
-    int i = 1, save_count = count;
+    int i = 1;
 
     while (count) {
         type_iter->flags &= ~TYPE_HIDDEN_GENERIC;
@@ -1034,9 +1033,6 @@ void lily_update_symtab_generics(lily_symtab *symtab, lily_class *decl_class,
         type_iter->flags |= TYPE_HIDDEN_GENERIC;
         type_iter = type_iter->next;
     }
-
-    if (decl_class)
-        decl_class->generic_count = save_count;
 }
 
 /* This makes 'sub_class' have 'super_class' as a parent. */
