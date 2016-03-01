@@ -1,9 +1,0 @@
-enum Either[A, B] {
-    Left(A)
-    Right(B)
-}
-
-define f[A](a: A, b: A) {}
-
-f(Left(10), Right(""))
-var v = [Left(5), Left(10), Right([1])]

@@ -15,18 +15,9 @@
 #define SOME_VARIANT_ID 0
 #define NONE_VARIANT_ID 1
 
-lily_instance_val *lily_new_option_some(lily_value *v)
+inline lily_instance_val *lily_new_option_some(lily_value *v)
 {
-    lily_instance_val *iv = lily_new_instance_val();
-    iv->values = lily_malloc(sizeof(lily_value));
-    iv->values[0] = v;
-    iv->num_values = 1;
-    iv->variant_id = SOME_VARIANT_ID;
-    iv->instance_id = SYM_CLASS_OPTION;
-    if (v->flags & VAL_IS_DEREFABLE)
-        v->value.generic->refcount++;
-
-    return iv;
+    return lily_new_enum_1(SYM_CLASS_OPTION, SOME_VARIANT_ID, v);
 }
 
 /* Since None has no arguments, it has a backing literal to represent it. This

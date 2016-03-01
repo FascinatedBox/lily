@@ -18,6 +18,7 @@
 #include "lily_seed.h"
 
 extern const lily_func_seed lily_option_dl_start;
+extern const lily_func_seed lily_either_dl_start;
 extern const lily_func_seed lily_dynamic_dl_start;
 
 static const lily_class_seed function_seed =
@@ -96,9 +97,37 @@ void lily_builtin_print(lily_vm_state *, uint16_t, uint16_t *);
 void lily_builtin_printfmt(lily_vm_state *, uint16_t, uint16_t *);
 void lily_builtin_calltrace(lily_vm_state *, uint16_t, uint16_t *);
 
-static const lily_variant_seed seed_none =
+static const lily_variant_seed seed_left =
 {
     NULL,
+    "Left",
+    dyna_variant,
+    "(A)",
+    "Either"
+};
+
+static const lily_variant_seed seed_right =
+{
+    &seed_left,
+    "Right",
+    dyna_variant,
+    "(B)",
+    "Either"
+};
+
+static const lily_enum_seed seed_either =
+{
+    &seed_right,
+    "Either",
+    dyna_builtin_enum,
+    2,
+    SYM_CLASS_EITHER,
+    &lily_either_dl_start,
+};
+
+static const lily_variant_seed seed_none =
+{
+    &seed_either,
     "None",
     dyna_variant,
     "",
