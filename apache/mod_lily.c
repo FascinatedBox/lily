@@ -28,8 +28,7 @@ static lily_hash_val *get_new_tied_hash(lily_symtab *symtab, lily_var *tie_var)
 {
     lily_hash_val *hash_val = lily_new_hash_val();
     lily_value v;
-    v.type = tie_var->type;
-    v.flags = 0;
+    v.flags = VAL_IS_HASH;
     v.value.hash = hash_val;
 
     lily_tie_value(symtab, tie_var, &v);
@@ -43,16 +42,16 @@ struct table_bind_data {
     request_rec *r;
     int ok;
     lily_hash_val *hash_val;
-    lily_type *tainted_type;
     char *sipkey;
 };
 
-lily_value *bind_tainted_of(lily_parse_state *parser,
-        lily_type *tainted_type, lily_value *input)
+lily_value *bind_tainted_of(lily_parse_state *parser, lily_value *input)
 {
-    lily_instance_val *iv = lily_new_instance_val_for(tainted_type);
+    lily_instance_val *iv = lily_new_instance_val();
+    iv->values = lily_malloc(1 * sizeof(lily_value *));
+    iv->instance_id = SYM_CLASS_TAINTED;
     iv->values[0] = input;
-    lily_value *v = lily_new_value(0, tainted_type, (lily_raw_value)iv);
+    lily_value *v = lily_new_value(VAL_IS_INSTANCE, (lily_raw_value)iv);
     return v;
 }
 
@@ -68,8 +67,7 @@ static int bind_table_entry(void *data, const char *key, const char *value)
 
     lily_value *elem_key = lily_bind_string(d->symtab, key);
     lily_value *elem_raw_value = lily_bind_string(d->symtab, value);
-    lily_value *elem_value = bind_tainted_of(d->parser, d->tainted_type,
-            elem_raw_value);
+    lily_value *elem_value = bind_tainted_of(d->parser, elem_raw_value);
 
     lily_hash_add_unique(d->parser->vm, d->hash_val, elem_key, elem_value);
     return TRUE;
@@ -88,7 +86,6 @@ static void bind_table_as(lily_parse_state *parser, request_rec *r,
     data.r = r;
     data.ok = 1;
     data.hash_val = hash_val;
-    data.tainted_type = var->type->subtypes[1];
     data.sipkey = parser->vm->sipkey;
     apr_table_do(bind_table_entry, &data, table, NULL);
 }
@@ -103,7 +100,6 @@ static void bind_post(lily_parse_state *parser, request_rec *r,
     apr_size_t size;
     char *buffer;
     lily_symtab *symtab = parser->symtab;
-    lily_type *tainted_type = var->type->subtypes[1];
 
     /* Credit: I found out how to use this by reading httpd 2.4's mod_lua
        (specifically req_parsebody of lua_request.c). */
@@ -130,8 +126,7 @@ static void bind_post(lily_parse_state *parser, request_rec *r,
             /* Give the buffer to the value to save memory. */
             lily_value *elem_raw_value = lily_bind_string_take_buffer(symtab,
                     buffer);
-            lily_value *elem_value = bind_tainted_of(parser, tainted_type,
-                    elem_raw_value);
+            lily_value *elem_value = bind_tainted_of(parser, elem_raw_value);
 
             lily_hash_add_unique(parser->vm, hash_val, elem_key, elem_value);
         }
@@ -169,8 +164,7 @@ static void bind_httpmethod(lily_parse_state *parser, request_rec *r,
     sv->size = strlen(r->method);
 
     lily_value v;
-    v.type = var->type;
-    v.flags = 0;
+    v.flags = VAL_IS_STRING;
     v.value.string = sv;
 
     lily_tie_value(parser->symtab, var, &v);
@@ -178,6 +172,7 @@ static void bind_httpmethod(lily_parse_state *parser, request_rec *r,
 
 void apache_var_dynaloader(lily_parse_state *parser, lily_var *var)
 {
+    fprintf(stderr, "var dl entry.\n");
     request_rec *r = (request_rec *)parser->data;
     char *name = var->name;
 
@@ -189,19 +184,20 @@ void apache_var_dynaloader(lily_parse_state *parser, lily_var *var)
         bind_get(parser, r, var);
     else if (strcmp("env", name) == 0)
         bind_env(parser, r, var);
+    fprintf(stderr, "var dl exit.\n");
 }
 
 const lily_var_seed httpmethod_seed =
-        {NULL, "httpmethod", dyna_var, "string"};
+        {NULL, "httpmethod", dyna_var, "String"};
 
 const lily_var_seed post_seed =
-        {&httpmethod_seed, "post", dyna_var, "hash[string, Tainted[string]]"};
+        {&httpmethod_seed, "post", dyna_var, "Hash[String, Tainted[String]]"};
 
 const lily_var_seed get_seed =
-        {&post_seed, "get", dyna_var, "hash[string, Tainted[string]]"};
+        {&post_seed, "get", dyna_var, "Hash[String, Tainted[String]]"};
 
 const lily_var_seed env_seed =
-        {&get_seed, "env", dyna_var, "hash[string, Tainted[string]]"};
+        {&get_seed, "env", dyna_var, "Hash[String, Tainted[String]]"};
 
 
 /*  Implements server::write
@@ -213,7 +209,7 @@ void lily_apache_server_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *write_reg = vm_regs[code[1]];
-    if ((write_reg->flags & VAL_IS_LITERAL) == 0)
+    if ((write_reg->flags & VAL_IS_DEREFABLE) == 0)
         lily_raise(vm->raiser, lily_ValueError,
                 "The string passed must be a literal.\n");
 
@@ -247,13 +243,13 @@ void lily_apache_server_escape(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
 
 const lily_func_seed escape =
-        {&env_seed, "escape", dyna_function, "(string):string", lily_apache_server_escape};
+        {&env_seed, "escape", dyna_function, "(String):String", lily_apache_server_escape};
 
 const lily_func_seed write_raw =
-        {&escape, "write_raw", dyna_function, "(string)", lily_apache_server_write_raw};
+        {&escape, "write_raw", dyna_function, "(String)", lily_apache_server_write_raw};
 
 const lily_func_seed write_seed =
-        {&write_raw, "write", dyna_function, "(string)", lily_apache_server_write};
+        {&write_raw, "write", dyna_function, "(String)", lily_apache_server_write};
 
 
 static int lily_handler(request_rec *r)

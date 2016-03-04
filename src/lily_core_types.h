@@ -606,9 +606,12 @@ typedef struct lily_options_ {
 #define SYM_CLASS_FILE           11
 #define SYM_CLASS_GENERIC        12
 #define SYM_CLASS_QUESTION       13
-#define SYM_CLASS_EXCEPTION      14
-#define SYM_CLASS_OPTION         15
-#define SYM_CLASS_EITHER         16
-#define START_CLASS_ID           17
+#define SYM_CLASS_OPTION         14
+#define SYM_CLASS_EITHER         15
+#define START_CLASS_ID           16
+/* Exception+Tainted boot are bootstrapped in as a class and enum respectively.
+   Their ids have to start after the internal start. */
+#define SYM_CLASS_EXCEPTION      16
+#define SYM_CLASS_TAINTED        17
 
 #endif
