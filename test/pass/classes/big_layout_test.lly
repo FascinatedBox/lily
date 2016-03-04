@@ -16,6 +16,6 @@ class Third < Second {
 	var @prop_9 = "333"
 }
 
-var v = Third::new()
-var v2 = Second::new()
-var v3 = First::new()
+var v = Third()
+var v2 = Second()
+var v3 = First()

@@ -9,11 +9,11 @@ Traceback:
 class Example {
     define action {
         if 1: {
-            var k = ValueError::new("Message.\n")
+            var k = ValueError("Message.\n")
             raise k
         }
     }
     action()
 }
 
-Example::new()
+Example()

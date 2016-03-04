@@ -8,6 +8,6 @@ define f[A](input: A, g: Function(A => A)) {}
 # is looked at contravariantly, while the second is covariant.
 # Doing the reverse (taking either Three or outputting One) would be incorrect.
 
-define g(a: One) : Three { return Three::new() }
+define g(a: One) : Three { return Three() }
 
-f(Two::new(), g)
+f(Two(), g)

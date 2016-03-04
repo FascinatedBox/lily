@@ -2,7 +2,7 @@ define f(a: Integer) : Integer
 {
     try: {
         if a % 2:
-            raise ValueError::new("")
+            raise ValueError("")
     except Exception:
 
     }

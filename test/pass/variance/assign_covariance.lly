@@ -1,8 +1,8 @@
 class One {}
 class Two < One {}
 
-var v = One::new()
-v = Two::new()
+var v = One()
+v = Two()
 
 var v2 = [v]
-v2[0] = Two::new()
+v2[0] = Two()

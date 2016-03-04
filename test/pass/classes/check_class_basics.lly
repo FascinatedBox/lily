@@ -17,13 +17,13 @@ class AccessCheck {
 define assign_to_better {
     # The type is fixed by the first assignment, but assignments that have
     # 'better', more capable types should succeed.
-    var v = One::new(1)
-    v = Two::new(1, "2")
-    v = Three::new(1, "2", [3])
+    var v = One(1)
+    v = Two(1, "2")
+    v = Three(1, "2", [3])
 }
 
 define check_layout {
-    var v = Three::new(1, "2", [3])
+    var v = Three(1, "2", [3])
     if v.a != 1 || v.b != "2" || v.c != [3]:
         stderr.print("Variables may have been laid out incorrectly.")
 }

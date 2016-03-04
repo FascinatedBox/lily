@@ -3,7 +3,7 @@ class Error(code: Integer, message: String) < Exception(message)    {
 }
 
 try: {
-    raise Error::new(100, "Test")
+    raise Error(100, "Test")
 except Error as e:
     if e.code != 100:
         stderr.print("Failed.")

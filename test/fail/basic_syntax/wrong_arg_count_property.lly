@@ -7,5 +7,5 @@ class abc {
     var @a = {|| 10}
 }
 
-var d = abc::new()
+var d = abc()
 d.a(1)

@@ -8,4 +8,4 @@ class MyException(msg: String) < Exception(msg) {
 
 }
 
-raise MyException::new("Correct!\n")
+raise MyException("Correct!\n")

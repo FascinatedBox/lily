@@ -6,7 +6,7 @@ define check_assigning {
     var v = Some(10)
     v = None
 
-    var t = Test::new()
+    var t = Test()
     t.value = Some(Dynamic(1))
 }
 

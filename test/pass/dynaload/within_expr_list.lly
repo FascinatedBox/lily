@@ -1,5 +1,5 @@
 var v = [
-    ValueError::new    |> Dynamic,
-    IOError::new("10") |> Dynamic,
-    KeyError::new      |> Dynamic
+    ValueError    |> Dynamic,
+    IOError("10") |> Dynamic,
+    KeyError      |> Dynamic
     ]

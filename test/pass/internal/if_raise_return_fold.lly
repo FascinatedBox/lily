@@ -1,7 +1,7 @@
 define f(a: Integer) : Integer
 {
     if a == 1:
-        raise ValueError::new("")
+        raise ValueError("")
     else:
-        raise ValueError::new("")
+        raise ValueError("")
 }

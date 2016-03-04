@@ -1,1 +1,1 @@
-define f { raise ValueError::new("") }
+define f { raise ValueError("") }

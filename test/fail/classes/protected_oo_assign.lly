@@ -5,4 +5,4 @@ SyntaxError: Test::x is marked protected, and not available here.
 
 class Test { protected var @x = 10 }
 
-Test::new().x = 11
+Test().x = 11

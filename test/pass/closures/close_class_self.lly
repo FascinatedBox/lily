@@ -3,6 +3,6 @@ class example {
     var @y = {|| @x }
 }
 
-var v = example::new().y
+var v = example().y
 if v() != 10:
     stderr.print("Failed.")
