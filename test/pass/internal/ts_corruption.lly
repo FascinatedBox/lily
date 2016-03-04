@@ -16,7 +16,7 @@ for i in 0...5: {
     # This causes a nasty segfault, as you'd probably expect.
     l.push(
         Dynamic(
-            Point::new(Dynamic(1), Dynamic(2))
+            Point(Dynamic(1), Dynamic(2))
         )
     )
 }

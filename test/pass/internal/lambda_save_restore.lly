@@ -6,7 +6,7 @@ class Box[A](input: A)
 var v =
     {||
         {||
-            Box::new(
+            Box(
                 {|| 1}
             )
         }

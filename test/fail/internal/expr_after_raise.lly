@@ -3,5 +3,5 @@ SyntaxError: Statement(s) after 'raise' will not execute.
     from expr_after_raise.lly:7
 ]#
 
-raise ValueError::new("")
+raise ValueError("")
 var v = 10

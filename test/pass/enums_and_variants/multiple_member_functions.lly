@@ -19,7 +19,7 @@ enum Test[A] {
             case One(s):
                 return s
             case Two:
-                raise ValueError::new("No value is present.")
+                raise ValueError("No value is present.")
         }
     }
 }

@@ -1,7 +1,7 @@
 define f {
     var a = 1, b = 1, c = 1, d = 1
     var e = 1, g = 1, h = 1
-    raise ValueError::new("")
+    raise ValueError("")
 }
 
 var i = 10

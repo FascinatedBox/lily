@@ -3,4 +3,4 @@ class abc {
     }
 }
 
-abc::new().ghi()
+abc().ghi()

@@ -6,4 +6,4 @@ Traceback:
 
 import ex
 
-raise ex::error::new("Imported raise!\n")
+raise ex::error("Imported raise!\n")

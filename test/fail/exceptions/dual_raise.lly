@@ -5,6 +5,6 @@ Traceback:
 ]#
 
 try:
-    raise ValueError::new("10")
+    raise ValueError("10")
 except ValueError:
     var v = 1 / 0

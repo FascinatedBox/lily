@@ -9,7 +9,7 @@ class Ex[A](message: String, v: A) < Exception(message)
 }
 
 try: {
-    raise Ex::new("", 100)
+    raise Ex("", 100)
 except Ex[Integer] as e:
     if e.value != 100:
         stderr.print("Failed.")

@@ -34,7 +34,7 @@ ok(([1, 2]       |> Dynamic |> "%s".format) == "[1, 2]",          "String::forma
 ok((12345        |> Dynamic |> "%s".format) == "12345",           "String::format with 12345.")
 ok((1.5          |> Dynamic |> "%s".format) == "1.5",             "String::format with 1.5.")
 ok(([1 => 2]     |> Dynamic |> "%s".format) == "[1 => 2]",        "String::format with [1 => 2].")
-ok((Point::new() |> Dynamic |> "%s".format).startswith("<Point"), "String::format with user-defined class.")
+ok((Point() |> Dynamic |> "%s".format).startswith("<Point"), "String::format with user-defined class.")
 ok({||
     var result = false
     try:

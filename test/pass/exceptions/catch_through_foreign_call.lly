@@ -1,6 +1,6 @@
 define f(a: Integer) : Integer
 {
-    raise ValueError::new("")
+    raise ValueError("")
 }
 
 for i in 0...5: {
