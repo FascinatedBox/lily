@@ -36,7 +36,7 @@ void lily_sys_var_loader(lily_parse_state *parser, lily_var *var)
     lily_tie_value(symtab, var, &v);
 }
 
-static const lily_var_seed argv_seed = {NULL, "argv", dyna_var, "list[string]"};
+static const lily_var_seed argv_seed = {NULL, "argv", dyna_var, "List[String]"};
 
 void lily_pkg_sys_init(lily_parse_state *parser, lily_options *options)
 {
