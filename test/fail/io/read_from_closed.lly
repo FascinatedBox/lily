@@ -1,7 +1,7 @@
 #[
 IOError: IO operation on closed file.
 Traceback:
-    from [C]: in File::readline
+    from [C]: in File.readline
     from read_from_closed.lly:9: in __main__
 ]#
 

@@ -1,8 +1,8 @@
 #[
 ValueError: Message.
 Traceback:
-    from error_from_method.lly:13: in Example::action
-    from error_from_method.lly:16: in Example::new
+    from error_from_method.lly:13: in Example.action
+    from error_from_method.lly:16: in Example.new
     from error_from_method.lly:19: in __main__
 ]#
 

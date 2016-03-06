@@ -1,5 +1,5 @@
 #[
-SyntaxError: Class 'Integer' has no ::new to implicitly use.
+SyntaxError: Cannot implicitly use Integer.new (it doesn't exist).
     from integer_implicit_new.lly:6
 ]#
 

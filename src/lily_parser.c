@@ -278,8 +278,7 @@ void lily_free_parse_state(lily_parse_state *parser)
     Currently, the biggest differences are likely to be the lack of features:
     No support for `import x.y`, and no `from x import *`. The former will be
     changed hopefully in the near future. The latter, however, is unlikely to be
-    changed soon. The only other big difference is that access does not use '.',
-    but instead '::'.
+    changed soon.
 
     An important function here is 'lily_register_import'. This function can be
     used by a Lily 'runner' to provide a module that the script can import.
@@ -705,7 +704,7 @@ static lily_type *get_named_arg(lily_parse_state *parser, int *flags)
 }
 
 /* Call this if you just need a type but no optional argument stuff to go along
-   with it. If there is any resolution needed (ex: `a::b::c`), then that is done
+   with it. If there is any resolution needed (ex: `a.b.c`), then that is done
    here. This is relied upon by get_named_arg and get_nameless_arg (which add
    optarg/vararg functionality).
    You probably don't want to call this directly, unless you just need a type
@@ -893,8 +892,8 @@ static void parse_variant_header(lily_parse_state *, lily_variant_class *);
     it's unlikely that you'll use all API functions, all builtin functions, and
     all builtin packages in a single program.
 
-    Consider a call to string::lower. This can be invoked as either "".lower or
-    string::lower. Since Lily is a statically-typed language, it's possible to
+    Consider a call to String.lower. This can be invoked as either "".lower or
+    String.lower. Since Lily is a statically-typed language, it's possible to
     know if something is going to be used, or if it won't through a combo of
     parse-time guessing (with static calls), and emit-time post-type-solving
     knowledge (with anything else).
@@ -929,7 +928,7 @@ static lily_import_entry *resolve_import(lily_parse_state *parser)
     search_entry = lily_find_import(symtab, result, lex->label);
     while (search_entry) {
         result = search_entry;
-        NEED_NEXT_TOK(tk_colon_colon)
+        NEED_NEXT_TOK(tk_dot)
         NEED_NEXT_TOK(tk_word)
         search_entry = lily_find_import(symtab, result, lex->label);
     }
@@ -961,7 +960,7 @@ static lily_base_seed *find_dynaload_entry(lily_item *item, char *name)
 }
 
 /* This is used to collect class names. Trying to just get a class name isn't
-   possible because there could be a module before the class name (`a::b::c`).
+   possible because there could be a module before the class name (`a.b.c`).
    To make things more complicated, there could be a dynaload of a class. */
 static lily_class *resolve_class_name(lily_parse_state *parser)
 {
@@ -1281,7 +1280,7 @@ static lily_class *find_run_class_dynaload(lily_parse_state *parser,
    methods in progress needing to go before the rest. The reason is that methods
    in progress will be for the most recent class.
    If, say, there's a Two class being declared that inherits from One, then it
-   will have a ::new already (One::new). However, the Two::new should be
+   will have a .new already (One.new). However, the Two.new should be
    considered first. */
 lily_item *lily_find_or_dl_member(lily_parse_state *parser, lily_class *cls,
         char *name)
@@ -1410,14 +1409,14 @@ static int keyword_by_name(char *name)
 
 /* This handles when a class is seen within an expression. Any import qualifier
    has already been scanned and is unimportant. The key here is to figure out if
-   this is `<class>::member` or `<class>()`. The first is a static access, while
-   the latter is an implicit `<class>::new()`. */
+   this is `<class>.member` or `<class>()`. The first is a static access, while
+   the latter is an implicit `<class>.new()`. */
 static void expression_class_access(lily_parse_state *parser, lily_class *cls,
         int *state)
 {
     lily_lex_state *lex = parser->lex;
     lily_lexer(lex);
-    if (lex->token != tk_colon_colon) {
+    if (lex->token != tk_dot) {
         if (cls->flags & CLS_IS_ENUM)
             lily_raise(parser->raiser, lily_SyntaxError,
                     "Cannot implicitly use the constructor of an enum.\n");
@@ -1425,7 +1424,7 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
         lily_item *target = lily_find_or_dl_member(parser, cls, "new");
         if (target == NULL)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Class '%s' has no ::new to implicitly use.\n", cls->name);
+                    "Cannot implicitly use %s.new (it doesn't exist).\n", cls->name);
 
         lily_ast_push_static_func(parser->ast_pool, (lily_var *)target);
         *state = ST_FORWARD | ST_WANT_OPERATOR;
@@ -1456,7 +1455,7 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
         return;
     }
 
-    /* Enums allow scoped variants through `<enum>::<variant>`. */
+    /* Enums allow scoped variants through `<enum>.<variant>`. */
     if (cls->flags & CLS_IS_ENUM) {
         lily_variant_class *variant = lily_find_scoped_variant(cls, lex->label);
         if (variant) {
@@ -1466,7 +1465,7 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
     }
 
     lily_raise(parser->raiser, lily_SyntaxError,
-            "%s::%s does not exist.\n", cls->name, lex->label);
+            "%s.%s does not exist.\n", cls->name, lex->label);
 }
 
 /* This handles all the simple keywords that map to a string/integer value. */
@@ -3328,11 +3327,11 @@ static void enum_handler(lily_parse_state *parser, int multi)
     lily_lexer(lex);
 
     int variant_count = 0;
-    int is_scoped = (lex->token == tk_colon_colon);
+    int is_scoped = (lex->token == tk_dot);
 
     while (1) {
         if (is_scoped) {
-            NEED_CURRENT_TOK(tk_colon_colon)
+            NEED_CURRENT_TOK(tk_dot)
             lily_lexer(lex);
         }
 
@@ -3672,11 +3671,11 @@ char *lily_build_error_message(lily_parse_state *parser)
     if (raiser->exception_cls) {
         /* If this error is not one of the builtin ones, then show the package
            from where it came. The reason for this is that different packages
-           may wish to export a general error class (ex: pg::Error,
-           mysql::Error, etc). So making it clear -which- one can be useful. */
+           may wish to export a general error class (ex: pg.Error,
+           mysql.Error, etc). So making it clear -which- one can be useful. */
         char *loadname = raiser->exception_cls->import->loadname;
         if (strcmp(loadname, "") != 0)
-            lily_msgbuf_add_fmt(msgbuf, "%s::", loadname);
+            lily_msgbuf_add_fmt(msgbuf, "%s.", loadname);
     }
 
     lily_msgbuf_add(msgbuf, lily_name_for_error(raiser));
@@ -3718,7 +3717,7 @@ char *lily_build_error_message(lily_parse_state *parser)
                 separator = "";
             }
             else
-                separator = "::";
+                separator = ".";
 
             if (frame->function->code == NULL)
                 lily_msgbuf_add_fmt(msgbuf, "    from [C]: in %s%s%s\n",

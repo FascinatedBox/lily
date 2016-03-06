@@ -5,20 +5,20 @@ define ok(b: Boolean, s: String)
     total += 1
 
     if b == false: {
-        String::format("Test %d (%s) failed.\n", Dynamic(total), Dynamic(s))
+        String.format("Test %d (%s) failed.\n", Dynamic(total), Dynamic(s))
             |> stderr.write
         failed += 1
     }
 }
 
-ok(true.to_i() == 1,        "Boolean::to_i() == 1.")
-ok(false.to_i() == 0,       "Boolean::to_i() == 0.")
+ok(true.to_i() == 1,        "Boolean.to_i() == 1.")
+ok(false.to_i() == 0,       "Boolean.to_i() == 0.")
 
-ok(true.to_s() == "true",   "Boolean::to_s() == 'true'.")
-ok(false.to_s() == "false", "Boolean::to_s() == 'false'.")
+ok(true.to_s() == "true",   "Boolean.to_s() == 'true'.")
+ok(false.to_s() == "false", "Boolean.to_s() == 'false'.")
 
 if failed == 0:
     printfmt("%d of %d tests passed.\n", Dynamic(total), Dynamic(total))
 else:
-    String::format("%d tests have failed.\n", Dynamic(failed))
+    String.format("%d tests have failed.\n", Dynamic(failed))
     |> stderr.write

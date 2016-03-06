@@ -468,8 +468,8 @@ typedef struct lily_options_ {
     uint32_t gc_threshold;
     /* # of entries in the argv. */
     uint64_t argc;
-    /* This is made available as sys::argv when sys is imported. By default,
-       this is NULL and sys::argv is empty. */
+    /* This is made available as sys.argv when sys is imported. By default,
+       this is NULL and sys.argv is empty. */
     char **argv;
     /* Lily will call lily_impl_puts with this as the data part. This
        can be NULL if it's not needed.
@@ -500,7 +500,7 @@ typedef struct lily_options_ {
 #define CLS_IS_ENUM        0x04
 #define CLS_IS_VARIANT     0x10
 /* This class is an enum AND the variants within are scoped. The difference is
-   that scoped variants are accessed using 'enum::variant', while normal
+   that scoped variants are accessed using 'enum.variant', while normal
    variants can use just 'variant'. */
 #define CLS_ENUM_IS_SCOPED 0x20
 #define CLS_EMPTY_VARIANT  0x40

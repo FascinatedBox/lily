@@ -5,36 +5,36 @@ define ok(b: Boolean, s: String)
     total += 1
 
     if b == false: {
-        String::format("Test %d (%s) failed.\n", Dynamic(total), Dynamic(s))
+        String.format("Test %d (%s) failed.\n", Dynamic(total), Dynamic(s))
             |> stderr.write
         failed += 1
     }
 }
 
-ok("".concat("") == "",            "String::concat with two empty strings.")
-ok("1".concat("") == "1",          "String::concat with '1' and ''.")
-ok("".concat("1") == "1",          "String::concat with '' and '1'.")                            
-ok("1".concat("2") == "12",        "String::concat with '1' and '2'.")
+ok("".concat("") == "",            "String.concat with two empty strings.")
+ok("1".concat("") == "1",          "String.concat with '1' and ''.")
+ok("".concat("1") == "1",          "String.concat with '' and '1'.")                            
+ok("1".concat("2") == "12",        "String.concat with '1' and '2'.")
                                 
-ok("1".endswith("2") == false,     "String::endswith '1' and '2'.")
-ok("1".endswith("12345") == false, "String::endswith '1' and '12345'.")
-ok("1".endswith("1"),              "String::endswith '1' and '1'.")
-ok("ÀÈÌaÒÜ".endswith("aÒÜ"),       "String::endswith utf-8 success case.")
+ok("1".endswith("2") == false,     "String.endswith '1' and '2'.")
+ok("1".endswith("12345") == false, "String.endswith '1' and '12345'.")
+ok("1".endswith("1"),              "String.endswith '1' and '1'.")
+ok("ÀÈÌaÒÜ".endswith("aÒÜ"),       "String.endswith utf-8 success case.")
 
-ok("12".find("1").is_some(),       "String::find with '12' and '1'.")
-ok("ÀÈaÌÒÜ".find("ÈaÌ").is_some(), "String::find utf-8 success case.")
-ok("1".find("12345").is_none(),    "String::find where needle exceeds haystack.")
-ok("".find("").is_none(),          "String::find where haystack is empty.")
-ok("1234".find("5").is_none(),     "String::find needle not in haystack.")
+ok("12".find("1").is_some(),       "String.find with '12' and '1'.")
+ok("ÀÈaÌÒÜ".find("ÈaÌ").is_some(), "String.find utf-8 success case.")
+ok("1".find("12345").is_none(),    "String.find where needle exceeds haystack.")
+ok("".find("").is_none(),          "String.find where haystack is empty.")
+ok("1234".find("5").is_none(),     "String.find needle not in haystack.")
 
 class Point {}
 
-ok((None         |> Dynamic |> "%s".format) == "None",            "String::format with None.")
-ok(([1, 2]       |> Dynamic |> "%s".format) == "[1, 2]",          "String::format with [1, 2].")
-ok((12345        |> Dynamic |> "%s".format) == "12345",           "String::format with 12345.")
-ok((1.5          |> Dynamic |> "%s".format) == "1.5",             "String::format with 1.5.")
-ok(([1 => 2]     |> Dynamic |> "%s".format) == "[1 => 2]",        "String::format with [1 => 2].")
-ok((Point() |> Dynamic |> "%s".format).startswith("<Point"), "String::format with user-defined class.")
+ok((None         |> Dynamic |> "%s".format) == "None",            "String.format with None.")
+ok(([1, 2]       |> Dynamic |> "%s".format) == "[1, 2]",          "String.format with [1, 2].")
+ok((12345        |> Dynamic |> "%s".format) == "12345",           "String.format with 12345.")
+ok((1.5          |> Dynamic |> "%s".format) == "1.5",             "String.format with 1.5.")
+ok(([1 => 2]     |> Dynamic |> "%s".format) == "[1 => 2]",        "String.format with [1 => 2].")
+ok((Point() |> Dynamic |> "%s".format).startswith("<Point"), "String.format with user-defined class.")
 ok({||
     var result = false
     try:
@@ -42,63 +42,63 @@ ok({||
     except FormatError:
         result = true
     result
-    }(),                                                          "String::format raises FormatError with wrong # of arguments.")
+    }(),                                                          "String.format raises FormatError with wrong # of arguments.")
 
-ok("<&>".htmlencode() == "&lt;&amp;&gt;",     "String::htmlencode full spectrum.")
-ok("+<&>+".htmlencode() == "+&lt;&amp;&gt;+", "String::htmlencode without replacing start + end.")
-ok("<+&+>".htmlencode() == "&lt;+&amp;+&gt;", "String::htmlencode with text interleaving replacements.")
+ok("<&>".htmlencode() == "&lt;&amp;&gt;",     "String.htmlencode full spectrum.")
+ok("+<&>+".htmlencode() == "+&lt;&amp;&gt;+", "String.htmlencode without replacing start + end.")
+ok("<+&+>".htmlencode() == "&lt;+&amp;+&gt;", "String.htmlencode with text interleaving replacements.")
 
-ok("".isalnum() == false,                     "String::isalnum empty false case.")
-ok("a".isalnum(),                             "String::isalnum with true case.")
-ok("abc123()".isalnum() == false,             "String::isalnum denies partial alpha.")
+ok("".isalnum() == false,                     "String.isalnum empty false case.")
+ok("a".isalnum(),                             "String.isalnum with true case.")
+ok("abc123()".isalnum() == false,             "String.isalnum denies partial alpha.")
 
-ok("".isalpha() == false,                     "String::isalpha empty false case.")
-ok("a".isalpha(),                             "String::isalpha with true case.")
-ok("abc123".isalpha() == false,               "String::isalpha denies partial alpha.")
+ok("".isalpha() == false,                     "String.isalpha empty false case.")
+ok("a".isalpha(),                             "String.isalpha with true case.")
+ok("abc123".isalpha() == false,               "String.isalpha denies partial alpha.")
 
-ok("".isdigit() == false,                     "String::isdigit empty false case.")
-ok("123".isdigit(),                           "String::isdigit with true case.")
-ok("abc123".isdigit() == false,               "String::isdigit denies partial digit.")
+ok("".isdigit() == false,                     "String.isdigit empty false case.")
+ok("123".isdigit(),                           "String.isdigit with true case.")
+ok("abc123".isdigit() == false,               "String.isdigit denies partial digit.")
 
-ok("".isspace() == false,                     "String::isspace empty false case.")
-ok(" \t\r\n".isspace(),                       "String::isspace full spectrum true case.")
-ok("abc ".isspace() == false,                 "String::isspace denies partial space.")
+ok("".isspace() == false,                     "String.isspace empty false case.")
+ok(" \t\r\n".isspace(),                       "String.isspace full spectrum true case.")
+ok("abc ".isspace() == false,                 "String.isspace denies partial space.")
 
-ok("abc".lstrip("") == "abc",                 "String::lstrip empty remove string.")
-ok("aabbab12".lstrip("ab") == "12",           "String::lstrip multi remove.")
-ok("aaaaa".lstrip("a") == "",                 "String::lstrip removing all.")
-ok("ÀÈaÌÒÜ".lstrip("ÀÈ") == "aÌÒÜ",           "String::lstrip with utf-8 chunk.")
+ok("abc".lstrip("") == "abc",                 "String.lstrip empty remove string.")
+ok("aabbab12".lstrip("ab") == "12",           "String.lstrip multi remove.")
+ok("aaaaa".lstrip("a") == "",                 "String.lstrip removing all.")
+ok("ÀÈaÌÒÜ".lstrip("ÀÈ") == "aÌÒÜ",           "String.lstrip with utf-8 chunk.")
 
-ok("abc".lower() == "abc",                    "String::lower ignores 'abc'.")
-ok("ABC".lower() == "abc",                    "String::lower basic success case.")
+ok("abc".lower() == "abc",                    "String.lower ignores 'abc'.")
+ok("ABC".lower() == "abc",                    "String.lower basic success case.")
 
-ok("+12345".parse_i().unwrap() == 12345,       "String::parse_i positive lead.")
-ok("0001".parse_i().unwrap() == 1,             "String::parse_i leading zeroes.")
+ok("+12345".parse_i().unwrap() == 12345,       "String.parse_i positive lead.")
+ok("0001".parse_i().unwrap() == 1,             "String.parse_i leading zeroes.")
 ok("9223372036854775807".parse_i().unwrap() == 9223372036854775807,
-                                               "String::parse_i parses int max.")
+                                               "String.parse_i parses int max.")
 ok("-9223372036854775808".parse_i().unwrap() == -9223372036854775808,
-                                               "String::parse_i parses int min.")
-ok("".parse_i().is_none(),                     "String::parse_i fails with empty string.")
-ok("9223372036854775808".parse_i().is_none(),  "String::parse_i rejects int max + 1.")
-ok("-9223372036854775809".parse_i().is_none(), "String::parse_i rejects int min - 1.")
-ok("123abc".parse_i().is_none(),               "String::parse_i rejects '123abc'.")
+                                               "String.parse_i parses int min.")
+ok("".parse_i().is_none(),                     "String.parse_i fails with empty string.")
+ok("9223372036854775808".parse_i().is_none(),  "String.parse_i rejects int max + 1.")
+ok("-9223372036854775809".parse_i().is_none(), "String.parse_i rejects int min - 1.")
+ok("123abc".parse_i().is_none(),               "String.parse_i rejects '123abc'.")
 
-ok("abc".rstrip("") == "abc",                  "String::rstrip empty remove string.")
-ok("12aabbab".rstrip("ab") == "12",            "String::rstrip multi remove.")
-ok("aaaaa".rstrip("a") == "",                  "String::rstrip removing all.")
-ok("ÀÈaÌÒÜ".rstrip("ÌÒÜ") == "ÀÈa",            "String::rstrip with utf-8 chunk.")
+ok("abc".rstrip("") == "abc",                  "String.rstrip empty remove string.")
+ok("12aabbab".rstrip("ab") == "12",            "String.rstrip multi remove.")
+ok("aaaaa".rstrip("a") == "",                  "String.rstrip removing all.")
+ok("ÀÈaÌÒÜ".rstrip("ÌÒÜ") == "ÀÈa",            "String.rstrip with utf-8 chunk.")
 
-ok("1".startswith("2") == false,               "String::startswith '1' and '2'.")
-ok("123".startswith("12345") == false,         "String::startswith '123' and '12345'.")
-ok("1".startswith("1"),                        "String::startswith '1' and '1'.")
-ok("ÀÈÌaÒÜ".startswith("ÀÈ"),                  "String::startswith utf-8 success case.")
+ok("1".startswith("2") == false,               "String.startswith '1' and '2'.")
+ok("123".startswith("12345") == false,         "String.startswith '123' and '12345'.")
+ok("1".startswith("1"),                        "String.startswith '1' and '1'.")
+ok("ÀÈÌaÒÜ".startswith("ÀÈ"),                  "String.startswith utf-8 success case.")
 
-ok("123".split(" ") == ["123"],                "String::split no match.")
-ok("1 2 3".split(" ") == ["1", "2", "3"],      "String::split simple success case.")
-ok("1 2 3".split() == ["1", "2", "3"],         "String::split default to split by ' '.")
-ok("1ab2ab".split("ab") == ["1", "2", ""],     "String::split split by wide ascii.")
-ok("1ÀÀ2À".split("À") == ["1", "", "2", ""],   "String::split with utf-8 chunk.")
-ok("   ".split(" ") == ["", "", "", ""],       "String::split where all chars match.")
+ok("123".split(" ") == ["123"],                "String.split no match.")
+ok("1 2 3".split(" ") == ["1", "2", "3"],      "String.split simple success case.")
+ok("1 2 3".split() == ["1", "2", "3"],         "String.split default to split by ' '.")
+ok("1ab2ab".split("ab") == ["1", "2", ""],     "String.split split by wide ascii.")
+ok("1ÀÀ2À".split("À") == ["1", "", "2", ""],   "String.split with utf-8 chunk.")
+ok("   ".split(" ") == ["", "", "", ""],       "String.split where all chars match.")
 ok({||
     var result = false
     try:
@@ -106,17 +106,17 @@ ok({||
     except ValueError:
         result = true
     result
-    }(),                                       "String::split raises ValueError for empty string.")
+    }(),                                       "String.split raises ValueError for empty string.")
 
-ok("abc".trim() == "abc",                      "String::trim ignores non-spaces.")
-ok(" \t\r\nabc\t\r\n ".trim() == "abc",        "String::trim spectrum removal.")
-ok("    ".trim() == "",                        "String::trim removing everything.")
+ok("abc".trim() == "abc",                      "String.trim ignores non-spaces.")
+ok(" \t\r\nabc\t\r\n ".trim() == "abc",        "String.trim spectrum removal.")
+ok("    ".trim() == "",                        "String.trim removing everything.")
 
-ok("ABC".upper() == "ABC",                     "String::upper ignores 'ABC'.")
-ok("abc".upper() == "ABC",                     "String::upper basic success case.")
+ok("ABC".upper() == "ABC",                     "String.upper ignores 'ABC'.")
+ok("abc".upper() == "ABC",                     "String.upper basic success case.")
 
 if failed == 0:
     printfmt("%d of %d tests passed.\n", Dynamic(total), Dynamic(total))
 else:
-    String::format("%d tests have failed.\n", Dynamic(failed))
+    String.format("%d tests have failed.\n", Dynamic(failed))
     |> stderr.write

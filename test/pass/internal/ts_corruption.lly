@@ -7,7 +7,7 @@ class Point(x: Dynamic, y: Dynamic)
 var l = []
 
 for i in 0...5: {
-    # This is the interesting line. list::push is dynaloaded, and it is the
+    # This is the interesting line. list.push is dynaloaded, and it is the
     # first thing that uses generic types.
     # The emitter SHOULD put the Point instance into a value of type 'any'
     # before attempting to push to the list.

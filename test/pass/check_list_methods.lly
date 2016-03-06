@@ -5,7 +5,7 @@ define ok(b: Boolean, s: String)
     total += 1
 
     if b == false: {
-        String::format("Test %d (%s) failed.\n", Dynamic(total), Dynamic(s))
+        String.format("Test %d (%s) failed.\n", Dynamic(total), Dynamic(s))
             |> stderr.write
         failed += 1
     }
@@ -20,38 +20,38 @@ class Point(x: Integer, y: Integer)
 ok({||
     var v = [1, 2, 3]
     v.clear()
-    v == []}(),                        "List::clear on a list of Integer.")
+    v == []}(),                        "List.clear on a list of Integer.")
 ok({||
     var v = ["1", "2", "3"]
     v.clear()
-    v == []}(),                        "List::clear on a list of String.")
+    v == []}(),                        "List.clear on a list of String.")
 ok({||
     var v = [Dynamic(1), Dynamic(2), Dynamic(3)]
     v.clear()
-    v == []}(),                        "List::clear on a list of Dynamic.")
+    v == []}(),                        "List.clear on a list of Dynamic.")
 
 
 ok({||
     var v = []
-    v.count{|a| true} == 0}(),         "List::count on an empty list.")
+    v.count{|a| true} == 0}(),         "List.count on an empty list.")
 
 ok({||
     var v = [1, 2, 3, 4, 5]
-    v.count{|a| a % 2 == 0} == 2}(),   "List::count using modulo.")
+    v.count{|a| a % 2 == 0} == 2}(),   "List.count using modulo.")
 
 ok({||
     var v = [1, 2, 3]
-    v.count{|a| true} == 3}(),         "List::count with 'true' predicate'.")
+    v.count{|a| true} == 3}(),         "List.count with 'true' predicate'.")
 
 ok({||
     var v = [Some(1), None, Some(2)]
-    v.count{|a| a.is_none()} == 1}(),  "List::count inferring a method.")
+    v.count{|a| a.is_none()} == 1}(),  "List.count inferring a method.")
 
 ok({||
     var v = [1, 2, 3]
     v.delete_at(-1)
     v.delete_at(0)
-    v == [2]}(),                       "List::delete_at with positive+negative indexes.")
+    v == [2]}(),                       "List.delete_at with positive+negative indexes.")
 
 ok({||
     var v = [1]
@@ -60,7 +60,7 @@ ok({||
         v.delete_at(-2)
     except IndexError:
         result = true
-    result}(),                          "List::delete_at throws IndexError with bad negative.")
+    result}(),                          "List.delete_at throws IndexError with bad negative.")
 
 ok({||
     var v = [1]
@@ -69,7 +69,7 @@ ok({||
         v.delete_at(2)
     except IndexError:
         result = true
-    result}(),                          "List::delete_at throws IndexError with bad positive.")    
+    result}(),                          "List.delete_at throws IndexError with bad positive.")    
 
 ok({||
     var v = [0, 1, 2]
@@ -81,7 +81,7 @@ ok({||
         results[e] = k
         }
     results == [1, 2, 3]
-    }(),                                "List::each visits all elements and in order.")
+    }(),                                "List.each visits all elements and in order.")
 
 ok({||
     var result = true
@@ -91,7 +91,7 @@ ok({||
         result = false
         
     result
-    }(),                                "List::each does nothing for an empty list.")
+    }(),                                "List.each does nothing for an empty list.")
 
 ok({||
     var v = [3, 2, 1]
@@ -104,33 +104,33 @@ ok({||
         results[i] = k
         }
     results == [1, 2, 3]
-    }(),                                "List::each_index visits all elements and in order.")
+    }(),                                "List.each_index visits all elements and in order.")
 
 ok({||
-    List::fill(3, 5) == [5, 5, 5]
-    }(),                                "List::fill for type Integer.")
+    List.fill(3, 5) == [5, 5, 5]
+    }(),                                "List.fill for type Integer.")
 
 ok({||
-    List::fill(3, Point(1, 2))
+    List.fill(3, Point(1, 2))
     true
-    }(),                                "List::fill for a user-defined class.")
+    }(),                                "List.fill for a user-defined class.")
 
 ok({||
     var result = false
     try:
-        List::fill(-1, 0)
+        List.fill(-1, 0)
     except ValueError:
         result = true
     result
-    }(),                                "List::fill raises ValueError with negative fill.")
+    }(),                                "List.fill raises ValueError with negative fill.")
 
 ok({||
     [1, 2, 3].fold(0, {|a, b| a + b}) == 6
-    }(),                                "List::fold with type Integer.")
+    }(),                                "List.fold with type Integer.")
 
 ok({||
     ["1", "2", "3"].fold("", {|a, b| a.concat(b)}) == "123"
-    }(),                                "List::fold with type String.")
+    }(),                                "List.fold with type String.")
 
 ok({||
     var v: List[Integer] = []
@@ -144,19 +144,19 @@ ok({||
         result = false
 
     result
-    }(),                                "List::fold ignores empty lists.")
+    }(),                                "List.fold ignores empty lists.")
 
 ok({||
     var v = [1]
     v.insert(0, 0)
     v == [0, 1]
-    }(),                                "List::insert at position 0.")
+    }(),                                "List.insert at position 0.")
 
 ok({||
     var v = [1]
     v.insert(-1, 2)
     v == [2, 1]
-    }(),                                "List::insert at a negative position.")
+    }(),                                "List.insert at a negative position.")
 
 ok({||
     var v = [1]
@@ -166,7 +166,7 @@ ok({||
     except IndexError:
         result = true
     result
-    }(),                                "List::insert with position exceeding positive max.")
+    }(),                                "List.insert with position exceeding positive max.")
 
 ok({||
     var v = [1]
@@ -176,25 +176,25 @@ ok({||
     except IndexError:
         result = true
     result
-    }(),                                "List::insert with position under negative min.")
+    }(),                                "List.insert with position under negative min.")
 
 ok({||
     var v = [1, 2, 3]
     var w = v.map{|a| a}
     w == [1, 2, 3]
-    }(),                                "List::map using static function.")
+    }(),                                "List.map using static function.")
 
 ok({||
     var v = [1, 2, 3]
-    var w = v.map(Integer::to_s)
+    var w = v.map(Integer.to_s)
     w == ["1", "2", "3"]
-    }(),                                "List::map using static function.")
+    }(),                                "List.map using static function.")
 
 ok({||
     var v = [1]
     v.pop()
     v == []
-    }(),                                "List::pop with list of size 1.")
+    }(),                                "List.pop with list of size 1.")
 
 ok({||
     var result = false
@@ -204,15 +204,15 @@ ok({||
         result = true
 
     result
-    }(),                                "List::pop raises when passed an empty list.")
+    }(),                                "List.pop raises when passed an empty list.")
 
 ok({||
     [1, 2, 3, 4, 5].reject{|i| (i % 2) == 1} == [2, 4]
-    }(),                                "List::reject removing odd numbers.")
+    }(),                                "List.reject removing odd numbers.")
 
 ok({||
     [1, 2, 3].select{|a| true} == [1, 2, 3]
-    }(),                                "List::select keeping all values.")
+    }(),                                "List.select keeping all values.")
 
 ok({||
     var fn = {|x: Integer|
@@ -224,27 +224,27 @@ ok({||
     except DivisionByZeroError:
         result = true
     result
-    }(),                                "List::select being interrupted.")
+    }(),                                "List.select being interrupted.")
 
 ok({||
     [1, 2, 3].select{|a| false} == []
-    }(),                                "List::select rejecting all values.")
+    }(),                                "List.select rejecting all values.")
 
 ok({||
     [1, 2, 3].select{|i| (i % 2) == 1} == [1, 3]
-    }(),                                "List::select keeping evens.")
+    }(),                                "List.select keeping evens.")
 
 ok({||
     var v = [1, 2, 3]
     v.shift()
     v.shift()
     v == [3]
-    }(),                                "List::shift removes values from the left.")
+    }(),                                "List.shift removes values from the left.")
 
 ok({||
     var v = ["a", "b", "c"]
     v.shift() == "a"
-    }(),                                "List::shift returns the first value.")
+    }(),                                "List.shift returns the first value.")
 
 ok({||
     var v = []
@@ -255,17 +255,17 @@ ok({||
         result = true
 
     result
-    }(),                                "List::shift raises IndexError for an empty list.")
+    }(),                                "List.shift raises IndexError for an empty list.")
 
 ok({||
     var v = [1]
     v.unshift(0)
     v.unshift(-1)
     v == [-1, 0, 1]
-    }(),                                "List::unshift pushing simple numbers.")
+    }(),                                "List.unshift pushing simple numbers.")
 
 if failed == 0:
     printfmt("%d of %d tests passed.\n", Dynamic(total), Dynamic(total))
 else:
-    String::format("%d tests have failed.\n", Dynamic(failed))
+    String.format("%d tests have failed.\n", Dynamic(failed))
     |> stderr.write

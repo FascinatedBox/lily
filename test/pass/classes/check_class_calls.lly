@@ -2,7 +2,7 @@ class One {
     define check {}
 
     define clone: One {
-        One::check(self)
+        One.check(self)
         return One()
     }
 
@@ -13,13 +13,13 @@ class One {
 }
 
 class Two < One {
-    One::check(self)
+    One.check(self)
     self.check()
 
     @a += 1
 
     f()
-    One::f(self)
+    One.f(self)
 
     define add {
         if 1:

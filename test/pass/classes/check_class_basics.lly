@@ -9,7 +9,7 @@ class Three(a: Integer, b: String, c: List[Integer]) < Two(a, b) { var @c = c }
 
 class AccessCheck {
     define g {
-        AccessCheck::g(self)
+        AccessCheck.g(self)
         self.g()
     }
 }

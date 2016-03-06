@@ -1,8 +1,8 @@
 #[
 IOError: Mode must start with one of 'arw', but got 'z'.
 Traceback:
-    from [C]: in File::open
+    from [C]: in File.open
     from invalid_open_mode.lly:8: in __main__
 ]#
 
-var f = File::open("io_test_file.txt", "z")
+var f = File.open("io_test_file.txt", "z")

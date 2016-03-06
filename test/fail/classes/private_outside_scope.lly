@@ -1,5 +1,5 @@
 #[
-SyntaxError: abc::f is marked private, and not available here.
+SyntaxError: abc.f is marked private, and not available here.
     from private_outside_scope.lly:12
 ]#
 
@@ -8,5 +8,5 @@ class abc {
 }
 
 class def < abc {
-    abc::f()
+    abc.f()
 }

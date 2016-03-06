@@ -779,7 +779,7 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
             new_block->loop_start = emit->code_pos;
         else if (block_type == block_enum) {
             /* Enum entries are not considered function-like, because they do
-               not have a class ::new. */
+               not have a class .new. */
             new_block->class_entry = emit->symtab->active_import->class_chain;
             new_block->loop_start = -1;
         }
@@ -904,7 +904,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
 
     lily_var *v = last_func_block->function_var;
 
-    /* If this function was the ::new for a class, move it over into that class
+    /* If this function was the .new for a class, move it over into that class
        since the class is about to close. */
     if (emit->block->block_type == block_class) {
         lily_class *cls = emit->block->class_entry;
@@ -1989,7 +1989,7 @@ static void ensure_valid_scope(lily_emit_state *emit, lily_sym *sym)
              (block_class == NULL || lily_class_greater_eq(parent, block_class) == 0))) {
             char *scope_name = is_private ? "private" : "protected";
             lily_raise(emit->raiser, lily_SyntaxError,
-                       "%s::%s is marked %s, and not available here.\n",
+                       "%s.%s is marked %s, and not available here.\n",
                        parent->name, name, scope_name);
         }
     }
@@ -2234,7 +2234,7 @@ static void get_error_name(lily_emit_state *emit, lily_ast *ast,
         lily_var *v = ((lily_var *)ast->item);
         if (v->parent) {
             *class_name = v->parent->name;
-            *separator = "::";
+            *separator = ".";
         }
         *name = v->name;
     }
@@ -3286,7 +3286,6 @@ static void eval_variant(lily_emit_state *emit, lily_ast *, lily_type *);
 
     * x()
     * x.y()
-    * x::y()
     * @y
     * x[0]()
     * x()()
