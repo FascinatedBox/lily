@@ -5,7 +5,7 @@ define ok(b: Boolean, s: String)
     total += 1
 
     if b == false: {
-        String::format("Test %d (%s) failed.\n", Dynamic(total), Dynamic(s))
+        String.format("Test %d (%s) failed.\n", Dynamic(total), Dynamic(s))
             |> stderr.write
         failed += 1
     }
@@ -302,5 +302,5 @@ ok({||
 if failed == 0:
     printfmt("%d of %d tests passed.\n", Dynamic(total), Dynamic(total))
 else:
-    String::format("%d tests have failed.\n", Dynamic(failed))
+    String.format("%d tests have failed.\n", Dynamic(failed))
     |> stderr.write

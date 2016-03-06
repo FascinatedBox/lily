@@ -5,26 +5,26 @@ define ok(b: Boolean, s: String)
     total += 1
 
     if b == false: {
-        String::format("Test %d (%s) failed.\n", Dynamic(total), Dynamic(s))
+        String.format("Test %d (%s) failed.\n", Dynamic(total), Dynamic(s))
             |> stderr.write
         failed += 1
     }
 }
 
-ok(Left(1).is_left(),                   "Either::is_left for Left.")
-ok(Right(2).is_left() == false,         "Either::is_left for Right.")
+ok(Left(1).is_left(),                   "Either.is_left for Left.")
+ok(Right(2).is_left() == false,         "Either.is_left for Right.")
 
-ok(Left(1).is_right() == false,         "Either::is_right for Left.")
-ok(Right(2).is_right(),                 "Either::is_right for Right.")
+ok(Left(1).is_right() == false,         "Either.is_right for Left.")
+ok(Right(2).is_right(),                 "Either.is_right for Right.")
 
-ok(Left(1).left().unwrap() == 1,        "Either::left for Left.")
-ok(Right(2).left().is_none(),           "Either::left for Right.")
+ok(Left(1).left().unwrap() == 1,        "Either.left for Left.")
+ok(Right(2).left().is_none(),           "Either.left for Right.")
 
-ok(Left(1).right().is_none(),           "Either::right for Left.")
-ok(Right(2).right().unwrap() == 2,      "Either::right for Right.")
+ok(Left(1).right().is_none(),           "Either.right for Left.")
+ok(Right(2).right().unwrap() == 2,      "Either.right for Right.")
 
 if failed == 0:
     printfmt("%d of %d tests passed.\n", Dynamic(total), Dynamic(total))
 else:
-    String::format("%d tests have failed.\n", Dynamic(failed))
+    String.format("%d tests have failed.\n", Dynamic(failed))
     |> stderr.write

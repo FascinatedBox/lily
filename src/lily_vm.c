@@ -136,11 +136,10 @@ code_pos += 5;
 /* This demands some explanation. A foreign function takes three arguments: The
    vm, a number of arguments, and the arguments themselves. There are times when
    a foreign function wants to call another foreign function such as
-   ```["a", "b", "c"].apply(string::upper)```
+   ```["a", "b", "c"].apply(String.upper)```
 
-   The calling function (list::map) has one register set aside for
-   string::upper's result. string::upper needs a value, and needs to return to
-   somewhere.
+   The calling function (List.map) has one register set aside for String.upper's
+   result. String.upper needs a value, and needs to return to somewhere.
 
    Emitter writes down function calls in the form of '#values, return, args...'
    In the above case, vm_regs[0] is where the return is, and the one argument is
@@ -1033,7 +1032,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         result->value.generic->refcount++;
 
         /* Important! This allows this memory-saving trick to bubble up through
-           multiple ::new calls! */
+           multiple .new calls! */
         vm->call_chain->build_value = caller_frame->build_value;
         return;
     }
@@ -1069,7 +1068,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
     iv->num_values = total_entries;
 
-    /* This is set so that a superclass ::new can simply pull this instance,
+    /* This is set so that a superclass .new can simply pull this instance,
        since this instance will have >= the # of types. */
     vm->call_chain->build_value = iv;
 }
@@ -1332,7 +1331,7 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
             separator = "";
         }
         else {
-            separator = "::";
+            separator = ".";
             class_name = func_val->class_name;
         }
 
@@ -1766,7 +1765,7 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
 
         if (fv->class_name) {
             class_name = fv->class_name;
-            separator = "::";
+            separator = ".";
         }
 
         lily_msgbuf_add_fmt(msgbuf, "<%sfunction %s%s%s>", builtin, class_name,
@@ -1812,7 +1811,7 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
 
         if (cls->import->loadname[0] != '\0') {
             package_name = cls->import->loadname;
-            separator = "::";
+            separator = ".";
         }
 
         lily_msgbuf_add_fmt(msgbuf, "<%s%s%s at %p>", package_name, separator,
@@ -1903,7 +1902,7 @@ void lily_vm_add_class(lily_vm_state *vm, lily_class *cls)
 
 /* Foreign ties are created when a module wants to associate some bit of data
    with a particular register. This happens mostly when dynaloading vars (such
-   as sys::argv, stdio, etc.)
+   as sys.argv, stdio, etc.)
 
    These ties are freed after they are loaded because they are loaded only once
    and are few in number. */

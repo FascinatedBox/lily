@@ -1,5 +1,5 @@
 #[
-SyntaxError: Test::x is marked protected, and not available here.
+SyntaxError: Test.x is marked protected, and not available here.
     from protected_oo_assign.lly:8
 ]#
 

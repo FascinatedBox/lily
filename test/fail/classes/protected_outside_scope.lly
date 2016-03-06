@@ -1,5 +1,5 @@
 #[
-SyntaxError: abc::f is marked protected, and not available here.
+SyntaxError: abc.f is marked protected, and not available here.
     from protected_outside_scope.lly:10
 ]#
 
@@ -7,4 +7,4 @@ class abc {
     protected define f {}
 }
 
-abc::f(abc())
+abc.f(abc())

@@ -1,9 +1,9 @@
 #[
 IOError: File not open for reading.
 Traceback:
-    from [C]: in File::readline
+    from [C]: in File.readline
     from read_from_write_file.lly:9: in __main__
 ]#
 
-var f = File::open("io_test_file.txt", "w")
+var f = File.open("io_test_file.txt", "w")
 f.readline()

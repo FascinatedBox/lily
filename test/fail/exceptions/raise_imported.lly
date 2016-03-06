@@ -1,9 +1,9 @@
 #[
-ex::error: Imported raise!
+ex.error: Imported raise!
 Traceback:
     from raise_imported.lly:9: in __main__
 ]#
 
 import ex
 
-raise ex::error("Imported raise!\n")
+raise ex.error("Imported raise!\n")

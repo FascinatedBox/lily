@@ -249,11 +249,11 @@ static int check_misc(lily_type_system *ts, lily_type *left, lily_type *right,
            class Point3D() > Point() { ... }
            define f(in: list[Point3D]) { ... }
            define g(in: list[Point]) {
-               in.append(Point::new())
+               in.append(Point())
            }
 
            # Type: list[Point3D]
-           var v = [Point3D::new()]
+           var v = [Point3D()]
            # After this, v[1] has type Point, but should be at least Point3D.
            g(v)
 

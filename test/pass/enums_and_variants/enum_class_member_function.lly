@@ -12,6 +12,6 @@ enum Test[A] {
     }
 }
 
-if Test::or_else(One(1), 2) != 1:
+if Test.or_else(One(1), 2) != 1:
     stderr.print("Failed.")
 

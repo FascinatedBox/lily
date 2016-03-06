@@ -1,5 +1,5 @@
 #[
-SyntaxError: Wrong number of arguments to String::concat (4 for 2).
+SyntaxError: Wrong number of arguments to String.concat (4 for 2).
     from wrong_arg_count_class_method.lly:8
 ]#
 

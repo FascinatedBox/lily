@@ -1,9 +1,9 @@
 enum ScopeTest[A] {
-    ::One(A)
-    ::Two
+    .One(A)
+    .Two
 }
 
-var v = [ScopeTest::One(1), ScopeTest::Two, ScopeTest::One(2)]
+var v = [ScopeTest.One(1), ScopeTest.Two, ScopeTest.One(2)]
 var check: ScopeTest[Integer] = v[0]
 
 match check: {
