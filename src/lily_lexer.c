@@ -895,7 +895,7 @@ static void ensure_lambda_data_size(lily_lex_state *lexer, int at_least)
 }
 
 static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
-        int *is_multiline)
+        int *is_multiline, int do_escape)
 {
     char esc_ch;
     char *label, *input;
@@ -932,7 +932,7 @@ static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
             lexer->label_size = new_label_size;
         }
 
-        if (*new_ch == '\\') {
+        if (*new_ch == '\\' && do_escape) {
             /* Most escape codes are only one letter long. */
             int adjust_ch = 2;
             esc_ch = scan_escape(lexer, new_ch, &adjust_ch);
@@ -1055,7 +1055,7 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
         else if (*ch == '"') {
             char *head_tail;
             int is_multiline, len;
-            scan_quoted(lexer, &input_pos, ch, &is_multiline);
+            scan_quoted(lexer, &input_pos, ch, &is_multiline, 0);
 
             input = lexer->input_buffer;
             ch = &input[input_pos];
@@ -1280,7 +1280,7 @@ void lily_lexer(lily_lex_state *lexer)
         }
         else if (group == CC_DOUBLE_QUOTE) {
             int dummy;
-            scan_quoted(lexer, &input_pos, ch, &dummy);
+            scan_quoted(lexer, &input_pos, ch, &dummy, 1);
             token = tk_double_quote;
         }
         else if (group == CC_B) {
@@ -1288,7 +1288,7 @@ void lily_lexer(lily_lex_state *lexer)
                 ch++;
                 input_pos++;
                 int dummy;
-                scan_quoted(lexer, &input_pos, ch, &dummy);
+                scan_quoted(lexer, &input_pos, ch, &dummy, 1);
                 token = tk_bytestring;
             }
             else
