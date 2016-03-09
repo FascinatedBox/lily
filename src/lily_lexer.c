@@ -1022,8 +1022,7 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
 
         if (*ch == '\n' ||
             (*ch == '#' &&
-             *(ch + 1) != '#' &&
-             *(ch + 2) != '#')) {
+             *(ch + 1) != '[')) {
             if (entry->read_line_fn(entry) == 0)
                 lily_raise(lexer->raiser, lily_SyntaxError,
                         "Unterminated lambda (started at line %d).\n",
