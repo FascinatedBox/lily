@@ -319,11 +319,6 @@ int lily_ts_check(lily_type_system *ts, lily_type *left, lily_type *right)
 lily_type *lily_ts_unify(lily_type_system *ts, lily_type *left, lily_type *right)
 {
     int save_pos = ts->tm->pos;
-    /// hmm...this seems suspicous. I'd like to allow covariance, but contra is
-    /// okay too.
-    /// I just want the lowest of whatever has been passed. Do I need to run it
-    /// twice, one for each side, maybe?
-    /// That seems a bit wasteful though...
     int ok = check_raw(ts, left, right, T_DONT_SOLVE | T_COVARIANT | T_UNIFY);
     lily_type *result;
 
