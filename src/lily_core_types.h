@@ -82,11 +82,6 @@ typedef struct lily_class_ {
     /* The type of the var stores the complete type knowledge of the var. */
     struct lily_type_ *type;
 
-    /* This function is used to destroy values of this class, regardless of
-       their type. Since the vm calls this semi-often, put this somewhere higher
-       up. */
-    class_destroy_func destroy_func;
-
     /* This is a linked list of all methods that are within this function. This
        is NULL if there are no methods. */
     struct lily_var_ *call_chain;

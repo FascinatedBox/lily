@@ -532,8 +532,7 @@ static const lily_class_seed list_seed =
     dyna_class,           /* load_type */
     1,                    /* is_refcounted */
     1,                    /* generic_count */
-    &dynaload_start,      /* dynaload_start */
-    lily_destroy_list,    /* destroy_func */
+    &dynaload_start       /* dynaload_start */
 };
 
 lily_class *lily_list_init(lily_symtab *symtab)

@@ -51,8 +51,7 @@ static lily_class_seed boolean_seed =
     dyna_class,         /* load_type */
     0,                  /* is_refcounted */
     0,                  /* generic_count */
-    &dynaload_start,    /* dynaload_table */
-    NULL,               /* destroy_func */
+    &dynaload_start     /* dynaload_table */
 };
 
 lily_class *lily_boolean_init(lily_symtab *symtab)

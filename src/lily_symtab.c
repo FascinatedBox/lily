@@ -535,7 +535,6 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
     new_class->generic_count = class_seed->generic_count;
     new_class->flags = 0;
     new_class->is_refcounted = class_seed->is_refcounted;
-    new_class->destroy_func = class_seed->destroy_func;
     new_class->import = symtab->active_import;
     new_class->dynaload_table = class_seed->dynaload_table;
 
@@ -569,7 +568,6 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
     new_class->dynaload_table = NULL;
     new_class->call_chain = NULL;
     new_class->variant_members = NULL;
-    new_class->destroy_func = NULL;
     new_class->import = symtab->active_import;
     new_class->all_subtypes = NULL;
     new_class->move_flags = VAL_IS_INSTANCE;
@@ -920,7 +918,6 @@ void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
     enum_cls->variant_members = members;
     enum_cls->variant_size = variant_count;
     enum_cls->flags |= CLS_IS_ENUM;
-    enum_cls->destroy_func = symtab->tuple_class->destroy_func;
     enum_cls->enum_slot_count = get_enum_slot_count(enum_cls);
 
     if (is_scoped) {
