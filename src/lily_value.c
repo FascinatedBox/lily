@@ -267,7 +267,7 @@ int lily_value_eq(lily_vm_state *vm, lily_value *left, lily_value *right)
     return lily_value_eq_raw(vm, &depth, left, right);
 }
 
-void lily_gc_collect_value(lily_value *v)
+void lily_collect_value(lily_value *v)
 {
     int flags = v->flags;
 

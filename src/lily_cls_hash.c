@@ -191,7 +191,7 @@ void lily_gc_collect_hash(lily_value *v)
             if (elem_key->flags & VAL_IS_DEREFABLE) {
                 lily_raw_value k = elem_key->value;
                 if (k.generic->refcount == 1)
-                    lily_gc_collect_value(elem_key);
+                    lily_collect_value(elem_key);
                 else
                     k.generic->refcount--;
             }
@@ -199,7 +199,7 @@ void lily_gc_collect_hash(lily_value *v)
             if (elem_value->flags & VAL_IS_DEREFABLE) {
                 lily_raw_value v = elem_value->value;
                 if (v.generic->refcount == 1)
-                    lily_gc_collect_value(elem_value);
+                    lily_collect_value(elem_value);
                 else
                     v.generic->refcount--;
             }
