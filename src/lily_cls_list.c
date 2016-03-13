@@ -93,7 +93,7 @@ void lily_gc_collect_list(lily_value *v)
             if (elem->flags & VAL_IS_DEREFABLE) {
                 lily_raw_value v = elem->value;
                 if (v.generic->refcount == 1)
-                    lily_gc_collect_value(elem);
+                    lily_collect_value(elem);
                 else
                     v.generic->refcount--;
             }

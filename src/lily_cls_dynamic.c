@@ -46,7 +46,7 @@ void lily_gc_collect_dynamic(lily_value *v)
         if (inner_value->flags & VAL_IS_DEREFABLE) {
             lily_generic_val *generic_val = inner_value->value.generic;
             if (generic_val->refcount == 1)
-                lily_gc_collect_value(inner_value);
+                lily_collect_value(inner_value);
             else
                 generic_val->refcount--;
         }

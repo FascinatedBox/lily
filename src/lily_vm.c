@@ -323,11 +323,11 @@ void lily_free_vm(lily_vm_state *vm)
       * Some gc_entries may have their value set to 0/NULL. This happens when
         a possibly-circular value has been deleted through typical ref/deref
         means.
-      * lily_gc_collect_value will collect everything inside a non-circular
-        value, but not the value itself. It will set last_pass to -1 when it
-        does this. This is necessary because it's possible that a value may be
-        sent to lily_gc_collect_* calls multiple times (because circular
-        references). If it's deleted, then there will be invalid reads.
+      * lily_collect_value will collect everything inside a non-circular value,
+        but not the value itself. It will set last_pass to -1 when it does that.
+        This is necessary because it's possible that a value may be sent to
+        lily_collect_* calls multiple times (because circular references). If
+        it's deleted, then there will be invalid reads.
    3: Stage 1 skipped registers that are not in-use, because Lily just hasn't
       gotten around to clearing them yet. However, some of those registers may
       contain a value that has a gc_entry that indicates that the value is to be
@@ -368,7 +368,7 @@ static void invoke_gc(lily_vm_state *vm)
          gc_iter = gc_iter->next) {
         if (gc_iter->last_pass != pass &&
             gc_iter->value.generic != NULL) {
-            lily_gc_collect_value((lily_value *)gc_iter);
+            lily_collect_value((lily_value *)gc_iter);
         }
     }
 

@@ -120,7 +120,7 @@ void lily_gc_collect_function(lily_value *v)
                     if (up->flags & VAL_IS_DEREFABLE) {
                         lily_raw_value v = up->value;
                         if (v.generic->refcount == 1)
-                            lily_gc_collect_value(up);
+                            lily_collect_value(up);
                         else
                             v.generic->refcount--;
                     }
