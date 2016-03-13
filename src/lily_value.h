@@ -23,10 +23,10 @@ int lily_value_eq(struct lily_vm_state_ *, lily_value *, lily_value *);
 
 
 #define lily_new_string(raw) \
-lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value)raw);
+lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value)raw)
 
 #define lily_new_list(raw) \
-lily_new_value(VAL_IS_LIST | VAL_IS_DEREFABLE, (lily_raw_value)raw);
+lily_new_value(VAL_IS_LIST | VAL_IS_DEREFABLE, (lily_raw_value)raw)
 
 
 
