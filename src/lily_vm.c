@@ -1805,6 +1805,8 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
             add_list_like(vm, msgbuf, t, v, "(", ")");
     }
     else {
+        /* This is an instance or a foreign class. The instance id is at the
+           same spot for both. */
         lily_class *cls = vm->class_table[v->value.instance->instance_id];
         const char *package_name = "";
         const char *separator = "";

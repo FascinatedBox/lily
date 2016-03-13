@@ -346,7 +346,6 @@ typedef struct lily_function_val_ {
     /* Here's where the function's code is stored. */
     uint16_t *code;
 
-    /* This is how much code is in this particular function. */
     uint32_t pad;
 
     uint16_t num_upvalues;
@@ -435,7 +434,8 @@ typedef struct lily_import_entry_ {
     /* This allows imports to be cast as lily_item, which is used during parser
        dynaloading. */
     uint32_t item_kind;
-    uint32_t pad;
+    uint16_t cid_start;
+    uint16_t pad;
 
     /* The name given to import this thing. */
     char *loadname;

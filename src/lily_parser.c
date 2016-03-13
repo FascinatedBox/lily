@@ -318,6 +318,7 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
     new_entry->path = lily_malloc(strlen(path) + 1);
     strcpy(new_entry->path, path);
 
+    new_entry->cid_start = 0;
     new_entry->library = NULL;
     new_entry->root_next = NULL;
     new_entry->import_chain = NULL;
@@ -915,6 +916,24 @@ static void parse_variant_header(lily_parse_state *, lily_variant_class *);
     An unfortunate side-effect of this is that it requires a lot of forward
     definitions. Sorry about that. **/
 
+static int get_seed_cid(lily_import_entry *entry, lily_base_seed *seed)
+{
+    int cid = 0;
+    lily_base_seed *seed_iter = entry->dynaload_table;
+    while (seed_iter) {
+        if (seed_iter->seed_type == dyna_enum ||
+            seed_iter->seed_type == dyna_class)
+            cid++;
+
+        if (seed == seed_iter)
+            break;
+
+        seed_iter = seed_iter->next;
+    }
+
+    return entry->cid_start + cid;
+}
+
 /* This function is called when the current label could potentially be a module.
    If it is, then this function will continue digging until all of the modules
    have been seen.
@@ -1118,6 +1137,10 @@ static lily_class *dynaload_enum(lily_parse_state *parser,
         parser->symtab->next_class_id--;
         enum_cls->id = enum_seed->builtin_id;
     }
+    else {
+        parser->symtab->next_class_id--;
+        enum_cls->id = get_seed_cid(import, seed);
+    }
 
     int save_generics = parser->generic_count;
     int generics_used = enum_seed->generic_count;
@@ -1176,12 +1199,18 @@ static lily_class *dynaload_variant(lily_parse_state *parser,
     return lily_find_class(parser->symtab, import, seed->name);
 }
 
-static lily_item *run_dynaload(lily_parse_state *parser,
-        lily_import_entry *import, lily_base_seed *seed)
+static lily_item *run_dynaload(lily_parse_state *parser, lily_item *scope,
+        lily_base_seed *seed)
 {
     lily_import_entry *saved_active = parser->symtab->active_import;
     lily_symtab *symtab = parser->symtab;
     lily_item *result;
+
+    lily_import_entry *import;
+    if (scope->item_kind == ITEM_TYPE_IMPORT)
+        import = (lily_import_entry *)scope;
+    else
+        import = ((lily_class *)scope)->import;
 
     symtab->active_import = import;
 
@@ -1200,11 +1229,13 @@ static lily_item *run_dynaload(lily_parse_state *parser,
         result = (lily_item *)new_var;
     }
     else if (seed->seed_type == dyna_function) {
-        lily_var *new_var = dynaload_function(parser, (lily_item *)import, seed);
+        lily_var *new_var = dynaload_function(parser, scope, seed);
         result = (lily_item *)new_var;
     }
     else if (seed->seed_type == dyna_class) {
         lily_class *new_cls = lily_new_class_by_seed(symtab, seed);
+        parser->symtab->next_class_id--;
+        new_cls->id = get_seed_cid(import, seed);
         result = (lily_item *)new_cls;
     }
     else if (seed->seed_type == dyna_exception) {
@@ -1230,13 +1261,13 @@ static lily_item *run_dynaload(lily_parse_state *parser,
    may be a class). If a seed is found, run it in the context of 'import' and
    return the result as an item. If nothing is found, return NULL. */
 static lily_item *find_run_dynaload(lily_parse_state *parser,
-        lily_import_entry *import, char *name)
+        lily_item *scope, char *name)
 {
     lily_item *result;
 
-    lily_base_seed *seed = find_dynaload_entry((lily_item *)import, name);
+    lily_base_seed *seed = find_dynaload_entry(scope, name);
     if (seed)
-        result = run_dynaload(parser, import, seed);
+        result = run_dynaload(parser, scope, seed);
     else
         result = NULL;
 
@@ -1266,7 +1297,7 @@ static lily_class *find_run_class_dynaload(lily_parse_state *parser,
 
     lily_base_seed *seed = find_dynaload_entry((lily_item *)import, name);
     if (seed && is_class_seed(seed))
-        result = (lily_class *)run_dynaload(parser, import, seed);
+        result = (lily_class *)run_dynaload(parser, (lily_item *)import, seed);
     else
         result = NULL;
 
@@ -1299,7 +1330,7 @@ lily_item *lily_find_or_dl_member(lily_parse_state *parser, lily_class *cls,
 
     /* This should return a var if it succeeds, as nested classes are not
        allowed. */
-    var = (lily_var *)find_run_dynaload(parser, (lily_import_entry *)cls, name);
+    var = (lily_var *)find_run_dynaload(parser, (lily_item *)cls, name);
     if (var)
         return (lily_item *)var;
 
@@ -1626,7 +1657,8 @@ static void expression_word(lily_parse_state *parser, int *state)
     if (search_entry == NULL)
         search_entry = symtab->builtin_import;
 
-    lily_item *dl_result = find_run_dynaload(parser, search_entry, lex->label);
+    lily_item *dl_result = find_run_dynaload(parser, (lily_item *)search_entry,
+            lex->label);
 
     if (dl_result) {
         dispatch_dynaload(parser, dl_result, state);
@@ -1804,7 +1836,7 @@ static void expression_dot(lily_parse_state *parser, int *state)
                 "Option");
         if (option_cls == NULL)
             option_cls = (lily_class *)find_run_dynaload(parser,
-                    symtab->builtin_import, "Option");
+                    (lily_item *)symtab->builtin_import, "Option");
 
         lily_tm_add(parser->tm, bare_type);
         lily_type *cast_type = lily_tm_make(parser->tm, 0, option_cls, 1);
@@ -2926,6 +2958,26 @@ static void except_handler(lily_parse_state *parser, int multi)
         statement(parser, multi);
 }
 
+/* Lily's vm needs to be able to pin ids onto the instance and enum values that
+   it makes. However, it's also important to do dynaloads. To reconcile these
+   two, importing a builtin module will set aside as many slots for classes as
+   that module will end up needed. */
+static void reserve_cids_for(lily_parse_state *parser, lily_import_entry *entry)
+{
+    int count = 0;
+    lily_base_seed *seed_iter = entry->dynaload_table;
+    while (seed_iter) {
+        if (seed_iter->seed_type == dyna_enum ||
+            seed_iter->seed_type == dyna_class)
+            count++;
+
+        seed_iter = seed_iter->next;
+    }
+
+    entry->cid_start = parser->symtab->next_class_id;
+    parser->symtab->next_class_id += count;
+}
+
 static void import_handler(lily_parse_state *parser, int multi)
 {
     lily_block *block = parser->emit->block;
@@ -2992,8 +3044,10 @@ static void import_handler(lily_parse_state *parser, int multi)
 
                 lily_emit_write_import_call(parser->emit, import_var);
             }
-            else
+            else {
                 new_import->dynaload_table = new_import->library->dynaload_table;
+                reserve_cids_for(parser, new_import);
+            }
 
             parser->symtab->active_import = link_target;
         }

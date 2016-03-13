@@ -15,19 +15,21 @@ lily_value *lily_copy_value(lily_value *);
 lily_value *lily_new_value(uint64_t, lily_raw_value);
 lily_instance_val *lily_new_instance_val();
 lily_instance_val *lily_new_enum_1(uint16_t, uint16_t, lily_value *);
+lily_instance_val *lily_new_enum_1_noref(uint16_t, uint16_t, lily_value *);
 
 void lily_gc_collect_value(lily_value *);
 
 int lily_value_eq(struct lily_vm_state_ *, lily_value *, lily_value *);
 
 
+#define lily_new_foreign(raw) \
+lily_new_value(VAL_IS_FOREIGN | VAL_IS_DEREFABLE, (lily_raw_value)(lily_generic_val *)raw)
 
 #define lily_new_string(raw) \
 lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value)raw)
 
 #define lily_new_list(raw) \
 lily_new_value(VAL_IS_LIST | VAL_IS_DEREFABLE, (lily_raw_value)raw)
-
 
 
 #define lily_move_boolean(target, raw) \
@@ -44,6 +46,9 @@ lily_move(target, (lily_raw_value)raw, VAL_IS_ENUM | VAL_IS_DEREFABLE)
 
 #define lily_move_file(target, raw) \
 lily_move(target, (lily_raw_value)raw, VAL_IS_FILE | VAL_IS_DEREFABLE)
+
+#define lily_move_foreign(target, raw) \
+lily_move(target, (lily_raw_value)(lily_generic_val *)raw, VAL_IS_FOREIGN)
 
 #define lily_move_function(target, raw) \
 lily_move(target, (lily_raw_value)raw, VAL_IS_FUNCTION | VAL_IS_DEREFABLE)

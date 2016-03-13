@@ -20,6 +20,11 @@ inline lily_instance_val *lily_new_option_some(lily_value *v)
     return lily_new_enum_1(SYM_CLASS_OPTION, SOME_VARIANT_ID, v);
 }
 
+inline lily_instance_val *lily_new_option_some_noref(lily_value *v)
+{
+    return lily_new_enum_1_noref(SYM_CLASS_OPTION, SOME_VARIANT_ID, v);
+}
+
 /* Since None has no arguments, it has a backing literal to represent it. This
    dives into the vm's class table to get the backing literal of the None. */
 lily_instance_val *lily_get_option_none(lily_vm_state *vm)

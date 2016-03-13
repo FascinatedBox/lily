@@ -17,6 +17,18 @@ lily_list_val *lily_new_list_val()
     return lv;
 }
 
+lily_list_val *lily_new_list_val_0()
+{
+    lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
+    lv->refcount = 0;
+    lv->gc_entry = NULL;
+    lv->elems = NULL;
+    lv->num_values = -1;
+    lv->extra_space = 0;
+
+    return lv;
+}
+
 void lily_gc_list_marker(int pass, lily_value *v)
 {
     lily_list_val *list_val = v->value.list;
