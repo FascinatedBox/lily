@@ -28,6 +28,8 @@ void destroy_value(lily_value *v)
         lily_destroy_dynamic(v);
     else if (flags & VAL_IS_FILE)
         lily_destroy_file(v);
+    else if (flags & VAL_IS_FOREIGN)
+        v->value.foreign->destroy_func(v);
 }
 
 /* Check if the value given is deref-able. If so, hit it with a deref. */
