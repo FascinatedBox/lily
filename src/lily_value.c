@@ -1,8 +1,9 @@
 #include <string.h>
 
 #include "lily_alloc.h"
-#include "lily_value.h"
 #include "lily_vm.h"
+#include "lily_value.h"
+#include "lily_core_types.h"
 
 /* This is for the gc + destroy funcs. :( */
 
@@ -117,6 +118,19 @@ lily_instance_val *lily_new_enum_1(uint16_t class_id, uint16_t variant_id,
     iv->instance_id = class_id;
     if (v->flags & VAL_IS_DEREFABLE)
         v->value.generic->refcount++;
+
+    return iv;
+}
+
+lily_instance_val *lily_new_enum_1_noref(uint16_t class_id, uint16_t variant_id,
+        lily_value *v)
+{
+    lily_instance_val *iv = lily_new_instance_val();
+    iv->values = lily_malloc(sizeof(lily_value));
+    iv->values[0] = v;
+    iv->num_values = 1;
+    iv->variant_id = variant_id;
+    iv->instance_id = class_id;
 
     return iv;
 }

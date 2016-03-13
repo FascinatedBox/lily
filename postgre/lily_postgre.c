@@ -12,13 +12,12 @@
 #include "lily_vm.h"
 #include "lily_seed.h"
 
+#include "lily_cls_option.h"
 #include "lily_cls_list.h"
 
-/******************************************************************************/
-/* Errors                                                                     */
-/******************************************************************************/
-
-const lily_base_seed error_seed = {NULL, "Error", dyna_exception};
+#define ID_OFFSET    vm->call_chain->function->import->cid_start
+#define CLSID_RESULT 2
+#define CLSID_CONN   1
 
 /******************************************************************************/
 /* Result                                                                     */
@@ -26,87 +25,118 @@ const lily_base_seed error_seed = {NULL, "Error", dyna_exception};
 
 typedef struct {
     uint32_t refcount;
-    uint32_t pad;
+    uint16_t instance_id;
+    uint16_t is_closed;
+    class_destroy_func destroy_func;
     uint64_t column_count;
     uint64_t row_count;
     uint64_t current_row;
     PGresult *pg_result;
 } lily_pg_result;
 
-void destroy_result(lily_value *v)
+void close_result(lily_value *v)
 {
     lily_pg_result *result = (lily_pg_result *)v->value.generic;
-    PQclear(result->pg_result);
-    lily_free(result);
+    if (result->is_closed == 0)
+        PQclear(result->pg_result);
+
+    result->is_closed = 1;
 }
 
-void lily_pg_result_fetchrow(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void destroy_result(lily_value *v)
+{
+    close_result(v);
+    lily_free(v->value.generic);
+}
+
+void lily_pg_result_close(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value *to_close_reg = vm->vm_regs[code[1]];
+    lily_pg_result *to_close = (lily_pg_result *)to_close_reg->value.generic;
+
+    close_result(to_close_reg);
+    to_close->row_count = 0;
+}
+
+void lily_pg_result_each_row(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_pg_result *boxed_result = (lily_pg_result *)
+            vm_regs[code[1]]->value.generic;
+
+    PGresult *raw_result = boxed_result->pg_result;
+    if (raw_result == NULL || boxed_result->row_count == 0)
+        return;
+
+    lily_value *function_reg = vm_regs[code[2]];
+    int cached = 0;
+
+    int row;
+    for (row = 0;row < boxed_result->row_count;row++) {
+        lily_list_val *lv = lily_new_list_val_0();
+        lily_value fake_reg;
+
+        lv->elems = lily_malloc(boxed_result->column_count * sizeof(lily_value *));
+
+        int col;
+        for (col = 0;col < boxed_result->column_count;col++) {
+            char *field_text = PQgetvalue(raw_result, row, col);
+            int len;
+
+            if (field_text[0] != '\0' ||
+                PQgetisnull(raw_result, row, col) == 0)
+                len = PQgetlength(raw_result, row, col);
+            else {
+                field_text = "(null)";
+                len = strlen("(null)");
+            }
+
+            lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
+            sv->refcount = 1;
+            sv->string = lily_malloc(len + 1);
+            strcpy(sv->string, field_text);
+            sv->size = len;
+
+            lv->elems[col] = lily_new_value(VAL_IS_STRING,
+                    (lily_raw_value){.string = sv});
+        }
+
+        lv->num_values = col;
+        fake_reg.value.list = lv;
+        fake_reg.flags = VAL_IS_LIST | VAL_IS_DEREFABLE;
+
+        lily_foreign_call(vm, &cached, 0, function_reg, 1, &fake_reg);
+    }
+}
+
+void lily_pg_result_row_count(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_pg_result *boxed_result = (lily_pg_result *)
             vm_regs[code[1]]->value.generic;
     lily_value *result_reg = vm_regs[code[0]];
-    PGresult *raw_result = boxed_result->pg_result;
     int row = boxed_result->current_row;
 
-    if (boxed_result->row_count == 0) {
-        lily_vm_module_raise(vm, &error_seed,
-                "Result does not contain any rows.\n");
-    }
-    else if (boxed_result->row_count > row) {
-        lily_vm_module_raise(vm, &error_seed,
-                "Attempt to read past last row.\n");
-    }
-
-    lily_list_val *lv = lily_new_list_val();
-    lv->elems = lily_malloc(boxed_result->column_count * sizeof(lily_value *));
-    lily_type *string_type = result_reg->type->subtypes[0];
-
-    int i;
-    for (i = 0;i < boxed_result->column_count;i++) {
-        char *field_text = PQgetvalue(raw_result, row, i);
-        int len;
-
-        if (field_text[0] != '\0' || PQgetisnull(raw_result, row, i) == 0)
-            len = PQgetlength(raw_result, row, i);
-        else {
-            field_text = "(null)";
-            len = strlen("(null)");
-        }
-
-        lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
-        sv->refcount = 1;
-        sv->string = lily_malloc(len + 1);
-        strcpy(sv->string, field_text);
-        sv->size = len;
-
-        lv->elems[i] = lily_new_value(0, string_type,
-                (lily_raw_value){.string = sv});
-    }
-
-    lv->num_values = i;
-
-    boxed_result->current_row++;
-
-    lily_raw_value v = {.list = lv};
-    lily_move_raw_value(result_reg, v);
+    lily_move_integer(result_reg, row);
 }
 
+static const lily_func_seed result_close =
+    {NULL, "close", dyna_function, "(Result)", &lily_pg_result_close};
+
+static const lily_func_seed each_row =
+    {&result_close, "each_row", dyna_function, "(Result, Function(List[String]))", &lily_pg_result_each_row};
+
 static const lily_func_seed result_dynaload_start =
-    {NULL, "fetchrow", dyna_function, "(Result):list[string]", &lily_pg_result_fetchrow};
+    {&each_row, "row_count", dyna_function, "(Result):Integer", &lily_pg_result_row_count};
 
 const lily_class_seed result_seed =
 {
-    &error_seed,            /* next */
+    NULL,                   /* next */
     "Result",               /* name */
     dyna_class,             /* load_type */
     1,                      /* is_refcounted */
     0,                      /* generic_count */
-    0,                      /* flags */
-    &result_dynaload_start, /* dynaload_table */
-    NULL,                   /* gc_marker */
-    lily_generic_eq,        /* eq_func */
-    destroy_result          /* destroy_func */
+    &result_dynaload_start  /* dynaload_table */
 };
 
 /******************************************************************************/
@@ -115,9 +145,19 @@ const lily_class_seed result_seed =
 
 typedef struct lily_pg_conn_value_ {
     uint32_t refcount;
-    uint32_t is_open;
+    uint16_t instance_id;
+    uint16_t is_open;
+    class_destroy_func destroy_func;
     PGconn *conn;
 } lily_pg_conn_value;
+
+void destroy_conn(lily_value *v)
+{
+    lily_pg_conn_value *conn_value = (lily_pg_conn_value *)v->value.generic;
+
+    PQfinish(conn_value->conn);
+    lily_free(conn_value);
+}
 
 void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
@@ -144,9 +184,10 @@ void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         char ch = fmt[fmt_index];
 
         if (ch == '?') {
-            if (arg_pos == vararg_lv->num_values)
+            if (arg_pos == vararg_lv->num_values) {
                 lily_raise(vm->raiser, lily_FormatError,
                         "Not enough args for format.\n");
+            }
 
             lily_msgbuf_add_text_range(vm_buffer, fmt, text_start, text_stop);
             text_start = fmt_index + 1;
@@ -182,23 +223,25 @@ void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     if (status == PGRES_BAD_RESPONSE ||
         status == PGRES_NONFATAL_ERROR ||
         status == PGRES_FATAL_ERROR) {
-        lily_vm_set_error(vm, &error_seed, PQresStatus(status));
-        PQclear(raw_result);
-        lily_vm_raise_prepared(vm);
+        lily_move_shared_enum(result_reg, lily_get_option_none(vm));
+        return;
     }
 
     lily_pg_result *new_result = lily_malloc(sizeof(lily_pg_result));
     new_result->refcount = 1;
     new_result->current_row = 0;
+    new_result->is_closed = 0;
+    new_result->instance_id = ID_OFFSET + CLSID_RESULT;
+    new_result->destroy_func = destroy_result;
     new_result->pg_result = raw_result;
     new_result->row_count = PQntuples(raw_result);
     new_result->column_count = PQnfields(raw_result);
 
-    lily_raw_value v = {.generic = (lily_generic_val *)new_result};
-    lily_move_raw_value(result_reg, v);
+    lily_value *v = lily_new_foreign(new_result);
+    lily_move_enum(result_reg, lily_new_option_some_noref(v));
 }
 
-void lily_pg_conn_new(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_pg_conn_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     const char *host = NULL;
@@ -228,38 +271,26 @@ void lily_pg_conn_new(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     switch (PQstatus(conn)) {
         case CONNECTION_OK:
             new_val = lily_malloc(sizeof(lily_pg_conn_value));
+            new_val->instance_id = ID_OFFSET + CLSID_CONN;
+            new_val->destroy_func = destroy_conn;
             new_val->refcount = 1;
             new_val->is_open = 1;
             new_val->conn = conn;
-            break;
-        case CONNECTION_BAD:
-            lily_vm_set_error(vm, &error_seed, PQerrorMessage(conn));
-            PQfinish(conn);
-            lily_vm_raise_prepared(vm);
+
+            lily_value *v = lily_new_foreign(new_val);
+            lily_move_enum(result, lily_new_option_some_noref(v));
             break;
         default:
-            /* Not possible (synchronous connection), but keeps gcc quiet. */
-            new_val = NULL;
-            break;
+            lily_move_shared_enum(result, lily_get_option_none(vm));
+            return;
     }
-
-    lily_raw_value v = {.generic = (lily_generic_val *)new_val};
-    lily_move_raw_value(result, v);
-}
-
-void destroy_conn(lily_value *v)
-{
-    lily_pg_conn_value *conn_value = (lily_pg_conn_value *)v->value.generic;
-
-    PQfinish(conn_value->conn);
-    lily_free(conn_value);
 }
 
 static const lily_func_seed conn_query =
-    {NULL, "query", dyna_function, "(Conn, string, list[string]...):Result", lily_pg_conn_query};
+    {NULL, "query", dyna_function, "(Conn, String, List[String]...):Option[Result]", lily_pg_conn_query};
 
 static const lily_func_seed conn_dynaload_start =
-    {&conn_query, "new", dyna_function, "(*string, *string, *string, *string, *string):Conn", lily_pg_conn_new};
+    {&conn_query, "open", dyna_function, "(*String, *String, *String, *String, *String):Option[Conn]", lily_pg_conn_open};
 
 const lily_class_seed lily_dynaload_table =
 {
@@ -268,9 +299,5 @@ const lily_class_seed lily_dynaload_table =
     dyna_class,           /* load_type */
     1,                    /* is_refcounted */
     0,                    /* generic_count */
-    0,                    /* flags */
-    &conn_dynaload_start, /* dynaload_table */
-    NULL,                 /* gc_marker */
-    lily_generic_eq,      /* eq_func */
-    destroy_conn          /* destroy_func */
+    &conn_dynaload_start  /* dynaload_table */
 };
