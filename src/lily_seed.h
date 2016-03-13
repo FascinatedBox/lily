@@ -39,7 +39,6 @@ typedef const struct {
     uint32_t is_refcounted;
     uint32_t generic_count;
     const void *dynaload_table;
-    class_destroy_func destroy_func;
 } lily_class_seed;
 
 typedef const struct {

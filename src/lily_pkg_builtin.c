@@ -28,8 +28,7 @@ static const lily_class_seed function_seed =
     dyna_class,               /* load_type */
     1,                        /* is_refcounted */
     -1,                       /* generic_count */
-    NULL,                     /* dynaload_table */
-    lily_destroy_function     /* destroy_func */
+    NULL                      /* dynaload_table */
 };
 
 static const lily_class_seed dynamic_seed =
@@ -39,8 +38,7 @@ static const lily_class_seed dynamic_seed =
     dyna_class,               /* load_type */
     1,                        /* is_refcounted */
     0,                        /* generic_count */
-    &lily_dynamic_dl_start,   /* dynaload_table */
-    lily_destroy_dynamic      /* destroy_func */
+    &lily_dynamic_dl_start    /* dynaload_table */
 };
 
 static const lily_class_seed tuple_seed =
@@ -50,8 +48,7 @@ static const lily_class_seed tuple_seed =
     dyna_class,               /* load_type */
     1,                        /* is_refcounted */
     -1,                       /* generic_count */
-    NULL,                     /* dynaload_table */
-    NULL                      /* destroy_func */
+    NULL                      /* dynaload_table */
 };
 
 static const lily_class_seed optarg_seed =
@@ -63,8 +60,7 @@ static const lily_class_seed optarg_seed =
     dyna_class,               /* load_type */
     0,                        /* is_refcounted */
     1,                        /* generic_count */
-    NULL,                     /* dynaload_table */
-    NULL                      /* destroy_func */
+    NULL                     /* dynaload_table */
 };
 
 static const lily_class_seed generic_seed =
@@ -76,8 +72,7 @@ static const lily_class_seed generic_seed =
     dyna_class,               /* load_type */
     0,                        /* is_refcounted */
     0,                        /* generic_count */
-    NULL,                     /* dynaload_table */
-    NULL                      /* destroy_func */
+    NULL                      /* dynaload_table */
 };
 
 static const lily_class_seed question_seed =
@@ -89,8 +84,7 @@ static const lily_class_seed question_seed =
     dyna_class,               /* load_type */
     0,                        /* is_refcounted */
     0,                        /* generic_count */
-    NULL,                     /* dynaload_table */
-    NULL                      /* destroy_func */
+    NULL                      /* dynaload_table */
 };
 
 void lily_builtin_print(lily_vm_state *, uint16_t, uint16_t *);

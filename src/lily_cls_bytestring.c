@@ -54,8 +54,7 @@ static const lily_class_seed bytestring_seed =
     dyna_class,          /* load_type */
     1,                   /* is_refcounted */
     0,                   /* generic_count */
-    &dynaload_start,     /* dynaload_table */
-    lily_destroy_string  /* destroy_func */
+    &dynaload_start      /* dynaload_table */
 };
 
 lily_class *lily_bytestring_init(lily_symtab *symtab)
