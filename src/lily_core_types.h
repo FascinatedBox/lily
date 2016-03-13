@@ -44,6 +44,7 @@ typedef union lily_raw_value_ {
     struct lily_hash_val_ *hash;
     struct lily_file_val_ *file;
     struct lily_instance_val_ *instance;
+    struct lily_foreign_val_ *foreign;
 } lily_raw_value;
 
 typedef struct {
@@ -366,6 +367,15 @@ typedef struct lily_generic_val_ {
     uint32_t refcount;
 } lily_generic_val;
 
+/* Foreign values must start with at least this layout. Note that this carries
+   the implicit assumption that no foreign value will carry Lily values inside.
+   Should that change, this too many need to be changed. */
+typedef struct lily_foreign_val_ {
+    uint32_t refcount;
+    uint32_t pad;
+    class_destroy_func destroy_func;
+} lily_foreign_val;
+
 /* Every value that has a gc entry is a superset of this. */
 typedef struct lily_generic_gc_val_ {
     uint32_t refcount;
@@ -573,21 +583,22 @@ typedef struct lily_options_ {
 /* VAL_* flags are for lily_value. */
 
 
-#define VAL_IS_BOOLEAN          0x00001
-#define VAL_IS_INTEGER          0x00002
-#define VAL_IS_DOUBLE           0x00004
-#define VAL_IS_STRING           0x00010
-#define VAL_IS_BYTESTRING       0x00020
-#define VAL_IS_FUNCTION         0x00040
-#define VAL_IS_DYNAMIC          0x00100
-#define VAL_IS_LIST             0x00200
-#define VAL_IS_HASH             0x00400
-#define VAL_IS_TUPLE            0x01000
-#define VAL_IS_INSTANCE         0x02000
-#define VAL_IS_ENUM             0x04000
-#define VAL_IS_FILE             0x10000
-#define VAL_IS_DEREFABLE        0x20000
-#define VAL_IS_GC_TAGGED        0x40000
+#define VAL_IS_BOOLEAN          0x000001
+#define VAL_IS_INTEGER          0x000002
+#define VAL_IS_DOUBLE           0x000004
+#define VAL_IS_STRING           0x000010
+#define VAL_IS_BYTESTRING       0x000020
+#define VAL_IS_FUNCTION         0x000040
+#define VAL_IS_DYNAMIC          0x000100
+#define VAL_IS_LIST             0x000200
+#define VAL_IS_HASH             0x000400
+#define VAL_IS_TUPLE            0x001000
+#define VAL_IS_INSTANCE         0x002000
+#define VAL_IS_ENUM             0x004000
+#define VAL_IS_FILE             0x010000
+#define VAL_IS_DEREFABLE        0x020000
+#define VAL_IS_GC_TAGGED        0x040000
+#define VAL_IS_FOREIGN          0x100000
 
 /* SYM_CLASS_* defines are for checking ids of a type's class. These are
    used very frequently. These must be kept in sync with the class loading
