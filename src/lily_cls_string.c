@@ -151,7 +151,7 @@ void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     if (find_length > input_length ||
         find_length == 0) {
-        lily_move_shared_enum(result_arg, lily_get_option_none(vm));
+        lily_move_shared_enum(result_arg, lily_get_none(vm));
         return;
     }
 
@@ -186,11 +186,11 @@ void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     if (match) {
         lily_value *v = lily_new_value(VAL_IS_INTEGER,
                 (lily_raw_value){.integer = i});
-        source = lily_new_option_some(v);
+        source = lily_new_some(v);
         lily_move_enum(result_arg, source);
     }
     else
-        lily_move_shared_enum(result_arg, lily_get_option_none(vm));
+        lily_move_shared_enum(result_arg, lily_get_none(vm));
 }
 
 void lily_string_format(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -479,7 +479,7 @@ void lily_string_parse_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     if (value > ((uint64_t)INT64_MAX + is_negative) ||
         *input != '\0' ||
         rounds == 0) {
-        lily_move_shared_enum(result_reg, lily_get_option_none(vm));
+        lily_move_shared_enum(result_reg, lily_get_none(vm));
     }
     else {
         int64_t signed_value;
@@ -492,7 +492,7 @@ void lily_string_parse_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         lily_value *v = lily_new_value(VAL_IS_INTEGER,
                 (lily_raw_value){.integer = signed_value});
 
-        lily_move_enum(result_reg, lily_new_option_some(v));
+        lily_move_enum(result_reg, lily_new_some(v));
     }
 }
 

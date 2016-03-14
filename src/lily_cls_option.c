@@ -15,19 +15,14 @@
 #define SOME_VARIANT_ID 0
 #define NONE_VARIANT_ID 1
 
-inline lily_instance_val *lily_new_option_some(lily_value *v)
+inline lily_instance_val *lily_new_some(lily_value *v)
 {
     return lily_new_enum_1(SYM_CLASS_OPTION, SOME_VARIANT_ID, v);
 }
 
-inline lily_instance_val *lily_new_option_some_noref(lily_value *v)
-{
-    return lily_new_enum_1_noref(SYM_CLASS_OPTION, SOME_VARIANT_ID, v);
-}
-
 /* Since None has no arguments, it has a backing literal to represent it. This
    dives into the vm's class table to get the backing literal of the None. */
-lily_instance_val *lily_get_option_none(lily_vm_state *vm)
+lily_instance_val *lily_get_none(lily_vm_state *vm)
 {
     lily_class *opt_class = vm->class_table[SYM_CLASS_OPTION];
     lily_variant_class *none_cls = opt_class->variant_members[NONE_VARIANT_ID];
@@ -96,11 +91,11 @@ void lily_option_map(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         lily_value *output = lily_foreign_call(vm, &cached, 1,
                 function_reg, 1, optval->values[0]);
 
-        source = lily_new_option_some(lily_copy_value(output));
+        source = lily_new_some(lily_copy_value(output));
         lily_move_enum(result_reg, source);
     }
     else {
-        source = lily_get_option_none(vm);
+        source = lily_get_none(vm);
         lily_move_shared_enum(result_reg, source);
     }
 }
