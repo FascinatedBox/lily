@@ -13,7 +13,6 @@ lily_value *lily_copy_value(lily_value *);
 lily_value *lily_new_value(uint64_t, lily_raw_value);
 lily_instance_val *lily_new_instance_val();
 lily_instance_val *lily_new_enum_1(uint16_t, uint16_t, lily_value *);
-lily_instance_val *lily_new_enum_1_noref(uint16_t, uint16_t, lily_value *);
 
 int lily_value_eq(struct lily_vm_state_ *, lily_value *, lily_value *);
 

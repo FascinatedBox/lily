@@ -3,7 +3,7 @@
 
 # include "lily_core_types.h"
 
-lily_instance_val *lily_new_either_left(lily_value *);
-lily_instance_val *lily_new_either_right(lily_value *);
+lily_instance_val *lily_new_left(lily_value *);
+lily_instance_val *lily_new_right(lily_value *);
 
 #endif

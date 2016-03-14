@@ -7,12 +7,12 @@
 #define RIGHT_VARIANT_ID 0
 #define LEFT_VARIANT_ID  1
 
-inline lily_instance_val *lily_new_either_left(lily_value *v)
+inline lily_instance_val *lily_new_left(lily_value *v)
 {
     return lily_new_enum_1(SYM_CLASS_EITHER, LEFT_VARIANT_ID, v);
 }
 
-inline lily_instance_val *lily_new_either_right(lily_value *v)
+inline lily_instance_val *lily_new_right(lily_value *v)
 {
     return lily_new_enum_1(SYM_CLASS_EITHER, RIGHT_VARIANT_ID, v);
 }
@@ -43,9 +43,9 @@ static void either_optionize_left_right(lily_vm_state *vm, uint16_t *code, int e
     lily_value *result_reg = vm_regs[code[0]];
 
     if (iv->variant_id == expect)
-        lily_move_enum(result_reg, lily_new_option_some(lily_copy_value(iv->values[0])));
+        lily_move_enum(result_reg, lily_new_some(lily_copy_value(iv->values[0])));
     else
-        lily_move_shared_enum(result_reg, lily_get_option_none(vm));
+        lily_move_shared_enum(result_reg, lily_get_none(vm));
 }
 
 void lily_either_left(lily_vm_state *vm, uint16_t argc, uint16_t *code)

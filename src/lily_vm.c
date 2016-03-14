@@ -1093,9 +1093,9 @@ void do_o_dynamic_cast(lily_vm_state *vm, uint16_t *code)
     if (ok)
         /* Dynamic will free the value inside of it when it's collected, so the
            new Some will need a copy of the value. */
-        lily_move_enum(lhs_reg, lily_new_option_some(lily_copy_value(inner)));
+        lily_move_enum(lhs_reg, lily_new_some(lily_copy_value(inner)));
     else
-        lily_move_shared_enum(lhs_reg, lily_get_option_none(vm));
+        lily_move_shared_enum(lhs_reg, lily_get_none(vm));
 }
 
 /***
