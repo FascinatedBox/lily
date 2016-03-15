@@ -851,8 +851,7 @@ static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
     /* +2 to skip the #[ intro. */
     char *new_ch = &(lexer->input_buffer[*pos + 2]);
 
-    comment_pos = *pos + 2;
-    comment_pos++;
+    comment_pos = *pos + 3;
     start_line = lexer->line_num;
 
     while (1) {
