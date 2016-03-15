@@ -105,6 +105,8 @@ ok("\aabc\adef" == """\aabc\adef""", "String escape at start and mid.")
 ok("\aabcdef\a" == """\aabcdef\a""", "String escape at start and end.")
 ok("abc\adef\a" == """abc\adef\a""", "String escape at mid and end.")
 ok({|| "\n" }() == "\n",             "String escape works within a lambda.")
+ok({|| "\"" }() == "\"",             "String escape within a lambda (2).")
+ok({|| B"\000" }() == B"\000",       "Bytestring collection works within a lambda.")
 
 # utf-8
 
