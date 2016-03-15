@@ -12,6 +12,7 @@
 #include "lily_vm.h"
 #include "lily_seed.h"
 
+#include "lily_cls_either.h"
 #include "lily_cls_option.h"
 #include "lily_cls_list.h"
 
@@ -185,8 +186,9 @@ void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
         if (ch == '?') {
             if (arg_pos == vararg_lv->num_values) {
-                lily_raise(vm->raiser, lily_FormatError,
-                        "Not enough args for format.\n");
+                lily_value *v = lily_new_string("Not enough arguments for format.\n");
+                lily_move_enum(result_reg, lily_new_left(v));
+                return;
             }
 
             lily_msgbuf_add_text_range(vm_buffer, fmt, text_start, text_stop);
@@ -223,7 +225,8 @@ void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     if (status == PGRES_BAD_RESPONSE ||
         status == PGRES_NONFATAL_ERROR ||
         status == PGRES_FATAL_ERROR) {
-        lily_move_shared_enum(result_reg, lily_get_none(vm));
+        lily_value *v = lily_new_string(PQerrorMessage(conn_value->conn));
+        lily_move_enum(result_reg, lily_new_left(v));
         return;
     }
 
@@ -238,7 +241,7 @@ void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     new_result->column_count = PQnfields(raw_result);
 
     lily_value *v = lily_new_foreign(new_result);
-    lily_move_enum(result_reg, lily_new_some(v));
+    lily_move_enum(result_reg, lily_new_right(v));
 }
 
 void lily_pg_conn_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -287,7 +290,7 @@ void lily_pg_conn_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 }
 
 static const lily_func_seed conn_query =
-    {NULL, "query", dyna_function, "(Conn, String, List[String]...):Option[Result]", lily_pg_conn_query};
+    {NULL, "query", dyna_function, "(Conn, String, List[String]...):Either[String, Result]", lily_pg_conn_query};
 
 static const lily_func_seed conn_dynaload_start =
     {&conn_query, "open", dyna_function, "(*String, *String, *String, *String, *String):Option[Conn]", lily_pg_conn_open};
