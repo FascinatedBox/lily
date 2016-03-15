@@ -1,5 +1,5 @@
-#ifndef LILY_CLS_OPTION_H
-# define LILY_CLS_OPTION_H
+#ifndef LILY_CLS_EITHER_H
+# define LILY_CLS_EITHER_H
 
 # include "lily_core_types.h"
 
