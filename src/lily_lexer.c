@@ -830,26 +830,21 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
     *pos = num_pos;
 }
 
-static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
+static void scan_multiline_comment(lily_lex_state *lexer, char **source_ch)
 {
-    int comment_pos, start_line;
-
+    int start_line = lexer->line_num;
     /* +2 to skip the #[ intro. */
-    char *new_ch = &(lexer->input_buffer[*pos + 2]);
-
-    comment_pos = *pos + 3;
-    start_line = lexer->line_num;
+    char *new_ch = *source_ch + 2;
 
     while (1) {
         if (*new_ch == ']' &&
             *(new_ch + 1) == '#') {
-            comment_pos++;
+            new_ch += 2;
             break;
         }
         else if (*new_ch == '\n') {
             if (lexer->entry->read_line_fn(lexer->entry)) {
                 new_ch = &(lexer->input_buffer[0]);
-                comment_pos = 0;
                 /* Must continue, in case the first char is the # of ]#.\n */
                 continue;
             }
@@ -860,11 +855,10 @@ static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
             }
         }
 
-        comment_pos++;
         new_ch++;
     }
 
-    *pos = comment_pos;
+    *source_ch = new_ch;
 }
 
 static void ensure_lambda_data_size(lily_lex_state *lexer, int at_least)
@@ -1027,7 +1021,7 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
         else if (*ch == '#' &&
                  *(ch + 1) == '[') {
             int saved_line_num = lexer->line_num;
-            scan_multiline_comment(lexer, &input_pos);
+            scan_multiline_comment(lexer, &ch);
             /* For each line that the multi-line comment hit, add a newline to
                the lambda so that error lines are right. */
             if (saved_line_num != lexer->line_num) {
@@ -1038,7 +1032,6 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
                 memset(lambda_data + i, '\n', increase);
                 i += increase;
             }
-            ch = &lexer->input_buffer[input_pos];
             continue;
         }
         else if (*ch == '"') {
@@ -1254,7 +1247,8 @@ void lily_lexer(lily_lex_state *lexer)
         else if (group == CC_SHARP) {
             if (*ch       == '#' &&
                 *(ch + 1) == '[') {
-                scan_multiline_comment(lexer, &input_pos);
+                scan_multiline_comment(lexer, &ch);
+                input_pos = ch - lexer->input_buffer;
                 continue;
             }
             else {
