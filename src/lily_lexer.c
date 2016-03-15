@@ -894,18 +894,19 @@ static void ensure_lambda_data_size(lily_lex_state *lexer, int at_least)
     lexer->lambda_data_size = new_size;
 }
 
+#define SQ_IS_PLAIN       0x1
+#define SQ_IS_BYTESTRING  0x2
+#define SQ_SKIP_ESCAPES   0x4
+
 static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
-        int *is_multiline, int do_escape)
+        int *is_multiline, int flags)
 {
     char esc_ch;
     char *label, *input;
-    int label_pos, multiline_start = 0, is_bytestring = 0;
+    int label_pos, multiline_start = 0;
 
     input = lexer->input_buffer;
     label = lexer->label;
-
-    if (*pos != 0 && *(new_ch - 1) == 'B')
-        is_bytestring = 1;
 
     /* ch is actually the first char after the opening ". */
     if (*(new_ch + 1) == '"' &&
@@ -932,14 +933,14 @@ static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
             lexer->label_size = new_label_size;
         }
 
-        if (*new_ch == '\\' && do_escape) {
+        if (*new_ch == '\\' && (flags & SQ_SKIP_ESCAPES) == 0) {
             /* Most escape codes are only one letter long. */
             int adjust_ch = 2;
             esc_ch = scan_escape(lexer, new_ch, &adjust_ch);
             /* Forbid \0 from non-bytestrings so that string is guaranteed to be
                a valid C string. Additionally, the second case prevents possibly
                creating invalid utf-8. */
-            if (is_bytestring == 0 &&
+            if ((flags & SQ_IS_BYTESTRING) == 0 &&
                 (esc_ch == 0 || (unsigned char)esc_ch > 127))
                 lily_raise(lexer->raiser, lily_SyntaxError,
                            "Invalid escape sequence.\n");
@@ -983,12 +984,12 @@ static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
     if (*is_multiline)
         new_ch += 2;
 
-    if (is_bytestring == 0)
+    if ((flags & SQ_IS_BYTESTRING) == 0)
         label[label_pos] = '\0';
 
     *pos = (new_ch - &input[0]);
 
-    if (is_bytestring == 0)
+    if ((flags & SQ_IS_BYTESTRING) == 0)
         lexer->last_literal = lily_get_string_literal(lexer->symtab, label);
     else
         lexer->last_literal = lily_get_bytestring_literal(lexer->symtab, label,
@@ -1054,7 +1055,8 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
         else if (*ch == '"') {
             char *head_tail;
             int is_multiline, len;
-            scan_quoted(lexer, &input_pos, ch, &is_multiline, 0);
+            scan_quoted(lexer, &input_pos, ch, &is_multiline,
+                    SQ_IS_PLAIN | SQ_SKIP_ESCAPES);
 
             input = lexer->input_buffer;
             ch = &input[input_pos];
@@ -1279,7 +1281,7 @@ void lily_lexer(lily_lex_state *lexer)
         }
         else if (group == CC_DOUBLE_QUOTE) {
             int dummy;
-            scan_quoted(lexer, &input_pos, ch, &dummy, 1);
+            scan_quoted(lexer, &input_pos, ch, &dummy, SQ_IS_PLAIN);
             token = tk_double_quote;
         }
         else if (group == CC_B) {
@@ -1287,7 +1289,7 @@ void lily_lexer(lily_lex_state *lexer)
                 ch++;
                 input_pos++;
                 int dummy;
-                scan_quoted(lexer, &input_pos, ch, &dummy, 1);
+                scan_quoted(lexer, &input_pos, ch, &dummy, SQ_IS_BYTESTRING);
                 token = tk_bytestring;
             }
             else
