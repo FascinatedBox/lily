@@ -18,16 +18,8 @@ void lily_sys_var_loader(lily_parse_state *parser, lily_var *var)
     lv->num_values = options->argc;
 
     int i;
-    for (i = 0;i < options->argc;i++) {
-        lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
-        char *raw_string = lily_malloc(strlen(options->argv[i]) + 1);
-
-        strcpy(raw_string, options->argv[i]);
-        sv->size = strlen(options->argv[i]);
-        sv->refcount = 1;
-        sv->string = raw_string;
-        values[i] = lily_new_string(sv);
-    }
+    for (i = 0;i < options->argc;i++)
+        values[i] = lily_new_string(options->argv[i]);
 
     lily_value v;
     v.flags = VAL_IS_LIST;

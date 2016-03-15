@@ -10,7 +10,6 @@
 
 #include "lily_alloc.h"
 #include "lily_parser.h"
-#include "lily_bind.h"
 #include "lily_lexer.h"
 #include "lily_value.h"
 #include "lily_impl.h"
@@ -65,8 +64,8 @@ static int bind_table_entry(void *data, const char *key, const char *value)
 
     struct table_bind_data *d = data;
 
-    lily_value *elem_key = lily_bind_string(d->symtab, key);
-    lily_value *elem_raw_value = lily_bind_string(d->symtab, value);
+    lily_value *elem_key = lily_new_string(key);
+    lily_value *elem_raw_value = lily_new_string(value);
     lily_value *elem_value = bind_tainted_of(d->parser, elem_raw_value);
 
     lily_hash_add_unique(d->parser->vm, d->hash_val, elem_key, elem_value);
@@ -99,7 +98,6 @@ static void bind_post(lily_parse_state *parser, request_rec *r,
     apr_off_t len;
     apr_size_t size;
     char *buffer;
-    lily_symtab *symtab = parser->symtab;
 
     /* Credit: I found out how to use this by reading httpd 2.4's mod_lua
        (specifically req_parsebody of lua_request.c). */
@@ -122,10 +120,9 @@ static void bind_post(lily_parse_state *parser, request_rec *r,
             apr_brigade_flatten(pair->value, buffer, &size);
             buffer[len] = 0;
 
-            lily_value *elem_key = lily_bind_string(symtab, pair->name);
+            lily_value *elem_key = lily_new_string(pair->name);
             /* Give the buffer to the value to save memory. */
-            lily_value *elem_raw_value = lily_bind_string_take_buffer(symtab,
-                    buffer);
+            lily_value *elem_raw_value = lily_new_string_take(buffer);
             lily_value *elem_value = bind_tainted_of(parser, elem_raw_value);
 
             lily_hash_add_unique(parser->vm, hash_val, elem_key, elem_value);
