@@ -370,7 +370,7 @@ void lily_pop_lex_entry(lily_lex_state *lexer)
 /* This reads a line from a file-backed entry. */
 static int file_read_line_fn(lily_lex_entry *entry)
 {
-    int bufsize, ch, i, ok;
+    int bufsize, ch, i;
     lily_lex_state *lexer = entry->lexer;
     char *input_buffer = lexer->input_buffer;
     FILE *input_file = (FILE *)entry->source;
@@ -391,26 +391,18 @@ static int file_read_line_fn(lily_lex_entry *entry)
         }
 
         if (ch == EOF) {
-            lexer->input_buffer[i] = '\n';
-            lexer->input_buffer[i + 1] = '\0';
-            /* If i is 0, then nothing is on this line except eof. Return 0 to
-               let the caller know this is the end. Don't bump the line number
-               because it's already been counted.
-
-             * If it isn't 0, then the last line ended with an eof instead of a
-               newline. Return 1 to let the caller know that there's more. The
-               line number is also bumped (since a line has been scanned in). */
-            ok = !!i;
-            lexer->line_num += ok;
+            input_buffer[i] = '\n';
+            input_buffer[i + 1] = '\0';
+            /* i is zero only if just EOF has been seen. Only bump the line
+               count the first time. */
+            lexer->line_num += !!i;
             break;
         }
-
 
         input_buffer[i] = ch;
 
         if (ch == '\r' || ch == '\n') {
             lexer->line_num++;
-            ok = 1;
 
             if (ch == '\r') {
                 input_buffer[i] = '\n';
@@ -419,7 +411,8 @@ static int file_read_line_fn(lily_lex_entry *entry)
                     ungetc(ch, input_file);
             }
 
-            input_buffer[i + 1] = '\0';
+            i++;
+            input_buffer[i] = '\0';
             break;
         }
         else if ((unsigned char)ch > 127)
@@ -433,13 +426,13 @@ static int file_read_line_fn(lily_lex_entry *entry)
                 "Invalid utf-8 sequence on line %d.\n", lexer->line_num);
     }
 
-    return ok;
+    return i;
 }
 
 /* This reads a line from a string-backed entry. */
 static int str_read_line_fn(lily_lex_entry *entry)
 {
-    int bufsize, i, ok, utf8_check;
+    int bufsize, i, utf8_check;
     lily_lex_state *lexer = entry->lexer;
     char *input_buffer = lexer->input_buffer;
     char *ch = (char *)entry->source;
@@ -459,17 +452,10 @@ static int str_read_line_fn(lily_lex_entry *entry)
 
         if (*ch == '\0') {
             input_buffer[i] = '\n';
-            lexer->input_buffer[i] = '\n';
-            lexer->input_buffer[i + 1] = '\0';
-            /* If i is 0, then nothing is on this line except eof. Return 0 to
-               let the caller know this is the end. Don't bump the line number
-               because it's already been counted.
-
-             * If it isn't 0, then the last line ended with an eof instead of a
-               newline. Return 1 to let the caller know that there's more. The
-               line number is also bumped (since a line has been scanned in). */
-            ok = !!i;
-            lexer->line_num += ok;
+            input_buffer[i + 1] = '\0';
+            /* i is zero only if just \0 has been seen. Only bump the line count
+               the first time. */
+            lexer->line_num += !!i;
             break;
         }
 
@@ -477,7 +463,6 @@ static int str_read_line_fn(lily_lex_entry *entry)
 
         if (*ch == '\r' || *ch == '\n') {
             lexer->line_num++;
-            ok = 1;
 
             if (*ch == '\r') {
                 input_buffer[i] = '\n';
@@ -488,7 +473,8 @@ static int str_read_line_fn(lily_lex_entry *entry)
             else
                 ch++;
 
-            input_buffer[i + 1] = '\0';
+            i++;
+            input_buffer[i] = '\0';
             break;
         }
         else if (((unsigned char)*ch) > 127)
@@ -504,7 +490,7 @@ static int str_read_line_fn(lily_lex_entry *entry)
     }
 
     entry->source = ch;
-    return ok;
+    return i;
 }
 
 static void file_close_fn(lily_lex_entry *entry)
@@ -861,7 +847,7 @@ static void scan_multiline_comment(lily_lex_state *lexer, int *pos)
             break;
         }
         else if (*new_ch == '\n') {
-            if (lexer->entry->read_line_fn(lexer->entry) == 1) {
+            if (lexer->entry->read_line_fn(lexer->entry)) {
                 new_ch = &(lexer->input_buffer[0]);
                 comment_pos = 0;
                 /* Must continue, in case the first char is the # of ]#.\n */
@@ -1252,7 +1238,7 @@ void lily_lexer(lily_lex_state *lexer)
             token = group;
         }
         else if (group == CC_NEWLINE) {
-            if (lexer->entry->read_line_fn(lexer->entry) == 1) {
+            if (lexer->entry->read_line_fn(lexer->entry)) {
                 input_pos = 0;
                 continue;
             }
@@ -1268,7 +1254,7 @@ void lily_lexer(lily_lex_state *lexer)
                 continue;
             }
             else {
-                if (lexer->entry->read_line_fn(lexer->entry) == 1) {
+                if (lexer->entry->read_line_fn(lexer->entry)) {
                     input_pos = 0;
                     continue;
                 }
