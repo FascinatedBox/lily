@@ -914,22 +914,36 @@ static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
             lexer->label_size = new_label_size;
         }
 
-        if (*new_ch == '\\' && (flags & SQ_SKIP_ESCAPES) == 0) {
-            /* Most escape codes are only one letter long. */
-            int adjust_ch = 2;
-            esc_ch = scan_escape(lexer, new_ch, &adjust_ch);
-            /* Forbid \0 from non-bytestrings so that string is guaranteed to be
-               a valid C string. Additionally, the second case prevents possibly
-               creating invalid utf-8. */
-            if ((flags & SQ_IS_BYTESTRING) == 0 &&
-                (esc_ch == 0 || (unsigned char)esc_ch > 127))
-                lily_raise(lexer->raiser, lily_SyntaxError,
-                           "Invalid escape sequence.\n");
+        if (*new_ch == '\\') {
+            if ((flags & SQ_SKIP_ESCAPES) == 0) {
+                /* Most escape codes are only one letter long. */
+                int adjust_ch = 2;
+                esc_ch = scan_escape(lexer, new_ch, &adjust_ch);
+                /* Forbid \0 from non-bytestrings so that string is guaranteed
+                   to be a valid C string. Additionally, the second case
+                   prevents possibly creating invalid utf-8. */
+                if ((flags & SQ_IS_BYTESTRING) == 0 &&
+                    (esc_ch == 0 || (unsigned char)esc_ch > 127))
+                    lily_raise(lexer->raiser, lily_SyntaxError,
+                            "Invalid escape sequence.\n");
 
-            label[label_pos] = esc_ch;
-            label_pos++;
-            new_ch += adjust_ch;
-            continue;
+                label[label_pos] = esc_ch;
+                label_pos++;
+                new_ch += adjust_ch;
+                continue;
+            }
+            else {
+                label[label_pos] = *new_ch;
+                label_pos++;
+                new_ch++;
+                /* These two (\\ and \") always have to be processed because not
+                   doing so can result in the string being collected wrong. */
+                if (*new_ch == '\\' || *new_ch == '"') {
+                    label[label_pos] = *new_ch;
+                    label_pos++;
+                    new_ch++;
+                }
+            }
         }
         else if (*new_ch == '\n') {
             if (*is_multiline == 0)
