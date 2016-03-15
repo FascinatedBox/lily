@@ -879,13 +879,14 @@ static void ensure_lambda_data_size(lily_lex_state *lexer, int at_least)
 /* Only capture the source text (don't build a literal). */
 #define SQ_SCOOP_ONLY     0x10
 
-static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
+static void scan_quoted(lily_lex_state *lexer, char **source_ch,
         int *is_multiline, int flags)
 {
     char esc_ch;
     char *label, *input;
     int label_pos, multiline_start = 0;
 
+    char *new_ch = *source_ch;
     input = lexer->input_buffer;
     label = lexer->label;
 
@@ -982,7 +983,7 @@ static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
     if ((flags & SQ_IS_BYTESTRING) == 0)
         label[label_pos] = '\0';
 
-    *pos = (new_ch - &input[0]);
+    *source_ch = new_ch;
 
     if ((flags & SQ_SCOOP_ONLY) == 0) {
         if ((flags & SQ_IS_BYTESTRING) == 0)
@@ -993,9 +994,8 @@ static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
     }
 }
 
-static void scan_lambda(lily_lex_state *lexer, int *pos)
+static void scan_lambda(lily_lex_state *lexer, char **source_ch)
 {
-    char *input = lexer->input_buffer;
     lexer->lambda_start_line = lexer->line_num;
 
     if (lexer->lambda_data == NULL) {
@@ -1005,9 +1005,9 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
     }
 
     char *lambda_data = lexer->lambda_data;
-    char *ch = &input[*pos];
+    char *ch = *source_ch;
     int i = 0, max = lexer->lambda_data_size - 2;
-    int brace_depth = 1, input_pos = *pos;
+    int brace_depth = 1;
     lily_lex_entry *entry = lexer->entry;
 
     while (1) {
@@ -1026,7 +1026,6 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
                         "Unterminated lambda (started at line %d).\n",
                         lexer->lambda_start_line);
 
-            input_pos = 0;
             lambda_data[i] = '\n';
             i++;
             ch = &lexer->input_buffer[0];
@@ -1051,11 +1050,8 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
         else if (*ch == '"') {
             char *head_tail;
             int is_multiline, len;
-            scan_quoted(lexer, &input_pos, ch, &is_multiline,
+            scan_quoted(lexer, &ch, &is_multiline,
                     SQ_IS_PLAIN | SQ_SKIP_ESCAPES | SQ_SCOOP_ONLY);
-
-            input = lexer->input_buffer;
-            ch = &input[input_pos];
 
             head_tail = (is_multiline ? "\"\"\"" : "\"");
             len = strlen(lexer->label);
@@ -1080,7 +1076,6 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
         lambda_data[i] = *ch;
         ch++;
         i++;
-        input_pos++;
     }
 
     /* Add in the closing '}' at the end so the parser will know for sure when
@@ -1088,8 +1083,7 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
     lambda_data[i] = '}';
     lambda_data[i+1] = '\0';
 
-    /* The caller will start after the closing } of this lambda. */
-    *pos = input_pos + 1;
+    *source_ch = ch + 1;
 }
 
 /* This is kinda awful. This is called when something like '1+1' was seen and it
@@ -1278,7 +1272,8 @@ void lily_lexer(lily_lex_state *lexer)
         }
         else if (group == CC_DOUBLE_QUOTE) {
             int dummy;
-            scan_quoted(lexer, &input_pos, ch, &dummy, SQ_IS_PLAIN);
+            scan_quoted(lexer, &ch, &dummy, SQ_IS_PLAIN);
+            input_pos = ch - lexer->input_buffer;
             token = tk_double_quote;
         }
         else if (group == CC_B) {
@@ -1286,7 +1281,8 @@ void lily_lexer(lily_lex_state *lexer)
                 ch++;
                 input_pos++;
                 int dummy;
-                scan_quoted(lexer, &input_pos, ch, &dummy, SQ_IS_BYTESTRING);
+                scan_quoted(lexer, &ch, &dummy, SQ_IS_BYTESTRING);
+                input_pos = ch - lexer->input_buffer;
                 token = tk_bytestring;
             }
             else
@@ -1357,7 +1353,8 @@ void lily_lexer(lily_lex_state *lexer)
             input_pos++;
             ch++;
             if (*ch == '|') {
-                scan_lambda(lexer, &input_pos);
+                scan_lambda(lexer, &ch);
+                input_pos = ch - lexer->input_buffer;
                 token = tk_lambda;
             }
             else
