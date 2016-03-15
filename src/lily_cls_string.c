@@ -799,13 +799,8 @@ static void string_split_by_val(lily_vm_state *vm, char *input, char *splitby,
            Ex: "1 2 3 ".split(" ") # ["1", "2", "3", ""] */
         if (is_match || *input_ch == '\0') {
             int sv_size = match_start - last_start;
-            lily_string_val *new_sv = make_sv(vm, sv_size + 1);
-            char *sv_buffer = &new_sv->string[0];
 
-            sv_buffer[sv_size] = '\0';
-            strncpy(sv_buffer, last_start, sv_size);
-
-            elems[i] = lily_new_string(new_sv);
+            elems[i] = lily_new_string_ncpy(last_start, sv_size);
             i++;
             if (*input_ch == '\0')
                 break;

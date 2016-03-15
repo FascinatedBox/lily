@@ -20,12 +20,12 @@ int lily_value_eq(struct lily_vm_state_ *, lily_value *, lily_value *);
 #define lily_new_foreign(raw) \
 lily_new_value(VAL_IS_FOREIGN | VAL_IS_DEREFABLE, (lily_raw_value)(lily_generic_val *)raw)
 
-#define lily_new_string(raw) \
-lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value)raw)
-
 #define lily_new_list(raw) \
 lily_new_value(VAL_IS_LIST | VAL_IS_DEREFABLE, (lily_raw_value)raw)
 
+lily_value *lily_new_string(const char *);
+lily_value *lily_new_string_take(char *);
+lily_value *lily_new_string_ncpy(const char *, int);
 
 #define lily_move_boolean(target, raw) \
 lily_move(target, (lily_raw_value){.integer = raw}, VAL_IS_BOOLEAN)

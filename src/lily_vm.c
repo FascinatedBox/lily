@@ -6,7 +6,6 @@
 #include "lily_value.h"
 #include "lily_opcode.h"
 #include "lily_vm.h"
-#include "lily_bind.h"
 #include "lily_parser.h"
 
 #include "lily_cls_dynamic.h"
@@ -1339,15 +1338,11 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
            maybe having a line number. */
         int str_size = strlen(class_name) + strlen(path) + strlen(line) + 16;
 
-        lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
         char *str = lily_malloc(str_size);
-        int real_size = sprintf(str, "%s:%s from %s%s%s", path, line,
-                class_name, separator, name);
-        sv->refcount = 1;
-        sv->size = real_size;
-        sv->string = str;
+        sprintf(str, "%s:%s from %s%s%s", path, line, class_name, separator,
+                name);
 
-        lv->elems[i - 1] = lily_new_string(sv);
+        lv->elems[i - 1] = lily_new_string_take(str);
     }
 
     lv->num_values = vm->call_depth;
@@ -1377,8 +1372,7 @@ static void make_proper_exception_val(lily_vm_state *vm,
     ival->gc_entry = NULL;
     ival->instance_id = raised_cls->id;
 
-    lily_value *message_val = lily_bind_string(vm->symtab,
-            vm->raiser->msgbuf->message);
+    lily_value *message_val = lily_new_string(vm->raiser->msgbuf->message);
 
     lily_msgbuf_flush(vm->raiser->msgbuf);
     ival->values[0] = message_val;

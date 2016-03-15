@@ -96,6 +96,46 @@ lily_value *lily_copy_value(lily_value *input)
     return lily_new_value(input->flags, input->value);
 }
 
+/* Create a new value holding a string. That string shall contain a copy of what
+   is inside 'source'. The source is expected to be \0 terminated. */
+lily_value *lily_new_string(const char *source)
+{
+    lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
+    int len = strlen(source);
+    sv->refcount = 1;
+    sv->string = lily_malloc(len + 1);
+    strcpy(sv->string, source);
+    sv->size = len;
+    return lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value)sv);
+}
+
+/* Create a new value holding a string. That string's contents will be 'len'
+   bytes of 'source'. Cloning is done through strncpy, so \0 termination is not
+   necessary. */
+lily_value *lily_new_string_ncpy(const char *source, int len)
+{
+    lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
+    sv->refcount = 1;
+    sv->string = lily_malloc(len);
+    strncpy(sv->string, source, len);
+    sv->string[len] = '\0';
+    sv->size = len - 1;
+    return lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value)sv);
+}
+
+/* Create a new value holding a string. That string's source will be exactly
+   'source'. The string made assumes that it owns 'source' from here on. The
+   source given must be \0 terminated. */
+lily_value *lily_new_string_take(char *source)
+{
+    lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
+    int len = strlen(source);
+    sv->refcount = 1;
+    sv->string = source;
+    sv->size = len;
+    return lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value)sv);
+}
+
 inline lily_instance_val *lily_new_instance_val()
 {
     lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
