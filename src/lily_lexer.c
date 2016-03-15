@@ -879,9 +879,11 @@ static void ensure_lambda_data_size(lily_lex_state *lexer, int at_least)
     lexer->lambda_data_size = new_size;
 }
 
-#define SQ_IS_PLAIN       0x1
-#define SQ_IS_BYTESTRING  0x2
-#define SQ_SKIP_ESCAPES   0x4
+#define SQ_IS_PLAIN       0x01
+#define SQ_IS_BYTESTRING  0x02
+#define SQ_SKIP_ESCAPES   0x04
+/* Only capture the source text (don't build a literal). */
+#define SQ_SCOOP_ONLY     0x10
 
 static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
         int *is_multiline, int flags)
@@ -974,11 +976,13 @@ static void scan_quoted(lily_lex_state *lexer, int *pos, char *new_ch,
 
     *pos = (new_ch - &input[0]);
 
-    if ((flags & SQ_IS_BYTESTRING) == 0)
-        lexer->last_literal = lily_get_string_literal(lexer->symtab, label);
-    else
-        lexer->last_literal = lily_get_bytestring_literal(lexer->symtab, label,
-                label_pos);
+    if ((flags & SQ_SCOOP_ONLY) == 0) {
+        if ((flags & SQ_IS_BYTESTRING) == 0)
+            lexer->last_literal = lily_get_string_literal(lexer->symtab, label);
+        else
+            lexer->last_literal = lily_get_bytestring_literal(lexer->symtab,
+                    label, label_pos);
+    }
 }
 
 static void scan_lambda(lily_lex_state *lexer, int *pos)
@@ -1041,7 +1045,7 @@ static void scan_lambda(lily_lex_state *lexer, int *pos)
             char *head_tail;
             int is_multiline, len;
             scan_quoted(lexer, &input_pos, ch, &is_multiline,
-                    SQ_IS_PLAIN | SQ_SKIP_ESCAPES);
+                    SQ_IS_PLAIN | SQ_SKIP_ESCAPES | SQ_SCOOP_ONLY);
 
             input = lexer->input_buffer;
             ch = &input[input_pos];
