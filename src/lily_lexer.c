@@ -883,12 +883,11 @@ static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
         int flags)
 {
     char esc_ch;
-    char *label, *input;
+    char *label;
     int label_pos, multiline_start = 0;
     int is_multiline = 0;
 
     char *new_ch = *source_ch;
-    input = lexer->input_buffer;
     label = lexer->label;
 
     /* ch is actually the first char after the opening ". */
@@ -910,12 +909,6 @@ static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
     label_pos = *start;
 
     while (1) {
-        if (label_pos >= lexer->label_size) {
-            ptrdiff_t offset = new_ch - lexer->label;
-            ensure_label_size(lexer, lexer->label_size * 2);
-            new_ch = lexer->label + offset;
-        }
-
         if (*new_ch == '\\') {
             if ((flags & SQ_SKIP_ESCAPES) == 0) {
                 /* Most escape codes are only one letter long. */
@@ -951,17 +944,16 @@ static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
             if (is_multiline == 0)
                 lily_raise(lexer->raiser, lily_SyntaxError,
                         "Newline in single-line string.\n");
-            else if (read_line(lexer) == 0) {
+            int line_length = read_line(lexer);
+            if (line_length == 0) {
                 lily_raise(lexer->raiser, lily_SyntaxError,
                            "Unterminated multi-line string (started at line %d).\n",
                            multiline_start);
             }
 
-            /* read_line may realloc either of these. */
+            ensure_label_size(lexer, label_pos + line_length + 3);
             label = lexer->label;
-            input = lexer->input_buffer;
-
-            new_ch = &input[0];
+            new_ch = &lexer->input_buffer[0];
             label[label_pos] = *new_ch;
             label_pos++;
         }
@@ -1010,35 +1002,28 @@ static void scan_quoted(lily_lex_state *lexer, char **source_ch, int flags)
 
 static void scan_lambda(lily_lex_state *lexer, char **source_ch)
 {
-    char *label;
-    char *ch = *source_ch;
-    int max;
+    char *label = lexer->label, *ch = *source_ch;
     int brace_depth = 1, i = 0;
 
     lexer->lambda_start_line = lexer->line_num;
-
-resync:
-    max = lexer->label_size - 2;
     label = lexer->label;
 
     while (1) {
-        if (i == max) {
-            ensure_label_size(lexer, lexer->label_size * 2);
-            goto resync;
-        }
-
         if (*ch == '\n' ||
             (*ch == '#' &&
              *(ch + 1) != '[')) {
-            if (read_line(lexer) == 0)
+            int line_length = read_line(lexer);
+            if (line_length == 0)
                 lily_raise(lexer->raiser, lily_SyntaxError,
                         "Unterminated lambda (started at line %d).\n",
                         lexer->lambda_start_line);
 
+            ensure_label_size(lexer, i + line_length + 3);
+            label = lexer->label;
             ch = &lexer->input_buffer[0];
-            lexer->label[i] = '\n';
+            label[i] = '\n';
             i++;
-            goto resync;
+            continue;
         }
         else if (*ch == '#' &&
                  *(ch + 1) == '[') {
@@ -1048,18 +1033,23 @@ resync:
                the lambda so that error lines are right. */
             if (saved_line_num != lexer->line_num) {
                 int increase = lexer->line_num - saved_line_num;
-                ensure_label_size(lexer, i + increase);
+                /* Write \n for each line seen so that the lines match up.
+                   Make sure that lexer->label can handle the increases AND the
+                   now-current line (plus 3 for that termination). */
+                ensure_label_size(lexer,
+                        i + increase + 3 + strlen(lexer->input_buffer));
 
                 memset(lexer->label + i, '\n', increase);
                 i += increase;
-                goto resync;
             }
             continue;
         }
         else if (*ch == '"') {
             scan_quoted_raw(lexer, &ch, &i,
                     SQ_IS_PLAIN | SQ_SKIP_ESCAPES | SQ_SCOOP_ONLY);
-            goto resync;
+            /* Don't ensure check: scan_quoted already did it if that was
+               necessary. */
+            continue;
         }
         else if (*ch == '{')
             brace_depth++;
