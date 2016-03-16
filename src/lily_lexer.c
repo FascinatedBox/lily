@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <stddef.h>
 
 #include "lily_alloc.h"
 #include "lily_impl.h"
@@ -132,9 +133,6 @@ lily_lex_state *lily_new_lex_state(lily_options *options,
     lexer->label = lily_malloc(128 * sizeof(char));
     lexer->ch_class = NULL;
     lexer->last_literal = NULL;
-    /* Allocate space for making lambdas only if absolutely needed. */
-    lexer->lambda_data = NULL;
-    lexer->lambda_data_size = 0;
     ch_class = lily_malloc(256 * sizeof(char));
 
     lexer->input_pos = 0;
@@ -218,7 +216,6 @@ void lily_free_lex_state(lily_lex_state *lexer)
         }
     }
 
-    lily_free(lexer->lambda_data);
     lily_free(lexer->input_buffer);
     lily_free(lexer->ch_class);
     lily_free(lexer->label);
@@ -864,16 +861,16 @@ static void scan_multiline_comment(lily_lex_state *lexer, char **source_ch)
     *source_ch = new_ch;
 }
 
-static void ensure_lambda_data_size(lily_lex_state *lexer, int at_least)
+static void ensure_label_size(lily_lex_state *lexer, int at_least)
 {
-    int new_size = lexer->lambda_data_size;
+    int new_size = lexer->label_size;
     while (new_size < at_least)
         new_size *= 2;
 
-    char *new_data = lily_realloc(lexer->lambda_data, new_size);
+    char *new_data = lily_realloc(lexer->label, new_size);
 
-    lexer->lambda_data = new_data;
-    lexer->lambda_data_size = new_size;
+    lexer->label = new_data;
+    lexer->label_size = new_size;
 }
 
 #define SQ_IS_PLAIN       0x01
@@ -882,12 +879,13 @@ static void ensure_lambda_data_size(lily_lex_state *lexer, int at_least)
 /* Only capture the source text (don't build a literal). */
 #define SQ_SCOOP_ONLY     0x10
 
-static void scan_quoted(lily_lex_state *lexer, char **source_ch,
-        int *is_multiline, int flags)
+static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
+        int flags)
 {
     char esc_ch;
     char *label, *input;
     int label_pos, multiline_start = 0;
+    int is_multiline = 0;
 
     char *new_ch = *source_ch;
     input = lexer->input_buffer;
@@ -896,26 +894,26 @@ static void scan_quoted(lily_lex_state *lexer, char **source_ch,
     /* ch is actually the first char after the opening ". */
     if (*(new_ch + 1) == '"' &&
         *(new_ch + 2) == '"') {
-        *is_multiline = 1;
+        is_multiline = 1;
         multiline_start = lexer->line_num;
         new_ch += 2;
     }
-    else
-        *is_multiline = 0;
+
+    if (flags & SQ_SCOOP_ONLY) {
+        int num = is_multiline ? 3 : 1;
+        strncpy(lexer->label + *start, "\"\"\"", num);
+        *start += num;
+    }
 
     /* Skip the last " of either kind of string. */
     new_ch++;
-    label_pos = 0;
+    label_pos = *start;
 
     while (1) {
         if (label_pos >= lexer->label_size) {
-            int new_label_size = lexer->label_size * 2;
-            char *new_label;
-            new_label = lily_realloc(lexer->label,
-                    (new_label_size * sizeof(char)));
-
-            lexer->label = new_label;
-            lexer->label_size = new_label_size;
+            ptrdiff_t offset = new_ch - lexer->label;
+            ensure_label_size(lexer, lexer->label_size * 2);
+            new_ch = lexer->label + offset;
         }
 
         if (*new_ch == '\\') {
@@ -950,7 +948,7 @@ static void scan_quoted(lily_lex_state *lexer, char **source_ch,
             }
         }
         else if (*new_ch == '\n') {
-            if (*is_multiline == 0)
+            if (is_multiline == 0)
                 lily_raise(lexer->raiser, lily_SyntaxError,
                         "Newline in single-line string.\n");
             else if (read_line(lexer) == 0) {
@@ -959,7 +957,7 @@ static void scan_quoted(lily_lex_state *lexer, char **source_ch,
                            multiline_start);
             }
 
-            /* read_line_fn may realloc either of these. */
+            /* read_line may realloc either of these. */
             label = lexer->label;
             input = lexer->input_buffer;
 
@@ -968,7 +966,7 @@ static void scan_quoted(lily_lex_state *lexer, char **source_ch,
             label_pos++;
         }
         else if (*new_ch == '"' &&
-                 ((*is_multiline == 0) ||
+                 ((is_multiline == 0) ||
                   (*(new_ch + 1) == '"' && *(new_ch + 2) == '"'))) {
             new_ch++;
             break;
@@ -980,13 +978,17 @@ static void scan_quoted(lily_lex_state *lexer, char **source_ch,
         }
     }
 
-    if (*is_multiline)
+    if (is_multiline)
         new_ch += 2;
+
+    if (flags & SQ_SCOOP_ONLY) {
+        int num = is_multiline ? 3 : 1;
+        strncpy(lexer->label + label_pos, "\"\"\"", num);
+        label_pos += num;
+    }
 
     if ((flags & SQ_IS_BYTESTRING) == 0)
         label[label_pos] = '\0';
-
-    *source_ch = new_ch;
 
     if ((flags & SQ_SCOOP_ONLY) == 0) {
         if ((flags & SQ_IS_BYTESTRING) == 0)
@@ -995,29 +997,34 @@ static void scan_quoted(lily_lex_state *lexer, char **source_ch,
             lexer->last_literal = lily_get_bytestring_literal(lexer->symtab,
                     label, label_pos);
     }
+
+    *source_ch = new_ch;
+    *start = label_pos;
+}
+
+static void scan_quoted(lily_lex_state *lexer, char **source_ch, int flags)
+{
+    int dummy = 0;
+    scan_quoted_raw(lexer, source_ch, &dummy, flags);
 }
 
 static void scan_lambda(lily_lex_state *lexer, char **source_ch)
 {
+    char *label;
+    char *ch = *source_ch;
+    int max;
+    int brace_depth = 1, i = 0;
+
     lexer->lambda_start_line = lexer->line_num;
 
-    if (lexer->lambda_data == NULL) {
-        lexer->lambda_data = lily_malloc(64);
-
-        lexer->lambda_data_size = 64;
-    }
-
-    char *lambda_data = lexer->lambda_data;
-    char *ch = *source_ch;
-    int i = 0, max = lexer->lambda_data_size - 2;
-    int brace_depth = 1;
+resync:
+    max = lexer->label_size - 2;
+    label = lexer->label;
 
     while (1) {
         if (i == max) {
-            ensure_lambda_data_size(lexer, lexer->lambda_data_size * 2);
-
-            lambda_data = lexer->lambda_data;
-            max = lexer->lambda_data_size - 2;
+            ensure_label_size(lexer, lexer->label_size * 2);
+            goto resync;
         }
 
         if (*ch == '\n' ||
@@ -1028,10 +1035,10 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
                         "Unterminated lambda (started at line %d).\n",
                         lexer->lambda_start_line);
 
-            lambda_data[i] = '\n';
-            i++;
             ch = &lexer->input_buffer[0];
-            continue;
+            lexer->label[i] = '\n';
+            i++;
+            goto resync;
         }
         else if (*ch == '#' &&
                  *(ch + 1) == '[') {
@@ -1041,30 +1048,18 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
                the lambda so that error lines are right. */
             if (saved_line_num != lexer->line_num) {
                 int increase = lexer->line_num - saved_line_num;
-                ensure_lambda_data_size(lexer, i + increase);
+                ensure_label_size(lexer, i + increase);
 
-                lambda_data = lexer->lambda_data;
-                memset(lambda_data + i, '\n', increase);
+                memset(lexer->label + i, '\n', increase);
                 i += increase;
+                goto resync;
             }
             continue;
         }
         else if (*ch == '"') {
-            char *head_tail;
-            int is_multiline, len;
-            scan_quoted(lexer, &ch, &is_multiline,
+            scan_quoted_raw(lexer, &ch, &i,
                     SQ_IS_PLAIN | SQ_SKIP_ESCAPES | SQ_SCOOP_ONLY);
-
-            head_tail = (is_multiline ? "\"\"\"" : "\"");
-            len = strlen(lexer->label);
-            /* +7 : 3 for a starting """, 3 for the ending, 1 for the
-               terminator. */
-            ensure_lambda_data_size(lexer, i + len + 7);
-            lambda_data = lexer->lambda_data;
-            snprintf(lambda_data + i, len + 1 + (strlen(head_tail) * 2), "%s%s%s",
-                    head_tail, lexer->label, head_tail);
-            i += len + (strlen(head_tail) * 2);
-            continue;
+            goto resync;
         }
         else if (*ch == '{')
             brace_depth++;
@@ -1075,15 +1070,15 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
             brace_depth--;
         }
 
-        lambda_data[i] = *ch;
+        label[i] = *ch;
         ch++;
         i++;
     }
 
     /* Add in the closing '}' at the end so the parser will know for sure when
        the lambda is done. */
-    lambda_data[i] = '}';
-    lambda_data[i+1] = '\0';
+    label[i] = '}';
+    label[i + 1] = '\0';
 
     *source_ch = ch + 1;
 }
@@ -1270,8 +1265,7 @@ void lily_lexer(lily_lex_state *lexer)
             }
         }
         else if (group == CC_DOUBLE_QUOTE) {
-            int dummy;
-            scan_quoted(lexer, &ch, &dummy, SQ_IS_PLAIN);
+            scan_quoted(lexer, &ch, SQ_IS_PLAIN);
             input_pos = ch - lexer->input_buffer;
             token = tk_double_quote;
         }
@@ -1279,8 +1273,7 @@ void lily_lexer(lily_lex_state *lexer)
             if (*(ch + 1) == '"') {
                 ch++;
                 input_pos++;
-                int dummy;
-                scan_quoted(lexer, &ch, &dummy, SQ_IS_BYTESTRING);
+                scan_quoted(lexer, &ch, SQ_IS_BYTESTRING);
                 input_pos = ch - lexer->input_buffer;
                 token = tk_bytestring;
             }
