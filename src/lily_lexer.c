@@ -76,6 +76,9 @@
 #define CC_B             28
 #define CC_INVALID       29
 
+static int read_line(lily_lex_state *);
+static void close_entry(lily_lex_entry *);
+
 /* Is the given character a valid identifier? This table is checked after the
    first letter, so it includes numbers.
    The 80-BF range is marked as okay because read_line verifies that they are
@@ -205,7 +208,7 @@ void lily_free_lex_state(lily_lex_state *lexer)
         lily_lex_entry *entry_next;
         while (entry_iter) {
             if (entry_iter->source != NULL)
-                entry_iter->close_fn(entry_iter);
+                close_entry(entry_iter);
 
             entry_next = entry_iter->next;
             lily_free(entry_iter->saved_input);
@@ -303,7 +306,7 @@ static void setup_entry(lily_lex_state *lexer, lily_lex_entry *new_entry,
 {
     if (new_entry->prev == NULL) {
         lexer->mode = mode;
-        new_entry->read_line_fn(new_entry);
+        read_line(lexer);
 
         if (mode == lm_tags) {
             /* This prevents a user from accidentally having space before the
@@ -317,7 +320,7 @@ static void setup_entry(lily_lex_state *lexer, lily_lex_entry *new_entry,
         }
     }
     else
-        new_entry->read_line_fn(new_entry);
+        read_line(lexer);
 }
 
 /* Remove the top-most entry. Restore state to what the previous entry held. */
@@ -325,7 +328,7 @@ void lily_pop_lex_entry(lily_lex_state *lexer)
 {
     lily_lex_entry *entry = lexer->entry;
 
-    entry->close_fn(entry);
+    close_entry(entry);
     entry->source = NULL;
 
     if (entry->prev) {
@@ -368,7 +371,7 @@ void lily_pop_lex_entry(lily_lex_state *lexer)
 /** file and str reading functions **/
 
 /* This reads a line from a file-backed entry. */
-static int file_read_line_fn(lily_lex_entry *entry)
+static int read_file_line(lily_lex_entry *entry)
 {
     int bufsize, ch, i;
     lily_lex_state *lexer = entry->lexer;
@@ -430,7 +433,7 @@ static int file_read_line_fn(lily_lex_entry *entry)
 }
 
 /* This reads a line from a string-backed entry. */
-static int str_read_line_fn(lily_lex_entry *entry)
+static int read_str_line(lily_lex_entry *entry)
 {
     int bufsize, i, utf8_check;
     lily_lex_state *lexer = entry->lexer;
@@ -493,22 +496,22 @@ static int str_read_line_fn(lily_lex_entry *entry)
     return i;
 }
 
-static void file_close_fn(lily_lex_entry *entry)
+static int read_line(lily_lex_state *lex)
 {
-    fclose((FILE *)entry->source);
+    lily_lex_entry *entry = lex->entry;
+    if (entry->entry_type == et_file)
+        return read_file_line(entry);
+    else
+        return read_str_line(entry);
 }
 
-static void str_close_fn(lily_lex_entry *entry)
+static void close_entry(lily_lex_entry *entry)
 {
-    /* The string is assumed to be non-malloced (coming from argv), so there's
-       nothing to do here. */
-}
-
-static void string_copy_close_fn(lily_lex_entry *entry)
-{
-    /* The original string is kept in entry->extra since line reading moves
-       entry->source. */
-    lily_free(entry->extra);
+    if (entry->entry_type == et_file)
+        fclose((FILE *)entry->source);
+    else if (entry->entry_type == et_copied_string)
+        /* entry->source moves, but entry->extra doesn't. Use this. */
+        lily_free(entry->extra);
 }
 
 /** Scanning functions and helpers **/
@@ -843,7 +846,7 @@ static void scan_multiline_comment(lily_lex_state *lexer, char **source_ch)
             break;
         }
         else if (*new_ch == '\n') {
-            if (lexer->entry->read_line_fn(lexer->entry)) {
+            if (read_line(lexer)) {
                 new_ch = &(lexer->input_buffer[0]);
                 /* Must continue, in case the first char is the # of ]#.\n */
                 continue;
@@ -950,7 +953,7 @@ static void scan_quoted(lily_lex_state *lexer, char **source_ch,
             if (*is_multiline == 0)
                 lily_raise(lexer->raiser, lily_SyntaxError,
                         "Newline in single-line string.\n");
-            else if (lexer->entry->read_line_fn(lexer->entry) == 0) {
+            else if (read_line(lexer) == 0) {
                 lily_raise(lexer->raiser, lily_SyntaxError,
                            "Unterminated multi-line string (started at line %d).\n",
                            multiline_start);
@@ -1008,7 +1011,6 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
     char *ch = *source_ch;
     int i = 0, max = lexer->lambda_data_size - 2;
     int brace_depth = 1;
-    lily_lex_entry *entry = lexer->entry;
 
     while (1) {
         if (i == max) {
@@ -1021,7 +1023,7 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
         if (*ch == '\n' ||
             (*ch == '#' &&
              *(ch + 1) != '[')) {
-            if (entry->read_line_fn(entry) == 0)
+            if (read_line(lexer) == 0)
                 lily_raise(lexer->raiser, lily_SyntaxError,
                         "Unterminated lambda (started at line %d).\n",
                         lexer->lambda_start_line);
@@ -1138,9 +1140,8 @@ static void setup_opened_file(lily_lex_state *lexer, lily_lex_mode mode,
 {
     lily_lex_entry *new_entry = get_entry(lexer, filename);
 
-    new_entry->read_line_fn = file_read_line_fn;
-    new_entry->close_fn = file_close_fn;
     new_entry->source = f;
+    new_entry->entry_type = et_file;
 
     setup_entry(lexer, new_entry, mode);
 }
@@ -1173,8 +1174,7 @@ void lily_load_str(lily_lex_state *lexer, char *name, lily_lex_mode mode, char *
     lily_lex_entry *new_entry = get_entry(lexer, name);
 
     new_entry->source = &str[0];
-    new_entry->read_line_fn = str_read_line_fn;
-    new_entry->close_fn = str_close_fn;
+    new_entry->entry_type = et_shallow_string;
 
     setup_entry(lexer, new_entry, mode);
 }
@@ -1191,8 +1191,7 @@ void lily_load_copy_string(lily_lex_state *lexer, char *name,
 
     new_entry->source = &copy[0];
     new_entry->extra = copy;
-    new_entry->read_line_fn = str_read_line_fn;
-    new_entry->close_fn = string_copy_close_fn;
+    new_entry->entry_type = et_copied_string;
 
     setup_entry(lexer, new_entry, mode);
 }
@@ -1243,7 +1242,7 @@ void lily_lexer(lily_lex_state *lexer)
             token = group;
         }
         else if (group == CC_NEWLINE) {
-            if (lexer->entry->read_line_fn(lexer->entry)) {
+            if (read_line(lexer)) {
                 input_pos = 0;
                 continue;
             }
@@ -1260,7 +1259,7 @@ void lily_lexer(lily_lex_state *lexer)
                 continue;
             }
             else {
-                if (lexer->entry->read_line_fn(lexer->entry)) {
+                if (read_line(lexer)) {
                     input_pos = 0;
                     continue;
                 }
@@ -1532,7 +1531,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
         }
 
         if (c == '\n') {
-            if (lexer->entry->read_line_fn(lexer->entry))
+            if (read_line(lexer))
                 lbp = 0;
             else {
                 if (htmlp != 0) {
