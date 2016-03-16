@@ -1950,7 +1950,7 @@ static void expression_raw(lily_parse_state *parser, int state)
                 lily_ast_enter_tree(parser->ast_pool, tree_call);
 
             lily_ast_push_lambda(parser->ast_pool, parser->lex->lambda_start_line,
-                    parser->lex->lambda_data);
+                    parser->lex->label);
 
             if (state == ST_WANT_OPERATOR)
                 lily_ast_leave_tree(parser->ast_pool);
