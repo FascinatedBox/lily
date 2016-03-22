@@ -1236,7 +1236,7 @@ static void transform_code(lily_emit_state *emit, lily_function_val *f,
        may cause it to be realloc'd. */
     int patch_start = emit->patches->pos;
 
-    while (pos <= end) {
+    while (pos != end) {
         int j = 0, op = emit->code[pos];
         int c, count, call_type, i, line_num;
         const int *opcode_data = opcode_table[op];
@@ -1267,7 +1267,8 @@ static void transform_code(lily_emit_state *emit, lily_function_val *f,
             }
             else if (c == C_OUTPUT) {
                 int spot = emit->code[pos + i + j];
-                if (spot != (uint16_t)-1 && transform_table[spot] != -1) {
+                if (spot != (uint16_t)-1 &&
+                    transform_table[spot] != (uint16_t)-1) {
                     output_pos = i + j;
                     output_end = output_pos + 1;
                 }
