@@ -1,0 +1,6 @@
+#[
+SyntaxError: Nested interpolation is not allowed.
+    from interp_nested.lly:6
+]#
+
+var v = $"^( $"^(10)" )"

@@ -1072,6 +1072,34 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     vm->call_chain->build_value = iv;
 }
 
+void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    int count = code[2];
+    lily_msgbuf *vm_buffer = vm->vm_buffer;
+    lily_msgbuf_flush(vm_buffer);
+
+    int i;
+    for (i = 0;i < count;i++) {
+        lily_value *v = vm_regs[code[3 + i]];
+        if (v->flags & VAL_IS_FOR_INTERP)
+            lily_msgbuf_add(vm_buffer, v->value.string->string);
+        else
+            lily_vm_add_value_to_msgbuf(vm, vm_buffer, v);
+    }
+
+    lily_value *result_reg = vm_regs[code[3 + i]];
+
+    lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
+    char *buffer = lily_malloc((vm_buffer->pos + 1) * sizeof(char));
+    strcpy(buffer, vm_buffer->message);
+    new_sv->refcount = 1;
+    new_sv->size = strlen(buffer);
+    new_sv->string = buffer;
+
+    lily_move_string(result_reg, new_sv);
+}
+
 void do_o_dynamic_cast(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -2266,6 +2294,20 @@ void lily_vm_execute(lily_vm_state *vm)
                     vm->call_depth--;
                 }
             }
+                break;
+            case o_get_interp_readonly:
+                readonly_val = vm->readonly_table[code[code_pos+2]];
+                lhs_reg = vm_regs[code[code_pos+3]];
+
+                lily_deref(lhs_reg);
+
+                lhs_reg->value = readonly_val->value;
+                lhs_reg->flags = VAL_IS_STRING | VAL_IS_FOR_INTERP;
+                code_pos += 4;
+                break;
+            case o_interpolation:
+                do_o_interpolation(vm, code+code_pos);
+                code_pos += code[code_pos + 2] + 4;
                 break;
             case o_unary_not:
                 lhs_reg = vm_regs[code[code_pos+2]];

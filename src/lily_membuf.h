@@ -20,6 +20,11 @@ void lily_membuf_free(lily_membuf *);
 /* Add a string to the buffer, obtaining an index for later use. */
 int lily_membuf_add(lily_membuf *, char *);
 
+/* Add a number of bytes from a source into the buffer. When the bytes are
+   extracted later, they'll be \0 terminated automatically. An index is returned
+   for later use. */
+int lily_membuf_add_sized(lily_membuf *, char *, int);
+
 /* Fetch a string from the buffer. The buffer's position is rewound so that new
    strings will overwrite this string.
    Use this when the string is needed the last time. */

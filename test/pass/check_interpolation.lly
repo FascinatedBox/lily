@@ -1,0 +1,36 @@
+var total = 0, failed = 0
+
+define ok(b: Boolean, s: String)
+{
+    total += 1
+
+    if b == false: {
+        stderr.write($"Test ^(total) (^(s)) failed.\n")
+        failed += 1
+    }
+}
+
+var global_i   = 10
+
+ok($"" == "",                      "Empty interpolation should equal an empty string.")
+ok($"asdf" == "asdf",              "Non-capturing interpolation (asdf = asdf).")
+ok($"^(10)" == "10",               "Capture of a literal expression.")
+ok($"^("10")" == "\"10\"",         "Capture of a string literal.")
+ok($"^([1, 2, 3])" == "[1, 2, 3]", "Capture of a list.")
+ok($"^(global_i)" == "10",         "Capture of a global integer.")
+ok($"aaa^(10)" == "aaa10",         "Left-padded interpolation.")
+ok($"^(10)aaa" == "10aaa",         "Right-padded interpolation.")
+ok($"aaa^(10)aaa" == "aaa10aaa",   "Dual-padded interpolation.")
+ok($"^(1)^(2)^(3)" == "123",       "Triple interpolation, no padding.")
+ok($"^(1),^(2),^(3)" == "1,2,3",   "Triple interpolation, divided.")
+
+define f(a: Integer)
+{
+    ok($"^(a)" == "10",            "Capture of a local integer.")
+}
+f(10)
+
+if failed == 0:
+    print($"^(total) of ^(total) tests passed.")
+else:
+    stderr.write($"^(failed) tests have failed.\n")

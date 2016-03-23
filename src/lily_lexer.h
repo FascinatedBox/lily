@@ -51,6 +51,7 @@ typedef enum {
     tk_prop_word,
     tk_double_quote,
     tk_bytestring,
+    tk_dollar_string,
     tk_integer,
     tk_double,
     tk_dot,
@@ -107,8 +108,10 @@ typedef struct lily_lex_state_ {
     char *input_buffer;
     char *label;
 
+    char *scan_buffer;
+
     uint32_t line_num;
-    uint32_t lambda_start_line;
+    uint32_t expand_start_line;
     /* Where the last digit scan started at. This is used by parser to fixup
        the '1+1' case. */
     uint16_t last_digit_start;
@@ -137,6 +140,7 @@ void lily_load_file(lily_lex_state *, lily_lex_mode, char *);
 void lily_load_str(lily_lex_state *, char *, lily_lex_mode, char *);
 void lily_load_copy_string(lily_lex_state *, char *, lily_lex_mode, char *);
 int lily_try_load_file(lily_lex_state *, char *);
+int lily_scan_interpolation_piece(lily_lex_state *, char **);
 
 void lily_pop_lex_entry(lily_lex_state *);
 lily_lex_state *lily_new_lex_state(lily_options *, lily_raiser *);
