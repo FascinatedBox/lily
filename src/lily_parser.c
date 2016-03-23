@@ -1510,10 +1510,10 @@ static lily_sym *parse_special_keyword(lily_parse_state *parser, int key_id)
     if (key_id == KEY__LINE__)
         ret = (lily_sym *) lily_get_integer_literal(symtab, parser->lex->line_num);
     else if (key_id == KEY__FILE__) {
-        /* This is necessary because lambdas register as file-like things. This
-           will grab the first REAL file. */
+        /* This is necessary because lambdas and interpolation register as
+           file-like things. This will grab the first REAL file. */
         lily_lex_entry *entry = parser->lex->entry;
-        while (strcmp(entry->filename, "[lambda]") == 0)
+        while (strcmp(entry->filename, "[expand]") == 0)
             entry = entry->prev;
 
         ret = (lily_sym *) lily_get_string_literal(symtab, entry->filename);
@@ -1756,6 +1756,31 @@ static void expression_literal(lily_parse_state *parser, int *state)
     else if (*state == ST_WANT_OPERATOR)
         /* Disable multiple strings without dividing commas. */
         *state = ST_BAD_TOKEN;
+    else if (token == tk_dollar_string) {
+        lily_ast_pool *ap = parser->ast_pool;
+        lily_symtab *symtab = parser->symtab;
+        lily_msgbuf *msgbuf = parser->msgbuf;
+        lily_msgbuf_flush(msgbuf);
+        lily_msgbuf_add(msgbuf, lex->label);
+        char *scan_string = msgbuf->message;
+
+        lily_ast_enter_tree(ap, tree_interp_top);
+        do {
+            int is_interp = lily_scan_interpolation_piece(lex, &scan_string);
+            if (is_interp)
+                lily_ast_push_expanding(ap, tree_interp_block,
+                        lex->expand_start_line, lex->label);
+            else {
+                lily_tie *tie = lily_get_string_literal(symtab, lex->label);
+                lily_ast_push_literal(parser->ast_pool, tie);
+            }
+            lily_ast_collect_arg(parser->ast_pool);
+        } while (*scan_string != '\0');
+
+        lily_ast_leave_tree(ap);
+        lily_msgbuf_flush(msgbuf);
+        *state = ST_WANT_OPERATOR;
+    }
     else {
         lily_ast_push_literal(parser->ast_pool, lex->last_literal);
         *state = ST_WANT_OPERATOR;
@@ -1934,7 +1959,8 @@ static void expression_raw(lily_parse_state *parser, int state)
             }
         }
         else if (lex->token == tk_integer || lex->token == tk_double ||
-                 lex->token == tk_double_quote || lex->token == tk_bytestring)
+                 lex->token == tk_double_quote || lex->token == tk_bytestring ||
+                 lex->token == tk_dollar_string)
             expression_literal(parser, &state);
         else if (lex->token == tk_dot)
             expression_dot(parser, &state);
@@ -1949,8 +1975,8 @@ static void expression_raw(lily_parse_state *parser, int state)
             if (state == ST_WANT_OPERATOR)
                 lily_ast_enter_tree(parser->ast_pool, tree_call);
 
-            lily_ast_push_lambda(parser->ast_pool, parser->lex->lambda_start_line,
-                    parser->lex->label);
+            lily_ast_push_expanding(parser->ast_pool, tree_lambda,
+                    parser->lex->expand_start_line, parser->lex->label);
 
             if (state == ST_WANT_OPERATOR)
                 lily_ast_leave_tree(parser->ast_pool);
@@ -2128,6 +2154,41 @@ static int collect_lambda_args(lily_parse_state *parser,
     return num_args;
 }
 
+/* Interpolation gets handled here, because it's roughly the same thing as
+   lambda handling. */
+lily_sym *lily_parser_interp_eval(lily_parse_state *parser, int start_line,
+        char *text)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_load_copy_string(lex, "[expand]", lm_no_tags, text);
+    lex->line_num = start_line;
+    lily_lexer(parser->lex);
+
+    if (lex->token == tk_eof)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Empty interpolation block.\n");
+
+    lily_ast_freeze_state(parser->ast_pool);
+    expression(parser);
+
+    lily_sym *result = lily_emit_eval_interp_expr(parser->emit,
+            parser->ast_pool);
+
+    if (lex->token != tk_eof)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Interpolation block must be a single expression.\n",
+                tokname(lex->token));
+
+    if (result == NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Interpolation command does not return a value.\n");
+
+    lily_ast_thaw_state(parser->ast_pool);
+
+    lily_pop_lex_entry(lex);
+    return result;
+}
+
 /* This is the main workhorse of lambda handling. It takes the lambda body and
    works through it. This is fairly complicated, because this happens during
    tree eval. As such, the current state has to be saved and a lambda has to be
@@ -2146,7 +2207,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        Additionally, lambda_body is a shallow copy of data within the ast's
        string pool. A deep copy MUST be made because expressions within this
        lambda may cause the ast's string pool to be resized. */
-    lily_load_copy_string(lex, "[lambda]", lm_no_tags, lambda_body);
+    lily_load_copy_string(lex, "[expand]", lm_no_tags, lambda_body);
     lex->line_num = lambda_start_line;
 
     /* Block entry assumes that the most recent var added is the var to bind
@@ -2589,7 +2650,8 @@ static void statement(lily_parse_state *parser, int multi)
         else if (token == tk_integer || token == tk_double ||
                  token == tk_double_quote || token == tk_left_parenth ||
                  token == tk_left_bracket || token == tk_tuple_open ||
-                 token == tk_prop_word || token == tk_bytestring) {
+                 token == tk_prop_word || token == tk_bytestring ||
+                 token == tk_dollar_string) {
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->ast_pool);
         }
@@ -3668,6 +3730,7 @@ static void parser_loop(lily_parse_state *parser)
                  lex->token == tk_left_parenth ||
                  lex->token == tk_left_bracket ||
                  lex->token == tk_bytestring ||
+                 lex->token == tk_dollar_string ||
                  lex->token == tk_tuple_open) {
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->ast_pool);
@@ -3744,9 +3807,9 @@ char *lily_build_error_message(lily_parse_state *parser)
         int fixed_line_num = (raiser->line_adjust == 0 ?
                 parser->lex->line_num : raiser->line_adjust);
 
-        /* The parser handles lambda processing by putting entries with the
-           name [lambda]. Don't show these. */
-        while (strcmp(iter->filename, "[lambda]") == 0)
+        /* The parser handles lambda and interpolation processing by putting
+           entries with the name [expand]. Don't show these. */
+        while (strcmp(iter->filename, "[expand]") == 0)
             iter = iter->prev;
 
         if (strcmp(iter->filename, "[builtin]") != 0) {

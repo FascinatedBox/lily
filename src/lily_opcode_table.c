@@ -42,6 +42,7 @@ const int opcode_table[][8] = {
     {o_get_global,          3, C_LINENO,         C_GLOBAL_INPUT,   C_OUTPUT         -1,              -1,           -1},
     {o_set_global,          3, C_LINENO,         C_INPUT,          C_GLOBAL_OUTPUT, -1,              -1,           -1},
     {o_get_readonly,        3, C_LINENO,         C_READONLY_INPUT, C_OUTPUT,        -1,              -1,           -1},
+    {o_get_interp_readonly, 3, C_LINENO,         C_READONLY_INPUT, C_OUTPUT,        -1,              -1,           -1},
     {o_get_property,        4, C_LINENO,         C_INPUT,          C_INT_VAL,       C_OUTPUT,        -1,           -1},
     {o_set_property,        4, C_LINENO,         C_INPUT,          C_INT_VAL,       C_INPUT,         -1,           -1},
     {o_push_try,            2, C_LINENO,         C_JUMP,           C_INT_VAL,       -1,              -1,           -1},
@@ -58,5 +59,6 @@ const int opcode_table[][8] = {
     {o_create_function,     3, C_INPUT,          C_READONLY_INPUT, C_OUTPUT,        -1,              -1,           -1},
     {o_load_class_closure,  4, C_LINENO,         C_INPUT,          C_INT_VAL,       C_OUTPUT,        -1,           -1},
     {o_load_closure,        4, C_LINENO,         C_COUNT,          C_COUNT_SKIPS,   C_OUTPUT,        -1,           -1},
+    {o_interpolation,       4, C_LINENO,         C_COUNT,          C_COUNT_LIST,    C_OUTPUT,        -1,           -1},
     {o_return_from_vm,      1, C_NOP,            -1,               -1,              -1,              -1,           -1}
 };

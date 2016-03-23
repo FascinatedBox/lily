@@ -271,6 +271,7 @@ void lily_emit_eval_condition(lily_emit_state *, lily_ast_pool *);
 void lily_emit_eval_expr_to_var(lily_emit_state *, lily_ast_pool *,
         lily_var *);
 void lily_emit_eval_expr(lily_emit_state *, lily_ast_pool *);
+lily_sym *lily_emit_eval_interp_expr(lily_emit_state *, lily_ast_pool *);
 void lily_emit_finalize_for_in(lily_emit_state *, lily_var *, lily_var *,
         lily_var *, lily_sym *, int);
 void lily_emit_eval_lambda_body(lily_emit_state *, lily_ast_pool *, lily_type *);

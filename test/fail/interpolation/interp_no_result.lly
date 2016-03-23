@@ -1,0 +1,6 @@
+#[
+SyntaxError: Interpolation command does not return a value.
+    from interp_no_result.lly:6
+]#
+
+var v = $"^(print(1))"

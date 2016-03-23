@@ -2680,6 +2680,56 @@ void eval_upvalue(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)s;
 }
 
+/* This evaluates an interpolation block `$"..."`. The children of this tree are
+   divided into either tree_literal or tree_interp_block. The former does not
+   need to be evaluated. The latter */
+static void eval_interpolation(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_ast *tree_iter = ast->arg_start;
+    while (tree_iter) {
+        if (tree_iter->tree_type == tree_interp_block) {
+            char *interp_body = lily_membuf_get(emit->ast_membuf,
+                    tree_iter->membuf_pos);
+            lily_sym *result = lily_parser_interp_eval(emit->parser,
+                    tree_iter->line_num, interp_body);
+            if (result == NULL)
+                lily_raise_adjusted(emit->raiser, tree_iter->line_num,
+                        lily_SyntaxError,
+                        "Interpolation expression does not yield a value.\n",
+                        "");
+
+            tree_iter->result = result;
+        }
+        else {
+            /* Don't call eval_tree on this. Interpolation has no way of knowing
+               if it's being given a value that has been evaluated if that is
+               done. Instead, make a new special opcode that will tag the value
+               with that information. This is safe, because this value will not
+               be saved anywhere. */
+            lily_type *string_type = emit->symtab->string_class->type;
+            lily_storage *s = get_storage(emit, string_type);
+            write_4(emit, o_get_interp_readonly, tree_iter->line_num,
+                    tree_iter->literal->reg_spot, s->reg_spot);
+            tree_iter->result = (lily_sym *)s;
+        }
+
+        tree_iter = tree_iter->next_arg;
+    }
+
+    write_3(emit, o_interpolation, ast->line_num, ast->args_collected);
+    write_prep(emit, ast->args_collected);
+    int i;
+    lily_ast *arg = ast->arg_start;
+    for (i = 0, arg = ast->arg_start; arg != NULL; arg = arg->next_arg, i++)
+        emit->code[emit->code_pos + i] = arg->result->reg_spot;
+
+    lily_storage *s = get_storage(emit, emit->symtab->string_class->type);
+    emit->code[emit->code_pos + i] = s->reg_spot;
+
+    emit->code_pos += i + 1;
+    ast->result = (lily_sym *)s;
+}
+
 /* This evaluates a lambda. The parser sent the lambda over as a blob of text
    since it didn't know what the types were. Now that the types are known, pass
    it back to the parser to, umm, parse. */
@@ -3987,6 +4037,8 @@ static void eval_raw(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
 
         eval_unary_op(emit, ast);
     }
+    else if (ast->tree_type == tree_interp_top)
+        eval_interpolation(emit, ast);
     else if (ast->tree_type == tree_list)
         eval_build_list(emit, ast, expect);
     else if (ast->tree_type == tree_hash)
@@ -4071,6 +4123,12 @@ void lily_emit_eval_expr(lily_emit_state *emit, lily_ast_pool *ap)
     emit->expr_num++;
 
     lily_ast_reset_pool(ap);
+}
+
+lily_sym *lily_emit_eval_interp_expr(lily_emit_state *emit, lily_ast_pool *ap)
+{
+    eval_tree(emit, ap->root, NULL);
+    return ap->root->result;
 }
 
 /* This is used by 'for...in'. It evaluates an expression, then writes an

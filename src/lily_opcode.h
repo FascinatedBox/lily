@@ -259,6 +259,8 @@ typedef enum {
        loads of functions. */
     o_get_readonly,
 
+    o_get_interp_readonly,
+
     /* get property:
        * int lineno
        * reg local_reg
@@ -304,6 +306,8 @@ typedef enum {
     o_load_class_closure,
 
     o_load_closure,
+
+    o_interpolation,
 
     /* Return from vm:
        This is a special opcode used to leave the vm. It does not take any

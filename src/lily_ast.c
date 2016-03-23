@@ -660,13 +660,14 @@ void lily_ast_push_self(lily_ast_pool *ap)
     merge_value(ap, a);
 }
 
-void lily_ast_push_lambda(lily_ast_pool *ap, int start_line, char *lambda_text)
+void lily_ast_push_expanding(lily_ast_pool *ap, lily_tree_type tt,
+        int start_line, char *text)
 {
-    AST_COMMON_INIT(a, tree_lambda)
+    AST_COMMON_INIT(a, tt)
 
-    a->membuf_pos = lily_membuf_add(ap->ast_membuf, lambda_text);
-    /* Without this next line, a multi-line lambda would start counting lines
-       from where it stopped (resulting in invalid line numbers). */
+    a->membuf_pos = lily_membuf_add(ap->ast_membuf, text);
+    /* Expanding trees need this so that their line numbers make sense if they
+       span multiple lines. */
     a->line_num = start_line;
 
     merge_value(ap, a);
