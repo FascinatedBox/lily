@@ -6,7 +6,7 @@ if [1 => "a", 2 => "b"] != [2 => "b", 1 => "a"]:
 if [[1]] == [[2]]:
     ok = 0
 
-if printfmt != printfmt:
+if print != print:
     ok = 0
 
 if <[1, "1", [1]]> != <[1, "1", [1]]>:

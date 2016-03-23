@@ -5,8 +5,7 @@ define ok(b: Boolean, s: String)
     total += 1
 
     if b == false: {
-        String.format("Test %d (%s) failed.\n", Dynamic(total), Dynamic(s))
-            |> stderr.write
+        stderr.write($"Test ^(total) (^(s)) failed.\n")
         failed += 1
     }
 }
@@ -26,23 +25,6 @@ ok("ÀÈaÌÒÜ".find("ÈaÌ").is_some(), "String.find utf-8 success case.")
 ok("1".find("12345").is_none(),    "String.find where needle exceeds haystack.")
 ok("".find("").is_none(),          "String.find where haystack is empty.")
 ok("1234".find("5").is_none(),     "String.find needle not in haystack.")
-
-class Point {}
-
-ok((None         |> Dynamic |> "%s".format) == "None",            "String.format with None.")
-ok(([1, 2]       |> Dynamic |> "%s".format) == "[1, 2]",          "String.format with [1, 2].")
-ok((12345        |> Dynamic |> "%s".format) == "12345",           "String.format with 12345.")
-ok((1.5          |> Dynamic |> "%s".format) == "1.5",             "String.format with 1.5.")
-ok(([1 => 2]     |> Dynamic |> "%s".format) == "[1 => 2]",        "String.format with [1 => 2].")
-ok((Point() |> Dynamic |> "%s".format).startswith("<Point"), "String.format with user-defined class.")
-ok({||
-    var result = false
-    try:
-        "%s".format()
-    except FormatError:
-        result = true
-    result
-    }(),                                                          "String.format raises FormatError with wrong # of arguments.")
 
 ok("<&>".htmlencode() == "&lt;&amp;&gt;",     "String.htmlencode full spectrum.")
 ok("+<&>+".htmlencode() == "+&lt;&amp;&gt;+", "String.htmlencode without replacing start + end.")
@@ -116,7 +98,6 @@ ok("ABC".upper() == "ABC",                     "String.upper ignores 'ABC'.")
 ok("abc".upper() == "ABC",                     "String.upper basic success case.")
 
 if failed == 0:
-    printfmt("%d of %d tests passed.\n", Dynamic(total), Dynamic(total))
+    print($"^(total) of ^(total) tests passed.")
 else:
-    String.format("%d tests have failed.\n", Dynamic(failed))
-    |> stderr.write
+    stderr.write($"^(failed) tests have failed.\n")

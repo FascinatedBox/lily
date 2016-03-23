@@ -5,15 +5,14 @@ define ok(b: Boolean, s: String)
     total += 1
 
     if b == false: {
-        String.format("Test %d (%s) failed.\n", Dynamic(total), Dynamic(s))
-            |> stderr.write
+        stderr.write($"Test ^(total) (^(s)) failed.\n")
         failed += 1
     }
 }
 
 # Make sure this check is up before anything else, since it's line-sensitive.
 
-ok(__line__ == 16, "Check __line__")
+ok(__line__ == 15, "Check __line__")
 
 # This file contains tests that check various core parts of the interpreter.
 # Most of these tests are unlikely to break unless the interpreter has some
@@ -303,7 +302,6 @@ ok({||
     v == 2}(),                            "1 +1 is seen as 1 + 1 when binop needed.")
 
 if failed == 0:
-    printfmt("%d of %d tests passed.\n", Dynamic(total), Dynamic(total))
+    print($"^(total) of ^(total) tests passed.")
 else:
-    String.format("%d tests have failed.\n", Dynamic(failed))
-    |> stderr.write
+    stderr.write($"^(failed) tests have failed.\n")

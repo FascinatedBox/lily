@@ -143,8 +143,6 @@ void lily_vm_ensure_class_table(lily_vm_state *, int);
 void lily_vm_add_class_unchecked(lily_vm_state *, lily_class *);
 void lily_vm_add_class(lily_vm_state *, lily_class *);
 
-void lily_process_format_string(lily_vm_state *, uint16_t *);
-
 lily_value *lily_foreign_call(lily_vm_state *, int *, int, lily_value *,
         int, ...);
 void lily_vm_list_ensure(lily_vm_state *, uint32_t);

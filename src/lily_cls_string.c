@@ -193,18 +193,6 @@ void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         lily_move_shared_enum(result_arg, lily_get_none(vm));
 }
 
-void lily_string_format(lily_vm_state *vm, uint16_t argc, uint16_t *code)
-{
-    lily_process_format_string(vm, code);
-    char *buffer = vm->vm_buffer->message;
-    lily_value *result_arg = vm->vm_regs[code[0]];
-    lily_string_val *new_sv = make_sv(vm, strlen(buffer) + 1);
-
-    strcpy(new_sv->string, buffer);
-
-    lily_move_string(result_arg, new_sv);
-}
-
 void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -956,11 +944,8 @@ static const lily_func_seed endswith =
 static const lily_func_seed find =
     {&endswith, "find", dyna_function, "(String, String):Option[Integer]", lily_string_find};
 
-static const lily_func_seed format =
-    {&find, "format", dyna_function, "(String, Dynamic...):String", lily_string_format};
-
 static const lily_func_seed htmlencode =
-    {&format, "htmlencode", dyna_function, "(String):String", lily_string_htmlencode};
+    {&find, "htmlencode", dyna_function, "(String):String", lily_string_htmlencode};
 
 static const lily_func_seed isalpha_fn =
     {&htmlencode, "isalpha", dyna_function, "(String):Boolean", lily_string_isalpha};

@@ -1,8 +1,0 @@
-#[
-FormatError: Not enough args for printfmt.
-Traceback:
-    from [C]: in printfmt
-    from trigger_formaterror.lly:8: in __main__
-]#
-
-printfmt("%s%s%s%s%s", Dynamic(""))
