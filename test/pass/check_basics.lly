@@ -106,10 +106,12 @@ ok("abc\adef\a" == """abc\adef\a""", "String escape at mid and end.")
 ok({|| "\n" }() == "\n",             "String escape works within a lambda.")
 ok({|| "\"" }() == "\"",             "String escape within a lambda (2).")
 ok({|| B"\000" }() == B"\000",       "Bytestring collection works within a lambda.")
+ok("""a
+b
+c""" == "abc",                       "Multi-line string collect.")
 
 # utf-8
 
-# Invalid token here? Why?
 ok({||
     var h3llö = "hello"
     true}(),                         "utf-8 identifier.")
