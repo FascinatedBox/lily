@@ -5,8 +5,7 @@ define ok(b: Boolean, s: String)
     total += 1
 
     if b == false: {
-        String.format("Test %d (%s) failed.\n", Dynamic(total), Dynamic(s))
-            |> stderr.write
+        stderr.write($"Test ^(total) (^(s)) failed.\n")
         failed += 1
     }
 }
@@ -265,7 +264,6 @@ ok({||
     }(),                                "List.unshift pushing simple numbers.")
 
 if failed == 0:
-    printfmt("%d of %d tests passed.\n", Dynamic(total), Dynamic(total))
+    print($"^(total) of ^(total) tests passed.")
 else:
-    String.format("%d tests have failed.\n", Dynamic(failed))
-    |> stderr.write
+    stderr.write($"^(failed) tests have failed.\n")

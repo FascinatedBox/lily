@@ -88,7 +88,6 @@ static const lily_class_seed question_seed =
 };
 
 void lily_builtin_print(lily_vm_state *, uint16_t, uint16_t *);
-void lily_builtin_printfmt(lily_vm_state *, uint16_t, uint16_t *);
 void lily_builtin_calltrace(lily_vm_state *, uint16_t, uint16_t *);
 
 static const lily_variant_seed seed_left =
@@ -165,10 +164,8 @@ static const lily_func_seed calltrace =
     {&dbz_error, "calltrace", dyna_function, ":List[String]", lily_builtin_calltrace};
 static const lily_func_seed print =
     {&calltrace, "print", dyna_function, "[A](A)", lily_builtin_print};
-static const lily_func_seed printfmt =
-    {&print, "printfmt", dyna_function, "(String, Dynamic...)", lily_builtin_printfmt};
 static const lily_var_seed seed_stderr =
-        {&printfmt, "stderr", dyna_var, "File"};
+        {&print, "stderr", dyna_var, "File"};
 static const lily_var_seed seed_stdout =
         {&seed_stderr, "stdout", dyna_var, "File"};
 static const lily_var_seed seed_stdin =
