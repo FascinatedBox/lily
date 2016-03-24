@@ -172,7 +172,6 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
         lily_raiser *raiser)
 {
     lily_vm_state *vm = lily_malloc(sizeof(lily_vm_state));
-    vm->data = options->data;
     vm->gc_threshold = options->gc_threshold;
 
     /* todo: This is a terrible, horrible key to use. Make a better one using
@@ -206,6 +205,7 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->vm_list->size = 4;
     vm->class_count = 0;
     vm->class_table = NULL;
+    vm->stdout_reg = NULL;
 
     add_call_frame(vm);
 
@@ -677,19 +677,36 @@ void lily_builtin_calltrace(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_list(result, traceback_val);
 }
 
-void lily_builtin_print(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+static void do_print(lily_vm_state *vm, FILE *target, lily_value *source)
 {
-    lily_value *reg = vm->vm_regs[code[1]];
-    if (reg->flags & VAL_IS_STRING)
-        lily_impl_puts(vm->data, reg->value.string->string);
+    if (source->flags & VAL_IS_STRING)
+        fputs(source->value.string->string, target);
     else {
         lily_msgbuf *msgbuf = vm->vm_buffer;
         lily_msgbuf_flush(msgbuf);
-        lily_vm_add_value_to_msgbuf(vm, msgbuf, reg);
-        lily_impl_puts(vm->data, msgbuf->message);
+        lily_vm_add_value_to_msgbuf(vm, msgbuf, source);
+        fputs(msgbuf->message, target);
     }
 
-    lily_impl_puts(vm->data, "\n");
+    fputc('\n', target);
+}
+
+void lily_builtin_print(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    do_print(vm, stdout, vm->vm_regs[code[1]]);
+}
+
+/* Initially, print is implemented through lily_builtin_print. However, when
+   stdout is dynaloaded, that doesn't work. When stdout is found, print needs to
+   use the register holding Lily's stdout, not the plain C stdout. */
+static void builtin_stdout_print(lily_vm_state *vm, uint16_t argc,
+        uint16_t *code)
+{
+    lily_file_val *stdout_val = vm->stdout_reg->value.file;
+    if (stdout_val->inner_file == NULL)
+        lily_raise(vm->raiser, lily_IOError, "IO operation on closed file.\n");
+
+    do_print(vm, stdout_val->inner_file, vm->vm_regs[code[1]]);
 }
 
 /***
@@ -1879,6 +1896,29 @@ static void load_foreign_ties(lily_vm_state *vm)
     vm->symtab->foreign_ties = NULL;
 }
 
+static void maybe_fix_print(lily_vm_state *vm)
+{
+    lily_symtab *symtab = vm->symtab;
+    lily_import_entry *builtin = symtab->builtin_import;
+    lily_var *stdout_var = lily_find_var(symtab, builtin, "stdout");
+
+    if (stdout_var) {
+        lily_var *print_var = lily_find_var(symtab, builtin, "print");
+        if (print_var) {
+            /* Normally, the implementation of print will shoot directly to
+               raw stdout. It's really fast because it doesn't have to load
+               stdout from a register, and doesn't have to check for stdout
+               maybe being closed.
+               Now that stdout has been dynaloaded, swap the underlying function
+               for print to the safe one. */
+            lily_tie *print_tie = vm->readonly_table[print_var->reg_spot];
+            print_tie->value.function->foreign_func = builtin_stdout_print;
+            lily_value *stdout_reg = vm->regs_from_main[stdout_var->reg_spot];
+            vm->stdout_reg = stdout_reg;
+        }
+    }
+}
+
 /* This must be called before lily_vm_execute if the parser has read any data
    in. This makes sure that __main__ has enough register slots, that the
    vm->readonly_table is set, and that foreign ties are loaded. */
@@ -1926,6 +1966,9 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
 
     if (vm->readonly_count != symtab->next_readonly_spot)
         setup_readonly_table(vm);
+
+    if (vm->stdout_reg == NULL)
+        maybe_fix_print(vm);
 
     vm->num_registers = main_function->reg_count;
 
