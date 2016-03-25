@@ -1056,6 +1056,8 @@ static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
             ensure_label_size(lexer, label_pos + line_length + 3);
             label = lexer->label;
             new_ch = &lexer->input_buffer[0];
+            label[label_pos] = '\n';
+            label_pos++;
         }
         else if (*new_ch == '"' &&
                  ((is_multiline == 0) ||
