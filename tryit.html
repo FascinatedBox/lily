@@ -94,21 +94,21 @@ print("Hello World")
 its position in the array (door 2 twice, door 10 visited 10 times).
 ]#
 
-var doors = list::fill(100, false)
+var doors = List.fill(100, false)
 
 # Braces are not necessary here because it's just a single expression.
 for i in 0...99:
     for j in i...99 by i + 1:
         doors[j] = !doors[j]
 
-var open_doors: list[integer] = []
+var open_doors: List[Integer] = []
 
 doors.each_index{|i|
     if doors[i]:
         open_doors.push(i + 1)
 }
 
-printfmt("Open doors: %s\n", open_doors)
+print($"Open doors: ^(open_doors)")
 </div>
 
 <div class="example" id="transform.lly">
@@ -117,21 +117,21 @@ Type safety and generics are important parts of Lily.
 Transform a value, safely.
 ]#
 
-define transform[A, B](value: A, f: function(A => B)): B
+define transform[A, B](value: A, f: Function(A => B)): B
 {
     return f(value)
 }
 
-# C++-styled static reference to class member function.
-print(transform(10, integer::to_s))
+# Static reference to class member function.
+print(transform(10, Integer.to_s))
 
 # ...or as an instance method
-print(transform(20, 20.to_s)
+print(transform(20, 20.to_s))
 
 # ...or a lambda
 print(transform("   abc   ", {|a| a.trim().upper() }))
 
-# Lily won't allow this: 'a' is inferred as 'integer', and integer does not
+# Lily won't allow this: 'a' is inferred as 'Integer', and Integer does not
 # have this method.
 # print(transform(10, {|a| a.upper()}))
 </div>
@@ -142,16 +142,16 @@ print(transform("   abc   ", {|a| a.trim().upper() }))
 ]#
 
 enum BTree {
-    Value(integer)
+    Value(Integer)
     Branch(BTree, BTree)
 
-    define repr: string {
+    define repr: String {
         # Pattern matching is supported, and all cases must be handled.
         match self: {
             case Value(v):
                 return v.to_s()
             case Branch(left, right):
-                return "(%s %s)".format(left.repr(), right.repr())
+                return $"^(left.repr()) ^(right.repr())"
         }
     }
 }
@@ -187,6 +187,59 @@ var parser_get_error;
 var parser_destroy;
 var results_elem;
 
+function get_char_processor()
+{
+    var buffer = []
+    /* SOURCE: https://docs.omniref.com/js/npm/microflo/0.3.13/symbols/Runtime%23processCChar */
+    function processCode(code) {
+        code = code & 0xFF;
+        if (buffer.length == 0) {
+            if ((code & 0x80) == 0x00) {        // 0xxxxxxx
+                return String.fromCharCode(code);
+            }
+            buffer.push(code);
+            if ((code & 0xE0) == 0xC0) {        // 110xxxxx
+                needed = 1;
+            } else if ((code & 0xF0) == 0xE0) { // 1110xxxx
+                needed = 2;
+            } else {                            // 11110xxx
+                needed = 3;
+            }
+            return '';
+        }
+        if (needed) {
+            buffer.push(code);
+            needed--;
+            if (needed > 0) return '';
+        }
+        var c1 = buffer[0];
+        var c2 = buffer[1];
+        var c3 = buffer[2];
+        var c4 = buffer[3];
+        var ret;
+        if (buffer.length == 2) {
+            ret = String.fromCharCode(((c1 & 0x1F) << 6)  | (c2 & 0x3F));
+        } else if (buffer.length == 3) {
+            ret = String.fromCharCode(((c1 & 0x0F) << 12) | ((c2 & 0x3F) << 6)  | (c3 & 0x3F));
+        } else {
+            // http://mathiasbynens.be/notes/javascript-encoding#surrogate-formulae
+            var codePoint = ((c1 & 0x07) << 18) | ((c2 & 0x3F) << 12) |
+                            ((c3 & 0x3F) << 6)  | (c4 & 0x3F);
+            ret = String.fromCharCode(
+                    Math.floor((codePoint - 0x10000) / 0x400) + 0xD800,
+                    (codePoint - 0x10000) % 0x400 + 0xDC00);
+        }
+        buffer.length = 0;
+        return ret;
+    }
+    function put_char(tty, val) {
+        var c = processCode(val);
+        results_elem.value += c;
+    }
+
+    return put_char;
+}
+
 function ready() {
     parser_create = Module.cwrap('get_parser', 'number', []);
     parser_run = Module.cwrap('run_parser', 'number', ['number', 'string']);
@@ -194,17 +247,16 @@ function ready() {
     parser_destroy = Module.cwrap('destroy_parser', '', ['number']);
     results_elem = document.getElementById("results");
 
-    var fn = function(tty, val) { results_elem.value += TTY.utf8.processCChar(val); }
     /* Emscripten provides two printing functions to customize printing (print
        and printErr within Module). These functions are called when either stdout
        or stderr is given a line with the data. Most of the time, that's okay.
-       However, Lily provides file::write, which does not have an ending newline.
+       However, Lily provides File.write, which does not have an ending newline.
        This causes a problem, because emscripten won't think to flush stdout /
        stderr. So, as a workaround, redefine stdout and stderr's per-char write
        function to immediately put down a result (and pump it to the result
        window. */
-    FS.getStream(2).tty.ops.put_char = fn;
-    FS.getStream(3).tty.ops.put_char = fn;
+    FS.getStream(1).tty.ops.put_char = get_char_processor();
+    FS.getStream(2).tty.ops.put_char = get_char_processor();
 }
 
 function updatecontent() {
@@ -223,8 +275,6 @@ function execute() {
        teardown should be 1:1 for alloc/free. Still, it could be greatly
        improved by state rewinding sometime in the future. That would allow
        using the same parser and save a lot of excess alloc/free calls. */
-    var streams = [null, FS.getStream(1), FS.getStream(2), FS.getStream(3)];
-
     results_elem.value = "";
     var p = parser_create();
     var code_result = parser_run(p, codemirror.getValue());
@@ -232,12 +282,6 @@ function execute() {
         results_elem.value = parser_get_error(p);
 
     parser_destroy(p);
-
-    /* If any of std{in,out,err} are dynaloaded, it causes the FS stream to be
-       set to null. Fix that. */
-    FS.streams[1] = streams[1];
-    FS.streams[2] = streams[2];
-    FS.streams[3] = streams[3];
 }
 
 var selector = document.getElementById("examples")
