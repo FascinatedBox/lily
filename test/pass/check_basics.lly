@@ -108,7 +108,7 @@ ok({|| "\"" }() == "\"",             "String escape within a lambda (2).")
 ok({|| B"\000" }() == B"\000",       "Bytestring collection works within a lambda.")
 ok("""a
 b
-c""" == "abc",                       "Multi-line string collect.")
+c""" == "a\nb\nc",                   "Multi-line string collect.")
 
 # utf-8
 
