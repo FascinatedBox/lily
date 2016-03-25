@@ -2149,14 +2149,14 @@ static int assign_optimize_check(lily_ast *ast)
 static int type_matchup(lily_emit_state *emit, lily_type *want_type,
         lily_ast *right)
 {
-    int ret = 1;
+    int ret;
     lily_type *right_type;
     if (right->result)
         right_type = right->result->type;
     else
         right_type = right->padded_variant_type;
 
-    if (want_type->cls->id != SYM_CLASS_GENERIC &&
+    if (want_type == right_type ||
         lily_ts_type_greater_eq(emit->ts, want_type, right_type))
         ret = 1;
     else

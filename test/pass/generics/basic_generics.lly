@@ -11,6 +11,10 @@ define check_generics_inherited {
     }
 }
 
+define check_generic_sub_assign[A](a: List[A]) {
+    a[0] = a[1]
+}
+
 define check_empty_list_assign[A](a: List[A]) {
     a = []
 }
