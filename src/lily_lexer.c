@@ -1042,7 +1042,7 @@ static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
     while (1) {
         if (*new_ch == '\\')
             collect_escape(lexer, &new_ch, &label_pos, flags);
-        else if (*new_ch == '\n') {
+        else if (*new_ch == '\n' && (flags & SQ_STOP_ON_INTERP) == 0) {
             if (is_multiline == 0)
                 lily_raise(lexer->raiser, lily_SyntaxError,
                         "Newline in single-line string.\n");
