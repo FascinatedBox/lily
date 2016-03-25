@@ -23,6 +23,9 @@ ok($"^(10)aaa" == "10aaa",         "Right-padded interpolation.")
 ok($"aaa^(10)aaa" == "aaa10aaa",   "Dual-padded interpolation.")
 ok($"^(1)^(2)^(3)" == "123",       "Triple interpolation, no padding.")
 ok($"^(1),^(2),^(3)" == "1,2,3",   "Triple interpolation, divided.")
+ok($"""
+^(1)
+""" == "\n1\n",                    "Interpolation with a multi-line string.")
 
 define f(a: Integer)
 {
