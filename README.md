@@ -3,128 +3,330 @@ The Lily Programming Language
 
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/jesserayadkins/lily?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-Lily is an interpreted, garbage-collected language that's a bit different than the rest:
+Lily is a programming language that can be used for general-purpose programming (the default), or for server-side scripting (with code between `<?lily ... ?>` tags). Lily's design is inspired by a mixture of languages: C, F#, Haskell, Python, Ruby, and Rust. Lily's key features are:
 
-**Static typing that doesn't get in the way:**
-Every variable's type is fixed to what it's first assigned to, and all variables must have a starting value.
+
+* __Static typing, interpreted speed__: Lily is an interpreted language, which means that there's no compiler that you'll be waiting on. A fast turn-around time encourages exploration of ideas, instead of tricks to get build times down. The `pre-commit-hook.py` script churns through over 2000+ lines spread over 200+ files, typically under 3 seconds.
+
+* __Safety first__: `Option` and `Either` are built-in and available everywhere.
+Lily's design is inspired by a mixture of languages: C, Python, Ruby, F#, Rust, and Haskell.
+
+* __The garbage collector__: Lily's garbage collector is able to take care of complicated resources, like those that the postgres module adds. Native Lily classes are taken care of automatically (no finalizers to worry about writing).
+
+* __Pay only for what you use__: Let's say you write a whole program, and never use the `Either` enum. You also make it without using, say, `Double.to_s`. Since Lily is statically-typed throughout, it's only going to dynamically allocate memory for built-in classes and methods if it truly needs to. By doing so, there's no time wasted allocating memory for things that are never used.
+
+
+In style, Lily is middle ground between functional concepts and object-oriented ideas. Lily's syntax is designed around both consistency and safety.
+
+Here are some samples of different parts of Lily:
+
+### Variable declaration
+
 ```
-var some_int = 10        # Type: integer
-var my_str = "asdf"      # Type: string
-var a_list = [1, 2, 3]   # Type: list[integer]
+# This is a comment!
+var age = 5
+var a_string = "Hello"
+var numbers = [1, 2, 3]
+var suffixes = ["B" => 0, "KB" => 1000, "MB" => 1000000]
 
-a_list.append(some_int)  # Valid
+# Bytestrings allow escape codes above \127, and \000.
+var bytes = B"\255\253\001"
 
-a_list.append(my_str)    # Invalid
+# <[ ... ]> denotes a tuple.
+var record = <["abc", 123, 45.67]>
 ```
 
-**Encourages composability and chaining with a fluid syntax:**
+### Functions
+
 ```
-# You can call a method directly on a value...
-[1].append(2)
-
-# which is just syntatic sugar for this:
-list::append([1], 4)
-
-# Function piping is another option:
-"    abc    " |> string::trim
-
-define make_list(x: integer, y: integer => list[string])
+define say_hello
 {
-    return [x, y]
+	print("Hello")
 }
 
-make_list(10, 20).append(30)
-```
-
-**Includes parametric polymorphism (Rank-1)**
-```
-#[ The square braces denote a generic types, from A to Z.
-   When apply is invoked, A must always be the same thing. ]#
-define apply[A](input: A, f: function(A => A) => A) {
-    return f(input)
-}
-define add_ten(x: integer) { return x + 10 }
-
-# This is valid, because whenever A is needed, integer is given.
-apply(10, add_ten)
-
-# This is not: A is first list[integer], then integer.
-apply([1], add_ten)
-
-# You an expand upon this as such:
-
-# This function will transform the input from type A, to type B.
-define transform[A, B](input: A, f: function(A => B) => B)
+define return_ten: Integer
 {
-    return f(input)
+	return 10
 }
 
-# integer::to_s has the type 'function(integer => string)'
-# A is solved as integer, B as string.
-# This is valid.
-transform(10, 10.to_s)
-
-# Lily supports lambdas, and lambdas participate in type inference.
-# Here, the lambda has one var of type A. Type A = string in this case.
-# 'trim' is a valid string method, and is allowed.
-# The lambda return has the type list[string]. This becomes type B.
-transform("10", {|a| [a.trim()]}
-```
-
-**Includes familiar OO features**
-```
-# The body of this class declaration becomes a function called 'new'.
-# This is used as the class constructor.
-# Class variables, like normal variables, must always have a starting value.
-class Point(x: integer, y: integer)
+define add(left: Integer, right: Integer): Integer
 {
-    # Class vars are denoted by an @ prefix.
-    public var @x = x
-    protected var @y = y
+	return left + right
+}
 
-    # 'self' is implicitly added to class methods.
-    define copy( => Point) {
-        return Point::new(@x, @y)
+define subtract(left: Integer, right: Integer): Integer
+{
+	return left - right
+}
+
+# Functions are first-class values too.
+var math_ops = ["+" => add, "-" => subtract]
+
+math_ops["+"](10, 20) # 30
+
+define total(numbers: Integer...): Integer
+{
+	var result = 0
+	numbers.each{|n| result += n }
+	return result
+}
+
+total()        # 0 
+total(1, 2, 3) # 6
+```
+
+### Classes
+
+```
+# Default values must be either a constant or a literal value.
+class Account(initial: *Integer = 0)
+{
+    # Similar to Scala, the body of a class is the constructor.
+    # @<name> denotes class members.
+    var @balance = initial
+    define deposit(amount: Integer) {
+        @balance += amount
+    }
+    define withdraw(amount: Integer) {
+        @balance -= amount
     }
 }
 
-var p = Point::new(1, 2)
-p.x = 3 # Valid
-p.y = 4 # Invalid: @y is protected within Point.
-```
+var my_account = Account(100)
+my_account.withdraw(10)
+print($"Account balance is now ^(my_account.balance).")
+# my_account = Account() # uses default value of 0.
 
-**Namespaced importing**
-
-```
-# (file: fib.lly)
-
-define fib(n: integer => integer)
+class Point(x: Integer, y: Integer)
 {
-    if n < 2:
-        return n
-    else:
-        return fib(n - 2) + fib(n - 1)
+    var @x = x
+    var @y = y
+    define move2D(moveX: Integer, moveY: Integer)
+    {
+        @x += moveX
+        @y += moveY
+    }
 }
 
-print("Hello")
+class Point3D(x: Integer, y: Integer, z: Integer) < Point(x, y)
+{
+    var @z = z
+    define move3D(moveX: Integer, moveY: Integer, moveZ: Integer)
+    {
+        self.move2D(moveX, moveY)
+        # Alternatively: Point.move2D(self, moveX, moveY)
+        @z += moveZ
+    }
+}
 
-# (file: start.lly)
-import fib
-
-fib::fib(10)
-
-# The 'print' statement will only be run on the first import.
-# Furthermore, access to everything within 'fib.lly' is gated off through 'fib'.
+class CustomError(code: Integer, message: String) < Exception(message)
+{
+    var @code = code
+}
 ```
 
-Getting Started
-=====
+### Blocks
 
-For this, you'll need a **C11** compiler (gcc or clang will do) and CMake. That's it. Grab a copy of the source, enter the root directory, and do this:
+```
+define bottles(count: *Integer = 10)
+{
+    # The { ... } allows for multiple expressions.
+    while count > 0: {
+        print(
+$"""
+^(count) bottles of beer on the wall,
+^(count) bottles of beer,
+take one down, pass it around,
+^(count - 1) bottles of beer on the wall!
+""")
+        count -= 1
+    }
+}
+
+bottles(5)
+# bottles()   # Uses the default value of 10
+
+define run_all_tests: Tuple[Integer, Integer] {
+    var failed = 0
+    var passed = 0
+
+    define check(input: Boolean, message: String)
+    {
+        # The { here means that all branches allow multiple expressions.
+        # A single } then closes the if.
+        if input == true: {
+            passed += 1
+        else:
+            print($"A test has failed (^(message)).")
+            failed += 1
+        }
+    }
+    check(1 + 1 == 2, "Make sure basic math still works.")
+
+    return <[passed, failed]>
+}
+
+define letter_for_score(score: Integer): String
+{
+    # Omitting the { means all branches allow only 1 expression.
+    if score > 90:
+        return "A"
+    elif score > 80:
+        return "B"
+    elif score > 70:
+        # print("Average") # Not allowed
+        return "C"
+    elif score > 60:
+        return "D"
+    else:
+        return "F"
+}
+
+define show_for_loop
+{
+    for i in 0...5:
+        print($"i is ^(i).")
+
+    # print(i) # Not allowed: i not in this scope.
+    var i = 0
+    for i in 0...5:
+        print($"i is ^(i).")
+
+    print(i) # 5
+}
+
+try: {
+    var v = 1
+    v = v / 0
+except DivisionByZeroError:
+    # print(v) # Not allowed: 'v' may or may not be valid.
+    print("Can't divide by zero!")
+}
+```
+
+### Generics
+
+```
+define transform[A, B](value: A, func: Function(A => B)): B
+{
+    return func(value)
+}
+
+transform(10, Integer.to_s) # "10"
+
+# This time, use a lambda. Lily will infer the type for 'a'.
+transform("  abc  ", {|a| a.trim().upper() })
+
+define inplace_sort[A](input: List[A], cmp: Function(A, A => Boolean)): List[A]
+{
+    for i in 0...input.size() - 1: {
+        var j = i
+        while j > 0 && cmp(input[j - 1], input[j]): {
+            var temp = input[j]
+            input[j] = input[j - 1]
+            input[j - 1] = temp
+            j -= 1
+        }
+    }
+    return input
+}
+
+inplace_sort([1, 3, 5, 2, 4], {|a, b| a > b})
+# [1, 2, 3, 4, 5]
+
+inplace_sort([1, 3, 5, 2, 4], {|a, b| a < b})
+# [5, 4, 3, 2, 1]
+
+inplace_sort([[1, 2], [1]], {|a, b| a.size() > b.size() })
+# [[1], [1, 2]]
+```
+
+### Enums
+
+```
+enum TerminalColor
+{
+    Black
+    Blue
+    Cyan
+    Green
+    Magenta
+    Red
+    White
+    Yellow
+}
+
+define terminal_example
+{
+    var foreground = Yellow
+
+    #[ Enums can have a variant as a default argument, so long as the variant
+       does not take arguments. ]#
+    define change_fg(new_fg: *TerminalColor = Black)
+    {
+        foreground = new_fg
+    }
+
+    define is_fg_yellow: Boolean
+    {
+        # 'match' is required to be exhaustive.
+        match foreground: {
+            case Black:   return false
+            case Blue:    return false
+            case Cyan:    return false
+            case Green:   return false
+            case Magenta: return false
+            case Red:     return false
+            case White:   return false
+            case Yellow:  return true
+        }
+        # Alternatively: return foreground == Yellow
+    }
+}
+
+#[
+Lily has a built-in enum called Option. It looks like this:
+
+enum Option[A] {
+    Some(A)
+    None
+
+    define is_some: Boolean {
+        match self: {
+            case Some(s): return true
+            case None:    return false
+        }
+    }
+
+    ...(and a few other methods)
+}
+]#
+
+define log_error(message: String, where: *Option[File] = None)
+{
+    var to_file = where.unwrap_or(stdin)
+    to_file.write(message)
+}
+```
+
+### import
+
+A module can be imported through, for example, `import server` or `import postgre as db`. The contents of the module are then accessible, but only through the name given (say, `server.httpmethod` or `db.Conn`. As of right now, all module imports are namespaced in some way (there is no `from x import *` equivalent right now).
+
+The code at the toplevel of a module is run once, and only for the first time the module is imported.
+
+Finally, files that are imported are only allowed to have code inside of them (no tags). This results in a strict separation between files that are code, and those that are not.
+
+Modules may be provided (ex: the apache bridge provides the server package), but they must still be explicitly loaded. Such behavior is intentional, as it prevents code from accidentally relying on some module being provided. It allows, for example, a `server.lly` file to be established as a fallback to allow a script to run locally.
+
+# Getting Started
+
+You'll need a compiler that supports C11 (gcc and clang have been tested), and cmake. To build Lily, all you have to do is:
+
 ```
 cmake .
 make
 make install
 ```
 
-This will build Lily without support for Apache or Postgres. To enable those, see the toplevel CMakeLists.txt for instructions.
+By default, the apache and postgres modules won't build, just in case you don't have the headers for them. To enable Apache, add `-DWITH_APACHE=on`. For postgres, add `-DWITH_POSTGRES=on`.
