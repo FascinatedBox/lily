@@ -2984,7 +2984,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 
 static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
 {
-    uint16_t opcode = -1;
+    int opcode = -1;
     lily_class *lhs_class = ast->left->result->type->cls;
     lily_storage *storage;
 
