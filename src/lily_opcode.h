@@ -259,8 +259,6 @@ typedef enum {
        loads of functions. */
     o_get_readonly,
 
-    o_get_interp_readonly,
-
     /* get property:
        * int lineno
        * reg local_reg

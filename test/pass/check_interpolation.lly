@@ -15,7 +15,7 @@ var global_i   = 10
 ok($"" == "",                      "Empty interpolation should equal an empty string.")
 ok($"asdf" == "asdf",              "Non-capturing interpolation (asdf = asdf).")
 ok($"^(10)" == "10",               "Capture of a literal expression.")
-ok($"^("10")" == "\"10\"",         "Capture of a string literal.")
+ok($"^("10")" == "10",             "Capture of a string literal.")
 ok($"^([1, 2, 3])" == "[1, 2, 3]", "Capture of a list.")
 ok($"^(global_i)" == "10",         "Capture of a global integer.")
 ok($"aaa^(10)" == "aaa10",         "Left-padded interpolation.")
