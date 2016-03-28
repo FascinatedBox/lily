@@ -36,9 +36,6 @@ lily_hash_elem *lily_hash_get_elem(lily_vm_state *vm, lily_hash_val *hash_val,
             if (flags & VAL_IS_INTEGER &&
                 iter_value.integer == key_value.integer)
                 ok = 1;
-            else if (flags & VAL_IS_DOUBLE &&
-                     iter_value.doubleval == key_value.doubleval)
-                ok = 1;
             else if (flags & VAL_IS_STRING &&
                     /* strings are immutable, so try a ptr compare first. */
                     ((iter_value.string == key_value.string) ||
