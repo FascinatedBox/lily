@@ -1,6 +1,5 @@
-# This test exists because and_then requires lambdas to pull upvalue types.
-# If that is not done, then this test will crash because B is not solved and
-# default to any (despite having a String value inside).
+# This test checks that lambdas can pull inference information when they are
+# to be returned. and_then is also called too, just to make sure it works.
 
 define and_then[A, B, C](f: Function(A => B), g: Function(B => C)):Function(A => C)
 {
@@ -12,7 +11,7 @@ define piped_and_then[A, B, C](f: Function(A => B), g: Function(B => C)):Functio
     return {|a| a |> f |> g }
 }
 
-define f(a: String): String { return a.concat(a) }
+define f(a: Integer): Integer { return a * a }
 
-and_then(f, f)("10")
-piped_and_then(f, and_then(f, f))("10")
+and_then(f, f)(10)
+piped_and_then(f, and_then(f, f))(20)
