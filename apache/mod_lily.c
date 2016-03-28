@@ -197,7 +197,7 @@ const lily_var_seed env_seed =
         {&get_seed, "env", dyna_var, "Hash[String, Tainted[String]]"};
 
 
-/*  Implements server::write
+/*  Implements server.write
 
     This function takes a string and writes the content directly to the server.
     This function is unique in that only string literals are accepted. If a
@@ -215,10 +215,10 @@ void lily_apache_server_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     ap_rputs(value, (request_rec *)vm->data);
 }
 
-/*  Implements server::write_raw
+/*  Implements server.write_raw
 
     This function takes a string and writes it directly to the server. It is
-    assumed that escaping has already been done by server::escape. */
+    assumed that escaping has already been done by server.escape. */
 void lily_apache_server_write_raw(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -229,10 +229,10 @@ void lily_apache_server_write_raw(lily_vm_state *vm, uint16_t argc, uint16_t *co
 
 void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code);
 
-/*  Implements server::escape
+/*  Implements server.escape
 
     This function takes a string and performs basic html encoding upon it. The
-    resulting string is safe to pass to server::write_raw. */
+    resulting string is safe to pass to server.write_raw. */
 void lily_apache_server_escape(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_string_htmlencode(vm, argc, code);
