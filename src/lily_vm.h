@@ -125,6 +125,8 @@ typedef struct lily_vm_state_ {
     lily_vm_list *vm_list;
     lily_symtab *symtab;
     lily_raiser *raiser;
+    void *data;
+
     /* If stdout has been dynaloaded, then this is the register that holds
        Lily's stdout. Otherwise, this is NULL. */
     lily_value *stdout_reg;
