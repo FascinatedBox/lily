@@ -10,11 +10,6 @@ define ok(b: Boolean, s: String)
     }
 }
 
-ok("".concat("") == "",            "String.concat with two empty strings.")
-ok("1".concat("") == "1",          "String.concat with '1' and ''.")
-ok("".concat("1") == "1",          "String.concat with '' and '1'.")                            
-ok("1".concat("2") == "12",        "String.concat with '1' and '2'.")
-                                
 ok("1".endswith("2") == false,     "String.endswith '1' and '2'.")
 ok("1".endswith("12345") == false, "String.endswith '1' and '12345'.")
 ok("1".endswith("1"),              "String.endswith '1' and '1'.")

@@ -1,8 +1,6 @@
 #[
-SyntaxError: Wrong number of arguments to String.concat (4 for 2).
-    from wrong_arg_count_class_method.lly:8
+SyntaxError: Wrong number of arguments to String.endswith (3 for 2).
+    from wrong_arg_count_class_method.lly:6
 ]#
 
-var s: String = ""
-
-s.concat(1, 2, 3)
+String.endswith("a", "b", "c")

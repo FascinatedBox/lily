@@ -128,10 +128,6 @@ ok({||
     }(),                                "List.fold with type Integer.")
 
 ok({||
-    ["1", "2", "3"].fold("", {|a, b| a.concat(b)}) == "123"
-    }(),                                "List.fold with type String.")
-
-ok({||
     var v: List[Integer] = []
     var result = true
     try:

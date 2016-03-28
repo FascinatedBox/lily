@@ -165,8 +165,8 @@ ok({||
     true }(),             "Basic tuple literal.")
 ok({||
     var t = <["1", 1]>
-    var s = t[0].concat("2")
-    s == "12"
+    var s = t[1].to_s()
+    s == "1"
     }(),                  "Inference works with tuple subscripts.")
 ok({||
     var t = <[0, [1]]>

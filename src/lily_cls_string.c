@@ -86,26 +86,6 @@ static const char follower_table[256] =
 /* F */ 4, 4, 4, 4, 4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
 };
 
-void lily_string_concat(lily_vm_state *vm, uint16_t argc, uint16_t *code)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    lily_value *result_arg = vm_regs[code[0]];
-    lily_value *self_arg = vm_regs[code[1]];
-    lily_value *other_arg = vm_regs[code[2]];
-
-    lily_string_val *self_sv = self_arg->value.string;
-    lily_string_val *other_sv = other_arg->value.string;
-
-    int new_size = self_sv->size + other_sv->size + 1;
-    lily_string_val *new_sv = make_sv(vm, new_size);
-
-    char *new_str = new_sv->string;
-    strcpy(new_str, self_sv->string);
-    strcat(new_str, other_sv->string);
-
-    lily_move_string(result_arg, new_sv);
-}
-
 void lily_string_endswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
@@ -935,11 +915,8 @@ void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
     lily_move_string(result_reg, result);
 }
 
-static const lily_func_seed concat =
-    {NULL, "concat", dyna_function, "(String, String):String", lily_string_concat};
-
 static const lily_func_seed endswith =
-    {&concat, "endswith", dyna_function, "(String, String):Boolean", lily_string_endswith};
+    {NULL, "endswith", dyna_function, "(String, String):Boolean", lily_string_endswith};
 
 static const lily_func_seed find =
     {&endswith, "find", dyna_function, "(String, String):Option[Integer]", lily_string_find};
