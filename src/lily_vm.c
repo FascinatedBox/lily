@@ -172,6 +172,7 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
         lily_raiser *raiser)
 {
     lily_vm_state *vm = lily_malloc(sizeof(lily_vm_state));
+    vm->data = options->data;
     vm->gc_threshold = options->gc_threshold;
 
     /* todo: This is a terrible, horrible key to use. Make a better one using
