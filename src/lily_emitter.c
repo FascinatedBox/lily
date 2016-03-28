@@ -2680,6 +2680,8 @@ void eval_upvalue(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)s;
 }
 
+static void emit_nonlocal_var(lily_emit_state *, lily_ast *);
+
 /* This evaluates an interpolation block `$"..."`. The children of this tree are
    divided into either tree_literal or tree_interp_block. The former does not
    need to be evaluated. The latter */
@@ -2701,16 +2703,7 @@ static void eval_interpolation(lily_emit_state *emit, lily_ast *ast)
             tree_iter->result = result;
         }
         else {
-            /* Don't call eval_tree on this. Interpolation has no way of knowing
-               if it's being given a value that has been evaluated if that is
-               done. Instead, make a new special opcode that will tag the value
-               with that information. This is safe, because this value will not
-               be saved anywhere. */
-            lily_type *string_type = emit->symtab->string_class->type;
-            lily_storage *s = get_storage(emit, string_type);
-            write_4(emit, o_get_interp_readonly, tree_iter->line_num,
-                    tree_iter->literal->reg_spot, s->reg_spot);
-            tree_iter->result = (lily_sym *)s;
+            emit_nonlocal_var(emit, tree_iter);
         }
 
         tree_iter = tree_iter->next_arg;

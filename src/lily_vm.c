@@ -637,8 +637,13 @@ static void key_error(lily_vm_state *vm, int code_pos, lily_value *key)
     vm->call_chain->line_num = vm->call_chain->code[code_pos + 1];
 
     lily_msgbuf *msgbuf = vm->raiser->msgbuf;
-    lily_vm_add_value_to_msgbuf(vm, msgbuf, key);
-    lily_msgbuf_add_char(msgbuf, '\n');
+
+    if (key->flags & VAL_IS_STRING) {
+        /* String values are required to be \0 terminated, so this is ok. */
+        lily_msgbuf_add_fmt(msgbuf, "\"^E\"\n", key->value.string->string);
+    }
+    else
+        lily_msgbuf_add_fmt(msgbuf, "%d\n", key->value.integer);
 
     lily_raise_prebuilt(vm->raiser, lily_KeyError);
 }
@@ -1026,10 +1031,7 @@ void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
     int i;
     for (i = 0;i < count;i++) {
         lily_value *v = vm_regs[code[3 + i]];
-        if (v->flags & VAL_IS_FOR_INTERP)
-            lily_msgbuf_add(vm_buffer, v->value.string->string);
-        else
-            lily_vm_add_value_to_msgbuf(vm, vm_buffer, v);
+        lily_vm_add_value_to_msgbuf(vm, vm_buffer, v);
     }
 
     lily_value *result_reg = vm_regs[code[3 + i]];
@@ -1712,12 +1714,8 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         lily_msgbuf_add_int(msgbuf, v->value.integer);
     else if (v->flags & VAL_IS_DOUBLE)
         lily_msgbuf_add_double(msgbuf, v->value.doubleval);
-    else if (v->flags & VAL_IS_STRING) {
-        lily_msgbuf_add_char(msgbuf, '\"');
-        /* Note: This is fine because strings can't contain \0. */
+    else if (v->flags & VAL_IS_STRING)
         lily_msgbuf_add(msgbuf, v->value.string->string);
-        lily_msgbuf_add_char(msgbuf, '\"');
-    }
     else if (v->flags & VAL_IS_BYTESTRING)
         lily_msgbuf_add_bytestring(msgbuf, v->value.string);
     else if (v->flags & VAL_IS_FUNCTION) {
@@ -2264,16 +2262,6 @@ void lily_vm_execute(lily_vm_state *vm)
                     vm->call_depth--;
                 }
             }
-                break;
-            case o_get_interp_readonly:
-                readonly_val = vm->readonly_table[code[code_pos+2]];
-                lhs_reg = vm_regs[code[code_pos+3]];
-
-                lily_deref(lhs_reg);
-
-                lhs_reg->value = readonly_val->value;
-                lhs_reg->flags = VAL_IS_STRING | VAL_IS_FOR_INTERP;
-                code_pos += 4;
                 break;
             case o_interpolation:
                 do_o_interpolation(vm, code+code_pos);
