@@ -61,7 +61,7 @@ static void add_escaped_sized(lily_msgbuf *msgbuf, int is_bytestring,
             escape_char = 'b';
         else if (ch == '\a')
             escape_char = 'a';
-        else if (isprint(ch) == 1 ||
+        else if (isprint(ch) ||
             ((unsigned char)ch > 127 && is_bytestring == 0)) {
             need_escape = 0;
             escape_char = 0;
