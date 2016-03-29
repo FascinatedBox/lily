@@ -218,7 +218,7 @@ int lily_maybe_htmlencode_to_buffer(lily_vm_state *vm, lily_value *input)
         lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
     }
 
-    return (start == 0);
+    return start;
 }
 
 void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -228,7 +228,7 @@ void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value *result_arg = vm_regs[code[0]];
 
     /* If nothing was escaped, output what was input. */
-    if (lily_maybe_htmlencode_to_buffer(vm, input_arg))
+    if (lily_maybe_htmlencode_to_buffer(vm, input_arg) == 0)
         lily_assign_value(result_arg, input_arg);
     else {
         lily_msgbuf *vm_buffer = vm->vm_buffer;
