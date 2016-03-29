@@ -197,12 +197,11 @@ const lily_var_seed env_seed =
         {&get_seed, "env", dyna_var, "Hash[String, Tainted[String]]"};
 
 
-/*  Implements server.write
+/*  Implements server.write_literal
 
-    This function takes a string and writes the content directly to the server.
-    This function is unique in that only string literals are accepted. If a
-    string is passed that is not a literal, then ValueError is raised. */
-void lily_apache_server_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+    This writes a literal directly to the server, with no escaping being done.
+    If the value provided is not a literal, then ValueError is raised. */
+void lily_apache_server_write_literal(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *write_reg = vm_regs[code[1]];
@@ -227,7 +226,28 @@ void lily_apache_server_write_raw(lily_vm_state *vm, uint16_t argc, uint16_t *co
     ap_rputs(value, (request_rec *)vm->data);
 }
 
-void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code);
+void lily_string_htmlencode(lily_vm_state *, uint16_t, uint16_t *);
+int lily_maybe_htmlencode_to_buffer(lily_vm_state *, lily_value *);
+
+/*  Implements server.write
+
+    This function takes a string and creates a copy with html encoding performed
+    upon it. The resulting string is then sent to the server. */
+void lily_apache_server_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value *input = vm->vm_regs[code[1]];
+    const char *source;
+
+    /* String.htmlencode can't be called directly, for a couple reasons.
+       1: It expects a result register, and there isn't one.
+       2: It may create a new String, which is unnecessary. */
+    if (lily_maybe_htmlencode_to_buffer(vm, input) == 0)
+        source = input->value.string->string;
+    else
+        source = vm->vm_buffer->message;
+
+    ap_rputs(source, (request_rec *)vm->data);
+}
 
 /*  Implements server.escape
 
@@ -245,9 +265,11 @@ const lily_func_seed escape =
 const lily_func_seed write_raw =
         {&escape, "write_raw", dyna_function, "(String)", lily_apache_server_write_raw};
 
-const lily_func_seed write_seed =
-        {&write_raw, "write", dyna_function, "(String)", lily_apache_server_write};
+const lily_func_seed write_literal =
+        {&write_raw, "write_literal", dyna_function, "(String)", lily_apache_server_write_literal};
 
+const lily_func_seed write_seed =
+        {&write_literal, "write", dyna_function, "(String)", lily_apache_server_write};
 
 static int lily_handler(request_rec *r)
 {

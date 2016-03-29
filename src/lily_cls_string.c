@@ -173,16 +173,19 @@ void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         lily_move_shared_enum(result_arg, lily_get_none(vm));
 }
 
-void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+/* Scan through 'input' in search of html characters to encode. If there are
+   any, then vm->vm_buffer is updated to contain an html-safe version of the
+   input string.
+   If no html characters are found, then 0 is returned, and the caller is to use
+   the given input buffer directly.
+   If html charcters are found, then 1 is returned, and the caller should read
+   from vm->vm_buffer->message. */
+int lily_maybe_htmlencode_to_buffer(lily_vm_state *vm, lily_value *input)
 {
-    lily_value **vm_regs = vm->vm_regs;
-    lily_value *input_arg = vm_regs[code[1]];
-    lily_value *result_arg = vm_regs[code[0]];
-
     lily_msgbuf *vm_buffer = vm->vm_buffer;
     lily_msgbuf_flush(vm_buffer);
     int start = 0, stop = 0;
-    char *input_str = input_arg->value.string->string;
+    char *input_str = input->value.string->string;
     char *ch = &input_str[0];
 
     while (1) {
@@ -210,13 +213,25 @@ void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         ch++;
     }
 
-    /* If nothing was escaped, output what was input. */
-    if (start == 0)
-        lily_assign_value(result_arg, input_arg);
-    else {
+    if (start != 0) {
         stop = (ch - input_str);
         lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
+    }
 
+    return (start == 0);
+}
+
+void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *input_arg = vm_regs[code[1]];
+    lily_value *result_arg = vm_regs[code[0]];
+
+    /* If nothing was escaped, output what was input. */
+    if (lily_maybe_htmlencode_to_buffer(vm, input_arg))
+        lily_assign_value(result_arg, input_arg);
+    else {
+        lily_msgbuf *vm_buffer = vm->vm_buffer;
         lily_string_val *new_sv = make_sv(vm, strlen(vm_buffer->message) + 1);
         strcpy(new_sv->string, vm_buffer->message);
 
