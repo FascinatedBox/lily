@@ -1,0 +1,11 @@
+# This test make sure that all branches of a try+except are being tried,
+# and not just the first one.
+
+try:
+    1 / 0
+except IndexError:
+    0
+except ValueError:
+    0
+except DivisionByZeroError:
+    0
