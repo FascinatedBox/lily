@@ -607,7 +607,7 @@ void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
     write_6(emit, o_except, line_num, 0, (except_var != NULL),
             except_type->cls->id, except_sym->reg_spot);
 
-    lily_u16_push(emit->patches, emit->code_pos - 3);
+    lily_u16_push(emit->patches, emit->code_pos - 4);
 }
 
 /* Write a conditional jump. 0 means jump if false, 1 means jump if true. The
