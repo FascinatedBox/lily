@@ -1,0 +1,20 @@
+var total = 0, failed = 0
+
+define ok(b: Boolean, s: String)
+{
+    total += 1
+
+    if b == false: {
+        stderr.write($"Test ^(total) (^(s)) failed.\n")
+        failed += 1
+    }
+}
+
+ok(0.0.to_i() == 0,     "Double.to_i() works for 0.")
+ok(1.5.to_i() == 1,   "Double.to_i() works for 1.5.")
+ok(-5.2.to_i() == -5, "Double.to_i() works for -5.2.")
+
+if failed == 0:
+    print($"^(total) of ^(total) tests passed.")
+else:
+    stderr.write($"^(failed) tests have failed.\n")
