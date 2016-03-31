@@ -116,10 +116,10 @@ lily_value *lily_new_string_ncpy(const char *source, int len)
 {
     lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
     sv->refcount = 1;
-    sv->string = lily_malloc(len);
+    sv->string = lily_malloc(len + 1);
     strncpy(sv->string, source, len);
     sv->string[len] = '\0';
-    sv->size = len - 1;
+    sv->size = len;
     return lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value)sv);
 }
 
