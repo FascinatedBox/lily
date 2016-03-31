@@ -59,6 +59,7 @@ ok("".parse_i().is_none(),                     "String.parse_i fails with empty 
 ok("9223372036854775808".parse_i().is_none(),  "String.parse_i rejects int max + 1.")
 ok("-9223372036854775809".parse_i().is_none(), "String.parse_i rejects int min - 1.")
 ok("123abc".parse_i().is_none(),               "String.parse_i rejects '123abc'.")
+ok("0".parse_i().is_some(),                    "String.parse_i parses 0.")
 
 ok("abc".rstrip("") == "abc",                  "String.rstrip empty remove string.")
 ok("12aabbab".rstrip("ab") == "12",            "String.rstrip multi remove.")

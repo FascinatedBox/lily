@@ -439,6 +439,7 @@ void lily_string_parse_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     uint64_t value = 0;
     int is_negative = 0;
     unsigned int rounds = 0;
+    int leading_zeroes = 0;
 
     if (*input == '-') {
         is_negative = 1;
@@ -447,8 +448,12 @@ void lily_string_parse_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     else if (*input == '+')
         ++input;
 
-    while (*input == '0')
+    if (*input == '0') {
         ++input;
+        leading_zeroes = 1;
+        while (*input == '0')
+            ++input;
+    }
 
     /* A signed int64 peaks at 9223372036854775807 (or ...808 for negative).
        The maximum number of reasonable digits is therefore 20 for scanning
@@ -459,9 +464,10 @@ void lily_string_parse_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         rounds++;
     }
 
+    /* These cases check for overflow, trailing junk, and just + or just -. */
     if (value > ((uint64_t)INT64_MAX + is_negative) ||
         *input != '\0' ||
-        rounds == 0) {
+        (rounds == 0 && leading_zeroes == 0)) {
         lily_move_shared_enum(result_reg, lily_get_none(vm));
     }
     else {
