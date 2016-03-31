@@ -4,5 +4,5 @@ f.write("♡")
 f.close()
 
 f = File.open("io_test_file.txt", "r")
-if f.readline().encode("error") != "♡":
+if f.readline().encode().unwrap() != "♡":
     stderr.print("Failed")
