@@ -710,7 +710,7 @@ static void builtin_stdout_print(lily_vm_state *vm, uint16_t argc,
 {
     lily_file_val *stdout_val = vm->stdout_reg->value.file;
     if (stdout_val->inner_file == NULL)
-        lily_raise(vm->raiser, lily_IOError, "IO operation on closed file.\n");
+        lily_raise(vm->raiser, lily_ValueError, "IO operation on closed file.\n");
 
     do_print(vm, stdout_val->inner_file, vm->vm_regs[code[1]]);
 }
