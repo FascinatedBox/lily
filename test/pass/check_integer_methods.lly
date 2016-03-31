@@ -1,0 +1,24 @@
+var total = 0, failed = 0
+
+define ok(b: Boolean, s: String)
+{
+    total += 1
+
+    if b == false: {
+        stderr.write($"Test ^(total) (^(s)) failed.\n")
+        failed += 1
+    }
+}
+
+ok(0.to_d() == 0.0,         "Integer.to_d for 0.")
+ok(-200.to_d() == -200.0,   "Integer.to_d for -200.")
+ok(1000.to_d() == 1000,     "Integer.to_d for 1000.")
+
+ok(0.to_s() == "0",         "Integer.to_s for 0.")
+ok(-55.to_s() == "-55",     "Integer.to_s for -5.")
+ok(100.to_s() == "100",     "Integer.to_s for 100.")
+
+if failed == 0:
+    print($"^(total) of ^(total) tests passed.")
+else:
+    stderr.write($"^(failed) tests have failed.\n")
