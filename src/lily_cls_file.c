@@ -13,8 +13,8 @@ lily_file_val *lily_new_file_val(FILE *inner_file, char mode_ch)
 
     filev->refcount = 1;
     filev->inner_file = inner_file;
-    filev->read_ok = (mode_ch == 'r');
-    filev->write_ok = (mode_ch == 'w');
+    filev->read_ok = (mode_ch == 'r') || (mode_ch == 'a');
+    filev->write_ok = (mode_ch == 'w') || (mode_ch == 'a');
     filev->is_builtin = 0;
 
     return filev;
@@ -68,12 +68,27 @@ void lily_file_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value *result_reg = vm_regs[code[0]];
 
     errno = 0;
-    char mode_ch = mode[0];
-    if (mode_ch != 'a' &&
-        mode_ch != 'w' &&
-        mode_ch != 'r')
+    int ok;
+
+    {
+        char *mode_ch = mode;
+        if (*mode_ch == 'r' || *mode_ch == 'w' || *mode_ch == 'a') {
+            mode_ch++;
+            if (*mode_ch == 'b')
+                mode_ch++;
+
+            if (*mode_ch == '+')
+                mode_ch++;
+
+            ok = (*mode_ch == '\0');
+        }
+        else
+            ok = 0;
+    }
+
+    if (ok == 0)
         lily_raise(vm->raiser, lily_IOError,
-                "Mode must start with one of 'arw', but got '%c'.\n", mode_ch);
+                "Invalid mode '%s' given.\n", mode);
 
     FILE *f = fopen(path, mode);
     if (f == NULL) {
@@ -81,7 +96,7 @@ void lily_file_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
                 errno, errno, path);
     }
 
-    lily_file_val *filev = lily_new_file_val(f, mode_ch);
+    lily_file_val *filev = lily_new_file_val(f, *mode);
 
     lily_move_file(result_reg, filev);
 }

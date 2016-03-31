@@ -1,5 +1,5 @@
 #[
-IOError: Mode must start with one of 'arw', but got 'z'.
+IOError: Invalid mode 'z' given.
 Traceback:
     from [C]: in File.open
     from invalid_open_mode.lly:8: in __main__
