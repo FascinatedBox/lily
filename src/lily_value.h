@@ -26,6 +26,8 @@ lily_new_value(VAL_IS_LIST | VAL_IS_DEREFABLE, (lily_raw_value)raw)
 lily_value *lily_new_string(const char *);
 lily_value *lily_new_string_take(char *);
 lily_value *lily_new_string_ncpy(const char *, int);
+lily_string_val *lily_new_raw_string(const char *);
+lily_string_val *lily_new_raw_string_sized(const char *, int);
 
 #define lily_move_boolean(target, raw) \
 lily_move(target, (lily_raw_value){.integer = raw}, VAL_IS_BOOLEAN)
