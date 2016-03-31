@@ -81,22 +81,14 @@ void lily_pg_result_each_row(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
         int col;
         for (col = 0;col < boxed_result->column_count;col++) {
-            char *field_text = PQgetvalue(raw_result, row, col);
-            int len;
+            char *field_text;
 
-            if (field_text[0] != '\0' ||
-                PQgetisnull(raw_result, row, col) == 0)
-                len = PQgetlength(raw_result, row, col);
-            else {
+            if (PQgetisnull(raw_result, row, col))
                 field_text = "(null)";
-                len = strlen("(null)");
-            }
+            else
+                field_text = PQgetvalue(raw_result, row, col);
 
-            lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
-            sv->refcount = 1;
-            sv->string = lily_malloc(len + 1);
-            strcpy(sv->string, field_text);
-            sv->size = len;
+            lily_string_val *sv = lily_new_raw_string(field_text);
 
             lv->elems[col] = lily_new_value(VAL_IS_STRING,
                     (lily_raw_value){.string = sv});

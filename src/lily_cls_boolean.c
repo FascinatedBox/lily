@@ -24,18 +24,13 @@ void lily_boolean_to_s(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     int64_t input = vm_regs[code[1]]->value.integer;
     lily_value *result_reg = vm_regs[code[0]];
     char *to_copy;
+
     if (input == 0)
         to_copy = "false";
     else
         to_copy = "true";
 
-    lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
-    sv->string = lily_malloc(strlen(to_copy) + 1);
-    strcpy(sv->string, to_copy);
-    sv->refcount = 1;
-    sv->size = strlen(to_copy);
-
-    lily_move_string(result_reg, sv);
+    lily_move_string(result_reg, lily_new_raw_string(to_copy));
 }
 
 static const lily_func_seed to_i =

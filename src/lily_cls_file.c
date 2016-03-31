@@ -118,20 +118,15 @@ void lily_file_readline(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     while (1) {
         ch = fgetc(f);
 
-        if (ch == EOF) {
-            buffer[pos] = '\0';
+        if (ch == EOF)
             break;
-        }
 
         buffer[pos] = (char)ch;
 
         /* \r is intentionally not checked for, because it's been a very, very
            long time since any os used \r alone for newlines. */
-        if (ch == '\n') {
-            buffer[pos + 1] = '\0';
-            pos++;
+        if (ch == '\n')
             break;
-        }
 
         if (pos == buffer_size) {
             lily_msgbuf_grow(vm_buffer);
@@ -142,19 +137,7 @@ void lily_file_readline(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         pos++;
     }
 
-    lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
-    char *sv_buffer = lily_malloc(pos + 1);
-
-    /* Use memcpy, in case there are embedded \0 values somewhere. */
-    memcpy(sv_buffer, buffer, pos + 1);
-
-    new_sv->string = sv_buffer;
-    new_sv->refcount = 1;
-    new_sv->size = pos;
-
-    lily_msgbuf_flush(vm_buffer);
-
-    lily_move_string(result_reg, new_sv);
+    lily_move_string(result_reg, lily_new_raw_string_sized(buffer, pos));
 }
 
 void lily_file_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)

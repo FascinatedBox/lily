@@ -1036,14 +1036,7 @@ void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
 
     lily_value *result_reg = vm_regs[code[3 + i]];
 
-    lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
-    char *buffer = lily_malloc((vm_buffer->pos + 1) * sizeof(char));
-    strcpy(buffer, vm_buffer->message);
-    new_sv->refcount = 1;
-    new_sv->size = strlen(buffer);
-    new_sv->string = buffer;
-
-    lily_move_string(result_reg, new_sv);
+    lily_move_string(result_reg, lily_new_raw_string(vm_buffer->message));
 }
 
 void do_o_dynamic_cast(lily_vm_state *vm, uint16_t *code)

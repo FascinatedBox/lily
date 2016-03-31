@@ -30,18 +30,7 @@ void lily_bytestring_encode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
                 "Invalid utf-8 sequence found in buffer.\n");
     }
 
-    lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
-    char *sv_buffer = lily_malloc(byte_buffer_size + 1);
-
-    /* The utf-8 validator function also ensures that there are no embedded
-       \0's, so it's safe to use strcpy. */
-    strcpy(sv_buffer, byte_buffer);
-
-    new_sv->refcount = 1;
-    new_sv->string = sv_buffer;
-    new_sv->size = byte_buffer_size;
-
-    lily_move_string(result, new_sv);
+    lily_move_string(result, lily_new_raw_string(byte_buffer));
 }
 
 static const lily_func_seed dynaload_start =
