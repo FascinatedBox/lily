@@ -7,7 +7,8 @@
 #include "lily_seed.h"
 #include "lily_utf8.h"
 #include "lily_value.h"
-#include "lily_cls_string.h"
+
+#include "lily_cls_option.h"
 
 void lily_bytestring_encode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
@@ -16,25 +17,28 @@ void lily_bytestring_encode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     const char *encode_method =
             (argc == 2) ? vm_regs[code[2]]->value.string->string : "error";
     lily_value *result = vm_regs[code[0]];
+    char *byte_buffer = NULL;
 
-    if (strcmp(encode_method, "error") != 0) {
-        lily_raise(vm->raiser, lily_ValueError,
-                "Encode option should be either 'ignore' or 'error'.\n");
+    if (strcmp(encode_method, "error") == 0) {
+        byte_buffer = input_bytestring->string;
+        int byte_buffer_size = input_bytestring->size;
+
+        if (lily_is_valid_sized_utf8(byte_buffer, byte_buffer_size) == 0) {
+            lily_move_shared_enum(result, lily_get_none(vm));
+            return;
+        }
+    }
+    else {
+        lily_move_shared_enum(result, lily_get_none(vm));
+        return;
     }
 
-    char *byte_buffer = input_bytestring->string;
-    int byte_buffer_size = input_bytestring->size;
-
-    if (lily_is_valid_sized_utf8(byte_buffer, byte_buffer_size) == 0) {
-        lily_raise(vm->raiser, lily_ValueError,
-                "Invalid utf-8 sequence found in buffer.\n");
-    }
-
-    lily_move_string(result, lily_new_raw_string(byte_buffer));
+    lily_value *v = lily_new_string(byte_buffer);
+    lily_move_enum(result, lily_new_some(v));
 }
 
 static const lily_func_seed dynaload_start =
-    {NULL, "encode", dyna_function, "(ByteString, *String):String", lily_bytestring_encode};
+    {NULL, "encode", dyna_function, "(ByteString, *String):Option[String]", lily_bytestring_encode};
 
 static const lily_class_seed bytestring_seed =
 {
