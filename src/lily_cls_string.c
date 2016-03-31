@@ -231,11 +231,8 @@ void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     if (lily_maybe_htmlencode_to_buffer(vm, input_arg) == 0)
         lily_assign_value(result_arg, input_arg);
     else {
-        lily_msgbuf *vm_buffer = vm->vm_buffer;
-        lily_string_val *new_sv = make_sv(vm, strlen(vm_buffer->message) + 1);
-        strcpy(new_sv->string, vm_buffer->message);
-
-        lily_move_string(result_arg, new_sv);
+        char *source = vm->vm_buffer->message;
+        lily_move_string(result_arg, lily_new_raw_string(source));
     }
 }
 

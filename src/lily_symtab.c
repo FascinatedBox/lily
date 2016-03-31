@@ -278,16 +278,9 @@ lily_tie *lily_get_string_literal(lily_symtab *symtab, char *want_string)
 
     if (ret == NULL) {
         lily_class *cls = symtab->string_class;
-        char *string_buffer = lily_malloc((want_string_len + 1) * sizeof(char));
-        lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
-
-        strcpy(string_buffer, want_string);
-        sv->string = string_buffer;
-        sv->size = want_string_len;
-        sv->refcount = 1;
 
         ret = make_new_literal(symtab, cls);
-        ret->value.string = sv;
+        ret->value.string = lily_new_raw_string(want_string);
         ret->flags |= VAL_IS_STRING;
     }
 
@@ -295,16 +288,16 @@ lily_tie *lily_get_string_literal(lily_symtab *symtab, char *want_string)
 }
 
 lily_tie *lily_get_bytestring_literal(lily_symtab *symtab,
-        char *want_string, int want_string_len)
+        char *want_string, int len)
 {
     lily_tie *lit, *ret;
     ret = NULL;
 
     for (lit = symtab->literals;lit;lit = lit->next) {
         if (lit->type->cls->id == SYM_CLASS_BYTESTRING) {
-            if (lit->value.string->size == want_string_len &&
+            if (lit->value.string->size == len &&
                 memcmp(lit->value.string->string, want_string,
-                        want_string_len) == 0) {
+                        len) == 0) {
                 ret = lit;
                 break;
             }
@@ -313,16 +306,9 @@ lily_tie *lily_get_bytestring_literal(lily_symtab *symtab,
 
     if (ret == NULL) {
         lily_class *cls = symtab->bytestring_class;
-        char *buffer = lily_malloc(want_string_len * sizeof(char));
-        lily_string_val *bv = lily_malloc(sizeof(lily_string_val));
-
-        memcpy(buffer, want_string, want_string_len);
-        bv->string = buffer;
-        bv->size = want_string_len;
-        bv->refcount = 1;
 
         ret = make_new_literal(symtab, cls);
-        ret->value.string = bv;
+        ret->value.string = lily_new_raw_string_sized(want_string, len);
         ret->flags |= VAL_IS_BYTESTRING;
     }
 

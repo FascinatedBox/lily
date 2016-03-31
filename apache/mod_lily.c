@@ -151,18 +151,9 @@ static void bind_env(lily_parse_state *parser, request_rec *r,
 static void bind_httpmethod(lily_parse_state *parser, request_rec *r,
         lily_var *var)
 {
-    lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
-    char *sv_buffer = lily_malloc(strlen(r->method) + 1);
-
-    strcpy(sv_buffer, r->method);
-
-    sv->string = sv_buffer;
-    sv->refcount = 1;
-    sv->size = strlen(r->method);
-
     lily_value v;
     v.flags = VAL_IS_STRING;
-    v.value.string = sv;
+    v.value.string = lily_new_raw_string(r->method);
 
     lily_tie_value(parser->symtab, var, &v);
 }

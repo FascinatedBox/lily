@@ -25,15 +25,7 @@ void lily_integer_to_s(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     char buffer[32];
     snprintf(buffer, 32, "%"PRId64, integer_val);
 
-    lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
-    char *text = lily_malloc(strlen(buffer) + 1);
-
-    strcpy(text, buffer);
-    new_sv->string = text;
-    new_sv->size = strlen(buffer);
-    new_sv->refcount = 1;
-
-    lily_move_string(result_reg, new_sv);
+    lily_move_string(result_reg, lily_new_raw_string(buffer));
 }
 
 static const lily_func_seed to_d =
