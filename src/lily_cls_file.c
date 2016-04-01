@@ -138,11 +138,6 @@ void lily_file_readline(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
         buffer[pos] = (char)ch;
 
-        /* \r is intentionally not checked for, because it's been a very, very
-           long time since any os used \r alone for newlines. */
-        if (ch == '\n')
-            break;
-
         if (pos == buffer_size) {
             lily_msgbuf_grow(vm_buffer);
             buffer = vm_buffer->message;
@@ -150,6 +145,11 @@ void lily_file_readline(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         }
 
         pos++;
+
+        /* \r is intentionally not checked for, because it's been a very, very
+           long time since any os used \r alone for newlines. */
+        if (ch == '\n')
+            break;
     }
 
     lily_move_string(result_reg, lily_new_raw_string_sized(buffer, pos));
