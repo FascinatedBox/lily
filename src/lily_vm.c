@@ -1708,7 +1708,7 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
     else if (v->flags & VAL_IS_DOUBLE)
         lily_msgbuf_add_double(msgbuf, v->value.doubleval);
     else if (v->flags & VAL_IS_STRING)
-        lily_msgbuf_add(msgbuf, v->value.string->string);
+        lily_msgbuf_add_fmt(msgbuf, "\"^E\"", v->value.string->string);
     else if (v->flags & VAL_IS_BYTESTRING)
         lily_msgbuf_add_bytestring(msgbuf, v->value.string);
     else if (v->flags & VAL_IS_FUNCTION) {
@@ -1781,7 +1781,13 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
 void lily_vm_add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         lily_value *value)
 {
-    add_value_to_msgbuf(vm, msgbuf, NULL, value);
+    /* The thinking is that a String that is not within anything should be added
+       as-is. However, Strings that are contained within, say, a List or a
+       variant should be escaped and have quoted printed around them. */
+    if (value->flags & VAL_IS_STRING)
+        lily_msgbuf_add(msgbuf, value->value.string->string);
+    else
+        add_value_to_msgbuf(vm, msgbuf, NULL, value);
 }
 
 /***
