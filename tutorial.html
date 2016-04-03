@@ -442,15 +442,60 @@ This restriction exists because Lily can't fully guarantee that <span class="var
                 <p>
 There's also the matter of truthiness. Here's Lily's truthiness table:
                 </p>
-NOTE TO SELF: Please format this using an actual table later.
-
-Class | False Value
-Boolean   false
-Integer   0
-String    ""
-ByteString  B""
-List        []
-
+                <div style="font-family: monospace, mono, \"courier new\"">
+                    <div class="row" style="margin-bottom: 10px">
+                        <div class="col-sm-4">
+                            <strong>
+                                Class
+                            </strong>
+                        </div>
+                        <div class="col-sm-4">
+                            <strong>
+                                False value
+                            </strong>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            Boolean
+                        </div>
+                        <div class="col-sm-4">
+                            false
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            ByteString
+                        </div>
+                        <div class="col-sm-4">
+                            B""
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            Integer
+                        </div>
+                        <div class="col-sm-4">
+                            0
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            List
+                        </div>
+                        <div class="col-sm-4">
+                            []
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            String
+                        </div>
+                        <div class="col-sm-4">
+                            ""
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="section">
                 <h1>
@@ -507,7 +552,6 @@ do: {
     counter -= 1
 } while counter:</pre>
                 <p>
-///(Use the note message window for this, not p)
 <span class="varname">do while</span> cannot use inner loop variables for the condition.
 As such, using <span class="varname">} while inner:</span> is a Syntax error.
 Again, Lily cannot verify that the inner loop variable has been initialized.
@@ -546,85 +590,127 @@ There are two other kinds of blocks: <span class="varname">match</span> and <spa
                     Expressions
                 </h1>
                 <p>
-A common question of new languages is what operators are available, as well as their associativity.
-Here's Lily's operator table:
-
-OPERATOR | PRECEDENCE | ASSOCIATIVITY
-=, /= *= += -= &lt;&lt;= &gt;&gt;= | 0 | right-to-left
-|| | 1 | left-to-right
-&amp;&amp; | 2 | left-to-right
-==, != | 3 | left-to-right
-
-    switch (o) {
-        case expr_assign:
-        case expr_div_assign:
-        case expr_mul_assign:
-        case expr_plus_assign:
-        case expr_minus_assign:
-        case expr_left_shift_assign:
-        case expr_right_shift_assign:
-            prio = 0;
-            break;
-        case expr_logical_or:
-            prio = 1;
-            break;
-        case expr_logical_and:
-            prio = 2;
-            break;
-        case expr_eq_eq:
-        case expr_not_eq:
-            prio = 3;
-            break;
-        case expr_lt:
-        case expr_gr:
-        case expr_lt_eq:
-        case expr_gr_eq:
-            prio = 4;
-            break;
-        /* This...seems like a reasonable place for call piping to go. It's high
-           enough that you can do ```x |> y != z```, but low enough that one can
-           also do ```a * b |> c```. This may be moved in the future. */
-        case expr_func_pipe:
-            prio = 5;
-            break;
-        /* Bitwise ops are intentionally put before equality operations. This
-           allows users to use bitwise ops without parens.
-           This:        a & 0x10 == x
-           Instead of: (a & 0x10) == x
-
-           Keeping their different precendence levels for now though. */
-        case expr_bitwise_or:
-            prio = 6;
-            break;
-        case expr_bitwise_xor:
-            prio = 7;
-            break;
-        case expr_bitwise_and:
-            prio = 8;
-            break;
-        case expr_left_shift:
-        case expr_right_shift:
-            prio = 9;
-            break;
-        case expr_plus:
-        case expr_minus:
-            prio = 10;
-            break;
-        case expr_multiply:
-        case expr_divide:
-        case expr_modulo:
-            prio = 11;
-            break;
-        case expr_unary_not:
-        case expr_unary_minus:
-            prio = 12;
-            break;
-        default:
-            /* Won't happen, but makes -Wall happy. */
-            prio = -1;
-            break;
-    }
-
+A common question of new languages is what operators are available.
+Here's Lily's operator table, organized from lowest to highest precedence:
+                </p>
+                <div style="font-family: monospace, mono, \"courier new\"">
+                    <div class="row" style="margin-bottom: 10px">
+                        <div class="col-sm-4">
+                            <strong>
+                                Operator
+                            </strong>
+                        </div>
+                        <div class="col-sm-4">
+                            <strong>
+                                Description
+                            </strong>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            = /= *= += -= &lt;&lt;= &gt;&gt;=
+                        </div>
+                        <div class="col-sm-4">
+                            Assignment / Compound assigment
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            ||
+                        </div>
+                        <div class="col-sm-4">
+                            Boolean OR
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            &amp;&amp;
+                        </div>
+                        <div class="col-sm-4">
+                            Boolean AND
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            == !=
+                        </div>
+                        <div class="col-sm-4">
+                            Equal, not equal
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            &lt; &gt; &lt;= &gt;=
+                        </div>
+                        <div class="col-sm-4">
+                            Comparisons
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            |&gt;
+                        </div>
+                        <div class="col-sm-4">
+                            Function pipe (x |> f is f(x))
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            |
+                        </div>
+                        <div class="col-sm-4">
+                            Bitwise OR
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            ^
+                        </div>
+                        <div class="col-sm-4">
+                            Bitwise XOR
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            &amp;
+                        </div>
+                        <div class="col-sm-4">
+                            Bitwise AND
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            &lt;&lt; &gt;&gt;
+                        </div>
+                        <div class="col-sm-4">
+                            Shifts (Left + Right)
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            + -
+                        </div>
+                        <div class="col-sm-4">
+                            Addition, subtraction
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            * / %
+                        </div>
+                        <div class="col-sm-4">
+                            Multiply, divide, modulo
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-4">
+                            + -
+                        </div>
+                        <div class="col-sm-4">
+                            Unary positive, negative
+                        </div>
+                    </div>
+                </div>
                 </p>
             </div>
             <div class="section">
