@@ -11,7 +11,7 @@ set(LIBRARY_OUTPUT_PATH    "${PROJECT_BINARY_DIR}/lib")
 set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}")
 
 set(LILY_MAJOR             "0")
-set(LILY_MINOR             "15")
+set(LILY_MINOR             "16")
 set(LILY_VERSION_DIR       "${LILY_MAJOR}_${LILY_MINOR}")
 
 add_definitions(-DLILY_VERSION_DIR="${LILY_MAJOR}_${LILY_MINOR}")

@@ -1,3 +1,90 @@
+Version 0.16 (2015-4-2)
+=======================
+
+New stuff:
+
+* All built-in classes are now titlecased. Previously, only the ones
+  that derived from Exception were titlecased (and Tainted). This was
+  done to make the language be more consistent, as there is now an
+  expectation that all class names will start with a capital letter.
+
+* The '::' token is now the '.' token. This makes access consistent,
+  and with no need to remember if something is an instance or a
+  property.
+
+* What was previously any is now Dynamic. Dynamic is created
+  explicitly, and is allowed to nest. The name and functionality are
+  inspired by Haskell.
+
+* The interpreter no longer solves types. As such, the interpreter now
+  uses erasure instead of reification. This was done for a few
+  reasons:
+  1. The vm had several problems trying to get this right. Often, it
+  would fail when emitter and parser would succeed, but never the
+  other way around.
+  2. Runtime solving was occasionally useless. For example, a
+  List.append-like function will work the same regardless of what
+  types are at play inside of it.
+  3. Suspicions that runtime solving could get in the way of future
+  attempts at concurrency.
+
+* The interpreter finally understands unification. When building a
+  List or Hash, the elements are unified down to a common bottom type.
+  Furthermore, trying to create a List or Hash that does not have a
+  consistent type is now an error (previously, the elements were
+  converted to type 'any').
+
+* `Option` and `Either` enums are now baked into the core.
+
+* Enums are now allowed to be optional arguments, provided that their
+  default value is an empty variant. What makes this useful is that
+  you can make a default of, say, `*Option[File] = None` as a means of
+  ascribing a default value to effectively any kind of type. This
+  assumes, of course, that you're okay with the function transparently
+  picking what the default is.
+
+* Interpolation is now supported by starting a string (multi or single
+  line) with '$'. Interpolation allows single expressions within a
+  string through `^( ... )`.
+
+* String.to_i is now String.parse_i, and returns an `Option[Integer]`
+  instead of raising on failure. Similarly, String.find now returns an
+  `Option[Integer]` instead of raising on failure. ByteString.encode
+  now pushes back an `Option[String]` instead of throwing.
+
+* `print` now prints directly to stdout, instead of the printing impl.
+  This is important, because it was previously possible to bypass
+  Apache's writing functions through it.
+
+* Lambdas can now specify types for their arguments.
+
+* The site now has an area to try the code online, through a
+  emscripten-compiled version of the interpreter.
+
+* Classes can be initialized through `Class()` instead of
+  `Class::new()`. This style is preferred now.
+
+* New functions for postgres: Conn.open, Result.row_count,
+  Result.each_row, Result.close
+
+Removed:
+
+* `show` is now gone.
+
+* With the introduction of interpolation, `String.format`, `printfmt`,
+  and `String.concat`.
+
+* `Double` is no longer considered hashable.
+
+* `postgres.Error` is gone, having been replaced by using an `Either`
+  instead.
+
+Bugs fixed:
+
+* Call piping to a variant (`1 |> Some`) was crashing.
+
+* Closing stdout and calling `print` worked. It doesn't now.
+
 Version 0.15 (2015-12-11)
 =========================
 
