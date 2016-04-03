@@ -1251,11 +1251,21 @@ enum Either[A, B] {
     Left(A)
     Right(B)
 
+    # Safely grab the error side
     define left: Option[A]
     {
         match self: {
             case Left(l):  return Some(l)
             case Right(r): return None
+        }
+    }
+
+    # This time, safely grab the success side.
+    define left: Option[B]
+    {
+        match self: {
+            case Left(l):  return None
+            case Right(r): return Some(r)
         }
     }
 
