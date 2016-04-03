@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+        <meta name="description" content="The Lily Programming Language, tutorial">
+        <meta name="author" content="Jesse Ray Adkins">
+
+        <title>Lily Tutorial</title>
+
+        <!-- Bootstrap core CSS -->
+        <link href="css/bootstrap.min.css" rel="stylesheet">
+        <!-- Bootstrap theme -->
+        <link href="css/bootstrap-theme.min.css" rel="stylesheet">
+        <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+        <link href="css/ie10-viewport-bug-workaround.css" rel="stylesheet">
+
+        <link rel="stylesheet" href="css/theme.css">
+
+        <script src="js/ie-emulation-modes-warning.js"></script>
+    </head>
+
+    <body role="document">
+        <nav class="navbar navbar-inverse navbar-static-top">
+            <div class="container">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a class="navbar-brand" href="index.html">Lily</a>
+                </div>
+                <div id="navbar" class="navbar-collapse collapse">
+                        <ul class="nav navbar-nav">
+                            <li><a href="index.html">Home</a></li>
+                            <li class="active"><a href="#">Tutorial</a></li>
+                            <li><a href="reference.html">Reference</a></li>
+                            <li><a href="modules.html">Modules</a></li>
+                            <li><a href="sandbox.html">Sandbox</a></li>
+                            <li><a href="http://github.com/jesserayadkins/lily">Github</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container theme-showcase" role="main">
+            <div class="col-md-6" style="width: 100%">
+                <dl>
+                    <dt>
+                        <span>
+                            <a href="#_Introduction">Introduction</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_Compiling">Compiling</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_SettingUp">Setting up mod_lily</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_StartingModes">Starting Modes</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_HelloWorld">Hello World</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_TheBasics">The Basics</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_Functions">Functions</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_BlockBasics">Block Basics</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_BlockTypes">Block Types</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_Expressions">Expressions</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_Classes">Classes</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_Exceptions">Exceptions</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_Lambdas">Lambdas</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_Generics">Generics</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_Enums">Enums</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_Dynamic">Dynamic</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_Import">import</a>
+                        </span>
+                    </dt>
+                    <dt>
+                        <span>
+                            <a href="#_WrappingUp">Wrapping up</a>
+                        </span>
+                    </dt>
+                </dl>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_Introduction"></a>
+                    Introduction
+                </h1>
+                <p>
+This tutorial will cover Lily's syntax, and show some idioms of the language.
+Most examples here are small code snippets.
+More detailed code samples can be found in the <a href="https://github.com/jesserayadkins/lily/tree/master/try">try/</a> directory of Lily's source code.
+                </p>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_Compiling"></a>
+                    Compiling
+                </h1>
+                <p>
+Before you can do anything with the language, you'll need to compile it.
+To do that, you'll need <strong>CMake</strong> and a modern C compiler that supports C11 (both gcc and clang are fine).
+                </p>
+                <p>
+A basic compile is just <code>cmake . ; make ; make install</code>.
+This will install the executable for the language (<code>lily</code>).
+To install <code>mod_lily</code>, you'll need Apache headers.
+If you do, you can install <code>mod_lily</code> by adding <code>-DWITH_APACHE=on</code> to your <code>cmake</code> invocation.
+                </p>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_SettingUp"></a>
+                    Setting up mod_lily
+                </h1>
+                <p>
+This part is entirely optional. To begin with, you'll need Apache's development headers.
+To build <code>mod_lily</code>, add <code>-DWITH_APACHE=on</code> to your CMake invocation, then <code>cmake ; make ; make install</code>.
+This will build <code>mod_lily</code> and put it among Apache's library files.
+                </p>
+                <p>
+Now you'll need to locate Apache's configuration file so that you can alter it.
+Here's the additions that I made on my own server:
+                </p>
+                <pre>
+# Near the module section:
+LoadModule&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/usr/lib64/httpd/modules/mod_lily.so
+
+# After cgi-bin...
+&lt;Directory "/var/www/cgi-bin"&gt;
+    SetHandler lily
+&lt;/Directory&gt;</pre>
+                <p>
+Here's a script you can place into <code>/var/www/cgi-bin/</code> (or whatever directory you set aside) to make sure that the install is working.
+                </p>
+                <pre>
+&lt;?lily
+import server
+?&gt;
+&lt;html&gt;
+&lt;body&gt;
+&lt;?lily
+server.write("Hello from mod_lily!")
+?&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_StartingModes"></a>
+                    Starting modes
+                </h1>
+                <p>
+Lily has two different modes of execution: <code>standalone</code> and <code>template</code>.
+The mode that is chosen determines how the first file is viewed.
+                </p>
+                <p>
+In <code>standalone</code> mode, the first file seen is expected to just be code.
+This is the default for the <code>lily</code> executable.
+               </p>
+               <p>
+In <code>template</code> mode, the first file is scanned as text.
+Code is denoted through <code>&lt;?lily ... &gt;</code> tags.
+In addition, the file must start with a <code>&lt;?lily</code> tag (even if it's empty).
+Doing so lets Lily know that the file isn't just code.
+This is the default for the <code>mod_lily</code> executable.
+You can also explicitly specify this through <code>lily -t</code>.
+               </p>
+               <p>
+It is assumed that the examples in this tutorial will be run through <code>standalone</code> mode.
+However, they will also work in <code>template</code> mode.
+               </p>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_HelloWorld"></a>
+                    Hello World
+                </h1>
+                <p>
+Let's start off with the simplest program.
+Open a file, and call it <code>hello.lly</code>.
+<code>.lly</code> is the extension that all Lily files use, regardless of the starting mode.
+                </p>
+                <pre>
+print("Lily says hello!")</pre>
+                <p>
+Lily allows function calls to be outside of an explicit <code>main</code>-like function.
+                </p>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_TheBasics"></a>
+                    The Basics
+                </h1>
+                <p>
+Now that your environment has been established, let's get to business.
+To begin with, here are some variable declarations:
+                </p>
+                <pre>
+var ok = true
+var age = 10
+var name = "Jesse"
+# You can explicitly set a type with `: type`, but it's not necessary.
+var items: List[String] = ["Eggs", "Milk", "Bread"]
+var prices = ["Hot Dog and Soda" =&gt; 1.50,
+              "Rotisserie Chicken" =&gt; 4.99]
+var bytes = B"\255\253\001\255\253\31"
+
+# Tuples are &lt[...]&gt;
+var record = &lt;[10, "20", [1, 2, 3]]&gt;</pre>
+                <p>
+These declarations show off a few of Lily's built-in classes:
+<code>Boolean</code>, <code>Integer</code>, <code>ByteString</code>, <code>String</code>, <code>List</code>, <code>Hash</code>, and <code>Tuple</code>.
+                </p>
+                <p>
+Most of these classes aren't going to be anything new for you.
+<code>ByteString</code> and <code>String</code> are Lily's way of segmenting string-like data for you.
+A <code>String</code> is guaranteed to be utf-8 compliant, and \0 terminated.
+On the other hand, <code>ByteString</code> has neither of those guarantees, and operates as a bag of bytes.
+                </p>
+                <p>
+There's also a mention of <code>List[String]</code>.
+In Lily, the subtypes of all types (except for <code>Function</code>) are denoted in squre brackets.
+In the above case, the type of the <code>Hash</code> is <code>Hash</code><span>[</span><code>String</code><span>, </span><code>Double</code><span>]</span> (key, then value).
+The <code>Tuple</code> above has a long type: <code>Tuple[Integer, String, List[Integer]]</code>.
+                </p>
+                <p>
+Lily has two kinds of classes built into it.
+The above classes are all written into the interpreter as primitives, and thus have no constructors.
+There are a few other classes built into Lily:
+<code>Dynamic</code>, <code>Exception</code>, <code>Tainted</code>, <code>Option</code>, and <code>Either</code>.
+Those classes will be covered later on.
+                </p>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_Functions"></a>
+                    Functions
+                </h1>
+                <p>
+Now that basic classes have been established, it's time to move on to <code>Function</code>s.
+A new <code>Function</code> is created using the <code>define</code> keyword.
+Here are some examples, along with their types.
+                </p>
+<pre>
+# Function()
+define do_nothing
+{
+    
+}
+
+# Function( =&gt; Integer)
+define return_ten: Integer
+{
+    return 10
+}
+
+# Function(Integer, Integer =&gt; Integer)
+define add(a: Integer, b: Integer): Integer
+{
+    return a + b
+}
+
+define multiply(a: Integer, b: Integer): Integer
+{
+    return a * b
+}
+
+# Functions are first-class:
+var math_ops = ["+" =&gt; add, "*" =&gt; multiply]
+math_ops["+"](10, 20) # 30
+
+# Functions not created with define can be reassigned.
+var math_fn = add
+math_fn = multiply
+
+# Function( =&gt; Function())
+define return_no_op: Function()
+{
+    return do_nothing
+}
+
+return_no_op()()
+
+# ...indicates a variable # of arguments.
+# Function(Integer...) =&gt; Integer
+define sum(numbers: Integer...): Integer
+{
+    var total = 0
+    numbers.each{|e| total += e }
+    return total
+}
+
+# sum() # 0
+# sum(1, 2, 3) # 6
+
+# Function(*Integer =&gt; Integer)
+define optarg(a: *Integer = 10): Integer
+{
+    return a + 10
+}
+
+optarg(100) # 110
+optarg() # 20
+
+# Function(Integer =&gt; String)
+var some_func = Integer.to_s
+</pre>
+                <p>
+Now that creating new <code>Function</code>s has been covered, here's how to call them.
+                </p>
+                <pre>
+var some_int = String.parse_i("123")
+some_int = "123".parse_i
+some_int = "123" |&gt; String.parse_i</pre>
+                <p>
+The <code>|&gt;</code> operator comes from F#. Put simply, <code>x &gt; f</code> is equivalent to <code>f(x)</code>.
+Here are some more examples:
+                </p>
+                <pre>
+define square(x: Integer): Integer
+{
+    return x * x
+}
+
+var another_int = square(10)
+another_int = 10 |&gt; square |&gt; square
+
+var does_end = String.endswith("needle", "e")
+does_end = "needle".endswith(e)
+does_end = "e" |&gt; "needle".endswith</pre>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_BlockBasics"></a>
+                    Block Basics
+                </h1>
+                <p>
+Blocks are divided into two types: Those that allow multiple statements, and those that only allow a single statement.
+                </p>
+                <pre>
+if age > 21:
+    print("You're an adult!")
+else:
+    print("You're not an adult yet. Sorry!")</pre>
+                <p>
+Similar to Python, the conditional expressions are all terminated with the <code>:</code>.
+While Lily does not use whitespace for indentation, it is still good practice to use consistent indentation.
+Instead of whitespace, Lily uses a single brace to indicate if a condition can span multiple lines.
+                </p>
+                <pre>
+var pass_count = 0, fail_count = 0
+define check_test(result: Boolean, message: String)
+{
+    if result: {
+        pass_count += 1
+    else:
+        fail_count += 1
+        print($"Test ^(pass_count + fail_count) failed ^(message).\n")
+    }
+}</pre>
+                <p>
+Unlike most curly-brace family languages, Lily does not require a brace for each branch.
+Instead, the presence of a brace means that all branches span multiple expressions.
+The conditional expression terminates when a matching <span class="varname">}</span> is found.
+                </p>
+                <p>
+If a variable is declared within a block, then it is <strong>not</strong> accessible outside of that block:
+                </p>
+                <pre>
+var ok = true
+if ok:
+    var some_value = 10
+
+# print(some_value) # Syntax Error!</pre>
+                <p>
+This restriction exists because Lily can't fully guarantee that <span class="varname">some_value</span> will exist and be valid.
+                </p>
+                <p>
+There's also the matter of truthiness. Here's Lily's truthiness table:
+                </p>
+NOTE TO SELF: Please format this using an actual table later.
+
+Class | False Value
+Boolean   false
+Integer   0
+String    ""
+ByteString  B""
+List        []
+
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_BlockTypes"></a>
+                    Block Types
+                </h1>
+                <p>
+This section will go over the different kinds of blocks that are present in Lily, as well as any important rules they may have.
+                </p>
+                <p>
+<span class="varname">if</span>, <span class="varname">elif</span>, and <span class="varname">else</span>:
+                </p>
+                <pre>
+var my_list = [1, 2, 3]
+var length = 0
+
+if my_list == [1]:
+    length = 1
+elif my_list == [1, 2]
+    length = 2
+else:
+    length = 3</pre>
+                <p>
+<span class="varname">while</span>
+                </p>
+                <pre>
+var entries = [1, 2, 3]
+var i = 0
+while i != entries.size(): {
+    var e = entries[i]
+    if e == 4:
+        break
+    elif e == 3:
+        continue
+
+    print (e)
+}</pre>
+                <p>
+<span class="varname">do</span> ... <span class="varname">while</span>
+                </p>
+                <pre>
+var entries = [1, 2, 3]
+var i = 1
+var counter = 3
+
+do: {
+    var inner = 2
+    var e = entries[i]
+    if e == inner:
+        break
+    elif e == 3:
+        continue
+
+    counter -= 1
+} while counter:</pre>
+                <p>
+///(Use the note message window for this, not p)
+<span class="varname">do while</span> cannot use inner loop variables for the condition.
+As such, using <span class="varname">} while inner:</span> is a Syntax error.
+Again, Lily cannot verify that the inner loop variable has been initialized.
+For example, you may have written:
+                </p>
+                <pre>
+do: {
+    continue
+    var v = 10
+} while v:</pre>
+                <p>
+<span class="varname">for</span>
+                </p>
+                <pre>
+for i in 0...5:
+    print(i)
+
+# print(i) # Syntax error!
+
+var i
+for i in 0...5:
+    print(i)
+
+print(i) # 5
+
+for i in 0...5 by 2:
+    print(i)</pre>
+                <p>
+There are two other kinds of blocks: <span class="varname">match</span> and <span class="varname">try</span>.
+<span class="varname">match</span> will be discussed with DOCLINK enums, and <span class="varname">try</span> will be discussed with Exceptions.
+                </p>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_Expressions"></a>
+                    Expressions
+                </h1>
+                <p>
+A common question of new languages is what operators are available, as well as their associativity.
+Here's Lily's operator table:
+
+OPERATOR | PRECEDENCE | ASSOCIATIVITY
+=, /= *= += -= &lt;&lt;= &gt;&gt;= | 0 | right-to-left
+|| | 1 | left-to-right
+&amp;&amp; | 2 | left-to-right
+==, != | 3 | left-to-right
+
+    switch (o) {
+        case expr_assign:
+        case expr_div_assign:
+        case expr_mul_assign:
+        case expr_plus_assign:
+        case expr_minus_assign:
+        case expr_left_shift_assign:
+        case expr_right_shift_assign:
+            prio = 0;
+            break;
+        case expr_logical_or:
+            prio = 1;
+            break;
+        case expr_logical_and:
+            prio = 2;
+            break;
+        case expr_eq_eq:
+        case expr_not_eq:
+            prio = 3;
+            break;
+        case expr_lt:
+        case expr_gr:
+        case expr_lt_eq:
+        case expr_gr_eq:
+            prio = 4;
+            break;
+        /* This...seems like a reasonable place for call piping to go. It's high
+           enough that you can do ```x |> y != z```, but low enough that one can
+           also do ```a * b |> c```. This may be moved in the future. */
+        case expr_func_pipe:
+            prio = 5;
+            break;
+        /* Bitwise ops are intentionally put before equality operations. This
+           allows users to use bitwise ops without parens.
+           This:        a & 0x10 == x
+           Instead of: (a & 0x10) == x
+
+           Keeping their different precendence levels for now though. */
+        case expr_bitwise_or:
+            prio = 6;
+            break;
+        case expr_bitwise_xor:
+            prio = 7;
+            break;
+        case expr_bitwise_and:
+            prio = 8;
+            break;
+        case expr_left_shift:
+        case expr_right_shift:
+            prio = 9;
+            break;
+        case expr_plus:
+        case expr_minus:
+            prio = 10;
+            break;
+        case expr_multiply:
+        case expr_divide:
+        case expr_modulo:
+            prio = 11;
+            break;
+        case expr_unary_not:
+        case expr_unary_minus:
+            prio = 12;
+            break;
+        default:
+            /* Won't happen, but makes -Wall happy. */
+            prio = -1;
+            break;
+    }
+
+                </p>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_Classes"></a>
+                    Classes
+                </h1>
+                <p>
+Lily's classes are unique, in that their design carries inspiration from a number of different languages.
+Here's a really simple one:
+                </p>
+                <pre>
+class Point(x: Integer, y: Integer)
+{
+    var @x = x
+    var @y = y
+
+    define move(moveX: Integer, moveY: Integer)
+    {
+        @x += moveX
+        @y += moveY
+    }
+}</pre>
+                <p>
+In Lily, the body of a class (where the assignments are done) is the constructor of the class.
+The arguments that come after the name of the class are the parameters to the constructor.
+By doing this, Lily can know for sure that all of the members of a class are initialized.
+                </p>
+                <p>
+Within a class, properties are accessed through <span class="varname">@name</span>.
+Unfortunately, Lily doesn't support a shorthand constructor syntax.
+This is why the <span class="varname">@name = name</span> is currently necessary.
+In a future version of Lily, a shorthand syntax for constructors will be possible.
+                </p>
+                <p>
+There's also the <span class="varname">Point.move</span> method.
+Currently, all methods of a class implicitly receive <span class="varname">self</span> as their first argument.
+                </p>
+                <p>
+Let's take the above class for a spin:
+                </p>
+                <pre>
+var my_point = Point(0, 0)
+my_point.move(10, 0)
+my_point.x += 5
+my_point.y = 20</pre>
+                <p>
+In the above example, Lily is able to determine that <code>Point</code> is being used as a constructor.
+Since <span class="varname">my_point</span> has the class <code>Point</code>, it is allowed to use <code>Point</code> methods.
+An important part of the above example is how the members of the <code>Point</code> class are all accessed through the <span class="varname">.</span> token.
+Because Lily uses <span class="varname">.</span> as a universal accessor, Lily also imposes the restriction that a class cannot have a method and a property with the same name:
+                </p>
+                <pre>
+class Point(x: Integer, y: Integer)
+{
+    var @x = x
+    var @y = y
+    define y { # Syntax error!
+    }
+}</pre>
+                <p>
+The reason for this is that Lily cannot be completely sure in all cases as to which one you might one.
+                </p>
+                <p>
+By default, class members and properties are <strong>public</strong>.
+Because <strong>public</strong> is the default, there is no keyword for it, since that would be redundant.
+Lily does, however, support the typical <span class="varname">protected</span> and <span class="varname">private</span> modifiers.
+                </p>
+                <pre>
+class Point(x: Integer, y: Integer)
+{
+    protected var @x = x
+    private var @y = y
+
+    private define hidden {
+        @x += 10
+    }
+
+    define compare(other: Point): Boolean
+    {
+        return (@x == other.x &amp;&amp;
+                @y == other.y)
+    }
+}
+
+var p = Point(10, 20)
+# p.x = 10 # Syntax error: Point.x is protected within Point.
+p.hidden() # Syntax error: Point.hidden is hidden within Point.</pre>
+                <p>
+In Lily, access to <span class="varname">private</span> properties and methods is allowed when within the originating class.
+Absent from Lily are getters and setters found in other object-oriented languages.
+This has a downside, in that it's currently not possible to have a <span class="varname">var</span> that has, say, a <span class="varname">protected</span> get but a <span class="varname">private</span> set.
+                </p>
+                <p>
+Moving on, Lily also supports inheritance:
+                </p>
+                <pre>
+class Point2D(x: Integer, y: Integer)
+{
+    var @x = x
+    var @y = y
+
+    define move2D(moveX: Integer, moveY: Integer)
+    {
+        @x += moveX
+        @y += moveY
+    }
+}
+
+class Point3D(x: Integer, y: Integer, z: Integer) &lt; Point2D(x, y)
+{
+    var @z = z
+
+    define move3D(moveX: Integer, moveY: Integer, moveZ: Integer)
+    {
+        move2D(moveX, moveY)
+        @z += moveZ
+    }
+}</pre>
+                <p>
+The <span class="varname">&lt;</span> token is used to indicate inheritance.
+Notice how the movement function is written differently between them.
+While Lily does support generics, it does not support overloading.
+Additionally, it currently does not support a <strong>virtual</strong>-like keyword either.
+That may change in a future version of Lily.
+                </p>
+                <p>
+Speaking of inheritance, most of Lily's built-in classes do not support being inherited from.
+That too may change in a future version of Lily.
+For now, only <code>Exception</code> and <code>Tainted</code> can be inherited from.
+                </p>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_Exceptions"></a>
+                    Exceptions
+                </h1>
+                <p>
+In Lily, all exceptions are implemented as classes within the language.
+For a class to be an exception, it must inherit from the built-in class <code>Exception</code>.
+<code>Exception</code> is defined within Lily as follows:
+                </p>
+                <pre>
+class Exception(message: String)
+{
+    var @traceback: List[String] = []
+    var @message = message
+}</pre>
+                <p>
+Lily comes with a handful of Exception classes. They are:
+                </p>
+                <ul>
+                    <li>
+<code>DivisionByZeroError</code>: Attempting to divide or modulo by 0.
+                    </li>
+                    <li>
+<code>FormatError</code>: Giving a formatting function either too many or too few arguments.
+                    </li>
+                    <li>
+<code>IndexError</code>: Attempting to index a <code>List</code> or <code>String</code> with an invalid index (too big or too small).
+                    </li>
+                    <li>
+<code>IOError</code>: Attempting to read from a write-only stream, or vice versa, or an issue opening a <code>File</code>.
+                    </li>
+                    <li>
+<code>KeyError</code>: Attempting to get an item from a <code>Hash</code> that does not exist.
+                    </li>
+                    <li>
+<code>RuntimeError</code>: Attempting to remove a <code>Hash</code> key during iteration, or comparing an infinite structure.
+                    </li>
+                    <li>
+<code>ValueError</code>: An invalid argument has been sent (ex: <span class="varname">Option.unwrap</span> on <span class="varname">None</span>).
+                    </li>
+                </ul>
+                <p>
+It is possible to extend either <code>Exception</code> or one of the above classes to create custom exceptions.
+Said custom exceptions can include extended information, such as an error code, or other interesting values.
+                </p>
+                <p>
+The keyword <span class="varname">raise</span> is used to raise an exception.
+When an exception is raised, the <span class="varname">Exception.traceback</span> field is updated to contain the current stack information (and old information is erased).
+                </p>
+                <p>
+Handling exceptions is done through <span class="varname">try</span> + <span class="varname">except</span>.
+Here's one example:
+                </p>
+                <pre>
+try:
+    1 / 0
+except DivisionByZeroError as e:
+    print($"Traceback: ^(e.traceback)")
+except Exception:
+    0 # Unreachable</pre>
+                <p>
+The exception branch that is chosen is not the most specific one, but rather the one that is seen first
+                </p>
+                <pre>
+try:
+    raise ValueError("That value is wrong!")
+except Exception:
+    print("Got it!")
+except ValueError:
+    1 # Unreachable</pre>
+                <p>
+While exceptions are available, it is preferable to use <code>Option</code> or <code>Either</code> when possible.
+The reason for this is that <code>Option</code> and <code>Either</code> are chainable, whereas exceptions interrupt flow.
+Exceptions should be thought of as a last resort, and never as a first one.
+                </p>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_Lambdas"></a>
+                    Lambdas
+                </h1>
+                <p>
+Sometimes you need a function but it's so small that you don't need to give it a name.
+This is where lambdas come in.
+Lambdas are a way of having a very terse function that relies heavily on inference.
+Here's one example:
+                </p>
+                <pre>
+define inplace_sort(input: List[Integer], cmp: Function(Integer, Integer =&gt; Boolean))
+    : List[Integer]
+{
+    for i in 0...input.size() - 1: {
+        var j = i
+        while j > 0 &amp;&amp; cmp(input[j - 1], input[j]): {
+            var temp = input[j]
+            input[j] = input[j - 1]
+            input[j - 1] = temp
+            j -= 1
+        }
+    }
+    return input
+}
+
+inplace_sort([1, 3, 5, 2, 4], {|a, b| a &gt; b}) # [1, 2, 3, 4, 5]
+inplace_sort([1, 3, 2],       {|a, b| a &lt; b}) # [3, 2, 1]</pre>
+                <p>
+Most of this shouldn't be surprising by now.
+<span class="varname">inplace_sort</span> takes in a <code>List</code> and mutates the elements so that they are sorted.
+The sorting order depends on the comparison function, <span class="varname">cmp</span>.
+<span class="varname">inplace_sort</span> with a starting <code>List</code>, and the lambda.
+The first lambda is: <span class="varname">{|a, b| a &gt; b }</span>.
+                </p>
+                <p>
+Lambdas work off of inference.
+This lambda creates two temporary variables for the two inputs that it has.
+The return of a lambda is inferred instead of explicit, to allow it to be more terse.
+By using a lambda, the intent is clearer than using a function (whose source may have to be searched for).
+                </p>
+                <p>
+Occasionally, there's a method that you'd like to call with a lambda, and that lambda will be the only argument.
+Here's one example:
+                </p>
+                <pre>
+[1, 2, 3].each({|e| print(e) })</pre>
+                <p>
+In this kind of situation, the parentheses don't serve any real value.
+If you have a value of some kind, and write a lambda, then Lily will assume that the lambda applies to the value.
+Doing so allows the elimination of those parentheses that don't do anything:
+                </p>
+                <pre>
+[1, 2, 3].each{|e| print(e) }</pre>
+                <p>
+Occasionally, it's useful to specify the type of a lambda's argument:
+                </p>
+                <pre>
+var math_ops = [
+    "+" =&gt; {|a: Integer, b: Integer| a + b },
+    "-" =&gt; {|a, b| a - b},
+    "*" =&gt; {|a, b| a * b},
+    "/" =&gt; {|a, b| a / b}]
+
+    math_ops["+"](10, 20) |&gt; print</pre>
+                <p>
+Lily's type inference is smart enough to take the hints from the first lambda, and apply them to the other lambdas.
+Doing it this way avoids writing a huge type for <span class="varname">math_ops</span> itself (<code>Hash</code><span>[</span><code>String</code><span>, </span><code>Function</code><span>(</span><code>Integer</code><span>, </span><code>Integer</code><span> =&gt; </span><span class="varname">Integer</span><span>)]</span>).
+                </p>
+                <p>
+There are some limitations to lambdas, however.
+If a lambda spans multiple lines, the value that is returned is the last expression, unless it's a block.
+Additionally, lambdas are currently unable to raise an exception.
+Explicit returns are also forbidden within a lambda, but that is by design (lambdas should be straightforward).
+                </p>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_Generics"></a>
+                    Generics
+                </h1>
+                <p>
+The design of Lily's generics is largely inspired by Scala.
+As such, generic types are indicated between <code>[</code> and <code>]</code>, right after the name of a class or function.
+Here's what it looks like, in practice.
+                </p>
+                <pre>
+define fold[A](input: List[A], start: A, combine: Function(A, A =&gt; A)): A
+{
+    var total = start
+    input.each{|e| total = combine(total, e) }
+    return total
+}
+
+fold([1, 2, 3], 0, {|a, b| a + b }) |&gt; print              # 6
+fold(["1", "2", "3"], "", {|a, b| $"^(a)^(b)" }) |&gt; print # "123"</pre>
+                <p>
+<span class="varname">fold</span> accumulates elements of a <code>List</code> together using <span class="varname">combine</span> as an accumulator.
+Lily's generics work by associating types.
+Initially, it doesn't know what <code>A</code> should be.
+It sees that that, in the first call, <code>A</code> is solved as <code>Integer</code>.
+So long as subsequent uses of <code>A</code> solve as <code>Integer</code> or better, then everything is ok.
+Additionally, it should be noted that Lily is smart enough to pass down inference information to the lambda.
+This means that the lambdas know their types.
+                </p>
+                <p>
+Let's take a look at the <code>Tainted</code> class, for another use of generics.
+The <code>Tainted</code> class is defined internally as:
+                </p>
+                <pre>
+class Tainted[A](value: A)
+{
+    private var @value = value
+    define sanitize[B](f: Function(A =&gt; B)): B
+    {
+        return f(@value)
+    }
+}</pre>
+                <p>
+Since <code>Tainted.sanitize</code> is in a scope that already has <code>A</code> defined, it only needs to establish <code>B</code>.
+In a future version of Lily, the language may automatically infer that a single capital letter is a generic, and thus not require the definition on <span class="varname">Tainted.sanitize</span>.
+Let's see some usage of <code>Tainted</code>.
+                </p>
+                <pre>
+var bad_string = Tainted("&amp;")
+# var bad_idea = bad_string.value # Syntax error, because @value is private.
+
+var clean_string = bad_string.sanitize(String.htmlencode)
+print(clean_string) # &amp;amp;
+
+# What about something more interesting though?
+
+var maybe_int = Tainted("123").sanitize(String.parse_i)
+maybe_int.unwrap() |&gt; print # 123
+
+# A <!-- cat --> lambda is fine too:
+var ok_string = Tainted(1e1).sanitize{|a| a.to_s() }
+print(ok_string) # 100</pre>
+                <p>
+The last example shows off Lily's inference capabilities.
+The lambda is able to infer that <span class="varname">a</span> has the generic type <code>A</code>, and that <code>A</code> is solved as <code>Integer</code>.
+But what about the return?
+Since <code>B</code> is not established, it's set to whatever the lambda returns.
+The design of <code>Tainted</code> is intentional, as it allows both transforming and cleaning the inner value at the same time.
+                </p>
+                <p>
+Lily's generics, while good at inference, are lacking in other areas.
+There's currently no support for constraints on generics (Inability to specify that, say <code>A</code> satisfies some interface.
+There's also a limitation on generics, in that they must be declared in alphabetical order.
+There are other limitations, but these are thought to be the ones that will be noticed the most.
+In a future version of Lily, both of those (especially named generics) are likely to be supported.
+                </p>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_Enums"></a>
+                    Enums
+                </h1>
+                <p>
+Lily's enums have been designed to provide safety though types.
+As such, they have been largely modelled after Rust's enums.
+Here's an example of an enum used to describe common terminal colors:
+                </p>
+                <pre>
+enum TerminalColor {
+    Black
+    Blue
+    Cyan
+    Green
+    Magenta
+    Red
+    White
+    Yellow
+}
+
+var my_color = Black
+# my_color = 10 # Syntax error
+print(my_color == Blue) # false</pre>
+                <p>
+The members of an enum are called its variants.
+When a variable is assigned to a variant, it will have the type of the enum.
+In the above case, <span class="varname">my_color</span> has the type <code>TerminalColor</code>.
+Lily does not allow a variable to have a variant class as a type, as it makes inference more challenging.
+                </p>
+                <p>
+The above example creates an enum that pollutes the scope it's in.
+Perhaps you'd like to require that <span class="varname">TerminalColor.&lt;name&gt;</span> be used instead.
+Scoped enums can be defined as follows:
+                </p>
+                <pre>
+enum Speed {
+    .Fast
+    .Medium
+    .Slow
+}
+
+var my_speed = Speed.Fast
+print(my_speed == Speed.Slow) # false</pre>
+                <p>
+While it is possible to use <span class="varname">==</span> to compare enums, it doesn't guarantee that all cases are covered.
+This is where <span class="varname">match</span> comes into play.
+<span class="varname">match</span> works like this:
+                </p>
+                <pre>
+var colors = [Red, Green, Blue]
+
+for i in 0...colors.size() - 1: {
+    var name = ""
+    match colors[i]: {
+        case Black:   name = "Black"
+        case Blue:    name = "Blue"
+        case Cyan:    name = "Cyan"
+        case Green:   name = "Green"
+        case Magenta: name = "Magenta"
+        case Red:     name = "Red"
+        case White:   name = "White"
+        case Yellow:  name = "Yellow"
+    }
+
+    print($"Color ^(i) is ^(name).")
+}
+
+var another_speed = Speed.Fast
+match another_speed: {
+    case Fast:   print("You are going fast.")
+    case Medium: print("You are going average.")
+    case Slow:   print("You are going slow.")
+}</pre>
+                <p>
+One of the key features of <span class="varname">match</span> is that it is exhaustive.
+That is, forgetting one of the cases is a syntax error.
+By doing this, Lily can be sure that all cases are handled.
+                </p>
+                <p>
+Variants can also have values inside of them:
+                </p>
+                <pre>
+enum Shape
+{
+    Line(Integer, Integer)
+    Rectangle(Double, Double)
+    Square(Integer)
+}
+
+var num_lines = 0
+var shape_list = [Rectangle(10.5, 20.2), Square(5)]
+
+for i in 0...shape_list.size()-1: {
+    match shape_list[i]: {
+        case Line(start, end):
+            print($"Line: ^(start)...^(end)")
+            num_lines += 1
+        case Rectangle(width, height):
+            print($"Rectangle: ^(width)x^(height)")
+        case Square(size):
+            print($"Square: ^(size)")
+    }
+}</pre>
+                <p>
+When <span class="varname">case</span> has a variant that takes arguments, it is required to give names to all arguments.
+It is a syntax error to not give enough arguments for the variant, just as it's a syntax error to not check for all variants.
+The above example also shows how each <span class="varname">case</span> is allowed to span multiple expressions.
+As of right now, Lily requires that all <span class="varname">match</span> expressions have a brace, so that they span multiple expressions.
+In a future version of Lily, such a requirement is likely to be removed.
+                </p>
+                <p>
+Enums are also allowed to have methods on them:
+                </p>
+                <pre>
+enum Direction
+{
+    North
+    East
+    South
+    West
+
+    define pivot_right: Direction
+    {
+        match self: {
+            case North: return East
+            case East:  return South
+            case South: return West
+            case West:  return North
+        }
+    }
+
+    define pivot_left: Direction
+    {
+        match self: {
+            case North: return West
+            case East:  return North
+            case South: return East
+            case West:  return South
+        }
+    }
+}</pre>
+                <p>
+Earlier, there was discussion of <code>Option</code> and <code>Either</code>.
+Both are enums, and are defined (roughly) as follows:
+                </p>
+                <pre>
+enum Option[A] {
+    Some(A)
+    None
+
+    define is_some: Boolean
+    {
+        match self: {
+            case Some(s): return true
+            case None:    return false 
+        }
+    }
+    define is_none: Boolean
+    { ... }
+
+    define unwrap: A
+    {
+        match self: {
+            case Some(s): return s
+            case None:    raise ValueError("unwrap called on None.")
+        }
+    }
+
+    ...
+}
+
+enum Either[A, B] {
+    Left(A)
+    Right(B)
+
+    define left: Option[A]
+    {
+        match self: {
+            case Left(l):  return Some(l)
+            case Right(r): return None
+        }
+    }
+
+    ...
+}</pre>
+                <p>
+<code>Option</code> and <code>Either</code> are both useful, for different reasons.
+<code>Option</code> is useful for denoting that a function should return a value, but may fail.
+It's good in cases where the reason is not as important as the why.
+<code>Either</code> is a richer way of pushing back errors.
+It can be used in cases where there is an error message that could, for example, be pushed back to the user.
+It can also be used for signaling that a function may have different values.
+                </p>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_Dynamic"></a>
+                    Dynamic
+                </h1>
+                <p>
+Occasionally, it's useful to defer type checking until runtime.
+Lily provides the <code>Dynamic</code> class as a means of doing just that.
+The <code>Dynamic</code> class provides a constructor, but that does not mean it is inheritable (the constructor allows <span class="varname">Dynamic(value)</span>, for convenience).
+Here's <code>Dynamic</code> in action:
+                </p>
+                <pre>
+var box = Dynamic(10)
+box = Dynamic("123")
+
+# Nesting is ok too:
+var second_box = Dynamic(box)
+
+# .@(&lt;type&gt;) is for casting.
+# The result of a cast is Option[Integer]
+var maybe_integer = box.@(Integer)
+
+# print(maybe_integer.unwrap()) # raises ValueError!
+
+var maybe_string = box.@(String)
+print(maybe_string.unwrap())</pre>
+                <p>
+Lily currently does not restrict what types go into a Dynamic, because it has no means to do so.
+However, Lily does restrict pulling types with generics out (so <code>.@(List[Integer])</code> won't work).
+The reason for this is that Lily does not retain full type information (only class information in some cases).
+So, such typecasting is not possible in Lily.
+                </p>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_ImportingCode"></a>
+                    Importing Code
+                </h1>
+                <p>
+<span class="varname">import</span> is used to load code from another module into the current one.
+The design of <span class="varname">import</span> is inspired by Python, as well as PHP.
+<span class="varname">import</span> is still pretty basic, but here's what it looks like:
+                </p>
+                <pre>
+# file: library.lly
+
+class CustomError(message: String, code: Integer) &lt; Exception(message)
+{
+    var @code = code
+}
+
+define fib(n: Integer): Integer
+{
+    if n &lt; 2:
+        return n
+    else:
+        return fib(n - 1) + fib(n - 2)
+}
+
+print("Loaded library.lly!")
+
+# file: your_file.lly
+
+import library
+
+var fib_7 = library.fib(7)
+
+class MyError(message: String, code: Integer) &lt; library.CustomError(message, code)
+{
+    
+}
+
+print(fib_7) # 13
+
+try:
+    raise MyError("oh no!", 123)
+except MyError as e:
+    print(e.code) # 123</pre>
+                <p>
+When <span class="varname">import</span> loads a module, everything within that module is then accessible using the name as a namespace.
+It is not possible to directly access members from one module in another module.
+Sometimes you'd like to load a module under a different name, or multiple modules at once:
+                </p>
+                <pre>
+import library as mylib
+
+# var fib_func = library.fib # Syntax error!
+var fib_func = mylib.fib
+
+import x, y, z
+                </pre>
+                <p>
+The <strong>first</strong> time that a module is imported, any code in it that is not within a function is automatically run.
+Subsequent imports of a module will simply make the data available to the caller.
+                </p>
+                <p>
+Earlier, it was mentioned that Lily has two modes of operation: <code>standalone</code> and <code>template</code>.
+Regardless of the starting mode, <code>import</code> will assume that the module contains only code.
+Lily is smart enough that it won't serve your code-only files (they won't start with <code>&lt;?lily</code>, and it's invalid for code files).
+Another advantage of importing in a consistent mode is that you can easily move your files from standalone to your server.
+                </p>
+            </div>
+            <div class="section">
+                <h1>
+                    <a id="_WrappingUp"></a>
+                    Wrapping up
+                </h1>
+                <p>
+I hope that this tutorial convinced you to give Lily a try.
+I've put more examples up top in the example link.
+Those are more complete, runnable bits of code to look over.
+I've also put in a sandbox with some demos to play around with.
+If nothing else, I really do appreciate you taking the time to look over what I've done with Lily.
+                </p>
+            </div>
+        </div>
+
+        <!-- Bootstrap core JavaScript
+        ================================================== -->
+        <!-- Placed at the end of the document so the pages load faster -->
+        <script src="js/jquery.min.js"></script>
+        <script src="js/bootstrap.min.js"></script>
+        <script src="js/docs.min.js"></script>
+        <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+        <script src="js/ie10-viewport-bug-workaround.js"></script>
+    </body>
+</html>

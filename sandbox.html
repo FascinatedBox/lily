@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+        <meta name="description" content="The Lily Programming Language, sandbox">
+        <meta name="author" content="Jesse Ray Adkins">
+
+        <title>Lily Sandbox</title>
+
+        <!-- Bootstrap core CSS -->
+        <link href="css/bootstrap.min.css" rel="stylesheet">
+        <!-- Bootstrap theme -->
+        <link href="css/bootstrap-theme.min.css" rel="stylesheet">
+        <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+        <link href="css/ie10-viewport-bug-workaround.css" rel="stylesheet">
+
+        <link rel="stylesheet" href="css/theme.css">
+        <link rel="stylesheet" href="css/codemirror.css">
+        <link rel="stylesheet" href="css/sandbox.css">
+
+        <script src="js/ie-emulation-modes-warning.js"></script>
+        <script src="js/codemirror.js"></script>
+        <script async type="text/javascript" src="js/lily_sandbox.js"></script>
+    </head>
+
+    <body role="document" onload="ready();">
+        <nav class="navbar navbar-inverse navbar-static-top">
+            <div class="container">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a class="navbar-brand" href="index.html">Lily</a>
+                </div>
+                <div id="navbar" class="navbar-collapse collapse">
+                        <ul class="nav navbar-nav">
+                            <li><a href="index.html">Home</a></li>
+                            <li><a href="tutorial.html">Tutorial</a></li>
+                            <li><a href="reference.html">Reference</a></li>
+                            <li><a href="modules.html">Modules</a></li>
+                            <li class="active"><a href="#">Sandbox</a></li>
+                            <li><a href="http://github.com/jesserayadkins/lily">Github</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div id="exampleroot" style="display:none">
+<div class="example" id="Hello World">
+print("Hello World!")
+</div>
+
+<div class="example" id="100 doors">
+var doors = List.fill(100, false)
+
+for i in 0...99:
+    for j in i...99 by i + 1:
+        doors[j] = !doors[j]
+
+# The type must be specified since the List starts off empty.
+var open_doors: List[Integer] = []
+
+doors.each_index{|i|
+    if doors[i]:
+        open_doors.push(i + 1)
+}
+
+print($"Open doors: ^(open_doors).")
+</div>
+<div class="example" id="Fun With Classes">
+class Point(x: Integer, y: Integer)
+{
+    var @x = x
+    var @y = y
+
+    define move2D(moveX: Integer, moveY: Integer)
+    {
+        @x += moveX
+        @y += moveY
+    }
+
+    define compare(other: Point): Boolean
+    {
+        if @x == other.x &amp;&amp; @y == other.y:
+            return true
+        else:
+            return false
+    }
+
+    define to_s: String
+    {
+        return $"Point(^(@x), ^(@y))"
+    }
+}
+
+var coordinates = [Point(5, 10), Point(40, 500), Point(11, 2)]
+
+stdout.write("Created three Points: ")
+coordinates.map(Point.to_s) |&gt; print
+
+stdout.write("How many coordinates have an x &lt; y? : ")
+coordinates.count{|c| c.x &lt; c.y } |&gt; print
+
+stdout.write("Using Point.moveBy to move each X down by half...\n")
+coordinates.each{|e| e.move2D(-e.x / 2, 0) }
+
+stdout.write("Points are now: ")
+coordinates.map(Point.to_s) |&gt; print
+</div>
+
+<div class="example" id="Show off enums">
+enum TreeObject {
+    TreeValue(String)
+    TreeList(TreeObject...)
+
+    define as_string: String {
+        match self: {
+            case TreeValue(v):
+                return v
+
+            case TreeList(l):
+                var result = "["
+                var size = l.size() - 1
+
+                for i in 0...size: {
+                    result = $"^(result)^(l[i].as_string())"
+                    if i != size:
+                        result = $"^(result) "
+                }
+
+                return $"^(result)]"
+        }
+    }
+}
+
+stdout.write("Here's a JSON-like enum value as a string: ")
+print(
+        TreeList(
+            TreeList(
+                TreeValue("abc"),
+                TreeValue("def")
+            ),
+            TreeValue("1"), 
+            TreeValue("2"),
+            TreeList(
+                TreeList(
+                    TreeValue("0")
+                )
+            )
+        ).as_string()
+    )
+</div>
+<div class="example" id="RPN calculator">
+var math_ops = ["+" =&gt; {|a: Integer, b: Integer| a + b},
+                "-" =&gt; {|a, b| a - b},
+                "*" =&gt; {|a, b| a * b},
+                "/" =&gt; {|a, b| a / b}]
+
+#[
+    This implements a reverse polish notation calculator.
+    This calculator demonstrates the usefulness of the Either type.
+    If the result was just Integer, then you'd probably wonder what it would do
+    for division by zero.
+    But since it's written as Either[String, Integer], you have a pretty strong
+    guarantee that it won't throw exceptions, regardless.
+    Furthermore, if it does throw, then you have a valid reason to say that it
+    has a bug (since something that returns Either shouldn't also throw.
+]#
+define rpn(input: String): Either[String, List[Integer]]
+{
+    var values = input.split(" ")
+    var stack: List[Integer] = []
+    
+    for i in 0...values.size() - 1: {
+        var v = values[i]
+        if v.isdigit(): {
+            v.parse_i().unwrap() |> stack.push
+        elif v.isspace() == false:
+            if stack.size() &lt; 2:
+                return Left("Stack underflow")
+
+            var right = stack.pop()
+            var left = stack.pop()
+            try: {
+                var op_fn = math_ops[v]
+                var op_value = op_fn(left, right)
+                stack.push(op_value)
+            except KeyError:
+                return Left($"Invalid operation ^(v)")
+            except DivisionByZeroError:
+                return Left("Attempt to divide by zero")
+            except Exception:
+                return Left($"Unexpected error from op ^(v)")
+            }
+        }
+    }
+
+    return Right(stack)
+}
+
+var lines = [
+    "1 2 3 4 * + -",
+    "2 2 2 2 * *",
+    "*",
+    "1 2 ?"
+    ]
+
+lines.each{|l| print($"\"^(l)\": ^(rpn(l))") }
+</div>
+
+        </div>
+
+        <div class="container theme-showcase" role="main">
+            <div class="section">
+                <h1>
+                    Sandbox
+                </h1>
+            </div>
+        </div>
+
+        <div id="editorbox" class="row">
+            <div>
+                <select id="selectexample" onchange="updatecontent()">
+                </select>
+            </div>
+            <br>
+
+            <div id="editor"></div>
+            <button class="runbutton" type="button" onclick="execute()">Execute</button>
+        </div>
+
+        <div class="section" id="resultbox">
+            <span>Output</span>
+            <br />
+            <textarea id="results" rows="8" disabled="1"></textarea>
+        </div>
+
+        <script src="js/prep_sandbox.js"></script>
+        <!-- Bootstrap core JavaScript
+        ================================================== -->
+        <!-- Placed at the end of the document so the pages load faster -->
+        <script src="js/jquery.min.js"></script>
+        <script src="js/bootstrap.min.js"></script>
+        <script src="js/docs.min.js"></script>
+        <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+        <script src="js/ie10-viewport-bug-workaround.js"></script>
+    </body>
+</html>

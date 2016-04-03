@@ -1,115 +1,169 @@
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <script src="modernizr-1.5.js"></script>
-    <link href="lily_style.css" rel="stylesheet" type="text/css" />
-  </head>
-  <body>
-    <header>
-      <img src="logo.png">
-      <h1>Lily</h1>
-    </header>
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+        <meta name="description" content="The Lily Programming Language, introduction area">
+        <meta name="author" content="Jesse Ray Adkins">
 
-    <aside>
-      <ul>
-        <li>Home</li>
-        <li><a href="index.html">Introducing Lily</a></li>
-        <li><a href="getting_started.html">Getting Started</a></li>
-        <li><a href="tryit.html">Try it</a></li>
-      </ul>
-      <ul>
-        <li>Core</li>
-        <li><a href="syntax.html">Syntax</a></li>
-        <li><a href="control_flow.html">Control flow</a></li>
-        <li><a href="functions.html">Functions</a></li>
-        <li><a href="builtin_types.html">Builtin types</a></li>
-        <li><a href="generics.html">Generics</a></li>
-        <li><a href="classes.html">Classes</a></li>
-        <li><a href="enums.html">Enums</a></li>
-        <li><a href="lambdas.html">Lambdas</a></li>
-        <li><a href="error_handling.html">Error Handling</a></li>
-        <li><a href="import.html">Importing</a></li>
-      </ul>
-      <ul>
-        <li>Class Reference</li>
-        <li><a href="boolean_type.html">boolean</a></li>
-        <li><a href="integer_type.html">integer</a></li>
-        <li><a href="double_type.html">double</a></li>
-        <li><a href="bytestring_type.html">bytestring</a></li>
-        <li><a href="string_type.html">string</a></li>
-        <li><a href="function_type.html">function</a></li>
-        <li><a href="list_type.html">list</a></li>
-        <li><a href="hash_type.html">hash</a></li>
-        <li><a href="tuple_type.html">tuple</a></li>
-        <li><a href="dynamic_type.html">Dynamic</a></li>
-        <li><a href="exception_type.html">Exception</a></li>
-        <li><a href="tainted_type.html">Tainted</a></li>
-        <li><a href="option_type.html">Option</a></li>
-      </ul>
-      <ul>
-        <li>Reference</li>
-        <li><a href="sys_package.html">sys</a></li>
-        <li><a href="server_package.html">server</a></li>
-        <li><a href="postgre_package.html">postgre</a></li>
-        <li><a href="builtins.html">builtins</a></li>
-      </ul>
-    </aside>
-   <article>
-     <section>
-<h1>Introducing Lily</h1>
-<p>Lily is an interpreted language that features static typing that's there to help you, rather than to get in the way. It mixes ideas from a number of languages, notably Scala, Rust, Ruby, and Python. </p>
-<p>By default, Lily will treat the entire source file as being code, and run it. This is called standalone mode. The alternative is tag mode. In tag mode, the interpreter will process anything between <code>&lt;?lily ... ?&gt;</code> as code, and anything outside as raw HTML.</p>
-<pre><code>define is_integer(input: String) : Boolean
-{
-    try: {
-        input.parse_i().unwrap()
-        return true
-    except Exception:
-        return false
-    }
-}
+        <title>Lily Home Page</title>
 
-# Inferred type: list of strings (List[String])
-var to_convert = [&quot;123&quot;, &quot;99&quot;, &quot;10pigs&quot;, &quot;asdf&quot;]
+        <!-- Bootstrap core CSS -->
+        <link href="css/bootstrap.min.css" rel="stylesheet">
+        <!-- Bootstrap theme -->
+        <link href="css/bootstrap-theme.min.css" rel="stylesheet">
+        <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+        <link href="css/ie10-viewport-bug-workaround.css" rel="stylesheet">
 
-# Drop the ones that can't be converted to integers.
-to_convert.select(is_integer)
+        <link rel="stylesheet" href="css/theme.css">
 
-# Inferred type: List[Integer]
-var integer_list = to_convert.map{|s| s.parse_i().unwrap()}
+        <script src="js/ie-emulation-modes-warning.js"></script>
+    </head>
 
-print(integer_list)
-</code></pre>
+    <body role="document">
+        <nav class="navbar navbar-inverse navbar-static-top">
+            <div class="container">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a class="navbar-brand" href="index.html">Lily</a>
+                </div>
+                <div id="navbar" class="navbar-collapse collapse">
+                        <ul class="nav navbar-nav">
+                            <li class="active"><a href="#">Home</a></li>
+                            <li><a href="tutorial.html">Tutorial</a></li>
+                            <li><a href="reference.html">Reference</a></li>
+                            <li><a href="modules.html">Modules</a></li>
+                            <li><a href="sandbox.html">Sandbox</a></li>
+                            <li><a href="http://github.com/jesserayadkins/lily">Github</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </nav>
 
-<p>Features:</p>
-<ul>
-<li>
-<p>Types that doesn't get in the way. A variable's type is determined by the first thing it's assigned to. Beyond that, Lily uses type inference so that the types (and the safety they provide) is still there.</p>
-</li>
-<li>
-<p>Code from different files is imported into a namespace. No worries about global namespace pollution between different files.</p>
-</li>
-<li>
-<p>Exceptions are baked into the language, and into the core library. No error codes.</p>
-</li>
-<li>
-<p>Lily employs a technique called dynaload throughout the interpreter. It won't load information about functions, unless it can verify that a given function will be used. This allows a simple 'Hello World' script to run in under 9K of memory.</p>
-</li>
-<li>
-<p>Lily is very fast. The test suite has 350 tests, and a separate instance of the interpreter is booted up for each one. The test runner executes all of these tests in under three seconds.</p>
-</li>
-</ul>
-     </section>
-   </article>
-     <footer>
-      <p>
-Lily is designed by Jesse Ray Adkins (<a href="https://github.com/jesserayadkins">Github</a>,
-<a href="http://www.reddit.com/user/jesserayadkins">Reddit</a>).
-      </p>
-      <br />
-      <p>
-Logo source: <a href="http://sweetclipart.com/three-white-calla-lilies-1015">here</a>, via <a href="http://sweetclipart.com">sweetclipart.com</a>.
-      </p>
-    </footer>
-</body>
+        <div class="container theme-showcase" role="main">
+            <div class="jumbotron">
+                <div class="row">
+                    <div class="span6 col-md-6">
+                        <h1>Lily</h1>
+                        <p>A programming language focusing on expressiveness and safety.</p>
+                    </div>
+                    <div class="span6 col-md-6" title="Sum numbers from the command-line. This example shows off: 1) import and namespace access. 2) Method used as a function. 3) Option as first-class. 4) Inference with lambdas (particularly the fold). 5) Call-piping.">
+                        <code style="padding: 0px 0px; background-color:inherit; color: white">
+                        <span>import sys</span><br />
+                        <span>sys.argv.map(String.parse_i)</span><br />
+                        <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;        .reject{|r| r.is_none() }</span></br />
+                        <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;        .map{|m| m.unwrap() }</span><br />
+                        <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;        .fold(0, {|a, b| a + b})</span><br />
+                        <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;        |> print</span>
+                        </code>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="span6 col-md-6">
+                    <h1>
+                    Safety through types
+                    </h1>
+                    <p>
+                    Every variable has to have a starting value. Every expression has a known type. Because the type system is not optional, Lily knows what every function expects and should produce. Lily's type system exists to aid the programmer, not get in the way.
+                    </p>
+                    <p>
+                    To further this notion, Lily provides <code>Option</code> for values that may be <code>None</code>.
+                    </p>
+                    <p>
+                    Have a function which may fail, but want to give a message? Use <code>Either</code>. Exceptions should be exceptional, not everyday.
+                    </p>
+                </div>
+                <div class="span6 col-md-6">
+                    <h1>
+                    Embeddable
+                    </h1>
+                    <p>
+                    The interpreter does not write any global data. This allows multiple interpreters to exist at the same time without worrying about them colliding into each other.
+                    </p>
+                    <p>
+                    Furthermore, Lily is frequently checked with valgrind to make sure that startup and shutdown do not leak memory. This means that you can embed Lily without fear of slowly leaking memory over time.
+                    </p>
+                    <p>
+                    Lily can also be extended to hook into data of yours (this is how the postgres and apache modules currently work).
+                    </p>
+                </div>
+            </div>
+            <div class="row">
+                <div class="span6 col-md-6">
+                    <h1>
+                    Fast turnaround
+                    </h1>
+                    <p>
+                    Most statically-typed languages are also compiled one. Static typing allows those compilers to generate very fast code, but at the cost of time.
+                    </p>
+                    <p>
+                    Lily is an interpreted language made in hand-crafted, artisinal C. It's fast. It can churn through over <strong>1,000</strong> lines in less than a second.
+                    </p>
+                    <p>
+                    A fast turnaround time not only encourages experimentation, but it means that you won't end up designing your modules around reducing build times.
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <h1>
+                    Low memory use
+                    </h1>
+                    <p>
+                    Most interpreted languages have to dynamically allocate a lot of memory just to get started. A few hundred KB, or even 2 MB isn't unheard of.
+                    </p>
+                    <p>
+                    Allocating memory takes time. One way that Lily cuts down on memory (and startup time) is to not dynamicall allocate memory for functions and (some) functions that you aren't going to use.
+                    </p>
+                    <p>
+                    Lily can do this, because it's statically typed, and knows for sure what will and won't be used. This technique, termed dynaloading, allows Lily to print 'Hello world' in <strong>less than 10 KB</strong> of memory.
+                    </p>
+                </div>
+            </div>
+            <div class="row">
+                <div class="span6 col-md-6">
+                    <h1>
+                    Type inference
+                    </h1>
+                    <p>
+                    Strong static typing goes hand-in-hand with good inference. Lily knows that <code>[1, 2, 3]</code> is a <code>List[Integer]</code>.
+                    </p>
+                    <p>
+                    Lily requires that functions explicitly specify their input and output types. But, aside from that, most typing is optional.
+                    </p>
+                    <p>
+                    You can thus change your code without having to rewrite type annotations. Types belong behind the scenes, not in your face.
+                    </p>
+                </div>
+                <div>
+                    <h1>
+                    Built-in templating
+                    </h1>
+                    <p>
+                    Lily can be run from a server and used as a templating language. When used as a templating language, code is between <code>&lt;?lily ... ?&gt;</code>, and everything else is code.
+                    </p>
+                    <p>
+                    Code that is <code>import</code>ed is expected to always be in code mode. No more importing something that accidentally sends headers. <code>import</code> is also namespaced, among many other things.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bootstrap core JavaScript
+        ================================================== -->
+        <!-- Placed at the end of the document so the pages load faster -->
+        <script src="js/jquery.min.js"></script>
+        <script src="js/bootstrap.min.js"></script>
+        <script src="js/docs.min.js"></script>
+        <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+        <script src="js/ie10-viewport-bug-workaround.js"></script>
+    </body>
 </html>

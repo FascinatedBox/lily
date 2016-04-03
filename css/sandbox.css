@@ -1,0 +1,40 @@
+section {
+    width: 700px
+}
+
+.runbutton {
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
+    padding: 3px;
+}
+
+.example {
+    display:none;
+}
+
+.CodeMirror {
+    height: 250px;
+}
+
+#editorbox {
+    border: blue 1px solid;
+    border-radius: 15px;
+    margin-left: 50px;
+    padding: 5px;
+    width: 90%;
+    height: 60%;
+}
+
+#resultbox {
+    margin-left: 50px;
+    margin-top: 10px;
+    padding: 5px;
+    width: 70%;
+}
+
+#results {
+    width: 100%;
+    border-width: 1px;
+    font-family: Monospace, Mono, "Courier New";
+}

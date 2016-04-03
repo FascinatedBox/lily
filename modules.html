@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+        <meta name="description" content="The Lily Programming Language, modules">
+        <meta name="author" content="Jesse Ray Adkins">
+
+        <title>Lily Module Documentation</title>
+
+        <!-- Bootstrap core CSS -->
+        <link href="css/bootstrap.min.css" rel="stylesheet">
+        <!-- Bootstrap theme -->
+        <link href="css/bootstrap-theme.min.css" rel="stylesheet">
+        <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+        <link href="css/ie10-viewport-bug-workaround.css" rel="stylesheet">
+
+        <link rel="stylesheet" href="css/theme.css">
+        <link rel="stylesheet" href="css/doc.css">
+
+        <script src="js/ie-emulation-modes-warning.js"></script>
+    </head>
+
+    <body role="document">
+        <nav class="navbar navbar-inverse navbar-static-top">
+            <div class="container">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a class="navbar-brand" href="index.html">Lily</a>
+                </div>
+                <div id="navbar" class="navbar-collapse collapse">
+                        <ul class="nav navbar-nav">
+                            <li><a href="index.html">Home</a></li>
+                            <li><a href="tutorial.html">Tutorial</a></li>
+                            <li><a href="reference.html">Reference</a></li>
+                            <li class="active"><a href="#">Modules</a></li>
+                            <li><a href="sandbox.html">Sandbox</a></li>
+                            <li><a href="http://github.com/jesserayadkins/lily">Github</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container theme-showcase" role="main">
+            <div class="col-md-6" style="width: 100%">
+                <dl>
+                    <dt>
+                    </dt>
+                </dl>
+            </div>
+            <div class="section">
+                <h1>
+                    sys
+                </h1>
+                <h5>
+<span>var</span> <span class="varname">sys.argv: </span><code>List</code><span>[</span><code>String</code><span>]</span>
+                </h5>
+                <div class="explain">
+<span class="varname">sys.argv</span> contains all command-line arguments that were passed to the program.
+When Lily is being run from mod_lily, this is empty.
+                </div>
+            </div>
+            <div class="section">
+                <h1>
+                    server
+                </h1>
+                <p>
+mod_lily provides this module for the scripts that it runs.
+Scripts that do not run from mod_lily, but wish to emulate it, can create a server.lly file that provides these things.
+                </p>
+                <h5>
+<span>var</span> <span class="varname">server.env: <code>Hash</code><span>[</span><code>String</code><span>, </span>Tainted<span>[</span><code>String</code><span>]</span><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This is contains the environment that the server has installed upon it.
+Naturally, this varies from server to server.
+Since this is typed as <code>String</code> to <code>String</code>, any values within the environment that are not utf-8 valid are removed beforehand.
+                    </p>
+                </div>
+                <h5>
+<span>define</span><span class="funcname">server.escape</span><span>(input: </span><code>String</code><span>):</span><code>String</code>
+                </h5>
+                <div class="explain">
+                    <p>
+This checks <span class="varname">self</span> for having <span class="varname">"&amp;"</span>, <span class="varname">"&lt;"</span>, or <span class="varname">"&gt;"</span>.
+If any are found, then a new <code>String</code> is created where those html entities are replaced (&amp; becomes &amp;amp;, &lt; becomes &amp;lt;, &gt; becomes &amp;gt;).
+                    </p>
+                </div>
+                <h5>
+<span>var</span> <span class="funcname">server.get: <code>Hash</code><span>[</span><code>String</code><span>, </span>Tainted<span>[</span><code>String</code><span>]</span><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This contains key+value pairs that were sent to the server as GET variables.
+Any pair that has a key or a value that is not valid utf-8 will not be present.
+                    </p>
+                </div>
+                <h5>
+<span>var</span> <span class="funcname">server.httpmethod: <code>String</code>
+                </h5>
+                <div class="explain">
+                    <p>
+This is the method that was used to make the request to the server.
+Common values are <span class="varname">"GET"</span>, and <span class="varname">"POST"</span>.
+                    </p>
+                </div>
+                <h5>
+<span>var</span> <span class="funcname">server.post: <code>Hash</code><span>[</span><code>String</code><span>, </span>Tainted<span>[</span><code>String</code><span>]</span><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This contains key+value pairs that were sent to the server as POST variables.
+Any pair that has a key or a value that is not valid utf-8 will not be present.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">server.write_literal</span><span>(text: </span></<code>String</code>)
+                </h5>
+                <div class="explain">
+                    <p>
+This writes <span class="varname">text</span> directly to the server.
+If <span class="varname">text</span> is not a <code>String</code> literal, then <code>ValueError</code> is raised.
+No escaping is performed on the text sent, as the text is a <code>String</code> literal.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">server.write_raw</span><span>(text: </span></<code>String</code>)
+                </h5>
+                <div class="explain">
+                    <p>
+This writes <span class="varname">text</span> directly to the server.
+No escaping is done upon <span class="varname">text</span>.
+Use this only if you are certain that there is no possibility of html injection.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">server.write</span><span>(text: </span><code>String</code>)
+                </h5>
+                <div class="explain">
+                    <p>
+This escapes, then writes <span class="varname">text</span> to the server.
+It is equivalent to <span class="varname">text |&gt; server.escape |&gt; server.write_raw</span>, except faster because it skips building an intermediate <code>String</code> value.
+                    </p>
+                </div>
+            </div>
+            <div class="section">
+                <h1>
+                    server
+                </h1>
+                <p>
+The server module provides a very basic interface to Postgres.
+This module is available so long as Lily has been built with Postgres support.
+This module provides two classes: <code>Result</code> and <code>Conn</code>.
+Both classes have only methods, and are not inheritable.
+                </p>
+                <h5>
+<span class="funcname">Result.close</span><span>(self: </span><code>Result</code><span>)</span>
+                </h5>
+                <div class="explain">
+                    <p>
+Closes <span class="varname">self</span>, and relinquishes any resources it was holding.
+                    </p>
+                </div>
+<span class="funcname">Result.each_row</span><span>(self: </span><code>Result</code><span>, </span><span class="varname">fn: </span><code>Function</code><span>(</span><code>List</code><span>[</span><code>String</code><span>]))</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This calls <span class="varname">fn</span> upon each row that is present within <span class="varname">self</span>.
+If <span class="varname">self</span> is empty, then this does not do anything.
+This function exhausts all rows that are present within the <code>Result</code>
+                    </p>
+                </div>
+                <h5>
+<span class="funcname">Result.row_count</span><span>(self: </span><code>Result</code><span>):</span><code>Integer</code>
+                </h5>
+                <div class="explain">
+                    <p>
+This function returns the number of rows that are present within <span class="varname">self</span>.
+If <span class="varname">self</span> is closed, then this returns 0.
+                    </p>
+                </div>
+                <h5>
+<span class="funcname">Conn.query</span><span>(self: </span><code>Conn</code><span>, </span><span class="varname">question: </span><code>String</code><span>, </span><span class="varname">args: </span><code>List</code><span>[</span><code>String</code><span>]...):</span><code>Either</code><span>[</span><code>String</code><span>, </span><code>Result</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+Attempts to perform a query with the <span class="varname">self</span>.
+Any instance of ? within <span class="varname">question</span> is replaced with an element within <span class="varname">args</span>.
+If there were too few arguments to replace, or the query failed, then the result is a <span class="varname">Left</span> describing the error.
+If the query succeeded, the result is a <span class="varname">Right</span> with the <code>Result</span> object.
+                    </p>
+                </div>
+                <h5>
+<span class="funcname">Conn.open</span><span>(host: </span><code>*String</code><span>=</span><span class="varname">""</span><span>, </span><span class="varname">port: </span><code>*String</code><span>=</span><span class="varname">""</span><span>, </span><span class="varname">dbname: </span><code>*String</code><span>=</span><span class="varname">""</span><span>, </span><span class="varname">name: </span><code>*String</code><span>=</span><span class="varname">""</span><span>, </span><span class="varname">pass: </span><code>*String</code><span>=</span><span class="varname">""</span><span>):</span><code>Option</code><span>[</span><code>Conn</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+Attempts to open a new database connection using the information provided.
+On success, this yields a <span class="varname">Some</span> holding the new database connection.
+On failure, it yields a <span class="varname">None</span>.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bootstrap core JavaScript
+        ================================================== -->
+        <!-- Placed at the end of the document so the pages load faster -->
+        <script src="js/jquery.min.js"></script>
+        <script src="js/bootstrap.min.js"></script>
+        <script src="js/docs.min.js"></script>
+        <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+        <script src="js/ie10-viewport-bug-workaround.js"></script>
+    </body>
+</html>

@@ -1,0 +1,19 @@
+h5 {
+    margin-top: 20px;
+    font-weight: bold;
+}
+
+h5:first-child {
+    margin-top: initial;
+}
+
+.funcname {
+    color: darkblue;
+    font-weight: bold;
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+.explain {
+    margin-left: 20px;
+}

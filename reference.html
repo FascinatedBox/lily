@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+        <meta name="description" content="The Lily Programming Language, reference">
+        <meta name="author" content="Jesse Ray Adkins">
+
+        <title>Lily Language Reference</title>
+
+        <!-- Bootstrap core CSS -->
+        <link href="css/bootstrap.min.css" rel="stylesheet">
+        <!-- Bootstrap theme -->
+        <link href="css/bootstrap-theme.min.css" rel="stylesheet">
+        <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+        <link href="css/ie10-viewport-bug-workaround.css" rel="stylesheet">
+
+        <link rel="stylesheet" href="css/theme.css">
+        <link rel="stylesheet" href="css/doc.css">
+
+        <script src="js/ie-emulation-modes-warning.js"></script>
+    </head>
+
+    <body role="document">
+        <nav class="navbar navbar-inverse navbar-static-top">
+            <div class="container">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a class="navbar-brand" href="index.html">Lily</a>
+                </div>
+
+                <div id="navbar" class="navbar-collapse collapse">
+                        <ul class="nav navbar-nav">
+                            <li><a href="index.html">Home</a></li>
+                            <li><a href="tutorial.html">Tutorial</a></li>
+                            <li class="active"><a href="#">Reference</a></li>
+                            <li><a href="modules.html">Modules</a></li>
+                            <li><a href="sandbox.html">Sandbox</a></li>
+                            <li><a href="http://github.com/jesserayadkins/lily">Github</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container theme-showcase" role="main">
+            <div class="section">
+                <h1>
+                    Core
+                </h1>
+                <p>
+Functions defined in the core are always available, and do not require any imports.
+                </p>
+                <h5>
+<span>define</span> <span class="funcname">print</span><span>[</span><code>A</code><span>]</span><span>(data: </span><code>A</code><span>)</span>
+                </h5>
+                <div class="explain">
+                    <p>
+Writes <span class="varname">data</span> to <span class="varname">stdout</span>.
+If <span class="varname">stdout</span> has been closed, then <code>ValueError</code> will be raised.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">calltrace</span><span>:</span><code>List</code><span>[</span><code>String</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This returns the current call trace as a <code>List</code>, wherein each <code>String</code> represents a call.
+Note that Lily's call trace includes native calls, as well as foreign calls.
+                    </p>
+                </div>
+                <br />
+            </div>
+            <div class="section">
+                <h1>
+                    Boolean
+                </h1>
+                <p>
+The <code>Boolean</code> class represents a value that is either <span class="varname">true</span> or <span class="varname">false</span>.
+                </p>
+                <h5>
+<span>define</span> <span class="funcname">Boolean.to_i</span><span>(self: </span><code>Boolean</code><span>)</span>: <code>Integer</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Converts a <code>Boolean</code> to an <code>Integer</code> (<span class="varname">true</span> becomes <span class="varname">1</span>, <span class="varname">false</span> becomes <span class="varname">0</span>).
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">Boolean.to_s</span><span>(self: </span><code>Boolean</code><span>)</span>: <code>String</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Converts a <code>Boolean</code> to a <code>String</code> (<span class="varname">true</span> becomes <span class="varname">"0"</span>, <span class="varname">false</span> becomes <span class="varname">"1"</span>).
+                    </p>
+                </div>
+            </div>
+            <div class="section">
+                <h1>
+                    ByteString
+                </h1>
+                <p>
+The <code>ByteString</code> class exists as a bag of bytes.
+While <code>ByteString</code> is always internally \0 terminated, it may have \0 values embedded in it.
+Since it is made to be a bag of bytes, it may not be valid utf-8 either.
+The <code>ByteString</code> class does not support any primitive operations.
+                </p>
+                <h5>
+<span>define</span><span class="funcname">ByteString.encode</span><span>(self: </span><code>ByteString</code>, encode: <code>*String</code><span>=</span><span class="varname">"error"</span><span>):</span><code>Option</code><span>[</span><code>String</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+Attempt to transform a <code>ByteString</code> into a <code>String</code>.
+This currently only supports one mode (<span class="varname">"error"</span>), but will be expanded to other modes in the future.
+The result of this function is a <span class="varname">Some</span> if <span class="varname">self</span> is both valid utf-8, and does not contain embedded \0's.
+If either is found, then the result of this function is <span class="varname">None</span>.
+                    </p>
+                </div>
+            </div>
+            <div class="section">
+                <h1>
+                    Double
+                </h1>
+                <p>
+The <code>Double</code> class exists as a wrapper over a C double.
+                </p>
+                <h5>
+<span>define</span> <span class="funcname">Double.to_i</span><span>(</span><code>Double</code><span>):</span><code>Integer</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Convert a <code>Double</code> to an <code>Integer</code>.
+Internally, this is done by a typecast to the <code>Integer</code> type (signed int64_t).
+                    </p>
+                </div>
+            </div>
+            <div class="section">
+                <h1>
+                    Dynamic
+                </h1>
+                <p>
+The <code>Dynamic</code> class allows defering type checking until runtime.
+Creation of <code>Dynamic</code> is done through <code>Dynamic(value)</code>.
+Extraction of values is done through <code>.@(type)</code>, and produces a value of type <code>Option[type]</code>.
+Since Lily's vm does not keep track of full type information, casts are forbidding from including generics.
+                </p>
+                <h5>
+<span>define</span><span class="funcname">Dynamic.new</span><span>[</span><code>A</code><span>](value: </span><code>A</code><span>):</span><code>Dynamic</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Produce a new <code>Dynamic</code> value.
+This method exists as a convenience, to allow the shorthand of <Actualcode>Dynamic(value)</actualcode>, which is just sugar for <actualcode>Dynamic.new(value)</actualcode>.
+This should not be called directly.
+                    </p>
+                </div>
+            </div>
+            <div class="section">
+                <h1>
+                    Either
+                </h1>
+                <p>
+The <code>Either</code> enum can be used to represent a success or failure.
+Internally, the definition is:
+                </p>
+                <pre>
+enum Either[A, B] {
+    Left(A)
+    Right(B)
+}</pre>
+                <p>
+The <span class="varname">Left</span> of an <code>Either</code> should be considered the failure, and the <span class="varname">Right</span> being the success.
+Mnemonic: <span class="varname">Right</span> is correct.
+                </p>
+                <h5>
+<span>define</span> <span class="funcname">Either.is_left</span><span>[</span><code>A</code><span>, </span><code>B</code><span>](self: </span><code>Either</code><span>[</span><code>A</code><span>, </span><code>B</code><span>]</span><span>):</span><code>Boolean</code>
+                </h5>
+                <div class="explain">
+Return <span class="varname">true</span> if <span class="varname">self</span> contains a <span class="varname">Left</span>, <span class="varname">false</span> otherwise.
+                </div>
+                <h5>
+                    <p>
+<span>define</span> <span class="funcname">Either.is_right</span><span>[</span><code>A</code><span>, </span><code>B</code><span>](self: </span><code>Either</code><span>[</span><code>A</code><span>, </span><code>B</code><span>]</span><span>):</span><code>Boolean</code>
+                    </p>
+                </h5>
+                <div class="explain">
+                    <p>
+Return <span class="varname">true</span> if <span class="varname">self</span> contains a <span class="varname">Right</span>, <span class="varname">false</span> otherwise.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">Either.left</span><span>[</span><code>A</code><span>, </span><code>B</code><span>](self: </span><code>Either</code><span>[</span><code>A</code><span>, </span><code>B</code><span>]</span><span>):</span><code>Option</code><span>[</span><code>A</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+Checks if <span class="varname">self</span> contains a <span class="varname">Left</span>.
+If so, then returns a <span class="varname">Some</span> containing <span class="varname">Left</span>'s value.
+Otherwise, it returns a <span class="varname">None</span>.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">Either.right</span><span>[</span><code>A</code><span>, </span><code>B</code><span>](self: </span><code>Either</code><span>[</span><code>A</code><span>, </span><code>B</code><span>]</span><span>):</span><code>Option</code><span>[</span><code>B</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+Checks if <span class="varname">self</span> contains a <span class="varname">Right</span>.
+If so, then returns a <span class="varname">Some</span> containing <span class="varname">Right</span>'s value.
+Otherwise, it returns a <span class="varname">None</span>.
+                    </p>
+                </div>
+            </div>
+            <div class="section">
+                <h1>
+                    Exception
+                </h1>
+                <p>
+The <code>Exception</code> class is the base class of all classes that are raise-able.
+This class is defined internally as follows:
+                </p>
+                <pre>
+class Exception(message: String)
+{
+    var @message = message
+    var @traceback: List[String] = []
+}</pre>
+                <p>
+Note that the traceback field of <code>Exception</code> is updated every time that it is thrown.
+This class also has subclasses defined with it.
+You may subclass either from <code>Exception</code>, or one of these classes.
+                <ul>
+                    <li>
+<code>DivisionByZeroError</code>: Attempting to divide or modulo by 0.
+                    </li>
+                    <li>
+<code>FormatError</code>: Giving a formatting function either too many or too few arguments.
+                    </li>
+                    <li>
+<code>IndexError</code>: Attempting to index a <code>List</code> or <code>String</code> with an invalid index (too big or too small).
+                    </li>
+                    <li>
+<code>IOError</code>: Attempting to read from a write-only stream, or vice versa, or an issue opening a <code>File</code>.
+                    </li>
+                    <li>
+<code>KeyError</code>: Attempting to get an item from a <code>Hash</code> that does not exist.
+                    </li>
+                    <li>
+<code>RuntimeError</code>: Attempting to remove a <code>Hash</code> key during iteration, or comparing an infinite structure.
+                    </li>
+                    <li>
+<code>ValueError</code>: An invalid argument has been sent (ex: <ActualCode>Option.unwrap</ActualCode> on <code>None</code>).
+                    </li>
+                </ul>
+                </p>
+            </div>
+            <div>
+                <h1>
+                    File
+                </h1>
+                <p>
+The <code>File</code> class provides a wrapper over a FILE * struct.
+Long-term programs should close <code>File</code> objects when they are done with them.
+Short-term programs, however, might instead wish to rely on the garbage collector doing it for them.
+                </p>
+                <h5>
+<span>define</span><span class="funcname">File.close</span><span>(self: </span><code>File</code><span>)</span>
+                </h5>
+                <div class="explain">
+                    <p>
+Close a <code>File</code> if it is open.
+If the <code>File</code> is already closed, then this does nothing.
+For built-in files, such as <span class="varname">stdout</span>, this marks the file as closed (to the interpreter), but does not actually close it.
+This is intentional, as it prevents the interpreter from damaging standard streams.
+                    </p>
+                </div>
+                <h5>
+<span>define</span><span class="funcname">File.open</span><span>(path: </span><code>String</code><span>, </span><code>String</code><span>):</span><code>File</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Attempts to open <span class="varname">path</span> using the mode given.
+If unable to open <span class="varname">path</span>, or an invalid mode is given, <code>IOError</code> is raised.
+Valid modes are: 
+                        <ul>
+<li><span class="varname">"r"</span> (readonly, must exist)
+<li><span class="varname">"w"</span> (writeonly)</li>
+<li><span class="varname">"a"</span> (append, create if not exist)</li>
+<li><span class="varname">"r+"</span> (read+write, must exist)</li>
+<li><span class="varname">"w+"</span> (read+write, creates an empty file if needed)</li>
+<li><span class="varname">"a+"</span> (read+append)</li>
+                        </ul>
+                    </p>
+                </div>
+                <h5>
+<span>define</span><span class="funcname">File.print</span><span>[</span><code>A</code><span>]</span><span>(self: </span><code>File</code><span>, data: </span><code>A</code><span>)</span>
+                </h5>
+                <div class="explain">
+                    <p>
+Attempt to write <span class="varname">data</span> to <span class="varname">self</span>.
+If <span class="varname">self</span> is closed, or has been opened read-only, then <code>IOError</code> will be raised.
+This function prints an extra <span class="varname">"\n"</span>
+                    </p>
+                </div>
+                <h5>
+<span>define</span><span class="funcname">File.readline</span><span>(self: </span><code>File</code><span>):</span><code>ByteString</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Attempt to read a line from <span class="varname">self</span>.
+If <span class="varname">self</span> is readonly or closed, then <code>IOError</code> is raised.
+The line that is read includes the newline, if one has been read.
+This function does not raise an error or signal if the end of file has been read.
+Instead, the caller should compare the result to <span class="varname">B""</span> to determine if all bytes have been read.
+                    </p>
+                </div>
+                <h5>
+<span>define</span><span class="funcname">File.write</span><span>[</span><code>A</code><span>]</span><span>(self: </span><code>File</code>, data: </span><code>A</code><span>)</span>
+                </h5>
+                <div class="explain">
+                    <p>
+Attempt to write <span class="varname">data</span> to <span class="varname">self</span>.
+If <span class="varname">self</span> is closed, or has been opened read-only, then <code>IOError</code> will be raised.
+Unlike <code>File.print</code>, no <span class="varname">"\n"</span> will be added to the data written.
+                    </p>
+                </div>
+            </div>
+            <div class="section">
+                <h1>
+                    Function
+                </h1>
+                <p>
+The <code>Function</code> class represents some block of code that can be called to maybe get a value.
+In Lily, <code>Function</code>s are first-class and can be parameters, put in a <code>List</code>, returned, and so forth.
+Creation of new <code>Function</code>s is done primarily through <ActualCode>define</ActualCode>.
+A <code>Function</code> created through <ActualCode>define</ActualCode> cannot be altered.
+However, var with a <code>Function</code> type can be altered.
+                </p>
+            </div>
+            <div class="section">
+                <h1>
+                    Hash
+                </h1>
+                <p>
+Lily's <code>Hash</code> class represents an association of a key and a value.
+The annotation for the <code>Hash</code> refers to the key as <code>A</code>, and the value as <code>B</code>.
+A <code>Hash</code> is created by hash literal, such as: <ActualCode>[key1 =&gt; value1, key2 =&gt value2, ...]</ActualCode>.
+If a <code>Hash</code> literal contains duplicate key, then the right-most value "wins".
+New <code>Hash</code> elements can be added through subscript assignment (<ActualCode>myhash["new_key"] = 10</ActualCode>).
+However, attempting to access <code>Hash</code> elements that do not exist will cause <KeyError></KeyError> to be raised.
+Additionally, there is no guarantee as to what ordering that a <code>Hash</code> will have (or if there is any ordering at all).
+Finally, a <code>Hash</code> can currently only use either an <code>Integer</code> or a <code>String</code> as a key.
+There are, however, no restrictions as to what values can be placed into a <code>Hash</code>.
+                </p>
+                <h5>
+<span>define</span><span class="funcname">Hash.clear</span><span>[</span><code>A</code><span>, </span><code>B</code><span>](self)</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This function attempts to remove all pairs currently present within <span class="varname">self</span>.
+If <span class="varname">self</span> is being iterated over, no pairs will be removed, and <RuntimeError></RuntimeError> will be raised.
+                    </p>
+                </div>
+                <h5>
+<span>define</span><span class="funcname">Hash.delete</span><span>[</span><code>A</code><span>, </span><code>B</code><span>](self, key: </span><code>A</code><span>)</span>
+                </h5>
+                <div class="explain">
+                    <p>
+Attempts to remove <span class="varname">key</span> from <span class="varname">self</span>.
+If <span class="varname">self</span> is currently being iterated over, no pairs will be removed, and <RuntimeError></RuntimeError> will be raised.
+If <span class="varname">key</span> is not present in <span class="varname">self</span>, then this is a no-op.
+                    </p>
+                </div>
+                <h5>
+<span>define</span><span class="funcname">Hash.each_pair</span><span>[</span><code>A</code><span>, </span><code>B</code><span>](self, fn: </span><code>Function</code>(<code>A</code><span>, </span><code>B</code><span>))</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This iterates through all members of <span class="varname">self</span>, and calls <span class="varname">fn</span> on each pair in <span class="varname">self</span>.
+During iteration, adding hash elements is permitted, but attempting to remove any elements will result in <RuntimeError></RuntimeError> being thrown.
+                    </p>
+                </div>
+                <h5>
+<span>define</span><span class="funcname">Hash.has_key</span><span>[</span><code>A</code><span>, </span><code>B</code><span>](self, </span><code>A</code><span>):</span><code>Boolean</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Returns <span class="varname">true</span> if <span class="varname">self</span> has <span class="varname">key</span> among the keys, <span class="varname">false</span> otherwise.
+                    </p>
+                </div>
+                <h5>
+<span>define</span><span class="funcname">Hash.keys</span><span>[</span><code>A</code><span>, </span><code>B</code><span>](self):</span><code>List</code><span>[</span><code>A</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This constructs a <code>List</code> containing all keys currently within <span class="varname">self</span>.
+                    </p>
+                </div>
+                <h5>
+<span>define</span><span class="funcname">Hash.get</span><span>[</span><code>A</code><span>, </span><code>B</code><span>](self, key: </span><code>A</code><span>, default: </span><code>B</code><span>):</span><code>B</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Attempt to get <span class="varname">key</span> if it is present within <span class="varname">self</span>.
+If <span class="varname">key</span> is found, then return it.
+Otherwise, <VarDefault></VarDefault> is returned.
+                    </p>
+                </div>
+                <h5>
+<span>define</span><span class="funcname">Hash.map_values</span><span>[</span><code>A</code><span>, </span><code>B</code><span>, </span><code>C</code><span>]</span><span>(self</span><span>, </span><code>Function</code><span>(<code>B</code></span> <span>=&gt;</span> <code>C</code><span>)):</span><code>Hash</code><span>[</span><code>A</code><span>, </span><code>C</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This takes <span class="varname">fn</span> and applies it to each element in the <code>Hash</code>.
+The result of this function is a newly-made <code>Hash</code> wherein the keys are the same, but the values are the result from each invocation of <span class="varname">fn</span>.
+                    </p>
+                    <pre>
+var h = [1 =&gt; "123", 2 =&gt; "456", 3 =&gt; "abc"]
+
+h.map_values(String.parse_i) # [1 =&gt; Some(123), 2 =&gt; Some(456), 3 =&gt; None]</pre>
+                </div>
+                <h5>
+<span>define</span><span class="funcname">Hash.merge</span><span>[</span><code>A</code><span>, </span><code>B</code><span>](self, others: </span><code>Hash</code><span>[</span><code>A</code><span>, </span><code>B</code><span>]</span>...<span>):</span><code>Hash</code><span>[</span><code>A</code><span>, </span><code>B</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This creates a new <code>Hash</code> that is the combination of <span class="varname">self</span> and <VarOthers></VarOthers>
+This combines <span class="varname">self</span> with one or more other <code>Hash</code> values.
+In the event that multiple <code>Hash</code>es have the same key, the right-most value "wins".
+                    </p>
+                </div>
+                <h5>
+<span>define</span><span class="funcname">Hash.reject</span><span>[</span><code>A</code><span>, </span><code>B</code><span>](self, fn: </span><code>Function</code><span>(</span><code>A</code><span>, </span><code>B</code> <span>=&gt;</span> <code>Boolean</code><span>)):</span><code>Hash</code><span>[</span><code>A</code><span>, </span><code>B</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This walks calls <span class="varname">fn</span> on every pair within <span class="varname">self</span>.
+A new <code>Hash</code> is built which contains all elements for which <span class="varname">fn</span> is <span class="varname">false</span>.
+                    </p>
+                </div>
+                <h5>
+<span>define</span><span class="funcname">Hash.select</span><span>[</span><code>A</code><span>, </span><code>B</code><span>](self, fn: </span><code>Function</code><span>(</span><code>A</code><span>, </span><code>B</code> <span>=&gt;</span> <code>Boolean</code><span>)):</span><code>Hash</code><span>[</span><code>A</code><span>, </span><code>B</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This walks calls <span class="varname">fn</span> on every pair within <span class="varname">self</span>.
+This is the reverse of <code>Hash.reject</code>, returning a newly-made <code>Hash</code> composed of all pairs where <span class="varname">fn</span> returns <span class="varname">true</span>.
+                    </p>
+                </div>
+                <h5>
+<span>define</span><span class="funcname">Hash.size</span><span>[</span><code>A</code><span>, </span><code>B</code><span>](self):</span><code>Integer</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Returns the number of pairs that are present within <span class="varname">self</span>.
+                    </p>
+                </div>
+            </div>
+            <div class="section">
+                <h1>
+                    Integer
+                </h1>
+                <p>
+The <code>Integer</code> class is Lily's native numeric type.
+Internally, <code>Integer</code> is <strong>always</strong> implemented as a signed, int64_t value.
+                </p>
+                <h5>
+<span>define</span> <span class="funcname">Integer.to_d</span><span>(self):</span><code>Double</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Convert an <code>Integer</code> to an <code>Double</code>.
+Internally, this is done by a typecast to the <code>Double</code> type (a raw C double).
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">Integer.to_s</span><span>(self):</span><code>String</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Convert an <code>Integer</code> to a <code>String</code>.
+The conversion is always done using base-10.
+In the future, this function may be expanded upon to allow different bases.
+                    </p>
+                </div>
+            </div>
+            <div class="section">
+                <h1>
+                    List
+                </h1>
+                <p>
+The <code>List</code> class provides a container which can be indexed using <ActualCode>[position]</ActualCode>.
+A <code>List</code> subcript can be a positive index, or a negative one (with negative ones being some distance away from the end, as with Python).
+If a <code>List</code> subscript exceeds the size of the <code>List</code>, then <code>IndexError</code> will be raised.
+A <code>List</code>, unlike a <code>Hash</code>, supports both addition and removal of elements during iteration.
+Many methods of <code>List</code> will iterate over it.
+Thus far, all methods that iterate over a <code>List</code> will do so from left to right.
+                </p>
+                <h5>
+<span>define</span> <span class="funcname">List.clear</span><span>[</span><code>A</code><span>](self)</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This removes all elements present within the <code>List</code>
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">List.count</span><span>[</span><code>A</code><span>](self, fn: </span><code>Function</code><span>(</span><code>A</code> <span>=&gt; </span><code>Boolean</code><span>)):</span><code>Integer</code>
+                </h5>
+                <div class="explain">
+                    <p>
+This applies <span class="varname">fn</span> to each element in the <code>List</code>.
+The result of this function is the number of elements in the <code>List</code> for which <span class="varname">fn</span> returned <span class="varname">true</span>.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">List.delete_at</span><span>[</span><code>A</code><span>](self, </span><code>Integer</code><span>)</span>
+                </h5>
+                <div class="explain">
+                    <p>
+Attempts to remove <VarIndex></VarIndex> from the <code>List</code>.
+If <VarIndex></VarIndex> is negative, then it is considered an offset from the end of the <code>List</code>.
+If <VarIndex></VarIndex>, after any adjustment, is not a valid index within <span class="varname">self</span>, then <code>IndexError</code> is raised.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">List.each</span><span>[</span><code>A</code><span>](self, fn: </span><code>Function</code>(<code>A</code>)<span>):</span><code>List</code><span>[</span><code>A</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This calls <span class="varname">fn</span> upon each element of <span class="varname">self</span>.
+The values within <span class="varname">self</span> are not modified, as <span class="varname">fn</span> has no new value for them.
+The result of this function is <span class="varname">self</span>, to encourage chaining this call with another.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">List.each_index</span><span>[</span><code>A</code><span>](self:, fn: </span><code>Function</code><span>(</span><code>Integer</code>)<span>):</span><code>List</code><span>[</span><code>A</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This calls <span class="varname">fn</span> on each element of <span class="varname">self</span>.
+Instead of receiving the elements of <span class="varname">self</span>, <span class="varname">fn</span> instead receives the indexes of <span class="varname">self</span>.
+                    </p>
+                    <pre>
+var strings = ["1", "2", "3"]
+
+strings.each_index{|i| print(i) }
+# 0
+# 1
+# 2</pre>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">List.fill</span><span>[</span><code>A</code><span>](count: </span><code>Integer</code><span>, value: </span><code>A</code><span>):</span><code>List</code><span>[</span><code>A</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This creates a new <code>List</code> that has <VarValue></VarValue> repeated <VarCount></VarCount> times.
+If <VarValue></VarValue> is zero, then an empty list of type <VarValue></VarValue> is created.
+If <VarCount></VarCount> is less than zero, then <code>ValueError</code> is raised.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">List.fold</span><span>[</span><code>A</code><span>](self, start: </span><code>A</code><span>, fn: </span><code>Function</code>(<code>A</code><span>, </span><code>A</code> <span>=&gt;</span> <code>A</code>)<span>):</span><code>A</code>
+                </h5>
+                <div class="explain">
+                    <p>
+This function is used to accumulate all values in a <code>List</code>.
+It works by repeatedly calling <span class="varname">fn</span> using the accumulated value, and an element from the <code>List</code>.
+<VarStart></VarStart> is used as the initial value for the accumulation.
+                    </p>
+                    <pre>
+var numbers = [10, 20, 30]
+numbers.fold(0, {|accumulate, elem| accumulate + elem}) # 60
+numbers.fold(20, {|accumulate, elem| accumulate + elem}) # 80
+
+var strings = ["a", "b", "c"]
+strings.fold("", {|accumulate, elem| $"^(accumulate)^(elem)"}) # "abc"
+                    </pre>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">List.insert</span><span>[</span><code>A</code><span>](self, index: </span><code>Integer</code><span>, value: </span><code>A</code><span>)</span>
+                </h5>
+                <div class="explain">
+                    <p>
+Attempts to insert <VarValue></VarValue> into <span class="varname">self</span> at <VarIndex></VarIndex>.
+If <VarIndex></VarIndex> is negative, then it is treated as an offset from the end of the <code>List</code>.
+If <VarIndex></VarIndex>, after being wrapped, is outside of <span class="varname">self</span>, then <code>IndexError</code> is raised.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">List.map</span><span>[</span><code>A</code>,<code>B</code><span>](self, fn: </span><code>Function</code>(<code>A</code> <span>=&gt;</span> <code>B</code><span>)):</span><code>List</code><span>[</span><code>B</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This calls <span class="varname">fn</span> upon each element of <span class="varname">self</span>.
+The result of this function is a newly-made <code>List</code> containing the results of <span class="varname">fn</span>
+                    </p>
+                    <pre>
+var numbers = [1, 2, 3]
+
+numbers.map(Integer.to_s) # ["1", "2", "3"]</pre>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">List.pop</span><span>[</span><code>A</code><span>](self):</span><code>A</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Attempts to remove and return the last element within <span class="varname">self</span>.
+If <span class="varname">self</span> is empty, then <code>IndexError</code> is raised.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">List.push</span><span>[</span><code>A</code><span>](self, value: </span><code>A</code>)
+                </h5>
+                <div class="explain">
+                    <p>
+Appends <VarValue></VarValue> to the end of <span class="varname">self</span>.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">List.reject</span><span>[</span><code>A</code><span>](self, fn: <code>Function</code><span>(</span><code>A</code> <span>=&gt;</span> <code>Boolean</code><span>)):</span><code>List</code><span>[</span><code>A</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This calls <span class="varname">fn</span> on each element of <span class="varname">self</span>.
+The result of this function is a new <code>List</code> composed of all elements where <span class="varname">fn</span> returned <span class="varname">false</span>.
+                    </p>
+                    <pre>
+var numbers = [1, 2, 3]
+
+numbers.reject{|n| n % 2 == 0 } # [1, 3]</pre>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">List.select</span><span>[</span><code>A</code><span>](self, fn: <code>Function</code><span>(</span><code>A</code> <span>=&gt;</span> <code>Boolean</code><span>)):</span><code>List</code><span>[</span><code>A</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This calls <span class="varname">fn</span> on each element of <span class="varname">self</span>.
+This is the reverse of <span class="funcname">List.reject</span>, as it returns the elements where <span class="varname">fn</span> is <span class="varname">true</span>.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">List.size</span><span>[</span><code>A</code><span>](self):</span><code>Integer</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Returns the number of elements that are within <span class="varname">self</span>.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">List.shift</span><span>[</span><code>A</code><span>](self):</span><code>A</code>
+                </h5>
+                <div class="explain">
+                    <p>
+This function attempts to remove and return the last element from <span class="varname">self</span>.
+If <span class="varname">self</span> is empty, then <code>IndexError</code> is raised.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">List.unshift</span><span>[</span><code>A</code><span>](self, value: </span><code>A</code><span>)</span>
+                </h5>
+                <div class="explain">
+                    <p>
+Inserts <VarValue></VarValue> at the front of <span class="varname">self</span>, moving all other elements to the right.
+                    </p>
+                </div>
+            </div>
+            <div class="section">
+                <h1>
+                    Option
+                </h1>
+                <p>
+The <code>Option</code> enum allows a variable to hold either a valid value, or nothing.
+Functions can use this as a way to signal that they should return something, but may fail.
+If a function can fail and may have a useful error message, then <code>Either</code> is probably a better choice.
+The member functions of <code>Option</code> that return an <code>Option</code> will always create a new one, never mutating.
+Internally, the <code>Option</code> enum is defined as follows:
+                </p>
+                <pre>
+enum Option[A] {
+    Some(A)
+    None
+}</pre>
+                <h5>
+<span>define</span> <span class="funcname">Option.and<span>[</span><code>A</code><span>, </span><code>B</code><span>](self, other: </span><code>Option</code><span>[</span><code>B</code><span>]</span><span>):</span><code>Option</code><span>[</span><code>B</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+If <span class="varname">self</span> is a <span class="varname">Some</span>, then the result of this function is <VarOther></VarOther>.
+Otherwise, this function returns <span class="varname">None</span>.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">Option.and_then<span>[</span><code>A</code><span>, </span><code>B</code><span>](self, fn: </span><code>Function</code>(<code>A</code> <span>=&gt;</span> <code>Option</code><span>[</span><code>B</code><span>]</span>)<span>):</span><code>Option</code><span>[</span><code>B</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+If <span class="varname">self</span> is a <span class="varname">Some</span>, then <span class="varname">fn</span> is called with the value of the <span class="varname">Some</span>.
+The result is a new <code>Option</code> holding the result of <span class="varname">fn</span>.
+Otherwise, <span class="varname">None</span> is returned.
+                    </p>
+                    <pre>
+var maybe_ints = [Some(4), None]
+
+maybe_ints.map{|m| m.and_then{|a| Some(a * a)} } # [Some(16), None]
+
+maybe_ints[0].and_then{|a| None } # None</pre>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">Option.is_none<span>[</span><code>A</code><span>](self):</span><code>Boolean</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Returns <span class="varname">true</span> if <span class="varname">self</span> is a <span class="varname">Some</span>, <span class="varname">false</span> otherwise.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">Option.is_some<span>[</span><code>A</code><span>](self):</span><code>Boolean</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Returns <span class="varname">true</span> if <span class="varname">self</span> is a <span class="varname">None</span>, <span class="varname">false</span> otherwise.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">Option.map<span>[</span><code>A</code><span>, </span><code>B</code><span>](self, fn: </span><code>Function</code>(<code>A</code> <span>=&gt;</span> <code>B</code>)<span>):</span><code>Option</code><span>[</span><code>B</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+If <span class="varname">self</span> is a <span class="varname">Some</span>, then <span class="varname">fn</span> is called with the value of the <span class="varname">Some</span>.
+The result is a new <code>Option</code> holding the result of <span class="varname">fn</span>.
+The difference between this function and <code>Option.and_then</code>, is that <span class="varname">fn</span> is not required to return an <code>Option</code>.
+If <span class="varname">self</span> is <span class="varname">None</span>, then <span class="varname">None</span> is returned.
+                    </p>
+                    <pre>
+define square(a: Integer): Integer
+{
+    return a * a
+}
+
+var maybe_ints = [Some(4), None]
+maybe_ints.map{|m| m.map(square) } # [Some(16), None]
+
+var opt_double = Some(1.5)
+opt_double.map(Double.to_s) # Some("1.5")
+                    </pre>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">Option.or<span>[</span><code>A</code><span>](self, alternate: </span><code>Option</code><span>[</span><code>A</code><span>]</span><span>):</span><code>Option</code><span>[</span><code>A</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+If <span class="varname">self</span> is a <span class="varname">Some</span>, then this function returns <span class="varname">self</span>.
+Otherwise, <span class="varname">alternate</span> is returned (regardless of what value it holds).
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">Option.or_else<span>[</span><code>A</code><span>](self, </span><code>Function</code>( <span>=&gt;</span> <code>Option</code><span>[</span><code>A</code><span>]</span>)<span>):</span><code>Option</code><span>[</span><code>A</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+If <span class="varname">self</span> is a <span class="varname">Some</span>, then this simply returns <span class="varname">self</span>.
+Otherwise, this returns the result of calling <span class="varname">fn</span>.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">Option.unwrap<span>[</span><code>A</code><span>](self):</span><code>A</code>
+                </h5>
+                <div class="explain">
+                    <p>
+If <span class="varname">self</span> is a <span class="varname">Some</span>, then this returns the value inside of the <span class="varname">Some</span>.
+Otherwise, this raises <code>ValueError</code>.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">Option.unwrap_or<span>[</span><code>A</code><span>](self, alternate: </span><code>A</code><span>):</span><code>A</code>
+                </h5>
+                <div class="explain">
+                    <p>
+If <span class="varname">self</span> is a <span class="varname">Some</span>, then this returns the value inside of the <span class="varname">Some</span>.
+Otherwise, this returns <span class="varname">alternate</span>.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">Option.unwrap_or_else<span>[</span><code>A</code><span>](self, fn: </span><code>Function</code>( <span>=&gt;</span> <code>A</code>)<span>):</span><code>A</code>
+                </h5>
+                <div class="explain">
+                    <p>
+If <span class="varname">self</span> is a <span class="varname">Some</span>, then this returns the value inside of the <span class="varname">Some</span>.
+Otherwise, this returns the result of calling <span class="varname">fn</span>.
+                    </p>
+                </div>
+            </div>
+            <div class="section">
+                <h1>
+                    String
+                </h1>
+                <p>
+The <code>String</code> class internally wraps over a C char *.
+The <code>String</code> class is guaranteed to always have well-formed utf-8, and to always have a single \0 terminator.
+For now at least, the <code>String</code> class is immutable: Each function here will always generate a new <code>String</code> instead of modifying an old one.
+                </p>
+                <h5>
+<span>define</span> <span class="funcname">String.endswith</span><span>(self, with: </span><code>String</code><span>):</span><code>Boolean</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Checks if <span class="varname">self</span> ends with <span class="varname">with</span>.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">String.find</span><span>(self, needle: </span><code>String</code><span>):</span><code>Option</code><span>[</span><code>Integer</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+Attempts to locate <span class="varname">needle</span> within <span class="varname">self</span>.
+If <span class="varname">needle</span> is found, then this returns a <span class="varname">Some</span> containing the index where <span class="varname">needle</span> started.
+Otherwise, this returns <span class="varname">None</span>
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">String.htmlencode</span><span>(self):</span><code>String</code>
+                </h5>
+                <div class="explain">
+                    <p>
+This checks <span class="varname">self</span> for having <span class="varname">"&amp;"</span>, <span class="varname">"&lt;"</span>, or <span class="varname">"&gt;"</span>.
+If any are found, then a new <code>String</code> is created where those html entities are replaced (&amp; becomes &amp;amp;, &lt; becomes &amp;lt;, &gt; becomes &amp;gt;).
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">String.isalnum</span><span>(self):</span><code>Boolean</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Returns <span class="varname">true</span> if <span class="varname">self</span> has only alphanumeric([a-zA-Z0-9]+) characters, <span class="varname">false</span> otherwise.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">String.isalpha</span><span>(self):</span><code>Boolean</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Returns <span class="varname">true</span> if <span class="varname">self</span> has only alphabetical([a-zA-Z]+) characters, <span class="varname">false</span> otherwise.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">String.isdigit</span><span>(self):</span><code>Boolean</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Returns <span class="varname">true</span> if <span class="varname">self</span> has only digit([0-9]+) characters, <span class="varname">false</span> otherwise.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">String.isspace</span><span>(self):</span><code>Boolean</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Returns <span class="varname">true</span> if <span class="varname">self</span> has only space(<span class="varname">" \t\r\n"</span>) characters, <span class="varname">false</span> otherwise.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">String.lower</span><span>(self):</span><code>String</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Checks if any characters within <span class="varname">self</span> are within [A-Z].
+If so, it creates a new <code>String</code> with [A-Z] replaced by [a-z].
+Otherwise, <span class="varname">self</span> is returned.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">String.lstrip</span><span>(self, to_strip: </span><code>String</code><span>):</span><code>String</code>
+                </h5>
+                <div class="explain">
+                    <p>
+This walks through <span class="varname">self</span> from left to right, stopping on the first utf-8 chunk that is not found within <span class="varname">to_strip</span>.
+The result is a newly-made copy of <span class="varname">self</span> without the elements at the front.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">String.parse_i</span><span>(self):</span><code>Option</code><span>[</span><code>Integer</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This attempts to convert <span class="varname">self</span> to an <code>Integer</code>.
+This function expects that all of <span class="varname">self</span> contains valid numeric data, and is in base-10.
+If <span class="varname">self</span> has non-numeric data (ex: <span class="varname">"123abc"</span>), or exceeds the value a signed int64_t can hold, then this returns <span class="varname">None</span>.
+Otherwise, this returns a <span class="varname">Some</span> holding the numeric value represented by <span class="varname">self</span>.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">String.rstrip</span><span>(self, to_strip: </span><code>String</code><span>):</span><code>String</code>
+                </h5>
+                <div class="explain">
+                    <p>
+This walks through <span class="varname">self</span> from right to left, stopping on the first utf-8 chunk that is not found within <span class="varname">to_strip</span>.
+The result is a newly-made copy of <span class="varname">self</span> without the elements at the back.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">String.split</span><span>(self, by: </span><code>*String</code><span>=</span><span class="varname">" "</span><span>):</span><code>List</code><span>[</span><code>String</code><span>]</span>
+                </h5>
+                <div class="explain">
+                    <p>
+This attempts to split <span class="varname">self</span> using <span class="varname">by</span>, with a default value of a single space.
+If <span class="varname">by</span> is empty, then <code>ValueError</code> is raised.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">String.startswith</span><span>(self, with: </span><code>String</code><span>):</span><code>Boolean</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Checks if <span class="varname">self</span> starts with <span class="varname">with</span>.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">String.strip</span><span>(self, to_strip: </span><code>String</code><span>):</span><code>String</code>
+                </h5>
+                <div class="explain">
+                    <p>
+This walks through <span class="varname">self</span> from right to left, and then from left to right.
+The result of this string is a newly-made copy without any elements within <span class="varname">to_strip</span> either at the front or end.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">String.trim</span><span>(self):</span><code>String</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Checks if <span class="varname">self</span> starts or ends with any of <span class="varname">" \t\r\n"</span>.
+If it does, then a new <code>String</code> is made with spaces removed from both sides.
+If it does not, then this returns <span class="varname">self</span>.
+                    </p>
+                </div>
+                <h5>
+<span>define</span> <span class="funcname">String.upper</span><span>(self):</span><code>String</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Checks if any characters within <span class="varname">self</span> are within [a-z].
+If so, it creates a new <code>String</code> with [a-z] replaced by [A-Z].
+Otherwise, <span class="varname">self</span> is returned.
+                    </p>
+                </div>
+                <h5>
+            </div>
+            <div class="section">
+                <h1>
+                    Tainted
+                </h1>
+                <p>
+The <code>Tainted</code> class provides a way to sandbox untrusted data.
+This class is defined internally as follows:
+                </p>
+                <pre>
+class Tainted[A](value: A)
+{
+    private var @value = value
+}</pre>
+                <h5>
+<span>define</span> <span class="funcname">Tainted.sanitize</span><span>[</span><code>A</code><span>, </span><code>B</code><span>](self, fn: </span><code>Function</code>(<code>A</code> <span>=&gt;</span> <code>B</code>)<span>):</span><code>B</code>
+                </h5>
+                <div class="explain">
+                    <p>
+This function calls <span class="varname">fn</span> with <Var@Value></Var@value>.
+It is assumed that <span class="varname">fn</span> is able to sanitize <Var@Value></Var@Value>.
+The result of this function is the result of calling <span class="varname">fn</span>.
+<span class="varname">fn</span> is intentionally parameterized as returning type <code>B</code> to allow both sanitizing and mapping at once.
+                    </p>
+                    <pre>
+var unsafe_str = Tainted("&lt;3")
+
+unsafe_str.sanitize(String.htmlencode) # "&amp;lt;3"
+unsafe_str = Tainted("123")
+unsafe_str.sanitize{|a| a.parse_i().unwrap() * 2} # 246</pre>
+                </div>
+            </div>
+            <div class="section">
+                <h1>
+                    Tuple
+                </h1>
+                <p>
+The <code>Tuple</code> class provides a fixed-size container over a set of types.
+<code>Tuple</code> is ideal for situations that are too complicated for returning a <code>List</code> which enforces a single type, but not complex enough to warrant a class.
+The <code>Tuple</code> class does not provide any methods, but does allow for subscripting to and from.
+Subscripts against a <code>Tuple</code> must be positive (no negative wraparound), and must be a literal.
+This requirement is so that the interpreter can be completely certain as to what index you want.
+<code>Tuple</code>, like <code>Function</code>, have no restriction on how many subtypes they can carry.
+<code>Tuple</code> literals are denoted by <ActualCode>&lt;[value1, value2, ... ]&gt;</ActualCode>
+                </p>
+            </div>
+        </div>
+
+        <!-- Bootstrap core JavaScript
+        ================================================== -->
+        <!-- Placed at the end of the document so the pages load faster -->
+        <script src="js/jquery.min.js"></script>
+        <script src="js/bootstrap.min.js"></script>
+        <script src="js/docs.min.js"></script>
+        <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+        <script src="js/ie10-viewport-bug-workaround.js"></script>
+    </body>
+</html>
