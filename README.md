@@ -311,7 +311,7 @@ define log_error(message: String, where: *Option[File] = None)
 
 ### import
 
-A module can be imported through, for example, `import server` or `import postgre as db`. The contents of the module are then accessible, but only through the name given (say, `server.httpmethod` or `db.Conn`. As of right now, all module imports are namespaced in some way (there is no `from x import *` equivalent right now).
+A module can be imported through, for example, `import server` or `import postgres as db`. The contents of the module are then accessible, but only through the name given (say, `server.httpmethod` or `db.Conn`. As of right now, all module imports are namespaced in some way (there is no `from x import *` equivalent right now).
 
 The code at the toplevel of a module is run once, and only for the first time the module is imported.
 

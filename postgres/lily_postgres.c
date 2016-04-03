@@ -1,4 +1,4 @@
-/* This creates a shared library that allows Lily to access postgre, using
+/* This creates a shared library that allows Lily to access postgres, using
    libpq. This can be used by any Lily runner. */
 #include <string.h>
 
