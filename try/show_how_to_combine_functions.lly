@@ -1,0 +1,21 @@
+define doubleit(a: Integer): Integer { return a * 2 }
+
+# This combines two functions together into a closure that does both.
+define combine[A, B, C](f: Function(A => B), g: Function(B => C)): Function(A => C)
+{
+    return {|x| x |> f |> g }
+}
+
+# This combines three different functions together:
+# String.parse_i, which takes a String and produces Option[Integer]
+# A lambda, which takes an Option[Integer] and produces an Integer
+# A defined function, which takes an Integer to double it.
+
+var super_func =
+    combine(String.parse_i,
+        combine({|maybe_int| maybe_int.unwrap_or(0) },
+                doubleit))
+
+stdout.write("This example joined three functions together.\n")
+stdout.write("In one call, String \"123\" becomes...")
+super_func("123") |> print

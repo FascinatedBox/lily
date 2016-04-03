@@ -1,0 +1,41 @@
+enum TreeObject {
+    TreeValue(String)
+    TreeList(TreeObject...)
+
+    define as_string: String {
+        match self: {
+            case TreeValue(v):
+                return v
+
+            case TreeList(l):
+                var result = "["
+
+                var size = l.size() - 1
+
+                for i in 0...size: {
+                    result = $"^(result)^(l[i].as_string())"
+                    if i != size:
+                        result = $"^(result) "
+                }
+
+                return $"^(result)]"
+        }
+    }
+}
+
+stdout.write("Here's a JSON-like enum value as a string: ")
+print(
+        TreeList(
+            TreeList(
+                TreeValue("abc"),
+                TreeValue("def")
+            ),
+            TreeValue("1"), 
+            TreeValue("2"),
+            TreeList(
+                TreeList(
+                    TreeValue("0")
+                )
+            )
+        ).as_string()
+    )
