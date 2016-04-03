@@ -15,7 +15,6 @@
 
 #include "lily_cls_function.h"
 
-
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
 if (lex->token != expected) \
@@ -3076,6 +3075,7 @@ static void import_handler(lily_parse_state *parser, int multi)
         lily_import_entry *new_import = lily_find_import_anywhere(symtab,
                 import_name);
         if (new_import == NULL) {
+#ifndef WITH_EMSCRIPTEN
             new_import = load_import(parser, import_name);
             if (new_import->library == NULL) {
                 /* lily_emit_enter_block will write new code to this special
@@ -3112,6 +3112,13 @@ static void import_handler(lily_parse_state *parser, int multi)
             }
 
             parser->symtab->active_import = link_target;
+#else
+        /* This only happens when trying to import a non-builtin module from the
+           sandbox. For security reasons, don't allow that to happen. */
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Cannot import '%s':\n"
+                "no builtin module '%s'\n", import_name, import_name);
+#endif
         }
 
         lily_lexer(parser->lex);
