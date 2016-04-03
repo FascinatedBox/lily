@@ -7,14 +7,16 @@
 #include "lily_value.h"
 #include "lily_seed.h"
 
-lily_file_val *lily_new_file_val(FILE *inner_file, char mode_ch)
+lily_file_val *lily_new_file_val(FILE *inner_file, const char *mode)
 {
     lily_file_val *filev = lily_malloc(sizeof(lily_file_val));
 
+    int plus = strchr(mode, '+') != NULL;
+
     filev->refcount = 1;
     filev->inner_file = inner_file;
-    filev->read_ok = (mode_ch == 'r') || (mode_ch == 'a');
-    filev->write_ok = (mode_ch == 'w') || (mode_ch == 'a');
+    filev->read_ok = (*mode == 'r' || plus);
+    filev->write_ok = (*mode == 'w' || plus);
     filev->is_builtin = 0;
 
     return filev;
@@ -96,7 +98,7 @@ void lily_file_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
                 errno, errno, path);
     }
 
-    lily_file_val *filev = lily_new_file_val(f, *mode);
+    lily_file_val *filev = lily_new_file_val(f, mode);
 
     lily_move_file(result_reg, filev);
 }

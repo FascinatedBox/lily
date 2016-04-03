@@ -175,19 +175,19 @@ static void builtin_var_loader(lily_parse_state *parser, lily_var *var)
 {
     char *name = var->name;
     FILE *source;
-    char mode;
+    const char *mode;
 
     if (strcmp(name, "stdin") == 0) {
         source = stdin;
-        mode = 'r';
+        mode = "r";
     }
     else if (strcmp(name, "stdout") == 0) {
         source = stdout;
-        mode = 'w';
+        mode = "w";
     }
     else {
         source = stderr;
-        mode = 'w';
+        mode = "w";
     }
 
     lily_file_val *file_val = lily_new_file_val(source, mode);
