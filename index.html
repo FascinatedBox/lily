@@ -69,7 +69,7 @@
                 </div>
             </div>
             <div class="row">
-                <div class="span6 col-md-6">
+                <div class="col-md-6">
                     <h1>
                     Safety through types
                     </h1>
@@ -83,7 +83,7 @@
                     Have a function which may fail, but want to give a message? Use <code>Either</code>. Exceptions should be exceptional, not everyday.
                     </p>
                 </div>
-                <div class="span6 col-md-6">
+                <div class="col-md-6">
                     <h1>
                     Embeddable
                     </h1>
@@ -99,18 +99,15 @@
                 </div>
             </div>
             <div class="row">
-                <div class="span6 col-md-6">
+                <div class="col-md-6">
                     <h1>
-                    Fast turnaround
+                    Built-in templating
                     </h1>
                     <p>
-                    Most statically-typed languages are also compiled one. Static typing allows those compilers to generate very fast code, but at the cost of time.
+                    Lily can be run from a server and used as a templating language. When used as a templating language, code is between <code>&lt;?lily ... ?&gt;</code>, and everything else is code.
                     </p>
                     <p>
-                    Lily is an interpreted language made in hand-crafted, artisinal C. It's fast. It can churn through over <strong>1,000</strong> lines in less than a second.
-                    </p>
-                    <p>
-                    A fast turnaround time not only encourages experimentation, but it means that you won't end up designing your modules around reducing build times.
+                    Code that is <code>import</code>ed is expected to always be in code mode. No more importing something that accidentally sends headers. <code>import</code> is also namespaced, among many other things.
                     </p>
                 </div>
                 <div class="col-md-6">
@@ -129,7 +126,7 @@
                 </div>
             </div>
             <div class="row">
-                <div class="span6 col-md-6">
+                <div class="col-md-6">
                     <h1>
                     Type inference
                     </h1>
@@ -141,17 +138,6 @@
                     </p>
                     <p>
                     You can thus change your code without having to rewrite type annotations. Types belong behind the scenes, not in your face.
-                    </p>
-                </div>
-                <div>
-                    <h1>
-                    Built-in templating
-                    </h1>
-                    <p>
-                    Lily can be run from a server and used as a templating language. When used as a templating language, code is between <code>&lt;?lily ... ?&gt;</code>, and everything else is code.
-                    </p>
-                    <p>
-                    Code that is <code>import</code>ed is expected to always be in code mode. No more importing something that accidentally sends headers. <code>import</code> is also namespaced, among many other things.
                     </p>
                 </div>
             </div>
