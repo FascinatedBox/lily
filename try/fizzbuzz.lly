@@ -1,0 +1,26 @@
+define fizzbuzz(start: *Integer = 1, stop: *Integer = 100): List[String] {
+    var result: List[String] = []
+
+    for i in start...stop: {
+        if (i % 3) == 0:
+            if (i % 5) == 0:
+                result.push("FizzBuzz")
+            else:
+                result.push("Fizz")
+        elif (i % 5) == 0:
+            result.push("Buzz")
+        else:
+            # $" ... " is for interpolated strings.
+            # ^(expr) quotes expressions.
+            result.push($"^(i)")
+    }
+
+    return result
+}
+
+fizzbuzz(1, 100) |> print
+
+# Or you can also write...
+# fizzbuzz() |> print # Use defaults of 1 and 100.
+# print(fizzbuzz())   # Normal nested kind of calling.
+# fizzbuzz(6)         # Specify start, but use default for stop.

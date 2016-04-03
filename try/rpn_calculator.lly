@@ -1,0 +1,55 @@
+var math_ops = ["+" => {|a: Integer, b: Integer| a + b},
+                "-" => {|a, b| a - b},
+                "*" => {|a, b| a * b},
+                "/" => {|a, b| a / b}]
+
+#[
+    This implements a reverse polish notation calculator.
+    This calculator demonstrates the usefulness of the Either type.
+    If the result was just Integer, then you'd probably wonder what it would do
+    for division by zero.
+    But since it's written as Either[String, Integer], you have a pretty strong
+    guarantee that it won't throw exceptions, regardless.
+    Furthermore, if it does throw, then you have a valid reason to say that it
+    has a bug (since something that returns Either shouldn't also throw.
+]#
+define rpn(input: String): Either[String, List[Integer]]
+{
+    var values = input.split(" ")
+    var stack: List[Integer] = []
+    
+    for i in 0...values.size() - 1: {
+        var v = values[i]
+        if v.isdigit(): {
+            v.parse_i().unwrap() |> stack.push
+        elif v.isspace() == false:
+            if stack.size() < 2:
+                return Left("Stack underflow")
+
+            var right = stack.pop()
+            var left = stack.pop()
+            try: {
+                var op_fn = math_ops[v]
+                var op_value = op_fn(left, right)
+                stack.push(op_value)
+            except KeyError:
+                return Left($"Invalid operation ^(v)")
+            except DivisionByZeroError:
+                return Left("Attempt to divide by zero")
+            except Exception:
+                return Left($"Unexpected error from op ^(v)")
+            }
+        }
+    }
+
+    return Right(stack)
+}
+
+var lines = [
+    "1 2 3 4 * + -",
+    "2 2 2 2 * *",
+    "*",
+    "1 2 ?"
+    ]
+
+lines.each{|l| print($"\"^(l)\": ^(rpn(l))") }

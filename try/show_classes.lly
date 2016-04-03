@@ -1,0 +1,38 @@
+class Point(x: Integer, y: Integer)
+{
+    var @x = x
+    var @y = y
+
+    define move2D(moveX: Integer, moveY: Integer)
+    {
+        @x += moveX
+        @y += moveY
+    }
+
+    define compare(other: Point): Boolean
+    {
+        if @x == other.x && @y == other.y:
+            return true
+        else:
+            return false
+    }
+
+    define to_s: String
+    {
+        return $"Point(^(@x), ^(@y))"
+    }
+}
+
+var coordinates = [Point(5, 10), Point(40, 500), Point(11, 2)]
+
+stdout.write("Created three Points: ")
+coordinates.map(Point.to_s) |> print
+
+stdout.write("How many coordinates have an x < y? : ")
+coordinates.count{|c| c.x < c.y } |> print
+
+stdout.write("Using Point.moveBy to move each X down by half...\n")
+coordinates.each{|e| e.move2D(-e.x / 2, 0) }
+
+stdout.write("Points are now: ")
+coordinates.map(Point.to_s) |> print
