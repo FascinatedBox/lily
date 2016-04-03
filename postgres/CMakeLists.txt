@@ -13,4 +13,4 @@ find_package(PQ)
 include_directories(${PQ_INCLUDE_DIRS})
 target_link_libraries(postgres ${PQ_LIBRARY})
 
-install(TARGETS postgres DESTINATION lib/lily/0_15/)
+install(TARGETS postgres DESTINATION "lib/lily/${LILY_VERSION_DIR}/")
