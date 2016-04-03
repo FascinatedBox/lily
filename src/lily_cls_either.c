@@ -7,12 +7,12 @@
 #define RIGHT_VARIANT_ID 0
 #define LEFT_VARIANT_ID  1
 
-inline lily_instance_val *lily_new_left(lily_value *v)
+lily_instance_val *lily_new_left(lily_value *v)
 {
     return lily_new_enum_1(SYM_CLASS_EITHER, LEFT_VARIANT_ID, v);
 }
 
-inline lily_instance_val *lily_new_right(lily_value *v)
+lily_instance_val *lily_new_right(lily_value *v)
 {
     return lily_new_enum_1(SYM_CLASS_EITHER, RIGHT_VARIANT_ID, v);
 }

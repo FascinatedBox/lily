@@ -15,7 +15,7 @@
 #define SOME_VARIANT_ID 0
 #define NONE_VARIANT_ID 1
 
-inline lily_instance_val *lily_new_some(lily_value *v)
+lily_instance_val *lily_new_some(lily_value *v)
 {
     return lily_new_enum_1(SYM_CLASS_OPTION, SOME_VARIANT_ID, v);
 }
