@@ -121,7 +121,7 @@
                     Most interpreted languages have to dynamically allocate a lot of memory just to get started. A few hundred KB, or even 2 MB isn't unheard of.
                     </p>
                     <p>
-                    Allocating memory takes time. One way that Lily cuts down on memory (and startup time) is to not dynamicall allocate memory for functions and (some) functions that you aren't going to use.
+                    Allocating memory takes time. One way that Lily cuts down on memory (and startup time) is to not dynamically allocate memory for functions and (some) functions that you aren't going to use.
                     </p>
                     <p>
                     Lily can do this, because it's statically typed, and knows for sure what will and won't be used. This technique, termed dynaloading, allows Lily to print 'Hello world' in <strong>less than 10 KB</strong> of memory.
