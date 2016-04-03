@@ -4,10 +4,6 @@
    my Windows box setup for Lily yet (I'd rather make sure Windows works
    all at once). */
 
-#define LILY_MAJOR          "0"
-#define LILY_MINOR          "15"
-#define LILY_VERSION_DIR    LILY_MAJOR "_" LILY_MINOR
-
 #define LILY_LIB_SUFFIX     ".so"
 
 #define LILY_BASE_DIR       "/usr/local/"
