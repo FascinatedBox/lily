@@ -353,7 +353,7 @@ The annotation for the <code>Hash</code> refers to the key as <code>A</code>, an
 A <code>Hash</code> is created by hash literal, such as: <ActualCode>[key1 =&gt; value1, key2 =&gt value2, ...]</ActualCode>.
 If a <code>Hash</code> literal contains duplicate key, then the right-most value "wins".
 New <code>Hash</code> elements can be added through subscript assignment (<ActualCode>myhash["new_key"] = 10</ActualCode>).
-However, attempting to access <code>Hash</code> elements that do not exist will cause <KeyError></KeyError> to be raised.
+However, attempting to access <code>Hash</code> elements that do not exist will cause <code>KeyError</code></KeyError> to be raised.
 Additionally, there is no guarantee as to what ordering that a <code>Hash</code> will have (or if there is any ordering at all).
 Finally, a <code>Hash</code> can currently only use either an <code>Integer</code> or a <code>String</code> as a key.
 There are, however, no restrictions as to what values can be placed into a <code>Hash</code>.
