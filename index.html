@@ -85,13 +85,13 @@
                 </div>
                 <div class="col-md-6">
                     <h1>
-                    Embeddable
+                    Isolated
                     </h1>
                     <p>
                     The interpreter does not write any global data. This allows multiple interpreters to exist at the same time without worrying about them colliding into each other.
                     </p>
                     <p>
-                    Furthermore, Lily is frequently checked with valgrind to make sure that startup and shutdown do not leak memory. This means that you can embed Lily without fear of slowly leaking memory over time.
+                    Furthermore, Lily is frequently checked with valgrind to make sure that startup and shutdown do not leak memory. You can thus use Lily to run a simple script without worrying about it leaking memory.
                     </p>
                     <p>
                     Lily can also be extended to hook into data of yours (this is how the postgres and apache modules currently work).
