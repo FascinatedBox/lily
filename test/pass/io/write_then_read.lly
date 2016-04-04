@@ -3,5 +3,5 @@ f.write("1234567890")
 f.close()
 
 f = File.open("io_test_file.txt", "r")
-if f.readline().encode().unwrap() != "1234567890":
+if f.read_line().encode().unwrap() != "1234567890":
     stderr.print("Failed.")

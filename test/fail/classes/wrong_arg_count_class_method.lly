@@ -1,6 +1,6 @@
 #[
-SyntaxError: Wrong number of arguments to String.endswith (3 for 2).
+SyntaxError: Wrong number of arguments to String.ends_with (3 for 2).
     from wrong_arg_count_class_method.lly:6
 ]#
 
-String.endswith("a", "b", "c")
+String.ends_with("a", "b", "c")

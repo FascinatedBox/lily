@@ -57,10 +57,10 @@ void WRAP_NAME(lily_vm_state *vm, uint16_t argc, uint16_t *code) \
     } \
 }
 
-CTYPE_WRAP(lily_string_isdigit, isdigit)
-CTYPE_WRAP(lily_string_isalpha, isalpha)
-CTYPE_WRAP(lily_string_isspace, isspace)
-CTYPE_WRAP(lily_string_isalnum, isalnum)
+CTYPE_WRAP(lily_string_is_digit, isdigit)
+CTYPE_WRAP(lily_string_is_alpha, isalpha)
+CTYPE_WRAP(lily_string_is_space, isspace)
+CTYPE_WRAP(lily_string_is_alnum, isalnum)
 
 /* This table indicates how many more bytes need to be successfully read after
    that particular byte for proper utf-8. -1 = invalid.
@@ -86,7 +86,7 @@ static const char follower_table[256] =
 /* F */ 4, 4, 4, 4, 4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
 };
 
-void lily_string_endswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_string_ends_with(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[1]];
@@ -180,7 +180,7 @@ void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
    the given input buffer directly.
    If html charcters are found, then 1 is returned, and the caller should read
    from vm->vm_buffer->message. */
-int lily_maybe_htmlencode_to_buffer(lily_vm_state *vm, lily_value *input)
+int lily_maybe_html_encode_to_buffer(lily_vm_state *vm, lily_value *input)
 {
     lily_msgbuf *vm_buffer = vm->vm_buffer;
     lily_msgbuf_flush(vm_buffer);
@@ -221,14 +221,14 @@ int lily_maybe_htmlencode_to_buffer(lily_vm_state *vm, lily_value *input)
     return start;
 }
 
-void lily_string_htmlencode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_string_html_encode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[1]];
     lily_value *result_arg = vm_regs[code[0]];
 
     /* If nothing was escaped, output what was input. */
-    if (lily_maybe_htmlencode_to_buffer(vm, input_arg) == 0)
+    if (lily_maybe_html_encode_to_buffer(vm, input_arg) == 0)
         lily_assign_value(result_arg, input_arg);
     else {
         char *source = vm->vm_buffer->message;
@@ -619,7 +619,7 @@ void lily_string_rstrip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_string(result_arg, new_sv);
 }
 
-void lily_string_startswith(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_string_starts_with(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_arg = vm_regs[code[1]];
@@ -933,29 +933,29 @@ void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
     lily_move_string(result_reg, result);
 }
 
-static const lily_func_seed endswith =
-    {NULL, "endswith", dyna_function, "(String, String):Boolean", lily_string_endswith};
+static const lily_func_seed ends_with =
+    {NULL, "ends_with", dyna_function, "(String, String):Boolean", lily_string_ends_with};
 
 static const lily_func_seed find =
-    {&endswith, "find", dyna_function, "(String, String):Option[Integer]", lily_string_find};
+    {&ends_with, "find", dyna_function, "(String, String):Option[Integer]", lily_string_find};
 
-static const lily_func_seed htmlencode =
-    {&find, "htmlencode", dyna_function, "(String):String", lily_string_htmlencode};
+static const lily_func_seed html_encode =
+    {&find, "html_encode", dyna_function, "(String):String", lily_string_html_encode};
 
-static const lily_func_seed isalpha_fn =
-    {&htmlencode, "isalpha", dyna_function, "(String):Boolean", lily_string_isalpha};
+static const lily_func_seed is_alpha_fn =
+    {&html_encode, "is_alpha", dyna_function, "(String):Boolean", lily_string_is_alpha};
 
-static const lily_func_seed isdigit_fn =
-    {&isalpha_fn, "isdigit", dyna_function, "(String):Boolean", lily_string_isdigit};
+static const lily_func_seed is_digit_fn =
+    {&is_alpha_fn, "is_digit", dyna_function, "(String):Boolean", lily_string_is_digit};
 
-static const lily_func_seed isalnum_fn =
-    {&isdigit_fn, "isalnum", dyna_function, "(String):Boolean", lily_string_isalnum};
+static const lily_func_seed is_alnum_fn =
+    {&is_digit_fn, "is_alnum", dyna_function, "(String):Boolean", lily_string_is_alnum};
 
-static const lily_func_seed isspace_fn =
-    {&isalnum_fn, "isspace", dyna_function, "(String):Boolean", lily_string_isspace};
+static const lily_func_seed is_space_fn =
+    {&is_alnum_fn, "is_space", dyna_function, "(String):Boolean", lily_string_is_space};
 
 static const lily_func_seed lstrip =
-    {&isspace_fn, "lstrip", dyna_function, "(String, String):String", lily_string_lstrip};
+    {&is_space_fn, "lstrip", dyna_function, "(String, String):String", lily_string_lstrip};
 
 static const lily_func_seed lower =
     {&lstrip, "lower", dyna_function, "(String):String", lily_string_lower};
@@ -966,11 +966,11 @@ static const lily_func_seed parse_i =
 static const lily_func_seed rstrip =
     {&parse_i, "rstrip", dyna_function, "(String, String):String", lily_string_rstrip};
 
-static const lily_func_seed startswith =
-    {&rstrip, "startswith", dyna_function, "(String, String):Boolean", lily_string_startswith};
+static const lily_func_seed starts_with =
+    {&rstrip, "starts_with", dyna_function, "(String, String):Boolean", lily_string_starts_with};
 
 static const lily_func_seed split =
-    {&startswith, "split", dyna_function, "(String, *String):List[String]", lily_string_split};
+    {&starts_with, "split", dyna_function, "(String, *String):List[String]", lily_string_split};
 
 static const lily_func_seed strip =
     {&split, "strip", dyna_function, "(String, String):String", lily_string_strip};

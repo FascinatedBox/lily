@@ -111,7 +111,7 @@ void lily_file_print(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     fputc('\n', vm->vm_regs[code[1]]->value.file->inner_file);
 }
 
-void lily_file_readline(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_file_read_line(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_file_val *filev = vm_regs[code[1]]->value.file;
@@ -184,11 +184,11 @@ static const lily_func_seed file_open =
 static const lily_func_seed file_print =
     {&file_open, "print", dyna_function, "[A](File, A)", lily_file_print};
 
-static const lily_func_seed file_readline =
-    {&file_print, "readline", dyna_function, "(File):ByteString", lily_file_readline};
+static const lily_func_seed file_read_line =
+    {&file_print, "read_line", dyna_function, "(File):ByteString", lily_file_read_line};
 
 static const lily_func_seed dynaload_start =
-    {&file_readline, "write", dyna_function, "[A](File, A)", lily_file_write};
+    {&file_read_line, "write", dyna_function, "[A](File, A)", lily_file_write};
 
 
 static const lily_class_seed file_seed =

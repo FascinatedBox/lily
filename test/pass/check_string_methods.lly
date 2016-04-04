@@ -10,10 +10,10 @@ define ok(b: Boolean, s: String)
     }
 }
 
-ok("1".endswith("2") == false,     "String.endswith '1' and '2'.")
-ok("1".endswith("12345") == false, "String.endswith '1' and '12345'.")
-ok("1".endswith("1"),              "String.endswith '1' and '1'.")
-ok("ÀÈÌaÒÜ".endswith("aÒÜ"),       "String.endswith utf-8 success case.")
+ok("1".ends_with("2") == false,     "String.ends_with '1' and '2'.")
+ok("1".ends_with("12345") == false, "String.ends_with '1' and '12345'.")
+ok("1".ends_with("1"),              "String.ends_with '1' and '1'.")
+ok("ÀÈÌaÒÜ".ends_with("aÒÜ"),       "String.ends_with utf-8 success case.")
 
 ok("12".find("1").is_some(),       "String.find with '12' and '1'.")
 ok("ÀÈaÌÒÜ".find("ÈaÌ").is_some(), "String.find utf-8 success case.")
@@ -21,25 +21,25 @@ ok("1".find("12345").is_none(),    "String.find where needle exceeds haystack.")
 ok("".find("").is_none(),          "String.find where haystack is empty.")
 ok("1234".find("5").is_none(),     "String.find needle not in haystack.")
 
-ok("<&>".htmlencode() == "&lt;&amp;&gt;",     "String.htmlencode full spectrum.")
-ok("+<&>+".htmlencode() == "+&lt;&amp;&gt;+", "String.htmlencode without replacing start + end.")
-ok("<+&+>".htmlencode() == "&lt;+&amp;+&gt;", "String.htmlencode with text interleaving replacements.")
+ok("<&>".html_encode() == "&lt;&amp;&gt;",     "String.html_encode full spectrum.")
+ok("+<&>+".html_encode() == "+&lt;&amp;&gt;+", "String.html_encode without replacing start + end.")
+ok("<+&+>".html_encode() == "&lt;+&amp;+&gt;", "String.html_encode with text interleaving replacements.")
 
-ok("".isalnum() == false,                     "String.isalnum empty false case.")
-ok("a".isalnum(),                             "String.isalnum with true case.")
-ok("abc123()".isalnum() == false,             "String.isalnum denies partial alpha.")
+ok("".is_alnum() == false,                    "String.is_alnum empty false case.")
+ok("a".is_alnum(),                            "String.is_alnum with true case.")
+ok("abc123()".is_alnum() == false,            "String.is_alnum denies partial alpha.")
 
-ok("".isalpha() == false,                     "String.isalpha empty false case.")
-ok("a".isalpha(),                             "String.isalpha with true case.")
-ok("abc123".isalpha() == false,               "String.isalpha denies partial alpha.")
+ok("".is_alpha() == false,                    "String.is_alpha empty false case.")
+ok("a".is_alpha(),                            "String.is_alpha with true case.")
+ok("abc123".is_alpha() == false,              "String.is_alpha denies partial alpha.")
 
-ok("".isdigit() == false,                     "String.isdigit empty false case.")
-ok("123".isdigit(),                           "String.isdigit with true case.")
-ok("abc123".isdigit() == false,               "String.isdigit denies partial digit.")
+ok("".is_digit() == false,                    "String.is_digit empty false case.")
+ok("123".is_digit(),                          "String.is_digit with true case.")
+ok("abc123".is_digit() == false,              "String.is_digit denies partial digit.")
 
-ok("".isspace() == false,                     "String.isspace empty false case.")
-ok(" \t\r\n".isspace(),                       "String.isspace full spectrum true case.")
-ok("abc ".isspace() == false,                 "String.isspace denies partial space.")
+ok("".is_space() == false,                    "String.is_space empty false case.")
+ok(" \t\r\n".is_space(),                      "String.is_space full spectrum true case.")
+ok("abc ".is_space() == false,                "String.is_space denies partial space.")
 
 ok("abc".lstrip("") == "abc",                 "String.lstrip empty remove string.")
 ok("aabbab12".lstrip("ab") == "12",           "String.lstrip multi remove.")
@@ -66,10 +66,10 @@ ok("12aabbab".rstrip("ab") == "12",            "String.rstrip multi remove.")
 ok("aaaaa".rstrip("a") == "",                  "String.rstrip removing all.")
 ok("ÀÈaÌÒÜ".rstrip("ÌÒÜ") == "ÀÈa",            "String.rstrip with utf-8 chunk.")
 
-ok("1".startswith("2") == false,               "String.startswith '1' and '2'.")
-ok("123".startswith("12345") == false,         "String.startswith '123' and '12345'.")
-ok("1".startswith("1"),                        "String.startswith '1' and '1'.")
-ok("ÀÈÌaÒÜ".startswith("ÀÈ"),                  "String.startswith utf-8 success case.")
+ok("1".starts_with("2") == false,              "String.starts_with '1' and '2'.")
+ok("123".starts_with("12345") == false,        "String.starts_with '123' and '12345'.")
+ok("1".starts_with("1"),                       "String.starts_with '1' and '1'.")
+ok("ÀÈÌaÒÜ".starts_with("ÀÈ"),                 "String.starts_with utf-8 success case.")
 
 ok("123".split(" ") == ["123"],                "String.split no match.")
 ok("1 2 3".split(" ") == ["1", "2", "3"],      "String.split simple success case.")
@@ -85,7 +85,7 @@ ok({||
         result = true
     result
     }(),                                       "String.split raises ValueError for empty string.")
-ok("1 2 3".split(" ")[0].isdigit(),            "String.split doesn't generate a broken first string.")
+ok("1 2 3".split(" ")[0].is_digit(),           "String.split doesn't generate a broken first string.")
 
 ok("abc".trim() == "abc",                      "String.trim ignores non-spaces.")
 ok(" \t\r\nabc\t\r\n ".trim() == "abc",        "String.trim spectrum removal.")

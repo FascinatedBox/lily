@@ -25,9 +25,9 @@ define f: String
 
 # Let's start off simple: Are the magic constants ok?
 
-ok(f() == "f",                            "Check __function__")
-ok({|| __file__}() == __file__,           "Check __file__ being correct inside of a lambda.")
-ok(__file__.endswith("check_basics.lly"), "Check __file__ being correct")
+ok(f() == "f",                             "Check __function__")
+ok({|| __file__}() == __file__,            "Check __file__ being correct inside of a lambda.")
+ok(__file__.ends_with("check_basics.lly"), "Check __file__ being correct")
 
 # Make sure falsey things are seen as falsey.
 
