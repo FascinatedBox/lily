@@ -217,8 +217,8 @@ void lily_apache_server_write_raw(lily_vm_state *vm, uint16_t argc, uint16_t *co
     ap_rputs(value, (request_rec *)vm->data);
 }
 
-void lily_string_htmlencode(lily_vm_state *, uint16_t, uint16_t *);
-int lily_maybe_htmlencode_to_buffer(lily_vm_state *, lily_value *);
+extern void lily_string_html_encode(lily_vm_state *, uint16_t, uint16_t *);
+extern int lily_maybe_html_encode_to_buffer(lily_vm_state *, lily_value *);
 
 /*  Implements server.write
 
@@ -229,10 +229,10 @@ void lily_apache_server_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value *input = vm->vm_regs[code[1]];
     const char *source;
 
-    /* String.htmlencode can't be called directly, for a couple reasons.
+    /* String.html_encode can't be called directly, for a couple reasons.
        1: It expects a result register, and there isn't one.
        2: It may create a new String, which is unnecessary. */
-    if (lily_maybe_htmlencode_to_buffer(vm, input) == 0)
+    if (lily_maybe_html_encode_to_buffer(vm, input) == 0)
         source = input->value.string->string;
     else
         source = vm->vm_buffer->message;
@@ -246,7 +246,7 @@ void lily_apache_server_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     resulting string is safe to pass to server.write_raw. */
 void lily_apache_server_escape(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
-    lily_string_htmlencode(vm, argc, code);
+    lily_string_html_encode(vm, argc, code);
 }
 
 

@@ -1,2 +1,2 @@
-if calltrace()[-1].endswith("calltrace"):
+if calltrace()[-1].ends_with("calltrace"):
     stderr.print("Failed.")
