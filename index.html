@@ -74,7 +74,7 @@
                     Safety through types
                     </h1>
                     <p>
-                    Every variable has to have a starting value. Every expression has a known type. Because the type system is not optional, Lily knows what every function expects and should produce. Lily's type system exists to aid the programmer, not get in the way.
+                    Every variable has to have a starting value. Every expression has a known type. Everything has a type, even if it's not explicitly stated. Lily's type system exists to aid the programmer, not get in the way.
                     </p>
                     <p>
                     To further this notion, Lily provides <code>Option</code> for values that may be <code>None</code>.
@@ -134,7 +134,7 @@
                     Strong static typing goes hand-in-hand with good inference. Lily knows that <code>[1, 2, 3]</code> is a <code>List[Integer]</code>.
                     </p>
                     <p>
-                    Lily requires that functions explicitly specify their input and output types. But, aside from that, most typing is optional.
+                    Lily requires that functions explicitly specify their input and output types. But, aside from that, most explicit typing is optional.
                     </p>
                     <p>
                     You can thus change your code without having to rewrite type annotations. Types belong behind the scenes, not in your face.
