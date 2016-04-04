@@ -181,9 +181,9 @@ define rpn(input: String): Either[String, List[Integer]]
     
     for i in 0...values.size() - 1: {
         var v = values[i]
-        if v.isdigit(): {
+        if v.is_digit(): {
             v.parse_i().unwrap() |> stack.push
-        elif v.isspace() == false:
+        elif v.is_space() == false:
             if stack.size() &lt; 2:
                 return Left("Stack underflow")
 

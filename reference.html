@@ -309,7 +309,7 @@ This function prints an extra <span class="varname">"\n"</span>
                     </p>
                 </div>
                 <h5>
-<span>define</span><span class="funcname">File.readline</span><span>(self: </span><code>File</code><span>):</span><code>ByteString</code>
+<span>define</span><span class="funcname">File.read_line</span><span>(self: </span><code>File</code><span>):</span><code>ByteString</code>
                 </h5>
                 <div class="explain">
                     <p>
@@ -807,7 +807,7 @@ The <code>String</code> class is guaranteed to always have well-formed utf-8, an
 For now at least, the <code>String</code> class is immutable: Each function here will always generate a new <code>String</code> instead of modifying an old one.
                 </p>
                 <h5>
-<span>define</span> <span class="funcname">String.endswith</span><span>(self, with: </span><code>String</code><span>):</span><code>Boolean</code>
+<span>define</span> <span class="funcname">String.ends_with</span><span>(self, with: </span><code>String</code><span>):</span><code>Boolean</code>
                 </h5>
                 <div class="explain">
                     <p>
@@ -825,7 +825,7 @@ Otherwise, this returns <span class="varname">None</span>
                     </p>
                 </div>
                 <h5>
-<span>define</span> <span class="funcname">String.htmlencode</span><span>(self):</span><code>String</code>
+<span>define</span> <span class="funcname">String.html_encode</span><span>(self):</span><code>String</code>
                 </h5>
                 <div class="explain">
                     <p>
@@ -834,7 +834,7 @@ If any are found, then a new <code>String</code> is created where those html ent
                     </p>
                 </div>
                 <h5>
-<span>define</span> <span class="funcname">String.isalnum</span><span>(self):</span><code>Boolean</code>
+<span>define</span> <span class="funcname">String.is_alnum</span><span>(self):</span><code>Boolean</code>
                 </h5>
                 <div class="explain">
                     <p>
@@ -842,7 +842,7 @@ Returns <span class="varname">true</span> if <span class="varname">self</span> h
                     </p>
                 </div>
                 <h5>
-<span>define</span> <span class="funcname">String.isalpha</span><span>(self):</span><code>Boolean</code>
+<span>define</span> <span class="funcname">String.is_alpha</span><span>(self):</span><code>Boolean</code>
                 </h5>
                 <div class="explain">
                     <p>
@@ -850,7 +850,7 @@ Returns <span class="varname">true</span> if <span class="varname">self</span> h
                     </p>
                 </div>
                 <h5>
-<span>define</span> <span class="funcname">String.isdigit</span><span>(self):</span><code>Boolean</code>
+<span>define</span> <span class="funcname">String.is_digit</span><span>(self):</span><code>Boolean</code>
                 </h5>
                 <div class="explain">
                     <p>
@@ -858,7 +858,7 @@ Returns <span class="varname">true</span> if <span class="varname">self</span> h
                     </p>
                 </div>
                 <h5>
-<span>define</span> <span class="funcname">String.isspace</span><span>(self):</span><code>Boolean</code>
+<span>define</span> <span class="funcname">String.is_space</span><span>(self):</span><code>Boolean</code>
                 </h5>
                 <div class="explain">
                     <p>
@@ -914,7 +914,7 @@ If <span class="varname">by</span> is empty, then <code>ValueError</code> is rai
                     </p>
                 </div>
                 <h5>
-<span>define</span> <span class="funcname">String.startswith</span><span>(self, with: </span><code>String</code><span>):</span><code>Boolean</code>
+<span>define</span> <span class="funcname">String.starts_with</span><span>(self, with: </span><code>String</code><span>):</span><code>Boolean</code>
                 </h5>
                 <div class="explain">
                     <p>
@@ -978,7 +978,7 @@ The result of this function is the result of calling <span class="varname">fn</s
                     <pre>
 var unsafe_str = Tainted("&lt;3")
 
-unsafe_str.sanitize(String.htmlencode) # "&amp;lt;3"
+unsafe_str.sanitize(String.html_encode) # "&amp;lt;3"
 unsafe_str = Tainted("123")
 unsafe_str.sanitize{|a| a.parse_i().unwrap() * 2} # 246</pre>
                 </div>

@@ -382,9 +382,9 @@ define square(x: Integer): Integer
 var another_int = square(10)
 another_int = 10 |&gt; square |&gt; square
 
-var does_end = String.endswith("needle", "e")
-does_end = "needle".endswith(e)
-does_end = "e" |&gt; "needle".endswith</pre>
+var does_end = String.ends_with("needle", "e")
+does_end = "needle".ends_with(e)
+does_end = "e" |&gt; "needle".ends_with</pre>
             </div>
             <div class="section">
                 <h1 id="_BlockBasics">
@@ -1034,7 +1034,7 @@ Let's see some usage of <code>Tainted</code>.
 var bad_string = Tainted("&amp;")
 # var bad_idea = bad_string.value # Syntax error, because @value is private.
 
-var clean_string = bad_string.sanitize(String.htmlencode)
+var clean_string = bad_string.sanitize(String.html_encode)
 print(clean_string) # &amp;amp;
 
 # What about something more interesting though?
