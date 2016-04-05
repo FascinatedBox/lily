@@ -3709,16 +3709,22 @@ static void parser_loop(lily_parse_state *parser)
                            "Unterminated block(s) at end of parsing.\n");
             }
 
-            lily_register_classes(parser->symtab, parser->vm);
-            lily_prepare_main(parser->emit, parser->import_start);
-            lily_vm_prep(parser->vm, parser->symtab);
+            /* Parser's in the first block now. If __main__'s code_pos is 0,
+               then there's literally nothing to do. Maybe the only thing that
+               happened was some builtin dynaloading. Regardless, there's no
+               point in revving up the vm to do nothing. */
+            if (parser->emit->code_pos != 0) {
+                lily_register_classes(parser->symtab, parser->vm);
+                lily_prepare_main(parser->emit, parser->import_start);
+                lily_vm_prep(parser->vm, parser->symtab);
 
-            parser->executing = 1;
-            lily_vm_execute(parser->vm);
-            parser->executing = 0;
+                parser->executing = 1;
+                lily_vm_execute(parser->vm);
+                parser->executing = 0;
 
-            /* Clear __main__ for the next pass. */
-            lily_reset_main(parser->emit);
+                /* Clear __main__ for the next pass. */
+                lily_reset_main(parser->emit);
+            }
 
             if (lex->token == tk_end_tag) {
                 lily_lexer_handle_page_data(parser->lex);
