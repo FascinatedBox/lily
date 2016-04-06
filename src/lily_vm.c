@@ -401,7 +401,6 @@ static void invoke_gc(lily_vm_state *vm)
 
     while (gc_iter) {
         iter_next = gc_iter->next;
-        i++;
 
         if (gc_iter->last_pass == -1) {
             lily_free(gc_iter->value.generic);
@@ -410,6 +409,7 @@ static void invoke_gc(lily_vm_state *vm)
             new_spare_entries = gc_iter;
         }
         else {
+            i++;
             gc_iter->next = new_live_entries;
             new_live_entries = gc_iter;
         }
