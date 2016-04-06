@@ -1,3 +1,5 @@
+word_chars = string.ascii_letters + "_"
+
 class Scanner(object):
     def __init__(self):
         self.s = ""
@@ -14,9 +16,9 @@ class Scanner(object):
 
         ch = self.s[self.offset]
         result = None
-        if ch.isalpha():
+        if ch in word_chars:
             start = self.offset
-            while ch.isalpha():
+            while ch in word_chars:
                 self.offset += 1
                 ch = self.s[self.offset]
 
@@ -48,7 +50,7 @@ class Scanner(object):
                     % (expect, self.token))
 
     def require_word(self):
-        if self.next_token().isalpha() == False:
+        if self.next_token() not in word_chars:
             raise ValueError("Scanner: Expected a word, but got '%s'." \
                     % (self.token))
         return self.token
@@ -145,10 +147,10 @@ def scan_define(scanner, define_line):
                 generics.append(scanner.token)
 
         result["generics"] = "[" + ",".join(generics) + "]"
+        scanner.next_token()
     else:
         result["generics"] = ""
 
-    scanner.next_token()
     args = [""]
 
     if scanner.token == "(":
