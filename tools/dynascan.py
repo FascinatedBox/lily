@@ -1,3 +1,5 @@
+import string
+
 word_chars = string.ascii_letters + "_"
 
 class Scanner(object):
@@ -50,7 +52,7 @@ class Scanner(object):
                     % (expect, self.token))
 
     def require_word(self):
-        if self.next_token() not in word_chars:
+        if self.next_token()[0] not in word_chars:
             raise ValueError("Scanner: Expected a word, but got '%s'." \
                     % (self.token))
         return self.token
