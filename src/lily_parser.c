@@ -191,11 +191,9 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
        block, it needs a special function to initialize that block. */
     lily_emit_enter_main(parser->emit);
 
-    parser->vm->main = parser->symtab->main_var;
-
     /* This type represents a function that has no input and no outputs. This is
        used when creating new functions so that they have a type. */
-    parser->default_call_type = parser->vm->main->type;
+    parser->default_call_type = parser->symtab->main_var->type;
 
     /* This allows the internal sys package to be located later. */
     lily_pkg_sys_init(parser, options);
