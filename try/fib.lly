@@ -1,0 +1,14 @@
+# fibonacci numbers
+class Fib {
+  var @a=0
+  var @b=1
+  define next:Integer{
+    var c=@a+@b
+    @a=@b
+    @b=c
+    return @a
+  }
+}
+
+var fib=Fib()
+print([fib.next(),fib.next(),fib.next(),fib.next(),fib.next(),fib.next()])
