@@ -95,10 +95,6 @@ typedef struct lily_vm_state_ {
        'entry->last_pass == gc_pass' */
     uint32_t gc_pass;
 
-    /* This is the default type used when created new registers. This is
-       used because it isn't refcounted. */
-    lily_type *integer_type;
-
     uint64_t prep_id_start;
 
     /* Most of the stack entries will be native functions, with the lowest
@@ -130,7 +126,6 @@ typedef struct lily_vm_state_ {
     /* If stdout has been dynaloaded, then this is the register that holds
        Lily's stdout. Otherwise, this is NULL. */
     lily_value *stdout_reg;
-    lily_var *main;
 } lily_vm_state;
 
 lily_vm_state *lily_new_vm_state(lily_options *, lily_raiser *);

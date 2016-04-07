@@ -1925,10 +1925,6 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
     lily_function_val *main_function = symtab->main_function;
     int i;
 
-    /* This has to be set before grow_vm_registers because that initializes the
-       registers to integer's type. */
-    vm->integer_type = symtab->integer_class->type;
-
     if (main_function->reg_count > vm->offset_max_registers) {
         grow_vm_registers(vm, main_function->reg_count);
         /* grow_vm_registers will move vm->vm_regs (which is supposed to be
