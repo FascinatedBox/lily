@@ -117,7 +117,9 @@ lily_options *lily_new_default_options(void)
 {
     lily_options *options = lily_malloc(sizeof(lily_options));
     options->version = 1;
-    options->gc_threshold = 100; /* Totally arbitrary. */
+    /* The gc options are totally arbitrary. */
+    options->gc_start = 100;
+    options->gc_multiplier = 4;
     options->argc = 0;
     options->argv = NULL;
     options->data = NULL;

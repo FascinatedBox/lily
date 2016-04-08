@@ -70,7 +70,7 @@ def run_test(options, dirpath, filepath):
         pass_count += 1
 
 def get_options_for(dirpath):
-    options = {'invoke': '-g 2'}
+    options = {'invoke': '-gstart 2 -gmul 0'}
 
     # By default, the gc threshold is set to 2 so that the tests don't
     # pass only because the garbage collector isn't invoked.

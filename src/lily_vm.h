@@ -89,13 +89,17 @@ typedef struct lily_vm_state_ {
     /* How many entries are in ->gc_live_entries. If this is >= ->gc_threshold,
        then the gc is triggered when there is an attempt to attach a gc_entry
        to a value. */
-    uint16_t gc_live_entry_count;
+    uint32_t gc_live_entry_count;
     /* How many entries to allow in ->gc_live_entries before doing a sweep. */
-    uint16_t gc_threshold;
+    uint32_t gc_threshold;
     /* An always-increasing value indicating the current pass, used to determine
        if an entry has been seen. An entry is visible if
        'entry->last_pass == gc_pass' */
     uint32_t gc_pass;
+
+    /* If the current gc sweep does not free anything, this is how much that
+       the threshold is multiplied by to increase it. */
+    uint32_t gc_multiplier;
 
     uint64_t prep_id_start;
 

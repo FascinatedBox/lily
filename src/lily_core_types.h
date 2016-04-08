@@ -464,15 +464,19 @@ typedef struct lily_import_entry_ {
     var_loader var_load_fn;
 } lily_import_entry;
 
-/* This structure defines a series of options */
+/* This structure defines a series of options for initializing the interpeter.
+   Defaults can be found by searching for lily_new_default_options within
+   lily_parser.c. */
 typedef struct lily_options_ {
     /* For now, this should be '1'. */
-    uint32_t version;
-    /* The maximum number of values the gc should have marked before
-       attempting a sweep. This should be at least 2. */
-    uint32_t gc_threshold;
-    /* # of entries in the argv. */
-    uint64_t argc;
+    uint8_t version;
+    /* How much should the current number of allowed gc entries be multiplied by
+       if unable to free anything. */
+    uint8_t gc_multiplier;
+    uint16_t argc;
+    /* The initial maximum amount of entries allowed to have a gc tag before
+       asking for another causes a sweep. */
+    uint32_t gc_start;
     /* This is made available as sys.argv when sys is imported. By default,
        this is NULL and sys.argv is empty. */
     char **argv;
