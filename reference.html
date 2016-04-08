@@ -158,7 +158,7 @@ Since Lily's vm does not keep track of full type information, casts are forbiddi
                 <div class="explain">
                     <p>
 Produce a new <code>Dynamic</code> value.
-This method exists as a convenience, to allow the shorthand of <Actualcode>Dynamic(value)</actualcode>, which is just sugar for <actualcode>Dynamic.new(value)</actualcode>.
+This method exists as a convenience, to allow the shorthand of <span class="snippet">Dynamic(value)</span>, which is just sugar for <span class="snippet">Dynamic.new(value)</span>.
 This should not be called directly.
                     </p>
                 </div>
@@ -255,7 +255,7 @@ You may subclass either from <code>Exception</code>, or one of these classes.
 <code>RuntimeError</code>: Attempting to remove a <code>Hash</code> key during iteration, or comparing an infinite structure.
                     </li>
                     <li>
-<code>ValueError</code>: An invalid argument has been sent (ex: <ActualCode>Option.unwrap</ActualCode> on <code>None</code>).
+<code>ValueError</code>: An invalid argument has been sent (ex: <span class="snippet">Option.unwrap</span> on <code>None</code>).
                     </li>
                 </ul>
                 </p>
@@ -338,8 +338,8 @@ Unlike <code>File.print</code>, no <span class="varname">"\n"</span> will be add
                 <p>
 The <code>Function</code> class represents some block of code that can be called to maybe get a value.
 In Lily, <code>Function</code>s are first-class and can be parameters, put in a <code>List</code>, returned, and so forth.
-Creation of new <code>Function</code>s is done primarily through <ActualCode>define</ActualCode>.
-A <code>Function</code> created through <ActualCode>define</ActualCode> cannot be altered.
+Creation of new <code>Function</code>s is done primarily through <span class="snippet">define</span>.
+A <code>Function</code> created through <span class="snippet">define</span> cannot be altered.
 However, var with a <code>Function</code> type can be altered.
                 </p>
             </div>
@@ -350,9 +350,9 @@ However, var with a <code>Function</code> type can be altered.
                 <p>
 Lily's <code>Hash</code> class represents an association of a key and a value.
 The annotation for the <code>Hash</code> refers to the key as <code>A</code>, and the value as <code>B</code>.
-A <code>Hash</code> is created by hash literal, such as: <ActualCode>[key1 =&gt; value1, key2 =&gt value2, ...]</ActualCode>.
+A <code>Hash</code> is created by hash literal, such as: <span class="snippet">[key1 =&gt; value1, key2 =&gt value2, ...]</span>.
 If a <code>Hash</code> literal contains duplicate key, then the right-most value "wins".
-New <code>Hash</code> elements can be added through subscript assignment (<ActualCode>myhash["new_key"] = 10</ActualCode>).
+New <code>Hash</code> elements can be added through subscript assignment (<span class="snippet">myhash["new_key"] = 10</span>).
 However, attempting to access <code>Hash</code> elements that do not exist will cause <code>KeyError</code></KeyError> to be raised.
 Additionally, there is no guarantee as to what ordering that a <code>Hash</code> will have (or if there is any ordering at all).
 Finally, a <code>Hash</code> can currently only use either an <code>Integer</code> or a <code>String</code> as a key.
@@ -409,7 +409,7 @@ This constructs a <code>List</code> containing all keys currently within <span c
                     <p>
 Attempt to get <span class="varname">key</span> if it is present within <span class="varname">self</span>.
 If <span class="varname">key</span> is found, then return it.
-Otherwise, <VarDefault></VarDefault> is returned.
+Otherwise, <span class="varname">default</span> is returned.
                     </p>
                 </div>
                 <h5>
@@ -430,7 +430,7 @@ h.map_values(String.parse_i) # [1 =&gt; Some(123), 2 =&gt; Some(456), 3 =&gt; No
                 </h5>
                 <div class="explain">
                     <p>
-This creates a new <code>Hash</code> that is the combination of <span class="varname">self</span> and <VarOthers></VarOthers>
+This creates a new <code>Hash</code> that is the combination of <span class="varname">self</span> and <span class="varname">others</span>
 This combines <span class="varname">self</span> with one or more other <code>Hash</code> values.
 In the event that multiple <code>Hash</code>es have the same key, the right-most value "wins".
                     </p>
@@ -495,7 +495,7 @@ In the future, this function may be expanded upon to allow different bases.
                     List
                 </h1>
                 <p>
-The <code>List</code> class provides a container which can be indexed using <ActualCode>[position]</ActualCode>.
+The <code>List</code> class provides a container which can be indexed using <span class="snippet">[position]</span>.
 A <code>List</code> subcript can be a positive index, or a negative one (with negative ones being some distance away from the end, as with Python).
 If a <code>List</code> subscript exceeds the size of the <code>List</code>, then <code>IndexError</code> will be raised.
 A <code>List</code>, unlike a <code>Hash</code>, supports both addition and removal of elements during iteration.
@@ -524,9 +524,9 @@ The result of this function is the number of elements in the <code>List</code> f
                 </h5>
                 <div class="explain">
                     <p>
-Attempts to remove <VarIndex></VarIndex> from the <code>List</code>.
-If <VarIndex></VarIndex> is negative, then it is considered an offset from the end of the <code>List</code>.
-If <VarIndex></VarIndex>, after any adjustment, is not a valid index within <span class="varname">self</span>, then <code>IndexError</code> is raised.
+Attempts to remove <span class="varname">index</span> from the <code>List</code>.
+If <span class="varname">index</span> is negative, then it is considered an offset from the end of the <code>List</code>.
+If <span class="varname">index</span>, after any adjustment, is not a valid index within <span class="varname">self</span>, then <code>IndexError</code> is raised.
                     </p>
                 </div>
                 <h5>
@@ -560,9 +560,9 @@ strings.each_index{|i| print(i) }
                 </h5>
                 <div class="explain">
                     <p>
-This creates a new <code>List</code> that has <VarValue></VarValue> repeated <VarCount></VarCount> times.
-If <VarValue></VarValue> is zero, then an empty list of type <VarValue></VarValue> is created.
-If <VarCount></VarCount> is less than zero, then <code>ValueError</code> is raised.
+This creates a new <code>List</code> that has <span class="varname">value</span> repeated <span class="varname">count</span> times.
+If <span class="varname">value</span> is zero, then an empty list of type <span class="varname">value</span> is created.
+If <span class="varname">count</span> is less than zero, then <code>ValueError</code> is raised.
                     </p>
                 </div>
                 <h5>
@@ -572,7 +572,7 @@ If <VarCount></VarCount> is less than zero, then <code>ValueError</code> is rais
                     <p>
 This function is used to accumulate all values in a <code>List</code>.
 It works by repeatedly calling <span class="varname">fn</span> using the accumulated value, and an element from the <code>List</code>.
-<VarStart></VarStart> is used as the initial value for the accumulation.
+<span class="varname">start</span> is used as the initial value for the accumulation.
                     </p>
                     <pre>
 var numbers = [10, 20, 30]
@@ -588,9 +588,9 @@ strings.fold("", {|accumulate, elem| $"^(accumulate)^(elem)"}) # "abc"
                 </h5>
                 <div class="explain">
                     <p>
-Attempts to insert <VarValue></VarValue> into <span class="varname">self</span> at <VarIndex></VarIndex>.
-If <VarIndex></VarIndex> is negative, then it is treated as an offset from the end of the <code>List</code>.
-If <VarIndex></VarIndex>, after being wrapped, is outside of <span class="varname">self</span>, then <code>IndexError</code> is raised.
+Attempts to insert <span class="varname">value</span> into <span class="varname">self</span> at <span class="varname">index</span>.
+If <span class="varname">index</span> is negative, then it is treated as an offset from the end of the <code>List</code>.
+If <span class="varname">index</span>, after being wrapped, is outside of <span class="varname">self</span>, then <code>IndexError</code> is raised.
                     </p>
                 </div>
                 <h5>
@@ -620,7 +620,7 @@ If <span class="varname">self</span> is empty, then <code>IndexError</code> is r
                 </h5>
                 <div class="explain">
                     <p>
-Appends <VarValue></VarValue> to the end of <span class="varname">self</span>.
+Appends <span class="varname">value</span> to the end of <span class="varname">self</span>.
                     </p>
                 </div>
                 <h5>
@@ -667,7 +667,7 @@ If <span class="varname">self</span> is empty, then <code>IndexError</code> is r
                 </h5>
                 <div class="explain">
                     <p>
-Inserts <VarValue></VarValue> at the front of <span class="varname">self</span>, moving all other elements to the right.
+Inserts <span class="varname">value</span> at the front of <span class="varname">self</span>, moving all other elements to the right.
                     </p>
                 </div>
             </div>
@@ -692,7 +692,7 @@ enum Option[A] {
                 </h5>
                 <div class="explain">
                     <p>
-If <span class="varname">self</span> is a <span class="varname">Some</span>, then the result of this function is <VarOther></VarOther>.
+If <span class="varname">self</span> is a <span class="varname">Some</span>, then the result of this function is <span class="varname">other</span>.
 Otherwise, this function returns <span class="varname">None</span>.
                     </p>
                 </div>
@@ -970,8 +970,8 @@ class Tainted[A](value: A)
                 </h5>
                 <div class="explain">
                     <p>
-This function calls <span class="varname">fn</span> with <Var@Value></Var@value>.
-It is assumed that <span class="varname">fn</span> is able to sanitize <Var@Value></Var@Value>.
+This function calls <span class="varname">fn</span> with <span class="varname">@value</span>.
+It is assumed that <span class="varname">fn</span> is able to sanitize <span class="value">@value</span>.
 The result of this function is the result of calling <span class="varname">fn</span>.
 <span class="varname">fn</span> is intentionally parameterized as returning type <code>B</code> to allow both sanitizing and mapping at once.
                     </p>
@@ -994,7 +994,7 @@ The <code>Tuple</code> class does not provide any methods, but does allow for su
 Subscripts against a <code>Tuple</code> must be positive (no negative wraparound), and must be a literal.
 This requirement is so that the interpreter can be completely certain as to what index you want.
 <code>Tuple</code>, like <code>Function</code>, have no restriction on how many subtypes they can carry.
-<code>Tuple</code> literals are denoted by <ActualCode>&lt;[value1, value2, ... ]&gt;</ActualCode>
+<code>Tuple</code> literals are denoted by <span class="snippet">&lt;[value1, value2, ... ]&gt;</span>
                 </p>
             </div>
         </div>
