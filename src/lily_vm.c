@@ -173,7 +173,10 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
 {
     lily_vm_state *vm = lily_malloc(sizeof(lily_vm_state));
     vm->data = options->data;
-    vm->gc_threshold = options->gc_threshold;
+    vm->gc_threshold = options->gc_start;
+    vm->gc_multiplier = options->gc_multiplier;
+    if (vm->gc_multiplier > 16)
+        vm->gc_multiplier = 16;
 
     /* todo: This is a terrible, horrible key to use. Make a better one using
              some randomness or...something. Just not this. */
@@ -416,6 +419,11 @@ static void invoke_gc(lily_vm_state *vm)
 
         gc_iter = iter_next;
     }
+
+    /* Did the sweep reclaim enough objects? If not, then increase the threshold
+       to prevent spamming sweeps when everything is alive. */
+    if (vm->gc_threshold <= i)
+        vm->gc_threshold *= vm->gc_multiplier;
 
     vm->gc_live_entry_count = i;
     vm->gc_live_entries = new_live_entries;
