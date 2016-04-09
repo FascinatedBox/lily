@@ -3472,6 +3472,32 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
     lily_type *result_type = partial_eval(emit, arg, eval_type,
             &cs->have_bare_variants);
 
+    /* Here's an interesting case where the result type doesn't match but where
+       the result is some global generic function. Since the result function is
+       global, the generics inside of it are unquantified. For this special
+       case, see if the generic function provided can narrow down to be what is
+       wanted. */
+    if ((result_type->flags & TYPE_IS_UNRESOLVED) &&
+        (arg->tree_type == tree_static_func ||
+         arg->tree_type == tree_defined_func))
+    {
+        lily_type *question_type = emit->ts->question_class_type;
+        /* Figure out what the caller REALLY wants, and make sure to do it
+           BEFORE changing scope. */
+        lily_type *solved_want = lily_ts_resolve_with(emit->ts, want_type,
+                question_type);
+
+        int adjust = lily_ts_raise_ceiling(emit->ts);
+        lily_ts_check(emit->ts, result_type, solved_want);
+        lily_type *solved_result = lily_ts_resolve_with(emit->ts, result_type,
+                question_type);
+        lily_ts_lower_ceiling(emit->ts, adjust);
+        /* Don't assume it succeeded, because it worsens the error message in
+           the case that it didn't. */
+        if (solved_want == solved_result)
+            result_type = solved_result;
+    }
+
     /* This is important. If the callee wants something generic, it HAS to be
        a resolving match. Otherwise, it HAS to be a strict >= type match.
        Example: Callee wants list[A], and A = integer. Giving an actual list[A]
