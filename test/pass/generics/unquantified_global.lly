@@ -1,0 +1,14 @@
+# List.each wants Function(Integer) in this case.
+# print is Function(A)
+# This make sure that, since print is a global, that it can narrow down.
+
+[1, 2, 3].each(print)
+
+import sys
+
+# This time, the item of interest is Option.is_none
+# The List, post map, is List[Option[Integer]]
+# Option.is_none is Option[A] => Boolean
+# Make sure this one works too.
+
+sys.argv.map(String.parse_i).reject(Option.is_none)
