@@ -302,8 +302,6 @@ void lily_emit_update_function_block(lily_emit_state *, lily_type *,
 void lily_prepare_main(lily_emit_state *, lily_import_entry *);
 void lily_reset_main(lily_emit_state *);
 
-void lily_update_call_generics(lily_emit_state *, int);
-
 lily_var *lily_emit_new_scoped_var(lily_emit_state *, lily_type *, char *);
 lily_var *lily_emit_new_define_var(lily_emit_state *, lily_type *, char *);
 lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *, lily_foreign_func,
