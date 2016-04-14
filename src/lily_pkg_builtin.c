@@ -90,9 +90,37 @@ static const lily_class_seed question_seed =
 void lily_builtin_print(lily_vm_state *, uint16_t, uint16_t *);
 void lily_builtin_calltrace(lily_vm_state *, uint16_t, uint16_t *);
 
-static const lily_variant_seed seed_left =
+static const lily_bootstrap_seed seed_exception =
 {
     NULL,
+    "Exception",
+    dyna_bootstrap_class,
+    SYM_CLASS_EXCEPTION,
+    NULL,
+    "(message: String) {\n"
+    "    var @message = message\n"
+    "    var @traceback: List[String] = []\n"
+    "}\n"
+};
+
+static const lily_bootstrap_seed seed_tainted =
+{
+    &seed_exception,
+    "Tainted",
+    dyna_bootstrap_class,
+    SYM_CLASS_TAINTED,
+    NULL,
+    "[A](value: A) {\n"
+    "    private var @value = value\n"
+    "    define sanitize[A, B](f: Function(A => B)):B {\n"
+    "         return f(@value)\n"
+    "    }\n"
+    "}\n"
+};
+
+static const lily_variant_seed seed_left =
+{
+    &seed_tainted,
     "Left",
     dyna_variant,
     "(A)",
@@ -240,7 +268,8 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
     symtab->generic_class->type->flags |= TYPE_IS_UNRESOLVED;
     symtab->question_class->type->flags |= TYPE_IS_INCOMPLETE;
 
-    /* HACK: This ensures that there is a 'hole' for Option to dynaload into. */
+    /* HACK: This ensures that there is space to dynaload builtin classes and
+       enums into. */
     symtab->next_class_id = START_CLASS_ID;
 
     builtin->dynaload_table = &seed_stdin;
