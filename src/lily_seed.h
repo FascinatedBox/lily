@@ -5,6 +5,7 @@ typedef enum {
     dyna_class,
     dyna_function,
     dyna_var,
+    dyna_bootstrap_class,
     dyna_exception,
     dyna_enum,
     dyna_builtin_enum,
@@ -40,6 +41,15 @@ typedef const struct {
     uint32_t generic_count;
     const void *dynaload_table;
 } lily_class_seed;
+
+typedef const struct {
+    const void *next;
+    char *name;
+    uint64_t seed_type;
+    uint64_t class_id;
+    char *parent;
+    char *body;
+} lily_bootstrap_seed;
 
 typedef const struct {
     const void *next;

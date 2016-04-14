@@ -26,22 +26,6 @@ if (lex->token != expected) \
     lily_raise(parser->raiser, lily_SyntaxError, "Expected '%s', not %s.\n", \
                tokname(expected), tokname(lex->token));
 
-/* Note: At some point in the future, both Exception and Tainted should both be
-   entirely dynaloaded (to save memory). For now, however, they're both
-   bootstrapped into the interpreter by force.
-   Sorry. */
-static char *bootstrap =
-"class Exception(message: String) {\n"
-"    var @message = message\n"
-"    var @traceback: List[String] = []\n"
-"}\n"
-"class Tainted[A](value: A) {\n"
-"    private var @value = value\n"
-"    define sanitize[A, B](f: Function(A => B)):B {\n"
-"         return f(@value)\n"
-"    }\n"
-"}\n";
-
 /***
  *      ____       _               
  *     / ___|  ___| |_ _   _ _ __  
@@ -100,17 +84,6 @@ static lily_path_link *prepare_path_by_seed(lily_parse_state *parser,
     return result;
 }
 
-/* This loads the Exception and Tainted classes into the parser now. Eventually,
-   those two classes should be dynaloaded. */
-static void run_bootstrap(lily_parse_state *parser)
-{
-    lily_lex_state *lex = parser->lex;
-    lily_load_str(lex, "[builtin]", lm_no_tags, bootstrap);
-    lily_lexer(lex);
-    statement(parser, 1);
-    lily_pop_lex_entry(lex);
-}
-
 /* Not sure what options to give the parser? Call this to get a 'reasonable'
    starting point. */
 lily_options *lily_new_default_options(void)
@@ -152,6 +125,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->generic_count = 0;
     parser->class_self_type = NULL;
     parser->raiser = raiser;
+    parser->exception_type = NULL;
     parser->optarg_stack = lily_malloc(4 * sizeof(uint16_t));
     parser->ast_pool = lily_new_ast_pool();
     parser->symtab = lily_new_symtab(builtin_import);
@@ -199,8 +173,6 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
 
     /* This allows the internal sys package to be located later. */
     lily_pkg_sys_init(parser, options);
-
-    run_bootstrap(parser);
 
     parser->executing = 0;
 
@@ -878,7 +850,7 @@ static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls,
  *            |___/                                 
  */
 
-static void create_new_class(lily_parse_state *);
+static void parse_class_body(lily_parse_state *, lily_class *);
 static lily_class *find_run_class_dynaload(lily_parse_state *, lily_import_entry *,
         char *);
 static void parse_variant_header(lily_parse_state *, lily_variant_class *);
@@ -914,6 +886,8 @@ static void parse_variant_header(lily_parse_state *, lily_variant_class *);
 
     An unfortunate side-effect of this is that it requires a lot of forward
     definitions. Sorry about that. **/
+
+static lily_item *find_run_dynaload(lily_parse_state *, lily_item *, char *);
 
 static int get_seed_cid(lily_import_entry *entry, lily_base_seed *seed)
 {
@@ -1105,12 +1079,12 @@ static lily_class *dynaload_exception(lily_parse_state *parser,
     lily_lexer(parser->lex);
 
     lily_ast_pool *ap = parser->ast_pool;
-    /* create_new_class will turn control over to statement. Before that
+    /* parse_class_body will turn control over to statement. Before that
        happens, freeze the ast's state in case this is in the middle of an
        expression. */
     lily_ast_freeze_state(ap);
-    create_new_class(parser);
-    result = symtab->active_import->class_chain;
+    result = lily_new_class(symtab, parser->lex->label);
+    parse_class_body(parser, result);
     lily_ast_thaw_state(ap);
 
     lily_pop_lex_entry(parser->lex);
@@ -1198,6 +1172,28 @@ static lily_class *dynaload_variant(lily_parse_state *parser,
     return lily_find_class(parser->symtab, import, seed->name);
 }
 
+static lily_class *dynaload_bootstrap(lily_parse_state *parser,
+        lily_import_entry *import, lily_base_seed *seed)
+{
+    lily_bootstrap_seed *boot_seed = (lily_bootstrap_seed *)seed;
+    lily_symtab *symtab = parser->symtab;
+
+    if (boot_seed->parent &&
+        lily_find_class(symtab, import, boot_seed->parent) == NULL) {
+        find_run_dynaload(parser, (lily_item *)import, boot_seed->parent);
+    }
+
+    lily_load_str(parser->lex, "[dynaload]", lm_no_tags, boot_seed->body);
+    lily_class *cls = lily_new_class(symtab, boot_seed->name);
+    symtab->next_class_id--;
+    cls->id = boot_seed->class_id;
+
+    parse_class_body(parser, cls);
+    lily_pop_lex_entry(parser->lex);
+
+    return cls;
+}
+
 static lily_item *run_dynaload(lily_parse_state *parser, lily_item *scope,
         lily_base_seed *seed)
 {
@@ -1235,6 +1231,10 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_item *scope,
         lily_class *new_cls = lily_new_class_by_seed(symtab, seed);
         parser->symtab->next_class_id--;
         new_cls->id = get_seed_cid(import, seed);
+        result = (lily_item *)new_cls;
+    }
+    else if (seed->seed_type == dyna_bootstrap_class) {
+        lily_class *new_cls = dynaload_bootstrap(parser, import, seed);
         result = (lily_item *)new_cls;
     }
     else if (seed->seed_type == dyna_exception) {
@@ -1281,6 +1281,7 @@ static int is_class_seed(lily_base_seed *seed)
     if (seed_type == dyna_class ||
         seed_type == dyna_enum ||
         seed_type == dyna_exception ||
+        seed_type == dyna_bootstrap_class ||
         seed_type == dyna_builtin_enum)
         result = 1;
 
@@ -2974,8 +2975,16 @@ static void except_handler(lily_parse_state *parser, int multi)
 
     lily_type *except_type = get_type(parser);
     /* Exception is likely to always be the base exception class. */
-    lily_class *base_cls = lily_find_class(parser->symtab, NULL, "Exception");
-    lily_type *base_type = base_cls->type;
+    if (parser->exception_type == NULL) {
+        lily_class *cls = lily_find_class(parser->symtab, NULL, "Exception");
+        if (cls == NULL)
+            cls = (lily_class *)find_run_dynaload(parser,
+                (lily_item *)parser->symtab->builtin_import, "Exception");
+
+        parser->exception_type = cls->type;
+    }
+
+    lily_type *base_type = parser->exception_type;
     lily_block_type new_type = block_try_except;
 
     if (except_type == base_type)
@@ -3329,17 +3338,16 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
     lily_change_parent_class(super_class, cls);
 }
 
-static void create_new_class(lily_parse_state *parser)
+static void parse_class_body(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
-    lily_class *created_class = lily_new_class(parser->symtab, lex->label);
     lily_type *save_class_self_type = parser->class_self_type;
 
     int save_generics = parser->generic_count;
-    parse_class_header(parser, created_class);
+    parse_class_header(parser, cls);
 
     if (lex->token == tk_lt)
-        parse_inheritance(parser, created_class);
+        parse_inheritance(parser, cls);
 
     NEED_CURRENT_TOK(tk_left_curly)
 
@@ -3364,7 +3372,7 @@ static void class_handler(lily_parse_state *parser, int multi)
 
     ensure_valid_class(parser, lex->label);
 
-    create_new_class(parser);
+    parse_class_body(parser, lily_new_class(parser->symtab, lex->label));
 }
 
 /* This is called when a variant takes arguments. It parses those arguments to
