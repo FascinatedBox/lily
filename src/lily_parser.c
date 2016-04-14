@@ -1188,7 +1188,12 @@ static lily_class *dynaload_bootstrap(lily_parse_state *parser,
     symtab->next_class_id--;
     cls->id = boot_seed->class_id;
 
+    lily_ast_pool *ap = parser->ast_pool;
+
+    lily_ast_freeze_state(ap);
     parse_class_body(parser, cls);
+    lily_ast_thaw_state(ap);
+
     lily_pop_lex_entry(parser->lex);
 
     return cls;
