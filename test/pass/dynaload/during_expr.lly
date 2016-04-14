@@ -1,0 +1,2 @@
+if (1 + Tainted(1).sanitize{|n| n + n}) != 3:
+    stderr.print("Failed.")
