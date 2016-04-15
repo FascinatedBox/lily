@@ -1054,48 +1054,6 @@ static lily_var *dynaload_function(lily_parse_state *parser, lily_item *source,
     return call_var;
 }
 
-/* This is a bit gross. It's used to dynaload classes that are derived directly
-   from 'Exception'. 'import' is likely to be the builtin import, but could be a
-   foreign module that wants to make a custom exception (ex: postgres). */
-static lily_class *dynaload_exception(lily_parse_state *parser,
-        lily_import_entry *import, const char *name)
-{
-    lily_symtab *symtab = parser->symtab;
-    lily_import_entry *saved_active = symtab->active_import;
-    lily_class *result;
-
-    /* Hack: This exists because I originally thought it was really clever to
-       get classes to boot without using internal functions directly. However,
-       this is pretty awful. */
-
-    /* This causes lookups and the class insertion to be done into the scope of
-       whatever import that wanted this dynaload. This will make it so the
-       dynaload lasts, instead of scoping out. */
-    symtab->active_import = import;
-    lily_msgbuf_flush(parser->msgbuf);
-    lily_msgbuf_add_fmt(parser->msgbuf,
-            "class %s(msg: String) < Exception(msg) { }\n", name);
-    lily_load_str(parser->lex, "[dynaload]", lm_no_tags, parser->msgbuf->message);
-    /* This calls up the first token, which will be 'class'. */
-    lily_lexer(parser->lex);
-    /* This fixes it to be the class name. */
-    lily_lexer(parser->lex);
-
-    lily_ast_pool *ap = parser->ast_pool;
-    /* parse_class_body will turn control over to statement. Before that
-       happens, freeze the ast's state in case this is in the middle of an
-       expression. */
-    lily_ast_freeze_state(ap);
-    result = lily_new_class(symtab, parser->lex->label);
-    parse_class_body(parser, result);
-    lily_ast_thaw_state(ap);
-
-    lily_pop_lex_entry(parser->lex);
-    symtab->active_import = saved_active;
-
-    return result;
-}
-
 /* This dynaloads an enum that is represented by 'seed' with 'import' as the
    context. The result of this is the enum class that was dynaloaded. */
 static lily_class *dynaload_enum(lily_parse_state *parser,
