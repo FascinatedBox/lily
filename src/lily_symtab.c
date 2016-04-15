@@ -260,7 +260,7 @@ lily_tie *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
     return ret;
 }
 
-lily_tie *lily_get_string_literal(lily_symtab *symtab, char *want_string)
+lily_tie *lily_get_string_literal(lily_symtab *symtab, const char *want_string)
 {
     lily_tie *lit, *ret;
     ret = NULL;
@@ -288,7 +288,7 @@ lily_tie *lily_get_string_literal(lily_symtab *symtab, char *want_string)
 }
 
 lily_tie *lily_get_bytestring_literal(lily_symtab *symtab,
-        char *want_string, int len)
+        const char *want_string, int len)
 {
     lily_tie *lit, *ret;
     ret = NULL;
@@ -376,7 +376,8 @@ lily_var *lily_new_raw_var(lily_symtab *symtab, lily_type *type,
     return var;
 }
 
-static lily_var *find_var(lily_var *var_iter, char *name, uint64_t shorthash)
+static lily_var *find_var(lily_var *var_iter, const char *name,
+        uint64_t shorthash)
 {
     while (var_iter != NULL) {
         /* TODO: Emitter marks vars as being out of scope so that it can grab
@@ -398,7 +399,7 @@ static lily_var *find_var(lily_var *var_iter, char *name, uint64_t shorthash)
    current and builtin imports. For everything else, just search through the
    import given. */
 lily_var *lily_find_var(lily_symtab *symtab, lily_import_entry *import,
-        char *name)
+        const char *name)
 {
     uint64_t shorthash = shorthash_for_name(name);
     lily_var *result;
@@ -533,7 +534,7 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
    is.
    The new class is automatically linked up to the current import. No default
    type is created, in case the newly-made class ends up needing generics. */
-lily_class *lily_new_class(lily_symtab *symtab, char *name)
+lily_class *lily_new_class(lily_symtab *symtab, const char *name)
 {
     lily_class *new_class = lily_malloc(sizeof(lily_class));
     char *name_copy = lily_malloc(strlen(name) + 1);
@@ -568,7 +569,7 @@ lily_class *lily_new_class(lily_symtab *symtab, char *name)
 }
 
 /* Use this to create a new class that represents an enum. */
-lily_class *lily_new_enum(lily_symtab *symtab, char *name)
+lily_class *lily_new_enum(lily_symtab *symtab, const char *name)
 {
     lily_class *new_class = lily_new_class(symtab, name);
     new_class->flags |= CLS_IS_ENUM;
@@ -667,7 +668,7 @@ lily_class *lily_find_class(lily_symtab *symtab, lily_import_entry *import,
 
 /* Try to find a method within the class given. The given class is search first,
    then any parents of the class. */
-lily_var *lily_find_method(lily_class *cls, char *name)
+lily_var *lily_find_method(lily_class *cls, const char *name)
 {
     lily_var *iter;
     uint64_t shorthash = shorthash_for_name(name);
@@ -699,7 +700,7 @@ void lily_add_class_method(lily_symtab *symtab, lily_class *cls,
 
 /* Try to find a property with a name in a class. The parent class(es), if any,
    are tries as a fallback if unable to find it in the given class. */
-lily_prop_entry *lily_find_property(lily_class *cls, char *name)
+lily_prop_entry *lily_find_property(lily_class *cls, const char *name)
 {
     lily_prop_entry *ret = NULL;
 
@@ -724,7 +725,7 @@ lily_prop_entry *lily_find_property(lily_class *cls, char *name)
 }
 
 static lily_import_entry *find_import(lily_import_entry *import,
-        char *name)
+        const char *name)
 {
     lily_import_link *link_iter = import->import_chain;
     lily_import_entry *result = NULL;
@@ -750,7 +751,7 @@ static lily_import_entry *find_import(lily_import_entry *import,
 /* Create a new property and add it into the class. As a convenience, the
    newly-made property is also returned. */
 lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
-        lily_type *type, char *name, int flags)
+        lily_type *type, const char *name, int flags)
 {
     lily_prop_entry *entry = lily_malloc(sizeof(lily_prop_entry));
     char *entry_name = lily_malloc(strlen(name) + 1);
@@ -791,7 +792,7 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
 
 /* This creates a new variant called 'name' and installs it into 'enum_cls'. */
 lily_variant_class *lily_new_variant(lily_symtab *symtab, lily_class *enum_cls,
-        char *name, int variant_id)
+        const char *name, int variant_id)
 {
     lily_variant_class *variant = lily_malloc(sizeof(lily_variant_class));
 
@@ -815,7 +816,8 @@ lily_variant_class *lily_new_variant(lily_symtab *symtab, lily_class *enum_cls,
 
 /* Scoped variants are stored within the enum they're part of. This will try to
    find a variant stored within 'enum_cls'. */
-lily_variant_class *lily_find_scoped_variant(lily_class *enum_cls, char *name)
+lily_variant_class *lily_find_scoped_variant(lily_class *enum_cls,
+        const char *name)
 {
     int i;
     uint64_t shorthash = shorthash_for_name(name);
@@ -950,7 +952,7 @@ void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm)
    is used to prevent re-importing something that has already been imported (it
    can just be linked). */
 lily_import_entry *lily_find_import_anywhere(lily_symtab *symtab,
-        char *name)
+        const char *name)
 {
     lily_import_entry *entry_iter = symtab->builtin_import;
 
@@ -968,7 +970,7 @@ lily_import_entry *lily_find_import_anywhere(lily_symtab *symtab,
    import is NULL, then both the current import AND the builtin import are
    searched. */
 lily_import_entry *lily_find_import(lily_symtab *symtab,
-        lily_import_entry *import, char *name)
+        lily_import_entry *import, const char *name)
 {
     lily_import_entry *result;
     if (import == NULL) {

@@ -3,7 +3,7 @@
 #include "lily_alloc.h"
 #include "lily_library.h"
 
-lily_library *lily_library_load(char *path)
+lily_library *lily_library_load(const char *path)
 {
     void *handle = dlopen(path, RTLD_LAZY);
     if (handle == NULL)

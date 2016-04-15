@@ -76,8 +76,8 @@ void lily_free_symtab(lily_symtab *);
 lily_tie *lily_get_boolean_literal(lily_symtab *, int64_t);
 lily_tie *lily_get_integer_literal(lily_symtab *, int64_t);
 lily_tie *lily_get_double_literal(lily_symtab *, double);
-lily_tie *lily_get_bytestring_literal(lily_symtab *, char *, int);
-lily_tie *lily_get_string_literal(lily_symtab *, char *);
+lily_tie *lily_get_bytestring_literal(lily_symtab *, const char *, int);
+lily_tie *lily_get_string_literal(lily_symtab *, const char *);
 lily_tie *lily_get_variant_literal(lily_symtab *, lily_type *);
 
 void lily_tie_builtin(lily_symtab *, lily_var *, lily_function_val *);
@@ -85,26 +85,27 @@ void lily_tie_function(lily_symtab *, lily_var *, lily_function_val *);
 void lily_tie_value(lily_symtab *, lily_var *, lily_value *);
 
 lily_class *lily_find_class(lily_symtab *, lily_import_entry *, const char *);
-lily_var *lily_find_method(lily_class *, char *);
-lily_prop_entry *lily_find_property(lily_class *, char *);
-lily_variant_class *lily_find_scoped_variant(lily_class *, char *);
+lily_var *lily_find_method(lily_class *, const char *);
+lily_prop_entry *lily_find_property(lily_class *, const char *);
+lily_variant_class *lily_find_scoped_variant(lily_class *, const char *);
 
 lily_var *lily_new_raw_var(lily_symtab *, lily_type *, const char *);
 lily_var *lily_new_raw_unlinked_var(lily_symtab *, lily_type *, const char *);
-lily_var *lily_find_var(lily_symtab *, lily_import_entry *, char *);
+lily_var *lily_find_var(lily_symtab *, lily_import_entry *, const char *);
 
 lily_type *lily_build_type(lily_symtab *, lily_class *, int, lily_type **, int, int);
 
 void lily_hide_block_vars(lily_symtab *, lily_var *);
 
-lily_class *lily_new_class(lily_symtab *, char *);
-lily_class *lily_new_enum(lily_symtab *, char *);
+lily_class *lily_new_class(lily_symtab *, const char *);
+lily_class *lily_new_enum(lily_symtab *, const char *);
 lily_class *lily_new_class_by_seed(lily_symtab *, const void *);
-lily_variant_class *lily_new_variant(lily_symtab *, lily_class *, char *, int);
+lily_variant_class *lily_new_variant(lily_symtab *, lily_class *, const char *,
+        int);
 void lily_add_class_method(lily_symtab *, lily_class *, lily_var *);
 
 lily_prop_entry *lily_add_class_property(lily_symtab *, lily_class *,
-        lily_type *, char *, int);
+        lily_type *, const char *, int);
 void lily_update_symtab_generics(lily_symtab *, int);
 void lily_finish_enum(lily_symtab *, lily_class *, int, lily_type *);
 void lily_change_parent_class(lily_class *, lily_class *);
@@ -112,7 +113,8 @@ void lily_change_parent_class(lily_class *, lily_class *);
 void lily_register_classes(lily_symtab *, struct lily_vm_state_ *);
 
 void lily_set_import(lily_symtab *, lily_import_entry *);
-lily_import_entry *lily_find_import(lily_symtab *, lily_import_entry *, char *);
-lily_import_entry *lily_find_import_anywhere(lily_symtab *, char *);
+lily_import_entry *lily_find_import(lily_symtab *, lily_import_entry *,
+        const char *);
+lily_import_entry *lily_find_import_anywhere(lily_symtab *, const char *);
 void lily_link_import_to_active(lily_symtab *, lily_import_entry *);
 #endif
