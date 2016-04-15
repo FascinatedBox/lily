@@ -226,7 +226,7 @@ void lily_free_lex_state(lily_lex_state *lexer)
 
 /* Get an entry to hold the given filename. This attempts to use an unused one,
    but makes a new one if needed. */
-static lily_lex_entry *get_entry(lily_lex_state *lexer, char *filename)
+static lily_lex_entry *get_entry(lily_lex_state *lexer, const char *filename)
 {
     lily_lex_entry *ret_entry = NULL;
 
@@ -1237,7 +1237,7 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
    that accidentally sends data, and lots of other problems. */
 
 static void setup_opened_file(lily_lex_state *lexer, lily_lex_mode mode,
-        FILE *f, char *filename)
+        FILE *f, const char *filename)
 {
     lily_lex_entry *new_entry = get_entry(lexer, filename);
 
@@ -1247,7 +1247,7 @@ static void setup_opened_file(lily_lex_state *lexer, lily_lex_mode mode,
     setup_entry(lexer, new_entry, mode);
 }
 
-int lily_try_load_file(lily_lex_state *lexer, char *filename)
+int lily_try_load_file(lily_lex_state *lexer, const char *filename)
 {
     FILE *load_file = fopen(filename, "r");
     if (load_file == NULL)
@@ -1259,7 +1259,8 @@ int lily_try_load_file(lily_lex_state *lexer, char *filename)
 
 /* This loads an initial file. If unable to open the path given, an error is
    raised. */
-void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
+void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode,
+        const char *filename)
 {
     FILE *load_file = fopen(filename, "r");
     if (load_file == NULL)
@@ -1270,7 +1271,8 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode, char *filename)
 }
 
 /* This loads a string as an initial entry. A shallow copy of 'str' is kept. */
-void lily_load_str(lily_lex_state *lexer, char *name, lily_lex_mode mode, char *str)
+void lily_load_str(lily_lex_state *lexer, const char *name, lily_lex_mode mode,
+        char *str)
 {
     lily_lex_entry *new_entry = get_entry(lexer, name);
 
@@ -1281,8 +1283,8 @@ void lily_load_str(lily_lex_state *lexer, char *name, lily_lex_mode mode, char *
 }
 
 /* This loads a string as an entry, but does a deep copy of the string. */
-void lily_load_copy_string(lily_lex_state *lexer, char *name,
-        lily_lex_mode mode, char *str)
+void lily_load_copy_string(lily_lex_state *lexer, const char *name,
+        lily_lex_mode mode, const char *str)
 {
     lily_lex_entry *new_entry = get_entry(lexer, name);
 

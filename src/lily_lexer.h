@@ -136,10 +136,11 @@ void lily_grow_lexer_buffers(lily_lex_state *);
 void lily_lexer(lily_lex_state *);
 void lily_lexer_handle_page_data(lily_lex_state *);
 void lily_lexer_digit_rescan(lily_lex_state *);
-void lily_load_file(lily_lex_state *, lily_lex_mode, char *);
-void lily_load_str(lily_lex_state *, char *, lily_lex_mode, char *);
-void lily_load_copy_string(lily_lex_state *, char *, lily_lex_mode, char *);
-int lily_try_load_file(lily_lex_state *, char *);
+void lily_load_file(lily_lex_state *, lily_lex_mode, const char *);
+void lily_load_str(lily_lex_state *, const char *, lily_lex_mode, char *);
+void lily_load_copy_string(lily_lex_state *, const char *, lily_lex_mode,
+        const char *);
+int lily_try_load_file(lily_lex_state *, const char *);
 int lily_scan_interpolation_piece(lily_lex_state *, char **);
 
 void lily_pop_lex_entry(lily_lex_state *);

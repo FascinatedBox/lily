@@ -217,7 +217,7 @@ void lily_emit_enter_main(lily_emit_state *emit)
 /* This is the most commonly-used function for creating a new var. This creates
    a new var that will be destroyed when the current block is complete. */
 lily_var *lily_emit_new_scoped_var(lily_emit_state *emit, lily_type *type,
-        char *name)
+        const char *name)
 {
     lily_var *new_var = lily_new_raw_var(emit->symtab, type, name);
 
@@ -237,7 +237,7 @@ lily_var *lily_emit_new_scoped_var(lily_emit_state *emit, lily_type *type,
 
 /* This creates a new var that will be associated with a 'define'. */
 lily_var *lily_emit_new_define_var(lily_emit_state *emit, lily_type *type,
-        char *name)
+        const char *name)
 {
     lily_var *new_var = lily_new_raw_var(emit->symtab, type, name);
 
@@ -253,7 +253,7 @@ lily_var *lily_emit_new_define_var(lily_emit_state *emit, lily_type *type,
    a foreign function associated with it. */
 lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
         lily_foreign_func func, lily_item *source, lily_type *type,
-        char *name)
+        const char *name)
 {
     lily_var *new_var = lily_new_raw_unlinked_var(emit->symtab, type, name);
 
@@ -290,7 +290,7 @@ lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
    is used so that dynamically-loaded vars will be loaded once (and only once)
    into their appropriate scope. */
 lily_var *lily_emit_new_dyna_var(lily_emit_state *emit,
-        lily_import_entry *import, lily_type *type, char *name)
+        lily_import_entry *import, lily_type *type, const char *name)
 {
     lily_var *new_var = lily_new_raw_unlinked_var(emit->symtab, type, name);
 
@@ -1632,7 +1632,7 @@ static lily_function_val *create_code_block_for(lily_emit_state *emit,
  */
 
 static void eval_enforce_value(lily_emit_state *, lily_ast *, lily_type *,
-        char *);
+        const char *);
 
 /** Match is a weird block. It needs to be exhaustive, and it needs to be able
     to decompose variant values. There's plenty of other code that deals with
@@ -1815,9 +1815,9 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_ast_pool *ap)
     organization other than that. **/
 
 /* Return a string representation of the given op. */
-static char *opname(lily_expr_op op)
+static const char *opname(lily_expr_op op)
 {
-    static char *opnames[] =
+    static const char *opnames[] =
     {"+", "-", "==", "<", "<=", ">", ">=", "!=", "%", "*", "/", "<<", ">>", "&",
      "|", "^", "!", "-", "&&", "||", "|>", "=", "+=", "-=", "%=", "*=", "/=",
      "<<=", ">>="};
@@ -4125,7 +4125,7 @@ static lily_type *partial_eval(lily_emit_state *emit, lily_ast *ast,
 /* Evaluate a tree with 'expect' sent for inference. If the tree does not return
    a value, then SyntaxError is raised with 'message'. */
 static void eval_enforce_value(lily_emit_state *emit, lily_ast *ast,
-        lily_type *expect, char *message)
+        lily_type *expect, const char *message)
 {
     eval_tree(emit, ast, expect);
     emit->expr_num++;

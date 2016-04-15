@@ -37,8 +37,8 @@ if (lex->token != expected) \
 
 static void statement(lily_parse_state *, int);
 static lily_import_entry *make_new_import_entry(lily_parse_state *,
-        const char *, char *);
-static lily_type *type_by_name(lily_parse_state *, char *);
+        const char *, const char *);
+static lily_type *type_by_name(lily_parse_state *, const char *);
 
 /** This area is where the parser is initialized. These first functions create
     the two paths that the parser reads from. One path is the native path, and
@@ -271,7 +271,7 @@ void lily_free_parse_state(lily_parse_state *parser)
 /* This creates a new import entry within the parser and links it to existing
    import entries. The loadname and path given are copied over. */
 static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
-        const char *loadname, char *path)
+        const char *loadname, const char *path)
 {
     lily_import_entry *new_entry = lily_malloc(sizeof(lily_import_entry));
     if (parser->import_top) {
@@ -339,7 +339,7 @@ static void link_import_to(lily_import_entry *target,
 
 /* This is called when the first file is loaded, and adds the path of the first
    file to the imports. */
-static void fixup_import_basedir(lily_parse_state *parser, char *path)
+static void fixup_import_basedir(lily_parse_state *parser, const char *path)
 {
     char *search_str = strrchr(path, '/');
     if (search_str == NULL)
@@ -354,7 +354,7 @@ static void fixup_import_basedir(lily_parse_state *parser, char *path)
    Success: A newly-made import entry
    Failure: NULL */
 static lily_import_entry *load_native(lily_parse_state *parser,
-        const char *name, char *path)
+        const char *name, const char *path)
 {
     lily_import_entry *result = NULL;
     if (lily_try_load_file(parser->lex, parser->msgbuf->message))
@@ -368,7 +368,7 @@ static lily_import_entry *load_native(lily_parse_state *parser,
    Success: A newly-made import entry
    Failure: NULL */
 static lily_import_entry *load_foreign(lily_parse_state *parser,
-        const char *name, char *path)
+        const char *name, const char *path)
 {
     lily_import_entry *result = NULL;
     void *library = lily_library_load(path);
@@ -388,7 +388,8 @@ static lily_import_entry *load_foreign(lily_parse_state *parser,
    Failure: NULL */
 static lily_import_entry *attempt_import(lily_parse_state *parser,
         lily_path_link *path_iter, const char *name, const char *suffix,
-        lily_import_entry *(*callback)(lily_parse_state *, const char *, char *))
+        lily_import_entry *(*callback)(lily_parse_state *, const char *,
+        const char *))
 {
     lily_import_entry *result = NULL;
     lily_msgbuf *msgbuf = parser->msgbuf;
@@ -424,7 +425,8 @@ static void write_import_paths(lily_msgbuf *msgbuf,
    find 'x' at any place along the paths that it has.
    Success: A newly-made import entry is returned.
    Failure: The paths tried are printed, and SyntaxError is raised. */
-static lily_import_entry *load_import(lily_parse_state *parser, char *name)
+static lily_import_entry *load_import(lily_parse_state *parser,
+        const char *name)
 {
     lily_import_entry *result = NULL;
     result = attempt_import(parser, parser->import_paths, name, ".lly",
@@ -462,7 +464,7 @@ static lily_import_entry *load_import(lily_parse_state *parser, char *name)
 
 static lily_type *get_type(lily_parse_state *);
 static lily_class *resolve_class_name(lily_parse_state *);
-static int keyword_by_name(char *);
+static int keyword_by_name(const char *);
 
 /** Type collection can be roughly dividied into two subparts. One half deals
     with general collection of types that either do or don't have a name. The
@@ -754,7 +756,7 @@ static lily_type *get_type(lily_parse_state *parser)
 }
 
 /* Get a type represented by the name given. Largely used by dynaload. */
-static lily_type *type_by_name(lily_parse_state *parser, char *name)
+static lily_type *type_by_name(lily_parse_state *parser, const char *name)
 {
     lily_load_copy_string(parser->lex, "[api]", lm_no_tags, name);
     lily_lexer(parser->lex);
@@ -852,7 +854,7 @@ static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls,
 
 static void parse_class_body(lily_parse_state *, lily_class *);
 static lily_class *find_run_class_dynaload(lily_parse_state *, lily_import_entry *,
-        char *);
+        const char *);
 static void parse_variant_header(lily_parse_state *, lily_variant_class *);
 
 /** Lily is a statically-typed language, which carries benefits as well as
@@ -887,7 +889,8 @@ static void parse_variant_header(lily_parse_state *, lily_variant_class *);
     An unfortunate side-effect of this is that it requires a lot of forward
     definitions. Sorry about that. **/
 
-static lily_item *find_run_dynaload(lily_parse_state *, lily_item *, char *);
+static lily_item *find_run_dynaload(lily_parse_state *, lily_item *,
+        const char *);
 
 static int get_seed_cid(lily_import_entry *entry, lily_base_seed *seed)
 {
@@ -932,7 +935,7 @@ static lily_import_entry *resolve_import(lily_parse_state *parser)
    Success: A seed with a name matching 'name'
    Failure: NULL
    Assumptions: 'item' is either a class or a module. */
-static lily_base_seed *find_dynaload_entry(lily_item *item, char *name)
+static lily_base_seed *find_dynaload_entry(lily_item *item, const char *name)
 {
     const void *raw_iter;
     if (item->item_kind == ITEM_TYPE_IMPORT)
@@ -1267,7 +1270,7 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_item *scope,
    may be a class). If a seed is found, run it in the context of 'import' and
    return the result as an item. If nothing is found, return NULL. */
 static lily_item *find_run_dynaload(lily_parse_state *parser,
-        lily_item *scope, char *name)
+        lily_item *scope, const char *name)
 {
     lily_item *result;
 
@@ -1297,7 +1300,7 @@ static int is_class_seed(lily_base_seed *seed)
 /* Like find_run_dynaload, but only do the dynaload if the entity to be loaded
    is a class-like entity. */
 static lily_class *find_run_class_dynaload(lily_parse_state *parser,
-        lily_import_entry *import, char *name)
+        lily_import_entry *import, const char *name)
 {
     lily_class *result;
 
@@ -1320,7 +1323,7 @@ static lily_class *find_run_class_dynaload(lily_parse_state *parser,
    will have a .new already (One.new). However, the Two.new should be
    considered first. */
 lily_item *lily_find_or_dl_member(lily_parse_state *parser, lily_class *cls,
-        char *name)
+        const char *name)
 {
     lily_prop_entry *prop = lily_find_property(cls, name);
     if (prop)
@@ -1383,7 +1386,7 @@ static uint64_t shorthash_for_name(const char *name)
     return ret;
 }
 
-static int keyword_by_name(char *name)
+static int keyword_by_name(const char *name)
 {
     int i;
     uint64_t shorthash = shorthash_for_name(name);
@@ -2164,7 +2167,7 @@ static int collect_lambda_args(lily_parse_state *parser,
 /* Interpolation gets handled here, because it's roughly the same thing as
    lambda handling. */
 lily_sym *lily_parser_interp_eval(lily_parse_state *parser, int start_line,
-        char *text)
+        const char *text)
 {
     lily_lex_state *lex = parser->lex;
     lily_load_copy_string(lex, "[expand]", lm_no_tags, text);
@@ -2202,7 +2205,7 @@ lily_sym *lily_parser_interp_eval(lily_parse_state *parser, int start_line,
    made too. When this is done, it has to build the resulting type of the lambda
    as well. */
 lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
-        int lambda_start_line, char *lambda_body, lily_type *expect_type)
+        int lambda_start_line, const char *lambda_body, lily_type *expect_type)
 {
     lily_lex_state *lex = parser->lex;
     int args_collected = 0, tm_return = parser->tm->pos;
@@ -2332,7 +2335,7 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
    the top of a class. */
 static void bad_decl_token(lily_parse_state *parser)
 {
-    char *message;
+    const char *message;
 
     if (parser->lex->token == tk_word)
         message = "Class properties must start with @.\n";
@@ -2498,7 +2501,8 @@ static void var_handler(lily_parse_state *parser, int multi)
     parse_var(parser, 0);
 }
 
-static void ensure_unique_method_name(lily_parse_state *parser, char *name)
+static void ensure_unique_method_name(lily_parse_state *parser,
+        const char *name)
 {
     if (lily_find_var(parser->symtab, NULL, name) != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
@@ -2606,7 +2610,8 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
     }
 }
 
-static lily_var *parse_for_range_value(lily_parse_state *parser, char *name)
+static lily_var *parse_for_range_value(lily_parse_state *parser,
+        const char *name)
 {
     lily_ast_pool *ap = parser->ast_pool;
     expression(parser);
@@ -3200,7 +3205,7 @@ static void raise_handler(lily_parse_state *parser, int multi)
     lily_ast_reset_pool(parser->ast_pool);
 }
 
-static void ensure_valid_class(lily_parse_state *parser, char *name)
+static void ensure_valid_class(lily_parse_state *parser, const char *name)
 {
     if (name[1] == '\0')
         lily_raise(parser->raiser, lily_SyntaxError,
@@ -3649,7 +3654,8 @@ static void define_handler(lily_parse_state *parser, int multi)
     parse_define(parser, 0);
 }
 
-static void parse_modifier(lily_parse_state *parser, char *name, int modifier)
+static void parse_modifier(lily_parse_state *parser, const char *name,
+        int modifier)
 {
     if (parser->emit->block->block_type != block_class)
         lily_raise(parser->raiser, lily_SyntaxError,
@@ -3769,7 +3775,8 @@ static void parser_loop(lily_parse_state *parser)
     }
 }
 
-int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode, char *filename)
+int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode,
+        const char *filename)
 {
     /* It is safe to do this, because the parser will always occupy the first
        jump. All others should use lily_jump_setup instead. */
@@ -3785,8 +3792,8 @@ int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode, char *filename
     return 0;
 }
 
-int lily_parse_string(lily_parse_state *parser, char *name, lily_lex_mode mode,
-        char *str)
+int lily_parse_string(lily_parse_state *parser, const char *name,
+        lily_lex_mode mode, char *str)
 {
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         lily_load_str(parser->lex, name, mode, str);

@@ -80,7 +80,7 @@ void lily_jump_back(lily_raiser *raiser)
 
 /* This raises an error for the given 'error_code'. The vm will need to load a
    proper exception for the code (or the raiser will die). */
-void lily_raise(lily_raiser *raiser, int error_code, char *fmt, ...)
+void lily_raise(lily_raiser *raiser, int error_code, const char *fmt, ...)
 {
     lily_msgbuf_flush(raiser->msgbuf);
     raiser->exception_cls = NULL;
