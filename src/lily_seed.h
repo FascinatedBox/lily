@@ -6,7 +6,6 @@ typedef enum {
     dyna_function,
     dyna_var,
     dyna_bootstrap_class,
-    dyna_exception,
     dyna_enum,
     dyna_builtin_enum,
     dyna_variant

@@ -1178,6 +1178,8 @@ static lily_class *dynaload_bootstrap(lily_parse_state *parser,
     lily_bootstrap_seed *boot_seed = (lily_bootstrap_seed *)seed;
     lily_symtab *symtab = parser->symtab;
 
+    /* Before getting tangled in this dynaload, run the parent dynaload first.
+       This saves from dynaloads being nested, which could be hairy. */
     if (boot_seed->parent &&
         lily_find_class(symtab, import, boot_seed->parent) == NULL) {
         find_run_dynaload(parser, (lily_item *)import, boot_seed->parent);
@@ -1185,8 +1187,13 @@ static lily_class *dynaload_bootstrap(lily_parse_state *parser,
 
     lily_load_str(parser->lex, "[dynaload]", lm_no_tags, boot_seed->body);
     lily_class *cls = lily_new_class(symtab, boot_seed->name);
-    symtab->next_class_id--;
-    cls->id = boot_seed->class_id;
+
+    /* The class id is set to 0 if it doesn't matter. The builtin subclasses of
+       Exception, for example, do this because their id doesn't matter. */
+    if (boot_seed->class_id != 0) {
+        symtab->next_class_id--;
+        cls->id = boot_seed->class_id;
+    }
 
     lily_ast_pool *ap = parser->ast_pool;
 
@@ -1242,11 +1249,6 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_item *scope,
         lily_class *new_cls = dynaload_bootstrap(parser, import, seed);
         result = (lily_item *)new_cls;
     }
-    else if (seed->seed_type == dyna_exception) {
-        lily_class *new_cls = dynaload_exception(parser, import,
-                seed->name);
-        result = (lily_item *)new_cls;
-    }
     else if (seed->seed_type == dyna_variant) {
         lily_class *new_cls = dynaload_variant(parser, import, seed);
         result = (lily_item *)new_cls;
@@ -1285,7 +1287,6 @@ static int is_class_seed(lily_base_seed *seed)
 
     if (seed_type == dyna_class ||
         seed_type == dyna_enum ||
-        seed_type == dyna_exception ||
         seed_type == dyna_bootstrap_class ||
         seed_type == dyna_builtin_enum)
         result = 1;
@@ -1357,7 +1358,8 @@ lily_class *lily_maybe_dynaload_class(lily_parse_state *parser,
     lily_class *cls = lily_find_class(parser->symtab, import, name);
 
     if (cls == NULL) {
-        cls = dynaload_exception(parser, import, name);
+        cls = (lily_class *)find_run_dynaload(parser, (lily_item *)import,
+                name);
         /* ...Just in case an instance needs to be printed. */
         lily_vm_add_class(parser->vm, cls);
     }
