@@ -174,20 +174,76 @@ static const lily_enum_seed seed_option =
     &lily_option_dl_start,
 };
 
-static const lily_base_seed io_error =
-    {&seed_option, "IOError", dyna_exception};
-static const lily_base_seed format_error =
-    {&io_error, "FormatError", dyna_exception};
-static const lily_base_seed key_error =
-    {&format_error, "KeyError", dyna_exception};
-static const lily_base_seed runtime_error =
-    {&key_error, "RuntimeError", dyna_exception};
-static const lily_base_seed value_error =
-    {&runtime_error, "ValueError", dyna_exception};
-static const lily_base_seed index_error =
-    {&value_error, "IndexError", dyna_exception};
-static const lily_base_seed dbz_error =
-    {&index_error, "DivisionByZeroError", dyna_exception};
+static const lily_bootstrap_seed io_error =
+{
+    &seed_option,
+    "IOError",
+    dyna_bootstrap_class,
+    0,
+    NULL,
+    "(m: String) < Exception(m) {}"
+};
+
+static const lily_bootstrap_seed format_error =
+{
+    &io_error,
+    "FormatError",
+    dyna_bootstrap_class,
+    0,
+    NULL,
+    "(m: String) < Exception(m) {}"
+};
+
+static const lily_bootstrap_seed key_error =
+{
+    &format_error,
+    "KeyError",
+    dyna_bootstrap_class,
+    0,
+    NULL,
+    "(m: String) < Exception(m) {}"
+};
+
+static const lily_bootstrap_seed runtime_error =
+{
+    &key_error,
+    "RuntimeError",
+    dyna_bootstrap_class,
+    0,
+    NULL,
+    "(m: String) < Exception(m) {}"
+};
+
+static const lily_bootstrap_seed value_error =
+{
+    &runtime_error,
+    "ValueError",
+    dyna_bootstrap_class,
+    0,
+    NULL,
+    "(m: String) < Exception(m) {}"
+};
+
+static const lily_bootstrap_seed index_error =
+{
+    &value_error,
+    "IndexError",
+    dyna_bootstrap_class,
+    0,
+    NULL,
+    "(m: String) < Exception(m) {}"
+};
+
+static const lily_bootstrap_seed dbz_error =
+{
+    &index_error,
+    "DivisionByZeroError",
+    dyna_bootstrap_class,
+    0,
+    NULL,
+    "(m: String) < Exception(m) {}"
+};
+
 static const lily_func_seed calltrace =
     {&dbz_error, "calltrace", dyna_function, ":List[String]", lily_builtin_calltrace};
 static const lily_func_seed print =
