@@ -431,26 +431,30 @@ static lily_import_entry *load_import(lily_parse_state *parser,
     lily_import_entry *result = NULL;
     result = attempt_import(parser, parser->import_paths, name, ".lly",
             load_native);
-    if (result == NULL) {
-        result = attempt_import(parser, parser->import_paths, name,
-                LILY_LIB_SUFFIX, load_foreign);
-        if (result == NULL) {
-            /* The parser's msgbuf is used for doing class dynaloading, so it
-               should not be in use here. Also, as credit, this idea comes from
-               seeing lua do the same. */
-            lily_msgbuf *msgbuf = parser->msgbuf;
-            lily_msgbuf_flush(msgbuf);
-            lily_msgbuf_add_fmt(msgbuf, "Cannot import '%s':\n", name);
-            lily_msgbuf_add_fmt(msgbuf, "no builtin module '%s'\n", name);
-            write_import_paths(msgbuf, parser->import_paths, name, ".lly");
-            write_import_paths(msgbuf, parser->library_import_paths, name,
-                    LILY_LIB_SUFFIX);
-            lily_raise(parser->raiser, lily_SyntaxError, parser->msgbuf->message);
-        }
+    if (result) {
+        parser->symtab->active_import = result;
+        return result;
     }
 
-    parser->symtab->active_import = result;
-    return result;
+    result = attempt_import(parser, parser->import_paths, name, LILY_LIB_SUFFIX,
+            load_foreign);
+    if (result) {
+        parser->symtab->active_import = result;
+        return result;
+    }
+
+    /* The parser's msgbuf is used for doing class dynaloading, so it should not
+       be in use here. Also, as credit, this idea comes from seeing lua do the
+       same. */
+    lily_msgbuf *msgbuf = parser->msgbuf;
+    lily_msgbuf_flush(msgbuf);
+    lily_msgbuf_add_fmt(msgbuf, "Cannot import '%s':\n", name);
+    lily_msgbuf_add_fmt(msgbuf, "no builtin module '%s'\n", name);
+    write_import_paths(msgbuf, parser->import_paths, name, ".lly");
+    write_import_paths(msgbuf, parser->library_import_paths, name,
+            LILY_LIB_SUFFIX);
+    lily_raise(parser->raiser, lily_SyntaxError, parser->msgbuf->message);
+    return NULL;
 }
 
 /***
