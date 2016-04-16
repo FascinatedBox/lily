@@ -3743,6 +3743,11 @@ int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode,
     /* It is safe to do this, because the parser will always occupy the first
        jump. All others should use lily_jump_setup instead. */
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
+        char *suffix = strrchr(filename, '.');
+        if (suffix == NULL || strcmp(suffix, ".lly") != 0)
+            lily_raise(parser->raiser, lily_Error,
+                    "File name must end with '.lly'.\n");
+
         lily_load_file(parser->lex, mode, filename);
         fixup_import_basedir(parser, filename);
         parser_loop(parser);
