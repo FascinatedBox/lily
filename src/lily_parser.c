@@ -3800,22 +3800,24 @@ char *lily_build_error_message(lily_parse_state *parser)
 
     if (parser->executing == 0) {
         lily_lex_entry *iter = parser->lex->entry;
+        if (iter) {
+            int fixed_line_num = (raiser->line_adjust == 0 ?
+                    parser->lex->line_num : raiser->line_adjust);
 
-        int fixed_line_num = (raiser->line_adjust == 0 ?
-                parser->lex->line_num : raiser->line_adjust);
+            /* The parser handles lambda and interpolation processing by putting
+               entries with the name [expand]. Don't show these. */
+            while (strcmp(iter->filename, "[expand]") == 0)
+                iter = iter->prev;
 
-        /* The parser handles lambda and interpolation processing by putting
-           entries with the name [expand]. Don't show these. */
-        while (strcmp(iter->filename, "[expand]") == 0)
-            iter = iter->prev;
-
-        if (strcmp(iter->filename, "[builtin]") != 0) {
-            iter->saved_line_num = fixed_line_num;
-            lily_msgbuf_add_fmt(msgbuf, "    from %s:%d\n",
-                    iter->filename, iter->saved_line_num);
+            if (strcmp(iter->filename, "[builtin]") != 0) {
+                iter->saved_line_num = fixed_line_num;
+                lily_msgbuf_add_fmt(msgbuf, "    from %s:%d\n",
+                        iter->filename, iter->saved_line_num);
+            }
+            /* The entry is only [builtin] if there was a failure to load the
+               first file. Don't show any filename because, well...there isn't
+               one. */
         }
-        /* The entry is only [builtin] if there was a failure to load the first
-           file. Don't show any filename because, well...there isn't one. */
     }
     else {
         lily_call_frame *frame = parser->vm->call_chain;
