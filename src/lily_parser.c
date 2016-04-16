@@ -3793,7 +3793,7 @@ char *lily_build_error_message(lily_parse_state *parser)
            may wish to export a general error class (ex: pg.Error,
            mysql.Error, etc). So making it clear -which- one can be useful. */
         char *loadname = raiser->exception_cls->import->loadname;
-        if (strcmp(loadname, "") != 0)
+        if (loadname[0] != '\0')
             lily_msgbuf_add_fmt(msgbuf, "%s.", loadname);
     }
 
