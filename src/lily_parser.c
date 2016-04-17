@@ -36,6 +36,7 @@ if (lex->token != expected) \
  */
 
 static void statement(lily_parse_state *, int);
+static lily_import_entry *raw_new_import_entry(lily_parse_state *);
 static lily_import_entry *make_new_import_entry(lily_parse_state *,
         const char *, const char *);
 static lily_type *type_by_name(lily_parse_state *, const char *);
@@ -171,6 +172,16 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
        used when creating new functions so that they have a type. */
     parser->default_call_type = parser->symtab->main_var->type;
 
+    lily_import_entry *main_import = raw_new_import_entry(parser);
+
+    main_import->loadname = lily_malloc(1);
+    main_import->loadname[0] = '\0';
+
+    /* This puts __main__ into the scope of the first thing to be executed, and
+       makes it the context for var/class/etc. searching. */
+    parser->symtab->main_function->import = main_import;
+    parser->symtab->active_import = main_import;
+
     /* This allows the internal sys package to be located later. */
     lily_pkg_sys_init(parser, options);
 
@@ -268,10 +279,7 @@ void lily_free_parse_state(lily_parse_state *parser)
     One other thing: When importing files, the files that are imported are
     always imported in non-tag mode. That is also intentional. **/
 
-/* This creates a new import entry within the parser and links it to existing
-   import entries. The loadname and path given are copied over. */
-static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
-        const char *loadname, const char *path)
+static lily_import_entry *raw_new_import_entry(lily_parse_state *parser)
 {
     lily_import_entry *new_entry = lily_malloc(sizeof(lily_import_entry));
     if (parser->import_top) {
@@ -283,12 +291,6 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
         parser->import_top = new_entry;
     }
 
-    new_entry->loadname = lily_malloc(strlen(loadname) + 1);
-    strcpy(new_entry->loadname, loadname);
-
-    new_entry->path = lily_malloc(strlen(path) + 1);
-    strcpy(new_entry->path, path);
-
     new_entry->cid_start = 0;
     new_entry->library = NULL;
     new_entry->root_next = NULL;
@@ -298,6 +300,22 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
     new_entry->dynaload_table = NULL;
     new_entry->var_load_fn = NULL;
     new_entry->item_kind = ITEM_TYPE_IMPORT;
+
+    return new_entry;
+}
+
+/* This creates a new import entry within the parser and links it to existing
+   import entries. The loadname and path given are copied over. */
+static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
+        const char *loadname, const char *path)
+{
+    lily_import_entry *new_entry = raw_new_import_entry(parser);
+
+    new_entry->loadname = lily_malloc(strlen(loadname) + 1);
+    strcpy(new_entry->loadname, loadname);
+
+    new_entry->path = lily_malloc(strlen(path) + 1);
+    strcpy(new_entry->path, path);
 
     return new_entry;
 }
@@ -3663,16 +3681,14 @@ static void parser_loop(lily_parse_state *parser)
     /* The first pass of the interpreter starts with the current namespace being
        the builtin namespace. */
     if (parser->first_pass) {
-        lily_import_entry *main_import = make_new_import_entry(parser, "",
-                parser->lex->entry->filename);
+        const char *name = parser->lex->entry->filename;
+        char *path = lily_malloc(strlen(name) + 1);
+        strcpy(path, name);
 
-        /* This is necessary because __main__ is created within the builtin
-           package (so that exceptions can be bootstrapped). However, since
-           __main__ holds all the global code for the first file, fix the path
-           of it to target the first file. */
-        parser->symtab->main_function->import = main_import;
+        /* Parser's init always creates the first import right after the builtin
+           import, so this is safe. */
+        parser->import_start->root_next->path = path;
 
-        parser->symtab->active_import = main_import;
         parser->first_pass = 0;
     }
 
