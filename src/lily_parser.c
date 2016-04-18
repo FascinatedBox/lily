@@ -38,7 +38,7 @@ if (lex->token != expected) \
 static void statement(lily_parse_state *, int);
 static lily_import_entry *raw_new_import_entry(lily_parse_state *);
 static lily_import_entry *make_new_import_entry(lily_parse_state *,
-        const char *, const char *);
+        const char *);
 static lily_type *type_by_name(lily_parse_state *, const char *);
 
 /** This area is where the parser is initialized. These first functions create
@@ -116,7 +116,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
        of the classes that are builtin (integer, string, function, etc). The
        interpreter is special-cased to first search in the current import, then
        this one if there is a problem. */
-    lily_import_entry *builtin_import = make_new_import_entry(parser, "",
+    lily_import_entry *builtin_import = make_new_import_entry(parser,
             "[builtin]");
     lily_raiser *raiser = lily_new_raiser();
 
@@ -305,14 +305,46 @@ static lily_import_entry *raw_new_import_entry(lily_parse_state *parser)
 }
 
 /* This creates a new import entry within the parser and links it to existing
-   import entries. The loadname and path given are copied over. */
+   import entry. The path of the import may or may not be a full path.
+   Regardless, the loadname of the import is derived from the path passed.
+   'path' should take one of three forms:
+   [x]:   This is [builtin], [cli], or something similar. The loadname is set to
+          "", making it unimportable.
+   x:     Since no suffix is provided, this must be a registered module. The
+          loadname is set to the path provided.
+   x.lly
+   x.so
+   ...  : The loadname is everything before the dot. */
 static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
-        const char *loadname, const char *path)
+        const char *path)
 {
     lily_import_entry *new_entry = raw_new_import_entry(parser);
 
-    new_entry->loadname = lily_malloc(strlen(loadname) + 1);
-    strcpy(new_entry->loadname, loadname);
+    /* Paths that start with '[' are used only internally. Don't bother giving
+       these a sane name. */
+    if (path[0] == '[') {
+        new_entry->loadname = lily_malloc(1);
+        new_entry->loadname[0] = '\0';
+    }
+    else {
+        char *name_end = strrchr(path, '.');
+        if (name_end == NULL) {
+            /* This only happens when a module is registered as a builtin. */
+            new_entry->loadname = lily_malloc(strlen(path) + 1);
+            strcpy(new_entry->loadname, path);
+        }
+        else {
+            const char *name_start = strrchr(path, '/');
+            if (name_start == NULL)
+                name_start = path;
+            else
+                name_start += 1;
+
+            int diff = name_end - name_start;
+            new_entry->loadname = lily_malloc(diff + 1);
+            strncpy(new_entry->loadname, name_start, diff);
+        }
+    }
 
     new_entry->path = lily_malloc(strlen(path) + 1);
     strcpy(new_entry->path, path);
@@ -327,7 +359,7 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
 void lily_register_import(lily_parse_state *parser, const char *name,
         const void *dynaload_table, var_loader var_load_fn)
 {
-    lily_import_entry *entry = make_new_import_entry(parser, name, "[builtin]");
+    lily_import_entry *entry = make_new_import_entry(parser, name);
     entry->dynaload_table = dynaload_table;
     entry->var_load_fn = var_load_fn;
 }
@@ -355,8 +387,8 @@ static void link_import_to(lily_import_entry *target,
     target->import_chain = new_link;
 }
 
-/* This is called when the first file is loaded, and adds the path of the first
-   file to the imports. */
+/* This is called when the first file is loaded, and adds the path of t
+    the first ile to the imports. */
 static void fixup_import_basedir(lily_parse_state *parser, const char *path)
 {
     char *search_str = strrchr(path, '/');
@@ -372,11 +404,11 @@ static void fixup_import_basedir(lily_parse_state *parser, const char *path)
    Success: A newly-made import entry
    Failure: NULL */
 static lily_import_entry *load_native(lily_parse_state *parser,
-        const char *name, const char *path)
+        const char *path)
 {
     lily_import_entry *result = NULL;
     if (lily_try_load_file(parser->lex, parser->msgbuf->message))
-        result = make_new_import_entry(parser, name, path);
+        result = make_new_import_entry(parser, path);
 
     return result;
 }
@@ -386,12 +418,12 @@ static lily_import_entry *load_native(lily_parse_state *parser,
    Success: A newly-made import entry
    Failure: NULL */
 static lily_import_entry *load_foreign(lily_parse_state *parser,
-        const char *name, const char *path)
+        const char *path)
 {
     lily_import_entry *result = NULL;
     void *library = lily_library_load(path);
     if (library) {
-        result = make_new_import_entry(parser, name, path);
+        result = make_new_import_entry(parser, path);
         result->library = library;
     }
 
@@ -406,8 +438,7 @@ static lily_import_entry *load_foreign(lily_parse_state *parser,
    Failure: NULL */
 static lily_import_entry *attempt_import(lily_parse_state *parser,
         lily_path_link *path_iter, const char *name, const char *suffix,
-        lily_import_entry *(*callback)(lily_parse_state *, const char *,
-        const char *))
+        lily_import_entry *(*callback)(lily_parse_state *, const char *))
 {
     lily_import_entry *result = NULL;
     lily_msgbuf *msgbuf = parser->msgbuf;
@@ -416,7 +447,7 @@ static lily_import_entry *attempt_import(lily_parse_state *parser,
         lily_msgbuf_flush(msgbuf);
         lily_msgbuf_add_fmt(msgbuf, "%s%s%s", path_iter->path, name,
                 suffix);
-        result = (*callback)(parser, name, msgbuf->message);
+        result = (*callback)(parser, msgbuf->message);
         if (result)
             break;
 
