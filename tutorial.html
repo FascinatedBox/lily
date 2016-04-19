@@ -1359,6 +1359,24 @@ The <strong>first</strong> time that a module is imported, any code in it that i
 Subsequent imports of a module will simply make the data available to the caller.
                 </p>
                 <p>
+It is also possible to import code that is within a different directory than the current one.
+                </p>
+                <pre>
+# file: src/jsonlib/json.lly
+define readJson() { ... }
+define writeJson() { ... }
+
+# file: src/main.lly
+import jsonlib/json
+
+json.writeJson()
+json.readJson()</pre>
+                <p>
+While it is possible to import a path in a lower directory, importing one from a higher directory (ex: '../sometarget.lly') is prohibited.
+Furthermore, when importing using a slashed path, the import is relative to the current import.
+When importing using a slashed path, the name of the module is whatever comes after the last slash (and using a trailing slash is prohibited).
+                </p>
+                <p>
 Earlier, it was mentioned that Lily has two modes of operation: <code>standalone</code> and <code>template</code>.
 Regardless of the starting mode, <code>import</code> will assume that the module contains only code.
 Lily is smart enough that it won't serve your code-only files (they won't start with <code>&lt;?lily</code>, and it's invalid for code files).
