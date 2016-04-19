@@ -444,6 +444,7 @@ static lily_import_entry *attempt_import(lily_parse_state *parser,
     return result;
 }
 
+
 /* This is called when all attempts to load a name have failed. This walks down
    the path given, and writes all of the different combonations that have been
    tried. */
@@ -489,15 +490,16 @@ static lily_import_entry *attempt_relative_import(lily_parse_state *parser,
 static lily_import_entry *load_import(lily_parse_state *parser,
         const char *name)
 {
-    lily_import_entry *result = NULL;
-    result = attempt_relative_import(parser, name);
+    lily_import_entry *result;
+
+    result = attempt_import(parser, parser->import_paths, name, ".lly",
+            load_native);
     if (result) {
         parser->symtab->active_import = result;
         return result;
     }
 
-    result = attempt_import(parser, parser->import_paths, name, ".lly",
-            load_native);
+    result = attempt_relative_import(parser, name);
     if (result) {
         parser->symtab->active_import = result;
         return result;
@@ -3106,6 +3108,9 @@ static void import_handler(lily_parse_state *parser, int multi)
 
     while (1) {
         NEED_CURRENT_TOK(tk_word)
+        /* The import path may include slashes. Use this to scan the path,
+           because it won't allow spaces in between. */
+        lily_scan_import_path(lex);
 
         char *import_name = parser->lex->label;
 

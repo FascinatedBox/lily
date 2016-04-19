@@ -142,6 +142,7 @@ void lily_load_copy_string(lily_lex_state *, const char *, lily_lex_mode,
         const char *);
 int lily_try_load_file(lily_lex_state *, const char *);
 int lily_scan_interpolation_piece(lily_lex_state *, char **);
+void lily_scan_import_path(lily_lex_state *);
 
 void lily_pop_lex_entry(lily_lex_state *);
 lily_lex_state *lily_new_lex_state(lily_options *, lily_raiser *);
