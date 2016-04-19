@@ -1,0 +1,7 @@
+import optargs/optarg_spectrum
+import import/nest/deep_target
+
+optarg_spectrum.f()
+
+if deep_target.v != 10:
+    stderr.write("Failed.\n")
