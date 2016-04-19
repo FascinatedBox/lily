@@ -10,16 +10,13 @@
 #define LILY_SHARE_DIR      LILY_BASE_DIR "share/lily/" LILY_VERSION_DIR "/"
 #define LILY_LIB_DIR        LILY_BASE_DIR "lib/lily/"   LILY_VERSION_DIR "/"
 
-/* This is where Lily will attempt to import new files from. If the parser is
-   loading from a file, then the directory of the first file is added as the
-   very last path to search. */
+/* This is where Lily will attempt to import new files from, in addition to
+   relative from the current import. */
 #define LILY_PATH_SEED \
         LILY_SHARE_DIR ";" \
-        LILY_LIB_DIR ";" \
-        "./;"
+        LILY_LIB_DIR ";"
 
 /* This controls what paths that Lily will attempt to load shared
-   libraries from. Since Lily can be run from a server, the local path
-   is not included. */
+   libraries from. */
 #define LILY_LIBRARY_PATH_SEED \
         LILY_LIB_DIR ";"

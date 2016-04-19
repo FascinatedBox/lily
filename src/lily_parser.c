@@ -387,19 +387,6 @@ static void link_import_to(lily_import_entry *target,
     target->import_chain = new_link;
 }
 
-/* This is called when the first file is loaded, and adds the path of t
-    the first ile to the imports. */
-static void fixup_import_basedir(lily_parse_state *parser, const char *path)
-{
-    char *search_str = strrchr(path, '/');
-    if (search_str == NULL)
-        return;
-
-    int length = (search_str - path) + 1;
-    parser->import_paths = add_path_slice_to(parser, parser->import_paths, path,
-        length);
-}
-
 /* This attempts to load a native file using the path + name combo given.
    Success: A newly-made import entry
    Failure: NULL */
@@ -470,6 +457,31 @@ static void write_import_paths(lily_msgbuf *msgbuf,
     }
 }
 
+static void add_relative_path_to_msgbuf(lily_parse_state *parser)
+{
+    char *path = parser->symtab->active_import->path;
+    char *search_str = strrchr(path, '/');
+
+    if (search_str)
+        lily_msgbuf_add_text_range(parser->msgbuf, path, 0,
+                (search_str - path) + 1);
+}
+
+static lily_import_entry *attempt_relative_import(lily_parse_state *parser,
+        const char *to_load)
+{
+    lily_msgbuf *msgbuf = parser->msgbuf;
+    lily_msgbuf_flush(msgbuf);
+
+    add_relative_path_to_msgbuf(parser);
+    lily_msgbuf_add_fmt(msgbuf, "%s.lly", to_load);
+
+    lily_import_entry *result = load_native(parser, msgbuf->message);
+    lily_msgbuf_flush(msgbuf);
+    return result;
+}
+
+
 /* This is called when `import x` or `import x as y` has been seen. It tries to
    find 'x' at any place along the paths that it has.
    Success: A newly-made import entry is returned.
@@ -478,6 +490,12 @@ static lily_import_entry *load_import(lily_parse_state *parser,
         const char *name)
 {
     lily_import_entry *result = NULL;
+    result = attempt_relative_import(parser, name);
+    if (result) {
+        parser->symtab->active_import = result;
+        return result;
+    }
+
     result = attempt_import(parser, parser->import_paths, name, ".lly",
             load_native);
     if (result) {
@@ -500,6 +518,9 @@ static lily_import_entry *load_import(lily_parse_state *parser,
     lily_msgbuf_add_fmt(msgbuf, "Cannot import '%s':\n", name);
     lily_msgbuf_add_fmt(msgbuf, "no builtin module '%s'\n", name);
     write_import_paths(msgbuf, parser->import_paths, name, ".lly");
+    lily_msgbuf_add(msgbuf, "    no file './");
+    add_relative_path_to_msgbuf(parser);
+    lily_msgbuf_add_fmt(msgbuf, "%s.lly'\n", name);
     write_import_paths(msgbuf, parser->library_import_paths, name,
             LILY_LIB_SUFFIX);
     lily_raise(parser->raiser, lily_SyntaxError, parser->msgbuf->message);
@@ -3796,7 +3817,6 @@ int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode,
                     "File name must end with '.lly'.\n");
 
         lily_load_file(parser->lex, mode, filename);
-        fixup_import_basedir(parser, filename);
         parser_loop(parser);
         lily_pop_lex_entry(parser->lex);
 
