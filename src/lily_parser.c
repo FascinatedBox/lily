@@ -343,6 +343,7 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
             int diff = name_end - name_start;
             new_entry->loadname = lily_malloc(diff + 1);
             strncpy(new_entry->loadname, name_start, diff);
+            new_entry->loadname[diff] = '\0';
         }
     }
 
