@@ -224,6 +224,7 @@ lily_var *lily_emit_new_scoped_var(lily_emit_state *emit, lily_type *type,
     if (emit->function_depth == 1) {
         new_var->reg_spot = emit->main_block->next_reg_spot;
         emit->main_block->next_reg_spot++;
+        new_var->flags |= VAR_IS_GLOBAL;
     }
     else {
         new_var->reg_spot = emit->function_block->next_reg_spot;
@@ -297,6 +298,7 @@ lily_var *lily_emit_new_dyna_var(lily_emit_state *emit,
     new_var->reg_spot = emit->main_block->next_reg_spot;
     emit->main_block->next_reg_spot++;
     new_var->function_depth = 1;
+    new_var->flags |= VAR_IS_GLOBAL;
 
     new_var->next = import->var_chain;
     import->var_chain = new_var;

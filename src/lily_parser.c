@@ -1623,7 +1623,7 @@ static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
     /* Defined functions have a depth of one, so they have to be first. */
     else if (var->flags & VAR_IS_READONLY)
         push_maybe_method(parser, var);
-    else if (var->function_depth == 1)
+    else if (var->flags & VAR_IS_GLOBAL)
         lily_ast_push_global_var(parser->ast_pool, var);
     else if (var->function_depth == parser->emit->function_depth)
         lily_ast_push_local_var(parser->ast_pool, var);
@@ -2415,7 +2415,7 @@ static void parse_var(lily_parse_state *parser, int modifiers)
         if (lex->token == tk_word) {
             sym = (lily_sym *)get_named_var(parser, NULL);
             sym->flags |= SYM_NOT_INITIALIZED;
-            if (parser->emit->function_depth == 1)
+            if (sym->flags & VAR_IS_GLOBAL)
                 lily_ast_push_global_var(parser->ast_pool, (lily_var *)sym);
             else
                 lily_ast_push_local_var(parser->ast_pool, (lily_var *)sym);

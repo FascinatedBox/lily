@@ -578,6 +578,8 @@ typedef struct lily_options_ {
    information. */
 #define VAR_NEEDS_CLOSURE       0x200
 
+/* Global vars need o_get_global/o_set_global opcodes to get/set them. */
+#define VAR_IS_GLOBAL           0x400
 
 /* VAL_* flags are for lily_value. */
 
