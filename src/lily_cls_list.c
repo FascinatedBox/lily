@@ -387,6 +387,32 @@ void lily_list_count(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_integer(result_reg, count);
 }
 
+void lily_list_join(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *result_reg = vm_regs[code[0]];
+    lily_list_val *lv = vm_regs[code[1]]->value.list;
+    const char *delim = "";
+    if (argc == 2)
+        delim = vm_regs[code[2]]->value.string->string;
+
+    lily_msgbuf *vm_buffer = vm->vm_buffer;
+    lily_msgbuf_flush(vm_buffer);
+
+    if (lv->num_values) {
+        int i, stop = lv->num_values - 1;
+        lily_value **values = lv->elems;
+        for (i = 0;i < stop;i++) {
+            lily_vm_add_value_to_msgbuf(vm, vm_buffer, values[i]);
+            lily_msgbuf_add(vm_buffer, delim);
+        }
+        if (stop != -1)
+            lily_vm_add_value_to_msgbuf(vm, vm_buffer, values[i]);
+    }
+
+    lily_move_string(result_reg, lily_new_raw_string(vm_buffer->message));
+}
+
 void lily_list_select(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     list_select_reject_common(vm, argc, code, 1);
@@ -513,8 +539,11 @@ static lily_func_seed fold =
 static lily_func_seed insert =
     {&fold, "insert", dyna_function, "[A](List[A], Integer, A)", lily_list_insert};
 
+static const lily_func_seed join =
+    {&insert, "join", dyna_function, "[A](List[A], *String):String", lily_list_join};
+
 static lily_func_seed map =
-    {&insert, "map", dyna_function, "[A,B](List[A], Function(A => B)):List[B]", lily_list_map};
+    {&join, "map", dyna_function, "[A,B](List[A], Function(A => B)):List[B]", lily_list_map};
 
 static lily_func_seed pop =
     {&map, "pop", dyna_function, "[A](List[A]):A", lily_list_pop};

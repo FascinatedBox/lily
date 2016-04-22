@@ -23,6 +23,7 @@ ok({||
 ok({||
     var v = ["1", "2", "3"]
     v.clear()
+
     v == []}(),                        "List.clear on a list of String.")
 ok({||
     var v = [Dynamic(1), Dynamic(2), Dynamic(3)]
@@ -172,6 +173,13 @@ ok({||
         result = true
     result
     }(),                                "List.insert with position under negative min.")
+
+ok([].join() == "",                     "List.join with empty list and default separator.")
+ok([].join(",") == "",                  "List.join with empty list.")
+ok([1].join() == "1",                   "List.join with 1-element list and default separator")
+ok([1].join(" ") == "1",                "List.join with 1-element list.")
+ok([1, 2, 3].join() == "123",           "List.join with 3-element list and default separator.")
+ok([1, 2, 3].join(", ") == "1, 2, 3",   "List.join with 3-element list.")
 
 ok({||
     var v = [1, 2, 3]
