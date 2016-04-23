@@ -659,6 +659,7 @@ static void add_storage(lily_emit_state *emit)
     storage->next = NULL;
     storage->expr_num = 0;
     storage->flags = 0;
+    storage->item_kind = ITEM_TYPE_STORAGE;
 
     if (emit->all_storage_start == NULL)
         emit->all_storage_start = storage;
