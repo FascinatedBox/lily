@@ -280,7 +280,7 @@ static void builtin_var_loader(lily_parse_state *parser, lily_var *var)
 
     lily_value v;
     v.flags = 0;
-    v.value = (lily_raw_value)file_val;
+    v.value = (lily_raw_value) { file_val };
 
     lily_tie_value(parser->symtab, var, &v);
 }

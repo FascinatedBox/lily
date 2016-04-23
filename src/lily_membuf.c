@@ -49,12 +49,12 @@ char *lily_membuf_fetch_restore(lily_membuf *membuf, int pos)
     return result;
 }
 
-inline char *lily_membuf_get(lily_membuf *membuf, int pos)
+char *lily_membuf_get(lily_membuf *membuf, int pos)
 {
     return membuf->buffer + pos;
 }
 
-inline void lily_membuf_restore_to(lily_membuf *membuf, int pos)
+void lily_membuf_restore_to(lily_membuf *membuf, int pos)
 {
     membuf->pos = pos;
 }

@@ -42,7 +42,7 @@ void lily_tm_reserve(lily_type_maker *tm, int amount)
     }
 }
 
-inline void lily_tm_add_unchecked(lily_type_maker *tm, lily_type *type)
+void lily_tm_add_unchecked(lily_type_maker *tm, lily_type *type)
 {
     tm->types[tm->pos] = type;
     tm->pos++;
