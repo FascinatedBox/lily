@@ -594,6 +594,16 @@ If <span class="varname">index</span>, after being wrapped, is outside of <span 
                     </p>
                 </div>
                 <h5>
+<span>define</span> <span class="funcname">List.join</span><span>[</span><code>A</code><span>](self, separator: </span><code>*String</code><span>=</span><span class="varname">""</span><span>)</span>:<code>String</code>
+                </h5>
+                <div class="explain">
+                    <p>
+Creates a <code>String</code> consisting of elements of <span class="varname">self</span> interleaved with <span class="varname">separator</span>.
+The elements of <span class="varname">self</span> are converted to <code>String</code>s as if they were interpolated.
+If <span class="varname">self</span> is empty, then the result is an empty <code>String</code>.
+                    </p>
+                </div>
+                <h5>
 <span>define</span> <span class="funcname">List.map</span><span>[</span><code>A</code>,<code>B</code><span>](self, fn: </span><code>Function</code>(<code>A</code> <span>=&gt;</span> <code>B</code><span>)):</span><code>List</code><span>[</span><code>B</code><span>]</span>
                 </h5>
                 <div class="explain">
