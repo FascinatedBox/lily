@@ -14,11 +14,11 @@ SET(CMAKE_CXX_FLAGS    -g)
 SET(CMAKE_TOOLCHAIN_FILE  "$EMSCRIPTEN/cmake/Platform/Emscripten.cmake")
 SET(CMAKE_EXECUTABLE_SUFFIX ".js")
 
-file(GLOB tryit_SOURCES ../src/*.c)
+file(GLOB sandbox_SOURCES ../src/*.c)
 include_directories("${PROJECT_SOURCE_DIR}/src/")
 
 set(CMAKE_MODULE_PATH      "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 set(LIBRARY_OUTPUT_PATH    "${PROJECT_BINARY_DIR}/lib")
 set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}")
 
-add_executable(trylily ${tryit_SOURCES} trylily.c)
+add_executable(lily_sandbox ${sandbox_SOURCES} sandbox.c)
