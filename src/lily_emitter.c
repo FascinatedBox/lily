@@ -172,6 +172,7 @@ void lily_emit_enter_main(lily_emit_state *emit)
     main_block->loop_start = -1;
     main_block->make_closure = 0;
     emit->top_var = main_var;
+    emit->top_function_ret = NULL;
     emit->block = main_block;
     emit->function_depth++;
     emit->main_block = main_block;
