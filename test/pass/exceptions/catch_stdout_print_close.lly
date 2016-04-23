@@ -1,7 +1,0 @@
-try: {
-    stdout.close()
-    print(1)
-    stderr.write("Failed.\n")
-except ValueError:
-    1
-}
