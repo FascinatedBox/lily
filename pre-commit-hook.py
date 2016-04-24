@@ -1,3 +1,4 @@
+
 # pre-commit-hook.py
 # This runs all tests. Tests are dividing into those that should succeed
 # (test/pass/*) and tests that check for errors (test/fail/*)
@@ -25,7 +26,8 @@ def get_expected_str(filename):
         elif line.startswith(']#') and line.rstrip('\r\n') == "]#":
             collecting = False
         elif collecting:
-            output += line.rstrip("\r\n") + "\n"
+            # This assumes that line is always \n terminated.
+            output += line
     return output
 
 def run_test(options, dirpath, filepath):
@@ -37,21 +39,19 @@ def run_test(options, dirpath, filepath):
     fullpath = dirpath + filepath
     expected_stderr = get_expected_str(fullpath)
 
-    command = "./lily %s %s" % (options['invoke'], fullpath)
-    subp = subprocess.Popen([command], stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, shell=True)
+    # There are no paths with spaces, so this is ok.
+    command = ("./lily %s %s" % (options['invoke'], fullpath)).split(" ")
+
+    subp = subprocess.Popen(command, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
     (subp_stdout, subp_stderr) = subp.communicate()
     subp.wait()
 
-    try:
-        if subp_stderr[-1] == '\n':
-            subp_stderr[:-1]
-    except IndexError:
-        pass
-
     # This makes it so that different tests don't have to reference the
     # directory path in the error (which is tedious and annoying).
-    subp_stderr = subp_stderr.replace(dirpath, "");
+    subp_stderr = subp_stderr.replace(dirpath, "")
+    # For Windows, this fixes newlines so the strings equal.
+    subp_stderr = subp_stderr.replace("\r\n", "\n")
 
     if subp_stderr != expected_stderr or \
        subp.returncode == -signal.SIGSEGV:
@@ -74,28 +74,28 @@ def get_options_for(dirpath):
 
     # By default, the gc threshold is set to 2 so that the tests don't
     # pass only because the garbage collector isn't invoked.
-    if dirpath.endswith('tag_mode/'):
+    if dirpath.endswith('tag_mode' + os.sep):
         # This causes the tests run in this directory to be run in
         # tagged mode (code will be between <?lily ... ?> tags only).
         options['invoke'] += ' -t'
 
-    options['mode'] = 'pass' if dirpath.startswith('test/pass') else 'fail'
+    options['mode'] = 'pass' if dirpath.endswith('pass') else 'fail'
     return options
 
 def process_test_dir(basepath):
-    mode = 'pass' if basepath == 'test/pass' else 'fail'
+    mode = 'pass' if basepath.endswith('pass') else 'fail'
 
     # I use _list as a suffix to make the difference more obvious than,
     # say, filepaths versus filepath.
     for (dirpath, dirpath_list, filepath_list) in os.walk(basepath):
-        dirpath += '/'
+        dirpath += os.sep
         options = get_options_for(dirpath)
         for filepath in filepath_list:
             run_test(options, dirpath, filepath)
 
 if __name__ == '__main__':
-    process_test_dir('test/fail')
-    process_test_dir('test/pass')
+    process_test_dir('test' + os.sep + 'fail')
+    process_test_dir('test' + os.sep + 'pass')
 
 print ('Final stats: %d tests passed, %d errors, %d crashed.' \
         % (pass_count, error_count, crash_count))

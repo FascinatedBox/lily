@@ -20,3 +20,9 @@
    libraries from. */
 #define LILY_LIBRARY_PATH_SEED \
         LILY_LIB_DIR ";"
+
+#ifdef _WIN32
+# define LILY_PATH_CHAR '\\'
+#else
+# define LILY_PATH_CHAR '/'
+#endif
