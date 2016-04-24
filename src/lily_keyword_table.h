@@ -2,8 +2,8 @@
 # define LILY_KEYWORD_TABLE_H
 
 typedef struct {
-	const char *name;
-	uint64_t shorthash;
+    const char *name;
+    uint64_t shorthash;
 } keyword_entry;
 
 keyword_entry keywords[] = {

@@ -1,0 +1,17 @@
+language: cpp
+os:
+ - linux
+sudo: false
+notifications:
+ email:
+  on_success: change # [always|never|change] # default: change
+  on_failure: always # [always|never|change] # default: always
+
+script:
+ - mkdir build
+ - pushd build
+ - cmake .. -DCMAKE_BUILD_TYPE=RELEASE || exit 1
+ - cmake --build . -- -j2 || exit 1
+ - popd
+ - cp build/lily .
+ - python ./pre-commit-hook.py || exit 1

@@ -11,20 +11,20 @@ typedef enum {
     dyna_variant
 } dyna_type;
 
-typedef const struct lily_base_seed_ {
+typedef struct lily_base_seed_ {
     const void *next;
     char *name;
     uint64_t seed_type;
 } lily_base_seed;
 
-typedef const struct {
+typedef struct {
     const void *next;
     char *name;
     uint64_t seed_type;
     char *type;
 } lily_var_seed;
 
-typedef const struct {
+typedef struct {
     const void *next;
     char *name;
     uint64_t seed_type;
@@ -32,7 +32,7 @@ typedef const struct {
     lily_foreign_func func;
 } lily_func_seed;
 
-typedef const struct {
+typedef struct {
     const void *next;
     char *name;
     uint64_t seed_type;
@@ -41,7 +41,7 @@ typedef const struct {
     const void *dynaload_table;
 } lily_class_seed;
 
-typedef const struct {
+typedef struct {
     const void *next;
     char *name;
     uint64_t seed_type;
@@ -50,7 +50,7 @@ typedef const struct {
     char *body;
 } lily_bootstrap_seed;
 
-typedef const struct {
+typedef struct {
     const void *next;
     char *name;
     uint64_t seed_type;
@@ -61,7 +61,7 @@ typedef const struct {
     const void *dynaload_table;
 } lily_enum_seed;
 
-typedef const struct {
+typedef struct {
     const void *next;
     char *name;
     uint64_t seed_type;

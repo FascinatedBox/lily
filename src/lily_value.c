@@ -54,7 +54,7 @@ void lily_deref_raw(lily_type *type, lily_raw_value raw)
     lily_deref(&v);
 }
 
-inline lily_value *lily_new_value(uint64_t flags, lily_raw_value raw)
+lily_value *lily_new_value(uint64_t flags, lily_raw_value raw)
 {
     lily_value *v = lily_malloc(sizeof(lily_value));
     v->flags = flags;
@@ -134,7 +134,7 @@ lily_string_val *lily_new_raw_string(const char *source)
 lily_value *lily_new_string(const char *source)
 {
     lily_string_val *sv = lily_new_raw_string(source);
-    return lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value)sv);
+    return lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value) { sv });
 }
 
 /* Create a new value holding a string. That string's contents will be 'len'
@@ -143,7 +143,7 @@ lily_value *lily_new_string(const char *source)
 lily_value *lily_new_string_ncpy(const char *source, int len)
 {
     lily_string_val *sv = lily_new_raw_string_sized(source, len);
-    return lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value)sv);
+    return lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value) { sv });
 }
 
 /* Create a new value holding a string. That string's source will be exactly
@@ -152,10 +152,10 @@ lily_value *lily_new_string_ncpy(const char *source, int len)
 lily_value *lily_new_string_take(char *source)
 {
     lily_string_val *sv = new_sv(source, strlen(source));
-    return lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value)sv);
+    return lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value) { sv });
 }
 
-inline lily_instance_val *lily_new_instance_val()
+lily_instance_val *lily_new_instance_val()
 {
     lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
     ival->refcount = 1;
