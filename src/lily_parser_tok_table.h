@@ -4,9 +4,9 @@
 /* This file creates a table of token information for the parser that's easy to
    understand and add to. */
 typedef struct {
-	/* The token that this block of info goes to. This token table can be sanity
-	   checked by ensuring that entries go up to tk_eof and that each entry's
-	   represented token goes up by 1. */
+    /* The token that this block of info goes to. This token table can be sanity
+       checked by ensuring that entries go up to tk_eof and that each entry's
+       represented token goes up by 1. */
     lily_token tok;
     /* 0 or 1: If 1, this token is a value, or a token that is used for ending
                expressions. This is used to help determine if expression is
@@ -19,8 +19,8 @@ typedef struct {
 
 static const lily_tok_info parser_tok_table[] =
 {
-	/* token name       | val_or_end | expr_op */
-	{tk_left_parenth,     0          , -1},
+    /* token name       | val_or_end | expr_op */
+    {tk_left_parenth,     0          , -1},
     {tk_right_parenth,    0          , -1},
     {tk_comma,            1          , -1},
     {tk_right_curly,      1          , -1},

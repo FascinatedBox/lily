@@ -65,7 +65,7 @@ lily_jump_link *lily_jump_setup(lily_raiser *raiser)
 }
 
 /* Releases the jump provided by lily_jump_setup. */
-inline void lily_release_jump(lily_raiser *raiser)
+void lily_release_jump(lily_raiser *raiser)
 {
     raiser->all_jumps = raiser->all_jumps->prev;
 }

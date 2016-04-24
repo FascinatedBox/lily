@@ -983,7 +983,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     if (caller_frame->build_value &&
         caller_frame->build_value->instance_id > instance_class->id) {
 
-        lily_move(result, (lily_raw_value)caller_frame->build_value,
+        lily_move(result, (lily_raw_value) { caller_frame->build_value },
                 VAL_IS_INSTANCE | VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED);
         result->value.generic->refcount++;
 
@@ -1226,7 +1226,7 @@ static lily_value **do_o_load_closure(lily_vm_state *vm, uint16_t *code)
     /* All closures are always tagged. It is extremely important to add the tag
        flag. Failure to do so will cause at least two tests (at the time of this
        writing) to experience very not-fun heap corruption. */
-    lily_move(result_reg, (lily_raw_value)input_closure,
+    lily_move(result_reg, (lily_raw_value) { input_closure },
             VAL_IS_GC_TAGGED | VAL_IS_FUNCTION | VAL_IS_DEREFABLE);
 
     return input_closure->upvalues;

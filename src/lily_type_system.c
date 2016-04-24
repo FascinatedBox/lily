@@ -416,7 +416,7 @@ int lily_ts_raise_ceiling(lily_type_system *ts)
     return old_ceiling;
 }
 
-inline void lily_ts_lower_ceiling(lily_type_system *ts, int old_ceiling)
+void lily_ts_lower_ceiling(lily_type_system *ts, int old_ceiling)
 {
     ts->pos -= old_ceiling;
     ts->ceiling = old_ceiling;
