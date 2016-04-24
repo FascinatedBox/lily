@@ -334,7 +334,7 @@ static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
             strcpy(new_entry->loadname, path);
         }
         else {
-            const char *name_start = strrchr(path, '/');
+            const char *name_start = strrchr(path, LILY_PATH_CHAR);
             if (name_start == NULL)
                 name_start = path;
             else
@@ -462,7 +462,7 @@ static void write_import_paths(lily_msgbuf *msgbuf,
 static void add_relative_path_to_msgbuf(lily_parse_state *parser)
 {
     char *path = parser->symtab->active_import->path;
-    char *search_str = strrchr(path, '/');
+    char *search_str = strrchr(path, LILY_PATH_CHAR);
 
     if (search_str)
         lily_msgbuf_add_text_range(parser->msgbuf, path, 0,

@@ -6,6 +6,7 @@
 #include <stddef.h>
 
 #include "lily_alloc.h"
+#include "lily_config.h"
 #include "lily_impl.h"
 #include "lily_lexer.h"
 #include "lily_utf8.h"
@@ -1202,7 +1203,7 @@ void lily_scan_import_path(lily_lex_state *lexer)
         return;
 
     do {
-        *label = *iter_ch;
+        *label = LILY_PATH_CHAR;
         label++;
         iter_ch++;
         while (ident_table[(unsigned char)*iter_ch]) {
