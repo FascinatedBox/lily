@@ -614,6 +614,7 @@ static void add_call_frame(lily_vm_state *vm)
     new_frame->prev = vm->call_chain;
     new_frame->next = NULL;
     new_frame->return_target = NULL;
+    new_frame->build_value = NULL;
 
     if (vm->call_chain != NULL)
         vm->call_chain->next = new_frame;
