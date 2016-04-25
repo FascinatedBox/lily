@@ -15,6 +15,8 @@ pass_count = 0
 error_count = 0
 crash_count = 0
 test_count = 0
+# No point in doing 'real' argument parsing when this is the only option.
+verbose = (sys.argv[-1] == '--verbose')
 
 def get_expected_str(filename):
     f = open(filename, "r")
@@ -31,7 +33,7 @@ def get_expected_str(filename):
     return output
 
 def run_test(options, dirpath, filepath):
-    global pass_count, error_count, crash_count, test_count
+    global pass_count, error_count, crash_count, test_count, verbose
 
     test_count += 1
 
@@ -51,20 +53,23 @@ def run_test(options, dirpath, filepath):
     subp_stderr = subp_stderr.replace(dirpath, "")
     # For Windows, this fixes newlines so the strings equal.
     subp_stderr = subp_stderr.replace("\r\n", "\n")
+    crashed = (subp.returncode == -signal.SIGSEGV)
 
-    if subp_stderr != expected_stderr or \
-       subp.returncode == -signal.SIGSEGV:
-
+    if subp_stderr != expected_stderr or crashed:
         message = ""
-        if subp.returncode == -signal.SIGSEGV:
+        if crashed:
             message = "!!!CRASHED!!!"
             crash_count += 1
         else:
             message = "!!!FAILED!!!"
             error_count += 1
 
-        sys.stdout.write("#%d test %s %s\n" % (test_count, \
+        print("#%d test %s %s\n" % (test_count, \
                 os.path.basename(filepath), message))
+
+        if not crashed and verbose:
+            print("Expected:\n`%s`" % expected_stderr.rstrip("\r\n"))
+            print("Received:\n`%s`" % subp_stderr.rstrip("\r\n"))
     else:
         pass_count += 1
 
