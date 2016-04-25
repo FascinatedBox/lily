@@ -35,7 +35,6 @@ def run_test(options, dirpath, filepath):
 
     test_count += 1
 
-    should_pass = (options['mode'] == 'pass')
     fullpath = dirpath + filepath
     expected_stderr = get_expected_str(fullpath)
 
@@ -70,26 +69,26 @@ def run_test(options, dirpath, filepath):
         pass_count += 1
 
 def get_options_for(dirpath):
+    # This makes the garbage collector perform a sweep after a third object
+    # tries to get a tag. The growth factor is zero, which then forces the gc
+    # to continually sweep afterward.
+    # This hyperaggressive behavior helps uncover bugs from forgetting to tag
+    # values appropriately.
     options = {'invoke': '-gstart 2 -gmul 0'}
 
-    # By default, the gc threshold is set to 2 so that the tests don't
-    # pass only because the garbage collector isn't invoked.
-    if dirpath.endswith('tag_mode' + os.sep):
+    if dirpath.endswith('tag_mode'):
         # This causes the tests run in this directory to be run in
         # tagged mode (code will be between <?lily ... ?> tags only).
         options['invoke'] += ' -t'
 
-    options['mode'] = 'pass' if dirpath.endswith('pass') else 'fail'
     return options
 
 def process_test_dir(basepath):
-    mode = 'pass' if basepath.endswith('pass') else 'fail'
-
     # I use _list as a suffix to make the difference more obvious than,
     # say, filepaths versus filepath.
     for (dirpath, dirpath_list, filepath_list) in os.walk(basepath):
-        dirpath += os.sep
         options = get_options_for(dirpath)
+        dirpath += os.sep
         for filepath in filepath_list:
             run_test(options, dirpath, filepath)
 
