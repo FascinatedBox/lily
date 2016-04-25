@@ -4,6 +4,9 @@ The Lily Programming Language
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/jesserayadkins/lily?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![License (3-Clause BSD)](https://img.shields.io/badge/license-BSD%203--Clause-blue.svg?style=flat-square)](http://opensource.org/licenses/BSD-3-Clause)
 
+[![Linux Build](https://travis-ci.org/jesserayadkins/lily.svg?branch=master)](https://travis-ci.org/jesserayadkins/lily)
+[![Windows Build](https://ci.appveyor.com/api/projects/status/github/jesserayadkins/lily?svg=true)](https://ci.appveyor.com/project/JesseRayAdkins/lily)
+
 Lily is a programming language that can be used for general-purpose programming (the default), or for server-side scripting (with code between `<?lily ... ?>` tags). Lily's design is inspired by a mixture of languages: C, F#, Haskell, Python, Ruby, and Rust. Lily's key features are:
 
 
