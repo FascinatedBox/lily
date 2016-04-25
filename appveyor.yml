@@ -9,5 +9,5 @@ build_script:
   - cmd: cmake --build . --config Release
   - cmd: cp Release/lily.exe ../lily
   - cmd: cd ..
-  - cmd: python pre-commit-hook.py
+  - cmd: python pre-commit-hook.py --verbose
 

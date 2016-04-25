@@ -14,4 +14,4 @@ script:
  - cmake --build . -- -j2 || exit 1
  - popd
  - cp build/lily .
- - python ./pre-commit-hook.py || exit 1
+ - python ./pre-commit-hook.py --verbose || exit 1
