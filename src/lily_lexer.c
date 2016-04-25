@@ -1197,10 +1197,11 @@ void lily_scan_import_path(lily_lex_state *lexer)
 {
     int input_pos = lexer->input_pos;
     char *iter_ch = &lexer->input_buffer[input_pos];
-    char *label = &lexer->label[strlen(lexer->label)];
 
     if (*iter_ch != '/')
         return;
+
+    char *label = &lexer->label[strlen(lexer->label)];
 
     do {
         *label = LILY_PATH_CHAR;
