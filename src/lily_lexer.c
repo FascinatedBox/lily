@@ -1214,7 +1214,7 @@ void lily_scan_import_path(lily_lex_state *lexer)
         }
     } while (*iter_ch == '/');
 
-    if (*(label - 1) == '/') {
+    if (*(label - 1) == LILY_PATH_CHAR) {
         lily_raise(lexer->raiser, lily_SyntaxError,
                 "Import path cannot end with '/'.\n");
     }
