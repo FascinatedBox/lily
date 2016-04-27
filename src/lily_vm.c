@@ -984,8 +984,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     if (caller_frame->build_value &&
         caller_frame->build_value->instance_id > instance_class->id) {
 
-        lily_move(result, (lily_raw_value) { caller_frame->build_value },
-                VAL_IS_INSTANCE | VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED);
+        lily_move_instance_gc(result, caller_frame->build_value);
         result->value.generic->refcount++;
 
         /* Important! This allows this memory-saving trick to bubble up through
@@ -1227,8 +1226,7 @@ static lily_value **do_o_load_closure(lily_vm_state *vm, uint16_t *code)
     /* All closures are always tagged. It is extremely important to add the tag
        flag. Failure to do so will cause at least two tests (at the time of this
        writing) to experience very not-fun heap corruption. */
-    lily_move(result_reg, (lily_raw_value) { input_closure },
-            VAL_IS_GC_TAGGED | VAL_IS_FUNCTION | VAL_IS_DEREFABLE);
+    lily_move_closure(result_reg, input_closure);
 
     return input_closure->upvalues;
 }
@@ -1372,7 +1370,7 @@ static void fixup_exception_val(lily_vm_state *vm, lily_value *result,
     lily_list_val *raw_trace = build_traceback_raw(vm);
     lily_instance_val *iv = result->value.instance;
 
-    lily_move_instance(iv->values[1], raw_trace);
+    lily_move_list(iv->values[1], raw_trace);
 }
 
 /* This attempts to catch the exception that the raiser currently holds. If it
