@@ -120,8 +120,13 @@ static void free_ties(lily_symtab *symtab, lily_tie *tie_iter)
 
     while (tie_iter) {
         tie_next = tie_iter->next;
-        if (tie_iter->type->cls->is_refcounted)
-            lily_deref_raw(tie_iter->type, tie_iter->value);
+        if (tie_iter->type->cls->is_refcounted) {
+            lily_value v;
+            v.flags = tie_iter->type->cls->move_flags | VAL_IS_DEREFABLE;
+            v.value = tie_iter->value;
+
+            lily_deref(&v);
+        }
         lily_free(tie_iter);
         tie_iter = tie_next;
     }
