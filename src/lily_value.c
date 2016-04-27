@@ -168,7 +168,7 @@ lily_instance_val *lily_new_enum_1(uint16_t class_id, uint16_t variant_id,
     return iv;
 }
 
-static int lily_value_eq_raw(lily_vm_state *, int *, lily_value *,
+static int lily_eq_value_raw(lily_vm_state *, int *, lily_value *,
         lily_value *);
 
 /* This checks of all elements of two (lists, tuples, enums) are equivalent to
@@ -186,7 +186,7 @@ static int subvalue_eq(lily_vm_state *vm, int *depth, lily_value *left,
             lily_value *left_item = left_list->elems[i];
             lily_value *right_item = right_list->elems[i];
             (*depth)++;
-            if (lily_value_eq_raw(vm, depth, left_item, right_item) == 0) {
+            if (lily_eq_value_raw(vm, depth, left_item, right_item) == 0) {
                 (*depth)--;
                 ok = 0;
                 break;
@@ -201,7 +201,7 @@ static int subvalue_eq(lily_vm_state *vm, int *depth, lily_value *left,
 }
 
 /* Determine if two values are equivalent to each other. */
-int lily_value_eq_raw(lily_vm_state *vm, int *depth, lily_value *left, lily_value *right)
+int lily_eq_value_raw(lily_vm_state *vm, int *depth, lily_value *left, lily_value *right)
 {
     int left_tag = left->flags & ~(VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED);
     int right_tag = right->flags & ~(VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED);
@@ -248,9 +248,9 @@ int lily_value_eq_raw(lily_vm_state *vm, int *depth, lily_value *left, lily_valu
                  right_iter != NULL;
                  right_iter = right_iter->next) {
                 if (left_iter->key_siphash == right_iter->key_siphash) {
-                    ok = lily_value_eq_raw(vm, depth, left_iter->elem_key,
+                    ok = lily_eq_value_raw(vm, depth, left_iter->elem_key,
                             right_iter->elem_key);
-                    ok = ok && lily_value_eq_raw(vm, depth,
+                    ok = ok && lily_eq_value_raw(vm, depth,
                             left_iter->elem_value, right_iter->elem_value);
 
                     /* Hash keys are unique, so this won't be found again. */
@@ -272,7 +272,7 @@ int lily_value_eq_raw(lily_vm_state *vm, int *depth, lily_value *left, lily_valu
         (*depth)++;
         lily_value *left_value = left->value.dynamic->inner_value;
         lily_value *right_value = right->value.dynamic->inner_value;
-        int ok = lily_value_eq_raw(vm, depth, left_value, right_value);
+        int ok = lily_eq_value_raw(vm, depth, left_value, right_value);
         (*depth)--;
 
         return ok;
@@ -294,10 +294,10 @@ int lily_value_eq_raw(lily_vm_state *vm, int *depth, lily_value *left, lily_valu
         return left->value.generic == right->value.generic;
 }
 
-int lily_value_eq(lily_vm_state *vm, lily_value *left, lily_value *right)
+int lily_eq_value(lily_vm_state *vm, lily_value *left, lily_value *right)
 {
     int depth = 0;
-    return lily_value_eq_raw(vm, &depth, left, right);
+    return lily_eq_value_raw(vm, &depth, left, right);
 }
 
 void lily_collect_value(lily_value *v)
