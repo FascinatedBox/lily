@@ -41,6 +41,7 @@ lily_type_system *lily_new_type_system(lily_type_maker *tm,
     ts->ceiling = 0;
     ts->dynamic_class_type = dynamic_type;
     ts->question_class_type = question_type;
+    ts->types[0] = NULL;
 
     return ts;
 }
