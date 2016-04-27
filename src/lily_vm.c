@@ -79,7 +79,7 @@ else if (lhs_reg->flags & VAL_IS_STRING) { \
 } \
 else { \
     vm_regs[code[code_pos+4]]->value.integer = \
-    lily_value_eq(vm, lhs_reg, rhs_reg) OP 1; \
+    lily_eq_value(vm, lhs_reg, rhs_reg) OP 1; \
 } \
 vm_regs[code[code_pos+4]]->flags = VAL_IS_BOOLEAN; \
 code_pos += 5;
