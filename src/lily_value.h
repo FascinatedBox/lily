@@ -4,7 +4,6 @@
 # include "lily_core_types.h"
 
 void lily_deref(lily_value *);
-void lily_deref_raw(lily_type *, lily_raw_value);
 void lily_assign_value(lily_value *, lily_value *);
 void lily_move(lily_value *, lily_raw_value, int);
 void lily_collect_value(lily_value *);

@@ -43,17 +43,6 @@ void lily_deref(lily_value *value)
     }
 }
 
-/* This calls deref on the raw part of a value. This should not be used when a
-   proper value is available. */
-void lily_deref_raw(lily_type *type, lily_raw_value raw)
-{
-    lily_value v;
-    v.flags = type->cls->move_flags | VAL_IS_DEREFABLE;
-    v.value = raw;
-
-    lily_deref(&v);
-}
-
 lily_value *lily_new_value(uint64_t flags, lily_raw_value raw)
 {
     lily_value *v = lily_malloc(sizeof(lily_value));
