@@ -841,13 +841,9 @@ static void finalize_function_block(lily_emit_state *emit,
 
     int register_count = emit->function_block->next_reg_spot;
     lily_storage *storage_iter = function_block->storage_start;
-    lily_var *var_stop = function_block->function_var;
-
-    /* Don't include functions inside of themselves... */
-    if (emit->function_depth == 1)
-        var_stop = var_stop->next;
 
     if (emit->function_depth > 1) {
+        lily_var *var_stop = function_block->function_var;
         /* todo: Reuse the var shells instead of destroying. Seems petty, but
                  malloc isn't cheap if there are a lot of vars. */
         lily_var *var_iter = emit->symtab->active_import->var_chain;
