@@ -346,7 +346,9 @@ typedef struct lily_function_val_ {
     /* Here's where the function's code is stored. */
     uint16_t *code;
 
-    uint32_t pad;
+    uint16_t pad;
+
+    uint16_t has_optargs;
 
     uint16_t num_upvalues;
 
