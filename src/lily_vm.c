@@ -293,8 +293,11 @@ void lily_free_vm(lily_vm_state *vm)
         frame_iter = frame_next;
     }
 
-    /* vm->num_registers is now 0, so this will sweep everything. */
-    invoke_gc(vm);
+    /* If there are any entries left over, then do a final gc pass that will
+       destroy the tagged values. */
+    if (vm->gc_live_entry_count)
+        invoke_gc(vm);
+
     destroy_gc_entries(vm);
 
     lily_free(vm->class_table);
