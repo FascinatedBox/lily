@@ -602,8 +602,6 @@ typedef struct lily_options_ {
 #define VAL_IS_DEREFABLE        0x020000
 #define VAL_IS_GC_TAGGED        0x040000
 #define VAL_IS_FOREIGN          0x100000
-/* This is a raw string that shouldn't be quoted during interpolation. */
-#define VAL_IS_FOR_INTERP       0x200000
 
 /* SYM_CLASS_* defines are for checking ids of a type's class. These are
    used very frequently. These must be kept in sync with the class loading
