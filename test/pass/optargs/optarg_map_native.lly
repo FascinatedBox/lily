@@ -1,0 +1,10 @@
+define f(n: Integer, o: *Option[Integer] = None): Integer
+{
+    if o.is_some():
+        stderr.write("Failed.\n")
+
+    o = Some(1)
+    return n
+}
+
+[1, 2, 3].map(f)
