@@ -553,12 +553,13 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
     vm->offset_max_registers = size - 2;
 }
 
-/* This is called to fix the types of registers that aren't parameters. */
-static inline void fix_register_types(lily_vm_state *vm,
+/* This is called to clear the values that reside in the non-parameter registers
+   of a call. This is necessary because arthmetic operations assume that the
+   target is not a refcounted register. */
+static inline void scrub_registers(lily_vm_state *vm,
         lily_function_val *fval, int args_collected)
 {
     lily_value **target_regs = vm->regs_from_main + vm->num_registers;
-    /* For the rest of the registers, clear whatever value they have. */
     for (;args_collected < fval->reg_count;args_collected++) {
         lily_value *reg = target_regs[args_collected];
         lily_deref(reg);
@@ -594,7 +595,7 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
     }
 
     if (i != fval->reg_count)
-        fix_register_types(vm, fval, i);
+        scrub_registers(vm, fval, i);
 
     vm->num_registers = register_need;
 }
@@ -1599,8 +1600,8 @@ lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
     }
     va_end(values);
 
-    if (*cached == 0 && is_native_target && i != target->reg_count)
-        fix_register_types(vm, target, i);
+    if (is_native_target && i != target->reg_count)
+        scrub_registers(vm, target, i);
 
     vm->vm_regs = vm_regs;
     vm->call_chain = vm->call_chain->next;
