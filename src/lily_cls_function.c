@@ -14,7 +14,6 @@ lily_function_val *lily_new_foreign_function_val(lily_foreign_func func,
     f->foreign_func = func;
     f->code = NULL;
     f->num_upvalues = 0;
-    f->has_optargs = 0;
     f->upvalues = NULL;
     f->gc_entry = NULL;
     f->reg_count = -1;
@@ -32,7 +31,6 @@ lily_function_val *lily_new_native_function_val(char *class_name,
     f->foreign_func = NULL;
     f->code = NULL;
     f->num_upvalues = 0;
-    f->has_optargs = 0;
     f->upvalues = NULL;
     f->gc_entry = NULL;
     f->reg_count = -1;

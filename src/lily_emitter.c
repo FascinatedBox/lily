@@ -839,13 +839,11 @@ static void finalize_function_block(lily_emit_state *emit,
        closure, it will require a unique storage. */
     lily_function_val *f = create_code_block_for(emit, function_block);
 
+    int register_count = emit->function_block->next_reg_spot;
     lily_storage *storage_iter = function_block->storage_start;
-    lily_var *var_stop = function_block->function_var;
-
-    f->reg_count = emit->function_block->next_reg_spot;
-    f->has_optargs = (var_stop->type->flags & TYPE_HAS_OPTARGS);
 
     if (emit->function_depth > 1) {
+        lily_var *var_stop = function_block->function_var;
         /* todo: Reuse the var shells instead of destroying. Seems petty, but
                  malloc isn't cheap if there are a lot of vars. */
         lily_var *var_iter = emit->symtab->active_import->var_chain;
@@ -875,6 +873,8 @@ static void finalize_function_block(lily_emit_state *emit,
     }
 
     emit->unused_storage_start = function_block->storage_start;
+
+    f->reg_count = register_count;
 }
 
 static void leave_function(lily_emit_state *emit, lily_block *block)
