@@ -2710,7 +2710,7 @@ static void eval_interpolation(lily_emit_state *emit, lily_ast *ast)
     }
 
     write_3(emit, o_interpolation, ast->line_num, ast->args_collected);
-    write_prep(emit, ast->args_collected);
+    write_prep(emit, ast->args_collected + 1);
     int i;
     lily_ast *arg = ast->arg_start;
     for (i = 0, arg = ast->arg_start; arg != NULL; arg = arg->next_arg, i++)
