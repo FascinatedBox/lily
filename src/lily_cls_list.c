@@ -117,10 +117,10 @@ void lily_list_pop(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     lily_value *source = list_val->elems[list_val->num_values - 1];
 
-    /* Do not use assign here: It will increase the refcount, and the element is
-       no longer in the list. Instead, use move and pretend the value does not
-       exist in the list any longer. */
-    lily_move(result_reg, source->value, source->flags);
+    /* This is a special case: The value must be moved, but there will be no
+       net increase to refcount. Use assign (because it will copy over flags)
+       but not the regular one or the refcount will be wrong. */
+    lily_assign_value_noref(result_reg, source);
 
     /* For now, free extra values instead of trying to keep reserves around.
        Not the best course of action, perhaps, but certainly the simplest. */
@@ -420,10 +420,9 @@ void lily_list_shift(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     lily_value *source = list_val->elems[0];
 
-    /* Do not use assign here: It will increase the refcount, and the element is
-       no longer in the list. Instead, use move and pretend the value does not
-       exist in the list any longer. */
-    lily_move(result_reg, source->value, source->flags);
+    /* Similar to List.pop, the value is being taken out so use this custom
+       assign to keep the refcount the same. */
+    lily_assign_value_noref(result_reg, source);
 
     /* For now, free extra values instead of trying to keep reserves around.
        Not the best course of action, perhaps, but certainly the simplest. */
