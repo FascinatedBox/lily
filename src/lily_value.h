@@ -5,11 +5,10 @@
 
 void lily_deref(lily_value *);
 void lily_assign_value(lily_value *, lily_value *);
-void lily_move(lily_value *, lily_raw_value, int);
+void lily_assign_value_noref(lily_value *, lily_value *);
 lily_value *lily_copy_value(lily_value *);
 int lily_eq_value(struct lily_vm_state_ *, lily_value *, lily_value *);
 
-void lily_move(lily_value *, lily_raw_value, int);
 void lily_move_boolean(lily_value *, int64_t);
 void lily_move_double(lily_value *, double);
 void lily_move_dynamic(lily_value *, lily_dynamic_val *);

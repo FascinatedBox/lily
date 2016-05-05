@@ -69,13 +69,17 @@ void lily_assign_value(lily_value *left, lily_value *right)
     left->flags = right->flags;
 }
 
-void lily_move(lily_value *v, lily_raw_value raw, int flags)
+/* This assigns 'left' to the value within 'right', but does not give 'right' a
+   ref increase. One use case for this is List.pop, which takes the element out
+   of the List and places it into the result. The value has been assigned over,
+   (so all flags carry), but still has the same # of refs. */
+void lily_assign_value_noref(lily_value *left, lily_value *right)
 {
-    if (v->flags & VAL_IS_DEREFABLE)
-        lily_deref(v);
+    if (left->flags & VAL_IS_DEREFABLE)
+        lily_deref(left);
 
-    v->value = raw;
-    v->flags = flags;
+    left->value = right->value;
+    left->flags = right->flags;
 }
 
 #define MOVE_FN(name, in_type, field, f) \
