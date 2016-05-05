@@ -10,7 +10,6 @@ lily_hash_val *lily_new_hash_val()
 {
     lily_hash_val *h = lily_malloc(sizeof(lily_hash_val));
 
-    h->gc_entry = NULL;
     h->refcount = 1;
     h->iter_count = 0;
     h->num_elems = 0;
@@ -155,9 +154,6 @@ static void destroy_hash_elems(lily_hash_val *hash_val)
 void lily_destroy_hash(lily_value *v)
 {
     lily_hash_val *hv = v->value.hash;
-
-    if (hv->gc_entry != NULL)
-        hv->gc_entry->value.generic = NULL;
 
     destroy_hash_elems(hv);
 
