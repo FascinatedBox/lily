@@ -21,6 +21,17 @@ extern const lily_func_seed lily_option_dl_start;
 extern const lily_func_seed lily_either_dl_start;
 extern const lily_func_seed lily_dynamic_dl_start;
 
+/* When destroying a value with a gc tag, set the tag to this to prevent destroy
+   from reentering it. The values are useless, but cannot be 0 or this will be
+   optimized as a NULL pointer. */
+const lily_gc_entry lily_gc_stopper =
+{
+    1,
+    1,
+    {.integer = 1},
+    NULL
+};
+
 static const lily_class_seed function_seed =
 {
     NULL,                     /* next */

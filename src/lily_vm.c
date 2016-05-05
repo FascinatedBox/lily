@@ -16,6 +16,9 @@
 #include "lily_cls_option.h"
 
 extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
+extern lily_gc_entry *lily_gc_stopper;
+/* This isn't included in a header file because only vm should use this. */
+void lily_destroy_value(lily_value *);
 
 #define INTEGER_OP(OP) \
 lhs_reg = vm_regs[code[code_pos + 2]]; \
@@ -329,11 +332,11 @@ void lily_free_vm(lily_vm_state *vm)
       * Some gc_entries may have their value set to 0/NULL. This happens when
         a possibly-circular value has been deleted through typical ref/deref
         means.
-      * lily_collect_value will collect everything inside a non-circular value,
+      * lily_destroy_value will collect everything inside a non-circular value,
         but not the value itself. It will set last_pass to -1 when it does that.
-        This is necessary because it's possible that a value may be sent to
-        lily_collect_* calls multiple times (because circular references). If
-        it's deleted, then there will be invalid reads.
+        This is necessary because it's possible that a value may be visited
+        multiple times. If it's deleted during this step, then extra visits will
+        trigger invalid reads.
    3: Stage 1 skipped registers that are not in-use, because Lily just hasn't
       gotten around to clearing them yet. However, some of those registers may
       contain a value that has a gc_entry that indicates that the value is to be
@@ -372,7 +375,10 @@ static void invoke_gc(lily_vm_state *vm)
          gc_iter = gc_iter->next) {
         if (gc_iter->last_pass != pass &&
             gc_iter->value.generic != NULL) {
-            lily_collect_value((lily_value *)gc_iter);
+            /* This tells value destroy to just hollow the value since it may be
+               visited multiple times. */
+            gc_iter->last_pass = -1;
+            lily_destroy_value((lily_value *)gc_iter);
         }
     }
 
@@ -386,9 +392,7 @@ static void invoke_gc(lily_vm_state *vm)
         for (i = vm->num_registers;i < vm->true_max_registers;i++) {
             lily_value *reg = regs_from_main[i];
             if (reg->flags & VAL_IS_GC_TAGGED &&
-                /* Not sure if this next line is necessary though... */
-                reg->value.gc_generic->gc_entry != NULL &&
-                reg->value.gc_generic->gc_entry->last_pass == -1) {
+                reg->value.gc_generic->gc_entry == lily_gc_stopper) {
                 reg->flags = 0;
             }
         }

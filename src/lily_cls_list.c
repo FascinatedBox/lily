@@ -5,6 +5,8 @@
 #include "lily_seed.h"
 #include "lily_value.h"
 
+extern lily_gc_entry *lily_gc_stopper;
+
 lily_list_val *lily_new_list_val()
 {
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
@@ -46,11 +48,15 @@ void lily_destroy_list(lily_value *v)
 {
     lily_list_val *lv = v->value.list;
 
-    /* If this list has a gc entry, then make the value of it NULL. This
-        prevents the gc from trying to access the list once it has been
-        destroyed. */
-    if (lv->gc_entry != NULL)
-        lv->gc_entry->value.generic = NULL;
+    int full_destroy = 1;
+    if (lv->gc_entry) {
+        if (lv->gc_entry->last_pass == -1) {
+            full_destroy = 0;
+            lv->gc_entry = lily_gc_stopper;
+        }
+        else
+            lv->gc_entry->value.generic = NULL;
+    }
 
     int i;
     for (i = 0;i < lv->num_values;i++) {
@@ -59,51 +65,9 @@ void lily_destroy_list(lily_value *v)
     }
 
     lily_free(lv->elems);
-    lily_free(lv);
-}
 
-void lily_gc_collect_list(lily_value *v)
-{
-    lily_list_val *list_val = v->value.list;
-    /* The first check is done because this list might be inside of an any
-       that is being collected. So it may not be in the gc, but it needs to be
-       destroyed because it was trapped in a circular ref.
-       The second check acts as a 'lock' to make sure that this cannot be done
-       twice for the same list, thus preventing recursion. */
-    int marked = 0;
-    if (list_val->gc_entry == NULL ||
-        (list_val->gc_entry->last_pass != -1 &&
-         list_val->gc_entry->value.generic != NULL)) {
-
-        if (list_val->gc_entry) {
-            list_val->gc_entry->last_pass = -1;
-            /* If this list has a gc entry, then it can contains elements which
-               refer to itself. Set last_pass to -1 to indicate that everything
-               inside this list has already been deleted. The gc will delete the
-               list later. */
-            marked = 1;
-        }
-
-        int i;
-
-        for (i = 0;i < list_val->num_values;i++) {
-            /* Pass stuff off to the gc to collect. This will use a typical
-                deref for stuff like string. */
-            lily_value *elem = list_val->elems[i];
-            if (elem->flags & VAL_IS_DEREFABLE) {
-                lily_raw_value v = elem->value;
-                if (v.generic->refcount == 1)
-                    lily_collect_value(elem);
-                else
-                    v.generic->refcount--;
-            }
-            lily_free(elem);
-        }
-
-        lily_free(list_val->elems);
-        if (marked == 0)
-            lily_free(list_val);
-    }
+    if (full_destroy)
+        lily_free(lv);
 }
 
 void lily_list_size(lily_vm_state *vm, uint16_t argc, uint16_t *code)
