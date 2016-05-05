@@ -286,7 +286,6 @@ typedef struct lily_hash_elem_ {
 typedef struct lily_hash_val_ {
     uint32_t refcount;
     uint32_t iter_count;
-    struct lily_gc_entry_ *gc_entry;
     uint32_t pad;
     uint32_t num_elems;
     lily_hash_elem *elem_chain;
