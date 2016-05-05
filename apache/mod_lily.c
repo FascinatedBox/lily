@@ -161,7 +161,6 @@ static void bind_httpmethod(lily_parse_state *parser, request_rec *r,
 
 void apache_var_dynaloader(lily_parse_state *parser, lily_var *var)
 {
-    fprintf(stderr, "var dl entry.\n");
     request_rec *r = (request_rec *)parser->data;
     char *name = var->name;
 
@@ -173,7 +172,6 @@ void apache_var_dynaloader(lily_parse_state *parser, lily_var *var)
         bind_get(parser, r, var);
     else if (strcmp("env", name) == 0)
         bind_env(parser, r, var);
-    fprintf(stderr, "var dl exit.\n");
 }
 
 const lily_var_seed httpmethod_seed =
