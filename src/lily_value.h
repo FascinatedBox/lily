@@ -52,16 +52,9 @@ void lily_move_string(lily_value *, lily_string_val *);
    swept through. */
 #define MOVE_SHARED_SPECULATIVE   (VAL_IS_GC_SPECULATIVE)
 
-lily_value *lily_new_empty(void);
-lily_value *lily_new_value(uint64_t, lily_raw_value);
+lily_value *lily_new_empty_value(void);
 lily_instance_val *lily_new_instance_val();
 lily_instance_val *lily_new_enum_1(uint16_t, uint16_t, lily_value *);
-
-#define lily_new_foreign(raw) \
-lily_new_value(VAL_IS_FOREIGN | VAL_IS_DEREFABLE, (lily_raw_value){(lily_generic_val *)raw})
-
-#define lily_new_list(raw) \
-lily_new_value(VAL_IS_LIST | VAL_IS_DEREFABLE, (lily_raw_value){raw})
 
 lily_value *lily_new_string(const char *);
 lily_value *lily_new_string_take(char *);

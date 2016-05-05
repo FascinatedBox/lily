@@ -547,12 +547,10 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
     vm->regs_from_main = new_regs;
     vm->vm_regs = new_regs + reg_offset;
 
-    /* Start creating new registers. Have them default to an integer type so that
-       nothing has to check for a NULL type. Integer is used as the default
-       because it is not ref'd. */
+    /* Now create the registers as a bunch of empty values, to be filled in
+       whenever they are needed. */
     for (;i < size;i++)
-        new_regs[i] = lily_new_value(0,
-            (lily_raw_value){.integer = 0});
+        new_regs[i] = lily_new_empty_value();
 
     vm->true_max_registers = size;
     vm->offset_max_registers = size - 2;
@@ -1028,8 +1026,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
             prop = prop_class->properties;
         }
 
-        iv->values[i] = lily_new_value(0,
-                (lily_raw_value){.integer = 0});
+        iv->values[i] = lily_new_empty_value();
     }
 
     iv->num_values = total_entries;
@@ -1355,7 +1352,7 @@ static void make_proper_exception_val(lily_vm_state *vm,
     ival->values[0] = message_val;
     ival->num_values = 1;
 
-    lily_value *traceback = lily_new_empty();
+    lily_value *traceback = lily_new_empty_value();
     lily_move_list_f(MOVE_DEREF_NO_GC, traceback, build_traceback_raw(vm));
 
     ival->values[1] = traceback;

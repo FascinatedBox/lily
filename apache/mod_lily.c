@@ -50,8 +50,9 @@ lily_value *bind_tainted_of(lily_parse_state *parser, lily_value *input)
     iv->values = lily_malloc(1 * sizeof(lily_value *));
     iv->instance_id = SYM_CLASS_TAINTED;
     iv->values[0] = input;
-    lily_value *v = lily_new_value(VAL_IS_INSTANCE, (lily_raw_value)iv);
-    return v;
+    lily_value *result = lily_new_empty_value();
+    lily_move_instance_f(MOVE_DEREF_NO_GC, result, iv);
+    return result;
 }
 
 static int bind_table_entry(void *data, const char *key, const char *value)

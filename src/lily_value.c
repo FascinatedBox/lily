@@ -43,21 +43,15 @@ void lily_deref(lily_value *value)
     }
 }
 
-lily_value *lily_new_empty(void)
+/* Create a new value with no contents. This is deemed safe from invalid reads
+   because the vm won't touch the data part of a value without first checking
+   the flags. */
+lily_value *lily_new_empty_value(void)
 {
     lily_value *result = lily_malloc(sizeof(lily_value));
     result->flags = 0;
 
     return result;
-}
-
-lily_value *lily_new_value(uint64_t flags, lily_raw_value raw)
-{
-    lily_value *v = lily_malloc(sizeof(lily_value));
-    v->flags = flags;
-    v->value = raw;
-
-    return v;
 }
 
 /* Assign one value to another. The right may get a ref, and the left may get a
@@ -123,7 +117,11 @@ lily_value *lily_copy_value(lily_value *input)
     if (input->flags & VAL_IS_DEREFABLE)
         input->value.generic->refcount++;
 
-    return lily_new_value(input->flags, input->value);
+    lily_value *result = lily_malloc(sizeof(lily_value));
+    result->flags = input->flags;
+    result->value = input->value;
+
+    return result;
 }
 
 static lily_string_val *new_sv(char *buffer, int size)
@@ -163,8 +161,9 @@ lily_string_val *lily_new_raw_string(const char *source)
    is inside 'source'. The source is expected to be \0 terminated. */
 lily_value *lily_new_string(const char *source)
 {
-    lily_string_val *sv = lily_new_raw_string(source);
-    return lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value) { sv });
+    lily_value *result = lily_new_empty_value();
+    lily_move_string(result, lily_new_raw_string(source));
+    return result;
 }
 
 /* Create a new value holding a string. That string's contents will be 'len'
@@ -172,8 +171,9 @@ lily_value *lily_new_string(const char *source)
    necessary. */
 lily_value *lily_new_string_ncpy(const char *source, int len)
 {
-    lily_string_val *sv = lily_new_raw_string_sized(source, len);
-    return lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value) { sv });
+    lily_value *result = lily_new_empty_value();
+    lily_move_string(result, lily_new_raw_string_sized(source, len));
+    return result;
 }
 
 /* Create a new value holding a string. That string's source will be exactly
@@ -181,8 +181,9 @@ lily_value *lily_new_string_ncpy(const char *source, int len)
    source given must be \0 terminated. */
 lily_value *lily_new_string_take(char *source)
 {
-    lily_string_val *sv = new_sv(source, strlen(source));
-    return lily_new_value(VAL_IS_STRING | VAL_IS_DEREFABLE, (lily_raw_value) { sv });
+    lily_value *result = lily_new_empty_value();
+    lily_move_string(result, new_sv(source, strlen(source)));
+    return result;
 }
 
 lily_instance_val *lily_new_instance_val()
