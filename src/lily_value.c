@@ -86,21 +86,20 @@ void lily_move_##name(lily_value *v, in_type z) \
     v->flags = f; \
 }
 
-MOVE_FN(boolean,     int64_t,             integer,   VAL_IS_BOOLEAN)
-MOVE_FN(closure,     lily_function_val *, function,  VAL_IS_FUNCTION | VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED)
-MOVE_FN(double,      double,              doubleval, VAL_IS_DOUBLE)
-MOVE_FN(dynamic,     lily_dynamic_val *,  dynamic,   VAL_IS_DYNAMIC  | VAL_IS_DEREFABLE)
-MOVE_FN(enum,        lily_instance_val *, instance,  VAL_IS_ENUM     | VAL_IS_DEREFABLE)
-MOVE_FN(file,        lily_file_val *,     file,      VAL_IS_FILE     | VAL_IS_DEREFABLE)
-MOVE_FN(foreign,     lily_foreign_val *,  foreign,   VAL_IS_FOREIGN  | VAL_IS_DEREFABLE)
-MOVE_FN(function,    lily_function_val *, function,  VAL_IS_FUNCTION | VAL_IS_DEREFABLE)
-MOVE_FN(hash,        lily_hash_val *,     hash,      VAL_IS_HASH     | VAL_IS_DEREFABLE)
-MOVE_FN(integer,     int64_t,             integer,   VAL_IS_INTEGER)
-MOVE_FN(instance,    lily_instance_val *, instance,  VAL_IS_INSTANCE | VAL_IS_DEREFABLE)
-MOVE_FN(instance_gc, lily_instance_val *, instance,  VAL_IS_INSTANCE | VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED)
-MOVE_FN(list,        lily_list_val *,     list,      VAL_IS_LIST     | VAL_IS_DEREFABLE)
-MOVE_FN(shared_enum, lily_instance_val *, instance,  VAL_IS_ENUM)
-MOVE_FN(string,      lily_string_val *,   string,    VAL_IS_STRING   | VAL_IS_DEREFABLE)
+MOVE_FN(boolean,        int64_t,             integer,   VAL_IS_BOOLEAN)
+MOVE_FN(closure,        lily_function_val *, function,  VAL_IS_FUNCTION | VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED)
+MOVE_FN(double,         double,              doubleval, VAL_IS_DOUBLE)
+MOVE_FN(dynamic,        lily_dynamic_val *,  dynamic,   VAL_IS_DYNAMIC  | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)
+MOVE_FN(enum,           lily_instance_val *, instance,  VAL_IS_ENUM     | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)
+MOVE_FN(file,           lily_file_val *,     file,      VAL_IS_FILE     | VAL_IS_DEREFABLE)
+MOVE_FN(foreign,        lily_foreign_val *,  foreign,   VAL_IS_FOREIGN  | VAL_IS_DEREFABLE)
+MOVE_FN(function,       lily_function_val *, function,  VAL_IS_FUNCTION | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)
+MOVE_FN(hash,           lily_hash_val *,     hash,      VAL_IS_HASH     | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)
+MOVE_FN(integer,        int64_t,             integer,   VAL_IS_INTEGER)
+MOVE_FN(instance,       lily_instance_val *, instance,  VAL_IS_INSTANCE | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)
+MOVE_FN(list,           lily_list_val *,     list,      VAL_IS_LIST     | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)
+MOVE_FN(shared_enum,    lily_instance_val *, instance,  VAL_IS_ENUM                        | VAL_IS_GC_SPECULATIVE)
+MOVE_FN(string,         lily_string_val *,   string,    VAL_IS_STRING   | VAL_IS_DEREFABLE)
 
 /* Create a copy of a value. It may get a ref. */
 lily_value *lily_copy_value(lily_value *input)
@@ -229,8 +228,8 @@ static int subvalue_eq(lily_vm_state *vm, int *depth, lily_value *left,
 /* Determine if two values are equivalent to each other. */
 int lily_eq_value_raw(lily_vm_state *vm, int *depth, lily_value *left, lily_value *right)
 {
-    int left_tag = left->flags & ~(VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED);
-    int right_tag = right->flags & ~(VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED);
+    int left_tag = left->flags & ~(VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE);
+    int right_tag = right->flags & ~(VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE);
 
     if (*depth == 100)
         lily_raise(vm->raiser, lily_RuntimeError, "Infinite loop in comparison.\n");

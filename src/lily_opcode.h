@@ -287,7 +287,9 @@ typedef enum {
 
     o_setup_optargs,
 
-    o_new_instance,
+    o_new_instance_basic,
+    o_new_instance_speculative,
+    o_new_instance_tagged,
 
     o_match_dispatch,
 

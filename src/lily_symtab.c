@@ -873,6 +873,10 @@ lily_tie *make_variant_default(lily_symtab *symtab,
     lily_tie *ret = make_new_literal_of_type(symtab, enum_type);
     ret->value.instance = iv;
     ret->move_flags = VAL_IS_ENUM;
+    /* This variant may not be interesting, but it could be swapped out with a
+       variant that is tagged. As a precaution, put it down as retain. */
+    if (variant->parent->generic_count != 0)
+        ret->move_flags |= VAL_IS_GC_SPECULATIVE;
 
     return ret;
 }

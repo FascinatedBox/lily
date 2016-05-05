@@ -350,7 +350,6 @@ static void build_hash_from_vm_list(lily_vm_state *vm, int start,
     vm->vm_list->pos = start;
 
     lily_move_hash(result_reg, hash_val);
-    lily_tag_value(vm, result_reg);
 }
 
 void lily_hash_map_values(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -426,7 +425,6 @@ void lily_hash_merge(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 
     lily_move_hash(result_reg, result_hash);
-    lily_tag_value(vm, result_reg);
 }
 
 static void hash_select_reject_common(lily_vm_state *vm, uint16_t argc,
