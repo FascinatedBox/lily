@@ -3388,6 +3388,95 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
     lily_change_parent_class(super_class, cls);
 }
 
+/* This is a helper function that scans 'target' to determine if it will require
+   any gc information to hold. */
+static int get_gc_flags_for(lily_class *top_class, lily_type *target)
+{
+    /* NULL is used as the return type of a Function that returns nothing. */
+    if (target == NULL)
+        return 0;
+
+    int result_flag = 0;
+
+    if (target->cls->id == SYM_CLASS_GENERIC) {
+        /* If a class has generic types, then it can't be fetched from Dynamic.
+           A generic type will always resolve to some bottom, but that bottom
+           will not be equal to itself. Based on that assumption, the class does
+           not need a tag (but it should be speculative). */
+        if (top_class->generic_count)
+            result_flag = CLS_GC_SPECULATIVE;
+        else
+            result_flag = CLS_GC_TAGGED;
+    }
+    else if (target->cls->flags & CLS_GC_TAGGED)
+        result_flag = CLS_GC_TAGGED;
+    else if (target->cls->flags & CLS_GC_SPECULATIVE)
+        result_flag = CLS_GC_SPECULATIVE;
+    else if (target->cls->flags & CLS_VISITED)
+        result_flag = CLS_GC_TAGGED;
+    else if (target->subtype_count) {
+        int i;
+        for (i = 0;i < target->subtype_count;i++)
+            result_flag |= get_gc_flags_for(top_class, target->subtypes[i]);
+    }
+
+    return result_flag;
+}
+
+/* A user-defined class is about to close. This scans over 'target' to find out
+   if any properties inside of the class may require gc information. If such
+   information is needed, then the class will have the appropriate flags set. */
+static void determine_class_gc_flag(lily_parse_state *parser,
+        lily_class *target)
+{
+    lily_class *parent_iter = target->parent;
+    int mark;
+
+    if (parent_iter) {
+        /* Start with this, just in case the child has no properties. */
+        mark = parent_iter->flags & (CLS_GC_TAGGED | CLS_GC_SPECULATIVE);
+        if (mark == CLS_GC_TAGGED) {
+            target->flags |= CLS_GC_TAGGED;
+            return;
+        }
+
+        while (parent_iter) {
+            parent_iter->flags |= CLS_VISITED;
+            parent_iter = parent_iter->next;
+        }
+    }
+    else
+        mark = 0;
+
+    lily_prop_entry *prop_iter = target->properties;
+
+    while (prop_iter) {
+        lily_type *type = prop_iter->type;
+        mark |= get_gc_flags_for(target, type);
+
+        if (type->subtype_count) {
+            int i;
+            for (i = 0;i < type->subtype_count;i++)
+                mark |= get_gc_flags_for(target, type->subtypes[i]);
+        }
+
+        prop_iter = prop_iter->next;
+    }
+
+    /* To eliminate confusion, make sure only one is set. */
+    if (mark & CLS_GC_TAGGED)
+        mark &= ~CLS_GC_SPECULATIVE;
+
+    parent_iter = target->parent;
+    while (parent_iter) {
+        parent_iter->flags &= ~CLS_VISITED;
+        parent_iter = parent_iter->next;
+    }
+
+    target->flags &= ~CLS_VISITED;
+    target->flags |= mark;
+}
+
 static void parse_class_body(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
@@ -3400,8 +3489,9 @@ static void parse_class_body(lily_parse_state *parser, lily_class *cls)
         parse_inheritance(parser, cls);
 
     NEED_CURRENT_TOK(tk_left_curly)
-
     parse_multiline_block_body(parser, 1);
+
+    determine_class_gc_flag(parser, parser->class_self_type->cls);
 
     parser->class_self_type = save_class_self_type;
     lily_emit_leave_block(parser->emit);

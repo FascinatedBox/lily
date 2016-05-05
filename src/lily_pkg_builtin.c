@@ -323,6 +323,8 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
     /* These need to be set here so type finalization can bubble them up. */
     symtab->generic_class->type->flags |= TYPE_IS_UNRESOLVED;
     symtab->question_class->type->flags |= TYPE_IS_INCOMPLETE;
+    symtab->function_class->flags |= CLS_GC_TAGGED;
+    symtab->dynamic_class->flags |= CLS_GC_SPECULATIVE;
 
     /* HACK: This ensures that there is space to dynaload builtin classes and
        enums into. */

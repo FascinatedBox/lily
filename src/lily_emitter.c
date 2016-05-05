@@ -879,8 +879,15 @@ static void finalize_function_block(lily_emit_state *emit,
 
 static void leave_function(lily_emit_state *emit, lily_block *block)
 {
-    if (block->block_type == block_class)
+    if (block->block_type == block_class) {
+        int class_flags = block->class_entry->flags;
+        if (class_flags & CLS_GC_SPECULATIVE)
+            emit->code[block->code_start] = o_new_instance_speculative;
+        else if (class_flags & CLS_GC_TAGGED)
+            emit->code[block->code_start] = o_new_instance_tagged;
+
         write_3(emit, o_return_val, *emit->lex_linenum, block->self->reg_spot);
+    }
     else {
         /* A lambda's return is whatever the last expression returns. */
         if (block->block_type == block_lambda)
@@ -1492,17 +1499,21 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
                 s->reg_spot);
 
         if (emit->block->block_type == block_class) {
+            emit->block->class_entry->flags |= CLS_GC_TAGGED;
+
             /* Classes are slightly tricky. There are (up to) three different
                things that really want to be at the top of the code:
-               o_new_instance, o_setup_optargs, and o_function_call (in the
+               o_new_instance_*, o_setup_optargs, and o_function_call (in the
                event that there is an inherited new).
-               Inject o_new_instance, then patch that out of the header so that
-               transform doesn't write it in again. */
+               Inject o_new_instance_mark, then patch that out of the header so
+               that transform doesn't write it in again. */
 
             uint16_t linenum = emit->code[start + 1];
             uint16_t cls_id = emit->code[start + 2];
             uint16_t self_reg_spot = emit->code[start + 3];
-            write_4(emit, o_new_instance, linenum, cls_id, self_reg_spot);
+            /* The class is holding a Function, so it's getting tagged. */
+            write_4(emit, o_new_instance_tagged, linenum, cls_id,
+                    self_reg_spot);
 
             transform_start += 4;
 
@@ -4295,8 +4306,10 @@ void lily_emit_update_function_block(lily_emit_state *emit,
         lily_storage *self = get_storage(emit, self_type);
         emit->block->self = self;
 
-        write_4(emit, o_new_instance, *emit->lex_linenum, self_type->cls->id,
-                self->reg_spot);
+        /* If this ends up not being a basic instance, then it will be patched
+           when the constructor closes. */
+        write_4(emit, o_new_instance_basic, *emit->lex_linenum,
+                self_type->cls->id, self->reg_spot);
     }
 }
 

@@ -360,10 +360,8 @@ static void invoke_gc(lily_vm_state *vm)
                 that will mark every inner value that's visible. */
     for (i = 0;i < vm->num_registers;i++) {
         lily_value *reg = regs_from_main[i];
-        if (reg->flags & VAL_IS_GC_TAGGED &&
-             reg->value.gc_generic->gc_entry != NULL) {
+        if (reg->flags & VAL_IS_GC_SWEEPABLE)
             lily_gc_mark(pass, reg);
-        }
     }
 
     /* Stage 2: Start destroying everything that wasn't marked as visible.
@@ -435,12 +433,15 @@ static void invoke_gc(lily_vm_state *vm)
 
 void lily_gc_mark(int pass, lily_value *v)
 {
-    if ((v->flags & VAL_IS_GC_TAGGED) &&
-        v->value.gc_generic->gc_entry &&
-        v->value.gc_generic->gc_entry->last_pass != pass)
+    if (((v->flags & VAL_IS_GC_TAGGED) &&
+         v->value.gc_generic->gc_entry &&
+         v->value.gc_generic->gc_entry->last_pass != pass) ||
+         v->flags & VAL_IS_GC_SPECULATIVE)
     {
-        lily_generic_gc_val *gen_val = v->value.gc_generic;
-        gen_val->gc_entry->last_pass = pass;
+        if (v->flags & VAL_IS_GC_TAGGED) {
+            lily_generic_gc_val *gen_val = v->value.gc_generic;
+            gen_val->gc_entry->last_pass = pass;
+        }
 
         if (v->flags &
             (VAL_IS_LIST | VAL_IS_INSTANCE | VAL_IS_ENUM | VAL_IS_TUPLE))
@@ -867,8 +868,6 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code, int code_pos)
 
         lily_hash_set_elem(vm, hash_val, key_reg, value_reg);
     }
-
-    lily_tag_value(vm, result);
 }
 
 /* Lists and tuples are effectively the same thing internally, since the list
@@ -893,8 +892,6 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
         lily_value *rhs_reg = vm_regs[code[3+i]];
         elems[i] = lily_copy_value(rhs_reg);
     }
-
-    lily_tag_value(vm, result);
 }
 
 static void do_o_build_enum(lily_vm_state *vm, uint16_t *code)
@@ -920,8 +917,6 @@ static void do_o_build_enum(lily_vm_state *vm, uint16_t *code)
         lily_value *rhs_reg = vm_regs[code[5+i]];
         slots[i] = lily_copy_value(rhs_reg);
     }
-
-    lily_tag_value(vm, result);
 }
 
 /* This raises a user-defined exception. The emitter has verified that the thing
@@ -969,7 +964,9 @@ static void do_o_setup_optargs(lily_vm_state *vm, uint16_t *code, int code_pos)
 
 /* This creates a new instance of a class. This checks if the current call is
    part of a constructor chain. If so, it will attempt to use the value
-   currently being built instead of making a new one. */
+   currently being built instead of making a new one.
+   There are three opcodes that come in through here. This will use the incoming
+   opcode as a way of deducing what to do with the newly-made instance. */
 static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 {
     int i, total_entries;
@@ -985,16 +982,16 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     /* Check to see if the caller is in the process of building a subclass
        of this value. If that is the case, then use that instance instead of
        building one that will simply be tossed. */
-    if (caller_frame->build_value &&
-        caller_frame->build_value->instance_id > instance_class->id) {
+    if (caller_frame->build_value) {
+        lily_value *build_value = caller_frame->build_value;
+        if (build_value->value.instance->instance_id > instance_class->id) {
 
-        lily_move_instance_gc(result, caller_frame->build_value);
-        result->value.generic->refcount++;
+            lily_assign_value(result, caller_frame->build_value);
 
-        /* Important! This allows this memory-saving trick to bubble up through
-           multiple .new calls! */
-        vm->call_chain->build_value = caller_frame->build_value;
-        return;
+            /* This causes the 'self' value to bubble upward. */
+            vm->call_chain->build_value = result;
+            return;
+        }
     }
 
     lily_instance_val *iv = lily_malloc(sizeof(lily_instance_val));
@@ -1007,7 +1004,10 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     iv->instance_id = cls_id;
 
     lily_move_instance(result, iv);
-    lily_tag_value(vm, result);
+    if (code[0] == o_new_instance_tagged)
+        lily_tag_value(vm, result);
+    else if (code[0] == o_new_instance_speculative)
+        result->flags |= VAL_IS_GC_SPECULATIVE;
 
     i = 0;
 
@@ -1030,7 +1030,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
     /* This is set so that a superclass .new can simply pull this instance,
        since this instance will have >= the # of types. */
-    vm->call_chain->build_value = iv;
+    vm->call_chain->build_value = result;
 }
 
 void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
@@ -2451,7 +2451,9 @@ void lily_vm_execute(lily_vm_state *vm)
                 do_o_raise(vm, lhs_reg);
                 code_pos += 3;
                 break;
-            case o_new_instance:
+            case o_new_instance_basic:
+            case o_new_instance_speculative:
+            case o_new_instance_tagged:
             {
                 do_o_new_instance(vm, code+code_pos);
                 code_pos += 4;

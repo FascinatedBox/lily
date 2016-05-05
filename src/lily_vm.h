@@ -25,7 +25,7 @@ typedef struct lily_call_frame_ {
        instruction o_new_instance uses this to determine if a constructor is
        being executed from a higher-up class. If that is the case, then the
        subclass uses the value of the higher-up class. */
-    lily_instance_val *build_value;
+    lily_value *build_value;
 
     struct lily_call_frame_ *prev;
     struct lily_call_frame_ *next;

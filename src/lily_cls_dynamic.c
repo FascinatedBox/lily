@@ -19,7 +19,7 @@ void lily_gc_dynamic_marker(int pass, lily_value *v)
 {
     lily_value *inner_value = v->value.dynamic->inner_value;
 
-    if (inner_value->flags & VAL_IS_GC_TAGGED)
+    if (inner_value->flags & VAL_IS_GC_SWEEPABLE)
         lily_gc_mark(pass, inner_value);
 }
 

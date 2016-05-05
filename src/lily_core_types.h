@@ -504,15 +504,22 @@ typedef struct lily_options_ {
 /* CLS_* defines are for lily_class. */
 
 
-#define CLS_VALID_HASH_KEY 0x01
-#define CLS_VALID_OPTARG   0x02
-#define CLS_IS_ENUM        0x04
-#define CLS_IS_VARIANT     0x10
+#define CLS_VALID_HASH_KEY 0x001
+#define CLS_VALID_OPTARG   0x002
+#define CLS_IS_ENUM        0x004
+#define CLS_IS_VARIANT     0x010
 /* This class is an enum AND the variants within are scoped. The difference is
    that scoped variants are accessed using 'enum.variant', while normal
    variants can use just 'variant'. */
-#define CLS_ENUM_IS_SCOPED 0x20
-#define CLS_EMPTY_VARIANT  0x40
+#define CLS_ENUM_IS_SCOPED 0x020
+#define CLS_EMPTY_VARIANT  0x040
+/* This class can become circular, so instances must have a gc tag. */
+#define CLS_GC_TAGGED      0x100
+/* This class might have circular data inside of it. */
+#define CLS_GC_SPECULATIVE 0x200
+/* This is a temporary flag set when parser is checking of a class should have a
+   gc mark/interest flag set on it. */
+#define CLS_VISITED        0x400
 
 /* TYPE_* defines are for lily_type.
    Since types are not usable as values, they do not need to start where
@@ -598,8 +605,12 @@ typedef struct lily_options_ {
 #define VAL_IS_ENUM             0x004000
 #define VAL_IS_FILE             0x010000
 #define VAL_IS_DEREFABLE        0x020000
-#define VAL_IS_GC_TAGGED        0x040000
-#define VAL_IS_FOREIGN          0x100000
+#define VAL_IS_FOREIGN          0x040000
+/* VAL_IS_GC_TAGGED means it is gc tagged, and must be found during a sweep. */
+#define VAL_IS_GC_TAGGED        0x100000
+/* VAL_IS_GC_SPECULATIVE means it might have tagged data inside. */
+#define VAL_IS_GC_SPECULATIVE   0x200000
+#define VAL_IS_GC_SWEEPABLE     (VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE)
 
 /* SYM_CLASS_* defines are for checking ids of a type's class. These are
    used very frequently. These must be kept in sync with the class loading

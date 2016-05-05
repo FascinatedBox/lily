@@ -37,7 +37,7 @@ void lily_gc_list_marker(int pass, lily_value *v)
     for (i = 0;i < list_val->num_values;i++) {
         lily_value *elem = list_val->elems[i];
 
-        if (elem->flags & VAL_IS_GC_TAGGED)
+        if (elem->flags & VAL_IS_GC_SWEEPABLE)
             lily_gc_mark(pass, elem);
     }
 }
@@ -298,7 +298,6 @@ void lily_list_fill(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_list_val *lv = lily_new_list_val();
 
     lily_move_list(result, lv);
-    lily_tag_value(vm, result);
 
     lily_value **elems = lily_malloc(sizeof(lily_value *) * n);
     lv->elems = elems;
@@ -333,8 +332,6 @@ static void slice_vm_list(lily_vm_state *vm, int vm_list_start,
     vm_list->pos = vm_list_start;
 
     lily_move_list(result_reg, result_list);
-    /* Assume that either all values are tagged, or none of them are. */
-    lily_tag_value(vm, result_reg);
 }
 
 static void list_select_reject_common(lily_vm_state *vm, uint16_t argc,
