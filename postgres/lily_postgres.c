@@ -88,10 +88,10 @@ void lily_pg_result_each_row(lily_vm_state *vm, uint16_t argc, uint16_t *code)
             else
                 field_text = PQgetvalue(raw_result, row, col);
 
-            lily_string_val *sv = lily_new_raw_string(field_text);
+            lily_value *v = lily_new_empty_value();
+            lily_move_string(v, lily_new_raw_string(field_text));
 
-            lv->elems[col] = lily_new_value(VAL_IS_STRING,
-                    (lily_raw_value){.string = sv});
+            lv->elems[col] = v;
         }
 
         lv->num_values = col;
@@ -232,7 +232,8 @@ void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     new_result->row_count = PQntuples(raw_result);
     new_result->column_count = PQnfields(raw_result);
 
-    lily_value *v = lily_new_foreign(new_result);
+    lily_value *v = lily_new_empty_value();
+    lily_move_foreign_f(MOVE_DEREF_NO_GC, v, (lily_foreign_val *)new_result);
     lily_move_enum_f(MOVE_DEREF_NO_GC, result_reg, lily_new_right(v));
 }
 
@@ -272,7 +273,9 @@ void lily_pg_conn_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
             new_val->is_open = 1;
             new_val->conn = conn;
 
-            lily_value *v = lily_new_foreign(new_val);
+            lily_value *v = lily_new_empty_value();
+            lily_move_foreign_f(MOVE_DEREF_NO_GC, v,
+                    (lily_foreign_val *)new_val);
             lily_move_enum_f(MOVE_DEREF_NO_GC, result, lily_new_some(v));
             break;
         default:

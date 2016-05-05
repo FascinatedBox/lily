@@ -9,8 +9,7 @@ lily_dynamic_val *lily_new_dynamic_val()
 {
     lily_dynamic_val *d = lily_malloc(sizeof(lily_dynamic_val));
 
-    d->inner_value = lily_new_value(0,
-            (lily_raw_value){.integer = 0});
+    d->inner_value = lily_new_empty_value();
     d->gc_entry = NULL;
     d->refcount = 1;
 
