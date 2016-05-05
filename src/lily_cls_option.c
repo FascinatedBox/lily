@@ -92,11 +92,11 @@ void lily_option_map(lily_vm_state *vm, uint16_t argc, uint16_t *code)
                 function_reg, 1, optval->values[0]);
 
         source = lily_new_some(lily_copy_value(output));
-        lily_move_enum(result_reg, source);
+        lily_move_enum_f(MOVE_DEREF_SPECULATIVE, result_reg, source);
     }
     else {
         source = lily_get_none(vm);
-        lily_move_shared_enum(result_reg, source);
+        lily_move_enum_f(MOVE_SHARED_SPECULATIVE, result_reg, source);
     }
 }
 

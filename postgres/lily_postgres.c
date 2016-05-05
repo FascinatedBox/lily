@@ -179,7 +179,7 @@ void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         if (ch == '?') {
             if (arg_pos == vararg_lv->num_values) {
                 lily_value *v = lily_new_string("Not enough arguments for format.\n");
-                lily_move_enum(result_reg, lily_new_left(v));
+                lily_move_enum_f(MOVE_DEREF_NO_GC, result_reg, lily_new_left(v));
                 return;
             }
 
@@ -218,7 +218,7 @@ void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         status == PGRES_NONFATAL_ERROR ||
         status == PGRES_FATAL_ERROR) {
         lily_value *v = lily_new_string(PQerrorMessage(conn_value->conn));
-        lily_move_enum(result_reg, lily_new_left(v));
+        lily_move_enum_f(MOVE_DEREF_NO_GC, result_reg, lily_new_left(v));
         return;
     }
 
@@ -233,7 +233,7 @@ void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     new_result->column_count = PQnfields(raw_result);
 
     lily_value *v = lily_new_foreign(new_result);
-    lily_move_enum(result_reg, lily_new_right(v));
+    lily_move_enum_f(MOVE_DEREF_NO_GC, result_reg, lily_new_right(v));
 }
 
 void lily_pg_conn_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -273,10 +273,10 @@ void lily_pg_conn_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
             new_val->conn = conn;
 
             lily_value *v = lily_new_foreign(new_val);
-            lily_move_enum(result, lily_new_some(v));
+            lily_move_enum_f(MOVE_DEREF_NO_GC, result, lily_new_some(v));
             break;
         default:
-            lily_move_shared_enum(result, lily_get_none(vm));
+            lily_move_enum_f(MOVE_DEREF_NO_GC, result, lily_get_none(vm));
             return;
     }
 }

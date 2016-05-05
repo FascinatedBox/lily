@@ -698,7 +698,7 @@ void lily_builtin_calltrace(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     vm->call_chain = vm->call_chain->next;
     vm->call_depth++;
 
-    lily_move_list(result, traceback_val);
+    lily_move_list_f(MOVE_DEREF_NO_GC, result, traceback_val);
 }
 
 static void do_print(lily_vm_state *vm, FILE *target, lily_value *source)
@@ -862,7 +862,7 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code, int code_pos)
     result = vm_regs[code[code_pos + 3 + num_values]];
 
     lily_hash_val *hash_val = lily_new_hash_val();
-    lily_move_hash(result, hash_val);
+    lily_move_hash_f(MOVE_DEREF_SPECULATIVE, result, hash_val);
 
     for (i = 0;
          i < num_values;
@@ -889,7 +889,7 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     lv->num_values = num_elems;
     lv->elems = elems;
 
-    lily_move_list(result, lv);
+    lily_move_list_f(MOVE_DEREF_SPECULATIVE, result, lv);
 
     int i;
     for (i = 0;i < num_elems;i++) {
@@ -914,7 +914,7 @@ static void do_o_build_enum(lily_vm_state *vm, uint16_t *code)
     ival->variant_id = variant_id;
     ival->instance_id = instance_id;
 
-    lily_move_enum(result, ival);
+    lily_move_enum_f(MOVE_DEREF_SPECULATIVE, result, ival);
 
     int i;
     for (i = 0;i < num_values;i++) {
@@ -1007,11 +1007,13 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     iv->gc_entry = NULL;
     iv->instance_id = cls_id;
 
-    lily_move_instance(result, iv);
-    if (code[0] == o_new_instance_tagged)
-        lily_tag_value(vm, result);
-    else if (code[0] == o_new_instance_speculative)
-        result->flags |= VAL_IS_GC_SPECULATIVE;
+    if (code[0] == o_new_instance_speculative)
+        lily_move_instance_f(MOVE_DEREF_SPECULATIVE, result, iv);
+    else {
+        lily_move_instance_f(MOVE_DEREF_NO_GC, result, iv);
+        if (code[0] == o_new_instance_tagged)
+            lily_tag_value(vm, result);
+    }
 
     i = 0;
 
@@ -1075,9 +1077,10 @@ void do_o_dynamic_cast(lily_vm_state *vm, uint16_t *code)
     if (ok)
         /* Dynamic will free the value inside of it when it's collected, so the
            new Some will need a copy of the value. */
-        lily_move_enum(lhs_reg, lily_new_some(lily_copy_value(inner)));
+        lily_move_enum_f(MOVE_DEREF_SPECULATIVE, lhs_reg,
+                lily_new_some(lily_copy_value(inner)));
     else
-        lily_move_shared_enum(lhs_reg, lily_get_none(vm));
+        lily_move_enum_f(MOVE_SHARED_SPECULATIVE, lhs_reg, lily_get_none(vm));
 }
 
 /***
@@ -1142,7 +1145,7 @@ static lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
     closure_func->upvalues = upvalues;
     closure_func->refcount = 1;
 
-    lily_move_function(result, closure_func);
+    lily_move_function_f(MOVE_DEREF_NO_GC, result, closure_func);
     lily_tag_value(vm, result);
 
     return upvalues;
@@ -1187,7 +1190,7 @@ static void do_o_create_function(lily_vm_state *vm, uint16_t *code)
 
     copy_upvalues(new_closure, input_closure_reg->value.function);
 
-    lily_move_function(result_reg, new_closure);
+    lily_move_function_f(MOVE_DEREF_SPECULATIVE, result_reg, new_closure);
     lily_tag_value(vm, result_reg);
 }
 
@@ -1231,10 +1234,10 @@ static lily_value **do_o_load_closure(lily_vm_state *vm, uint16_t *code)
 
     input_closure->refcount++;
 
-    /* All closures are always tagged. It is extremely important to add the tag
-       flag. Failure to do so will cause at least two tests (at the time of this
-       writing) to experience very not-fun heap corruption. */
-    lily_move_closure(result_reg, input_closure);
+    /* Closures are always tagged. Do this as a custom move, because this is,
+       so far, the only scenario where a move needs to mark a tagged value. */
+    lily_move_function_f(VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED, result_reg,
+            input_closure);
 
     return input_closure->upvalues;
 }
@@ -1254,7 +1257,7 @@ static lily_value **do_o_load_class_closure(lily_vm_state *vm, uint16_t *code,
     new_closure->refcount = 1;
     copy_upvalues(new_closure, input_closure);
 
-    lily_move_function(result_reg, new_closure);
+    lily_move_function_f(MOVE_DEREF_SPECULATIVE, result_reg, new_closure);
 
     return new_closure->upvalues;
 }
@@ -1331,14 +1334,6 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
     return lv;
 }
 
-/* This acts as a wrapper over build_traceback_raw. The raw list_val is put into
-   a proper lily_value. */
-static lily_value *build_traceback(lily_vm_state *vm)
-{
-    lily_list_val *lv = build_traceback_raw(vm);
-    return lily_new_list(lv);
-}
-
 /* This is called when a builtin exception has been thrown. All builtin
    exceptions are subclasses of Exception with only a traceback and message
    field being set. This builds a new value of the given type with the message
@@ -1360,12 +1355,13 @@ static void make_proper_exception_val(lily_vm_state *vm,
     ival->values[0] = message_val;
     ival->num_values = 1;
 
-    lily_value *traceback_val = build_traceback(vm);
+    lily_value *traceback = lily_new_empty();
+    lily_move_list_f(MOVE_DEREF_NO_GC, traceback, build_traceback_raw(vm));
 
-    ival->values[1] = traceback_val;
+    ival->values[1] = traceback;
     ival->num_values = 2;
 
-    lily_move_instance(result, ival);
+    lily_move_instance_f(MOVE_DEREF_SPECULATIVE, result, ival);
 }
 
 /* This is called when 'raise' raises an error. The traceback property is
@@ -1378,7 +1374,7 @@ static void fixup_exception_val(lily_vm_state *vm, lily_value *result,
     lily_list_val *raw_trace = build_traceback_raw(vm);
     lily_instance_val *iv = result->value.instance;
 
-    lily_move_list(iv->values[1], raw_trace);
+    lily_move_list_f(MOVE_DEREF_SPECULATIVE, iv->values[1], raw_trace);
 }
 
 /* This attempts to catch the exception that the raiser currently holds. If it

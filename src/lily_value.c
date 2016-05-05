@@ -43,6 +43,14 @@ void lily_deref(lily_value *value)
     }
 }
 
+lily_value *lily_new_empty(void)
+{
+    lily_value *result = lily_malloc(sizeof(lily_value));
+    result->flags = 0;
+
+    return result;
+}
+
 lily_value *lily_new_value(uint64_t flags, lily_raw_value raw)
 {
     lily_value *v = lily_malloc(sizeof(lily_value));
@@ -86,20 +94,28 @@ void lily_move_##name(lily_value *v, in_type z) \
     v->flags = f; \
 }
 
-MOVE_FN(boolean,        int64_t,             integer,   VAL_IS_BOOLEAN)
-MOVE_FN(closure,        lily_function_val *, function,  VAL_IS_FUNCTION | VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED)
-MOVE_FN(double,         double,              doubleval, VAL_IS_DOUBLE)
-MOVE_FN(dynamic,        lily_dynamic_val *,  dynamic,   VAL_IS_DYNAMIC  | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)
-MOVE_FN(enum,           lily_instance_val *, instance,  VAL_IS_ENUM     | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)
-MOVE_FN(file,           lily_file_val *,     file,      VAL_IS_FILE     | VAL_IS_DEREFABLE)
-MOVE_FN(foreign,        lily_foreign_val *,  foreign,   VAL_IS_FOREIGN  | VAL_IS_DEREFABLE)
-MOVE_FN(function,       lily_function_val *, function,  VAL_IS_FUNCTION | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)
-MOVE_FN(hash,           lily_hash_val *,     hash,      VAL_IS_HASH     | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)
-MOVE_FN(integer,        int64_t,             integer,   VAL_IS_INTEGER)
-MOVE_FN(instance,       lily_instance_val *, instance,  VAL_IS_INSTANCE | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)
-MOVE_FN(list,           lily_list_val *,     list,      VAL_IS_LIST     | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)
-MOVE_FN(shared_enum,    lily_instance_val *, instance,  VAL_IS_ENUM                        | VAL_IS_GC_SPECULATIVE)
-MOVE_FN(string,         lily_string_val *,   string,    VAL_IS_STRING   | VAL_IS_DEREFABLE)
+#define MOVE_FN_F(name, in_type, field, type_flag) \
+void lily_move_##name##_f(uint32_t f, lily_value *v, in_type z) \
+{ \
+    if (v->flags & VAL_IS_DEREFABLE) \
+        lily_deref(v); \
+\
+    v->value.field = z; \
+    v->flags = (f | type_flag); \
+}
+
+MOVE_FN  (boolean,        int64_t,             integer,   VAL_IS_BOOLEAN)
+MOVE_FN  (double,         double,              doubleval, VAL_IS_DOUBLE)
+MOVE_FN  (dynamic,        lily_dynamic_val *,  dynamic,   VAL_IS_DYNAMIC  | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)
+MOVE_FN_F(enum,           lily_instance_val *, instance,  VAL_IS_ENUM)
+MOVE_FN  (file,           lily_file_val *,     file,      VAL_IS_FILE     | VAL_IS_DEREFABLE)
+MOVE_FN  (foreign,        lily_foreign_val *,  foreign,   VAL_IS_FOREIGN  | VAL_IS_DEREFABLE)
+MOVE_FN_F(function,       lily_function_val *, function,  VAL_IS_FUNCTION)
+MOVE_FN_F(hash,           lily_hash_val *,     hash,      VAL_IS_HASH)
+MOVE_FN  (integer,        int64_t,             integer,   VAL_IS_INTEGER)
+MOVE_FN_F(instance,       lily_instance_val *, instance,  VAL_IS_INSTANCE)
+MOVE_FN_F(list,           lily_list_val *,     list,      VAL_IS_LIST)
+MOVE_FN  (string,         lily_string_val *,   string,    VAL_IS_STRING   | VAL_IS_DEREFABLE)
 
 /* Create a copy of a value. It may get a ref. */
 lily_value *lily_copy_value(lily_value *input)

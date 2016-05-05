@@ -211,7 +211,7 @@ void lily_hash_keys(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         elem_iter = elem_iter->next;
     }
 
-    lily_move_list(result_reg, result_lv);
+    lily_move_list_f(MOVE_DEREF_SPECULATIVE, result_reg, result_lv);
 }
 
 void lily_hash_delete(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -297,7 +297,7 @@ static void build_hash_from_vm_list(lily_vm_state *vm, int start,
 
     vm->vm_list->pos = start;
 
-    lily_move_hash(result_reg, hash_val);
+    lily_move_hash_f(MOVE_DEREF_SPECULATIVE, result_reg, hash_val);
 }
 
 void lily_hash_map_values(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -372,7 +372,7 @@ void lily_hash_merge(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         }
     }
 
-    lily_move_hash(result_reg, result_hash);
+    lily_move_hash_f(MOVE_DEREF_SPECULATIVE, result_reg, result_hash);
 }
 
 static void hash_select_reject_common(lily_vm_state *vm, uint16_t argc,
