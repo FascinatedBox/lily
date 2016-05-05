@@ -24,17 +24,17 @@ void lily_bytestring_encode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         int byte_buffer_size = input_bytestring->size;
 
         if (lily_is_valid_sized_utf8(byte_buffer, byte_buffer_size) == 0) {
-            lily_move_shared_enum(result, lily_get_none(vm));
+            lily_move_enum_f(MOVE_SHARED_NO_GC, result, lily_get_none(vm));
             return;
         }
     }
     else {
-        lily_move_shared_enum(result, lily_get_none(vm));
+        lily_move_enum_f(MOVE_SHARED_NO_GC, result, lily_get_none(vm));
         return;
     }
 
     lily_value *v = lily_new_string(byte_buffer);
-    lily_move_enum(result, lily_new_some(v));
+    lily_move_enum_f(MOVE_DEREF_NO_GC, result, lily_new_some(v));
 }
 
 static const lily_func_seed dynaload_start =
