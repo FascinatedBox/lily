@@ -14,7 +14,6 @@ void lily_hash_add_unique(lily_vm_state *, lily_hash_val *, lily_value *,
 
 void lily_gc_hash_marker(int, lily_value *);
 void lily_destroy_hash(lily_value *);
-void lily_gc_collect_hash(lily_value *);
 lily_class *lily_hash_init(lily_symtab *);
 
 #endif

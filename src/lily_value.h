@@ -6,7 +6,6 @@
 void lily_deref(lily_value *);
 void lily_assign_value(lily_value *, lily_value *);
 void lily_move(lily_value *, lily_raw_value, int);
-void lily_collect_value(lily_value *);
 lily_value *lily_copy_value(lily_value *);
 int lily_eq_value(struct lily_vm_state_ *, lily_value *, lily_value *);
 

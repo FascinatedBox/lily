@@ -3,6 +3,8 @@
 #include "lily_value.h"
 #include "lily_seed.h"
 
+extern lily_gc_entry *lily_gc_stopper;
+
 lily_dynamic_val *lily_new_dynamic_val()
 {
     lily_dynamic_val *d = lily_malloc(sizeof(lily_dynamic_val));
@@ -27,33 +29,21 @@ void lily_destroy_dynamic(lily_value *v)
 {
     lily_dynamic_val *dv = v->value.dynamic;
 
-    dv->gc_entry->value.generic = NULL;
+    int full_destroy = 1;
+    if (dv->gc_entry) {
+        if (dv->gc_entry->last_pass == -1) {
+            full_destroy = 0;
+            dv->gc_entry = lily_gc_stopper;
+        }
+        else
+            dv->gc_entry->value.generic = NULL;
+    }
 
     lily_deref(dv->inner_value);
-
     lily_free(dv->inner_value);
-    lily_free(dv);
-}
 
-void lily_gc_collect_dynamic(lily_value *v)
-{
-    lily_dynamic_val *dynamic_val = v->value.dynamic;
-    if (dynamic_val->gc_entry->value.generic != NULL &&
-        dynamic_val->gc_entry->last_pass != -1) {
-        /* This lets the gc know that everything inside is gone. */
-        dynamic_val->gc_entry->last_pass = -1;
-        lily_value *inner_value = dynamic_val->inner_value;
-        if (inner_value->flags & VAL_IS_DEREFABLE) {
-            lily_generic_val *generic_val = inner_value->value.generic;
-            if (generic_val->refcount == 1)
-                lily_collect_value(inner_value);
-            else
-                generic_val->refcount--;
-        }
-
-        lily_free(dynamic_val->inner_value);
-        /* Do not free dynamic_val here: Let the gc do that later. */
-    }
+    if (full_destroy)
+        lily_free(dv);
 }
 
 void lily_dynamic_new(lily_vm_state *vm, uint16_t argc, uint16_t *code)

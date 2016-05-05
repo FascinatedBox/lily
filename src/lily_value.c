@@ -5,7 +5,7 @@
 #include "lily_value.h"
 #include "lily_core_types.h"
 
-/* This is for the gc + destroy funcs. :( */
+/* This is for their destroy funcs. :( */
 
 #include "lily_cls_string.h"
 #include "lily_cls_list.h"
@@ -14,7 +14,7 @@
 #include "lily_cls_function.h"
 #include "lily_cls_file.h"
 
-void destroy_value(lily_value *v)
+void lily_destroy_value(lily_value *v)
 {
     int flags = v->flags;
     if (flags & (VAL_IS_LIST | VAL_IS_INSTANCE | VAL_IS_TUPLE | VAL_IS_ENUM))
@@ -39,7 +39,7 @@ void lily_deref(lily_value *value)
     if (value->flags & VAL_IS_DEREFABLE) {
         value->value.generic->refcount--;
         if (value->value.generic->refcount == 0)
-            destroy_value(value);
+            lily_destroy_value(value);
     }
 }
 
@@ -323,20 +323,4 @@ int lily_eq_value(lily_vm_state *vm, lily_value *left, lily_value *right)
 {
     int depth = 0;
     return lily_eq_value_raw(vm, &depth, left, right);
-}
-
-void lily_collect_value(lily_value *v)
-{
-    int flags = v->flags;
-
-    if (flags & (VAL_IS_LIST | VAL_IS_INSTANCE | VAL_IS_TUPLE | VAL_IS_ENUM))
-        lily_gc_collect_list(v);
-    else if (flags & VAL_IS_HASH)
-        lily_gc_collect_hash(v);
-    else if (flags & VAL_IS_DYNAMIC)
-        lily_gc_collect_dynamic(v);
-    else if (flags & VAL_IS_FUNCTION)
-        lily_gc_collect_function(v);
-    else if (flags & (VAL_IS_STRING | VAL_IS_BYTESTRING))
-        lily_deref(v);
 }

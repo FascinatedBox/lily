@@ -164,54 +164,6 @@ void lily_destroy_hash(lily_value *v)
     lily_free(hv);
 }
 
-void lily_gc_collect_hash(lily_value *v)
-{
-    lily_hash_val *hash_val = v->value.hash;
-    int marked = 0;
-    if (hash_val->gc_entry == NULL ||
-        (hash_val->gc_entry->last_pass != -1 &&
-         hash_val->gc_entry->value.generic != NULL)) {
-
-        if (hash_val->gc_entry) {
-            hash_val->gc_entry->last_pass = -1;
-
-            marked = 1;
-        }
-
-        lily_hash_elem *elem_iter = hash_val->elem_chain;
-        lily_hash_elem *elem_temp;
-        while (elem_iter) {
-            lily_value *elem_value = elem_iter->elem_value;
-            lily_value *elem_key = elem_iter->elem_key;
-
-            elem_temp = elem_iter->next;
-            if (elem_key->flags & VAL_IS_DEREFABLE) {
-                lily_raw_value k = elem_key->value;
-                if (k.generic->refcount == 1)
-                    lily_collect_value(elem_key);
-                else
-                    k.generic->refcount--;
-            }
-
-            if (elem_value->flags & VAL_IS_DEREFABLE) {
-                lily_raw_value v = elem_value->value;
-                if (v.generic->refcount == 1)
-                    lily_collect_value(elem_value);
-                else
-                    v.generic->refcount--;
-            }
-
-            lily_free(elem_iter->elem_key);
-            lily_free(elem_iter->elem_value);
-            lily_free(elem_iter);
-            elem_iter = elem_temp;
-        }
-
-        if (marked == 0)
-            lily_free(hash_val);
-    }
-}
-
 void lily_hash_clear(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
