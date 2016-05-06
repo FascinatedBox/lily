@@ -266,9 +266,9 @@ static const lily_var_seed seed_stdout =
 static const lily_var_seed seed_stdin =
         {&seed_stdout, "stdin", dyna_var, "File"};
 
-static void builtin_var_loader(lily_parse_state *parser, lily_var *var)
+static void builtin_var_loader(lily_parse_state *parser, const char *name,
+        lily_foreign_tie *tie)
 {
-    char *name = var->name;
     FILE *source;
     const char *mode;
 
@@ -289,11 +289,7 @@ static void builtin_var_loader(lily_parse_state *parser, lily_var *var)
     /* This prevents std* streams from being closed. */
     file_val->is_builtin = 1;
 
-    lily_value v;
-    v.flags = 0;
-    v.value = (lily_raw_value) { file_val };
-
-    lily_tie_value(parser->symtab, var, &v);
+    lily_move_file(&tie->data, file_val);
 }
 
 void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)

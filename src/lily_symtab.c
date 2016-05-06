@@ -476,18 +476,19 @@ void lily_tie_function(lily_symtab *symtab, lily_var *func_var,
     tie_function(symtab, func_var, func_val, symtab->active_import);
 }
 
-void lily_tie_value(lily_symtab *symtab, lily_var *var, lily_value *value)
+lily_foreign_tie *lily_new_foreign_tie(lily_symtab *symtab, lily_var *var)
 {
-    lily_tie *tie = lily_malloc(sizeof(lily_tie));
+    lily_foreign_tie *tie = lily_malloc(sizeof(lily_tie));
 
     tie->type = var->type;
-    tie->value = value->value;
     tie->reg_spot = var->reg_spot;
     tie->item_kind = ITEM_TYPE_TIE;
-    tie->flags = 0;
-    tie->move_flags = VAL_IS_DEREFABLE | var->type->cls->move_flags;
+    /* This must be set so that move functions do not do invalid reads. */
+    tie->data.flags = 0;
     tie->next = symtab->foreign_ties;
     symtab->foreign_ties = tie;
+
+    return tie;
 }
 
 /***

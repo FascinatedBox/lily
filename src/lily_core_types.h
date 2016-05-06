@@ -15,6 +15,7 @@ struct lily_var_;
 struct lily_type_;
 struct lily_function_val_;
 struct lily_parse_state_;
+struct lily_foreign_tie_;
 
 /* Lily's foreign functions look like this. */
 typedef void (*lily_foreign_func)(struct lily_vm_state_ *, uint16_t,
@@ -24,7 +25,8 @@ typedef void (*lily_foreign_func)(struct lily_vm_state_ *, uint16_t,
    inside. */
 typedef void (*class_destroy_func)(struct lily_value_ *);
 /* This function is called to initialize seeds of type dyna_var. */
-typedef void (*var_loader)(struct lily_parse_state_ *, struct lily_var_ *);
+typedef void (*var_loader)(struct lily_parse_state_ *, const char *,
+        struct lily_foreign_tie_ *);
 
 /* lily_raw_value is a union of all possible values, plus a bit more. This is
    not common, because lily_value (which has flags and a type) is typically
@@ -46,6 +48,16 @@ typedef union lily_raw_value_ {
     struct lily_instance_val_ *instance;
     struct lily_foreign_val_ *foreign;
 } lily_raw_value;
+
+/* A proper Lily value. The 'flags' field holds gc/deref info, as well as a
+   VAL_IS_* flag to indicate the -kind- of value. */
+typedef struct lily_value_ {
+    uint32_t flags;
+    /* This is only used by closure cells. When a closure cell has a
+       cell_refcount of zero, it's deref'd and free'd. */
+    uint32_t cell_refcount;
+    lily_raw_value value;
+} lily_value;
 
 typedef struct {
     struct lily_class_ *next;
@@ -185,7 +197,7 @@ typedef struct lily_prop_entry_ {
 } lily_prop_entry;
 
 /* A tie represents an association between some particular spot, and a value
-   given. This struct represents literals, readonly vars, and foreign values. */
+   given. This struct represents literals, and defined functions. */
 typedef struct lily_tie_ {
     struct lily_tie_ *next;
     uint16_t item_kind;
@@ -196,6 +208,24 @@ typedef struct lily_tie_ {
     uint32_t move_flags;
     lily_raw_value value;
 } lily_tie;
+
+/* A foreign tie associates a dynaloaded var with a particular register spot.
+   Foreign ties are always loaded as globals so that they are available in any
+   scope. The difference between this and lily_tie is that foreign ties have a
+   non-pointer 'data' field for the value instead of having the value but as
+   different fields.
+   This split was not done without reason. Emitter often needs to reach into the
+   raw value of a tie (ex: Tuple subscripts). So having a '.data' in the way is
+   annoying at best.
+   Modules, on the other hand, can't use the move api with inlined fields. */
+typedef struct lily_foreign_tie_ {
+    struct lily_foreign_tie_ *next;
+    uint16_t item_kind;
+    uint16_t flags;
+    uint32_t reg_spot;
+    lily_type *type;
+    lily_value data;
+} lily_foreign_tie;
 
 /* lily_storage is a struct used by emitter to hold info for intermediate
    values (such as the result of an addition). The emitter will reuse these
@@ -381,18 +411,6 @@ typedef struct lily_generic_gc_val_ {
 /* Next, miscellanous structs. */
 
 
-
-/* Here's a proper value in Lily. It has flags (for nil and other stuff), a
-   type, and the actual value. */
-typedef struct lily_value_ {
-    uint32_t flags;
-    /* This field is ignored unless this value is an upvalue within a function
-       value. If it is, then each closure that uses this cell bumps the refcount
-       here. When cell_refcount is zero, the raw value is deref'd and the value
-       itself is destroyed. */
-    uint32_t cell_refcount;
-    lily_raw_value value;
-} lily_value;
 
 /* This holds a value that has been deemed interesting to the gc. This has the
    same layout as a lily_value_ on purpose. */

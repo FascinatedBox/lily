@@ -1268,9 +1268,10 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_item *scope,
         lily_var *new_var = lily_emit_new_dyna_var(parser->emit, import,
                 var_type, seed->name);
 
-        /* This will tie some sort of value to the newly-made var. It doesn't
-           matter what though: The vm will figure that out later. */
-        import->var_load_fn(parser, new_var);
+        /* The dynaload function is responsible for moving something into the
+           data part of the tie. */
+        import->var_load_fn(parser, seed->name,
+                lily_new_foreign_tie(symtab, new_var));
         result = (lily_item *)new_var;
     }
     else if (seed->seed_type == dyna_function) {
