@@ -4,12 +4,10 @@
 #include <stdio.h>
 
 #include "lily_alloc.h"
-#include "lily_value.h"
 #include "lily_vm.h"
 #include "lily_seed.h"
 
-#include "lily_cls_list.h"
-#include "lily_cls_option.h"
+#include "lily_api_value.h"
 
 void lily_destroy_string(lily_value *v)
 {

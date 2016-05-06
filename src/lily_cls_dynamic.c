@@ -1,20 +1,10 @@
 #include "lily_alloc.h"
 #include "lily_vm.h"
-#include "lily_value.h"
 #include "lily_seed.h"
 
+#include "lily_api_value.h"
+
 extern lily_gc_entry *lily_gc_stopper;
-
-lily_dynamic_val *lily_new_dynamic_val()
-{
-    lily_dynamic_val *d = lily_malloc(sizeof(lily_dynamic_val));
-
-    d->inner_value = lily_new_empty_value();
-    d->gc_entry = NULL;
-    d->refcount = 1;
-
-    return d;
-}
 
 void lily_gc_dynamic_marker(int pass, lily_value *v)
 {

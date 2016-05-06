@@ -6,9 +6,8 @@
 #include "lily_vm.h"
 #include "lily_seed.h"
 #include "lily_utf8.h"
-#include "lily_value.h"
 
-#include "lily_cls_option.h"
+#include "lily_api_value.h"
 
 void lily_bytestring_encode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {

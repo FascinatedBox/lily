@@ -3,7 +3,6 @@
 
 #include "lily_parser.h"
 #include "lily_symtab.h"
-#include "lily_value.h"
 #include "lily_cls_integer.h"
 #include "lily_cls_double.h"
 #include "lily_cls_string.h"
@@ -14,8 +13,9 @@
 #include "lily_cls_list.h"
 #include "lily_cls_hash.h"
 #include "lily_cls_file.h"
-#include "lily_cls_option.h"
 #include "lily_seed.h"
+
+#include "lily_api_value.h"
 
 extern const lily_func_seed lily_option_dl_start;
 extern const lily_func_seed lily_either_dl_start;

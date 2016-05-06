@@ -3,7 +3,6 @@
 
 #include "lily_alloc.h"
 #include "lily_impl.h"
-#include "lily_value.h"
 #include "lily_opcode.h"
 #include "lily_vm.h"
 #include "lily_parser.h"
@@ -13,7 +12,8 @@
 #include "lily_cls_function.h"
 #include "lily_cls_list.h"
 #include "lily_cls_string.h"
-#include "lily_cls_option.h"
+
+#include "lily_api_value.h"
 
 extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
 extern lily_gc_entry *lily_gc_stopper;
@@ -121,9 +121,6 @@ code_pos += 5;
       will get a gc tag. Values that can be destroyed are destroy-able through
       pure ref/deref (and that will zap the tag to prevent a double free), or
       through the gc if it comes to that.
-
-    * lily_value.h contains useful functions for handling values. In general, it
-      is an unwise idea to manipulate values directly.
 
     * Forgetting to increase a ref typically shows itself through invalid reads
       and/or writes during garbage collection.

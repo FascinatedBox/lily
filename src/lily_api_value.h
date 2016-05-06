@@ -3,11 +3,16 @@
 
 # include "lily_core_types.h"
 
+/** General value operations **/
+
 void lily_deref(lily_value *);
 void lily_assign_value(lily_value *, lily_value *);
 void lily_assign_value_noref(lily_value *, lily_value *);
 lily_value *lily_copy_value(lily_value *);
 int lily_eq_value(struct lily_vm_state_ *, lily_value *, lily_value *);
+
+/** The functions and the MOVE_* flags form the move api. This api is used to
+    push values back into lily_values so that they're visible in Lily space. **/
 
 void lily_move_boolean(lily_value *, int64_t);
 void lily_move_double(lily_value *, double);
@@ -51,14 +56,48 @@ void lily_move_string(lily_value *, lily_string_val *);
    swept through. */
 #define MOVE_SHARED_SPECULATIVE   (VAL_IS_GC_SPECULATIVE)
 
+/** These functions create new raw values. Since these are raw values, Lily has
+    no internal knowledge that they exist. Newly-made values must be put into
+    Lily space using the above-mentioned move functions. **/
+
 lily_value *lily_new_empty_value(void);
-lily_instance_val *lily_new_instance_val();
-lily_instance_val *lily_new_enum_1(uint16_t, uint16_t, lily_value *);
+
+lily_dynamic_val *lily_new_dynamic_val(void);
+
+lily_file_val *lily_new_file_val(FILE *, const char *);
+
+/* These three functions are a special case. The first two are meant to be used
+   at parse-time (they may not work at vm-time). The last may work at vm-time,
+   but is used primarily for closure allocation. */
+lily_function_val *lily_new_native_function_val(char *, char *);
+lily_function_val *lily_new_foreign_function_val(lily_foreign_func,
+        char *, char *);
+lily_function_val *lily_new_function_copy(lily_function_val *);
+
+lily_list_val *lily_new_list_val(void);
+lily_hash_val *lily_new_hash_val(void);
+lily_instance_val *lily_new_instance_val(void);
 
 lily_value *lily_new_string(const char *);
 lily_value *lily_new_string_take(char *);
 lily_value *lily_new_string_ncpy(const char *, int);
 lily_string_val *lily_new_raw_string(const char *);
 lily_string_val *lily_new_raw_string_sized(const char *, int);
+
+/* An id is assigned to every variant within an enum. That id is used along with
+   the id of an enum for printing the variant. The values below are used to
+   create variants of Option and Either, respectively. */
+
+#define SOME_VARIANT_ID 0
+#define NONE_VARIANT_ID 1
+
+lily_instance_val *lily_new_some(lily_value *);
+lily_instance_val *lily_get_none(struct lily_vm_state_ *);
+
+#define RIGHT_VARIANT_ID 0
+#define LEFT_VARIANT_ID  1
+
+lily_instance_val *lily_new_left(lily_value *);
+lily_instance_val *lily_new_right(lily_value *);
 
 #endif

@@ -9,11 +9,10 @@
 #include "lily_parser_tok_table.h"
 #include "lily_keyword_table.h"
 #include "lily_pkg_sys.h"
-#include "lily_value.h"
 #include "lily_membuf.h"
 #include "lily_seed.h"
 
-#include "lily_cls_function.h"
+#include "lily_api_value.h"
 
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \

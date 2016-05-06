@@ -1,51 +1,10 @@
 #include "lily_alloc.h"
 #include "lily_core_types.h"
-#include "lily_value.h"
 #include "lily_vm.h"
 
+#include "lily_api_value.h"
+
 extern lily_gc_entry *lily_gc_stopper;
-
-lily_function_val *lily_new_foreign_function_val(lily_foreign_func func,
-        char *class_name, char *name)
-{
-    lily_function_val *f = lily_malloc(sizeof(lily_function_val));
-
-    f->refcount = 1;
-    f->class_name = class_name;
-    f->trace_name = name;
-    f->foreign_func = func;
-    f->code = NULL;
-    f->num_upvalues = 0;
-    f->upvalues = NULL;
-    f->gc_entry = NULL;
-    f->reg_count = -1;
-    return f;
-}
-
-lily_function_val *lily_new_native_function_val(char *class_name,
-        char *name)
-{
-    lily_function_val *f = lily_malloc(sizeof(lily_function_val));
-
-    f->refcount = 1;
-    f->class_name = class_name;
-    f->trace_name = name;
-    f->foreign_func = NULL;
-    f->code = NULL;
-    f->num_upvalues = 0;
-    f->upvalues = NULL;
-    f->gc_entry = NULL;
-    f->reg_count = -1;
-    return f;
-}
-
-lily_function_val *lily_new_function_copy(lily_function_val *to_copy)
-{
-    lily_function_val *f = malloc(sizeof(lily_function_val));
-
-    *f = *to_copy;
-    return f;
-}
 
 void lily_gc_function_marker(int pass, lily_value *v)
 {
