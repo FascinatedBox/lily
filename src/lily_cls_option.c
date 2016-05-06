@@ -1,33 +1,9 @@
 #include "lily_alloc.h"
 #include "lily_core_types.h"
 #include "lily_vm.h"
-#include "lily_value.h"
 #include "lily_seed.h"
-#include "lily_cls_option.h"
 
-/* Option is a dynaloaded enum. There are no implementations for a marker, eq,
-   or destroy because enums use tuple's versions of those. This instead focuses
-   on the methods available to Option. */
-
-/* Symtab assigns a 'variant id' to each variant that it sees, in order. This is
-   later used by vm to determine what thing occupies the enum (ex: match). */
-
-#define SOME_VARIANT_ID 0
-#define NONE_VARIANT_ID 1
-
-lily_instance_val *lily_new_some(lily_value *v)
-{
-    return lily_new_enum_1(SYM_CLASS_OPTION, SOME_VARIANT_ID, v);
-}
-
-/* Since None has no arguments, it has a backing literal to represent it. This
-   dives into the vm's class table to get the backing literal of the None. */
-lily_instance_val *lily_get_none(lily_vm_state *vm)
-{
-    lily_class *opt_class = vm->class_table[SYM_CLASS_OPTION];
-    lily_variant_class *none_cls = opt_class->variant_members[NONE_VARIANT_ID];
-    return none_cls->default_value->value.instance;
-}
+#include "lily_api_value.h"
 
 void lily_option_and(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {

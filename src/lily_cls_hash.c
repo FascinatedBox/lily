@@ -2,20 +2,9 @@
 
 #include "lily_alloc.h"
 #include "lily_vm.h"
-#include "lily_value.h"
 #include "lily_seed.h"
-#include "lily_cls_list.h"
 
-lily_hash_val *lily_new_hash_val()
-{
-    lily_hash_val *h = lily_malloc(sizeof(lily_hash_val));
-
-    h->refcount = 1;
-    h->iter_count = 0;
-    h->num_elems = 0;
-    h->elem_chain = NULL;
-    return h;
-}
+#include "lily_api_value.h"
 
 /* Attempt to find 'key' within 'hash_val'. If an element is found, then it is
    returned. If no element is found, then NULL is returned. */
