@@ -1881,18 +1881,15 @@ void lily_vm_add_class(lily_vm_state *vm, lily_class *cls)
    and are few in number. */
 static void load_foreign_ties(lily_vm_state *vm)
 {
-    lily_tie *tie_iter = vm->symtab->foreign_ties;
-    lily_tie *tie_next;
+    lily_foreign_tie *tie_iter = vm->symtab->foreign_ties;
+    lily_foreign_tie *tie_next;
     lily_value **regs_from_main = vm->regs_from_main;
 
     while (tie_iter) {
-        /* Don't use lily_assign_value, because that wants to give the tied
-           value a ref. That's bad because then it will have two refs (and the
-           tie is just for shifting a value over). */
         lily_value *reg_value = regs_from_main[tie_iter->reg_spot];
 
-        reg_value->value = tie_iter->value;
-        reg_value->flags = tie_iter->move_flags;
+        /* Don't use regular assign, because this is transferring ownership. */
+        lily_assign_value_noref(reg_value, &tie_iter->data);
 
         tie_next = tie_iter->next;
         lily_free(tie_iter);

@@ -25,9 +25,8 @@ typedef struct lily_symtab_ {
        search through. */
     lily_tie *function_ties;
 
-    /* This associates a global variable with a value. This is used by builtin
-       packages, which need to save a value before the vm runs. */
-    lily_tie *foreign_ties;
+    /* This holds dynaloaded vars until the vm runs and scoops them up. */
+    lily_foreign_tie *foreign_ties;
 
     lily_import_entry *builtin_import;
     lily_import_entry *active_import;
@@ -82,7 +81,7 @@ lily_tie *lily_get_variant_literal(lily_symtab *, lily_type *);
 
 void lily_tie_builtin(lily_symtab *, lily_var *, lily_function_val *);
 void lily_tie_function(lily_symtab *, lily_var *, lily_function_val *);
-void lily_tie_value(lily_symtab *, lily_var *, lily_value *);
+lily_foreign_tie *lily_new_foreign_tie(lily_symtab *, lily_var *);
 
 lily_class *lily_find_class(lily_symtab *, lily_import_entry *, const char *);
 lily_var *lily_find_method(lily_class *, const char *);
