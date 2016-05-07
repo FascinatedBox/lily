@@ -145,7 +145,7 @@ int lily_scan_interpolation_piece(lily_lex_state *, char **);
 void lily_scan_import_path(lily_lex_state *);
 
 void lily_pop_lex_entry(lily_lex_state *);
-lily_lex_state *lily_new_lex_state(lily_options *, lily_raiser *);
+lily_lex_state *lily_new_lex_state(struct lily_options_ *, lily_raiser *);
 char *tokname(lily_token);
 
 #endif

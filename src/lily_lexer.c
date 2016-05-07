@@ -11,6 +11,8 @@
 #include "lily_lexer.h"
 #include "lily_utf8.h"
 
+#include "lily_api_options.h"
+
 /** The lexer is responsible for:
     * Opening and reading the file given by parser. It also handles strings sent
       by parser. The lexer has some mode-switching code, since scanning strings

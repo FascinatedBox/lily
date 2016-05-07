@@ -17,6 +17,7 @@
 #include "lily_cls_hash.h"
 
 #include "lily_api_value.h"
+#include "lily_api_options.h"
 
 void lily_impl_puts(void *data, char *text)
 {
@@ -260,7 +261,7 @@ static int lily_handler(request_rec *r)
     lily_parse_file(parser, lm_tags, r->filename);
 
     lily_free_parse_state(parser);
-    lily_free(options);
+    lily_free_options(options);
 
     return OK;
 }

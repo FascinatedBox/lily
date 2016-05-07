@@ -14,6 +14,7 @@
 #include "lily_cls_string.h"
 
 #include "lily_api_value.h"
+#include "lily_api_options.h"
 
 extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
 extern lily_gc_entry *lily_gc_stopper;
@@ -178,12 +179,9 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     if (vm->gc_multiplier > 16)
         vm->gc_multiplier = 16;
 
-    /* todo: This is a terrible, horrible key to use. Make a better one using
-             some randomness or...something. Just not this. */
-    char sipkey[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf};
     lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(lily_vm_catch_entry));
 
-    vm->sipkey = lily_malloc(16);
+    vm->sipkey = options->sipkey;
     vm->foreign_code = lily_malloc(sizeof(uint16_t));
     vm->call_depth = 0;
     vm->raiser = raiser;
@@ -212,8 +210,6 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->stdout_reg = NULL;
 
     add_call_frame(vm);
-
-    memcpy(vm->sipkey, sipkey, 16);
 
     vm->catch_chain = catch_entry;
     catch_entry->prev = NULL;
@@ -305,7 +301,6 @@ void lily_free_vm(lily_vm_state *vm)
     lily_free(vm->vm_list);
     lily_free(vm->readonly_table);
     lily_free(vm->foreign_code);
-    lily_free(vm->sipkey);
     lily_free(vm);
 }
 

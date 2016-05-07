@@ -6,6 +6,8 @@
 #include "lily_alloc.h"
 #include "lily_parser.h"
 
+#include "lily_api_options.h"
+
 /*  lily_main.c
     This is THE main runner for Lily. */
 
@@ -107,6 +109,6 @@ int main(int argc, char **argv)
     }
 
     lily_free_parse_state(parser);
-    lily_free(options);
+    lily_free_options(options);
     exit(EXIT_SUCCESS);
 }

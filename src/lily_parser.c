@@ -13,6 +13,7 @@
 #include "lily_seed.h"
 
 #include "lily_api_value.h"
+#include "lily_api_options.h"
 
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
@@ -82,22 +83,6 @@ static lily_path_link *prepare_path_by_seed(lily_parse_state *parser,
     }
 
     return result;
-}
-
-/* Not sure what options to give the parser? Call this to get a 'reasonable'
-   starting point. */
-lily_options *lily_new_default_options(void)
-{
-    lily_options *options = lily_malloc(sizeof(lily_options));
-    options->version = 1;
-    /* The gc options are totally arbitrary. */
-    options->gc_start = 100;
-    options->gc_multiplier = 4;
-    options->argc = 0;
-    options->argv = NULL;
-    options->data = NULL;
-
-    return options;
 }
 
 /* This sets up the core of the interpreter. It's pretty rough around the edges,
