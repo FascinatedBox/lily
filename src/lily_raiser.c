@@ -3,7 +3,6 @@
 
 #include "lily_alloc.h"
 #include "lily_raiser.h"
-#include "lily_seed.h"
 
 /* If the error raised is a code (and not a proper error), then this is used to
    get a name for the error. */

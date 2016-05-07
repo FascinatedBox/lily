@@ -1,7 +1,7 @@
 #include "lily_alloc.h"
 #include "lily_vm.h"
-#include "lily_seed.h"
 
+#include "lily_api_dynaload.h"
 #include "lily_api_value.h"
 
 extern lily_gc_entry *lily_gc_stopper;
@@ -51,5 +51,4 @@ void lily_dynamic_new(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_tag_value(vm, result);
 }
 
-const lily_func_seed lily_dynamic_dl_start =
-    {NULL, "new", dyna_function, "[A](A):Dynamic", &lily_dynamic_new};
+DYNA_FUNCTION_RAW(, dynamic, NULL, lily_dynamic_dl_start, new, "[A](A):Dynamic")

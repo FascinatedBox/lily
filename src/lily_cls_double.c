@@ -1,8 +1,8 @@
 #include <stdio.h>
 
 #include "lily_vm.h"
-#include "lily_seed.h"
 
+#include "lily_api_dynaload.h"
 #include "lily_api_value.h"
 
 void lily_double_to_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -14,8 +14,9 @@ void lily_double_to_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_integer(result_reg, integer_val);
 }
 
-static const lily_func_seed dynaload_start =
-    {NULL, "to_i", dyna_function, "(Double):Integer", lily_double_to_i};
+#define DYNA_NAME double
+
+DYNA_FUNCTION(NULL, to_i, "(Double):Integer")
 
 static lily_class_seed double_seed =
 {
@@ -24,7 +25,7 @@ static lily_class_seed double_seed =
     dyna_class,         /* load_type */
     0,                  /* is_refcounted */
     0,                  /* generic_count */
-    &dynaload_start     /* dynaload_table */
+    &seed_to_i          /* dynaload_table */
 };
 
 lily_class *lily_double_init(lily_symtab *symtab)

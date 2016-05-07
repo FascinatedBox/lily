@@ -4,8 +4,8 @@
 
 #include "lily_alloc.h"
 #include "lily_vm.h"
-#include "lily_seed.h"
 
+#include "lily_api_dynaload.h"
 #include "lily_api_value.h"
 
 void lily_boolean_to_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -32,11 +32,10 @@ void lily_boolean_to_s(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_string(result_reg, lily_new_raw_string(to_copy));
 }
 
-static const lily_func_seed to_i =
-    {NULL, "to_i", dyna_function, "(Boolean):Integer", &lily_boolean_to_i};
+#define DYNA_NAME boolean
 
-static const lily_func_seed dynaload_start =
-    {&to_i, "to_s", dyna_function, "(Boolean):String", &lily_boolean_to_s};
+DYNA_FUNCTION(NULL,       to_i, "(Boolean):Integer")
+DYNA_FUNCTION(&seed_to_i, to_s, "(Boolean):String")
 
 static lily_class_seed boolean_seed =
 {
@@ -45,7 +44,7 @@ static lily_class_seed boolean_seed =
     dyna_class,         /* load_type */
     0,                  /* is_refcounted */
     0,                  /* generic_count */
-    &dynaload_start     /* dynaload_table */
+    &seed_to_s          /* dynaload_table */
 };
 
 lily_class *lily_boolean_init(lily_symtab *symtab)

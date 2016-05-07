@@ -4,8 +4,8 @@
 
 #include "lily_alloc.h"
 #include "lily_vm.h"
-#include "lily_seed.h"
 
+#include "lily_api_dynaload.h"
 #include "lily_api_value.h"
 
 void lily_destroy_file(lily_value *v)
@@ -161,21 +161,13 @@ void lily_file_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 }
 
-static const lily_func_seed file_close =
-    {NULL, "close", dyna_function, "(File)", lily_file_close};
+#define DYNA_NAME file
 
-static const lily_func_seed file_open =
-    {&file_close, "open", dyna_function, "(String, String):File", lily_file_open};
-
-static const lily_func_seed file_print =
-    {&file_open, "print", dyna_function, "[A](File, A)", lily_file_print};
-
-static const lily_func_seed file_read_line =
-    {&file_print, "read_line", dyna_function, "(File):ByteString", lily_file_read_line};
-
-static const lily_func_seed dynaload_start =
-    {&file_read_line, "write", dyna_function, "[A](File, A)", lily_file_write};
-
+DYNA_FUNCTION(NULL,            close,     "(File)")
+DYNA_FUNCTION(&seed_close,     open,      "(String, String):File")
+DYNA_FUNCTION(&seed_open,      print,     "[A](File, A)")
+DYNA_FUNCTION(&seed_print,     read_line, "(File):ByteString")
+DYNA_FUNCTION(&seed_read_line, write,     "[A](File, A)")
 
 static const lily_class_seed file_seed =
 {
@@ -184,7 +176,7 @@ static const lily_class_seed file_seed =
     dyna_class,       /* load_type */
     1,                /* is_refcounted */
     0,                /* generic_count */
-    &dynaload_start   /* dynaload_table */
+    &seed_write       /* dynaload_table */
 };
 
 lily_class *lily_file_init(lily_symtab *symtab)

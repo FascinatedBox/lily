@@ -2,8 +2,8 @@
 
 #include "lily_alloc.h"
 #include "lily_vm.h"
-#include "lily_seed.h"
 
+#include "lily_api_dynaload.h"
 #include "lily_api_value.h"
 
 extern lily_gc_entry *lily_gc_stopper;
@@ -452,56 +452,25 @@ void lily_list_fold(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_assign_value(result_reg, current);
 }
 
-static lily_func_seed clear =
-    {NULL, "clear", dyna_function, "[A](List[A])", lily_list_clear};
+#define DYNA_NAME list
 
-static lily_func_seed count =
-    {&clear, "count", dyna_function, "[A](List[A], Function(A => Boolean)):Integer", lily_list_count};
-
-static lily_func_seed delete_at =
-    {&count, "delete_at", dyna_function, "[A](List[A], Integer)", lily_list_delete_at};
-
-static lily_func_seed each =
-    {&delete_at, "each", dyna_function, "[A](List[A], Function(A)):List[A]", lily_list_each};
-
-static lily_func_seed each_index =
-    {&each, "each_index", dyna_function, "[A](List[A], Function(Integer)):List[A]", lily_list_each_index};
-
-static lily_func_seed fill =
-    {&each_index, "fill", dyna_function, "[A](Integer, A):List[A]", lily_list_fill};
-
-static lily_func_seed fold =
-    {&fill, "fold", dyna_function, "[A](List[A], A, Function(A, A => A)):A", lily_list_fold};
-
-static lily_func_seed insert =
-    {&fold, "insert", dyna_function, "[A](List[A], Integer, A)", lily_list_insert};
-
-static const lily_func_seed join =
-    {&insert, "join", dyna_function, "[A](List[A], *String):String", lily_list_join};
-
-static lily_func_seed map =
-    {&join, "map", dyna_function, "[A,B](List[A], Function(A => B)):List[B]", lily_list_map};
-
-static lily_func_seed pop =
-    {&map, "pop", dyna_function, "[A](List[A]):A", lily_list_pop};
-
-static const lily_func_seed push =
-    {&pop, "push", dyna_function, "[A](List[A], A)", lily_list_push};
-
-static lily_func_seed reject =
-    {&push, "reject", dyna_function, "[A](List[A], Function(A => Boolean)):List[A]", lily_list_reject};
-
-static lily_func_seed select_fn =
-    {&reject, "select", dyna_function, "[A](List[A], Function(A => Boolean)):List[A]", lily_list_select};
-
-static const lily_func_seed size =
-    {&select_fn, "size", dyna_function, "[A](List[A]):Integer", lily_list_size};
-
-static lily_func_seed shift =
-    {&size, "shift", dyna_function, "[A](List[A]):A", lily_list_shift};
-
-static lily_func_seed dynaload_start =
-    {&shift, "unshift", dyna_function, "[A](List[A], A)", lily_list_unshift};
+DYNA_FUNCTION(NULL,             clear,      "[A](List[A])")
+DYNA_FUNCTION(&seed_clear,      count,      "[A](List[A], Function(A => Boolean)):Integer")
+DYNA_FUNCTION(&seed_count,      delete_at,  "[A](List[A], Integer)")
+DYNA_FUNCTION(&seed_delete_at,  each,       "[A](List[A], Function(A)):List[A]")
+DYNA_FUNCTION(&seed_each,       each_index, "[A](List[A], Function(Integer)):List[A]")
+DYNA_FUNCTION(&seed_each_index, fill,       "[A](Integer, A):List[A]")
+DYNA_FUNCTION(&seed_fill,       fold,       "[A](List[A], A, Function(A, A => A)):A")
+DYNA_FUNCTION(&seed_fold,       insert,     "[A](List[A], Integer, A)")
+DYNA_FUNCTION(&seed_insert,     join,       "[A](List[A], *String):String")
+DYNA_FUNCTION(&seed_join,       map,        "[A,B](List[A], Function(A => B)):List[B]")
+DYNA_FUNCTION(&seed_map,        pop,        "[A](List[A]):A")
+DYNA_FUNCTION(&seed_pop,        push,       "[A](List[A], A)")
+DYNA_FUNCTION(&seed_push,       reject,     "[A](List[A], Function(A => Boolean)):List[A]")
+DYNA_FUNCTION(&seed_reject,     select,     "[A](List[A], Function(A => Boolean)):List[A]")
+DYNA_FUNCTION(&seed_select,     size,       "[A](List[A]):Integer")
+DYNA_FUNCTION(&seed_size,       shift,      "[A](List[A]):A")
+DYNA_FUNCTION(&seed_shift,      unshift,    "[A](List[A], A)")
 
 static const lily_class_seed list_seed =
 {
@@ -510,7 +479,7 @@ static const lily_class_seed list_seed =
     dyna_class,           /* load_type */
     1,                    /* is_refcounted */
     1,                    /* generic_count */
-    &dynaload_start       /* dynaload_start */
+    &seed_unshift         /* dynaload_start */
 };
 
 lily_class *lily_list_init(lily_symtab *symtab)
