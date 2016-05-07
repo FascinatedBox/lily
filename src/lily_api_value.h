@@ -1,5 +1,5 @@
-#ifndef LILY_VALUE_H
-# define LILY_VALUE_H
+#ifndef LILY_API_VALUE_H
+# define LILY_API_VALUE_H
 
 # include "lily_core_types.h"
 
