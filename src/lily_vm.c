@@ -2,7 +2,6 @@
 #include <string.h>
 
 #include "lily_alloc.h"
-#include "lily_impl.h"
 #include "lily_opcode.h"
 #include "lily_vm.h"
 #include "lily_parser.h"
