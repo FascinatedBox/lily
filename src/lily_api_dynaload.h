@@ -1,5 +1,5 @@
-#ifndef LILY_SEED_H
-# define LILY_SEED_H
+#ifndef LILY_API_DYNALOAD_H
+# define LILY_API_DYNALOAD_H
 
 typedef enum {
     dyna_class,
@@ -55,8 +55,6 @@ typedef struct {
     char *name;
     uint64_t seed_type;
     uint32_t generic_count;
-    /* dyna_builtin_enum will set this to a specific id, but dyna_enum should
-       set it to 0. */
     uint32_t builtin_id;
     const void *dynaload_table;
 } lily_enum_seed;
@@ -68,5 +66,15 @@ typedef struct {
     char *body;
     char *enum_name;
 } lily_variant_seed;
+
+#define DYNA_FUNCTION_RAW(scope, dyna, prev, cur, name, definition) \
+scope const lily_func_seed cur = \
+    {prev, #name, dyna_function, definition, lily_##dyna##_##name};
+
+#define DYNA_FUNCTION_MIDDLE(mods, dyna, prev, name, definition) \
+DYNA_FUNCTION_RAW(mods, dyna, prev, seed_##name, name, definition)
+
+#define DYNA_FUNCTION(prev, name, definition) \
+DYNA_FUNCTION_MIDDLE(static, DYNA_NAME, prev, name, definition)
 
 #endif

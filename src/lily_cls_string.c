@@ -5,8 +5,8 @@
 
 #include "lily_alloc.h"
 #include "lily_vm.h"
-#include "lily_seed.h"
 
+#include "lily_api_dynaload.h"
 #include "lily_api_value.h"
 
 void lily_destroy_string(lily_value *v)
@@ -929,53 +929,24 @@ void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
     lily_move_string(result_reg, result);
 }
 
-static const lily_func_seed ends_with =
-    {NULL, "ends_with", dyna_function, "(String, String):Boolean", lily_string_ends_with};
+#define DYNA_NAME string
 
-static const lily_func_seed find =
-    {&ends_with, "find", dyna_function, "(String, String):Option[Integer]", lily_string_find};
-
-static const lily_func_seed html_encode =
-    {&find, "html_encode", dyna_function, "(String):String", lily_string_html_encode};
-
-static const lily_func_seed is_alpha_fn =
-    {&html_encode, "is_alpha", dyna_function, "(String):Boolean", lily_string_is_alpha};
-
-static const lily_func_seed is_digit_fn =
-    {&is_alpha_fn, "is_digit", dyna_function, "(String):Boolean", lily_string_is_digit};
-
-static const lily_func_seed is_alnum_fn =
-    {&is_digit_fn, "is_alnum", dyna_function, "(String):Boolean", lily_string_is_alnum};
-
-static const lily_func_seed is_space_fn =
-    {&is_alnum_fn, "is_space", dyna_function, "(String):Boolean", lily_string_is_space};
-
-static const lily_func_seed lstrip =
-    {&is_space_fn, "lstrip", dyna_function, "(String, String):String", lily_string_lstrip};
-
-static const lily_func_seed lower =
-    {&lstrip, "lower", dyna_function, "(String):String", lily_string_lower};
-
-static const lily_func_seed parse_i =
-    {&lower, "parse_i", dyna_function, "(String):Option[Integer]", lily_string_parse_i};
-
-static const lily_func_seed rstrip =
-    {&parse_i, "rstrip", dyna_function, "(String, String):String", lily_string_rstrip};
-
-static const lily_func_seed starts_with =
-    {&rstrip, "starts_with", dyna_function, "(String, String):Boolean", lily_string_starts_with};
-
-static const lily_func_seed split =
-    {&starts_with, "split", dyna_function, "(String, *String):List[String]", lily_string_split};
-
-static const lily_func_seed strip =
-    {&split, "strip", dyna_function, "(String, String):String", lily_string_strip};
-
-static const lily_func_seed trim =
-    {&strip, "trim", dyna_function, "(String):String", lily_string_trim};
-
-static const lily_func_seed dynaload_start =
-    {&trim, "upper", dyna_function, "(String):String", lily_string_upper};
+DYNA_FUNCTION(NULL,              ends_with,   "(String, String):Boolean")
+DYNA_FUNCTION(&seed_ends_with,   find,        "(String, String):Option[Integer]")
+DYNA_FUNCTION(&seed_find,        html_encode, "(String):String")
+DYNA_FUNCTION(&seed_html_encode, is_alpha,    "(String):Boolean")
+DYNA_FUNCTION(&seed_is_alpha,    is_digit,    "(String):Boolean")
+DYNA_FUNCTION(&seed_is_digit,    is_alnum,    "(String):Boolean")
+DYNA_FUNCTION(&seed_is_alnum,    is_space,    "(String):Boolean")
+DYNA_FUNCTION(&seed_is_space,    lstrip,      "(String, String):String")
+DYNA_FUNCTION(&seed_lstrip,      lower,       "(String):String")
+DYNA_FUNCTION(&seed_lower,       parse_i,     "(String):Option[Integer]")
+DYNA_FUNCTION(&seed_parse_i,     rstrip,      "(String, String):String")
+DYNA_FUNCTION(&seed_rstrip,      starts_with, "(String, String):Boolean")
+DYNA_FUNCTION(&seed_starts_with, split,       "(String, *String):List[String]")
+DYNA_FUNCTION(&seed_split,       strip,       "(String, String):String")
+DYNA_FUNCTION(&seed_strip,       trim,        "(String):String")
+DYNA_FUNCTION(&seed_trim,        upper,       "(String):String")
 
 static const lily_class_seed string_seed =
 {
@@ -984,7 +955,7 @@ static const lily_class_seed string_seed =
     dyna_class,         /* load_type */
     1,                  /* is_refcounted */
     0,                  /* generic_count */
-    &dynaload_start     /* dynaload_table */
+    &seed_upper,        /* dynaload_table */
 };
 
 lily_class *lily_string_init(lily_symtab *symtab)

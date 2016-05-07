@@ -13,8 +13,8 @@
 #include "lily_cls_list.h"
 #include "lily_cls_hash.h"
 #include "lily_cls_file.h"
-#include "lily_seed.h"
 
+#include "lily_api_dynaload.h"
 #include "lily_api_value.h"
 
 extern const lily_func_seed lily_option_dl_start;

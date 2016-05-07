@@ -1,7 +1,7 @@
 #include "lily_core_types.h"
 #include "lily_vm.h"
-#include "lily_seed.h"
 
+#include "lily_api_dynaload.h"
 #include "lily_api_value.h"
 
 static void either_is_left_right(lily_vm_state *vm, uint16_t *code, int expect)
@@ -46,14 +46,9 @@ void lily_either_right(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     either_optionize_left_right(vm, code, RIGHT_VARIANT_ID);
 }
 
-const lily_func_seed is_left =
-    {NULL, "is_left", dyna_function, "[A,B](Either[A,B]):Boolean", &lily_either_is_left};
+#define DYNA_NAME either
 
-const lily_func_seed is_right =
-    {&is_left, "is_right", dyna_function, "[A,B](Either[A,B]):Boolean", &lily_either_is_right};
-
-const lily_func_seed get_left =
-    {&is_right, "left", dyna_function, "[A,B](Either[A,B]):Option[A]", &lily_either_left};
-
-const lily_func_seed lily_either_dl_start =
-    {&get_left, "right", dyna_function, "[A,B](Either[A,B]):Option[B]", &lily_either_right};
+DYNA_FUNCTION(NULL,           is_left,  "[A,B](Either[A,B]):Boolean")
+DYNA_FUNCTION(&seed_is_left,  is_right, "[A,B](Either[A,B]):Boolean")
+DYNA_FUNCTION(&seed_is_right, left,     "[A,B](Either[A,B]):Option[A]")
+DYNA_FUNCTION_RAW(, either, &seed_left, lily_either_dl_start, right, "[A,B](Either[A,B]):Option[B]")

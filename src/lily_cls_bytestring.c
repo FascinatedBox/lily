@@ -4,9 +4,9 @@
 #include "lily_core_types.h"
 #include "lily_lexer.h"
 #include "lily_vm.h"
-#include "lily_seed.h"
 #include "lily_utf8.h"
 
+#include "lily_api_dynaload.h"
 #include "lily_api_value.h"
 
 void lily_bytestring_encode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -36,8 +36,9 @@ void lily_bytestring_encode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_enum_f(MOVE_DEREF_NO_GC, result, lily_new_some(v));
 }
 
-static const lily_func_seed dynaload_start =
-    {NULL, "encode", dyna_function, "(ByteString, *String):Option[String]", lily_bytestring_encode};
+#define DYNA_NAME bytestring
+
+DYNA_FUNCTION(NULL, encode, "(ByteString, *String):Option[String]")
 
 static const lily_class_seed bytestring_seed =
 {
@@ -46,7 +47,7 @@ static const lily_class_seed bytestring_seed =
     dyna_class,          /* load_type */
     1,                   /* is_refcounted */
     0,                   /* generic_count */
-    &dynaload_start      /* dynaload_table */
+    &seed_encode         /* dynaload_table */
 };
 
 lily_class *lily_bytestring_init(lily_symtab *symtab)

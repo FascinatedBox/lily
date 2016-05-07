@@ -2,8 +2,8 @@
 
 #include "lily_alloc.h"
 #include "lily_vm.h"
-#include "lily_seed.h"
 
+#include "lily_api_dynaload.h"
 #include "lily_api_value.h"
 
 /* Attempt to find 'key' within 'hash_val'. If an element is found, then it is
@@ -427,38 +427,19 @@ void lily_hash_size(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_integer(vm_regs[code[0]], hash_val->num_elems);
 }
 
-static const lily_func_seed clear =
-    {NULL, "clear", dyna_function, "[A, B](Hash[A, B])", lily_hash_clear};
+#define DYNA_NAME hash
 
-static const lily_func_seed delete_fn =
-    {&clear, "delete", dyna_function, "[A, B](Hash[A, B], A)", lily_hash_delete};
-
-static const lily_func_seed each_pair =
-    {&delete_fn, "each_pair", dyna_function, "[A, B](Hash[A, B], Function(A, B))", lily_hash_each_pair};
-
-static const lily_func_seed has_key =
-    {&each_pair, "has_key", dyna_function, "[A, B](Hash[A, B], A):Boolean", lily_hash_has_key};
-
-static const lily_func_seed keys =
-    {&has_key, "keys", dyna_function, "[A, B](Hash[A, B]):List[A]", lily_hash_keys};
-
-static const lily_func_seed get =
-    {&keys, "get", dyna_function, "[A, B](Hash[A, B], A, B):B", lily_hash_get};
-
-static const lily_func_seed map_values =
-    {&get, "map_values", dyna_function, "[A, B, C](Hash[A, B], Function(B => C)):Hash[A, C]", lily_hash_map_values};
-
-static const lily_func_seed merge =
-    {&map_values, "merge", dyna_function, "[A, B](Hash[A, B], Hash[A, B]...):Hash[A, B]", lily_hash_merge};
-
-static const lily_func_seed reject =
-    {&merge, "reject", dyna_function, "[A, B](Hash[A, B], Function(A, B => Boolean)):Hash[A, B]", lily_hash_reject};
-
-static const lily_func_seed select_fn =
-    {&reject, "select", dyna_function, "[A, B](Hash[A, B], Function(A, B => Boolean)):Hash[A, B]", lily_hash_select};
-
-static const lily_func_seed dynaload_start =
-    {&select_fn, "size", dyna_function, "[A, B](Hash[A, B]):Integer", lily_hash_size};
+DYNA_FUNCTION(NULL,             clear,      "[A, B](Hash[A, B])")
+DYNA_FUNCTION(&seed_clear,      delete,     "[A, B](Hash[A, B], A)")
+DYNA_FUNCTION(&seed_delete,     each_pair,  "[A, B](Hash[A, B], Function(A, B))")
+DYNA_FUNCTION(&seed_each_pair,  has_key,    "[A, B](Hash[A, B], A):Boolean")
+DYNA_FUNCTION(&seed_has_key,    keys,       "[A, B](Hash[A, B]):List[A]")
+DYNA_FUNCTION(&seed_keys,       get,        "[A, B](Hash[A, B], A, B):B")
+DYNA_FUNCTION(&seed_get,        map_values, "[A, B, C](Hash[A, B], Function(B => C)):Hash[A, C]")
+DYNA_FUNCTION(&seed_map_values, merge,      "[A, B](Hash[A, B], Hash[A, B]...):Hash[A, B]")
+DYNA_FUNCTION(&seed_merge,      reject,     "[A, B](Hash[A, B], Function(A, B => Boolean)):Hash[A, B]")
+DYNA_FUNCTION(&seed_reject,     select,     "[A, B](Hash[A, B], Function(A, B => Boolean)):Hash[A, B]")
+DYNA_FUNCTION(&seed_select,     size,       "[A, B](Hash[A, B]):Integer")
 
 static const lily_class_seed hash_seed =
 {
@@ -467,7 +448,7 @@ static const lily_class_seed hash_seed =
     dyna_class,           /* load_type */
     1,                    /* is_refcounted */
     2,                    /* generic_count */
-    &dynaload_start       /* dynaload_table */
+    &seed_size            /* dynaload_table */
 };
 
 lily_class *lily_hash_init(lily_symtab *symtab)

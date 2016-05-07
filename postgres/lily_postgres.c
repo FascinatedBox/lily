@@ -9,8 +9,8 @@
 #include "lily_symtab.h"
 #include "lily_parser.h"
 #include "lily_vm.h"
-#include "lily_seed.h"
 
+#include "lily_api_dynaload.h"
 #include "lily_api_value.h"
 
 #define ID_OFFSET    vm->call_chain->function->import->cid_start
@@ -116,14 +116,11 @@ void lily_pg_result_row_count(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_integer(result_reg, row);
 }
 
-static const lily_func_seed result_close =
-    {NULL, "close", dyna_function, "(Result)", &lily_pg_result_close};
+#define DYNA_NAME pg_result
 
-static const lily_func_seed each_row =
-    {&result_close, "each_row", dyna_function, "(Result, Function(List[String]))", &lily_pg_result_each_row};
-
-static const lily_func_seed result_dynaload_start =
-    {&each_row, "row_count", dyna_function, "(Result):Integer", &lily_pg_result_row_count};
+DYNA_FUNCTION(NULL,           close,     "(Result)")
+DYNA_FUNCTION(&seed_close,    each_row,  "(Result, Function(List[String]))")
+DYNA_FUNCTION(&seed_each_row, row_count, "(Result):Integer")
 
 const lily_class_seed result_seed =
 {
@@ -132,7 +129,7 @@ const lily_class_seed result_seed =
     dyna_class,             /* load_type */
     1,                      /* is_refcounted */
     0,                      /* generic_count */
-    &result_dynaload_start  /* dynaload_table */
+    &seed_row_count         /* dynaload_table */
 };
 
 /******************************************************************************/
@@ -287,11 +284,11 @@ void lily_pg_conn_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 }
 
-static const lily_func_seed conn_query =
-    {NULL, "query", dyna_function, "(Conn, String, List[String]...):Either[String, Result]", lily_pg_conn_query};
+#undef DYNA_NAME
+#define DYNA_NAME pg_conn
 
-static const lily_func_seed conn_dynaload_start =
-    {&conn_query, "open", dyna_function, "(*String, *String, *String, *String, *String):Option[Conn]", lily_pg_conn_open};
+DYNA_FUNCTION(NULL,        query, "(Conn, String, List[String]...):Either[String, Result]")
+DYNA_FUNCTION(&seed_query, open,  "(*String, *String, *String, *String, *String):Option[Conn]")
 
 const lily_class_seed lily_dynaload_table =
 {
@@ -300,5 +297,5 @@ const lily_class_seed lily_dynaload_table =
     dyna_class,           /* load_type */
     1,                    /* is_refcounted */
     0,                    /* generic_count */
-    &conn_dynaload_start  /* dynaload_table */
+    &seed_query           /* dynaload_table */
 };

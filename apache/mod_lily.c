@@ -12,10 +12,10 @@
 #include "lily_parser.h"
 #include "lily_lexer.h"
 #include "lily_impl.h"
-#include "lily_seed.h"
 #include "lily_utf8.h"
 #include "lily_cls_hash.h"
 
+#include "lily_api_dynaload.h"
 #include "lily_api_value.h"
 #include "lily_api_options.h"
 
@@ -232,18 +232,12 @@ void lily_apache_server_escape(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_string_html_encode(vm, argc, code);
 }
 
+#define DYNA_NAME apache_server
 
-const lily_func_seed escape =
-        {&env_seed, "escape", dyna_function, "(String):String", lily_apache_server_escape};
-
-const lily_func_seed write_raw =
-        {&escape, "write_raw", dyna_function, "(String)", lily_apache_server_write_raw};
-
-const lily_func_seed write_literal =
-        {&write_raw, "write_literal", dyna_function, "(String)", lily_apache_server_write_literal};
-
-const lily_func_seed write_seed =
-        {&write_literal, "write", dyna_function, "(String)", lily_apache_server_write};
+DYNA_FUNCTION(NULL,                escape,        "(String):String")
+DYNA_FUNCTION(&seed_escape,        write_raw,     "(String)")
+DYNA_FUNCTION(&seed_write_raw,     write_literal, "(String)")
+DYNA_FUNCTION(&seed_write_literal, write,         "(String)")
 
 static int lily_handler(request_rec *r)
 {
@@ -256,7 +250,7 @@ static int lily_handler(request_rec *r)
     options->data = r;
 
     lily_parse_state *parser = lily_new_parse_state(options);
-    lily_register_import(parser, "server", &write_seed, apache_var_dynaloader);
+    lily_register_import(parser, "server", &seed_write, apache_var_dynaloader);
 
     lily_parse_file(parser, lm_tags, r->filename);
 

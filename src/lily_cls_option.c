@@ -1,8 +1,8 @@
 #include "lily_alloc.h"
 #include "lily_core_types.h"
 #include "lily_vm.h"
-#include "lily_seed.h"
 
+#include "lily_api_dynaload.h"
 #include "lily_api_value.h"
 
 void lily_option_and(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -168,32 +168,16 @@ void lily_option_unwrap_or_else(lily_vm_state *vm, uint16_t argc, uint16_t *code
     lily_assign_value(result_reg, source);
 }
 
-static const lily_func_seed and_fn =
-    {NULL, "and", dyna_function, "[A, B](Option[A], Option[B]):Option[B]", &lily_option_and};
+#define DYNA_NAME option
 
-static const lily_func_seed and_then =
-    {&and_fn, "and_then", dyna_function, "[A, B](Option[A], Function(A => Option[B])):Option[B]", &lily_option_and_then};
-
-static const lily_func_seed is_none =
-    {&and_then, "is_none", dyna_function, "[A](Option[A]):Boolean", &lily_option_is_none};
-
-static const lily_func_seed is_some =
-    {&is_none, "is_some", dyna_function, "[A](Option[A]):Boolean", &lily_option_is_some};
-
-static const lily_func_seed map =
-    {&is_some, "map", dyna_function, "[A, B](Option[A], Function(A => B)):Option[B]", &lily_option_map};
-
-static const lily_func_seed or_fn =
-    {&map, "or", dyna_function, "[A](Option[A], Option[A]):Option[A]", &lily_option_or};
-
-static const lily_func_seed or_else =
-    {&or_fn, "or_else", dyna_function, "[A](Option[A], Function( => Option[A])):Option[A]", &lily_option_or_else};
-
-static const lily_func_seed unwrap =
-    {&or_else, "unwrap", dyna_function, "[A](Option[A]):A", &lily_option_unwrap};
-
-static const lily_func_seed unwrap_or =
-    {&unwrap, "unwrap_or", dyna_function, "[A](Option[A], A):A", &lily_option_unwrap_or};
-
-const lily_func_seed lily_option_dl_start =
-    {&unwrap_or, "unwrap_or_else", dyna_function, "[A](Option[A], Function( => A)):A", &lily_option_unwrap_or_else};
+DYNA_FUNCTION(NULL,            and,            "[A, B](Option[A], Option[B]):Option[B]")
+DYNA_FUNCTION(&seed_and,       and_then,       "[A, B](Option[A], Function(A => Option[B])):Option[B]")
+DYNA_FUNCTION(&seed_and_then,  is_none,        "[A](Option[A]):Boolean")
+DYNA_FUNCTION(&seed_is_none,   is_some,        "[A](Option[A]):Boolean")
+DYNA_FUNCTION(&seed_is_some,   map,            "[A, B](Option[A], Function(A => B)):Option[B]")
+DYNA_FUNCTION(&seed_map,       or,             "[A](Option[A], Option[A]):Option[A]")
+DYNA_FUNCTION(&seed_or,        or_else,        "[A](Option[A], Function( => Option[A])):Option[A]")
+DYNA_FUNCTION(&seed_or_else,   unwrap,         "[A](Option[A]):A")
+DYNA_FUNCTION(&seed_unwrap,    unwrap_or,      "[A](Option[A], A):A")
+DYNA_FUNCTION(&seed_unwrap_or, unwrap_or_else, "[A](Option[A], Function( => A)):A")
+DYNA_FUNCTION_RAW(, option, &seed_unwrap_or, lily_option_dl_start, unwrap_or_else, "[A](Option[A], Function( => A)):A")
