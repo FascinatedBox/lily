@@ -11,7 +11,6 @@
 #include "lily_alloc.h"
 #include "lily_parser.h"
 #include "lily_lexer.h"
-#include "lily_impl.h"
 #include "lily_utf8.h"
 #include "lily_cls_hash.h"
 

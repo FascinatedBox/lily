@@ -7,11 +7,15 @@
 
 #include "lily_alloc.h"
 #include "lily_config.h"
-#include "lily_impl.h"
 #include "lily_lexer.h"
 #include "lily_utf8.h"
 
 #include "lily_api_options.h"
+
+/* All Lily runners are required to provide this function so that lexer is able
+   to push out html data when in tagged mode. You can implement it as a no-op if
+   such functionality isn't important to you. */
+void lily_impl_puts(void *, char *);
 
 /** The lexer is responsible for:
     * Opening and reading the file given by parser. It also handles strings sent
