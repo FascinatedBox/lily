@@ -5,6 +5,7 @@
 #include "lily_seed.h"
 
 #include "lily_api_value.h"
+#include "lily_api_options.h"
 
 void lily_sys_var_loader(lily_parse_state *parser, const char *name,
         lily_foreign_tie *tie)

@@ -16,6 +16,7 @@ struct lily_type_;
 struct lily_function_val_;
 struct lily_parse_state_;
 struct lily_foreign_tie_;
+struct lily_options_;
 
 /* Lily's foreign functions look like this. */
 typedef void (*lily_foreign_func)(struct lily_vm_state_ *, uint16_t,
@@ -480,28 +481,6 @@ typedef struct lily_import_entry_ {
        name when the given name is referenced. */
     var_loader var_load_fn;
 } lily_import_entry;
-
-/* This structure defines a series of options for initializing the interpeter.
-   Defaults can be found by searching for lily_new_default_options within
-   lily_parser.c. */
-typedef struct lily_options_ {
-    /* For now, this should be '1'. */
-    uint8_t version;
-    /* How much should the current number of allowed gc entries be multiplied by
-       if unable to free anything. */
-    uint8_t gc_multiplier;
-    uint16_t argc;
-    /* The initial maximum amount of entries allowed to have a gc tag before
-       asking for another causes a sweep. */
-    uint32_t gc_start;
-    /* This is made available as sys.argv when sys is imported. By default,
-       this is NULL and sys.argv is empty. */
-    char **argv;
-    /* Lily will call lily_impl_puts with this as the data part. This
-       can be NULL if it's not needed.
-       This is used by mod_lily to hold Apache's request_rec. */
-    void *data;
-} lily_options;
 
 /* Finally, various definitions. */
 
