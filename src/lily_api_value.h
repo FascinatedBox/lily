@@ -71,7 +71,7 @@ lily_file_val *lily_new_file_val(FILE *, const char *);
    but is used primarily for closure allocation. */
 lily_function_val *lily_new_native_function_val(char *, char *);
 lily_function_val *lily_new_foreign_function_val(lily_foreign_func,
-        char *, char *);
+        const char *, const char *);
 lily_function_val *lily_new_function_copy(lily_function_val *);
 
 lily_list_val *lily_new_list_val(void);
