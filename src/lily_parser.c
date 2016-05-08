@@ -3978,7 +3978,7 @@ char *lily_build_error_message(lily_parse_state *parser)
 
         while (frame) {
             lily_function_val *func = frame->function;
-            char *class_name = func->class_name;
+            const char *class_name = func->class_name;
             char *separator;
             if (class_name == NULL) {
                 class_name = "";

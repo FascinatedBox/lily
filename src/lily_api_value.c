@@ -327,7 +327,7 @@ lily_file_val *lily_new_file_val(FILE *inner_file, const char *mode)
 /* This creates a new function value that wraps over a foreign (C) function.
    This is meant to be used at parse-time, not vm-time. */
 lily_function_val *lily_new_foreign_function_val(lily_foreign_func func,
-        char *class_name, char *name)
+        const char *class_name, const char *name)
 {
     lily_function_val *f = lily_malloc(sizeof(lily_function_val));
 

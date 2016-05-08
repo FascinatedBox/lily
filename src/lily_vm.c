@@ -1288,9 +1288,9 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
         lily_function_val *func_val = frame_iter->function;
         char *path;
         char line[16] = "";
-        char *class_name;
+        const char *class_name;
         char *separator;
-        char *name = func_val->trace_name;
+        const char *name = func_val->trace_name;
         if (func_val->code) {
             path = func_val->import->path;
             sprintf(line, "%d:", frame_iter->line_num);

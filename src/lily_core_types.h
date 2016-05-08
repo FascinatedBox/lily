@@ -361,9 +361,9 @@ typedef struct lily_function_val_ {
     struct lily_gc_entry_ *gc_entry;
 
     /* The name of the class that this function belongs to OR "". */
-    char *class_name;
+    const char *class_name;
     /* The name of this function, for use by debug and stack trace. */
-    char *trace_name;
+    const char *trace_name;
     /* The import that this function was created within. */
     struct lily_import_entry_ *import;
 
