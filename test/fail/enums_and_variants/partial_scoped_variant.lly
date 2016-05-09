@@ -1,5 +1,5 @@
 #[
-SyntaxError: Expected '.', not a label.
+SyntaxError: Expected '.', not 'a label'.
     from partial_scoped_variant.lly:8
 ]#
 

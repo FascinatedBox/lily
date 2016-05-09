@@ -1,5 +1,5 @@
 #[
-SyntaxError: Expected '}', not end of file.
+SyntaxError: Expected '}', not 'end of file'.
     from unterminated_multi_line_if.lly:6
 ]#
 
