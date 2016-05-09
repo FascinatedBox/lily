@@ -1,7 +1,7 @@
 The Lily Programming Language
 =====
 
-[![Join the group at https://groups.google.com/forum/#!forum/lily-programming](https://img.shields.io/badge/Google Groups-Lily-green.svg)]
+[![Join the group at https://groups.google.com/d/forum/lily-programming](https://img.shields.io/badge/Google Groups-Lily-green.svg)]
 
 [![License (3-Clause BSD)](https://img.shields.io/badge/license-BSD%203--Clause-blue.svg?style=flat-square)](http://opensource.org/licenses/BSD-3-Clause)
 
