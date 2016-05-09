@@ -1,7 +1,8 @@
 The Lily Programming Language
 =====
 
-[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/jesserayadkins/lily?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Join the group at https://groups.google.com/forum/#!forum/lily-programming](https://img.shields.io/badge/Google Groups-Lily-green.svg)]
+
 [![License (3-Clause BSD)](https://img.shields.io/badge/license-BSD%203--Clause-blue.svg?style=flat-square)](http://opensource.org/licenses/BSD-3-Clause)
 
 [![Linux Build](https://travis-ci.org/jesserayadkins/lily.svg?branch=master)](https://travis-ci.org/jesserayadkins/lily)
