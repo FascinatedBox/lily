@@ -1,5 +1,5 @@
 #[
-SyntaxError: Expected '(', not :.
+SyntaxError: Expected '(', not ':'.
     from match_bad_decompose.lly:9
 ]#
 

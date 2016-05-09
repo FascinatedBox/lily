@@ -1,5 +1,5 @@
 #[
-SyntaxError: Expected 'a label', not *.
+SyntaxError: Expected 'a label', not '*'.
     from lambda_optargs.lly:6
 ]#
 

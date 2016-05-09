@@ -18,12 +18,12 @@
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
 if (lex->token != expected) \
-    lily_raise(parser->raiser, lily_SyntaxError, "Expected '%s', not %s.\n", \
+    lily_raise(parser->raiser, lily_SyntaxError, "Expected '%s', not '%s'.\n", \
                tokname(expected), tokname(lex->token));
 
 #define NEED_CURRENT_TOK(expected) \
 if (lex->token != expected) \
-    lily_raise(parser->raiser, lily_SyntaxError, "Expected '%s', not %s.\n", \
+    lily_raise(parser->raiser, lily_SyntaxError, "Expected '%s', not '%s'.\n", \
                tokname(expected), tokname(lex->token));
 
 /***
@@ -143,6 +143,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
        available. This isn't final: If the interpreter runs from a file, that
        file's relative path will be added to the native set of paths as the
        first one. */
+
     parser->import_paths = prepare_path_by_seed(parser, LILY_PATH_SEED);
     parser->library_import_paths = prepare_path_by_seed(parser,
             LILY_LIBRARY_PATH_SEED);
@@ -184,6 +185,18 @@ static void free_paths(lily_parse_state *parser, lily_path_link *path_iter)
         path_iter = path_next;
     }
 }
+#if 0
+typedef struct {
+    uint16_t class_id;
+    lily_import_entry *last;
+} rewind_data;
+
+static void rewind_parse_state(lily_parse_state *parser)
+{
+
+}
+#endif
+
 
 void lily_free_parse_state(lily_parse_state *parser)
 {
@@ -3919,6 +3932,28 @@ int lily_parse_string(lily_parse_state *parser, const char *name,
 
     return 0;
 }
+
+#if 0
+int lily_parse_chunk(lily_parse_state *parser, char *str)
+{
+    struct rewind_data rd;
+    rd.next_class_id = parser->symtab->next_class_id;
+    rd.next_main_spot = parser->emit->main_block->next_reg_spot;
+    rd.import_top = parser->import_top;
+    rd.last_main_import = parser->import_top->
+
+    lily_import_entry *current_import
+
+    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
+        lily_load_str(parser->lex, name, mode, str);
+        parser_loop(parser);
+        lily_pop_lex_entry(parser->lex);
+        return 1;
+    }
+
+    return 0;
+}
+#endif
 
 /* This is provided for runners (such as the standalone runner provided in the
    run directory). This puts together the current error message so that the
