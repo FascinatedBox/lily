@@ -116,56 +116,62 @@ lily_ast_pool *lily_new_ast_pool(void)
     return ap;
 }
 
-void lily_free_ast_pool(lily_ast_pool *ap)
+void lily_rewind_ast_pool(lily_ast_pool *ap)
 {
-    lily_ast *ast_iter = ap->available_start;
-    lily_ast *ast_temp;
-
-    while (ast_iter) {
-        ast_temp = ast_iter->next_tree;
-
-        lily_free(ast_iter);
-
-        ast_iter = ast_temp;
-    }
-
-    /* Destroying ->save_chain is a bit tricky because it's updated for new
-       entries. It could be at the beginning, the middle, or the end. So start
-       off by moving it to the front. The first entry is the only one that will
-       have ->prev set to NULL.
-       Also, ap->save_chain may be NULL if this is called from
-       lily_new_ast_pool, so watch out for that too. */
-    lily_ast_save_entry *save_iter = ap->save_chain;
-    if (save_iter != NULL) {
-        /* First get to the very front... */
-        while (save_iter->prev)
-            save_iter = save_iter->prev;
-
-        /* Then go from front to back and delete them as usual. */
-        lily_ast_save_entry *save_temp;
-        while (save_iter) {
-            save_temp = save_iter->next;
-
-            lily_free(save_iter);
-
-            save_iter = save_temp;
-        }
-    }
-
-    /* Same idea as save entries: Could be at the beginning, middle, or end. */
     lily_ast_freeze_entry *freeze_iter = ap->freeze_chain;
     if (freeze_iter) {
         while (freeze_iter->prev)
             freeze_iter = freeze_iter->prev;
 
-        lily_ast_freeze_entry *freeze_temp;
-        while (freeze_iter) {
-            freeze_temp = freeze_iter->next;
+        ap->available_start = freeze_iter->available_restore;
+        ap->freeze_chain = freeze_iter;
+    }
 
-            lily_free(freeze_iter);
+    lily_ast_save_entry *save_iter = ap->save_chain;
+    if (save_iter) {
+        while (save_iter->prev)
+            save_iter = save_iter->prev;
 
-            freeze_iter = freeze_temp;
-        }
+        ap->save_chain = save_iter;
+    }
+
+    ap->available_current = ap->available_start;
+    ap->available_restore = ap->available_start;
+
+    ap->ast_membuf->pos = 0;
+
+    ap->membuf_start = 0;
+    ap->save_depth = 0;
+    ap->root = NULL;
+    ap->active = NULL;
+}
+
+void lily_free_ast_pool(lily_ast_pool *ap)
+{
+    lily_rewind_ast_pool(ap);
+    lily_ast *ast_iter = ap->available_start;
+    lily_ast *ast_temp;
+
+    while (ast_iter) {
+        ast_temp = ast_iter->next_tree;
+        lily_free(ast_iter);
+        ast_iter = ast_temp;
+    }
+
+    lily_ast_save_entry *save_iter = ap->save_chain;
+    lily_ast_save_entry *save_temp;
+    while (save_iter) {
+        save_temp = save_iter->next;
+        lily_free(save_iter);
+        save_iter = save_temp;
+    }
+
+    lily_ast_freeze_entry *freeze_iter = ap->freeze_chain;
+    lily_ast_freeze_entry *freeze_temp;
+    while (freeze_iter) {
+        freeze_temp = freeze_iter->next;
+        lily_free(freeze_iter);
+        freeze_iter = freeze_temp;
     }
 
     if (ap->ast_membuf)
