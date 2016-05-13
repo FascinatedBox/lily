@@ -101,8 +101,6 @@ typedef struct lily_vm_state_ {
        the threshold is multiplied by to increase it. */
     uint32_t gc_multiplier;
 
-    uint64_t prep_id_start;
-
     /* Foreign functions will put this in the code portion of their stack so
        that lily_vm_execute will bail out instead of a normal return. This is
        stored in the vm so that foreign call prep only has to set it on the

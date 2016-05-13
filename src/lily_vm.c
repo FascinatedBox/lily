@@ -193,7 +193,6 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->gc_spare_entries = NULL;
     vm->gc_live_entry_count = 0;
     vm->gc_pass = 0;
-    vm->prep_id_start = 0;
     vm->catch_chain = NULL;
     vm->catch_top = NULL;
     vm->symtab = NULL;
@@ -1919,7 +1918,6 @@ static void maybe_fix_print(lily_vm_state *vm)
 void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
 {
     lily_function_val *main_function = symtab->main_function;
-    int i;
 
     if (main_function->reg_count > vm->offset_max_registers) {
         grow_vm_registers(vm, main_function->reg_count);
@@ -1937,17 +1935,6 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
         grow_vm_registers(vm, 1);
         vm->vm_regs = vm->regs_from_main;
     }
-
-    lily_value **regs_from_main = vm->regs_from_main;
-
-    for (i = vm->prep_id_start;i < main_function->reg_count;i++) {
-        lily_value *reg = regs_from_main[i];
-
-        reg->flags = 0;
-    }
-
-    /* Zap only the slots that new globals need next time. */
-    vm->prep_id_start = i;
 
     /* Symtab is guaranteed to always have a non-NULL tie because the sys
        package creates a tie. */
