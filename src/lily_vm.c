@@ -156,6 +156,10 @@ static uint16_t foreign_call_stack[] = {0,
     51, 52, 53, 54, 55, 56, 57, 58, 59, 60,
     61, 62, 63, 64};
 
+/* Foreign functions set this as their code so that the vm will exit when they
+   are to be returned from. */
+static uint16_t foreign_code[1] = {o_return_from_vm};
+
 /***
  *      ____       _
  *     / ___|  ___| |_ _   _ _ __
@@ -181,7 +185,6 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(lily_vm_catch_entry));
 
     vm->sipkey = options->sipkey;
-    vm->foreign_code = lily_malloc(sizeof(uint16_t));
     vm->call_depth = 0;
     vm->raiser = raiser;
     vm->vm_regs = NULL;
@@ -212,8 +215,6 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->catch_chain = catch_entry;
     catch_entry->prev = NULL;
     catch_entry->next = NULL;
-
-    vm->foreign_code[0] = o_return_from_vm;
 
     return vm;
 }
@@ -298,7 +299,6 @@ void lily_free_vm(lily_vm_state *vm)
     lily_free(vm->vm_list->values);
     lily_free(vm->vm_list);
     lily_free(vm->readonly_table);
-    lily_free(vm->foreign_code);
     lily_free(vm);
 }
 
@@ -1542,7 +1542,7 @@ lily_value *lily_foreign_call(lily_vm_state *vm, int *cached,
 
     if (*cached == 0) {
         lily_call_frame *caller_frame = vm->call_chain;
-        caller_frame->code = vm->foreign_code;
+        caller_frame->code = foreign_code;
         caller_frame->code_pos = 0;
         caller_frame->return_target = vm_regs[0];
         caller_frame->build_value = NULL;
